@@ -339,31 +339,26 @@ static void parse_bannerTypes(std::string bannerMode, const std::vector<std::str
 {
   std::stringstream message;
   message << "Parsing " << bannerMode << "Banner strings ";
-
   spdlog::info(message.str());
 
   outputBannerString.clear();
-  for (const auto& [key, value] : bannerTypes) {
-    auto upper_key = AsciiStrToUpper(key);
-    for (const std::string_view _type : inputBanners) {
+  for (const std::string_view _type : inputBanners) {
+    for (const auto& [key, value] : bannerTypes) {
+      auto upper_key     = AsciiStrToUpper(key);
       auto stripped_type = StripLeadingAsciiWhitespace(_type);
       auto upper_type    = AsciiStrToUpper(stripped_type);
+      message.str("");
+      message << "Comparing " << upper_key << " with " << upper_type;
+      spdlog::info(message.str());
+
       if (upper_key == upper_type) {
         outputBannerTypes.emplace_back(value);
         if (outputBannerString.length() != 0) {
           outputBannerString.append(", ");
         }
         outputBannerString.append(key);
+        break;
       }
-    }
-  }
-  for (const auto& [key, value] : bannerTypes) {
-    if (std::find(outputBannerTypes.begin(), outputBannerTypes.end(), value) == outputBannerTypes.end()) {
-      outputBannerTypes.emplace_back(value);
-      if (outputBannerString.length() != 0) {
-        outputBannerString.append(", ");
-      }
-      outputBannerString.append(key);
     }
   }
 
@@ -490,8 +485,8 @@ void Config::Load()
   // must explicitly include std::string typing here, or we get back char * which fails us!
   std::string disabled_banner_types_str =
       get_config_or_default<std::string>(config, parsed, "ui", "disabled_banner_types", "");
-  std::string notify_banner_types_str =
-      get_config_or_default<std::string>(config, parsed, "ui", "notify_banner_types", "");
+  std::string notify_banner_types_str = get_config_or_default<std::string>(config, parsed, "ui", "notify_banner_types",
+                                                                           "Victory, Defeat, IncomingFactionAttack");
 
   this->config_settings_url = get_config_or_default<std::string>(config, parsed, "config", "settings_url", "");
   this->config_assets_url_override =
@@ -509,7 +504,6 @@ void Config::Load()
   parse_bannerTypes("Notify", notifyBanners, this->notify_banner_types, bannerNotifyString);
   parsed["ui"].as_table()->insert_or_assign("notify_banner_types", bannerNotifyString);
 #endif
-
 
   if (this->enable_experimental) {
     parse_config_shortcut(config, parsed, "move_left", GameFunction::MoveLeft, "LEFT|A");

@@ -15,14 +15,14 @@ using namespace WinToastLib;
 
 std::mutex              toast_queue_mutex;
 std::condition_variable toast_queue_condition;
-std::queue<Toast>       toast_queue_data;
+std::queue<Toast *>     toast_queue_data;
 
 void ToastObserver_EnqueueToast_Hook(auto original, ToastObserver *_this, Toast *toast)
 {
   if (std::find(Config::Get().notify_banner_types.begin(), Config::Get().notify_banner_types.end(), toast->State)
       != Config::Get().notify_banner_types.end()) {
     std::lock_guard lk(toast_queue_mutex);
-    toast_queue_data.push(*toast);
+    toast_queue_data.push(toast);
     toast_queue_condition.notify_all();
   }
 
@@ -38,29 +38,40 @@ void ToastObserver_EnqueueOrCombineToast_Hook(auto original, ToastObserver *_thi
   if (std::find(Config::Get().notify_banner_types.begin(), Config::Get().notify_banner_types.end(), toast->State)
       != Config::Get().notify_banner_types.end()) {
     std::lock_guard lk(toast_queue_mutex);
-    toast_queue_data.push(*toast);
+    toast_queue_data.push(toast);
   }
 
   if (std::find(Config::Get().disabled_banner_types.begin(), Config::Get().disabled_banner_types.end(), toast->State)
       != Config::Get().disabled_banner_types.end()) {
     return;
   }
+
   original(_this, toast, cmpAction);
 }
 
-void ProcessNotifications()
+void show_toasts()
 {
 #if _WIN32
-  winrt::init_apartment();
+  WinToast::instance()->setAppName(L"STFC.Community.Mod");
+  const auto aumi = WinToast::configureAUMI(L"STFC", L"Community", L"Mod", L"20161006");
+  WinToast::instance()->setAppUserModelId(aumi);
 
-  for (;;) {
-    {
-      std::unique_lock lk(toast_queue_mutex);
-      toast_queue_condition.wait(lk, []() { return !toast_queue_data.empty(); });
-    }
+  WinToast::WinToastError error     = WinToast::WinToastError::NoError;
+  const auto              succeeded = WinToast::instance()->initialize(&error);
 
-    {
-      std::lock_guard lk(toast_queue_mutex);
+  if (!succeeded) {
+    std::stringstream message;
+    message << "Failed to initialize WinToast due to " << (int)error;
+    spdlog::error(message.str());
+  } else if (!WinToast::isCompatible()) {
+    ErrorMsg::MissingMethod("WinToast", "isCompatible");
+  } else {
+
+    for (;;) {
+      {
+        std::unique_lock lk(toast_queue_mutex);
+        toast_queue_condition.wait(lk, []() { return !toast_queue_data.empty(); });
+      }
 
       // Ensure we have some strings for population
       std::stringstream toastTypes;
@@ -70,53 +81,54 @@ void ProcessNotifications()
       ToastMode highestMode = ToastMode::Normal;
       bool      hasType     = false;
 
-      while (!toast_queue_data.empty()) {
-        auto toast = ([&] {
-          std::lock_guard lk(toast_queue_mutex);
-          auto            data = toast_queue_data.front();
+      // Lock this section to ensure we have a clear pass on the
+      // toast queue
+      {
+        std::lock_guard lk(toast_queue_mutex);
+
+        while (!toast_queue_data.empty()) {
+          auto toast = toast_queue_data.front();
           toast_queue_data.pop();
-          return data;
-        })();
 
-        toast_queue_data.pop();
-        spdlog::info("Found {} toast", toast.Name);
+          spdlog::info("Found {} toast{}", toast->ModeName, toast->Name);
 
-        if (toast.Mode > highestMode) {
-          highestMode = toast.Mode;
+          if (toast->Mode > highestMode) {
+            highestMode = toast->Mode;
+          }
+
+          if (hasType) {
+            toastTypes << ", ";
+          }
+
+          if (toast->Mode != ToastMode::Normal) {
+            toastTypes << "[" << toast->ModeName << "] ";
+          }
+          toastTypes << toast->Name;
+
+          if (hasType) {
+            toastDescription << " ";
+          }
+          toastDescription << toast->Description;
         }
-
-        if (hasType) {
-          toastTypes << ", ";
-        }
-
-        if (toast.Mode != ToastMode::Normal) {
-          toastTypes << "[" << toast.ModeName << "] ";
-        }
-        toastTypes << toast.Name;
-
-        if (hasType) {
-          toastDescription << " ";
-        }
-        toastDescription << toast.Description;
       }
 
-      WinToastTemplate templ =
-          WinToastTemplate::WinToastTemplate(WinToastTemplate::Text02);
-      templ.setTextField(std::wstring(toastTypes.str().begin(), toastTypes.str().end()),
-                         WinToastTemplate::FirstLine);
+      WinToastTemplate templ = WinToastTemplate::WinToastTemplate(WinToastTemplate::Text02);
+      templ.setTextField(std::wstring(toastTypes.str().begin(), toastTypes.str().end()), WinToastTemplate::FirstLine);
       templ.setTextField(std::wstring(toastDescription.str().begin(), toastDescription.str().end()),
                          WinToastTemplate::SecondLine);
-      //templ.setHeroImagePath(L"C:/example.png");
+      // templ.setHeroImagePath(L"C:/example.png");
       templ.setAttributionText(L"Via STFC Community Mod");
+      auto handler = new WinToastHandler();
 
-      WinToast::WinToastError error = WinToastLib::WinToast::NoError;
-      const auto toast_id = WinToast::instance()->showToast(templ, nullptr, &error);
+      const auto toast_id = WinToast::instance()->showToast(templ, handler, &error);
       if (toast_id < 0) {
         // We failed to show the toast, log the error
+        std::stringstream message;
+        message << "Failed to pop toast " << toastTypes.str() << " due to " << (int)error;
+        spdlog::error(message.str());
       }
     }
   }
-  winrt::uninit_apartment();
 #endif
 }
 
@@ -141,15 +153,7 @@ void InstallToastBannerHooks()
     }
   }
 
-  #if _WIN32
-  WinToastLib::WinToast::instance()->setAppName(L"WinToastExample");
-  const auto aumi = WinToastLib::WinToast::configureAUMI(L"STFC", L"Community", L"Mod", L"20161006");
-  WinToastLib::WinToast::instance()->setAppUserModelId(aumi);	
-
-  if (!WinToastLib::WinToast::isCompatible()) {
-    ErrorMsg::MissingMethod("WinToast", "isCompatible");
-  } else {
-  
-  }
-  #endif
+#if _WIN32
+  std::thread(show_toasts).detach();
+#endif
 }

@@ -91,6 +91,10 @@ inline std::wstring to_wstring(Il2CppString* str)
 #endif
 }
 
+static std::string to_string(const std::string& str) {
+  return str;
+}
+
 static std::string to_string(const std::wstring& str)
 {
 #if _WIN32

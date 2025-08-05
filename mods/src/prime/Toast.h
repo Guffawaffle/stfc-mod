@@ -2,6 +2,7 @@
 
 #include "ToastState.h"
 #include <il2cpp/il2cpp_helper.h>
+#include <spdlog/spdlog.h>
 
 struct Toast {
 public:
@@ -12,7 +13,7 @@ public:
   __declspec(property(get = get_Description)) std::string_view Description;
 
 private:
-  static IL2CppClassHelper &get_class_helper()
+  static IL2CppClassHelper& get_class_helper()
   {
     static auto class_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "Toast");
     return class_helper;
@@ -21,8 +22,15 @@ private:
 public:
   ToastState get_State()
   {
-    static auto prop = get_class_helper().GetProperty("State");
-    return *prop.Get<ToastState>((void *)this);
+    static auto       prop      = get_class_helper().GetProperty("State");
+    static ToastState lastState = ToastState::AbandonedTerritory;
+
+    ToastState toastState = *prop.Get<ToastState>((void*)this);
+    if (lastState != toastState) {
+      spdlog::info("get_State() returns {} but was {}", (int)toastState, (int)lastState);
+      lastState = toastState;
+    }
+    return toastState;
   }
 
   std::string_view get_ModeName()

@@ -307,7 +307,7 @@ inline PCWSTR AsString(_In_ ComPtr<IXmlDocument>& xmlDocument)
   if (SUCCEEDED(hr)) {
     return DllImporter::WindowsGetStringRawBuffer(xml, nullptr);
   }
-  return nullptr;
+  return L"nullptr";
 }
 
 inline PCWSTR AsString(_In_ HSTRING hstring)

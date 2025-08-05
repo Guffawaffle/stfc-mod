@@ -1,4 +1,3 @@
-#pragma once
 /**
  * MIT License
  *
@@ -25,7 +24,8 @@
 #ifndef WINTOASTLIB_H
 #define WINTOASTLIB_H
 
-#include <Psapi.h>
+#include "str_utils.h"
+
 #include <ShObjIdl.h>
 #include <ShlObj.h>
 #include <WinUser.h>
@@ -37,6 +37,7 @@
 #include <propvarutil.h>
 #include <roapi.h>
 #include <sdkddkver.h>
+#include <spdlog/spdlog.h>
 #include <string.h>
 #include <strsafe.h>
 #include <vector>
@@ -44,6 +45,8 @@
 #include <winstring.h>
 #include <wrl/event.h>
 #include <wrl/implements.h>
+
+#include <Psapi.h>
 
 using namespace Microsoft::WRL;
 using namespace ABI::Windows::Data::Xml::Dom;
@@ -71,6 +74,42 @@ public:
   virtual void toastActivated(std::wstring response) const         = 0;
   virtual void toastDismissed(WinToastDismissalReason state) const = 0;
   virtual void toastFailed() const                                 = 0;
+};
+
+class WinToastHandler : public IWinToastHandler
+{
+public:
+  // Public interfaces
+  void toastActivated() const override
+  {
+    // m_pDialog->MessageBox(L"toastActivated: No button clicked!", L"info", MB_OK);
+  }
+  void toastActivated(int actionIndex) const override
+  {
+    spdlog::info("Button clicked: {}", actionIndex);
+  }
+
+  void toastActivated(std::wstring response) const override
+  {
+    spdlog::info("Button clicked: {}", to_string(response).c_str());
+  }
+
+  void toastDismissed(WinToastDismissalReason state) const override
+  {
+    std::string reason = "Dismissal error!";
+    if (state == UserCanceled)
+      reason = "Toast dismissed: UserCanceled\n";
+    else if (state == ApplicationHidden)
+      reason = "Toast dismissed: ApplicationHidden\n";
+    else if (state == TimedOut)
+      reason = "Toast dismissed: TimedOut\n";
+    spdlog::info(reason.c_str());
+  }
+
+  void toastFailed() const override
+  {
+    spdlog::info("toastFailed() called\n");
+  }
 };
 
 class WinToastTemplate
