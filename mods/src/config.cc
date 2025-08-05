@@ -38,6 +38,19 @@ static const eastl::tuple<const char*, int> bannerTypes[] = {
     {"AbandonedTerritory", ToastState::AbandonedTerritory},
     {"TakeoverVictory", ToastState::TakeoverVictory},
     {"TakeoverDefeat", ToastState::TakeoverDefeat},
+    {"TreasuryProgress", ToastState::TreasuryProgress},
+    {"TreasuryFull", ToastState::TreasuryFull},
+    {"Achievement", ToastState::Achievement},
+    {"AssaultVictory", ToastState::AssaultVictory},
+    {"AssaultDefeat", ToastState::AssaultDefeat},
+    {"ChallengeComplete", ToastState::ChallengeComplete},
+    {"ChallengeFailed", ToastState::ChallengeFailed},
+    {"StrikeHit", ToastState::StrikeHit},
+    {"StrikeDefeat", ToastState::StrikeDefeat},
+    {"WarchestProgress", ToastState::WarchestProgress},
+    {"WarchestFull", ToastState::WarchestFull},
+    {"PartialVictory", ToastState::PartialVictory},
+    {"ArenaTimeLeft", ToastState::ArenaTimeLeft},
 };
 
 Config::Config()
@@ -321,6 +334,44 @@ void parse_config_shortcut(toml::table config, toml::table& new_config, std::str
   spdlog::info("shortcut value {}.{} value: {}", section, item, shortcut);
 }
 
+static void parse_bannerTypes(std::string bannerMode, const std::vector<std::string>& inputBanners,
+                              std::vector<int>& outputBannerTypes, std::string& outputBannerString)
+{
+  std::stringstream message;
+  message << "Parsing " << bannerMode << "Banner strings ";
+
+  spdlog::info(message.str());
+
+  outputBannerString.clear();
+  for (const auto& [key, value] : bannerTypes) {
+    auto upper_key = AsciiStrToUpper(key);
+    for (const std::string_view _type : inputBanners) {
+      auto stripped_type = StripLeadingAsciiWhitespace(_type);
+      auto upper_type    = AsciiStrToUpper(stripped_type);
+      if (upper_key == upper_type) {
+        outputBannerTypes.emplace_back(value);
+        if (outputBannerString.length() != 0) {
+          outputBannerString.append(", ");
+        }
+        outputBannerString.append(key);
+      }
+    }
+  }
+  for (const auto& [key, value] : bannerTypes) {
+    if (std::find(outputBannerTypes.begin(), outputBannerTypes.end(), value) == outputBannerTypes.end()) {
+      outputBannerTypes.emplace_back(value);
+      if (outputBannerString.length() != 0) {
+        outputBannerString.append(", ");
+      }
+      outputBannerString.append(key);
+    }
+  }
+
+  message.str("");
+  message << "Final " << bannerMode << "Banner types : " << outputBannerString;
+  spdlog::info(message.str());
+}
+
 void Config::Load()
 {
   spdlog::info("=-=-=-==-=-=-=-=-=-=-=-=-=-=");
@@ -439,41 +490,26 @@ void Config::Load()
   // must explicitly include std::string typing here, or we get back char * which fails us!
   std::string disabled_banner_types_str =
       get_config_or_default<std::string>(config, parsed, "ui", "disabled_banner_types", "");
+  std::string notify_banner_types_str =
+      get_config_or_default<std::string>(config, parsed, "ui", "notify_banner_types", "");
 
   this->config_settings_url = get_config_or_default<std::string>(config, parsed, "config", "settings_url", "");
   this->config_assets_url_override =
       get_config_or_default<std::string>(config, parsed, "config", "assets_url_override", "");
 
-  std::vector<std::string> types = StrSplit(disabled_banner_types_str, ',');
+  std::vector<std::string> disabledBanners      = StrSplit(disabled_banner_types_str, ',');
+  std::vector<std::string> notifyBanners        = StrSplit(notify_banner_types_str, ',');
+  std::string              bannerDisabledString = "";
+  std::string              bannerNotifyString   = "";
 
-  std::string       bannerString = "";
-  std::stringstream message;
-  message << "Parsing banner strings";
+  parse_bannerTypes("Disabled", disabledBanners, this->disabled_banner_types, bannerDisabledString);
+  parsed["ui"].as_table()->insert_or_assign("disabled_banner_types", bannerDisabledString);
 
-  spdlog::info(message.str());
+#if _WIN32
+  parse_bannerTypes("Notify", notifyBanners, this->notify_banner_types, bannerNotifyString);
+  parsed["ui"].as_table()->insert_or_assign("notify_banner_types", bannerNotifyString);
+#endif
 
-  for (const auto& [key, value] : bannerTypes) {
-    auto upper_key = AsciiStrToUpper(key);
-
-    for (const std::string_view _type : types) {
-      auto stripped_type = StripLeadingAsciiWhitespace(_type);
-      auto upper_type    = AsciiStrToUpper(stripped_type);
-
-      if (upper_key == upper_type) {
-        this->disabled_banner_types.emplace_back(value);
-        if (bannerString.length() != 0) {
-          bannerString.append(", ");
-        }
-        bannerString.append(key);
-      }
-    }
-  }
-
-  message.str("");
-  message << "Final disabledbanner types: " << bannerString;
-  spdlog::info(message.str());
-
-  parsed["ui"].as_table()->insert_or_assign("disabled_banner_types", bannerString);
 
   if (this->enable_experimental) {
     parse_config_shortcut(config, parsed, "move_left", GameFunction::MoveLeft, "LEFT|A");
@@ -577,6 +613,7 @@ void Config::Load()
     parse_config_shortcut(config, parsed, "toggle_queue", GameFunction::ToggleQueue, "CTRL-Q");
   }
 
+  std::stringstream message;
   if (!std::filesystem::exists(File::MakePath(File::Config()))) {
     message.str("");
     message << "Creating " << File::Config() << " (default config file)";
@@ -596,18 +633,19 @@ void Config::Load()
 
   Config::Save(parsed, File::Vars());
 
-  std::cout
-      << message.str() << ":\n-----------------------------\n\n"
-      << parsed << "\n\n-----------------------------\nVersion "
+  std::cout << message.str() << ":\n-----------------------------\n\n"
+            << parsed << "\n\n-----------------------------\nVersion "
 
 #if VERSION_PATCH
-      << "Loaded beta version " << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_REVISION << " (Patch "
-      << VERSION_PATCH << ")\n\n"
-      << "NOTE: Beta versions may have unexpected bugs and issues.\n\n"
+            << "Loaded beta version " << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_REVISION << " (Patch "
+            << VERSION_PATCH << ")\n\n"
+            << "NOTE: Beta versions may have unexpected bugs and issues.\n\n"
 #else
-      << "Loaded beta version " << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_REVISION << " (Release)"
+            << "Loaded beta version " << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_REVISION
+            << " (Release)"
 #endif
 
-      << "\n\nPlease see https://github.com/netniv/stfc-mod for latest configuration help, examples and future releases\n"
-      << "or visit the STFC Community Mod discord server at https://discord.gg/PrpHgs7Vjs\n\n";
+            << "\n\nPlease see https://github.com/netniv/stfc-mod for latest configuration help, examples and future "
+               "releases\n"
+            << "or visit the STFC Community Mod discord server at https://discord.gg/PrpHgs7Vjs\n\n";
 }
