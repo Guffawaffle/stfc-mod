@@ -562,6 +562,7 @@ void Config::Load()
   spdlog::debug("");
 
   this->disable_escape_exit    = get_config_or_default(config, parsed, "ui", "disable_escape_exit", DCU::disable_escape_exit, write_config);
+  this->escape_exit_timer      = get_config_or_default(config, parsed, "ui", "escape_exit_timer", DCU::escape_exit_timer, write_config);
   this->disable_preview_locate = get_config_or_default(config, parsed, "ui", "disable_preview_locate", DCU::disable_preview_locate, write_config);
   this->disable_preview_recall = get_config_or_default(config, parsed, "ui", "disable_preview_recall", DCU::disable_preview_recall, write_config);
   this->disable_first_popup    = get_config_or_default(config, parsed, "ui", "disable_first_popup", DCU::disable_first_popup, write_config);
