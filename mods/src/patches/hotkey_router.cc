@@ -26,6 +26,7 @@
 #endif
 
 #include <spdlog/spdlog.h>
+#include <chrono>
 
 // Returns true when the original ScreenManager::Update should be called.
 bool hotkey_router_screen_update(ScreenManager* _this)
@@ -216,7 +217,14 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
   // Suppress escape exit if configured
   if (config->disable_escape_exit && Key::Pressed(KeyCode::Escape)) {
-    return false;
+    static std::chrono::time_point<std::chrono::steady_clock> escape_clock = {};
+    std::chrono::time_point<std::chrono::steady_clock>        escape_now   = std::chrono::steady_clock::now();
+    std::chrono::milliseconds escape_diff = std::chrono::duration_cast<std::chrono::milliseconds>(escape_now - escape_clock);
+    escape_clock                          = escape_now;
+    if (config->escape_exit_timer <= 0 || escape_diff > std::chrono::milliseconds(config->escape_exit_timer)) {
+      return false;
+    }
+    // Double-tap detected — fall through to original() to trigger exit
   }
 
   return true;
