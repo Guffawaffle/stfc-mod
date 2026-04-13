@@ -81,6 +81,7 @@ inline std::wstring to_wstring(const std::string& str)
 
 inline std::wstring to_wstring(Il2CppString* str)
 {
+  if (!str) return {};
 #if _WIN32
   return str->chars;
 #else
@@ -108,6 +109,7 @@ inline std::string to_string(const std::wstring& str)
 
 inline std::string to_string(Il2CppString* str)
 {
+  if (!str) return {};
   const auto s = to_wstring(str);
   return to_string(s);
 }
