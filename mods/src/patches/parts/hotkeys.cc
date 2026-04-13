@@ -674,7 +674,9 @@ void ChatMessageListLocalViewController_AboutToShow_Hook(ChatMessageListLocalVie
 
 void InitializeActions_Hook(auto original, void* _this)
 {
-  if (Config::Get().use_scopely_hotkeys) {
+  if (Config::Get().use_scopely_hotkeys || AllowKeyFallthrough()) {
+    // Let Scopely's shortcut system initialize so that keys not bound
+    // by the mod can fall through to the game's native handlers via original().
     return original(_this);
   }
 }
