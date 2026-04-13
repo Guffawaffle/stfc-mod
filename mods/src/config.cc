@@ -26,6 +26,15 @@ namespace DCS = DefaultConfig::Sync;
 namespace DCSC = DefaultConfig::SystemConfig;
 namespace DCSH = DefaultConfig::Shortcuts;
 
+// Standalone flag — NOT in Config struct to avoid struct layout sensitivity.
+// See: fix/lto-and-sync-crashes for context on why Config struct changes crash.
+static bool g_allow_key_fallthrough = false;
+
+bool AllowKeyFallthrough()
+{
+  return g_allow_key_fallthrough;
+}
+
 static const eastl::tuple<const char*, int> bannerTypes[] = {
     {"Standard", ToastState::Standard},
     {"FactionWarning", ToastState::FactionWarning},
@@ -373,6 +382,14 @@ void parse_config_shortcut(toml::table& config, toml::table& new_config, std::st
 
   auto valueTrimmed = StripTrailingAsciiWhitespace(config_value);
   auto valueLowered = AsciiStrToUpper(valueTrimmed);
+
+  // "NONE" explicitly unbinds this shortcut — no key mapping, no default fallback
+  if (valueLowered == "NONE") {
+    sectionTable.as_table()->insert_or_assign(item, "NONE");
+    spdlog::debug("shortcut value {}.{} value: NONE (unbound)", section, item);
+    return;
+  }
+
   auto wantedKeys   = StrSplit(valueLowered, '|');
 
   bool keyAdded = false;
@@ -521,6 +538,8 @@ void Config::Load()
   this->use_scopely_hotkeys = get_config_or_default(config, parsed, "control", "use_scopely_hotkeys", DCC::use_scopely_hotkeys, write_config);
   this->select_timer        = get_config_or_default(config, parsed, "control", "select_timer", DCC::select_timer, write_config);
   this->enable_experimental = get_config_or_default(config, parsed, "control", "enable_experimental", DCC::enable_experimental, write_config);
+
+  g_allow_key_fallthrough   = get_config_or_default(config, parsed, "control", "allow_key_fallthrough", false, write_config);
 
   spdlog::debug("");
 

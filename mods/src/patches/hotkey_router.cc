@@ -224,7 +224,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
 bool hotkey_router_init_actions()
 {
-  return Config::Get().use_scopely_hotkeys;
+  return Config::Get().use_scopely_hotkeys || AllowKeyFallthrough();
 }
 
 void hotkey_router_bind_context(RewardsButtonWidget* _this)

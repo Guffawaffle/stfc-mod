@@ -206,3 +206,6 @@ public:
   std::string config_settings_url;
   std::string config_assets_url_override;
 };
+
+// Standalone config flag — kept outside Config struct to avoid layout sensitivity crashes.
+bool AllowKeyFallthrough();
