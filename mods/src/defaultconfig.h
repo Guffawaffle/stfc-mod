@@ -188,6 +188,7 @@ namespace UI
   constexpr bool        always_skip_reveal_sequence = true;
   constexpr bool        auto_confirm_discovery      = true;
   constexpr bool        disable_escape_exit         = true;
+  constexpr auto        escape_exit_timer           = 0;
   constexpr bool        disable_first_popup         = false;
   constexpr bool        disable_galaxy_chat         = false;
   constexpr bool        disable_move_keys           = false;
