@@ -34,5 +34,5 @@ do
         add_packages("x11")
     end
 
-    set_policy("build.optimization.lto", true)
+    set_policy("build.optimization.lto", false)
 end

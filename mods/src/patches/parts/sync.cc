@@ -1856,25 +1856,16 @@ void HandleEntityGroup(EntityGroup* entity_group)
 
   const auto byteCount = static_cast<size_t>(entity_group->Group->Length);
   auto       bytesPtr  = reinterpret_cast<const char*>(entity_group->Group->bytes->m_Items);
-
-  // Helper to run processing asynchronously with exception handling
+  // Process entity data synchronously — detached threads cause stack corruption when
+  // Config struct layout changes. The actual heavy lifting (HTTP) is already async via TargetWorker.
   auto submit_async = [bytesPtr, byteCount]<typename T>(T&& func) {
     auto payload = std::make_unique<std::string>(bytesPtr, byteCount);
-
     try {
-      std::thread([f = std::forward<T>(func), p = std::move(payload)]() mutable {
-        try {
-          f(std::move(p));
-        } catch (const std::exception& e) {
-          spdlog::error("Exception in HandleEntityGroup: {}", e.what());
-        } catch (...) {
-          spdlog::error("Unknown exception in HandleEntityGroup");
-        }
-      }).detach();
+      func(std::move(payload));
     } catch (const std::exception& e) {
-      spdlog::error("Failed to spawn async task: {}", e.what());
+      spdlog::error("Exception in HandleEntityGroup: {}", e.what());
     } catch (...) {
-      spdlog::error("Failed to spawn async task: unknown exception");
+      spdlog::error("Unknown exception in HandleEntityGroup");
     }
   };
 
@@ -1981,15 +1972,13 @@ void DataContainer_ParseRtcPayload(auto original, void* _this, bool incrementalJ
   const auto rtcData = to_string(data->Data);
   auto payload = std::make_unique<std::string>(rtcData);
 
-  std::thread([p = std::move(payload)]() mutable {
-    try {
-      process_entity_slots_rtc(std::move(p));
-    } catch (const std::exception& e) {
-      spdlog::error("Exception in ParseRtcPayload: {}", e.what());
-    } catch (...) {
-      spdlog::error("Unknown exception in ParseRtcPayload");
-    }
-  }).detach();
+  try {
+    process_entity_slots_rtc(std::move(payload));
+  } catch (const std::exception& e) {
+    spdlog::error("Exception in ParseRtcPayload: {}", e.what());
+  } catch (...) {
+    spdlog::error("Unknown exception in ParseRtcPayload");
+  }
 }
 
 void GameServerModelRegistry_ProcessResultInternal(auto original, void* _this, HttpResponse* http_response,
