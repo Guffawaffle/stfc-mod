@@ -1,4 +1,5 @@
 #include "patches/hotkey_dispatch.h"
+#include "patches/navigation.h"
 
 #include "config.h"
 
@@ -9,10 +10,6 @@
 #include <spdlog/spdlog.h>
 
 #include <vector>
-
-// Forward declarations from hotkeys.cc
-void GotoSection(SectionID sectionID, void* screen_data = nullptr);
-void ChangeNavigationSection(SectionID sectionID);
 
 // ---------------------------------------------------------------------------
 // Section navigation handlers
