@@ -65,7 +65,7 @@ instrumented SPUD's decoder to confirm the exact failure path.
 
 ## Current Hook Inventory
 
-**57 active SPUD detours** across 11 source files:
+**57 active SPUD detours** across 14 source files:
 
 | File | Hooks | Target Type |
 |------|-------|-------------|
@@ -129,7 +129,6 @@ typedef struct MethodInfo {
 
 This is the pointer our `GetMethod<T>()` currently returns. Swapping it catches:
 - Calls that resolve through the metadata at call time
-- `il2cpp_runtime_invoke` (reads `MethodInfo::methodPointer` internally)
 - Delegate construction that reads this field at bind time (but NOT delegates
   that already cached the old pointer before our swap)
 
@@ -137,6 +136,7 @@ It does NOT catch:
 - IL2CPP-generated code that calls the native body address directly
 - Callers that cached the pointer before we installed
 - Virtual dispatch (which goes through a different slot — see below)
+- Runtime invoke paths (which use `invoker_method` — see below)
 
 #### 2. `VirtualInvokeData::methodPtr` (vtable slots)
 
@@ -165,7 +165,37 @@ Interface dispatch has its own resolution path through
 `ClassInlines::GetInterfaceInvokeDataFromVTable()` which computes an offset
 into the same vtable array. The slot is different but the mechanism is the same.
 
-#### 3. `MethodInfo::virtualMethodPointer`
+#### 3. `MethodInfo::invoker_method`
+
+`il2cpp_runtime_invoke` does **not** simply read `methodPointer` and call it.
+The actual invoke path is a two-pointer dispatch:
+
+```cpp
+// From vendored vm/Runtime.cpp (InvokeWithThrow)
+method->invoker_method(method->methodPointer, method, obj, params, returnValue);
+```
+
+Where `invoker_method` is:
+```cpp
+typedef void (*InvokerMethod)(Il2CppMethodPointer, const MethodInfo*, void*, void**, void*);
+```
+
+`invoker_method` is the actual entry point for reflection/runtime-invoke calls.
+It receives `methodPointer` as an *argument*, meaning:
+
+- Swapping `methodPointer` alone is sufficient **if** `invoker_method` passes it
+  through faithfully (the common case in standard IL2CPP)
+- But in generic/interpreter-style paths, `invoker_method` can diverge from
+  `methodPointer` — it may wrap, adapt, or replace the call entirely
+- IL2CPP-adjacent projects (HybridCLR, Il2CppInterop) have had to manage
+  `invoker_method` separately after detouring, because mismatches between
+  `invoker_method` and `methodPointer` cause crashes or silent failures
+
+For hooks that are reached via `il2cpp_runtime_invoke` (reflection, some engine
+callbacks), `invoker_method` is a separate dispatch surface that must be
+observed in Phase 0 and potentially patched.
+
+#### 4. `MethodInfo::virtualMethodPointer`
 
 Used in some generic virtual dispatch paths:
 ```cpp
@@ -174,7 +204,7 @@ invokeData->methodPtr = invokeData->method->virtualMethodPointer;
 
 This is yet another field that may need patching for generic virtual methods.
 
-#### 4. Direct calls (no pointer indirection)
+#### 5. Direct calls (no pointer indirection)
 
 IL2CPP-generated code can call a method body directly by address — no metadata
 lookup, no vtable, just `call <address>`. This is common for non-virtual,
@@ -192,7 +222,8 @@ inline hooking as a fallback.
 │    il2cpp_hook_install(MethodInfo*, hook_fn)                    │
 │      → swaps methodPointer (non-virtual)                       │
 │      → swaps vtable[slot].methodPtr (virtual)                  │
-│      → optionally swaps virtualMethodPointer (generic virtual) │
+│      → swaps virtualMethodPointer (generic virtual, if needed) │
+│      → patches invoker_method (runtime-invoke, if needed)      │
 │      → returns original as callable function pointer            │
 │                                                                 │
 │  Strategy B: Inline hook fallback (for bypass cases)            │
@@ -329,17 +360,29 @@ different dispatch modes:
 
 For each test hook, answer:
 
-- [ ] **Does `methodPointer` swap catch it?** Hook it, log entry, run the game,
-  trigger the path. If the log fires → this method is reachable via metadata.
-- [ ] **Does `vtable[slot].methodPtr` swap matter?** Check if the method has a
-  vtable slot (`method->slot != 0xFFFF`). If so, also swap the vtable entry and
-  test.
-- [ ] **Does `virtualMethodPointer` matter?** Compare `methodPointer` vs
-  `virtualMethodPointer` — are they different addresses?
-- [ ] **Does install timing matter?** Hook before vs after the first call to the
-  method. Does behavior differ?
-- [ ] **Is the original callable safely?** Call the saved original pointer. Does
-  it return correct results?
+**Critical: patch one slot at a time.** Do NOT do belt-and-suspenders patching
+during discovery. If you swap `methodPointer` + `vtable[slot].methodPtr` +
+`virtualMethodPointer` simultaneously, you learn only that "some patch worked"
+— not which surface the live call path actually reads. Each test must isolate
+a single dispatch surface, log which one was patched, and record whether the
+hook fired. Multi-slot patching is a hardening option for Phase 2, not a
+discovery strategy.
+
+- [ ] **Does `methodPointer` swap alone catch it?** Swap only `methodPointer`,
+  log entry, run the game, trigger the path.
+- [ ] **Does `vtable[slot].methodPtr` swap alone catch it?** Check if the
+  method has a vtable slot (`method->slot != 0xFFFF`). If so, swap only
+  the vtable entry and test. Restore `methodPointer` first.
+- [ ] **Does `virtualMethodPointer` swap alone catch it?** Compare
+  `methodPointer` vs `virtualMethodPointer` — are they different addresses?
+  If so, swap only `virtualMethodPointer` and test.
+- [ ] **Does `invoker_method` matter?** For hooks that may be reached via
+  `il2cpp_runtime_invoke`, check whether `invoker_method` passes
+  `methodPointer` through faithfully or wraps/adapts it.
+- [ ] **Does install timing matter?** Hook before vs after the first call to
+  the method. Does behavior differ?
+- [ ] **Is the original callable safely?** Call the saved original pointer.
+  Does it return correct results?
 - [ ] **Does unhook restore behavior?** Restore the original pointer. Does the
   game behave normally?
 
@@ -349,9 +392,11 @@ For each of the 57 current hooks, record:
 - `MethodInfo*` address
 - `methodPointer` value
 - `virtualMethodPointer` value
+- `invoker_method` value
 - `vtable[slot].methodPtr` value (if virtual)
 - Whether multiple `MethodInfo*`s share the same `methodPointer` (generic
   sharing detection)
+- Whether `invoker_method` passes `methodPointer` through or wraps it
 
 Build a small diagnostic that dumps this data at hook install time.
 
@@ -364,6 +409,18 @@ Build a small diagnostic that dumps this data at hook install time.
 - **Red**: Most hooks bypass metadata dispatch → pointer swap is not viable as
   the primary strategy, pivot to MinHook/Detours as the primary backend
 
+#### Migration Gate Rule
+
+A hook may use Strategy A **only** after its dispatch surface has been validated
+by Phase 0 testing or by membership in an already-proven equivalence class
+(e.g., "all non-virtual methods in the same assembly resolved via `GetMethod()`
+and confirmed interceptable on representatives X, Y, Z").
+
+Otherwise, the hook starts on Strategy B (inline hook).
+
+This prevents assumption-driven migration. A hook that has not been proven or
+classified does not get the benefit of the doubt — it gets the fallback.
+
 ### Phase 1: Infrastructure (`il2cpp_hook.h/.cc`)
 
 Create the core hooking primitives. Architecture as a **strategy-based backend**:
@@ -373,8 +430,9 @@ Create the core hooking primitives. Architecture as a **strategy-based backend**
   strategy used, vtable slot (if applicable)
 - [ ] `il2cpp_hook_install(MethodInfo*, hook_fn, strategy)` → HookHandle
   - `MetadataSwap`: swaps `methodPointer` via `InterlockedExchangePointer`
-  - `VtableSwap`: swaps `vtable[slot].methodPtr` (and optionally
-    `methodPointer` + `virtualMethodPointer` for belt-and-suspenders)
+  - `VtableSwap`: swaps `vtable[slot].methodPtr` (may also patch
+    `methodPointer` / `virtualMethodPointer` / `invoker_method` as hardening,
+    but only after Phase 0 has identified which slots the live path reads)
   - `InlineHook`: delegates to MinHook/Detours
 - [ ] `il2cpp_hook_remove(HookHandle&)` → restores original
 - [ ] `il2cpp_hook_remove_all()` → bulk restore for shutdown
