@@ -21,3 +21,9 @@ debug.log
 
 # Generated Info.plist files (generated from templates)
 **/Info.plist
+
+# Local tools (Il2CppDumper, dumps, etc.)
+/tools/
+
+# Local deploy script
+deploy.ps1

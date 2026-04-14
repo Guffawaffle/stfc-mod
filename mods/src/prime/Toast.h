@@ -48,6 +48,20 @@ enum ToastState {
   SurgeTimeLeft             = 43,
 };
 
+// Digit.Prime.HUD.Toast
+//
+// Il2CppDumper field layout:
+//   <State>k__BackingField                      : ToastState        @ 0x10
+//   <TextParameters>k__BackingField             : object[]          @ 0x18
+//   <TextLocaleTextContext>k__BackingField       : LocaleTextContext @ 0x20
+//   <SecondaryTextLocaleTextContext>k__BackingField : LocaleTextContext @ 0x28
+//   <IconIdentifier>k__BackingField             : string            @ 0x30
+//   <Data>k__BackingField                       : object            @ 0x38
+//   Timeout                                     : ToastTimeout      @ 0x40
+//   UserDataLong                                : long              @ 0x48
+//   ShowEvent                                   : GameEvents        @ 0x50
+//   ClickCallback                               : SafeAction<Toast> @ 0x58
+//   ToastWasClicked                             : bool              @ 0x60
 struct Toast {
 public:
   int get_State()
