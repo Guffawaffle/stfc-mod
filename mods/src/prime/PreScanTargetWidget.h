@@ -5,7 +5,9 @@
 #include "BattleTargetData.h"
 #include "GenericButtonWidget.h"
 #include "NavigationInteractionUIContext.h"
+#include "ObjectViewerBaseWidget.h"
 #include "RewardsButtonWidget.h"
+#include "ScanEngageButtonsWidget.h"
 #include "Widget.h"
 
 struct PreScanTargetWidget : public ObjectViewerBaseWidget<PreScanTargetWidget> {
