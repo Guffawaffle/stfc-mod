@@ -1,3 +1,10 @@
+-- @file xmake.lua
+-- @brief Build target for the "mods" static library.
+--
+-- Compiles all patch logic (C++ sources, protobuf definitions) into a static
+-- library consumed by both the Windows proxy DLL and the macOS dylib targets.
+-- Platform-specific flags handle bigobj on MSVC and Objective-C++ on macOS.
+
 target("mods")
 do
     add_ldflags("-v")

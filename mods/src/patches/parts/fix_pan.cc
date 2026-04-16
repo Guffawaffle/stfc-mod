@@ -1,3 +1,13 @@
+/**
+ * @file fix_pan.cc
+ * @brief Fixes system-view camera panning and adds momentum falloff.
+ *
+ * The game's navigation pan has two issues this patch addresses:
+ * 1. Touch input that reports "Stationary" phase is ignored, causing jittery
+ *    panning — we reclassify it as "Moved" so the gesture stays smooth.
+ * 2. After releasing a pan, the camera stops abruptly. We add configurable
+ *    momentum falloff so the camera glides to a stop.
+ */
 #include "config.h"
 #include "errormsg.h"
 
@@ -8,6 +18,14 @@
 
 #include <spud/detour.h>
 
+/**
+ * @brief Hook: TKTouch::populateWithPosition
+ *
+ * Intercepts touch input population to fix jittery panning.
+ * Original method: populates a TKTouch struct with position and phase.
+ * Our modification: converts Stationary phase to Moved so the pan gesture
+ *   doesn't stall when the finger/cursor barely moves.
+ */
 TKTouch *TKTouch_populateWithPosition_Hook(auto original, TKTouch *_this, uintptr_t pos, TouchPhase phase)
 {
   auto r = original(_this, pos, phase);
@@ -17,6 +35,16 @@ TKTouch *TKTouch_populateWithPosition_Hook(auto original, TKTouch *_this, uintpt
   return r;
 }
 
+/**
+ * @brief Hook: NavigationPan::LateUpdate
+ *
+ * Intercepts the per-frame pan update to add momentum-based camera glide.
+ * Original method: processes pan input each frame and moves the camera.
+ * Our modification: when no touch/mouse input is active and the camera isn't
+ *   blocked or tracking a POI, applies a configurable falloff multiplier to
+ *   the last pan delta so the camera decelerates smoothly. Also locks the
+ *   extended far-zoom radius to the normal value.
+ */
 bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan *_this)
 {
   auto d = _this->_lastDelta;
@@ -42,6 +70,12 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan *_this)
   return true;
 }
 
+/**
+ * @brief Installs pan-fix and momentum hooks.
+ *
+ * Hooks TKTouch::populateWithPosition (Stationary → Moved fix) and
+ * NavigationPan::LateUpdate (momentum falloff).
+ */
 void InstallPanHooks()
 {
   if (auto touchHelper = il2cpp_get_class_helper("TouchKit", "", "TKTouch"); !touchHelper.isValidHelper()) {

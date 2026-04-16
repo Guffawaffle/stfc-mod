@@ -1,8 +1,22 @@
+/**
+ * @file SpecService.h
+ * @brief Game data specification lookup service.
+ *
+ * Mirrors Digit.PrimeServer.Services.SpecService. Acts as a registry
+ * for static game data specifications (ship hulls, etc.). Mod code uses
+ * this to resolve numeric IDs into rich spec objects.
+ */
 #pragma once
 
 #include <il2cpp/il2cpp_helper.h>
 #include "HullSpec.h"
 
+/**
+ * @brief Service for looking up static game data specifications.
+ *
+ * Currently exposes GetHull() to resolve a hull ID to its HullSpec.
+ * The service instance is typically obtained from the game's service registry.
+ */
 struct SpecService {
 public:
   HullSpec* GetHull(long hullId)

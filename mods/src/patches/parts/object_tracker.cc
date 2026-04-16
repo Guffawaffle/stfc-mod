@@ -1,3 +1,23 @@
+/**
+ * @file object_tracker.cc
+ * @brief IL2CPP object lifecycle tracker — prevents premature GC of game objects.
+ *
+ * The game's IL2CPP garbage collector can finalize objects that the mod still
+ * holds references to (e.g. ObjectViewer widgets, FleetBarViewController).
+ * This module hooks object construction, destruction, and GC liveness
+ * calculation to maintain a parallel tracking map keyed by IL2CppClass.
+ *
+ * Architecture:
+ *  - track_ctor: hooks .ctor to register new objects and install a GC finalizer.
+ *  - track_destroy / track_free: hooks OnDestroy to remove objects from tracking.
+ *  - calc_liveness_hook: runs after the GC liveness pass to evict objects the
+ *    GC has marked for collection, keeping our map consistent.
+ *  - GC_register_finalizer_inner: resolved via signature scan so we can register
+ *    our own C-level GC callback without access to the Boehm GC headers.
+ *
+ * Thread safety: all map mutations are guarded by tracked_objects_mutex.
+ */
+
 #include <il2cpp/il2cpp_helper.h>
 
 #include "prime/AllianceStarbaseObjectViewerWidget.h"
@@ -23,9 +43,14 @@
 
 #include <mutex>
 
+// ─── Tracking State ──────────────────────────────────────────────────────────
+
 std::mutex                                                   tracked_objects_mutex;
 eastl::unordered_map<Il2CppClass*, eastl::vector<uintptr_t>> tracked_objects;
 
+// ─── Tracking Map Helpers ────────────────────────────────────────────────────
+
+/** @brief Registers an object pointer in the tracking map for its class and all parent classes. */
 void add_to_tracking_recursive(Il2CppClass* klass, void* _this)
 {
   if (!klass) {
@@ -38,6 +63,7 @@ void add_to_tracking_recursive(Il2CppClass* klass, void* _this)
   return add_to_tracking_recursive(klass->parent, _this);
 }
 
+/** @brief Removes an object from every class entry in the tracking map (brute-force). */
 void remove_from_tracking_all(void* _this)
 {
 #define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
@@ -47,6 +73,7 @@ void remove_from_tracking_all(void* _this)
 #undef GET_CLASS
 }
 
+/** @brief Removes an object from tracking by walking the class hierarchy upward. */
 void remove_from_tracking_recursive(Il2CppClass* klass, void* _this)
 {
 #define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
@@ -64,9 +91,13 @@ void remove_from_tracking_recursive(Il2CppClass* klass, void* _this)
 #undef GET_CLASS
 }
 
+// ─── GC Integration ─────────────────────────────────────────────────────────
+
+/// Function pointer resolved at runtime via signature scan (Boehm GC internal).
 void (*GC_register_finalizer_inner)(unsigned __int64 obj, void (*fn)(void*, void*), void* cd,
                                     void (**ofn)(void*, void*), void** ocd) = nullptr;
 
+/** @brief GC finalizer callback — removes the object from tracking when collected. */
 void track_finalizer(void* _this, void*)
 {
 #define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
@@ -75,6 +106,16 @@ void track_finalizer(void* _this, void*)
 #undef GET_CLASS
 }
 
+// ─── SPUD Hooks ─────────────────────────────────────────────────────────────
+
+/**
+ * @brief Hook: T::.ctor (generic for each tracked type)
+ *
+ * Intercepts object construction to register the new instance in the
+ * tracking map and install a GC finalizer that will clean it up.
+ * Original method: initializes the managed object.
+ * Our modification: adds the object to the tracking map post-construction.
+ */
 void* track_ctor(auto original, void* _this)
 {
   auto obj = original(_this);
@@ -94,6 +135,12 @@ void* track_ctor(auto original, void* _this)
   return obj;
 }
 
+/**
+ * @brief Hook: T::OnDestroy (generic for each tracked type)
+ *
+ * Intercepts Unity OnDestroy to eagerly remove the object from tracking
+ * before the GC finalizer runs, avoiding stale pointer access.
+ */
 void track_destroy(auto original, Il2CppObject* _this, uint64_t a2, uint64_t a3)
 {
 #define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
@@ -106,6 +153,7 @@ void track_destroy(auto original, Il2CppObject* _this, uint64_t a2, uint64_t a3)
 #undef GET_CLASS
 }
 
+/** @brief Hook: il2cpp_object_free — removes the object from tracking before deallocation. */
 void track_free(auto original, void* _this)
 {
 #define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
@@ -118,6 +166,13 @@ void track_free(auto original, void* _this)
 #undef GET_CLASS
 }
 
+/**
+ * @brief Hook: il2cpp_unity_liveness_finalize
+ *
+ * Runs after the GC liveness calculation. Objects whose klass pointer has
+ * the low bit set (IS_MARKED) have been collected — we remove them from
+ * the tracking map to prevent dangling references.
+ */
 void calc_liveness_hook(auto original, void* state)
 {
   original(state);
@@ -147,9 +202,19 @@ void calc_liveness_hook(auto original, void* state)
   tracked_objects = tracked_objects;
 }
 
+// ─── Hook Installation ──────────────────────────────────────────────────────
+
+/// Guards against double-hooking when multiple types share a base method.
 static eastl::unordered_set<void*> seen_ctor;
 static eastl::unordered_set<void*> seen_destroy;
 
+/**
+ * @brief Installs .ctor and OnDestroy hooks for a single tracked type.
+ * @tparam T Game class (must expose get_class_helper()).
+ *
+ * Deduplicates hooks via seen_ctor / seen_destroy so that shared base
+ * methods are only detoured once.
+ */
 template <typename T> void TrackObject()
 {
   auto& object_class = T::get_class_helper();
@@ -166,6 +231,11 @@ template <typename T> void TrackObject()
   }
 }
 
+/**
+ * @brief Registers all tracked game object types, hooks the GC liveness
+ *        finalizer, and resolves the Boehm GC internal finalizer registration
+ *        function via platform-specific signature scanning.
+ */
 void InstallObjectTrackers()
 {
   TrackObject<PreScanTargetWidget>();

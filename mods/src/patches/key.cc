@@ -1,3 +1,11 @@
+/**
+ * @file key.cc
+ * @brief Implementation of per-frame key state caching and key name parsing.
+ *
+ * All engine queries (GetKeyInt / GetKeyDownInt) are resolved once via
+ * il2cpp_resolve_icall and cached per-frame in tri-state arrays so repeat
+ * queries within the same frame are effectively free.
+ */
 #include "key.h"
 #include "prime/EventSystem.h"
 #include "str_utils.h"
@@ -12,6 +20,10 @@ int Key::cacheInputModified = 0;
 
 std::array<int, (int)KeyCode::Max> Key::cacheKeyPressed = {};
 std::array<int, (int)KeyCode::Max> Key::cacheKeyDown    = {};
+
+// ─── Name → KeyCode Lookup Table ─────────────────────────────────────────────
+// Maps user-facing key name strings (from TOML config) to Unity KeyCode values.
+// All names are compared after upper-casing the input (see Parse()).
 
 const std::unordered_map<std::string, KeyCode> Key::mappedKeys = {
     {"LALT", KeyCode::LeftAlt},
@@ -161,6 +173,8 @@ const std::unordered_map<std::string, KeyCode> Key::mappedKeys = {
     {"KEYPLUS", KeyCode::KeypadPlus},
 };
 
+// ─── Parsing & Classification ────────────────────────────────────────────────
+
 KeyCode Key::Parse(std::string_view key)
 {
   auto wantedKey = AsciiStrToUpper(key);
@@ -208,6 +222,8 @@ bool Key::IsModified()
   return cacheInputModified == 1;
 }
 
+// ─── Per-frame Cache Management ──────────────────────────────────────────────
+
 void Key::ResetCache()
 {
   Key::cacheInputFocused  = 0;
@@ -217,6 +233,8 @@ void Key::ResetCache()
     Key::cacheKeyPressed[i] = 0;
   }
 }
+// ─── Engine Key Queries (cached) ─────────────────────────────────────────────
+
 bool Key::Down(KeyCode key)
 {
   static auto GetKeyDownInt =
@@ -241,6 +259,8 @@ bool Key::Pressed(KeyCode key)
   return cacheKeyPressed[(int)key] == 1;
 }
 
+// ─── Input Focus Detection ───────────────────────────────────────────────────
+
 bool Key::IsInputFocused()
 {
   if (cacheInputFocused == 0) {
@@ -263,6 +283,8 @@ bool Key::IsInputFocused()
 
   return cacheInputFocused == 1;
 }
+
+// ─── Convenience Modifier Helpers ────────────────────────────────────────────
 
 bool Key::HasShift()
 {

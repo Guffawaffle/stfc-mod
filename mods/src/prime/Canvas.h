@@ -1,7 +1,15 @@
+/**
+ * @file Canvas.h
+ * @brief Unity Canvas wrapper.
+ *
+ * Mirrors UnityEngine.UI.Canvas. Exposes the scaleFactor property,
+ * used by mods that adjust UI scaling.
+ */
 #pragma once
 
 #include "il2cpp/il2cpp_helper.h"
 
+/** @brief Wrapper for Unity's Canvas component. Provides access to the UI scale factor. */
 struct Canvas {
 public:
   __declspec(property(get = __get_scaleFactor, put = __set_scaleFactor)) float scaleFactor;

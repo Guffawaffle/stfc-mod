@@ -1,3 +1,10 @@
+/**
+ * @file errormsg.h
+ * @brief Centralised error-logging helpers for common failure patterns.
+ *
+ * Provides short, consistent spdlog::error() wrappers for missing IL2CPP
+ * methods/helpers, sync transport errors, and WinRT HRESULT failures.
+ */
 #pragma once
 
 #include "str_utils.h"
@@ -8,18 +15,27 @@
 #include <winrt/Windows.Foundation.h>
 #endif
 
+/**
+ * @brief Structured error-logging helpers for recurring failure patterns.
+ *
+ * Each function logs via spdlog::error() with a consistent format so grep/log
+ * analysis can easily filter by category (method lookup, sync transport, etc.).
+ */
 namespace ErrorMsg
 {
+/** @brief Log a missing instance method (classname->methodname). */
 static auto MissingMethod(const char* classname, const char* methodname)
 {
   spdlog::error("Unable to find method '{}->{}'", classname, methodname);
 }
 
+/** @brief Log a missing static method (classname::methodname). */
 static void MissingStaticMethod(const char* classname, const char* methodname)
 {
   spdlog::error("Unable to find method '{}::{}'", classname, methodname);
 }
 
+/** @brief Log a missing IL2CPP helper class (namespace.classname). */
 static void MissingHelper(const char* namespacename, const char* classname)
 {
   spdlog::error("Unable to find helper '{}.{}'", namespacename, classname);

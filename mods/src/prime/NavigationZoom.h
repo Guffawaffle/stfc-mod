@@ -1,3 +1,12 @@
+/**
+ * @file NavigationZoom.h
+ * @brief Camera zoom state for in-space navigation.
+ *
+ * Mirrors Digit.Prime.Navigation.NavigationZoom and the NodeDepth enum.
+ * Exposes zoom distance, min/max bounds, view radius, and the scene
+ * camera reference. Used by mods that alter zoom behaviour (e.g. extended
+ * zoom range).
+ */
 #pragma once
 
 #include <il2cpp/il2cpp_helper.h>
@@ -8,6 +17,7 @@
 #include "Camera.h"
 #include "NavigationPan.h"
 
+/** @brief Depth level of the current navigation view. Bit-flag style values. */
 enum class NodeDepth {
   Galaxy       = 1,
   SolarSystem  = 2,
@@ -15,6 +25,14 @@ enum class NodeDepth {
   Starbase     = 8,
 };
 
+/**
+ * @brief Camera zoom controller for the navigation scene.
+ *
+ * Provides read/write access to zoom distance, delta, min/max bounds,
+ * view radius, stored zoom ratios, and the scene camera. Also exposes
+ * SetViewParameters() and ZoomCameraAtWorldPoint() for programmatic
+ * zoom changes.
+ */
 struct NavigationZoom {
 public:
   void SetViewParameters(float radius, NodeDepth depth)

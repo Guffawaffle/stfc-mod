@@ -1,3 +1,11 @@
+/**
+ * @file cargo_display.cc
+ * @brief Automatic cargo/rewards panel display based on target type and config.
+ *
+ * Evaluates the selected target's fleet type (player, hostile, armada, station)
+ * against per-type config toggles to decide whether to auto-show the cargo
+ * rewards panel. Called from hook delegates in the hotkey router.
+ */
 #include "errormsg.h"
 #include "config.h"
 

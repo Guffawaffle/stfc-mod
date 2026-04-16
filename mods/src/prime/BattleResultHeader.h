@@ -1,7 +1,17 @@
+/**
+ * @file BattleResultHeader.h
+ * @brief Battle result data structures and enumerations.
+ *
+ * Mirrors Digit.PrimeServer.Models.BattleResultHeader and the associated
+ * enums (BattleType, BattleResultType, FleetDataType). Used by the battle-
+ * log mod to extract combatant ship hull IDs and user profiles from combat
+ * reports.
+ */
 #pragma once
 
 #include <il2cpp/il2cpp_helper.h>
 
+/** @brief Categorises the type of battle (fleet vs. base, PvP vs. PvE, armada, etc.). */
 enum class BattleType {
   Fleet                          = 0,
   Base                           = 1,
@@ -22,18 +32,27 @@ enum class BattleType {
   PvpChainShot                   = 16
 };
 
+/** @brief Outcome of a battle from the player's perspective. */
 enum class BattleResultType {
   Defeat         = 0,
   Victory        = 1,
   PartialVictory = 2
 };
 
+/** @brief Identifies the type of fleet data (deployed fleet, starbase, or armada). */
 enum class FleetDataType {
   DeployedFleet = 0,
   Starbase      = 1,
   Armada        = 2
 };
 
+/**
+ * @brief Header data for a single battle result.
+ *
+ * Contains the player's and enemy's ship hull IDs, user profiles, and
+ * a reference to the SpecService for resolving hull details. Accessed
+ * from combat report screens and battle-log export functionality.
+ */
 struct BattleResultHeader {
 public:
   __declspec(property(get = __get_PlayerShipHullId)) long PlayerShipHullId;

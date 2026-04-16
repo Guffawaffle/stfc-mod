@@ -1,3 +1,10 @@
+/**
+ * @file version.h
+ * @brief Compile-time version constants and PE resource macros.
+ *
+ * VERSION_MAJOR/MINOR/REVISION/PATCH are substituted by the build system
+ * (see docs/VERSION_SUBSTITUTION.md).  VERSION_PATCH > 0 marks a beta build.
+ */
 #pragma once
 
 // clang-format off

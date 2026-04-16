@@ -1,7 +1,16 @@
+/**
+ * @file HullSpec.h
+ * @brief Ship hull specification data.
+ *
+ * Mirrors Digit.PrimeServer.Models.HullSpec. Each ship type in the game
+ * has a HullSpec describing its ID, display name, and hull classification
+ * (destroyer, survey, explorer, etc.).
+ */
 #pragma once
 
 #include <il2cpp/il2cpp_helper.h>
 
+/** @brief Ship hull classification. */
 enum class HullType {
   Any          = -1,
   Destroyer    = 0,
@@ -12,6 +21,12 @@ enum class HullType {
   ArmadaTarget = 5
 };
 
+/**
+ * @brief Specification data for a single ship hull type.
+ *
+ * Provides the hull's numeric ID (matches server data), localised display
+ * name, and classification type. Obtained via SpecService::GetHull().
+ */
 struct HullSpec {
 public:
   __declspec(property(get = __get_Id)) long Id;

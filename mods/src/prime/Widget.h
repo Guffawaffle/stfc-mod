@@ -1,7 +1,24 @@
+/**
+ * @file Widget.h
+ * @brief Base widget template.
+ *
+ * Mirrors the generic Digit.Client.UI.Widget<T> base class. Exposes the
+ * widget context, enabled state, and IsActive() check. Concrete widgets
+ * inherit from this via CRTP.
+ */
 #pragma once
 
 #include <il2cpp/il2cpp_helper.h>
 
+/**
+ * @brief Generic base for game UI widgets.
+ *
+ * Resolves the Widget`1 parent class from the concrete subclass Y's
+ * class helper, and exposes Context, enabled, and isActiveAndEnabled.
+ *
+ * @tparam T The context/data-model type.
+ * @tparam Y The concrete derived class (CRTP), must expose get_class_helper().
+ */
 template <typename T, typename Y> struct Widget {
 public:
   __declspec(property(get = __get_Context)) T* Context;

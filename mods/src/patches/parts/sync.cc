@@ -1,3 +1,47 @@
+/**
+ * @file sync.cc
+ * @brief Data synchronization engine — external HTTP sync of game state.
+ *
+ * Intercepts the game's protobuf and JSON entity-group processing to extract
+ * player data (inventories, officers, research, ships, battle logs, etc.) and
+ * forward it to user-configured external sync targets over HTTP.
+ *
+ * Architecture:
+ *  ┌─────────────────────────────────────────────────────────────┐
+ *  │ Game hooks (DataContainer::ParseBinaryObject, etc.)         │
+ *  │   → HandleEntityGroup() dispatches by EntityGroup::Type     │
+ *  │       → process_* functions parse protobuf/JSON             │
+ *  │           → queue_data() enqueues to sync_data_queue        │
+ *  │               → ship_sync_data() thread dequeues & sends    │
+ *  │                   → http::send_data() → per-target workers  │
+ *  └─────────────────────────────────────────────────────────────┘
+ *
+ * Battle logs follow a separate pipeline:
+ *  process_battle_headers() → combat_log_data_queue
+ *    → ship_combat_log_data() thread fetches full journal from Scopely
+ *    → resolves player/alliance names via cache or API
+ *    → sends enriched battle data via http::send_data()
+ *
+ * Threading model:
+ *  - ship_sync_data:       long-lived consumer for the main sync queue
+ *  - ship_combat_log_data: long-lived consumer for combat log enrichment
+ *  - target_worker_thread: one per sync target (created lazily), owns its
+ *                          own cpr::Session and request queue
+ *  - process_* functions:  each invoked on a detached std::thread from
+ *                          HandleEntityGroup's submit_async lambda
+ *
+ * Each process_* function maintains its own static state map (with mutex)
+ * and only emits data when values actually change (delta-based sync).
+ *
+ * Config keys (sync_targets[name]):
+ *  - url, token, proxy, verify_ssl: per-target connection settings
+ *  - enabled types: battlelogs, resources, ships, buildings, inventory, etc.
+ * Config keys (sync_options):
+ *  - proxy, verify_ssl: Scopely API proxy for combat log enrichment
+ *  - sync_resolver_cache_ttl: TTL for player/alliance name caches
+ *  - sync_logging, sync_debug: log verbosity toggles
+ */
+
 #include "config.h"
 #include "errormsg.h"
 #include "file.h"
@@ -69,6 +113,8 @@ struct WinRtApartmentGuard {
 namespace http
 {
 
+// ─── HTTP Session State ─────────────────────────────────────────────────────
+
 namespace headers
 {
   static std::string    gameServerUrl;
@@ -79,6 +125,7 @@ namespace headers
   static constexpr char poweredBy[] = "stfc community patch/" VER_FILE_VERSION_STR;
 } // namespace headers
 
+/** @brief Generates a random UUID string (platform-specific implementation). */
 [[nodiscard]] static std::string newUUID()
 {
 #ifdef _WIN32
@@ -100,7 +147,13 @@ namespace headers
   return s;
 }
 
-// Simple URL manipulation class to replace boost::url
+/**
+ * @brief Lightweight URL builder wrapping libcurl's URL API.
+ *
+ * Used to modify the path component of the game server URL when making
+ * Scopely API requests (e.g. /journals/get, /user_profile/profiles).
+ * Move-only to prevent double-free of the CURLU handle.
+ */
 class Url
 {
 public:
@@ -170,6 +223,9 @@ private:
   std::string m_url;
 };
 
+// ─── Sync Logging Helpers ───────────────────────────────────────────────────
+
+/// All sync_log_* functions are guarded by Config::sync_logging / sync_debug.
 static void sync_log_error(const std::string& type, const std::string& target, const std::string& text)
 {
   if (Config::Get().sync_logging) {
@@ -208,7 +264,15 @@ static void sync_log_trace(const std::string& type, const std::string& target, c
 static const std::string CURL_TYPE_UPLOAD   = "UPLOAD";
 static const std::string CURL_TYPE_DOWNLOAD = "DOWNLOAD";
 
-// Per-target worker thread infrastructure
+// ─── Per-Target Worker Threads ─────────────────────────────────────────────
+
+/**
+ * @brief Owns a dedicated HTTP session and work queue for one sync target.
+ *
+ * Each sync target URL gets its own TargetWorker so that slow or failing
+ * targets don't block other targets. The worker thread dequeues requests
+ * and posts them synchronously via cpr.
+ */
 struct TargetWorker {
   TargetWorker() = default;
   TargetWorker(const TargetWorker&) = delete;
@@ -227,6 +291,7 @@ struct TargetWorker {
 static std::unordered_map<std::string, std::shared_ptr<TargetWorker>> target_workers;
 static std::mutex target_workers_mtx;
 
+/** @brief Worker thread loop: dequeues requests and POSTs them to the target. */
 static void target_worker_thread(std::shared_ptr<TargetWorker> worker)
 {
 #if _WIN32
@@ -301,6 +366,13 @@ static void target_worker_thread(std::shared_ptr<TargetWorker> worker)
   }
 }
 
+/**
+ * @brief Returns (or lazily creates) the per-target worker for the given target name.
+ *
+ * Creates a new cpr::Session configured from the target's sync config
+ * (URL, token, proxy, SSL, timeouts) and spawns a worker thread.
+ * Thread-safe: guarded by target_workers_mtx.
+ */
 static std::shared_ptr<TargetWorker> get_curl_client_sync(const std::string& target)
 {
   std::lock_guard lk(target_workers_mtx);
@@ -351,6 +423,12 @@ static std::shared_ptr<TargetWorker> get_curl_client_sync(const std::string& tar
   return worker;
 }
 
+/**
+ * @brief Fans out a sync payload to all enabled targets for the given data type.
+ *
+ * Iterates over Config::sync_targets, filters by type, and enqueues
+ * the request into each matching target's worker queue.
+ */
 static void send_data(SyncConfig::Type type, const std::string& post_data, bool is_first_sync)
 {
   static std::once_flag emit_warning;
@@ -390,6 +468,16 @@ static void send_data(SyncConfig::Type type, const std::string& post_data, bool 
   }
 }
 
+// ─── Scopely Game Server Client ───────────────────────────────────────────
+
+/**
+ * @brief Returns (or lazily creates) the singleton cpr::Session for Scopely API calls.
+ *
+ * Configured to mimic the real Unity game client's HTTP headers
+ * (User-Agent, X-AUTH-SESSION-ID, X-PRIME-VERSION, etc.) so the
+ * game server accepts our requests for combat log journals and profiles.
+ * Thread-safe via std::call_once.
+ */
 static std::shared_ptr<cpr::Session> get_curl_client_scopely()
 {
   static std::shared_ptr<cpr::Session> session{nullptr};
@@ -428,6 +516,15 @@ static std::shared_ptr<cpr::Session> get_curl_client_scopely()
   return session;
 }
 
+/**
+ * @brief POSTs to a Scopely game-server endpoint and returns the response body.
+ * @param path      API path (appended to the game server URL).
+ * @param post_data JSON body to send.
+ *
+ * Used by the combat log pipeline to fetch journal data and resolve
+ * player/alliance names. Guarded by a client_mutex so only one
+ * Scopely request is in-flight at a time.
+ */
 static std::string get_scopely_data(const std::string& path, const std::string& post_data)
 {
   static std::once_flag emit_warning;
@@ -489,6 +586,8 @@ static std::string get_scopely_data(const std::string& path, const std::string& 
 
 } // namespace http
 
+// ─── JSON Serialization for Protobuf Types ─────────────────────────────────
+
 NLOHMANN_JSON_NAMESPACE_BEGIN
 template <typename T> struct adl_serializer<google::protobuf::RepeatedField<T>> {
   static void to_json(json& j, const google::protobuf::RepeatedField<T>& proto)
@@ -539,14 +638,19 @@ template <> struct adl_serializer<SyncConfig::Type> {
 };
 NLOHMANN_JSON_NAMESPACE_END
 
+// ─── Sync Queues & Caches ──────────────────────────────────────────────────
+
+/// Main sync queue: process_* functions produce; ship_sync_data() consumes.
 std::mutex                                                  sync_data_mtx;
 std::condition_variable                                     sync_data_cv;
 std::queue<std::tuple<SyncConfig::Type, std::string, bool>> sync_data_queue;
 
+/// Combat log queue: process_battle_headers() produces; ship_combat_log_data() consumes.
 std::mutex              combat_log_data_mtx;
 std::condition_variable combat_log_data_cv;
 std::queue<uint64_t>    combat_log_data_queue;
 
+/// TTL-based cache for resolved player names (player_id → name + alliance).
 struct CachedPlayerData {
   std::string                           name;
   int64_t                               alliance{-1};
@@ -556,6 +660,7 @@ struct CachedPlayerData {
 std::unordered_map<std::string, CachedPlayerData> player_data_cache;
 std::mutex                                        player_data_cache_mtx;
 
+/// TTL-based cache for resolved alliance names (alliance_id → name + tag).
 struct CachedAllianceData {
   std::string                           name;
   std::string                           tag;
@@ -565,6 +670,7 @@ struct CachedAllianceData {
 std::unordered_map<int64_t, CachedAllianceData> alliance_data_cache;
 std::mutex                                      alliance_data_cache_mtx;
 
+/** @brief Enqueues typed data (string) for the main sync thread and wakes it. */
 void queue_data(SyncConfig::Type type, const std::string& data, bool is_first_sync = false)
 {
   {
@@ -576,6 +682,7 @@ void queue_data(SyncConfig::Type type, const std::string& data, bool is_first_sy
   sync_data_cv.notify_all();
 }
 
+/** @brief Enqueues typed data (JSON, auto-dumped) for the main sync thread. */
 void queue_data(SyncConfig::Type type, const nlohmann::json& data, bool is_first_sync = false)
 {
   {
@@ -587,6 +694,9 @@ void queue_data(SyncConfig::Type type, const nlohmann::json& data, bool is_first
   sync_data_cv.notify_all();
 }
 
+// ─── Delta-Tracking State Types ─────────────────────────────────────────────
+
+/// Tracks officer/tech rank+level for delta detection.
 struct RankLevelState {
   explicit RankLevelState(const int32_t r = -1, const int32_t l = -1)
       : rank(r)
@@ -604,6 +714,7 @@ private:
   int64_t level = -1;
 };
 
+/// Tracks officer/tech rank+level+shards for delta detection.
 struct RankLevelShardsState {
   explicit RankLevelShardsState(const int32_t r = -1, const int32_t l = -1, const int32_t s = -1)
       : rank(r)
@@ -623,6 +734,7 @@ private:
   int32_t shards = -1;
 };
 
+/// Tracks ship tier/level/components for delta detection.
 struct ShipState {
   explicit ShipState(const int32_t t = -1, const int32_t l = -1, const double_t lp = -1.0,
                      const std::vector<int64_t>& c = {})
@@ -653,9 +765,13 @@ struct pairhash {
   }
 };
 
+// ─── Battle Log Persistence ─────────────────────────────────────────────────
+
+/// Ring buffer of recently-sent battle IDs (persisted to disk as JSON).
 static eastl::ring_buffer<uint64_t> previously_sent_battlelogs;
 static std::mutex                   previously_sent_battlelogs_mtx;
 
+/** @brief Loads the previously-sent battle log IDs from the JSON cache on disk. */
 static void load_previously_sent_logs()
 {
   using json = nlohmann::json;
@@ -683,6 +799,7 @@ static void load_previously_sent_logs()
   }
 }
 
+/** @brief Persists the battle log ring buffer to disk as JSON. */
 static void save_previously_sent_logs()
 {
   using json           = nlohmann::json;
@@ -712,6 +829,17 @@ static void save_previously_sent_logs()
   }
 }
 
+// ─── Protobuf Entity Processors ─────────────────────────────────────────────
+//
+// Each process_* function below:
+//  1. Parses a protobuf or JSON payload from a unique_ptr<string>
+//  2. Compares against a static local state map (with its own mutex)
+//  3. Emits only changed entries via queue_data()
+//
+// This delta-based approach avoids flooding sync targets with redundant data.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** @brief Processes ActiveMissionsResponse — emits current set of active mission IDs on change. */
 void process_active_missions(std::unique_ptr<std::string>&& bytes)
 {
   using json = nlohmann::json;
@@ -751,6 +879,7 @@ void process_active_missions(std::unique_ptr<std::string>&& bytes)
   }
 }
 
+/** @brief Processes CompletedMissionsResponse — emits newly completed mission IDs (append-only diff). */
 void process_completed_missions(std::unique_ptr<std::string>&& bytes)
 {
   using json = nlohmann::json;
@@ -790,6 +919,7 @@ void process_completed_missions(std::unique_ptr<std::string>&& bytes)
   }
 }
 
+/** @brief Processes InventoryResponse — emits items whose count changed. Marks first sync. */
 void process_player_inventories(std::unique_ptr<std::string>&& bytes)
 {
   using json   = nlohmann::json;
@@ -835,6 +965,7 @@ void process_player_inventories(std::unique_ptr<std::string>&& bytes)
   }
 }
 
+/** @brief Processes ResearchTreesState — emits research projects whose level changed. */
 void process_research_trees_state(std::unique_ptr<std::string>&& bytes)
 {
   using json = nlohmann::json;
@@ -866,6 +997,7 @@ void process_research_trees_state(std::unique_ptr<std::string>&& bytes)
   }
 }
 
+/** @brief Processes OfficersResponse — emits officers whose rank/level/shards changed. */
 void process_officers(std::unique_ptr<std::string>&& bytes)
 {
   using json = nlohmann::json;
@@ -903,6 +1035,7 @@ void process_officers(std::unique_ptr<std::string>&& bytes)
   }
 }
 
+/** @brief Processes ForbiddenTechsResponse — emits forbidden/chaos techs whose tier/level/shards changed. */
 void process_forbidden_techs(std::unique_ptr<std::string>&& bytes)
 {
   using json = nlohmann::json;
@@ -940,6 +1073,7 @@ void process_forbidden_techs(std::unique_ptr<std::string>&& bytes)
   }
 }
 
+/** @brief Processes OfficerTraitsResponse — emits officer trait level changes. */
 void process_active_officer_traits(std::unique_ptr<std::string>&& bytes)
 {
   using json = nlohmann::json;
@@ -978,6 +1112,7 @@ void process_active_officer_traits(std::unique_ptr<std::string>&& bytes)
   }
 }
 
+/** @brief Processes GlobalActiveBuffsResponse — emits buff add/update/expire events. */
 void process_global_active_buffs(std::unique_ptr<std::string>&& bytes)
 {
   using json = nlohmann::json;
@@ -1062,6 +1197,7 @@ inline std::optional<std::chrono::time_point<std::chrono::system_clock>> parse_t
 #endif
 }
 
+/** @brief Processes EntitySlots (protobuf) — emits slot changes for consumables, presets, skills, etc. */
 void process_entity_slots(std::unique_ptr<std::string>&& bytes)
 {
   using json = nlohmann::json;
@@ -1143,6 +1279,7 @@ void process_entity_slots(std::unique_ptr<std::string>&& bytes)
   }
 }
 
+/** @brief Processes entity slot updates from real-time (RTC) JSON payloads. */
 void process_entity_slots_rtc(std::unique_ptr<std::string>&& json_payload)
 {
   using json = nlohmann::json;
@@ -1234,6 +1371,7 @@ void process_entity_slots_rtc(std::unique_ptr<std::string>&& json_payload)
   }
 }
 
+/** @brief Processes JobResponse — emits new/completed jobs (research, construction, tier-up, scrap). */
 void process_jobs(std::unique_ptr<std::string>&& bytes)
 {
   using json = nlohmann::json;
@@ -1322,6 +1460,7 @@ void process_jobs(std::unique_ptr<std::string>&& bytes)
   }
 }
 
+/** @brief Processes AllianceGamePropertiesResponse — emits Emerald Chain loyalty level changes. */
 void process_alliance_games_props(std::unique_ptr<std::string>&& bytes)
 {
   using json = nlohmann::json;
@@ -1351,6 +1490,14 @@ void process_alliance_games_props(std::unique_ptr<std::string>&& bytes)
   }
 }
 
+// ─── JSON Entity Processors ──────────────────────────────────────────────────
+
+/**
+ * @brief Enqueues unseen battle IDs for the combat log enrichment pipeline.
+ *
+ * Checks each battle ID against the ring buffer of previously-sent IDs
+ * and queues new ones on combat_log_data_queue for ship_combat_log_data().
+ */
 void process_battle_headers(const nlohmann::json& section)
 {
   http::sync_log_trace("PROCESS", "battle headers", STR_FORMAT("Processing {} battle headers", section.size()));
@@ -1392,6 +1539,7 @@ void process_battle_headers(const nlohmann::json& section)
   }
 }
 
+/** @brief Processes the resources JSON section — emits resource amount changes. */
 void process_resources(const nlohmann::json& section)
 {
   using json = nlohmann::json;
@@ -1422,6 +1570,7 @@ void process_resources(const nlohmann::json& section)
   }
 }
 
+/** @brief Processes the starbase_modules JSON section — emits building level changes. */
 void process_starbase_modules(const nlohmann::json& section)
 {
   using json = nlohmann::json;
@@ -1450,6 +1599,7 @@ void process_starbase_modules(const nlohmann::json& section)
   }
 }
 
+/** @brief Processes the ships JSON section — emits ship tier/level/component changes. */
 void process_ships(const nlohmann::json& section)
 {
   using json = nlohmann::json;
@@ -1490,6 +1640,12 @@ void process_ships(const nlohmann::json& section)
   }
 }
 
+/**
+ * @brief Top-level JSON entity dispatcher.
+ *
+ * Parses the JSON blob and routes each key (battle_result_headers, resources,
+ * starbase_modules, ships) to its respective processor, respecting sync_options.
+ */
 void process_json(std::unique_ptr<std::string>&& bytes)
 {
   using json = nlohmann::json;
@@ -1532,6 +1688,9 @@ void process_json(std::unique_ptr<std::string>&& bytes)
   }
 }
 
+// ─── Player / Alliance Name Resolution ──────────────────────────────────────
+
+/** @brief Caches player names from a UserProfilesResponse protobuf (opportunistic pre-cache). */
 void cache_player_names(std::unique_ptr<std::string>&& bytes)
 {
   if (auto response = Digit::PrimeServer::Models::UserProfilesResponse(); response.ParseFromString(*bytes)) {
@@ -1553,6 +1712,7 @@ void cache_player_names(std::unique_ptr<std::string>&& bytes)
   }
 }
 
+/** @brief Caches alliance names from a GetAllianceProfilesResponse protobuf. */
 void cache_alliance_names(std::unique_ptr<std::string>&& bytes)
 {
   if (auto response = Digit::PrimeServer::Models::GetAllianceProfilesResponse(); response.ParseFromString(*bytes)) {
@@ -1577,6 +1737,14 @@ void cache_alliance_names(std::unique_ptr<std::string>&& bytes)
   }
 }
 
+// ─── Background Consumer Threads ────────────────────────────────────────────
+
+/**
+ * @brief Main sync consumer thread — dequeues from sync_data_queue and calls send_data().
+ *
+ * Runs for the lifetime of the process. Blocks on sync_data_cv when idle.
+ * Exceptions are caught and logged to prevent thread termination.
+ */
 void ship_sync_data()
 {
 #if _WIN32
@@ -1639,6 +1807,13 @@ inline void collect_alliance_ids(const nlohmann::json& names, std::unordered_set
   }
 }
 
+/**
+ * @brief Resolves player names from cache or marks them for API fetch.
+ * @param user_ids     Set of player IDs to resolve.
+ * @param out_names    JSON object to populate with cached hits.
+ * @param out_request_ids JSON array to populate with cache misses (for API fetch).
+ * @param now          Current time for TTL comparison.
+ */
 void resolve_player_names(const std::unordered_set<std::string>& user_ids, nlohmann::json& out_names,
                           nlohmann::json& out_request_ids, const std::chrono::time_point<std::chrono::steady_clock> now)
 {
@@ -1664,6 +1839,13 @@ void resolve_player_names(const std::unordered_set<std::string>& user_ids, nlohm
   }
 }
 
+/**
+ * @brief Resolves alliance names from cache or marks them for API fetch.
+ * @param alliance_ids Set of alliance IDs to resolve.
+ * @param out_names    JSON object to enrich with alliance name/tag from cache.
+ * @param out_request_ids JSON array to populate with cache misses.
+ * @param now          Current time for TTL comparison.
+ */
 void resolve_alliance_names(const std::unordered_set<int64_t>& alliance_ids, nlohmann::json& out_names,
                             nlohmann::json&                                          out_request_ids,
                             const std::chrono::time_point<std::chrono::steady_clock> now)
@@ -1693,6 +1875,14 @@ void resolve_alliance_names(const std::unordered_set<int64_t>& alliance_ids, nlo
   }
 }
 
+/**
+ * @brief Combat log enrichment consumer thread.
+ *
+ * Dequeues battle IDs from combat_log_data_queue, fetches the full journal
+ * from the Scopely game server, resolves player and alliance names (using
+ * cache + API fallback), and sends the enriched battle data to sync targets.
+ * Runs for the lifetime of the process.
+ */
 void ship_combat_log_data()
 {
   using json = nlohmann::json;
@@ -1847,6 +2037,15 @@ void ship_combat_log_data()
   }
 }
 
+// ─── Entity Group Dispatch ───────────────────────────────────────────────────
+
+/**
+ * @brief Central dispatcher for entity group data.
+ *
+ * Routes each EntityGroup by type to the appropriate process_* function,
+ * spawning each on a detached thread via submit_async. Checks the
+ * corresponding sync_options flag before dispatching.
+ */
 void HandleEntityGroup(EntityGroup* entity_group)
 {
   if (entity_group == nullptr || entity_group->Group == nullptr || entity_group->Group->bytes == nullptr
@@ -1954,12 +2153,28 @@ void HandleEntityGroup(EntityGroup* entity_group)
   }
 }
 
+// ─── SPUD Hooks ─────────────────────────────────────────────────────────────
+
+/**
+ * @brief Hook: DataContainer::ParseBinaryObject
+ *
+ * Intercepts binary entity group parsing to extract data before the game processes it.
+ * Original method: deserializes a protobuf entity group into the data container.
+ * Our modification: calls HandleEntityGroup() first, then the original.
+ */
 void DataContainer_ParseBinaryObject(auto original, void* _this, EntityGroup* group, bool isPlayerData)
 {
   HandleEntityGroup(group);
   return original(_this, group, isPlayerData);
 }
 
+/**
+ * @brief Hook: SlotDataContainer::ParseSlotUpdatedJson / ParseSlotRemovedJson
+ *
+ * Intercepts real-time slot update/removal notifications (RTC channel).
+ * Original method: parses a JSON payload for slot changes.
+ * Our modification: spawns process_entity_slots_rtc() on a detached thread.
+ */
 void DataContainer_ParseRtcPayload(auto original, void* _this, bool incrementalJsonParsing, RealtimeDataPayload* data)
 {
   original(_this, incrementalJsonParsing, data);
@@ -1992,6 +2207,13 @@ void DataContainer_ParseRtcPayload(auto original, void* _this, bool incrementalJ
   }).detach();
 }
 
+/**
+ * @brief Hook: GameServerModelRegistry::ProcessResultInternal
+ *
+ * Intercepts HTTP response processing to extract entity groups from the response.
+ * Original method: processes the service response and invokes callbacks.
+ * Our modification: iterates entity groups and calls HandleEntityGroup() before original.
+ */
 void GameServerModelRegistry_ProcessResultInternal(auto original, void* _this, HttpResponse* http_response,
                                                    ServiceResponse* service_response, void* callback,
                                                    void* callback_error)
@@ -2005,6 +2227,12 @@ void GameServerModelRegistry_ProcessResultInternal(auto original, void* _this, H
   return original(_this, http_response, service_response, callback, callback_error);
 }
 
+/**
+ * @brief Hook: GameServerModelRegistry::HandleBinaryObjects
+ *
+ * Intercepts bulk binary object handling to extract entity groups.
+ * Same pattern as ProcessResultInternal but for binary-only responses.
+ */
 void GameServerModelRegistry_HandleBinaryObjects(auto original, void* _this, ServiceResponse* service_response)
 {
   const auto entity_groups = service_response->EntityGroups;
@@ -2016,6 +2244,12 @@ void GameServerModelRegistry_HandleBinaryObjects(auto original, void* _this, Ser
   return original(_this, service_response);
 }
 
+/**
+ * @brief Hook: PrimeApp::InitPrimeServer
+ *
+ * Captures the game server URL and session ID so we can make authenticated
+ * requests to the Scopely API for combat log enrichment.
+ */
 void PrimeApp_InitPrimeServer(auto original, void* _this, Il2CppString* gameServerUrl, Il2CppString* gatewayServerUrl,
                               Il2CppString* sessionId, Il2CppString* serverRegion)
 {
@@ -2024,6 +2258,7 @@ void PrimeApp_InitPrimeServer(auto original, void* _this, Il2CppString* gameServ
   http::headers::gameServerUrl     = to_string(to_wstring(gameServerUrl));
 }
 
+/** @brief Hook: GameServer::Initialise — captures the game version string for HTTP headers. */
 void GameServer_Initialise(auto original, void* _this, Il2CppString* sessionId, Il2CppString* gameVersion,
                            bool encryptRequests, Il2CppString* serverRegion)
 {
@@ -2031,12 +2266,24 @@ void GameServer_Initialise(auto original, void* _this, Il2CppString* sessionId, 
   http::headers::primeVersion = to_string(to_wstring(gameVersion));
 }
 
+/** @brief Hook: GameServer::SetInstanceIdHeader — captures the instance ID for HTTP headers. */
 void GameServer_SetInstanceIdHeader(auto original, void* _this, int32_t instanceId)
 {
   original(_this, instanceId);
   http::headers::instanceId = instanceId;
 }
 
+// ─── Hook Installation ──────────────────────────────────────────────────────
+
+/**
+ * @brief Installs all sync-related hooks and starts background threads.
+ *
+ * Hooks multiple DataContainer::ParseBinaryObject variants to intercept
+ * entity group data, hooks PrimeApp/GameServer for session credentials,
+ * and spawns the two long-lived consumer threads:
+ *  - ship_sync_data (main sync queue consumer)
+ *  - ship_combat_log_data (combat log enrichment consumer)
+ */
 void InstallSyncPatches()
 {
   load_previously_sent_logs();

@@ -1,3 +1,12 @@
+/**
+ * @file hotkey_router.cc
+ * @brief Central hotkey routing logic — called every frame from ScreenManager::Update hook.
+ *
+ * This is the main keyboard input processing loop for the community patch.
+ * It handles enable/disable toggling, ship selection, escape behavior, chat
+ * channel shortcuts, space actions (engage/scan/mine/recall/repair), the
+ * table-driven dispatch system, and the configurable double-tap escape exit.
+ */
 #include "errormsg.h"
 #include "config.h"
 
@@ -27,6 +36,8 @@
 
 #include <spdlog/spdlog.h>
 #include <chrono>
+
+// ─── Main Per-Frame Hotkey Router ─────────────────────────────────────────────────────
 
 // Returns true when the original ScreenManager::Update should be called.
 bool hotkey_router_screen_update(ScreenManager* _this)
@@ -60,7 +71,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   }
 #endif
 
-  // --- Ship selection (1-8 keys) ---
+  // ─── Ship selection (1-8 keys) ───────────────────────────────────────────────────────
   int32_t ship_select_request = -1;
   if (MapKey::IsDown(GameFunction::SelectShip1)) {
     ship_select_request = 0;
@@ -84,7 +95,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
     return false;
   }
 
-  // --- Escape in chat / input focus ---
+  // ─── Escape in chat / input focus ───────────────────────────────────────────────────
   if (Key::Pressed(KeyCode::Escape) && (Key::IsInputFocused() || Hub::IsInChat())) {
     Key::ClearInputFocus();
     return false;
@@ -161,7 +172,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       }
     }
   } else {
-    // In-chat channel selection
+    // ─── In-chat channel selection ─────────────────────────────────────────────────────
     if (auto chat_manager = ChatManager::Instance(); chat_manager) {
       if (MapKey::IsDown(GameFunction::SelectChatGlobal)) {
         chat_manager->OpenChannel(ChatChannelCategory::Global);
@@ -215,6 +226,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
     TickInfoPending();
   }
 
+  // ─── Configurable double-tap Escape exit ───────────────────────────────────────────
   // Suppress escape exit if configured
   if (config->disable_escape_exit && Key::Pressed(KeyCode::Escape)) {
     static std::chrono::time_point<std::chrono::steady_clock> escape_clock = {};
@@ -229,6 +241,8 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
   return true;
 }
+
+// ─── Hook Delegate Functions ─────────────────────────────────────────────────────────
 
 bool hotkey_router_init_actions()
 {

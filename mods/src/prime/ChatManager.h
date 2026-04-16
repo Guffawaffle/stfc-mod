@@ -1,3 +1,10 @@
+/**
+ * @file ChatManager.h
+ * @brief Chat system singleton and related enumerations.
+ *
+ * Mirrors Digit.Prime.Chat.ChatManager — manages opening/closing chat
+ * channels, side-chat state, and view mode (fullscreen vs. side panel).
+ */
 #pragma once
 
 #include "errormsg.h"
@@ -6,6 +13,7 @@
 
 #include "MonoSingleton.h"
 
+/** @brief Chat channel categories available in the game. */
 enum class ChatChannelCategory : int32_t {
   None            = -1,
   Newbie          = 0,
@@ -17,11 +25,19 @@ enum class ChatChannelCategory : int32_t {
   Regional        = 6,
 };
 
+/** @brief Whether the chat UI is displayed fullscreen or as a side panel. */
 enum class ChatViewMode : int32_t {
   Fullscreen = 0,
   Side       = 1,
 };
 
+/**
+ * @brief Singleton managing the in-game chat system.
+ *
+ * Provides methods to open specific chat channels (alliance, private, etc.),
+ * query side-chat availability, and toggle between fullscreen and side
+ * panel view modes. Also exposes newbie/regional chat visibility checks.
+ */
 struct ChatManager : MonoSingleton<ChatManager> {
   friend struct MonoSingleton;
 

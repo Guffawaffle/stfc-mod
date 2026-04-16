@@ -1,7 +1,16 @@
+/**
+ * @file file.cc
+ * @brief Implementation of File path resolution, Init(), and static caches.
+ *
+ * On Windows, parses -ccm <profile> from the command line to derive per-profile
+ * filenames for config, log, vars, and battle-log files.  On macOS, paths are
+ * routed through ~/Library/Preferences/ via MakePath().
+ */
 #include "file.h"
 #include "windowtitle.h"
 
 #if _WIN32
+/** @brief Convert a wide string to UTF-8 via WideCharToMultiByte. */
 std::string ConvertWStringToString(const std::wstring& wstr)
 {
   if (wstr.empty())
@@ -236,6 +245,8 @@ bool File::hasTrace()
 {
   return File::trace;
 }
+
+// ─── Static Member Definitions ─────────────────────────────────────────────────
 
 #ifdef _MODDBG
 bool File::debug = true;

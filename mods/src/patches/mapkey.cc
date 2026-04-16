@@ -1,3 +1,7 @@
+/**
+ * @file mapkey.cc
+ * @brief Implementation of key-combo parsing, binding storage, and press detection.
+ */
 #include "mapkey.h"
 #include "gamefunctions.h"
 #include "modifierkey.h"
@@ -15,6 +19,8 @@ MapKey::MapKey()
   this->Key          = KeyCode::None;
   this->hasModifiers = false;
 }
+
+// ─── Parsing ─────────────────────────────────────────────────────────────────
 
 MapKey MapKey::Parse(std::string_view key)
 {
@@ -52,6 +58,8 @@ MapKey MapKey::Parse(std::string_view key)
   return *mapKey;
 }
 
+// ─── Shortcut Display ────────────────────────────────────────────────────────
+
 std::string MapKey::GetShortcuts(GameFunction gameFunction)
 {
   const auto &mapKeys = MapKey::mappedKeys[gameFunction];
@@ -70,10 +78,14 @@ std::string MapKey::GetShortcuts(GameFunction gameFunction)
   return shortcuts;
 }
 
+// ─── Binding Registration ────────────────────────────────────────────────────
+
 void MapKey::AddMappedKey(GameFunction gameFunction, MapKey mappedKey)
 {
   MapKey::mappedKeys[gameFunction].emplace_back(mappedKey);
 }
+
+// ─── Press Detection ────────────────────────────────────────────────────────
 
 bool MapKey::IsPressed(GameFunction gameFunction)
 {
@@ -106,6 +118,8 @@ bool MapKey::IsDown(GameFunction gameFunction)
 
   return false;
 }
+
+// ─── Modifier Validation ─────────────────────────────────────────────────────
 
 bool MapKey::HasCorrectModifiers(MapKey mapKey)
 {
@@ -146,6 +160,8 @@ std::string MapKey::GetParsedValues() const
 
   return output;
 }
+
+// ─── Static Storage ──────────────────────────────────────────────────────────
 
 std::array<std::vector<MapKey>, (int)GameFunction::Max> MapKey::mappedKeys = {};
 

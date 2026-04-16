@@ -1,3 +1,14 @@
+/**
+ * @file main.cc
+ * @brief macOS CLI loader — launches STFC with the community patch dylib injected.
+ *
+ * Reads the game install path from ~/Library/Preferences/Star Trek Fleet
+ * Command/launcher_settings.ini, then sets DYLD_INSERT_LIBRARIES to point at
+ * the community patch dylib and DYLD_LIBRARY_PATH to the loader's own
+ * directory.  Finally, it exec's the game binary so the dylib constructor
+ * fires before the game's main().
+ */
+
 #include "folder_manager.h"
 
 #include <inicpp.h>

@@ -1,3 +1,11 @@
+/**
+ * @file config.h
+ * @brief TOML-based configuration system for the STFC Community Mod.
+ *
+ * Defines the Config singleton (runtime settings loaded from
+ * community_patch_settings.toml) and the SyncConfig / SyncTargetConfig
+ * structures that drive per-target data synchronisation.
+ */
 #pragma once
 
 #include <array>
@@ -11,9 +19,16 @@
 #include <Windows.h>
 #endif
 
+/**
+ * @brief Per-target synchronisation toggles and proxy settings.
+ *
+ * Each boolean flag controls whether a specific data category is sent
+ * to the sync backend.  SyncTargetConfig extends this with URL/token.
+ */
 class SyncConfig
 {
 public:
+  /// Categories of game data that can be synced to an external service.
   enum class Type {
     Battles,
     Buffs,
@@ -31,11 +46,17 @@ public:
     Traits
   };
 
+  /**
+   * @brief Maps a sync type to its JSON key, TOML key, and member pointer.
+   *
+   * Used by SyncOptions[] to drive config loading and JSON serialisation
+   * from a single table, avoiding per-type boilerplate.
+   */
   struct Option {
     Type             type;
-    std::string_view type_str;   // used in JSON body
-    std::string_view option_str; // used in TOML file
-    bool SyncConfig::* option;
+    std::string_view type_str;   ///< Key used in the outbound JSON body.
+    std::string_view option_str; ///< Key used in the TOML config file.
+    bool SyncConfig::* option;   ///< Pointer-to-member for the bool toggle.
   };
 
   std::string proxy;
@@ -55,9 +76,11 @@ public:
   bool tech       = false;
   bool traits     = false;
 
+  /** @brief Check whether a given sync type is enabled on this config. */
   [[nodiscard]] bool enabled(Type type) const;
 };
 
+/// Master table mapping every SyncConfig::Type to its JSON/TOML keys and member pointer.
 constexpr std::array SyncOptions{
     SyncConfig::Option{SyncConfig::Type::Battles, "battlelog", "battlelogs", &SyncConfig::battlelogs},
     SyncConfig::Option{SyncConfig::Type::Buffs, "buff", "buffs", &SyncConfig::buffs},
@@ -96,29 +119,59 @@ constexpr std::string operator+(const SyncConfig::Type type, const std::string& 
   return to_string(type) + suffix;
 }
 
+/**
+ * @brief A single sync target: base SyncConfig toggles plus endpoint credentials.
+ *
+ * Multiple targets can be defined under [sync.targets.<name>] in the TOML file,
+ * each with its own URL, bearer token, and per-category overrides.
+ */
 class SyncTargetConfig : public SyncConfig
 {
 public:
-  std::string url;
-  std::string token;
+  std::string url;   ///< Endpoint URL for this sync target.
+  std::string token; ///< Bearer token / API key.
 };
 
+/**
+ * @brief Singleton holding all runtime configuration for the Community Mod.
+ *
+ * Constructed once via Config::Get().  The constructor calls Load(), which
+ * parses the user's TOML file (falling back to DefaultConfig values),
+ * writes a merged "runtime vars" snapshot, and populates every member.
+ */
 class Config final
 {
 public:
   Config();
 
+  /** @brief Access the process-wide singleton. */
   [[nodiscard]] static Config& Get();
+
+  /** @brief Current monitor DPI scale factor (cached per monitor change). */
   [[nodiscard]] static float   GetDPI();
+
+  /** @brief Force a DPI re-read (e.g. after a display change). */
   static float                 RefreshDPI();
 
 #ifdef _WIN32
   [[nodiscard]] static HWND WindowHandle();
 #endif
 
+  /**
+   * @brief Serialise a toml::table to disk.
+   * @param config    The table to write.
+   * @param filename  Target filename (resolved via File::MakePath).
+   * @param apply_warning  If true, prepend a "this is not the config file" header.
+   */
   static void Save(const toml::table& config, std::string_view filename, bool apply_warning = true);
+
+  /** @brief Parse the user TOML and populate all members. Called by the constructor. */
   void        Load();
+
+  /** @brief Bump UI scale up or down by ui_scale_adjust, clamped to [0.1, 2.0]. */
   void        AdjustUiScale(bool scaleUp);
+
+  /** @brief Bump object-viewer UI scale (finer step: ui_scale_adjust * 0.25). */
   void        AdjustUiViewerScale(bool scaleUp);
 
   // Disallow copying/moving to enforce singleton
@@ -189,6 +242,7 @@ public:
 
   std::map<std::string, SyncTargetConfig> sync_targets;
 
+  // ─── Patch Toggles (debug builds only — release forces all true) ──────────
   bool installUiScaleHooks;
   bool installZoomHooks;
   bool installBuffFixHooks;
@@ -209,5 +263,11 @@ public:
   std::string config_assets_url_override;
 };
 
-// Standalone config flag — kept outside Config struct to avoid layout sensitivity crashes.
+/**
+ * @brief Whether unhandled key events pass through to the game's default input.
+ *
+ * Stored as a file-scope static in config.cc rather than a Config member to
+ * avoid changing the struct layout, which can trigger LTO-related crashes.
+ * @see fix/lto-and-sync-crashes
+ */
 bool AllowKeyFallthrough();

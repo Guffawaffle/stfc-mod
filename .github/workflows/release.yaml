@@ -1,3 +1,11 @@
+# @file release.yaml
+# @brief Release workflow — creates a GitHub release from a version tag.
+#
+# Triggered when a tag matching "v*" is pushed.  Verifies that the CI Build
+# workflow succeeded for the same commit, downloads its artifacts, packages
+# them into a .zip, detects alpha/beta pre-releases, and publishes a GitHub
+# release with the Windows .zip and macOS .dmg attached.
+
 name: Create Release
 
 on:

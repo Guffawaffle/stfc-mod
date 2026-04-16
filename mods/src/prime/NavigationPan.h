@@ -1,15 +1,31 @@
+/**
+ * @file NavigationPan.h
+ * @brief Camera pan state for in-space navigation.
+ *
+ * Mirrors Digit.Prime.Navigation.NavigationPan. Exposes pan delta,
+ * tracking POI, magnetic radius ratios (for edge-pan boundaries), and
+ * the MoveCamera() method. Also defines the packed vec3 helper struct.
+ */
 #pragma once
 
 #include <il2cpp/il2cpp_helper.h>
 
 #include "Vector2.h"
 
+/** @brief Packed 3-component float vector (no padding). */
 #pragma pack(push, 1)
 struct vec3 {
   float x, y, z;
 };
 #pragma pack(pop)
 
+/**
+ * @brief Camera pan controller for the navigation scene.
+ *
+ * Provides access to pan delta values, the currently tracked point-of-interest,
+ * magnetic radius ratios that control edge-pan boundaries in system view, and
+ * a static BlockPan flag. MoveCamera() drives the actual camera translation.
+ */
 struct NavigationPan {
 public:
   __declspec(property(get = __get__lastDelta)) Vector2* _lastDelta;

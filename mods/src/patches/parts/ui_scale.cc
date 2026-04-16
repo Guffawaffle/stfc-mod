@@ -1,3 +1,18 @@
+/**
+ * @file ui_scale.cc
+ * @brief DPI-aware UI scaling system.
+ *
+ * Hooks ScreenManager::UpdateCanvasRootScaleFactor and CanvasController::Show
+ * to apply user-configured UI scale factors. Accounts for screen resolution,
+ * DPI, and provides a separate scale override for the ObjectViewer canvas.
+ *
+ * Config keys:
+ *  - ui_scale:        global canvas scale multiplier (0 = disabled)
+ *  - adjust_scale_res: whether to adjust for resolution vs. 1080p reference
+ *  - ui_scale_viewer: separate scale for the ObjectViewer canvas (0 = disabled)
+ *  - allow_cursor:    on Windows, whether to allow the system cursor to change
+ */
+
 #include "errormsg.h"
 #include <config.h>
 
@@ -13,6 +28,18 @@
 #include <prime/Vector3.h>
 #include <str_utils.h>
 
+// ─── SPUD Hooks ─────────────────────────────────────────────────────────────
+
+/**
+ * @brief Hook: ScreenManager::UpdateCanvasRootScaleFactor
+ *
+ * Intercepts the per-frame canvas scale update to apply a custom DPI-aware
+ * scale factor.
+ * Original method: recalculates and sets the root canvas scaler.
+ * Our modification: overrides scaleFactor with (ui_scale * resolution_ratio * DPI),
+ *                   clamped to [0.1, 5.0]. Also resets the Windows cursor to
+ *                   arrow when allow_cursor is disabled.
+ */
 void ScreenManager_UpdateCanvasRootScaleFactor_Hook(auto original, ScreenManager* _this)
 {
   original(_this);
@@ -51,6 +78,14 @@ void ScreenManager_UpdateCanvasRootScaleFactor_Hook(auto original, ScreenManager
   }
 }
 
+/**
+ * @brief Hook: CanvasController::Show(int, bool)
+ *
+ * Intercepts canvas display to apply a separate scale for the ObjectViewer.
+ * Original method: shows a UI canvas with the given entry point.
+ * Our modification: sets localScale on the ObjectViewerTemplate_Canvas
+ *                   transform when ui_scale_viewer is configured.
+ */
 void CanvasController_Show(auto original, CanvasController* _this, int desiredEntryPoint, bool instant)
 {
   const auto ui_scale_viewer = Config::Get().ui_scale_viewer;
@@ -65,6 +100,9 @@ void CanvasController_Show(auto original, CanvasController* _this, int desiredEn
   return original(_this, desiredEntryPoint, instant);
 }
 
+// ─── Hook Installation ──────────────────────────────────────────────────────
+
+/** @brief Resolves IL2CPP methods and installs UI scaling hooks; refreshes DPI on startup. */
 void InstallUiScaleHooks()
 {
   auto screen_manager_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "ScreenManager");

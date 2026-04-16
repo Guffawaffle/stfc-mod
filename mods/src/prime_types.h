@@ -1,7 +1,16 @@
+/**
+ * @file prime_types.h
+ * @brief Forward declarations and layout definitions for key game types.
+ *
+ * Defines Faction, BuffCondition enums and the SpecManager vtable layout
+ * used to call into the game's IL2CPP runtime.  Struct layouts use
+ * #pragma pack(push, 1) to match the game's memory layout exactly.
+ */
 #pragma once
 
 #include <cstdint>
 
+/// In-game faction identifiers.
 enum Faction
 {
     None = -1,
@@ -16,7 +25,9 @@ struct HullSpec;
 class SpecManager;
 using GetHull_t = HullSpec *(*)(SpecManager *_this, uint64_t, void *);
 
+// IL2CPP: Packed to match the game's vtable layout exactly.
 #pragma pack(push, 1)
+/** @brief Vtable layout for SpecManager, positioned so GetHull is at offset 0x1C8. */
 struct SpecManagerVtbl
 {
     char pad0[0x1C8];
@@ -35,6 +46,13 @@ public:
 #pragma pack(pop)
 
 
+/**
+ * @brief Buff condition IDs used by the game's combat/buff system.
+ *
+ * These values are hard-coded in the game binary and correspond to
+ * specific combat triggers, hull checks, and status effects.
+ * Many IDs have gaps — presumably server-only or deprecated conditions.
+ */
 enum BuffCondition
 {
     Invalid = -1,

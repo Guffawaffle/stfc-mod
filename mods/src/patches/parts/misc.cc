@@ -1,3 +1,16 @@
+/**
+ * @file misc.cc
+ * @brief Miscellaneous quality-of-life patches and crash fixes.
+ *
+ * A collection of independent patches that don't warrant their own file:
+ *   - Donation slider extension (raise the 50-item cap)
+ *   - Bundle cooldown bypass (click through to info view while on cooldown)
+ *   - Resolution list cleanup (deduplicate and normalize refresh rates)
+ *   - Buff extraction null-guard (prevent crash on null list entries)
+ *   - Shop reveal sequence skip
+ *   - First interstitial popup dismissal
+ *   - Action queue logging (diagnostic, currently disabled)
+ */
 #include "config.h"
 #include "errormsg.h"
 
@@ -20,6 +33,17 @@
 #include <prime/ActionQueueManager.h>
 #include <prime/InterstitialViewController.h>
 
+// ─── Donation Slider Extension ───────────────────────────────────────────────
+
+/**
+ * @brief Hook: InventoryForPopup::set_MaxItemsToUse
+ *
+ * Intercepts the donation slider cap to allow larger donations.
+ * Original method: sets the maximum slider value (hard-coded to 50 for donations).
+ * Our modification: when extend_donation_slider is enabled and the caller is a
+ *   donation popup with cap == 50, replaces it with the user's configured max
+ *   (or returns -1 for unlimited if max <= 0).
+ */
 int64_t InventoryForPopup_set_MaxItemsToUse(auto original, InventoryForPopup* a1, int64_t a2)
 {
   if (a1->IsDonationUse && a2 == 50 && Config::Get().extend_donation_slider) {
@@ -35,6 +59,16 @@ int64_t InventoryForPopup_set_MaxItemsToUse(auto original, InventoryForPopup* a1
   return standard;
 }
 
+// ─── Bundle Cooldown Bypass ──────────────────────────────────────────────────
+
+/**
+ * @brief Hook: BundleDataWidget::OnActionButtonPressedCallback
+ *
+ * Intercepts shop bundle button presses to allow interaction during cooldown.
+ * Original method: triggers the bundle's primary action (purchase flow).
+ * Our modification: if the bundle is on cooldown, redirects to the auxiliary
+ *   info view instead of blocking the press entirely.
+ */
 void BundleDataWidget_OnActionButtonPressedCallback(auto original, BundleDataWidget* _this)
 {
   if (_this->CurrentState & BundleDataWidget::ItemState::CooldownTimerOn) {
@@ -44,6 +78,12 @@ void BundleDataWidget_OnActionButtonPressedCallback(auto original, BundleDataWid
   }
 }
 
+/**
+ * @brief Installs donation slider and bundle cooldown patches.
+ *
+ * Hooks InventoryForPopup::set_MaxItemsToUse (Windows only) and
+ * BundleDataWidget::OnActionButtonPressedCallback.
+ */
 void InstallMiscPatches()
 {
 #if _WIN32
@@ -72,6 +112,8 @@ void InstallMiscPatches()
   }
 }
 
+// ─── Resolution List Fix ─────────────────────────────────────────────────────
+
 struct Resolution {
   int m_Width;
   int m_Height;
@@ -90,6 +132,16 @@ struct ResolutionArray {
   Resolution   data[1];
 };
 
+/**
+ * @brief Hook: UnityEngine.Screen::get_resolutions
+ *
+ * Intercepts the resolution list to clean up duplicates and normalize refresh rates.
+ * Original method: returns the raw array of supported screen resolutions.
+ * Our modification: on Windows, finds the maximum refresh rate for the native
+ *   resolution and (if show_all_resolutions is set) normalizes all entries to
+ *   that rate, then deduplicates. This prevents the settings menu from showing
+ *   the same resolution multiple times at different refresh rates.
+ */
 ResolutionArray* GetResolutions_Hook(auto original)
 {
   auto resolutions = original();
@@ -131,6 +183,11 @@ ResolutionArray* GetResolutions_Hook(auto original)
   return resolutions;
 }
 
+/**
+ * @brief Installs the resolution list cleanup hook.
+ *
+ * Hooks UnityEngine.Screen::get_resolutions via IL2CPP icall resolution.
+ */
 void InstallResolutionListFix()
 {
   auto get_resolutions = il2cpp_resolve_icall_typed<ResolutionArray*()>("UnityEngine.Screen::get_resolutions()");
@@ -141,6 +198,17 @@ void InstallResolutionListFix()
   }
 }
 
+// ─── Crash Fixes & Misc Hooks ────────────────────────────────────────────────
+
+/**
+ * @brief Hook: BuffService::ExtractBuffsOfType
+ *
+ * Null-guard for buff list extraction to prevent crashes.
+ * Original method: filters a buff list by modifier type.
+ * Our modification: checks each list element for null before passing to
+ *   original; returns nullptr early if any entry is null (avoids a crash
+ *   deep in the buff processing pipeline).
+ */
 IList* ExtractBuffsOfType_Hook(auto original, ClientModifierType modifier, IList* list)
 {
   if (list) {
@@ -154,6 +222,14 @@ IList* ExtractBuffsOfType_Hook(auto original, ClientModifierType modifier, IList
   return original(modifier, list);
 }
 
+/**
+ * @brief Hook: ShopSceneManager::ShouldShowRevealSequence
+ *
+ * Optionally skips the chest-opening reveal animation.
+ * Original method: decides whether to play the reveal sequence.
+ * Our modification: if always_skip_reveal_sequence is set, returns false
+ *   regardless of the original result.
+ */
 bool ShouldShowRevealHook(auto original, void* _this, bool ignore)
 {
   auto result = original(_this, ignore);
@@ -162,6 +238,8 @@ bool ShouldShowRevealHook(auto original, void* _this, bool ignore)
   }
   return result;
 }
+
+// ─── IL2CPP Property Wrappers ────────────────────────────────────────────────
 
 struct ShopCategory {
 public:
@@ -250,6 +328,14 @@ public:
   }
 };
 
+/**
+ * @brief Hook: InterstitialViewController::AboutToShow
+ *
+ * Intercepts the first interstitial popup to auto-dismiss it.
+ * Original method: displays the interstitial (typically a promo offer).
+ * Our modification: if disable_first_popup is set and this is the first
+ *   interstitial since launch, calls CloseWhenReady() instead of showing it.
+ */
 bool isFirstInterstitial = true;
 
 void InterstitialViewController_AboutToShow(auto original, InterstitialViewController* _this)
@@ -262,6 +348,7 @@ void InterstitialViewController_AboutToShow(auto original, InterstitialViewContr
   }
 }
 
+/// Diagnostic hook for action queue logging (currently commented out in install).
 void ActionQueueManager_AddActionToQueue(auto original, ActionQueueManager* _this, long fleet_id)
 {
   spdlog::warn("ActionQueueManager_AddActionToQueue({})", fleet_id);
@@ -270,6 +357,15 @@ void ActionQueueManager_AddActionToQueue(auto original, ActionQueueManager* _thi
 
 //   const auto section_data = Hub::get_SectionManager()->_sectionStorage->GetState(sectionID);
 
+/**
+ * @brief Installs crash-fix and QoL hooks.
+ *
+ * Hooks:
+ *   - BuffService::ExtractBuffsOfType (null-guard crash fix)
+ *   - ShopSceneManager::ShouldShowRevealSequence (skip reveal animation)
+ *   - InterstitialViewController::AboutToShow (dismiss first popup)
+ *   - ActionQueueManager::AddActionToQueue (diagnostic, currently disabled)
+ */
 void InstallTempCrashFixes()
 {
   auto BuffService_helper =

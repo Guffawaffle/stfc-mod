@@ -1,3 +1,13 @@
+/**
+ * @file folder_manager.h
+ * @brief C++ wrapper around macOS NSFileManager directory lookup APIs.
+ *
+ * Mirrors Apple's NSSearchPathDirectory / NSSearchPathDomainMask enums and
+ * provides a static helper to resolve well-known system directories (e.g.
+ * Application Support, Library) without pulling in Objective-C headers.
+ * Used by the macOS loader to locate the game install path.
+ */
+
 #pragma once
 
 namespace fm
