@@ -1,0 +1,90 @@
+name: CodeQL
+
+on:
+  push:
+    branches: ["guffapipedream"]
+  pull_request:
+    branches: ["guffapipedream"]
+  schedule:
+    - cron: "0 6 * * 1" # Weekly Monday 6am UTC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze-cpp:
+    name: Analyze (C/C++)
+    runs-on: windows-2025
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: "recursive"
+
+      # Setup xmake so CodeQL can resolve include paths from packages.
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+          package-cache: true
+          package-cache-key: ${{ hashFiles('**/xmake.lua', '!macos-*/xmake.lua') }}
+
+      - name: Configure & download packages
+        run: xmake f -m release -y
+
+      # build-mode: none analyzes C/C++ source directly without a traced
+      # build. This avoids the protoc/tracer conflict (error 122) entirely.
+      # Trade-off: generated .pb.cc files won't be scanned, but those are
+      # auto-generated protobuf code, not project source.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: c-cpp
+          build-mode: none
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:c-cpp"
+
+  analyze-swift:
+    if: false # Temporarily disabled — Swift passed, focusing on C/C++
+    name: Analyze (Swift)
+    runs-on: macos-15
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          submodules: "recursive"
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+          package-cache: true
+          package-cache-key: ${{ hashFiles('**/xmake.lua', '!win-*/xmake.lua') }}
+
+      - name: Configure & download packages
+        run: xmake f -p macosx -a "arm64" -m release -y --target_minver=13.5
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: swift
+
+      - name: Build
+        run: xmake -y
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:swift"
