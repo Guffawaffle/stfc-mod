@@ -21,5 +21,4 @@ struct HotkeyEntry {
   InputMode       input_mode = InputMode::Down;
 };
 
-void BuildHotkeyDispatchTable();
 std::span<const HotkeyEntry> GetHotkeyDispatchTable();

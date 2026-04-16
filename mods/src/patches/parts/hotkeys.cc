@@ -56,8 +56,6 @@ void ChatMessageListLocalViewController_AboutToShow_Hook(ChatMessageListLocalVie
 
 void InstallHotkeyHooks()
 {
-  hotkey_router_init();
-
   auto shortcuts_manager_helper =
       il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager");
   if (!shortcuts_manager_helper.isValidHelper()) {

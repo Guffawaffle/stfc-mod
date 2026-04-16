@@ -27,11 +27,6 @@
 
 #include <spdlog/spdlog.h>
 
-void hotkey_router_init()
-{
-  BuildHotkeyDispatchTable();
-}
-
 // Returns true when the original ScreenManager::Update should be called.
 bool hotkey_router_screen_update(ScreenManager* _this)
 {

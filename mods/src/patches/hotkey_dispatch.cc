@@ -9,8 +9,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <vector>
-
 // ---------------------------------------------------------------------------
 // Section navigation handlers
 // ---------------------------------------------------------------------------
@@ -311,65 +309,60 @@ static DispatchDecision HandleShowShips()
 // Dispatch table
 // ---------------------------------------------------------------------------
 
-static std::vector<HotkeyEntry> g_dispatch_table;
+static constexpr HotkeyEntry g_dispatch_table[] = {
+    // Section navigation
+    {GameFunction::ShowQTrials, HandleShowQTrials},
+    {GameFunction::ShowBookmarks, HandleShowBookmarks},
+    {GameFunction::ShowLookup, HandleShowLookup},
+    {GameFunction::ShowRefinery, HandleShowRefinery},
+    {GameFunction::ShowFactions, HandleShowFactions},
+    {GameFunction::ShoWStationExterior, HandleShowStationExterior},
+    {GameFunction::ShowGalaxy, HandleShowGalaxy},
+    {GameFunction::ShowStationInterior, HandleShowStationInterior},
+    {GameFunction::ShowSystem, HandleShowSystem},
+    {GameFunction::ShowArtifacts, HandleShowArtifacts},
+    {GameFunction::ShowInventory, HandleShowInventory},
+    {GameFunction::ShowMissions, HandleShowMissions},
+    {GameFunction::ShowResearch, HandleShowResearch},
+    {GameFunction::ShowScrapYard, HandleShowScrapYard},
+    {GameFunction::ShowOfficers, HandleShowOfficers},
+    {GameFunction::ShowCommander, HandleShowCommander},
+    {GameFunction::ShowAwayTeam, HandleShowAwayTeam},
+    {GameFunction::ShowEvents, HandleShowEvents},
+    {GameFunction::ShowExoComp, HandleShowExoComp},
+    {GameFunction::ShowDaily, HandleShowDaily},
+    {GameFunction::ShowGifts, HandleShowGifts},
+    {GameFunction::ShowAlliance, HandleShowAlliance},
+    {GameFunction::ShowAllianceHelp, HandleShowAllianceHelp},
+    {GameFunction::ShowAllianceArmada, HandleShowAllianceArmada},
+    {GameFunction::ShowSettings, HandleShowSettings},
 
-void BuildHotkeyDispatchTable()
-{
-  g_dispatch_table = {
-      // Section navigation
-      {GameFunction::ShowQTrials, HandleShowQTrials},
-      {GameFunction::ShowBookmarks, HandleShowBookmarks},
-      {GameFunction::ShowLookup, HandleShowLookup},
-      {GameFunction::ShowRefinery, HandleShowRefinery},
-      {GameFunction::ShowFactions, HandleShowFactions},
-      {GameFunction::ShoWStationExterior, HandleShowStationExterior},
-      {GameFunction::ShowGalaxy, HandleShowGalaxy},
-      {GameFunction::ShowStationInterior, HandleShowStationInterior},
-      {GameFunction::ShowSystem, HandleShowSystem},
-      {GameFunction::ShowArtifacts, HandleShowArtifacts},
-      {GameFunction::ShowInventory, HandleShowInventory},
-      {GameFunction::ShowMissions, HandleShowMissions},
-      {GameFunction::ShowResearch, HandleShowResearch},
-      {GameFunction::ShowScrapYard, HandleShowScrapYard},
-      {GameFunction::ShowOfficers, HandleShowOfficers},
-      {GameFunction::ShowCommander, HandleShowCommander},
-      {GameFunction::ShowAwayTeam, HandleShowAwayTeam},
-      {GameFunction::ShowEvents, HandleShowEvents},
-      {GameFunction::ShowExoComp, HandleShowExoComp},
-      {GameFunction::ShowDaily, HandleShowDaily},
-      {GameFunction::ShowGifts, HandleShowGifts},
-      {GameFunction::ShowAlliance, HandleShowAlliance},
-      {GameFunction::ShowAllianceHelp, HandleShowAllianceHelp},
-      {GameFunction::ShowAllianceArmada, HandleShowAllianceArmada},
-      {GameFunction::ShowSettings, HandleShowSettings},
+    // UI scale (IsPressed for repeat-while-held)
+    {GameFunction::UiScaleUp, HandleUiScaleUp, InputMode::Pressed},
+    {GameFunction::UiScaleDown, HandleUiScaleDown, InputMode::Pressed},
+    {GameFunction::UiViewerScaleUp, HandleUiViewerScaleUp, InputMode::Pressed},
+    {GameFunction::UiViewerScaleDown, HandleUiViewerScaleDown, InputMode::Pressed},
 
-      // UI scale (IsPressed for repeat-while-held)
-      {GameFunction::UiScaleUp, HandleUiScaleUp, InputMode::Pressed},
-      {GameFunction::UiScaleDown, HandleUiScaleDown, InputMode::Pressed},
-      {GameFunction::UiViewerScaleUp, HandleUiViewerScaleUp, InputMode::Pressed},
-      {GameFunction::UiViewerScaleDown, HandleUiViewerScaleDown, InputMode::Pressed},
+    // Config toggles
+    {GameFunction::TogglePreviewLocate, HandleTogglePreviewLocate},
+    {GameFunction::TogglePreviewRecall, HandleTogglePreviewRecall},
+    {GameFunction::ToggleCargoDefault, HandleToggleCargoDefault},
+    {GameFunction::ToggleCargoPlayer, HandleToggleCargoPlayer},
+    {GameFunction::ToggleCargoStation, HandleToggleCargoStation},
+    {GameFunction::ToggleCargoHostile, HandleToggleCargoHostile},
+    {GameFunction::ToggleCargoArmada, HandleToggleCargoArmada},
 
-      // Config toggles
-      {GameFunction::TogglePreviewLocate, HandleTogglePreviewLocate},
-      {GameFunction::TogglePreviewRecall, HandleTogglePreviewRecall},
-      {GameFunction::ToggleCargoDefault, HandleToggleCargoDefault},
-      {GameFunction::ToggleCargoPlayer, HandleToggleCargoPlayer},
-      {GameFunction::ToggleCargoStation, HandleToggleCargoStation},
-      {GameFunction::ToggleCargoHostile, HandleToggleCargoHostile},
-      {GameFunction::ToggleCargoArmada, HandleToggleCargoArmada},
+    // Log levels
+    {GameFunction::LogLevelOff, HandleLogLevelOff},
+    {GameFunction::LogLevelError, HandleLogLevelError},
+    {GameFunction::LogLevelWarn, HandleLogLevelWarn},
+    {GameFunction::LogLevelInfo, HandleLogLevelInfo},
+    {GameFunction::LogLevelDebug, HandleLogLevelDebug},
+    {GameFunction::LogLevelTrace, HandleLogLevelTrace},
 
-      // Log levels
-      {GameFunction::LogLevelOff, HandleLogLevelOff},
-      {GameFunction::LogLevelError, HandleLogLevelError},
-      {GameFunction::LogLevelWarn, HandleLogLevelWarn},
-      {GameFunction::LogLevelInfo, HandleLogLevelInfo},
-      {GameFunction::LogLevelDebug, HandleLogLevelDebug},
-      {GameFunction::LogLevelTrace, HandleLogLevelTrace},
-
-      // Ship management
-      {GameFunction::ShowShips, HandleShowShips},
-  };
-}
+    // Ship management
+    {GameFunction::ShowShips, HandleShowShips},
+};
 
 std::span<const HotkeyEntry> GetHotkeyDispatchTable()
 {
