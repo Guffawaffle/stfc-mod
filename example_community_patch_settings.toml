@@ -310,9 +310,13 @@ always_skip_reveal_sequence = true
 # Prevent "escape" from prompting to exit the game
 disable_escape_exit = true
 
-# When disable_escape_exit is true, allow double-tap Escape to still trigger
-# the exit prompt. Set the maximum time in milliseconds between presses.
-# Set to 0 to disable double-tap (Escape is fully blocked).
+# When disable_escape_exit is true, this lets you double-tap Escape to still
+# get the exit prompt. The value is the maximum gap in milliseconds between
+# two Escape presses to count as a double-tap.
+#
+#   0   = double-tap disabled, Escape is fully blocked (default)
+#   500 = press Escape twice within half a second to trigger the exit prompt
+#
 # Has no effect when disable_escape_exit is false.
 escape_exit_timer = 0
 

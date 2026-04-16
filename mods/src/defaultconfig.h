@@ -188,6 +188,8 @@ namespace UI
   constexpr bool        always_skip_reveal_sequence = true;
   constexpr bool        auto_confirm_discovery      = true;
   constexpr bool        disable_escape_exit         = true;
+  // Max ms between two Escape presses to count as a double-tap.
+  // 0 = disabled (Escape fully blocked). 500 = half-second window.
   constexpr auto        escape_exit_timer           = 0;
   constexpr bool        disable_first_popup         = false;
   constexpr bool        disable_galaxy_chat         = false;

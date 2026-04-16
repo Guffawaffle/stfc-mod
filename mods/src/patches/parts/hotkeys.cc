@@ -426,6 +426,8 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
   }
 
   if (config->disable_escape_exit && Key::Pressed(KeyCode::Escape)) {
+    // Double-tap exit: if two Escape presses occur within escape_exit_timer ms,
+    // fall through to the original handler to show the exit prompt.
     static std::chrono::time_point<std::chrono::steady_clock> escape_clock = {};
     std::chrono::time_point<std::chrono::steady_clock>        escape_now   = std::chrono::steady_clock::now();
     std::chrono::milliseconds escape_diff = std::chrono::duration_cast<std::chrono::milliseconds>(escape_now - escape_clock);
