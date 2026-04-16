@@ -40,9 +40,11 @@ package_end()
 add_requires("spud v0.2.0-2")
 add_requires("libil2cpp")
 add_requires("simdutf", { system = false })
+add_requires("doctest")
 
 -- includes("launcher")
 includes("mods")
+includes("tests")
 
 -- add_repositories("local-repo build")
 add_repositories("stfc-community-patch-repo xmake-packages")
