@@ -1,4 +1,5 @@
 #include "patches/notification_service.h"
+#include "patches/battle_notify_parser.h"
 
 #include "config.h"
 #include "str_utils.h"
@@ -194,7 +195,10 @@ void notification_handle_toast(Toast* toast)
     return;
   }
 
-  auto body = strip_unity_rich_text(resolve_toast_text(toast));
+  auto body = battle_notify_parse(toast);
+  if (body.empty()) {
+    body = strip_unity_rich_text(resolve_toast_text(toast));
+  }
   if (body.empty()) {
     body = "(no details available)";
   }
