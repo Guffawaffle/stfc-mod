@@ -1,19 +1,21 @@
-# Star Trek Fleet Command - Community Mod
+# ⚠️ UNOFFICIAL FORK — Guffawaffle's STFC Community Mod
+
+> **This is NOT the official STFC Community Mod.** The official project is **[netniV/stfc-mod](https://github.com/netniV/stfc-mod)**.
+> To support the project, **[sponsor netniV](https://github.com/sponsors/netniV)** — he built this.
 
 <p align="center">
+  <a href="https://github.com/netniV/stfc-mod"><img src="https://img.shields.io/badge/Official_Mod-netniV%2Fstfc--mod-blue?style=for-the-badge" alt="Official Mod"></a>
+  <a href="https://github.com/sponsors/netniV"><img src="https://img.shields.io/badge/Sponsor-netniV-ea4aaa?style=for-the-badge&logo=github-sponsors" alt="Sponsor netniV"></a>
   <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPLv3">
-  <img src="https://img.shields.io/github/sponsors/netniv" alt="Sponsorship">
-</p>
-
-<p align="center">
-   A community mod (patch) for PC and macOS that adds a couple of tweaks to the <b>Star Trek Fleet Command&#8482;</b> game
 </p>
 
 ## Downloads / Releases
 
 The STFC Community Mod is available on GitHub.
 
-You can download either the [latest official release](https://github.com/netniv/stfc-mod/releases/latest/) or any other release, including [alpha/beta](https://github.com/netniv/stfc-mod/releases/) builds.
+You can download builds from this fork's [releases page](https://github.com/Guffawaffle/stfc-mod/releases).
+
+> **Prefer the official mod?** Get it at **[netniV/stfc-mod releases](https://github.com/netniV/stfc-mod/releases/latest)**.
 
 __Notes:__
 
@@ -57,7 +59,7 @@ __NOTE:__ The `Star Trek Fleet Command` game itself is located by default at:
 
 Installation of the Community Mod is a manual process for Windows (or Wine).
 
-1. Download the `stfc-community-mod.zip` file from your chosen [GitHub release](https://github.com/netniv/stfc-mod/releases/) and extract the `version.dll` file.
+1. Download the `stfc-community-mod.zip` file from this fork's [releases page](https://github.com/Guffawaffle/stfc-mod/releases) and extract the `version.dll` file.
 
 2. Open the game folder in Explorer. The default folder for the game also holds the settings file.
 
@@ -83,7 +85,7 @@ __NOTE:__ The `Star Trek Fleet Command` game itself is located at:
 
 You should only need to access this folder if you need to view the `community_patch.log` file while troubleshooting a problem.
 
-1. Download the `stfc-community-mod-installer.dmg` file from your chosen [GitHub release](https://github.com/netniv/stfc-mod/releases/).
+1. Download the `stfc-community-mod-installer.dmg` file from this fork's [releases page](https://github.com/Guffawaffle/stfc-mod/releases).
 
 2. Open the DMG, then drag and drop the `STFC Community Mod` to your `Applications` folder. The
    STFC Community Mod launcher must be used to start the game to have the mod loaded. If

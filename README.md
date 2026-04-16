@@ -1,18 +1,49 @@
-# Star Trek Fleet Command - Community Mod
+# ⚠️ UNOFFICIAL FORK — Guffawaffle's STFC Community Mod
+
+> **This is NOT the official STFC Community Mod.**
+> This is a personal fork with experimental features. The official project is **[netniV/stfc-mod](https://github.com/netniV/stfc-mod)**.
+
+<p align="center">
+    <a href="https://github.com/netniV/stfc-mod"><img src="https://img.shields.io/badge/Official_Mod-netniV%2Fstfc--mod-blue?style=for-the-badge" alt="Official Mod"></a>
+    <a href="https://github.com/sponsors/netniV"><img src="https://img.shields.io/badge/Sponsor-netniV-ea4aaa?style=for-the-badge&logo=github-sponsors" alt="Sponsor netniV"></a>
+    <a href="https://img.shields.io/badge/License-GPLv3-blue.svg"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPLv3"></a>
+</p>
+
+<p align="center">
+    <b>All credit goes to <a href="https://github.com/netniV">netniV</a></b> for creating and maintaining the STFC Community Mod.<br>
+    This fork exists purely for personal experimentation. If you want to support the project,<br>
+    <b><a href="https://github.com/sponsors/netniV">sponsor netniV</a></b> — he built this.
+</p>
+
+---
+
+## What's different in this fork?
+
+This fork (`guffapipedream` branch) bundles experimental features that haven't been accepted upstream yet, or are too opinionated for the main project:
+
+| Feature | Status | Upstream PR |
+|---------|--------|-------------|
+| Hotkey dispatch table refactor | Pending review | [#126](https://github.com/netniV/stfc-mod/pull/126) |
+| Double-tap Escape to exit | Pending review | [#124](https://github.com/netniV/stfc-mod/pull/124) |
+| Key fallthrough config option | Pending review | — |
+| OS toast notifications (victory/defeat) | Pending review | [#131](https://github.com/netniV/stfc-mod/pull/131), [#132](https://github.com/netniV/stfc-mod/pull/132) |
+| Duplicate hook crash fix | Pending review | [#130](https://github.com/netniV/stfc-mod/pull/130) |
+
+**If any of these features get merged upstream, use the official mod instead.** This fork is a playground, not a competing project.
+
+## Downloads
+
+Download builds from this fork's **[Releases page](https://github.com/Guffawaffle/stfc-mod/releases)**.
+
+The install process is identical to the official mod — see [Installation](#installing) below.
+
+> **Prefer the official mod?** Get it at **[netniV/stfc-mod releases](https://github.com/netniV/stfc-mod/releases/latest)**.
 
 ## IMPORTANT NOTE:
 
 We have finally released v1.0.0 of the mod, which replaces the previous 0.6.0 version (previously known as Rippers mod).  All previous full releases
 will fail to work wtih the latest STFC game client.  If you have issues, please check with our discord team and ensure that you have the latest 
 release installed.
-
-## BACK TO THE REGULAR STUFF:
-<p align="center">
-    <img src="https://repository-images.githubusercontent.com/693298224/6a87716f-3dbb-48a5-80e0-709e0a1ad133" alt="STFC Community Mod">
-    <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPLv3">  
-    <img src="https://img.shields.io/github/sponsors/netniv" alt="Sponsorship"><br>
-    A community mod (patch) that adds a couple of tweaks to the mobile game <b>Star Trek Fleet Command&#8482;
-</p>
 
 ## Contributing / Development
 

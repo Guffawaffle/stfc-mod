@@ -61,9 +61,22 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.ref }}
-          name: ${{ github.ref_name }}
+          name: "${{ github.ref_name }} (Guffawaffle Fork)"
           generateReleaseNotes: true
           prerelease: ${{ steps.check-prerelease.outputs.prerelease == 'true' }}
+          body: |
+            > **⚠️ UNOFFICIAL FORK — This is NOT the official STFC Community Mod.**
+            >
+            > This build comes from [Guffawaffle's personal fork](https://github.com/Guffawaffle/stfc-mod) and contains experimental features not yet accepted upstream.
+            > **For the official mod, go to [netniV/stfc-mod](https://github.com/netniV/stfc-mod/releases/latest).**
+            > **To support the project, [sponsor netniV](https://github.com/sponsors/netniV)** — he built this.
+            
+            ---
+            
+            ### What's different in this fork?
+            See the [fork README](https://github.com/Guffawaffle/stfc-mod/tree/guffapipedream#whats-different-in-this-fork) for a list of experimental features.
+            
+            ---
 
       # ✅ Step 6 — Upload assets
       - name: Upload Community Mod - Standard
