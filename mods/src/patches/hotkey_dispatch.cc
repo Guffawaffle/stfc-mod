@@ -1,3 +1,12 @@
+/**
+ * @file hotkey_dispatch.cc
+ * @brief Static dispatch table and handler implementations for all table-driven hotkeys.
+ *
+ * Each handler is a small static function that performs one action (navigate to
+ * a section, toggle a config flag, change log level, etc.) and returns a
+ * DispatchDecision telling the router whether to suppress the original method.
+ * The table at the bottom maps GameFunction values to these handlers.
+ */
 #include "patches/hotkey_dispatch.h"
 #include "patches/navigation.h"
 
@@ -9,9 +18,9 @@
 
 #include <spdlog/spdlog.h>
 
-// ---------------------------------------------------------------------------
-// Section navigation handlers
-// ---------------------------------------------------------------------------
+// ─── Section Navigation Handlers ────────────────────────────────────────────────────────────
+// Each handler navigates to a specific game section and suppresses the original
+// method call (HandledStop), since the section change is the complete action.
 
 static DispatchDecision HandleShowQTrials()
 {
@@ -168,9 +177,9 @@ static DispatchDecision HandleShowSettings()
   return DispatchDecision::HandledStop;
 }
 
-// ---------------------------------------------------------------------------
-// UI scale handlers (use IsPressed for repeat-while-held)
-// ---------------------------------------------------------------------------
+// ─── UI Scale Handlers ────────────────────────────────────────────────────────────────
+// Use InputMode::Pressed for repeat-while-held behavior. Return
+// HandledAllowOriginal so the game's own update cycle still runs.
 
 static DispatchDecision HandleUiScaleUp()
 {
@@ -196,9 +205,9 @@ static DispatchDecision HandleUiViewerScaleDown()
   return DispatchDecision::HandledAllowOriginal;
 }
 
-// ---------------------------------------------------------------------------
-// Config toggle handlers
-// ---------------------------------------------------------------------------
+// ─── Config Toggle Handlers ────────────────────────────────────────────────────────────
+// Toggle boolean config flags in-place. All return HandledAllowOriginal
+// so the game still processes the frame normally.
 
 static DispatchDecision HandleTogglePreviewLocate()
 {
@@ -242,9 +251,8 @@ static DispatchDecision HandleToggleCargoArmada()
   return DispatchDecision::HandledAllowOriginal;
 }
 
-// ---------------------------------------------------------------------------
-// Log level handlers
-// ---------------------------------------------------------------------------
+// ─── Log Level Handlers ───────────────────────────────────────────────────────────────
+// Change spdlog level and flush-on threshold at runtime for live debugging.
 
 static DispatchDecision HandleLogLevelOff()
 {
@@ -288,9 +296,8 @@ static DispatchDecision HandleLogLevelTrace()
   return DispatchDecision::HandledAllowOriginal;
 }
 
-// ---------------------------------------------------------------------------
-// Ship management handler
-// ---------------------------------------------------------------------------
+// ─── Ship Management Handler ──────────────────────────────────────────────────────────
+// Opens the ship management screen for the currently selected fleet.
 
 static DispatchDecision HandleShowShips()
 {
@@ -305,9 +312,9 @@ static DispatchDecision HandleShowShips()
   return DispatchDecision::HandledAllowOriginal;
 }
 
-// ---------------------------------------------------------------------------
-// Dispatch table
-// ---------------------------------------------------------------------------
+// ─── Dispatch Table ──────────────────────────────────────────────────────────────────
+// The router iterates this table each frame and invokes the first matching
+// handler. Entries default to InputMode::Down unless overridden.
 
 static constexpr HotkeyEntry g_dispatch_table[] = {
     // Section navigation

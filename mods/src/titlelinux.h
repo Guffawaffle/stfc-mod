@@ -1,3 +1,10 @@
+/**
+ * @file titlelinux.h
+ * @brief Linux (X11) implementation of WindowTitle::Get() and Set().
+ *
+ * Reads/writes _NET_WM_NAME on the root window via Xlib.  Compiled only
+ * on non-Windows, non-Apple targets.
+ */
 #pragma once
 #ifdef _WIN32
 #elif defined(__APPLE__)

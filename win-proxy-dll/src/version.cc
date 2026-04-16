@@ -1,4 +1,17 @@
+/**
+ * @file version.cc
+ * @brief Proxy stubs for every export of the real system version.dll.
+ *
+ * Each function is a thin pass-through: it stores the original proc address
+ * (resolved by VersionDllInit) in a global function pointer, and the exported
+ * wrapper simply forwards all arguments.  This lets the game (and anything
+ * else that links version.dll) work normally while our DllMain in main.cc
+ * gets early process-attach execution.
+ */
+
 #include <Windows.h>
+
+// ─── Forwarded version.dll Exports ───────────────────────────────────────────
 
 typedef DWORD(WINAPI *ORIG_FUNCTION_VerFindFileA)(DWORD, LPCSTR, LPCSTR, LPCSTR, LPSTR, PUINT, LPSTR, PUINT);
 ORIG_FUNCTION_VerFindFileA orig_VerFindFileA;
@@ -165,6 +178,13 @@ void WINAPI                              GetFileVersionInfoByHandle()
   (orig_GetFileVersionInfoByHandle)();
 }
 
+// ─── Initialization ──────────────────────────────────────────────────────────
+
+/**
+ * @brief Loads the real system version.dll and resolves all original exports.
+ *
+ * Called once from DllMain on DLL_PROCESS_ATTACH, before ApplyPatches.
+ */
 void VersionDllInit()
 {
   HMODULE hOriginalDll = LoadLibraryW(L"C:\\Windows\\system32\\version.dll");

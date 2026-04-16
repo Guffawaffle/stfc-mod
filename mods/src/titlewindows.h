@@ -1,3 +1,10 @@
+/**
+ * @file titlewindows.h
+ * @brief Windows implementation of WindowTitle::Get() and Set() via Win32 API.
+ *
+ * Uses Config::WindowHandle() to locate the game's top-level HWND, then
+ * GetWindowTextW / SetWindowTextW to read/write the title bar.
+ */
 #pragma once
 
 #ifdef _WIN32

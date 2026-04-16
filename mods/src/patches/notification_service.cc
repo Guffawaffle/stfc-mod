@@ -1,3 +1,11 @@
+/**
+ * @file notification_service.cc
+ * @brief OS-native notification delivery for in-game toast events.
+ *
+ * Resolves IL2CPP LanguageManager::Localize at init time, maps toast states
+ * to human-readable titles, strips Unity rich text tags from body text, and
+ * delivers Windows toast notifications via WinRT for configured toast types.
+ */
 #include "patches/notification_service.h"
 #include "patches/battle_notify_parser.h"
 
@@ -19,14 +27,18 @@
 #include <winrt/Windows.UI.Notifications.h>
 #endif
 
-// ---------------------------------------------------------------------------
-// IL2CPP method cache
-// ---------------------------------------------------------------------------
+// ─── IL2CPP Method Cache ──────────────────────────────────────────────────────────────
+
+/** Cached LanguageManager::Localize(out string, LocaleTextContext) method pointer. */
 static const MethodInfo* s_localize_ltc = nullptr;
 
-// ---------------------------------------------------------------------------
-// Toast state → human-readable title
-// ---------------------------------------------------------------------------
+// ─── Toast State → Human-Readable Title ───────────────────────────────────────────────
+
+/**
+ * @brief Map a numeric toast state to a notification title string.
+ * @param state The Toast::State enum value.
+ * @return Static title string, or nullptr for unmapped states.
+ */
 static const char* toast_state_title(int state)
 {
   switch (state) {
@@ -73,9 +85,7 @@ static const char* toast_state_title(int state)
   }
 }
 
-// ---------------------------------------------------------------------------
-// Platform notification delivery
-// ---------------------------------------------------------------------------
+// ─── Platform Notification Delivery ──────────────────────────────────────────────────
 #if _WIN32
 static void show_system_notification(const char* title, const char* body)
 {
@@ -99,9 +109,17 @@ static void show_system_notification(const char* title, const char* body)
 }
 #endif
 
-// ---------------------------------------------------------------------------
-// Resolve basic localized text from a Toast's TextLocaleTextContext
-// ---------------------------------------------------------------------------
+// ─── Toast Text Resolution ───────────────────────────────────────────────────────────
+
+/**
+ * @brief Resolve the localized body text from a Toast's TextLocaleTextContext.
+ *
+ * Invokes the cached LanguageManager::Localize method via il2cpp_runtime_invoke
+ * to produce a localized string from the toast's LTC data.
+ *
+ * @param toast The Toast to extract text from.
+ * @return Localized text string, or empty on failure.
+ */
 static std::string resolve_toast_text(Toast* toast)
 {
   if (!s_localize_ltc) return {};
@@ -121,9 +139,11 @@ static std::string resolve_toast_text(Toast* toast)
   return to_string(resolved);
 }
 
-// ---------------------------------------------------------------------------
-// Strip Unity rich text tags (e.g. <color=#FF0000>, <b>, </size>)
-// ---------------------------------------------------------------------------
+/**
+ * @brief Strip Unity rich text tags (e.g. \<color=#FF0000\>, \<b\>, \</size\>).
+ * @param s Input string potentially containing Unity markup.
+ * @return Clean string with all angle-bracket tags removed.
+ */
 static std::string strip_unity_rich_text(const std::string& s)
 {
   std::string result;
@@ -139,9 +159,7 @@ static std::string strip_unity_rich_text(const std::string& s)
   return result;
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
+// ─── Public API ──────────────────────────────────────────────────────────────────────
 
 void notification_init()
 {

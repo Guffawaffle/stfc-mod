@@ -1,5 +1,18 @@
+/**
+ * @file NavigationManager.h
+ * @brief Navigation interaction manager.
+ *
+ * Mirrors Digit.Prime.Navigation.NavigationManager — controls the
+ * visibility of the in-space interaction UI (tap-on-object panels).
+ */
 #pragma once
 
+/**
+ * @brief Manages the navigation interaction UI overlay.
+ *
+ * Provides methods to hide the currently displayed interaction panel
+ * (e.g. the tap-on-fleet or tap-on-station popup).
+ */
 struct NavigationManager {
 public:
   void HideInteraction()

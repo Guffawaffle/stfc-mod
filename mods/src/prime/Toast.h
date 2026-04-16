@@ -1,7 +1,15 @@
+/**
+ * @file Toast.h
+ * @brief Toast notification data and state enumeration.
+ *
+ * Mirrors Digit.Prime.HUD.Toast — the in-game popup notifications for
+ * battles, faction events, armada status, territory capture, etc.
+ */
 #pragma once
 
 #include <il2cpp/il2cpp_helper.h>
 
+/** @brief Identifies the visual style / category of a toast notification. */
 enum ToastState {
   Standard                  = 0,
   FactionWarning            = 1,
@@ -48,6 +56,12 @@ enum ToastState {
   SurgeTimeLeft             = 43,
 };
 
+/**
+ * @brief A single toast notification displayed in the HUD.
+ *
+ * Provides access to the notification's locale text context, attached data
+ * payload, and display state (e.g. victory, defeat, incoming attack).
+ */
 struct Toast {
 public:
   void* get_TextLocaleTextContext()

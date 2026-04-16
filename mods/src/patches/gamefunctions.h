@@ -1,13 +1,26 @@
+/**
+ * @file gamefunctions.h
+ * @brief Enum of all bindable game functions for the keyboard mapping system.
+ *
+ * Each value corresponds to a configurable action that can be bound to one or
+ * more key combinations in the TOML settings file. MapKey maintains an array
+ * of bindings indexed by these values.
+ */
 #pragma once
 
 enum GameFunction {
+  // ─── Navigation ──────────────────────────────────────────────────────────
   MoveLeft,
   MoveRight,
   MoveUp,
   MoveDown,
+
+  // ─── Chat Channel Selection ──────────────────────────────────────────────
   SelectChatAlliance,
   SelectChatGlobal,
   SelectChatPrivate,
+
+  // ─── Ship Selection ──────────────────────────────────────────────────────
   SelectShip1,
   SelectShip2,
   SelectShip3,
@@ -16,7 +29,9 @@ enum GameFunction {
   SelectShip6,
   SelectShip7,
   SelectShip8,
-  SelectCurrent,
+  SelectCurrent,              ///< Re-select the currently active ship.
+
+  // ─── UI Panel Toggles ───────────────────────────────────────────────────
   ShowAlliance,
   ShowAllianceArmada,
   ShowAllianceHelp,
@@ -24,13 +39,13 @@ enum GameFunction {
   ShowOfficers,
   ShowCommander,
   ShowRefinery,
-  ShowQTrials,
+  ShowQTrials,                ///< Q's Trials event panel.
   ShowBookmarks,
-  ShowLookup,
+  ShowLookup,                 ///< System / player search panel.
   ShowExoComp,
   ShowFactions,
   ShowGifts,
-  ShowDaily,
+  ShowDaily,                  ///< Daily goals / login rewards.
   ShowAwayTeam,
   ShowMissions,
   ShowResearch,
@@ -38,14 +53,18 @@ enum GameFunction {
   ShowShips,
   ShowInventory,
   ShowStationInterior,
-  ShoWStationExterior,
-  ShowGalaxy,
-  ShowSystem,
+  ShoWStationExterior,        ///< Note: typo preserved from original enum.
+  ShowGalaxy,                 ///< Switch to galaxy map view.
+  ShowSystem,                 ///< Switch to system view.
+
+  // ─── Chat & Side Panels ─────────────────────────────────────────────────
   ShowChat,
-  ShowChatSide1,
-  ShowChatSide2,
+  ShowChatSide1,              ///< First side-panel chat slot.
+  ShowChatSide2,              ///< Second side-panel chat slot.
   ShowEvents,
   ShowSettings,
+
+  // ─── Zoom ────────────────────────────────────────────────────────────────
   ZoomPreset1,
   ZoomPreset2,
   ZoomPreset3,
@@ -53,43 +72,59 @@ enum GameFunction {
   ZoomPreset5,
   ZoomIn,
   ZoomOut,
-  ZoomMin,
-  ZoomMax,
+  ZoomMin,                    ///< Zoom all the way out.
+  ZoomMax,                    ///< Zoom all the way in.
   ZoomReset,
+
+  // ─── UI Scaling ──────────────────────────────────────────────────────────
   UiScaleUp,
   UiScaleDown,
-  UiViewerScaleUp,
+  UiViewerScaleUp,            ///< Object viewer panel scale.
   UiViewerScaleDown,
-  ActionPrimary,
-  ActionSecondary,
-  ActionQueue,
-  ActionQueueClear,
-  ActionView,
+
+  // ─── Ship Actions ────────────────────────────────────────────────────────
+  ActionPrimary,              ///< Context-dependent primary action (e.g. warp, mine).
+  ActionSecondary,            ///< Context-dependent secondary action.
+  ActionQueue,                ///< Queue the next action.
+  ActionQueueClear,           ///< Clear the entire action queue.
+  ActionView,                 ///< Open the object viewer for the selected target.
   ActionRecall,
   ActionRecallCancel,
   ActionRepair,
+
+  // ─── Zoom Preset Assignment ──────────────────────────────────────────────
   SetZoomPreset1,
   SetZoomPreset2,
   SetZoomPreset3,
   SetZoomPreset4,
   SetZoomPreset5,
   SetZoomDefault,
-  DisableHotKeys,
-  EnableHotKeys,
-  ToggleQueue,
-  TogglePreviewLocate,
-  TogglePreviewRecall,
+
+  // ─── Hotkey System Control ───────────────────────────────────────────────
+  DisableHotKeys,             ///< Temporarily disable all keyboard shortcuts.
+  EnableHotKeys,              ///< Re-enable keyboard shortcuts.
+
+  // ─── Toggles ─────────────────────────────────────────────────────────────
+  ToggleQueue,                ///< Toggle action queue display.
+  TogglePreviewLocate,        ///< Toggle locate preview on map.
+  TogglePreviewRecall,        ///< Toggle recall preview on map.
+
+  // ─── Cargo Filter Toggles ───────────────────────────────────────────────
   ToggleCargoDefault,
   ToggleCargoPlayer,
   ToggleCargoStation,
   ToggleCargoHostile,
   ToggleCargoArmada,
+
+  // ─── Log Level ───────────────────────────────────────────────────────────
   LogLevelDebug,
   LogLevelInfo,
   LogLevelTrace,
   LogLevelError,
   LogLevelWarn,
   LogLevelOff,
+
+  // ─── Application ─────────────────────────────────────────────────────────
   Quit,
 
   // Automatic max value

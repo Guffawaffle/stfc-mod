@@ -1,3 +1,12 @@
+# @file ci.yaml
+# @brief CI build workflow — compiles the community patch on Windows and macOS.
+#
+# Triggers on every push and on PRs targeting main/dev.  Builds release
+# artifacts for both platforms using xmake, creates a universal macOS app
+# bundle (arm64 + x86_64 via lipo), ad-hoc signs it, and packages a .dmg
+# installer.  Uploads version.dll (Windows) and the .dmg (macOS) as
+# build artifacts.
+
 name: Build
 
 on:

@@ -1,3 +1,23 @@
+/**
+ * @file zoom.cc
+ * @brief Camera zoom controls — presets, keyboard zoom, and far-clip extension.
+ *
+ * Hooks NavigationZoom methods to provide:
+ *  - Five user-assignable zoom presets (store/recall via hotkeys)
+ *  - Smooth keyboard-driven zoom in/out with configurable speed
+ *  - Extended maximum zoom range (controlled by Config::Get().zoom)
+ *  - Automatic far-clip plane adjustment so distant objects remain visible
+ *  - Optional "use preset as default" behavior
+ *
+ * Config keys:
+ *  - zoom:                   maximum zoom distance
+ *  - keyboard_zoom_speed:    zoom delta per second for keyboard zoom
+ *  - system_zoom_preset_1–5: stored zoom preset values
+ *  - default_system_zoom:    zoom level applied on system entry / reset
+ *  - hotkeys_extended:       enables ZoomReset / ZoomMin / ZoomMax keys
+ *  - use_presets_as_default: automatically updates default zoom after preset recall
+ */
+
 #include "config.h"
 #include "errormsg.h"
 
@@ -11,6 +31,9 @@
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+/** @brief Calls IL2CPP MathUtils::GetMouseWorldPos to project screen coords to world space. */
 vec3 GetMouseWorldPos(void *cam, vec3 *pos)
 {
   static auto class_helper = il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.Client.Core", "MathUtils");
@@ -22,8 +45,18 @@ vec3 GetMouseWorldPos(void *cam, vec3 *pos)
   return *(vec3 *)(il2cpp_object_unbox(result));
 }
 
+/// Flag set by depth/view hooks to trigger a zoom-to-default on the next Update.
 auto do_default_zoom = false;
 
+/**
+ * @brief Saves the current zoom distance as a named preset.
+ * @param label  Human-readable preset name (for log output).
+ * @param zoom   Reference to the config preset slot to update.
+ * @param _this  NavigationZoom instance to read current distance from.
+ *
+ * Normalizes distance into a [0, Config::zoom] range for portability across
+ * systems with different _minimum/_maximum values.
+ */
 inline void StoreZoom(std::string label, float &zoom, NavigationZoom *_this)
 {
   auto old_zoom = zoom;
@@ -31,6 +64,20 @@ inline void StoreZoom(std::string label, float &zoom, NavigationZoom *_this)
   spdlog::info("Changing {} from {} to {}", label, old_zoom, zoom);
 }
 
+// ─── Main Zoom Hook ─────────────────────────────────────────────────────────
+
+/**
+ * @brief Hook: NavigationZoom::Update
+ *
+ * Intercepts the per-frame zoom update to process keyboard-driven zoom
+ * inputs (presets, smooth zoom in/out, reset, min/max).
+ * Original method: updates camera zoom from touch/pinch input.
+ * Our modification: reads MapKey state each frame; for preset keys it
+ *                   stores or recalls a preset; for zoom keys it computes
+ *                   a per-frame delta (or absolute target) and calls
+ *                   ZoomCameraAtWorldPoint() to apply the zoom anchored
+ *                   at the mouse position.
+ */
 void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
 {
   static auto GetMousePosition =
@@ -132,6 +179,15 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
   original(_this);
 }
 
+// ─── View Parameter / Depth Hooks ──────────────────────────────────────────
+
+/**
+ * @brief Hook: NavigationZoom::SetViewParameters
+ *
+ * Intercepts system-view setup to extend the zoom range and far-clip plane
+ * proportionally to Config::zoom / radius. Only modifies SolarSystem depth;
+ * galaxy/sector views pass through unmodified.
+ */
 void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom *_this, float radius, NodeDepth depth)
 {
   if (depth == NodeDepth::SolarSystem) {
@@ -146,6 +202,13 @@ void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom *_this,
   }
 }
 
+/**
+ * @brief Hook: NavigationZoom::ApplyRangeChanges
+ *
+ * Same far-ratio / far-clip extension as SetViewParameters, but triggered
+ * when the game recalculates range after a dynamic change.
+ * Currently commented out in hook installation (kept for reference).
+ */
 void NavigationZoom_ApplyRangeChanges_Hook(auto original, NavigationZoom *_this)
 {
   if (_this->_depth == NodeDepth::SolarSystem) {
@@ -160,6 +223,13 @@ void NavigationZoom_ApplyRangeChanges_Hook(auto original, NavigationZoom *_this)
   }
 }
 
+/**
+ * @brief Hook: NavigationZoom::SetDepth
+ *
+ * Intercepts depth transitions to adjust far-ratio and far-clip for the
+ * solar-system view. Sets do_default_zoom so the next Update applies the
+ * user's default zoom level upon entering a system.
+ */
 void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom *_this, NodeDepth depth)
 {
   if (depth == NodeDepth::SolarSystem) {
@@ -175,6 +245,13 @@ void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom *_this, NodeDept
   }
 }
 
+/**
+ * @brief Hook: NavigationCamera::SetSystemViewSizeData
+ *
+ * Alternative entry point for system-view setup (accesses NavigationZoom
+ * at a fixed offset from the NavigationCamera pointer).
+ * Currently commented out in hook installation.
+ */
 void NavigationCamera_SetSystemViewSizeData_Hook(auto original, uint8_t *_this_cam, float radius, Vector3 *systemPos,
                                                  NodeDepth depth)
 {
@@ -191,6 +268,9 @@ void NavigationCamera_SetSystemViewSizeData_Hook(auto original, uint8_t *_this_c
   }
 }
 
+// ─── Hook Installation ──────────────────────────────────────────────────────
+
+/** @brief Resolves NavigationZoom IL2CPP methods and installs all zoom hooks. */
 void InstallZoomHooks()
 {
   auto screen_manager_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "NavigationZoom");

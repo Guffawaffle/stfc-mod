@@ -1,3 +1,11 @@
+/**
+ * @file FleetsManager.h
+ * @brief Fleet management singleton.
+ *
+ * Mirrors Digit.Prime.FleetManagement.FleetsManager — handles fleet
+ * operations such as viewing, recalling, towing, and accessing per-fleet
+ * player data. Includes a nested IEnumerator_Tow coroutine wrapper.
+ */
 #pragma once
 
 #include "CallbackContainer.h"
@@ -10,6 +18,13 @@
 
 #include <il2cpp/il2cpp_helper.h>
 
+/**
+ * @brief Singleton that manages all fleet operations for the local player.
+ *
+ * Provides methods for viewing, recalling, and towing fleets, as well as
+ * querying per-fleet data. The target fleet (e.g. the one being viewed in
+ * a combat report) is accessible via the targetFleetData property.
+ */
 struct FleetsManager : MonoSingleton<FleetsManager> {
   friend struct MonoSingleton<FleetsManager>;
 

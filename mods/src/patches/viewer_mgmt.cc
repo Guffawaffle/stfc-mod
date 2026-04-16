@@ -1,3 +1,12 @@
+/**
+ * @file viewer_mgmt.cc
+ * @brief Object viewer visibility management and rewards panel toggling.
+ *
+ * Manages the lifecycle of object viewer overlays (alliance starbase, armada,
+ * celestial, embassy, housing, mining, missions, pre-scan target). Provides
+ * Escape-to-dismiss, rewards screen dismissal, and the multi-frame
+ * cargo/rewards info panel toggle (ActionView key).
+ */
 #include "errormsg.h"
 #include "config.h"
 
@@ -16,11 +25,10 @@
 
 #include "prime/AnimatedRewardsScreenViewController.h"
 
+/** Frame counter for multi-frame info panel display. */
 static int show_info_pending = 0;
 
-// ---------------------------------------------------------------------------
-// CanHideViewers / DidHideViewers
-// ---------------------------------------------------------------------------
+// ─── Viewer Visibility Queries & Hide ───────────────────────────────────────────────
 
 // NOTE: If you change this loop functionality, also change DoHideViewersOfType template
 template <typename T>
@@ -81,9 +89,7 @@ bool DidHideViewers()
          || DidHideViewersOfType<HousingObjectViewerWidget>();
 }
 
-// ---------------------------------------------------------------------------
-// Rewards screen dismiss
-// ---------------------------------------------------------------------------
+// ─── Rewards Screen Dismiss ──────────────────────────────────────────────────────────
 
 bool TryDismissRewardsScreen()
 {
@@ -96,9 +102,7 @@ bool TryDismissRewardsScreen()
   return false;
 }
 
-// ---------------------------------------------------------------------------
-// ActionView / info pending
-// ---------------------------------------------------------------------------
+// ─── ActionView / Info Pending ────────────────────────────────────────────────────────
 
 void HandleActionView()
 {

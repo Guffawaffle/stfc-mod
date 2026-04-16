@@ -1,3 +1,12 @@
+/**
+ * @file improve_responsiveness.cc
+ * @brief Reduces screen-transition blur duration for snappier UI.
+ *
+ * The game plays a blur animation during scene transitions (e.g. opening menus).
+ * The default duration feels sluggish. This patch overrides the blur time in
+ * TransitionManager::Awake with a user-configurable value, clamped to a safe
+ * range to avoid visual glitches.
+ */
 #include "config.h"
 #include "errormsg.h"
 #include "prime/TransitionManager.h"
@@ -7,6 +16,14 @@
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
+/**
+ * @brief Hook: TransitionManager::Awake
+ *
+ * Intercepts transition manager initialization to override blur duration.
+ * Original method: initializes the TransitionManager and its blur controller.
+ * Our modification: after calling original, overwrites _blurTime with the
+ *   user's configured transition_time (clamped to [0.02, 1.0] seconds).
+ */
 int64_t TransitionManager_Awake(auto original, TransitionManager* a1)
 {
   spdlog::debug("Adjusting screen transitions to {}", Config::Get().transition_time);
@@ -15,11 +32,25 @@ int64_t TransitionManager_Awake(auto original, TransitionManager* a1)
   return r;
 }
 
+/**
+ * @brief Hook: TransitionManager::OnEnable
+ *
+ * Intercepts OnEnable to suppress additional transition re-init.
+ * Original method: performs setup when the TransitionManager becomes active.
+ * Our modification: returns immediately (no-op) to prevent the manager from
+ *   resetting blur state after Awake already configured it.
+ */
 int64_t TransitionManager_OnEnable(auto original, TransitionManager* a1)
 {
   return 0;
 }
 
+/**
+ * @brief Installs the screen-transition speed hook.
+ *
+ * Hooks TransitionManager::Awake to apply the user's transition_time setting.
+ * Note: OnEnable hook is defined but not installed here (unused).
+ */
 void InstallImproveResponsivenessHooks()
 {
   auto transition_manager_helper =

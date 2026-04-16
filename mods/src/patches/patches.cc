@@ -1,3 +1,15 @@
+/**
+ * @file patches.cc
+ * @brief Patch system coordinator — bootstraps logging, config, and all hook modules.
+ *
+ * This is the top-level orchestrator for the community patch. It detours the game's
+ * il2cpp_init entry point so that, once the IL2CPP runtime is initialized, we can:
+ *   1. Set up file paths and logging (spdlog).
+ *   2. Load user configuration (Config::Get()).
+ *   3. Iterate a table of patch modules, installing each one whose config flag is enabled.
+ *
+ * Each patch module is a self-contained Install*Hooks() function defined in parts/.
+ */
 #include "patches.h"
 #include "file.h"
 #include "version.h"
@@ -18,6 +30,8 @@
 #include <mach-o/dyld.h>
 #endif
 
+// ─── Forward Declarations — per-module install functions ─────────────────────
+
 void InstallUiScaleHooks();
 void InstallZoomHooks();
 void InstallBuffFixHooks();
@@ -36,6 +50,16 @@ void InstallTempCrashFixes();
 void InstallSyncPatches();
 void InstallObjectTrackers();
 
+/**
+ * @brief Hook: il2cpp_init
+ *
+ * Intercepts the IL2CPP runtime initialization to inject all community patches.
+ * Original method: initializes the IL2CPP virtual machine for the given domain.
+ * Our modification: after calling the original, sets up logging and config, then
+ *   iterates a table of PatchEntry structs. Each entry pairs an Install*Hooks()
+ *   function with a config boolean; only enabled patches are installed. This is
+ *   the single entry point for all mod functionality.
+ */
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
 {
   struct PatchEntry {
@@ -153,6 +177,16 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   return r;
 }
 
+// ─── Patch Entry Point ───────────────────────────────────────────────────────
+
+/**
+ * @brief Loads GameAssembly and detours il2cpp_init.
+ *
+ * Platform-specific: on Windows loads GameAssembly.dll via LoadLibrary;
+ * on macOS loads GameAssembly.dylib via dlopen relative to the executable.
+ * Once loaded, resolves the il2cpp_init export and installs the main hook
+ * (il2cpp_init_hook) which in turn bootstraps all patch modules.
+ */
 void ApplyPatches()
 {
 #if _WIN32

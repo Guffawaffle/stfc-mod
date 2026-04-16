@@ -1,3 +1,7 @@
+/**
+ * @file modifierkey.cc
+ * @brief Implementation of modifier key grouping and press detection.
+ */
 #include "config.h"
 #include "str_utils.h"
 #include "key.h"
@@ -19,6 +23,8 @@ ModifierKey::ModifierKey()
 {
   this->hasModifier = false;
 }
+
+// ─── Parsing ─────────────────────────────────────────────────────────────────
 
 ModifierKey ModifierKey::Parse(std::string_view key)
 {
@@ -52,6 +58,8 @@ ModifierKey ModifierKey::Parse(std::string_view key)
   return modifierKey;
 }
 
+// ─── Membership & Registration ───────────────────────────────────────────────
+
 bool ModifierKey::Contains(KeyCode modifier)
 {
   if (this->hasModifier) {
@@ -75,6 +83,8 @@ void ModifierKey::AddModifier(std::string_view shortcut, KeyCode modifier1, KeyC
     this->Shortcuts.emplace_back(shortcut);
   }
 }
+
+// ─── Press Detection ────────────────────────────────────────────────────────
 
 bool ModifierKey::IsPressed()
 {

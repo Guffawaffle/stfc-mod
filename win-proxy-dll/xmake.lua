@@ -1,3 +1,10 @@
+-- @file xmake.lua
+-- @brief Build target for the Windows version.dll proxy (shared library).
+--
+-- Produces stfc-community-patch.dll, which is deployed as version.dll beside
+-- the game executable.  Links the "mods" static library and exports the real
+-- version.dll symbols via version.def so the game's import table is satisfied.
+
 target("stfc-community-patch")
 do
     set_kind("shared")

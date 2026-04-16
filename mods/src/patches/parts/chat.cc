@@ -1,3 +1,18 @@
+/**
+ * @file chat.cc
+ * @brief Chat UI patches — disables galaxy and/or veil chat channels.
+ *
+ * The game has multiple chat channels (Cadet, Galaxy, Veil/Regional, Alliance).
+ * This patch lets users disable Galaxy and/or Veil chat by:
+ *   - Greying out the corresponding tab buttons in full-screen chat.
+ *   - Blocking tab selection for disabled channels.
+ *   - Redirecting the chat preview panel to Alliance chat.
+ *   - Suppressing incoming message callbacks for disabled channels.
+ *
+ * Tab indices are dynamic because Cadet and Veil tabs may or may not exist
+ * depending on the player's account state, so GetChatTabIndices() computes
+ * them at runtime.
+ */
 #include "prime/ChatPreviewController.h"
 #include "prime/FullScreenChatViewController.h"
 #include "prime/GenericButtonContext.h"
@@ -8,6 +23,10 @@
 #include <spud/detour.h>
 #include <tuple>
 
+/**
+ * @brief Computes dynamic chat tab indices based on the player's visible channels.
+ * @return Tuple of (cadetIdx, galaxyIdx, veilIdx, allianceIdx); -1 means absent.
+ */
 auto GetChatTabIndices()
 {
   if (const auto chat_manager = ChatManager::Instance(); chat_manager) {
@@ -24,6 +43,7 @@ auto GetChatTabIndices()
   return std::make_tuple(-1, 0, -1, 1);
 }
 
+/// Disables interactability on tab buttons for channels the user has turned off.
 void DisableButtons(FullScreenChatViewController* _this)
 {
   const auto disableGalaxyChat = Config::Get().disable_galaxy_chat;
@@ -68,12 +88,27 @@ void DisableButtons(FullScreenChatViewController* _this)
   }
 }
 
+/**
+ * @brief Hook: FullScreenChatViewController::AboutToShow
+ *
+ * Intercepts the full-screen chat open to disable tab buttons.
+ * Original method: prepares the chat UI for display.
+ * Our modification: after calling original, greys out Galaxy/Veil tabs.
+ */
 void FullScreenChatViewController_AboutToShow(auto original, FullScreenChatViewController* _this)
 {
   original(_this);
   DisableButtons(_this);
 }
 
+/**
+ * @brief Hook: FullScreenChatViewController::OnDidChangeSelectedTab
+ *
+ * Intercepts tab selection to block switching to disabled channels.
+ * Original method: switches the chat view to the selected tab.
+ * Our modification: if the selected tab is a disabled channel, silently
+ *   drops the event so the user stays on the previous tab.
+ */
 void FullScreenChatViewController_OnDidChangeSelectedTab(auto original, FullScreenChatViewController* _this, int32_t tabIdx, void* tab)
 {
   const auto [cadetChatIdx, galaxyChatIdx, veilChatIdx, allianceChatIdx] = GetChatTabIndices();
@@ -85,6 +120,14 @@ void FullScreenChatViewController_OnDidChangeSelectedTab(auto original, FullScre
   original(_this, tabIdx, tab);
 }
 
+/**
+ * @brief Hook: ChatPreviewController::AboutToShow
+ *
+ * Intercepts the chat preview panel open to redirect away from disabled channels.
+ * Original method: initializes the chat preview and shows the default channel.
+ * Our modification: forces focus to Alliance chat when Galaxy/Veil is disabled,
+ *   using FocusOnInstantly to snap without animation.
+ */
 void ChatPreviewController_AboutToShow(auto original, ChatPreviewController* _this)
 {
   original(_this);
@@ -99,6 +142,14 @@ void ChatPreviewController_AboutToShow(auto original, ChatPreviewController* _th
   }
 }
 
+/**
+ * @brief Hook: ChatPreviewController::OnPanelFocused
+ *
+ * Intercepts panel-focus events to prevent swiping to disabled channels.
+ * Original method: handles a swipe/focus change to a new chat panel.
+ * Our modification: redirects focus to Alliance chat if the target panel
+ *   is a disabled channel, snapping the scroller instantly.
+ */
 void ChatPreviewController_OnPanelFocused(auto original, ChatPreviewController* _this, int32_t index)
 {
   static const auto disableGalaxyChat = Config::Get().disable_galaxy_chat;
@@ -124,6 +175,13 @@ void ChatPreviewController_OnPanelFocused(auto original, ChatPreviewController* 
   original(_this, index);
 }
 
+/**
+ * @brief Hook: ChatPreviewController::OnGlobalMessageReceived
+ *
+ * Suppresses Galaxy chat message callbacks when Galaxy chat is disabled.
+ * Original method: processes an incoming Galaxy (global) chat message.
+ * Our modification: returns immediately if disable_galaxy_chat is set.
+ */
 void ChatPreviewController_OnGlobalMessageReceived(auto original, ChatPreviewController* _this, void* message)
 {
   if (Config::Get().disable_galaxy_chat)
@@ -132,6 +190,13 @@ void ChatPreviewController_OnGlobalMessageReceived(auto original, ChatPreviewCon
   original(_this, message);
 }
 
+/**
+ * @brief Hook: ChatPreviewController::OnRegionalMessageReceived
+ *
+ * Suppresses Veil chat message callbacks when Veil chat is disabled.
+ * Original method: processes an incoming Veil (regional) chat message.
+ * Our modification: returns immediately if disable_veil_chat is set.
+ */
 void ChatPreviewController_OnRegionalMessageReceived(auto original, ChatPreviewController* _this, void* message)
 {
   if (Config::Get().disable_veil_chat)
@@ -140,6 +205,16 @@ void ChatPreviewController_OnRegionalMessageReceived(auto original, ChatPreviewC
   original(_this, message);
 }
 
+// ─── Hook Installation ─────────────────────────────────────────────────────────
+
+/**
+ * @brief Installs all chat-related hooks.
+ *
+ * Hooks two controllers:
+ *   - FullScreenChatViewController: AboutToShow (disable tabs), OnDidChangeSelectedTab (block selection)
+ *   - ChatPreviewController: AboutToShow (redirect focus), OnPanelFocused (block swipe),
+ *     OnGlobalMessageReceived (suppress Galaxy), OnRegionalMessageReceived (suppress Veil)
+ */
 void InstallChatPatches()
 {
   if (auto fullscreen_controller =

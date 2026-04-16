@@ -1,3 +1,11 @@
+/**
+ * @file config.cc
+ * @brief Configuration loading, saving, and migration for the Community Mod.
+ *
+ * Parses community_patch_settings.toml via toml++, applies DefaultConfig
+ * fallbacks for every key, writes a merged "runtime vars" snapshot, handles
+ * macOS config-path migration, and converts legacy sync options.
+ */
 #include "config.h"
 #include "file.h"
 #include "patches/mapkey.h"
@@ -30,11 +38,15 @@ namespace DCSH = DefaultConfig::Shortcuts;
 // See: fix/lto-and-sync-crashes for context on why Config struct changes crash.
 static bool g_allow_key_fallthrough = false;
 
+/** @brief Accessor for the file-scope allow_key_fallthrough flag. */
 bool AllowKeyFallthrough()
 {
   return g_allow_key_fallthrough;
 }
 
+/// Human-readable names → ToastState enum values.
+/// Used to map comma-separated strings from the TOML config into the
+/// disabled_banner_types / notify_banner_types integer vectors.
 static const eastl::tuple<const char*, int> bannerTypes[] = {
     {"Standard", ToastState::Standard},
     {"FactionWarning", ToastState::FactionWarning},
@@ -238,6 +250,10 @@ void Config::AdjustUiViewerScale(bool scaleUp)
   }
 }
 
+/**
+ * @brief Mask the middle portion of a bearer token for safe logging.
+ * @return The token with interior characters replaced by '*' (preserving dashes).
+ */
 inline std::string mask_token(const std::string& token)
 {
   if (token.size() > 21) {
@@ -253,6 +269,7 @@ inline std::string mask_token(const std::string& token)
   }
 }
 
+/** @brief Convert a toml::node_type to a human-readable string for diagnostics. */
 std::string get_config_type_as_string(const toml::node_type type)
 {
   switch (type) {
@@ -281,6 +298,21 @@ std::string get_config_type_as_string(const toml::node_type type)
   return "The node type is unknown";
 }
 
+/**
+ * @brief Read a single config value from the parsed TOML, falling back to default.
+ *
+ * Also writes the resolved value into @p new_config so the merged "runtime vars"
+ * snapshot reflects what the mod is actually using.
+ *
+ * @tparam T        Expected value type (bool, int, float, std::string, etc.).
+ * @param config     The user-parsed toml::table.
+ * @param new_config The output table that accumulates resolved values.
+ * @param section    TOML section name (e.g. "graphics").
+ * @param item       Key within the section (e.g. "ui_scale").
+ * @param default_value  Fallback if the key is missing or invalid.
+ * @param write_log  Whether to log the resolved value at debug level.
+ * @return The resolved value.
+ */
 template <typename T>
 T get_config_or_default(toml::table& config, toml::table& new_config, std::string_view section, std::string_view item,
                         T default_value, bool write_log)
@@ -308,6 +340,12 @@ T get_config_or_default(toml::table& config, toml::table& new_config, std::strin
   return (T)final_value;
 }
 
+/**
+ * @brief Parse all [sync.targets.<name>] tables and populate the targets map.
+ *
+ * Each target inherits the top-level [sync] defaults for any per-category
+ * toggle not explicitly overridden.
+ */
 void read_sync_targets(toml::table& config, toml::table& new_config,
                        std::map<std::string, SyncTargetConfig>& sync_targets, const SyncConfig& defaults)
 {
@@ -369,6 +407,12 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
   }
 }
 
+/**
+ * @brief Parse a single shortcut config entry and register it with MapKey.
+ *
+ * Supports pipe-delimited multi-bind strings (e.g. "SPACE|MOUSE1").
+ * "NONE" explicitly unbinds the shortcut.
+ */
 void parse_config_shortcut(toml::table& config, toml::table& new_config, std::string_view item,
                            GameFunction gameFunction, std::string_view default_value)
 {
@@ -414,6 +458,12 @@ void parse_config_shortcut(toml::table& config, toml::table& new_config, std::st
   spdlog::debug("shortcut value {}.{} value: {}", section, item, shortcut);
 }
 
+/**
+ * @brief Migrate macOS config from the old bundle-id directory to the new one.
+ *
+ * Moves ~/Library/Preferences/com.tashcan.startrekpatch/ to
+ * com.stfcmod.startrekpatch/ and leaves a symlink + info file at the old location.
+ */
 void migrate_mac_config_if_needed(const char* filename)
 {
 #if !_WIN32
@@ -462,6 +512,7 @@ void migrate_mac_config_if_needed(const char* filename)
 #endif
 }
 
+/** @brief Remove the old misspelled vars file (community_path_runtime.vars). */
 void delete_old_vars()
 {
   namespace fs = std::filesystem;

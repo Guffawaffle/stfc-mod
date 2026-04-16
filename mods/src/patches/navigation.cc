@@ -1,3 +1,10 @@
+/**
+ * @file navigation.cc
+ * @brief Section navigation helpers for hotkey-driven screen transitions.
+ *
+ * Wraps Hub::get_SectionManager() and NavigationSectionManager to provide
+ * simple section-change functions used by the dispatch table handlers.
+ */
 #include "errormsg.h"
 #include "config.h"
 

@@ -1,3 +1,13 @@
+/**
+ * @file il2cpp-functions.cc
+ * @brief Runtime resolution of IL2CPP API function pointers.
+ *
+ * On macOS, defines the storage for every IL2CPP function pointer (via the
+ * same X-macro pattern used in il2cpp-functions.h) and resolves them at
+ * runtime by dlopen()ing GameAssembly.dylib. On Windows the entire file
+ * compiles to a no-op because GameAssembly.lib provides the symbols at link
+ * time.
+ */
 #include "il2cpp-functions.h"
 
 #include <cstdio>
@@ -11,6 +21,7 @@
 #if defined(__cplusplus)
 extern "C" {
 #endif // __cplusplus
+// Define the actual function-pointer variables (one per IL2CPP API function).
 #define DO_API(r, n, p) n##_t n;
 #define DO_API_NO_RETURN(r, n, p) DO_API(r, n, p)
 #include "il2cpp-api-functions.h"

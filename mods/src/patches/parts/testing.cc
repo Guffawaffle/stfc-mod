@@ -1,3 +1,15 @@
+/**
+ * @file testing.cc
+ * @brief Development and testing hooks.
+ *
+ * Contains hooks primarily used during mod development and testing:
+ *   - Cursor override: replaces Unity's custom cursor with the OS default arrow.
+ *   - Config URL override: injects custom platform settings and asset URLs.
+ *   - SetActive deduplication: guards against redundant GameObject activation calls.
+ *   - Action queue toggle: allows disabling the game's action queue feature.
+ *
+ * These patches are gated behind the installTestPatches config flag.
+ */
 #include "config.h"
 #include "errormsg.h"
 
@@ -25,6 +37,9 @@
 #include <spud/detour.h>
 #include <spud/signature.h>
 
+// ─── IL2CPP Wrapper Classes ──────────────────────────────────────────────────
+
+/// Wrapper for Digit.Client.Core.AppConfig — exposes platform URL properties.
 class AppConfig
 {
 public:
@@ -78,6 +93,7 @@ public:
   }
 };
 
+/// Wrapper for Digit.Client.Core.Model — provides access to AppConfig.
 class Model
 {
 public:
@@ -98,6 +114,16 @@ public:
   }
 };
 
+// ─── Hook Functions ──────────────────────────────────────────────────────────
+
+/**
+ * @brief Hook: UnityEngine.Cursor::SetCursor_Injected
+ *
+ * Intercepts cursor rendering to force the OS default arrow.
+ * Original method: sets a custom cursor texture, hotspot, and mode.
+ * Our modification: when allow_cursor is false (Windows only), replaces the
+ *   cursor with IDC_ARROW and releases any Unity cursor clipping.
+ */
 void Cursor_SetCursor(auto original, void* _this, ptrdiff_t texture, Vector2* hotspot, int cursorMode)
 {
 #if _WIN32
@@ -111,6 +137,14 @@ void Cursor_SetCursor(auto original, void* _this, ptrdiff_t texture, Vector2* ho
   return original(_this, texture, hotspot, cursorMode);
 }
 
+/**
+ * @brief Hook: Model::LoadConfigs
+ *
+ * Intercepts app config loading to inject custom platform/asset URLs.
+ * Original method: reads and returns the game's AppConfig.
+ * Our modification: after calling original, overwrites PlatformSettingsUrl
+ *   and/or AssetUrlOverride if the user has configured custom values.
+ */
 AppConfig* Model_LoadConfigs(auto original, Model* _this)
 {
   original(_this);
@@ -129,6 +163,14 @@ AppConfig* Model_LoadConfigs(auto original, Model* _this)
   return config;
 }
 
+/**
+ * @brief Hook: UnityEngine.GameObject::SetActive
+ *
+ * Guards against redundant activation calls that can cause issues.
+ * Original method: activates or deactivates a GameObject.
+ * Our modification: skips the call if the object is already in the
+ *   requested active state (avoids re-triggering OnEnable cascades).
+ */
 void SetActive_hook(auto original, void* _this, bool active)
 {
   static auto IsActiveSelf = il2cpp_resolve_icall_typed<bool(void*)>("UnityEngine.GameObject::get_activeSelf()");
@@ -140,6 +182,14 @@ void SetActive_hook(auto original, void* _this, bool active)
   return original(_this, active);
 }
 
+/**
+ * @brief Hook: ActionQueueManager::IsQueueUnlocked
+ *
+ * Allows disabling the action queue feature entirely.
+ * Original method: returns whether the action queue is unlocked for the player.
+ * Our modification: returns false when queue_enabled config is off,
+ *   effectively hiding the queue UI.
+ */
 bool IsQueueEnabled(auto original, void* _this)
 {
   if (Config::Get().queue_enabled) {
@@ -149,6 +199,17 @@ bool IsQueueEnabled(auto original, void* _this)
   return false;
 }
 
+// ─── Hook Installation ───────────────────────────────────────────────────────
+
+/**
+ * @brief Installs development/testing hooks.
+ *
+ * Hooks:
+ *   - Cursor::SetCursor_Injected (cursor override)
+ *   - Model::LoadConfigs (config URL injection)
+ *   - GameObject::SetActive (activation dedup guard)
+ *   - ActionQueueManager::IsQueueUnlocked (queue toggle)
+ */
 void InstallTestPatches()
 {
   auto cursorManager = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Cursor");

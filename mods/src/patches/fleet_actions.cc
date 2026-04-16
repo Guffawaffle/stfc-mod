@@ -1,3 +1,12 @@
+/**
+ * @file fleet_actions.cc
+ * @brief Ship selection, space actions, and fleet command execution.
+ *
+ * Implements the core fleet interaction logic: number-key ship selection with
+ * double-tap-to-locate, Shift+number tow-to-Discovery, and the contextual
+ * space action system that inspects visible object viewers to determine the
+ * correct action (engage, scan, mine, warp, join armada, queue, recall, repair).
+ */
 #include "errormsg.h"
 #include "config.h"
 
@@ -26,10 +35,12 @@
 #include <chrono>
 #include <span>
 
-// Shared state — written by ExecuteSpaceAction, read by router
+// ─── Ship Selection ───────────────────────────────────────────────────────────────────
+
+/** When true, the next frame will re-attempt the primary space action. */
 bool force_space_action_next_frame = false;
 
-// Ship selection double-tap timer
+/** Double-tap detection timer for ship selection. */
 static std::chrono::time_point<std::chrono::steady_clock> select_clock = std::chrono::steady_clock::now();
 
 // Returns true if the hook should return early (skip original)
@@ -88,12 +99,21 @@ bool HandleShipSelection(int ship_select_request)
   return false;
 }
 
-// ---------------------------------------------------------------------------
-// Fleet action helpers
-// ---------------------------------------------------------------------------
+// ─── Fleet Action Helpers ─────────────────────────────────────────────────────────────
 
 #define FleetAction_Format "Fleet {} ({}) #{} - State: {}, previous {} - canAction {}, canState {} - didAction: {}"
 
+/**
+ * @brief Generic fleet action executor — checks fleet state and requests an action.
+ *
+ * @tparam T Unused (originally intended for requirement checking; kept for signature compat).
+ * @param actionText Human-readable action name for trace logging.
+ * @param actionType The ActionType enum value to request.
+ * @param fleet_bar The active FleetBarViewController.
+ * @param wantedStates States in which the action is valid.
+ * @param helpState If set and fleet enters this state, re-request with AskHelp behavior.
+ * @return true if the action was successfully requested.
+ */
 template <typename T>
 inline bool DidExecuteFleetAction(std::string_view actionText, ActionType actionType, FleetBarViewController* fleet_bar,
                                   const std::span<const FleetState> wantedStates,
@@ -151,6 +171,8 @@ bool DidExecuteRepair(FleetBarViewController* fleet_bar)
   return DidExecuteFleetAction<CanRepairRequirement>("Repair", ActionType::Repair, fleet_bar, states,
                                                      FleetState::Repairing);
 }
+
+// ─── Space Action Execution ───────────────────────────────────────────────────────────
 
 void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
 {
@@ -320,6 +342,8 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
     }
   }
 }
+
+// ─── Hull Type Resolution ─────────────────────────────────────────────────────────────
 
 HullType GetHullTypeFromBattleTarget(BattleTargetData* context)
 {

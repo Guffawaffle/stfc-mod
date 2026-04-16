@@ -1,3 +1,13 @@
+/**
+ * @file str_utils.h
+ * @brief String utilities: whitespace stripping, case conversion, splitting,
+ *        and cross-platform IL2CPP string conversion.
+ *
+ * Provides helpers to convert between IL2CPP's Il2CppString (UTF-16 on
+ * Windows, UTF-32 on macOS/Linux), std::wstring, and std::string (UTF-8).
+ * Uses simdutf for fast SIMD-accelerated encoding conversion on non-Windows
+ * platforms; on Windows, delegates to WinRT / WideCharToMultiByte.
+ */
 #pragma once
 
 #include <algorithm>
@@ -12,6 +22,7 @@
 #include <winrt/base.h>
 #endif
 
+/** @brief Fast ASCII-only whitespace check (avoids locale-dependent UB on signed char). */
 inline bool ascii_isspace(unsigned char c)
 {
   return std::isspace(static_cast<unsigned char>(c));
@@ -41,6 +52,10 @@ constexpr std::string AsciiStrToUpper(const std::string_view s)
   return str;
 }
 
+/**
+ * @brief Split @p input on @p delimiter, trimming trailing whitespace from the last element.
+ * @note Empty segments between consecutive delimiters are skipped.
+ */
 constexpr std::vector<std::string> StrSplit(const std::string& input, const char delimiter)
 {
   std::vector<std::string> result;
@@ -67,6 +82,11 @@ constexpr std::vector<std::string> StrSplit(const std::string& input, const char
   return result;
 }
 
+// ─── IL2CPP / Platform String Conversions ───────────────────────────────────────
+// IL2CPP: wchar_t is UTF-16 on Windows, UTF-32 on macOS/Linux.
+// These overloads abstract that difference using simdutf on non-Windows.
+
+/** @brief Convert a UTF-8 std::string to std::wstring (platform-aware encoding). */
 inline std::wstring to_wstring(const std::string& str)
 {
 #if _WIN32
@@ -79,6 +99,7 @@ inline std::wstring to_wstring(const std::string& str)
 #endif
 }
 
+/** @brief Convert an IL2CPP string to std::wstring. */
 inline std::wstring to_wstring(Il2CppString* str)
 {
 #if _WIN32
@@ -91,6 +112,7 @@ inline std::wstring to_wstring(Il2CppString* str)
 #endif
 }
 
+/** @brief Convert std::wstring to UTF-8 std::string. */
 inline std::string to_string(const std::wstring& str)
 {
 #if _WIN32
@@ -106,6 +128,7 @@ inline std::string to_string(const std::wstring& str)
 #endif
 }
 
+/** @brief Convert an IL2CPP string to UTF-8 std::string (convenience overload). */
 inline std::string to_string(Il2CppString* str)
 {
   const auto s = to_wstring(str);

@@ -1,5 +1,13 @@
+/**
+ * @file KeyCode.h
+ * @brief Unity KeyCode enumeration.
+ *
+ * 1:1 mirror of UnityEngine.KeyCode. Used by the keyboard input handling
+ * mod to map key presses to game actions.
+ */
 #pragma once
 
+/** @brief Unity key codes. Values match UnityEngine.KeyCode exactly. */
 enum class KeyCode {
   None              = 0,
   Backspace         = 8,

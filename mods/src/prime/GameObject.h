@@ -1,5 +1,21 @@
+/**
+ * @file GameObject.h
+ * @brief Unity GameObject wrapper.
+ *
+ * Mirrors UnityEngine.GameObject. Provides typed GetComponent() calls
+ * (both reflection-invoke and direct-pointer variants), and access to
+ * the activeInHierarchy flag and scene reference.
+ */
 #pragma once
 
+/**
+ * @brief Wrapper for Unity's GameObject, the fundamental scene-graph node.
+ *
+ * GetComponentFastPath() and GetComponentFastPath2() resolve a component
+ * by its System.Type, matching Unity's generic GetComponent<T>() from C#.
+ * The "2" variant uses il2cpp_runtime_invoke while the primary variant
+ * calls the native method pointer directly.
+ */
 struct GameObject {
 public:
   __declspec(property(get = __get_activeInHierarchy)) bool activeInHierarchy;

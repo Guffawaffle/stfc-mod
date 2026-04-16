@@ -1,9 +1,22 @@
+/**
+ * @file ScreenManager.h
+ * @brief Screen/display management singleton.
+ *
+ * Mirrors Digit.Client.UI.ScreenManager — a MonoSingleton that owns the
+ * root canvas scaler and provides access to canvas scale factor limits.
+ */
 #pragma once
 
 #include "CanvasController.h"
 #include "CanvasScaler.h"
 #include "MonoSingleton.h"
 
+/**
+ * @brief Manages the game's root canvas and UI scaling.
+ *
+ * Exposes the root CanvasScaler, min/max scale factors, and a method
+ * to retrieve the topmost visible canvas controller.
+ */
 struct ScreenManager : MonoSingleton<ScreenManager> {
 public:
   __declspec(property(get = __get_m_canvasRootScaler)) CanvasScaler* m_canvasRootScaler;
