@@ -10,77 +10,16 @@
  */
 #pragma once
 
-#include <algorithm>
-#include <cctype>
-#include <string>
-#include <string_view>
-#include <vector>
+// Re-export pure string utilities (no IL2CPP deps)
+#include "str_utils_pure.h"
+
+// Additional dependencies for IL2CPP + platform string conversion
 #include <il2cpp/il2cpp_helper.h>
 
 #include <simdutf.h>
 #if _WIN32
 #include <winrt/base.h>
 #endif
-
-/** @brief Fast ASCII-only whitespace check (avoids locale-dependent UB on signed char). */
-inline bool ascii_isspace(unsigned char c)
-{
-  return std::isspace(static_cast<unsigned char>(c));
-}
-
-constexpr std::string_view StripTrailingAsciiWhitespace(const std::string_view str)
-{
-  const auto it = std::find_if_not(str.rbegin(), str.rend(), ascii_isspace);
-  return str.substr(0, static_cast<size_t>(str.rend() - it));
-}
-
-constexpr std::string_view StripLeadingAsciiWhitespace(const std::string_view str)
-{
-  const auto it = std::ranges::find_if_not(str, ascii_isspace);
-  return str.substr(static_cast<size_t>(it - str.begin()));
-}
-
-constexpr std::string_view StripAsciiWhitespace(const std::string_view str)
-{
-  return StripTrailingAsciiWhitespace(StripLeadingAsciiWhitespace(str));
-}
-
-constexpr std::string AsciiStrToUpper(const std::string_view s)
-{
-  std::string str = s.data();
-  std::ranges::transform(str, str.begin(), ::toupper);
-  return str;
-}
-
-/**
- * @brief Split @p input on @p delimiter, trimming trailing whitespace from the last element.
- * @note Empty segments between consecutive delimiters are skipped.
- */
-constexpr std::vector<std::string> StrSplit(const std::string& input, const char delimiter)
-{
-  std::vector<std::string> result;
-  int                      last_pos = 0;
-  for (int i = 0; i < input.length(); i++) {
-    if (input[i] != delimiter) {
-      continue;
-    }
-
-    if (i - last_pos > 0) {
-      result.emplace_back(input.substr(last_pos, i - last_pos));
-    }
-    last_pos = i + 1;
-  }
-
-  if (last_pos != input.length()) {
-    auto sp = input.substr(last_pos, input.length() - last_pos);
-    sp      = StripAsciiWhitespace(sp);
-    if (!sp.empty()) {
-      result.emplace_back(sp);
-    }
-  }
-
-  return result;
-}
 
 // ─── IL2CPP / Platform String Conversions ───────────────────────────────────────
 // IL2CPP: wchar_t is UTF-16 on Windows, UTF-32 on macOS/Linux.

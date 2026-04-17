@@ -42,6 +42,11 @@ jobs:
       - name: Build
         run: xmake -y
 
+      - name: Test
+        run: |
+          xmake build stfc-mod-tests
+          xmake run stfc-mod-tests
+
       - name: Package
         run: mv build/windows/x64/release/stfc-community-patch.dll version.dll
 
