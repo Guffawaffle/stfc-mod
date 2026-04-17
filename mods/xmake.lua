@@ -16,7 +16,7 @@ do
     add_includedirs("src", { public = true })
 
     -- Packages
-    add_packages("spud", "nlohmann_json", "protobuf", "libil2cpp", "eastl", "toml++", "spdlog", "simdutf", "libcurl", "capstone", "cpr")
+    add_packages("minhook", "nlohmann_json", "protobuf", "libil2cpp", "eastl", "toml++", "spdlog", "simdutf", "libcurl", "cpr")
     add_rules("protobuf.cpp")
     add_files("src/prime/proto/*.proto")
 

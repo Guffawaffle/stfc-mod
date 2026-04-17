@@ -20,7 +20,7 @@
 #include "config.h"
 #include "errormsg.h"
 
-#include <spud/detour.h>
+#include "hook/detour.h"
 #include <tuple>
 
 /**
@@ -95,9 +95,9 @@ void DisableButtons(FullScreenChatViewController* _this)
  * Original method: prepares the chat UI for display.
  * Our modification: after calling original, greys out Galaxy/Veil tabs.
  */
-void FullScreenChatViewController_AboutToShow(auto original, FullScreenChatViewController* _this)
+MH_HOOK(void, FullScreenChatViewController_AboutToShow, FullScreenChatViewController* _this)
 {
-  original(_this);
+  FullScreenChatViewController_AboutToShow_original(_this);
   DisableButtons(_this);
 }
 
@@ -109,7 +109,7 @@ void FullScreenChatViewController_AboutToShow(auto original, FullScreenChatViewC
  * Our modification: if the selected tab is a disabled channel, silently
  *   drops the event so the user stays on the previous tab.
  */
-void FullScreenChatViewController_OnDidChangeSelectedTab(auto original, FullScreenChatViewController* _this, int32_t tabIdx, void* tab)
+MH_HOOK(void, FullScreenChatViewController_OnDidChangeSelectedTab, FullScreenChatViewController* _this, int32_t tabIdx, void* tab)
 {
   const auto [cadetChatIdx, galaxyChatIdx, veilChatIdx, allianceChatIdx] = GetChatTabIndices();
   if ((tabIdx == galaxyChatIdx && Config::Get().disable_galaxy_chat) || (tabIdx == veilChatIdx && Config::Get().disable_veil_chat)) {
@@ -117,7 +117,7 @@ void FullScreenChatViewController_OnDidChangeSelectedTab(auto original, FullScre
     return;
   }
 
-  original(_this, tabIdx, tab);
+  FullScreenChatViewController_OnDidChangeSelectedTab_original(_this, tabIdx, tab);
 }
 
 /**
@@ -128,9 +128,9 @@ void FullScreenChatViewController_OnDidChangeSelectedTab(auto original, FullScre
  * Our modification: forces focus to Alliance chat when Galaxy/Veil is disabled,
  *   using FocusOnInstantly to snap without animation.
  */
-void ChatPreviewController_AboutToShow(auto original, ChatPreviewController* _this)
+MH_HOOK(void, ChatPreviewController_AboutToShow, ChatPreviewController* _this)
 {
-  original(_this);
+  ChatPreviewController_AboutToShow_original(_this);
 
   if (Config::Get().disable_galaxy_chat || Config::Get().disable_veil_chat) {
     const auto allianceChatIdx = std::get<3>(GetChatTabIndices());
@@ -150,20 +150,20 @@ void ChatPreviewController_AboutToShow(auto original, ChatPreviewController* _th
  * Our modification: redirects focus to Alliance chat if the target panel
  *   is a disabled channel, snapping the scroller instantly.
  */
-void ChatPreviewController_OnPanelFocused(auto original, ChatPreviewController* _this, int32_t index)
+MH_HOOK(void, ChatPreviewController_OnPanelFocused, ChatPreviewController* _this, int32_t index)
 {
   static const auto disableGalaxyChat = Config::Get().disable_galaxy_chat;
   static const auto disableVeilChat   = Config::Get().disable_veil_chat;
 
   if (!(disableGalaxyChat || disableVeilChat)) {
-    original(_this, index);
+    ChatPreviewController_OnPanelFocused_original(_this, index);
     return;
   }
 
   const auto [cadetChatIdx, galaxyChatIdx, veilChatIdx, allianceChatIdx] = GetChatTabIndices();
   if (disableGalaxyChat || (veilChatIdx != -1 && disableVeilChat)) {
     _this->_focusedPanel = ChatChannelCategory::Alliance;
-    original(_this, allianceChatIdx);
+    ChatPreviewController_OnPanelFocused_original(_this, allianceChatIdx);
 
     if (_this->_swipeScroller->_currentContentIndex != allianceChatIdx) {
       _this->_swipeScroller->FocusOnInstantly(allianceChatIdx);
@@ -172,7 +172,7 @@ void ChatPreviewController_OnPanelFocused(auto original, ChatPreviewController* 
     return;
   }
 
-  original(_this, index);
+  ChatPreviewController_OnPanelFocused_original(_this, index);
 }
 
 /**
@@ -182,12 +182,12 @@ void ChatPreviewController_OnPanelFocused(auto original, ChatPreviewController* 
  * Original method: processes an incoming Galaxy (global) chat message.
  * Our modification: returns immediately if disable_galaxy_chat is set.
  */
-void ChatPreviewController_OnGlobalMessageReceived(auto original, ChatPreviewController* _this, void* message)
+MH_HOOK(void, ChatPreviewController_OnGlobalMessageReceived, ChatPreviewController* _this, void* message)
 {
   if (Config::Get().disable_galaxy_chat)
     return;
 
-  original(_this, message);
+  ChatPreviewController_OnGlobalMessageReceived_original(_this, message);
 }
 
 /**
@@ -197,12 +197,12 @@ void ChatPreviewController_OnGlobalMessageReceived(auto original, ChatPreviewCon
  * Original method: processes an incoming Veil (regional) chat message.
  * Our modification: returns immediately if disable_veil_chat is set.
  */
-void ChatPreviewController_OnRegionalMessageReceived(auto original, ChatPreviewController* _this, void* message)
+MH_HOOK(void, ChatPreviewController_OnRegionalMessageReceived, ChatPreviewController* _this, void* message)
 {
   if (Config::Get().disable_veil_chat)
     return;
 
-  original(_this, message);
+  ChatPreviewController_OnRegionalMessageReceived_original(_this, message);
 }
 
 // ─── Hook Installation ─────────────────────────────────────────────────────────
@@ -225,13 +225,13 @@ void InstallChatPatches()
     if (const auto ptr = fullscreen_controller.GetMethod("AboutToShow"); ptr == nullptr) {
       ErrorMsg::MissingMethod("FullScreenChatViewController", "AboutToShow");
     } else {
-      SPUD_STATIC_DETOUR(ptr, FullScreenChatViewController_AboutToShow);
+      MH_ATTACH(ptr, FullScreenChatViewController_AboutToShow);
     }
 
     if (const auto ptr = fullscreen_controller.GetMethod("OnDidChangeSelectedTab"); ptr == nullptr) {
       ErrorMsg::MissingMethod("FullScreenChatViewController", "OnDidChangeSelectedTab");
     } else {
-      SPUD_STATIC_DETOUR(ptr, FullScreenChatViewController_OnDidChangeSelectedTab);
+      MH_ATTACH(ptr, FullScreenChatViewController_OnDidChangeSelectedTab);
     }
   }
 
@@ -242,25 +242,25 @@ void InstallChatPatches()
     if (const auto ptr = preview_controller.GetMethod("AboutToShow"); ptr == nullptr) {
       ErrorMsg::MissingMethod("ChatPreviewController", "AboutToShow");
     } else {
-      SPUD_STATIC_DETOUR(ptr, ChatPreviewController_AboutToShow);
+      MH_ATTACH(ptr, ChatPreviewController_AboutToShow);
     }
 
     if (const auto ptr = preview_controller.GetMethod("OnPanelFocused"); ptr == nullptr) {
       ErrorMsg::MissingMethod("ChatPreviewController", "OnPanelFocused");
     } else {
-      SPUD_STATIC_DETOUR(ptr, ChatPreviewController_OnPanelFocused);
+      MH_ATTACH(ptr, ChatPreviewController_OnPanelFocused);
     }
 
     if (const auto ptr = preview_controller.GetMethod("OnGlobalMessageReceived"); ptr == nullptr) {
       ErrorMsg::MissingMethod("ChatPreviewController", "OnGlobalMessageReceived");
     } else {
-      SPUD_STATIC_DETOUR(ptr, ChatPreviewController_OnGlobalMessageReceived);
+      MH_ATTACH(ptr, ChatPreviewController_OnGlobalMessageReceived);
     }
 
     if (const auto ptr = preview_controller.GetMethod("OnRegionalMessageReceived"); ptr == nullptr) {
       ErrorMsg::MissingMethod("ChatPreviewController", "OnRegionalMessageReceived");
     } else {
-      SPUD_STATIC_DETOUR(ptr, ChatPreviewController_OnRegionalMessageReceived);
+      MH_ATTACH(ptr, ChatPreviewController_OnRegionalMessageReceived);
     }
   }
 }

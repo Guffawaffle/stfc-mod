@@ -29,7 +29,7 @@
 #include <prime/NavigationZoom.h>
 
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "hook/detour.h"
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -78,7 +78,7 @@ inline void StoreZoom(std::string label, float &zoom, NavigationZoom *_this)
  *                   ZoomCameraAtWorldPoint() to apply the zoom anchored
  *                   at the mouse position.
  */
-void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
+MH_HOOK(void, NavigationZoom_Update_Hook, NavigationZoom *_this)
 {
   static auto GetMousePosition =
       il2cpp_resolve_icall_typed<void(vec3 *)>("UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)");
@@ -176,7 +176,7 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
 
   do_default_zoom = false;
 
-  original(_this);
+  NavigationZoom_Update_Hook_original(_this);
 }
 
 // ─── View Parameter / Depth Hooks ──────────────────────────────────────────
@@ -188,17 +188,17 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
  * proportionally to Config::zoom / radius. Only modifies SolarSystem depth;
  * galaxy/sector views pass through unmodified.
  */
-void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom *_this, float radius, NodeDepth depth)
+MH_HOOK(void, NavigationZoom_SetViewParameters_Hook, NavigationZoom *_this, float radius, NodeDepth depth)
 {
   if (depth == NodeDepth::SolarSystem) {
     auto ratio                     = (Config::Get().zoom / radius);
     _this->_farRatioSystemNormal   = 0.55f * ratio;
     _this->_farRatioSystemExtended = 1 * ratio;
-    original(_this, radius, depth);
+    NavigationZoom_SetViewParameters_Hook_original(_this, radius, depth);
     _this->_sceneCamera->farClipPlane = Config::Get().zoom * 2.75f;
     do_default_zoom                   = true;
   } else {
-    original(_this, radius, depth);
+    NavigationZoom_SetViewParameters_Hook_original(_this, radius, depth);
   }
 }
 
@@ -209,17 +209,17 @@ void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom *_this,
  * when the game recalculates range after a dynamic change.
  * Currently commented out in hook installation (kept for reference).
  */
-void NavigationZoom_ApplyRangeChanges_Hook(auto original, NavigationZoom *_this)
+MH_HOOK(void, NavigationZoom_ApplyRangeChanges_Hook, NavigationZoom *_this)
 {
   if (_this->_depth == NodeDepth::SolarSystem) {
     auto ratio                     = (Config::Get().zoom / _this->_viewRadius);
     _this->_farRatioSystemNormal   = 0.55f * ratio;
     _this->_farRatioSystemExtended = 1 * ratio;
-    original(_this);
+    NavigationZoom_ApplyRangeChanges_Hook_original(_this);
     _this->_sceneCamera->farClipPlane = Config::Get().zoom * 2.75f;
     do_default_zoom                   = true;
   } else {
-    original(_this);
+    NavigationZoom_ApplyRangeChanges_Hook_original(_this);
   }
 }
 
@@ -230,18 +230,18 @@ void NavigationZoom_ApplyRangeChanges_Hook(auto original, NavigationZoom *_this)
  * solar-system view. Sets do_default_zoom so the next Update applies the
  * user's default zoom level upon entering a system.
  */
-void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom *_this, NodeDepth depth)
+MH_HOOK(void, NavigationZoom_SetDepth_Hook, NavigationZoom *_this, NodeDepth depth)
 {
   if (depth == NodeDepth::SolarSystem) {
     auto ratio                        = (Config::Get().zoom / _this->_viewRadius);
     _this->_farRatioSystemNormal      = 0.55f * ratio;
     _this->_farRatioSystemExtended    = 1 * ratio;
     _this->_sceneCamera->farClipPlane = Config::Get().zoom * 3.75f;
-    original(_this, depth);
+    NavigationZoom_SetDepth_Hook_original(_this, depth);
     _this->_sceneCamera->farClipPlane = Config::Get().zoom * 3.75f;
     do_default_zoom                   = true;
   } else {
-    original(_this, depth);
+    NavigationZoom_SetDepth_Hook_original(_this, depth);
   }
 }
 
@@ -252,7 +252,7 @@ void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom *_this, NodeDept
  * at a fixed offset from the NavigationCamera pointer).
  * Currently commented out in hook installation.
  */
-void NavigationCamera_SetSystemViewSizeData_Hook(auto original, uint8_t *_this_cam, float radius, Vector3 *systemPos,
+MH_HOOK(void, NavigationCamera_SetSystemViewSizeData_Hook, uint8_t *_this_cam, float radius, Vector3 *systemPos,
                                                  NodeDepth depth)
 {
   if (depth == NodeDepth::SolarSystem) {
@@ -260,11 +260,11 @@ void NavigationCamera_SetSystemViewSizeData_Hook(auto original, uint8_t *_this_c
     auto ratio                     = (Config::Get().zoom / radius);
     _this->_farRatioSystemNormal   = 0.55f * ratio;
     _this->_farRatioSystemExtended = 1 * ratio;
-    original(_this_cam, radius, systemPos, depth);
+    NavigationCamera_SetSystemViewSizeData_Hook_original(_this_cam, radius, systemPos, depth);
     _this->_sceneCamera->farClipPlane = Config::Get().zoom * 2.75f;
     do_default_zoom                   = true;
   } else {
-    original(_this_cam, radius, systemPos, depth);
+    NavigationCamera_SetSystemViewSizeData_Hook_original(_this_cam, radius, systemPos, depth);
   }
 }
 
@@ -281,14 +281,14 @@ void InstallZoomHooks()
     if (ptr_update == nullptr) {
       ErrorMsg::MissingMethod("NavigationZoom", "Update");
     } else {
-      SPUD_STATIC_DETOUR(ptr_update, NavigationZoom_Update_Hook);
+      MH_ATTACH(ptr_update, NavigationZoom_Update_Hook);
     }
 
     auto ptr_set_depth = screen_manager_helper.GetMethod("SetDepth");
     if (ptr_set_depth == nullptr) {
       ErrorMsg::MissingMethod("NavigationZoom", "SetDepth");
     } else {
-      SPUD_STATIC_DETOUR(ptr_set_depth, NavigationZoom_SetDepth_Hook);
+      MH_ATTACH(ptr_set_depth, NavigationZoom_SetDepth_Hook);
     }
 
 #if _WIN32
@@ -296,19 +296,20 @@ void InstallZoomHooks()
     if (ptr_set_view_parameters == nullptr) {
       ErrorMsg::MissingMethod("NavigationZoom", "SetViewParameters");
     } else {
-      SPUD_STATIC_DETOUR(ptr_set_view_parameters, NavigationZoom_SetViewParameters_Hook);
+      MH_ATTACH(ptr_set_view_parameters, NavigationZoom_SetViewParameters_Hook);
     }
 
     // auto ptr_apply_range_changes = screen_manager_helper.GetMethod("ApplyRangeChanges");
     // if (ptr_apply_range_changes == nullptr) {
     //   ErrorMsg::MissingMethod("NavigationZoom", "ApplyRangeChanges");
     // } else {
-    //   SPUD_STATIC_DETOUR(ptr_apply_range_changes, NavigationZoom_ApplyRangeChanges_Hook);
+    //   MH_ATTACH(ptr_apply_range_changes, NavigationZoom_ApplyRangeChanges_Hook);
     // }
 #endif
 
     // auto navigation_camera = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation",
     // "NavigationCamera"); auto ptr_set_system_view_size_data = navigation_camera.GetMethod("SetSystemViewSizeData");
-    // SPUD_STATIC_DETOUR(ptr_set_system_view_size_data, NavigationCamera_SetSystemViewSizeData_Hook);
+    // SPUD_STATIC_DETOUR replaced:
+    // MH_ATTACH(ptr_set_system_view_size_data, NavigationCamera_SetSystemViewSizeData_Hook);
   }
 }

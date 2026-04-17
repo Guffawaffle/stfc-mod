@@ -38,8 +38,8 @@
 #include <EASTL/unordered_set.h>
 #include <EASTL/vector.h>
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
-#include <spud/signature.h>
+#include "hook/detour.h"
+#include "hook/signature.h"
 
 #include <mutex>
 
@@ -115,53 +115,72 @@ void track_finalizer(void* _this, void*)
  * tracking map and install a GC finalizer that will clean it up.
  * Original method: initializes the managed object.
  * Our modification: adds the object to the tracking map post-construction.
+ *
+ * Template-based: each unique target method gets its own slot so that the
+ * correct original function is called. We use a runtime counter to assign
+ * slots since the number of unique .ctor/.OnDestroy methods depends on
+ * how many tracked types share base methods.
  */
-void* track_ctor(auto original, void* _this)
-{
-  auto obj = original(_this);
-  if (_this == nullptr) {
-    return _this;
-  }
+using track_ctor_fn = void*(*)(void*);
 
-  std::scoped_lock lk{tracked_objects_mutex};
-  auto             cls = (Il2CppObject*)_this;
-  spdlog::trace("Tracking {}({})", _this, cls->klass->name);
-  typedef void      (*FinalizerCallback)(void* object, void* client_data);
-  FinalizerCallback oldCallback = nullptr;
-  void*             oldData     = nullptr;
-  GC_register_finalizer_inner((intptr_t)_this, track_finalizer, nullptr, &oldCallback, &oldData);
-  assert(!oldCallback);
-  add_to_tracking_recursive(cls->klass, _this);
-  return obj;
-}
+template<int Slot>
+struct TrackCtorHook {
+  static inline track_ctor_fn original = nullptr;
+  static void* detour(void* _this)
+  {
+    auto obj = original(_this);
+    if (_this == nullptr) {
+      return _this;
+    }
+
+    std::scoped_lock lk{tracked_objects_mutex};
+    auto             cls = (Il2CppObject*)_this;
+    spdlog::trace("Tracking {}({})", _this, cls->klass->name);
+    typedef void      (*FinalizerCallback)(void* object, void* client_data);
+    FinalizerCallback oldCallback = nullptr;
+    void*             oldData     = nullptr;
+    GC_register_finalizer_inner((intptr_t)_this, track_finalizer, nullptr, &oldCallback, &oldData);
+    assert(!oldCallback);
+    add_to_tracking_recursive(cls->klass, _this);
+    return obj;
+  }
+};
 
 /**
  * @brief Hook: T::OnDestroy (generic for each tracked type)
  *
  * Intercepts Unity OnDestroy to eagerly remove the object from tracking
  * before the GC finalizer runs, avoiding stale pointer access.
+ *
+ * Template-based: same slot pattern as TrackCtorHook.
  */
-void track_destroy(auto original, Il2CppObject* _this, uint64_t a2, uint64_t a3)
-{
+using track_destroy_fn = void(*)(Il2CppObject*, uint64_t, uint64_t);
+
+template<int Slot>
+struct TrackDestroyHook {
+  static inline track_destroy_fn original = nullptr;
+  static void detour(Il2CppObject* _this, uint64_t a2, uint64_t a3)
+  {
 #define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
-  if (_this != nullptr) {
-    std::scoped_lock lk{tracked_objects_mutex};
-    spdlog::trace("Clearing {}({})", (void*)_this, GET_CLASS(_this->klass)->name);
-    remove_from_tracking_all(_this);
-  }
-  return original(_this, a2, a3);
+    if (_this != nullptr) {
+      std::scoped_lock lk{tracked_objects_mutex};
+      spdlog::trace("Clearing {}({})", (void*)_this, GET_CLASS(_this->klass)->name);
+      remove_from_tracking_all(_this);
+    }
+    return original(_this, a2, a3);
 #undef GET_CLASS
-}
+  }
+};
 
 /** @brief Hook: il2cpp_object_free — removes the object from tracking before deallocation. */
-void track_free(auto original, void* _this)
+MH_HOOK(void, track_free, void* _this)
 {
 #define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
   if (_this != nullptr) {
     std::scoped_lock lk{tracked_objects_mutex};
     auto             cls = (Il2CppObject*)_this;
     remove_from_tracking_all(_this);
-    return original(_this);
+    return track_free_original(_this);
   }
 #undef GET_CLASS
 }
@@ -173,9 +192,9 @@ void track_free(auto original, void* _this)
  * the low bit set (IS_MARKED) have been collected — we remove them from
  * the tracking map to prevent dangling references.
  */
-void calc_liveness_hook(auto original, void* state)
+MH_HOOK(void, calc_liveness_hook, void* state)
 {
-  original(state);
+  calc_liveness_hook_original(state);
 
   std::scoped_lock                                    lk{tracked_objects_mutex};
   eastl::vector<eastl::pair<Il2CppClass*, uintptr_t>> objects_to_free;
@@ -208,12 +227,64 @@ void calc_liveness_hook(auto original, void* state)
 static eastl::unordered_set<void*> seen_ctor;
 static eastl::unordered_set<void*> seen_destroy;
 
+/// Runtime counters to assign template slots at hook installation time.
+static int next_ctor_slot    = 0;
+static int next_destroy_slot = 0;
+
+/// Max number of unique .ctor / OnDestroy methods we expect to see.
+/// There are 13 tracked types; most share base methods. 16 is generous.
+static constexpr int kMaxCtorSlots    = 16;
+static constexpr int kMaxDestroySlots = 16;
+
+/// Dispatch table: maps runtime slot index → install function.
+/// We need this because C++ template args must be compile-time constants,
+/// so we pre-instantiate slots 0..15 and dispatch at runtime.
+template<int N> struct CtorInstaller {
+  static bool install(void* target) {
+    MH_ATTACH_SLOT(target, TrackCtorHook, N);
+    return true;
+  }
+};
+
+template<int N> struct DestroyInstaller {
+  static bool install(void* target) {
+    MH_ATTACH_SLOT(target, TrackDestroyHook, N);
+    return true;
+  }
+};
+
+using install_fn = bool(*)(void*);
+
+/// Pre-instantiated dispatch tables for runtime slot selection.
+static install_fn ctor_installers[kMaxCtorSlots] = {
+  &CtorInstaller<0>::install,  &CtorInstaller<1>::install,
+  &CtorInstaller<2>::install,  &CtorInstaller<3>::install,
+  &CtorInstaller<4>::install,  &CtorInstaller<5>::install,
+  &CtorInstaller<6>::install,  &CtorInstaller<7>::install,
+  &CtorInstaller<8>::install,  &CtorInstaller<9>::install,
+  &CtorInstaller<10>::install, &CtorInstaller<11>::install,
+  &CtorInstaller<12>::install, &CtorInstaller<13>::install,
+  &CtorInstaller<14>::install, &CtorInstaller<15>::install,
+};
+
+static install_fn destroy_installers[kMaxDestroySlots] = {
+  &DestroyInstaller<0>::install,  &DestroyInstaller<1>::install,
+  &DestroyInstaller<2>::install,  &DestroyInstaller<3>::install,
+  &DestroyInstaller<4>::install,  &DestroyInstaller<5>::install,
+  &DestroyInstaller<6>::install,  &DestroyInstaller<7>::install,
+  &DestroyInstaller<8>::install,  &DestroyInstaller<9>::install,
+  &DestroyInstaller<10>::install, &DestroyInstaller<11>::install,
+  &DestroyInstaller<12>::install, &DestroyInstaller<13>::install,
+  &DestroyInstaller<14>::install, &DestroyInstaller<15>::install,
+};
+
 /**
  * @brief Installs .ctor and OnDestroy hooks for a single tracked type.
  * @tparam T Game class (must expose get_class_helper()).
  *
  * Deduplicates hooks via seen_ctor / seen_destroy so that shared base
- * methods are only detoured once.
+ * methods are only detoured once. Each unique method gets its own
+ * template slot via runtime dispatch tables.
  */
 template <typename T> void TrackObject()
 {
@@ -221,12 +292,20 @@ template <typename T> void TrackObject()
   auto  ctor         = object_class.GetMethod(".ctor");
   auto  on_destroy   = object_class.GetMethod("OnDestroy");
   if (seen_ctor.find(ctor) == seen_ctor.end()) {
-    SPUD_STATIC_DETOUR(ctor, track_ctor);
+    if (next_ctor_slot >= kMaxCtorSlots) {
+      spdlog::critical("FATAL: Ran out of TrackCtorHook slots ({} used)", next_ctor_slot);
+      std::abort();
+    }
+    ctor_installers[next_ctor_slot++](ctor);
     seen_ctor.emplace(ctor);
   }
 
   if (seen_destroy.find(on_destroy) == seen_destroy.end()) {
-    SPUD_STATIC_DETOUR(on_destroy, track_destroy);
+    if (next_destroy_slot >= kMaxDestroySlots) {
+      spdlog::critical("FATAL: Ran out of TrackDestroyHook slots ({} used)", next_destroy_slot);
+      std::abort();
+    }
+    destroy_installers[next_destroy_slot++](on_destroy);
     seen_destroy.emplace(on_destroy);
   }
 }
@@ -252,17 +331,17 @@ void InstallObjectTrackers()
   TrackObject<NavigationInteractionUIViewController>();
   TrackObject<StarNodeObjectViewerWidget>();
 
-  SPUD_STATIC_DETOUR(il2cpp_unity_liveness_finalize, calc_liveness_hook);
+  MH_ATTACH(il2cpp_unity_liveness_finalize, calc_liveness_hook);
 
 #if _WIN32
   auto GC_register_finalizer_inner_matches =
-      spud::find_in_module("40 56 57 41 57 48 83 EC ? 83 3D", "GameAssembly.dll");
+      sig::find_in_module("40 56 57 41 57 48 83 EC ? 83 3D", "GameAssembly.dll");
 #else
-#if SPUD_ARCH_ARM64
-  auto GC_register_finalizer_inner_matches = spud::find_in_module(
+#if defined(__aarch64__) || defined(_M_ARM64)
+  auto GC_register_finalizer_inner_matches = sig::find_in_module(
     "FF 83 02 D1 FC 6F 04 A9 FA 67 05 A9 F8 5F 06 A9 F6 57 07 A9 F4 4F 08 A9 FD 7B 09 A9 FD 43 02 91 E4 0F 03 A9", "GameAssembly.dylib");
 #else
-  auto GC_register_finalizer_inner_matches = spud::find_in_module(
+  auto GC_register_finalizer_inner_matches = sig::find_in_module(
       "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC ? 4C 89 45 ? 48 89 4D ? 83 3D", "GameAssembly.dylib");
 #endif
 #endif
