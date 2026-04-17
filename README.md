@@ -19,7 +19,7 @@
 
 ## What's different in this fork?
 
-This fork (`guffapipedream` branch) bundles experimental features that haven't been accepted upstream yet, or are too opinionated for the main project:
+This fork (`dev` branch) bundles experimental features that haven't been accepted upstream yet, or are too opinionated for the main project:
 
 | Feature | Status | Upstream PR |
 |---------|--------|-------------|

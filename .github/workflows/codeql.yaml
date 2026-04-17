@@ -2,9 +2,9 @@ name: CodeQL
 
 on:
   push:
-    branches: ["guffapipedream"]
+    branches: ["dev"]
   pull_request:
-    branches: ["guffapipedream"]
+    branches: ["dev"]
   schedule:
     - cron: "0 6 * * 1" # Weekly Monday 6am UTC
 
