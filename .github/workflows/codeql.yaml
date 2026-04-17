@@ -53,7 +53,6 @@ jobs:
           category: "/language:c-cpp"
 
   analyze-swift:
-    if: false # Temporarily disabled — Swift passed, focusing on C/C++
     name: Analyze (Swift)
     runs-on: macos-15
     permissions:
