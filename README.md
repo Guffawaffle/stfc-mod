@@ -27,6 +27,7 @@ This fork (`dev` branch) bundles experimental features that haven't been accepte
 | Double-tap Escape to exit | Pending review | [#124](https://github.com/netniV/stfc-mod/pull/124) |
 | Key fallthrough config option | Pending review | — |
 | OS toast notifications (victory/defeat) | Pending review | [#131](https://github.com/netniV/stfc-mod/pull/131), [#132](https://github.com/netniV/stfc-mod/pull/132) |
+| Fleet-bar arrival notifications | Landed in fork/dev | [#13](https://github.com/Guffawaffle/stfc-mod/issues/13), [#14](https://github.com/Guffawaffle/stfc-mod/pull/14) |
 | Duplicate hook crash fix | Pending review | [#130](https://github.com/netniV/stfc-mod/pull/130) |
 
 **If any of these features get merged upstream, use the official mod instead.** This fork is a playground, not a competing project.
@@ -67,6 +68,7 @@ This project is maintained solely at my own cost of time, energy and money. Any 
 - Disable galaxy chat
 - Enable/Disable hotkeys (community mod or scopely)
 - Enable extended donation slider (alliance)
+- Fleet-bar arrival notifications for player ships
 - Show alternative cargo screens for:
   - default
   - player

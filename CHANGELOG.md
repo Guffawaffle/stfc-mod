@@ -11,6 +11,15 @@
 
 # Change Log
 
+## Unreleased
+
+### Features
+
+- Added fleet-bar-driven arrival notifications for player ships
+  - Detects `Warping -> Impulsing` as the primary `arrived in system` signal
+  - Logs `ARRIVED_IN_SYSTEM` reliably even when the destination system is not being viewed
+  - Keeps `Impulsing -> IdleInSpace` as follow-up `ARRIVED_AT_DESTINATION` data for future refinement
+
 ## 0.6.1
 
 ### Features
