@@ -48,23 +48,24 @@ namespace Graphics
 
 namespace Patches
 {
-  constexpr bool bufffixhooks               = true;
-  constexpr bool chatpatches                = true;
-  constexpr bool freeresizehooks            = true;
-  constexpr bool hotkeyhooks                = true;
-  constexpr bool improveresponsivenesshooks = true;
-  constexpr bool miscpatches                = true;
-  constexpr bool objecttracker              = true;
-  constexpr bool panhooks                   = true;
-  constexpr bool resolutionlistfix          = true;
-  constexpr bool syncpatches                = true;
-  constexpr bool tempcrashfixes             = true;
-  constexpr bool testpatches                = true;
-  constexpr bool toastbannerhooks           = true;
-  constexpr bool uiscalehooks               = true;
-  constexpr bool zoomhooks                  = true;
-} // namespace Patches
-
+  // Debug-build toggles for individual hook categories.
+  // In release builds these are ignored and all patches are force-enabled.
+  constexpr bool bufffixhooks               = true;  ///< Out-of-dock power / buff calculation fixes.
+  constexpr bool chatpatches                = true;  ///< Chat-related UI patches.
+  constexpr bool freeresizehooks            = true;  ///< Free window resize hooks.
+  constexpr bool hotkeyhooks                = true;  ///< Keyboard hotkey injection.
+  constexpr bool improveresponsivenesshooks = true;  ///< Input-responsiveness improvements.
+  constexpr bool miscpatches                = true;  ///< Misc one-off fixes.
+  constexpr bool objecttracker              = true;  ///< In-system object tracking overlay.
+  constexpr bool fleetarrivalhooks          = true;  ///< Fleet arrival detection from the bottom fleet bar.
+  constexpr bool panhooks                   = true;  ///< Pan-momentum hooks.
+  constexpr bool resolutionlistfix          = true;  ///< Resolution-list population fix.
+  constexpr bool syncpatches                = true;  ///< Data-sync network hooks.
+  constexpr bool tempcrashfixes             = true;  ///< Temporary crash mitigations.
+  constexpr bool testpatches                = true;  ///< Test / experimental patches.
+  constexpr bool toastbannerhooks           = true;  ///< Toast-banner filtering hooks.
+  constexpr bool uiscalehooks               = true;  ///< UI scale override hooks.
+  constexpr bool zoomhooks                  = true;  ///< Camera zoom override hooks.
 namespace Shortcuts
 {
   constexpr const char* toggle_queue          = "CTRL-Q";
