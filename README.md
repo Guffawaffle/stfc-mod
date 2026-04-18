@@ -17,6 +17,29 @@
 
 ---
 
+## Read This First
+
+> **Short version**
+> If you want the standard, official STFC Community Mod experience, use **[netniV/stfc-mod](https://github.com/netniV/stfc-mod/releases/latest)**.
+> If you want the extra fork-only or not-yet-upstream features listed below, use this fork's **`dev`** releases instead.
+
+This fork exists so I can ship and test changes on my own branch without presenting them as official upstream behavior.
+
+- Use **`netniV/stfc-mod` `main` releases** if you want the official/default mod experience.
+- Use **`Guffawaffle/stfc-mod` `dev` releases** if you want my experimental branch with extra features.
+
+## How This Fork Relates To Main
+
+The official project lives on **`netniV/stfc-mod`**. That is the source of truth.
+
+This fork's **`dev`** branch is effectively upstream main plus a small set of extra commits that are either:
+
+- still being tested here before they are proposed upstream
+- already proposed upstream but not merged yet
+- intentionally fork-only because they are more opinionated or personal
+
+That is the entire reason this fork exists: keep experimental changes easy to download for testers, while keeping a clear line between the official mod and my branch.
+
 ## What's different in this fork?
 
 This fork (`dev` branch) bundles experimental features that haven't been accepted upstream yet, or are too opinionated for the main project:
@@ -35,6 +58,8 @@ This fork (`dev` branch) bundles experimental features that haven't been accepte
 ## Downloads
 
 Download builds from this fork's **[Releases page](https://github.com/Guffawaffle/stfc-mod/releases)**.
+
+Windows releases include both `stfc-community-mod.zip` and a direct `version.dll` asset, plus `SHA256SUMS.txt` if you want to verify what you downloaded.
 
 The install process is identical to the official mod — see [Installation](#installing) below.
 

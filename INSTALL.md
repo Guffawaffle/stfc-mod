@@ -17,11 +17,16 @@ You can download builds from this fork's [releases page](https://github.com/Guff
 
 > **Prefer the official mod?** Get it at **[netniV/stfc-mod releases](https://github.com/netniV/stfc-mod/releases/latest)**.
 
-__Notes:__
+**Notes:**
 
--  GitHub may require you to log in to see the downloads for
-   pre-releases, and you will need to expand the
-   assets section to see the downloads.
+- GitHub may require you to log in to see the downloads for
+  pre-releases, and you will need to expand the
+  assets section to see the downloads.
+
+- Windows releases publish three useful assets:
+  - `stfc-community-mod.zip` containing `version.dll`
+  - `version.dll` for direct drop-in installs or updates
+  - `SHA256SUMS.txt` for optional hash verification
 
 - There is no difference between the versioned and unversioned zip
   files. They are simply named this way to allow people to store
@@ -59,14 +64,18 @@ __NOTE:__ The `Star Trek Fleet Command` game itself is located by default at:
 
 Installation of the Community Mod is a manual process for Windows (or Wine).
 
-1. Download the `stfc-community-mod.zip` file from this fork's [releases page](https://github.com/Guffawaffle/stfc-mod/releases) and extract the `version.dll` file.
+1. Download either the `stfc-community-mod.zip` file and extract `version.dll`, or download the `version.dll` asset directly from this fork's [releases page](https://github.com/Guffawaffle/stfc-mod/releases).
+
+   **Optional:** If you want to verify the download first, compare it against the matching entry in `SHA256SUMS.txt` from the same release.
 
 2. Open the game folder in Explorer. The default folder for the game also holds the settings file.
 
-   __NOTE:__ If this folder isn't present, or no log files are created when running the game, 
+   **Note:** If this folder isn't present, or no log files are created when running the game,
    see the [Problems Under Windows](#problems-under-windows) section below.
 
 3. Move the extracted `version.dll` file into this folder.
+
+   To update later, replace the existing `version.dll` with the one from the newer release.
 
 4. Run the game! If all is well, and one does not already exist, the mod will
    create `community_patch_settings.toml` and populate this with the default

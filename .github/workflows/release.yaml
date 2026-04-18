@@ -55,11 +55,18 @@ jobs:
         run: |
           (cd stfc-community-mod && zip -r - .) > stfc-community-mod.zip
 
+      - name: Prepare release assets
+        run: |
+          cp stfc-community-mod/version.dll version.dll
+          sha256sum version.dll \
+            stfc-community-mod.zip \
+            stfc-community-mod-installer/stfc-community-mod-installer.dmg > SHA256SUMS.txt
+
       # ✅ Step 4 — Detect prerelease (alpha/beta)
       - name: Check Prerelease
         id: check-prerelease
         run: |
-          if echo "${{ github.ref_name }}" | grep -Pq "^v[\d]+.[\d]+.[\d]+(?:\.(alpha|beta)\.[\d]+)?$"; then
+          if echo "${{ github.ref_name }}" | grep -Pq "^v[\d]+\.[\d]+\.[\d]+(?:(?:\.(alpha|beta)\.[\d]+)|(?:-guffa\.[\d]+))?$"; then
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -80,6 +87,11 @@ jobs:
             > **To support the project, [sponsor netniV](https://github.com/sponsors/netniV)** — he built this.
             
             ---
+
+            ### Release Assets
+            - `stfc-community-mod.zip` — recommended Windows download
+            - `version.dll` — direct drop-in update for existing installs
+            - `SHA256SUMS.txt` — optional hash verification for release assets
             
             ### What's different in this fork?
             See the [fork README](https://github.com/Guffawaffle/stfc-mod/tree/dev#whats-different-in-this-fork) for a list of experimental features.
@@ -87,6 +99,16 @@ jobs:
             ---
 
       # ✅ Step 6 — Upload assets
+      - name: Upload Community Mod - Direct DLL
+        uses: shogo82148/actions-upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./version.dll
+          asset_name: version.dll
+          asset_content_type: application/octet-stream
+
       - name: Upload Community Mod - Standard
         uses: shogo82148/actions-upload-release-asset@v1
         env:
@@ -116,3 +138,13 @@ jobs:
           asset_path: ./stfc-community-mod-installer/stfc-community-mod-installer.dmg
           asset_name: stfc-community-mod-installer.dmg
           asset_content_type: application/x-apple-diskimage
+
+      - name: Upload Community Mod - Checksums
+        uses: shogo82148/actions-upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./SHA256SUMS.txt
+          asset_name: SHA256SUMS.txt
+          asset_content_type: text/plain
