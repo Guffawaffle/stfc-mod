@@ -82,6 +82,32 @@ public:
     return false;
   }
 
+  void ElementAction(int32_t index)
+  {
+    static auto ElementActionWarn   = true;
+    static auto ElementActionMethod =
+        get_class_helper().GetMethod<void(FleetBarViewController*, int32_t)>("ElementAction");
+    if (ElementActionMethod) {
+      ElementActionMethod(this, index);
+    } else if (ElementActionWarn) {
+      ElementActionWarn = false;
+      ErrorMsg::MissingMethod("FleetBarViewController", "ElementAction");
+    }
+  }
+
+  void TogglePanel()
+  {
+    static auto TogglePanelWarn   = true;
+    static auto TogglePanelMethod =
+        get_class_helper().GetMethod<void(FleetBarViewController*)>("TogglePanel");
+    if (TogglePanelMethod) {
+      TogglePanelMethod(this);
+    } else if (TogglePanelWarn) {
+      TogglePanelWarn = false;
+      ErrorMsg::MissingMethod("FleetBarViewController", "TogglePanel");
+    }
+  }
+
   FleetBarContext* CanvasContext()
   {
     static auto n = get_class_helper().GetProperty("CanvasContext");
