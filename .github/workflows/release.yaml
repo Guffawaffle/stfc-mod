@@ -23,6 +23,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Fetch upstream main
+        run: |
+          git remote add upstream https://github.com/netniV/stfc-mod.git
+          git fetch --no-tags --depth=1 upstream main
 
       # ✅ Step 1 — Check if Build succeeded for this same commit
       - name: Check latest Build success
@@ -70,6 +77,36 @@ jobs:
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Generate release body
+        run: |
+          compare_url="https://github.com/netniV/stfc-mod/compare/main...Guffawaffle:${{ github.ref_name }}"
+
+          cat > release-body.md <<EOF
+          > **⚠️ UNOFFICIAL FORK — This is NOT the official STFC Community Mod.**
+          >
+          > This build comes from [Guffawaffle's personal fork](https://github.com/Guffawaffle/stfc-mod) and contains experimental features not yet accepted upstream.
+          > **For the official mod, go to [netniV/stfc-mod](https://github.com/netniV/stfc-mod/releases/latest).**
+          > **To support the project, [sponsor netniV](https://github.com/sponsors/netniV)** — he built this.
+
+          ---
+
+          ### Release Assets
+          - `stfc-community-mod.zip` — recommended Windows download
+          - `version.dll` — direct drop-in update for existing installs
+          - `SHA256SUMS.txt` — optional hash verification for release assets
+
+          ### What's different in this fork?
+          See the [fork README](https://github.com/Guffawaffle/stfc-mod/tree/dev#whats-different-in-this-fork) for a list of experimental features.
+
+          ### Full Fork Delta From Upstream Main
+          This section compares this release against `netniV/stfc-mod` `main`, not just the previous fork tag.
+
+          Full compare: ${compare_url}
+
+          EOF
+
+          git log --reverse --no-merges --format='- %s' upstream/main..${{ github.sha }} | awk '!seen[$0]++' >> release-body.md
+
       # ✅ Step 5 — Create Release
       - name: Create Release
         id: create_release
@@ -77,7 +114,6 @@ jobs:
         with:
           tag: ${{ github.ref }}
           name: "${{ github.ref_name }} (Guffawaffle Fork)"
-          generateReleaseNotes: true
           prerelease: ${{ steps.check-prerelease.outputs.prerelease == 'true' }}
           body: |
             > **⚠️ UNOFFICIAL FORK — This is NOT the official STFC Community Mod.**
@@ -97,6 +133,11 @@ jobs:
             See the [fork README](https://github.com/Guffawaffle/stfc-mod/tree/dev#whats-different-in-this-fork) for a list of experimental features.
             
             ---
+
+      - name: Update release notes from upstream main delta
+        run: gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --notes-file release-body.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ✅ Step 6 — Upload assets
       - name: Upload Community Mod - Direct DLL
