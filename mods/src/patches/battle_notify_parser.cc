@@ -72,14 +72,14 @@ static std::string resolve_hull_name(BattleResultHeader* brh, long hullId)
   if (hullId == 0) return "";
 
   auto* specSvc = reinterpret_cast<SpecService*>(brh->get_SpecService());
-  if (specSvc) {
-    auto* hull = specSvc->GetHull(hullId);
-    if (hull) {
-      auto* nameStr = hull->Name;
-      auto nameKey  = nameStr ? to_string(nameStr) : std::string{};
-      if (!nameKey.empty()) return parse_hull_key(nameKey);
-    }
-  }
+  if (!specSvc) return fmt::format("Hull#{}", hullId);
+
+  auto* hull = specSvc->GetHull(hullId);
+  if (!hull) return fmt::format("Hull#{}", hullId);
+
+  auto* nameStr = hull->Name;
+  auto nameKey  = nameStr ? to_string(nameStr) : std::string{};
+  if (!nameKey.empty()) return parse_hull_key(nameKey);
 
   return fmt::format("Hull#{}", hullId);
 }
@@ -93,12 +93,15 @@ struct BattleSummaryData {
   std::string playerShip;
   std::string enemyShip;
 
+  /** @brief Format the summary as "Player (Ship) vs Enemy (Ship)".
+   *  For NPCs (empty name), uses the ship hull name as the identifier. */
   std::string format_body() const
   {
     auto format_side = [](const std::string& name, const std::string& ship) -> std::string {
-      if (name.empty()) return "";
-      if (ship.empty()) return name;
-      return fmt::format("{} ({})", name, ship);
+      if (!name.empty() && !ship.empty()) return fmt::format("{} ({})", name, ship);
+      if (!name.empty()) return name;
+      if (!ship.empty()) return ship;
+      return "";
     };
 
     auto left  = format_side(playerName, playerShip);
@@ -126,10 +129,7 @@ static BattleSummaryData build_battle_data(Il2CppObject* data)
         if (profile) {
           auto* nameStr = profile->Name;
           if (nameStr) result.playerName = to_string(nameStr);
-          if (result.playerName.empty()) {
-            auto locaId = profile->LocaId;
-            if (locaId > 0) result.playerName = fmt::format("NPC#{}", locaId);
-          }
+          // NPC profiles have empty names — leave blank, hull name used instead
         }
       }))
     spdlog::warn("[Notify] SEH: get_PlayerUserProfile crashed");
@@ -140,10 +140,7 @@ static BattleSummaryData build_battle_data(Il2CppObject* data)
         if (profile) {
           auto* nameStr = profile->Name;
           if (nameStr) result.enemyName = to_string(nameStr);
-          if (result.enemyName.empty()) {
-            auto locaId = profile->LocaId;
-            if (locaId > 0) result.enemyName = fmt::format("NPC#{}", locaId);
-          }
+          // NPC profiles have empty names — leave blank, hull name used instead
         }
       }))
     spdlog::warn("[Notify] SEH: get_EnemyUserProfile crashed");

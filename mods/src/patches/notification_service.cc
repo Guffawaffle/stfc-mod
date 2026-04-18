@@ -10,7 +10,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include <algorithm>
 #include <string>
 
 #if _WIN32
