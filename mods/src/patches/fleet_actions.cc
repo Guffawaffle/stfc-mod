@@ -89,6 +89,8 @@ bool HandleShipSelection(int ship_select_request)
         FleetsManager::Instance()->RequestViewFleet(fleet, true);
       } else {
         fleet_bar->RequestSelect(ship_select_request);
+        fleet_bar->ElementAction(ship_select_request);
+        fleet_bar->TogglePanel();
       }
 
       select_clock = select_now;
