@@ -564,6 +564,7 @@ void Config::Load()
   this->installResolutionListFix = get_config_or_default(config, parsed, "patches", "resolutionlistfix", DCP::resolutionlistfix, write_config);
   this->installSyncPatches       = get_config_or_default(config, parsed, "patches", "syncpatches", DCP::syncpatches, write_config);
   this->installObjectTracker     = get_config_or_default(config, parsed, "patches", "objecttracker", DCP::objecttracker, write_config);
+  this->installFleetArrivalHooks = get_config_or_default(config, parsed, "patches", "fleetarrivalhooks", DCP::fleetarrivalhooks, write_config);
   spdlog::debug("");
 #else
   this->installUiScaleHooks               = true;
@@ -581,6 +582,7 @@ void Config::Load()
   this->installResolutionListFix          = true;
   this->installSyncPatches                = true;
   this->installObjectTracker              = true;
+  this->installFleetArrivalHooks          = true;
 #endif
   
   this->queue_enabled       = get_config_or_default(config, parsed, "control", "queue_enabled", DCC::queue_enabled, write_config);

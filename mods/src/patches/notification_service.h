@@ -30,3 +30,13 @@ void notification_init();
  * @param toast The game Toast object from the hooked banner display method.
  */
 void notification_handle_toast(Toast* toast);
+
+/**
+ * @brief Send an arbitrary OS-native notification with the given title and body.
+ *
+ * Requires notification_init() to have been called first. No-op on non-Windows.
+ *
+ * @param title Notification title text.
+ * @param body  Notification body text.
+ */
+void notification_show(const char* title, const char* body);

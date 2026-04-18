@@ -258,6 +258,7 @@ public:
   bool installResolutionListFix;
   bool installSyncPatches;
   bool installObjectTracker;
+  bool installFleetArrivalHooks;
 
   std::string config_settings_url;
   std::string config_assets_url_override;

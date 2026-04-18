@@ -90,6 +90,7 @@ namespace Patches
   constexpr bool improveresponsivenesshooks = true;  ///< Input-responsiveness improvements.
   constexpr bool miscpatches                = true;  ///< Misc one-off fixes.
   constexpr bool objecttracker              = true;  ///< In-system object tracking overlay.
+  constexpr bool fleetarrivalhooks          = true;  ///< Fleet arrival detection from the bottom fleet bar.
   constexpr bool panhooks                   = true;  ///< Pan-momentum hooks.
   constexpr bool resolutionlistfix          = true;  ///< Resolution-list population fix.
   constexpr bool syncpatches                = true;  ///< Data-sync network hooks.

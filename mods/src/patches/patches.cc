@@ -49,6 +49,7 @@ void InstallResolutionListFix();
 void InstallTempCrashFixes();
 void InstallSyncPatches();
 void InstallObjectTrackers();
+void InstallFleetArrivalHooks();
 
 /**
  * @brief Hook: il2cpp_init
@@ -144,6 +145,7 @@ __int64 il2cpp_init_hook(const char* domain_name)
       {"ResolutionListFix", {InstallResolutionListFix, &cfg.installResolutionListFix}},
       {"SyncPatches", {InstallSyncPatches, &cfg.installSyncPatches}},
       {"ObjectTracker", {InstallObjectTrackers, &cfg.installObjectTracker}},
+        {"FleetArrival", {InstallFleetArrivalHooks, &cfg.installFleetArrivalHooks}},
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
 

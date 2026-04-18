@@ -30,6 +30,7 @@
 
 /** Cached LanguageManager::Localize(out string, LocaleTextContext) method pointer. */
 static const MethodInfo* s_localize_ltc = nullptr;
+static bool              s_notification_initialized = false;
 
 // ─── Toast State → Human-Readable Title ───────────────────────────────────────────────
 
@@ -162,6 +163,10 @@ static std::string strip_unity_rich_text(const std::string& s)
 
 void notification_init()
 {
+  if (s_notification_initialized) {
+    return;
+  }
+
   // Resolve LanguageManager::Localize(out string, LocaleTextContext) — the
   // 2-parameter overload that takes an LTC and returns a localized string.
   auto lm_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Localization", "LanguageManager");
@@ -190,6 +195,15 @@ void notification_init()
   spdlog::info("[Notify] Windows notification service initialized");
 #else
   spdlog::info("[Notify] Notification service: platform not supported (no-op)");
+#endif
+
+  s_notification_initialized = true;
+}
+
+void notification_show(const char* title, const char* body)
+{
+#if _WIN32
+  show_system_notification(title, body);
 #endif
 }
 
