@@ -17,7 +17,7 @@
 #include "errormsg.h"
 #include "file.h"
 
-#include <spud/detour.h>
+#include <hook/hook.h>
 
 #include "prime/AspectRatioConstraintHandler.h"
 #include "prime/IList.h"
@@ -146,7 +146,10 @@ struct ResolutionArray {
  *   and forces the resolution to match the monitor. Also applies the user's
  *   custom window title on the first call.
  */
-void AspectRatioConstraintHandler_Update(auto original, void* _this)
+typedef void (*AspectRatioConstraintHandler_Update_fn)(void*);
+static AspectRatioConstraintHandler_Update_fn AspectRatioConstraintHandler_Update_original = nullptr;
+
+void AspectRatioConstraintHandler_Update(void* _this)
 {
   static auto set_title       = true;
   static auto get_fullscreen  = il2cpp_resolve_icall_typed<bool()>("UnityEngine.Screen::get_fullScreen()");
@@ -200,12 +203,15 @@ void AspectRatioConstraintHandler_Update(auto original, void* _this)
  * Our modification: when free_resize is enabled, bypasses the filter
  *   and forwards messages directly to Unity's original WndProc.
  */
-intptr_t AspectRatioConstraintHandler_WndProc(auto original, HWND hWnd, uint32_t msg, intptr_t wParam, intptr_t lParam)
+typedef intptr_t (*AspectRatioConstraintHandler_WndProc_fn)(HWND, uint32_t, intptr_t, intptr_t);
+static AspectRatioConstraintHandler_WndProc_fn AspectRatioConstraintHandler_WndProc_original = nullptr;
+
+intptr_t AspectRatioConstraintHandler_WndProc(HWND hWnd, uint32_t msg, intptr_t wParam, intptr_t lParam)
 {
   if (Config::Get().free_resize) {
     return CallWindowProcA(AspectRatioConstraintHandler::_unityWndProc(), hWnd, msg, wParam, lParam);
   }
-  return original(hWnd, msg, wParam, lParam);
+  return AspectRatioConstraintHandler_WndProc_original(hWnd, msg, wParam, lParam);
 }
 
 /**
@@ -234,8 +240,8 @@ void InstallFreeResizeHooks()
       return;
     }
 
-    SPUD_STATIC_DETOUR(ptr_update, AspectRatioConstraintHandler_Update);
-    SPUD_STATIC_DETOUR(ptr_wndproc, AspectRatioConstraintHandler_WndProc);
+    MH_INSTALL(ptr_update, AspectRatioConstraintHandler_Update, AspectRatioConstraintHandler_Update_original);
+    MH_INSTALL(ptr_wndproc, AspectRatioConstraintHandler_WndProc, AspectRatioConstraintHandler_WndProc_original);
   }
 }
 #endif

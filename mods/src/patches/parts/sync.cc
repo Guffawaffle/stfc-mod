@@ -54,7 +54,7 @@
 #include <prime/HttpResponse.h>
 #include <prime/ServiceResponse.h>
 #include <prime/RealtimeDataPayload.h>
-#include <spud/detour.h>
+#include <hook/hook.h>
 
 #include <spdlog/spdlog.h>
 #if !__cpp_lib_format
@@ -2153,70 +2153,84 @@ void HandleEntityGroup(EntityGroup* entity_group)
   }
 }
 
-// ─── SPUD Hooks ─────────────────────────────────────────────────────────────
+// ─── MinHook Hooks ──────────────────────────────────────────────────────────
 
-/**
- * @brief Hook: DataContainer::ParseBinaryObject
- *
- * Intercepts binary entity group parsing to extract data before the game processes it.
- * Original method: deserializes a protobuf entity group into the data container.
- * Our modification: calls HandleEntityGroup() first, then the original.
- */
-void DataContainer_ParseBinaryObject(auto original, void* _this, EntityGroup* group, bool isPlayerData)
-{
-  HandleEntityGroup(group);
-  return original(_this, group, isPlayerData);
-}
+// Multi-target hook: DataContainer::ParseBinaryObject (hooked on 9 different classes)
+typedef void (*ParseBinaryObject_fn)(void*, EntityGroup*, bool);
 
-/**
- * @brief Hook: SlotDataContainer::ParseSlotUpdatedJson / ParseSlotRemovedJson
- *
- * Intercepts real-time slot update/removal notifications (RTC channel).
- * Original method: parses a JSON payload for slot changes.
- * Our modification: spawns process_entity_slots_rtc() on a detached thread.
- */
-void DataContainer_ParseRtcPayload(auto original, void* _this, bool incrementalJsonParsing, RealtimeDataPayload* data)
-{
-  original(_this, incrementalJsonParsing, data);
-
-  if (data == nullptr || data->Target == nullptr || data->DataType == nullptr || data->Data == nullptr) {
-    return;
+template <int N>
+struct ParseBinaryObjectHook {
+  static inline ParseBinaryObject_fn original = nullptr;
+  static void hook(void* _this, EntityGroup* group, bool isPlayerData)
+  {
+    HandleEntityGroup(group);
+    return original(_this, group, isPlayerData);
   }
+};
 
-  const auto target = to_string(data->Target);
-  if (target != "slot:assign" && target != "slot:clear") {
-    return;
-  }
+// Multi-target hook: DataContainer::ParseRtcPayload (2 targets)
+typedef void (*ParseRtcPayload_fn)(void*, bool, RealtimeDataPayload*);
 
-  const auto type_string = to_string(data->DataType);
-  if (std::stoi(type_string) != DataType::JSON) {
-    return;
-  }
+template <int N>
+struct ParseRtcPayloadHook {
+  static inline ParseRtcPayload_fn original = nullptr;
+  static void hook(void* _this, bool incrementalJsonParsing, RealtimeDataPayload* data)
+  {
+    original(_this, incrementalJsonParsing, data);
 
-  const auto rtcData = to_string(data->Data);
-  auto payload = std::make_unique<std::string>(rtcData);
-
-  std::thread([p = std::move(payload)]() mutable {
-    try {
-      process_entity_slots_rtc(std::move(p));
-    } catch (const std::exception& e) {
-      spdlog::error("Exception in ParseRtcPayload: {}", e.what());
-    } catch (...) {
-      spdlog::error("Unknown exception in ParseRtcPayload");
+    if (data == nullptr || data->Target == nullptr || data->DataType == nullptr || data->Data == nullptr) {
+      return;
     }
-  }).detach();
-}
 
-/**
- * @brief Hook: GameServerModelRegistry::ProcessResultInternal
- *
- * Intercepts HTTP response processing to extract entity groups from the response.
- * Original method: processes the service response and invokes callbacks.
- * Our modification: iterates entity groups and calls HandleEntityGroup() before original.
- */
-void GameServerModelRegistry_ProcessResultInternal(auto original, void* _this, HttpResponse* http_response,
-                                                   ServiceResponse* service_response, void* callback,
-                                                   void* callback_error)
+    const auto target = to_string(data->Target);
+    if (target != "slot:assign" && target != "slot:clear") {
+      return;
+    }
+
+    const auto type_string = to_string(data->DataType);
+    if (std::stoi(type_string) != DataType::JSON) {
+      return;
+    }
+
+    const auto rtcData = to_string(data->Data);
+    auto payload = std::make_unique<std::string>(rtcData);
+
+    std::thread([p = std::move(payload)]() mutable {
+      try {
+        process_entity_slots_rtc(std::move(p));
+      } catch (const std::exception& e) {
+        spdlog::error("Exception in ParseRtcPayload: {}", e.what());
+      } catch (...) {
+        spdlog::error("Unknown exception in ParseRtcPayload");
+      }
+    }).detach();
+  }
+};
+
+// Multi-target hook: GameServerModelRegistry::ProcessResultInternal (2 targets)
+typedef void (*ProcessResultInternal_fn)(void*, HttpResponse*, ServiceResponse*, void*, void*);
+
+template <int N>
+struct ProcessResultInternalHook {
+  static inline ProcessResultInternal_fn original = nullptr;
+  static void hook(void* _this, HttpResponse* http_response, ServiceResponse* service_response,
+                   void* callback, void* callback_error)
+  {
+    const auto entity_groups = service_response->EntityGroups;
+    for (int i = 0; i < entity_groups->Count; ++i) {
+      const auto entity_group = entity_groups->get_Item(i);
+      HandleEntityGroup(entity_group);
+    }
+
+    return original(_this, http_response, service_response, callback, callback_error);
+  }
+};
+
+// Single-target hooks
+typedef void (*HandleBinaryObjects_fn)(void*, ServiceResponse*);
+static HandleBinaryObjects_fn GameServerModelRegistry_HandleBinaryObjects_original = nullptr;
+
+void GameServerModelRegistry_HandleBinaryObjects(void* _this, ServiceResponse* service_response)
 {
   const auto entity_groups = service_response->EntityGroups;
   for (int i = 0; i < entity_groups->Count; ++i) {
@@ -2224,52 +2238,36 @@ void GameServerModelRegistry_ProcessResultInternal(auto original, void* _this, H
     HandleEntityGroup(entity_group);
   }
 
-  return original(_this, http_response, service_response, callback, callback_error);
+  return GameServerModelRegistry_HandleBinaryObjects_original(_this, service_response);
 }
 
-/**
- * @brief Hook: GameServerModelRegistry::HandleBinaryObjects
- *
- * Intercepts bulk binary object handling to extract entity groups.
- * Same pattern as ProcessResultInternal but for binary-only responses.
- */
-void GameServerModelRegistry_HandleBinaryObjects(auto original, void* _this, ServiceResponse* service_response)
-{
-  const auto entity_groups = service_response->EntityGroups;
-  for (int i = 0; i < entity_groups->Count; ++i) {
-    const auto entity_group = entity_groups->get_Item(i);
-    HandleEntityGroup(entity_group);
-  }
+typedef void (*PrimeApp_InitPrimeServer_fn)(void*, Il2CppString*, Il2CppString*, Il2CppString*, Il2CppString*);
+static PrimeApp_InitPrimeServer_fn PrimeApp_InitPrimeServer_original = nullptr;
 
-  return original(_this, service_response);
-}
-
-/**
- * @brief Hook: PrimeApp::InitPrimeServer
- *
- * Captures the game server URL and session ID so we can make authenticated
- * requests to the Scopely API for combat log enrichment.
- */
-void PrimeApp_InitPrimeServer(auto original, void* _this, Il2CppString* gameServerUrl, Il2CppString* gatewayServerUrl,
+void PrimeApp_InitPrimeServer(void* _this, Il2CppString* gameServerUrl, Il2CppString* gatewayServerUrl,
                               Il2CppString* sessionId, Il2CppString* serverRegion)
 {
-  original(_this, gameServerUrl, gatewayServerUrl, sessionId, serverRegion);
+  PrimeApp_InitPrimeServer_original(_this, gameServerUrl, gatewayServerUrl, sessionId, serverRegion);
   http::headers::instanceSessionId = to_string(to_wstring(sessionId));
   http::headers::gameServerUrl     = to_string(to_wstring(gameServerUrl));
 }
 
-/** @brief Hook: GameServer::Initialise — captures the game version string for HTTP headers. */
-void GameServer_Initialise(auto original, void* _this, Il2CppString* sessionId, Il2CppString* gameVersion,
+typedef void (*GameServer_Initialise_fn)(void*, Il2CppString*, Il2CppString*, bool, Il2CppString*);
+static GameServer_Initialise_fn GameServer_Initialise_original = nullptr;
+
+void GameServer_Initialise(void* _this, Il2CppString* sessionId, Il2CppString* gameVersion,
                            bool encryptRequests, Il2CppString* serverRegion)
 {
-  original(_this, sessionId, gameVersion, encryptRequests, serverRegion);
+  GameServer_Initialise_original(_this, sessionId, gameVersion, encryptRequests, serverRegion);
   http::headers::primeVersion = to_string(to_wstring(gameVersion));
 }
 
-/** @brief Hook: GameServer::SetInstanceIdHeader — captures the instance ID for HTTP headers. */
-void GameServer_SetInstanceIdHeader(auto original, void* _this, int32_t instanceId)
+typedef void (*GameServer_SetInstanceIdHeader_fn)(void*, int32_t);
+static GameServer_SetInstanceIdHeader_fn GameServer_SetInstanceIdHeader_original = nullptr;
+
+void GameServer_SetInstanceIdHeader(void* _this, int32_t instanceId)
 {
-  original(_this, instanceId);
+  GameServer_SetInstanceIdHeader_original(_this, instanceId);
   http::headers::instanceId = instanceId;
 }
 
@@ -2299,7 +2297,7 @@ void InstallSyncPatches()
     if (ptr == nullptr) {
       ErrorMsg::MissingMethod("GameServerModelRegistry", "ProcessResultInterval");
     } else {
-      SPUD_STATIC_DETOUR(ptr, GameServerModelRegistry_ProcessResultInternal);
+      MH_INSTALL(ptr, ProcessResultInternalHook<0>::hook, ProcessResultInternalHook<0>::original);
       process_result_internal_target = ptr;
     }
 
@@ -2307,7 +2305,7 @@ void InstallSyncPatches()
     if (ptr == nullptr) {
       ErrorMsg::MissingMethod("GameServerModelRegsitry", "HandleBinaryObjects");
     } else {
-      SPUD_STATIC_DETOUR(ptr, GameServerModelRegistry_HandleBinaryObjects);
+      MH_INSTALL(ptr, GameServerModelRegistry_HandleBinaryObjects, GameServerModelRegistry_HandleBinaryObjects_original);
     }
   }
 
@@ -2321,7 +2319,7 @@ void InstallSyncPatches()
     } else if (ptr == process_result_internal_target) {
       spdlog::info("PlatformModelRegistry::ProcessResultInternal shares address with GameServerModelRegistry — already hooked");
     } else {
-      SPUD_STATIC_DETOUR(ptr, GameServerModelRegistry_ProcessResultInternal);
+      MH_INSTALL(ptr, ProcessResultInternalHook<1>::hook, ProcessResultInternalHook<1>::original);
     }
   }
 
@@ -2333,7 +2331,7 @@ void InstallSyncPatches()
     if (const auto ptr = buff_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("BuffDataContainer", "ParseBinaryObject");
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      MH_INSTALL(ptr, ParseBinaryObjectHook<0>::hook, ParseBinaryObjectHook<0>::original);
     }
   }
 
@@ -2345,7 +2343,7 @@ void InstallSyncPatches()
     if (const auto ptr = buff_service.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("BuffService", "ParseBinaryObject");
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      MH_INSTALL(ptr, ParseBinaryObjectHook<1>::hook, ParseBinaryObjectHook<1>::original);
     }
   }
 
@@ -2357,7 +2355,7 @@ void InstallSyncPatches()
     if (const auto ptr = inventory_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("InventoryDataContainer", "ParseBinaryObject");
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      MH_INSTALL(ptr, ParseBinaryObjectHook<2>::hook, ParseBinaryObjectHook<2>::original);
     }
   }
 
@@ -2369,7 +2367,7 @@ void InstallSyncPatches()
     if (const auto ptr = job_service.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("JobService", "ParseBinaryObject");
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      MH_INSTALL(ptr, ParseBinaryObjectHook<3>::hook, ParseBinaryObjectHook<3>::original);
     }
   }
 
@@ -2381,7 +2379,7 @@ void InstallSyncPatches()
     if (const auto ptr = job_service_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("JobServiceDataContainer", "ParseBinaryObject");
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      MH_INSTALL(ptr, ParseBinaryObjectHook<4>::hook, ParseBinaryObjectHook<4>::original);
     }
   }
 
@@ -2393,7 +2391,7 @@ void InstallSyncPatches()
     if (const auto ptr = missions_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("MissionsDataContainer", "ParseBinaryObject");
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      MH_INSTALL(ptr, ParseBinaryObjectHook<5>::hook, ParseBinaryObjectHook<5>::original);
     }
   }
 
@@ -2405,7 +2403,7 @@ void InstallSyncPatches()
     if (const auto ptr = research_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingHelper("ResearchDataContainer", "ParseBinaryObject");
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      MH_INSTALL(ptr, ParseBinaryObjectHook<6>::hook, ParseBinaryObjectHook<6>::original);
     }
   }
 
@@ -2417,7 +2415,7 @@ void InstallSyncPatches()
     if (const auto ptr = research_service.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("ResearchService", "ParseBinaryObject");
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      MH_INSTALL(ptr, ParseBinaryObjectHook<7>::hook, ParseBinaryObjectHook<7>::original);
     }
   }
 
@@ -2429,19 +2427,19 @@ void InstallSyncPatches()
     if (const auto ptr = slot_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("SlotDataContainer", "ParseBinaryObject");
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      MH_INSTALL(ptr, ParseBinaryObjectHook<8>::hook, ParseBinaryObjectHook<8>::original);
     }
 
     if (const auto ptr = slot_data_container.GetMethod("ParseSlotUpdatedJson"); ptr == nullptr) {
       ErrorMsg::MissingMethod("SlotDataContainer", "ParseSlotUpdatedJson");
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseRtcPayload);
+      MH_INSTALL(ptr, ParseRtcPayloadHook<0>::hook, ParseRtcPayloadHook<0>::original);
     }
 
     if (const auto ptr = slot_data_container.GetMethod("ParseSlotRemovedJson"); ptr == nullptr) {
       ErrorMsg::MissingMethod("SlotDataContainer", "ParseSlotRemovedJson");
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseRtcPayload);
+      MH_INSTALL(ptr, ParseRtcPayloadHook<1>::hook, ParseRtcPayloadHook<1>::original);
     }
   }
 
@@ -2452,7 +2450,7 @@ void InstallSyncPatches()
     if (const auto ptr = prime_app.GetMethod("InitPrimeServer"); ptr == nullptr) {
       ErrorMsg::MissingMethod("PrimeApp", "InitPrimeServer");
     } else {
-      SPUD_STATIC_DETOUR(ptr, PrimeApp_InitPrimeServer);
+      MH_INSTALL(ptr, PrimeApp_InitPrimeServer, PrimeApp_InitPrimeServer_original);
     }
   }
 
@@ -2464,13 +2462,13 @@ void InstallSyncPatches()
     if (const auto ptr = game_server.GetMethod("Initialise"); ptr == nullptr) {
       ErrorMsg::MissingMethod("GameServer", "Initialise");
     } else {
-      SPUD_STATIC_DETOUR(ptr, GameServer_Initialise);
+      MH_INSTALL(ptr, GameServer_Initialise, GameServer_Initialise_original);
     }
 
     if (const auto ptr = game_server.GetMethod("SetInstanceIdHeader"); ptr == nullptr) {
       ErrorMsg::MissingMethod("GameServer", "SetInstanceIdHeader");
     } else {
-      SPUD_STATIC_DETOUR(ptr, GameServer_SetInstanceIdHeader);
+      MH_INSTALL(ptr, GameServer_SetInstanceIdHeader, GameServer_SetInstanceIdHeader_original);
     }
   }
 
