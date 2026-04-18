@@ -51,7 +51,7 @@ jobs:
         run: mv build/windows/x64/release/stfc-community-patch.dll version.dll
 
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: stfc-community-mod
           path: version.dll
@@ -103,7 +103,7 @@ jobs:
         run: create-dmg --filesystem APFS --format ULFO --volname "STFC Community Mod Installer" --volicon assets/launcher.icns --background assets/mac_installer_background.png --window-pos 200 120 --window-size 800 400 --icon-size 100 --icon "STFC Community Mod.app" 200 190 --app-drop-link 600 185 stfc-community-mod-installer.dmg build/macosx/arm64/release/
 
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: stfc-community-mod-installer
           path: stfc-community-mod-installer.dmg
