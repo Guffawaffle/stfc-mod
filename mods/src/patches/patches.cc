@@ -16,7 +16,7 @@
 
 #include <il2cpp/il2cpp-functions.h>
 
-#include <spud/detour.h>
+#include <hook/hook.h>
 
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -60,7 +60,10 @@ void InstallObjectTrackers();
  *   function with a config boolean; only enabled patches are installed. This is
  *   the single entry point for all mod functionality.
  */
-__int64 il2cpp_init_hook(auto original, const char* domain_name)
+typedef __int64 (*il2cpp_init_fn)(const char*);
+static il2cpp_init_fn il2cpp_init_original = nullptr;
+
+__int64 il2cpp_init_hook(const char* domain_name)
 {
   struct PatchEntry {
     const char*                  name;
@@ -144,7 +147,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
 
-  auto r = original(domain_name);
+  auto r = il2cpp_init_original(domain_name);
 
   auto patch_count = 0;
   auto patch_total = sizeof(patches) / sizeof(patches[0]);
@@ -209,6 +212,8 @@ void ApplyPatches()
     return;
   } else {
     try {
+      mh_init();
+
 #if _WIN32
       auto n = GetProcAddress(assembly, "il2cpp_init");
 #else
@@ -216,7 +221,7 @@ void ApplyPatches()
 #endif
       printf("Got il2cpp_init %p\n", n);
 
-      SPUD_STATIC_DETOUR(n, il2cpp_init_hook);
+      MH_INSTALL(n, il2cpp_init_hook, il2cpp_init_original);
     } catch (...) {
       // Failed to Apply at least some patches
     }

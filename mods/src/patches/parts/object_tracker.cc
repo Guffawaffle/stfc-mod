@@ -38,8 +38,8 @@
 #include <EASTL/unordered_set.h>
 #include <EASTL/vector.h>
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
-#include <spud/signature.h>
+#include <hook/hook.h>
+#include <hook/pattern.h>
 
 #include <mutex>
 
@@ -106,19 +106,19 @@ void track_finalizer(void* _this, void*)
 #undef GET_CLASS
 }
 
-// ─── SPUD Hooks ─────────────────────────────────────────────────────────────
+// ─── MinHook Hooks ─────────────────────────────────────────────────────────
 
-/**
- * @brief Hook: T::.ctor (generic for each tracked type)
- *
- * Intercepts object construction to register the new instance in the
- * tracking map and install a GC finalizer that will clean it up.
- * Original method: initializes the managed object.
- * Our modification: adds the object to the tracking map post-construction.
- */
-void* track_ctor(auto original, void* _this)
+/// Per-type original function pointers for template hooks.
+template <typename T>
+struct TrackHooks {
+  static inline void* (*ctor_original)(void*)                               = nullptr;
+  static inline void (*destroy_original)(Il2CppObject*, uint64_t, uint64_t) = nullptr;
+};
+
+template <typename T>
+void* track_ctor(void* _this)
 {
-  auto obj = original(_this);
+  auto obj = TrackHooks<T>::ctor_original(_this);
   if (_this == nullptr) {
     return _this;
   }
@@ -141,7 +141,8 @@ void* track_ctor(auto original, void* _this)
  * Intercepts Unity OnDestroy to eagerly remove the object from tracking
  * before the GC finalizer runs, avoiding stale pointer access.
  */
-void track_destroy(auto original, Il2CppObject* _this, uint64_t a2, uint64_t a3)
+template <typename T>
+void track_destroy(Il2CppObject* _this, uint64_t a2, uint64_t a3)
 {
 #define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
   if (_this != nullptr) {
@@ -149,19 +150,21 @@ void track_destroy(auto original, Il2CppObject* _this, uint64_t a2, uint64_t a3)
     spdlog::trace("Clearing {}({})", (void*)_this, GET_CLASS(_this->klass)->name);
     remove_from_tracking_all(_this);
   }
-  return original(_this, a2, a3);
+  return TrackHooks<T>::destroy_original(_this, a2, a3);
 #undef GET_CLASS
 }
 
-/** @brief Hook: il2cpp_object_free — removes the object from tracking before deallocation. */
-void track_free(auto original, void* _this)
+typedef void (*track_free_fn)(void*);
+static track_free_fn track_free_original = nullptr;
+
+void track_free(void* _this)
 {
 #define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
   if (_this != nullptr) {
     std::scoped_lock lk{tracked_objects_mutex};
     auto             cls = (Il2CppObject*)_this;
     remove_from_tracking_all(_this);
-    return original(_this);
+    return track_free_original(_this);
   }
 #undef GET_CLASS
 }
@@ -173,9 +176,12 @@ void track_free(auto original, void* _this)
  * the low bit set (IS_MARKED) have been collected — we remove them from
  * the tracking map to prevent dangling references.
  */
-void calc_liveness_hook(auto original, void* state)
+typedef void (*calc_liveness_fn)(void*);
+static calc_liveness_fn calc_liveness_original = nullptr;
+
+void calc_liveness_hook(void* state)
 {
-  original(state);
+  calc_liveness_original(state);
 
   std::scoped_lock                                    lk{tracked_objects_mutex};
   eastl::vector<eastl::pair<Il2CppClass*, uintptr_t>> objects_to_free;
@@ -221,12 +227,12 @@ template <typename T> void TrackObject()
   auto  ctor         = object_class.GetMethod(".ctor");
   auto  on_destroy   = object_class.GetMethod("OnDestroy");
   if (seen_ctor.find(ctor) == seen_ctor.end()) {
-    SPUD_STATIC_DETOUR(ctor, track_ctor);
+    MH_INSTALL(ctor, track_ctor<T>, TrackHooks<T>::ctor_original);
     seen_ctor.emplace(ctor);
   }
 
   if (seen_destroy.find(on_destroy) == seen_destroy.end()) {
-    SPUD_STATIC_DETOUR(on_destroy, track_destroy);
+    MH_INSTALL(on_destroy, track_destroy<T>, TrackHooks<T>::destroy_original);
     seen_destroy.emplace(on_destroy);
   }
 }
@@ -252,21 +258,20 @@ void InstallObjectTrackers()
   TrackObject<NavigationInteractionUIViewController>();
   TrackObject<StarNodeObjectViewerWidget>();
 
-  SPUD_STATIC_DETOUR(il2cpp_unity_liveness_finalize, calc_liveness_hook);
+  MH_INSTALL(il2cpp_unity_liveness_finalize, calc_liveness_hook, calc_liveness_original);
 
 #if _WIN32
-  auto GC_register_finalizer_inner_matches =
-      spud::find_in_module("40 56 57 41 57 48 83 EC ? 83 3D", "GameAssembly.dll");
+  GC_register_finalizer_inner = (decltype(GC_register_finalizer_inner))pattern::find_in_module(
+      "40 56 57 41 57 48 83 EC ? 83 3D", "GameAssembly.dll");
 #else
-#if SPUD_ARCH_ARM64
-  auto GC_register_finalizer_inner_matches = spud::find_in_module(
-    "FF 83 02 D1 FC 6F 04 A9 FA 67 05 A9 F8 5F 06 A9 F6 57 07 A9 F4 4F 08 A9 FD 7B 09 A9 FD 43 02 91 E4 0F 03 A9", "GameAssembly.dylib");
+#if defined(__aarch64__) || defined(__arm64__)
+  GC_register_finalizer_inner = (decltype(GC_register_finalizer_inner))pattern::find_in_module(
+      "FF 83 02 D1 FC 6F 04 A9 FA 67 05 A9 F8 5F 06 A9 F6 57 07 A9 F4 4F 08 A9 FD 7B 09 A9 FD 43 02 91 E4 0F 03 A9",
+      "GameAssembly.dylib");
 #else
-  auto GC_register_finalizer_inner_matches = spud::find_in_module(
-      "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC ? 4C 89 45 ? 48 89 4D ? 83 3D", "GameAssembly.dylib");
+  GC_register_finalizer_inner = (decltype(GC_register_finalizer_inner))pattern::find_in_module(
+      "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC ? 4C 89 45 ? 48 89 4D ? 83 3D",
+      "GameAssembly.dylib");
 #endif
 #endif
-
-  const auto GC_register_finalizer_inner_match = GC_register_finalizer_inner_matches.get(0);
-  GC_register_finalizer_inner = (decltype(GC_register_finalizer_inner))GC_register_finalizer_inner_match.address();
 }

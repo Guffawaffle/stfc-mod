@@ -2,7 +2,7 @@
  * @file hotkey_router.h
  * @brief Layer-2 hotkey router — bridges IL2CPP hook entry points to concern handlers.
  *
- * The router sits between the raw spud hooks (which intercept IL2CPP methods)
+ * The router sits between the raw hooks (which intercept IL2CPP methods)
  * and the individual feature modules (navigation, fleet actions, cargo, viewers).
  * Each function here is called from exactly one hook and fans out to the
  * appropriate subsystem based on key state, UI context, and config flags.

@@ -55,7 +55,9 @@ on_fetch(function(package, opt)
 end)
 package_end()
 
-add_requires("spud v0.2.0-2")
+if is_plat("windows") then
+    add_requires("minhook")
+end
 add_requires("libil2cpp")
 add_requires("simdutf", { system = false })
 add_requires("doctest")

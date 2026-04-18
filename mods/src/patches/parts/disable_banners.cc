@@ -14,7 +14,7 @@
 #include <il2cpp/il2cpp_helper.h>
 #include <prime/Toast.h>
 
-#include <spud/detour.h>
+#include <hook/hook.h>
 
 struct ToastObserver {
 };
@@ -27,7 +27,10 @@ struct ToastObserver {
  * Our modification: forwards the toast to the notification service, then
  *   drops it silently if its state is in the user's disabled list.
  */
-void ToastObserver_EnqueueToast_Hook(auto original, ToastObserver *_this, Toast *toast)
+typedef void (*ToastObserver_EnqueueToast_fn)(ToastObserver*, Toast*);
+static ToastObserver_EnqueueToast_fn ToastObserver_EnqueueToast_original = nullptr;
+
+void ToastObserver_EnqueueToast_Hook(ToastObserver *_this, Toast *toast)
 {
   notification_handle_toast(toast);
 
@@ -36,9 +39,8 @@ void ToastObserver_EnqueueToast_Hook(auto original, ToastObserver *_this, Toast 
     return;
   }
 
-  original(_this, toast);
+  ToastObserver_EnqueueToast_original(_this, toast);
 }
-
 /**
  * @brief Hook: ToastObserver::EnqueueOrCombineToast
  *
@@ -46,7 +48,10 @@ void ToastObserver_EnqueueToast_Hook(auto original, ToastObserver *_this, Toast 
  * Original method: merges a toast with an existing one or enqueues it.
  * Our modification: same filter as EnqueueToast — drop if banner type disabled.
  */
-void ToastObserver_EnqueueOrCombineToast_Hook(auto original, ToastObserver *_this, Toast *toast, uintptr_t cmpAction)
+typedef void (*ToastObserver_EnqueueOrCombineToast_fn)(ToastObserver*, Toast*, uintptr_t);
+static ToastObserver_EnqueueOrCombineToast_fn ToastObserver_EnqueueOrCombineToast_original = nullptr;
+
+void ToastObserver_EnqueueOrCombineToast_Hook(ToastObserver *_this, Toast *toast, uintptr_t cmpAction)
 {
   notification_handle_toast(toast);
 
@@ -55,7 +60,7 @@ void ToastObserver_EnqueueOrCombineToast_Hook(auto original, ToastObserver *_thi
     return;
   }
 
-  original(_this, toast, cmpAction);
+  ToastObserver_EnqueueOrCombineToast_original(_this, toast, cmpAction);
 }
 
 /**
@@ -75,13 +80,13 @@ void InstallToastBannerHooks()
     if (const auto ptr = helper.GetMethod("EnqueueToast"); ptr == nullptr) {
       ErrorMsg::MissingMethod("ToastObserver", "EnqueueToast");
     } else {
-      SPUD_STATIC_DETOUR(ptr, ToastObserver_EnqueueToast_Hook);
+      MH_INSTALL(ptr, ToastObserver_EnqueueToast_Hook, ToastObserver_EnqueueToast_original);
     }
 
     if (const auto ptr = helper.GetMethod("EnqueueOrCombineToast"); ptr == nullptr) {
       ErrorMsg::MissingMethod("ToastObserver", "EnqueueOrCombineToast");
     } else {
-      SPUD_STATIC_DETOUR(ptr, ToastObserver_EnqueueOrCombineToast_Hook);
+      MH_INSTALL(ptr, ToastObserver_EnqueueOrCombineToast_Hook, ToastObserver_EnqueueOrCombineToast_original);
     }
   }
 }

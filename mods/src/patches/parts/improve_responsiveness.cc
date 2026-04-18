@@ -14,7 +14,7 @@
 #include <il2cpp/il2cpp_helper.h>
 
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include <hook/hook.h>
 
 /**
  * @brief Hook: TransitionManager::Awake
@@ -24,10 +24,13 @@
  * Our modification: after calling original, overwrites _blurTime with the
  *   user's configured transition_time (clamped to [0.02, 1.0] seconds).
  */
-int64_t TransitionManager_Awake(auto original, TransitionManager* a1)
+typedef int64_t (*TransitionManager_Awake_fn)(TransitionManager*);
+static TransitionManager_Awake_fn TransitionManager_Awake_original = nullptr;
+
+int64_t TransitionManager_Awake(TransitionManager* a1)
 {
   spdlog::debug("Adjusting screen transitions to {}", Config::Get().transition_time);
-  auto r                         = original(a1);
+  auto r                         = TransitionManager_Awake_original(a1);
   a1->SBlurController->_blurTime = std::clamp(Config::Get().transition_time, 0.02f, 1.0f);
   return r;
 }
@@ -40,7 +43,7 @@ int64_t TransitionManager_Awake(auto original, TransitionManager* a1)
  * Our modification: returns immediately (no-op) to prevent the manager from
  *   resetting blur state after Awake already configured it.
  */
-int64_t TransitionManager_OnEnable(auto original, TransitionManager* a1)
+int64_t TransitionManager_OnEnable(TransitionManager* a1)
 {
   return 0;
 }
@@ -62,7 +65,7 @@ void InstallImproveResponsivenessHooks()
     if (awake == nullptr) {
       ErrorMsg::MissingMethod("TransitionManager", "Awake");
     } else {
-      SPUD_STATIC_DETOUR(awake, TransitionManager_Awake);
+      MH_INSTALL(awake, TransitionManager_Awake, TransitionManager_Awake_original);
     }
   }
 }

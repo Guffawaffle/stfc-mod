@@ -16,7 +16,7 @@
 #include <prime/IBuffComparer.h>
 #include <prime/IBuffData.h>
 
-#include <spud/detour.h>
+#include <hook/hook.h>
 
 /**
  * @brief Hook: BuffService::IsBuffConditionMet
@@ -28,7 +28,10 @@
  *   that would only apply when docked are excluded from power calculations,
  *   giving an accurate undocked power reading.
  */
-static bool BuffService_IsBuffConditionMet(auto original, void* _this, BuffCondition currentCondition,
+typedef bool (*BuffService_IsBuffConditionMet_fn)(void*, BuffCondition, IBuffComparer*, IBuffData*, bool, bool);
+static BuffService_IsBuffConditionMet_fn BuffService_IsBuffConditionMet_original = nullptr;
+
+static bool BuffService_IsBuffConditionMet(void* _this, BuffCondition currentCondition,
                                            IBuffComparer *buffComparer, IBuffData *buffToCompare,
                                            bool excludeFactionBuffs, bool isAllianceLoyalty)
 {
@@ -40,7 +43,7 @@ static bool BuffService_IsBuffConditionMet(auto original, void* _this, BuffCondi
       break;
   }
 
-  return original(_this, currentCondition, buffComparer, buffToCompare, excludeFactionBuffs, isAllianceLoyalty);
+  return BuffService_IsBuffConditionMet_original(_this, currentCondition, buffComparer, buffToCompare, excludeFactionBuffs, isAllianceLoyalty);
 }
 
 /**
@@ -60,7 +63,7 @@ void InstallBuffFixHooks()
       if (const auto ptr = buffHelper.GetMethod("IsBuffConditionMet"); ptr == nullptr) {
         ErrorMsg::MissingMethod("BuffService", "IsBuffConditionMet");
       } else {
-        SPUD_STATIC_DETOUR(ptr, BuffService_IsBuffConditionMet);
+        MH_INSTALL(ptr, BuffService_IsBuffConditionMet, BuffService_IsBuffConditionMet_original);
       }
     }
   }

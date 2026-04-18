@@ -23,7 +23,7 @@
 
 #include <il2cpp/il2cpp_helper.h>
 
-#include <spud/detour.h>
+#include <hook/hook.h>
 
 #if _WIN32
 #include <Windows.h>
@@ -44,7 +44,10 @@
  *   donation popup with cap == 50, replaces it with the user's configured max
  *   (or returns -1 for unlimited if max <= 0).
  */
-int64_t InventoryForPopup_set_MaxItemsToUse(auto original, InventoryForPopup* a1, int64_t a2)
+typedef int64_t (*InventoryForPopup_set_MaxItemsToUse_fn)(InventoryForPopup*, int64_t);
+static InventoryForPopup_set_MaxItemsToUse_fn InventoryForPopup_set_MaxItemsToUse_original = nullptr;
+
+int64_t InventoryForPopup_set_MaxItemsToUse(InventoryForPopup* a1, int64_t a2)
 {
   if (a1->IsDonationUse && a2 == 50 && Config::Get().extend_donation_slider) {
     const auto max = Config::Get().extend_donation_max;
@@ -55,7 +58,7 @@ int64_t InventoryForPopup_set_MaxItemsToUse(auto original, InventoryForPopup* a1
     }
   }
 
-  int64_t standard = original(a1, a2);
+  int64_t standard = InventoryForPopup_set_MaxItemsToUse_original(a1, a2);
   return standard;
 }
 
@@ -69,12 +72,15 @@ int64_t InventoryForPopup_set_MaxItemsToUse(auto original, InventoryForPopup* a1
  * Our modification: if the bundle is on cooldown, redirects to the auxiliary
  *   info view instead of blocking the press entirely.
  */
-void BundleDataWidget_OnActionButtonPressedCallback(auto original, BundleDataWidget* _this)
+typedef void (*BundleDataWidget_OnActionButtonPressedCallback_fn)(BundleDataWidget*);
+static BundleDataWidget_OnActionButtonPressedCallback_fn BundleDataWidget_OnActionButtonPressedCallback_original = nullptr;
+
+void BundleDataWidget_OnActionButtonPressedCallback(BundleDataWidget* _this)
 {
   if (_this->CurrentState & BundleDataWidget::ItemState::CooldownTimerOn) {
     _this->AuxViewButtonPressedHandler();
   } else {
-    original(_this);
+    BundleDataWidget_OnActionButtonPressedCallback_original(_this);
   }
 }
 
@@ -95,7 +101,7 @@ void InstallMiscPatches()
     if (!ptr) {
       ErrorMsg::MissingMethod("InventoryForPopup", "set_MaxItemsToUse");
     } else {
-      SPUD_STATIC_DETOUR(ptr, InventoryForPopup_set_MaxItemsToUse);
+      MH_INSTALL(ptr, InventoryForPopup_set_MaxItemsToUse, InventoryForPopup_set_MaxItemsToUse_original);
     }
   }
 #endif
@@ -108,7 +114,7 @@ void InstallMiscPatches()
     if (!ptr) {
       ErrorMsg::MissingMethod("BundleDataWidget", "OnActionButtonPressedCallback");
     } else
-      SPUD_STATIC_DETOUR(ptr, BundleDataWidget_OnActionButtonPressedCallback);
+      MH_INSTALL(ptr, BundleDataWidget_OnActionButtonPressedCallback, BundleDataWidget_OnActionButtonPressedCallback_original);
   }
 }
 
@@ -142,9 +148,12 @@ struct ResolutionArray {
  *   that rate, then deduplicates. This prevents the settings menu from showing
  *   the same resolution multiple times at different refresh rates.
  */
-ResolutionArray* GetResolutions_Hook(auto original)
+typedef ResolutionArray* (*GetResolutions_fn)();
+static GetResolutions_fn GetResolutions_original = nullptr;
+
+ResolutionArray* GetResolutions_Hook()
 {
-  auto resolutions = original();
+  auto resolutions = GetResolutions_original();
 
 #if _WIN32
   // Modify
@@ -194,7 +203,7 @@ void InstallResolutionListFix()
   if (!get_resolutions) {
     ErrorMsg::MissingMethod("UnityEngine.Screen", "get_resolutions");
   } else {
-    SPUD_STATIC_DETOUR(get_resolutions, GetResolutions_Hook);
+    MH_INSTALL(get_resolutions, GetResolutions_Hook, GetResolutions_original);
   }
 }
 
@@ -209,7 +218,10 @@ void InstallResolutionListFix()
  *   original; returns nullptr early if any entry is null (avoids a crash
  *   deep in the buff processing pipeline).
  */
-IList* ExtractBuffsOfType_Hook(auto original, ClientModifierType modifier, IList* list)
+typedef IList* (*ExtractBuffsOfType_fn)(ClientModifierType, IList*);
+static ExtractBuffsOfType_fn ExtractBuffsOfType_original = nullptr;
+
+IList* ExtractBuffsOfType_Hook(ClientModifierType modifier, IList* list)
 {
   if (list) {
     for (int i = 0; i < list->Count; ++i) {
@@ -219,7 +231,7 @@ IList* ExtractBuffsOfType_Hook(auto original, ClientModifierType modifier, IList
       }
     }
   }
-  return original(modifier, list);
+  return ExtractBuffsOfType_original(modifier, list);
 }
 
 /**
@@ -230,9 +242,12 @@ IList* ExtractBuffsOfType_Hook(auto original, ClientModifierType modifier, IList
  * Our modification: if always_skip_reveal_sequence is set, returns false
  *   regardless of the original result.
  */
-bool ShouldShowRevealHook(auto original, void* _this, bool ignore)
+typedef bool (*ShouldShowRevealHook_fn)(void*, bool);
+static ShouldShowRevealHook_fn ShouldShowRevealHook_original = nullptr;
+
+bool ShouldShowRevealHook(void* _this, bool ignore)
 {
-  auto result = original(_this, ignore);
+  auto result = ShouldShowRevealHook_original(_this, ignore);
   if (Config::Get().always_skip_reveal_sequence) {
     return false;
   }
@@ -338,21 +353,27 @@ public:
  */
 bool isFirstInterstitial = true;
 
-void InterstitialViewController_AboutToShow(auto original, InterstitialViewController* _this)
+typedef void (*InterstitialViewController_AboutToShow_fn)(InterstitialViewController*);
+static InterstitialViewController_AboutToShow_fn InterstitialViewController_AboutToShow_original = nullptr;
+
+void InterstitialViewController_AboutToShow(InterstitialViewController* _this)
 {
   if (Config::Get().disable_first_popup && isFirstInterstitial && _this != nullptr) {
     isFirstInterstitial = false;
     _this->CloseWhenReady();
   } else {
-    original(_this);
+    InterstitialViewController_AboutToShow_original(_this);
   }
 }
 
 /// Diagnostic hook for action queue logging (currently commented out in install).
-void ActionQueueManager_AddActionToQueue(auto original, ActionQueueManager* _this, long fleet_id)
+typedef void (*ActionQueueManager_AddActionToQueue_fn)(ActionQueueManager*, long);
+static ActionQueueManager_AddActionToQueue_fn ActionQueueManager_AddActionToQueue_original = nullptr;
+
+void ActionQueueManager_AddActionToQueue(ActionQueueManager* _this, long fleet_id)
 {
   spdlog::warn("ActionQueueManager_AddActionToQueue({})", fleet_id);
-  original(_this, fleet_id);
+  ActionQueueManager_AddActionToQueue_original(_this, fleet_id);
 }
 
 //   const auto section_data = Hub::get_SectionManager()->_sectionStorage->GetState(sectionID);
@@ -377,7 +398,7 @@ void InstallTempCrashFixes()
     if (ptr_extract_buffs_of_type == nullptr) {
       ErrorMsg::MissingMethod("BuffService", "ExtractBuffsOfType");
     } else {
-      SPUD_STATIC_DETOUR(ptr_extract_buffs_of_type, ExtractBuffsOfType_Hook);
+      MH_INSTALL(ptr_extract_buffs_of_type, ExtractBuffsOfType_Hook, ExtractBuffsOfType_original);
     }
   }
 
@@ -389,7 +410,7 @@ void InstallTempCrashFixes()
     if (reveal_show == nullptr) {
       ErrorMsg::MissingMethod("ShopSceneManager", "ShouldShowRevealSequence");
     } else {
-      SPUD_STATIC_DETOUR(reveal_show, ShouldShowRevealHook);
+      MH_INSTALL(reveal_show, ShouldShowRevealHook, ShouldShowRevealHook_original);
     }
   }
 
@@ -402,7 +423,7 @@ void InstallTempCrashFixes()
     if (interstitial_show == nullptr) {
       ErrorMsg::MissingMethod("InterstitialViewController", "AboutToShow");
     } else {
-      SPUD_STATIC_DETOUR(interstitial_show, InterstitialViewController_AboutToShow);
+      MH_INSTALL(interstitial_show, InterstitialViewController_AboutToShow, InterstitialViewController_AboutToShow_original);
     }
   }
 
@@ -415,7 +436,7 @@ void InstallTempCrashFixes()
     if (addtoqueue_method == nullptr) {
       ErrorMsg::MissingMethod("ActionQueueManager", "AddActionToQueue");
     } else {
-      // SPUD_STATIC_DETOUR(addtoqueue_method, ActionQueueManager_AddActionToQueue);
+      // MH_INSTALL(addtoqueue_method, ActionQueueManager_AddActionToQueue, ActionQueueManager_AddActionToQueue_original);
     }
   }
 }
