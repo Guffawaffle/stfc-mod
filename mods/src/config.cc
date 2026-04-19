@@ -616,11 +616,17 @@ void Config::Load()
     spdlog::warn("Deprecation Warning: Legacy config options 'sync_url' and 'sync_token' have been moved to "
                  "[sync.targets.<name>] sections and may be removed in a future version.");
 
-    SyncTargetConfig converted_target{.url = sync_url.value(), .token = sync_token.value()};
+    SyncTargetConfig converted_target;
+    static_cast<SyncConfig&>(converted_target) = sync_defaults;
+    converted_target.url   = sync_url.value();
+    converted_target.token = sync_token.value();
 
     if (this->sync_targets.emplace("default", converted_target).second) {
-      parsed["sync"]["targets"].as_table()->emplace<toml::table>(
-          "default", toml::table{{"url", sync_url.value()}, {"token", sync_token.value()}});
+      toml::table default_target{{"url", sync_url.value()}, {"token", sync_token.value()}, {"proxy", converted_target.proxy}};
+      for (const auto& opt : SyncOptions) {
+        default_target.insert(opt.option_str, converted_target.*opt.option);
+      }
+      parsed["sync"]["targets"].as_table()->emplace<toml::table>("default", default_target);
       spdlog::info(
           "Legacy config options 'sync_url' and 'sync_token' were converted to sync.targets.default url: {}, token: {}",
           sync_url.value(), sync_token.value());
