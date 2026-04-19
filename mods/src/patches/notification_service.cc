@@ -19,6 +19,7 @@
 #include <spdlog/spdlog.h>
 
 #include <string>
+#include <string_view>
 
 #if _WIN32
 #include <windows.h>
@@ -87,16 +88,50 @@ static const char* toast_state_title(int state)
 
 // ─── Platform Notification Delivery ──────────────────────────────────────────────────
 #if _WIN32
+static std::string normalize_notification_body(const char* body)
+{
+  if (!body || !*body) {
+    return {};
+  }
+
+  std::string normalized;
+  normalized.reserve(std::string_view(body).size());
+
+  for (size_t i = 0; body[i] != '\0'; ++i) {
+    if (body[i] == '\r') {
+      normalized += '\r';
+      if (body[i + 1] == '\n') {
+        normalized += '\n';
+        ++i;
+      }
+      continue;
+    }
+
+    if (body[i] == '\n') {
+      normalized += "\r\n";
+      continue;
+    }
+
+    normalized += body[i];
+  }
+
+  return normalized;
+}
+
 static void show_system_notification(const char* title, const char* body)
 {
   try {
     using namespace winrt::Windows::UI::Notifications;
     using namespace winrt::Windows::Data::Xml::Dom;
 
-    auto xml   = ToastNotificationManager::GetTemplateContent(ToastTemplateType::ToastText02);
+    auto normalizedBody = normalize_notification_body(body);
+    auto xml = ToastNotificationManager::GetTemplateContent(normalizedBody.empty() ? ToastTemplateType::ToastText01
+                                                                                   : ToastTemplateType::ToastText02);
     auto nodes = xml.GetElementsByTagName(L"text");
     nodes.Item(0).InnerText(winrt::to_hstring(title));
-    nodes.Item(1).InnerText(winrt::to_hstring(body));
+    if (!normalizedBody.empty()) {
+      nodes.Item(1).InnerText(winrt::to_hstring(normalizedBody));
+    }
 
     auto notification = ToastNotification(xml);
     auto notifier     = ToastNotificationManager::CreateToastNotifier(L"Star Trek Fleet Command");

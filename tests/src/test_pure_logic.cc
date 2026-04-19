@@ -209,44 +209,90 @@ TEST_SUITE("parse_hull_key")
 }
 
 // ===========================================================================
-// BattleSummaryData::format_body
+// fleet notification formatting
 // ===========================================================================
 
-TEST_SUITE("BattleSummaryData")
+TEST_SUITE("fleet_notification_formatting")
+{
+  TEST_CASE("duration formatting keeps short ETA readable")
+  {
+    CHECK(format_duration_short(0) == "");
+    CHECK(format_duration_short(59) == "59s");
+    CHECK(format_duration_short(96) == "1m 36s");
+    CHECK(format_duration_short(3600) == "1h");
+    CHECK(format_duration_short(3660) == "1h 1m");
+  }
+
+  TEST_CASE("cargo formatting clamps and rounds percentage")
+  {
+    CHECK(format_cargo_fill_text(-1.0f) == "");
+    CHECK(format_cargo_fill_text(0.0f) == "Current Cargo: 0%");
+    CHECK(format_cargo_fill_text(0.126f) == "Current Cargo: 13%");
+    CHECK(format_cargo_fill_text(1.4f) == "Current Cargo: 100%");
+  }
+
+  TEST_CASE("started mining title and body use stacked layout")
+  {
+    CHECK(format_started_mining_title("K'VORT", "Parsteel") == "K'VORT started mining Parsteel");
+    CHECK(format_started_mining_body("1m 36s", "Current Cargo: 0%")
+          == "ETA 1m 36s\nCurrent Cargo: 0%");
+  }
+
+  TEST_CASE("started mining title and body omit optional details cleanly")
+  {
+    CHECK(format_started_mining_title("K'VORT", "") == "K'VORT started mining");
+    CHECK(format_started_mining_body("", "") == "");
+    CHECK(format_started_mining_title("", "Parsteel") == "Fleet started mining Parsteel");
+    CHECK(format_started_mining_body("", "Current Cargo: 55%") == "Current Cargo: 55%");
+  }
+
+  TEST_CASE("node depleted body keeps resource and cargo context")
+  {
+    CHECK(format_node_depleted_body("K'VORT", "Parsteel", "Current Cargo: 100%")
+          == "K'VORT depleted its Parsteel node. Current Cargo: 100%.");
+    CHECK(format_node_depleted_body("?", "", "") == "Fleet depleted its node.");
+  }
+}
+
+// ===========================================================================
+// BattleSummaryPreview::format_body
+// ===========================================================================
+
+TEST_SUITE("BattleSummaryPreview")
 {
   TEST_CASE("full battle with both sides")
   {
-    BattleSummaryData d{"Player1", "Enemy1", "Lv.30 Destroyer", "Lv.25 Frigate"};
+    BattleSummaryPreview d{"Player1", "Enemy1", "Lv.30 Destroyer", "Lv.25 Frigate"};
     CHECK(d.format_body() == "Player1 (Lv.30 Destroyer) vs Enemy1 (Lv.25 Frigate)");
   }
 
   TEST_CASE("names only, no ships")
   {
-    BattleSummaryData d{"Player1", "Enemy1", "", ""};
+    BattleSummaryPreview d{"Player1", "Enemy1", "", ""};
     CHECK(d.format_body() == "Player1 vs Enemy1");
   }
 
   TEST_CASE("player only")
   {
-    BattleSummaryData d{"Player1", "", "Lv.30 Destroyer", ""};
+    BattleSummaryPreview d{"Player1", "", "Lv.30 Destroyer", ""};
     CHECK(d.format_body() == "Player1 (Lv.30 Destroyer)");
   }
 
   TEST_CASE("enemy only")
   {
-    BattleSummaryData d{"", "Enemy1", "", "Lv.25 Frigate"};
+    BattleSummaryPreview d{"", "Enemy1", "", "Lv.25 Frigate"};
     CHECK(d.format_body() == "Enemy1 (Lv.25 Frigate)");
   }
 
   TEST_CASE("all empty")
   {
-    BattleSummaryData d{"", "", "", ""};
+    BattleSummaryPreview d{"", "", "", ""};
     CHECK(d.format_body() == "");
   }
 
   TEST_CASE("name with ship on one side, name only on other")
   {
-    BattleSummaryData d{"Player1", "Enemy1", "Lv.30 Destroyer", ""};
+    BattleSummaryPreview d{"Player1", "Enemy1", "Lv.30 Destroyer", ""};
     CHECK(d.format_body() == "Player1 (Lv.30 Destroyer) vs Enemy1");
   }
 }

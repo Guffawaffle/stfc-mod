@@ -1,5 +1,7 @@
 #pragma once
 
+#include "TimeSpan.h"
+
 #include <il2cpp/il2cpp_helper.h>
 
 struct MiningNodeParams {
@@ -44,6 +46,7 @@ public:
   __declspec(property(get = __get_PointData)) MiningNodeParams* PointData;
   __declspec(property(get = __get_ResourceId)) int64_t ResourceId;
   __declspec(property(get = __get_PerHourRate)) int64_t PerHourRate;
+  __declspec(property(get = __get_RemainingTime)) TimeSpan RemainingTime;
 
 private:
   static IL2CppClassHelper& get_class_helper()
@@ -72,5 +75,12 @@ public:
     static auto field = get_class_helper().GetProperty("PerHourRate");
     auto* value = field.Get<int64_t>(this);
     return value ? *value : 0;
+  }
+
+  TimeSpan __get_RemainingTime()
+  {
+    static auto field = get_class_helper().GetProperty("RemainingTime");
+    auto* value = field.Get<TimeSpan>(this);
+    return value ? *value : TimeSpan{};
   }
 };

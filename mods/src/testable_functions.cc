@@ -4,7 +4,10 @@
 
 #include "testable_functions.h"
 
+#include <algorithm>
 #include <cctype>
+#include <cmath>
+#include <sstream>
 #include <string>
 
 // ---------------------------------------------------------------------------
@@ -151,9 +154,94 @@ std::string parse_hull_key(const std::string& key)
 }
 
 // ---------------------------------------------------------------------------
-// BattleSummaryData::format_body
+// Fleet notification formatting
 // ---------------------------------------------------------------------------
-std::string BattleSummaryData::format_body() const
+std::string format_duration_short(int64_t seconds)
+{
+  if (seconds <= 0) return "";
+
+  auto hourPart   = seconds / 3600;
+  auto minutePart = (seconds % 3600) / 60;
+  auto secondPart = seconds % 60;
+
+  std::ostringstream out;
+  if (hourPart > 0) {
+    out << hourPart << "h";
+    if (minutePart > 0) out << ' ' << minutePart << "m";
+    return out.str();
+  }
+
+  if (minutePart > 0) {
+    out << minutePart << "m";
+    if (secondPart > 0) out << ' ' << secondPart << "s";
+    return out.str();
+  }
+
+  out << secondPart << "s";
+  return out.str();
+}
+
+std::string format_cargo_fill_text(float fillLevel)
+{
+  if (!std::isfinite(fillLevel) || fillLevel < 0.0f) return "";
+
+  auto percent = static_cast<int>(std::lround(std::clamp(fillLevel, 0.0f, 1.0f) * 100.0f));
+  return "Current Cargo: " + std::to_string(percent) + "%";
+}
+
+std::string format_started_mining_title(const std::string& shipName, const std::string& resourceName)
+{
+  auto subject = shipName.empty() ? std::string{"Fleet"} : shipName;
+  auto title   = subject + " started mining";
+
+  if (!resourceName.empty()) {
+    title += " " + resourceName;
+  }
+
+  return title;
+}
+
+std::string format_started_mining_body(const std::string& etaText, const std::string& cargoText)
+{
+  std::string body;
+
+  if (!etaText.empty()) {
+    body += "ETA " + etaText;
+  }
+
+  if (!cargoText.empty()) {
+    if (!body.empty()) {
+      body += "\n";
+    }
+    body += cargoText;
+  }
+
+  return body;
+}
+
+std::string format_node_depleted_body(const std::string& shipName, const std::string& resourceName,
+                                      const std::string& cargoText)
+{
+  auto subject = (shipName.empty() || shipName == "?") ? std::string{"Fleet"} : shipName;
+  auto body    = subject + " depleted its";
+
+  if (!resourceName.empty()) {
+    body += " " + resourceName + " node.";
+  } else {
+    body += " node.";
+  }
+
+  if (!cargoText.empty()) {
+    body += " " + cargoText + ".";
+  }
+
+  return body;
+}
+
+// ---------------------------------------------------------------------------
+// BattleSummaryPreview::format_body
+// ---------------------------------------------------------------------------
+std::string BattleSummaryPreview::format_body() const
 {
   auto format_side = [](const std::string& name, const std::string& ship) -> std::string {
     if (name.empty()) return "";
