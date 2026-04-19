@@ -27,6 +27,7 @@
 
 namespace DCP = DefaultConfig::Patches;
 namespace DCG = DefaultConfig::Graphics;
+namespace DCN = DefaultConfig::Notifications;
 namespace DCC = DefaultConfig::Control;
 namespace DCU = DefaultConfig::UI;
 namespace DCBS = DefaultConfig::Buffs;
@@ -45,19 +46,23 @@ bool AllowKeyFallthrough()
 }
 
 /// Human-readable names → ToastState enum values.
-/// Used to map comma-separated strings from the TOML config into the
-/// disabled_banner_types / notify_banner_types integer vectors.
+/// Used for [ui].disabled_banner_types and legacy [ui] notification allowlists.
 static const eastl::tuple<const char*, int> bannerTypes[] = {
     {"Standard", ToastState::Standard},
     {"FactionWarning", ToastState::FactionWarning},
     {"FactionLevelUp", ToastState::FactionLevelUp},
     {"FactionLevelDown", ToastState::FactionLevelDown},
     {"FactionDiscovered", ToastState::FactionDiscovered},
+  {"IncomingAttack", ToastState::IncomingAttack},
     {"IncomingAttackFaction", ToastState::IncomingAttackFaction},
     {"FleetBattle", ToastState::FleetBattle},
+  {"StationBattle", ToastState::StationBattle},
+  {"StationVictory", ToastState::StationVictory},
     {"Victory", ToastState::Victory},
     {"Defeat", ToastState::Defeat},
+  {"StationDefeat", ToastState::StationDefeat},
     {"Event", ToastState::Tournament},
+  {"Tournament", ToastState::Tournament},
     {"ArmadaCreated", ToastState::ArmadaCreated},
     {"ArmadaCanceled", ToastState::ArmadaCanceled},
     {"ArmadaIncomingAttack", ToastState::ArmadaIncomingAttack},
@@ -87,6 +92,58 @@ static const eastl::tuple<const char*, int> bannerTypes[] = {
     {"SurgeWarmUpEnded", ToastState::SurgeWarmUpEnded},
     {"SurgeHostileGroupDefeated", ToastState::SurgeHostileGroupDefeated},
     {"SurgeTimeLeft", ToastState::SurgeTimeLeft},
+};
+
+struct NotificationToggleSpec {
+  std::string_view key;
+  int              toast_state;
+  bool             default_value;
+};
+
+static constexpr NotificationToggleSpec notificationToggleSpecs[] = {
+    {"notifications_victory", Victory, DCN::Battle::victory},
+    {"notifications_defeat", Defeat, DCN::Battle::defeat},
+    {"notifications_partial_victory", PartialVictory, DCN::Battle::partial_victory},
+    {"notifications_station_victory", StationVictory, DCN::Battle::station_victory},
+    {"notifications_station_defeat", StationDefeat, DCN::Battle::station_defeat},
+    {"notifications_station_battle", StationBattle, DCN::Battle::station_battle},
+    {"notifications_incoming_attack", IncomingAttack, DCN::Battle::incoming_attack},
+    {"notifications_fleet_battle", FleetBattle, DCN::Battle::fleet_battle},
+    {"notifications_armada_battle_won", ArmadaBattleWon, DCN::Battle::armada_battle_won},
+    {"notifications_armada_battle_lost", ArmadaBattleLost, DCN::Battle::armada_battle_lost},
+    {"notifications_assault_victory", AssaultVictory, DCN::Battle::assault_victory},
+    {"notifications_assault_defeat", AssaultDefeat, DCN::Battle::assault_defeat},
+    {"notifications_armada_created", ArmadaCreated, DCN::Armada::created},
+    {"notifications_armada_canceled", ArmadaCanceled, DCN::Armada::canceled},
+    {"notifications_tournament", Tournament, DCN::Events::tournament},
+    {"notifications_chained_event_scored", ChainedEventScored, DCN::Events::chained_event_scored},
+    {"notifications_standard", Standard, DCN::Experimental::standard},
+    {"notifications_faction_warning", FactionWarning, DCN::Experimental::faction_warning},
+    {"notifications_faction_level_up", FactionLevelUp, DCN::Experimental::faction_level_up},
+    {"notifications_faction_level_down", FactionLevelDown, DCN::Experimental::faction_level_down},
+    {"notifications_faction_discovered", FactionDiscovered, DCN::Experimental::faction_discovered},
+    {"notifications_incoming_attack_faction", IncomingAttackFaction, DCN::Experimental::incoming_attack_faction},
+    {"notifications_armada_incoming_attack", ArmadaIncomingAttack, DCN::Experimental::armada_incoming_attack},
+    {"notifications_diplomacy_updated", DiplomacyUpdated, DCN::Experimental::diplomacy_updated},
+    {"notifications_joined_takeover", JoinedTakeover, DCN::Experimental::joined_takeover},
+    {"notifications_competitor_joined_takeover", CompetitorJoinedTakeover, DCN::Experimental::competitor_joined_takeover},
+    {"notifications_abandoned_territory", AbandonedTerritory, DCN::Experimental::abandoned_territory},
+    {"notifications_takeover_victory", TakeoverVictory, DCN::Experimental::takeover_victory},
+    {"notifications_takeover_defeat", TakeoverDefeat, DCN::Experimental::takeover_defeat},
+    {"notifications_treasury_progress", TreasuryProgress, DCN::Experimental::treasury_progress},
+    {"notifications_treasury_full", TreasuryFull, DCN::Experimental::treasury_full},
+    {"notifications_achievement", Achievement, DCN::Experimental::achievement},
+    {"notifications_challenge_complete", ChallengeComplete, DCN::Experimental::challenge_complete},
+    {"notifications_challenge_failed", ChallengeFailed, DCN::Experimental::challenge_failed},
+    {"notifications_strike_hit", StrikeHit, DCN::Experimental::strike_hit},
+    {"notifications_strike_defeat", StrikeDefeat, DCN::Experimental::strike_defeat},
+    {"notifications_warchest_progress", WarchestProgress, DCN::Experimental::warchest_progress},
+    {"notifications_warchest_full", WarchestFull, DCN::Experimental::warchest_full},
+    {"notifications_arena_time_left", ArenaTimeLeft, DCN::Experimental::arena_time_left},
+    {"notifications_fleet_preset_applied", FleetPresetApplied, DCN::Experimental::fleet_preset_applied},
+    {"notifications_surge_warmup_ended", SurgeWarmUpEnded, DCN::Experimental::surge_warmup_ended},
+    {"notifications_surge_hostile_group_defeated", SurgeHostileGroupDefeated, DCN::Experimental::surge_hostile_group_defeated},
+    {"notifications_surge_time_left", SurgeTimeLeft, DCN::Experimental::surge_time_left},
 };
 
 bool SyncConfig::enabled(SyncConfig::Type type) const
@@ -629,6 +686,76 @@ void Config::Load()
 
   spdlog::debug("");
 
+  auto* notifications_table = config["notifications"].as_table();
+  const bool has_explicit_notification_toggles = notifications_table &&
+      std::ranges::any_of(notificationToggleSpecs, [notifications_table](const auto& spec) {
+        return notifications_table->contains(spec.key);
+      });
+
+  auto* ui_table = config["ui"].as_table();
+  std::string legacy_notify_banner_types;
+  bool        has_legacy_notify_banner_types = false;
+  if (ui_table) {
+    if (auto notify_on_value = config["ui"]["notify_on_banner_types"].value<std::string>(); notify_on_value.has_value()) {
+      legacy_notify_banner_types     = notify_on_value.value();
+      has_legacy_notify_banner_types = true;
+    } else if (auto notify_value = config["ui"]["notify_banner_types"].value<std::string>(); notify_value.has_value()) {
+      legacy_notify_banner_types     = notify_value.value();
+      has_legacy_notify_banner_types = true;
+    }
+  }
+
+  const bool use_legacy_notify_allowlist = has_legacy_notify_banner_types && !has_explicit_notification_toggles;
+
+  this->notifications.enabled =
+      get_config_or_default(config, parsed, "notifications", "notifications_enabled", DCN::enabled, write_config);
+  this->notifications.fleet_arrived_in_system = get_config_or_default(
+      config, parsed, "notifications", "notifications_fleet_arrived_in_system", DCN::Fleet::arrived_in_system, write_config);
+  this->notifications.fleet_started_mining =
+      get_config_or_default(config, parsed, "notifications", "notifications_fleet_started_mining", DCN::Fleet::started_mining, write_config);
+  this->notifications.fleet_node_depleted =
+      get_config_or_default(config, parsed, "notifications", "notifications_fleet_node_depleted", DCN::Fleet::node_depleted, write_config);
+  this->notifications.fleet_docked =
+      get_config_or_default(config, parsed, "notifications", "notifications_fleet_docked", DCN::Fleet::docked, write_config);
+
+  this->notifications.ClearToastStates();
+  for (const auto& spec : notificationToggleSpecs) {
+    const bool default_value = use_legacy_notify_allowlist ? false : spec.default_value;
+    const bool enabled = get_config_or_default(config, parsed, "notifications", spec.key, default_value, write_config);
+    this->notifications.SetToastStateEnabled(spec.toast_state, enabled);
+  }
+
+  if (use_legacy_notify_allowlist) {
+    if (!(notifications_table && notifications_table->contains("notifications_enabled"))) {
+      this->notifications.enabled = true;
+      parsed["notifications"].as_table()->insert_or_assign("notifications_enabled", true);
+    }
+
+    this->notifications.ClearToastStates();
+
+    std::vector<std::string> notify_types = StrSplit(legacy_notify_banner_types, ',');
+    for (const auto& [key, value] : bannerTypes) {
+      auto upper_key = AsciiStrToUpper(key);
+      for (const std::string_view raw_type : notify_types) {
+        auto stripped_type = StripLeadingAsciiWhitespace(raw_type);
+        auto upper_type    = AsciiStrToUpper(stripped_type);
+        if (upper_key == upper_type) {
+          this->notifications.SetToastStateEnabled(value, true);
+        }
+      }
+    }
+
+    for (const auto& spec : notificationToggleSpecs) {
+      parsed["notifications"].as_table()->insert_or_assign(spec.key, this->notifications.EnabledForToastState(spec.toast_state));
+    }
+
+    spdlog::warn("Deprecation Warning: [ui].notify_on_banner_types / [ui].notify_banner_types is deprecated. Migrate to [notifications].");
+  } else if (has_legacy_notify_banner_types) {
+    spdlog::warn("Ignoring deprecated [ui] notification allowlist because explicit [notifications] toggles are present.");
+  }
+
+  spdlog::debug("");
+
   this->use_out_of_dock_power = get_config_or_default(config, parsed, "buffs", "use_out_of_dock_power", DCBS::use_out_of_dock_power, write_config);
 
   spdlog::debug("");
@@ -761,29 +888,6 @@ void Config::Load()
   spdlog::debug(message.str());
 
   parsed["ui"].as_table()->insert_or_assign("disabled_banner_types", bannerString);
-
-  // Parse notify_banner_types using the same bannerTypes lookup table
-  auto notify_banner_types_str =
-      get_config_or_default<std::string>(config, parsed, "ui", "notify_banner_types", DCU::notify_banner_types, write_log);
-
-  std::vector<std::string> notify_types = StrSplit(notify_banner_types_str, ',');
-  std::string              notifyString;
-
-  for (const auto& [key, value] : bannerTypes) {
-    auto upper_key = AsciiStrToUpper(key);
-    for (const std::string_view _type : notify_types) {
-      auto stripped_type = StripLeadingAsciiWhitespace(_type);
-      auto upper_type    = AsciiStrToUpper(stripped_type);
-      if (upper_key == upper_type) {
-        this->notify_banner_types.emplace_back(value);
-        if (!notifyString.empty()) notifyString.append(", ");
-        notifyString.append(key);
-      }
-    }
-  }
-
-  spdlog::debug("Final notify banner types: {}", notifyString);
-  parsed["ui"].as_table()->insert_or_assign("notify_banner_types", notifyString);
 
   spdlog::debug("");
 

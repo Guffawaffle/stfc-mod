@@ -203,6 +203,10 @@ void notification_init()
 void notification_show(const char* title, const char* body)
 {
 #if _WIN32
+  if (!Config::Get().notifications.enabled) {
+    return;
+  }
+
   show_system_notification(title, body);
 #endif
 }
@@ -212,11 +216,14 @@ void notification_handle_toast(Toast* toast)
 #if !_WIN32
   return; // No notification delivery on non-Windows platforms yet
 #else
+  const auto& notifications = Config::Get().notifications;
+  if (!notifications.enabled) {
+    return;
+  }
+
   auto state = toast->get_State();
 
-  // Check if this toast type is in the user's notify list
-  const auto& notify_types = Config::Get().notify_banner_types;
-  if (std::ranges::find(notify_types, state) == notify_types.end()) {
+  if (!notifications.EnabledForToastState(state)) {
     return;
   }
 
