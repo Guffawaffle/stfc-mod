@@ -43,6 +43,9 @@ bool force_space_action_next_frame = false;
 /** Double-tap detection timer for ship selection. */
 static std::chrono::time_point<std::chrono::steady_clock> select_clock = std::chrono::steady_clock::now();
 
+/** Last ship key used for double-tap detection. */
+static int last_ship_select_request = -1;
+
 // Returns true if the hook should return early (skip original)
 bool HandleShipSelection(int ship_select_request)
 {
@@ -80,7 +83,7 @@ bool HandleShipSelection(int ship_select_request)
       std::chrono::milliseconds                          select_diff =
           std::chrono::duration_cast<std::chrono::milliseconds>(select_now - select_clock);
       spdlog::debug("select_diff was {}ms", select_diff.count());
-      if (can_locate && fleet_bar->IsIndexSelected(ship_select_request)
+      if (can_locate && ship_select_request == last_ship_select_request && fleet_bar->IsIndexSelected(ship_select_request)
           && select_diff < std::chrono::milliseconds((int)Config::Get().select_timer)) {
         auto fleet = fleet_bar->_fleetPanelController->fleet;
         if (NavigationSectionManager::Instance() && NavigationSectionManager::Instance()->SNavigationManager) {
@@ -93,6 +96,7 @@ bool HandleShipSelection(int ship_select_request)
         fleet_bar->TogglePanel();
       }
 
+      last_ship_select_request = ship_select_request;
       select_clock = select_now;
       return true;  // handled — skip original
     }
