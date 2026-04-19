@@ -207,7 +207,7 @@ namespace vm
             if (currentBuilder == NULL)
                 break;
 
-            const Il2CppChar *str = (Il2CppChar*)il2cpp::vm::Array::GetFirstElementAddress(currentBuilder->chunkChars);
+            const Il2CppChar* str = il2cpp_array_addr(currentBuilder->chunkChars, Il2CppChar, 0);
             std::string utf8String = utils::StringUtils::Utf16ToUtf8(str, (int)currentBuilder->chunkChars->max_length);
 
             utf8Chunks.push_back(utf8String);
@@ -308,7 +308,7 @@ namespace vm
                 if (currentBuilder == NULL)
                     break;
 
-                const Il2CppChar *str = (Il2CppChar*)il2cpp::vm::Array::GetFirstElementAddress(currentBuilder->chunkChars);
+                const Il2CppChar* str = il2cpp_array_addr(currentBuilder->chunkChars, Il2CppChar, 0);
 
                 memcpy(nativeString + currentBuilder->chunkOffset, str, (int)currentBuilder->chunkChars->max_length * sizeof(Il2CppChar));
 
