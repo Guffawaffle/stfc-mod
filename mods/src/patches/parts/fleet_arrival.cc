@@ -58,13 +58,8 @@ static void maybe_notify_fleet_bar_transition(uint64_t fleetId, const std::strin
 {
   if (oldState == FleetState::Warping && newState == FleetState::Impulsing) {
     auto body = "Your " + shipName + " has arrived in-system";
-    spdlog::info("[FleetBar] ARRIVED_IN_SYSTEM id={} ship='{}'", fleetId, shipName);
+    spdlog::debug("[FleetBar] ARRIVED_IN_SYSTEM id={} ship='{}'", fleetId, shipName);
     notification_show("Fleet Arrived", body.c_str());
-    return;
-  }
-
-  if (oldState == FleetState::Impulsing && newState == FleetState::IdleInSpace) {
-    spdlog::info("[FleetBar] ARRIVED_AT_DESTINATION id={} ship='{}'", fleetId, shipName);
     return;
   }
 }

@@ -157,8 +157,8 @@ static BattleSummaryData build_battle_data(Il2CppObject* data)
       }))
     spdlog::warn("[Notify] SEH: EnemyShipHullId crashed");
 
-  spdlog::info("[Notify] Battle: {} ({}) vs {} ({})", result.playerName, result.playerShip,
-               result.enemyName, result.enemyShip);
+  spdlog::debug("[Notify] Battle: {} ({}) vs {} ({})", result.playerName, result.playerShip,
+                result.enemyName, result.enemyShip);
   return result;
 }
 

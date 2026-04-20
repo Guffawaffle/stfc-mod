@@ -161,7 +161,7 @@ void notification_init()
         auto pc   = il2cpp_method_get_param_count(method);
         if (name == "Localize" && pc == 2) {
           s_localize_ltc = method;
-          spdlog::info("[Notify] Resolved LanguageManager::Localize(out, LTC) at {:p}", (const void*)method);
+          spdlog::debug("[Notify] Resolved LanguageManager::Localize(out, LTC) at {:p}", (const void*)method);
           break;
         }
       }
@@ -174,9 +174,9 @@ void notification_init()
 
 #if _WIN32
   try { winrt::init_apartment(); } catch (...) {}
-  spdlog::info("[Notify] Windows notification service initialized");
+  spdlog::debug("[Notify] Windows notification service initialized");
 #else
-  spdlog::info("[Notify] Notification service: platform not supported (no-op)");
+  spdlog::debug("[Notify] Notification service: platform not supported (no-op)");
 #endif
 
   s_notification_initialized = true;
@@ -216,7 +216,7 @@ void notification_handle_toast(Toast* toast)
     body = "(no details available)";
   }
 
-  spdlog::info("[Notify] {} — {}", title, body);
+  spdlog::debug("[Notify] {} — {}", title, body);
   show_system_notification(title, body.c_str());
 #endif
 }
