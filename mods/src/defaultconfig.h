@@ -66,6 +66,8 @@ namespace Patches
   constexpr bool toastbannerhooks           = true;  ///< Toast-banner filtering hooks.
   constexpr bool uiscalehooks               = true;  ///< UI scale override hooks.
   constexpr bool zoomhooks                  = true;  ///< Camera zoom override hooks.
+} // namespace Patches
+
 namespace Shortcuts
 {
   constexpr const char* toggle_queue          = "CTRL-Q";
