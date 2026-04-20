@@ -850,6 +850,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "notifications", "notifications_fleet_node_depleted", DCN::Fleet::node_depleted, write_config);
   this->notifications.fleet_docked =
       get_config_or_default(config, parsed, "notifications", "notifications_fleet_docked", DCN::Fleet::docked, write_config);
+    this->notifications.fleet_repair_complete = get_config_or_default(
+      config, parsed, "notifications", "notifications_fleet_repair_complete", DCN::Fleet::repair_complete, write_config);
 
   this->notifications.ClearToastStates();
   for (const auto& spec : notificationToggleSpecs) {
