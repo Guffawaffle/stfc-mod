@@ -177,6 +177,11 @@ void maybe_notify_fleet_bar_transition(uint64_t fleetId, const std::string& ship
   }
 
   if (oldState != FleetState::Docked && newState == FleetState::Docked) {
+    if (oldState == FleetState::Repairing) {
+      spdlog::debug("[FleetBar] suppress docked-after-repair id={} ship='{}'", fleetId, shipName);
+      return;
+    }
+
     if (!Config::Get().notifications.fleet_docked) {
       return;
     }
