@@ -16,7 +16,7 @@
 #include <prime/NavigationPan.h>
 #include <prime/TKTouch.h>
 
-#include <hook/hook.h>
+#include <spud/detour.h>
 
 /**
  * @brief Hook: TKTouch::populateWithPosition
@@ -26,12 +26,9 @@
  * Our modification: converts Stationary phase to Moved so the pan gesture
  *   doesn't stall when the finger/cursor barely moves.
  */
-typedef TKTouch* (*TKTouch_populateWithPosition_fn)(TKTouch*, uintptr_t, TouchPhase);
-static TKTouch_populateWithPosition_fn TKTouch_populateWithPosition_original = nullptr;
-
-TKTouch *TKTouch_populateWithPosition_Hook(TKTouch *_this, uintptr_t pos, TouchPhase phase)
+TKTouch *TKTouch_populateWithPosition_Hook(auto original, TKTouch *_this, uintptr_t pos, TouchPhase phase)
 {
-  auto r = TKTouch_populateWithPosition_original(_this, pos, phase);
+  auto r = original(_this, pos, phase);
   if (r->phase == TouchPhase::Stationary) {
     r->phase = TouchPhase::Moved;
   }
@@ -48,15 +45,12 @@ TKTouch *TKTouch_populateWithPosition_Hook(TKTouch *_this, uintptr_t pos, TouchP
  *   the last pan delta so the camera decelerates smoothly. Also locks the
  *   extended far-zoom radius to the normal value.
  */
-typedef bool (*NavigationPan_LateUpdate_fn)(NavigationPan*);
-static NavigationPan_LateUpdate_fn NavigationPan_LateUpdate_original = nullptr;
-
-bool NavigationPan_LateUpdate_Hook(NavigationPan *_this)
+bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan *_this)
 {
   auto d = _this->_lastDelta;
 
   if (!Config::Get().disable_move_keys) {
-    NavigationPan_LateUpdate_original(_this);
+    original(_this);
   }
 
   static auto GetMouseButton = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButton(System.Int32)");
@@ -90,7 +84,7 @@ void InstallPanHooks()
     if (const auto ptr = touchHelper.GetMethod("populateWithPosition"); ptr == nullptr) {
       ErrorMsg::MissingMethod("TKTouch", "populateWithPosition");
     } else {
-      MH_INSTALL(ptr, TKTouch_populateWithPosition_Hook, TKTouch_populateWithPosition_original);
+      SPUD_STATIC_DETOUR(ptr, TKTouch_populateWithPosition_Hook);
     }
   }
 
@@ -101,7 +95,7 @@ void InstallPanHooks()
     if (const auto ptr = navHelper.GetMethod("LateUpdate"); ptr == nullptr) {
       ErrorMsg::MissingMethod("NavigationPan", "LateUpdate");
     } else {
-      MH_INSTALL(ptr, NavigationPan_LateUpdate_Hook, NavigationPan_LateUpdate_original);
+      SPUD_STATIC_DETOUR(ptr, NavigationPan_LateUpdate_Hook);
     }
   }
 }

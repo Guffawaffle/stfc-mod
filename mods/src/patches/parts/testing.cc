@@ -34,7 +34,8 @@
 #include <prime/UIBehaviour.h>
 
 #include <il2cpp/il2cpp_helper.h>
-#include <hook/hook.h>
+#include <spud/detour.h>
+#include <spud/signature.h>
 
 // ─── IL2CPP Wrapper Classes ──────────────────────────────────────────────────
 
@@ -123,10 +124,7 @@ public:
  * Our modification: when allow_cursor is false (Windows only), replaces the
  *   cursor with IDC_ARROW and releases any Unity cursor clipping.
  */
-typedef void (*Cursor_SetCursor_fn)(void*, ptrdiff_t, Vector2*, int);
-static Cursor_SetCursor_fn Cursor_SetCursor_original = nullptr;
-
-void Cursor_SetCursor(void* _this, ptrdiff_t texture, Vector2* hotspot, int cursorMode)
+void Cursor_SetCursor(auto original, void* _this, ptrdiff_t texture, Vector2* hotspot, int cursorMode)
 {
 #if _WIN32
   if (!Config::Get().allow_cursor) {
@@ -136,7 +134,7 @@ void Cursor_SetCursor(void* _this, ptrdiff_t texture, Vector2* hotspot, int curs
   }
 #endif
 
-  return Cursor_SetCursor_original(_this, texture, hotspot, cursorMode);
+  return original(_this, texture, hotspot, cursorMode);
 }
 
 /**
@@ -147,12 +145,9 @@ void Cursor_SetCursor(void* _this, ptrdiff_t texture, Vector2* hotspot, int curs
  * Our modification: after calling original, overwrites PlatformSettingsUrl
  *   and/or AssetUrlOverride if the user has configured custom values.
  */
-typedef AppConfig* (*Model_LoadConfigs_fn)(Model*);
-static Model_LoadConfigs_fn Model_LoadConfigs_original = nullptr;
-
-AppConfig* Model_LoadConfigs(Model* _this)
+AppConfig* Model_LoadConfigs(auto original, Model* _this)
 {
-  Model_LoadConfigs_original(_this);
+  original(_this);
   auto config = _this->AppConfig_;
 
   if (!Config::Get().config_settings_url.empty()) {
@@ -176,10 +171,7 @@ AppConfig* Model_LoadConfigs(Model* _this)
  * Our modification: skips the call if the object is already in the
  *   requested active state (avoids re-triggering OnEnable cascades).
  */
-typedef void (*SetActive_hook_fn)(void*, bool);
-static SetActive_hook_fn SetActive_hook_original = nullptr;
-
-void SetActive_hook(void* _this, bool active)
+void SetActive_hook(auto original, void* _this, bool active)
 {
   static auto IsActiveSelf = il2cpp_resolve_icall_typed<bool(void*)>("UnityEngine.GameObject::get_activeSelf()");
 
@@ -187,7 +179,7 @@ void SetActive_hook(void* _this, bool active)
     return;
     // __debugbreak();
   }
-  return SetActive_hook_original(_this, active);
+  return original(_this, active);
 }
 
 /**
@@ -198,13 +190,10 @@ void SetActive_hook(void* _this, bool active)
  * Our modification: returns false when queue_enabled config is off,
  *   effectively hiding the queue UI.
  */
-typedef bool (*IsQueueEnabled_fn)(void*);
-static IsQueueEnabled_fn IsQueueEnabled_original = nullptr;
-
-bool IsQueueEnabled(void* _this)
+bool IsQueueEnabled(auto original, void* _this)
 {
   if (Config::Get().queue_enabled) {
-    return IsQueueEnabled_original(_this);
+    return original(_this);
   }
 
   return false;
@@ -231,7 +220,7 @@ void InstallTestPatches()
     if (cursorMethod == nullptr) {
       ErrorMsg::MissingMethod("Cursor", "SetCursor_Injected");
     } else {
-      MH_INSTALL(cursorMethod, Cursor_SetCursor, Cursor_SetCursor_original);
+      SPUD_STATIC_DETOUR(cursorMethod, Cursor_SetCursor);
     }
   }
 
@@ -243,7 +232,7 @@ void InstallTestPatches()
     if (load_configs_ptr == nullptr) {
       ErrorMsg::MissingMethod("Model", "LoadConfigs");
     } else {
-      MH_INSTALL(load_configs_ptr, Model_LoadConfigs, Model_LoadConfigs_original);
+      SPUD_STATIC_DETOUR(load_configs_ptr, Model_LoadConfigs);
     }
   }
 
@@ -257,7 +246,7 @@ void InstallTestPatches()
     if (SetActive == nullptr) {
       ErrorMsg::MissingStaticMethod("GameObject", "SetActive");
     } else {
-      MH_INSTALL(SetActive, SetActive_hook, SetActive_hook_original);
+      SPUD_STATIC_DETOUR(SetActive, SetActive_hook);
     }
   }
 
@@ -270,7 +259,7 @@ void InstallTestPatches()
     if (is_queue_unlocked == nullptr) {
       ErrorMsg::MissingStaticMethod("GameObject", "IsQueueUnlocked");
     } else {
-      MH_INSTALL(is_queue_unlocked, IsQueueEnabled, IsQueueEnabled_original);
+      SPUD_STATIC_DETOUR(is_queue_unlocked, IsQueueEnabled);
     }
   }
 }

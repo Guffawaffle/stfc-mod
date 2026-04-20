@@ -23,19 +23,26 @@
 #include <prime/Transform.h>
 
 #include <spdlog/spdlog.h>
-#include <hook/hook.h>
+#include <spud/detour.h>
 
 #include <prime/Vector3.h>
 #include <str_utils.h>
 
-// ─── MinHook Hooks ──────────────────────────────────────────────────────────
+// ─── SPUD Hooks ─────────────────────────────────────────────────────────────
 
-typedef void (*ScreenManager_UpdateCanvasRootScaleFactor_fn)(ScreenManager*);
-static ScreenManager_UpdateCanvasRootScaleFactor_fn ScreenManager_UpdateCanvasRootScaleFactor_original = nullptr;
-
-void ScreenManager_UpdateCanvasRootScaleFactor_Hook(ScreenManager* _this)
+/**
+ * @brief Hook: ScreenManager::UpdateCanvasRootScaleFactor
+ *
+ * Intercepts the per-frame canvas scale update to apply a custom DPI-aware
+ * scale factor.
+ * Original method: recalculates and sets the root canvas scaler.
+ * Our modification: overrides scaleFactor with (ui_scale * resolution_ratio * DPI),
+ *                   clamped to [0.1, 5.0]. Also resets the Windows cursor to
+ *                   arrow when allow_cursor is disabled.
+ */
+void ScreenManager_UpdateCanvasRootScaleFactor_Hook(auto original, ScreenManager* _this)
 {
-  ScreenManager_UpdateCanvasRootScaleFactor_original(_this);
+  original(_this);
 
   #if _WIN32
   static auto cursor = LoadCursor(NULL, IDC_ARROW);
@@ -79,10 +86,7 @@ void ScreenManager_UpdateCanvasRootScaleFactor_Hook(ScreenManager* _this)
  * Our modification: sets localScale on the ObjectViewerTemplate_Canvas
  *                   transform when ui_scale_viewer is configured.
  */
-typedef void (*CanvasController_Show_fn)(CanvasController*, int, bool);
-static CanvasController_Show_fn CanvasController_Show_original = nullptr;
-
-void CanvasController_Show(CanvasController* _this, int desiredEntryPoint, bool instant)
+void CanvasController_Show(auto original, CanvasController* _this, int desiredEntryPoint, bool instant)
 {
   const auto ui_scale_viewer = Config::Get().ui_scale_viewer;
   if (ui_scale_viewer != 0.0f && to_wstring(_this->name) == L"ObjectViewerTemplate_Canvas") {
@@ -93,7 +97,7 @@ void CanvasController_Show(CanvasController* _this, int desiredEntryPoint, bool 
     localScale->z         = ui_scale_viewer;
     transform->localScale = localScale;
   }
-  return CanvasController_Show_original(_this, desiredEntryPoint, instant);
+  return original(_this, desiredEntryPoint, instant);
 }
 
 // ─── Hook Installation ──────────────────────────────────────────────────────
@@ -109,7 +113,7 @@ void InstallUiScaleHooks()
     if (ptr_update_scale == nullptr) {
       ErrorMsg::MissingMethod("ScreenManager", "UpdateCanvasRootScaleFactor");
     } else {
-      MH_INSTALL(ptr_update_scale, ScreenManager_UpdateCanvasRootScaleFactor_Hook, ScreenManager_UpdateCanvasRootScaleFactor_original);
+      SPUD_STATIC_DETOUR(ptr_update_scale, ScreenManager_UpdateCanvasRootScaleFactor_Hook);
     }
   }
 
@@ -134,7 +138,7 @@ void InstallUiScaleHooks()
     if (ptr_canvas_show == nullptr) {
       ErrorMsg::MissingMethod("CanvasController", "Show");
     } else {
-      MH_INSTALL(ptr_canvas_show, CanvasController_Show, CanvasController_Show_original);
+      SPUD_STATIC_DETOUR(ptr_canvas_show, CanvasController_Show);
     }
   }
 

@@ -1,6 +1,6 @@
 /**
  * @file hotkeys.cc
- * @brief Thin MinHook hook layer for keyboard shortcut processing.
+ * @brief Thin SPUD hook layer for keyboard shortcut processing.
  *
  * This file installs game-method detours that delegate all actual input
  * handling to the hotkey_router (hotkey_router.h / hotkey_router.cc).
@@ -10,7 +10,7 @@
 
 #include "config.h"
 
-#include <hook/hook.h>
+#include <spud/detour.h>
 
 #include "patches/hotkey_router.h"
 
@@ -18,15 +18,20 @@
 #include "prime/PreScanTargetWidget.h"
 #include "prime/ScreenManager.h"
 
-// ─── MinHook Hook Delegates ──────────────────────────────────────────────────
+// ─── SPUD Hook Delegates ─────────────────────────────────────────────────────
 
-typedef void (*ScreenManager_Update_fn)(ScreenManager*);
-static ScreenManager_Update_fn ScreenManager_Update_original = nullptr;
-
-void ScreenManager_Update_Hook(ScreenManager* _this)
+/**
+ * @brief Hook: ScreenManager::Update
+ *
+ * Intercepts the per-frame UI update to process keyboard shortcuts.
+ * Original method: drives UI state machine each frame.
+ * Our modification: calls hotkey_router_screen_update() before the
+ * original; the router may consume the frame (return false → skip original).
+ */
+void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
   if (hotkey_router_screen_update(_this)) {
-    return ScreenManager_Update_original(_this);
+    return original(_this);
   }
 }
 
@@ -38,13 +43,10 @@ void ScreenManager_Update_Hook(ScreenManager* _this)
  * Original method: populates the game's default shortcut map.
  * Our modification: router may suppress original initialization.
  */
-typedef void (*InitializeActions_fn)(void*);
-static InitializeActions_fn InitializeActions_original = nullptr;
-
-void InitializeActions_Hook(void* _this)
+void InitializeActions_Hook(auto original, void* _this)
 {
   if (hotkey_router_init_actions()) {
-    return InitializeActions_original(_this);
+    return original(_this);
   }
 }
 
@@ -56,12 +58,9 @@ void InitializeActions_Hook(void* _this)
  * Original method: binds data context to the rewards button.
  * Our modification: notifies the router after binding completes.
  */
-typedef void (*OnDidBindContext_fn)(RewardsButtonWidget*);
-static OnDidBindContext_fn OnDidBindContext_original = nullptr;
-
-void OnDidBindContext_Hook(RewardsButtonWidget* _this)
+void OnDidBindContext_Hook(auto original, RewardsButtonWidget* _this)
 {
-  OnDidBindContext_original(_this);
+  original(_this);
   hotkey_router_bind_context(_this);
 }
 
@@ -73,22 +72,19 @@ void OnDidBindContext_Hook(RewardsButtonWidget* _this)
  * Original method: displays the pre-scan UI for a fleet.
  * Our modification: notifies the router after the widget is shown.
  */
-typedef void (*ShowWithFleet_fn)(PreScanTargetWidget*, void*);
-static ShowWithFleet_fn ShowWithFleet_original = nullptr;
-
-void ShowWithFleet_Hook(PreScanTargetWidget* _this, void* a1)
+void ShowWithFleet_Hook(auto original, PreScanTargetWidget* _this, void* a1)
 {
-  ShowWithFleet_original(_this, a1);
+  original(_this, a1);
   hotkey_router_show_fleet(_this);
 }
 
-// ─── Manual (Non-MinHook) Hook ──────────────────────────────────────────────
+// ─── Manual (Non-SPUD) Hook ─────────────────────────────────────────────────
 
 /**
  * @brief Hook: ChatMessageListLocalViewController::AboutToShow
  *
  * Intercepts chat panel display to auto-focus the input field.
- * This is a manual trampoline hook (not MinHook) because the class
+ * This is a manual trampoline hook (not SPUD) because the class
  * requires a different hooking approach.
  * Original method: prepares the chat message list for display.
  * Our modification: sends focus to the input field after show.
@@ -118,7 +114,7 @@ void InstallHotkeyHooks()
     if (ptr_can_user_shortcuts == nullptr) {
       ErrorMsg::MissingMethod("ShortcutsManager", "InitializeActions");
     } else {
-      MH_INSTALL(ptr_can_user_shortcuts, InitializeActions_Hook, InitializeActions_original);
+      SPUD_STATIC_DETOUR(ptr_can_user_shortcuts, InitializeActions_Hook);
     }
   }
 
@@ -130,7 +126,7 @@ void InstallHotkeyHooks()
     if (ptr_update == nullptr) {
       ErrorMsg::MissingMethod("ScreenManager", "Update");
     } else {
-      MH_INSTALL(ptr_update, ScreenManager_Update_Hook, ScreenManager_Update_original);
+      SPUD_STATIC_DETOUR(ptr_update, ScreenManager_Update_Hook);
     }
   }
 
@@ -143,7 +139,7 @@ void InstallHotkeyHooks()
     if (on_did_bind_context_ptr == nullptr) {
       ErrorMsg::MissingMethod("RewardsButtonWidget", "OnDidBindContext");
     } else {
-      MH_INSTALL(on_did_bind_context_ptr, OnDidBindContext_Hook, OnDidBindContext_original);
+      SPUD_STATIC_DETOUR(on_did_bind_context_ptr, OnDidBindContext_Hook);
     }
   }
 
@@ -156,7 +152,7 @@ void InstallHotkeyHooks()
     if (show_with_fleet_ptr == nullptr) {
       ErrorMsg::MissingMethod("PreScanTargetWidget", "ShowWithFleet");
     } else {
-      MH_INSTALL(show_with_fleet_ptr, ShowWithFleet_Hook, ShowWithFleet_original);
+      SPUD_STATIC_DETOUR(show_with_fleet_ptr, ShowWithFleet_Hook);
     }
   }
 }

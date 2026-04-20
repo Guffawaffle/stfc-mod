@@ -10,10 +10,11 @@
 #include "errormsg.h"
 
 #include <patches/fleet_notifications.h>
-#include <hook/hook.h>
 #include <il2cpp/il2cpp_helper.h>
 #include <prime/FleetPlayerData.h>
 #include <prime/MiningObjectViewerWidget.h>
+
+#include <spud/detour.h>
 
 #include <spdlog/spdlog.h>
 
@@ -28,32 +29,24 @@ static FleetPlayerData* fleet_bar_widget_context(void* self)
   return get_context ? get_context(self) : nullptr;
 }
 
-typedef void (*FleetStateWidget_SetWidgetData_fn)(void*);
-static FleetStateWidget_SetWidgetData_fn FleetStateWidget_SetWidgetData_original = nullptr;
-
-typedef void (*ToastFleetObserver_HandleMiningDepleted_fn)(void*, int64_t);
-static ToastFleetObserver_HandleMiningDepleted_fn ToastFleetObserver_HandleMiningDepleted_original = nullptr;
-
-typedef void (*MiningObjectViewerWidget_UpdateTimerWidget_fn)(MiningObjectViewerWidget*, FleetPlayerData*);
-static MiningObjectViewerWidget_UpdateTimerWidget_fn MiningObjectViewerWidget_UpdateTimerWidget_original = nullptr;
-
-static void FleetStateWidget_SetWidgetData_Hook(void* self)
+static void FleetStateWidget_SetWidgetData_Hook(auto original, void* self)
 {
   auto* fleet = fleet_bar_widget_context(self);
   fleet_notifications_observe_fleet_bar(fleet);
 
-  FleetStateWidget_SetWidgetData_original(self);
+  original(self);
 }
 
-static void ToastFleetObserver_HandleMiningDepleted_Hook(void* self, int64_t fleetId)
+static void ToastFleetObserver_HandleMiningDepleted_Hook(auto original, void* self, int64_t fleetId)
 {
-  ToastFleetObserver_HandleMiningDepleted_original(self, fleetId);
+  original(self, fleetId);
   fleet_notifications_observe_node_depleted(fleetId);
 }
 
-static void MiningObjectViewerWidget_UpdateTimerWidget_Hook(MiningObjectViewerWidget* self, FleetPlayerData* selectedFleet)
+static void MiningObjectViewerWidget_UpdateTimerWidget_Hook(auto original, MiningObjectViewerWidget* self,
+                                                            FleetPlayerData* selectedFleet)
 {
-  MiningObjectViewerWidget_UpdateTimerWidget_original(self, selectedFleet);
+  original(self, selectedFleet);
 
   auto* timerContext  = self ? self->_miningTimerWidgetContext : nullptr;
   auto remainingTicks = timerContext ? timerContext->RemainingTime.Ticks : -1;
@@ -76,7 +69,7 @@ void InstallFleetArrivalHooks()
     return;
   }
 
-  mh_install(set_widget_data, (void*)FleetStateWidget_SetWidgetData_Hook, (void**)&FleetStateWidget_SetWidgetData_original);
+  SPUD_STATIC_DETOUR(set_widget_data, FleetStateWidget_SetWidgetData_Hook);
 
   auto toast_fleet_observer = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "ToastFleetObserver");
   if (!toast_fleet_observer.isValidHelper()) {
@@ -90,8 +83,7 @@ void InstallFleetArrivalHooks()
     return;
   }
 
-  mh_install(handle_mining_depleted, (void*)ToastFleetObserver_HandleMiningDepleted_Hook,
-             (void**)&ToastFleetObserver_HandleMiningDepleted_original);
+  SPUD_STATIC_DETOUR(handle_mining_depleted, ToastFleetObserver_HandleMiningDepleted_Hook);
 
   auto mining_object_viewer = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.ObjectViewer", "MiningObjectViewerWidget");
   if (!mining_object_viewer.isValidHelper()) {
@@ -106,6 +98,5 @@ void InstallFleetArrivalHooks()
     return;
   }
 
-  mh_install(update_timer_widget, (void*)MiningObjectViewerWidget_UpdateTimerWidget_Hook,
-             (void**)&MiningObjectViewerWidget_UpdateTimerWidget_original);
+  SPUD_STATIC_DETOUR(update_timer_widget, MiningObjectViewerWidget_UpdateTimerWidget_Hook);
 }
