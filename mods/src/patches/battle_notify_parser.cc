@@ -1,3 +1,12 @@
+/**
+ * @file battle_notify_parser.cc
+ * @brief Extracts battle participant names and ship hulls from combat toast data.
+ *
+ * Parses BattleResultHeader objects attached to combat-related Toast events.
+ * Uses SEH on Windows to guard against invalid IL2CPP pointers that can occur
+ * when game objects are collected mid-access. Resolves hull IDs to readable
+ * names via SpecService.
+ */
 #include "patches/battle_notify_parser.h"
 
 #include "str_utils.h"
@@ -18,9 +27,16 @@
 #include <windows.h>
 #endif
 
-// ---------------------------------------------------------------------------
-// SEH wrapper — catches access violations from bad IL2CPP pointers
-// ---------------------------------------------------------------------------
+// ─── SEH Safety Wrapper ───────────────────────────────────────────────────────────────
+
+/**
+ * @brief Execute a callable inside a Windows SEH __try/__except block.
+ *
+ * IL2CPP pointers may become invalid between frames due to GC. This wrapper
+ * catches access violations so a single bad pointer doesn't crash the mod.
+ *
+ * @return true if fn() completed without an SEH exception.
+ */
 template <typename Fn>
 static bool seh_call(Fn fn)
 {
@@ -37,10 +53,18 @@ static bool seh_call(Fn fn)
 #endif
 }
 
-// ---------------------------------------------------------------------------
-// Hull name key → human-readable name
-//   "Hull_L30_Destroyer_Klingon_LIVE" → "Lv.30 Destroyer Klingon"
-// ---------------------------------------------------------------------------
+// ─── Hull Name Parsing ───────────────────────────────────────────────────────────────
+
+/**
+ * @brief Convert an internal hull key string to a human-readable name.
+ *
+ * Strips the "Hull_" prefix and "_LIVE" suffix, replaces underscores with
+ * spaces, and converts level prefixes ("L30") to "Lv.30" format.
+ * Example: "Hull_L30_Destroyer_Klingon_LIVE" → "Lv.30 Destroyer Klingon"
+ *
+ * @param key Raw hull name key from HullSpec.
+ * @return Formatted display name.
+ */
 static std::string parse_hull_key(const std::string& key)
 {
   auto s = key;
@@ -64,9 +88,14 @@ static std::string parse_hull_key(const std::string& key)
   return s;
 }
 
-// ---------------------------------------------------------------------------
-// Resolve hull ID → display name via SpecService
-// ---------------------------------------------------------------------------
+// ─── Hull ID Resolution ──────────────────────────────────────────────────────────────
+
+/**
+ * @brief Resolve a hull ID to a display name via the game's SpecService.
+ * @param brh BattleResultHeader providing access to SpecService.
+ * @param hullId The numeric hull ID to look up.
+ * @return Parsed display name, or "Hull#<id>" if lookup fails.
+ */
 static std::string resolve_hull_name(BattleResultHeader* brh, long hullId)
 {
   if (hullId == 0) return "";
@@ -84,9 +113,9 @@ static std::string resolve_hull_name(BattleResultHeader* brh, long hullId)
   return fmt::format("Hull#{}", hullId);
 }
 
-// ---------------------------------------------------------------------------
-// Format "Name (Ship) vs Name (Ship)"
-// ---------------------------------------------------------------------------
+// ─── Battle Summary Formatting ───────────────────────────────────────────────────────
+
+/** Intermediate structure holding extracted battle participant data. */
 struct BattleSummaryData {
   std::string playerName;
   std::string enemyName;
@@ -113,9 +142,17 @@ struct BattleSummaryData {
   }
 };
 
-// ---------------------------------------------------------------------------
-// Extract player/enemy names + ship hulls from BattleResultHeader
-// ---------------------------------------------------------------------------
+// ─── BattleResultHeader Extraction ───────────────────────────────────────────────────
+
+/**
+ * @brief Extract player and enemy names + ship hull names from a BattleResultHeader.
+ *
+ * Each field extraction is wrapped in seh_call() to survive invalid pointers.
+ * Falls back to NPC LocaId formatting when player names are empty.
+ *
+ * @param data Raw Il2CppObject* from Toast::get_Data(), cast to BattleResultHeader.
+ * @return Populated BattleSummaryData (fields may be empty on failure).
+ */
 static BattleSummaryData build_battle_data(Il2CppObject* data)
 {
   BattleSummaryData result;
@@ -162,9 +199,7 @@ static BattleSummaryData build_battle_data(Il2CppObject* data)
   return result;
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
+// ─── Public API ──────────────────────────────────────────────────────────────────────
 std::string battle_notify_parse(Toast* toast)
 {
   auto state = toast->get_State();
