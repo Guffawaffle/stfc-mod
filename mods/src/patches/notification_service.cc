@@ -18,8 +18,14 @@
 
 #include <spdlog/spdlog.h>
 
+#include <chrono>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
 #include <string>
 #include <string_view>
+#include <thread>
+#include <vector>
 
 #if _WIN32
 #include <windows.h>
@@ -88,6 +94,19 @@ static const char* toast_state_title(int state)
 
 // ─── Platform Notification Delivery ──────────────────────────────────────────────────
 #if _WIN32
+struct NotificationRequest {
+  std::string source;
+  std::string title;
+  std::string body;
+  std::chrono::steady_clock::time_point queued_at;
+};
+
+static std::mutex              s_notification_queue_mutex;
+static std::condition_variable s_notification_queue_condition;
+static std::deque<NotificationRequest> s_notification_queue;
+static std::once_flag          s_notification_worker_once;
+static constexpr auto          kNotificationCoalesceWindow   = std::chrono::milliseconds(750);
+static constexpr size_t        kNotificationSummaryLimit     = 4;
 static std::string normalize_notification_body(const char* body)
 {
   if (!body || !*body) {
@@ -118,6 +137,151 @@ static std::string normalize_notification_body(const char* body)
   return normalized;
 }
 
+static std::string flatten_notification_text(std::string_view text)
+{
+  std::string flattened;
+  flattened.reserve(text.size());
+
+  bool last_was_space = false;
+  for (char ch : text) {
+    if (ch == '\r' || ch == '\n' || ch == '\t') {
+      ch = ' ';
+    }
+
+    if (ch == ' ') {
+      if (flattened.empty() || last_was_space) {
+        continue;
+      }
+
+      last_was_space = true;
+      flattened += ch;
+      continue;
+    }
+
+    last_was_space = false;
+    flattened += ch;
+  }
+
+  if (!flattened.empty() && flattened.back() == ' ') {
+    flattened.pop_back();
+  }
+
+  return flattened;
+}
+
+static std::string escape_notification_text_for_log(std::string_view text)
+{
+  std::string escaped;
+  escaped.reserve(text.size());
+
+  for (char ch : text) {
+    switch (ch) {
+      case '\r':
+        escaped += "\\r";
+        break;
+      case '\n':
+        escaped += "\\n";
+        break;
+      case '\t':
+        escaped += "\\t";
+        break;
+      default:
+        escaped += ch;
+        break;
+    }
+  }
+
+  return escaped;
+}
+
+static NotificationRequest collapse_notification_batch(std::vector<NotificationRequest>&& batch)
+{
+  if (batch.empty()) {
+    return {};
+  }
+
+  if (batch.size() == 1) {
+    return std::move(batch.front());
+  }
+
+  bool same_title = true;
+  for (size_t i = 1; i < batch.size(); ++i) {
+    if (batch[i].title != batch.front().title) {
+      same_title = false;
+      break;
+    }
+  }
+
+  NotificationRequest collapsed;
+  if (same_title) {
+    collapsed.title = batch.front().title + " (" + std::to_string(batch.size()) + ")";
+  } else {
+    collapsed.title = std::to_string(batch.size()) + " Notifications";
+  }
+
+  size_t appended = 0;
+  for (size_t i = 0; i < batch.size() && appended < kNotificationSummaryLimit; ++i) {
+    auto title = flatten_notification_text(batch[i].title);
+    auto body  = flatten_notification_text(batch[i].body);
+
+    std::string line;
+    if (same_title) {
+      line = body.empty() ? title : body;
+    } else if (body.empty()) {
+      line = title;
+    } else {
+      line = title + ": " + body;
+    }
+
+    if (line.empty()) {
+      continue;
+    }
+
+    if (!collapsed.body.empty()) {
+      collapsed.body += "\n";
+    }
+    collapsed.body += line;
+    ++appended;
+  }
+
+  if (batch.size() > appended) {
+    if (!collapsed.body.empty()) {
+      collapsed.body += "\n";
+    }
+    collapsed.body += "+" + std::to_string(batch.size() - appended) + " more";
+  }
+
+  return collapsed;
+}
+
+static std::string notification_batch_preview(const std::vector<NotificationRequest>& batch)
+{
+  std::string preview;
+  size_t appended = 0;
+
+  for (const auto& item : batch) {
+    if (appended >= kNotificationSummaryLimit) {
+      break;
+    }
+
+    auto title = flatten_notification_text(item.title);
+    if (title.empty()) {
+      title = "(untitled)";
+    }
+
+    if (!preview.empty()) {
+      preview += ", ";
+    }
+    preview += item.source + ":" + title;
+    ++appended;
+  }
+
+  if (batch.size() > appended) {
+    preview += ", +" + std::to_string(batch.size() - appended) + " more";
+  }
+
+  return preview;
+}
 static void show_system_notification(const char* title, const char* body)
 {
   try {
@@ -125,6 +289,9 @@ static void show_system_notification(const char* title, const char* body)
     using namespace winrt::Windows::Data::Xml::Dom;
 
     auto normalizedBody = normalize_notification_body(body);
+    spdlog::debug("[NotifyQueue] show title='{}' body='{}'",
+                  title ? escape_notification_text_for_log(title) : "",
+                  escape_notification_text_for_log(normalizedBody));
     auto xml = ToastNotificationManager::GetTemplateContent(normalizedBody.empty() ? ToastTemplateType::ToastText01
                                                                                    : ToastTemplateType::ToastText02);
     auto nodes = xml.GetElementsByTagName(L"text");
@@ -140,6 +307,82 @@ static void show_system_notification(const char* title, const char* body)
     spdlog::warn("[Notify] WinRT notification failed: {}", winrt::to_string(e.message()));
   } catch (...) {
     spdlog::warn("[Notify] WinRT notification failed (unknown error)");
+  }
+}
+
+static void queue_system_notification(const char* title, const char* body, const char* source)
+{
+  NotificationRequest request;
+  if (source) {
+    request.source = source;
+  }
+  if (title) {
+    request.title = title;
+  }
+  if (body) {
+    request.body = body;
+  }
+  request.queued_at = std::chrono::steady_clock::now();
+
+  size_t queue_size = 0;
+  {
+    std::lock_guard lock(s_notification_queue_mutex);
+    s_notification_queue.emplace_back(std::move(request));
+    queue_size = s_notification_queue.size();
+  }
+
+  spdlog::debug("[NotifyQueue] enqueue source={} title='{}' queue_size={}",
+                source ? source : "unknown",
+                title ? flatten_notification_text(title) : "",
+                queue_size);
+
+  s_notification_queue_condition.notify_one();
+}
+
+static void notification_worker_main()
+{
+  try { winrt::init_apartment(); } catch (...) {}
+
+  for (;;) {
+    std::vector<NotificationRequest> batch;
+
+    {
+      std::unique_lock lock(s_notification_queue_mutex);
+      s_notification_queue_condition.wait(lock, []() { return !s_notification_queue.empty(); });
+
+      auto observed_size = s_notification_queue.size();
+      while (s_notification_queue_condition.wait_for(lock, kNotificationCoalesceWindow, [&] {
+        return s_notification_queue.size() != observed_size;
+      })) {
+        observed_size = s_notification_queue.size();
+      }
+
+      while (!s_notification_queue.empty()) {
+        batch.emplace_back(std::move(s_notification_queue.front()));
+        s_notification_queue.pop_front();
+      }
+    }
+
+    if (batch.empty()) {
+      continue;
+    }
+
+    const auto batch_start = batch.front().queued_at;
+    const auto batch_end   = batch.back().queued_at;
+    const auto batch_span  = std::chrono::duration_cast<std::chrono::milliseconds>(batch_end - batch_start).count();
+    const auto batch_preview = notification_batch_preview(batch);
+    const auto batch_count = batch.size();
+
+    auto collapsed = collapse_notification_batch(std::move(batch));
+    if (!collapsed.title.empty()) {
+      spdlog::debug("[NotifyQueue] flush count={} span_ms={} preview=[{}] collapsed_title='{}' collapsed_body='{}'",
+                    batch_count,
+                    batch_span,
+                    batch_preview,
+                    escape_notification_text_for_log(collapsed.title),
+                    escape_notification_text_for_log(collapsed.body));
+      show_system_notification(collapsed.title.c_str(), collapsed.body.c_str());
+    }
   }
 }
 #endif
@@ -227,6 +470,9 @@ void notification_init()
 
 #if _WIN32
   try { winrt::init_apartment(); } catch (...) {}
+  std::call_once(s_notification_worker_once, []() {
+    std::thread(notification_worker_main).detach();
+  });
   spdlog::debug("[Notify] Windows notification service initialized");
 #else
   spdlog::debug("[Notify] Notification service: platform not supported (no-op)");
@@ -242,7 +488,7 @@ void notification_show(const char* title, const char* body)
     return;
   }
 
-  show_system_notification(title, body);
+  queue_system_notification(title, body, "direct");
 #endif
 }
 
@@ -277,6 +523,6 @@ void notification_handle_toast(Toast* toast)
   }
 
   spdlog::debug("[Notify] {} — {}", title, body);
-  show_system_notification(title, body.c_str());
+  queue_system_notification(title, body.c_str(), "toast");
 #endif
 }
