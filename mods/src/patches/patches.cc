@@ -42,6 +42,7 @@ void InstallToastBannerHooks();
 void InstallPanHooks();
 void InstallImproveResponsivenessHooks();
 void InstallHotkeyHooks();
+void InstallLiveDebugHooks();
 void InstallTestPatches();
 void InstallMiscPatches();
 void InstallChatPatches();
@@ -132,6 +133,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"PanHooks", {InstallPanHooks, &cfg.installPanHooks}},
       {"ImproveResponsivenessHooks", {InstallImproveResponsivenessHooks, &cfg.installImproveResponsivenessHooks}},
       {"HotkeyHooks", {InstallHotkeyHooks, &cfg.installHotkeyHooks}},
+      {"LiveDebugHooks", {InstallLiveDebugHooks, &cfg.installHotkeyHooks}},
 #if _WIN32
       {"FreeResizeHooks", {InstallFreeResizeHooks, &cfg.installFreeResizeHooks}},
 #endif

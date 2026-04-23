@@ -27,6 +27,7 @@
 
 namespace DCP = DefaultConfig::Patches;
 namespace DCG = DefaultConfig::Graphics;
+namespace DCD = DefaultConfig::Debug;
 namespace DCN = DefaultConfig::Notifications;
 namespace DCC = DefaultConfig::Control;
 namespace DCU = DefaultConfig::UI;
@@ -38,11 +39,17 @@ namespace DCSH = DefaultConfig::Shortcuts;
 // Standalone flag — NOT in Config struct to avoid struct layout sensitivity.
 // See: fix/lto-and-sync-crashes for context on why Config struct changes crash.
 static bool g_allow_key_fallthrough = false;
+static bool g_live_debug_channel    = false;
 
 /** @brief Accessor for the file-scope allow_key_fallthrough flag. */
 bool AllowKeyFallthrough()
 {
   return g_allow_key_fallthrough;
+}
+
+bool LiveDebugChannelEnabled()
+{
+  return g_live_debug_channel;
 }
 
 /// Human-readable names → ToastState enum values.
@@ -717,6 +724,7 @@ void Config::Load()
 
   this->sync_debug              = get_config_or_default(config, parsed, "sync", "debug", DCS::debug, write_config);
   this->sync_logging            = get_config_or_default(config, parsed, "sync", "logging", DCS::logging, write_config);
+  g_live_debug_channel          = get_config_or_default(config, parsed, "debug", "live_query", DCD::live_query, write_config);
   this->sync_resolver_cache_ttl = get_config_or_default(config, parsed, "sync", "resolver_cache_ttl", DCS::resolver_cache_ttl, write_config);
 
   SyncConfig sync_defaults;

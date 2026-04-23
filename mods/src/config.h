@@ -319,3 +319,8 @@ public:
  * @see fix/lto-and-sync-crashes
  */
 bool AllowKeyFallthrough();
+
+/**
+ * @brief Whether the file-backed live debug channel is enabled.
+ */
+bool LiveDebugChannelEnabled();

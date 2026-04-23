@@ -20,6 +20,8 @@
 
 #include <il2cpp/il2cpp_helper.h>
 
+#include "patches/object_tracker_state.h"
+
 #include "prime/AllianceStarbaseObjectViewerWidget.h"
 #include "prime/AnimatedRewardsScreenViewController.h"
 #include "prime/ArmadaObjectViewerWidget.h"
@@ -41,12 +43,80 @@
 #include <spud/detour.h>
 #include <spud/signature.h>
 
+#include <algorithm>
 #include <mutex>
+#include <string>
+#include <vector>
 
 // ─── Tracking State ──────────────────────────────────────────────────────────
 
 std::mutex                                                   tracked_objects_mutex;
 eastl::unordered_map<Il2CppClass*, eastl::vector<uintptr_t>> tracked_objects;
+
+static std::string ClassPointerToString(const Il2CppClass* klass)
+{
+  if (!klass) {
+    return "";
+  }
+
+  char buffer[2 + sizeof(void*) * 2 + 1] = {};
+  std::snprintf(buffer, sizeof(buffer), "%p", reinterpret_cast<const void*>(klass));
+  return buffer;
+}
+
+std::vector<TrackedObjectClassSummary> GetTrackedObjectSummary()
+{
+  std::scoped_lock lk{tracked_objects_mutex};
+
+  std::vector<TrackedObjectClassSummary> summaries;
+  summaries.reserve(tracked_objects.size());
+
+  for (const auto& [klass, objects] : tracked_objects) {
+    if (!klass || objects.empty()) {
+      continue;
+    }
+
+    summaries.push_back(TrackedObjectClassSummary{
+      ClassPointerToString(klass),
+        klass->namespaze ? klass->namespaze : "",
+        klass->name ? klass->name : "<unnamed>",
+        objects.size(),
+    });
+  }
+
+  std::sort(summaries.begin(), summaries.end(), [](const auto& left, const auto& right) {
+    if (left.count != right.count) {
+      return left.count > right.count;
+    }
+
+    if (left.classNamespace != right.classNamespace) {
+      return left.classNamespace < right.classNamespace;
+    }
+
+    if (left.className != right.className) {
+      return left.className < right.className;
+    }
+
+    return left.classPointer < right.classPointer;
+  });
+
+  return summaries;
+}
+
+void* GetLatestTrackedObjectForClass(Il2CppClass* klass)
+{
+  if (!klass) {
+    return nullptr;
+  }
+
+  std::scoped_lock lk{tracked_objects_mutex};
+  const auto       found = tracked_objects.find(klass);
+  if (found == tracked_objects.end() || found->second.empty()) {
+    return nullptr;
+  }
+
+  return reinterpret_cast<void*>(found->second.back());
+}
 
 // ─── Tracking Map Helpers ────────────────────────────────────────────────────
 

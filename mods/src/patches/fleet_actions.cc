@@ -11,6 +11,7 @@
 #include "config.h"
 
 #include "patches/fleet_actions.h"
+#include "patches/live_debug.h"
 #include "patches/viewer_mgmt.h"
 
 #include "prime/ActionQueueManager.h"
@@ -196,10 +197,51 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
   auto has_recall =
       MapKey::IsDown(GameFunction::ActionRecall) && (!Config::Get().disable_preview_recall || !CanHideViewers());
 
+  auto visible_pre_scan_target_count = 0;
+  for (auto pre_scan_widget : ObjectFinder<PreScanTargetWidget>::GetAll()) {
+    if (pre_scan_widget && pre_scan_widget->_visibilityController
+        && (pre_scan_widget->_visibilityController->_state == VisibilityState::Visible
+            || pre_scan_widget->_visibilityController->_state == VisibilityState::Show)) {
+      ++visible_pre_scan_target_count;
+    }
+  }
+
+  const auto mining_viewer_visible = []() {
+    auto mine_object_viewer_widget = ObjectFinder<MiningObjectViewerWidget>::Get();
+    return mine_object_viewer_widget && mine_object_viewer_widget->_visibilityController
+        && (mine_object_viewer_widget->_visibilityController->_state == VisibilityState::Visible
+            || mine_object_viewer_widget->_visibilityController->_state == VisibilityState::Show);
+  }();
+
+  const auto star_node_viewer_visible = []() {
+    auto star_node_object_viewer_widget = ObjectFinder<StarNodeObjectViewerWidget>::Get();
+    return star_node_object_viewer_widget && star_node_object_viewer_widget->Context;
+  }();
+
+  const auto navigation_interaction_visible = []() {
+    return ObjectFinder<NavigationInteractionUIViewController>::Get() != nullptr;
+  }();
+
+  const auto suppress_mouse_warp_cancel =
+      Key::Down(KeyCode::Mouse1)
+      && (visible_pre_scan_target_count > 0 || mining_viewer_visible || star_node_viewer_visible
+          || navigation_interaction_visible);
+
   if (has_queue_clear) {
     action_queue->ClearQueue(fleet);
   } else if (has_recall_cancel
+             && (fleet->CurrentState == FleetState::WarpCharging || fleet->CurrentState == FleetState::Warping)
+             && suppress_mouse_warp_cancel) {
+    live_debug_record_space_action_warp_cancel_suppressed(
+        fleet_bar, fleet, has_primary, has_secondary, has_queue, has_queue_clear, has_recall, has_repair,
+        has_recall_cancel, force_space_action_next_frame, visible_pre_scan_target_count, mining_viewer_visible,
+        star_node_viewer_visible, navigation_interaction_visible);
+  } else if (has_recall_cancel
              && (fleet->CurrentState == FleetState::WarpCharging || fleet->CurrentState == FleetState::Warping)) {
+    live_debug_record_space_action_warp_cancel(
+        fleet_bar, fleet, has_primary, has_secondary, has_queue, has_queue_clear, has_recall, has_repair,
+        has_recall_cancel, force_space_action_next_frame, visible_pre_scan_target_count, mining_viewer_visible,
+        star_node_viewer_visible, navigation_interaction_visible);
     fleet_controller->CancelButtonClicked();
   } else {
     auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAll();

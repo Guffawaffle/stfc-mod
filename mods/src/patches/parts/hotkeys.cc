@@ -13,6 +13,7 @@
 #include <spud/detour.h>
 
 #include "patches/hotkey_router.h"
+#include "patches/live_debug.h"
 
 #include "prime/ChatMessageListLocalViewController.h"
 #include "prime/PreScanTargetWidget.h"
@@ -30,6 +31,8 @@
  */
 void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
+  live_debug_tick(_this);
+
   if (hotkey_router_screen_update(_this)) {
     return original(_this);
   }

@@ -379,6 +379,11 @@ zoom_reset = "="
 #
 #  <[==================]>
 
+[debug]
+# Development-only live query channel for AX. When enabled, `ax debug-send`
+# can send one JSON request into the running game and receive a JSON response.
+live_query = false
+
 [ui]
 # Skip the reveal box animation, and just open the boxes
 always_skip_reveal_sequence = true

@@ -79,6 +79,12 @@ namespace Graphics
   constexpr auto zoom                        = 5000;
 } // namespace Graphics
 
+namespace Debug
+{
+  /// Enable the live debug/query channel for AX and runtime inspection. Default: false.
+  constexpr bool live_query = false;
+} // namespace Debug
+
 namespace Notifications
 {
   /// Master switch for OS/system notifications. Default: false.
