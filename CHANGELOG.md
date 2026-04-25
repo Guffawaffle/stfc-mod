@@ -15,10 +15,17 @@
 
 ### Features
 
+- Added early incoming attack notifications with target fleet context
+  - Reads `ToastFleetObserver.QueueNotifications` for the attacked fleet id
+  - Builds notification bodies such as `Your [ship] is under attack` with mining/cargo context when available
 - Added fleet-bar-driven arrival notifications for player ships
   - Detects `Warping -> Impulsing` as the primary `arrived in system` signal
   - Logs `ARRIVED_IN_SYSTEM` reliably even when the destination system is not being viewed
   - Keeps `Impulsing -> IdleInSpace` as follow-up `ARRIVED_AT_DESTINATION` data for future refinement
+
+### Fixes
+
+- Restored hotkey hook gates that were accidentally disabled in the incoming attack notification slice
 
 ## 0.6.1
 

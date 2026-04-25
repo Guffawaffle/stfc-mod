@@ -9,9 +9,11 @@
 
 #include "config.h"
 #include "errormsg.h"
+#include "patches/live_debug.h"
 #include "patches/notification_service.h"
 
 #include <prime/FleetPlayerData.h>
+#include <prime/NotificationIncomingFleetParams.h>
 #include <prime/SpecManager.h>
 #include <prime/Toast.h>
 #include <testable_functions.h>
@@ -32,8 +34,18 @@ std::unordered_map<uint64_t, std::string>  s_fleet_bar_resource_names;
 std::unordered_map<uint64_t, float>        s_fleet_bar_cargo_fill_levels;
 std::unordered_map<uint64_t, int64_t>      s_mining_viewer_remaining_seconds;
 std::chrono::steady_clock::time_point      s_last_incoming_attack_notification{};
+uint64_t                                   s_last_incoming_attack_target_fleet_id = 0;
 
 constexpr auto kIncomingAttackDedupWindow = std::chrono::seconds(10);
+
+struct IncomingAttackNotificationContext {
+  int         candidate_count = 0;
+  uint64_t    fleet_id = 0;
+  std::string ship_name;
+  std::string resource_name;
+  std::string cargo_text;
+  FleetState  state = FleetState::Unknown;
+};
 
 bool should_emit_incoming_attack_notification(const char* source)
 {
@@ -188,6 +200,130 @@ std::string fleet_bar_resource_name(FleetPlayerData* fleet)
 std::string fleet_cargo_fill_text(float fillLevel)
 {
   return format_cargo_fill_text(fillLevel);
+}
+
+int incoming_attack_candidate_score(FleetState state)
+{
+  switch (state) {
+    case FleetState::Mining:
+      return 100;
+    case FleetState::IdleInSpace:
+    case FleetState::CanRecall:
+    case FleetState::CanLocate:
+    case FleetState::Deployed:
+    case FleetState::Capturing:
+      return 80;
+    case FleetState::Impulsing:
+    case FleetState::Warping:
+    case FleetState::WarpCharging:
+      return 60;
+    case FleetState::Docked:
+    case FleetState::Destroyed:
+    case FleetState::Repairing:
+    case FleetState::TieringUp:
+    case FleetState::CannotLaunch:
+    case FleetState::Unknown:
+      return 0;
+    default:
+      return 40;
+  }
+}
+
+void populate_context_from_fleet_cache(IncomingAttackNotificationContext& context, uint64_t fleetId)
+{
+  context.fleet_id = fleetId;
+  auto state_it = s_fleet_bar_states.find(fleetId);
+  context.state = state_it != s_fleet_bar_states.end() ? state_it->second : FleetState::Unknown;
+  context.ship_name = fleet_bar_cached_ship_name(fleetId);
+  context.resource_name = fleet_bar_cached_resource_name(fleetId);
+  context.cargo_text = fleet_cargo_fill_text(fleet_bar_cached_cargo_fill_level(fleetId));
+}
+
+int incoming_attack_candidate_count()
+{
+  int count = 0;
+  for (const auto& [fleetId, state] : s_fleet_bar_states) {
+    (void)fleetId;
+    if (incoming_attack_candidate_score(state) > 0) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+IncomingAttackNotificationContext infer_incoming_attack_context_from_fleet_cache()
+{
+  IncomingAttackNotificationContext result;
+  int best_score = 0;
+  bool best_score_tied = false;
+
+  for (const auto& [fleetId, state] : s_fleet_bar_states) {
+    const auto score = incoming_attack_candidate_score(state);
+    if (score <= 0) {
+      continue;
+    }
+
+    ++result.candidate_count;
+    if (score < best_score) {
+      continue;
+    }
+
+    if (score == best_score && result.fleet_id != 0) {
+      best_score_tied = true;
+      continue;
+    }
+
+    best_score = score;
+    best_score_tied = false;
+    populate_context_from_fleet_cache(result, fleetId);
+  }
+
+  if (best_score_tied && s_last_incoming_attack_target_fleet_id != 0) {
+    auto last_state_it = s_fleet_bar_states.find(s_last_incoming_attack_target_fleet_id);
+    if (last_state_it != s_fleet_bar_states.end() && incoming_attack_candidate_score(last_state_it->second) == best_score) {
+      populate_context_from_fleet_cache(result, s_last_incoming_attack_target_fleet_id);
+    }
+  }
+
+  return result;
+}
+
+IncomingAttackNotificationContext context_from_target_fleet(uint64_t targetFleetId)
+{
+  auto context = infer_incoming_attack_context_from_fleet_cache();
+  if (targetFleetId == 0) {
+    return context;
+  }
+
+  IncomingAttackNotificationContext targeted;
+  targeted.candidate_count = incoming_attack_candidate_count();
+  populate_context_from_fleet_cache(targeted, targetFleetId);
+  if (!targeted.ship_name.empty()) {
+    return targeted;
+  }
+
+  return context;
+}
+
+std::string build_incoming_attack_body(const IncomingAttackNotificationContext& context)
+{
+  if (context.ship_name.empty() && context.fleet_id != 0) {
+    return "Your fleet is under attack";
+  }
+
+  if (context.ship_name.empty() || context.fleet_id == 0) {
+    return "Open STFC to inspect the attacker and respond.";
+  }
+
+  auto body = "Your " + context.ship_name + " is under attack";
+  if (context.state == FleetState::Mining && !context.resource_name.empty()) {
+    body += " while mining " + context.resource_name;
+  }
+  if (!context.cargo_text.empty()) {
+    body += " (" + context.cargo_text + ")";
+  }
+
+  return body;
 }
 
 int64_t duration_ticks_to_seconds(int64_t ticks)
@@ -355,9 +491,68 @@ void fleet_notifications_notify_incoming_attack_detected(const char* source)
     return;
   }
 
+  const auto context = infer_incoming_attack_context_from_fleet_cache();
+  const auto body = build_incoming_attack_body(context);
+  if (context.fleet_id != 0) {
+    s_last_incoming_attack_target_fleet_id = context.fleet_id;
+  }
   auto title = toast_state_title(IncomingAttack);
-  spdlog::debug("[IncomingAttack] notify source={}", source ? source : "unknown");
-  notification_show(title ? title : "Incoming Attack!", "Open STFC to inspect the attacker and respond.");
+  spdlog::debug("[IncomingAttack] notify source={} candidateCount={} fleetId={} ship='{}' state={} body='{}'",
+                source ? source : "unknown",
+                context.candidate_count,
+                context.fleet_id,
+                context.ship_name,
+                static_cast<int>(context.state),
+                body);
+  live_debug_record_incoming_attack_notification_context(source ? source : "unknown",
+                                                         body,
+                                                         context.candidate_count,
+                                                         context.fleet_id,
+                                                         context.ship_name,
+                                                         static_cast<int>(context.state));
+  notification_show(title ? title : "Incoming Attack!", body.c_str());
+}
+
+void fleet_notifications_notify_incoming_attack_target(const char* source, uint64_t targetFleetId, int targetType)
+{
+  if (!should_emit_incoming_attack_notification(source)) {
+    return;
+  }
+
+  if (targetType == static_cast<int>(NotificationIncomingAttackTargetType::Station)) {
+    auto title = toast_state_title(IncomingAttack);
+    live_debug_record_incoming_attack_notification_context(source ? source : "unknown",
+                                                           "Your station is under attack",
+                                                           incoming_attack_candidate_count(),
+                                                           0,
+                                                           "",
+                                                           static_cast<int>(FleetState::Unknown));
+    notification_show(title ? title : "Incoming Attack!", "Your station is under attack");
+    return;
+  }
+
+  const auto context = context_from_target_fleet(targetFleetId);
+  const auto body = build_incoming_attack_body(context);
+  if (context.fleet_id != 0) {
+    s_last_incoming_attack_target_fleet_id = context.fleet_id;
+  }
+  auto title = toast_state_title(IncomingAttack);
+  spdlog::debug("[IncomingAttack] notify source={} targetFleetId={} targetType={} candidateCount={} fleetId={} ship='{}' state={} body='{}'",
+                source ? source : "unknown",
+                targetFleetId,
+                targetType,
+                context.candidate_count,
+                context.fleet_id,
+                context.ship_name,
+                static_cast<int>(context.state),
+                body);
+  live_debug_record_incoming_attack_notification_context(source ? source : "unknown",
+                                                         body,
+                                                         context.candidate_count,
+                                                         context.fleet_id,
+                                                         context.ship_name,
+                                                         static_cast<int>(context.state));
+  notification_show(title ? title : "Incoming Attack!", body.c_str());
 }
 
 void fleet_notifications_observe_mining_timer(FleetPlayerData* selectedFleet, int64_t remainingTicks)

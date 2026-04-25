@@ -20,10 +20,10 @@
 #include "prime/ScreenManager.h"
 
 namespace {
-constexpr bool kEnableHotkeyRouterFrame = false;
-constexpr bool kEnableShortcutInitializeHook = false;
-constexpr bool kEnableRewardsButtonHook = false;
-constexpr bool kEnablePreScanTargetHook = false;
+constexpr bool kEnableHotkeyRouterFrame = true;
+constexpr bool kEnableShortcutInitializeHook = true;
+constexpr bool kEnableRewardsButtonHook = true;
+constexpr bool kEnablePreScanTargetHook = true;
 }
 
 // ─── SPUD Hook Delegates ─────────────────────────────────────────────────────

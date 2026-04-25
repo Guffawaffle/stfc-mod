@@ -74,6 +74,16 @@ void live_debug_record_incoming_fleet_materialized_pointer(std::string_view phas
 void live_debug_record_toast_fleet_producer(std::string_view phase, const void* observer, int producer_type);
 
 /**
+ * @brief Record the context used to build an incoming attack OS notification.
+ */
+void live_debug_record_incoming_attack_notification_context(std::string_view source,
+                                                           std::string_view body,
+                                                           int candidate_count,
+                                                           uint64_t selected_fleet_id,
+                                                           std::string_view selected_ship_name,
+                                                           int selected_state);
+
+/**
  * @brief Record NavigationInteractionUIViewController lifecycle activity and any bound context.
  */
 void live_debug_record_navigation_interaction(std::string_view phase,

@@ -328,6 +328,7 @@ static void show_system_notification(const char* title, const char* body)
     spdlog::debug("[NotifyQueue] show title='{}' body='{}'",
                   title ? escape_notification_text_for_log(title) : "",
                   escape_notification_text_for_log(normalizedBody));
+
     auto xml = ToastNotificationManager::GetTemplateContent(normalizedBody.empty() ? ToastTemplateType::ToastText01
                                                                                    : ToastTemplateType::ToastText02);
     auto nodes = xml.GetElementsByTagName(L"text");
@@ -339,6 +340,9 @@ static void show_system_notification(const char* title, const char* body)
     auto notification = ToastNotification(xml);
     auto notifier     = ToastNotificationManager::CreateToastNotifier(L"Star Trek Fleet Command");
     notifier.Show(notification);
+    spdlog::debug("[Notify] WinRT notification requested title='{}' body='{}'",
+            title ? escape_notification_text_for_log(title) : "",
+            escape_notification_text_for_log(normalizedBody));
   } catch (const winrt::hresult_error& e) {
     spdlog::warn("[Notify] WinRT notification failed: {}", winrt::to_string(e.message()));
   } catch (...) {

@@ -2633,6 +2633,24 @@ void live_debug_record_toast_fleet_producer(std::string_view phase, const void* 
            {"producerTypeName", notification_producer_type_name(producer_type)}});
 }
 
+void live_debug_record_incoming_attack_notification_context(std::string_view source,
+                                                           std::string_view body,
+                                                           int candidate_count,
+                                                           uint64_t selected_fleet_id,
+                                                           std::string_view selected_ship_name,
+                                                           int selected_state)
+{
+  append_event_if_live_debug_enabled(
+      "incoming-attack-notification-context",
+      json{{"source", source},
+           {"body", body},
+           {"candidateCount", candidate_count},
+           {"selectedFleetId", selected_fleet_id},
+           {"selectedShipName", selected_ship_name},
+           {"selectedState", selected_state},
+           {"selectedStateName", fleet_state_name_from_value(selected_state)}});
+}
+
 void live_debug_record_navigation_interaction(std::string_view phase,
                                               std::string_view controller_pointer,
                                               bool has_context,

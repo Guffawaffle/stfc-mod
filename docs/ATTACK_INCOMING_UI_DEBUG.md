@@ -3,6 +3,7 @@
 ## Current Conclusion
 
 - The confirmed early source for attack-incoming notifications is `ToastFleetObserver.NotificationsChangedEventHandler(NotificationProducerType)` with producer type `7` (`IncomingFleet`).
+- `ToastFleetObserver.QueueNotifications(List<Notification>)` can safely provide target-fleet context when using raw oneof field reads rather than managed property getters.
 - A live test confirmed the Windows notification appeared at the first in-game incoming warning, before combat started.
 - Raw trace evidence showed `toast-fleet-producer/before-notification` running before the original `NotificationsChangedEventHandler` returned, with `sender=0000000000000007`.
 - The combat-time fleet-bar notifications remain useful as a fallback, but they are not the first-warning source.
@@ -12,7 +13,8 @@
 
 - `ToastFleetObserver.NotificationsChangedEventHandler` fires for `NotificationProducerType.IncomingFleet` before the first visible incoming-warning window reaches combat state.
 - `NotificationProducerType.IncomingFleet` maps to integer value `7` in `Digit.PrimeServer.Models.proto`.
-- `ToastFleetObserver.QueueNotifications(List<Notification>)` remains an interesting nearby surface, but the producer-change handler is currently sufficient and less invasive.
+- `ToastFleetObserver.QueueNotifications(List<Notification>)` carries the incoming target fleet id for richer bodies such as `Your [ship] is under attack`.
+- `Notification.IncomingFleetParams.QuickScanResult`, `TargetType`, and `TargetFleetId` managed property getters crashed in live tests; raw reads of `targetType` (`0x18`), oneof object (`0x28`), and oneof case (`0x30`) survived.
 - The native red banner window is not currently controlled by the `StationWarningViewController` path we first guessed.
 - `StationWarningViewController` lifecycle hooks never fired during real incoming-attack banner hits in live tests.
 - `Notification.set_IncomingFleetParamsJson` materialization hooks also stayed silent during real incoming-attack banner hits.
@@ -39,7 +41,10 @@
 ## Working Surfaces
 
 - Strongest current hook surface: `ToastFleetObserver.NotificationsChangedEventHandler`
-  Why: filtering producer type `7` (`IncomingFleet`) fired at the first incoming-warning moment and produced the Windows notification before combat.
+  Why: filtering producer type `7` (`IncomingFleet`) fires at the first incoming-warning moment and remains the fallback signal when target context is unavailable.
+
+- Rich target-context surface: `ToastFleetObserver.QueueNotifications`
+  Why: it exposes the target fleet id early enough to build ship-specific OS notification bodies.
 
 - Useful fallback surface: fleet-bar state transitions in `FleetStateWidget.SetWidgetData`
   Why: it catches late combat-time incoming attacks, but it is too late for first-warning notification semantics.
@@ -54,7 +59,7 @@
 
 ## Safety Findings
 
-- Deep property walks are the recurring crash pattern in this codebase. Pointer-only presence checks are materially safer.
+- Deep property walks are the recurring crash pattern in this codebase. Pointer-only presence checks and layout-verified raw field reads are materially safer.
 - Treating UI visibility callback arguments (`IVisibilityHandler`, `object`) as managed objects and reading `klass` metadata was unsafe in practice.
 - Emitting live-debug JSON or event recording from `object_tracker` constructor/destructor hooks was also unsafe in practice.
 - Direct detours on `NavigationInteractionUIViewController` lifecycle methods were unstable in the attempted form, even after reducing payload complexity.
@@ -62,7 +67,7 @@
 
 ## Current Safe Baseline
 
-- Keep `ToastFleetObserver.NotificationsChangedEventHandler` as the incoming-attack feature path.
+- Keep `ToastFleetObserver.QueueNotifications` as the rich incoming-attack feature path and `ToastFleetObserver.NotificationsChangedEventHandler` as the fallback early signal.
 - Keep top-canvas and active-child-name probes only as diagnostic support.
 - Keep navigation/station warning controller polling disabled for incoming-attack notification delivery.
 - Do not currently detour `NavigationInteractionUIViewController` lifecycle methods.

@@ -15,8 +15,10 @@
 #include <il2cpp/il2cpp_helper.h>
 #include <prime/FleetPlayerData.h>
 #include <prime/IncomingFleetParamsJson.h>
+#include <prime/IList.h>
 #include <prime/MiningObjectViewerWidget.h>
 #include <prime/NavigationInteractionUIViewController.h>
+#include <prime/Notification.h>
 #include <prime/StationWarningViewController.h>
 
 #include <str_utils.h>
@@ -38,6 +40,7 @@ constexpr bool kEnableNavigationHookDidHide = false;
 constexpr bool kEnableStationWarningHooks = false;
 constexpr bool kEnableIncomingFleetNotificationHook = false;
 constexpr bool kEnableToastFleetObserverIncomingProducerHook = true;
+constexpr bool kEnableToastFleetObserverQueueHook = true;
 constexpr int kNotificationProducerTypeIncomingFleet = 7;
 
 void append_fleet_arrival_navhook_trace(const char* step,
@@ -67,6 +70,13 @@ void append_fleet_arrival_navhook_trace(const char* step,
   std::fflush(trace_file);
   std::fclose(trace_file);
 }
+}
+
+static std::string il2cpp_string_or_empty(Il2CppString* value);
+
+static void* trace_integer_pointer(int64_t value)
+{
+  return reinterpret_cast<void*>(static_cast<uintptr_t>(value));
 }
 
 static FleetPlayerData* fleet_bar_widget_context(void* self)
@@ -103,22 +113,149 @@ static void ToastFleetObserver_NotificationsChangedEventHandler_Hook(auto origin
                                      producer_pointer);
   if (producerType == kNotificationProducerTypeIncomingFleet) {
     live_debug_record_toast_fleet_producer("NotificationsChangedEventHandler", self, producerType);
-    append_fleet_arrival_navhook_trace("toast-fleet-producer/before-notification",
-                                       "NotificationsChangedEventHandler",
-                                       self,
-                                       producer_pointer);
-    fleet_notifications_notify_incoming_attack_detected("toast-fleet-producer");
-    append_fleet_arrival_navhook_trace("toast-fleet-producer/after-notification",
-                                       "NotificationsChangedEventHandler",
-                                       self,
-                                       producer_pointer);
   }
 
   original(self, producerType);
+  if (producerType == kNotificationProducerTypeIncomingFleet) {
+    append_fleet_arrival_navhook_trace("toast-fleet-producer/after-original-fallback",
+                                       "NotificationsChangedEventHandler",
+                                       self,
+                                       producer_pointer);
+    fleet_notifications_notify_incoming_attack_detected("toast-fleet-producer-fallback");
+  }
   append_fleet_arrival_navhook_trace("toast-fleet-producer/after-original",
                                      "NotificationsChangedEventHandler",
                                      self,
                                      producer_pointer);
+}
+
+static void ToastFleetObserver_QueueNotifications_Hook(auto original, void* self, IList* notifications)
+{
+  append_fleet_arrival_navhook_trace("toast-fleet-queue/enter",
+                                     "QueueNotifications",
+                                     self,
+                                     notifications);
+  auto notification_count = notifications ? notifications->Count : 0;
+  append_fleet_arrival_navhook_trace("toast-fleet-queue/after-count",
+                                     "QueueNotifications",
+                                     self,
+                                     trace_integer_pointer(notification_count));
+
+  for (int index = 0; notifications && index < notification_count; ++index) {
+    append_fleet_arrival_navhook_trace("toast-fleet-queue/before-get-item",
+                                       "QueueNotifications",
+                                       self,
+                                       trace_integer_pointer(index));
+    auto* notification = reinterpret_cast<Notification*>(notifications->Get(index));
+    append_fleet_arrival_navhook_trace("toast-fleet-queue/after-get-item",
+                                       "QueueNotifications",
+                                       self,
+                                       notification,
+                                       trace_integer_pointer(index));
+    if (!notification) {
+      continue;
+    }
+
+    append_fleet_arrival_navhook_trace("toast-fleet-queue/before-producer-type",
+                                       "QueueNotifications",
+                                       self,
+                                       notification,
+                                       trace_integer_pointer(index));
+    auto producer_type = notification->ProducerType;
+    append_fleet_arrival_navhook_trace("toast-fleet-queue/after-producer-type",
+                                       "QueueNotifications",
+                                       self,
+                                       trace_integer_pointer(producer_type),
+                                       trace_integer_pointer(index));
+    if (producer_type != kNotificationProducerTypeIncomingFleet) {
+      continue;
+    }
+
+    append_fleet_arrival_navhook_trace("toast-fleet-queue/before-incoming-params",
+                                       "QueueNotifications",
+                                       self,
+                                       notification,
+                                       trace_integer_pointer(index));
+    auto* incoming_params = notification->IncomingFleetParams;
+    append_fleet_arrival_navhook_trace("toast-fleet-queue/after-incoming-params",
+                                       "QueueNotifications",
+                                       self,
+                                       incoming_params,
+                                       trace_integer_pointer(index));
+    std::string quick_scan_target_id;
+    uint64_t quick_scan_target_fleet_id = 0;
+    append_fleet_arrival_navhook_trace("toast-fleet-queue/before-target-type-raw",
+                                       "QueueNotifications",
+                                       self,
+                                       incoming_params,
+                                       trace_integer_pointer(index));
+    auto target_type = incoming_params ? *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(incoming_params) + 0x18) : -1;
+    append_fleet_arrival_navhook_trace("toast-fleet-queue/after-target-type",
+                                       "QueueNotifications",
+                                       self,
+                                       trace_integer_pointer(target_type),
+                                       trace_integer_pointer(index));
+    append_fleet_arrival_navhook_trace("toast-fleet-queue/before-params-case-raw",
+                                       "QueueNotifications",
+                                       self,
+                                       incoming_params,
+                                       trace_integer_pointer(index));
+    auto params_case = incoming_params ? *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(incoming_params) + 0x30) : 0;
+    append_fleet_arrival_navhook_trace("toast-fleet-queue/after-params-case",
+                                       "QueueNotifications",
+                                       self,
+                                       trace_integer_pointer(params_case),
+                                       trace_integer_pointer(index));
+    append_fleet_arrival_navhook_trace("toast-fleet-queue/before-params-object-raw",
+                                       "QueueNotifications",
+                                       self,
+                                       incoming_params,
+                                       trace_integer_pointer(index));
+    auto* params_object = incoming_params ? *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(incoming_params) + 0x28) : nullptr;
+    append_fleet_arrival_navhook_trace("toast-fleet-queue/after-params-object",
+                                       "QueueNotifications",
+                                       self,
+                                       params_object,
+                                       trace_integer_pointer(index));
+    uint64_t target_fleet_id = 0;
+    if (params_case == 4 && params_object) {
+      append_fleet_arrival_navhook_trace("toast-fleet-queue/before-target-fleet-id-boxed",
+                                         "QueueNotifications",
+                                         self,
+                                         params_object,
+                                         trace_integer_pointer(index));
+      target_fleet_id = static_cast<uint64_t>(*reinterpret_cast<int64_t*>(reinterpret_cast<char*>(params_object) + 0x10));
+      append_fleet_arrival_navhook_trace("toast-fleet-queue/after-target-fleet-id",
+                                         "QueueNotifications",
+                                         self,
+                                         trace_integer_pointer(static_cast<int64_t>(target_fleet_id)),
+                                         trace_integer_pointer(index));
+    }
+
+    spdlog::debug("[IncomingFleet] QueueNotifications index={} count={} targetType={} targetFleetId={} quickScanTargetFleetId={} quickScanTargetId='{}'",
+                  index,
+                  notification_count,
+                  target_type,
+                  target_fleet_id,
+                  quick_scan_target_fleet_id,
+                  quick_scan_target_id);
+    live_debug_record_incoming_fleet_materialized("ToastFleetObserver.QueueNotifications",
+                                                  target_type,
+                                                  target_fleet_id,
+                                                  quick_scan_target_fleet_id,
+                                                  quick_scan_target_id);
+    fleet_notifications_notify_incoming_attack_target("toast-fleet-queue", target_fleet_id, target_type);
+  }
+
+  append_fleet_arrival_navhook_trace("toast-fleet-queue/before-original",
+                                     "QueueNotifications",
+                                     self,
+                                     notifications);
+  original(self, notifications);
+  append_fleet_arrival_navhook_trace("toast-fleet-queue/after-original",
+                                     "QueueNotifications",
+                                     self,
+                                     notifications);
 }
 
 static void MiningObjectViewerWidget_UpdateTimerWidget_Hook(auto original, MiningObjectViewerWidget* self,
@@ -473,6 +610,15 @@ void InstallFleetArrivalHooks()
     } else {
       SPUD_STATIC_DETOUR(notifications_changed_event_handler,
                          ToastFleetObserver_NotificationsChangedEventHandler_Hook);
+    }
+  }
+
+  if (kEnableToastFleetObserverQueueHook) {
+    auto queue_notifications = toast_fleet_observer.GetMethod("QueueNotifications", 1);
+    if (queue_notifications == nullptr) {
+      spdlog::warn("[IncomingAttack] ToastFleetObserver.QueueNotifications not found; target-fleet incoming notifications disabled");
+    } else {
+      SPUD_STATIC_DETOUR(queue_notifications, ToastFleetObserver_QueueNotifications_Hook);
     }
   }
 

@@ -36,6 +36,11 @@ void fleet_notifications_observe_node_depleted(int64_t fleetId);
 void fleet_notifications_notify_incoming_attack_detected(const char* source);
 
 /**
+ * @brief Emit an incoming attack notification using a known target fleet id when available.
+ */
+void fleet_notifications_notify_incoming_attack_target(const char* source, uint64_t targetFleetId, int targetType);
+
+/**
  * @brief Observe the current mining ETA from the mining viewer.
  * @param selectedFleet The fleet currently bound to the mining viewer.
  * @param remainingTicks Remaining time in .NET TimeSpan ticks.
