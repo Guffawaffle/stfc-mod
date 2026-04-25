@@ -26,6 +26,8 @@
 ### Fixes
 
 - Restored hotkey hook gates that were accidentally disabled in the incoming attack notification slice
+- Restored normal patch installation after live-debug isolation left standard hooks such as zoom disabled
+- Re-enabled `ToastObserver` banner hooks so desktop notification forwarding and `disabled_banner_types` filtering work again
 
 ## 0.6.1
 

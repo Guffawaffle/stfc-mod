@@ -2377,6 +2377,12 @@ std::string live_debug_handle_request_text(std::string_view request_text)
   return response.dump();
 }
 
+static void ScreenManager_Update_LiveDebugOnly_Hook(auto original, ScreenManager* screen_manager)
+{
+  live_debug_tick(screen_manager);
+  original(screen_manager);
+}
+
 void InstallLiveDebugHooks()
 {
   auto deployment_events_helper =
@@ -2458,6 +2464,20 @@ void InstallLiveDebugHooks()
     ErrorMsg::MissingMethod("DeploymentEvents", "TriggerStateFleetDataDetected");
   } else {
     SPUD_STATIC_DETOUR(trigger_stale_fleet_data_detected, DeploymentEvents_TriggerStaleFleetDataDetected_Hook);
+  }
+
+  if (!Config::Get().installHotkeyHooks) {
+    auto screen_manager_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "ScreenManager");
+    if (!screen_manager_helper.isValidHelper()) {
+      ErrorMsg::MissingHelper("UI", "ScreenManager");
+    } else {
+      auto ptr_update = screen_manager_helper.GetMethod("Update");
+      if (ptr_update == nullptr) {
+        ErrorMsg::MissingMethod("ScreenManager", "Update");
+      } else {
+        SPUD_STATIC_DETOUR(ptr_update, ScreenManager_Update_LiveDebugOnly_Hook);
+      }
+    }
   }
 }
 

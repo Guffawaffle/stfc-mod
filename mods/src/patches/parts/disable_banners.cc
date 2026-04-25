@@ -17,7 +17,7 @@
 #include <spud/detour.h>
 
 namespace {
-constexpr bool kEnableToastObserverHooks = false;
+constexpr bool kEnableToastObserverHooks = true;
 }
 
 struct ToastObserver {

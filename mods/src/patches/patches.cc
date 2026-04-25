@@ -25,7 +25,7 @@
 #include <cstring>
 
 namespace {
-constexpr bool kLiveDebugOnlyHookIsolation = true;
+constexpr bool kLiveDebugOnlyHookIsolation = false;
 }
 
 #if _WIN32
@@ -131,6 +131,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
+    auto install_live_debug_hooks = LiveDebugChannelEnabled();
   const PatchEntry patches[] = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
@@ -139,7 +140,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"PanHooks", {InstallPanHooks, &cfg.installPanHooks}},
       {"ImproveResponsivenessHooks", {InstallImproveResponsivenessHooks, &cfg.installImproveResponsivenessHooks}},
       {"HotkeyHooks", {InstallHotkeyHooks, &cfg.installHotkeyHooks}},
-      {"LiveDebugHooks", {InstallLiveDebugHooks, &cfg.installHotkeyHooks}},
+      {"LiveDebugHooks", {InstallLiveDebugHooks, &install_live_debug_hooks}},
 #if _WIN32
       {"FreeResizeHooks", {InstallFreeResizeHooks, &cfg.installFreeResizeHooks}},
 #endif
