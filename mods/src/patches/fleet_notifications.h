@@ -31,6 +31,11 @@ void fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet);
 void fleet_notifications_observe_node_depleted(int64_t fleetId);
 
 /**
+ * @brief Emit an incoming attack notification from a native incoming-fleet signal.
+ */
+void fleet_notifications_notify_incoming_attack_detected(const char* source);
+
+/**
  * @brief Observe the current mining ETA from the mining viewer.
  * @param selectedFleet The fleet currently bound to the mining viewer.
  * @param remainingTicks Remaining time in .NET TimeSpan ticks.

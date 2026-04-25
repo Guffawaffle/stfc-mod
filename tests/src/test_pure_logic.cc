@@ -128,6 +128,26 @@ TEST_SUITE("toast_state_title")
   }
 }
 
+TEST_SUITE("toast_state_uses_battle_summary")
+{
+  TEST_CASE("battle-result toasts use battle-summary parsing")
+  {
+    CHECK(toast_state_uses_battle_summary(10));
+    CHECK(toast_state_uses_battle_summary(11));
+    CHECK(toast_state_uses_battle_summary(8));
+    CHECK(toast_state_uses_battle_summary(18));
+    CHECK(toast_state_uses_battle_summary(29));
+  }
+
+  TEST_CASE("incoming-attack toasts do not use battle-summary parsing")
+  {
+    CHECK_FALSE(toast_state_uses_battle_summary(5));
+    CHECK_FALSE(toast_state_uses_battle_summary(6));
+    CHECK_FALSE(toast_state_uses_battle_summary(17));
+    CHECK_FALSE(toast_state_uses_battle_summary(0));
+  }
+}
+
 // ===========================================================================
 // strip_unity_rich_text
 // ===========================================================================

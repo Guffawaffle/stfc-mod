@@ -9,6 +9,9 @@
 // Toast state → human-readable title.  Returns nullptr for unknown states.
 const char* toast_state_title(int state);
 
+// Whether a toast state's payload is a BattleResultHeader-compatible battle summary.
+bool toast_state_uses_battle_summary(int state);
+
 // Strip Unity rich text tags: <color=#FF0000>, <b>, </size>, etc.
 std::string strip_unity_rich_text(const std::string& s);
 

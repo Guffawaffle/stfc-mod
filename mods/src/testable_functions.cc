@@ -110,6 +110,29 @@ const char* toast_state_title(int state)
 }
 
 // ---------------------------------------------------------------------------
+// toast_state_uses_battle_summary
+// ---------------------------------------------------------------------------
+bool toast_state_uses_battle_summary(int state)
+{
+  switch (state) {
+    case TS_Victory:
+    case TS_Defeat:
+    case TS_PartialVictory:
+    case TS_StationVictory:
+    case TS_StationDefeat:
+    case TS_StationBattle:
+    case TS_FleetBattle:
+    case TS_ArmadaBattleWon:
+    case TS_ArmadaBattleLost:
+    case TS_AssaultVictory:
+    case TS_AssaultDefeat:
+      return true;
+    default:
+      return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // strip_unity_rich_text
 // ---------------------------------------------------------------------------
 std::string strip_unity_rich_text(const std::string& s)

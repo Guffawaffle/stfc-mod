@@ -22,6 +22,12 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#include <cstring>
+
+namespace {
+constexpr bool kLiveDebugOnlyHookIsolation = true;
+}
+
 #if _WIN32
 #include <Windows.h>
 #else
@@ -156,7 +162,10 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   for (const auto& patch : patches) {
     patch_count++;
     const auto [patch_func, patch_enabled] = patch.fnAndEnabled;
-    const auto patch_install               = (patch_enabled && *patch_enabled);
+    const auto patch_allowed_by_isolation = !kLiveDebugOnlyHookIsolation ||
+      std::strcmp(patch.name, "LiveDebugHooks") == 0 || std::strcmp(patch.name, "ObjectTracker") == 0 ||
+      std::strcmp(patch.name, "FleetArrival") == 0 || std::strcmp(patch.name, "HotkeyHooks") == 0;
+    const auto patch_install               = patch_allowed_by_isolation && (patch_enabled && *patch_enabled);
     const auto patch_mode                  = patch_install ? "+ Patch" : "x Skipp";
     spdlog::info(" {}ing {:>2} of {} ({})", patch_mode, patch_count, patch_total, patch.name);
 

@@ -7,10 +7,13 @@
  * JSON response file with basic runtime state.
  */
 #include "patches/live_debug.h"
+#include "patches/live_debug_connector.h"
+#include "patches/live_debug_request_dispatch.h"
 
 #include "config.h"
 #include "errormsg.h"
 #include "file.h"
+#include "patches/fleet_notifications.h"
 #include "patches/object_tracker_state.h"
 #include "prime/CelestialObjectViewerWidget.h"
 #include "prime/FleetBarViewController.h"
@@ -19,10 +22,13 @@
 #include "prime/FleetPlayerData.h"
 #include "prime/IList.h"
 #include "prime/MiningObjectViewerWidget.h"
+#include "prime/NavigationInteractionUIViewController.h"
 #include "prime/PreScanStationTargetWidget.h"
 #include "prime/PreScanTargetWidget.h"
 #include "prime/ScreenManager.h"
+#include "prime/StationWarningViewController.h"
 #include "prime/StarNodeObjectViewerWidget.h"
+#include "prime/CanvasController.h"
 #include "str_utils.h"
 #include "version.h"
 
@@ -33,6 +39,7 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <cstdio>
 #include <deque>
 #include <filesystem>
 #include <fstream>
@@ -40,22 +47,55 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <vector>
+
+void live_debug_trace_navigation_hook_step(const char* step,
+                                           const char* phase,
+                                           const void* controller,
+                                           const void* sender,
+                                           const void* callback_context)
+{
+  const auto trace_path = std::string(File::MakePath("community_patch_navhook_trace.log"));
+  auto* trace_file = std::fopen(trace_path.c_str(), "ab");
+  if (!trace_file) {
+    return;
+  }
+
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  const auto timestamp_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+
+  std::fprintf(trace_file,
+               "[%lld] step=%s phase='%s' controller=%p sender=%p callbackContext=%p\n",
+               static_cast<long long>(timestamp_ms),
+               step ? step : "",
+               phase ? phase : "",
+               controller,
+               sender,
+               callback_context);
+  std::fflush(trace_file);
+  std::fclose(trace_file);
+}
 
 namespace {
 using json = nlohmann::json;
 
-constexpr std::string_view kRequestFile   = "community_patch_debug.cmd";
-constexpr std::string_view kResponseFile  = "community_patch_debug.out";
-constexpr std::string_view kTempSuffix    = ".tmp";
+constexpr std::string_view kNavigationHookTraceFile = "community_patch_navhook_trace.log";
 constexpr int              kFleetIndexMax = 10;
 constexpr size_t           kRecentEventLimit = 256;
 constexpr int64_t          kMineTimerBucketSeconds = 30;
+constexpr int              kTopCanvasChildNameLimit = 24;
 
 struct TopCanvasObservation {
   bool        found = false;
   std::string pointer;
   std::string className;
   std::string classNamespace;
+  std::string name;
+  bool        visible = false;
+  bool        enabled = false;
+  bool        internalVisible = false;
+  std::vector<std::string> activeChildNames;
 };
 
 struct FleetObservation {
@@ -114,6 +154,37 @@ struct TargetViewerObservation {
   std::string celestialViewerPointer;
 };
 
+struct StationWarningObservation {
+  bool        tracked = false;
+  std::string pointer;
+  bool        hasContext = false;
+  int         targetType = 0;
+  uint64_t    targetFleetId = 0;
+  std::string targetUserId;
+  uint64_t    quickScanTargetFleetId = 0;
+  std::string quickScanTargetId;
+};
+
+struct NavigationInteractionObservation {
+  struct Entry {
+    std::string pointer;
+    bool        hasContext = false;
+    int         contextDataState = -1;
+    int         inputInteractionType = -1;
+    std::string userId;
+    bool        isMarauder = false;
+    int         threatLevel = -2;
+    bool        validNavigationInput = false;
+    bool        showSetCourseArm = false;
+    int64_t     locationTranslationId = 0;
+    std::string poiPointer;
+  };
+
+  bool               tracked = false;
+  size_t             trackedCount = 0;
+  std::vector<Entry> entries;
+};
+
 std::deque<json> g_recent_events;
 uint64_t         g_recent_event_sequence = 0;
 bool             g_recent_observations_initialized = false;
@@ -122,6 +193,48 @@ FleetObservation     g_last_fleet;
 std::array<FleetSlotObservation, kFleetIndexMax> g_last_fleet_slots;
 MineViewerObservation g_last_mine_viewer;
 TargetViewerObservation g_last_target_viewer;
+StationWarningObservation g_last_station_warning;
+NavigationInteractionObservation g_last_navigation_interaction;
+
+struct PendingNavigationHookNote {
+  bool        pending = false;
+  const char* phase = nullptr;
+  const void* controller = nullptr;
+  const void* sender = nullptr;
+  const void* callbackContext = nullptr;
+  bool        prePollCaptured = false;
+  TopCanvasObservation prePollTopCanvas;
+  NavigationInteractionObservation prePollNavigationInteraction;
+};
+
+struct RecentNavigationHookFollowUp {
+  bool        active = false;
+  const char* phase = nullptr;
+  const void* controller = nullptr;
+  const void* sender = nullptr;
+  const void* callbackContext = nullptr;
+};
+
+PendingNavigationHookNote g_pending_navigation_hook_note;
+RecentNavigationHookFollowUp g_recent_navigation_hook_follow_up;
+std::string g_last_navigation_poll_actionable_pointer;
+bool g_logged_navigation_hook_tick_enter = false;
+bool g_logged_navigation_hook_tick_after_ui_poll = false;
+
+constexpr bool kEnableLiveDebugUiPollingFromTick = false;
+constexpr bool kEnableLiveDebugTopCanvasPolling = true;
+constexpr bool kEnableLiveDebugStationWarningPolling = false;
+constexpr bool kEnableLiveDebugNavigationInteractionPolling = false;
+constexpr bool kEnableLiveDebugObserverStepTrace = false;
+constexpr bool kEnableLiveDebugIncomingAttackNotification = true;
+bool g_ui_observer_trace_current_poll = false;
+int g_ui_observer_trace_budget = 4000;
+
+const char* navigation_context_data_state_name(int state);
+const char* input_interaction_type_name(int type);
+const char* navigation_threat_level_name(int level);
+json top_canvas_observation_to_json(const TopCanvasObservation& observation);
+bool is_navigation_interaction_top_canvas(const TopCanvasObservation& observation);
 
 std::filesystem::path get_live_debug_path(std::string_view filename)
 {
@@ -141,6 +254,62 @@ int64_t current_time_millis_utc()
   return std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
 }
 
+void append_navigation_hook_trace_step(const char* step,
+                                       const char* phase,
+                                       const void* controller = nullptr,
+                                       const void* sender = nullptr,
+                                       const void* callback_context = nullptr)
+{
+  const auto trace_path = get_live_debug_path(kNavigationHookTraceFile);
+  const auto path_text = trace_path.string();
+  auto* trace_file = std::fopen(path_text.c_str(), "ab");
+  if (!trace_file) {
+    return;
+  }
+
+  std::fprintf(trace_file,
+               "[%lld] step=%s phase='%s' controller=%p sender=%p callbackContext=%p\n",
+               static_cast<long long>(current_time_millis_utc()),
+               step ? step : "",
+               phase ? phase : "",
+               controller,
+               sender,
+               callback_context);
+  std::fflush(trace_file);
+  std::fclose(trace_file);
+}
+
+void append_ui_observer_trace_step(const char* step,
+                                   const char* phase,
+                                   const void* controller = nullptr,
+                                   const void* sender = nullptr,
+                                   const void* callback_context = nullptr)
+{
+  if (!kEnableLiveDebugObserverStepTrace || g_ui_observer_trace_budget <= 0) {
+    return;
+  }
+  if (!g_ui_observer_trace_current_poll) {
+    return;
+  }
+
+  --g_ui_observer_trace_budget;
+  append_navigation_hook_trace_step(step, phase, controller, sender, callback_context);
+}
+
+void append_ui_observer_forced_trace_step(const char* step,
+                                          const char* phase,
+                                          const void* controller = nullptr,
+                                          const void* sender = nullptr,
+                                          const void* callback_context = nullptr)
+{
+  if (!kEnableLiveDebugObserverStepTrace || g_ui_observer_trace_budget <= 0) {
+    return;
+  }
+
+  --g_ui_observer_trace_budget;
+  append_navigation_hook_trace_step(step, phase, controller, sender, callback_context);
+}
+
 std::string get_request_id(const json& request)
 {
   if (const auto id = request.find("id"); id != request.end() && id->is_string()) {
@@ -148,57 +317,6 @@ std::string get_request_id(const json& request)
   }
 
   return "";
-}
-
-bool try_read_text_file(const std::filesystem::path& path, std::string& text)
-{
-  std::ifstream input(path, std::ios::in | std::ios::binary);
-  if (!input.good()) {
-    return false;
-  }
-
-  std::ostringstream buffer;
-  buffer << input.rdbuf();
-  text = buffer.str();
-  return true;
-}
-
-void remove_file_if_exists(const std::filesystem::path& path)
-{
-  std::error_code ec;
-  std::filesystem::remove(path, ec);
-}
-
-bool try_write_text_file_atomic(const std::filesystem::path& path, std::string_view text)
-{
-  const auto temp_path = std::filesystem::path(path.string() + std::string(kTempSuffix));
-  remove_file_if_exists(temp_path);
-
-  {
-    std::ofstream output(temp_path, std::ios::out | std::ios::binary | std::ios::trunc);
-    if (!output.good()) {
-      return false;
-    }
-
-    output.write(text.data(), static_cast<std::streamsize>(text.size()));
-    output.flush();
-    if (!output.good()) {
-      return false;
-    }
-  }
-
-  remove_file_if_exists(path);
-
-  std::error_code rename_ec;
-  std::filesystem::rename(temp_path, path, rename_ec);
-  if (!rename_ec) {
-    return true;
-  }
-
-  std::error_code copy_ec;
-  std::filesystem::copy_file(temp_path, path, std::filesystem::copy_options::overwrite_existing, copy_ec);
-  remove_file_if_exists(temp_path);
-  return !copy_ec;
 }
 
 json make_error_response(const std::string& request_id, std::string_view error)
@@ -224,6 +342,406 @@ void append_recent_event(std::string_view kind, json details)
   }
 }
 
+json navigation_interaction_entry_to_json(const NavigationInteractionObservation::Entry& entry)
+{
+  json entry_json = {{"pointer", entry.pointer}, {"hasContext", entry.hasContext}};
+
+  if (entry.hasContext) {
+    entry_json["contextDataState"] = entry.contextDataState;
+    entry_json["contextDataStateName"] = navigation_context_data_state_name(entry.contextDataState);
+    entry_json["inputInteractionType"] = entry.inputInteractionType;
+    entry_json["inputInteractionTypeName"] = input_interaction_type_name(entry.inputInteractionType);
+    entry_json["userId"] = entry.userId;
+    entry_json["isMarauder"] = entry.isMarauder;
+    entry_json["threatLevel"] = entry.threatLevel;
+    entry_json["threatLevelName"] = navigation_threat_level_name(entry.threatLevel);
+    entry_json["validNavigationInput"] = entry.validNavigationInput;
+    entry_json["showSetCourseArm"] = entry.showSetCourseArm;
+    entry_json["locationTranslationId"] = entry.locationTranslationId;
+    entry_json["poiPointer"] = entry.poiPointer;
+  }
+
+  return entry_json;
+}
+
+const NavigationInteractionObservation::Entry* find_navigation_interaction_entry(
+    const NavigationInteractionObservation& observation, const void* controller)
+{
+  if (!controller) {
+    return nullptr;
+  }
+
+  const auto controller_pointer = pointer_to_string(controller);
+  for (const auto& entry : observation.entries) {
+    if (entry.pointer == controller_pointer) {
+      return &entry;
+    }
+  }
+
+  return nullptr;
+}
+
+const NavigationInteractionObservation::Entry* find_navigation_interaction_entry(
+    const NavigationInteractionObservation& observation, const std::string& pointer)
+{
+  for (const auto& entry : observation.entries) {
+    if (entry.pointer == pointer) {
+      return &entry;
+    }
+  }
+
+  return nullptr;
+}
+
+bool is_navigation_interaction_entry_actionable(const NavigationInteractionObservation::Entry& entry)
+{
+  return entry.hasContext && (entry.validNavigationInput || entry.showSetCourseArm);
+}
+
+void append_navigation_hook_actionable_follow_up_event(const NavigationInteractionObservation& previous,
+                                                       const NavigationInteractionObservation& current)
+{
+  if (!g_recent_navigation_hook_follow_up.active || !g_recent_navigation_hook_follow_up.controller) {
+    return;
+  }
+
+  append_navigation_hook_trace_step("followup/enter",
+                                    g_recent_navigation_hook_follow_up.phase,
+                                    g_recent_navigation_hook_follow_up.controller,
+                                    g_recent_navigation_hook_follow_up.sender,
+                                    g_recent_navigation_hook_follow_up.callbackContext);
+
+  const bool sender_matches_top_canvas =
+      g_recent_navigation_hook_follow_up.sender && g_last_top_canvas.found &&
+      pointer_to_string(g_recent_navigation_hook_follow_up.sender) == g_last_top_canvas.pointer;
+  if (!sender_matches_top_canvas) {
+    append_navigation_hook_trace_step("followup/clear-top-canvas-miss",
+                                      g_recent_navigation_hook_follow_up.phase,
+                                      g_recent_navigation_hook_follow_up.controller,
+                                      g_recent_navigation_hook_follow_up.sender,
+                                      g_recent_navigation_hook_follow_up.callbackContext);
+    g_recent_navigation_hook_follow_up = {};
+    return;
+  }
+
+  const auto* current_entry =
+      find_navigation_interaction_entry(current, g_recent_navigation_hook_follow_up.controller);
+  if (!current_entry) {
+    append_navigation_hook_trace_step("followup/no-current-entry",
+                                      g_recent_navigation_hook_follow_up.phase,
+                                      g_recent_navigation_hook_follow_up.controller,
+                                      g_recent_navigation_hook_follow_up.sender,
+                                      g_recent_navigation_hook_follow_up.callbackContext);
+    return;
+  }
+
+  const auto* previous_entry =
+      find_navigation_interaction_entry(previous, g_recent_navigation_hook_follow_up.controller);
+  if (previous_entry && is_navigation_interaction_entry_actionable(*previous_entry)) {
+    append_navigation_hook_trace_step("followup/already-actionable",
+                                      g_recent_navigation_hook_follow_up.phase,
+                                      g_recent_navigation_hook_follow_up.controller,
+                                      g_recent_navigation_hook_follow_up.sender,
+                                      g_recent_navigation_hook_follow_up.callbackContext);
+    return;
+  }
+  if (!is_navigation_interaction_entry_actionable(*current_entry)) {
+    append_navigation_hook_trace_step("followup/not-yet-actionable",
+                                      g_recent_navigation_hook_follow_up.phase,
+                                      g_recent_navigation_hook_follow_up.controller,
+                                      g_recent_navigation_hook_follow_up.sender,
+                                      g_recent_navigation_hook_follow_up.callbackContext);
+    return;
+  }
+
+  json details{{"phase", g_recent_navigation_hook_follow_up.phase ? g_recent_navigation_hook_follow_up.phase : ""},
+               {"pointer", pointer_to_string(g_recent_navigation_hook_follow_up.controller)},
+               {"senderMatchesTopCanvas", true},
+               {"topCanvas", top_canvas_observation_to_json(g_last_top_canvas)},
+               {"navigationInteractionTrackedCount", current.trackedCount},
+               {"matchedController", navigation_interaction_entry_to_json(*current_entry)}};
+
+  if (g_recent_navigation_hook_follow_up.sender) {
+    details["senderPointer"] = pointer_to_string(g_recent_navigation_hook_follow_up.sender);
+  }
+  if (g_recent_navigation_hook_follow_up.callbackContext) {
+    details["callbackContextPointer"] = pointer_to_string(g_recent_navigation_hook_follow_up.callbackContext);
+  }
+  if (previous_entry) {
+    details["previousMatchedController"] = navigation_interaction_entry_to_json(*previous_entry);
+  }
+
+  append_navigation_hook_trace_step("followup/before-append",
+                                    g_recent_navigation_hook_follow_up.phase,
+                                    g_recent_navigation_hook_follow_up.controller,
+                                    g_recent_navigation_hook_follow_up.sender,
+                                    g_recent_navigation_hook_follow_up.callbackContext);
+  append_recent_event("navigation-interaction-hook-became-actionable", std::move(details));
+  append_navigation_hook_trace_step("followup/after-append",
+                                    g_recent_navigation_hook_follow_up.phase,
+                                    g_recent_navigation_hook_follow_up.controller,
+                                    g_recent_navigation_hook_follow_up.sender,
+                                    g_recent_navigation_hook_follow_up.callbackContext);
+  g_recent_navigation_hook_follow_up = {};
+}
+
+void append_navigation_poll_actionable_event(const NavigationInteractionObservation& previous,
+                                             const NavigationInteractionObservation& current)
+{
+  if (!is_navigation_interaction_top_canvas(g_last_top_canvas)) {
+    return;
+  }
+
+  for (const auto& entry : current.entries) {
+    if (!is_navigation_interaction_entry_actionable(entry)) {
+      continue;
+    }
+
+    const auto* previous_entry = find_navigation_interaction_entry(previous, entry.pointer);
+    if (previous_entry && is_navigation_interaction_entry_actionable(*previous_entry) &&
+        g_last_navigation_poll_actionable_pointer == entry.pointer) {
+      continue;
+    }
+
+    json details{{"topCanvas", top_canvas_observation_to_json(g_last_top_canvas)},
+                 {"navigationInteractionTrackedCount", current.trackedCount},
+                 {"matchedController", navigation_interaction_entry_to_json(entry)}};
+    if (previous_entry) {
+      details["previousMatchedController"] = navigation_interaction_entry_to_json(*previous_entry);
+    }
+
+    append_recent_event("navigation-interaction-poll-became-actionable", std::move(details));
+    if (kEnableLiveDebugIncomingAttackNotification) {
+      append_navigation_hook_trace_step("poll/before-incoming-attack-notification", "poll_recent_ui_events");
+      fleet_notifications_notify_incoming_attack_detected("navigation-poll");
+      append_navigation_hook_trace_step("poll/after-incoming-attack-notification", "poll_recent_ui_events");
+    }
+    g_last_navigation_poll_actionable_pointer = entry.pointer;
+    return;
+  }
+}
+
+void flush_pending_navigation_hook_note()
+{
+  if (!g_pending_navigation_hook_note.pending) {
+    return;
+  }
+
+  append_navigation_hook_trace_step("flush/enter",
+                                    g_pending_navigation_hook_note.phase,
+                                    g_pending_navigation_hook_note.controller,
+                                    g_pending_navigation_hook_note.sender,
+                                    g_pending_navigation_hook_note.callbackContext);
+
+  auto note = g_pending_navigation_hook_note;
+  g_pending_navigation_hook_note = {};
+  append_navigation_hook_trace_step("flush/copied",
+                                    note.phase,
+                                    note.controller,
+                                    note.sender,
+                                    note.callbackContext);
+
+  if (!kEnableLiveDebugUiPollingFromTick) {
+    json details{{"phase", note.phase ? note.phase : ""},
+                 {"pointer", pointer_to_string(note.controller)}};
+    if (note.sender) {
+      details["senderPointer"] = pointer_to_string(note.sender);
+    }
+    if (note.callbackContext) {
+      details["callbackContextPointer"] = pointer_to_string(note.callbackContext);
+    }
+
+    append_recent_event("navigation-interaction-hook-note", std::move(details));
+    if (kEnableLiveDebugIncomingAttackNotification && note.phase &&
+        std::string_view(note.phase) == "AboutToShowCanvasEventHandler") {
+      append_navigation_hook_trace_step("flush/before-hook-incoming-attack-notification",
+                                        note.phase,
+                                        note.controller,
+                                        note.sender,
+                                        note.callbackContext);
+      fleet_notifications_notify_incoming_attack_detected("navigation-hook");
+      append_navigation_hook_trace_step("flush/after-hook-incoming-attack-notification",
+                                        note.phase,
+                                        note.controller,
+                                        note.sender,
+                                        note.callbackContext);
+    }
+
+    append_navigation_hook_trace_step("flush/minimal-after-append",
+                                      note.phase,
+                                      note.controller,
+                                      note.sender,
+                                      note.callbackContext);
+    return;
+  }
+
+  json details{{"phase", note.phase ? note.phase : ""},
+               {"pointer", pointer_to_string(note.controller)}};
+  append_navigation_hook_trace_step("flush/base-details", note.phase, note.controller, note.sender, note.callbackContext);
+
+  if (note.sender) {
+    append_navigation_hook_trace_step("flush/before-add-sender",
+                                      note.phase,
+                                      note.controller,
+                                      note.sender,
+                                      note.callbackContext);
+    details["senderPointer"] = pointer_to_string(note.sender);
+    append_navigation_hook_trace_step("flush/after-add-sender",
+                                      note.phase,
+                                      note.controller,
+                                      note.sender,
+                                      note.callbackContext);
+  }
+
+  if (note.callbackContext) {
+    append_navigation_hook_trace_step("flush/before-add-callback-context",
+                                      note.phase,
+                                      note.controller,
+                                      note.sender,
+                                      note.callbackContext);
+    details["callbackContextPointer"] = pointer_to_string(note.callbackContext);
+    append_navigation_hook_trace_step("flush/after-add-callback-context",
+                                      note.phase,
+                                      note.controller,
+                                      note.sender,
+                                      note.callbackContext);
+  }
+
+  append_navigation_hook_trace_step("flush/before-pre-poll-details",
+                                    note.phase,
+                                    note.controller,
+                                    note.sender,
+                                    note.callbackContext);
+  if (note.prePollCaptured) {
+    details["prePollTopCanvas"] = top_canvas_observation_to_json(note.prePollTopCanvas);
+    details["prePollNavigationInteractionTrackedCount"] = note.prePollNavigationInteraction.trackedCount;
+  }
+  append_navigation_hook_trace_step("flush/after-pre-poll-details",
+                                    note.phase,
+                                    note.controller,
+                                    note.sender,
+                                    note.callbackContext);
+
+  append_navigation_hook_trace_step("flush/before-top-canvas",
+                                    note.phase,
+                                    note.controller,
+                                    note.sender,
+                                    note.callbackContext);
+  details["topCanvas"] = top_canvas_observation_to_json(g_last_top_canvas);
+  append_navigation_hook_trace_step("flush/after-top-canvas",
+                                    note.phase,
+                                    note.controller,
+                                    note.sender,
+                                    note.callbackContext);
+
+  append_navigation_hook_trace_step("flush/before-navigation-count",
+                                    note.phase,
+                                    note.controller,
+                                    note.sender,
+                                    note.callbackContext);
+  details["navigationInteractionTrackedCount"] = g_last_navigation_interaction.trackedCount;
+  append_navigation_hook_trace_step("flush/after-navigation-count",
+                                    note.phase,
+                                    note.controller,
+                                    note.sender,
+                                    note.callbackContext);
+
+  append_navigation_hook_trace_step("flush/before-controller-pointer-read",
+                                    note.phase,
+                                    note.controller,
+                                    note.sender,
+                                    note.callbackContext);
+  const auto controller_pointer = details["pointer"].get<std::string>();
+  append_navigation_hook_trace_step("flush/after-controller-pointer-read",
+                                    note.phase,
+                                    note.controller,
+                                    note.sender,
+                                    note.callbackContext);
+
+  if (note.prePollCaptured) {
+    append_navigation_hook_trace_step("flush/before-pre-poll-match-loop",
+                                      note.phase,
+                                      note.controller,
+                                      note.sender,
+                                      note.callbackContext);
+    for (const auto& entry : note.prePollNavigationInteraction.entries) {
+      if (entry.pointer == controller_pointer) {
+        details["prePollMatchedController"] = navigation_interaction_entry_to_json(entry);
+        break;
+      }
+    }
+
+    if (note.sender && note.prePollTopCanvas.found) {
+      details["prePollSenderMatchesTopCanvas"] =
+          pointer_to_string(note.sender) == note.prePollTopCanvas.pointer;
+    }
+    append_navigation_hook_trace_step("flush/after-pre-poll-match-loop",
+                                      note.phase,
+                                      note.controller,
+                                      note.sender,
+                                      note.callbackContext);
+  }
+
+  append_navigation_hook_trace_step("flush/before-match-loop",
+                                    note.phase,
+                                    note.controller,
+                                    note.sender,
+                                    note.callbackContext);
+  for (const auto& entry : g_last_navigation_interaction.entries) {
+    if (entry.pointer == controller_pointer) {
+      append_navigation_hook_trace_step("flush/match-found",
+                                        note.phase,
+                                        note.controller,
+                                        note.sender,
+                                        note.callbackContext);
+      details["matchedController"] = navigation_interaction_entry_to_json(entry);
+      append_navigation_hook_trace_step("flush/after-match-json",
+                                        note.phase,
+                                        note.controller,
+                                        note.sender,
+                                        note.callbackContext);
+      break;
+    }
+  }
+
+  append_navigation_hook_trace_step("flush/after-match-loop",
+                                    note.phase,
+                                    note.controller,
+                                    note.sender,
+                                    note.callbackContext);
+
+  if (note.sender && g_last_top_canvas.found) {
+    append_navigation_hook_trace_step("flush/before-sender-compare",
+                                      note.phase,
+                                      note.controller,
+                                      note.sender,
+                                      note.callbackContext);
+    details["senderMatchesTopCanvas"] =
+        pointer_to_string(note.sender) == g_last_top_canvas.pointer;
+    append_navigation_hook_trace_step(
+        details["senderMatchesTopCanvas"].get<bool>() ? "flush/after-sender-compare/match"
+                                                       : "flush/after-sender-compare/miss",
+        note.phase,
+        note.controller,
+        note.sender,
+        note.callbackContext);
+  }
+
+  append_navigation_hook_trace_step("flush/before-append",
+                                    note.phase,
+                                    note.controller,
+                                    note.sender,
+                                    note.callbackContext);
+  append_recent_event("navigation-interaction-hook-note", std::move(details));
+  g_recent_navigation_hook_follow_up = RecentNavigationHookFollowUp{
+      note.controller != nullptr, note.phase, note.controller, note.sender, note.callbackContext};
+  append_navigation_hook_trace_step("flush/after-append",
+                                    note.phase,
+                                    note.controller,
+                                    note.sender,
+                                    note.callbackContext);
+}
+
 void reset_recent_events()
 {
   g_recent_events.clear();
@@ -234,12 +752,16 @@ void reset_recent_events()
   g_last_fleet_slots = {};
   g_last_mine_viewer = {};
   g_last_target_viewer = {};
+  g_last_station_warning = {};
+  g_last_navigation_interaction = {};
 }
 
 bool same_top_canvas_observation(const TopCanvasObservation& left, const TopCanvasObservation& right)
 {
-  return left.found == right.found && left.className == right.className &&
-      left.classNamespace == right.classNamespace;
+  return left.found == right.found && left.pointer == right.pointer &&
+  left.className == right.className && left.classNamespace == right.classNamespace &&
+  left.name == right.name && left.visible == right.visible && left.enabled == right.enabled &&
+  left.internalVisible == right.internalVisible && left.activeChildNames == right.activeChildNames;
 }
 
 bool same_fleet_observation(const FleetObservation& left, const FleetObservation& right)
@@ -282,6 +804,45 @@ bool same_target_viewer_observation(const TargetViewerObservation& left, const T
       left.celestialViewerPointer == right.celestialViewerPointer;
 }
 
+bool same_station_warning_observation(const StationWarningObservation& left,
+                                      const StationWarningObservation& right)
+{
+  return left.tracked == right.tracked && left.pointer == right.pointer &&
+      left.hasContext == right.hasContext && left.targetType == right.targetType &&
+      left.targetFleetId == right.targetFleetId && left.targetUserId == right.targetUserId &&
+      left.quickScanTargetFleetId == right.quickScanTargetFleetId &&
+      left.quickScanTargetId == right.quickScanTargetId;
+}
+
+    bool same_navigation_interaction_observation(const NavigationInteractionObservation& left,
+                     const NavigationInteractionObservation& right)
+    {
+      if (left.tracked != right.tracked || left.trackedCount != right.trackedCount ||
+          left.entries.size() != right.entries.size()) {
+        return false;
+      }
+
+      for (size_t index = 0; index < left.entries.size(); ++index) {
+        const auto& left_entry = left.entries[index];
+        const auto& right_entry = right.entries[index];
+        if (left_entry.pointer != right_entry.pointer ||
+            left_entry.hasContext != right_entry.hasContext ||
+            left_entry.contextDataState != right_entry.contextDataState ||
+            left_entry.inputInteractionType != right_entry.inputInteractionType ||
+            left_entry.userId != right_entry.userId ||
+            left_entry.isMarauder != right_entry.isMarauder ||
+            left_entry.threatLevel != right_entry.threatLevel ||
+            left_entry.validNavigationInput != right_entry.validNavigationInput ||
+            left_entry.showSetCourseArm != right_entry.showSetCourseArm ||
+            left_entry.locationTranslationId != right_entry.locationTranslationId ||
+            left_entry.poiPointer != right_entry.poiPointer) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
 bool is_meaningful_mine_viewer_observation(const MineViewerObservation& observation)
 {
   return (observation.miningViewerTracked &&
@@ -305,8 +866,48 @@ json top_canvas_observation_to_json(const TopCanvasObservation& observation)
   result["pointer"] = observation.pointer;
   result["className"] = observation.className;
   result["classNamespace"] = observation.classNamespace;
+  result["name"] = observation.name;
+  result["visible"] = observation.visible;
+  result["enabled"] = observation.enabled;
+  result["internalVisible"] = observation.internalVisible;
+  result["activeChildNames"] = observation.activeChildNames;
   result["visibleOnlyHint"] = true;
   return result;
+}
+
+std::vector<std::string> collect_active_child_names(Transform* parent)
+{
+  std::vector<std::string> names;
+  if (!parent) {
+    return names;
+  }
+
+  const auto child_count = parent->childCount;
+  if (child_count <= 0) {
+    return names;
+  }
+
+  names.reserve(std::min(child_count, kTopCanvasChildNameLimit));
+
+  for (int index = 0; index < child_count && static_cast<int>(names.size()) < kTopCanvasChildNameLimit; ++index) {
+    auto child_transform = parent->GetChild(index);
+    if (!child_transform) {
+      continue;
+    }
+
+    auto child_object = child_transform->gameObject;
+    if (!child_object || !child_object->activeInHierarchy) {
+      continue;
+    }
+
+    if (auto child_name = child_object->name; child_name) {
+      names.push_back(to_string(child_name));
+    } else {
+      names.emplace_back("");
+    }
+  }
+
+  return names;
 }
 
 const char* fleet_state_name(FleetState state)
@@ -364,6 +965,104 @@ const char* fleet_state_name_from_value(int state)
   }
 
   return fleet_state_name(static_cast<FleetState>(state));
+}
+
+const char* incoming_attack_target_type_name(int target_type)
+{
+  switch (target_type) {
+    case 1:
+      return "Fleet";
+    case 2:
+      return "DockingPoint";
+    case 3:
+      return "Station";
+    case 0:
+      return "None";
+    default:
+      return "Unknown";
+  }
+}
+
+const char* notification_producer_type_name(int producer_type)
+{
+  switch (producer_type) {
+    case 7:
+      return "IncomingFleet";
+    default:
+      return "Unknown";
+  }
+}
+
+const char* navigation_context_data_state_name(int state)
+{
+  switch (state) {
+    case 0:
+      return "Verified";
+    case 1:
+      return "Verifying";
+    case 2:
+      return "Failed";
+    default:
+      return "Unknown";
+  }
+}
+
+const char* input_interaction_type_name(int type)
+{
+  switch (type) {
+    case 0:
+      return "HideAll";
+    case 1:
+      return "TapShowScanEngageEnemyFleet";
+    case 2:
+      return "TapShowEngageEnemyNPCFleetInfo";
+    case 3:
+      return "TapShowScanEngageEnemyStarbase";
+    case 4:
+      return "TapLocationPlanningPath";
+    case 5:
+      return "TapEmptySpace";
+    case 6:
+      return "TapGalaxyStar";
+    case 7:
+      return "TapPlanetMoveStarbase";
+    case 8:
+      return "TapPlanetWithMissions";
+    case 9:
+      return "TapPlanetWithMining";
+    case 10:
+      return "TapPlanetWithTerritoryEmbassy";
+    case 11:
+      return "TapLocationScanLoading";
+    case 12:
+      return "TapLocationScanLoaded";
+    case 13:
+      return "TapOutOfBoundsLocation";
+    case 14:
+      return "TapArmadaLocation";
+    case 15:
+      return "TapOutpostLocation";
+    default:
+      return "Unknown";
+  }
+}
+
+const char* navigation_threat_level_name(int level)
+{
+  switch (level) {
+    case -1:
+      return "Unknown";
+    case 0:
+      return "VeryHard";
+    case 1:
+      return "Hard";
+    case 2:
+      return "Normal";
+    case 3:
+      return "Easy";
+    default:
+      return "Unmapped";
+  }
 }
 
 json fleet_to_json(FleetPlayerData* fleet)
@@ -500,6 +1199,160 @@ std::array<FleetSlotObservation, kFleetIndexMax> observe_fleet_slots()
   return observations;
 }
 
+StationWarningObservation observe_station_warning()
+{
+  append_ui_observer_trace_step("station/enter", "observe_station_warning");
+  StationWarningObservation observation;
+  auto controller = GetLatestTrackedObject<StationWarningViewController>();
+  if (controller) {
+    g_ui_observer_trace_current_poll = true;
+  }
+  append_ui_observer_trace_step("station/after-get-controller", "observe_station_warning", controller);
+  observation.tracked = controller != nullptr;
+
+  if (!controller) {
+    append_ui_observer_trace_step("station/no-controller", "observe_station_warning");
+    return observation;
+  }
+
+  observation.pointer = pointer_to_string(controller);
+
+  append_ui_observer_trace_step("station/before-canvas-context", "observe_station_warning", controller);
+  auto context = controller->CanvasContext;
+  append_ui_observer_trace_step("station/after-canvas-context", "observe_station_warning", controller, context);
+  observation.hasContext = context != nullptr;
+  if (!context) {
+    append_ui_observer_trace_step("station/no-context", "observe_station_warning", controller);
+    return observation;
+  }
+
+  append_ui_observer_trace_step("station/before-target-fields", "observe_station_warning", controller, context);
+  observation.targetType = static_cast<int>(context->TargetType);
+  observation.targetFleetId = static_cast<uint64_t>(context->TargetFleetId);
+  append_ui_observer_trace_step("station/after-target-fields", "observe_station_warning", controller, context);
+
+  if (auto target_user_id = context->TargetUserId; target_user_id) {
+    append_ui_observer_trace_step("station/before-target-user-id", "observe_station_warning", controller, context, target_user_id);
+    observation.targetUserId = to_string(target_user_id);
+    append_ui_observer_trace_step("station/after-target-user-id", "observe_station_warning", controller, context, target_user_id);
+  }
+
+  append_ui_observer_trace_step("station/before-quick-scan-result", "observe_station_warning", controller, context);
+  if (auto quick_scan_result = context->QuickScanResult; quick_scan_result) {
+    append_ui_observer_trace_step("station/after-quick-scan-result", "observe_station_warning", controller, context, quick_scan_result);
+    observation.quickScanTargetFleetId = static_cast<uint64_t>(quick_scan_result->TargetFleetId);
+    if (auto quick_scan_target_id = quick_scan_result->TargetId; quick_scan_target_id) {
+      append_ui_observer_trace_step("station/before-quick-scan-target-id", "observe_station_warning", controller, quick_scan_result, quick_scan_target_id);
+      observation.quickScanTargetId = to_string(quick_scan_target_id);
+      append_ui_observer_trace_step("station/after-quick-scan-target-id", "observe_station_warning", controller, quick_scan_result, quick_scan_target_id);
+    }
+  } else {
+    append_ui_observer_trace_step("station/no-quick-scan-result", "observe_station_warning", controller, context);
+  }
+
+  append_ui_observer_trace_step("station/return", "observe_station_warning", controller, context);
+  return observation;
+}
+
+json station_warning_observation_to_json(const StationWarningObservation& observation)
+{
+  json result = {{"tracked", observation.tracked}};
+
+  if (!observation.tracked) {
+    return result;
+  }
+
+  result["pointer"] = observation.pointer;
+  result["hasContext"] = observation.hasContext;
+
+  if (!observation.hasContext) {
+    return result;
+  }
+
+  result["targetType"] = observation.targetType;
+  result["targetTypeName"] = incoming_attack_target_type_name(observation.targetType);
+  result["targetFleetId"] = observation.targetFleetId;
+  result["targetUserId"] = observation.targetUserId;
+  result["quickScanTargetFleetId"] = observation.quickScanTargetFleetId;
+  result["quickScanTargetId"] = observation.quickScanTargetId;
+  return result;
+}
+
+NavigationInteractionObservation observe_navigation_interaction()
+{
+  append_ui_observer_trace_step("nav/enter", "observe_navigation_interaction");
+  NavigationInteractionObservation observation;
+  const auto controllers = GetTrackedObjects<NavigationInteractionUIViewController>();
+  if (!controllers.empty()) {
+    g_ui_observer_trace_current_poll = true;
+  }
+  append_ui_observer_trace_step("nav/after-get-controllers", "observe_navigation_interaction");
+  observation.tracked = !controllers.empty();
+  observation.trackedCount = controllers.size();
+
+  if (controllers.empty()) {
+    append_ui_observer_trace_step("nav/no-controllers", "observe_navigation_interaction");
+    return observation;
+  }
+
+  observation.entries.reserve(controllers.size());
+  for (auto* controller : controllers) {
+    append_ui_observer_trace_step("nav/before-entry", "observe_navigation_interaction", controller);
+    NavigationInteractionObservation::Entry entry;
+    entry.pointer = pointer_to_string(controller);
+
+    append_ui_observer_trace_step("nav/before-canvas-context", "observe_navigation_interaction", controller);
+    auto context = controller->CanvasContext;
+    append_ui_observer_trace_step("nav/after-canvas-context", "observe_navigation_interaction", controller, context);
+    entry.hasContext = context != nullptr;
+    if (context) {
+      append_ui_observer_trace_step("nav/before-context-fields", "observe_navigation_interaction", controller, context);
+      entry.contextDataState = context->ContextDataState;
+      entry.inputInteractionType = context->InputInteractionType;
+      append_ui_observer_trace_step("nav/after-basic-context-fields", "observe_navigation_interaction", controller, context);
+      if (auto user_id = context->UserId; user_id) {
+        append_ui_observer_trace_step("nav/before-user-id", "observe_navigation_interaction", controller, context, user_id);
+        entry.userId = to_string(user_id);
+        append_ui_observer_trace_step("nav/after-user-id", "observe_navigation_interaction", controller, context, user_id);
+      }
+      entry.isMarauder = context->IsMarauder;
+      entry.threatLevel = context->ThreatLevel;
+      entry.validNavigationInput = context->ValidNavigationInput;
+      entry.showSetCourseArm = context->ShowSetCourseArm;
+      entry.locationTranslationId = context->LocationTranslationId;
+      append_ui_observer_trace_step("nav/after-extra-context-fields", "observe_navigation_interaction", controller, context);
+      if (auto poi = context->Poi; poi) {
+        entry.poiPointer = pointer_to_string(poi);
+        append_ui_observer_trace_step("nav/after-poi-pointer", "observe_navigation_interaction", controller, context, poi);
+      }
+    }
+
+    observation.entries.push_back(std::move(entry));
+    append_ui_observer_trace_step("nav/after-entry", "observe_navigation_interaction", controller, context);
+  }
+
+  append_ui_observer_trace_step("nav/return", "observe_navigation_interaction");
+  return observation;
+}
+
+json navigation_interaction_observation_to_json(const NavigationInteractionObservation& observation)
+{
+  json result = {{"tracked", observation.tracked}};
+
+  if (!observation.tracked) {
+    return result;
+  }
+
+  result["trackedCount"] = observation.trackedCount;
+  result["entries"] = json::array();
+
+  for (const auto& entry : observation.entries) {
+    result["entries"].push_back(navigation_interaction_entry_to_json(entry));
+  }
+
+  return result;
+}
+
 int count_list_items(IList* list)
 {
   if (!list) {
@@ -556,17 +1409,188 @@ void initialize_recent_model_observations(std::string_view source)
     return;
   }
 
+    const auto top_canvas = kEnableLiveDebugTopCanvasPolling ? observe_top_canvas() : TopCanvasObservation{};
   const auto fleet = observe_fleetbar();
   const auto fleet_slots = observe_fleet_slots();
+    const auto station_warning =
+      kEnableLiveDebugStationWarningPolling ? observe_station_warning() : StationWarningObservation{};
+    const auto navigation_interaction = kEnableLiveDebugNavigationInteractionPolling
+      ? observe_navigation_interaction()
+      : NavigationInteractionObservation{};
 
+  g_last_top_canvas = top_canvas;
   g_last_fleet = fleet;
   g_last_fleet_slots = fleet_slots;
+  g_last_station_warning = station_warning;
+  g_last_navigation_interaction = navigation_interaction;
   g_recent_observations_initialized = true;
 
   append_recent_event("observer-ready",
                       json{{"source", source},
+                           {"topCanvas", top_canvas_observation_to_json(top_canvas)},
                            {"fleet", fleet_observation_to_json(fleet)},
-                           {"fleetSlots", fleet_slots_to_json(fleet_slots)}});
+                           {"fleetSlots", fleet_slots_to_json(fleet_slots)},
+                           {"stationWarning", station_warning_observation_to_json(station_warning)},
+                           {"navigationInteraction",
+                            navigation_interaction_observation_to_json(navigation_interaction)}});
+}
+
+const char* classify_top_canvas_change_kind(const TopCanvasObservation& previous,
+                                            const TopCanvasObservation& current)
+{
+  if (!previous.found && current.found) {
+    return "top-canvas-visible";
+  }
+  if (previous.found && !current.found) {
+    return "top-canvas-hidden";
+  }
+  return "top-canvas-changed";
+}
+
+bool is_navigation_interaction_top_canvas(const TopCanvasObservation& observation)
+{
+  return observation.found && observation.name == "NavigationInteractionUI";
+}
+
+void append_top_canvas_change_events(const TopCanvasObservation& previous,
+                                     const TopCanvasObservation& current)
+{
+  append_recent_event(classify_top_canvas_change_kind(previous, current),
+                      json{{"from", top_canvas_observation_to_json(previous)},
+                           {"to", top_canvas_observation_to_json(current)}});
+}
+
+const char* classify_station_warning_change_kind(const StationWarningObservation& previous,
+                                                 const StationWarningObservation& current)
+{
+  if (!previous.tracked && current.tracked) {
+    return "station-warning-visible";
+  }
+  if (previous.tracked && !current.tracked) {
+    return "station-warning-hidden";
+  }
+  if (!previous.hasContext && current.hasContext) {
+    return "station-warning-context-bound";
+  }
+  if (previous.hasContext && !current.hasContext) {
+    return "station-warning-context-cleared";
+  }
+  return "station-warning-changed";
+}
+
+void append_station_warning_change_events(const StationWarningObservation& previous,
+                                          const StationWarningObservation& current)
+{
+  append_recent_event(classify_station_warning_change_kind(previous, current),
+                      json{{"from", station_warning_observation_to_json(previous)},
+                           {"to", station_warning_observation_to_json(current)}});
+}
+
+bool has_navigation_interaction_context(const NavigationInteractionObservation& observation)
+{
+  for (const auto& entry : observation.entries) {
+    if (entry.hasContext) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+const char* classify_navigation_interaction_change_kind(const NavigationInteractionObservation& previous,
+                                                        const NavigationInteractionObservation& current)
+{
+  const bool previous_has_context = has_navigation_interaction_context(previous);
+  const bool current_has_context = has_navigation_interaction_context(current);
+
+  if (!previous.tracked && current.tracked) {
+    return "navigation-interaction-visible";
+  }
+  if (previous.tracked && !current.tracked) {
+    return "navigation-interaction-hidden";
+  }
+  if (!previous_has_context && current_has_context) {
+    return "navigation-interaction-context-bound";
+  }
+  if (previous_has_context && !current_has_context) {
+    return "navigation-interaction-context-cleared";
+  }
+  return "navigation-interaction-changed";
+}
+
+void append_navigation_interaction_change_events(const NavigationInteractionObservation& previous,
+                                                 const NavigationInteractionObservation& current)
+{
+  append_recent_event(classify_navigation_interaction_change_kind(previous, current),
+                      json{{"from", navigation_interaction_observation_to_json(previous)},
+                           {"to", navigation_interaction_observation_to_json(current)}});
+  append_navigation_hook_actionable_follow_up_event(previous, current);
+  append_navigation_poll_actionable_event(previous, current);
+}
+
+void poll_recent_ui_events()
+{
+  g_ui_observer_trace_current_poll = false;
+  append_ui_observer_trace_step("poll/enter", "poll_recent_ui_events");
+  append_ui_observer_trace_step("poll/before-top-canvas", "poll_recent_ui_events");
+  const auto top_canvas = observe_top_canvas();
+  g_ui_observer_trace_current_poll = !same_top_canvas_observation(top_canvas, g_last_top_canvas) ||
+                                     is_navigation_interaction_top_canvas(top_canvas) ||
+                                     is_navigation_interaction_top_canvas(g_last_top_canvas);
+  append_ui_observer_trace_step("poll/after-top-canvas", "poll_recent_ui_events");
+  append_ui_observer_trace_step("poll/before-station-warning", "poll_recent_ui_events");
+  const auto station_warning =
+      kEnableLiveDebugStationWarningPolling ? observe_station_warning() : g_last_station_warning;
+  append_ui_observer_trace_step("poll/after-station-warning", "poll_recent_ui_events");
+  const bool trace_navigation_poll =
+      kEnableLiveDebugNavigationInteractionPolling &&
+      (is_navigation_interaction_top_canvas(top_canvas) ||
+       is_navigation_interaction_top_canvas(g_last_top_canvas));
+  if (trace_navigation_poll) {
+    append_navigation_hook_trace_step("poll/before-observe-navigation-interaction", "poll_recent_ui_events");
+  }
+  const auto navigation_interaction = kEnableLiveDebugNavigationInteractionPolling
+      ? observe_navigation_interaction()
+      : g_last_navigation_interaction;
+  append_ui_observer_trace_step("poll/after-navigation-interaction", "poll_recent_ui_events");
+  if (trace_navigation_poll) {
+    append_navigation_hook_trace_step("poll/after-observe-navigation-interaction", "poll_recent_ui_events");
+  }
+
+  if (kEnableLiveDebugTopCanvasPolling && !same_top_canvas_observation(top_canvas, g_last_top_canvas)) {
+    if (trace_navigation_poll) {
+      append_navigation_hook_trace_step("poll/before-top-canvas-change", "poll_recent_ui_events");
+    }
+    append_top_canvas_change_events(g_last_top_canvas, top_canvas);
+    if (trace_navigation_poll) {
+      append_navigation_hook_trace_step("poll/after-top-canvas-change", "poll_recent_ui_events");
+    }
+  }
+  if (kEnableLiveDebugTopCanvasPolling) {
+    g_last_top_canvas = top_canvas;
+  }
+
+  if (kEnableLiveDebugStationWarningPolling && !same_station_warning_observation(station_warning, g_last_station_warning)) {
+    append_station_warning_change_events(g_last_station_warning, station_warning);
+  }
+  if (kEnableLiveDebugStationWarningPolling) {
+    g_last_station_warning = station_warning;
+  }
+
+  if (kEnableLiveDebugNavigationInteractionPolling &&
+      !same_navigation_interaction_observation(navigation_interaction, g_last_navigation_interaction)) {
+    if (trace_navigation_poll) {
+      append_navigation_hook_trace_step("poll/before-navigation-interaction-change", "poll_recent_ui_events");
+    }
+    append_navigation_interaction_change_events(g_last_navigation_interaction, navigation_interaction);
+    if (trace_navigation_poll) {
+      append_navigation_hook_trace_step("poll/after-navigation-interaction-change", "poll_recent_ui_events");
+    }
+  }
+  if (kEnableLiveDebugNavigationInteractionPolling) {
+    g_last_navigation_interaction = navigation_interaction;
+  }
+  g_ui_observer_trace_current_poll = false;
 }
 
 void capture_recent_model_events(std::string_view source)
@@ -579,6 +1603,8 @@ void capture_recent_model_events(std::string_view source)
     initialize_recent_model_observations(source);
     return;
   }
+
+  poll_recent_ui_events();
 
   const auto fleet = observe_fleetbar();
   const auto fleet_slots = observe_fleet_slots();
@@ -1112,10 +2138,16 @@ TopCanvasObservation observe_top_canvas()
 
   const auto canvas_object = reinterpret_cast<Il2CppObject*>(top_canvas);
   const auto canvas_class = canvas_object ? canvas_object->klass : nullptr;
+  const auto canvas_controller = reinterpret_cast<CanvasController*>(top_canvas);
 
   observation.pointer = pointer_to_string(top_canvas);
   observation.className = (canvas_class && canvas_class->name) ? canvas_class->name : "";
   observation.classNamespace = (canvas_class && canvas_class->namespaze) ? canvas_class->namespaze : "";
+  observation.name = (canvas_controller && canvas_controller->name) ? to_string(canvas_controller->name) : "";
+  observation.visible = canvas_controller && canvas_controller->Visible();
+  observation.enabled = canvas_controller && canvas_controller->get_enabled();
+  observation.internalVisible = canvas_controller && canvas_controller->m_Visible();
+  observation.activeChildNames = collect_active_child_names(canvas_controller ? canvas_controller->transform : nullptr);
   return observation;
 }
 
@@ -1320,6 +2352,31 @@ json execute_live_debug_command(const json& request)
 }
 } // namespace
 
+std::string live_debug_handle_request_text(std::string_view request_text)
+{
+  nlohmann::json response;
+
+  try {
+    auto request = nlohmann::json::parse(request_text);
+    if (!request.is_object()) {
+      response = make_error_response("", "request must be a JSON object");
+    } else {
+      response = execute_live_debug_command(request);
+    }
+  } catch (const nlohmann::json::exception& ex) {
+    spdlog::warn("live_debug rejected malformed JSON: {}", ex.what());
+    response = make_error_response("", std::string("invalid JSON: ") + ex.what());
+  } catch (const std::exception& ex) {
+    spdlog::warn("live_debug failed to process request: {}", ex.what());
+    response = make_error_response("", ex.what());
+  } catch (...) {
+    spdlog::warn("live_debug failed to process request: unknown exception");
+    response = make_error_response("", "request handling failed");
+  }
+
+  return response.dump();
+}
+
 void InstallLiveDebugHooks()
 {
   auto deployment_events_helper =
@@ -1410,41 +2467,48 @@ void live_debug_tick(ScreenManager*)
     return;
   }
 
-  const auto request_path = get_live_debug_path(kRequestFile);
-  if (!std::filesystem::exists(request_path)) {
-    return;
+  if (!g_logged_navigation_hook_tick_enter) {
+    append_navigation_hook_trace_step("tick/first-enter", "live_debug_tick");
+    g_logged_navigation_hook_tick_enter = true;
   }
 
-  std::string request_text;
-  if (!try_read_text_file(request_path, request_text)) {
-    return;
+  const bool had_pending_navigation_hook_note =
+      kEnableLiveDebugUiPollingFromTick && g_pending_navigation_hook_note.pending;
+  const auto pending_note = g_pending_navigation_hook_note;
+  if (had_pending_navigation_hook_note) {
+    append_navigation_hook_trace_step(
+        "tick/enter-with-pending", pending_note.phase, pending_note.controller, pending_note.sender, pending_note.callbackContext);
+    g_pending_navigation_hook_note.prePollCaptured = true;
+    g_pending_navigation_hook_note.prePollTopCanvas = g_last_top_canvas;
+    g_pending_navigation_hook_note.prePollNavigationInteraction = g_last_navigation_interaction;
   }
 
-  remove_file_if_exists(request_path);
-
-  json response;
-  try {
-    auto request = json::parse(request_text);
-    if (!request.is_object()) {
-      response = make_error_response("", "request must be a JSON object");
+  if (kEnableLiveDebugUiPollingFromTick) {
+    if (!g_recent_observations_initialized) {
+      initialize_recent_model_observations("screen-manager-update");
     } else {
-      response = execute_live_debug_command(request);
+      poll_recent_ui_events();
     }
-  } catch (const json::exception& ex) {
-    spdlog::warn("live_debug rejected malformed JSON: {}", ex.what());
-    response = make_error_response("", std::string("invalid JSON: ") + ex.what());
-  } catch (const std::exception& ex) {
-    spdlog::warn("live_debug failed to process request: {}", ex.what());
-    response = make_error_response("", ex.what());
-  } catch (...) {
-    spdlog::warn("live_debug failed to process request: unknown exception");
-    response = make_error_response("", "request handling failed");
   }
 
-  const auto response_path = get_live_debug_path(kResponseFile);
-  if (!try_write_text_file_atomic(response_path, response.dump())) {
-    spdlog::warn("live_debug failed to write response file {}", response_path.string());
+  if (!g_logged_navigation_hook_tick_after_ui_poll) {
+    append_navigation_hook_trace_step("tick/first-after-ui-poll", "live_debug_tick");
+    g_logged_navigation_hook_tick_after_ui_poll = true;
   }
+
+  if (had_pending_navigation_hook_note) {
+    append_navigation_hook_trace_step(
+        "tick/after-ui-poll", pending_note.phase, pending_note.controller, pending_note.sender, pending_note.callbackContext);
+  }
+
+  flush_pending_navigation_hook_note();
+
+  if (had_pending_navigation_hook_note) {
+    append_navigation_hook_trace_step(
+        "tick/after-flush", pending_note.phase, pending_note.controller, pending_note.sender, pending_note.callbackContext);
+  }
+
+  live_debug_process_request_cycle();
 }
 
 void live_debug_record_space_action_warp_cancel(FleetBarViewController* fleet_bar, FleetPlayerData* fleet,
@@ -1513,4 +2577,123 @@ void live_debug_record_space_action_warp_cancel_suppressed(FleetBarViewControlle
            {"miningViewerVisible", mining_viewer_visible},
            {"starNodeViewerVisible", star_node_viewer_visible},
            {"navigationInteractionVisible", navigation_interaction_visible}});
+}
+
+void live_debug_record_station_warning(std::string_view phase, bool has_context, int target_type,
+                                       uint64_t target_fleet_id, std::string_view target_user_id,
+                                       uint64_t quick_scan_target_fleet_id,
+                                       std::string_view quick_scan_target_id)
+{
+  append_event_if_live_debug_enabled(
+     "station-warning-lifecycle",
+     json{{"source", "StationWarningViewController"},
+       {"phase", phase},
+       {"hasContext", has_context},
+           {"targetType", target_type},
+           {"targetTypeName", incoming_attack_target_type_name(target_type)},
+           {"targetFleetId", target_fleet_id},
+           {"targetUserId", target_user_id},
+           {"quickScanTargetFleetId", quick_scan_target_fleet_id},
+           {"quickScanTargetId", quick_scan_target_id}});
+}
+
+void live_debug_record_incoming_fleet_materialized(std::string_view phase, int target_type,
+                                                   uint64_t target_fleet_id,
+                                                   uint64_t quick_scan_target_fleet_id,
+                                                   std::string_view quick_scan_target_id)
+{
+  append_event_if_live_debug_enabled(
+      "incoming-fleet-materialized",
+      json{{"phase", phase},
+           {"targetType", target_type},
+           {"targetTypeName", incoming_attack_target_type_name(target_type)},
+           {"targetFleetId", target_fleet_id},
+           {"quickScanTargetFleetId", quick_scan_target_fleet_id},
+           {"quickScanTargetId", quick_scan_target_id}});
+}
+
+void live_debug_record_incoming_fleet_materialized_pointer(std::string_view phase,
+                                                          const void* notification,
+                                                          const void* incoming_fleet_params_json)
+{
+  append_event_if_live_debug_enabled(
+      "incoming-fleet-materialized",
+      json{{"phase", phase},
+           {"notificationPointer", pointer_to_string(notification)},
+           {"incomingFleetParamsJsonPointer", pointer_to_string(incoming_fleet_params_json)}});
+}
+
+void live_debug_record_toast_fleet_producer(std::string_view phase, const void* observer, int producer_type)
+{
+  append_event_if_live_debug_enabled(
+      "toast-fleet-producer-changed",
+      json{{"phase", phase},
+           {"observerPointer", pointer_to_string(observer)},
+           {"producerType", producer_type},
+           {"producerTypeName", notification_producer_type_name(producer_type)}});
+}
+
+void live_debug_record_navigation_interaction(std::string_view phase,
+                                              std::string_view controller_pointer,
+                                              bool has_context,
+                                              int context_data_state,
+                                              int input_interaction_type,
+                                              std::string_view user_id,
+                                              bool is_marauder,
+                                              int threat_level,
+                                              bool valid_navigation_input,
+                                              bool show_set_course_arm,
+                                              int64_t location_translation_id,
+                                              std::string_view poi_pointer,
+                                              std::string_view sender_pointer,
+                                              std::string_view sender_class_namespace,
+                                              std::string_view sender_class_name,
+                                              std::string_view callback_context_pointer,
+                                              std::string_view callback_context_class_namespace,
+                                              std::string_view callback_context_class_name)
+{
+  json details{{"source", "NavigationInteractionUIViewController"},
+               {"phase", phase},
+               {"pointer", controller_pointer},
+               {"hasContext", has_context}};
+
+  if (!sender_pointer.empty()) {
+    details["senderPointer"] = sender_pointer;
+    details["senderClassNamespace"] = sender_class_namespace;
+    details["senderClassName"] = sender_class_name;
+  }
+
+  if (!callback_context_pointer.empty()) {
+    details["callbackContextPointer"] = callback_context_pointer;
+    details["callbackContextClassNamespace"] = callback_context_class_namespace;
+    details["callbackContextClassName"] = callback_context_class_name;
+  }
+
+  if (has_context) {
+    details["contextDataState"] = context_data_state;
+    details["contextDataStateName"] = navigation_context_data_state_name(context_data_state);
+    details["inputInteractionType"] = input_interaction_type;
+    details["inputInteractionTypeName"] = input_interaction_type_name(input_interaction_type);
+    details["userId"] = user_id;
+    details["isMarauder"] = is_marauder;
+    details["threatLevel"] = threat_level;
+    details["threatLevelName"] = navigation_threat_level_name(threat_level);
+    details["validNavigationInput"] = valid_navigation_input;
+    details["showSetCourseArm"] = show_set_course_arm;
+    details["locationTranslationId"] = location_translation_id;
+    details["poiPointer"] = poi_pointer;
+  }
+
+  append_event_if_live_debug_enabled("navigation-interaction-lifecycle", std::move(details));
+}
+
+void live_debug_note_navigation_hook(const char* phase,
+                                     const void* controller,
+                                     const void* sender,
+                                     const void* callback_context)
+{
+  append_navigation_hook_trace_step("queue/enter", phase, controller, sender, callback_context);
+  g_pending_navigation_hook_note = PendingNavigationHookNote{
+      true, phase, controller, sender, callback_context};
+  append_navigation_hook_trace_step("queue/stored", phase, controller, sender, callback_context);
 }

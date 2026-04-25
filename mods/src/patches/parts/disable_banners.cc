@@ -16,6 +16,10 @@
 
 #include <spud/detour.h>
 
+namespace {
+constexpr bool kEnableToastObserverHooks = false;
+}
+
 struct ToastObserver {
 };
 
@@ -59,14 +63,39 @@ void ToastObserver_EnqueueOrCombineToast_Hook(auto original, ToastObserver *_thi
 }
 
 /**
+ * @brief Hook: ToastObserver::AddFirstOrCombineToast
+ *
+ * Some HUD notification flows appear to insert toasts through the add-first
+ * path rather than the plain enqueue helpers. Forward them through the same
+ * notification/filter pipeline so state-backed desktop notifications stay
+ * consistent across both queue paths.
+ */
+void ToastObserver_AddFirstOrCombineToast_Hook(auto original, ToastObserver *_this, Toast *toast, uintptr_t cmpAction)
+{
+  notification_handle_toast(toast);
+
+  if (std::ranges::find(Config::Get().disabled_banner_types, toast->get_State())
+      != Config::Get().disabled_banner_types.end()) {
+    return;
+  }
+
+  original(_this, toast, cmpAction);
+}
+
+/**
  * @brief Installs toast/banner filtering hooks.
  *
- * Initializes the notification service and hooks both ToastObserver enqueue
- * paths so banners can be selectively suppressed.
+ * Initializes the notification service and hooks the ToastObserver queue
+ * paths so banners can be selectively suppressed regardless of whether the
+ * HUD uses enqueue or add-first insertion.
  */
 void InstallToastBannerHooks()
 {
   notification_init();
+
+  if (!kEnableToastObserverHooks) {
+    return;
+  }
 
   if (auto helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "ToastObserver");
       !helper.isValidHelper()) {
@@ -82,6 +111,12 @@ void InstallToastBannerHooks()
       ErrorMsg::MissingMethod("ToastObserver", "EnqueueOrCombineToast");
     } else {
       SPUD_STATIC_DETOUR(ptr, ToastObserver_EnqueueOrCombineToast_Hook);
+    }
+
+    if (const auto ptr = helper.GetMethod("AddFirstOrCombineToast"); ptr == nullptr) {
+      ErrorMsg::MissingMethod("ToastObserver", "AddFirstOrCombineToast");
+    } else {
+      SPUD_STATIC_DETOUR(ptr, ToastObserver_AddFirstOrCombineToast_Hook);
     }
   }
 }

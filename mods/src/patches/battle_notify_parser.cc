@@ -10,6 +10,7 @@
 #include "patches/battle_notify_parser.h"
 
 #include "str_utils.h"
+#include "testable_functions.h"
 
 #include <il2cpp/il2cpp_helper.h>
 #include <prime/BattleResultHeader.h>
@@ -204,22 +205,8 @@ std::string battle_notify_parse(Toast* toast)
 {
   auto state = toast->get_State();
 
-  switch (state) {
-    case Victory:
-    case Defeat:
-    case PartialVictory:
-    case StationVictory:
-    case StationDefeat:
-    case StationBattle:
-    case IncomingAttack:
-    case FleetBattle:
-    case ArmadaBattleWon:
-    case ArmadaBattleLost:
-    case AssaultVictory:
-    case AssaultDefeat:
-      break;
-    default:
-      return {};
+  if (!toast_state_uses_battle_summary(state)) {
+    return {};
   }
 
   auto* data = toast->get_Data();

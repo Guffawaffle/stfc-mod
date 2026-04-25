@@ -18,6 +18,7 @@
  */
 struct GameObject {
 public:
+  __declspec(property(get = __get_name)) Il2CppString* name;
   __declspec(property(get = __get_activeInHierarchy)) bool activeInHierarchy;
   __declspec(property(get = __get_scene)) void* scene;
 
@@ -74,6 +75,12 @@ private:
   }
 
 public:
+  Il2CppString* __get_name()
+  {
+    static auto field = get_class_helper().GetProperty("name");
+    return field.GetRaw<Il2CppString>(this);
+  }
+
   bool __get_activeInHierarchy()
   {
     static auto field = get_class_helper().GetProperty("activeInHierarchy");

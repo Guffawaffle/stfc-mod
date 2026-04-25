@@ -13,6 +13,7 @@
 
 #include <prime/FleetPlayerData.h>
 #include <prime/SpecManager.h>
+#include <prime/Toast.h>
 #include <testable_functions.h>
 
 #include <spdlog/spdlog.h>
@@ -25,10 +26,67 @@
 
 namespace {
 std::unordered_map<uint64_t, FleetState>   s_fleet_bar_states;
+std::unordered_map<uint64_t, FleetState>   s_fleet_bar_model_previous_states;
 std::unordered_map<uint64_t, std::string>  s_fleet_bar_ship_names;
 std::unordered_map<uint64_t, std::string>  s_fleet_bar_resource_names;
 std::unordered_map<uint64_t, float>        s_fleet_bar_cargo_fill_levels;
 std::unordered_map<uint64_t, int64_t>      s_mining_viewer_remaining_seconds;
+std::chrono::steady_clock::time_point      s_last_incoming_attack_notification{};
+
+constexpr auto kIncomingAttackDedupWindow = std::chrono::seconds(10);
+
+bool should_emit_incoming_attack_notification(const char* source)
+{
+  if (!Config::Get().notifications.EnabledForToastState(IncomingAttack)) {
+    return false;
+  }
+
+  const auto now = std::chrono::steady_clock::now();
+  if (s_last_incoming_attack_notification.time_since_epoch().count() != 0 &&
+      now - s_last_incoming_attack_notification < kIncomingAttackDedupWindow) {
+    spdlog::debug("[IncomingAttack] suppress {} notification inside dedupe window", source ? source : "unknown");
+    return false;
+  }
+
+  s_last_incoming_attack_notification = now;
+  return true;
+}
+
+bool should_notify_missed_incoming_attack(FleetState priorObservedState, FleetState currentState,
+                                          FleetState modelPreviousState, FleetState priorModelPreviousState)
+{
+  if (priorObservedState == FleetState::Battling || currentState == FleetState::Battling) {
+    return false;
+  }
+
+  if (modelPreviousState != FleetState::Battling) {
+    return false;
+  }
+
+  return priorModelPreviousState != FleetState::Battling;
+}
+
+void maybe_notify_recent_incoming_attack(uint64_t fleetId, const std::string& shipName,
+                                         FleetState priorObservedState, const std::string& resourceName,
+                                         const std::string& cargoText)
+{
+  if (!should_emit_incoming_attack_notification("fleet-bar-recent")) {
+    return;
+  }
+
+  auto body = "Your " + shipName + " was attacked";
+  if (priorObservedState == FleetState::Mining && !resourceName.empty()) {
+    body += " while mining " + resourceName;
+  }
+  if (!cargoText.empty()) {
+    body += " (" + cargoText + ")";
+  }
+
+  auto title = toast_state_title(IncomingAttack);
+  spdlog::debug("[FleetBar] INCOMING_ATTACK_RECENT id={} ship='{}' resource='{}' cargo='{}'", fleetId, shipName,
+                resourceName, cargoText);
+  notification_show(title ? title : "Incoming Attack!", body.c_str());
+}
 
 std::string fleet_bar_ship_name(FleetPlayerData* fleet)
 {
@@ -157,6 +215,26 @@ void maybe_notify_fleet_bar_transition(uint64_t fleetId, const std::string& ship
     return;
   }
 
+  if (oldState == FleetState::Mining && newState == FleetState::Battling) {
+    if (!should_emit_incoming_attack_notification("fleet-bar-transition")) {
+      return;
+    }
+
+    auto body = "Your " + shipName + " was attacked";
+    if (!resourceName.empty()) {
+      body += " while mining " + resourceName;
+    }
+    if (!cargoText.empty()) {
+      body += " (" + cargoText + ")";
+    }
+
+    auto title = toast_state_title(IncomingAttack);
+    spdlog::debug("[FleetBar] INCOMING_ATTACK id={} ship='{}' resource='{}' cargo='{}'", fleetId, shipName,
+                  resourceName, cargoText);
+    notification_show(title ? title : "Incoming Attack!", body.c_str());
+    return;
+  }
+
   if (oldState != FleetState::Mining && newState == FleetState::Mining) {
     if (!Config::Get().notifications.fleet_started_mining) {
       return;
@@ -214,6 +292,7 @@ void fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet)
 
   auto fleetId         = fleet->Id;
   auto currentState    = fleet->CurrentState;
+  auto modelPreviousState = fleet->PreviousState;
   auto shipName        = fleet_bar_ship_name(fleet);
   auto resourceName    = fleet_bar_resource_name(fleet);
   auto cargoFillLevel  = fleet->CargoResourceFillLevel;
@@ -227,7 +306,14 @@ void fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet)
     hadPreviousState = true;
   }
 
-  s_fleet_bar_states[fleetId] = currentState;
+  auto previousModelState    = FleetState::Unknown;
+  auto hadPreviousModelState = false;
+  auto previousModelIt       = s_fleet_bar_model_previous_states.find(fleetId);
+  if (previousModelIt != s_fleet_bar_model_previous_states.end()) {
+    previousModelState    = previousModelIt->second;
+    hadPreviousModelState = true;
+  }
+
   s_fleet_bar_ship_names[fleetId] = shipName;
   if (!resourceName.empty()) {
     s_fleet_bar_resource_names[fleetId] = resourceName;
@@ -237,6 +323,14 @@ void fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet)
   if (hadPreviousState && previousState != currentState) {
     maybe_notify_fleet_bar_transition(fleetId, shipName, previousState, currentState, resourceName, cargoText);
   }
+
+  if (hadPreviousState && hadPreviousModelState
+      && should_notify_missed_incoming_attack(previousState, currentState, modelPreviousState, previousModelState)) {
+    maybe_notify_recent_incoming_attack(fleetId, shipName, previousState, resourceName, cargoText);
+  }
+
+  s_fleet_bar_states[fleetId] = currentState;
+  s_fleet_bar_model_previous_states[fleetId] = modelPreviousState;
 }
 
 void fleet_notifications_observe_node_depleted(int64_t fleetId)
@@ -253,6 +347,17 @@ void fleet_notifications_observe_node_depleted(int64_t fleetId)
 
   auto body = format_node_depleted_body(shipName, resourceName, cargoText);
   notification_show("Node Depleted", body.c_str());
+}
+
+void fleet_notifications_notify_incoming_attack_detected(const char* source)
+{
+  if (!should_emit_incoming_attack_notification(source)) {
+    return;
+  }
+
+  auto title = toast_state_title(IncomingAttack);
+  spdlog::debug("[IncomingAttack] notify source={}", source ? source : "unknown");
+  notification_show(title ? title : "Incoming Attack!", "Open STFC to inspect the attacker and respond.");
 }
 
 void fleet_notifications_observe_mining_timer(FleetPlayerData* selectedFleet, int64_t remainingTicks)

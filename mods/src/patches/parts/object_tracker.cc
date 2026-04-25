@@ -103,6 +103,26 @@ std::vector<TrackedObjectClassSummary> GetTrackedObjectSummary()
   return summaries;
 }
 
+std::vector<void*> GetTrackedObjectsForClass(Il2CppClass* klass)
+{
+  if (!klass) {
+    return {};
+  }
+
+  std::scoped_lock lk{tracked_objects_mutex};
+  const auto       found = tracked_objects.find(klass);
+  if (found == tracked_objects.end() || found->second.empty()) {
+    return {};
+  }
+
+  std::vector<void*> objects;
+  objects.reserve(found->second.size());
+  for (const auto pointer : found->second) {
+    objects.push_back(reinterpret_cast<void*>(pointer));
+  }
+  return objects;
+}
+
 void* GetLatestTrackedObjectForClass(Il2CppClass* klass)
 {
   if (!klass) {

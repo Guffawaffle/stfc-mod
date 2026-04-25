@@ -19,6 +19,13 @@
 #include "prime/PreScanTargetWidget.h"
 #include "prime/ScreenManager.h"
 
+namespace {
+constexpr bool kEnableHotkeyRouterFrame = false;
+constexpr bool kEnableShortcutInitializeHook = false;
+constexpr bool kEnableRewardsButtonHook = false;
+constexpr bool kEnablePreScanTargetHook = false;
+}
+
 // ─── SPUD Hook Delegates ─────────────────────────────────────────────────────
 
 /**
@@ -33,7 +40,7 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
   live_debug_tick(_this);
 
-  if (hotkey_router_screen_update(_this)) {
+  if (!kEnableHotkeyRouterFrame || hotkey_router_screen_update(_this)) {
     return original(_this);
   }
 }
@@ -108,16 +115,18 @@ void ChatMessageListLocalViewController_AboutToShow_Hook(ChatMessageListLocalVie
 /** @brief Resolves IL2CPP class/method pointers and installs all hotkey hooks. */
 void InstallHotkeyHooks()
 {
-  auto shortcuts_manager_helper =
-      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager");
-  if (!shortcuts_manager_helper.isValidHelper()) {
-    ErrorMsg::MissingHelper("GameInput", "ShortcutsManager");
-  } else {
-    auto ptr_can_user_shortcuts = shortcuts_manager_helper.GetMethod("InitializeActions");
-    if (ptr_can_user_shortcuts == nullptr) {
-      ErrorMsg::MissingMethod("ShortcutsManager", "InitializeActions");
+  if (kEnableShortcutInitializeHook) {
+    auto shortcuts_manager_helper =
+        il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager");
+    if (!shortcuts_manager_helper.isValidHelper()) {
+      ErrorMsg::MissingHelper("GameInput", "ShortcutsManager");
     } else {
-      SPUD_STATIC_DETOUR(ptr_can_user_shortcuts, InitializeActions_Hook);
+      auto ptr_can_user_shortcuts = shortcuts_manager_helper.GetMethod("InitializeActions");
+      if (ptr_can_user_shortcuts == nullptr) {
+        ErrorMsg::MissingMethod("ShortcutsManager", "InitializeActions");
+      } else {
+        SPUD_STATIC_DETOUR(ptr_can_user_shortcuts, InitializeActions_Hook);
+      }
     }
   }
 
@@ -133,29 +142,33 @@ void InstallHotkeyHooks()
     }
   }
 
-  static auto rewards_button_widget =
-      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Combat", "RewardsButtonWidget");
-  if (!rewards_button_widget.isValidHelper()) {
-    ErrorMsg::MissingHelper("Combat", "RewardsButtonWidget");
-  } else {
-    auto on_did_bind_context_ptr = rewards_button_widget.GetMethod("OnDidBindContext");
-    if (on_did_bind_context_ptr == nullptr) {
-      ErrorMsg::MissingMethod("RewardsButtonWidget", "OnDidBindContext");
+  if (kEnableRewardsButtonHook) {
+    static auto rewards_button_widget =
+        il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Combat", "RewardsButtonWidget");
+    if (!rewards_button_widget.isValidHelper()) {
+      ErrorMsg::MissingHelper("Combat", "RewardsButtonWidget");
     } else {
-      SPUD_STATIC_DETOUR(on_did_bind_context_ptr, OnDidBindContext_Hook);
+      auto on_did_bind_context_ptr = rewards_button_widget.GetMethod("OnDidBindContext");
+      if (on_did_bind_context_ptr == nullptr) {
+        ErrorMsg::MissingMethod("RewardsButtonWidget", "OnDidBindContext");
+      } else {
+        SPUD_STATIC_DETOUR(on_did_bind_context_ptr, OnDidBindContext_Hook);
+      }
     }
   }
 
-  static auto pre_scan_target_widget =
-      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Combat", "PreScanTargetWidget");
-  if (!pre_scan_target_widget.isValidHelper()) {
-    ErrorMsg::MissingHelper("Combat", "PreScanTargetWidget");
-  } else {
-    auto show_with_fleet_ptr = pre_scan_target_widget.GetMethod("ShowWithFleet");
-    if (show_with_fleet_ptr == nullptr) {
-      ErrorMsg::MissingMethod("PreScanTargetWidget", "ShowWithFleet");
+  if (kEnablePreScanTargetHook) {
+    static auto pre_scan_target_widget =
+        il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Combat", "PreScanTargetWidget");
+    if (!pre_scan_target_widget.isValidHelper()) {
+      ErrorMsg::MissingHelper("Combat", "PreScanTargetWidget");
     } else {
-      SPUD_STATIC_DETOUR(show_with_fleet_ptr, ShowWithFleet_Hook);
+      auto show_with_fleet_ptr = pre_scan_target_widget.GetMethod("ShowWithFleet");
+      if (show_with_fleet_ptr == nullptr) {
+        ErrorMsg::MissingMethod("PreScanTargetWidget", "ShowWithFleet");
+      } else {
+        SPUD_STATIC_DETOUR(show_with_fleet_ptr, ShowWithFleet_Hook);
+      }
     }
   }
 }
