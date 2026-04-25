@@ -18,7 +18,7 @@ constexpr std::string_view kTempSuffix = ".tmp";
 
 std::filesystem::path get_live_debug_path(std::string_view filename)
 {
-  return std::filesystem::path(std::string(File::MakePath(filename)));
+  return std::filesystem::path(File::MakePathString(filename));
 }
 
 bool try_read_text_file(const std::filesystem::path& path, std::string& text)

@@ -117,6 +117,16 @@ std::string_view File::MakePath(std::string_view filename, bool create_dir, bool
 }
 #endif
 
+std::string File::MakePathString(std::string_view filename, bool create_dir, bool old_path)
+{
+  const auto path = MakePath(filename, create_dir, old_path);
+#if _WIN32
+  return std::string(path);
+#else
+  return std::string(reinterpret_cast<const char*>(path.data()), path.size());
+#endif
+}
+
 void File::Init()
 {
   if (!File::initialized) {

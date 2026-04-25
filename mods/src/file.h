@@ -97,6 +97,9 @@ public:
   static std::u8string MakePath(std::string_view filename, bool create_dir = false, bool old_path = false);
 #endif
 
+  /** @brief Build a full path as a UTF-8 std::string for narrow C/C++ file APIs. */
+  static std::string MakePathString(std::string_view filename, bool create_dir = false, bool old_path = false);
+
 private:
   static std::filesystem::path Path();
 

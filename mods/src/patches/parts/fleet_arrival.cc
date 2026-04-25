@@ -49,7 +49,7 @@ void append_fleet_arrival_navhook_trace(const char* step,
                                         const void* sender = nullptr,
                                         const void* callback_context = nullptr)
 {
-  const auto trace_path = std::string(File::MakePath("community_patch_navhook_trace.log"));
+  const auto trace_path = File::MakePathString("community_patch_navhook_trace.log");
   auto* trace_file = std::fopen(trace_path.c_str(), "ab");
   if (!trace_file) {
     return;

@@ -55,7 +55,7 @@ void live_debug_trace_navigation_hook_step(const char* step,
                                            const void* sender,
                                            const void* callback_context)
 {
-  const auto trace_path = std::string(File::MakePath("community_patch_navhook_trace.log"));
+  const auto trace_path = File::MakePathString("community_patch_navhook_trace.log");
   auto* trace_file = std::fopen(trace_path.c_str(), "ab");
   if (!trace_file) {
     return;
@@ -238,7 +238,7 @@ bool is_navigation_interaction_top_canvas(const TopCanvasObservation& observatio
 
 std::filesystem::path get_live_debug_path(std::string_view filename)
 {
-  return std::filesystem::path(std::string(File::MakePath(filename)));
+  return std::filesystem::path(File::MakePathString(filename));
 }
 
 std::string pointer_to_string(const void* pointer)
