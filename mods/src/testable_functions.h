@@ -4,7 +4,10 @@
 // battle_notify_parser.cc.  No IL2CPP, no platform, no game memory.
 
 #include <cstdint>
+#include <cstddef>
 #include <string>
+#include <string_view>
+#include <unordered_map>
 
 struct HotkeyDisableShortcutAliasInput {
   bool        has_canonical = false;
@@ -35,6 +38,69 @@ bool should_call_original_screen_update(bool router_allows_original, bool allow_
 // Resolve the canonical disable-hotkeys shortcut while accepting deprecated keys.
 HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(
     const HotkeyDisableShortcutAliasInput& input);
+
+enum class IncomingAttackPolicyAttackerKind {
+  Unknown = 0,
+  Player = 1,
+  Hostile = 2,
+};
+
+enum class IncomingAttackPolicyTargetKind {
+  Global = 0,
+  Fleet = 1,
+  Station = 2,
+};
+
+struct IncomingAttackPolicyDedupKey {
+  IncomingAttackPolicyTargetKind target_kind = IncomingAttackPolicyTargetKind::Global;
+  uint64_t target_id = 0;
+  IncomingAttackPolicyAttackerKind attacker_kind = IncomingAttackPolicyAttackerKind::Unknown;
+  std::string attacker_identity;
+};
+
+struct IncomingAttackPolicyDedupKeyHasher {
+  size_t operator()(const IncomingAttackPolicyDedupKey& key) const noexcept;
+};
+
+bool operator==(const IncomingAttackPolicyDedupKey& lhs, const IncomingAttackPolicyDedupKey& rhs);
+
+struct IncomingAttackPolicyDedupeResult {
+  bool emitted = false;
+  bool suppressed_by_window = false;
+  bool evicted_oldest = false;
+  size_t cache_size = 0;
+};
+
+class IncomingAttackPolicyDeduper {
+public:
+  explicit IncomingAttackPolicyDeduper(size_t max_entries = 256);
+
+  IncomingAttackPolicyDedupeResult should_emit(const IncomingAttackPolicyDedupKey& key, int64_t now_seconds);
+  size_t size() const;
+  bool contains(const IncomingAttackPolicyDedupKey& key) const;
+
+private:
+  size_t max_entries_;
+  std::unordered_map<IncomingAttackPolicyDedupKey, int64_t, IncomingAttackPolicyDedupKeyHasher> recent_;
+
+  void prune(int64_t now_seconds);
+  bool enforce_limit();
+};
+
+IncomingAttackPolicyAttackerKind incoming_attack_policy_attacker_kind_from_fleet_type(int attackerFleetType);
+const char* incoming_attack_policy_attacker_kind_name(IncomingAttackPolicyAttackerKind attackerKind);
+IncomingAttackPolicyTargetKind incoming_attack_policy_target_kind(uint64_t fleetId, int targetType);
+IncomingAttackPolicyDedupKey incoming_attack_policy_dedupe_key(uint64_t fleetId,
+                                                               int targetType,
+                                                               IncomingAttackPolicyAttackerKind attackerKind,
+                                                               std::string_view attackerIdentity);
+const char* incoming_attack_policy_target_type_name(int targetType);
+const char* incoming_attack_policy_title_for_kind(IncomingAttackPolicyAttackerKind attackerKind);
+std::string incoming_attack_policy_fleet_body(std::string_view shipName,
+                                              IncomingAttackPolicyAttackerKind attackerKind);
+std::string incoming_attack_policy_station_body(IncomingAttackPolicyAttackerKind attackerKind);
+int64_t incoming_attack_policy_dedupe_window_seconds(const IncomingAttackPolicyDedupKey& key);
+bool incoming_attack_policy_consumes_toast_state(int state);
 
 // Toast state → human-readable title.  Returns nullptr for unknown states.
 const char* toast_state_title(int state);

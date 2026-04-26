@@ -182,6 +182,131 @@ TEST_SUITE("hotkey_disable_shortcut_alias")
 }
 
 // ===========================================================================
+// incoming attack policy
+// ===========================================================================
+
+TEST_SUITE("incoming_attack_policy")
+{
+  TEST_CASE("attacker fleet type maps to player hostile or unknown")
+  {
+    CHECK(incoming_attack_policy_attacker_kind_from_fleet_type(1) == IncomingAttackPolicyAttackerKind::Player);
+    CHECK(incoming_attack_policy_attacker_kind_from_fleet_type(2) == IncomingAttackPolicyAttackerKind::Hostile);
+    CHECK(incoming_attack_policy_attacker_kind_from_fleet_type(3) == IncomingAttackPolicyAttackerKind::Hostile);
+    CHECK(incoming_attack_policy_attacker_kind_from_fleet_type(4) == IncomingAttackPolicyAttackerKind::Hostile);
+    CHECK(incoming_attack_policy_attacker_kind_from_fleet_type(6) == IncomingAttackPolicyAttackerKind::Hostile);
+    CHECK(incoming_attack_policy_attacker_kind_from_fleet_type(0) == IncomingAttackPolicyAttackerKind::Unknown);
+    CHECK(incoming_attack_policy_attacker_kind_from_fleet_type(5) == IncomingAttackPolicyAttackerKind::Unknown);
+  }
+
+  TEST_CASE("titles and fleet copy specialize by attacker kind")
+  {
+    CHECK(std::string(incoming_attack_policy_title_for_kind(IncomingAttackPolicyAttackerKind::Hostile))
+          == "Incoming Hostile Attack");
+    CHECK(std::string(incoming_attack_policy_title_for_kind(IncomingAttackPolicyAttackerKind::Player))
+          == "Incoming Player Attack");
+    CHECK(std::string(incoming_attack_policy_title_for_kind(IncomingAttackPolicyAttackerKind::Unknown))
+          == "Incoming Attack!");
+
+    CHECK(incoming_attack_policy_fleet_body("K'VORT", IncomingAttackPolicyAttackerKind::Hostile)
+          == "Your K'VORT is being chased.");
+    CHECK(incoming_attack_policy_fleet_body("K'VORT", IncomingAttackPolicyAttackerKind::Player)
+          == "Your K'VORT is under attack by another player.");
+    CHECK(incoming_attack_policy_fleet_body("", IncomingAttackPolicyAttackerKind::Unknown)
+          == "Your fleet is under attack.");
+  }
+
+  TEST_CASE("station copy specializes by attacker kind")
+  {
+    CHECK(incoming_attack_policy_station_body(IncomingAttackPolicyAttackerKind::Hostile)
+          == "Your station is under attack by a hostile.");
+    CHECK(incoming_attack_policy_station_body(IncomingAttackPolicyAttackerKind::Player)
+          == "Your station is under attack by another player.");
+    CHECK(incoming_attack_policy_station_body(IncomingAttackPolicyAttackerKind::Unknown)
+          == "Your station is under attack.");
+  }
+
+  TEST_CASE("dedupe key captures station fleet and global target identity")
+  {
+    const auto station = incoming_attack_policy_dedupe_key(123, 3, IncomingAttackPolicyAttackerKind::Player, "attacker");
+    CHECK(station.target_kind == IncomingAttackPolicyTargetKind::Station);
+    CHECK(station.target_id == 0);
+    CHECK(station.attacker_identity == "attacker");
+
+    const auto fleet = incoming_attack_policy_dedupe_key(123, 1, IncomingAttackPolicyAttackerKind::Hostile, "");
+    CHECK(fleet.target_kind == IncomingAttackPolicyTargetKind::Fleet);
+    CHECK(fleet.target_id == 123);
+
+    const auto global = incoming_attack_policy_dedupe_key(0, 0, IncomingAttackPolicyAttackerKind::Unknown, "");
+    CHECK(global.target_kind == IncomingAttackPolicyTargetKind::Global);
+    CHECK(global.target_id == 0);
+  }
+
+  TEST_CASE("target type names remain stable")
+  {
+    CHECK(std::string(incoming_attack_policy_target_type_name(0)) == "None");
+    CHECK(std::string(incoming_attack_policy_target_type_name(1)) == "Fleet");
+    CHECK(std::string(incoming_attack_policy_target_type_name(2)) == "DockingPoint");
+    CHECK(std::string(incoming_attack_policy_target_type_name(3)) == "Station");
+    CHECK(std::string(incoming_attack_policy_target_type_name(99)) == "Unknown");
+  }
+
+  TEST_CASE("incoming attack toast states are consumed separately from visible notification policy")
+  {
+    CHECK(incoming_attack_policy_consumes_toast_state(5));
+    CHECK(incoming_attack_policy_consumes_toast_state(6));
+    CHECK_FALSE(incoming_attack_policy_consumes_toast_state(17));
+    CHECK_FALSE(incoming_attack_policy_consumes_toast_state(10));
+  }
+
+  TEST_CASE("generic dedupe suppresses inside TTL and emits at window boundary")
+  {
+    IncomingAttackPolicyDeduper deduper;
+    const auto key = incoming_attack_policy_dedupe_key(123, 1, IncomingAttackPolicyAttackerKind::Hostile, "");
+
+    auto first = deduper.should_emit(key, 100);
+    CHECK(first.emitted);
+    CHECK_FALSE(first.suppressed_by_window);
+
+    auto duplicate = deduper.should_emit(key, 109);
+    CHECK_FALSE(duplicate.emitted);
+    CHECK(duplicate.suppressed_by_window);
+
+    auto boundary = deduper.should_emit(key, 110);
+    CHECK(boundary.emitted);
+    CHECK_FALSE(boundary.suppressed_by_window);
+  }
+
+  TEST_CASE("identified dedupe uses longer TTL")
+  {
+    IncomingAttackPolicyDeduper deduper;
+    const auto key = incoming_attack_policy_dedupe_key(123, 1, IncomingAttackPolicyAttackerKind::Player, "player-1");
+    CHECK(incoming_attack_policy_dedupe_window_seconds(key) == 120);
+
+    CHECK(deduper.should_emit(key, 100).emitted);
+    CHECK_FALSE(deduper.should_emit(key, 219).emitted);
+    CHECK(deduper.should_emit(key, 220).emitted);
+  }
+
+  TEST_CASE("dedupe evicts oldest entry when max size is exceeded")
+  {
+    IncomingAttackPolicyDeduper deduper(2);
+    const auto first = incoming_attack_policy_dedupe_key(1, 1, IncomingAttackPolicyAttackerKind::Hostile, "a");
+    const auto second = incoming_attack_policy_dedupe_key(2, 1, IncomingAttackPolicyAttackerKind::Hostile, "b");
+    const auto third = incoming_attack_policy_dedupe_key(3, 1, IncomingAttackPolicyAttackerKind::Hostile, "c");
+
+    CHECK(deduper.should_emit(first, 100).emitted);
+    CHECK(deduper.should_emit(second, 101).emitted);
+    const auto result = deduper.should_emit(third, 102);
+    CHECK(result.emitted);
+    CHECK(result.evicted_oldest);
+    CHECK(result.cache_size == 2);
+    CHECK_FALSE(deduper.contains(first));
+    CHECK(deduper.contains(second));
+    CHECK(deduper.contains(third));
+  }
+}
+
+// ===========================================================================
 // toast_state_title
 // ===========================================================================
 

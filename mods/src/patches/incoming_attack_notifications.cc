@@ -19,7 +19,7 @@ IncomingAttackToastAction incoming_attack_notifications_handle_toast(Toast* toas
 {
   (void)toast;
 
-  if (state != IncomingAttack && state != IncomingAttackFaction) {
+  if (!incoming_attack_policy_consumes_toast_state(state)) {
     return IncomingAttackToastAction::NotIncomingAttack;
   }
 

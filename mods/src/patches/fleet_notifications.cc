@@ -21,8 +21,8 @@
 #include <spdlog/spdlog.h>
 #include <str_utils.h>
 
+#include <chrono>
 #include <cmath>
-#include <cstddef>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -34,48 +34,9 @@ std::unordered_map<uint64_t, std::string>  s_fleet_bar_resource_names;
 std::unordered_map<uint64_t, float>        s_fleet_bar_cargo_fill_levels;
 std::unordered_map<uint64_t, int64_t>      s_mining_viewer_remaining_seconds;
 
-constexpr auto kIncomingAttackGenericDedupWindow = std::chrono::seconds(10);
-constexpr auto kIncomingAttackIdentifiedDedupWindow = std::chrono::seconds(120);
 constexpr size_t kIncomingAttackDedupeMaxEntries = 256;
 
-enum class IncomingAttackAttackerKind {
-  Unknown = 0,
-  Player = 1,
-  Hostile = 2,
-};
-
-enum class IncomingAttackDedupTargetKind {
-  Global = 0,
-  Fleet = 1,
-  Station = 2,
-};
-
-struct IncomingAttackDedupKey {
-  IncomingAttackDedupTargetKind target_kind = IncomingAttackDedupTargetKind::Global;
-  uint64_t target_id = 0;
-  IncomingAttackAttackerKind attacker_kind = IncomingAttackAttackerKind::Unknown;
-  std::string attacker_identity;
-};
-
-struct IncomingAttackDedupKeyHasher {
-  size_t operator()(const IncomingAttackDedupKey& key) const noexcept
-  {
-    auto hash = std::hash<uint64_t>{}(key.target_id);
-    hash ^= std::hash<int>{}(static_cast<int>(key.target_kind)) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-    hash ^= std::hash<int>{}(static_cast<int>(key.attacker_kind)) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-    hash ^= std::hash<std::string>{}(key.attacker_identity) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-    return hash;
-  }
-};
-
-bool operator==(const IncomingAttackDedupKey& lhs, const IncomingAttackDedupKey& rhs)
-{
-  return lhs.target_kind == rhs.target_kind && lhs.target_id == rhs.target_id &&
-      lhs.attacker_kind == rhs.attacker_kind && lhs.attacker_identity == rhs.attacker_identity;
-}
-
-std::unordered_map<IncomingAttackDedupKey, std::chrono::steady_clock::time_point, IncomingAttackDedupKeyHasher>
-    s_recent_incoming_attack_notifications;
+IncomingAttackPolicyDeduper s_recent_incoming_attack_notifications(kIncomingAttackDedupeMaxEntries);
 
 struct IncomingAttackNotificationContext {
   int         candidate_count = 0;
@@ -84,117 +45,21 @@ struct IncomingAttackNotificationContext {
   FleetState  state = FleetState::Unknown;
 };
 
-IncomingAttackAttackerKind incoming_attack_attacker_kind_from_fleet_type(int attackerFleetType)
+int64_t incoming_attack_now_seconds()
 {
-  switch (attackerFleetType) {
-    case 1:
-      return IncomingAttackAttackerKind::Player;
-    case 2:
-    case 3:
-    case 4:
-    case 6:
-      return IncomingAttackAttackerKind::Hostile;
-    default:
-      return IncomingAttackAttackerKind::Unknown;
-  }
+  return std::chrono::duration_cast<std::chrono::seconds>(
+      std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-const char* incoming_attack_attacker_kind_name(IncomingAttackAttackerKind attackerKind)
-{
-  switch (attackerKind) {
-    case IncomingAttackAttackerKind::Player:
-      return "Player";
-    case IncomingAttackAttackerKind::Hostile:
-      return "Hostile";
-    default:
-      return "Unknown";
-  }
-}
-
-void prune_recent_incoming_attack_notifications()
-{
-  const auto now = std::chrono::steady_clock::now();
-  for (auto it = s_recent_incoming_attack_notifications.begin(); it != s_recent_incoming_attack_notifications.end();) {
-    const auto window = it->first.attacker_identity.empty() ? kIncomingAttackGenericDedupWindow
-                                                            : kIncomingAttackIdentifiedDedupWindow;
-    if (now - it->second > window) {
-      it = s_recent_incoming_attack_notifications.erase(it);
-      continue;
-    }
-
-    ++it;
-  }
-}
-
-void enforce_recent_incoming_attack_notification_limit()
-{
-  while (s_recent_incoming_attack_notifications.size() > kIncomingAttackDedupeMaxEntries) {
-    auto oldest = s_recent_incoming_attack_notifications.begin();
-    for (auto it = s_recent_incoming_attack_notifications.begin();
-         it != s_recent_incoming_attack_notifications.end(); ++it) {
-      if (it->second < oldest->second) {
-        oldest = it;
-      }
-    }
-
-    s_recent_incoming_attack_notifications.erase(oldest);
-  }
-}
-
-IncomingAttackDedupKey incoming_attack_dedupe_key(uint64_t fleetId,
-                                                  int targetType,
-                                                  IncomingAttackAttackerKind attackerKind,
-                                                  std::string_view attackerIdentity)
-{
-  auto identity = std::string(attackerIdentity);
-  if (targetType == static_cast<int>(NotificationIncomingAttackTargetType::Station)) {
-    return { IncomingAttackDedupTargetKind::Station, 0, attackerKind, identity };
-  }
-
-  if (fleetId != 0) {
-    return { IncomingAttackDedupTargetKind::Fleet, fleetId, attackerKind, identity };
-  }
-
-  return { IncomingAttackDedupTargetKind::Global, 0, attackerKind, identity };
-}
-
-const char* incoming_attack_target_type_name(int targetType)
-{
-  switch (targetType) {
-    case static_cast<int>(NotificationIncomingAttackTargetType::None):
-      return "None";
-    case static_cast<int>(NotificationIncomingAttackTargetType::Fleet):
-      return "Fleet";
-    case static_cast<int>(NotificationIncomingAttackTargetType::DockingPoint):
-      return "DockingPoint";
-    case static_cast<int>(NotificationIncomingAttackTargetType::Station):
-      return "Station";
-    default:
-      return "Unknown";
-  }
-}
-
-const char* incoming_attack_title_for_kind(IncomingAttackAttackerKind attackerKind)
-{
-  switch (attackerKind) {
-    case IncomingAttackAttackerKind::Hostile:
-      return "Incoming Hostile Attack";
-    case IncomingAttackAttackerKind::Player:
-      return "Incoming Player Attack";
-    default:
-      return toast_state_title(IncomingAttack);
-  }
-}
-
-bool incoming_attack_notifications_enabled_for_kind(IncomingAttackAttackerKind attackerKind,
+bool incoming_attack_notifications_enabled_for_kind(IncomingAttackPolicyAttackerKind attackerKind,
                                                     bool allow_when_unclassified)
 {
   const auto& notifications = Config::Get().notifications;
 
   switch (attackerKind) {
-    case IncomingAttackAttackerKind::Player:
+    case IncomingAttackPolicyAttackerKind::Player:
       return notifications.incoming_attack_player;
-    case IncomingAttackAttackerKind::Hostile:
+    case IncomingAttackPolicyAttackerKind::Hostile:
       return notifications.incoming_attack_hostile;
     default:
       if (!notifications.AnyIncomingAttackEnabled()) {
@@ -205,16 +70,16 @@ bool incoming_attack_notifications_enabled_for_kind(IncomingAttackAttackerKind a
   }
 }
 
-bool should_hide_unknown_incoming_attack_notification(IncomingAttackAttackerKind attackerKind)
+bool should_hide_unknown_incoming_attack_notification(IncomingAttackPolicyAttackerKind attackerKind)
 {
-  return attackerKind == IncomingAttackAttackerKind::Unknown &&
+  return attackerKind == IncomingAttackPolicyAttackerKind::Unknown &&
       Config::Get().notifications.IncomingAttackSplitEnabled();
 }
 
 bool should_emit_incoming_attack_notification(const char* source,
                                               uint64_t fleetId,
                                               int targetType,
-                                              IncomingAttackAttackerKind attackerKind,
+                                              IncomingAttackPolicyAttackerKind attackerKind,
                                               bool allow_when_unclassified,
                                               std::string_view attackerIdentity = {})
 {
@@ -222,26 +87,19 @@ bool should_emit_incoming_attack_notification(const char* source,
     return false;
   }
 
-  prune_recent_incoming_attack_notifications();
-
-  const auto now = std::chrono::steady_clock::now();
-  const auto key = incoming_attack_dedupe_key(fleetId, targetType, attackerKind, attackerIdentity);
-  const auto window = key.attacker_identity.empty() ? kIncomingAttackGenericDedupWindow
-                                                    : kIncomingAttackIdentifiedDedupWindow;
-  auto it = s_recent_incoming_attack_notifications.find(key);
-  if (it != s_recent_incoming_attack_notifications.end() && now - it->second < window) {
+  const auto key = incoming_attack_policy_dedupe_key(fleetId, targetType, attackerKind, attackerIdentity);
+  const auto result = s_recent_incoming_attack_notifications.should_emit(key, incoming_attack_now_seconds());
+  if (!result.emitted) {
     spdlog::info("[IncomingAttack] source={} mode=suppressed reason=dedupe-window fleetId={} targetType={} attackerKind={} attackerIdentity='{}' windowSec={}",
                   source ? source : "unknown",
                   fleetId,
                   targetType,
-                  incoming_attack_attacker_kind_name(attackerKind),
+                  incoming_attack_policy_attacker_kind_name(attackerKind),
                   key.attacker_identity,
-                  std::chrono::duration_cast<std::chrono::seconds>(window).count());
+                  incoming_attack_policy_dedupe_window_seconds(key));
     return false;
   }
 
-  s_recent_incoming_attack_notifications[key] = now;
-  enforce_recent_incoming_attack_notification_limit();
   return true;
 }
 
@@ -372,29 +230,14 @@ IncomingAttackNotificationContext context_from_target_fleet(uint64_t targetFleet
 }
 
 std::string build_incoming_attack_body(const IncomingAttackNotificationContext& context,
-                                       IncomingAttackAttackerKind attackerKind = IncomingAttackAttackerKind::Unknown)
+                                       IncomingAttackPolicyAttackerKind attackerKind = IncomingAttackPolicyAttackerKind::Unknown)
 {
-  const auto subject = context.ship_name.empty() ? std::string{"fleet"} : context.ship_name;
-  switch (attackerKind) {
-    case IncomingAttackAttackerKind::Hostile:
-      return "Your " + subject + " is being chased.";
-    case IncomingAttackAttackerKind::Player:
-      return "Your " + subject + " is under attack by another player.";
-    default:
-      return "Your " + subject + " is under attack.";
-  }
+  return incoming_attack_policy_fleet_body(context.ship_name, attackerKind);
 }
 
-std::string build_station_incoming_attack_body(IncomingAttackAttackerKind attackerKind)
+std::string build_station_incoming_attack_body(IncomingAttackPolicyAttackerKind attackerKind)
 {
-  switch (attackerKind) {
-    case IncomingAttackAttackerKind::Hostile:
-      return "Your station is under attack by a hostile.";
-    case IncomingAttackAttackerKind::Player:
-      return "Your station is under attack by another player.";
-    default:
-      return "Your station is under attack.";
-  }
+  return incoming_attack_policy_station_body(attackerKind);
 }
 
 int64_t duration_ticks_to_seconds(int64_t ticks)
@@ -524,7 +367,7 @@ void fleet_notifications_observe_node_depleted(int64_t fleetId)
 void fleet_notifications_notify_incoming_attack_target(const char* source, uint64_t targetFleetId, int targetType,
                                                        int attackerFleetType, std::string_view attackerIdentity)
 {
-  auto attacker_kind = incoming_attack_attacker_kind_from_fleet_type(attackerFleetType);
+  auto attacker_kind = incoming_attack_policy_attacker_kind_from_fleet_type(attackerFleetType);
 
   if (targetType == static_cast<int>(NotificationIncomingAttackTargetType::Station)) {
     const bool hide_notification = should_hide_unknown_incoming_attack_notification(attacker_kind);
@@ -533,14 +376,14 @@ void fleet_notifications_notify_incoming_attack_target(const char* source, uint6
     }
 
     auto body = build_station_incoming_attack_body(attacker_kind);
-    auto title = incoming_attack_title_for_kind(attacker_kind);
+    auto title = incoming_attack_policy_title_for_kind(attacker_kind);
     spdlog::info("[IncomingAttack] source={} mode=targeted targetType={} targetTypeName={} rawTargetFleetId={} attackerFleetType={} attackerKind={} attackerIdentity='{}' hidden={} resolvedTarget=station body='{}'",
                  source ? source : "unknown",
                  targetType,
-                 incoming_attack_target_type_name(targetType),
+                 incoming_attack_policy_target_type_name(targetType),
                  targetFleetId,
                  attackerFleetType,
-                 incoming_attack_attacker_kind_name(attacker_kind),
+                 incoming_attack_policy_attacker_kind_name(attacker_kind),
                  attackerIdentity,
                  hide_notification,
                  body);
@@ -567,17 +410,17 @@ void fleet_notifications_notify_incoming_attack_target(const char* source, uint6
   }
 
   const auto body = build_incoming_attack_body(context, attacker_kind);
-  auto title = incoming_attack_title_for_kind(attacker_kind);
+  auto title = incoming_attack_policy_title_for_kind(attacker_kind);
   spdlog::info("[IncomingAttack] source={} mode=targeted targetType={} targetTypeName={} rawTargetFleetId={} resolvedFleetId={} ship='{}' state={} attackerFleetType={} attackerKind={} attackerIdentity='{}' candidateCount={} hidden={} body='{}'",
                source ? source : "unknown",
                targetType,
-               incoming_attack_target_type_name(targetType),
+               incoming_attack_policy_target_type_name(targetType),
                targetFleetId,
                context.fleet_id,
                context.ship_name,
                static_cast<int>(context.state),
                attackerFleetType,
-               incoming_attack_attacker_kind_name(attacker_kind),
+               incoming_attack_policy_attacker_kind_name(attacker_kind),
                attackerIdentity,
                context.candidate_count,
                hide_notification,
@@ -587,7 +430,7 @@ void fleet_notifications_notify_incoming_attack_target(const char* source, uint6
                 targetFleetId,
                 targetType,
                 attackerFleetType,
-                incoming_attack_attacker_kind_name(attacker_kind),
+                incoming_attack_policy_attacker_kind_name(attacker_kind),
                 context.candidate_count,
                 context.fleet_id,
                 context.ship_name,

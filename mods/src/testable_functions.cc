@@ -66,6 +66,211 @@ HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(
 }
 
 // ---------------------------------------------------------------------------
+// Incoming attack policy
+// ---------------------------------------------------------------------------
+namespace {
+constexpr int kIncomingAttackTargetTypeStation = 3;
+constexpr int64_t kIncomingAttackGenericDedupeWindowSeconds = 10;
+constexpr int64_t kIncomingAttackIdentifiedDedupeWindowSeconds = 120;
+}
+
+size_t IncomingAttackPolicyDedupKeyHasher::operator()(const IncomingAttackPolicyDedupKey& key) const noexcept
+{
+  auto hash = std::hash<uint64_t>{}(key.target_id);
+  hash ^= std::hash<int>{}(static_cast<int>(key.target_kind)) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+  hash ^= std::hash<int>{}(static_cast<int>(key.attacker_kind)) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+  hash ^= std::hash<std::string>{}(key.attacker_identity) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+  return hash;
+}
+
+bool operator==(const IncomingAttackPolicyDedupKey& lhs, const IncomingAttackPolicyDedupKey& rhs)
+{
+  return lhs.target_kind == rhs.target_kind && lhs.target_id == rhs.target_id &&
+      lhs.attacker_kind == rhs.attacker_kind && lhs.attacker_identity == rhs.attacker_identity;
+}
+
+IncomingAttackPolicyDeduper::IncomingAttackPolicyDeduper(size_t max_entries)
+  : max_entries_(max_entries)
+{
+}
+
+IncomingAttackPolicyDedupeResult IncomingAttackPolicyDeduper::should_emit(const IncomingAttackPolicyDedupKey& key,
+                                                                          int64_t now_seconds)
+{
+  prune(now_seconds);
+
+  IncomingAttackPolicyDedupeResult result;
+  const auto window = incoming_attack_policy_dedupe_window_seconds(key);
+  auto it = recent_.find(key);
+  if (it != recent_.end() && now_seconds - it->second < window) {
+    result.suppressed_by_window = true;
+    result.cache_size = recent_.size();
+    return result;
+  }
+
+  recent_[key] = now_seconds;
+  result.emitted = true;
+  result.evicted_oldest = enforce_limit();
+  result.cache_size = recent_.size();
+  return result;
+}
+
+size_t IncomingAttackPolicyDeduper::size() const
+{
+  return recent_.size();
+}
+
+bool IncomingAttackPolicyDeduper::contains(const IncomingAttackPolicyDedupKey& key) const
+{
+  return recent_.find(key) != recent_.end();
+}
+
+void IncomingAttackPolicyDeduper::prune(int64_t now_seconds)
+{
+  for (auto it = recent_.begin(); it != recent_.end();) {
+    if (now_seconds - it->second > incoming_attack_policy_dedupe_window_seconds(it->first)) {
+      it = recent_.erase(it);
+      continue;
+    }
+
+    ++it;
+  }
+}
+
+bool IncomingAttackPolicyDeduper::enforce_limit()
+{
+  bool evicted = false;
+  while (recent_.size() > max_entries_) {
+    auto oldest = recent_.begin();
+    for (auto it = recent_.begin(); it != recent_.end(); ++it) {
+      if (it->second < oldest->second) {
+        oldest = it;
+      }
+    }
+
+    recent_.erase(oldest);
+    evicted = true;
+  }
+
+  return evicted;
+}
+
+IncomingAttackPolicyAttackerKind incoming_attack_policy_attacker_kind_from_fleet_type(int attackerFleetType)
+{
+  switch (attackerFleetType) {
+    case 1:
+      return IncomingAttackPolicyAttackerKind::Player;
+    case 2:
+    case 3:
+    case 4:
+    case 6:
+      return IncomingAttackPolicyAttackerKind::Hostile;
+    default:
+      return IncomingAttackPolicyAttackerKind::Unknown;
+  }
+}
+
+const char* incoming_attack_policy_attacker_kind_name(IncomingAttackPolicyAttackerKind attackerKind)
+{
+  switch (attackerKind) {
+    case IncomingAttackPolicyAttackerKind::Player:
+      return "Player";
+    case IncomingAttackPolicyAttackerKind::Hostile:
+      return "Hostile";
+    default:
+      return "Unknown";
+  }
+}
+
+IncomingAttackPolicyTargetKind incoming_attack_policy_target_kind(uint64_t fleetId, int targetType)
+{
+  if (targetType == kIncomingAttackTargetTypeStation) {
+    return IncomingAttackPolicyTargetKind::Station;
+  }
+
+  if (fleetId != 0) {
+    return IncomingAttackPolicyTargetKind::Fleet;
+  }
+
+  return IncomingAttackPolicyTargetKind::Global;
+}
+
+IncomingAttackPolicyDedupKey incoming_attack_policy_dedupe_key(uint64_t fleetId,
+                                                               int targetType,
+                                                               IncomingAttackPolicyAttackerKind attackerKind,
+                                                               std::string_view attackerIdentity)
+{
+  const auto target_kind = incoming_attack_policy_target_kind(fleetId, targetType);
+  const auto target_id = target_kind == IncomingAttackPolicyTargetKind::Fleet ? fleetId : 0;
+  return { target_kind, target_id, attackerKind, std::string(attackerIdentity) };
+}
+
+const char* incoming_attack_policy_target_type_name(int targetType)
+{
+  switch (targetType) {
+    case 0:
+      return "None";
+    case 1:
+      return "Fleet";
+    case 2:
+      return "DockingPoint";
+    case 3:
+      return "Station";
+    default:
+      return "Unknown";
+  }
+}
+
+const char* incoming_attack_policy_title_for_kind(IncomingAttackPolicyAttackerKind attackerKind)
+{
+  switch (attackerKind) {
+    case IncomingAttackPolicyAttackerKind::Hostile:
+      return "Incoming Hostile Attack";
+    case IncomingAttackPolicyAttackerKind::Player:
+      return "Incoming Player Attack";
+    default:
+      return "Incoming Attack!";
+  }
+}
+
+std::string incoming_attack_policy_fleet_body(std::string_view shipName,
+                                              IncomingAttackPolicyAttackerKind attackerKind)
+{
+  const auto subject = shipName.empty() ? std::string{"fleet"} : std::string(shipName);
+  switch (attackerKind) {
+    case IncomingAttackPolicyAttackerKind::Hostile:
+      return "Your " + subject + " is being chased.";
+    case IncomingAttackPolicyAttackerKind::Player:
+      return "Your " + subject + " is under attack by another player.";
+    default:
+      return "Your " + subject + " is under attack.";
+  }
+}
+
+std::string incoming_attack_policy_station_body(IncomingAttackPolicyAttackerKind attackerKind)
+{
+  switch (attackerKind) {
+    case IncomingAttackPolicyAttackerKind::Hostile:
+      return "Your station is under attack by a hostile.";
+    case IncomingAttackPolicyAttackerKind::Player:
+      return "Your station is under attack by another player.";
+    default:
+      return "Your station is under attack.";
+  }
+}
+
+int64_t incoming_attack_policy_dedupe_window_seconds(const IncomingAttackPolicyDedupKey& key)
+{
+  return key.attacker_identity.empty() ? kIncomingAttackGenericDedupeWindowSeconds
+                                       : kIncomingAttackIdentifiedDedupeWindowSeconds;
+}
+
+bool incoming_attack_policy_consumes_toast_state(int state)
+{
+  return state == 5 || state == 6;
+}
+
+// ---------------------------------------------------------------------------
 // Toast state enum values (mirrored from prime/Toast.h's ToastState enum
 // so this file doesn't need the IL2CPP include chain)
 // ---------------------------------------------------------------------------
