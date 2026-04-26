@@ -30,6 +30,7 @@
 - Restored normal patch installation after live-debug isolation left standard hooks such as zoom disabled
 - Re-enabled `ToastObserver` banner hooks so desktop notification forwarding and `disabled_banner_types` filtering work again
 - Constrained fleet docking notifications to plausible space-to-dock transitions so management-state changes do not report false docking
+- Fixed `always_skip_reveal_sequence` by forcing the shop open-section reveal-skip flag before the reveal animation decision
 
 ## 0.6.1
 

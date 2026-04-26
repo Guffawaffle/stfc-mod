@@ -232,11 +232,21 @@ IList* ExtractBuffsOfType_Hook(auto original, ClientModifierType modifier, IList
  */
 bool ShouldShowRevealHook(auto original, void* _this, bool ignore)
 {
-  auto result = original(_this, ignore);
   if (Config::Get().always_skip_reveal_sequence) {
     return false;
   }
-  return result;
+
+  return original(_this, ignore);
+}
+
+void TriggerOpenSectionChange_Hook(auto original, void* _this, void* data, bool ignoreRevealSequence,
+                                   int numChests, bool* isFlyOut)
+{
+  if (Config::Get().always_skip_reveal_sequence) {
+    ignoreRevealSequence = true;
+  }
+
+  original(_this, data, ignoreRevealSequence, numChests, isFlyOut);
 }
 
 // ─── IL2CPP Property Wrappers ────────────────────────────────────────────────
@@ -363,6 +373,7 @@ void ActionQueueManager_AddActionToQueue(auto original, ActionQueueManager* _thi
  * Hooks:
  *   - BuffService::ExtractBuffsOfType (null-guard crash fix)
  *   - ShopSceneManager::ShouldShowRevealSequence (skip reveal animation)
+ *   - ShopSceneManager::TriggerOpenSectionChange (force reveal skip flag)
  *   - InterstitialViewController::AboutToShow (dismiss first popup)
  *   - ActionQueueManager::AddActionToQueue (diagnostic, currently disabled)
  */
@@ -390,6 +401,13 @@ void InstallTempCrashFixes()
       ErrorMsg::MissingMethod("ShopSceneManager", "ShouldShowRevealSequence");
     } else {
       SPUD_STATIC_DETOUR(reveal_show, ShouldShowRevealHook);
+    }
+
+    auto trigger_open_section_change = shop_scene_manager.GetMethod("TriggerOpenSectionChange");
+    if (trigger_open_section_change == nullptr) {
+      ErrorMsg::MissingMethod("ShopSceneManager", "TriggerOpenSectionChange");
+    } else {
+      SPUD_STATIC_DETOUR(trigger_open_section_change, TriggerOpenSectionChange_Hook);
     }
   }
 
