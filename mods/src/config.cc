@@ -905,7 +905,7 @@ void Config::Load()
                g_allow_key_fallthrough);
 
   if (g_allow_key_fallthrough && !this->use_scopely_hotkeys) {
-    spdlog::warn("[Hotkeys] allow_key_fallthrough is enabled without use_scopely_hotkeys; unhandled frames will pass through, but Scopely shortcut actions will stay suppressed unless explicitly enabled.");
+    spdlog::warn("[Hotkeys] allow_key_fallthrough is enabled without use_scopely_hotkeys; unhandled frames will pass through and Scopely shortcut actions will initialize for fallthrough.");
   }
 
   spdlog::debug("");

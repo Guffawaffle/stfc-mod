@@ -31,7 +31,7 @@ const char* initialize_actions_reason()
   }
 
   if (AllowKeyFallthrough()) {
-    return "fallthrough-only";
+    return "allow_key_fallthrough";
   }
 
   return "mod-hotkeys-only";

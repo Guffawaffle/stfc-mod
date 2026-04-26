@@ -26,9 +26,16 @@ MapKey MapKey::Parse(std::string_view key)
 {
   auto strippedKey = StripTrailingAsciiWhitespace(key);
   auto lowerKey    = AsciiStrToUpper(strippedKey);
-  auto wantedKeys  = StrSplit(lowerKey, '-');
 
   auto mapKey = new MapKey();
+  auto parsedFullKey = Key::Parse(lowerKey);
+  if (parsedFullKey != KeyCode::None && !Key::IsModifier(parsedFullKey)) {
+    mapKey->Key = parsedFullKey;
+    mapKey->Shortcuts.emplace_back(lowerKey);
+    return *mapKey;
+  }
+
+  auto wantedKeys  = StrSplit(lowerKey, '-');
   for (std::string_view wantedKey : wantedKeys) {
     auto modifier = ModifierKey::Parse(wantedKey);
     if (modifier.HasModifiers()) {
