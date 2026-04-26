@@ -11,6 +11,7 @@
 
 #include "bounded_ttl_cache.h"
 #include "config.h"
+#include "patches/async_work_queue.h"
 #include "patches/notification_platform.h"
 #include "patches/notification_queue.h"
 #include "patches/notification_text.h"
@@ -24,8 +25,7 @@
 #include <spdlog/spdlog.h>
 
 #include <chrono>
-#include <condition_variable>
-#include <deque>
+#include <exception>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -98,9 +98,7 @@ const char* notification_toast_title(int state)
 
 // ─── Platform Notification Delivery ──────────────────────────────────────────────────
 #if _WIN32
-static std::mutex              s_notification_queue_mutex;
-static std::condition_variable s_notification_queue_condition;
-static std::deque<NotificationQueueRequest> s_notification_queue;
+static AsyncWorkQueue<NotificationQueueRequest> s_notification_queue;
 static std::mutex              s_recent_toast_mutex;
 static std::once_flag          s_notification_worker_once;
 static constexpr auto          kNotificationCoalesceWindow   = std::chrono::milliseconds(750);
@@ -142,46 +140,34 @@ static void queue_system_notification(const char* title, const char* body, const
   }
   request.queued_at = std::chrono::steady_clock::now();
 
-  size_t queue_size = 0;
-  {
-    std::lock_guard lock(s_notification_queue_mutex);
-    s_notification_queue.emplace_back(std::move(request));
-    queue_size = s_notification_queue.size();
+  if (!s_notification_queue.enqueue(std::move(request))) {
+    spdlog::warn("[NotifyQueue] drop source={} title='{}' reason=shutdown",
+                 source ? source : "unknown",
+                 title ? notification_flatten_text(title) : "");
+    return;
   }
+
+  const auto diagnostics = s_notification_queue.diagnostics();
 
   spdlog::debug("[NotifyQueue] enqueue source={} title='{}' queue_size={}",
                 source ? source : "unknown",
                 title ? notification_flatten_text(title) : "",
-                queue_size);
-
-  s_notification_queue_condition.notify_one();
+                diagnostics.depth);
 }
 
 static void notification_worker_main()
 {
   notification_platform_init();
+  s_notification_queue.set_worker_active(true);
+  spdlog::debug("[NotifyQueue] worker started");
 
   for (;;) {
-    std::vector<NotificationQueueRequest> batch;
-
-    {
-      std::unique_lock lock(s_notification_queue_mutex);
-      s_notification_queue_condition.wait(lock, []() { return !s_notification_queue.empty(); });
-
-      auto observed_size = s_notification_queue.size();
-      while (s_notification_queue_condition.wait_for(lock, kNotificationCoalesceWindow, [&] {
-        return s_notification_queue.size() != observed_size;
-      })) {
-        observed_size = s_notification_queue.size();
-      }
-
-      while (!s_notification_queue.empty()) {
-        batch.emplace_back(std::move(s_notification_queue.front()));
-        s_notification_queue.pop_front();
-      }
-    }
+    auto batch = s_notification_queue.wait_for_batch_after_quiet(kNotificationCoalesceWindow);
 
     if (batch.empty()) {
+      if (s_notification_queue.shutdown_requested()) {
+        break;
+      }
       continue;
     }
 
@@ -199,9 +185,23 @@ static void notification_worker_main()
                     batch_preview,
                     notification_escape_text_for_log(collapsed.title),
                     notification_escape_text_for_log(collapsed.body));
-      notification_platform_show(collapsed.title.c_str(), collapsed.body.c_str());
+      try {
+        notification_platform_show(collapsed.title.c_str(), collapsed.body.c_str());
+      } catch (const std::exception& exception) {
+        s_notification_queue.record_worker_error();
+        spdlog::error("[NotifyQueue] worker error: {}", exception.what());
+      } catch (...) {
+        s_notification_queue.record_worker_error();
+        spdlog::error("[NotifyQueue] worker error: unknown exception");
+      }
     }
   }
+
+  s_notification_queue.set_worker_active(false);
+  const auto diagnostics = s_notification_queue.diagnostics();
+  spdlog::debug("[NotifyQueue] worker stopped dequeued={} errors={}",
+                diagnostics.dequeued,
+                diagnostics.worker_errors);
 }
 #else
 bool notification_should_process_toast(Toast*)

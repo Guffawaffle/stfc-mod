@@ -2,6 +2,7 @@
 #include <doctest/doctest.h>
 
 #include "bounded_ttl_cache.h"
+#include "patches/async_work_queue.h"
 #include "patches/live_debug_event_store.h"
 #include "patches/live_debug_fleet_serializers.h"
 #include "patches/live_debug_recent_event_requests.h"
@@ -739,6 +740,77 @@ TEST_SUITE("notification_queue")
     };
 
     CHECK(notification_queue_batch_preview(batch, 2) == "toast:Victory!, direct:(untitled), +1 more");
+  }
+}
+
+TEST_SUITE("async_work_queue")
+{
+  TEST_CASE("tracks enqueue drain and depth diagnostics")
+  {
+    AsyncWorkQueue<int> queue;
+
+    CHECK(queue.enqueue(10));
+    CHECK(queue.enqueue(20));
+
+    auto diagnostics = queue.diagnostics();
+    CHECK(diagnostics.depth == 2);
+    CHECK(diagnostics.enqueued == 2);
+    CHECK(diagnostics.dequeued == 0);
+
+    auto batch = queue.drain();
+    REQUIRE(batch.size() == 2);
+    CHECK(batch[0] == 10);
+    CHECK(batch[1] == 20);
+
+    diagnostics = queue.diagnostics();
+    CHECK(diagnostics.depth == 0);
+    CHECK(diagnostics.dequeued == 2);
+  }
+
+  TEST_CASE("rejects new work after shutdown while preserving queued work")
+  {
+    AsyncWorkQueue<std::string> queue;
+
+    CHECK(queue.enqueue("before"));
+    queue.request_shutdown();
+
+    CHECK_FALSE(queue.enqueue("after"));
+    CHECK(queue.shutdown_requested());
+
+    auto batch = queue.drain();
+    REQUIRE(batch.size() == 1);
+    CHECK(batch[0] == "before");
+  }
+
+  TEST_CASE("try_pop updates dequeue diagnostics")
+  {
+    AsyncWorkQueue<int> queue;
+    int value = 0;
+
+    CHECK_FALSE(queue.try_pop(value));
+    CHECK(queue.enqueue(42));
+    CHECK(queue.try_pop(value));
+    CHECK(value == 42);
+
+    auto diagnostics = queue.diagnostics();
+    CHECK(diagnostics.depth == 0);
+    CHECK(diagnostics.dequeued == 1);
+  }
+
+  TEST_CASE("tracks worker activity and errors")
+  {
+    AsyncWorkQueue<int> queue;
+
+    queue.set_worker_active(true);
+    queue.record_worker_error();
+    queue.record_worker_error();
+
+    auto diagnostics = queue.diagnostics();
+    CHECK(diagnostics.worker_active);
+    CHECK(diagnostics.worker_errors == 2);
+
+    queue.set_worker_active(false);
+    CHECK_FALSE(queue.diagnostics().worker_active);
   }
 }
 
