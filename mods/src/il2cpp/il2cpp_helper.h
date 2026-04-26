@@ -18,6 +18,7 @@
 #pragma once
 
 #include "il2cpp-functions.h"
+#include "patches/object_tracker_core.h"
 
 #include <il2cpp-api-types.h>
 #include <il2cpp-class-internals.h>
@@ -25,9 +26,7 @@
 #include <il2cpp-object-internals.h>
 #include <utils/Il2CppHashMap.h>
 
-#include <EASTL/span.h>
-#include <EASTL/unordered_map.h>
-#include <EASTL/vector.h>
+#include <vector>
 
 #if !_WIN32
 #include <syslog.h>
@@ -509,8 +508,8 @@ template <typename T> inline T* il2cpp_get_array_element(Il2CppArray* array, siz
   return (T*)n->vector[index];
 }
 
-/** @brief Global map of tracked managed object pointers, keyed by Il2CppClass*. */
-extern eastl::unordered_map<Il2CppClass*, eastl::vector<uintptr_t>> tracked_objects;
+/** @brief Global tracked-object core, keyed by Il2CppClass*. */
+extern ObjectTrackerCore<Il2CppClass*, uintptr_t> tracked_objects;
 
 /**
  * @brief Look up live managed objects of a given type from the global tracked_objects map.
@@ -526,18 +525,19 @@ template <typename T> class ObjectFinder
 public:
   static T* Get()
   {
-    auto& objects = tracked_objects[T::get_class_helper().get_cls()];
-    if (objects.empty()) {
-      // TODO: assert?
-      return nullptr;
-    }
-    return reinterpret_cast<T*>(objects.back());
+    return reinterpret_cast<T*>(tracked_objects.latest_for_class(T::get_class_helper().get_cls()));
   }
 
-  static eastl::span<T*> GetAll()
+  static std::vector<T*> GetAll()
   {
-    auto& objects = tracked_objects[T::get_class_helper().get_cls()];
-    return {reinterpret_cast<T**>(objects.data()), reinterpret_cast<T**>(objects.data()) + objects.size()};
+    auto objects = tracked_objects.objects_for_class(T::get_class_helper().get_cls());
+
+    std::vector<T*> typed_objects;
+    typed_objects.reserve(objects.size());
+    for (const auto object : objects) {
+      typed_objects.push_back(reinterpret_cast<T*>(object));
+    }
+    return typed_objects;
   }
 };
 

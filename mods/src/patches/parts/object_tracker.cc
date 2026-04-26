@@ -36,7 +36,6 @@
 #include "prime/PreScanTargetWidget.h"
 #include "prime/StarNodeObjectViewerWidget.h"
 
-#include <EASTL/unordered_map.h>
 #include <EASTL/unordered_set.h>
 #include <EASTL/vector.h>
 #include <spdlog/spdlog.h>
@@ -50,8 +49,8 @@
 
 // ─── Tracking State ──────────────────────────────────────────────────────────
 
-std::mutex                                                   tracked_objects_mutex;
-eastl::unordered_map<Il2CppClass*, eastl::vector<uintptr_t>> tracked_objects;
+std::mutex                                      tracked_objects_mutex;
+ObjectTrackerCore<Il2CppClass*, uintptr_t>      tracked_objects;
 
 static std::string ClassPointerToString(const Il2CppClass* klass)
 {
@@ -69,10 +68,12 @@ std::vector<TrackedObjectClassSummary> GetTrackedObjectSummary()
   std::scoped_lock lk{tracked_objects_mutex};
 
   std::vector<TrackedObjectClassSummary> summaries;
-  summaries.reserve(tracked_objects.size());
+  const auto buckets = tracked_objects.snapshot();
+  summaries.reserve(buckets.size());
 
-  for (const auto& [klass, objects] : tracked_objects) {
-    if (!klass || objects.empty()) {
+  for (const auto& bucket : buckets) {
+    const auto* klass = bucket.class_key;
+    if (!klass || bucket.objects.empty()) {
       continue;
     }
 
@@ -80,7 +81,7 @@ std::vector<TrackedObjectClassSummary> GetTrackedObjectSummary()
       ClassPointerToString(klass),
         klass->namespaze ? klass->namespaze : "",
         klass->name ? klass->name : "<unnamed>",
-        objects.size(),
+        bucket.objects.size(),
     });
   }
 
@@ -110,14 +111,11 @@ std::vector<void*> GetTrackedObjectsForClass(Il2CppClass* klass)
   }
 
   std::scoped_lock lk{tracked_objects_mutex};
-  const auto       found = tracked_objects.find(klass);
-  if (found == tracked_objects.end() || found->second.empty()) {
-    return {};
-  }
+  const auto       tracked = tracked_objects.objects_for_class(klass);
 
   std::vector<void*> objects;
-  objects.reserve(found->second.size());
-  for (const auto pointer : found->second) {
+  objects.reserve(tracked.size());
+  for (const auto pointer : tracked) {
     objects.push_back(reinterpret_cast<void*>(pointer));
   }
   return objects;
@@ -130,12 +128,7 @@ void* GetLatestTrackedObjectForClass(Il2CppClass* klass)
   }
 
   std::scoped_lock lk{tracked_objects_mutex};
-  const auto       found = tracked_objects.find(klass);
-  if (found == tracked_objects.end() || found->second.empty()) {
-    return nullptr;
-  }
-
-  return reinterpret_cast<void*>(found->second.back());
+  return reinterpret_cast<void*>(tracked_objects.latest_for_class(klass));
 }
 
 // ─── Tracking Map Helpers ────────────────────────────────────────────────────
@@ -147,8 +140,7 @@ void add_to_tracking_recursive(Il2CppClass* klass, void* _this)
     return;
   }
 
-  auto& tracked_object_vector = tracked_objects[klass];
-  tracked_object_vector.emplace_back(uintptr_t(_this));
+  tracked_objects.add(klass, uintptr_t(_this));
 
   return add_to_tracking_recursive(klass->parent, _this);
 }
@@ -156,11 +148,7 @@ void add_to_tracking_recursive(Il2CppClass* klass, void* _this)
 /** @brief Removes an object from every class entry in the tracking map (brute-force). */
 void remove_from_tracking_all(void* _this)
 {
-#define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
-  for (auto& [klass, tracked_object_vector] : tracked_objects) {
-    tracked_object_vector.erase_first(uintptr_t(_this));
-  }
-#undef GET_CLASS
+  tracked_objects.remove_object_from_all(uintptr_t(_this));
 }
 
 /** @brief Removes an object from tracking by walking the class hierarchy upward. */
@@ -171,12 +159,7 @@ void remove_from_tracking_recursive(Il2CppClass* klass, void* _this)
     return;
   }
 
-  if (tracked_objects.find(klass) == tracked_objects.end()) {
-    return;
-  }
-
-  auto& tracked_object_vector = tracked_objects[GET_CLASS(klass->parent)];
-  tracked_object_vector.erase_first(uintptr_t(_this));
+  tracked_objects.remove(GET_CLASS(klass), uintptr_t(_this));
   return remove_from_tracking_recursive(GET_CLASS(klass->parent), _this);
 #undef GET_CLASS
 }
@@ -271,10 +254,10 @@ void calc_liveness_hook(auto original, void* state)
   eastl::vector<eastl::pair<Il2CppClass*, uintptr_t>> objects_to_free;
   eastl::unordered_set<uintptr_t>                     objects_seen;
 #define IS_MARKED(obj) (((size_t)(obj)->klass) & (size_t)1)
-  for (auto& [klass, objects] : tracked_objects) {
-    for (auto object : objects) {
+  for (const auto& bucket : tracked_objects.snapshot()) {
+    for (auto object : bucket.objects) {
       if (IS_MARKED((Il2CppObject*)object) && objects_seen.find(object) == objects_seen.end()) {
-        objects_to_free.emplace_back(klass, object);
+        objects_to_free.emplace_back(bucket.class_key, object);
         objects_seen.emplace(object);
       }
     }
@@ -288,8 +271,6 @@ void calc_liveness_hook(auto original, void* state)
     remove_from_tracking_all((void*)object);
   }
 #undef GET_CLASS
-
-  tracked_objects = tracked_objects;
 }
 
 // ─── Hook Installation ──────────────────────────────────────────────────────

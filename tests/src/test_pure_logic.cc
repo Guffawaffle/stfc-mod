@@ -10,6 +10,7 @@
 #include "patches/live_debug_viewer_serializers.h"
 #include "patches/notification_queue.h"
 #include "patches/notification_text.h"
+#include "patches/object_tracker_core.h"
 #include "str_utils_pure.h"
 #include "testable_functions.h"
 
@@ -851,6 +852,58 @@ TEST_SUITE("async_work_queue")
 
     queue.set_worker_active(false);
     CHECK_FALSE(queue.diagnostics().worker_active);
+  }
+}
+
+TEST_SUITE("object_tracker_core")
+{
+  TEST_CASE("tracks objects by class with oldest-to-newest ordering")
+  {
+    ObjectTrackerCore<int, int> tracker;
+
+    tracker.add(1, 100);
+    tracker.add(1, 200);
+    tracker.add(2, 300);
+
+    CHECK(tracker.class_count() == 2);
+    CHECK(tracker.object_count() == 3);
+    CHECK(tracker.latest_for_class(1) == 200);
+    CHECK(tracker.latest_for_class(3) == 0);
+
+    auto objects = tracker.objects_for_class(1);
+    REQUIRE(objects.size() == 2);
+    CHECK(objects[0] == 100);
+    CHECK(objects[1] == 200);
+  }
+
+  TEST_CASE("removes a single object from a class bucket")
+  {
+    ObjectTrackerCore<int, int> tracker;
+    tracker.add(1, 100);
+    tracker.add(1, 200);
+
+    CHECK(tracker.remove(1, 100));
+    CHECK_FALSE(tracker.remove(1, 999));
+
+    auto objects = tracker.objects_for_class(1);
+    REQUIRE(objects.size() == 1);
+    CHECK(objects[0] == 200);
+    CHECK(tracker.latest_for_class(1) == 200);
+  }
+
+  TEST_CASE("removes an object from every class bucket")
+  {
+    ObjectTrackerCore<int, int> tracker;
+    tracker.add(1, 100);
+    tracker.add(2, 100);
+    tracker.add(2, 200);
+
+    CHECK(tracker.remove_object_from_all(100) == 2);
+    CHECK(tracker.objects_for_class(1).empty());
+
+    auto remaining = tracker.objects_for_class(2);
+    REQUIRE(remaining.size() == 1);
+    CHECK(remaining[0] == 200);
   }
 }
 

@@ -24,6 +24,7 @@
   - Keeps `Impulsing -> IdleInSpace` as follow-up `ARRIVED_AT_DESTINATION` data for future refinement
 - Added optional `notifications_fleet_arrived_at_destination` fleet-bar notification support for destination arrival transitions
 - Added a reusable async work queue primitive and migrated desktop notification delivery to it for queue-depth and worker-error diagnostics
+- Added a reusable object tracker core and moved tracked-object lookup through its public query API
 
 ### Fixes
 
