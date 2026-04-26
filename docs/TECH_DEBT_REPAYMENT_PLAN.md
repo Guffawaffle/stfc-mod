@@ -242,6 +242,7 @@ Scope:
 - Add documented AX recipes for hotkey health, notification queue health, and live-debug request health.
 - Prefer structured AX output where available.
 - Include exact log strings to watch.
+- Current recipe doc: `docs/AX_RUNTIME_REGRESSION_RECIPES.md`.
 
 Acceptance Criteria:
 - A contributor can reproduce the hotkey triage path without reading this plan.

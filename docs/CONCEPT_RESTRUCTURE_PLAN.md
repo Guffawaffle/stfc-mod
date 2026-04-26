@@ -317,6 +317,8 @@ Concepts: Hook Registry, Cache And Dedup Primitive, Pure Core.
 
 Document structured smoke checks for hotkeys, notification routing, live-debug, hook health, and incoming attacks.
 
+Current recipe doc: `docs/AX_RUNTIME_REGRESSION_RECIPES.md`.
+
 Concepts: Diagnostics Facade.
 
 ## Non-Goals
