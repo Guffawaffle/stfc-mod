@@ -106,10 +106,10 @@ TEST_SUITE("str_utils")
 
 TEST_SUITE("hotkey_decisions")
 {
-  TEST_CASE("Scopely shortcut initialization runs for Scopely mode or fallthrough")
+  TEST_CASE("Scopely shortcut initialization only runs for explicit Scopely mode")
   {
     CHECK_FALSE(should_call_original_initialize_actions(false, false));
-    CHECK(should_call_original_initialize_actions(false, true));
+    CHECK_FALSE(should_call_original_initialize_actions(false, true));
     CHECK(should_call_original_initialize_actions(true, false));
     CHECK(should_call_original_initialize_actions(true, true));
   }
