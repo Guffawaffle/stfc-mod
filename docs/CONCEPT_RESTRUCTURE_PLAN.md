@@ -321,6 +321,21 @@ Current recipe doc: `docs/AX_RUNTIME_REGRESSION_RECIPES.md`.
 
 Concepts: Diagnostics Facade.
 
+## Completion Snapshot (2026-04-26)
+
+The initial cleanup roadmap now has named seams for the highest-risk hotspots:
+
+- Hotkey fallthrough and Escape suppression are protected by pure decision helpers and runtime seam fixes.
+- Notification text, queueing, platform delivery, and fleet/incoming-attack policy are split across focused modules.
+- Live-debug storage, dispatch, observers, serializers, and runtime viewer code are split into queryable modules.
+- Sync is split into `sync_transport`, `sync_scheduler`, `sync_battle_logs`, `sync_payload_builders`, and thin hook glue in `parts/sync.cc`.
+- Async work queue and bounded TTL/dedupe primitives exist for reuse.
+- Object tracker storage is separated from GC/hook glue.
+- Platform boundaries are documented in `docs/PLATFORM_BRIDGE.md`.
+- Prime wrapper include hygiene and generated constant sourcing are documented in `docs/PRIME_WRAPPER_AUDIT.md`.
+
+Remaining work should be opened as narrower follow-up issues tied to a concrete feature or maintenance need rather than kept under this broad roadmap anchor.
+
 ## Non-Goals
 
 - Do not build a giant enterprise event bus before smaller seams exist.
