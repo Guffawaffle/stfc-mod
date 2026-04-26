@@ -2,6 +2,10 @@
 #include <doctest/doctest.h>
 
 #include "bounded_ttl_cache.h"
+#include "patches/live_debug_event_store.h"
+#include "patches/live_debug_fleet_serializers.h"
+#include "patches/live_debug_ui_serializers.h"
+#include "patches/live_debug_viewer_serializers.h"
 #include "patches/notification_queue.h"
 #include "patches/notification_text.h"
 #include "str_utils_pure.h"
@@ -120,6 +124,336 @@ TEST_SUITE("hotkey_decisions")
     CHECK(should_call_original_screen_update(false, true));
     CHECK(should_call_original_screen_update(true, false));
     CHECK(should_call_original_screen_update(true, true));
+  }
+
+  TEST_CASE("Escape exit suppression only blocks Escape-triggered exit outside the double-tap window")
+  {
+    CHECK_FALSE(should_suppress_escape_exit(false, true, 500, -1));
+    CHECK_FALSE(should_suppress_escape_exit(true, false, 500, -1));
+
+    CHECK(should_suppress_escape_exit(true, true, 0, -1));
+    CHECK(should_suppress_escape_exit(true, true, 500, -1));
+    CHECK(should_suppress_escape_exit(true, true, 500, 750));
+
+    CHECK_FALSE(should_suppress_escape_exit(true, true, 500, 500));
+    CHECK_FALSE(should_suppress_escape_exit(true, true, 500, 250));
+  }
+}
+
+TEST_SUITE("live_debug_recent_event_store")
+{
+  TEST_CASE("snapshot preserves order and trims to capacity")
+  {
+    LiveDebugRecentEventStore store(2);
+
+    store.append("event-a", nlohmann::json{{"value", 1}}, 100);
+    store.append("event-b", nlohmann::json{{"value", 2}}, 200);
+    store.append("event-a", nlohmann::json{{"value", 3}}, 300);
+
+    const auto snapshot = store.snapshot();
+    CHECK(snapshot.count == 2);
+    CHECK(snapshot.capacity == 2);
+    CHECK(snapshot.returnedCount == 2);
+    CHECK(snapshot.matchedCount == 2);
+    CHECK(snapshot.firstSeq == 2);
+    CHECK(snapshot.lastSeq == 3);
+    CHECK(snapshot.evictedCount == 1);
+    REQUIRE(snapshot.events.size() == 2);
+    CHECK(snapshot.events[0]["seq"] == 2);
+    CHECK(snapshot.events[0]["kind"] == "event-b");
+    CHECK(snapshot.events[1]["seq"] == 3);
+    CHECK(snapshot.events[1]["kind"] == "event-a");
+    CHECK(snapshot.kindCounts["event-a"] == 1);
+    CHECK(snapshot.kindCounts["event-b"] == 1);
+    CHECK(snapshot.bufferKindCounts["event-a"] == 1);
+    CHECK(snapshot.bufferKindCounts["event-b"] == 1);
+  }
+
+  TEST_CASE("clear removes events but preserves monotonic sequence")
+  {
+    LiveDebugRecentEventStore store(4);
+
+    store.append("event-a", nlohmann::json::object(), 100);
+    store.append("event-b", nlohmann::json::object(), 200);
+
+    CHECK(store.clear() == 2);
+
+    store.append("event-c", nlohmann::json::object(), 300);
+
+    const auto snapshot = store.snapshot();
+    CHECK(snapshot.count == 1);
+    CHECK(snapshot.clearCount == 1);
+    REQUIRE(snapshot.events.size() == 1);
+    CHECK(snapshot.events[0]["seq"] == 3);
+    CHECK(snapshot.events[0]["kind"] == "event-c");
+  }
+
+  TEST_CASE("snapshot query supports afterSeq kind limit and summary metadata")
+  {
+    LiveDebugRecentEventStore store(3);
+
+    store.append("event-a", nlohmann::json{{"value", 1}}, 100);
+    store.append("event-b", nlohmann::json{{"value", 2}}, 200);
+    store.append("event-a", nlohmann::json{{"value", 3}}, 300);
+    store.append("event-a", nlohmann::json{{"value", 4}}, 400);
+
+    LiveDebugRecentEventStoreQuery query;
+    query.afterSeq = 0;
+    query.kind = "event-a";
+    query.limit = 1;
+    query.includeDetails = false;
+
+    const auto snapshot = store.snapshot(query);
+    CHECK(snapshot.count == 3);
+    CHECK(snapshot.matchedCount == 2);
+    CHECK(snapshot.returnedCount == 1);
+    CHECK(snapshot.queryGap == true);
+    CHECK(snapshot.missingCountBeforeFirstReturned == 1);
+    REQUIRE(snapshot.events.size() == 1);
+    CHECK(snapshot.events[0]["seq"] == 4);
+    CHECK(snapshot.events[0]["kind"] == "event-a");
+    CHECK_FALSE(snapshot.events[0].contains("details"));
+    CHECK(snapshot.kindCounts["event-a"] == 1);
+    CHECK(snapshot.bufferKindCounts["event-a"] == 2);
+    CHECK(snapshot.bufferKindCounts["event-b"] == 1);
+  }
+
+  TEST_CASE("snapshot query supports multi-kind and server-side text matching")
+  {
+    LiveDebugRecentEventStore store(6);
+
+    store.append("toast-notification-observed", nlohmann::json{{"message", "Alliance help requested"}}, 100);
+    store.append("fleet-slot-state-changed", nlohmann::json{{"state", "Mining"}}, 200);
+    store.append("top-canvas-changed", nlohmann::json{{"activeChildName", "AllianceBanner"}}, 300);
+    store.append("toast-notification-observed", nlohmann::json{{"message", "Warp complete"}}, 400);
+
+    LiveDebugRecentEventStoreQuery wildcard_query;
+    wildcard_query.kinds = {"toast-notification-observed", "top-canvas-changed"};
+    wildcard_query.match = "*alliance*";
+    wildcard_query.includeDetails = false;
+
+    const auto wildcard_snapshot = store.snapshot(wildcard_query);
+    CHECK(wildcard_snapshot.count == 4);
+    CHECK(wildcard_snapshot.matchedCount == 2);
+    CHECK(wildcard_snapshot.returnedCount == 2);
+    REQUIRE(wildcard_snapshot.events.size() == 2);
+    CHECK(wildcard_snapshot.events[0]["kind"] == "toast-notification-observed");
+    CHECK(wildcard_snapshot.events[1]["kind"] == "top-canvas-changed");
+    CHECK_FALSE(wildcard_snapshot.events[0].contains("details"));
+    CHECK(wildcard_snapshot.kindCounts["toast-notification-observed"] == 1);
+    CHECK(wildcard_snapshot.kindCounts["top-canvas-changed"] == 1);
+    CHECK(wildcard_snapshot.bufferKindCounts["fleet-slot-state-changed"] == 1);
+
+    LiveDebugRecentEventStoreQuery exact_query;
+    exact_query.match = "TOAST-NOTIFICATION-OBSERVED";
+    exact_query.exact = true;
+
+    const auto exact_snapshot = store.snapshot(exact_query);
+    CHECK(exact_snapshot.matchedCount == 2);
+    REQUIRE(exact_snapshot.events.size() == 2);
+    CHECK(exact_snapshot.events[0]["seq"] == 1);
+    CHECK(exact_snapshot.events[1]["seq"] == 4);
+  }
+}
+
+TEST_SUITE("live_debug_ui_serializers")
+{
+  TEST_CASE("top canvas serializer preserves visible metadata")
+  {
+    TopCanvasObservation observation;
+    observation.found = true;
+    observation.pointer = "0x1234";
+    observation.className = "GalaxyScreen";
+    observation.classNamespace = "Scopely.UI";
+    observation.name = "GalaxyTopCanvas";
+    observation.visible = true;
+    observation.enabled = true;
+    observation.internalVisible = false;
+    observation.activeChildNames = {"ArmadaButton", "WarpHud"};
+
+    const auto result = top_canvas_observation_to_json(observation);
+
+    CHECK(result["found"] == true);
+    CHECK(result["pointer"] == "0x1234");
+    CHECK(result["className"] == "GalaxyScreen");
+    CHECK(result["activeChildNames"].size() == 2);
+    CHECK(result["visibleOnlyHint"] == true);
+  }
+
+  TEST_CASE("station warning serializer labels target type")
+  {
+    StationWarningObservation observation;
+    observation.tracked = true;
+    observation.pointer = "0x777";
+    observation.hasContext = true;
+    observation.targetType = 3;
+    observation.targetFleetId = 42;
+    observation.targetUserId = "player-1";
+    observation.quickScanTargetFleetId = 99;
+    observation.quickScanTargetId = "scan-9";
+
+    const auto result = station_warning_observation_to_json(observation);
+
+    CHECK(result["tracked"] == true);
+    CHECK(result["targetType"] == 3);
+    CHECK(result["targetTypeName"] == "Station");
+    CHECK(result["targetFleetId"] == 42);
+    CHECK(result["quickScanTargetId"] == "scan-9");
+  }
+
+  TEST_CASE("navigation interaction serializer emits readable context names")
+  {
+    NavigationInteractionObservation observation;
+    observation.tracked = true;
+    observation.trackedCount = 1;
+
+    NavigationInteractionObservation::Entry entry;
+    entry.pointer = "0xabc";
+    entry.hasContext = true;
+    entry.contextDataState = 1;
+    entry.inputInteractionType = 14;
+    entry.userId = "enemy-7";
+    entry.isMarauder = true;
+    entry.threatLevel = 0;
+    entry.validNavigationInput = true;
+    entry.showSetCourseArm = true;
+    entry.locationTranslationId = 123456;
+    entry.poiPointer = "0xpoi";
+    observation.entries.push_back(entry);
+
+    const auto result = navigation_interaction_observation_to_json(observation);
+
+    CHECK(result["tracked"] == true);
+    CHECK(result["trackedCount"] == 1);
+    REQUIRE(result["entries"].size() == 1);
+    CHECK(result["entries"][0]["contextDataStateName"] == "Verifying");
+    CHECK(result["entries"][0]["inputInteractionTypeName"] == "TapArmadaLocation");
+    CHECK(result["entries"][0]["threatLevelName"] == "VeryHard");
+    CHECK(result["entries"][0]["poiPointer"] == "0xpoi");
+  }
+}
+
+TEST_SUITE("live_debug_fleet_serializers")
+{
+  TEST_CASE("fleet state names keep expected labels")
+  {
+    CHECK(fleet_state_name_from_value(-1) == doctest::String("None"));
+    CHECK(fleet_state_name_from_value(2) == doctest::String("Docked"));
+    CHECK(fleet_state_name_from_value(1541) == doctest::String("CanRecall"));
+    CHECK(fleet_state_name_from_value(999999) == doctest::String("Unmapped"));
+  }
+
+  TEST_CASE("fleet observation serializer includes tracked fleet details")
+  {
+    FleetObservation observation;
+    observation.tracked = true;
+    observation.pointer = "0xfleetbar";
+    observation.selectedIndex = 3;
+    observation.hasController = true;
+    observation.hasFleet = true;
+    observation.fleetId = 44;
+    observation.currentState = 2;
+    observation.previousState = 1;
+    observation.cargoFillPercent = 37;
+    observation.cargoFillBasisPoints = 3700;
+    observation.hullName = "Mayflower";
+
+    const auto result = fleet_observation_to_json(observation);
+
+    CHECK(result["tracked"] == true);
+    CHECK(result["pointer"] == "0xfleetbar");
+    CHECK(result["fleet"]["id"] == 44);
+    CHECK(result["fleet"]["currentStateName"] == "Docked");
+    CHECK(result["fleet"]["previousStateName"] == "IdleInSpace");
+    CHECK(result["fleet"]["cargoFillBasisPoints"] == 3700);
+    CHECK(result["fleet"]["hullName"] == "Mayflower");
+  }
+
+  TEST_CASE("fleet slot serializer preserves slot order and readable states")
+  {
+    std::array<FleetSlotObservation, kFleetIndexMax> observations{};
+    observations[0].slotIndex = 0;
+    observations[1].slotIndex = 1;
+    observations[1].selected = true;
+    observations[1].present = true;
+    observations[1].fleetId = 9001;
+    observations[1].currentState = 256;
+    observations[1].previousState = 128;
+    observations[1].cargoFillPercent = 82;
+    observations[1].cargoFillBasisPoints = 8200;
+    observations[1].hullName = "Enterprise";
+
+    const auto result = fleet_slots_to_json(observations);
+
+    REQUIRE(result.size() == kFleetIndexMax);
+    CHECK(result[0]["slotIndex"] == 0);
+    CHECK(result[1]["selected"] == true);
+    CHECK(result[1]["fleetId"] == 9001);
+    CHECK(result[1]["currentStateName"] == "Warping");
+    CHECK(result[1]["previousStateName"] == "WarpCharging");
+    CHECK(result[1]["hullName"] == "Enterprise");
+  }
+}
+
+TEST_SUITE("live_debug_viewer_serializers")
+{
+  TEST_CASE("occupied state names stay readable")
+  {
+    CHECK(occupied_state_name_from_value(0) == doctest::String("NotOccupied"));
+    CHECK(occupied_state_name_from_value(1) == doctest::String("LocalPlayerOccupied"));
+    CHECK(occupied_state_name_from_value(2) == doctest::String("OtherPlayerOccupied"));
+    CHECK(occupied_state_name_from_value(99) == doctest::String("Unknown"));
+  }
+
+  TEST_CASE("target viewer serializer emits tracked pointers and nulls")
+  {
+    TargetViewerObservation observation;
+    observation.preScanTargetTracked = true;
+    observation.preScanTargetPointer = "0xpre";
+    observation.preScanStationTargetTracked = false;
+    observation.celestialViewerTracked = true;
+    observation.celestialViewerPointer = "0xcelestial";
+
+    const auto result = target_viewer_observation_to_json(observation);
+
+    CHECK(result["preScanTargetTracked"] == true);
+    CHECK(result["preScanTarget"]["pointer"] == "0xpre");
+    CHECK(result["preScanStationTargetTracked"] == false);
+    CHECK(result["preScanStationTarget"].is_null());
+    CHECK(result["celestialViewer"]["pointer"] == "0xcelestial");
+  }
+
+  TEST_CASE("mine viewer serializer includes timer and occupied state metadata")
+  {
+    MineViewerObservation observation;
+    observation.miningViewerTracked = true;
+    observation.miningPointer = "0xmine";
+    observation.enabled = true;
+    observation.isActiveAndEnabled = true;
+    observation.isInfoShown = true;
+    observation.hasParent = true;
+    observation.parentIsShowing = false;
+    observation.occupiedState = 2;
+    observation.hasScanEngageButtons = true;
+    observation.hasTimer = true;
+    observation.timerState = 4;
+    observation.timerType = 8;
+    observation.timerRemainingSeconds = 75;
+    observation.timerRemainingBucket = 60;
+    observation.starNodeViewerTracked = true;
+    observation.starNodePointer = "0xstar";
+    observation.starNodeEnabled = false;
+    observation.starNodeActiveAndEnabled = true;
+
+    const auto result = mine_viewer_observation_to_json(observation);
+
+    CHECK(result["miningViewerTracked"] == true);
+    CHECK(result["miningViewer"]["pointer"] == "0xmine");
+    CHECK(result["miningViewer"]["occupiedStateName"] == "OtherPlayerOccupied");
+    CHECK(result["miningViewer"]["timer"]["remainingSeconds"] == 75);
+    CHECK(result["miningViewer"]["timer"]["remainingSecondsBucket"] == 60);
+    CHECK(result["starNodeViewer"]["pointer"] == "0xstar");
+    CHECK(result["starNodeViewer"]["isActiveAndEnabled"] == true);
   }
 }
 

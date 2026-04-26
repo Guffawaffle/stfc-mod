@@ -8,7 +8,12 @@
  */
 #include "patches/live_debug.h"
 #include "patches/live_debug_connector.h"
+#include "patches/live_debug_event_dispatcher.h"
+#include "patches/live_debug_fleet_serializers.h"
+#include "patches/live_debug_fleet_runtime_serializers.h"
 #include "patches/live_debug_request_dispatch.h"
+#include "patches/live_debug_ui_serializers.h"
+#include "patches/live_debug_viewer_serializers.h"
 
 #include "config.h"
 #include "errormsg.h"
@@ -16,7 +21,6 @@
 #include "patches/object_tracker_state.h"
 #include "prime/CelestialObjectViewerWidget.h"
 #include "prime/FleetBarViewController.h"
-#include "prime/FleetDeployedData.h"
 #include "prime/FleetsManager.h"
 #include "prime/FleetPlayerData.h"
 #include "prime/IList.h"
@@ -39,7 +43,6 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
-#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -52,112 +55,10 @@ namespace {
 using json = nlohmann::json;
 
 constexpr std::string_view kNavigationHookTraceFile = "community_patch_navhook_trace.log";
-constexpr int              kFleetIndexMax = 10;
-constexpr size_t           kRecentEventLimit = 256;
 constexpr int64_t          kMineTimerBucketSeconds = 30;
 constexpr int              kTopCanvasChildNameLimit = 24;
 
-struct TopCanvasObservation {
-  bool        found = false;
-  std::string pointer;
-  std::string className;
-  std::string classNamespace;
-  std::string name;
-  bool        visible = false;
-  bool        enabled = false;
-  bool        internalVisible = false;
-  std::vector<std::string> activeChildNames;
-};
 
-struct FleetObservation {
-  bool        tracked = false;
-  std::string pointer;
-  int         selectedIndex = -1;
-  bool        hasController = false;
-  bool        hasFleet = false;
-  uint64_t    fleetId = 0;
-  int         currentState = -1;
-  int         previousState = -1;
-  int         cargoFillPercent = -1;
-  int         cargoFillBasisPoints = -1;
-  std::string hullName;
-};
-
-struct FleetSlotObservation {
-  int         slotIndex = -1;
-  bool        selected = false;
-  bool        present = false;
-  uint64_t    fleetId = 0;
-  int         currentState = -1;
-  int         previousState = -1;
-  int         cargoFillPercent = -1;
-  int         cargoFillBasisPoints = -1;
-  std::string hullName;
-};
-
-struct MineViewerObservation {
-  bool        miningViewerTracked = false;
-  std::string miningPointer;
-  bool        enabled = false;
-  bool        isActiveAndEnabled = false;
-  bool        isInfoShown = false;
-  bool        hasParent = false;
-  bool        parentIsShowing = false;
-  int         occupiedState = -1;
-  bool        hasScanEngageButtons = false;
-  bool        hasTimer = false;
-  int         timerState = -1;
-  int         timerType = -1;
-  int64_t     timerRemainingSeconds = -1;
-  int64_t     timerRemainingBucket = -1;
-  bool        starNodeViewerTracked = false;
-  std::string starNodePointer;
-  bool        starNodeEnabled = false;
-  bool        starNodeActiveAndEnabled = false;
-};
-
-struct TargetViewerObservation {
-  bool        preScanTargetTracked = false;
-  std::string preScanTargetPointer;
-  bool        preScanStationTargetTracked = false;
-  std::string preScanStationTargetPointer;
-  bool        celestialViewerTracked = false;
-  std::string celestialViewerPointer;
-};
-
-struct StationWarningObservation {
-  bool        tracked = false;
-  std::string pointer;
-  bool        hasContext = false;
-  int         targetType = 0;
-  uint64_t    targetFleetId = 0;
-  std::string targetUserId;
-  uint64_t    quickScanTargetFleetId = 0;
-  std::string quickScanTargetId;
-};
-
-struct NavigationInteractionObservation {
-  struct Entry {
-    std::string pointer;
-    bool        hasContext = false;
-    int         contextDataState = -1;
-    int         inputInteractionType = -1;
-    std::string userId;
-    bool        isMarauder = false;
-    int         threatLevel = -2;
-    bool        validNavigationInput = false;
-    bool        showSetCourseArm = false;
-    int64_t     locationTranslationId = 0;
-    std::string poiPointer;
-  };
-
-  bool               tracked = false;
-  size_t             trackedCount = 0;
-  std::vector<Entry> entries;
-};
-
-std::deque<json> g_recent_events;
-uint64_t         g_recent_event_sequence = 0;
 bool             g_recent_observations_initialized = false;
 TopCanvasObservation g_last_top_canvas;
 FleetObservation     g_last_fleet;
@@ -199,11 +100,6 @@ constexpr bool kEnableLiveDebugNavigationInteractionPolling = false;
 constexpr bool kEnableLiveDebugObserverStepTrace = false;
 bool g_ui_observer_trace_current_poll = false;
 int g_ui_observer_trace_budget = 4000;
-
-const char* navigation_context_data_state_name(int state);
-const char* input_interaction_type_name(int type);
-const char* navigation_threat_level_name(int level);
-json top_canvas_observation_to_json(const TopCanvasObservation& observation);
 bool is_navigation_interaction_top_canvas(const TopCanvasObservation& observation);
 
 std::filesystem::path get_live_debug_path(std::string_view filename)
@@ -297,41 +193,6 @@ json make_error_response(const std::string& request_id, std::string_view error)
 json make_ok_response(const std::string& request_id, const json& result)
 {
   return json{{"id", request_id}, {"ok", true}, {"result", result}};
-}
-
-void append_recent_event(std::string_view kind, json details)
-{
-  g_recent_events.push_back(
-      json{{"seq", ++g_recent_event_sequence},
-           {"timestampMsUtc", current_time_millis_utc()},
-           {"kind", kind},
-           {"details", std::move(details)}});
-
-  while (g_recent_events.size() > kRecentEventLimit) {
-    g_recent_events.pop_front();
-  }
-}
-
-json navigation_interaction_entry_to_json(const NavigationInteractionObservation::Entry& entry)
-{
-  json entry_json = {{"pointer", entry.pointer}, {"hasContext", entry.hasContext}};
-
-  if (entry.hasContext) {
-    entry_json["contextDataState"] = entry.contextDataState;
-    entry_json["contextDataStateName"] = navigation_context_data_state_name(entry.contextDataState);
-    entry_json["inputInteractionType"] = entry.inputInteractionType;
-    entry_json["inputInteractionTypeName"] = input_interaction_type_name(entry.inputInteractionType);
-    entry_json["userId"] = entry.userId;
-    entry_json["isMarauder"] = entry.isMarauder;
-    entry_json["threatLevel"] = entry.threatLevel;
-    entry_json["threatLevelName"] = navigation_threat_level_name(entry.threatLevel);
-    entry_json["validNavigationInput"] = entry.validNavigationInput;
-    entry_json["showSetCourseArm"] = entry.showSetCourseArm;
-    entry_json["locationTranslationId"] = entry.locationTranslationId;
-    entry_json["poiPointer"] = entry.poiPointer;
-  }
-
-  return entry_json;
 }
 
 const NavigationInteractionObservation::Entry* find_navigation_interaction_entry(
@@ -446,7 +307,7 @@ void append_navigation_hook_actionable_follow_up_event(const NavigationInteracti
                                     g_recent_navigation_hook_follow_up.controller,
                                     g_recent_navigation_hook_follow_up.sender,
                                     g_recent_navigation_hook_follow_up.callbackContext);
-  append_recent_event("navigation-interaction-hook-became-actionable", std::move(details));
+  live_debug_events::RecordEvent("navigation-interaction-hook-became-actionable", std::move(details));
   append_navigation_hook_trace_step("followup/after-append",
                                     g_recent_navigation_hook_follow_up.phase,
                                     g_recent_navigation_hook_follow_up.controller,
@@ -480,7 +341,7 @@ void append_navigation_poll_actionable_event(const NavigationInteractionObservat
       details["previousMatchedController"] = navigation_interaction_entry_to_json(*previous_entry);
     }
 
-    append_recent_event("navigation-interaction-poll-became-actionable", std::move(details));
+    live_debug_events::RecordEvent("navigation-interaction-poll-became-actionable", std::move(details));
     g_last_navigation_poll_actionable_pointer = entry.pointer;
     return;
   }
@@ -516,7 +377,7 @@ void flush_pending_navigation_hook_note()
       details["callbackContextPointer"] = pointer_to_string(note.callbackContext);
     }
 
-    append_recent_event("navigation-interaction-hook-note", std::move(details));
+    live_debug_events::RecordEvent("navigation-interaction-hook-note", std::move(details));
     append_navigation_hook_trace_step("flush/minimal-after-append",
                                       note.phase,
                                       note.controller,
@@ -682,7 +543,7 @@ void flush_pending_navigation_hook_note()
                                     note.controller,
                                     note.sender,
                                     note.callbackContext);
-  append_recent_event("navigation-interaction-hook-note", std::move(details));
+  live_debug_events::RecordEvent("navigation-interaction-hook-note", std::move(details));
   g_recent_navigation_hook_follow_up = RecentNavigationHookFollowUp{
       note.controller != nullptr, note.phase, note.controller, note.sender, note.callbackContext};
   append_navigation_hook_trace_step("flush/after-append",
@@ -692,10 +553,8 @@ void flush_pending_navigation_hook_note()
                                     note.callbackContext);
 }
 
-void reset_recent_events()
+void reset_recent_observations()
 {
-  g_recent_events.clear();
-  g_recent_event_sequence = 0;
   g_recent_observations_initialized = false;
   g_last_top_canvas = {};
   g_last_fleet = {};
@@ -805,26 +664,6 @@ FleetObservation observe_fleetbar();
 void append_fleet_change_events(const FleetObservation& previous, const FleetObservation& current);
 void append_fleet_slot_change_events(const FleetSlotObservation& previous, const FleetSlotObservation& current);
 
-json top_canvas_observation_to_json(const TopCanvasObservation& observation)
-{
-  json result = {{"found", observation.found}};
-
-  if (!observation.found) {
-    return result;
-  }
-
-  result["pointer"] = observation.pointer;
-  result["className"] = observation.className;
-  result["classNamespace"] = observation.classNamespace;
-  result["name"] = observation.name;
-  result["visible"] = observation.visible;
-  result["enabled"] = observation.enabled;
-  result["internalVisible"] = observation.internalVisible;
-  result["activeChildNames"] = observation.activeChildNames;
-  result["visibleOnlyHint"] = true;
-  return result;
-}
-
 std::vector<std::string> collect_active_child_names(Transform* parent)
 {
   std::vector<std::string> names;
@@ -860,228 +699,6 @@ std::vector<std::string> collect_active_child_names(Transform* parent)
   return names;
 }
 
-const char* fleet_state_name(FleetState state)
-{
-  switch (state) {
-    case FleetState::Unknown:
-      return "Unknown";
-    case FleetState::IdleInSpace:
-      return "IdleInSpace";
-    case FleetState::Docked:
-      return "Docked";
-    case FleetState::Mining:
-      return "Mining";
-    case FleetState::Destroyed:
-      return "Destroyed";
-    case FleetState::TieringUp:
-      return "TieringUp";
-    case FleetState::Repairing:
-      return "Repairing";
-    case FleetState::CannotLaunch:
-      return "CannotLaunch";
-    case FleetState::Battling:
-      return "Battling";
-    case FleetState::WarpCharging:
-      return "WarpCharging";
-    case FleetState::Warping:
-      return "Warping";
-    case FleetState::CanRemove:
-      return "CanRemove";
-    case FleetState::CannotMove:
-      return "CannotMove";
-    case FleetState::Impulsing:
-      return "Impulsing";
-    case FleetState::CanManage:
-      return "CanManage";
-    case FleetState::Capturing:
-      return "Capturing";
-    case FleetState::CanRecall:
-      return "CanRecall";
-    case FleetState::CanEngage:
-      return "CanEngage";
-    case FleetState::Deployed:
-      return "Deployed";
-    case FleetState::CanLocate:
-      return "CanLocate";
-    default:
-      return "Unmapped";
-  }
-}
-
-const char* fleet_state_name_from_value(int state)
-{
-  if (state < 0) {
-    return "None";
-  }
-
-  return fleet_state_name(static_cast<FleetState>(state));
-}
-
-const char* incoming_attack_target_type_name(int target_type)
-{
-  switch (target_type) {
-    case 1:
-      return "Fleet";
-    case 2:
-      return "DockingPoint";
-    case 3:
-      return "Station";
-    case 0:
-      return "None";
-    default:
-      return "Unknown";
-  }
-}
-
-const char* deployed_fleet_type_name(int fleet_type)
-{
-  switch (fleet_type) {
-    case 1:
-      return "Player";
-    case 2:
-      return "Marauder";
-    case 3:
-      return "NpcInstantiated";
-    case 4:
-      return "Sentinel";
-    case 5:
-      return "Alliance";
-    case 6:
-      return "Challenge";
-    case 0:
-      return "None";
-    default:
-      return "Unknown";
-  }
-}
-
-const char* navigation_context_data_state_name(int state)
-{
-  switch (state) {
-    case 0:
-      return "Verified";
-    case 1:
-      return "Verifying";
-    case 2:
-      return "Failed";
-    default:
-      return "Unknown";
-  }
-}
-
-const char* input_interaction_type_name(int type)
-{
-  switch (type) {
-    case 0:
-      return "HideAll";
-    case 1:
-      return "TapShowScanEngageEnemyFleet";
-    case 2:
-      return "TapShowEngageEnemyNPCFleetInfo";
-    case 3:
-      return "TapShowScanEngageEnemyStarbase";
-    case 4:
-      return "TapLocationPlanningPath";
-    case 5:
-      return "TapEmptySpace";
-    case 6:
-      return "TapGalaxyStar";
-    case 7:
-      return "TapPlanetMoveStarbase";
-    case 8:
-      return "TapPlanetWithMissions";
-    case 9:
-      return "TapPlanetWithMining";
-    case 10:
-      return "TapPlanetWithTerritoryEmbassy";
-    case 11:
-      return "TapLocationScanLoading";
-    case 12:
-      return "TapLocationScanLoaded";
-    case 13:
-      return "TapOutOfBoundsLocation";
-    case 14:
-      return "TapArmadaLocation";
-    case 15:
-      return "TapOutpostLocation";
-    default:
-      return "Unknown";
-  }
-}
-
-const char* navigation_threat_level_name(int level)
-{
-  switch (level) {
-    case -1:
-      return "Unknown";
-    case 0:
-      return "VeryHard";
-    case 1:
-      return "Hard";
-    case 2:
-      return "Normal";
-    case 3:
-      return "Easy";
-    default:
-      return "Unmapped";
-  }
-}
-
-json fleet_to_json(FleetPlayerData* fleet)
-{
-  json result = {{"present", fleet != nullptr}};
-
-  if (!fleet) {
-    return result;
-  }
-
-  result["id"]            = fleet->Id;
-  result["currentState"]  = static_cast<int>(fleet->CurrentState);
-  result["currentStateName"] = fleet_state_name(fleet->CurrentState);
-  result["previousState"] = static_cast<int>(fleet->PreviousState);
-  result["previousStateName"] = fleet_state_name(fleet->PreviousState);
-  result["cargoFill"]     = fleet->CargoResourceFillLevel;
-
-  if (auto hull = fleet->Hull; hull) {
-    result["hull"] = {
-        {"id", hull->Id},
-        {"name", hull->Name ? to_string(hull->Name) : ""},
-        {"type", static_cast<int>(hull->Type)},
-    };
-  } else {
-    result["hull"] = nullptr;
-  }
-
-  return result;
-}
-
-json fleet_observation_to_json(const FleetObservation& observation)
-{
-  json result = {{"tracked", observation.tracked}};
-
-  if (!observation.tracked) {
-    return result;
-  }
-
-  result["pointer"] = observation.pointer;
-  result["selectedIndex"] = observation.selectedIndex;
-  result["hasController"] = observation.hasController;
-  result["fleet"] = {{"present", observation.hasFleet}};
-
-  if (observation.hasFleet) {
-    result["fleet"]["id"] = observation.fleetId;
-    result["fleet"]["currentState"] = observation.currentState;
-    result["fleet"]["currentStateName"] = fleet_state_name(static_cast<FleetState>(observation.currentState));
-    result["fleet"]["previousState"] = observation.previousState;
-    result["fleet"]["previousStateName"] = fleet_state_name(static_cast<FleetState>(observation.previousState));
-    result["fleet"]["cargoFillPercent"] = observation.cargoFillPercent;
-    result["fleet"]["cargoFillBasisPoints"] = observation.cargoFillBasisPoints;
-    result["fleet"]["hullName"] = observation.hullName;
-  }
-
-  return result;
-}
-
 FleetSlotObservation observe_fleet_slot(int slot_index, FleetBarViewController* fleet_bar)
 {
   FleetSlotObservation observation;
@@ -1110,36 +727,6 @@ FleetSlotObservation observe_fleet_slot(int slot_index, FleetBarViewController* 
   }
 
   return observation;
-}
-
-json fleet_slot_observation_to_json(const FleetSlotObservation& observation)
-{
-  json result = {{"slotIndex", observation.slotIndex},
-                 {"selected", observation.selected},
-                 {"present", observation.present}};
-
-  if (!observation.present) {
-    return result;
-  }
-
-  result["fleetId"] = observation.fleetId;
-  result["currentState"] = observation.currentState;
-  result["currentStateName"] = fleet_state_name_from_value(observation.currentState);
-  result["previousState"] = observation.previousState;
-  result["previousStateName"] = fleet_state_name_from_value(observation.previousState);
-  result["cargoFillPercent"] = observation.cargoFillPercent;
-  result["cargoFillBasisPoints"] = observation.cargoFillBasisPoints;
-  result["hullName"] = observation.hullName;
-  return result;
-}
-
-json fleet_slots_to_json(const std::array<FleetSlotObservation, kFleetIndexMax>& observations)
-{
-  json result = json::array();
-  for (const auto& observation : observations) {
-    result.push_back(fleet_slot_observation_to_json(observation));
-  }
-  return result;
 }
 
 std::array<FleetSlotObservation, kFleetIndexMax> observe_fleet_slots()
@@ -1216,30 +803,6 @@ StationWarningObservation observe_station_warning()
   return observation;
 }
 
-json station_warning_observation_to_json(const StationWarningObservation& observation)
-{
-  json result = {{"tracked", observation.tracked}};
-
-  if (!observation.tracked) {
-    return result;
-  }
-
-  result["pointer"] = observation.pointer;
-  result["hasContext"] = observation.hasContext;
-
-  if (!observation.hasContext) {
-    return result;
-  }
-
-  result["targetType"] = observation.targetType;
-  result["targetTypeName"] = incoming_attack_target_type_name(observation.targetType);
-  result["targetFleetId"] = observation.targetFleetId;
-  result["targetUserId"] = observation.targetUserId;
-  result["quickScanTargetFleetId"] = observation.quickScanTargetFleetId;
-  result["quickScanTargetId"] = observation.quickScanTargetId;
-  return result;
-}
-
 NavigationInteractionObservation observe_navigation_interaction()
 {
   append_ui_observer_trace_step("nav/enter", "observe_navigation_interaction");
@@ -1297,24 +860,6 @@ NavigationInteractionObservation observe_navigation_interaction()
   return observation;
 }
 
-json navigation_interaction_observation_to_json(const NavigationInteractionObservation& observation)
-{
-  json result = {{"tracked", observation.tracked}};
-
-  if (!observation.tracked) {
-    return result;
-  }
-
-  result["trackedCount"] = observation.trackedCount;
-  result["entries"] = json::array();
-
-  for (const auto& entry : observation.entries) {
-    result["entries"].push_back(navigation_interaction_entry_to_json(entry));
-  }
-
-  return result;
-}
-
 int count_list_items(IList* list)
 {
   if (!list) {
@@ -1322,47 +867,6 @@ int count_list_items(IList* list)
   }
 
   return list->Count < 0 ? 0 : list->Count;
-}
-
-json deployed_fleet_to_json(FleetDeployedData* fleet)
-{
-  json result = {{"present", fleet != nullptr}};
-  if (!fleet) {
-    return result;
-  }
-
-  result["id"] = fleet->ID;
-  result["fleetType"] = static_cast<int>(fleet->FleetType);
-
-  if (auto hull = fleet->Hull; hull && hull->Name) {
-    result["hullName"] = to_string(hull->Name);
-  }
-
-  return result;
-}
-
-json deployed_fleet_list_to_json(IList* fleets)
-{
-  json result = json::array();
-  if (!fleets) {
-    return result;
-  }
-
-  const auto count = count_list_items(fleets);
-  for (int index = 0; index < count; ++index) {
-    result.push_back(deployed_fleet_to_json(reinterpret_cast<FleetDeployedData*>(fleets->Get(index))));
-  }
-
-  return result;
-}
-
-void append_event_if_live_debug_enabled(std::string_view kind, json details)
-{
-  if (!LiveDebugChannelEnabled()) {
-    return;
-  }
-
-  append_recent_event(kind, std::move(details));
 }
 
 void initialize_recent_model_observations(std::string_view source)
@@ -1387,14 +891,15 @@ void initialize_recent_model_observations(std::string_view source)
   g_last_navigation_interaction = navigation_interaction;
   g_recent_observations_initialized = true;
 
-  append_recent_event("observer-ready",
-                      json{{"source", source},
-                           {"topCanvas", top_canvas_observation_to_json(top_canvas)},
-                           {"fleet", fleet_observation_to_json(fleet)},
-                           {"fleetSlots", fleet_slots_to_json(fleet_slots)},
-                           {"stationWarning", station_warning_observation_to_json(station_warning)},
-                           {"navigationInteraction",
-                            navigation_interaction_observation_to_json(navigation_interaction)}});
+  live_debug_events::RecordEvent(
+      "observer-ready",
+      json{{"source", source},
+           {"topCanvas", top_canvas_observation_to_json(top_canvas)},
+           {"fleet", fleet_observation_to_json(fleet)},
+           {"fleetSlots", fleet_slots_to_json(fleet_slots)},
+           {"stationWarning", station_warning_observation_to_json(station_warning)},
+           {"navigationInteraction",
+            navigation_interaction_observation_to_json(navigation_interaction)}});
 }
 
 const char* classify_top_canvas_change_kind(const TopCanvasObservation& previous,
@@ -1417,9 +922,9 @@ bool is_navigation_interaction_top_canvas(const TopCanvasObservation& observatio
 void append_top_canvas_change_events(const TopCanvasObservation& previous,
                                      const TopCanvasObservation& current)
 {
-  append_recent_event(classify_top_canvas_change_kind(previous, current),
-                      json{{"from", top_canvas_observation_to_json(previous)},
-                           {"to", top_canvas_observation_to_json(current)}});
+  live_debug_events::RecordEvent(classify_top_canvas_change_kind(previous, current),
+                                 json{{"from", top_canvas_observation_to_json(previous)},
+                                      {"to", top_canvas_observation_to_json(current)}});
 }
 
 const char* classify_station_warning_change_kind(const StationWarningObservation& previous,
@@ -1443,9 +948,9 @@ const char* classify_station_warning_change_kind(const StationWarningObservation
 void append_station_warning_change_events(const StationWarningObservation& previous,
                                           const StationWarningObservation& current)
 {
-  append_recent_event(classify_station_warning_change_kind(previous, current),
-                      json{{"from", station_warning_observation_to_json(previous)},
-                           {"to", station_warning_observation_to_json(current)}});
+  live_debug_events::RecordEvent(classify_station_warning_change_kind(previous, current),
+                                 json{{"from", station_warning_observation_to_json(previous)},
+                                      {"to", station_warning_observation_to_json(current)}});
 }
 
 bool has_navigation_interaction_context(const NavigationInteractionObservation& observation)
@@ -1483,9 +988,9 @@ const char* classify_navigation_interaction_change_kind(const NavigationInteract
 void append_navigation_interaction_change_events(const NavigationInteractionObservation& previous,
                                                  const NavigationInteractionObservation& current)
 {
-  append_recent_event(classify_navigation_interaction_change_kind(previous, current),
-                      json{{"from", navigation_interaction_observation_to_json(previous)},
-                           {"to", navigation_interaction_observation_to_json(current)}});
+  live_debug_events::RecordEvent(classify_navigation_interaction_change_kind(previous, current),
+                                 json{{"from", navigation_interaction_observation_to_json(previous)},
+                                      {"to", navigation_interaction_observation_to_json(current)}});
   append_navigation_hook_actionable_follow_up_event(previous, current);
   append_navigation_poll_actionable_event(previous, current);
 }
@@ -1649,7 +1154,7 @@ void append_fleet_change_events(const FleetObservation& previous, const FleetObs
       previous.selectedIndex != current.selectedIndex || previous.fleetId != current.fleetId;
 
   if (selection_changed) {
-    append_recent_event(
+    live_debug_events::RecordEvent(
         "selected-fleet-changed",
         json{{"from", fleet_observation_to_json(previous)}, {"to", fleet_observation_to_json(current)}});
   }
@@ -1722,46 +1227,46 @@ void append_fleet_slot_change_events(const FleetSlotObservation& previous, const
   const bool fleet_changed = previous.present && current.present && previous.fleetId != current.fleetId;
 
   if (fleet_changed) {
-    append_recent_event("fleet-slot-fleet-changed",
-                        json{{"slotIndex", current.slotIndex},
-                             {"from", fleet_slot_observation_to_json(previous)},
-                             {"to", fleet_slot_observation_to_json(current)}});
+    live_debug_events::RecordEvent("fleet-slot-fleet-changed",
+                                   json{{"slotIndex", current.slotIndex},
+                                        {"from", fleet_slot_observation_to_json(previous)},
+                                        {"to", fleet_slot_observation_to_json(current)}});
     emitted = true;
   }
 
   if ((previous.present != current.present) || (same_fleet && previous.currentState != current.currentState)) {
-    append_recent_event(classify_fleet_slot_transition_kind(previous, current),
-                        fleet_slot_transition_to_json(previous, current));
+    live_debug_events::RecordEvent(classify_fleet_slot_transition_kind(previous, current),
+                                   fleet_slot_transition_to_json(previous, current));
     emitted = true;
   }
 
   if (same_fleet && previous.hullName != current.hullName) {
-    append_recent_event("fleet-slot-hull-changed",
-                        json{{"slotIndex", current.slotIndex},
-                             {"selected", current.selected},
-                             {"fleetId", current.fleetId},
-                             {"fromHullName", previous.hullName},
-                             {"toHullName", current.hullName},
-                             {"state", current.currentState},
-                             {"stateName", fleet_state_name_from_value(current.currentState)}});
+    live_debug_events::RecordEvent("fleet-slot-hull-changed",
+                                   json{{"slotIndex", current.slotIndex},
+                                        {"selected", current.selected},
+                                        {"fleetId", current.fleetId},
+                                        {"fromHullName", previous.hullName},
+                                        {"toHullName", current.hullName},
+                                        {"state", current.currentState},
+                                        {"stateName", fleet_state_name_from_value(current.currentState)}});
     emitted = true;
   }
 
   if (same_fleet && current.cargoFillBasisPoints > previous.cargoFillBasisPoints) {
-    append_recent_event("fleet-slot-cargo-gained",
-                        json{{"slotIndex", current.slotIndex},
-                             {"selected", current.selected},
-                             {"fleetId", current.fleetId},
-                             {"fromCargoFillBasisPoints", previous.cargoFillBasisPoints},
-                             {"toCargoFillBasisPoints", current.cargoFillBasisPoints},
-                             {"deltaCargoFillBasisPoints", current.cargoFillBasisPoints - previous.cargoFillBasisPoints},
-                             {"state", current.currentState},
-                             {"stateName", fleet_state_name_from_value(current.currentState)}});
+    live_debug_events::RecordEvent("fleet-slot-cargo-gained",
+                                   json{{"slotIndex", current.slotIndex},
+                                        {"selected", current.selected},
+                                        {"fleetId", current.fleetId},
+                                        {"fromCargoFillBasisPoints", previous.cargoFillBasisPoints},
+                                        {"toCargoFillBasisPoints", current.cargoFillBasisPoints},
+                                        {"deltaCargoFillBasisPoints", current.cargoFillBasisPoints - previous.cargoFillBasisPoints},
+                                        {"state", current.currentState},
+                                        {"stateName", fleet_state_name_from_value(current.currentState)}});
     emitted = true;
   }
 
   if (!emitted) {
-    append_recent_event("fleet-slot-changed", fleet_slot_observation_to_json(current));
+    live_debug_events::RecordEvent("fleet-slot-changed", fleet_slot_observation_to_json(current));
   }
 }
 
@@ -1887,20 +1392,6 @@ FleetObservation observe_fleetbar()
   return observation;
 }
 
-const char* occupied_state_name(OccupiedState state)
-{
-  switch (state) {
-    case NotOccupied:
-      return "NotOccupied";
-    case LocalPlayerOccupied:
-      return "LocalPlayerOccupied";
-    case OtherPlayerOccupied:
-      return "OtherPlayerOccupied";
-    default:
-      return "Unknown";
-  }
-}
-
 json timer_context_to_json(TimerDataContext* timer)
 {
   if (!timer) {
@@ -1938,7 +1429,7 @@ json mining_viewer_to_json(MiningObjectViewerWidget* mining_viewer)
               {"hasParent", parent != nullptr},
               {"parentIsShowing", parent ? parent->IsShowing : false},
               {"occupiedState", static_cast<int>(mining_viewer->_occupiedState)},
-              {"occupiedStateName", occupied_state_name(mining_viewer->_occupiedState)},
+              {"occupiedStateName", occupied_state_name_from_value(static_cast<int>(mining_viewer->_occupiedState))},
               {"hasScanEngageButtons", mining_viewer->_scanEngageButtonsWidget != nullptr},
               {"timer", timer_context_to_json(mining_viewer->_miningTimerWidgetContext)}};
 }
@@ -1996,22 +1487,6 @@ TargetViewerObservation observe_target_viewer()
   return observation;
 }
 
-json target_viewer_observation_to_json(const TargetViewerObservation& observation)
-{
-  return json{{"preScanTargetTracked", observation.preScanTargetTracked},
-              {"preScanTarget", observation.preScanTargetTracked
-                                     ? json{{"pointer", observation.preScanTargetPointer}}
-                                     : json(nullptr)},
-              {"preScanStationTargetTracked", observation.preScanStationTargetTracked},
-              {"preScanStationTarget", observation.preScanStationTargetTracked
-                                            ? json{{"pointer", observation.preScanStationTargetPointer}}
-                                            : json(nullptr)},
-              {"celestialViewerTracked", observation.celestialViewerTracked},
-              {"celestialViewer", observation.celestialViewerTracked
-                                      ? json{{"pointer", observation.celestialViewerPointer}}
-                                      : json(nullptr)}};
-}
-
 MineViewerObservation observe_mine_viewer()
 {
   MineViewerObservation observation;
@@ -2052,42 +1527,6 @@ MineViewerObservation observe_mine_viewer()
   return observation;
 }
 
-json mine_viewer_observation_to_json(const MineViewerObservation& observation)
-{
-  json result = {{"miningViewerTracked", observation.miningViewerTracked},
-                 {"starNodeViewerTracked", observation.starNodeViewerTracked}};
-
-  if (observation.miningViewerTracked) {
-    result["miningViewer"] = {{"pointer", observation.miningPointer},
-                               {"enabled", observation.enabled},
-                               {"isActiveAndEnabled", observation.isActiveAndEnabled},
-                               {"isInfoShown", observation.isInfoShown},
-                               {"hasParent", observation.hasParent},
-                               {"parentIsShowing", observation.parentIsShowing},
-                               {"occupiedState", observation.occupiedState},
-                               {"occupiedStateName", occupied_state_name(static_cast<OccupiedState>(observation.occupiedState))},
-                               {"hasScanEngageButtons", observation.hasScanEngageButtons},
-                               {"timer", observation.hasTimer
-                                             ? json{{"remainingSeconds", observation.timerRemainingSeconds},
-                                                    {"remainingSecondsBucket", observation.timerRemainingBucket},
-                                                    {"timerState", observation.timerState},
-                                                    {"timerType", observation.timerType}}
-                                             : json(nullptr)}};
-  } else {
-    result["miningViewer"] = nullptr;
-  }
-
-  if (observation.starNodeViewerTracked) {
-    result["starNodeViewer"] = {{"pointer", observation.starNodePointer},
-                                 {"enabled", observation.starNodeEnabled},
-                                 {"isActiveAndEnabled", observation.starNodeActiveAndEnabled}};
-  } else {
-    result["starNodeViewer"] = nullptr;
-  }
-
-  return result;
-}
-
 TopCanvasObservation observe_top_canvas()
 {
   TopCanvasObservation observation;
@@ -2116,7 +1555,7 @@ TopCanvasObservation observe_top_canvas()
 void DeploymentEvents_TriggerFleetStateChangeEvent_Hook(auto original, IList* fleets)
 {
   original(fleets);
-  append_event_if_live_debug_enabled(
+  live_debug_events::RecordEvent(
       "deployment-fleet-state-event",
       json{{"fleetCount", count_list_items(fleets)}, {"fleets", deployed_fleet_list_to_json(fleets)}});
   capture_recent_model_events("deployment-fleet-state-event");
@@ -2131,7 +1570,7 @@ void DeploymentEvents_TriggerPlayerFleetsUpdatedEvent_Hook(auto original, IList*
 void DeploymentEvents_TriggerCoursePlannedEvent_Hook(auto original, IList* courses)
 {
   original(courses);
-  append_event_if_live_debug_enabled("deployment-course-planned-event",
+  live_debug_events::RecordEvent("deployment-course-planned-event",
                                      json{{"courseCount", count_list_items(courses)}});
   capture_recent_model_events("deployment-course-planned-event");
 }
@@ -2139,7 +1578,7 @@ void DeploymentEvents_TriggerCoursePlannedEvent_Hook(auto original, IList* cours
 void DeploymentEvents_TriggerCourseStartEvent_Hook(auto original, IList* courses)
 {
   original(courses);
-  append_event_if_live_debug_enabled("deployment-course-start-event",
+  live_debug_events::RecordEvent("deployment-course-start-event",
                                      json{{"courseCount", count_list_items(courses)}});
   capture_recent_model_events("deployment-course-start-event");
 }
@@ -2147,7 +1586,7 @@ void DeploymentEvents_TriggerCourseStartEvent_Hook(auto original, IList* courses
 void DeploymentEvents_TriggerCourseChangeEvent_Hook(auto original, IList* old_courses, IList* new_courses)
 {
   original(old_courses, new_courses);
-  append_event_if_live_debug_enabled("deployment-course-change-event",
+  live_debug_events::RecordEvent("deployment-course-change-event",
                                      json{{"oldCourseCount", count_list_items(old_courses)},
                                           {"newCourseCount", count_list_items(new_courses)}});
   capture_recent_model_events("deployment-course-change-event");
@@ -2156,7 +1595,7 @@ void DeploymentEvents_TriggerCourseChangeEvent_Hook(auto original, IList* old_co
 void DeploymentEvents_TriggerCourseEndEvent_Hook(auto original, IList* courses)
 {
   original(courses);
-  append_event_if_live_debug_enabled("deployment-course-end-event",
+  live_debug_events::RecordEvent("deployment-course-end-event",
                                      json{{"courseCount", count_list_items(courses)}});
   capture_recent_model_events("deployment-course-end-event");
 }
@@ -2165,7 +1604,7 @@ void DeploymentEvents_TriggerSetCourseResponseEvent_Hook(auto original, long fle
                                                          bool is_recall_course, void* planned_course_data)
 {
   original(fleet_id, success, is_recall_course, planned_course_data);
-  append_event_if_live_debug_enabled("deployment-set-course-response-event",
+  live_debug_events::RecordEvent("deployment-set-course-response-event",
                                      json{{"fleetId", fleet_id},
                                           {"success", success},
                                           {"isRecallCourse", is_recall_course},
@@ -2176,7 +1615,7 @@ void DeploymentEvents_TriggerSetCourseResponseEvent_Hook(auto original, long fle
 void DeploymentEvents_TriggerBattleStartEvent_Hook(auto original, IList* fleets)
 {
   original(fleets);
-  append_event_if_live_debug_enabled(
+  live_debug_events::RecordEvent(
       "deployment-battle-start-event",
       json{{"fleetCount", count_list_items(fleets)}, {"fleets", deployed_fleet_list_to_json(fleets)}});
   capture_recent_model_events("deployment-battle-start-event");
@@ -2185,7 +1624,7 @@ void DeploymentEvents_TriggerBattleStartEvent_Hook(auto original, IList* fleets)
 void DeploymentEvents_TriggerBattleEndEvent_Hook(auto original, IList* fleets)
 {
   original(fleets);
-  append_event_if_live_debug_enabled(
+  live_debug_events::RecordEvent(
       "deployment-battle-end-event",
       json{{"fleetCount", count_list_items(fleets)}, {"fleets", deployed_fleet_list_to_json(fleets)}});
   capture_recent_model_events("deployment-battle-end-event");
@@ -2194,7 +1633,7 @@ void DeploymentEvents_TriggerBattleEndEvent_Hook(auto original, IList* fleets)
 void DeploymentEvents_TriggerStaleFleetDataDetected_Hook(auto original)
 {
   original();
-  append_event_if_live_debug_enabled("deployment-stale-fleet-data-detected-event", json::object());
+  live_debug_events::RecordEvent("deployment-stale-fleet-data-detected-event", json::object());
   capture_recent_model_events("deployment-stale-fleet-data-detected-event");
 }
 
@@ -2228,39 +1667,81 @@ json handle_target_viewer_state(const std::string& request_id)
            {"celestialViewer", celestial_viewer_to_json(celestial_viewer)}});
 }
 
-json handle_recent_events(const std::string& request_id)
+json handle_recent_events(const std::string& request_id, const json& request)
 {
-  json events = json::array();
-  json kind_counts = json::object();
+  LiveDebugRecentEventStoreQuery query;
 
-  for (const auto& event : g_recent_events) {
-    events.push_back(event);
+  if (const auto after_seq_it = request.find("afterSeq");
+      after_seq_it != request.end() && after_seq_it->is_number_integer()) {
+    query.afterSeq = after_seq_it->get<int64_t>();
+  }
 
-    const auto kind_it = event.find("kind");
-    if (kind_it == event.end() || !kind_it->is_string()) {
-      continue;
-    }
+  if (const auto limit_it = request.find("limit");
+      limit_it != request.end() && limit_it->is_number_integer()) {
+    query.limit = static_cast<size_t>(std::max<int64_t>(0, limit_it->get<int64_t>()));
+  } else if (const auto last_it = request.find("last");
+             last_it != request.end() && last_it->is_number_integer()) {
+    query.limit = static_cast<size_t>(std::max<int64_t>(0, last_it->get<int64_t>()));
+  }
 
-    const auto kind = kind_it->get<std::string>();
-    const auto existing = kind_counts.find(kind);
-    if (existing == kind_counts.end()) {
-      kind_counts[kind] = 1;
-    } else {
-      *existing = existing->get<int>() + 1;
+  if (const auto kinds_it = request.find("kinds"); kinds_it != request.end() && kinds_it->is_array()) {
+    for (const auto& kind : *kinds_it) {
+      if (kind.is_string()) {
+        query.kinds.push_back(kind.get<std::string>());
+      }
     }
   }
 
+  if (const auto kind_it = request.find("kind"); kind_it != request.end() && kind_it->is_string()) {
+    if (query.kinds.empty()) {
+      query.kind = kind_it->get<std::string>();
+    } else {
+      const auto kind = kind_it->get<std::string>();
+      if (std::find(query.kinds.begin(), query.kinds.end(), kind) == query.kinds.end()) {
+        query.kinds.push_back(kind);
+      }
+    }
+  }
+
+  if (const auto match_it = request.find("match"); match_it != request.end() && match_it->is_string()) {
+    query.match = match_it->get<std::string>();
+  }
+
+  if (const auto exact_it = request.find("exact"); exact_it != request.end() && exact_it->is_boolean()) {
+    query.exact = exact_it->get<bool>();
+  }
+
+  if (const auto include_details_it = request.find("includeDetails");
+      include_details_it != request.end() && include_details_it->is_boolean()) {
+    query.includeDetails = include_details_it->get<bool>();
+  } else if (const auto summary_it = request.find("summary");
+             summary_it != request.end() && summary_it->is_boolean()) {
+    query.includeDetails = !summary_it->get<bool>();
+  }
+
+  auto snapshot = live_debug_events::Snapshot(query);
+
   return make_ok_response(request_id,
-                          json{{"count", g_recent_events.size()},
-                               {"capacity", kRecentEventLimit},
-                               {"kindCounts", std::move(kind_counts)},
-                               {"events", std::move(events)}});
+                          json{{"count", snapshot.count},
+                               {"returnedCount", snapshot.returnedCount},
+                               {"matchedCount", snapshot.matchedCount},
+                               {"capacity", snapshot.capacity},
+                               {"firstSeq", snapshot.firstSeq == 0 ? json(nullptr) : json(snapshot.firstSeq)},
+                               {"lastSeq", snapshot.lastSeq == 0 ? json(nullptr) : json(snapshot.lastSeq)},
+                               {"nextSeq", snapshot.nextSeq},
+                               {"evictedCount", snapshot.evictedCount},
+                               {"clearCount", snapshot.clearCount},
+                               {"queryGap", snapshot.queryGap},
+                               {"missingCountBeforeFirstReturned", snapshot.missingCountBeforeFirstReturned},
+                               {"kindCounts", std::move(snapshot.kindCounts)},
+                               {"bufferKindCounts", std::move(snapshot.bufferKindCounts)},
+                               {"events", std::move(snapshot.events)}});
 }
 
 json handle_clear_recent_events(const std::string& request_id)
 {
-  const auto cleared = g_recent_events.size();
-  reset_recent_events();
+  const auto cleared = live_debug_events::Clear();
+  reset_recent_observations();
   return make_ok_response(request_id, json{{"cleared", cleared}});
 }
 
@@ -2297,7 +1778,7 @@ json execute_live_debug_command(const json& request)
       return handle_target_viewer_state(request_id);
     }
     if (cmd == "recent-events") {
-      return handle_recent_events(request_id);
+      return handle_recent_events(request_id, request);
     }
     if (cmd == "clear-recent-events") {
       return handle_clear_recent_events(request_id);
@@ -2482,15 +1963,15 @@ void live_debug_record_space_action_warp_cancel(FleetBarViewController* fleet_ba
                                                 bool star_node_viewer_visible,
                                                 bool navigation_interaction_visible)
 {
-  append_event_if_live_debug_enabled(
+  live_debug_events::RecordEvent(
       "space-action-cancel-warp",
       json{{"selectedIndex", fleet_bar ? get_selected_fleet_index(fleet_bar) : -1},
            {"fleetPresent", fleet != nullptr},
            {"fleetId", fleet ? fleet->Id : 0},
            {"currentState", fleet ? static_cast<int>(fleet->CurrentState) : -1},
-           {"currentStateName", fleet ? fleet_state_name(fleet->CurrentState) : "None"},
+         {"currentStateName", fleet ? fleet_state_name_from_value(static_cast<int>(fleet->CurrentState)) : "None"},
            {"previousState", fleet ? static_cast<int>(fleet->PreviousState) : -1},
-           {"previousStateName", fleet ? fleet_state_name(fleet->PreviousState) : "None"},
+         {"previousStateName", fleet ? fleet_state_name_from_value(static_cast<int>(fleet->PreviousState)) : "None"},
            {"inputs",
             {"primary", has_primary},
             {"secondary", has_secondary},
@@ -2517,15 +1998,15 @@ void live_debug_record_space_action_warp_cancel_suppressed(FleetBarViewControlle
                                                            bool star_node_viewer_visible,
                                                            bool navigation_interaction_visible)
 {
-  append_event_if_live_debug_enabled(
+  live_debug_events::RecordEvent(
       "space-action-cancel-warp-suppressed",
       json{{"selectedIndex", fleet_bar ? get_selected_fleet_index(fleet_bar) : -1},
            {"fleetPresent", fleet != nullptr},
            {"fleetId", fleet ? fleet->Id : 0},
            {"currentState", fleet ? static_cast<int>(fleet->CurrentState) : -1},
-           {"currentStateName", fleet ? fleet_state_name(fleet->CurrentState) : "None"},
+         {"currentStateName", fleet ? fleet_state_name_from_value(static_cast<int>(fleet->CurrentState)) : "None"},
            {"previousState", fleet ? static_cast<int>(fleet->PreviousState) : -1},
-           {"previousStateName", fleet ? fleet_state_name(fleet->PreviousState) : "None"},
+         {"previousStateName", fleet ? fleet_state_name_from_value(static_cast<int>(fleet->PreviousState)) : "None"},
            {"inputs",
             {"primary", has_primary},
             {"secondary", has_secondary},
@@ -2548,7 +2029,7 @@ void live_debug_record_incoming_fleet_materialized(std::string_view phase, int t
                                                    uint64_t quick_scan_target_fleet_id,
                                                    std::string_view quick_scan_target_id)
 {
-  append_event_if_live_debug_enabled(
+  live_debug_events::RecordEvent(
       "incoming-fleet-materialized",
       json{{"phase", phase},
            {"targetType", target_type},
@@ -2565,7 +2046,7 @@ void live_debug_record_toast_notification(std::string_view source,
                                           int state,
                                           std::string_view title)
 {
-  append_event_if_live_debug_enabled(
+  live_debug_events::RecordEvent(
       "toast-notification-observed",
       json{{"source", source},
            {"toastPointer", pointer_to_string(toast)},
@@ -2581,7 +2062,7 @@ void live_debug_record_incoming_attack_notification_context(std::string_view sou
                                                            int selected_state,
                                                            int attacker_fleet_type)
 {
-  append_event_if_live_debug_enabled(
+  live_debug_events::RecordEvent(
       "incoming-attack-notification-context",
       json{{"source", source},
            {"body", body},
@@ -2645,6 +2126,6 @@ void live_debug_record_navigation_interaction(std::string_view phase,
     details["poiPointer"] = poi_pointer;
   }
 
-  append_event_if_live_debug_enabled("navigation-interaction-lifecycle", std::move(details));
+  live_debug_events::RecordEvent("navigation-interaction-lifecycle", std::move(details));
 }
 

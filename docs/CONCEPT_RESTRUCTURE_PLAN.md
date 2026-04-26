@@ -225,6 +225,8 @@ The issues are ordered so early work stabilizes current behavior and creates reu
 
 Separate startup shortcut registration from per-frame key fallthrough. Add logs explaining why original `ShortcutsManager.InitializeActions` is called or suppressed.
 
+Also keep Escape-exit suppression owned by the actual back-button seam (`SectionManager.BackButtonPressed`) instead of the generic `ScreenManager.Update` return path; the latter is too lossy once `allow_key_fallthrough` is involved.
+
 Concepts: Pure Decision Models, Diagnostics Facade.
 
 ### 2. Introduce Hook Registry And Hook Health Summaries

@@ -8,6 +8,7 @@ This plan captures the cleanup work surfaced while simplifying incoming attack n
 - `hotkey_router_init_actions()` returns `Config::Get().use_scopely_hotkeys || AllowKeyFallthrough()`.
 - `InitializeActions_Hook()` calls the original Scopely `ShortcutsManager::InitializeActions` when `hotkey_router_init_actions()` returns true.
 - That means the meaning of `allow_key_fallthrough` crosses two concerns: per-frame input fallthrough and startup shortcut registration. This is the most likely current keybinding break source.
+- `disable_escape_exit` also exposed a second seam problem: suppressing `ScreenManager.Update` is not sufficient to block the game's exit prompt when the real owner is `Digit.Client.Sections.SectionManager::BackButtonPressed`, especially if `allow_key_fallthrough` can still re-enable the original path.
 - `HotkeyHooks` installed during boot, and the deployed build reports hooks installed `17/17`.
 - `ScreenManager_Update_Hook()` currently runs `live_debug_tick()` before the hotkey router, so hotkeys and live-debug share the same frame hook path.
 - Incoming attack notifications now use one production path, `ToastFleetObserver.QueueNotifications`; old producer/navigation/station/fleet-bar inference branches were removed.
@@ -45,6 +46,7 @@ Problem: `allow_key_fallthrough` affects both startup shortcut registration and 
 Scope:
 - Rename `hotkey_router_init_actions()` to something behavior-explicit, such as `hotkey_router_should_call_original_initialize_actions()`.
 - Split config semantics into two decisions if needed: startup action initialization and per-frame key fallthrough.
+- Keep Escape-exit policy at the owning back-button seam rather than the generic `ScreenManager.Update` fallthrough bool.
 - Add startup logging for `allow_key_fallthrough`, `use_scopely_hotkeys`, `hotkeys_enabled`, and `installHotkeyHooks`.
 - Decide whether `allow_key_fallthrough` should ever cause original `InitializeActions` to run.
 
@@ -56,6 +58,7 @@ Files:
 
 Acceptance Criteria:
 - The branch in `InitializeActions_Hook()` reads naturally without inverted semantics.
+- Escape suppression cannot be undone by `allow_key_fallthrough` after the router consumes input.
 - Runtime logs state exactly why the original shortcut initialization was called or suppressed.
 - A test covers the decision matrix for `allow_key_fallthrough` and `use_scopely_hotkeys`.
 - Existing user config either migrates cleanly or preserves documented behavior.

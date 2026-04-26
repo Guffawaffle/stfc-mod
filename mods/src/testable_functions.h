@@ -37,6 +37,14 @@ bool should_call_original_initialize_actions(bool use_scopely_hotkeys, bool allo
 // Per-frame ScreenManager::Update policy after the router has made its decision.
 bool should_call_original_screen_update(bool router_allows_original, bool allow_key_fallthrough);
 
+// Escape-exit policy at the real back-button seam. Returns true when the current
+// Escape-triggered back-button press should be suppressed instead of letting the
+// game open its exit prompt.
+bool should_suppress_escape_exit(bool disable_escape_exit,
+                 bool escape_pressed,
+                 int escape_exit_timer_ms,
+                 int64_t elapsed_ms_since_last_escape_press);
+
 // Resolve the canonical disable-hotkeys shortcut while accepting deprecated keys.
 HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(
     const HotkeyDisableShortcutAliasInput& input);

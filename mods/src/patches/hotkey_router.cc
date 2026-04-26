@@ -4,8 +4,9 @@
  *
  * This is the main keyboard input processing loop for the community patch.
  * It handles enable/disable toggling, ship selection, escape behavior, chat
- * channel shortcuts, space actions (engage/scan/mine/recall/repair), the
- * table-driven dispatch system, and the configurable double-tap escape exit.
+ * channel shortcuts, space actions (engage/scan/mine/recall/repair), and the
+ * table-driven dispatch system. Escape-driven exit suppression is enforced at
+ * SectionManager::BackButtonPressed rather than this frame router.
  */
 #include "errormsg.h"
 #include "config.h"
@@ -36,7 +37,6 @@
 #endif
 
 #include <spdlog/spdlog.h>
-#include <chrono>
 
 // ─── Main Per-Frame Hotkey Router ─────────────────────────────────────────────────────
 
@@ -225,19 +225,6 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
     // Tick the info pending counter (multi-frame show)
     TickInfoPending();
-  }
-
-  // ─── Configurable double-tap Escape exit ───────────────────────────────────────────
-  // Suppress escape exit if configured
-  if (config->disable_escape_exit && Key::Pressed(KeyCode::Escape)) {
-    static std::chrono::time_point<std::chrono::steady_clock> escape_clock = {};
-    std::chrono::time_point<std::chrono::steady_clock>        escape_now   = std::chrono::steady_clock::now();
-    std::chrono::milliseconds escape_diff = std::chrono::duration_cast<std::chrono::milliseconds>(escape_now - escape_clock);
-    escape_clock                          = escape_now;
-    if (config->escape_exit_timer <= 0 || escape_diff > std::chrono::milliseconds(config->escape_exit_timer)) {
-      return false;
-    }
-    // Double-tap detected — fall through to original() to trigger exit
   }
 
   return true;
