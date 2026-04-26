@@ -3,11 +3,13 @@
 // Testable pure functions extracted from notification_service.cc and
 // battle_notify_parser.cc.  No IL2CPP, no platform, no game memory.
 
+#include "bounded_ttl_cache.h"
+
+#include <chrono>
 #include <cstdint>
 #include <cstddef>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 
 struct HotkeyDisableShortcutAliasInput {
   bool        has_canonical = false;
@@ -80,11 +82,9 @@ public:
   bool contains(const IncomingAttackPolicyDedupKey& key) const;
 
 private:
-  size_t max_entries_;
-  std::unordered_map<IncomingAttackPolicyDedupKey, int64_t, IncomingAttackPolicyDedupKeyHasher> recent_;
+  using DedupeClock = std::chrono::steady_clock;
 
-  void prune(int64_t now_seconds);
-  bool enforce_limit();
+  BoundedTtlDeduper<IncomingAttackPolicyDedupKey, DedupeClock, IncomingAttackPolicyDedupKeyHasher> recent_;
 };
 
 IncomingAttackPolicyAttackerKind incoming_attack_policy_attacker_kind_from_fleet_type(int attackerFleetType);

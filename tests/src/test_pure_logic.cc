@@ -1,8 +1,11 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
+#include "bounded_ttl_cache.h"
 #include "str_utils_pure.h"
 #include "testable_functions.h"
+
+#include <chrono>
 
 // ===========================================================================
 // str_utils_pure.h
@@ -178,6 +181,77 @@ TEST_SUITE("hotkey_disable_shortcut_alias")
     CHECK(decision.source_key == "set_hotkeys_disabled");
     CHECK(decision.value == "CTRL-L");
     CHECK(decision.used_deprecated_alias);
+  }
+}
+
+// ===========================================================================
+// bounded TTL deduper
+// ===========================================================================
+
+TEST_SUITE("bounded_ttl_deduper")
+{
+  using TestDeduper = BoundedTtlDeduper<std::string>;
+
+  TEST_CASE("suppresses repeated key inside TTL and emits at boundary")
+  {
+    auto at_ms = [](int64_t ms) { return TestDeduper::time_point{std::chrono::milliseconds(ms)}; };
+    TestDeduper deduper(8);
+    const auto ttl = std::chrono::milliseconds(100);
+
+    CHECK(deduper.should_emit("toast-1", at_ms(0), ttl).emitted);
+
+    const auto duplicate = deduper.should_emit("toast-1", at_ms(99), ttl);
+    CHECK_FALSE(duplicate.emitted);
+    CHECK(duplicate.suppressed_by_window);
+
+    const auto boundary = deduper.should_emit("toast-1", at_ms(100), ttl);
+    CHECK(boundary.emitted);
+    CHECK_FALSE(boundary.suppressed_by_window);
+  }
+
+  TEST_CASE("key replacement refreshes timestamp after expiry")
+  {
+    auto at_ms = [](int64_t ms) { return TestDeduper::time_point{std::chrono::milliseconds(ms)}; };
+    TestDeduper deduper(8);
+    const auto ttl = std::chrono::milliseconds(100);
+
+    CHECK(deduper.should_emit("incoming", at_ms(0), ttl).emitted);
+    CHECK(deduper.should_emit("incoming", at_ms(100), ttl).emitted);
+    CHECK_FALSE(deduper.should_emit("incoming", at_ms(199), ttl).emitted);
+    CHECK(deduper.should_emit("incoming", at_ms(200), ttl).emitted);
+    CHECK(deduper.size() == 1);
+  }
+
+  TEST_CASE("prune removes expired entries without removing live entries")
+  {
+    auto at_ms = [](int64_t ms) { return TestDeduper::time_point{std::chrono::milliseconds(ms)}; };
+    TestDeduper deduper(8);
+    const auto ttl = std::chrono::milliseconds(100);
+
+    CHECK(deduper.should_emit("old", at_ms(0), ttl).emitted);
+    CHECK(deduper.should_emit("live", at_ms(50), ttl).emitted);
+
+    CHECK(deduper.prune(at_ms(100)) == 1);
+    CHECK_FALSE(deduper.contains("old"));
+    CHECK(deduper.contains("live"));
+  }
+
+  TEST_CASE("max-entry eviction removes the oldest cached key")
+  {
+    auto at_ms = [](int64_t ms) { return TestDeduper::time_point{std::chrono::milliseconds(ms)}; };
+    TestDeduper deduper(2);
+    const auto ttl = std::chrono::seconds(10);
+
+    CHECK(deduper.should_emit("first", at_ms(0), ttl).emitted);
+    CHECK(deduper.should_emit("second", at_ms(1), ttl).emitted);
+
+    const auto result = deduper.should_emit("third", at_ms(2), ttl);
+    CHECK(result.emitted);
+    CHECK(result.evicted_oldest);
+    CHECK(result.cache_size == 2);
+    CHECK_FALSE(deduper.contains("first"));
+    CHECK(deduper.contains("second"));
+    CHECK(deduper.contains("third"));
   }
 }
 

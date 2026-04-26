@@ -89,29 +89,20 @@ bool operator==(const IncomingAttackPolicyDedupKey& lhs, const IncomingAttackPol
 }
 
 IncomingAttackPolicyDeduper::IncomingAttackPolicyDeduper(size_t max_entries)
-  : max_entries_(max_entries)
+  : recent_(max_entries)
 {
 }
 
 IncomingAttackPolicyDedupeResult IncomingAttackPolicyDeduper::should_emit(const IncomingAttackPolicyDedupKey& key,
                                                                           int64_t now_seconds)
 {
-  prune(now_seconds);
-
-  IncomingAttackPolicyDedupeResult result;
-  const auto window = incoming_attack_policy_dedupe_window_seconds(key);
-  auto it = recent_.find(key);
-  if (it != recent_.end() && now_seconds - it->second < window) {
-    result.suppressed_by_window = true;
-    result.cache_size = recent_.size();
-    return result;
-  }
-
-  recent_[key] = now_seconds;
-  result.emitted = true;
-  result.evicted_oldest = enforce_limit();
-  result.cache_size = recent_.size();
-  return result;
+  const auto now = DedupeClock::time_point{std::chrono::seconds(now_seconds)};
+  const auto ttl = std::chrono::seconds(incoming_attack_policy_dedupe_window_seconds(key));
+  const auto dedupe_result = recent_.should_emit(key, now, ttl);
+  return {dedupe_result.emitted,
+          dedupe_result.suppressed_by_window,
+          dedupe_result.evicted_oldest,
+          dedupe_result.cache_size};
 }
 
 size_t IncomingAttackPolicyDeduper::size() const
@@ -121,37 +112,7 @@ size_t IncomingAttackPolicyDeduper::size() const
 
 bool IncomingAttackPolicyDeduper::contains(const IncomingAttackPolicyDedupKey& key) const
 {
-  return recent_.find(key) != recent_.end();
-}
-
-void IncomingAttackPolicyDeduper::prune(int64_t now_seconds)
-{
-  for (auto it = recent_.begin(); it != recent_.end();) {
-    if (now_seconds - it->second > incoming_attack_policy_dedupe_window_seconds(it->first)) {
-      it = recent_.erase(it);
-      continue;
-    }
-
-    ++it;
-  }
-}
-
-bool IncomingAttackPolicyDeduper::enforce_limit()
-{
-  bool evicted = false;
-  while (recent_.size() > max_entries_) {
-    auto oldest = recent_.begin();
-    for (auto it = recent_.begin(); it != recent_.end(); ++it) {
-      if (it->second < oldest->second) {
-        oldest = it;
-      }
-    }
-
-    recent_.erase(oldest);
-    evicted = true;
-  }
-
-  return evicted;
+  return recent_.contains(key);
 }
 
 IncomingAttackPolicyAttackerKind incoming_attack_policy_attacker_kind_from_fleet_type(int attackerFleetType)

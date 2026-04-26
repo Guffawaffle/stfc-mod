@@ -9,6 +9,7 @@
 #include "patches/notification_service.h"
 #include "patches/battle_notify_parser.h"
 
+#include "bounded_ttl_cache.h"
 #include "config.h"
 #include "str_utils.h"
 
@@ -107,21 +108,16 @@ struct NotificationRequest {
   std::chrono::steady_clock::time_point queued_at;
 };
 
-struct RecentToastRecord {
-  uintptr_t pointer = 0;
-  std::chrono::steady_clock::time_point seen_at;
-};
-
 static std::mutex              s_notification_queue_mutex;
 static std::condition_variable s_notification_queue_condition;
 static std::deque<NotificationRequest> s_notification_queue;
 static std::mutex              s_recent_toast_mutex;
-static std::deque<RecentToastRecord> s_recent_toasts;
 static std::once_flag          s_notification_worker_once;
 static constexpr auto          kNotificationCoalesceWindow   = std::chrono::milliseconds(750);
 static constexpr auto          kRecentToastDedupWindow       = std::chrono::milliseconds(500);
 static constexpr size_t        kRecentToastDedupMaxEntries   = 256;
 static constexpr size_t        kNotificationSummaryLimit     = 4;
+static BoundedTtlDeduper<uintptr_t> s_recent_toasts(kRecentToastDedupMaxEntries);
 
 bool notification_should_process_toast(Toast* toast)
 {
@@ -133,23 +129,12 @@ bool notification_should_process_toast(Toast* toast)
   const auto key = reinterpret_cast<uintptr_t>(toast);
 
   std::lock_guard lock(s_recent_toast_mutex);
-
-  while (!s_recent_toasts.empty() && now - s_recent_toasts.front().seen_at > kRecentToastDedupWindow) {
-    s_recent_toasts.pop_front();
+  const auto dedupe_result = s_recent_toasts.should_emit(key, now, kRecentToastDedupWindow);
+  if (!dedupe_result.emitted) {
+    spdlog::debug("[Notify] Duplicate toast pointer {:p}, suppressing repeated notification pass", (const void*)toast);
+    return false;
   }
 
-  while (s_recent_toasts.size() >= kRecentToastDedupMaxEntries) {
-    s_recent_toasts.pop_front();
-  }
-
-  for (const auto& record : s_recent_toasts) {
-    if (record.pointer == key) {
-      spdlog::debug("[Notify] Duplicate toast pointer {:p}, suppressing repeated notification pass", (const void*)toast);
-      return false;
-    }
-  }
-
-  s_recent_toasts.push_back({ key, now });
   return true;
 }
 
