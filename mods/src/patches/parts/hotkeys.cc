@@ -13,6 +13,7 @@
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
+#include "patches/hook_registry.h"
 #include "patches/hotkey_router.h"
 #include "patches/live_debug.h"
 
@@ -25,6 +26,34 @@ constexpr bool kEnableHotkeyRouterFrame = true;
 constexpr bool kEnableShortcutInitializeHook = true;
 constexpr bool kEnableRewardsButtonHook = true;
 constexpr bool kEnablePreScanTargetHook = true;
+
+constexpr HookDescriptor kInitializeActionsHook = {
+  "ShortcutsManager.InitializeActions",
+  "decide whether Scopely shortcut actions initialize alongside mod hotkeys",
+  {"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager", "InitializeActions"},
+  "Scopely shortcuts may be unavailable or may double-handle inputs",
+};
+
+constexpr HookDescriptor kScreenManagerUpdateHook = {
+  "ScreenManager.Update",
+  "route per-frame hotkeys and frame observers",
+  {"Assembly-CSharp", "Digit.Client.UI", "ScreenManager", "Update"},
+  "mod hotkeys and frame-driven diagnostics will not tick",
+};
+
+constexpr HookDescriptor kRewardsButtonBindHook = {
+  "RewardsButtonWidget.OnDidBindContext",
+  "track combat reward buttons for hotkey-driven reward collection",
+  {"Assembly-CSharp", "Digit.Prime.Combat", "RewardsButtonWidget", "OnDidBindContext"},
+  "reward collection hotkeys may not find the active reward button",
+};
+
+constexpr HookDescriptor kPreScanTargetShowHook = {
+  "PreScanTargetWidget.ShowWithFleet",
+  "track pre-scan targets for hotkey-driven scan actions",
+  {"Assembly-CSharp", "Digit.Prime.Combat", "PreScanTargetWidget", "ShowWithFleet"},
+  "scan/action hotkeys may miss the currently shown target",
+};
 }
 
 // ─── SPUD Hook Delegates ─────────────────────────────────────────────────────
@@ -128,6 +157,8 @@ void ChatMessageListLocalViewController_AboutToShow_Hook(ChatMessageListLocalVie
 /** @brief Resolves IL2CPP class/method pointers and installs all hotkey hooks. */
 void InstallHotkeyHooks()
 {
+  HookModuleHealth hooks("HotkeyHooks");
+
   spdlog::info("[Hotkeys] startup config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} allow_key_fallthrough={} frame_hook={} initialize_actions_hook={}",
                Config::Get().installHotkeyHooks,
                Config::Get().hotkeys_enabled,
@@ -140,26 +171,28 @@ void InstallHotkeyHooks()
     auto shortcuts_manager_helper =
         il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager");
     if (!shortcuts_manager_helper.isValidHelper()) {
-      ErrorMsg::MissingHelper("GameInput", "ShortcutsManager");
+      hooks.record_missing_helper(kInitializeActionsHook);
     } else {
       auto ptr_can_user_shortcuts = shortcuts_manager_helper.GetMethod("InitializeActions");
       if (ptr_can_user_shortcuts == nullptr) {
-        ErrorMsg::MissingMethod("ShortcutsManager", "InitializeActions");
+        hooks.record_missing_method(kInitializeActionsHook);
       } else {
-        SPUD_STATIC_DETOUR(ptr_can_user_shortcuts, InitializeActions_Hook);
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kInitializeActionsHook, ptr_can_user_shortcuts, InitializeActions_Hook);
       }
     }
+  } else {
+    hooks.record_skipped(kInitializeActionsHook, "compile-time disabled");
   }
 
   auto screen_manager_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "ScreenManager");
   if (!screen_manager_helper.isValidHelper()) {
-    ErrorMsg::MissingHelper("UI", "ScreenManager");
+    hooks.record_missing_helper(kScreenManagerUpdateHook);
   } else {
     auto ptr_update = screen_manager_helper.GetMethod("Update");
     if (ptr_update == nullptr) {
-      ErrorMsg::MissingMethod("ScreenManager", "Update");
+      hooks.record_missing_method(kScreenManagerUpdateHook);
     } else {
-      SPUD_STATIC_DETOUR(ptr_update, ScreenManager_Update_Hook);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kScreenManagerUpdateHook, ptr_update, ScreenManager_Update_Hook);
     }
   }
 
@@ -167,29 +200,35 @@ void InstallHotkeyHooks()
     static auto rewards_button_widget =
         il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Combat", "RewardsButtonWidget");
     if (!rewards_button_widget.isValidHelper()) {
-      ErrorMsg::MissingHelper("Combat", "RewardsButtonWidget");
+      hooks.record_missing_helper(kRewardsButtonBindHook);
     } else {
       auto on_did_bind_context_ptr = rewards_button_widget.GetMethod("OnDidBindContext");
       if (on_did_bind_context_ptr == nullptr) {
-        ErrorMsg::MissingMethod("RewardsButtonWidget", "OnDidBindContext");
+        hooks.record_missing_method(kRewardsButtonBindHook);
       } else {
-        SPUD_STATIC_DETOUR(on_did_bind_context_ptr, OnDidBindContext_Hook);
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kRewardsButtonBindHook, on_did_bind_context_ptr, OnDidBindContext_Hook);
       }
     }
+  } else {
+    hooks.record_skipped(kRewardsButtonBindHook, "compile-time disabled");
   }
 
   if (kEnablePreScanTargetHook) {
     static auto pre_scan_target_widget =
         il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Combat", "PreScanTargetWidget");
     if (!pre_scan_target_widget.isValidHelper()) {
-      ErrorMsg::MissingHelper("Combat", "PreScanTargetWidget");
+      hooks.record_missing_helper(kPreScanTargetShowHook);
     } else {
       auto show_with_fleet_ptr = pre_scan_target_widget.GetMethod("ShowWithFleet");
       if (show_with_fleet_ptr == nullptr) {
-        ErrorMsg::MissingMethod("PreScanTargetWidget", "ShowWithFleet");
+        hooks.record_missing_method(kPreScanTargetShowHook);
       } else {
-        SPUD_STATIC_DETOUR(show_with_fleet_ptr, ShowWithFleet_Hook);
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kPreScanTargetShowHook, show_with_fleet_ptr, ShowWithFleet_Hook);
       }
     }
+  } else {
+    hooks.record_skipped(kPreScanTargetShowHook, "compile-time disabled");
   }
+
+  hooks.log_summary();
 }
