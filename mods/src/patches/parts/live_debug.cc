@@ -13,9 +13,11 @@
 #include "patches/live_debug_fleet_serializers.h"
 #include "patches/live_debug_fleet_runtime_observers.h"
 #include "patches/live_debug_fleet_runtime_serializers.h"
+#include "patches/live_debug_observation_compare.h"
 #include "patches/live_debug_recent_event_requests.h"
 #include "patches/live_debug_request_dispatch.h"
 #include "patches/live_debug_state_results.h"
+#include "patches/live_debug_ui_change_events.h"
 #include "patches/live_debug_ui_runtime_observers.h"
 #include "patches/live_debug_ui_serializers.h"
 #include "patches/live_debug_viewer_runtime.h"
@@ -102,7 +104,10 @@ constexpr bool kEnableLiveDebugNavigationInteractionPolling = false;
 constexpr bool kEnableLiveDebugObserverStepTrace = false;
 bool g_ui_observer_trace_current_poll = false;
 int g_ui_observer_trace_budget = 4000;
-bool is_navigation_interaction_top_canvas(const TopCanvasObservation& observation);
+void append_navigation_hook_actionable_follow_up_event(const NavigationInteractionObservation& previous,
+                                                       const NavigationInteractionObservation& current);
+void append_navigation_poll_actionable_event(const NavigationInteractionObservation& previous,
+                                             const NavigationInteractionObservation& current);
 
 std::filesystem::path get_live_debug_path(std::string_view filename)
 {
@@ -188,6 +193,15 @@ const LiveDebugUiObserverTraceHooks& ui_observer_trace_hooks()
   static const LiveDebugUiObserverTraceHooks hooks = {
       append_ui_observer_trace_step,
       mark_ui_observer_current_poll_visible,
+  };
+  return hooks;
+}
+
+const LiveDebugUiChangeEventHooks& ui_change_event_hooks()
+{
+  static const LiveDebugUiChangeEventHooks hooks = {
+      append_navigation_hook_actionable_follow_up_event,
+      append_navigation_poll_actionable_event,
   };
   return hooks;
 }
@@ -581,100 +595,6 @@ void reset_recent_observations()
   g_last_navigation_interaction = {};
 }
 
-bool same_top_canvas_observation(const TopCanvasObservation& left, const TopCanvasObservation& right)
-{
-  return left.found == right.found && left.pointer == right.pointer &&
-  left.className == right.className && left.classNamespace == right.classNamespace &&
-  left.name == right.name && left.visible == right.visible && left.enabled == right.enabled &&
-  left.internalVisible == right.internalVisible && left.activeChildNames == right.activeChildNames;
-}
-
-bool same_fleet_observation(const FleetObservation& left, const FleetObservation& right)
-{
-  return left.tracked == right.tracked && left.selectedIndex == right.selectedIndex &&
-      left.hasController == right.hasController && left.hasFleet == right.hasFleet &&
-      left.fleetId == right.fleetId && left.currentState == right.currentState &&
-  left.previousState == right.previousState && left.cargoFillBasisPoints == right.cargoFillBasisPoints &&
-      left.hullName == right.hullName;
-}
-
-bool same_fleet_slot_observation(const FleetSlotObservation& left, const FleetSlotObservation& right)
-{
-  return left.slotIndex == right.slotIndex && left.present == right.present &&
-      left.fleetId == right.fleetId && left.currentState == right.currentState &&
-      left.previousState == right.previousState && left.cargoFillBasisPoints == right.cargoFillBasisPoints &&
-      left.hullName == right.hullName;
-}
-
-bool same_mine_viewer_observation(const MineViewerObservation& left, const MineViewerObservation& right)
-{
-  return left.miningViewerTracked == right.miningViewerTracked && left.enabled == right.enabled &&
-      left.isActiveAndEnabled == right.isActiveAndEnabled && left.isInfoShown == right.isInfoShown &&
-      left.hasParent == right.hasParent && left.parentIsShowing == right.parentIsShowing &&
-      left.occupiedState == right.occupiedState && left.hasScanEngageButtons == right.hasScanEngageButtons &&
-      left.hasTimer == right.hasTimer && left.timerState == right.timerState &&
-      left.timerType == right.timerType && left.timerRemainingBucket == right.timerRemainingBucket &&
-      left.starNodeViewerTracked == right.starNodeViewerTracked &&
-      left.starNodeEnabled == right.starNodeEnabled &&
-      left.starNodeActiveAndEnabled == right.starNodeActiveAndEnabled;
-}
-
-bool same_target_viewer_observation(const TargetViewerObservation& left, const TargetViewerObservation& right)
-{
-  return left.preScanTargetTracked == right.preScanTargetTracked &&
-      left.preScanTargetPointer == right.preScanTargetPointer &&
-      left.preScanStationTargetTracked == right.preScanStationTargetTracked &&
-      left.preScanStationTargetPointer == right.preScanStationTargetPointer &&
-      left.celestialViewerTracked == right.celestialViewerTracked &&
-      left.celestialViewerPointer == right.celestialViewerPointer;
-}
-
-bool same_station_warning_observation(const StationWarningObservation& left,
-                                      const StationWarningObservation& right)
-{
-  return left.tracked == right.tracked && left.pointer == right.pointer &&
-      left.hasContext == right.hasContext && left.targetType == right.targetType &&
-      left.targetFleetId == right.targetFleetId && left.targetUserId == right.targetUserId &&
-      left.quickScanTargetFleetId == right.quickScanTargetFleetId &&
-      left.quickScanTargetId == right.quickScanTargetId;
-}
-
-    bool same_navigation_interaction_observation(const NavigationInteractionObservation& left,
-                     const NavigationInteractionObservation& right)
-    {
-      if (left.tracked != right.tracked || left.trackedCount != right.trackedCount ||
-          left.entries.size() != right.entries.size()) {
-        return false;
-      }
-
-      for (size_t index = 0; index < left.entries.size(); ++index) {
-        const auto& left_entry = left.entries[index];
-        const auto& right_entry = right.entries[index];
-        if (left_entry.pointer != right_entry.pointer ||
-            left_entry.hasContext != right_entry.hasContext ||
-            left_entry.contextDataState != right_entry.contextDataState ||
-            left_entry.inputInteractionType != right_entry.inputInteractionType ||
-            left_entry.userId != right_entry.userId ||
-            left_entry.isMarauder != right_entry.isMarauder ||
-            left_entry.threatLevel != right_entry.threatLevel ||
-            left_entry.validNavigationInput != right_entry.validNavigationInput ||
-            left_entry.showSetCourseArm != right_entry.showSetCourseArm ||
-            left_entry.locationTranslationId != right_entry.locationTranslationId ||
-            left_entry.poiPointer != right_entry.poiPointer) {
-          return false;
-        }
-      }
-
-      return true;
-    }
-
-bool is_meaningful_mine_viewer_observation(const MineViewerObservation& observation)
-{
-  return (observation.miningViewerTracked &&
-          (observation.isActiveAndEnabled || observation.parentIsShowing || observation.hasParent)) ||
-      (observation.starNodeViewerTracked && observation.starNodeActiveAndEnabled);
-}
-
 int count_list_items(IList* list)
 {
   if (!list) {
@@ -715,99 +635,6 @@ void initialize_recent_model_observations(std::string_view source)
            {"stationWarning", station_warning_observation_to_json(station_warning)},
            {"navigationInteraction",
             navigation_interaction_observation_to_json(navigation_interaction)}});
-}
-
-const char* classify_top_canvas_change_kind(const TopCanvasObservation& previous,
-                                            const TopCanvasObservation& current)
-{
-  if (!previous.found && current.found) {
-    return "top-canvas-visible";
-  }
-  if (previous.found && !current.found) {
-    return "top-canvas-hidden";
-  }
-  return "top-canvas-changed";
-}
-
-bool is_navigation_interaction_top_canvas(const TopCanvasObservation& observation)
-{
-  return observation.found && observation.name == "NavigationInteractionUI";
-}
-
-void append_top_canvas_change_events(const TopCanvasObservation& previous,
-                                     const TopCanvasObservation& current)
-{
-  live_debug_events::RecordEvent(classify_top_canvas_change_kind(previous, current),
-                                 json{{"from", top_canvas_observation_to_json(previous)},
-                                      {"to", top_canvas_observation_to_json(current)}});
-}
-
-const char* classify_station_warning_change_kind(const StationWarningObservation& previous,
-                                                 const StationWarningObservation& current)
-{
-  if (!previous.tracked && current.tracked) {
-    return "station-warning-visible";
-  }
-  if (previous.tracked && !current.tracked) {
-    return "station-warning-hidden";
-  }
-  if (!previous.hasContext && current.hasContext) {
-    return "station-warning-context-bound";
-  }
-  if (previous.hasContext && !current.hasContext) {
-    return "station-warning-context-cleared";
-  }
-  return "station-warning-changed";
-}
-
-void append_station_warning_change_events(const StationWarningObservation& previous,
-                                          const StationWarningObservation& current)
-{
-  live_debug_events::RecordEvent(classify_station_warning_change_kind(previous, current),
-                                 json{{"from", station_warning_observation_to_json(previous)},
-                                      {"to", station_warning_observation_to_json(current)}});
-}
-
-bool has_navigation_interaction_context(const NavigationInteractionObservation& observation)
-{
-  for (const auto& entry : observation.entries) {
-    if (entry.hasContext) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-const char* classify_navigation_interaction_change_kind(const NavigationInteractionObservation& previous,
-                                                        const NavigationInteractionObservation& current)
-{
-  const bool previous_has_context = has_navigation_interaction_context(previous);
-  const bool current_has_context = has_navigation_interaction_context(current);
-
-  if (!previous.tracked && current.tracked) {
-    return "navigation-interaction-visible";
-  }
-  if (previous.tracked && !current.tracked) {
-    return "navigation-interaction-hidden";
-  }
-  if (!previous_has_context && current_has_context) {
-    return "navigation-interaction-context-bound";
-  }
-  if (previous_has_context && !current_has_context) {
-    return "navigation-interaction-context-cleared";
-  }
-  return "navigation-interaction-changed";
-}
-
-void append_navigation_interaction_change_events(const NavigationInteractionObservation& previous,
-                                                 const NavigationInteractionObservation& current)
-{
-  live_debug_events::RecordEvent(classify_navigation_interaction_change_kind(previous, current),
-                                 json{{"from", navigation_interaction_observation_to_json(previous)},
-                                      {"to", navigation_interaction_observation_to_json(current)}});
-  append_navigation_hook_actionable_follow_up_event(previous, current);
-  append_navigation_poll_actionable_event(previous, current);
 }
 
 void poll_recent_ui_events()
@@ -864,7 +691,9 @@ void poll_recent_ui_events()
     if (trace_navigation_poll) {
       append_navigation_hook_trace_step("poll/before-navigation-interaction-change", "poll_recent_ui_events");
     }
-    append_navigation_interaction_change_events(g_last_navigation_interaction, navigation_interaction);
+    append_navigation_interaction_change_events(g_last_navigation_interaction,
+                                                navigation_interaction,
+                                                ui_change_event_hooks());
     if (trace_navigation_poll) {
       append_navigation_hook_trace_step("poll/after-navigation-interaction-change", "poll_recent_ui_events");
     }
