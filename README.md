@@ -21,18 +21,29 @@
 
 > **Short version**
 > If you want the standard, official STFC Community Mod experience, use **[netniV/stfc-mod](https://github.com/netniV/stfc-mod/releases/latest)**.
-> If you want the extra fork-only or not-yet-upstream features listed below, use this fork's **`dev`** releases instead.
+> If you want this fork's validated public builds, use this fork's **`main`** releases.
+> If you want the in-progress integration branch where new fork work lands first, use **`guffa-dev`**.
 
 This fork exists so I can ship and test changes on my own branch without presenting them as official upstream behavior.
 
 - Use **`netniV/stfc-mod` `main` releases** if you want the official/default mod experience.
-- Use **`Guffawaffle/stfc-mod` `dev` releases** if you want my experimental branch with extra features.
+- Use **`Guffawaffle/stfc-mod` `main` releases** if you want the current published state of this fork.
+- Use **`Guffawaffle/stfc-mod` `guffa-dev`** if you want the current working integration branch before changes are promoted to `main`.
 
-## How This Fork Relates To Main
+## How This Fork Is Structured
 
 The official project lives on **`netniV/stfc-mod`**. That is the source of truth.
 
-This fork's **`dev`** branch is effectively upstream main plus a small set of extra commits that are either:
+This fork keeps two named branches with different jobs:
+
+- **`main`** is the default branch and public release branch for the fork. This is the branch people should see first when they open the repository.
+- **`guffa-dev`** is the working integration branch. New fork-only features land here first and are promoted to `main` once they are ready.
+
+Feature work in this fork should branch from **`guffa-dev`**. Upstream PRs should still be prepared from fresh branches based on **`upstream/main`**, not from the fork integration branch.
+
+The plain **`dev`** branch is intentionally not part of that layout anymore. It collides with upstream's branch naming and makes both human and agent workflows harder to reason about.
+
+The fork-only delta is a small set of extra commits that are either:
 
 - still being tested here before they are proposed upstream
 - already proposed upstream but not merged yet
@@ -42,7 +53,7 @@ That is the entire reason this fork exists: keep experimental changes easy to do
 
 ## What's different in this fork?
 
-This fork (`dev` branch) bundles experimental features that haven't been accepted upstream yet, or are too opinionated for the main project:
+This fork (`main` for published builds, `guffa-dev` for current integration work) bundles experimental features that haven't been accepted upstream yet, or are too opinionated for the main project:
 
 | Feature | Status | Upstream PR |
 |---------|--------|-------------|
@@ -50,7 +61,7 @@ This fork (`dev` branch) bundles experimental features that haven't been accepte
 | Double-tap Escape to exit | Pending review | [#124](https://github.com/netniV/stfc-mod/pull/124) |
 | Key fallthrough config option | Pending review | — |
 | OS toast notifications (victory/defeat) | Pending review | [#131](https://github.com/netniV/stfc-mod/pull/131), [#132](https://github.com/netniV/stfc-mod/pull/132) |
-| Fleet-bar arrival notifications | Landed in fork/dev | [#13](https://github.com/Guffawaffle/stfc-mod/issues/13), [#14](https://github.com/Guffawaffle/stfc-mod/pull/14) |
+| Fleet-bar arrival notifications | Landed in fork | [#13](https://github.com/Guffawaffle/stfc-mod/issues/13), [#14](https://github.com/Guffawaffle/stfc-mod/pull/14) |
 | Duplicate hook crash fix | Pending review | [#130](https://github.com/netniV/stfc-mod/pull/130) |
 
 **If any of these features get merged upstream, use the official mod instead.** This fork is a playground, not a competing project.

@@ -80,6 +80,7 @@ jobs:
       - name: Generate release body
         run: |
           compare_url="https://github.com/netniV/stfc-mod/compare/main...Guffawaffle:${{ github.ref_name }}"
+          readme_url="https://github.com/Guffawaffle/stfc-mod/blob/${{ github.ref_name }}/README.md#whats-different-in-this-fork"
 
           cat > release-body.md <<'EOF'
           > **⚠️ UNOFFICIAL FORK — This is NOT the official STFC Community Mod.**
@@ -96,7 +97,7 @@ jobs:
           - `SHA256SUMS.txt` — optional hash verification for release assets
 
           ### What's different in this fork?
-          See the [fork README](https://github.com/Guffawaffle/stfc-mod/tree/dev#whats-different-in-this-fork) for a list of experimental features.
+          See the [fork README](__README_URL__) for a list of experimental features.
 
           ### Full Fork Delta From Upstream Main
           This section compares this release against `netniV/stfc-mod` `main`, not just the previous fork tag.
@@ -106,6 +107,7 @@ jobs:
           EOF
 
           sed -i "s|__COMPARE_URL__|${compare_url}|" release-body.md
+          sed -i "s|__README_URL__|${readme_url}|" release-body.md
           git log --reverse --no-merges --format='- %s' upstream/main..${{ github.sha }} | awk '!seen[$0]++' >> release-body.md
 
       # ✅ Step 5 — Create Release
@@ -116,27 +118,10 @@ jobs:
           tag: ${{ github.ref }}
           name: "${{ github.ref_name }} (Guffawaffle Fork)"
           prerelease: ${{ steps.check-prerelease.outputs.prerelease == 'true' }}
-          body: |
-            > **⚠️ UNOFFICIAL FORK — This is NOT the official STFC Community Mod.**
-            >
-            > This build comes from [Guffawaffle's personal fork](https://github.com/Guffawaffle/stfc-mod) and contains experimental features not yet accepted upstream.
-            > **For the official mod, go to [netniV/stfc-mod](https://github.com/netniV/stfc-mod/releases/latest).**
-            > **To support the project, [sponsor netniV](https://github.com/sponsors/netniV)** — he built this.
-            
-            ---
+          bodyFile: release-body.md
 
-            ### Release Assets
-            - `stfc-community-mod.zip` — recommended Windows download
-            - `version.dll` — direct drop-in update for existing installs
-            - `SHA256SUMS.txt` — optional hash verification for release assets
-            
-            ### What's different in this fork?
-            See the [fork README](https://github.com/Guffawaffle/stfc-mod/tree/dev#whats-different-in-this-fork) for a list of experimental features.
-            
-            ---
-
-      - name: Update release notes from upstream main delta
-        run: gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --notes-file release-body.md
+      - name: Normalize release notes and target metadata
+        run: gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --target "${{ github.sha }}" --notes-file release-body.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
