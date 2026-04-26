@@ -26,7 +26,17 @@ struct Toast;
 void notification_init();
 
 /**
- * @brief Process a game toast for potential OS notification delivery.
+ * @brief Return the notification title for a toast state.
+ */
+const char* notification_toast_title(int state);
+
+/**
+ * @brief Deduplicate repeated ToastObserver passes for the same Toast pointer.
+ */
+bool notification_should_process_toast(Toast* toast);
+
+/**
+ * @brief Process a non-feature-specific game toast for potential OS notification delivery.
  *
  * Checks the toast state against the unified `[notifications]` config,
  * builds a human-readable body (battle data or localized text), and delivers
@@ -34,7 +44,7 @@ void notification_init();
  *
  * @param toast The game Toast object from the hooked banner display method.
  */
-void notification_handle_toast(Toast* toast);
+void notification_handle_generic_toast(Toast* toast, int state, const char* title);
 
 /**
  * @brief Send an arbitrary OS-native notification with the given title and body.

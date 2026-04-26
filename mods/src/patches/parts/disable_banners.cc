@@ -10,6 +10,7 @@
 #include "config.h"
 #include "errormsg.h"
 #include "patches/notification_service.h"
+#include "patches/toast_dispatcher.h"
 
 #include <il2cpp/il2cpp_helper.h>
 #include <prime/Toast.h>
@@ -18,6 +19,11 @@
 
 namespace {
 constexpr bool kEnableToastObserverHooks = true;
+
+bool should_call_original_toast_observer(Toast* toast)
+{
+  return toast_dispatch_decision_allows_original(toast_dispatcher_dispatch(toast));
+}
 }
 
 struct ToastObserver {
@@ -33,14 +39,9 @@ struct ToastObserver {
  */
 void ToastObserver_EnqueueToast_Hook(auto original, ToastObserver *_this, Toast *toast)
 {
-  notification_handle_toast(toast);
-
-  if (std::ranges::find(Config::Get().disabled_banner_types, toast->get_State())
-      != Config::Get().disabled_banner_types.end()) {
-    return;
+  if (should_call_original_toast_observer(toast)) {
+    original(_this, toast);
   }
-
-  original(_this, toast);
 }
 
 /**
@@ -52,14 +53,9 @@ void ToastObserver_EnqueueToast_Hook(auto original, ToastObserver *_this, Toast 
  */
 void ToastObserver_EnqueueOrCombineToast_Hook(auto original, ToastObserver *_this, Toast *toast, uintptr_t cmpAction)
 {
-  notification_handle_toast(toast);
-
-  if (std::ranges::find(Config::Get().disabled_banner_types, toast->get_State())
-      != Config::Get().disabled_banner_types.end()) {
-    return;
+  if (should_call_original_toast_observer(toast)) {
+    original(_this, toast, cmpAction);
   }
-
-  original(_this, toast, cmpAction);
 }
 
 /**
@@ -72,14 +68,9 @@ void ToastObserver_EnqueueOrCombineToast_Hook(auto original, ToastObserver *_thi
  */
 void ToastObserver_AddFirstOrCombineToast_Hook(auto original, ToastObserver *_this, Toast *toast, uintptr_t cmpAction)
 {
-  notification_handle_toast(toast);
-
-  if (std::ranges::find(Config::Get().disabled_banner_types, toast->get_State())
-      != Config::Get().disabled_banner_types.end()) {
-    return;
+  if (should_call_original_toast_observer(toast)) {
+    original(_this, toast, cmpAction);
   }
-
-  original(_this, toast, cmpAction);
 }
 
 /**

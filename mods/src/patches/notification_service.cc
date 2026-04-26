@@ -8,8 +8,6 @@
  */
 #include "patches/notification_service.h"
 #include "patches/battle_notify_parser.h"
-#include "patches/incoming_attack_notifications.h"
-#include "patches/live_debug.h"
 
 #include "config.h"
 #include "str_utils.h"
@@ -95,6 +93,11 @@ static const char* toast_state_title(int state)
   }
 }
 
+const char* notification_toast_title(int state)
+{
+  return toast_state_title(state);
+}
+
 // ─── Platform Notification Delivery ──────────────────────────────────────────────────
 #if _WIN32
 struct NotificationRequest {
@@ -120,7 +123,7 @@ static constexpr auto          kRecentToastDedupWindow       = std::chrono::mill
 static constexpr size_t        kRecentToastDedupMaxEntries   = 256;
 static constexpr size_t        kNotificationSummaryLimit     = 4;
 
-static bool should_process_notification_toast(const Toast* toast)
+bool notification_should_process_toast(Toast* toast)
 {
   if (!toast) {
     return false;
@@ -431,6 +434,11 @@ static void notification_worker_main()
     }
   }
 }
+#else
+bool notification_should_process_toast(Toast*)
+{
+  return false;
+}
 #endif
 
 // ─── Toast Text Resolution ───────────────────────────────────────────────────────────
@@ -663,24 +671,11 @@ void notification_show(const char* title, const char* body)
 #endif
 }
 
-void notification_handle_toast(Toast* toast)
+void notification_handle_generic_toast(Toast* toast, int state, const char* title)
 {
 #if !_WIN32
   return; // No notification delivery on non-Windows platforms yet
 #else
-  if (!should_process_notification_toast(toast)) {
-    return;
-  }
-
-  auto state = toast->get_State();
-  auto* title = toast_state_title(state);
-  live_debug_record_toast_notification("ToastObserver", toast, state, title ? title : "");
-
-  const auto incoming_attack_action = incoming_attack_notifications_handle_toast(toast, state, title);
-  if (incoming_attack_action == IncomingAttackToastAction::Consumed) {
-    return;
-  }
-
   const auto& notifications = Config::Get().notifications;
   if (!notifications.enabled) {
     return;
