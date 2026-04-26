@@ -47,6 +47,7 @@ void InstallFreeResizeHooks();
 void InstallToastBannerHooks();
 void InstallPanHooks();
 void InstallImproveResponsivenessHooks();
+void InstallFrameTickHooks();
 void InstallHotkeyHooks();
 void InstallLiveDebugHooks();
 void InstallTestPatches();
@@ -131,7 +132,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
-    auto install_live_debug_hooks = LiveDebugChannelEnabled();
+  auto install_live_debug_hooks = LiveDebugChannelEnabled();
+  auto install_frame_tick_hooks = cfg.installHotkeyHooks || install_live_debug_hooks;
   const PatchEntry patches[] = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
@@ -139,6 +141,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"ToastBannerHooks", {InstallToastBannerHooks, &cfg.installToastBannerHooks}},
       {"PanHooks", {InstallPanHooks, &cfg.installPanHooks}},
       {"ImproveResponsivenessHooks", {InstallImproveResponsivenessHooks, &cfg.installImproveResponsivenessHooks}},
+      {"FrameTickHooks", {InstallFrameTickHooks, &install_frame_tick_hooks}},
       {"HotkeyHooks", {InstallHotkeyHooks, &cfg.installHotkeyHooks}},
       {"LiveDebugHooks", {InstallLiveDebugHooks, &install_live_debug_hooks}},
 #if _WIN32
@@ -165,7 +168,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
     const auto [patch_func, patch_enabled] = patch.fnAndEnabled;
     const auto patch_allowed_by_isolation = !kLiveDebugOnlyHookIsolation ||
       std::strcmp(patch.name, "LiveDebugHooks") == 0 || std::strcmp(patch.name, "ObjectTracker") == 0 ||
-      std::strcmp(patch.name, "FleetArrival") == 0 || std::strcmp(patch.name, "HotkeyHooks") == 0;
+      std::strcmp(patch.name, "FleetArrival") == 0 || std::strcmp(patch.name, "FrameTickHooks") == 0 ||
+      std::strcmp(patch.name, "HotkeyHooks") == 0;
     const auto patch_install               = patch_allowed_by_isolation && (patch_enabled && *patch_enabled);
     const auto patch_mode                  = patch_install ? "+ Patch" : "x Skipp";
     spdlog::info(" {}ing {:>2} of {} ({})", patch_mode, patch_count, patch_total, patch.name);

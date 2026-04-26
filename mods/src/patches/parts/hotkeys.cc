@@ -15,14 +15,11 @@
 
 #include "patches/hook_registry.h"
 #include "patches/hotkey_router.h"
-#include "patches/live_debug.h"
 
 #include "prime/ChatMessageListLocalViewController.h"
 #include "prime/PreScanTargetWidget.h"
-#include "prime/ScreenManager.h"
 
 namespace {
-constexpr bool kEnableHotkeyRouterFrame = true;
 constexpr bool kEnableShortcutInitializeHook = true;
 constexpr bool kEnableRewardsButtonHook = true;
 constexpr bool kEnablePreScanTargetHook = true;
@@ -32,13 +29,6 @@ constexpr HookDescriptor kInitializeActionsHook = {
   "decide whether Scopely shortcut actions initialize alongside mod hotkeys",
   {"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager", "InitializeActions"},
   "Scopely shortcuts may be unavailable or may double-handle inputs",
-};
-
-constexpr HookDescriptor kScreenManagerUpdateHook = {
-  "ScreenManager.Update",
-  "route per-frame hotkeys and frame observers",
-  {"Assembly-CSharp", "Digit.Client.UI", "ScreenManager", "Update"},
-  "mod hotkeys and frame-driven diagnostics will not tick",
 };
 
 constexpr HookDescriptor kRewardsButtonBindHook = {
@@ -57,28 +47,6 @@ constexpr HookDescriptor kPreScanTargetShowHook = {
 }
 
 // ─── SPUD Hook Delegates ─────────────────────────────────────────────────────
-
-/**
- * @brief Hook: ScreenManager::Update
- *
- * Intercepts the per-frame UI update to process keyboard shortcuts.
- * Original method: drives UI state machine each frame.
- * Our modification: calls hotkey_router_screen_update() before the
- * original; the router may consume the frame (return false → skip original).
- */
-void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
-{
-  live_debug_tick(_this);
-
-  if (!kEnableHotkeyRouterFrame) {
-    return original(_this);
-  }
-
-  const auto router_allows_original = hotkey_router_screen_update(_this);
-  if (hotkey_router_should_call_original_screen_update(router_allows_original)) {
-    return original(_this);
-  }
-}
 
 /**
  * @brief Hook: ShortcutsManager::InitializeActions
@@ -159,12 +127,11 @@ void InstallHotkeyHooks()
 {
   HookModuleHealth hooks("HotkeyHooks");
 
-  spdlog::info("[Hotkeys] startup config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} allow_key_fallthrough={} frame_hook={} initialize_actions_hook={}",
+  spdlog::info("[Hotkeys] startup config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} allow_key_fallthrough={} frame_owner=FrameTickHooks initialize_actions_hook={}",
                Config::Get().installHotkeyHooks,
                Config::Get().hotkeys_enabled,
                Config::Get().use_scopely_hotkeys,
                AllowKeyFallthrough(),
-               kEnableHotkeyRouterFrame,
                kEnableShortcutInitializeHook);
 
   if (kEnableShortcutInitializeHook) {
@@ -182,18 +149,6 @@ void InstallHotkeyHooks()
     }
   } else {
     hooks.record_skipped(kInitializeActionsHook, "compile-time disabled");
-  }
-
-  auto screen_manager_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "ScreenManager");
-  if (!screen_manager_helper.isValidHelper()) {
-    hooks.record_missing_helper(kScreenManagerUpdateHook);
-  } else {
-    auto ptr_update = screen_manager_helper.GetMethod("Update");
-    if (ptr_update == nullptr) {
-      hooks.record_missing_method(kScreenManagerUpdateHook);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kScreenManagerUpdateHook, ptr_update, ScreenManager_Update_Hook);
-    }
   }
 
   if (kEnableRewardsButtonHook) {
