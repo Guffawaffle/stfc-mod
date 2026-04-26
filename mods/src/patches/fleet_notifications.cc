@@ -254,58 +254,42 @@ void maybe_notify_fleet_bar_transition(uint64_t fleetId, const std::string& ship
                                        const std::string& resourceName,
                                        const std::string& cargoText)
 {
-  if (oldState == FleetState::Warping && newState == FleetState::Impulsing) {
-    if (!Config::Get().notifications.fleet_arrived_in_system) {
-      return;
-    }
+  auto eta_it = s_mining_viewer_remaining_seconds.find(fleetId);
+  auto etaText = (eta_it != s_mining_viewer_remaining_seconds.end()) ? format_duration_short(eta_it->second)
+                                                                     : std::string{};
 
-    auto body = "Your " + shipName + " has arrived in-system";
-    spdlog::debug("[FleetBar] ARRIVED_IN_SYSTEM id={} ship='{}'", fleetId, shipName);
-    notification_show("Fleet Arrived", body.c_str());
-    return;
-  }
+  const auto& notifications = Config::Get().notifications;
+  auto decision = fleet_bar_transition_notification_decision({
+      static_cast<int>(oldState),
+      static_cast<int>(newState),
+      notifications.fleet_arrived_in_system,
+      notifications.fleet_arrived_at_destination,
+      notifications.fleet_started_mining,
+      notifications.fleet_docked,
+      notifications.fleet_repair_complete,
+      shipName,
+      resourceName,
+      etaText,
+      cargoText,
+  });
 
-  if (oldState != FleetState::Mining && newState == FleetState::Mining) {
-    if (!Config::Get().notifications.fleet_started_mining) {
-      return;
-    }
-
-    auto it      = s_mining_viewer_remaining_seconds.find(fleetId);
-    auto etaText = (it != s_mining_viewer_remaining_seconds.end()) ? format_duration_short(it->second)
-                                                                   : std::string{};
-    auto title   = format_started_mining_title(shipName, resourceName);
-    auto body    = format_started_mining_body(etaText, cargoText);
-    s_mining_viewer_remaining_seconds.erase(fleetId);
-    notification_show(title.c_str(), body.c_str());
-    return;
-  }
-
-  if (oldState == FleetState::Mining && newState != FleetState::Mining) {
+  if (decision.clear_mining_eta) {
     s_mining_viewer_remaining_seconds.erase(fleetId);
   }
 
-  if (oldState != FleetState::Docked && newState == FleetState::Docked) {
-    if (oldState == FleetState::Repairing) {
-      if (!Config::Get().notifications.fleet_repair_complete) {
-        spdlog::debug("[FleetBar] suppress docked-after-repair id={} ship='{}'", fleetId, shipName);
-        return;
-      }
-
-      auto body = "Your " + shipName + " finished repairs";
-      spdlog::debug("[FleetBar] REPAIR_COMPLETE id={} ship='{}'", fleetId, shipName);
-      notification_show("Repair Complete", body.c_str());
-      return;
-    }
-
-    if (!Config::Get().notifications.fleet_docked) {
-      return;
-    }
-
-    auto body = "Your " + shipName + " docked";
-    spdlog::debug("[FleetBar] DOCKED id={} ship='{}'", fleetId, shipName);
-    notification_show("Fleet Docked", body.c_str());
+  if (decision.suppressed_ambiguous_docked) {
+    spdlog::debug("[FleetBar] suppress ambiguous docked transition id={} ship='{}' oldState={} newState={}",
+                  fleetId, shipName, static_cast<int>(oldState), static_cast<int>(newState));
     return;
   }
+
+  if (decision.kind == FleetBarTransitionNotificationKind::None) {
+    return;
+  }
+
+  spdlog::debug("[FleetBar] {} id={} ship='{}'", fleet_bar_transition_notification_kind_name(decision.kind),
+                fleetId, shipName);
+  notification_show(decision.title.c_str(), decision.body.c_str());
 }
 } // namespace
 

@@ -184,6 +184,7 @@ struct NotificationBoolConfigSpec {
 static constexpr NotificationBoolConfigSpec notificationBoolConfigSpecs[] = {
   {"notifications", "notifications_enabled", "notifications_enabled", DCN::enabled, &NotificationConfig::enabled, "Master switch for OS notifications."},
   {"notifications", "notifications_fleet_arrived_in_system", "notifications_fleet_arrived_in_system", DCN::Fleet::arrived_in_system, &NotificationConfig::fleet_arrived_in_system, "Notify when a fleet arrives in-system."},
+  {"notifications", "notifications_fleet_arrived_at_destination", "notifications_fleet_arrived_at_destination", DCN::Fleet::arrived_at_destination, &NotificationConfig::fleet_arrived_at_destination, "Notify when a fleet arrives at its destination."},
   {"notifications", "notifications_fleet_started_mining", "notifications_fleet_started_mining", DCN::Fleet::started_mining, &NotificationConfig::fleet_started_mining, "Notify when a fleet starts mining."},
   {"notifications", "notifications_fleet_node_depleted", "notifications_fleet_node_depleted", DCN::Fleet::node_depleted, &NotificationConfig::fleet_node_depleted, "Notify when a mining node is depleted."},
   {"notifications", "notifications_fleet_docked", "notifications_fleet_docked", DCN::Fleet::docked, &NotificationConfig::fleet_docked, "Notify when a fleet docks."},

@@ -167,6 +167,7 @@ notifications_chained_event_scored = true
 
 # Supported: Fleet notifications (fleet-bar transitions and mining depletion)
 notifications_fleet_arrived_in_system = false
+notifications_fleet_arrived_at_destination = false
 notifications_fleet_started_mining = false
 notifications_fleet_node_depleted = false
 notifications_fleet_docked = false

@@ -497,6 +497,173 @@ std::string format_node_depleted_body(const std::string& shipName, const std::st
   return body;
 }
 
+FleetBarTransitionState fleet_bar_transition_state_from_value(int state)
+{
+  switch (state) {
+    case 0: return FleetBarTransitionState::Unknown;
+    case 1: return FleetBarTransitionState::IdleInSpace;
+    case 2: return FleetBarTransitionState::Docked;
+    case 4: return FleetBarTransitionState::Mining;
+    case 8: return FleetBarTransitionState::Destroyed;
+    case 16: return FleetBarTransitionState::TieringUp;
+    case 32: return FleetBarTransitionState::Repairing;
+    case 56: return FleetBarTransitionState::CannotLaunch;
+    case 64: return FleetBarTransitionState::Battling;
+    case 128: return FleetBarTransitionState::WarpCharging;
+    case 256: return FleetBarTransitionState::Warping;
+    case 384: return FleetBarTransitionState::CanRemove;
+    case 504: return FleetBarTransitionState::CannotMove;
+    case 512: return FleetBarTransitionState::Impulsing;
+    case 899: return FleetBarTransitionState::CanManage;
+    case 1024: return FleetBarTransitionState::Capturing;
+    case 1541: return FleetBarTransitionState::CanRecall;
+    case 1543: return FleetBarTransitionState::CanEngage;
+    case 1989: return FleetBarTransitionState::Deployed;
+    case 1991: return FleetBarTransitionState::CanLocate;
+    default: return FleetBarTransitionState::Unknown;
+  }
+}
+
+const char* fleet_bar_transition_notification_kind_name(FleetBarTransitionNotificationKind kind)
+{
+  switch (kind) {
+    case FleetBarTransitionNotificationKind::ArrivedInSystem: return "ARRIVED_IN_SYSTEM";
+    case FleetBarTransitionNotificationKind::ArrivedAtDestination: return "ARRIVED_AT_DESTINATION";
+    case FleetBarTransitionNotificationKind::StartedMining: return "STARTED_MINING";
+    case FleetBarTransitionNotificationKind::RepairComplete: return "REPAIR_COMPLETE";
+    case FleetBarTransitionNotificationKind::Docked: return "DOCKED";
+    default: return "NONE";
+  }
+}
+
+namespace {
+std::string fleet_notification_subject(const std::string& shipName)
+{
+  if (shipName.empty() || shipName == "?") {
+    return "fleet";
+  }
+
+  return shipName;
+}
+
+bool fleet_state_can_arrive_at_destination(FleetBarTransitionState state)
+{
+  switch (state) {
+    case FleetBarTransitionState::IdleInSpace:
+    case FleetBarTransitionState::CanRecall:
+    case FleetBarTransitionState::CanEngage:
+    case FleetBarTransitionState::CanLocate:
+    case FleetBarTransitionState::Deployed:
+    case FleetBarTransitionState::Capturing:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool fleet_state_can_dock_from_space(FleetBarTransitionState state)
+{
+  switch (state) {
+    case FleetBarTransitionState::IdleInSpace:
+    case FleetBarTransitionState::Mining:
+    case FleetBarTransitionState::Battling:
+    case FleetBarTransitionState::WarpCharging:
+    case FleetBarTransitionState::Warping:
+    case FleetBarTransitionState::Impulsing:
+    case FleetBarTransitionState::Capturing:
+    case FleetBarTransitionState::CanRecall:
+    case FleetBarTransitionState::CanEngage:
+    case FleetBarTransitionState::Deployed:
+    case FleetBarTransitionState::CanLocate:
+      return true;
+    default:
+      return false;
+  }
+}
+} // namespace
+
+FleetBarTransitionNotificationDecision fleet_bar_transition_notification_decision(
+    const FleetBarTransitionNotificationInput& input)
+{
+  FleetBarTransitionNotificationDecision decision;
+
+  const auto oldState = fleet_bar_transition_state_from_value(input.old_state);
+  const auto newState = fleet_bar_transition_state_from_value(input.new_state);
+
+  if (oldState == newState) {
+    return decision;
+  }
+
+  const auto subject = fleet_notification_subject(input.ship_name);
+
+  if (oldState == FleetBarTransitionState::Warping && newState == FleetBarTransitionState::Impulsing) {
+    if (!input.notify_arrived_in_system) {
+      return decision;
+    }
+
+    decision.kind = FleetBarTransitionNotificationKind::ArrivedInSystem;
+    decision.title = "Fleet Arrived";
+    decision.body = "Your " + subject + " has arrived in-system";
+    return decision;
+  }
+
+  if (oldState == FleetBarTransitionState::Impulsing && fleet_state_can_arrive_at_destination(newState)) {
+    if (!input.notify_arrived_at_destination) {
+      return decision;
+    }
+
+    decision.kind = FleetBarTransitionNotificationKind::ArrivedAtDestination;
+    decision.title = "Fleet Arrived";
+    decision.body = "Your " + subject + " has arrived at its destination";
+    return decision;
+  }
+
+  if (oldState != FleetBarTransitionState::Mining && newState == FleetBarTransitionState::Mining) {
+    if (!input.notify_started_mining) {
+      return decision;
+    }
+
+    decision.kind = FleetBarTransitionNotificationKind::StartedMining;
+    decision.title = format_started_mining_title(input.ship_name, input.resource_name);
+    decision.body = format_started_mining_body(input.eta_text, input.cargo_text);
+    decision.clear_mining_eta = true;
+    return decision;
+  }
+
+  if (oldState == FleetBarTransitionState::Mining && newState != FleetBarTransitionState::Mining) {
+    decision.clear_mining_eta = true;
+  }
+
+  if (newState != FleetBarTransitionState::Docked) {
+    return decision;
+  }
+
+  if (oldState == FleetBarTransitionState::Repairing) {
+    if (!input.notify_repair_complete) {
+      return decision;
+    }
+
+    decision.kind = FleetBarTransitionNotificationKind::RepairComplete;
+    decision.title = "Repair Complete";
+    decision.body = "Your " + subject + " finished repairs";
+    return decision;
+  }
+
+  if (!fleet_state_can_dock_from_space(oldState)) {
+    decision.suppressed_ambiguous_docked = true;
+    return decision;
+  }
+
+  if (!input.notify_docked) {
+    return decision;
+  }
+
+  decision.kind = FleetBarTransitionNotificationKind::Docked;
+  decision.title = "Fleet Docked";
+  decision.body = "Your " + subject + " docked";
+  return decision;
+}
+
 // ---------------------------------------------------------------------------
 // BattleSummaryPreview::format_body
 // ---------------------------------------------------------------------------

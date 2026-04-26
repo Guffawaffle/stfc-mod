@@ -151,11 +151,12 @@ namespace Notifications
 
   namespace Fleet
   {
-    constexpr bool arrived_in_system = false;
-    constexpr bool started_mining    = false;
-    constexpr bool node_depleted     = false;
-    constexpr bool docked            = false;
-    constexpr bool repair_complete   = false;
+    constexpr bool arrived_in_system      = false;
+    constexpr bool arrived_at_destination = false;
+    constexpr bool started_mining         = false;
+    constexpr bool node_depleted          = false;
+    constexpr bool docked                 = false;
+    constexpr bool repair_complete        = false;
   } // namespace Fleet
 } // namespace Notifications
 

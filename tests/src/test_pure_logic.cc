@@ -1045,6 +1045,98 @@ TEST_SUITE("fleet_notification_formatting")
           == "K'VORT depleted its Parsteel node. Current Cargo: 100%.");
     CHECK(format_node_depleted_body("?", "", "") == "Fleet depleted its node.");
   }
+
+  TEST_CASE("fleet transition decisions classify arrivals and mining")
+  {
+    auto arrivedInSystem = fleet_bar_transition_notification_decision({
+        static_cast<int>(FleetBarTransitionState::Warping),
+        static_cast<int>(FleetBarTransitionState::Impulsing),
+        true,
+        false,
+        false,
+        false,
+        false,
+        "K'VORT",
+    });
+    CHECK(arrivedInSystem.kind == FleetBarTransitionNotificationKind::ArrivedInSystem);
+    CHECK(arrivedInSystem.title == "Fleet Arrived");
+    CHECK(arrivedInSystem.body == "Your K'VORT has arrived in-system");
+
+    auto arrivedAtDestination = fleet_bar_transition_notification_decision({
+        static_cast<int>(FleetBarTransitionState::Impulsing),
+        static_cast<int>(FleetBarTransitionState::IdleInSpace),
+        false,
+        true,
+        false,
+        false,
+        false,
+        "K'VORT",
+    });
+    CHECK(arrivedAtDestination.kind == FleetBarTransitionNotificationKind::ArrivedAtDestination);
+    CHECK(arrivedAtDestination.body == "Your K'VORT has arrived at its destination");
+
+    auto startedMining = fleet_bar_transition_notification_decision({
+        static_cast<int>(FleetBarTransitionState::IdleInSpace),
+        static_cast<int>(FleetBarTransitionState::Mining),
+        false,
+        false,
+        true,
+        false,
+        false,
+        "K'VORT",
+        "Parsteel",
+        "1m 36s",
+        "Current Cargo: 13%",
+    });
+    CHECK(startedMining.kind == FleetBarTransitionNotificationKind::StartedMining);
+    CHECK(startedMining.title == "K'VORT started mining Parsteel");
+    CHECK(startedMining.body == "ETA 1m 36s\nCurrent Cargo: 13%");
+    CHECK(startedMining.clear_mining_eta);
+  }
+
+  TEST_CASE("fleet transition decisions suppress ambiguous docking")
+  {
+    auto ambiguousDocked = fleet_bar_transition_notification_decision({
+        static_cast<int>(FleetBarTransitionState::CanManage),
+        static_cast<int>(FleetBarTransitionState::Docked),
+        false,
+        false,
+        false,
+        true,
+        true,
+        "K'VORT",
+    });
+    CHECK(ambiguousDocked.kind == FleetBarTransitionNotificationKind::None);
+    CHECK(ambiguousDocked.suppressed_ambiguous_docked);
+
+    auto dockedFromSpace = fleet_bar_transition_notification_decision({
+        static_cast<int>(FleetBarTransitionState::Impulsing),
+        static_cast<int>(FleetBarTransitionState::Docked),
+        false,
+        false,
+        false,
+        true,
+        true,
+        "K'VORT",
+    });
+    CHECK(dockedFromSpace.kind == FleetBarTransitionNotificationKind::Docked);
+    CHECK(dockedFromSpace.title == "Fleet Docked");
+    CHECK(dockedFromSpace.body == "Your K'VORT docked");
+
+    auto repairComplete = fleet_bar_transition_notification_decision({
+        static_cast<int>(FleetBarTransitionState::Repairing),
+        static_cast<int>(FleetBarTransitionState::Docked),
+        false,
+        false,
+        false,
+        true,
+        true,
+        "K'VORT",
+    });
+    CHECK(repairComplete.kind == FleetBarTransitionNotificationKind::RepairComplete);
+    CHECK(repairComplete.title == "Repair Complete");
+    CHECK(repairComplete.body == "Your K'VORT finished repairs");
+  }
 }
 
 // ===========================================================================

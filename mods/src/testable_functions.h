@@ -131,6 +131,65 @@ std::string format_started_mining_body(const std::string& etaText, const std::st
 std::string format_node_depleted_body(const std::string& shipName, const std::string& resourceName,
                                       const std::string& cargoText);
 
+enum class FleetBarTransitionState {
+  Unknown      = 0,
+  IdleInSpace  = 1,
+  Docked       = 2,
+  Mining       = 4,
+  Destroyed    = 8,
+  TieringUp    = 16,
+  Repairing    = 32,
+  CannotLaunch = 56,
+  Battling     = 64,
+  WarpCharging = 128,
+  Warping      = 256,
+  CanRemove    = 384,
+  CannotMove   = 504,
+  Impulsing    = 512,
+  CanManage    = 899,
+  Capturing    = 1024,
+  CanRecall    = 1541,
+  CanEngage    = 1543,
+  Deployed     = 1989,
+  CanLocate    = 1991,
+};
+
+enum class FleetBarTransitionNotificationKind {
+  None = 0,
+  ArrivedInSystem,
+  ArrivedAtDestination,
+  StartedMining,
+  RepairComplete,
+  Docked,
+};
+
+struct FleetBarTransitionNotificationInput {
+  int old_state = 0;
+  int new_state = 0;
+  bool notify_arrived_in_system = false;
+  bool notify_arrived_at_destination = false;
+  bool notify_started_mining = false;
+  bool notify_docked = false;
+  bool notify_repair_complete = false;
+  std::string ship_name;
+  std::string resource_name;
+  std::string eta_text;
+  std::string cargo_text;
+};
+
+struct FleetBarTransitionNotificationDecision {
+  FleetBarTransitionNotificationKind kind = FleetBarTransitionNotificationKind::None;
+  std::string title;
+  std::string body;
+  bool clear_mining_eta = false;
+  bool suppressed_ambiguous_docked = false;
+};
+
+FleetBarTransitionState fleet_bar_transition_state_from_value(int state);
+const char* fleet_bar_transition_notification_kind_name(FleetBarTransitionNotificationKind kind);
+FleetBarTransitionNotificationDecision fleet_bar_transition_notification_decision(
+    const FleetBarTransitionNotificationInput& input);
+
 // Battle summary formatting
 struct BattleSummaryPreview {
   std::string playerName;
