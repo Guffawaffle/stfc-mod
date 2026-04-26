@@ -993,6 +993,28 @@ const char* notification_producer_type_name(int producer_type)
   }
 }
 
+const char* deployed_fleet_type_name(int fleet_type)
+{
+  switch (fleet_type) {
+    case 1:
+      return "Player";
+    case 2:
+      return "Marauder";
+    case 3:
+      return "NpcInstantiated";
+    case 4:
+      return "Sentinel";
+    case 5:
+      return "Alliance";
+    case 6:
+      return "Challenge";
+    case 0:
+      return "None";
+    default:
+      return "Unknown";
+  }
+}
+
 const char* navigation_context_data_state_name(int state)
 {
   switch (state) {
@@ -2619,6 +2641,7 @@ void live_debug_record_station_warning(std::string_view phase, bool has_context,
 
 void live_debug_record_incoming_fleet_materialized(std::string_view phase, int target_type,
                                                    uint64_t target_fleet_id,
+                                                   int quick_scan_fleet_type,
                                                    uint64_t quick_scan_target_fleet_id,
                                                    std::string_view quick_scan_target_id)
 {
@@ -2628,6 +2651,8 @@ void live_debug_record_incoming_fleet_materialized(std::string_view phase, int t
            {"targetType", target_type},
            {"targetTypeName", incoming_attack_target_type_name(target_type)},
            {"targetFleetId", target_fleet_id},
+           {"quickScanFleetType", quick_scan_fleet_type},
+           {"quickScanFleetTypeName", deployed_fleet_type_name(quick_scan_fleet_type)},
            {"quickScanTargetFleetId", quick_scan_target_fleet_id},
            {"quickScanTargetId", quick_scan_target_id}});
 }
@@ -2653,12 +2678,26 @@ void live_debug_record_toast_fleet_producer(std::string_view phase, const void* 
            {"producerTypeName", notification_producer_type_name(producer_type)}});
 }
 
+void live_debug_record_toast_notification(std::string_view source,
+                                          const void* toast,
+                                          int state,
+                                          std::string_view title)
+{
+  append_event_if_live_debug_enabled(
+      "toast-notification-observed",
+      json{{"source", source},
+           {"toastPointer", pointer_to_string(toast)},
+           {"state", state},
+           {"title", title}});
+}
+
 void live_debug_record_incoming_attack_notification_context(std::string_view source,
                                                            std::string_view body,
                                                            int candidate_count,
                                                            uint64_t selected_fleet_id,
                                                            std::string_view selected_ship_name,
-                                                           int selected_state)
+                                                           int selected_state,
+                                                           int attacker_fleet_type)
 {
   append_event_if_live_debug_enabled(
       "incoming-attack-notification-context",
@@ -2668,7 +2707,9 @@ void live_debug_record_incoming_attack_notification_context(std::string_view sou
            {"selectedFleetId", selected_fleet_id},
            {"selectedShipName", selected_ship_name},
            {"selectedState", selected_state},
-           {"selectedStateName", fleet_state_name_from_value(selected_state)}});
+           {"selectedStateName", fleet_state_name_from_value(selected_state)},
+           {"attackerFleetType", attacker_fleet_type},
+           {"attackerFleetTypeName", deployed_fleet_type_name(attacker_fleet_type)}});
 }
 
 void live_debug_record_navigation_interaction(std::string_view phase,

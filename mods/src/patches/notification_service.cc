@@ -8,6 +8,7 @@
  */
 #include "patches/notification_service.h"
 #include "patches/battle_notify_parser.h"
+#include "patches/live_debug.h"
 
 #include "config.h"
 #include "str_utils.h"
@@ -99,6 +100,7 @@ struct NotificationRequest {
   std::string source;
   std::string title;
   std::string body;
+  bool hidden = false;
   std::chrono::steady_clock::time_point queued_at;
 };
 
@@ -230,6 +232,141 @@ static std::string escape_notification_text_for_log(std::string_view text)
   return escaped;
 }
 
+static bool notification_title_matches(std::string_view title, int state)
+{
+  auto* expected = toast_state_title(state);
+  return expected && title == expected;
+}
+
+static bool incoming_attack_notification_enabled_for_state(int state)
+{
+  const auto& notifications = Config::Get().notifications;
+
+  switch (state) {
+    case IncomingAttack:
+      return notifications.incoming_attack_player;
+    case IncomingAttackFaction:
+      return notifications.incoming_attack_hostile;
+    default:
+      return false;
+  }
+}
+
+static std::string specialize_incoming_attack_body(std::string body, std::string_view specialized_fragment)
+{
+  if (specialized_fragment.empty() || body.empty()) {
+    return body;
+  }
+
+  constexpr std::string_view generic_fragment = " is under attack";
+
+  if (body.find(specialized_fragment) != std::string::npos) {
+    return body;
+  }
+
+  if (const auto position = body.find(generic_fragment); position != std::string::npos) {
+    body.replace(position, generic_fragment.size(), specialized_fragment);
+  }
+
+  return body;
+}
+
+static bool try_collapse_incoming_attack_batch(const std::vector<NotificationRequest>& batch,
+                                               NotificationRequest& collapsed)
+{
+  if (batch.empty()) {
+    return false;
+  }
+
+  const auto& notifications = Config::Get().notifications;
+  const NotificationRequest* preferred_direct = nullptr;
+  const NotificationRequest* preferred_toast = nullptr;
+  bool hostile = false;
+  bool player = false;
+  bool saw_classifier = false;
+
+  for (const auto& item : batch) {
+    const bool is_generic = notification_title_matches(item.title, IncomingAttack);
+    const bool is_hostile = notification_title_matches(item.title, IncomingAttackFaction);
+    if (!is_generic && !is_hostile) {
+      return false;
+    }
+
+    if (item.source == "direct") {
+      if (!preferred_direct || is_hostile) {
+        preferred_direct = &item;
+      }
+      continue;
+    }
+
+    if (item.source != "toast" && item.source != "toast-marker") {
+      return false;
+    }
+
+    saw_classifier = true;
+    hostile = hostile || is_hostile;
+    player = player || is_generic;
+
+    const bool should_replace_toast = !preferred_toast ||
+        (preferred_toast->hidden && !item.hidden) ||
+        ((preferred_toast->hidden == item.hidden) && is_hostile &&
+         !notification_title_matches(preferred_toast->title, IncomingAttackFaction));
+    if (should_replace_toast) {
+      preferred_toast = &item;
+    }
+  }
+
+  if (hostile) {
+    player = false;
+  }
+
+  if (hostile && !incoming_attack_notification_enabled_for_state(IncomingAttackFaction)) {
+    return true;
+  }
+
+  if (player && !incoming_attack_notification_enabled_for_state(IncomingAttack)) {
+    return true;
+  }
+
+  if (!saw_classifier) {
+    if (notifications.IncomingAttackSplitEnabled() || !notifications.AnyIncomingAttackEnabled()) {
+      return true;
+    }
+  }
+
+  const NotificationRequest* preferred = preferred_direct ? preferred_direct : preferred_toast;
+  if (!preferred) {
+    return true;
+  }
+
+  if (preferred->hidden && preferred_direct == nullptr) {
+    return true;
+  }
+
+  collapsed.source = hostile
+      ? "coalesced-incoming-attack-faction"
+      : (player ? "coalesced-incoming-attack-player" : "coalesced-incoming-attack");
+  collapsed.title = hostile
+      ? std::string(toast_state_title(IncomingAttackFaction))
+      : std::string(toast_state_title(IncomingAttack));
+
+  std::string_view specialized_fragment;
+  if (hostile) {
+    specialized_fragment = " is under attack by a hostile";
+  } else if (player) {
+    specialized_fragment = " is under attack by another player";
+  }
+
+  if (preferred_direct && !preferred_direct->body.empty()) {
+    collapsed.body = specialize_incoming_attack_body(preferred_direct->body, specialized_fragment);
+  } else if (!preferred->body.empty()) {
+    collapsed.body = specialize_incoming_attack_body(preferred->body, specialized_fragment);
+  }
+
+  collapsed.queued_at = preferred->queued_at;
+  return true;
+}
+
 static NotificationRequest collapse_notification_batch(std::vector<NotificationRequest>&& batch)
 {
   if (batch.empty()) {
@@ -237,7 +374,21 @@ static NotificationRequest collapse_notification_batch(std::vector<NotificationR
   }
 
   if (batch.size() == 1) {
+    if (batch.front().hidden) {
+      return {};
+    }
+
     return std::move(batch.front());
+  }
+
+  NotificationRequest collapsed;
+  if (try_collapse_incoming_attack_batch(batch, collapsed)) {
+    return collapsed;
+  }
+
+  batch.erase(std::remove_if(batch.begin(), batch.end(), [](const auto& item) { return item.hidden; }), batch.end());
+  if (batch.empty()) {
+    return {};
   }
 
   bool same_title = true;
@@ -248,7 +399,6 @@ static NotificationRequest collapse_notification_batch(std::vector<NotificationR
     }
   }
 
-  NotificationRequest collapsed;
   if (same_title) {
     collapsed.title = batch.front().title + " (" + std::to_string(batch.size()) + ")";
   } else {
@@ -350,7 +500,7 @@ static void show_system_notification(const char* title, const char* body)
   }
 }
 
-static void queue_system_notification(const char* title, const char* body, const char* source)
+static void queue_system_notification(const char* title, const char* body, const char* source, bool hidden = false)
 {
   NotificationRequest request;
   if (source) {
@@ -362,6 +512,7 @@ static void queue_system_notification(const char* title, const char* body, const
   if (body) {
     request.body = body;
   }
+  request.hidden = hidden;
   request.queued_at = std::chrono::steady_clock::now();
 
   size_t queue_size = 0;
@@ -371,8 +522,9 @@ static void queue_system_notification(const char* title, const char* body, const
     queue_size = s_notification_queue.size();
   }
 
-  spdlog::debug("[NotifyQueue] enqueue source={} title='{}' queue_size={}",
+  spdlog::debug("[NotifyQueue] enqueue source={} hidden={} title='{}' queue_size={}",
                 source ? source : "unknown",
+                hidden,
                 title ? flatten_notification_text(title) : "",
                 queue_size);
 
@@ -657,27 +809,44 @@ void notification_show(const char* title, const char* body)
 #endif
 }
 
+void notification_show_hidden(const char* title, const char* body)
+{
+#if _WIN32
+  if (!Config::Get().notifications.enabled) {
+    return;
+  }
+
+  queue_system_notification(title, body, "direct", true);
+#endif
+}
+
 void notification_handle_toast(Toast* toast)
 {
 #if !_WIN32
   return; // No notification delivery on non-Windows platforms yet
 #else
-  const auto& notifications = Config::Get().notifications;
-  if (!notifications.enabled) {
-    return;
-  }
-
   if (!should_process_notification_toast(toast)) {
     return;
   }
 
   auto state = toast->get_State();
+  auto* title = toast_state_title(state);
+  live_debug_record_toast_notification("ToastObserver", toast, state, title ? title : "");
+
+  const auto& notifications = Config::Get().notifications;
+  if (!notifications.enabled) {
+    return;
+  }
+
+  if ((state == IncomingAttack || state == IncomingAttackFaction) && title) {
+    queue_system_notification(title, "", "toast-marker", true);
+    return;
+  }
 
   if (!notifications.EnabledForToastState(state)) {
     return;
   }
 
-  auto* title = toast_state_title(state);
   if (!title) {
     spdlog::debug("[Notify] No title mapping for toast state {}, skipping", state);
     return;

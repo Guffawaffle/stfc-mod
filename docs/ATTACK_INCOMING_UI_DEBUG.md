@@ -68,27 +68,21 @@ This document records the working incoming-attack notification path and the debu
 
 ## Hostile vs Player Split Notes
 
-The next likely split is not another UI hook. The model already hints at the classification path:
+Live validation proved the useful split is already exposed at the toast-state layer, which is safer than continuing to guess at more quick-scan offsets.
 
-- `Notification.IncomingFleetParams` contains `quickScanResult = 2` in the proto.
-- `QuickScanFleetData` contains `fleetType = 1`.
-- `DeployedFleetType` values are:
-  - `PLAYER = 1`
-  - `MARAUDER = 2`
-  - `NPCINSTANTIATED = 3`
-  - `SENTINEL = 4`
-  - `ALLIANCE = 5`
-  - `CHALLENGE = 6`
-- The likely classification mapping is `PLAYER` -> incoming attack by player, and `MARAUDER` / `NPCINSTANTIATED` / `SENTINEL` / `CHALLENGE` -> incoming attack by hostile. This is inferred from model names and still needs live validation.
+- Hostile/NPC incoming attacks emit `ToastState::IncomingAttackFaction` (`6`, title `Incoming Faction Attack!`).
+- Player incoming attacks emit `ToastState::IncomingAttack` (`5`, title `Incoming Attack!`).
+- The early direct notification from `ToastFleetObserver.QueueNotifications` still fires first and is generic in both cases.
+- The shipped split now coalesces that early direct alert with the follow-up toast-state notification inside the notification queue window:
+  - direct + `IncomingAttackFaction` => `...is under attack by a hostile...`
+  - direct + toast-layer `IncomingAttack` => `...is under attack by another player...`
+- Config surface is now split into `notifications_incoming_attack_player` and `notifications_incoming_attack_hostile`.
+- When the split toggles differ, hidden toast-state classifier entries keep the richer queue-hook body aligned with the enabled attack type instead of leaking a generic direct alert.
 
-Important safety constraint: do not call the existing `QuickScanResult` getter in the queue hook again. It already crashed. The next probe should bracket the raw quick-scan field layout with pointer-only traces first, then read only the primitive `fleetType` once the object pointer and offset are proven.
+Important safety constraint: do not call the existing `QuickScanResult` getter in the queue hook again. It already crashed.
 
-Suggested investigation order:
+What remains unresolved:
 
-1. Add a gated raw-pointer trace around the `quickScanResult` field on `IncomingFleetParams`, without dereferencing the quick-scan object.
-2. Validate boot and one incoming warning.
-3. If stable, read only the quick-scan `fleetType` primitive and emit it to recent events.
-4. Collect at least one known player attack and one known hostile attack.
-5. Only after live validation, split config/toast state names into `_player` and `_hostile` variants.
-
-Open question: the generated protobuf layout suggests `targetType`, `quickScanResult`, and the oneof payload are adjacent, but the IL2CPP in-memory layout must be validated from the live object rather than assumed from the proto alone.
+- `Notification.IncomingFleetParams.quickScanResult` is still useful only as a pointer-presence breadcrumb in the queue hook.
+- The raw quick-scan object pointer appears to exist on the real hostile path, but the guessed inner `QuickScanFleetData.fleetType` offset currently reads `0` and should be treated as unverified.
+- If future work needs attacker subtypes beyond player vs hostile, re-open the quick-scan object layout carefully with pointer-first traces and one primitive read at a time.

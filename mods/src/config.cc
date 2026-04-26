@@ -114,7 +114,8 @@ static constexpr NotificationToggleSpec notificationToggleSpecs[] = {
   {"notifications_station_victory", StationVictory, DCN::Battle::station_victory},
   {"notifications_station_defeat", StationDefeat, DCN::Battle::station_defeat},
   {"notifications_station_battle", StationBattle, DCN::Battle::station_battle},
-  {"notifications_incoming_attack", IncomingAttack, DCN::Battle::incoming_attack},
+  {"notifications_incoming_attack_player", IncomingAttack, DCN::Battle::incoming_attack_player},
+  {"notifications_incoming_attack_hostile", IncomingAttackFaction, DCN::Battle::incoming_attack_hostile},
   {"notifications_fleet_battle", FleetBattle, DCN::Battle::fleet_battle},
   {"notifications_armada_battle_won", ArmadaBattleWon, DCN::Battle::armada_battle_won},
   {"notifications_armada_battle_lost", ArmadaBattleLost, DCN::Battle::armada_battle_lost},
@@ -129,7 +130,6 @@ static constexpr NotificationToggleSpec notificationToggleSpecs[] = {
   {"notifications_faction_level_up", FactionLevelUp, DCN::Experimental::faction_level_up},
   {"notifications_faction_level_down", FactionLevelDown, DCN::Experimental::faction_level_down},
   {"notifications_faction_discovered", FactionDiscovered, DCN::Experimental::faction_discovered},
-  {"notifications_incoming_attack_faction", IncomingAttackFaction, DCN::Experimental::incoming_attack_faction},
   {"notifications_armada_incoming_attack", ArmadaIncomingAttack, DCN::Experimental::armada_incoming_attack},
   {"notifications_diplomacy_updated", DiplomacyUpdated, DCN::Experimental::diplomacy_updated},
   {"notifications_joined_takeover", JoinedTakeover, DCN::Experimental::joined_takeover},
@@ -828,10 +828,19 @@ void Config::Load()
   parsed["ui"].as_table()->insert_or_assign("disabled_banner_types", bannerString);
 
   auto* notifications_table = config["notifications"].as_table();
+  const bool has_legacy_incoming_attack_player = notifications_table && notifications_table->contains("notifications_incoming_attack");
+  const bool has_legacy_incoming_attack_hostile = notifications_table && notifications_table->contains("notifications_incoming_attack_faction");
+  const bool legacy_incoming_attack_player = has_legacy_incoming_attack_player
+      ? config["notifications"]["notifications_incoming_attack"].value_or(DCN::Battle::incoming_attack_player)
+      : DCN::Battle::incoming_attack_player;
+  const bool legacy_incoming_attack_hostile = has_legacy_incoming_attack_hostile
+      ? config["notifications"]["notifications_incoming_attack_faction"].value_or(DCN::Battle::incoming_attack_hostile)
+      : DCN::Battle::incoming_attack_hostile;
   const bool has_explicit_notification_toggles = notifications_table &&
-      std::ranges::any_of(notificationToggleSpecs, [notifications_table](const auto& spec) {
+      (has_legacy_incoming_attack_player || has_legacy_incoming_attack_hostile ||
+       std::ranges::any_of(notificationToggleSpecs, [notifications_table](const auto& spec) {
         return notifications_table->contains(spec.key);
-      });
+      }));
 
   auto* ui_table = config["ui"].as_table();
   std::string legacy_notify_banner_types;
@@ -864,8 +873,26 @@ void Config::Load()
   this->notifications.ClearToastStates();
   for (const auto& spec : notificationToggleSpecs) {
     const bool default_value = use_legacy_notify_allowlist ? false : spec.default_value;
-    const bool enabled = get_config_or_default(config, parsed, "notifications", spec.key, default_value, write_config);
+    bool enabled_default = default_value;
+
+    if (!use_legacy_notify_allowlist && notifications_table && !notifications_table->contains(spec.key)) {
+      if (spec.key == "notifications_incoming_attack_player" && has_legacy_incoming_attack_player) {
+        enabled_default = legacy_incoming_attack_player;
+      } else if (spec.key == "notifications_incoming_attack_hostile" && has_legacy_incoming_attack_hostile) {
+        enabled_default = legacy_incoming_attack_hostile;
+      }
+    }
+
+    const bool enabled = get_config_or_default(config, parsed, "notifications", spec.key, enabled_default, write_config);
     this->notifications.SetToastStateEnabled(spec.toast_state, enabled);
+  }
+
+  if (has_legacy_incoming_attack_player && !(notifications_table && notifications_table->contains("notifications_incoming_attack_player"))) {
+    spdlog::warn("Deprecation Warning: [notifications].notifications_incoming_attack is deprecated. Use notifications_incoming_attack_player instead.");
+  }
+
+  if (has_legacy_incoming_attack_hostile && !(notifications_table && notifications_table->contains("notifications_incoming_attack_hostile"))) {
+    spdlog::warn("Deprecation Warning: [notifications].notifications_incoming_attack_faction is deprecated. Use notifications_incoming_attack_hostile instead.");
   }
 
   if (use_legacy_notify_allowlist) {
@@ -896,6 +923,9 @@ void Config::Load()
   } else if (has_legacy_notify_banner_types) {
     spdlog::warn("Ignoring deprecated [ui] notification allowlist because explicit [notifications] toggles are present.");
   }
+
+  this->notifications.incoming_attack_player = this->notifications.EnabledForToastState(IncomingAttack);
+  this->notifications.incoming_attack_hostile = this->notifications.EnabledForToastState(IncomingAttackFaction);
   spdlog::debug("");
 
   //if (this->enable_experimental) {

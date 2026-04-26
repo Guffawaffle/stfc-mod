@@ -98,7 +98,8 @@ namespace Notifications
     constexpr bool station_victory    = false;
     constexpr bool station_defeat     = false;
     constexpr bool station_battle     = false;
-    constexpr bool incoming_attack    = false;
+    constexpr bool incoming_attack_player  = false;
+    constexpr bool incoming_attack_hostile = false;
     constexpr bool fleet_battle       = false;
     constexpr bool armada_battle_won  = false;
     constexpr bool armada_battle_lost = false;
@@ -125,7 +126,6 @@ namespace Notifications
     constexpr bool faction_level_up             = false;
     constexpr bool faction_level_down           = false;
     constexpr bool faction_discovered           = false;
-    constexpr bool incoming_attack_faction      = false;
     constexpr bool armada_incoming_attack       = false;
     constexpr bool diplomacy_updated            = false;
     constexpr bool joined_takeover              = false;

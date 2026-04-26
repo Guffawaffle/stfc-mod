@@ -42,6 +42,11 @@ constexpr bool kEnableIncomingFleetNotificationHook = false;
 constexpr bool kEnableToastFleetObserverIncomingProducerHook = true;
 constexpr bool kEnableToastFleetObserverQueueHook = true;
 constexpr int kNotificationProducerTypeIncomingFleet = 7;
+constexpr ptrdiff_t kIncomingFleetParamsTargetTypeOffset = 0x18;
+constexpr ptrdiff_t kIncomingFleetParamsQuickScanResultOffset = 0x20;
+constexpr ptrdiff_t kIncomingFleetParamsParamsObjectOffset = 0x28;
+constexpr ptrdiff_t kIncomingFleetParamsParamsCaseOffset = 0x30;
+constexpr ptrdiff_t kQuickScanFleetDataFleetTypeOffset = 0x10;
 
 void append_fleet_arrival_navhook_trace(const char* step,
                                         const char* phase,
@@ -189,18 +194,47 @@ static void ToastFleetObserver_QueueNotifications_Hook(auto original, void* self
                                        self,
                                        incoming_params,
                                        trace_integer_pointer(index));
-    auto target_type = incoming_params ? *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(incoming_params) + 0x18) : -1;
+    auto target_type = incoming_params ? *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(incoming_params) + kIncomingFleetParamsTargetTypeOffset) : -1;
     append_fleet_arrival_navhook_trace("toast-fleet-queue/after-target-type",
                                        "QueueNotifications",
                                        self,
                                        trace_integer_pointer(target_type),
                                        trace_integer_pointer(index));
+    append_fleet_arrival_navhook_trace("toast-fleet-queue/before-quick-scan-result-raw",
+                                       "QueueNotifications",
+                                       self,
+                                       incoming_params,
+                                       trace_integer_pointer(index));
+    auto* quick_scan_result = incoming_params
+                                  ? *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(incoming_params) +
+                                                                      kIncomingFleetParamsQuickScanResultOffset)
+                                  : nullptr;
+    append_fleet_arrival_navhook_trace("toast-fleet-queue/after-quick-scan-result",
+                                       "QueueNotifications",
+                                       self,
+                                       quick_scan_result,
+                                       trace_integer_pointer(index));
+    auto quick_scan_fleet_type = 0;
+    if (quick_scan_result) {
+      append_fleet_arrival_navhook_trace("toast-fleet-queue/before-quick-scan-fleet-type-raw",
+                                         "QueueNotifications",
+                                         self,
+                                         quick_scan_result,
+                                         trace_integer_pointer(index));
+      quick_scan_fleet_type = *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(quick_scan_result) +
+                                                           kQuickScanFleetDataFleetTypeOffset);
+      append_fleet_arrival_navhook_trace("toast-fleet-queue/after-quick-scan-fleet-type",
+                                         "QueueNotifications",
+                                         self,
+                                         trace_integer_pointer(quick_scan_fleet_type),
+                                         trace_integer_pointer(index));
+    }
     append_fleet_arrival_navhook_trace("toast-fleet-queue/before-params-case-raw",
                                        "QueueNotifications",
                                        self,
                                        incoming_params,
                                        trace_integer_pointer(index));
-    auto params_case = incoming_params ? *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(incoming_params) + 0x30) : 0;
+    auto params_case = incoming_params ? *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(incoming_params) + kIncomingFleetParamsParamsCaseOffset) : 0;
     append_fleet_arrival_navhook_trace("toast-fleet-queue/after-params-case",
                                        "QueueNotifications",
                                        self,
@@ -211,7 +245,7 @@ static void ToastFleetObserver_QueueNotifications_Hook(auto original, void* self
                                        self,
                                        incoming_params,
                                        trace_integer_pointer(index));
-    auto* params_object = incoming_params ? *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(incoming_params) + 0x28) : nullptr;
+    auto* params_object = incoming_params ? *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(incoming_params) + kIncomingFleetParamsParamsObjectOffset) : nullptr;
     append_fleet_arrival_navhook_trace("toast-fleet-queue/after-params-object",
                                        "QueueNotifications",
                                        self,
@@ -232,19 +266,24 @@ static void ToastFleetObserver_QueueNotifications_Hook(auto original, void* self
                                          trace_integer_pointer(index));
     }
 
-    spdlog::debug("[IncomingFleet] QueueNotifications index={} count={} targetType={} targetFleetId={} quickScanTargetFleetId={} quickScanTargetId='{}'",
+    spdlog::debug("[IncomingFleet] QueueNotifications index={} count={} targetType={} targetFleetId={} quickScanFleetType={} quickScanTargetFleetId={} quickScanTargetId='{}'",
                   index,
                   notification_count,
                   target_type,
                   target_fleet_id,
+                  quick_scan_fleet_type,
                   quick_scan_target_fleet_id,
                   quick_scan_target_id);
     live_debug_record_incoming_fleet_materialized("ToastFleetObserver.QueueNotifications",
                                                   target_type,
                                                   target_fleet_id,
+                                                  quick_scan_fleet_type,
                                                   quick_scan_target_fleet_id,
                                                   quick_scan_target_id);
-    fleet_notifications_notify_incoming_attack_target("toast-fleet-queue", target_fleet_id, target_type);
+    fleet_notifications_notify_incoming_attack_target("toast-fleet-queue",
+                                                      target_fleet_id,
+                                                      target_type,
+                                                      quick_scan_fleet_type);
   }
 
   append_fleet_arrival_navhook_trace("toast-fleet-queue/before-original",
@@ -287,10 +326,10 @@ static void record_incoming_fleet_materialized(std::string_view phase, IncomingF
   auto quick_scan_target_fleet_id = quick_scan_result ? static_cast<uint64_t>(quick_scan_result->TargetFleetId) : 0;
 
   spdlog::debug(
-      "[IncomingFleet] {} targetType={} targetFleetId={} quickScanTargetFleetId={} quickScanTargetId='{}'",
-      phase, target_type, target_fleet_id, quick_scan_target_fleet_id, quick_scan_target_id);
+      "[IncomingFleet] {} targetType={} targetFleetId={} quickScanFleetType={} quickScanTargetFleetId={} quickScanTargetId='{}'",
+      phase, target_type, target_fleet_id, 0, quick_scan_target_fleet_id, quick_scan_target_id);
   live_debug_record_incoming_fleet_materialized(phase, target_type, target_fleet_id,
-                                                quick_scan_target_fleet_id, quick_scan_target_id);
+                          0, quick_scan_target_fleet_id, quick_scan_target_id);
 }
 
 static void record_station_warning_phase(std::string_view phase, StationWarningViewController* self)

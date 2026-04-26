@@ -58,6 +58,7 @@ void live_debug_record_station_warning(std::string_view phase, bool has_context,
  */
 void live_debug_record_incoming_fleet_materialized(std::string_view phase, int target_type,
 												   uint64_t target_fleet_id,
+							   int quick_scan_fleet_type,
 												   uint64_t quick_scan_target_fleet_id,
 												   std::string_view quick_scan_target_id);
 
@@ -74,6 +75,14 @@ void live_debug_record_incoming_fleet_materialized_pointer(std::string_view phas
 void live_debug_record_toast_fleet_producer(std::string_view phase, const void* observer, int producer_type);
 
 /**
+ * @brief Record toast notifications observed by the ToastObserver hooks.
+ */
+void live_debug_record_toast_notification(std::string_view source,
+										  const void* toast,
+										  int state,
+										  std::string_view title);
+
+/**
  * @brief Record the context used to build an incoming attack OS notification.
  */
 void live_debug_record_incoming_attack_notification_context(std::string_view source,
@@ -81,7 +90,8 @@ void live_debug_record_incoming_attack_notification_context(std::string_view sou
                                                            int candidate_count,
                                                            uint64_t selected_fleet_id,
                                                            std::string_view selected_ship_name,
-                                                           int selected_state);
+														   int selected_state,
+														   int attacker_fleet_type);
 
 /**
  * @brief Record NavigationInteractionUIViewController lifecycle activity and any bound context.

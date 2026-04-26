@@ -38,7 +38,8 @@ void fleet_notifications_notify_incoming_attack_detected(const char* source);
 /**
  * @brief Emit an incoming attack notification using a known target fleet id when available.
  */
-void fleet_notifications_notify_incoming_attack_target(const char* source, uint64_t targetFleetId, int targetType);
+void fleet_notifications_notify_incoming_attack_target(const char* source, uint64_t targetFleetId, int targetType,
+													   int attackerFleetType = 0);
 
 /**
  * @brief Observe the current mining ETA from the mining viewer.

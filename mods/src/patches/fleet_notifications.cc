@@ -38,6 +38,12 @@ uint64_t                                   s_last_incoming_attack_target_fleet_i
 
 constexpr auto kIncomingAttackDedupWindow = std::chrono::seconds(10);
 
+enum class IncomingAttackAttackerKind {
+  Unknown = 0,
+  Player = 1,
+  Hostile = 2,
+};
+
 struct IncomingAttackNotificationContext {
   int         candidate_count = 0;
   uint64_t    fleet_id = 0;
@@ -47,9 +53,75 @@ struct IncomingAttackNotificationContext {
   FleetState  state = FleetState::Unknown;
 };
 
-bool should_emit_incoming_attack_notification(const char* source)
+IncomingAttackAttackerKind incoming_attack_attacker_kind_from_fleet_type(int attackerFleetType)
 {
-  if (!Config::Get().notifications.EnabledForToastState(IncomingAttack)) {
+  switch (attackerFleetType) {
+    case 1:
+      return IncomingAttackAttackerKind::Player;
+    case 2:
+    case 3:
+    case 4:
+    case 6:
+      return IncomingAttackAttackerKind::Hostile;
+    default:
+      return IncomingAttackAttackerKind::Unknown;
+  }
+}
+
+const char* incoming_attack_attacker_kind_name(IncomingAttackAttackerKind attackerKind)
+{
+  switch (attackerKind) {
+    case IncomingAttackAttackerKind::Player:
+      return "Player";
+    case IncomingAttackAttackerKind::Hostile:
+      return "Hostile";
+    default:
+      return "Unknown";
+  }
+}
+
+std::string incoming_attack_subject_suffix(IncomingAttackAttackerKind attackerKind)
+{
+  switch (attackerKind) {
+    case IncomingAttackAttackerKind::Player:
+      return " by another player";
+    case IncomingAttackAttackerKind::Hostile:
+      return " by a hostile";
+    default:
+      return {};
+  }
+}
+
+bool incoming_attack_notifications_enabled_for_kind(IncomingAttackAttackerKind attackerKind,
+                                                    bool allow_when_unclassified)
+{
+  const auto& notifications = Config::Get().notifications;
+
+  switch (attackerKind) {
+    case IncomingAttackAttackerKind::Player:
+      return notifications.incoming_attack_player;
+    case IncomingAttackAttackerKind::Hostile:
+      return notifications.incoming_attack_hostile;
+    default:
+      if (!notifications.AnyIncomingAttackEnabled()) {
+        return false;
+      }
+
+      return allow_when_unclassified || !notifications.IncomingAttackSplitEnabled();
+  }
+}
+
+bool should_hide_unknown_incoming_attack_notification(IncomingAttackAttackerKind attackerKind)
+{
+  return attackerKind == IncomingAttackAttackerKind::Unknown &&
+      Config::Get().notifications.IncomingAttackSplitEnabled();
+}
+
+bool should_emit_incoming_attack_notification(const char* source,
+                                              IncomingAttackAttackerKind attackerKind,
+                                              bool allow_when_unclassified)
+{
+  if (!incoming_attack_notifications_enabled_for_kind(attackerKind, allow_when_unclassified)) {
     return false;
   }
 
@@ -82,7 +154,7 @@ void maybe_notify_recent_incoming_attack(uint64_t fleetId, const std::string& sh
                                          FleetState priorObservedState, const std::string& resourceName,
                                          const std::string& cargoText)
 {
-  if (!should_emit_incoming_attack_notification("fleet-bar-recent")) {
+  if (!should_emit_incoming_attack_notification("fleet-bar-recent", IncomingAttackAttackerKind::Unknown, false)) {
     return;
   }
 
@@ -305,17 +377,24 @@ IncomingAttackNotificationContext context_from_target_fleet(uint64_t targetFleet
   return context;
 }
 
-std::string build_incoming_attack_body(const IncomingAttackNotificationContext& context)
+std::string build_incoming_attack_body(const IncomingAttackNotificationContext& context,
+                                       IncomingAttackAttackerKind attackerKind = IncomingAttackAttackerKind::Unknown)
 {
+  const auto subject_suffix = incoming_attack_subject_suffix(attackerKind);
+
   if (context.ship_name.empty() && context.fleet_id != 0) {
-    return "Your fleet is under attack";
+    return "Your fleet is under attack" + subject_suffix;
   }
 
   if (context.ship_name.empty() || context.fleet_id == 0) {
+    if (attackerKind == IncomingAttackAttackerKind::Hostile) {
+      return "Open STFC to inspect the hostile and respond.";
+    }
+
     return "Open STFC to inspect the attacker and respond.";
   }
 
-  auto body = "Your " + context.ship_name + " is under attack";
+  auto body = "Your " + context.ship_name + " is under attack" + subject_suffix;
   if (context.state == FleetState::Mining && !context.resource_name.empty()) {
     body += " while mining " + context.resource_name;
   }
@@ -352,7 +431,7 @@ void maybe_notify_fleet_bar_transition(uint64_t fleetId, const std::string& ship
   }
 
   if (oldState == FleetState::Mining && newState == FleetState::Battling) {
-    if (!should_emit_incoming_attack_notification("fleet-bar-transition")) {
+    if (!should_emit_incoming_attack_notification("fleet-bar-transition", IncomingAttackAttackerKind::Unknown, false)) {
       return;
     }
 
@@ -487,7 +566,7 @@ void fleet_notifications_observe_node_depleted(int64_t fleetId)
 
 void fleet_notifications_notify_incoming_attack_detected(const char* source)
 {
-  if (!should_emit_incoming_attack_notification(source)) {
+  if (!should_emit_incoming_attack_notification(source, IncomingAttackAttackerKind::Unknown, false)) {
     return;
   }
 
@@ -509,38 +588,51 @@ void fleet_notifications_notify_incoming_attack_detected(const char* source)
                                                          context.candidate_count,
                                                          context.fleet_id,
                                                          context.ship_name,
-                                                         static_cast<int>(context.state));
+                                                         static_cast<int>(context.state),
+                                                         0);
   notification_show(title ? title : "Incoming Attack!", body.c_str());
 }
 
-void fleet_notifications_notify_incoming_attack_target(const char* source, uint64_t targetFleetId, int targetType)
+void fleet_notifications_notify_incoming_attack_target(const char* source, uint64_t targetFleetId, int targetType,
+                                                       int attackerFleetType)
 {
-  if (!should_emit_incoming_attack_notification(source)) {
+  const auto attacker_kind = incoming_attack_attacker_kind_from_fleet_type(attackerFleetType);
+  const bool hide_notification = should_hide_unknown_incoming_attack_notification(attacker_kind);
+
+  if (!should_emit_incoming_attack_notification(source, attacker_kind, true)) {
     return;
   }
 
   if (targetType == static_cast<int>(NotificationIncomingAttackTargetType::Station)) {
+    auto body = std::string{"Your station is under attack"} + incoming_attack_subject_suffix(attacker_kind);
     auto title = toast_state_title(IncomingAttack);
     live_debug_record_incoming_attack_notification_context(source ? source : "unknown",
-                                                           "Your station is under attack",
+                                                           body,
                                                            incoming_attack_candidate_count(),
                                                            0,
                                                            "",
-                                                           static_cast<int>(FleetState::Unknown));
-    notification_show(title ? title : "Incoming Attack!", "Your station is under attack");
+                                                           static_cast<int>(FleetState::Unknown),
+                                                           attackerFleetType);
+    if (hide_notification) {
+      notification_show_hidden(title ? title : "Incoming Attack!", body.c_str());
+    } else {
+      notification_show(title ? title : "Incoming Attack!", body.c_str());
+    }
     return;
   }
 
   const auto context = context_from_target_fleet(targetFleetId);
-  const auto body = build_incoming_attack_body(context);
+  const auto body = build_incoming_attack_body(context, attacker_kind);
   if (context.fleet_id != 0) {
     s_last_incoming_attack_target_fleet_id = context.fleet_id;
   }
   auto title = toast_state_title(IncomingAttack);
-  spdlog::debug("[IncomingAttack] notify source={} targetFleetId={} targetType={} candidateCount={} fleetId={} ship='{}' state={} body='{}'",
+  spdlog::debug("[IncomingAttack] notify source={} targetFleetId={} targetType={} attackerFleetType={} attackerKind={} candidateCount={} fleetId={} ship='{}' state={} body='{}'",
                 source ? source : "unknown",
                 targetFleetId,
                 targetType,
+                attackerFleetType,
+                incoming_attack_attacker_kind_name(attacker_kind),
                 context.candidate_count,
                 context.fleet_id,
                 context.ship_name,
@@ -551,8 +643,13 @@ void fleet_notifications_notify_incoming_attack_target(const char* source, uint6
                                                          context.candidate_count,
                                                          context.fleet_id,
                                                          context.ship_name,
-                                                         static_cast<int>(context.state));
-  notification_show(title ? title : "Incoming Attack!", body.c_str());
+                                                         static_cast<int>(context.state),
+                                                         attackerFleetType);
+  if (hide_notification) {
+    notification_show_hidden(title ? title : "Incoming Attack!", body.c_str());
+  } else {
+    notification_show(title ? title : "Incoming Attack!", body.c_str());
+  }
 }
 
 void fleet_notifications_observe_mining_timer(FleetPlayerData* selectedFleet, int64_t remainingTicks)

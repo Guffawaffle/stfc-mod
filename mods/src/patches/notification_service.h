@@ -45,3 +45,14 @@ void notification_handle_toast(Toast* toast);
  * @param body  Notification body text.
  */
 void notification_show(const char* title, const char* body);
+
+/**
+ * @brief Queue an arbitrary OS-native notification as hidden classifier state.
+ *
+ * Hidden notifications are used by the coalescer to wait for a matching toast
+ * classifier before deciding whether to surface a notification.
+ *
+ * @param title Notification title text.
+ * @param body  Notification body text.
+ */
+void notification_show_hidden(const char* title, const char* body);
