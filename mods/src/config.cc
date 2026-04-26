@@ -19,8 +19,10 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <iostream>
+#include <optional>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -102,56 +104,146 @@ static const eastl::tuple<const char*, int> bannerTypes[] = {
   {"SurgeTimeLeft", ToastState::SurgeTimeLeft},
 };
 
-struct NotificationToggleSpec {
+struct BoolConfigSpec {
+  std::string_view section;
   std::string_view key;
+  std::string_view runtime_key;
+  bool             default_value;
+  std::string_view docs;
+};
+
+static constexpr BoolConfigSpec kHotkeysEnabledConfig{
+  "control",
+  "hotkeys_enabled",
+  "hotkeys_enabled",
+  DCC::hotkeys_enabled,
+  "Master toggle for mod keyboard hotkeys.",
+};
+
+static constexpr BoolConfigSpec kHotkeysExtendedConfig{
+  "control",
+  "hotkeys_extended",
+  "hotkeys_extended",
+  DCC::hotkeys_extended,
+  "Enable extended keyboard shortcuts.",
+};
+
+static constexpr BoolConfigSpec kUseScopelyHotkeysConfig{
+  "control",
+  "use_scopely_hotkeys",
+  "use_scopely_hotkeys",
+  DCC::use_scopely_hotkeys,
+  "Use Scopely's built-in shortcut layer instead of the mod hotkey router.",
+};
+
+static constexpr BoolConfigSpec kAllowKeyFallthroughConfig{
+  "control",
+  "allow_key_fallthrough",
+  "allow_key_fallthrough",
+  false,
+  "Allow unhandled key frames to fall through to the original game input path.",
+};
+
+static constexpr std::array kHotkeyBoolConfigSpecs{
+  kHotkeysEnabledConfig,
+  kHotkeysExtendedConfig,
+  kUseScopelyHotkeysConfig,
+  kAllowKeyFallthroughConfig,
+};
+static_assert(kHotkeyBoolConfigSpecs.size() == 4);
+
+struct ShortcutConfigSpec {
+  std::string_view section;
+  std::string_view key;
+  std::string_view runtime_key;
+  std::string_view default_value;
+  std::string_view deprecated_typo_key;
+  std::string_view legacy_key;
+  std::string_view docs;
+};
+
+static constexpr ShortcutConfigSpec kDisableHotkeysShortcutConfig{
+  "shortcuts",
+  "set_hotkeys_disable",
+  "set_hotkeys_disable",
+  DCSH::set_hotkeys_disabled,
+  "set_hotkeys_disble",
+  "set_hotkeys_disabled",
+  "Shortcut that disables mod hotkeys at runtime.",
+};
+
+struct NotificationBoolConfigSpec {
+  std::string_view section;
+  std::string_view key;
+  std::string_view runtime_key;
+  bool             default_value;
+  bool NotificationConfig::* member;
+  std::string_view docs;
+};
+
+static constexpr NotificationBoolConfigSpec notificationBoolConfigSpecs[] = {
+  {"notifications", "notifications_enabled", "notifications_enabled", DCN::enabled, &NotificationConfig::enabled, "Master switch for OS notifications."},
+  {"notifications", "notifications_fleet_arrived_in_system", "notifications_fleet_arrived_in_system", DCN::Fleet::arrived_in_system, &NotificationConfig::fleet_arrived_in_system, "Notify when a fleet arrives in-system."},
+  {"notifications", "notifications_fleet_started_mining", "notifications_fleet_started_mining", DCN::Fleet::started_mining, &NotificationConfig::fleet_started_mining, "Notify when a fleet starts mining."},
+  {"notifications", "notifications_fleet_node_depleted", "notifications_fleet_node_depleted", DCN::Fleet::node_depleted, &NotificationConfig::fleet_node_depleted, "Notify when a mining node is depleted."},
+  {"notifications", "notifications_fleet_docked", "notifications_fleet_docked", DCN::Fleet::docked, &NotificationConfig::fleet_docked, "Notify when a fleet docks."},
+  {"notifications", "notifications_fleet_repair_complete", "notifications_fleet_repair_complete", DCN::Fleet::repair_complete, &NotificationConfig::fleet_repair_complete, "Notify when a repairing fleet docks."},
+};
+
+struct NotificationToggleSpec {
+  std::string_view section;
+  std::string_view key;
+  std::string_view runtime_key;
   int              toast_state;
   bool             default_value;
+  std::string_view deprecated_key;
+  std::string_view docs;
 };
 
 static constexpr NotificationToggleSpec notificationToggleSpecs[] = {
-  {"notifications_victory", Victory, DCN::Battle::victory},
-  {"notifications_defeat", Defeat, DCN::Battle::defeat},
-  {"notifications_partial_victory", PartialVictory, DCN::Battle::partial_victory},
-  {"notifications_station_victory", StationVictory, DCN::Battle::station_victory},
-  {"notifications_station_defeat", StationDefeat, DCN::Battle::station_defeat},
-  {"notifications_station_battle", StationBattle, DCN::Battle::station_battle},
-  {"notifications_incoming_attack_player", IncomingAttack, DCN::Battle::incoming_attack_player},
-  {"notifications_incoming_attack_hostile", IncomingAttackFaction, DCN::Battle::incoming_attack_hostile},
-  {"notifications_fleet_battle", FleetBattle, DCN::Battle::fleet_battle},
-  {"notifications_armada_battle_won", ArmadaBattleWon, DCN::Battle::armada_battle_won},
-  {"notifications_armada_battle_lost", ArmadaBattleLost, DCN::Battle::armada_battle_lost},
-  {"notifications_assault_victory", AssaultVictory, DCN::Battle::assault_victory},
-  {"notifications_assault_defeat", AssaultDefeat, DCN::Battle::assault_defeat},
-  {"notifications_armada_created", ArmadaCreated, DCN::Armada::created},
-  {"notifications_armada_canceled", ArmadaCanceled, DCN::Armada::canceled},
-  {"notifications_tournament", Tournament, DCN::Events::tournament},
-  {"notifications_chained_event_scored", ChainedEventScored, DCN::Events::chained_event_scored},
-  {"notifications_standard", Standard, DCN::Experimental::standard},
-  {"notifications_faction_warning", FactionWarning, DCN::Experimental::faction_warning},
-  {"notifications_faction_level_up", FactionLevelUp, DCN::Experimental::faction_level_up},
-  {"notifications_faction_level_down", FactionLevelDown, DCN::Experimental::faction_level_down},
-  {"notifications_faction_discovered", FactionDiscovered, DCN::Experimental::faction_discovered},
-  {"notifications_armada_incoming_attack", ArmadaIncomingAttack, DCN::Experimental::armada_incoming_attack},
-  {"notifications_diplomacy_updated", DiplomacyUpdated, DCN::Experimental::diplomacy_updated},
-  {"notifications_joined_takeover", JoinedTakeover, DCN::Experimental::joined_takeover},
-  {"notifications_competitor_joined_takeover", CompetitorJoinedTakeover, DCN::Experimental::competitor_joined_takeover},
-  {"notifications_abandoned_territory", AbandonedTerritory, DCN::Experimental::abandoned_territory},
-  {"notifications_takeover_victory", TakeoverVictory, DCN::Experimental::takeover_victory},
-  {"notifications_takeover_defeat", TakeoverDefeat, DCN::Experimental::takeover_defeat},
-  {"notifications_treasury_progress", TreasuryProgress, DCN::Experimental::treasury_progress},
-  {"notifications_treasury_full", TreasuryFull, DCN::Experimental::treasury_full},
-  {"notifications_achievement", Achievement, DCN::Experimental::achievement},
-  {"notifications_challenge_complete", ChallengeComplete, DCN::Experimental::challenge_complete},
-  {"notifications_challenge_failed", ChallengeFailed, DCN::Experimental::challenge_failed},
-  {"notifications_strike_hit", StrikeHit, DCN::Experimental::strike_hit},
-  {"notifications_strike_defeat", StrikeDefeat, DCN::Experimental::strike_defeat},
-  {"notifications_warchest_progress", WarchestProgress, DCN::Experimental::warchest_progress},
-  {"notifications_warchest_full", WarchestFull, DCN::Experimental::warchest_full},
-  {"notifications_arena_time_left", ArenaTimeLeft, DCN::Experimental::arena_time_left},
-  {"notifications_fleet_preset_applied", FleetPresetApplied, DCN::Experimental::fleet_preset_applied},
-  {"notifications_surge_warmup_ended", SurgeWarmUpEnded, DCN::Experimental::surge_warmup_ended},
-  {"notifications_surge_hostile_group_defeated", SurgeHostileGroupDefeated, DCN::Experimental::surge_hostile_group_defeated},
-  {"notifications_surge_time_left", SurgeTimeLeft, DCN::Experimental::surge_time_left},
+  {"notifications", "notifications_victory", "notifications_victory", Victory, DCN::Battle::victory, "", "Notify for victory battle toasts."},
+  {"notifications", "notifications_defeat", "notifications_defeat", Defeat, DCN::Battle::defeat, "", "Notify for defeat battle toasts."},
+  {"notifications", "notifications_partial_victory", "notifications_partial_victory", PartialVictory, DCN::Battle::partial_victory, "", "Notify for partial victory battle toasts."},
+  {"notifications", "notifications_station_victory", "notifications_station_victory", StationVictory, DCN::Battle::station_victory, "", "Notify for station victory toasts."},
+  {"notifications", "notifications_station_defeat", "notifications_station_defeat", StationDefeat, DCN::Battle::station_defeat, "", "Notify for station defeat toasts."},
+  {"notifications", "notifications_station_battle", "notifications_station_battle", StationBattle, DCN::Battle::station_battle, "", "Notify for station battle toasts."},
+  {"notifications", "notifications_incoming_attack_player", "notifications_incoming_attack_player", IncomingAttack, DCN::Battle::incoming_attack_player, "notifications_incoming_attack", "Notify for incoming player attack toasts."},
+  {"notifications", "notifications_incoming_attack_hostile", "notifications_incoming_attack_hostile", IncomingAttackFaction, DCN::Battle::incoming_attack_hostile, "notifications_incoming_attack_faction", "Notify for incoming hostile attack toasts."},
+  {"notifications", "notifications_fleet_battle", "notifications_fleet_battle", FleetBattle, DCN::Battle::fleet_battle, "", "Notify for fleet battle toasts."},
+  {"notifications", "notifications_armada_battle_won", "notifications_armada_battle_won", ArmadaBattleWon, DCN::Battle::armada_battle_won, "", "Notify for armada victory toasts."},
+  {"notifications", "notifications_armada_battle_lost", "notifications_armada_battle_lost", ArmadaBattleLost, DCN::Battle::armada_battle_lost, "", "Notify for armada defeat toasts."},
+  {"notifications", "notifications_assault_victory", "notifications_assault_victory", AssaultVictory, DCN::Battle::assault_victory, "", "Notify for assault victory toasts."},
+  {"notifications", "notifications_assault_defeat", "notifications_assault_defeat", AssaultDefeat, DCN::Battle::assault_defeat, "", "Notify for assault defeat toasts."},
+  {"notifications", "notifications_armada_created", "notifications_armada_created", ArmadaCreated, DCN::Armada::created, "", "Notify for armada created toasts."},
+  {"notifications", "notifications_armada_canceled", "notifications_armada_canceled", ArmadaCanceled, DCN::Armada::canceled, "", "Notify for armada canceled toasts."},
+  {"notifications", "notifications_tournament", "notifications_tournament", Tournament, DCN::Events::tournament, "", "Notify for tournament progress toasts."},
+  {"notifications", "notifications_chained_event_scored", "notifications_chained_event_scored", ChainedEventScored, DCN::Events::chained_event_scored, "", "Notify for chained event score toasts."},
+  {"notifications", "notifications_standard", "notifications_standard", Standard, DCN::Experimental::standard, "", "Notify for standard toasts."},
+  {"notifications", "notifications_faction_warning", "notifications_faction_warning", FactionWarning, DCN::Experimental::faction_warning, "", "Notify for faction warning toasts."},
+  {"notifications", "notifications_faction_level_up", "notifications_faction_level_up", FactionLevelUp, DCN::Experimental::faction_level_up, "", "Notify for faction level-up toasts."},
+  {"notifications", "notifications_faction_level_down", "notifications_faction_level_down", FactionLevelDown, DCN::Experimental::faction_level_down, "", "Notify for faction level-down toasts."},
+  {"notifications", "notifications_faction_discovered", "notifications_faction_discovered", FactionDiscovered, DCN::Experimental::faction_discovered, "", "Notify for faction discovery toasts."},
+  {"notifications", "notifications_armada_incoming_attack", "notifications_armada_incoming_attack", ArmadaIncomingAttack, DCN::Experimental::armada_incoming_attack, "", "Notify for armada incoming attack toasts."},
+  {"notifications", "notifications_diplomacy_updated", "notifications_diplomacy_updated", DiplomacyUpdated, DCN::Experimental::diplomacy_updated, "", "Notify for diplomacy update toasts."},
+  {"notifications", "notifications_joined_takeover", "notifications_joined_takeover", JoinedTakeover, DCN::Experimental::joined_takeover, "", "Notify for joined takeover toasts."},
+  {"notifications", "notifications_competitor_joined_takeover", "notifications_competitor_joined_takeover", CompetitorJoinedTakeover, DCN::Experimental::competitor_joined_takeover, "", "Notify for competitor joined takeover toasts."},
+  {"notifications", "notifications_abandoned_territory", "notifications_abandoned_territory", AbandonedTerritory, DCN::Experimental::abandoned_territory, "", "Notify for abandoned territory toasts."},
+  {"notifications", "notifications_takeover_victory", "notifications_takeover_victory", TakeoverVictory, DCN::Experimental::takeover_victory, "", "Notify for takeover victory toasts."},
+  {"notifications", "notifications_takeover_defeat", "notifications_takeover_defeat", TakeoverDefeat, DCN::Experimental::takeover_defeat, "", "Notify for takeover defeat toasts."},
+  {"notifications", "notifications_treasury_progress", "notifications_treasury_progress", TreasuryProgress, DCN::Experimental::treasury_progress, "", "Notify for treasury progress toasts."},
+  {"notifications", "notifications_treasury_full", "notifications_treasury_full", TreasuryFull, DCN::Experimental::treasury_full, "", "Notify for treasury full toasts."},
+  {"notifications", "notifications_achievement", "notifications_achievement", Achievement, DCN::Experimental::achievement, "", "Notify for achievement toasts."},
+  {"notifications", "notifications_challenge_complete", "notifications_challenge_complete", ChallengeComplete, DCN::Experimental::challenge_complete, "", "Notify for challenge complete toasts."},
+  {"notifications", "notifications_challenge_failed", "notifications_challenge_failed", ChallengeFailed, DCN::Experimental::challenge_failed, "", "Notify for challenge failed toasts."},
+  {"notifications", "notifications_strike_hit", "notifications_strike_hit", StrikeHit, DCN::Experimental::strike_hit, "", "Notify for strike hit toasts."},
+  {"notifications", "notifications_strike_defeat", "notifications_strike_defeat", StrikeDefeat, DCN::Experimental::strike_defeat, "", "Notify for strike defeat toasts."},
+  {"notifications", "notifications_warchest_progress", "notifications_warchest_progress", WarchestProgress, DCN::Experimental::warchest_progress, "", "Notify for warchest progress toasts."},
+  {"notifications", "notifications_warchest_full", "notifications_warchest_full", WarchestFull, DCN::Experimental::warchest_full, "", "Notify for warchest full toasts."},
+  {"notifications", "notifications_arena_time_left", "notifications_arena_time_left", ArenaTimeLeft, DCN::Experimental::arena_time_left, "", "Notify for arena time warning toasts."},
+  {"notifications", "notifications_fleet_preset_applied", "notifications_fleet_preset_applied", FleetPresetApplied, DCN::Experimental::fleet_preset_applied, "", "Notify for fleet preset applied toasts."},
+  {"notifications", "notifications_surge_warmup_ended", "notifications_surge_warmup_ended", SurgeWarmUpEnded, DCN::Experimental::surge_warmup_ended, "", "Notify for surge warmup ended toasts."},
+  {"notifications", "notifications_surge_hostile_group_defeated", "notifications_surge_hostile_group_defeated", SurgeHostileGroupDefeated, DCN::Experimental::surge_hostile_group_defeated, "", "Notify for surge hostile group defeated toasts."},
+  {"notifications", "notifications_surge_time_left", "notifications_surge_time_left", SurgeTimeLeft, DCN::Experimental::surge_time_left, "", "Notify for surge time warning toasts."},
 };
 
 bool SyncConfig::enabled(SyncConfig::Type type) const
@@ -363,6 +455,86 @@ std::string get_config_type_as_string(const toml::node_type type)
   return "The node type is unknown";
 }
 
+bool config_key_exists(toml::table& config, std::string_view section, std::string_view key)
+{
+  auto* section_table = config[section].as_table();
+  return section_table && section_table->contains(key);
+}
+
+std::optional<bool> read_bool_config_value_if_present(toml::table& config,
+                                                      std::string_view section,
+                                                      std::string_view key,
+                                                      std::string_view docs)
+{
+  auto* section_table = config[section].as_table();
+  if (!section_table || !section_table->contains(key)) {
+    return std::nullopt;
+  }
+
+  auto* node = section_table->get(key);
+  if (!node) {
+    return std::nullopt;
+  }
+
+  if (auto value = node->value<bool>(); value.has_value()) {
+    return value.value();
+  }
+
+  spdlog::warn("Invalid boolean config [{}].{} ({}). Found {}; using default.",
+               section,
+               key,
+               docs.empty() ? "boolean toggle" : docs,
+               get_config_type_as_string(node->type()));
+  return std::nullopt;
+}
+
+bool read_bool_config_entry(toml::table& config,
+                            toml::table& new_config,
+                            std::string_view section,
+                            std::string_view key,
+                            std::string_view runtime_key,
+                            bool default_value,
+                            std::string_view docs,
+                            bool write_log)
+{
+  new_config.emplace<toml::table>(section, toml::table());
+  auto sectionTable = new_config[section];
+
+  auto final_value = default_value;
+  if (auto parsed_value = read_bool_config_value_if_present(config, section, key, docs); parsed_value.has_value()) {
+    final_value = parsed_value.value();
+  }
+
+  sectionTable.as_table()->insert_or_assign(runtime_key, final_value);
+
+  if (write_log) {
+    spdlog::debug("config value {}.{} value: {}", section, runtime_key, final_value);
+  }
+
+  return final_value;
+}
+
+bool read_bool_config_entry(toml::table& config, toml::table& new_config, const BoolConfigSpec& spec, bool write_log)
+{
+  return read_bool_config_entry(config, new_config, spec.section, spec.key, spec.runtime_key,
+                                spec.default_value, spec.docs, write_log);
+}
+
+bool read_bool_config_entry(toml::table& config,
+                            toml::table& new_config,
+                            const NotificationBoolConfigSpec& spec,
+                            bool write_log)
+{
+  return read_bool_config_entry(config, new_config, spec.section, spec.key, spec.runtime_key,
+                                spec.default_value, spec.docs, write_log);
+}
+
+bool notification_toggle_key_exists(toml::table& config, const NotificationToggleSpec& spec)
+{
+  return config_key_exists(config, spec.section, spec.key) ||
+      (!spec.deprecated_key.empty() && config_key_exists(config, spec.section, spec.deprecated_key));
+}
+
 /**
  * @brief Read a single config value from the parsed TOML, falling back to default.
  *
@@ -506,12 +678,21 @@ void parse_config_shortcut_value(toml::table& new_config, std::string_view item,
 
     if (mapKey.Key != KeyCode::None) {
       keyAdded = true;
+    } else if (!wantedKey.empty()) {
+      spdlog::warn("Invalid shortcut token [shortcuts].{} token='{}' value='{}'; ignoring token.",
+                   item,
+                   wantedKey,
+                   config_value);
     }
 
     MapKey::AddMappedKey(gameFunction, mapKey);
   }
 
   if (!keyAdded) {
+    spdlog::warn("No valid shortcut tokens for [shortcuts].{} value='{}'; using default '{}'.",
+                 item,
+                 config_value,
+                 default_value);
     MapKey mapKey = MapKey::Parse(default_value);
     MapKey::AddMappedKey(gameFunction, mapKey);
   }
@@ -546,24 +727,29 @@ std::string shortcut_value_or_default(toml::table& config, std::string_view item
 
 void parse_disable_hotkeys_shortcut(toml::table& config, toml::table& new_config)
 {
-  auto section = "shortcuts";
+  auto section = kDisableHotkeysShortcutConfig.section;
   config.emplace<toml::table>(section, toml::table());
 
   HotkeyDisableShortcutAliasInput input;
-  input.has_canonical = shortcut_key_exists(config, "set_hotkeys_disable");
-  input.canonical = shortcut_value_or_default(config, "set_hotkeys_disable", DCSH::set_hotkeys_disabled);
-  input.has_deprecated_typo = shortcut_key_exists(config, "set_hotkeys_disble");
-  input.deprecated_typo = shortcut_value_or_default(config, "set_hotkeys_disble", DCSH::set_hotkeys_disabled);
-  input.has_legacy_disabled = shortcut_key_exists(config, "set_hotkeys_disabled");
-  input.legacy_disabled = shortcut_value_or_default(config, "set_hotkeys_disabled", DCSH::set_hotkeys_disabled);
-  input.default_value = DCSH::set_hotkeys_disabled;
+  input.has_canonical = shortcut_key_exists(config, kDisableHotkeysShortcutConfig.key);
+  input.canonical = shortcut_value_or_default(config, kDisableHotkeysShortcutConfig.key,
+                                             kDisableHotkeysShortcutConfig.default_value);
+  input.has_deprecated_typo = shortcut_key_exists(config, kDisableHotkeysShortcutConfig.deprecated_typo_key);
+  input.deprecated_typo = shortcut_value_or_default(config, kDisableHotkeysShortcutConfig.deprecated_typo_key,
+                                                   kDisableHotkeysShortcutConfig.default_value);
+  input.has_legacy_disabled = shortcut_key_exists(config, kDisableHotkeysShortcutConfig.legacy_key);
+  input.legacy_disabled = shortcut_value_or_default(config, kDisableHotkeysShortcutConfig.legacy_key,
+                                                   kDisableHotkeysShortcutConfig.default_value);
+  input.default_value = kDisableHotkeysShortcutConfig.default_value;
 
   const auto decision = resolve_hotkey_disable_shortcut_alias(input);
   if (decision.used_deprecated_alias) {
-    spdlog::warn("Deprecation Warning: [shortcuts].{} is deprecated. Use set_hotkeys_disable instead.",
-                 decision.source_key);
+    spdlog::warn("Deprecation Warning: [shortcuts].{} is deprecated. Use {} instead.",
+                 decision.source_key,
+                 kDisableHotkeysShortcutConfig.key);
   } else if (decision.saw_deprecated_alias) {
-    spdlog::warn("Deprecation Warning: deprecated disable-hotkeys shortcut aliases are ignored because [shortcuts].set_hotkeys_disable is set.");
+    spdlog::warn("Deprecation Warning: deprecated disable-hotkeys shortcut aliases are ignored because [shortcuts].{} is set.",
+                 kDisableHotkeysShortcutConfig.key);
   }
 
   if (decision.has_conflicting_alias) {
@@ -572,8 +758,8 @@ void parse_disable_hotkeys_shortcut(toml::table& config, toml::table& new_config
                  decision.value);
   }
 
-  parse_config_shortcut_value(new_config, decision.key, GameFunction::DisableHotKeys, decision.value,
-                              DCSH::set_hotkeys_disabled);
+  parse_config_shortcut_value(new_config, kDisableHotkeysShortcutConfig.runtime_key, GameFunction::DisableHotKeys, decision.value,
+                              kDisableHotkeysShortcutConfig.default_value);
 }
 
 /**
@@ -704,13 +890,13 @@ void Config::Load()
 #endif
   
   this->queue_enabled       = get_config_or_default(config, parsed, "control", "queue_enabled", DCC::queue_enabled, write_config);
-  this->hotkeys_enabled     = get_config_or_default(config, parsed, "control", "hotkeys_enabled", DCC::hotkeys_enabled, write_config);
-  this->hotkeys_extended    = get_config_or_default(config, parsed, "control", "hotkeys_extended", DCC::hotkeys_extended, write_config);
-  this->use_scopely_hotkeys = get_config_or_default(config, parsed, "control", "use_scopely_hotkeys", DCC::use_scopely_hotkeys, write_config);
+  this->hotkeys_enabled     = read_bool_config_entry(config, parsed, kHotkeysEnabledConfig, write_config);
+  this->hotkeys_extended    = read_bool_config_entry(config, parsed, kHotkeysExtendedConfig, write_config);
+  this->use_scopely_hotkeys = read_bool_config_entry(config, parsed, kUseScopelyHotkeysConfig, write_config);
   this->select_timer        = get_config_or_default(config, parsed, "control", "select_timer", DCC::select_timer, write_config);
   this->enable_experimental = get_config_or_default(config, parsed, "control", "enable_experimental", DCC::enable_experimental, write_config);
 
-  g_allow_key_fallthrough   = get_config_or_default(config, parsed, "control", "allow_key_fallthrough", false, write_config);
+  g_allow_key_fallthrough   = read_bool_config_entry(config, parsed, kAllowKeyFallthroughConfig, write_config);
 
   spdlog::info("[Hotkeys] config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} allow_key_fallthrough={}",
                this->installHotkeyHooks,
@@ -719,7 +905,7 @@ void Config::Load()
                g_allow_key_fallthrough);
 
   if (g_allow_key_fallthrough && !this->use_scopely_hotkeys) {
-    spdlog::warn("[Hotkeys] allow_key_fallthrough only affects per-frame ScreenManager::Update fallthrough; set use_scopely_hotkeys=true to initialize Scopely shortcuts.");
+    spdlog::warn("[Hotkeys] allow_key_fallthrough is enabled without use_scopely_hotkeys; unhandled frames will pass through and Scopely shortcut actions will initialize for fallthrough.");
   }
 
   spdlog::debug("");
@@ -892,19 +1078,10 @@ void Config::Load()
   parsed["ui"].as_table()->insert_or_assign("disabled_banner_types", bannerString);
 
   auto* notifications_table = config["notifications"].as_table();
-  const bool has_legacy_incoming_attack_player = notifications_table && notifications_table->contains("notifications_incoming_attack");
-  const bool has_legacy_incoming_attack_hostile = notifications_table && notifications_table->contains("notifications_incoming_attack_faction");
-  const bool legacy_incoming_attack_player = has_legacy_incoming_attack_player
-      ? config["notifications"]["notifications_incoming_attack"].value_or(DCN::Battle::incoming_attack_player)
-      : DCN::Battle::incoming_attack_player;
-  const bool legacy_incoming_attack_hostile = has_legacy_incoming_attack_hostile
-      ? config["notifications"]["notifications_incoming_attack_faction"].value_or(DCN::Battle::incoming_attack_hostile)
-      : DCN::Battle::incoming_attack_hostile;
   const bool has_explicit_notification_toggles = notifications_table &&
-      (has_legacy_incoming_attack_player || has_legacy_incoming_attack_hostile ||
-       std::ranges::any_of(notificationToggleSpecs, [notifications_table](const auto& spec) {
-        return notifications_table->contains(spec.key);
-      }));
+      std::ranges::any_of(notificationToggleSpecs, [&config](const auto& spec) {
+        return notification_toggle_key_exists(config, spec);
+      });
 
   auto* ui_table = config["ui"].as_table();
   std::string legacy_notify_banner_types;
@@ -921,42 +1098,41 @@ void Config::Load()
 
   const bool use_legacy_notify_allowlist = has_legacy_notify_banner_types && !has_explicit_notification_toggles;
 
-  this->notifications.enabled =
-      get_config_or_default(config, parsed, "notifications", "notifications_enabled", DCN::enabled, write_config);
-  this->notifications.fleet_arrived_in_system = get_config_or_default(
-      config, parsed, "notifications", "notifications_fleet_arrived_in_system", DCN::Fleet::arrived_in_system, write_config);
-  this->notifications.fleet_started_mining =
-      get_config_or_default(config, parsed, "notifications", "notifications_fleet_started_mining", DCN::Fleet::started_mining, write_config);
-  this->notifications.fleet_node_depleted =
-      get_config_or_default(config, parsed, "notifications", "notifications_fleet_node_depleted", DCN::Fleet::node_depleted, write_config);
-  this->notifications.fleet_docked =
-      get_config_or_default(config, parsed, "notifications", "notifications_fleet_docked", DCN::Fleet::docked, write_config);
-    this->notifications.fleet_repair_complete = get_config_or_default(
-      config, parsed, "notifications", "notifications_fleet_repair_complete", DCN::Fleet::repair_complete, write_config);
+  for (const auto& spec : notificationBoolConfigSpecs) {
+    this->notifications.*(spec.member) = read_bool_config_entry(config, parsed, spec, write_config);
+  }
 
   this->notifications.ClearToastStates();
   for (const auto& spec : notificationToggleSpecs) {
     const bool default_value = use_legacy_notify_allowlist ? false : spec.default_value;
     bool enabled_default = default_value;
+    const bool has_canonical_key = config_key_exists(config, spec.section, spec.key);
+    const bool has_deprecated_key = !spec.deprecated_key.empty() &&
+        config_key_exists(config, spec.section, spec.deprecated_key);
 
-    if (!use_legacy_notify_allowlist && notifications_table && !notifications_table->contains(spec.key)) {
-      if (spec.key == "notifications_incoming_attack_player" && has_legacy_incoming_attack_player) {
-        enabled_default = legacy_incoming_attack_player;
-      } else if (spec.key == "notifications_incoming_attack_hostile" && has_legacy_incoming_attack_hostile) {
-        enabled_default = legacy_incoming_attack_hostile;
+    if (!use_legacy_notify_allowlist && !has_canonical_key && has_deprecated_key) {
+      if (auto legacy_value = read_bool_config_value_if_present(config, spec.section, spec.deprecated_key, spec.docs);
+          legacy_value.has_value()) {
+        enabled_default = legacy_value.value();
       }
     }
 
-    const bool enabled = get_config_or_default(config, parsed, "notifications", spec.key, enabled_default, write_config);
+    const bool enabled = read_bool_config_entry(config,
+                                                parsed,
+                                                spec.section,
+                                                spec.key,
+                                                spec.runtime_key,
+                                                enabled_default,
+                                                spec.docs,
+                                                write_config);
     this->notifications.SetToastStateEnabled(spec.toast_state, enabled);
-  }
 
-  if (has_legacy_incoming_attack_player && !(notifications_table && notifications_table->contains("notifications_incoming_attack_player"))) {
-    spdlog::warn("Deprecation Warning: [notifications].notifications_incoming_attack is deprecated. Use notifications_incoming_attack_player instead.");
-  }
-
-  if (has_legacy_incoming_attack_hostile && !(notifications_table && notifications_table->contains("notifications_incoming_attack_hostile"))) {
-    spdlog::warn("Deprecation Warning: [notifications].notifications_incoming_attack_faction is deprecated. Use notifications_incoming_attack_hostile instead.");
+    if (has_deprecated_key && !has_canonical_key) {
+      spdlog::warn("Deprecation Warning: [{}].{} is deprecated. Use {} instead.",
+                   spec.section,
+                   spec.deprecated_key,
+                   spec.key);
+    }
   }
 
   if (use_legacy_notify_allowlist) {
@@ -980,7 +1156,8 @@ void Config::Load()
     }
 
     for (const auto& spec : notificationToggleSpecs) {
-      parsed["notifications"].as_table()->insert_or_assign(spec.key, this->notifications.EnabledForToastState(spec.toast_state));
+      parsed["notifications"].as_table()->insert_or_assign(spec.runtime_key,
+                                                           this->notifications.EnabledForToastState(spec.toast_state));
     }
 
     spdlog::warn("Deprecation Warning: [ui].notify_on_banner_types / [ui].notify_banner_types is deprecated. Migrate to [notifications].");
