@@ -95,6 +95,93 @@ TEST_SUITE("str_utils")
 }
 
 // ===========================================================================
+// hotkey decisions
+// ===========================================================================
+
+TEST_SUITE("hotkey_decisions")
+{
+  TEST_CASE("Scopely shortcut initialization ignores per-frame fallthrough")
+  {
+    CHECK_FALSE(should_call_original_initialize_actions(false, false));
+    CHECK_FALSE(should_call_original_initialize_actions(false, true));
+    CHECK(should_call_original_initialize_actions(true, false));
+    CHECK(should_call_original_initialize_actions(true, true));
+  }
+
+  TEST_CASE("per-frame fallthrough can allow original ScreenManager update")
+  {
+    CHECK_FALSE(should_call_original_screen_update(false, false));
+    CHECK(should_call_original_screen_update(false, true));
+    CHECK(should_call_original_screen_update(true, false));
+    CHECK(should_call_original_screen_update(true, true));
+  }
+}
+
+TEST_SUITE("hotkey_disable_shortcut_alias")
+{
+  TEST_CASE("canonical key wins")
+  {
+    HotkeyDisableShortcutAliasInput input;
+    input.has_canonical = true;
+    input.canonical = "CTRL-D";
+    input.default_value = "CTRL-ALT-MINUS";
+
+    const auto decision = resolve_hotkey_disable_shortcut_alias(input);
+    CHECK(decision.key == "set_hotkeys_disable");
+    CHECK(decision.source_key == "set_hotkeys_disable");
+    CHECK(decision.value == "CTRL-D");
+    CHECK_FALSE(decision.used_deprecated_alias);
+    CHECK_FALSE(decision.has_conflicting_alias);
+  }
+
+  TEST_CASE("deprecated typo remains compatible")
+  {
+    HotkeyDisableShortcutAliasInput input;
+    input.has_deprecated_typo = true;
+    input.deprecated_typo = "CTRL-T";
+    input.default_value = "CTRL-ALT-MINUS";
+
+    const auto decision = resolve_hotkey_disable_shortcut_alias(input);
+    CHECK(decision.key == "set_hotkeys_disable");
+    CHECK(decision.source_key == "set_hotkeys_disble");
+    CHECK(decision.value == "CTRL-T");
+    CHECK(decision.used_deprecated_alias);
+    CHECK(decision.saw_deprecated_alias);
+    CHECK_FALSE(decision.has_conflicting_alias);
+  }
+
+  TEST_CASE("conflicting canonical and deprecated values use canonical")
+  {
+    HotkeyDisableShortcutAliasInput input;
+    input.has_canonical = true;
+    input.canonical = "CTRL-D";
+    input.has_deprecated_typo = true;
+    input.deprecated_typo = "CTRL-T";
+    input.default_value = "CTRL-ALT-MINUS";
+
+    const auto decision = resolve_hotkey_disable_shortcut_alias(input);
+    CHECK(decision.source_key == "set_hotkeys_disable");
+    CHECK(decision.value == "CTRL-D");
+    CHECK_FALSE(decision.used_deprecated_alias);
+    CHECK(decision.saw_deprecated_alias);
+    CHECK(decision.has_conflicting_alias);
+  }
+
+  TEST_CASE("legacy disabled spelling is accepted as an alias")
+  {
+    HotkeyDisableShortcutAliasInput input;
+    input.has_legacy_disabled = true;
+    input.legacy_disabled = "CTRL-L";
+    input.default_value = "CTRL-ALT-MINUS";
+
+    const auto decision = resolve_hotkey_disable_shortcut_alias(input);
+    CHECK(decision.source_key == "set_hotkeys_disabled");
+    CHECK(decision.value == "CTRL-L");
+    CHECK(decision.used_deprecated_alias);
+  }
+}
+
+// ===========================================================================
 // toast_state_title
 // ===========================================================================
 

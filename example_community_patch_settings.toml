@@ -290,7 +290,7 @@ log_off = "CTRL-SHIFT-F12"
 log_trace = "CTRL-SHIFT-F7"
 log_warn = "CTRL-SHIFT-F10"
 quit = "F10"
-set_hotkeys_disabled = "CTRL-ALT-MINUS"
+set_hotkeys_disable = "CTRL-ALT-MINUS"
 set_hotkeys_enabled = "CTRL-ALT-="
 
 # Subgroup: Queue & Primary

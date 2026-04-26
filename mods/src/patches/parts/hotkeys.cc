@@ -10,6 +10,7 @@
 
 #include "config.h"
 
+#include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
 #include "patches/hotkey_router.h"
@@ -40,7 +41,12 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
   live_debug_tick(_this);
 
-  if (!kEnableHotkeyRouterFrame || hotkey_router_screen_update(_this)) {
+  if (!kEnableHotkeyRouterFrame) {
+    return original(_this);
+  }
+
+  const auto router_allows_original = hotkey_router_screen_update(_this);
+  if (hotkey_router_should_call_original_screen_update(router_allows_original)) {
     return original(_this);
   }
 }
@@ -55,7 +61,14 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
  */
 void InitializeActions_Hook(auto original, void* _this)
 {
-  if (hotkey_router_init_actions()) {
+  const auto should_call_original = hotkey_router_should_call_original_initialize_actions();
+  spdlog::info("[Hotkeys] ShortcutsManager.InitializeActions original={} reason={} use_scopely_hotkeys={} allow_key_fallthrough={}",
+               should_call_original ? "called" : "suppressed",
+               should_call_original ? "use_scopely_hotkeys" : "mod-hotkeys-only",
+               Config::Get().use_scopely_hotkeys,
+               AllowKeyFallthrough());
+
+  if (should_call_original) {
     return original(_this);
   }
 }
@@ -115,6 +128,14 @@ void ChatMessageListLocalViewController_AboutToShow_Hook(ChatMessageListLocalVie
 /** @brief Resolves IL2CPP class/method pointers and installs all hotkey hooks. */
 void InstallHotkeyHooks()
 {
+  spdlog::info("[Hotkeys] startup config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} allow_key_fallthrough={} frame_hook={} initialize_actions_hook={}",
+               Config::Get().installHotkeyHooks,
+               Config::Get().hotkeys_enabled,
+               Config::Get().use_scopely_hotkeys,
+               AllowKeyFallthrough(),
+               kEnableHotkeyRouterFrame,
+               kEnableShortcutInitializeHook);
+
   if (kEnableShortcutInitializeHook) {
     auto shortcuts_manager_helper =
         il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager");

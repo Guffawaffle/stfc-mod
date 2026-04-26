@@ -19,6 +19,7 @@
 #include "patches/mapkey.h"
 #include "patches/navigation.h"
 #include "patches/viewer_mgmt.h"
+#include "testable_functions.h"
 
 #include "prime/ChatManager.h"
 #include "prime/ChatMessageListLocalViewController.h"
@@ -244,9 +245,14 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
 // ─── Hook Delegate Functions ─────────────────────────────────────────────────────────
 
-bool hotkey_router_init_actions()
+bool hotkey_router_should_call_original_initialize_actions()
 {
-  return Config::Get().use_scopely_hotkeys || AllowKeyFallthrough();
+  return should_call_original_initialize_actions(Config::Get().use_scopely_hotkeys, AllowKeyFallthrough());
+}
+
+bool hotkey_router_should_call_original_screen_update(bool routerAllowsOriginal)
+{
+  return should_call_original_screen_update(routerAllowsOriginal, AllowKeyFallthrough());
 }
 
 void hotkey_router_bind_context(RewardsButtonWidget* _this)

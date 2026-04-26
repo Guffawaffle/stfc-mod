@@ -6,6 +6,36 @@
 #include <cstdint>
 #include <string>
 
+struct HotkeyDisableShortcutAliasInput {
+  bool        has_canonical = false;
+  std::string canonical;
+  bool        has_deprecated_typo = false;
+  std::string deprecated_typo;
+  bool        has_legacy_disabled = false;
+  std::string legacy_disabled;
+  std::string default_value;
+};
+
+struct HotkeyDisableShortcutAliasDecision {
+  std::string key;
+  std::string value;
+  std::string source_key;
+  bool        used_deprecated_alias = false;
+  bool        saw_deprecated_alias = false;
+  bool        has_conflicting_alias = false;
+};
+
+// Startup shortcut policy: only the explicit Scopely hotkey toggle initializes
+// Scopely's shortcut map. allow_key_fallthrough is a per-frame routing flag.
+bool should_call_original_initialize_actions(bool use_scopely_hotkeys, bool allow_key_fallthrough);
+
+// Per-frame ScreenManager::Update policy after the router has made its decision.
+bool should_call_original_screen_update(bool router_allows_original, bool allow_key_fallthrough);
+
+// Resolve the canonical disable-hotkeys shortcut while accepting deprecated keys.
+HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(
+    const HotkeyDisableShortcutAliasInput& input);
+
 // Toast state → human-readable title.  Returns nullptr for unknown states.
 const char* toast_state_title(int state);
 

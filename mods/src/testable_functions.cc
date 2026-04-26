@@ -11,6 +11,61 @@
 #include <string>
 
 // ---------------------------------------------------------------------------
+// Hotkey startup/fallthrough/config decisions
+// ---------------------------------------------------------------------------
+bool should_call_original_initialize_actions(bool use_scopely_hotkeys, bool allow_key_fallthrough)
+{
+  (void)allow_key_fallthrough;
+  return use_scopely_hotkeys;
+}
+
+bool should_call_original_screen_update(bool router_allows_original, bool allow_key_fallthrough)
+{
+  return router_allows_original || allow_key_fallthrough;
+}
+
+HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(
+    const HotkeyDisableShortcutAliasInput& input)
+{
+  HotkeyDisableShortcutAliasDecision decision;
+  decision.key = "set_hotkeys_disable";
+  decision.value = input.default_value;
+  decision.source_key = decision.key;
+  decision.saw_deprecated_alias = input.has_deprecated_typo || input.has_legacy_disabled;
+
+  if (input.has_canonical) {
+    decision.value = input.canonical;
+
+    if ((input.has_deprecated_typo && input.deprecated_typo != input.canonical)
+        || (input.has_legacy_disabled && input.legacy_disabled != input.canonical)) {
+      decision.has_conflicting_alias = true;
+    }
+
+    return decision;
+  }
+
+  if (input.has_deprecated_typo) {
+    decision.value = input.deprecated_typo;
+    decision.source_key = "set_hotkeys_disble";
+    decision.used_deprecated_alias = true;
+
+    if (input.has_legacy_disabled && input.legacy_disabled != input.deprecated_typo) {
+      decision.has_conflicting_alias = true;
+    }
+
+    return decision;
+  }
+
+  if (input.has_legacy_disabled) {
+    decision.value = input.legacy_disabled;
+    decision.source_key = "set_hotkeys_disabled";
+    decision.used_deprecated_alias = true;
+  }
+
+  return decision;
+}
+
+// ---------------------------------------------------------------------------
 // Toast state enum values (mirrored from prime/Toast.h's ToastState enum
 // so this file doesn't need the IL2CPP include chain)
 // ---------------------------------------------------------------------------

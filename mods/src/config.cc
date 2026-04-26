@@ -11,6 +11,7 @@
 #include "patches/mapkey.h"
 #include "prime/KeyCode.h"
 #include "str_utils.h"
+#include "testable_functions.h"
 #include "version.h"
 #include <prime/Toast.h>
 
@@ -477,16 +478,15 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
  * Supports pipe-delimited multi-bind strings (e.g. "SPACE|MOUSE1").
  * "NONE" explicitly unbinds the shortcut.
  */
-void parse_config_shortcut(toml::table& config, toml::table& new_config, std::string_view item,
-                           GameFunction gameFunction, std::string_view default_value)
+void parse_config_shortcut_value(toml::table& new_config, std::string_view item,
+                                 GameFunction gameFunction, std::string_view config_value,
+                                 std::string_view default_value)
 {
   auto section = "shortcuts";
 
-  config.emplace<toml::table>(section, toml::table());
   new_config.emplace<toml::table>(section, toml::table());
 
   auto sectionTable = new_config[section];
-  auto config_value = config[section][item].value_or(default_value);
 
   auto valueTrimmed = StripTrailingAsciiWhitespace(config_value);
   auto valueLowered = AsciiStrToUpper(valueTrimmed);
@@ -520,6 +520,60 @@ void parse_config_shortcut(toml::table& config, toml::table& new_config, std::st
   sectionTable.as_table()->insert_or_assign(item, shortcut);
 
   spdlog::debug("shortcut value {}.{} value: {}", section, item, shortcut);
+}
+
+void parse_config_shortcut(toml::table& config, toml::table& new_config, std::string_view item,
+                           GameFunction gameFunction, std::string_view default_value)
+{
+  auto section = "shortcuts";
+
+  config.emplace<toml::table>(section, toml::table());
+
+  const auto config_value = config[section][item].value_or(std::string(default_value));
+  parse_config_shortcut_value(new_config, item, gameFunction, config_value, default_value);
+}
+
+bool shortcut_key_exists(toml::table& config, std::string_view item)
+{
+  auto* shortcuts = config["shortcuts"].as_table();
+  return shortcuts && shortcuts->contains(item);
+}
+
+std::string shortcut_value_or_default(toml::table& config, std::string_view item, std::string_view default_value)
+{
+  return config["shortcuts"][item].value_or(std::string(default_value));
+}
+
+void parse_disable_hotkeys_shortcut(toml::table& config, toml::table& new_config)
+{
+  auto section = "shortcuts";
+  config.emplace<toml::table>(section, toml::table());
+
+  HotkeyDisableShortcutAliasInput input;
+  input.has_canonical = shortcut_key_exists(config, "set_hotkeys_disable");
+  input.canonical = shortcut_value_or_default(config, "set_hotkeys_disable", DCSH::set_hotkeys_disabled);
+  input.has_deprecated_typo = shortcut_key_exists(config, "set_hotkeys_disble");
+  input.deprecated_typo = shortcut_value_or_default(config, "set_hotkeys_disble", DCSH::set_hotkeys_disabled);
+  input.has_legacy_disabled = shortcut_key_exists(config, "set_hotkeys_disabled");
+  input.legacy_disabled = shortcut_value_or_default(config, "set_hotkeys_disabled", DCSH::set_hotkeys_disabled);
+  input.default_value = DCSH::set_hotkeys_disabled;
+
+  const auto decision = resolve_hotkey_disable_shortcut_alias(input);
+  if (decision.used_deprecated_alias) {
+    spdlog::warn("Deprecation Warning: [shortcuts].{} is deprecated. Use set_hotkeys_disable instead.",
+                 decision.source_key);
+  } else if (decision.saw_deprecated_alias) {
+    spdlog::warn("Deprecation Warning: deprecated disable-hotkeys shortcut aliases are ignored because [shortcuts].set_hotkeys_disable is set.");
+  }
+
+  if (decision.has_conflicting_alias) {
+    spdlog::warn("Conflicting disable-hotkeys shortcut aliases detected. Using [shortcuts].{} value '{}'.",
+                 decision.source_key,
+                 decision.value);
+  }
+
+  parse_config_shortcut_value(new_config, decision.key, GameFunction::DisableHotKeys, decision.value,
+                              DCSH::set_hotkeys_disabled);
 }
 
 /**
@@ -657,6 +711,16 @@ void Config::Load()
   this->enable_experimental = get_config_or_default(config, parsed, "control", "enable_experimental", DCC::enable_experimental, write_config);
 
   g_allow_key_fallthrough   = get_config_or_default(config, parsed, "control", "allow_key_fallthrough", false, write_config);
+
+  spdlog::info("[Hotkeys] config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} allow_key_fallthrough={}",
+               this->installHotkeyHooks,
+               this->hotkeys_enabled,
+               this->use_scopely_hotkeys,
+               g_allow_key_fallthrough);
+
+  if (g_allow_key_fallthrough && !this->use_scopely_hotkeys) {
+    spdlog::warn("[Hotkeys] allow_key_fallthrough only affects per-frame ScreenManager::Update fallthrough; set use_scopely_hotkeys=true to initialize Scopely shortcuts.");
+  }
 
   spdlog::debug("");
 
@@ -935,7 +999,7 @@ void Config::Load()
   //  parse_config_shortcut(config, parsed, "move_up",    GameFunction::MoveUp,    DCSH::move_up);
   //}
 
-  parse_config_shortcut(config, parsed, "set_hotkeys_disble", GameFunction::DisableHotKeys, DCSH::set_hotkeys_disabled);
+  parse_disable_hotkeys_shortcut(config, parsed);
   parse_config_shortcut(config, parsed, "set_hotkeys_enable", GameFunction::EnableHotKeys,  DCSH::set_hotkeys_enabled);
 
   parse_config_shortcut(config, parsed, "select_chatalliance", GameFunction::SelectChatAlliance, DCSH::select_chatalliance);

@@ -22,9 +22,16 @@ bool  hotkey_router_screen_update(ScreenManager* _this);
 
 /**
  * @brief Called from the InitializeActions hook.
- * @return true to let the original InitializeActions run (Scopely hotkeys or fallthrough).
+ * @return true to let the original InitializeActions run.
  */
-bool  hotkey_router_init_actions();
+bool  hotkey_router_should_call_original_initialize_actions();
+
+/**
+ * @brief Apply the per-frame fallthrough config to the router's ScreenManager::Update decision.
+ * @param routerAllowsOriginal The router's decision before fallthrough override.
+ * @return true to let the original ScreenManager::Update run.
+ */
+bool  hotkey_router_should_call_original_screen_update(bool routerAllowsOriginal);
 
 /**
  * @brief Called from RewardsButtonWidget::BindContext hook to auto-show cargo panels.
