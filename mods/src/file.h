@@ -23,13 +23,6 @@
 #include <string>
 #include <string_view>
 
-#if !_WIN32
-#include "folder_manager.h"
-#else
-#include <shellapi.h>
-#include <windows.h>
-#endif
-
 // Original output file names
 #define FILE_DEF_CONFIG "community_patch_settings.toml"
 #define FILE_DEF_LOG "community_patch.log"
