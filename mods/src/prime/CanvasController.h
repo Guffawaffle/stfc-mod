@@ -3,6 +3,7 @@
 #include <il2cpp/il2cpp_helper.h>
 
 #include "Canvas.h"
+#include "errormsg.h"
 #include "Transform.h"
 
 struct CanvasController {

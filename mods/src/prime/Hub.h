@@ -9,6 +9,8 @@
  */
 #pragma once
 
+#include "errormsg.h"
+
 #include <il2cpp/il2cpp_helper.h>
 
 /** @brief Identifies every UI section / screen in the game. Values are stable hashes from the C# enum. */

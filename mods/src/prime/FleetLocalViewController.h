@@ -3,6 +3,7 @@
 #include <il2cpp/il2cpp_helper.h>
 
 #include "ActionData.h"
+#include "errormsg.h"
 #include "FleetPlayerData.h"
 #include "ShipBarItemLocalViewController.h"
 

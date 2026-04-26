@@ -2,6 +2,7 @@
 
 #include <il2cpp/il2cpp_helper.h>
 
+#include "errormsg.h"
 #include "Widget.h"
 
 class Bundle

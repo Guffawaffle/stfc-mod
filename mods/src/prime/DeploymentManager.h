@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CallbackContainer.h"
+#include "errormsg.h"
 #include "MonoSingleton.h"
 #include "Vector3.h"
 #include "FleetPlayerData.h"

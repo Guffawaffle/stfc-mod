@@ -11,6 +11,7 @@
 
 #include <il2cpp/il2cpp_helper.h>
 
+#include "errormsg.h"
 #include "FleetLocalViewController.h"
 
 /** @brief Context object for the fleet bar, providing the currently selected fleet. */

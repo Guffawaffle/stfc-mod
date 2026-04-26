@@ -1,5 +1,6 @@
 #pragma once
 
+#include "errormsg.h"
 #include "Vector2.h"
 
 struct CanvasScaler {

@@ -1,9 +1,12 @@
 #pragma once
 
+#include "errormsg.h"
 #include "MonoSingleton.h"
 #include "ResourceSpec.h"
 
 #include <il2cpp/il2cpp_helper.h>
+
+#include <cstdint>
 
 struct SpecManager : MonoSingleton<SpecManager> {
   friend struct MonoSingleton<SpecManager>;

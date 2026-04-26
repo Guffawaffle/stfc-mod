@@ -9,6 +9,7 @@
 #pragma once
 
 #include "CallbackContainer.h"
+#include "errormsg.h"
 #include "FleetDeployedData.h"
 #include "FleetPlayerData.h"
 #include "HullSpec.h"
