@@ -9,6 +9,8 @@
  */
 #pragma once
 
+#include "patches/signals.h"
+
 #include <cstdint>
 #include <string_view>
 
@@ -34,6 +36,7 @@ void fleet_notifications_observe_node_depleted(int64_t fleetId);
 /**
  * @brief Emit an incoming attack notification using a known target fleet id when available.
  */
+void fleet_notifications_notify_incoming_attack_target(const ToastFleetQueueNotificationsSignal& signal);
 void fleet_notifications_notify_incoming_attack_target(const char* source, uint64_t targetFleetId, int targetType,
 													   int attackerFleetType = 0, std::string_view attackerIdentity = {});
 

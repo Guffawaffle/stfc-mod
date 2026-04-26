@@ -15,18 +15,16 @@
 
 #include <spdlog/spdlog.h>
 
-IncomingAttackToastAction incoming_attack_notifications_handle_toast(Toast* toast, int state, const char* title)
+IncomingAttackToastAction incoming_attack_notifications_handle_toast(const ToastEnqueuedSignal& signal)
 {
-  (void)toast;
-
-  if (!incoming_attack_policy_consumes_toast_state(state)) {
+  if (!incoming_attack_policy_consumes_toast_state(signal.state)) {
     return IncomingAttackToastAction::NotIncomingAttack;
   }
 
   const auto& notifications = Config::Get().notifications;
   spdlog::debug("[IncomingAttack] consumed toast state={} title='{}' notificationsEnabled={}",
-                state,
-                title ? title : "",
+                signal.state,
+                signal.title ? signal.title : "",
                 notifications.enabled);
   return IncomingAttackToastAction::Consumed;
 }

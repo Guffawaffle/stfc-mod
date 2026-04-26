@@ -8,6 +8,7 @@
 #include "patches/incoming_attack_notifications.h"
 #include "patches/live_debug.h"
 #include "patches/notification_service.h"
+#include "patches/signals.h"
 
 #include <prime/Toast.h>
 
@@ -23,11 +24,12 @@ ToastDispatchDecision toast_dispatcher_dispatch(Toast* toast)
   const auto state = toast->get_State();
   const auto* title = notification_toast_title(state);
   const auto should_process_notifications = notification_should_process_toast(toast);
+  const ToastEnqueuedSignal signal{toast, state, title, "ToastObserver"};
 
   IncomingAttackToastAction incoming_attack_action = IncomingAttackToastAction::NotIncomingAttack;
   if (should_process_notifications) {
-    live_debug_record_toast_notification("ToastObserver", toast, state, title ? title : "");
-    incoming_attack_action = incoming_attack_notifications_handle_toast(toast, state, title);
+    live_debug_record_toast_notification(signal.source, signal.raw_toast, signal.state, signal.title ? signal.title : "");
+    incoming_attack_action = incoming_attack_notifications_handle_toast(signal);
   }
 
   if (std::ranges::find(Config::Get().disabled_banner_types, state) != Config::Get().disabled_banner_types.end()) {

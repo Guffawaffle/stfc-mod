@@ -8,6 +8,8 @@
  */
 #pragma once
 
+#include "patches/signals.h"
+
 struct Toast;
 
 enum class IncomingAttackToastAction {
@@ -21,4 +23,4 @@ enum class IncomingAttackToastAction {
  * Incoming-attack notifications are emitted from ToastFleetObserver.QueueNotifications;
  * matching toast events are consumed here to avoid duplicate generic toasts.
  */
-IncomingAttackToastAction incoming_attack_notifications_handle_toast(Toast* toast, int state, const char* title);
+IncomingAttackToastAction incoming_attack_notifications_handle_toast(const ToastEnqueuedSignal& signal);

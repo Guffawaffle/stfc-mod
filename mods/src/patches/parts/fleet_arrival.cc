@@ -134,11 +134,13 @@ void ToastFleetObserver_QueueNotifications_Hook(auto original, void* self, IList
                                                   quick_scan.fleet_type,
                                                   quick_scan.target_fleet_id,
                                                   quick_scan.target_id);
-    fleet_notifications_notify_incoming_attack_target("toast-fleet-queue",
-                                                      target_fleet_id,
-                                                      target_type,
-                                                      quick_scan.fleet_type,
-                                                      quick_scan.target_id);
+    ToastFleetQueueNotificationsSignal signal;
+    signal.source = "toast-fleet-queue";
+    signal.target_fleet_id = target_fleet_id;
+    signal.target_type = target_type;
+    signal.attacker_fleet_type = quick_scan.fleet_type;
+    signal.attacker_identity = quick_scan.target_id;
+    fleet_notifications_notify_incoming_attack_target(signal);
   }
 
   original(self, notifications);

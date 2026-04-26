@@ -71,6 +71,13 @@ Examples of signals:
 
 This does not need to become a huge framework. A simple typed or tagged dispatcher is enough if it makes event ownership discoverable.
 
+Current lightweight contracts live in `mods/src/patches/signals.h`. Add a
+signal when a hook hands normalized runtime data to another module, especially
+when the receiving module should not know IL2CPP offsets or hook argument
+layout. Keep raw game pointers named `raw_*`, treat them as borrowed for the
+current hook call only, and copy stable values such as ids, enum states, and
+localized text before crossing async or queued boundaries.
+
 ### Feature Observer
 
 Owns game-domain interpretation.
@@ -84,6 +91,14 @@ Examples:
 
 Feature observers should return decisions or events, not perform platform delivery directly.
 
+Add or extend a feature observer when the code is deciding what a signal means
+for gameplay or mod behavior: consume/pass/filter a toast, classify an incoming
+attack, convert fleet state changes into notification intents, or decide whether
+a hotkey frame should allow the original game update. Observers may call a
+delivery adapter after a decision in the current incremental code, but new code
+should prefer returning a decision/event first so delivery can move behind a
+thin adapter later.
+
 ### Delivery Adapter
 
 Owns side effects outside game interpretation.
@@ -96,6 +111,11 @@ Examples:
 - File export and persistent dedupe files.
 
 Delivery adapters should be replaceable with test doubles.
+
+Add a delivery adapter when the code performs a side effect outside gameplay
+interpretation: OS notification APIs, live-debug storage, HTTP transport, file
+export, or persistent dedupe state. Adapters should receive already-interpreted
+events or text rather than raw hook pointers.
 
 ### Dispatch Table
 

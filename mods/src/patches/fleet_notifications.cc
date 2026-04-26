@@ -364,9 +364,13 @@ void fleet_notifications_observe_node_depleted(int64_t fleetId)
   notification_show("Node Depleted", body.c_str());
 }
 
-void fleet_notifications_notify_incoming_attack_target(const char* source, uint64_t targetFleetId, int targetType,
-                                                       int attackerFleetType, std::string_view attackerIdentity)
+void fleet_notifications_notify_incoming_attack_target(const ToastFleetQueueNotificationsSignal& signal)
 {
+  const auto* source = signal.source;
+  const auto targetFleetId = signal.target_fleet_id;
+  const auto targetType = signal.target_type;
+  const auto attackerFleetType = signal.attacker_fleet_type;
+  const auto attackerIdentity = signal.attacker_identity;
   auto attacker_kind = incoming_attack_policy_attacker_kind_from_fleet_type(attackerFleetType);
 
   if (targetType == static_cast<int>(NotificationIncomingAttackTargetType::Station)) {
@@ -447,6 +451,13 @@ void fleet_notifications_notify_incoming_attack_target(const char* source, uint6
     return;
   }
   notification_show(title ? title : "Incoming Attack!", body.c_str());
+}
+
+void fleet_notifications_notify_incoming_attack_target(const char* source, uint64_t targetFleetId, int targetType,
+                                                       int attackerFleetType, std::string_view attackerIdentity)
+{
+  fleet_notifications_notify_incoming_attack_target(
+      ToastFleetQueueNotificationsSignal{source, targetFleetId, targetType, attackerFleetType, attackerIdentity});
 }
 
 void fleet_notifications_observe_mining_timer(FleetPlayerData* selectedFleet, int64_t remainingTicks)
