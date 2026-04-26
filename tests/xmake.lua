@@ -10,6 +10,8 @@ do
 
     -- Testable source files from the mod (pure logic only)
     add_files("../mods/src/testable_functions.cc")
+    add_files("../mods/src/patches/notification_queue.cc")
+    add_files("../mods/src/patches/notification_text.cc")
 
     add_packages("doctest")
 

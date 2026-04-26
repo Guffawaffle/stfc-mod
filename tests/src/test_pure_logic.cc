@@ -2,10 +2,13 @@
 #include <doctest/doctest.h>
 
 #include "bounded_ttl_cache.h"
+#include "patches/notification_queue.h"
+#include "patches/notification_text.h"
 #include "str_utils_pure.h"
 #include "testable_functions.h"
 
 #include <chrono>
+#include <utility>
 
 // ===========================================================================
 // str_utils_pure.h
@@ -252,6 +255,82 @@ TEST_SUITE("bounded_ttl_deduper")
     CHECK_FALSE(deduper.contains("first"));
     CHECK(deduper.contains("second"));
     CHECK(deduper.contains("third"));
+  }
+}
+
+// ===========================================================================
+// notification text and queue helpers
+// ===========================================================================
+
+TEST_SUITE("notification_text")
+{
+  TEST_CASE("normalizes line feeds for Windows notification XML")
+  {
+    CHECK(notification_normalize_body("alpha\nbeta\r\ngamma\rdone") == "alpha\r\nbeta\r\ngamma\rdone");
+    CHECK(notification_normalize_body(nullptr).empty());
+    CHECK(notification_normalize_body("").empty());
+  }
+
+  TEST_CASE("flattens whitespace for queue summaries")
+  {
+    CHECK(notification_flatten_text("  alpha\n\tbeta  gamma \r\n") == "alpha beta gamma");
+  }
+
+  TEST_CASE("escapes control whitespace for logs")
+  {
+    CHECK(notification_escape_text_for_log("a\r\nb\tc") == "a\\r\\nb\\tc");
+  }
+
+  TEST_CASE("strips Unity rich text tags")
+  {
+    CHECK(notification_strip_unity_rich_text("<color=#fff>Alpha</color> <b>Beta</b>") == "Alpha Beta");
+  }
+
+  TEST_CASE("chooses parsed body before localized fallbacks")
+  {
+    CHECK(notification_choose_body("parsed", "formatted", "raw") == "parsed");
+    CHECK(notification_choose_body("", "formatted", "raw") == "formatted");
+    CHECK(notification_choose_body("", "", "<b>raw</b>") == "raw");
+    CHECK(notification_choose_body("", "", "", "fallback") == "fallback");
+  }
+}
+
+TEST_SUITE("notification_queue")
+{
+  TEST_CASE("collapses same-title batches into a counted summary")
+  {
+    std::vector<NotificationQueueRequest> batch{
+      {.source = "toast", .title = "Fleet Battle", .body = "one"},
+      {.source = "toast", .title = "Fleet Battle", .body = "two"},
+      {.source = "toast", .title = "Fleet Battle", .body = "three"},
+    };
+
+    auto collapsed = notification_queue_collapse_batch(std::move(batch), 2);
+    CHECK(collapsed.title == "Fleet Battle (3)");
+    CHECK(collapsed.body == "one\ntwo\n+1 more");
+  }
+
+  TEST_CASE("collapses mixed-title batches with title prefixes")
+  {
+    std::vector<NotificationQueueRequest> batch{
+      {.source = "toast", .title = "Victory!", .body = "alpha"},
+      {.source = "direct", .title = "Fleet Docked", .body = "beta"},
+    };
+
+    auto collapsed = notification_queue_collapse_batch(std::move(batch), 4);
+    CHECK(collapsed.title == "2 Notifications");
+    CHECK(collapsed.body == "Victory!: alpha\nFleet Docked: beta");
+  }
+
+  TEST_CASE("builds deterministic batch preview with limit")
+  {
+    std::vector<NotificationQueueRequest> batch{
+      {.source = "toast", .title = "Victory!"},
+      {.source = "direct", .title = ""},
+      {.source = "toast", .title = "Defeat"},
+    };
+
+    CHECK(notification_queue_batch_preview(batch, 2) == "toast:Victory!, direct:(untitled), +1 more");
   }
 }
 
