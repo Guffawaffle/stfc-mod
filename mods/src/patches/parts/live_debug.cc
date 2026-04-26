@@ -10,9 +10,13 @@
 #include "patches/live_debug_connector.h"
 #include "patches/live_debug_event_dispatcher.h"
 #include "patches/live_debug_fleet_serializers.h"
+#include "patches/live_debug_fleet_runtime_observers.h"
 #include "patches/live_debug_fleet_runtime_serializers.h"
+#include "patches/live_debug_recent_event_requests.h"
 #include "patches/live_debug_request_dispatch.h"
+#include "patches/live_debug_state_results.h"
 #include "patches/live_debug_ui_serializers.h"
+#include "patches/live_debug_viewer_runtime.h"
 #include "patches/live_debug_viewer_serializers.h"
 
 #include "config.h"
@@ -31,7 +35,6 @@
 #include "prime/ScreenManager.h"
 #include "prime/StationWarningViewController.h"
 #include "prime/StarNodeObjectViewerWidget.h"
-#include "prime/CanvasController.h"
 #include "str_utils.h"
 #include "version.h"
 
@@ -55,9 +58,6 @@ namespace {
 using json = nlohmann::json;
 
 constexpr std::string_view kNavigationHookTraceFile = "community_patch_navhook_trace.log";
-constexpr int64_t          kMineTimerBucketSeconds = 30;
-constexpr int              kTopCanvasChildNameLimit = 24;
-
 
 bool             g_recent_observations_initialized = false;
 TopCanvasObservation g_last_top_canvas;
@@ -659,94 +659,8 @@ bool is_meaningful_mine_viewer_observation(const MineViewerObservation& observat
       (observation.starNodeViewerTracked && observation.starNodeActiveAndEnabled);
 }
 
-TopCanvasObservation observe_top_canvas();
-FleetObservation observe_fleetbar();
 void append_fleet_change_events(const FleetObservation& previous, const FleetObservation& current);
 void append_fleet_slot_change_events(const FleetSlotObservation& previous, const FleetSlotObservation& current);
-
-std::vector<std::string> collect_active_child_names(Transform* parent)
-{
-  std::vector<std::string> names;
-  if (!parent) {
-    return names;
-  }
-
-  const auto child_count = parent->childCount;
-  if (child_count <= 0) {
-    return names;
-  }
-
-  names.reserve(std::min(child_count, kTopCanvasChildNameLimit));
-
-  for (int index = 0; index < child_count && static_cast<int>(names.size()) < kTopCanvasChildNameLimit; ++index) {
-    auto child_transform = parent->GetChild(index);
-    if (!child_transform) {
-      continue;
-    }
-
-    auto child_object = child_transform->gameObject;
-    if (!child_object || !child_object->activeInHierarchy) {
-      continue;
-    }
-
-    if (auto child_name = child_object->name; child_name) {
-      names.push_back(to_string(child_name));
-    } else {
-      names.emplace_back("");
-    }
-  }
-
-  return names;
-}
-
-FleetSlotObservation observe_fleet_slot(int slot_index, FleetBarViewController* fleet_bar)
-{
-  FleetSlotObservation observation;
-  observation.slotIndex = slot_index;
-  observation.selected = fleet_bar ? fleet_bar->IsIndexSelected(slot_index) : false;
-
-  auto fleets_manager = FleetsManager::Instance();
-  if (!fleets_manager) {
-    return observation;
-  }
-
-  auto fleet = fleets_manager->GetFleetPlayerData(slot_index);
-  if (!fleet) {
-    return observation;
-  }
-
-  observation.present = true;
-  observation.fleetId = fleet->Id;
-  observation.currentState = static_cast<int>(fleet->CurrentState);
-  observation.previousState = static_cast<int>(fleet->PreviousState);
-  observation.cargoFillPercent = static_cast<int>(fleet->CargoResourceFillLevel * 100.0f);
-  observation.cargoFillBasisPoints = static_cast<int>(fleet->CargoResourceFillLevel * 10000.0f);
-
-  if (auto hull = fleet->Hull; hull && hull->Name) {
-    observation.hullName = to_string(hull->Name);
-  }
-
-  return observation;
-}
-
-std::array<FleetSlotObservation, kFleetIndexMax> observe_fleet_slots()
-{
-  std::array<FleetSlotObservation, kFleetIndexMax> observations{};
-  auto fleet_bar = GetLatestTrackedObject<FleetBarViewController>();
-
-  for (int slot_index = 0; slot_index < kFleetIndexMax; ++slot_index) {
-    auto& observation = observations[static_cast<size_t>(slot_index)];
-    observation.slotIndex = slot_index;
-
-    if (!fleet_bar) {
-      continue;
-    }
-
-    observation = observe_fleet_slot(slot_index, fleet_bar);
-  }
-
-  return observations;
-}
 
 StationWarningObservation observe_station_warning()
 {
@@ -1270,288 +1184,6 @@ void append_fleet_slot_change_events(const FleetSlotObservation& previous, const
   }
 }
 
-json handle_ping(const std::string& request_id)
-{
-  return make_ok_response(request_id, json{{"pong", true}, {"version", VER_PRODUCT_VERSION_STR}});
-}
-
-json handle_tracker_list(const std::string& request_id)
-{
-  const auto summaries = GetTrackedObjectSummary();
-
-  json   classes = json::array();
-  size_t total_objects = 0;
-  for (const auto& summary : summaries) {
-    total_objects += summary.count;
-    const auto full_name = summary.classNamespace.empty()
-        ? summary.className
-        : summary.classNamespace + "." + summary.className;
-
-    classes.push_back(json{{"classPointer", summary.classPointer},
-                 {"classNamespace", summary.classNamespace},
-                           {"className", summary.className},
-                           {"fullName", full_name},
-                           {"count", summary.count}});
-  }
-
-  return make_ok_response(request_id, json{{"trackedClassCount", summaries.size()},
-                                           {"trackedObjectCount", total_objects},
-                                           {"classes", std::move(classes)}});
-}
-
-json handle_top_canvas(const std::string& request_id)
-{
-  return make_ok_response(request_id, top_canvas_observation_to_json(observe_top_canvas()));
-}
-
-int get_selected_fleet_index(FleetBarViewController* fleet_bar)
-{
-  if (!fleet_bar) {
-    return -1;
-  }
-
-  for (int index = 0; index < kFleetIndexMax; ++index) {
-    if (fleet_bar->IsIndexSelected(index)) {
-      return index;
-    }
-  }
-
-  return -1;
-}
-
-json handle_fleetbar_state(const std::string& request_id)
-{
-  auto fleet_bar = GetLatestTrackedObject<FleetBarViewController>();
-
-  json result = {{"tracked", fleet_bar != nullptr}};
-
-  if (!fleet_bar) {
-    return make_ok_response(request_id, result);
-  }
-
-  auto fleet_controller = fleet_bar->_fleetPanelController;
-  auto fleet            = fleet_controller ? fleet_controller->fleet : nullptr;
-
-  result["pointer"]       = pointer_to_string(fleet_bar);
-  result["selectedIndex"] = get_selected_fleet_index(fleet_bar);
-  result["hasController"] = fleet_controller != nullptr;
-  result["fleet"]         = fleet_to_json(fleet);
-
-  return make_ok_response(request_id, result);
-}
-
-json handle_fleet_slots_state(const std::string& request_id)
-{
-  auto fleet_bar = GetLatestTrackedObject<FleetBarViewController>();
-
-  const auto slot_observations = observe_fleet_slots();
-  size_t present_count = 0;
-  for (const auto& slot : slot_observations) {
-    if (slot.present) {
-      ++present_count;
-    }
-  }
-
-  return make_ok_response(request_id,
-                          json{{"fleetBarTracked", fleet_bar != nullptr},
-                               {"slotCount", kFleetIndexMax},
-                               {"presentSlotCount", present_count},
-                               {"slots", fleet_slots_to_json(slot_observations)}});
-}
-
-FleetObservation observe_fleetbar()
-{
-  FleetObservation observation;
-  auto fleet_bar = GetLatestTrackedObject<FleetBarViewController>();
-  observation.tracked = fleet_bar != nullptr;
-
-  if (!fleet_bar) {
-    return observation;
-  }
-
-  auto fleet_controller = fleet_bar->_fleetPanelController;
-  auto fleet = fleet_controller ? fleet_controller->fleet : nullptr;
-
-  observation.pointer = pointer_to_string(fleet_bar);
-  observation.selectedIndex = get_selected_fleet_index(fleet_bar);
-  observation.hasController = fleet_controller != nullptr;
-  observation.hasFleet = fleet != nullptr;
-
-  if (fleet) {
-    observation.fleetId = fleet->Id;
-    observation.currentState = static_cast<int>(fleet->CurrentState);
-    observation.previousState = static_cast<int>(fleet->PreviousState);
-    observation.cargoFillPercent = static_cast<int>(fleet->CargoResourceFillLevel * 100.0f);
-    observation.cargoFillBasisPoints = static_cast<int>(fleet->CargoResourceFillLevel * 10000.0f);
-
-    if (auto hull = fleet->Hull; hull && hull->Name) {
-      observation.hullName = to_string(hull->Name);
-    }
-  }
-
-  return observation;
-}
-
-json timer_context_to_json(TimerDataContext* timer)
-{
-  if (!timer) {
-    return nullptr;
-  }
-
-  return json{{"remainingTicks", timer->RemainingTime.Ticks},
-              {"remainingSeconds", timer->RemainingTime.TotalSeconds()},
-              {"timerType", timer->TimerTypeValue},
-              {"timerState", timer->TimerStateValue},
-              {"showTimerLabel", timer->ShowTimerLabel}};
-}
-
-int64_t get_timer_remaining_bucket(TimerDataContext* timer)
-{
-  if (!timer) {
-    return -1;
-  }
-
-  return static_cast<int64_t>(timer->RemainingTime.TotalSeconds()) / kMineTimerBucketSeconds;
-}
-
-json mining_viewer_to_json(MiningObjectViewerWidget* mining_viewer)
-{
-  if (!mining_viewer) {
-    return nullptr;
-  }
-
-  auto parent = mining_viewer->Parent;
-
-  return json{{"pointer", pointer_to_string(mining_viewer)},
-              {"enabled", mining_viewer->enabled},
-              {"isActiveAndEnabled", mining_viewer->isActiveAndEnabled},
-              {"isInfoShown", mining_viewer->IsInfoShown},
-              {"hasParent", parent != nullptr},
-              {"parentIsShowing", parent ? parent->IsShowing : false},
-              {"occupiedState", static_cast<int>(mining_viewer->_occupiedState)},
-              {"occupiedStateName", occupied_state_name_from_value(static_cast<int>(mining_viewer->_occupiedState))},
-              {"hasScanEngageButtons", mining_viewer->_scanEngageButtonsWidget != nullptr},
-              {"timer", timer_context_to_json(mining_viewer->_miningTimerWidgetContext)}};
-}
-
-json star_node_viewer_to_json(StarNodeObjectViewerWidget* star_node_viewer)
-{
-  if (!star_node_viewer) {
-    return nullptr;
-  }
-
-  return json{{"pointer", pointer_to_string(star_node_viewer)},
-              {"enabled", star_node_viewer->enabled},
-              {"isActiveAndEnabled", star_node_viewer->isActiveAndEnabled}};
-}
-
-json prescan_target_to_json(PreScanTargetWidget* prescan_target)
-{
-  if (!prescan_target) {
-    return nullptr;
-  }
-
-  return json{{"pointer", pointer_to_string(prescan_target)}};
-}
-
-json celestial_viewer_to_json(CelestialObjectViewerWidget* celestial_viewer)
-{
-  if (!celestial_viewer) {
-    return nullptr;
-  }
-
-  return json{{"pointer", pointer_to_string(celestial_viewer)}};
-}
-
-TargetViewerObservation observe_target_viewer()
-{
-  TargetViewerObservation observation;
-  auto prescan_target = GetLatestTrackedObject<PreScanTargetWidget>();
-  auto prescan_station_target = GetLatestTrackedObject<PreScanStationTargetWidget>();
-  auto celestial_viewer = GetLatestTrackedObject<CelestialObjectViewerWidget>();
-
-  observation.preScanTargetTracked = prescan_target != nullptr;
-  observation.preScanStationTargetTracked = prescan_station_target != nullptr;
-  observation.celestialViewerTracked = celestial_viewer != nullptr;
-
-  if (prescan_target) {
-    observation.preScanTargetPointer = pointer_to_string(prescan_target);
-  }
-  if (prescan_station_target) {
-    observation.preScanStationTargetPointer = pointer_to_string(prescan_station_target);
-  }
-  if (celestial_viewer) {
-    observation.celestialViewerPointer = pointer_to_string(celestial_viewer);
-  }
-
-  return observation;
-}
-
-MineViewerObservation observe_mine_viewer()
-{
-  MineViewerObservation observation;
-  auto mining_viewer = GetLatestTrackedObject<MiningObjectViewerWidget>();
-  auto star_node_viewer = GetLatestTrackedObject<StarNodeObjectViewerWidget>();
-
-  observation.miningViewerTracked = mining_viewer != nullptr;
-  observation.starNodeViewerTracked = star_node_viewer != nullptr;
-
-  if (mining_viewer) {
-    auto timer = mining_viewer->_miningTimerWidgetContext;
-    auto parent = mining_viewer->Parent;
-
-    observation.miningPointer = pointer_to_string(mining_viewer);
-    observation.enabled = mining_viewer->enabled;
-    observation.isActiveAndEnabled = mining_viewer->isActiveAndEnabled;
-    observation.isInfoShown = mining_viewer->IsInfoShown;
-    observation.hasParent = parent != nullptr;
-    observation.parentIsShowing = parent ? parent->IsShowing : false;
-    observation.occupiedState = static_cast<int>(mining_viewer->_occupiedState);
-    observation.hasScanEngageButtons = mining_viewer->_scanEngageButtonsWidget != nullptr;
-    observation.hasTimer = timer != nullptr;
-
-    if (timer) {
-      observation.timerState = timer->TimerStateValue;
-      observation.timerType = timer->TimerTypeValue;
-      observation.timerRemainingSeconds = static_cast<int64_t>(timer->RemainingTime.TotalSeconds());
-      observation.timerRemainingBucket = get_timer_remaining_bucket(timer);
-    }
-  }
-
-  if (star_node_viewer) {
-    observation.starNodePointer = pointer_to_string(star_node_viewer);
-    observation.starNodeEnabled = star_node_viewer->enabled;
-    observation.starNodeActiveAndEnabled = star_node_viewer->isActiveAndEnabled;
-  }
-
-  return observation;
-}
-
-TopCanvasObservation observe_top_canvas()
-{
-  TopCanvasObservation observation;
-  auto top_canvas = ScreenManager::GetTopCanvas(true);
-  observation.found = top_canvas != nullptr;
-
-  if (!top_canvas) {
-    return observation;
-  }
-
-  const auto canvas_object = reinterpret_cast<Il2CppObject*>(top_canvas);
-  const auto canvas_class = canvas_object ? canvas_object->klass : nullptr;
-  const auto canvas_controller = reinterpret_cast<CanvasController*>(top_canvas);
-
-  observation.pointer = pointer_to_string(top_canvas);
-  observation.className = (canvas_class && canvas_class->name) ? canvas_class->name : "";
-  observation.classNamespace = (canvas_class && canvas_class->namespaze) ? canvas_class->namespaze : "";
-  observation.name = (canvas_controller && canvas_controller->name) ? to_string(canvas_controller->name) : "";
-  observation.visible = canvas_controller && canvas_controller->Visible();
-  observation.enabled = canvas_controller && canvas_controller->get_enabled();
-  observation.internalVisible = canvas_controller && canvas_controller->m_Visible();
-  observation.activeChildNames = collect_active_child_names(canvas_controller ? canvas_controller->transform : nullptr);
-  return observation;
-}
-
 void DeploymentEvents_TriggerFleetStateChangeEvent_Hook(auto original, IList* fleets)
 {
   original(fleets);
@@ -1637,105 +1269,10 @@ void DeploymentEvents_TriggerStaleFleetDataDetected_Hook(auto original)
   capture_recent_model_events("deployment-stale-fleet-data-detected-event");
 }
 
-json handle_mine_viewer_state(const std::string& request_id)
-{
-  auto mining_viewer    = GetLatestTrackedObject<MiningObjectViewerWidget>();
-  auto star_node_viewer = GetLatestTrackedObject<StarNodeObjectViewerWidget>();
-
-  json result = {{"miningViewerTracked", mining_viewer != nullptr},
-                 {"starNodeViewerTracked", star_node_viewer != nullptr}};
-
-  result["miningViewer"]   = mining_viewer_to_json(mining_viewer);
-  result["starNodeViewer"] = star_node_viewer_to_json(star_node_viewer);
-
-  return make_ok_response(request_id, result);
-}
-
-json handle_target_viewer_state(const std::string& request_id)
-{
-  auto prescan_target = GetLatestTrackedObject<PreScanTargetWidget>();
-  auto prescan_station_target = GetLatestTrackedObject<PreScanStationTargetWidget>();
-  auto celestial_viewer = GetLatestTrackedObject<CelestialObjectViewerWidget>();
-
-  return make_ok_response(
-      request_id,
-      json{{"preScanTargetTracked", prescan_target != nullptr},
-           {"preScanStationTargetTracked", prescan_station_target != nullptr},
-           {"celestialViewerTracked", celestial_viewer != nullptr},
-           {"preScanTarget", prescan_target_to_json(prescan_target)},
-           {"preScanStationTarget", prescan_target_to_json(prescan_station_target)},
-           {"celestialViewer", celestial_viewer_to_json(celestial_viewer)}});
-}
-
 json handle_recent_events(const std::string& request_id, const json& request)
 {
-  LiveDebugRecentEventStoreQuery query;
-
-  if (const auto after_seq_it = request.find("afterSeq");
-      after_seq_it != request.end() && after_seq_it->is_number_integer()) {
-    query.afterSeq = after_seq_it->get<int64_t>();
-  }
-
-  if (const auto limit_it = request.find("limit");
-      limit_it != request.end() && limit_it->is_number_integer()) {
-    query.limit = static_cast<size_t>(std::max<int64_t>(0, limit_it->get<int64_t>()));
-  } else if (const auto last_it = request.find("last");
-             last_it != request.end() && last_it->is_number_integer()) {
-    query.limit = static_cast<size_t>(std::max<int64_t>(0, last_it->get<int64_t>()));
-  }
-
-  if (const auto kinds_it = request.find("kinds"); kinds_it != request.end() && kinds_it->is_array()) {
-    for (const auto& kind : *kinds_it) {
-      if (kind.is_string()) {
-        query.kinds.push_back(kind.get<std::string>());
-      }
-    }
-  }
-
-  if (const auto kind_it = request.find("kind"); kind_it != request.end() && kind_it->is_string()) {
-    if (query.kinds.empty()) {
-      query.kind = kind_it->get<std::string>();
-    } else {
-      const auto kind = kind_it->get<std::string>();
-      if (std::find(query.kinds.begin(), query.kinds.end(), kind) == query.kinds.end()) {
-        query.kinds.push_back(kind);
-      }
-    }
-  }
-
-  if (const auto match_it = request.find("match"); match_it != request.end() && match_it->is_string()) {
-    query.match = match_it->get<std::string>();
-  }
-
-  if (const auto exact_it = request.find("exact"); exact_it != request.end() && exact_it->is_boolean()) {
-    query.exact = exact_it->get<bool>();
-  }
-
-  if (const auto include_details_it = request.find("includeDetails");
-      include_details_it != request.end() && include_details_it->is_boolean()) {
-    query.includeDetails = include_details_it->get<bool>();
-  } else if (const auto summary_it = request.find("summary");
-             summary_it != request.end() && summary_it->is_boolean()) {
-    query.includeDetails = !summary_it->get<bool>();
-  }
-
-  auto snapshot = live_debug_events::Snapshot(query);
-
-  return make_ok_response(request_id,
-                          json{{"count", snapshot.count},
-                               {"returnedCount", snapshot.returnedCount},
-                               {"matchedCount", snapshot.matchedCount},
-                               {"capacity", snapshot.capacity},
-                               {"firstSeq", snapshot.firstSeq == 0 ? json(nullptr) : json(snapshot.firstSeq)},
-                               {"lastSeq", snapshot.lastSeq == 0 ? json(nullptr) : json(snapshot.lastSeq)},
-                               {"nextSeq", snapshot.nextSeq},
-                               {"evictedCount", snapshot.evictedCount},
-                               {"clearCount", snapshot.clearCount},
-                               {"queryGap", snapshot.queryGap},
-                               {"missingCountBeforeFirstReturned", snapshot.missingCountBeforeFirstReturned},
-                               {"kindCounts", std::move(snapshot.kindCounts)},
-                               {"bufferKindCounts", std::move(snapshot.bufferKindCounts)},
-                               {"events", std::move(snapshot.events)}});
+  auto snapshot = live_debug_events::Snapshot(live_debug_recent_events_query_from_request(request));
+  return make_ok_response(request_id, live_debug_recent_events_result(std::move(snapshot)));
 }
 
 json handle_clear_recent_events(const std::string& request_id)
@@ -1757,25 +1294,25 @@ json execute_live_debug_command(const json& request)
 
   try {
     if (cmd == "ping") {
-      return handle_ping(request_id);
+      return make_ok_response(request_id, live_debug_state_results::Ping());
     }
     if (cmd == "tracker-list") {
-      return handle_tracker_list(request_id);
+      return make_ok_response(request_id, live_debug_state_results::TrackerList());
     }
     if (cmd == "top-canvas") {
-      return handle_top_canvas(request_id);
+      return make_ok_response(request_id, live_debug_state_results::TopCanvas());
     }
     if (cmd == "fleetbar-state") {
-      return handle_fleetbar_state(request_id);
+      return make_ok_response(request_id, live_debug_state_results::FleetbarState());
     }
     if (cmd == "fleet-slots-state") {
-      return handle_fleet_slots_state(request_id);
+      return make_ok_response(request_id, live_debug_state_results::FleetSlotsState());
     }
     if (cmd == "mine-viewer-state") {
-      return handle_mine_viewer_state(request_id);
+      return make_ok_response(request_id, live_debug_state_results::MineViewerState());
     }
     if (cmd == "target-viewer-state") {
-      return handle_target_viewer_state(request_id);
+      return make_ok_response(request_id, live_debug_state_results::TargetViewerState());
     }
     if (cmd == "recent-events") {
       return handle_recent_events(request_id, request);

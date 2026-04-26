@@ -4,6 +4,7 @@
 #include "bounded_ttl_cache.h"
 #include "patches/live_debug_event_store.h"
 #include "patches/live_debug_fleet_serializers.h"
+#include "patches/live_debug_recent_event_requests.h"
 #include "patches/live_debug_ui_serializers.h"
 #include "patches/live_debug_viewer_serializers.h"
 #include "patches/notification_queue.h"
@@ -253,6 +254,79 @@ TEST_SUITE("live_debug_recent_event_store")
     REQUIRE(exact_snapshot.events.size() == 2);
     CHECK(exact_snapshot.events[0]["seq"] == 1);
     CHECK(exact_snapshot.events[1]["seq"] == 4);
+  }
+
+  TEST_CASE("recent-events request parser merges filters and summary flags")
+  {
+    const nlohmann::json request = {
+        {"afterSeq", 41},
+        {"last", 3},
+        {"kinds", nlohmann::json::array({"toast-notification-observed"})},
+        {"kind", "top-canvas-changed"},
+        {"match", "alliance"},
+        {"exact", true},
+        {"summary", true},
+    };
+
+    const auto query = live_debug_recent_events_query_from_request(request);
+    CHECK(query.afterSeq == 41);
+    CHECK(query.limit == 3);
+    CHECK(query.kind == "");
+    REQUIRE(query.kinds.size() == 2);
+    CHECK(query.kinds[0] == "toast-notification-observed");
+    CHECK(query.kinds[1] == "top-canvas-changed");
+    CHECK(query.match == "alliance");
+    CHECK(query.exact == true);
+    CHECK(query.includeDetails == false);
+  }
+
+  TEST_CASE("recent-events request parser prefers includeDetails over summary and limit over last")
+  {
+    const nlohmann::json request = {
+        {"limit", 7},
+        {"last", 2},
+        {"includeDetails", true},
+        {"summary", true},
+        {"kind", "fleet-slot-state-changed"},
+    };
+
+    const auto query = live_debug_recent_events_query_from_request(request);
+    CHECK(query.limit == 7);
+    CHECK(query.kind == "fleet-slot-state-changed");
+    CHECK(query.includeDetails == true);
+  }
+
+  TEST_CASE("recent-events result builder preserves metadata and nulls empty seq values")
+  {
+    LiveDebugRecentEventStoreSnapshot snapshot;
+    snapshot.count = 4;
+    snapshot.returnedCount = 2;
+    snapshot.matchedCount = 3;
+    snapshot.capacity = 256;
+    snapshot.nextSeq = 12;
+    snapshot.evictedCount = 5;
+    snapshot.clearCount = 1;
+    snapshot.queryGap = true;
+    snapshot.missingCountBeforeFirstReturned = 2;
+    snapshot.kindCounts = nlohmann::json{{"toast-notification-observed", 2}};
+    snapshot.bufferKindCounts = nlohmann::json{{"toast-notification-observed", 3}};
+    snapshot.events = nlohmann::json::array({nlohmann::json{{"seq", 10}}, nlohmann::json{{"seq", 11}}});
+
+    const auto result = live_debug_recent_events_result(snapshot);
+    CHECK(result["count"] == 4);
+    CHECK(result["returnedCount"] == 2);
+    CHECK(result["matchedCount"] == 3);
+    CHECK(result["capacity"] == 256);
+    CHECK(result["firstSeq"].is_null());
+    CHECK(result["lastSeq"].is_null());
+    CHECK(result["nextSeq"] == 12);
+    CHECK(result["evictedCount"] == 5);
+    CHECK(result["clearCount"] == 1);
+    CHECK(result["queryGap"] == true);
+    CHECK(result["missingCountBeforeFirstReturned"] == 2);
+    CHECK(result["kindCounts"]["toast-notification-observed"] == 2);
+    CHECK(result["bufferKindCounts"]["toast-notification-observed"] == 3);
+    REQUIRE(result["events"].size() == 2);
   }
 }
 
