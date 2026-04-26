@@ -46,6 +46,7 @@
 #include "errormsg.h"
 #include "file.h"
 #include "str_utils.h"
+#include "patches/sync_scheduler.h"
 #include "patches/sync_transport.h"
 
 #include <il2cpp-api-types.h>
@@ -163,11 +164,6 @@ NLOHMANN_JSON_NAMESPACE_END
 
 // ─── Sync Queues & Caches ──────────────────────────────────────────────────
 
-/// Main sync queue: process_* functions produce; ship_sync_data() consumes.
-std::mutex                                                  sync_data_mtx;
-std::condition_variable                                     sync_data_cv;
-std::queue<std::tuple<SyncConfig::Type, std::string, bool>> sync_data_queue;
-
 /// Combat log queue: process_battle_headers() produces; ship_combat_log_data() consumes.
 std::mutex              combat_log_data_mtx;
 std::condition_variable combat_log_data_cv;
@@ -192,30 +188,6 @@ struct CachedAllianceData {
 
 std::unordered_map<int64_t, CachedAllianceData> alliance_data_cache;
 std::mutex                                      alliance_data_cache_mtx;
-
-/** @brief Enqueues typed data (string) for the main sync thread and wakes it. */
-void queue_data(SyncConfig::Type type, const std::string& data, bool is_first_sync = false)
-{
-  {
-    std::lock_guard lk(sync_data_mtx);
-    sync_data_queue.emplace(type, data, is_first_sync);
-    http::sync_log_debug("QUEUE", to_string(type), "Added data to sync queue");
-  }
-
-  sync_data_cv.notify_all();
-}
-
-/** @brief Enqueues typed data (JSON, auto-dumped) for the main sync thread. */
-void queue_data(SyncConfig::Type type, const nlohmann::json& data, bool is_first_sync = false)
-{
-  {
-    std::lock_guard lk(sync_data_mtx);
-    sync_data_queue.emplace(type, data.dump(), is_first_sync);
-    http::sync_log_debug("QUEUE", to_string(type), STR_FORMAT("Added {} entries to sync queue", data.size()));
-  }
-
-  sync_data_cv.notify_all();
-}
 
 // ─── Delta-Tracking State Types ─────────────────────────────────────────────
 
@@ -720,7 +692,7 @@ inline std::optional<std::chrono::time_point<std::chrono::system_clock>> parse_t
 #endif
 }
 
-/** @brief Processes EntitySlots (protobuf) — emits slot changes for consumables, presets, skills, etc. */
+/** @brief Processes EntitySlots (protobuf) - emits slot changes for consumables, presets, skills, etc. */
 void process_entity_slots(std::unique_ptr<std::string>&& bytes)
 {
   using json = nlohmann::json;
@@ -1257,55 +1229,6 @@ void cache_alliance_names(std::unique_ptr<std::string>&& bytes)
 
   } else {
     spdlog::error("Failed to parse alliance profile");
-  }
-}
-
-// ─── Background Consumer Threads ────────────────────────────────────────────
-
-/**
- * @brief Main sync consumer thread — dequeues from sync_data_queue and calls send_data().
- *
- * Runs for the lifetime of the process. Blocks on sync_data_cv when idle.
- * Exceptions are caught and logged to prevent thread termination.
- */
-void ship_sync_data()
-{
-#if _WIN32
-  WinRtApartmentGuard apartmentGuard;
-#endif
-
-  try {
-    for (;;) {
-      std::tuple<SyncConfig::Type, std::string, bool> sync_data;
-      {
-        std::unique_lock lock(sync_data_mtx);
-        sync_data_cv.wait(lock, []() { return !sync_data_queue.empty(); });
-        // Move the item out while holding the lock to avoid races/UB
-        sync_data = std::move(sync_data_queue.front());
-        sync_data_queue.pop();
-      }
-
-      try {
-        auto& [type, data, is_first_sync] = sync_data;
-        http::send_data(type, data, is_first_sync);
-      } catch (const std::runtime_error& e) {
-        ErrorMsg::SyncRuntime("ship", e);
-      } catch (const std::exception& e) {
-        ErrorMsg::SyncMsg("ship", e.what());
-      } catch (const std::wstring& sz) {
-        ErrorMsg::SyncMsg("ship", sz);
-#if _WIN32
-      } catch (winrt::hresult_error const& ex) {
-        ErrorMsg::SyncWinRT("ship", ex);
-#endif
-      } catch (...) {
-        ErrorMsg::SyncMsg("ship", "Unknown error during sending of sync data");
-      }
-    }
-  } catch (const std::exception& e) {
-    spdlog::critical("ship_sync_data thread terminated: {}", e.what());
-  } catch (...) {
-    spdlog::critical("ship_sync_data thread terminated: unknown exception");
   }
 }
 
