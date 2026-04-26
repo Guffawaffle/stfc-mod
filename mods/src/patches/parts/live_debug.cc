@@ -13,7 +13,6 @@
 #include "config.h"
 #include "errormsg.h"
 #include "file.h"
-#include "patches/fleet_notifications.h"
 #include "patches/object_tracker_state.h"
 #include "prime/CelestialObjectViewerWidget.h"
 #include "prime/FleetBarViewController.h"
@@ -48,34 +47,6 @@
 #include <string_view>
 #include <system_error>
 #include <vector>
-
-void live_debug_trace_navigation_hook_step(const char* step,
-                                           const char* phase,
-                                           const void* controller,
-                                           const void* sender,
-                                           const void* callback_context)
-{
-  const auto trace_path = File::MakePathString("community_patch_navhook_trace.log");
-  auto* trace_file = std::fopen(trace_path.c_str(), "ab");
-  if (!trace_file) {
-    return;
-  }
-
-  const auto now = std::chrono::system_clock::now().time_since_epoch();
-  const auto timestamp_ms =
-      std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
-
-  std::fprintf(trace_file,
-               "[%lld] step=%s phase='%s' controller=%p sender=%p callbackContext=%p\n",
-               static_cast<long long>(timestamp_ms),
-               step ? step : "",
-               phase ? phase : "",
-               controller,
-               sender,
-               callback_context);
-  std::fflush(trace_file);
-  std::fclose(trace_file);
-}
 
 namespace {
 using json = nlohmann::json;
@@ -226,7 +197,6 @@ constexpr bool kEnableLiveDebugTopCanvasPolling = true;
 constexpr bool kEnableLiveDebugStationWarningPolling = false;
 constexpr bool kEnableLiveDebugNavigationInteractionPolling = false;
 constexpr bool kEnableLiveDebugObserverStepTrace = false;
-constexpr bool kEnableLiveDebugIncomingAttackNotification = true;
 bool g_ui_observer_trace_current_poll = false;
 int g_ui_observer_trace_budget = 4000;
 
@@ -511,11 +481,6 @@ void append_navigation_poll_actionable_event(const NavigationInteractionObservat
     }
 
     append_recent_event("navigation-interaction-poll-became-actionable", std::move(details));
-    if (kEnableLiveDebugIncomingAttackNotification) {
-      append_navigation_hook_trace_step("poll/before-incoming-attack-notification", "poll_recent_ui_events");
-      fleet_notifications_notify_incoming_attack_detected("navigation-poll");
-      append_navigation_hook_trace_step("poll/after-incoming-attack-notification", "poll_recent_ui_events");
-    }
     g_last_navigation_poll_actionable_pointer = entry.pointer;
     return;
   }
@@ -552,21 +517,6 @@ void flush_pending_navigation_hook_note()
     }
 
     append_recent_event("navigation-interaction-hook-note", std::move(details));
-    if (kEnableLiveDebugIncomingAttackNotification && note.phase &&
-        std::string_view(note.phase) == "AboutToShowCanvasEventHandler") {
-      append_navigation_hook_trace_step("flush/before-hook-incoming-attack-notification",
-                                        note.phase,
-                                        note.controller,
-                                        note.sender,
-                                        note.callbackContext);
-      fleet_notifications_notify_incoming_attack_detected("navigation-hook");
-      append_navigation_hook_trace_step("flush/after-hook-incoming-attack-notification",
-                                        note.phase,
-                                        note.controller,
-                                        note.sender,
-                                        note.callbackContext);
-    }
-
     append_navigation_hook_trace_step("flush/minimal-after-append",
                                       note.phase,
                                       note.controller,
@@ -978,16 +928,6 @@ const char* incoming_attack_target_type_name(int target_type)
       return "Station";
     case 0:
       return "None";
-    default:
-      return "Unknown";
-  }
-}
-
-const char* notification_producer_type_name(int producer_type)
-{
-  switch (producer_type) {
-    case 7:
-      return "IncomingFleet";
     default:
       return "Unknown";
   }
@@ -2621,24 +2561,6 @@ void live_debug_record_space_action_warp_cancel_suppressed(FleetBarViewControlle
            {"navigationInteractionVisible", navigation_interaction_visible}});
 }
 
-void live_debug_record_station_warning(std::string_view phase, bool has_context, int target_type,
-                                       uint64_t target_fleet_id, std::string_view target_user_id,
-                                       uint64_t quick_scan_target_fleet_id,
-                                       std::string_view quick_scan_target_id)
-{
-  append_event_if_live_debug_enabled(
-     "station-warning-lifecycle",
-     json{{"source", "StationWarningViewController"},
-       {"phase", phase},
-       {"hasContext", has_context},
-           {"targetType", target_type},
-           {"targetTypeName", incoming_attack_target_type_name(target_type)},
-           {"targetFleetId", target_fleet_id},
-           {"targetUserId", target_user_id},
-           {"quickScanTargetFleetId", quick_scan_target_fleet_id},
-           {"quickScanTargetId", quick_scan_target_id}});
-}
-
 void live_debug_record_incoming_fleet_materialized(std::string_view phase, int target_type,
                                                    uint64_t target_fleet_id,
                                                    int quick_scan_fleet_type,
@@ -2655,27 +2577,6 @@ void live_debug_record_incoming_fleet_materialized(std::string_view phase, int t
            {"quickScanFleetTypeName", deployed_fleet_type_name(quick_scan_fleet_type)},
            {"quickScanTargetFleetId", quick_scan_target_fleet_id},
            {"quickScanTargetId", quick_scan_target_id}});
-}
-
-void live_debug_record_incoming_fleet_materialized_pointer(std::string_view phase,
-                                                          const void* notification,
-                                                          const void* incoming_fleet_params_json)
-{
-  append_event_if_live_debug_enabled(
-      "incoming-fleet-materialized",
-      json{{"phase", phase},
-           {"notificationPointer", pointer_to_string(notification)},
-           {"incomingFleetParamsJsonPointer", pointer_to_string(incoming_fleet_params_json)}});
-}
-
-void live_debug_record_toast_fleet_producer(std::string_view phase, const void* observer, int producer_type)
-{
-  append_event_if_live_debug_enabled(
-      "toast-fleet-producer-changed",
-      json{{"phase", phase},
-           {"observerPointer", pointer_to_string(observer)},
-           {"producerType", producer_type},
-           {"producerTypeName", notification_producer_type_name(producer_type)}});
 }
 
 void live_debug_record_toast_notification(std::string_view source,
@@ -2766,13 +2667,3 @@ void live_debug_record_navigation_interaction(std::string_view phase,
   append_event_if_live_debug_enabled("navigation-interaction-lifecycle", std::move(details));
 }
 
-void live_debug_note_navigation_hook(const char* phase,
-                                     const void* controller,
-                                     const void* sender,
-                                     const void* callback_context)
-{
-  append_navigation_hook_trace_step("queue/enter", phase, controller, sender, callback_context);
-  g_pending_navigation_hook_note = PendingNavigationHookNote{
-      true, phase, controller, sender, callback_context};
-  append_navigation_hook_trace_step("queue/stored", phase, controller, sender, callback_context);
-}

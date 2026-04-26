@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string_view>
 
 struct FleetPlayerData;
 
@@ -31,15 +32,10 @@ void fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet);
 void fleet_notifications_observe_node_depleted(int64_t fleetId);
 
 /**
- * @brief Emit an incoming attack notification from a native incoming-fleet signal.
- */
-void fleet_notifications_notify_incoming_attack_detected(const char* source);
-
-/**
  * @brief Emit an incoming attack notification using a known target fleet id when available.
  */
 void fleet_notifications_notify_incoming_attack_target(const char* source, uint64_t targetFleetId, int targetType,
-													   int attackerFleetType = 0);
+													   int attackerFleetType = 0, std::string_view attackerIdentity = {});
 
 /**
  * @brief Observe the current mining ETA from the mining viewer.
