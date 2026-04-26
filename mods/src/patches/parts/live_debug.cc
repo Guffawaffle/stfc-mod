@@ -9,12 +9,14 @@
 #include "patches/live_debug.h"
 #include "patches/live_debug_connector.h"
 #include "patches/live_debug_event_dispatcher.h"
+#include "patches/live_debug_fleet_change_events.h"
 #include "patches/live_debug_fleet_serializers.h"
 #include "patches/live_debug_fleet_runtime_observers.h"
 #include "patches/live_debug_fleet_runtime_serializers.h"
 #include "patches/live_debug_recent_event_requests.h"
 #include "patches/live_debug_request_dispatch.h"
 #include "patches/live_debug_state_results.h"
+#include "patches/live_debug_ui_runtime_observers.h"
 #include "patches/live_debug_ui_serializers.h"
 #include "patches/live_debug_viewer_runtime.h"
 #include "patches/live_debug_viewer_serializers.h"
@@ -174,6 +176,20 @@ void append_ui_observer_forced_trace_step(const char* step,
 
   --g_ui_observer_trace_budget;
   append_navigation_hook_trace_step(step, phase, controller, sender, callback_context);
+}
+
+void mark_ui_observer_current_poll_visible()
+{
+  g_ui_observer_trace_current_poll = true;
+}
+
+const LiveDebugUiObserverTraceHooks& ui_observer_trace_hooks()
+{
+  static const LiveDebugUiObserverTraceHooks hooks = {
+      append_ui_observer_trace_step,
+      mark_ui_observer_current_poll_visible,
+  };
+  return hooks;
 }
 
 std::string get_request_id(const json& request)
@@ -659,121 +675,6 @@ bool is_meaningful_mine_viewer_observation(const MineViewerObservation& observat
       (observation.starNodeViewerTracked && observation.starNodeActiveAndEnabled);
 }
 
-void append_fleet_change_events(const FleetObservation& previous, const FleetObservation& current);
-void append_fleet_slot_change_events(const FleetSlotObservation& previous, const FleetSlotObservation& current);
-
-StationWarningObservation observe_station_warning()
-{
-  append_ui_observer_trace_step("station/enter", "observe_station_warning");
-  StationWarningObservation observation;
-  auto controller = GetLatestTrackedObject<StationWarningViewController>();
-  if (controller) {
-    g_ui_observer_trace_current_poll = true;
-  }
-  append_ui_observer_trace_step("station/after-get-controller", "observe_station_warning", controller);
-  observation.tracked = controller != nullptr;
-
-  if (!controller) {
-    append_ui_observer_trace_step("station/no-controller", "observe_station_warning");
-    return observation;
-  }
-
-  observation.pointer = pointer_to_string(controller);
-
-  append_ui_observer_trace_step("station/before-canvas-context", "observe_station_warning", controller);
-  auto context = controller->CanvasContext;
-  append_ui_observer_trace_step("station/after-canvas-context", "observe_station_warning", controller, context);
-  observation.hasContext = context != nullptr;
-  if (!context) {
-    append_ui_observer_trace_step("station/no-context", "observe_station_warning", controller);
-    return observation;
-  }
-
-  append_ui_observer_trace_step("station/before-target-fields", "observe_station_warning", controller, context);
-  observation.targetType = static_cast<int>(context->TargetType);
-  observation.targetFleetId = static_cast<uint64_t>(context->TargetFleetId);
-  append_ui_observer_trace_step("station/after-target-fields", "observe_station_warning", controller, context);
-
-  if (auto target_user_id = context->TargetUserId; target_user_id) {
-    append_ui_observer_trace_step("station/before-target-user-id", "observe_station_warning", controller, context, target_user_id);
-    observation.targetUserId = to_string(target_user_id);
-    append_ui_observer_trace_step("station/after-target-user-id", "observe_station_warning", controller, context, target_user_id);
-  }
-
-  append_ui_observer_trace_step("station/before-quick-scan-result", "observe_station_warning", controller, context);
-  if (auto quick_scan_result = context->QuickScanResult; quick_scan_result) {
-    append_ui_observer_trace_step("station/after-quick-scan-result", "observe_station_warning", controller, context, quick_scan_result);
-    observation.quickScanTargetFleetId = static_cast<uint64_t>(quick_scan_result->TargetFleetId);
-    if (auto quick_scan_target_id = quick_scan_result->TargetId; quick_scan_target_id) {
-      append_ui_observer_trace_step("station/before-quick-scan-target-id", "observe_station_warning", controller, quick_scan_result, quick_scan_target_id);
-      observation.quickScanTargetId = to_string(quick_scan_target_id);
-      append_ui_observer_trace_step("station/after-quick-scan-target-id", "observe_station_warning", controller, quick_scan_result, quick_scan_target_id);
-    }
-  } else {
-    append_ui_observer_trace_step("station/no-quick-scan-result", "observe_station_warning", controller, context);
-  }
-
-  append_ui_observer_trace_step("station/return", "observe_station_warning", controller, context);
-  return observation;
-}
-
-NavigationInteractionObservation observe_navigation_interaction()
-{
-  append_ui_observer_trace_step("nav/enter", "observe_navigation_interaction");
-  NavigationInteractionObservation observation;
-  const auto controllers = GetTrackedObjects<NavigationInteractionUIViewController>();
-  if (!controllers.empty()) {
-    g_ui_observer_trace_current_poll = true;
-  }
-  append_ui_observer_trace_step("nav/after-get-controllers", "observe_navigation_interaction");
-  observation.tracked = !controllers.empty();
-  observation.trackedCount = controllers.size();
-
-  if (controllers.empty()) {
-    append_ui_observer_trace_step("nav/no-controllers", "observe_navigation_interaction");
-    return observation;
-  }
-
-  observation.entries.reserve(controllers.size());
-  for (auto* controller : controllers) {
-    append_ui_observer_trace_step("nav/before-entry", "observe_navigation_interaction", controller);
-    NavigationInteractionObservation::Entry entry;
-    entry.pointer = pointer_to_string(controller);
-
-    append_ui_observer_trace_step("nav/before-canvas-context", "observe_navigation_interaction", controller);
-    auto context = controller->CanvasContext;
-    append_ui_observer_trace_step("nav/after-canvas-context", "observe_navigation_interaction", controller, context);
-    entry.hasContext = context != nullptr;
-    if (context) {
-      append_ui_observer_trace_step("nav/before-context-fields", "observe_navigation_interaction", controller, context);
-      entry.contextDataState = context->ContextDataState;
-      entry.inputInteractionType = context->InputInteractionType;
-      append_ui_observer_trace_step("nav/after-basic-context-fields", "observe_navigation_interaction", controller, context);
-      if (auto user_id = context->UserId; user_id) {
-        append_ui_observer_trace_step("nav/before-user-id", "observe_navigation_interaction", controller, context, user_id);
-        entry.userId = to_string(user_id);
-        append_ui_observer_trace_step("nav/after-user-id", "observe_navigation_interaction", controller, context, user_id);
-      }
-      entry.isMarauder = context->IsMarauder;
-      entry.threatLevel = context->ThreatLevel;
-      entry.validNavigationInput = context->ValidNavigationInput;
-      entry.showSetCourseArm = context->ShowSetCourseArm;
-      entry.locationTranslationId = context->LocationTranslationId;
-      append_ui_observer_trace_step("nav/after-extra-context-fields", "observe_navigation_interaction", controller, context);
-      if (auto poi = context->Poi; poi) {
-        entry.poiPointer = pointer_to_string(poi);
-        append_ui_observer_trace_step("nav/after-poi-pointer", "observe_navigation_interaction", controller, context, poi);
-      }
-    }
-
-    observation.entries.push_back(std::move(entry));
-    append_ui_observer_trace_step("nav/after-entry", "observe_navigation_interaction", controller, context);
-  }
-
-  append_ui_observer_trace_step("nav/return", "observe_navigation_interaction");
-  return observation;
-}
-
 int count_list_items(IList* list)
 {
   if (!list) {
@@ -793,9 +694,9 @@ void initialize_recent_model_observations(std::string_view source)
   const auto fleet = observe_fleetbar();
   const auto fleet_slots = observe_fleet_slots();
     const auto station_warning =
-      kEnableLiveDebugStationWarningPolling ? observe_station_warning() : StationWarningObservation{};
+      kEnableLiveDebugStationWarningPolling ? observe_station_warning(ui_observer_trace_hooks()) : StationWarningObservation{};
     const auto navigation_interaction = kEnableLiveDebugNavigationInteractionPolling
-      ? observe_navigation_interaction()
+      ? observe_navigation_interaction(ui_observer_trace_hooks())
       : NavigationInteractionObservation{};
 
   g_last_top_canvas = top_canvas;
@@ -921,7 +822,7 @@ void poll_recent_ui_events()
   append_ui_observer_trace_step("poll/after-top-canvas", "poll_recent_ui_events");
   append_ui_observer_trace_step("poll/before-station-warning", "poll_recent_ui_events");
   const auto station_warning =
-      kEnableLiveDebugStationWarningPolling ? observe_station_warning() : g_last_station_warning;
+      kEnableLiveDebugStationWarningPolling ? observe_station_warning(ui_observer_trace_hooks()) : g_last_station_warning;
   append_ui_observer_trace_step("poll/after-station-warning", "poll_recent_ui_events");
   const bool trace_navigation_poll =
       kEnableLiveDebugNavigationInteractionPolling &&
@@ -931,7 +832,7 @@ void poll_recent_ui_events()
     append_navigation_hook_trace_step("poll/before-observe-navigation-interaction", "poll_recent_ui_events");
   }
   const auto navigation_interaction = kEnableLiveDebugNavigationInteractionPolling
-      ? observe_navigation_interaction()
+      ? observe_navigation_interaction(ui_observer_trace_hooks())
       : g_last_navigation_interaction;
   append_ui_observer_trace_step("poll/after-navigation-interaction", "poll_recent_ui_events");
   if (trace_navigation_poll) {
@@ -1001,187 +902,6 @@ void capture_recent_model_events(std::string_view source)
     }
   }
   g_last_fleet_slots = fleet_slots;
-}
-
-const char* classify_fleet_transition_kind(const FleetObservation& previous, const FleetObservation& current)
-{
-  const auto from = previous.currentState;
-  const auto to   = current.currentState;
-
-  if (!previous.hasFleet && current.hasFleet) {
-    return "selected-fleet-visible";
-  }
-  if (previous.hasFleet && !current.hasFleet) {
-    return "selected-fleet-cleared";
-  }
-  if (from == static_cast<int>(FleetState::Docked) && to == static_cast<int>(FleetState::Repairing)) {
-    return "fleet-repair-started";
-  }
-  if (from == static_cast<int>(FleetState::Repairing) && to == static_cast<int>(FleetState::Docked)) {
-    return "fleet-repair-completed";
-  }
-  if (to == static_cast<int>(FleetState::Battling) && from != static_cast<int>(FleetState::Battling)) {
-    return "fleet-combat-started";
-  }
-  if (from == static_cast<int>(FleetState::Battling) && to != static_cast<int>(FleetState::Battling)) {
-    return "fleet-combat-ended";
-  }
-  if (to == static_cast<int>(FleetState::WarpCharging)) {
-    return "fleet-warp-started";
-  }
-  if (to == static_cast<int>(FleetState::Warping)) {
-    return "fleet-warp-engaged";
-  }
-  if (from == static_cast<int>(FleetState::Warping) && to == static_cast<int>(FleetState::Impulsing)) {
-    return "fleet-arrived-in-system";
-  }
-  if (to == static_cast<int>(FleetState::Docked) && from != static_cast<int>(FleetState::Repairing)) {
-    return "fleet-docked";
-  }
-  if (to == static_cast<int>(FleetState::Mining) && from != static_cast<int>(FleetState::Mining)) {
-    return "fleet-mining-started";
-  }
-  if (from == static_cast<int>(FleetState::Mining) && to != static_cast<int>(FleetState::Mining)) {
-    return "fleet-mining-stopped";
-  }
-
-  return "fleet-state-changed";
-}
-
-json fleet_transition_to_json(const FleetObservation& previous, const FleetObservation& current)
-{
-  return json{{"selectedIndex", current.selectedIndex},
-              {"fleetId", current.fleetId},
-              {"hullName", current.hullName},
-              {"fromState", previous.currentState},
-              {"fromStateName", fleet_state_name_from_value(previous.currentState)},
-              {"toState", current.currentState},
-              {"toStateName", fleet_state_name_from_value(current.currentState)},
-              {"modelPreviousState", current.previousState},
-              {"modelPreviousStateName", fleet_state_name_from_value(current.previousState)},
-              {"cargoFillBasisPoints", current.cargoFillBasisPoints}};
-}
-
-void append_fleet_change_events(const FleetObservation& previous, const FleetObservation& current)
-{
-  const bool selection_changed =
-      previous.selectedIndex != current.selectedIndex || previous.fleetId != current.fleetId;
-
-  if (selection_changed) {
-    live_debug_events::RecordEvent(
-        "selected-fleet-changed",
-        json{{"from", fleet_observation_to_json(previous)}, {"to", fleet_observation_to_json(current)}});
-  }
-}
-
-const char* classify_fleet_slot_transition_kind(const FleetSlotObservation& previous, const FleetSlotObservation& current)
-{
-  const auto from = previous.currentState;
-  const auto to = current.currentState;
-
-  if (!previous.present && current.present) {
-    return "fleet-slot-visible";
-  }
-  if (previous.present && !current.present) {
-    return "fleet-slot-cleared";
-  }
-  if (from == static_cast<int>(FleetState::Docked) && to == static_cast<int>(FleetState::Repairing)) {
-    return "fleet-slot-repair-started";
-  }
-  if (from == static_cast<int>(FleetState::Repairing) && to == static_cast<int>(FleetState::Docked)) {
-    return "fleet-slot-repair-completed";
-  }
-  if (to == static_cast<int>(FleetState::Battling) && from != static_cast<int>(FleetState::Battling)) {
-    return "fleet-slot-combat-started";
-  }
-  if (from == static_cast<int>(FleetState::Battling) && to != static_cast<int>(FleetState::Battling)) {
-    return "fleet-slot-combat-ended";
-  }
-  if (to == static_cast<int>(FleetState::WarpCharging)) {
-    return "fleet-slot-warp-started";
-  }
-  if (to == static_cast<int>(FleetState::Warping)) {
-    return "fleet-slot-warp-engaged";
-  }
-  if (from == static_cast<int>(FleetState::Warping) && to == static_cast<int>(FleetState::Impulsing)) {
-    return "fleet-slot-arrived-in-system";
-  }
-  if (to == static_cast<int>(FleetState::Docked) && from != static_cast<int>(FleetState::Repairing)) {
-    return "fleet-slot-docked";
-  }
-  if (to == static_cast<int>(FleetState::Mining) && from != static_cast<int>(FleetState::Mining)) {
-    return "fleet-slot-mining-started";
-  }
-  if (from == static_cast<int>(FleetState::Mining) && to != static_cast<int>(FleetState::Mining)) {
-    return "fleet-slot-mining-stopped";
-  }
-
-  return "fleet-slot-state-changed";
-}
-
-json fleet_slot_transition_to_json(const FleetSlotObservation& previous, const FleetSlotObservation& current)
-{
-  return json{{"slotIndex", current.slotIndex},
-              {"selected", current.selected},
-              {"fleetId", current.fleetId},
-              {"hullName", current.hullName},
-              {"fromState", previous.currentState},
-              {"fromStateName", fleet_state_name_from_value(previous.currentState)},
-              {"toState", current.currentState},
-              {"toStateName", fleet_state_name_from_value(current.currentState)},
-              {"modelPreviousState", current.previousState},
-              {"modelPreviousStateName", fleet_state_name_from_value(current.previousState)},
-              {"cargoFillBasisPoints", current.cargoFillBasisPoints}};
-}
-
-void append_fleet_slot_change_events(const FleetSlotObservation& previous, const FleetSlotObservation& current)
-{
-  bool emitted = false;
-  const bool same_fleet = previous.present && current.present && previous.fleetId == current.fleetId;
-  const bool fleet_changed = previous.present && current.present && previous.fleetId != current.fleetId;
-
-  if (fleet_changed) {
-    live_debug_events::RecordEvent("fleet-slot-fleet-changed",
-                                   json{{"slotIndex", current.slotIndex},
-                                        {"from", fleet_slot_observation_to_json(previous)},
-                                        {"to", fleet_slot_observation_to_json(current)}});
-    emitted = true;
-  }
-
-  if ((previous.present != current.present) || (same_fleet && previous.currentState != current.currentState)) {
-    live_debug_events::RecordEvent(classify_fleet_slot_transition_kind(previous, current),
-                                   fleet_slot_transition_to_json(previous, current));
-    emitted = true;
-  }
-
-  if (same_fleet && previous.hullName != current.hullName) {
-    live_debug_events::RecordEvent("fleet-slot-hull-changed",
-                                   json{{"slotIndex", current.slotIndex},
-                                        {"selected", current.selected},
-                                        {"fleetId", current.fleetId},
-                                        {"fromHullName", previous.hullName},
-                                        {"toHullName", current.hullName},
-                                        {"state", current.currentState},
-                                        {"stateName", fleet_state_name_from_value(current.currentState)}});
-    emitted = true;
-  }
-
-  if (same_fleet && current.cargoFillBasisPoints > previous.cargoFillBasisPoints) {
-    live_debug_events::RecordEvent("fleet-slot-cargo-gained",
-                                   json{{"slotIndex", current.slotIndex},
-                                        {"selected", current.selected},
-                                        {"fleetId", current.fleetId},
-                                        {"fromCargoFillBasisPoints", previous.cargoFillBasisPoints},
-                                        {"toCargoFillBasisPoints", current.cargoFillBasisPoints},
-                                        {"deltaCargoFillBasisPoints", current.cargoFillBasisPoints - previous.cargoFillBasisPoints},
-                                        {"state", current.currentState},
-                                        {"stateName", fleet_state_name_from_value(current.currentState)}});
-    emitted = true;
-  }
-
-  if (!emitted) {
-    live_debug_events::RecordEvent("fleet-slot-changed", fleet_slot_observation_to_json(current));
-  }
 }
 
 void DeploymentEvents_TriggerFleetStateChangeEvent_Hook(auto original, IList* fleets)
