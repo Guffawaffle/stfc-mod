@@ -5,6 +5,7 @@
 
 #include "bounded_ttl_cache.h"
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstddef>
@@ -48,6 +49,31 @@ bool should_suppress_escape_exit(bool disable_escape_exit,
 // Resolve the canonical disable-hotkeys shortcut while accepting deprecated keys.
 HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(
     const HotkeyDisableShortcutAliasInput& input);
+
+enum class HotkeyRouterStartupAction {
+  Continue = 0,
+  DisableHotkeys,
+  EnableHotkeys,
+  AllowOriginal,
+  SuppressOriginal,
+};
+
+enum class HotkeyRouterDispatchAction {
+  Continue = 0,
+  SuppressOriginal,
+  AllowOriginal,
+};
+
+HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pressed,
+                                                       bool enable_hotkeys_pressed,
+                                                       bool use_scopely_hotkeys,
+                                                       bool hotkeys_enabled);
+int hotkey_router_ship_select_request(const std::array<bool, 8>& ship_select_keys_down);
+bool hotkey_router_should_clear_input_focus(bool escape_pressed, bool input_focused, bool is_in_chat);
+bool hotkey_router_should_toggle_queue(bool is_in_chat, bool input_focused, bool toggle_queue_pressed);
+HotkeyRouterDispatchAction hotkey_router_dispatch_action(bool entry_active,
+                                                         bool handler_stops,
+                                                         bool handler_allows_original);
 
 enum class IncomingAttackPolicyAttackerKind {
   Unknown = 0,

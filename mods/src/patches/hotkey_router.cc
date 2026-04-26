@@ -38,6 +38,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include <array>
+
 // ─── Main Per-Frame Hotkey Router ─────────────────────────────────────────────────────
 
 // Returns true when the original ScreenManager::Update should be called.
@@ -45,22 +47,24 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 {
   Key::ResetCache();
 
-  if (MapKey::IsDown(GameFunction::DisableHotKeys)) {
-    Config::Get().hotkeys_enabled = false;
-    spdlog::warn("Setting hotkeys to DISABLED");
-    return false;
-  } else if (MapKey::IsDown(GameFunction::EnableHotKeys)) {
-    Config::Get().hotkeys_enabled = true;
-    spdlog::warn("Setting hotkeys to ENABLED");
-    return false;
-  }
-
-  if (Config::Get().use_scopely_hotkeys && Config::Get().hotkeys_enabled) {
-    return true;
-  }
-
-  if (!Config::Get().hotkeys_enabled) {
-    return false;
+  switch (hotkey_router_startup_action(MapKey::IsDown(GameFunction::DisableHotKeys),
+                                       MapKey::IsDown(GameFunction::EnableHotKeys),
+                                       Config::Get().use_scopely_hotkeys,
+                                       Config::Get().hotkeys_enabled)) {
+    case HotkeyRouterStartupAction::DisableHotkeys:
+      Config::Get().hotkeys_enabled = false;
+      spdlog::warn("Setting hotkeys to DISABLED");
+      return false;
+    case HotkeyRouterStartupAction::EnableHotkeys:
+      Config::Get().hotkeys_enabled = true;
+      spdlog::warn("Setting hotkeys to ENABLED");
+      return false;
+    case HotkeyRouterStartupAction::AllowOriginal:
+      return true;
+    case HotkeyRouterStartupAction::SuppressOriginal:
+      return false;
+    default:
+      break;
   }
 
   const auto is_in_chat = Hub::IsInChat();
@@ -73,31 +77,23 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 #endif
 
   // ─── Ship selection (1-8 keys) ───────────────────────────────────────────────────────
-  int32_t ship_select_request = -1;
-  if (MapKey::IsDown(GameFunction::SelectShip1)) {
-    ship_select_request = 0;
-  } else if (MapKey::IsDown(GameFunction::SelectShip2)) {
-    ship_select_request = 1;
-  } else if (MapKey::IsDown(GameFunction::SelectShip3)) {
-    ship_select_request = 2;
-  } else if (MapKey::IsDown(GameFunction::SelectShip4)) {
-    ship_select_request = 3;
-  } else if (MapKey::IsDown(GameFunction::SelectShip5)) {
-    ship_select_request = 4;
-  } else if (MapKey::IsDown(GameFunction::SelectShip6)) {
-    ship_select_request = 5;
-  } else if (MapKey::IsDown(GameFunction::SelectShip7)) {
-    ship_select_request = 6;
-  } else if (MapKey::IsDown(GameFunction::SelectShip8)) {
-    ship_select_request = 7;
-  }
+  const auto ship_select_request = hotkey_router_ship_select_request(std::array<bool, 8>{
+      MapKey::IsDown(GameFunction::SelectShip1),
+      MapKey::IsDown(GameFunction::SelectShip2),
+      MapKey::IsDown(GameFunction::SelectShip3),
+      MapKey::IsDown(GameFunction::SelectShip4),
+      MapKey::IsDown(GameFunction::SelectShip5),
+      MapKey::IsDown(GameFunction::SelectShip6),
+      MapKey::IsDown(GameFunction::SelectShip7),
+      MapKey::IsDown(GameFunction::SelectShip8),
+  });
 
   if (HandleShipSelection(ship_select_request)) {
     return true;
   }
 
   // ─── Escape in chat / input focus ───────────────────────────────────────────────────
-  if (Key::Pressed(KeyCode::Escape) && (Key::IsInputFocused() || Hub::IsInChat())) {
+  if (hotkey_router_should_clear_input_focus(Key::Pressed(KeyCode::Escape), Key::IsInputFocused(), Hub::IsInChat())) {
     Key::ClearInputFocus();
     return false;
   }
@@ -120,7 +116,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       }
 
       // ToggleQueue
-      if ((MapKey::IsDown(GameFunction::ToggleQueue))) {
+      if (hotkey_router_should_toggle_queue(is_in_chat, Key::IsInputFocused(), MapKey::IsDown(GameFunction::ToggleQueue))) {
         config->queue_enabled = !config->queue_enabled;
         return false;
       }
@@ -164,7 +160,10 @@ bool hotkey_router_screen_update(ScreenManager* _this)
                                                                : MapKey::IsDown(entry.game_function);
         if (active) {
           auto decision = entry.handler();
-          if (decision == DispatchDecision::HandledStop) {
+          auto action = hotkey_router_dispatch_action(true,
+                                                      decision == DispatchDecision::HandledStop,
+                                                      decision == DispatchDecision::HandledAllowOriginal);
+          if (action == HotkeyRouterDispatchAction::SuppressOriginal) {
             return false;
           }
           // HandledAllowOriginal falls through to original() at end

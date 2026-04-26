@@ -140,6 +140,46 @@ TEST_SUITE("hotkey_decisions")
     CHECK_FALSE(should_suppress_escape_exit(true, true, 500, 500));
     CHECK_FALSE(should_suppress_escape_exit(true, true, 500, 250));
   }
+
+  TEST_CASE("startup router gates hotkey toggles and Scopely fallthrough")
+  {
+    CHECK(hotkey_router_startup_action(true, false, false, true) == HotkeyRouterStartupAction::DisableHotkeys);
+    CHECK(hotkey_router_startup_action(false, true, false, false) == HotkeyRouterStartupAction::EnableHotkeys);
+    CHECK(hotkey_router_startup_action(false, false, true, true) == HotkeyRouterStartupAction::AllowOriginal);
+    CHECK(hotkey_router_startup_action(false, false, false, false) == HotkeyRouterStartupAction::SuppressOriginal);
+    CHECK(hotkey_router_startup_action(false, false, false, true) == HotkeyRouterStartupAction::Continue);
+  }
+
+  TEST_CASE("ship selection returns the first active fleet hotkey")
+  {
+    CHECK(hotkey_router_ship_select_request(std::array<bool, 8>{}) == -1);
+    CHECK(hotkey_router_ship_select_request(std::array<bool, 8>{false, false, true, false, false, false, false, false}) == 2);
+    CHECK(hotkey_router_ship_select_request(std::array<bool, 8>{true, false, true, false, false, false, false, false}) == 0);
+  }
+
+  TEST_CASE("escape clears focused chat or input without falling through")
+  {
+    CHECK(hotkey_router_should_clear_input_focus(true, true, false));
+    CHECK(hotkey_router_should_clear_input_focus(true, false, true));
+    CHECK_FALSE(hotkey_router_should_clear_input_focus(true, false, false));
+    CHECK_FALSE(hotkey_router_should_clear_input_focus(false, true, true));
+  }
+
+  TEST_CASE("queue toggle is only a gameplay-surface action")
+  {
+    CHECK(hotkey_router_should_toggle_queue(false, false, true));
+    CHECK_FALSE(hotkey_router_should_toggle_queue(true, false, true));
+    CHECK_FALSE(hotkey_router_should_toggle_queue(false, true, true));
+    CHECK_FALSE(hotkey_router_should_toggle_queue(false, false, false));
+  }
+
+  TEST_CASE("dispatch decisions preserve explicit action fallthrough")
+  {
+    CHECK(hotkey_router_dispatch_action(false, false, false) == HotkeyRouterDispatchAction::Continue);
+    CHECK(hotkey_router_dispatch_action(true, true, false) == HotkeyRouterDispatchAction::SuppressOriginal);
+    CHECK(hotkey_router_dispatch_action(true, false, true) == HotkeyRouterDispatchAction::AllowOriginal);
+    CHECK(hotkey_router_dispatch_action(true, false, false) == HotkeyRouterDispatchAction::Continue);
+  }
 }
 
 TEST_SUITE("live_debug_recent_event_store")

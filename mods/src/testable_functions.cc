@@ -80,6 +80,70 @@ HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(
   return decision;
 }
 
+HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pressed,
+                                                       bool enable_hotkeys_pressed,
+                                                       bool use_scopely_hotkeys,
+                                                       bool hotkeys_enabled)
+{
+  if (disable_hotkeys_pressed) {
+    return HotkeyRouterStartupAction::DisableHotkeys;
+  }
+
+  if (enable_hotkeys_pressed) {
+    return HotkeyRouterStartupAction::EnableHotkeys;
+  }
+
+  if (use_scopely_hotkeys && hotkeys_enabled) {
+    return HotkeyRouterStartupAction::AllowOriginal;
+  }
+
+  if (!hotkeys_enabled) {
+    return HotkeyRouterStartupAction::SuppressOriginal;
+  }
+
+  return HotkeyRouterStartupAction::Continue;
+}
+
+int hotkey_router_ship_select_request(const std::array<bool, 8>& ship_select_keys_down)
+{
+  for (size_t index = 0; index < ship_select_keys_down.size(); ++index) {
+    if (ship_select_keys_down[index]) {
+      return static_cast<int>(index);
+    }
+  }
+
+  return -1;
+}
+
+bool hotkey_router_should_clear_input_focus(bool escape_pressed, bool input_focused, bool is_in_chat)
+{
+  return escape_pressed && (input_focused || is_in_chat);
+}
+
+bool hotkey_router_should_toggle_queue(bool is_in_chat, bool input_focused, bool toggle_queue_pressed)
+{
+  return toggle_queue_pressed && !is_in_chat && !input_focused;
+}
+
+HotkeyRouterDispatchAction hotkey_router_dispatch_action(bool entry_active,
+                                                         bool handler_stops,
+                                                         bool handler_allows_original)
+{
+  if (!entry_active) {
+    return HotkeyRouterDispatchAction::Continue;
+  }
+
+  if (handler_stops) {
+    return HotkeyRouterDispatchAction::SuppressOriginal;
+  }
+
+  if (handler_allows_original) {
+    return HotkeyRouterDispatchAction::AllowOriginal;
+  }
+
+  return HotkeyRouterDispatchAction::Continue;
+}
+
 // ---------------------------------------------------------------------------
 // Incoming attack policy
 // ---------------------------------------------------------------------------
