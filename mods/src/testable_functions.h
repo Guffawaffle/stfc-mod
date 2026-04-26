@@ -28,8 +28,8 @@ struct HotkeyDisableShortcutAliasDecision {
   bool        has_conflicting_alias = false;
 };
 
-// Startup shortcut policy: only the explicit Scopely hotkey toggle initializes
-// Scopely's shortcut map. allow_key_fallthrough is a per-frame routing flag.
+// Startup shortcut policy: Scopely's shortcut map must initialize whenever the
+// original game input path is expected to handle shortcuts.
 bool should_call_original_initialize_actions(bool use_scopely_hotkeys, bool allow_key_fallthrough);
 
 // Per-frame ScreenManager::Update policy after the router has made its decision.

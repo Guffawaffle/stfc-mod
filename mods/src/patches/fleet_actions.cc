@@ -47,7 +47,8 @@ static std::chrono::time_point<std::chrono::steady_clock> select_clock = std::ch
 /** Last ship key used for double-tap detection. */
 static int last_ship_select_request = -1;
 
-// Returns true if the hook should return early (skip original)
+// Returns true if ship selection was handled. The caller should still allow
+// ScreenManager::Update so the fleet panel can finish opening this frame.
 bool HandleShipSelection(int ship_select_request)
 {
   if (ship_select_request == -1 || Key::IsInputFocused()) {

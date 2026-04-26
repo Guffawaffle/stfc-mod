@@ -15,8 +15,7 @@
 // ---------------------------------------------------------------------------
 bool should_call_original_initialize_actions(bool use_scopely_hotkeys, bool allow_key_fallthrough)
 {
-  (void)allow_key_fallthrough;
-  return use_scopely_hotkeys;
+  return use_scopely_hotkeys || allow_key_fallthrough;
 }
 
 bool should_call_original_screen_update(bool router_allows_original, bool allow_key_fallthrough)

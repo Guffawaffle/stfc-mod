@@ -24,6 +24,19 @@ constexpr bool kEnableShortcutInitializeHook = true;
 constexpr bool kEnableRewardsButtonHook = true;
 constexpr bool kEnablePreScanTargetHook = true;
 
+const char* initialize_actions_reason()
+{
+  if (Config::Get().use_scopely_hotkeys) {
+    return "use_scopely_hotkeys";
+  }
+
+  if (AllowKeyFallthrough()) {
+    return "allow_key_fallthrough";
+  }
+
+  return "mod-hotkeys-only";
+}
+
 constexpr HookDescriptor kInitializeActionsHook = {
   "ShortcutsManager.InitializeActions",
   "decide whether Scopely shortcut actions initialize alongside mod hotkeys",
@@ -61,7 +74,7 @@ void InitializeActions_Hook(auto original, void* _this)
   const auto should_call_original = hotkey_router_should_call_original_initialize_actions();
   spdlog::info("[Hotkeys] ShortcutsManager.InitializeActions original={} reason={} use_scopely_hotkeys={} allow_key_fallthrough={}",
                should_call_original ? "called" : "suppressed",
-               should_call_original ? "use_scopely_hotkeys" : "mod-hotkeys-only",
+               initialize_actions_reason(),
                Config::Get().use_scopely_hotkeys,
                AllowKeyFallthrough());
 

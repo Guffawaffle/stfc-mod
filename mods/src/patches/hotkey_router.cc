@@ -93,7 +93,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   }
 
   if (HandleShipSelection(ship_select_request)) {
-    return false;
+    return true;
   }
 
   // ─── Escape in chat / input focus ───────────────────────────────────────────────────
