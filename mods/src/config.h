@@ -337,3 +337,18 @@ bool AllowKeyFallthrough();
  * @brief Whether the file-backed live debug channel is enabled.
  */
 bool LiveDebugChannelEnabled();
+
+/**
+ * @brief Whether live battle_log decoding is enabled.
+ */
+bool BattleLogDecoderEnabled();
+
+/**
+ * @brief Whether decoded battle_log segment summaries should be emitted.
+ */
+bool BattleLogDecoderEmitSegments();
+
+/**
+ * @brief Whether sidecar-ready battle report feed events should be emitted.
+ */
+bool BattleLogDecoderEmitFeed();

@@ -7,6 +7,7 @@
 #include "config.h"
 #include "errormsg.h"
 #include "file.h"
+#include "patches/battle_log_decoder.h"
 #include "patches/sync_transport.h"
 
 #include <Digit.PrimeServer.Models.pb.h>
@@ -22,6 +23,7 @@
 #include <winrt/Windows.Foundation.h>
 #endif
 
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -74,6 +76,182 @@ std::mutex                                      alliance_data_cache_mtx;
 
 static eastl::ring_buffer<uint64_t> previously_sent_battlelogs;
 static std::mutex                   previously_sent_battlelogs_mtx;
+static std::mutex                   battle_probe_file_mtx;
+
+static constexpr char kBattleProbeFile[] = "community_patch_battle_probe.jsonl";
+static constexpr char kBattleProbeSummaryFile[] = "community_patch_battle_probe_summary.jsonl";
+static constexpr char kBattleProbeSegmentsFile[] = "community_patch_battle_probe_segments.jsonl";
+static constexpr char kBattleFeedFile[] = "community_patch_battle_feed.jsonl";
+
+static bool battle_probe_enabled()
+{
+  const auto& config = Config::Get();
+  return config.sync_options.battlelogs && config.sync_debug;
+}
+
+static int64_t current_probe_unix_ms()
+{
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+      .count();
+}
+
+static size_t json_entry_count(const nlohmann::json& value)
+{
+  if (value.is_array() || value.is_object()) {
+    return value.size();
+  }
+
+  return 0;
+}
+
+static void append_jsonl_probe_entry(const std::string& path, const nlohmann::json& probe_entry,
+                                     std::string_view entry_kind)
+{
+  std::lock_guard lk(battle_probe_file_mtx);
+
+  std::ofstream file(path, std::ios::out | std::ios::binary | std::ios::app);
+  if (!file.is_open()) {
+    spdlog::error("Failed to open {} file for append: {}", entry_kind, path);
+    return;
+  }
+
+  file << probe_entry.dump() << '\n';
+}
+
+static void append_battle_probe_summary(uint64_t journal_id, const nlohmann::json& names, const nlohmann::json& journal,
+                                        const nlohmann::json& decoded, int64_t captured_at_unix_ms)
+{
+  if (!battle_probe_enabled()) {
+    return;
+  }
+
+  const auto summary_path = File::MakePathString(kBattleProbeSummaryFile, true);
+
+  const auto& initiator_fleet_data = journal.contains("initiator_fleet_data") ? journal["initiator_fleet_data"]
+                                                                                : nlohmann::json::object();
+  const auto& target_fleet_data    = journal.contains("target_fleet_data") ? journal["target_fleet_data"]
+                                                                             : nlohmann::json::object();
+  const auto& chest_drop           = journal.contains("chest_drop") ? journal["chest_drop"] : nlohmann::json::object();
+  const auto* battle_log           = journal.contains("battle_log") ? &journal["battle_log"] : nullptr;
+  const auto signature = decoded.value("ok", false) && decoded.contains("signature") ? decoded["signature"]
+                                                                                       : nlohmann::json::object();
+
+  nlohmann::json summary_entry{{"type", "battle_probe_summary"},
+                               {"journal_id", journal_id},
+                               {"captured_at_unix_ms", captured_at_unix_ms},
+                               {"battle_id", journal.value("id", journal_id)},
+                               {"battle_time", journal.value("battle_time", std::string{})},
+                               {"battle_type", journal.contains("battle_type") ? journal["battle_type"] : nlohmann::json()},
+                               {"battle_duration", journal.value("battle_duration", 0)},
+                               {"initiator_id", journal.value("initiator_id", std::string{})},
+                               {"target_id", journal.value("target_id", std::string{})},
+                               {"initiator_wins", journal.value("initiator_wins", false)},
+                               {"system_id", journal.value("system_id", int64_t{0})},
+                               {"coords", journal.contains("coords") ? journal["coords"] : nlohmann::json()},
+                               {"names_count", json_entry_count(names)},
+                               {"battle_log_count", signature.value("token_count", battle_log != nullptr ? json_entry_count(*battle_log) : size_t{0})},
+                               {"battle_log_json_type", battle_log != nullptr ? battle_log->type_name() : "missing"},
+                               {"battle_log_first_token", signature.contains("first_token") ? signature["first_token"] : nlohmann::json()},
+                               {"battle_log_last_token", signature.contains("last_token") ? signature["last_token"] : nlohmann::json()},
+                               {"battle_log_negative_tokens", signature.contains("negative_tokens") ? signature["negative_tokens"] : nlohmann::json::array()},
+                               {"battle_log_segment_count", signature.value("segment_count", size_t{0})},
+                               {"battle_log_top_segment_lengths", signature.contains("top_segment_lengths") ? signature["top_segment_lengths"] : nlohmann::json::array()},
+                               {"battle_log_first_12", signature.contains("first_tokens") ? signature["first_tokens"] : nlohmann::json::array()},
+                               {"battle_log_last_12", signature.contains("last_tokens") ? signature["last_tokens"] : nlohmann::json::array()},
+                               {"battle_log_participant_count", decoded.value("participant_count", size_t{0})},
+                               {"battle_log_ship_count", decoded.value("ship_count", size_t{0})},
+                               {"battle_log_component_count", decoded.value("component_count", size_t{0})},
+                               {"initiator_deployed_fleet_count",
+                                initiator_fleet_data.contains("deployed_fleets")
+                                    ? json_entry_count(initiator_fleet_data["deployed_fleets"])
+                                    : size_t{0}},
+                               {"target_deployed_fleet_count",
+                                target_fleet_data.contains("deployed_fleets")
+                                    ? json_entry_count(target_fleet_data["deployed_fleets"])
+                                    : size_t{0}},
+                               {"initiator_ship_count",
+                                initiator_fleet_data.contains("ship_ids")
+                                    ? json_entry_count(initiator_fleet_data["ship_ids"])
+                                    : size_t{0}},
+                               {"target_ship_count",
+                                target_fleet_data.contains("ship_ids") ? json_entry_count(target_fleet_data["ship_ids"])
+                                                                         : size_t{0}},
+                               {"resources_dropped_count",
+                                journal.contains("resources_dropped") ? json_entry_count(journal["resources_dropped"])
+                                                                       : size_t{0}},
+                               {"resources_transferred_count",
+                                journal.contains("resources_transferred")
+                                    ? json_entry_count(journal["resources_transferred"])
+                                    : size_t{0}},
+                               {"loot_roll_key",
+                                chest_drop.is_object() ? chest_drop.value("loot_roll_key", std::string{}) : std::string{}},
+                               {"chests_gained_count",
+                                chest_drop.is_object() && chest_drop.contains("chests_gained")
+                                    ? json_entry_count(chest_drop["chests_gained"])
+                                    : size_t{0}}};
+
+  append_jsonl_probe_entry(summary_path, summary_entry, "battle probe summary");
+}
+
+static void append_battle_probe_segments(uint64_t journal_id, const nlohmann::json& decoded, int64_t captured_at_unix_ms)
+{
+  if (!battle_probe_enabled() || !BattleLogDecoderEnabled() || !BattleLogDecoderEmitSegments()) {
+    return;
+  }
+
+  if (!decoded.value("ok", false)) {
+    spdlog::warn("Battle log decoder skipped journal {}: {}", journal_id, decoded.value("reason", std::string{"unknown"}));
+    return;
+  }
+
+  auto segment_entry = decoded;
+  segment_entry["type"] = "battle_probe_segments";
+  segment_entry["captured_at_unix_ms"] = captured_at_unix_ms;
+  append_jsonl_probe_entry(File::MakePathString(kBattleProbeSegmentsFile, true), segment_entry, "battle probe segments");
+}
+
+static void append_battle_feed(uint64_t journal_id, const nlohmann::json& journal, const nlohmann::json& decoded,
+                               int64_t captured_at_unix_ms)
+{
+  if (!battle_probe_enabled() || !BattleLogDecoderEnabled() || !BattleLogDecoderEmitFeed()) {
+    return;
+  }
+
+  auto event = battle_log_decoder::build_sidecar_battle_report_event(journal, decoded, journal_id, captured_at_unix_ms);
+  if (event.value("ok", true) == false) {
+    spdlog::warn("Battle feed skipped journal {}: {}", journal_id, event.value("reason", std::string{"unknown"}));
+    return;
+  }
+
+  append_jsonl_probe_entry(File::MakePathString(kBattleFeedFile, true), event, "battle feed");
+}
+
+static void append_battle_probe(uint64_t journal_id, const nlohmann::json& names, const nlohmann::json& journal)
+{
+  if (!battle_probe_enabled()) {
+    return;
+  }
+
+  const auto probe_path = File::MakePathString(kBattleProbeFile, true);
+  const auto captured_at_unix_ms = current_probe_unix_ms();
+
+  nlohmann::json probe_entry{{"type", "battle_probe"},
+                             {"journal_id", journal_id},
+                             {"captured_at_unix_ms", captured_at_unix_ms},
+                             {"names", names},
+                             {"journal", journal}};
+
+  battle_log_decoder::DecodeOptions decode_options;
+  decode_options.include_segments = BattleLogDecoderEnabled()
+                                    && (BattleLogDecoderEmitSegments() || BattleLogDecoderEmitFeed());
+  auto decoded = battle_log_decoder::decode_journal(journal, names, decode_options, journal_id);
+
+  append_jsonl_probe_entry(probe_path, probe_entry, "battle probe");
+  append_battle_probe_summary(journal_id, names, journal, decoded, captured_at_unix_ms);
+  append_battle_probe_segments(journal_id, decoded, captured_at_unix_ms);
+  append_battle_feed(journal_id, journal, decoded, captured_at_unix_ms);
+  spdlog::debug("Appended battle probe for journal {} to {}", journal_id, probe_path);
+}
 
 void load_previously_sent_logs()
 {
@@ -306,6 +484,15 @@ void ship_combat_log_data()
       combat_log_data_queue.pop();
     }
 
+    const bool capture_locally = battle_probe_enabled();
+    const bool send_remotely   = !Config::Get().sync_targets.empty();
+
+    if (!capture_locally && !send_remotely) {
+      spdlog::debug("Skipping combat log fetch for battle {} because no sync targets are configured and sync.debug is disabled",
+                    journal_id);
+      continue;
+    }
+
     try {
       http::sync_log_trace("PROCESS", "combat log", STR_FORMAT("Fetching combat log for battle {}", journal_id));
 
@@ -408,6 +595,13 @@ void ship_combat_log_data()
             }
           }
         }
+      }
+
+      append_battle_probe(journal_id, names, journal);
+
+      if (!send_remotely) {
+        spdlog::debug("Captured battle journal {} locally; no sync targets configured", journal_id);
+        continue;
       }
 
       auto battle_array = json::array();

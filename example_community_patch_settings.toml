@@ -51,6 +51,13 @@ assets_url_override = ""
 # Ignore this section, developer stuff only
 settings_url = ""
 
+[battle_log_decoder]
+# Enable live decoding of captured battle journal battle_log token streams.
+# When enabled, parser outputs are on by default unless explicitly disabled below.
+enabled = false
+emit_segments = true
+emit_feed = true
+
 #  <[=====================================================]>
 #
 #        ****                 *                     *

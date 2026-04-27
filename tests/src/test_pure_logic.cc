@@ -3,6 +3,7 @@
 
 #include "bounded_ttl_cache.h"
 #include "patches/async_work_queue.h"
+#include "patches/battle_log_decoder.h"
 #include "patches/live_debug_event_store.h"
 #include "patches/live_debug_fleet_serializers.h"
 #include "patches/live_debug_recent_event_requests.h"
@@ -16,6 +17,128 @@
 
 #include <chrono>
 #include <utility>
+
+// ===========================================================================
+// battle_log_decoder
+// ===========================================================================
+
+TEST_SUITE("battle_log_decoder")
+{
+  TEST_CASE("decode_probe_entry maps segment ids to ships and components")
+  {
+    auto probe = nlohmann::json::object();
+    probe["journal_id"] = 12345;
+    probe["names"] = nlohmann::json{{"player-1", {{"name", "Guff"}}}};
+
+    auto journal = nlohmann::json::object();
+    journal["id"] = 12345;
+    journal["battle_type"] = 8;
+    journal["battle_time"] = "2026-04-26T23:04:17";
+    journal["initiator_id"] = "player-1";
+    journal["target_id"] = "mar_45";
+    journal["initiator_wins"] = true;
+    journal["battle_log"] = nlohmann::json::array({-96, -90, -88, 111, -86, 10, 20, 0.5, -85, 222, -98, 900, 1, -99, -89,
+                                                    -90, -88, 0, -87, -84, -83, -89, -97});
+    journal["resources_transferred"] = {{"2431852293", 263028}};
+    journal["chest_drop"] = {{"loot_roll_key", "MAR_45_Armada_Car_Uncommon"},
+                 {"chests_gained",
+                  nlohmann::json::array({{{"count", 1},
+                               {"params", {{"ref_id", 129255444149608},
+                                    {"chest_name", "MAR_45_Armada_Car_Uncommon"}}}}})}};
+    journal["initiator_fleet_data"]["deployed_fleets"]["1"] = {
+        {"uid", "player-1"},
+        {"fleet_id", 1},
+        {"ship_ids", nlohmann::json::array({111})},
+        {"hull_ids", nlohmann::json::array({77})},
+        {"offense_rating", 1000.0},
+        {"ship_components", {{"111", nlohmann::json::array({900, 901})}}},
+    };
+    journal["target_fleet_data"]["deployed_fleet"] = {
+        {"uid", "mar_45"},
+        {"fleet_id", 2},
+        {"type", 2},
+        {"ship_ids", nlohmann::json::array({0})},
+        {"hull_ids", nlohmann::json::array({3066099110})},
+        {"ship_levels", {{"0", 45}}},
+        {"ship_components", {{"0", nlohmann::json::array({800})}}},
+    };
+    probe["journal"] = journal;
+
+    battle_log_decoder::DecodeOptions options;
+    options.include_segments = true;
+
+    const auto decoded = battle_log_decoder::decode_probe_entry(probe, options);
+    REQUIRE(decoded.value("ok", false));
+    CHECK(decoded["journal_id"] == 12345);
+    CHECK(decoded["battle_type"] == 8);
+    CHECK(decoded["participant_count"] == 2);
+    CHECK(decoded["ship_count"] == 2);
+    CHECK(decoded["component_count"] == 3);
+    CHECK(decoded["signature"]["first_token"] == -96);
+    CHECK(decoded["signature"]["last_token"] == -97);
+    CHECK(decoded["signature"]["segment_count"] == 2);
+    REQUIRE(decoded["segments"].size() == 3);
+    CHECK(decoded["segments"][0]["ship_ids"] == nlohmann::json::array({111}));
+    CHECK(decoded["segments"][0]["component_refs"][0]["component_id"] == 900);
+    CHECK(decoded["segments"][0]["component_refs"][0]["ship_id"] == 111);
+    CHECK(decoded["segments"][1]["ship_ids"] == nlohmann::json::array({0}));
+    CHECK(decoded["segments"][2]["terminated"] == false);
+    CHECK(decoded["participants"][1]["participant_kind"] == "hostile");
+    CHECK(decoded["participants"][1]["display_name"] == "Central Command Station");
+    CHECK(decoded["participants"][1]["display_name_source"] == "derived_hostile_key");
+    CHECK(decoded["participants"][1]["ship_level"] == 45);
+
+    const auto report = battle_log_decoder::build_sidecar_battle_report_event(journal, decoded, 12345, 111);
+    CHECK(report["protocolVersion"] == "stfc.sidecar.events.v0");
+    CHECK(report["type"] == "battle.report");
+    CHECK(report["schemaVersion"] == "stfc.sidecar.battle-report.v0");
+    CHECK(report["journalId"] == "12345");
+    CHECK(report["capturedAtUnixMs"] == 111);
+    CHECK(report["report"]["summary"]["outcome"] == "initiator_victory");
+    CHECK(report["report"]["parity"]["sections"]["battleEvents"] == "decoded_segments");
+    CHECK(report["report"]["rewards"].size() == 2);
+    CHECK(report["report"]["events"].size() == 3);
+  }
+
+  TEST_CASE("hostile display names ignore retrieving placeholders and derive from reward keys")
+  {
+    const auto names = nlohmann::json{{"mar_42", {{"name", "Retrieving..."}}}};
+    auto       journal = nlohmann::json{{"id", 222},
+                                        {"battle_type", 2},
+                                        {"target_id", "mar_42"},
+                                        {"battle_log", nlohmann::json::array({-96, -89, -97})},
+                                        {"chest_drop", {{"loot_roll_key", "MAR_42_Battleship_ElAurian_Core"}}}};
+    journal["target_fleet_data"]["deployed_fleet"] = {
+        {"uid", "mar_42"},
+        {"fleet_id", 7},
+        {"type", 2},
+        {"ship_ids", nlohmann::json::array({0})},
+        {"hull_ids", nlohmann::json::array({1686254040})},
+        {"ship_levels", {{"0", 42}}},
+    };
+
+    const auto decoded = battle_log_decoder::decode_journal(journal, names);
+
+    REQUIRE(decoded.value("ok", false));
+    REQUIRE(decoded["participants"].size() == 1);
+    CHECK(decoded["participants"][0]["name"] == "");
+    CHECK(decoded["participants"][0]["participant_kind"] == "hostile");
+    CHECK(decoded["participants"][0]["display_name"] == "Lv.42 Battleship ElAurian Core");
+    CHECK(decoded["participants"][0]["display_name_source"] == "derived_hostile_key");
+  }
+
+  TEST_CASE("battle type filter can skip journals before decode")
+  {
+    const auto journal = nlohmann::json{{"battle_type", 5}, {"battle_log", nlohmann::json::array({-96, -97})}};
+
+    battle_log_decoder::DecodeOptions options;
+    options.battle_type_filter = {2, 8};
+
+    CHECK_FALSE(battle_log_decoder::journal_matches_options(journal, options));
+    const auto decoded = battle_log_decoder::decode_journal(journal, nlohmann::json::object(), options);
+    CHECK_FALSE(decoded.value("ok", true));
+  }
+}
 
 // ===========================================================================
 // str_utils_pure.h

@@ -85,6 +85,16 @@ namespace Debug
   constexpr bool live_query = false;
 } // namespace Debug
 
+namespace BattleLogDecoder
+{
+  /// Enable live battle_log segment decoding beside the raw battle probe. Default: false.
+  constexpr bool enabled       = false;
+  /// Emit decoded segment summaries when the decoder is enabled. Default: true.
+  constexpr bool emit_segments = true;
+  /// Emit sidecar-ready battle report feed events when the decoder is enabled. Default: true.
+  constexpr bool emit_feed     = true;
+} // namespace BattleLogDecoder
+
 namespace Notifications
 {
   /// Master switch for OS/system notifications. Default: false.
