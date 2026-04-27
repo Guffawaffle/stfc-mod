@@ -210,10 +210,22 @@ static void append_battle_probe_segments(uint64_t journal_id, const nlohmann::js
   append_jsonl_probe_entry(File::MakePathString(kBattleProbeSegmentsFile, true), segment_entry, "battle probe segments");
 }
 
-static void append_battle_feed(uint64_t journal_id, const nlohmann::json& journal, const nlohmann::json& decoded,
-                               int64_t captured_at_unix_ms)
+static void append_battle_feed(uint64_t journal_id, const nlohmann::json& names, const nlohmann::json& journal,
+                               const nlohmann::json& decoded, int64_t captured_at_unix_ms)
 {
-  if (!battle_probe_enabled() || !BattleLogDecoderEnabled() || !BattleLogDecoderEmitFeed()) {
+  if (!battle_probe_enabled() || !BattleLogDecoderEmitFeed()) {
+    return;
+  }
+
+  auto capture_event = battle_log_decoder::build_sidecar_battle_capture_event(journal, names, journal_id, captured_at_unix_ms);
+  if (capture_event.value("ok", true) == false) {
+    spdlog::warn("Battle capture feed skipped journal {}: {}", journal_id,
+                 capture_event.value("reason", std::string{"unknown"}));
+  } else {
+    append_jsonl_probe_entry(File::MakePathString(kBattleFeedFile, true), capture_event, "battle capture feed");
+  }
+
+  if (!BattleLogDecoderEnabled()) {
     return;
   }
 
@@ -249,7 +261,7 @@ static void append_battle_probe(uint64_t journal_id, const nlohmann::json& names
   append_jsonl_probe_entry(probe_path, probe_entry, "battle probe");
   append_battle_probe_summary(journal_id, names, journal, decoded, captured_at_unix_ms);
   append_battle_probe_segments(journal_id, decoded, captured_at_unix_ms);
-  append_battle_feed(journal_id, journal, decoded, captured_at_unix_ms);
+  append_battle_feed(journal_id, names, journal, decoded, captured_at_unix_ms);
   spdlog::debug("Appended battle probe for journal {} to {}", journal_id, probe_path);
 }
 

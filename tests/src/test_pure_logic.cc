@@ -100,6 +100,37 @@ TEST_SUITE("battle_log_decoder")
     CHECK(report["report"]["events"].size() == 3);
   }
 
+  TEST_CASE("build_sidecar_battle_capture_event emits string tokens and lossless journal integers")
+  {
+    auto journal = nlohmann::json::object();
+    journal["id"] = 2709118446356718841LL;
+    journal["battle_type"] = 8;
+    journal["battle_time"] = "2026-04-26T23:04:17";
+    journal["initiator_id"] = "player-1";
+    journal["target_id"] = "mar_45";
+    journal["initiator_wins"] = true;
+    journal["system_id"] = 2682660367670527124LL;
+    journal["battle_log"] = nlohmann::json::array({-96, 2682660367670527124LL, -97});
+
+    const auto names = nlohmann::json{{"player-1", {{"name", "Guff"}, {"alliance_id", 2682660367670527124LL}}}};
+    const auto capture = battle_log_decoder::build_sidecar_battle_capture_event(journal, names, 0, 222);
+
+    CHECK(capture["protocolVersion"] == "stfc.sidecar.events.v0");
+    CHECK(capture["type"] == "battle.capture");
+    CHECK(capture["schemaVersion"] == "stfc.battle.capture.v1");
+    CHECK(capture["journalId"] == "2709118446356718841");
+    CHECK(capture["capturedAtUnixMs"] == 222);
+    CHECK(capture["capture"]["sourceKind"] == "scopely.journal.battle");
+    CHECK(capture["capture"]["battleLog"]["encoding"] == "string_tokens.v1");
+    CHECK(capture["capture"]["battleLog"]["tokenCount"] == 3);
+    CHECK(capture["capture"]["battleLog"]["tokens"][1] == "2682660367670527124");
+    CHECK(capture["capture"]["names"]["player-1"]["alliance_id"] == "2682660367670527124");
+    CHECK(capture["capture"]["journal"]["encoding"] == "lossless_integer_strings.v1");
+    CHECK(capture["capture"]["journal"]["data"]["id"] == "2709118446356718841");
+    CHECK(capture["capture"]["journal"]["data"]["system_id"] == "2682660367670527124");
+    CHECK_FALSE(capture["capture"]["journal"]["data"].contains("battle_log"));
+  }
+
   TEST_CASE("hostile display names ignore retrieving placeholders and derive from reward keys")
   {
     const auto names = nlohmann::json{{"mar_42", {{"name", "Retrieving..."}}}};
@@ -137,6 +168,138 @@ TEST_SUITE("battle_log_decoder")
     CHECK_FALSE(battle_log_decoder::journal_matches_options(journal, options));
     const auto decoded = battle_log_decoder::decode_journal(journal, nlohmann::json::object(), options);
     CHECK_FALSE(decoded.value("ok", true));
+  }
+
+  TEST_CASE("decode_journal derives rounds sub-rounds and attack rows from record markers")
+  {
+    const auto names = nlohmann::json{{"player-1", {{"name", "Guff"}}}};
+    auto       journal = nlohmann::json{{"id", 333},
+                                        {"battle_type", 8},
+                                        {"battle_time", "2026-04-27T01:23:45"},
+                                        {"initiator_id", "player-1"},
+                                        {"target_id", "mar_45"},
+                                        {"initiator_wins", true},
+                                        {"battle_log",
+                                         nlohmann::json::array({-96,
+                                                                -90,
+                                                                -88,
+                                                                111,
+                                                                -86,
+                                                                10,
+                                                                20,
+                                                                0.5,
+                                                                -85,
+                                                                -83,
+                                                                0,
+                                                                -98,
+                                                                800,
+                                                                111,
+                                                                1.0,
+                                                                0.0,
+                                                                1,
+                                                                1,
+                                                                1878,
+                                                                83380359.0,
+                                                                7514,
+                                                                30103950.0,
+                                                                7636.33728,
+                                                                5405,
+                                                                0.0,
+                                                                0.0,
+                                                                -99,
+                                                                -89,
+                                                                -97,
+                                                                -96,
+                                                                111,
+                                                                -98,
+                                                                900,
+                                                                0,
+                                                                1.0,
+                                                                0.0,
+                                                                1,
+                                                                0,
+                                                                2501,
+                                                                80608653.0,
+                                                                10002,
+                                                                19017128.0,
+                                                                10166.36544,
+                                                                7195,
+                                                                0.3728,
+                                                                0.0,
+                                                                -93,
+                                                                111,
+                                                                -91,
+                                                                1449938138,
+                                                                2481912459,
+                                                                0.02,
+                                                                -92,
+                                                                -94,
+                                                                -99,
+                                                                111,
+                                                                -98,
+                                                                901,
+                                                                -95,
+                                                                1.0,
+                                                                -99,
+                                                                -89,
+                                                                -97})},
+                                        {"chest_drop", {{"loot_roll_key", "MAR_45_Armada_Car_Uncommon"}}}};
+    journal["initiator_fleet_data"]["deployed_fleets"]["1"] = {
+        {"uid", "player-1"},
+        {"fleet_id", 1},
+        {"ship_ids", nlohmann::json::array({111})},
+        {"hull_ids", nlohmann::json::array({77})},
+        {"ship_components", {{"111", nlohmann::json::array({900, 901})}}},
+    };
+    journal["target_fleet_data"]["deployed_fleet"] = {
+        {"uid", "mar_45"},
+        {"fleet_id", 2},
+        {"type", 2},
+        {"ship_ids", nlohmann::json::array({0})},
+        {"hull_ids", nlohmann::json::array({3066099110})},
+        {"ship_levels", {{"0", 45}}},
+        {"ship_components", {{"0", nlohmann::json::array({800})}}},
+    };
+
+    battle_log_decoder::DecodeOptions options;
+    options.include_segments = true;
+
+    const auto decoded = battle_log_decoder::decode_journal(journal, names, options);
+    REQUIRE(decoded.value("ok", false));
+    REQUIRE(decoded["segments"].is_array());
+    REQUIRE(decoded["rounds"].is_array());
+    REQUIRE(decoded["attack_rows"].is_array());
+    REQUIRE(decoded["segments"].size() == 3);
+    REQUIRE(decoded["rounds"].size() == 2);
+    REQUIRE(decoded["attack_rows"].size() == 2);
+
+    CHECK(decoded["segments"][0]["round"] == 1);
+    CHECK(decoded["segments"][0]["subRound"] == 1);
+    CHECK(decoded["segments"][0]["summary"]["attackCount"] == 1);
+    CHECK(decoded["segments"][0]["summary"]["criticalCount"] == 1);
+    CHECK(decoded["segments"][1]["round"] == 2);
+    CHECK(decoded["segments"][1]["subRound"] == 1);
+    CHECK(decoded["segments"][1]["summary"]["attackCount"] == 1);
+    CHECK(decoded["segments"][1]["summary"]["componentScalarCount"] == 1);
+    CHECK(decoded["segments"][2]["recordCount"] == 0);
+
+    CHECK(decoded["attack_rows"][0]["attackerShipId"] == 0);
+    CHECK(decoded["attack_rows"][0]["targetShipId"] == 111);
+    CHECK(decoded["attack_rows"][0]["critical"] == true);
+    CHECK(decoded["attack_rows"][0]["damage"]["hull"] == 1878);
+    CHECK(decoded["attack_rows"][1]["attackerShipId"] == 111);
+    CHECK(decoded["attack_rows"][1]["targetShipId"] == 0);
+    CHECK(decoded["attack_rows"][1]["triggeredEffectCount"] == 1);
+    CHECK(decoded["attack_rows"][1]["triggeredEffects"][0]["value"] == doctest::Approx(0.02));
+
+    const auto report = battle_log_decoder::build_sidecar_battle_report_event(journal, decoded, 333, 222);
+    CHECK(report["report"]["summary"]["roundCount"] == 2);
+    CHECK(report["report"]["summary"]["attackRowCount"] == 2);
+    CHECK(report["report"]["decode"]["status"] == "decoded_segments_with_attack_rows");
+    CHECK(report["report"]["parity"]["sections"]["battleEvents"] == "partial");
+    CHECK(report["report"]["rounds"][1]["summary"]["componentScalarCount"] == 1);
+    CHECK(report["report"]["attackRows"][1]["round"] == 2);
+    CHECK(report["report"]["attackRows"][1]["subRound"] == 1);
   }
 }
 

@@ -35,6 +35,11 @@ struct DecodeOptions {
                                                                uint64_t journal_id_override = 0,
                                                                int64_t captured_at_unix_ms = 0);
 
+[[nodiscard]] nlohmann::json build_sidecar_battle_capture_event(const nlohmann::json& journal,
+                                                                const nlohmann::json& names = nlohmann::json::object(),
+                                                                uint64_t journal_id_override = 0,
+                                                                int64_t captured_at_unix_ms = 0);
+
 [[nodiscard]] nlohmann::json compare_probe_entries(const nlohmann::json& left,
                                                    const nlohmann::json& right,
                                                    const DecodeOptions& options = {});
