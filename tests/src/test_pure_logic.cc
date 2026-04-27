@@ -172,7 +172,7 @@ TEST_SUITE("battle_log_decoder")
 
   TEST_CASE("decode_journal derives rounds sub-rounds and attack rows from record markers")
   {
-    const auto names = nlohmann::json{{"player-1", {{"name", "Guff"}}}};
+    const auto names = nlohmann::json{{"player-1", {{"name", "Guff"}, {"alliance_name", "House of Test"}, {"alliance_tag", "HOT"}}}};
     auto       journal = nlohmann::json{{"id", 333},
                                         {"battle_type", 8},
                                         {"battle_time", "2026-04-27T01:23:45"},
@@ -288,6 +288,7 @@ TEST_SUITE("battle_log_decoder")
     CHECK(decoded["attack_rows"][0]["critical"] == true);
     CHECK(decoded["attack_rows"][0]["damage"]["hull"] == 1878);
     CHECK(decoded["attack_rows"][1]["attackerShipId"] == 111);
+    CHECK(decoded["attack_rows"][1]["attacker"]["allianceName"] == "House of Test");
     CHECK(decoded["attack_rows"][1]["targetShipId"] == 0);
     CHECK(decoded["attack_rows"][1]["triggeredEffectCount"] == 1);
     CHECK(decoded["attack_rows"][1]["triggeredEffects"][0]["value"] == doctest::Approx(0.02));
@@ -297,9 +298,119 @@ TEST_SUITE("battle_log_decoder")
     CHECK(report["report"]["summary"]["attackRowCount"] == 2);
     CHECK(report["report"]["decode"]["status"] == "decoded_segments_with_attack_rows");
     CHECK(report["report"]["parity"]["sections"]["battleEvents"] == "partial");
+    REQUIRE(report["report"]["csvParity"]["rows"].size() == 2);
+    CHECK(report["report"]["csvParity"]["rows"][0]["type"] == "Attack");
+    CHECK(report["report"]["csvParity"]["rows"][0]["criticalHit"] == "YES");
+    CHECK(report["report"]["csvParity"]["rows"][0]["hullDamage"] == "1878");
+    CHECK(report["report"]["csvParity"]["rows"][0]["totalDamage"] != "--");
+    CHECK(report["report"]["csvParity"]["rows"][1]["attackerName"] == "Guff");
+    CHECK(report["report"]["csvParity"]["rows"][1]["attackerAlliance"] == "House of Test");
     CHECK(report["report"]["rounds"][1]["summary"]["componentScalarCount"] == 1);
     CHECK(report["report"]["attackRows"][1]["round"] == 2);
     CHECK(report["report"]["attackRows"][1]["subRound"] == 1);
+
+    const auto analytics = battle_log_decoder::build_sidecar_battle_analytics_event(journal, decoded, 333, 222);
+    CHECK(analytics["protocolVersion"] == "stfc.sidecar.events.v0");
+    CHECK(analytics["type"] == "battle.analytics");
+    CHECK(analytics["schemaVersion"] == "stfc.battle.analytics.v0");
+    CHECK(analytics["journalId"] == "333");
+    CHECK(analytics["capturedAtUnixMs"] == 222);
+    REQUIRE(analytics["analytics"]["csvParity"]["rows"].size() == 2);
+    CHECK(analytics["analytics"]["csvParity"]["coverage"]["attackRecordCount"] == 2);
+    CHECK(analytics["analytics"]["csvParity"]["coverage"]["catalogResolved"] == false);
+  }
+
+  TEST_CASE("build_sidecar_catalog_snapshot_event collects observed IDs and resolves players + alliances")
+  {
+    const auto names = nlohmann::json{{"player-1",
+                                       {{"name", "Guff"},
+                                        {"alliance_id", 9001},
+                                        {"alliance_name", "House of Test"},
+                                        {"alliance_tag", "HOT"}}}};
+    auto journal = nlohmann::json{{"id", 444},
+                                  {"battle_type", 8},
+                                  {"battle_time", "2026-04-27T01:23:45"},
+                                  {"initiator_id", "player-1"},
+                                  {"system_id", 555},
+                                  {"battle_log", nlohmann::json::array({-96, -97})},
+                                  {"resources_dropped", {{"4001", 100}, {"4002", 50}}}};
+    journal["initiator_fleet_data"]["deployed_fleets"]["1"] = {
+        {"uid", "player-1"},
+        {"fleet_id", 1},
+        {"ship_ids", nlohmann::json::array({111})},
+        {"hull_ids", nlohmann::json::array({77})},
+        {"ship_components", {{"111", nlohmann::json::array({900})}}},
+    };
+
+    // No resolver wired — exercise the dataless path first.
+    {
+      const auto event = battle_log_decoder::build_sidecar_catalog_snapshot_event(
+          journal, names, nlohmann::json::object(), {}, 444, 222);
+
+      CHECK(event["protocolVersion"] == "stfc.sidecar.events.v0");
+      CHECK(event["type"] == "catalog.snapshot");
+      CHECK(event["schemaVersion"] == "stfc.catalog.snapshot.v0");
+      CHECK(event["journalId"] == "444");
+      CHECK(event["scope"] == "battle");
+
+      const auto& domains = event["catalog"]["domains"];
+      REQUIRE(domains.contains("hulls"));
+      REQUIRE(domains["hulls"].contains("77"));
+      CHECK(domains["hulls"]["77"]["unresolved"] == true);
+
+      REQUIRE(domains["ships"].contains("111"));
+      CHECK(domains["ships"]["111"]["unresolved"] == true);
+
+      REQUIRE(domains["components"].contains("900"));
+      CHECK(domains["resources"].size() == 2);
+      REQUIRE(domains["resources"].contains("4001"));
+      CHECK(domains["systems"].contains("555"));
+
+      REQUIRE(domains["players"].contains("player-1"));
+      CHECK(domains["players"]["player-1"]["name"] == "Guff");
+      CHECK(domains["players"]["player-1"]["unresolved"] == false);
+      CHECK(domains["players"]["player-1"]["allianceId"] == "9001");
+      CHECK(domains["players"]["player-1"]["allianceName"] == "House of Test");
+
+      REQUIRE(domains["alliances"].contains("9001"));
+      CHECK(domains["alliances"]["9001"]["name"] == "House of Test");
+      CHECK(domains["alliances"]["9001"]["tag"] == "HOT");
+      CHECK(domains["alliances"]["9001"]["unresolved"] == false);
+
+      const auto& coverage = event["catalog"]["coverage"];
+      const auto present = coverage["domainsPresent"];
+      CHECK(std::ranges::find(present, "hulls") != present.end());
+      CHECK(std::ranges::find(present, "players") != present.end());
+      CHECK(std::ranges::find(present, "alliances") != present.end());
+      CHECK(coverage["totalEntries"].get<int>() > 0);
+      CHECK(coverage["resolvedEntries"].get<int>() >= 2); // player + alliance
+    }
+
+    // Plug resolvers and assert names plus metadata land.
+    {
+      battle_log_decoder::CatalogResolver resolver{};
+      resolver.hull_name = [](int64_t id) { return id == 77 ? std::string{"Saladin"} : std::string{}; };
+      resolver.hull_type = [](int64_t id) { return id == 77 ? std::string{"Battleship"} : std::string{}; };
+      resolver.component_name = [](int64_t id) { return id == 900 ? std::string{"Phaser Bank"} : std::string{}; };
+      resolver.component_metadata = [](int64_t id) {
+        return id == 900 ? nlohmann::json{{"locaId", "12345"}, {"locaKey", "component_phaser_bank"}}
+                         : nlohmann::json::object();
+      };
+
+      const auto event = battle_log_decoder::build_sidecar_catalog_snapshot_event(
+          journal, names, nlohmann::json::object(), resolver, 444, 222);
+      const auto& hulls = event["catalog"]["domains"]["hulls"];
+      REQUIRE(hulls.contains("77"));
+      CHECK(hulls["77"]["name"] == "Saladin");
+      CHECK(hulls["77"]["type"] == "Battleship");
+      CHECK(hulls["77"]["unresolved"] == false);
+      const auto& components = event["catalog"]["domains"]["components"];
+      REQUIRE(components.contains("900"));
+      CHECK(components["900"]["name"] == "Phaser Bank");
+      CHECK(components["900"]["locaId"] == "12345");
+      CHECK(components["900"]["locaKey"] == "component_phaser_bank");
+      CHECK(components["900"]["unresolved"] == false);
+    }
   }
 }
 

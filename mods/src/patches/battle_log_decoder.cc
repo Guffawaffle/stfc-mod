@@ -37,6 +37,8 @@ struct ParticipantInfo {
   std::string          name;
   std::string          display_name;
   std::string          display_name_source;
+  std::string          alliance_name;
+  std::string          alliance_tag;
   std::string          participant_kind;
   std::optional<int64_t> fleet_id;
   std::optional<int64_t> fleet_type;
@@ -321,6 +323,21 @@ void append_unique(std::vector<int64_t>& values, int64_t value)
   return is_placeholder_display_name(name) ? std::string{} : trim_copy(std::move(name));
 }
 
+void populate_participant_profile_fields(ParticipantInfo& participant, const nlohmann::json& names)
+{
+  if (participant.uid.empty() || !names.is_object() || !names.contains(participant.uid) || !names[participant.uid].is_object()) {
+    return;
+  }
+
+  const auto& profile = names[participant.uid];
+  if (profile.contains("alliance_name") && profile["alliance_name"].is_string()) {
+    participant.alliance_name = trim_copy(profile["alliance_name"].get<std::string>());
+  }
+  if (profile.contains("alliance_tag") && profile["alliance_tag"].is_string()) {
+    participant.alliance_tag = trim_copy(profile["alliance_tag"].get<std::string>());
+  }
+}
+
 [[nodiscard]] std::optional<int64_t> parse_object_key_i64(const std::string& key)
 {
   try {
@@ -544,6 +561,7 @@ void add_participant(EntityIndex& index, const nlohmann::json& names, const nloh
   participant.side = std::move(side);
   participant.uid = fleet.value("uid", std::string{});
   participant.name = participant_name_for_uid(names, participant.uid);
+  populate_participant_profile_fields(participant, names);
 
   if (fleet.contains("fleet_id")) {
     participant.fleet_id = json_to_i64(fleet["fleet_id"]);
@@ -649,6 +667,8 @@ void collect_fleet_data(EntityIndex& index, const nlohmann::json& names, const n
                                 {"name", participant.name},
                                 {"display_name", participant.display_name},
                                 {"display_name_source", participant.display_name_source},
+                                {"alliance_name", participant.alliance_name},
+                                {"alliance_tag", participant.alliance_tag},
                                 {"participant_kind", participant.participant_kind},
                                 {"ship_ids", json_i64_array(participant.ship_ids)},
                                 {"hull_ids", json_i64_array(participant.hull_ids)},
@@ -674,6 +694,8 @@ void collect_fleet_data(EntityIndex& index, const nlohmann::json& names, const n
                                 {"name", participant.name},
                                 {"displayName", participant.display_name},
                                 {"displayNameSource", participant.display_name_source},
+                                {"allianceName", participant.alliance_name},
+                                {"allianceTag", participant.alliance_tag},
                                 {"participantKind", participant.participant_kind},
                                 {"shipIds", json_i64_string_array(participant.ship_ids)},
                                 {"hullIds", json_i64_string_array(participant.hull_ids)},
@@ -713,6 +735,8 @@ void collect_fleet_data(EntityIndex& index, const nlohmann::json& names, const n
 
   result["uid"] = participant->uid;
   result["displayName"] = participant->display_name;
+  result["allianceName"] = participant->alliance_name;
+  result["allianceTag"] = participant->alliance_tag;
   result["participantKind"] = participant->participant_kind;
   result["side"] = participant->side;
   result["fleetId"] = participant->fleet_id ? nlohmann::json(*participant->fleet_id) : nlohmann::json();
@@ -1431,6 +1455,210 @@ void append_chest_rewards(nlohmann::json& rewards, const nlohmann::json& chest_d
                                                       "CSV battle event rows are represented as decoded battle_log segments until marker semantics are complete."})}};
 }
 
+[[nodiscard]] std::string json_cell(const nlohmann::json& value)
+{
+  if (value.is_null() || value.is_discarded()) {
+    return "--";
+  }
+  if (value.is_string()) {
+    const auto text = trim_copy(value.get<std::string>());
+    return text.empty() ? std::string{"--"} : text;
+  }
+  if (value.is_boolean()) {
+    return value.get<bool>() ? "YES" : "NO";
+  }
+  if (value.is_number()) {
+    return value.dump();
+  }
+  return "--";
+}
+
+[[nodiscard]] std::string object_text_cell(const nlohmann::json& object, std::string_view key)
+{
+  if (!object.is_object() || !object.contains(std::string(key))) {
+    return "--";
+  }
+  return json_cell(object[std::string(key)]);
+}
+
+[[nodiscard]] double json_number_or_zero(const nlohmann::json& value)
+{
+  const auto parsed = json_to_double(value);
+  return parsed ? *parsed : 0.0;
+}
+
+[[nodiscard]] std::string double_cell(double value)
+{
+  if (std::abs(value - std::round(value)) < 1e-6) {
+    return std::to_string(static_cast<int64_t>(std::llround(value)));
+  }
+
+  std::ostringstream stream;
+  stream << value;
+  return stream.str();
+}
+
+[[nodiscard]] std::string ship_owner_cell(const nlohmann::json& ship)
+{
+  auto display_name = object_text_cell(ship, "displayName");
+  if (display_name != "--") {
+    return display_name;
+  }
+  auto uid = object_text_cell(ship, "uid");
+  if (uid != "--") {
+    return uid;
+  }
+  return object_text_cell(ship, "shipId");
+}
+
+[[nodiscard]] std::string ship_alliance_cell(const nlohmann::json& ship)
+{
+  const auto alliance_name = object_text_cell(ship, "allianceName");
+  if (alliance_name != "--") {
+    return alliance_name;
+  }
+  return object_text_cell(ship, "allianceTag");
+}
+
+[[nodiscard]] std::string ship_name_cell(const nlohmann::json& ship)
+{
+  if (!ship.is_object()) {
+    return "--";
+  }
+
+  if (object_text_cell(ship, "participantKind") == "hostile") {
+    return ship_owner_cell(ship);
+  }
+
+  if (ship.contains("hullIds") && ship["hullIds"].is_array() && !ship["hullIds"].empty()) {
+    return "Hull#" + json_cell(ship["hullIds"].front());
+  }
+
+  const auto ship_id = object_text_cell(ship, "shipId");
+  return ship_id == "--" ? std::string{"--"} : "Ship#" + ship_id;
+}
+
+[[nodiscard]] std::string is_armada_cell(const nlohmann::json& ship, const nlohmann::json& journal)
+{
+  const auto battle_type = journal.contains("battle_type") ? json_to_i64(journal["battle_type"]) : std::nullopt;
+  if (!battle_type || *battle_type != 8 || !ship.is_object()) {
+    return "NO";
+  }
+
+  return object_text_cell(ship, "participantKind") == "player" ? "YES" : "NO";
+}
+
+[[nodiscard]] nlohmann::json csv_parity_columns()
+{
+  return nlohmann::json::array({
+      nlohmann::json{{"key", "round"}, {"label", "Round"}},
+      nlohmann::json{{"key", "battleEvent"}, {"label", "Battle Event"}},
+      nlohmann::json{{"key", "type"}, {"label", "Type"}},
+      nlohmann::json{{"key", "attackerName"}, {"label", "Attacker Name"}},
+      nlohmann::json{{"key", "attackerAlliance"}, {"label", "Attacker Alliance"}},
+      nlohmann::json{{"key", "attackerShip"}, {"label", "Attacker Ship"}},
+      nlohmann::json{{"key", "attackerIsArmada"}, {"label", "Attacker - Is Armada?"}},
+      nlohmann::json{{"key", "targetName"}, {"label", "Target Name"}},
+      nlohmann::json{{"key", "targetAlliance"}, {"label", "Target Alliance"}},
+      nlohmann::json{{"key", "targetShip"}, {"label", "Target Ship"}},
+      nlohmann::json{{"key", "targetIsArmada"}, {"label", "Target - Is Armada?"}},
+      nlohmann::json{{"key", "criticalHit"}, {"label", "Critical Hit?"}},
+      nlohmann::json{{"key", "hullDamage"}, {"label", "Hull Damage"}},
+      nlohmann::json{{"key", "shieldDamage"}, {"label", "Shield Damage"}},
+      nlohmann::json{{"key", "mitigatedDamage"}, {"label", "Mitigated Damage"}},
+      nlohmann::json{{"key", "mitigatedIsolyticDamage"}, {"label", "Mitigated Isolytic Damage"}},
+      nlohmann::json{{"key", "mitigatedApexBarrier"}, {"label", "Mitigated Apex Barrier"}},
+      nlohmann::json{{"key", "totalDamage"}, {"label", "Total Damage"}},
+      nlohmann::json{{"key", "totalIsolyticDamage"}, {"label", "Total Isolytic Damage"}},
+      nlohmann::json{{"key", "abilityType"}, {"label", "Ability Type"}},
+      nlohmann::json{{"key", "abilityValue"}, {"label", "Ability Value"}},
+      nlohmann::json{{"key", "abilityName"}, {"label", "Ability Name"}},
+      nlohmann::json{{"key", "abilityOwnerName"}, {"label", "Ability Owner Name"}},
+      nlohmann::json{{"key", "targetDefeated"}, {"label", "Target Defeated"}},
+      nlohmann::json{{"key", "targetDestroyed"}, {"label", "Target Destroyed"}},
+      nlohmann::json{{"key", "chargingWeaponsPercent"}, {"label", "Charging Weapons %"}},
+  });
+}
+
+[[nodiscard]] nlohmann::json build_csv_attack_row(const nlohmann::json& attack, size_t event_index,
+                                                  const nlohmann::json& journal)
+{
+  const auto& attacker = attack.contains("attacker") && attack["attacker"].is_object() ? attack["attacker"]
+                                                                                         : nlohmann::json::object();
+  const auto& target = attack.contains("target") && attack["target"].is_object() ? attack["target"]
+                                                                                   : nlohmann::json::object();
+  const auto& damage = attack.contains("damage") && attack["damage"].is_object() ? attack["damage"]
+                                                                                   : nlohmann::json::object();
+  const auto hull_damage = json_number_or_zero(damage.contains("hull") ? damage["hull"] : nlohmann::json());
+  const auto shield_damage = json_number_or_zero(damage.contains("shield") ? damage["shield"] : nlohmann::json());
+  const auto mitigated_damage = json_number_or_zero(damage.contains("mitigated") ? damage["mitigated"] : nlohmann::json());
+  const auto has_target_hull_remaining = damage.contains("targetHullRemaining");
+  const auto target_hull_remaining = json_number_or_zero(has_target_hull_remaining ? damage["targetHullRemaining"] : nlohmann::json());
+  const auto target_destroyed = has_target_hull_remaining && target_hull_remaining == 0.0 ? "YES" : "--";
+
+  return nlohmann::json{{"round", object_text_cell(attack, "round")},
+                        {"battleEvent", std::to_string(event_index + 1)},
+                        {"type", "Attack"},
+                        {"attackerName", ship_owner_cell(attacker)},
+                        {"attackerAlliance", ship_alliance_cell(attacker)},
+                        {"attackerShip", ship_name_cell(attacker)},
+                        {"attackerIsArmada", is_armada_cell(attacker, journal)},
+                        {"targetName", ship_owner_cell(target)},
+                        {"targetAlliance", ship_alliance_cell(target)},
+                        {"targetShip", ship_name_cell(target)},
+                        {"targetIsArmada", is_armada_cell(target, journal)},
+                        {"criticalHit", attack.value("critical", false) ? "YES" : "NO"},
+                        {"hullDamage", json_cell(damage.contains("hull") ? damage["hull"] : nlohmann::json())},
+                        {"shieldDamage", json_cell(damage.contains("shield") ? damage["shield"] : nlohmann::json())},
+                        {"mitigatedDamage", json_cell(damage.contains("mitigated") ? damage["mitigated"] : nlohmann::json())},
+                        {"mitigatedIsolyticDamage", "--"},
+                        {"mitigatedApexBarrier", "--"},
+                        {"totalDamage", double_cell(hull_damage + shield_damage + mitigated_damage)},
+                        {"totalIsolyticDamage", json_cell(damage.contains("totalIsolytic") ? damage["totalIsolytic"] : nlohmann::json())},
+                        {"abilityType", "--"},
+                        {"abilityValue", "--"},
+                        {"abilityName", "--"},
+                        {"abilityOwnerName", "--"},
+                        {"targetDefeated", target_destroyed},
+                        {"targetDestroyed", target_destroyed},
+                        {"chargingWeaponsPercent", "--"},
+                        {"sourceKind", "decoded_attack_record"},
+                        {"sourceSegmentIndex", attack.contains("segmentIndex") ? attack["segmentIndex"] : nlohmann::json()},
+                        {"sourceRecordIndex", attack.contains("index") ? attack["index"] : nlohmann::json()},
+                        {"attackerShipId", attack.contains("attackerShipId") ? attack["attackerShipId"] : nlohmann::json()},
+                        {"targetShipId", attack.contains("targetShipId") ? attack["targetShipId"] : nlohmann::json()},
+                        {"componentId", attack.contains("componentId") ? attack["componentId"] : nlohmann::json()},
+                        {"confidence", "stable_attack_payload_v1"},
+                        {"identityStatus", "partial_catalog_unresolved"}};
+}
+
+[[nodiscard]] nlohmann::json build_csv_parity(const nlohmann::json& journal, const nlohmann::json& decoded)
+{
+  auto rows = nlohmann::json::array();
+  const auto& attacks = decoded.contains("attack_rows") && decoded["attack_rows"].is_array() ? decoded["attack_rows"]
+                                                                                                : nlohmann::json::array();
+  for (size_t index = 0; index < attacks.size(); ++index) {
+    if (attacks[index].is_object()) {
+      rows.push_back(build_csv_attack_row(attacks[index], index, journal));
+    }
+  }
+
+  return nlohmann::json{{"reference", "stfc_client_csv_export"},
+                        {"status", rows.empty() ? "unavailable" : "partial"},
+                        {"columns", csv_parity_columns()},
+                        {"rows", rows},
+                        {"coverage",
+                         {{"attackRecordCount", attacks.size()},
+                          {"csvParityRowCount", rows.size()},
+                          {"abilityRowCount", 0},
+                          {"catalogResolved", false},
+                          {"unresolvedDomains", nlohmann::json::array({"ship_name", "officer", "forbidden_tech", "ship_ability", "resource", "location"})}}},
+                        {"notes",
+                         nlohmann::json::array({"Attack rows are generated in Prime CSV column shape from decoded battle_log attack records.",
+                                                "Officer, forbidden-tech, ship-ability, resource, ship, and location names require the sidecar catalog resolver.",
+                                                "Rows keep source segment/record indexes and component IDs for resolver joins and provenance."})}};
+}
+
 [[nodiscard]] nlohmann::json build_raw_summary(const nlohmann::json& journal, const nlohmann::json& decoded)
 {
   const auto& signature = decoded.contains("signature") && decoded["signature"].is_object() ? decoded["signature"]
@@ -1588,12 +1816,57 @@ nlohmann::json build_sidecar_battle_report_event(const nlohmann::json& journal, 
                                 {"events", events},
                                   {"rounds", rounds},
                                   {"attackRows", attack_rows},
+                                  {"csvParity", build_csv_parity(journal, decoded)},
                                 {"decode",
                                    {{"status", attack_rows.empty() ? "decoded_segments" : "decoded_segments_with_attack_rows"},
                                   {"signature", signature},
                                   {"markerHints", decoded.contains("marker_hints") ? decoded["marker_hints"] : nlohmann::json::object()}}},
                                   {"parity", build_parity_status(decoded)},
                                 {"raw", build_raw_summary(journal, decoded)}}}};
+
+  if (captured_at_unix_ms > 0) {
+    event["capturedAtUnixMs"] = captured_at_unix_ms;
+  }
+
+  return event;
+}
+
+nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journal, const nlohmann::json& decoded,
+                                                    uint64_t journal_id_override, int64_t captured_at_unix_ms)
+{
+  if (!journal.is_object()) {
+    return nlohmann::json{{"ok", false}, {"reason", "journal is not an object"}};
+  }
+
+  if (!decoded.is_object() || !decoded.value("ok", false)) {
+    return nlohmann::json{{"ok", false}, {"reason", "decoded battle log is not available"}, {"decoded", decoded}};
+  }
+
+  const auto journal_id = journal_id_override != 0 ? std::to_string(journal_id_override)
+                                                   : (journal.contains("id") ? json_id_to_string(journal["id"]) : std::string{});
+  const auto battle_id = journal.contains("id") ? json_id_to_string(journal["id"]) : journal_id;
+  const auto timestamp = journal.value("battle_time", std::string{});
+  const auto rounds = decoded.contains("rounds") && decoded["rounds"].is_array() ? decoded["rounds"] : nlohmann::json::array();
+  const auto attack_rows = decoded.contains("attack_rows") && decoded["attack_rows"].is_array() ? decoded["attack_rows"]
+                                                                                                   : nlohmann::json::array();
+
+  auto event = nlohmann::json{{"protocolVersion", "stfc.sidecar.events.v0"},
+                              {"type", "battle.analytics"},
+                              {"schemaVersion", "stfc.battle.analytics.v0"},
+                              {"timestamp", timestamp},
+                              {"source", "stfc-community-mod"},
+                              {"journalId", journal_id},
+                              {"battleId", battle_id},
+                              {"battleType", journal.contains("battle_type") ? journal["battle_type"] : nlohmann::json()},
+                              {"analytics",
+                               {{"summary", build_report_summary(journal, decoded)},
+                                {"rounds", rounds},
+                                {"attackRows", attack_rows},
+                                {"csvParity", build_csv_parity(journal, decoded)},
+                                {"provenance",
+                                 {{"source", "stfc-community-mod battle_log_decoder"},
+                                  {"ruleVersion", "csv_parity_attack_rows.v1"},
+                                  {"sourceEventTypes", nlohmann::json::array({"battle.capture", "battle.report"})}}}}}};
 
   if (captured_at_unix_ms > 0) {
     event["capturedAtUnixMs"] = captured_at_unix_ms;
@@ -1642,6 +1915,340 @@ nlohmann::json build_sidecar_battle_capture_event(const nlohmann::json& journal,
   if (captured_at_unix_ms > 0) {
     event["capturedAtUnixMs"] = captured_at_unix_ms;
     event["capture"]["capturedAtUnixMs"] = captured_at_unix_ms;
+  }
+
+  return event;
+}
+
+namespace
+{
+// ─── Catalog snapshot helpers ────────────────────────────────────────────────
+
+[[nodiscard]] nlohmann::json catalog_entry(const std::string& id, const std::string& name)
+{
+  auto entry = nlohmann::json{{"id", id}};
+  if (!name.empty()) {
+    entry["name"] = name;
+    entry["unresolved"] = false;
+  } else {
+    entry["unresolved"] = true;
+  }
+  return entry;
+}
+
+void collect_observed_ids_from_decoded(const nlohmann::json& decoded,
+                                       std::unordered_set<int64_t>& officers,
+                                       std::unordered_set<int64_t>& abilities,
+                                       std::unordered_set<int64_t>& forbidden_tech,
+                                       std::unordered_set<int64_t>& buffs,
+                                       std::unordered_set<int64_t>& debuffs)
+{
+  if (!decoded.is_object() || !decoded.contains("attack_rows") || !decoded["attack_rows"].is_array()) {
+    return;
+  }
+
+  for (const auto& row : decoded["attack_rows"]) {
+    if (!row.is_object() || !row.contains("triggeredEffects") || !row["triggeredEffects"].is_array()) {
+      continue;
+    }
+
+    for (const auto& effect : row["triggeredEffects"]) {
+      if (!effect.is_object()) {
+        continue;
+      }
+
+      const auto kind = effect.value("kind", std::string{});
+      const auto effect_id = effect.contains("id") ? json_to_i64(effect["id"]) : std::nullopt;
+      if (!effect_id) {
+        continue;
+      }
+
+      if (kind == "officer_ability" || kind == "officer") {
+        officers.insert(*effect_id);
+      } else if (kind == "ship_ability" || kind == "ability") {
+        abilities.insert(*effect_id);
+      } else if (kind == "forbidden_tech") {
+        forbidden_tech.insert(*effect_id);
+      } else if (kind == "buff") {
+        buffs.insert(*effect_id);
+      } else if (kind == "debuff") {
+        debuffs.insert(*effect_id);
+      } else {
+        // Unknown kind: best-effort treat as ability.
+        abilities.insert(*effect_id);
+      }
+    }
+  }
+}
+
+[[nodiscard]] std::string resolve_or_empty(const std::function<std::string(int64_t)>& resolver, int64_t id)
+{
+  if (!resolver) {
+    return {};
+  }
+  try {
+    return resolver(id);
+  } catch (...) {
+    return {};
+  }
+}
+
+[[nodiscard]] nlohmann::json resolve_metadata_or_empty(const std::function<nlohmann::json(int64_t)>& resolver, int64_t id)
+{
+  if (!resolver) {
+    return nlohmann::json::object();
+  }
+  try {
+    auto metadata = resolver(id);
+    return metadata.is_object() ? metadata : nlohmann::json::object();
+  } catch (...) {
+    return nlohmann::json::object();
+  }
+}
+} // namespace
+
+nlohmann::json build_sidecar_catalog_snapshot_event(const nlohmann::json& journal, const nlohmann::json& names,
+                                                    const nlohmann::json& decoded, const CatalogResolver& resolver,
+                                                    uint64_t journal_id_override, int64_t captured_at_unix_ms)
+{
+  if (!journal.is_object()) {
+    return nlohmann::json{{"ok", false}, {"reason", "journal is not an object"}};
+  }
+
+  const auto journal_id = journal_id_override != 0 ? std::to_string(journal_id_override)
+                                                   : (journal.contains("id") ? json_id_to_string(journal["id"]) : std::string{});
+  const auto battle_id = journal.contains("id") ? json_id_to_string(journal["id"]) : journal_id;
+  const auto timestamp = journal.value("battle_time", std::string{});
+
+  // Walk the entity index to gather IDs that appear in this battle.
+  const auto entity_index = build_entity_index(journal, names);
+
+  std::unordered_set<int64_t> hull_ids;
+  std::unordered_set<int64_t> ship_ids;
+  std::unordered_set<int64_t> component_ids;
+  std::unordered_set<int64_t> resource_ids;
+  std::unordered_set<int64_t> system_ids;
+  std::unordered_set<int64_t> officer_ids;
+  std::unordered_set<int64_t> ability_ids;
+  std::unordered_set<int64_t> forbidden_tech_ids;
+  std::unordered_set<int64_t> buff_ids;
+  std::unordered_set<int64_t> debuff_ids;
+
+  for (const auto& participant : entity_index.participants) {
+    for (auto id : participant.hull_ids) {
+      hull_ids.insert(id);
+    }
+    for (auto id : participant.ship_ids) {
+      ship_ids.insert(id);
+    }
+    for (auto id : participant.component_ids) {
+      component_ids.insert(id);
+    }
+  }
+
+  // Resource IDs from rewards (keys are stringified ints).
+  const auto collect_resource_ids = [&](const nlohmann::json& bag) {
+    if (!bag.is_object()) {
+      return;
+    }
+    for (const auto& [resource_id, _count] : bag.items()) {
+      try {
+        size_t consumed = 0;
+        const auto parsed = std::stoll(resource_id, &consumed, 10);
+        if (consumed == resource_id.size()) {
+          resource_ids.insert(parsed);
+        }
+      } catch (...) {
+      }
+    }
+  };
+  if (journal.contains("resources_dropped")) {
+    collect_resource_ids(journal["resources_dropped"]);
+  }
+  if (journal.contains("resources_transferred")) {
+    collect_resource_ids(journal["resources_transferred"]);
+  }
+
+  if (journal.contains("system_id")) {
+    if (const auto parsed = json_to_i64(journal["system_id"])) {
+      system_ids.insert(*parsed);
+    }
+  }
+
+  collect_observed_ids_from_decoded(decoded, officer_ids, ability_ids, forbidden_tech_ids, buff_ids, debuff_ids);
+
+  size_t total_entries = 0;
+  size_t resolved_entries = 0;
+  std::vector<std::string> domains_present;
+  std::vector<std::string> domains_resolved;
+  std::vector<std::string> domains_unresolved;
+
+  const auto build_domain = [&](const std::string& domain_name, const std::unordered_set<int64_t>& ids,
+                                const std::function<std::string(int64_t)>& name_resolver,
+                                const std::function<std::string(int64_t)>& extra_label_resolver,
+                                const std::string& extra_label_field,
+                                const std::function<nlohmann::json(int64_t)>& metadata_resolver) {
+    auto domain = nlohmann::json::object();
+    if (ids.empty()) {
+      return domain;
+    }
+
+    domains_present.push_back(domain_name);
+    bool any_resolved = false;
+    bool all_resolved = true;
+
+    std::vector<int64_t> sorted(ids.begin(), ids.end());
+    std::ranges::sort(sorted);
+    for (auto id : sorted) {
+      const auto id_str = std::to_string(id);
+      const auto name = resolve_or_empty(name_resolver, id);
+      auto entry = catalog_entry(id_str, name);
+      if (!extra_label_field.empty() && extra_label_resolver) {
+        const auto extra = resolve_or_empty(extra_label_resolver, id);
+        if (!extra.empty()) {
+          entry[extra_label_field] = extra;
+        }
+      }
+      for (const auto& [key, value] : resolve_metadata_or_empty(metadata_resolver, id).items()) {
+        if (!entry.contains(key)) {
+          entry[key] = value;
+        }
+      }
+      if (name.empty()) {
+        all_resolved = false;
+      } else {
+        any_resolved = true;
+        ++resolved_entries;
+      }
+      ++total_entries;
+      domain[id_str] = std::move(entry);
+    }
+
+    if (all_resolved) {
+      domains_resolved.push_back(domain_name);
+    } else if (!any_resolved) {
+      domains_unresolved.push_back(domain_name);
+    } else {
+      domains_resolved.push_back(domain_name + ":partial");
+    }
+
+    return domain;
+  };
+
+  auto domains = nlohmann::json::object();
+  domains["hulls"] = build_domain("hulls", hull_ids, resolver.hull_name, resolver.hull_type, "type",
+                                   resolver.hull_metadata);
+  domains["ships"] = build_domain("ships", ship_ids, resolver.ship_name, {}, {}, resolver.ship_metadata);
+  domains["components"] =
+      build_domain("components", component_ids, resolver.component_name, {}, {}, resolver.component_metadata);
+  domains["resources"] =
+      build_domain("resources", resource_ids, resolver.resource_name, {}, {}, resolver.resource_metadata);
+  domains["systems"] = build_domain("systems", system_ids, resolver.system_name, {}, {}, resolver.system_metadata);
+  domains["officers"] =
+      build_domain("officers", officer_ids, resolver.officer_name, {}, {}, resolver.officer_metadata);
+  domains["abilities"] =
+      build_domain("abilities", ability_ids, resolver.ability_name, {}, {}, resolver.ability_metadata);
+  domains["forbiddenTech"] = build_domain("forbiddenTech", forbidden_tech_ids, resolver.forbidden_tech_name, {}, {},
+                                          resolver.forbidden_tech_metadata);
+  domains["buffs"] = build_domain("buffs", buff_ids, resolver.buff_name, {}, {}, resolver.buff_metadata);
+  domains["debuffs"] = build_domain("debuffs", debuff_ids, resolver.debuff_name, {}, {}, resolver.debuff_metadata);
+
+  // Players + alliances are derived from `names` directly — no resolver needed.
+  auto players_domain = nlohmann::json::object();
+  auto alliances_domain = nlohmann::json::object();
+  if (names.is_object()) {
+    for (const auto& [uid, profile] : names.items()) {
+      if (!profile.is_object()) {
+        continue;
+      }
+      auto entry = nlohmann::json{{"id", uid}};
+      const auto display = profile.contains("name") && profile["name"].is_string() ? profile["name"].get<std::string>()
+                                                                                     : std::string{};
+      const auto trimmed = trim_copy(display);
+      if (!trimmed.empty() && !is_placeholder_display_name(trimmed)) {
+        entry["name"] = trimmed;
+        entry["unresolved"] = false;
+        ++resolved_entries;
+      } else {
+        entry["unresolved"] = true;
+      }
+
+      if (profile.contains("alliance_id")) {
+        entry["allianceId"] = json_id_to_string(profile["alliance_id"]);
+      }
+      if (profile.contains("alliance_name") && profile["alliance_name"].is_string()) {
+        entry["allianceName"] = profile["alliance_name"].get<std::string>();
+      }
+      if (profile.contains("alliance_tag") && profile["alliance_tag"].is_string()) {
+        entry["allianceTag"] = profile["alliance_tag"].get<std::string>();
+      }
+
+      players_domain[uid] = std::move(entry);
+      ++total_entries;
+
+      // Fold alliance metadata into a separate domain keyed by alliance_id.
+      if (profile.contains("alliance_id")) {
+        const auto alliance_id = json_id_to_string(profile["alliance_id"]);
+        if (!alliance_id.empty() && alliance_id != "0" && !alliances_domain.contains(alliance_id)) {
+          auto a_entry = nlohmann::json{{"id", alliance_id}};
+          const auto a_name = profile.contains("alliance_name") && profile["alliance_name"].is_string()
+                                  ? trim_copy(profile["alliance_name"].get<std::string>())
+                                  : std::string{};
+          const auto a_tag = profile.contains("alliance_tag") && profile["alliance_tag"].is_string()
+                                 ? trim_copy(profile["alliance_tag"].get<std::string>())
+                                 : std::string{};
+          if (!a_name.empty()) {
+            a_entry["name"] = a_name;
+            a_entry["unresolved"] = false;
+            ++resolved_entries;
+          } else {
+            a_entry["unresolved"] = true;
+          }
+          if (!a_tag.empty()) {
+            a_entry["tag"] = a_tag;
+          }
+          alliances_domain[alliance_id] = std::move(a_entry);
+          ++total_entries;
+        }
+      }
+    }
+  }
+  if (!players_domain.empty()) {
+    domains_present.emplace_back("players");
+    domains_resolved.emplace_back("players");
+  }
+  if (!alliances_domain.empty()) {
+    domains_present.emplace_back("alliances");
+    domains_resolved.emplace_back("alliances");
+  }
+  domains["players"] = std::move(players_domain);
+  domains["alliances"] = std::move(alliances_domain);
+
+  auto event = nlohmann::json{
+      {"protocolVersion", "stfc.sidecar.events.v0"},
+      {"type", "catalog.snapshot"},
+      {"schemaVersion", "stfc.catalog.snapshot.v0"},
+      {"timestamp", timestamp},
+      {"source", "stfc-community-mod"},
+      {"journalId", journal_id},
+      {"battleId", battle_id},
+      {"battleType", journal.contains("battle_type") ? journal["battle_type"] : nlohmann::json()},
+      {"scope", "battle"},
+      {"catalog",
+       {{"domains", std::move(domains)},
+        {"coverage",
+         {{"domainsPresent", domains_present},
+          {"domainsResolved", domains_resolved},
+          {"domainsUnresolved", domains_unresolved},
+          {"totalEntries", total_entries},
+          {"resolvedEntries", resolved_entries}}},
+        {"provenance",
+         {{"source", "stfc-community-mod catalog_snapshot"},
+          {"ruleVersion", "catalog_observed_ids.v1"},
+          {"sourceEventTypes", nlohmann::json::array({"battle.capture", "battle.report"})}}}}}};
+
+  if (captured_at_unix_ms > 0) {
+    event["capturedAtUnixMs"] = captured_at_unix_ms;
   }
 
   return event;

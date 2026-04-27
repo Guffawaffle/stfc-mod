@@ -6,6 +6,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <string>
 #include <vector>
 
 #include <nlohmann/json.hpp>
@@ -39,6 +41,51 @@ struct DecodeOptions {
                                                                 const nlohmann::json& names = nlohmann::json::object(),
                                                                 uint64_t journal_id_override = 0,
                                                                 int64_t captured_at_unix_ms = 0);
+
+[[nodiscard]] nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journal,
+                                                                  const nlohmann::json& decoded,
+                                                                  uint64_t journal_id_override = 0,
+                                                                  int64_t captured_at_unix_ms = 0);
+
+/**
+ * @brief Resolver hooks for catalog name lookups.
+ *
+ * The mod-side catalog emitter populates this struct with IL2CPP-backed
+ * lookups (e.g. SpecService::GetHull -> HullSpec::Name). Tests and
+ * dataless callers leave the callbacks empty; observed IDs are still
+ * recorded with `unresolved: true`.
+ */
+struct CatalogResolver {
+  std::function<std::string(int64_t)> hull_name;
+  std::function<std::string(int64_t)> hull_type;
+  std::function<std::string(int64_t)> ship_name;
+  std::function<std::string(int64_t)> component_name;
+  std::function<std::string(int64_t)> resource_name;
+  std::function<std::string(int64_t)> system_name;
+  std::function<std::string(int64_t)> officer_name;
+  std::function<std::string(int64_t)> ability_name;
+  std::function<std::string(int64_t)> forbidden_tech_name;
+  std::function<std::string(int64_t)> buff_name;
+  std::function<std::string(int64_t)> debuff_name;
+
+  std::function<nlohmann::json(int64_t)> hull_metadata;
+  std::function<nlohmann::json(int64_t)> ship_metadata;
+  std::function<nlohmann::json(int64_t)> component_metadata;
+  std::function<nlohmann::json(int64_t)> resource_metadata;
+  std::function<nlohmann::json(int64_t)> system_metadata;
+  std::function<nlohmann::json(int64_t)> officer_metadata;
+  std::function<nlohmann::json(int64_t)> ability_metadata;
+  std::function<nlohmann::json(int64_t)> forbidden_tech_metadata;
+  std::function<nlohmann::json(int64_t)> buff_metadata;
+  std::function<nlohmann::json(int64_t)> debuff_metadata;
+};
+
+[[nodiscard]] nlohmann::json build_sidecar_catalog_snapshot_event(const nlohmann::json& journal,
+                                                                  const nlohmann::json& names,
+                                                                  const nlohmann::json& decoded,
+                                                                  const CatalogResolver& resolver = {},
+                                                                  uint64_t journal_id_override = 0,
+                                                                  int64_t captured_at_unix_ms = 0);
 
 [[nodiscard]] nlohmann::json compare_probe_entries(const nlohmann::json& left,
                                                    const nlohmann::json& right,

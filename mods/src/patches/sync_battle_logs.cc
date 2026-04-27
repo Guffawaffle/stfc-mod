@@ -9,11 +9,16 @@
 #include "file.h"
 #include "patches/battle_log_decoder.h"
 #include "patches/sync_transport.h"
+#include "str_utils.h"
+#include "testable_functions.h"
 
 #include <Digit.PrimeServer.Models.pb.h>
 #include <EASTL/algorithm.h>
 #include <EASTL/bonus/ring_buffer.h>
 #include <nlohmann/json.hpp>
+#include <prime/ActivatedAbilityManager.h>
+#include <prime/GameWorldManager.h>
+#include <prime/SpecManager.h>
 #include <spdlog/spdlog.h>
 #if !__cpp_lib_format
 #include <spdlog/fmt/fmt.h>
@@ -102,6 +107,239 @@ static size_t json_entry_count(const nlohmann::json& value)
   }
 
   return 0;
+}
+
+static const char* hull_type_label(HullType type)
+{
+  switch (type) {
+  case HullType::Destroyer: return "Destroyer";
+  case HullType::Survey: return "Survey";
+  case HullType::Explorer: return "Explorer";
+  case HullType::Battleship: return "Battleship";
+  case HullType::Defense: return "Defense";
+  case HullType::ArmadaTarget: return "ArmadaTarget";
+  case HullType::Any: return "Any";
+  }
+
+  return "Unknown";
+}
+
+static std::string normalize_catalog_resource_name(std::string text)
+{
+  if (text.size() > 5 && text.ends_with("_LIVE")) {
+    text.resize(text.size() - 5);
+  }
+
+  constexpr std::string_view resource_key_prefix = "Resource_";
+  if (text.size() >= resource_key_prefix.size()
+      && text.compare(0, resource_key_prefix.size(), resource_key_prefix) == 0) {
+    text.erase(0, resource_key_prefix.size());
+  }
+
+  for (auto& character : text) {
+    if (character == '_') {
+      character = ' ';
+    }
+  }
+
+  constexpr std::string_view resource_display_prefix = "Resource ";
+  if (text.size() >= resource_display_prefix.size()
+      && text.compare(0, resource_display_prefix.size(), resource_display_prefix) == 0) {
+    text.erase(0, resource_display_prefix.size());
+  }
+
+  return text;
+}
+
+static std::string normalize_catalog_key_name(std::string text)
+{
+  if (text.size() > 5 && text.ends_with("_LIVE")) {
+    text.resize(text.size() - 5);
+  }
+
+  for (auto& character : text) {
+    if (character == '_') {
+      character = ' ';
+    }
+  }
+
+  return std::string{StripAsciiWhitespace(text)};
+}
+
+static std::string il2cpp_string_or_empty(Il2CppString* value)
+{
+  return value ? to_string(value) : std::string{};
+}
+
+static void add_catalog_id(nlohmann::json& metadata, std::string_view key, int64_t value)
+{
+  if (value != 0) {
+    metadata[std::string{key}] = std::to_string(value);
+  }
+}
+
+static nlohmann::json catalog_loca_metadata(IdRefs* id_refs)
+{
+  auto metadata = nlohmann::json::object();
+  if (!id_refs) {
+    return metadata;
+  }
+
+  const auto loca_key = std::string{StripAsciiWhitespace(il2cpp_string_or_empty(id_refs->LocaStringId))};
+  if (!loca_key.empty()) {
+    metadata["locaKey"] = loca_key;
+  }
+  add_catalog_id(metadata, "locaId", id_refs->LocaId);
+
+  return metadata;
+}
+
+static SpecManager* resolve_spec_manager()
+{
+  return SpecManager::Instance();
+}
+
+static HullSpec* resolve_hull_spec(int64_t hull_id)
+{
+  if (hull_id == 0) {
+    return nullptr;
+  }
+
+  auto* spec_manager = SpecManager::Instance();
+  if (!spec_manager) {
+    return nullptr;
+  }
+
+  return spec_manager->GetHull(hull_id);
+}
+
+static ComponentSpec* resolve_component_spec(int64_t component_id)
+{
+  if (component_id == 0) {
+    return nullptr;
+  }
+
+  auto* spec_manager = resolve_spec_manager();
+  return spec_manager ? spec_manager->SearchForSpec(component_id) : nullptr;
+}
+
+static OfficerSpec* resolve_officer_spec(int64_t officer_id)
+{
+  if (officer_id == 0) {
+    return nullptr;
+  }
+
+  auto* spec_manager = resolve_spec_manager();
+  return spec_manager ? spec_manager->GetOfficerSpec(officer_id) : nullptr;
+}
+
+static BuffSpec* resolve_buff_spec(int64_t buff_id)
+{
+  if (buff_id == 0) {
+    return nullptr;
+  }
+
+  auto* spec_manager = resolve_spec_manager();
+  return spec_manager ? spec_manager->GetBuffSpec(buff_id, true) : nullptr;
+}
+
+static ForbiddenTechSpec* resolve_forbidden_tech_spec(int64_t forbidden_tech_id)
+{
+  if (forbidden_tech_id == 0) {
+    return nullptr;
+  }
+
+  auto* spec_manager = resolve_spec_manager();
+  return spec_manager ? spec_manager->GetForbiddenTechSpec(forbidden_tech_id) : nullptr;
+}
+
+static battle_log_decoder::CatalogResolver build_catalog_resolver()
+{
+  battle_log_decoder::CatalogResolver resolver{};
+
+  resolver.hull_name = [](int64_t hull_id) {
+    auto* hull = resolve_hull_spec(hull_id);
+    auto  name = il2cpp_string_or_empty(hull ? hull->Name : nullptr);
+    return name.empty() ? std::string{} : parse_hull_key(name);
+  };
+
+  resolver.hull_type = [](int64_t hull_id) {
+    auto* hull = resolve_hull_spec(hull_id);
+    return hull ? std::string{hull_type_label(hull->Type)} : std::string{};
+  };
+
+  resolver.resource_name = [](int64_t resource_id) {
+    if (resource_id == 0) {
+      return std::string{};
+    }
+
+    auto* spec_manager = SpecManager::Instance();
+    if (!spec_manager) {
+      return std::string{};
+    }
+
+    auto* spec = spec_manager->GetResourceSpec(resource_id);
+    auto  name = il2cpp_string_or_empty(spec ? spec->Name : nullptr);
+    return name.empty() ? std::string{} : normalize_catalog_resource_name(name);
+  };
+
+  resolver.component_name = [](int64_t component_id) {
+    auto* spec = resolve_component_spec(component_id);
+    auto  name = il2cpp_string_or_empty(spec ? spec->Name : nullptr);
+    return name.empty() ? std::string{} : normalize_catalog_key_name(name);
+  };
+
+  resolver.component_metadata = [](int64_t component_id) {
+    auto* spec = resolve_component_spec(component_id);
+    return catalog_loca_metadata(spec ? spec->IdRefsValue : nullptr);
+  };
+
+  resolver.system_metadata = [](int64_t system_id) {
+    auto metadata = nlohmann::json::object();
+    auto* manager = GameWorldManager::Instance();
+    int64_t loca_id = 0;
+    if (manager && manager->TryGetGalaxyLocaId(system_id, &loca_id)) {
+      add_catalog_id(metadata, "locaId", loca_id);
+    }
+    return metadata;
+  };
+
+  resolver.officer_metadata = [](int64_t officer_id) {
+    auto* spec = resolve_officer_spec(officer_id);
+    auto  metadata = catalog_loca_metadata(spec ? spec->IdRefsValue : nullptr);
+    if (spec) {
+      add_catalog_id(metadata, "captainManeuverId", spec->CaptainManeuverId);
+      add_catalog_id(metadata, "officerAbilityId", spec->OfficerAbilityId);
+      add_catalog_id(metadata, "belowDecksAbilityId", spec->BelowDecksAbilityId);
+    }
+    return metadata;
+  };
+
+  resolver.ability_metadata = [](int64_t ability_id) {
+    auto metadata = nlohmann::json::object();
+    auto* manager = ActivatedAbilityManager::Instance();
+    if (manager) {
+      add_catalog_id(metadata, "locaId", manager->GetActivatedAbilityLocaId(ability_id));
+    }
+    return metadata;
+  };
+
+  resolver.forbidden_tech_metadata = [](int64_t forbidden_tech_id) {
+    auto* spec = resolve_forbidden_tech_spec(forbidden_tech_id);
+    return catalog_loca_metadata(spec ? spec->IdRefsValue : nullptr);
+  };
+
+  resolver.buff_metadata = [](int64_t buff_id) {
+    auto* spec = resolve_buff_spec(buff_id);
+    return catalog_loca_metadata(spec ? spec->IdRefsValue : nullptr);
+  };
+
+  resolver.debuff_metadata = [](int64_t debuff_id) {
+    auto* spec = resolve_buff_spec(debuff_id);
+    return catalog_loca_metadata(spec ? spec->IdRefsValue : nullptr);
+  };
+
+  return resolver;
 }
 
 static void append_jsonl_probe_entry(const std::string& path, const nlohmann::json& probe_entry,
@@ -236,6 +474,25 @@ static void append_battle_feed(uint64_t journal_id, const nlohmann::json& names,
   }
 
   append_jsonl_probe_entry(File::MakePathString(kBattleFeedFile, true), event, "battle feed");
+
+  auto catalog_resolver = build_catalog_resolver();
+  auto catalog_event = battle_log_decoder::build_sidecar_catalog_snapshot_event(
+      journal, names, decoded, catalog_resolver, journal_id, captured_at_unix_ms);
+  if (catalog_event.value("ok", true) == false) {
+    spdlog::warn("Catalog snapshot feed skipped journal {}: {}", journal_id,
+                 catalog_event.value("reason", std::string{"unknown"}));
+  } else {
+    append_jsonl_probe_entry(File::MakePathString(kBattleFeedFile, true), catalog_event, "catalog snapshot feed");
+  }
+
+  auto analytics_event = battle_log_decoder::build_sidecar_battle_analytics_event(journal, decoded, journal_id, captured_at_unix_ms);
+  if (analytics_event.value("ok", true) == false) {
+    spdlog::warn("Battle analytics feed skipped journal {}: {}", journal_id,
+                 analytics_event.value("reason", std::string{"unknown"}));
+    return;
+  }
+
+  append_jsonl_probe_entry(File::MakePathString(kBattleFeedFile, true), analytics_event, "battle analytics feed");
 }
 
 static void append_battle_probe(uint64_t journal_id, const nlohmann::json& names, const nlohmann::json& journal)
