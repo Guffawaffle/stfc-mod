@@ -994,6 +994,7 @@ void Config::Load()
 
   this->sync_debug              = get_config_or_default(config, parsed, "sync", "debug", DCS::debug, write_config);
   this->sync_logging            = get_config_or_default(config, parsed, "sync", "logging", DCS::logging, write_config);
+  this->sync_sidecar_jsonl      = get_config_or_default(config, parsed, "sync", "sidecar_jsonl", DCS::sidecar_jsonl, write_config);
   g_live_debug_channel          = get_config_or_default(config, parsed, "debug", "live_query", DCD::live_query, write_config);
   g_battle_log_decoder_enabled  = get_config_or_default(config, parsed, "battle_log_decoder", "enabled", DCBLD::enabled, write_config);
   g_battle_log_decoder_segments = get_config_or_default(config, parsed, "battle_log_decoder", "emit_segments", DCBLD::emit_segments, write_config);

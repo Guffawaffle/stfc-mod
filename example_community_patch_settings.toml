@@ -479,6 +479,7 @@ url = ""
 # --------------
 
 battlelogs = true
+battlelogs_realtime = false
 buffs = true
 buildings = true
 inventory = true
@@ -497,6 +498,7 @@ traits = true
 
 debug = false
 logging = false
+sidecar_jsonl = true
 
 # Subgroup: Network
 # -----------------
@@ -522,6 +524,16 @@ verify_ssl = true
 
 # The url of the server to send data to
 # url = ""
+
+# Example local sidecar target. Keep battlelogs disabled here so the target only
+# receives canonical realtime battle feed events on /api/events. You can keep sidecar_jsonl
+# enabled at the top level for a zero-service JSONL fallback, or disable it once
+# HTTP export is the only path you want.
+#[sync.targets.sidecar]
+# token = "testtoken123"
+# url = "http://127.0.0.1:43127/api/events"
+# battlelogs = false
+# battlelogs_realtime = true
 
 #  <[=============================================================================================================]>
 #

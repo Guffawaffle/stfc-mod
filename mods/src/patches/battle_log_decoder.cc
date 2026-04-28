@@ -2109,7 +2109,8 @@ nlohmann::json build_sidecar_catalog_snapshot_event(const nlohmann::json& journa
           entry[extra_label_field] = extra;
         }
       }
-      for (const auto& [key, value] : resolve_metadata_or_empty(metadata_resolver, id).items()) {
+      const auto metadata = resolve_metadata_or_empty(metadata_resolver, id);
+      for (const auto& [key, value] : metadata.items()) {
         if (!entry.contains(key)) {
           entry[key] = value;
         }

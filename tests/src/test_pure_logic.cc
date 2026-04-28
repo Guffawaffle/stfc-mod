@@ -412,6 +412,77 @@ TEST_SUITE("battle_log_decoder")
       CHECK(components["900"]["unresolved"] == false);
     }
   }
+
+  TEST_CASE("build_sidecar_catalog_snapshot_event carries metadata for unresolved combat effect domains")
+  {
+    const auto names = nlohmann::json::object();
+    const auto journal = nlohmann::json{{"id", 445},
+                                        {"battle_type", 8},
+                                        {"battle_time", "2026-04-27T01:23:45"},
+                                        {"battle_log", nlohmann::json::array({-96, -97})}};
+    const auto decoded = nlohmann::json{
+        {"attack_rows",
+         nlohmann::json::array(
+             {{{"triggeredEffects",
+                nlohmann::json::array({{{"kind", "officer_ability"}, {"id", 7001}},
+                                       {{"kind", "ship_ability"}, {"id", 8001}},
+                                       {{"kind", "forbidden_tech"}, {"id", 9001}},
+                                       {{"kind", "buff"}, {"id", 10001}},
+                                       {{"kind", "debuff"}, {"id", 11001}}})}}})}};
+
+    battle_log_decoder::CatalogResolver resolver{};
+    resolver.officer_metadata = [](int64_t id) {
+      return id == 7001 ? nlohmann::json{{"locaId", "17001"}, {"locaKey", "officer_category"}}
+                        : nlohmann::json::object();
+    };
+    resolver.ability_metadata = [](int64_t id) {
+      return id == 8001 ? nlohmann::json{{"locaId", "18001"}} : nlohmann::json::object();
+    };
+    resolver.forbidden_tech_metadata = [](int64_t id) {
+      return id == 9001 ? nlohmann::json{{"locaId", "19001"}, {"locaKey", "forbidden_tech_category"}}
+                        : nlohmann::json::object();
+    };
+    resolver.buff_metadata = [](int64_t id) {
+      return id == 10001 ? nlohmann::json{{"locaId", "20001"}, {"locaKey", "buff_category"}}
+                         : nlohmann::json::object();
+    };
+    resolver.debuff_metadata = [](int64_t id) {
+      return id == 11001 ? nlohmann::json{{"locaId", "21001"}, {"locaKey", "debuff_category"}}
+                         : nlohmann::json::object();
+    };
+
+    const auto event = battle_log_decoder::build_sidecar_catalog_snapshot_event(
+        journal, names, decoded, resolver, 445, 222);
+    const auto& domains = event["catalog"]["domains"];
+
+    REQUIRE(domains["officers"].contains("7001"));
+    CHECK(domains["officers"]["7001"]["unresolved"] == true);
+    CHECK(domains["officers"]["7001"]["locaId"] == "17001");
+    CHECK(domains["officers"]["7001"]["locaKey"] == "officer_category");
+
+    REQUIRE(domains["abilities"].contains("8001"));
+    CHECK(domains["abilities"]["8001"]["unresolved"] == true);
+    CHECK(domains["abilities"]["8001"]["locaId"] == "18001");
+
+    REQUIRE(domains["forbiddenTech"].contains("9001"));
+    CHECK(domains["forbiddenTech"]["9001"]["unresolved"] == true);
+    CHECK(domains["forbiddenTech"]["9001"]["locaKey"] == "forbidden_tech_category");
+
+    REQUIRE(domains["buffs"].contains("10001"));
+    CHECK(domains["buffs"]["10001"]["unresolved"] == true);
+    CHECK(domains["buffs"]["10001"]["locaKey"] == "buff_category");
+
+    REQUIRE(domains["debuffs"].contains("11001"));
+    CHECK(domains["debuffs"]["11001"]["unresolved"] == true);
+    CHECK(domains["debuffs"]["11001"]["locaKey"] == "debuff_category");
+
+    const auto present = event["catalog"]["coverage"]["domainsPresent"];
+    CHECK(std::ranges::find(present, "officers") != present.end());
+    CHECK(std::ranges::find(present, "abilities") != present.end());
+    CHECK(std::ranges::find(present, "forbiddenTech") != present.end());
+    CHECK(std::ranges::find(present, "buffs") != present.end());
+    CHECK(std::ranges::find(present, "debuffs") != present.end());
+  }
 }
 
 // ===========================================================================
