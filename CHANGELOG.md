@@ -15,6 +15,26 @@
 
 ### Features
 
+- Added `battlelogs_realtime` sync target type: mod can POST canonical battle events
+  directly to a local sidecar ingest endpoint as each battle resolves
+- Added `sync_sidecar_jsonl` config toggle (defaults `true`) to retain the
+  append-only JSONL feed as a zero-dependency basic mode
+- Removed file-backed sent-ID persistence; in-memory deduplication only
+- Added Linux-native `CMakeLists.txt` for pure-logic validation builds
+- Added AXF cycle scripts (`scripts/axf/`) for WSL→Windows deploy workflow
+- Added `scripts/validate-linux.sh` for CI-grade pure-logic checks
+
+### Changes
+
+- `sync.targets.<name>.battlelogs_realtime = true` activates the realtime HTTP
+  POST path to a target URL; `battlelogs = false` must be set explicitly to
+  suppress the legacy category from inheriting via top-level `[sync]` defaults
+- `example_community_patch_settings.toml` updated with an annotated sidecar
+  target block showing the correct explicit-false pattern for all non-realtime
+  categories
+
+### Features (previous, in Unreleased)
+
 - Added early incoming attack notifications with target fleet context
   - Reads `ToastFleetObserver.QueueNotifications` for the attacked fleet id
   - Builds notification bodies such as `Your [ship] is under attack` with mining/cargo context when available
