@@ -32,6 +32,7 @@ public:
   /// Categories of game data that can be synced to an external service.
   enum class Type {
     Battles,
+    BattlelogsRealtime,
     Buffs,
     Buildings,
     EmeraldChain,
@@ -64,6 +65,7 @@ public:
   bool verify_ssl = true;
 
   bool battlelogs = false;
+  bool battlelogs_realtime = false;
   bool buffs      = false;
   bool buildings  = false;
   bool inventory  = false;
@@ -84,6 +86,7 @@ public:
 /// Master table mapping every SyncConfig::Type to its JSON/TOML keys and member pointer.
 constexpr std::array SyncOptions{
     SyncConfig::Option{SyncConfig::Type::Battles, "battlelog", "battlelogs", &SyncConfig::battlelogs},
+  SyncConfig::Option{SyncConfig::Type::BattlelogsRealtime, "battlelog_realtime", "battlelogs_realtime", &SyncConfig::battlelogs_realtime},
     SyncConfig::Option{SyncConfig::Type::Buffs, "buff", "buffs", &SyncConfig::buffs},
     SyncConfig::Option{SyncConfig::Type::Buildings, "module", "buildings", &SyncConfig::buildings},
     SyncConfig::Option{SyncConfig::Type::EmeraldChain, "emerald_chain", "buffs", &SyncConfig::buffs},
@@ -297,6 +300,7 @@ public:
 
   bool       sync_logging;
   bool       sync_debug;
+  bool       sync_sidecar_jsonl;
   int        sync_resolver_cache_ttl;
   SyncConfig sync_options;
 
@@ -337,3 +341,18 @@ bool AllowKeyFallthrough();
  * @brief Whether the file-backed live debug channel is enabled.
  */
 bool LiveDebugChannelEnabled();
+
+/**
+ * @brief Whether live battle_log decoding is enabled.
+ */
+bool BattleLogDecoderEnabled();
+
+/**
+ * @brief Whether decoded battle_log segment summaries should be emitted.
+ */
+bool BattleLogDecoderEmitSegments();
+
+/**
+ * @brief Whether sidecar-ready battle report feed events should be emitted.
+ */
+bool BattleLogDecoderEmitFeed();

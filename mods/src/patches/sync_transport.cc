@@ -407,9 +407,9 @@ std::string get_scopely_data(const std::string& path, const std::string& post_da
 {
   static std::once_flag emit_warning;
 
-  if (Config::Get().sync_targets.empty()) {
+  if (headers::gameServerUrl.empty() || headers::instanceSessionId.empty()) {
     std::call_once(emit_warning, [] {
-      sync_log_warn(CURL_TYPE_UPLOAD, "GLOBAL", "No target found, will not attempt to retrieve data");
+      sync_log_warn(CURL_TYPE_DOWNLOAD, "GLOBAL", "Game session headers are unavailable; cannot retrieve data");
     });
 
     return {};

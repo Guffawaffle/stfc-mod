@@ -85,6 +85,16 @@ namespace Debug
   constexpr bool live_query = false;
 } // namespace Debug
 
+namespace BattleLogDecoder
+{
+  /// Enable live battle_log segment decoding beside the raw battle probe. Default: false.
+  constexpr bool enabled       = false;
+  /// Emit decoded segment summaries when the decoder is enabled. Default: true.
+  constexpr bool emit_segments = true;
+  /// Emit sidecar-ready battle report feed events when the decoder is enabled. Default: true.
+  constexpr bool emit_feed     = true;
+} // namespace BattleLogDecoder
+
 namespace Notifications
 {
   /// Master switch for OS/system notifications. Default: false.
@@ -284,6 +294,7 @@ namespace Sync
   // Per-category defaults — each maps to a [sync] TOML key.
   // Individual [sync.targets.<name>] sections can override these.
   constexpr bool        battlelogs         = true;   ///< Sync battle-log reports.
+  constexpr bool        battlelogs_realtime = false; ///< Export canonical battle feed events to realtime ingest targets.
   constexpr bool        buffs              = true;   ///< Sync buff / Emerald Chain data.
   constexpr bool        buildings          = true;   ///< Sync station module data.
   constexpr bool        inventory          = true;   ///< Sync inventory contents.
@@ -301,6 +312,7 @@ namespace Sync
   constexpr const char* url                = "";     ///< Endpoint URL (legacy, prefer targets).
   constexpr bool        debug              = false;  ///< Extra debug logging for sync subsystem.
   constexpr bool        logging            = false;  ///< Log raw sync payloads.
+  constexpr bool        sidecar_jsonl      = true;   ///< Emit canonical sidecar events to a local JSONL feed for basic installs.
   constexpr bool        verify_ssl         = true;   ///< Verify TLS certificates on sync requests.
   /// DNS resolver cache TTL in seconds. Default: 300 (5 min).
   constexpr auto        resolver_cache_ttl = 300;

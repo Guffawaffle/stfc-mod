@@ -38,11 +38,15 @@ namespace DCBS = DefaultConfig::Buffs;
 namespace DCS = DefaultConfig::Sync;
 namespace DCSC = DefaultConfig::SystemConfig;
 namespace DCSH = DefaultConfig::Shortcuts;
+namespace DCBLD = DefaultConfig::BattleLogDecoder;
 
 // Standalone flag — NOT in Config struct to avoid struct layout sensitivity.
 // See: fix/lto-and-sync-crashes for context on why Config struct changes crash.
-static bool g_allow_key_fallthrough = false;
-static bool g_live_debug_channel    = false;
+static bool g_allow_key_fallthrough       = false;
+static bool g_live_debug_channel          = false;
+static bool g_battle_log_decoder_enabled  = false;
+static bool g_battle_log_decoder_segments = true;
+static bool g_battle_log_decoder_feed     = true;
 
 /** @brief Accessor for the file-scope allow_key_fallthrough flag. */
 bool AllowKeyFallthrough()
@@ -53,6 +57,21 @@ bool AllowKeyFallthrough()
 bool LiveDebugChannelEnabled()
 {
   return g_live_debug_channel;
+}
+
+bool BattleLogDecoderEnabled()
+{
+  return g_battle_log_decoder_enabled;
+}
+
+bool BattleLogDecoderEmitSegments()
+{
+  return g_battle_log_decoder_segments;
+}
+
+bool BattleLogDecoderEmitFeed()
+{
+  return g_battle_log_decoder_feed;
 }
 
 /// Human-readable names → ToastState enum values.
@@ -975,7 +994,11 @@ void Config::Load()
 
   this->sync_debug              = get_config_or_default(config, parsed, "sync", "debug", DCS::debug, write_config);
   this->sync_logging            = get_config_or_default(config, parsed, "sync", "logging", DCS::logging, write_config);
+  this->sync_sidecar_jsonl      = get_config_or_default(config, parsed, "sync", "sidecar_jsonl", DCS::sidecar_jsonl, write_config);
   g_live_debug_channel          = get_config_or_default(config, parsed, "debug", "live_query", DCD::live_query, write_config);
+  g_battle_log_decoder_enabled  = get_config_or_default(config, parsed, "battle_log_decoder", "enabled", DCBLD::enabled, write_config);
+  g_battle_log_decoder_segments = get_config_or_default(config, parsed, "battle_log_decoder", "emit_segments", DCBLD::emit_segments, write_config);
+  g_battle_log_decoder_feed     = get_config_or_default(config, parsed, "battle_log_decoder", "emit_feed", DCBLD::emit_feed, write_config);
   this->sync_resolver_cache_ttl = get_config_or_default(config, parsed, "sync", "resolver_cache_ttl", DCS::resolver_cache_ttl, write_config);
 
   SyncConfig sync_defaults;
