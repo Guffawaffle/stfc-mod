@@ -28,7 +28,6 @@ void InstallToastBannerHooks();
 void InstallPanHooks();
 void InstallImproveResponsivenessHooks();
 void InstallHotkeyHooks();
-
 void InstallTestPatches();
 void InstallMiscPatches();
 void InstallChatPatches();
@@ -36,7 +35,6 @@ void InstallResolutionListFix();
 void InstallTempCrashFixes();
 void InstallSyncPatches();
 void InstallObjectTrackers();
-void InstallLoadingScreenBgHooks();
 
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
 {
@@ -119,7 +117,6 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"ResolutionListFix", {InstallResolutionListFix, &cfg.installResolutionListFix}},
       {"SyncPatches", {InstallSyncPatches, &cfg.installSyncPatches}},
       {"ObjectTracker", {InstallObjectTrackers, &cfg.installObjectTracker}},
-      {"LoadingScreenBgHooks", {InstallLoadingScreenBgHooks, &cfg.installLoadingScreenBgHooks}},
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
 
