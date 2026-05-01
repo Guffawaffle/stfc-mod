@@ -79,6 +79,17 @@ void DataContainer_ParseBinaryObject(auto original, void* _this, EntityGroup* gr
   return original(_this, group, isPlayerData);
 }
 
+void DataContainer_ParseEntitySlotsData(auto original, void* _this, EntityGroup* group)
+{
+  HandleEntityGroup(group);
+  return original(_this, group);
+}
+
+void DataContainer_ParseSlotData(auto original, void* _this, void* entity_slot, Il2CppString* channel_id)
+{
+  return original(_this, entity_slot, channel_id);
+}
+
 /**
  * @brief Hook: SlotDataContainer::ParseSlotUpdatedJson / ParseSlotRemovedJson
  *
@@ -99,26 +110,26 @@ void DataContainer_ParseRtcPayload(auto original, void* _this, bool incrementalJ
  * Original method: processes the service response and invokes callbacks.
  * Our modification: iterates entity groups and calls HandleEntityGroup() before original.
  */
-void GameServerModelRegistry_ProcessResultInternal(auto original, void* _this, HttpResponse* http_response,
-                                                   ServiceResponse* service_response, void* callback,
-                                                   void* callback_error)
+void GameServerModelRegistry_ProcessResultInternal(auto original, void* _this, void* parsing_context,
+                                                   ServiceResponse* service_response, MethodInfo* method)
 {
   HandleServiceResponseEntityGroups(service_response);
 
-  return original(_this, http_response, service_response, callback, callback_error);
+  return original(_this, parsing_context, service_response, method);
 }
 
 /**
- * @brief Hook: GameServerModelRegistry::HandleBinaryObjects
+ * @brief Hook: GameServerModelRegistry::ParseBinaryObjectsHelper
  *
  * Intercepts bulk binary object handling to extract entity groups.
  * Same pattern as ProcessResultInternal but for binary-only responses.
  */
-void GameServerModelRegistry_HandleBinaryObjects(auto original, void* _this, ServiceResponse* service_response)
+void GameServerModelRegistry_ParseBinaryObjectsHelper(auto original, void* _this, void* parsing_context,
+                                                      ServiceResponse* service_response, MethodInfo* method)
 {
   HandleServiceResponseEntityGroups(service_response);
 
-  return original(_this, service_response);
+  return original(_this, parsing_context, service_response, method);
 }
 
 /**
@@ -165,42 +176,39 @@ void InstallSyncPatches()
 {
   load_previously_sent_logs();
 
-  void* process_result_internal_target = nullptr;
-
   if (auto game_server_model_registry =
           il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Core", "GameServerModelRegistry");
       !game_server_model_registry.isValidHelper()) {
     ErrorMsg::MissingHelper("Core", "GameServerModelRegistry");
   } else {
-    auto ptr = game_server_model_registry.GetMethod("ProcessResultInternal");
+    auto *ptr = game_server_model_registry.GetMethod("ProcessResultInternal");
     if (ptr == nullptr) {
-      ErrorMsg::MissingMethod("GameServerModelRegistry", "ProcessResultInterval");
+      ErrorMsg::MissingMethod("GameServerModelRegistry", "ProcessResultInternal");
     } else {
       SPUD_STATIC_DETOUR(ptr, GameServerModelRegistry_ProcessResultInternal);
-      process_result_internal_target = ptr;
     }
 
-    ptr = game_server_model_registry.GetMethod("HandleBinaryObjects");
+    ptr = game_server_model_registry.GetMethod("ParseBinaryObjectsHelper");
     if (ptr == nullptr) {
-      ErrorMsg::MissingMethod("GameServerModelRegsitry", "HandleBinaryObjects");
+      ErrorMsg::MissingMethod("GameServerModelRegistry", "ParseBinaryObjectsHelper");
     } else {
-      SPUD_STATIC_DETOUR(ptr, GameServerModelRegistry_HandleBinaryObjects);
+      SPUD_STATIC_DETOUR(ptr, GameServerModelRegistry_ParseBinaryObjectsHelper);
     }
   }
 
+#if 0
   if (auto platform_model_registry =
           il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimePlatform.Core", "PlatformModelRegistry");
       !platform_model_registry.isValidHelper()) {
     ErrorMsg::MissingHelper("Core", "PlatformModelRegistry");
   } else {
-    if (const auto ptr = platform_model_registry.GetMethod("ProcessResultInternal"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("PlatformModelRegistry", "ProcessResultInterval");
-    } else if (ptr == process_result_internal_target) {
-      spdlog::info("PlatformModelRegistry::ProcessResultInternal shares address with GameServerModelRegistry — already hooked");
+    if (auto *const ptr = platform_model_registry.GetMethod("ProcessResultInternal"); ptr == nullptr) {
+      ErrorMsg::MissingMethod("PlatformModelRegistry", "ProcessResultInternal");
     } else {
       SPUD_STATIC_DETOUR(ptr, GameServerModelRegistry_ProcessResultInternal);
     }
   }
+#endif
 
   if (auto buff_data_container =
           il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "BuffDataContainer");
@@ -309,16 +317,22 @@ void InstallSyncPatches()
       SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
     }
 
-    if (const auto ptr = slot_data_container.GetMethod("ParseSlotUpdatedJson"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("SlotDataContainer", "ParseSlotUpdatedJson");
+    if (const auto ptr = slot_data_container.GetMethod("ParseEntitySlotsData"); ptr == nullptr) {
+      ErrorMsg::MissingMethod("SlotDataContainer", "ParseEntitySlotsData");
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseRtcPayload);
+      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseEntitySlotsData);
     }
 
-    if (const auto ptr = slot_data_container.GetMethod("ParseSlotRemovedJson"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("SlotDataContainer", "ParseSlotRemovedJson");
+    if (const auto ptr = slot_data_container.GetMethod("UpdateSlotData"); ptr == nullptr) {
+      ErrorMsg::MissingMethod("SlotDataContainer", "UpdateSlotData");
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseRtcPayload);
+      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseSlotData);
+    }
+
+    if (const auto ptr = slot_data_container.GetMethod("RemoveSlotData"); ptr == nullptr) {
+      ErrorMsg::MissingMethod("SlotDataContainer", "RemoveSlotData");
+    } else {
+      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseSlotData);
     }
   }
 
