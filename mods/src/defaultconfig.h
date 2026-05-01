@@ -77,6 +77,12 @@ namespace Graphics
   constexpr bool use_presets_as_default      = true;
   /// Maximum camera zoom distance (game units). Default: 5000.
   constexpr auto zoom                        = 5000;
+  /// Replace TVC/SlideShow backgrounds. Default: true.
+  constexpr bool loader_transition           = true;
+  /// Replace LoginSequence background. Default: true.
+  constexpr bool loader_enabled              = true;
+  /// Optional custom loading image path (empty = embedded fallback). Default: empty.
+  constexpr const char* loader_image         = "";
 } // namespace Graphics
 
 namespace Debug
@@ -173,13 +179,14 @@ namespace Patches
   constexpr bool objecttracker              = true;  ///< In-system object tracking overlay.
   constexpr bool fleetarrivalhooks          = true;  ///< Fleet arrival detection from the bottom fleet bar.
   constexpr bool panhooks                   = true;  ///< Pan-momentum hooks.
-  constexpr bool resolutionlistfix          = true;  ///< Resolution-list population fix.
+  constexpr bool resolutionlistfix          = false; ///< Resolution-list population fix; disabled after Unity 6 update.
   constexpr bool syncpatches                = true;  ///< Data-sync network hooks.
   constexpr bool tempcrashfixes             = true;  ///< Temporary crash mitigations.
   constexpr bool testpatches                = true;  ///< Test / experimental patches.
   constexpr bool toastbannerhooks           = true;  ///< Toast-banner filtering hooks.
   constexpr bool uiscalehooks               = true;  ///< UI scale override hooks.
   constexpr bool zoomhooks                  = true;  ///< Camera zoom override hooks.
+  constexpr bool loadingscreenbghooks       = true;  ///< Loading-screen background replacement hooks.
 } // namespace Patches
 
 /// Default key-binding strings for the [shortcuts] TOML section.

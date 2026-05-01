@@ -1,10 +1,10 @@
 -- @file xmake.lua
 -- @brief Build target for the macOS community patch shared library.
 --
--- Produces libstfc-community-patch.dylib, which is injected into the game
+-- Produces libstfc-community-mod.dylib, which is injected into the game
 -- process via DYLD_INSERT_LIBRARIES by the macOS loader/launcher.
 
-target("stfc-community-patch")
+target("stfc-community-mod")
 do
     set_kind("shared")
     add_files("src/*.cc")

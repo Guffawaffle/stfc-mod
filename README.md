@@ -78,9 +78,9 @@ The install process is identical to the official mod — see [Installation](#ins
 
 ## IMPORTANT NOTE:
 
-We have finally released v1.0.0 of the mod, which replaces the previous 0.6.0 version (previously known as Rippers mod).  All previous full releases
-will fail to work wtih the latest STFC game client.  If you have issues, please check with our discord team and ensure that you have the latest 
-release installed.
+The latest full release will always be available on the GitHub site. However, for interim patches, please see the #info channel
+on the [STFC Community Mod](https://discord.gg/PrpHgs7Vjs) discord server. This channel will always contain any hotfixes that
+enable the game to work even if the full release does not.
 
 ## Contributing / Development
 
@@ -134,6 +134,7 @@ been applied. Valid values for any short can be found in [KEYMAPPING.md](KEYMAPP
 
 |          Key | Shortcut                         |
 | -----------: | -------------------------------- |
+|          F10 | Bug fixer (exits game)           |
 |        F1-F5 | Zoom presets                     |
 |            Q | Zoom Out                         |
 |            E | Zoom In                          |

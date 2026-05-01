@@ -8,7 +8,7 @@
 
 -- ─── Project Settings ────────────────────────────────────────────────────────
 
-set_project("stfc-community-patch")
+set_project("stfc-community-mod")
 
 set_languages("c++23")
 
@@ -69,4 +69,4 @@ includes("tests")
 -- ─── Package Repositories ────────────────────────────────────────────────────
 
 -- add_repositories("local-repo build")
-add_repositories("stfc-community-patch-repo xmake-packages")
+add_repositories("stfc-community-mod-repo xmake-packages")
