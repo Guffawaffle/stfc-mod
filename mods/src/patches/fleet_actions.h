@@ -11,10 +11,18 @@
 #include "prime/FleetBarViewController.h"
 #include "prime/HullSpec.h"
 
+#include <cstdint>
+
 struct BattleTargetData;
 
 /** When true, the next frame will re-attempt the primary space action (deferred engage). */
 extern bool force_space_action_next_frame;
+
+/** Clear any deferred primary space action. */
+void     ClearDeferredSpaceAction();
+
+/** Current deferred action generation, incremented whenever the deferred action changes. */
+uint64_t DeferredSpaceActionGeneration();
 
 /**
  * @brief Process a ship selection request from number keys 1-8.
