@@ -31,6 +31,12 @@ add_rules("mode.debug")
 add_rules("mode.release")
 add_rules("mode.releasedbg")
 
+option("tests")
+    set_default(false)
+    set_showmenu(true)
+    set_description("Build local unit tests")
+option_end()
+
 package("libil2cpp")
 on_fetch(function(package, opt)
     return { includedirs = path.join(os.scriptdir(), "third_party/libil2cpp") }
@@ -43,6 +49,9 @@ add_requires("simdutf", { system = false })
 
 -- includes("launcher")
 includes("mods")
+if has_config("tests") then
+    includes("tests")
+end
 
 -- add_repositories("local-repo build")
 add_repositories("stfc-community-mod-repo xmake-packages")
