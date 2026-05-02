@@ -209,9 +209,10 @@ bool hotkey_router_screen_update(ScreenManager* _this)
         auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
         if (fleet_bar) {
           bool was_forced = force_space_action_next_frame;
+          auto deferred_generation = DeferredSpaceActionGeneration();
           ExecuteSpaceAction(fleet_bar);
-          if (was_forced) {
-            force_space_action_next_frame = false;
+          if (was_forced && DeferredSpaceActionGeneration() == deferred_generation) {
+            ClearDeferredSpaceAction();
           }
         }
       }

@@ -1049,6 +1049,10 @@ void live_debug_record_space_action_warp_cancel(FleetBarViewController* fleet_ba
                                                 bool star_node_viewer_visible,
                                                 bool navigation_interaction_visible)
 {
+  if (!LiveDebugChannelEnabled()) {
+    return;
+  }
+
   live_debug_events::RecordEvent(
       "space-action-cancel-warp",
       json{{"selectedIndex", fleet_bar ? get_selected_fleet_index(fleet_bar) : -1},
@@ -1084,6 +1088,10 @@ void live_debug_record_space_action_warp_cancel_suppressed(FleetBarViewControlle
                                                            bool star_node_viewer_visible,
                                                            bool navigation_interaction_visible)
 {
+  if (!LiveDebugChannelEnabled()) {
+    return;
+  }
+
   live_debug_events::RecordEvent(
       "space-action-cancel-warp-suppressed",
       json{{"selectedIndex", fleet_bar ? get_selected_fleet_index(fleet_bar) : -1},
