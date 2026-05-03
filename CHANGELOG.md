@@ -23,7 +23,8 @@
   local battle feed keeps complete recent battle-log groups instead of growing
   without bound
 - Added `[debug].refinery_diagnostics` logging for refinery section transitions,
-  selection mode, quantity changes, analytics events, and purchase outcomes
+  selection mode, quantity changes, analytics events, and purchase outcomes;
+  it defaults off and avoids non-refinery shop/showcase purchase flows
 - Removed file-backed sent-ID persistence; in-memory deduplication only
 - Added Linux-native `CMakeLists.txt` for pure-logic validation builds
 - Added AXF cycle scripts (`scripts/axf/`) for WSL→Windows deploy workflow

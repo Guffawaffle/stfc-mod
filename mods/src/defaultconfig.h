@@ -89,8 +89,8 @@ namespace Debug
 {
   /// Enable the live debug/query channel for AX and runtime inspection. Default: false.
   constexpr bool live_query = false;
-  /// Enable focused refinery lifecycle/action diagnostics in community_patch.log. Default: true.
-  constexpr bool refinery_diagnostics = true;
+  /// Enable focused refinery lifecycle/action diagnostics in community_patch.log. Default: false.
+  constexpr bool refinery_diagnostics = false;
 } // namespace Debug
 
 namespace BattleLogDecoder

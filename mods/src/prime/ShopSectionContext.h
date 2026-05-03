@@ -5,6 +5,7 @@
 #include <cstdint>
 
 class Bundle;
+class RefineSelectionContainer;
 class RefineSelectionAnalyticsObject;
 
 enum class CancelRefineSelectionReason : int32_t {
@@ -27,6 +28,7 @@ public:
                           __get__cancelRefineSelectionReason)) CancelRefineSelectionReason _cancelRefineSelectionReason;
   __declspec(property(get = __get__isInRefineSelectionMode)) bool                          _isInRefineSelectionMode;
   __declspec(property(get = __get__isInCancelSelectionMode)) bool                          _isInCancelSelectionMode;
+  __declspec(property(get = __get__refineSelectionContainer)) RefineSelectionContainer*    _refineSelectionContainer;
   __declspec(property(get = __get__refineSelectionAnalyticsObject))
   RefineSelectionAnalyticsObject*                                   _refineSelectionAnalyticsObject;
   __declspec(property(get = __get_TargetSecondaryBundle)) Bundle*   TargetSecondaryBundle;
@@ -76,6 +78,12 @@ public:
   {
     static auto field = get_class_helper().GetField("_isInCancelSelectionMode");
     return *reinterpret_cast<bool*>(reinterpret_cast<uintptr_t>(this) + field.offset());
+  }
+
+  RefineSelectionContainer* __get__refineSelectionContainer()
+  {
+    static auto field = get_class_helper().GetField("_refineSelectionContainer");
+    return *reinterpret_cast<RefineSelectionContainer**>(reinterpret_cast<uintptr_t>(this) + field.offset());
   }
 
   RefineSelectionAnalyticsObject* __get__refineSelectionAnalyticsObject()

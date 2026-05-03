@@ -620,8 +620,9 @@ zoom_reset = "="
 live_query = false
 
 # Emit focused refinery lifecycle, selection, analytics, and purchase-result
-# breadcrumbs to community_patch.log for bug report capture.
-refinery_diagnostics = true
+# breadcrumbs to community_patch.log for bug report capture. Keep disabled
+# during normal play because it detours shared shop/showcase methods.
+refinery_diagnostics = false
 
 [ui]
 # Skip the reveal box animation, and just open the boxes
