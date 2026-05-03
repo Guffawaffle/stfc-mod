@@ -145,15 +145,17 @@ class NotificationConfig
 public:
   static constexpr size_t MaxToastStates = 64;
 
-  bool enabled                      = false;
-  bool incoming_attack_player       = false;
-  bool incoming_attack_hostile      = false;
-  bool fleet_arrived_in_system      = false;
-  bool fleet_arrived_at_destination = false;
-  bool fleet_started_mining         = false;
-  bool fleet_node_depleted          = false;
-  bool fleet_docked                 = false;
-  bool fleet_repair_complete        = false;
+  bool enabled                       = false;
+  bool audio_enabled                 = false;
+  bool audio_fleet_arrived_in_system = false;
+  bool incoming_attack_player        = false;
+  bool incoming_attack_hostile       = false;
+  bool fleet_arrived_in_system       = false;
+  bool fleet_arrived_at_destination  = false;
+  bool fleet_started_mining          = false;
+  bool fleet_node_depleted           = false;
+  bool fleet_docked                  = false;
+  bool fleet_repair_complete         = false;
 
   [[nodiscard]] bool AnyIncomingAttackEnabled() const
   { return incoming_attack_player || incoming_attack_hostile; }

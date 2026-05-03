@@ -107,6 +107,13 @@ namespace Notifications
 {
   /// Master switch for OS/system notifications. Default: false.
   constexpr bool enabled = false;
+  /// Master switch for in-game audible notifications. Default: false.
+  constexpr bool audio_enabled = false;
+
+  namespace Audio
+  {
+    constexpr bool fleet_arrived_in_system = false;
+  } // namespace Audio
 
   namespace Battle
   {

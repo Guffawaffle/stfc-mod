@@ -234,6 +234,11 @@ notifications_fleet_node_depleted = false
 notifications_fleet_docked = false
 notifications_fleet_repair_complete = false
 
+# In-game audible notifications. These are independent of the OS notification
+# master switch, but still require the matching fleet notification above.
+notifications_audio_enabled = false
+notifications_audio_fleet_arrived_in_system = false
+
 # Experimental — these use generic text resolution and may show raw placeholders
 # Enable individual types at your own risk
 notifications_standard = false
