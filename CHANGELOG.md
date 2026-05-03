@@ -19,6 +19,11 @@
   directly to a local sidecar ingest endpoint as each battle resolves
 - Added `sync_sidecar_jsonl` config toggle (defaults `true`) to retain the
   append-only JSONL feed as a zero-dependency basic mode
+- Added `sync.sidecar_jsonl_recent_logs` retention (defaults `300`) so the
+  local battle feed keeps complete recent battle-log groups instead of growing
+  without bound
+- Added `[debug].refinery_diagnostics` logging for refinery section transitions,
+  selection mode, quantity changes, analytics events, and purchase outcomes
 - Removed file-backed sent-ID persistence; in-memory deduplication only
 - Added Linux-native `CMakeLists.txt` for pure-logic validation builds
 - Added AXF cycle scripts (`scripts/axf/`) for WSL→Windows deploy workflow

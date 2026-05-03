@@ -62,22 +62,22 @@ public:
   };
 
   std::string proxy;
-  bool verify_ssl = true;
+  bool        verify_ssl = true;
 
-  bool battlelogs = false;
+  bool battlelogs          = false;
   bool battlelogs_realtime = false;
-  bool buffs      = false;
-  bool buildings  = false;
-  bool inventory  = false;
-  bool jobs       = false;
-  bool missions   = false;
-  bool officer    = false;
-  bool research   = false;
-  bool resources  = false;
-  bool ships      = false;
-  bool slots      = false;
-  bool tech       = false;
-  bool traits     = false;
+  bool buffs               = false;
+  bool buildings           = false;
+  bool inventory           = false;
+  bool jobs                = false;
+  bool missions            = false;
+  bool officer             = false;
+  bool research            = false;
+  bool resources           = false;
+  bool ships               = false;
+  bool slots               = false;
+  bool tech                = false;
+  bool traits              = false;
 
   /** @brief Check whether a given sync type is enabled on this config. */
   [[nodiscard]] bool enabled(Type type) const;
@@ -86,7 +86,8 @@ public:
 /// Master table mapping every SyncConfig::Type to its JSON/TOML keys and member pointer.
 constexpr std::array SyncOptions{
     SyncConfig::Option{SyncConfig::Type::Battles, "battlelog", "battlelogs", &SyncConfig::battlelogs},
-  SyncConfig::Option{SyncConfig::Type::BattlelogsRealtime, "battlelog_realtime", "battlelogs_realtime", &SyncConfig::battlelogs_realtime},
+    SyncConfig::Option{SyncConfig::Type::BattlelogsRealtime, "battlelog_realtime", "battlelogs_realtime",
+                       &SyncConfig::battlelogs_realtime},
     SyncConfig::Option{SyncConfig::Type::Buffs, "buff", "buffs", &SyncConfig::buffs},
     SyncConfig::Option{SyncConfig::Type::Buildings, "module", "buildings", &SyncConfig::buildings},
     SyncConfig::Option{SyncConfig::Type::EmeraldChain, "emerald_chain", "buffs", &SyncConfig::buffs},
@@ -114,14 +115,10 @@ constexpr std::string to_string(const SyncConfig::Type type)
 }
 
 constexpr std::string operator+(const std::string& prefix, const SyncConfig::Type type)
-{
-  return prefix + to_string(type);
-}
+{ return prefix + to_string(type); }
 
 constexpr std::string operator+(const SyncConfig::Type type, const std::string& suffix)
-{
-  return to_string(type) + suffix;
-}
+{ return to_string(type) + suffix; }
 
 /**
  * @brief A single sync target: base SyncConfig toggles plus endpoint credentials.
@@ -148,7 +145,7 @@ class NotificationConfig
 public:
   static constexpr size_t MaxToastStates = 64;
 
-  bool enabled                  = false;
+  bool enabled                      = false;
   bool incoming_attack_player       = false;
   bool incoming_attack_hostile      = false;
   bool fleet_arrived_in_system      = false;
@@ -159,14 +156,10 @@ public:
   bool fleet_repair_complete        = false;
 
   [[nodiscard]] bool AnyIncomingAttackEnabled() const
-  {
-    return incoming_attack_player || incoming_attack_hostile;
-  }
+  { return incoming_attack_player || incoming_attack_hostile; }
 
   [[nodiscard]] bool IncomingAttackSplitEnabled() const
-  {
-    return incoming_attack_player != incoming_attack_hostile;
-  }
+  { return incoming_attack_player != incoming_attack_hostile; }
 
   [[nodiscard]] bool EnabledForToastState(int state) const
   {
@@ -187,9 +180,7 @@ public:
   }
 
   void ClearToastStates()
-  {
-    toast_state_enabled.reset();
-  }
+  { toast_state_enabled.reset(); }
 
 private:
   std::bitset<MaxToastStates> toast_state_enabled{};
@@ -211,10 +202,10 @@ public:
   [[nodiscard]] static Config& Get();
 
   /** @brief Current monitor DPI scale factor (cached per monitor change). */
-  [[nodiscard]] static float   GetDPI();
+  [[nodiscard]] static float GetDPI();
 
   /** @brief Force a DPI re-read (e.g. after a display change). */
-  static float                 RefreshDPI();
+  static float RefreshDPI();
 
 #ifdef _WIN32
   [[nodiscard]] static HWND WindowHandle();
@@ -229,13 +220,13 @@ public:
   static void Save(const toml::table& config, std::string_view filename, bool apply_warning = true);
 
   /** @brief Parse the user TOML and populate all members. Called by the constructor. */
-  void        Load();
+  void Load();
 
   /** @brief Bump UI scale up or down by ui_scale_adjust, clamped to [0.1, 2.0]. */
-  void        AdjustUiScale(bool scaleUp);
+  void AdjustUiScale(bool scaleUp);
 
   /** @brief Bump object-viewer UI scale (finer step: ui_scale_adjust * 0.25). */
-  void        AdjustUiViewerScale(bool scaleUp);
+  void AdjustUiViewerScale(bool scaleUp);
 
   // Disallow copying/moving to enforce singleton
   Config(const Config&)            = delete;
@@ -267,12 +258,12 @@ public:
   bool  enable_experimental;
   float default_system_zoom;
 
-  float system_zoom_preset_1;
-  float system_zoom_preset_2;
-  float system_zoom_preset_3;
-  float system_zoom_preset_4;
-  float system_zoom_preset_5;
-  float transition_time;
+  float              system_zoom_preset_1;
+  float              system_zoom_preset_2;
+  float              system_zoom_preset_3;
+  float              system_zoom_preset_4;
+  float              system_zoom_preset_5;
+  float              transition_time;
   NotificationConfig notifications;
 
   bool             borderless_fullscreen;
@@ -363,3 +354,13 @@ bool BattleLogDecoderEmitSegments();
  * @brief Whether sidecar-ready battle report feed events should be emitted.
  */
 bool BattleLogDecoderEmitFeed();
+
+/**
+ * @brief Number of recent battle-log groups retained in the local sidecar JSONL feed.
+ */
+int SyncSidecarJsonlRecentLogs();
+
+/**
+ * @brief Whether focused refinery diagnostics should be installed.
+ */
+bool RefineryDiagnosticsEnabled();

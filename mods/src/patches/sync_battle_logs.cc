@@ -32,7 +32,9 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <exception>
+#include <filesystem>
 #include <format>
 #include <fstream>
 #include <memory>
@@ -54,8 +56,10 @@
 
 #if _WIN32
 struct WinRtApartmentGuard {
-  WinRtApartmentGuard() { winrt::init_apartment(); }
-  ~WinRtApartmentGuard() { winrt::uninit_apartment(); }
+  WinRtApartmentGuard()
+  { winrt::init_apartment(); }
+  ~WinRtApartmentGuard()
+  { winrt::uninit_apartment(); }
 };
 #endif
 
@@ -85,6 +89,11 @@ static std::mutex                   battle_feed_file_mtx;
 
 static constexpr char kBattleFeedFile[] = "community_patch_battle_feed.jsonl";
 
+struct RetainedBattleFeedGroup {
+  std::string              key;
+  std::vector<std::string> lines;
+};
+
 static int64_t current_probe_unix_ms()
 {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
@@ -97,17 +106,162 @@ static bool has_enabled_sync_target(SyncConfig::Type type)
   return std::ranges::any_of(targets_view, [type](const auto& target) { return target.enabled(type); });
 }
 
-static void append_jsonl_sidecar_event(const nlohmann::json& sidecar_event)
+static std::string json_key_value_as_string(const nlohmann::json& value)
 {
-  std::lock_guard lk(battle_feed_file_mtx);
+  if (value.is_string()) {
+    return value.get<std::string>();
+  }
+  if (value.is_number_unsigned()) {
+    return std::to_string(value.get<uint64_t>());
+  }
+  if (value.is_number_integer()) {
+    return std::to_string(value.get<int64_t>());
+  }
 
-  std::ofstream file(File::MakePathString(kBattleFeedFile, true), std::ios::out | std::ios::binary | std::ios::app);
-  if (!file.is_open()) {
-    spdlog::error("Failed to open sidecar feed file for append: {}", File::MakePathString(kBattleFeedFile, true));
+  return {};
+}
+
+static std::string battle_feed_group_key(const nlohmann::json& event, size_t fallback_id)
+{
+  if (event.is_object()) {
+    if (const auto journal = event.find("journalId"); journal != event.end()) {
+      if (auto value = json_key_value_as_string(*journal); !value.empty()) {
+        return "journal:" + value;
+      }
+    }
+
+    if (const auto battle = event.find("battleId"); battle != event.end()) {
+      if (auto value = json_key_value_as_string(*battle); !value.empty()) {
+        return "battle:" + value;
+      }
+    }
+  }
+
+  return "line:" + std::to_string(fallback_id);
+}
+
+static std::string battle_feed_group_key_from_line(const std::string& line, size_t line_id)
+{
+  const auto event = nlohmann::json::parse(line, nullptr, false);
+  if (event.is_discarded()) {
+    return "unparsed:" + std::to_string(line_id);
+  }
+
+  return battle_feed_group_key(event, line_id);
+}
+
+static void retain_recent_jsonl_sidecar_events_locked(size_t recent_logs)
+{
+  if (recent_logs == 0) {
     return;
   }
 
-  file << sidecar_event.dump() << '\n';
+  const auto    feed_path = std::filesystem::path(File::MakePathString(kBattleFeedFile, true));
+  std::ifstream input(feed_path, std::ios::in | std::ios::binary);
+  if (!input.is_open()) {
+    return;
+  }
+
+  std::deque<RetainedBattleFeedGroup> retained_groups;
+  std::string                         line;
+  size_t                              line_id           = 0;
+  size_t                              total_group_count = 0;
+  bool                                dropped_groups    = false;
+
+  while (std::getline(input, line)) {
+    const auto group_key = battle_feed_group_key_from_line(line, ++line_id);
+    if (retained_groups.empty() || retained_groups.back().key != group_key) {
+      retained_groups.push_back({group_key, {}});
+      total_group_count++;
+    }
+
+    retained_groups.back().lines.push_back(std::move(line));
+
+    while (retained_groups.size() > recent_logs) {
+      retained_groups.pop_front();
+      dropped_groups = true;
+    }
+  }
+
+  input.close();
+
+  if (!dropped_groups) {
+    return;
+  }
+
+  const auto    temp_path = feed_path.string() + ".tmp";
+  std::ofstream output(temp_path, std::ios::out | std::ios::binary | std::ios::trunc);
+  if (!output.is_open()) {
+    spdlog::error("Failed to open sidecar feed retention file for write: {}", temp_path);
+    return;
+  }
+
+  size_t retained_line_count = 0;
+  for (const auto& group : retained_groups) {
+    for (const auto& retained_line : group.lines) {
+      output << retained_line << '\n';
+      retained_line_count++;
+    }
+  }
+  output.close();
+
+  const auto backup_path = feed_path.string() + ".bak";
+
+  std::error_code error;
+  std::filesystem::remove(backup_path, error);
+  error.clear();
+
+  std::filesystem::rename(feed_path, backup_path, error);
+  if (error) {
+    spdlog::error("Failed to stage old sidecar feed during retention: {} -> {} ({})", feed_path.string(), backup_path,
+                  error.message());
+    std::filesystem::remove(temp_path, error);
+    return;
+  }
+
+  std::filesystem::rename(temp_path, feed_path, error);
+  if (error) {
+    spdlog::error("Failed to replace sidecar feed after retention: {} -> {} ({})", temp_path, feed_path.string(),
+                  error.message());
+    error.clear();
+    std::filesystem::rename(backup_path, feed_path, error);
+    if (error) {
+      spdlog::error("Failed to restore sidecar feed backup after retention failure: {} -> {} ({})", backup_path,
+                    feed_path.string(), error.message());
+    }
+    return;
+  }
+
+  error.clear();
+  std::filesystem::remove(backup_path, error);
+  if (error) {
+    spdlog::warn("Failed to remove sidecar feed retention backup: {} ({})", backup_path, error.message());
+  }
+
+  spdlog::info("Retained {} of {} battle-log group(s) in {} ({} JSONL line(s))", retained_groups.size(),
+               total_group_count, feed_path.string(), retained_line_count);
+}
+
+static void append_jsonl_sidecar_events(const nlohmann::json& sidecar_events)
+{
+  std::lock_guard lk(battle_feed_file_mtx);
+
+  const auto feed_path = File::MakePathString(kBattleFeedFile, true);
+
+  std::ofstream file(feed_path, std::ios::out | std::ios::binary | std::ios::app);
+  if (!file.is_open()) {
+    spdlog::error("Failed to open sidecar feed file for append: {}", feed_path);
+    return;
+  }
+
+  for (const auto& sidecar_event : sidecar_events) {
+    file << sidecar_event.dump() << '\n';
+  }
+
+  file.close();
+
+  const auto recent_logs = SyncSidecarJsonlRecentLogs();
+  retain_recent_jsonl_sidecar_events_locked(recent_logs > 0 ? static_cast<size_t>(recent_logs) : 0);
 }
 
 static void export_sidecar_events_to_jsonl(const nlohmann::json& sidecar_events, uint64_t journal_id)
@@ -116,9 +270,7 @@ static void export_sidecar_events_to_jsonl(const nlohmann::json& sidecar_events,
     return;
   }
 
-  for (const auto& event : sidecar_events) {
-    append_jsonl_sidecar_event(event);
-  }
+  append_jsonl_sidecar_events(sidecar_events);
 
   spdlog::debug("Exported {} sidecar event(s) to JSONL for journal {}", sidecar_events.size(), journal_id);
 }
@@ -135,13 +287,20 @@ static size_t json_entry_count(const nlohmann::json& value)
 static const char* hull_type_label(HullType type)
 {
   switch (type) {
-  case HullType::Destroyer: return "Destroyer";
-  case HullType::Survey: return "Survey";
-  case HullType::Explorer: return "Explorer";
-  case HullType::Battleship: return "Battleship";
-  case HullType::Defense: return "Defense";
-  case HullType::ArmadaTarget: return "ArmadaTarget";
-  case HullType::Any: return "Any";
+    case HullType::Destroyer:
+      return "Destroyer";
+    case HullType::Survey:
+      return "Survey";
+    case HullType::Explorer:
+      return "Explorer";
+    case HullType::Battleship:
+      return "Battleship";
+    case HullType::Defense:
+      return "Defense";
+    case HullType::ArmadaTarget:
+      return "ArmadaTarget";
+    case HullType::Any:
+      return "Any";
   }
 
   return "Unknown";
@@ -190,9 +349,7 @@ static std::string normalize_catalog_key_name(std::string text)
 }
 
 static std::string il2cpp_string_or_empty(Il2CppString* value)
-{
-  return value ? to_string(value) : std::string{};
-}
+{ return value ? to_string(value) : std::string{}; }
 
 static void add_catalog_id(nlohmann::json& metadata, std::string_view key, int64_t value)
 {
@@ -218,9 +375,7 @@ static nlohmann::json catalog_loca_metadata(IdRefs* id_refs)
 }
 
 static SpecManager* resolve_spec_manager()
-{
-  return SpecManager::Instance();
-}
+{ return SpecManager::Instance(); }
 
 static HullSpec* resolve_hull_spec(int64_t hull_id)
 {
@@ -318,9 +473,9 @@ static battle_log_decoder::CatalogResolver build_catalog_resolver()
   };
 
   resolver.system_metadata = [](int64_t system_id) {
-    auto metadata = nlohmann::json::object();
-    auto* manager = GameWorldManager::Instance();
-    int64_t loca_id = 0;
+    auto    metadata = nlohmann::json::object();
+    auto*   manager  = GameWorldManager::Instance();
+    int64_t loca_id  = 0;
     if (manager && manager->TryGetGalaxyLocaId(system_id, &loca_id)) {
       add_catalog_id(metadata, "locaId", loca_id);
     }
@@ -328,7 +483,7 @@ static battle_log_decoder::CatalogResolver build_catalog_resolver()
   };
 
   resolver.officer_metadata = [](int64_t officer_id) {
-    auto* spec = resolve_officer_spec(officer_id);
+    auto* spec     = resolve_officer_spec(officer_id);
     auto  metadata = catalog_loca_metadata(spec ? spec->IdRefsValue : nullptr);
     if (spec) {
       add_catalog_id(metadata, "captainManeuverId", spec->CaptainManeuverId);
@@ -339,8 +494,8 @@ static battle_log_decoder::CatalogResolver build_catalog_resolver()
   };
 
   resolver.ability_metadata = [](int64_t ability_id) {
-    auto metadata = nlohmann::json::object();
-    auto* manager = ActivatedAbilityManager::Instance();
+    auto  metadata = nlohmann::json::object();
+    auto* manager  = ActivatedAbilityManager::Instance();
     if (manager) {
       add_catalog_id(metadata, "locaId", manager->GetActivatedAbilityLocaId(ability_id));
     }
@@ -371,7 +526,8 @@ static nlohmann::json collect_sidecar_export_events(uint64_t journal_id, const n
 {
   auto events = nlohmann::json::array();
 
-  auto capture_event = battle_log_decoder::build_sidecar_battle_capture_event(journal, names, journal_id, captured_at_unix_ms);
+  auto capture_event =
+      battle_log_decoder::build_sidecar_battle_capture_event(journal, names, journal_id, captured_at_unix_ms);
   if (capture_event.value("ok", true) == false) {
     spdlog::warn("Battle capture export skipped journal {}: {}", journal_id,
                  capture_event.value("reason", std::string{"unknown"}));
@@ -383,7 +539,8 @@ static nlohmann::json collect_sidecar_export_events(uint64_t journal_id, const n
     return events;
   }
 
-  auto report_event = battle_log_decoder::build_sidecar_battle_report_event(journal, decoded, journal_id, captured_at_unix_ms);
+  auto report_event =
+      battle_log_decoder::build_sidecar_battle_report_event(journal, decoded, journal_id, captured_at_unix_ms);
   if (report_event.value("ok", true) == false) {
     spdlog::warn("Battle report export skipped journal {}: {}", journal_id,
                  report_event.value("reason", std::string{"unknown"}));
@@ -392,7 +549,7 @@ static nlohmann::json collect_sidecar_export_events(uint64_t journal_id, const n
   }
 
   auto catalog_resolver = build_catalog_resolver();
-  auto catalog_event = battle_log_decoder::build_sidecar_catalog_snapshot_event(
+  auto catalog_event    = battle_log_decoder::build_sidecar_catalog_snapshot_event(
       journal, names, decoded, catalog_resolver, journal_id, captured_at_unix_ms);
   if (catalog_event.value("ok", true) == false) {
     spdlog::warn("Catalog snapshot export skipped journal {}: {}", journal_id,
@@ -401,7 +558,8 @@ static nlohmann::json collect_sidecar_export_events(uint64_t journal_id, const n
     events.push_back(std::move(catalog_event));
   }
 
-  auto analytics_event = battle_log_decoder::build_sidecar_battle_analytics_event(journal, decoded, journal_id, captured_at_unix_ms);
+  auto analytics_event =
+      battle_log_decoder::build_sidecar_battle_analytics_event(journal, decoded, journal_id, captured_at_unix_ms);
   if (analytics_event.value("ok", true) == false) {
     spdlog::warn("Battle analytics export skipped journal {}: {}", journal_id,
                  analytics_event.value("reason", std::string{"unknown"}));
@@ -422,9 +580,7 @@ void load_previously_sent_logs()
 }
 
 static void save_previously_sent_logs()
-{
-  spdlog::trace("Battle log dedupe is in-memory only; no sent-ID file is written");
-}
+{ spdlog::trace("Battle log dedupe is in-memory only; no sent-ID file is written"); }
 
 void process_battle_headers(const nlohmann::json& section)
 {
@@ -600,9 +756,9 @@ void ship_combat_log_data()
       combat_log_data_queue.pop();
     }
 
-    const bool send_battlelogs = has_enabled_sync_target(SyncConfig::Type::Battles);
+    const bool send_battlelogs            = has_enabled_sync_target(SyncConfig::Type::Battles);
     const bool export_battlelogs_realtime = has_enabled_sync_target(SyncConfig::Type::BattlelogsRealtime);
-    const bool export_sidecar_jsonl = Config::Get().sync_sidecar_jsonl;
+    const bool export_sidecar_jsonl       = Config::Get().sync_sidecar_jsonl;
 
     if (!send_battlelogs && !export_battlelogs_realtime && !export_sidecar_jsonl) {
       spdlog::debug("Skipping combat log fetch for battle {} because no battle export targets are enabled", journal_id);
@@ -723,7 +879,8 @@ void ship_combat_log_data()
       }
 
       if (export_battlelogs_realtime || export_sidecar_jsonl) {
-        const auto sidecar_events = collect_sidecar_export_events(journal_id, names, journal, decoded, captured_at_unix_ms);
+        const auto sidecar_events =
+            collect_sidecar_export_events(journal_id, names, journal, decoded, captured_at_unix_ms);
         export_sidecar_events_to_jsonl(sidecar_events, journal_id);
 
         if (export_battlelogs_realtime && !sidecar_events.empty()) {

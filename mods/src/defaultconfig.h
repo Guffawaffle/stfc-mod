@@ -22,7 +22,7 @@ namespace SystemConfig
   /// Override URL for downloading remote asset bundles (empty = use game default).
   constexpr const char* assets_url_override = "";
   /// URL for fetching remote settings updates (empty = disabled).
-  constexpr const char* settings_url        = "";
+  constexpr const char* settings_url = "";
 } // namespace SystemConfig
 
 namespace Control
@@ -30,75 +30,77 @@ namespace Control
   /// Enable experimental/unstable features (e.g. pan-momentum, WASD move keys). Default: false.
   constexpr bool enable_experimental = false;
   /// Master toggle for keyboard hotkeys. Default: true.
-  constexpr bool hotkeys_enabled     = true;
+  constexpr bool hotkeys_enabled = true;
   /// Enable the extended hotkey set (bookmarks, cargo toggles, etc.). Default: true.
-  constexpr bool hotkeys_extended    = true;
+  constexpr bool hotkeys_extended = true;
   /// When true, use Scopely's built-in hotkey layer instead of the mod's. Default: false.
   constexpr bool use_scopely_hotkeys = false;
   /// Enable the action queue system. Default: true.
-  constexpr bool queue_enabled       = true;
+  constexpr bool queue_enabled = true;
   /// Delay in ms before a tap is registered as a select action. Default: 500.
-  constexpr auto select_timer        = 500;
+  constexpr auto select_timer = 500;
 } // namespace Control
 
 namespace Graphics
 {
   /// Start in borderless-fullscreen mode. Default: true.
-  constexpr bool borderless_fullscreen       = true;
+  constexpr bool borderless_fullscreen = true;
   /// Show the OS cursor instead of hiding it. Default: true.
-  constexpr bool allow_cursor                = true;
+  constexpr bool allow_cursor = true;
   /// Default system-view zoom level (game units). Default: 1750.
-  constexpr auto default_system_zoom         = 1750;
+  constexpr auto default_system_zoom = 1750;
   /// Allow free window resizing (not locked to 16:9). Default: true.
-  constexpr bool free_resize                 = true;
+  constexpr bool free_resize = true;
   /// Speed of keyboard-driven zoom (game units/s). Default: 350.
-  constexpr auto keyboard_zoom_speed         = 350;
+  constexpr auto keyboard_zoom_speed = 350;
   /// Expose all display resolutions, not just 16:9. Default: false.
-  constexpr bool show_all_resolutions        = false;
+  constexpr bool show_all_resolutions = false;
   /// Momentum decay rate for system-view panning (0–1, higher = slower decay). Default: 0.8.
   constexpr auto system_pan_momentum_falloff = 0.8;
   /// Initial pan-momentum strength (0–1). Default: 0.4. Requires enable_experimental.
-  constexpr auto system_pan_momentum         = 0.4;
+  constexpr auto system_pan_momentum = 0.4;
   /// Zoom preset levels 1–5 (game units, low = close, high = far). Defaults: 50–5000.
-  constexpr auto system_zoom_preset_1        = 50;
-  constexpr auto system_zoom_preset_2        = 500;
-  constexpr auto system_zoom_preset_3        = 1250;
-  constexpr auto system_zoom_preset_4        = 2750;
-  constexpr auto system_zoom_preset_5        = 5000;
+  constexpr auto system_zoom_preset_1 = 50;
+  constexpr auto system_zoom_preset_2 = 500;
+  constexpr auto system_zoom_preset_3 = 1250;
+  constexpr auto system_zoom_preset_4 = 2750;
+  constexpr auto system_zoom_preset_5 = 5000;
   /// Camera transition duration in seconds. Default: 0.01 (near-instant).
-  constexpr auto transition_time             = 0.01;
+  constexpr auto transition_time = 0.01;
   /// Base UI scale multiplier. Default: 0.6.
-  constexpr auto ui_scale                    = 0.6;
+  constexpr auto ui_scale = 0.6;
   /// Step size for PgUp/PgDown UI scale adjustment. Default: 0.05.
-  constexpr auto ui_scale_adjust             = 0.05;
+  constexpr auto ui_scale_adjust = 0.05;
   /// Scale multiplier for the object-viewer panel. Default: 1.2.
-  constexpr auto ui_scale_viewer             = 1.2;
+  constexpr auto ui_scale_viewer = 1.2;
   /// Use zoom presets as the initial zoom on system entry. Default: true.
-  constexpr bool use_presets_as_default      = true;
+  constexpr bool use_presets_as_default = true;
   /// Maximum camera zoom distance (game units). Default: 5000.
-  constexpr auto zoom                        = 5000;
+  constexpr auto zoom = 5000;
   /// Replace TVC/SlideShow backgrounds. Default: true.
-  constexpr bool loader_transition           = true;
+  constexpr bool loader_transition = true;
   /// Replace LoginSequence background. Default: true.
-  constexpr bool loader_enabled              = true;
+  constexpr bool loader_enabled = true;
   /// Optional custom loading image path (empty = embedded fallback). Default: empty.
-  constexpr const char* loader_image         = "";
+  constexpr const char* loader_image = "";
 } // namespace Graphics
 
 namespace Debug
 {
   /// Enable the live debug/query channel for AX and runtime inspection. Default: false.
   constexpr bool live_query = false;
+  /// Enable focused refinery lifecycle/action diagnostics in community_patch.log. Default: true.
+  constexpr bool refinery_diagnostics = true;
 } // namespace Debug
 
 namespace BattleLogDecoder
 {
   /// Enable live battle_log segment decoding beside the raw battle probe. Default: false.
-  constexpr bool enabled       = false;
+  constexpr bool enabled = false;
   /// Emit decoded segment summaries when the decoder is enabled. Default: true.
   constexpr bool emit_segments = true;
   /// Emit sidecar-ready battle report feed events when the decoder is enabled. Default: true.
-  constexpr bool emit_feed     = true;
+  constexpr bool emit_feed = true;
 } // namespace BattleLogDecoder
 
 namespace Notifications
@@ -108,19 +110,19 @@ namespace Notifications
 
   namespace Battle
   {
-    constexpr bool victory            = true;
-    constexpr bool defeat             = true;
-    constexpr bool partial_victory    = true;
-    constexpr bool station_victory    = false;
-    constexpr bool station_defeat     = false;
-    constexpr bool station_battle     = false;
+    constexpr bool victory                 = true;
+    constexpr bool defeat                  = true;
+    constexpr bool partial_victory         = true;
+    constexpr bool station_victory         = false;
+    constexpr bool station_defeat          = false;
+    constexpr bool station_battle          = false;
     constexpr bool incoming_attack_player  = false;
     constexpr bool incoming_attack_hostile = false;
-    constexpr bool fleet_battle       = false;
-    constexpr bool armada_battle_won  = false;
-    constexpr bool armada_battle_lost = false;
-    constexpr bool assault_victory    = false;
-    constexpr bool assault_defeat     = false;
+    constexpr bool fleet_battle            = false;
+    constexpr bool armada_battle_won       = false;
+    constexpr bool armada_battle_lost      = false;
+    constexpr bool assault_victory         = false;
+    constexpr bool assault_defeat          = false;
   } // namespace Battle
 
   namespace Armada
@@ -300,72 +302,74 @@ namespace Sync
 {
   // Per-category defaults — each maps to a [sync] TOML key.
   // Individual [sync.targets.<name>] sections can override these.
-  constexpr bool        battlelogs         = true;   ///< Sync battle-log reports.
-  constexpr bool        battlelogs_realtime = false; ///< Export canonical battle feed events to realtime ingest targets.
-  constexpr bool        buffs              = true;   ///< Sync buff / Emerald Chain data.
-  constexpr bool        buildings          = true;   ///< Sync station module data.
-  constexpr bool        inventory          = true;   ///< Sync inventory contents.
-  constexpr bool        jobs               = true;   ///< Sync active job/build queues.
-  constexpr bool        missions           = true;   ///< Sync mission progress.
-  constexpr bool        officer            = true;   ///< Sync officer roster.
-  constexpr const char* proxy              = "";     ///< HTTP proxy for sync requests (empty = none).
-  constexpr bool        research           = true;   ///< Sync research tree state.
-  constexpr bool        resources          = true;   ///< Sync resource amounts.
-  constexpr bool        ships              = true;   ///< Sync fleet / ship data.
-  constexpr bool        slots              = true;   ///< Sync crew-slot assignments.
-  constexpr bool        tech               = true;   ///< Sync forbidden tech data.
-  constexpr bool        traits             = true;   ///< Sync officer traits.
-  constexpr const char* token              = "";     ///< Bearer token (legacy, prefer targets).
-  constexpr const char* url                = "";     ///< Endpoint URL (legacy, prefer targets).
-  constexpr bool        debug              = false;  ///< Extra debug logging for sync subsystem.
-  constexpr bool        logging            = false;  ///< Log raw sync payloads.
-  constexpr bool        sidecar_jsonl      = true;   ///< Emit canonical sidecar events to a local JSONL feed for basic installs.
-  constexpr bool        verify_ssl         = true;   ///< Verify TLS certificates on sync requests.
+  constexpr bool battlelogs          = true;  ///< Sync battle-log reports.
+  constexpr bool battlelogs_realtime = false; ///< Export canonical battle feed events to realtime ingest targets.
+  constexpr bool buffs               = true;  ///< Sync buff / Emerald Chain data.
+  constexpr bool buildings           = true;  ///< Sync station module data.
+  constexpr bool inventory           = true;  ///< Sync inventory contents.
+  constexpr bool jobs                = true;  ///< Sync active job/build queues.
+  constexpr bool missions            = true;  ///< Sync mission progress.
+  constexpr bool officer             = true;  ///< Sync officer roster.
+  constexpr const char* proxy        = "";    ///< HTTP proxy for sync requests (empty = none).
+  constexpr bool        research     = true;  ///< Sync research tree state.
+  constexpr bool        resources    = true;  ///< Sync resource amounts.
+  constexpr bool        ships        = true;  ///< Sync fleet / ship data.
+  constexpr bool        slots        = true;  ///< Sync crew-slot assignments.
+  constexpr bool        tech         = true;  ///< Sync forbidden tech data.
+  constexpr bool        traits       = true;  ///< Sync officer traits.
+  constexpr const char* token        = "";    ///< Bearer token (legacy, prefer targets).
+  constexpr const char* url          = "";    ///< Endpoint URL (legacy, prefer targets).
+  constexpr bool        debug        = false; ///< Extra debug logging for sync subsystem.
+  constexpr bool        logging      = false; ///< Log raw sync payloads.
+  constexpr bool sidecar_jsonl = true; ///< Emit canonical sidecar events to a local JSONL feed for basic installs.
+  constexpr auto sidecar_jsonl_recent_logs =
+      300;                          ///< Retain this many recent battle logs in the JSONL feed (0 = unlimited).
+  constexpr bool verify_ssl = true; ///< Verify TLS certificates on sync requests.
   /// DNS resolver cache TTL in seconds. Default: 300 (5 min).
-  constexpr auto        resolver_cache_ttl = 300;
+  constexpr auto resolver_cache_ttl = 300;
 } // namespace Sync
 
 namespace UI
 {
   /// Auto-skip the ship/officer reveal animation. Default: true.
-  constexpr bool        always_skip_reveal_sequence = true;
+  constexpr bool always_skip_reveal_sequence = true;
   /// Auto-confirm new system discoveries. Default: true.
-  constexpr bool        auto_confirm_discovery      = true;
+  constexpr bool auto_confirm_discovery = true;
   /// Block the Escape key from closing the game. Default: true.
-  constexpr bool        disable_escape_exit         = true;
+  constexpr bool disable_escape_exit = true;
   /// Max ms between two Escape presses to count as a double-tap.
   /// 0 = disabled (Escape fully blocked). 500 = half-second window.
-  constexpr auto        escape_exit_timer           = 0;
+  constexpr auto escape_exit_timer = 0;
   /// Suppress the first-run welcome popup. Default: false.
-  constexpr bool        disable_first_popup         = false;
+  constexpr bool disable_first_popup = false;
   /// Hide galaxy chat entirely. Default: false.
-  constexpr bool        disable_galaxy_chat         = false;
+  constexpr bool disable_galaxy_chat = false;
   /// Disable WASD movement keys. Default: false.
-  constexpr bool        disable_move_keys           = false;
+  constexpr bool disable_move_keys = false;
   /// Disable the "locate" preview on fleet-select. Default: false.
-  constexpr bool        disable_preview_locate      = false;
+  constexpr bool disable_preview_locate = false;
   /// Disable the "recall" preview on fleet-select. Default: false.
-  constexpr bool        disable_preview_recall      = false;
+  constexpr bool disable_preview_recall = false;
   /// Suppress all toast banners. Default: false.
-  constexpr bool        disable_toast_banners       = false;
+  constexpr bool disable_toast_banners = false;
   /// Hide Veil-sector chat. Default: false.
-  constexpr bool        disable_veil_chat           = false;
+  constexpr bool disable_veil_chat = false;
   /// Comma-separated list of toast banner type names to suppress (empty = none).
-  constexpr const char* disabled_banner_types       = "";
+  constexpr const char* disabled_banner_types = "";
   /// Maximum alliance-donation slider value (percentage). Default: 80.
-  constexpr auto        extend_donation_max         = 80;
+  constexpr auto extend_donation_max = 80;
   /// Enable the extended donation slider range. Default: true. (Windows only.)
-  constexpr bool        extend_donation_slider      = true;
+  constexpr bool extend_donation_slider = true;
   /// Show cargo overlay on armada targets by default. Default: true.
-  constexpr bool        show_armada_cargo           = true;
+  constexpr bool show_armada_cargo = true;
   /// Show cargo overlay on all entities by default. Default: true.
-  constexpr bool        show_cargo_default          = true;
+  constexpr bool show_cargo_default = true;
   /// Show cargo overlay on hostile ships. Default: true.
-  constexpr bool        show_hostile_cargo          = true;
+  constexpr bool show_hostile_cargo = true;
   /// Show cargo overlay on player ships. Default: true.
-  constexpr bool        show_player_cargo           = true;
+  constexpr bool show_player_cargo = true;
   /// Show cargo overlay on stations. Default: true.
-  constexpr bool        show_station_cargo          = true;
+  constexpr bool show_station_cargo = true;
 } // namespace UI
 
 } // namespace DefaultConfig

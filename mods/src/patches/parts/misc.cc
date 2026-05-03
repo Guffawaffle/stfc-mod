@@ -120,9 +120,7 @@ struct Resolution {
   int m_RefreshRate;
 
   bool operator==(const Resolution& other) const
-  {
-    return this->m_Height == other.m_Height && this->m_Width == other.m_Width;
-  }
+  { return this->m_Height == other.m_Height && this->m_Width == other.m_Width; }
 };
 
 struct ResolutionArray {
@@ -239,8 +237,8 @@ bool ShouldShowRevealHook(auto original, void* _this, bool ignore)
   return original(_this, ignore);
 }
 
-void TriggerOpenSectionChange_Hook(auto original, void* _this, void* data, bool ignoreRevealSequence,
-                                   int numChests, bool* isFlyOut)
+void TriggerOpenSectionChange_Hook(auto original, void* _this, void* data, bool ignoreRevealSequence, int numChests,
+                                   bool* isFlyOut)
 {
   if (Config::Get().always_skip_reveal_sequence) {
     ignoreRevealSequence = true;
@@ -248,95 +246,6 @@ void TriggerOpenSectionChange_Hook(auto original, void* _this, void* data, bool 
 
   original(_this, data, ignoreRevealSequence, numChests, isFlyOut);
 }
-
-// ─── IL2CPP Property Wrappers ────────────────────────────────────────────────
-
-struct ShopCategory {
-public:
-  __declspec(property(get = __get__flagValue)) int Value;
-
-private:
-  static IL2CppClassHelper& get_class_helper()
-  {
-    static auto class_helper =
-        il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.Prime.Shop", "ShopCategory");
-    return class_helper;
-  }
-
-public:
-  int __get__flagValue()
-  {
-    static auto field = get_class_helper().GetProperty("Value");
-    return *field.GetUnboxedSelf<int>(this);
-  }
-};
-
-struct CurrencyType {
-public:
-  __declspec(property(get = __get__flagValue)) int Value;
-  //
-
-private:
-  static IL2CppClassHelper& get_class_helper()
-  {
-    static auto class_helper =
-        il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimePlatform.Content", "CurrencyType");
-    return class_helper;
-  }
-
-public:
-  int __get__flagValue()
-  {
-    static auto field = get_class_helper().GetProperty("Value");
-    return *field.GetUnboxedSelf<int>(this);
-  }
-};
-
-struct BundleGroupConfig {
-public:
-  __declspec(property(get = __get__category)) int _category;
-  __declspec(property(get = __get__currency)) int _currency;
-
-private:
-  static IL2CppClassHelper& get_class_helper()
-  {
-    static auto class_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Shop", "BundleGroupConfig");
-    return class_helper;
-  }
-
-public:
-  int __get__category()
-  {
-    static auto field = get_class_helper().GetField("_category");
-    return *(int*)((ptrdiff_t)this + field.offset());
-  }
-
-  int __get__currency()
-  {
-    static auto field = get_class_helper().GetField("_currency");
-    return *(int*)((ptrdiff_t)this + field.offset());
-  }
-};
-
-class ShopSectionContext
-{
-public:
-  __declspec(property(get = __get__bundleConfig)) BundleGroupConfig* _bundleConfig;
-
-private:
-  static IL2CppClassHelper& get_class_helper()
-  {
-    static auto class_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Shop", "ShopSectionContext");
-    return class_helper;
-  }
-
-public:
-  BundleGroupConfig* __get__bundleConfig()
-  {
-    static auto field = get_class_helper().GetProperty("BundleGroup");
-    return field.GetRaw<BundleGroupConfig>(this);
-  }
-};
 
 /**
  * @brief Hook: InterstitialViewController::AboutToShow
@@ -350,8 +259,8 @@ bool isFirstInterstitial = true;
 
 void InterstitialViewController_AboutToShow(auto original, InterstitialViewController* _this)
 {
-  if (false /* TEMP: disable_first_popup effect disabled */ && Config::Get().disable_first_popup
-      && isFirstInterstitial && _this != nullptr) {
+  if (false /* TEMP: disable_first_popup effect disabled */ && Config::Get().disable_first_popup && isFirstInterstitial
+      && _this != nullptr) {
     isFirstInterstitial = false;
     _this->CloseWhenReady();
   } else {

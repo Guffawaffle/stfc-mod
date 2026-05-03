@@ -24,7 +24,8 @@
 
 #include <cstring>
 
-namespace {
+namespace
+{
 constexpr bool kLiveDebugOnlyHookIsolation = false;
 }
 
@@ -50,6 +51,7 @@ void InstallImproveResponsivenessHooks();
 void InstallFrameTickHooks();
 void InstallHotkeyHooks();
 void InstallLiveDebugHooks();
+void InstallRefineryDiagnosticsHooks();
 void InstallTestPatches();
 void InstallMiscPatches();
 void InstallChatPatches();
@@ -133,9 +135,10 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
-  auto install_live_debug_hooks = LiveDebugChannelEnabled();
-  auto install_frame_tick_hooks = cfg.installHotkeyHooks || install_live_debug_hooks;
-  const PatchEntry patches[] = {
+  auto             install_live_debug_hooks           = LiveDebugChannelEnabled();
+  auto             install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
+  auto             install_frame_tick_hooks           = cfg.installHotkeyHooks || install_live_debug_hooks;
+  const PatchEntry patches[]                          = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
       {"BuffFixHooks", {InstallBuffFixHooks, &cfg.installBuffFixHooks}},
@@ -145,6 +148,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"FrameTickHooks", {InstallFrameTickHooks, &install_frame_tick_hooks}},
       {"HotkeyHooks", {InstallHotkeyHooks, &cfg.installHotkeyHooks}},
       {"LiveDebugHooks", {InstallLiveDebugHooks, &install_live_debug_hooks}},
+      {"RefineryDiagnosticsHooks", {InstallRefineryDiagnosticsHooks, &install_refinery_diagnostics_hooks}},
 #if _WIN32
       {"FreeResizeHooks", {InstallFreeResizeHooks, &cfg.installFreeResizeHooks}},
 #endif
@@ -168,12 +172,12 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   for (const auto& patch : patches) {
     patch_count++;
     const auto [patch_func, patch_enabled] = patch.fnAndEnabled;
-    const auto patch_allowed_by_isolation = !kLiveDebugOnlyHookIsolation ||
-      std::strcmp(patch.name, "LiveDebugHooks") == 0 || std::strcmp(patch.name, "ObjectTracker") == 0 ||
-      std::strcmp(patch.name, "FleetArrival") == 0 || std::strcmp(patch.name, "FrameTickHooks") == 0 ||
-      std::strcmp(patch.name, "HotkeyHooks") == 0;
-    const auto patch_install               = patch_allowed_by_isolation && (patch_enabled && *patch_enabled);
-    const auto patch_mode                  = patch_install ? "+ Patch" : "x Skipp";
+    const auto patch_allowed_by_isolation =
+        !kLiveDebugOnlyHookIsolation || std::strcmp(patch.name, "LiveDebugHooks") == 0
+        || std::strcmp(patch.name, "ObjectTracker") == 0 || std::strcmp(patch.name, "FleetArrival") == 0
+        || std::strcmp(patch.name, "FrameTickHooks") == 0 || std::strcmp(patch.name, "HotkeyHooks") == 0;
+    const auto patch_install = patch_allowed_by_isolation && (patch_enabled && *patch_enabled);
+    const auto patch_mode    = patch_install ? "+ Patch" : "x Skipp";
     spdlog::info(" {}ing {:>2} of {} ({})", patch_mode, patch_count, patch_total, patch.name);
 
     if (patch_install) {

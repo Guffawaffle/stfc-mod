@@ -18,6 +18,7 @@
 #include <EASTL/tuple.h>
 #include <spdlog/spdlog.h>
 
+#include "defaultconfig.h"
 #include <algorithm>
 #include <array>
 #include <cstdio>
@@ -26,101 +27,98 @@
 #include <ranges>
 #include <string>
 #include <string_view>
-#include "defaultconfig.h"
 
-namespace DCP = DefaultConfig::Patches;
-namespace DCG = DefaultConfig::Graphics;
-namespace DCD = DefaultConfig::Debug;
-namespace DCN = DefaultConfig::Notifications;
-namespace DCC = DefaultConfig::Control;
-namespace DCU = DefaultConfig::UI;
-namespace DCBS = DefaultConfig::Buffs;
-namespace DCS = DefaultConfig::Sync;
-namespace DCSC = DefaultConfig::SystemConfig;
-namespace DCSH = DefaultConfig::Shortcuts;
+namespace DCP   = DefaultConfig::Patches;
+namespace DCG   = DefaultConfig::Graphics;
+namespace DCD   = DefaultConfig::Debug;
+namespace DCN   = DefaultConfig::Notifications;
+namespace DCC   = DefaultConfig::Control;
+namespace DCU   = DefaultConfig::UI;
+namespace DCBS  = DefaultConfig::Buffs;
+namespace DCS   = DefaultConfig::Sync;
+namespace DCSC  = DefaultConfig::SystemConfig;
+namespace DCSH  = DefaultConfig::Shortcuts;
 namespace DCBLD = DefaultConfig::BattleLogDecoder;
 
 // Standalone flag — NOT in Config struct to avoid struct layout sensitivity.
 // See: fix/lto-and-sync-crashes for context on why Config struct changes crash.
-static bool g_allow_key_fallthrough       = false;
-static bool g_live_debug_channel          = false;
-static bool g_battle_log_decoder_enabled  = false;
-static bool g_battle_log_decoder_segments = true;
-static bool g_battle_log_decoder_feed     = true;
+static bool g_allow_key_fallthrough          = false;
+static bool g_live_debug_channel             = false;
+static bool g_battle_log_decoder_enabled     = false;
+static bool g_battle_log_decoder_segments    = true;
+static bool g_battle_log_decoder_feed        = true;
+static int  g_sync_sidecar_jsonl_recent_logs = DCS::sidecar_jsonl_recent_logs;
+static bool g_refinery_diagnostics           = DCD::refinery_diagnostics;
 
 /** @brief Accessor for the file-scope allow_key_fallthrough flag. */
 bool AllowKeyFallthrough()
-{
-  return g_allow_key_fallthrough;
-}
+{ return g_allow_key_fallthrough; }
 
 bool LiveDebugChannelEnabled()
-{
-  return g_live_debug_channel;
-}
+{ return g_live_debug_channel; }
 
 bool BattleLogDecoderEnabled()
-{
-  return g_battle_log_decoder_enabled;
-}
+{ return g_battle_log_decoder_enabled; }
 
 bool BattleLogDecoderEmitSegments()
-{
-  return g_battle_log_decoder_segments;
-}
+{ return g_battle_log_decoder_segments; }
 
 bool BattleLogDecoderEmitFeed()
-{
-  return g_battle_log_decoder_feed;
-}
+{ return g_battle_log_decoder_feed; }
+
+int SyncSidecarJsonlRecentLogs()
+{ return g_sync_sidecar_jsonl_recent_logs; }
+
+bool RefineryDiagnosticsEnabled()
+{ return g_refinery_diagnostics; }
 
 /// Human-readable names → ToastState enum values.
 /// Used for [ui].disabled_banner_types and legacy [ui] notification allowlists.
 static const eastl::tuple<const char*, int> bannerTypes[] = {
-  {"Standard", ToastState::Standard},
-  {"FactionWarning", ToastState::FactionWarning},
-  {"FactionLevelUp", ToastState::FactionLevelUp},
-  {"FactionLevelDown", ToastState::FactionLevelDown},
-  {"FactionDiscovered", ToastState::FactionDiscovered},
-  {"IncomingAttack", ToastState::IncomingAttack},
-  {"IncomingAttackFaction", ToastState::IncomingAttackFaction},
-  {"FleetBattle", ToastState::FleetBattle},
-  {"StationBattle", ToastState::StationBattle},
-  {"StationVictory", ToastState::StationVictory},
-  {"Victory", ToastState::Victory},
-  {"Defeat", ToastState::Defeat},
-  {"StationDefeat", ToastState::StationDefeat},
-  {"Event", ToastState::Tournament},
-  {"Tournament", ToastState::Tournament},
-  {"ArmadaCreated", ToastState::ArmadaCreated},
-  {"ArmadaCanceled", ToastState::ArmadaCanceled},
-  {"ArmadaIncomingAttack", ToastState::ArmadaIncomingAttack},
-  {"ArmadaBattleWon", ToastState::ArmadaBattleWon},
-  {"ArmadaBattleLost", ToastState::ArmadaBattleLost},
-  {"DiplomacyUpdated", ToastState::DiplomacyUpdated},
-  {"JoinedTakeover", ToastState::JoinedTakeover},
-  {"CompetitorJoinedTakeover", ToastState::CompetitorJoinedTakeover},
-  {"AbandonedTerritory", ToastState::AbandonedTerritory},
-  {"TakeoverVictory", ToastState::TakeoverVictory},
-  {"TakeoverDefeat", ToastState::TakeoverDefeat},
-  {"TreasuryProgress", ToastState::TreasuryProgress},
-  {"TreasuryFull", ToastState::TreasuryFull},
-  {"Achievement", ToastState::Achievement},
-  {"AssaultVictory", ToastState::AssaultVictory},
-  {"AssaultDefeat", ToastState::AssaultDefeat},
-  {"ChallengeComplete", ToastState::ChallengeComplete},
-  {"ChallengeFailed", ToastState::ChallengeFailed},
-  {"StrikeHit", ToastState::StrikeHit},
-  {"StrikeDefeat", ToastState::StrikeDefeat},
-  {"WarchestProgress", ToastState::WarchestProgress},
-  {"WarchestFull", ToastState::WarchestFull},
-  {"PartialVictory", ToastState::PartialVictory},
-  {"ArenaTimeLeft", ToastState::ArenaTimeLeft},
-  {"ChainedEventScored", ToastState::ChainedEventScored},
-  {"FleetPresetApplied", ToastState::FleetPresetApplied},
-  {"SurgeWarmUpEnded", ToastState::SurgeWarmUpEnded},
-  {"SurgeHostileGroupDefeated", ToastState::SurgeHostileGroupDefeated},
-  {"SurgeTimeLeft", ToastState::SurgeTimeLeft},
+    {"Standard", ToastState::Standard},
+    {"FactionWarning", ToastState::FactionWarning},
+    {"FactionLevelUp", ToastState::FactionLevelUp},
+    {"FactionLevelDown", ToastState::FactionLevelDown},
+    {"FactionDiscovered", ToastState::FactionDiscovered},
+    {"IncomingAttack", ToastState::IncomingAttack},
+    {"IncomingAttackFaction", ToastState::IncomingAttackFaction},
+    {"FleetBattle", ToastState::FleetBattle},
+    {"StationBattle", ToastState::StationBattle},
+    {"StationVictory", ToastState::StationVictory},
+    {"Victory", ToastState::Victory},
+    {"Defeat", ToastState::Defeat},
+    {"StationDefeat", ToastState::StationDefeat},
+    {"Event", ToastState::Tournament},
+    {"Tournament", ToastState::Tournament},
+    {"ArmadaCreated", ToastState::ArmadaCreated},
+    {"ArmadaCanceled", ToastState::ArmadaCanceled},
+    {"ArmadaIncomingAttack", ToastState::ArmadaIncomingAttack},
+    {"ArmadaBattleWon", ToastState::ArmadaBattleWon},
+    {"ArmadaBattleLost", ToastState::ArmadaBattleLost},
+    {"DiplomacyUpdated", ToastState::DiplomacyUpdated},
+    {"JoinedTakeover", ToastState::JoinedTakeover},
+    {"CompetitorJoinedTakeover", ToastState::CompetitorJoinedTakeover},
+    {"AbandonedTerritory", ToastState::AbandonedTerritory},
+    {"TakeoverVictory", ToastState::TakeoverVictory},
+    {"TakeoverDefeat", ToastState::TakeoverDefeat},
+    {"TreasuryProgress", ToastState::TreasuryProgress},
+    {"TreasuryFull", ToastState::TreasuryFull},
+    {"Achievement", ToastState::Achievement},
+    {"AssaultVictory", ToastState::AssaultVictory},
+    {"AssaultDefeat", ToastState::AssaultDefeat},
+    {"ChallengeComplete", ToastState::ChallengeComplete},
+    {"ChallengeFailed", ToastState::ChallengeFailed},
+    {"StrikeHit", ToastState::StrikeHit},
+    {"StrikeDefeat", ToastState::StrikeDefeat},
+    {"WarchestProgress", ToastState::WarchestProgress},
+    {"WarchestFull", ToastState::WarchestFull},
+    {"PartialVictory", ToastState::PartialVictory},
+    {"ArenaTimeLeft", ToastState::ArenaTimeLeft},
+    {"ChainedEventScored", ToastState::ChainedEventScored},
+    {"FleetPresetApplied", ToastState::FleetPresetApplied},
+    {"SurgeWarmUpEnded", ToastState::SurgeWarmUpEnded},
+    {"SurgeHostileGroupDefeated", ToastState::SurgeHostileGroupDefeated},
+    {"SurgeTimeLeft", ToastState::SurgeTimeLeft},
 };
 
 struct BoolConfigSpec {
@@ -132,42 +130,34 @@ struct BoolConfigSpec {
 };
 
 static constexpr BoolConfigSpec kHotkeysEnabledConfig{
-  "control",
-  "hotkeys_enabled",
-  "hotkeys_enabled",
-  DCC::hotkeys_enabled,
-  "Master toggle for mod keyboard hotkeys.",
+    "control", "hotkeys_enabled", "hotkeys_enabled", DCC::hotkeys_enabled, "Master toggle for mod keyboard hotkeys.",
 };
 
 static constexpr BoolConfigSpec kHotkeysExtendedConfig{
-  "control",
-  "hotkeys_extended",
-  "hotkeys_extended",
-  DCC::hotkeys_extended,
-  "Enable extended keyboard shortcuts.",
+    "control", "hotkeys_extended", "hotkeys_extended", DCC::hotkeys_extended, "Enable extended keyboard shortcuts.",
 };
 
 static constexpr BoolConfigSpec kUseScopelyHotkeysConfig{
-  "control",
-  "use_scopely_hotkeys",
-  "use_scopely_hotkeys",
-  DCC::use_scopely_hotkeys,
-  "Use Scopely's built-in shortcut layer instead of the mod hotkey router.",
+    "control",
+    "use_scopely_hotkeys",
+    "use_scopely_hotkeys",
+    DCC::use_scopely_hotkeys,
+    "Use Scopely's built-in shortcut layer instead of the mod hotkey router.",
 };
 
 static constexpr BoolConfigSpec kAllowKeyFallthroughConfig{
-  "control",
-  "allow_key_fallthrough",
-  "allow_key_fallthrough",
-  false,
-  "Allow unhandled key frames to fall through to the original game input path.",
+    "control",
+    "allow_key_fallthrough",
+    "allow_key_fallthrough",
+    false,
+    "Allow unhandled key frames to fall through to the original game input path.",
 };
 
 static constexpr std::array kHotkeyBoolConfigSpecs{
-  kHotkeysEnabledConfig,
-  kHotkeysExtendedConfig,
-  kUseScopelyHotkeysConfig,
-  kAllowKeyFallthroughConfig,
+    kHotkeysEnabledConfig,
+    kHotkeysExtendedConfig,
+    kUseScopelyHotkeysConfig,
+    kAllowKeyFallthroughConfig,
 };
 static_assert(kHotkeyBoolConfigSpecs.size() == 4);
 
@@ -182,13 +172,13 @@ struct ShortcutConfigSpec {
 };
 
 static constexpr ShortcutConfigSpec kDisableHotkeysShortcutConfig{
-  "shortcuts",
-  "set_hotkeys_disable",
-  "set_hotkeys_disable",
-  DCSH::set_hotkeys_disabled,
-  "set_hotkeys_disble",
-  "set_hotkeys_disabled",
-  "Shortcut that disables mod hotkeys at runtime.",
+    "shortcuts",
+    "set_hotkeys_disable",
+    "set_hotkeys_disable",
+    DCSH::set_hotkeys_disabled,
+    "set_hotkeys_disble",
+    "set_hotkeys_disabled",
+    "Shortcut that disables mod hotkeys at runtime.",
 };
 
 struct NotificationBoolConfigSpec {
@@ -197,17 +187,26 @@ struct NotificationBoolConfigSpec {
   std::string_view runtime_key;
   bool             default_value;
   bool NotificationConfig::* member;
-  std::string_view docs;
+  std::string_view           docs;
 };
 
 static constexpr NotificationBoolConfigSpec notificationBoolConfigSpecs[] = {
-  {"notifications", "notifications_enabled", "notifications_enabled", DCN::enabled, &NotificationConfig::enabled, "Master switch for OS notifications."},
-  {"notifications", "notifications_fleet_arrived_in_system", "notifications_fleet_arrived_in_system", DCN::Fleet::arrived_in_system, &NotificationConfig::fleet_arrived_in_system, "Notify when a fleet arrives in-system."},
-  {"notifications", "notifications_fleet_arrived_at_destination", "notifications_fleet_arrived_at_destination", DCN::Fleet::arrived_at_destination, &NotificationConfig::fleet_arrived_at_destination, "Notify when a fleet arrives at its destination."},
-  {"notifications", "notifications_fleet_started_mining", "notifications_fleet_started_mining", DCN::Fleet::started_mining, &NotificationConfig::fleet_started_mining, "Notify when a fleet starts mining."},
-  {"notifications", "notifications_fleet_node_depleted", "notifications_fleet_node_depleted", DCN::Fleet::node_depleted, &NotificationConfig::fleet_node_depleted, "Notify when a mining node is depleted."},
-  {"notifications", "notifications_fleet_docked", "notifications_fleet_docked", DCN::Fleet::docked, &NotificationConfig::fleet_docked, "Notify when a fleet docks."},
-  {"notifications", "notifications_fleet_repair_complete", "notifications_fleet_repair_complete", DCN::Fleet::repair_complete, &NotificationConfig::fleet_repair_complete, "Notify when a repairing fleet docks."},
+    {"notifications", "notifications_enabled", "notifications_enabled", DCN::enabled, &NotificationConfig::enabled,
+     "Master switch for OS notifications."},
+    {"notifications", "notifications_fleet_arrived_in_system", "notifications_fleet_arrived_in_system",
+     DCN::Fleet::arrived_in_system, &NotificationConfig::fleet_arrived_in_system,
+     "Notify when a fleet arrives in-system."},
+    {"notifications", "notifications_fleet_arrived_at_destination", "notifications_fleet_arrived_at_destination",
+     DCN::Fleet::arrived_at_destination, &NotificationConfig::fleet_arrived_at_destination,
+     "Notify when a fleet arrives at its destination."},
+    {"notifications", "notifications_fleet_started_mining", "notifications_fleet_started_mining",
+     DCN::Fleet::started_mining, &NotificationConfig::fleet_started_mining, "Notify when a fleet starts mining."},
+    {"notifications", "notifications_fleet_node_depleted", "notifications_fleet_node_depleted",
+     DCN::Fleet::node_depleted, &NotificationConfig::fleet_node_depleted, "Notify when a mining node is depleted."},
+    {"notifications", "notifications_fleet_docked", "notifications_fleet_docked", DCN::Fleet::docked,
+     &NotificationConfig::fleet_docked, "Notify when a fleet docks."},
+    {"notifications", "notifications_fleet_repair_complete", "notifications_fleet_repair_complete",
+     DCN::Fleet::repair_complete, &NotificationConfig::fleet_repair_complete, "Notify when a repairing fleet docks."},
 };
 
 struct NotificationToggleSpec {
@@ -221,49 +220,95 @@ struct NotificationToggleSpec {
 };
 
 static constexpr NotificationToggleSpec notificationToggleSpecs[] = {
-  {"notifications", "notifications_victory", "notifications_victory", Victory, DCN::Battle::victory, "", "Notify for victory battle toasts."},
-  {"notifications", "notifications_defeat", "notifications_defeat", Defeat, DCN::Battle::defeat, "", "Notify for defeat battle toasts."},
-  {"notifications", "notifications_partial_victory", "notifications_partial_victory", PartialVictory, DCN::Battle::partial_victory, "", "Notify for partial victory battle toasts."},
-  {"notifications", "notifications_station_victory", "notifications_station_victory", StationVictory, DCN::Battle::station_victory, "", "Notify for station victory toasts."},
-  {"notifications", "notifications_station_defeat", "notifications_station_defeat", StationDefeat, DCN::Battle::station_defeat, "", "Notify for station defeat toasts."},
-  {"notifications", "notifications_station_battle", "notifications_station_battle", StationBattle, DCN::Battle::station_battle, "", "Notify for station battle toasts."},
-  {"notifications", "notifications_incoming_attack_player", "notifications_incoming_attack_player", IncomingAttack, DCN::Battle::incoming_attack_player, "notifications_incoming_attack", "Notify for incoming player attack toasts."},
-  {"notifications", "notifications_incoming_attack_hostile", "notifications_incoming_attack_hostile", IncomingAttackFaction, DCN::Battle::incoming_attack_hostile, "notifications_incoming_attack_faction", "Notify for incoming hostile attack toasts."},
-  {"notifications", "notifications_fleet_battle", "notifications_fleet_battle", FleetBattle, DCN::Battle::fleet_battle, "", "Notify for fleet battle toasts."},
-  {"notifications", "notifications_armada_battle_won", "notifications_armada_battle_won", ArmadaBattleWon, DCN::Battle::armada_battle_won, "", "Notify for armada victory toasts."},
-  {"notifications", "notifications_armada_battle_lost", "notifications_armada_battle_lost", ArmadaBattleLost, DCN::Battle::armada_battle_lost, "", "Notify for armada defeat toasts."},
-  {"notifications", "notifications_assault_victory", "notifications_assault_victory", AssaultVictory, DCN::Battle::assault_victory, "", "Notify for assault victory toasts."},
-  {"notifications", "notifications_assault_defeat", "notifications_assault_defeat", AssaultDefeat, DCN::Battle::assault_defeat, "", "Notify for assault defeat toasts."},
-  {"notifications", "notifications_armada_created", "notifications_armada_created", ArmadaCreated, DCN::Armada::created, "", "Notify for armada created toasts."},
-  {"notifications", "notifications_armada_canceled", "notifications_armada_canceled", ArmadaCanceled, DCN::Armada::canceled, "", "Notify for armada canceled toasts."},
-  {"notifications", "notifications_tournament", "notifications_tournament", Tournament, DCN::Events::tournament, "", "Notify for tournament progress toasts."},
-  {"notifications", "notifications_chained_event_scored", "notifications_chained_event_scored", ChainedEventScored, DCN::Events::chained_event_scored, "", "Notify for chained event score toasts."},
-  {"notifications", "notifications_standard", "notifications_standard", Standard, DCN::Experimental::standard, "", "Notify for standard toasts."},
-  {"notifications", "notifications_faction_warning", "notifications_faction_warning", FactionWarning, DCN::Experimental::faction_warning, "", "Notify for faction warning toasts."},
-  {"notifications", "notifications_faction_level_up", "notifications_faction_level_up", FactionLevelUp, DCN::Experimental::faction_level_up, "", "Notify for faction level-up toasts."},
-  {"notifications", "notifications_faction_level_down", "notifications_faction_level_down", FactionLevelDown, DCN::Experimental::faction_level_down, "", "Notify for faction level-down toasts."},
-  {"notifications", "notifications_faction_discovered", "notifications_faction_discovered", FactionDiscovered, DCN::Experimental::faction_discovered, "", "Notify for faction discovery toasts."},
-  {"notifications", "notifications_armada_incoming_attack", "notifications_armada_incoming_attack", ArmadaIncomingAttack, DCN::Experimental::armada_incoming_attack, "", "Notify for armada incoming attack toasts."},
-  {"notifications", "notifications_diplomacy_updated", "notifications_diplomacy_updated", DiplomacyUpdated, DCN::Experimental::diplomacy_updated, "", "Notify for diplomacy update toasts."},
-  {"notifications", "notifications_joined_takeover", "notifications_joined_takeover", JoinedTakeover, DCN::Experimental::joined_takeover, "", "Notify for joined takeover toasts."},
-  {"notifications", "notifications_competitor_joined_takeover", "notifications_competitor_joined_takeover", CompetitorJoinedTakeover, DCN::Experimental::competitor_joined_takeover, "", "Notify for competitor joined takeover toasts."},
-  {"notifications", "notifications_abandoned_territory", "notifications_abandoned_territory", AbandonedTerritory, DCN::Experimental::abandoned_territory, "", "Notify for abandoned territory toasts."},
-  {"notifications", "notifications_takeover_victory", "notifications_takeover_victory", TakeoverVictory, DCN::Experimental::takeover_victory, "", "Notify for takeover victory toasts."},
-  {"notifications", "notifications_takeover_defeat", "notifications_takeover_defeat", TakeoverDefeat, DCN::Experimental::takeover_defeat, "", "Notify for takeover defeat toasts."},
-  {"notifications", "notifications_treasury_progress", "notifications_treasury_progress", TreasuryProgress, DCN::Experimental::treasury_progress, "", "Notify for treasury progress toasts."},
-  {"notifications", "notifications_treasury_full", "notifications_treasury_full", TreasuryFull, DCN::Experimental::treasury_full, "", "Notify for treasury full toasts."},
-  {"notifications", "notifications_achievement", "notifications_achievement", Achievement, DCN::Experimental::achievement, "", "Notify for achievement toasts."},
-  {"notifications", "notifications_challenge_complete", "notifications_challenge_complete", ChallengeComplete, DCN::Experimental::challenge_complete, "", "Notify for challenge complete toasts."},
-  {"notifications", "notifications_challenge_failed", "notifications_challenge_failed", ChallengeFailed, DCN::Experimental::challenge_failed, "", "Notify for challenge failed toasts."},
-  {"notifications", "notifications_strike_hit", "notifications_strike_hit", StrikeHit, DCN::Experimental::strike_hit, "", "Notify for strike hit toasts."},
-  {"notifications", "notifications_strike_defeat", "notifications_strike_defeat", StrikeDefeat, DCN::Experimental::strike_defeat, "", "Notify for strike defeat toasts."},
-  {"notifications", "notifications_warchest_progress", "notifications_warchest_progress", WarchestProgress, DCN::Experimental::warchest_progress, "", "Notify for warchest progress toasts."},
-  {"notifications", "notifications_warchest_full", "notifications_warchest_full", WarchestFull, DCN::Experimental::warchest_full, "", "Notify for warchest full toasts."},
-  {"notifications", "notifications_arena_time_left", "notifications_arena_time_left", ArenaTimeLeft, DCN::Experimental::arena_time_left, "", "Notify for arena time warning toasts."},
-  {"notifications", "notifications_fleet_preset_applied", "notifications_fleet_preset_applied", FleetPresetApplied, DCN::Experimental::fleet_preset_applied, "", "Notify for fleet preset applied toasts."},
-  {"notifications", "notifications_surge_warmup_ended", "notifications_surge_warmup_ended", SurgeWarmUpEnded, DCN::Experimental::surge_warmup_ended, "", "Notify for surge warmup ended toasts."},
-  {"notifications", "notifications_surge_hostile_group_defeated", "notifications_surge_hostile_group_defeated", SurgeHostileGroupDefeated, DCN::Experimental::surge_hostile_group_defeated, "", "Notify for surge hostile group defeated toasts."},
-  {"notifications", "notifications_surge_time_left", "notifications_surge_time_left", SurgeTimeLeft, DCN::Experimental::surge_time_left, "", "Notify for surge time warning toasts."},
+    {"notifications", "notifications_victory", "notifications_victory", Victory, DCN::Battle::victory, "",
+     "Notify for victory battle toasts."},
+    {"notifications", "notifications_defeat", "notifications_defeat", Defeat, DCN::Battle::defeat, "",
+     "Notify for defeat battle toasts."},
+    {"notifications", "notifications_partial_victory", "notifications_partial_victory", PartialVictory,
+     DCN::Battle::partial_victory, "", "Notify for partial victory battle toasts."},
+    {"notifications", "notifications_station_victory", "notifications_station_victory", StationVictory,
+     DCN::Battle::station_victory, "", "Notify for station victory toasts."},
+    {"notifications", "notifications_station_defeat", "notifications_station_defeat", StationDefeat,
+     DCN::Battle::station_defeat, "", "Notify for station defeat toasts."},
+    {"notifications", "notifications_station_battle", "notifications_station_battle", StationBattle,
+     DCN::Battle::station_battle, "", "Notify for station battle toasts."},
+    {"notifications", "notifications_incoming_attack_player", "notifications_incoming_attack_player", IncomingAttack,
+     DCN::Battle::incoming_attack_player, "notifications_incoming_attack", "Notify for incoming player attack toasts."},
+    {"notifications", "notifications_incoming_attack_hostile", "notifications_incoming_attack_hostile",
+     IncomingAttackFaction, DCN::Battle::incoming_attack_hostile, "notifications_incoming_attack_faction",
+     "Notify for incoming hostile attack toasts."},
+    {"notifications", "notifications_fleet_battle", "notifications_fleet_battle", FleetBattle,
+     DCN::Battle::fleet_battle, "", "Notify for fleet battle toasts."},
+    {"notifications", "notifications_armada_battle_won", "notifications_armada_battle_won", ArmadaBattleWon,
+     DCN::Battle::armada_battle_won, "", "Notify for armada victory toasts."},
+    {"notifications", "notifications_armada_battle_lost", "notifications_armada_battle_lost", ArmadaBattleLost,
+     DCN::Battle::armada_battle_lost, "", "Notify for armada defeat toasts."},
+    {"notifications", "notifications_assault_victory", "notifications_assault_victory", AssaultVictory,
+     DCN::Battle::assault_victory, "", "Notify for assault victory toasts."},
+    {"notifications", "notifications_assault_defeat", "notifications_assault_defeat", AssaultDefeat,
+     DCN::Battle::assault_defeat, "", "Notify for assault defeat toasts."},
+    {"notifications", "notifications_armada_created", "notifications_armada_created", ArmadaCreated,
+     DCN::Armada::created, "", "Notify for armada created toasts."},
+    {"notifications", "notifications_armada_canceled", "notifications_armada_canceled", ArmadaCanceled,
+     DCN::Armada::canceled, "", "Notify for armada canceled toasts."},
+    {"notifications", "notifications_tournament", "notifications_tournament", Tournament, DCN::Events::tournament, "",
+     "Notify for tournament progress toasts."},
+    {"notifications", "notifications_chained_event_scored", "notifications_chained_event_scored", ChainedEventScored,
+     DCN::Events::chained_event_scored, "", "Notify for chained event score toasts."},
+    {"notifications", "notifications_standard", "notifications_standard", Standard, DCN::Experimental::standard, "",
+     "Notify for standard toasts."},
+    {"notifications", "notifications_faction_warning", "notifications_faction_warning", FactionWarning,
+     DCN::Experimental::faction_warning, "", "Notify for faction warning toasts."},
+    {"notifications", "notifications_faction_level_up", "notifications_faction_level_up", FactionLevelUp,
+     DCN::Experimental::faction_level_up, "", "Notify for faction level-up toasts."},
+    {"notifications", "notifications_faction_level_down", "notifications_faction_level_down", FactionLevelDown,
+     DCN::Experimental::faction_level_down, "", "Notify for faction level-down toasts."},
+    {"notifications", "notifications_faction_discovered", "notifications_faction_discovered", FactionDiscovered,
+     DCN::Experimental::faction_discovered, "", "Notify for faction discovery toasts."},
+    {"notifications", "notifications_armada_incoming_attack", "notifications_armada_incoming_attack",
+     ArmadaIncomingAttack, DCN::Experimental::armada_incoming_attack, "", "Notify for armada incoming attack toasts."},
+    {"notifications", "notifications_diplomacy_updated", "notifications_diplomacy_updated", DiplomacyUpdated,
+     DCN::Experimental::diplomacy_updated, "", "Notify for diplomacy update toasts."},
+    {"notifications", "notifications_joined_takeover", "notifications_joined_takeover", JoinedTakeover,
+     DCN::Experimental::joined_takeover, "", "Notify for joined takeover toasts."},
+    {"notifications", "notifications_competitor_joined_takeover", "notifications_competitor_joined_takeover",
+     CompetitorJoinedTakeover, DCN::Experimental::competitor_joined_takeover, "",
+     "Notify for competitor joined takeover toasts."},
+    {"notifications", "notifications_abandoned_territory", "notifications_abandoned_territory", AbandonedTerritory,
+     DCN::Experimental::abandoned_territory, "", "Notify for abandoned territory toasts."},
+    {"notifications", "notifications_takeover_victory", "notifications_takeover_victory", TakeoverVictory,
+     DCN::Experimental::takeover_victory, "", "Notify for takeover victory toasts."},
+    {"notifications", "notifications_takeover_defeat", "notifications_takeover_defeat", TakeoverDefeat,
+     DCN::Experimental::takeover_defeat, "", "Notify for takeover defeat toasts."},
+    {"notifications", "notifications_treasury_progress", "notifications_treasury_progress", TreasuryProgress,
+     DCN::Experimental::treasury_progress, "", "Notify for treasury progress toasts."},
+    {"notifications", "notifications_treasury_full", "notifications_treasury_full", TreasuryFull,
+     DCN::Experimental::treasury_full, "", "Notify for treasury full toasts."},
+    {"notifications", "notifications_achievement", "notifications_achievement", Achievement,
+     DCN::Experimental::achievement, "", "Notify for achievement toasts."},
+    {"notifications", "notifications_challenge_complete", "notifications_challenge_complete", ChallengeComplete,
+     DCN::Experimental::challenge_complete, "", "Notify for challenge complete toasts."},
+    {"notifications", "notifications_challenge_failed", "notifications_challenge_failed", ChallengeFailed,
+     DCN::Experimental::challenge_failed, "", "Notify for challenge failed toasts."},
+    {"notifications", "notifications_strike_hit", "notifications_strike_hit", StrikeHit, DCN::Experimental::strike_hit,
+     "", "Notify for strike hit toasts."},
+    {"notifications", "notifications_strike_defeat", "notifications_strike_defeat", StrikeDefeat,
+     DCN::Experimental::strike_defeat, "", "Notify for strike defeat toasts."},
+    {"notifications", "notifications_warchest_progress", "notifications_warchest_progress", WarchestProgress,
+     DCN::Experimental::warchest_progress, "", "Notify for warchest progress toasts."},
+    {"notifications", "notifications_warchest_full", "notifications_warchest_full", WarchestFull,
+     DCN::Experimental::warchest_full, "", "Notify for warchest full toasts."},
+    {"notifications", "notifications_arena_time_left", "notifications_arena_time_left", ArenaTimeLeft,
+     DCN::Experimental::arena_time_left, "", "Notify for arena time warning toasts."},
+    {"notifications", "notifications_fleet_preset_applied", "notifications_fleet_preset_applied", FleetPresetApplied,
+     DCN::Experimental::fleet_preset_applied, "", "Notify for fleet preset applied toasts."},
+    {"notifications", "notifications_surge_warmup_ended", "notifications_surge_warmup_ended", SurgeWarmUpEnded,
+     DCN::Experimental::surge_warmup_ended, "", "Notify for surge warmup ended toasts."},
+    {"notifications", "notifications_surge_hostile_group_defeated", "notifications_surge_hostile_group_defeated",
+     SurgeHostileGroupDefeated, DCN::Experimental::surge_hostile_group_defeated, "",
+     "Notify for surge hostile group defeated toasts."},
+    {"notifications", "notifications_surge_time_left", "notifications_surge_time_left", SurgeTimeLeft,
+     DCN::Experimental::surge_time_left, "", "Notify for surge time warning toasts."},
 };
 
 bool SyncConfig::enabled(SyncConfig::Type type) const
@@ -278,9 +323,7 @@ bool SyncConfig::enabled(SyncConfig::Type type) const
 }
 
 Config::Config()
-{
-  Load();
-}
+{ Load(); }
 
 void Config::Save(const toml::table& config, const std::string_view filename, bool apply_warning)
 {
@@ -390,14 +433,10 @@ float Config::GetDPI()
 }
 #else
 float Config::RefreshDPI()
-{
-  return Config::GetDPI();
-}
+{ return Config::GetDPI(); }
 
 float Config::GetDPI()
-{
-  return 1.0f;
-}
+{ return 1.0f; }
 #endif
 
 void Config::AdjustUiScale(bool scaleUp)
@@ -481,10 +520,8 @@ bool config_key_exists(toml::table& config, std::string_view section, std::strin
   return section_table && section_table->contains(key);
 }
 
-std::optional<bool> read_bool_config_value_if_present(toml::table& config,
-                                                      std::string_view section,
-                                                      std::string_view key,
-                                                      std::string_view docs)
+std::optional<bool> read_bool_config_value_if_present(toml::table& config, std::string_view section,
+                                                      std::string_view key, std::string_view docs)
 {
   auto* section_table = config[section].as_table();
   if (!section_table || !section_table->contains(key)) {
@@ -500,22 +537,14 @@ std::optional<bool> read_bool_config_value_if_present(toml::table& config,
     return value.value();
   }
 
-  spdlog::warn("Invalid boolean config [{}].{} ({}). Found {}; using default.",
-               section,
-               key,
-               docs.empty() ? "boolean toggle" : docs,
-               get_config_type_as_string(node->type()));
+  spdlog::warn("Invalid boolean config [{}].{} ({}). Found {}; using default.", section, key,
+               docs.empty() ? "boolean toggle" : docs, get_config_type_as_string(node->type()));
   return std::nullopt;
 }
 
-bool read_bool_config_entry(toml::table& config,
-                            toml::table& new_config,
-                            std::string_view section,
-                            std::string_view key,
-                            std::string_view runtime_key,
-                            bool default_value,
-                            std::string_view docs,
-                            bool write_log)
+bool read_bool_config_entry(toml::table& config, toml::table& new_config, std::string_view section,
+                            std::string_view key, std::string_view runtime_key, bool default_value,
+                            std::string_view docs, bool write_log)
 {
   new_config.emplace<toml::table>(section, toml::table());
   auto sectionTable = new_config[section];
@@ -536,23 +565,21 @@ bool read_bool_config_entry(toml::table& config,
 
 bool read_bool_config_entry(toml::table& config, toml::table& new_config, const BoolConfigSpec& spec, bool write_log)
 {
-  return read_bool_config_entry(config, new_config, spec.section, spec.key, spec.runtime_key,
-                                spec.default_value, spec.docs, write_log);
+  return read_bool_config_entry(config, new_config, spec.section, spec.key, spec.runtime_key, spec.default_value,
+                                spec.docs, write_log);
 }
 
-bool read_bool_config_entry(toml::table& config,
-                            toml::table& new_config,
-                            const NotificationBoolConfigSpec& spec,
+bool read_bool_config_entry(toml::table& config, toml::table& new_config, const NotificationBoolConfigSpec& spec,
                             bool write_log)
 {
-  return read_bool_config_entry(config, new_config, spec.section, spec.key, spec.runtime_key,
-                                spec.default_value, spec.docs, write_log);
+  return read_bool_config_entry(config, new_config, spec.section, spec.key, spec.runtime_key, spec.default_value,
+                                spec.docs, write_log);
 }
 
 bool notification_toggle_key_exists(toml::table& config, const NotificationToggleSpec& spec)
 {
-  return config_key_exists(config, spec.section, spec.key) ||
-      (!spec.deprecated_key.empty() && config_key_exists(config, spec.section, spec.deprecated_key));
+  return config_key_exists(config, spec.section, spec.key)
+         || (!spec.deprecated_key.empty() && config_key_exists(config, spec.section, spec.deprecated_key));
 }
 
 /**
@@ -673,9 +700,8 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
  * Supports pipe-delimited multi-bind strings (e.g. "SPACE|MOUSE1").
  * "NONE" explicitly unbinds the shortcut.
  */
-void parse_config_shortcut_value(toml::table& new_config, std::string_view item,
-                                 GameFunction gameFunction, std::string_view config_value,
-                                 std::string_view default_value)
+void parse_config_shortcut_value(toml::table& new_config, std::string_view item, GameFunction gameFunction,
+                                 std::string_view config_value, std::string_view default_value)
 {
   auto section = "shortcuts";
 
@@ -693,7 +719,7 @@ void parse_config_shortcut_value(toml::table& new_config, std::string_view item,
     return;
   }
 
-  auto wantedKeys   = StrSplit(valueLowered, '|');
+  auto wantedKeys = StrSplit(valueLowered, '|');
 
   bool keyAdded = false;
   for (std::string_view wantedKey : wantedKeys) {
@@ -702,9 +728,7 @@ void parse_config_shortcut_value(toml::table& new_config, std::string_view item,
     if (mapKey.Key != KeyCode::None) {
       keyAdded = true;
     } else if (!wantedKey.empty()) {
-      spdlog::warn("Invalid shortcut token [shortcuts].{} token='{}' value='{}'; ignoring token.",
-                   item,
-                   wantedKey,
+      spdlog::warn("Invalid shortcut token [shortcuts].{} token='{}' value='{}'; ignoring token.", item, wantedKey,
                    config_value);
     }
 
@@ -712,9 +736,7 @@ void parse_config_shortcut_value(toml::table& new_config, std::string_view item,
   }
 
   if (!keyAdded) {
-    spdlog::warn("No valid shortcut tokens for [shortcuts].{} value='{}'; using default '{}'.",
-                 item,
-                 config_value,
+    spdlog::warn("No valid shortcut tokens for [shortcuts].{} value='{}'; using default '{}'.", item, config_value,
                  default_value);
     MapKey mapKey = MapKey::Parse(default_value);
     MapKey::AddMappedKey(gameFunction, mapKey);
@@ -744,9 +766,7 @@ bool shortcut_key_exists(toml::table& config, std::string_view item)
 }
 
 std::string shortcut_value_or_default(toml::table& config, std::string_view item, std::string_view default_value)
-{
-  return config["shortcuts"][item].value_or(std::string(default_value));
-}
+{ return config["shortcuts"][item].value_or(std::string(default_value)); }
 
 void parse_disable_hotkeys_shortcut(toml::table& config, toml::table& new_config)
 {
@@ -755,34 +775,33 @@ void parse_disable_hotkeys_shortcut(toml::table& config, toml::table& new_config
 
   HotkeyDisableShortcutAliasInput input;
   input.has_canonical = shortcut_key_exists(config, kDisableHotkeysShortcutConfig.key);
-  input.canonical = shortcut_value_or_default(config, kDisableHotkeysShortcutConfig.key,
-                                             kDisableHotkeysShortcutConfig.default_value);
+  input.canonical =
+      shortcut_value_or_default(config, kDisableHotkeysShortcutConfig.key, kDisableHotkeysShortcutConfig.default_value);
   input.has_deprecated_typo = shortcut_key_exists(config, kDisableHotkeysShortcutConfig.deprecated_typo_key);
-  input.deprecated_typo = shortcut_value_or_default(config, kDisableHotkeysShortcutConfig.deprecated_typo_key,
-                                                   kDisableHotkeysShortcutConfig.default_value);
+  input.deprecated_typo     = shortcut_value_or_default(config, kDisableHotkeysShortcutConfig.deprecated_typo_key,
+                                                        kDisableHotkeysShortcutConfig.default_value);
   input.has_legacy_disabled = shortcut_key_exists(config, kDisableHotkeysShortcutConfig.legacy_key);
-  input.legacy_disabled = shortcut_value_or_default(config, kDisableHotkeysShortcutConfig.legacy_key,
-                                                   kDisableHotkeysShortcutConfig.default_value);
-  input.default_value = kDisableHotkeysShortcutConfig.default_value;
+  input.legacy_disabled     = shortcut_value_or_default(config, kDisableHotkeysShortcutConfig.legacy_key,
+                                                        kDisableHotkeysShortcutConfig.default_value);
+  input.default_value       = kDisableHotkeysShortcutConfig.default_value;
 
   const auto decision = resolve_hotkey_disable_shortcut_alias(input);
   if (decision.used_deprecated_alias) {
-    spdlog::warn("Deprecation Warning: [shortcuts].{} is deprecated. Use {} instead.",
-                 decision.source_key,
+    spdlog::warn("Deprecation Warning: [shortcuts].{} is deprecated. Use {} instead.", decision.source_key,
                  kDisableHotkeysShortcutConfig.key);
   } else if (decision.saw_deprecated_alias) {
-    spdlog::warn("Deprecation Warning: deprecated disable-hotkeys shortcut aliases are ignored because [shortcuts].{} is set.",
-                 kDisableHotkeysShortcutConfig.key);
+    spdlog::warn(
+        "Deprecation Warning: deprecated disable-hotkeys shortcut aliases are ignored because [shortcuts].{} is set.",
+        kDisableHotkeysShortcutConfig.key);
   }
 
   if (decision.has_conflicting_alias) {
     spdlog::warn("Conflicting disable-hotkeys shortcut aliases detected. Using [shortcuts].{} value '{}'.",
-                 decision.source_key,
-                 decision.value);
+                 decision.source_key, decision.value);
   }
 
-  parse_config_shortcut_value(new_config, kDisableHotkeysShortcutConfig.runtime_key, GameFunction::DisableHotKeys, decision.value,
-                              kDisableHotkeysShortcutConfig.default_value);
+  parse_config_shortcut_value(new_config, kDisableHotkeysShortcutConfig.runtime_key, GameFunction::DisableHotKeys,
+                              decision.value, kDisableHotkeysShortcutConfig.default_value);
 }
 
 /**
@@ -876,23 +895,38 @@ void Config::Load()
   }
 
 #if _MODDBG
-  this->installUiScaleHooks     = get_config_or_default(config, parsed, "patches", "uiscalehooks", DCP::uiscalehooks, write_config);
-  this->installZoomHooks        = get_config_or_default(config, parsed, "patches", "zoomhooks", DCP::zoomhooks, write_config);
-  this->installBuffFixHooks     = get_config_or_default(config, parsed, "patches", "bufffixhooks", DCP::bufffixhooks, write_config);
-  this->installToastBannerHooks = get_config_or_default(config, parsed, "patches", "toastbannerhooks", DCP::toastbannerhooks, write_config);
-  this->installPanHooks         = get_config_or_default(config, parsed, "patches", "panhooks", DCP::panhooks, write_config);
-  this->installImproveResponsivenessHooks = get_config_or_default(config, parsed, "patches", "improveresponsivenesshooks", DCP::improveresponsivenesshooks, write_config);
-  this->installHotkeyHooks       = get_config_or_default(config, parsed, "patches", "hotkeyhooks", DCP::hotkeyhooks, write_config);
-  this->installFreeResizeHooks   = get_config_or_default(config, parsed, "patches", "freeresizehooks", DCP::freeresizehooks, write_config);
-  this->installTempCrashFixes    = get_config_or_default(config, parsed, "patches", "tempcrashfixes", DCP::tempcrashfixes, write_config);
-  this->installTestPatches       = get_config_or_default(config, parsed, "patches", "testpatches", DCP::testpatches, write_config);
-  this->installMiscPatches       = get_config_or_default(config, parsed, "patches", "miscpatches", DCP::miscpatches, write_config);
-  this->installChatPatches       = get_config_or_default(config, parsed, "patches", "chatpatches", DCP::chatpatches, write_config);
-  this->installResolutionListFix = get_config_or_default(config, parsed, "patches", "resolutionlistfix", DCP::resolutionlistfix, write_config);
-  this->installSyncPatches       = get_config_or_default(config, parsed, "patches", "syncpatches", DCP::syncpatches, write_config);
-  this->installObjectTracker       = get_config_or_default(config, parsed, "patches", "objecttracker", DCP::objecttracker, write_config);
-  this->installFleetArrivalHooks   = get_config_or_default(config, parsed, "patches", "fleetarrivalhooks", DCP::fleetarrivalhooks, write_config);
-  this->installLoadingScreenBgHooks = get_config_or_default(config, parsed, "patches", "loadingscreenbghooks", DCP::loadingscreenbghooks, write_config);
+  this->installUiScaleHooks =
+      get_config_or_default(config, parsed, "patches", "uiscalehooks", DCP::uiscalehooks, write_config);
+  this->installZoomHooks = get_config_or_default(config, parsed, "patches", "zoomhooks", DCP::zoomhooks, write_config);
+  this->installBuffFixHooks =
+      get_config_or_default(config, parsed, "patches", "bufffixhooks", DCP::bufffixhooks, write_config);
+  this->installToastBannerHooks =
+      get_config_or_default(config, parsed, "patches", "toastbannerhooks", DCP::toastbannerhooks, write_config);
+  this->installPanHooks = get_config_or_default(config, parsed, "patches", "panhooks", DCP::panhooks, write_config);
+  this->installImproveResponsivenessHooks = get_config_or_default(
+      config, parsed, "patches", "improveresponsivenesshooks", DCP::improveresponsivenesshooks, write_config);
+  this->installHotkeyHooks =
+      get_config_or_default(config, parsed, "patches", "hotkeyhooks", DCP::hotkeyhooks, write_config);
+  this->installFreeResizeHooks =
+      get_config_or_default(config, parsed, "patches", "freeresizehooks", DCP::freeresizehooks, write_config);
+  this->installTempCrashFixes =
+      get_config_or_default(config, parsed, "patches", "tempcrashfixes", DCP::tempcrashfixes, write_config);
+  this->installTestPatches =
+      get_config_or_default(config, parsed, "patches", "testpatches", DCP::testpatches, write_config);
+  this->installMiscPatches =
+      get_config_or_default(config, parsed, "patches", "miscpatches", DCP::miscpatches, write_config);
+  this->installChatPatches =
+      get_config_or_default(config, parsed, "patches", "chatpatches", DCP::chatpatches, write_config);
+  this->installResolutionListFix =
+      get_config_or_default(config, parsed, "patches", "resolutionlistfix", DCP::resolutionlistfix, write_config);
+  this->installSyncPatches =
+      get_config_or_default(config, parsed, "patches", "syncpatches", DCP::syncpatches, write_config);
+  this->installObjectTracker =
+      get_config_or_default(config, parsed, "patches", "objecttracker", DCP::objecttracker, write_config);
+  this->installFleetArrivalHooks =
+      get_config_or_default(config, parsed, "patches", "fleetarrivalhooks", DCP::fleetarrivalhooks, write_config);
+  this->installLoadingScreenBgHooks =
+      get_config_or_default(config, parsed, "patches", "loadingscreenbghooks", DCP::loadingscreenbghooks, write_config);
   spdlog::debug("");
 #else
   this->installUiScaleHooks               = true;
@@ -914,101 +948,144 @@ void Config::Load()
   this->installLoadingScreenBgHooks       = true;
 #endif
 
-  this->queue_enabled       = get_config_or_default(config, parsed, "control", "queue_enabled", DCC::queue_enabled, write_config);
+  this->queue_enabled =
+      get_config_or_default(config, parsed, "control", "queue_enabled", DCC::queue_enabled, write_config);
   this->hotkeys_enabled     = read_bool_config_entry(config, parsed, kHotkeysEnabledConfig, write_config);
   this->hotkeys_extended    = read_bool_config_entry(config, parsed, kHotkeysExtendedConfig, write_config);
   this->use_scopely_hotkeys = read_bool_config_entry(config, parsed, kUseScopelyHotkeysConfig, write_config);
-  this->select_timer        = get_config_or_default(config, parsed, "control", "select_timer", DCC::select_timer, write_config);
-  this->enable_experimental = get_config_or_default(config, parsed, "control", "enable_experimental", DCC::enable_experimental, write_config);
+  this->select_timer =
+      get_config_or_default(config, parsed, "control", "select_timer", DCC::select_timer, write_config);
+  this->enable_experimental =
+      get_config_or_default(config, parsed, "control", "enable_experimental", DCC::enable_experimental, write_config);
 
-  g_allow_key_fallthrough   = read_bool_config_entry(config, parsed, kAllowKeyFallthroughConfig, write_config);
+  g_allow_key_fallthrough = read_bool_config_entry(config, parsed, kAllowKeyFallthroughConfig, write_config);
 
-  spdlog::info("[Hotkeys] config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} allow_key_fallthrough={}",
-               this->installHotkeyHooks,
-               this->hotkeys_enabled,
-               this->use_scopely_hotkeys,
-               g_allow_key_fallthrough);
+  spdlog::info(
+      "[Hotkeys] config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} allow_key_fallthrough={}",
+      this->installHotkeyHooks, this->hotkeys_enabled, this->use_scopely_hotkeys, g_allow_key_fallthrough);
 
   if (g_allow_key_fallthrough && !this->use_scopely_hotkeys) {
-    spdlog::warn("[Hotkeys] allow_key_fallthrough is enabled without use_scopely_hotkeys; unhandled frames will pass through and Scopely shortcut actions will initialize for fallthrough.");
+    spdlog::warn("[Hotkeys] allow_key_fallthrough is enabled without use_scopely_hotkeys; unhandled frames will pass "
+                 "through and Scopely shortcut actions will initialize for fallthrough.");
   }
 
   spdlog::debug("");
 
-  this->ui_scale            = get_config_or_default(config, parsed, "graphics", "ui_scale", DCG::ui_scale, write_config);
-  this->ui_scale_adjust     = get_config_or_default(config, parsed, "graphics", "ui_scale_adjust", DCG::ui_scale_adjust, write_config);
-  this->ui_scale_viewer     = get_config_or_default(config, parsed, "graphics", "ui_scale_viewer", DCG::ui_scale_viewer, write_config);
-  this->zoom                = get_config_or_default(config, parsed, "graphics", "zoom", DCG::zoom, write_config);
-  this->free_resize         = get_config_or_default(config, parsed, "graphics", "free_resize", DCG::free_resize, write_config);
-  this->allow_cursor        = get_config_or_default(config, parsed, "graphics", "allow_cursor", DCG::allow_cursor, write_config);
-  this->keyboard_zoom_speed = get_config_or_default(config, parsed, "graphics", "keyboard_zoom_speed", DCG::keyboard_zoom_speed, write_config);
+  this->ui_scale = get_config_or_default(config, parsed, "graphics", "ui_scale", DCG::ui_scale, write_config);
+  this->ui_scale_adjust =
+      get_config_or_default(config, parsed, "graphics", "ui_scale_adjust", DCG::ui_scale_adjust, write_config);
+  this->ui_scale_viewer =
+      get_config_or_default(config, parsed, "graphics", "ui_scale_viewer", DCG::ui_scale_viewer, write_config);
+  this->zoom        = get_config_or_default(config, parsed, "graphics", "zoom", DCG::zoom, write_config);
+  this->free_resize = get_config_or_default(config, parsed, "graphics", "free_resize", DCG::free_resize, write_config);
+  this->allow_cursor =
+      get_config_or_default(config, parsed, "graphics", "allow_cursor", DCG::allow_cursor, write_config);
+  this->keyboard_zoom_speed =
+      get_config_or_default(config, parsed, "graphics", "keyboard_zoom_speed", DCG::keyboard_zoom_speed, write_config);
 
   if (this->enable_experimental) {
-    this->system_pan_momentum = get_config_or_default(config, parsed, "graphics", "system_pan_momentum", DCG::system_pan_momentum, write_config);
+    this->system_pan_momentum = get_config_or_default(config, parsed, "graphics", "system_pan_momentum",
+                                                      DCG::system_pan_momentum, write_config);
   }
 
   spdlog::debug("");
 
-  this->system_pan_momentum_falloff =
-      get_config_or_default(config, parsed, "graphics", "system_pan_momentum_falloff", DCG::system_pan_momentum_falloff, write_log);
+  this->system_pan_momentum_falloff = get_config_or_default(config, parsed, "graphics", "system_pan_momentum_falloff",
+                                                            DCG::system_pan_momentum_falloff, write_log);
   this->borderless_fullscreen =
       get_config_or_default(config, parsed, "graphics", "borderless_fullscreen", DCG::borderless_fullscreen, write_log);
-  this->transition_time      = get_config_or_default(config, parsed, "graphics", "transition_time", DCG::transition_time, write_config);
-  this->show_all_resolutions = get_config_or_default(config, parsed, "graphics", "show_all_resolutions", DCG::show_all_resolutions, write_config);
-  this->default_system_zoom  = get_config_or_default(config, parsed, "graphics", "default_system_zoom", DCG::default_system_zoom, write_config);
+  this->transition_time =
+      get_config_or_default(config, parsed, "graphics", "transition_time", DCG::transition_time, write_config);
+  this->show_all_resolutions = get_config_or_default(config, parsed, "graphics", "show_all_resolutions",
+                                                     DCG::show_all_resolutions, write_config);
+  this->default_system_zoom =
+      get_config_or_default(config, parsed, "graphics", "default_system_zoom", DCG::default_system_zoom, write_config);
 
   spdlog::debug("");
 
-  this->system_zoom_preset_1   = get_config_or_default(config, parsed, "graphics", "system_zoom_preset_1", DCG::system_zoom_preset_1, write_config);
-  this->system_zoom_preset_2   = get_config_or_default(config, parsed, "graphics", "system_zoom_preset_2", DCG::system_zoom_preset_2, write_config);
-  this->system_zoom_preset_3   = get_config_or_default(config, parsed, "graphics", "system_zoom_preset_3", DCG::system_zoom_preset_3, write_config);
-  this->system_zoom_preset_4   = get_config_or_default(config, parsed, "graphics", "system_zoom_preset_4", DCG::system_zoom_preset_4, write_config);
-  this->system_zoom_preset_5   = get_config_or_default(config, parsed, "graphics", "system_zoom_preset_5", DCG::system_zoom_preset_5, write_config);
-  this->use_presets_as_default = get_config_or_default(config, parsed, "graphics", "use_presets_as_default", DCG::use_presets_as_default, write_config);
+  this->system_zoom_preset_1   = get_config_or_default(config, parsed, "graphics", "system_zoom_preset_1",
+                                                       DCG::system_zoom_preset_1, write_config);
+  this->system_zoom_preset_2   = get_config_or_default(config, parsed, "graphics", "system_zoom_preset_2",
+                                                       DCG::system_zoom_preset_2, write_config);
+  this->system_zoom_preset_3   = get_config_or_default(config, parsed, "graphics", "system_zoom_preset_3",
+                                                       DCG::system_zoom_preset_3, write_config);
+  this->system_zoom_preset_4   = get_config_or_default(config, parsed, "graphics", "system_zoom_preset_4",
+                                                       DCG::system_zoom_preset_4, write_config);
+  this->system_zoom_preset_5   = get_config_or_default(config, parsed, "graphics", "system_zoom_preset_5",
+                                                       DCG::system_zoom_preset_5, write_config);
+  this->use_presets_as_default = get_config_or_default(config, parsed, "graphics", "use_presets_as_default",
+                                                       DCG::use_presets_as_default, write_config);
 
   spdlog::debug("");
 
-  this->use_out_of_dock_power = get_config_or_default(config, parsed, "buffs", "use_out_of_dock_power", DCBS::use_out_of_dock_power, write_config);
+  this->use_out_of_dock_power = get_config_or_default(config, parsed, "buffs", "use_out_of_dock_power",
+                                                      DCBS::use_out_of_dock_power, write_config);
 
   spdlog::debug("");
 
-  this->disable_escape_exit    = get_config_or_default(config, parsed, "ui", "disable_escape_exit", DCU::disable_escape_exit, write_config);
-  this->escape_exit_timer      = get_config_or_default(config, parsed, "ui", "escape_exit_timer", DCU::escape_exit_timer, write_config);
-  this->disable_preview_locate = get_config_or_default(config, parsed, "ui", "disable_preview_locate", DCU::disable_preview_locate, write_config);
-  this->disable_preview_recall = get_config_or_default(config, parsed, "ui", "disable_preview_recall", DCU::disable_preview_recall, write_config);
-  this->disable_first_popup    = get_config_or_default(config, parsed, "ui", "disable_first_popup", DCU::disable_first_popup, write_config);
-  this->disable_move_keys      = get_config_or_default(config, parsed, "ui", "disable_move_keys", DCU::disable_move_keys, write_config);
-  this->disable_toast_banners  = get_config_or_default(config, parsed, "ui", "disable_toast_banners", DCU::disable_toast_banners, write_config);
+  this->disable_escape_exit =
+      get_config_or_default(config, parsed, "ui", "disable_escape_exit", DCU::disable_escape_exit, write_config);
+  this->escape_exit_timer =
+      get_config_or_default(config, parsed, "ui", "escape_exit_timer", DCU::escape_exit_timer, write_config);
+  this->disable_preview_locate =
+      get_config_or_default(config, parsed, "ui", "disable_preview_locate", DCU::disable_preview_locate, write_config);
+  this->disable_preview_recall =
+      get_config_or_default(config, parsed, "ui", "disable_preview_recall", DCU::disable_preview_recall, write_config);
+  this->disable_first_popup =
+      get_config_or_default(config, parsed, "ui", "disable_first_popup", DCU::disable_first_popup, write_config);
+  this->disable_move_keys =
+      get_config_or_default(config, parsed, "ui", "disable_move_keys", DCU::disable_move_keys, write_config);
+  this->disable_toast_banners =
+      get_config_or_default(config, parsed, "ui", "disable_toast_banners", DCU::disable_toast_banners, write_config);
 
 #if _WIN32
-  this->extend_donation_slider = get_config_or_default(config, parsed, "ui", "extend_donation_slider", DCU::extend_donation_slider, write_config);
-  this->extend_donation_max    = get_config_or_default(config, parsed, "ui", "extend_donation_max", DCU::extend_donation_max, write_config);
+  this->extend_donation_slider =
+      get_config_or_default(config, parsed, "ui", "extend_donation_slider", DCU::extend_donation_slider, write_config);
+  this->extend_donation_max =
+      get_config_or_default(config, parsed, "ui", "extend_donation_max", DCU::extend_donation_max, write_config);
 #endif
 
-  this->disable_galaxy_chat    = get_config_or_default(config, parsed, "ui", "disable_galaxy_chat", DCU::disable_galaxy_chat, write_config);
-  this->disable_veil_chat      = get_config_or_default(config, parsed, "ui", "disable_veil_chat", DCU::disable_veil_chat, write_config);
-  this->show_cargo_default     = get_config_or_default(config, parsed, "ui", "show_cargo_default", DCU::show_cargo_default, write_config);
-  this->show_player_cargo      = get_config_or_default(config, parsed, "ui", "show_player_cargo", DCU::show_player_cargo, write_config);
-  this->show_station_cargo     = get_config_or_default(config, parsed, "ui", "show_station_cargo", DCU::show_station_cargo, write_config);
-  this->show_hostile_cargo     = get_config_or_default(config, parsed, "ui", "show_hostile_cargo", DCU::show_hostile_cargo, write_config);
-  this->show_armada_cargo      = get_config_or_default(config, parsed, "ui", "show_armada_cargo", DCU::show_armada_cargo, write_config);
+  this->disable_galaxy_chat =
+      get_config_or_default(config, parsed, "ui", "disable_galaxy_chat", DCU::disable_galaxy_chat, write_config);
+  this->disable_veil_chat =
+      get_config_or_default(config, parsed, "ui", "disable_veil_chat", DCU::disable_veil_chat, write_config);
+  this->show_cargo_default =
+      get_config_or_default(config, parsed, "ui", "show_cargo_default", DCU::show_cargo_default, write_config);
+  this->show_player_cargo =
+      get_config_or_default(config, parsed, "ui", "show_player_cargo", DCU::show_player_cargo, write_config);
+  this->show_station_cargo =
+      get_config_or_default(config, parsed, "ui", "show_station_cargo", DCU::show_station_cargo, write_config);
+  this->show_hostile_cargo =
+      get_config_or_default(config, parsed, "ui", "show_hostile_cargo", DCU::show_hostile_cargo, write_config);
+  this->show_armada_cargo =
+      get_config_or_default(config, parsed, "ui", "show_armada_cargo", DCU::show_armada_cargo, write_config);
 
-  this->always_skip_reveal_sequence = get_config_or_default(config, parsed, "ui", "always_skip_reveal_sequence", DCU::always_skip_reveal_sequence, write_config);
+  this->always_skip_reveal_sequence = get_config_or_default(config, parsed, "ui", "always_skip_reveal_sequence",
+                                                            DCU::always_skip_reveal_sequence, write_config);
 
   spdlog::debug("");
 
-  this->sync_debug              = get_config_or_default(config, parsed, "sync", "debug", DCS::debug, write_config);
-  this->sync_logging            = get_config_or_default(config, parsed, "sync", "logging", DCS::logging, write_config);
-  this->sync_sidecar_jsonl      = get_config_or_default(config, parsed, "sync", "sidecar_jsonl", DCS::sidecar_jsonl, write_config);
-  g_live_debug_channel          = get_config_or_default(config, parsed, "debug", "live_query", DCD::live_query, write_config);
-  g_battle_log_decoder_enabled  = get_config_or_default(config, parsed, "battle_log_decoder", "enabled", DCBLD::enabled, write_config);
-  g_battle_log_decoder_segments = get_config_or_default(config, parsed, "battle_log_decoder", "emit_segments", DCBLD::emit_segments, write_config);
-  g_battle_log_decoder_feed     = get_config_or_default(config, parsed, "battle_log_decoder", "emit_feed", DCBLD::emit_feed, write_config);
-  this->sync_resolver_cache_ttl = get_config_or_default(config, parsed, "sync", "resolver_cache_ttl", DCS::resolver_cache_ttl, write_config);
+  this->sync_debug   = get_config_or_default(config, parsed, "sync", "debug", DCS::debug, write_config);
+  this->sync_logging = get_config_or_default(config, parsed, "sync", "logging", DCS::logging, write_config);
+  this->sync_sidecar_jsonl =
+      get_config_or_default(config, parsed, "sync", "sidecar_jsonl", DCS::sidecar_jsonl, write_config);
+  g_sync_sidecar_jsonl_recent_logs = get_config_or_default(config, parsed, "sync", "sidecar_jsonl_recent_logs",
+                                                           DCS::sidecar_jsonl_recent_logs, write_config);
+  g_live_debug_channel = get_config_or_default(config, parsed, "debug", "live_query", DCD::live_query, write_config);
+  g_refinery_diagnostics =
+      get_config_or_default(config, parsed, "debug", "refinery_diagnostics", DCD::refinery_diagnostics, write_config);
+  g_battle_log_decoder_enabled =
+      get_config_or_default(config, parsed, "battle_log_decoder", "enabled", DCBLD::enabled, write_config);
+  g_battle_log_decoder_segments =
+      get_config_or_default(config, parsed, "battle_log_decoder", "emit_segments", DCBLD::emit_segments, write_config);
+  g_battle_log_decoder_feed =
+      get_config_or_default(config, parsed, "battle_log_decoder", "emit_feed", DCBLD::emit_feed, write_config);
+  this->sync_resolver_cache_ttl =
+      get_config_or_default(config, parsed, "sync", "resolver_cache_ttl", DCS::resolver_cache_ttl, write_config);
 
   SyncConfig sync_defaults;
-  sync_defaults.proxy      = get_config_or_default<std::string>(config, parsed, "sync", "proxy", DCS::proxy , write_log);
-  sync_defaults.verify_ssl = get_config_or_default(config, parsed, "sync", "verify_ssl", DCS::verify_ssl , write_config);
+  sync_defaults.proxy      = get_config_or_default<std::string>(config, parsed, "sync", "proxy", DCS::proxy, write_log);
+  sync_defaults.verify_ssl = get_config_or_default(config, parsed, "sync", "verify_ssl", DCS::verify_ssl, write_config);
 
   for (const auto& opt : SyncOptions) {
     sync_defaults.*opt.option = get_config_or_default(config, parsed, "sync", opt.option_str, false, write_config);
@@ -1029,11 +1106,12 @@ void Config::Load()
 
     SyncTargetConfig converted_target;
     static_cast<SyncConfig&>(converted_target) = sync_defaults;
-    converted_target.url   = sync_url.value();
-    converted_target.token = sync_token.value();
+    converted_target.url                       = sync_url.value();
+    converted_target.token                     = sync_token.value();
 
     if (this->sync_targets.emplace("default", converted_target).second) {
-      toml::table default_target{{"url", sync_url.value()}, {"token", sync_token.value()}, {"proxy", converted_target.proxy}};
+      toml::table default_target{
+          {"url", sync_url.value()}, {"token", sync_token.value()}, {"proxy", converted_target.proxy}};
       for (const auto& opt : SyncOptions) {
         default_target.insert(opt.option_str, converted_target.*opt.option);
       }
@@ -1068,13 +1146,13 @@ void Config::Load()
   spdlog::debug("");
 
   // must explicitly include std::string typing here, or we get back char * which fails us!
-  auto disabled_banner_types_str =
-      get_config_or_default<std::string>(config, parsed, "ui", "disabled_banner_types", DCU::disabled_banner_types, write_log);
+  auto disabled_banner_types_str = get_config_or_default<std::string>(config, parsed, "ui", "disabled_banner_types",
+                                                                      DCU::disabled_banner_types, write_log);
 
   this->config_settings_url =
       get_config_or_default<std::string>(config, parsed, "config", "settings_url", DCSC::settings_url, write_log);
-  this->config_assets_url_override =
-      get_config_or_default<std::string>(config, parsed, "config", "assets_url_override", DCSC::assets_url_override, write_log);
+  this->config_assets_url_override = get_config_or_default<std::string>(config, parsed, "config", "assets_url_override",
+                                                                        DCSC::assets_url_override, write_log);
 
   // Loading Screen Background settings
   this->loader_transition =
@@ -1117,17 +1195,18 @@ void Config::Load()
 
   parsed["ui"].as_table()->insert_or_assign("disabled_banner_types", bannerString);
 
-  auto* notifications_table = config["notifications"].as_table();
-  const bool has_explicit_notification_toggles = notifications_table &&
-      std::ranges::any_of(notificationToggleSpecs, [&config](const auto& spec) {
+  auto*      notifications_table = config["notifications"].as_table();
+  const bool has_explicit_notification_toggles =
+      notifications_table && std::ranges::any_of(notificationToggleSpecs, [&config](const auto& spec) {
         return notification_toggle_key_exists(config, spec);
       });
 
-  auto* ui_table = config["ui"].as_table();
+  auto*       ui_table = config["ui"].as_table();
   std::string legacy_notify_banner_types;
   bool        has_legacy_notify_banner_types = false;
   if (ui_table) {
-    if (auto notify_on_value = config["ui"]["notify_on_banner_types"].value<std::string>(); notify_on_value.has_value()) {
+    if (auto notify_on_value = config["ui"]["notify_on_banner_types"].value<std::string>();
+        notify_on_value.has_value()) {
       legacy_notify_banner_types     = notify_on_value.value();
       has_legacy_notify_banner_types = true;
     } else if (auto notify_value = config["ui"]["notify_banner_types"].value<std::string>(); notify_value.has_value()) {
@@ -1144,11 +1223,11 @@ void Config::Load()
 
   this->notifications.ClearToastStates();
   for (const auto& spec : notificationToggleSpecs) {
-    const bool default_value = use_legacy_notify_allowlist ? false : spec.default_value;
-    bool enabled_default = default_value;
+    const bool default_value     = use_legacy_notify_allowlist ? false : spec.default_value;
+    bool       enabled_default   = default_value;
     const bool has_canonical_key = config_key_exists(config, spec.section, spec.key);
-    const bool has_deprecated_key = !spec.deprecated_key.empty() &&
-        config_key_exists(config, spec.section, spec.deprecated_key);
+    const bool has_deprecated_key =
+        !spec.deprecated_key.empty() && config_key_exists(config, spec.section, spec.deprecated_key);
 
     if (!use_legacy_notify_allowlist && !has_canonical_key && has_deprecated_key) {
       if (auto legacy_value = read_bool_config_value_if_present(config, spec.section, spec.deprecated_key, spec.docs);
@@ -1157,20 +1236,12 @@ void Config::Load()
       }
     }
 
-    const bool enabled = read_bool_config_entry(config,
-                                                parsed,
-                                                spec.section,
-                                                spec.key,
-                                                spec.runtime_key,
-                                                enabled_default,
-                                                spec.docs,
-                                                write_config);
+    const bool enabled = read_bool_config_entry(config, parsed, spec.section, spec.key, spec.runtime_key,
+                                                enabled_default, spec.docs, write_config);
     this->notifications.SetToastStateEnabled(spec.toast_state, enabled);
 
     if (has_deprecated_key && !has_canonical_key) {
-      spdlog::warn("Deprecation Warning: [{}].{} is deprecated. Use {} instead.",
-                   spec.section,
-                   spec.deprecated_key,
+      spdlog::warn("Deprecation Warning: [{}].{} is deprecated. Use {} instead.", spec.section, spec.deprecated_key,
                    spec.key);
     }
   }
@@ -1200,29 +1271,33 @@ void Config::Load()
                                                            this->notifications.EnabledForToastState(spec.toast_state));
     }
 
-    spdlog::warn("Deprecation Warning: [ui].notify_on_banner_types / [ui].notify_banner_types is deprecated. Migrate to [notifications].");
+    spdlog::warn("Deprecation Warning: [ui].notify_on_banner_types / [ui].notify_banner_types is deprecated. Migrate "
+                 "to [notifications].");
   } else if (has_legacy_notify_banner_types) {
-    spdlog::warn("Ignoring deprecated [ui] notification allowlist because explicit [notifications] toggles are present.");
+    spdlog::warn(
+        "Ignoring deprecated [ui] notification allowlist because explicit [notifications] toggles are present.");
   }
 
-  this->notifications.incoming_attack_player = this->notifications.EnabledForToastState(IncomingAttack);
+  this->notifications.incoming_attack_player  = this->notifications.EnabledForToastState(IncomingAttack);
   this->notifications.incoming_attack_hostile = this->notifications.EnabledForToastState(IncomingAttackFaction);
   spdlog::debug("");
 
-  //if (this->enable_experimental) {
-  //  parse_config_shortcut(config, parsed, "move_left",  GameFunction::MoveLeft,  DCSH::move_left);
-  //  parse_config_shortcut(config, parsed, "move_right", GameFunction::MoveRight, DCSH::move_right);
-  //  parse_config_shortcut(config, parsed, "move_down",  GameFunction::MoveDown,  DCSH::move_down);
-  //  parse_config_shortcut(config, parsed, "move_up",    GameFunction::MoveUp,    DCSH::move_up);
-  //}
+  // if (this->enable_experimental) {
+  //   parse_config_shortcut(config, parsed, "move_left",  GameFunction::MoveLeft,  DCSH::move_left);
+  //   parse_config_shortcut(config, parsed, "move_right", GameFunction::MoveRight, DCSH::move_right);
+  //   parse_config_shortcut(config, parsed, "move_down",  GameFunction::MoveDown,  DCSH::move_down);
+  //   parse_config_shortcut(config, parsed, "move_up",    GameFunction::MoveUp,    DCSH::move_up);
+  // }
 
   parse_disable_hotkeys_shortcut(config, parsed);
-  parse_config_shortcut(config, parsed, "set_hotkeys_enable", GameFunction::EnableHotKeys,  DCSH::set_hotkeys_enabled);
+  parse_config_shortcut(config, parsed, "set_hotkeys_enable", GameFunction::EnableHotKeys, DCSH::set_hotkeys_enabled);
 
-  parse_config_shortcut(config, parsed, "select_chatalliance", GameFunction::SelectChatAlliance, DCSH::select_chatalliance);
-  parse_config_shortcut(config, parsed, "select_chatglobal",   GameFunction::SelectChatGlobal,   DCSH::select_chatglobal);
-  parse_config_shortcut(config, parsed, "select_chatprivate",  GameFunction::SelectChatPrivate,  DCSH::select_chatprivate);
-  parse_config_shortcut(config, parsed, "quit",                GameFunction::Quit,               DCSH::quit);
+  parse_config_shortcut(config, parsed, "select_chatalliance", GameFunction::SelectChatAlliance,
+                        DCSH::select_chatalliance);
+  parse_config_shortcut(config, parsed, "select_chatglobal", GameFunction::SelectChatGlobal, DCSH::select_chatglobal);
+  parse_config_shortcut(config, parsed, "select_chatprivate", GameFunction::SelectChatPrivate,
+                        DCSH::select_chatprivate);
+  parse_config_shortcut(config, parsed, "quit", GameFunction::Quit, DCSH::quit);
 
   parse_config_shortcut(config, parsed, "select_ship1", GameFunction::SelectShip1, DCSH::select_ship1);
   parse_config_shortcut(config, parsed, "select_ship2", GameFunction::SelectShip2, DCSH::select_ship2);
@@ -1234,68 +1309,74 @@ void Config::Load()
   parse_config_shortcut(config, parsed, "select_ship8", GameFunction::SelectShip8, DCSH::select_ship8);
   parse_config_shortcut(config, parsed, "select_current", GameFunction::SelectCurrent, DCSH::select_current);
 
-  parse_config_shortcut(config, parsed, "action_primary",        GameFunction::ActionPrimary,        DCSH::action_primary);
-  parse_config_shortcut(config, parsed, "action_secondary",      GameFunction::ActionSecondary,      DCSH::action_secondary);
-  parse_config_shortcut(config, parsed, "action_queue",          GameFunction::ActionQueue,          DCSH::action_queue);
-  parse_config_shortcut(config, parsed, "action_queue_clear",    GameFunction::ActionQueueClear,     DCSH::action_queue_clear);
-  parse_config_shortcut(config, parsed, "action_view",           GameFunction::ActionView,           DCSH::action_view);
-  parse_config_shortcut(config, parsed, "action_recall",         GameFunction::ActionRecall,         DCSH::action_recall);
-  parse_config_shortcut(config, parsed, "action_recall_cancel",  GameFunction::ActionRecallCancel,   DCSH::action_recall_cancel);
-  parse_config_shortcut(config, parsed, "action_repair",         GameFunction::ActionRepair,         DCSH::action_repair);
-  parse_config_shortcut(config, parsed, "show_chat",             GameFunction::ShowChat,             DCSH::show_chat);
-  parse_config_shortcut(config, parsed, "show_chatside1",        GameFunction::ShowChatSide1,        DCSH::show_chatside1);
-  parse_config_shortcut(config, parsed, "show_chatside2",        GameFunction::ShowChatSide2,        DCSH::show_chatside2);
-  parse_config_shortcut(config, parsed, "show_galaxy",           GameFunction::ShowGalaxy,           DCSH::show_galaxy);
-  parse_config_shortcut(config, parsed, "show_system",           GameFunction::ShowSystem,           DCSH::show_system);
-  parse_config_shortcut(config, parsed, "zoom_preset1",          GameFunction::ZoomPreset1,          DCSH::zoom_preset1);
-  parse_config_shortcut(config, parsed, "zoom_preset2",          GameFunction::ZoomPreset2,          DCSH::zoom_preset2);
-  parse_config_shortcut(config, parsed, "zoom_preset3",          GameFunction::ZoomPreset3,          DCSH::zoom_preset3);
-  parse_config_shortcut(config, parsed, "zoom_preset4",          GameFunction::ZoomPreset4,          DCSH::zoom_preset4);
-  parse_config_shortcut(config, parsed, "zoom_preset5",          GameFunction::ZoomPreset5,          DCSH::zoom_preset5);
-  parse_config_shortcut(config, parsed, "zoom_in",               GameFunction::ZoomIn,               DCSH::zoom_in);
-  parse_config_shortcut(config, parsed, "zoom_out",              GameFunction::ZoomOut,              DCSH::zoom_out);
-  parse_config_shortcut(config, parsed, "zoom_max",              GameFunction::ZoomMax,              DCSH::zoom_max);
-  parse_config_shortcut(config, parsed, "zoom_min",              GameFunction::ZoomMin,              DCSH::zoom_min);
-  parse_config_shortcut(config, parsed, "zoom_reset",            GameFunction::ZoomReset,            DCSH::zoom_reset);
-  parse_config_shortcut(config, parsed, "ui_scaleup",            GameFunction::UiScaleUp,            DCSH::ui_scaleup);
-  parse_config_shortcut(config, parsed, "ui_scaledown",          GameFunction::UiScaleDown,          DCSH::ui_scaledown);
-  parse_config_shortcut(config, parsed, "ui_scaleviewerup",      GameFunction::UiViewerScaleUp,      DCSH::ui_scaleviewerup);
-  parse_config_shortcut(config, parsed, "ui_scaleviewerdown",    GameFunction::UiViewerScaleDown,    DCSH::ui_scaleviewerdown);
+  parse_config_shortcut(config, parsed, "action_primary", GameFunction::ActionPrimary, DCSH::action_primary);
+  parse_config_shortcut(config, parsed, "action_secondary", GameFunction::ActionSecondary, DCSH::action_secondary);
+  parse_config_shortcut(config, parsed, "action_queue", GameFunction::ActionQueue, DCSH::action_queue);
+  parse_config_shortcut(config, parsed, "action_queue_clear", GameFunction::ActionQueueClear, DCSH::action_queue_clear);
+  parse_config_shortcut(config, parsed, "action_view", GameFunction::ActionView, DCSH::action_view);
+  parse_config_shortcut(config, parsed, "action_recall", GameFunction::ActionRecall, DCSH::action_recall);
+  parse_config_shortcut(config, parsed, "action_recall_cancel", GameFunction::ActionRecallCancel,
+                        DCSH::action_recall_cancel);
+  parse_config_shortcut(config, parsed, "action_repair", GameFunction::ActionRepair, DCSH::action_repair);
+  parse_config_shortcut(config, parsed, "show_chat", GameFunction::ShowChat, DCSH::show_chat);
+  parse_config_shortcut(config, parsed, "show_chatside1", GameFunction::ShowChatSide1, DCSH::show_chatside1);
+  parse_config_shortcut(config, parsed, "show_chatside2", GameFunction::ShowChatSide2, DCSH::show_chatside2);
+  parse_config_shortcut(config, parsed, "show_galaxy", GameFunction::ShowGalaxy, DCSH::show_galaxy);
+  parse_config_shortcut(config, parsed, "show_system", GameFunction::ShowSystem, DCSH::show_system);
+  parse_config_shortcut(config, parsed, "zoom_preset1", GameFunction::ZoomPreset1, DCSH::zoom_preset1);
+  parse_config_shortcut(config, parsed, "zoom_preset2", GameFunction::ZoomPreset2, DCSH::zoom_preset2);
+  parse_config_shortcut(config, parsed, "zoom_preset3", GameFunction::ZoomPreset3, DCSH::zoom_preset3);
+  parse_config_shortcut(config, parsed, "zoom_preset4", GameFunction::ZoomPreset4, DCSH::zoom_preset4);
+  parse_config_shortcut(config, parsed, "zoom_preset5", GameFunction::ZoomPreset5, DCSH::zoom_preset5);
+  parse_config_shortcut(config, parsed, "zoom_in", GameFunction::ZoomIn, DCSH::zoom_in);
+  parse_config_shortcut(config, parsed, "zoom_out", GameFunction::ZoomOut, DCSH::zoom_out);
+  parse_config_shortcut(config, parsed, "zoom_max", GameFunction::ZoomMax, DCSH::zoom_max);
+  parse_config_shortcut(config, parsed, "zoom_min", GameFunction::ZoomMin, DCSH::zoom_min);
+  parse_config_shortcut(config, parsed, "zoom_reset", GameFunction::ZoomReset, DCSH::zoom_reset);
+  parse_config_shortcut(config, parsed, "ui_scaleup", GameFunction::UiScaleUp, DCSH::ui_scaleup);
+  parse_config_shortcut(config, parsed, "ui_scaledown", GameFunction::UiScaleDown, DCSH::ui_scaledown);
+  parse_config_shortcut(config, parsed, "ui_scaleviewerup", GameFunction::UiViewerScaleUp, DCSH::ui_scaleviewerup);
+  parse_config_shortcut(config, parsed, "ui_scaleviewerdown", GameFunction::UiViewerScaleDown,
+                        DCSH::ui_scaleviewerdown);
 
-  parse_config_shortcut(config, parsed, "log_debug",             GameFunction::LogLevelDebug,        DCSH::log_debug);
-  parse_config_shortcut(config, parsed, "log_trace",             GameFunction::LogLevelTrace,        DCSH::log_trace);
-  parse_config_shortcut(config, parsed, "log_info",              GameFunction::LogLevelInfo,         DCSH::log_info);
-  parse_config_shortcut(config, parsed, "log_warn",              GameFunction::LogLevelWarn,         DCSH::log_warn);
-  parse_config_shortcut(config, parsed, "log_error",             GameFunction::LogLevelError,        DCSH::log_error);
-  parse_config_shortcut(config, parsed, "log_off",               GameFunction::LogLevelOff,          DCSH::log_off);
+  parse_config_shortcut(config, parsed, "log_debug", GameFunction::LogLevelDebug, DCSH::log_debug);
+  parse_config_shortcut(config, parsed, "log_trace", GameFunction::LogLevelTrace, DCSH::log_trace);
+  parse_config_shortcut(config, parsed, "log_info", GameFunction::LogLevelInfo, DCSH::log_info);
+  parse_config_shortcut(config, parsed, "log_warn", GameFunction::LogLevelWarn, DCSH::log_warn);
+  parse_config_shortcut(config, parsed, "log_error", GameFunction::LogLevelError, DCSH::log_error);
+  parse_config_shortcut(config, parsed, "log_off", GameFunction::LogLevelOff, DCSH::log_off);
 
-  parse_config_shortcut(config, parsed, "show_awayteam",         GameFunction::ShowAwayTeam,         DCSH::show_awayteam);
-  parse_config_shortcut(config, parsed, "show_gifts",            GameFunction::ShowGifts,            DCSH::show_gifts);
-  parse_config_shortcut(config, parsed, "show_artifacts",        GameFunction::ShowArtifacts,        DCSH::show_artifacts);
-  parse_config_shortcut(config, parsed, "show_commander",        GameFunction::ShowCommander,        DCSH::show_commander);
-  parse_config_shortcut(config, parsed, "show_daily",            GameFunction::ShowDaily,            DCSH::show_daily);
-  parse_config_shortcut(config, parsed, "show_events",           GameFunction::ShowEvents,           DCSH::show_events);
-  parse_config_shortcut(config, parsed, "show_exocomp",          GameFunction::ShowExoComp,          DCSH::show_exocomp);
-  parse_config_shortcut(config, parsed, "show_factions",         GameFunction::ShowFactions,         DCSH::show_factions);
-  parse_config_shortcut(config, parsed, "show_inventory",        GameFunction::ShowInventory,        DCSH::show_inventory);
-  parse_config_shortcut(config, parsed, "show_missions",         GameFunction::ShowMissions,         DCSH::show_missions);
-  parse_config_shortcut(config, parsed, "show_research",         GameFunction::ShowResearch,         DCSH::show_research);
-  parse_config_shortcut(config, parsed, "show_scrapyard",        GameFunction::ShowScrapYard,        DCSH::show_scrapyard);
-  parse_config_shortcut(config, parsed, "show_settings",         GameFunction::ShowSettings,         DCSH::show_settings);
-  parse_config_shortcut(config, parsed, "show_officers",         GameFunction::ShowOfficers,         DCSH::show_officers);
-  parse_config_shortcut(config, parsed, "show_qtrials",          GameFunction::ShowQTrials,          DCSH::show_qtrials);
-  parse_config_shortcut(config, parsed, "show_refinery",         GameFunction::ShowRefinery,         DCSH::show_refinery);
-  parse_config_shortcut(config, parsed, "show_ships",            GameFunction::ShowShips,            DCSH::show_ships);
-  parse_config_shortcut(config, parsed, "show_stationexterior",  GameFunction::ShoWStationExterior,  DCSH::show_stationexterior);
-  parse_config_shortcut(config, parsed, "show_stationinterior",  GameFunction::ShowStationInterior,  DCSH::show_stationinterior);
-  parse_config_shortcut(config, parsed, "toggle_queue",          GameFunction::ToggleQueue,          DCSH::toggle_queue);
+  parse_config_shortcut(config, parsed, "show_awayteam", GameFunction::ShowAwayTeam, DCSH::show_awayteam);
+  parse_config_shortcut(config, parsed, "show_gifts", GameFunction::ShowGifts, DCSH::show_gifts);
+  parse_config_shortcut(config, parsed, "show_artifacts", GameFunction::ShowArtifacts, DCSH::show_artifacts);
+  parse_config_shortcut(config, parsed, "show_commander", GameFunction::ShowCommander, DCSH::show_commander);
+  parse_config_shortcut(config, parsed, "show_daily", GameFunction::ShowDaily, DCSH::show_daily);
+  parse_config_shortcut(config, parsed, "show_events", GameFunction::ShowEvents, DCSH::show_events);
+  parse_config_shortcut(config, parsed, "show_exocomp", GameFunction::ShowExoComp, DCSH::show_exocomp);
+  parse_config_shortcut(config, parsed, "show_factions", GameFunction::ShowFactions, DCSH::show_factions);
+  parse_config_shortcut(config, parsed, "show_inventory", GameFunction::ShowInventory, DCSH::show_inventory);
+  parse_config_shortcut(config, parsed, "show_missions", GameFunction::ShowMissions, DCSH::show_missions);
+  parse_config_shortcut(config, parsed, "show_research", GameFunction::ShowResearch, DCSH::show_research);
+  parse_config_shortcut(config, parsed, "show_scrapyard", GameFunction::ShowScrapYard, DCSH::show_scrapyard);
+  parse_config_shortcut(config, parsed, "show_settings", GameFunction::ShowSettings, DCSH::show_settings);
+  parse_config_shortcut(config, parsed, "show_officers", GameFunction::ShowOfficers, DCSH::show_officers);
+  parse_config_shortcut(config, parsed, "show_qtrials", GameFunction::ShowQTrials, DCSH::show_qtrials);
+  parse_config_shortcut(config, parsed, "show_refinery", GameFunction::ShowRefinery, DCSH::show_refinery);
+  parse_config_shortcut(config, parsed, "show_ships", GameFunction::ShowShips, DCSH::show_ships);
+  parse_config_shortcut(config, parsed, "show_stationexterior", GameFunction::ShoWStationExterior,
+                        DCSH::show_stationexterior);
+  parse_config_shortcut(config, parsed, "show_stationinterior", GameFunction::ShowStationInterior,
+                        DCSH::show_stationinterior);
+  parse_config_shortcut(config, parsed, "toggle_queue", GameFunction::ToggleQueue, DCSH::toggle_queue);
 
   if (this->hotkeys_extended) {
     parse_config_shortcut(config, parsed, "show_alliance", GameFunction::ShowAlliance, DCSH::show_alliance);
 
     if (this->enable_experimental) {
-      parse_config_shortcut(config, parsed, "show_alliance_help",   GameFunction::ShowAllianceHelp,   DCSH::show_alliance_help);
-      parse_config_shortcut(config, parsed, "show_alliance_armada", GameFunction::ShowAllianceArmada, DCSH::show_alliance_armada);
+      parse_config_shortcut(config, parsed, "show_alliance_help", GameFunction::ShowAllianceHelp,
+                            DCSH::show_alliance_help);
+      parse_config_shortcut(config, parsed, "show_alliance_armada", GameFunction::ShowAllianceArmada,
+                            DCSH::show_alliance_armada);
     }
 
     parse_config_shortcut(config, parsed, "show_bookmarks", GameFunction::ShowBookmarks, DCSH::show_bookmarks);
@@ -1310,13 +1391,20 @@ void Config::Load()
     parse_config_shortcut(config, parsed, "set_zoom_preset4", GameFunction::SetZoomPreset4, DCSH::set_zoom_preset4);
     parse_config_shortcut(config, parsed, "set_zoom_preset5", GameFunction::SetZoomPreset5, DCSH::set_zoom_preset5);
     parse_config_shortcut(config, parsed, "set_zoom_default", GameFunction::SetZoomDefault, DCSH::set_zoom_default);
-    parse_config_shortcut(config, parsed, "toggle_preview_locate", GameFunction::TogglePreviewLocate, DCSH::toggle_preview_locate);
-    parse_config_shortcut(config, parsed, "toggle_preview_recall", GameFunction::TogglePreviewRecall, DCSH::toggle_preview_recall);
-    parse_config_shortcut(config, parsed, "toggle_cargo_default", GameFunction::ToggleCargoDefault, DCSH::toggle_cargo_default);
-    parse_config_shortcut(config, parsed, "toggle_cargo_player",  GameFunction::ToggleCargoPlayer,  DCSH::toggle_cargo_player);
-    parse_config_shortcut(config, parsed, "toggle_cargo_station", GameFunction::ToggleCargoStation, DCSH::toggle_cargo_station);
-    parse_config_shortcut(config, parsed, "toggle_cargo_hostile", GameFunction::ToggleCargoHostile, DCSH::toggle_cargo_hostile);
-    parse_config_shortcut(config, parsed, "toggle_cargo_armada",  GameFunction::ToggleCargoArmada,  DCSH::toggle_cargo_armada);
+    parse_config_shortcut(config, parsed, "toggle_preview_locate", GameFunction::TogglePreviewLocate,
+                          DCSH::toggle_preview_locate);
+    parse_config_shortcut(config, parsed, "toggle_preview_recall", GameFunction::TogglePreviewRecall,
+                          DCSH::toggle_preview_recall);
+    parse_config_shortcut(config, parsed, "toggle_cargo_default", GameFunction::ToggleCargoDefault,
+                          DCSH::toggle_cargo_default);
+    parse_config_shortcut(config, parsed, "toggle_cargo_player", GameFunction::ToggleCargoPlayer,
+                          DCSH::toggle_cargo_player);
+    parse_config_shortcut(config, parsed, "toggle_cargo_station", GameFunction::ToggleCargoStation,
+                          DCSH::toggle_cargo_station);
+    parse_config_shortcut(config, parsed, "toggle_cargo_hostile", GameFunction::ToggleCargoHostile,
+                          DCSH::toggle_cargo_hostile);
+    parse_config_shortcut(config, parsed, "toggle_cargo_armada", GameFunction::ToggleCargoArmada,
+                          DCSH::toggle_cargo_armada);
   }
 
   spdlog::debug("");
