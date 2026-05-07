@@ -51,7 +51,7 @@ void ScreenManager_UpdateCanvasRootScaleFactor_Hook(auto original, ScreenManager
   }
   #endif
 
-  if (Config::Get().ui_scale != 0.0f) {
+  if (_this && _this->m_canvasRootScaler && Config::Get().ui_scale != 0.0f) {
     static auto get_height_method = il2cpp_resolve_icall_typed<int()>("UnityEngine.Screen::get_height()");
     static auto get_width_method  = il2cpp_resolve_icall_typed<int()>("UnityEngine.Screen::get_width()");
 
@@ -89,8 +89,12 @@ void ScreenManager_UpdateCanvasRootScaleFactor_Hook(auto original, ScreenManager
 void CanvasController_Show(auto original, CanvasController* _this, int desiredEntryPoint, bool instant)
 {
   const auto ui_scale_viewer = Config::Get().ui_scale_viewer;
-  if (ui_scale_viewer != 0.0f && to_wstring(_this->name) == L"ObjectViewerTemplate_Canvas") {
+  if (_this && ui_scale_viewer != 0.0f && to_wstring(_this->name) == L"ObjectViewerTemplate_Canvas") {
     auto transform        = _this->transform;
+    if (!transform || !transform->localScale) {
+      return original(_this, desiredEntryPoint, instant);
+    }
+
     auto localScale       = transform->localScale;
     localScale->x         = ui_scale_viewer;
     localScale->y         = ui_scale_viewer;

@@ -32,6 +32,7 @@ constexpr ptrdiff_t kIncomingFleetParamsTargetTypeOffset = 0x18;
 constexpr ptrdiff_t kIncomingFleetParamsQuickScanResultOffset = 0x20;
 constexpr ptrdiff_t kIncomingFleetParamsParamsObjectOffset = 0x28;
 constexpr ptrdiff_t kIncomingFleetParamsParamsCaseOffset = 0x30;
+constexpr ptrdiff_t kIncomingFleetParamsObjectFleetIdOffset = 0x10;
 constexpr ptrdiff_t kQuickScanFleetDataFleetTypeOffset = 0x18;
 constexpr ptrdiff_t kQuickScanFleetDataTargetIdOffset = 0x20;
 constexpr ptrdiff_t kQuickScanFleetDataTargetFleetIdOffset = 0x28;
@@ -116,7 +117,8 @@ void ToastFleetObserver_QueueNotifications_Hook(auto original, void* self, IList
                               : nullptr;
     uint64_t target_fleet_id = 0;
     if (params_case == 4 && params_object) {
-      target_fleet_id = static_cast<uint64_t>(*reinterpret_cast<int64_t*>(reinterpret_cast<char*>(params_object) + 0x10));
+      target_fleet_id = static_cast<uint64_t>(*reinterpret_cast<int64_t*>(reinterpret_cast<char*>(params_object) +
+                                                                          kIncomingFleetParamsObjectFleetIdOffset));
     }
 
     spdlog::debug("[IncomingAttack] queue index={} count={} targetType={} paramsCase={} targetFleetId={} quickScanFleetType={} quickScanTargetFleetId={} quickScanTargetId='{}'",

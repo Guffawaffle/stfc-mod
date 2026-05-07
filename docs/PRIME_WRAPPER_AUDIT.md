@@ -36,13 +36,13 @@ Get-ChildItem mods/src/prime/*.h |
 
 - Dump file: `tools/il2cpp-dump/dump.cs`
 - Source declaration: `Namespace: Digit.Client.Sections`, `public enum SectionID`, `TypeDefIndex: 1641`
-- Refresh command: `pwsh -NoProfile -File tools/dump-il2cpp.ps1`
+- Refresh command: `pwsh -NoProfile -File .ax/ax.ps1 dump-refresh`
 
 `ActionType` values in `mods/src/prime/ActionData.h` are game-derived action identifiers used by request/action wrappers. The current `dump.cs` contains many `ActionType` usages, but this audit did not find a standalone `public enum ActionType` declaration in the dump. Treat these values as manually curated from runtime/dump investigation until a stronger generated source is added.
 
 ## Regeneration And Check Workflow
 
-1. Refresh the IL2CPP dump against the installed game with `pwsh -NoProfile -File tools/dump-il2cpp.ps1`.
+1. Refresh the IL2CPP dump and SQLite search index against the installed game with `pwsh -NoProfile -File .ax/ax.ps1 dump-refresh`.
 2. Diff `tools/il2cpp-dump/dump.cs` for wrapper source types, field names, method signatures, enum values, and type indexes.
 3. Update `mods/src/prime/*.h` wrappers with direct includes for every type or helper used in the header.
 4. For generated constants, include the source namespace/type in comments or this audit doc when the dump provides it.

@@ -9,6 +9,7 @@
 #endif
 #include "embedded_loading_image.h"
 #include <cstring>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <vector>
@@ -147,6 +148,9 @@ static void EnsureTextureLoaded()
 // If outSprite is non-null, the created sprite pointer is written to it.
 static void ApplySpriteToImage(void* imageComp, void** outSprite = nullptr)
 {
+  if (!imageComp || !g_customLoadingTexture)
+    return;
+
   static auto tex_h  = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Texture2D");
   static auto spr_h  = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Sprite");
   static auto img_h  = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Image");
@@ -160,7 +164,7 @@ static void ApplySpriteToImage(void* imageComp, void** outSprite = nullptr)
   static auto fn_asp = img_h.GetMethodInfo("set_preserveAspect");
   static auto fn_drt = img_h.GetMethodInfo("SetVerticesDirty");
 
-  if (!fn_cre)
+  if (!fn_w || !fn_ht || !fn_cre)
     return;
   int32_t     tw = InvokeInt32(fn_w, g_customLoadingTexture, 792, "Texture2D.get_width");
   int32_t     th = InvokeInt32(fn_ht, g_customLoadingTexture, 450, "Texture2D.get_height");
@@ -307,10 +311,13 @@ void TransitionManager_SetLoadingScreen_Hook(auto original, void* _this, void* s
     const auto& cfg = Config::Get();
     if (cfg.loader_transition || cfg.loader_enabled)
       EnsureTextureLoaded();
-    original(_this, status, type, messagingType);
+  } catch (const std::exception& exception) {
+    spdlog::warn("[LS] SetLoadingScreen preparation failed: {}", exception.what());
   } catch (...) {
-    original(_this, status, type, messagingType);
+    spdlog::warn("[LS] SetLoadingScreen preparation failed");
   }
+
+  original(_this, status, type, messagingType);
 }
 
 void TransitionViewController_Awake_Hook(auto original, void* _this)

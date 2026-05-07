@@ -33,6 +33,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <utility>
 
 #ifndef STR_FORMAT
 #if __cpp_lib_format
@@ -53,13 +54,76 @@ namespace http
 {
 namespace headers
 {
+namespace
+{
+  std::mutex  header_mtx;
   std::string gameServerUrl;
   std::string instanceSessionId;
   int32_t     instanceId = 0;
   std::string unityVersion{"6000.0.52f1"};
   std::string primeVersion{"1.000.45324"};
-  const char  poweredBy[] = "stfc community patch/" VER_FILE_VERSION_STR;
+} // namespace
+
+  const char poweredBy[] = "stfc community patch/" VER_FILE_VERSION_STR;
+
+  void SetPrimeServerHeaders(std::string serverUrl, std::string sessionId)
+  {
+    std::lock_guard lk(header_mtx);
+    gameServerUrl     = std::move(serverUrl);
+    instanceSessionId = std::move(sessionId);
+  }
+
+  void SetPrimeVersion(std::string version)
+  {
+    std::lock_guard lk(header_mtx);
+    primeVersion = std::move(version);
+  }
+
+  void SetInstanceId(int32_t value)
+  {
+    std::lock_guard lk(header_mtx);
+    instanceId = value;
+  }
+
+  SessionHeaderSnapshot Snapshot()
+  {
+    std::lock_guard lk(header_mtx);
+    return {
+        gameServerUrl,
+        instanceSessionId,
+        instanceId,
+        unityVersion,
+        primeVersion,
+    };
+  }
 } // namespace headers
+
+#ifdef _MODDBG
+constexpr int kSyncConnectTimeoutMs = 10'000;
+constexpr int kSyncRequestTimeoutMs = 30'000;
+#else
+constexpr int kSyncConnectTimeoutMs = 3'000;
+constexpr int kSyncRequestTimeoutMs = 10'000;
+#endif
+
+bool should_disable_tls_verification(const SyncConfig& config, const std::string& target_identifier)
+{
+  if (config.verify_ssl) {
+    return false;
+  }
+
+  if (!config.allow_unsafe_tls_without_certificate_validation) {
+    spdlog::warn("[Sync] Ignoring verify_ssl=false for '{}' because allow_unsafe_tls_without_certificate_validation "
+                 "is not true.",
+                 target_identifier);
+    return false;
+  }
+
+  spdlog::error("[Sync] UNSAFE TLS certificate verification disabled for '{}'. Traffic can be intercepted. Set "
+                "verify_ssl=true or remove allow_unsafe_tls_without_certificate_validation to restore safe transport.",
+                target_identifier);
+  return true;
+}
 
 [[nodiscard]] static std::string newUUID()
 {
@@ -208,6 +272,7 @@ struct TargetWorker {
 
 static std::unordered_map<std::string, std::shared_ptr<TargetWorker>> target_workers;
 static std::mutex target_workers_mtx;
+static std::atomic_bool target_workers_shutdown_requested = false;
 
 static void target_worker_thread(std::shared_ptr<TargetWorker> worker)
 {
@@ -288,6 +353,10 @@ static std::shared_ptr<TargetWorker> get_curl_client_sync(const std::string& tar
 {
   std::lock_guard lk(target_workers_mtx);
 
+  if (target_workers_shutdown_requested.load(std::memory_order_acquire)) {
+    throw std::runtime_error("sync transport shutdown is in progress");
+  }
+
   if (const auto found = target_workers.find(target); found != target_workers.end()) {
     return found->second;
   }
@@ -302,19 +371,17 @@ static std::shared_ptr<TargetWorker> get_curl_client_sync(const std::string& tar
   worker->session->SetHttpVersion(cpr::HttpVersion{cpr::HttpVersionCode::VERSION_1_1});
   worker->session->SetRedirect(cpr::Redirect{3, true, false, cpr::PostRedirectFlags::POST_ALL});
 
-#ifndef _MODDBG
-  worker->session->SetConnectTimeout(cpr::ConnectTimeout{3'000});
-  worker->session->SetTimeout(cpr::Timeout{10'000});
-#endif
+  worker->session->SetConnectTimeout(cpr::ConnectTimeout{kSyncConnectTimeoutMs});
+  worker->session->SetTimeout(cpr::Timeout{kSyncRequestTimeoutMs});
 
   if (!target_config.proxy.empty()) {
     worker->session->SetProxies({{"http", target_config.proxy}, {"https", target_config.proxy}});
+  }
 
-    if (!target_config.verify_ssl) {
-      worker->session->SetSslOptions(
-        cpr::Ssl(cpr::ssl::VerifyHost{false}, cpr::ssl::VerifyPeer{false}, cpr::ssl::NoRevoke{true})
-      );
-    }
+  if (should_disable_tls_verification(target_config, target)) {
+    worker->session->SetSslOptions(
+      cpr::Ssl(cpr::ssl::VerifyHost{false}, cpr::ssl::VerifyPeer{false}, cpr::ssl::NoRevoke{true})
+    );
   }
 
   worker->session->SetHeader({
@@ -331,6 +398,10 @@ static std::shared_ptr<TargetWorker> get_curl_client_sync(const std::string& tar
 
 void send_data(SyncConfig::Type type, const std::string& post_data, bool is_first_sync)
 {
+  if (target_workers_shutdown_requested.load(std::memory_order_acquire)) {
+    return;
+  }
+
   static std::once_flag emit_warning;
   const auto& targets = Config::Get().sync_targets;
 
@@ -366,36 +437,67 @@ void send_data(SyncConfig::Type type, const std::string& post_data, bool is_firs
   }
 }
 
+void shutdown_workers()
+{
+  std::unordered_map<std::string, std::shared_ptr<TargetWorker>> workers;
+  {
+    std::lock_guard lk(target_workers_mtx);
+    if (target_workers_shutdown_requested.exchange(true, std::memory_order_acq_rel)) {
+      return;
+    }
+
+    workers.swap(target_workers);
+  }
+
+  for (auto& [target, worker] : workers) {
+    if (!worker) {
+      continue;
+    }
+
+    worker->stop_requested.store(true, std::memory_order_release);
+    worker->queue_cv.notify_all();
+  }
+
+  for (auto& [target, worker] : workers) {
+    if (worker && worker->worker_thread.joinable()) {
+      worker->worker_thread.join();
+    }
+  }
+}
+
 static std::shared_ptr<cpr::Session> get_curl_client_scopely()
 {
   static std::shared_ptr<cpr::Session> session{nullptr};
   static std::once_flag init_flag;
 
   std::call_once(init_flag, [] {
+    const auto header_snapshot = headers::Snapshot();
     session = std::make_shared<cpr::Session>();
     session->SetAcceptEncoding(cpr::AcceptEncoding{});
     session->SetHttpVersion(cpr::HttpVersion{cpr::HttpVersionCode::VERSION_1_1});
+    session->SetConnectTimeout(cpr::ConnectTimeout{kSyncConnectTimeoutMs});
+    session->SetTimeout(cpr::Timeout{kSyncRequestTimeoutMs});
 
     if (!Config::Get().sync_options.proxy.empty()) {
       session->SetProxies({{"https", Config::Get().sync_options.proxy}});
-
-      if (!Config::Get().sync_options.verify_ssl) {
-        session->SetSslOptions(
-          cpr::Ssl(cpr::ssl::VerifyHost{false}, cpr::ssl::VerifyPeer{false}, cpr::ssl::NoRevoke{true})
-        );
-      }
     }
 
-    session->SetUserAgent("UnityPlayer/" + headers::unityVersion + " (UnityWebRequest/1.0, libcurl/8.10.1-DEV)");
+    if (should_disable_tls_verification(Config::Get().sync_options, "scopely-api")) {
+      session->SetSslOptions(
+        cpr::Ssl(cpr::ssl::VerifyHost{false}, cpr::ssl::VerifyPeer{false}, cpr::ssl::NoRevoke{true})
+      );
+    }
+
+    session->SetUserAgent("UnityPlayer/" + header_snapshot.unityVersion + " (UnityWebRequest/1.0, libcurl/8.10.1-DEV)");
     session->SetHeader({
         {"Accept", "application/json"},
         {"Content-Type", "application/json"},
         {"X-TRANSACTION-ID", newUUID()},
-        {"X-AUTH-SESSION-ID", headers::instanceSessionId},
-        {"X-PRIME-VERSION", headers::primeVersion},
-        {"X-Instance-ID", STR_FORMAT("{:03}", headers::instanceId)},
+        {"X-AUTH-SESSION-ID", header_snapshot.instanceSessionId},
+        {"X-PRIME-VERSION", header_snapshot.primeVersion},
+        {"X-Instance-ID", STR_FORMAT("{:03}", header_snapshot.instanceId)},
         {"X-PRIME-SYNC", "0"},
-        {"X-Unity-Version", headers::unityVersion},
+        {"X-Unity-Version", header_snapshot.unityVersion},
         {"X-Powered-By", headers::poweredBy},
     });
   });
@@ -407,7 +509,8 @@ std::string get_scopely_data(const std::string& path, const std::string& post_da
 {
   static std::once_flag emit_warning;
 
-  if (headers::gameServerUrl.empty() || headers::instanceSessionId.empty()) {
+  const auto header_snapshot = headers::Snapshot();
+  if (header_snapshot.gameServerUrl.empty() || header_snapshot.instanceSessionId.empty()) {
     std::call_once(emit_warning, [] {
       sync_log_warn(CURL_TYPE_DOWNLOAD, "GLOBAL", "Game session headers are unavailable; cannot retrieve data");
     });
@@ -415,7 +518,7 @@ std::string get_scopely_data(const std::string& path, const std::string& post_da
     return {};
   }
 
-  Url url(headers::gameServerUrl);
+  Url url(header_snapshot.gameServerUrl);
   url.set_path(path);
 
   const auto        httpClient = get_curl_client_scopely();
@@ -429,8 +532,10 @@ std::string get_scopely_data(const std::string& path, const std::string& post_da
 
     auto& request_headers = httpClient->GetHeader();
     request_headers.insert_or_assign("X-TRANSACTION-ID", newUUID());
-    request_headers.insert_or_assign("X-AUTH-SESSION-ID", headers::instanceSessionId);
-    request_headers.insert_or_assign("X-Instance-ID", STR_FORMAT("{:03}", headers::instanceId));
+    request_headers.insert_or_assign("X-AUTH-SESSION-ID", header_snapshot.instanceSessionId);
+    request_headers.insert_or_assign("X-PRIME-VERSION", header_snapshot.primeVersion);
+    request_headers.insert_or_assign("X-Instance-ID", STR_FORMAT("{:03}", header_snapshot.instanceId));
+    request_headers.insert_or_assign("X-Unity-Version", header_snapshot.unityVersion);
 
     httpClient->SetBody(post_data);
     const auto response = httpClient->Post();

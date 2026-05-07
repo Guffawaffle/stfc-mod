@@ -7,6 +7,7 @@
  * macOS config-path migration, and converts legacy sync options.
  */
 #include "config.h"
+#include "config_schema.h"
 #include "file.h"
 #include "patches/mapkey.h"
 #include "prime/KeyCode.h"
@@ -39,6 +40,9 @@ namespace DCS   = DefaultConfig::Sync;
 namespace DCSC  = DefaultConfig::SystemConfig;
 namespace DCSH  = DefaultConfig::Shortcuts;
 namespace DCBLD = DefaultConfig::BattleLogDecoder;
+
+static_assert(!DCS::allow_unsafe_tls_without_certificate_validation,
+              "Unsafe TLS override default must remain false.");
 
 // Standalone flag — NOT in Config struct to avoid struct layout sensitivity.
 // See: fix/lto-and-sync-crashes for context on why Config struct changes crash.
@@ -182,6 +186,7 @@ static constexpr ShortcutConfigSpec kDisableHotkeysShortcutConfig{
 };
 
 struct NotificationBoolConfigSpec {
+  std::string_view canonical_path;
   std::string_view section;
   std::string_view key;
   std::string_view runtime_key;
@@ -191,27 +196,30 @@ struct NotificationBoolConfigSpec {
 };
 
 static constexpr NotificationBoolConfigSpec notificationBoolConfigSpecs[] = {
-    {"notifications", "notifications_enabled", "notifications_enabled", DCN::enabled, &NotificationConfig::enabled,
-     "Master switch for OS notifications."},
-    {"notifications", "notifications_audio_enabled", "notifications_audio_enabled", DCN::audio_enabled,
-     &NotificationConfig::audio_enabled, "Master switch for in-game audible notifications."},
-    {"notifications", "notifications_audio_fleet_arrived_in_system", "notifications_audio_fleet_arrived_in_system",
-     DCN::Audio::fleet_arrived_in_system, &NotificationConfig::audio_fleet_arrived_in_system,
-     "Play an in-game sound when a fleet arrives in-system."},
-    {"notifications", "notifications_fleet_arrived_in_system", "notifications_fleet_arrived_in_system",
-     DCN::Fleet::arrived_in_system, &NotificationConfig::fleet_arrived_in_system,
-     "Notify when a fleet arrives in-system."},
-    {"notifications", "notifications_fleet_arrived_at_destination", "notifications_fleet_arrived_at_destination",
-     DCN::Fleet::arrived_at_destination, &NotificationConfig::fleet_arrived_at_destination,
-     "Notify when a fleet arrives at its destination."},
-    {"notifications", "notifications_fleet_started_mining", "notifications_fleet_started_mining",
-     DCN::Fleet::started_mining, &NotificationConfig::fleet_started_mining, "Notify when a fleet starts mining."},
-    {"notifications", "notifications_fleet_node_depleted", "notifications_fleet_node_depleted",
-     DCN::Fleet::node_depleted, &NotificationConfig::fleet_node_depleted, "Notify when a mining node is depleted."},
-    {"notifications", "notifications_fleet_docked", "notifications_fleet_docked", DCN::Fleet::docked,
-     &NotificationConfig::fleet_docked, "Notify when a fleet docks."},
-    {"notifications", "notifications_fleet_repair_complete", "notifications_fleet_repair_complete",
-     DCN::Fleet::repair_complete, &NotificationConfig::fleet_repair_complete, "Notify when a repairing fleet docks."},
+    {"notifications.system.enabled", "notifications", "notifications_enabled", "notifications_enabled", DCN::enabled,
+     &NotificationConfig::enabled, "Master switch for OS notifications."},
+    {"notifications.audio.enabled", "notifications", "notifications_audio_enabled", "notifications_audio_enabled",
+     DCN::audio_enabled, &NotificationConfig::audio_enabled, "Master switch for in-game audible notifications."},
+    {"notifications.audio.fleet.arrived_in_system", "notifications", "notifications_audio_fleet_arrived_in_system",
+     "notifications_audio_fleet_arrived_in_system", DCN::Audio::fleet_arrived_in_system,
+     &NotificationConfig::audio_fleet_arrived_in_system, "Play an in-game sound when a fleet arrives in-system."},
+    {"notifications.system.fleet.arrived_in_system", "notifications", "notifications_fleet_arrived_in_system",
+     "notifications_fleet_arrived_in_system", DCN::Fleet::arrived_in_system,
+     &NotificationConfig::fleet_arrived_in_system, "Notify when a fleet arrives in-system."},
+    {"notifications.system.fleet.arrived_at_destination", "notifications", "notifications_fleet_arrived_at_destination",
+     "notifications_fleet_arrived_at_destination", DCN::Fleet::arrived_at_destination,
+     &NotificationConfig::fleet_arrived_at_destination, "Notify when a fleet arrives at its destination."},
+    {"notifications.system.fleet.started_mining", "notifications", "notifications_fleet_started_mining",
+     "notifications_fleet_started_mining", DCN::Fleet::started_mining, &NotificationConfig::fleet_started_mining,
+     "Notify when a fleet starts mining."},
+    {"notifications.system.fleet.node_depleted", "notifications", "notifications_fleet_node_depleted",
+     "notifications_fleet_node_depleted", DCN::Fleet::node_depleted, &NotificationConfig::fleet_node_depleted,
+     "Notify when a mining node is depleted."},
+    {"notifications.system.fleet.docked", "notifications", "notifications_fleet_docked", "notifications_fleet_docked",
+     DCN::Fleet::docked, &NotificationConfig::fleet_docked, "Notify when a fleet docks."},
+    {"notifications.system.fleet.repair_complete", "notifications", "notifications_fleet_repair_complete",
+     "notifications_fleet_repair_complete", DCN::Fleet::repair_complete, &NotificationConfig::fleet_repair_complete,
+     "Notify when a repairing fleet docks."},
 };
 
 struct NotificationToggleSpec {
@@ -477,17 +485,57 @@ void Config::AdjustUiViewerScale(bool scaleUp)
  */
 inline std::string mask_token(const std::string& token)
 {
+  if (token.empty()) {
+    return "<empty>";
+  }
+
+  std::string masked = token;
   if (token.size() > 21) {
-    std::string masked = token;
     for (size_t i = 9; i < token.size() - 12; ++i) {
       if (masked[i] != '-') {
         masked[i] = '*';
       }
     }
     return masked;
-  } else {
-    return token;
   }
+
+  if (token.size() > 8) {
+    for (size_t i = 4; i < token.size() - 4; ++i) {
+      if (masked[i] != '-') {
+        masked[i] = '*';
+      }
+    }
+    return masked;
+  }
+
+  for (auto& ch : masked) {
+    if (ch != '-') {
+      ch = '*';
+    }
+  }
+  return masked;
+}
+
+inline std::string mask_proxy_for_log(const std::string& proxy)
+{
+  if (proxy.empty()) {
+    return {};
+  }
+
+  const auto scheme_pos = proxy.find("://");
+  const auto authority_start = scheme_pos == std::string::npos ? 0 : scheme_pos + 3;
+  const auto at_pos = proxy.find('@', authority_start);
+  if (at_pos == std::string::npos) {
+    return proxy;
+  }
+
+  auto masked = proxy;
+  for (auto index = authority_start; index < at_pos; ++index) {
+    if (masked[index] != ':' && masked[index] != '/') {
+      masked[index] = '*';
+    }
+  }
+  return masked;
 }
 
 /** @brief Convert a toml::node_type to a human-readable string for diagnostics. */
@@ -577,8 +625,48 @@ bool read_bool_config_entry(toml::table& config, toml::table& new_config, const 
 bool read_bool_config_entry(toml::table& config, toml::table& new_config, const NotificationBoolConfigSpec& spec,
                             bool write_log)
 {
-  return read_bool_config_entry(config, new_config, spec.section, spec.key, spec.runtime_key, spec.default_value,
-                                spec.docs, write_log);
+  const auto                            legacy_path = config_schema::make_path(spec.section, spec.key);
+  const std::array<std::string_view, 1> aliases{legacy_path};
+
+  const config_schema::BoolSetting setting{
+      spec.canonical_path,
+      spec.default_value,
+      aliases,
+      spec.docs,
+  };
+
+  auto result = config_schema::read_bool(config, setting);
+  for (const auto& diagnostic : result.diagnostics) {
+    switch (diagnostic.severity) {
+      case config_schema::DiagnosticSeverity::Info:
+        spdlog::info("[ConfigSchema] info path={} source={} message='{}'", diagnostic.path, diagnostic.source_path,
+                     diagnostic.message);
+        break;
+      case config_schema::DiagnosticSeverity::Warning:
+        spdlog::warn("[ConfigSchema] warning path={} source={} message='{}'", diagnostic.path, diagnostic.source_path,
+                     diagnostic.message);
+        break;
+      case config_schema::DiagnosticSeverity::Error:
+        spdlog::error("[ConfigSchema] error path={} source={} message='{}'", diagnostic.path, diagnostic.source_path,
+                      diagnostic.message);
+        break;
+    }
+  }
+
+  config_schema::write_bool(new_config, spec.canonical_path, result.value);
+
+  new_config.emplace<toml::table>(spec.section, toml::table());
+  new_config[spec.section].as_table()->insert_or_assign(spec.runtime_key, result.value);
+
+  if (write_log) {
+    if (!result.source_path.empty()) {
+      spdlog::debug("config value {} value: {} source: {}", spec.canonical_path, result.value, result.source_path);
+    } else {
+      spdlog::debug("config value {} value: {} source: default", spec.canonical_path, result.value);
+    }
+  }
+
+  return result.value;
 }
 
 bool notification_toggle_key_exists(toml::table& config, const NotificationToggleSpec& spec)
@@ -676,11 +764,16 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
       target.token      = token.value();
       target.proxy      = proxy.value_or(defaults.proxy);
       target.verify_ssl = values["verify_ssl"].value<bool>().value_or(defaults.verify_ssl);
+      target.allow_unsafe_tls_without_certificate_validation =
+          values["allow_unsafe_tls_without_certificate_validation"].value<bool>().value_or(
+              defaults.allow_unsafe_tls_without_certificate_validation);
 
       parsed_target.insert("url", target.url);
       parsed_target.insert("token", target.token);
       parsed_target.insert("proxy", target.proxy);
       parsed_target.insert("verify_ssl", target.verify_ssl);
+      parsed_target.insert("allow_unsafe_tls_without_certificate_validation",
+                           target.allow_unsafe_tls_without_certificate_validation);
     } else {
       spdlog::warn("Skipping invalid target [{}]. Missing url or token.", target_section);
       continue;
@@ -694,7 +787,9 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
     if (sync_targets.emplace(target_key.str(), target).second) {
       new_config["sync"]["targets"].as_table()->emplace<toml::table>(target_key.str(), parsed_target);
       spdlog::debug("config value {} url: {}, token: {}", target_section, target.url, mask_token(target.token));
-      spdlog::info("target [{}] proxy: '{}', verify_ssl: {}", target_section, target.proxy, target.verify_ssl);
+      spdlog::info("target [{}] proxy: '{}', verify_ssl: {}, allow_unsafe_tls_without_certificate_validation: {}",
+                   target_section, mask_proxy_for_log(target.proxy), target.verify_ssl,
+                   target.allow_unsafe_tls_without_certificate_validation);
     }
   }
 }
@@ -1091,6 +1186,9 @@ void Config::Load()
   SyncConfig sync_defaults;
   sync_defaults.proxy      = get_config_or_default<std::string>(config, parsed, "sync", "proxy", DCS::proxy, write_log);
   sync_defaults.verify_ssl = get_config_or_default(config, parsed, "sync", "verify_ssl", DCS::verify_ssl, write_config);
+  sync_defaults.allow_unsafe_tls_without_certificate_validation = get_config_or_default(
+      config, parsed, "sync", "allow_unsafe_tls_without_certificate_validation",
+      DCS::allow_unsafe_tls_without_certificate_validation, write_config);
 
   for (const auto& opt : SyncOptions) {
     sync_defaults.*opt.option = get_config_or_default(config, parsed, "sync", opt.option_str, false, write_config);
@@ -1115,19 +1213,23 @@ void Config::Load()
     converted_target.token                     = sync_token.value();
 
     if (this->sync_targets.emplace("default", converted_target).second) {
-      toml::table default_target{
-          {"url", sync_url.value()}, {"token", sync_token.value()}, {"proxy", converted_target.proxy}};
+      toml::table default_target{{"url", sync_url.value()},
+                                 {"token", sync_token.value()},
+                                 {"proxy", converted_target.proxy},
+                                 {"verify_ssl", converted_target.verify_ssl},
+                                 {"allow_unsafe_tls_without_certificate_validation",
+                                  converted_target.allow_unsafe_tls_without_certificate_validation}};
       for (const auto& opt : SyncOptions) {
         default_target.insert(opt.option_str, converted_target.*opt.option);
       }
       parsed["sync"]["targets"].as_table()->emplace<toml::table>("default", default_target);
       spdlog::info(
           "Legacy config options 'sync_url' and 'sync_token' were converted to sync.targets.default url: {}, token: {}",
-          sync_url.value(), sync_token.value());
+          sync_url.value(), mask_token(sync_token.value()));
     } else {
       spdlog::error("Failed to convert legacy config options sync_url: {} and sync_token: {} as [sync.targets.default] "
                     "was already specified.",
-                    sync_url.value(), sync_token.value());
+                    sync_url.value(), mask_token(sync_token.value()));
     }
   }
 
@@ -1142,6 +1244,8 @@ void Config::Load()
 
   this->sync_options.proxy      = sync_defaults.proxy;
   this->sync_options.verify_ssl = sync_defaults.verify_ssl;
+  this->sync_options.allow_unsafe_tls_without_certificate_validation =
+      sync_defaults.allow_unsafe_tls_without_certificate_validation;
 
   for (const auto& opt : SyncOptions) {
     this->sync_options.*opt.option =

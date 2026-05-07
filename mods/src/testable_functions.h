@@ -213,6 +213,13 @@ struct FleetBarTransitionNotificationDecision {
 
 FleetBarTransitionState fleet_bar_transition_state_from_value(int state);
 const char* fleet_bar_transition_notification_kind_name(FleetBarTransitionNotificationKind kind);
+bool fleet_bar_transition_arrived_in_system_event_enabled(bool osArrivedInSystemEnabled,
+                              bool audioEnabled,
+                              bool audioArrivedInSystemEnabled);
+bool fleet_bar_transition_should_notify_os(FleetBarTransitionNotificationKind kind, bool osArrivedInSystemEnabled);
+bool fleet_bar_transition_should_notify_audio(FleetBarTransitionNotificationKind kind,
+                        bool audioEnabled,
+                        bool audioArrivedInSystemEnabled);
 FleetBarTransitionNotificationDecision fleet_bar_transition_notification_decision(
     const FleetBarTransitionNotificationInput& input);
 

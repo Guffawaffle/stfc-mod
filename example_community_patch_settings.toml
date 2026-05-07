@@ -197,9 +197,8 @@ zoom = 5000.0
 #  <[=============================================]>
 
 [notifications]
-# Master switch — must be true for any system notifications to fire.
-# When false, the individual notification toggles below are ignored.
-notifications_enabled = false
+# Toast-backed notification toggles are still flat during the schema migration.
+# New notification delivery channels are shown below as nested tables.
 
 # Supported: Battle notifications (fully parsed with player/ship detail)
 # Each type must be individually enabled
@@ -225,19 +224,6 @@ notifications_armada_canceled = true
 # These may still show raw placeholders depending on the game's toast payload.
 notifications_tournament = true
 notifications_chained_event_scored = true
-
-# Supported: Fleet notifications (fleet-bar transitions and mining depletion)
-notifications_fleet_arrived_in_system = false
-notifications_fleet_arrived_at_destination = false
-notifications_fleet_started_mining = false
-notifications_fleet_node_depleted = false
-notifications_fleet_docked = false
-notifications_fleet_repair_complete = false
-
-# In-game audible notifications. These are independent of the OS notification
-# master switch, but still require the matching fleet notification above.
-notifications_audio_enabled = false
-notifications_audio_fleet_arrived_in_system = false
 
 # Experimental — these use generic text resolution and may show raw placeholders
 # Enable individual types at your own risk
@@ -267,6 +253,27 @@ notifications_fleet_preset_applied = false
 notifications_surge_warmup_ended = false
 notifications_surge_hostile_group_defeated = false
 notifications_surge_time_left = false
+
+[notifications.system]
+# Master switch for OS-native system notifications.
+enabled = false
+
+[notifications.system.fleet]
+# Fleet-bar derived OS notifications.
+arrived_in_system = false
+arrived_at_destination = false
+started_mining = false
+node_depleted = false
+docked = false
+repair_complete = false
+
+[notifications.audio]
+# Master switch for in-game audible notification cues.
+enabled = false
+
+[notifications.audio.fleet]
+# Fleet-bar derived audio cues. These are independent of OS notifications.
+arrived_in_system = false
 
 #  <[=====================================================]>
 #
@@ -766,6 +773,11 @@ sidecar_jsonl_recent_logs = 300
 
 resolver_cache_ttl = "300"
 verify_ssl = true
+# Leaving TLS verification enabled is strongly recommended. If verify_ssl is set
+# to false, the mod ignores it unless this deliberately unsafe override is
+# also true. When enabled, the mod warns loudly at launch because sync traffic
+# can be intercepted by a proxy or network attacker.
+allow_unsafe_tls_without_certificate_validation = false
 
 #  <[=========================================================================================================================================]>
 #

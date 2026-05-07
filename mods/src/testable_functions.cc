@@ -600,6 +600,33 @@ const char* fleet_bar_transition_notification_kind_name(FleetBarTransitionNotifi
   }
 }
 
+bool fleet_bar_transition_arrived_in_system_event_enabled(bool osArrivedInSystemEnabled,
+                                                          bool audioEnabled,
+                                                          bool audioArrivedInSystemEnabled)
+{
+  return osArrivedInSystemEnabled || (audioEnabled && audioArrivedInSystemEnabled);
+}
+
+bool fleet_bar_transition_should_notify_os(FleetBarTransitionNotificationKind kind, bool osArrivedInSystemEnabled)
+{
+  if (kind == FleetBarTransitionNotificationKind::None) {
+    return false;
+  }
+
+  if (kind == FleetBarTransitionNotificationKind::ArrivedInSystem) {
+    return osArrivedInSystemEnabled;
+  }
+
+  return true;
+}
+
+bool fleet_bar_transition_should_notify_audio(FleetBarTransitionNotificationKind kind,
+                                              bool audioEnabled,
+                                              bool audioArrivedInSystemEnabled)
+{
+  return kind == FleetBarTransitionNotificationKind::ArrivedInSystem && audioEnabled && audioArrivedInSystemEnabled;
+}
+
 namespace {
 std::string fleet_notification_subject(const std::string& shipName)
 {

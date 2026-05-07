@@ -10,6 +10,7 @@ do
 
     -- Testable source files from the mod (pure logic only)
     add_files("../mods/src/testable_functions.cc")
+    add_files("../mods/src/config_schema.cc")
     add_files("../mods/src/patches/live_debug_event_store.cc")
     add_files("../mods/src/patches/live_debug_recent_event_requests.cc")
     add_files("../mods/src/patches/live_debug_fleet_serializers.cc")
@@ -19,7 +20,7 @@ do
     add_files("../mods/src/patches/notification_queue.cc")
     add_files("../mods/src/patches/notification_text.cc")
 
-    add_packages("doctest", "nlohmann_json")
+    add_packages("doctest", "nlohmann_json", "toml++")
 
     add_defines("NOMINMAX")
 

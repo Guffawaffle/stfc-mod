@@ -12,6 +12,8 @@
  */
 #include "patches.h"
 #include "file.h"
+#include "patches/sync_payload_builders.h"
+#include "patches/sync_transport.h"
 #include "version.h"
 
 #include <il2cpp/il2cpp-functions.h>
@@ -23,6 +25,7 @@
 #include <spdlog/spdlog.h>
 
 #include <cstring>
+#include <cstdlib>
 
 namespace
 {
@@ -213,6 +216,9 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
  */
 void ApplyPatches()
 {
+  static std::once_flag shutdown_registration;
+  std::call_once(shutdown_registration, [] { std::atexit(ShutdownPatches); });
+
 #if _WIN32
   auto assembly = LoadLibraryA("GameAssembly.dll");
 #else
@@ -245,4 +251,10 @@ void ApplyPatches()
       // Failed to Apply at least some patches
     }
   }
+}
+
+void ShutdownPatches()
+{
+  ShutdownSyncPayloadWorkers();
+  http::shutdown_workers();
 }

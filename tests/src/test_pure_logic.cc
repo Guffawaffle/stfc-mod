@@ -2,6 +2,7 @@
 #include <doctest/doctest.h>
 
 #include "bounded_ttl_cache.h"
+#include "config_schema.h"
 #include "patches/async_work_queue.h"
 #include "patches/battle_log_decoder.h"
 #include "patches/live_debug_event_store.h"
@@ -15,8 +16,113 @@
 #include "str_utils_pure.h"
 #include "testable_functions.h"
 
+#include <array>
 #include <chrono>
 #include <utility>
+
+// ===========================================================================
+// config_schema
+// ===========================================================================
+
+TEST_SUITE("config_schema")
+{
+  TEST_CASE("canonical boolean path reads nested TOML")
+  {
+    auto config = toml::parse(R"(
+[notifications.system]
+enabled = true
+)");
+
+    config_schema::BoolSetting setting{
+        "notifications.system.enabled",
+        false,
+        {},
+        "Master switch for OS notifications.",
+    };
+
+    auto result = config_schema::read_bool(config, setting);
+    CHECK(result.value == true);
+    CHECK(result.used_default == false);
+    CHECK(result.source_path == "notifications.system.enabled");
+    CHECK(result.diagnostics.empty());
+  }
+
+  TEST_CASE("deprecated boolean alias remains compatible")
+  {
+    auto config = toml::parse(R"(
+[notifications]
+notifications_enabled = true
+)");
+
+    const std::array<std::string_view, 1> aliases{"notifications.notifications_enabled"};
+    config_schema::BoolSetting            setting{
+        "notifications.system.enabled",
+        false,
+        aliases,
+        "Master switch for OS notifications.",
+    };
+
+    auto result = config_schema::read_bool(config, setting);
+    CHECK(result.value == true);
+    CHECK(result.used_default == false);
+    CHECK(result.source_path == "notifications.notifications_enabled");
+    REQUIRE(result.diagnostics.size() == 1);
+    CHECK(result.diagnostics[0].source_path == "notifications.notifications_enabled");
+  }
+
+  TEST_CASE("canonical boolean path wins over deprecated alias")
+  {
+    auto config = toml::parse(R"(
+[notifications]
+notifications_enabled = false
+
+[notifications.system]
+enabled = true
+)");
+
+    const std::array<std::string_view, 1> aliases{"notifications.notifications_enabled"};
+    config_schema::BoolSetting            setting{
+        "notifications.system.enabled",
+        false,
+        aliases,
+        "Master switch for OS notifications.",
+    };
+
+    auto result = config_schema::read_bool(config, setting);
+    CHECK(result.value == true);
+    CHECK(result.source_path == "notifications.system.enabled");
+    REQUIRE(result.diagnostics.size() == 1);
+    CHECK(result.diagnostics[0].source_path == "notifications.notifications_enabled");
+  }
+
+  TEST_CASE("invalid boolean type falls back to default")
+  {
+    auto config = toml::parse(R"(
+[notifications.system]
+enabled = "yes"
+)");
+
+    config_schema::BoolSetting setting{
+        "notifications.system.enabled",
+        false,
+        {},
+        "Master switch for OS notifications.",
+    };
+
+    auto result = config_schema::read_bool(config, setting);
+    CHECK(result.value == false);
+    CHECK(result.used_default == true);
+    REQUIRE(result.diagnostics.size() == 1);
+    CHECK(result.diagnostics[0].source_path == "notifications.system.enabled");
+  }
+
+  TEST_CASE("write boolean emits nested TOML path")
+  {
+    toml::table config;
+    config_schema::write_bool(config, "notifications.audio.fleet.arrived_in_system", true);
+    CHECK(config["notifications"]["audio"]["fleet"]["arrived_in_system"].value_or(false) == true);
+  }
+}
 
 // ===========================================================================
 // battle_log_decoder
@@ -26,25 +132,26 @@ TEST_SUITE("battle_log_decoder")
 {
   TEST_CASE("decode_probe_entry maps segment ids to ships and components")
   {
-    auto probe = nlohmann::json::object();
+    auto probe          = nlohmann::json::object();
     probe["journal_id"] = 12345;
-    probe["names"] = nlohmann::json{{"player-1", {{"name", "Guff"}}}};
+    probe["names"]      = nlohmann::json{{"player-1", {{"name", "Guff"}}}};
 
-    auto journal = nlohmann::json::object();
-    journal["id"] = 12345;
-    journal["battle_type"] = 8;
-    journal["battle_time"] = "2026-04-26T23:04:17";
-    journal["initiator_id"] = "player-1";
-    journal["target_id"] = "mar_45";
+    auto journal              = nlohmann::json::object();
+    journal["id"]             = 12345;
+    journal["battle_type"]    = 8;
+    journal["battle_time"]    = "2026-04-26T23:04:17";
+    journal["initiator_id"]   = "player-1";
+    journal["target_id"]      = "mar_45";
     journal["initiator_wins"] = true;
-    journal["battle_log"] = nlohmann::json::array({-96, -90, -88, 111, -86, 10, 20, 0.5, -85, 222, -98, 900, 1, -99, -89,
-                                                    -90, -88, 0, -87, -84, -83, -89, -97});
+    journal["battle_log"]     = nlohmann::json::array(
+        {-96, -90, -88, 111, -86, 10, 20, 0.5, -85, 222, -98, 900, 1, -99, -89, -90, -88, 0, -87, -84, -83, -89, -97});
     journal["resources_transferred"] = {{"2431852293", 263028}};
-    journal["chest_drop"] = {{"loot_roll_key", "MAR_45_Armada_Car_Uncommon"},
-                 {"chests_gained",
-                  nlohmann::json::array({{{"count", 1},
-                               {"params", {{"ref_id", 129255444149608},
-                                    {"chest_name", "MAR_45_Armada_Car_Uncommon"}}}}})}};
+    journal["chest_drop"]            = {
+        {"loot_roll_key", "MAR_45_Armada_Car_Uncommon"},
+        {"chests_gained",
+         nlohmann::json::array(
+             {{{"count", 1},
+               {"params", {{"ref_id", 129255444149608}, {"chest_name", "MAR_45_Armada_Car_Uncommon"}}}}})}};
     journal["initiator_fleet_data"]["deployed_fleets"]["1"] = {
         {"uid", "player-1"},
         {"fleet_id", 1},
@@ -102,17 +209,17 @@ TEST_SUITE("battle_log_decoder")
 
   TEST_CASE("build_sidecar_battle_capture_event emits string tokens and lossless journal integers")
   {
-    auto journal = nlohmann::json::object();
-    journal["id"] = 2709118446356718841LL;
-    journal["battle_type"] = 8;
-    journal["battle_time"] = "2026-04-26T23:04:17";
-    journal["initiator_id"] = "player-1";
-    journal["target_id"] = "mar_45";
+    auto journal              = nlohmann::json::object();
+    journal["id"]             = 2709118446356718841LL;
+    journal["battle_type"]    = 8;
+    journal["battle_time"]    = "2026-04-26T23:04:17";
+    journal["initiator_id"]   = "player-1";
+    journal["target_id"]      = "mar_45";
     journal["initiator_wins"] = true;
-    journal["system_id"] = 2682660367670527124LL;
-    journal["battle_log"] = nlohmann::json::array({-96, 2682660367670527124LL, -97});
+    journal["system_id"]      = 2682660367670527124LL;
+    journal["battle_log"]     = nlohmann::json::array({-96, 2682660367670527124LL, -97});
 
-    const auto names = nlohmann::json{{"player-1", {{"name", "Guff"}, {"alliance_id", 2682660367670527124LL}}}};
+    const auto names   = nlohmann::json{{"player-1", {{"name", "Guff"}, {"alliance_id", 2682660367670527124LL}}}};
     const auto capture = battle_log_decoder::build_sidecar_battle_capture_event(journal, names, 0, 222);
 
     CHECK(capture["protocolVersion"] == "stfc.sidecar.events.v0");
@@ -133,7 +240,7 @@ TEST_SUITE("battle_log_decoder")
 
   TEST_CASE("hostile display names ignore retrieving placeholders and derive from reward keys")
   {
-    const auto names = nlohmann::json{{"mar_42", {{"name", "Retrieving..."}}}};
+    const auto names   = nlohmann::json{{"mar_42", {{"name", "Retrieving..."}}}};
     auto       journal = nlohmann::json{{"id", 222},
                                         {"battle_type", 2},
                                         {"target_id", "mar_42"},
@@ -172,78 +279,24 @@ TEST_SUITE("battle_log_decoder")
 
   TEST_CASE("decode_journal derives rounds sub-rounds and attack rows from record markers")
   {
-    const auto names = nlohmann::json{{"player-1", {{"name", "Guff"}, {"alliance_name", "House of Test"}, {"alliance_tag", "HOT"}}}};
-    auto       journal = nlohmann::json{{"id", 333},
-                                        {"battle_type", 8},
-                                        {"battle_time", "2026-04-27T01:23:45"},
-                                        {"initiator_id", "player-1"},
-                                        {"target_id", "mar_45"},
-                                        {"initiator_wins", true},
-                                        {"battle_log",
-                                         nlohmann::json::array({-96,
-                                                                -90,
-                                                                -88,
-                                                                111,
-                                                                -86,
-                                                                10,
-                                                                20,
-                                                                0.5,
-                                                                -85,
-                                                                -83,
-                                                                0,
-                                                                -98,
-                                                                800,
-                                                                111,
-                                                                1.0,
-                                                                0.0,
-                                                                1,
-                                                                1,
-                                                                1878,
-                                                                83380359.0,
-                                                                7514,
-                                                                30103950.0,
-                                                                7636.33728,
-                                                                5405,
-                                                                0.0,
-                                                                0.0,
-                                                                -99,
-                                                                -89,
-                                                                -97,
-                                                                -96,
-                                                                111,
-                                                                -98,
-                                                                900,
-                                                                0,
-                                                                1.0,
-                                                                0.0,
-                                                                1,
-                                                                0,
-                                                                2501,
-                                                                80608653.0,
-                                                                10002,
-                                                                19017128.0,
-                                                                10166.36544,
-                                                                7195,
-                                                                0.3728,
-                                                                0.0,
-                                                                -93,
-                                                                111,
-                                                                -91,
-                                                                1449938138,
-                                                                2481912459,
-                                                                0.02,
-                                                                -92,
-                                                                -94,
-                                                                -99,
-                                                                111,
-                                                                -98,
-                                                                901,
-                                                                -95,
-                                                                1.0,
-                                                                -99,
-                                                                -89,
-                                                                -97})},
-                                        {"chest_drop", {{"loot_roll_key", "MAR_45_Armada_Car_Uncommon"}}}};
+    const auto names =
+        nlohmann::json{{"player-1", {{"name", "Guff"}, {"alliance_name", "House of Test"}, {"alliance_tag", "HOT"}}}};
+    auto journal = nlohmann::json{
+        {"id", 333},
+        {"battle_type", 8},
+        {"battle_time", "2026-04-27T01:23:45"},
+        {"initiator_id", "player-1"},
+        {"target_id", "mar_45"},
+        {"initiator_wins", true},
+        {"battle_log",
+         nlohmann::json::array({-96,  -90,        -88,  111,        -86,        10,         20,          0.5,  -85,
+                                -83,  0,          -98,  800,        111,        1.0,        0.0,         1,    1,
+                                1878, 83380359.0, 7514, 30103950.0, 7636.33728, 5405,       0.0,         0.0,  -99,
+                                -89,  -97,        -96,  111,        -98,        900,        0,           1.0,  0.0,
+                                1,    0,          2501, 80608653.0, 10002,      19017128.0, 10166.36544, 7195, 0.3728,
+                                0.0,  -93,        111,  -91,        1449938138, 2481912459, 0.02,        -92,  -94,
+                                -99,  111,        -98,  901,        -95,        1.0,        -99,         -89,  -97})},
+        {"chest_drop", {{"loot_roll_key", "MAR_45_Armada_Car_Uncommon"}}}};
     journal["initiator_fleet_data"]["deployed_fleets"]["1"] = {
         {"uid", "player-1"},
         {"fleet_id", 1},
@@ -322,11 +375,9 @@ TEST_SUITE("battle_log_decoder")
 
   TEST_CASE("build_sidecar_catalog_snapshot_event collects observed IDs and resolves players + alliances")
   {
-    const auto names = nlohmann::json{{"player-1",
-                                       {{"name", "Guff"},
-                                        {"alliance_id", 9001},
-                                        {"alliance_name", "House of Test"},
-                                        {"alliance_tag", "HOT"}}}};
+    const auto names = nlohmann::json{
+        {"player-1",
+         {{"name", "Guff"}, {"alliance_id", 9001}, {"alliance_name", "House of Test"}, {"alliance_tag", "HOT"}}}};
     auto journal = nlohmann::json{{"id", 444},
                                   {"battle_type", 8},
                                   {"battle_time", "2026-04-27T01:23:45"},
@@ -378,7 +429,7 @@ TEST_SUITE("battle_log_decoder")
       CHECK(domains["alliances"]["9001"]["unresolved"] == false);
 
       const auto& coverage = event["catalog"]["coverage"];
-      const auto present = coverage["domainsPresent"];
+      const auto  present  = coverage["domainsPresent"];
       CHECK(std::ranges::find(present, "hulls") != present.end());
       CHECK(std::ranges::find(present, "players") != present.end());
       CHECK(std::ranges::find(present, "alliances") != present.end());
@@ -389,9 +440,9 @@ TEST_SUITE("battle_log_decoder")
     // Plug resolvers and assert names plus metadata land.
     {
       battle_log_decoder::CatalogResolver resolver{};
-      resolver.hull_name = [](int64_t id) { return id == 77 ? std::string{"Saladin"} : std::string{}; };
-      resolver.hull_type = [](int64_t id) { return id == 77 ? std::string{"Battleship"} : std::string{}; };
-      resolver.component_name = [](int64_t id) { return id == 900 ? std::string{"Phaser Bank"} : std::string{}; };
+      resolver.hull_name          = [](int64_t id) { return id == 77 ? std::string{"Saladin"} : std::string{}; };
+      resolver.hull_type          = [](int64_t id) { return id == 77 ? std::string{"Battleship"} : std::string{}; };
+      resolver.component_name     = [](int64_t id) { return id == 900 ? std::string{"Phaser Bank"} : std::string{}; };
       resolver.component_metadata = [](int64_t id) {
         return id == 900 ? nlohmann::json{{"locaId", "12345"}, {"locaKey", "component_phaser_bank"}}
                          : nlohmann::json::object();
@@ -415,20 +466,18 @@ TEST_SUITE("battle_log_decoder")
 
   TEST_CASE("build_sidecar_catalog_snapshot_event carries metadata for unresolved combat effect domains")
   {
-    const auto names = nlohmann::json::object();
+    const auto names   = nlohmann::json::object();
     const auto journal = nlohmann::json{{"id", 445},
                                         {"battle_type", 8},
                                         {"battle_time", "2026-04-27T01:23:45"},
                                         {"battle_log", nlohmann::json::array({-96, -97})}};
     const auto decoded = nlohmann::json{
-        {"attack_rows",
-         nlohmann::json::array(
-             {{{"triggeredEffects",
-                nlohmann::json::array({{{"kind", "officer_ability"}, {"id", 7001}},
-                                       {{"kind", "ship_ability"}, {"id", 8001}},
-                                       {{"kind", "forbidden_tech"}, {"id", 9001}},
-                                       {{"kind", "buff"}, {"id", 10001}},
-                                       {{"kind", "debuff"}, {"id", 11001}}})}}})}};
+        {"attack_rows", nlohmann::json::array(
+                            {{{"triggeredEffects", nlohmann::json::array({{{"kind", "officer_ability"}, {"id", 7001}},
+                                                                          {{"kind", "ship_ability"}, {"id", 8001}},
+                                                                          {{"kind", "forbidden_tech"}, {"id", 9001}},
+                                                                          {{"kind", "buff"}, {"id", 10001}},
+                                                                          {{"kind", "debuff"}, {"id", 11001}}})}}})}};
 
     battle_log_decoder::CatalogResolver resolver{};
     resolver.officer_metadata = [](int64_t id) {
@@ -443,16 +492,15 @@ TEST_SUITE("battle_log_decoder")
                         : nlohmann::json::object();
     };
     resolver.buff_metadata = [](int64_t id) {
-      return id == 10001 ? nlohmann::json{{"locaId", "20001"}, {"locaKey", "buff_category"}}
-                         : nlohmann::json::object();
+      return id == 10001 ? nlohmann::json{{"locaId", "20001"}, {"locaKey", "buff_category"}} : nlohmann::json::object();
     };
     resolver.debuff_metadata = [](int64_t id) {
       return id == 11001 ? nlohmann::json{{"locaId", "21001"}, {"locaKey", "debuff_category"}}
                          : nlohmann::json::object();
     };
 
-    const auto event = battle_log_decoder::build_sidecar_catalog_snapshot_event(
-        journal, names, decoded, resolver, 445, 222);
+    const auto event =
+        battle_log_decoder::build_sidecar_catalog_snapshot_event(journal, names, decoded, resolver, 445, 222);
     const auto& domains = event["catalog"]["domains"];
 
     REQUIRE(domains["officers"].contains("7001"));
@@ -622,8 +670,10 @@ TEST_SUITE("hotkey_decisions")
   TEST_CASE("ship selection returns the first active fleet hotkey")
   {
     CHECK(hotkey_router_ship_select_request(std::array<bool, 8>{}) == -1);
-    CHECK(hotkey_router_ship_select_request(std::array<bool, 8>{false, false, true, false, false, false, false, false}) == 2);
-    CHECK(hotkey_router_ship_select_request(std::array<bool, 8>{true, false, true, false, false, false, false, false}) == 0);
+    CHECK(hotkey_router_ship_select_request(std::array<bool, 8>{false, false, true, false, false, false, false, false})
+          == 2);
+    CHECK(hotkey_router_ship_select_request(std::array<bool, 8>{true, false, true, false, false, false, false, false})
+          == 0);
   }
 
   TEST_CASE("escape clears focused chat or input without falling through")
@@ -709,9 +759,9 @@ TEST_SUITE("live_debug_recent_event_store")
     store.append("event-a", nlohmann::json{{"value", 4}}, 400);
 
     LiveDebugRecentEventStoreQuery query;
-    query.afterSeq = 0;
-    query.kind = "event-a";
-    query.limit = 1;
+    query.afterSeq       = 0;
+    query.kind           = "event-a";
+    query.limit          = 1;
     query.includeDetails = false;
 
     const auto snapshot = store.snapshot(query);
@@ -739,8 +789,8 @@ TEST_SUITE("live_debug_recent_event_store")
     store.append("toast-notification-observed", nlohmann::json{{"message", "Warp complete"}}, 400);
 
     LiveDebugRecentEventStoreQuery wildcard_query;
-    wildcard_query.kinds = {"toast-notification-observed", "top-canvas-changed"};
-    wildcard_query.match = "*alliance*";
+    wildcard_query.kinds          = {"toast-notification-observed", "top-canvas-changed"};
+    wildcard_query.match          = "*alliance*";
     wildcard_query.includeDetails = false;
 
     const auto wildcard_snapshot = store.snapshot(wildcard_query);
@@ -793,11 +843,7 @@ TEST_SUITE("live_debug_recent_event_store")
   TEST_CASE("recent-events request parser prefers includeDetails over summary and limit over last")
   {
     const nlohmann::json request = {
-        {"limit", 7},
-        {"last", 2},
-        {"includeDetails", true},
-        {"summary", true},
-        {"kind", "fleet-slot-state-changed"},
+        {"limit", 7}, {"last", 2}, {"includeDetails", true}, {"summary", true}, {"kind", "fleet-slot-state-changed"},
     };
 
     const auto query = live_debug_recent_events_query_from_request(request);
@@ -809,17 +855,17 @@ TEST_SUITE("live_debug_recent_event_store")
   TEST_CASE("recent-events result builder preserves metadata and nulls empty seq values")
   {
     LiveDebugRecentEventStoreSnapshot snapshot;
-    snapshot.count = 4;
-    snapshot.returnedCount = 2;
-    snapshot.matchedCount = 3;
-    snapshot.capacity = 256;
-    snapshot.nextSeq = 12;
-    snapshot.evictedCount = 5;
-    snapshot.clearCount = 1;
-    snapshot.queryGap = true;
+    snapshot.count                           = 4;
+    snapshot.returnedCount                   = 2;
+    snapshot.matchedCount                    = 3;
+    snapshot.capacity                        = 256;
+    snapshot.nextSeq                         = 12;
+    snapshot.evictedCount                    = 5;
+    snapshot.clearCount                      = 1;
+    snapshot.queryGap                        = true;
     snapshot.missingCountBeforeFirstReturned = 2;
-    snapshot.kindCounts = nlohmann::json{{"toast-notification-observed", 2}};
-    snapshot.bufferKindCounts = nlohmann::json{{"toast-notification-observed", 3}};
+    snapshot.kindCounts                      = nlohmann::json{{"toast-notification-observed", 2}};
+    snapshot.bufferKindCounts                = nlohmann::json{{"toast-notification-observed", 3}};
     snapshot.events = nlohmann::json::array({nlohmann::json{{"seq", 10}}, nlohmann::json{{"seq", 11}}});
 
     const auto result = live_debug_recent_events_result(snapshot);
@@ -845,14 +891,14 @@ TEST_SUITE("live_debug_ui_serializers")
   TEST_CASE("top canvas serializer preserves visible metadata")
   {
     TopCanvasObservation observation;
-    observation.found = true;
-    observation.pointer = "0x1234";
-    observation.className = "GalaxyScreen";
-    observation.classNamespace = "Scopely.UI";
-    observation.name = "GalaxyTopCanvas";
-    observation.visible = true;
-    observation.enabled = true;
-    observation.internalVisible = false;
+    observation.found            = true;
+    observation.pointer          = "0x1234";
+    observation.className        = "GalaxyScreen";
+    observation.classNamespace   = "Scopely.UI";
+    observation.name             = "GalaxyTopCanvas";
+    observation.visible          = true;
+    observation.enabled          = true;
+    observation.internalVisible  = false;
     observation.activeChildNames = {"ArmadaButton", "WarpHud"};
 
     const auto result = top_canvas_observation_to_json(observation);
@@ -867,14 +913,14 @@ TEST_SUITE("live_debug_ui_serializers")
   TEST_CASE("station warning serializer labels target type")
   {
     StationWarningObservation observation;
-    observation.tracked = true;
-    observation.pointer = "0x777";
-    observation.hasContext = true;
-    observation.targetType = 3;
-    observation.targetFleetId = 42;
-    observation.targetUserId = "player-1";
+    observation.tracked                = true;
+    observation.pointer                = "0x777";
+    observation.hasContext             = true;
+    observation.targetType             = 3;
+    observation.targetFleetId          = 42;
+    observation.targetUserId           = "player-1";
     observation.quickScanTargetFleetId = 99;
-    observation.quickScanTargetId = "scan-9";
+    observation.quickScanTargetId      = "scan-9";
 
     const auto result = station_warning_observation_to_json(observation);
 
@@ -888,21 +934,21 @@ TEST_SUITE("live_debug_ui_serializers")
   TEST_CASE("navigation interaction serializer emits readable context names")
   {
     NavigationInteractionObservation observation;
-    observation.tracked = true;
+    observation.tracked      = true;
     observation.trackedCount = 1;
 
     NavigationInteractionObservation::Entry entry;
-    entry.pointer = "0xabc";
-    entry.hasContext = true;
-    entry.contextDataState = 1;
-    entry.inputInteractionType = 14;
-    entry.userId = "enemy-7";
-    entry.isMarauder = true;
-    entry.threatLevel = 0;
-    entry.validNavigationInput = true;
-    entry.showSetCourseArm = true;
+    entry.pointer               = "0xabc";
+    entry.hasContext            = true;
+    entry.contextDataState      = 1;
+    entry.inputInteractionType  = 14;
+    entry.userId                = "enemy-7";
+    entry.isMarauder            = true;
+    entry.threatLevel           = 0;
+    entry.validNavigationInput  = true;
+    entry.showSetCourseArm      = true;
     entry.locationTranslationId = 123456;
-    entry.poiPointer = "0xpoi";
+    entry.poiPointer            = "0xpoi";
     observation.entries.push_back(entry);
 
     const auto result = navigation_interaction_observation_to_json(observation);
@@ -930,17 +976,17 @@ TEST_SUITE("live_debug_fleet_serializers")
   TEST_CASE("fleet observation serializer includes tracked fleet details")
   {
     FleetObservation observation;
-    observation.tracked = true;
-    observation.pointer = "0xfleetbar";
-    observation.selectedIndex = 3;
-    observation.hasController = true;
-    observation.hasFleet = true;
-    observation.fleetId = 44;
-    observation.currentState = 2;
-    observation.previousState = 1;
-    observation.cargoFillPercent = 37;
+    observation.tracked              = true;
+    observation.pointer              = "0xfleetbar";
+    observation.selectedIndex        = 3;
+    observation.hasController        = true;
+    observation.hasFleet             = true;
+    observation.fleetId              = 44;
+    observation.currentState         = 2;
+    observation.previousState        = 1;
+    observation.cargoFillPercent     = 37;
     observation.cargoFillBasisPoints = 3700;
-    observation.hullName = "Mayflower";
+    observation.hullName             = "Mayflower";
 
     const auto result = fleet_observation_to_json(observation);
 
@@ -956,16 +1002,16 @@ TEST_SUITE("live_debug_fleet_serializers")
   TEST_CASE("fleet slot serializer preserves slot order and readable states")
   {
     std::array<FleetSlotObservation, kFleetIndexMax> observations{};
-    observations[0].slotIndex = 0;
-    observations[1].slotIndex = 1;
-    observations[1].selected = true;
-    observations[1].present = true;
-    observations[1].fleetId = 9001;
-    observations[1].currentState = 256;
-    observations[1].previousState = 128;
-    observations[1].cargoFillPercent = 82;
+    observations[0].slotIndex            = 0;
+    observations[1].slotIndex            = 1;
+    observations[1].selected             = true;
+    observations[1].present              = true;
+    observations[1].fleetId              = 9001;
+    observations[1].currentState         = 256;
+    observations[1].previousState        = 128;
+    observations[1].cargoFillPercent     = 82;
     observations[1].cargoFillBasisPoints = 8200;
-    observations[1].hullName = "Enterprise";
+    observations[1].hullName             = "Enterprise";
 
     const auto result = fleet_slots_to_json(observations);
 
@@ -992,11 +1038,11 @@ TEST_SUITE("live_debug_viewer_serializers")
   TEST_CASE("target viewer serializer emits tracked pointers and nulls")
   {
     TargetViewerObservation observation;
-    observation.preScanTargetTracked = true;
-    observation.preScanTargetPointer = "0xpre";
+    observation.preScanTargetTracked        = true;
+    observation.preScanTargetPointer        = "0xpre";
     observation.preScanStationTargetTracked = false;
-    observation.celestialViewerTracked = true;
-    observation.celestialViewerPointer = "0xcelestial";
+    observation.celestialViewerTracked      = true;
+    observation.celestialViewerPointer      = "0xcelestial";
 
     const auto result = target_viewer_observation_to_json(observation);
 
@@ -1010,23 +1056,23 @@ TEST_SUITE("live_debug_viewer_serializers")
   TEST_CASE("mine viewer serializer includes timer and occupied state metadata")
   {
     MineViewerObservation observation;
-    observation.miningViewerTracked = true;
-    observation.miningPointer = "0xmine";
-    observation.enabled = true;
-    observation.isActiveAndEnabled = true;
-    observation.isInfoShown = true;
-    observation.hasParent = true;
-    observation.parentIsShowing = false;
-    observation.occupiedState = 2;
-    observation.hasScanEngageButtons = true;
-    observation.hasTimer = true;
-    observation.timerState = 4;
-    observation.timerType = 8;
-    observation.timerRemainingSeconds = 75;
-    observation.timerRemainingBucket = 60;
-    observation.starNodeViewerTracked = true;
-    observation.starNodePointer = "0xstar";
-    observation.starNodeEnabled = false;
+    observation.miningViewerTracked      = true;
+    observation.miningPointer            = "0xmine";
+    observation.enabled                  = true;
+    observation.isActiveAndEnabled       = true;
+    observation.isInfoShown              = true;
+    observation.hasParent                = true;
+    observation.parentIsShowing          = false;
+    observation.occupiedState            = 2;
+    observation.hasScanEngageButtons     = true;
+    observation.hasTimer                 = true;
+    observation.timerState               = 4;
+    observation.timerType                = 8;
+    observation.timerRemainingSeconds    = 75;
+    observation.timerRemainingBucket     = 60;
+    observation.starNodeViewerTracked    = true;
+    observation.starNodePointer          = "0xstar";
+    observation.starNodeEnabled          = false;
     observation.starNodeActiveAndEnabled = true;
 
     const auto result = mine_viewer_observation_to_json(observation);
@@ -1047,7 +1093,7 @@ TEST_SUITE("hotkey_disable_shortcut_alias")
   {
     HotkeyDisableShortcutAliasInput input;
     input.has_canonical = true;
-    input.canonical = "CTRL-D";
+    input.canonical     = "CTRL-D";
     input.default_value = "CTRL-ALT-MINUS";
 
     const auto decision = resolve_hotkey_disable_shortcut_alias(input);
@@ -1062,8 +1108,8 @@ TEST_SUITE("hotkey_disable_shortcut_alias")
   {
     HotkeyDisableShortcutAliasInput input;
     input.has_deprecated_typo = true;
-    input.deprecated_typo = "CTRL-T";
-    input.default_value = "CTRL-ALT-MINUS";
+    input.deprecated_typo     = "CTRL-T";
+    input.default_value       = "CTRL-ALT-MINUS";
 
     const auto decision = resolve_hotkey_disable_shortcut_alias(input);
     CHECK(decision.key == "set_hotkeys_disable");
@@ -1077,11 +1123,11 @@ TEST_SUITE("hotkey_disable_shortcut_alias")
   TEST_CASE("conflicting canonical and deprecated values use canonical")
   {
     HotkeyDisableShortcutAliasInput input;
-    input.has_canonical = true;
-    input.canonical = "CTRL-D";
+    input.has_canonical       = true;
+    input.canonical           = "CTRL-D";
     input.has_deprecated_typo = true;
-    input.deprecated_typo = "CTRL-T";
-    input.default_value = "CTRL-ALT-MINUS";
+    input.deprecated_typo     = "CTRL-T";
+    input.default_value       = "CTRL-ALT-MINUS";
 
     const auto decision = resolve_hotkey_disable_shortcut_alias(input);
     CHECK(decision.source_key == "set_hotkeys_disable");
@@ -1095,8 +1141,8 @@ TEST_SUITE("hotkey_disable_shortcut_alias")
   {
     HotkeyDisableShortcutAliasInput input;
     input.has_legacy_disabled = true;
-    input.legacy_disabled = "CTRL-L";
-    input.default_value = "CTRL-ALT-MINUS";
+    input.legacy_disabled     = "CTRL-L";
+    input.default_value       = "CTRL-ALT-MINUS";
 
     const auto decision = resolve_hotkey_disable_shortcut_alias(input);
     CHECK(decision.source_key == "set_hotkeys_disabled");
@@ -1115,9 +1161,9 @@ TEST_SUITE("bounded_ttl_deduper")
 
   TEST_CASE("suppresses repeated key inside TTL and emits at boundary")
   {
-    auto at_ms = [](int64_t ms) { return TestDeduper::time_point{std::chrono::milliseconds(ms)}; };
+    auto        at_ms = [](int64_t ms) { return TestDeduper::time_point{std::chrono::milliseconds(ms)}; };
     TestDeduper deduper(8);
-    const auto ttl = std::chrono::milliseconds(100);
+    const auto  ttl = std::chrono::milliseconds(100);
 
     CHECK(deduper.should_emit("toast-1", at_ms(0), ttl).emitted);
 
@@ -1132,9 +1178,9 @@ TEST_SUITE("bounded_ttl_deduper")
 
   TEST_CASE("key replacement refreshes timestamp after expiry")
   {
-    auto at_ms = [](int64_t ms) { return TestDeduper::time_point{std::chrono::milliseconds(ms)}; };
+    auto        at_ms = [](int64_t ms) { return TestDeduper::time_point{std::chrono::milliseconds(ms)}; };
     TestDeduper deduper(8);
-    const auto ttl = std::chrono::milliseconds(100);
+    const auto  ttl = std::chrono::milliseconds(100);
 
     CHECK(deduper.should_emit("incoming", at_ms(0), ttl).emitted);
     CHECK(deduper.should_emit("incoming", at_ms(100), ttl).emitted);
@@ -1145,9 +1191,9 @@ TEST_SUITE("bounded_ttl_deduper")
 
   TEST_CASE("prune removes expired entries without removing live entries")
   {
-    auto at_ms = [](int64_t ms) { return TestDeduper::time_point{std::chrono::milliseconds(ms)}; };
+    auto        at_ms = [](int64_t ms) { return TestDeduper::time_point{std::chrono::milliseconds(ms)}; };
     TestDeduper deduper(8);
-    const auto ttl = std::chrono::milliseconds(100);
+    const auto  ttl = std::chrono::milliseconds(100);
 
     CHECK(deduper.should_emit("old", at_ms(0), ttl).emitted);
     CHECK(deduper.should_emit("live", at_ms(50), ttl).emitted);
@@ -1159,9 +1205,9 @@ TEST_SUITE("bounded_ttl_deduper")
 
   TEST_CASE("max-entry eviction removes the oldest cached key")
   {
-    auto at_ms = [](int64_t ms) { return TestDeduper::time_point{std::chrono::milliseconds(ms)}; };
+    auto        at_ms = [](int64_t ms) { return TestDeduper::time_point{std::chrono::milliseconds(ms)}; };
     TestDeduper deduper(2);
-    const auto ttl = std::chrono::seconds(10);
+    const auto  ttl = std::chrono::seconds(10);
 
     CHECK(deduper.should_emit("first", at_ms(0), ttl).emitted);
     CHECK(deduper.should_emit("second", at_ms(1), ttl).emitted);
@@ -1190,19 +1236,13 @@ TEST_SUITE("notification_text")
   }
 
   TEST_CASE("flattens whitespace for queue summaries")
-  {
-    CHECK(notification_flatten_text("  alpha\n\tbeta  gamma \r\n") == "alpha beta gamma");
-  }
+  { CHECK(notification_flatten_text("  alpha\n\tbeta  gamma \r\n") == "alpha beta gamma"); }
 
   TEST_CASE("escapes control whitespace for logs")
-  {
-    CHECK(notification_escape_text_for_log("a\r\nb\tc") == "a\\r\\nb\\tc");
-  }
+  { CHECK(notification_escape_text_for_log("a\r\nb\tc") == "a\\r\\nb\\tc"); }
 
   TEST_CASE("strips Unity rich text tags")
-  {
-    CHECK(notification_strip_unity_rich_text("<color=#fff>Alpha</color> <b>Beta</b>") == "Alpha Beta");
-  }
+  { CHECK(notification_strip_unity_rich_text("<color=#fff>Alpha</color> <b>Beta</b>") == "Alpha Beta"); }
 
   TEST_CASE("chooses parsed body before localized fallbacks")
   {
@@ -1218,9 +1258,9 @@ TEST_SUITE("notification_queue")
   TEST_CASE("collapses same-title batches into a counted summary")
   {
     std::vector<NotificationQueueRequest> batch{
-      {.source = "toast", .title = "Fleet Battle", .body = "one"},
-      {.source = "toast", .title = "Fleet Battle", .body = "two"},
-      {.source = "toast", .title = "Fleet Battle", .body = "three"},
+        {.source = "toast", .title = "Fleet Battle", .body = "one"},
+        {.source = "toast", .title = "Fleet Battle", .body = "two"},
+        {.source = "toast", .title = "Fleet Battle", .body = "three"},
     };
 
     auto collapsed = notification_queue_collapse_batch(std::move(batch), 2);
@@ -1231,8 +1271,8 @@ TEST_SUITE("notification_queue")
   TEST_CASE("collapses mixed-title batches with title prefixes")
   {
     std::vector<NotificationQueueRequest> batch{
-      {.source = "toast", .title = "Victory!", .body = "alpha"},
-      {.source = "direct", .title = "Fleet Docked", .body = "beta"},
+        {.source = "toast", .title = "Victory!", .body = "alpha"},
+        {.source = "direct", .title = "Fleet Docked", .body = "beta"},
     };
 
     auto collapsed = notification_queue_collapse_batch(std::move(batch), 4);
@@ -1243,9 +1283,9 @@ TEST_SUITE("notification_queue")
   TEST_CASE("builds deterministic batch preview with limit")
   {
     std::vector<NotificationQueueRequest> batch{
-      {.source = "toast", .title = "Victory!"},
-      {.source = "direct", .title = ""},
-      {.source = "toast", .title = "Defeat"},
+        {.source = "toast", .title = "Victory!"},
+        {.source = "direct", .title = ""},
+        {.source = "toast", .title = "Defeat"},
     };
 
     CHECK(notification_queue_batch_preview(batch, 2) == "toast:Victory!, direct:(untitled), +1 more");
@@ -1294,7 +1334,7 @@ TEST_SUITE("async_work_queue")
   TEST_CASE("try_pop updates dequeue diagnostics")
   {
     AsyncWorkQueue<int> queue;
-    int value = 0;
+    int                 value = 0;
 
     CHECK_FALSE(queue.try_pop(value));
     CHECK(queue.enqueue(42));
@@ -1421,7 +1461,8 @@ TEST_SUITE("incoming_attack_policy")
 
   TEST_CASE("dedupe key captures station fleet and global target identity")
   {
-    const auto station = incoming_attack_policy_dedupe_key(123, 3, IncomingAttackPolicyAttackerKind::Player, "attacker");
+    const auto station =
+        incoming_attack_policy_dedupe_key(123, 3, IncomingAttackPolicyAttackerKind::Player, "attacker");
     CHECK(station.target_kind == IncomingAttackPolicyTargetKind::Station);
     CHECK(station.target_id == 0);
     CHECK(station.attacker_identity == "attacker");
@@ -1484,9 +1525,9 @@ TEST_SUITE("incoming_attack_policy")
   TEST_CASE("dedupe evicts oldest entry when max size is exceeded")
   {
     IncomingAttackPolicyDeduper deduper(2);
-    const auto first = incoming_attack_policy_dedupe_key(1, 1, IncomingAttackPolicyAttackerKind::Hostile, "a");
+    const auto first  = incoming_attack_policy_dedupe_key(1, 1, IncomingAttackPolicyAttackerKind::Hostile, "a");
     const auto second = incoming_attack_policy_dedupe_key(2, 1, IncomingAttackPolicyAttackerKind::Hostile, "b");
-    const auto third = incoming_attack_policy_dedupe_key(3, 1, IncomingAttackPolicyAttackerKind::Hostile, "c");
+    const auto third  = incoming_attack_policy_dedupe_key(3, 1, IncomingAttackPolicyAttackerKind::Hostile, "c");
 
     CHECK(deduper.should_emit(first, 100).emitted);
     CHECK(deduper.should_emit(second, 101).emitted);
@@ -1561,39 +1602,25 @@ TEST_SUITE("toast_state_uses_battle_summary")
 TEST_SUITE("strip_unity_rich_text")
 {
   TEST_CASE("removes color tags")
-  {
-    CHECK(strip_unity_rich_text("<color=#FF0000>Red Text</color>") == "Red Text");
-  }
+  { CHECK(strip_unity_rich_text("<color=#FF0000>Red Text</color>") == "Red Text"); }
 
   TEST_CASE("removes bold/italic tags")
-  {
-    CHECK(strip_unity_rich_text("<b>Bold</b> and <i>Italic</i>") == "Bold and Italic");
-  }
+  { CHECK(strip_unity_rich_text("<b>Bold</b> and <i>Italic</i>") == "Bold and Italic"); }
 
   TEST_CASE("removes size tags")
-  {
-    CHECK(strip_unity_rich_text("<size=20>Big</size>") == "Big");
-  }
+  { CHECK(strip_unity_rich_text("<size=20>Big</size>") == "Big"); }
 
   TEST_CASE("handles nested tags")
-  {
-    CHECK(strip_unity_rich_text("<color=#FFF><b>Hello</b></color>") == "Hello");
-  }
+  { CHECK(strip_unity_rich_text("<color=#FFF><b>Hello</b></color>") == "Hello"); }
 
   TEST_CASE("preserves plain text")
-  {
-    CHECK(strip_unity_rich_text("Hello World") == "Hello World");
-  }
+  { CHECK(strip_unity_rich_text("Hello World") == "Hello World"); }
 
   TEST_CASE("empty string")
-  {
-    CHECK(strip_unity_rich_text("") == "");
-  }
+  { CHECK(strip_unity_rich_text("") == ""); }
 
   TEST_CASE("unclosed angle bracket kept")
-  {
-    CHECK(strip_unity_rich_text("5 < 10 but no closing") == "5 < 10 but no closing");
-  }
+  { CHECK(strip_unity_rich_text("5 < 10 but no closing") == "5 < 10 but no closing"); }
 }
 
 // ===========================================================================
@@ -1603,29 +1630,19 @@ TEST_SUITE("strip_unity_rich_text")
 TEST_SUITE("parse_hull_key")
 {
   TEST_CASE("full hull key with LIVE suffix")
-  {
-    CHECK(parse_hull_key("Hull_L30_Destroyer_Klingon_LIVE") == "Lv.30 Destroyer Klingon");
-  }
+  { CHECK(parse_hull_key("Hull_L30_Destroyer_Klingon_LIVE") == "Lv.30 Destroyer Klingon"); }
 
   TEST_CASE("hull key without LIVE suffix")
-  {
-    CHECK(parse_hull_key("Hull_L45_Battleship_Federation") == "Lv.45 Battleship Federation");
-  }
+  { CHECK(parse_hull_key("Hull_L45_Battleship_Federation") == "Lv.45 Battleship Federation"); }
 
   TEST_CASE("hull key without level prefix")
-  {
-    CHECK(parse_hull_key("Hull_Jellyfish_LIVE") == "Jellyfish");
-  }
+  { CHECK(parse_hull_key("Hull_Jellyfish_LIVE") == "Jellyfish"); }
 
   TEST_CASE("minimal key")
-  {
-    CHECK(parse_hull_key("Hull_L1_Scout") == "Lv.1 Scout");
-  }
+  { CHECK(parse_hull_key("Hull_L1_Scout") == "Lv.1 Scout"); }
 
   TEST_CASE("empty string")
-  {
-    CHECK(parse_hull_key("") == "");
-  }
+  { CHECK(parse_hull_key("") == ""); }
 
   TEST_CASE("no Hull_ prefix")
   {
@@ -1660,8 +1677,7 @@ TEST_SUITE("fleet_notification_formatting")
   TEST_CASE("started mining title and body use stacked layout")
   {
     CHECK(format_started_mining_title("K'VORT", "Parsteel") == "K'VORT started mining Parsteel");
-    CHECK(format_started_mining_body("1m 36s", "Current Cargo: 0%")
-          == "ETA 1m 36s\nCurrent Cargo: 0%");
+    CHECK(format_started_mining_body("1m 36s", "Current Cargo: 0%") == "ETA 1m 36s\nCurrent Cargo: 0%");
   }
 
   TEST_CASE("started mining title and body omit optional details cleanly")
@@ -1769,6 +1785,27 @@ TEST_SUITE("fleet_notification_formatting")
     CHECK(repairComplete.kind == FleetBarTransitionNotificationKind::RepairComplete);
     CHECK(repairComplete.title == "Repair Complete");
     CHECK(repairComplete.body == "Your K'VORT finished repairs");
+  }
+
+  TEST_CASE("fleet transition delivery policy separates OS and audio arrival toggles")
+  {
+    constexpr auto arrival = FleetBarTransitionNotificationKind::ArrivedInSystem;
+    constexpr auto mining  = FleetBarTransitionNotificationKind::StartedMining;
+
+    CHECK_FALSE(fleet_bar_transition_arrived_in_system_event_enabled(false, false, false));
+    CHECK(fleet_bar_transition_arrived_in_system_event_enabled(true, false, false));
+    CHECK_FALSE(fleet_bar_transition_arrived_in_system_event_enabled(false, false, true));
+    CHECK(fleet_bar_transition_arrived_in_system_event_enabled(false, true, true));
+
+    CHECK(fleet_bar_transition_should_notify_os(arrival, true));
+    CHECK_FALSE(fleet_bar_transition_should_notify_os(arrival, false));
+    CHECK(fleet_bar_transition_should_notify_os(mining, false));
+    CHECK_FALSE(fleet_bar_transition_should_notify_os(FleetBarTransitionNotificationKind::None, true));
+
+    CHECK(fleet_bar_transition_should_notify_audio(arrival, true, true));
+    CHECK_FALSE(fleet_bar_transition_should_notify_audio(arrival, false, true));
+    CHECK_FALSE(fleet_bar_transition_should_notify_audio(arrival, true, false));
+    CHECK_FALSE(fleet_bar_transition_should_notify_audio(mining, true, true));
   }
 }
 

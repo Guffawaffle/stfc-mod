@@ -48,6 +48,13 @@ vec3 GetMouseWorldPos(void *cam, vec3 *pos)
 /// Flag set by depth/view hooks to trigger a zoom-to-default on the next Update.
 auto do_default_zoom = false;
 
+inline void SetSceneCameraFarClip(NavigationZoom* zoom, float farClipPlane)
+{
+  if (zoom && zoom->_sceneCamera) {
+    zoom->_sceneCamera->farClipPlane = farClipPlane;
+  }
+}
+
 /**
  * @brief Saves the current zoom distance as a named preset.
  * @param label  Human-readable preset name (for log output).
@@ -83,6 +90,11 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
   static auto GetMousePosition =
       il2cpp_resolve_icall_typed<void(vec3 *)>("UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)");
   static auto GetDeltaTime = il2cpp_resolve_icall_typed<float()>("UnityEngine.Time::get_deltaTime()");
+
+  if (!_this) {
+    original(_this);
+    return;
+  }
 
   const auto dt               = GetDeltaTime();
   auto       zoomDelta        = 0.0f;
@@ -145,6 +157,12 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
     }
 
     if (MapKey::IsPressed(GameFunction::ZoomIn) || do_absolute_zoom) {
+      if (!_this->_sceneCamera) {
+        original(_this);
+        do_default_zoom = false;
+        return;
+      }
+
       vec3 mousePos;
       GetMousePosition(&mousePos);
       _this->_zoomLocation = vec2{.x = mousePos.x, .y = mousePos.y};
@@ -159,6 +177,12 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
       _this->_worldPoint = worldPos;
       _this->ZoomCameraAtWorldPoint();
     } else if (MapKey::IsPressed(GameFunction::ZoomOut) && !Key::IsInputFocused()) {
+      if (!_this->_sceneCamera) {
+        original(_this);
+        do_default_zoom = false;
+        return;
+      }
+
       vec3 mousePos;
       GetMousePosition(&mousePos);
       _this->_zoomLocation  = vec2{.x = mousePos.x, .y = mousePos.y};
@@ -190,14 +214,19 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
  */
 void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom *_this, float radius, NodeDepth depth)
 {
+  if (!_this) {
+    original(_this, radius, depth);
+    return;
+  }
+
   if (depth == NodeDepth::SolarSystem) {
     auto ratio                     = (Config::Get().zoom / radius);
     _this->_farRatioSystemNormal   = 0.55f * ratio;
     _this->_farRatioSystemExtended = 1 * ratio;
-    _this->_sceneCamera->farClipPlane = Config::Get().zoom * 3.75f;
+    SetSceneCameraFarClip(_this, Config::Get().zoom * 3.75f);
     original(_this, radius, depth);
-    _this->_sceneCamera->farClipPlane = Config::Get().zoom * 3.75f;
-    do_default_zoom                   = true;
+    SetSceneCameraFarClip(_this, Config::Get().zoom * 3.75f);
+    do_default_zoom = true;
   } else {
     original(_this, radius, depth);
   }
@@ -212,13 +241,18 @@ void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom *_this,
  */
 void NavigationZoom_ApplyRangeChanges_Hook(auto original, NavigationZoom *_this)
 {
+  if (!_this) {
+    original(_this);
+    return;
+  }
+
   if (_this->_depth == NodeDepth::SolarSystem) {
     auto ratio                     = (Config::Get().zoom / _this->_viewRadius);
     _this->_farRatioSystemNormal   = 0.55f * ratio;
     _this->_farRatioSystemExtended = 1 * ratio;
     original(_this);
-    _this->_sceneCamera->farClipPlane = Config::Get().zoom * 2.75f;
-    do_default_zoom                   = true;
+    SetSceneCameraFarClip(_this, Config::Get().zoom * 2.75f);
+    do_default_zoom = true;
   } else {
     original(_this);
   }
@@ -233,14 +267,19 @@ void NavigationZoom_ApplyRangeChanges_Hook(auto original, NavigationZoom *_this)
  */
 void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom *_this, NodeDepth depth)
 {
+  if (!_this) {
+    original(_this, depth);
+    return;
+  }
+
   if (depth == NodeDepth::SolarSystem) {
     auto ratio                        = (Config::Get().zoom / _this->_viewRadius);
     _this->_farRatioSystemNormal      = 0.55f * ratio;
     _this->_farRatioSystemExtended    = 1 * ratio;
-    _this->_sceneCamera->farClipPlane = Config::Get().zoom * 3.75f;
+    SetSceneCameraFarClip(_this, Config::Get().zoom * 3.75f);
     original(_this, depth);
-    _this->_sceneCamera->farClipPlane = Config::Get().zoom * 3.75f;
-    do_default_zoom                   = true;
+    SetSceneCameraFarClip(_this, Config::Get().zoom * 3.75f);
+    do_default_zoom = true;
   } else {
     original(_this, depth);
   }
@@ -257,13 +296,23 @@ void NavigationCamera_SetSystemViewSizeData_Hook(auto original, uint8_t *_this_c
                                                  NodeDepth depth)
 {
   if (depth == NodeDepth::SolarSystem) {
-    auto _this                     = *(NavigationZoom **)(_this_cam + 0x20);
+    if (!_this_cam) {
+      original(_this_cam, radius, systemPos, depth);
+      return;
+    }
+
+    auto _this = *(NavigationZoom **)(_this_cam + 0x20);
+    if (!_this) {
+      original(_this_cam, radius, systemPos, depth);
+      return;
+    }
+
     auto ratio                     = (Config::Get().zoom / radius);
     _this->_farRatioSystemNormal   = 0.55f * ratio;
     _this->_farRatioSystemExtended = 1 * ratio;
     original(_this_cam, radius, systemPos, depth);
-    _this->_sceneCamera->farClipPlane = Config::Get().zoom * 2.75f;
-    do_default_zoom                   = true;
+    SetSceneCameraFarClip(_this, Config::Get().zoom * 2.75f);
+    do_default_zoom = true;
   } else {
     original(_this_cam, radius, systemPos, depth);
   }

@@ -247,10 +247,14 @@ void maybe_notify_fleet_bar_transition(uint64_t fleetId, const std::string& ship
       (eta_it != s_mining_viewer_remaining_seconds.end()) ? format_duration_short(eta_it->second) : std::string{};
 
   const auto& notifications = Config::Get().notifications;
-  auto        decision      = fleet_bar_transition_notification_decision({
+  const auto  notifyArrivedInSystem =
+      fleet_bar_transition_arrived_in_system_event_enabled(notifications.fleet_arrived_in_system,
+                                 notifications.audio_enabled,
+                                 notifications.audio_fleet_arrived_in_system);
+  auto decision = fleet_bar_transition_notification_decision({
       static_cast<int>(oldState),
       static_cast<int>(newState),
-      notifications.fleet_arrived_in_system,
+      notifyArrivedInSystem,
       notifications.fleet_arrived_at_destination,
       notifications.fleet_started_mining,
       notifications.fleet_docked,
@@ -277,8 +281,11 @@ void maybe_notify_fleet_bar_transition(uint64_t fleetId, const std::string& ship
 
   spdlog::debug("[FleetBar] {} id={} ship='{}'", fleet_bar_transition_notification_kind_name(decision.kind), fleetId,
                 shipName);
-  notification_show(decision.title.c_str(), decision.body.c_str());
-  if (decision.kind == FleetBarTransitionNotificationKind::ArrivedInSystem) {
+  if (fleet_bar_transition_should_notify_os(decision.kind, notifications.fleet_arrived_in_system)) {
+    notification_show(decision.title.c_str(), decision.body.c_str());
+  }
+  if (fleet_bar_transition_should_notify_audio(decision.kind, notifications.audio_enabled,
+                                               notifications.audio_fleet_arrived_in_system)) {
     notification_audio_play(NotificationAudioEvent::FleetArrivedInSystem);
   }
 }

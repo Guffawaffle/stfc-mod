@@ -63,6 +63,7 @@ public:
 
   std::string proxy;
   bool        verify_ssl = true;
+  bool        allow_unsafe_tls_without_certificate_validation = false;
 
   bool battlelogs          = false;
   bool battlelogs_realtime = false;

@@ -14,3 +14,4 @@ class ServiceResponse;
 void HandleEntityGroup(EntityGroup* entity_group);
 void HandleServiceResponseEntityGroups(ServiceResponse* service_response);
 void HandleRealtimeDataPayload(RealtimeDataPayload* data);
+void ShutdownSyncPayloadWorkers();

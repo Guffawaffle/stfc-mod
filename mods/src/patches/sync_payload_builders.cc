@@ -23,6 +23,8 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
+#include <deque>
 #include <cmath>
 #include <format>
 #include <iterator>
@@ -43,6 +45,122 @@
 #define STR_FORMAT fmt::format
 #endif
 #endif
+
+using PayloadProcessor = void (*)(std::unique_ptr<std::string>&&);
+
+struct SyncPayloadWorkItem {
+  const char*                  label = "unknown";
+  PayloadProcessor             processor = nullptr;
+  std::unique_ptr<std::string> payload;
+};
+
+class SyncPayloadWorkerPool
+{
+public:
+  ~SyncPayloadWorkerPool()
+  { shutdown(); }
+
+  bool submit(SyncPayloadWorkItem item)
+  {
+    start_once();
+
+    {
+      std::lock_guard lock(mutex_);
+      if (shutdown_requested_) {
+        spdlog::warn("[SyncPayload] Dropping {} task because worker shutdown is in progress", item.label);
+        return false;
+      }
+
+      if (queue_.size() >= kMaxQueuedWork) {
+        ++dropped_;
+        spdlog::warn("[SyncPayload] Dropping {} task because worker queue is full (depth={}, dropped={})", item.label,
+                     queue_.size(), dropped_);
+        return false;
+      }
+
+      queue_.emplace_back(std::move(item));
+    }
+
+    condition_.notify_one();
+    return true;
+  }
+
+  void shutdown()
+  {
+    {
+      std::lock_guard lock(mutex_);
+      if (shutdown_requested_) {
+        return;
+      }
+      shutdown_requested_ = true;
+    }
+
+    condition_.notify_all();
+    for (auto& worker : workers_) {
+      if (worker.joinable()) {
+        worker.join();
+      }
+    }
+  }
+
+private:
+  static constexpr size_t kWorkerCount   = 2;
+  static constexpr size_t kMaxQueuedWork = 256;
+
+  void start_once()
+  {
+    std::call_once(start_flag_, [this] {
+      for (size_t worker_index = 0; worker_index < kWorkerCount; ++worker_index) {
+        workers_.emplace_back([this] { worker_loop(); });
+      }
+    });
+  }
+
+  void worker_loop()
+  {
+    for (;;) {
+      SyncPayloadWorkItem item;
+      {
+        std::unique_lock lock(mutex_);
+        condition_.wait(lock, [this] { return shutdown_requested_ || !queue_.empty(); });
+        if (shutdown_requested_ && queue_.empty()) {
+          return;
+        }
+        item = std::move(queue_.front());
+        queue_.pop_front();
+      }
+
+      if (!item.processor || !item.payload) {
+        continue;
+      }
+
+      try {
+        item.processor(std::move(item.payload));
+      } catch (const std::exception& exception) {
+        spdlog::error("Exception in {} sync payload task: {}", item.label, exception.what());
+      } catch (...) {
+        spdlog::error("Unknown exception in {} sync payload task", item.label);
+      }
+    }
+  }
+
+  std::once_flag                   start_flag_;
+  std::mutex                       mutex_;
+  std::condition_variable          condition_;
+  std::deque<SyncPayloadWorkItem>  queue_;
+  std::vector<std::thread>         workers_;
+  bool                             shutdown_requested_ = false;
+  uint64_t                         dropped_ = 0;
+};
+
+SyncPayloadWorkerPool& sync_payload_worker_pool()
+{
+  static SyncPayloadWorkerPool pool;
+  return pool;
+}
+
+void ShutdownSyncPayloadWorkers()
+{ sync_payload_worker_pool().shutdown(); }
 
 #ifndef _WIN32
 #include <time.h>
@@ -988,8 +1106,8 @@ void process_json(std::unique_ptr<std::string>&& bytes)
  * @brief Central dispatcher for entity group data.
  *
  * Routes each EntityGroup by type to the appropriate process_* function,
- * spawning each on a detached thread via submit_async. Checks the
- * corresponding sync_options flag before dispatching.
+ * using a bounded worker pool so payload bursts do not spawn unbounded detached
+ * threads. Checks the corresponding sync_options flag before dispatching.
  */
 void HandleEntityGroup(EntityGroup* entity_group)
 {
@@ -1001,96 +1119,86 @@ void HandleEntityGroup(EntityGroup* entity_group)
   const auto byteCount = static_cast<size_t>(entity_group->Group->Length);
   auto       bytesPtr  = reinterpret_cast<const char*>(entity_group->Group->bytes->m_Items);
 
-  // Helper to run processing asynchronously with exception handling
-  auto submit_async = [bytesPtr, byteCount]<typename T>(T&& func) {
-    auto payload = std::make_unique<std::string>(bytesPtr, byteCount);
-
+  auto submit_async = [bytesPtr, byteCount](const char* label, PayloadProcessor processor) {
     try {
-      std::thread([f = std::forward<T>(func), p = std::move(payload)]() mutable {
-        try {
-          f(std::move(p));
-        } catch (const std::exception& e) {
-          spdlog::error("Exception in HandleEntityGroup: {}", e.what());
-        } catch (...) {
-          spdlog::error("Unknown exception in HandleEntityGroup");
-        }
-      }).detach();
+      auto payload = std::make_unique<std::string>(bytesPtr, byteCount);
+      sync_payload_worker_pool().submit({label, processor, std::move(payload)});
     } catch (const std::exception& e) {
-      spdlog::error("Failed to spawn async task: {}", e.what());
+      spdlog::error("Failed to queue {} sync payload task: {}", label, e.what());
     } catch (...) {
-      spdlog::error("Failed to spawn async task: unknown exception");
+      spdlog::error("Failed to queue {} sync payload task: unknown exception", label);
     }
   };
 
   switch (entity_group->Type_) {
     case EntityGroup::Type::ActiveMissions:
       if (Config::Get().sync_options.missions) {
-        submit_async(process_active_missions);
+        submit_async("ActiveMissions", process_active_missions);
       }
       break;
     case EntityGroup::Type::CompletedMissions:
       if (Config::Get().sync_options.missions) {
-        submit_async(process_completed_missions);
+        submit_async("CompletedMissions", process_completed_missions);
       }
       break;
     case EntityGroup::Type::PlayerInventories:
       if (Config::Get().sync_options.inventory) {
-        submit_async(process_player_inventories);
+        submit_async("PlayerInventories", process_player_inventories);
       }
       break;
     case EntityGroup::Type::ResearchTreesState:
       if (Config::Get().sync_options.research) {
-        submit_async(process_research_trees_state);
+        submit_async("ResearchTreesState", process_research_trees_state);
       }
       break;
     case EntityGroup::Type::Officers:
       if (Config::Get().sync_options.officer) {
-        submit_async(process_officers);
+        submit_async("Officers", process_officers);
       }
       break;
     case EntityGroup::Type::ForbiddenTechs:
       if (Config::Get().sync_options.tech) {
-        submit_async(process_forbidden_techs);
+        submit_async("ForbiddenTechs", process_forbidden_techs);
       }
       break;
     case EntityGroup::Type::ActiveOfficerTraits:
       if (Config::Get().sync_options.traits) {
-        submit_async(process_active_officer_traits);
+        submit_async("ActiveOfficerTraits", process_active_officer_traits);
       }
       break;
     case EntityGroup::Type::Json:
       if (const auto& o = Config::Get().sync_options; o.battlelogs || o.resources || o.ships || o.buildings) {
-        submit_async(process_json);
+        submit_async("Json", process_json);
       }
       break;
     case EntityGroup::Type::Jobs:
       if (Config::Get().sync_options.jobs) {
-        submit_async(process_jobs);
+        submit_async("Jobs", process_jobs);
       }
       break;
     case EntityGroup::Type::GlobalActiveBuffs:
       if (Config::Get().sync_options.buffs) {
-        submit_async(process_global_active_buffs);
+        submit_async("GlobalActiveBuffs", process_global_active_buffs);
       }
       break;
     case EntityGroup::Type::EntitySlots:
       if (Config::Get().sync_options.slots) {
-        submit_async(process_entity_slots);
+        submit_async("EntitySlots", process_entity_slots);
       }
       break;
     case EntityGroup::Type::AllianceGetGameProperties:
       if (Config::Get().sync_options.buffs) {
-        submit_async(process_alliance_games_props);
+        submit_async("AllianceGetGameProperties", process_alliance_games_props);
       }
       break;
     case EntityGroup::Type::UserProfiles:
       if (Config::Get().sync_options.battlelogs) {
-        submit_async(cache_player_names);
+        submit_async("UserProfiles", cache_player_names);
       }
       break;
     case EntityGroup::Type::AllianceProfiles:
       if (Config::Get().sync_options.battlelogs) {
-        submit_async(cache_alliance_names);
+        submit_async("AllianceProfiles", cache_alliance_names);
       }
       break;
     default:
@@ -1124,16 +1232,13 @@ void HandleRealtimeDataPayload(RealtimeDataPayload* data)
   }
 
   const auto rtcData = to_string(data->Data);
-  auto payload = std::make_unique<std::string>(rtcData);
-
-  std::thread([p = std::move(payload)]() mutable {
-    try {
-      process_entity_slots_rtc(std::move(p));
-    } catch (const std::exception& exception) {
-      spdlog::error("Exception in ParseRtcPayload: {}", exception.what());
-    } catch (...) {
-      spdlog::error("Unknown exception in ParseRtcPayload");
-    }
-  }).detach();
+  try {
+    auto payload = std::make_unique<std::string>(rtcData);
+    sync_payload_worker_pool().submit({"EntitySlotsRealtime", process_entity_slots_rtc, std::move(payload)});
+  } catch (const std::exception& exception) {
+    spdlog::error("Failed to queue EntitySlotsRealtime sync payload task: {}", exception.what());
+  } catch (...) {
+    spdlog::error("Failed to queue EntitySlotsRealtime sync payload task: unknown exception");
+  }
 }
 

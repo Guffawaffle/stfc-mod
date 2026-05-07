@@ -49,7 +49,7 @@ void DisableButtons(FullScreenChatViewController* _this)
   const auto disableGalaxyChat = Config::Get().disable_galaxy_chat;
   const auto disableVeilChat = Config::Get().disable_veil_chat;
 
-  if (!(disableGalaxyChat || disableVeilChat))
+  if (!_this || !(disableGalaxyChat || disableVeilChat))
     return;
 
   const auto [cadetChatIdx, galaxyChatIdx, veilChatIdx, allianceChatIdx] = GetChatTabIndices();
@@ -132,12 +132,14 @@ void ChatPreviewController_AboutToShow(auto original, ChatPreviewController* _th
 {
   original(_this);
 
-  if (Config::Get().disable_galaxy_chat || Config::Get().disable_veil_chat) {
+  if (_this && (Config::Get().disable_galaxy_chat || Config::Get().disable_veil_chat)) {
     const auto allianceChatIdx = std::get<3>(GetChatTabIndices());
-    _this->_focusedPanel       = ChatChannelCategory::Alliance;
+    const auto swipeScroller   = _this->_swipeScroller;
 
-    if (_this->_swipeScroller->_currentContentIndex != allianceChatIdx) {
-      _this->_swipeScroller->FocusOnInstantly(allianceChatIdx);
+    _this->_focusedPanel = ChatChannelCategory::Alliance;
+
+    if (swipeScroller && swipeScroller->_currentContentIndex != allianceChatIdx) {
+      swipeScroller->FocusOnInstantly(allianceChatIdx);
     }
   }
 }
@@ -152,21 +154,27 @@ void ChatPreviewController_AboutToShow(auto original, ChatPreviewController* _th
  */
 void ChatPreviewController_OnPanelFocused(auto original, ChatPreviewController* _this, int32_t index)
 {
-  static const auto disableGalaxyChat = Config::Get().disable_galaxy_chat;
-  static const auto disableVeilChat   = Config::Get().disable_veil_chat;
+  const auto disableGalaxyChat = Config::Get().disable_galaxy_chat;
+  const auto disableVeilChat   = Config::Get().disable_veil_chat;
 
   if (!(disableGalaxyChat || disableVeilChat)) {
     original(_this, index);
     return;
   }
 
+  if (!_this) {
+    original(_this, index);
+    return;
+  }
+
   const auto [cadetChatIdx, galaxyChatIdx, veilChatIdx, allianceChatIdx] = GetChatTabIndices();
   if (disableGalaxyChat || (veilChatIdx != -1 && disableVeilChat)) {
+    const auto swipeScroller = _this->_swipeScroller;
     _this->_focusedPanel = ChatChannelCategory::Alliance;
     original(_this, allianceChatIdx);
 
-    if (_this->_swipeScroller->_currentContentIndex != allianceChatIdx) {
-      _this->_swipeScroller->FocusOnInstantly(allianceChatIdx);
+    if (swipeScroller && swipeScroller->_currentContentIndex != allianceChatIdx) {
+      swipeScroller->FocusOnInstantly(allianceChatIdx);
     }
 
     return;

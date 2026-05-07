@@ -142,8 +142,7 @@ void PrimeApp_InitPrimeServer(auto original, void* _this, Il2CppString* gameServ
                               Il2CppString* sessionId, Il2CppString* serverRegion)
 {
   original(_this, gameServerUrl, gatewayServerUrl, sessionId, serverRegion);
-  http::headers::instanceSessionId = to_string(to_wstring(sessionId));
-  http::headers::gameServerUrl     = to_string(to_wstring(gameServerUrl));
+  http::headers::SetPrimeServerHeaders(to_string(to_wstring(gameServerUrl)), to_string(to_wstring(sessionId)));
 }
 
 /** @brief Hook: GameServer::Initialise — captures the game version string for HTTP headers. */
@@ -151,14 +150,14 @@ void GameServer_Initialise(auto original, void* _this, Il2CppString* sessionId, 
                            bool encryptRequests, Il2CppString* serverRegion)
 {
   original(_this, sessionId, gameVersion, encryptRequests, serverRegion);
-  http::headers::primeVersion = to_string(to_wstring(gameVersion));
+  http::headers::SetPrimeVersion(to_string(to_wstring(gameVersion)));
 }
 
 /** @brief Hook: GameServer::SetInstanceIdHeader — captures the instance ID for HTTP headers. */
 void GameServer_SetInstanceIdHeader(auto original, void* _this, int32_t instanceId)
 {
   original(_this, instanceId);
-  http::headers::instanceId = instanceId;
+  http::headers::SetInstanceId(instanceId);
 }
 
 // ─── Hook Installation ──────────────────────────────────────────────────────

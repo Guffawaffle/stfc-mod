@@ -26,6 +26,9 @@
   selection mode, quantity changes, analytics events, and purchase outcomes;
   it defaults off and avoids non-refinery shop/showcase purchase flows
 - Added gated in-game audible notifications for fleet arrival in-system events
+- Added a schema-driven notification config pilot with nested
+  `notifications.system.*` and `notifications.audio.*` keys while preserving
+  the existing flat keys as compatibility aliases
 - Removed file-backed sent-ID persistence; in-memory deduplication only
 - Added Linux-native `CMakeLists.txt` for pure-logic validation builds
 - Added AXF cycle scripts (`scripts/axf/`) for WSL→Windows deploy workflow

@@ -332,6 +332,7 @@ namespace Sync
   constexpr auto sidecar_jsonl_recent_logs =
       300;                          ///< Retain this many recent battle logs in the JSONL feed (0 = unlimited).
   constexpr bool verify_ssl = true; ///< Verify TLS certificates on sync requests.
+  constexpr bool allow_unsafe_tls_without_certificate_validation = false; ///< Explicit unsafe TLS override.
   /// DNS resolver cache TTL in seconds. Default: 300 (5 min).
   constexpr auto resolver_cache_ttl = 300;
 } // namespace Sync

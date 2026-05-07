@@ -9,3 +9,6 @@
 
 /// Load GameAssembly, detour il2cpp_init, and register all patch hooks.
 void ApplyPatches();
+
+/// Stop background workers owned by patch modules.
+void ShutdownPatches();
