@@ -17,6 +17,7 @@ do
     add_files("../mods/src/patches/live_debug_ui_serializers.cc")
     add_files("../mods/src/patches/live_debug_viewer_serializers.cc")
     add_files("../mods/src/patches/battle_log_decoder.cc")
+    add_files("../mods/src/patches/fleet_input_policy.cc")
     add_files("../mods/src/patches/notification_queue.cc")
     add_files("../mods/src/patches/notification_text.cc")
 

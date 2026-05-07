@@ -5,6 +5,7 @@
 #include "config_schema.h"
 #include "patches/async_work_queue.h"
 #include "patches/battle_log_decoder.h"
+#include "patches/fleet_input_policy.h"
 #include "patches/live_debug_event_store.h"
 #include "patches/live_debug_fleet_serializers.h"
 #include "patches/live_debug_recent_event_requests.h"
@@ -19,6 +20,177 @@
 #include <array>
 #include <chrono>
 #include <utility>
+
+// ===========================================================================
+// fleet_input_policy
+// ===========================================================================
+
+TEST_SUITE("fleet_input_policy")
+{
+  TEST_CASE("primary dismisses rewards before other outcomes")
+  {
+    FleetPrimaryDecisionInput input;
+    input.rewards_visible = true;
+    input.fleet_state = FleetInputFleetState::Warping;
+    input.queue_mode_enabled = true;
+    input.queue_unlocked = true;
+    input.visible_prescan_target = true;
+    input.target_context_resolved = true;
+    input.target_hull_type = FleetInputHullType::Destroyer;
+
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::DismissRewards);
+  }
+
+  TEST_CASE("primary cancels warp unless mouse target context should consume the click")
+  {
+    FleetPrimaryDecisionInput input;
+    input.fleet_state = FleetInputFleetState::WarpCharging;
+
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::CancelWarp);
+
+    input.primary_is_mouse = true;
+    input.visible_prescan_target = true;
+    input.target_context_resolved = true;
+    input.target_hull_type = FleetInputHullType::Battleship;
+
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::Engage);
+  }
+
+  TEST_CASE("primary queue mode handles queue add defer and full queue")
+  {
+    FleetPrimaryDecisionInput input;
+    input.queue_mode_enabled = true;
+    input.queue_unlocked = true;
+    input.visible_prescan_target = true;
+    input.target_context_resolved = true;
+    input.target_hull_type = FleetInputHullType::Explorer;
+
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::AddToQueue);
+
+    input.queue_full = true;
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::None);
+
+    input.queue_full = false;
+    input.target_context_resolved = false;
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::DeferUntilTargetResolved);
+
+    input.is_deferred_retry = true;
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::None);
+  }
+
+  TEST_CASE("primary skips normal queue for armada targets")
+  {
+    FleetPrimaryDecisionInput input;
+    input.queue_mode_enabled = true;
+    input.queue_unlocked = true;
+    input.visible_prescan_target = true;
+    input.target_context_resolved = true;
+    input.target_hull_type = FleetInputHullType::ArmadaTarget;
+    input.armada_attack_available = true;
+
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::ArmadaAttack);
+  }
+
+  TEST_CASE("primary resolves normal context outcomes")
+  {
+    FleetPrimaryDecisionInput input;
+    input.mining_viewer_visible = true;
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::Mine);
+
+    input = {};
+    input.visible_prescan_target = true;
+    input.target_context_resolved = true;
+    input.target_hull_type = FleetInputHullType::Survey;
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::Engage);
+
+    input = {};
+    input.visible_prescan_target = true;
+    input.target_context_resolved = true;
+    input.target_hull_type = FleetInputHullType::ArmadaTarget;
+    input.armada_attack_available = true;
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::ArmadaAttack);
+
+    input = {};
+    input.armada_widget_visible = true;
+    input.armada_join_interactable = true;
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::JoinArmada);
+
+    input = {};
+    input.star_node_visible = true;
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::WarpToNode);
+
+    input = {};
+    input.navigation_interaction_visible = true;
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::SetCourse);
+  }
+
+  TEST_CASE("primary defers unresolved prescan target once")
+  {
+    FleetPrimaryDecisionInput input;
+    input.visible_prescan_target = true;
+    input.target_context_resolved = false;
+    input.target_hull_type = FleetInputHullType::Any;
+
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::DeferUntilTargetResolved);
+
+    input.is_deferred_retry = true;
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::None);
+  }
+
+  TEST_CASE("secondary scans or views by context priority")
+  {
+    FleetSecondaryDecisionInput input;
+    input.visible_prescan_target = true;
+    input.prescan_scan_available = true;
+    input.mining_viewer_visible = true;
+    input.mining_scan_available = true;
+    input.star_node_visible = true;
+    CHECK(DecideFleetSecondary(input) == FleetSecondaryOutcome::ScanPreScan);
+
+    input = {};
+    input.mining_viewer_visible = true;
+    input.mining_scan_available = true;
+    CHECK(DecideFleetSecondary(input) == FleetSecondaryOutcome::ScanMining);
+
+    input = {};
+    input.star_node_visible = true;
+    CHECK(DecideFleetSecondary(input) == FleetSecondaryOutcome::ViewStarNode);
+
+    input = {};
+    CHECK(DecideFleetSecondary(input) == FleetSecondaryOutcome::None);
+  }
+
+  TEST_CASE("service recalls away fleets and repairs docked or destroyed fleets")
+  {
+    for (const auto state : {FleetInputFleetState::IdleInSpace, FleetInputFleetState::Impulsing,
+                             FleetInputFleetState::Mining, FleetInputFleetState::Capturing}) {
+      FleetServiceDecisionInput input;
+      input.fleet_state = state;
+      input.recall_allowed = true;
+      input.repair_allowed = true;
+      CHECK(DecideFleetService(input) == FleetServiceOutcome::Recall);
+    }
+
+    for (const auto state : {FleetInputFleetState::Docked, FleetInputFleetState::Destroyed}) {
+      FleetServiceDecisionInput input;
+      input.fleet_state = state;
+      input.recall_allowed = true;
+      input.repair_allowed = true;
+      CHECK(DecideFleetService(input) == FleetServiceOutcome::Repair);
+    }
+
+    FleetServiceDecisionInput input;
+    input.fleet_state = FleetInputFleetState::IdleInSpace;
+    CHECK(DecideFleetService(input) == FleetServiceOutcome::None);
+  }
+
+  TEST_CASE("outcome names are stable for diagnostics")
+  {
+    CHECK(FleetPrimaryOutcomeName(FleetPrimaryOutcome::AddToQueue) == "add-to-queue");
+    CHECK(FleetSecondaryOutcomeName(FleetSecondaryOutcome::ScanMining) == "scan-mining");
+    CHECK(FleetServiceOutcomeName(FleetServiceOutcome::Repair) == "repair");
+  }
+}
 
 // ===========================================================================
 // config_schema
