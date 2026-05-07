@@ -121,6 +121,7 @@ struct BindingDiagnostic {
   DiagnosticSeverity severity = DiagnosticSeverity::Info;
   std::string        message;
   size_t             token_index = 0;
+  InputActionId      action = InputActionId::Max;
 };
 
 struct ParsedChord {
@@ -172,6 +173,30 @@ private:
   size_t         size_ = 0;
 };
 
+struct BindingOverride {
+  InputActionId    action = InputActionId::Max;
+  std::string_view binding;
+};
+
+struct BindingConflict {
+  InputActionId action_a = InputActionId::Max;
+  InputActionId action_b = InputActionId::Max;
+  ParsedChord   chord;
+  TriggerMode   trigger_mode = TriggerMode::Down;
+  ConflictGroup conflict_group = ConflictGroup::None;
+};
+
+struct CompileResult {
+  BindingIndex                   index;
+  std::vector<BindingDiagnostic> diagnostics;
+  std::vector<BindingConflict>   conflicts;
+  size_t                         bound_chord_count = 0;
+
+  [[nodiscard]] bool has_warnings() const;
+  [[nodiscard]] bool has_errors() const;
+  [[nodiscard]] bool has_conflicts() const;
+};
+
 [[nodiscard]] std::span<const InputActionSpec> ActionSpecs();
 [[nodiscard]] const InputActionSpec* FindActionSpec(InputActionId id);
 [[nodiscard]] const InputActionSpec* FindActionSpec(std::string_view canonical_key);
@@ -179,6 +204,7 @@ private:
 [[nodiscard]] bool IsModifierKey(KeyCode key);
 [[nodiscard]] ParsedChord ParseChord(std::string_view chord_text);
 [[nodiscard]] ParsedBinding ParseBinding(std::string_view binding_text);
+[[nodiscard]] CompileResult CompileBindingSet(std::span<const BindingOverride> overrides = {});
 
 } // namespace input_binding
 

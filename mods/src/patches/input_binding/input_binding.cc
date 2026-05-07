@@ -164,6 +164,24 @@ std::optional<ModifierMask> lookup_modifier(std::string_view token)
   }
   return std::nullopt;
 }
+
+bool modifiers_can_match_same_input(const ParsedChord& lhs, const ParsedChord& rhs)
+{
+  return lhs.modifiers.effective_logical_bits() == rhs.modifiers.effective_logical_bits();
+}
+
+bool conflicts_with(const ConflictGroup lhs, const ConflictGroup rhs)
+{ return lhs != ConflictGroup::None && lhs == rhs; }
+
+std::optional<std::string_view> find_override(const std::span<const BindingOverride> overrides,
+                                              const InputActionId action)
+{
+  const auto found = std::ranges::find_if(overrides, [action](const auto& entry) { return entry.action == action; });
+  if (found == overrides.end()) {
+    return std::nullopt;
+  }
+  return found->binding;
+}
 } // namespace
 
 bool ParsedChord::Matches(const KeyCode pressed_key, const ModifierMask held_modifiers,
@@ -209,6 +227,22 @@ std::string ParsedBinding::DisplayString() const
   }
   return display;
 }
+
+bool CompileResult::has_warnings() const
+{
+  return std::ranges::any_of(diagnostics, [](const auto& diagnostic) {
+    return diagnostic.severity == DiagnosticSeverity::Warning;
+  });
+}
+
+bool CompileResult::has_errors() const
+{
+  return std::ranges::any_of(diagnostics,
+                             [](const auto& diagnostic) { return diagnostic.severity == DiagnosticSeverity::Error; });
+}
+
+bool CompileResult::has_conflicts() const
+{ return !conflicts.empty(); }
 
 void BindingIndex::Register(const InputActionId action, ParsedChord chord, const TriggerMode trigger_mode,
                             const uint16_t priority)
@@ -397,5 +431,55 @@ ParsedBinding ParseBinding(const std::string_view binding_text)
   }
 
   return binding;
+}
+
+CompileResult CompileBindingSet(const std::span<const BindingOverride> overrides)
+{
+  struct RegisteredChord {
+    InputActionId action = InputActionId::Max;
+    ParsedChord   chord;
+    TriggerMode   trigger_mode = TriggerMode::Down;
+    ConflictGroup conflict_group = ConflictGroup::None;
+  };
+
+  CompileResult                result;
+  std::vector<RegisteredChord> registered_chords;
+
+  for (const auto& spec : ActionSpecs()) {
+    const auto binding_text = find_override(overrides, spec.id).value_or(spec.default_bind);
+    auto       parsed = ParseBinding(binding_text);
+
+    for (auto diagnostic : parsed.diagnostics) {
+      diagnostic.action = spec.id;
+      result.diagnostics.push_back(std::move(diagnostic));
+    }
+
+    if (parsed.unbound) {
+      continue;
+    }
+
+    for (auto& chord : parsed.chords) {
+      if (!chord.valid) {
+        continue;
+      }
+
+      for (const auto& registered : registered_chords) {
+        if (registered.trigger_mode != spec.trigger_mode || registered.chord.key != chord.key
+          || !modifiers_can_match_same_input(registered.chord, chord)
+            || !conflicts_with(registered.conflict_group, spec.conflict_group)) {
+          continue;
+        }
+
+        result.conflicts.push_back({registered.action, spec.id, chord, spec.trigger_mode, spec.conflict_group});
+        result.diagnostics.push_back({DiagnosticSeverity::Error, "Binding conflict", result.bound_chord_count, spec.id});
+      }
+
+      result.index.Register(spec.id, chord, spec.trigger_mode, spec.priority);
+      registered_chords.push_back({spec.id, std::move(chord), spec.trigger_mode, spec.conflict_group});
+      ++result.bound_chord_count;
+    }
+  }
+
+  return result;
 }
 } // namespace input_binding

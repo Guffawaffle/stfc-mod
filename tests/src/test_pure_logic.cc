@@ -153,6 +153,96 @@ TEST_SUITE("input_binding")
     REQUIRE(matches.size() == 1);
     CHECK(matches[0] == input_binding::InputActionId::ZoomIn);
   }
+
+  TEST_CASE("compiler builds default index without diagnostics")
+  {
+    const auto compiled = input_binding::CompileBindingSet();
+
+    CHECK(compiled.bound_chord_count == 15);
+    CHECK(compiled.index.size() == 15);
+    CHECK_FALSE(compiled.has_warnings());
+    CHECK_FALSE(compiled.has_errors());
+    CHECK_FALSE(compiled.has_conflicts());
+
+    const auto held = input_binding::ModifierMask{};
+    auto matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, held);
+    REQUIRE(matches.size() == 1);
+    CHECK(matches[0] == input_binding::InputActionId::FleetPrimary);
+
+    matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Q, held);
+    CHECK(matches.empty());
+
+    matches = compiled.index.Match(input_binding::TriggerMode::Pressed, KeyCode::Q, held);
+    REQUIRE(matches.size() == 1);
+    CHECK(matches[0] == input_binding::InputActionId::ZoomIn);
+  }
+
+  TEST_CASE("compiler accepts unbound overrides")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "NONE"},
+    };
+
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+    CHECK_FALSE(compiled.has_errors());
+    CHECK(compiled.bound_chord_count == 13);
+
+    const auto matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space,
+                                              input_binding::ModifierMask{});
+    CHECK(matches.empty());
+  }
+
+  TEST_CASE("compiler carries action scoped parser diagnostics")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "CTRL-NOTREAL-A"},
+    };
+
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+    CHECK(compiled.has_warnings());
+    CHECK_FALSE(compiled.has_errors());
+    REQUIRE(compiled.diagnostics.size() == 1);
+    CHECK(compiled.diagnostics[0].action == input_binding::InputActionId::FleetPrimary);
+  }
+
+  TEST_CASE("compiler reports same group chord conflicts")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::FleetService, "SPACE"},
+    };
+
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+    CHECK(compiled.has_errors());
+    CHECK(compiled.has_conflicts());
+    REQUIRE(compiled.conflicts.size() == 1);
+    CHECK(compiled.conflicts[0].action_a == input_binding::InputActionId::FleetPrimary);
+    CHECK(compiled.conflicts[0].action_b == input_binding::InputActionId::FleetService);
+
+    const auto matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space,
+                                              input_binding::ModifierMask{});
+    REQUIRE(matches.size() == 2);
+    CHECK(matches[0] == input_binding::InputActionId::FleetPrimary);
+    CHECK(matches[1] == input_binding::InputActionId::FleetService);
+  }
+
+  TEST_CASE("compiler reports logical and physical modifier overlaps")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "CTRL-SPACE"},
+        input_binding::BindingOverride{input_binding::InputActionId::FleetService, "LCTRL-SPACE"},
+    };
+
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+    CHECK(compiled.has_errors());
+    CHECK(compiled.has_conflicts());
+    REQUIRE(compiled.conflicts.size() == 1);
+
+    const auto held = input_binding::ModifierMask::FromPressedKey(KeyCode::LeftControl);
+    const auto matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, held);
+    REQUIRE(matches.size() == 2);
+    CHECK(matches[0] == input_binding::InputActionId::FleetPrimary);
+    CHECK(matches[1] == input_binding::InputActionId::FleetService);
+  }
 }
 
 // ===========================================================================
