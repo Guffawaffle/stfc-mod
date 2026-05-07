@@ -1,0 +1,401 @@
+#include "patches/input_binding/input_binding.h"
+
+#include "str_utils_pure.h"
+
+#include <algorithm>
+#include <utility>
+
+namespace input_binding
+{
+namespace {
+constexpr std::array<InputActionSpec, 11> kActionSpecs{{
+    {InputActionId::FleetPrimary, "fleet_primary", "SPACE|MOUSE1", TriggerMode::Down, InputPhase::Frame,
+     InputLayer::Fleet, ConflictGroup::FleetAction, 100},
+    {InputActionId::FleetSecondary, "fleet_secondary", "TAB|MOUSE4", TriggerMode::Down, InputPhase::Frame,
+     InputLayer::Fleet, ConflictGroup::FleetAction, 90},
+    {InputActionId::FleetService, "fleet_service", "R|MOUSE3", TriggerMode::Down, InputPhase::Frame,
+     InputLayer::Fleet, ConflictGroup::FleetAction, 80},
+    {InputActionId::FleetViewInfo, "fleet_view_info", "V|MOUSE2", TriggerMode::Down, InputPhase::Frame,
+     InputLayer::Fleet, ConflictGroup::FleetAction, 70},
+    {InputActionId::FleetQueueClear, "fleet_queue_clear", "CTRL-C", TriggerMode::Down, InputPhase::Frame,
+     InputLayer::Fleet, ConflictGroup::FleetAction, 110},
+    {InputActionId::FleetQueueToggle, "fleet_queue_toggle", "CTRL-Q", TriggerMode::Down, InputPhase::Frame,
+     InputLayer::Fleet, ConflictGroup::FleetAction, 60},
+    {InputActionId::HotkeysDisable, "hotkeys_disable", "CTRL-ALT-MINUS", TriggerMode::Down, InputPhase::Frame,
+     InputLayer::Global, ConflictGroup::GlobalControl, 1000},
+    {InputActionId::HotkeysEnable, "hotkeys_enable", "CTRL-ALT-=", TriggerMode::Down, InputPhase::Frame,
+     InputLayer::Global, ConflictGroup::GlobalControl, 1000},
+    {InputActionId::LogDebug, "log_debug", "CTRL-SHIFT-F9", TriggerMode::Down, InputPhase::Frame,
+     InputLayer::Diagnostics, ConflictGroup::Diagnostics, 100},
+    {InputActionId::ZoomIn, "zoom_in", "Q", TriggerMode::Pressed, InputPhase::NavigationZoomUpdate, InputLayer::Zoom,
+     ConflictGroup::Zoom, 100},
+    {InputActionId::ZoomOut, "zoom_out", "E", TriggerMode::Pressed, InputPhase::NavigationZoomUpdate,
+     InputLayer::Zoom, ConflictGroup::Zoom, 100},
+}};
+
+struct KeyName {
+  std::string_view name;
+  KeyCode          key;
+};
+
+constexpr auto kKeyNames = std::to_array<KeyName>({
+    {"LALT", KeyCode::LeftAlt},
+    {"LAPPLE", KeyCode::LeftApple},
+    {"LCOM", KeyCode::LeftCommand},
+    {"LCMD", KeyCode::LeftCommand},
+    {"LCTRL", KeyCode::LeftControl},
+    {"ALTGR", KeyCode::AltGr},
+    {"END", KeyCode::End},
+    {"HOME", KeyCode::Home},
+    {"PGDOWN", KeyCode::PageDown},
+    {"PGUP", KeyCode::PageUp},
+    {"DOWN", KeyCode::DownArrow},
+    {"LEFT", KeyCode::LeftArrow},
+    {"RIGHT", KeyCode::RightArrow},
+    {"UP", KeyCode::UpArrow},
+    {"BACKSPACE", KeyCode::Backspace},
+    {"BREAK", KeyCode::Break},
+    {"CAPS", KeyCode::CapsLock},
+    {"CLEAR", KeyCode::Clear},
+    {"DELETE", KeyCode::Delete},
+    {"ESCAPE", KeyCode::Escape},
+    {"HELP", KeyCode::Help},
+    {"INSERT", KeyCode::Insert},
+    {"LSHIFT", KeyCode::LeftShift},
+    {"LWIN", KeyCode::LeftWindows},
+    {"MENU", KeyCode::Menu},
+    {"PAUSE", KeyCode::Pause},
+    {"PRINT", KeyCode::Print},
+    {"RALT", KeyCode::RightAlt},
+    {"RAPPLE", KeyCode::RightApple},
+    {"RCOM", KeyCode::RightCommand},
+    {"RCMD", KeyCode::RightCommand},
+    {"RCTRL", KeyCode::RightControl},
+    {"RETURN", KeyCode::Return},
+    {"RSHIFT", KeyCode::RightShift},
+    {"RWIN", KeyCode::RightWindows},
+    {"SCROLL", KeyCode::ScrollLock},
+    {"SYSREQ", KeyCode::SysReq},
+    {"TAB", KeyCode::Tab},
+    {"MOUSE0", KeyCode::Mouse0},
+    {"MOUSE1", KeyCode::Mouse1},
+    {"MOUSE2", KeyCode::Mouse2},
+    {"MOUSE3", KeyCode::Mouse3},
+    {"MOUSE4", KeyCode::Mouse4},
+    {"MOUSE5", KeyCode::Mouse5},
+    {"MOUSE6", KeyCode::Mouse6},
+    {"SPACE", KeyCode::Space},
+    {"MINUS", KeyCode::Minus},
+    {"-", KeyCode::Minus},
+    {"_", KeyCode::Underscore},
+    {",", KeyCode::Comma},
+    {";", KeyCode::Semicolon},
+    {":", KeyCode::Colon},
+    {"!", KeyCode::Exclaim},
+    {"?", KeyCode::Question},
+    {".", KeyCode::Period},
+    {"'", KeyCode::Quote},
+    {"/", KeyCode::Slash},
+    {"\\", KeyCode::Backslash},
+    {"`", KeyCode::BackQuote},
+    {"+", KeyCode::Plus},
+    {"PLUS", KeyCode::Plus},
+    {"=", KeyCode::Equals},
+    {"0", KeyCode::Alpha0},
+    {"1", KeyCode::Alpha1},
+    {"2", KeyCode::Alpha2},
+    {"3", KeyCode::Alpha3},
+    {"4", KeyCode::Alpha4},
+    {"5", KeyCode::Alpha5},
+    {"6", KeyCode::Alpha6},
+    {"7", KeyCode::Alpha7},
+    {"8", KeyCode::Alpha8},
+    {"9", KeyCode::Alpha9},
+    {"A", KeyCode::A},
+    {"B", KeyCode::B},
+    {"C", KeyCode::C},
+    {"D", KeyCode::D},
+    {"E", KeyCode::E},
+    {"F", KeyCode::F},
+    {"G", KeyCode::G},
+    {"H", KeyCode::H},
+    {"I", KeyCode::I},
+    {"J", KeyCode::J},
+    {"K", KeyCode::K},
+    {"L", KeyCode::L},
+    {"M", KeyCode::M},
+    {"N", KeyCode::N},
+    {"O", KeyCode::O},
+    {"P", KeyCode::P},
+    {"Q", KeyCode::Q},
+    {"R", KeyCode::R},
+    {"S", KeyCode::S},
+    {"T", KeyCode::T},
+    {"U", KeyCode::U},
+    {"V", KeyCode::V},
+    {"W", KeyCode::W},
+    {"X", KeyCode::X},
+    {"Y", KeyCode::Y},
+    {"Z", KeyCode::Z},
+  });
+
+std::optional<ModifierMask> lookup_modifier(std::string_view token)
+{
+  if (token == "SHIFT") {
+    return ModifierMask::Logical(ModifierGroup::Shift);
+  }
+  if (token == "CTRL") {
+    return ModifierMask::Logical(ModifierGroup::Ctrl);
+  }
+  if (token == "ALT") {
+    return ModifierMask::Logical(ModifierGroup::Alt);
+  }
+  if (token == "WIN") {
+    return ModifierMask::Logical(ModifierGroup::Win);
+  }
+  if (token == "CMD") {
+    return ModifierMask::Logical(ModifierGroup::Command);
+  }
+  if (token == "APPLE") {
+    return ModifierMask::Logical(ModifierGroup::Command);
+  }
+  if (auto key = LookupKey(token); key && IsModifierKey(*key)) {
+    return ModifierMask::FromPressedKey(*key);
+  }
+  return std::nullopt;
+}
+} // namespace
+
+bool ParsedChord::Matches(const KeyCode pressed_key, const ModifierMask held_modifiers,
+                          const bool allow_extra_modifiers) const
+{
+  if (!valid || key != pressed_key || !modifiers.IsSatisfiedBy(held_modifiers)) {
+    return false;
+  }
+  return allow_extra_modifiers || modifiers.IsExactMatch(held_modifiers);
+}
+
+bool ParsedBinding::has_valid_chord() const
+{ return std::ranges::any_of(chords, [](const auto& chord) { return chord.valid; }); }
+
+bool ParsedBinding::has_warnings() const
+{
+  return std::ranges::any_of(diagnostics, [](const auto& diagnostic) {
+    return diagnostic.severity == DiagnosticSeverity::Warning;
+  });
+}
+
+bool ParsedBinding::has_errors() const
+{
+  return std::ranges::any_of(diagnostics,
+                             [](const auto& diagnostic) { return diagnostic.severity == DiagnosticSeverity::Error; });
+}
+
+std::string ParsedBinding::DisplayString() const
+{
+  if (unbound) {
+    return "NONE";
+  }
+
+  std::string display;
+  for (const auto& chord : chords) {
+    if (!chord.valid) {
+      continue;
+    }
+    if (!display.empty()) {
+      display.append(" | ");
+    }
+    display.append(chord.display);
+  }
+  return display;
+}
+
+void BindingIndex::Register(const InputActionId action, ParsedChord chord, const TriggerMode trigger_mode,
+                            const uint16_t priority)
+{
+  if (!chord.valid || chord.key == KeyCode::None) {
+    return;
+  }
+  auto& bucket = trigger_mode == TriggerMode::Pressed ? pressed_ : down_;
+  bucket[static_cast<size_t>(chord.key)].push_back({action, std::move(chord), trigger_mode, priority});
+  std::ranges::sort(bucket[static_cast<size_t>(chord.key)], [](const auto& lhs, const auto& rhs) {
+    return lhs.priority > rhs.priority;
+  });
+  ++size_;
+}
+
+std::vector<InputActionId> BindingIndex::Match(const TriggerMode trigger_mode, const KeyCode key,
+                                               const ModifierMask held_modifiers,
+                                               const bool allow_extra_modifiers) const
+{
+  std::vector<InputActionId> matches;
+  const auto& bucket = buckets_for(trigger_mode)[static_cast<size_t>(key)];
+  for (const auto& binding : bucket) {
+    if (binding.chord.Matches(key, held_modifiers, allow_extra_modifiers)) {
+      matches.push_back(binding.action);
+    }
+  }
+  return matches;
+}
+
+size_t BindingIndex::size() const
+{ return size_; }
+
+const BindingIndex::BindingBuckets& BindingIndex::buckets_for(const TriggerMode trigger_mode) const
+{ return trigger_mode == TriggerMode::Pressed ? pressed_ : down_; }
+
+std::span<const InputActionSpec> ActionSpecs()
+{ return kActionSpecs; }
+
+const InputActionSpec* FindActionSpec(const InputActionId id)
+{
+  const auto specs = ActionSpecs();
+  const auto found = std::ranges::find_if(specs, [id](const auto& spec) { return spec.id == id; });
+  return found == specs.end() ? nullptr : &*found;
+}
+
+const InputActionSpec* FindActionSpec(const std::string_view canonical_key)
+{
+  const auto specs = ActionSpecs();
+  const auto found = std::ranges::find_if(specs, [canonical_key](const auto& spec) {
+    return spec.canonical_key == canonical_key;
+  });
+  return found == specs.end() ? nullptr : &*found;
+}
+
+std::optional<KeyCode> LookupKey(const std::string_view key_name)
+{
+  const auto normalized = AsciiStrToUpper(StripAsciiWhitespace(key_name));
+  const auto found = std::ranges::find_if(kKeyNames, [&normalized](const auto& item) { return item.name == normalized; });
+  if (found != kKeyNames.end()) {
+    return found->key;
+  }
+
+  if (normalized.size() >= 2 && normalized[0] == 'F') {
+    const auto number = normalized.substr(1);
+    if (number == "1") {
+      return KeyCode::F1;
+    }
+    if (number == "2") {
+      return KeyCode::F2;
+    }
+    if (number == "3") {
+      return KeyCode::F3;
+    }
+    if (number == "4") {
+      return KeyCode::F4;
+    }
+    if (number == "5") {
+      return KeyCode::F5;
+    }
+    if (number == "6") {
+      return KeyCode::F6;
+    }
+    if (number == "7") {
+      return KeyCode::F7;
+    }
+    if (number == "8") {
+      return KeyCode::F8;
+    }
+    if (number == "9") {
+      return KeyCode::F9;
+    }
+    if (number == "10") {
+      return KeyCode::F10;
+    }
+    if (number == "11") {
+      return KeyCode::F11;
+    }
+    if (number == "12") {
+      return KeyCode::F12;
+    }
+  }
+
+  return std::nullopt;
+}
+
+bool IsModifierKey(const KeyCode key)
+{
+  switch (key) {
+    case KeyCode::LeftShift:
+    case KeyCode::RightShift:
+    case KeyCode::LeftControl:
+    case KeyCode::RightControl:
+    case KeyCode::LeftAlt:
+    case KeyCode::RightAlt:
+    case KeyCode::LeftWindows:
+    case KeyCode::RightWindows:
+    case KeyCode::LeftCommand:
+    case KeyCode::RightCommand:
+    case KeyCode::AltGr:
+      return true;
+    default:
+      return false;
+  }
+}
+
+ParsedChord ParseChord(const std::string_view chord_text)
+{
+  ParsedChord chord;
+  const auto normalized = AsciiStrToUpper(StripAsciiWhitespace(chord_text));
+  chord.display = normalized;
+
+  if (normalized.empty()) {
+    return chord;
+  }
+
+  if (auto key = LookupKey(normalized); key && !IsModifierKey(*key)) {
+    chord.key = *key;
+    chord.valid = true;
+    return chord;
+  }
+
+  const auto tokens = StrSplit(normalized, '-');
+  for (size_t index = 0; index < tokens.size(); ++index) {
+    const auto& token = tokens[index];
+    if (auto modifier = lookup_modifier(token)) {
+      chord.modifiers.Merge(*modifier);
+      continue;
+    }
+
+    if (auto key = LookupKey(token); key && !IsModifierKey(*key)) {
+      chord.key = *key;
+      continue;
+    }
+
+    chord.diagnostics.push_back({DiagnosticSeverity::Warning, "Unknown chord token", index});
+  }
+
+  chord.valid = chord.key != KeyCode::None;
+  return chord;
+}
+
+ParsedBinding ParseBinding(const std::string_view binding_text)
+{
+  ParsedBinding binding;
+  const auto normalized = AsciiStrToUpper(StripAsciiWhitespace(binding_text));
+  if (normalized == "NONE") {
+    binding.unbound = true;
+    return binding;
+  }
+
+  const auto tokens = StrSplit(normalized, '|');
+  for (size_t index = 0; index < tokens.size(); ++index) {
+    auto chord = ParseChord(tokens[index]);
+    for (auto diagnostic : chord.diagnostics) {
+      diagnostic.token_index = index;
+      binding.diagnostics.push_back(std::move(diagnostic));
+    }
+    if (!chord.valid && chord.diagnostics.empty()) {
+      binding.diagnostics.push_back({DiagnosticSeverity::Warning, "Invalid chord token", index});
+    }
+    binding.chords.push_back(std::move(chord));
+  }
+
+  if (!binding.has_valid_chord()) {
+    binding.diagnostics.push_back({DiagnosticSeverity::Error, "Binding has no valid chord", 0});
+  }
+
+  return binding;
+}
+} // namespace input_binding

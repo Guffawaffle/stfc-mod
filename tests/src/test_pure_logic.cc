@@ -6,6 +6,7 @@
 #include "patches/async_work_queue.h"
 #include "patches/battle_log_decoder.h"
 #include "patches/fleet_input_policy.h"
+#include "patches/input_binding/input_binding.h"
 #include "patches/live_debug_event_store.h"
 #include "patches/live_debug_fleet_serializers.h"
 #include "patches/live_debug_recent_event_requests.h"
@@ -20,6 +21,139 @@
 #include <array>
 #include <chrono>
 #include <utility>
+
+// ===========================================================================
+// input_binding
+// ===========================================================================
+
+TEST_SUITE("input_binding")
+{
+  TEST_CASE("schema exposes initial unified action subset")
+  {
+    const auto specs = input_binding::ActionSpecs();
+    CHECK(specs.size() == static_cast<size_t>(input_binding::InputActionId::Max));
+
+    const auto* fleet_primary = input_binding::FindActionSpec(input_binding::InputActionId::FleetPrimary);
+    REQUIRE(fleet_primary != nullptr);
+    CHECK(fleet_primary->canonical_key == "fleet_primary");
+    CHECK(fleet_primary->default_bind == "SPACE|MOUSE1");
+
+    const auto* hotkeys_enable = input_binding::FindActionSpec("hotkeys_enable");
+    REQUIRE(hotkeys_enable != nullptr);
+    CHECK(hotkeys_enable->default_bind == "CTRL-ALT-=");
+
+    for (const auto& spec : specs) {
+      const auto binding = input_binding::ParseBinding(spec.default_bind);
+      INFO(spec.canonical_key);
+      CHECK(binding.has_valid_chord());
+      CHECK_FALSE(binding.has_warnings());
+      CHECK_FALSE(binding.has_errors());
+    }
+  }
+
+  TEST_CASE("key lookup covers keyboard mouse and function keys")
+  {
+    CHECK(input_binding::LookupKey("space") == KeyCode::Space);
+    CHECK(input_binding::LookupKey("V") == KeyCode::V);
+    CHECK(input_binding::LookupKey("MOUSE1") == KeyCode::Mouse1);
+    CHECK(input_binding::LookupKey("F12") == KeyCode::F12);
+    CHECK_FALSE(input_binding::LookupKey("NOT_A_KEY").has_value());
+  }
+
+  TEST_CASE("modifier masks satisfy logical and physical requirements")
+  {
+    const auto ctrl = input_binding::ModifierMask::Logical(input_binding::ModifierGroup::Ctrl);
+    auto held_left_ctrl = input_binding::ModifierMask::FromPressedKey(KeyCode::LeftControl);
+    CHECK(ctrl.IsSatisfiedBy(held_left_ctrl));
+    CHECK(ctrl.IsExactMatch(held_left_ctrl));
+
+    held_left_ctrl.Merge(input_binding::ModifierMask::FromPressedKey(KeyCode::LeftShift));
+    CHECK(ctrl.IsSatisfiedBy(held_left_ctrl));
+    CHECK_FALSE(ctrl.IsExactMatch(held_left_ctrl));
+
+    const auto left_ctrl = input_binding::ModifierMask::Physical(input_binding::PhysicalModifier::LeftControl);
+    CHECK(left_ctrl.IsSatisfiedBy(input_binding::ModifierMask::FromPressedKey(KeyCode::LeftControl)));
+    CHECK_FALSE(left_ctrl.IsSatisfiedBy(input_binding::ModifierMask::FromPressedKey(KeyCode::RightControl)));
+  }
+
+  TEST_CASE("chord parser handles simple modified and mouse chords")
+  {
+    auto chord = input_binding::ParseChord("a");
+    REQUIRE(chord.valid);
+    CHECK(chord.key == KeyCode::A);
+    CHECK(chord.modifiers.empty());
+
+    chord = input_binding::ParseChord("CTRL-SHIFT-F9");
+    REQUIRE(chord.valid);
+    CHECK(chord.key == KeyCode::F9);
+    auto held = input_binding::ModifierMask::FromPressedKey(KeyCode::LeftControl);
+    held.Merge(input_binding::ModifierMask::FromPressedKey(KeyCode::RightShift));
+    CHECK(chord.Matches(KeyCode::F9, held));
+
+    chord = input_binding::ParseChord("MOUSE1");
+    REQUIRE(chord.valid);
+    CHECK(chord.key == KeyCode::Mouse1);
+  }
+
+  TEST_CASE("chord matching rejects extra modifiers by default")
+  {
+    auto chord = input_binding::ParseChord("CTRL-A");
+    REQUIRE(chord.valid);
+
+    auto held = input_binding::ModifierMask::FromPressedKey(KeyCode::LeftControl);
+    CHECK(chord.Matches(KeyCode::A, held));
+
+    held.Merge(input_binding::ModifierMask::FromPressedKey(KeyCode::LeftShift));
+    CHECK_FALSE(chord.Matches(KeyCode::A, held));
+    CHECK(chord.Matches(KeyCode::A, held, true));
+  }
+
+  TEST_CASE("binding parser handles none multibind and partial invalid tokens")
+  {
+    auto binding = input_binding::ParseBinding("NONE");
+    CHECK(binding.unbound);
+    CHECK(binding.DisplayString() == "NONE");
+
+    binding = input_binding::ParseBinding("SPACE|INVALID|MOUSE1");
+    CHECK(binding.has_valid_chord());
+    CHECK(binding.has_errors() == false);
+    REQUIRE(binding.diagnostics.size() == 1);
+    CHECK(binding.diagnostics[0].severity == input_binding::DiagnosticSeverity::Warning);
+    CHECK(binding.DisplayString() == "SPACE | MOUSE1");
+
+    binding = input_binding::ParseBinding("CTRL-SHIFT");
+    CHECK_FALSE(binding.has_valid_chord());
+    CHECK(binding.has_errors());
+
+    binding = input_binding::ParseBinding("CTRL-NOTREAL-A");
+    CHECK(binding.has_valid_chord());
+    CHECK(binding.has_warnings());
+    CHECK_FALSE(binding.has_errors());
+  }
+
+  TEST_CASE("binding index matches by key trigger and priority order")
+  {
+    input_binding::BindingIndex index;
+    index.Register(input_binding::InputActionId::FleetPrimary, input_binding::ParseChord("SPACE"),
+                   input_binding::TriggerMode::Down, 10);
+    index.Register(input_binding::InputActionId::FleetQueueClear, input_binding::ParseChord("SPACE"),
+                   input_binding::TriggerMode::Down, 20);
+    index.Register(input_binding::InputActionId::ZoomIn, input_binding::ParseChord("SPACE"),
+                   input_binding::TriggerMode::Pressed, 30);
+
+    CHECK(index.size() == 3);
+
+    const auto held = input_binding::ModifierMask{};
+    auto matches = index.Match(input_binding::TriggerMode::Down, KeyCode::Space, held);
+    REQUIRE(matches.size() == 2);
+    CHECK(matches[0] == input_binding::InputActionId::FleetQueueClear);
+    CHECK(matches[1] == input_binding::InputActionId::FleetPrimary);
+
+    matches = index.Match(input_binding::TriggerMode::Pressed, KeyCode::Space, held);
+    REQUIRE(matches.size() == 1);
+    CHECK(matches[0] == input_binding::InputActionId::ZoomIn);
+  }
+}
 
 // ===========================================================================
 // fleet_input_policy
