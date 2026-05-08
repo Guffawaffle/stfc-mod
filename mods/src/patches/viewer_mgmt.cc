@@ -34,8 +34,8 @@ static int show_info_pending = 0;
 template <typename T>
 inline bool CanHideViewersOfType()
 {
-  for (auto widget : ObjectFinder<T>::GetAll()) {
-    const auto visible = widget && widget->_visibilityController != NULL
+  for (auto widget : ObjectFinder<T>::GetAllNonNull()) {
+    const auto visible = widget->_visibilityController != NULL
                          && (widget->_visibilityController->_state == VisibilityState::Visible
                              || widget->_visibilityController->_state == VisibilityState::Show);
     if (visible) {
@@ -59,12 +59,9 @@ bool CanHideViewers()
 template <typename T>
 inline bool DidHideViewersOfType()
 {
-  const auto objects = ObjectFinder<T>::GetAll();
+  const auto objects = ObjectFinder<T>::GetAllNonNull();
   auto       didHide = false;
   for (auto widget : objects) {
-    if (!widget) {
-      continue;
-    }
     auto visbility_controller = widget->_visibilityController;
     if (!visbility_controller) {
       continue;
@@ -106,19 +103,30 @@ bool TryDismissRewardsScreen()
 
 void HandleActionView()
 {
-  auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAll();
+  auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAllNonNull();
 
   for (auto& pre_scan_widget : all_pre_scan_widgets) {
-    if (pre_scan_widget
-        && (pre_scan_widget->_visibilityController->_state == VisibilityState::Visible
-            || pre_scan_widget->_visibilityController->_state == VisibilityState::Show)) {
-      auto rewardsWidget = pre_scan_widget->_rewardsButtonWidget;
-      if (rewardsWidget->_rewardsController->_state != VisibilityState::Visible
-          && rewardsWidget->_rewardsController->_state != VisibilityState::Show) {
-        show_info_pending = 5;
-      } else {
-        rewardsWidget->_rewardsController->Hide();
-      }
+    const auto visibility_controller = pre_scan_widget->_visibilityController;
+    if (!visibility_controller) {
+      continue;
+    }
+
+    const auto visible = visibility_controller->_state == VisibilityState::Visible
+                         || visibility_controller->_state == VisibilityState::Show;
+    if (!visible) {
+      continue;
+    }
+
+    auto rewards_widget = pre_scan_widget->_rewardsButtonWidget;
+    if (!rewards_widget || !rewards_widget->_rewardsController) {
+      continue;
+    }
+
+    if (rewards_widget->_rewardsController->_state != VisibilityState::Visible
+        && rewards_widget->_rewardsController->_state != VisibilityState::Show) {
+      show_info_pending = 5;
+    } else {
+      rewards_widget->_rewardsController->Hide();
     }
   }
 }
@@ -129,19 +137,29 @@ void TickInfoPending()
     return;
   }
 
-  auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAll();
+  auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAllNonNull();
 
   for (auto& pre_scan_widget : all_pre_scan_widgets) {
-    const auto pre_scan_visible = pre_scan_widget
-                                  && (pre_scan_widget->_visibilityController->_state == VisibilityState::Visible
-                                      || pre_scan_widget->_visibilityController->_state == VisibilityState::Show);
-    if (pre_scan_visible) {
-      auto       rewardsWidget          = pre_scan_widget->_rewardsButtonWidget;
-      const auto rewards_widget_visible = rewardsWidget->_rewardsController->_state == VisibilityState::Visible
-                                          || rewardsWidget->_rewardsController->_state == VisibilityState::Show;
-      if (!rewards_widget_visible) {
-        rewardsWidget->_rewardsController->Show(true);
-      }
+    const auto visibility_controller = pre_scan_widget->_visibilityController;
+    if (!visibility_controller) {
+      continue;
+    }
+
+    const auto pre_scan_visible = visibility_controller->_state == VisibilityState::Visible
+                                  || visibility_controller->_state == VisibilityState::Show;
+    if (!pre_scan_visible) {
+      continue;
+    }
+
+    auto rewards_widget = pre_scan_widget->_rewardsButtonWidget;
+    if (!rewards_widget || !rewards_widget->_rewardsController) {
+      continue;
+    }
+
+    const auto rewards_widget_visible = rewards_widget->_rewardsController->_state == VisibilityState::Visible
+                                        || rewards_widget->_rewardsController->_state == VisibilityState::Show;
+    if (!rewards_widget_visible) {
+      rewards_widget->_rewardsController->Show(true);
     }
   }
   show_info_pending -= 1;

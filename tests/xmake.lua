@@ -20,6 +20,7 @@ do
     add_files("../mods/src/patches/battle_log_decoder.cc")
     add_files("../mods/src/patches/fleet_deferred_action.cc")
     add_files("../mods/src/patches/fleet_input_policy.cc")
+    add_files("../mods/src/patches/il2cpp_safety.cc")
     add_files("../mods/src/patches/input_binding/input_binding.cc")
     add_files("../mods/src/patches/input_binding/input_config_bridge.cc")
     add_files("../mods/src/patches/input_binding/input_dispatcher.cc")
