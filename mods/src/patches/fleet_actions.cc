@@ -315,7 +315,7 @@ SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet
 {
   SpaceActionRuntimeContext runtime_context;
 
-  const auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAll();
+  const auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAllNonNull();
   runtime_context.visible_pre_scan_targets.reserve(all_pre_scan_widgets.size());
   for (auto pre_scan_widget : all_pre_scan_widgets) {
     if (!IsViewerVisible(pre_scan_widget)) {

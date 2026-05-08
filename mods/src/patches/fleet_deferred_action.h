@@ -7,6 +7,8 @@ namespace fleet_deferred_action
 struct State {
   bool      pending = false;
   uint64_t  fleet_id = 0;
+  // Stored as raw pointer identities for short-lived same-process matching only.
+  // This state never owns or dereferences these addresses.
   uintptr_t widget_identity = 0;
   uintptr_t target_identity = 0;
   uint64_t  generation = 0;

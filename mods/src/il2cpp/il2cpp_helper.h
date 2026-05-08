@@ -18,6 +18,7 @@
 #pragma once
 
 #include "il2cpp-functions.h"
+#include "patches/il2cpp_safety.h"
 #include "patches/object_tracker_core.h"
 
 #include <il2cpp-api-types.h>
@@ -504,8 +505,16 @@ inline IL2CppClassHelper il2cpp_get_class_helper_impl(const char* assembly, cons
  */
 template <typename T> inline T* il2cpp_get_array_element(Il2CppArray* array, size_t index)
 {
-  Il2CppArraySize* n = (Il2CppArraySize*)(array);
-  return (T*)n->vector[index];
+  if (!array) {
+    return nullptr;
+  }
+
+  auto* sized_array = reinterpret_cast<Il2CppArraySize*>(array);
+  if (!il2cpp_array_index_is_valid(static_cast<size_t>(sized_array->max_length), index)) {
+    return nullptr;
+  }
+
+  return reinterpret_cast<T*>(sized_array->vector[index]);
 }
 
 /** @brief Global tracked-object core, keyed by Il2CppClass*. */
@@ -537,6 +546,29 @@ public:
     for (const auto object : objects) {
       typed_objects.push_back(reinterpret_cast<T*>(object));
     }
+    return typed_objects;
+  }
+
+  /**
+   * @brief Return the tracked snapshot with null entries filtered out.
+   *
+   * The tracker stores raw pointer identities only; callers still own any
+   * nested field validation before dereference.
+   */
+  static std::vector<T*> GetAllNonNull()
+  {
+    auto objects = tracked_objects.objects_for_class(T::get_class_helper().get_cls());
+
+    std::vector<T*> typed_objects;
+    typed_objects.reserve(objects.size());
+    for (const auto object : objects) {
+      if (!object) {
+        continue;
+      }
+
+      typed_objects.push_back(reinterpret_cast<T*>(object));
+    }
+
     return typed_objects;
   }
 };
