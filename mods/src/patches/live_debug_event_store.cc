@@ -19,14 +19,17 @@ LiveDebugRecentEventStore::LiveDebugRecentEventStore(size_t capacity)
 
 void LiveDebugRecentEventStore::append(std::string_view kind, nlohmann::json details, int64_t timestamp_ms_utc)
 {
-  events_.push_back(nlohmann::json{{"seq", ++nextSequence_},
-                                   {"timestampMsUtc", timestamp_ms_utc},
-                                   {"kind", kind},
-                                   {"details", std::move(details)}});
+  events_.push_back({nlohmann::json{{"seq", ++nextSequence_},
+                                    {"timestampMsUtc", timestamp_ms_utc},
+                                    {"kind", kind},
+                                    {"details", std::move(details)}},
+                     std::string(kind)});
+  kindIndexDirty_ = true;
 
   while (events_.size() > capacity_) {
     ++evictedCount_;
     events_.pop_front();
+    kindIndexDirty_ = true;
   }
 }
 
@@ -93,14 +96,13 @@ bool text_matches_query(std::string_view candidate, const LiveDebugRecentEventSt
   return normalize_for_match(candidate).find(normalize_for_match(query.match)) != std::string::npos;
 }
 
-bool event_matches_kind_query(const nlohmann::json& event, const LiveDebugRecentEventStoreQuery& query)
+bool query_has_kind_filter(const LiveDebugRecentEventStoreQuery& query)
 {
-  const auto kindIt = event.find("kind");
-  if (kindIt == event.end() || !kindIt->is_string()) {
-    return query.kind.empty() && query.kinds.empty();
-  }
+  return !query.kind.empty() || !query.kinds.empty();
+}
 
-  const auto kind = kindIt->get<std::string>();
+bool event_matches_kind_query(std::string_view kind, const LiveDebugRecentEventStoreQuery& query)
+{
   if (!query.kind.empty() && kind != query.kind) {
     return false;
   }
@@ -113,14 +115,8 @@ bool event_matches_kind_query(const nlohmann::json& event, const LiveDebugRecent
   return true;
 }
 
-void increment_kind_count(nlohmann::json& kind_counts, const nlohmann::json& event)
+void increment_kind_count(nlohmann::json& kind_counts, std::string_view kind)
 {
-  const auto kindIt = event.find("kind");
-  if (kindIt == event.end() || !kindIt->is_string()) {
-    return;
-  }
-
-  const auto kind = kindIt->get<std::string>();
   const auto existing = kind_counts.find(kind);
   if (existing == kind_counts.end()) {
     kind_counts[kind] = 1;
@@ -129,41 +125,73 @@ void increment_kind_count(nlohmann::json& kind_counts, const nlohmann::json& eve
   }
 }
 
-bool event_matches_query(const nlohmann::json& event, const LiveDebugRecentEventStoreQuery& query)
+std::string_view search_text_for_event(const LiveDebugRecentEventStore::StoredEvent& event)
+{
+  if (!event.searchTextCached) {
+    event.searchText = event.value.dump();
+    event.searchTextCached = true;
+  }
+
+  return event.searchText;
+}
+
+bool event_matches_query(const LiveDebugRecentEventStore::StoredEvent& event,
+                         const LiveDebugRecentEventStoreQuery& query,
+                         size_t& query_text_scan_count)
 {
   if (query.afterSeq >= 0) {
-    const auto seqIt = event.find("seq");
-    if (seqIt == event.end() || !seqIt->is_number_unsigned() || seqIt->get<uint64_t>() <= static_cast<uint64_t>(query.afterSeq)) {
+    const auto seqIt = event.value.find("seq");
+    if (seqIt == event.value.end() || !seqIt->is_number_unsigned()
+        || seqIt->get<uint64_t>() <= static_cast<uint64_t>(query.afterSeq)) {
       return false;
     }
   }
 
-  if (!event_matches_kind_query(event, query)) {
+  if (!event_matches_kind_query(event.kind, query)) {
     return false;
   }
 
   if (!query.match.empty()) {
-    const auto kindIt = event.find("kind");
-    const auto eventText = event.dump();
-    if (!(kindIt != event.end() && kindIt->is_string() && text_matches_query(kindIt->get<std::string>(), query)) &&
-        !text_matches_query(eventText, query)) {
-      return false;
+    if (!text_matches_query(event.kind, query)) {
+      ++query_text_scan_count;
+      if (!text_matches_query(search_text_for_event(event), query)) {
+        return false;
+      }
     }
   }
 
   return true;
 }
 
-nlohmann::json event_for_query(const nlohmann::json& event, const LiveDebugRecentEventStoreQuery& query)
+nlohmann::json event_for_query(const LiveDebugRecentEventStore::StoredEvent& event,
+                              const LiveDebugRecentEventStoreQuery& query)
 {
   if (query.includeDetails) {
-    return event;
+    return event.value;
   }
 
-  auto summarized = event;
+  auto summarized = event.value;
   summarized.erase("details");
   return summarized;
 }
+}
+
+void LiveDebugRecentEventStore::rebuild_kind_index() const
+{
+  if (!kindIndexDirty_) {
+    return;
+  }
+
+  kindIndex_.clear();
+  cachedBufferKindCounts_ = nlohmann::json::object();
+
+  for (size_t index = 0; index < events_.size(); ++index) {
+    const auto& event = events_[index];
+    kindIndex_[event.kind].push_back(index);
+    increment_kind_count(cachedBufferKindCounts_, event.kind);
+  }
+
+  kindIndexDirty_ = false;
 }
 
 LiveDebugRecentEventStoreSnapshot LiveDebugRecentEventStore::snapshot(const LiveDebugRecentEventStoreQuery& query) const
@@ -176,8 +204,8 @@ LiveDebugRecentEventStoreSnapshot LiveDebugRecentEventStore::snapshot(const Live
   result.clearCount = clearCount_;
 
   if (!events_.empty()) {
-    result.firstSeq = events_.front().at("seq").get<uint64_t>();
-    result.lastSeq = events_.back().at("seq").get<uint64_t>();
+    result.firstSeq = events_.front().value.at("seq").get<uint64_t>();
+    result.lastSeq = events_.back().value.at("seq").get<uint64_t>();
   }
 
   if (query.afterSeq >= 0 && result.count > 0) {
@@ -188,13 +216,44 @@ LiveDebugRecentEventStoreSnapshot LiveDebugRecentEventStore::snapshot(const Live
     }
   }
 
+  rebuild_kind_index();
+  result.bufferKindCounts = cachedBufferKindCounts_;
+
   std::vector<nlohmann::json> matched_events;
   matched_events.reserve(events_.size());
 
-  for (const auto& event : events_) {
-    increment_kind_count(result.bufferKindCounts, event);
+  std::vector<size_t> candidate_indices;
+  if (query_has_kind_filter(query)) {
+    result.queryUsedKindIndex = true;
 
-    if (event_matches_query(event, query)) {
+    if (!query.kind.empty()) {
+      if (const auto kind_it = kindIndex_.find(query.kind); kind_it != kindIndex_.end()) {
+        candidate_indices = kind_it->second;
+      }
+    } else {
+      for (const auto& kind : query.kinds) {
+        if (const auto kind_it = kindIndex_.find(kind); kind_it != kindIndex_.end()) {
+          candidate_indices.insert(candidate_indices.end(), kind_it->second.begin(), kind_it->second.end());
+        }
+      }
+
+      std::sort(candidate_indices.begin(), candidate_indices.end());
+      candidate_indices.erase(std::unique(candidate_indices.begin(), candidate_indices.end()), candidate_indices.end());
+    }
+  }
+
+  if (candidate_indices.empty() && !result.queryUsedKindIndex) {
+    candidate_indices.reserve(events_.size());
+    for (size_t index = 0; index < events_.size(); ++index) {
+      candidate_indices.push_back(index);
+    }
+  }
+
+  result.queryScanCount = candidate_indices.size();
+
+  for (const auto index : candidate_indices) {
+    const auto& event = events_[index];
+    if (event_matches_query(event, query, result.queryTextScanCount)) {
       matched_events.push_back(event_for_query(event, query));
     }
   }
@@ -207,7 +266,10 @@ LiveDebugRecentEventStoreSnapshot LiveDebugRecentEventStore::snapshot(const Live
 
   for (const auto& event : matched_events) {
     result.events.push_back(event);
-    increment_kind_count(result.kindCounts, event);
+    const auto kind_it = event.find("kind");
+    if (kind_it != event.end() && kind_it->is_string()) {
+      increment_kind_count(result.kindCounts, kind_it->get_ref<const std::string&>());
+    }
   }
 
   result.returnedCount = result.events.size();
@@ -220,5 +282,8 @@ size_t LiveDebugRecentEventStore::clear()
   const auto cleared = events_.size();
   events_.clear();
   ++clearCount_;
+  kindIndexDirty_ = true;
+  kindIndex_.clear();
+  cachedBufferKindCounts_ = nlohmann::json::object();
   return cleared;
 }

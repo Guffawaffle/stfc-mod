@@ -103,8 +103,10 @@ constexpr bool kEnableLiveDebugStationWarningPolling = false;
 constexpr bool kEnableLiveDebugNavigationInteractionPolling = false;
 constexpr bool kEnableLiveDebugObserverStepTrace = false;
 constexpr auto kLiveDebugRequestPollInterval = std::chrono::seconds(3);
+constexpr auto kLiveDebugRecentActivityWindow = std::chrono::seconds(15);
 bool g_ui_observer_trace_current_poll = false;
 int g_ui_observer_trace_budget = 4000;
+std::chrono::steady_clock::time_point g_last_live_debug_request_at{};
 void append_navigation_hook_actionable_follow_up_event(const NavigationInteractionObservation& previous,
                                                        const NavigationInteractionObservation& current);
 void append_navigation_poll_actionable_event(const NavigationInteractionObservation& previous,
@@ -120,6 +122,17 @@ bool should_poll_live_debug_request_channel()
 
   next_poll = now + kLiveDebugRequestPollInterval;
   return true;
+}
+
+void mark_live_debug_request_activity()
+{
+  g_last_live_debug_request_at = std::chrono::steady_clock::now();
+}
+
+bool has_recent_live_debug_request_activity()
+{
+  return g_last_live_debug_request_at != std::chrono::steady_clock::time_point{}
+      && std::chrono::steady_clock::now() - g_last_live_debug_request_at <= kLiveDebugRecentActivityWindow;
 }
 
 std::filesystem::path get_live_debug_path(std::string_view filename)
@@ -723,6 +736,11 @@ void capture_recent_model_events(std::string_view source)
     return;
   }
 
+  if (!has_recent_live_debug_request_activity()) {
+    reset_recent_observations();
+    return;
+  }
+
   if (!g_recent_observations_initialized) {
     initialize_recent_model_observations(source);
     return;
@@ -897,6 +915,8 @@ json execute_live_debug_command(const json& request)
 std::string live_debug_handle_request_text(std::string_view request_text)
 {
   nlohmann::json response;
+
+  mark_live_debug_request_activity();
 
   try {
     auto request = nlohmann::json::parse(request_text);
