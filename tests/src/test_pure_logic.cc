@@ -5,6 +5,7 @@
 #include "config_schema.h"
 #include "patches/async_work_queue.h"
 #include "patches/battle_log_decoder.h"
+#include "patches/fleet_deferred_action.h"
 #include "patches/fleet_input_policy.h"
 #include "patches/input_binding/input_binding.h"
 #include "patches/input_binding/input_config_bridge.h"
@@ -501,6 +502,59 @@ TEST_SUITE("fleet_input_policy")
     CHECK(FleetPrimaryOutcomeName(FleetPrimaryOutcome::AddToQueue) == "add-to-queue");
     CHECK(FleetSecondaryOutcomeName(FleetSecondaryOutcome::ScanMining) == "scan-mining");
     CHECK(FleetServiceOutcomeName(FleetServiceOutcome::Repair) == "repair");
+  }
+}
+
+TEST_SUITE("fleet_deferred_action")
+{
+  TEST_CASE("arm stores identities and increments generation")
+  {
+    fleet_deferred_action::State state;
+
+    fleet_deferred_action::Arm(state, 77, 0x1234, 0x5678);
+
+    CHECK(state.pending);
+    CHECK(state.generation == 1);
+    CHECK(fleet_deferred_action::MatchesFleet(state, 77));
+    CHECK(fleet_deferred_action::MatchesTarget(state, 77, 0x1234, 0x5678));
+  }
+
+  TEST_CASE("clear resets pending state and bumps generation")
+  {
+    fleet_deferred_action::State state;
+    fleet_deferred_action::Arm(state, 77, 0x1234, 0x5678);
+
+    fleet_deferred_action::Clear(state);
+
+    CHECK_FALSE(state.pending);
+    CHECK(state.generation == 2);
+    CHECK_FALSE(fleet_deferred_action::MatchesFleet(state, 77));
+  }
+
+  TEST_CASE("arming without fleet or widget clears instead of arming")
+  {
+    fleet_deferred_action::State state;
+
+    fleet_deferred_action::Arm(state, 0, 0x1234, 0x5678);
+    CHECK_FALSE(state.pending);
+    CHECK(state.generation == 1);
+
+    fleet_deferred_action::Arm(state, 77, 0, 0x5678);
+    CHECK_FALSE(state.pending);
+    CHECK(state.generation == 2);
+  }
+
+  TEST_CASE("target matching allows unknown target identity but requires matching widget")
+  {
+    fleet_deferred_action::State state;
+    fleet_deferred_action::Arm(state, 77, 0x1234, 0);
+
+    CHECK(fleet_deferred_action::MatchesTarget(state, 77, 0x1234, 0x9999));
+    CHECK_FALSE(fleet_deferred_action::MatchesTarget(state, 77, 0x9998, 0x9999));
+
+    fleet_deferred_action::Arm(state, 77, 0x1234, 0x5678);
+    CHECK(fleet_deferred_action::MatchesTarget(state, 77, 0x1234, 0x5678));
+    CHECK_FALSE(fleet_deferred_action::MatchesTarget(state, 77, 0x1234, 0x9999));
   }
 }
 
@@ -1174,6 +1228,40 @@ TEST_SUITE("hotkey_decisions")
     CHECK_FALSE(hotkey_router_should_toggle_queue(true, false, true));
     CHECK_FALSE(hotkey_router_should_toggle_queue(false, true, true));
     CHECK_FALSE(hotkey_router_should_toggle_queue(false, false, false));
+  }
+
+  TEST_CASE("space action execution is driven by sampled inputs or deferred retry")
+  {
+    SpaceActionInputs inputs;
+    CHECK_FALSE(hotkey_router_should_execute_space_action(inputs, false));
+
+    inputs.secondary = true;
+    CHECK(hotkey_router_should_execute_space_action(inputs, false));
+
+    inputs = {};
+    CHECK(hotkey_router_should_execute_space_action(inputs, true));
+  }
+
+  TEST_CASE("runtime fleet action winners map to compatibility space inputs")
+  {
+    auto inputs = hotkey_router_runtime_space_action_inputs(false, false, false);
+    CHECK_FALSE(inputs.any_requested());
+
+    inputs = hotkey_router_runtime_space_action_inputs(true, false, false);
+    CHECK(inputs.primary);
+    CHECK(inputs.queue);
+    CHECK(inputs.recall_cancel);
+    CHECK_FALSE(inputs.secondary);
+    CHECK_FALSE(inputs.recall);
+    CHECK_FALSE(inputs.repair);
+
+    inputs = hotkey_router_runtime_space_action_inputs(false, true, true);
+    CHECK_FALSE(inputs.primary);
+    CHECK(inputs.secondary);
+    CHECK_FALSE(inputs.queue);
+    CHECK_FALSE(inputs.recall_cancel);
+    CHECK(inputs.recall);
+    CHECK(inputs.repair);
   }
 
   TEST_CASE("dispatch decisions preserve explicit action fallthrough")

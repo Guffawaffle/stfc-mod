@@ -62,6 +62,12 @@ constexpr std::array kHotkeySimpleFleetActions{
     input_binding::InputActionId::FleetViewInfo,
 };
 
+constexpr std::array kHotkeyRuntimeSpaceActions{
+  input_binding::InputActionId::FleetPrimary,
+  input_binding::InputActionId::FleetSecondary,
+  input_binding::InputActionId::FleetService,
+};
+
 constexpr std::array kHotkeyTableDispatchActions{
   input_binding::InputActionId::ShowQTrials,
   input_binding::InputActionId::ShowBookmarks,
@@ -112,6 +118,7 @@ constexpr auto kHotkeyFrameActions = [] {
   std::array<input_binding::InputActionId,
              kHotkeyStartupActions.size() + kHotkeyQuitActions.size() + kHotkeyQueueActions.size()
                  + kHotkeySimpleFleetActions.size()
+           + kHotkeyRuntimeSpaceActions.size()
                  + kHotkeyTableDispatchActions.size()>
       actions{};
   auto output = actions.begin();
@@ -126,6 +133,9 @@ constexpr auto kHotkeyFrameActions = [] {
     *output++ = action;
   }
   for (const auto action : kHotkeySimpleFleetActions) {
+    *output++ = action;
+  }
+  for (const auto action : kHotkeyRuntimeSpaceActions) {
     *output++ = action;
   }
   for (const auto action : kHotkeyTableDispatchActions) {
@@ -563,6 +573,16 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
   if (!Key::IsInputFocused()) {
     const auto simple_fleet_action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeySimpleFleetActions);
+    const auto space_action_inputs = hotkey_router_runtime_space_action_inputs(
+        runtime_binding_winner_present(runtime_dispatch_plan,
+                                       input_binding::InputActionId::FleetPrimary,
+                                       input_binding::InputLayer::Fleet),
+        runtime_binding_winner_present(runtime_dispatch_plan,
+                                       input_binding::InputActionId::FleetSecondary,
+                                       input_binding::InputLayer::Fleet),
+        runtime_binding_winner_present(runtime_dispatch_plan,
+                                       input_binding::InputActionId::FleetService,
+                                       input_binding::InputLayer::Fleet));
 
     // Escape to hide object viewers
     if (Key::Pressed(KeyCode::Escape) && DidHideViewers()) {
@@ -571,7 +591,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
     // Dismiss golden rewards screen
     if (Key::Pressed(KeyCode::Escape)
-        || (simple_fleet_action == input_binding::InputActionId::Max && MapKey::IsDown(GameFunction::ActionPrimary))) {
+        || space_action_inputs.primary) {
       if (TryDismissRewardsScreen()) {
         return false;
       }
@@ -582,17 +602,13 @@ bool hotkey_router_screen_update(ScreenManager* _this)
     }
 
     // Space actions (engage, scan, recall, repair, queue, etc.)
-    if (simple_fleet_action == input_binding::InputActionId::Max
-        && (MapKey::IsDown(GameFunction::ActionPrimary) || MapKey::IsDown(GameFunction::ActionSecondary)
-            || MapKey::IsDown(GameFunction::ActionRecall) || MapKey::IsDown(GameFunction::ActionRepair)
-            || MapKey::IsDown(GameFunction::ActionQueue) || MapKey::IsDown(GameFunction::ActionQueueClear)
-            || force_space_action_next_frame)) {
+    if (hotkey_router_should_execute_space_action(space_action_inputs, force_space_action_next_frame)) {
       if (Hub::IsInSystemOrGalaxyOrStarbase() && !Hub::IsInChat() && !Key::IsInputFocused()) {
         auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
         if (fleet_bar) {
           bool was_forced = force_space_action_next_frame;
           auto deferred_generation = DeferredSpaceActionGeneration();
-          ExecuteSpaceAction(fleet_bar);
+          ExecuteSpaceAction(fleet_bar, space_action_inputs);
           if (was_forced && DeferredSpaceActionGeneration() == deferred_generation) {
             ClearDeferredSpaceAction();
           }

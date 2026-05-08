@@ -10,7 +10,9 @@
 #include "errormsg.h"
 #include "config.h"
 
+#include "patches/fleet_deferred_action.h"
 #include "patches/fleet_actions.h"
+#include "patches/fleet_input_policy.h"
 #include "patches/live_debug.h"
 #include "patches/viewer_mgmt.h"
 
@@ -36,6 +38,7 @@
 #include <chrono>
 #include <cstdint>
 #include <span>
+#include <vector>
 
 // ─── Ship Selection ───────────────────────────────────────────────────────────────────
 
@@ -43,14 +46,7 @@
 bool force_space_action_next_frame = false;
 
 namespace {
-struct DeferredSpaceActionContext {
-  uint64_t             fleet_id = 0;
-  PreScanTargetWidget* pre_scan_widget = nullptr;
-  BattleTargetData*    target_context = nullptr;
-};
-
-DeferredSpaceActionContext deferred_space_action_context;
-uint64_t                   deferred_space_action_generation = 0;
+fleet_deferred_action::State deferred_space_action_state;
 
 template <typename T>
 bool IsViewerVisible(T* widget)
@@ -72,6 +68,32 @@ VisibilityState GetArmadaVisibilityState(ArmadaObjectViewerWidget* armada_widget
 
   spdlog::warn("ArmadaWidget has no visibility controller, using default Visible state");
   return VisibilityState::Visible;
+}
+
+FleetInputFleetState ToFleetInputState(const FleetState state)
+{
+  switch (state) {
+    case FleetState::IdleInSpace:
+      return FleetInputFleetState::IdleInSpace;
+    case FleetState::Docked:
+      return FleetInputFleetState::Docked;
+    case FleetState::Mining:
+      return FleetInputFleetState::Mining;
+    case FleetState::Destroyed:
+      return FleetInputFleetState::Destroyed;
+    case FleetState::Repairing:
+      return FleetInputFleetState::Repairing;
+    case FleetState::WarpCharging:
+      return FleetInputFleetState::WarpCharging;
+    case FleetState::Warping:
+      return FleetInputFleetState::Warping;
+    case FleetState::Impulsing:
+      return FleetInputFleetState::Impulsing;
+    case FleetState::Capturing:
+      return FleetInputFleetState::Capturing;
+    default:
+      return FleetInputFleetState::Unknown;
+  }
 }
 
 struct SpaceActionDiagnostics {
@@ -131,8 +153,9 @@ struct SpaceActionDiagnostics {
           outcome, elapsed_us, fleet_id, fleet_state, previous_state, physical_primary, deferred_pending,
           deferred_primary_for_fleet, secondary, queue, queue_clear, recall, repair, recall_cancel,
           visible_pre_scan_count, mining_visible, star_node_visible, navigation_visible,
-          deferred_space_action_context.fleet_id, static_cast<const void*>(deferred_space_action_context.pre_scan_widget),
-          static_cast<const void*>(deferred_space_action_context.target_context));
+              deferred_space_action_state.fleet_id,
+              reinterpret_cast<const void*>(deferred_space_action_state.widget_identity),
+              reinterpret_cast<const void*>(deferred_space_action_state.target_identity));
     }
 
     if (long_detour) {
@@ -143,8 +166,9 @@ struct SpaceActionDiagnostics {
           outcome, handled, elapsed_us, fleet_id, fleet_state, previous_state, physical_primary, deferred_pending,
           deferred_primary_for_fleet, secondary, queue, queue_clear, recall, repair, recall_cancel,
           visible_pre_scan_count, mining_visible, star_node_visible, navigation_visible,
-          deferred_space_action_context.fleet_id, static_cast<const void*>(deferred_space_action_context.pre_scan_widget),
-          static_cast<const void*>(deferred_space_action_context.target_context));
+              deferred_space_action_state.fleet_id,
+              reinterpret_cast<const void*>(deferred_space_action_state.widget_identity),
+              reinterpret_cast<const void*>(deferred_space_action_state.target_identity));
     }
 
     if (!handled && had_action_input && (had_visible_context || deferred_pending)) {
@@ -155,8 +179,9 @@ struct SpaceActionDiagnostics {
           outcome, elapsed_us, fleet_id, fleet_state, previous_state, physical_primary, deferred_pending,
           deferred_primary_for_fleet, secondary, queue, queue_clear, recall, repair, recall_cancel,
           visible_pre_scan_count, mining_visible, star_node_visible, navigation_visible,
-          deferred_space_action_context.fleet_id, static_cast<const void*>(deferred_space_action_context.pre_scan_widget),
-          static_cast<const void*>(deferred_space_action_context.target_context));
+          deferred_space_action_state.fleet_id,
+          reinterpret_cast<const void*>(deferred_space_action_state.widget_identity),
+          reinterpret_cast<const void*>(deferred_space_action_state.target_identity));
     }
   }
 
@@ -179,46 +204,108 @@ struct SpaceActionDiagnostics {
     handled = true;
   }
 };
+
+struct VisiblePreScanTargetContext {
+  PreScanTargetWidget*      widget = nullptr;
+  ScanEngageButtonsWidget*  scan_engage_buttons_widget = nullptr;
+  BattleTargetData*         target_context = nullptr;
+  HullType                  target_hull_type = HullType::Any;
+  bool                      deferred_primary_for_target = false;
+};
+
+struct SpaceActionRuntimeContext {
+  std::vector<VisiblePreScanTargetContext> visible_pre_scan_targets;
+  int                                      visible_pre_scan_target_count = 0;
+  MiningObjectViewerWidget*                mining_viewer_widget = nullptr;
+  bool                                     mining_viewer_visible = false;
+  bool                                     mining_scan_available = false;
+  StarNodeObjectViewerWidget*              star_node_viewer_widget = nullptr;
+  bool                                     star_node_visible = false;
+  NavigationInteractionUIViewController*   navigation_ui_controller = nullptr;
+  bool                                     navigation_interaction_visible = false;
+  ArmadaObjectViewerWidget*                armada_widget = nullptr;
+  bool                                     armada_visible = false;
+};
+
+bool DeferredSpaceActionTargetMatches(FleetPlayerData* fleet, PreScanTargetWidget* widget, BattleTargetData* target);
+
+SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet)
+{
+  SpaceActionRuntimeContext runtime_context;
+
+  const auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAll();
+  runtime_context.visible_pre_scan_targets.reserve(all_pre_scan_widgets.size());
+  for (auto pre_scan_widget : all_pre_scan_widgets) {
+    if (!IsViewerVisible(pre_scan_widget)) {
+      continue;
+    }
+
+    ++runtime_context.visible_pre_scan_target_count;
+
+    auto scan_engage_buttons_widget = pre_scan_widget->_scanEngageButtonsWidget;
+    auto target_context = scan_engage_buttons_widget ? scan_engage_buttons_widget->Context : nullptr;
+    runtime_context.visible_pre_scan_targets.push_back(
+        {pre_scan_widget,
+         scan_engage_buttons_widget,
+         target_context,
+         GetHullTypeFromBattleTarget(target_context),
+         DeferredSpaceActionTargetMatches(fleet, pre_scan_widget, target_context)});
+  }
+
+  runtime_context.mining_viewer_widget = ObjectFinder<MiningObjectViewerWidget>::Get();
+  runtime_context.mining_viewer_visible = IsViewerVisible(runtime_context.mining_viewer_widget);
+  runtime_context.mining_scan_available = runtime_context.mining_viewer_widget
+      && runtime_context.mining_viewer_widget->_scanEngageButtonsWidget
+      && runtime_context.mining_viewer_widget->_scanEngageButtonsWidget->Context;
+
+  runtime_context.star_node_viewer_widget = ObjectFinder<StarNodeObjectViewerWidget>::Get();
+  runtime_context.star_node_visible = runtime_context.star_node_viewer_widget
+      && runtime_context.star_node_viewer_widget->Context;
+
+  runtime_context.navigation_ui_controller = ObjectFinder<NavigationInteractionUIViewController>::Get();
+  runtime_context.navigation_interaction_visible = runtime_context.navigation_ui_controller != nullptr;
+
+  runtime_context.armada_widget = ObjectFinder<ArmadaObjectViewerWidget>::Get();
+  const auto armada_state = GetArmadaVisibilityState(runtime_context.armada_widget);
+  runtime_context.armada_visible = armada_state == VisibilityState::Visible || armada_state == VisibilityState::Show;
+
+  return runtime_context;
+}
 }
 
 void ClearDeferredSpaceAction()
 {
-  force_space_action_next_frame = false;
-  deferred_space_action_context = {};
-  ++deferred_space_action_generation;
+  fleet_deferred_action::Clear(deferred_space_action_state);
+  force_space_action_next_frame = deferred_space_action_state.pending;
 }
 
 uint64_t DeferredSpaceActionGeneration()
 {
-  return deferred_space_action_generation;
+  return deferred_space_action_state.generation;
 }
 
 namespace {
 void ArmDeferredSpaceAction(FleetPlayerData* fleet, PreScanTargetWidget* pre_scan_widget, BattleTargetData* context)
 {
-  if (!fleet || !pre_scan_widget) {
-    ClearDeferredSpaceAction();
-    return;
-  }
-
-  force_space_action_next_frame = true;
-  deferred_space_action_context = {fleet->Id, pre_scan_widget, context};
-  ++deferred_space_action_generation;
+  fleet_deferred_action::Arm(deferred_space_action_state,
+                             fleet ? fleet->Id : 0,
+                             reinterpret_cast<uintptr_t>(pre_scan_widget),
+                             reinterpret_cast<uintptr_t>(context));
+  force_space_action_next_frame = deferred_space_action_state.pending;
 }
 
 bool DeferredSpaceActionFleetMatches(FleetPlayerData* fleet)
 {
-  return force_space_action_next_frame && fleet && deferred_space_action_context.fleet_id == fleet->Id;
+  return fleet_deferred_action::MatchesFleet(deferred_space_action_state, fleet ? fleet->Id : 0);
 }
 
 bool DeferredSpaceActionTargetMatches(FleetPlayerData* fleet, PreScanTargetWidget* pre_scan_widget,
                                       BattleTargetData* context)
 {
-  if (!DeferredSpaceActionFleetMatches(fleet) || deferred_space_action_context.pre_scan_widget != pre_scan_widget) {
-    return false;
-  }
-
-  return !deferred_space_action_context.target_context || deferred_space_action_context.target_context == context;
+  return fleet_deferred_action::MatchesTarget(deferred_space_action_state,
+                                              fleet ? fleet->Id : 0,
+                                              reinterpret_cast<uintptr_t>(pre_scan_widget),
+                                              reinterpret_cast<uintptr_t>(context));
 }
 }
 
@@ -347,7 +434,7 @@ inline bool DidExecuteFleetAction(std::string_view actionText, ActionType action
   return didAction;
 }
 
-bool DidExecuteRecall(FleetBarViewController* fleet_bar)
+bool TryExecuteRecall(FleetBarViewController* fleet_bar)
 {
   static constexpr FleetState states[] = {FleetState::IdleInSpace, FleetState::Impulsing, FleetState::Mining,
                                           FleetState::Capturing};
@@ -357,7 +444,7 @@ bool DidExecuteRecall(FleetBarViewController* fleet_bar)
   return DidExecuteFleetAction<RecallRequirement>("Recall", ActionType::Recall, fleet_bar, states);
 }
 
-bool DidExecuteRepair(FleetBarViewController* fleet_bar)
+bool TryExecuteRepair(FleetBarViewController* fleet_bar)
 {
   static constexpr FleetState states[] = {FleetState::Docked, FleetState::Destroyed};
 
@@ -378,27 +465,26 @@ void ClearFleetActionQueue(FleetBarViewController* fleet_bar)
 
 // ─── Space Action Execution ───────────────────────────────────────────────────────────
 
-void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
+void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInputs& inputs)
 {
   auto fleet_controller = fleet_bar->_fleetPanelController;
   auto fleet            = fleet_controller->fleet;
 
   auto action_queue = ActionQueueManager::Instance();
 
-  auto has_physical_primary = MapKey::IsDown(GameFunction::ActionPrimary);
+  const auto has_physical_primary = inputs.primary;
   if (has_physical_primary && force_space_action_next_frame) {
     ClearDeferredSpaceAction();
   }
 
   auto deferred_primary_for_fleet = DeferredSpaceActionFleetMatches(fleet);
   auto has_primary       = has_physical_primary || deferred_primary_for_fleet;
-  auto has_repair        = MapKey::IsDown(GameFunction::ActionRepair);
-  auto has_recall_cancel = MapKey::IsDown(GameFunction::ActionRecallCancel);
-  auto has_secondary     = MapKey::IsDown(GameFunction::ActionSecondary);
-  auto has_queue         = MapKey::IsDown(GameFunction::ActionQueue);
-  auto has_queue_clear   = MapKey::IsDown(GameFunction::ActionQueueClear);
-  auto has_recall =
-      MapKey::IsDown(GameFunction::ActionRecall) && (!Config::Get().disable_preview_recall || !CanHideViewers());
+  const auto has_repair        = inputs.repair;
+  const auto has_recall_cancel = inputs.recall_cancel;
+  const auto has_secondary     = inputs.secondary;
+  const auto has_queue         = inputs.queue;
+  const auto has_queue_clear   = inputs.queue_clear;
+  const auto has_recall = inputs.recall && (!Config::Get().disable_preview_recall || !CanHideViewers());
 
   SpaceActionDiagnostics diagnostics(fleet, has_physical_primary, deferred_primary_for_fleet,
                                      force_space_action_next_frame, has_secondary, has_queue, has_queue_clear,
@@ -433,70 +519,62 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
   if (has_queue_clear) {
     action_queue->ClearQueue(fleet);
     diagnostics.Complete("queue-clear");
-  } else if (has_recall_cancel && fleet_is_warping) {
-    collect_warp_cancel_context();
-    const auto suppress_mouse_warp_cancel =
-        Key::Down(KeyCode::Mouse1)
-        && (visible_pre_scan_target_count > 0 || mining_viewer_visible || star_node_viewer_visible
-            || navigation_interaction_visible);
-    if (suppress_mouse_warp_cancel) {
-      live_debug_record_space_action_warp_cancel_suppressed(
-          fleet_bar, fleet, has_primary, has_secondary, has_queue, has_queue_clear, has_recall, has_repair,
-          has_recall_cancel, force_space_action_next_frame, visible_pre_scan_target_count, mining_viewer_visible,
-          star_node_viewer_visible, navigation_interaction_visible);
-      diagnostics.Complete("warp-cancel-suppressed");
-    } else {
-      live_debug_record_space_action_warp_cancel(
-          fleet_bar, fleet, has_primary, has_secondary, has_queue, has_queue_clear, has_recall, has_repair,
-          has_recall_cancel, force_space_action_next_frame, visible_pre_scan_target_count, mining_viewer_visible,
-          star_node_viewer_visible, navigation_interaction_visible);
-      fleet_controller->CancelButtonClicked();
-      diagnostics.Complete("warp-cancel");
-    }
   } else {
-    auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAll();
-    auto mine_object_viewer_widget = ObjectFinder<MiningObjectViewerWidget>::Get();
-    auto mine_object_viewer_visible = IsViewerVisible(mine_object_viewer_widget);
-    auto armada_widget = ObjectFinder<ArmadaObjectViewerWidget>::Get();
-    auto armada_state = VisibilityState::Unknown;
-    auto armada_state_loaded = false;
-    const auto get_armada_state = [&]() {
-      if (!armada_state_loaded) {
-        armada_state = GetArmadaVisibilityState(armada_widget);
-        armada_state_loaded = true;
-      }
-      return armada_state;
-    };
-    auto queue_unlocked = has_queue && action_queue->IsQueueUnlocked();
-    diagnostics.SetContext(visible_pre_scan_target_count, mine_object_viewer_visible, star_node_viewer_visible,
-                           navigation_interaction_visible);
+    const auto runtime_context = GatherSpaceActionRuntimeContext(fleet);
+    diagnostics.SetContext(runtime_context.visible_pre_scan_target_count,
+                           runtime_context.mining_viewer_visible,
+                           runtime_context.star_node_visible,
+                           runtime_context.navigation_interaction_visible);
 
-    for (auto pre_scan_widget : all_pre_scan_widgets) {
-      if (IsViewerVisible(pre_scan_widget)) {
-        ++visible_pre_scan_target_count;
-        diagnostics.SetContext(visible_pre_scan_target_count, mine_object_viewer_visible, star_node_viewer_visible,
-                               navigation_interaction_visible);
-        auto scan_engage_buttons_widget = pre_scan_widget->_scanEngageButtonsWidget;
-        auto context = scan_engage_buttons_widget ? scan_engage_buttons_widget->Context : nullptr;
-        auto type = GetHullTypeFromBattleTarget(context);
-        auto deferred_primary_for_target = DeferredSpaceActionTargetMatches(fleet, pre_scan_widget, context);
+    if (has_recall_cancel && fleet_is_warping) {
+      const auto suppress_mouse_warp_cancel =
+          Key::Down(KeyCode::Mouse1)
+          && (runtime_context.visible_pre_scan_target_count > 0 || runtime_context.mining_viewer_visible
+              || runtime_context.star_node_visible || runtime_context.navigation_interaction_visible);
+      if (suppress_mouse_warp_cancel) {
+        live_debug_record_space_action_warp_cancel_suppressed(
+            fleet_bar, fleet, has_primary, has_secondary, has_queue, has_queue_clear, has_recall, has_repair,
+            has_recall_cancel, force_space_action_next_frame, runtime_context.visible_pre_scan_target_count,
+            runtime_context.mining_viewer_visible, runtime_context.star_node_visible,
+            runtime_context.navigation_interaction_visible);
+        diagnostics.Complete("warp-cancel-suppressed");
+      } else {
+        live_debug_record_space_action_warp_cancel(
+            fleet_bar, fleet, has_primary, has_secondary, has_queue, has_queue_clear, has_recall, has_repair,
+            has_recall_cancel, force_space_action_next_frame, runtime_context.visible_pre_scan_target_count,
+            runtime_context.mining_viewer_visible, runtime_context.star_node_visible,
+            runtime_context.navigation_interaction_visible);
+        fleet_controller->CancelButtonClicked();
+        diagnostics.Complete("warp-cancel");
+      }
+      return;
+    }
+
+    auto queue_unlocked = has_queue && action_queue->IsQueueUnlocked();
+
+    for (const auto& pre_scan_target : runtime_context.visible_pre_scan_targets) {
+        auto pre_scan_widget = pre_scan_target.widget;
+        auto scan_engage_buttons_widget = pre_scan_target.scan_engage_buttons_widget;
+        auto context = pre_scan_target.target_context;
+        auto type = pre_scan_target.target_hull_type;
+        auto deferred_primary_for_target = pre_scan_target.deferred_primary_for_target;
         auto has_primary_for_target = has_physical_primary || deferred_primary_for_target;
 
         if (!has_physical_primary && force_space_action_next_frame && deferred_primary_for_fleet
             && !deferred_primary_for_target) {
-          diagnostics.SetOutcome(deferred_space_action_context.pre_scan_widget == pre_scan_widget
+          diagnostics.SetOutcome(deferred_space_action_state.widget_identity == reinterpret_cast<uintptr_t>(pre_scan_widget)
                                      ? "deferred-target-context-mismatch"
                                      : "deferred-target-widget-mismatch");
         }
 
-        if (mine_object_viewer_visible) {
+        if (runtime_context.mining_viewer_visible) {
           if (has_secondary && scan_engage_buttons_widget) {
             diagnostics.Complete("scan-prescan-mining-viewer");
             scan_engage_buttons_widget->OnScanButtonClicked();
             return;
           } else if (has_primary_for_target) {
             diagnostics.Complete("mine-prescan-viewer");
-            mine_object_viewer_widget->MineClicked();
+            runtime_context.mining_viewer_widget->MineClicked();
             return;
           }
         }
@@ -539,9 +617,7 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
 
         if (has_primary_for_target && scan_engage_buttons_widget && scan_engage_buttons_widget->enabled) {
           auto canActionPrimary = type != HullType::Any;
-          const auto current_armada_state = get_armada_state();
-          if (type == HullType::ArmadaTarget
-              && (current_armada_state == VisibilityState::Visible || current_armada_state == VisibilityState::Show)) {
+          if (type == HullType::ArmadaTarget && runtime_context.armada_visible) {
             canActionPrimary = false;
           } else if (deferred_primary_for_target) {
             canActionPrimary = true;
@@ -583,63 +659,81 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
         } else if (has_primary_for_target && scan_engage_buttons_widget && !scan_engage_buttons_widget->enabled) {
           diagnostics.SetOutcome("prescan-scan-engage-disabled");
         }
+    }
+
+    if (runtime_context.visible_pre_scan_target_count == 0 && has_secondary) {
+      switch (DecideFleetSecondary({false, false, runtime_context.mining_viewer_visible,
+                                    runtime_context.mining_scan_available, runtime_context.star_node_visible})) {
+        case FleetSecondaryOutcome::ScanMining:
+          diagnostics.Complete("scan-mining-viewer");
+          runtime_context.mining_viewer_widget->_scanEngageButtonsWidget->OnScanButtonClicked();
+          return;
+        case FleetSecondaryOutcome::ViewStarNode:
+          runtime_context.star_node_viewer_widget->OnViewButtonActivation();
+          diagnostics.Complete("view-star-node");
+          return;
+        case FleetSecondaryOutcome::None:
+          break;
+        default:
+          break;
       }
     }
 
-    if (mine_object_viewer_visible) {
-      if (has_secondary) {
-        auto scan_engage_buttons_widget = mine_object_viewer_widget->_scanEngageButtonsWidget;
-        if (scan_engage_buttons_widget && scan_engage_buttons_widget->Context) {
-          diagnostics.Complete("scan-mining-viewer");
-          scan_engage_buttons_widget->OnScanButtonClicked();
-          return;
-        }
-        diagnostics.SetOutcome("mining-viewer-scan-context-missing");
-      } else if (has_physical_primary) {
+    if (runtime_context.visible_pre_scan_target_count == 0 && has_physical_primary) {
+      if (DecideFleetPrimary({ToFleetInputState(fleet->CurrentState), FleetInputHullType::Any,
+                              Key::Down(KeyCode::Mouse1), false, false, false, false,
+                              false, runtime_context.mining_viewer_visible, false, false,
+                              false, false, false, false}) == FleetPrimaryOutcome::Mine) {
         diagnostics.Complete("mine-viewer");
-        mine_object_viewer_widget->MineClicked();
+        runtime_context.mining_viewer_widget->MineClicked();
         return;
       }
-    } else if (auto star_node_object_viewer_widget = ObjectFinder<StarNodeObjectViewerWidget>::Get();
-               star_node_object_viewer_widget && star_node_object_viewer_widget->Context) {
-      star_node_viewer_visible = true;
-      diagnostics.SetContext(visible_pre_scan_target_count, mine_object_viewer_visible, star_node_viewer_visible,
-                             navigation_interaction_visible);
-      if (has_secondary) {
-        star_node_object_viewer_widget->OnViewButtonActivation();
-        diagnostics.Complete("view-star-node");
-        return;
-      } else if (has_physical_primary) {
-        star_node_object_viewer_widget->InitiateWarp();
+
+      if (DecideFleetPrimary({ToFleetInputState(fleet->CurrentState), FleetInputHullType::Any,
+                              Key::Down(KeyCode::Mouse1), false, false, false, false,
+                              false, false, runtime_context.star_node_visible, false,
+                              false, false, false, false}) == FleetPrimaryOutcome::WarpToNode) {
+        runtime_context.star_node_viewer_widget->InitiateWarp();
         diagnostics.Complete("warp-star-node");
         return;
       }
-    } else if (auto navigation_ui_controller = ObjectFinder<NavigationInteractionUIViewController>::Get();
-               navigation_ui_controller && has_physical_primary) {
-      navigation_interaction_visible = true;
-      diagnostics.SetContext(visible_pre_scan_target_count, mine_object_viewer_visible, star_node_viewer_visible,
-                             navigation_interaction_visible);
-      const auto current_armada_state = get_armada_state();
-      if (armada_widget
-          && (current_armada_state == VisibilityState::Visible || current_armada_state == VisibilityState::Show)) {
-        auto button = armada_widget->__get__joinContext();
-        if (button && button->Interactable) {
-          diagnostics.Complete("join-armada");
-          armada_widget->ValidateThenJoinArmada();
+
+      if (runtime_context.navigation_interaction_visible) {
+        if (runtime_context.armada_widget && runtime_context.armada_visible) {
+          auto button = runtime_context.armada_widget->__get__joinContext();
+          if (button && button->Interactable) {
+            diagnostics.Complete("join-armada");
+            runtime_context.armada_widget->ValidateThenJoinArmada();
+            return;
+          }
+          diagnostics.SetOutcome(button ? "join-armada-not-interactable" : "join-armada-button-missing");
+        } else {
+          diagnostics.Complete("set-course");
+          runtime_context.navigation_ui_controller->OnSetCourseButtonClick();
           return;
         }
-        diagnostics.SetOutcome(button ? "join-armada-not-interactable" : "join-armada-button-missing");
-      } else {
-        diagnostics.Complete("set-course");
-        navigation_ui_controller->OnSetCourseButtonClick();
-        return;
       }
-    } else if (has_recall && DidExecuteRecall(fleet_bar)) {
-      diagnostics.Complete("recall");
-      return;
-    } else if (has_repair && DidExecuteRepair(fleet_bar)) {
-      diagnostics.Complete("repair");
-      return;
+    }
+
+    switch (DecideFleetService({ToFleetInputState(fleet->CurrentState), has_recall, has_repair})) {
+      case FleetServiceOutcome::Recall:
+        if (TryExecuteRecall(fleet_bar)) {
+          diagnostics.Complete("recall");
+          return;
+        }
+        diagnostics.SetOutcome("recall-not-executed");
+        break;
+      case FleetServiceOutcome::Repair:
+        if (TryExecuteRepair(fleet_bar)) {
+          diagnostics.Complete("repair");
+          return;
+        }
+        diagnostics.SetOutcome("repair-not-executed");
+        break;
+      case FleetServiceOutcome::None:
+        break;
+      default:
+        break;
     }
   }
 }

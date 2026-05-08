@@ -8,6 +8,8 @@
  */
 #pragma once
 
+#include "patches/space_action_inputs.h"
+
 #include "prime/FleetBarViewController.h"
 #include "prime/HullSpec.h"
 
@@ -43,28 +45,15 @@ bool     HandleShipSelection(int ship_select_request);
  * or repair. Supports deferred actions via force_space_action_next_frame.
  *
  * @param fleet_bar The active FleetBarViewController.
+ * @param inputs The already-sampled action inputs for this frame.
  */
-void     ExecuteSpaceAction(FleetBarViewController* fleet_bar);
+void     ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInputs& inputs);
 
 /**
  * @brief Clear the queued actions for the currently selected fleet.
  * @param fleet_bar The active FleetBarViewController.
  */
 void     ClearFleetActionQueue(FleetBarViewController* fleet_bar);
-
-/**
- * @brief Attempt to recall the currently selected fleet.
- * @param fleet_bar The active FleetBarViewController.
- * @return true if recall was successfully requested.
- */
-bool     DidExecuteRecall(FleetBarViewController* fleet_bar);
-
-/**
- * @brief Attempt to repair the currently selected fleet.
- * @param fleet_bar The active FleetBarViewController.
- * @return true if repair was successfully requested.
- */
-bool     DidExecuteRepair(FleetBarViewController* fleet_bar);
 
 /**
  * @brief Extract the HullType from a BattleTargetData context.

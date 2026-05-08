@@ -39,6 +39,39 @@ bool should_suppress_escape_exit(bool disable_escape_exit,
   return elapsed_ms_since_last_escape_press < 0 || elapsed_ms_since_last_escape_press > escape_exit_timer_ms;
 }
 
+bool hotkey_router_should_execute_space_action(const SpaceActionInputs& inputs, const bool deferred_retry_pending)
+{
+  return inputs.any_requested() || deferred_retry_pending;
+}
+
+SpaceActionInputs hotkey_router_runtime_space_action_inputs(const bool fleet_primary_pressed,
+                                                           const bool fleet_secondary_pressed,
+                                                           const bool fleet_service_pressed)
+{
+  SpaceActionInputs inputs;
+
+  if (fleet_primary_pressed) {
+    // Keep the current migration semantics: fleet_primary still fronts the old
+    // primary, queue, and warp-cancel aliases until those behaviors are split.
+    inputs.primary = true;
+    inputs.queue = true;
+    inputs.recall_cancel = true;
+  }
+
+  if (fleet_secondary_pressed) {
+    inputs.secondary = true;
+  }
+
+  if (fleet_service_pressed) {
+    // fleet_service still fronts the old recall and repair aliases until the
+    // runtime path dispatches those outcomes directly.
+    inputs.recall = true;
+    inputs.repair = true;
+  }
+
+  return inputs;
+}
+
 HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(
     const HotkeyDisableShortcutAliasInput& input)
 {

@@ -3,6 +3,8 @@
 // Testable pure functions extracted from notification_service.cc and
 // battle_notify_parser.cc.  No IL2CPP, no platform, no game memory.
 
+#include "patches/space_action_inputs.h"
+
 #include "bounded_ttl_cache.h"
 
 #include <array>
@@ -45,6 +47,14 @@ bool should_suppress_escape_exit(bool disable_escape_exit,
                  bool escape_pressed,
                  int escape_exit_timer_ms,
                  int64_t elapsed_ms_since_last_escape_press);
+
+// Per-frame space-action routing policy after inputs are sampled.
+bool hotkey_router_should_execute_space_action(const SpaceActionInputs& inputs, bool deferred_retry_pending);
+
+// Translate canonical fleet winners into the current space-action compatibility inputs.
+SpaceActionInputs hotkey_router_runtime_space_action_inputs(bool fleet_primary_pressed,
+                              bool fleet_secondary_pressed,
+                              bool fleet_service_pressed);
 
 // Resolve the canonical disable-hotkeys shortcut while accepting deprecated keys.
 HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(
