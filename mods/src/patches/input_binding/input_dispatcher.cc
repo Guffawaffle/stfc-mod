@@ -26,6 +26,7 @@ void select_winners(DispatchPlan& plan)
   sort_by_priority(plan.candidates);
   plan.winners.clear();
   plan.winners.reserve(plan.candidates.size());
+  plan.winner_lookup.Reset();
 
   for (const auto& candidate : plan.candidates) {
     if (candidate.conflict_group != ConflictGroup::None) {
@@ -37,6 +38,7 @@ void select_winners(DispatchPlan& plan)
     }
 
     plan.winners.push_back(candidate);
+    plan.winner_lookup.Add(candidate, plan.winners.size() - 1);
   }
 }
 
@@ -60,6 +62,49 @@ void append_candidates(const CompileResult& compile, const DispatchRequest& requ
 bool DispatchPlan::empty() const
 { return winners.empty(); }
 
+void DispatchWinnerLookup::Reset()
+{
+  winner_order.fill(0);
+  for (auto& layers : action_layers) {
+    layers.fill(false);
+  }
+}
+
+void DispatchWinnerLookup::Add(const DispatchCandidate& candidate, const size_t winner_index)
+{
+  const auto action_index = static_cast<size_t>(candidate.action);
+  if (winner_order[action_index] == 0) {
+    winner_order[action_index] = static_cast<uint16_t>(winner_index + 1);
+  }
+
+  action_layers[action_index][static_cast<size_t>(candidate.layer)] = true;
+}
+
+bool DispatchWinnerLookup::Contains(const InputActionId action, const InputLayer layer) const
+{
+  return action_layers[static_cast<size_t>(action)][static_cast<size_t>(layer)];
+}
+
+InputActionId DispatchWinnerLookup::First(const std::span<const InputActionId> actions) const
+{
+  auto          best_order  = uint16_t{0};
+  auto          best_action = InputActionId::Max;
+
+  for (const auto action : actions) {
+    const auto order = winner_order[static_cast<size_t>(action)];
+    if (order == 0) {
+      continue;
+    }
+
+    if (best_order == 0 || order < best_order) {
+      best_order  = order;
+      best_action = action;
+    }
+  }
+
+  return best_action;
+}
+
 DispatchPlan PlanDispatch(const CompileResult& compile, const DispatchRequest& request)
 {
   DispatchPlan plan;
@@ -69,14 +114,16 @@ DispatchPlan PlanDispatch(const CompileResult& compile, const DispatchRequest& r
   return plan;
 }
 
-DispatchPlan PlanDispatchSnapshot(const CompileResult& compile,
-                                  const InputPhase phase,
-                                  const ActiveLayers active_layers,
-                                  const std::span<const DispatchKeyState> key_states,
-                                  const bool allow_extra_modifiers)
+void PlanDispatchSnapshot(const CompileResult& compile,
+                          const InputPhase phase,
+                          const ActiveLayers active_layers,
+                          const std::span<const DispatchKeyState> key_states,
+                          DispatchPlan& plan,
+                          const bool allow_extra_modifiers)
 {
-  DispatchPlan plan;
-
+  plan.candidates.clear();
+  plan.winners.clear();
+  plan.winner_lookup.Reset();
   plan.candidates.reserve(key_states.size());
   plan.winners.reserve(key_states.size());
 
@@ -101,6 +148,16 @@ DispatchPlan PlanDispatchSnapshot(const CompileResult& compile,
   }
 
   select_winners(plan);
+}
+
+DispatchPlan PlanDispatchSnapshot(const CompileResult& compile,
+                                  const InputPhase phase,
+                                  const ActiveLayers active_layers,
+                                  const std::span<const DispatchKeyState> key_states,
+                                  const bool allow_extra_modifiers)
+{
+  DispatchPlan plan;
+  PlanDispatchSnapshot(compile, phase, active_layers, key_states, plan, allow_extra_modifiers);
 
   return plan;
 }
