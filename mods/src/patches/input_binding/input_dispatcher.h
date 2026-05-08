@@ -9,6 +9,7 @@
 namespace input_binding
 {
 inline constexpr size_t kInputLayerCount = static_cast<size_t>(InputLayer::Zoom) + 1;
+inline constexpr size_t kDispatchActionCount = static_cast<size_t>(InputActionId::Max) + 1;
 
 struct ActiveLayers {
   std::array<bool, kInputLayerCount> bits{true, true, true, true};
@@ -45,9 +46,21 @@ struct DispatchCandidate {
   InputLayer    layer = InputLayer::Global;
 };
 
+struct DispatchWinnerLookup {
+  std::array<uint16_t, kDispatchActionCount>                            winner_order{};
+  std::array<std::array<bool, kInputLayerCount>, kDispatchActionCount> action_layers{};
+
+  void Reset();
+  void Add(const DispatchCandidate& candidate, size_t winner_index);
+
+  [[nodiscard]] bool          Contains(InputActionId action, InputLayer layer) const;
+  [[nodiscard]] InputActionId First(std::span<const InputActionId> actions) const;
+};
+
 struct DispatchPlan {
   std::vector<DispatchCandidate> candidates;
   std::vector<DispatchCandidate> winners;
+  DispatchWinnerLookup           winner_lookup;
 
   [[nodiscard]] bool empty() const;
 };
@@ -59,6 +72,11 @@ enum class ExecutionDecision : uint8_t {
 };
 
 [[nodiscard]] DispatchPlan PlanDispatch(const CompileResult& compile, const DispatchRequest& request);
+void PlanDispatchSnapshot(const CompileResult& compile, InputPhase phase,
+                          ActiveLayers active_layers,
+                          std::span<const DispatchKeyState> key_states,
+                          DispatchPlan& plan,
+                          bool allow_extra_modifiers = false);
 [[nodiscard]] DispatchPlan PlanDispatchSnapshot(const CompileResult& compile, InputPhase phase,
                                                 ActiveLayers active_layers,
                                                 std::span<const DispatchKeyState> key_states,

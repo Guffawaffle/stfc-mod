@@ -44,6 +44,13 @@
 
 namespace
 {
+struct FrameRuntimeDispatchCache {
+  uint64_t                                generation = 0;
+  std::vector<KeyCode>                    watched_keys;
+  std::vector<input_binding::DispatchKeyState> key_states;
+  input_binding::DispatchPlan             plan;
+};
+
 constexpr std::array kHotkeyStartupActions{
     input_binding::InputActionId::HotkeysDisable,
     input_binding::InputActionId::HotkeysEnable,
@@ -203,45 +210,59 @@ input_binding::ModifierMask held_modifier_mask()
   return modifiers;
 }
 
-std::vector<input_binding::DispatchKeyState> build_dispatch_key_snapshot(std::span<const KeyCode> watched_keys)
+FrameRuntimeDispatchCache& frame_runtime_dispatch_cache()
 {
-  auto key_states = std::vector<input_binding::DispatchKeyState>{};
+  static auto cache = FrameRuntimeDispatchCache{};
+  return cache;
+}
+
+void rebuild_frame_runtime_watched_keys(FrameRuntimeDispatchCache& cache,
+                                        const input_binding::CompileResult& runtime_bindings)
+{
+  const auto generation = input_binding::RuntimeBindingGeneration();
+  if (cache.generation == generation) {
+    return;
+  }
+
+  cache.watched_keys =
+      input_binding::WatchedKeysForActions(runtime_bindings, input_binding::InputPhase::Frame, kHotkeyFrameActions);
+  cache.generation = generation;
+}
+
+void build_dispatch_key_snapshot(std::span<const KeyCode> watched_keys,
+                                 std::vector<input_binding::DispatchKeyState>& key_states)
+{
+  key_states.clear();
   key_states.reserve(watched_keys.size());
 
   const auto modifiers = held_modifier_mask();
   for (const auto key : watched_keys) {
     key_states.push_back({key, modifiers, Key::Down(key), Key::Pressed(key)});
   }
-
-  return key_states;
 }
 
-input_binding::DispatchPlan frame_runtime_dispatch_plan()
+const input_binding::DispatchPlan& frame_runtime_dispatch_plan()
 {
+  auto&       cache            = frame_runtime_dispatch_cache();
   const auto& runtime_bindings = input_binding::RuntimeBindingModel();
-  const auto  watched_keys =
-      input_binding::WatchedKeysForActions(runtime_bindings, input_binding::InputPhase::Frame, kHotkeyFrameActions);
+  rebuild_frame_runtime_watched_keys(cache, runtime_bindings);
+  build_dispatch_key_snapshot(cache.watched_keys, cache.key_states);
+  input_binding::PlanDispatchSnapshot(runtime_bindings,
+                                      input_binding::InputPhase::Frame,
+                                      input_binding::ActiveLayers::All(),
+                                      cache.key_states,
+                                      cache.plan);
 
-  const auto key_states = build_dispatch_key_snapshot(watched_keys);
-  return input_binding::PlanDispatchSnapshot(runtime_bindings, input_binding::InputPhase::Frame,
-                                             input_binding::ActiveLayers::All(), key_states);
+  return cache.plan;
 }
 
 bool runtime_binding_winner_present(const input_binding::DispatchPlan& plan, const input_binding::InputActionId action,
                                     const input_binding::InputLayer layer)
-{
-  return std::ranges::any_of(
-      plan.winners, [action, layer](const auto& winner) { return winner.action == action && winner.layer == layer; });
-}
+{ return plan.winner_lookup.Contains(action, layer); }
 
 input_binding::InputActionId first_runtime_binding_winner(const input_binding::DispatchPlan&                  plan,
                                                           const std::span<const input_binding::InputActionId> actions)
-{
-  const auto found = std::ranges::find_if(plan.winners, [&actions](const auto& winner) {
-    return std::ranges::find(actions, winner.action) != actions.end();
-  });
-  return found == plan.winners.end() ? input_binding::InputActionId::Max : found->action;
-}
+{ return plan.winner_lookup.First(actions); }
 
 int ship_select_request_from_runtime_bindings(const input_binding::DispatchPlan& plan)
 {
@@ -405,7 +426,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 {
   Key::ResetCache();
 
-  const auto runtime_dispatch_plan = frame_runtime_dispatch_plan();
+  const auto& runtime_dispatch_plan = frame_runtime_dispatch_plan();
 
   switch (startup_action_from_runtime_bindings(runtime_dispatch_plan, ScopelyShortcutsPolicy(),
                                                Config::Get().hotkeys_enabled)) {
@@ -560,9 +581,9 @@ bool hotkey_router_screen_update(ScreenManager* _this)
     }
   }
 
-  if (!Key::IsInputFocused()) {
-  const auto simple_fleet_action = hotkey_router_simple_fleet_action(
-    false, first_runtime_binding_winner(runtime_dispatch_plan, kHotkeySimpleFleetActions));
+  if (!input_focused) {
+    const auto simple_fleet_action = hotkey_router_simple_fleet_action(
+        input_focused, first_runtime_binding_winner(runtime_dispatch_plan, kHotkeySimpleFleetActions));
     const auto space_action_inputs = hotkey_router_runtime_space_action_inputs(
         runtime_binding_winner_present(runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary,
                                        input_binding::InputLayer::Fleet),
@@ -589,7 +610,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
     // Space actions (engage, scan, recall, repair, queue, etc.)
     if (hotkey_router_should_execute_space_action(space_action_inputs, force_space_action_next_frame)) {
-      if (Hub::IsInSystemOrGalaxyOrStarbase() && !Hub::IsInChat() && !Key::IsInputFocused()) {
+      if (Hub::IsInSystemOrGalaxyOrStarbase() && !Hub::IsInChat() && !input_focused) {
         auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
         if (fleet_bar) {
           bool was_forced          = force_space_action_next_frame;

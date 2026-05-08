@@ -7,6 +7,25 @@
 
 TEST_SUITE("input_runtime_bindings")
 {
+  TEST_CASE("runtime binding generation increments when the model changes")
+  {
+    const auto before = input_binding::RuntimeBindingGeneration();
+
+    input_binding::SetRuntimeBindingModel(input_binding::CompileBindingSet());
+    const auto after_defaults = input_binding::RuntimeBindingGeneration();
+    CHECK(after_defaults == before + 1);
+
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::HotkeysDisable, "F1"},
+    };
+
+    input_binding::SetRuntimeBindingModel(input_binding::CompileBindingSet(overrides));
+    const auto after_override = input_binding::RuntimeBindingGeneration();
+    CHECK(after_override == after_defaults + 1);
+
+    input_binding::SetRuntimeBindingModel(input_binding::CompileBindingSet());
+  }
+
   TEST_CASE("runtime binding model defaults to compiled action defaults")
   {
     input_binding::SetRuntimeBindingModel(input_binding::CompileBindingSet());

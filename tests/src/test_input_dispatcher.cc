@@ -101,6 +101,74 @@ TEST_SUITE("input_dispatcher")
     CHECK(plan.winners[0].action == input_binding::InputActionId::ZoomIn);
   }
 
+  TEST_CASE("snapshot dispatcher builds winner lookup once per plan")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "SPACE"},
+        input_binding::BindingOverride{input_binding::InputActionId::FleetService, "SPACE"},
+        input_binding::BindingOverride{input_binding::InputActionId::HotkeysDisable, "SPACE"},
+        input_binding::BindingOverride{input_binding::InputActionId::LogDebug, "SPACE"},
+    };
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::Space, {}, true, true},
+    };
+
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled,
+                                                          input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(),
+                                                          key_states);
+
+    CHECK(plan.winner_lookup.Contains(input_binding::InputActionId::HotkeysDisable,
+                                      input_binding::InputLayer::Global));
+    CHECK(plan.winner_lookup.Contains(input_binding::InputActionId::FleetPrimary,
+                                      input_binding::InputLayer::Fleet));
+    CHECK_FALSE(plan.winner_lookup.Contains(input_binding::InputActionId::FleetService,
+                                            input_binding::InputLayer::Fleet));
+    CHECK(plan.winner_lookup.First(std::array{input_binding::InputActionId::FleetService,
+                                              input_binding::InputActionId::FleetPrimary})
+          == input_binding::InputActionId::FleetPrimary);
+  }
+
+  TEST_CASE("snapshot dispatcher reuse overload refreshes winners and lookup")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::HotkeysDisable, "F1"},
+        input_binding::BindingOverride{input_binding::InputActionId::HotkeysEnable, "F2"},
+    };
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+
+    input_binding::DispatchPlan plan;
+    const std::array disable_key_states{
+        input_binding::DispatchKeyState{KeyCode::F1, {}, true, true},
+    };
+
+    input_binding::PlanDispatchSnapshot(compiled,
+                                        input_binding::InputPhase::Frame,
+                                        input_binding::ActiveLayers::All(),
+                                        disable_key_states,
+                                        plan);
+    CHECK(plan.winner_lookup.First(std::array{input_binding::InputActionId::HotkeysDisable,
+                                              input_binding::InputActionId::HotkeysEnable})
+          == input_binding::InputActionId::HotkeysDisable);
+
+    const std::array enable_key_states{
+        input_binding::DispatchKeyState{KeyCode::F2, {}, true, true},
+    };
+
+    input_binding::PlanDispatchSnapshot(compiled,
+                                        input_binding::InputPhase::Frame,
+                                        input_binding::ActiveLayers::All(),
+                                        enable_key_states,
+                                        plan);
+    CHECK_FALSE(plan.winner_lookup.Contains(input_binding::InputActionId::HotkeysDisable,
+                                            input_binding::InputLayer::Global));
+    CHECK(plan.winner_lookup.First(std::array{input_binding::InputActionId::HotkeysDisable,
+                                              input_binding::InputActionId::HotkeysEnable})
+          == input_binding::InputActionId::HotkeysEnable);
+  }
+
   TEST_CASE("snapshot dispatcher applies conflict groups across simultaneous keys")
   {
     const std::array overrides{
