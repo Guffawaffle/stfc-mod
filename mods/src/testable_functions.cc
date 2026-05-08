@@ -102,6 +102,40 @@ bool hotkey_router_should_execute_space_action(const SpaceActionInputs& inputs, 
   return inputs.any_requested() || deferred_retry_pending;
 }
 
+FleetActionRequestMode fleet_action_request_mode(const bool wanted_state_available, const bool help_state_active)
+{
+  if (help_state_active) {
+    return FleetActionRequestMode::AskHelp;
+  }
+
+  if (wanted_state_available) {
+    return FleetActionRequestMode::Default;
+  }
+
+  return FleetActionRequestMode::None;
+}
+
+const char* fleet_action_request_mode_name(const FleetActionRequestMode mode)
+{
+  switch (mode) {
+    case FleetActionRequestMode::None:
+      return "none";
+    case FleetActionRequestMode::Default:
+      return "default";
+    case FleetActionRequestMode::AskHelp:
+      return "ask-help";
+  }
+
+  return "unknown";
+}
+
+bool hotkey_router_should_clear_deferred_space_action(const bool forced_retry_pending,
+                                                      const uint64_t generation_before,
+                                                      const uint64_t generation_after)
+{
+  return forced_retry_pending && generation_before == generation_after;
+}
+
 bool space_action_duplicate_submission_should_suppress(const uint64_t previous_fleet_id,
                                                        const uintptr_t previous_target_identity,
                                                        const uint64_t current_fleet_id,

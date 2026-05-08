@@ -15,6 +15,7 @@
 #include "patches/fleet_input_policy.h"
 #include "patches/live_debug.h"
 #include "patches/viewer_mgmt.h"
+#include "testable_functions.h"
 
 #include "prime/ActionQueueManager.h"
 #include "prime/ArmadaObjectViewerWidget.h"
@@ -45,11 +46,26 @@
 /** When true, the next frame will re-attempt the primary space action. */
 bool force_space_action_next_frame = false;
 
-bool TryExecuteRecall(FleetBarViewController* fleet_bar);
-bool TryExecuteRepair(FleetBarViewController* fleet_bar);
+struct FleetActionExecutionResult {
+  FleetActionRequestMode request_mode = FleetActionRequestMode::None;
+  bool                   did_action = false;
+};
+
+FleetActionExecutionResult TryExecuteRecall(FleetBarViewController* fleet_bar);
+FleetActionExecutionResult TryExecuteRepair(FleetBarViewController* fleet_bar);
 
 namespace {
 fleet_deferred_action::State deferred_space_action_state;
+
+struct ScanSubmission {
+  uint64_t                              fleet_id = 0;
+  uintptr_t                             target_identity = 0;
+  std::chrono::steady_clock::time_point submitted_at{};
+};
+
+constexpr auto kDuplicateScanSuppressionWindow = std::chrono::milliseconds(750);
+
+ScanSubmission last_scan_submission;
 
 template <typename T>
 bool IsViewerVisible(T* widget)
@@ -278,6 +294,58 @@ bool TryExecuteQueueAdd(PreScanTargetWidget* pre_scan_widget, SpaceActionDiagnos
   return true;
 }
 
+uintptr_t scan_target_identity(ScanEngageButtonsWidget* scan_engage_buttons_widget, BattleTargetData* context)
+{
+  if (context) {
+    return reinterpret_cast<uintptr_t>(context);
+  }
+
+  if (scan_engage_buttons_widget && scan_engage_buttons_widget->Context) {
+    return reinterpret_cast<uintptr_t>(scan_engage_buttons_widget->Context);
+  }
+
+  return reinterpret_cast<uintptr_t>(scan_engage_buttons_widget);
+}
+
+bool TryExecuteScanAction(FleetPlayerData* fleet,
+                          ScanEngageButtonsWidget* scan_engage_buttons_widget,
+                          BattleTargetData* context,
+                          const char* success_outcome,
+                          const char* duplicate_outcome,
+                          SpaceActionDiagnostics& diagnostics)
+{
+  if (!scan_engage_buttons_widget) {
+    return false;
+  }
+
+  const auto fleet_id = fleet ? fleet->Id : 0;
+  const auto target_identity = scan_target_identity(scan_engage_buttons_widget, context);
+  const auto now = std::chrono::steady_clock::now();
+  const auto elapsed_ms = last_scan_submission.submitted_at == std::chrono::steady_clock::time_point{}
+      ? int64_t{-1}
+      : std::chrono::duration_cast<std::chrono::milliseconds>(now - last_scan_submission.submitted_at).count();
+
+  if (space_action_duplicate_submission_should_suppress(last_scan_submission.fleet_id,
+                                                        last_scan_submission.target_identity,
+                                                        fleet_id,
+                                                        target_identity,
+                                                        elapsed_ms,
+                                                        kDuplicateScanSuppressionWindow.count())) {
+    spdlog::trace("[SpaceActionDiag] suppressed duplicate scan outcome={} fleet={} target={} elapsed_ms={}",
+                  duplicate_outcome,
+                  fleet_id,
+                  target_identity,
+                  elapsed_ms);
+    diagnostics.Complete(duplicate_outcome);
+    return true;
+  }
+
+  last_scan_submission = {fleet_id, target_identity, now};
+  scan_engage_buttons_widget->OnScanButtonClicked();
+  diagnostics.Complete(success_outcome);
+  return true;
+}
+
 bool TryExecuteArmadaAttack(PreScanTargetWidget* pre_scan_widget,
                             ScanEngageButtonsWidget* scan_engage_buttons_widget,
                             SpaceActionDiagnostics& diagnostics)
@@ -499,14 +567,18 @@ void ExecuteWarpCancel(FleetBarViewController* fleet_bar,
 }
 
 bool TryHandleNoPreScanSecondaryOutcome(FleetSecondaryOutcome outcome,
+                                        FleetPlayerData* fleet,
                                         const SpaceActionRuntimeContext& runtime_context,
                                         SpaceActionDiagnostics& diagnostics)
 {
   switch (outcome) {
     case FleetSecondaryOutcome::ScanMining:
-      diagnostics.Complete("scan-mining-viewer");
-      runtime_context.mining_viewer_widget->_scanEngageButtonsWidget->OnScanButtonClicked();
-      return true;
+      return TryExecuteScanAction(fleet,
+                                  runtime_context.mining_viewer_widget->_scanEngageButtonsWidget,
+                                  nullptr,
+                                  "scan-mining-viewer",
+                                  "scan-mining-viewer-suppressed-duplicate",
+                                  diagnostics);
     case FleetSecondaryOutcome::ViewStarNode:
       runtime_context.star_node_viewer_widget->OnViewButtonActivation();
       diagnostics.Complete("view-star-node");
@@ -554,18 +626,27 @@ bool TryHandleFleetServiceOutcome(FleetServiceOutcome outcome,
 {
   switch (outcome) {
     case FleetServiceOutcome::Recall:
-      if (TryExecuteRecall(fleet_bar)) {
-        diagnostics.Complete("recall");
+      if (const auto result = TryExecuteRecall(fleet_bar); result.did_action) {
+        diagnostics.Complete("recall-default");
         return true;
+      } else if (result.request_mode == FleetActionRequestMode::Default) {
+        diagnostics.SetOutcome("recall-default-not-executed");
+      } else {
+        diagnostics.SetOutcome("recall-not-eligible");
       }
-      diagnostics.SetOutcome("recall-not-executed");
       return false;
     case FleetServiceOutcome::Repair:
-      if (TryExecuteRepair(fleet_bar)) {
-        diagnostics.Complete("repair");
+      if (const auto result = TryExecuteRepair(fleet_bar); result.did_action) {
+        diagnostics.Complete(result.request_mode == FleetActionRequestMode::AskHelp ? "repair-ask-help"
+                                                                                    : "repair-default");
         return true;
+      } else if (result.request_mode == FleetActionRequestMode::AskHelp) {
+        diagnostics.SetOutcome("repair-ask-help-not-executed");
+      } else if (result.request_mode == FleetActionRequestMode::Default) {
+        diagnostics.SetOutcome("repair-default-not-executed");
+      } else {
+        diagnostics.SetOutcome("repair-not-eligible");
       }
-      diagnostics.SetOutcome("repair-not-executed");
       return false;
     case FleetServiceOutcome::None:
       return false;
@@ -647,7 +728,7 @@ bool HandleShipSelection(int ship_select_request)
 
 // ─── Fleet Action Helpers ─────────────────────────────────────────────────────────────
 
-#define FleetAction_Format "Fleet {} ({}) #{} - State: {}, previous {} - canAction {}, canState {} - didAction: {}"
+#define FleetAction_Format "Fleet {} ({}) #{} - State: {}, previous {} - canAction {}, canState {} - requestMode {} - didAction: {}"
 
 /**
  * @brief Generic fleet action executor — checks fleet state and requests an action.
@@ -661,9 +742,11 @@ bool HandleShipSelection(int ship_select_request)
  * @return true if the action was successfully requested.
  */
 template <typename T>
-inline bool DidExecuteFleetAction(std::string_view actionText, ActionType actionType, FleetBarViewController* fleet_bar,
-                                  const std::span<const FleetState> wantedStates,
-                                  FleetState                        helpState = FleetState::Unknown)
+inline FleetActionExecutionResult DidExecuteFleetAction(std::string_view actionText,
+                                                        ActionType actionType,
+                                                        FleetBarViewController* fleet_bar,
+                                                        const std::span<const FleetState> wantedStates,
+                                                        FleetState helpState = FleetState::Unknown)
 {
   auto fleet_controller = fleet_bar->_fleetPanelController;
   auto fleet            = fleet_bar->_fleetPanelController->fleet;
@@ -673,44 +756,50 @@ inline bool DidExecuteFleetAction(std::string_view actionText, ActionType action
   auto       prev_state = fleet->PreviousState;
   auto       canAction  = true; // actionRequired->CheckIsMet();
   FleetState canState   = FleetState::Unknown;
-  auto       didAction  = false;
+  auto       result     = FleetActionExecutionResult{};
 
   if (std::find(std::begin(wantedStates), std::end(wantedStates), fleet_state) != std::end(wantedStates)) {
     canState = fleet_state;
   }
 
-  spdlog::trace(FleetAction_Format, actionText, (int)actionType, (int)fleet_id, (int)fleet_state, (int)prev_state,
-                canAction, (int)canState, "[start]");
+  result.request_mode = fleet_action_request_mode(canState != FleetState::Unknown,
+                                                  helpState != FleetState::Unknown && helpState == fleet_state);
 
-  if (canState != FleetState::Unknown && canAction) {
-    if (NavigationSectionManager::Instance() && NavigationSectionManager::Instance()->SNavigationManager) {
-      NavigationSectionManager::Instance()->SNavigationManager->HideInteraction();
+  spdlog::trace(FleetAction_Format, actionText, (int)actionType, (int)fleet_id, (int)fleet_state, (int)prev_state,
+                canAction, (int)canState, fleet_action_request_mode_name(result.request_mode), "[start]");
+
+  if (canAction) {
+    switch (result.request_mode) {
+      case FleetActionRequestMode::Default:
+        if (NavigationSectionManager::Instance() && NavigationSectionManager::Instance()->SNavigationManager) {
+          NavigationSectionManager::Instance()->SNavigationManager->HideInteraction();
+        }
+
+        result.did_action = fleet_controller->RequestAction(fleet, actionType, 0, ActionBehaviour::Default);
+        break;
+      case FleetActionRequestMode::AskHelp:
+        result.did_action = fleet_controller->RequestAction(fleet, actionType, 0, ActionBehaviour::AskHelp);
+        break;
+      case FleetActionRequestMode::None:
+        break;
     }
-
-    didAction = fleet_controller->RequestAction(fleet, actionType, 0, ActionBehaviour::Default);
-  }
-
-  if (helpState != FleetState::Unknown && (didAction || helpState == fleet->CurrentState)) {
-    didAction = didAction || fleet_controller->RequestAction(fleet, actionType, 0, ActionBehaviour::AskHelp);
   }
 
   spdlog::trace(FleetAction_Format, actionText, (int)actionType, (int)fleet_id, (int)fleet_state, (int)prev_state,
-                canAction, (int)canState, didAction);
+                canAction, (int)canState, fleet_action_request_mode_name(result.request_mode), result.did_action);
 
-  return didAction;
+  return result;
 }
 
-bool TryExecuteRecall(FleetBarViewController* fleet_bar)
+FleetActionExecutionResult TryExecuteRecall(FleetBarViewController* fleet_bar)
 {
   static constexpr FleetState states[] = {FleetState::IdleInSpace, FleetState::Impulsing, FleetState::Mining,
                                           FleetState::Capturing};
 
-  auto fleet_controller = fleet_bar->_fleetPanelController;
-
   return DidExecuteFleetAction<RecallRequirement>("Recall", ActionType::Recall, fleet_bar, states);
 }
 
-bool TryExecuteRepair(FleetBarViewController* fleet_bar)
+FleetActionExecutionResult TryExecuteRepair(FleetBarViewController* fleet_bar)
 {
   static constexpr FleetState states[] = {FleetState::Docked, FleetState::Destroyed};
 
@@ -803,9 +892,14 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
 
       if (runtime_context.mining_viewer_visible) {
         if (has_secondary && scan_engage_buttons_widget) {
-          diagnostics.Complete("scan-prescan-mining-viewer");
-          scan_engage_buttons_widget->OnScanButtonClicked();
-          return;
+          if (TryExecuteScanAction(fleet,
+                                   scan_engage_buttons_widget,
+                                   context,
+                                   "scan-prescan-mining-viewer",
+                                   "scan-prescan-mining-viewer-suppressed-duplicate",
+                                   diagnostics)) {
+            return;
+          }
         } else if (has_primary_for_target) {
           diagnostics.Complete("mine-prescan-viewer");
           runtime_context.mining_viewer_widget->MineClicked();
@@ -840,9 +934,10 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
       }
 
       if (has_secondary && scan_engage_buttons_widget) {
-        diagnostics.Complete("scan-prescan");
-        scan_engage_buttons_widget->OnScanButtonClicked();
-        return;
+        if (TryExecuteScanAction(
+                fleet, scan_engage_buttons_widget, context, "scan-prescan", "scan-prescan-suppressed-duplicate", diagnostics)) {
+          return;
+        }
       }
 
       if (has_primary_for_target && scan_engage_buttons_widget && scan_engage_buttons_widget->enabled) {
@@ -866,6 +961,7 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
       if (TryHandleNoPreScanSecondaryOutcome(
               DecideFleetSecondary({false, false, runtime_context.mining_viewer_visible,
                                     runtime_context.mining_scan_available, runtime_context.star_node_visible}),
+              fleet,
               runtime_context,
               diagnostics)) {
         return;
