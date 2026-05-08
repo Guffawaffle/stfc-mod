@@ -69,6 +69,7 @@ struct FleetPrimaryDecisionInput {
   bool armada_widget_visible = false;
   bool armada_join_interactable = false;
   bool armada_attack_available = false;
+  bool target_engage_available = false;
   bool target_context_resolved = false;
   bool is_deferred_retry = false;
 };

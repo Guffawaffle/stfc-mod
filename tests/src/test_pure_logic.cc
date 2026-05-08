@@ -363,6 +363,7 @@ TEST_SUITE("fleet_input_policy")
 
     input.primary_is_mouse = true;
     input.visible_prescan_target = true;
+    input.target_engage_available = true;
     input.target_context_resolved = true;
     input.target_hull_type = FleetInputHullType::Battleship;
 
@@ -412,6 +413,7 @@ TEST_SUITE("fleet_input_policy")
 
     input = {};
     input.visible_prescan_target = true;
+    input.target_engage_available = true;
     input.target_context_resolved = true;
     input.target_hull_type = FleetInputHullType::Survey;
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::Engage);
@@ -424,20 +426,20 @@ TEST_SUITE("fleet_input_policy")
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::ArmadaAttack);
 
     input = {};
-  input.navigation_interaction_visible = true;
+    input.navigation_interaction_visible = true;
     input.armada_widget_visible = true;
     input.armada_join_interactable = true;
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::JoinArmada);
 
-  input = {};
-  input.navigation_interaction_visible = true;
-  input.armada_widget_visible = true;
-  CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::ArmadaJoinUnavailable);
+    input = {};
+    input.navigation_interaction_visible = true;
+    input.armada_widget_visible = true;
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::ArmadaJoinUnavailable);
 
-  input = {};
-  input.armada_widget_visible = true;
-  input.armada_join_interactable = true;
-  CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::None);
+    input = {};
+    input.armada_widget_visible = true;
+    input.armada_join_interactable = true;
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::None);
 
     input = {};
     input.star_node_visible = true;
@@ -459,6 +461,9 @@ TEST_SUITE("fleet_input_policy")
 
     input.is_deferred_retry = true;
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::None);
+
+    input.target_engage_available = true;
+    CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::Engage);
   }
 
   TEST_CASE("secondary scans or views by context priority")

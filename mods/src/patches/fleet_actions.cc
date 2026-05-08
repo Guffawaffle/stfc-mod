@@ -96,6 +96,26 @@ FleetInputFleetState ToFleetInputState(const FleetState state)
   }
 }
 
+FleetInputHullType ToFleetInputHullType(const HullType type)
+{
+  switch (type) {
+    case HullType::Destroyer:
+      return FleetInputHullType::Destroyer;
+    case HullType::Survey:
+      return FleetInputHullType::Survey;
+    case HullType::Explorer:
+      return FleetInputHullType::Explorer;
+    case HullType::Battleship:
+      return FleetInputHullType::Battleship;
+    case HullType::Defense:
+      return FleetInputHullType::Defense;
+    case HullType::ArmadaTarget:
+      return FleetInputHullType::ArmadaTarget;
+    default:
+      return FleetInputHullType::Any;
+  }
+}
+
 struct SpaceActionDiagnostics {
   std::chrono::steady_clock::time_point started_at = std::chrono::steady_clock::now();
   uint64_t                              fleet_id = 0;
@@ -553,38 +573,53 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
     auto queue_unlocked = has_queue && action_queue->IsQueueUnlocked();
 
     for (const auto& pre_scan_target : runtime_context.visible_pre_scan_targets) {
-        auto pre_scan_widget = pre_scan_target.widget;
-        auto scan_engage_buttons_widget = pre_scan_target.scan_engage_buttons_widget;
-        auto context = pre_scan_target.target_context;
-        auto type = pre_scan_target.target_hull_type;
-        auto deferred_primary_for_target = pre_scan_target.deferred_primary_for_target;
-        auto has_primary_for_target = has_physical_primary || deferred_primary_for_target;
+      auto pre_scan_widget = pre_scan_target.widget;
+      auto scan_engage_buttons_widget = pre_scan_target.scan_engage_buttons_widget;
+      auto context = pre_scan_target.target_context;
+      auto type = pre_scan_target.target_hull_type;
+      auto deferred_primary_for_target = pre_scan_target.deferred_primary_for_target;
+      auto has_primary_for_target = has_physical_primary || deferred_primary_for_target;
 
-        if (!has_physical_primary && force_space_action_next_frame && deferred_primary_for_fleet
-            && !deferred_primary_for_target) {
-          diagnostics.SetOutcome(deferred_space_action_state.widget_identity == reinterpret_cast<uintptr_t>(pre_scan_widget)
-                                     ? "deferred-target-context-mismatch"
-                                     : "deferred-target-widget-mismatch");
+      if (!has_physical_primary && force_space_action_next_frame && deferred_primary_for_fleet
+          && !deferred_primary_for_target) {
+        diagnostics.SetOutcome(deferred_space_action_state.widget_identity == reinterpret_cast<uintptr_t>(pre_scan_widget)
+                                   ? "deferred-target-context-mismatch"
+                                   : "deferred-target-widget-mismatch");
+      }
+
+      if (runtime_context.mining_viewer_visible) {
+        if (has_secondary && scan_engage_buttons_widget) {
+          diagnostics.Complete("scan-prescan-mining-viewer");
+          scan_engage_buttons_widget->OnScanButtonClicked();
+          return;
+        } else if (has_primary_for_target) {
+          diagnostics.Complete("mine-prescan-viewer");
+          runtime_context.mining_viewer_widget->MineClicked();
+          return;
         }
+      }
 
-        if (runtime_context.mining_viewer_visible) {
-          if (has_secondary && scan_engage_buttons_widget) {
-            diagnostics.Complete("scan-prescan-mining-viewer");
-            scan_engage_buttons_widget->OnScanButtonClicked();
-            return;
-          } else if (has_primary_for_target) {
-            diagnostics.Complete("mine-prescan-viewer");
-            runtime_context.mining_viewer_widget->MineClicked();
-            return;
-          }
-        }
+      FleetPrimaryDecisionInput primary_input;
+      primary_input.fleet_state = ToFleetInputState(fleet->CurrentState);
+      primary_input.target_hull_type = ToFleetInputHullType(type);
+      primary_input.visible_prescan_target = true;
+      primary_input.armada_attack_available = type == HullType::ArmadaTarget && !runtime_context.armada_visible;
+      primary_input.target_engage_available = type != HullType::ArmadaTarget
+          && (type != HullType::Any || deferred_primary_for_target);
+      primary_input.target_context_resolved = type != HullType::Any;
+      primary_input.is_deferred_retry = deferred_primary_for_target;
 
-        if (queue_unlocked && pre_scan_widget->_addToQueueButtonWidget && scan_engage_buttons_widget) {
-          if (type != HullType::ArmadaTarget && (type != HullType::Any || deferred_primary_for_target)) {
+      if (queue_unlocked && pre_scan_widget->_addToQueueButtonWidget && scan_engage_buttons_widget) {
+        auto queue_input = primary_input;
+        queue_input.queue_mode_enabled = true;
+        queue_input.queue_unlocked = true;
+        queue_input.queue_full = action_queue->IsQueueFull(fleet);
+
+        switch (DecideFleetPrimary(queue_input)) {
+          case FleetPrimaryOutcome::AddToQueue:
             if (pre_scan_widget->_addToQueueButtonWidget->isActiveAndEnabled) {
               auto listener = pre_scan_widget->_addToQueueButtonWidget->SemaphoreListener;
-              const auto queue_full = action_queue->IsQueueFull(fleet);
-              if (listener && !queue_full) {
+              if (listener) {
                 auto button = listener->TheButton;
                 if (button) {
                   diagnostics.Complete("queue-add");
@@ -593,72 +628,76 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
                   return;
                 }
                 diagnostics.SetOutcome("queue-button-missing");
-              } else if (!listener) {
-                diagnostics.SetOutcome("queue-listener-missing");
               } else {
-                diagnostics.SetOutcome("queue-full");
+                diagnostics.SetOutcome("queue-listener-missing");
               }
               return;
             }
 
-            if (type == HullType::Any) {
-              ArmDeferredSpaceAction(fleet, pre_scan_widget, context);
-              diagnostics.Complete("defer-queue-any-target");
-              return;
-            }
-          }
-        }
-
-        if (has_secondary && scan_engage_buttons_widget) {
-          diagnostics.Complete("scan-prescan");
-          scan_engage_buttons_widget->OnScanButtonClicked();
-          return;
-        }
-
-        if (has_primary_for_target && scan_engage_buttons_widget && scan_engage_buttons_widget->enabled) {
-          auto canActionPrimary = type != HullType::Any;
-          if (type == HullType::ArmadaTarget && runtime_context.armada_visible) {
-            canActionPrimary = false;
-          } else if (deferred_primary_for_target) {
-            canActionPrimary = true;
-          }
-
-          if (canActionPrimary) {
-            if (type == HullType::ArmadaTarget) {
-              if (pre_scan_widget->_armadaAttackButton && pre_scan_widget->_armadaAttackButton->isActiveAndEnabled) {
-                auto listener = pre_scan_widget->_armadaAttackButton->SemaphoreListener;
-                if (listener) {
-                  auto button = listener->TheButton;
-                  if (button) {
-                    diagnostics.Complete("armada-attack-button");
-                    button->Press();
-                    return;
-                  }
-                  diagnostics.SetOutcome("armada-attack-button-missing");
-                } else {
-                  diagnostics.SetOutcome("armada-attack-listener-missing");
-                }
-                return;
-              }
-              diagnostics.Complete("armada-button-clicked");
-              scan_engage_buttons_widget->OnArmadaButtonClicked();
-            } else {
-              diagnostics.Complete("engage-prescan");
-              scan_engage_buttons_widget->OnEngageButtonClicked();
-            }
+            break;
+          case FleetPrimaryOutcome::DeferUntilTargetResolved:
+            ArmDeferredSpaceAction(fleet, pre_scan_widget, context);
+            diagnostics.Complete("defer-queue-any-target");
             return;
-          } else if (type == HullType::Any && has_physical_primary) {
+          case FleetPrimaryOutcome::None:
+            if (queue_input.queue_full) {
+              diagnostics.SetOutcome("queue-full");
+              return;
+            }
+            break;
+          default:
+            break;
+        }
+      }
+
+      if (has_secondary && scan_engage_buttons_widget) {
+        diagnostics.Complete("scan-prescan");
+        scan_engage_buttons_widget->OnScanButtonClicked();
+        return;
+      }
+
+      if (has_primary_for_target && scan_engage_buttons_widget && scan_engage_buttons_widget->enabled) {
+        switch (DecideFleetPrimary(primary_input)) {
+          case FleetPrimaryOutcome::ArmadaAttack:
+            if (pre_scan_widget->_armadaAttackButton && pre_scan_widget->_armadaAttackButton->isActiveAndEnabled) {
+              auto listener = pre_scan_widget->_armadaAttackButton->SemaphoreListener;
+              if (listener) {
+                auto button = listener->TheButton;
+                if (button) {
+                  diagnostics.Complete("armada-attack-button");
+                  button->Press();
+                  return;
+                }
+                diagnostics.SetOutcome("armada-attack-button-missing");
+              } else {
+                diagnostics.SetOutcome("armada-attack-listener-missing");
+              }
+              return;
+            }
+            diagnostics.Complete("armada-button-clicked");
+            scan_engage_buttons_widget->OnArmadaButtonClicked();
+            return;
+          case FleetPrimaryOutcome::Engage:
+            diagnostics.Complete("engage-prescan");
+            scan_engage_buttons_widget->OnEngageButtonClicked();
+            return;
+          case FleetPrimaryOutcome::DeferUntilTargetResolved:
             ArmDeferredSpaceAction(fleet, pre_scan_widget, context);
             diagnostics.Complete("defer-primary-any-target");
             return;
-          } else if (type == HullType::ArmadaTarget) {
-            diagnostics.SetOutcome("armada-primary-blocked-by-visible-widget");
-          }
-        } else if ((has_primary_for_target || has_secondary || has_queue) && !scan_engage_buttons_widget) {
-          diagnostics.SetOutcome("prescan-scan-engage-missing");
-        } else if (has_primary_for_target && scan_engage_buttons_widget && !scan_engage_buttons_widget->enabled) {
-          diagnostics.SetOutcome("prescan-scan-engage-disabled");
+          case FleetPrimaryOutcome::None:
+            if (type == HullType::ArmadaTarget && runtime_context.armada_visible) {
+              diagnostics.SetOutcome("armada-primary-blocked-by-visible-widget");
+            }
+            break;
+          default:
+            break;
         }
+      } else if ((has_primary_for_target || has_secondary || has_queue) && !scan_engage_buttons_widget) {
+        diagnostics.SetOutcome("prescan-scan-engage-missing");
+      } else if (has_primary_for_target && scan_engage_buttons_widget && !scan_engage_buttons_widget->enabled) {
+        diagnostics.SetOutcome("prescan-scan-engage-disabled");
+      }
     }
 
     if (runtime_context.visible_pre_scan_target_count == 0 && has_secondary) {

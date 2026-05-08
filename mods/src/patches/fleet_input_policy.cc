@@ -26,7 +26,7 @@ bool target_can_use_queue(const FleetPrimaryDecisionInput& input) noexcept
 
 bool target_can_engage(const FleetPrimaryDecisionInput& input) noexcept
 {
-  return input.visible_prescan_target && input.target_context_resolved && input.target_hull_type != FleetInputHullType::Any
+  return input.visible_prescan_target && input.target_engage_available
          && input.target_hull_type != FleetInputHullType::ArmadaTarget;
 }
 } // namespace
