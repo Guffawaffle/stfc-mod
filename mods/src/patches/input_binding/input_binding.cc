@@ -9,7 +9,7 @@ namespace input_binding
 {
 namespace
 {
-  constexpr std::array<InputActionSpec, 63> kActionSpecs{{
+  constexpr std::array<InputActionSpec, 71> kActionSpecs{{
       {InputActionId::FleetPrimary, "fleet_primary", "SPACE|MOUSE1", TriggerMode::Down, InputPhase::Frame,
        InputLayer::Fleet, ConflictGroup::FleetAction, 100},
       {InputActionId::FleetSecondary, "fleet_secondary", "TAB|MOUSE4", TriggerMode::Down, InputPhase::Frame,
@@ -40,6 +40,22 @@ namespace
        ConflictGroup::FleetAction, 153},
       {InputActionId::SelectCurrent, "select_current", "CTRL-SPACE", TriggerMode::Down, InputPhase::Frame,
        InputLayer::Fleet, ConflictGroup::FleetAction, 152},
+      {InputActionId::ShowChatSide1, "show_chatside1", "ALT-C", TriggerMode::Down, InputPhase::Frame,
+       InputLayer::Global, ConflictGroup::ChatOpen, 790},
+      {InputActionId::ShowChatSide2, "show_chatside2", "`", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
+       ConflictGroup::ChatOpen, 789},
+      {InputActionId::ShowChat, "show_chat", "C", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
+       ConflictGroup::ChatOpen, 780},
+      {InputActionId::SelectChatGlobal, "select_chatglobal", "CTRL-1", TriggerMode::Down, InputPhase::Frame,
+       InputLayer::Global, ConflictGroup::ChatChannel, 760},
+      {InputActionId::SelectChatAlliance, "select_chatalliance", "CTRL-2", TriggerMode::Down, InputPhase::Frame,
+       InputLayer::Global, ConflictGroup::ChatChannel, 750},
+      {InputActionId::SelectChatPrivate, "select_chatprivate", "CTRL-3", TriggerMode::Down, InputPhase::Frame,
+       InputLayer::Global, ConflictGroup::ChatChannel, 740},
+      {InputActionId::MoveLeft, "move_left", "A", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
+       ConflictGroup::OfficerCanvas, 730},
+      {InputActionId::MoveRight, "move_right", "D", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
+       ConflictGroup::OfficerCanvas, 720},
       {InputActionId::HotkeysDisable, "hotkeys_disable", "CTRL-ALT-MINUS", TriggerMode::Down, InputPhase::Frame,
        InputLayer::Global, ConflictGroup::GlobalControl, 1000},
       {InputActionId::HotkeysEnable, "hotkeys_enable", "CTRL-ALT-=", TriggerMode::Down, InputPhase::Frame,
@@ -200,6 +216,8 @@ namespace
       {"?", KeyCode::Question},
       {".", KeyCode::Period},
       {"'", KeyCode::Quote},
+      {"[", KeyCode::LeftBracket},
+      {"]", KeyCode::RightBracket},
       {"/", KeyCode::Slash},
       {"\\", KeyCode::Backslash},
       {"`", KeyCode::BackQuote},
