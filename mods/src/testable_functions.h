@@ -5,6 +5,8 @@
 
 #include "patches/space_action_inputs.h"
 
+#include "patches/hotkey_policy.h"
+
 #include "bounded_ttl_cache.h"
 
 #include <array>
@@ -36,9 +38,16 @@ struct HotkeyDisableShortcutAliasDecision {
 // Startup shortcut policy: Scopely's shortcut map must initialize whenever the
 // original game input path is expected to handle shortcuts.
 bool should_call_original_initialize_actions(bool use_scopely_hotkeys, bool allow_key_fallthrough);
+bool should_call_original_initialize_actions(ScopelyShortcutPolicy policy);
 
 // Per-frame ScreenManager::Update policy after the router has made its decision.
 bool should_call_original_screen_update(bool router_allows_original, bool allow_key_fallthrough);
+bool should_call_original_screen_update(bool router_allows_original, OriginalFramePolicy policy);
+
+ScopelyShortcutPolicy resolve_scopely_shortcut_policy(bool use_scopely_hotkeys, bool allow_key_fallthrough);
+OriginalFramePolicy   resolve_original_frame_policy(bool allow_key_fallthrough);
+const char*           scopely_shortcut_policy_name(ScopelyShortcutPolicy policy);
+const char*           original_frame_policy_name(OriginalFramePolicy policy);
 
 // Escape-exit policy at the real back-button seam. Returns true when the current
 // Escape-triggered back-button press should be suppressed instead of letting the
@@ -84,6 +93,10 @@ enum class HotkeyRouterDispatchAction {
 HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pressed,
                                                        bool enable_hotkeys_pressed,
                                                        bool use_scopely_hotkeys,
+                                                       bool hotkeys_enabled);
+HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pressed,
+                                                       bool enable_hotkeys_pressed,
+                                                       ScopelyShortcutPolicy scopely_shortcuts,
                                                        bool hotkeys_enabled);
 int hotkey_router_ship_select_request(const std::array<bool, 8>& ship_select_keys_down);
 bool hotkey_router_should_clear_input_focus(bool escape_pressed, bool input_focused, bool is_in_chat);

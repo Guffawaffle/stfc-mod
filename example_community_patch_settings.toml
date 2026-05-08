@@ -93,6 +93,17 @@ use_scopely_hotkeys = false
 # Enable experimental features
 enable_experimental = false
 
+# Subgroup: Input
+# -----------------
+
+[input]
+
+# Scopely shortcut initialization policy: off, native, or fallback
+scopely_shortcuts = "off"
+
+# Original ScreenManager frame policy: mod, fallthrough_unhandled, or fallthrough_all
+original_frame_policy = "mod"
+
 #  <[============================================================]>
 #
 #        ****                       *        *

@@ -16,6 +16,8 @@
 
 #include <toml++/toml.h>
 
+#include "patches/hotkey_policy.h"
+
 #if _WIN32
 #include <Windows.h>
 #endif
@@ -337,6 +339,16 @@ public:
  * @see fix/lto-and-sync-crashes
  */
 bool AllowKeyFallthrough();
+
+/**
+ * @brief Resolved Scopely shortcut initialization policy.
+ */
+ScopelyShortcutPolicy ScopelyShortcutsPolicy();
+
+/**
+ * @brief Resolved per-frame original ScreenManager::Update policy.
+ */
+OriginalFramePolicy OriginalFramePolicySetting();
 
 /**
  * @brief Whether the file-backed live debug channel is enabled.

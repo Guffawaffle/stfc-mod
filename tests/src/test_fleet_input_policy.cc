@@ -255,6 +255,10 @@ TEST_SUITE("hotkey_decisions")
     CHECK(should_call_original_initialize_actions(false, true));
     CHECK(should_call_original_initialize_actions(true, false));
     CHECK(should_call_original_initialize_actions(true, true));
+
+    CHECK_FALSE(should_call_original_initialize_actions(ScopelyShortcutPolicy::Off));
+    CHECK(should_call_original_initialize_actions(ScopelyShortcutPolicy::Native));
+    CHECK(should_call_original_initialize_actions(ScopelyShortcutPolicy::Fallback));
   }
 
   TEST_CASE("per-frame fallthrough can allow original ScreenManager update")
@@ -263,6 +267,27 @@ TEST_SUITE("hotkey_decisions")
     CHECK(should_call_original_screen_update(false, true));
     CHECK(should_call_original_screen_update(true, false));
     CHECK(should_call_original_screen_update(true, true));
+
+    CHECK_FALSE(should_call_original_screen_update(false, OriginalFramePolicy::Mod));
+    CHECK(should_call_original_screen_update(true, OriginalFramePolicy::Mod));
+    CHECK_FALSE(should_call_original_screen_update(false, OriginalFramePolicy::FallthroughUnhandled));
+    CHECK(should_call_original_screen_update(true, OriginalFramePolicy::FallthroughUnhandled));
+    CHECK(should_call_original_screen_update(false, OriginalFramePolicy::FallthroughAll));
+    CHECK(should_call_original_screen_update(true, OriginalFramePolicy::FallthroughAll));
+  }
+
+  TEST_CASE("legacy fallthrough booleans map to split policy lanes")
+  {
+    CHECK(resolve_scopely_shortcut_policy(false, false) == ScopelyShortcutPolicy::Off);
+    CHECK(resolve_scopely_shortcut_policy(true, false) == ScopelyShortcutPolicy::Native);
+    CHECK(resolve_scopely_shortcut_policy(false, true) == ScopelyShortcutPolicy::Fallback);
+    CHECK(resolve_scopely_shortcut_policy(true, true) == ScopelyShortcutPolicy::Native);
+
+    CHECK(resolve_original_frame_policy(false) == OriginalFramePolicy::Mod);
+    CHECK(resolve_original_frame_policy(true) == OriginalFramePolicy::FallthroughAll);
+
+    CHECK(std::string(scopely_shortcut_policy_name(ScopelyShortcutPolicy::Fallback)) == "fallback");
+    CHECK(std::string(original_frame_policy_name(OriginalFramePolicy::FallthroughAll)) == "fallthrough_all");
   }
 
   TEST_CASE("Escape exit suppression only blocks Escape-triggered exit outside the double-tap window")
@@ -285,6 +310,13 @@ TEST_SUITE("hotkey_decisions")
     CHECK(hotkey_router_startup_action(false, false, true, true) == HotkeyRouterStartupAction::AllowOriginal);
     CHECK(hotkey_router_startup_action(false, false, false, false) == HotkeyRouterStartupAction::SuppressOriginal);
     CHECK(hotkey_router_startup_action(false, false, false, true) == HotkeyRouterStartupAction::Continue);
+
+    CHECK(hotkey_router_startup_action(false, false, ScopelyShortcutPolicy::Native, true)
+          == HotkeyRouterStartupAction::AllowOriginal);
+    CHECK(hotkey_router_startup_action(false, false, ScopelyShortcutPolicy::Fallback, true)
+          == HotkeyRouterStartupAction::Continue);
+    CHECK(hotkey_router_startup_action(false, false, ScopelyShortcutPolicy::Fallback, false)
+          == HotkeyRouterStartupAction::SuppressOriginal);
   }
 
   TEST_CASE("ship selection returns the first active fleet hotkey")
