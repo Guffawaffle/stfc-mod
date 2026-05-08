@@ -44,6 +44,18 @@ bool hotkey_router_should_execute_space_action(const SpaceActionInputs& inputs, 
   return inputs.any_requested() || deferred_retry_pending;
 }
 
+bool space_action_duplicate_submission_should_suppress(const uint64_t previous_fleet_id,
+                                                       const uintptr_t previous_target_identity,
+                                                       const uint64_t current_fleet_id,
+                                                       const uintptr_t current_target_identity,
+                                                       const int64_t elapsed_ms,
+                                                       const int64_t suppression_window_ms)
+{
+  return previous_fleet_id != 0 && previous_target_identity != 0 && current_fleet_id == previous_fleet_id
+         && current_target_identity == previous_target_identity && elapsed_ms >= 0
+         && elapsed_ms < suppression_window_ms;
+}
+
 SpaceActionInputs hotkey_router_runtime_space_action_inputs(const bool fleet_primary_pressed,
                                                            const bool fleet_secondary_pressed,
                                                            const bool fleet_service_pressed)

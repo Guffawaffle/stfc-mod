@@ -51,6 +51,13 @@ bool should_suppress_escape_exit(bool disable_escape_exit,
 // Per-frame space-action routing policy after inputs are sampled.
 bool hotkey_router_should_execute_space_action(const SpaceActionInputs& inputs, bool deferred_retry_pending);
 
+bool space_action_duplicate_submission_should_suppress(uint64_t previous_fleet_id,
+                                                       uintptr_t previous_target_identity,
+                                                       uint64_t current_fleet_id,
+                                                       uintptr_t current_target_identity,
+                                                       int64_t elapsed_ms,
+                                                       int64_t suppression_window_ms);
+
 // Translate canonical fleet winners into the current space-action compatibility inputs.
 SpaceActionInputs hotkey_router_runtime_space_action_inputs(bool fleet_primary_pressed,
                               bool fleet_secondary_pressed,

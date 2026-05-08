@@ -32,6 +32,7 @@
 
 #include "patches/key.h"
 #include "patches/mapkey.h"
+#include "testable_functions.h"
 
 #include <spdlog/spdlog.h>
 
@@ -249,6 +250,63 @@ struct SpaceActionRuntimeContext {
   ArmadaObjectViewerWidget*                armada_widget = nullptr;
   bool                                     armada_visible = false;
 };
+
+struct SetCourseSubmission {
+  uint64_t                          fleet_id = 0;
+  uintptr_t                         target_identity = 0;
+  std::chrono::steady_clock::time_point submitted_at{};
+};
+
+constexpr auto kDuplicateSetCourseSuppressionWindow = std::chrono::milliseconds(750);
+
+SetCourseSubmission last_set_course_submission;
+
+uintptr_t NavigationTargetIdentity(NavigationInteractionUIViewController* navigation_ui_controller)
+{
+  if (!navigation_ui_controller) {
+    return 0;
+  }
+
+  auto context = navigation_ui_controller->CanvasContext;
+  if (!context) {
+    return reinterpret_cast<uintptr_t>(navigation_ui_controller);
+  }
+
+  if (context->Poi) {
+    return reinterpret_cast<uintptr_t>(context->Poi);
+  }
+
+  if (context->LocationTranslationId > 0) {
+    return static_cast<uintptr_t>(context->LocationTranslationId);
+  }
+
+  return reinterpret_cast<uintptr_t>(context);
+}
+
+bool ShouldSuppressDuplicateSetCourse(FleetPlayerData* fleet,
+                                      const SpaceActionRuntimeContext& runtime_context,
+                                      SpaceActionDiagnostics& diagnostics)
+{
+  const auto fleet_id = fleet ? fleet->Id : 0;
+  const auto target_identity = NavigationTargetIdentity(runtime_context.navigation_ui_controller);
+  const auto now = std::chrono::steady_clock::now();
+  const auto elapsed_ms = last_set_course_submission.submitted_at == std::chrono::steady_clock::time_point{}
+      ? int64_t{-1}
+      : std::chrono::duration_cast<std::chrono::milliseconds>(now - last_set_course_submission.submitted_at).count();
+
+  if (space_action_duplicate_submission_should_suppress(last_set_course_submission.fleet_id,
+                                                        last_set_course_submission.target_identity,
+                                                        fleet_id,
+                                                        target_identity,
+                                                        elapsed_ms,
+                                                        kDuplicateSetCourseSuppressionWindow.count())) {
+    diagnostics.Complete("set-course-duplicate-suppressed");
+    return true;
+  }
+
+  last_set_course_submission = {fleet_id, target_identity, now};
+  return false;
+}
 
 bool TryExecuteQueueAdd(PreScanTargetWidget* pre_scan_widget, SpaceActionDiagnostics& diagnostics)
 {
@@ -519,6 +577,7 @@ bool TryHandleNoPreScanSecondaryOutcome(FleetSecondaryOutcome outcome,
 }
 
 bool TryHandleNoPreScanPrimaryOutcome(FleetPrimaryOutcome outcome,
+                                      FleetPlayerData* fleet,
                                       const SpaceActionRuntimeContext& runtime_context,
                                       bool armada_join_button_present,
                                       SpaceActionDiagnostics& diagnostics)
@@ -540,6 +599,9 @@ bool TryHandleNoPreScanPrimaryOutcome(FleetPrimaryOutcome outcome,
       diagnostics.Complete("warp-star-node");
       return true;
     case FleetPrimaryOutcome::SetCourse:
+      if (ShouldSuppressDuplicateSetCourse(fleet, runtime_context, diagnostics)) {
+        return true;
+      }
       diagnostics.Complete("set-course");
       runtime_context.navigation_ui_controller->OnSetCourseButtonClick();
       return true;
@@ -888,7 +950,7 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
       primary_input.armada_join_interactable = armada_join_button_present && armada_join_button->Interactable;
 
       if (TryHandleNoPreScanPrimaryOutcome(
-              DecideFleetPrimary(primary_input), runtime_context, armada_join_button_present, diagnostics)) {
+              DecideFleetPrimary(primary_input), fleet, runtime_context, armada_join_button_present, diagnostics)) {
         return;
       }
     }

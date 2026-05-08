@@ -1259,6 +1259,18 @@ TEST_SUITE("hotkey_decisions")
     CHECK(hotkey_router_should_execute_space_action(inputs, true));
   }
 
+  TEST_CASE("space action duplicate guard only suppresses same target inside window")
+  {
+    CHECK(space_action_duplicate_submission_should_suppress(10, 20, 10, 20, 250, 750));
+
+    CHECK_FALSE(space_action_duplicate_submission_should_suppress(0, 20, 10, 20, 250, 750));
+    CHECK_FALSE(space_action_duplicate_submission_should_suppress(10, 0, 10, 20, 250, 750));
+    CHECK_FALSE(space_action_duplicate_submission_should_suppress(10, 20, 11, 20, 250, 750));
+    CHECK_FALSE(space_action_duplicate_submission_should_suppress(10, 20, 10, 21, 250, 750));
+    CHECK_FALSE(space_action_duplicate_submission_should_suppress(10, 20, 10, 20, -1, 750));
+    CHECK_FALSE(space_action_duplicate_submission_should_suppress(10, 20, 10, 20, 750, 750));
+  }
+
   TEST_CASE("runtime fleet action winners map to compatibility space inputs")
   {
     auto inputs = hotkey_router_runtime_space_action_inputs(false, false, false);
