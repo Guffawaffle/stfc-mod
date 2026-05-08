@@ -45,6 +45,9 @@
 /** When true, the next frame will re-attempt the primary space action. */
 bool force_space_action_next_frame = false;
 
+bool TryExecuteRecall(FleetBarViewController* fleet_bar);
+bool TryExecuteRepair(FleetBarViewController* fleet_bar);
+
 namespace {
 fleet_deferred_action::State deferred_space_action_state;
 
@@ -458,6 +461,118 @@ void RecordPreScanWidgetReadinessOutcome(bool has_primary_for_target,
     diagnostics.SetOutcome("prescan-scan-engage-disabled");
   }
 }
+
+void ExecuteWarpCancel(FleetBarViewController* fleet_bar,
+                       FleetPlayerData* fleet,
+                       const SpaceActionRuntimeContext& runtime_context,
+                       bool has_primary,
+                       bool has_secondary,
+                       bool has_queue,
+                       bool has_queue_clear,
+                       bool has_recall,
+                       bool has_repair,
+                       bool has_recall_cancel,
+                       SpaceActionDiagnostics& diagnostics)
+{
+  const auto suppress_mouse_warp_cancel =
+      Key::Down(KeyCode::Mouse1)
+      && (runtime_context.visible_pre_scan_target_count > 0 || runtime_context.mining_viewer_visible
+          || runtime_context.star_node_visible || runtime_context.navigation_interaction_visible);
+
+  if (suppress_mouse_warp_cancel) {
+    live_debug_record_space_action_warp_cancel_suppressed(
+        fleet_bar, fleet, has_primary, has_secondary, has_queue, has_queue_clear, has_recall, has_repair,
+        has_recall_cancel, force_space_action_next_frame, runtime_context.visible_pre_scan_target_count,
+        runtime_context.mining_viewer_visible, runtime_context.star_node_visible,
+        runtime_context.navigation_interaction_visible);
+    diagnostics.Complete("warp-cancel-suppressed");
+    return;
+  }
+
+  live_debug_record_space_action_warp_cancel(
+      fleet_bar, fleet, has_primary, has_secondary, has_queue, has_queue_clear, has_recall, has_repair,
+      has_recall_cancel, force_space_action_next_frame, runtime_context.visible_pre_scan_target_count,
+      runtime_context.mining_viewer_visible, runtime_context.star_node_visible,
+      runtime_context.navigation_interaction_visible);
+  fleet_bar->_fleetPanelController->CancelButtonClicked();
+  diagnostics.Complete("warp-cancel");
+}
+
+bool TryHandleNoPreScanSecondaryOutcome(FleetSecondaryOutcome outcome,
+                                        const SpaceActionRuntimeContext& runtime_context,
+                                        SpaceActionDiagnostics& diagnostics)
+{
+  switch (outcome) {
+    case FleetSecondaryOutcome::ScanMining:
+      diagnostics.Complete("scan-mining-viewer");
+      runtime_context.mining_viewer_widget->_scanEngageButtonsWidget->OnScanButtonClicked();
+      return true;
+    case FleetSecondaryOutcome::ViewStarNode:
+      runtime_context.star_node_viewer_widget->OnViewButtonActivation();
+      diagnostics.Complete("view-star-node");
+      return true;
+    case FleetSecondaryOutcome::None:
+      return false;
+    default:
+      return false;
+  }
+}
+
+bool TryHandleNoPreScanPrimaryOutcome(FleetPrimaryOutcome outcome,
+                                      const SpaceActionRuntimeContext& runtime_context,
+                                      bool armada_join_button_present,
+                                      SpaceActionDiagnostics& diagnostics)
+{
+  switch (outcome) {
+    case FleetPrimaryOutcome::Mine:
+      diagnostics.Complete("mine-viewer");
+      runtime_context.mining_viewer_widget->MineClicked();
+      return true;
+    case FleetPrimaryOutcome::JoinArmada:
+      diagnostics.Complete("join-armada");
+      runtime_context.armada_widget->ValidateThenJoinArmada();
+      return true;
+    case FleetPrimaryOutcome::ArmadaJoinUnavailable:
+      diagnostics.SetOutcome(armada_join_button_present ? "join-armada-not-interactable" : "join-armada-button-missing");
+      return false;
+    case FleetPrimaryOutcome::WarpToNode:
+      runtime_context.star_node_viewer_widget->InitiateWarp();
+      diagnostics.Complete("warp-star-node");
+      return true;
+    case FleetPrimaryOutcome::SetCourse:
+      diagnostics.Complete("set-course");
+      runtime_context.navigation_ui_controller->OnSetCourseButtonClick();
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool TryHandleFleetServiceOutcome(FleetServiceOutcome outcome,
+                                  FleetBarViewController* fleet_bar,
+                                  SpaceActionDiagnostics& diagnostics)
+{
+  switch (outcome) {
+    case FleetServiceOutcome::Recall:
+      if (TryExecuteRecall(fleet_bar)) {
+        diagnostics.Complete("recall");
+        return true;
+      }
+      diagnostics.SetOutcome("recall-not-executed");
+      return false;
+    case FleetServiceOutcome::Repair:
+      if (TryExecuteRepair(fleet_bar)) {
+        diagnostics.Complete("repair");
+        return true;
+      }
+      diagnostics.SetOutcome("repair-not-executed");
+      return false;
+    case FleetServiceOutcome::None:
+      return false;
+    default:
+      return false;
+  }
+}
 }
 
 /** Double-tap detection timer for ship selection. */
@@ -644,29 +759,6 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
   const auto fleet_is_warping =
       fleet->CurrentState == FleetState::WarpCharging || fleet->CurrentState == FleetState::Warping;
 
-  auto visible_pre_scan_target_count = 0;
-  auto mining_viewer_visible = false;
-  auto star_node_viewer_visible = false;
-  auto navigation_interaction_visible = false;
-
-  const auto collect_warp_cancel_context = [&]() {
-    for (auto pre_scan_widget : ObjectFinder<PreScanTargetWidget>::GetAll()) {
-      if (IsViewerVisible(pre_scan_widget)) {
-        ++visible_pre_scan_target_count;
-      }
-    }
-
-    auto mine_object_viewer_widget = ObjectFinder<MiningObjectViewerWidget>::Get();
-    mining_viewer_visible = IsViewerVisible(mine_object_viewer_widget);
-
-    auto star_node_object_viewer_widget = ObjectFinder<StarNodeObjectViewerWidget>::Get();
-    star_node_viewer_visible = star_node_object_viewer_widget && star_node_object_viewer_widget->Context;
-
-    navigation_interaction_visible = ObjectFinder<NavigationInteractionUIViewController>::Get() != nullptr;
-    diagnostics.SetContext(visible_pre_scan_target_count, mining_viewer_visible, star_node_viewer_visible,
-                           navigation_interaction_visible);
-  };
-
   if (has_queue_clear) {
     action_queue->ClearQueue(fleet);
     diagnostics.Complete("queue-clear");
@@ -678,26 +770,17 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
                            runtime_context.navigation_interaction_visible);
 
     if (has_recall_cancel && fleet_is_warping) {
-      const auto suppress_mouse_warp_cancel =
-          Key::Down(KeyCode::Mouse1)
-          && (runtime_context.visible_pre_scan_target_count > 0 || runtime_context.mining_viewer_visible
-              || runtime_context.star_node_visible || runtime_context.navigation_interaction_visible);
-      if (suppress_mouse_warp_cancel) {
-        live_debug_record_space_action_warp_cancel_suppressed(
-            fleet_bar, fleet, has_primary, has_secondary, has_queue, has_queue_clear, has_recall, has_repair,
-            has_recall_cancel, force_space_action_next_frame, runtime_context.visible_pre_scan_target_count,
-            runtime_context.mining_viewer_visible, runtime_context.star_node_visible,
-            runtime_context.navigation_interaction_visible);
-        diagnostics.Complete("warp-cancel-suppressed");
-      } else {
-        live_debug_record_space_action_warp_cancel(
-            fleet_bar, fleet, has_primary, has_secondary, has_queue, has_queue_clear, has_recall, has_repair,
-            has_recall_cancel, force_space_action_next_frame, runtime_context.visible_pre_scan_target_count,
-            runtime_context.mining_viewer_visible, runtime_context.star_node_visible,
-            runtime_context.navigation_interaction_visible);
-        fleet_controller->CancelButtonClicked();
-        diagnostics.Complete("warp-cancel");
-      }
+      ExecuteWarpCancel(fleet_bar,
+                        fleet,
+                        runtime_context,
+                        has_primary,
+                        has_secondary,
+                        has_queue,
+                        has_queue_clear,
+                        has_recall,
+                        has_repair,
+                        has_recall_cancel,
+                        diagnostics);
       return;
     }
 
@@ -780,20 +863,12 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
     }
 
     if (runtime_context.visible_pre_scan_target_count == 0 && has_secondary) {
-      switch (DecideFleetSecondary({false, false, runtime_context.mining_viewer_visible,
-                                    runtime_context.mining_scan_available, runtime_context.star_node_visible})) {
-        case FleetSecondaryOutcome::ScanMining:
-          diagnostics.Complete("scan-mining-viewer");
-          runtime_context.mining_viewer_widget->_scanEngageButtonsWidget->OnScanButtonClicked();
-          return;
-        case FleetSecondaryOutcome::ViewStarNode:
-          runtime_context.star_node_viewer_widget->OnViewButtonActivation();
-          diagnostics.Complete("view-star-node");
-          return;
-        case FleetSecondaryOutcome::None:
-          break;
-        default:
-          break;
+      if (TryHandleNoPreScanSecondaryOutcome(
+              DecideFleetSecondary({false, false, runtime_context.mining_viewer_visible,
+                                    runtime_context.mining_scan_available, runtime_context.star_node_visible}),
+              runtime_context,
+              diagnostics)) {
+        return;
       }
     }
 
@@ -801,6 +876,7 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
       auto armada_join_button = runtime_context.armada_widget && runtime_context.armada_visible
           ? runtime_context.armada_widget->__get__joinContext()
           : nullptr;
+        const auto armada_join_button_present = armada_join_button != nullptr;
 
       FleetPrimaryDecisionInput primary_input;
       primary_input.fleet_state = ToFleetInputState(fleet->CurrentState);
@@ -809,52 +885,18 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
       primary_input.star_node_visible = runtime_context.star_node_visible;
       primary_input.navigation_interaction_visible = runtime_context.navigation_interaction_visible;
       primary_input.armada_widget_visible = runtime_context.armada_widget && runtime_context.armada_visible;
-      primary_input.armada_join_interactable = armada_join_button && armada_join_button->Interactable;
+      primary_input.armada_join_interactable = armada_join_button_present && armada_join_button->Interactable;
 
-      switch (DecideFleetPrimary(primary_input)) {
-        case FleetPrimaryOutcome::Mine:
-          diagnostics.Complete("mine-viewer");
-          runtime_context.mining_viewer_widget->MineClicked();
-          return;
-        case FleetPrimaryOutcome::JoinArmada:
-          diagnostics.Complete("join-armada");
-          runtime_context.armada_widget->ValidateThenJoinArmada();
-          return;
-        case FleetPrimaryOutcome::ArmadaJoinUnavailable:
-          diagnostics.SetOutcome(armada_join_button ? "join-armada-not-interactable" : "join-armada-button-missing");
-          break;
-        case FleetPrimaryOutcome::WarpToNode:
-          runtime_context.star_node_viewer_widget->InitiateWarp();
-          diagnostics.Complete("warp-star-node");
-          return;
-        case FleetPrimaryOutcome::SetCourse:
-          diagnostics.Complete("set-course");
-          runtime_context.navigation_ui_controller->OnSetCourseButtonClick();
-          return;
-        default:
-          break;
+      if (TryHandleNoPreScanPrimaryOutcome(
+              DecideFleetPrimary(primary_input), runtime_context, armada_join_button_present, diagnostics)) {
+        return;
       }
     }
 
-    switch (DecideFleetService({ToFleetInputState(fleet->CurrentState), has_recall, has_repair})) {
-      case FleetServiceOutcome::Recall:
-        if (TryExecuteRecall(fleet_bar)) {
-          diagnostics.Complete("recall");
-          return;
-        }
-        diagnostics.SetOutcome("recall-not-executed");
-        break;
-      case FleetServiceOutcome::Repair:
-        if (TryExecuteRepair(fleet_bar)) {
-          diagnostics.Complete("repair");
-          return;
-        }
-        diagnostics.SetOutcome("repair-not-executed");
-        break;
-      case FleetServiceOutcome::None:
-        break;
-      default:
-        break;
+    if (TryHandleFleetServiceOutcome(DecideFleetService({ToFleetInputState(fleet->CurrentState), has_recall, has_repair}),
+                                     fleet_bar,
+                                     diagnostics)) {
+      return;
     }
   }
 }
