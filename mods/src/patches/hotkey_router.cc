@@ -8,8 +8,8 @@
  * table-driven dispatch system. Escape-driven exit suppression is enforced at
  * SectionManager::BackButtonPressed rather than this frame router.
  */
-#include "errormsg.h"
 #include "config.h"
+#include "errormsg.h"
 
 #include "patches/hotkey_router.h"
 
@@ -43,18 +43,30 @@
 #include <array>
 #include <vector>
 
-namespace {
+namespace
+{
 constexpr std::array kHotkeyStartupActions{
     input_binding::InputActionId::HotkeysDisable,
     input_binding::InputActionId::HotkeysEnable,
 };
 
 constexpr std::array kHotkeyQuitActions{
-  input_binding::InputActionId::Quit,
+    input_binding::InputActionId::Quit,
 };
 
 constexpr std::array kHotkeyQueueActions{
-  input_binding::InputActionId::FleetQueueToggle,
+    input_binding::InputActionId::FleetQueueToggle,
+};
+
+constexpr std::array kHotkeyShipSelectionActions{
+    input_binding::InputActionId::SelectShip1, input_binding::InputActionId::SelectShip2,
+    input_binding::InputActionId::SelectShip3, input_binding::InputActionId::SelectShip4,
+    input_binding::InputActionId::SelectShip5, input_binding::InputActionId::SelectShip6,
+    input_binding::InputActionId::SelectShip7, input_binding::InputActionId::SelectShip8,
+};
+
+constexpr std::array kHotkeySelectCurrentActions{
+    input_binding::InputActionId::SelectCurrent,
 };
 
 constexpr std::array kHotkeySimpleFleetActions{
@@ -63,64 +75,63 @@ constexpr std::array kHotkeySimpleFleetActions{
 };
 
 constexpr std::array kHotkeyRuntimeSpaceActions{
-  input_binding::InputActionId::FleetPrimary,
-  input_binding::InputActionId::FleetSecondary,
-  input_binding::InputActionId::FleetService,
+    input_binding::InputActionId::FleetPrimary,
+    input_binding::InputActionId::FleetSecondary,
+    input_binding::InputActionId::FleetService,
 };
 
 constexpr std::array kHotkeyTableDispatchActions{
-  input_binding::InputActionId::ShowQTrials,
-  input_binding::InputActionId::ShowBookmarks,
-  input_binding::InputActionId::ShowLookup,
-  input_binding::InputActionId::ShowRefinery,
-  input_binding::InputActionId::ShowFactions,
-  input_binding::InputActionId::ShowStationExterior,
-  input_binding::InputActionId::ShowGalaxy,
-  input_binding::InputActionId::ShowStationInterior,
-  input_binding::InputActionId::ShowSystem,
-  input_binding::InputActionId::ShowArtifacts,
-  input_binding::InputActionId::ShowInventory,
-  input_binding::InputActionId::ShowMissions,
-  input_binding::InputActionId::ShowResearch,
-  input_binding::InputActionId::ShowScrapYard,
-  input_binding::InputActionId::ShowOfficers,
-  input_binding::InputActionId::ShowCommander,
-  input_binding::InputActionId::ShowAwayTeam,
-  input_binding::InputActionId::ShowEvents,
-  input_binding::InputActionId::ShowExoComp,
-  input_binding::InputActionId::ShowDaily,
-  input_binding::InputActionId::ShowGifts,
-  input_binding::InputActionId::ShowAlliance,
-  input_binding::InputActionId::ShowAllianceHelp,
-  input_binding::InputActionId::ShowAllianceArmada,
-  input_binding::InputActionId::ShowSettings,
-  input_binding::InputActionId::UiScaleUp,
-  input_binding::InputActionId::UiScaleDown,
-  input_binding::InputActionId::UiViewerScaleUp,
-  input_binding::InputActionId::UiViewerScaleDown,
-  input_binding::InputActionId::TogglePreviewLocate,
-  input_binding::InputActionId::TogglePreviewRecall,
-  input_binding::InputActionId::ToggleCargoDefault,
-  input_binding::InputActionId::ToggleCargoPlayer,
-  input_binding::InputActionId::ToggleCargoStation,
-  input_binding::InputActionId::ToggleCargoHostile,
-  input_binding::InputActionId::ToggleCargoArmada,
-  input_binding::InputActionId::LogOff,
-  input_binding::InputActionId::LogError,
-  input_binding::InputActionId::LogWarn,
-  input_binding::InputActionId::LogInfo,
-  input_binding::InputActionId::LogDebug,
-  input_binding::InputActionId::LogTrace,
-  input_binding::InputActionId::ShowShips,
+    input_binding::InputActionId::ShowQTrials,
+    input_binding::InputActionId::ShowBookmarks,
+    input_binding::InputActionId::ShowLookup,
+    input_binding::InputActionId::ShowRefinery,
+    input_binding::InputActionId::ShowFactions,
+    input_binding::InputActionId::ShowStationExterior,
+    input_binding::InputActionId::ShowGalaxy,
+    input_binding::InputActionId::ShowStationInterior,
+    input_binding::InputActionId::ShowSystem,
+    input_binding::InputActionId::ShowArtifacts,
+    input_binding::InputActionId::ShowInventory,
+    input_binding::InputActionId::ShowMissions,
+    input_binding::InputActionId::ShowResearch,
+    input_binding::InputActionId::ShowScrapYard,
+    input_binding::InputActionId::ShowOfficers,
+    input_binding::InputActionId::ShowCommander,
+    input_binding::InputActionId::ShowAwayTeam,
+    input_binding::InputActionId::ShowEvents,
+    input_binding::InputActionId::ShowExoComp,
+    input_binding::InputActionId::ShowDaily,
+    input_binding::InputActionId::ShowGifts,
+    input_binding::InputActionId::ShowAlliance,
+    input_binding::InputActionId::ShowAllianceHelp,
+    input_binding::InputActionId::ShowAllianceArmada,
+    input_binding::InputActionId::ShowSettings,
+    input_binding::InputActionId::UiScaleUp,
+    input_binding::InputActionId::UiScaleDown,
+    input_binding::InputActionId::UiViewerScaleUp,
+    input_binding::InputActionId::UiViewerScaleDown,
+    input_binding::InputActionId::TogglePreviewLocate,
+    input_binding::InputActionId::TogglePreviewRecall,
+    input_binding::InputActionId::ToggleCargoDefault,
+    input_binding::InputActionId::ToggleCargoPlayer,
+    input_binding::InputActionId::ToggleCargoStation,
+    input_binding::InputActionId::ToggleCargoHostile,
+    input_binding::InputActionId::ToggleCargoArmada,
+    input_binding::InputActionId::LogOff,
+    input_binding::InputActionId::LogError,
+    input_binding::InputActionId::LogWarn,
+    input_binding::InputActionId::LogInfo,
+    input_binding::InputActionId::LogDebug,
+    input_binding::InputActionId::LogTrace,
+    input_binding::InputActionId::ShowShips,
 };
 
 constexpr auto kHotkeyFrameActions = [] {
-  std::array<input_binding::InputActionId,
-             kHotkeyStartupActions.size() + kHotkeyQuitActions.size() + kHotkeyQueueActions.size()
-                 + kHotkeySimpleFleetActions.size()
-           + kHotkeyRuntimeSpaceActions.size()
-                 + kHotkeyTableDispatchActions.size()>
-      actions{};
+  std::array<input_binding::InputActionId, kHotkeyStartupActions.size() + kHotkeyQuitActions.size()
+                                               + kHotkeyQueueActions.size() + kHotkeyShipSelectionActions.size()
+                                               + kHotkeySelectCurrentActions.size() + kHotkeySimpleFleetActions.size()
+                                               + kHotkeyRuntimeSpaceActions.size() + kHotkeyTableDispatchActions.size()>
+       actions{};
   auto output = actions.begin();
 
   for (const auto action : kHotkeyStartupActions) {
@@ -130,6 +141,12 @@ constexpr auto kHotkeyFrameActions = [] {
     *output++ = action;
   }
   for (const auto action : kHotkeyQueueActions) {
+    *output++ = action;
+  }
+  for (const auto action : kHotkeyShipSelectionActions) {
+    *output++ = action;
+  }
+  for (const auto action : kHotkeySelectCurrentActions) {
     *output++ = action;
   }
   for (const auto action : kHotkeySimpleFleetActions) {
@@ -148,17 +165,9 @@ constexpr auto kHotkeyFrameActions = [] {
 input_binding::ModifierMask held_modifier_mask()
 {
   input_binding::ModifierMask modifiers;
-  for (const auto modifier_key : {KeyCode::LeftShift,
-                                  KeyCode::RightShift,
-                                  KeyCode::LeftControl,
-                                  KeyCode::RightControl,
-                                  KeyCode::LeftAlt,
-                                  KeyCode::RightAlt,
-                                  KeyCode::LeftWindows,
-                                  KeyCode::RightWindows,
-                                  KeyCode::LeftCommand,
-                                  KeyCode::RightCommand,
-                                  KeyCode::AltGr}) {
+  for (const auto modifier_key : {KeyCode::LeftShift, KeyCode::RightShift, KeyCode::LeftControl, KeyCode::RightControl,
+                                  KeyCode::LeftAlt, KeyCode::RightAlt, KeyCode::LeftWindows, KeyCode::RightWindows,
+                                  KeyCode::LeftCommand, KeyCode::RightCommand, KeyCode::AltGr}) {
     if (Key::Pressed(modifier_key)) {
       modifiers.Merge(input_binding::ModifierMask::FromPressedKey(modifier_key));
     }
@@ -183,32 +192,42 @@ std::vector<input_binding::DispatchKeyState> build_dispatch_key_snapshot(std::sp
 input_binding::DispatchPlan frame_runtime_dispatch_plan()
 {
   const auto& runtime_bindings = input_binding::RuntimeBindingModel();
-  const auto watched_keys =
+  const auto  watched_keys =
       input_binding::WatchedKeysForActions(runtime_bindings, input_binding::InputPhase::Frame, kHotkeyFrameActions);
 
   const auto key_states = build_dispatch_key_snapshot(watched_keys);
-  return input_binding::PlanDispatchSnapshot(runtime_bindings,
-                                             input_binding::InputPhase::Frame,
-                                             input_binding::ActiveLayers::All(),
-                                             key_states);
+  return input_binding::PlanDispatchSnapshot(runtime_bindings, input_binding::InputPhase::Frame,
+                                             input_binding::ActiveLayers::All(), key_states);
 }
 
-bool runtime_binding_winner_present(const input_binding::DispatchPlan& plan,
-                                    const input_binding::InputActionId action,
+bool runtime_binding_winner_present(const input_binding::DispatchPlan& plan, const input_binding::InputActionId action,
                                     const input_binding::InputLayer layer)
 {
-  return std::ranges::any_of(plan.winners, [action, layer](const auto& winner) {
-    return winner.action == action && winner.layer == layer;
-  });
+  return std::ranges::any_of(
+      plan.winners, [action, layer](const auto& winner) { return winner.action == action && winner.layer == layer; });
 }
 
-input_binding::InputActionId first_runtime_binding_winner(const input_binding::DispatchPlan& plan,
+input_binding::InputActionId first_runtime_binding_winner(const input_binding::DispatchPlan&                  plan,
                                                           const std::span<const input_binding::InputActionId> actions)
 {
   const auto found = std::ranges::find_if(plan.winners, [&actions](const auto& winner) {
     return std::ranges::find(actions, winner.action) != actions.end();
   });
   return found == plan.winners.end() ? input_binding::InputActionId::Max : found->action;
+}
+
+int ship_select_request_from_runtime_bindings(const input_binding::DispatchPlan& plan)
+{
+  return hotkey_router_ship_select_request(std::array<bool, 8>{
+      runtime_binding_winner_present(plan, input_binding::InputActionId::SelectShip1, input_binding::InputLayer::Fleet),
+      runtime_binding_winner_present(plan, input_binding::InputActionId::SelectShip2, input_binding::InputLayer::Fleet),
+      runtime_binding_winner_present(plan, input_binding::InputActionId::SelectShip3, input_binding::InputLayer::Fleet),
+      runtime_binding_winner_present(plan, input_binding::InputActionId::SelectShip4, input_binding::InputLayer::Fleet),
+      runtime_binding_winner_present(plan, input_binding::InputActionId::SelectShip5, input_binding::InputLayer::Fleet),
+      runtime_binding_winner_present(plan, input_binding::InputActionId::SelectShip6, input_binding::InputLayer::Fleet),
+      runtime_binding_winner_present(plan, input_binding::InputActionId::SelectShip7, input_binding::InputLayer::Fleet),
+      runtime_binding_winner_present(plan, input_binding::InputActionId::SelectShip8, input_binding::InputLayer::Fleet),
+  });
 }
 
 GameFunction dispatcher_owned_game_function(const input_binding::InputActionId action)
@@ -370,8 +389,7 @@ HotkeyRouterDispatchAction dispatch_runtime_bound_table_action(const input_bindi
     }
 
     const auto decision = entry.handler();
-    return hotkey_router_dispatch_action(true,
-                                         decision == DispatchDecision::HandledStop,
+    return hotkey_router_dispatch_action(true, decision == DispatchDecision::HandledStop,
                                          decision == DispatchDecision::HandledAllowOriginal);
   }
 
@@ -394,19 +412,16 @@ void dispatch_runtime_bound_simple_fleet_action(const input_binding::InputAction
 }
 
 HotkeyRouterStartupAction startup_action_from_runtime_bindings(const input_binding::DispatchPlan& plan,
-                                                               ScopelyShortcutPolicy scopely_shortcuts,
-                                                               bool hotkeys_enabled)
+                                                               ScopelyShortcutPolicy              scopely_shortcuts,
+                                                               bool                               hotkeys_enabled)
 {
-  return hotkey_router_startup_action(runtime_binding_winner_present(plan,
-                                                                     input_binding::InputActionId::HotkeysDisable,
+  return hotkey_router_startup_action(runtime_binding_winner_present(plan, input_binding::InputActionId::HotkeysDisable,
                                                                      input_binding::InputLayer::Global),
-                                      runtime_binding_winner_present(plan,
-                                                                     input_binding::InputActionId::HotkeysEnable,
+                                      runtime_binding_winner_present(plan, input_binding::InputActionId::HotkeysEnable,
                                                                      input_binding::InputLayer::Global),
-                                      scopely_shortcuts,
-                                      hotkeys_enabled);
+                                      scopely_shortcuts, hotkeys_enabled);
 }
-}
+} // namespace
 
 // ─── Main Per-Frame Hotkey Router ─────────────────────────────────────────────────────
 
@@ -417,8 +432,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
   const auto runtime_dispatch_plan = frame_runtime_dispatch_plan();
 
-  switch (startup_action_from_runtime_bindings(runtime_dispatch_plan,
-                                               ScopelyShortcutsPolicy(),
+  switch (startup_action_from_runtime_bindings(runtime_dispatch_plan, ScopelyShortcutsPolicy(),
                                                Config::Get().hotkeys_enabled)) {
     case HotkeyRouterStartupAction::DisableHotkeys:
       Config::Get().hotkeys_enabled = false;
@@ -440,24 +454,14 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   const auto config     = &Config::Get();
 
 #ifdef _WIN32
-  if (first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyQuitActions)
-      == input_binding::InputActionId::Quit) {
+  if (first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyQuitActions) == input_binding::InputActionId::Quit) {
     TerminateProcess(GetCurrentProcess(), 1);
     return false;
   }
 #endif
 
   // ─── Ship selection (1-8 keys) ───────────────────────────────────────────────────────
-  const auto ship_select_request = hotkey_router_ship_select_request(std::array<bool, 8>{
-      MapKey::IsDown(GameFunction::SelectShip1),
-      MapKey::IsDown(GameFunction::SelectShip2),
-      MapKey::IsDown(GameFunction::SelectShip3),
-      MapKey::IsDown(GameFunction::SelectShip4),
-      MapKey::IsDown(GameFunction::SelectShip5),
-      MapKey::IsDown(GameFunction::SelectShip6),
-      MapKey::IsDown(GameFunction::SelectShip7),
-      MapKey::IsDown(GameFunction::SelectShip8),
-  });
+  const auto ship_select_request = ship_select_request_from_runtime_bindings(runtime_dispatch_plan);
 
   if (HandleShipSelection(ship_select_request)) {
     return true;
@@ -472,7 +476,8 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   if (!is_in_chat) {
     if (!Key::IsInputFocused()) {
       // SelectCurrent — locate active fleet
-      if (MapKey::IsDown(GameFunction::SelectCurrent)) {
+      if (first_runtime_binding_winner(runtime_dispatch_plan, kHotkeySelectCurrentActions)
+          == input_binding::InputActionId::SelectCurrent) {
         auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
         if (fleet_bar) {
           auto fleet = fleet_bar->_fleetPanelController->fleet;
@@ -544,9 +549,8 @@ bool hotkey_router_screen_update(ScreenManager* _this)
                                                                : MapKey::IsDown(entry.game_function);
         if (active) {
           auto decision = entry.handler();
-          auto action = hotkey_router_dispatch_action(true,
-                                                      decision == DispatchDecision::HandledStop,
-                                                      decision == DispatchDecision::HandledAllowOriginal);
+          auto action   = hotkey_router_dispatch_action(true, decision == DispatchDecision::HandledStop,
+                                                        decision == DispatchDecision::HandledAllowOriginal);
           if (action == HotkeyRouterDispatchAction::SuppressOriginal) {
             return false;
           }
@@ -574,14 +578,11 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   if (!Key::IsInputFocused()) {
     const auto simple_fleet_action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeySimpleFleetActions);
     const auto space_action_inputs = hotkey_router_runtime_space_action_inputs(
-        runtime_binding_winner_present(runtime_dispatch_plan,
-                                       input_binding::InputActionId::FleetPrimary,
+        runtime_binding_winner_present(runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary,
                                        input_binding::InputLayer::Fleet),
-        runtime_binding_winner_present(runtime_dispatch_plan,
-                                       input_binding::InputActionId::FleetSecondary,
+        runtime_binding_winner_present(runtime_dispatch_plan, input_binding::InputActionId::FleetSecondary,
                                        input_binding::InputLayer::Fleet),
-        runtime_binding_winner_present(runtime_dispatch_plan,
-                                       input_binding::InputActionId::FleetService,
+        runtime_binding_winner_present(runtime_dispatch_plan, input_binding::InputActionId::FleetService,
                                        input_binding::InputLayer::Fleet));
 
     // Escape to hide object viewers
@@ -590,8 +591,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
     }
 
     // Dismiss golden rewards screen
-    if (Key::Pressed(KeyCode::Escape)
-        || space_action_inputs.primary) {
+    if (Key::Pressed(KeyCode::Escape) || space_action_inputs.primary) {
       if (TryDismissRewardsScreen()) {
         return false;
       }
@@ -606,7 +606,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       if (Hub::IsInSystemOrGalaxyOrStarbase() && !Hub::IsInChat() && !Key::IsInputFocused()) {
         auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
         if (fleet_bar) {
-          bool was_forced = force_space_action_next_frame;
+          bool was_forced          = force_space_action_next_frame;
           auto deferred_generation = DeferredSpaceActionGeneration();
           ExecuteSpaceAction(fleet_bar, space_action_inputs);
           if (was_forced && DeferredSpaceActionGeneration() == deferred_generation) {
@@ -631,21 +631,13 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 // ─── Hook Delegate Functions ─────────────────────────────────────────────────────────
 
 bool hotkey_router_should_call_original_initialize_actions()
-{
-  return should_call_original_initialize_actions(ScopelyShortcutsPolicy());
-}
+{ return should_call_original_initialize_actions(ScopelyShortcutsPolicy()); }
 
 bool hotkey_router_should_call_original_screen_update(bool routerAllowsOriginal)
-{
-  return should_call_original_screen_update(routerAllowsOriginal, OriginalFramePolicySetting());
-}
+{ return should_call_original_screen_update(routerAllowsOriginal, OriginalFramePolicySetting()); }
 
 void hotkey_router_bind_context(RewardsButtonWidget* _this)
-{
-  HandleCargoBindContext(_this);
-}
+{ HandleCargoBindContext(_this); }
 
 void hotkey_router_show_fleet(PreScanTargetWidget* _this)
-{
-  HandleCargoShowFleet(_this);
-}
+{ HandleCargoShowFleet(_this); }

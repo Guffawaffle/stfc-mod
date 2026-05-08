@@ -10,6 +10,7 @@
 #include "patches/fleet_input_policy.h"
 #include "patches/input_binding/input_binding.h"
 #include "patches/input_binding/input_config_bridge.h"
+#include "patches/input_binding/input_dispatcher.h"
 #include "patches/live_debug_event_store.h"
 #include "patches/live_debug_fleet_serializers.h"
 #include "patches/live_debug_recent_event_requests.h"
