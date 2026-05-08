@@ -6,7 +6,7 @@ Sample source: live `community_patch.log` impact rows emitted by `debug.mod_impa
 
 ## Summary
 
-The current sample confirms that the mod does process several hooks every frame. The measured mod-owned time is small relative to a 60 FPS frame budget, but it is not zero. The clearest improvement opportunity is the live-debug channel: with `debug.live_query = true`, `ScreenManager.Update` calls the live-debug tick every frame, and the steady cost is dominated by that path.
+The original sample confirmed that the mod processes several hooks every frame. The measured mod-owned time was small relative to a 60 FPS frame budget, but it was not zero. The clearest improvement opportunity was the live-debug channel: with `debug.live_query = true`, `ScreenManager.Update` calls the live-debug tick every frame, and before the throttle the steady cost was dominated by that path.
 
 The sample does not point at zoom, pan, or UI scale as the primary source of glitchiness. Their steady costs are low. The biggest non-live-debug risk is `AspectRatioConstraintHandler::Update`, because it runs every frame and occasionally spikes into multi-millisecond territory while doing Win32 and Unity screen/resolution queries.
 
@@ -26,6 +26,17 @@ The aggregate below is weighted by sample count across all observed reporting wi
 
 The frame tick probes report about 600-715 samples per five-second window, so this game state is producing roughly 120-143 update calls per second. At 60 FPS, 100 us is roughly 0.6% of a 16.67 ms frame budget. At 120 FPS, it is roughly 1.2% of an 8.33 ms budget. That is acceptable for diagnostics, but it is high enough that always-on diagnostic polling should remain opt-in.
 
+## Follow-Up: Three-Second Live Query Poll
+
+A follow-up change throttled `live_debug_process_request_cycle()` to once every three seconds from `live_debug_tick()`. The deploy was verified with a fresh DLL hash, `ax debug-send -Cmd ping` returned successfully, and the post-throttle impact sample showed the intended drop:
+
+| Probe | Before weighted avg | After weighted avg | Notes |
+|---|---:|---:|---|
+| `frame_tick.live_debug` | ~85-100 us | ~2 us | Idle live-query path no longer performs a filesystem check every frame. |
+| `frame_tick.total` | ~98-120 us | ~13-15 us | Remaining cost is mostly hotkey routing plus cheap live-debug time checks. |
+
+Operational impact: AX/live-debug commands can now take up to three seconds to execute, depending on where the command lands in the poll interval. This matches the expected diagnostic use case and is a large steady-state frame-cost reduction.
+
 ## Code-Backed Findings
 
 ### 1. Live Debug Polls the Filesystem Every Frame
@@ -38,16 +49,15 @@ Relevant path:
 - `mods/src/patches/parts/live_debug.cc`
 - `mods/src/patches/parts/live_debug_connector.cc`
 
-With `debug.live_query = true`, `live_debug_tick()` runs every frame. In the current build, most UI polling inside `live_debug_tick()` is compile-time disabled, but the tick still calls `live_debug_process_request_cycle()` every frame. That function performs a `std::filesystem::exists()` check for `community_patch_debug.cmd` on every frame and only then returns.
+With `debug.live_query = true`, `live_debug_tick()` runs every frame. In the originally sampled build, most UI polling inside `live_debug_tick()` was compile-time disabled, but the tick still called `live_debug_process_request_cycle()` every frame. That function performed a `std::filesystem::exists()` check for `community_patch_debug.cmd` on every frame and only then returned.
 
 That matches the sample: `frame_tick.live_debug` accounts for most of `frame_tick.total` average cost. The average is consistent with repeated negative filesystem checks on Windows.
 
-Improvement candidates:
+Follow-up status:
 
-1. Throttle `live_debug_process_request_cycle()` to a small interval, for example 50-100 ms, instead of every frame. AX/live-query latency would remain acceptable while eliminating most steady frame cost.
-2. Split `debug.live_query` into request serving and frame observation modes. File request polling does not need to be tied to every `ScreenManager.Update` tick.
-3. Add a runtime-visible warning when `debug.live_query = true`, similar to the impact monitor toggle, because it is diagnostic infrastructure with measurable frame cost.
-4. Consider a cheap timestamp gate before `std::filesystem::exists()` so the common no-request path avoids OS filesystem work.
+1. `live_debug_process_request_cycle()` is now throttled to a three-second cadence, removing almost all steady frame-owned filesystem checks.
+2. A remaining cleanup option is to split `debug.live_query` into request serving and frame observation modes. File request polling does not need to be structurally tied to every `ScreenManager.Update` tick.
+3. Another remaining option is to add a runtime-visible warning when `debug.live_query = true`, similar to the impact monitor toggle, because it is diagnostic infrastructure with measurable frame cost.
 
 Priority: high. This is the largest steady-state cost in the sample and the easiest to make less frame-owned.
 
@@ -120,13 +130,12 @@ Priority: low for performance based on this sample. Keep them monitored, but do 
 
 ## Recommended Next Work
 
-1. Add a throttle to `live_debug_process_request_cycle()` from `live_debug_tick()`, with pure tests around the gate if practical. Start with 50 ms or 100 ms.
-2. Re-sample with `debug.live_query = true` after throttling. The expected result is that `frame_tick.live_debug` drops from roughly 85 us to low single-digit average cost when no AX request is pending.
-3. Add an aspect-ratio repair cadence or state gate. Re-sample while toggling fullscreen/windowed states to verify spike reduction.
-4. Keep the unified input dispatcher work moving, but do not treat hotkeys as the likely primary cause of the current glitchiness unless a later sample with live-debug disabled shows otherwise.
+1. Add an aspect-ratio repair cadence or state gate. Re-sample while toggling fullscreen/windowed states to verify spike reduction.
+2. Keep the unified input dispatcher work moving, but do not treat hotkeys as the likely primary cause of the current glitchiness unless a later sample with live-debug disabled shows otherwise.
+3. If AX/live-debug command latency becomes annoying, make the request poll interval configurable while keeping the default above frame cadence.
 
 ## Operational Notes
 
 1. `debug.mod_impact_monitor` should stay off by default. It is useful for diagnosis, but it adds instrumentation and log writes every five seconds.
-2. `debug.live_query` should be treated as a development/AX feature, not a normal gameplay feature, until the per-frame file polling is throttled.
+2. `debug.live_query` should be treated as a development/AX feature, not a normal gameplay feature; with the three-second poll throttle, commands can take up to three seconds to execute.
 3. Any future live sample should record whether the game is boot/menu/system/galaxy and whether AX live-query commands are active. The current sample includes both early and navigation-present phases, so the aggregate is useful but not a controlled benchmark.

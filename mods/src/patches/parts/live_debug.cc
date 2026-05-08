@@ -102,12 +102,25 @@ constexpr bool kEnableLiveDebugTopCanvasPolling = true;
 constexpr bool kEnableLiveDebugStationWarningPolling = false;
 constexpr bool kEnableLiveDebugNavigationInteractionPolling = false;
 constexpr bool kEnableLiveDebugObserverStepTrace = false;
+constexpr auto kLiveDebugRequestPollInterval = std::chrono::seconds(3);
 bool g_ui_observer_trace_current_poll = false;
 int g_ui_observer_trace_budget = 4000;
 void append_navigation_hook_actionable_follow_up_event(const NavigationInteractionObservation& previous,
                                                        const NavigationInteractionObservation& current);
 void append_navigation_poll_actionable_event(const NavigationInteractionObservation& previous,
                                              const NavigationInteractionObservation& current);
+
+bool should_poll_live_debug_request_channel()
+{
+  static auto next_poll = std::chrono::steady_clock::time_point{};
+  const auto  now       = std::chrono::steady_clock::now();
+  if (now < next_poll) {
+    return false;
+  }
+
+  next_poll = now + kLiveDebugRequestPollInterval;
+  return true;
+}
 
 std::filesystem::path get_live_debug_path(std::string_view filename)
 {
@@ -1038,7 +1051,9 @@ void live_debug_tick(ScreenManager*)
         "tick/after-flush", pending_note.phase, pending_note.controller, pending_note.sender, pending_note.callbackContext);
   }
 
-  live_debug_process_request_cycle();
+  if (should_poll_live_debug_request_channel()) {
+    live_debug_process_request_cycle();
+  }
 }
 
 void live_debug_record_space_action_warp_cancel(FleetBarViewController* fleet_bar, FleetPlayerData* fleet,
