@@ -105,6 +105,36 @@ DispatchPlan PlanDispatchSnapshot(const CompileResult& compile,
   return plan;
 }
 
+std::vector<KeyCode> WatchedKeysForActions(const CompileResult& compile,
+                                           const InputPhase phase,
+                                           const std::span<const InputActionId> actions)
+{
+  std::vector<KeyCode> watched_keys;
+  std::array<bool, static_cast<size_t>(KeyCode::Max) + 1> seen_keys{};
+
+  watched_keys.reserve(compile.bindings.size());
+  for (const auto& binding : compile.bindings) {
+    if (std::ranges::find(actions, binding.action) == actions.end()) {
+      continue;
+    }
+
+    const auto* spec = FindActionSpec(binding.action);
+    if (!spec || spec->phase != phase || binding.chord.key == KeyCode::None) {
+      continue;
+    }
+
+    const auto key_index = static_cast<size_t>(binding.chord.key);
+    if (seen_keys[key_index]) {
+      continue;
+    }
+
+    seen_keys[key_index] = true;
+    watched_keys.push_back(binding.chord.key);
+  }
+
+  return watched_keys;
+}
+
 ExecutionDecision CombineExecutionDecisions(const std::span<const ExecutionDecision> decisions)
 {
   bool allow_original = false;

@@ -444,6 +444,7 @@ CompileResult CompileBindingSet(const std::span<const BindingOverride> overrides
 
   CompileResult                result;
   std::vector<RegisteredChord> registered_chords;
+  result.bindings.reserve(ActionSpecs().size());
 
   for (const auto& spec : ActionSpecs()) {
     const auto binding_text = find_override(overrides, spec.id).value_or(spec.default_bind);
@@ -474,6 +475,7 @@ CompileResult CompileBindingSet(const std::span<const BindingOverride> overrides
         result.diagnostics.push_back({DiagnosticSeverity::Error, "Binding conflict", result.bound_chord_count, spec.id});
       }
 
+      result.bindings.push_back({spec.id, chord, spec.trigger_mode, spec.priority});
       result.index.Register(spec.id, chord, spec.trigger_mode, spec.priority);
       registered_chords.push_back({spec.id, std::move(chord), spec.trigger_mode, spec.conflict_group});
       ++result.bound_chord_count;

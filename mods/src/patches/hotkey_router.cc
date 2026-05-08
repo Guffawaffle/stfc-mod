@@ -16,6 +16,8 @@
 #include "patches/cargo_display.h"
 #include "patches/fleet_actions.h"
 #include "patches/hotkey_dispatch.h"
+#include "patches/input_binding/input_dispatcher.h"
+#include "patches/input_binding/input_runtime_bindings.h"
 #include "patches/key.h"
 #include "patches/mapkey.h"
 #include "patches/navigation.h"
@@ -39,6 +41,77 @@
 #include <spdlog/spdlog.h>
 
 #include <array>
+#include <vector>
+
+namespace {
+constexpr std::array kHotkeyStartupActions{
+    input_binding::InputActionId::HotkeysDisable,
+    input_binding::InputActionId::HotkeysEnable,
+};
+
+input_binding::ModifierMask held_modifier_mask()
+{
+  input_binding::ModifierMask modifiers;
+  for (const auto modifier_key : {KeyCode::LeftShift,
+                                  KeyCode::RightShift,
+                                  KeyCode::LeftControl,
+                                  KeyCode::RightControl,
+                                  KeyCode::LeftAlt,
+                                  KeyCode::RightAlt,
+                                  KeyCode::LeftWindows,
+                                  KeyCode::RightWindows,
+                                  KeyCode::LeftCommand,
+                                  KeyCode::RightCommand,
+                                  KeyCode::AltGr}) {
+    if (Key::Pressed(modifier_key)) {
+      modifiers.Merge(input_binding::ModifierMask::FromPressedKey(modifier_key));
+    }
+  }
+
+  return modifiers;
+}
+
+std::vector<input_binding::DispatchKeyState> build_dispatch_key_snapshot(std::span<const KeyCode> watched_keys)
+{
+  auto key_states = std::vector<input_binding::DispatchKeyState>{};
+  key_states.reserve(watched_keys.size());
+
+  const auto modifiers = held_modifier_mask();
+  for (const auto key : watched_keys) {
+    key_states.push_back({key, modifiers, Key::Down(key), Key::Pressed(key)});
+  }
+
+  return key_states;
+}
+
+HotkeyRouterStartupAction startup_action_from_runtime_bindings(bool use_scopely_hotkeys, bool hotkeys_enabled)
+{
+  const auto& runtime_bindings = input_binding::RuntimeBindingModel();
+  const auto watched_keys = input_binding::WatchedKeysForActions(runtime_bindings,
+                                                                 input_binding::InputPhase::Frame,
+                                                                 kHotkeyStartupActions);
+  const auto key_states = build_dispatch_key_snapshot(watched_keys);
+  const auto plan = input_binding::PlanDispatchSnapshot(runtime_bindings,
+                                                        input_binding::InputPhase::Frame,
+                                                        input_binding::ActiveLayers::Only(input_binding::InputLayer::Global),
+                                                        key_states);
+
+  bool disable_hotkeys_pressed = false;
+  bool enable_hotkeys_pressed = false;
+  for (const auto& winner : plan.winners) {
+    if (winner.action == input_binding::InputActionId::HotkeysDisable) {
+      disable_hotkeys_pressed = true;
+    } else if (winner.action == input_binding::InputActionId::HotkeysEnable) {
+      enable_hotkeys_pressed = true;
+    }
+  }
+
+  return hotkey_router_startup_action(disable_hotkeys_pressed,
+                                      enable_hotkeys_pressed,
+                                      use_scopely_hotkeys,
+                                      hotkeys_enabled);
+}
+}
 
 // ─── Main Per-Frame Hotkey Router ─────────────────────────────────────────────────────
 
@@ -47,10 +120,8 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 {
   Key::ResetCache();
 
-  switch (hotkey_router_startup_action(MapKey::IsDown(GameFunction::DisableHotKeys),
-                                       MapKey::IsDown(GameFunction::EnableHotKeys),
-                                       Config::Get().use_scopely_hotkeys,
-                                       Config::Get().hotkeys_enabled)) {
+  switch (startup_action_from_runtime_bindings(Config::Get().use_scopely_hotkeys,
+                                               Config::Get().hotkeys_enabled)) {
     case HotkeyRouterStartupAction::DisableHotkeys:
       Config::Get().hotkeys_enabled = false;
       spdlog::warn("Setting hotkeys to DISABLED");

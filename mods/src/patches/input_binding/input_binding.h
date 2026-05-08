@@ -188,6 +188,7 @@ struct BindingConflict {
 
 struct CompileResult {
   BindingIndex                   index;
+  std::vector<CompiledBinding>   bindings;
   std::vector<BindingDiagnostic> diagnostics;
   std::vector<BindingConflict>   conflicts;
   size_t                         bound_chord_count = 0;

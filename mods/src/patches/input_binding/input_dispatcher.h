@@ -63,6 +63,8 @@ enum class ExecutionDecision : uint8_t {
                                                 ActiveLayers active_layers,
                                                 std::span<const DispatchKeyState> key_states,
                                                 bool allow_extra_modifiers = false);
+[[nodiscard]] std::vector<KeyCode> WatchedKeysForActions(const CompileResult& compile, InputPhase phase,
+                                                         std::span<const InputActionId> actions);
 [[nodiscard]] ExecutionDecision CombineExecutionDecisions(std::span<const ExecutionDecision> decisions);
 
 } // namespace input_binding

@@ -2,6 +2,7 @@
 
 #include "patches/input_binding/input_binding.h"
 #include "patches/input_binding/input_dispatcher.h"
+#include "testable_functions.h"
 
 #include <array>
 
@@ -127,5 +128,65 @@ TEST_SUITE("input_dispatcher")
     REQUIRE(plan.winners.size() == 2);
     CHECK(plan.winners[0].conflict_group == input_binding::ConflictGroup::GlobalControl);
     CHECK(plan.winners[1].action == input_binding::InputActionId::FleetQueueClear);
+  }
+
+  TEST_CASE("watched keys are limited to requested actions and phase")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::HotkeysDisable, "F1|CTRL-MOUSE1"},
+        input_binding::BindingOverride{input_binding::InputActionId::HotkeysEnable, "F2"},
+        input_binding::BindingOverride{input_binding::InputActionId::ZoomIn, "Q"},
+    };
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+
+    const std::array actions{
+        input_binding::InputActionId::HotkeysDisable,
+        input_binding::InputActionId::HotkeysEnable,
+    };
+
+    const auto watched_keys = input_binding::WatchedKeysForActions(compiled,
+                                                                   input_binding::InputPhase::Frame,
+                                                                   actions);
+    REQUIRE(watched_keys.size() == 3);
+    CHECK(watched_keys[0] == KeyCode::F1);
+    CHECK(watched_keys[1] == KeyCode::Mouse1);
+    CHECK(watched_keys[2] == KeyCode::F2);
+
+    const auto zoom_keys = input_binding::WatchedKeysForActions(compiled,
+                                                                input_binding::InputPhase::NavigationZoomUpdate,
+                                                                std::array{input_binding::InputActionId::ZoomIn});
+    REQUIRE(zoom_keys.size() == 1);
+    CHECK(zoom_keys[0] == KeyCode::Q);
+  }
+
+  TEST_CASE("snapshot dispatcher winners can drive startup hotkey decisions")
+  {
+    const auto compiled = input_binding::CompileBindingSet();
+
+    auto modifiers = input_binding::ModifierMask{};
+    modifiers.AddLogical(input_binding::ModifierGroup::Ctrl);
+    modifiers.AddLogical(input_binding::ModifierGroup::Alt);
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::Minus, modifiers, true, true},
+        input_binding::DispatchKeyState{KeyCode::Equals, modifiers, false, false},
+    };
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled,
+                                                          input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::Only(input_binding::InputLayer::Global),
+                                                          key_states);
+
+    bool disable_hotkeys_pressed = false;
+    bool enable_hotkeys_pressed = false;
+    for (const auto& winner : plan.winners) {
+      if (winner.action == input_binding::InputActionId::HotkeysDisable) {
+        disable_hotkeys_pressed = true;
+      } else if (winner.action == input_binding::InputActionId::HotkeysEnable) {
+        enable_hotkeys_pressed = true;
+      }
+    }
+
+    CHECK(hotkey_router_startup_action(disable_hotkeys_pressed, enable_hotkeys_pressed, false, true)
+          == HotkeyRouterStartupAction::DisableHotkeys);
   }
 }
