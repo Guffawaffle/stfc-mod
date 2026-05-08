@@ -34,6 +34,7 @@ enum class FleetPrimaryOutcome {
   Engage,
   ArmadaAttack,
   JoinArmada,
+  ArmadaJoinUnavailable,
   WarpToNode,
   SetCourse,
   DeferUntilTargetResolved,

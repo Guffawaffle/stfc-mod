@@ -424,9 +424,20 @@ TEST_SUITE("fleet_input_policy")
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::ArmadaAttack);
 
     input = {};
+  input.navigation_interaction_visible = true;
     input.armada_widget_visible = true;
     input.armada_join_interactable = true;
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::JoinArmada);
+
+  input = {};
+  input.navigation_interaction_visible = true;
+  input.armada_widget_visible = true;
+  CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::ArmadaJoinUnavailable);
+
+  input = {};
+  input.armada_widget_visible = true;
+  input.armada_join_interactable = true;
+  CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::None);
 
     input = {};
     input.star_node_visible = true;
@@ -500,6 +511,7 @@ TEST_SUITE("fleet_input_policy")
   TEST_CASE("outcome names are stable for diagnostics")
   {
     CHECK(FleetPrimaryOutcomeName(FleetPrimaryOutcome::AddToQueue) == "add-to-queue");
+    CHECK(FleetPrimaryOutcomeName(FleetPrimaryOutcome::ArmadaJoinUnavailable) == "join-armada-unavailable");
     CHECK(FleetSecondaryOutcomeName(FleetSecondaryOutcome::ScanMining) == "scan-mining");
     CHECK(FleetServiceOutcomeName(FleetServiceOutcome::Repair) == "repair");
   }

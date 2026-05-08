@@ -680,38 +680,41 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
     }
 
     if (runtime_context.visible_pre_scan_target_count == 0 && has_physical_primary) {
-      if (DecideFleetPrimary({ToFleetInputState(fleet->CurrentState), FleetInputHullType::Any,
-                              Key::Down(KeyCode::Mouse1), false, false, false, false,
-                              false, runtime_context.mining_viewer_visible, false, false,
-                              false, false, false, false}) == FleetPrimaryOutcome::Mine) {
-        diagnostics.Complete("mine-viewer");
-        runtime_context.mining_viewer_widget->MineClicked();
-        return;
-      }
+      auto armada_join_button = runtime_context.armada_widget && runtime_context.armada_visible
+          ? runtime_context.armada_widget->__get__joinContext()
+          : nullptr;
 
-      if (DecideFleetPrimary({ToFleetInputState(fleet->CurrentState), FleetInputHullType::Any,
-                              Key::Down(KeyCode::Mouse1), false, false, false, false,
-                              false, false, runtime_context.star_node_visible, false,
-                              false, false, false, false}) == FleetPrimaryOutcome::WarpToNode) {
-        runtime_context.star_node_viewer_widget->InitiateWarp();
-        diagnostics.Complete("warp-star-node");
-        return;
-      }
+      FleetPrimaryDecisionInput primary_input;
+      primary_input.fleet_state = ToFleetInputState(fleet->CurrentState);
+      primary_input.primary_is_mouse = Key::Down(KeyCode::Mouse1);
+      primary_input.mining_viewer_visible = runtime_context.mining_viewer_visible;
+      primary_input.star_node_visible = runtime_context.star_node_visible;
+      primary_input.navigation_interaction_visible = runtime_context.navigation_interaction_visible;
+      primary_input.armada_widget_visible = runtime_context.armada_widget && runtime_context.armada_visible;
+      primary_input.armada_join_interactable = armada_join_button && armada_join_button->Interactable;
 
-      if (runtime_context.navigation_interaction_visible) {
-        if (runtime_context.armada_widget && runtime_context.armada_visible) {
-          auto button = runtime_context.armada_widget->__get__joinContext();
-          if (button && button->Interactable) {
-            diagnostics.Complete("join-armada");
-            runtime_context.armada_widget->ValidateThenJoinArmada();
-            return;
-          }
-          diagnostics.SetOutcome(button ? "join-armada-not-interactable" : "join-armada-button-missing");
-        } else {
+      switch (DecideFleetPrimary(primary_input)) {
+        case FleetPrimaryOutcome::Mine:
+          diagnostics.Complete("mine-viewer");
+          runtime_context.mining_viewer_widget->MineClicked();
+          return;
+        case FleetPrimaryOutcome::JoinArmada:
+          diagnostics.Complete("join-armada");
+          runtime_context.armada_widget->ValidateThenJoinArmada();
+          return;
+        case FleetPrimaryOutcome::ArmadaJoinUnavailable:
+          diagnostics.SetOutcome(armada_join_button ? "join-armada-not-interactable" : "join-armada-button-missing");
+          break;
+        case FleetPrimaryOutcome::WarpToNode:
+          runtime_context.star_node_viewer_widget->InitiateWarp();
+          diagnostics.Complete("warp-star-node");
+          return;
+        case FleetPrimaryOutcome::SetCourse:
           diagnostics.Complete("set-course");
           runtime_context.navigation_ui_controller->OnSetCourseButtonClick();
           return;
-        }
+        default:
+          break;
       }
     }
 

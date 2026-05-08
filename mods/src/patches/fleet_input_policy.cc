@@ -69,8 +69,12 @@ FleetPrimaryOutcome DecideFleetPrimary(const FleetPrimaryDecisionInput& input) n
     return FleetPrimaryOutcome::Engage;
   }
 
-  if (input.armada_widget_visible && input.armada_join_interactable) {
+  if (input.navigation_interaction_visible && input.armada_widget_visible && input.armada_join_interactable) {
     return FleetPrimaryOutcome::JoinArmada;
+  }
+
+  if (input.navigation_interaction_visible && input.armada_widget_visible) {
+    return FleetPrimaryOutcome::ArmadaJoinUnavailable;
   }
 
   if (input.star_node_visible) {
@@ -137,6 +141,8 @@ std::string_view FleetPrimaryOutcomeName(const FleetPrimaryOutcome outcome) noex
       return "armada-attack";
     case FleetPrimaryOutcome::JoinArmada:
       return "join-armada";
+    case FleetPrimaryOutcome::ArmadaJoinUnavailable:
+      return "join-armada-unavailable";
     case FleetPrimaryOutcome::WarpToNode:
       return "warp-to-node";
     case FleetPrimaryOutcome::SetCourse:
