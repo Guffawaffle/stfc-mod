@@ -47,6 +47,12 @@ bool     HandleShipSelection(int ship_select_request);
 void     ExecuteSpaceAction(FleetBarViewController* fleet_bar);
 
 /**
+ * @brief Clear the queued actions for the currently selected fleet.
+ * @param fleet_bar The active FleetBarViewController.
+ */
+void     ClearFleetActionQueue(FleetBarViewController* fleet_bar);
+
+/**
  * @brief Attempt to recall the currently selected fleet.
  * @param fleet_bar The active FleetBarViewController.
  * @return true if recall was successfully requested.

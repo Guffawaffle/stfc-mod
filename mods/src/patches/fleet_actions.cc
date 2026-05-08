@@ -365,6 +365,17 @@ bool DidExecuteRepair(FleetBarViewController* fleet_bar)
                                                      FleetState::Repairing);
 }
 
+void ClearFleetActionQueue(FleetBarViewController* fleet_bar)
+{
+  if (!fleet_bar || !fleet_bar->_fleetPanelController || !fleet_bar->_fleetPanelController->fleet) {
+    return;
+  }
+
+  if (auto action_queue = ActionQueueManager::Instance(); action_queue) {
+    action_queue->ClearQueue(fleet_bar->_fleetPanelController->fleet);
+  }
+}
+
 // ─── Space Action Execution ───────────────────────────────────────────────────────────
 
 void ExecuteSpaceAction(FleetBarViewController* fleet_bar)

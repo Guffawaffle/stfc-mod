@@ -57,6 +57,11 @@ constexpr std::array kHotkeyQueueActions{
   input_binding::InputActionId::FleetQueueToggle,
 };
 
+constexpr std::array kHotkeySimpleFleetActions{
+    input_binding::InputActionId::FleetQueueClear,
+    input_binding::InputActionId::FleetViewInfo,
+};
+
 constexpr std::array kHotkeyTableDispatchActions{
   input_binding::InputActionId::ShowQTrials,
   input_binding::InputActionId::ShowBookmarks,
@@ -106,6 +111,7 @@ constexpr std::array kHotkeyTableDispatchActions{
 constexpr auto kHotkeyFrameActions = [] {
   std::array<input_binding::InputActionId,
              kHotkeyStartupActions.size() + kHotkeyQuitActions.size() + kHotkeyQueueActions.size()
+                 + kHotkeySimpleFleetActions.size()
                  + kHotkeyTableDispatchActions.size()>
       actions{};
   auto output = actions.begin();
@@ -117,6 +123,9 @@ constexpr auto kHotkeyFrameActions = [] {
     *output++ = action;
   }
   for (const auto action : kHotkeyQueueActions) {
+    *output++ = action;
+  }
+  for (const auto action : kHotkeySimpleFleetActions) {
     *output++ = action;
   }
   for (const auto action : kHotkeyTableDispatchActions) {
@@ -359,6 +368,21 @@ HotkeyRouterDispatchAction dispatch_runtime_bound_table_action(const input_bindi
   return HotkeyRouterDispatchAction::Continue;
 }
 
+void dispatch_runtime_bound_simple_fleet_action(const input_binding::InputActionId action)
+{
+  switch (action) {
+    case input_binding::InputActionId::FleetQueueClear:
+      if (Hub::IsInSystemOrGalaxyOrStarbase() && !Hub::IsInChat()) {
+        if (auto fleet_bar = ObjectFinder<FleetBarViewController>::Get(); fleet_bar) {
+          ClearFleetActionQueue(fleet_bar);
+        }
+      }
+      break;
+    default:
+      break;
+  }
+}
+
 HotkeyRouterStartupAction startup_action_from_runtime_bindings(const input_binding::DispatchPlan& plan,
                                                                bool use_scopely_hotkeys,
                                                                bool hotkeys_enabled)
@@ -538,23 +562,31 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   }
 
   if (!Key::IsInputFocused()) {
+    const auto simple_fleet_action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeySimpleFleetActions);
+
     // Escape to hide object viewers
     if (Key::Pressed(KeyCode::Escape) && DidHideViewers()) {
       return false;
     }
 
     // Dismiss golden rewards screen
-    if (MapKey::IsDown(GameFunction::ActionPrimary) || Key::Pressed(KeyCode::Escape)) {
+    if (Key::Pressed(KeyCode::Escape)
+        || (simple_fleet_action == input_binding::InputActionId::Max && MapKey::IsDown(GameFunction::ActionPrimary))) {
       if (TryDismissRewardsScreen()) {
         return false;
       }
     }
 
+    if (simple_fleet_action == input_binding::InputActionId::FleetQueueClear) {
+      dispatch_runtime_bound_simple_fleet_action(simple_fleet_action);
+    }
+
     // Space actions (engage, scan, recall, repair, queue, etc.)
-    if (MapKey::IsDown(GameFunction::ActionPrimary) || MapKey::IsDown(GameFunction::ActionSecondary)
-        || MapKey::IsDown(GameFunction::ActionRecall) || MapKey::IsDown(GameFunction::ActionRepair)
-        || MapKey::IsDown(GameFunction::ActionQueue) || MapKey::IsDown(GameFunction::ActionQueueClear)
-        || force_space_action_next_frame) {
+    if (simple_fleet_action == input_binding::InputActionId::Max
+        && (MapKey::IsDown(GameFunction::ActionPrimary) || MapKey::IsDown(GameFunction::ActionSecondary)
+            || MapKey::IsDown(GameFunction::ActionRecall) || MapKey::IsDown(GameFunction::ActionRepair)
+            || MapKey::IsDown(GameFunction::ActionQueue) || MapKey::IsDown(GameFunction::ActionQueueClear)
+            || force_space_action_next_frame)) {
       if (Hub::IsInSystemOrGalaxyOrStarbase() && !Hub::IsInChat() && !Key::IsInputFocused()) {
         auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
         if (fleet_bar) {
@@ -569,7 +601,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
     }
 
     // ActionView — toggle cargo/rewards info panel
-    if (MapKey::IsDown(GameFunction::ActionView)) {
+    if (simple_fleet_action == input_binding::InputActionId::FleetViewInfo) {
       HandleActionView();
     }
 

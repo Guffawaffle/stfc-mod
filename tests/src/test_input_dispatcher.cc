@@ -176,6 +176,30 @@ TEST_SUITE("input_dispatcher")
     CHECK(plan.winners[0].action == input_binding::InputActionId::ShowSettings);
   }
 
+  TEST_CASE("snapshot dispatcher keeps fleet queue clear ahead of other simple fleet actions")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::FleetViewInfo, "F1"},
+        input_binding::BindingOverride{input_binding::InputActionId::FleetQueueClear, "F2"},
+        input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "F3"},
+    };
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::F1, {}, true, true},
+        input_binding::DispatchKeyState{KeyCode::F2, {}, true, true},
+        input_binding::DispatchKeyState{KeyCode::F3, {}, true, true},
+    };
+
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled,
+                                                          input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(),
+                                                          key_states);
+    REQUIRE(plan.candidates.size() == 3);
+    REQUIRE(plan.winners.size() == 1);
+    CHECK(plan.winners[0].action == input_binding::InputActionId::FleetQueueClear);
+  }
+
   TEST_CASE("watched keys are limited to requested actions and phase")
   {
     const std::array overrides{
