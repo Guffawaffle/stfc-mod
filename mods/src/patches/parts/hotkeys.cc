@@ -24,6 +24,7 @@
 #include "testable_functions.h"
 
 #include "prime/ChatMessageListLocalViewController.h"
+#include "prime/NavigationInteractionUIViewController.h"
 #include "prime/PreScanTargetWidget.h"
 
 namespace {
@@ -31,6 +32,7 @@ constexpr bool kEnableShortcutInitializeHook = true;
 constexpr bool kEnableRewardsButtonHook = true;
 constexpr bool kEnablePreScanTargetHook = true;
 constexpr bool kEnableSectionManagerBackButtonHook = true;
+constexpr bool kEnableNavigationSetCourseHook = true;
 
 const char* initialize_actions_reason()
 {
@@ -79,6 +81,67 @@ constexpr HookDescriptor kSectionManagerExitSectionDependency = {
   {"Assembly-CSharp", "Digit.Client.Sections", "SectionManager", "InBackButtonExitSection"},
   "disable_escape_exit may suppress non-exit back navigation or fail open",
 };
+
+constexpr HookDescriptor kNavigationSetCourseHook = {
+  "NavigationInteractionUIViewController.OnSetCourseButtonClick",
+  "suppress rapid duplicate set-course submissions for the same navigation target",
+  {"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationInteractionUIViewController", "OnSetCourseButtonClick"},
+  "rapid repeated location actions may trigger server 429 errors",
+};
+
+struct SetCourseSubmission {
+  uintptr_t                              target_identity = 0;
+  std::chrono::steady_clock::time_point submitted_at{};
+};
+
+constexpr auto kDuplicateSetCourseSuppressionWindow = std::chrono::milliseconds(750);
+constexpr auto kSetCourseSubmissionSource = uint64_t{1};
+
+SetCourseSubmission last_set_course_submission;
+
+uintptr_t navigation_target_identity(NavigationInteractionUIViewController* navigation_ui_controller)
+{
+  if (!navigation_ui_controller) {
+    return 0;
+  }
+
+  auto context = navigation_ui_controller->CanvasContext;
+  if (!context) {
+    return reinterpret_cast<uintptr_t>(navigation_ui_controller);
+  }
+
+  if (context->Poi) {
+    return reinterpret_cast<uintptr_t>(context->Poi);
+  }
+
+  if (context->LocationTranslationId > 0) {
+    return static_cast<uintptr_t>(context->LocationTranslationId);
+  }
+
+  return reinterpret_cast<uintptr_t>(context);
+}
+
+bool should_suppress_duplicate_set_course(NavigationInteractionUIViewController* navigation_ui_controller)
+{
+  const auto target_identity = navigation_target_identity(navigation_ui_controller);
+  const auto now = std::chrono::steady_clock::now();
+  const auto elapsed_ms = last_set_course_submission.submitted_at == std::chrono::steady_clock::time_point{}
+      ? int64_t{-1}
+      : std::chrono::duration_cast<std::chrono::milliseconds>(now - last_set_course_submission.submitted_at).count();
+
+  if (space_action_duplicate_submission_should_suppress(kSetCourseSubmissionSource,
+                                                        last_set_course_submission.target_identity,
+                                                        kSetCourseSubmissionSource,
+                                                        target_identity,
+                                                        elapsed_ms,
+                                                        kDuplicateSetCourseSuppressionWindow.count())) {
+    spdlog::debug("[Hotkeys] Suppressed duplicate set-course target={} elapsed_ms={}", target_identity, elapsed_ms);
+    return true;
+  }
+
+  last_set_course_submission = {target_identity, now};
+  return false;
+}
 
 bool is_back_button_exit_section(void* section_manager)
 {
@@ -164,6 +227,16 @@ void ShowWithFleet_Hook(auto original, PreScanTargetWidget* _this, void* a1)
 void SectionManager_BackButtonPressed_Hook(auto original, void* _this)
 {
   if (should_suppress_escape_exit_back_button(_this)) {
+    return;
+  }
+
+  original(_this);
+}
+
+void NavigationInteractionUIViewController_OnSetCourseButtonClick_Hook(auto original,
+                                                                       NavigationInteractionUIViewController* _this)
+{
+  if (should_suppress_duplicate_set_course(_this)) {
     return;
   }
 
@@ -275,6 +348,26 @@ void InstallHotkeyHooks()
     }
   } else {
     hooks.record_skipped(kSectionManagerBackButtonPressedHook, "compile-time disabled");
+  }
+
+  if (kEnableNavigationSetCourseHook) {
+    auto navigation_interaction_helper = il2cpp_get_class_helper(
+        "Assembly-CSharp", "Digit.Prime.Navigation", "NavigationInteractionUIViewController");
+    if (!navigation_interaction_helper.isValidHelper()) {
+      hooks.record_missing_helper(kNavigationSetCourseHook);
+    } else {
+      auto set_course_button_click = navigation_interaction_helper.GetMethod("OnSetCourseButtonClick");
+      if (set_course_button_click == nullptr) {
+        hooks.record_missing_method(kNavigationSetCourseHook);
+      } else {
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks,
+                                         kNavigationSetCourseHook,
+                                         set_course_button_click,
+                                         NavigationInteractionUIViewController_OnSetCourseButtonClick_Hook);
+      }
+    }
+  } else {
+    hooks.record_skipped(kNavigationSetCourseHook, "compile-time disabled");
   }
 
   hooks.log_summary();
