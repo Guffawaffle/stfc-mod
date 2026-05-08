@@ -9,6 +9,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  XMAKE_PACKAGE_CACHE_VERSION: v1
+
 jobs:
   analyze-cpp:
     name: Analyze (C/C++)
@@ -28,8 +31,21 @@ jobs:
         uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: latest
-          package-cache: true
-          package-cache-key: ${{ hashFiles('**/xmake.lua', '!macos-*/xmake.lua') }}
+
+      - name: Resolve xmake package dir
+        id: xmake-package-dir
+        shell: pwsh
+        run: |
+          $dir = xmake l -c "import(""core.package.package""); print(package.installdir())"
+          "dir=$dir" >> $env:GITHUB_OUTPUT
+
+      - name: Restore xmake package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.xmake-package-dir.outputs.dir }}
+          key: xmake-packages-${{ env.XMAKE_PACKAGE_CACHE_VERSION }}-win-${{ runner.arch }}-${{ hashFiles('xmake.lua', 'mods/xmake.lua', 'tests/xmake.lua', 'win-proxy-dll/xmake.lua', 'xmake-packages/**/*.lua') }}
+          restore-keys: |
+            xmake-packages-${{ env.XMAKE_PACKAGE_CACHE_VERSION }}-win-${{ runner.arch }}-
 
       - name: Configure & download packages
         run: xmake f -m release -y
@@ -66,8 +82,21 @@ jobs:
         uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: latest
-          package-cache: true
-          package-cache-key: ${{ hashFiles('**/xmake.lua', '!win-*/xmake.lua') }}
+
+      - name: Resolve xmake package dir
+        id: xmake-package-dir
+        shell: bash
+        run: |
+          dir="$(xmake l -c 'import("core.package.package"); print(package.installdir())')"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
+      - name: Restore xmake package cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.xmake-package-dir.outputs.dir }}
+          key: xmake-packages-${{ env.XMAKE_PACKAGE_CACHE_VERSION }}-mac-${{ runner.arch }}-${{ hashFiles('xmake.lua', 'mods/xmake.lua', 'tests/xmake.lua', 'macos-dylib/xmake.lua', 'macos-loader/xmake.lua', 'macos-launcher/xmake.lua', 'xmake-packages/**/*.lua') }}
+          restore-keys: |
+            xmake-packages-${{ env.XMAKE_PACKAGE_CACHE_VERSION }}-mac-${{ runner.arch }}-
 
       - name: Configure & download packages
         run: xmake f -p macosx -a "arm64" -m release -y --target_minver=13.5
