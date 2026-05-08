@@ -7,6 +7,7 @@
  * macOS config-path migration, and converts legacy sync options.
  */
 #include "config.h"
+#include "config_redaction.h"
 #include "config_schema.h"
 #include "file.h"
 #include "patches/input_binding/input_config_bridge.h"
@@ -498,59 +499,10 @@ void Config::AdjustUiViewerScale(bool scaleUp)
  * @return The token with interior characters replaced by '*' (preserving dashes).
  */
 inline std::string mask_token(const std::string& token)
-{
-  if (token.empty()) {
-    return "<empty>";
-  }
-
-  std::string masked = token;
-  if (token.size() > 21) {
-    for (size_t i = 9; i < token.size() - 12; ++i) {
-      if (masked[i] != '-') {
-        masked[i] = '*';
-      }
-    }
-    return masked;
-  }
-
-  if (token.size() > 8) {
-    for (size_t i = 4; i < token.size() - 4; ++i) {
-      if (masked[i] != '-') {
-        masked[i] = '*';
-      }
-    }
-    return masked;
-  }
-
-  for (auto& ch : masked) {
-    if (ch != '-') {
-      ch = '*';
-    }
-  }
-  return masked;
-}
+{ return config_redaction::mask_token_for_log(token); }
 
 inline std::string mask_proxy_for_log(const std::string& proxy)
-{
-  if (proxy.empty()) {
-    return {};
-  }
-
-  const auto scheme_pos = proxy.find("://");
-  const auto authority_start = scheme_pos == std::string::npos ? 0 : scheme_pos + 3;
-  const auto at_pos = proxy.find('@', authority_start);
-  if (at_pos == std::string::npos) {
-    return proxy;
-  }
-
-  auto masked = proxy;
-  for (auto index = authority_start; index < at_pos; ++index) {
-    if (masked[index] != ':' && masked[index] != '/') {
-      masked[index] = '*';
-    }
-  }
-  return masked;
-}
+{ return config_redaction::mask_proxy_userinfo(proxy); }
 
 /** @brief Convert a toml::node_type to a human-readable string for diagnostics. */
 std::string get_config_type_as_string(const toml::node_type type)
@@ -851,8 +803,8 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
               defaults.allow_unsafe_tls_without_certificate_validation);
 
       parsed_target.insert("url", target.url);
-      parsed_target.insert("token", target.token);
-      parsed_target.insert("proxy", target.proxy);
+      parsed_target.insert("token", config_redaction::redact_secret_for_runtime_snapshot(target.token));
+      parsed_target.insert("proxy", config_redaction::mask_proxy_userinfo(target.proxy));
       parsed_target.insert("verify_ssl", target.verify_ssl);
       parsed_target.insert("allow_unsafe_tls_without_certificate_validation",
                            target.allow_unsafe_tls_without_certificate_validation);
@@ -1306,7 +1258,11 @@ void Config::Load()
       get_config_or_default(config, parsed, "sync", "resolver_cache_ttl", DCS::resolver_cache_ttl, write_config);
 
   SyncConfig sync_defaults;
-  sync_defaults.proxy      = get_config_or_default<std::string>(config, parsed, "sync", "proxy", DCS::proxy, write_log);
+  sync_defaults.proxy      = get_config_or_default<std::string>(config, parsed, "sync", "proxy", DCS::proxy, false);
+  parsed["sync"].as_table()->insert_or_assign("proxy", config_redaction::mask_proxy_userinfo(sync_defaults.proxy));
+  if (write_log) {
+    spdlog::debug("config value sync.proxy value: {}", mask_proxy_for_log(sync_defaults.proxy));
+  }
   sync_defaults.verify_ssl = get_config_or_default(config, parsed, "sync", "verify_ssl", DCS::verify_ssl, write_config);
   sync_defaults.allow_unsafe_tls_without_certificate_validation = get_config_or_default(
       config, parsed, "sync", "allow_unsafe_tls_without_certificate_validation",
@@ -1336,8 +1292,8 @@ void Config::Load()
 
     if (this->sync_targets.emplace("default", converted_target).second) {
       toml::table default_target{{"url", sync_url.value()},
-                                 {"token", sync_token.value()},
-                                 {"proxy", converted_target.proxy},
+                                 {"token", config_redaction::redact_secret_for_runtime_snapshot(converted_target.token)},
+                                 {"proxy", config_redaction::mask_proxy_userinfo(converted_target.proxy)},
                                  {"verify_ssl", converted_target.verify_ssl},
                                  {"allow_unsafe_tls_without_certificate_validation",
                                   converted_target.allow_unsafe_tls_without_certificate_validation}};
