@@ -318,6 +318,38 @@ ConfigBridgeResult ResolveInputBindingConfig(const toml::table& config)
         candidates.push_back(
             read_candidate(shortcuts, "select_current", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
         break;
+      case InputActionId::ShowChat:
+        candidates.push_back(
+            read_candidate(shortcuts, "show_chat", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowChatSide1:
+        candidates.push_back(
+            read_candidate(shortcuts, "show_chatside1", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowChatSide2:
+        candidates.push_back(
+            read_candidate(shortcuts, "show_chatside2", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::SelectChatGlobal:
+        candidates.push_back(read_candidate(shortcuts, "select_chatglobal", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::SelectChatAlliance:
+        candidates.push_back(read_candidate(shortcuts, "select_chatalliance", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::SelectChatPrivate:
+        candidates.push_back(read_candidate(shortcuts, "select_chatprivate", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::MoveLeft:
+        candidates.push_back(
+            read_candidate(shortcuts, "move_left", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::MoveRight:
+        candidates.push_back(
+            read_candidate(shortcuts, "move_right", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
+        break;
       case InputActionId::HotkeysDisable:
         candidates.push_back(resolve_disable_hotkeys_shortcut(config, result));
         break;

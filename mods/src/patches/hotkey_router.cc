@@ -19,7 +19,6 @@
 #include "patches/input_binding/input_dispatcher.h"
 #include "patches/input_binding/input_runtime_bindings.h"
 #include "patches/key.h"
-#include "patches/mapkey.h"
 #include "patches/navigation.h"
 #include "patches/viewer_mgmt.h"
 #include "testable_functions.h"
@@ -67,6 +66,23 @@ constexpr std::array kHotkeyShipSelectionActions{
 
 constexpr std::array kHotkeySelectCurrentActions{
     input_binding::InputActionId::SelectCurrent,
+};
+
+constexpr std::array kHotkeyChatOpenActions{
+    input_binding::InputActionId::ShowChat,
+    input_binding::InputActionId::ShowChatSide1,
+    input_binding::InputActionId::ShowChatSide2,
+};
+
+constexpr std::array kHotkeyChatChannelActions{
+    input_binding::InputActionId::SelectChatGlobal,
+    input_binding::InputActionId::SelectChatAlliance,
+    input_binding::InputActionId::SelectChatPrivate,
+};
+
+constexpr std::array kHotkeyOfficerCanvasActions{
+    input_binding::InputActionId::MoveLeft,
+    input_binding::InputActionId::MoveRight,
 };
 
 constexpr std::array kHotkeySimpleFleetActions{
@@ -130,7 +146,9 @@ constexpr auto kHotkeyFrameActions = [] {
   std::array<input_binding::InputActionId, kHotkeyStartupActions.size() + kHotkeyQuitActions.size()
                                                + kHotkeyQueueActions.size() + kHotkeyShipSelectionActions.size()
                                                + kHotkeySelectCurrentActions.size() + kHotkeySimpleFleetActions.size()
-                                               + kHotkeyRuntimeSpaceActions.size() + kHotkeyTableDispatchActions.size()>
+                                               + kHotkeyRuntimeSpaceActions.size() + kHotkeyChatOpenActions.size()
+                                               + kHotkeyChatChannelActions.size() + kHotkeyOfficerCanvasActions.size()
+                                               + kHotkeyTableDispatchActions.size()>
        actions{};
   auto output = actions.begin();
 
@@ -153,6 +171,15 @@ constexpr auto kHotkeyFrameActions = [] {
     *output++ = action;
   }
   for (const auto action : kHotkeyRuntimeSpaceActions) {
+    *output++ = action;
+  }
+  for (const auto action : kHotkeyChatOpenActions) {
+    *output++ = action;
+  }
+  for (const auto action : kHotkeyChatChannelActions) {
+    *output++ = action;
+  }
+  for (const auto action : kHotkeyOfficerCanvasActions) {
     *output++ = action;
   }
   for (const auto action : kHotkeyTableDispatchActions) {
@@ -324,58 +351,6 @@ GameFunction dispatcher_owned_game_function(const input_binding::InputActionId a
   }
 }
 
-bool is_dispatcher_owned_game_function(const GameFunction game_function)
-{
-  switch (game_function) {
-    case GameFunction::ShowQTrials:
-    case GameFunction::ShowBookmarks:
-    case GameFunction::ShowLookup:
-    case GameFunction::ShowRefinery:
-    case GameFunction::ShowFactions:
-    case GameFunction::ShoWStationExterior:
-    case GameFunction::ShowGalaxy:
-    case GameFunction::ShowStationInterior:
-    case GameFunction::ShowSystem:
-    case GameFunction::ShowArtifacts:
-    case GameFunction::ShowInventory:
-    case GameFunction::ShowMissions:
-    case GameFunction::ShowResearch:
-    case GameFunction::ShowScrapYard:
-    case GameFunction::ShowOfficers:
-    case GameFunction::ShowCommander:
-    case GameFunction::ShowAwayTeam:
-    case GameFunction::ShowEvents:
-    case GameFunction::ShowExoComp:
-    case GameFunction::ShowDaily:
-    case GameFunction::ShowGifts:
-    case GameFunction::ShowAlliance:
-    case GameFunction::ShowAllianceHelp:
-    case GameFunction::ShowAllianceArmada:
-    case GameFunction::ShowSettings:
-    case GameFunction::UiScaleUp:
-    case GameFunction::UiScaleDown:
-    case GameFunction::UiViewerScaleUp:
-    case GameFunction::UiViewerScaleDown:
-    case GameFunction::TogglePreviewLocate:
-    case GameFunction::TogglePreviewRecall:
-    case GameFunction::ToggleCargoDefault:
-    case GameFunction::ToggleCargoPlayer:
-    case GameFunction::ToggleCargoStation:
-    case GameFunction::ToggleCargoHostile:
-    case GameFunction::ToggleCargoArmada:
-    case GameFunction::LogLevelOff:
-    case GameFunction::LogLevelError:
-    case GameFunction::LogLevelWarn:
-    case GameFunction::LogLevelInfo:
-    case GameFunction::LogLevelDebug:
-    case GameFunction::LogLevelTrace:
-    case GameFunction::ShowShips:
-      return true;
-    default:
-      return false;
-  }
-}
-
 HotkeyRouterDispatchAction dispatch_runtime_bound_table_action(const input_binding::InputActionId action)
 {
   const auto game_function = dispatcher_owned_game_function(action);
@@ -500,8 +475,8 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       }
 
       // ShowChat
-      if ((MapKey::IsDown(GameFunction::ShowChat) || MapKey::IsDown(GameFunction::ShowChatSide1)
-           || MapKey::IsDown(GameFunction::ShowChatSide2))) {
+      const auto chat_open_action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyChatOpenActions);
+      if (chat_open_action != input_binding::InputActionId::Max) {
         if (auto chat_manager = ChatManager::Instance(); chat_manager) {
           if (chat_manager->IsSideChatOpen) {
             if (auto view_controller = ObjectFinder<FullScreenChatViewController>::Get(); view_controller) {
@@ -511,7 +486,8 @@ bool hotkey_router_screen_update(ScreenManager* _this)
                 }
               }
             }
-          } else if (MapKey::IsDown(GameFunction::ShowChatSide1) || MapKey::IsDown(GameFunction::ShowChatSide2)) {
+          } else if (chat_open_action == input_binding::InputActionId::ShowChatSide1
+                     || chat_open_action == input_binding::InputActionId::ShowChatSide2) {
             chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Side);
           } else {
             chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Fullscreen);
@@ -520,16 +496,19 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       }
 
       // MoveLeft / MoveRight (officer canvas)
-      if (MapKey::IsDown(GameFunction::MoveLeft)) {
-        if (MoveOfficerCanvas(true)) {
-          return false;
-        }
-      }
-
-      if (MapKey::IsDown(GameFunction::MoveRight)) {
-        if (MoveOfficerCanvas(false)) {
-          return false;
-        }
+      switch (first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyOfficerCanvasActions)) {
+        case input_binding::InputActionId::MoveLeft:
+          if (MoveOfficerCanvas(true)) {
+            return false;
+          }
+          break;
+        case input_binding::InputActionId::MoveRight:
+          if (MoveOfficerCanvas(false)) {
+            return false;
+          }
+          break;
+        default:
+          break;
       }
 
       if (const auto action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyTableDispatchActions);
@@ -538,39 +517,22 @@ bool hotkey_router_screen_update(ScreenManager* _this)
           return false;
         }
       }
-
-      // Table-driven hotkey dispatch
-      for (const auto& entry : GetHotkeyDispatchTable()) {
-        if (is_dispatcher_owned_game_function(entry.game_function)) {
-          continue;
-        }
-
-        bool active = (entry.input_mode == InputMode::Pressed) ? MapKey::IsPressed(entry.game_function)
-                                                               : MapKey::IsDown(entry.game_function);
-        if (active) {
-          auto decision = entry.handler();
-          auto action   = hotkey_router_dispatch_action(true, decision == DispatchDecision::HandledStop,
-                                                        decision == DispatchDecision::HandledAllowOriginal);
-          if (action == HotkeyRouterDispatchAction::SuppressOriginal) {
-            return false;
-          }
-          // HandledAllowOriginal falls through to original() at end
-          break;
-        }
-      }
     }
   } else {
     // ─── In-chat channel selection ─────────────────────────────────────────────────────
     if (auto chat_manager = ChatManager::Instance(); chat_manager) {
-      if (MapKey::IsDown(GameFunction::SelectChatGlobal)) {
-        chat_manager->OpenChannel(ChatChannelCategory::Global);
-        return false;
-      } else if (MapKey::IsDown(GameFunction::SelectChatAlliance)) {
-        chat_manager->OpenChannel(ChatChannelCategory::Alliance);
-        return false;
-      } else if (MapKey::IsDown(GameFunction::SelectChatPrivate)) {
-        chat_manager->OpenChannel(ChatChannelCategory::Private);
-        return false;
+      switch (first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyChatChannelActions)) {
+        case input_binding::InputActionId::SelectChatGlobal:
+          chat_manager->OpenChannel(ChatChannelCategory::Global);
+          return false;
+        case input_binding::InputActionId::SelectChatAlliance:
+          chat_manager->OpenChannel(ChatChannelCategory::Alliance);
+          return false;
+        case input_binding::InputActionId::SelectChatPrivate:
+          chat_manager->OpenChannel(ChatChannelCategory::Private);
+          return false;
+        default:
+          break;
       }
     }
   }

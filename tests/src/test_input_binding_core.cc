@@ -25,6 +25,11 @@ TEST_SUITE("input_binding")
     CHECK(select_ship1->canonical_key == "select_ship1");
     CHECK(select_ship1->default_bind == "1");
 
+    const auto* show_chat = input_binding::FindActionSpec(input_binding::InputActionId::ShowChat);
+    REQUIRE(show_chat != nullptr);
+    CHECK(show_chat->canonical_key == "show_chat");
+    CHECK(show_chat->default_bind == "C");
+
     for (const auto& spec : specs) {
       const auto binding = input_binding::ParseBinding(spec.default_bind);
       INFO(spec.canonical_key);
@@ -38,6 +43,7 @@ TEST_SUITE("input_binding")
   {
     CHECK(input_binding::LookupKey("space") == KeyCode::Space);
     CHECK(input_binding::LookupKey("V") == KeyCode::V);
+    CHECK(input_binding::LookupKey("]") == KeyCode::RightBracket);
     CHECK(input_binding::LookupKey("MOUSE1") == KeyCode::Mouse1);
     CHECK(input_binding::LookupKey("F12") == KeyCode::F12);
     CHECK_FALSE(input_binding::LookupKey("NOT_A_KEY").has_value());
@@ -141,8 +147,8 @@ TEST_SUITE("input_binding")
   {
     const auto compiled = input_binding::CompileBindingSet();
 
-    CHECK(compiled.bound_chord_count == 67);
-    CHECK(compiled.index.size() == 67);
+    CHECK(compiled.bound_chord_count == 75);
+    CHECK(compiled.index.size() == 75);
     CHECK_FALSE(compiled.has_warnings());
     CHECK_FALSE(compiled.has_errors());
     CHECK_FALSE(compiled.has_conflicts());
@@ -168,7 +174,7 @@ TEST_SUITE("input_binding")
 
     const auto compiled = input_binding::CompileBindingSet(overrides);
     CHECK_FALSE(compiled.has_errors());
-    CHECK(compiled.bound_chord_count == 65);
+    CHECK(compiled.bound_chord_count == 73);
 
     const auto matches =
         compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, input_binding::ModifierMask{});
@@ -266,6 +272,48 @@ select_current = "CTRL-SPACE"
     CHECK(current->source_key == "[shortcuts].select_current");
   }
 
+  TEST_CASE("config bridge accepts migrated chat and officer canvas aliases")
+  {
+    const auto config = toml::parse(R"(
+[shortcuts]
+show_chat = "SHIFT-C"
+show_chatside1 = "ALT-C"
+select_chatglobal = "CTRL-4"
+move_left = "LEFT"
+move_right = "RIGHT"
+)");
+
+    const auto bridge    = input_binding::ResolveInputBindingConfig(config);
+    const auto show_chat = std::ranges::find_if(
+        bridge.bindings, [](const auto& binding) { return binding.action == input_binding::InputActionId::ShowChat; });
+    const auto side_chat   = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::ShowChatSide1;
+    });
+    const auto chat_global = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::SelectChatGlobal;
+    });
+    const auto move_left   = std::ranges::find_if(
+        bridge.bindings, [](const auto& binding) { return binding.action == input_binding::InputActionId::MoveLeft; });
+    const auto move_right = std::ranges::find_if(
+        bridge.bindings, [](const auto& binding) { return binding.action == input_binding::InputActionId::MoveRight; });
+
+    REQUIRE(show_chat != bridge.bindings.end());
+    REQUIRE(side_chat != bridge.bindings.end());
+    REQUIRE(chat_global != bridge.bindings.end());
+    REQUIRE(move_left != bridge.bindings.end());
+    REQUIRE(move_right != bridge.bindings.end());
+    CHECK(show_chat->binding == "SHIFT-C");
+    CHECK(show_chat->source_key == "[shortcuts].show_chat");
+    CHECK(side_chat->binding == "ALT-C");
+    CHECK(side_chat->source_key == "[shortcuts].show_chatside1");
+    CHECK(chat_global->binding == "CTRL-4");
+    CHECK(chat_global->source_key == "[shortcuts].select_chatglobal");
+    CHECK(move_left->binding == "LEFT");
+    CHECK(move_left->source_key == "[shortcuts].move_left");
+    CHECK(move_right->binding == "RIGHT");
+    CHECK(move_right->source_key == "[shortcuts].move_right");
+  }
+
   TEST_CASE("dispatcher snapshot generates candidates and respects layer filtering")
   {
     const auto       compiled = input_binding::CompileBindingSet();
@@ -310,6 +358,41 @@ select_current = "CTRL-SPACE"
     REQUIRE(plan.candidates.size() == 2);
     REQUIRE(plan.winners.size() == 1);
     CHECK(plan.winners[0].action == input_binding::InputActionId::SelectShip1);
+  }
+
+  TEST_CASE("dispatcher watches remaining frame router actions and keeps context groups independent")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::ShowChat, "B"},
+        input_binding::BindingOverride{input_binding::InputActionId::ShowBookmarks, "B"},
+        input_binding::BindingOverride{input_binding::InputActionId::MoveLeft, "B"},
+    };
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+    CHECK_FALSE(compiled.has_errors());
+
+    const std::array watched_actions{
+        input_binding::InputActionId::ShowChat,
+        input_binding::InputActionId::SelectChatGlobal,
+        input_binding::InputActionId::MoveLeft,
+        input_binding::InputActionId::ShowBookmarks,
+    };
+    const auto watched_keys =
+        input_binding::WatchedKeysForActions(compiled, input_binding::InputPhase::Frame, watched_actions);
+    CHECK(std::ranges::find(watched_keys, KeyCode::B) != watched_keys.end());
+    CHECK(std::ranges::find(watched_keys, KeyCode::Alpha1) != watched_keys.end());
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::B, {}, true, false},
+    };
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(), key_states);
+
+    CHECK(std::ranges::any_of(
+        plan.winners, [](const auto& winner) { return winner.action == input_binding::InputActionId::ShowChat; }));
+    CHECK(std::ranges::any_of(
+        plan.winners, [](const auto& winner) { return winner.action == input_binding::InputActionId::ShowBookmarks; }));
+    CHECK(std::ranges::any_of(
+        plan.winners, [](const auto& winner) { return winner.action == input_binding::InputActionId::MoveLeft; }));
   }
 
   TEST_CASE("config bridge prefers canonical input bindings over legacy shortcuts")
