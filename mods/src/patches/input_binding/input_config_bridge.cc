@@ -292,8 +292,180 @@ ConfigBridgeResult ResolveInputBindingConfig(const toml::table& config)
       case InputActionId::HotkeysEnable:
         candidates.push_back(resolve_enable_hotkeys_shortcut(config, result));
         break;
+      case InputActionId::Quit:
+        candidates.push_back(read_candidate(shortcuts, "quit", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::UiScaleUp:
+        candidates.push_back(read_candidate(shortcuts, "ui_scaleup", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::UiScaleDown:
+        candidates.push_back(read_candidate(shortcuts, "ui_scaledown", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::UiViewerScaleUp:
+        candidates.push_back(read_candidate(shortcuts, "ui_scaleviewerup", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::UiViewerScaleDown:
+        candidates.push_back(read_candidate(shortcuts, "ui_scaleviewerdown", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::LogOff:
+        candidates.push_back(read_candidate(shortcuts, "log_off", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::LogError:
+        candidates.push_back(read_candidate(shortcuts, "log_error", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::LogWarn:
+        candidates.push_back(read_candidate(shortcuts, "log_warn", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::LogInfo:
+        candidates.push_back(read_candidate(shortcuts, "log_info", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
       case InputActionId::LogDebug:
         candidates.push_back(read_candidate(shortcuts, "log_debug", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::LogTrace:
+        candidates.push_back(read_candidate(shortcuts, "log_trace", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowQTrials:
+        candidates.push_back(read_candidate(shortcuts, "show_qtrials", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowBookmarks:
+        candidates.push_back(read_candidate(shortcuts, "show_bookmarks", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowLookup:
+        candidates.push_back(read_candidate(shortcuts, "show_lookup", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowRefinery:
+        candidates.push_back(read_candidate(shortcuts, "show_refinery", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowFactions:
+        candidates.push_back(read_candidate(shortcuts, "show_factions", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowStationExterior:
+        candidates.push_back(read_candidate(shortcuts, "show_stationexterior", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowGalaxy:
+        candidates.push_back(read_candidate(shortcuts, "show_galaxy", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowStationInterior:
+        candidates.push_back(read_candidate(shortcuts, "show_stationinterior", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowSystem:
+        candidates.push_back(read_candidate(shortcuts, "show_system", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowArtifacts:
+        candidates.push_back(read_candidate(shortcuts, "show_artifacts", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowInventory:
+        candidates.push_back(read_candidate(shortcuts, "show_inventory", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowMissions:
+        candidates.push_back(read_candidate(shortcuts, "show_missions", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowResearch:
+        candidates.push_back(read_candidate(shortcuts, "show_research", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowScrapYard:
+        candidates.push_back(read_candidate(shortcuts, "show_scrapyard", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowOfficers:
+        candidates.push_back(read_candidate(shortcuts, "show_officers", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowCommander:
+        candidates.push_back(read_candidate(shortcuts, "show_commander", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowAwayTeam:
+        candidates.push_back(read_candidate(shortcuts, "show_awayteam", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowEvents:
+        candidates.push_back(read_candidate(shortcuts, "show_events", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowExoComp:
+        candidates.push_back(read_candidate(shortcuts, "show_exocomp", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowDaily:
+        candidates.push_back(read_candidate(shortcuts, "show_daily", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowGifts:
+        candidates.push_back(read_candidate(shortcuts, "show_gifts", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowAlliance:
+        candidates.push_back(read_candidate(shortcuts, "show_alliance", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowAllianceHelp:
+        candidates.push_back(read_candidate(shortcuts, "show_alliance_help", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowAllianceArmada:
+        candidates.push_back(read_candidate(shortcuts, "show_alliance_armada", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowSettings:
+        candidates.push_back(read_candidate(shortcuts, "show_settings", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::TogglePreviewLocate:
+        candidates.push_back(read_candidate(shortcuts, "toggle_preview_locate", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::TogglePreviewRecall:
+        candidates.push_back(read_candidate(shortcuts, "toggle_preview_recall", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ToggleCargoDefault:
+        candidates.push_back(read_candidate(shortcuts, "toggle_cargo_default", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ToggleCargoPlayer:
+        candidates.push_back(read_candidate(shortcuts, "toggle_cargo_player", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ToggleCargoStation:
+        candidates.push_back(read_candidate(shortcuts, "toggle_cargo_station", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ToggleCargoHostile:
+        candidates.push_back(read_candidate(shortcuts, "toggle_cargo_hostile", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ToggleCargoArmada:
+        candidates.push_back(read_candidate(shortcuts, "toggle_cargo_armada", "[shortcuts].",
+                                            BindingConfigSourceKind::LegacyAlias, result));
+        break;
+      case InputActionId::ShowShips:
+        candidates.push_back(read_candidate(shortcuts, "show_ships", "[shortcuts].",
                                             BindingConfigSourceKind::LegacyAlias, result));
         break;
       case InputActionId::ZoomIn:

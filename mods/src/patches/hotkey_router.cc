@@ -49,6 +49,83 @@ constexpr std::array kHotkeyStartupActions{
     input_binding::InputActionId::HotkeysEnable,
 };
 
+constexpr std::array kHotkeyQuitActions{
+  input_binding::InputActionId::Quit,
+};
+
+constexpr std::array kHotkeyQueueActions{
+  input_binding::InputActionId::FleetQueueToggle,
+};
+
+constexpr std::array kHotkeyTableDispatchActions{
+  input_binding::InputActionId::ShowQTrials,
+  input_binding::InputActionId::ShowBookmarks,
+  input_binding::InputActionId::ShowLookup,
+  input_binding::InputActionId::ShowRefinery,
+  input_binding::InputActionId::ShowFactions,
+  input_binding::InputActionId::ShowStationExterior,
+  input_binding::InputActionId::ShowGalaxy,
+  input_binding::InputActionId::ShowStationInterior,
+  input_binding::InputActionId::ShowSystem,
+  input_binding::InputActionId::ShowArtifacts,
+  input_binding::InputActionId::ShowInventory,
+  input_binding::InputActionId::ShowMissions,
+  input_binding::InputActionId::ShowResearch,
+  input_binding::InputActionId::ShowScrapYard,
+  input_binding::InputActionId::ShowOfficers,
+  input_binding::InputActionId::ShowCommander,
+  input_binding::InputActionId::ShowAwayTeam,
+  input_binding::InputActionId::ShowEvents,
+  input_binding::InputActionId::ShowExoComp,
+  input_binding::InputActionId::ShowDaily,
+  input_binding::InputActionId::ShowGifts,
+  input_binding::InputActionId::ShowAlliance,
+  input_binding::InputActionId::ShowAllianceHelp,
+  input_binding::InputActionId::ShowAllianceArmada,
+  input_binding::InputActionId::ShowSettings,
+  input_binding::InputActionId::UiScaleUp,
+  input_binding::InputActionId::UiScaleDown,
+  input_binding::InputActionId::UiViewerScaleUp,
+  input_binding::InputActionId::UiViewerScaleDown,
+  input_binding::InputActionId::TogglePreviewLocate,
+  input_binding::InputActionId::TogglePreviewRecall,
+  input_binding::InputActionId::ToggleCargoDefault,
+  input_binding::InputActionId::ToggleCargoPlayer,
+  input_binding::InputActionId::ToggleCargoStation,
+  input_binding::InputActionId::ToggleCargoHostile,
+  input_binding::InputActionId::ToggleCargoArmada,
+  input_binding::InputActionId::LogOff,
+  input_binding::InputActionId::LogError,
+  input_binding::InputActionId::LogWarn,
+  input_binding::InputActionId::LogInfo,
+  input_binding::InputActionId::LogDebug,
+  input_binding::InputActionId::LogTrace,
+  input_binding::InputActionId::ShowShips,
+};
+
+constexpr auto kHotkeyFrameActions = [] {
+  std::array<input_binding::InputActionId,
+             kHotkeyStartupActions.size() + kHotkeyQuitActions.size() + kHotkeyQueueActions.size()
+                 + kHotkeyTableDispatchActions.size()>
+      actions{};
+  auto output = actions.begin();
+
+  for (const auto action : kHotkeyStartupActions) {
+    *output++ = action;
+  }
+  for (const auto action : kHotkeyQuitActions) {
+    *output++ = action;
+  }
+  for (const auto action : kHotkeyQueueActions) {
+    *output++ = action;
+  }
+  for (const auto action : kHotkeyTableDispatchActions) {
+    *output++ = action;
+  }
+
+  return actions;
+}();
+
 input_binding::ModifierMask held_modifier_mask()
 {
   input_binding::ModifierMask modifiers;
@@ -84,30 +161,214 @@ std::vector<input_binding::DispatchKeyState> build_dispatch_key_snapshot(std::sp
   return key_states;
 }
 
-HotkeyRouterStartupAction startup_action_from_runtime_bindings(bool use_scopely_hotkeys, bool hotkeys_enabled)
+input_binding::DispatchPlan frame_runtime_dispatch_plan()
 {
   const auto& runtime_bindings = input_binding::RuntimeBindingModel();
-  const auto watched_keys = input_binding::WatchedKeysForActions(runtime_bindings,
-                                                                 input_binding::InputPhase::Frame,
-                                                                 kHotkeyStartupActions);
-  const auto key_states = build_dispatch_key_snapshot(watched_keys);
-  const auto plan = input_binding::PlanDispatchSnapshot(runtime_bindings,
-                                                        input_binding::InputPhase::Frame,
-                                                        input_binding::ActiveLayers::Only(input_binding::InputLayer::Global),
-                                                        key_states);
+  const auto watched_keys =
+      input_binding::WatchedKeysForActions(runtime_bindings, input_binding::InputPhase::Frame, kHotkeyFrameActions);
 
-  bool disable_hotkeys_pressed = false;
-  bool enable_hotkeys_pressed = false;
-  for (const auto& winner : plan.winners) {
-    if (winner.action == input_binding::InputActionId::HotkeysDisable) {
-      disable_hotkeys_pressed = true;
-    } else if (winner.action == input_binding::InputActionId::HotkeysEnable) {
-      enable_hotkeys_pressed = true;
-    }
+  const auto key_states = build_dispatch_key_snapshot(watched_keys);
+  return input_binding::PlanDispatchSnapshot(runtime_bindings,
+                                             input_binding::InputPhase::Frame,
+                                             input_binding::ActiveLayers::All(),
+                                             key_states);
+}
+
+bool runtime_binding_winner_present(const input_binding::DispatchPlan& plan,
+                                    const input_binding::InputActionId action,
+                                    const input_binding::InputLayer layer)
+{
+  return std::ranges::any_of(plan.winners, [action, layer](const auto& winner) {
+    return winner.action == action && winner.layer == layer;
+  });
+}
+
+input_binding::InputActionId first_runtime_binding_winner(const input_binding::DispatchPlan& plan,
+                                                          const std::span<const input_binding::InputActionId> actions)
+{
+  const auto found = std::ranges::find_if(plan.winners, [&actions](const auto& winner) {
+    return std::ranges::find(actions, winner.action) != actions.end();
+  });
+  return found == plan.winners.end() ? input_binding::InputActionId::Max : found->action;
+}
+
+GameFunction dispatcher_owned_game_function(const input_binding::InputActionId action)
+{
+  switch (action) {
+    case input_binding::InputActionId::ShowQTrials:
+      return GameFunction::ShowQTrials;
+    case input_binding::InputActionId::ShowBookmarks:
+      return GameFunction::ShowBookmarks;
+    case input_binding::InputActionId::ShowLookup:
+      return GameFunction::ShowLookup;
+    case input_binding::InputActionId::ShowRefinery:
+      return GameFunction::ShowRefinery;
+    case input_binding::InputActionId::ShowFactions:
+      return GameFunction::ShowFactions;
+    case input_binding::InputActionId::ShowStationExterior:
+      return GameFunction::ShoWStationExterior;
+    case input_binding::InputActionId::ShowGalaxy:
+      return GameFunction::ShowGalaxy;
+    case input_binding::InputActionId::ShowStationInterior:
+      return GameFunction::ShowStationInterior;
+    case input_binding::InputActionId::ShowSystem:
+      return GameFunction::ShowSystem;
+    case input_binding::InputActionId::ShowArtifacts:
+      return GameFunction::ShowArtifacts;
+    case input_binding::InputActionId::ShowInventory:
+      return GameFunction::ShowInventory;
+    case input_binding::InputActionId::ShowMissions:
+      return GameFunction::ShowMissions;
+    case input_binding::InputActionId::ShowResearch:
+      return GameFunction::ShowResearch;
+    case input_binding::InputActionId::ShowScrapYard:
+      return GameFunction::ShowScrapYard;
+    case input_binding::InputActionId::ShowOfficers:
+      return GameFunction::ShowOfficers;
+    case input_binding::InputActionId::ShowCommander:
+      return GameFunction::ShowCommander;
+    case input_binding::InputActionId::ShowAwayTeam:
+      return GameFunction::ShowAwayTeam;
+    case input_binding::InputActionId::ShowEvents:
+      return GameFunction::ShowEvents;
+    case input_binding::InputActionId::ShowExoComp:
+      return GameFunction::ShowExoComp;
+    case input_binding::InputActionId::ShowDaily:
+      return GameFunction::ShowDaily;
+    case input_binding::InputActionId::ShowGifts:
+      return GameFunction::ShowGifts;
+    case input_binding::InputActionId::ShowAlliance:
+      return GameFunction::ShowAlliance;
+    case input_binding::InputActionId::ShowAllianceHelp:
+      return GameFunction::ShowAllianceHelp;
+    case input_binding::InputActionId::ShowAllianceArmada:
+      return GameFunction::ShowAllianceArmada;
+    case input_binding::InputActionId::ShowSettings:
+      return GameFunction::ShowSettings;
+    case input_binding::InputActionId::UiScaleUp:
+      return GameFunction::UiScaleUp;
+    case input_binding::InputActionId::UiScaleDown:
+      return GameFunction::UiScaleDown;
+    case input_binding::InputActionId::UiViewerScaleUp:
+      return GameFunction::UiViewerScaleUp;
+    case input_binding::InputActionId::UiViewerScaleDown:
+      return GameFunction::UiViewerScaleDown;
+    case input_binding::InputActionId::TogglePreviewLocate:
+      return GameFunction::TogglePreviewLocate;
+    case input_binding::InputActionId::TogglePreviewRecall:
+      return GameFunction::TogglePreviewRecall;
+    case input_binding::InputActionId::ToggleCargoDefault:
+      return GameFunction::ToggleCargoDefault;
+    case input_binding::InputActionId::ToggleCargoPlayer:
+      return GameFunction::ToggleCargoPlayer;
+    case input_binding::InputActionId::ToggleCargoStation:
+      return GameFunction::ToggleCargoStation;
+    case input_binding::InputActionId::ToggleCargoHostile:
+      return GameFunction::ToggleCargoHostile;
+    case input_binding::InputActionId::ToggleCargoArmada:
+      return GameFunction::ToggleCargoArmada;
+    case input_binding::InputActionId::LogOff:
+      return GameFunction::LogLevelOff;
+    case input_binding::InputActionId::LogError:
+      return GameFunction::LogLevelError;
+    case input_binding::InputActionId::LogWarn:
+      return GameFunction::LogLevelWarn;
+    case input_binding::InputActionId::LogInfo:
+      return GameFunction::LogLevelInfo;
+    case input_binding::InputActionId::LogDebug:
+      return GameFunction::LogLevelDebug;
+    case input_binding::InputActionId::LogTrace:
+      return GameFunction::LogLevelTrace;
+    case input_binding::InputActionId::ShowShips:
+      return GameFunction::ShowShips;
+    default:
+      return GameFunction::Max;
+  }
+}
+
+bool is_dispatcher_owned_game_function(const GameFunction game_function)
+{
+  switch (game_function) {
+    case GameFunction::ShowQTrials:
+    case GameFunction::ShowBookmarks:
+    case GameFunction::ShowLookup:
+    case GameFunction::ShowRefinery:
+    case GameFunction::ShowFactions:
+    case GameFunction::ShoWStationExterior:
+    case GameFunction::ShowGalaxy:
+    case GameFunction::ShowStationInterior:
+    case GameFunction::ShowSystem:
+    case GameFunction::ShowArtifacts:
+    case GameFunction::ShowInventory:
+    case GameFunction::ShowMissions:
+    case GameFunction::ShowResearch:
+    case GameFunction::ShowScrapYard:
+    case GameFunction::ShowOfficers:
+    case GameFunction::ShowCommander:
+    case GameFunction::ShowAwayTeam:
+    case GameFunction::ShowEvents:
+    case GameFunction::ShowExoComp:
+    case GameFunction::ShowDaily:
+    case GameFunction::ShowGifts:
+    case GameFunction::ShowAlliance:
+    case GameFunction::ShowAllianceHelp:
+    case GameFunction::ShowAllianceArmada:
+    case GameFunction::ShowSettings:
+    case GameFunction::UiScaleUp:
+    case GameFunction::UiScaleDown:
+    case GameFunction::UiViewerScaleUp:
+    case GameFunction::UiViewerScaleDown:
+    case GameFunction::TogglePreviewLocate:
+    case GameFunction::TogglePreviewRecall:
+    case GameFunction::ToggleCargoDefault:
+    case GameFunction::ToggleCargoPlayer:
+    case GameFunction::ToggleCargoStation:
+    case GameFunction::ToggleCargoHostile:
+    case GameFunction::ToggleCargoArmada:
+    case GameFunction::LogLevelOff:
+    case GameFunction::LogLevelError:
+    case GameFunction::LogLevelWarn:
+    case GameFunction::LogLevelInfo:
+    case GameFunction::LogLevelDebug:
+    case GameFunction::LogLevelTrace:
+    case GameFunction::ShowShips:
+      return true;
+    default:
+      return false;
+  }
+}
+
+HotkeyRouterDispatchAction dispatch_runtime_bound_table_action(const input_binding::InputActionId action)
+{
+  const auto game_function = dispatcher_owned_game_function(action);
+  if (game_function == GameFunction::Max) {
+    return HotkeyRouterDispatchAction::Continue;
   }
 
-  return hotkey_router_startup_action(disable_hotkeys_pressed,
-                                      enable_hotkeys_pressed,
+  for (const auto& entry : GetHotkeyDispatchTable()) {
+    if (entry.game_function != game_function) {
+      continue;
+    }
+
+    const auto decision = entry.handler();
+    return hotkey_router_dispatch_action(true,
+                                         decision == DispatchDecision::HandledStop,
+                                         decision == DispatchDecision::HandledAllowOriginal);
+  }
+
+  return HotkeyRouterDispatchAction::Continue;
+}
+
+HotkeyRouterStartupAction startup_action_from_runtime_bindings(const input_binding::DispatchPlan& plan,
+                                                               bool use_scopely_hotkeys,
+                                                               bool hotkeys_enabled)
+{
+  return hotkey_router_startup_action(runtime_binding_winner_present(plan,
+                                                                     input_binding::InputActionId::HotkeysDisable,
+                                                                     input_binding::InputLayer::Global),
+                                      runtime_binding_winner_present(plan,
+                                                                     input_binding::InputActionId::HotkeysEnable,
+                                                                     input_binding::InputLayer::Global),
                                       use_scopely_hotkeys,
                                       hotkeys_enabled);
 }
@@ -120,7 +381,10 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 {
   Key::ResetCache();
 
-  switch (startup_action_from_runtime_bindings(Config::Get().use_scopely_hotkeys,
+  const auto runtime_dispatch_plan = frame_runtime_dispatch_plan();
+
+  switch (startup_action_from_runtime_bindings(runtime_dispatch_plan,
+                                               Config::Get().use_scopely_hotkeys,
                                                Config::Get().hotkeys_enabled)) {
     case HotkeyRouterStartupAction::DisableHotkeys:
       Config::Get().hotkeys_enabled = false;
@@ -142,8 +406,10 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   const auto config     = &Config::Get();
 
 #ifdef _WIN32
-  if (MapKey::IsDown(GameFunction::Quit)) {
+  if (first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyQuitActions)
+      == input_binding::InputActionId::Quit) {
     TerminateProcess(GetCurrentProcess(), 1);
+    return false;
   }
 #endif
 
@@ -187,7 +453,9 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       }
 
       // ToggleQueue
-      if (hotkey_router_should_toggle_queue(is_in_chat, Key::IsInputFocused(), MapKey::IsDown(GameFunction::ToggleQueue))) {
+      const auto queue_toggle_action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyQueueActions);
+      if (hotkey_router_should_toggle_queue(is_in_chat, Key::IsInputFocused(),
+                                            queue_toggle_action == input_binding::InputActionId::FleetQueueToggle)) {
         config->queue_enabled = !config->queue_enabled;
         return false;
       }
@@ -225,8 +493,19 @@ bool hotkey_router_screen_update(ScreenManager* _this)
         }
       }
 
+      if (const auto action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyTableDispatchActions);
+          action != input_binding::InputActionId::Max) {
+        if (dispatch_runtime_bound_table_action(action) == HotkeyRouterDispatchAction::SuppressOriginal) {
+          return false;
+        }
+      }
+
       // Table-driven hotkey dispatch
       for (const auto& entry : GetHotkeyDispatchTable()) {
+        if (is_dispatcher_owned_game_function(entry.game_function)) {
+          continue;
+        }
+
         bool active = (entry.input_mode == InputMode::Pressed) ? MapKey::IsPressed(entry.game_function)
                                                                : MapKey::IsDown(entry.game_function);
         if (active) {

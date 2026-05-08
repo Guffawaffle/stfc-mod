@@ -4,6 +4,7 @@ Related docs:
 
 - `docs/KEYBIND_ACTION_SYSTEM_AUDIT.md`
 - `docs/UNIFIED_INPUT_BIND_STRATEGY.md`
+- `docs/FLEET_RUNTIME_DISPATCH_PLAN.md`
 
 Purpose: turn the greenfield unified input strategy into executable sprint slices. This plan synthesizes three read-only ensign investigations: pure binding core, fleet/right-click policy, and config/hook migration.
 

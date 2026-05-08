@@ -29,7 +29,7 @@
 
 TEST_SUITE("input_binding")
 {
-  TEST_CASE("schema exposes initial unified action subset")
+  TEST_CASE("schema exposes unified action subset")
   {
     const auto specs = input_binding::ActionSpecs();
     CHECK(specs.size() == static_cast<size_t>(input_binding::InputActionId::Max));
@@ -159,8 +159,8 @@ TEST_SUITE("input_binding")
   {
     const auto compiled = input_binding::CompileBindingSet();
 
-    CHECK(compiled.bound_chord_count == 15);
-    CHECK(compiled.index.size() == 15);
+    CHECK(compiled.bound_chord_count == 58);
+    CHECK(compiled.index.size() == 58);
     CHECK_FALSE(compiled.has_warnings());
     CHECK_FALSE(compiled.has_errors());
     CHECK_FALSE(compiled.has_conflicts());
@@ -186,7 +186,7 @@ TEST_SUITE("input_binding")
 
     const auto compiled = input_binding::CompileBindingSet(overrides);
     CHECK_FALSE(compiled.has_errors());
-    CHECK(compiled.bound_chord_count == 13);
+    CHECK(compiled.bound_chord_count == 56);
 
     const auto matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space,
                                               input_binding::ModifierMask{});

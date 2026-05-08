@@ -47,8 +47,8 @@ TEST_SUITE("input_dispatcher")
     REQUIRE(plan.candidates.size() == 4);
     REQUIRE(plan.winners.size() == 3);
     CHECK(plan.winners[0].action == input_binding::InputActionId::HotkeysDisable);
-    CHECK(plan.winners[1].action == input_binding::InputActionId::FleetPrimary);
-    CHECK(plan.winners[2].action == input_binding::InputActionId::LogDebug);
+    CHECK(plan.winners[1].action == input_binding::InputActionId::LogDebug);
+    CHECK(plan.winners[2].action == input_binding::InputActionId::FleetPrimary);
   }
 
   TEST_CASE("dispatcher combines original call decisions conservatively")
@@ -128,6 +128,52 @@ TEST_SUITE("input_dispatcher")
     REQUIRE(plan.winners.size() == 2);
     CHECK(plan.winners[0].conflict_group == input_binding::ConflictGroup::GlobalControl);
     CHECK(plan.winners[1].action == input_binding::InputActionId::FleetQueueClear);
+  }
+
+  TEST_CASE("snapshot dispatcher keeps one frame-dispatch winner across simultaneous keys")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::UiScaleUp, "F1"},
+        input_binding::BindingOverride{input_binding::InputActionId::LogDebug, "F2"},
+    };
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::F1, {}, false, true},
+        input_binding::DispatchKeyState{KeyCode::F2, {}, true, true},
+    };
+
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled,
+                                                          input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(),
+                                                          key_states);
+    REQUIRE(plan.candidates.size() == 2);
+    REQUIRE(plan.winners.size() == 1);
+    CHECK(plan.winners[0].action == input_binding::InputActionId::UiScaleUp);
+  }
+
+  TEST_CASE("snapshot dispatcher preserves section before config and log table priority")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::ShowSettings, "F1"},
+        input_binding::BindingOverride{input_binding::InputActionId::TogglePreviewLocate, "F2"},
+        input_binding::BindingOverride{input_binding::InputActionId::LogDebug, "F3"},
+    };
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::F1, {}, true, true},
+        input_binding::DispatchKeyState{KeyCode::F2, {}, true, true},
+        input_binding::DispatchKeyState{KeyCode::F3, {}, true, true},
+    };
+
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled,
+                                                          input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(),
+                                                          key_states);
+    REQUIRE(plan.candidates.size() == 3);
+    REQUIRE(plan.winners.size() == 1);
+    CHECK(plan.winners[0].action == input_binding::InputActionId::ShowSettings);
   }
 
   TEST_CASE("watched keys are limited to requested actions and phase")
