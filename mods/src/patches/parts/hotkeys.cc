@@ -36,15 +36,7 @@ constexpr bool kEnableNavigationSetCourseHook = true;
 
 const char* initialize_actions_reason()
 {
-  if (Config::Get().use_scopely_hotkeys) {
-    return "use_scopely_hotkeys";
-  }
-
-  if (AllowKeyFallthrough()) {
-    return "allow_key_fallthrough";
-  }
-
-  return "mod-hotkeys-only";
+  return scopely_shortcut_policy_name(ScopelyShortcutsPolicy());
 }
 
 constexpr HookDescriptor kInitializeActionsHook = {
@@ -185,11 +177,14 @@ bool should_suppress_escape_exit_back_button(void* section_manager)
 void InitializeActions_Hook(auto original, void* _this)
 {
   const auto should_call_original = hotkey_router_should_call_original_initialize_actions();
-  spdlog::info("[Hotkeys] ShortcutsManager.InitializeActions original={} reason={} use_scopely_hotkeys={} allow_key_fallthrough={}",
+  spdlog::info("[Hotkeys] ShortcutsManager.InitializeActions original={} reason={} use_scopely_hotkeys={} "
+               "allow_key_fallthrough={} scopely_shortcuts={} original_frame_policy={}",
                should_call_original ? "called" : "suppressed",
                initialize_actions_reason(),
                Config::Get().use_scopely_hotkeys,
-               AllowKeyFallthrough());
+               AllowKeyFallthrough(),
+               scopely_shortcut_policy_name(ScopelyShortcutsPolicy()),
+               original_frame_policy_name(OriginalFramePolicySetting()));
 
   if (should_call_original) {
     return original(_this);
@@ -272,11 +267,15 @@ void InstallHotkeyHooks()
 {
   HookModuleHealth hooks("HotkeyHooks");
 
-  spdlog::info("[Hotkeys] startup config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} allow_key_fallthrough={} frame_owner=FrameTickHooks initialize_actions_hook={}",
+  spdlog::info("[Hotkeys] startup config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} "
+               "allow_key_fallthrough={} scopely_shortcuts={} original_frame_policy={} frame_owner=FrameTickHooks "
+               "initialize_actions_hook={}",
                Config::Get().installHotkeyHooks,
                Config::Get().hotkeys_enabled,
                Config::Get().use_scopely_hotkeys,
                AllowKeyFallthrough(),
+               scopely_shortcut_policy_name(ScopelyShortcutsPolicy()),
+               original_frame_policy_name(OriginalFramePolicySetting()),
                kEnableShortcutInitializeHook);
 
   if (kEnableShortcutInitializeHook) {

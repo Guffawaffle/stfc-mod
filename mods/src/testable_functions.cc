@@ -15,12 +15,70 @@
 // ---------------------------------------------------------------------------
 bool should_call_original_initialize_actions(bool use_scopely_hotkeys, bool allow_key_fallthrough)
 {
-  return use_scopely_hotkeys || allow_key_fallthrough;
+  return should_call_original_initialize_actions(resolve_scopely_shortcut_policy(use_scopely_hotkeys,
+                                                                                 allow_key_fallthrough));
+}
+
+bool should_call_original_initialize_actions(const ScopelyShortcutPolicy policy)
+{
+  return policy != ScopelyShortcutPolicy::Off;
 }
 
 bool should_call_original_screen_update(bool router_allows_original, bool allow_key_fallthrough)
 {
-  return router_allows_original || allow_key_fallthrough;
+  return should_call_original_screen_update(router_allows_original, resolve_original_frame_policy(allow_key_fallthrough));
+}
+
+bool should_call_original_screen_update(const bool router_allows_original, const OriginalFramePolicy policy)
+{
+  if (policy == OriginalFramePolicy::FallthroughAll) {
+    return true;
+  }
+
+  return router_allows_original;
+}
+
+ScopelyShortcutPolicy resolve_scopely_shortcut_policy(const bool use_scopely_hotkeys,
+                                                      const bool allow_key_fallthrough)
+{
+  if (use_scopely_hotkeys) {
+    return ScopelyShortcutPolicy::Native;
+  }
+
+  return allow_key_fallthrough ? ScopelyShortcutPolicy::Fallback : ScopelyShortcutPolicy::Off;
+}
+
+OriginalFramePolicy resolve_original_frame_policy(const bool allow_key_fallthrough)
+{
+  return allow_key_fallthrough ? OriginalFramePolicy::FallthroughAll : OriginalFramePolicy::Mod;
+}
+
+const char* scopely_shortcut_policy_name(const ScopelyShortcutPolicy policy)
+{
+  switch (policy) {
+    case ScopelyShortcutPolicy::Off:
+      return "off";
+    case ScopelyShortcutPolicy::Native:
+      return "native";
+    case ScopelyShortcutPolicy::Fallback:
+      return "fallback";
+  }
+
+  return "unknown";
+}
+
+const char* original_frame_policy_name(const OriginalFramePolicy policy)
+{
+  switch (policy) {
+    case OriginalFramePolicy::Mod:
+      return "mod";
+    case OriginalFramePolicy::FallthroughUnhandled:
+      return "fallthrough_unhandled";
+    case OriginalFramePolicy::FallthroughAll:
+      return "fallthrough_all";
+  }
+
+  return "unknown";
 }
 
 bool should_suppress_escape_exit(bool disable_escape_exit,
@@ -130,6 +188,18 @@ HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pres
                                                        bool use_scopely_hotkeys,
                                                        bool hotkeys_enabled)
 {
+  return hotkey_router_startup_action(disable_hotkeys_pressed,
+                                      enable_hotkeys_pressed,
+                                      use_scopely_hotkeys ? ScopelyShortcutPolicy::Native
+                                                          : ScopelyShortcutPolicy::Off,
+                                      hotkeys_enabled);
+}
+
+HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pressed,
+                                                       bool enable_hotkeys_pressed,
+                                                       ScopelyShortcutPolicy scopely_shortcuts,
+                                                       bool hotkeys_enabled)
+{
   if (disable_hotkeys_pressed) {
     return HotkeyRouterStartupAction::DisableHotkeys;
   }
@@ -138,7 +208,7 @@ HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pres
     return HotkeyRouterStartupAction::EnableHotkeys;
   }
 
-  if (use_scopely_hotkeys && hotkeys_enabled) {
+  if (scopely_shortcuts == ScopelyShortcutPolicy::Native && hotkeys_enabled) {
     return HotkeyRouterStartupAction::AllowOriginal;
   }
 

@@ -394,7 +394,7 @@ void dispatch_runtime_bound_simple_fleet_action(const input_binding::InputAction
 }
 
 HotkeyRouterStartupAction startup_action_from_runtime_bindings(const input_binding::DispatchPlan& plan,
-                                                               bool use_scopely_hotkeys,
+                                                               ScopelyShortcutPolicy scopely_shortcuts,
                                                                bool hotkeys_enabled)
 {
   return hotkey_router_startup_action(runtime_binding_winner_present(plan,
@@ -403,7 +403,7 @@ HotkeyRouterStartupAction startup_action_from_runtime_bindings(const input_bindi
                                       runtime_binding_winner_present(plan,
                                                                      input_binding::InputActionId::HotkeysEnable,
                                                                      input_binding::InputLayer::Global),
-                                      use_scopely_hotkeys,
+                                      scopely_shortcuts,
                                       hotkeys_enabled);
 }
 }
@@ -418,7 +418,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   const auto runtime_dispatch_plan = frame_runtime_dispatch_plan();
 
   switch (startup_action_from_runtime_bindings(runtime_dispatch_plan,
-                                               Config::Get().use_scopely_hotkeys,
+                                               ScopelyShortcutsPolicy(),
                                                Config::Get().hotkeys_enabled)) {
     case HotkeyRouterStartupAction::DisableHotkeys:
       Config::Get().hotkeys_enabled = false;
@@ -632,12 +632,12 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
 bool hotkey_router_should_call_original_initialize_actions()
 {
-  return should_call_original_initialize_actions(Config::Get().use_scopely_hotkeys, AllowKeyFallthrough());
+  return should_call_original_initialize_actions(ScopelyShortcutsPolicy());
 }
 
 bool hotkey_router_should_call_original_screen_update(bool routerAllowsOriginal)
 {
-  return should_call_original_screen_update(routerAllowsOriginal, AllowKeyFallthrough());
+  return should_call_original_screen_update(routerAllowsOriginal, OriginalFramePolicySetting());
 }
 
 void hotkey_router_bind_context(RewardsButtonWidget* _this)

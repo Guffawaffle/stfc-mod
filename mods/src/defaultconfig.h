@@ -35,6 +35,10 @@ namespace Control
   constexpr bool hotkeys_extended = true;
   /// When true, use Scopely's built-in hotkey layer instead of the mod's. Default: false.
   constexpr bool use_scopely_hotkeys = false;
+  /// Explicit Scopely shortcut initialization policy: off, native, fallback.
+  constexpr const char* scopely_shortcuts = "off";
+  /// Explicit original frame policy: mod, fallthrough_unhandled, fallthrough_all.
+  constexpr const char* original_frame_policy = "mod";
   /// Enable the action queue system. Default: true.
   constexpr bool queue_enabled = true;
   /// Delay in ms before a tap is registered as a select action. Default: 500.

@@ -49,6 +49,8 @@ static_assert(!DCS::allow_unsafe_tls_without_certificate_validation,
 // Standalone flag — NOT in Config struct to avoid struct layout sensitivity.
 // See: fix/lto-and-sync-crashes for context on why Config struct changes crash.
 static bool g_allow_key_fallthrough          = false;
+static ScopelyShortcutPolicy g_scopely_shortcuts_policy = ScopelyShortcutPolicy::Off;
+static OriginalFramePolicy   g_original_frame_policy    = OriginalFramePolicy::Mod;
 static bool g_live_debug_channel             = false;
 static bool g_battle_log_decoder_enabled     = false;
 static bool g_battle_log_decoder_segments    = true;
@@ -60,6 +62,12 @@ static bool g_mod_impact_monitor             = DCD::mod_impact_monitor;
 /** @brief Accessor for the file-scope allow_key_fallthrough flag. */
 bool AllowKeyFallthrough()
 { return g_allow_key_fallthrough; }
+
+ScopelyShortcutPolicy ScopelyShortcutsPolicy()
+{ return g_scopely_shortcuts_policy; }
+
+OriginalFramePolicy OriginalFramePolicySetting()
+{ return g_original_frame_policy; }
 
 bool LiveDebugChannelEnabled()
 { return g_live_debug_channel; }
@@ -601,6 +609,74 @@ std::optional<bool> read_bool_config_value_if_present(toml::table& config, std::
   return std::nullopt;
 }
 
+std::optional<std::string> read_string_config_value_if_present(toml::table& config,
+                                                               std::string_view section,
+                                                               std::string_view key,
+                                                               std::string_view docs)
+{
+  auto* section_table = config[section].as_table();
+  if (!section_table || !section_table->contains(key)) {
+    return std::nullopt;
+  }
+
+  auto* node = section_table->get(key);
+  if (!node) {
+    return std::nullopt;
+  }
+
+  if (auto value = node->value<std::string>(); value.has_value()) {
+    return value.value();
+  }
+
+  spdlog::warn("Invalid string config [{}].{} ({}). Found {}; using default.", section, key,
+               docs.empty() ? "string setting" : docs, get_config_type_as_string(node->type()));
+  return std::nullopt;
+}
+
+std::optional<ScopelyShortcutPolicy> parse_scopely_shortcut_policy(std::string_view value)
+{
+  if (value == "off") {
+    return ScopelyShortcutPolicy::Off;
+  }
+
+  if (value == "native") {
+    return ScopelyShortcutPolicy::Native;
+  }
+
+  if (value == "fallback") {
+    return ScopelyShortcutPolicy::Fallback;
+  }
+
+  return std::nullopt;
+}
+
+std::optional<OriginalFramePolicy> parse_original_frame_policy(std::string_view value)
+{
+  if (value == "mod") {
+    return OriginalFramePolicy::Mod;
+  }
+
+  if (value == "fallthrough_unhandled") {
+    return OriginalFramePolicy::FallthroughUnhandled;
+  }
+
+  if (value == "fallthrough_all") {
+    return OriginalFramePolicy::FallthroughAll;
+  }
+
+  return std::nullopt;
+}
+
+void write_input_policy_config(toml::table& new_config,
+                               const ScopelyShortcutPolicy scopely_shortcuts,
+                               const OriginalFramePolicy original_frame_policy)
+{
+  new_config.emplace<toml::table>("input", toml::table());
+  auto* input = new_config["input"].as_table();
+  input->insert_or_assign("scopely_shortcuts", scopely_shortcut_policy_name(scopely_shortcuts));
+  input->insert_or_assign("original_frame_policy", original_frame_policy_name(original_frame_policy));
+}
+
 bool read_bool_config_entry(toml::table& config, toml::table& new_config, std::string_view section,
                             std::string_view key, std::string_view runtime_key, bool default_value,
                             std::string_view docs, bool write_log)
@@ -1065,14 +1141,52 @@ void Config::Load()
       get_config_or_default(config, parsed, "control", "enable_experimental", DCC::enable_experimental, write_config);
 
   g_allow_key_fallthrough = read_bool_config_entry(config, parsed, kAllowKeyFallthroughConfig, write_config);
+  g_scopely_shortcuts_policy = resolve_scopely_shortcut_policy(this->use_scopely_hotkeys, g_allow_key_fallthrough);
+  g_original_frame_policy    = resolve_original_frame_policy(g_allow_key_fallthrough);
+
+  const auto explicit_scopely_policy = config_key_exists(config, "input", "scopely_shortcuts");
+  if (auto policy_value = read_string_config_value_if_present(config,
+                                                              "input",
+                                                              "scopely_shortcuts",
+                                                              "Scopely shortcut initialization policy.")) {
+    if (auto policy = parse_scopely_shortcut_policy(*policy_value)) {
+      g_scopely_shortcuts_policy = *policy;
+    } else {
+      spdlog::warn("Invalid string config [input].scopely_shortcuts value='{}'; expected off, native, or fallback. "
+                   "Using {}.",
+                   *policy_value,
+                   scopely_shortcut_policy_name(g_scopely_shortcuts_policy));
+    }
+  }
+
+  const auto explicit_frame_policy = config_key_exists(config, "input", "original_frame_policy");
+  if (auto policy_value = read_string_config_value_if_present(config,
+                                                              "input",
+                                                              "original_frame_policy",
+                                                              "Original ScreenManager::Update call policy.")) {
+    if (auto policy = parse_original_frame_policy(*policy_value)) {
+      g_original_frame_policy = *policy;
+    } else {
+      spdlog::warn("Invalid string config [input].original_frame_policy value='{}'; expected mod, "
+                   "fallthrough_unhandled, or fallthrough_all. Using {}.",
+                   *policy_value,
+                   original_frame_policy_name(g_original_frame_policy));
+    }
+  }
+
+  write_input_policy_config(parsed, g_scopely_shortcuts_policy, g_original_frame_policy);
 
   spdlog::info(
-      "[Hotkeys] config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} allow_key_fallthrough={}",
-      this->installHotkeyHooks, this->hotkeys_enabled, this->use_scopely_hotkeys, g_allow_key_fallthrough);
+      "[Hotkeys] config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} allow_key_fallthrough={} "
+      "scopely_shortcuts={} original_frame_policy={}",
+      this->installHotkeyHooks, this->hotkeys_enabled, this->use_scopely_hotkeys, g_allow_key_fallthrough,
+      scopely_shortcut_policy_name(g_scopely_shortcuts_policy), original_frame_policy_name(g_original_frame_policy));
 
-  if (g_allow_key_fallthrough && !this->use_scopely_hotkeys) {
-    spdlog::warn("[Hotkeys] allow_key_fallthrough is enabled without use_scopely_hotkeys; unhandled frames will pass "
-                 "through and Scopely shortcut actions will initialize for fallthrough.");
+  if (g_allow_key_fallthrough && !this->use_scopely_hotkeys && !explicit_scopely_policy && !explicit_frame_policy) {
+    spdlog::warn("[Hotkeys] legacy allow_key_fallthrough=true maps to scopely_shortcuts={} and "
+                 "original_frame_policy={}. Set [input] policies to split those behaviors explicitly.",
+                 scopely_shortcut_policy_name(g_scopely_shortcuts_policy),
+                 original_frame_policy_name(g_original_frame_policy));
   }
 
   spdlog::debug("");
