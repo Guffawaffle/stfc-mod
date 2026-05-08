@@ -10,6 +10,7 @@
  */
 #include "config.h"
 #include "errormsg.h"
+#include "patches/mod_impact_monitor.h"
 
 #include <il2cpp/il2cpp_helper.h>
 
@@ -47,10 +48,12 @@ TKTouch *TKTouch_populateWithPosition_Hook(auto original, TKTouch *_this, uintpt
  */
 bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan *_this)
 {
+  ScopedModImpactTimer impact_timer(ModImpactProbe::NavigationPanLateUpdate, ModImpactMonitorEnabled());
+
   auto d = _this->_lastDelta;
 
   if (!Config::Get().disable_move_keys) {
-    original(_this);
+    impact_timer.ExcludeCall([&] { original(_this); });
   }
 
   static auto GetMouseButton = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButton(System.Int32)");

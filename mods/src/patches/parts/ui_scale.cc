@@ -16,6 +16,8 @@
 #include "errormsg.h"
 #include <config.h>
 
+#include "patches/mod_impact_monitor.h"
+
 #include <il2cpp/il2cpp_helper.h>
 
 #include <prime/CanvasScaler.h>
@@ -42,7 +44,8 @@
  */
 void ScreenManager_UpdateCanvasRootScaleFactor_Hook(auto original, ScreenManager* _this)
 {
-  original(_this);
+  ScopedModImpactTimer impact_timer(ModImpactProbe::UiScaleUpdate, ModImpactMonitorEnabled());
+  impact_timer.ExcludeCall([&] { original(_this); });
 
   #if _WIN32
   static auto cursor = LoadCursor(NULL, IDC_ARROW);

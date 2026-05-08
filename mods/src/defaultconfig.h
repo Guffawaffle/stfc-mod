@@ -91,6 +91,8 @@ namespace Debug
   constexpr bool live_query = false;
   /// Enable focused refinery lifecycle/action diagnostics in community_patch.log. Default: false.
   constexpr bool refinery_diagnostics = false;
+  /// Enable periodic runtime impact summaries for frame-owned mod hooks. Default: false.
+  constexpr bool mod_impact_monitor = false;
 } // namespace Debug
 
 namespace BattleLogDecoder

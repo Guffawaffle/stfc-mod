@@ -12,6 +12,7 @@
 #include "patches/hook_registry.h"
 #include "patches/hotkey_router.h"
 #include "patches/live_debug.h"
+#include "patches/mod_impact_monitor.h"
 
 #include "prime/ScreenManager.h"
 
@@ -49,6 +50,8 @@ void log_frame_tick_subscribers()
 
 void tick_live_debug(ScreenManager* screen_manager)
 {
+  ScopedModImpactTimer impact_timer(ModImpactProbe::FrameTickLiveDebug, ModImpactMonitorEnabled());
+
   if (!live_debug_frame_subscriber_enabled()) {
     return;
   }
@@ -64,6 +67,8 @@ void tick_live_debug(ScreenManager* screen_manager)
 
 bool tick_hotkeys(ScreenManager* screen_manager)
 {
+  ScopedModImpactTimer impact_timer(ModImpactProbe::FrameTickHotkeys, ModImpactMonitorEnabled());
+
   if (!hotkey_frame_subscriber_enabled()) {
     return true;
   }
@@ -82,11 +87,13 @@ bool tick_hotkeys(ScreenManager* screen_manager)
 
 void ScreenManager_Update_FrameTick_Hook(auto original, ScreenManager* screen_manager)
 {
+  ScopedModImpactTimer impact_timer(ModImpactProbe::FrameTickTotal, ModImpactMonitorEnabled());
+
   tick_live_debug(screen_manager);
 
   const auto should_call_original = tick_hotkeys(screen_manager);
   if (should_call_original) {
-    return original(screen_manager);
+    return impact_timer.ExcludeCall([&] { original(screen_manager); });
   }
 }
 }

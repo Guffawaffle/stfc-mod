@@ -15,6 +15,7 @@
 
 #include "config.h"
 #include "errormsg.h"
+#include "patches/mod_impact_monitor.h"
 #include "file.h"
 
 #include <spud/detour.h>
@@ -148,6 +149,8 @@ struct ResolutionArray {
  */
 void AspectRatioConstraintHandler_Update(auto original, void* _this)
 {
+  ScopedModImpactTimer impact_timer(ModImpactProbe::AspectRatioUpdate, ModImpactMonitorEnabled());
+
   static auto set_title       = true;
   static auto get_fullscreen  = il2cpp_resolve_icall_typed<bool()>("UnityEngine.Screen::get_fullScreen()");
   static auto get_height      = il2cpp_resolve_icall_typed<int()>("UnityEngine.Screen::get_height()");

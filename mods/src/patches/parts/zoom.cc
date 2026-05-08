@@ -20,6 +20,7 @@
 
 #include "config.h"
 #include "errormsg.h"
+#include "patches/mod_impact_monitor.h"
 
 #include <patches/mapkey.h>
 
@@ -87,12 +88,14 @@ inline void StoreZoom(std::string label, float &zoom, NavigationZoom *_this)
  */
 void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
 {
+  ScopedModImpactTimer impact_timer(ModImpactProbe::NavigationZoomUpdate, ModImpactMonitorEnabled());
+
   static auto GetMousePosition =
       il2cpp_resolve_icall_typed<void(vec3 *)>("UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)");
   static auto GetDeltaTime = il2cpp_resolve_icall_typed<float()>("UnityEngine.Time::get_deltaTime()");
 
   if (!_this) {
-    original(_this);
+    impact_timer.ExcludeCall([&] { original(_this); });
     return;
   }
 
@@ -158,7 +161,7 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
 
     if (MapKey::IsPressed(GameFunction::ZoomIn) || do_absolute_zoom) {
       if (!_this->_sceneCamera) {
-        original(_this);
+        impact_timer.ExcludeCall([&] { original(_this); });
         do_default_zoom = false;
         return;
       }
@@ -178,7 +181,7 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
       _this->ZoomCameraAtWorldPoint();
     } else if (MapKey::IsPressed(GameFunction::ZoomOut) && !Key::IsInputFocused()) {
       if (!_this->_sceneCamera) {
-        original(_this);
+        impact_timer.ExcludeCall([&] { original(_this); });
         do_default_zoom = false;
         return;
       }
@@ -200,7 +203,7 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
 
   do_default_zoom = false;
 
-  original(_this);
+  impact_timer.ExcludeCall([&] { original(_this); });
 }
 
 // ─── View Parameter / Depth Hooks ──────────────────────────────────────────

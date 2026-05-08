@@ -367,3 +367,8 @@ int SyncSidecarJsonlRecentLogs();
  * @brief Whether focused refinery diagnostics should be installed.
  */
 bool RefineryDiagnosticsEnabled();
+
+/**
+ * @brief Whether opt-in runtime mod impact monitoring is enabled.
+ */
+bool ModImpactMonitorEnabled();
