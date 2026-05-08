@@ -425,11 +425,14 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       break;
   }
 
-  const auto is_in_chat = Hub::IsInChat();
-  const auto config     = &Config::Get();
+  const auto is_in_chat    = Hub::IsInChat();
+  const auto input_focused = Key::IsInputFocused();
+  const auto config        = &Config::Get();
 
 #ifdef _WIN32
-  if (first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyQuitActions) == input_binding::InputActionId::Quit) {
+  if (hotkey_router_quit_action(first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyQuitActions)
+                                == input_binding::InputActionId::Quit)
+      == HotkeyRouterQuitAction::QuitProcess) {
     TerminateProcess(GetCurrentProcess(), 1);
     return false;
   }
@@ -443,16 +446,20 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   }
 
   // ─── Escape in chat / input focus ───────────────────────────────────────────────────
-  if (hotkey_router_should_clear_input_focus(Key::Pressed(KeyCode::Escape), Key::IsInputFocused(), Hub::IsInChat())) {
+  if (hotkey_router_should_clear_input_focus(Key::Pressed(KeyCode::Escape), input_focused, is_in_chat)) {
     Key::ClearInputFocus();
     return false;
   }
 
   if (!is_in_chat) {
-    if (!Key::IsInputFocused()) {
+    if (!input_focused) {
       // SelectCurrent — locate active fleet
-      if (first_runtime_binding_winner(runtime_dispatch_plan, kHotkeySelectCurrentActions)
-          == input_binding::InputActionId::SelectCurrent) {
+      if (hotkey_router_select_current_action(is_in_chat,
+                                              input_focused,
+                                              first_runtime_binding_winner(runtime_dispatch_plan,
+                                                                           kHotkeySelectCurrentActions)
+                                                  == input_binding::InputActionId::SelectCurrent)
+          == HotkeyRouterSelectCurrentAction::ViewActiveFleet) {
         auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
         if (fleet_bar) {
           auto fleet = fleet_bar->_fleetPanelController->fleet;
@@ -468,7 +475,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
       // ToggleQueue
       const auto queue_toggle_action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyQueueActions);
-      if (hotkey_router_should_toggle_queue(is_in_chat, Key::IsInputFocused(),
+      if (hotkey_router_should_toggle_queue(is_in_chat, input_focused,
                                             queue_toggle_action == input_binding::InputActionId::FleetQueueToggle)) {
         config->queue_enabled = !config->queue_enabled;
         return false;
@@ -478,31 +485,42 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       const auto chat_open_action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyChatOpenActions);
       if (chat_open_action != input_binding::InputActionId::Max) {
         if (auto chat_manager = ChatManager::Instance(); chat_manager) {
-          if (chat_manager->IsSideChatOpen) {
-            if (auto view_controller = ObjectFinder<FullScreenChatViewController>::Get(); view_controller) {
-              if (auto message_list = view_controller->_messageList; message_list) {
-                if (auto message_field = message_list->_inputField; message_field) {
-                  message_field->ActivateInputField();
+          switch (hotkey_router_chat_open_action(is_in_chat,
+                                                 input_focused,
+                                                 chat_manager->IsSideChatOpen,
+                                                 chat_open_action)) {
+            case HotkeyRouterChatOpenAction::ActivateExistingInput:
+              if (auto view_controller = ObjectFinder<FullScreenChatViewController>::Get(); view_controller) {
+                if (auto message_list = view_controller->_messageList; message_list) {
+                  if (auto message_field = message_list->_inputField; message_field) {
+                    message_field->ActivateInputField();
+                  }
                 }
               }
-            }
-          } else if (chat_open_action == input_binding::InputActionId::ShowChatSide1
-                     || chat_open_action == input_binding::InputActionId::ShowChatSide2) {
-            chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Side);
-          } else {
-            chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Fullscreen);
+              break;
+            case HotkeyRouterChatOpenAction::OpenAllianceSide:
+              chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Side);
+              break;
+            case HotkeyRouterChatOpenAction::OpenAllianceFullscreen:
+              chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Fullscreen);
+              break;
+            default:
+              break;
           }
         }
       }
 
       // MoveLeft / MoveRight (officer canvas)
-      switch (first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyOfficerCanvasActions)) {
-        case input_binding::InputActionId::MoveLeft:
+      switch (hotkey_router_officer_canvas_action(is_in_chat,
+                                                  input_focused,
+                                                  first_runtime_binding_winner(runtime_dispatch_plan,
+                                                                               kHotkeyOfficerCanvasActions))) {
+        case HotkeyRouterOfficerCanvasAction::MoveLeft:
           if (MoveOfficerCanvas(true)) {
             return false;
           }
           break;
-        case input_binding::InputActionId::MoveRight:
+        case HotkeyRouterOfficerCanvasAction::MoveRight:
           if (MoveOfficerCanvas(false)) {
             return false;
           }
@@ -511,7 +529,10 @@ bool hotkey_router_screen_update(ScreenManager* _this)
           break;
       }
 
-      if (const auto action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyTableDispatchActions);
+      if (const auto action = hotkey_router_table_dispatch_request(is_in_chat,
+                                                                   input_focused,
+                                                                   first_runtime_binding_winner(runtime_dispatch_plan,
+                                                                                                kHotkeyTableDispatchActions));
           action != input_binding::InputActionId::Max) {
         if (dispatch_runtime_bound_table_action(action) == HotkeyRouterDispatchAction::SuppressOriginal) {
           return false;
@@ -521,14 +542,16 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   } else {
     // ─── In-chat channel selection ─────────────────────────────────────────────────────
     if (auto chat_manager = ChatManager::Instance(); chat_manager) {
-      switch (first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyChatChannelActions)) {
-        case input_binding::InputActionId::SelectChatGlobal:
+      switch (hotkey_router_chat_channel_action(is_in_chat,
+                                                first_runtime_binding_winner(runtime_dispatch_plan,
+                                                                             kHotkeyChatChannelActions))) {
+        case HotkeyRouterChatChannelAction::Global:
           chat_manager->OpenChannel(ChatChannelCategory::Global);
           return false;
-        case input_binding::InputActionId::SelectChatAlliance:
+        case HotkeyRouterChatChannelAction::Alliance:
           chat_manager->OpenChannel(ChatChannelCategory::Alliance);
           return false;
-        case input_binding::InputActionId::SelectChatPrivate:
+        case HotkeyRouterChatChannelAction::Private:
           chat_manager->OpenChannel(ChatChannelCategory::Private);
           return false;
         default:
@@ -538,7 +561,8 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   }
 
   if (!Key::IsInputFocused()) {
-    const auto simple_fleet_action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeySimpleFleetActions);
+  const auto simple_fleet_action = hotkey_router_simple_fleet_action(
+    false, first_runtime_binding_winner(runtime_dispatch_plan, kHotkeySimpleFleetActions));
     const auto space_action_inputs = hotkey_router_runtime_space_action_inputs(
         runtime_binding_winner_present(runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary,
                                        input_binding::InputLayer::Fleet),
@@ -559,8 +583,8 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       }
     }
 
-    if (simple_fleet_action == input_binding::InputActionId::FleetQueueClear) {
-      dispatch_runtime_bound_simple_fleet_action(simple_fleet_action);
+    if (simple_fleet_action == HotkeyRouterSimpleFleetAction::QueueClear) {
+      dispatch_runtime_bound_simple_fleet_action(input_binding::InputActionId::FleetQueueClear);
     }
 
     // Space actions (engage, scan, recall, repair, queue, etc.)
@@ -579,7 +603,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
     }
 
     // ActionView — toggle cargo/rewards info panel
-    if (simple_fleet_action == input_binding::InputActionId::FleetViewInfo) {
+    if (simple_fleet_action == HotkeyRouterSimpleFleetAction::ViewInfo) {
       HandleActionView();
     }
 
