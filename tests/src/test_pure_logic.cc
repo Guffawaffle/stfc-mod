@@ -7,6 +7,7 @@
 #include "patches/battle_log_decoder.h"
 #include "patches/fleet_input_policy.h"
 #include "patches/input_binding/input_binding.h"
+#include "patches/input_binding/input_config_bridge.h"
 #include "patches/live_debug_event_store.h"
 #include "patches/live_debug_fleet_serializers.h"
 #include "patches/live_debug_recent_event_requests.h"
@@ -242,6 +243,93 @@ TEST_SUITE("input_binding")
     REQUIRE(matches.size() == 2);
     CHECK(matches[0] == input_binding::InputActionId::FleetPrimary);
     CHECK(matches[1] == input_binding::InputActionId::FleetService);
+  }
+
+  TEST_CASE("config bridge resolves defaults into canonical bindings")
+  {
+    const toml::table config;
+    const auto bridge = input_binding::ResolveInputBindingConfig(config);
+
+    const auto fleet_primary = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::FleetPrimary;
+    });
+    REQUIRE(fleet_primary != bridge.bindings.end());
+    CHECK(fleet_primary->binding == "SPACE|MOUSE1");
+    CHECK(fleet_primary->source_key == "default");
+    CHECK(bridge.compatibility_warnings.empty());
+  }
+
+  TEST_CASE("config bridge prefers canonical input bindings over legacy shortcuts")
+  {
+    const auto config = toml::parse(R"(
+[input.bindings]
+fleet_primary = ["CTRL-A", "MOUSE4"]
+
+[shortcuts]
+action_primary = "SPACE|MOUSE1"
+)");
+
+    const auto bridge = input_binding::ResolveInputBindingConfig(config);
+    const auto fleet_primary = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::FleetPrimary;
+    });
+    REQUIRE(fleet_primary != bridge.bindings.end());
+    CHECK(fleet_primary->binding == "CTRL-A|MOUSE4");
+    CHECK(fleet_primary->source_key == "[input.bindings].fleet_primary");
+    CHECK_FALSE(bridge.compatibility_warnings.empty());
+  }
+
+  TEST_CASE("config bridge resolves legacy fleet aliases with precedence and conflict warnings")
+  {
+    const auto config = toml::parse(R"(
+[shortcuts]
+action_primary = "CTRL-A"
+action_queue = "Q"
+action_recall_cancel = "SPACE|MOUSE1"
+)");
+
+    const auto bridge = input_binding::ResolveInputBindingConfig(config);
+    const auto fleet_primary = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::FleetPrimary;
+    });
+    REQUIRE(fleet_primary != bridge.bindings.end());
+    CHECK(fleet_primary->binding == "CTRL-A");
+    CHECK(fleet_primary->source_key == "[shortcuts].action_primary");
+    CHECK(bridge.compatibility_warnings.size() >= 2);
+  }
+
+  TEST_CASE("config bridge accepts hotkeys enable compatibility alias")
+  {
+    const auto config = toml::parse(R"(
+[shortcuts]
+set_hotkeys_enabled = "CTRL-ALT-F1"
+)");
+
+    const auto bridge = input_binding::ResolveInputBindingConfig(config);
+    const auto hotkeys_enable = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::HotkeysEnable;
+    });
+    REQUIRE(hotkeys_enable != bridge.bindings.end());
+    CHECK(hotkeys_enable->binding == "CTRL-ALT-F1");
+    CHECK(hotkeys_enable->source_key == "[shortcuts].set_hotkeys_enabled");
+    REQUIRE(bridge.compatibility_warnings.size() == 1);
+  }
+
+  TEST_CASE("config bridge runtime config emits canonical bindings and sources")
+  {
+    const auto config = toml::parse(R"(
+[input.bindings]
+fleet_service = "CTRL-R"
+)");
+
+    const auto bridge = input_binding::ResolveInputBindingConfig(config);
+    const auto compile = input_binding::CompileBindingSet(bridge.AsOverrides());
+    const auto runtime = input_binding::BuildInputBindingRuntimeConfig(bridge, compile);
+
+    REQUIRE(runtime["bindings"].as_table() != nullptr);
+    REQUIRE(runtime["binding_sources"].as_table() != nullptr);
+    CHECK(runtime["bindings"]["fleet_service"].value_or(std::string{}) == "CTRL-R");
+    CHECK(runtime["binding_sources"]["fleet_service"].value_or(std::string{}) == "[input.bindings].fleet_service");
   }
 }
 

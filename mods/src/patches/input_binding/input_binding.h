@@ -175,7 +175,7 @@ private:
 
 struct BindingOverride {
   InputActionId    action = InputActionId::Max;
-  std::string_view binding;
+  std::string      binding;
 };
 
 struct BindingConflict {

@@ -9,6 +9,7 @@
 #include "config.h"
 #include "config_schema.h"
 #include "file.h"
+#include "patches/input_binding/input_config_bridge.h"
 #include "patches/mapkey.h"
 #include "prime/KeyCode.h"
 #include "str_utils.h"
@@ -1525,6 +1526,34 @@ void Config::Load()
 
     Config::Save(parsed, File::Config(), false);
   }
+
+  const auto input_binding_bridge   = input_binding::ResolveInputBindingConfig(config);
+  const auto input_binding_compile  = input_binding::CompileBindingSet(input_binding_bridge.AsOverrides());
+  for (const auto& warning : input_binding_bridge.compatibility_warnings) {
+    spdlog::warn("[InputBindings] {}", warning);
+  }
+
+  for (const auto& diagnostic : input_binding_compile.diagnostics) {
+    if (diagnostic.message == "Binding conflict") {
+      continue;
+    }
+
+    const auto* spec = input_binding::FindActionSpec(diagnostic.action);
+    spdlog::warn("[InputBindings] Preview compile {} for {}: {}",
+                 diagnostic.severity == input_binding::DiagnosticSeverity::Error ? "error" : "warning",
+                 spec ? spec->canonical_key : std::string_view{"unknown"}, diagnostic.message);
+  }
+
+  for (const auto& conflict : input_binding_compile.conflicts) {
+    const auto* action_a = input_binding::FindActionSpec(conflict.action_a);
+    const auto* action_b = input_binding::FindActionSpec(conflict.action_b);
+    spdlog::warn("[InputBindings] Preview conflict: {} conflicts with {} on '{}'",
+                 action_a ? action_a->canonical_key : std::string_view{"unknown"},
+                 action_b ? action_b->canonical_key : std::string_view{"unknown"}, conflict.chord.display);
+  }
+
+  parsed.insert_or_assign("input", input_binding::BuildInputBindingRuntimeConfig(input_binding_bridge,
+                                                                                   input_binding_compile));
 
   message.str("");
   message << "Creating " << File::Vars() << " (final config file)";
