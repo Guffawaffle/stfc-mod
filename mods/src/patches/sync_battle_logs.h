@@ -13,4 +13,5 @@ void load_previously_sent_logs();
 void process_battle_headers(const nlohmann::json& section);
 void cache_player_names(std::unique_ptr<std::string>&& bytes);
 void cache_alliance_names(std::unique_ptr<std::string>&& bytes);
-void ship_combat_log_data();
+void StartCombatLogWorker();
+void ShutdownCombatLogWorker();

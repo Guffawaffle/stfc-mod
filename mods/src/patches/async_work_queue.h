@@ -59,6 +59,21 @@ public:
     return true;
   }
 
+  bool wait_pop(WorkItem& item)
+  {
+    std::unique_lock lock(mutex_);
+    condition_.wait(lock, [this] { return shutdown_requested_ || !queue_.empty(); });
+
+    if (queue_.empty()) {
+      return false;
+    }
+
+    item = std::move(queue_.front());
+    queue_.pop_front();
+    ++dequeued_;
+    return true;
+  }
+
   std::vector<WorkItem> drain()
   {
     std::lock_guard lock(mutex_);

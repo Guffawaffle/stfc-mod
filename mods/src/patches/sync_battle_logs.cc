@@ -7,6 +7,7 @@
 #include "config.h"
 #include "errormsg.h"
 #include "file.h"
+#include "patches/async_work_queue.h"
 #include "patches/battle_log_decoder.h"
 #include "patches/sync_transport.h"
 #include "str_utils.h"
@@ -30,7 +31,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <condition_variable>
 #include <cstdint>
 #include <deque>
 #include <exception>
@@ -39,9 +39,10 @@
 #include <fstream>
 #include <memory>
 #include <mutex>
-#include <queue>
 #include <ranges>
 #include <string>
+#include <string_view>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -63,9 +64,21 @@ struct WinRtApartmentGuard {
 };
 #endif
 
-std::mutex              combat_log_data_mtx;
-std::condition_variable combat_log_data_cv;
-std::queue<uint64_t>    combat_log_data_queue;
+namespace
+{
+AsyncWorkQueue<uint64_t> s_combat_log_queue;
+std::once_flag           s_combat_log_worker_once;
+std::thread              s_combat_log_worker_thread;
+constexpr auto           kCombatLogWorkerSlowJoinThreshold = std::chrono::seconds(5);
+
+void log_worker_join_time(const std::string_view worker_name, const std::chrono::steady_clock::duration elapsed)
+{
+  if (elapsed > kCombatLogWorkerSlowJoinThreshold) {
+    spdlog::warn("[BattleSync] {} join waited {} ms during shutdown", worker_name,
+                 std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
+  }
+}
+} // namespace
 
 struct CachedPlayerData {
   std::string                           name;
@@ -611,14 +624,11 @@ void process_battle_headers(const nlohmann::json& section)
     http::sync_log_trace("PROCESS", "battle headers",
                          STR_FORMAT("Queuing {} battles for background processing", to_enqueue.size()));
 
-    {
-      std::lock_guard lk(combat_log_data_mtx);
-      for (const auto id : to_enqueue) {
-        combat_log_data_queue.push(id);
+    for (const auto id : to_enqueue) {
+      if (!s_combat_log_queue.enqueue(id)) {
+        spdlog::warn("Battle {} dropped because combat log worker shutdown is in progress", id);
       }
     }
-
-    combat_log_data_cv.notify_all();
   }
 }
 
@@ -739,7 +749,7 @@ void resolve_alliance_names(const std::unordered_set<int64_t>& alliance_ids, nlo
   }
 }
 
-void ship_combat_log_data()
+static void ship_combat_log_data()
 {
   using json = nlohmann::json;
 
@@ -747,14 +757,8 @@ void ship_combat_log_data()
   WinRtApartmentGuard apartmentGuard;
 #endif
 
-  for (;;) {
-    uint64_t journal_id;
-    {
-      std::unique_lock lock(combat_log_data_mtx);
-      combat_log_data_cv.wait(lock, [] { return !combat_log_data_queue.empty(); });
-      journal_id = combat_log_data_queue.front();
-      combat_log_data_queue.pop();
-    }
+  uint64_t journal_id = 0;
+  while (s_combat_log_queue.wait_pop(journal_id)) {
 
     const bool send_battlelogs            = has_enabled_sync_target(SyncConfig::Type::Battles);
     const bool export_battlelogs_realtime = has_enabled_sync_target(SyncConfig::Type::BattlelogsRealtime);
@@ -867,6 +871,7 @@ void ship_combat_log_data()
             }
           }
         }
+
       }
 
       const auto captured_at_unix_ms = current_probe_unix_ms();
@@ -923,4 +928,26 @@ void ship_combat_log_data()
       spdlog::error("Unknown error during processing of combat log data");
     }
   }
+
+  spdlog::debug("[BattleSync] combat log worker stopped");
+}
+
+void StartCombatLogWorker()
+{
+  std::call_once(s_combat_log_worker_once, [] {
+    s_combat_log_worker_thread = std::thread(ship_combat_log_data);
+  });
+}
+
+void ShutdownCombatLogWorker()
+{
+  s_combat_log_queue.request_shutdown();
+
+  if (!s_combat_log_worker_thread.joinable()) {
+    return;
+  }
+
+  const auto join_started_at = std::chrono::steady_clock::now();
+  s_combat_log_worker_thread.join();
+  log_worker_join_time("combat log worker", std::chrono::steady_clock::now() - join_started_at);
 }
