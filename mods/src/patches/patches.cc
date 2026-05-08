@@ -12,7 +12,10 @@
  */
 #include "patches.h"
 #include "file.h"
+#include "patches/notification_service.h"
+#include "patches/sync_battle_logs.h"
 #include "patches/sync_payload_builders.h"
+#include "patches/sync_scheduler.h"
 #include "patches/sync_transport.h"
 #include "version.h"
 
@@ -256,5 +259,8 @@ void ApplyPatches()
 void ShutdownPatches()
 {
   ShutdownSyncPayloadWorkers();
+  ShutdownSyncSchedulerWorker();
+  ShutdownCombatLogWorker();
+  notification_shutdown();
   http::shutdown_workers();
 }

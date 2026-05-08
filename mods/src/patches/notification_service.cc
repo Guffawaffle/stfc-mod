@@ -101,10 +101,12 @@ const char* notification_toast_title(int state)
 static AsyncWorkQueue<NotificationQueueRequest> s_notification_queue;
 static std::mutex              s_recent_toast_mutex;
 static std::once_flag          s_notification_worker_once;
+static std::thread             s_notification_worker_thread;
 static constexpr auto          kNotificationCoalesceWindow   = std::chrono::milliseconds(750);
 static constexpr auto          kRecentToastDedupWindow       = std::chrono::milliseconds(500);
 static constexpr size_t        kRecentToastDedupMaxEntries   = 256;
 static constexpr size_t        kNotificationSummaryLimit     = 4;
+static constexpr auto          kNotificationJoinWarnThreshold = std::chrono::seconds(5);
 static BoundedTtlDeduper<uintptr_t> s_recent_toasts(kRecentToastDedupMaxEntries);
 
 bool notification_should_process_toast(Toast* toast)
@@ -397,7 +399,7 @@ void notification_init()
 #if _WIN32
   notification_platform_init();
   std::call_once(s_notification_worker_once, []() {
-    std::thread(notification_worker_main).detach();
+    s_notification_worker_thread = std::thread(notification_worker_main);
   });
   spdlog::debug("[Notify] Windows notification service initialized");
 #else
@@ -405,6 +407,25 @@ void notification_init()
 #endif
 
   s_notification_initialized = true;
+}
+
+void notification_shutdown()
+{
+#if _WIN32
+  s_notification_queue.request_shutdown();
+
+  if (!s_notification_worker_thread.joinable()) {
+    return;
+  }
+
+  const auto join_started_at = std::chrono::steady_clock::now();
+  s_notification_worker_thread.join();
+  const auto join_elapsed = std::chrono::steady_clock::now() - join_started_at;
+  if (join_elapsed > kNotificationJoinWarnThreshold) {
+    spdlog::warn("[NotifyQueue] worker join waited {} ms during shutdown",
+                 std::chrono::duration_cast<std::chrono::milliseconds>(join_elapsed).count());
+  }
+#endif
 }
 
 void notification_show(const char* title, const char* body)

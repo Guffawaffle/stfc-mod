@@ -5,6 +5,7 @@
 #include "patches/sync_scheduler.h"
 
 #include "errormsg.h"
+#include "patches/async_work_queue.h"
 #include "patches/sync_transport.h"
 
 #include <spdlog/spdlog.h>
@@ -13,11 +14,12 @@
 #include <winrt/Windows.Foundation.h>
 #endif
 
-#include <condition_variable>
+#include <chrono>
 #include <exception>
 #include <mutex>
-#include <queue>
 #include <string>
+#include <string_view>
+#include <thread>
 #include <tuple>
 
 #if _WIN32
@@ -27,47 +29,53 @@ struct WinRtApartmentGuard {
 };
 #endif
 
-std::mutex sync_data_mtx;
-std::condition_variable sync_data_cv;
-std::queue<std::tuple<SyncConfig::Type, std::string, bool>> sync_data_queue;
+namespace
+{
+using SyncQueueItem = std::tuple<SyncConfig::Type, std::string, bool>;
+
+AsyncWorkQueue<SyncQueueItem> s_sync_data_queue;
+std::once_flag                s_sync_worker_once;
+std::thread                   s_sync_worker_thread;
+constexpr auto                kSyncWorkerSlowJoinThreshold = std::chrono::seconds(5);
+
+void log_worker_join_time(const std::string_view worker_name, const std::chrono::steady_clock::duration elapsed)
+{
+  if (elapsed > kSyncWorkerSlowJoinThreshold) {
+    spdlog::warn("[SyncQueue] {} join waited {} ms during shutdown", worker_name,
+                 std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
+  }
+}
+} // namespace
 
 void queue_data(SyncConfig::Type type, const std::string& data, bool is_first_sync)
 {
-  {
-    std::lock_guard lk(sync_data_mtx);
-    sync_data_queue.emplace(type, data, is_first_sync);
-    http::sync_log_debug("QUEUE", to_string(type), "Added data to sync queue");
+  if (!s_sync_data_queue.enqueue({type, data, is_first_sync})) {
+    http::sync_log_warn("QUEUE", to_string(type), "Dropping data because sync scheduler shutdown is in progress");
+    return;
   }
 
-  sync_data_cv.notify_all();
+  http::sync_log_debug("QUEUE", to_string(type), "Added data to sync queue");
 }
 
 void queue_data(SyncConfig::Type type, const nlohmann::json& data, bool is_first_sync)
 {
-  {
-    std::lock_guard lk(sync_data_mtx);
-    sync_data_queue.emplace(type, data.dump(), is_first_sync);
-    http::sync_log_debug("QUEUE", to_string(type), "Added " + std::to_string(data.size()) + " entries to sync queue");
+  if (!s_sync_data_queue.enqueue({type, data.dump(), is_first_sync})) {
+    http::sync_log_warn("QUEUE", to_string(type), "Dropping data because sync scheduler shutdown is in progress");
+    return;
   }
 
-  sync_data_cv.notify_all();
+  http::sync_log_debug("QUEUE", to_string(type), "Added " + std::to_string(data.size()) + " entries to sync queue");
 }
 
-void ship_sync_data()
+static void ship_sync_data()
 {
 #if _WIN32
   WinRtApartmentGuard apartmentGuard;
 #endif
 
   try {
-    for (;;) {
-      std::tuple<SyncConfig::Type, std::string, bool> sync_data;
-      {
-        std::unique_lock lock(sync_data_mtx);
-        sync_data_cv.wait(lock, [] { return !sync_data_queue.empty(); });
-        sync_data = std::move(sync_data_queue.front());
-        sync_data_queue.pop();
-      }
+    SyncQueueItem sync_data;
+    while (s_sync_data_queue.wait_pop(sync_data)) {
 
       try {
         auto& [type, data, is_first_sync] = sync_data;
@@ -91,4 +99,26 @@ void ship_sync_data()
   } catch (...) {
     spdlog::critical("ship_sync_data thread terminated: unknown exception");
   }
+
+  spdlog::debug("[SyncQueue] worker stopped");
+}
+
+void StartSyncSchedulerWorker()
+{
+  std::call_once(s_sync_worker_once, [] {
+    s_sync_worker_thread = std::thread(ship_sync_data);
+  });
+}
+
+void ShutdownSyncSchedulerWorker()
+{
+  s_sync_data_queue.request_shutdown();
+
+  if (!s_sync_worker_thread.joinable()) {
+    return;
+  }
+
+  const auto join_started_at = std::chrono::steady_clock::now();
+  s_sync_worker_thread.join();
+  log_worker_join_time("sync scheduler worker", std::chrono::steady_clock::now() - join_started_at);
 }

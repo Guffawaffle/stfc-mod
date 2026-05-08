@@ -60,7 +60,6 @@
 #include <spdlog/spdlog.h>
 
 #include <string>
-#include <thread>
 
 // Sync payload builders and entity-group dispatch live in sync_payload_builders.cc.
 
@@ -364,6 +363,6 @@ void InstallSyncPatches()
     }
   }
 
-  std::thread(ship_sync_data).detach();
-  std::thread(ship_combat_log_data).detach();
+  StartSyncSchedulerWorker();
+  StartCombatLogWorker();
 }

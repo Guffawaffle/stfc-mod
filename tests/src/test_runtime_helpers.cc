@@ -149,6 +149,32 @@ TEST_SUITE("async_work_queue")
     CHECK(diagnostics.dequeued == 1);
   }
 
+  TEST_CASE("wait_pop drains queued work after shutdown before stopping")
+  {
+    AsyncWorkQueue<int> queue;
+    int                 value = 0;
+
+    CHECK(queue.enqueue(42));
+    queue.request_shutdown();
+
+    CHECK(queue.wait_pop(value));
+    CHECK(value == 42);
+    CHECK_FALSE(queue.wait_pop(value));
+  }
+
+  TEST_CASE("wait_pop wakes and returns false when shutdown is requested empty")
+  {
+    AsyncWorkQueue<int> queue;
+    int                 value = 0;
+    bool                result = true;
+
+    std::thread waiter([&] { result = queue.wait_pop(value); });
+    queue.request_shutdown();
+    waiter.join();
+
+    CHECK_FALSE(result);
+  }
+
   TEST_CASE("tracks worker activity and errors")
   {
     AsyncWorkQueue<int> queue;

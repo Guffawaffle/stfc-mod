@@ -26,6 +26,11 @@ struct Toast;
 void notification_init();
 
 /**
+ * @brief Request notification worker shutdown and join the background thread.
+ */
+void notification_shutdown();
+
+/**
  * @brief Return the notification title for a toast state.
  */
 const char* notification_toast_title(int state);

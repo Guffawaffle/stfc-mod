@@ -12,4 +12,5 @@
 
 void queue_data(SyncConfig::Type type, const std::string& data, bool is_first_sync = false);
 void queue_data(SyncConfig::Type type, const nlohmann::json& data, bool is_first_sync = false);
-void ship_sync_data();
+void StartSyncSchedulerWorker();
+void ShutdownSyncSchedulerWorker();
