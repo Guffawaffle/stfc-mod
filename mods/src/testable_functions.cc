@@ -259,6 +259,109 @@ HotkeyRouterDispatchAction hotkey_router_dispatch_action(bool entry_active,
   return HotkeyRouterDispatchAction::Continue;
 }
 
+HotkeyRouterQuitAction hotkey_router_quit_action(const bool quit_pressed)
+{
+  return quit_pressed ? HotkeyRouterQuitAction::QuitProcess : HotkeyRouterQuitAction::None;
+}
+
+HotkeyRouterSelectCurrentAction hotkey_router_select_current_action(const bool is_in_chat,
+                                                                    const bool input_focused,
+                                                                    const bool select_current_pressed)
+{
+  if (!select_current_pressed || is_in_chat || input_focused) {
+    return HotkeyRouterSelectCurrentAction::None;
+  }
+
+  return HotkeyRouterSelectCurrentAction::ViewActiveFleet;
+}
+
+HotkeyRouterChatOpenAction hotkey_router_chat_open_action(const bool                         is_in_chat,
+                                                          const bool                         input_focused,
+                                                          const bool                         side_chat_open,
+                                                          const input_binding::InputActionId action)
+{
+  if (is_in_chat || input_focused) {
+    return HotkeyRouterChatOpenAction::None;
+  }
+
+  switch (action) {
+    case input_binding::InputActionId::ShowChat:
+      return side_chat_open ? HotkeyRouterChatOpenAction::ActivateExistingInput
+                            : HotkeyRouterChatOpenAction::OpenAllianceFullscreen;
+    case input_binding::InputActionId::ShowChatSide1:
+    case input_binding::InputActionId::ShowChatSide2:
+      return side_chat_open ? HotkeyRouterChatOpenAction::ActivateExistingInput
+                            : HotkeyRouterChatOpenAction::OpenAllianceSide;
+    default:
+      return HotkeyRouterChatOpenAction::None;
+  }
+}
+
+HotkeyRouterChatChannelAction hotkey_router_chat_channel_action(const bool                         is_in_chat,
+                                                                const input_binding::InputActionId action)
+{
+  if (!is_in_chat) {
+    return HotkeyRouterChatChannelAction::None;
+  }
+
+  switch (action) {
+    case input_binding::InputActionId::SelectChatGlobal:
+      return HotkeyRouterChatChannelAction::Global;
+    case input_binding::InputActionId::SelectChatAlliance:
+      return HotkeyRouterChatChannelAction::Alliance;
+    case input_binding::InputActionId::SelectChatPrivate:
+      return HotkeyRouterChatChannelAction::Private;
+    default:
+      return HotkeyRouterChatChannelAction::None;
+  }
+}
+
+HotkeyRouterOfficerCanvasAction hotkey_router_officer_canvas_action(const bool                         is_in_chat,
+                                                                    const bool                         input_focused,
+                                                                    const input_binding::InputActionId action)
+{
+  if (is_in_chat || input_focused) {
+    return HotkeyRouterOfficerCanvasAction::None;
+  }
+
+  switch (action) {
+    case input_binding::InputActionId::MoveLeft:
+      return HotkeyRouterOfficerCanvasAction::MoveLeft;
+    case input_binding::InputActionId::MoveRight:
+      return HotkeyRouterOfficerCanvasAction::MoveRight;
+    default:
+      return HotkeyRouterOfficerCanvasAction::None;
+  }
+}
+
+input_binding::InputActionId hotkey_router_table_dispatch_request(const bool                         is_in_chat,
+                                                                  const bool                         input_focused,
+                                                                  const input_binding::InputActionId action)
+{
+  if (is_in_chat || input_focused) {
+    return input_binding::InputActionId::Max;
+  }
+
+  return action;
+}
+
+HotkeyRouterSimpleFleetAction hotkey_router_simple_fleet_action(const bool                         input_focused,
+                                                                const input_binding::InputActionId action)
+{
+  if (input_focused) {
+    return HotkeyRouterSimpleFleetAction::None;
+  }
+
+  switch (action) {
+    case input_binding::InputActionId::FleetQueueClear:
+      return HotkeyRouterSimpleFleetAction::QueueClear;
+    case input_binding::InputActionId::FleetViewInfo:
+      return HotkeyRouterSimpleFleetAction::ViewInfo;
+    default:
+      return HotkeyRouterSimpleFleetAction::None;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Incoming attack policy
 // ---------------------------------------------------------------------------

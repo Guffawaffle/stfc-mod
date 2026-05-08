@@ -3,6 +3,7 @@
 // Testable pure functions extracted from notification_service.cc and
 // battle_notify_parser.cc.  No IL2CPP, no platform, no game memory.
 
+#include "patches/input_binding/input_binding.h"
 #include "patches/space_action_inputs.h"
 
 #include "patches/hotkey_policy.h"
@@ -104,6 +105,61 @@ bool hotkey_router_should_toggle_queue(bool is_in_chat, bool input_focused, bool
 HotkeyRouterDispatchAction hotkey_router_dispatch_action(bool entry_active,
                                                          bool handler_stops,
                                                          bool handler_allows_original);
+
+enum class HotkeyRouterQuitAction {
+  None = 0,
+  QuitProcess,
+};
+
+enum class HotkeyRouterSelectCurrentAction {
+  None = 0,
+  ViewActiveFleet,
+};
+
+enum class HotkeyRouterChatOpenAction {
+  None = 0,
+  ActivateExistingInput,
+  OpenAllianceSide,
+  OpenAllianceFullscreen,
+};
+
+enum class HotkeyRouterChatChannelAction {
+  None = 0,
+  Global,
+  Alliance,
+  Private,
+};
+
+enum class HotkeyRouterOfficerCanvasAction {
+  None = 0,
+  MoveLeft,
+  MoveRight,
+};
+
+enum class HotkeyRouterSimpleFleetAction {
+  None = 0,
+  QueueClear,
+  ViewInfo,
+};
+
+HotkeyRouterQuitAction hotkey_router_quit_action(bool quit_pressed);
+HotkeyRouterSelectCurrentAction hotkey_router_select_current_action(bool is_in_chat,
+                                                                    bool input_focused,
+                                                                    bool select_current_pressed);
+HotkeyRouterChatOpenAction hotkey_router_chat_open_action(bool is_in_chat,
+                                                          bool input_focused,
+                                                          bool side_chat_open,
+                                                          input_binding::InputActionId action);
+HotkeyRouterChatChannelAction hotkey_router_chat_channel_action(bool is_in_chat,
+                                                                input_binding::InputActionId action);
+HotkeyRouterOfficerCanvasAction hotkey_router_officer_canvas_action(bool is_in_chat,
+                                                                    bool input_focused,
+                                                                    input_binding::InputActionId action);
+input_binding::InputActionId hotkey_router_table_dispatch_request(bool is_in_chat,
+                                                                  bool input_focused,
+                                                                  input_binding::InputActionId action);
+HotkeyRouterSimpleFleetAction hotkey_router_simple_fleet_action(bool input_focused,
+                                                                input_binding::InputActionId action);
 
 enum class IncomingAttackPolicyAttackerKind {
   Unknown = 0,
