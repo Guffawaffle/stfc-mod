@@ -71,7 +71,10 @@ TEST_SUITE("live_debug_recent_event_store")
     CHECK(snapshot.count == 3);
     CHECK(snapshot.matchedCount == 2);
     CHECK(snapshot.returnedCount == 1);
+    CHECK(snapshot.queryScanCount == 2);
+    CHECK(snapshot.queryTextScanCount == 0);
     CHECK(snapshot.queryGap == true);
+    CHECK(snapshot.queryUsedKindIndex == true);
     CHECK(snapshot.missingCountBeforeFirstReturned == 1);
     REQUIRE(snapshot.events.size() == 1);
     CHECK(snapshot.events[0]["seq"] == 4);
@@ -100,6 +103,9 @@ TEST_SUITE("live_debug_recent_event_store")
     CHECK(wildcard_snapshot.count == 4);
     CHECK(wildcard_snapshot.matchedCount == 2);
     CHECK(wildcard_snapshot.returnedCount == 2);
+    CHECK(wildcard_snapshot.queryScanCount == 3);
+    CHECK(wildcard_snapshot.queryTextScanCount == 3);
+    CHECK(wildcard_snapshot.queryUsedKindIndex == true);
     REQUIRE(wildcard_snapshot.events.size() == 2);
     CHECK(wildcard_snapshot.events[0]["kind"] == "toast-notification-observed");
     CHECK(wildcard_snapshot.events[1]["kind"] == "top-canvas-changed");
@@ -114,6 +120,9 @@ TEST_SUITE("live_debug_recent_event_store")
 
     const auto exact_snapshot = store.snapshot(exact_query);
     CHECK(exact_snapshot.matchedCount == 2);
+    CHECK(exact_snapshot.queryScanCount == 4);
+    CHECK(exact_snapshot.queryTextScanCount == 2);
+    CHECK(exact_snapshot.queryUsedKindIndex == false);
     REQUIRE(exact_snapshot.events.size() == 2);
     CHECK(exact_snapshot.events[0]["seq"] == 1);
     CHECK(exact_snapshot.events[1]["seq"] == 4);
@@ -165,7 +174,10 @@ TEST_SUITE("live_debug_recent_event_store")
     snapshot.nextSeq                         = 12;
     snapshot.evictedCount                    = 5;
     snapshot.clearCount                      = 1;
+    snapshot.queryScanCount                  = 9;
+    snapshot.queryTextScanCount              = 4;
     snapshot.queryGap                        = true;
+    snapshot.queryUsedKindIndex              = true;
     snapshot.missingCountBeforeFirstReturned = 2;
     snapshot.kindCounts                      = nlohmann::json{{"toast-notification-observed", 2}};
     snapshot.bufferKindCounts                = nlohmann::json{{"toast-notification-observed", 3}};
@@ -181,7 +193,10 @@ TEST_SUITE("live_debug_recent_event_store")
     CHECK(result["nextSeq"] == 12);
     CHECK(result["evictedCount"] == 5);
     CHECK(result["clearCount"] == 1);
+    CHECK(result["queryScanCount"] == 9);
+    CHECK(result["queryTextScanCount"] == 4);
     CHECK(result["queryGap"] == true);
+    CHECK(result["queryUsedKindIndex"] == true);
     CHECK(result["missingCountBeforeFirstReturned"] == 2);
     CHECK(result["kindCounts"]["toast-notification-observed"] == 2);
     CHECK(result["bufferKindCounts"]["toast-notification-observed"] == 3);
