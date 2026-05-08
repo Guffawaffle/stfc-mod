@@ -20,6 +20,11 @@ TEST_SUITE("input_binding")
     REQUIRE(hotkeys_enable != nullptr);
     CHECK(hotkeys_enable->default_bind == "CTRL-ALT-=");
 
+    const auto* select_ship1 = input_binding::FindActionSpec(input_binding::InputActionId::SelectShip1);
+    REQUIRE(select_ship1 != nullptr);
+    CHECK(select_ship1->canonical_key == "select_ship1");
+    CHECK(select_ship1->default_bind == "1");
+
     for (const auto& spec : specs) {
       const auto binding = input_binding::ParseBinding(spec.default_bind);
       INFO(spec.canonical_key);
@@ -40,8 +45,8 @@ TEST_SUITE("input_binding")
 
   TEST_CASE("modifier masks satisfy logical and physical requirements")
   {
-    const auto ctrl = input_binding::ModifierMask::Logical(input_binding::ModifierGroup::Ctrl);
-    auto held_left_ctrl = input_binding::ModifierMask::FromPressedKey(KeyCode::LeftControl);
+    const auto ctrl           = input_binding::ModifierMask::Logical(input_binding::ModifierGroup::Ctrl);
+    auto       held_left_ctrl = input_binding::ModifierMask::FromPressedKey(KeyCode::LeftControl);
     CHECK(ctrl.IsSatisfiedBy(held_left_ctrl));
     CHECK(ctrl.IsExactMatch(held_left_ctrl));
 
@@ -121,8 +126,8 @@ TEST_SUITE("input_binding")
 
     CHECK(index.size() == 3);
 
-    const auto held = input_binding::ModifierMask{};
-    auto matches = index.Match(input_binding::TriggerMode::Down, KeyCode::Space, held);
+    const auto held    = input_binding::ModifierMask{};
+    auto       matches = index.Match(input_binding::TriggerMode::Down, KeyCode::Space, held);
     REQUIRE(matches.size() == 2);
     CHECK(matches[0] == input_binding::InputActionId::FleetQueueClear);
     CHECK(matches[1] == input_binding::InputActionId::FleetPrimary);
@@ -136,14 +141,14 @@ TEST_SUITE("input_binding")
   {
     const auto compiled = input_binding::CompileBindingSet();
 
-    CHECK(compiled.bound_chord_count == 58);
-    CHECK(compiled.index.size() == 58);
+    CHECK(compiled.bound_chord_count == 67);
+    CHECK(compiled.index.size() == 67);
     CHECK_FALSE(compiled.has_warnings());
     CHECK_FALSE(compiled.has_errors());
     CHECK_FALSE(compiled.has_conflicts());
 
-    const auto held = input_binding::ModifierMask{};
-    auto matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, held);
+    const auto held    = input_binding::ModifierMask{};
+    auto       matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, held);
     REQUIRE(matches.size() == 1);
     CHECK(matches[0] == input_binding::InputActionId::FleetPrimary);
 
@@ -163,10 +168,10 @@ TEST_SUITE("input_binding")
 
     const auto compiled = input_binding::CompileBindingSet(overrides);
     CHECK_FALSE(compiled.has_errors());
-    CHECK(compiled.bound_chord_count == 56);
+    CHECK(compiled.bound_chord_count == 65);
 
-    const auto matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space,
-                                              input_binding::ModifierMask{});
+    const auto matches =
+        compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, input_binding::ModifierMask{});
     CHECK(matches.empty());
   }
 
@@ -196,8 +201,8 @@ TEST_SUITE("input_binding")
     CHECK(compiled.conflicts[0].action_a == input_binding::InputActionId::FleetPrimary);
     CHECK(compiled.conflicts[0].action_b == input_binding::InputActionId::FleetService);
 
-    const auto matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space,
-                                              input_binding::ModifierMask{});
+    const auto matches =
+        compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, input_binding::ModifierMask{});
     REQUIRE(matches.size() == 2);
     CHECK(matches[0] == input_binding::InputActionId::FleetPrimary);
     CHECK(matches[1] == input_binding::InputActionId::FleetService);
@@ -208,6 +213,7 @@ TEST_SUITE("input_binding")
     const std::array overrides{
         input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "CTRL-SPACE"},
         input_binding::BindingOverride{input_binding::InputActionId::FleetService, "LCTRL-SPACE"},
+        input_binding::BindingOverride{input_binding::InputActionId::SelectCurrent, "NONE"},
     };
 
     const auto compiled = input_binding::CompileBindingSet(overrides);
@@ -215,7 +221,7 @@ TEST_SUITE("input_binding")
     CHECK(compiled.has_conflicts());
     REQUIRE(compiled.conflicts.size() == 1);
 
-    const auto held = input_binding::ModifierMask::FromPressedKey(KeyCode::LeftControl);
+    const auto held    = input_binding::ModifierMask::FromPressedKey(KeyCode::LeftControl);
     const auto matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, held);
     REQUIRE(matches.size() == 2);
     CHECK(matches[0] == input_binding::InputActionId::FleetPrimary);
@@ -225,7 +231,7 @@ TEST_SUITE("input_binding")
   TEST_CASE("config bridge resolves defaults into canonical bindings")
   {
     const toml::table config;
-    const auto bridge = input_binding::ResolveInputBindingConfig(config);
+    const auto        bridge = input_binding::ResolveInputBindingConfig(config);
 
     const auto fleet_primary = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
       return binding.action == input_binding::InputActionId::FleetPrimary;
@@ -234,6 +240,76 @@ TEST_SUITE("input_binding")
     CHECK(fleet_primary->binding == "SPACE|MOUSE1");
     CHECK(fleet_primary->source_key == "default");
     CHECK(bridge.compatibility_warnings.empty());
+  }
+
+  TEST_CASE("config bridge accepts migrated ship selection aliases")
+  {
+    const auto config = toml::parse(R"(
+[shortcuts]
+select_ship1 = "CTRL-1"
+select_current = "CTRL-SPACE"
+)");
+
+    const auto bridge  = input_binding::ResolveInputBindingConfig(config);
+    const auto ship1   = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::SelectShip1;
+    });
+    const auto current = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::SelectCurrent;
+    });
+
+    REQUIRE(ship1 != bridge.bindings.end());
+    REQUIRE(current != bridge.bindings.end());
+    CHECK(ship1->binding == "CTRL-1");
+    CHECK(ship1->source_key == "[shortcuts].select_ship1");
+    CHECK(current->binding == "CTRL-SPACE");
+    CHECK(current->source_key == "[shortcuts].select_current");
+  }
+
+  TEST_CASE("dispatcher snapshot generates candidates and respects layer filtering")
+  {
+    const auto       compiled = input_binding::CompileBindingSet();
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::Alpha1, {}, true, false},
+    };
+
+    auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                    input_binding::ActiveLayers::All(), key_states);
+    REQUIRE(plan.candidates.size() == 1);
+    REQUIRE(plan.winners.size() == 1);
+    CHECK(plan.candidates[0].action == input_binding::InputActionId::SelectShip1);
+    CHECK(plan.winners[0].action == input_binding::InputActionId::SelectShip1);
+
+    plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                               input_binding::ActiveLayers::Only(input_binding::InputLayer::Global),
+                                               key_states);
+    CHECK(plan.candidates.empty());
+    CHECK(plan.winners.empty());
+  }
+
+  TEST_CASE("dispatcher watched keys and conflict winners cover migrated ship selection")
+  {
+    const auto       compiled = input_binding::CompileBindingSet();
+    const std::array watched_actions{
+        input_binding::InputActionId::SelectShip1,
+        input_binding::InputActionId::SelectCurrent,
+    };
+
+    const auto watched_keys =
+        input_binding::WatchedKeysForActions(compiled, input_binding::InputPhase::Frame, watched_actions);
+    CHECK(std::ranges::find(watched_keys, KeyCode::Alpha1) != watched_keys.end());
+    CHECK(std::ranges::find(watched_keys, KeyCode::Space) != watched_keys.end());
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::Alpha1, {}, true, false},
+        input_binding::DispatchKeyState{KeyCode::Space, {}, true, false},
+    };
+
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(), key_states);
+    REQUIRE(plan.candidates.size() == 2);
+    REQUIRE(plan.winners.size() == 1);
+    CHECK(plan.winners[0].action == input_binding::InputActionId::SelectShip1);
   }
 
   TEST_CASE("config bridge prefers canonical input bindings over legacy shortcuts")
@@ -246,7 +322,7 @@ fleet_primary = ["CTRL-A", "MOUSE4"]
 action_primary = "SPACE|MOUSE1"
 )");
 
-    const auto bridge = input_binding::ResolveInputBindingConfig(config);
+    const auto bridge        = input_binding::ResolveInputBindingConfig(config);
     const auto fleet_primary = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
       return binding.action == input_binding::InputActionId::FleetPrimary;
     });
@@ -265,7 +341,7 @@ action_queue = "Q"
 action_recall_cancel = "SPACE|MOUSE1"
 )");
 
-    const auto bridge = input_binding::ResolveInputBindingConfig(config);
+    const auto bridge        = input_binding::ResolveInputBindingConfig(config);
     const auto fleet_primary = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
       return binding.action == input_binding::InputActionId::FleetPrimary;
     });
@@ -282,7 +358,7 @@ action_recall_cancel = "SPACE|MOUSE1"
 set_hotkeys_enabled = "CTRL-ALT-F1"
 )");
 
-    const auto bridge = input_binding::ResolveInputBindingConfig(config);
+    const auto bridge         = input_binding::ResolveInputBindingConfig(config);
     const auto hotkeys_enable = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
       return binding.action == input_binding::InputActionId::HotkeysEnable;
     });
@@ -299,7 +375,7 @@ set_hotkeys_enabled = "CTRL-ALT-F1"
 fleet_service = "CTRL-R"
 )");
 
-    const auto bridge = input_binding::ResolveInputBindingConfig(config);
+    const auto bridge  = input_binding::ResolveInputBindingConfig(config);
     const auto compile = input_binding::CompileBindingSet(bridge.AsOverrides());
     const auto runtime = input_binding::BuildInputBindingRuntimeConfig(bridge, compile);
 

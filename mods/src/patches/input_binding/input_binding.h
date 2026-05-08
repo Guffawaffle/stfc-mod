@@ -19,6 +19,15 @@ enum class InputActionId : uint16_t {
   FleetViewInfo,
   FleetQueueClear,
   FleetQueueToggle,
+  SelectShip1,
+  SelectShip2,
+  SelectShip3,
+  SelectShip4,
+  SelectShip5,
+  SelectShip6,
+  SelectShip7,
+  SelectShip8,
+  SelectCurrent,
   HotkeysDisable,
   HotkeysEnable,
   LogDebug,
@@ -143,15 +152,15 @@ public:
   constexpr void AddPhysical(PhysicalModifier modifier);
   constexpr void Merge(ModifierMask other);
 
-  [[nodiscard]] constexpr bool empty() const;
-  [[nodiscard]] constexpr bool IsSatisfiedBy(ModifierMask held) const;
-  [[nodiscard]] constexpr bool IsExactMatch(ModifierMask held) const;
+  [[nodiscard]] constexpr bool     empty() const;
+  [[nodiscard]] constexpr bool     IsSatisfiedBy(ModifierMask held) const;
+  [[nodiscard]] constexpr bool     IsExactMatch(ModifierMask held) const;
   [[nodiscard]] constexpr uint32_t logical_bits() const;
   [[nodiscard]] constexpr uint32_t physical_bits() const;
   [[nodiscard]] constexpr uint32_t effective_logical_bits() const;
 
 private:
-  uint32_t logical_bits_ = 0;
+  uint32_t logical_bits_  = 0;
   uint32_t physical_bits_ = 0;
 };
 
@@ -165,28 +174,28 @@ struct BindingDiagnostic {
   DiagnosticSeverity severity = DiagnosticSeverity::Info;
   std::string        message;
   size_t             token_index = 0;
-  InputActionId      action = InputActionId::Max;
+  InputActionId      action      = InputActionId::Max;
 };
 
 struct ParsedChord {
-  KeyCode      key = KeyCode::None;
-  ModifierMask modifiers;
-  std::string  display;
+  KeyCode                        key = KeyCode::None;
+  ModifierMask                   modifiers;
+  std::string                    display;
   std::vector<BindingDiagnostic> diagnostics;
-  bool         valid = false;
+  bool                           valid = false;
 
   [[nodiscard]] bool Matches(KeyCode pressed_key, ModifierMask held_modifiers,
                              bool allow_extra_modifiers = false) const;
 };
 
 struct ParsedBinding {
-  std::vector<ParsedChord>      chords;
+  std::vector<ParsedChord>       chords;
   std::vector<BindingDiagnostic> diagnostics;
-  bool                          unbound = false;
+  bool                           unbound = false;
 
-  [[nodiscard]] bool has_valid_chord() const;
-  [[nodiscard]] bool has_warnings() const;
-  [[nodiscard]] bool has_errors() const;
+  [[nodiscard]] bool        has_valid_chord() const;
+  [[nodiscard]] bool        has_warnings() const;
+  [[nodiscard]] bool        has_errors() const;
   [[nodiscard]] std::string DisplayString() const;
 };
 
@@ -194,7 +203,7 @@ struct CompiledBinding {
   InputActionId action = InputActionId::Max;
   ParsedChord   chord;
   TriggerMode   trigger_mode = TriggerMode::Down;
-  uint16_t      priority = 0;
+  uint16_t      priority     = 0;
 };
 
 class BindingIndex
@@ -204,11 +213,11 @@ public:
 
   [[nodiscard]] std::vector<InputActionId> Match(TriggerMode trigger_mode, KeyCode key, ModifierMask held_modifiers,
                                                  bool allow_extra_modifiers = false) const;
-  [[nodiscard]] size_t size() const;
+  [[nodiscard]] size_t                     size() const;
 
 private:
   static constexpr size_t kKeyCodeCount = static_cast<size_t>(KeyCode::Max) + 1;
-  using BindingBuckets = std::array<std::vector<CompiledBinding>, kKeyCodeCount>;
+  using BindingBuckets                  = std::array<std::vector<CompiledBinding>, kKeyCodeCount>;
 
   [[nodiscard]] const BindingBuckets& buckets_for(TriggerMode trigger_mode) const;
 
@@ -218,15 +227,15 @@ private:
 };
 
 struct BindingOverride {
-  InputActionId    action = InputActionId::Max;
-  std::string      binding;
+  InputActionId action = InputActionId::Max;
+  std::string   binding;
 };
 
 struct BindingConflict {
   InputActionId action_a = InputActionId::Max;
   InputActionId action_b = InputActionId::Max;
   ParsedChord   chord;
-  TriggerMode   trigger_mode = TriggerMode::Down;
+  TriggerMode   trigger_mode   = TriggerMode::Down;
   ConflictGroup conflict_group = ConflictGroup::None;
 };
 
@@ -243,13 +252,13 @@ struct CompileResult {
 };
 
 [[nodiscard]] std::span<const InputActionSpec> ActionSpecs();
-[[nodiscard]] const InputActionSpec* FindActionSpec(InputActionId id);
-[[nodiscard]] const InputActionSpec* FindActionSpec(std::string_view canonical_key);
-[[nodiscard]] std::optional<KeyCode> LookupKey(std::string_view key_name);
-[[nodiscard]] bool IsModifierKey(KeyCode key);
-[[nodiscard]] ParsedChord ParseChord(std::string_view chord_text);
-[[nodiscard]] ParsedBinding ParseBinding(std::string_view binding_text);
-[[nodiscard]] CompileResult CompileBindingSet(std::span<const BindingOverride> overrides = {});
+[[nodiscard]] const InputActionSpec*           FindActionSpec(InputActionId id);
+[[nodiscard]] const InputActionSpec*           FindActionSpec(std::string_view canonical_key);
+[[nodiscard]] std::optional<KeyCode>           LookupKey(std::string_view key_name);
+[[nodiscard]] bool                             IsModifierKey(KeyCode key);
+[[nodiscard]] ParsedChord                      ParseChord(std::string_view chord_text);
+[[nodiscard]] ParsedBinding                    ParseBinding(std::string_view binding_text);
+[[nodiscard]] CompileResult                    CompileBindingSet(std::span<const BindingOverride> overrides = {});
 
 } // namespace input_binding
 
@@ -330,24 +339,29 @@ constexpr uint32_t input_binding::ModifierMask::physical_bits() const
 constexpr uint32_t input_binding::ModifierMask::effective_logical_bits() const
 {
   auto bits = logical_bits_;
-  if (physical_bits_ & ((1u << static_cast<uint8_t>(PhysicalModifier::LeftShift))
-                        | (1u << static_cast<uint8_t>(PhysicalModifier::RightShift)))) {
+  if (physical_bits_
+      & ((1u << static_cast<uint8_t>(PhysicalModifier::LeftShift))
+         | (1u << static_cast<uint8_t>(PhysicalModifier::RightShift)))) {
     bits |= (1u << static_cast<uint8_t>(ModifierGroup::Shift));
   }
-  if (physical_bits_ & ((1u << static_cast<uint8_t>(PhysicalModifier::LeftControl))
-                        | (1u << static_cast<uint8_t>(PhysicalModifier::RightControl)))) {
+  if (physical_bits_
+      & ((1u << static_cast<uint8_t>(PhysicalModifier::LeftControl))
+         | (1u << static_cast<uint8_t>(PhysicalModifier::RightControl)))) {
     bits |= (1u << static_cast<uint8_t>(ModifierGroup::Ctrl));
   }
-  if (physical_bits_ & ((1u << static_cast<uint8_t>(PhysicalModifier::LeftAlt))
-                        | (1u << static_cast<uint8_t>(PhysicalModifier::RightAlt)))) {
+  if (physical_bits_
+      & ((1u << static_cast<uint8_t>(PhysicalModifier::LeftAlt))
+         | (1u << static_cast<uint8_t>(PhysicalModifier::RightAlt)))) {
     bits |= (1u << static_cast<uint8_t>(ModifierGroup::Alt));
   }
-  if (physical_bits_ & ((1u << static_cast<uint8_t>(PhysicalModifier::LeftWindows))
-                        | (1u << static_cast<uint8_t>(PhysicalModifier::RightWindows)))) {
+  if (physical_bits_
+      & ((1u << static_cast<uint8_t>(PhysicalModifier::LeftWindows))
+         | (1u << static_cast<uint8_t>(PhysicalModifier::RightWindows)))) {
     bits |= (1u << static_cast<uint8_t>(ModifierGroup::Win));
   }
-  if (physical_bits_ & ((1u << static_cast<uint8_t>(PhysicalModifier::LeftCommand))
-                        | (1u << static_cast<uint8_t>(PhysicalModifier::RightCommand)))) {
+  if (physical_bits_
+      & ((1u << static_cast<uint8_t>(PhysicalModifier::LeftCommand))
+         | (1u << static_cast<uint8_t>(PhysicalModifier::RightCommand)))) {
     bits |= (1u << static_cast<uint8_t>(ModifierGroup::Command));
   }
   if (physical_bits_ & (1u << static_cast<uint8_t>(PhysicalModifier::AltGr))) {
