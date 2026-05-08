@@ -30,6 +30,13 @@ struct DispatchRequest {
   bool          allow_extra_modifiers = false;
 };
 
+struct DispatchKeyState {
+  KeyCode       key = KeyCode::None;
+  ModifierMask  held_modifiers;
+  bool          down = false;
+  bool          pressed = false;
+};
+
 struct DispatchCandidate {
   InputActionId action = InputActionId::Max;
   ConflictGroup conflict_group = ConflictGroup::None;
@@ -52,6 +59,10 @@ enum class ExecutionDecision : uint8_t {
 };
 
 [[nodiscard]] DispatchPlan PlanDispatch(const CompileResult& compile, const DispatchRequest& request);
+[[nodiscard]] DispatchPlan PlanDispatchSnapshot(const CompileResult& compile, InputPhase phase,
+                                                ActiveLayers active_layers,
+                                                std::span<const DispatchKeyState> key_states,
+                                                bool allow_extra_modifiers = false);
 [[nodiscard]] ExecutionDecision CombineExecutionDecisions(std::span<const ExecutionDecision> decisions);
 
 } // namespace input_binding

@@ -71,4 +71,61 @@ TEST_SUITE("input_dispatcher")
     };
     CHECK(input_binding::CombineExecutionDecisions(no_opinion) == input_binding::ExecutionDecision::NoOpinion);
   }
+
+  TEST_CASE("snapshot dispatcher plans down and held keys through one dispatch pass")
+  {
+    const auto compiled = input_binding::CompileBindingSet();
+
+    auto global_modifiers = input_binding::ModifierMask{};
+    global_modifiers.AddLogical(input_binding::ModifierGroup::Ctrl);
+    global_modifiers.AddLogical(input_binding::ModifierGroup::Alt);
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::Minus, global_modifiers, true, true},
+        input_binding::DispatchKeyState{KeyCode::Q, {}, false, true},
+    };
+
+    auto plan = input_binding::PlanDispatchSnapshot(compiled,
+                                                    input_binding::InputPhase::Frame,
+                                                    input_binding::ActiveLayers::All(),
+                                                    key_states);
+    REQUIRE(plan.winners.size() == 1);
+    CHECK(plan.winners[0].action == input_binding::InputActionId::HotkeysDisable);
+
+    plan = input_binding::PlanDispatchSnapshot(compiled,
+                                               input_binding::InputPhase::NavigationZoomUpdate,
+                                               input_binding::ActiveLayers::Only(input_binding::InputLayer::Zoom),
+                                               key_states);
+    REQUIRE(plan.winners.size() == 1);
+    CHECK(plan.winners[0].action == input_binding::InputActionId::ZoomIn);
+  }
+
+  TEST_CASE("snapshot dispatcher applies conflict groups across simultaneous keys")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "SPACE"},
+        input_binding::BindingOverride{input_binding::InputActionId::FleetQueueClear, "MOUSE1"},
+    };
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+
+    auto global_modifiers = input_binding::ModifierMask{};
+    global_modifiers.AddLogical(input_binding::ModifierGroup::Ctrl);
+    global_modifiers.AddLogical(input_binding::ModifierGroup::Alt);
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::Minus, global_modifiers, true, true},
+        input_binding::DispatchKeyState{KeyCode::Equals, global_modifiers, true, true},
+        input_binding::DispatchKeyState{KeyCode::Space, {}, true, true},
+        input_binding::DispatchKeyState{KeyCode::Mouse1, {}, true, true},
+    };
+
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled,
+                                                          input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(),
+                                                          key_states);
+    REQUIRE(plan.candidates.size() == 4);
+    REQUIRE(plan.winners.size() == 2);
+    CHECK(plan.winners[0].conflict_group == input_binding::ConflictGroup::GlobalControl);
+    CHECK(plan.winners[1].action == input_binding::InputActionId::FleetQueueClear);
+  }
 }
