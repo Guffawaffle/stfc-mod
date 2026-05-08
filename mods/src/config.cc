@@ -10,6 +10,7 @@
 #include "config_schema.h"
 #include "file.h"
 #include "patches/input_binding/input_config_bridge.h"
+#include "patches/input_binding/input_runtime_bindings.h"
 #include "patches/mapkey.h"
 #include "prime/KeyCode.h"
 #include "str_utils.h"
@@ -1533,8 +1534,9 @@ void Config::Load()
     Config::Save(parsed, File::Config(), false);
   }
 
-  const auto input_binding_bridge   = input_binding::ResolveInputBindingConfig(config);
-  const auto input_binding_compile  = input_binding::CompileBindingSet(input_binding_bridge.AsOverrides());
+  const auto input_binding_bridge = input_binding::ResolveInputBindingConfig(config);
+  input_binding::SetRuntimeBindingModel(input_binding::CompileBindingSet(input_binding_bridge.AsOverrides()));
+  const auto& input_binding_compile = input_binding::RuntimeBindingModel();
   for (const auto& warning : input_binding_bridge.compatibility_warnings) {
     spdlog::warn("[InputBindings] {}", warning);
   }

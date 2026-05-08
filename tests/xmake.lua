@@ -21,6 +21,7 @@ do
     add_files("../mods/src/patches/input_binding/input_binding.cc")
     add_files("../mods/src/patches/input_binding/input_config_bridge.cc")
     add_files("../mods/src/patches/input_binding/input_dispatcher.cc")
+    add_files("../mods/src/patches/input_binding/input_runtime_bindings.cc")
     add_files("../mods/src/patches/mod_impact_monitor.cc")
     add_files("../mods/src/patches/notification_queue.cc")
     add_files("../mods/src/patches/notification_text.cc")
