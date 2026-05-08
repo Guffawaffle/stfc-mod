@@ -616,7 +616,11 @@ bool hotkey_router_screen_update(ScreenManager* _this)
           bool was_forced          = force_space_action_next_frame;
           auto deferred_generation = DeferredSpaceActionGeneration();
           ExecuteSpaceAction(fleet_bar, space_action_inputs);
-          if (was_forced && DeferredSpaceActionGeneration() == deferred_generation) {
+          if (hotkey_router_should_clear_deferred_space_action(was_forced,
+                                                               deferred_generation,
+                                                               DeferredSpaceActionGeneration())) {
+            spdlog::trace("[SpaceActionDiag] cleared-deferred-retry reason=no-generation-advance generation={}",
+                          deferred_generation);
             ClearDeferredSpaceAction();
           }
         }

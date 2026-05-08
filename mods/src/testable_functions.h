@@ -61,6 +61,18 @@ bool should_suppress_escape_exit(bool disable_escape_exit,
 // Per-frame space-action routing policy after inputs are sampled.
 bool hotkey_router_should_execute_space_action(const SpaceActionInputs& inputs, bool deferred_retry_pending);
 
+enum class FleetActionRequestMode {
+  None = 0,
+  Default,
+  AskHelp,
+};
+
+FleetActionRequestMode fleet_action_request_mode(bool wanted_state_available, bool help_state_active);
+const char*            fleet_action_request_mode_name(FleetActionRequestMode mode);
+bool                   hotkey_router_should_clear_deferred_space_action(bool forced_retry_pending,
+                                                                        uint64_t generation_before,
+                                                                        uint64_t generation_after);
+
 bool space_action_duplicate_submission_should_suppress(uint64_t previous_fleet_id,
                                                        uintptr_t previous_target_identity,
                                                        uint64_t current_fleet_id,

@@ -356,6 +356,26 @@ TEST_SUITE("hotkey_decisions")
     CHECK(hotkey_router_should_execute_space_action(inputs, true));
   }
 
+  TEST_CASE("fleet service requests choose one mode without default fallthrough")
+  {
+    CHECK(fleet_action_request_mode(false, false) == FleetActionRequestMode::None);
+    CHECK(fleet_action_request_mode(true, false) == FleetActionRequestMode::Default);
+    CHECK(fleet_action_request_mode(false, true) == FleetActionRequestMode::AskHelp);
+    CHECK(fleet_action_request_mode(true, true) == FleetActionRequestMode::AskHelp);
+
+    CHECK(std::string_view(fleet_action_request_mode_name(FleetActionRequestMode::None)) == "none");
+    CHECK(std::string_view(fleet_action_request_mode_name(FleetActionRequestMode::Default)) == "default");
+    CHECK(std::string_view(fleet_action_request_mode_name(FleetActionRequestMode::AskHelp)) == "ask-help");
+  }
+
+  TEST_CASE("forced deferred retry only clears when the generation does not advance")
+  {
+    CHECK(hotkey_router_should_clear_deferred_space_action(true, 7, 7));
+
+    CHECK_FALSE(hotkey_router_should_clear_deferred_space_action(false, 7, 7));
+    CHECK_FALSE(hotkey_router_should_clear_deferred_space_action(true, 7, 8));
+  }
+
   TEST_CASE("space action duplicate guard only suppresses same target inside window")
   {
     CHECK(space_action_duplicate_submission_should_suppress(10, 20, 10, 20, 250, 750));
