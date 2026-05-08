@@ -54,7 +54,7 @@ void queue_data(SyncConfig::Type type, const std::string& data, bool is_first_sy
     return;
   }
 
-  http::sync_log_debug("QUEUE", to_string(type), "Added data to sync queue");
+  http::sync_log_trace("QUEUE", to_string(type), "Added data to sync queue");
 }
 
 void queue_data(SyncConfig::Type type, const nlohmann::json& data, bool is_first_sync)
@@ -64,7 +64,7 @@ void queue_data(SyncConfig::Type type, const nlohmann::json& data, bool is_first
     return;
   }
 
-  http::sync_log_debug("QUEUE", to_string(type), "Added " + std::to_string(data.size()) + " entries to sync queue");
+  http::sync_log_trace("QUEUE", to_string(type), "Added " + std::to_string(data.size()) + " entries to sync queue");
 }
 
 static void ship_sync_data()

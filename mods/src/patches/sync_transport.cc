@@ -4,6 +4,8 @@
  */
 #include "patches/sync_transport.h"
 
+#include "patches/sync_transport_policy.h"
+
 #include "errormsg.h"
 #include "str_utils.h"
 #include "version.h"
@@ -108,21 +110,21 @@ constexpr int kSyncRequestTimeoutMs = 10'000;
 
 bool should_disable_tls_verification(const SyncConfig& config, const std::string& target_identifier)
 {
-  if (config.verify_ssl) {
-    return false;
-  }
+  const auto decision = DecideSyncTlsVerification(config);
 
-  if (!config.allow_unsafe_tls_without_certificate_validation) {
+  if (decision.warn_verify_ssl_ignored) {
     spdlog::warn("[Sync] Ignoring verify_ssl=false for '{}' because allow_unsafe_tls_without_certificate_validation "
                  "is not true.",
                  target_identifier);
-    return false;
   }
 
-  spdlog::error("[Sync] UNSAFE TLS certificate verification disabled for '{}'. Traffic can be intercepted. Set "
-                "verify_ssl=true or remove allow_unsafe_tls_without_certificate_validation to restore safe transport.",
-                target_identifier);
-  return true;
+  if (decision.emit_unsafe_tls_error) {
+    spdlog::error("[Sync] UNSAFE TLS certificate verification disabled for '{}'. Traffic can be intercepted. Set "
+                  "verify_ssl=true or remove allow_unsafe_tls_without_certificate_validation to restore safe transport.",
+                  target_identifier);
+  }
+
+  return decision.disable_verification;
 }
 
 [[nodiscard]] static std::string newUUID()
@@ -472,6 +474,7 @@ static std::shared_ptr<cpr::Session> get_curl_client_scopely()
 
   std::call_once(init_flag, [] {
     const auto header_snapshot = headers::Snapshot();
+    const auto session_headers = BuildScopelySessionHeaders(header_snapshot, newUUID());
     session = std::make_shared<cpr::Session>();
     session->SetAcceptEncoding(cpr::AcceptEncoding{});
     session->SetHttpVersion(cpr::HttpVersion{cpr::HttpVersionCode::VERSION_1_1});
@@ -492,12 +495,12 @@ static std::shared_ptr<cpr::Session> get_curl_client_scopely()
     session->SetHeader({
         {"Accept", "application/json"},
         {"Content-Type", "application/json"},
-        {"X-TRANSACTION-ID", newUUID()},
-        {"X-AUTH-SESSION-ID", header_snapshot.instanceSessionId},
-        {"X-PRIME-VERSION", header_snapshot.primeVersion},
-        {"X-Instance-ID", STR_FORMAT("{:03}", header_snapshot.instanceId)},
+      {"X-TRANSACTION-ID", session_headers.transaction_id},
+      {"X-AUTH-SESSION-ID", session_headers.auth_session_id},
+      {"X-PRIME-VERSION", session_headers.prime_version},
+      {"X-Instance-ID", session_headers.instance_id},
         {"X-PRIME-SYNC", "0"},
-        {"X-Unity-Version", header_snapshot.unityVersion},
+      {"X-Unity-Version", session_headers.unity_version},
         {"X-Powered-By", headers::poweredBy},
     });
   });
@@ -530,12 +533,13 @@ std::string get_scopely_data(const std::string& path, const std::string& post_da
     std::lock_guard lk(client_mutex);
     httpClient->SetUrl(url.c_str());
 
+    const auto session_headers = BuildScopelySessionHeaders(header_snapshot, newUUID());
     auto& request_headers = httpClient->GetHeader();
-    request_headers.insert_or_assign("X-TRANSACTION-ID", newUUID());
-    request_headers.insert_or_assign("X-AUTH-SESSION-ID", header_snapshot.instanceSessionId);
-    request_headers.insert_or_assign("X-PRIME-VERSION", header_snapshot.primeVersion);
-    request_headers.insert_or_assign("X-Instance-ID", STR_FORMAT("{:03}", header_snapshot.instanceId));
-    request_headers.insert_or_assign("X-Unity-Version", header_snapshot.unityVersion);
+    request_headers.insert_or_assign("X-TRANSACTION-ID", session_headers.transaction_id);
+    request_headers.insert_or_assign("X-AUTH-SESSION-ID", session_headers.auth_session_id);
+    request_headers.insert_or_assign("X-PRIME-VERSION", session_headers.prime_version);
+    request_headers.insert_or_assign("X-Instance-ID", session_headers.instance_id);
+    request_headers.insert_or_assign("X-Unity-Version", session_headers.unity_version);
 
     httpClient->SetBody(post_data);
     const auto response = httpClient->Post();
