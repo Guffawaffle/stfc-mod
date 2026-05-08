@@ -3,6 +3,7 @@
 #include <doctest/doctest.h>
 
 #include "bounded_ttl_cache.h"
+#include "config_redaction.h"
 #include "config_schema.h"
 #include "patches/async_work_queue.h"
 #include "patches/battle_log_decoder.h"
