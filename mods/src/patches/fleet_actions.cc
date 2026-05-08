@@ -247,6 +247,65 @@ struct SpaceActionRuntimeContext {
   bool                                     armada_visible = false;
 };
 
+bool TryExecuteQueueAdd(PreScanTargetWidget* pre_scan_widget, SpaceActionDiagnostics& diagnostics)
+{
+  if (!pre_scan_widget || !pre_scan_widget->_addToQueueButtonWidget) {
+    return false;
+  }
+
+  if (!pre_scan_widget->_addToQueueButtonWidget->isActiveAndEnabled) {
+    return false;
+  }
+
+  auto listener = pre_scan_widget->_addToQueueButtonWidget->SemaphoreListener;
+  if (!listener) {
+    diagnostics.SetOutcome("queue-listener-missing");
+    return true;
+  }
+
+  auto button = listener->TheButton;
+  if (!button) {
+    diagnostics.SetOutcome("queue-button-missing");
+    return true;
+  }
+
+  diagnostics.Complete("queue-add");
+  button->Press();
+  DidHideViewers();
+  return true;
+}
+
+bool TryExecuteArmadaAttack(PreScanTargetWidget* pre_scan_widget,
+                            ScanEngageButtonsWidget* scan_engage_buttons_widget,
+                            SpaceActionDiagnostics& diagnostics)
+{
+  if (pre_scan_widget && pre_scan_widget->_armadaAttackButton && pre_scan_widget->_armadaAttackButton->isActiveAndEnabled) {
+    auto listener = pre_scan_widget->_armadaAttackButton->SemaphoreListener;
+    if (!listener) {
+      diagnostics.SetOutcome("armada-attack-listener-missing");
+      return true;
+    }
+
+    auto button = listener->TheButton;
+    if (!button) {
+      diagnostics.SetOutcome("armada-attack-button-missing");
+      return true;
+    }
+
+    diagnostics.Complete("armada-attack-button");
+    button->Press();
+    return true;
+  }
+
+  if (!scan_engage_buttons_widget) {
+    return false;
+  }
+
+  diagnostics.Complete("armada-button-clicked");
+  scan_engage_buttons_widget->OnArmadaButtonClicked();
+  return true;
+}
+
 bool DeferredSpaceActionTargetMatches(FleetPlayerData* fleet, PreScanTargetWidget* widget, BattleTargetData* target);
 
 SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet)
@@ -326,6 +385,78 @@ bool DeferredSpaceActionTargetMatches(FleetPlayerData* fleet, PreScanTargetWidge
                                               fleet ? fleet->Id : 0,
                                               reinterpret_cast<uintptr_t>(pre_scan_widget),
                                               reinterpret_cast<uintptr_t>(context));
+}
+
+bool TryHandlePreScanQueueOutcome(FleetPrimaryOutcome outcome,
+                                  FleetPlayerData* fleet,
+                                  PreScanTargetWidget* pre_scan_widget,
+                                  BattleTargetData* context,
+                                  bool queue_full,
+                                  SpaceActionDiagnostics& diagnostics)
+{
+  switch (outcome) {
+    case FleetPrimaryOutcome::AddToQueue:
+      return TryExecuteQueueAdd(pre_scan_widget, diagnostics);
+    case FleetPrimaryOutcome::DeferUntilTargetResolved:
+      ArmDeferredSpaceAction(fleet, pre_scan_widget, context);
+      diagnostics.Complete("defer-queue-any-target");
+      return true;
+    case FleetPrimaryOutcome::None:
+      if (queue_full) {
+        diagnostics.SetOutcome("queue-full");
+        return true;
+      }
+      return false;
+    default:
+      return false;
+  }
+}
+
+bool TryHandlePreScanPrimaryOutcome(FleetPrimaryOutcome outcome,
+                                    FleetPlayerData* fleet,
+                                    PreScanTargetWidget* pre_scan_widget,
+                                    ScanEngageButtonsWidget* scan_engage_buttons_widget,
+                                    BattleTargetData* context,
+                                    HullType type,
+                                    bool armada_visible,
+                                    SpaceActionDiagnostics& diagnostics)
+{
+  switch (outcome) {
+    case FleetPrimaryOutcome::ArmadaAttack:
+      return TryExecuteArmadaAttack(pre_scan_widget, scan_engage_buttons_widget, diagnostics);
+    case FleetPrimaryOutcome::Engage:
+      diagnostics.Complete("engage-prescan");
+      scan_engage_buttons_widget->OnEngageButtonClicked();
+      return true;
+    case FleetPrimaryOutcome::DeferUntilTargetResolved:
+      ArmDeferredSpaceAction(fleet, pre_scan_widget, context);
+      diagnostics.Complete("defer-primary-any-target");
+      return true;
+    case FleetPrimaryOutcome::None:
+      if (type == HullType::ArmadaTarget && armada_visible) {
+        diagnostics.SetOutcome("armada-primary-blocked-by-visible-widget");
+        return true;
+      }
+      return false;
+    default:
+      return false;
+  }
+}
+
+void RecordPreScanWidgetReadinessOutcome(bool has_primary_for_target,
+                                         bool has_secondary,
+                                         bool has_queue,
+                                         ScanEngageButtonsWidget* scan_engage_buttons_widget,
+                                         SpaceActionDiagnostics& diagnostics)
+{
+  if ((has_primary_for_target || has_secondary || has_queue) && !scan_engage_buttons_widget) {
+    diagnostics.SetOutcome("prescan-scan-engage-missing");
+    return;
+  }
+
+  if (has_primary_for_target && scan_engage_buttons_widget && !scan_engage_buttons_widget->enabled) {
+    diagnostics.SetOutcome("prescan-scan-engage-disabled");
+  }
 }
 }
 
@@ -615,38 +746,13 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
         queue_input.queue_unlocked = true;
         queue_input.queue_full = action_queue->IsQueueFull(fleet);
 
-        switch (DecideFleetPrimary(queue_input)) {
-          case FleetPrimaryOutcome::AddToQueue:
-            if (pre_scan_widget->_addToQueueButtonWidget->isActiveAndEnabled) {
-              auto listener = pre_scan_widget->_addToQueueButtonWidget->SemaphoreListener;
-              if (listener) {
-                auto button = listener->TheButton;
-                if (button) {
-                  diagnostics.Complete("queue-add");
-                  button->Press();
-                  DidHideViewers();
-                  return;
-                }
-                diagnostics.SetOutcome("queue-button-missing");
-              } else {
-                diagnostics.SetOutcome("queue-listener-missing");
-              }
-              return;
-            }
-
-            break;
-          case FleetPrimaryOutcome::DeferUntilTargetResolved:
-            ArmDeferredSpaceAction(fleet, pre_scan_widget, context);
-            diagnostics.Complete("defer-queue-any-target");
-            return;
-          case FleetPrimaryOutcome::None:
-            if (queue_input.queue_full) {
-              diagnostics.SetOutcome("queue-full");
-              return;
-            }
-            break;
-          default:
-            break;
+        if (TryHandlePreScanQueueOutcome(DecideFleetPrimary(queue_input),
+                                         fleet,
+                                         pre_scan_widget,
+                                         context,
+                                         queue_input.queue_full,
+                                         diagnostics)) {
+          return;
         }
       }
 
@@ -657,47 +763,20 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
       }
 
       if (has_primary_for_target && scan_engage_buttons_widget && scan_engage_buttons_widget->enabled) {
-        switch (DecideFleetPrimary(primary_input)) {
-          case FleetPrimaryOutcome::ArmadaAttack:
-            if (pre_scan_widget->_armadaAttackButton && pre_scan_widget->_armadaAttackButton->isActiveAndEnabled) {
-              auto listener = pre_scan_widget->_armadaAttackButton->SemaphoreListener;
-              if (listener) {
-                auto button = listener->TheButton;
-                if (button) {
-                  diagnostics.Complete("armada-attack-button");
-                  button->Press();
-                  return;
-                }
-                diagnostics.SetOutcome("armada-attack-button-missing");
-              } else {
-                diagnostics.SetOutcome("armada-attack-listener-missing");
-              }
-              return;
-            }
-            diagnostics.Complete("armada-button-clicked");
-            scan_engage_buttons_widget->OnArmadaButtonClicked();
-            return;
-          case FleetPrimaryOutcome::Engage:
-            diagnostics.Complete("engage-prescan");
-            scan_engage_buttons_widget->OnEngageButtonClicked();
-            return;
-          case FleetPrimaryOutcome::DeferUntilTargetResolved:
-            ArmDeferredSpaceAction(fleet, pre_scan_widget, context);
-            diagnostics.Complete("defer-primary-any-target");
-            return;
-          case FleetPrimaryOutcome::None:
-            if (type == HullType::ArmadaTarget && runtime_context.armada_visible) {
-              diagnostics.SetOutcome("armada-primary-blocked-by-visible-widget");
-            }
-            break;
-          default:
-            break;
+        if (TryHandlePreScanPrimaryOutcome(DecideFleetPrimary(primary_input),
+                                           fleet,
+                                           pre_scan_widget,
+                                           scan_engage_buttons_widget,
+                                           context,
+                                           type,
+                                           runtime_context.armada_visible,
+                                           diagnostics)) {
+          return;
         }
-      } else if ((has_primary_for_target || has_secondary || has_queue) && !scan_engage_buttons_widget) {
-        diagnostics.SetOutcome("prescan-scan-engage-missing");
-      } else if (has_primary_for_target && scan_engage_buttons_widget && !scan_engage_buttons_widget->enabled) {
-        diagnostics.SetOutcome("prescan-scan-engage-disabled");
       }
+
+      RecordPreScanWidgetReadinessOutcome(
+          has_primary_for_target, has_secondary, has_queue, scan_engage_buttons_widget, diagnostics);
     }
 
     if (runtime_context.visible_pre_scan_target_count == 0 && has_secondary) {
