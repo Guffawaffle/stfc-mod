@@ -1,10 +1,11 @@
 #include "patches/notification_audio.h"
 
 #include "config.h"
+#include "platform_config.h"
 
 #include <spdlog/spdlog.h>
 
-#if _WIN32
+#if STFCMOD_PLATFORM_WINDOWS
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #endif
@@ -47,7 +48,7 @@ void notification_audio_init()
 
 #if _WIN32
   spdlog::debug("[NotifyAudio] Windows notification audio initialized");
-#elif defined(__APPLE__)
+#elif STFCMOD_PLATFORM_MACOS
   if (Config::Get().notifications.audio_enabled) {
     spdlog::warn(
         "[NotifyAudio] macOS does not support notification audio yet; [notifications].notifications_audio_enabled will be ignored");
@@ -66,7 +67,7 @@ void notification_audio_play(NotificationAudioEvent event)
     return;
   }
 
-#if _WIN32
+#if STFCMOD_PLATFORM_WINDOWS
   if (!MessageBeep(MB_ICONINFORMATION)) {
     spdlog::warn("[NotifyAudio] Failed to play notification sound event={}", notification_audio_event_name(event));
     return;

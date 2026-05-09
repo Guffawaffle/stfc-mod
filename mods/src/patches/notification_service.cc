@@ -11,6 +11,7 @@
 
 #include "bounded_ttl_cache.h"
 #include "config.h"
+#include "platform_config.h"
 #include "patches/async_work_queue.h"
 #include "patches/notification_platform.h"
 #include "patches/notification_queue.h"
@@ -97,7 +98,7 @@ const char* notification_toast_title(int state)
 }
 
 // ─── Platform Notification Delivery ──────────────────────────────────────────────────
-#if _WIN32
+#if STFCMOD_PLATFORM_WINDOWS
 static AsyncWorkQueue<NotificationQueueRequest> s_notification_queue;
 static std::mutex              s_recent_toast_mutex;
 static std::once_flag          s_notification_worker_once;
@@ -396,13 +397,13 @@ void notification_init()
     spdlog::warn("[Notify] Could not resolve LanguageManager::Localize — notifications will show titles only");
   }
 
-#if _WIN32
+#if STFCMOD_PLATFORM_WINDOWS
   notification_platform_init();
   std::call_once(s_notification_worker_once, []() {
     s_notification_worker_thread = std::thread(notification_worker_main);
   });
   spdlog::debug("[Notify] Windows notification service initialized");
-#elif defined(__APPLE__)
+#elif STFCMOD_PLATFORM_MACOS
   if (Config::Get().notifications.enabled) {
     spdlog::warn(
         "[Notify] macOS does not support OS notifications yet; [notifications].notifications_enabled will be ignored");
@@ -418,7 +419,7 @@ void notification_init()
 
 void notification_shutdown()
 {
-#if _WIN32
+#if STFCMOD_PLATFORM_WINDOWS
   s_notification_queue.request_shutdown();
 
   if (!s_notification_worker_thread.joinable()) {
@@ -437,7 +438,7 @@ void notification_shutdown()
 
 void notification_show(const char* title, const char* body)
 {
-#if _WIN32
+#if STFCMOD_PLATFORM_WINDOWS
   if (!Config::Get().notifications.enabled) {
     return;
   }
@@ -448,9 +449,9 @@ void notification_show(const char* title, const char* body)
 
 void notification_handle_generic_toast(Toast* toast, int state, const char* title)
 {
-#if defined(__APPLE__)
+#if STFCMOD_PLATFORM_MACOS
   return; // No notification delivery on macOS yet
-#elif !defined(_WIN32)
+#elif STFCMOD_PLATFORM_OTHER
   return; // No notification delivery on unsupported non-Windows platforms yet
 #else
   const auto& notifications = Config::Get().notifications;
