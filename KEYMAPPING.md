@@ -77,6 +77,29 @@ Value | Key | Value | Key | Value | Key | Value | Key
 
 **NOTE**: Default shortcuts are shown in the [README.md](README.md)
 
+## Input Binding Compatibility
+
+The canonical input schema lives under `[input.bindings]`. If an action is not
+listed below, the compatibility alias under `[shortcuts]` uses the same key
+name as the canonical action id.
+
+<!-- GENERATED INPUT BINDING COMPATIBILITY START -->
+| [input.bindings] key | Default | Legacy [shortcuts] keys |
+| --- | --- | --- |
+| fleet_primary | SPACE|MOUSE1 | action_primary, action_queue, action_recall_cancel |
+| fleet_secondary | TAB|MOUSE4 | action_secondary |
+| fleet_service | R|MOUSE3 | action_recall, action_repair |
+| fleet_view_info | V|MOUSE2 | action_view |
+| fleet_queue_clear | CTRL-C | action_queue_clear |
+| fleet_queue_toggle | CTRL-Q | toggle_queue |
+| hotkeys_disable | CTRL-ALT-MINUS | set_hotkeys_disable, set_hotkeys_disble (deprecated), set_hotkeys_disabled (deprecated) |
+| hotkeys_enable | CTRL-ALT-= | set_hotkeys_enable, set_hotkeys_enabled (deprecated) |
+| ui_scale_up | PGUP | ui_scaleup |
+| ui_scale_down | PGDOWN | ui_scaledown |
+| ui_viewer_scale_up | SHIFT-PGUP | ui_scaleviewerup |
+| ui_viewer_scale_down | SHIFT-PGDOWN | ui_scaleviewerdown |
+<!-- GENERATED INPUT BINDING COMPATIBILITY END -->
+
 ## License
 
 - GPLv3

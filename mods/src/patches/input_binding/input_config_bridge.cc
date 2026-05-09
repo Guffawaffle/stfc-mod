@@ -10,6 +10,115 @@ namespace input_binding
 {
 namespace
 {
+  constexpr BindingConfigAlias kFleetPrimaryAliases[] = {
+    {"action_primary", BindingConfigSourceKind::LegacyAlias, {}},
+    {"action_queue", BindingConfigSourceKind::LegacyAlias, {}},
+    {"action_recall_cancel", BindingConfigSourceKind::LegacyAlias, {}},
+  };
+  constexpr BindingConfigAlias kFleetSecondaryAliases[] = {
+    {"action_secondary", BindingConfigSourceKind::LegacyAlias, {}},
+  };
+  constexpr BindingConfigAlias kFleetServiceAliases[] = {
+    {"action_recall", BindingConfigSourceKind::LegacyAlias, {}},
+    {"action_repair", BindingConfigSourceKind::LegacyAlias, {}},
+  };
+  constexpr BindingConfigAlias kFleetViewInfoAliases[] = {
+    {"action_view", BindingConfigSourceKind::LegacyAlias, {}},
+  };
+  constexpr BindingConfigAlias kFleetQueueClearAliases[] = {
+    {"action_queue_clear", BindingConfigSourceKind::LegacyAlias, {}},
+  };
+  constexpr BindingConfigAlias kFleetQueueToggleAliases[] = {
+    {"toggle_queue", BindingConfigSourceKind::LegacyAlias, {}},
+  };
+  constexpr BindingConfigAlias kHotkeysDisableAliases[] = {
+    {"set_hotkeys_disable", BindingConfigSourceKind::LegacyAlias, {}},
+    {"set_hotkeys_disble", BindingConfigSourceKind::DeprecatedAlias,
+     "[shortcuts].set_hotkeys_disble is deprecated; prefer [input.bindings].hotkeys_disable or "
+     "[shortcuts].set_hotkeys_disable."},
+    {"set_hotkeys_disabled", BindingConfigSourceKind::DeprecatedAlias,
+     "[shortcuts].set_hotkeys_disabled is deprecated; prefer [input.bindings].hotkeys_disable or "
+     "[shortcuts].set_hotkeys_disable."},
+  };
+  constexpr BindingConfigAlias kHotkeysEnableAliases[] = {
+    {"set_hotkeys_enable", BindingConfigSourceKind::LegacyAlias, {}},
+    {"set_hotkeys_enabled", BindingConfigSourceKind::DeprecatedAlias,
+     "[shortcuts].set_hotkeys_enabled is accepted for compatibility; prefer "
+     "[input.bindings].hotkeys_enable or [shortcuts].set_hotkeys_enable."},
+  };
+  constexpr BindingConfigAlias kUiScaleUpAliases[] = {
+    {"ui_scaleup", BindingConfigSourceKind::LegacyAlias, {}},
+  };
+  constexpr BindingConfigAlias kUiScaleDownAliases[] = {
+    {"ui_scaledown", BindingConfigSourceKind::LegacyAlias, {}},
+  };
+  constexpr BindingConfigAlias kUiViewerScaleUpAliases[] = {
+    {"ui_scaleviewerup", BindingConfigSourceKind::LegacyAlias, {}},
+  };
+  constexpr BindingConfigAlias kUiViewerScaleDownAliases[] = {
+    {"ui_scaleviewerdown", BindingConfigSourceKind::LegacyAlias, {}},
+  };
+
+  constexpr BindingConfigAlias kSelectShip1Aliases[] = {{"select_ship1", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip2Aliases[] = {{"select_ship2", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip3Aliases[] = {{"select_ship3", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip4Aliases[] = {{"select_ship4", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip5Aliases[] = {{"select_ship5", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip6Aliases[] = {{"select_ship6", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip7Aliases[] = {{"select_ship7", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip8Aliases[] = {{"select_ship8", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectCurrentAliases[] = {{"select_current", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowChatAliases[] = {{"show_chat", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowChatSide1Aliases[] = {{"show_chatside1", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowChatSide2Aliases[] = {{"show_chatside2", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectChatGlobalAliases[] = {{"select_chatglobal", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectChatAllianceAliases[] = {{"select_chatalliance", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectChatPrivateAliases[] = {{"select_chatprivate", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kMoveLeftAliases[] = {{"move_left", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kMoveRightAliases[] = {{"move_right", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kLogDebugAliases[] = {{"log_debug", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kZoomInAliases[] = {{"zoom_in", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kZoomOutAliases[] = {{"zoom_out", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kQuitAliases[] = {{"quit", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kLogOffAliases[] = {{"log_off", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kLogErrorAliases[] = {{"log_error", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kLogWarnAliases[] = {{"log_warn", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kLogInfoAliases[] = {{"log_info", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kLogTraceAliases[] = {{"log_trace", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowQTrialsAliases[] = {{"show_qtrials", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowBookmarksAliases[] = {{"show_bookmarks", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowLookupAliases[] = {{"show_lookup", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowRefineryAliases[] = {{"show_refinery", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowFactionsAliases[] = {{"show_factions", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowStationExteriorAliases[] = {{"show_stationexterior", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowGalaxyAliases[] = {{"show_galaxy", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowStationInteriorAliases[] = {{"show_stationinterior", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowSystemAliases[] = {{"show_system", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowArtifactsAliases[] = {{"show_artifacts", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowInventoryAliases[] = {{"show_inventory", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowMissionsAliases[] = {{"show_missions", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowResearchAliases[] = {{"show_research", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowScrapYardAliases[] = {{"show_scrapyard", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowOfficersAliases[] = {{"show_officers", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowCommanderAliases[] = {{"show_commander", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowAwayTeamAliases[] = {{"show_awayteam", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowEventsAliases[] = {{"show_events", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowExoCompAliases[] = {{"show_exocomp", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowDailyAliases[] = {{"show_daily", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowGiftsAliases[] = {{"show_gifts", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowAllianceAliases[] = {{"show_alliance", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowAllianceHelpAliases[] = {{"show_alliance_help", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowAllianceArmadaAliases[] = {{"show_alliance_armada", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowSettingsAliases[] = {{"show_settings", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kTogglePreviewLocateAliases[] = {{"toggle_preview_locate", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kTogglePreviewRecallAliases[] = {{"toggle_preview_recall", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kToggleCargoDefaultAliases[] = {{"toggle_cargo_default", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kToggleCargoPlayerAliases[] = {{"toggle_cargo_player", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kToggleCargoStationAliases[] = {{"toggle_cargo_station", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kToggleCargoHostileAliases[] = {{"toggle_cargo_hostile", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kToggleCargoArmadaAliases[] = {{"toggle_cargo_armada", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowShipsAliases[] = {{"show_ships", BindingConfigSourceKind::LegacyAlias, {}}};
+
   struct BindingCandidate {
     std::string             binding;
     std::string             source_key;
@@ -142,71 +251,6 @@ namespace
                            std::move(chosen.source_key), chosen.source_kind};
   }
 
-  std::optional<BindingCandidate> resolve_disable_hotkeys_shortcut(const toml::table&  config,
-                                                                   ConfigBridgeResult& result)
-  {
-    const auto* shortcuts = shortcuts_table(config);
-    auto        canonical =
-        read_candidate(shortcuts, "set_hotkeys_disable", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result);
-    auto typo = read_candidate(
-        shortcuts, "set_hotkeys_disble", "[shortcuts].", BindingConfigSourceKind::DeprecatedAlias, result,
-        "[shortcuts].set_hotkeys_disble is deprecated; prefer [input.bindings].hotkeys_disable or "
-        "[shortcuts].set_hotkeys_disable.");
-    auto legacy = read_candidate(
-        shortcuts, "set_hotkeys_disabled", "[shortcuts].", BindingConfigSourceKind::DeprecatedAlias, result,
-        "[shortcuts].set_hotkeys_disabled is deprecated; prefer [input.bindings].hotkeys_disable or "
-        "[shortcuts].set_hotkeys_disable.");
-
-    const auto* spec = FindActionSpec(InputActionId::HotkeysDisable);
-    if (!spec) {
-      return std::nullopt;
-    }
-
-    if (canonical) {
-      if (typo && typo->binding != canonical->binding) {
-        warn_conflict(*spec, *canonical, *typo, result);
-      }
-      if (legacy && legacy->binding != canonical->binding) {
-        warn_conflict(*spec, *canonical, *legacy, result);
-      }
-      return canonical;
-    }
-
-    if (typo) {
-      if (legacy && legacy->binding != typo->binding) {
-        warn_conflict(*spec, *typo, *legacy, result);
-      }
-      return typo;
-    }
-
-    return legacy;
-  }
-
-  std::optional<BindingCandidate> resolve_enable_hotkeys_shortcut(const toml::table& config, ConfigBridgeResult& result)
-  {
-    const auto* shortcuts = shortcuts_table(config);
-    auto        canonical =
-        read_candidate(shortcuts, "set_hotkeys_enable", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result);
-    auto legacy = read_candidate(shortcuts, "set_hotkeys_enabled", "[shortcuts].",
-                                 BindingConfigSourceKind::DeprecatedAlias, result,
-                                 "[shortcuts].set_hotkeys_enabled is accepted for compatibility; prefer "
-                                 "[input.bindings].hotkeys_enable or [shortcuts].set_hotkeys_enable.");
-
-    const auto* spec = FindActionSpec(InputActionId::HotkeysEnable);
-    if (!spec) {
-      return std::nullopt;
-    }
-
-    if (canonical) {
-      if (legacy && legacy->binding != canonical->binding) {
-        warn_conflict(*spec, *canonical, *legacy, result);
-      }
-      return canonical;
-    }
-
-    return legacy;
-  }
-
   std::string format_binding_diagnostic(const BindingDiagnostic& diagnostic)
   {
     const auto*        spec = FindActionSpec(diagnostic.action);
@@ -247,307 +291,171 @@ ConfigBridgeResult ResolveInputBindingConfig(const toml::table& config)
 
   for (const auto& spec : ActionSpecs()) {
     std::vector<std::optional<BindingCandidate>> candidates;
-    candidates.reserve(4);
+    candidates.reserve(1 + ShortcutConfigAliases(spec.id).size());
     candidates.push_back(read_candidate(input_bindings, spec.canonical_key, "[input.bindings].",
                                         BindingConfigSourceKind::Canonical, result));
 
-    switch (spec.id) {
-      case InputActionId::FleetPrimary:
-        candidates.push_back(
-            read_candidate(shortcuts, "action_primary", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        candidates.push_back(
-            read_candidate(shortcuts, "action_queue", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        candidates.push_back(read_candidate(shortcuts, "action_recall_cancel", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::FleetSecondary:
-        candidates.push_back(read_candidate(shortcuts, "action_secondary", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::FleetService:
-        candidates.push_back(
-            read_candidate(shortcuts, "action_recall", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        candidates.push_back(
-            read_candidate(shortcuts, "action_repair", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::FleetViewInfo:
-        candidates.push_back(
-            read_candidate(shortcuts, "action_view", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::FleetQueueClear:
-        candidates.push_back(read_candidate(shortcuts, "action_queue_clear", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::FleetQueueToggle:
-        candidates.push_back(
-            read_candidate(shortcuts, "toggle_queue", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::SelectShip1:
-        candidates.push_back(
-            read_candidate(shortcuts, "select_ship1", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::SelectShip2:
-        candidates.push_back(
-            read_candidate(shortcuts, "select_ship2", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::SelectShip3:
-        candidates.push_back(
-            read_candidate(shortcuts, "select_ship3", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::SelectShip4:
-        candidates.push_back(
-            read_candidate(shortcuts, "select_ship4", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::SelectShip5:
-        candidates.push_back(
-            read_candidate(shortcuts, "select_ship5", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::SelectShip6:
-        candidates.push_back(
-            read_candidate(shortcuts, "select_ship6", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::SelectShip7:
-        candidates.push_back(
-            read_candidate(shortcuts, "select_ship7", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::SelectShip8:
-        candidates.push_back(
-            read_candidate(shortcuts, "select_ship8", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::SelectCurrent:
-        candidates.push_back(
-            read_candidate(shortcuts, "select_current", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowChat:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_chat", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowChatSide1:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_chatside1", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowChatSide2:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_chatside2", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::SelectChatGlobal:
-        candidates.push_back(read_candidate(shortcuts, "select_chatglobal", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::SelectChatAlliance:
-        candidates.push_back(read_candidate(shortcuts, "select_chatalliance", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::SelectChatPrivate:
-        candidates.push_back(read_candidate(shortcuts, "select_chatprivate", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::MoveLeft:
-        candidates.push_back(
-            read_candidate(shortcuts, "move_left", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::MoveRight:
-        candidates.push_back(
-            read_candidate(shortcuts, "move_right", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::HotkeysDisable:
-        candidates.push_back(resolve_disable_hotkeys_shortcut(config, result));
-        break;
-      case InputActionId::HotkeysEnable:
-        candidates.push_back(resolve_enable_hotkeys_shortcut(config, result));
-        break;
-      case InputActionId::Quit:
-        candidates.push_back(
-            read_candidate(shortcuts, "quit", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::UiScaleUp:
-        candidates.push_back(
-            read_candidate(shortcuts, "ui_scaleup", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::UiScaleDown:
-        candidates.push_back(
-            read_candidate(shortcuts, "ui_scaledown", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::UiViewerScaleUp:
-        candidates.push_back(read_candidate(shortcuts, "ui_scaleviewerup", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::UiViewerScaleDown:
-        candidates.push_back(read_candidate(shortcuts, "ui_scaleviewerdown", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::LogOff:
-        candidates.push_back(
-            read_candidate(shortcuts, "log_off", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::LogError:
-        candidates.push_back(
-            read_candidate(shortcuts, "log_error", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::LogWarn:
-        candidates.push_back(
-            read_candidate(shortcuts, "log_warn", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::LogInfo:
-        candidates.push_back(
-            read_candidate(shortcuts, "log_info", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::LogDebug:
-        candidates.push_back(
-            read_candidate(shortcuts, "log_debug", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::LogTrace:
-        candidates.push_back(
-            read_candidate(shortcuts, "log_trace", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowQTrials:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_qtrials", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowBookmarks:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_bookmarks", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowLookup:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_lookup", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowRefinery:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_refinery", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowFactions:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_factions", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowStationExterior:
-        candidates.push_back(read_candidate(shortcuts, "show_stationexterior", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowGalaxy:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_galaxy", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowStationInterior:
-        candidates.push_back(read_candidate(shortcuts, "show_stationinterior", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowSystem:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_system", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowArtifacts:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_artifacts", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowInventory:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_inventory", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowMissions:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_missions", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowResearch:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_research", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowScrapYard:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_scrapyard", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowOfficers:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_officers", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowCommander:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_commander", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowAwayTeam:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_awayteam", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowEvents:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_events", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowExoComp:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_exocomp", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowDaily:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_daily", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowGifts:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_gifts", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowAlliance:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_alliance", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowAllianceHelp:
-        candidates.push_back(read_candidate(shortcuts, "show_alliance_help", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowAllianceArmada:
-        candidates.push_back(read_candidate(shortcuts, "show_alliance_armada", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowSettings:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_settings", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::TogglePreviewLocate:
-        candidates.push_back(read_candidate(shortcuts, "toggle_preview_locate", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::TogglePreviewRecall:
-        candidates.push_back(read_candidate(shortcuts, "toggle_preview_recall", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ToggleCargoDefault:
-        candidates.push_back(read_candidate(shortcuts, "toggle_cargo_default", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ToggleCargoPlayer:
-        candidates.push_back(read_candidate(shortcuts, "toggle_cargo_player", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ToggleCargoStation:
-        candidates.push_back(read_candidate(shortcuts, "toggle_cargo_station", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ToggleCargoHostile:
-        candidates.push_back(read_candidate(shortcuts, "toggle_cargo_hostile", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ToggleCargoArmada:
-        candidates.push_back(read_candidate(shortcuts, "toggle_cargo_armada", "[shortcuts].",
-                                            BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ShowShips:
-        candidates.push_back(
-            read_candidate(shortcuts, "show_ships", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ZoomIn:
-        candidates.push_back(
-            read_candidate(shortcuts, "zoom_in", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::ZoomOut:
-        candidates.push_back(
-            read_candidate(shortcuts, "zoom_out", "[shortcuts].", BindingConfigSourceKind::LegacyAlias, result));
-        break;
-      case InputActionId::Max:
-        break;
+    for (const auto& alias : ShortcutConfigAliases(spec.id)) {
+      candidates.push_back(read_candidate(shortcuts, alias.key, "[shortcuts].", alias.source_kind, result,
+                                          alias.deprecation_warning));
     }
 
     result.bindings.push_back(resolve_binding(spec, candidates, result));
   }
 
   return result;
+}
+
+std::span<const BindingConfigAlias> ShortcutConfigAliases(const InputActionId action)
+{
+  switch (action) {
+    case InputActionId::FleetPrimary:
+      return kFleetPrimaryAliases;
+    case InputActionId::FleetSecondary:
+      return kFleetSecondaryAliases;
+    case InputActionId::FleetService:
+      return kFleetServiceAliases;
+    case InputActionId::FleetViewInfo:
+      return kFleetViewInfoAliases;
+    case InputActionId::FleetQueueClear:
+      return kFleetQueueClearAliases;
+    case InputActionId::FleetQueueToggle:
+      return kFleetQueueToggleAliases;
+    case InputActionId::SelectShip1:
+      return kSelectShip1Aliases;
+    case InputActionId::SelectShip2:
+      return kSelectShip2Aliases;
+    case InputActionId::SelectShip3:
+      return kSelectShip3Aliases;
+    case InputActionId::SelectShip4:
+      return kSelectShip4Aliases;
+    case InputActionId::SelectShip5:
+      return kSelectShip5Aliases;
+    case InputActionId::SelectShip6:
+      return kSelectShip6Aliases;
+    case InputActionId::SelectShip7:
+      return kSelectShip7Aliases;
+    case InputActionId::SelectShip8:
+      return kSelectShip8Aliases;
+    case InputActionId::SelectCurrent:
+      return kSelectCurrentAliases;
+    case InputActionId::ShowChat:
+      return kShowChatAliases;
+    case InputActionId::ShowChatSide1:
+      return kShowChatSide1Aliases;
+    case InputActionId::ShowChatSide2:
+      return kShowChatSide2Aliases;
+    case InputActionId::SelectChatGlobal:
+      return kSelectChatGlobalAliases;
+    case InputActionId::SelectChatAlliance:
+      return kSelectChatAllianceAliases;
+    case InputActionId::SelectChatPrivate:
+      return kSelectChatPrivateAliases;
+    case InputActionId::MoveLeft:
+      return kMoveLeftAliases;
+    case InputActionId::MoveRight:
+      return kMoveRightAliases;
+    case InputActionId::HotkeysDisable:
+      return kHotkeysDisableAliases;
+    case InputActionId::HotkeysEnable:
+      return kHotkeysEnableAliases;
+    case InputActionId::LogDebug:
+      return kLogDebugAliases;
+    case InputActionId::ZoomIn:
+      return kZoomInAliases;
+    case InputActionId::ZoomOut:
+      return kZoomOutAliases;
+    case InputActionId::Quit:
+      return kQuitAliases;
+    case InputActionId::UiScaleUp:
+      return kUiScaleUpAliases;
+    case InputActionId::UiScaleDown:
+      return kUiScaleDownAliases;
+    case InputActionId::UiViewerScaleUp:
+      return kUiViewerScaleUpAliases;
+    case InputActionId::UiViewerScaleDown:
+      return kUiViewerScaleDownAliases;
+    case InputActionId::LogOff:
+      return kLogOffAliases;
+    case InputActionId::LogError:
+      return kLogErrorAliases;
+    case InputActionId::LogWarn:
+      return kLogWarnAliases;
+    case InputActionId::LogInfo:
+      return kLogInfoAliases;
+    case InputActionId::LogTrace:
+      return kLogTraceAliases;
+    case InputActionId::ShowQTrials:
+      return kShowQTrialsAliases;
+    case InputActionId::ShowBookmarks:
+      return kShowBookmarksAliases;
+    case InputActionId::ShowLookup:
+      return kShowLookupAliases;
+    case InputActionId::ShowRefinery:
+      return kShowRefineryAliases;
+    case InputActionId::ShowFactions:
+      return kShowFactionsAliases;
+    case InputActionId::ShowStationExterior:
+      return kShowStationExteriorAliases;
+    case InputActionId::ShowGalaxy:
+      return kShowGalaxyAliases;
+    case InputActionId::ShowStationInterior:
+      return kShowStationInteriorAliases;
+    case InputActionId::ShowSystem:
+      return kShowSystemAliases;
+    case InputActionId::ShowArtifacts:
+      return kShowArtifactsAliases;
+    case InputActionId::ShowInventory:
+      return kShowInventoryAliases;
+    case InputActionId::ShowMissions:
+      return kShowMissionsAliases;
+    case InputActionId::ShowResearch:
+      return kShowResearchAliases;
+    case InputActionId::ShowScrapYard:
+      return kShowScrapYardAliases;
+    case InputActionId::ShowOfficers:
+      return kShowOfficersAliases;
+    case InputActionId::ShowCommander:
+      return kShowCommanderAliases;
+    case InputActionId::ShowAwayTeam:
+      return kShowAwayTeamAliases;
+    case InputActionId::ShowEvents:
+      return kShowEventsAliases;
+    case InputActionId::ShowExoComp:
+      return kShowExoCompAliases;
+    case InputActionId::ShowDaily:
+      return kShowDailyAliases;
+    case InputActionId::ShowGifts:
+      return kShowGiftsAliases;
+    case InputActionId::ShowAlliance:
+      return kShowAllianceAliases;
+    case InputActionId::ShowAllianceHelp:
+      return kShowAllianceHelpAliases;
+    case InputActionId::ShowAllianceArmada:
+      return kShowAllianceArmadaAliases;
+    case InputActionId::ShowSettings:
+      return kShowSettingsAliases;
+    case InputActionId::TogglePreviewLocate:
+      return kTogglePreviewLocateAliases;
+    case InputActionId::TogglePreviewRecall:
+      return kTogglePreviewRecallAliases;
+    case InputActionId::ToggleCargoDefault:
+      return kToggleCargoDefaultAliases;
+    case InputActionId::ToggleCargoPlayer:
+      return kToggleCargoPlayerAliases;
+    case InputActionId::ToggleCargoStation:
+      return kToggleCargoStationAliases;
+    case InputActionId::ToggleCargoHostile:
+      return kToggleCargoHostileAliases;
+    case InputActionId::ToggleCargoArmada:
+      return kToggleCargoArmadaAliases;
+    case InputActionId::ShowShips:
+      return kShowShipsAliases;
+    case InputActionId::Max:
+      return {};
+  }
+
+  return {};
 }
 
 toml::table BuildInputBindingRuntimeConfig(const ConfigBridgeResult& bridge, const CompileResult& compile)

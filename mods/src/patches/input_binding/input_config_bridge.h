@@ -4,6 +4,7 @@
 
 #include <toml++/toml.h>
 
+#include <span>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -32,7 +33,14 @@ struct ConfigBridgeResult {
   [[nodiscard]] std::vector<BindingOverride> AsOverrides() const;
 };
 
+struct BindingConfigAlias {
+  std::string_view         key;
+  BindingConfigSourceKind  source_kind = BindingConfigSourceKind::LegacyAlias;
+  std::string_view         deprecation_warning;
+};
+
 [[nodiscard]] ConfigBridgeResult ResolveInputBindingConfig(const toml::table& config);
 [[nodiscard]] toml::table BuildInputBindingRuntimeConfig(const ConfigBridgeResult& bridge, const CompileResult& compile);
+[[nodiscard]] std::span<const BindingConfigAlias> ShortcutConfigAliases(InputActionId action);
 
 } // namespace input_binding
