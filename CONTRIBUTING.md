@@ -114,3 +114,16 @@ mkdir build
 cd build
 xmake
 ```
+
+## Release Validation
+
+Before opening a PR or cutting a release from this fork, run the repo-level
+validation command:
+
+```powershell
+.\.ax\ax.ps1 release-validate
+```
+
+This command runs the schema/docs drift checks embedded in `stfc-mod-tests`,
+builds `stfc-community-mod` in the selected mode, and finishes with
+`git diff --check` so config/docs/build regressions fail in one place.

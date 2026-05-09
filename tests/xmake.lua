@@ -11,6 +11,7 @@ do
     -- Testable source files from the mod (pure logic only)
     add_files("../mods/src/testable_functions.cc")
     add_files("../mods/src/config_redaction.cc")
+    add_files("../mods/src/config_release_validation.cc")
     add_files("../mods/src/config_schema.cc")
     add_files("../mods/src/patches/live_debug_event_store.cc")
     add_files("../mods/src/patches/live_debug_recent_event_requests.cc")
