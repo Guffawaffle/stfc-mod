@@ -402,6 +402,13 @@ void notification_init()
     s_notification_worker_thread = std::thread(notification_worker_main);
   });
   spdlog::debug("[Notify] Windows notification service initialized");
+#elif defined(__APPLE__)
+  if (Config::Get().notifications.enabled) {
+    spdlog::warn(
+        "[Notify] macOS does not support OS notifications yet; [notifications].notifications_enabled will be ignored");
+  } else {
+    spdlog::debug("[Notify] Notification service: macOS does not support this feature yet (no-op)");
+  }
 #else
   spdlog::debug("[Notify] Notification service: platform not supported (no-op)");
 #endif
@@ -441,8 +448,10 @@ void notification_show(const char* title, const char* body)
 
 void notification_handle_generic_toast(Toast* toast, int state, const char* title)
 {
-#if !_WIN32
-  return; // No notification delivery on non-Windows platforms yet
+#if defined(__APPLE__)
+  return; // No notification delivery on macOS yet
+#elif !defined(_WIN32)
+  return; // No notification delivery on unsupported non-Windows platforms yet
 #else
   const auto& notifications = Config::Get().notifications;
   if (!notifications.enabled) {

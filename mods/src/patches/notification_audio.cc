@@ -47,6 +47,13 @@ void notification_audio_init()
 
 #if _WIN32
   spdlog::debug("[NotifyAudio] Windows notification audio initialized");
+#elif defined(__APPLE__)
+  if (Config::Get().notifications.audio_enabled) {
+    spdlog::warn(
+        "[NotifyAudio] macOS does not support notification audio yet; [notifications].notifications_audio_enabled will be ignored");
+  } else {
+    spdlog::debug("[NotifyAudio] Notification audio: macOS does not support this feature yet (no-op)");
+  }
 #else
   spdlog::debug("[NotifyAudio] Notification audio: platform not supported (no-op)");
 #endif
