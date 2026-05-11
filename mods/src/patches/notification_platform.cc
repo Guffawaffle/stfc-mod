@@ -5,12 +5,13 @@
 #include "patches/notification_platform.h"
 
 #include "patches/notification_text.h"
+#include "platform_config.h"
 
 #include <mutex>
 
 #include <spdlog/spdlog.h>
 
-#if _WIN32
+#if STFCMOD_PLATFORM_WINDOWS
 #include <windows.h>
 #include <winrt/Windows.Data.Xml.Dom.h>
 #include <winrt/Windows.UI.Notifications.h>
@@ -35,7 +36,7 @@ void notification_platform_reset_delivery_override_for_testing()
 
 void notification_platform_init()
 {
-#if _WIN32
+#if STFCMOD_PLATFORM_WINDOWS
   try { winrt::init_apartment(); } catch (...) {}
 #endif
 }
@@ -50,7 +51,7 @@ void notification_platform_show(const char* title, const char* body)
     }
   }
 
-#if _WIN32
+#if STFCMOD_PLATFORM_WINDOWS
   try {
     using namespace winrt::Windows::UI::Notifications;
     using namespace winrt::Windows::Data::Xml::Dom;
@@ -79,6 +80,9 @@ void notification_platform_show(const char* title, const char* body)
   } catch (...) {
     spdlog::warn("[Notify] WinRT notification failed (unknown error)");
   }
+#elif STFCMOD_PLATFORM_MACOS
+  (void)title;
+  (void)body;
 #else
   (void)title;
   (void)body;
