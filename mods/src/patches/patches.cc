@@ -23,7 +23,7 @@
 
 #include <spud/detour.h>
 
-#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
@@ -33,6 +33,8 @@
 namespace
 {
 constexpr bool kLiveDebugOnlyHookIsolation = false;
+constexpr auto kLegacyLogMaxBytes          = 512 * 1024;
+constexpr auto kLegacyLogMaxFiles          = 2;
 }
 
 #if _WIN32
@@ -95,7 +97,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 
   File::Init();
 
-  auto file_logger = spdlog::basic_logger_mt("default", File::Log(), true);
+  auto file_logger = spdlog::rotating_logger_mt("default", File::Log(), kLegacyLogMaxBytes, kLegacyLogMaxFiles);
   auto sink        = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
   file_logger->sinks().push_back(sink);
   spdlog::set_default_logger(file_logger);
@@ -115,6 +117,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   }
 
   spdlog::info("  Log: {}", File::Log());
+  spdlog::warn(
+      "  Local troubleshooting log is bounded and legacy-only; prefer explicit JSONL/ingress export for diagnostics.");
   spdlog::info("  Cfg: {}", File::Config());
   spdlog::info("  Var: {}", File::Vars());
   spdlog::info("   BL: {}", File::Battles());

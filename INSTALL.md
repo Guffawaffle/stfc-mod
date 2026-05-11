@@ -62,8 +62,8 @@ that the parse value of that setting was correctly applied. You may also need to
 ## Diagnostics And Export Policy
 
 - `community_patch_runtime.vars` is runtime state only. Do not edit it.
-- `community_patch.log` is a legacy troubleshooting log used for parse/load and boot investigation.
-   It is not the preferred durable export format.
+- `community_patch.log` is a bounded legacy troubleshooting log used for parse/load and boot
+   investigation. It is not the preferred durable export format.
 - Local JSONL export such as `community_patch_battle_feed.jsonl` should be treated as explicit
    opt-in fallback capture. Enabling local capture can add runtime overhead and create large
    storage churn.
