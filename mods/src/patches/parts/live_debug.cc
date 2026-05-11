@@ -62,6 +62,8 @@ namespace {
 using json = nlohmann::json;
 
 constexpr std::string_view kNavigationHookTraceFile = "community_patch_navhook_trace.log";
+constexpr auto             kNavigationHookTraceMaxBytes = 512 * 1024;
+constexpr auto             kNavigationHookTraceRotateCheckInterval = 128;
 
 bool             g_recent_observations_initialized = false;
 TopCanvasObservation g_last_top_canvas;
@@ -140,6 +142,26 @@ std::filesystem::path get_live_debug_path(std::string_view filename)
   return std::filesystem::path(File::MakePathString(filename));
 }
 
+void rotate_navigation_hook_trace_if_needed(const std::filesystem::path& trace_path)
+{
+  static uint32_t check_counter = 0;
+  if (++check_counter % kNavigationHookTraceRotateCheckInterval != 0) {
+    return;
+  }
+
+  std::error_code error;
+  const auto      trace_size = std::filesystem::file_size(trace_path, error);
+  if (error || trace_size <= kNavigationHookTraceMaxBytes) {
+    return;
+  }
+
+  auto rotated_path = trace_path;
+  rotated_path.replace_extension(".1.log");
+  std::filesystem::remove(rotated_path, error);
+  error.clear();
+  std::filesystem::rename(trace_path, rotated_path, error);
+}
+
 std::string pointer_to_string(const void* pointer)
 {
   std::ostringstream stream;
@@ -176,6 +198,7 @@ void append_navigation_hook_trace_step(const char* step,
                callback_context);
   std::fflush(trace_file);
   std::fclose(trace_file);
+  rotate_navigation_hook_trace_if_needed(trace_path);
 }
 
 void append_ui_observer_trace_step(const char* step,

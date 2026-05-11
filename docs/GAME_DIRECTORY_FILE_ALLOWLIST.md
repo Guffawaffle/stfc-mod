@@ -20,7 +20,7 @@ may place beside the game or config folder. The policy target is:
 | `community_patch_runtime.vars` | Mod | Runtime state snapshot | Rewritten on launch | Resolved settings snapshot after defaults/aliases. Do not edit. |
 | `community_patch.log` / `community_patch.*.log` | Mod | Legacy troubleshooting log | Created by current bootstrap logger | Plain-text spdlog output for boot/load troubleshooting. Rotated at a small bounded size. Not the preferred durable export format. |
 | `community_patch_battle_feed.jsonl` | Mod | Structured local export feed | Explicit opt-in | Canonical sidecar fallback feed. Cyclic/bounded by replay/group retention settings. |
-| `community_patch_navhook_trace.log` | Live debug / developer-only | Legacy debug trace | Normally absent | Plain-text developer trace for specific navigation-hook investigation. Not a stable user-facing export surface. |
+| `community_patch_navhook_trace.log` / `community_patch_navhook_trace.1.log` | Live debug / developer-only | Legacy debug trace | Normally absent | Plain-text developer trace for specific navigation-hook investigation. Sampled rotation keeps it bounded. Not a stable user-facing export surface. |
 
 ## Adjacent Artifacts
 
