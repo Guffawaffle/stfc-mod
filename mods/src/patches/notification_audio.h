@@ -4,9 +4,10 @@
  */
 #pragma once
 
-enum class NotificationAudioEvent {
-  FleetArrivedInSystem,
-};
+#include "patches/notification_policy.h"
+
+#include <string_view>
 
 void notification_audio_init();
-void notification_audio_play(NotificationAudioEvent event);
+void notification_audio_shutdown();
+void notification_audio_play(NotificationSound sound, std::string_view event_name);

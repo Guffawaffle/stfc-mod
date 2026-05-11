@@ -89,8 +89,62 @@ const char* ModImpactProbeName(const ModImpactProbe probe)
       return "navigation_zoom.update";
     case ModImpactProbe::NavigationPanLateUpdate:
       return "navigation_pan.late_update";
+    case ModImpactProbe::NavigationPanOriginalLateUpdate:
+      return "navigation_pan.original_late_update";
+    case ModImpactProbe::NavigationTouchPopulate:
+      return "navigation_touch.populate";
     case ModImpactProbe::AspectRatioUpdate:
       return "aspect_ratio.update";
+    case ModImpactProbe::HotkeyResetCache:
+      return "hotkey.reset_cache";
+    case ModImpactProbe::HotkeyDispatchPlan:
+      return "hotkey.dispatch_plan";
+    case ModImpactProbe::HotkeySpaceAction:
+      return "hotkey.space_action";
+    case ModImpactProbe::HotkeyContextState:
+      return "hotkey.context_state";
+    case ModImpactProbe::HotkeyShipSelection:
+      return "hotkey.ship_selection";
+    case ModImpactProbe::HotkeyUiRouting:
+      return "hotkey.ui_routing";
+    case ModImpactProbe::HotkeyFleetRouting:
+      return "hotkey.fleet_routing";
+    case ModImpactProbe::HotkeyShipFleetBarLookup:
+      return "hotkey.ship.fleet_bar_lookup";
+    case ModImpactProbe::HotkeyShipTow:
+      return "hotkey.ship.tow";
+    case ModImpactProbe::HotkeyShipLocate:
+      return "hotkey.ship.locate";
+    case ModImpactProbe::HotkeyShipSelectPanel:
+      return "hotkey.ship.select_panel";
+    case ModImpactProbe::HotkeyUiSelectCurrent:
+      return "hotkey.ui.select_current";
+    case ModImpactProbe::HotkeyUiQueueToggle:
+      return "hotkey.ui.queue_toggle";
+    case ModImpactProbe::HotkeyUiChatOpen:
+      return "hotkey.ui.chat_open";
+    case ModImpactProbe::HotkeyUiOfficerCanvas:
+      return "hotkey.ui.officer_canvas";
+    case ModImpactProbe::HotkeyUiTableDispatch:
+      return "hotkey.ui.table_dispatch";
+    case ModImpactProbe::HotkeyUiChatChannel:
+      return "hotkey.ui.chat_channel";
+    case ModImpactProbe::HotkeyUiChatManagerLookup:
+      return "hotkey.ui.chat.manager_lookup";
+    case ModImpactProbe::HotkeyUiChatActivateInput:
+      return "hotkey.ui.chat.activate_input";
+    case ModImpactProbe::HotkeyUiChatOpenChannel:
+      return "hotkey.ui.chat.open_channel";
+    case ModImpactProbe::HotkeyShipLocateHideInteraction:
+      return "hotkey.ship.locate.hide_interaction";
+    case ModImpactProbe::HotkeyShipLocateRequestView:
+      return "hotkey.ship.locate.request_view";
+    case ModImpactProbe::HotkeyShipRequestSelect:
+      return "hotkey.ship.select.request_select";
+    case ModImpactProbe::HotkeyShipElementAction:
+      return "hotkey.ship.select.element_action";
+    case ModImpactProbe::HotkeyShipTogglePanel:
+      return "hotkey.ship.select.toggle_panel";
     case ModImpactProbe::Max:
       return "unknown";
   }

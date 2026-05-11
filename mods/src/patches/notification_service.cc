@@ -13,7 +13,9 @@
 #include "config.h"
 #include "platform_config.h"
 #include "patches/async_work_queue.h"
+#include "patches/notification_audio.h"
 #include "patches/notification_platform.h"
+#include "patches/notification_policy.h"
 #include "patches/notification_queue.h"
 #include "patches/notification_text.h"
 #include "str_utils.h"
@@ -414,11 +416,15 @@ void notification_init()
   spdlog::debug("[Notify] Notification service: platform not supported (no-op)");
 #endif
 
+  notification_audio_init();
+
   s_notification_initialized = true;
 }
 
 void notification_shutdown()
 {
+  notification_audio_shutdown();
+
 #if STFCMOD_PLATFORM_WINDOWS
   s_notification_queue.request_shutdown();
 
@@ -447,6 +453,29 @@ void notification_show(const char* title, const char* body)
 #endif
 }
 
+bool notification_delivery_enabled(NotificationKind kind)
+{
+  const auto& notifications = Config::Get().notifications;
+  return (notifications.enabled && notification_policy_system_enabled(kind))
+         || (notifications.audio_enabled && notification_policy_audio_enabled(kind));
+}
+
+void notification_emit(NotificationKind kind, const char* title, const char* body)
+{
+  const auto& notifications = Config::Get().notifications;
+  const auto& policy        = notification_policy_for(kind);
+
+#if STFCMOD_PLATFORM_WINDOWS
+  if (notifications.enabled && policy.system) {
+    queue_system_notification(title, body, notification_kind_name(kind));
+  }
+#endif
+
+  if (notifications.audio_enabled && policy.audio && policy.sound != NotificationSound::None) {
+    notification_audio_play(policy.sound, notification_kind_name(kind));
+  }
+}
+
 void notification_handle_generic_toast(Toast* toast, int state, const char* title)
 {
 #if STFCMOD_PLATFORM_MACOS
@@ -454,12 +483,8 @@ void notification_handle_generic_toast(Toast* toast, int state, const char* titl
 #elif STFCMOD_PLATFORM_OTHER
   return; // No notification delivery on unsupported non-Windows platforms yet
 #else
-  const auto& notifications = Config::Get().notifications;
-  if (!notifications.enabled) {
-    return;
-  }
-
-  if (!notifications.EnabledForToastState(state)) {
+  const auto kind = notification_kind_from_toast_state(state);
+  if (!kind.has_value() || !notification_delivery_enabled(kind.value())) {
     return;
   }
 
@@ -480,6 +505,6 @@ void notification_handle_generic_toast(Toast* toast, int state, const char* titl
   auto body = notification_choose_body(parsed_body, formatted_localized_body, localized_body);
 
   spdlog::debug("[Notify] {} — {}", title, body);
-  queue_system_notification(title, body.c_str(), "toast");
+  notification_emit(kind.value(), title, body.c_str());
 #endif
 }

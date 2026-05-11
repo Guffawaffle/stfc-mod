@@ -19,6 +19,7 @@
 #include "patches/input_binding/input_dispatcher.h"
 #include "patches/input_binding/input_runtime_bindings.h"
 #include "patches/key.h"
+#include "patches/mod_impact_monitor.h"
 #include "patches/navigation.h"
 #include "patches/viewer_mgmt.h"
 #include "testable_functions.h"
@@ -243,6 +244,8 @@ void build_dispatch_key_snapshot(std::span<const KeyCode> watched_keys,
 
 const input_binding::DispatchPlan& frame_runtime_dispatch_plan()
 {
+  ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyDispatchPlan, ModImpactMonitorEnabled());
+
   auto&       cache            = frame_runtime_dispatch_cache();
   const auto& runtime_bindings = input_binding::RuntimeBindingModel();
   rebuild_frame_runtime_watched_keys(cache, runtime_bindings);
@@ -260,9 +263,126 @@ bool runtime_binding_winner_present(const input_binding::DispatchPlan& plan, con
                                     const input_binding::InputLayer layer)
 { return plan.winner_lookup.Contains(action, layer); }
 
+const input_binding::DispatchCandidate* runtime_binding_winner(const input_binding::DispatchPlan& plan,
+                                                               const input_binding::InputActionId action,
+                                                               const input_binding::InputLayer layer)
+{
+  for (const auto& winner : plan.winners) {
+    if (winner.action == action && winner.layer == layer) {
+      return &winner;
+    }
+  }
+  return nullptr;
+}
+
 input_binding::InputActionId first_runtime_binding_winner(const input_binding::DispatchPlan&                  plan,
                                                           const std::span<const input_binding::InputActionId> actions)
 { return plan.winner_lookup.First(actions); }
+
+std::string_view input_action_name(const input_binding::InputActionId action)
+{
+  if (const auto* spec = input_binding::FindActionSpec(action); spec) {
+    return spec->canonical_key;
+  }
+  return "unknown";
+}
+
+std::string_view trigger_mode_name(const input_binding::TriggerMode trigger_mode)
+{
+  switch (trigger_mode) {
+    case input_binding::TriggerMode::Down:
+      return "down";
+    case input_binding::TriggerMode::Pressed:
+      return "pressed";
+    default:
+      return "unknown";
+  }
+}
+
+std::string_view key_code_name(const KeyCode key)
+{
+  switch (key) {
+    case KeyCode::Mouse0:
+      return "MOUSE0";
+    case KeyCode::Mouse1:
+      return "MOUSE1";
+    case KeyCode::Mouse2:
+      return "MOUSE2";
+    case KeyCode::Mouse3:
+      return "MOUSE3";
+    case KeyCode::Mouse4:
+      return "MOUSE4";
+    case KeyCode::Space:
+      return "SPACE";
+    case KeyCode::BackQuote:
+      return "`";
+    case KeyCode::Alpha1:
+      return "1";
+    case KeyCode::Alpha2:
+      return "2";
+    case KeyCode::Alpha3:
+      return "3";
+    case KeyCode::Alpha4:
+      return "4";
+    case KeyCode::Alpha5:
+      return "5";
+    case KeyCode::Alpha6:
+      return "6";
+    case KeyCode::Alpha7:
+      return "7";
+    case KeyCode::Alpha8:
+      return "8";
+    case KeyCode::A:
+      return "A";
+    case KeyCode::C:
+      return "C";
+    case KeyCode::D:
+      return "D";
+    case KeyCode::F:
+      return "F";
+    case KeyCode::G:
+      return "G";
+    case KeyCode::H:
+      return "H";
+    case KeyCode::I:
+      return "I";
+    case KeyCode::L:
+      return "L";
+    case KeyCode::M:
+      return "M";
+    case KeyCode::O:
+      return "O";
+    case KeyCode::Q:
+      return "Q";
+    case KeyCode::T:
+      return "T";
+    case KeyCode::U:
+      return "U";
+    case KeyCode::V:
+      return "V";
+    case KeyCode::Y:
+      return "Y";
+    default:
+      return "other";
+  }
+}
+
+void log_runtime_winner(const char* route, const input_binding::DispatchPlan& plan,
+                        const input_binding::InputActionId action, const input_binding::InputLayer layer)
+{
+  if (!ModImpactMonitorEnabled()) {
+    return;
+  }
+
+  const auto* winner = runtime_binding_winner(plan, action, layer);
+  if (!winner) {
+    return;
+  }
+
+  spdlog::info("[HotkeyDiag] route={} action={} key={} trigger={} modifiers_logical={} modifiers_physical={}", route,
+               input_action_name(action), key_code_name(winner->key), trigger_mode_name(winner->trigger_mode),
+               winner->held_modifiers.logical_bits(), winner->held_modifiers.physical_bits());
+}
 
 int ship_select_request_from_runtime_bindings(const input_binding::DispatchPlan& plan)
 {
@@ -424,7 +544,10 @@ HotkeyRouterStartupAction startup_action_from_runtime_bindings(const input_bindi
 // Returns true when the original ScreenManager::Update should be called.
 bool hotkey_router_screen_update(ScreenManager* _this)
 {
-  Key::ResetCache();
+  {
+    ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyResetCache, ModImpactMonitorEnabled());
+    Key::ResetCache();
+  }
 
   const auto& runtime_dispatch_plan = frame_runtime_dispatch_plan();
 
@@ -446,9 +569,14 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       break;
   }
 
-  const auto is_in_chat    = Hub::IsInChat();
-  const auto input_focused = Key::IsInputFocused();
-  const auto config        = &Config::Get();
+  bool is_in_chat    = false;
+  bool input_focused = false;
+  {
+    ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyContextState, ModImpactMonitorEnabled());
+    is_in_chat    = Hub::IsInChat();
+    input_focused = Key::IsInputFocused();
+  }
+  const auto config = &Config::Get();
 
 #ifdef _WIN32
   if (hotkey_router_quit_action(first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyQuitActions)
@@ -461,9 +589,16 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
   // ─── Ship selection (1-8 keys) ───────────────────────────────────────────────────────
   const auto ship_select_request = ship_select_request_from_runtime_bindings(runtime_dispatch_plan);
+  if (ship_select_request != -1) {
+    log_runtime_winner("ship-selection", runtime_dispatch_plan, kHotkeyShipSelectionActions[ship_select_request],
+                       input_binding::InputLayer::Fleet);
+  }
 
-  if (HandleShipSelection(ship_select_request)) {
-    return true;
+  {
+    ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipSelection, ModImpactMonitorEnabled());
+    if (HandleShipSelection(ship_select_request)) {
+      return true;
+    }
   }
 
   // ─── Escape in chat / input focus ───────────────────────────────────────────────────
@@ -474,93 +609,131 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
   if (!is_in_chat) {
     if (!input_focused) {
+      ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyUiRouting, ModImpactMonitorEnabled());
+
       // SelectCurrent — locate active fleet
-      if (hotkey_router_select_current_action(is_in_chat,
-                                              input_focused,
-                                              first_runtime_binding_winner(runtime_dispatch_plan,
-                                                                           kHotkeySelectCurrentActions)
-                                                  == input_binding::InputActionId::SelectCurrent)
-          == HotkeyRouterSelectCurrentAction::ViewActiveFleet) {
-        auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
-        if (fleet_bar) {
-          auto fleet = fleet_bar->_fleetPanelController->fleet;
-          if (fleet) {
-            if (NavigationSectionManager::Instance() && NavigationSectionManager::Instance()->SNavigationManager) {
-              NavigationSectionManager::Instance()->SNavigationManager->HideInteraction();
+      {
+        ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiSelectCurrent, ModImpactMonitorEnabled());
+        if (hotkey_router_select_current_action(is_in_chat,
+                                                input_focused,
+                                                first_runtime_binding_winner(runtime_dispatch_plan,
+                                                                             kHotkeySelectCurrentActions)
+                                                    == input_binding::InputActionId::SelectCurrent)
+            == HotkeyRouterSelectCurrentAction::ViewActiveFleet) {
+          auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
+          if (fleet_bar) {
+            auto fleet = fleet_bar->_fleetPanelController->fleet;
+            if (fleet) {
+              if (NavigationSectionManager::Instance() && NavigationSectionManager::Instance()->SNavigationManager) {
+                NavigationSectionManager::Instance()->SNavigationManager->HideInteraction();
+              }
+              FleetsManager::Instance()->RequestViewFleet(fleet, true);
+              return false;
             }
-            FleetsManager::Instance()->RequestViewFleet(fleet, true);
-            return false;
           }
         }
       }
 
       // ToggleQueue
-      const auto queue_toggle_action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyQueueActions);
-      if (hotkey_router_should_toggle_queue(is_in_chat, input_focused,
-                                            queue_toggle_action == input_binding::InputActionId::FleetQueueToggle)) {
-        config->queue_enabled = !config->queue_enabled;
-        return false;
+      {
+        ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiQueueToggle, ModImpactMonitorEnabled());
+        const auto queue_toggle_action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyQueueActions);
+        if (hotkey_router_should_toggle_queue(is_in_chat, input_focused,
+                                              queue_toggle_action == input_binding::InputActionId::FleetQueueToggle)) {
+          config->queue_enabled = !config->queue_enabled;
+          return false;
+        }
       }
 
       // ShowChat
-      const auto chat_open_action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyChatOpenActions);
-      if (chat_open_action != input_binding::InputActionId::Max) {
-        if (auto chat_manager = ChatManager::Instance(); chat_manager) {
-          switch (hotkey_router_chat_open_action(is_in_chat,
-                                                 input_focused,
-                                                 chat_manager->IsSideChatOpen,
-                                                 chat_open_action)) {
-            case HotkeyRouterChatOpenAction::ActivateExistingInput:
-              if (auto view_controller = ObjectFinder<FullScreenChatViewController>::Get(); view_controller) {
-                if (auto message_list = view_controller->_messageList; message_list) {
-                  if (auto message_field = message_list->_inputField; message_field) {
-                    message_field->ActivateInputField();
+      {
+        ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiChatOpen, ModImpactMonitorEnabled());
+        const auto chat_open_action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyChatOpenActions);
+        if (chat_open_action != input_binding::InputActionId::Max) {
+          log_runtime_winner("chat-open", runtime_dispatch_plan, chat_open_action, input_binding::InputLayer::Global);
+          ChatManager* chat_manager = nullptr;
+          {
+            ScopedModImpactTimer chat_manager_timer(ModImpactProbe::HotkeyUiChatManagerLookup,
+                                                    ModImpactMonitorEnabled());
+            chat_manager = ChatManager::Instance();
+          }
+          if (chat_manager) {
+            switch (hotkey_router_chat_open_action(is_in_chat,
+                                                   input_focused,
+                                                   chat_manager->IsSideChatOpen,
+                                                   chat_open_action)) {
+              case HotkeyRouterChatOpenAction::ActivateExistingInput:
+                {
+                  ScopedModImpactTimer activate_timer(ModImpactProbe::HotkeyUiChatActivateInput,
+                                                      ModImpactMonitorEnabled());
+                  if (auto view_controller = ObjectFinder<FullScreenChatViewController>::Get(); view_controller) {
+                    if (auto message_list = view_controller->_messageList; message_list) {
+                      if (auto message_field = message_list->_inputField; message_field) {
+                        message_field->ActivateInputField();
+                      }
+                    }
                   }
                 }
-              }
-              break;
-            case HotkeyRouterChatOpenAction::OpenAllianceSide:
-              chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Side);
-              break;
-            case HotkeyRouterChatOpenAction::OpenAllianceFullscreen:
-              chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Fullscreen);
-              break;
-            default:
-              break;
+                break;
+              case HotkeyRouterChatOpenAction::OpenAllianceSide:
+                {
+                  ScopedModImpactTimer open_timer(ModImpactProbe::HotkeyUiChatOpenChannel, ModImpactMonitorEnabled());
+                  chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Side);
+                }
+                break;
+              case HotkeyRouterChatOpenAction::OpenAllianceFullscreen:
+                {
+                  ScopedModImpactTimer open_timer(ModImpactProbe::HotkeyUiChatOpenChannel, ModImpactMonitorEnabled());
+                  chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Fullscreen);
+                }
+                break;
+              default:
+                break;
+            }
           }
         }
       }
 
       // MoveLeft / MoveRight (officer canvas)
-      switch (hotkey_router_officer_canvas_action(is_in_chat,
-                                                  input_focused,
-                                                  first_runtime_binding_winner(runtime_dispatch_plan,
-                                                                               kHotkeyOfficerCanvasActions))) {
-        case HotkeyRouterOfficerCanvasAction::MoveLeft:
-          if (MoveOfficerCanvas(true)) {
-            return false;
-          }
-          break;
-        case HotkeyRouterOfficerCanvasAction::MoveRight:
-          if (MoveOfficerCanvas(false)) {
-            return false;
-          }
-          break;
-        default:
-          break;
+      {
+        ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiOfficerCanvas, ModImpactMonitorEnabled());
+        switch (hotkey_router_officer_canvas_action(is_in_chat,
+                                                    input_focused,
+                                                    first_runtime_binding_winner(runtime_dispatch_plan,
+                                                                                 kHotkeyOfficerCanvasActions))) {
+          case HotkeyRouterOfficerCanvasAction::MoveLeft:
+            if (MoveOfficerCanvas(true)) {
+              return false;
+            }
+            break;
+          case HotkeyRouterOfficerCanvasAction::MoveRight:
+            if (MoveOfficerCanvas(false)) {
+              return false;
+            }
+            break;
+          default:
+            break;
+        }
       }
 
-      if (const auto action = hotkey_router_table_dispatch_request(is_in_chat,
-                                                                   input_focused,
-                                                                   first_runtime_binding_winner(runtime_dispatch_plan,
-                                                                                                kHotkeyTableDispatchActions));
-          action != input_binding::InputActionId::Max) {
-        if (dispatch_runtime_bound_table_action(action) == HotkeyRouterDispatchAction::SuppressOriginal) {
-          return false;
+      {
+        ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiTableDispatch, ModImpactMonitorEnabled());
+        if (const auto action = hotkey_router_table_dispatch_request(is_in_chat,
+                                                                     input_focused,
+                                                                     first_runtime_binding_winner(runtime_dispatch_plan,
+                                                                                                  kHotkeyTableDispatchActions));
+            action != input_binding::InputActionId::Max) {
+          log_runtime_winner("table-dispatch", runtime_dispatch_plan, action, input_binding::InputLayer::Global);
+          if (dispatch_runtime_bound_table_action(action) == HotkeyRouterDispatchAction::SuppressOriginal) {
+            return false;
+          }
         }
       }
     }
   } else {
+    ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyUiRouting, ModImpactMonitorEnabled());
+    ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiChatChannel, ModImpactMonitorEnabled());
+
     // ─── In-chat channel selection ─────────────────────────────────────────────────────
     if (auto chat_manager = ChatManager::Instance(); chat_manager) {
       switch (hotkey_router_chat_channel_action(is_in_chat,
@@ -582,8 +755,14 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   }
 
   if (!input_focused) {
+    ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyFleetRouting, ModImpactMonitorEnabled());
+
     const auto simple_fleet_action = hotkey_router_simple_fleet_action(
         input_focused, first_runtime_binding_winner(runtime_dispatch_plan, kHotkeySimpleFleetActions));
+      if (simple_fleet_action == HotkeyRouterSimpleFleetAction::QueueClear) {
+        log_runtime_winner("fleet-simple", runtime_dispatch_plan, input_binding::InputActionId::FleetQueueClear,
+                 input_binding::InputLayer::Fleet);
+      }
     const auto space_action_inputs = hotkey_router_runtime_space_action_inputs(
         runtime_binding_winner_present(runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary,
                                        input_binding::InputLayer::Fleet),
@@ -610,12 +789,27 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
     // Space actions (engage, scan, recall, repair, queue, etc.)
     if (hotkey_router_should_execute_space_action(space_action_inputs, force_space_action_next_frame)) {
+      if (space_action_inputs.primary) {
+        log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary,
+                           input_binding::InputLayer::Fleet);
+      }
+      if (space_action_inputs.secondary) {
+        log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetSecondary,
+                           input_binding::InputLayer::Fleet);
+      }
+      if (space_action_inputs.recall || space_action_inputs.repair) {
+        log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetService,
+                           input_binding::InputLayer::Fleet);
+      }
       if (Hub::IsInSystemOrGalaxyOrStarbase() && !Hub::IsInChat() && !input_focused) {
         auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
         if (fleet_bar) {
           bool was_forced          = force_space_action_next_frame;
           auto deferred_generation = DeferredSpaceActionGeneration();
-          ExecuteSpaceAction(fleet_bar, space_action_inputs);
+          {
+            ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeySpaceAction, ModImpactMonitorEnabled());
+            ExecuteSpaceAction(fleet_bar, space_action_inputs);
+          }
           if (hotkey_router_should_clear_deferred_space_action(was_forced,
                                                                deferred_generation,
                                                                DeferredSpaceActionGeneration())) {

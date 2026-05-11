@@ -281,6 +281,17 @@ repair_complete = false
 [notifications.audio]
 # Master switch for in-game audible notification cues.
 enabled = false
+default_sound = "default"
+
+[notifications.events.fleet]
+# Compact per-notification policy rows. These override the legacy split tables above when present.
+# system controls desktop notifications; audio controls the generated cue; sound chooses the cue name.
+arrived_in_system = { system = false, audio = false, sound = "arrival" }
+arrived_at_destination = { system = false, audio = false, sound = "soft" }
+started_mining = { system = false, audio = false, sound = "ping" }
+node_depleted = { system = false, audio = false, sound = "warning" }
+docked = { system = false, audio = false, sound = "soft" }
+repair_complete = { system = false, audio = false, sound = "repair" }
 
 [notifications.audio.fleet]
 # Fleet-bar derived audio cues. These are independent of OS notifications.

@@ -18,6 +18,7 @@
 #include "patches/live_debug_ui_serializers.h"
 #include "patches/live_debug_viewer_serializers.h"
 #include "patches/notification_queue.h"
+#include "patches/notification_policy.h"
 #include "patches/notification_text.h"
 #include "patches/object_tracker_core.h"
 #include "str_utils_pure.h"

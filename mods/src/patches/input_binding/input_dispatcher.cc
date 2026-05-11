@@ -53,7 +53,8 @@ void append_candidates(const CompileResult& compile, const DispatchRequest& requ
       continue;
     }
 
-    DispatchCandidate candidate{action, spec->conflict_group, spec->priority, spec->phase, spec->layer};
+    DispatchCandidate candidate{action,         spec->conflict_group,  spec->priority, spec->phase,
+                                spec->layer,    request.trigger_mode,  request.key,    request.held_modifiers};
     plan.candidates.push_back(candidate);
   }
 }

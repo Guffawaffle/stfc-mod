@@ -1,5 +1,7 @@
 #include "test_pure_common.h"
 
+#include "config.h"
+
 // ===========================================================================
 // config_schema
 // ===========================================================================
@@ -101,6 +103,41 @@ enabled = "yes"
     toml::table config;
     config_schema::write_bool(config, "notifications.audio.fleet.arrived_in_system", true);
     CHECK(config["notifications"]["audio"]["fleet"]["arrived_in_system"].value_or(false) == true);
+  }
+
+  TEST_CASE("notification policy inline event table overrides legacy booleans")
+  {
+    auto config = toml::parse(R"(
+[notifications.audio]
+default_sound = "soft"
+
+[notifications.events.fleet]
+arrived_in_system = { system = false, audio = true, sound = "arrival" }
+repair_complete = { system = true, audio = true, sound = "repair" }
+)"
+    );
+
+    NotificationConfig notifications;
+    notifications.enabled                       = true;
+    notifications.audio_enabled                 = true;
+    notifications.fleet_arrived_in_system       = true;
+    notifications.audio_fleet_arrived_in_system = false;
+    notifications.fleet_repair_complete         = false;
+
+    toml::table runtime;
+    notification_policy_load(config, runtime, notifications);
+
+    const auto arrival = notification_policy_for(NotificationKind::FleetArrivedInSystem);
+    CHECK_FALSE(arrival.system);
+    CHECK(arrival.audio);
+    CHECK(arrival.sound == NotificationSound::Arrival);
+
+    const auto repair = notification_policy_for(NotificationKind::FleetRepairComplete);
+    CHECK(repair.system);
+    CHECK(repair.audio);
+    CHECK(repair.sound == NotificationSound::Repair);
+    CHECK(runtime["notifications"]["events"]["fleet"]["repair_complete"]["sound"].value_or(std::string{})
+          == "repair");
   }
 }
 

@@ -29,6 +29,8 @@
  */
 TKTouch *TKTouch_populateWithPosition_Hook(auto original, TKTouch *_this, uintptr_t pos, TouchPhase phase)
 {
+  ScopedModImpactTimer impact_timer(ModImpactProbe::NavigationTouchPopulate, ModImpactMonitorEnabled());
+
   auto r = original(_this, pos, phase);
   if (r->phase == TouchPhase::Stationary) {
     r->phase = TouchPhase::Moved;
@@ -53,7 +55,10 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan *_this)
   auto d = _this->_lastDelta;
 
   if (!Config::Get().disable_move_keys) {
-    impact_timer.ExcludeCall([&] { original(_this); });
+    impact_timer.ExcludeCall([&] {
+      ScopedModImpactTimer original_timer(ModImpactProbe::NavigationPanOriginalLateUpdate, ModImpactMonitorEnabled());
+      original(_this);
+    });
   }
 
   static auto GetMouseButton = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButton(System.Int32)");

@@ -14,6 +14,8 @@
  */
 #pragma once
 
+#include "patches/notification_policy.h"
+
 struct Toast;
 
 /**
@@ -50,6 +52,16 @@ bool notification_should_process_toast(Toast* toast);
  * @param toast The game Toast object from the hooked banner display method.
  */
 void notification_handle_generic_toast(Toast* toast, int state, const char* title);
+
+/**
+ * @brief True when the loaded policy and master switches allow any delivery channel for a notification kind.
+ */
+bool notification_delivery_enabled(NotificationKind kind);
+
+/**
+ * @brief Emit a policy-controlled notification through desktop and/or audio channels.
+ */
+void notification_emit(NotificationKind kind, const char* title, const char* body);
 
 /**
  * @brief Send an arbitrary OS-native notification with the given title and body.

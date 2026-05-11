@@ -44,6 +44,9 @@ struct DispatchCandidate {
   uint16_t      priority = 0;
   InputPhase    phase = InputPhase::Frame;
   InputLayer    layer = InputLayer::Global;
+  TriggerMode   trigger_mode = TriggerMode::Down;
+  KeyCode       key = KeyCode::None;
+  ModifierMask  held_modifiers;
 };
 
 struct DispatchWinnerLookup {

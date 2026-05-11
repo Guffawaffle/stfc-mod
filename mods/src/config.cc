@@ -14,6 +14,7 @@
 #include "patches/input_binding/input_config_bridge.h"
 #include "patches/input_binding/input_runtime_bindings.h"
 #include "patches/mapkey.h"
+#include "patches/notification_policy.h"
 #include "prime/KeyCode.h"
 #include "str_utils.h"
 #include "testable_functions.h"
@@ -1280,6 +1281,7 @@ void Config::Load()
 
   this->notifications.incoming_attack_player  = this->notifications.EnabledForToastState(IncomingAttack);
   this->notifications.incoming_attack_hostile = this->notifications.EnabledForToastState(IncomingAttackFaction);
+  notification_policy_load(config, parsed, this->notifications);
   spdlog::debug("");
 
   // if (this->enable_experimental) {

@@ -14,6 +14,7 @@
 #include "patches/fleet_actions.h"
 #include "patches/fleet_input_policy.h"
 #include "patches/live_debug.h"
+#include "patches/mod_impact_monitor.h"
 #include "patches/viewer_mgmt.h"
 #include "testable_functions.h"
 
@@ -178,7 +179,8 @@ struct SpaceActionDiagnostics {
   {
     const auto elapsed = std::chrono::steady_clock::now() - started_at;
     const auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-    const auto long_detour = elapsed_us >= 8000;
+    const auto slow_threshold_us = ModImpactMonitorEnabled() ? 1000 : 8000;
+    const auto long_detour = elapsed_us >= slow_threshold_us;
     const auto had_action_input = physical_primary || deferred_pending || deferred_primary_for_fleet || secondary || queue
         || queue_clear || recall || repair || recall_cancel;
     const auto had_visible_context = visible_pre_scan_count > 0 || mining_visible || star_node_visible || navigation_visible;
@@ -677,6 +679,8 @@ bool HandleShipSelection(int ship_select_request)
   auto config = &Config::Get();
 
   if (Key::HasShift()) {
+    ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipTow, ModImpactMonitorEnabled());
+
     FleetPlayerData* foundDisco = nullptr;
     for (int discoIdx = 0; discoIdx < 10; ++discoIdx) {
       auto fleetPlayerData = FleetsManager::Instance()->GetFleetPlayerData(discoIdx);
@@ -697,8 +701,13 @@ bool HandleShipSelection(int ship_select_request)
       DeploymentManger::Instance()->SetTowRequest(towedFleetId, foundDisco->Id);
     }
   } else {
-    auto fleet_bar  = ObjectFinder<FleetBarViewController>::Get();
-    auto can_locate = !config->disable_preview_locate || !CanHideViewers();
+    FleetBarViewController* fleet_bar = nullptr;
+    bool                    can_locate = false;
+    {
+      ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipFleetBarLookup, ModImpactMonitorEnabled());
+      fleet_bar  = ObjectFinder<FleetBarViewController>::Get();
+      can_locate = !config->disable_preview_locate || !CanHideViewers();
+    }
     if (fleet_bar) {
       std::chrono::time_point<std::chrono::steady_clock> select_now = std::chrono::steady_clock::now();
       std::chrono::milliseconds                          select_diff =
@@ -706,15 +715,34 @@ bool HandleShipSelection(int ship_select_request)
       spdlog::debug("select_diff was {}ms", select_diff.count());
       if (can_locate && ship_select_request == last_ship_select_request && fleet_bar->IsIndexSelected(ship_select_request)
           && select_diff < std::chrono::milliseconds((int)Config::Get().select_timer)) {
+        ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipLocate, ModImpactMonitorEnabled());
+
         auto fleet = fleet_bar->_fleetPanelController->fleet;
-        if (NavigationSectionManager::Instance() && NavigationSectionManager::Instance()->SNavigationManager) {
-          NavigationSectionManager::Instance()->SNavigationManager->HideInteraction();
+        {
+          ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipLocateHideInteraction, ModImpactMonitorEnabled());
+          if (NavigationSectionManager::Instance() && NavigationSectionManager::Instance()->SNavigationManager) {
+            NavigationSectionManager::Instance()->SNavigationManager->HideInteraction();
+          }
         }
-        FleetsManager::Instance()->RequestViewFleet(fleet, true);
+        {
+          ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipLocateRequestView, ModImpactMonitorEnabled());
+          FleetsManager::Instance()->RequestViewFleet(fleet, true);
+        }
       } else {
-        fleet_bar->RequestSelect(ship_select_request);
-        fleet_bar->ElementAction(ship_select_request);
-        fleet_bar->TogglePanel();
+        ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipSelectPanel, ModImpactMonitorEnabled());
+
+        {
+          ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipRequestSelect, ModImpactMonitorEnabled());
+          fleet_bar->RequestSelect(ship_select_request);
+        }
+        {
+          ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipElementAction, ModImpactMonitorEnabled());
+          fleet_bar->ElementAction(ship_select_request);
+        }
+        {
+          ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipTogglePanel, ModImpactMonitorEnabled());
+          fleet_bar->TogglePanel();
+        }
       }
 
       last_ship_select_request = ship_select_request;

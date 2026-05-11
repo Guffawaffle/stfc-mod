@@ -11,6 +11,7 @@
 #include "errormsg.h"
 #include "patches/live_debug.h"
 #include "patches/notification_audio.h"
+#include "patches/notification_policy.h"
 #include "patches/notification_service.h"
 
 #include <prime/FleetPlayerData.h>
@@ -59,15 +60,42 @@ bool incoming_attack_notifications_enabled_for_kind(IncomingAttackPolicyAttacker
 
   switch (attackerKind) {
     case IncomingAttackPolicyAttackerKind::Player:
-      return notifications.incoming_attack_player;
+      return notification_delivery_enabled(NotificationKind::BattleIncomingAttackPlayer);
     case IncomingAttackPolicyAttackerKind::Hostile:
-      return notifications.incoming_attack_hostile;
+      return notification_delivery_enabled(NotificationKind::BattleIncomingAttackHostile);
     default:
-      if (!notifications.AnyIncomingAttackEnabled()) {
+      if (!notification_delivery_enabled(NotificationKind::BattleIncomingAttackPlayer)
+          && !notification_delivery_enabled(NotificationKind::BattleIncomingAttackHostile)) {
         return false;
       }
 
       return allow_when_unclassified || !notifications.IncomingAttackSplitEnabled();
+  }
+}
+
+NotificationKind incoming_attack_notification_kind_for_delivery(IncomingAttackPolicyAttackerKind attackerKind)
+{
+  switch (attackerKind) {
+    case IncomingAttackPolicyAttackerKind::Player:
+      return NotificationKind::BattleIncomingAttackPlayer;
+    case IncomingAttackPolicyAttackerKind::Hostile:
+      return NotificationKind::BattleIncomingAttackHostile;
+    default:
+      return notification_delivery_enabled(NotificationKind::BattleIncomingAttackPlayer)
+                 ? NotificationKind::BattleIncomingAttackPlayer
+                 : NotificationKind::BattleIncomingAttackHostile;
+  }
+}
+
+std::optional<NotificationKind> notification_kind_from_fleet_transition(FleetBarTransitionNotificationKind kind)
+{
+  switch (kind) {
+    case FleetBarTransitionNotificationKind::ArrivedInSystem: return NotificationKind::FleetArrivedInSystem;
+    case FleetBarTransitionNotificationKind::ArrivedAtDestination: return NotificationKind::FleetArrivedAtDestination;
+    case FleetBarTransitionNotificationKind::StartedMining: return NotificationKind::FleetStartedMining;
+    case FleetBarTransitionNotificationKind::RepairComplete: return NotificationKind::FleetRepairComplete;
+    case FleetBarTransitionNotificationKind::Docked: return NotificationKind::FleetDocked;
+    default: return std::nullopt;
   }
 }
 
@@ -246,19 +274,14 @@ void maybe_notify_fleet_bar_transition(uint64_t fleetId, const std::string& ship
   auto etaText =
       (eta_it != s_mining_viewer_remaining_seconds.end()) ? format_duration_short(eta_it->second) : std::string{};
 
-  const auto& notifications = Config::Get().notifications;
-  const auto  notifyArrivedInSystem =
-      fleet_bar_transition_arrived_in_system_event_enabled(notifications.fleet_arrived_in_system,
-                                 notifications.audio_enabled,
-                                 notifications.audio_fleet_arrived_in_system);
   auto decision = fleet_bar_transition_notification_decision({
       static_cast<int>(oldState),
       static_cast<int>(newState),
-      notifyArrivedInSystem,
-      notifications.fleet_arrived_at_destination,
-      notifications.fleet_started_mining,
-      notifications.fleet_docked,
-      notifications.fleet_repair_complete,
+      notification_delivery_enabled(NotificationKind::FleetArrivedInSystem),
+      notification_delivery_enabled(NotificationKind::FleetArrivedAtDestination),
+      notification_delivery_enabled(NotificationKind::FleetStartedMining),
+      notification_delivery_enabled(NotificationKind::FleetDocked),
+      notification_delivery_enabled(NotificationKind::FleetRepairComplete),
       shipName,
       resourceName,
       etaText,
@@ -281,12 +304,9 @@ void maybe_notify_fleet_bar_transition(uint64_t fleetId, const std::string& ship
 
   spdlog::debug("[FleetBar] {} id={} ship='{}'", fleet_bar_transition_notification_kind_name(decision.kind), fleetId,
                 shipName);
-  if (fleet_bar_transition_should_notify_os(decision.kind, notifications.fleet_arrived_in_system)) {
-    notification_show(decision.title.c_str(), decision.body.c_str());
-  }
-  if (fleet_bar_transition_should_notify_audio(decision.kind, notifications.audio_enabled,
-                                               notifications.audio_fleet_arrived_in_system)) {
-    notification_audio_play(NotificationAudioEvent::FleetArrivedInSystem);
+  const auto notification_kind = notification_kind_from_fleet_transition(decision.kind);
+  if (notification_kind.has_value()) {
+    notification_emit(notification_kind.value(), decision.title.c_str(), decision.body.c_str());
   }
 }
 } // namespace
@@ -333,7 +353,7 @@ void fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet)
 
 void fleet_notifications_observe_node_depleted(int64_t fleetId)
 {
-  if (!Config::Get().notifications.fleet_node_depleted) {
+  if (!notification_delivery_enabled(NotificationKind::FleetNodeDepleted)) {
     return;
   }
 
@@ -344,7 +364,7 @@ void fleet_notifications_observe_node_depleted(int64_t fleetId)
   s_mining_viewer_remaining_seconds.erase(static_cast<uint64_t>(fleetId));
 
   auto body = format_node_depleted_body(shipName, resourceName, cargoText);
-  notification_show("Node Depleted", body.c_str());
+  notification_emit(NotificationKind::FleetNodeDepleted, "Node Depleted", body.c_str());
 }
 
 void fleet_notifications_notify_incoming_attack_target(const ToastFleetQueueNotificationsSignal& signal)
@@ -376,7 +396,8 @@ void fleet_notifications_notify_incoming_attack_target(const ToastFleetQueueNoti
     if (hide_notification) {
       return;
     }
-    notification_show(title ? title : "Incoming Attack!", body.c_str());
+    notification_emit(incoming_attack_notification_kind_for_delivery(attacker_kind), title ? title : "Incoming Attack!",
+              body.c_str());
     return;
   }
 
@@ -409,7 +430,8 @@ void fleet_notifications_notify_incoming_attack_target(const ToastFleetQueueNoti
   if (hide_notification) {
     return;
   }
-  notification_show(title ? title : "Incoming Attack!", body.c_str());
+  notification_emit(incoming_attack_notification_kind_for_delivery(attacker_kind), title ? title : "Incoming Attack!",
+                    body.c_str());
 }
 
 void fleet_notifications_notify_incoming_attack_target(const char* source, uint64_t targetFleetId, int targetType,
