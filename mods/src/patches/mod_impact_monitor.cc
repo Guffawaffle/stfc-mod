@@ -5,6 +5,10 @@
 #include <algorithm>
 
 namespace {
+RuntimeTraceLevel g_runtime_trace_level              = RuntimeTraceLevel::Off;
+bool              g_runtime_trace_track_overhead     = true;
+int               g_runtime_trace_report_interval_ms = 5000;
+
 int64_t now_ms()
 {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
@@ -27,6 +31,14 @@ void log_report(const ModImpactReport& report)
                  static_cast<double>(stats.max_ns) / 1000.0,
                  stats.over_250us,
                  stats.over_1000us);
+  }
+}
+
+void mod_impact_monitor_record_raw(const ModImpactProbe probe, const uint64_t duration_ns)
+{
+  static ModImpactAggregator aggregator(g_runtime_trace_report_interval_ms);
+  if (auto report = aggregator.Record(probe, duration_ns, now_ms())) {
+    log_report(*report);
   }
 }
 }
@@ -145,6 +157,8 @@ const char* ModImpactProbeName(const ModImpactProbe probe)
       return "hotkey.ship.select.element_action";
     case ModImpactProbe::HotkeyShipTogglePanel:
       return "hotkey.ship.select.toggle_panel";
+    case ModImpactProbe::TraceInstrumentationOverhead:
+      return "trace.instrumentation_overhead";
     case ModImpactProbe::Max:
       return "unknown";
   }
@@ -152,17 +166,53 @@ const char* ModImpactProbeName(const ModImpactProbe probe)
   return "unknown";
 }
 
+void ConfigureModImpactRuntimeTrace(const RuntimeTraceLevel level, const bool track_overhead, const int report_interval_ms)
+{
+  g_runtime_trace_level              = level;
+  g_runtime_trace_track_overhead     = track_overhead;
+  g_runtime_trace_report_interval_ms = std::clamp(report_interval_ms, 1000, 60000);
+}
+
+bool ModImpactProbeEnabledForLevel(const ModImpactProbe probe, const RuntimeTraceLevel level)
+{
+  if (level == RuntimeTraceLevel::Off) {
+    return false;
+  }
+
+  if (probe == ModImpactProbe::TraceInstrumentationOverhead) {
+    return g_runtime_trace_track_overhead;
+  }
+
+  if (level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose) {
+    return true;
+  }
+
+  switch (probe) {
+    case ModImpactProbe::FrameTickTotal:
+    case ModImpactProbe::FrameTickHotkeys:
+    case ModImpactProbe::FrameTickLiveDebug:
+    case ModImpactProbe::UiScaleUpdate:
+    case ModImpactProbe::NavigationZoomUpdate:
+    case ModImpactProbe::NavigationPanLateUpdate:
+    case ModImpactProbe::AspectRatioUpdate:
+    case ModImpactProbe::HotkeyDispatchPlan:
+    case ModImpactProbe::HotkeyUiRouting:
+    case ModImpactProbe::HotkeyFleetRouting:
+    case ModImpactProbe::HotkeySpaceAction:
+      return true;
+    default:
+      return false;
+  }
+}
+
 void mod_impact_monitor_record(const ModImpactProbe probe, const uint64_t duration_ns)
 {
-  static ModImpactAggregator aggregator;
-  if (auto report = aggregator.Record(probe, duration_ns, now_ms())) {
-    log_report(*report);
-  }
+  mod_impact_monitor_record_raw(probe, duration_ns);
 }
 
 ScopedModImpactTimer::ScopedModImpactTimer(const ModImpactProbe probe, const bool enabled)
   : probe_(probe),
-    enabled_(enabled)
+    enabled_(enabled && ModImpactProbeEnabledForLevel(probe, g_runtime_trace_level))
 {
   if (enabled_) {
     start_ = Clock::now();
@@ -176,7 +226,16 @@ ScopedModImpactTimer::~ScopedModImpactTimer()
   }
 
   const auto total_ns = elapsed_ns(start_, Clock::now());
-  mod_impact_monitor_record(probe_, total_ns > excluded_ns_ ? total_ns - excluded_ns_ : 0);
+  const auto measured_ns = total_ns > excluded_ns_ ? total_ns - excluded_ns_ : 0;
+  if (!g_runtime_trace_track_overhead) {
+    mod_impact_monitor_record(probe_, measured_ns);
+    return;
+  }
+
+  const auto overhead_start = Clock::now();
+  mod_impact_monitor_record(probe_, measured_ns);
+  const auto overhead_ns = elapsed_ns(overhead_start, Clock::now());
+  mod_impact_monitor_record_raw(ModImpactProbe::TraceInstrumentationOverhead, overhead_ns);
 }
 
 uint64_t ScopedModImpactTimer::elapsed_ns(const Clock::time_point start, const Clock::time_point end)

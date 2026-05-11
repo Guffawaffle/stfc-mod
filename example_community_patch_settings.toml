@@ -662,6 +662,18 @@ refinery_diagnostics = false
 # confirm the setting remains documented alongside the rest of the debug surface.
 mod_impact_monitor = false
 
+# Realtime trace level for sidecar/AX diagnostics: off, summary, detailed, or verbose.
+# Disabled is the normal-play default; summary captures coarse hook costs, while detailed
+# enables the finer nested probes used for focused investigation.
+runtime_trace = "off"
+
+# Include trace instrumentation overhead as its own probe so profiler cost can be separated
+# from mod and game function timing.
+runtime_trace_track_overhead = true
+
+# Milliseconds between runtime trace summary reports. Values are clamped by the mod.
+runtime_trace_report_interval_ms = 5000
+
 [ui]
 # Skip the reveal box animation, and just open the boxes
 always_skip_reveal_sequence = true

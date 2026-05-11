@@ -39,4 +39,14 @@ TEST_SUITE("mod_impact_monitor")
     REQUIRE(next_report.has_value());
     CHECK(next_report->probes[static_cast<size_t>(ModImpactProbe::NavigationZoomUpdate)].samples == 1);
   }
+
+  TEST_CASE("runtime trace levels gate detailed probes")
+  {
+    CHECK_FALSE(ModImpactProbeEnabledForLevel(ModImpactProbe::FrameTickTotal, RuntimeTraceLevel::Off));
+    CHECK(ModImpactProbeEnabledForLevel(ModImpactProbe::FrameTickTotal, RuntimeTraceLevel::Summary));
+    CHECK(ModImpactProbeEnabledForLevel(ModImpactProbe::HotkeyDispatchPlan, RuntimeTraceLevel::Summary));
+    CHECK_FALSE(ModImpactProbeEnabledForLevel(ModImpactProbe::HotkeyShipLocateRequestView, RuntimeTraceLevel::Summary));
+    CHECK(ModImpactProbeEnabledForLevel(ModImpactProbe::HotkeyShipLocateRequestView, RuntimeTraceLevel::Detailed));
+    CHECK(ModImpactProbeEnabledForLevel(ModImpactProbe::HotkeyShipLocateRequestView, RuntimeTraceLevel::Verbose));
+  }
 }

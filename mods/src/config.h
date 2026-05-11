@@ -10,6 +10,7 @@
 
 #include <array>
 #include <bitset>
+#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
@@ -21,6 +22,13 @@
 #if _WIN32
 #include <Windows.h>
 #endif
+
+enum class RuntimeTraceLevel : uint8_t {
+  Off = 0,
+  Summary,
+  Detailed,
+  Verbose,
+};
 
 /**
  * @brief Per-target synchronisation toggles and proxy settings.
@@ -384,3 +392,20 @@ bool RefineryDiagnosticsEnabled();
  * @brief Whether opt-in runtime mod impact monitoring is enabled.
  */
 bool ModImpactMonitorEnabled();
+
+/**
+ * @brief Runtime trace intensity selected by [debug].runtime_trace.
+ */
+RuntimeTraceLevel RuntimeTraceLevelSetting();
+
+/**
+ * @brief Whether trace instrumentation overhead should be recorded separately.
+ */
+bool RuntimeTraceTrackOverhead();
+
+/**
+ * @brief Milliseconds between runtime trace summary reports.
+ */
+int RuntimeTraceReportIntervalMs();
+
+const char* RuntimeTraceLevelName(RuntimeTraceLevel level);

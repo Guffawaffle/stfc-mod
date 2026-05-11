@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <optional>
 
+#include "config.h"
+
 enum class ModImpactProbe : uint8_t {
   FrameTickTotal = 0,
   FrameTickHotkeys,
@@ -40,6 +42,7 @@ enum class ModImpactProbe : uint8_t {
   HotkeyShipRequestSelect,
   HotkeyShipElementAction,
   HotkeyShipTogglePanel,
+  TraceInstrumentationOverhead,
   Max,
 };
 
@@ -74,6 +77,8 @@ private:
 };
 
 const char* ModImpactProbeName(ModImpactProbe probe);
+void ConfigureModImpactRuntimeTrace(RuntimeTraceLevel level, bool track_overhead, int report_interval_ms);
+bool ModImpactProbeEnabledForLevel(ModImpactProbe probe, RuntimeTraceLevel level);
 void mod_impact_monitor_record(ModImpactProbe probe, uint64_t duration_ns);
 
 class ScopedModImpactTimer

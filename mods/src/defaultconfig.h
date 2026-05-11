@@ -97,6 +97,12 @@ namespace Debug
   constexpr bool refinery_diagnostics = false;
   /// Enable periodic runtime impact summaries for frame-owned mod hooks. Default: false.
   constexpr bool mod_impact_monitor = false;
+  /// Realtime runtime trace level: off, summary, detailed, or verbose. Default: off.
+  constexpr const char* runtime_trace = "off";
+  /// Track runtime trace instrumentation overhead as a separate probe. Default: true.
+  constexpr bool runtime_trace_track_overhead = true;
+  /// Runtime trace summary report interval in milliseconds. Default: 5000.
+  constexpr int runtime_trace_report_interval_ms = 5000;
 } // namespace Debug
 
 namespace BattleLogDecoder

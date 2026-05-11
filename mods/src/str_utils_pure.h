@@ -39,6 +39,13 @@ constexpr std::string AsciiStrToUpper(const std::string_view s)
   return str;
 }
 
+constexpr std::string AsciiStrToLower(const std::string_view s)
+{
+  std::string str{s};
+  std::ranges::transform(str, str.begin(), [](const unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return str;
+}
+
 constexpr std::vector<std::string> StrSplit(const std::string& input, const char delimiter)
 {
   std::vector<std::string> result;
