@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <optional>
 
-#include "config.h"
+#include "runtime_trace_config.h"
 
 enum class ModImpactProbe : uint8_t {
   FrameTickTotal = 0,

@@ -341,6 +341,8 @@ namespace Sync
   constexpr bool        debug        = false; ///< Extra debug logging for sync subsystem.
   constexpr bool        logging      = false; ///< Log raw sync payloads.
   constexpr bool sidecar_jsonl = true; ///< Emit canonical sidecar events to a local JSONL feed for basic installs.
+    constexpr auto sidecar_jsonl_replay_seconds =
+      30; ///< Retain this many seconds in the JSONL replay window (0 = unlimited).
   constexpr auto sidecar_jsonl_recent_logs =
       300;                          ///< Retain this many recent battle logs in the JSONL feed (0 = unlimited).
   constexpr bool verify_ssl = true; ///< Verify TLS certificates on sync requests.

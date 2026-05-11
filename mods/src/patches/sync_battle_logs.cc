@@ -39,6 +39,7 @@
 #include <fstream>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -105,6 +106,12 @@ static constexpr char kBattleFeedFile[] = "community_patch_battle_feed.jsonl";
 struct RetainedBattleFeedGroup {
   std::string              key;
   std::vector<std::string> lines;
+  std::optional<int64_t>   newest_capture_ms;
+};
+
+struct BattleFeedLineMetadata {
+  std::string            group_key;
+  std::optional<int64_t> capture_ms;
 };
 
 static int64_t current_probe_unix_ms()
@@ -153,21 +160,81 @@ static std::string battle_feed_group_key(const nlohmann::json& event, size_t fal
   return "line:" + std::to_string(fallback_id);
 }
 
-static std::string battle_feed_group_key_from_line(const std::string& line, size_t line_id)
+static std::optional<int64_t> json_millis_value(const nlohmann::json& value)
+{
+  if (value.is_number_unsigned()) {
+    return static_cast<int64_t>(value.get<uint64_t>());
+  }
+
+  if (value.is_number_integer()) {
+    return value.get<int64_t>();
+  }
+
+  if (value.is_string()) {
+    try {
+      return std::stoll(value.get<std::string>());
+    } catch (...) {
+      return std::nullopt;
+    }
+  }
+
+  return std::nullopt;
+}
+
+static std::optional<int64_t> battle_feed_capture_ms(const nlohmann::json& event)
+{
+  if (!event.is_object()) {
+    return std::nullopt;
+  }
+
+  if (const auto captured = event.find("capturedAtUnixMs"); captured != event.end()) {
+    if (auto value = json_millis_value(*captured)) {
+      return value;
+    }
+  }
+
+  if (const auto capture = event.find("capture"); capture != event.end() && capture->is_object()) {
+    if (const auto captured = capture->find("capturedAtUnixMs"); captured != capture->end()) {
+      return json_millis_value(*captured);
+    }
+  }
+
+  return std::nullopt;
+}
+
+static BattleFeedLineMetadata battle_feed_line_metadata_from_line(const std::string& line, size_t line_id)
 {
   const auto event = nlohmann::json::parse(line, nullptr, false);
   if (event.is_discarded()) {
-    return "unparsed:" + std::to_string(line_id);
+    return {"unparsed:" + std::to_string(line_id), std::nullopt};
   }
 
-  return battle_feed_group_key(event, line_id);
+  return {battle_feed_group_key(event, line_id), battle_feed_capture_ms(event)};
 }
 
-static void retain_recent_jsonl_sidecar_events_locked(size_t recent_logs)
+static void drop_expired_battle_feed_groups(std::deque<RetainedBattleFeedGroup>& retained_groups,
+                                            const std::optional<int64_t> cutoff_ms)
 {
-  if (recent_logs == 0) {
+  if (!cutoff_ms) {
     return;
   }
+
+  while (!retained_groups.empty() && retained_groups.front().newest_capture_ms
+         && *retained_groups.front().newest_capture_ms < *cutoff_ms) {
+    retained_groups.pop_front();
+  }
+}
+
+static void retain_recent_jsonl_sidecar_events_locked(size_t recent_logs, int replay_seconds)
+{
+  replay_seconds = std::max(0, replay_seconds);
+  if (recent_logs == 0 && replay_seconds == 0) {
+    return;
+  }
+
+  const std::optional<int64_t> retention_cutoff_ms = replay_seconds > 0
+      ? std::optional<int64_t>(current_probe_unix_ms() - static_cast<int64_t>(replay_seconds) * 1000)
+      : std::nullopt;
 
   const auto    feed_path = std::filesystem::path(File::MakePathString(kBattleFeedFile, true));
   std::ifstream input(feed_path, std::ios::in | std::ios::binary);
@@ -182,15 +249,25 @@ static void retain_recent_jsonl_sidecar_events_locked(size_t recent_logs)
   bool                                dropped_groups    = false;
 
   while (std::getline(input, line)) {
-    const auto group_key = battle_feed_group_key_from_line(line, ++line_id);
-    if (retained_groups.empty() || retained_groups.back().key != group_key) {
-      retained_groups.push_back({group_key, {}});
+    const auto metadata = battle_feed_line_metadata_from_line(line, ++line_id);
+    if (retained_groups.empty() || retained_groups.back().key != metadata.group_key) {
+      retained_groups.push_back({metadata.group_key, {}, std::nullopt});
       total_group_count++;
     }
 
     retained_groups.back().lines.push_back(std::move(line));
+    if (metadata.capture_ms) {
+      if (!retained_groups.back().newest_capture_ms
+          || *metadata.capture_ms > *retained_groups.back().newest_capture_ms) {
+        retained_groups.back().newest_capture_ms = *metadata.capture_ms;
+      }
+    }
 
-    while (retained_groups.size() > recent_logs) {
+    const auto before_time_drop = retained_groups.size();
+    drop_expired_battle_feed_groups(retained_groups, retention_cutoff_ms);
+    dropped_groups = dropped_groups || retained_groups.size() != before_time_drop;
+
+    while (recent_logs > 0 && retained_groups.size() > recent_logs) {
       retained_groups.pop_front();
       dropped_groups = true;
     }
@@ -274,7 +351,8 @@ static void append_jsonl_sidecar_events(const nlohmann::json& sidecar_events)
   file.close();
 
   const auto recent_logs = SyncSidecarJsonlRecentLogs();
-  retain_recent_jsonl_sidecar_events_locked(recent_logs > 0 ? static_cast<size_t>(recent_logs) : 0);
+  retain_recent_jsonl_sidecar_events_locked(recent_logs > 0 ? static_cast<size_t>(recent_logs) : 0,
+                                            SyncSidecarJsonlReplaySeconds());
 }
 
 static void export_sidecar_events_to_jsonl(const nlohmann::json& sidecar_events, uint64_t journal_id)

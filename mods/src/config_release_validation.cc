@@ -75,6 +75,7 @@ namespace
       "sync.resources",
       "sync.ships",
       "sync.sidecar_jsonl",
+      "sync.sidecar_jsonl_replay_seconds",
       "sync.sidecar_jsonl_recent_logs",
       "sync.slots",
       "sync.tech",

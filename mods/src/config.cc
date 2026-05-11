@@ -70,6 +70,7 @@ static bool g_live_debug_channel             = false;
 static bool g_battle_log_decoder_enabled     = false;
 static bool g_battle_log_decoder_segments    = true;
 static bool g_battle_log_decoder_feed        = true;
+static int  g_sync_sidecar_jsonl_replay_seconds = DCS::sidecar_jsonl_replay_seconds;
 static int  g_sync_sidecar_jsonl_recent_logs = DCS::sidecar_jsonl_recent_logs;
 static bool g_refinery_diagnostics           = DCD::refinery_diagnostics;
 static bool g_mod_impact_monitor             = DCD::mod_impact_monitor;
@@ -99,6 +100,9 @@ bool BattleLogDecoderEmitSegments()
 bool BattleLogDecoderEmitFeed()
 { return g_battle_log_decoder_feed; }
 
+int SyncSidecarJsonlReplaySeconds()
+{ return g_sync_sidecar_jsonl_replay_seconds; }
+
 int SyncSidecarJsonlRecentLogs()
 { return g_sync_sidecar_jsonl_recent_logs; }
 
@@ -116,22 +120,6 @@ bool RuntimeTraceTrackOverhead()
 
 int RuntimeTraceReportIntervalMs()
 { return g_runtime_trace_report_interval_ms; }
-
-const char* RuntimeTraceLevelName(const RuntimeTraceLevel level)
-{
-  switch (level) {
-    case RuntimeTraceLevel::Off:
-      return "off";
-    case RuntimeTraceLevel::Summary:
-      return "summary";
-    case RuntimeTraceLevel::Detailed:
-      return "detailed";
-    case RuntimeTraceLevel::Verbose:
-      return "verbose";
-  }
-
-  return "off";
-}
 
 /// Human-readable names → ToastState enum values.
 /// Used for [ui].disabled_banner_types and legacy [ui] notification allowlists.
@@ -457,27 +445,6 @@ std::optional<OriginalFramePolicy> parse_original_frame_policy(std::string_view 
 
   if (value == "fallthrough_all") {
     return OriginalFramePolicy::FallthroughAll;
-  }
-
-  return std::nullopt;
-}
-
-std::optional<RuntimeTraceLevel> parse_runtime_trace_level(std::string_view value)
-{
-  if (value == "off" || value == "false" || value == "0") {
-    return RuntimeTraceLevel::Off;
-  }
-
-  if (value == "summary" || value == "basic" || value == "true" || value == "1") {
-    return RuntimeTraceLevel::Summary;
-  }
-
-  if (value == "detailed" || value == "detail" || value == "timers") {
-    return RuntimeTraceLevel::Detailed;
-  }
-
-  if (value == "verbose" || value == "all") {
-    return RuntimeTraceLevel::Verbose;
   }
 
   return std::nullopt;
@@ -1119,8 +1086,16 @@ void Config::Load()
   this->sync_logging = get_config_or_default(config, parsed, "sync", "logging", DCS::logging, write_config);
   this->sync_sidecar_jsonl =
       get_config_or_default(config, parsed, "sync", "sidecar_jsonl", DCS::sidecar_jsonl, write_config);
+  g_sync_sidecar_jsonl_replay_seconds = get_config_or_default(config,
+                                                              parsed,
+                                                              "sync",
+                                                              "sidecar_jsonl_replay_seconds",
+                                                              DCS::sidecar_jsonl_replay_seconds,
+                                                              write_config);
+  g_sync_sidecar_jsonl_replay_seconds = std::max(0, g_sync_sidecar_jsonl_replay_seconds);
   g_sync_sidecar_jsonl_recent_logs = get_config_or_default(config, parsed, "sync", "sidecar_jsonl_recent_logs",
                                                            DCS::sidecar_jsonl_recent_logs, write_config);
+  g_sync_sidecar_jsonl_recent_logs = std::max(0, g_sync_sidecar_jsonl_recent_logs);
   g_live_debug_channel = get_config_or_default(config, parsed, "debug", "live_query", DCD::live_query, write_config);
   g_refinery_diagnostics =
       get_config_or_default(config, parsed, "debug", "refinery_diagnostics", DCD::refinery_diagnostics, write_config);
@@ -1134,7 +1109,7 @@ void Config::Load()
                                                                    "runtime_trace",
                                                                    "Realtime trace level.")) {
     const auto normalized_trace_level = AsciiStrToLower(*trace_level_value);
-    if (auto level = parse_runtime_trace_level(normalized_trace_level)) {
+    if (auto level = ParseRuntimeTraceLevel(normalized_trace_level)) {
       g_runtime_trace_level = *level;
     } else {
       spdlog::warn("Invalid string config [debug].runtime_trace value='{}'; expected off, summary, detailed, or "

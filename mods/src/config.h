@@ -10,7 +10,6 @@
 
 #include <array>
 #include <bitset>
-#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
@@ -18,17 +17,11 @@
 #include <toml++/toml.h>
 
 #include "patches/hotkey_policy.h"
+#include "runtime_trace_config.h"
 
 #if _WIN32
 #include <Windows.h>
 #endif
-
-enum class RuntimeTraceLevel : uint8_t {
-  Off = 0,
-  Summary,
-  Detailed,
-  Verbose,
-};
 
 /**
  * @brief Per-target synchronisation toggles and proxy settings.
@@ -379,6 +372,11 @@ bool BattleLogDecoderEmitSegments();
 bool BattleLogDecoderEmitFeed();
 
 /**
+ * @brief Seconds retained in the local sidecar JSONL replay window.
+ */
+int SyncSidecarJsonlReplaySeconds();
+
+/**
  * @brief Number of recent battle-log groups retained in the local sidecar JSONL feed.
  */
 int SyncSidecarJsonlRecentLogs();
@@ -407,5 +405,3 @@ bool RuntimeTraceTrackOverhead();
  * @brief Milliseconds between runtime trace summary reports.
  */
 int RuntimeTraceReportIntervalMs();
-
-const char* RuntimeTraceLevelName(RuntimeTraceLevel level);

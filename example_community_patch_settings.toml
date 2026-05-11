@@ -802,8 +802,10 @@ traits = true
 debug = false
 logging = false
 sidecar_jsonl = true
-# Keep the local sidecar JSONL feed bounded to the most recent battle logs.
-# Set to 0 for unlimited append-only capture.
+# Keep the local sidecar JSONL feed cyclic so diagnostic replay does not grow unbounded.
+# Set both replay seconds and recent logs to 0 for unlimited append-only capture.
+sidecar_jsonl_replay_seconds = 30
+# Optional second cap on retained battle-log groups.
 sidecar_jsonl_recent_logs = 300
 
 # Subgroup: Network
