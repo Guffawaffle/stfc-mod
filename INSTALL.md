@@ -59,6 +59,19 @@ If you have any problems with a setting, check for that setting in the _.vars_ f
 that the parse value of that setting was correctly applied. You may also need to check the
 `community_patch.log` file to see if any errors were encountered while parsing the _.toml_ file.
 
+## Diagnostics And Export Policy
+
+- `community_patch_runtime.vars` is runtime state only. Do not edit it.
+- `community_patch.log` is a legacy troubleshooting log used for parse/load and boot investigation.
+   It is not the preferred durable export format.
+- Local JSONL export such as `community_patch_battle_feed.jsonl` should be treated as explicit
+   opt-in fallback capture. Enabling local capture can add runtime overhead and create large
+   storage churn.
+- Prefer ingress paths such as the Sidecar local HTTP ingest or other configured sync targets
+   for durable export and review.
+- If you enable local JSONL capture, keep replay retention bounded. Unlimited append-only capture
+   should only be used deliberately and briefly.
+
 ## Installation on Windows
 
 **NOTE:** The `Star Trek Fleet Command` game itself is located by default at:
@@ -87,7 +100,8 @@ Installation of the Community Mod is a manual process for Windows (or Wine).
 5. For first time users of the Community Mod, it recommended to utilise the
    [sample configuration file](example_community_patch_settings.toml), which can
    be saved to the game folder with the name `community_patch_settings.toml`. This
-   sample file contains additional comments that explain the available settings.
+   sample file contains additional comments that explain the available settings,
+   including the warning-heavy diagnostics/export policy.
 
 ## Installation on macOS - macOS 13.5 or later required
 
@@ -127,7 +141,8 @@ You should only need to access this folder if you need to view the `community_pa
 5. For first time users of the Community Mod, it recommended to use the
    [sample configuration file](example_community_patch_settings.toml), which can
    be saved to the settings folder with the name `community_patch_settings.toml`. This
-   sample file contains additional comments that explain the available settings.
+   sample file contains additional comments that explain the available settings,
+   including the warning-heavy diagnostics/export policy.
 
 ## Installation on Wine/Linux
 

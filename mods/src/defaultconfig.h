@@ -97,11 +97,11 @@ namespace Debug
   constexpr bool refinery_diagnostics = false;
   /// Enable periodic runtime impact summaries for frame-owned mod hooks. Default: false.
   constexpr bool mod_impact_monitor = false;
-  /// Realtime runtime trace level: off, summary, detailed, or verbose. Default: off.
+  /// Realtime runtime trace level: off, summary, detailed, or verbose. Any level above off adds runtime overhead.
   constexpr const char* runtime_trace = "off";
-  /// Track runtime trace instrumentation overhead as a separate probe. Default: true.
+  /// Track runtime trace instrumentation overhead as a separate probe. This adds more diagnostic work in exchange for cleaner attribution.
   constexpr bool runtime_trace_track_overhead = true;
-  /// Runtime trace summary report interval in milliseconds. Default: 5000.
+  /// Runtime trace summary report interval in milliseconds. Lower intervals increase diagnostic log churn. Default: 5000.
   constexpr int runtime_trace_report_interval_ms = 5000;
 } // namespace Debug
 
@@ -340,11 +340,11 @@ namespace Sync
   constexpr const char* url          = "";    ///< Endpoint URL (legacy, prefer targets).
   constexpr bool        debug        = false; ///< Extra debug logging for sync subsystem.
   constexpr bool        logging      = false; ///< Log raw sync payloads.
-  constexpr bool sidecar_jsonl = true; ///< Emit canonical sidecar events to a local JSONL feed for basic installs.
+  constexpr bool sidecar_jsonl = false; ///< Explicit opt-in local JSONL fallback feed; prefer ingress/sidecar export.
     constexpr auto sidecar_jsonl_replay_seconds =
-      30; ///< Retain this many seconds in the JSONL replay window (0 = unlimited).
+      30; ///< Retain this many seconds in the JSONL replay window (0 = unlimited; higher values increase disk churn).
   constexpr auto sidecar_jsonl_recent_logs =
-      300;                          ///< Retain this many recent battle logs in the JSONL feed (0 = unlimited).
+      300;                          ///< Retain this many recent battle logs in the JSONL feed (0 = unlimited; higher values increase disk churn).
   constexpr bool verify_ssl = true; ///< Verify TLS certificates on sync requests.
   constexpr bool allow_unsafe_tls_without_certificate_validation = false; ///< Explicit unsafe TLS override.
   /// DNS resolver cache TTL in seconds. Default: 300 (5 min).
