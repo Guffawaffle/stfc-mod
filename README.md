@@ -59,12 +59,87 @@ This fork (`main` for published builds, `guffa-dev` for current integration work
 |---------|--------|-------------|
 | Hotkey dispatch table refactor | Pending review | [#126](https://github.com/netniV/stfc-mod/pull/126) |
 | Double-tap Escape to exit | Pending review | [#124](https://github.com/netniV/stfc-mod/pull/124) |
-| Key fallthrough config option | Pending review | — |
+| Input fallthrough policy controls | Pending review | — |
 | OS toast notifications (victory/defeat) | Pending review | [#131](https://github.com/netniV/stfc-mod/pull/131), [#132](https://github.com/netniV/stfc-mod/pull/132) |
 | Fleet-bar arrival notifications | Landed in fork | [#13](https://github.com/Guffawaffle/stfc-mod/issues/13), [#14](https://github.com/Guffawaffle/stfc-mod/pull/14) |
+| Audio notification cues | Landed in fork | — |
 | Duplicate hook crash fix | Pending review | [#130](https://github.com/netniV/stfc-mod/pull/130) |
 
 **If any of these features get merged upstream, use the official mod instead.** This fork is a playground, not a competing project.
+
+## Configuring fork-only features
+
+Edit `community_patch_settings.toml` in your STFC game folder. The full commented sample in this repo is [example_community_patch_settings.toml](example_community_patch_settings.toml).
+
+Desktop and audio notification delivery are currently Windows-focused; macOS builds ignore those notification delivery switches for now.
+
+### Hotkey fallthrough
+
+The mod normally owns the per-frame hotkey path. If you want unhandled keys to keep reaching the game's original input layer, use the explicit input policy block:
+
+```toml
+[control]
+hotkeys_enabled = true
+use_scopely_hotkeys = false
+
+[input]
+scopely_shortcuts = "fallback"
+original_frame_policy = "fallthrough_unhandled"
+```
+
+`scopely_shortcuts = "fallback"` initializes the Scopely shortcut layer without making it the primary router. `original_frame_policy = "fallthrough_unhandled"` calls the original `ScreenManager::Update` path only when the mod router does not consume the frame. If a specific game shortcut still needs the original path every frame, try `original_frame_policy = "fallthrough_all"`.
+
+The older compatibility switch still works:
+
+```toml
+[control]
+allow_key_fallthrough = true
+```
+
+That legacy switch maps to fallback Scopely shortcuts plus full frame fallthrough. Prefer the `[input]` settings above when you want to tune those behaviors separately.
+
+### Desktop notifications
+
+Desktop notifications are off by default. Turn on the system notification master switch, then enable the individual events you care about:
+
+```toml
+[notifications.system]
+enabled = true
+
+[notifications]
+notifications_victory = true
+notifications_defeat = true
+notifications_armada_created = true
+notifications_armada_canceled = true
+
+[notifications.events.fleet]
+arrived_in_system = { system = true, audio = false, sound = "arrival" }
+arrived_at_destination = { system = true, audio = false, sound = "soft" }
+started_mining = { system = true, audio = false, sound = "ping" }
+node_depleted = { system = true, audio = false, sound = "warning" }
+docked = { system = true, audio = false, sound = "soft" }
+repair_complete = { system = true, audio = false, sound = "repair" }
+```
+
+Battle, armada, event, and experimental toast-backed notifications are controlled by the flat `notifications_*` booleans in `[notifications]`. Fleet-bar derived notifications use the compact rows in `[notifications.events.fleet]`, where `system` controls the OS notification.
+
+### Audio notifications
+
+Audio notifications are independent from desktop notifications. Turn on the audio master switch, then enable `audio = true` on the events you want to hear:
+
+```toml
+[notifications.audio]
+enabled = true
+default_sound = "default"
+
+[notifications.events.fleet]
+arrived_in_system = { system = true, audio = true, sound = "arrival" }
+started_mining = { system = false, audio = true, sound = "ping" }
+node_depleted = { system = true, audio = true, sound = "warning" }
+repair_complete = { system = false, audio = true, sound = "repair" }
+```
+
+Supported sound names are `default`, `info`, `success`, `warning`, `alarm`, `arrival`, `soft`, `ping`, `repair`, and `none`. Use `none`, `off`, or `silent` when you want an event row to keep its desktop notification policy but suppress its sound.
 
 ## Downloads
 
@@ -103,8 +178,10 @@ This project is maintained solely at my own cost of time, energy and money. Any 
 - Disable various toast banners
 - Disable galaxy chat
 - Enable/Disable hotkeys (community mod or scopely)
+- Let unhandled hotkeys fall through to the game's original input path
 - Enable extended donation slider (alliance)
 - Fleet-bar arrival notifications for player ships
+- In-game audio cues for notification events
 - Show alternative cargo screens for:
   - default
   - player
