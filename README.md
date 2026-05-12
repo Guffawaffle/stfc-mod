@@ -98,6 +98,25 @@ allow_key_fallthrough = true
 
 That legacy switch maps to fallback Scopely shortcuts plus full frame fallthrough. Prefer the `[input]` settings above when you want to tune those behaviors separately.
 
+### Alt shortcut fallback
+
+Some STFC/Unity input paths may not reliably deliver `ALT-*` chords to the mod. If an Alt shortcut such as `ALT-C` or `ALT-1` does not fire for you, leave the feature enabled and rebind that action to a Ctrl/Shift chord instead:
+
+```toml
+[input.bindings]
+show_chatside1 = "CTRL-SHIFT-C"
+show_alliance = "CTRL-SHIFT-'"
+toggle_cargo_default = "CTRL-SHIFT-1"
+toggle_cargo_player = "CTRL-SHIFT-2"
+toggle_cargo_station = "CTRL-SHIFT-3"
+toggle_cargo_hostile = "CTRL-SHIFT-4"
+toggle_cargo_armada = "CTRL-SHIFT-5"
+hotkeys_disable = "CTRL-SHIFT-F6"
+hotkeys_enable = "CTRL-SHIFT-F5"
+```
+
+The older `[shortcuts]` keys still work, but `[input.bindings]` is the preferred override location for this fork. Avoid plain `CTRL-1`, `CTRL-2`, `CTRL-3`, `CTRL-C`, and `CTRL-Q` unless you also move the existing chat-channel and fleet queue shortcuts that already use those chords.
+
 ### Desktop notifications
 
 Desktop notifications are off by default. Turn on the system notification master switch, then enable the individual events you care about:

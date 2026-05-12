@@ -341,6 +341,10 @@ zoomhooks = true
 
 [shortcuts]
 
+# NOTE: Some STFC/Unity input paths may not deliver ALT-* chords reliably.
+# If an ALT binding below does not fire, prefer canonical overrides under
+# [input.bindings]; see README.md "Alt shortcut fallback" for Ctrl/Shift examples.
+
 # Subgroup: Cargo & Locate
 # ------------------------
 
@@ -447,9 +451,11 @@ log_warn = "CTRL-SHIFT-F10"
 quit = "F10"
 
 # CTRL-ALT-MINUS
+# If ALT is unreliable, prefer [input.bindings].hotkeys_disable = "CTRL-SHIFT-F6".
 set_hotkeys_disable = "CTRL-ALT-MINUS"
 
 # CTRL-ALT-=
+# If ALT is unreliable, prefer [input.bindings].hotkeys_enable = "CTRL-SHIFT-F5".
 set_hotkeys_enabled = "CTRL-ALT-="
 
 # Subgroup: Queue & Primary

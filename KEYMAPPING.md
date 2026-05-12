@@ -33,6 +33,8 @@ Value | Key | Value | Key | Value | Key
 "WIN" | LeftWindows or RightWindows | "LWIN" | LeftWindows | "RWIN" | RightWindows
 "ALTGR" | AltGr
 
+`ALT` is a valid binding modifier, but some STFC/Unity input paths may not deliver Alt-modified chords reliably in game. If an `ALT-*` shortcut does not fire, rebind that action under `[input.bindings]` with a Ctrl/Shift chord; the fork README has ready-to-copy examples.
+
 ### Keys
 
 Only key can be set at one time:
