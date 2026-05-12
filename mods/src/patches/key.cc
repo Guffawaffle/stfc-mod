@@ -11,6 +11,16 @@
 #include "str_utils.h"
 #include <prime/TMP_InputField.h>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#endif
+
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -20,6 +30,36 @@ int Key::cacheInputModified = 0;
 
 std::array<int, (int)KeyCode::Max> Key::cacheKeyPressed = {};
 std::array<int, (int)KeyCode::Max> Key::cacheKeyDown    = {};
+
+namespace
+{
+#ifdef _WIN32
+bool WindowsModifierPressed(const KeyCode key)
+{
+  const auto pressed = [](const int virtual_key) { return (GetAsyncKeyState(virtual_key) & 0x8000) != 0; };
+
+  switch (key) {
+    case KeyCode::LeftShift:
+      return pressed(VK_LSHIFT);
+    case KeyCode::RightShift:
+      return pressed(VK_RSHIFT);
+    case KeyCode::LeftControl:
+      return pressed(VK_LCONTROL);
+    case KeyCode::RightControl:
+      return pressed(VK_RCONTROL);
+    case KeyCode::LeftAlt:
+      return pressed(VK_LMENU);
+    case KeyCode::RightAlt:
+      return pressed(VK_RMENU);
+    default:
+      return false;
+  }
+}
+#else
+bool WindowsModifierPressed(const KeyCode)
+{ return false; }
+#endif
+} // namespace
 
 // ─── Name → KeyCode Lookup Table ─────────────────────────────────────────────
 // Maps user-facing key name strings (from TOML config) to Unity KeyCode values.
@@ -255,7 +295,7 @@ bool Key::Pressed(KeyCode key)
       il2cpp_resolve_icall_typed<bool(KeyCode)>("UnityEngine.Input::GetKeyInt(UnityEngine.KeyCode)");
 
   if (cacheKeyPressed[(int)key] == 0) {
-    cacheKeyPressed[(int)key] = GetKeyInt(key) ? 1 : -1;
+    cacheKeyPressed[(int)key] = (GetKeyInt(key) || WindowsModifierPressed(key)) ? 1 : -1;
   }
 
   return cacheKeyPressed[(int)key] == 1;
@@ -289,19 +329,13 @@ bool Key::IsInputFocused()
 // ─── Convenience Modifier Helpers ────────────────────────────────────────────
 
 bool Key::HasShift()
-{
-  return Key::Pressed(KeyCode::LeftShift) || Key::Pressed(KeyCode::RightShift);
-}
+{ return Key::Pressed(KeyCode::LeftShift) || Key::Pressed(KeyCode::RightShift); }
 
 bool Key::HasAlt()
-{
-  return Key::Pressed(KeyCode::LeftAlt) || Key::Pressed(KeyCode::RightShift);
-}
+{ return Key::Pressed(KeyCode::LeftAlt) || Key::Pressed(KeyCode::RightAlt); }
 
 bool Key::HasCtrl()
-{
-  return Key::Pressed(KeyCode::LeftControl) || Key::Pressed(KeyCode::RightControl);
-}
+{ return Key::Pressed(KeyCode::LeftControl) || Key::Pressed(KeyCode::RightControl); }
 
 void Key::ClearInputFocus()
 {

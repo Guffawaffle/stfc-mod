@@ -58,6 +58,9 @@
 
 ### Fixes
 
+- Added a Windows modifier-state fallback for Shift/Ctrl/Alt so `ALT-*` chords
+  do not fall through as plain keys when Unity drops the modifier state
+- Fixed `Key::HasAlt()` checking RightShift instead of RightAlt
 - Restored hotkey hook gates that were accidentally disabled in the incoming attack notification slice
 - Restored normal patch installation after live-debug isolation left standard hooks such as zoom disabled
 - Re-enabled `ToastObserver` banner hooks so desktop notification forwarding and `disabled_banner_types` filtering work again
