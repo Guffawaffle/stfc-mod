@@ -860,6 +860,17 @@ allow_unsafe_tls_without_certificate_validation = false
 # battlelogs = false
 # battlelogs_realtime = true
 
+# Optional Companion fleet telemetry target. This uses the existing async sync
+# worker and sends only ship/slot deltas to the local Companion, which then
+# projects cloud-safe telemetry to Majel when cloud upload env vars are set.
+#[sync.targets.sidecar_fleet]
+# token = "testtoken123"
+# url = "http://127.0.0.1:43127/api/fleet/sync"
+# battlelogs = false
+# battlelogs_realtime = false
+# ships = true
+# slots = true
+
 #  <[=============================================================================================================]>
 #
 #        ****                                                          *                      *           *
