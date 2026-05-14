@@ -206,8 +206,8 @@ static DispatchDecision HandleUiViewerScaleDown()
 }
 
 // ─── Config Toggle Handlers ────────────────────────────────────────────────────────────
-// Toggle boolean config flags in-place. All return HandledAllowOriginal
-// so the game still processes the frame normally.
+// Toggle boolean config flags in-place. The router decides whether the bound
+// key event can fall through to the original game input path.
 
 static DispatchDecision HandleTogglePreviewLocate()
 {
@@ -372,6 +372,4 @@ static constexpr HotkeyEntry g_dispatch_table[] = {
 };
 
 std::span<const HotkeyEntry> GetHotkeyDispatchTable()
-{
-  return g_dispatch_table;
-}
+{ return g_dispatch_table; }

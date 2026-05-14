@@ -1,5 +1,7 @@
 #include "patches/input_binding/input_binding.h"
 
+#include "patches/input_binding/action_registry.h"
+
 #include "str_utils_pure.h"
 
 #include <algorithm>
@@ -9,151 +11,6 @@ namespace input_binding
 {
 namespace
 {
-  constexpr std::array<InputActionSpec, 71> kActionSpecs{{
-      {InputActionId::FleetPrimary, "fleet_primary", "SPACE|MOUSE1", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Fleet, ConflictGroup::FleetAction, 100},
-      {InputActionId::FleetSecondary, "fleet_secondary", "TAB|MOUSE4", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Fleet, ConflictGroup::FleetAction, 90},
-      {InputActionId::FleetService, "fleet_service", "R|MOUSE3", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Fleet, ConflictGroup::FleetAction, 80},
-      {InputActionId::FleetViewInfo, "fleet_view_info", "V|MOUSE2", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Fleet, ConflictGroup::FleetAction, 70},
-      {InputActionId::FleetQueueClear, "fleet_queue_clear", "CTRL-C", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Fleet, ConflictGroup::FleetAction, 110},
-      {InputActionId::FleetQueueToggle, "fleet_queue_toggle", "CTRL-Q", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 800},
-      {InputActionId::SelectShip1, "select_ship1", "1", TriggerMode::Down, InputPhase::Frame, InputLayer::Fleet,
-       ConflictGroup::FleetAction, 160},
-      {InputActionId::SelectShip2, "select_ship2", "2", TriggerMode::Down, InputPhase::Frame, InputLayer::Fleet,
-       ConflictGroup::FleetAction, 159},
-      {InputActionId::SelectShip3, "select_ship3", "3", TriggerMode::Down, InputPhase::Frame, InputLayer::Fleet,
-       ConflictGroup::FleetAction, 158},
-      {InputActionId::SelectShip4, "select_ship4", "4", TriggerMode::Down, InputPhase::Frame, InputLayer::Fleet,
-       ConflictGroup::FleetAction, 157},
-      {InputActionId::SelectShip5, "select_ship5", "5", TriggerMode::Down, InputPhase::Frame, InputLayer::Fleet,
-       ConflictGroup::FleetAction, 156},
-      {InputActionId::SelectShip6, "select_ship6", "6", TriggerMode::Down, InputPhase::Frame, InputLayer::Fleet,
-       ConflictGroup::FleetAction, 155},
-      {InputActionId::SelectShip7, "select_ship7", "7", TriggerMode::Down, InputPhase::Frame, InputLayer::Fleet,
-       ConflictGroup::FleetAction, 154},
-      {InputActionId::SelectShip8, "select_ship8", "8", TriggerMode::Down, InputPhase::Frame, InputLayer::Fleet,
-       ConflictGroup::FleetAction, 153},
-      {InputActionId::SelectCurrent, "select_current", "CTRL-SPACE", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Fleet, ConflictGroup::FleetAction, 152},
-      {InputActionId::ShowChatSide1, "show_chatside1", "ALT-C", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::ChatOpen, 790},
-      {InputActionId::ShowChatSide2, "show_chatside2", "`", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::ChatOpen, 789},
-      {InputActionId::ShowChat, "show_chat", "C", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::ChatOpen, 780},
-      {InputActionId::SelectChatGlobal, "select_chatglobal", "CTRL-1", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::ChatChannel, 760},
-      {InputActionId::SelectChatAlliance, "select_chatalliance", "CTRL-2", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::ChatChannel, 750},
-      {InputActionId::SelectChatPrivate, "select_chatprivate", "CTRL-3", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::ChatChannel, 740},
-      {InputActionId::MoveLeft, "move_left", "A", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::OfficerCanvas, 730},
-      {InputActionId::MoveRight, "move_right", "D", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::OfficerCanvas, 720},
-      {InputActionId::HotkeysDisable, "hotkeys_disable", "CTRL-ALT-MINUS", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::GlobalControl, 1000},
-      {InputActionId::HotkeysEnable, "hotkeys_enable", "CTRL-ALT-=", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::GlobalControl, 1000},
-      {InputActionId::Quit, "quit", "F10", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::GlobalControl, 900},
-      {InputActionId::UiScaleUp, "ui_scale_up", "PGUP", TriggerMode::Pressed, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 340},
-      {InputActionId::UiScaleDown, "ui_scale_down", "PGDOWN", TriggerMode::Pressed, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 330},
-      {InputActionId::UiViewerScaleUp, "ui_viewer_scale_up", "SHIFT-PGUP", TriggerMode::Pressed, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 320},
-      {InputActionId::UiViewerScaleDown, "ui_viewer_scale_down", "SHIFT-PGDOWN", TriggerMode::Pressed,
-       InputPhase::Frame, InputLayer::Global, ConflictGroup::FrameDispatch, 310},
-      {InputActionId::LogOff, "log_off", "CTRL-SHIFT-F12", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Diagnostics, ConflictGroup::FrameDispatch, 230},
-      {InputActionId::LogError, "log_error", "CTRL-SHIFT-F11", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Diagnostics, ConflictGroup::FrameDispatch, 220},
-      {InputActionId::LogWarn, "log_warn", "CTRL-SHIFT-F10", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Diagnostics, ConflictGroup::FrameDispatch, 210},
-      {InputActionId::LogInfo, "log_info", "CTRL-SHIFT-F8", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Diagnostics, ConflictGroup::FrameDispatch, 200},
-      {InputActionId::LogDebug, "log_debug", "CTRL-SHIFT-F9", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Diagnostics, ConflictGroup::FrameDispatch, 190},
-      {InputActionId::LogTrace, "log_trace", "CTRL-SHIFT-F7", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Diagnostics, ConflictGroup::FrameDispatch, 180},
-      {InputActionId::ShowQTrials, "show_qtrials", "SHIFT-Q", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 590},
-      {InputActionId::ShowBookmarks, "show_bookmarks", "B", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 580},
-      {InputActionId::ShowLookup, "show_lookup", "L", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 570},
-      {InputActionId::ShowRefinery, "show_refinery", "SHIFT-F", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 560},
-      {InputActionId::ShowFactions, "show_factions", "F", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 550},
-      {InputActionId::ShowStationExterior, "show_stationexterior", "SHIFT-G", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 540},
-      {InputActionId::ShowGalaxy, "show_galaxy", "G", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 530},
-      {InputActionId::ShowStationInterior, "show_stationinterior", "SHIFT-H", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 520},
-      {InputActionId::ShowSystem, "show_system", "H", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 510},
-      {InputActionId::ShowArtifacts, "show_artifacts", "SHIFT-I", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 500},
-      {InputActionId::ShowInventory, "show_inventory", "I", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 490},
-      {InputActionId::ShowMissions, "show_missions", "M", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 480},
-      {InputActionId::ShowResearch, "show_research", "U", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 470},
-      {InputActionId::ShowScrapYard, "show_scrapyard", "Y", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 460},
-      {InputActionId::ShowOfficers, "show_officers", "SHIFT-O", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 450},
-      {InputActionId::ShowCommander, "show_commander", "O", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 440},
-      {InputActionId::ShowAwayTeam, "show_awayteam", "T", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 430},
-      {InputActionId::ShowEvents, "show_events", "SHIFT-E", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 420},
-      {InputActionId::ShowExoComp, "show_exocomp", "X", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 410},
-      {InputActionId::ShowDaily, "show_daily", "Z", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 400},
-      {InputActionId::ShowGifts, "show_gifts", "/", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 390},
-      {InputActionId::ShowAlliance, "show_alliance", "ALT-'", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 380},
-      {InputActionId::ShowAllianceHelp, "show_alliance_help", "SHIFT-'", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 370},
-      {InputActionId::ShowAllianceArmada, "show_alliance_armada", "CTRL-'", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 360},
-      {InputActionId::ShowSettings, "show_settings", "SHIFT-S", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 350},
-      {InputActionId::TogglePreviewLocate, "toggle_preview_locate", "CTRL-R", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 300},
-      {InputActionId::TogglePreviewRecall, "toggle_preview_recall", "CTRL-T", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 290},
-      {InputActionId::ToggleCargoDefault, "toggle_cargo_default", "ALT-1", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 280},
-      {InputActionId::ToggleCargoPlayer, "toggle_cargo_player", "ALT-2", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 270},
-      {InputActionId::ToggleCargoStation, "toggle_cargo_station", "ALT-3", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 260},
-      {InputActionId::ToggleCargoHostile, "toggle_cargo_hostile", "ALT-4", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 250},
-      {InputActionId::ToggleCargoArmada, "toggle_cargo_armada", "ALT-5", TriggerMode::Down, InputPhase::Frame,
-       InputLayer::Global, ConflictGroup::FrameDispatch, 240},
-      {InputActionId::ShowShips, "show_ships", "N", TriggerMode::Down, InputPhase::Frame, InputLayer::Global,
-       ConflictGroup::FrameDispatch, 170},
-      {InputActionId::ZoomIn, "zoom_in", "Q", TriggerMode::Pressed, InputPhase::NavigationZoomUpdate, InputLayer::Zoom,
-       ConflictGroup::Zoom, 100},
-      {InputActionId::ZoomOut, "zoom_out", "E", TriggerMode::Pressed, InputPhase::NavigationZoomUpdate,
-       InputLayer::Zoom, ConflictGroup::Zoom, 100},
-  }};
-
   struct KeyName {
     std::string_view name;
     KeyCode          key;
@@ -398,23 +255,14 @@ size_t BindingIndex::size() const
 const BindingIndex::BindingBuckets& BindingIndex::buckets_for(const TriggerMode trigger_mode) const
 { return trigger_mode == TriggerMode::Pressed ? pressed_ : down_; }
 
-std::span<const InputActionSpec> ActionSpecs()
-{ return kActionSpecs; }
+std::span<const ActionSpec> ActionSpecs()
+{ return ActionRegistry(); }
 
-const InputActionSpec* FindActionSpec(const InputActionId id)
-{
-  const auto specs = ActionSpecs();
-  const auto found = std::ranges::find_if(specs, [id](const auto& spec) { return spec.id == id; });
-  return found == specs.end() ? nullptr : &*found;
-}
+const ActionSpec* FindActionSpec(const InputActionId id)
+{ return FindAction(id); }
 
-const InputActionSpec* FindActionSpec(const std::string_view canonical_key)
-{
-  const auto specs = ActionSpecs();
-  const auto found =
-      std::ranges::find_if(specs, [canonical_key](const auto& spec) { return spec.canonical_key == canonical_key; });
-  return found == specs.end() ? nullptr : &*found;
-}
+const ActionSpec* FindActionSpec(const std::string_view canonical_key)
+{ return FindAction(canonical_key); }
 
 std::optional<KeyCode> LookupKey(const std::string_view key_name)
 {

@@ -49,29 +49,17 @@ TEST_SUITE("hotkey_router_execution")
 
   TEST_CASE("chat open can activate the existing side-chat input field")
   {
-    CHECK(hotkey_router_chat_open_action(false,
-                                         false,
-                                         true,
-                                         input_binding::InputActionId::ShowChat)
+    CHECK(hotkey_router_chat_open_action(false, false, true, input_binding::InputActionId::ShowChat)
           == HotkeyRouterChatOpenAction::ActivateExistingInput);
-    CHECK(hotkey_router_chat_open_action(false,
-                                         false,
-                                         true,
-                                         input_binding::InputActionId::ShowChatSide1)
+    CHECK(hotkey_router_chat_open_action(false, false, true, input_binding::InputActionId::ShowChatSide1)
           == HotkeyRouterChatOpenAction::ActivateExistingInput);
   }
 
   TEST_CASE("chat open winners map to side or fullscreen channel opens")
   {
-    CHECK(hotkey_router_chat_open_action(false,
-                                         false,
-                                         false,
-                                         input_binding::InputActionId::ShowChat)
+    CHECK(hotkey_router_chat_open_action(false, false, false, input_binding::InputActionId::ShowChat)
           == HotkeyRouterChatOpenAction::OpenAllianceFullscreen);
-    CHECK(hotkey_router_chat_open_action(false,
-                                         false,
-                                         false,
-                                         input_binding::InputActionId::ShowChatSide2)
+    CHECK(hotkey_router_chat_open_action(false, false, false, input_binding::InputActionId::ShowChatSide2)
           == HotkeyRouterChatOpenAction::OpenAllianceSide);
   }
 
@@ -87,46 +75,31 @@ TEST_SUITE("hotkey_router_execution")
 
   TEST_CASE("officer canvas movement only routes on the gameplay surface")
   {
-    CHECK(hotkey_router_officer_canvas_action(false,
-                                              false,
-                                              input_binding::InputActionId::MoveLeft)
+    CHECK(hotkey_router_officer_canvas_action(false, false, input_binding::InputActionId::MoveLeft)
           == HotkeyRouterOfficerCanvasAction::MoveLeft);
-    CHECK(hotkey_router_officer_canvas_action(false,
-                                              false,
-                                              input_binding::InputActionId::MoveRight)
+    CHECK(hotkey_router_officer_canvas_action(false, false, input_binding::InputActionId::MoveRight)
           == HotkeyRouterOfficerCanvasAction::MoveRight);
-    CHECK(hotkey_router_officer_canvas_action(true,
-                                              false,
-                                              input_binding::InputActionId::MoveLeft)
+    CHECK(hotkey_router_officer_canvas_action(true, false, input_binding::InputActionId::MoveLeft)
           == HotkeyRouterOfficerCanvasAction::None);
   }
 
   TEST_CASE("table dispatch requests only surface on unfocused gameplay frames")
   {
-    CHECK(hotkey_router_table_dispatch_request(false,
-                                               false,
-                                               input_binding::InputActionId::ShowBookmarks)
+    CHECK(hotkey_router_table_dispatch_request(false, false, input_binding::InputActionId::ShowBookmarks)
           == input_binding::InputActionId::ShowBookmarks);
-    CHECK(hotkey_router_table_dispatch_request(true,
-                                               false,
-                                               input_binding::InputActionId::ShowBookmarks)
+    CHECK(hotkey_router_table_dispatch_request(true, false, input_binding::InputActionId::ShowBookmarks)
           == input_binding::InputActionId::Max);
-    CHECK(hotkey_router_table_dispatch_request(false,
-                                               true,
-                                               input_binding::InputActionId::ShowBookmarks)
+    CHECK(hotkey_router_table_dispatch_request(false, true, input_binding::InputActionId::ShowBookmarks)
           == input_binding::InputActionId::Max);
   }
 
   TEST_CASE("simple fleet winners map to queue clear and view info only when unfocused")
   {
-    CHECK(hotkey_router_simple_fleet_action(false,
-                                            input_binding::InputActionId::FleetQueueClear)
+    CHECK(hotkey_router_simple_fleet_action(false, input_binding::InputActionId::FleetQueueClear)
           == HotkeyRouterSimpleFleetAction::QueueClear);
-    CHECK(hotkey_router_simple_fleet_action(false,
-                                            input_binding::InputActionId::FleetViewInfo)
+    CHECK(hotkey_router_simple_fleet_action(false, input_binding::InputActionId::FleetViewInfo)
           == HotkeyRouterSimpleFleetAction::ViewInfo);
-    CHECK(hotkey_router_simple_fleet_action(true,
-                                            input_binding::InputActionId::FleetViewInfo)
+    CHECK(hotkey_router_simple_fleet_action(true, input_binding::InputActionId::FleetViewInfo)
           == HotkeyRouterSimpleFleetAction::None);
   }
 
@@ -135,6 +108,7 @@ TEST_SUITE("hotkey_router_execution")
     CHECK(hotkey_router_dispatch_action(true, true, false) == HotkeyRouterDispatchAction::SuppressOriginal);
     CHECK(hotkey_router_dispatch_action(true, false, true) == HotkeyRouterDispatchAction::AllowOriginal);
     CHECK(hotkey_router_dispatch_action(true, false, false) == HotkeyRouterDispatchAction::Continue);
+    CHECK(hotkey_router_dispatch_action(true, false, true, true) == HotkeyRouterDispatchAction::SuppressOriginal);
 
     CHECK_FALSE(should_call_original_screen_update(false, OriginalFramePolicy::Mod));
     CHECK(should_call_original_screen_update(true, OriginalFramePolicy::Mod));

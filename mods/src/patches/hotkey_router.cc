@@ -16,6 +16,7 @@
 #include "patches/cargo_display.h"
 #include "patches/fleet_actions.h"
 #include "patches/hotkey_dispatch.h"
+#include "patches/input_binding/action_registry.h"
 #include "patches/input_binding/input_dispatcher.h"
 #include "patches/input_binding/input_runtime_bindings.h"
 #include "patches/key.h"
@@ -46,10 +47,10 @@
 namespace
 {
 struct FrameRuntimeDispatchCache {
-  uint64_t                                generation = 0;
-  std::vector<KeyCode>                    watched_keys;
+  uint64_t                                     generation = 0;
+  std::vector<KeyCode>                         watched_keys;
   std::vector<input_binding::DispatchKeyState> key_states;
-  input_binding::DispatchPlan             plan;
+  input_binding::DispatchPlan                  plan;
 };
 
 constexpr std::array kHotkeyStartupActions{
@@ -217,7 +218,7 @@ FrameRuntimeDispatchCache& frame_runtime_dispatch_cache()
   return cache;
 }
 
-void rebuild_frame_runtime_watched_keys(FrameRuntimeDispatchCache& cache,
+void rebuild_frame_runtime_watched_keys(FrameRuntimeDispatchCache&          cache,
                                         const input_binding::CompileResult& runtime_bindings)
 {
   const auto generation = input_binding::RuntimeBindingGeneration();
@@ -230,7 +231,7 @@ void rebuild_frame_runtime_watched_keys(FrameRuntimeDispatchCache& cache,
   cache.generation = generation;
 }
 
-void build_dispatch_key_snapshot(std::span<const KeyCode> watched_keys,
+void build_dispatch_key_snapshot(std::span<const KeyCode>                      watched_keys,
                                  std::vector<input_binding::DispatchKeyState>& key_states)
 {
   key_states.clear();
@@ -250,11 +251,8 @@ const input_binding::DispatchPlan& frame_runtime_dispatch_plan()
   const auto& runtime_bindings = input_binding::RuntimeBindingModel();
   rebuild_frame_runtime_watched_keys(cache, runtime_bindings);
   build_dispatch_key_snapshot(cache.watched_keys, cache.key_states);
-  input_binding::PlanDispatchSnapshot(runtime_bindings,
-                                      input_binding::InputPhase::Frame,
-                                      input_binding::ActiveLayers::All(),
-                                      cache.key_states,
-                                      cache.plan);
+  input_binding::PlanDispatchSnapshot(runtime_bindings, input_binding::InputPhase::Frame,
+                                      input_binding::ActiveLayers::All(), cache.key_states, cache.plan);
 
   return cache.plan;
 }
@@ -265,7 +263,7 @@ bool runtime_binding_winner_present(const input_binding::DispatchPlan& plan, con
 
 const input_binding::DispatchCandidate* runtime_binding_winner(const input_binding::DispatchPlan& plan,
                                                                const input_binding::InputActionId action,
-                                                               const input_binding::InputLayer layer)
+                                                               const input_binding::InputLayer    layer)
 {
   for (const auto& winner : plan.winners) {
     if (winner.action == action && winner.layer == layer) {
@@ -273,6 +271,14 @@ const input_binding::DispatchCandidate* runtime_binding_winner(const input_bindi
     }
   }
   return nullptr;
+}
+
+bool runtime_binding_consumes_original_key_event(const input_binding::DispatchPlan& plan,
+                                                 const input_binding::InputActionId action,
+                                                 const input_binding::InputLayer    layer)
+{
+  const auto* winner = runtime_binding_winner(plan, action, layer);
+  return winner && input_binding::ConsumesOriginalKeyEvent(*winner);
 }
 
 input_binding::InputActionId first_runtime_binding_winner(const input_binding::DispatchPlan&                  plan,
@@ -399,101 +405,11 @@ int ship_select_request_from_runtime_bindings(const input_binding::DispatchPlan&
 }
 
 GameFunction dispatcher_owned_game_function(const input_binding::InputActionId action)
-{
-  switch (action) {
-    case input_binding::InputActionId::ShowQTrials:
-      return GameFunction::ShowQTrials;
-    case input_binding::InputActionId::ShowBookmarks:
-      return GameFunction::ShowBookmarks;
-    case input_binding::InputActionId::ShowLookup:
-      return GameFunction::ShowLookup;
-    case input_binding::InputActionId::ShowRefinery:
-      return GameFunction::ShowRefinery;
-    case input_binding::InputActionId::ShowFactions:
-      return GameFunction::ShowFactions;
-    case input_binding::InputActionId::ShowStationExterior:
-      return GameFunction::ShoWStationExterior;
-    case input_binding::InputActionId::ShowGalaxy:
-      return GameFunction::ShowGalaxy;
-    case input_binding::InputActionId::ShowStationInterior:
-      return GameFunction::ShowStationInterior;
-    case input_binding::InputActionId::ShowSystem:
-      return GameFunction::ShowSystem;
-    case input_binding::InputActionId::ShowArtifacts:
-      return GameFunction::ShowArtifacts;
-    case input_binding::InputActionId::ShowInventory:
-      return GameFunction::ShowInventory;
-    case input_binding::InputActionId::ShowMissions:
-      return GameFunction::ShowMissions;
-    case input_binding::InputActionId::ShowResearch:
-      return GameFunction::ShowResearch;
-    case input_binding::InputActionId::ShowScrapYard:
-      return GameFunction::ShowScrapYard;
-    case input_binding::InputActionId::ShowOfficers:
-      return GameFunction::ShowOfficers;
-    case input_binding::InputActionId::ShowCommander:
-      return GameFunction::ShowCommander;
-    case input_binding::InputActionId::ShowAwayTeam:
-      return GameFunction::ShowAwayTeam;
-    case input_binding::InputActionId::ShowEvents:
-      return GameFunction::ShowEvents;
-    case input_binding::InputActionId::ShowExoComp:
-      return GameFunction::ShowExoComp;
-    case input_binding::InputActionId::ShowDaily:
-      return GameFunction::ShowDaily;
-    case input_binding::InputActionId::ShowGifts:
-      return GameFunction::ShowGifts;
-    case input_binding::InputActionId::ShowAlliance:
-      return GameFunction::ShowAlliance;
-    case input_binding::InputActionId::ShowAllianceHelp:
-      return GameFunction::ShowAllianceHelp;
-    case input_binding::InputActionId::ShowAllianceArmada:
-      return GameFunction::ShowAllianceArmada;
-    case input_binding::InputActionId::ShowSettings:
-      return GameFunction::ShowSettings;
-    case input_binding::InputActionId::UiScaleUp:
-      return GameFunction::UiScaleUp;
-    case input_binding::InputActionId::UiScaleDown:
-      return GameFunction::UiScaleDown;
-    case input_binding::InputActionId::UiViewerScaleUp:
-      return GameFunction::UiViewerScaleUp;
-    case input_binding::InputActionId::UiViewerScaleDown:
-      return GameFunction::UiViewerScaleDown;
-    case input_binding::InputActionId::TogglePreviewLocate:
-      return GameFunction::TogglePreviewLocate;
-    case input_binding::InputActionId::TogglePreviewRecall:
-      return GameFunction::TogglePreviewRecall;
-    case input_binding::InputActionId::ToggleCargoDefault:
-      return GameFunction::ToggleCargoDefault;
-    case input_binding::InputActionId::ToggleCargoPlayer:
-      return GameFunction::ToggleCargoPlayer;
-    case input_binding::InputActionId::ToggleCargoStation:
-      return GameFunction::ToggleCargoStation;
-    case input_binding::InputActionId::ToggleCargoHostile:
-      return GameFunction::ToggleCargoHostile;
-    case input_binding::InputActionId::ToggleCargoArmada:
-      return GameFunction::ToggleCargoArmada;
-    case input_binding::InputActionId::LogOff:
-      return GameFunction::LogLevelOff;
-    case input_binding::InputActionId::LogError:
-      return GameFunction::LogLevelError;
-    case input_binding::InputActionId::LogWarn:
-      return GameFunction::LogLevelWarn;
-    case input_binding::InputActionId::LogInfo:
-      return GameFunction::LogLevelInfo;
-    case input_binding::InputActionId::LogDebug:
-      return GameFunction::LogLevelDebug;
-    case input_binding::InputActionId::LogTrace:
-      return GameFunction::LogLevelTrace;
-    case input_binding::InputActionId::ShowShips:
-      return GameFunction::ShowShips;
-    default:
-      return GameFunction::Max;
-  }
-}
+{ return input_binding::ActionGameFunction(action); }
 
-HotkeyRouterDispatchAction dispatch_runtime_bound_table_action(const input_binding::InputActionId action)
+HotkeyRouterDispatchAction dispatch_runtime_bound_table_action(const input_binding::DispatchCandidate& candidate)
 {
+  const auto action        = candidate.action;
   const auto game_function = dispatcher_owned_game_function(action);
   if (game_function == GameFunction::Max) {
     return HotkeyRouterDispatchAction::Continue;
@@ -506,7 +422,8 @@ HotkeyRouterDispatchAction dispatch_runtime_bound_table_action(const input_bindi
 
     const auto decision = entry.handler();
     return hotkey_router_dispatch_action(true, decision == DispatchDecision::HandledStop,
-                                         decision == DispatchDecision::HandledAllowOriginal);
+                                         decision == DispatchDecision::HandledAllowOriginal,
+                                         input_binding::ConsumesOriginalKeyEvent(candidate));
   }
 
   return HotkeyRouterDispatchAction::Continue;
@@ -588,8 +505,11 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 #endif
 
   // ─── Ship selection (1-8 keys) ───────────────────────────────────────────────────────
-  const auto ship_select_request = ship_select_request_from_runtime_bindings(runtime_dispatch_plan);
+  const auto ship_select_request           = ship_select_request_from_runtime_bindings(runtime_dispatch_plan);
+  auto       ship_select_consumes_original = false;
   if (ship_select_request != -1) {
+    ship_select_consumes_original = runtime_binding_consumes_original_key_event(
+        runtime_dispatch_plan, kHotkeyShipSelectionActions[ship_select_request], input_binding::InputLayer::Fleet);
     log_runtime_winner("ship-selection", runtime_dispatch_plan, kHotkeyShipSelectionActions[ship_select_request],
                        input_binding::InputLayer::Fleet);
   }
@@ -597,7 +517,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   {
     ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipSelection, ModImpactMonitorEnabled());
     if (HandleShipSelection(ship_select_request)) {
-      return true;
+      return !ship_select_consumes_original;
     }
   }
 
@@ -614,11 +534,10 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       // SelectCurrent — locate active fleet
       {
         ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiSelectCurrent, ModImpactMonitorEnabled());
-        if (hotkey_router_select_current_action(is_in_chat,
-                                                input_focused,
-                                                first_runtime_binding_winner(runtime_dispatch_plan,
-                                                                             kHotkeySelectCurrentActions)
-                                                    == input_binding::InputActionId::SelectCurrent)
+        if (hotkey_router_select_current_action(
+                is_in_chat, input_focused,
+                first_runtime_binding_winner(runtime_dispatch_plan, kHotkeySelectCurrentActions)
+                    == input_binding::InputActionId::SelectCurrent)
             == HotkeyRouterSelectCurrentAction::ViewActiveFleet) {
           auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
           if (fleet_bar) {
@@ -651,45 +570,50 @@ bool hotkey_router_screen_update(ScreenManager* _this)
         const auto chat_open_action = first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyChatOpenActions);
         if (chat_open_action != input_binding::InputActionId::Max) {
           log_runtime_winner("chat-open", runtime_dispatch_plan, chat_open_action, input_binding::InputLayer::Global);
-          ChatManager* chat_manager = nullptr;
+          auto         chat_open_consumes_original = false;
+          auto         chat_open_handled           = false;
+          ChatManager* chat_manager                = nullptr;
           {
             ScopedModImpactTimer chat_manager_timer(ModImpactProbe::HotkeyUiChatManagerLookup,
                                                     ModImpactMonitorEnabled());
             chat_manager = ChatManager::Instance();
           }
           if (chat_manager) {
-            switch (hotkey_router_chat_open_action(is_in_chat,
-                                                   input_focused,
-                                                   chat_manager->IsSideChatOpen,
+            chat_open_consumes_original = runtime_binding_consumes_original_key_event(
+                runtime_dispatch_plan, chat_open_action, input_binding::InputLayer::Global);
+            switch (hotkey_router_chat_open_action(is_in_chat, input_focused, chat_manager->IsSideChatOpen,
                                                    chat_open_action)) {
-              case HotkeyRouterChatOpenAction::ActivateExistingInput:
-                {
-                  ScopedModImpactTimer activate_timer(ModImpactProbe::HotkeyUiChatActivateInput,
-                                                      ModImpactMonitorEnabled());
-                  if (auto view_controller = ObjectFinder<FullScreenChatViewController>::Get(); view_controller) {
-                    if (auto message_list = view_controller->_messageList; message_list) {
-                      if (auto message_field = message_list->_inputField; message_field) {
-                        message_field->ActivateInputField();
-                      }
+              case HotkeyRouterChatOpenAction::ActivateExistingInput: {
+                ScopedModImpactTimer activate_timer(ModImpactProbe::HotkeyUiChatActivateInput,
+                                                    ModImpactMonitorEnabled());
+                if (auto view_controller = ObjectFinder<FullScreenChatViewController>::Get(); view_controller) {
+                  if (auto message_list = view_controller->_messageList; message_list) {
+                    if (auto message_field = message_list->_inputField; message_field) {
+                      message_field->ActivateInputField();
                     }
                   }
                 }
+              }
+                chat_open_handled = true;
                 break;
-              case HotkeyRouterChatOpenAction::OpenAllianceSide:
-                {
-                  ScopedModImpactTimer open_timer(ModImpactProbe::HotkeyUiChatOpenChannel, ModImpactMonitorEnabled());
-                  chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Side);
-                }
+              case HotkeyRouterChatOpenAction::OpenAllianceSide: {
+                ScopedModImpactTimer open_timer(ModImpactProbe::HotkeyUiChatOpenChannel, ModImpactMonitorEnabled());
+                chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Side);
+              }
+                chat_open_handled = true;
                 break;
-              case HotkeyRouterChatOpenAction::OpenAllianceFullscreen:
-                {
-                  ScopedModImpactTimer open_timer(ModImpactProbe::HotkeyUiChatOpenChannel, ModImpactMonitorEnabled());
-                  chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Fullscreen);
-                }
+              case HotkeyRouterChatOpenAction::OpenAllianceFullscreen: {
+                ScopedModImpactTimer open_timer(ModImpactProbe::HotkeyUiChatOpenChannel, ModImpactMonitorEnabled());
+                chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Fullscreen);
+              }
+                chat_open_handled = true;
                 break;
               default:
                 break;
             }
+          }
+          if (chat_open_handled && chat_open_consumes_original) {
+            return false;
           }
         }
       }
@@ -697,10 +621,9 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       // MoveLeft / MoveRight (officer canvas)
       {
         ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiOfficerCanvas, ModImpactMonitorEnabled());
-        switch (hotkey_router_officer_canvas_action(is_in_chat,
-                                                    input_focused,
-                                                    first_runtime_binding_winner(runtime_dispatch_plan,
-                                                                                 kHotkeyOfficerCanvasActions))) {
+        switch (hotkey_router_officer_canvas_action(
+            is_in_chat, input_focused,
+            first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyOfficerCanvasActions))) {
           case HotkeyRouterOfficerCanvasAction::MoveLeft:
             if (MoveOfficerCanvas(true)) {
               return false;
@@ -718,13 +641,15 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
       {
         ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiTableDispatch, ModImpactMonitorEnabled());
-        if (const auto action = hotkey_router_table_dispatch_request(is_in_chat,
-                                                                     input_focused,
-                                                                     first_runtime_binding_winner(runtime_dispatch_plan,
-                                                                                                  kHotkeyTableDispatchActions));
+        if (const auto action = hotkey_router_table_dispatch_request(
+                is_in_chat, input_focused,
+                first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyTableDispatchActions));
             action != input_binding::InputActionId::Max) {
           log_runtime_winner("table-dispatch", runtime_dispatch_plan, action, input_binding::InputLayer::Global);
-          if (dispatch_runtime_bound_table_action(action) == HotkeyRouterDispatchAction::SuppressOriginal) {
+          const auto* table_winner =
+              runtime_binding_winner(runtime_dispatch_plan, action, input_binding::InputLayer::Global);
+          if (table_winner
+              && dispatch_runtime_bound_table_action(*table_winner) == HotkeyRouterDispatchAction::SuppressOriginal) {
             return false;
           }
         }
@@ -736,9 +661,8 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
     // ─── In-chat channel selection ─────────────────────────────────────────────────────
     if (auto chat_manager = ChatManager::Instance(); chat_manager) {
-      switch (hotkey_router_chat_channel_action(is_in_chat,
-                                                first_runtime_binding_winner(runtime_dispatch_plan,
-                                                                             kHotkeyChatChannelActions))) {
+      switch (hotkey_router_chat_channel_action(
+          is_in_chat, first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyChatChannelActions))) {
         case HotkeyRouterChatChannelAction::Global:
           chat_manager->OpenChannel(ChatChannelCategory::Global);
           return false;
@@ -759,10 +683,10 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
     const auto simple_fleet_action = hotkey_router_simple_fleet_action(
         input_focused, first_runtime_binding_winner(runtime_dispatch_plan, kHotkeySimpleFleetActions));
-      if (simple_fleet_action == HotkeyRouterSimpleFleetAction::QueueClear) {
-        log_runtime_winner("fleet-simple", runtime_dispatch_plan, input_binding::InputActionId::FleetQueueClear,
-                 input_binding::InputLayer::Fleet);
-      }
+    if (simple_fleet_action == HotkeyRouterSimpleFleetAction::QueueClear) {
+      log_runtime_winner("fleet-simple", runtime_dispatch_plan, input_binding::InputActionId::FleetQueueClear,
+                         input_binding::InputLayer::Fleet);
+    }
     const auto space_action_inputs = hotkey_router_runtime_space_action_inputs(
         runtime_binding_winner_present(runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary,
                                        input_binding::InputLayer::Fleet),
@@ -785,10 +709,15 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
     if (simple_fleet_action == HotkeyRouterSimpleFleetAction::QueueClear) {
       dispatch_runtime_bound_simple_fleet_action(input_binding::InputActionId::FleetQueueClear);
+      if (runtime_binding_consumes_original_key_event(
+              runtime_dispatch_plan, input_binding::InputActionId::FleetQueueClear, input_binding::InputLayer::Fleet)) {
+        return false;
+      }
     }
 
     // Space actions (engage, scan, recall, repair, queue, etc.)
     if (hotkey_router_should_execute_space_action(space_action_inputs, force_space_action_next_frame)) {
+      auto handled_space_action = false;
       if (space_action_inputs.primary) {
         log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary,
                            input_binding::InputLayer::Fleet);
@@ -809,9 +738,9 @@ bool hotkey_router_screen_update(ScreenManager* _this)
           {
             ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeySpaceAction, ModImpactMonitorEnabled());
             ExecuteSpaceAction(fleet_bar, space_action_inputs);
+            handled_space_action = true;
           }
-          if (hotkey_router_should_clear_deferred_space_action(was_forced,
-                                                               deferred_generation,
+          if (hotkey_router_should_clear_deferred_space_action(was_forced, deferred_generation,
                                                                DeferredSpaceActionGeneration())) {
             spdlog::trace("[SpaceActionDiag] cleared-deferred-retry reason=no-generation-advance generation={}",
                           deferred_generation);
@@ -819,11 +748,25 @@ bool hotkey_router_screen_update(ScreenManager* _this)
           }
         }
       }
+      if (handled_space_action
+          && (runtime_binding_consumes_original_key_event(
+                  runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary, input_binding::InputLayer::Fleet)
+              || runtime_binding_consumes_original_key_event(
+                  runtime_dispatch_plan, input_binding::InputActionId::FleetSecondary, input_binding::InputLayer::Fleet)
+              || runtime_binding_consumes_original_key_event(runtime_dispatch_plan,
+                                                             input_binding::InputActionId::FleetService,
+                                                             input_binding::InputLayer::Fleet))) {
+        return false;
+      }
     }
 
     // ActionView — toggle cargo/rewards info panel
     if (simple_fleet_action == HotkeyRouterSimpleFleetAction::ViewInfo) {
       HandleActionView();
+      if (runtime_binding_consumes_original_key_event(
+              runtime_dispatch_plan, input_binding::InputActionId::FleetViewInfo, input_binding::InputLayer::Fleet)) {
+        return false;
+      }
     }
 
     // Tick the info pending counter (multi-frame show)

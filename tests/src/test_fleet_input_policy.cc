@@ -9,13 +9,13 @@ TEST_SUITE("fleet_input_policy")
   TEST_CASE("primary dismisses rewards before other outcomes")
   {
     FleetPrimaryDecisionInput input;
-    input.rewards_visible = true;
-    input.fleet_state = FleetInputFleetState::Warping;
-    input.queue_mode_enabled = true;
-    input.queue_unlocked = true;
-    input.visible_prescan_target = true;
+    input.rewards_visible         = true;
+    input.fleet_state             = FleetInputFleetState::Warping;
+    input.queue_mode_enabled      = true;
+    input.queue_unlocked          = true;
+    input.visible_prescan_target  = true;
     input.target_context_resolved = true;
-    input.target_hull_type = FleetInputHullType::Destroyer;
+    input.target_hull_type        = FleetInputHullType::Destroyer;
 
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::DismissRewards);
   }
@@ -27,11 +27,11 @@ TEST_SUITE("fleet_input_policy")
 
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::CancelWarp);
 
-    input.primary_is_mouse = true;
-    input.visible_prescan_target = true;
+    input.primary_is_mouse        = true;
+    input.visible_prescan_target  = true;
     input.target_engage_available = true;
     input.target_context_resolved = true;
-    input.target_hull_type = FleetInputHullType::Battleship;
+    input.target_hull_type        = FleetInputHullType::Battleship;
 
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::Engage);
   }
@@ -39,18 +39,18 @@ TEST_SUITE("fleet_input_policy")
   TEST_CASE("primary queue mode handles queue add defer and full queue")
   {
     FleetPrimaryDecisionInput input;
-    input.queue_mode_enabled = true;
-    input.queue_unlocked = true;
-    input.visible_prescan_target = true;
+    input.queue_mode_enabled      = true;
+    input.queue_unlocked          = true;
+    input.visible_prescan_target  = true;
     input.target_context_resolved = true;
-    input.target_hull_type = FleetInputHullType::Explorer;
+    input.target_hull_type        = FleetInputHullType::Explorer;
 
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::AddToQueue);
 
     input.queue_full = true;
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::None);
 
-    input.queue_full = false;
+    input.queue_full              = false;
     input.target_context_resolved = false;
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::DeferUntilTargetResolved);
 
@@ -61,11 +61,11 @@ TEST_SUITE("fleet_input_policy")
   TEST_CASE("primary skips normal queue for armada targets")
   {
     FleetPrimaryDecisionInput input;
-    input.queue_mode_enabled = true;
-    input.queue_unlocked = true;
-    input.visible_prescan_target = true;
+    input.queue_mode_enabled      = true;
+    input.queue_unlocked          = true;
+    input.visible_prescan_target  = true;
     input.target_context_resolved = true;
-    input.target_hull_type = FleetInputHullType::ArmadaTarget;
+    input.target_hull_type        = FleetInputHullType::ArmadaTarget;
     input.armada_attack_available = true;
 
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::ArmadaAttack);
@@ -77,41 +77,41 @@ TEST_SUITE("fleet_input_policy")
     input.mining_viewer_visible = true;
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::Mine);
 
-    input = {};
-    input.visible_prescan_target = true;
+    input                         = {};
+    input.visible_prescan_target  = true;
     input.target_engage_available = true;
     input.target_context_resolved = true;
-    input.target_hull_type = FleetInputHullType::Survey;
+    input.target_hull_type        = FleetInputHullType::Survey;
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::Engage);
 
-    input = {};
-    input.visible_prescan_target = true;
+    input                         = {};
+    input.visible_prescan_target  = true;
     input.target_context_resolved = true;
-    input.target_hull_type = FleetInputHullType::ArmadaTarget;
+    input.target_hull_type        = FleetInputHullType::ArmadaTarget;
     input.armada_attack_available = true;
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::ArmadaAttack);
 
-    input = {};
+    input                                = {};
     input.navigation_interaction_visible = true;
-    input.armada_widget_visible = true;
-    input.armada_join_interactable = true;
+    input.armada_widget_visible          = true;
+    input.armada_join_interactable       = true;
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::JoinArmada);
 
-    input = {};
+    input                                = {};
     input.navigation_interaction_visible = true;
-    input.armada_widget_visible = true;
+    input.armada_widget_visible          = true;
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::ArmadaJoinUnavailable);
 
-    input = {};
-    input.armada_widget_visible = true;
+    input                          = {};
+    input.armada_widget_visible    = true;
     input.armada_join_interactable = true;
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::None);
 
-    input = {};
+    input                   = {};
     input.star_node_visible = true;
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::WarpToNode);
 
-    input = {};
+    input                                = {};
     input.navigation_interaction_visible = true;
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::SetCourse);
   }
@@ -119,9 +119,9 @@ TEST_SUITE("fleet_input_policy")
   TEST_CASE("primary defers unresolved prescan target once")
   {
     FleetPrimaryDecisionInput input;
-    input.visible_prescan_target = true;
+    input.visible_prescan_target  = true;
     input.target_context_resolved = false;
-    input.target_hull_type = FleetInputHullType::Any;
+    input.target_hull_type        = FleetInputHullType::Any;
 
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::DeferUntilTargetResolved);
 
@@ -137,17 +137,17 @@ TEST_SUITE("fleet_input_policy")
     FleetSecondaryDecisionInput input;
     input.visible_prescan_target = true;
     input.prescan_scan_available = true;
-    input.mining_viewer_visible = true;
-    input.mining_scan_available = true;
-    input.star_node_visible = true;
+    input.mining_viewer_visible  = true;
+    input.mining_scan_available  = true;
+    input.star_node_visible      = true;
     CHECK(DecideFleetSecondary(input) == FleetSecondaryOutcome::ScanPreScan);
 
-    input = {};
+    input                       = {};
     input.mining_viewer_visible = true;
     input.mining_scan_available = true;
     CHECK(DecideFleetSecondary(input) == FleetSecondaryOutcome::ScanMining);
 
-    input = {};
+    input                   = {};
     input.star_node_visible = true;
     CHECK(DecideFleetSecondary(input) == FleetSecondaryOutcome::ViewStarNode);
 
@@ -160,7 +160,7 @@ TEST_SUITE("fleet_input_policy")
     for (const auto state : {FleetInputFleetState::IdleInSpace, FleetInputFleetState::Impulsing,
                              FleetInputFleetState::Mining, FleetInputFleetState::Capturing}) {
       FleetServiceDecisionInput input;
-      input.fleet_state = state;
+      input.fleet_state    = state;
       input.recall_allowed = true;
       input.repair_allowed = true;
       CHECK(DecideFleetService(input) == FleetServiceOutcome::Recall);
@@ -168,7 +168,7 @@ TEST_SUITE("fleet_input_policy")
 
     for (const auto state : {FleetInputFleetState::Docked, FleetInputFleetState::Destroyed}) {
       FleetServiceDecisionInput input;
-      input.fleet_state = state;
+      input.fleet_state    = state;
       input.recall_allowed = true;
       input.repair_allowed = true;
       CHECK(DecideFleetService(input) == FleetServiceOutcome::Repair);
@@ -187,7 +187,6 @@ TEST_SUITE("fleet_input_policy")
     CHECK(FleetServiceOutcomeName(FleetServiceOutcome::Repair) == "repair");
   }
 }
-
 
 TEST_SUITE("fleet_deferred_action")
 {
@@ -246,7 +245,6 @@ TEST_SUITE("fleet_deferred_action")
 // config_schema
 // ===========================================================================
 
-
 TEST_SUITE("hotkey_decisions")
 {
   TEST_CASE("Scopely shortcut initialization runs for Scopely mode or fallthrough")
@@ -264,7 +262,7 @@ TEST_SUITE("hotkey_decisions")
   TEST_CASE("per-frame fallthrough can allow original ScreenManager update")
   {
     CHECK_FALSE(should_call_original_screen_update(false, false));
-    CHECK(should_call_original_screen_update(false, true));
+    CHECK_FALSE(should_call_original_screen_update(false, true));
     CHECK(should_call_original_screen_update(true, false));
     CHECK(should_call_original_screen_update(true, true));
 
@@ -284,10 +282,11 @@ TEST_SUITE("hotkey_decisions")
     CHECK(resolve_scopely_shortcut_policy(true, true) == ScopelyShortcutPolicy::Native);
 
     CHECK(resolve_original_frame_policy(false) == OriginalFramePolicy::Mod);
-    CHECK(resolve_original_frame_policy(true) == OriginalFramePolicy::FallthroughAll);
+    CHECK(resolve_original_frame_policy(true) == OriginalFramePolicy::FallthroughUnhandled);
 
     CHECK(std::string(scopely_shortcut_policy_name(ScopelyShortcutPolicy::Fallback)) == "fallback");
-    CHECK(std::string(original_frame_policy_name(OriginalFramePolicy::FallthroughAll)) == "fallthrough_all");
+    CHECK(std::string(original_frame_policy_name(OriginalFramePolicy::FallthroughUnhandled))
+          == "fallthrough_unhandled");
   }
 
   TEST_CASE("Escape exit suppression only blocks Escape-triggered exit outside the double-tap window")
@@ -416,5 +415,6 @@ TEST_SUITE("hotkey_decisions")
     CHECK(hotkey_router_dispatch_action(true, true, false) == HotkeyRouterDispatchAction::SuppressOriginal);
     CHECK(hotkey_router_dispatch_action(true, false, true) == HotkeyRouterDispatchAction::AllowOriginal);
     CHECK(hotkey_router_dispatch_action(true, false, false) == HotkeyRouterDispatchAction::Continue);
+    CHECK(hotkey_router_dispatch_action(true, false, true, true) == HotkeyRouterDispatchAction::SuppressOriginal);
   }
 }

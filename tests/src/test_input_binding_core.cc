@@ -1,5 +1,7 @@
 #include "test_pure_common.h"
 
+#include "patches/input_binding/action_registry.h"
+
 // ===========================================================================
 // input_binding
 // ===========================================================================
@@ -37,6 +39,55 @@ TEST_SUITE("input_binding")
       CHECK_FALSE(binding.has_warnings());
       CHECK_FALSE(binding.has_errors());
     }
+  }
+
+  TEST_CASE("action registry backs compatibility schema lookups")
+  {
+    const auto registry = input_binding::ActionRegistry();
+    const auto specs    = input_binding::ActionSpecs();
+
+    CHECK(registry.size() == static_cast<size_t>(input_binding::InputActionId::Max));
+    CHECK(specs.data() == registry.data());
+    CHECK(specs.size() == registry.size());
+
+    for (const auto& action : registry) {
+      const auto* by_id     = input_binding::FindAction(action.id);
+      const auto* by_key    = input_binding::FindAction(action.canonical_key);
+      const auto* legacy_id = input_binding::FindActionSpec(action.id);
+      INFO(action.canonical_key);
+      REQUIRE(by_id != nullptr);
+      CHECK(by_id == &action);
+      CHECK(by_key == by_id);
+      CHECK(legacy_id == by_id);
+      CHECK(action.native_consume == input_binding::NativeConsumePolicy::WhenHandled);
+      CHECK(action.rebindable);
+      CHECK(action.visible_in_ui);
+    }
+  }
+
+  TEST_CASE("action registry owns table dispatch metadata")
+  {
+    const auto* q_trials = input_binding::FindAction(input_binding::InputActionId::ShowQTrials);
+    REQUIRE(q_trials != nullptr);
+    CHECK(q_trials->executor == input_binding::ActionExecutor::TableDispatch);
+    CHECK(q_trials->game_function == GameFunction::ShowQTrials);
+    CHECK(input_binding::ActionGameFunction(input_binding::InputActionId::ShowQTrials) == GameFunction::ShowQTrials);
+
+    const auto* station_exterior = input_binding::FindAction(input_binding::InputActionId::ShowStationExterior);
+    REQUIRE(station_exterior != nullptr);
+    CHECK(station_exterior->executor == input_binding::ActionExecutor::TableDispatch);
+    CHECK(station_exterior->game_function == GameFunction::ShoWStationExterior);
+
+    const auto* cargo_default = input_binding::FindAction(input_binding::InputActionId::ToggleCargoDefault);
+    REQUIRE(cargo_default != nullptr);
+    CHECK(cargo_default->category == input_binding::ActionCategory::Ships);
+    CHECK(cargo_default->executor == input_binding::ActionExecutor::TableDispatch);
+    CHECK(cargo_default->game_function == GameFunction::ToggleCargoDefault);
+
+    const auto* fleet_service = input_binding::FindAction(input_binding::InputActionId::FleetService);
+    REQUIRE(fleet_service != nullptr);
+    CHECK(fleet_service->executor == input_binding::ActionExecutor::FleetSpace);
+    CHECK(fleet_service->game_function == GameFunction::Max);
   }
 
   TEST_CASE("key lookup covers keyboard mouse and function keys")

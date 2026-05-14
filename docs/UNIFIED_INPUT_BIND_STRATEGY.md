@@ -250,6 +250,8 @@ Default semantics should be exact modifiers:
 
 - `A` means A with no modifiers.
 - `CTRL-A` means Ctrl plus A with no extra modifiers unless the action explicitly opts into extra modifiers.
+- If only `A` is bound, pressing `CTRL-A` does not dispatch `A`; the original input path may handle it under unhandled fallthrough.
+- If `CTRL-A` is bound and handled by the mod, that key-down chord consumes the original game key event so the bare `A` path does not also fire.
 - `SHIFT-CTRL-A` and `CTRL-SHIFT-A` normalize to the same chord.
 - Left/right-specific modifiers are represented in the mask, not as separate parser rules.
 
@@ -493,13 +495,13 @@ Semantics:
 - `scopely_shortcuts = "native"`: call Scopely initializer and do not bind overlapping mod shortcuts unless user explicitly enables them.
 - `scopely_shortcuts = "fallback"`: call Scopely initializer, but mod actions keep first right of refusal.
 - `original_frame_policy = "mod"`: original update is called only when dispatcher allows it.
-- `original_frame_policy = "fallthrough_unhandled"`: original update is called when no mod action handled the input.
+- `original_frame_policy = "fallthrough_unhandled"`: original update is called when no mod action handled the input. Handled modified key-down chords consume the original game key event rather than leaking the bare key to native shortcuts.
 - `original_frame_policy = "fallthrough_all"`: original update always runs after mod dispatch.
 
 The migration layer can keep reading old booleans:
 
 - `use_scopely_hotkeys = true` -> `scopely_shortcuts = "native"`.
-- `allow_key_fallthrough = true` -> `original_frame_policy = "fallthrough_all"` plus warning if Scopely shortcut initialization changes too.
+- `allow_key_fallthrough = true` -> `original_frame_policy = "fallthrough_unhandled"` plus warning if Scopely shortcut initialization changes too.
 
 ## Hook Strategy
 

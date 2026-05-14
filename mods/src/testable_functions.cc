@@ -15,18 +15,17 @@
 // ---------------------------------------------------------------------------
 bool should_call_original_initialize_actions(bool use_scopely_hotkeys, bool allow_key_fallthrough)
 {
-  return should_call_original_initialize_actions(resolve_scopely_shortcut_policy(use_scopely_hotkeys,
-                                                                                 allow_key_fallthrough));
+  return should_call_original_initialize_actions(
+      resolve_scopely_shortcut_policy(use_scopely_hotkeys, allow_key_fallthrough));
 }
 
 bool should_call_original_initialize_actions(const ScopelyShortcutPolicy policy)
-{
-  return policy != ScopelyShortcutPolicy::Off;
-}
+{ return policy != ScopelyShortcutPolicy::Off; }
 
 bool should_call_original_screen_update(bool router_allows_original, bool allow_key_fallthrough)
 {
-  return should_call_original_screen_update(router_allows_original, resolve_original_frame_policy(allow_key_fallthrough));
+  return should_call_original_screen_update(router_allows_original,
+                                            resolve_original_frame_policy(allow_key_fallthrough));
 }
 
 bool should_call_original_screen_update(const bool router_allows_original, const OriginalFramePolicy policy)
@@ -38,8 +37,7 @@ bool should_call_original_screen_update(const bool router_allows_original, const
   return router_allows_original;
 }
 
-ScopelyShortcutPolicy resolve_scopely_shortcut_policy(const bool use_scopely_hotkeys,
-                                                      const bool allow_key_fallthrough)
+ScopelyShortcutPolicy resolve_scopely_shortcut_policy(const bool use_scopely_hotkeys, const bool allow_key_fallthrough)
 {
   if (use_scopely_hotkeys) {
     return ScopelyShortcutPolicy::Native;
@@ -49,9 +47,7 @@ ScopelyShortcutPolicy resolve_scopely_shortcut_policy(const bool use_scopely_hot
 }
 
 OriginalFramePolicy resolve_original_frame_policy(const bool allow_key_fallthrough)
-{
-  return allow_key_fallthrough ? OriginalFramePolicy::FallthroughAll : OriginalFramePolicy::Mod;
-}
+{ return allow_key_fallthrough ? OriginalFramePolicy::FallthroughUnhandled : OriginalFramePolicy::Mod; }
 
 const char* scopely_shortcut_policy_name(const ScopelyShortcutPolicy policy)
 {
@@ -81,9 +77,7 @@ const char* original_frame_policy_name(const OriginalFramePolicy policy)
   return "unknown";
 }
 
-bool should_suppress_escape_exit(bool disable_escape_exit,
-                                 bool escape_pressed,
-                                 int escape_exit_timer_ms,
+bool should_suppress_escape_exit(bool disable_escape_exit, bool escape_pressed, int escape_exit_timer_ms,
                                  int64_t elapsed_ms_since_last_escape_press)
 {
   if (!disable_escape_exit || !escape_pressed) {
@@ -98,9 +92,7 @@ bool should_suppress_escape_exit(bool disable_escape_exit,
 }
 
 bool hotkey_router_should_execute_space_action(const SpaceActionInputs& inputs, const bool deferred_retry_pending)
-{
-  return inputs.any_requested() || deferred_retry_pending;
-}
+{ return inputs.any_requested() || deferred_retry_pending; }
 
 FleetActionRequestMode fleet_action_request_mode(const bool wanted_state_available, const bool help_state_active)
 {
@@ -129,19 +121,15 @@ const char* fleet_action_request_mode_name(const FleetActionRequestMode mode)
   return "unknown";
 }
 
-bool hotkey_router_should_clear_deferred_space_action(const bool forced_retry_pending,
-                                                      const uint64_t generation_before,
+bool hotkey_router_should_clear_deferred_space_action(const bool forced_retry_pending, const uint64_t generation_before,
                                                       const uint64_t generation_after)
-{
-  return forced_retry_pending && generation_before == generation_after;
-}
+{ return forced_retry_pending && generation_before == generation_after; }
 
-bool space_action_duplicate_submission_should_suppress(const uint64_t previous_fleet_id,
+bool space_action_duplicate_submission_should_suppress(const uint64_t  previous_fleet_id,
                                                        const uintptr_t previous_target_identity,
-                                                       const uint64_t current_fleet_id,
+                                                       const uint64_t  current_fleet_id,
                                                        const uintptr_t current_target_identity,
-                                                       const int64_t elapsed_ms,
-                                                       const int64_t suppression_window_ms)
+                                                       const int64_t elapsed_ms, const int64_t suppression_window_ms)
 {
   return previous_fleet_id != 0 && previous_target_identity != 0 && current_fleet_id == previous_fleet_id
          && current_target_identity == previous_target_identity && elapsed_ms >= 0
@@ -149,16 +137,16 @@ bool space_action_duplicate_submission_should_suppress(const uint64_t previous_f
 }
 
 SpaceActionInputs hotkey_router_runtime_space_action_inputs(const bool fleet_primary_pressed,
-                                                           const bool fleet_secondary_pressed,
-                                                           const bool fleet_service_pressed)
+                                                            const bool fleet_secondary_pressed,
+                                                            const bool fleet_service_pressed)
 {
   SpaceActionInputs inputs;
 
   if (fleet_primary_pressed) {
     // Keep the current migration semantics: fleet_primary still fronts the old
     // primary, queue, and warp-cancel aliases until those behaviors are split.
-    inputs.primary = true;
-    inputs.queue = true;
+    inputs.primary       = true;
+    inputs.queue         = true;
     inputs.recall_cancel = true;
   }
 
@@ -176,13 +164,12 @@ SpaceActionInputs hotkey_router_runtime_space_action_inputs(const bool fleet_pri
   return inputs;
 }
 
-HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(
-    const HotkeyDisableShortcutAliasInput& input)
+HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(const HotkeyDisableShortcutAliasInput& input)
 {
   HotkeyDisableShortcutAliasDecision decision;
-  decision.key = "set_hotkeys_disable";
-  decision.value = input.default_value;
-  decision.source_key = decision.key;
+  decision.key                  = "set_hotkeys_disable";
+  decision.value                = input.default_value;
+  decision.source_key           = decision.key;
   decision.saw_deprecated_alias = input.has_deprecated_typo || input.has_legacy_disabled;
 
   if (input.has_canonical) {
@@ -197,8 +184,8 @@ HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(
   }
 
   if (input.has_deprecated_typo) {
-    decision.value = input.deprecated_typo;
-    decision.source_key = "set_hotkeys_disble";
+    decision.value                 = input.deprecated_typo;
+    decision.source_key            = "set_hotkeys_disble";
     decision.used_deprecated_alias = true;
 
     if (input.has_legacy_disabled && input.legacy_disabled != input.deprecated_typo) {
@@ -209,30 +196,24 @@ HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(
   }
 
   if (input.has_legacy_disabled) {
-    decision.value = input.legacy_disabled;
-    decision.source_key = "set_hotkeys_disabled";
+    decision.value                 = input.legacy_disabled;
+    decision.source_key            = "set_hotkeys_disabled";
     decision.used_deprecated_alias = true;
   }
 
   return decision;
 }
 
-HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pressed,
-                                                       bool enable_hotkeys_pressed,
-                                                       bool use_scopely_hotkeys,
-                                                       bool hotkeys_enabled)
+HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pressed, bool enable_hotkeys_pressed,
+                                                       bool use_scopely_hotkeys, bool hotkeys_enabled)
 {
-  return hotkey_router_startup_action(disable_hotkeys_pressed,
-                                      enable_hotkeys_pressed,
-                                      use_scopely_hotkeys ? ScopelyShortcutPolicy::Native
-                                                          : ScopelyShortcutPolicy::Off,
+  return hotkey_router_startup_action(disable_hotkeys_pressed, enable_hotkeys_pressed,
+                                      use_scopely_hotkeys ? ScopelyShortcutPolicy::Native : ScopelyShortcutPolicy::Off,
                                       hotkeys_enabled);
 }
 
-HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pressed,
-                                                       bool enable_hotkeys_pressed,
-                                                       ScopelyShortcutPolicy scopely_shortcuts,
-                                                       bool hotkeys_enabled)
+HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pressed, bool enable_hotkeys_pressed,
+                                                       ScopelyShortcutPolicy scopely_shortcuts, bool hotkeys_enabled)
 {
   if (disable_hotkeys_pressed) {
     return HotkeyRouterStartupAction::DisableHotkeys;
@@ -265,24 +246,23 @@ int hotkey_router_ship_select_request(const std::array<bool, 8>& ship_select_key
 }
 
 bool hotkey_router_should_clear_input_focus(bool escape_pressed, bool input_focused, bool is_in_chat)
-{
-  return escape_pressed && (input_focused || is_in_chat);
-}
+{ return escape_pressed && (input_focused || is_in_chat); }
 
 bool hotkey_router_should_toggle_queue(bool is_in_chat, bool input_focused, bool toggle_queue_pressed)
-{
-  return toggle_queue_pressed && !is_in_chat && !input_focused;
-}
+{ return toggle_queue_pressed && !is_in_chat && !input_focused; }
 
-HotkeyRouterDispatchAction hotkey_router_dispatch_action(bool entry_active,
-                                                         bool handler_stops,
+HotkeyRouterDispatchAction hotkey_router_dispatch_action(bool entry_active, bool handler_stops,
                                                          bool handler_allows_original)
+{ return hotkey_router_dispatch_action(entry_active, handler_stops, handler_allows_original, false); }
+
+HotkeyRouterDispatchAction hotkey_router_dispatch_action(bool entry_active, bool handler_stops,
+                                                         bool handler_allows_original, bool key_event_consumes_original)
 {
   if (!entry_active) {
     return HotkeyRouterDispatchAction::Continue;
   }
 
-  if (handler_stops) {
+  if (handler_stops || key_event_consumes_original) {
     return HotkeyRouterDispatchAction::SuppressOriginal;
   }
 
@@ -294,12 +274,9 @@ HotkeyRouterDispatchAction hotkey_router_dispatch_action(bool entry_active,
 }
 
 HotkeyRouterQuitAction hotkey_router_quit_action(const bool quit_pressed)
-{
-  return quit_pressed ? HotkeyRouterQuitAction::QuitProcess : HotkeyRouterQuitAction::None;
-}
+{ return quit_pressed ? HotkeyRouterQuitAction::QuitProcess : HotkeyRouterQuitAction::None; }
 
-HotkeyRouterSelectCurrentAction hotkey_router_select_current_action(const bool is_in_chat,
-                                                                    const bool input_focused,
+HotkeyRouterSelectCurrentAction hotkey_router_select_current_action(const bool is_in_chat, const bool input_focused,
                                                                     const bool select_current_pressed)
 {
   if (!select_current_pressed || is_in_chat || input_focused) {
@@ -309,8 +286,7 @@ HotkeyRouterSelectCurrentAction hotkey_router_select_current_action(const bool i
   return HotkeyRouterSelectCurrentAction::ViewActiveFleet;
 }
 
-HotkeyRouterChatOpenAction hotkey_router_chat_open_action(const bool                         is_in_chat,
-                                                          const bool                         input_focused,
+HotkeyRouterChatOpenAction hotkey_router_chat_open_action(const bool is_in_chat, const bool input_focused,
                                                           const bool                         side_chat_open,
                                                           const input_binding::InputActionId action)
 {
@@ -350,8 +326,7 @@ HotkeyRouterChatChannelAction hotkey_router_chat_channel_action(const bool      
   }
 }
 
-HotkeyRouterOfficerCanvasAction hotkey_router_officer_canvas_action(const bool                         is_in_chat,
-                                                                    const bool                         input_focused,
+HotkeyRouterOfficerCanvasAction hotkey_router_officer_canvas_action(const bool is_in_chat, const bool input_focused,
                                                                     const input_binding::InputActionId action)
 {
   if (is_in_chat || input_focused) {
@@ -368,8 +343,7 @@ HotkeyRouterOfficerCanvasAction hotkey_router_officer_canvas_action(const bool  
   }
 }
 
-input_binding::InputActionId hotkey_router_table_dispatch_request(const bool                         is_in_chat,
-                                                                  const bool                         input_focused,
+input_binding::InputActionId hotkey_router_table_dispatch_request(const bool is_in_chat, const bool input_focused,
                                                                   const input_binding::InputActionId action)
 {
   if (is_in_chat || input_focused) {
@@ -399,11 +373,12 @@ HotkeyRouterSimpleFleetAction hotkey_router_simple_fleet_action(const bool      
 // ---------------------------------------------------------------------------
 // Incoming attack policy
 // ---------------------------------------------------------------------------
-namespace {
-constexpr int kIncomingAttackTargetTypeStation = 3;
-constexpr int64_t kIncomingAttackGenericDedupeWindowSeconds = 10;
+namespace
+{
+constexpr int     kIncomingAttackTargetTypeStation             = 3;
+constexpr int64_t kIncomingAttackGenericDedupeWindowSeconds    = 10;
 constexpr int64_t kIncomingAttackIdentifiedDedupeWindowSeconds = 120;
-}
+} // namespace
 
 size_t IncomingAttackPolicyDedupKeyHasher::operator()(const IncomingAttackPolicyDedupKey& key) const noexcept
 {
@@ -416,36 +391,30 @@ size_t IncomingAttackPolicyDedupKeyHasher::operator()(const IncomingAttackPolicy
 
 bool operator==(const IncomingAttackPolicyDedupKey& lhs, const IncomingAttackPolicyDedupKey& rhs)
 {
-  return lhs.target_kind == rhs.target_kind && lhs.target_id == rhs.target_id &&
-      lhs.attacker_kind == rhs.attacker_kind && lhs.attacker_identity == rhs.attacker_identity;
+  return lhs.target_kind == rhs.target_kind && lhs.target_id == rhs.target_id && lhs.attacker_kind == rhs.attacker_kind
+         && lhs.attacker_identity == rhs.attacker_identity;
 }
 
 IncomingAttackPolicyDeduper::IncomingAttackPolicyDeduper(size_t max_entries)
-  : recent_(max_entries)
+    : recent_(max_entries)
 {
 }
 
 IncomingAttackPolicyDedupeResult IncomingAttackPolicyDeduper::should_emit(const IncomingAttackPolicyDedupKey& key,
                                                                           int64_t now_seconds)
 {
-  const auto now = DedupeClock::time_point{std::chrono::seconds(now_seconds)};
-  const auto ttl = std::chrono::seconds(incoming_attack_policy_dedupe_window_seconds(key));
+  const auto now           = DedupeClock::time_point{std::chrono::seconds(now_seconds)};
+  const auto ttl           = std::chrono::seconds(incoming_attack_policy_dedupe_window_seconds(key));
   const auto dedupe_result = recent_.should_emit(key, now, ttl);
-  return {dedupe_result.emitted,
-          dedupe_result.suppressed_by_window,
-          dedupe_result.evicted_oldest,
+  return {dedupe_result.emitted, dedupe_result.suppressed_by_window, dedupe_result.evicted_oldest,
           dedupe_result.cache_size};
 }
 
 size_t IncomingAttackPolicyDeduper::size() const
-{
-  return recent_.size();
-}
+{ return recent_.size(); }
 
 bool IncomingAttackPolicyDeduper::contains(const IncomingAttackPolicyDedupKey& key) const
-{
-  return recent_.contains(key);
-}
+{ return recent_.contains(key); }
 
 IncomingAttackPolicyAttackerKind incoming_attack_policy_attacker_kind_from_fleet_type(int attackerFleetType)
 {
@@ -487,14 +456,13 @@ IncomingAttackPolicyTargetKind incoming_attack_policy_target_kind(uint64_t fleet
   return IncomingAttackPolicyTargetKind::Global;
 }
 
-IncomingAttackPolicyDedupKey incoming_attack_policy_dedupe_key(uint64_t fleetId,
-                                                               int targetType,
+IncomingAttackPolicyDedupKey incoming_attack_policy_dedupe_key(uint64_t fleetId, int targetType,
                                                                IncomingAttackPolicyAttackerKind attackerKind,
-                                                               std::string_view attackerIdentity)
+                                                               std::string_view                 attackerIdentity)
 {
   const auto target_kind = incoming_attack_policy_target_kind(fleetId, targetType);
-  const auto target_id = target_kind == IncomingAttackPolicyTargetKind::Fleet ? fleetId : 0;
-  return { target_kind, target_id, attackerKind, std::string(attackerIdentity) };
+  const auto target_id   = target_kind == IncomingAttackPolicyTargetKind::Fleet ? fleetId : 0;
+  return {target_kind, target_id, attackerKind, std::string(attackerIdentity)};
 }
 
 const char* incoming_attack_policy_target_type_name(int targetType)
@@ -525,8 +493,7 @@ const char* incoming_attack_policy_title_for_kind(IncomingAttackPolicyAttackerKi
   }
 }
 
-std::string incoming_attack_policy_fleet_body(std::string_view shipName,
-                                              IncomingAttackPolicyAttackerKind attackerKind)
+std::string incoming_attack_policy_fleet_body(std::string_view shipName, IncomingAttackPolicyAttackerKind attackerKind)
 {
   const auto subject = shipName.empty() ? std::string{"fleet"} : std::string(shipName);
   switch (attackerKind) {
@@ -558,9 +525,7 @@ int64_t incoming_attack_policy_dedupe_window_seconds(const IncomingAttackPolicyD
 }
 
 bool incoming_attack_policy_consumes_toast_state(int state)
-{
-  return state == 5 || state == 6;
-}
+{ return state == 5 || state == 6; }
 
 // ---------------------------------------------------------------------------
 // Toast state enum values (mirrored from prime/Toast.h's ToastState enum
@@ -618,46 +583,86 @@ enum ToastStateValues {
 const char* toast_state_title(int state)
 {
   switch (state) {
-    case TS_Victory:                   return "Victory!";
-    case TS_Defeat:                    return "Defeat";
-    case TS_PartialVictory:            return "Partial Victory";
-    case TS_StationVictory:            return "Station Victory!";
-    case TS_StationDefeat:             return "Station Defeat";
-    case TS_StationBattle:             return "Station Under Attack!";
-    case TS_IncomingAttack:            return "Incoming Attack!";
-    case TS_IncomingAttackFaction:     return "Incoming Faction Attack!";
-    case TS_FleetBattle:               return "Fleet Battle";
-    case TS_ArmadaBattleWon:           return "Armada Victory!";
-    case TS_ArmadaBattleLost:          return "Armada Defeated";
-    case TS_ArmadaCreated:             return "Armada Created";
-    case TS_ArmadaCanceled:            return "Armada Canceled";
-    case TS_ArmadaIncomingAttack:      return "Armada Under Attack!";
-    case TS_AssaultVictory:            return "Assault Victory!";
-    case TS_AssaultDefeat:             return "Assault Defeat";
-    case TS_Tournament:                return "Event Progress";
-    case TS_ChainedEventScored:        return "Event Progress";
-    case TS_Achievement:               return "Achievement";
-    case TS_ChallengeComplete:         return "Challenge Complete";
-    case TS_ChallengeFailed:           return "Challenge Failed";
-    case TS_TakeoverVictory:           return "Takeover Victory!";
-    case TS_TakeoverDefeat:            return "Takeover Defeat";
-    case TS_TreasuryProgress:          return "Treasury Progress";
-    case TS_TreasuryFull:              return "Treasury Full";
-    case TS_WarchestProgress:          return "Warchest Progress";
-    case TS_WarchestFull:              return "Warchest Full";
-    case TS_FactionLevelUp:            return "Faction Level Up";
-    case TS_FactionLevelDown:          return "Faction Level Down";
-    case TS_FactionDiscovered:         return "Faction Discovered";
-    case TS_FactionWarning:            return "Faction Warning";
-    case TS_DiplomacyUpdated:          return "Diplomacy Updated";
-    case TS_StrikeHit:                 return "Strike Hit";
-    case TS_StrikeDefeat:              return "Strike Defeat";
-    case TS_SurgeWarmUpEnded:          return "Surge Started";
-    case TS_SurgeHostileGroupDefeated: return "Surge Hostiles Defeated";
-    case TS_SurgeTimeLeft:             return "Surge Time Warning";
-    case TS_ArenaTimeLeft:             return "Arena Time Warning";
-    case TS_FleetPresetApplied:        return "Fleet Preset Applied";
-    default:                           return nullptr;
+    case TS_Victory:
+      return "Victory!";
+    case TS_Defeat:
+      return "Defeat";
+    case TS_PartialVictory:
+      return "Partial Victory";
+    case TS_StationVictory:
+      return "Station Victory!";
+    case TS_StationDefeat:
+      return "Station Defeat";
+    case TS_StationBattle:
+      return "Station Under Attack!";
+    case TS_IncomingAttack:
+      return "Incoming Attack!";
+    case TS_IncomingAttackFaction:
+      return "Incoming Faction Attack!";
+    case TS_FleetBattle:
+      return "Fleet Battle";
+    case TS_ArmadaBattleWon:
+      return "Armada Victory!";
+    case TS_ArmadaBattleLost:
+      return "Armada Defeated";
+    case TS_ArmadaCreated:
+      return "Armada Created";
+    case TS_ArmadaCanceled:
+      return "Armada Canceled";
+    case TS_ArmadaIncomingAttack:
+      return "Armada Under Attack!";
+    case TS_AssaultVictory:
+      return "Assault Victory!";
+    case TS_AssaultDefeat:
+      return "Assault Defeat";
+    case TS_Tournament:
+      return "Event Progress";
+    case TS_ChainedEventScored:
+      return "Event Progress";
+    case TS_Achievement:
+      return "Achievement";
+    case TS_ChallengeComplete:
+      return "Challenge Complete";
+    case TS_ChallengeFailed:
+      return "Challenge Failed";
+    case TS_TakeoverVictory:
+      return "Takeover Victory!";
+    case TS_TakeoverDefeat:
+      return "Takeover Defeat";
+    case TS_TreasuryProgress:
+      return "Treasury Progress";
+    case TS_TreasuryFull:
+      return "Treasury Full";
+    case TS_WarchestProgress:
+      return "Warchest Progress";
+    case TS_WarchestFull:
+      return "Warchest Full";
+    case TS_FactionLevelUp:
+      return "Faction Level Up";
+    case TS_FactionLevelDown:
+      return "Faction Level Down";
+    case TS_FactionDiscovered:
+      return "Faction Discovered";
+    case TS_FactionWarning:
+      return "Faction Warning";
+    case TS_DiplomacyUpdated:
+      return "Diplomacy Updated";
+    case TS_StrikeHit:
+      return "Strike Hit";
+    case TS_StrikeDefeat:
+      return "Strike Defeat";
+    case TS_SurgeWarmUpEnded:
+      return "Surge Started";
+    case TS_SurgeHostileGroupDefeated:
+      return "Surge Hostiles Defeated";
+    case TS_SurgeTimeLeft:
+      return "Surge Time Warning";
+    case TS_ArenaTimeLeft:
+      return "Arena Time Warning";
+    case TS_FleetPresetApplied:
+      return "Fleet Preset Applied";
+    default:
+      return nullptr;
   }
 }
 
@@ -695,7 +700,10 @@ std::string strip_unity_rich_text(const std::string& s)
   while (i < s.size()) {
     if (s[i] == '<') {
       auto end = s.find('>', i);
-      if (end != std::string::npos) { i = end + 1; continue; }
+      if (end != std::string::npos) {
+        i = end + 1;
+        continue;
+      }
     }
     result += s[i++];
   }
@@ -716,13 +724,14 @@ std::string parse_hull_key(const std::string& key)
     s = s.substr(5);
 
   for (auto& c : s)
-    if (c == '_') c = ' ';
+    if (c == '_')
+      c = ' ';
 
   if (s.size() >= 2 && s[0] == 'L' && std::isdigit(s[1])) {
     auto space = s.find(' ');
     auto lvl   = s.substr(1, space == std::string::npos ? std::string::npos : space - 1);
     auto rest  = space == std::string::npos ? "" : s.substr(space);
-    s = "Lv." + lvl + rest;
+    s          = "Lv." + lvl + rest;
   }
 
   return s;
@@ -733,7 +742,8 @@ std::string parse_hull_key(const std::string& key)
 // ---------------------------------------------------------------------------
 std::string format_duration_short(int64_t seconds)
 {
-  if (seconds <= 0) return "";
+  if (seconds <= 0)
+    return "";
 
   auto hourPart   = seconds / 3600;
   auto minutePart = (seconds % 3600) / 60;
@@ -742,13 +752,15 @@ std::string format_duration_short(int64_t seconds)
   std::ostringstream out;
   if (hourPart > 0) {
     out << hourPart << "h";
-    if (minutePart > 0) out << ' ' << minutePart << "m";
+    if (minutePart > 0)
+      out << ' ' << minutePart << "m";
     return out.str();
   }
 
   if (minutePart > 0) {
     out << minutePart << "m";
-    if (secondPart > 0) out << ' ' << secondPart << "s";
+    if (secondPart > 0)
+      out << ' ' << secondPart << "s";
     return out.str();
   }
 
@@ -758,7 +770,8 @@ std::string format_duration_short(int64_t seconds)
 
 std::string format_cargo_fill_text(float fillLevel)
 {
-  if (!std::isfinite(fillLevel) || fillLevel < 0.0f) return "";
+  if (!std::isfinite(fillLevel) || fillLevel < 0.0f)
+    return "";
 
   auto percent = static_cast<int>(std::lround(std::clamp(fillLevel, 0.0f, 1.0f) * 100.0f));
   return "Current Cargo: " + std::to_string(percent) + "%";
@@ -816,48 +829,72 @@ std::string format_node_depleted_body(const std::string& shipName, const std::st
 FleetBarTransitionState fleet_bar_transition_state_from_value(int state)
 {
   switch (state) {
-    case 0: return FleetBarTransitionState::Unknown;
-    case 1: return FleetBarTransitionState::IdleInSpace;
-    case 2: return FleetBarTransitionState::Docked;
-    case 4: return FleetBarTransitionState::Mining;
-    case 8: return FleetBarTransitionState::Destroyed;
-    case 16: return FleetBarTransitionState::TieringUp;
-    case 32: return FleetBarTransitionState::Repairing;
-    case 56: return FleetBarTransitionState::CannotLaunch;
-    case 64: return FleetBarTransitionState::Battling;
-    case 128: return FleetBarTransitionState::WarpCharging;
-    case 256: return FleetBarTransitionState::Warping;
-    case 384: return FleetBarTransitionState::CanRemove;
-    case 504: return FleetBarTransitionState::CannotMove;
-    case 512: return FleetBarTransitionState::Impulsing;
-    case 899: return FleetBarTransitionState::CanManage;
-    case 1024: return FleetBarTransitionState::Capturing;
-    case 1541: return FleetBarTransitionState::CanRecall;
-    case 1543: return FleetBarTransitionState::CanEngage;
-    case 1989: return FleetBarTransitionState::Deployed;
-    case 1991: return FleetBarTransitionState::CanLocate;
-    default: return FleetBarTransitionState::Unknown;
+    case 0:
+      return FleetBarTransitionState::Unknown;
+    case 1:
+      return FleetBarTransitionState::IdleInSpace;
+    case 2:
+      return FleetBarTransitionState::Docked;
+    case 4:
+      return FleetBarTransitionState::Mining;
+    case 8:
+      return FleetBarTransitionState::Destroyed;
+    case 16:
+      return FleetBarTransitionState::TieringUp;
+    case 32:
+      return FleetBarTransitionState::Repairing;
+    case 56:
+      return FleetBarTransitionState::CannotLaunch;
+    case 64:
+      return FleetBarTransitionState::Battling;
+    case 128:
+      return FleetBarTransitionState::WarpCharging;
+    case 256:
+      return FleetBarTransitionState::Warping;
+    case 384:
+      return FleetBarTransitionState::CanRemove;
+    case 504:
+      return FleetBarTransitionState::CannotMove;
+    case 512:
+      return FleetBarTransitionState::Impulsing;
+    case 899:
+      return FleetBarTransitionState::CanManage;
+    case 1024:
+      return FleetBarTransitionState::Capturing;
+    case 1541:
+      return FleetBarTransitionState::CanRecall;
+    case 1543:
+      return FleetBarTransitionState::CanEngage;
+    case 1989:
+      return FleetBarTransitionState::Deployed;
+    case 1991:
+      return FleetBarTransitionState::CanLocate;
+    default:
+      return FleetBarTransitionState::Unknown;
   }
 }
 
 const char* fleet_bar_transition_notification_kind_name(FleetBarTransitionNotificationKind kind)
 {
   switch (kind) {
-    case FleetBarTransitionNotificationKind::ArrivedInSystem: return "ARRIVED_IN_SYSTEM";
-    case FleetBarTransitionNotificationKind::ArrivedAtDestination: return "ARRIVED_AT_DESTINATION";
-    case FleetBarTransitionNotificationKind::StartedMining: return "STARTED_MINING";
-    case FleetBarTransitionNotificationKind::RepairComplete: return "REPAIR_COMPLETE";
-    case FleetBarTransitionNotificationKind::Docked: return "DOCKED";
-    default: return "NONE";
+    case FleetBarTransitionNotificationKind::ArrivedInSystem:
+      return "ARRIVED_IN_SYSTEM";
+    case FleetBarTransitionNotificationKind::ArrivedAtDestination:
+      return "ARRIVED_AT_DESTINATION";
+    case FleetBarTransitionNotificationKind::StartedMining:
+      return "STARTED_MINING";
+    case FleetBarTransitionNotificationKind::RepairComplete:
+      return "REPAIR_COMPLETE";
+    case FleetBarTransitionNotificationKind::Docked:
+      return "DOCKED";
+    default:
+      return "NONE";
   }
 }
 
-bool fleet_bar_transition_arrived_in_system_event_enabled(bool osArrivedInSystemEnabled,
-                                                          bool audioEnabled,
+bool fleet_bar_transition_arrived_in_system_event_enabled(bool osArrivedInSystemEnabled, bool audioEnabled,
                                                           bool audioArrivedInSystemEnabled)
-{
-  return osArrivedInSystemEnabled || (audioEnabled && audioArrivedInSystemEnabled);
-}
+{ return osArrivedInSystemEnabled || (audioEnabled && audioArrivedInSystemEnabled); }
 
 bool fleet_bar_transition_should_notify_os(FleetBarTransitionNotificationKind kind, bool osArrivedInSystemEnabled)
 {
@@ -872,14 +909,12 @@ bool fleet_bar_transition_should_notify_os(FleetBarTransitionNotificationKind ki
   return true;
 }
 
-bool fleet_bar_transition_should_notify_audio(FleetBarTransitionNotificationKind kind,
-                                              bool audioEnabled,
+bool fleet_bar_transition_should_notify_audio(FleetBarTransitionNotificationKind kind, bool audioEnabled,
                                               bool audioArrivedInSystemEnabled)
-{
-  return kind == FleetBarTransitionNotificationKind::ArrivedInSystem && audioEnabled && audioArrivedInSystemEnabled;
-}
+{ return kind == FleetBarTransitionNotificationKind::ArrivedInSystem && audioEnabled && audioArrivedInSystemEnabled; }
 
-namespace {
+namespace
+{
 std::string fleet_notification_subject(const std::string& shipName)
 {
   if (shipName.empty() || shipName == "?") {
@@ -925,8 +960,8 @@ bool fleet_state_can_dock_from_space(FleetBarTransitionState state)
 }
 } // namespace
 
-FleetBarTransitionNotificationDecision fleet_bar_transition_notification_decision(
-    const FleetBarTransitionNotificationInput& input)
+FleetBarTransitionNotificationDecision
+fleet_bar_transition_notification_decision(const FleetBarTransitionNotificationInput& input)
 {
   FleetBarTransitionNotificationDecision decision;
 
@@ -944,9 +979,9 @@ FleetBarTransitionNotificationDecision fleet_bar_transition_notification_decisio
       return decision;
     }
 
-    decision.kind = FleetBarTransitionNotificationKind::ArrivedInSystem;
+    decision.kind  = FleetBarTransitionNotificationKind::ArrivedInSystem;
     decision.title = "Fleet Arrived";
-    decision.body = "Your " + subject + " has arrived in-system";
+    decision.body  = "Your " + subject + " has arrived in-system";
     return decision;
   }
 
@@ -955,9 +990,9 @@ FleetBarTransitionNotificationDecision fleet_bar_transition_notification_decisio
       return decision;
     }
 
-    decision.kind = FleetBarTransitionNotificationKind::ArrivedAtDestination;
+    decision.kind  = FleetBarTransitionNotificationKind::ArrivedAtDestination;
     decision.title = "Fleet Arrived";
-    decision.body = "Your " + subject + " has arrived at its destination";
+    decision.body  = "Your " + subject + " has arrived at its destination";
     return decision;
   }
 
@@ -966,9 +1001,9 @@ FleetBarTransitionNotificationDecision fleet_bar_transition_notification_decisio
       return decision;
     }
 
-    decision.kind = FleetBarTransitionNotificationKind::StartedMining;
-    decision.title = format_started_mining_title(input.ship_name, input.resource_name);
-    decision.body = format_started_mining_body(input.eta_text, input.cargo_text);
+    decision.kind             = FleetBarTransitionNotificationKind::StartedMining;
+    decision.title            = format_started_mining_title(input.ship_name, input.resource_name);
+    decision.body             = format_started_mining_body(input.eta_text, input.cargo_text);
     decision.clear_mining_eta = true;
     return decision;
   }
@@ -986,9 +1021,9 @@ FleetBarTransitionNotificationDecision fleet_bar_transition_notification_decisio
       return decision;
     }
 
-    decision.kind = FleetBarTransitionNotificationKind::RepairComplete;
+    decision.kind  = FleetBarTransitionNotificationKind::RepairComplete;
     decision.title = "Repair Complete";
-    decision.body = "Your " + subject + " finished repairs";
+    decision.body  = "Your " + subject + " finished repairs";
     return decision;
   }
 
@@ -1001,9 +1036,9 @@ FleetBarTransitionNotificationDecision fleet_bar_transition_notification_decisio
     return decision;
   }
 
-  decision.kind = FleetBarTransitionNotificationKind::Docked;
+  decision.kind  = FleetBarTransitionNotificationKind::Docked;
   decision.title = "Fleet Docked";
-  decision.body = "Your " + subject + " docked";
+  decision.body  = "Your " + subject + " docked";
   return decision;
 }
 
@@ -1013,15 +1048,20 @@ FleetBarTransitionNotificationDecision fleet_bar_transition_notification_decisio
 std::string BattleSummaryPreview::format_body() const
 {
   auto format_side = [](const std::string& name, const std::string& ship) -> std::string {
-    if (name.empty()) return "";
-    if (ship.empty()) return name;
+    if (name.empty())
+      return "";
+    if (ship.empty())
+      return name;
     return name + " (" + ship + ")";
   };
 
   auto left  = format_side(playerName, playerShip);
   auto right = format_side(enemyName, enemyShip);
-  if (left.empty() && right.empty()) return "";
-  if (left.empty()) return right;
-  if (right.empty()) return left;
+  if (left.empty() && right.empty())
+    return "";
+  if (left.empty())
+    return right;
+  if (right.empty())
+    return left;
   return left + " vs " + right;
 }

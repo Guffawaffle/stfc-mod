@@ -211,7 +211,8 @@ original_frame_policy = "mod"    # mod | fallthrough_unhandled | fallthrough_all
 Migration:
 
 - `use_scopely_hotkeys = true` maps to `scopely_shortcuts = "native"`.
-- `allow_key_fallthrough = true` maps to `original_frame_policy = "fallthrough_all"` and emits a warning that the new settings are split.
+- `allow_key_fallthrough = true` maps to `original_frame_policy = "fallthrough_unhandled"` and emits a warning that the new settings are split.
+- Runtime dispatch keeps exact-modifier semantics. `E` and `CTRL-E` are distinct chords; a handled modified key-down chord consumes the original game key event under unhandled fallthrough.
 
 Do not change live behavior until pure tests cover the decision matrix.
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "patches/gamefunctions.h"
+
 #include "prime/KeyCode.h"
 
 #include <array>
@@ -125,6 +127,67 @@ struct InputActionSpec {
   InputLayer       layer;
   ConflictGroup    conflict_group;
   uint16_t         priority;
+};
+
+enum class ActionCategory : uint8_t {
+  Fleet = 0,
+  Ships,
+  Chat,
+  Navigation,
+  Panels,
+  Interface,
+  Diagnostics,
+  System,
+  Camera,
+};
+
+enum class ActionExecutor : uint8_t {
+  None = 0,
+  FleetSpace,
+  FleetSimple,
+  FleetQueue,
+  ShipSelection,
+  SelectCurrent,
+  ChatOpen,
+  ChatChannel,
+  OfficerCanvas,
+  GlobalControl,
+  TableDispatch,
+  Zoom,
+};
+
+enum class NativeConsumePolicy : uint8_t {
+  Never = 0,
+  WhenHandled,
+  WhenChordMatches,
+};
+
+enum class ActionOutcome : uint8_t {
+  Ignored = 0,
+  Handled,
+};
+
+enum class OriginalInputOverride : uint8_t {
+  None = 0,
+  AllowOriginal,
+  SuppressOriginal,
+};
+
+struct ActionHandlerResult {
+  ActionOutcome         outcome        = ActionOutcome::Ignored;
+  OriginalInputOverride original_input = OriginalInputOverride::None;
+};
+
+using ActionHandler = ActionHandlerResult (*)();
+
+struct ActionSpec : InputActionSpec {
+  ActionCategory      category       = ActionCategory::System;
+  ActionExecutor      executor       = ActionExecutor::None;
+  GameFunction        game_function  = GameFunction::Max;
+  NativeConsumePolicy native_consume = NativeConsumePolicy::WhenHandled;
+  ActionHandler       handler        = nullptr;
+  bool                rebindable     = true;
+  bool                visible_in_ui  = true;
 };
 
 enum class ModifierGroup : uint8_t {
@@ -262,14 +325,14 @@ struct CompileResult {
   [[nodiscard]] bool has_conflicts() const;
 };
 
-[[nodiscard]] std::span<const InputActionSpec> ActionSpecs();
-[[nodiscard]] const InputActionSpec*           FindActionSpec(InputActionId id);
-[[nodiscard]] const InputActionSpec*           FindActionSpec(std::string_view canonical_key);
-[[nodiscard]] std::optional<KeyCode>           LookupKey(std::string_view key_name);
-[[nodiscard]] bool                             IsModifierKey(KeyCode key);
-[[nodiscard]] ParsedChord                      ParseChord(std::string_view chord_text);
-[[nodiscard]] ParsedBinding                    ParseBinding(std::string_view binding_text);
-[[nodiscard]] CompileResult                    CompileBindingSet(std::span<const BindingOverride> overrides = {});
+[[nodiscard]] std::span<const ActionSpec> ActionSpecs();
+[[nodiscard]] const ActionSpec*           FindActionSpec(InputActionId id);
+[[nodiscard]] const ActionSpec*           FindActionSpec(std::string_view canonical_key);
+[[nodiscard]] std::optional<KeyCode>      LookupKey(std::string_view key_name);
+[[nodiscard]] bool                        IsModifierKey(KeyCode key);
+[[nodiscard]] ParsedChord                 ParseChord(std::string_view chord_text);
+[[nodiscard]] ParsedBinding               ParseBinding(std::string_view binding_text);
+[[nodiscard]] CompileResult               CompileBindingSet(std::span<const BindingOverride> overrides = {});
 
 } // namespace input_binding
 

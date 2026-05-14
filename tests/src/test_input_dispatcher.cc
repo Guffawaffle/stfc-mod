@@ -13,9 +13,9 @@ TEST_SUITE("input_dispatcher")
     const auto compiled = input_binding::CompileBindingSet();
 
     input_binding::DispatchRequest request;
-    request.trigger_mode = input_binding::TriggerMode::Pressed;
-    request.phase = input_binding::InputPhase::NavigationZoomUpdate;
-    request.key = KeyCode::Q;
+    request.trigger_mode  = input_binding::TriggerMode::Pressed;
+    request.phase         = input_binding::InputPhase::NavigationZoomUpdate;
+    request.key           = KeyCode::Q;
     request.active_layers = input_binding::ActiveLayers::Only(input_binding::InputLayer::Zoom);
 
     auto plan = input_binding::PlanDispatch(compiled, request);
@@ -23,7 +23,7 @@ TEST_SUITE("input_dispatcher")
     CHECK(plan.winners[0].action == input_binding::InputActionId::ZoomIn);
 
     request.phase = input_binding::InputPhase::Frame;
-    plan = input_binding::PlanDispatch(compiled, request);
+    plan          = input_binding::PlanDispatch(compiled, request);
     CHECK(plan.empty());
   }
 
@@ -40,8 +40,8 @@ TEST_SUITE("input_dispatcher")
 
     input_binding::DispatchRequest request;
     request.trigger_mode = input_binding::TriggerMode::Down;
-    request.phase = input_binding::InputPhase::Frame;
-    request.key = KeyCode::Space;
+    request.phase        = input_binding::InputPhase::Frame;
+    request.key          = KeyCode::Space;
 
     const auto plan = input_binding::PlanDispatch(compiled, request);
     REQUIRE(plan.candidates.size() == 4);
@@ -63,8 +63,7 @@ TEST_SUITE("input_dispatcher")
         input_binding::ExecutionDecision::AllowOriginal,
         input_binding::ExecutionDecision::SuppressOriginal,
     };
-    CHECK(input_binding::CombineExecutionDecisions(suppresses)
-          == input_binding::ExecutionDecision::SuppressOriginal);
+    CHECK(input_binding::CombineExecutionDecisions(suppresses) == input_binding::ExecutionDecision::SuppressOriginal);
 
     const std::array no_opinion{
         input_binding::ExecutionDecision::NoOpinion,
@@ -86,15 +85,12 @@ TEST_SUITE("input_dispatcher")
         input_binding::DispatchKeyState{KeyCode::Q, {}, false, true},
     };
 
-    auto plan = input_binding::PlanDispatchSnapshot(compiled,
-                                                    input_binding::InputPhase::Frame,
-                                                    input_binding::ActiveLayers::All(),
-                                                    key_states);
+    auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                    input_binding::ActiveLayers::All(), key_states);
     REQUIRE(plan.winners.size() == 1);
     CHECK(plan.winners[0].action == input_binding::InputActionId::HotkeysDisable);
 
-    plan = input_binding::PlanDispatchSnapshot(compiled,
-                                               input_binding::InputPhase::NavigationZoomUpdate,
+    plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::NavigationZoomUpdate,
                                                input_binding::ActiveLayers::Only(input_binding::InputLayer::Zoom),
                                                key_states);
     REQUIRE(plan.winners.size() == 1);
@@ -115,19 +111,15 @@ TEST_SUITE("input_dispatcher")
         input_binding::DispatchKeyState{KeyCode::Space, {}, true, true},
     };
 
-    const auto plan = input_binding::PlanDispatchSnapshot(compiled,
-                                                          input_binding::InputPhase::Frame,
-                                                          input_binding::ActiveLayers::All(),
-                                                          key_states);
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(), key_states);
 
-    CHECK(plan.winner_lookup.Contains(input_binding::InputActionId::HotkeysDisable,
-                                      input_binding::InputLayer::Global));
-    CHECK(plan.winner_lookup.Contains(input_binding::InputActionId::FleetPrimary,
-                                      input_binding::InputLayer::Fleet));
-    CHECK_FALSE(plan.winner_lookup.Contains(input_binding::InputActionId::FleetService,
-                                            input_binding::InputLayer::Fleet));
-    CHECK(plan.winner_lookup.First(std::array{input_binding::InputActionId::FleetService,
-                                              input_binding::InputActionId::FleetPrimary})
+    CHECK(plan.winner_lookup.Contains(input_binding::InputActionId::HotkeysDisable, input_binding::InputLayer::Global));
+    CHECK(plan.winner_lookup.Contains(input_binding::InputActionId::FleetPrimary, input_binding::InputLayer::Fleet));
+    CHECK_FALSE(
+        plan.winner_lookup.Contains(input_binding::InputActionId::FleetService, input_binding::InputLayer::Fleet));
+    CHECK(plan.winner_lookup.First(
+              std::array{input_binding::InputActionId::FleetService, input_binding::InputActionId::FleetPrimary})
           == input_binding::InputActionId::FleetPrimary);
   }
 
@@ -140,32 +132,26 @@ TEST_SUITE("input_dispatcher")
     const auto compiled = input_binding::CompileBindingSet(overrides);
 
     input_binding::DispatchPlan plan;
-    const std::array disable_key_states{
+    const std::array            disable_key_states{
         input_binding::DispatchKeyState{KeyCode::F1, {}, true, true},
     };
 
-    input_binding::PlanDispatchSnapshot(compiled,
-                                        input_binding::InputPhase::Frame,
-                                        input_binding::ActiveLayers::All(),
-                                        disable_key_states,
-                                        plan);
-    CHECK(plan.winner_lookup.First(std::array{input_binding::InputActionId::HotkeysDisable,
-                                              input_binding::InputActionId::HotkeysEnable})
+    input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame, input_binding::ActiveLayers::All(),
+                                        disable_key_states, plan);
+    CHECK(plan.winner_lookup.First(
+              std::array{input_binding::InputActionId::HotkeysDisable, input_binding::InputActionId::HotkeysEnable})
           == input_binding::InputActionId::HotkeysDisable);
 
     const std::array enable_key_states{
         input_binding::DispatchKeyState{KeyCode::F2, {}, true, true},
     };
 
-    input_binding::PlanDispatchSnapshot(compiled,
-                                        input_binding::InputPhase::Frame,
-                                        input_binding::ActiveLayers::All(),
-                                        enable_key_states,
-                                        plan);
-    CHECK_FALSE(plan.winner_lookup.Contains(input_binding::InputActionId::HotkeysDisable,
-                                            input_binding::InputLayer::Global));
-    CHECK(plan.winner_lookup.First(std::array{input_binding::InputActionId::HotkeysDisable,
-                                              input_binding::InputActionId::HotkeysEnable})
+    input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame, input_binding::ActiveLayers::All(),
+                                        enable_key_states, plan);
+    CHECK_FALSE(
+        plan.winner_lookup.Contains(input_binding::InputActionId::HotkeysDisable, input_binding::InputLayer::Global));
+    CHECK(plan.winner_lookup.First(
+              std::array{input_binding::InputActionId::HotkeysDisable, input_binding::InputActionId::HotkeysEnable})
           == input_binding::InputActionId::HotkeysEnable);
   }
 
@@ -188,10 +174,8 @@ TEST_SUITE("input_dispatcher")
         input_binding::DispatchKeyState{KeyCode::Mouse1, {}, true, true},
     };
 
-    const auto plan = input_binding::PlanDispatchSnapshot(compiled,
-                                                          input_binding::InputPhase::Frame,
-                                                          input_binding::ActiveLayers::All(),
-                                                          key_states);
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(), key_states);
     REQUIRE(plan.candidates.size() == 4);
     REQUIRE(plan.winners.size() == 2);
     CHECK(plan.winners[0].conflict_group == input_binding::ConflictGroup::GlobalControl);
@@ -211,10 +195,8 @@ TEST_SUITE("input_dispatcher")
         input_binding::DispatchKeyState{KeyCode::F2, {}, true, true},
     };
 
-    const auto plan = input_binding::PlanDispatchSnapshot(compiled,
-                                                          input_binding::InputPhase::Frame,
-                                                          input_binding::ActiveLayers::All(),
-                                                          key_states);
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(), key_states);
     REQUIRE(plan.candidates.size() == 2);
     REQUIRE(plan.winners.size() == 1);
     CHECK(plan.winners[0].action == input_binding::InputActionId::UiScaleUp);
@@ -235,10 +217,8 @@ TEST_SUITE("input_dispatcher")
         input_binding::DispatchKeyState{KeyCode::F3, {}, true, true},
     };
 
-    const auto plan = input_binding::PlanDispatchSnapshot(compiled,
-                                                          input_binding::InputPhase::Frame,
-                                                          input_binding::ActiveLayers::All(),
-                                                          key_states);
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(), key_states);
     REQUIRE(plan.candidates.size() == 3);
     REQUIRE(plan.winners.size() == 1);
     CHECK(plan.winners[0].action == input_binding::InputActionId::ShowSettings);
@@ -259,13 +239,107 @@ TEST_SUITE("input_dispatcher")
         input_binding::DispatchKeyState{KeyCode::F3, {}, true, true},
     };
 
-    const auto plan = input_binding::PlanDispatchSnapshot(compiled,
-                                                          input_binding::InputPhase::Frame,
-                                                          input_binding::ActiveLayers::All(),
-                                                          key_states);
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(), key_states);
     REQUIRE(plan.candidates.size() == 3);
     REQUIRE(plan.winners.size() == 1);
     CHECK(plan.winners[0].action == input_binding::InputActionId::FleetQueueClear);
+  }
+
+  TEST_CASE("ALT-number cargo toggles do not also select ships")
+  {
+    const auto compiled = input_binding::CompileBindingSet();
+    const auto alt      = input_binding::ModifierMask::Logical(input_binding::ModifierGroup::Alt);
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::Alpha1, alt, true, true},
+    };
+
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(), key_states);
+
+    REQUIRE(plan.winners.size() == 1);
+    CHECK(plan.winner_lookup.Contains(input_binding::InputActionId::ToggleCargoDefault,
+                                      input_binding::InputLayer::Global));
+    CHECK_FALSE(
+        plan.winner_lookup.Contains(input_binding::InputActionId::SelectShip1, input_binding::InputLayer::Fleet));
+    CHECK(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
+  }
+
+  TEST_CASE("modified chords dispatch exactly without also matching the bare key")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::TogglePreviewLocate, "E"},
+        input_binding::BindingOverride{input_binding::InputActionId::TogglePreviewRecall, "CTRL-E"},
+    };
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+    const auto ctrl     = input_binding::ModifierMask::Logical(input_binding::ModifierGroup::Ctrl);
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::E, ctrl, true, true},
+    };
+
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(), key_states);
+
+    REQUIRE(plan.candidates.size() == 1);
+    REQUIRE(plan.winners.size() == 1);
+    CHECK(plan.winners[0].action == input_binding::InputActionId::TogglePreviewRecall);
+    CHECK_FALSE(plan.winner_lookup.Contains(input_binding::InputActionId::TogglePreviewLocate,
+                                            input_binding::InputLayer::Global));
+    CHECK(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
+  }
+
+  TEST_CASE("bare-key bindings do not match when an unbound modifier is held")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::TogglePreviewLocate, "E"},
+        input_binding::BindingOverride{input_binding::InputActionId::TogglePreviewRecall, "NONE"},
+    };
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+    const auto ctrl     = input_binding::ModifierMask::Logical(input_binding::ModifierGroup::Ctrl);
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::E, ctrl, true, true},
+    };
+
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(), key_states);
+
+    CHECK(plan.candidates.empty());
+    CHECK(plan.winners.empty());
+    CHECK_FALSE(plan.winner_lookup.Contains(input_binding::InputActionId::TogglePreviewLocate,
+                                            input_binding::InputLayer::Global));
+  }
+
+  TEST_CASE("space action original consumption follows the winning chord modifiers")
+  {
+    auto compiled = input_binding::CompileBindingSet();
+
+    std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::Space, {}, true, true},
+    };
+    auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                    input_binding::ActiveLayers::All(), key_states);
+    REQUIRE(plan.winner_lookup.Contains(input_binding::InputActionId::FleetPrimary, input_binding::InputLayer::Fleet));
+    CHECK_FALSE(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
+
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "CTRL-SPACE"},
+        input_binding::BindingOverride{input_binding::InputActionId::SelectCurrent, "NONE"},
+    };
+    compiled        = input_binding::CompileBindingSet(overrides);
+    const auto ctrl = input_binding::ModifierMask::Logical(input_binding::ModifierGroup::Ctrl);
+    key_states      = std::array{
+        input_binding::DispatchKeyState{KeyCode::Space, ctrl, true, true},
+    };
+
+    plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                               input_binding::ActiveLayers::All(), key_states);
+    REQUIRE(plan.winner_lookup.Contains(input_binding::InputActionId::FleetPrimary, input_binding::InputLayer::Fleet));
+    CHECK_FALSE(
+        plan.winner_lookup.Contains(input_binding::InputActionId::FleetService, input_binding::InputLayer::Fleet));
+    CHECK(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
   }
 
   TEST_CASE("watched keys are limited to requested actions and phase")
@@ -282,17 +356,14 @@ TEST_SUITE("input_dispatcher")
         input_binding::InputActionId::HotkeysEnable,
     };
 
-    const auto watched_keys = input_binding::WatchedKeysForActions(compiled,
-                                                                   input_binding::InputPhase::Frame,
-                                                                   actions);
+    const auto watched_keys = input_binding::WatchedKeysForActions(compiled, input_binding::InputPhase::Frame, actions);
     REQUIRE(watched_keys.size() == 3);
     CHECK(watched_keys[0] == KeyCode::F1);
     CHECK(watched_keys[1] == KeyCode::Mouse1);
     CHECK(watched_keys[2] == KeyCode::F2);
 
-    const auto zoom_keys = input_binding::WatchedKeysForActions(compiled,
-                                                                input_binding::InputPhase::NavigationZoomUpdate,
-                                                                std::array{input_binding::InputActionId::ZoomIn});
+    const auto zoom_keys = input_binding::WatchedKeysForActions(
+        compiled, input_binding::InputPhase::NavigationZoomUpdate, std::array{input_binding::InputActionId::ZoomIn});
     REQUIRE(zoom_keys.size() == 1);
     CHECK(zoom_keys[0] == KeyCode::Q);
   }
@@ -309,13 +380,12 @@ TEST_SUITE("input_dispatcher")
         input_binding::DispatchKeyState{KeyCode::Minus, modifiers, true, true},
         input_binding::DispatchKeyState{KeyCode::Equals, modifiers, false, false},
     };
-    const auto plan = input_binding::PlanDispatchSnapshot(compiled,
-                                                          input_binding::InputPhase::Frame,
-                                                          input_binding::ActiveLayers::Only(input_binding::InputLayer::Global),
-                                                          key_states);
+    const auto plan = input_binding::PlanDispatchSnapshot(
+        compiled, input_binding::InputPhase::Frame,
+        input_binding::ActiveLayers::Only(input_binding::InputLayer::Global), key_states);
 
     bool disable_hotkeys_pressed = false;
-    bool enable_hotkeys_pressed = false;
+    bool enable_hotkeys_pressed  = false;
     for (const auto& winner : plan.winners) {
       if (winner.action == input_binding::InputActionId::HotkeysDisable) {
         disable_hotkeys_pressed = true;

@@ -12,8 +12,8 @@
 
 #include <array>
 #include <chrono>
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <string_view>
 
@@ -32,7 +32,7 @@ struct HotkeyDisableShortcutAliasDecision {
   std::string value;
   std::string source_key;
   bool        used_deprecated_alias = false;
-  bool        saw_deprecated_alias = false;
+  bool        saw_deprecated_alias  = false;
   bool        has_conflicting_alias = false;
 };
 
@@ -53,10 +53,8 @@ const char*           original_frame_policy_name(OriginalFramePolicy policy);
 // Escape-exit policy at the real back-button seam. Returns true when the current
 // Escape-triggered back-button press should be suppressed instead of letting the
 // game open its exit prompt.
-bool should_suppress_escape_exit(bool disable_escape_exit,
-                 bool escape_pressed,
-                 int escape_exit_timer_ms,
-                 int64_t elapsed_ms_since_last_escape_press);
+bool should_suppress_escape_exit(bool disable_escape_exit, bool escape_pressed, int escape_exit_timer_ms,
+                                 int64_t elapsed_ms_since_last_escape_press);
 
 // Per-frame space-action routing policy after inputs are sampled.
 bool hotkey_router_should_execute_space_action(const SpaceActionInputs& inputs, bool deferred_retry_pending);
@@ -69,25 +67,19 @@ enum class FleetActionRequestMode {
 
 FleetActionRequestMode fleet_action_request_mode(bool wanted_state_available, bool help_state_active);
 const char*            fleet_action_request_mode_name(FleetActionRequestMode mode);
-bool                   hotkey_router_should_clear_deferred_space_action(bool forced_retry_pending,
-                                                                        uint64_t generation_before,
-                                                                        uint64_t generation_after);
+bool hotkey_router_should_clear_deferred_space_action(bool forced_retry_pending, uint64_t generation_before,
+                                                      uint64_t generation_after);
 
-bool space_action_duplicate_submission_should_suppress(uint64_t previous_fleet_id,
-                                                       uintptr_t previous_target_identity,
-                                                       uint64_t current_fleet_id,
-                                                       uintptr_t current_target_identity,
-                                                       int64_t elapsed_ms,
-                                                       int64_t suppression_window_ms);
+bool space_action_duplicate_submission_should_suppress(uint64_t previous_fleet_id, uintptr_t previous_target_identity,
+                                                       uint64_t current_fleet_id, uintptr_t current_target_identity,
+                                                       int64_t elapsed_ms, int64_t suppression_window_ms);
 
 // Translate canonical fleet winners into the current space-action compatibility inputs.
-SpaceActionInputs hotkey_router_runtime_space_action_inputs(bool fleet_primary_pressed,
-                              bool fleet_secondary_pressed,
-                              bool fleet_service_pressed);
+SpaceActionInputs hotkey_router_runtime_space_action_inputs(bool fleet_primary_pressed, bool fleet_secondary_pressed,
+                                                            bool fleet_service_pressed);
 
 // Resolve the canonical disable-hotkeys shortcut while accepting deprecated keys.
-HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(
-    const HotkeyDisableShortcutAliasInput& input);
+HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(const HotkeyDisableShortcutAliasInput& input);
 
 enum class HotkeyRouterStartupAction {
   Continue = 0,
@@ -103,20 +95,18 @@ enum class HotkeyRouterDispatchAction {
   AllowOriginal,
 };
 
-HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pressed,
-                                                       bool enable_hotkeys_pressed,
-                                                       bool use_scopely_hotkeys,
-                                                       bool hotkeys_enabled);
-HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pressed,
-                                                       bool enable_hotkeys_pressed,
-                                                       ScopelyShortcutPolicy scopely_shortcuts,
-                                                       bool hotkeys_enabled);
-int hotkey_router_ship_select_request(const std::array<bool, 8>& ship_select_keys_down);
+HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pressed, bool enable_hotkeys_pressed,
+                                                       bool use_scopely_hotkeys, bool hotkeys_enabled);
+HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pressed, bool enable_hotkeys_pressed,
+                                                       ScopelyShortcutPolicy scopely_shortcuts, bool hotkeys_enabled);
+int                       hotkey_router_ship_select_request(const std::array<bool, 8>& ship_select_keys_down);
 bool hotkey_router_should_clear_input_focus(bool escape_pressed, bool input_focused, bool is_in_chat);
 bool hotkey_router_should_toggle_queue(bool is_in_chat, bool input_focused, bool toggle_queue_pressed);
-HotkeyRouterDispatchAction hotkey_router_dispatch_action(bool entry_active,
-                                                         bool handler_stops,
+HotkeyRouterDispatchAction hotkey_router_dispatch_action(bool entry_active, bool handler_stops,
                                                          bool handler_allows_original);
+HotkeyRouterDispatchAction hotkey_router_dispatch_action(bool entry_active, bool handler_stops,
+                                                         bool handler_allows_original,
+                                                         bool key_event_consumes_original);
 
 enum class HotkeyRouterQuitAction {
   None = 0,
@@ -154,42 +144,36 @@ enum class HotkeyRouterSimpleFleetAction {
   ViewInfo,
 };
 
-HotkeyRouterQuitAction hotkey_router_quit_action(bool quit_pressed);
-HotkeyRouterSelectCurrentAction hotkey_router_select_current_action(bool is_in_chat,
-                                                                    bool input_focused,
+HotkeyRouterQuitAction          hotkey_router_quit_action(bool quit_pressed);
+HotkeyRouterSelectCurrentAction hotkey_router_select_current_action(bool is_in_chat, bool input_focused,
                                                                     bool select_current_pressed);
-HotkeyRouterChatOpenAction hotkey_router_chat_open_action(bool is_in_chat,
-                                                          bool input_focused,
-                                                          bool side_chat_open,
-                                                          input_binding::InputActionId action);
-HotkeyRouterChatChannelAction hotkey_router_chat_channel_action(bool is_in_chat,
-                                                                input_binding::InputActionId action);
-HotkeyRouterOfficerCanvasAction hotkey_router_officer_canvas_action(bool is_in_chat,
-                                                                    bool input_focused,
+HotkeyRouterChatOpenAction      hotkey_router_chat_open_action(bool is_in_chat, bool input_focused, bool side_chat_open,
+                                                               input_binding::InputActionId action);
+HotkeyRouterChatChannelAction   hotkey_router_chat_channel_action(bool is_in_chat, input_binding::InputActionId action);
+HotkeyRouterOfficerCanvasAction hotkey_router_officer_canvas_action(bool is_in_chat, bool input_focused,
                                                                     input_binding::InputActionId action);
-input_binding::InputActionId hotkey_router_table_dispatch_request(bool is_in_chat,
-                                                                  bool input_focused,
+input_binding::InputActionId    hotkey_router_table_dispatch_request(bool is_in_chat, bool input_focused,
+                                                                     input_binding::InputActionId action);
+HotkeyRouterSimpleFleetAction   hotkey_router_simple_fleet_action(bool                         input_focused,
                                                                   input_binding::InputActionId action);
-HotkeyRouterSimpleFleetAction hotkey_router_simple_fleet_action(bool input_focused,
-                                                                input_binding::InputActionId action);
 
 enum class IncomingAttackPolicyAttackerKind {
   Unknown = 0,
-  Player = 1,
+  Player  = 1,
   Hostile = 2,
 };
 
 enum class IncomingAttackPolicyTargetKind {
-  Global = 0,
-  Fleet = 1,
+  Global  = 0,
+  Fleet   = 1,
   Station = 2,
 };
 
 struct IncomingAttackPolicyDedupKey {
-  IncomingAttackPolicyTargetKind target_kind = IncomingAttackPolicyTargetKind::Global;
-  uint64_t target_id = 0;
+  IncomingAttackPolicyTargetKind   target_kind   = IncomingAttackPolicyTargetKind::Global;
+  uint64_t                         target_id     = 0;
   IncomingAttackPolicyAttackerKind attacker_kind = IncomingAttackPolicyAttackerKind::Unknown;
-  std::string attacker_identity;
+  std::string                      attacker_identity;
 };
 
 struct IncomingAttackPolicyDedupKeyHasher {
@@ -199,19 +183,20 @@ struct IncomingAttackPolicyDedupKeyHasher {
 bool operator==(const IncomingAttackPolicyDedupKey& lhs, const IncomingAttackPolicyDedupKey& rhs);
 
 struct IncomingAttackPolicyDedupeResult {
-  bool emitted = false;
-  bool suppressed_by_window = false;
-  bool evicted_oldest = false;
-  size_t cache_size = 0;
+  bool   emitted              = false;
+  bool   suppressed_by_window = false;
+  bool   evicted_oldest       = false;
+  size_t cache_size           = 0;
 };
 
-class IncomingAttackPolicyDeduper {
+class IncomingAttackPolicyDeduper
+{
 public:
   explicit IncomingAttackPolicyDeduper(size_t max_entries = 256);
 
   IncomingAttackPolicyDedupeResult should_emit(const IncomingAttackPolicyDedupKey& key, int64_t now_seconds);
-  size_t size() const;
-  bool contains(const IncomingAttackPolicyDedupKey& key) const;
+  size_t                           size() const;
+  bool                             contains(const IncomingAttackPolicyDedupKey& key) const;
 
 private:
   using DedupeClock = std::chrono::steady_clock;
@@ -220,19 +205,17 @@ private:
 };
 
 IncomingAttackPolicyAttackerKind incoming_attack_policy_attacker_kind_from_fleet_type(int attackerFleetType);
-const char* incoming_attack_policy_attacker_kind_name(IncomingAttackPolicyAttackerKind attackerKind);
+const char*                    incoming_attack_policy_attacker_kind_name(IncomingAttackPolicyAttackerKind attackerKind);
 IncomingAttackPolicyTargetKind incoming_attack_policy_target_kind(uint64_t fleetId, int targetType);
-IncomingAttackPolicyDedupKey incoming_attack_policy_dedupe_key(uint64_t fleetId,
-                                                               int targetType,
-                                                               IncomingAttackPolicyAttackerKind attackerKind,
-                                                               std::string_view attackerIdentity);
-const char* incoming_attack_policy_target_type_name(int targetType);
-const char* incoming_attack_policy_title_for_kind(IncomingAttackPolicyAttackerKind attackerKind);
-std::string incoming_attack_policy_fleet_body(std::string_view shipName,
-                                              IncomingAttackPolicyAttackerKind attackerKind);
+IncomingAttackPolicyDedupKey   incoming_attack_policy_dedupe_key(uint64_t fleetId, int targetType,
+                                                                 IncomingAttackPolicyAttackerKind attackerKind,
+                                                                 std::string_view                 attackerIdentity);
+const char*                    incoming_attack_policy_target_type_name(int targetType);
+const char*                    incoming_attack_policy_title_for_kind(IncomingAttackPolicyAttackerKind attackerKind);
+std::string incoming_attack_policy_fleet_body(std::string_view shipName, IncomingAttackPolicyAttackerKind attackerKind);
 std::string incoming_attack_policy_station_body(IncomingAttackPolicyAttackerKind attackerKind);
-int64_t incoming_attack_policy_dedupe_window_seconds(const IncomingAttackPolicyDedupKey& key);
-bool incoming_attack_policy_consumes_toast_state(int state);
+int64_t     incoming_attack_policy_dedupe_window_seconds(const IncomingAttackPolicyDedupKey& key);
+bool        incoming_attack_policy_consumes_toast_state(int state);
 
 // Toast state → human-readable title.  Returns nullptr for unknown states.
 const char* toast_state_title(int state);
@@ -288,13 +271,13 @@ enum class FleetBarTransitionNotificationKind {
 };
 
 struct FleetBarTransitionNotificationInput {
-  int old_state = 0;
-  int new_state = 0;
-  bool notify_arrived_in_system = false;
-  bool notify_arrived_at_destination = false;
-  bool notify_started_mining = false;
-  bool notify_docked = false;
-  bool notify_repair_complete = false;
+  int         old_state                     = 0;
+  int         new_state                     = 0;
+  bool        notify_arrived_in_system      = false;
+  bool        notify_arrived_at_destination = false;
+  bool        notify_started_mining         = false;
+  bool        notify_docked                 = false;
+  bool        notify_repair_complete        = false;
   std::string ship_name;
   std::string resource_name;
   std::string eta_text;
@@ -303,23 +286,21 @@ struct FleetBarTransitionNotificationInput {
 
 struct FleetBarTransitionNotificationDecision {
   FleetBarTransitionNotificationKind kind = FleetBarTransitionNotificationKind::None;
-  std::string title;
-  std::string body;
-  bool clear_mining_eta = false;
-  bool suppressed_ambiguous_docked = false;
+  std::string                        title;
+  std::string                        body;
+  bool                               clear_mining_eta            = false;
+  bool                               suppressed_ambiguous_docked = false;
 };
 
 FleetBarTransitionState fleet_bar_transition_state_from_value(int state);
-const char* fleet_bar_transition_notification_kind_name(FleetBarTransitionNotificationKind kind);
-bool fleet_bar_transition_arrived_in_system_event_enabled(bool osArrivedInSystemEnabled,
-                              bool audioEnabled,
-                              bool audioArrivedInSystemEnabled);
+const char*             fleet_bar_transition_notification_kind_name(FleetBarTransitionNotificationKind kind);
+bool fleet_bar_transition_arrived_in_system_event_enabled(bool osArrivedInSystemEnabled, bool audioEnabled,
+                                                          bool audioArrivedInSystemEnabled);
 bool fleet_bar_transition_should_notify_os(FleetBarTransitionNotificationKind kind, bool osArrivedInSystemEnabled);
-bool fleet_bar_transition_should_notify_audio(FleetBarTransitionNotificationKind kind,
-                        bool audioEnabled,
-                        bool audioArrivedInSystemEnabled);
-FleetBarTransitionNotificationDecision fleet_bar_transition_notification_decision(
-    const FleetBarTransitionNotificationInput& input);
+bool fleet_bar_transition_should_notify_audio(FleetBarTransitionNotificationKind kind, bool audioEnabled,
+                                              bool audioArrivedInSystemEnabled);
+FleetBarTransitionNotificationDecision
+fleet_bar_transition_notification_decision(const FleetBarTransitionNotificationInput& input);
 
 // Battle summary formatting
 struct BattleSummaryPreview {
