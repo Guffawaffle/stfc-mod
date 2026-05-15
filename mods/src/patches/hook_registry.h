@@ -65,9 +65,39 @@ private:
   void log_record(const HookInstallRecord& record) const;
 };
 
+/**
+ * @brief Process-global single-owner registry for IL2CPP detour targets.
+ *
+ * The community patch must never install two `SPUD_STATIC_DETOUR` hooks against
+ * the same IL2CPP method — on macOS the second installation can crash, and on
+ * both platforms it produces unpredictable call-through chains. Each call to
+ * `HOOK_REGISTRY_SPUD_STATIC_DETOUR` claims its target here, keyed on the
+ * resolved IL2CPP method pointer (not the descriptor name) so distinct
+ * overloads of the same method name resolve to distinct keys. A duplicate
+ * claim logs an error and, in `_MODDBG` builds, triggers `std::abort` so the
+ * conflict is impossible to miss in development.
+ *
+ * @param method_ptr The address SPUD will detour. nullptr is treated as a
+ *                   no-op claim (returns true) since callers must already have
+ *                   reported a missing method.
+ * @return true on the first claim of a given method pointer. false (with an
+ *         error log) on duplicate claims.
+ */
+bool hook_registry_claim_owner(const HookDescriptor& descriptor, std::string_view module, const void* method_ptr);
+
+/// Test-only: clear the global owner registry. Not for runtime use.
+void hook_registry_reset_owners_for_testing();
+
+/// Test-only: number of claims currently held in the owner registry.
+size_t hook_registry_owner_count_for_testing();
+
 #define HOOK_REGISTRY_SPUD_STATIC_DETOUR(registry, descriptor, addr, fn) \
   do { \
     (registry).record_detour_attempted((descriptor)); \
+    if (!hook_registry_claim_owner((descriptor), #registry, static_cast<const void*>(addr))) { \
+      (registry).record_detour_failed((descriptor), "duplicate detour owner — single-owner policy"); \
+      break; \
+    } \
     try { \
       SPUD_STATIC_DETOUR((addr), fn); \
       (registry).record_detour_installed((descriptor)); \

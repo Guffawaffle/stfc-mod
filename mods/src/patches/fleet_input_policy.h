@@ -95,3 +95,46 @@ FleetServiceOutcome   DecideFleetService(const FleetServiceDecisionInput& input)
 std::string_view FleetPrimaryOutcomeName(FleetPrimaryOutcome outcome) noexcept;
 std::string_view FleetSecondaryOutcomeName(FleetSecondaryOutcome outcome) noexcept;
 std::string_view FleetServiceOutcomeName(FleetServiceOutcome outcome) noexcept;
+
+// ---------------------------------------------------------------------------
+// Ship-selection (numeric hotkey) decision — issue #93.
+//
+// Pure helpers extracted from `HandleShipSelection` so the open-vs-locate
+// branch and the open-branch call sequence can be pinned by unit tests
+// without mocking IL2CPP. The imperative hook code in `fleet_actions.cc`
+// must reach the same conclusions via the same helpers.
+// ---------------------------------------------------------------------------
+
+enum class FleetSelectAction {
+  Open,   // RequestSelect + ElementAction (open the FleetPanel)
+  Locate, // HideInteraction + RequestViewFleet (re-center on already-open ship)
+};
+
+struct FleetSelectOpenPlan {
+  bool call_request_select = false;
+  bool call_element_action = false;
+  bool call_toggle_panel   = false;
+};
+
+constexpr FleetSelectAction DecideFleetSelectAction(const bool can_locate, const bool same_request_as_last,
+                                                    const bool index_already_selected,
+                                                    const bool within_select_timer) noexcept
+{
+  if (can_locate && same_request_as_last && index_already_selected && within_select_timer) {
+    return FleetSelectAction::Locate;
+  }
+  return FleetSelectAction::Open;
+}
+
+// The Open branch must call exactly RequestSelect + ElementAction, and must
+// NOT call TogglePanel. ElementAction is the game's own click handler and
+// already toggles the panel; an extra TogglePanel produces the double-toggle
+// regression that closed the panel immediately after opening it.
+constexpr FleetSelectOpenPlan FleetSelectOpenBranchPlan() noexcept
+{
+  return FleetSelectOpenPlan{
+      .call_request_select = true,
+      .call_element_action = true,
+      .call_toggle_panel   = false,
+  };
+}

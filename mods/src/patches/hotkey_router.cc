@@ -13,6 +13,8 @@
 
 #include "patches/hotkey_router.h"
 
+#include "patches/hotkey_router_native_fleet_guard.h"
+
 #include "patches/cargo_display.h"
 #include "patches/fleet_actions.h"
 #include "patches/hotkey_dispatch.h"
@@ -1278,27 +1280,14 @@ bool hotkey_router_should_call_original_screen_update(bool routerAllowsOriginal)
 
 bool hotkey_router_should_suppress_native_fleet_selection(const int32_t index)
 {
-  if (native_fleet_selection_guard_bypassed()) {
-    return false;
-  }
-
   const auto& slots = native_fleet_selection_guard().slots;
-  return index >= 0 && static_cast<size_t>(index) < slots.size() && slots[static_cast<size_t>(index)];
+  return hotkey_router_native_fleet::should_suppress(index, slots, native_fleet_selection_guard_bypassed());
 }
 
 bool hotkey_router_should_suppress_any_native_fleet_selection()
 {
-  if (native_fleet_selection_guard_bypassed()) {
-    return false;
-  }
-
-  for (const auto slot : native_fleet_selection_guard().slots) {
-    if (slot) {
-      return true;
-    }
-  }
-
-  return false;
+  const auto& slots = native_fleet_selection_guard().slots;
+  return hotkey_router_native_fleet::should_suppress_any(slots, native_fleet_selection_guard_bypassed());
 }
 
 HotkeyRouterNativeFleetSelectionBypass::HotkeyRouterNativeFleetSelectionBypass()
@@ -1307,9 +1296,7 @@ HotkeyRouterNativeFleetSelectionBypass::HotkeyRouterNativeFleetSelectionBypass()
 HotkeyRouterNativeFleetSelectionBypass::~HotkeyRouterNativeFleetSelectionBypass()
 {
   auto& depth = native_fleet_selection_bypass_depth();
-  if (depth > 0) {
-    --depth;
-  }
+  depth       = hotkey_router_native_fleet::bypass_decrement(depth);
 }
 
 bool hotkey_router_should_suppress_native_shortcuts()

@@ -672,9 +672,12 @@ bool HandleShipSelection(int ship_select_request)
       std::chrono::milliseconds                          select_diff =
           std::chrono::duration_cast<std::chrono::milliseconds>(select_now - select_clock);
       spdlog::debug("select_diff was {}ms", select_diff.count());
-      if (can_locate && ship_select_request == last_ship_select_request
-          && fleet_bar->IsIndexSelected(ship_select_request)
-          && select_diff < std::chrono::milliseconds((int)Config::Get().select_timer)) {
+      const bool same_request_as_last    = ship_select_request == last_ship_select_request;
+      const bool index_already_selected  = fleet_bar->IsIndexSelected(ship_select_request);
+      const bool within_select_timer     = select_diff < std::chrono::milliseconds((int)Config::Get().select_timer);
+      const FleetSelectAction action =
+          DecideFleetSelectAction(can_locate, same_request_as_last, index_already_selected, within_select_timer);
+      if (action == FleetSelectAction::Locate) {
         ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipLocate, ModImpactMonitorEnabled());
 
         auto fleet = fleet_bar->_fleetPanelController->fleet;
@@ -692,11 +695,15 @@ bool HandleShipSelection(int ship_select_request)
         ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipSelectPanel, ModImpactMonitorEnabled());
         HotkeyRouterNativeFleetSelectionBypass fleet_selection_bypass;
 
-        {
+        constexpr auto plan = FleetSelectOpenBranchPlan();
+        static_assert(plan.call_request_select && plan.call_element_action && !plan.call_toggle_panel,
+                      "Open-branch plan changed; HandleShipSelection must mirror it.");
+
+        if (plan.call_request_select) {
           ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipRequestSelect, ModImpactMonitorEnabled());
           fleet_bar->RequestSelect(ship_select_request);
         }
-        {
+        if (plan.call_element_action) {
           // ElementAction is the game's own fleet-bar click handler; it both selects
           // the ship and toggles the FleetPanel. A previous explicit fleet_bar->TogglePanel()
           // call here produced a double-toggle that briefly opened then immediately closed
@@ -704,6 +711,7 @@ bool HandleShipSelection(int ship_select_request)
           ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipElementAction, ModImpactMonitorEnabled());
           fleet_bar->ElementAction(ship_select_request);
         }
+        // plan.call_toggle_panel is intentionally false — see FleetSelectOpenBranchPlan().
       }
 
       last_ship_select_request = ship_select_request;

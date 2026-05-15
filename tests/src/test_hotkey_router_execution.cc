@@ -1,5 +1,7 @@
 #include "test_pure_common.h"
 
+#include "patches/hotkey_router_native_fleet_guard.h"
+
 TEST_SUITE("hotkey_router_execution")
 {
   TEST_CASE("startup helpers still cover hotkey disable enable and fallthrough")
@@ -113,5 +115,96 @@ TEST_SUITE("hotkey_router_execution")
     CHECK_FALSE(should_call_original_screen_update(false, OriginalFramePolicy::Mod));
     CHECK(should_call_original_screen_update(true, OriginalFramePolicy::Mod));
     CHECK(should_call_original_screen_update(false, OriginalFramePolicy::FallthroughAll));
+  }
+
+  // -------------------------------------------------------------------------
+  // Native fleet-selection guard / RAII bypass (issues #94, #96)
+  // -------------------------------------------------------------------------
+
+  TEST_CASE("native fleet-selection guard suppresses only the armed slot")
+  {
+    using hotkey_router_native_fleet::should_suppress;
+    std::array<bool, hotkey_router_native_fleet::kSlotCount> slots{};
+    slots[3] = true;
+
+    CHECK(should_suppress(3, slots, false));
+    CHECK_FALSE(should_suppress(2, slots, false));
+    CHECK_FALSE(should_suppress(4, slots, false));
+  }
+
+  TEST_CASE("native fleet-selection guard rejects out-of-range indices")
+  {
+    using hotkey_router_native_fleet::should_suppress;
+    std::array<bool, hotkey_router_native_fleet::kSlotCount> slots{};
+    slots[0] = true;
+    slots[7] = true;
+
+    CHECK_FALSE(should_suppress(-1, slots, false));
+    CHECK_FALSE(should_suppress(8, slots, false));
+    CHECK_FALSE(should_suppress(99, slots, false));
+    CHECK(should_suppress(0, slots, false));
+    CHECK(should_suppress(7, slots, false));
+  }
+
+  TEST_CASE("native fleet-selection bypass disables suppression for both per-slot and any queries")
+  {
+    using hotkey_router_native_fleet::should_suppress;
+    using hotkey_router_native_fleet::should_suppress_any;
+    std::array<bool, hotkey_router_native_fleet::kSlotCount> slots{};
+    slots[2] = true;
+
+    CHECK(should_suppress(2, slots, false));
+    CHECK(should_suppress_any(slots, false));
+
+    CHECK_FALSE(should_suppress(2, slots, true));
+    CHECK_FALSE(should_suppress_any(slots, true));
+  }
+
+  TEST_CASE("any-suppression query reflects whether any slot is armed")
+  {
+    using hotkey_router_native_fleet::should_suppress_any;
+    std::array<bool, hotkey_router_native_fleet::kSlotCount> slots{};
+
+    CHECK_FALSE(should_suppress_any(slots, false));
+
+    slots[5] = true;
+    CHECK(should_suppress_any(slots, false));
+
+    slots[5] = false;
+    slots[0] = true;
+    CHECK(should_suppress_any(slots, false));
+  }
+
+  TEST_CASE("RAII bypass counter saturates at zero so unbalanced destructors cannot underflow")
+  {
+    using hotkey_router_native_fleet::bypass_decrement;
+
+    CHECK(bypass_decrement(2) == 1);
+    CHECK(bypass_decrement(1) == 0);
+    CHECK(bypass_decrement(0) == 0);
+    CHECK(bypass_decrement(-3) == -3); // already pathological; stay put rather than make it worse
+  }
+
+  TEST_CASE("nested RAII bypass keeps suppression disabled until the outermost scope exits")
+  {
+    using hotkey_router_native_fleet::bypass_decrement;
+    using hotkey_router_native_fleet::should_suppress_any;
+    std::array<bool, hotkey_router_native_fleet::kSlotCount> slots{};
+    slots[1] = true;
+
+    int depth = 0;
+    CHECK(should_suppress_any(slots, depth > 0));
+
+    ++depth;
+    CHECK_FALSE(should_suppress_any(slots, depth > 0));
+
+    ++depth;
+    CHECK_FALSE(should_suppress_any(slots, depth > 0));
+
+    depth = bypass_decrement(depth);
+    CHECK_FALSE(should_suppress_any(slots, depth > 0));
+
+    depth = bypass_decrement(depth);
+    CHECK(should_suppress_any(slots, depth > 0));
   }
 }

@@ -1,7 +1,10 @@
 #include "patches/hook_registry.h"
 
 #include <algorithm>
+#include <cstdlib>
+#include <mutex>
 #include <sstream>
+#include <unordered_map>
 
 #include <spdlog/spdlog.h>
 
@@ -166,4 +169,74 @@ void HookModuleHealth::log_record(const HookInstallRecord& record) const
                 record.descriptor.purpose,
                 record.descriptor.likely_symptom,
                 record.detail);
+}
+
+// ---------------------------------------------------------------------------
+// Process-global single-owner registry (issue #97).
+//
+// Indexed by the resolved IL2CPP method pointer — that is the actual unit
+// SPUD/MinHook would conflict on. Keying on descriptor name or class.method
+// would false-positive on distinct overloads of the same method name (e.g.
+// FleetBarViewController.RequestSelect(int, bool) vs RequestSelect(Component,
+// bool) — both resolved separately via GetMethodSpecial).
+// ---------------------------------------------------------------------------
+
+namespace {
+struct OwnerEntry {
+  std::string hook_name;
+  std::string module;
+  std::string target;
+};
+
+std::mutex& owner_registry_mutex()
+{
+  static std::mutex m;
+  return m;
+}
+
+std::unordered_map<const void*, OwnerEntry>& owner_registry()
+{
+  static std::unordered_map<const void*, OwnerEntry> entries;
+  return entries;
+}
+} // namespace
+
+bool hook_registry_claim_owner(const HookDescriptor& descriptor, const std::string_view module, const void* method_ptr)
+{
+  if (method_ptr == nullptr) {
+    // Caller already reported the missing method. Don't add a noisy log.
+    return true;
+  }
+
+  std::lock_guard<std::mutex> lock(owner_registry_mutex());
+  auto&                       entries = owner_registry();
+
+  if (const auto it = entries.find(method_ptr); it != entries.end()) {
+    spdlog::error("[HookOwnerConflict] target={} already owned by hook='{}' (module={}); duplicate claim by hook='{}' "
+                  "(module={}, target={}). Refusing to install second detour.",
+                  it->second.target, it->second.hook_name, it->second.module, descriptor.name, module,
+                  hook_target_string(descriptor.target));
+#if _MODDBG
+    // In debug builds, fail loud so the conflict cannot be missed during development.
+    std::abort();
+#else
+    return false;
+#endif
+  }
+
+  entries.emplace(method_ptr, OwnerEntry{std::string(descriptor.name), std::string(module),
+                                         hook_target_string(descriptor.target)});
+  return true;
+}
+
+void hook_registry_reset_owners_for_testing()
+{
+  std::lock_guard<std::mutex> lock(owner_registry_mutex());
+  owner_registry().clear();
+}
+
+size_t hook_registry_owner_count_for_testing()
+{
+  std::lock_guard<std::mutex> lock(owner_registry_mutex());
+  return owner_registry().size();
 }

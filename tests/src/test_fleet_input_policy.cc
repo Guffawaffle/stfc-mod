@@ -186,6 +186,36 @@ TEST_SUITE("fleet_input_policy")
     CHECK(FleetSecondaryOutcomeName(FleetSecondaryOutcome::ScanMining) == "scan-mining");
     CHECK(FleetServiceOutcomeName(FleetServiceOutcome::Repair) == "repair");
   }
+
+  // -------------------------------------------------------------------------
+  // Ship-selection (numeric hotkey) decision — issue #93
+  // -------------------------------------------------------------------------
+
+  TEST_CASE("ship selection chooses Locate only when all four conditions hold")
+  {
+    CHECK(DecideFleetSelectAction(true, true, true, true) == FleetSelectAction::Locate);
+
+    // Any single condition false drops back to Open.
+    CHECK(DecideFleetSelectAction(false, true, true, true) == FleetSelectAction::Open);
+    CHECK(DecideFleetSelectAction(true, false, true, true) == FleetSelectAction::Open);
+    CHECK(DecideFleetSelectAction(true, true, false, true) == FleetSelectAction::Open);
+    CHECK(DecideFleetSelectAction(true, true, true, false) == FleetSelectAction::Open);
+
+    // All-false also lands on Open.
+    CHECK(DecideFleetSelectAction(false, false, false, false) == FleetSelectAction::Open);
+  }
+
+  TEST_CASE("ship selection open-branch plan calls RequestSelect and ElementAction but never TogglePanel")
+  {
+    constexpr auto plan = FleetSelectOpenBranchPlan();
+
+    CHECK(plan.call_request_select);
+    CHECK(plan.call_element_action);
+    // Regression guard: an extra TogglePanel call here previously double-toggled
+    // the FleetPanel, briefly opening then immediately closing it. ElementAction
+    // is the game's own click handler and already toggles the panel.
+    CHECK_FALSE(plan.call_toggle_panel);
+  }
 }
 
 TEST_SUITE("fleet_deferred_action")

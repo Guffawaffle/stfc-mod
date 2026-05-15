@@ -357,6 +357,90 @@ select_current = "CTRL-SPACE"
     CHECK(current->source_key == "[shortcuts].select_current");
   }
 
+  // -------------------------------------------------------------------------
+  // Empty / whitespace binding handling (issue #95)
+  // -------------------------------------------------------------------------
+
+  TEST_CASE("empty binding string disables the action via NONE sentinel")
+  {
+    const auto config = toml::parse(R"(
+[shortcuts]
+select_ship1 = ""
+)");
+
+    const auto bridge = input_binding::ResolveInputBindingConfig(config);
+    const auto ship1  = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::SelectShip1;
+    });
+
+    REQUIRE(ship1 != bridge.bindings.end());
+    CHECK(ship1->binding == "NONE");
+    CHECK(ship1->source_key == "[shortcuts].select_ship1");
+  }
+
+  TEST_CASE("whitespace-only binding string is treated as empty (NONE sentinel)")
+  {
+    const auto config = toml::parse(R"(
+[shortcuts]
+select_ship1 = "   "
+)");
+
+    const auto bridge = input_binding::ResolveInputBindingConfig(config);
+    const auto ship1  = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::SelectShip1;
+    });
+
+    REQUIRE(ship1 != bridge.bindings.end());
+    CHECK(ship1->binding == "NONE");
+  }
+
+  TEST_CASE("array binding ignores empty items, keeps valid items, and warns")
+  {
+    const auto config = toml::parse(R"(
+[shortcuts]
+select_ship1 = ["", "1"]
+)");
+
+    const auto bridge = input_binding::ResolveInputBindingConfig(config);
+    const auto ship1  = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::SelectShip1;
+    });
+
+    REQUIRE(ship1 != bridge.bindings.end());
+    CHECK(ship1->binding == "1");
+
+    const bool warned_for_empty_item =
+        std::ranges::any_of(bridge.compatibility_warnings, [](const std::string& warning) {
+          return warning.find("select_ship1[0]") != std::string::npos
+                 && warning.find("empty after trimming") != std::string::npos;
+        });
+    CHECK(warned_for_empty_item);
+  }
+
+  TEST_CASE("array binding with no valid items falls back to default and warns")
+  {
+    const auto config = toml::parse(R"(
+[shortcuts]
+select_ship1 = ["", "   "]
+)");
+
+    const auto bridge = input_binding::ResolveInputBindingConfig(config);
+    const auto ship1  = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::SelectShip1;
+    });
+
+    REQUIRE(ship1 != bridge.bindings.end());
+    CHECK(ship1->binding == "1"); // SelectShip1 default
+    CHECK(ship1->source_kind == input_binding::BindingConfigSourceKind::Default);
+
+    const bool warned_for_no_valid_items =
+        std::ranges::any_of(bridge.compatibility_warnings, [](const std::string& warning) {
+          return warning.find("select_ship1") != std::string::npos
+                 && warning.find("no valid string items") != std::string::npos;
+        });
+    CHECK(warned_for_no_valid_items);
+  }
+
   TEST_CASE("config bridge accepts migrated chat and officer canvas aliases")
   {
     const auto config = toml::parse(R"(

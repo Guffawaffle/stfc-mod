@@ -201,6 +201,26 @@ Later in this session, `OnShipRecallAction` was re-enabled only after changing i
    Current likely explanations to test:
 
    - `C` is being handled entirely by the mod dispatcher under the current bindings/policy.
+
+## Detour Single-Owner Policy (issue #97)
+
+`mods/src/patches/hook_registry.h` now provides
+`hook_registry_claim_owner(descriptor, module)`, called automatically by every
+`HOOK_REGISTRY_SPUD_STATIC_DETOUR` site. The first installer to claim a given
+`(assembly, namespace, class, method)` tuple wins. A second claim on the same
+target logs `[HookOwnerConflict]` with both owners, refuses to install the
+duplicate, and — in `_MODDBG` (releasedbg) builds — calls `std::abort` so the
+conflict is impossible to miss in development.
+
+Audit performed against the current tree (see `detour_inventory.txt` produced
+during the #97 sprint): no two `SPUD_STATIC_DETOUR` sites target the same
+IL2CPP method. The repeated `DataContainer_ParseBinaryObject` and
+`GameServerModelRegistry_ProcessResultInternal` trampolines in
+`mods/src/patches/parts/sync.cc` resolve different methods on different classes
+each time (one `ParseBinaryObject` per data-container class). The bare
+`SPUD_STATIC_DETOUR` sites are NOT yet covered by the registry; convert call
+sites to `HOOK_REGISTRY_SPUD_STATIC_DETOUR` opportunistically when touching
+them.
    - `scopely_shortcuts=fallback` leaves the chat path inactive unless a different native binding or UI state is present.
 
 5. If the goal is ABI validation rather than chat specifically, continue with a low-impact callback that is known to fire under the current fallback policy instead of assuming chat is the next reachable seam.
