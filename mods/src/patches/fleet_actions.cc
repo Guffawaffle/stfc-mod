@@ -697,12 +697,12 @@ bool HandleShipSelection(int ship_select_request)
           fleet_bar->RequestSelect(ship_select_request);
         }
         {
+          // ElementAction is the game's own fleet-bar click handler; it both selects
+          // the ship and toggles the FleetPanel. A previous explicit fleet_bar->TogglePanel()
+          // call here produced a double-toggle that briefly opened then immediately closed
+          // the panel. ElementAction alone is sufficient to surface the panel.
           ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipElementAction, ModImpactMonitorEnabled());
           fleet_bar->ElementAction(ship_select_request);
-        }
-        {
-          ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipTogglePanel, ModImpactMonitorEnabled());
-          fleet_bar->TogglePanel();
         }
       }
 
