@@ -691,10 +691,13 @@ void parse_config_shortcut_value(toml::table& new_config, std::string_view item,
   auto valueTrimmed = StripTrailingAsciiWhitespace(config_value);
   auto valueLowered = AsciiStrToUpper(valueTrimmed);
 
-  // "NONE" explicitly unbinds this shortcut — no key mapping, no default fallback
-  if (valueLowered == "NONE") {
+  // "NONE" — or an empty/whitespace-only value — explicitly unbinds this shortcut.
+  // Empty-string was previously treated as "missing" and silently fell back to the default
+  // key (e.g. show_bookmarks="" still bound B). That contradicts user intent: people set
+  // show_bookmarks="" precisely to disable the binding. Treat empty the same as "NONE".
+  if (valueLowered == "NONE" || valueTrimmed.empty()) {
     sectionTable.as_table()->insert_or_assign(item, "NONE");
-    spdlog::debug("shortcut value {}.{} value: NONE (unbound)", section, item);
+    spdlog::debug("shortcut value {}.{} value: NONE (unbound; empty treated as NONE)", section, item);
     return;
   }
 

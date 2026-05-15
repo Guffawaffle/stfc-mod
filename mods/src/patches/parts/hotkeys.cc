@@ -30,17 +30,20 @@
 
 namespace
 {
-constexpr bool kEnableShortcutInitializeHook            = true;
-constexpr bool kEnableShortcutLateUpdateGuardHook       = true;
-constexpr bool kEnableRewardsButtonHook                 = true;
-constexpr bool kEnablePreScanTargetHook                 = true;
-constexpr bool kEnableSectionManagerBackButtonHook      = true;
-constexpr bool kEnableNavigationSetCourseHook           = true;
-constexpr bool kEnableFleetBarSelectionGuardHooks       = true;
-constexpr bool kEnableNativeShortcutShipManageProbeHook = true;
-constexpr bool kEnableNativeShortcutShipLocateProbeHook = true;
-constexpr bool kEnableNativeShortcutShipRecallProbeHook = true;
-constexpr bool kEnableNativeShortcutChatProbeHook       = true;
+constexpr bool kEnableShortcutInitializeHook       = true;
+constexpr bool kEnableShortcutLateUpdateGuardHook  = true;
+constexpr bool kEnableRewardsButtonHook            = true;
+constexpr bool kEnablePreScanTargetHook            = true;
+constexpr bool kEnableSectionManagerBackButtonHook = true;
+constexpr bool kEnableNavigationSetCourseHook      = true;
+constexpr bool kEnableFleetBarSelectionGuardHooks  = true;
+// Native shortcut probes disabled: instrumented detours on ShortcutsManager
+// callbacks were correlated with crashes on certain key presses (e.g. B). Keep
+// these off unless actively re-enabling diagnostics.
+constexpr bool kEnableNativeShortcutShipManageProbeHook = false;
+constexpr bool kEnableNativeShortcutShipLocateProbeHook = false;
+constexpr bool kEnableNativeShortcutShipRecallProbeHook = false;
+constexpr bool kEnableNativeShortcutChatProbeHook       = false;
 constexpr bool kEnableNativeShortcutSideChatProbeHook   = false;
 
 const char* initialize_actions_reason()
@@ -83,9 +86,9 @@ constexpr HookDescriptor kShortcutShipLocateProbeHook = {
 
 constexpr HookDescriptor kShortcutShipRecallProbeHook = {
     "ShortcutsManager.OnShipRecallAction",
-    "guard native ship-recall shortcut callbacks when the unified input dispatcher owns the current chord",
+  "guard native ship-recall shortcut callbacks when the unified input dispatcher owns the current chord",
     {"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager", "OnShipRecallAction"},
-    "native ship-recall shortcut callback guard unavailable",
+  "native ship-recall shortcut callback guard unavailable",
 };
 
 constexpr HookDescriptor kShortcutChatProbeHook = {
@@ -168,9 +171,15 @@ constexpr auto kSetCourseSubmissionSource           = uint64_t{1};
 
 SetCourseSubmission last_set_course_submission;
 
+// Mirrors UnityEngine.InputSystem.InputAction+CallbackContext (16-byte struct, x64).
+// Layout per il2cpp dump: { InputActionState* m_State; int m_ActionIndex; int m_BindingIndex; }.
+// On the Windows x64 ABI a 16-byte struct argument is passed by reference
+// (caller-allocated storage), so probe hooks receive a `void*` that points
+// to an instance of this layout.
 struct InputActionCallbackContext {
-  void*   state        = nullptr;
-  int32_t action_index = -1;
+  void*   state         = nullptr;
+  int32_t action_index  = -1;
+  int32_t binding_index = -1;
 };
 
 static_assert(sizeof(InputActionCallbackContext) == 16);
@@ -279,29 +288,41 @@ void log_native_shortcut_probe(const char* callback, const InputActionCallbackCo
 
 void log_native_shortcut_probe_pointer(const char* callback, const void* context)
 {
+  // The void* is a pointer to a 16-byte InputAction.CallbackContext. UI-button-driven
+  // invocations pass a default-constructed (zeroed) context with state == nullptr;
+  // keyboard-driven invocations from Unity's InputSystem carry a non-null state pointer.
+  // Logging all three fields lets us validate that discriminator before we wire it into
+  // suppression decisions.
+  const auto* typed       = static_cast<const InputActionCallbackContext*>(context);
+  const void* state_ptr   = typed ? typed->state : nullptr;
+  const auto  action_idx  = typed ? typed->action_index : -1;
+  const auto  binding_idx = typed ? typed->binding_index : -1;
+  const char* source      = (state_ptr == nullptr) ? "ui-or-direct" : "keyboard-or-input-system";
   spdlog::info("[HotkeyProbe] native-shortcut callback={} suppress_native_shortcuts={} context_ptr={:p} "
+               "state_ptr={:p} action_index={} binding_index={} source={} "
                "hotkeys_enabled={} scopely_shortcuts={} original_frame_policy={}",
-               callback, hotkey_router_should_suppress_native_shortcuts(), context, Config::Get().hotkeys_enabled,
+               callback, hotkey_router_should_suppress_native_shortcuts(), context, state_ptr, action_idx,
+               binding_idx, source, Config::Get().hotkeys_enabled,
                scopely_shortcut_policy_name(ScopelyShortcutsPolicy()),
                original_frame_policy_name(OriginalFramePolicySetting()));
 }
 
 } // namespace
 
-#define INSTALL_SHORTCUTS_MANAGER_PROBE_HOOK(hooks, descriptor, hook_fn)                                               \
-  do {                                                                                                                 \
-    auto shortcuts_manager_helper =                                                                                    \
-        il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager");                       \
-    if (!shortcuts_manager_helper.isValidHelper()) {                                                                   \
-      (hooks).record_missing_helper((descriptor));                                                                     \
-    } else {                                                                                                           \
-      auto method = shortcuts_manager_helper.GetMethod((descriptor).target.method_name.data(), 1);                     \
-      if (method == nullptr) {                                                                                         \
-        (hooks).record_missing_method((descriptor));                                                                   \
-      } else {                                                                                                         \
-        HOOK_REGISTRY_SPUD_STATIC_DETOUR((hooks), (descriptor), method, hook_fn);                                      \
-      }                                                                                                                \
-    }                                                                                                                  \
+#define INSTALL_SHORTCUTS_MANAGER_PROBE_HOOK(hooks, descriptor, hook_fn) \
+  do { \
+    auto shortcuts_manager_helper = \
+        il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager"); \
+    if (!shortcuts_manager_helper.isValidHelper()) { \
+      (hooks).record_missing_helper((descriptor)); \
+    } else { \
+      auto method = shortcuts_manager_helper.GetMethod((descriptor).target.method_name.data(), 1); \
+      if (method == nullptr) { \
+        (hooks).record_missing_method((descriptor)); \
+      } else { \
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR((hooks), (descriptor), method, hook_fn); \
+      } \
+    } \
   } while (false)
 
 // ─── SPUD Hook Delegates ─────────────────────────────────────────────────────
@@ -369,19 +390,29 @@ void HandleNativeShortcutPointerCallback(OriginalFn original, void* _this, void*
 }
 
 void ShortcutsManager_OnShipManageAction_ProbeHook(auto original, void* _this, void* context)
-{ HandleNativeShortcutPointerCallback(original, _this, context, "OnShipManageAction"); }
+{
+  HandleNativeShortcutPointerCallback(original, _this, context, "OnShipManageAction");
+}
 
 void ShortcutsManager_OnShipLocateAction_ProbeHook(auto original, void* _this, void* context)
-{ HandleNativeShortcutPointerCallback(original, _this, context, "OnShipLocateAction"); }
+{
+  HandleNativeShortcutPointerCallback(original, _this, context, "OnShipLocateAction");
+}
 
 void ShortcutsManager_OnShipRecallAction_ProbeHook(auto original, void* _this, void* context)
-{ HandleNativeShortcutPointerCallback(original, _this, context, "OnShipRecallAction"); }
+{
+  HandleNativeShortcutPointerCallback(original, _this, context, "OnShipRecallAction");
+}
 
 void ShortcutsManager_OnChatAction_ProbeHook(auto original, void* _this, void* context)
-{ HandleNativeShortcutPointerCallback(original, _this, context, "OnChatAction"); }
+{
+  HandleNativeShortcutPointerCallback(original, _this, context, "OnChatAction");
+}
 
 void ShortcutsManager_OnSideChat_ProbeHook(auto original, void* _this, void* context)
-{ HandleNativeShortcutPointerCallback(original, _this, context, "OnSideChat"); }
+{
+  HandleNativeShortcutPointerCallback(original, _this, context, "OnSideChat");
+}
 
 /**
  * @brief Hook: RewardsButtonWidget::OnDidBindContext
@@ -522,7 +553,8 @@ void InstallHotkeyHooks()
       if (late_update == nullptr) {
         hooks.record_missing_method(kShortcutLateUpdateHook);
       } else {
-        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kShortcutLateUpdateHook, late_update, ShortcutsManager_LateUpdate_Hook);
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kShortcutLateUpdateHook, late_update,
+                                         ShortcutsManager_LateUpdate_Hook);
       }
     }
   } else {
@@ -539,7 +571,8 @@ void InstallHotkeyHooks()
       if (select_ship == nullptr) {
         hooks.record_missing_method(kShortcutSelectShipHook);
       } else {
-        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kShortcutSelectShipHook, select_ship, ShortcutsManager_SelectShip_Hook);
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kShortcutSelectShipHook, select_ship,
+                                         ShortcutsManager_SelectShip_Hook);
       }
     }
   }
