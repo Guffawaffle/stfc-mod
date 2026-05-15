@@ -67,3 +67,27 @@ constexpr int bypass_decrement(const int depth) noexcept
   return depth > 0 ? depth - 1 : depth;
 }
 }  // namespace hotkey_router_native_fleet
+
+// ─── Singleton-state accessors (defined in hotkey_router_native_fleet_guard.cc) ───
+//
+// The trace log + the slim router both need to peek at the guard state. These
+// thin accessors keep the singleton encapsulated inside the .cc file.
+namespace input_binding
+{
+struct DispatchKeyState;
+struct DispatchPlan;
+}  // namespace input_binding
+
+/// True when slot @p index is set in the per-frame guard mask.
+bool hotkey_router_native_fleet_guard_slot(std::size_t index);
+
+/// True when the per-frame guard requested suppression of native shortcuts.
+bool hotkey_router_native_fleet_guard_suppress_native_shortcuts();
+
+/// Recompute the guard from the latest dispatch plan / key snapshot.
+void hotkey_router_update_native_fleet_selection_guard(
+    const input_binding::DispatchPlan& plan, std::span<const input_binding::DispatchKeyState> key_states,
+    bool dispatcher_owns_inputs);
+
+/// Refresh the native shortcut suppression flag from physical (Win32) key state.
+void hotkey_router_update_native_shortcut_guard_from_physical_keys();
