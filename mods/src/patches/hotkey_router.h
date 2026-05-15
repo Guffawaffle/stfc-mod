@@ -50,6 +50,16 @@ bool hotkey_router_should_suppress_native_fleet_selection(int32_t index);
  */
 bool hotkey_router_should_suppress_any_native_fleet_selection();
 
+class HotkeyRouterNativeFleetSelectionBypass
+{
+public:
+  HotkeyRouterNativeFleetSelectionBypass();
+  ~HotkeyRouterNativeFleetSelectionBypass();
+
+  HotkeyRouterNativeFleetSelectionBypass(const HotkeyRouterNativeFleetSelectionBypass&)            = delete;
+  HotkeyRouterNativeFleetSelectionBypass& operator=(const HotkeyRouterNativeFleetSelectionBypass&) = delete;
+};
+
 /**
  * @brief True when Scopely's native shortcut LateUpdate should be skipped for the current consumed chord.
  */

@@ -490,6 +490,34 @@ action_primary = "SPACE|MOUSE1"
     CHECK_FALSE(bridge.compatibility_warnings.empty());
   }
 
+  TEST_CASE("config bridge treats explicit empty strings as unbound instead of falling back to defaults")
+  {
+    const auto config = toml::parse(R"(
+[input.bindings]
+show_bookmarks = ""
+)");
+
+    const auto bridge         = input_binding::ResolveInputBindingConfig(config);
+    const auto show_bookmarks = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::ShowBookmarks;
+    });
+
+    REQUIRE(show_bookmarks != bridge.bindings.end());
+    CHECK(show_bookmarks->binding == "NONE");
+    CHECK(show_bookmarks->source_key == "[input.bindings].show_bookmarks");
+    CHECK(bridge.compatibility_warnings.empty());
+
+    const auto       compiled = input_binding::CompileBindingSet(bridge.AsOverrides());
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::B, {}, true, false},
+    };
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(), key_states);
+
+    CHECK_FALSE(
+        plan.winner_lookup.Contains(input_binding::InputActionId::ShowBookmarks, input_binding::InputLayer::Global));
+  }
+
   TEST_CASE("config bridge resolves legacy fleet aliases with precedence and conflict warnings")
   {
     const auto config = toml::parse(R"(

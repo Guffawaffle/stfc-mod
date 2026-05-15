@@ -7,6 +7,7 @@ Status: handoff plan after the native ship-selection fallthrough fix. This doc i
 - `docs/KEYBIND_ACTION_SYSTEM_AUDIT.md`
 - `docs/UNIFIED_INPUT_BIND_IMPLEMENTATION_PLAN.md`
 - `docs/EVENT_DRIVEN_INPUT_SPIKE.md`
+- `docs/SCOPELY_NATIVE_SHORTCUT_CALLBACK_AUDIT.md`
 
 ## Current Landing Point
 
@@ -43,6 +44,7 @@ The downstream `FleetBarViewController` guards should be treated as defensive un
 ## Additional Work Needed
 
 1. Audit remaining Scopely native shortcut callbacks.
+   - Initial dump-backed audit is in `docs/SCOPELY_NATIVE_SHORTCUT_CALLBACK_AUDIT.md`.
    - Find native methods equivalent to `SelectShip` for chat, panels, zoom, and other shortcut actions.
    - Classify each as `dispatcher-owned`, `native-owned`, or `passthrough`.
    - Add targeted seam hooks only when a consumed dispatcher chord can otherwise trigger native behavior.

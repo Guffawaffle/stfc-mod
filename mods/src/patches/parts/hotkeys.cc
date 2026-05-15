@@ -30,13 +30,18 @@
 
 namespace
 {
-constexpr bool kEnableShortcutInitializeHook       = true;
-constexpr bool kEnableShortcutLateUpdateGuardHook  = true;
-constexpr bool kEnableRewardsButtonHook            = true;
-constexpr bool kEnablePreScanTargetHook            = true;
-constexpr bool kEnableSectionManagerBackButtonHook = true;
-constexpr bool kEnableNavigationSetCourseHook      = true;
-constexpr bool kEnableFleetBarSelectionGuardHooks  = true;
+constexpr bool kEnableShortcutInitializeHook            = true;
+constexpr bool kEnableShortcutLateUpdateGuardHook       = true;
+constexpr bool kEnableRewardsButtonHook                 = true;
+constexpr bool kEnablePreScanTargetHook                 = true;
+constexpr bool kEnableSectionManagerBackButtonHook      = true;
+constexpr bool kEnableNavigationSetCourseHook           = true;
+constexpr bool kEnableFleetBarSelectionGuardHooks       = true;
+constexpr bool kEnableNativeShortcutShipManageProbeHook = true;
+constexpr bool kEnableNativeShortcutShipLocateProbeHook = true;
+constexpr bool kEnableNativeShortcutShipRecallProbeHook = true;
+constexpr bool kEnableNativeShortcutChatProbeHook       = true;
+constexpr bool kEnableNativeShortcutSideChatProbeHook   = false;
 
 const char* initialize_actions_reason()
 { return scopely_shortcut_policy_name(ScopelyShortcutsPolicy()); }
@@ -60,6 +65,41 @@ constexpr HookDescriptor kShortcutSelectShipHook = {
     "skip native ship selection when the unified input dispatcher consumed the current chord",
     {"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager", "SelectShip"},
     "modified shortcut chords may still select ships through native shortcut callbacks",
+};
+
+constexpr HookDescriptor kShortcutShipManageProbeHook = {
+    "ShortcutsManager.OnShipManageAction",
+    "probe native ship-manage shortcut callbacks without changing behavior",
+    {"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager", "OnShipManageAction"},
+    "native ship-manage shortcut callback probe unavailable",
+};
+
+constexpr HookDescriptor kShortcutShipLocateProbeHook = {
+    "ShortcutsManager.OnShipLocateAction",
+    "probe native ship-locate shortcut callbacks without changing behavior",
+    {"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager", "OnShipLocateAction"},
+    "native ship-locate shortcut callback probe unavailable",
+};
+
+constexpr HookDescriptor kShortcutShipRecallProbeHook = {
+    "ShortcutsManager.OnShipRecallAction",
+    "guard native ship-recall shortcut callbacks when the unified input dispatcher owns the current chord",
+    {"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager", "OnShipRecallAction"},
+    "native ship-recall shortcut callback guard unavailable",
+};
+
+constexpr HookDescriptor kShortcutChatProbeHook = {
+    "ShortcutsManager.OnChatAction",
+    "probe native chat shortcut callbacks without changing behavior",
+    {"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager", "OnChatAction"},
+    "native chat shortcut callback probe unavailable",
+};
+
+constexpr HookDescriptor kShortcutSideChatProbeHook = {
+    "ShortcutsManager.OnSideChat",
+    "probe native side-chat shortcut callbacks without changing behavior",
+    {"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager", "OnSideChat"},
+    "native side-chat shortcut callback probe unavailable",
 };
 
 constexpr HookDescriptor kRewardsButtonBindHook = {
@@ -127,6 +167,13 @@ constexpr auto kDuplicateSetCourseSuppressionWindow = std::chrono::milliseconds(
 constexpr auto kSetCourseSubmissionSource           = uint64_t{1};
 
 SetCourseSubmission last_set_course_submission;
+
+struct InputActionCallbackContext {
+  void*   state        = nullptr;
+  int32_t action_index = -1;
+};
+
+static_assert(sizeof(InputActionCallbackContext) == 16);
 
 uintptr_t navigation_target_identity(NavigationInteractionUIViewController* navigation_ui_controller)
 {
@@ -221,7 +268,41 @@ bool inspect_native_fleet_selection_component(const char* method, void* element,
   return suppress_any;
 }
 
+void log_native_shortcut_probe(const char* callback, const InputActionCallbackContext& context)
+{
+  spdlog::info("[HotkeyProbe] native-shortcut callback={} suppress_native_shortcuts={} context_state={:p} "
+               "action_index={} hotkeys_enabled={} scopely_shortcuts={} original_frame_policy={}",
+               callback, hotkey_router_should_suppress_native_shortcuts(), context.state, context.action_index,
+               Config::Get().hotkeys_enabled, scopely_shortcut_policy_name(ScopelyShortcutsPolicy()),
+               original_frame_policy_name(OriginalFramePolicySetting()));
+}
+
+void log_native_shortcut_probe_pointer(const char* callback, const void* context)
+{
+  spdlog::info("[HotkeyProbe] native-shortcut callback={} suppress_native_shortcuts={} context_ptr={:p} "
+               "hotkeys_enabled={} scopely_shortcuts={} original_frame_policy={}",
+               callback, hotkey_router_should_suppress_native_shortcuts(), context, Config::Get().hotkeys_enabled,
+               scopely_shortcut_policy_name(ScopelyShortcutsPolicy()),
+               original_frame_policy_name(OriginalFramePolicySetting()));
+}
+
 } // namespace
+
+#define INSTALL_SHORTCUTS_MANAGER_PROBE_HOOK(hooks, descriptor, hook_fn)                                               \
+  do {                                                                                                                 \
+    auto shortcuts_manager_helper =                                                                                    \
+        il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager");                       \
+    if (!shortcuts_manager_helper.isValidHelper()) {                                                                   \
+      (hooks).record_missing_helper((descriptor));                                                                     \
+    } else {                                                                                                           \
+      auto method = shortcuts_manager_helper.GetMethod((descriptor).target.method_name.data(), 1);                     \
+      if (method == nullptr) {                                                                                         \
+        (hooks).record_missing_method((descriptor));                                                                   \
+      } else {                                                                                                         \
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR((hooks), (descriptor), method, hook_fn);                                      \
+      }                                                                                                                \
+    }                                                                                                                  \
+  } while (false)
 
 // ─── SPUD Hook Delegates ─────────────────────────────────────────────────────
 
@@ -273,6 +354,34 @@ void ShortcutsManager_SelectShip_Hook(auto original, void* _this, int32_t index)
 
   original(_this, index);
 }
+
+template <typename OriginalFn>
+void HandleNativeShortcutPointerCallback(OriginalFn original, void* _this, void* context, const char* callback)
+{
+  hotkey_router_refresh_native_shortcut_suppression();
+  log_native_shortcut_probe_pointer(callback, context);
+  if (hotkey_router_should_suppress_native_shortcuts()) {
+    spdlog::debug("[Hotkeys] suppressed native shortcut callback={} context_ptr={:p}", callback, context);
+    return;
+  }
+
+  original(_this, context);
+}
+
+void ShortcutsManager_OnShipManageAction_ProbeHook(auto original, void* _this, void* context)
+{ HandleNativeShortcutPointerCallback(original, _this, context, "OnShipManageAction"); }
+
+void ShortcutsManager_OnShipLocateAction_ProbeHook(auto original, void* _this, void* context)
+{ HandleNativeShortcutPointerCallback(original, _this, context, "OnShipLocateAction"); }
+
+void ShortcutsManager_OnShipRecallAction_ProbeHook(auto original, void* _this, void* context)
+{ HandleNativeShortcutPointerCallback(original, _this, context, "OnShipRecallAction"); }
+
+void ShortcutsManager_OnChatAction_ProbeHook(auto original, void* _this, void* context)
+{ HandleNativeShortcutPointerCallback(original, _this, context, "OnChatAction"); }
+
+void ShortcutsManager_OnSideChat_ProbeHook(auto original, void* _this, void* context)
+{ HandleNativeShortcutPointerCallback(original, _this, context, "OnSideChat"); }
 
 /**
  * @brief Hook: RewardsButtonWidget::OnDidBindContext
@@ -413,8 +522,7 @@ void InstallHotkeyHooks()
       if (late_update == nullptr) {
         hooks.record_missing_method(kShortcutLateUpdateHook);
       } else {
-        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kShortcutLateUpdateHook, late_update,
-                                         ShortcutsManager_LateUpdate_Hook);
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kShortcutLateUpdateHook, late_update, ShortcutsManager_LateUpdate_Hook);
       }
     }
   } else {
@@ -431,10 +539,42 @@ void InstallHotkeyHooks()
       if (select_ship == nullptr) {
         hooks.record_missing_method(kShortcutSelectShipHook);
       } else {
-        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kShortcutSelectShipHook, select_ship,
-                                         ShortcutsManager_SelectShip_Hook);
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kShortcutSelectShipHook, select_ship, ShortcutsManager_SelectShip_Hook);
       }
     }
+  }
+
+  if (kEnableNativeShortcutShipManageProbeHook) {
+    INSTALL_SHORTCUTS_MANAGER_PROBE_HOOK(hooks, kShortcutShipManageProbeHook,
+                                         ShortcutsManager_OnShipManageAction_ProbeHook);
+  } else {
+    hooks.record_skipped(kShortcutShipManageProbeHook, "compile-time disabled");
+  }
+
+  if (kEnableNativeShortcutShipLocateProbeHook) {
+    INSTALL_SHORTCUTS_MANAGER_PROBE_HOOK(hooks, kShortcutShipLocateProbeHook,
+                                         ShortcutsManager_OnShipLocateAction_ProbeHook);
+  } else {
+    hooks.record_skipped(kShortcutShipLocateProbeHook, "compile-time disabled");
+  }
+
+  if (kEnableNativeShortcutShipRecallProbeHook) {
+    INSTALL_SHORTCUTS_MANAGER_PROBE_HOOK(hooks, kShortcutShipRecallProbeHook,
+                                         ShortcutsManager_OnShipRecallAction_ProbeHook);
+  } else {
+    hooks.record_skipped(kShortcutShipRecallProbeHook, "compile-time disabled");
+  }
+
+  if (kEnableNativeShortcutChatProbeHook) {
+    INSTALL_SHORTCUTS_MANAGER_PROBE_HOOK(hooks, kShortcutChatProbeHook, ShortcutsManager_OnChatAction_ProbeHook);
+  } else {
+    hooks.record_skipped(kShortcutChatProbeHook, "compile-time disabled");
+  }
+
+  if (kEnableNativeShortcutSideChatProbeHook) {
+    INSTALL_SHORTCUTS_MANAGER_PROBE_HOOK(hooks, kShortcutSideChatProbeHook, ShortcutsManager_OnSideChat_ProbeHook);
+  } else {
+    hooks.record_skipped(kShortcutSideChatProbeHook, "compile-time disabled");
   }
 
   if (kEnableRewardsButtonHook) {
@@ -554,3 +694,5 @@ void InstallHotkeyHooks()
 
   hooks.log_summary();
 }
+
+#undef INSTALL_SHORTCUTS_MANAGER_PROBE_HOOK

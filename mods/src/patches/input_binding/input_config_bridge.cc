@@ -11,112 +11,126 @@ namespace input_binding
 namespace
 {
   constexpr BindingConfigAlias kFleetPrimaryAliases[] = {
-    {"action_primary", BindingConfigSourceKind::LegacyAlias, {}},
-    {"action_queue", BindingConfigSourceKind::LegacyAlias, {}},
-    {"action_recall_cancel", BindingConfigSourceKind::LegacyAlias, {}},
+      {"action_primary", BindingConfigSourceKind::LegacyAlias, {}},
+      {"action_queue", BindingConfigSourceKind::LegacyAlias, {}},
+      {"action_recall_cancel", BindingConfigSourceKind::LegacyAlias, {}},
   };
   constexpr BindingConfigAlias kFleetSecondaryAliases[] = {
-    {"action_secondary", BindingConfigSourceKind::LegacyAlias, {}},
+      {"action_secondary", BindingConfigSourceKind::LegacyAlias, {}},
   };
   constexpr BindingConfigAlias kFleetServiceAliases[] = {
-    {"action_recall", BindingConfigSourceKind::LegacyAlias, {}},
-    {"action_repair", BindingConfigSourceKind::LegacyAlias, {}},
+      {"action_recall", BindingConfigSourceKind::LegacyAlias, {}},
+      {"action_repair", BindingConfigSourceKind::LegacyAlias, {}},
   };
   constexpr BindingConfigAlias kFleetViewInfoAliases[] = {
-    {"action_view", BindingConfigSourceKind::LegacyAlias, {}},
+      {"action_view", BindingConfigSourceKind::LegacyAlias, {}},
   };
   constexpr BindingConfigAlias kFleetQueueClearAliases[] = {
-    {"action_queue_clear", BindingConfigSourceKind::LegacyAlias, {}},
+      {"action_queue_clear", BindingConfigSourceKind::LegacyAlias, {}},
   };
   constexpr BindingConfigAlias kFleetQueueToggleAliases[] = {
-    {"toggle_queue", BindingConfigSourceKind::LegacyAlias, {}},
+      {"toggle_queue", BindingConfigSourceKind::LegacyAlias, {}},
   };
   constexpr BindingConfigAlias kHotkeysDisableAliases[] = {
-    {"set_hotkeys_disable", BindingConfigSourceKind::LegacyAlias, {}},
-    {"set_hotkeys_disble", BindingConfigSourceKind::DeprecatedAlias,
-     "[shortcuts].set_hotkeys_disble is deprecated; prefer [input.bindings].hotkeys_disable or "
-     "[shortcuts].set_hotkeys_disable."},
-    {"set_hotkeys_disabled", BindingConfigSourceKind::DeprecatedAlias,
-     "[shortcuts].set_hotkeys_disabled is deprecated; prefer [input.bindings].hotkeys_disable or "
-     "[shortcuts].set_hotkeys_disable."},
+      {"set_hotkeys_disable", BindingConfigSourceKind::LegacyAlias, {}},
+      {"set_hotkeys_disble", BindingConfigSourceKind::DeprecatedAlias,
+       "[shortcuts].set_hotkeys_disble is deprecated; prefer [input.bindings].hotkeys_disable or "
+       "[shortcuts].set_hotkeys_disable."},
+      {"set_hotkeys_disabled", BindingConfigSourceKind::DeprecatedAlias,
+       "[shortcuts].set_hotkeys_disabled is deprecated; prefer [input.bindings].hotkeys_disable or "
+       "[shortcuts].set_hotkeys_disable."},
   };
   constexpr BindingConfigAlias kHotkeysEnableAliases[] = {
-    {"set_hotkeys_enable", BindingConfigSourceKind::LegacyAlias, {}},
-    {"set_hotkeys_enabled", BindingConfigSourceKind::DeprecatedAlias,
-     "[shortcuts].set_hotkeys_enabled is accepted for compatibility; prefer "
-     "[input.bindings].hotkeys_enable or [shortcuts].set_hotkeys_enable."},
+      {"set_hotkeys_enable", BindingConfigSourceKind::LegacyAlias, {}},
+      {"set_hotkeys_enabled", BindingConfigSourceKind::DeprecatedAlias,
+       "[shortcuts].set_hotkeys_enabled is accepted for compatibility; prefer "
+       "[input.bindings].hotkeys_enable or [shortcuts].set_hotkeys_enable."},
   };
   constexpr BindingConfigAlias kUiScaleUpAliases[] = {
-    {"ui_scaleup", BindingConfigSourceKind::LegacyAlias, {}},
+      {"ui_scaleup", BindingConfigSourceKind::LegacyAlias, {}},
   };
   constexpr BindingConfigAlias kUiScaleDownAliases[] = {
-    {"ui_scaledown", BindingConfigSourceKind::LegacyAlias, {}},
+      {"ui_scaledown", BindingConfigSourceKind::LegacyAlias, {}},
   };
   constexpr BindingConfigAlias kUiViewerScaleUpAliases[] = {
-    {"ui_scaleviewerup", BindingConfigSourceKind::LegacyAlias, {}},
+      {"ui_scaleviewerup", BindingConfigSourceKind::LegacyAlias, {}},
   };
   constexpr BindingConfigAlias kUiViewerScaleDownAliases[] = {
-    {"ui_scaleviewerdown", BindingConfigSourceKind::LegacyAlias, {}},
+      {"ui_scaleviewerdown", BindingConfigSourceKind::LegacyAlias, {}},
   };
 
-  constexpr BindingConfigAlias kSelectShip1Aliases[] = {{"select_ship1", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kSelectShip2Aliases[] = {{"select_ship2", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kSelectShip3Aliases[] = {{"select_ship3", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kSelectShip4Aliases[] = {{"select_ship4", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kSelectShip5Aliases[] = {{"select_ship5", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kSelectShip6Aliases[] = {{"select_ship6", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kSelectShip7Aliases[] = {{"select_ship7", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kSelectShip8Aliases[] = {{"select_ship8", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip1Aliases[]   = {{"select_ship1", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip2Aliases[]   = {{"select_ship2", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip3Aliases[]   = {{"select_ship3", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip4Aliases[]   = {{"select_ship4", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip5Aliases[]   = {{"select_ship5", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip6Aliases[]   = {{"select_ship6", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip7Aliases[]   = {{"select_ship7", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectShip8Aliases[]   = {{"select_ship8", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kSelectCurrentAliases[] = {{"select_current", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowChatAliases[] = {{"show_chat", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowChatAliases[]      = {{"show_chat", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kShowChatSide1Aliases[] = {{"show_chatside1", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kShowChatSide2Aliases[] = {{"show_chatside2", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kSelectChatGlobalAliases[] = {{"select_chatglobal", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kSelectChatAllianceAliases[] = {{"select_chatalliance", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kSelectChatPrivateAliases[] = {{"select_chatprivate", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kMoveLeftAliases[] = {{"move_left", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kMoveRightAliases[] = {{"move_right", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kLogDebugAliases[] = {{"log_debug", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kZoomInAliases[] = {{"zoom_in", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kZoomOutAliases[] = {{"zoom_out", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kQuitAliases[] = {{"quit", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kLogOffAliases[] = {{"log_off", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kLogErrorAliases[] = {{"log_error", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kLogWarnAliases[] = {{"log_warn", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kLogInfoAliases[] = {{"log_info", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kLogTraceAliases[] = {{"log_trace", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowQTrialsAliases[] = {{"show_qtrials", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectChatGlobalAliases[] = {
+      {"select_chatglobal", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectChatAllianceAliases[] = {
+      {"select_chatalliance", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSelectChatPrivateAliases[] = {
+      {"select_chatprivate", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kMoveLeftAliases[]      = {{"move_left", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kMoveRightAliases[]     = {{"move_right", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kLogDebugAliases[]      = {{"log_debug", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kZoomInAliases[]        = {{"zoom_in", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kZoomOutAliases[]       = {{"zoom_out", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kQuitAliases[]          = {{"quit", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kLogOffAliases[]        = {{"log_off", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kLogErrorAliases[]      = {{"log_error", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kLogWarnAliases[]       = {{"log_warn", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kLogInfoAliases[]       = {{"log_info", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kLogTraceAliases[]      = {{"log_trace", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowQTrialsAliases[]   = {{"show_qtrials", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kShowBookmarksAliases[] = {{"show_bookmarks", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowLookupAliases[] = {{"show_lookup", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowRefineryAliases[] = {{"show_refinery", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowFactionsAliases[] = {{"show_factions", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowStationExteriorAliases[] = {{"show_stationexterior", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowLookupAliases[]    = {{"show_lookup", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowRefineryAliases[]  = {{"show_refinery", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowFactionsAliases[]  = {{"show_factions", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowStationExteriorAliases[] = {
+      {"show_stationexterior", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kShowGalaxyAliases[] = {{"show_galaxy", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowStationInteriorAliases[] = {{"show_stationinterior", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowSystemAliases[] = {{"show_system", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowStationInteriorAliases[] = {
+      {"show_stationinterior", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowSystemAliases[]    = {{"show_system", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kShowArtifactsAliases[] = {{"show_artifacts", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kShowInventoryAliases[] = {{"show_inventory", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowMissionsAliases[] = {{"show_missions", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowResearchAliases[] = {{"show_research", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowMissionsAliases[]  = {{"show_missions", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowResearchAliases[]  = {{"show_research", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kShowScrapYardAliases[] = {{"show_scrapyard", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowOfficersAliases[] = {{"show_officers", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowOfficersAliases[]  = {{"show_officers", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kShowCommanderAliases[] = {{"show_commander", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowAwayTeamAliases[] = {{"show_awayteam", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowEventsAliases[] = {{"show_events", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowExoCompAliases[] = {{"show_exocomp", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowDailyAliases[] = {{"show_daily", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowGiftsAliases[] = {{"show_gifts", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowAllianceAliases[] = {{"show_alliance", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowAllianceHelpAliases[] = {{"show_alliance_help", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kShowAllianceArmadaAliases[] = {{"show_alliance_armada", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowAwayTeamAliases[]  = {{"show_awayteam", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowEventsAliases[]    = {{"show_events", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowExoCompAliases[]   = {{"show_exocomp", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowDailyAliases[]     = {{"show_daily", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowGiftsAliases[]     = {{"show_gifts", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowAllianceAliases[]  = {{"show_alliance", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowAllianceHelpAliases[] = {
+      {"show_alliance_help", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kShowAllianceArmadaAliases[] = {
+      {"show_alliance_armada", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kShowSettingsAliases[] = {{"show_settings", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kTogglePreviewLocateAliases[] = {{"toggle_preview_locate", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kTogglePreviewRecallAliases[] = {{"toggle_preview_recall", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kToggleCargoDefaultAliases[] = {{"toggle_cargo_default", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kToggleCargoPlayerAliases[] = {{"toggle_cargo_player", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kToggleCargoStationAliases[] = {{"toggle_cargo_station", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kToggleCargoHostileAliases[] = {{"toggle_cargo_hostile", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kToggleCargoArmadaAliases[] = {{"toggle_cargo_armada", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kTogglePreviewLocateAliases[] = {
+      {"toggle_preview_locate", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kTogglePreviewRecallAliases[] = {
+      {"toggle_preview_recall", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kToggleCargoDefaultAliases[] = {
+      {"toggle_cargo_default", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kToggleCargoPlayerAliases[] = {
+      {"toggle_cargo_player", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kToggleCargoStationAliases[] = {
+      {"toggle_cargo_station", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kToggleCargoHostileAliases[] = {
+      {"toggle_cargo_hostile", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kToggleCargoArmadaAliases[] = {
+      {"toggle_cargo_armada", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kShowShipsAliases[] = {{"show_ships", BindingConfigSourceKind::LegacyAlias, {}}};
 
   struct BindingCandidate {
@@ -152,7 +166,7 @@ namespace
     if (const auto value = node.value<std::string>()) {
       auto normalized = normalize_binding_string(*value);
       if (!normalized) {
-        add_warning(result, source_key + " is empty after trimming; ignoring configured value.");
+        return std::string{"NONE"};
       }
       return normalized;
     }
@@ -296,8 +310,8 @@ ConfigBridgeResult ResolveInputBindingConfig(const toml::table& config)
                                         BindingConfigSourceKind::Canonical, result));
 
     for (const auto& alias : ShortcutConfigAliases(spec.id)) {
-      candidates.push_back(read_candidate(shortcuts, alias.key, "[shortcuts].", alias.source_kind, result,
-                                          alias.deprecation_warning));
+      candidates.push_back(
+          read_candidate(shortcuts, alias.key, "[shortcuts].", alias.source_kind, result, alias.deprecation_warning));
     }
 
     result.bindings.push_back(resolve_binding(spec, candidates, result));

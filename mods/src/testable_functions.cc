@@ -370,33 +370,16 @@ HotkeyRouterSimpleFleetAction hotkey_router_simple_fleet_action(const bool      
   }
 }
 
-std::array<bool, 8> hotkey_router_native_fleet_selection_guard_slots(
-    const std::span<const input_binding::DispatchCandidate> winners, const bool hotkeys_enabled)
+std::array<bool, 8>
+hotkey_router_native_fleet_selection_guard_slots(const std::span<const input_binding::DispatchCandidate> winners,
+                                                 const bool dispatcher_owns_inputs)
 {
   std::array<bool, 8> slots{};
-  if (!hotkeys_enabled) {
+  if (!dispatcher_owns_inputs) {
     return slots;
   }
 
   for (const auto& winner : winners) {
-    if (winner.held_modifiers.empty() || !input_binding::ConsumesOriginalKeyEvent(winner)) {
-      continue;
-    }
-
-    switch (winner.action) {
-      case input_binding::InputActionId::SelectShip1:
-      case input_binding::InputActionId::SelectShip2:
-      case input_binding::InputActionId::SelectShip3:
-      case input_binding::InputActionId::SelectShip4:
-      case input_binding::InputActionId::SelectShip5:
-      case input_binding::InputActionId::SelectShip6:
-      case input_binding::InputActionId::SelectShip7:
-      case input_binding::InputActionId::SelectShip8:
-        continue;
-      default:
-        break;
-    }
-
     switch (winner.key) {
       case KeyCode::Alpha1:
         slots[0] = true;
@@ -432,15 +415,15 @@ std::array<bool, 8> hotkey_router_native_fleet_selection_guard_slots(
 
 std::array<bool, 8> hotkey_router_update_native_fleet_selection_guard_slots(
     const std::array<bool, 8>& previous_slots, const std::span<const input_binding::DispatchCandidate> winners,
-    const std::span<const input_binding::DispatchKeyState> key_states, const bool hotkeys_enabled)
+    const std::span<const input_binding::DispatchKeyState> key_states, const bool dispatcher_owns_inputs)
 {
-  auto slots = hotkey_router_native_fleet_selection_guard_slots(winners, hotkeys_enabled);
-  if (!hotkeys_enabled) {
+  auto slots = hotkey_router_native_fleet_selection_guard_slots(winners, dispatcher_owns_inputs);
+  if (!dispatcher_owns_inputs) {
     return slots;
   }
 
   for (const auto& state : key_states) {
-    if (!state.pressed || state.held_modifiers.empty()) {
+    if (!state.down) {
       continue;
     }
 
@@ -484,17 +467,15 @@ std::array<bool, 8> hotkey_router_update_native_fleet_selection_guard_slots(
 
 bool hotkey_router_native_shortcuts_suppressed(const bool previous_suppressed,
                                                const std::span<const input_binding::DispatchCandidate> winners,
-                                               const std::span<const input_binding::DispatchKeyState> key_states,
-                                               const bool hotkeys_enabled)
+                                               const std::span<const input_binding::DispatchKeyState>  key_states,
+                                               const bool dispatcher_owns_inputs)
 {
-  if (!hotkeys_enabled) {
+  if (!dispatcher_owns_inputs) {
     return false;
   }
 
-  for (const auto& winner : winners) {
-    if (input_binding::ConsumesOriginalKeyEvent(winner)) {
-      return true;
-    }
+  if (!winners.empty()) {
+    return true;
   }
 
   if (!previous_suppressed) {
@@ -502,7 +483,7 @@ bool hotkey_router_native_shortcuts_suppressed(const bool previous_suppressed,
   }
 
   for (const auto& state : key_states) {
-    if (state.pressed && !state.held_modifiers.empty()) {
+    if (state.down) {
       return true;
     }
   }

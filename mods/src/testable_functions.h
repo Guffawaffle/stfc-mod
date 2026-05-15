@@ -157,15 +157,16 @@ input_binding::InputActionId    hotkey_router_table_dispatch_request(bool is_in_
                                                                      input_binding::InputActionId action);
 HotkeyRouterSimpleFleetAction   hotkey_router_simple_fleet_action(bool                         input_focused,
                                                                   input_binding::InputActionId action);
-std::array<bool, 8> hotkey_router_native_fleet_selection_guard_slots(
-    std::span<const input_binding::DispatchCandidate> winners, bool hotkeys_enabled);
+std::array<bool, 8>
+hotkey_router_native_fleet_selection_guard_slots(std::span<const input_binding::DispatchCandidate> winners,
+                                                 bool dispatcher_owns_inputs);
 std::array<bool, 8> hotkey_router_update_native_fleet_selection_guard_slots(
     const std::array<bool, 8>& previous_slots, std::span<const input_binding::DispatchCandidate> winners,
-    std::span<const input_binding::DispatchKeyState> key_states, bool hotkeys_enabled);
-bool hotkey_router_native_shortcuts_suppressed(bool previous_suppressed,
+    std::span<const input_binding::DispatchKeyState> key_states, bool dispatcher_owns_inputs);
+bool hotkey_router_native_shortcuts_suppressed(bool                                              previous_suppressed,
                                                std::span<const input_binding::DispatchCandidate> winners,
-                                               std::span<const input_binding::DispatchKeyState> key_states,
-                                               bool hotkeys_enabled);
+                                               std::span<const input_binding::DispatchKeyState>  key_states,
+                                               bool dispatcher_owns_inputs);
 
 enum class IncomingAttackPolicyAttackerKind {
   Unknown = 0,
