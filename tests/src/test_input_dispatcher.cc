@@ -264,6 +264,9 @@ TEST_SUITE("input_dispatcher")
     CHECK_FALSE(
         plan.winner_lookup.Contains(input_binding::InputActionId::SelectShip1, input_binding::InputLayer::Fleet));
     CHECK(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
+
+    const auto guard_slots = hotkey_router_native_fleet_selection_guard_slots(plan.winners, true);
+    CHECK(guard_slots[0]);
   }
 
   TEST_CASE("modified chords dispatch exactly without also matching the bare key")
@@ -288,6 +291,122 @@ TEST_SUITE("input_dispatcher")
     CHECK_FALSE(plan.winner_lookup.Contains(input_binding::InputActionId::TogglePreviewLocate,
                                             input_binding::InputLayer::Global));
     CHECK(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
+  }
+
+  TEST_CASE("bare number ship selection does not arm native fleet selection guard")
+  {
+    const auto compiled = input_binding::CompileBindingSet();
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::Alpha1, {}, true, true},
+    };
+
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(), key_states);
+
+    REQUIRE(plan.winner_lookup.Contains(input_binding::InputActionId::SelectShip1, input_binding::InputLayer::Fleet));
+    CHECK_FALSE(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
+
+    const auto guard_slots = hotkey_router_native_fleet_selection_guard_slots(plan.winners, true);
+    CHECK_FALSE(guard_slots[0]);
+  }
+
+  TEST_CASE("modified number ship selection does not suppress dispatcher-owned selection")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::SelectShip1, "ALT-1"},
+        input_binding::BindingOverride{input_binding::InputActionId::ToggleCargoDefault, "NONE"},
+    };
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+    const auto alt      = input_binding::ModifierMask::Logical(input_binding::ModifierGroup::Alt);
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::Alpha1, alt, true, true},
+    };
+
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(), key_states);
+
+    REQUIRE(plan.winner_lookup.Contains(input_binding::InputActionId::SelectShip1, input_binding::InputLayer::Fleet));
+    CHECK(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
+
+    const auto guard_slots = hotkey_router_native_fleet_selection_guard_slots(plan.winners, true);
+    CHECK_FALSE(guard_slots[0]);
+  }
+
+  TEST_CASE("modified number guard persists while the chord remains held")
+  {
+    const auto compiled = input_binding::CompileBindingSet();
+    const auto alt      = input_binding::ModifierMask::Logical(input_binding::ModifierGroup::Alt);
+
+    const std::array down_states{
+        input_binding::DispatchKeyState{KeyCode::Alpha1, alt, true, true},
+    };
+    const auto down_plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                               input_binding::ActiveLayers::All(), down_states);
+
+    auto guard_slots = hotkey_router_update_native_fleet_selection_guard_slots({}, down_plan.winners, down_states, true);
+    CHECK(guard_slots[0]);
+
+    const std::array held_states{
+        input_binding::DispatchKeyState{KeyCode::Alpha1, alt, false, true},
+    };
+    const auto held_plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                               input_binding::ActiveLayers::All(), held_states);
+    CHECK(held_plan.winners.empty());
+
+    guard_slots =
+        hotkey_router_update_native_fleet_selection_guard_slots(guard_slots, held_plan.winners, held_states, true);
+    CHECK(guard_slots[0]);
+
+    const std::array released_states{
+        input_binding::DispatchKeyState{KeyCode::Alpha1, alt, false, false},
+    };
+    guard_slots =
+        hotkey_router_update_native_fleet_selection_guard_slots(guard_slots, held_plan.winners, released_states, true);
+    CHECK_FALSE(guard_slots[0]);
+  }
+
+  TEST_CASE("native shortcut suppression follows consumed dispatcher winners")
+  {
+    const auto compiled = input_binding::CompileBindingSet();
+    const auto alt      = input_binding::ModifierMask::Logical(input_binding::ModifierGroup::Alt);
+
+    const std::array down_states{
+        input_binding::DispatchKeyState{KeyCode::Alpha1, alt, true, true},
+    };
+    const auto down_plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                               input_binding::ActiveLayers::All(), down_states);
+
+    CHECK(hotkey_router_native_shortcuts_suppressed(false, down_plan.winners, down_states, true));
+
+    const std::array held_states{
+        input_binding::DispatchKeyState{KeyCode::Alpha1, alt, false, true},
+    };
+    const auto held_plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                               input_binding::ActiveLayers::All(), held_states);
+    CHECK(held_plan.winners.empty());
+    CHECK(hotkey_router_native_shortcuts_suppressed(true, held_plan.winners, held_states, true));
+
+    const std::array released_states{
+        input_binding::DispatchKeyState{KeyCode::Alpha1, alt, false, false},
+    };
+    CHECK_FALSE(hotkey_router_native_shortcuts_suppressed(true, held_plan.winners, released_states, true));
+  }
+
+  TEST_CASE("bare non-consuming ship selection does not suppress native shortcuts")
+  {
+    const auto compiled = input_binding::CompileBindingSet();
+
+    const std::array key_states{
+        input_binding::DispatchKeyState{KeyCode::Alpha1, {}, true, true},
+    };
+    const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                                          input_binding::ActiveLayers::All(), key_states);
+
+    REQUIRE(plan.winner_lookup.Contains(input_binding::InputActionId::SelectShip1, input_binding::InputLayer::Fleet));
+    CHECK_FALSE(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
+    CHECK_FALSE(hotkey_router_native_shortcuts_suppressed(false, plan.winners, key_states, true));
   }
 
   TEST_CASE("bare-key bindings do not match when an unbound modifier is held")

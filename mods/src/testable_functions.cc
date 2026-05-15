@@ -370,6 +370,146 @@ HotkeyRouterSimpleFleetAction hotkey_router_simple_fleet_action(const bool      
   }
 }
 
+std::array<bool, 8> hotkey_router_native_fleet_selection_guard_slots(
+    const std::span<const input_binding::DispatchCandidate> winners, const bool hotkeys_enabled)
+{
+  std::array<bool, 8> slots{};
+  if (!hotkeys_enabled) {
+    return slots;
+  }
+
+  for (const auto& winner : winners) {
+    if (winner.held_modifiers.empty() || !input_binding::ConsumesOriginalKeyEvent(winner)) {
+      continue;
+    }
+
+    switch (winner.action) {
+      case input_binding::InputActionId::SelectShip1:
+      case input_binding::InputActionId::SelectShip2:
+      case input_binding::InputActionId::SelectShip3:
+      case input_binding::InputActionId::SelectShip4:
+      case input_binding::InputActionId::SelectShip5:
+      case input_binding::InputActionId::SelectShip6:
+      case input_binding::InputActionId::SelectShip7:
+      case input_binding::InputActionId::SelectShip8:
+        continue;
+      default:
+        break;
+    }
+
+    switch (winner.key) {
+      case KeyCode::Alpha1:
+        slots[0] = true;
+        break;
+      case KeyCode::Alpha2:
+        slots[1] = true;
+        break;
+      case KeyCode::Alpha3:
+        slots[2] = true;
+        break;
+      case KeyCode::Alpha4:
+        slots[3] = true;
+        break;
+      case KeyCode::Alpha5:
+        slots[4] = true;
+        break;
+      case KeyCode::Alpha6:
+        slots[5] = true;
+        break;
+      case KeyCode::Alpha7:
+        slots[6] = true;
+        break;
+      case KeyCode::Alpha8:
+        slots[7] = true;
+        break;
+      default:
+        break;
+    }
+  }
+
+  return slots;
+}
+
+std::array<bool, 8> hotkey_router_update_native_fleet_selection_guard_slots(
+    const std::array<bool, 8>& previous_slots, const std::span<const input_binding::DispatchCandidate> winners,
+    const std::span<const input_binding::DispatchKeyState> key_states, const bool hotkeys_enabled)
+{
+  auto slots = hotkey_router_native_fleet_selection_guard_slots(winners, hotkeys_enabled);
+  if (!hotkeys_enabled) {
+    return slots;
+  }
+
+  for (const auto& state : key_states) {
+    if (!state.pressed || state.held_modifiers.empty()) {
+      continue;
+    }
+
+    auto slot = -1;
+    switch (state.key) {
+      case KeyCode::Alpha1:
+        slot = 0;
+        break;
+      case KeyCode::Alpha2:
+        slot = 1;
+        break;
+      case KeyCode::Alpha3:
+        slot = 2;
+        break;
+      case KeyCode::Alpha4:
+        slot = 3;
+        break;
+      case KeyCode::Alpha5:
+        slot = 4;
+        break;
+      case KeyCode::Alpha6:
+        slot = 5;
+        break;
+      case KeyCode::Alpha7:
+        slot = 6;
+        break;
+      case KeyCode::Alpha8:
+        slot = 7;
+        break;
+      default:
+        break;
+    }
+
+    if (slot >= 0 && previous_slots[static_cast<size_t>(slot)]) {
+      slots[static_cast<size_t>(slot)] = true;
+    }
+  }
+
+  return slots;
+}
+
+bool hotkey_router_native_shortcuts_suppressed(const bool previous_suppressed,
+                                               const std::span<const input_binding::DispatchCandidate> winners,
+                                               const std::span<const input_binding::DispatchKeyState> key_states,
+                                               const bool hotkeys_enabled)
+{
+  if (!hotkeys_enabled) {
+    return false;
+  }
+
+  for (const auto& winner : winners) {
+    if (input_binding::ConsumesOriginalKeyEvent(winner)) {
+      return true;
+    }
+  }
+
+  if (!previous_suppressed) {
+    return false;
+  }
+
+  for (const auto& state : key_states) {
+    if (state.pressed && !state.held_modifiers.empty()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // Incoming attack policy
 // ---------------------------------------------------------------------------

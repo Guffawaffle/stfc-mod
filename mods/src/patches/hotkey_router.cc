@@ -53,6 +53,11 @@ struct FrameRuntimeDispatchCache {
   input_binding::DispatchPlan                  plan;
 };
 
+struct NativeFleetSelectionGuardState {
+  std::array<bool, 8> slots{};
+  bool suppress_native_shortcuts = false;
+};
+
 constexpr std::array kHotkeyStartupActions{
     input_binding::InputActionId::HotkeysDisable,
     input_binding::InputActionId::HotkeysEnable,
@@ -218,6 +223,192 @@ FrameRuntimeDispatchCache& frame_runtime_dispatch_cache()
   return cache;
 }
 
+NativeFleetSelectionGuardState& native_fleet_selection_guard()
+{
+  static auto state = NativeFleetSelectionGuardState{};
+  return state;
+}
+
+bool win32_key_pressed(const int virtual_key)
+{
+#ifdef _WIN32
+  return (GetAsyncKeyState(virtual_key) & 0x8000) != 0;
+#else
+  (void)virtual_key;
+  return false;
+#endif
+}
+
+bool win32_digit1_pressed()
+{
+#ifdef _WIN32
+  return win32_key_pressed('1');
+#else
+  return false;
+#endif
+}
+
+bool win32_left_alt_pressed()
+{
+#ifdef _WIN32
+  return win32_key_pressed(VK_LMENU);
+#else
+  return false;
+#endif
+}
+
+bool win32_right_alt_pressed()
+{
+#ifdef _WIN32
+  return win32_key_pressed(VK_RMENU);
+#else
+  return false;
+#endif
+}
+
+bool win32_alt_pressed()
+{
+#ifdef _WIN32
+  return win32_key_pressed(VK_MENU);
+#else
+  return false;
+#endif
+}
+
+int win32_virtual_key_for_key_code(const KeyCode key)
+{
+#ifdef _WIN32
+  const auto value = static_cast<int>(key);
+  if (key >= KeyCode::Alpha0 && key <= KeyCode::Alpha9) {
+    return value;
+  }
+  if (key >= KeyCode::A && key <= KeyCode::Z) {
+    return 'A' + (value - static_cast<int>(KeyCode::A));
+  }
+
+  switch (key) {
+    case KeyCode::Backspace:
+      return VK_BACK;
+    case KeyCode::Tab:
+      return VK_TAB;
+    case KeyCode::Return:
+      return VK_RETURN;
+    case KeyCode::Escape:
+      return VK_ESCAPE;
+    case KeyCode::Space:
+      return VK_SPACE;
+    case KeyCode::LeftArrow:
+      return VK_LEFT;
+    case KeyCode::UpArrow:
+      return VK_UP;
+    case KeyCode::RightArrow:
+      return VK_RIGHT;
+    case KeyCode::DownArrow:
+      return VK_DOWN;
+    case KeyCode::Delete:
+      return VK_DELETE;
+    case KeyCode::LeftShift:
+      return VK_LSHIFT;
+    case KeyCode::RightShift:
+      return VK_RSHIFT;
+    case KeyCode::LeftControl:
+      return VK_LCONTROL;
+    case KeyCode::RightControl:
+      return VK_RCONTROL;
+    case KeyCode::LeftAlt:
+      return VK_LMENU;
+    case KeyCode::RightAlt:
+      return VK_RMENU;
+    case KeyCode::Mouse0:
+      return VK_LBUTTON;
+    case KeyCode::Mouse1:
+      return VK_RBUTTON;
+    case KeyCode::Mouse2:
+      return VK_MBUTTON;
+    case KeyCode::Mouse3:
+      return VK_XBUTTON1;
+    case KeyCode::Mouse4:
+      return VK_XBUTTON2;
+    default:
+      break;
+  }
+
+  if (key >= KeyCode::F1 && key <= KeyCode::F12) {
+    return VK_F1 + (value - static_cast<int>(KeyCode::F1));
+  }
+#else
+  (void)key;
+#endif
+  return 0;
+}
+
+input_binding::ModifierMask physical_held_modifier_mask()
+{
+  auto modifiers = input_binding::ModifierMask{};
+#ifdef _WIN32
+  if (win32_key_pressed(VK_LSHIFT)) {
+    modifiers.Merge(input_binding::ModifierMask::Physical(input_binding::PhysicalModifier::LeftShift));
+  }
+  if (win32_key_pressed(VK_RSHIFT)) {
+    modifiers.Merge(input_binding::ModifierMask::Physical(input_binding::PhysicalModifier::RightShift));
+  }
+  if (win32_key_pressed(VK_LCONTROL)) {
+    modifiers.Merge(input_binding::ModifierMask::Physical(input_binding::PhysicalModifier::LeftControl));
+  }
+  if (win32_key_pressed(VK_RCONTROL)) {
+    modifiers.Merge(input_binding::ModifierMask::Physical(input_binding::PhysicalModifier::RightControl));
+  }
+  if (win32_key_pressed(VK_LMENU)) {
+    modifiers.Merge(input_binding::ModifierMask::Physical(input_binding::PhysicalModifier::LeftAlt));
+  }
+  if (win32_key_pressed(VK_RMENU)) {
+    modifiers.Merge(input_binding::ModifierMask::Physical(input_binding::PhysicalModifier::RightAlt));
+  }
+  if (win32_key_pressed(VK_LWIN)) {
+    modifiers.Merge(input_binding::ModifierMask::Physical(input_binding::PhysicalModifier::LeftWindows));
+  }
+  if (win32_key_pressed(VK_RWIN)) {
+    modifiers.Merge(input_binding::ModifierMask::Physical(input_binding::PhysicalModifier::RightWindows));
+  }
+#endif
+  return modifiers;
+}
+
+void rebuild_frame_runtime_watched_keys(FrameRuntimeDispatchCache& cache,
+                                        const input_binding::CompileResult& runtime_bindings);
+
+void update_native_fleet_selection_guard(const input_binding::DispatchPlan& plan,
+                                         std::span<const input_binding::DispatchKeyState> key_states)
+{
+  auto& guard = native_fleet_selection_guard();
+  guard.slots = hotkey_router_update_native_fleet_selection_guard_slots(guard.slots, plan.winners, key_states,
+                                                                        Config::Get().hotkeys_enabled);
+  guard.suppress_native_shortcuts =
+      hotkey_router_native_shortcuts_suppressed(guard.suppress_native_shortcuts, plan.winners, key_states,
+                                                Config::Get().hotkeys_enabled);
+}
+
+void update_native_shortcut_guard_from_physical_keys()
+{
+  auto&       cache            = frame_runtime_dispatch_cache();
+  const auto& runtime_bindings = input_binding::RuntimeBindingModel();
+  rebuild_frame_runtime_watched_keys(cache, runtime_bindings);
+
+  cache.key_states.clear();
+  cache.key_states.reserve(cache.watched_keys.size());
+
+  const auto modifiers = physical_held_modifier_mask();
+  for (const auto key : cache.watched_keys) {
+    const auto virtual_key = win32_virtual_key_for_key_code(key);
+    const auto pressed     = virtual_key != 0 && win32_key_pressed(virtual_key);
+    cache.key_states.push_back({key, modifiers, pressed, pressed});
+  }
+
+  input_binding::PlanDispatchSnapshot(runtime_bindings, input_binding::InputPhase::Frame,
+                                      input_binding::ActiveLayers::All(), cache.key_states, cache.plan);
+  update_native_fleet_selection_guard(cache.plan, cache.key_states);
+}
+
 void rebuild_frame_runtime_watched_keys(FrameRuntimeDispatchCache&          cache,
                                         const input_binding::CompileResult& runtime_bindings)
 {
@@ -242,6 +433,9 @@ void build_dispatch_key_snapshot(std::span<const KeyCode>                      w
     key_states.push_back({key, modifiers, Key::Down(key), Key::Pressed(key)});
   }
 }
+
+void log_hotkey_trace_frame(std::span<const input_binding::DispatchKeyState> key_states,
+                            const input_binding::DispatchPlan&               plan);
 
 const input_binding::DispatchPlan& frame_runtime_dispatch_plan()
 {
@@ -305,6 +499,22 @@ std::string_view trigger_mode_name(const input_binding::TriggerMode trigger_mode
   }
 }
 
+std::string_view input_layer_name(const input_binding::InputLayer layer)
+{
+  switch (layer) {
+    case input_binding::InputLayer::Global:
+      return "global";
+    case input_binding::InputLayer::Fleet:
+      return "fleet";
+    case input_binding::InputLayer::Diagnostics:
+      return "diagnostics";
+    case input_binding::InputLayer::Zoom:
+      return "zoom";
+    default:
+      return "unknown";
+  }
+}
+
 std::string_view key_code_name(const KeyCode key)
 {
   switch (key) {
@@ -358,6 +568,8 @@ std::string_view key_code_name(const KeyCode key)
       return "M";
     case KeyCode::O:
       return "O";
+    case KeyCode::E:
+      return "E";
     case KeyCode::Q:
       return "Q";
     case KeyCode::T:
@@ -371,6 +583,242 @@ std::string_view key_code_name(const KeyCode key)
     default:
       return "other";
   }
+}
+
+std::string_view game_function_name(const GameFunction game_function)
+{
+  switch (game_function) {
+    case GameFunction::ToggleCargoDefault:
+      return "ToggleCargoDefault";
+    case GameFunction::ToggleCargoPlayer:
+      return "ToggleCargoPlayer";
+    case GameFunction::ToggleCargoStation:
+      return "ToggleCargoStation";
+    case GameFunction::ToggleCargoHostile:
+      return "ToggleCargoHostile";
+    case GameFunction::ToggleCargoArmada:
+      return "ToggleCargoArmada";
+    case GameFunction::SelectShip1:
+      return "SelectShip1";
+    case GameFunction::SelectShip2:
+      return "SelectShip2";
+    case GameFunction::SelectShip3:
+      return "SelectShip3";
+    case GameFunction::SelectShip4:
+      return "SelectShip4";
+    case GameFunction::SelectShip5:
+      return "SelectShip5";
+    case GameFunction::SelectShip6:
+      return "SelectShip6";
+    case GameFunction::SelectShip7:
+      return "SelectShip7";
+    case GameFunction::SelectShip8:
+      return "SelectShip8";
+    case GameFunction::Max:
+      return "Max";
+    default:
+      return "other";
+  }
+}
+
+std::string_view dispatch_decision_name(const DispatchDecision decision)
+{
+  switch (decision) {
+    case DispatchDecision::NoMatch:
+      return "no-match";
+    case DispatchDecision::HandledStop:
+      return "handled-stop";
+    case DispatchDecision::HandledAllowOriginal:
+      return "handled-allow-original";
+    default:
+      return "unknown";
+  }
+}
+
+std::string_view router_dispatch_action_name(const HotkeyRouterDispatchAction action)
+{
+  switch (action) {
+    case HotkeyRouterDispatchAction::Continue:
+      return "continue";
+    case HotkeyRouterDispatchAction::SuppressOriginal:
+      return "suppress-original";
+    case HotkeyRouterDispatchAction::AllowOriginal:
+      return "allow-original";
+    default:
+      return "unknown";
+  }
+}
+
+std::string_view startup_action_name(const HotkeyRouterStartupAction action)
+{
+  switch (action) {
+    case HotkeyRouterStartupAction::Continue:
+      return "continue";
+    case HotkeyRouterStartupAction::DisableHotkeys:
+      return "disable-hotkeys";
+    case HotkeyRouterStartupAction::EnableHotkeys:
+      return "enable-hotkeys";
+    case HotkeyRouterStartupAction::AllowOriginal:
+      return "allow-original";
+    case HotkeyRouterStartupAction::SuppressOriginal:
+      return "suppress-original";
+    default:
+      return "unknown";
+  }
+}
+
+bool hotkey_trace_key(const KeyCode key)
+{
+  switch (key) {
+    case KeyCode::Alpha1:
+    case KeyCode::Alpha2:
+    case KeyCode::Alpha3:
+    case KeyCode::Alpha4:
+    case KeyCode::Alpha5:
+    case KeyCode::Alpha6:
+    case KeyCode::Alpha7:
+    case KeyCode::Alpha8:
+    case KeyCode::E:
+    case KeyCode::Q:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool hotkey_trace_action(const input_binding::InputActionId action)
+{
+  switch (action) {
+    case input_binding::InputActionId::SelectShip1:
+    case input_binding::InputActionId::SelectShip2:
+    case input_binding::InputActionId::SelectShip3:
+    case input_binding::InputActionId::SelectShip4:
+    case input_binding::InputActionId::SelectShip5:
+    case input_binding::InputActionId::SelectShip6:
+    case input_binding::InputActionId::SelectShip7:
+    case input_binding::InputActionId::SelectShip8:
+    case input_binding::InputActionId::ToggleCargoDefault:
+    case input_binding::InputActionId::ToggleCargoPlayer:
+    case input_binding::InputActionId::ToggleCargoStation:
+    case input_binding::InputActionId::ToggleCargoHostile:
+    case input_binding::InputActionId::ToggleCargoArmada:
+    case input_binding::InputActionId::ShowEvents:
+    case input_binding::InputActionId::ShowQTrials:
+    case input_binding::InputActionId::ZoomIn:
+    case input_binding::InputActionId::ZoomOut:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool hotkey_trace_key_signal(std::span<const input_binding::DispatchKeyState> key_states)
+{
+  for (const auto& state : key_states) {
+    if (hotkey_trace_key(state.key) && (state.down || state.pressed)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool hotkey_trace_plan_signal(const input_binding::DispatchPlan& plan)
+{
+  for (const auto& candidate : plan.candidates) {
+    if (hotkey_trace_action(candidate.action)) {
+      return true;
+    }
+  }
+  for (const auto& winner : plan.winners) {
+    if (hotkey_trace_action(winner.action)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void log_hotkey_trace_candidate(const char* phase, const input_binding::DispatchCandidate& candidate)
+{
+  spdlog::trace("[HotkeyTrace] {} action={} layer={} key={} trigger={} modifiers_logical={} modifiers_physical={} "
+                "priority={} consumes_original={}",
+                phase, input_action_name(candidate.action), input_layer_name(candidate.layer),
+                key_code_name(candidate.key), trigger_mode_name(candidate.trigger_mode),
+                candidate.held_modifiers.logical_bits(), candidate.held_modifiers.physical_bits(), candidate.priority,
+                input_binding::ConsumesOriginalKeyEvent(candidate));
+}
+
+void log_hotkey_trace_frame(std::span<const input_binding::DispatchKeyState> key_states,
+                            const input_binding::DispatchPlan&               plan)
+{
+  if (!hotkey_trace_key_signal(key_states) && !hotkey_trace_plan_signal(plan)) {
+    return;
+  }
+
+  spdlog::trace("[HotkeyTrace] frame candidates={} winners={}", plan.candidates.size(), plan.winners.size());
+
+  for (const auto& state : key_states) {
+    if (!hotkey_trace_key(state.key) || (!state.down && !state.pressed)) {
+      continue;
+    }
+    spdlog::trace("[HotkeyTrace] key key={} down={} pressed={} modifiers_logical={} modifiers_physical={}",
+                  key_code_name(state.key), state.down, state.pressed, state.held_modifiers.logical_bits(),
+                  state.held_modifiers.physical_bits());
+  }
+
+  for (const auto& candidate : plan.candidates) {
+    if (hotkey_trace_action(candidate.action)) {
+      log_hotkey_trace_candidate("candidate", candidate);
+    }
+  }
+
+  for (const auto& winner : plan.winners) {
+    if (hotkey_trace_action(winner.action)) {
+      log_hotkey_trace_candidate("winner", winner);
+    }
+  }
+
+  const auto alt1_winner =
+      plan.winner_lookup.Contains(input_binding::InputActionId::ToggleCargoDefault, input_binding::InputLayer::Global);
+  const auto ship1_winner =
+      plan.winner_lookup.Contains(input_binding::InputActionId::SelectShip1, input_binding::InputLayer::Fleet);
+  const auto& guard_slots = native_fleet_selection_guard().slots;
+  spdlog::trace("[HotkeyNativeGuard] frame hotkeys_enabled={} scopely_shortcuts={} original_frame_policy={} "
+                "runtime_generation={} watched_keys={} unity_1_down={} unity_1_pressed={} unity_lalt={} unity_ralt={} "
+                "win_1={} win_lalt={} win_ralt={} win_alt={} alt1_winner={} ship1_winner={} guard_slot0={} "
+                "suppress_native_shortcuts={} show_cargo_default={}",
+                Config::Get().hotkeys_enabled, scopely_shortcut_policy_name(ScopelyShortcutsPolicy()),
+                original_frame_policy_name(OriginalFramePolicySetting()), input_binding::RuntimeBindingGeneration(),
+                frame_runtime_dispatch_cache().watched_keys.size(), Key::Down(KeyCode::Alpha1),
+                Key::Pressed(KeyCode::Alpha1), Key::Pressed(KeyCode::LeftAlt), Key::Pressed(KeyCode::RightAlt),
+                win32_digit1_pressed(), win32_left_alt_pressed(), win32_right_alt_pressed(), win32_alt_pressed(),
+                alt1_winner, ship1_winner, guard_slots[0],
+                native_fleet_selection_guard().suppress_native_shortcuts, Config::Get().show_cargo_default);
+}
+
+void log_hotkey_trace_startup_gate(std::span<const input_binding::DispatchKeyState> key_states,
+                                   const input_binding::DispatchPlan& plan, const HotkeyRouterStartupAction action)
+{
+  if (!hotkey_trace_key_signal(key_states) && !hotkey_trace_plan_signal(plan)) {
+    return;
+  }
+
+  spdlog::trace("[HotkeyTrace] startup-gate action={} hotkeys_enabled={} scopely_shortcuts={}",
+                startup_action_name(action), Config::Get().hotkeys_enabled,
+                scopely_shortcut_policy_name(ScopelyShortcutsPolicy()));
+}
+
+void log_hotkey_trace_context_gate(const input_binding::DispatchPlan& plan, const bool is_in_chat,
+                                   const bool input_focused)
+{
+  const auto action = first_runtime_binding_winner(plan, kHotkeyTableDispatchActions);
+  if (!hotkey_trace_action(action)) {
+    return;
+  }
+
+  spdlog::trace("[HotkeyTrace] context-gate action={} is_in_chat={} input_focused={} table_dispatch_enabled={}",
+                input_action_name(action), is_in_chat, input_focused, !is_in_chat && !input_focused);
 }
 
 void log_runtime_winner(const char* route, const input_binding::DispatchPlan& plan,
@@ -412,6 +860,11 @@ HotkeyRouterDispatchAction dispatch_runtime_bound_table_action(const input_bindi
   const auto action        = candidate.action;
   const auto game_function = dispatcher_owned_game_function(action);
   if (game_function == GameFunction::Max) {
+    if (hotkey_trace_action(action)) {
+      spdlog::trace(
+          "[HotkeyTrace] table-dispatch action={} key={} game_function=Max result=continue reason=no-game-function",
+          input_action_name(action), key_code_name(candidate.key));
+    }
     return HotkeyRouterDispatchAction::Continue;
   }
 
@@ -420,10 +873,23 @@ HotkeyRouterDispatchAction dispatch_runtime_bound_table_action(const input_bindi
       continue;
     }
 
-    const auto decision = entry.handler();
-    return hotkey_router_dispatch_action(true, decision == DispatchDecision::HandledStop,
-                                         decision == DispatchDecision::HandledAllowOriginal,
-                                         input_binding::ConsumesOriginalKeyEvent(candidate));
+    const auto decision      = entry.handler();
+    const auto router_action = hotkey_router_dispatch_action(true, decision == DispatchDecision::HandledStop,
+                                                             decision == DispatchDecision::HandledAllowOriginal,
+                                                             input_binding::ConsumesOriginalKeyEvent(candidate));
+    if (hotkey_trace_action(action)) {
+      spdlog::trace("[HotkeyTrace] table-dispatch action={} key={} trigger={} game_function={} handler_decision={} "
+                    "consumes_original={} router_action={}",
+                    input_action_name(action), key_code_name(candidate.key), trigger_mode_name(candidate.trigger_mode),
+                    game_function_name(game_function), dispatch_decision_name(decision),
+                    input_binding::ConsumesOriginalKeyEvent(candidate), router_dispatch_action_name(router_action));
+    }
+    return router_action;
+  }
+
+  if (hotkey_trace_action(action)) {
+    spdlog::trace("[HotkeyTrace] table-dispatch action={} key={} game_function={} result=continue reason=no-table-entry",
+                  input_action_name(action), key_code_name(candidate.key), game_function_name(game_function));
   }
 
   return HotkeyRouterDispatchAction::Continue;
@@ -467,9 +933,13 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   }
 
   const auto& runtime_dispatch_plan = frame_runtime_dispatch_plan();
+  update_native_fleet_selection_guard(runtime_dispatch_plan, frame_runtime_dispatch_cache().key_states);
+  log_hotkey_trace_frame(frame_runtime_dispatch_cache().key_states, runtime_dispatch_plan);
+  const auto startup_action = startup_action_from_runtime_bindings(runtime_dispatch_plan, ScopelyShortcutsPolicy(),
+                                                                   Config::Get().hotkeys_enabled);
+  log_hotkey_trace_startup_gate(frame_runtime_dispatch_cache().key_states, runtime_dispatch_plan, startup_action);
 
-  switch (startup_action_from_runtime_bindings(runtime_dispatch_plan, ScopelyShortcutsPolicy(),
-                                               Config::Get().hotkeys_enabled)) {
+  switch (startup_action) {
     case HotkeyRouterStartupAction::DisableHotkeys:
       Config::Get().hotkeys_enabled = false;
       spdlog::warn("Setting hotkeys to DISABLED");
@@ -494,6 +964,8 @@ bool hotkey_router_screen_update(ScreenManager* _this)
     input_focused = Key::IsInputFocused();
   }
   const auto config = &Config::Get();
+
+  log_hotkey_trace_context_gate(runtime_dispatch_plan, is_in_chat, input_focused);
 
 #ifdef _WIN32
   if (hotkey_router_quit_action(first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyQuitActions)
@@ -641,10 +1113,14 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
       {
         ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiTableDispatch, ModImpactMonitorEnabled());
-        if (const auto action = hotkey_router_table_dispatch_request(
-                is_in_chat, input_focused,
-                first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyTableDispatchActions));
-            action != input_binding::InputActionId::Max) {
+        const auto           table_dispatch_winner =
+            first_runtime_binding_winner(runtime_dispatch_plan, kHotkeyTableDispatchActions);
+        const auto action = hotkey_router_table_dispatch_request(is_in_chat, input_focused, table_dispatch_winner);
+        if (hotkey_trace_action(table_dispatch_winner)) {
+          spdlog::trace("[HotkeyTrace] table-request winner={} routed_action={}",
+                        input_action_name(table_dispatch_winner), input_action_name(action));
+        }
+        if (action != input_binding::InputActionId::Max) {
           log_runtime_winner("table-dispatch", runtime_dispatch_plan, action, input_binding::InputLayer::Global);
           const auto* table_winner =
               runtime_binding_winner(runtime_dispatch_plan, action, input_binding::InputLayer::Global);
@@ -783,6 +1259,31 @@ bool hotkey_router_should_call_original_initialize_actions()
 
 bool hotkey_router_should_call_original_screen_update(bool routerAllowsOriginal)
 { return should_call_original_screen_update(routerAllowsOriginal, OriginalFramePolicySetting()); }
+
+bool hotkey_router_should_suppress_native_fleet_selection(const int32_t index)
+{
+  const auto& slots = native_fleet_selection_guard().slots;
+  return index >= 0 && static_cast<size_t>(index) < slots.size() && slots[static_cast<size_t>(index)];
+}
+
+bool hotkey_router_should_suppress_any_native_fleet_selection()
+{
+  for (const auto slot : native_fleet_selection_guard().slots) {
+    if (slot) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool hotkey_router_should_suppress_native_shortcuts()
+{ return native_fleet_selection_guard().suppress_native_shortcuts; }
+
+void hotkey_router_refresh_native_shortcut_suppression()
+{
+  update_native_shortcut_guard_from_physical_keys();
+}
 
 void hotkey_router_bind_context(RewardsButtonWidget* _this)
 { HandleCargoBindContext(_this); }

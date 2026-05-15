@@ -20,6 +20,7 @@
 #include "patches/hotkey_router.h"
 
 #include "patches/key.h"
+#include "prime/FleetBarViewController.h"
 #include "prime/KeyCode.h"
 #include "testable_functions.h"
 
@@ -27,67 +28,103 @@
 #include "prime/NavigationInteractionUIViewController.h"
 #include "prime/PreScanTargetWidget.h"
 
-namespace {
-constexpr bool kEnableShortcutInitializeHook = true;
-constexpr bool kEnableRewardsButtonHook = true;
-constexpr bool kEnablePreScanTargetHook = true;
+namespace
+{
+constexpr bool kEnableShortcutInitializeHook       = true;
+constexpr bool kEnableShortcutLateUpdateGuardHook  = true;
+constexpr bool kEnableRewardsButtonHook            = true;
+constexpr bool kEnablePreScanTargetHook            = true;
 constexpr bool kEnableSectionManagerBackButtonHook = true;
-constexpr bool kEnableNavigationSetCourseHook = true;
+constexpr bool kEnableNavigationSetCourseHook      = true;
+constexpr bool kEnableFleetBarSelectionGuardHooks  = true;
 
 const char* initialize_actions_reason()
-{
-  return scopely_shortcut_policy_name(ScopelyShortcutsPolicy());
-}
+{ return scopely_shortcut_policy_name(ScopelyShortcutsPolicy()); }
 
 constexpr HookDescriptor kInitializeActionsHook = {
-  "ShortcutsManager.InitializeActions",
-  "decide whether Scopely shortcut actions initialize alongside mod hotkeys",
-  {"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager", "InitializeActions"},
-  "Scopely shortcuts may be unavailable or may double-handle inputs",
+    "ShortcutsManager.InitializeActions",
+    "decide whether Scopely shortcut actions initialize alongside mod hotkeys",
+    {"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager", "InitializeActions"},
+    "Scopely shortcuts may be unavailable or may double-handle inputs",
+};
+
+constexpr HookDescriptor kShortcutLateUpdateHook = {
+    "ShortcutsManager.LateUpdate",
+    "skip native shortcut processing on frames consumed by the unified input dispatcher",
+    {"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager", "LateUpdate"},
+    "modified shortcut chords may still trigger native shortcut actions",
+};
+
+constexpr HookDescriptor kShortcutSelectShipHook = {
+    "ShortcutsManager.SelectShip",
+    "skip native ship selection when the unified input dispatcher consumed the current chord",
+    {"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager", "SelectShip"},
+    "modified shortcut chords may still select ships through native shortcut callbacks",
 };
 
 constexpr HookDescriptor kRewardsButtonBindHook = {
-  "RewardsButtonWidget.OnDidBindContext",
-  "track combat reward buttons for hotkey-driven reward collection",
-  {"Assembly-CSharp", "Digit.Prime.Combat", "RewardsButtonWidget", "OnDidBindContext"},
-  "reward collection hotkeys may not find the active reward button",
+    "RewardsButtonWidget.OnDidBindContext",
+    "track combat reward buttons for hotkey-driven reward collection",
+    {"Assembly-CSharp", "Digit.Prime.Combat", "RewardsButtonWidget", "OnDidBindContext"},
+    "reward collection hotkeys may not find the active reward button",
 };
 
 constexpr HookDescriptor kPreScanTargetShowHook = {
-  "PreScanTargetWidget.ShowWithFleet",
-  "track pre-scan targets for hotkey-driven scan actions",
-  {"Assembly-CSharp", "Digit.Prime.Combat", "PreScanTargetWidget", "ShowWithFleet"},
-  "scan/action hotkeys may miss the currently shown target",
+    "PreScanTargetWidget.ShowWithFleet",
+    "track pre-scan targets for hotkey-driven scan actions",
+    {"Assembly-CSharp", "Digit.Prime.Combat", "PreScanTargetWidget", "ShowWithFleet"},
+    "scan/action hotkeys may miss the currently shown target",
+};
+
+constexpr HookDescriptor kFleetBarRequestSelectHook = {
+    "FleetBarViewController.RequestSelect(int)",
+    "prevent modified number chords from falling through to native bare ship selection",
+    {"Assembly-CSharp", "Digit.Prime.HUD", "FleetBarViewController", "RequestSelect"},
+    "modified number shortcuts may also select ships",
+};
+
+constexpr HookDescriptor kFleetBarRequestSelectComponentHook = {
+    "FleetBarViewController.RequestSelect(Component)",
+    "prevent modified number chords from falling through to native component-based ship selection",
+    {"Assembly-CSharp", "Digit.Prime.HUD", "FleetBarViewController", "RequestSelect"},
+    "modified number shortcuts may also select ships through the component overload",
+};
+
+constexpr HookDescriptor kFleetBarElementActionHook = {
+    "FleetBarViewController.ElementAction",
+    "prevent modified number chords from falling through to native bare ship element actions",
+    {"Assembly-CSharp", "Digit.Prime.HUD", "FleetBarViewController", "ElementAction"},
+    "modified number shortcuts may also execute fleet-bar element actions",
 };
 
 constexpr HookDescriptor kSectionManagerBackButtonPressedHook = {
-  "SectionManager.BackButtonPressed",
-  "suppress Escape-driven exit back-button handling at the game back-button seam",
-  {"Assembly-CSharp", "Digit.Client.Sections", "SectionManager", "BackButtonPressed"},
-  "disable_escape_exit may fail to stop the game's exit prompt",
+    "SectionManager.BackButtonPressed",
+    "suppress Escape-driven exit back-button handling at the game back-button seam",
+    {"Assembly-CSharp", "Digit.Client.Sections", "SectionManager", "BackButtonPressed"},
+    "disable_escape_exit may fail to stop the game's exit prompt",
 };
 
 constexpr HookDescriptor kSectionManagerExitSectionDependency = {
-  "SectionManager.InBackButtonExitSection",
-  "identify whether the current section should open the exit prompt on back-button press",
-  {"Assembly-CSharp", "Digit.Client.Sections", "SectionManager", "InBackButtonExitSection"},
-  "disable_escape_exit may suppress non-exit back navigation or fail open",
+    "SectionManager.InBackButtonExitSection",
+    "identify whether the current section should open the exit prompt on back-button press",
+    {"Assembly-CSharp", "Digit.Client.Sections", "SectionManager", "InBackButtonExitSection"},
+    "disable_escape_exit may suppress non-exit back navigation or fail open",
 };
 
 constexpr HookDescriptor kNavigationSetCourseHook = {
-  "NavigationInteractionUIViewController.OnSetCourseButtonClick",
-  "suppress rapid duplicate set-course submissions for the same navigation target",
-  {"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationInteractionUIViewController", "OnSetCourseButtonClick"},
-  "rapid repeated location actions may trigger server 429 errors",
+    "NavigationInteractionUIViewController.OnSetCourseButtonClick",
+    "suppress rapid duplicate set-course submissions for the same navigation target",
+    {"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationInteractionUIViewController", "OnSetCourseButtonClick"},
+    "rapid repeated location actions may trigger server 429 errors",
 };
 
 struct SetCourseSubmission {
-  uintptr_t                              target_identity = 0;
+  uintptr_t                             target_identity = 0;
   std::chrono::steady_clock::time_point submitted_at{};
 };
 
 constexpr auto kDuplicateSetCourseSuppressionWindow = std::chrono::milliseconds(750);
-constexpr auto kSetCourseSubmissionSource = uint64_t{1};
+constexpr auto kSetCourseSubmissionSource           = uint64_t{1};
 
 SetCourseSubmission last_set_course_submission;
 
@@ -116,17 +153,16 @@ uintptr_t navigation_target_identity(NavigationInteractionUIViewController* navi
 bool should_suppress_duplicate_set_course(NavigationInteractionUIViewController* navigation_ui_controller)
 {
   const auto target_identity = navigation_target_identity(navigation_ui_controller);
-  const auto now = std::chrono::steady_clock::now();
-  const auto elapsed_ms = last_set_course_submission.submitted_at == std::chrono::steady_clock::time_point{}
-      ? int64_t{-1}
-      : std::chrono::duration_cast<std::chrono::milliseconds>(now - last_set_course_submission.submitted_at).count();
+  const auto now             = std::chrono::steady_clock::now();
+  const auto elapsed_ms =
+      last_set_course_submission.submitted_at == std::chrono::steady_clock::time_point{}
+          ? int64_t{-1}
+          : std::chrono::duration_cast<std::chrono::milliseconds>(now - last_set_course_submission.submitted_at)
+                .count();
 
-  if (space_action_duplicate_submission_should_suppress(kSetCourseSubmissionSource,
-                                                        last_set_course_submission.target_identity,
-                                                        kSetCourseSubmissionSource,
-                                                        target_identity,
-                                                        elapsed_ms,
-                                                        kDuplicateSetCourseSuppressionWindow.count())) {
+  if (space_action_duplicate_submission_should_suppress(
+          kSetCourseSubmissionSource, last_set_course_submission.target_identity, kSetCourseSubmissionSource,
+          target_identity, elapsed_ms, kDuplicateSetCourseSuppressionWindow.count())) {
     spdlog::debug("[Hotkeys] Suppressed duplicate set-course target={} elapsed_ms={}", target_identity, elapsed_ms);
     return true;
   }
@@ -145,24 +181,47 @@ bool is_back_button_exit_section(void* section_manager)
 
 bool should_suppress_escape_exit_back_button(void* section_manager)
 {
-  if (!Config::Get().disable_escape_exit || !Key::Pressed(KeyCode::Escape) || !is_back_button_exit_section(section_manager)) {
+  if (!Config::Get().disable_escape_exit || !Key::Pressed(KeyCode::Escape)
+      || !is_back_button_exit_section(section_manager)) {
     return false;
   }
 
   static auto last_escape_back_button_press = std::chrono::steady_clock::time_point{};
-  const auto now = std::chrono::steady_clock::now();
-  auto elapsed_ms_since_last_press = int64_t{-1};
+  const auto  now                           = std::chrono::steady_clock::now();
+  auto        elapsed_ms_since_last_press   = int64_t{-1};
   if (last_escape_back_button_press != std::chrono::steady_clock::time_point{}) {
-    elapsed_ms_since_last_press = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_escape_back_button_press).count();
+    elapsed_ms_since_last_press =
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - last_escape_back_button_press).count();
   }
   last_escape_back_button_press = now;
 
-  return should_suppress_escape_exit(Config::Get().disable_escape_exit,
-                                     true,
-                                     Config::Get().escape_exit_timer,
+  return should_suppress_escape_exit(Config::Get().disable_escape_exit, true, Config::Get().escape_exit_timer,
                                      elapsed_ms_since_last_press);
 }
+
+bool inspect_native_fleet_selection(const char* method, const int32_t index, const bool simulated)
+{
+  const auto suppress = hotkey_router_should_suppress_native_fleet_selection(index);
+  if (suppress) {
+    spdlog::debug("[Hotkeys] suppressed native fleet selection method={} index={} simulated={}", method, index,
+                  simulated);
+  }
+
+  return suppress;
 }
+
+bool inspect_native_fleet_selection_component(const char* method, void* element, const bool simulated)
+{
+  const auto suppress_any = hotkey_router_should_suppress_any_native_fleet_selection();
+  if (suppress_any) {
+    spdlog::debug("[Hotkeys] suppressed native fleet selection method={} element={:p} simulated={}", method, element,
+                  simulated);
+  }
+
+  return suppress_any;
+}
+
+} // namespace
 
 // ─── SPUD Hook Delegates ─────────────────────────────────────────────────────
 
@@ -179,16 +238,40 @@ void InitializeActions_Hook(auto original, void* _this)
   const auto should_call_original = hotkey_router_should_call_original_initialize_actions();
   spdlog::info("[Hotkeys] ShortcutsManager.InitializeActions original={} reason={} use_scopely_hotkeys={} "
                "allow_key_fallthrough={} scopely_shortcuts={} original_frame_policy={}",
-               should_call_original ? "called" : "suppressed",
-               initialize_actions_reason(),
-               Config::Get().use_scopely_hotkeys,
-               AllowKeyFallthrough(),
+               should_call_original ? "called" : "suppressed", initialize_actions_reason(),
+               Config::Get().use_scopely_hotkeys, AllowKeyFallthrough(),
                scopely_shortcut_policy_name(ScopelyShortcutsPolicy()),
                original_frame_policy_name(OriginalFramePolicySetting()));
 
   if (should_call_original) {
     return original(_this);
   }
+}
+
+void ShortcutsManager_LateUpdate_Hook(auto original, void* _this)
+{
+  hotkey_router_refresh_native_shortcut_suppression();
+  const auto suppress = hotkey_router_should_suppress_native_shortcuts();
+  if (suppress) {
+    spdlog::debug("[Hotkeys] suppressed native shortcut update method=ShortcutsManager.LateUpdate");
+    return;
+  }
+
+  original(_this);
+}
+
+void ShortcutsManager_SelectShip_Hook(auto original, void* _this, int32_t index)
+{
+  hotkey_router_refresh_native_shortcut_suppression();
+  const auto suppress = hotkey_router_should_suppress_native_shortcuts();
+
+  if (suppress) {
+    spdlog::debug("[Hotkeys] suppressed native shortcut ship selection method=ShortcutsManager.SelectShip index={}",
+                  index);
+    return;
+  }
+
+  original(_this, index);
 }
 
 /**
@@ -219,6 +302,35 @@ void ShowWithFleet_Hook(auto original, PreScanTargetWidget* _this, void* a1)
   hotkey_router_show_fleet(_this);
 }
 
+void FleetBarViewController_RequestSelect_Hook(auto original, FleetBarViewController* _this, int32_t index,
+                                               bool simulated)
+{
+  if (inspect_native_fleet_selection("RequestSelect", index, simulated)) {
+    return;
+  }
+
+  original(_this, index, simulated);
+}
+
+void FleetBarViewController_RequestSelectComponent_Hook(auto original, FleetBarViewController* _this, void* element,
+                                                        bool simulated)
+{
+  if (inspect_native_fleet_selection_component("RequestSelectComponent", element, simulated)) {
+    return;
+  }
+
+  original(_this, element, simulated);
+}
+
+void FleetBarViewController_ElementAction_Hook(auto original, FleetBarViewController* _this, int32_t index)
+{
+  if (inspect_native_fleet_selection("ElementAction", index, false)) {
+    return;
+  }
+
+  original(_this, index);
+}
+
 void SectionManager_BackButtonPressed_Hook(auto original, void* _this)
 {
   if (should_suppress_escape_exit_back_button(_this)) {
@@ -228,7 +340,7 @@ void SectionManager_BackButtonPressed_Hook(auto original, void* _this)
   original(_this);
 }
 
-void NavigationInteractionUIViewController_OnSetCourseButtonClick_Hook(auto original,
+void NavigationInteractionUIViewController_OnSetCourseButtonClick_Hook(auto                                   original,
                                                                        NavigationInteractionUIViewController* _this)
 {
   if (should_suppress_duplicate_set_course(_this)) {
@@ -270,13 +382,9 @@ void InstallHotkeyHooks()
   spdlog::info("[Hotkeys] startup config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} "
                "allow_key_fallthrough={} scopely_shortcuts={} original_frame_policy={} frame_owner=FrameTickHooks "
                "initialize_actions_hook={}",
-               Config::Get().installHotkeyHooks,
-               Config::Get().hotkeys_enabled,
-               Config::Get().use_scopely_hotkeys,
-               AllowKeyFallthrough(),
-               scopely_shortcut_policy_name(ScopelyShortcutsPolicy()),
-               original_frame_policy_name(OriginalFramePolicySetting()),
-               kEnableShortcutInitializeHook);
+               Config::Get().installHotkeyHooks, Config::Get().hotkeys_enabled, Config::Get().use_scopely_hotkeys,
+               AllowKeyFallthrough(), scopely_shortcut_policy_name(ScopelyShortcutsPolicy()),
+               original_frame_policy_name(OriginalFramePolicySetting()), kEnableShortcutInitializeHook);
 
   if (kEnableShortcutInitializeHook) {
     auto shortcuts_manager_helper =
@@ -293,6 +401,40 @@ void InstallHotkeyHooks()
     }
   } else {
     hooks.record_skipped(kInitializeActionsHook, "compile-time disabled");
+  }
+
+  if (kEnableShortcutLateUpdateGuardHook) {
+    auto shortcuts_manager_helper =
+        il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager");
+    if (!shortcuts_manager_helper.isValidHelper()) {
+      hooks.record_missing_helper(kShortcutLateUpdateHook);
+    } else {
+      auto late_update = shortcuts_manager_helper.GetMethod("LateUpdate");
+      if (late_update == nullptr) {
+        hooks.record_missing_method(kShortcutLateUpdateHook);
+      } else {
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kShortcutLateUpdateHook, late_update,
+                                         ShortcutsManager_LateUpdate_Hook);
+      }
+    }
+  } else {
+    hooks.record_skipped(kShortcutLateUpdateHook, "compile-time disabled");
+  }
+
+  {
+    auto shortcuts_manager_helper =
+        il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager");
+    if (!shortcuts_manager_helper.isValidHelper()) {
+      hooks.record_missing_helper(kShortcutSelectShipHook);
+    } else {
+      auto select_ship = shortcuts_manager_helper.GetMethod("SelectShip", 1);
+      if (select_ship == nullptr) {
+        hooks.record_missing_method(kShortcutSelectShipHook);
+      } else {
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kShortcutSelectShipHook, select_ship,
+                                         ShortcutsManager_SelectShip_Hook);
+      }
+    }
   }
 
   if (kEnableRewardsButtonHook) {
@@ -329,12 +471,55 @@ void InstallHotkeyHooks()
     hooks.record_skipped(kPreScanTargetShowHook, "compile-time disabled");
   }
 
+  if (kEnableFleetBarSelectionGuardHooks) {
+    auto fleet_bar_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "FleetBarViewController");
+    if (!fleet_bar_helper.isValidHelper()) {
+      hooks.record_missing_helper(kFleetBarRequestSelectHook);
+      hooks.record_missing_helper(kFleetBarRequestSelectComponentHook);
+      hooks.record_missing_helper(kFleetBarElementActionHook);
+    } else {
+      auto request_select =
+          fleet_bar_helper.GetMethodSpecial("RequestSelect", [](auto count, const Il2CppType** params) {
+            return count == 2 && params[0]->type == IL2CPP_TYPE_I4 && params[1]->type == IL2CPP_TYPE_BOOLEAN;
+          });
+      if (request_select == nullptr) {
+        hooks.record_missing_method(kFleetBarRequestSelectHook);
+      } else {
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kFleetBarRequestSelectHook, request_select,
+                                         FleetBarViewController_RequestSelect_Hook);
+      }
+
+      auto request_select_component =
+          fleet_bar_helper.GetMethodSpecial("RequestSelect", [](auto count, const Il2CppType** params) {
+            return count == 2 && params[0]->type != IL2CPP_TYPE_I4 && params[1]->type == IL2CPP_TYPE_BOOLEAN;
+          });
+      if (request_select_component == nullptr) {
+        hooks.record_missing_method(kFleetBarRequestSelectComponentHook);
+      } else {
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kFleetBarRequestSelectComponentHook, request_select_component,
+                                         FleetBarViewController_RequestSelectComponent_Hook);
+      }
+
+      auto element_action = fleet_bar_helper.GetMethod("ElementAction", 1);
+      if (element_action == nullptr) {
+        hooks.record_missing_method(kFleetBarElementActionHook);
+      } else {
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kFleetBarElementActionHook, element_action,
+                                         FleetBarViewController_ElementAction_Hook);
+      }
+    }
+  } else {
+    hooks.record_skipped(kFleetBarRequestSelectHook, "compile-time disabled");
+    hooks.record_skipped(kFleetBarRequestSelectComponentHook, "compile-time disabled");
+    hooks.record_skipped(kFleetBarElementActionHook, "compile-time disabled");
+  }
+
   if (kEnableSectionManagerBackButtonHook) {
     auto section_manager_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Sections", "SectionManager");
     if (!section_manager_helper.isValidHelper()) {
       hooks.record_missing_helper(kSectionManagerBackButtonPressedHook);
     } else {
-      auto back_button_pressed = section_manager_helper.GetMethod("BackButtonPressed");
+      auto back_button_pressed         = section_manager_helper.GetMethod("BackButtonPressed");
       auto in_back_button_exit_section = section_manager_helper.GetMethod("InBackButtonExitSection");
       if (back_button_pressed == nullptr) {
         hooks.record_missing_method(kSectionManagerBackButtonPressedHook);
@@ -350,8 +535,8 @@ void InstallHotkeyHooks()
   }
 
   if (kEnableNavigationSetCourseHook) {
-    auto navigation_interaction_helper = il2cpp_get_class_helper(
-        "Assembly-CSharp", "Digit.Prime.Navigation", "NavigationInteractionUIViewController");
+    auto navigation_interaction_helper =
+        il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "NavigationInteractionUIViewController");
     if (!navigation_interaction_helper.isValidHelper()) {
       hooks.record_missing_helper(kNavigationSetCourseHook);
     } else {
@@ -359,9 +544,7 @@ void InstallHotkeyHooks()
       if (set_course_button_click == nullptr) {
         hooks.record_missing_method(kNavigationSetCourseHook);
       } else {
-        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks,
-                                         kNavigationSetCourseHook,
-                                         set_course_button_click,
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kNavigationSetCourseHook, set_course_button_click,
                                          NavigationInteractionUIViewController_OnSetCourseButtonClick_Hook);
       }
     }

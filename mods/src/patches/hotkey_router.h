@@ -9,6 +9,8 @@
  */
 #pragma once
 
+#include <cstdint>
+
 struct ScreenManager;
 class RewardsButtonWidget;
 struct PreScanTargetWidget;
@@ -18,29 +20,54 @@ struct PreScanTargetWidget;
  * @param _this The hooked ScreenManager instance.
  * @return true if the original ScreenManager::Update should still execute.
  */
-bool  hotkey_router_screen_update(ScreenManager* _this);
+bool hotkey_router_screen_update(ScreenManager* _this);
 
 /**
  * @brief Called from the InitializeActions hook.
  * @return true to let the original InitializeActions run.
  */
-bool  hotkey_router_should_call_original_initialize_actions();
+bool hotkey_router_should_call_original_initialize_actions();
 
 /**
  * @brief Apply the per-frame fallthrough config to the router's ScreenManager::Update decision.
  * @param routerAllowsOriginal The router's decision before fallthrough override.
  * @return true to let the original ScreenManager::Update run.
  */
-bool  hotkey_router_should_call_original_screen_update(bool routerAllowsOriginal);
+bool hotkey_router_should_call_original_screen_update(bool routerAllowsOriginal);
+
+/**
+ * @brief True when the router handled a modified numeric chord for this fleet slot in the current frame.
+ *
+ * FrameTick prepares this state before calling the game's original ScreenManager::Update, where native shortcut
+ * handlers are expected to invoke FleetBarViewController selection methods.
+ */
+bool hotkey_router_should_suppress_native_fleet_selection(int32_t index);
+
+/**
+ * @brief True when any fleet slot is guarded for a consumed non-selection shortcut.
+ *
+ * Used for native fleet selection overloads that receive a UI component rather than a resolved slot index.
+ */
+bool hotkey_router_should_suppress_any_native_fleet_selection();
+
+/**
+ * @brief True when Scopely's native shortcut LateUpdate should be skipped for the current consumed chord.
+ */
+bool hotkey_router_should_suppress_native_shortcuts();
+
+/**
+ * @brief Refresh dispatcher-derived native suppression state from the current key snapshot.
+ */
+void hotkey_router_refresh_native_shortcut_suppression();
 
 /**
  * @brief Called from RewardsButtonWidget::BindContext hook to auto-show cargo panels.
  * @param _this The hooked RewardsButtonWidget instance.
  */
-void  hotkey_router_bind_context(RewardsButtonWidget* _this);
+void hotkey_router_bind_context(RewardsButtonWidget* _this);
 
 /**
  * @brief Called from PreScanTargetWidget::ShowFleet hook to auto-show cargo panels.
  * @param _this The hooked PreScanTargetWidget instance.
  */
-void  hotkey_router_show_fleet(PreScanTargetWidget* _this);
+void hotkey_router_show_fleet(PreScanTargetWidget* _this);

@@ -8,6 +8,7 @@
  * The table at the bottom maps GameFunction values to these handlers.
  */
 #include "patches/hotkey_dispatch.h"
+#include "patches/cargo_display.h"
 #include "patches/navigation.h"
 
 #include "config.h"
@@ -223,31 +224,65 @@ static DispatchDecision HandleTogglePreviewRecall()
 
 static DispatchDecision HandleToggleCargoDefault()
 {
-  Config::Get().show_cargo_default = !Config::Get().show_cargo_default;
+  const auto before_default = Config::Get().show_cargo_default;
+  const auto before_player  = Config::Get().show_player_cargo;
+  const auto before_station = Config::Get().show_station_cargo;
+  const auto before_hostile = Config::Get().show_hostile_cargo;
+  const auto before_armada  = Config::Get().show_armada_cargo;
+  const auto after          = !Config::Get().show_cargo_default;
+
+  Config::Get().show_cargo_default = after;
+  Config::Get().show_player_cargo  = after;
+  Config::Get().show_station_cargo = after;
+  Config::Get().show_hostile_cargo = after;
+  Config::Get().show_armada_cargo  = after;
+
+  spdlog::debug("[Hotkeys] cargo-toggle action=default before={} after={} player_before={} player_after={} "
+                "station_before={} station_after={} hostile_before={} hostile_after={} armada_before={} armada_after={}",
+                before_default, Config::Get().show_cargo_default, before_player, Config::Get().show_player_cargo,
+                before_station, Config::Get().show_station_cargo, before_hostile, Config::Get().show_hostile_cargo,
+                before_armada, Config::Get().show_armada_cargo);
+  RefreshVisibleCargoDisplays();
   return DispatchDecision::HandledAllowOriginal;
 }
 
 static DispatchDecision HandleToggleCargoPlayer()
 {
+  const auto before = Config::Get().show_player_cargo;
   Config::Get().show_player_cargo = !Config::Get().show_player_cargo;
+  spdlog::debug("[Hotkeys] cargo-toggle action=player before={} after={}", before,
+                Config::Get().show_player_cargo);
+  RefreshVisibleCargoDisplays();
   return DispatchDecision::HandledAllowOriginal;
 }
 
 static DispatchDecision HandleToggleCargoStation()
 {
+  const auto before = Config::Get().show_station_cargo;
   Config::Get().show_station_cargo = !Config::Get().show_station_cargo;
+  spdlog::debug("[Hotkeys] cargo-toggle action=station before={} after={}", before,
+                Config::Get().show_station_cargo);
+  RefreshVisibleCargoDisplays();
   return DispatchDecision::HandledAllowOriginal;
 }
 
 static DispatchDecision HandleToggleCargoHostile()
 {
+  const auto before = Config::Get().show_hostile_cargo;
   Config::Get().show_hostile_cargo = !Config::Get().show_hostile_cargo;
+  spdlog::debug("[Hotkeys] cargo-toggle action=hostile before={} after={}", before,
+                Config::Get().show_hostile_cargo);
+  RefreshVisibleCargoDisplays();
   return DispatchDecision::HandledAllowOriginal;
 }
 
 static DispatchDecision HandleToggleCargoArmada()
 {
+  const auto before = Config::Get().show_armada_cargo;
   Config::Get().show_armada_cargo = !Config::Get().show_armada_cargo;
+  spdlog::debug("[Hotkeys] cargo-toggle action=armada before={} after={}", before,
+                Config::Get().show_armada_cargo);
+  RefreshVisibleCargoDisplays();
   return DispatchDecision::HandledAllowOriginal;
 }
 

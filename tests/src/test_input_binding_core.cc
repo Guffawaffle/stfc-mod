@@ -171,6 +171,30 @@ TEST_SUITE("input_binding")
     CHECK_FALSE(binding.has_errors());
   }
 
+  TEST_CASE("modifier-only chords are invalid and never registered")
+  {
+    for (const auto* text : {"ALT", "CTRL-ALT", "SHIFT-CTRL", "LALT-RCTRL"}) {
+      CAPTURE(text);
+      const auto chord = input_binding::ParseChord(text);
+      CHECK_FALSE(chord.valid);
+      CHECK(chord.key == KeyCode::None);
+    }
+
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::HotkeysDisable, "CTRL-ALT"},
+    };
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+
+    CHECK(compiled.has_errors());
+    CHECK(compiled.bound_chord_count == 74);
+
+    auto modifiers = input_binding::ModifierMask{};
+    modifiers.AddLogical(input_binding::ModifierGroup::Ctrl);
+    modifiers.AddLogical(input_binding::ModifierGroup::Alt);
+    const auto matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Minus, modifiers);
+    CHECK(matches.empty());
+  }
+
   TEST_CASE("binding index matches by key trigger and priority order")
   {
     input_binding::BindingIndex index;

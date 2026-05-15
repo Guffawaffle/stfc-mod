@@ -29,3 +29,11 @@ void HandleCargoBindContext(RewardsButtonWidget* _this);
  * @param _this The hooked PreScanTargetWidget instance.
  */
 void HandleCargoShowFleet(PreScanTargetWidget* _this);
+
+/**
+ * @brief Re-apply cargo display filters to currently visible target widgets.
+ *
+ * Used after cargo filter hotkeys toggle runtime config so the currently
+ * selected target reflects the new state immediately.
+ */
+void RefreshVisibleCargoDisplays();
