@@ -22,7 +22,9 @@
 #include "errormsg.h"
 #include "patches/mod_impact_monitor.h"
 
-#include <patches/mapkey.h>
+#include "patches/input_binding/input_dispatcher.h"
+#include "patches/input_binding/input_runtime_bindings.h"
+#include "patches/key.h"
 
 #include <il2cpp/il2cpp_helper.h>
 
@@ -32,7 +34,92 @@
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
+#include <array>
+#include <cstdint>
+#include <string>
+#include <vector>
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+namespace
+{
+struct ZoomRuntimeDispatchCache {
+  uint64_t                                     generation = 0;
+  std::vector<KeyCode>                         watched_keys;
+  std::vector<input_binding::DispatchKeyState> key_states;
+  input_binding::DispatchPlan                  plan;
+};
+
+constexpr std::array kZoomActions{
+    input_binding::InputActionId::ZoomIn,         input_binding::InputActionId::ZoomOut,
+    input_binding::InputActionId::ZoomPreset1,    input_binding::InputActionId::ZoomPreset2,
+    input_binding::InputActionId::ZoomPreset3,    input_binding::InputActionId::ZoomPreset4,
+    input_binding::InputActionId::ZoomPreset5,    input_binding::InputActionId::ZoomMin,
+    input_binding::InputActionId::ZoomMax,        input_binding::InputActionId::ZoomReset,
+    input_binding::InputActionId::SetZoomPreset1, input_binding::InputActionId::SetZoomPreset2,
+    input_binding::InputActionId::SetZoomPreset3, input_binding::InputActionId::SetZoomPreset4,
+    input_binding::InputActionId::SetZoomPreset5, input_binding::InputActionId::SetZoomDefault,
+};
+
+ZoomRuntimeDispatchCache &zoom_runtime_dispatch_cache()
+{
+  static auto cache = ZoomRuntimeDispatchCache{};
+  return cache;
+}
+
+input_binding::ModifierMask zoom_held_modifier_mask()
+{
+  input_binding::ModifierMask modifiers;
+  for (const auto modifier_key : {KeyCode::LeftShift, KeyCode::RightShift, KeyCode::LeftControl, KeyCode::RightControl,
+                                  KeyCode::LeftAlt, KeyCode::RightAlt, KeyCode::LeftWindows, KeyCode::RightWindows,
+                                  KeyCode::LeftCommand, KeyCode::RightCommand, KeyCode::AltGr}) {
+    if (Key::Pressed(modifier_key)) {
+      modifiers.Merge(input_binding::ModifierMask::FromPressedKey(modifier_key));
+    }
+  }
+
+  return modifiers;
+}
+
+void rebuild_zoom_watched_keys(ZoomRuntimeDispatchCache &cache, const input_binding::CompileResult &runtime_bindings)
+{
+  const auto generation = input_binding::RuntimeBindingGeneration();
+  if (cache.generation == generation) {
+    return;
+  }
+
+  cache.watched_keys = input_binding::WatchedKeysForActions(
+      runtime_bindings, input_binding::InputPhase::NavigationZoomUpdate, kZoomActions);
+  cache.generation = generation;
+}
+
+const input_binding::DispatchPlan &navigation_zoom_dispatch_plan()
+{
+  auto       &cache            = zoom_runtime_dispatch_cache();
+  const auto &runtime_bindings = input_binding::RuntimeBindingModel();
+  rebuild_zoom_watched_keys(cache, runtime_bindings);
+
+  cache.key_states.clear();
+  cache.key_states.reserve(cache.watched_keys.size());
+
+  const auto modifiers = zoom_held_modifier_mask();
+  for (const auto key : cache.watched_keys) {
+    cache.key_states.push_back({key, modifiers, Key::Down(key), Key::Pressed(key)});
+  }
+
+  input_binding::PlanDispatchSnapshot(runtime_bindings, input_binding::InputPhase::NavigationZoomUpdate,
+                                      input_binding::ActiveLayers::Only(input_binding::InputLayer::Zoom),
+                                      cache.key_states, cache.plan);
+  return cache.plan;
+}
+
+bool zoom_winner_present(const input_binding::DispatchPlan &plan, const input_binding::InputActionId action)
+{ return plan.winner_lookup.Contains(action, input_binding::InputLayer::Zoom); }
+
+input_binding::InputActionId first_zoom_winner(const input_binding::DispatchPlan                  &plan,
+                                               const std::span<const input_binding::InputActionId> actions)
+{ return plan.winner_lookup.First(actions); }
+} // namespace
 
 /** @brief Calls IL2CPP MathUtils::GetMouseWorldPos to project screen coords to world space. */
 vec3 GetMouseWorldPos(void *cam, vec3 *pos)
@@ -49,7 +136,7 @@ vec3 GetMouseWorldPos(void *cam, vec3 *pos)
 /// Flag set by depth/view hooks to trigger a zoom-to-default on the next Update.
 auto do_default_zoom = false;
 
-inline void SetSceneCameraFarClip(NavigationZoom* zoom, float farClipPlane)
+inline void SetSceneCameraFarClip(NavigationZoom *zoom, float farClipPlane)
 {
   if (zoom && zoom->_sceneCamera) {
     zoom->_sceneCamera->farClipPlane = farClipPlane;
@@ -80,10 +167,10 @@ inline void StoreZoom(std::string label, float &zoom, NavigationZoom *_this)
  * Intercepts the per-frame zoom update to process keyboard-driven zoom
  * inputs (presets, smooth zoom in/out, reset, min/max).
  * Original method: updates camera zoom from touch/pinch input.
- * Our modification: reads MapKey state each frame; for preset keys it
- *                   stores or recalls a preset; for zoom keys it computes
- *                   a per-frame delta (or absolute target) and calls
- *                   ZoomCameraAtWorldPoint() to apply the zoom anchored
+ * Our modification: plans zoom-phase dispatcher actions each frame; for
+ *                   preset keys it stores or recalls a preset; for zoom keys
+ *                   it computes a per-frame delta (or absolute target) and
+ *                   calls ZoomCameraAtWorldPoint() to apply the zoom anchored
  *                   at the mouse position.
  */
 void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
@@ -106,47 +193,69 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
   auto       config           = &Config::Get();
 
   if (!Key::IsInputFocused()) {
-    if (MapKey::IsDown(GameFunction::SetZoomPreset1)) {
-      return StoreZoom("System Preset 1", config->system_zoom_preset_1, _this);
-    } else if (MapKey::IsDown(GameFunction::SetZoomPreset2)) {
-      return StoreZoom("System Preset 2", config->system_zoom_preset_2, _this);
-    } else if (MapKey::IsDown(GameFunction::SetZoomPreset3)) {
-      return StoreZoom("System Preset 3", config->system_zoom_preset_3, _this);
-    } else if (MapKey::IsDown(GameFunction::SetZoomPreset4)) {
-      return StoreZoom("System Preset 4", config->system_zoom_preset_4, _this);
-    } else if (MapKey::IsDown(GameFunction::SetZoomPreset5)) {
-      return StoreZoom("System Preset 5", config->system_zoom_preset_5, _this);
-    } else if (MapKey::IsDown(GameFunction::SetZoomDefault)) {
-      return StoreZoom("System Default", config->default_system_zoom, _this);
-    }
+    const auto dispatcher_owns_zoom =
+        Config::Get().hotkeys_enabled && ScopelyShortcutsPolicy() != ScopelyShortcutPolicy::Native;
+    auto zoom_in_pressed  = false;
+    auto zoom_out_pressed = false;
 
-    do_absolute_zoom = true;
-    if (MapKey::IsDown(GameFunction::ZoomPreset1)) {
-      zoomDelta     = config->system_zoom_preset_1;
-      do_store_zoom = true;
-    } else if (MapKey::IsDown(GameFunction::ZoomPreset2)) {
-      zoomDelta     = config->system_zoom_preset_2;
-      do_store_zoom = true;
-    } else if (MapKey::IsDown(GameFunction::ZoomPreset3)) {
-      zoomDelta     = config->system_zoom_preset_3;
-      do_store_zoom = true;
-    } else if (MapKey::IsDown(GameFunction::ZoomPreset4)) {
-      zoomDelta     = config->system_zoom_preset_4;
-      do_store_zoom = true;
-    } else if (MapKey::IsDown(GameFunction::ZoomPreset5)) {
-      zoomDelta     = config->system_zoom_preset_5;
-      do_store_zoom = true;
-    }
+    if (dispatcher_owns_zoom) {
+      const auto &zoom_dispatch_plan = navigation_zoom_dispatch_plan();
 
-    if (config->hotkeys_extended) {
-      if (MapKey::IsDown(GameFunction::ZoomReset)) {
-        do_absolute_zoom = false;
-        do_default_zoom  = true;
-      } else if (MapKey::IsDown(GameFunction::ZoomMin)) {
-        zoomDelta = config->zoom;
-      } else if (MapKey::IsDown(GameFunction::ZoomMax)) {
-        zoomDelta = 100;
+      const auto set_zoom_action = first_zoom_winner(
+          zoom_dispatch_plan,
+          std::array{input_binding::InputActionId::SetZoomPreset1, input_binding::InputActionId::SetZoomPreset2,
+                     input_binding::InputActionId::SetZoomPreset3, input_binding::InputActionId::SetZoomPreset4,
+                     input_binding::InputActionId::SetZoomPreset5, input_binding::InputActionId::SetZoomDefault});
+      if (set_zoom_action == input_binding::InputActionId::SetZoomPreset1) {
+        return StoreZoom("System Preset 1", config->system_zoom_preset_1, _this);
+      } else if (set_zoom_action == input_binding::InputActionId::SetZoomPreset2) {
+        return StoreZoom("System Preset 2", config->system_zoom_preset_2, _this);
+      } else if (set_zoom_action == input_binding::InputActionId::SetZoomPreset3) {
+        return StoreZoom("System Preset 3", config->system_zoom_preset_3, _this);
+      } else if (set_zoom_action == input_binding::InputActionId::SetZoomPreset4) {
+        return StoreZoom("System Preset 4", config->system_zoom_preset_4, _this);
+      } else if (set_zoom_action == input_binding::InputActionId::SetZoomPreset5) {
+        return StoreZoom("System Preset 5", config->system_zoom_preset_5, _this);
+      } else if (set_zoom_action == input_binding::InputActionId::SetZoomDefault) {
+        return StoreZoom("System Default", config->default_system_zoom, _this);
       }
+
+      do_absolute_zoom         = true;
+      const auto preset_action = first_zoom_winner(
+          zoom_dispatch_plan,
+          std::array{input_binding::InputActionId::ZoomPreset1, input_binding::InputActionId::ZoomPreset2,
+                     input_binding::InputActionId::ZoomPreset3, input_binding::InputActionId::ZoomPreset4,
+                     input_binding::InputActionId::ZoomPreset5});
+      if (preset_action == input_binding::InputActionId::ZoomPreset1) {
+        zoomDelta     = config->system_zoom_preset_1;
+        do_store_zoom = true;
+      } else if (preset_action == input_binding::InputActionId::ZoomPreset2) {
+        zoomDelta     = config->system_zoom_preset_2;
+        do_store_zoom = true;
+      } else if (preset_action == input_binding::InputActionId::ZoomPreset3) {
+        zoomDelta     = config->system_zoom_preset_3;
+        do_store_zoom = true;
+      } else if (preset_action == input_binding::InputActionId::ZoomPreset4) {
+        zoomDelta     = config->system_zoom_preset_4;
+        do_store_zoom = true;
+      } else if (preset_action == input_binding::InputActionId::ZoomPreset5) {
+        zoomDelta     = config->system_zoom_preset_5;
+        do_store_zoom = true;
+      }
+
+      if (config->hotkeys_extended) {
+        if (zoom_winner_present(zoom_dispatch_plan, input_binding::InputActionId::ZoomReset)) {
+          do_absolute_zoom = false;
+          do_default_zoom  = true;
+        } else if (zoom_winner_present(zoom_dispatch_plan, input_binding::InputActionId::ZoomMin)) {
+          zoomDelta = config->zoom;
+        } else if (zoom_winner_present(zoom_dispatch_plan, input_binding::InputActionId::ZoomMax)) {
+          zoomDelta = 100;
+        }
+      }
+
+      zoom_in_pressed  = zoom_winner_present(zoom_dispatch_plan, input_binding::InputActionId::ZoomIn);
+      zoom_out_pressed = zoom_winner_present(zoom_dispatch_plan, input_binding::InputActionId::ZoomOut);
     }
 
     if (do_default_zoom) {
@@ -159,7 +268,7 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
       zoomDelta        = config->keyboard_zoom_speed * dt;
     }
 
-    if (MapKey::IsPressed(GameFunction::ZoomIn) || do_absolute_zoom) {
+    if (zoom_in_pressed || do_absolute_zoom) {
       if (!_this->_sceneCamera) {
         impact_timer.ExcludeCall([&] { original(_this); });
         do_default_zoom = false;
@@ -179,7 +288,7 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
       auto worldPos      = GetMouseWorldPos(_this->_sceneCamera, &mousePos);
       _this->_worldPoint = worldPos;
       _this->ZoomCameraAtWorldPoint();
-    } else if (MapKey::IsPressed(GameFunction::ZoomOut) && !Key::IsInputFocused()) {
+    } else if (zoom_out_pressed) {
       if (!_this->_sceneCamera) {
         impact_timer.ExcludeCall([&] { original(_this); });
         do_default_zoom = false;
@@ -276,9 +385,9 @@ void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom *_this, NodeDept
   }
 
   if (depth == NodeDepth::SolarSystem) {
-    auto ratio                        = (Config::Get().zoom / _this->_viewRadius);
-    _this->_farRatioSystemNormal      = 0.55f * ratio;
-    _this->_farRatioSystemExtended    = 1 * ratio;
+    auto ratio                     = (Config::Get().zoom / _this->_viewRadius);
+    _this->_farRatioSystemNormal   = 0.55f * ratio;
+    _this->_farRatioSystemExtended = 1 * ratio;
     SetSceneCameraFarClip(_this, Config::Get().zoom * 3.75f);
     original(_this, depth);
     SetSceneCameraFarClip(_this, Config::Get().zoom * 3.75f);

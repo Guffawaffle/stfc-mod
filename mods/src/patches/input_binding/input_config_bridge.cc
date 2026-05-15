@@ -77,11 +77,31 @@ namespace
       {"select_chatalliance", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kSelectChatPrivateAliases[] = {
       {"select_chatprivate", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kMoveLeftAliases[]      = {{"move_left", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kMoveRightAliases[]     = {{"move_right", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kLogDebugAliases[]      = {{"log_debug", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kZoomInAliases[]        = {{"zoom_in", BindingConfigSourceKind::LegacyAlias, {}}};
-  constexpr BindingConfigAlias kZoomOutAliases[]       = {{"zoom_out", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kMoveLeftAliases[]       = {{"move_left", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kMoveRightAliases[]      = {{"move_right", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kLogDebugAliases[]       = {{"log_debug", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kZoomInAliases[]         = {{"zoom_in", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kZoomOutAliases[]        = {{"zoom_out", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kZoomPreset1Aliases[]    = {{"zoom_preset1", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kZoomPreset2Aliases[]    = {{"zoom_preset2", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kZoomPreset3Aliases[]    = {{"zoom_preset3", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kZoomPreset4Aliases[]    = {{"zoom_preset4", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kZoomPreset5Aliases[]    = {{"zoom_preset5", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kZoomMinAliases[]        = {{"zoom_min", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kZoomMaxAliases[]        = {{"zoom_max", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kZoomResetAliases[]      = {{"zoom_reset", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSetZoomPreset1Aliases[] = {
+      {"set_zoom_preset1", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSetZoomPreset2Aliases[] = {
+      {"set_zoom_preset2", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSetZoomPreset3Aliases[] = {
+      {"set_zoom_preset3", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSetZoomPreset4Aliases[] = {
+      {"set_zoom_preset4", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSetZoomPreset5Aliases[] = {
+      {"set_zoom_preset5", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kSetZoomDefaultAliases[] = {
+      {"set_zoom_default", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kQuitAliases[]          = {{"quit", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kLogOffAliases[]        = {{"log_off", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kLogErrorAliases[]      = {{"log_error", BindingConfigSourceKind::LegacyAlias, {}}};
@@ -379,6 +399,34 @@ std::span<const BindingConfigAlias> ShortcutConfigAliases(const InputActionId ac
       return kZoomInAliases;
     case InputActionId::ZoomOut:
       return kZoomOutAliases;
+    case InputActionId::ZoomPreset1:
+      return kZoomPreset1Aliases;
+    case InputActionId::ZoomPreset2:
+      return kZoomPreset2Aliases;
+    case InputActionId::ZoomPreset3:
+      return kZoomPreset3Aliases;
+    case InputActionId::ZoomPreset4:
+      return kZoomPreset4Aliases;
+    case InputActionId::ZoomPreset5:
+      return kZoomPreset5Aliases;
+    case InputActionId::ZoomMin:
+      return kZoomMinAliases;
+    case InputActionId::ZoomMax:
+      return kZoomMaxAliases;
+    case InputActionId::ZoomReset:
+      return kZoomResetAliases;
+    case InputActionId::SetZoomPreset1:
+      return kSetZoomPreset1Aliases;
+    case InputActionId::SetZoomPreset2:
+      return kSetZoomPreset2Aliases;
+    case InputActionId::SetZoomPreset3:
+      return kSetZoomPreset3Aliases;
+    case InputActionId::SetZoomPreset4:
+      return kSetZoomPreset4Aliases;
+    case InputActionId::SetZoomPreset5:
+      return kSetZoomPreset5Aliases;
+    case InputActionId::SetZoomDefault:
+      return kSetZoomDefaultAliases;
     case InputActionId::Quit:
       return kQuitAliases;
     case InputActionId::UiScaleUp:

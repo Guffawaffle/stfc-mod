@@ -25,6 +25,13 @@ TEST_SUITE("input_dispatcher")
     request.phase = input_binding::InputPhase::Frame;
     plan          = input_binding::PlanDispatch(compiled, request);
     CHECK(plan.empty());
+
+    request.trigger_mode = input_binding::TriggerMode::Down;
+    request.phase        = input_binding::InputPhase::NavigationZoomUpdate;
+    request.key          = KeyCode::F1;
+    plan                 = input_binding::PlanDispatch(compiled, request);
+    REQUIRE(plan.winners.size() == 1);
+    CHECK(plan.winners[0].action == input_binding::InputActionId::ZoomPreset1);
   }
 
   TEST_CASE("dispatcher keeps one winner per conflict group but preserves cross group winners")
@@ -473,6 +480,7 @@ TEST_SUITE("input_dispatcher")
         input_binding::BindingOverride{input_binding::InputActionId::HotkeysDisable, "F1|CTRL-MOUSE1"},
         input_binding::BindingOverride{input_binding::InputActionId::HotkeysEnable, "F2"},
         input_binding::BindingOverride{input_binding::InputActionId::ZoomIn, "Q"},
+        input_binding::BindingOverride{input_binding::InputActionId::SetZoomPreset1, "SHIFT-F1"},
     };
     const auto compiled = input_binding::CompileBindingSet(overrides);
 
@@ -488,9 +496,11 @@ TEST_SUITE("input_dispatcher")
     CHECK(watched_keys[2] == KeyCode::F2);
 
     const auto zoom_keys = input_binding::WatchedKeysForActions(
-        compiled, input_binding::InputPhase::NavigationZoomUpdate, std::array{input_binding::InputActionId::ZoomIn});
-    REQUIRE(zoom_keys.size() == 1);
+        compiled, input_binding::InputPhase::NavigationZoomUpdate,
+        std::array{input_binding::InputActionId::ZoomIn, input_binding::InputActionId::SetZoomPreset1});
+    REQUIRE(zoom_keys.size() == 2);
     CHECK(zoom_keys[0] == KeyCode::Q);
+    CHECK(zoom_keys[1] == KeyCode::F1);
   }
 
   TEST_CASE("snapshot dispatcher winners can drive startup hotkey decisions")

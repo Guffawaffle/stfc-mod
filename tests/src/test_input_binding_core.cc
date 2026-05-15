@@ -32,6 +32,16 @@ TEST_SUITE("input_binding")
     CHECK(show_chat->canonical_key == "show_chat");
     CHECK(show_chat->default_bind == "C");
 
+    const auto* zoom_preset1 = input_binding::FindActionSpec(input_binding::InputActionId::ZoomPreset1);
+    REQUIRE(zoom_preset1 != nullptr);
+    CHECK(zoom_preset1->canonical_key == "zoom_preset1");
+    CHECK(zoom_preset1->default_bind == "F1");
+
+    const auto* set_zoom_default = input_binding::FindActionSpec(input_binding::InputActionId::SetZoomDefault);
+    REQUIRE(set_zoom_default != nullptr);
+    CHECK(set_zoom_default->canonical_key == "set_zoom_default");
+    CHECK(set_zoom_default->default_bind == "CTRL-=");
+
     for (const auto& spec : specs) {
       const auto binding = input_binding::ParseBinding(spec.default_bind);
       INFO(spec.canonical_key);
@@ -186,7 +196,7 @@ TEST_SUITE("input_binding")
     const auto compiled = input_binding::CompileBindingSet(overrides);
 
     CHECK(compiled.has_errors());
-    CHECK(compiled.bound_chord_count == 74);
+    CHECK(compiled.bound_chord_count == 88);
 
     auto modifiers = input_binding::ModifierMask{};
     modifiers.AddLogical(input_binding::ModifierGroup::Ctrl);
@@ -222,8 +232,8 @@ TEST_SUITE("input_binding")
   {
     const auto compiled = input_binding::CompileBindingSet();
 
-    CHECK(compiled.bound_chord_count == 75);
-    CHECK(compiled.index.size() == 75);
+    CHECK(compiled.bound_chord_count == 89);
+    CHECK(compiled.index.size() == 89);
     CHECK_FALSE(compiled.has_warnings());
     CHECK_FALSE(compiled.has_errors());
     CHECK_FALSE(compiled.has_conflicts());
@@ -249,7 +259,7 @@ TEST_SUITE("input_binding")
 
     const auto compiled = input_binding::CompileBindingSet(overrides);
     CHECK_FALSE(compiled.has_errors());
-    CHECK(compiled.bound_chord_count == 73);
+    CHECK(compiled.bound_chord_count == 87);
 
     const auto matches =
         compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, input_binding::ModifierMask{});
@@ -552,6 +562,36 @@ set_hotkeys_enabled = "CTRL-ALT-F1"
     CHECK(hotkeys_enable->binding == "CTRL-ALT-F1");
     CHECK(hotkeys_enable->source_key == "[shortcuts].set_hotkeys_enabled");
     REQUIRE(bridge.compatibility_warnings.size() == 1);
+  }
+
+  TEST_CASE("config bridge accepts migrated zoom aliases")
+  {
+    const auto config = toml::parse(R"(
+[shortcuts]
+zoom_preset1 = "CTRL-F1"
+zoom_min = "BACKSPACE"
+set_zoom_default = "CTRL-="
+)");
+
+    const auto bridge       = input_binding::ResolveInputBindingConfig(config);
+    const auto zoom_preset1 = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::ZoomPreset1;
+    });
+    const auto zoom_min     = std::ranges::find_if(
+        bridge.bindings, [](const auto& binding) { return binding.action == input_binding::InputActionId::ZoomMin; });
+    const auto set_zoom_default = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::SetZoomDefault;
+    });
+
+    REQUIRE(zoom_preset1 != bridge.bindings.end());
+    REQUIRE(zoom_min != bridge.bindings.end());
+    REQUIRE(set_zoom_default != bridge.bindings.end());
+    CHECK(zoom_preset1->binding == "CTRL-F1");
+    CHECK(zoom_preset1->source_key == "[shortcuts].zoom_preset1");
+    CHECK(zoom_min->binding == "BACKSPACE");
+    CHECK(zoom_min->source_key == "[shortcuts].zoom_min");
+    CHECK(set_zoom_default->binding == "CTRL-=");
+    CHECK(set_zoom_default->source_key == "[shortcuts].set_zoom_default");
   }
 
   TEST_CASE("config bridge runtime config emits canonical bindings and sources")
