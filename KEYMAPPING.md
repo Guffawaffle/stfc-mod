@@ -105,6 +105,19 @@ name as the canonical action id.
 | ui_viewer_scale_down | SHIFT-PGDOWN | ui_scaleviewerdown |
 <!-- GENERATED INPUT BINDING COMPATIBILITY END -->
 
+### Binding Notes
+
+Set a binding value to `NONE` to disable that action. Removing a key from the
+TOML does not disable it; the mod falls back to the default binding.
+
+Fleet primary and fleet queue are separate actions. If you want `SPACE` and
+`MOUSE1` to share queue behavior, bind both actions explicitly, for example:
+
+```toml
+action_primary = "SPACE|MOUSE1"
+action_queue = "SPACE|MOUSE1"
+```
+
 ## License
 
 - GPLv3

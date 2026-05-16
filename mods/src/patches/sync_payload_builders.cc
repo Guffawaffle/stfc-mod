@@ -48,6 +48,20 @@
 
 using PayloadProcessor = void (*)(std::unique_ptr<std::string>&&);
 
+static bool has_enabled_sync_target(SyncConfig::Type type)
+{
+  const auto targets_view = Config::Get().sync_targets | std::views::values;
+  return std::ranges::any_of(targets_view, [type](const auto& target_config) { return target_config.enabled(type); });
+}
+
+static bool battle_header_processing_enabled()
+{
+  const auto& config = Config::Get();
+  return config.sync_options.battlelogs || config.sync_sidecar_jsonl
+      || has_enabled_sync_target(SyncConfig::Type::Battles)
+      || has_enabled_sync_target(SyncConfig::Type::BattlelogsRealtime);
+}
+
 struct SyncPayloadWorkItem {
   const char*                  label = "unknown";
   PayloadProcessor             processor = nullptr;
@@ -1067,7 +1081,7 @@ void process_json(std::unique_ptr<std::string>&& bytes)
 
     for (const auto& [key, section] : result.items()) {
       if (key == "battle_result_headers") {
-        if (!Config::Get().sync_options.battlelogs) {
+        if (!battle_header_processing_enabled()) {
           continue;
         }
 

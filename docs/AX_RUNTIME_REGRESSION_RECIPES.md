@@ -13,7 +13,7 @@ pwsh -NoProfile -File .ax\ax.ps1 <command>
 Use this before feature-specific checks:
 
 ```powershell
-pwsh -NoProfile -File .ax\ax.ps1 build
+pwsh -NoProfile -File .ax\ax.ps1 validate
 pwsh -NoProfile -File .ax\ax.ps1 cycle
 pwsh -NoProfile -File .ax\ax.ps1 config -RuntimeVars -Compact
 pwsh -NoProfile -File .ax\ax.ps1 log -Boot -Summary
@@ -44,7 +44,8 @@ Use hook health checks after adding, renaming, or moving detours:
 ```powershell
 pwsh -NoProfile -File .ax\ax.ps1 cycle
 pwsh -NoProfile -File .ax\ax.ps1 log -Boot -Summary
-pwsh -NoProfile -File .ax\ax.ps1 log -Errors -Tail 80
+pwsh -NoProfile -File .ax\ax.ps1 log-query -Profile hook -MaxResults 120
+pwsh -NoProfile -File .ax\ax.ps1 log-query -Profile errors -MaxResults 80
 ```
 
 Useful log strings:
@@ -58,11 +59,27 @@ Useful log strings:
 Use this path for fallthrough, Q/E, Escape, or shortcut initialization regressions:
 
 ```powershell
+pwsh -NoProfile -File .ax\ax.ps1 validate
+pwsh -NoProfile -File .ax\ax.ps1 hotkeys-check -IncludePanels -Compact
 pwsh -NoProfile -File .ax\ax.ps1 cycle
 pwsh -NoProfile -File .ax\ax.ps1 config -RuntimeVars -Compact
 pwsh -NoProfile -File .ax\ax.ps1 log -Boot -Summary
-pwsh -NoProfile -File .ax\ax.ps1 log -Errors -Tail 80
+pwsh -NoProfile -File .ax\ax.ps1 log-query -Profile errors -MaxResults 80
+pwsh -NoProfile -File .ax\ax.ps1 hotkeys-trace -Last 160
 ```
+
+For manual reproductions, bracket the action and collect only relevant appended
+lines/events:
+
+```powershell
+pwsh -NoProfile -File .ax\ax.ps1 mark -Label 'before hotkey repro'
+pwsh -NoProfile -File .ax\ax.ps1 observe -DurationSec 15 -LogProfile hotkeys -Mark -Label 'hotkey repro'
+pwsh -NoProfile -File .ax\ax.ps1 log-query -Profile hotkeys -Pattern 'HotkeyProbe|native shortcut|SpaceAction' -MaxResults 120
+```
+
+Use `dirty` for suspicious failures. Normal fallback or suppression decisions
+belong in feature profiles such as `hotkeys`, `incoming`, or `fleet` so a live
+session can stay quiet unless something actually regresses.
 
 Check the runtime vars for:
 
@@ -123,7 +140,20 @@ pwsh -NoProfile -File .ax\ax.ps1 live-state top-canvas
 pwsh -NoProfile -File .ax\ax.ps1 live-state fleetbar
 pwsh -NoProfile -File .ax\ax.ps1 live-state fleet-slots
 pwsh -NoProfile -File .ax\ax.ps1 recent-events -Summary -Last 20
+pwsh -NoProfile -File .ax\ax.ps1 observe -DurationSec 10 -LogProfile live -Kind top-canvas-changed,fleet-slot-state-changed
+pwsh -NoProfile -File .ax\ax.ps1 observe -DurationSec 10 -LogProfile live -Kind ax-marker -Mark -Label 'live debug repro'
+pwsh -NoProfile -File .ax\ax.ps1 sidecar-export -DurationSec 10 -LogProfile live -Label 'live debug sidecar bundle'
 ```
+
+`observe -Mark` returns both the start and end marker responses and drains the
+recent-events/log streams once more before exiting, so marker events should be
+visible in the command result instead of requiring a separate follow-up query.
+
+`sidecar-export` converts bounded AX status, recent-events, observation, and
+log-query results into sidecar `debug.event` JSONL. It can also POST to
+`/api/events` when the sidecar server is running with event-store support and
+the sidecar sync token is available; do not pass or print tokens in chat or
+commit them to config.
 
 For bounded reproduction watches, use `recent-events -Follow` instead of polling manually:
 
@@ -146,4 +176,6 @@ When a recipe fails:
 2. Re-run `ax log -Boot -Summary` to separate hook install failures from runtime feature failures.
 3. Re-run `ax log -Errors -Tail 120` to see only warning/error lines.
 4. Use `ax recent-events -Summary -Last 50` for feature-level event history before reading raw logs.
-5. Only fall back to raw log or dump searches after the structured command shows what is missing.
+5. Use `ax log-query -Profile dirty` before raw log reads; it applies known ignores and bounded result limits.
+6. If `dirty` is quiet but the behavior still looks wrong, switch to the feature profile (`hotkeys`, `incoming`, `fleet`, `live`, `hook`, or `sync`) and add a narrow `-Pattern`.
+7. Only fall back to raw log or dump searches after the structured command shows what is missing.

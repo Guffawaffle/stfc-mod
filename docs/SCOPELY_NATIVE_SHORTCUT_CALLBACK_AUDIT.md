@@ -2,7 +2,15 @@
 
 Source folder: `D:\dev\stfc-mod`
 
-Status: source/dump audit for central dispatcher follow-up. This is intentionally an audit and planning slice, not a behavior change.
+Status: source/dump audit plus implementation notes for central dispatcher-owned native shortcut suppression.
+
+## 2026-05-16 Implementation Update
+
+Fallback-mode native shortcut suppression now uses a centralized pointer-shaped `ShortcutsManager.On*` callback guard registry in `mods/src/patches/parts/hotkeys.cc`. Each registered callback routes through the same dispatcher ownership check and skips the original native callback only when the callback came from Unity's input system and the unified dispatcher owns the current physical chord.
+
+This replaces the earlier single-callback `OnShipLocateAction` experiment. UI/direct callbacks with a zero/default `InputAction.CallbackContext` are allowed through so a held mod key does not accidentally swallow a legitimate button-driven action. The by-value `InputAction.CallbackContext` hook shape remains unsafe and should not be reintroduced.
+
+Per-callback `[HotkeyProbe]` lines are gated behind `[debug].runtime_trace = "detailed"` or `"verbose"`. The trace remains available for live diagnosis without turning every native shortcut callback into always-on info logging.
 
 ## Evidence Used
 
@@ -27,16 +35,19 @@ Current mod hooks:
 - `ShortcutsManager.InitializeActions`: decides whether Scopely native shortcut actions initialize.
 - `ShortcutsManager.LateUpdate`: skips native shortcut processing when the dispatcher consumed the current physical chord.
 - `ShortcutsManager.SelectShip(int)`: suppresses native number-key ship selection for consumed modified chords.
+- `ShortcutsManager.On*Action(InputAction.CallbackContext)` pointer callbacks: registered as one guard family for fallback-mode native shortcut callbacks that can fire before the frame router.
 - `FleetBarViewController.RequestSelect(...)` and `ElementAction(...)`: defensive downstream fleet-selection guards.
 
-## Current Conclusion
+## Current Implementation Model
 
-`ShortcutsManager.SelectShip(int)` was the right low-level seam for the confirmed `ALT-1` fallthrough. The remaining native shortcut callbacks should not be hooked one by one blindly. First classify each callback into one of these buckets:
+`ShortcutsManager.SelectShip(int)` remains the right low-level seam for confirmed number-key ship-selection fallthrough. The broader `ShortcutsManager.On*` callback family is now intercepted through one shared pointer-shaped registry, not bespoke per-callback logic.
+
+Callbacks still classify into these product buckets, but the runtime rule is uniform: if the callback came from Unity's input system and the unified dispatcher owns the current physical chord, skip the native callback; otherwise call through.
 
 - `covered`: current upstream or downstream guard already handles the known conflict.
 - `dispatcher-owned`: the mod has an equivalent canonical action and should own suppression when its dispatcher consumes the chord.
 - `native-owned`: Scopely behavior has no current mod equivalent; allow it unless a consumed mod chord conflicts.
-- `probe-needed`: likely overlap, but we need live trace before adding hooks.
+- `probe-needed`: likely overlap, but live trace is still useful before adding action-specific behavior.
 
 ## Callback Inventory
 
@@ -113,7 +124,9 @@ No `ShortcutsManager` callback for `select_chatglobal`, `select_chatalliance`, o
 | `OnUseFleetCommanderAbility` | native-owned | No canonical mod action. Do not suppress without explicit product decision. |
 | `OnToggleArenaScores` | native-owned | No canonical mod action. Do not suppress without explicit product decision. |
 
-## Probe Slice Added
+## Historical Probe Slice
+
+The notes below describe the unsafe by-value probe experiment that led to the pointer-shaped callback ABI. They are retained as a recovery record, not as current install expectations.
 
 Observation-only hook definitions were added for:
 
