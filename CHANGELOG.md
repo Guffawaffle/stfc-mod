@@ -13,6 +13,12 @@
 
 ## Unreleased
 
+### Fork delta since `v1.1.0-guffa.rc3`
+
+- Moved the hotkey path toward a shared input dispatcher and runtime-binding pipeline so hotkey handling, modifier matching, and frame fallthrough use the same rules
+- Routed zoom, native ship selection, and cargo-related hotkey paths through that shared dispatcher instead of keeping separate ad hoc wiring
+- Split the hotkey router implementation into smaller concern-scoped files to make future maintenance and review easier without changing behavior
+
 ### Features
 
 - Added `battlelogs_realtime` sync target type: mod can POST canonical battle events

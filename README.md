@@ -51,6 +51,14 @@ The fork-only delta is a small set of extra commits that are either:
 
 That is the entire reason this fork exists: keep experimental changes easy to download for testers, while keeping a clear line between the official mod and my branch.
 
+## Since `v1.1.0-guffa.rc3`
+
+Compared with the release tag, `main` now leans much harder on a shared input-dispatcher path instead of the older one-off hotkey wiring. The practical result is more consistent hotkey behavior and clearer fallthrough rules, while also making the fork easier to maintain.
+
+- Runtime-bound hotkeys now flow through a centralized dispatcher and action registry.
+- Zoom, native ship selection, cargo interaction, and related hotkey paths now share the same binding and fallthrough logic.
+- The hotkey router internals were split into smaller concern-scoped files so future edits stay local.
+
 ## What's different in this fork?
 
 This fork (`main` for published builds, `guffa-dev` for current integration work) bundles experimental features that haven't been accepted upstream yet, or are too opinionated for the main project:
