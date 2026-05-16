@@ -1,6 +1,7 @@
 #include "patches/fleet_input_policy.h"
 
-namespace {
+namespace
+{
 bool is_warping(const FleetInputFleetState state) noexcept
 { return state == FleetInputFleetState::WarpCharging || state == FleetInputFleetState::Warping; }
 
@@ -13,16 +14,14 @@ bool can_recall(const FleetInputFleetState state) noexcept
 bool can_repair(const FleetInputFleetState state) noexcept
 { return state == FleetInputFleetState::Docked || state == FleetInputFleetState::Destroyed; }
 
-bool has_target_context_for_mouse(const FleetPrimaryDecisionInput& input) noexcept
+bool has_actionable_target_context(const FleetPrimaryDecisionInput& input) noexcept
 {
   return input.visible_prescan_target || input.mining_viewer_visible || input.star_node_visible
          || input.navigation_interaction_visible || input.armada_widget_visible;
 }
 
 bool target_can_use_queue(const FleetPrimaryDecisionInput& input) noexcept
-{
-  return input.visible_prescan_target && input.target_hull_type != FleetInputHullType::ArmadaTarget;
-}
+{ return input.visible_prescan_target && input.target_hull_type != FleetInputHullType::ArmadaTarget; }
 
 bool target_can_engage(const FleetPrimaryDecisionInput& input) noexcept
 {
@@ -37,8 +36,7 @@ FleetPrimaryOutcome DecideFleetPrimary(const FleetPrimaryDecisionInput& input) n
     return FleetPrimaryOutcome::DismissRewards;
   }
 
-  if (is_warping(input.fleet_state) && !input.is_deferred_retry
-      && !(input.primary_is_mouse && has_target_context_for_mouse(input))) {
+  if (is_warping(input.fleet_state) && !input.is_deferred_retry && !has_actionable_target_context(input)) {
     return FleetPrimaryOutcome::CancelWarp;
   }
 

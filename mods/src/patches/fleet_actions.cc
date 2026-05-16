@@ -14,6 +14,7 @@
 #include "patches/fleet_deferred_action.h"
 #include "patches/fleet_input_policy.h"
 #include "patches/hotkey_router.h"
+#include "patches/hotkey_router_trace_log.h"
 #include "patches/live_debug.h"
 #include "patches/mod_impact_monitor.h"
 #include "patches/viewer_mgmt.h"
@@ -402,8 +403,13 @@ SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet
   runtime_context.star_node_visible =
       runtime_context.star_node_viewer_widget && runtime_context.star_node_viewer_widget->Context;
 
-  runtime_context.navigation_ui_controller       = ObjectFinder<NavigationInteractionUIViewController>::Get();
-  runtime_context.navigation_interaction_visible = runtime_context.navigation_ui_controller != nullptr;
+  runtime_context.navigation_ui_controller = ObjectFinder<NavigationInteractionUIViewController>::Get();
+  if (runtime_context.navigation_ui_controller) {
+    if (auto navigation_context = runtime_context.navigation_ui_controller->CanvasContext; navigation_context) {
+      runtime_context.navigation_interaction_visible =
+          navigation_context->ValidNavigationInput || navigation_context->ShowSetCourseArm;
+    }
+  }
 
   runtime_context.armada_widget  = ObjectFinder<ArmadaObjectViewerWidget>::Get();
   const auto armada_state        = GetArmadaVisibilityState(runtime_context.armada_widget);
@@ -505,24 +511,19 @@ void RecordPreScanWidgetReadinessOutcome(bool has_primary_for_target, bool has_s
   }
 }
 
-void ExecuteWarpCancel(FleetBarViewController* fleet_bar, FleetPlayerData* fleet,
-                       const SpaceActionRuntimeContext& runtime_context, bool has_primary, bool has_secondary,
-                       bool has_queue, bool has_queue_clear, bool has_recall, bool has_repair, bool has_recall_cancel,
-                       SpaceActionDiagnostics& diagnostics)
+bool TryExecuteWarpCancel(FleetBarViewController* fleet_bar, FleetPlayerData* fleet,
+                          const SpaceActionRuntimeContext& runtime_context, bool has_primary, bool has_secondary,
+                          bool has_queue, bool has_queue_clear, bool has_recall, bool has_repair,
+                          bool has_recall_cancel, bool suppress_warp_cancel, SpaceActionDiagnostics& diagnostics)
 {
-  const auto suppress_mouse_warp_cancel =
-      Key::Down(KeyCode::Mouse1)
-      && (runtime_context.visible_pre_scan_target_count > 0 || runtime_context.mining_viewer_visible
-          || runtime_context.star_node_visible || runtime_context.navigation_interaction_visible);
-
-  if (suppress_mouse_warp_cancel) {
+  if (suppress_warp_cancel) {
     live_debug_record_space_action_warp_cancel_suppressed(
         fleet_bar, fleet, has_primary, has_secondary, has_queue, has_queue_clear, has_recall, has_repair,
         has_recall_cancel, force_space_action_next_frame, runtime_context.visible_pre_scan_target_count,
         runtime_context.mining_viewer_visible, runtime_context.star_node_visible,
         runtime_context.navigation_interaction_visible);
-    diagnostics.Complete("warp-cancel-suppressed");
-    return;
+    diagnostics.SetOutcome("warp-cancel-suppressed");
+    return false;
   }
 
   live_debug_record_space_action_warp_cancel(fleet_bar, fleet, has_primary, has_secondary, has_queue, has_queue_clear,
@@ -532,6 +533,22 @@ void ExecuteWarpCancel(FleetBarViewController* fleet_bar, FleetPlayerData* fleet
                                              runtime_context.navigation_interaction_visible);
   fleet_bar->_fleetPanelController->CancelButtonClicked();
   diagnostics.Complete("warp-cancel");
+  return true;
+}
+
+bool ShouldPreferContextActionOverWarpCancel(const SpaceActionRuntimeContext& runtime_context, bool has_primary,
+                                             bool has_secondary, bool has_queue)
+{
+  const auto has_visible_pre_scan_target = runtime_context.visible_pre_scan_target_count > 0;
+  const auto has_primary_context         = has_visible_pre_scan_target || runtime_context.mining_viewer_visible
+                                           || runtime_context.star_node_visible
+                                           || runtime_context.navigation_interaction_visible;
+  const auto has_secondary_context =
+      has_visible_pre_scan_target || runtime_context.mining_viewer_visible || runtime_context.star_node_visible;
+  const auto has_queue_context = has_visible_pre_scan_target;
+
+  return (has_primary && has_primary_context) || (has_secondary && has_secondary_context)
+         || (has_queue && has_queue_context);
 }
 
 bool TryHandleNoPreScanSecondaryOutcome(FleetSecondaryOutcome outcome, FleetPlayerData* fleet,
@@ -574,6 +591,10 @@ bool TryHandleNoPreScanPrimaryOutcome(FleetPrimaryOutcome outcome, const SpaceAc
       diagnostics.Complete("warp-star-node");
       return true;
     case FleetPrimaryOutcome::SetCourse:
+      if (!runtime_context.navigation_ui_controller) {
+        diagnostics.SetOutcome("set-course-controller-missing");
+        return false;
+      }
       diagnostics.Complete("set-course");
       runtime_context.navigation_ui_controller->OnSetCourseButtonClick();
       return true;
@@ -672,9 +693,9 @@ bool HandleShipSelection(int ship_select_request)
       std::chrono::milliseconds                          select_diff =
           std::chrono::duration_cast<std::chrono::milliseconds>(select_now - select_clock);
       spdlog::debug("select_diff was {}ms", select_diff.count());
-      const bool same_request_as_last    = ship_select_request == last_ship_select_request;
-      const bool index_already_selected  = fleet_bar->IsIndexSelected(ship_select_request);
-      const bool within_select_timer     = select_diff < std::chrono::milliseconds((int)Config::Get().select_timer);
+      const bool same_request_as_last   = ship_select_request == last_ship_select_request;
+      const bool index_already_selected = fleet_bar->IsIndexSelected(ship_select_request);
+      const bool within_select_timer    = select_diff < std::chrono::milliseconds((int)Config::Get().select_timer);
       const FleetSelectAction action =
           DecideFleetSelectAction(can_locate, same_request_as_last, index_already_selected, within_select_timer);
       if (action == FleetSelectAction::Locate) {
@@ -823,13 +844,13 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
 
   auto action_queue = ActionQueueManager::Instance();
 
-  const auto has_physical_primary = inputs.primary;
-  if (has_physical_primary && force_space_action_next_frame) {
+  const auto has_dispatched_primary = inputs.primary;
+  if (has_dispatched_primary && force_space_action_next_frame) {
     ClearDeferredSpaceAction();
   }
 
   auto       deferred_primary_for_fleet = DeferredSpaceActionFleetMatches(fleet);
-  auto       has_primary                = has_physical_primary || deferred_primary_for_fleet;
+  auto       has_primary                = has_dispatched_primary || deferred_primary_for_fleet;
   const auto has_repair                 = inputs.repair;
   const auto has_recall_cancel          = inputs.recall_cancel;
   const auto has_secondary              = inputs.secondary;
@@ -837,7 +858,7 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
   const auto has_queue_clear            = inputs.queue_clear;
   const auto has_recall                 = inputs.recall && (!Config::Get().disable_preview_recall || !CanHideViewers());
 
-  SpaceActionDiagnostics diagnostics(fleet, has_physical_primary, deferred_primary_for_fleet,
+  SpaceActionDiagnostics diagnostics(fleet, has_dispatched_primary, deferred_primary_for_fleet,
                                      force_space_action_next_frame, has_secondary, has_queue, has_queue_clear,
                                      has_recall, has_repair, has_recall_cancel);
 
@@ -853,9 +874,13 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
                            runtime_context.star_node_visible, runtime_context.navigation_interaction_visible);
 
     if (has_recall_cancel && fleet_is_warping) {
-      ExecuteWarpCancel(fleet_bar, fleet, runtime_context, has_primary, has_secondary, has_queue, has_queue_clear,
-                        has_recall, has_repair, has_recall_cancel, diagnostics);
-      return;
+      if (TryExecuteWarpCancel(
+              fleet_bar, fleet, runtime_context, has_primary, has_secondary, has_queue, has_queue_clear, has_recall,
+              has_repair, has_recall_cancel,
+              ShouldPreferContextActionOverWarpCancel(runtime_context, has_primary, has_secondary, has_queue),
+              diagnostics)) {
+        return;
+      }
     }
 
     auto queue_unlocked = has_queue && action_queue->IsQueueUnlocked();
@@ -866,9 +891,10 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
       auto context                     = pre_scan_target.target_context;
       auto type                        = pre_scan_target.target_hull_type;
       auto deferred_primary_for_target = pre_scan_target.deferred_primary_for_target;
-      auto has_primary_for_target      = has_physical_primary || deferred_primary_for_target;
+      auto has_primary_for_target      = has_dispatched_primary || deferred_primary_for_target;
+      auto add_to_queue_button         = pre_scan_widget->_addToQueueButtonWidget;
 
-      if (!has_physical_primary && force_space_action_next_frame && deferred_primary_for_fleet
+      if (!has_dispatched_primary && force_space_action_next_frame && deferred_primary_for_fleet
           && !deferred_primary_for_target) {
         diagnostics.SetOutcome(deferred_space_action_state.widget_identity
                                        == reinterpret_cast<uintptr_t>(pre_scan_widget)
@@ -899,14 +925,35 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
       primary_input.target_context_resolved = type != HullType::Any;
       primary_input.is_deferred_retry       = deferred_primary_for_target;
 
-      if (queue_unlocked && pre_scan_widget->_addToQueueButtonWidget && scan_engage_buttons_widget) {
+      if ((has_primary_for_target || has_secondary || has_queue)
+          && hotkey_router_trace_log::hotkey_trace_space_action_probe_enabled()) {
+        spdlog::debug(
+            "[SpaceActionProbe] prescan-gate inputs[p={} s={} q={}] queue_unlocked={} add_queue_widget={} "
+            "add_queue_active={} scan_engage={} scan_engage_enabled={} target_type={} context_resolved={} "
+            "engage_available={} deferred_target={}",
+            has_primary_for_target, has_secondary, has_queue, queue_unlocked, add_to_queue_button != nullptr,
+            add_to_queue_button && add_to_queue_button->isActiveAndEnabled, scan_engage_buttons_widget != nullptr,
+            scan_engage_buttons_widget && scan_engage_buttons_widget->enabled, static_cast<int>(type),
+            primary_input.target_context_resolved, primary_input.target_engage_available, deferred_primary_for_target);
+      }
+
+      if (queue_unlocked && add_to_queue_button && scan_engage_buttons_widget) {
         auto queue_input               = primary_input;
         queue_input.queue_mode_enabled = true;
         queue_input.queue_unlocked     = true;
         queue_input.queue_full         = action_queue->IsQueueFull(fleet);
+        const auto queue_outcome       = DecideFleetPrimary(queue_input);
 
-        if (TryHandlePreScanQueueOutcome(DecideFleetPrimary(queue_input), fleet, pre_scan_widget, context,
-                                         queue_input.queue_full, diagnostics)) {
+        if (hotkey_router_trace_log::hotkey_trace_space_action_probe_enabled()) {
+          spdlog::debug("[SpaceActionProbe] queue-outcome outcome={} queue_full={} queue_widget_active={} "
+                        "target_type={} context_resolved={}",
+                        FleetPrimaryOutcomeName(queue_outcome), queue_input.queue_full,
+                        add_to_queue_button->isActiveAndEnabled, static_cast<int>(type),
+                        queue_input.target_context_resolved);
+        }
+
+        if (TryHandlePreScanQueueOutcome(queue_outcome, fleet, pre_scan_widget, context, queue_input.queue_full,
+                                         diagnostics)) {
           return;
         }
       }
@@ -939,7 +986,7 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
       }
     }
 
-    if (runtime_context.visible_pre_scan_target_count == 0 && has_physical_primary) {
+    if (runtime_context.visible_pre_scan_target_count == 0 && has_dispatched_primary) {
       auto       armada_join_button         = runtime_context.armada_widget && runtime_context.armada_visible
                                                   ? runtime_context.armada_widget->__get__joinContext()
                                                   : nullptr;
@@ -947,7 +994,6 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
 
       FleetPrimaryDecisionInput primary_input;
       primary_input.fleet_state                    = ToFleetInputState(fleet->CurrentState);
-      primary_input.primary_is_mouse               = Key::Down(KeyCode::Mouse1);
       primary_input.mining_viewer_visible          = runtime_context.mining_viewer_visible;
       primary_input.star_node_visible              = runtime_context.star_node_visible;
       primary_input.navigation_interaction_visible = runtime_context.navigation_interaction_visible;

@@ -54,36 +54,35 @@ enum class FleetServiceOutcome {
 };
 
 struct FleetPrimaryDecisionInput {
-  FleetInputFleetState fleet_state = FleetInputFleetState::Unknown;
+  FleetInputFleetState fleet_state      = FleetInputFleetState::Unknown;
   FleetInputHullType   target_hull_type = FleetInputHullType::Any;
 
-  bool primary_is_mouse = false;
-  bool rewards_visible = false;
-  bool queue_mode_enabled = false;
-  bool queue_unlocked = false;
-  bool queue_full = false;
-  bool visible_prescan_target = false;
-  bool mining_viewer_visible = false;
-  bool star_node_visible = false;
+  bool rewards_visible                = false;
+  bool queue_mode_enabled             = false;
+  bool queue_unlocked                 = false;
+  bool queue_full                     = false;
+  bool visible_prescan_target         = false;
+  bool mining_viewer_visible          = false;
+  bool star_node_visible              = false;
   bool navigation_interaction_visible = false;
-  bool armada_widget_visible = false;
-  bool armada_join_interactable = false;
-  bool armada_attack_available = false;
-  bool target_engage_available = false;
-  bool target_context_resolved = false;
-  bool is_deferred_retry = false;
+  bool armada_widget_visible          = false;
+  bool armada_join_interactable       = false;
+  bool armada_attack_available        = false;
+  bool target_engage_available        = false;
+  bool target_context_resolved        = false;
+  bool is_deferred_retry              = false;
 };
 
 struct FleetSecondaryDecisionInput {
   bool visible_prescan_target = false;
   bool prescan_scan_available = false;
-  bool mining_viewer_visible = false;
-  bool mining_scan_available = false;
-  bool star_node_visible = false;
+  bool mining_viewer_visible  = false;
+  bool mining_scan_available  = false;
+  bool star_node_visible      = false;
 };
 
 struct FleetServiceDecisionInput {
-  FleetInputFleetState fleet_state = FleetInputFleetState::Unknown;
+  FleetInputFleetState fleet_state    = FleetInputFleetState::Unknown;
   bool                 recall_allowed = false;
   bool                 repair_allowed = false;
 };

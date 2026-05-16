@@ -37,8 +37,8 @@ struct HotkeyDisableShortcutAliasDecision {
   bool        has_conflicting_alias = false;
 };
 
-// Startup shortcut policy: Scopely's shortcut map must initialize whenever the
-// original game input path is expected to handle shortcuts.
+// Startup shortcut policy: Scopely's shortcut map initializes only when the
+// shortcut policy explicitly permits native shortcut ownership.
 bool should_call_original_initialize_actions(bool use_scopely_hotkeys, bool allow_key_fallthrough);
 bool should_call_original_initialize_actions(ScopelyShortcutPolicy policy);
 
@@ -50,6 +50,7 @@ ScopelyShortcutPolicy resolve_scopely_shortcut_policy(bool use_scopely_hotkeys, 
 OriginalFramePolicy   resolve_original_frame_policy(bool allow_key_fallthrough);
 const char*           scopely_shortcut_policy_name(ScopelyShortcutPolicy policy);
 const char*           original_frame_policy_name(OriginalFramePolicy policy);
+bool                  hotkey_dispatcher_owns_inputs(bool hotkeys_enabled, ScopelyShortcutPolicy scopely_shortcuts);
 
 // Escape-exit policy at the real back-button seam. Returns true when the current
 // Escape-triggered back-button press should be suppressed instead of letting the
@@ -75,9 +76,11 @@ bool space_action_duplicate_submission_should_suppress(uint64_t previous_fleet_i
                                                        uint64_t current_fleet_id, uintptr_t current_target_identity,
                                                        int64_t elapsed_ms, int64_t suppression_window_ms);
 
-// Translate canonical fleet winners into the current space-action compatibility inputs.
+// Translate canonical fleet winners into space-action intent consumed by fleet_actions.
 SpaceActionInputs hotkey_router_runtime_space_action_inputs(bool fleet_primary_pressed, bool fleet_secondary_pressed,
-                                                            bool fleet_service_pressed);
+                                                            bool fleet_queue_add_pressed,
+                                                            bool fleet_recall_cancel_pressed, bool fleet_recall_pressed,
+                                                            bool fleet_repair_pressed, bool fleet_service_pressed);
 
 // Resolve the canonical disable-hotkeys shortcut while accepting deprecated keys.
 HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(const HotkeyDisableShortcutAliasInput& input);

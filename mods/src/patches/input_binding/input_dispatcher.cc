@@ -72,15 +72,19 @@ bool ConsumesOriginalKeyEvent(const DispatchCandidate& candidate)
     return false;
   }
 
-  const auto* spec   = FindAction(candidate.action);
-  const auto  policy = spec ? spec->native_consume : NativeConsumePolicy::WhenHandled;
+  const auto* spec = FindAction(candidate.action);
+  if (!spec) {
+    return false;
+  }
+
+  const auto policy = spec->native_consume;
   switch (policy) {
     case NativeConsumePolicy::Never:
       return false;
     case NativeConsumePolicy::WhenChordMatches:
       return true;
     case NativeConsumePolicy::WhenHandled:
-      return !candidate.held_modifiers.empty();
+      return true;
     default:
       return false;
   }

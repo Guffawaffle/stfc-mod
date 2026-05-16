@@ -45,7 +45,11 @@ TEST_SUITE("input_binding")
     for (const auto& spec : specs) {
       const auto binding = input_binding::ParseBinding(spec.default_bind);
       INFO(spec.canonical_key);
-      CHECK(binding.has_valid_chord());
+      if (spec.default_bind == std::string_view{"NONE"}) {
+        CHECK(binding.unbound);
+      } else {
+        CHECK(binding.has_valid_chord());
+      }
       CHECK_FALSE(binding.has_warnings());
       CHECK_FALSE(binding.has_errors());
     }
@@ -196,7 +200,7 @@ TEST_SUITE("input_binding")
     const auto compiled = input_binding::CompileBindingSet(overrides);
 
     CHECK(compiled.has_errors());
-    CHECK(compiled.bound_chord_count == 88);
+    CHECK(compiled.bound_chord_count == 94);
 
     auto modifiers = input_binding::ModifierMask{};
     modifiers.AddLogical(input_binding::ModifierGroup::Ctrl);
@@ -232,16 +236,18 @@ TEST_SUITE("input_binding")
   {
     const auto compiled = input_binding::CompileBindingSet();
 
-    CHECK(compiled.bound_chord_count == 89);
-    CHECK(compiled.index.size() == 89);
+    CHECK(compiled.bound_chord_count == 95);
+    CHECK(compiled.index.size() == 95);
     CHECK_FALSE(compiled.has_warnings());
     CHECK_FALSE(compiled.has_errors());
     CHECK_FALSE(compiled.has_conflicts());
 
     const auto held    = input_binding::ModifierMask{};
     auto       matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, held);
-    REQUIRE(matches.size() == 1);
+    REQUIRE(matches.size() == 3);
     CHECK(matches[0] == input_binding::InputActionId::FleetPrimary);
+    CHECK(matches[1] == input_binding::InputActionId::FleetQueueAdd);
+    CHECK(matches[2] == input_binding::InputActionId::FleetRecallCancel);
 
     matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Q, held);
     CHECK(matches.empty());
@@ -259,11 +265,13 @@ TEST_SUITE("input_binding")
 
     const auto compiled = input_binding::CompileBindingSet(overrides);
     CHECK_FALSE(compiled.has_errors());
-    CHECK(compiled.bound_chord_count == 87);
+    CHECK(compiled.bound_chord_count == 93);
 
     const auto matches =
         compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, input_binding::ModifierMask{});
-    CHECK(matches.empty());
+    REQUIRE(matches.size() == 2);
+    CHECK(matches[0] == input_binding::InputActionId::FleetQueueAdd);
+    CHECK(matches[1] == input_binding::InputActionId::FleetRecallCancel);
   }
 
   TEST_CASE("compiler carries action scoped parser diagnostics")
@@ -282,7 +290,7 @@ TEST_SUITE("input_binding")
   TEST_CASE("compiler reports same group chord conflicts")
   {
     const std::array overrides{
-        input_binding::BindingOverride{input_binding::InputActionId::FleetService, "SPACE"},
+        input_binding::BindingOverride{input_binding::InputActionId::FleetSecondary, "SPACE"},
     };
 
     const auto compiled = input_binding::CompileBindingSet(overrides);
@@ -290,20 +298,22 @@ TEST_SUITE("input_binding")
     CHECK(compiled.has_conflicts());
     REQUIRE(compiled.conflicts.size() == 1);
     CHECK(compiled.conflicts[0].action_a == input_binding::InputActionId::FleetPrimary);
-    CHECK(compiled.conflicts[0].action_b == input_binding::InputActionId::FleetService);
+    CHECK(compiled.conflicts[0].action_b == input_binding::InputActionId::FleetSecondary);
 
     const auto matches =
         compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, input_binding::ModifierMask{});
-    REQUIRE(matches.size() == 2);
+    REQUIRE(matches.size() == 4);
     CHECK(matches[0] == input_binding::InputActionId::FleetPrimary);
-    CHECK(matches[1] == input_binding::InputActionId::FleetService);
+    CHECK(matches[1] == input_binding::InputActionId::FleetQueueAdd);
+    CHECK(matches[2] == input_binding::InputActionId::FleetRecallCancel);
+    CHECK(matches[3] == input_binding::InputActionId::FleetSecondary);
   }
 
   TEST_CASE("compiler reports logical and physical modifier overlaps")
   {
     const std::array overrides{
         input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "CTRL-SPACE"},
-        input_binding::BindingOverride{input_binding::InputActionId::FleetService, "LCTRL-SPACE"},
+        input_binding::BindingOverride{input_binding::InputActionId::FleetSecondary, "LCTRL-SPACE"},
         input_binding::BindingOverride{input_binding::InputActionId::SelectCurrent, "NONE"},
     };
 
@@ -316,7 +326,7 @@ TEST_SUITE("input_binding")
     const auto matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, held);
     REQUIRE(matches.size() == 2);
     CHECK(matches[0] == input_binding::InputActionId::FleetPrimary);
-    CHECK(matches[1] == input_binding::InputActionId::FleetService);
+    CHECK(matches[1] == input_binding::InputActionId::FleetSecondary);
   }
 
   TEST_CASE("config bridge resolves defaults into canonical bindings")
@@ -524,9 +534,11 @@ move_right = "RIGHT"
 
     const auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
                                                           input_binding::ActiveLayers::All(), key_states);
-    REQUIRE(plan.candidates.size() == 2);
-    REQUIRE(plan.winners.size() == 1);
+    REQUIRE(plan.candidates.size() == 4);
+    REQUIRE(plan.winners.size() == 3);
     CHECK(plan.winners[0].action == input_binding::InputActionId::SelectShip1);
+    CHECK(plan.winners[1].action == input_binding::InputActionId::FleetQueueAdd);
+    CHECK(plan.winners[2].action == input_binding::InputActionId::FleetRecallCancel);
   }
 
   TEST_CASE("dispatcher watches remaining frame router actions and keeps context groups independent")
@@ -612,7 +624,7 @@ show_bookmarks = ""
         plan.winner_lookup.Contains(input_binding::InputActionId::ShowBookmarks, input_binding::InputLayer::Global));
   }
 
-  TEST_CASE("config bridge resolves legacy fleet aliases with precedence and conflict warnings")
+  TEST_CASE("config bridge resolves legacy fleet aliases to separate canonical actions")
   {
     const auto config = toml::parse(R"(
 [shortcuts]
@@ -621,14 +633,26 @@ action_queue = "Q"
 action_recall_cancel = "SPACE|MOUSE1"
 )");
 
-    const auto bridge        = input_binding::ResolveInputBindingConfig(config);
-    const auto fleet_primary = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+    const auto bridge              = input_binding::ResolveInputBindingConfig(config);
+    const auto fleet_primary       = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
       return binding.action == input_binding::InputActionId::FleetPrimary;
     });
+    const auto fleet_queue_add     = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::FleetQueueAdd;
+    });
+    const auto fleet_recall_cancel = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::FleetRecallCancel;
+    });
     REQUIRE(fleet_primary != bridge.bindings.end());
+    REQUIRE(fleet_queue_add != bridge.bindings.end());
+    REQUIRE(fleet_recall_cancel != bridge.bindings.end());
     CHECK(fleet_primary->binding == "CTRL-A");
     CHECK(fleet_primary->source_key == "[shortcuts].action_primary");
-    CHECK(bridge.compatibility_warnings.size() >= 2);
+    CHECK(fleet_queue_add->binding == "Q");
+    CHECK(fleet_queue_add->source_key == "[shortcuts].action_queue");
+    CHECK(fleet_recall_cancel->binding == "SPACE|MOUSE1");
+    CHECK(fleet_recall_cancel->source_key == "[shortcuts].action_recall_cancel");
+    CHECK(bridge.compatibility_warnings.empty());
   }
 
   TEST_CASE("config bridge accepts hotkeys enable compatibility alias")

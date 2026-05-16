@@ -12,14 +12,20 @@ namespace
 {
   constexpr BindingConfigAlias kFleetPrimaryAliases[] = {
       {"action_primary", BindingConfigSourceKind::LegacyAlias, {}},
-      {"action_queue", BindingConfigSourceKind::LegacyAlias, {}},
-      {"action_recall_cancel", BindingConfigSourceKind::LegacyAlias, {}},
   };
   constexpr BindingConfigAlias kFleetSecondaryAliases[] = {
       {"action_secondary", BindingConfigSourceKind::LegacyAlias, {}},
   };
-  constexpr BindingConfigAlias kFleetServiceAliases[] = {
+  constexpr BindingConfigAlias kFleetQueueAddAliases[] = {
+      {"action_queue", BindingConfigSourceKind::LegacyAlias, {}},
+  };
+  constexpr BindingConfigAlias kFleetRecallCancelAliases[] = {
+      {"action_recall_cancel", BindingConfigSourceKind::LegacyAlias, {}},
+  };
+  constexpr BindingConfigAlias kFleetRecallAliases[] = {
       {"action_recall", BindingConfigSourceKind::LegacyAlias, {}},
+  };
+  constexpr BindingConfigAlias kFleetRepairAliases[] = {
       {"action_repair", BindingConfigSourceKind::LegacyAlias, {}},
   };
   constexpr BindingConfigAlias kFleetViewInfoAliases[] = {
@@ -348,7 +354,15 @@ std::span<const BindingConfigAlias> ShortcutConfigAliases(const InputActionId ac
     case InputActionId::FleetSecondary:
       return kFleetSecondaryAliases;
     case InputActionId::FleetService:
-      return kFleetServiceAliases;
+      return {};
+    case InputActionId::FleetQueueAdd:
+      return kFleetQueueAddAliases;
+    case InputActionId::FleetRecallCancel:
+      return kFleetRecallCancelAliases;
+    case InputActionId::FleetRecall:
+      return kFleetRecallAliases;
+    case InputActionId::FleetRepair:
+      return kFleetRepairAliases;
     case InputActionId::FleetViewInfo:
       return kFleetViewInfoAliases;
     case InputActionId::FleetQueueClear:

@@ -66,9 +66,10 @@ inline constexpr std::array kSimpleFleet{
 };
 
 inline constexpr std::array kRuntimeSpace{
-    input_binding::InputActionId::FleetPrimary,
-    input_binding::InputActionId::FleetSecondary,
-    input_binding::InputActionId::FleetService,
+    input_binding::InputActionId::FleetPrimary,      input_binding::InputActionId::FleetSecondary,
+    input_binding::InputActionId::FleetService,      input_binding::InputActionId::FleetQueueAdd,
+    input_binding::InputActionId::FleetRecallCancel, input_binding::InputActionId::FleetRecall,
+    input_binding::InputActionId::FleetRepair,
 };
 
 inline constexpr std::array kTableDispatch{
@@ -168,4 +169,4 @@ inline constexpr auto kFrameActions = [] {
 
   return actions;
 }();
-}  // namespace hotkey_router_actions
+} // namespace hotkey_router_actions

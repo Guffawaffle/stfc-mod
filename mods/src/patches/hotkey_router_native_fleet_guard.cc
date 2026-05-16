@@ -39,7 +39,7 @@ int& native_fleet_selection_bypass_depth()
 
 bool native_fleet_selection_guard_bypassed()
 { return native_fleet_selection_bypass_depth() > 0; }
-}  // namespace
+} // namespace
 
 bool hotkey_router_native_fleet_guard_slot(const std::size_t index)
 {
@@ -63,6 +63,11 @@ void hotkey_router_update_native_fleet_selection_guard(
 
 void hotkey_router_update_native_shortcut_guard_from_physical_keys()
 {
+  if (!hotkey_router_modifier_query::process_window_has_foreground()) {
+    native_fleet_selection_guard().suppress_native_shortcuts = false;
+    return;
+  }
+
   auto&       cache            = hotkey_router_dispatch_cache::frame_runtime_dispatch_cache();
   const auto& runtime_bindings = input_binding::RuntimeBindingModel();
   hotkey_router_dispatch_cache::rebuild_frame_runtime_watched_keys(cache, runtime_bindings);
@@ -80,7 +85,7 @@ void hotkey_router_update_native_shortcut_guard_from_physical_keys()
   input_binding::PlanDispatchSnapshot(runtime_bindings, input_binding::InputPhase::Frame,
                                       input_binding::ActiveLayers::All(), cache.key_states, cache.plan);
   const auto dispatcher_owns_inputs =
-      Config::Get().hotkeys_enabled && ScopelyShortcutsPolicy() != ScopelyShortcutPolicy::Native;
+      hotkey_dispatcher_owns_inputs(Config::Get().hotkeys_enabled, ScopelyShortcutsPolicy());
   hotkey_router_update_native_fleet_selection_guard(cache.plan, cache.key_states, dispatcher_owns_inputs);
 }
 

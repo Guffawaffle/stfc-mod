@@ -104,28 +104,13 @@ namespace
   };
 
   constexpr std::string_view kLegacyOnlyShortcutKeys[] = {
-      "set_zoom_default",
-      "set_zoom_preset1",
-      "set_zoom_preset2",
-      "set_zoom_preset3",
-      "set_zoom_preset4",
-      "set_zoom_preset5",
-      "zoom_max",
-      "zoom_min",
-      "zoom_preset1",
-      "zoom_preset2",
-      "zoom_preset3",
-      "zoom_preset4",
-      "zoom_preset5",
-      "zoom_reset",
+      "set_zoom_default", "set_zoom_preset1", "set_zoom_preset2", "set_zoom_preset3", "set_zoom_preset4",
+      "set_zoom_preset5", "zoom_max",         "zoom_min",         "zoom_preset1",     "zoom_preset2",
+      "zoom_preset3",     "zoom_preset4",     "zoom_preset5",     "zoom_reset",
   };
 
   constexpr std::string_view kExplicitlyInternalOrMigrationPaths[] = {
-      "control.allow_key_fallthrough",
-      "patches.*",
-      "sync.file",
-      "ui.auto_confirm_discovery",
-      "ui.notify_banner_types",
+      "control.allow_key_fallthrough", "patches.*", "sync.file", "ui.auto_confirm_discovery", "ui.notify_banner_types",
       "ui.notify_on_banner_types",
   };
 
@@ -136,7 +121,8 @@ namespace
 
     while (start < dotted_path.size()) {
       const size_t end = dotted_path.find('.', start);
-      const auto   key = dotted_path.substr(start, end == std::string_view::npos ? dotted_path.size() - start : end - start);
+      const auto   key =
+          dotted_path.substr(start, end == std::string_view::npos ? dotted_path.size() - start : end - start);
       if (!table) {
         return false;
       }
@@ -205,6 +191,10 @@ namespace
   void validate_input_binding_coverage(const toml::table& config, ExampleConfigValidationResult& result)
   {
     for (const auto& spec : input_binding::ActionSpecs()) {
+      if (spec.default_bind == std::string_view{"NONE"} && input_binding::ShortcutConfigAliases(spec.id).empty()) {
+        continue;
+      }
+
       const std::string canonical_path = std::string("input.bindings.") + std::string(spec.canonical_key);
       if (path_exists(config, canonical_path)) {
         continue;
@@ -220,23 +210,23 @@ namespace
       }
 
       if (!covered) {
-        result.errors.push_back({canonical_path,
-                                 "missing canonical [input.bindings] entry and all supported [shortcuts] aliases"});
+        result.errors.push_back(
+            {canonical_path, "missing canonical [input.bindings] entry and all supported [shortcuts] aliases"});
       }
     }
   }
 
   void validate_sync_target_examples(const toml::table& config, ExampleConfigValidationResult& result)
   {
-    const auto* sync = config["sync"].as_table();
+    const auto* sync    = config["sync"].as_table();
     const auto* targets = sync ? (*sync)["targets"].as_table() : nullptr;
     if (!targets || targets->empty()) {
       result.errors.push_back({"sync.targets", "missing example sync target section"});
     } else {
       for (const auto& [name, node] : *targets) {
         if (!node.is_table()) {
-          result.errors.push_back({std::string("sync.targets.") + std::string(name.str()),
-                                   "target example must be a table"});
+          result.errors.push_back(
+              {std::string("sync.targets.") + std::string(name.str()), "target example must be a table"});
         }
       }
     }

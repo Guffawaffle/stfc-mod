@@ -53,13 +53,15 @@
 
 #include <spdlog/spdlog.h>
 
+#include <string_view>
+
 namespace
 {
 namespace actions = hotkey_router_actions;
 namespace cache   = hotkey_router_dispatch_cache;
 namespace query   = hotkey_router_runtime_query;
 namespace trace   = hotkey_router_trace_log;
-}  // namespace
+} // namespace
 
 // ─── Main Per-Frame Hotkey Router ─────────────────────────────────────────────────────
 
@@ -71,17 +73,17 @@ bool hotkey_router_screen_update(ScreenManager* _this)
     Key::ResetCache();
   }
 
-  const auto& runtime_dispatch_plan = cache::frame_runtime_dispatch_plan();
-  const auto  scopely_shortcuts     = ScopelyShortcutsPolicy();
-  const auto  dispatcher_owns_inputs =
-      Config::Get().hotkeys_enabled && scopely_shortcuts != ScopelyShortcutPolicy::Native;
-  hotkey_router_update_native_fleet_selection_guard(runtime_dispatch_plan, cache::frame_runtime_dispatch_cache().key_states,
-                                                    dispatcher_owns_inputs);
+  const auto& runtime_dispatch_plan  = cache::frame_runtime_dispatch_plan();
+  const auto  scopely_shortcuts      = ScopelyShortcutsPolicy();
+  const auto  dispatcher_owns_inputs = hotkey_dispatcher_owns_inputs(Config::Get().hotkeys_enabled, scopely_shortcuts);
+  hotkey_router_update_native_fleet_selection_guard(
+      runtime_dispatch_plan, cache::frame_runtime_dispatch_cache().key_states, dispatcher_owns_inputs);
   trace::log_hotkey_trace_frame(cache::frame_runtime_dispatch_cache().key_states, runtime_dispatch_plan);
-  const auto startup_action =
-      query::startup_action_from_runtime_bindings(runtime_dispatch_plan, scopely_shortcuts, Config::Get().hotkeys_enabled);
+  const auto startup_action = query::startup_action_from_runtime_bindings(runtime_dispatch_plan, scopely_shortcuts,
+                                                                          Config::Get().hotkeys_enabled);
   trace::log_hotkey_trace_startup_gate(cache::frame_runtime_dispatch_cache().key_states, runtime_dispatch_plan,
                                        startup_action);
+  trace::log_raw_input_probe();
 
   switch (startup_action) {
     case HotkeyRouterStartupAction::DisableHotkeys:
@@ -308,14 +310,71 @@ bool hotkey_router_screen_update(ScreenManager* _this)
     if (simple_fleet_action == HotkeyRouterSimpleFleetAction::QueueClear) {
       trace::log_runtime_winner("fleet-simple", runtime_dispatch_plan, input_binding::InputActionId::FleetQueueClear,
                                 input_binding::InputLayer::Fleet);
+    } else if (simple_fleet_action == HotkeyRouterSimpleFleetAction::ViewInfo) {
+      trace::log_runtime_winner("fleet-simple", runtime_dispatch_plan, input_binding::InputActionId::FleetViewInfo,
+                                input_binding::InputLayer::Fleet);
     }
-    const auto space_action_inputs = hotkey_router_runtime_space_action_inputs(
-        query::runtime_binding_winner_present(runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary,
-                                              input_binding::InputLayer::Fleet),
-        query::runtime_binding_winner_present(runtime_dispatch_plan, input_binding::InputActionId::FleetSecondary,
-                                              input_binding::InputLayer::Fleet),
-        query::runtime_binding_winner_present(runtime_dispatch_plan, input_binding::InputActionId::FleetService,
-                                              input_binding::InputLayer::Fleet));
+
+    const auto* fleet_primary_winner = query::runtime_binding_winner(
+        runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary, input_binding::InputLayer::Fleet);
+    const auto* fleet_secondary_winner = query::runtime_binding_winner(
+        runtime_dispatch_plan, input_binding::InputActionId::FleetSecondary, input_binding::InputLayer::Fleet);
+    const auto* fleet_service_winner = query::runtime_binding_winner(
+        runtime_dispatch_plan, input_binding::InputActionId::FleetService, input_binding::InputLayer::Fleet);
+    const auto* fleet_queue_add_winner = query::runtime_binding_winner(
+        runtime_dispatch_plan, input_binding::InputActionId::FleetQueueAdd, input_binding::InputLayer::Fleet);
+    const auto* fleet_recall_cancel_winner = query::runtime_binding_winner(
+        runtime_dispatch_plan, input_binding::InputActionId::FleetRecallCancel, input_binding::InputLayer::Fleet);
+    const auto* fleet_recall_winner = query::runtime_binding_winner(
+        runtime_dispatch_plan, input_binding::InputActionId::FleetRecall, input_binding::InputLayer::Fleet);
+    const auto* fleet_repair_winner = query::runtime_binding_winner(
+        runtime_dispatch_plan, input_binding::InputActionId::FleetRepair, input_binding::InputLayer::Fleet);
+
+    auto space_action_inputs = hotkey_router_runtime_space_action_inputs(
+        fleet_primary_winner != nullptr, fleet_secondary_winner != nullptr, fleet_queue_add_winner != nullptr,
+        fleet_recall_cancel_winner != nullptr, fleet_recall_winner != nullptr, fleet_repair_winner != nullptr,
+        fleet_service_winner != nullptr);
+
+    if (fleet_primary_winner) {
+      space_action_inputs.primary_key = fleet_primary_winner->key;
+    }
+    if (fleet_secondary_winner) {
+      space_action_inputs.secondary_key = fleet_secondary_winner->key;
+    }
+    if (fleet_queue_add_winner) {
+      space_action_inputs.queue_key = fleet_queue_add_winner->key;
+    }
+    if (fleet_recall_cancel_winner) {
+      space_action_inputs.recall_cancel_key = fleet_recall_cancel_winner->key;
+    }
+    if (fleet_recall_winner) {
+      space_action_inputs.recall_key = fleet_recall_winner->key;
+    }
+    if (fleet_repair_winner) {
+      space_action_inputs.repair_key = fleet_repair_winner->key;
+    }
+    if (fleet_service_winner) {
+      space_action_inputs.recall_key = fleet_service_winner->key;
+      space_action_inputs.repair_key = fleet_service_winner->key;
+    }
+
+    if (space_action_inputs.any_requested() && trace::hotkey_trace_space_action_probe_enabled()) {
+      const auto winner_key_name = [](const input_binding::DispatchCandidate* winner) -> std::string_view {
+        return winner ? trace::key_code_name(winner->key) : std::string_view{"none"};
+      };
+      spdlog::debug(
+          "[SpaceActionProbe] router-space-winners primary={} primary_key={} secondary={} secondary_key={} "
+          "queue={} queue_key={} recall_cancel={} recall_cancel_key={} recall={} recall_key={} "
+          "repair={} repair_key={} service={} service_key={} inputs[p={} s={} q={} qc={} r={} repair={} rc={}]",
+          fleet_primary_winner != nullptr, winner_key_name(fleet_primary_winner), fleet_secondary_winner != nullptr,
+          winner_key_name(fleet_secondary_winner), fleet_queue_add_winner != nullptr,
+          winner_key_name(fleet_queue_add_winner), fleet_recall_cancel_winner != nullptr,
+          winner_key_name(fleet_recall_cancel_winner), fleet_recall_winner != nullptr,
+          winner_key_name(fleet_recall_winner), fleet_repair_winner != nullptr, winner_key_name(fleet_repair_winner),
+          fleet_service_winner != nullptr, winner_key_name(fleet_service_winner), space_action_inputs.primary,
+          space_action_inputs.secondary, space_action_inputs.queue, space_action_inputs.queue_clear,
+          space_action_inputs.recall, space_action_inputs.repair, space_action_inputs.recall_cancel);
+    }
 
     // Escape to hide object viewers
     if (Key::Pressed(KeyCode::Escape) && DidHideViewers()) {
@@ -351,6 +410,18 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       if (space_action_inputs.recall || space_action_inputs.repair) {
         trace::log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetService,
                                   input_binding::InputLayer::Fleet);
+        trace::log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetRecall,
+                                  input_binding::InputLayer::Fleet);
+        trace::log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetRepair,
+                                  input_binding::InputLayer::Fleet);
+      }
+      if (space_action_inputs.queue) {
+        trace::log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetQueueAdd,
+                                  input_binding::InputLayer::Fleet);
+      }
+      if (space_action_inputs.recall_cancel) {
+        trace::log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetRecallCancel,
+                                  input_binding::InputLayer::Fleet);
       }
       if (Hub::IsInSystemOrGalaxyOrStarbase() && !Hub::IsInChat() && !input_focused) {
         auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
@@ -371,14 +442,21 @@ bool hotkey_router_screen_update(ScreenManager* _this)
         }
       }
       if (handled_space_action
-          && (query::runtime_binding_consumes_original_key_event(runtime_dispatch_plan,
-                                                                 input_binding::InputActionId::FleetPrimary,
-                                                                 input_binding::InputLayer::Fleet)
+          && (query::runtime_binding_consumes_original_key_event(
+                  runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary, input_binding::InputLayer::Fleet)
+              || query::runtime_binding_consumes_original_key_event(
+                  runtime_dispatch_plan, input_binding::InputActionId::FleetSecondary, input_binding::InputLayer::Fleet)
+              || query::runtime_binding_consumes_original_key_event(
+                  runtime_dispatch_plan, input_binding::InputActionId::FleetService, input_binding::InputLayer::Fleet)
+              || query::runtime_binding_consumes_original_key_event(
+                  runtime_dispatch_plan, input_binding::InputActionId::FleetQueueAdd, input_binding::InputLayer::Fleet)
               || query::runtime_binding_consumes_original_key_event(runtime_dispatch_plan,
-                                                                    input_binding::InputActionId::FleetSecondary,
+                                                                    input_binding::InputActionId::FleetRecallCancel,
                                                                     input_binding::InputLayer::Fleet)
+              || query::runtime_binding_consumes_original_key_event(
+                  runtime_dispatch_plan, input_binding::InputActionId::FleetRecall, input_binding::InputLayer::Fleet)
               || query::runtime_binding_consumes_original_key_event(runtime_dispatch_plan,
-                                                                    input_binding::InputActionId::FleetService,
+                                                                    input_binding::InputActionId::FleetRepair,
                                                                     input_binding::InputLayer::Fleet))) {
         return false;
       }

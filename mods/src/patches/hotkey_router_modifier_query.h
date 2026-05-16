@@ -26,6 +26,9 @@ input_binding::ModifierMask physical_held_modifier_mask();
 /// True when the Win32 virtual-key bit is set in `GetAsyncKeyState`. Always false off Windows.
 bool win32_key_pressed(int virtual_key);
 
+/// True when the foreground window belongs to this process. Always true off Windows.
+bool process_window_has_foreground();
+
 /// Convenience probes used by the trace log to compare Unity vs Win32 readings.
 bool win32_digit1_pressed();
 bool win32_left_alt_pressed();
@@ -39,4 +42,4 @@ bool win32_alt_pressed();
  * covers only the keys that can appear in a runtime binding watched-key set.
  */
 int win32_virtual_key_for_key_code(KeyCode key);
-}  // namespace hotkey_router_modifier_query
+} // namespace hotkey_router_modifier_query

@@ -88,9 +88,12 @@ name as the canonical action id.
 <!-- GENERATED INPUT BINDING COMPATIBILITY START -->
 | [input.bindings] key | Default | Legacy [shortcuts] keys |
 | --- | --- | --- |
-| fleet_primary | SPACE|MOUSE1 | action_primary, action_queue, action_recall_cancel |
+| fleet_primary | SPACE|MOUSE1 | action_primary |
 | fleet_secondary | TAB|MOUSE4 | action_secondary |
-| fleet_service | R|MOUSE3 | action_recall, action_repair |
+| fleet_queue_add | SPACE|MOUSE1 | action_queue |
+| fleet_recall_cancel | SPACE|MOUSE1 | action_recall_cancel |
+| fleet_recall | R|MOUSE3 | action_recall |
+| fleet_repair | R|MOUSE3 | action_repair |
 | fleet_view_info | V|MOUSE2 | action_view |
 | fleet_queue_clear | CTRL-C | action_queue_clear |
 | fleet_queue_toggle | CTRL-Q | toggle_queue |

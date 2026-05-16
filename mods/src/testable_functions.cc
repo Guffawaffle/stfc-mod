@@ -37,13 +37,13 @@ bool should_call_original_screen_update(const bool router_allows_original, const
   return router_allows_original;
 }
 
-ScopelyShortcutPolicy resolve_scopely_shortcut_policy(const bool use_scopely_hotkeys, const bool allow_key_fallthrough)
+ScopelyShortcutPolicy resolve_scopely_shortcut_policy(const bool use_scopely_hotkeys, const bool)
 {
   if (use_scopely_hotkeys) {
     return ScopelyShortcutPolicy::Native;
   }
 
-  return allow_key_fallthrough ? ScopelyShortcutPolicy::Fallback : ScopelyShortcutPolicy::Off;
+  return ScopelyShortcutPolicy::Off;
 }
 
 OriginalFramePolicy resolve_original_frame_policy(const bool allow_key_fallthrough)
@@ -76,6 +76,9 @@ const char* original_frame_policy_name(const OriginalFramePolicy policy)
 
   return "unknown";
 }
+
+bool hotkey_dispatcher_owns_inputs(const bool hotkeys_enabled, const ScopelyShortcutPolicy scopely_shortcuts)
+{ return hotkeys_enabled && scopely_shortcuts != ScopelyShortcutPolicy::Native; }
 
 bool should_suppress_escape_exit(bool disable_escape_exit, bool escape_pressed, int escape_exit_timer_ms,
                                  int64_t elapsed_ms_since_last_escape_press)
@@ -136,27 +139,39 @@ bool space_action_duplicate_submission_should_suppress(const uint64_t  previous_
          && elapsed_ms < suppression_window_ms;
 }
 
-SpaceActionInputs hotkey_router_runtime_space_action_inputs(const bool fleet_primary_pressed,
-                                                            const bool fleet_secondary_pressed,
-                                                            const bool fleet_service_pressed)
+SpaceActionInputs
+hotkey_router_runtime_space_action_inputs(const bool fleet_primary_pressed, const bool fleet_secondary_pressed,
+                                          const bool fleet_queue_add_pressed, const bool fleet_recall_cancel_pressed,
+                                          const bool fleet_recall_pressed, const bool fleet_repair_pressed,
+                                          const bool fleet_service_pressed)
 {
   SpaceActionInputs inputs;
 
   if (fleet_primary_pressed) {
-    // Keep the current migration semantics: fleet_primary still fronts the old
-    // primary, queue, and warp-cancel aliases until those behaviors are split.
-    inputs.primary       = true;
-    inputs.queue         = true;
-    inputs.recall_cancel = true;
+    inputs.primary = true;
   }
 
   if (fleet_secondary_pressed) {
     inputs.secondary = true;
   }
 
+  if (fleet_queue_add_pressed) {
+    inputs.queue = true;
+  }
+
+  if (fleet_recall_cancel_pressed) {
+    inputs.recall_cancel = true;
+  }
+
+  if (fleet_recall_pressed) {
+    inputs.recall = true;
+  }
+
+  if (fleet_repair_pressed) {
+    inputs.repair = true;
+  }
+
   if (fleet_service_pressed) {
-    // fleet_service still fronts the old recall and repair aliases until the
-    // runtime path dispatches those outcomes directly.
     inputs.recall = true;
     inputs.repair = true;
   }
@@ -228,7 +243,7 @@ HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pres
   }
 
   if (!hotkeys_enabled) {
-    return HotkeyRouterStartupAction::SuppressOriginal;
+    return HotkeyRouterStartupAction::AllowOriginal;
   }
 
   return HotkeyRouterStartupAction::Continue;

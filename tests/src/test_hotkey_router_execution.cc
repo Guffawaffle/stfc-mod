@@ -11,7 +11,7 @@ TEST_SUITE("hotkey_router_execution")
     CHECK(hotkey_router_startup_action(false, false, ScopelyShortcutPolicy::Native, true)
           == HotkeyRouterStartupAction::AllowOriginal);
     CHECK(hotkey_router_startup_action(false, false, ScopelyShortcutPolicy::Fallback, false)
-          == HotkeyRouterStartupAction::SuppressOriginal);
+          == HotkeyRouterStartupAction::AllowOriginal);
   }
 
   TEST_CASE("quit action only routes when quit winner is present")

@@ -91,11 +91,11 @@ hotkeys_enabled = true
 use_scopely_hotkeys = false
 
 [input]
-scopely_shortcuts = "fallback"
+scopely_shortcuts = "off"
 original_frame_policy = "fallthrough_unhandled"
 ```
 
-`scopely_shortcuts = "fallback"` initializes the Scopely shortcut layer without making it the primary router. `original_frame_policy = "fallthrough_unhandled"` calls the original `ScreenManager::Update` path only when the mod router does not consume the frame. Runtime bindings use exact modifiers: `E` does not match `CTRL-E`, and a handled modified key-down chord such as `CTRL-E` or `ALT-1` consumes the original game key event so the bare key does not also fire. If a specific game shortcut still needs the original path every frame, try `original_frame_policy = "fallthrough_all"`.
+`scopely_shortcuts = "off"` keeps Scopely's shortcut layer from registering native shortcut callbacks while the mod owns hotkeys. `original_frame_policy = "fallthrough_unhandled"` calls the original `ScreenManager::Update` path only when the mod router does not consume the frame. Runtime bindings use exact modifiers: `E` does not match `CTRL-E`, and a handled modified key-down chord such as `CTRL-E` or `ALT-1` consumes the original game key event so the bare key does not also fire. If you intentionally want Scopely's shortcut layer alive, set `scopely_shortcuts = "fallback"` or `scopely_shortcuts = "native"` explicitly.
 
 The older compatibility switch still works:
 
@@ -104,7 +104,7 @@ The older compatibility switch still works:
 allow_key_fallthrough = true
 ```
 
-That legacy switch maps to fallback Scopely shortcuts plus unhandled-frame fallthrough. Prefer the `[input]` settings above when you want to tune those behaviors separately.
+That legacy switch maps to unhandled-frame fallthrough only; it no longer initializes Scopely shortcuts unless `use_scopely_hotkeys = true` or `[input].scopely_shortcuts` explicitly opts in.
 
 ### Alt shortcut fallback
 

@@ -25,6 +25,7 @@
 #include "patches/input_binding/input_dispatcher.h"
 #include "patches/input_binding/input_runtime_bindings.h"
 #include "patches/key.h"
+#include "testable_functions.h"
 
 #include <il2cpp/il2cpp_helper.h>
 
@@ -194,7 +195,7 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
 
   if (!Key::IsInputFocused()) {
     const auto dispatcher_owns_zoom =
-        Config::Get().hotkeys_enabled && ScopelyShortcutsPolicy() != ScopelyShortcutPolicy::Native;
+        hotkey_dispatcher_owns_inputs(Config::Get().hotkeys_enabled, ScopelyShortcutsPolicy());
     auto zoom_in_pressed  = false;
     auto zoom_out_pressed = false;
 

@@ -34,6 +34,7 @@ std::string_view startup_action_name(HotkeyRouterStartupAction action);
 // ─── Trace gates ──────────────────────────────────────────────────────────────
 bool hotkey_trace_key(KeyCode key);
 bool hotkey_trace_action(input_binding::InputActionId action);
+bool hotkey_trace_space_action_probe_enabled();
 
 // ─── Frame / startup / context formatters ─────────────────────────────────────
 void log_hotkey_trace_frame(std::span<const input_binding::DispatchKeyState> key_states,
@@ -44,6 +45,8 @@ void log_hotkey_trace_startup_gate(std::span<const input_binding::DispatchKeySta
 
 void log_hotkey_trace_context_gate(const input_binding::DispatchPlan& plan, bool is_in_chat, bool input_focused);
 
-void log_runtime_winner(const char* route, const input_binding::DispatchPlan& plan,
-                        input_binding::InputActionId action, input_binding::InputLayer layer);
-}  // namespace hotkey_router_trace_log
+void log_raw_input_probe();
+
+void log_runtime_winner(const char* route, const input_binding::DispatchPlan& plan, input_binding::InputActionId action,
+                        input_binding::InputLayer layer);
+} // namespace hotkey_router_trace_log

@@ -47,36 +47,35 @@ namespace DCSC  = DefaultConfig::SystemConfig;
 namespace DCSH  = DefaultConfig::Shortcuts;
 namespace DCBLD = DefaultConfig::BattleLogDecoder;
 
+using config_metadata::BoolConfigSpec;
 using config_metadata::kAllowKeyFallthroughConfig;
 using config_metadata::kDisableHotkeysShortcutConfig;
 using config_metadata::kHotkeysEnabledConfig;
 using config_metadata::kHotkeysExtendedConfig;
 using config_metadata::kUseScopelyHotkeysConfig;
-using config_metadata::BoolConfigSpec;
 using config_metadata::NotificationBoolConfigSpec;
-using config_metadata::NotificationToggleSpec;
 using config_metadata::notificationBoolConfigSpecs;
+using config_metadata::NotificationToggleSpec;
 using config_metadata::notificationToggleSpecs;
 
-static_assert(!DCS::allow_unsafe_tls_without_certificate_validation,
-              "Unsafe TLS override default must remain false.");
+static_assert(!DCS::allow_unsafe_tls_without_certificate_validation, "Unsafe TLS override default must remain false.");
 
 // Standalone flag — NOT in Config struct to avoid struct layout sensitivity.
 // See: fix/lto-and-sync-crashes for context on why Config struct changes crash.
-static bool g_allow_key_fallthrough          = false;
-static ScopelyShortcutPolicy g_scopely_shortcuts_policy = ScopelyShortcutPolicy::Off;
-static OriginalFramePolicy   g_original_frame_policy    = OriginalFramePolicy::Mod;
-static bool g_live_debug_channel             = false;
-static bool g_battle_log_decoder_enabled     = false;
-static bool g_battle_log_decoder_segments    = true;
-static bool g_battle_log_decoder_feed        = true;
-static int  g_sync_sidecar_jsonl_replay_seconds = DCS::sidecar_jsonl_replay_seconds;
-static int  g_sync_sidecar_jsonl_recent_logs = DCS::sidecar_jsonl_recent_logs;
-static bool g_refinery_diagnostics           = DCD::refinery_diagnostics;
-static bool g_mod_impact_monitor             = DCD::mod_impact_monitor;
-static RuntimeTraceLevel g_runtime_trace_level = RuntimeTraceLevel::Off;
-static bool g_runtime_trace_track_overhead     = DCD::runtime_trace_track_overhead;
-static int  g_runtime_trace_report_interval_ms = DCD::runtime_trace_report_interval_ms;
+static bool                  g_allow_key_fallthrough             = false;
+static ScopelyShortcutPolicy g_scopely_shortcuts_policy          = ScopelyShortcutPolicy::Off;
+static OriginalFramePolicy   g_original_frame_policy             = OriginalFramePolicy::Mod;
+static bool                  g_live_debug_channel                = false;
+static bool                  g_battle_log_decoder_enabled        = false;
+static bool                  g_battle_log_decoder_segments       = true;
+static bool                  g_battle_log_decoder_feed           = true;
+static int                   g_sync_sidecar_jsonl_replay_seconds = DCS::sidecar_jsonl_replay_seconds;
+static int                   g_sync_sidecar_jsonl_recent_logs    = DCS::sidecar_jsonl_recent_logs;
+static bool                  g_refinery_diagnostics              = DCD::refinery_diagnostics;
+static bool                  g_mod_impact_monitor                = DCD::mod_impact_monitor;
+static RuntimeTraceLevel     g_runtime_trace_level               = RuntimeTraceLevel::Off;
+static bool                  g_runtime_trace_track_overhead      = DCD::runtime_trace_track_overhead;
+static int                   g_runtime_trace_report_interval_ms  = DCD::runtime_trace_report_interval_ms;
 
 /** @brief Accessor for the file-scope allow_key_fallthrough flag. */
 bool AllowKeyFallthrough()
@@ -392,10 +391,8 @@ std::optional<bool> read_bool_config_value_if_present(toml::table& config, std::
   return std::nullopt;
 }
 
-std::optional<std::string> read_string_config_value_if_present(toml::table& config,
-                                                               std::string_view section,
-                                                               std::string_view key,
-                                                               std::string_view docs)
+std::optional<std::string> read_string_config_value_if_present(toml::table& config, std::string_view section,
+                                                               std::string_view key, std::string_view docs)
 {
   auto* section_table = config[section].as_table();
   if (!section_table || !section_table->contains(key)) {
@@ -450,8 +447,7 @@ std::optional<OriginalFramePolicy> parse_original_frame_policy(std::string_view 
   return std::nullopt;
 }
 
-void write_input_policy_config(toml::table& new_config,
-                               const ScopelyShortcutPolicy scopely_shortcuts,
+void write_input_policy_config(toml::table& new_config, const ScopelyShortcutPolicy scopely_shortcuts,
                                const OriginalFramePolicy original_frame_policy)
 {
   new_config.emplace<toml::table>("input", toml::table());
@@ -460,11 +456,8 @@ void write_input_policy_config(toml::table& new_config,
   input->insert_or_assign("original_frame_policy", original_frame_policy_name(original_frame_policy));
 }
 
-void write_runtime_trace_config(toml::table& new_config,
-                                const RuntimeTraceLevel level,
-                                const bool track_overhead,
-                                const int report_interval_ms,
-                                const bool legacy_mod_impact_monitor)
+void write_runtime_trace_config(toml::table& new_config, const RuntimeTraceLevel level, const bool track_overhead,
+                                const int report_interval_ms, const bool legacy_mod_impact_monitor)
 {
   new_config.emplace<toml::table>("debug", toml::table());
   auto* debug = new_config["debug"].as_table();
@@ -940,37 +933,31 @@ void Config::Load()
   this->enable_experimental =
       get_config_or_default(config, parsed, "control", "enable_experimental", DCC::enable_experimental, write_config);
 
-  g_allow_key_fallthrough = read_bool_config_entry(config, parsed, kAllowKeyFallthroughConfig, write_config);
+  g_allow_key_fallthrough    = read_bool_config_entry(config, parsed, kAllowKeyFallthroughConfig, write_config);
   g_scopely_shortcuts_policy = resolve_scopely_shortcut_policy(this->use_scopely_hotkeys, g_allow_key_fallthrough);
   g_original_frame_policy    = resolve_original_frame_policy(g_allow_key_fallthrough);
 
   const auto explicit_scopely_policy = config_key_exists(config, "input", "scopely_shortcuts");
-  if (auto policy_value = read_string_config_value_if_present(config,
-                                                              "input",
-                                                              "scopely_shortcuts",
+  if (auto policy_value = read_string_config_value_if_present(config, "input", "scopely_shortcuts",
                                                               "Scopely shortcut initialization policy.")) {
     if (auto policy = parse_scopely_shortcut_policy(*policy_value)) {
       g_scopely_shortcuts_policy = *policy;
     } else {
       spdlog::warn("Invalid string config [input].scopely_shortcuts value='{}'; expected off, native, or fallback. "
                    "Using {}.",
-                   *policy_value,
-                   scopely_shortcut_policy_name(g_scopely_shortcuts_policy));
+                   *policy_value, scopely_shortcut_policy_name(g_scopely_shortcuts_policy));
     }
   }
 
   const auto explicit_frame_policy = config_key_exists(config, "input", "original_frame_policy");
-  if (auto policy_value = read_string_config_value_if_present(config,
-                                                              "input",
-                                                              "original_frame_policy",
+  if (auto policy_value = read_string_config_value_if_present(config, "input", "original_frame_policy",
                                                               "Original ScreenManager::Update call policy.")) {
     if (auto policy = parse_original_frame_policy(*policy_value)) {
       g_original_frame_policy = *policy;
     } else {
       spdlog::warn("Invalid string config [input].original_frame_policy value='{}'; expected mod, "
                    "fallthrough_unhandled, or fallthrough_all. Using {}.",
-                   *policy_value,
-                   original_frame_policy_name(g_original_frame_policy));
+                   *policy_value, original_frame_policy_name(g_original_frame_policy));
     }
   }
 
@@ -983,8 +970,9 @@ void Config::Load()
       scopely_shortcut_policy_name(g_scopely_shortcuts_policy), original_frame_policy_name(g_original_frame_policy));
 
   if (g_allow_key_fallthrough && !this->use_scopely_hotkeys && !explicit_scopely_policy && !explicit_frame_policy) {
-    spdlog::warn("[Hotkeys] legacy allow_key_fallthrough=true maps to scopely_shortcuts={} and "
-                 "original_frame_policy={}. Set [input] policies to split those behaviors explicitly.",
+    spdlog::warn("[Hotkeys] legacy allow_key_fallthrough=true now leaves scopely_shortcuts={} and maps "
+                 "original_frame_policy={}. Native shortcut execution must be explicit or configured with "
+                 "[input].scopely_shortcuts.",
                  scopely_shortcut_policy_name(g_scopely_shortcuts_policy),
                  original_frame_policy_name(g_original_frame_policy));
   }
@@ -1089,16 +1077,12 @@ void Config::Load()
   this->sync_logging = get_config_or_default(config, parsed, "sync", "logging", DCS::logging, write_config);
   this->sync_sidecar_jsonl =
       get_config_or_default(config, parsed, "sync", "sidecar_jsonl", DCS::sidecar_jsonl, write_config);
-  g_sync_sidecar_jsonl_replay_seconds = get_config_or_default(config,
-                                                              parsed,
-                                                              "sync",
-                                                              "sidecar_jsonl_replay_seconds",
-                                                              DCS::sidecar_jsonl_replay_seconds,
-                                                              write_config);
+  g_sync_sidecar_jsonl_replay_seconds = get_config_or_default(config, parsed, "sync", "sidecar_jsonl_replay_seconds",
+                                                              DCS::sidecar_jsonl_replay_seconds, write_config);
   g_sync_sidecar_jsonl_replay_seconds = std::max(0, g_sync_sidecar_jsonl_replay_seconds);
-  g_sync_sidecar_jsonl_recent_logs = get_config_or_default(config, parsed, "sync", "sidecar_jsonl_recent_logs",
-                                                           DCS::sidecar_jsonl_recent_logs, write_config);
-  g_sync_sidecar_jsonl_recent_logs = std::max(0, g_sync_sidecar_jsonl_recent_logs);
+  g_sync_sidecar_jsonl_recent_logs    = get_config_or_default(config, parsed, "sync", "sidecar_jsonl_recent_logs",
+                                                              DCS::sidecar_jsonl_recent_logs, write_config);
+  g_sync_sidecar_jsonl_recent_logs    = std::max(0, g_sync_sidecar_jsonl_recent_logs);
   g_live_debug_channel = get_config_or_default(config, parsed, "debug", "live_query", DCD::live_query, write_config);
   g_refinery_diagnostics =
       get_config_or_default(config, parsed, "debug", "refinery_diagnostics", DCD::refinery_diagnostics, write_config);
@@ -1106,42 +1090,27 @@ void Config::Load()
       get_config_or_default(config, parsed, "debug", "mod_impact_monitor", DCD::mod_impact_monitor, write_config);
 
   const auto explicit_runtime_trace = config_key_exists(config, "debug", "runtime_trace");
-  g_runtime_trace_level = g_mod_impact_monitor ? RuntimeTraceLevel::Summary : RuntimeTraceLevel::Off;
-  if (auto trace_level_value = read_string_config_value_if_present(config,
-                                                                   "debug",
-                                                                   "runtime_trace",
-                                                                   "Realtime trace level.")) {
+  g_runtime_trace_level             = g_mod_impact_monitor ? RuntimeTraceLevel::Summary : RuntimeTraceLevel::Off;
+  if (auto trace_level_value =
+          read_string_config_value_if_present(config, "debug", "runtime_trace", "Realtime trace level.")) {
     const auto normalized_trace_level = AsciiStrToLower(*trace_level_value);
     if (auto level = ParseRuntimeTraceLevel(normalized_trace_level)) {
       g_runtime_trace_level = *level;
     } else {
       spdlog::warn("Invalid string config [debug].runtime_trace value='{}'; expected off, summary, detailed, or "
                    "verbose. Using {}.",
-                   *trace_level_value,
-                   RuntimeTraceLevelName(g_runtime_trace_level));
+                   *trace_level_value, RuntimeTraceLevelName(g_runtime_trace_level));
     }
   }
 
-  g_runtime_trace_track_overhead = get_config_or_default(config,
-                                                         parsed,
-                                                         "debug",
-                                                         "runtime_trace_track_overhead",
-                                                         DCD::runtime_trace_track_overhead,
-                                                         write_config);
-  g_runtime_trace_report_interval_ms = get_config_or_default(config,
-                                                             parsed,
-                                                             "debug",
-                                                             "runtime_trace_report_interval_ms",
-                                                             DCD::runtime_trace_report_interval_ms,
-                                                             write_config);
+  g_runtime_trace_track_overhead     = get_config_or_default(config, parsed, "debug", "runtime_trace_track_overhead",
+                                                             DCD::runtime_trace_track_overhead, write_config);
+  g_runtime_trace_report_interval_ms = get_config_or_default(
+      config, parsed, "debug", "runtime_trace_report_interval_ms", DCD::runtime_trace_report_interval_ms, write_config);
   g_runtime_trace_report_interval_ms = std::clamp(g_runtime_trace_report_interval_ms, 1000, 60000);
-  write_runtime_trace_config(parsed,
-                             g_runtime_trace_level,
-                             g_runtime_trace_track_overhead,
-                             g_runtime_trace_report_interval_ms,
-                             g_runtime_trace_level != RuntimeTraceLevel::Off);
-  ConfigureModImpactRuntimeTrace(g_runtime_trace_level,
-                                 g_runtime_trace_track_overhead,
+  write_runtime_trace_config(parsed, g_runtime_trace_level, g_runtime_trace_track_overhead,
+                             g_runtime_trace_report_interval_ms, g_runtime_trace_level != RuntimeTraceLevel::Off);
+  ConfigureModImpactRuntimeTrace(g_runtime_trace_level, g_runtime_trace_track_overhead,
                                  g_runtime_trace_report_interval_ms);
   if (!explicit_runtime_trace && g_mod_impact_monitor) {
     spdlog::warn("[Trace] [debug].mod_impact_monitor=true is a legacy alias for runtime_trace=summary. Prefer "
@@ -1157,15 +1126,15 @@ void Config::Load()
       get_config_or_default(config, parsed, "sync", "resolver_cache_ttl", DCS::resolver_cache_ttl, write_config);
 
   SyncConfig sync_defaults;
-  sync_defaults.proxy      = get_config_or_default<std::string>(config, parsed, "sync", "proxy", DCS::proxy, false);
+  sync_defaults.proxy = get_config_or_default<std::string>(config, parsed, "sync", "proxy", DCS::proxy, false);
   parsed["sync"].as_table()->insert_or_assign("proxy", config_redaction::mask_proxy_userinfo(sync_defaults.proxy));
   if (write_log) {
     spdlog::debug("config value sync.proxy value: {}", mask_proxy_for_log(sync_defaults.proxy));
   }
   sync_defaults.verify_ssl = get_config_or_default(config, parsed, "sync", "verify_ssl", DCS::verify_ssl, write_config);
-  sync_defaults.allow_unsafe_tls_without_certificate_validation = get_config_or_default(
-      config, parsed, "sync", "allow_unsafe_tls_without_certificate_validation",
-      DCS::allow_unsafe_tls_without_certificate_validation, write_config);
+  sync_defaults.allow_unsafe_tls_without_certificate_validation =
+      get_config_or_default(config, parsed, "sync", "allow_unsafe_tls_without_certificate_validation",
+                            DCS::allow_unsafe_tls_without_certificate_validation, write_config);
 
   for (const auto& opt : SyncOptions) {
     sync_defaults.*opt.option = get_config_or_default(config, parsed, "sync", opt.option_str, false, write_config);
@@ -1190,12 +1159,13 @@ void Config::Load()
     converted_target.token                     = sync_token.value();
 
     if (this->sync_targets.emplace("default", converted_target).second) {
-      toml::table default_target{{"url", sync_url.value()},
-                                 {"token", config_redaction::redact_secret_for_runtime_snapshot(converted_target.token)},
-                                 {"proxy", config_redaction::mask_proxy_userinfo(converted_target.proxy)},
-                                 {"verify_ssl", converted_target.verify_ssl},
-                                 {"allow_unsafe_tls_without_certificate_validation",
-                                  converted_target.allow_unsafe_tls_without_certificate_validation}};
+      toml::table default_target{
+          {"url", sync_url.value()},
+          {"token", config_redaction::redact_secret_for_runtime_snapshot(converted_target.token)},
+          {"proxy", config_redaction::mask_proxy_userinfo(converted_target.proxy)},
+          {"verify_ssl", converted_target.verify_ssl},
+          {"allow_unsafe_tls_without_certificate_validation",
+           converted_target.allow_unsafe_tls_without_certificate_validation}};
       for (const auto& opt : SyncOptions) {
         default_target.insert(opt.option_str, converted_target.*opt.option);
       }
@@ -1530,8 +1500,8 @@ void Config::Load()
                  action_b ? action_b->canonical_key : std::string_view{"unknown"}, conflict.chord.display);
   }
 
-  parsed.insert_or_assign("input", input_binding::BuildInputBindingRuntimeConfig(input_binding_bridge,
-                                                                                   input_binding_compile));
+  parsed.insert_or_assign("input",
+                          input_binding::BuildInputBindingRuntimeConfig(input_binding_bridge, input_binding_compile));
 
   message.str("");
   message << "Creating " << File::Vars() << " (final config file)";

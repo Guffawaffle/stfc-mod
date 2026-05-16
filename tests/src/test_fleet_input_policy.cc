@@ -20,14 +20,13 @@ TEST_SUITE("fleet_input_policy")
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::DismissRewards);
   }
 
-  TEST_CASE("primary cancels warp unless mouse target context should consume the click")
+  TEST_CASE("primary cancels warp unless a target context can handle the action")
   {
     FleetPrimaryDecisionInput input;
     input.fleet_state = FleetInputFleetState::WarpCharging;
 
     CHECK(DecideFleetPrimary(input) == FleetPrimaryOutcome::CancelWarp);
 
-    input.primary_is_mouse        = true;
     input.visible_prescan_target  = true;
     input.target_engage_available = true;
     input.target_context_resolved = true;
@@ -277,10 +276,10 @@ TEST_SUITE("fleet_deferred_action")
 
 TEST_SUITE("hotkey_decisions")
 {
-  TEST_CASE("Scopely shortcut initialization runs for Scopely mode or fallthrough")
+  TEST_CASE("Scopely shortcut initialization is independent from frame fallthrough")
   {
     CHECK_FALSE(should_call_original_initialize_actions(false, false));
-    CHECK(should_call_original_initialize_actions(false, true));
+    CHECK_FALSE(should_call_original_initialize_actions(false, true));
     CHECK(should_call_original_initialize_actions(true, false));
     CHECK(should_call_original_initialize_actions(true, true));
 
@@ -308,7 +307,7 @@ TEST_SUITE("hotkey_decisions")
   {
     CHECK(resolve_scopely_shortcut_policy(false, false) == ScopelyShortcutPolicy::Off);
     CHECK(resolve_scopely_shortcut_policy(true, false) == ScopelyShortcutPolicy::Native);
-    CHECK(resolve_scopely_shortcut_policy(false, true) == ScopelyShortcutPolicy::Fallback);
+    CHECK(resolve_scopely_shortcut_policy(false, true) == ScopelyShortcutPolicy::Off);
     CHECK(resolve_scopely_shortcut_policy(true, true) == ScopelyShortcutPolicy::Native);
 
     CHECK(resolve_original_frame_policy(false) == OriginalFramePolicy::Mod);
@@ -317,6 +316,16 @@ TEST_SUITE("hotkey_decisions")
     CHECK(std::string(scopely_shortcut_policy_name(ScopelyShortcutPolicy::Fallback)) == "fallback");
     CHECK(std::string(original_frame_policy_name(OriginalFramePolicy::FallthroughUnhandled))
           == "fallthrough_unhandled");
+  }
+
+  TEST_CASE("dispatcher ownership is explicit and independent from frame fallthrough")
+  {
+    CHECK(hotkey_dispatcher_owns_inputs(true, ScopelyShortcutPolicy::Off));
+    CHECK(hotkey_dispatcher_owns_inputs(true, ScopelyShortcutPolicy::Fallback));
+    CHECK_FALSE(hotkey_dispatcher_owns_inputs(true, ScopelyShortcutPolicy::Native));
+    CHECK_FALSE(hotkey_dispatcher_owns_inputs(false, ScopelyShortcutPolicy::Off));
+    CHECK_FALSE(hotkey_dispatcher_owns_inputs(false, ScopelyShortcutPolicy::Fallback));
+    CHECK_FALSE(hotkey_dispatcher_owns_inputs(false, ScopelyShortcutPolicy::Native));
   }
 
   TEST_CASE("Escape exit suppression only blocks Escape-triggered exit outside the double-tap window")
@@ -337,7 +346,7 @@ TEST_SUITE("hotkey_decisions")
     CHECK(hotkey_router_startup_action(true, false, false, true) == HotkeyRouterStartupAction::DisableHotkeys);
     CHECK(hotkey_router_startup_action(false, true, false, false) == HotkeyRouterStartupAction::EnableHotkeys);
     CHECK(hotkey_router_startup_action(false, false, true, true) == HotkeyRouterStartupAction::AllowOriginal);
-    CHECK(hotkey_router_startup_action(false, false, false, false) == HotkeyRouterStartupAction::SuppressOriginal);
+    CHECK(hotkey_router_startup_action(false, false, false, false) == HotkeyRouterStartupAction::AllowOriginal);
     CHECK(hotkey_router_startup_action(false, false, false, true) == HotkeyRouterStartupAction::Continue);
 
     CHECK(hotkey_router_startup_action(false, false, ScopelyShortcutPolicy::Native, true)
@@ -345,7 +354,7 @@ TEST_SUITE("hotkey_decisions")
     CHECK(hotkey_router_startup_action(false, false, ScopelyShortcutPolicy::Fallback, true)
           == HotkeyRouterStartupAction::Continue);
     CHECK(hotkey_router_startup_action(false, false, ScopelyShortcutPolicy::Fallback, false)
-          == HotkeyRouterStartupAction::SuppressOriginal);
+          == HotkeyRouterStartupAction::AllowOriginal);
   }
 
   TEST_CASE("ship selection returns the first active fleet hotkey")
@@ -419,10 +428,10 @@ TEST_SUITE("hotkey_decisions")
 
   TEST_CASE("runtime fleet action winners map to compatibility space inputs")
   {
-    auto inputs = hotkey_router_runtime_space_action_inputs(false, false, false);
+    auto inputs = hotkey_router_runtime_space_action_inputs(false, false, false, false, false, false, false);
     CHECK_FALSE(inputs.any_requested());
 
-    inputs = hotkey_router_runtime_space_action_inputs(true, false, false);
+    inputs = hotkey_router_runtime_space_action_inputs(true, false, true, true, false, false, false);
     CHECK(inputs.primary);
     CHECK(inputs.queue);
     CHECK(inputs.recall_cancel);
@@ -430,9 +439,17 @@ TEST_SUITE("hotkey_decisions")
     CHECK_FALSE(inputs.recall);
     CHECK_FALSE(inputs.repair);
 
-    inputs = hotkey_router_runtime_space_action_inputs(false, true, true);
+    inputs = hotkey_router_runtime_space_action_inputs(false, true, false, false, true, true, false);
     CHECK_FALSE(inputs.primary);
     CHECK(inputs.secondary);
+    CHECK_FALSE(inputs.queue);
+    CHECK_FALSE(inputs.recall_cancel);
+    CHECK(inputs.recall);
+    CHECK(inputs.repair);
+
+    inputs = hotkey_router_runtime_space_action_inputs(false, false, false, false, false, false, true);
+    CHECK_FALSE(inputs.primary);
+    CHECK_FALSE(inputs.secondary);
     CHECK_FALSE(inputs.queue);
     CHECK_FALSE(inputs.recall_cancel);
     CHECK(inputs.recall);

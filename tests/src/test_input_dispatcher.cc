@@ -38,7 +38,7 @@ TEST_SUITE("input_dispatcher")
   {
     const std::array overrides{
         input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "SPACE"},
-        input_binding::BindingOverride{input_binding::InputActionId::FleetService, "SPACE"},
+        input_binding::BindingOverride{input_binding::InputActionId::FleetSecondary, "SPACE"},
         input_binding::BindingOverride{input_binding::InputActionId::HotkeysDisable, "SPACE"},
         input_binding::BindingOverride{input_binding::InputActionId::LogDebug, "SPACE"},
     };
@@ -51,11 +51,13 @@ TEST_SUITE("input_dispatcher")
     request.key          = KeyCode::Space;
 
     const auto plan = input_binding::PlanDispatch(compiled, request);
-    REQUIRE(plan.candidates.size() == 4);
-    REQUIRE(plan.winners.size() == 3);
+    REQUIRE(plan.candidates.size() == 6);
+    REQUIRE(plan.winners.size() == 5);
     CHECK(plan.winners[0].action == input_binding::InputActionId::HotkeysDisable);
     CHECK(plan.winners[1].action == input_binding::InputActionId::LogDebug);
     CHECK(plan.winners[2].action == input_binding::InputActionId::FleetPrimary);
+    CHECK(plan.winners[3].action == input_binding::InputActionId::FleetQueueAdd);
+    CHECK(plan.winners[4].action == input_binding::InputActionId::FleetRecallCancel);
   }
 
   TEST_CASE("dispatcher combines original call decisions conservatively")
@@ -77,6 +79,60 @@ TEST_SUITE("input_dispatcher")
         input_binding::ExecutionDecision::NoOpinion,
     };
     CHECK(input_binding::CombineExecutionDecisions(no_opinion) == input_binding::ExecutionDecision::NoOpinion);
+  }
+
+  TEST_CASE("frame down winners consume their physical key by default")
+  {
+    const auto compiled = input_binding::CompileBindingSet();
+
+    const auto winner_for_key = [&](const KeyCode key, const input_binding::InputActionId expected_action) {
+      input_binding::DispatchRequest request;
+      request.trigger_mode = input_binding::TriggerMode::Down;
+      request.phase        = input_binding::InputPhase::Frame;
+      request.key          = key;
+
+      const auto plan = input_binding::PlanDispatch(compiled, request);
+      for (const auto& winner : plan.winners) {
+        if (winner.action == expected_action) {
+          return winner;
+        }
+      }
+
+      FAIL("expected dispatcher winner was not present");
+      return input_binding::DispatchCandidate{};
+    };
+
+    const auto chat_winner = winner_for_key(KeyCode::C, input_binding::InputActionId::ShowChat);
+    CHECK(input_binding::ConsumesOriginalKeyEvent(chat_winner));
+
+    const auto view_key_winner = winner_for_key(KeyCode::V, input_binding::InputActionId::FleetViewInfo);
+    CHECK(input_binding::ConsumesOriginalKeyEvent(view_key_winner));
+
+    const auto view_mouse_winner = winner_for_key(KeyCode::Mouse2, input_binding::InputActionId::FleetViewInfo);
+    CHECK(input_binding::ConsumesOriginalKeyEvent(view_mouse_winner));
+  }
+
+  TEST_CASE("non-frame or held winners do not consume original key events")
+  {
+    CHECK_FALSE(input_binding::ConsumesOriginalKeyEvent(
+        input_binding::DispatchCandidate{input_binding::InputActionId::ZoomIn,
+                                         input_binding::ConflictGroup::Zoom,
+                                         0,
+                                         input_binding::InputPhase::NavigationZoomUpdate,
+                                         input_binding::InputLayer::Zoom,
+                                         input_binding::TriggerMode::Pressed,
+                                         KeyCode::Q,
+                                         {}}));
+
+    CHECK_FALSE(input_binding::ConsumesOriginalKeyEvent(
+        input_binding::DispatchCandidate{input_binding::InputActionId::FleetViewInfo,
+                                         input_binding::ConflictGroup::FleetAction,
+                                         0,
+                                         input_binding::InputPhase::Frame,
+                                         input_binding::InputLayer::Fleet,
+                                         input_binding::TriggerMode::Pressed,
+                                         KeyCode::V,
+                                         {}}));
   }
 
   TEST_CASE("snapshot dispatcher plans down and held keys through one dispatch pass")
@@ -108,7 +164,7 @@ TEST_SUITE("input_dispatcher")
   {
     const std::array overrides{
         input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "SPACE"},
-        input_binding::BindingOverride{input_binding::InputActionId::FleetService, "SPACE"},
+        input_binding::BindingOverride{input_binding::InputActionId::FleetSecondary, "SPACE"},
         input_binding::BindingOverride{input_binding::InputActionId::HotkeysDisable, "SPACE"},
         input_binding::BindingOverride{input_binding::InputActionId::LogDebug, "SPACE"},
     };
@@ -124,9 +180,12 @@ TEST_SUITE("input_dispatcher")
     CHECK(plan.winner_lookup.Contains(input_binding::InputActionId::HotkeysDisable, input_binding::InputLayer::Global));
     CHECK(plan.winner_lookup.Contains(input_binding::InputActionId::FleetPrimary, input_binding::InputLayer::Fleet));
     CHECK_FALSE(
-        plan.winner_lookup.Contains(input_binding::InputActionId::FleetService, input_binding::InputLayer::Fleet));
+        plan.winner_lookup.Contains(input_binding::InputActionId::FleetSecondary, input_binding::InputLayer::Fleet));
+    CHECK(plan.winner_lookup.Contains(input_binding::InputActionId::FleetQueueAdd, input_binding::InputLayer::Fleet));
+    CHECK(
+        plan.winner_lookup.Contains(input_binding::InputActionId::FleetRecallCancel, input_binding::InputLayer::Fleet));
     CHECK(plan.winner_lookup.First(
-              std::array{input_binding::InputActionId::FleetService, input_binding::InputActionId::FleetPrimary})
+              std::array{input_binding::InputActionId::FleetSecondary, input_binding::InputActionId::FleetPrimary})
           == input_binding::InputActionId::FleetPrimary);
   }
 
@@ -167,6 +226,8 @@ TEST_SUITE("input_dispatcher")
     const std::array overrides{
         input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "SPACE"},
         input_binding::BindingOverride{input_binding::InputActionId::FleetQueueClear, "MOUSE1"},
+        input_binding::BindingOverride{input_binding::InputActionId::FleetQueueAdd, "NONE"},
+        input_binding::BindingOverride{input_binding::InputActionId::FleetRecallCancel, "NONE"},
     };
     const auto compiled = input_binding::CompileBindingSet(overrides);
 
@@ -300,7 +361,7 @@ TEST_SUITE("input_dispatcher")
     CHECK(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
   }
 
-  TEST_CASE("bare number ship selection arms the native fleet selection guard while dispatcher owns inputs")
+  TEST_CASE("bare number ship selection consumes the key and arms the native fleet selection guard")
   {
     const auto compiled = input_binding::CompileBindingSet();
 
@@ -312,7 +373,7 @@ TEST_SUITE("input_dispatcher")
                                                           input_binding::ActiveLayers::All(), key_states);
 
     REQUIRE(plan.winner_lookup.Contains(input_binding::InputActionId::SelectShip1, input_binding::InputLayer::Fleet));
-    CHECK_FALSE(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
+    CHECK(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
 
     const auto guard_slots = hotkey_router_native_fleet_selection_guard_slots(plan.winners, true);
     CHECK(guard_slots[0]);
@@ -418,7 +479,7 @@ TEST_SUITE("input_dispatcher")
                                                           input_binding::ActiveLayers::All(), key_states);
 
     REQUIRE(plan.winner_lookup.Contains(input_binding::InputActionId::SelectShip1, input_binding::InputLayer::Fleet));
-    CHECK_FALSE(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
+    CHECK(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
     CHECK_FALSE(hotkey_router_native_shortcuts_suppressed(false, plan.winners, key_states, false));
   }
 
@@ -444,7 +505,7 @@ TEST_SUITE("input_dispatcher")
                                             input_binding::InputLayer::Global));
   }
 
-  TEST_CASE("space action original consumption follows the winning chord modifiers")
+  TEST_CASE("space action original consumption suppresses native locate")
   {
     auto compiled = input_binding::CompileBindingSet();
 
@@ -454,7 +515,17 @@ TEST_SUITE("input_dispatcher")
     auto plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
                                                     input_binding::ActiveLayers::All(), key_states);
     REQUIRE(plan.winner_lookup.Contains(input_binding::InputActionId::FleetPrimary, input_binding::InputLayer::Fleet));
-    CHECK_FALSE(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
+    REQUIRE(plan.winner_lookup.Contains(input_binding::InputActionId::FleetQueueAdd, input_binding::InputLayer::Fleet));
+    CHECK(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
+    CHECK(input_binding::ConsumesOriginalKeyEvent(plan.winners[1]));
+
+    key_states = std::array{
+        input_binding::DispatchKeyState{KeyCode::Mouse1, {}, true, true},
+    };
+    plan = input_binding::PlanDispatchSnapshot(compiled, input_binding::InputPhase::Frame,
+                                               input_binding::ActiveLayers::All(), key_states);
+    REQUIRE(plan.winner_lookup.Contains(input_binding::InputActionId::FleetPrimary, input_binding::InputLayer::Fleet));
+    CHECK(input_binding::ConsumesOriginalKeyEvent(plan.winners[0]));
 
     const std::array overrides{
         input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "CTRL-SPACE"},

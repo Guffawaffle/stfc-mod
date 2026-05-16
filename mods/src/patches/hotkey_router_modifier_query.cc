@@ -36,6 +36,22 @@ bool win32_key_pressed(const int virtual_key)
 #endif
 }
 
+bool process_window_has_foreground()
+{
+#ifdef _WIN32
+  const auto foreground_window = GetForegroundWindow();
+  if (!foreground_window) {
+    return false;
+  }
+
+  auto foreground_process_id = DWORD{};
+  GetWindowThreadProcessId(foreground_window, &foreground_process_id);
+  return foreground_process_id == GetCurrentProcessId();
+#else
+  return true;
+#endif
+}
+
 bool win32_digit1_pressed()
 {
 #ifdef _WIN32
@@ -170,4 +186,4 @@ input_binding::ModifierMask physical_held_modifier_mask()
 #endif
   return modifiers;
 }
-}  // namespace hotkey_router_modifier_query
+} // namespace hotkey_router_modifier_query
