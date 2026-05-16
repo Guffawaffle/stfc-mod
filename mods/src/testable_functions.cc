@@ -138,18 +138,15 @@ bool space_action_duplicate_submission_should_suppress(const uint64_t  previous_
 
 SpaceActionInputs hotkey_router_runtime_space_action_inputs(const bool fleet_primary_pressed,
                                                             const bool fleet_secondary_pressed,
-                                                            const bool fleet_service_pressed,
-                                                            const bool fleet_primary_is_mouse)
+                                                            const bool fleet_service_pressed)
 {
   SpaceActionInputs inputs;
 
   if (fleet_primary_pressed) {
     // Keep the current migration semantics: fleet_primary still fronts the old
-    // primary and warp-cancel aliases. Queue-add aliasing remains for keyboard
-    // primary, but mouse primary should stay as engage-only to avoid expensive
-    // queue-add detours on hostile clicks.
+    // primary, queue, and warp-cancel aliases until those behaviors are split.
     inputs.primary       = true;
-    inputs.queue         = !fleet_primary_is_mouse;
+    inputs.queue         = true;
     inputs.recall_cancel = true;
   }
 

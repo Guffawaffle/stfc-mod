@@ -419,10 +419,10 @@ TEST_SUITE("hotkey_decisions")
 
   TEST_CASE("runtime fleet action winners map to compatibility space inputs")
   {
-    auto inputs = hotkey_router_runtime_space_action_inputs(false, false, false, false);
+    auto inputs = hotkey_router_runtime_space_action_inputs(false, false, false);
     CHECK_FALSE(inputs.any_requested());
 
-    inputs = hotkey_router_runtime_space_action_inputs(true, false, false, false);
+    inputs = hotkey_router_runtime_space_action_inputs(true, false, false);
     CHECK(inputs.primary);
     CHECK(inputs.queue);
     CHECK(inputs.recall_cancel);
@@ -430,12 +430,7 @@ TEST_SUITE("hotkey_decisions")
     CHECK_FALSE(inputs.recall);
     CHECK_FALSE(inputs.repair);
 
-    inputs = hotkey_router_runtime_space_action_inputs(true, false, false, true);
-    CHECK(inputs.primary);
-    CHECK_FALSE(inputs.queue);
-    CHECK(inputs.recall_cancel);
-
-    inputs = hotkey_router_runtime_space_action_inputs(false, true, true, false);
+    inputs = hotkey_router_runtime_space_action_inputs(false, true, true);
     CHECK_FALSE(inputs.primary);
     CHECK(inputs.secondary);
     CHECK_FALSE(inputs.queue);
