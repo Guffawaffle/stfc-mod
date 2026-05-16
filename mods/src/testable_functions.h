@@ -77,7 +77,7 @@ bool space_action_duplicate_submission_should_suppress(uint64_t previous_fleet_i
 
 // Translate canonical fleet winners into the current space-action compatibility inputs.
 SpaceActionInputs hotkey_router_runtime_space_action_inputs(bool fleet_primary_pressed, bool fleet_secondary_pressed,
-                                                            bool fleet_service_pressed);
+                                                            bool fleet_service_pressed, bool fleet_primary_is_mouse);
 
 // Resolve the canonical disable-hotkeys shortcut while accepting deprecated keys.
 HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(const HotkeyDisableShortcutAliasInput& input);

@@ -309,13 +309,17 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       trace::log_runtime_winner("fleet-simple", runtime_dispatch_plan, input_binding::InputActionId::FleetQueueClear,
                                 input_binding::InputLayer::Fleet);
     }
+    const auto* fleet_primary_winner =
+      query::runtime_binding_winner(runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary,
+                      input_binding::InputLayer::Fleet);
+
     const auto space_action_inputs = hotkey_router_runtime_space_action_inputs(
-        query::runtime_binding_winner_present(runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary,
-                                              input_binding::InputLayer::Fleet),
+      fleet_primary_winner != nullptr,
         query::runtime_binding_winner_present(runtime_dispatch_plan, input_binding::InputActionId::FleetSecondary,
                                               input_binding::InputLayer::Fleet),
         query::runtime_binding_winner_present(runtime_dispatch_plan, input_binding::InputActionId::FleetService,
-                                              input_binding::InputLayer::Fleet));
+                          input_binding::InputLayer::Fleet),
+      fleet_primary_winner && fleet_primary_winner->key == KeyCode::Mouse1);
 
     // Escape to hide object viewers
     if (Key::Pressed(KeyCode::Escape) && DidHideViewers()) {
