@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -19,6 +20,8 @@ LiveDebugRecentEventStore::LiveDebugRecentEventStore(size_t capacity)
 
 void LiveDebugRecentEventStore::append(std::string_view kind, nlohmann::json details, int64_t timestamp_ms_utc)
 {
+  const std::lock_guard lock(mutex_);
+
   events_.push_back({nlohmann::json{{"seq", ++nextSequence_},
                                     {"timestampMsUtc", timestamp_ms_utc},
                                     {"kind", kind},
@@ -196,6 +199,8 @@ void LiveDebugRecentEventStore::rebuild_kind_index() const
 
 LiveDebugRecentEventStoreSnapshot LiveDebugRecentEventStore::snapshot(const LiveDebugRecentEventStoreQuery& query) const
 {
+  const std::lock_guard lock(mutex_);
+
   LiveDebugRecentEventStoreSnapshot result;
   result.count = events_.size();
   result.capacity = capacity_;
@@ -279,6 +284,8 @@ LiveDebugRecentEventStoreSnapshot LiveDebugRecentEventStore::snapshot(const Live
 
 size_t LiveDebugRecentEventStore::clear()
 {
+  const std::lock_guard lock(mutex_);
+
   const auto cleared = events_.size();
   events_.clear();
   ++clearCount_;
