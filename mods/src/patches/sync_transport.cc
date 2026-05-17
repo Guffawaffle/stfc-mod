@@ -25,7 +25,9 @@
 #endif
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
+#include <ctime>
 #include <format>
 #include <memory>
 #include <mutex>
@@ -268,6 +270,7 @@ void sync_log_trace(const std::string& type, const std::string& target, const st
 static const std::string CURL_TYPE_UPLOAD   = "UPLOAD";
 static const std::string CURL_TYPE_DOWNLOAD = "DOWNLOAD";
 static constexpr size_t  kTargetWorkerMaxQueuedRequests = 256;
+static constexpr size_t  kMajelIngestMaxEventBytes       = 256 * 1024;
 
 struct TargetWorker {
   TargetWorker() = default;
@@ -277,6 +280,7 @@ struct TargetWorker {
   using request_t = std::tuple<std::string, std::string, bool>;
 
   std::shared_ptr<cpr::Session> session;
+  SyncTargetConfig::Mode        mode = SyncTargetConfig::Mode::Legacy;
   std::thread                   worker_thread;
   std::atomic_bool              stop_requested{false};
   std::queue<request_t>         request_queue;
@@ -288,6 +292,77 @@ struct TargetWorker {
 static std::unordered_map<std::string, std::shared_ptr<TargetWorker>> target_workers;
 static std::mutex target_workers_mtx;
 static std::atomic_bool target_workers_shutdown_requested = false;
+static std::atomic_uint64_t majel_event_sequence = 0;
+
+std::string current_time_iso_utc()
+{
+  const auto now = std::chrono::system_clock::now();
+  const auto now_time = std::chrono::system_clock::to_time_t(now);
+
+  std::tm utc{};
+#if _WIN32
+  gmtime_s(&utc, &now_time);
+#else
+  gmtime_r(&now_time, &utc);
+#endif
+
+  char buffer[sizeof("2026-05-17T22:00:00Z")];
+  if (std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", &utc) == 0) {
+    return {};
+  }
+
+  return buffer;
+}
+
+std::string majel_session_id()
+{
+  static const std::string session_id = [] {
+    auto value = newUUID();
+    return value.empty() ? std::string{"unknown-session"} : value;
+  }();
+  return session_id;
+}
+
+std::string make_target_post_data(const SyncTargetConfig& target_config, SyncConfig::Type type,
+                                  const std::string& post_data, const std::string& target_identifier)
+{
+  if (!SyncTargetUsesMajelEnvelope(target_config.mode)) {
+    return post_data;
+  }
+
+  auto payload = nlohmann::json::parse(post_data, nullptr, false);
+  if (payload.is_discarded()) {
+    sync_log_warn(CURL_TYPE_UPLOAD, target_identifier,
+                  "Dropping Majel ingest event because the sync payload was not valid JSON");
+    return {};
+  }
+
+  const auto sequence = majel_event_sequence.fetch_add(1, std::memory_order_relaxed) + 1;
+  auto       event_id = newUUID();
+  if (event_id.empty()) {
+    event_id = STR_FORMAT("stfc-community-mod-{}", sequence);
+  }
+
+  auto envelope = BuildMajelIngestEnvelope({
+      .sync_type = type,
+      .payload = std::move(payload),
+      .event_id = std::move(event_id),
+      .source_version = VER_FILE_VERSION_STR,
+      .install_id = "not_configured",
+      .session_id = majel_session_id(),
+      .sequence = sequence,
+      .observed_at = current_time_iso_utc(),
+  }).dump();
+
+  if (envelope.size() > kMajelIngestMaxEventBytes) {
+    sync_log_warn(CURL_TYPE_UPLOAD, target_identifier,
+                  STR_FORMAT("Dropping Majel ingest event because the envelope is too large ({} bytes, max: {})",
+                             envelope.size(), kMajelIngestMaxEventBytes));
+    return {};
+  }
+
+  return envelope;
+}
 
 static void target_worker_thread(std::shared_ptr<TargetWorker> worker)
 {
@@ -327,7 +402,7 @@ static void target_worker_thread(std::shared_ptr<TargetWorker> worker)
       const auto httpClient = worker->session;
       auto& request_headers = httpClient->GetHeader();
 
-      if (is_first_sync) {
+      if (worker->mode == SyncTargetConfig::Mode::Legacy && is_first_sync) {
         request_headers.insert_or_assign("X-PRIME-SYNC", "2");
         sync_log_trace(CURL_TYPE_UPLOAD, identifier, "Adding X-Prime-Sync header for initial sync");
       } else {
@@ -379,6 +454,7 @@ static std::shared_ptr<TargetWorker> get_curl_client_sync(const std::string& tar
   auto worker = std::make_shared<TargetWorker>();
   worker->session = std::make_shared<cpr::Session>();
   const auto& target_config = Config::Get().sync_targets[target];
+  worker->mode = target_config.mode;
 
   worker->session->SetUrl(target_config.url);
   worker->session->SetUserAgent("stfc community patch " VER_FILE_VERSION_STR " (libcurl/" LIBCURL_VERSION ")");
@@ -399,11 +475,11 @@ static std::shared_ptr<TargetWorker> get_curl_client_sync(const std::string& tar
     );
   }
 
-  worker->session->SetHeader({
-    {"Content-Type", "application/json"},
-    {"X-Powered-By", headers::poweredBy},
-    {"stfc-sync-token", target_config.token},
-  });
+  cpr::Header target_headers;
+  for (const auto& [key, value] : BuildSyncTargetHeaders(target_config, headers::poweredBy)) {
+    target_headers.emplace(key, value);
+  }
+  worker->session->SetHeader(std::move(target_headers));
 
   worker->worker_thread = std::thread(target_worker_thread, worker);
   target_workers[target] = worker;
@@ -426,13 +502,16 @@ void send_data(SyncConfig::Type type, const std::string& post_data, bool is_firs
     }
   });
 
-  for (const auto& target : targets
-       | std::views::filter([type](const auto& target_entry) { return target_entry.second.enabled(type); })
-       | std::views::keys) {
+  for (const auto& [target, target_config] : targets
+       | std::views::filter([type](const auto& target_entry) { return target_entry.second.enabled(type); })) {
     const auto target_identifier = STR_FORMAT("{} ({})", target, to_string(type));
 
     try {
       const auto worker = get_curl_client_sync(target);
+      const auto target_post_data = make_target_post_data(target_config, type, post_data, target_identifier);
+      if (target_post_data.empty()) {
+        continue;
+      }
 
       {
         std::lock_guard lk(worker->queue_mtx);
@@ -444,7 +523,7 @@ void send_data(SyncConfig::Type type, const std::string& post_data, bool is_firs
           continue;
         }
 
-        worker->request_queue.emplace(target_identifier, post_data, is_first_sync);
+        worker->request_queue.emplace(target_identifier, target_post_data, is_first_sync);
         sync_log_trace(CURL_TYPE_UPLOAD, target_identifier,
                        STR_FORMAT("Queued request (queue size: {})", worker->request_queue.size()));
       }

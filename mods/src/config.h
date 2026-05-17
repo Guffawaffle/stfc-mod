@@ -12,6 +12,7 @@
 #include <bitset>
 #include <map>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <toml++/toml.h>
@@ -136,9 +137,30 @@ constexpr std::string operator+(const SyncConfig::Type type, const std::string& 
 class SyncTargetConfig : public SyncConfig
 {
 public:
+  enum class Mode {
+    Legacy,
+    Majel,
+    SidecarBroker,
+  };
+
   std::string url;   ///< Endpoint URL for this sync target.
   std::string token; ///< Bearer token / API key.
+  Mode        mode = Mode::Legacy; ///< Outbound wire contract for this target.
 };
+
+constexpr std::string_view to_string(const SyncTargetConfig::Mode mode)
+{
+  switch (mode) {
+    case SyncTargetConfig::Mode::Legacy:
+      return "legacy";
+    case SyncTargetConfig::Mode::Majel:
+      return "majel";
+    case SyncTargetConfig::Mode::SidecarBroker:
+      return "sidecar_broker";
+  }
+
+  return "legacy";
+}
 
 /**
  * @brief Unified OS-notification selection model.

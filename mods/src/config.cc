@@ -612,6 +612,22 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
     return;
   }
 
+  const auto parse_mode = [](const std::string_view target_section,
+                             const std::optional<std::string>& value) -> SyncTargetConfig::Mode {
+    if (!value.has_value() || value->empty() || *value == "legacy") {
+      return SyncTargetConfig::Mode::Legacy;
+    }
+    if (*value == "majel") {
+      return SyncTargetConfig::Mode::Majel;
+    }
+    if (*value == "sidecar_broker") {
+      return SyncTargetConfig::Mode::SidecarBroker;
+    }
+
+    spdlog::warn("Invalid target [{}] mode '{}'; using legacy.", target_section, *value);
+    return SyncTargetConfig::Mode::Legacy;
+  };
+
   for (const auto& [target_key, target_config] : *targets) {
     if (!target_config.is_table()) {
       continue;
@@ -635,6 +651,7 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
       target.url        = url.value();
       target.token      = token.value();
       target.proxy      = proxy.value_or(defaults.proxy);
+      target.mode       = parse_mode(target_section, values["mode"].value<std::string>());
       target.verify_ssl = values["verify_ssl"].value<bool>().value_or(defaults.verify_ssl);
       target.allow_unsafe_tls_without_certificate_validation =
           values["allow_unsafe_tls_without_certificate_validation"].value<bool>().value_or(
@@ -642,6 +659,7 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
 
       parsed_target.insert("url", target.url);
       parsed_target.insert("token", config_redaction::redact_secret_for_runtime_snapshot(target.token));
+      parsed_target.insert("mode", std::string(to_string(target.mode)));
       parsed_target.insert("proxy", config_redaction::mask_proxy_userinfo(target.proxy));
       parsed_target.insert("verify_ssl", target.verify_ssl);
       parsed_target.insert("allow_unsafe_tls_without_certificate_validation",
@@ -658,9 +676,10 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
 
     if (sync_targets.emplace(target_key.str(), target).second) {
       new_config["sync"]["targets"].as_table()->emplace<toml::table>(target_key.str(), parsed_target);
-      spdlog::debug("config value {} url: {}, token: {}", target_section, target.url, mask_token(target.token));
-      spdlog::info("target [{}] proxy: '{}', verify_ssl: {}, allow_unsafe_tls_without_certificate_validation: {}",
-                   target_section, mask_proxy_for_log(target.proxy), target.verify_ssl,
+      spdlog::debug("config value {} url: {}, token: {}, mode: {}", target_section, target.url,
+                    mask_token(target.token), to_string(target.mode));
+      spdlog::info("target [{}] mode: {}, proxy: '{}', verify_ssl: {}, allow_unsafe_tls_without_certificate_validation: {}",
+                   target_section, to_string(target.mode), mask_proxy_for_log(target.proxy), target.verify_ssl,
                    target.allow_unsafe_tls_without_certificate_validation);
     }
   }
