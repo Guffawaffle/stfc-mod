@@ -45,12 +45,65 @@
 #include <algorithm>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 // ─── Tracking State ──────────────────────────────────────────────────────────
 
 std::mutex                                      tracked_objects_mutex;
 ObjectTrackerCore<Il2CppClass*, uintptr_t>      tracked_objects;
+
+using FinalizerCallback = void (*)(void* object, void* client_data);
+
+struct PreviousFinalizer {
+  FinalizerCallback callback = nullptr;
+  void*             data     = nullptr;
+};
+
+static constexpr size_t kObjectTrackerMaxClassWalkDepth = 64;
+static std::unordered_map<void*, PreviousFinalizer> previous_finalizers;
+
+/// Function pointer resolved at runtime via signature scan (Boehm GC internal).
+void (*GC_register_finalizer_inner)(unsigned __int64 obj, void (*fn)(void*, void*), void* cd,
+                                    void (**ofn)(void*, void*), void** ocd) = nullptr;
+
+static Il2CppClass* NormalizeClassPointer(Il2CppClass* klass)
+{
+  return reinterpret_cast<Il2CppClass*>(reinterpret_cast<size_t>(klass) & ~size_t{1});
+}
+
+static const char* SafeClassName(Il2CppClass* klass)
+{
+  klass = NormalizeClassPointer(klass);
+  if (!klass || !klass->name) {
+    return "<unknown>";
+  }
+
+  return klass->name;
+}
+
+static PreviousFinalizer take_previous_finalizer_locked(void* object)
+{
+  if (const auto found = previous_finalizers.find(object); found != previous_finalizers.end()) {
+    auto previous = found->second;
+    previous_finalizers.erase(found);
+    return previous;
+  }
+
+  return {};
+}
+
+static void restore_previous_finalizer(void* object, const PreviousFinalizer& previous)
+{
+  if (!object || !previous.callback || !GC_register_finalizer_inner) {
+    return;
+  }
+
+  FinalizerCallback ignoredCallback = nullptr;
+  void*             ignoredData     = nullptr;
+  GC_register_finalizer_inner(reinterpret_cast<uintptr_t>(object), previous.callback, previous.data, &ignoredCallback,
+                              &ignoredData);
+}
 
 static std::string ClassPointerToString(const Il2CppClass* klass)
 {
@@ -136,13 +189,26 @@ void* GetLatestTrackedObjectForClass(Il2CppClass* klass)
 /** @brief Registers an object pointer in the tracking map for its class and all parent classes. */
 void add_to_tracking_recursive(Il2CppClass* klass, void* _this)
 {
-  if (!klass) {
-    return;
+  eastl::unordered_set<Il2CppClass*> visited;
+  size_t                             depth = 0;
+
+  while (auto* normalized = NormalizeClassPointer(klass)) {
+    if (depth++ >= kObjectTrackerMaxClassWalkDepth) {
+      spdlog::warn("Object tracker stopped tracking parent classes for {} after {} levels", _this,
+                   kObjectTrackerMaxClassWalkDepth);
+      return;
+    }
+
+    if (visited.find(normalized) != visited.end()) {
+      spdlog::warn("Object tracker detected a class hierarchy cycle at {} while tracking {}", SafeClassName(normalized),
+                   _this);
+      return;
+    }
+
+    visited.emplace(normalized);
+    tracked_objects.add(normalized, uintptr_t(_this));
+    klass = normalized->parent;
   }
-
-  tracked_objects.add(klass, uintptr_t(_this));
-
-  return add_to_tracking_recursive(klass->parent, _this);
 }
 
 /** @brief Removes an object from every class entry in the tracking map (brute-force). */
@@ -154,29 +220,49 @@ void remove_from_tracking_all(void* _this)
 /** @brief Removes an object from tracking by walking the class hierarchy upward. */
 void remove_from_tracking_recursive(Il2CppClass* klass, void* _this)
 {
-#define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
-  if (!GET_CLASS(klass)) {
-    return;
-  }
+  eastl::unordered_set<Il2CppClass*> visited;
+  size_t                             depth = 0;
 
-  tracked_objects.remove(GET_CLASS(klass), uintptr_t(_this));
-  return remove_from_tracking_recursive(GET_CLASS(klass->parent), _this);
-#undef GET_CLASS
+  while (auto* normalized = NormalizeClassPointer(klass)) {
+    if (depth++ >= kObjectTrackerMaxClassWalkDepth) {
+      spdlog::warn("Object tracker stopped removing parent classes for {} after {} levels", _this,
+                   kObjectTrackerMaxClassWalkDepth);
+      return;
+    }
+
+    if (visited.find(normalized) != visited.end()) {
+      spdlog::warn("Object tracker detected a class hierarchy cycle at {} while removing {}", SafeClassName(normalized),
+                   _this);
+      return;
+    }
+
+    visited.emplace(normalized);
+    tracked_objects.remove(normalized, uintptr_t(_this));
+    klass = normalized->parent;
+  }
 }
 
 // ─── GC Integration ─────────────────────────────────────────────────────────
 
-/// Function pointer resolved at runtime via signature scan (Boehm GC internal).
-void (*GC_register_finalizer_inner)(unsigned __int64 obj, void (*fn)(void*, void*), void* cd,
-                                    void (**ofn)(void*, void*), void** ocd) = nullptr;
-
 /** @brief GC finalizer callback — removes the object from tracking when collected. */
 void track_finalizer(void* _this, void*)
 {
-#define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
-  spdlog::trace("Clearing {}({})", (void*)_this, GET_CLASS(((Il2CppObject*)_this)->klass)->name);
-  remove_from_tracking_all(_this);
-#undef GET_CLASS
+  PreviousFinalizer previous{};
+  bool              has_previous = false;
+
+  {
+    std::scoped_lock lk{tracked_objects_mutex};
+    const auto*      object = reinterpret_cast<Il2CppObject*>(_this);
+    spdlog::trace("Clearing {}({})", _this, object ? SafeClassName(object->klass) : "<null>");
+    remove_from_tracking_all(_this);
+
+    previous     = take_previous_finalizer_locked(_this);
+    has_previous = previous.callback != nullptr;
+  }
+
+  if (has_previous) {
+    previous.callback(_this, previous.data);
+  }
 }
 
 // ─── SPUD Hooks ─────────────────────────────────────────────────────────────
@@ -198,12 +284,26 @@ void* track_ctor(auto original, void* _this)
 
   std::scoped_lock lk{tracked_objects_mutex};
   auto             cls = (Il2CppObject*)_this;
-  spdlog::trace("Tracking {}({})", _this, cls->klass->name);
-  typedef void      (*FinalizerCallback)(void* object, void* client_data);
+  spdlog::trace("Tracking {}({})", _this, SafeClassName(cls->klass));
+  if (!GC_register_finalizer_inner) {
+    spdlog::warn("Object tracker cannot register GC finalizer for {}({}); resolver is unavailable", _this,
+                 SafeClassName(cls->klass));
+    add_to_tracking_recursive(cls->klass, _this);
+    return obj;
+  }
+
   FinalizerCallback oldCallback = nullptr;
   void*             oldData     = nullptr;
-  GC_register_finalizer_inner((intptr_t)_this, track_finalizer, nullptr, &oldCallback, &oldData);
-  assert(!oldCallback);
+  GC_register_finalizer_inner(reinterpret_cast<uintptr_t>(_this), track_finalizer, nullptr, &oldCallback, &oldData);
+  if (oldCallback && oldCallback != track_finalizer) {
+    spdlog::warn("Object tracker is chaining existing GC finalizer for {}({})", _this, SafeClassName(cls->klass));
+    previous_finalizers[_this] = PreviousFinalizer{oldCallback, oldData};
+  } else {
+    previous_finalizers.erase(_this);
+    if (oldCallback == track_finalizer) {
+      spdlog::warn("Object tracker replaced its own existing GC finalizer for {}({})", _this, SafeClassName(cls->klass));
+    }
+  }
   add_to_tracking_recursive(cls->klass, _this);
   return obj;
 }
@@ -216,27 +316,29 @@ void* track_ctor(auto original, void* _this)
  */
 void track_destroy(auto original, Il2CppObject* _this, uint64_t a2, uint64_t a3)
 {
-#define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
+  PreviousFinalizer previous{};
   if (_this != nullptr) {
     std::scoped_lock lk{tracked_objects_mutex};
-    spdlog::trace("Clearing {}({})", (void*)_this, GET_CLASS(_this->klass)->name);
+    spdlog::trace("Clearing {}({})", (void*)_this, SafeClassName(_this->klass));
     remove_from_tracking_all(_this);
+    previous = take_previous_finalizer_locked(_this);
   }
+  restore_previous_finalizer(_this, previous);
   return original(_this, a2, a3);
-#undef GET_CLASS
 }
 
 /** @brief Hook: il2cpp_object_free — removes the object from tracking before deallocation. */
 void track_free(auto original, void* _this)
 {
-#define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
+  PreviousFinalizer previous{};
   if (_this != nullptr) {
     std::scoped_lock lk{tracked_objects_mutex};
-    auto             cls = (Il2CppObject*)_this;
     remove_from_tracking_all(_this);
-    return original(_this);
+    previous = take_previous_finalizer_locked(_this);
   }
-#undef GET_CLASS
+
+  restore_previous_finalizer(_this, previous);
+  return original(_this);
 }
 
 /**
@@ -265,12 +367,10 @@ void calc_liveness_hook(auto original, void* state)
 
 #undef IS_MARKED
 
-#define GET_CLASS(obj) ((Il2CppClass*)(((size_t)obj) & ~(size_t)1))
   for (auto& [klass, object] : objects_to_free) {
-    spdlog::trace("Clearing {}({})", (void*)object, GET_CLASS(klass)->name);
+    spdlog::trace("Clearing {}({})", (void*)object, SafeClassName(klass));
     remove_from_tracking_all((void*)object);
   }
-#undef GET_CLASS
 }
 
 // ─── Hook Installation ──────────────────────────────────────────────────────
