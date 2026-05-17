@@ -168,7 +168,9 @@ void ChatPreviewController_OnPanelFocused(auto original, ChatPreviewController* 
   }
 
   const auto [cadetChatIdx, galaxyChatIdx, veilChatIdx, allianceChatIdx] = GetChatTabIndices();
-  if (disableGalaxyChat || (veilChatIdx != -1 && disableVeilChat)) {
+  const auto disabledTarget = (disableGalaxyChat && index == galaxyChatIdx) ||
+                              (disableVeilChat && veilChatIdx != -1 && index == veilChatIdx);
+  if (disabledTarget) {
     const auto swipeScroller = _this->_swipeScroller;
     _this->_focusedPanel = ChatChannelCategory::Alliance;
     original(_this, allianceChatIdx);

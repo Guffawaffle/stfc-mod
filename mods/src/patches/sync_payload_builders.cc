@@ -721,13 +721,14 @@ void process_entity_slots(std::unique_ptr<std::string>&& bytes)
 
               for (const auto& setup : preset.setups()) {
                 setup_json.push_back({{"drydock_id", setup.drydockid()},
-                                      {"ship_id", setup.shipids()[0]},
+                                      {"ship_id", setup.shipids_size() > 0 ? json(setup.shipids()[0]) : json(nullptr)},
                                       {"officer_ids", setup.officerids()}});
               }
 
               slot_params = {{"name", preset.name()}, {"order", preset.order()}, {"setup", setup_json}};
               state_value = static_cast<int64_t>(std::hash<json>{}(slot_params));
             }
+            break;
           default:
             continue;
         }
@@ -810,7 +811,10 @@ void process_entity_slots_rtc(std::unique_ptr<std::string>&& json_payload)
         if (const auto& params = data["fleet_preset_slot_params"]; !params.is_null()) {
           auto setup_json = json::array();
           for (const auto& setup : params["setups"]) {
-            setup_json.push_back({{"drydock_id", setup["d"]}, {"ship_id", setup["s"][0]}, {"officer_ids", setup["o"]}});
+            const auto& ships = setup["s"];
+            setup_json.push_back({{"drydock_id", setup["d"]},
+                                  {"ship_id", ships.is_array() && !ships.empty() ? ships[0] : json(nullptr)},
+                                  {"officer_ids", setup["o"]}});
           }
 
           slot_params = {{"name", params["name"]}, {"order", params["order"]}, {"setup", setup_json}};
