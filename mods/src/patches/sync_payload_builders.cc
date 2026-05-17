@@ -721,13 +721,14 @@ void process_entity_slots(std::unique_ptr<std::string>&& bytes)
 
               for (const auto& setup : preset.setups()) {
                 setup_json.push_back({{"drydock_id", setup.drydockid()},
-                                      {"ship_id", setup.shipids()[0]},
+                                      {"ship_id", setup.shipids_size() > 0 ? json(setup.shipids()[0]) : json(nullptr)},
                                       {"officer_ids", setup.officerids()}});
               }
 
               slot_params = {{"name", preset.name()}, {"order", preset.order()}, {"setup", setup_json}};
               state_value = static_cast<int64_t>(std::hash<json>{}(slot_params));
             }
+            break;
           default:
             continue;
         }

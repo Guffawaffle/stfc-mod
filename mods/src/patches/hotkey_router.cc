@@ -354,8 +354,12 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       space_action_inputs.repair_key = fleet_repair_winner->key;
     }
     if (fleet_service_winner) {
-      space_action_inputs.recall_key = fleet_service_winner->key;
-      space_action_inputs.repair_key = fleet_service_winner->key;
+      if (!fleet_recall_winner) {
+        space_action_inputs.recall_key = fleet_service_winner->key;
+      }
+      if (!fleet_repair_winner) {
+        space_action_inputs.repair_key = fleet_service_winner->key;
+      }
     }
 
     // Escape to hide object viewers
