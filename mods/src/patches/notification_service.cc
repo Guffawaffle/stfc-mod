@@ -41,6 +41,48 @@
 static const MethodInfo* s_localize_ltc = nullptr;
 static bool              s_notification_initialized = false;
 
+static FieldInfo* find_il2cpp_field(Il2CppClass* klass, const char* primary_name, const char* fallback_name = nullptr)
+{
+  if (!klass || !primary_name) {
+    return nullptr;
+  }
+
+  auto* field = il2cpp_class_get_field_from_name(klass, primary_name);
+  if (!field && fallback_name) {
+    field = il2cpp_class_get_field_from_name(klass, fallback_name);
+  }
+
+  if (!field) {
+    spdlog::warn("[Notify] Could not resolve {}.{} field",
+                 il2cpp_class_get_name(klass) ? il2cpp_class_get_name(klass) : "<unknown>",
+                 primary_name);
+  }
+
+  return field;
+}
+
+template <typename T>
+static T* read_il2cpp_reference_field(Il2CppObject* obj, const char* primary_name, const char* fallback_name = nullptr)
+{
+  if (!obj || !obj->klass) {
+    return nullptr;
+  }
+
+  auto* field = find_il2cpp_field(obj->klass, primary_name, fallback_name);
+  if (!field) {
+    return nullptr;
+  }
+
+  const auto field_offset = il2cpp_field_get_offset(field);
+  return *reinterpret_cast<T**>(reinterpret_cast<char*>(obj) + field_offset);
+}
+
+template <typename T>
+static T read_il2cpp_boxed_value(Il2CppObject* obj)
+{
+  return *reinterpret_cast<T*>(reinterpret_cast<char*>(obj) + sizeof(Il2CppObject));
+}
+
 // ─── Toast State → Human-Readable Title ───────────────────────────────────────────────
 
 /**
@@ -272,7 +314,7 @@ static std::string resolve_ltc_param(Il2CppObject* obj)
       }
     }
 
-    auto* identifier = *reinterpret_cast<Il2CppString**>(reinterpret_cast<char*>(obj) + 16);
+    auto* identifier = read_il2cpp_reference_field<Il2CppString>(obj, "Identifier", "<Identifier>k__BackingField");
     return identifier ? to_string(identifier) : "?";
   }
 
@@ -283,8 +325,11 @@ static std::string resolve_ltc_param(Il2CppObject* obj)
   if (name == "BoxedDouble" || name == "BoxedFloat" || name == "BoxedInt" || name == "BoxedLong") {
     void* iter = nullptr;
     while (auto* field = il2cpp_class_get_fields(klass, &iter)) {
-      auto field_offset = il2cpp_field_get_offset(field);
-      auto* field_type  = il2cpp_field_get_type(field);
+      auto field_offset  = il2cpp_field_get_offset(field);
+      auto* field_type   = il2cpp_field_get_type(field);
+      if (!field_type) {
+        continue;
+      }
       auto field_type_id = il2cpp_type_get_type(field_type);
 
       if (field_type_id == 13) {
@@ -313,7 +358,7 @@ static std::string resolve_ltc_param(Il2CppObject* obj)
   }
 
   if (name == "Double") {
-    auto value = *reinterpret_cast<double*>(reinterpret_cast<char*>(obj) + 0x10);
+    auto value = read_il2cpp_boxed_value<double>(obj);
     if (value == static_cast<int64_t>(value)) {
       return fmt::format("{}", static_cast<int64_t>(value));
     }
@@ -321,17 +366,17 @@ static std::string resolve_ltc_param(Il2CppObject* obj)
   }
 
   if (name == "Int32") {
-    auto value = *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(obj) + 0x10);
+    auto value = read_il2cpp_boxed_value<int32_t>(obj);
     return fmt::format("{}", value);
   }
 
   if (name == "Int64") {
-    auto value = *reinterpret_cast<int64_t*>(reinterpret_cast<char*>(obj) + 0x10);
+    auto value = read_il2cpp_boxed_value<int64_t>(obj);
     return fmt::format("{}", value);
   }
 
   if (name == "Single") {
-    auto value = *reinterpret_cast<float*>(reinterpret_cast<char*>(obj) + 0x10);
+    auto value = read_il2cpp_boxed_value<float>(obj);
     return fmt::format("{:.1f}", value);
   }
 
@@ -345,7 +390,8 @@ static std::string resolve_ltc_formatted(void* ltc, std::string_view template_te
   }
 
   auto* ltc_object = reinterpret_cast<Il2CppObject*>(ltc);
-  auto* text_parameters = *reinterpret_cast<Il2CppArray**>(reinterpret_cast<char*>(ltc_object) + 64);
+  auto* text_parameters =
+      read_il2cpp_reference_field<Il2CppArray>(ltc_object, "TextParameters", "<TextParameters>k__BackingField");
   if (!text_parameters) {
     return notification_strip_unity_rich_text(template_text);
   }
