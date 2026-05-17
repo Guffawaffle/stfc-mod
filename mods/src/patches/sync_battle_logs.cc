@@ -67,7 +67,8 @@ struct WinRtApartmentGuard {
 
 namespace
 {
-AsyncWorkQueue<uint64_t> s_combat_log_queue;
+constexpr size_t         kCombatLogQueueMaxDepth = 512;
+AsyncWorkQueue<uint64_t> s_combat_log_queue(kCombatLogQueueMaxDepth);
 std::once_flag           s_combat_log_worker_once;
 std::thread              s_combat_log_worker_thread;
 constexpr auto           kCombatLogWorkerSlowJoinThreshold = std::chrono::seconds(5);
@@ -704,7 +705,12 @@ void process_battle_headers(const nlohmann::json& section)
 
     for (const auto id : to_enqueue) {
       if (!s_combat_log_queue.enqueue(id)) {
-        spdlog::warn("Battle {} dropped because combat log worker shutdown is in progress", id);
+        const auto diagnostics = s_combat_log_queue.diagnostics();
+        spdlog::warn("Battle {} dropped because combat log queue is {} (queue_size={}, dropped={})",
+                     id,
+                     diagnostics.shutdown_requested ? "shutting down" : "full",
+                     diagnostics.depth,
+                     diagnostics.dropped);
       }
     }
   }

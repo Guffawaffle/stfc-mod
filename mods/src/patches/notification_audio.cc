@@ -56,7 +56,8 @@ struct AudioPlaybackRequest {
   std::string       event_name;
 };
 
-AsyncWorkQueue<AudioPlaybackRequest> s_audio_queue;
+constexpr size_t                     kAudioQueueMaxDepth = 64;
+AsyncWorkQueue<AudioPlaybackRequest> s_audio_queue(kAudioQueueMaxDepth);
 std::once_flag                       s_audio_worker_once;
 std::thread                          s_audio_worker_thread;
 constexpr auto                       kAudioJoinWarnThreshold = std::chrono::seconds(2);
@@ -269,8 +270,11 @@ void notification_audio_play(NotificationSound sound, std::string_view event_nam
   request.sound      = sound;
   request.event_name = std::string(event_name);
   if (!s_audio_queue.enqueue(std::move(request))) {
-    spdlog::warn("[NotifyAudio] Dropped notification sound event={} sound={} reason=shutdown", event_name,
-                 notification_sound_name(sound));
+    const auto diagnostics = s_audio_queue.diagnostics();
+    spdlog::warn("[NotifyAudio] Dropped notification sound event={} sound={} reason={} queue_size={} dropped={}",
+                 event_name, notification_sound_name(sound),
+                 diagnostics.shutdown_requested ? "shutdown" : "full",
+                 diagnostics.depth, diagnostics.dropped);
     return;
   }
 #else
