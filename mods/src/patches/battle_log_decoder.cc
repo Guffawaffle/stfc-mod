@@ -268,7 +268,9 @@ void append_unique(std::vector<int64_t>& values, int64_t value)
 [[nodiscard]] nlohmann::json lossless_integer_json(const nlohmann::json& value, size_t depth)
 {
   if (depth >= kLosslessIntegerJsonMaxDepth) {
-    return nullptr;
+    return nlohmann::json{{"truncated", true},
+                          {"reason", "lossless_integer_json_max_depth"},
+                          {"maxDepth", kLosslessIntegerJsonMaxDepth}};
   }
 
   if (value.is_object()) {
