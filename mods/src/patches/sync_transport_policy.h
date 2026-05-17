@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -35,11 +36,26 @@ struct MajelIngestEnvelopeInput {
   std::string      observed_at;
 };
 
+struct SyncTargetCapabilityInfo {
+  std::string              name;
+  SyncTargetConfig::Mode   mode = SyncTargetConfig::Mode::Legacy;
+  std::vector<std::string> enabled_sync_types;
+};
+
+struct ModCapabilitySnapshotInput {
+  std::string                           source_version;
+  std::string                           platform;
+  std::vector<SyncTargetCapabilityInfo> targets;
+  std::vector<std::string>              supported_schemas;
+};
+
 [[nodiscard]] SyncTlsVerificationDecision DecideSyncTlsVerification(const SyncConfig& config);
 [[nodiscard]] ScopelySessionHeaders BuildScopelySessionHeaders(const headers::SessionHeaderSnapshot& snapshot,
                                                               std::string transaction_id);
 [[nodiscard]] bool SyncTargetUsesMajelEnvelope(SyncTargetConfig::Mode mode);
+[[nodiscard]] bool SyncTargetAcceptsType(const SyncTargetConfig& target_config, SyncConfig::Type type);
 [[nodiscard]] std::map<std::string, std::string> BuildSyncTargetHeaders(const SyncTargetConfig& target_config,
                                                                         std::string powered_by);
+[[nodiscard]] nlohmann::json BuildModCapabilitySnapshot(const ModCapabilitySnapshotInput& input);
 [[nodiscard]] nlohmann::json BuildMajelIngestEnvelope(const MajelIngestEnvelopeInput& input);
 } // namespace http

@@ -503,7 +503,8 @@ void send_data(SyncConfig::Type type, const std::string& post_data, bool is_firs
   });
 
   for (const auto& [target, target_config] : targets
-       | std::views::filter([type](const auto& target_entry) { return target_entry.second.enabled(type); })) {
+       | std::views::filter(
+           [type](const auto& target_entry) { return SyncTargetAcceptsType(target_entry.second, type); })) {
     const auto target_identifier = STR_FORMAT("{} ({})", target, to_string(type));
 
     try {

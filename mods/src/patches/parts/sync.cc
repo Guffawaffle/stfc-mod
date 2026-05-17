@@ -45,6 +45,7 @@
 #include "errormsg.h"
 #include "str_utils.h"
 #include "patches/sync_battle_logs.h"
+#include "patches/sync_capability_snapshot.h"
 #include "patches/sync_payload_builders.h"
 #include "patches/sync_scheduler.h"
 #include "patches/sync_transport.h"
@@ -364,5 +365,6 @@ void InstallSyncPatches()
   }
 
   StartSyncSchedulerWorker();
+  queue_mod_capability_snapshot();
   StartCombatLogWorker();
 }

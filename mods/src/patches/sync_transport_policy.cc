@@ -31,6 +31,8 @@ std::string schema_for_sync_type(const SyncConfig::Type type, const nlohmann::js
       return "stfc.battle.summary.v1";
     case SyncConfig::Type::FleetRuntime:
       return "stfc.fleet.runtime_snapshot.v1";
+    case SyncConfig::Type::ModCapabilities:
+      return "stfc.mod.capability_snapshot.v1";
     default:
       return "stfc.sync.delta_batch.v1";
   }
@@ -76,6 +78,21 @@ ScopelySessionHeaders BuildScopelySessionHeaders(const headers::SessionHeaderSna
 bool SyncTargetUsesMajelEnvelope(const SyncTargetConfig::Mode mode)
 { return mode == SyncTargetConfig::Mode::Majel || mode == SyncTargetConfig::Mode::SidecarBroker; }
 
+bool SyncTargetAcceptsType(const SyncTargetConfig& target_config, const SyncConfig::Type type)
+{
+  if (type == SyncConfig::Type::ModCapabilities) {
+    return SyncTargetUsesMajelEnvelope(target_config.mode);
+  }
+
+  for (const auto& option : SyncOptions) {
+    if (option.type == type) {
+      return target_config.*option.option;
+    }
+  }
+
+  return false;
+}
+
 std::map<std::string, std::string> BuildSyncTargetHeaders(const SyncTargetConfig& target_config,
                                                           std::string powered_by)
 {
@@ -91,6 +108,33 @@ std::map<std::string, std::string> BuildSyncTargetHeaders(const SyncTargetConfig
   }
 
   return headers;
+}
+
+nlohmann::json BuildModCapabilitySnapshot(const ModCapabilitySnapshotInput& input)
+{
+  auto targets = nlohmann::json::array();
+  for (const auto& target : input.targets) {
+    targets.push_back({
+        {"name", target.name},
+        {"mode", to_string(target.mode)},
+        {"enabledSyncTypes", target.enabled_sync_types},
+    });
+  }
+
+  return nlohmann::json{
+      {"schemaVersion", "stfc.mod.capability_snapshot.v1"},
+      {"modVersion", input.source_version},
+      {"platform", input.platform},
+      {"targets", std::move(targets)},
+      {"supportedSchemas", input.supported_schemas},
+      {"privacy",
+       {
+           {"tokenRedacted", true},
+           {"containsEndpointUrls", false},
+           {"containsCallbacks", false},
+           {"readOnly", true},
+       }},
+  };
 }
 
 nlohmann::json BuildMajelIngestEnvelope(const MajelIngestEnvelopeInput& input)

@@ -14,6 +14,10 @@ to Majel. Both paths are opt-in sync targets.
 Sidecar broker mode remains the preferred durability/retry path. Direct Majel mode is best-effort from the mod process.
 Neither mode enables callbacks, remote settings writes, or gameplay commands.
 
+When sync starts, Majel-envelope targets receive one redacted `stfc.mod.capability_snapshot.v1` event. It lists the mod
+version, platform, enabled sync categories, target modes, and supported schemas. It does not include target URLs, tokens,
+callbacks, remote settings, raw game payloads, or endpoint credentials.
+
 ## Envelope
 
 Majel-mode and sidecar-broker-mode targets POST one event envelope per queued sync item:
@@ -40,6 +44,7 @@ Payload rules:
 - Existing legacy sync arrays are wrapped as `stfc.sync.delta_batch.v1` with `syncType` and `items`.
 - Fleet runtime snapshots emit as `stfc.fleet.runtime_snapshot.v1`.
 - Battle sync targets map to `stfc.battle.summary.v1` until a narrower battle projection is split out.
+- Majel-envelope targets also receive `stfc.mod.capability_snapshot.v1` once at sync startup.
 
 ## Privacy
 
