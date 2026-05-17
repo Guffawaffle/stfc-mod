@@ -461,10 +461,10 @@ set_hotkeys_enabled = "CTRL-ALT-="
 # Subgroup: Queue & Primary
 # -------------------------
 
-# SPACE or Mouse1
+# SPACE or right-click (Unity MOUSE1; left-click is MOUSE0)
 action_primary = "SPACE|MOUSE1"
 
-# Requires Kir'Shara
+# Requires Kir'Shara; SPACE or right-click (Unity MOUSE1; left-click is MOUSE0)
 action_queue = "SPACE|MOUSE1"
 
 # Does not cancel primary attack
@@ -485,7 +485,7 @@ toggle_queue = "CTRL-Q"
 # R or Mouse3
 action_recall = "R|MOUSE3"
 
-# SPACE or Mouse1
+# SPACE or right-click (Unity MOUSE1; left-click is MOUSE0)
 action_recall_cancel = "SPACE|MOUSE1"
 
 # R or Mouse3

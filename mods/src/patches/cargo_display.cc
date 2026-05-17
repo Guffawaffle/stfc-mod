@@ -80,6 +80,14 @@ const char* HullTypeName(HullType type)
   return "Unexpected";
 }
 
+bool AutoCargoDisplayEnabled()
+{
+  const auto& config = Config::Get();
+  return config.show_cargo_default
+         && (config.show_player_cargo || config.show_station_cargo || config.show_hostile_cargo
+             || config.show_armada_cargo);
+}
+
 struct CargoDecision {
   bool show;
   const char* reason;
@@ -190,6 +198,10 @@ bool CheckShowCargo(RewardsButtonWidget* widget)
 
 void HandleCargoBindContext(RewardsButtonWidget* _this)
 {
+  if (!AutoCargoDisplayEnabled()) {
+    return;
+  }
+
   const auto decision = EvaluateCargoDecision(_this);
   LogCargoDecision("bind-context", nullptr, _this, decision);
   if (decision.show) {
@@ -200,6 +212,10 @@ void HandleCargoBindContext(RewardsButtonWidget* _this)
 
 void HandleCargoShowFleet(PreScanTargetWidget* _this)
 {
+  if (!AutoCargoDisplayEnabled()) {
+    return;
+  }
+
   auto rewards_button_widget = _this->_rewardsButtonWidget;
   const auto decision        = EvaluateCargoDecision(rewards_button_widget);
   LogCargoDecision("show-fleet", _this, rewards_button_widget, decision);

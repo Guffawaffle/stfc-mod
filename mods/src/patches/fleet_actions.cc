@@ -836,12 +836,10 @@ void ClearFleetActionQueue(FleetBarViewController* fleet_bar)
 
 // ─── Space Action Execution ───────────────────────────────────────────────────────────
 
-void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInputs& inputs)
+bool ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInputs& inputs)
 {
   auto fleet_controller = fleet_bar->_fleetPanelController;
   auto fleet            = fleet_controller->fleet;
-
-  auto action_queue = ActionQueueManager::Instance();
 
   const auto has_dispatched_primary = inputs.primary;
   if (has_dispatched_primary && force_space_action_next_frame) {
@@ -865,132 +863,156 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
       fleet->CurrentState == FleetState::WarpCharging || fleet->CurrentState == FleetState::Warping;
 
   if (has_queue_clear) {
+    auto action_queue = ActionQueueManager::Instance();
     action_queue->ClearQueue(fleet);
     diagnostics.Complete("queue-clear");
-  } else {
-    const auto runtime_context = GatherSpaceActionRuntimeContext(fleet);
-    diagnostics.SetContext(runtime_context.visible_pre_scan_target_count, runtime_context.mining_viewer_visible,
-                           runtime_context.star_node_visible, runtime_context.navigation_interaction_visible);
+    return true;
+  }
 
+  const auto target_context_requested = has_primary || has_secondary || has_queue;
+  if (!target_context_requested) {
     if (has_recall_cancel && fleet_is_warping) {
-      if (TryExecuteWarpCancel(
-              fleet_bar, fleet, runtime_context, has_primary, has_secondary, has_queue, has_queue_clear, has_recall,
-              has_repair, has_recall_cancel,
-              ShouldPreferContextActionOverWarpCancel(runtime_context, has_primary, has_secondary, has_queue),
-              diagnostics)) {
-        return;
-      }
-    }
-
-    auto queue_unlocked = has_queue && action_queue->IsQueueUnlocked();
-
-    for (const auto& pre_scan_target : runtime_context.visible_pre_scan_targets) {
-      auto pre_scan_widget             = pre_scan_target.widget;
-      auto scan_engage_buttons_widget  = pre_scan_target.scan_engage_buttons_widget;
-      auto context                     = pre_scan_target.target_context;
-      auto type                        = pre_scan_target.target_hull_type;
-      auto deferred_primary_for_target = pre_scan_target.deferred_primary_for_target;
-      auto has_primary_for_target      = has_dispatched_primary || deferred_primary_for_target;
-      auto add_to_queue_button         = pre_scan_widget->_addToQueueButtonWidget;
-
-      if (!has_dispatched_primary && force_space_action_next_frame && deferred_primary_for_fleet
-          && !deferred_primary_for_target) {
-        diagnostics.SetOutcome(deferred_space_action_state.widget_identity
-                                       == reinterpret_cast<uintptr_t>(pre_scan_widget)
-                                   ? "deferred-target-context-mismatch"
-                                   : "deferred-target-widget-mismatch");
-      }
-
-      if (runtime_context.mining_viewer_visible) {
-        if (has_secondary && scan_engage_buttons_widget) {
-          if (TryExecuteScanAction(fleet, scan_engage_buttons_widget, context, "scan-prescan-mining-viewer",
-                                   "scan-prescan-mining-viewer-suppressed-duplicate", diagnostics)) {
-            return;
-          }
-        } else if (has_primary_for_target) {
-          diagnostics.Complete("mine-prescan-viewer");
-          runtime_context.mining_viewer_widget->MineClicked();
-          return;
-        }
-      }
-
-      FleetPrimaryDecisionInput primary_input;
-      primary_input.fleet_state             = ToFleetInputState(fleet->CurrentState);
-      primary_input.target_hull_type        = ToFleetInputHullType(type);
-      primary_input.visible_prescan_target  = true;
-      primary_input.armada_attack_available = type == HullType::ArmadaTarget && !runtime_context.armada_visible;
-      primary_input.target_engage_available =
-          type != HullType::ArmadaTarget && (type != HullType::Any || deferred_primary_for_target);
-      primary_input.target_context_resolved = type != HullType::Any;
-      primary_input.is_deferred_retry       = deferred_primary_for_target;
-
-      if (queue_unlocked && add_to_queue_button && scan_engage_buttons_widget) {
-        auto queue_input               = primary_input;
-        queue_input.queue_mode_enabled = true;
-        queue_input.queue_unlocked     = true;
-        queue_input.queue_full         = action_queue->IsQueueFull(fleet);
-        const auto queue_outcome       = DecideFleetPrimary(queue_input);
-
-        if (TryHandlePreScanQueueOutcome(queue_outcome, fleet, pre_scan_widget, context, queue_input.queue_full,
-                                         diagnostics)) {
-          return;
-        }
-      }
-
-      if (has_secondary && scan_engage_buttons_widget) {
-        if (TryExecuteScanAction(fleet, scan_engage_buttons_widget, context, "scan-prescan",
-                                 "scan-prescan-suppressed-duplicate", diagnostics)) {
-          return;
-        }
-      }
-
-      if (has_primary_for_target && scan_engage_buttons_widget && scan_engage_buttons_widget->enabled) {
-        if (TryHandlePreScanPrimaryOutcome(DecideFleetPrimary(primary_input), fleet, pre_scan_widget,
-                                           scan_engage_buttons_widget, context, type, runtime_context.armada_visible,
-                                           diagnostics)) {
-          return;
-        }
-      }
-
-      RecordPreScanWidgetReadinessOutcome(has_primary_for_target, has_secondary, has_queue, scan_engage_buttons_widget,
-                                          diagnostics);
-    }
-
-    if (runtime_context.visible_pre_scan_target_count == 0 && has_secondary) {
-      if (TryHandleNoPreScanSecondaryOutcome(
-              DecideFleetSecondary({false, false, runtime_context.mining_viewer_visible,
-                                    runtime_context.mining_scan_available, runtime_context.star_node_visible}),
-              fleet, runtime_context, diagnostics)) {
-        return;
-      }
-    }
-
-    if (runtime_context.visible_pre_scan_target_count == 0 && has_dispatched_primary) {
-      auto       armada_join_button         = runtime_context.armada_widget && runtime_context.armada_visible
-                                                  ? runtime_context.armada_widget->__get__joinContext()
-                                                  : nullptr;
-      const auto armada_join_button_present = armada_join_button != nullptr;
-
-      FleetPrimaryDecisionInput primary_input;
-      primary_input.fleet_state                    = ToFleetInputState(fleet->CurrentState);
-      primary_input.mining_viewer_visible          = runtime_context.mining_viewer_visible;
-      primary_input.star_node_visible              = runtime_context.star_node_visible;
-      primary_input.navigation_interaction_visible = runtime_context.navigation_interaction_visible;
-      primary_input.armada_widget_visible          = runtime_context.armada_widget && runtime_context.armada_visible;
-      primary_input.armada_join_interactable       = armada_join_button_present && armada_join_button->Interactable;
-
-      if (TryHandleNoPreScanPrimaryOutcome(DecideFleetPrimary(primary_input), runtime_context,
-                                           armada_join_button_present, diagnostics)) {
-        return;
+      SpaceActionRuntimeContext runtime_context;
+      if (TryExecuteWarpCancel(fleet_bar, fleet, runtime_context, has_primary, has_secondary, has_queue,
+                               has_queue_clear, has_recall, has_repair, has_recall_cancel, false, diagnostics)) {
+        return true;
       }
     }
 
     if (TryHandleFleetServiceOutcome(
             DecideFleetService({ToFleetInputState(fleet->CurrentState), has_recall, has_repair}), fleet_bar,
             diagnostics)) {
-      return;
+      return true;
+    }
+
+    return false;
+  }
+
+  const auto runtime_context = GatherSpaceActionRuntimeContext(fleet);
+  diagnostics.SetContext(runtime_context.visible_pre_scan_target_count, runtime_context.mining_viewer_visible,
+                         runtime_context.star_node_visible, runtime_context.navigation_interaction_visible);
+
+  if (has_recall_cancel && fleet_is_warping) {
+    if (TryExecuteWarpCancel(
+            fleet_bar, fleet, runtime_context, has_primary, has_secondary, has_queue, has_queue_clear, has_recall,
+            has_repair, has_recall_cancel,
+            ShouldPreferContextActionOverWarpCancel(runtime_context, has_primary, has_secondary, has_queue),
+            diagnostics)) {
+      return true;
     }
   }
+
+  auto action_queue   = ActionQueueManager::Instance();
+  auto queue_unlocked = has_queue && action_queue->IsQueueUnlocked();
+
+  for (const auto& pre_scan_target : runtime_context.visible_pre_scan_targets) {
+    auto pre_scan_widget             = pre_scan_target.widget;
+    auto scan_engage_buttons_widget  = pre_scan_target.scan_engage_buttons_widget;
+    auto context                     = pre_scan_target.target_context;
+    auto type                        = pre_scan_target.target_hull_type;
+    auto deferred_primary_for_target = pre_scan_target.deferred_primary_for_target;
+    auto has_primary_for_target      = has_dispatched_primary || deferred_primary_for_target;
+    auto add_to_queue_button         = pre_scan_widget->_addToQueueButtonWidget;
+
+    if (!has_dispatched_primary && force_space_action_next_frame && deferred_primary_for_fleet
+        && !deferred_primary_for_target) {
+      diagnostics.SetOutcome(deferred_space_action_state.widget_identity
+                                     == reinterpret_cast<uintptr_t>(pre_scan_widget)
+                                 ? "deferred-target-context-mismatch"
+                                 : "deferred-target-widget-mismatch");
+    }
+
+    if (runtime_context.mining_viewer_visible) {
+      if (has_secondary && scan_engage_buttons_widget) {
+        if (TryExecuteScanAction(fleet, scan_engage_buttons_widget, context, "scan-prescan-mining-viewer",
+                                 "scan-prescan-mining-viewer-suppressed-duplicate", diagnostics)) {
+          return true;
+        }
+      } else if (has_primary_for_target) {
+        diagnostics.Complete("mine-prescan-viewer");
+        runtime_context.mining_viewer_widget->MineClicked();
+        return true;
+      }
+    }
+
+    FleetPrimaryDecisionInput primary_input;
+    primary_input.fleet_state             = ToFleetInputState(fleet->CurrentState);
+    primary_input.target_hull_type        = ToFleetInputHullType(type);
+    primary_input.visible_prescan_target  = true;
+    primary_input.armada_attack_available = type == HullType::ArmadaTarget && !runtime_context.armada_visible;
+    primary_input.target_engage_available =
+        type != HullType::ArmadaTarget && (type != HullType::Any || deferred_primary_for_target);
+    primary_input.target_context_resolved = type != HullType::Any;
+    primary_input.is_deferred_retry       = deferred_primary_for_target;
+
+    if (queue_unlocked && add_to_queue_button && scan_engage_buttons_widget) {
+      auto queue_input               = primary_input;
+      queue_input.queue_mode_enabled = true;
+      queue_input.queue_unlocked     = true;
+      queue_input.queue_full         = action_queue->IsQueueFull(fleet);
+      const auto queue_outcome       = DecideFleetPrimary(queue_input);
+
+      if (TryHandlePreScanQueueOutcome(queue_outcome, fleet, pre_scan_widget, context, queue_input.queue_full,
+                                       diagnostics)) {
+        return true;
+      }
+    }
+
+    if (has_secondary && scan_engage_buttons_widget) {
+      if (TryExecuteScanAction(fleet, scan_engage_buttons_widget, context, "scan-prescan",
+                               "scan-prescan-suppressed-duplicate", diagnostics)) {
+        return true;
+      }
+    }
+
+    if (has_primary_for_target && scan_engage_buttons_widget && scan_engage_buttons_widget->enabled) {
+      if (TryHandlePreScanPrimaryOutcome(DecideFleetPrimary(primary_input), fleet, pre_scan_widget,
+                                         scan_engage_buttons_widget, context, type, runtime_context.armada_visible,
+                                         diagnostics)) {
+        return true;
+      }
+    }
+
+    RecordPreScanWidgetReadinessOutcome(has_primary_for_target, has_secondary, has_queue, scan_engage_buttons_widget,
+                                        diagnostics);
+  }
+
+  if (runtime_context.visible_pre_scan_target_count == 0 && has_secondary) {
+    if (TryHandleNoPreScanSecondaryOutcome(
+            DecideFleetSecondary({false, false, runtime_context.mining_viewer_visible,
+                                  runtime_context.mining_scan_available, runtime_context.star_node_visible}),
+            fleet, runtime_context, diagnostics)) {
+      return true;
+    }
+  }
+
+  if (runtime_context.visible_pre_scan_target_count == 0 && has_dispatched_primary) {
+    auto       armada_join_button         = runtime_context.armada_widget && runtime_context.armada_visible
+                                                ? runtime_context.armada_widget->__get__joinContext()
+                                                : nullptr;
+    const auto armada_join_button_present = armada_join_button != nullptr;
+
+    FleetPrimaryDecisionInput primary_input;
+    primary_input.fleet_state                    = ToFleetInputState(fleet->CurrentState);
+    primary_input.mining_viewer_visible          = runtime_context.mining_viewer_visible;
+    primary_input.star_node_visible              = runtime_context.star_node_visible;
+    primary_input.navigation_interaction_visible = runtime_context.navigation_interaction_visible;
+    primary_input.armada_widget_visible          = runtime_context.armada_widget && runtime_context.armada_visible;
+    primary_input.armada_join_interactable       = armada_join_button_present && armada_join_button->Interactable;
+
+    if (TryHandleNoPreScanPrimaryOutcome(DecideFleetPrimary(primary_input), runtime_context,
+                                         armada_join_button_present, diagnostics)) {
+      return true;
+    }
+  }
+
+  if (TryHandleFleetServiceOutcome(
+          DecideFleetService({ToFleetInputState(fleet->CurrentState), has_recall, has_repair}), fleet_bar,
+          diagnostics)) {
+    return true;
+  }
+
+  return false;
 }
 
 // ─── Hull Type Resolution ─────────────────────────────────────────────────────────────

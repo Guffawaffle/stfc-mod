@@ -47,7 +47,7 @@ bool     HandleShipSelection(int ship_select_request);
  * @param fleet_bar The active FleetBarViewController.
  * @param inputs The already-sampled action inputs for this frame.
  */
-void     ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInputs& inputs);
+bool     ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInputs& inputs);
 
 /**
  * @brief Clear the queued actions for the currently selected fleet.
