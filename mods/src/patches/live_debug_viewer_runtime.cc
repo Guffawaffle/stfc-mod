@@ -218,6 +218,7 @@ TopCanvasObservation observe_top_canvas()
   const auto canvas_class = canvas_object ? canvas_object->klass : nullptr;
   const auto canvas_controller = reinterpret_cast<CanvasController*>(top_canvas);
 
+  observation.pointerValue = reinterpret_cast<uintptr_t>(top_canvas);
   observation.pointer = pointer_to_string(top_canvas);
   observation.className = (canvas_class && canvas_class->name) ? canvas_class->name : "";
   observation.classNamespace = (canvas_class && canvas_class->namespaze) ? canvas_class->namespaze : "";

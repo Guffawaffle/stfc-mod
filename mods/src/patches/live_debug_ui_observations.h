@@ -7,6 +7,7 @@
 
 struct TopCanvasObservation {
   bool                     found = false;
+  uintptr_t                pointerValue = 0;
   std::string              pointer;
   std::string              className;
   std::string              classNamespace;
@@ -30,6 +31,7 @@ struct StationWarningObservation {
 
 struct NavigationInteractionObservation {
   struct Entry {
+    uintptr_t   pointerValue = 0;
     std::string pointer;
     bool        hasContext = false;
     int         contextDataState = -1;

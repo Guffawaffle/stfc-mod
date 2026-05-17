@@ -124,6 +124,7 @@ NavigationInteractionObservation observe_navigation_interaction(const LiveDebugU
   for (auto* controller : controllers) {
     trace_step(trace_hooks, "nav/before-entry", "observe_navigation_interaction", controller);
     NavigationInteractionObservation::Entry entry;
+    entry.pointerValue = reinterpret_cast<uintptr_t>(controller);
     entry.pointer = pointer_to_string(controller);
 
     trace_step(trace_hooks, "nav/before-canvas-context", "observe_navigation_interaction", controller);
