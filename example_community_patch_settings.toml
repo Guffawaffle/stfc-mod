@@ -818,8 +818,9 @@ logging = false
 # such as sidecar, spocks.club, or other HTTP consumers for durable export.
 sidecar_jsonl = false
 # Keep the local sidecar JSONL feed cyclic so diagnostic replay does not grow
-# unbounded. Larger values increase storage churn. Set both replay seconds and
-# recent logs to 0 only for explicit temporary unlimited capture.
+# unbounded. Larger values increase storage churn. Setting both replay seconds
+# and recent logs to 0 disables the time/count caps, but an internal size cap
+# still protects the game process and disk.
 sidecar_jsonl_replay_seconds = 30
 # Optional second cap on retained battle-log groups. Larger values increase
 # storage churn.
