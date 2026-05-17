@@ -30,13 +30,8 @@
 #include <cstring>
 #include <cstdlib>
 #include <exception>
-
-namespace
-{
-constexpr bool kLiveDebugOnlyHookIsolation = false;
-constexpr auto kLegacyLogMaxBytes          = 512 * 1024;
-constexpr auto kLegacyLogMaxFiles          = 2;
-}
+#include <cstdio>
+#include <string>
 
 #if _WIN32
 #include <Windows.h>
@@ -45,6 +40,24 @@ constexpr auto kLegacyLogMaxFiles          = 2;
 #include <libgen.h>
 #include <mach-o/dyld.h>
 #endif
+
+namespace
+{
+constexpr bool kLiveDebugOnlyHookIsolation = false;
+constexpr auto kLegacyLogMaxBytes          = 512 * 1024;
+constexpr auto kLegacyLogMaxFiles          = 2;
+
+void LogRootHookInstallFailure(const std::string& message)
+{
+  spdlog::error("{}", message);
+#if _WIN32
+  OutputDebugStringA(message.c_str());
+  OutputDebugStringA("\n");
+#else
+  std::fprintf(stderr, "%s\n", message.c_str());
+#endif
+}
+}
 
 // ─── Forward Declarations — per-module install functions ─────────────────────
 
@@ -260,9 +273,9 @@ void ApplyPatches()
 
       SPUD_STATIC_DETOUR(n, il2cpp_init_hook);
     } catch (const std::exception& exception) {
-      spdlog::error("Failed to install il2cpp_init hook: {}", exception.what());
+      LogRootHookInstallFailure(std::string{"Failed to install il2cpp_init hook: "} + exception.what());
     } catch (...) {
-      spdlog::error("Failed to install il2cpp_init hook: unknown exception");
+      LogRootHookInstallFailure("Failed to install il2cpp_init hook: unknown exception");
     }
   }
 }

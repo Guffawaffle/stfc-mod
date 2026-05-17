@@ -128,6 +128,10 @@ TEST_SUITE("battle_log_decoder")
 
     CHECK_NOTHROW(
         (void)battle_log_decoder::build_sidecar_battle_capture_event(journal, nlohmann::json::object(), 0, 0));
+
+    const auto capture =
+        battle_log_decoder::build_sidecar_battle_capture_event(journal, nlohmann::json::object(), 0, 0);
+    CHECK(capture.dump().find("lossless_integer_json_max_depth") != std::string::npos);
   }
 
   TEST_CASE("hostile display names ignore retrieving placeholders and derive from reward keys")
