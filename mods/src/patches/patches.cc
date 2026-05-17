@@ -29,6 +29,7 @@
 
 #include <cstring>
 #include <cstdlib>
+#include <exception>
 
 namespace
 {
@@ -252,10 +253,16 @@ void ApplyPatches()
       auto n = dlsym(assembly, "il2cpp_init");
 #endif
       printf("Got il2cpp_init %p\n", n);
+      if (!n) {
+        spdlog::error("Failed to resolve il2cpp_init; community patch hooks were not installed");
+        return;
+      }
 
       SPUD_STATIC_DETOUR(n, il2cpp_init_hook);
+    } catch (const std::exception& exception) {
+      spdlog::error("Failed to install il2cpp_init hook: {}", exception.what());
     } catch (...) {
-      // Failed to Apply at least some patches
+      spdlog::error("Failed to install il2cpp_init hook: unknown exception");
     }
   }
 }

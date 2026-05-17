@@ -130,11 +130,22 @@ bool should_disable_tls_verification(const SyncConfig& config, const std::string
 [[nodiscard]] static std::string newUUID()
 {
 #ifdef _WIN32
-  UUID uuid;
-  UuidCreate(&uuid);
+  UUID uuid{};
+  const auto create_status = UuidCreate(&uuid);
+  if (create_status != RPC_S_OK && create_status != RPC_S_UUID_LOCAL_ONLY) {
+    spdlog::warn("[Sync] Failed to create UUID for request headers: status={}", create_status);
+    return {};
+  }
 
-  unsigned char* str;
-  UuidToStringA(&uuid, &str);
+  unsigned char* str = nullptr;
+  const auto     stringify_status = UuidToStringA(&uuid, &str);
+  if (stringify_status != RPC_S_OK || !str) {
+    spdlog::warn("[Sync] Failed to stringify UUID for request headers: status={}", stringify_status);
+    if (str) {
+      RpcStringFreeA(&str);
+    }
+    return {};
+  }
 
   std::string result(reinterpret_cast<char*>(str));
 

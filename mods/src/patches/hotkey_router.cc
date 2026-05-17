@@ -151,14 +151,17 @@ bool hotkey_router_screen_update(ScreenManager* _this)
             spdlog::trace("[HotkeyDiag] action=select-current");
           }
           auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
-          if (fleet_bar) {
+          if (fleet_bar && fleet_bar->_fleetPanelController) {
             auto fleet = fleet_bar->_fleetPanelController->fleet;
             if (fleet) {
-              if (NavigationSectionManager::Instance() && NavigationSectionManager::Instance()->SNavigationManager) {
-                NavigationSectionManager::Instance()->SNavigationManager->HideInteraction();
+              if (auto* navigation_section_manager = NavigationSectionManager::Instance();
+                  navigation_section_manager && navigation_section_manager->SNavigationManager) {
+                navigation_section_manager->SNavigationManager->HideInteraction();
               }
-              FleetsManager::Instance()->RequestViewFleet(fleet, true);
-              return false;
+              if (auto* fleets_manager = FleetsManager::Instance()) {
+                fleets_manager->RequestViewFleet(fleet, true);
+                return false;
+              }
             }
           }
         }

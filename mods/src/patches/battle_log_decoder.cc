@@ -30,6 +30,7 @@ constexpr int64_t kTriggeredEffectStartMarker = -93;
 constexpr int64_t kTriggeredEffectShipMarker = -91;
 constexpr int64_t kTriggeredEffectEndMarker = -92;
 constexpr int64_t kTriggeredEffectTerminator = -94;
+constexpr size_t  kLosslessIntegerJsonMaxDepth = 128;
 
 struct ParticipantInfo {
   std::string          side;
@@ -264,12 +265,16 @@ void append_unique(std::vector<int64_t>& values, int64_t value)
   return result;
 }
 
-[[nodiscard]] nlohmann::json lossless_integer_json(const nlohmann::json& value)
+[[nodiscard]] nlohmann::json lossless_integer_json(const nlohmann::json& value, size_t depth)
 {
+  if (depth >= kLosslessIntegerJsonMaxDepth) {
+    return nullptr;
+  }
+
   if (value.is_object()) {
     auto result = nlohmann::json::object();
     for (const auto& [key, entry] : value.items()) {
-      result[key] = lossless_integer_json(entry);
+      result[key] = lossless_integer_json(entry, depth + 1);
     }
     return result;
   }
@@ -277,7 +282,7 @@ void append_unique(std::vector<int64_t>& values, int64_t value)
   if (value.is_array()) {
     auto result = nlohmann::json::array();
     for (const auto& entry : value) {
-      result.push_back(lossless_integer_json(entry));
+      result.push_back(lossless_integer_json(entry, depth + 1));
     }
     return result;
   }
@@ -288,6 +293,9 @@ void append_unique(std::vector<int64_t>& values, int64_t value)
 
   return value;
 }
+
+[[nodiscard]] nlohmann::json lossless_integer_json(const nlohmann::json& value)
+{ return lossless_integer_json(value, 0); }
 
 [[nodiscard]] nlohmann::json json_slice(const nlohmann::json& values, size_t start, size_t count)
 {

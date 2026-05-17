@@ -810,7 +810,14 @@ void process_entity_slots_rtc(std::unique_ptr<std::string>&& json_payload)
         if (const auto& params = data["fleet_preset_slot_params"]; !params.is_null()) {
           auto setup_json = json::array();
           for (const auto& setup : params["setups"]) {
-            setup_json.push_back({{"drydock_id", setup["d"]}, {"ship_id", setup["s"][0]}, {"officer_ids", setup["o"]}});
+            json ship_id = nullptr;
+            if (const auto& ships = setup["s"]; ships.is_array() && !ships.empty()) {
+              ship_id = ships[0];
+            }
+
+            setup_json.push_back({{"drydock_id", setup.value("d", json(nullptr))},
+                                  {"ship_id", ship_id},
+                                  {"officer_ids", setup.value("o", json::array())}});
           }
 
           slot_params = {{"name", params["name"]}, {"order", params["order"]}, {"setup", setup_json}};
@@ -1222,6 +1229,10 @@ void HandleEntityGroup(EntityGroup* entity_group)
 
 void HandleServiceResponseEntityGroups(ServiceResponse* service_response)
 {
+  if (!service_response || !service_response->EntityGroups) {
+    return;
+  }
+
   const auto entity_groups = service_response->EntityGroups;
   for (int i = 0; i < entity_groups->Count; ++i) {
     const auto entity_group = entity_groups->get_Item(i);
@@ -1241,7 +1252,15 @@ void HandleRealtimeDataPayload(RealtimeDataPayload* data)
   }
 
   const auto type_string = to_string(data->DataType);
-  if (std::stoi(type_string) != DataType::JSON) {
+  int        data_type   = 0;
+  try {
+    data_type = std::stoi(type_string);
+  } catch (const std::exception& exception) {
+    spdlog::warn("Failed to parse realtime data payload type '{}': {}", type_string, exception.what());
+    return;
+  }
+
+  if (data_type != DataType::JSON) {
     return;
   }
 
