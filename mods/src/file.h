@@ -84,11 +84,7 @@ public:
    * @param old_path    Use the legacy bundle-id directory (macOS migration).
    * @return Platform-appropriate path string.
    */
-#if _WIN32
-  static std::string_view MakePath(std::string_view filename, bool create_dir = false, bool old_path = false);
-#else
-  static std::u8string MakePath(std::string_view filename, bool create_dir = false, bool old_path = false);
-#endif
+  static std::string      MakePath(std::string_view filename, bool create_dir = false, bool old_path = false);
 
   /** @brief Build a full path as a UTF-8 std::string for narrow C/C++ file APIs. */
   static std::string MakePathString(std::string_view filename, bool create_dir = false, bool old_path = false);

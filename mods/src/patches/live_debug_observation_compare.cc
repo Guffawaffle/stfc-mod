@@ -6,7 +6,7 @@
 
 bool same_top_canvas_observation(const TopCanvasObservation& left, const TopCanvasObservation& right)
 {
-  return left.found == right.found && left.pointer == right.pointer &&
+  return left.found == right.found && left.pointerValue == right.pointerValue && left.pointer == right.pointer &&
       left.className == right.className && left.classNamespace == right.classNamespace &&
       left.name == right.name && left.visible == right.visible && left.enabled == right.enabled &&
       left.internalVisible == right.internalVisible && left.activeChildNames == right.activeChildNames;
@@ -73,7 +73,8 @@ bool same_navigation_interaction_observation(const NavigationInteractionObservat
   for (size_t index = 0; index < left.entries.size(); ++index) {
     const auto& left_entry = left.entries[index];
     const auto& right_entry = right.entries[index];
-    if (left_entry.pointer != right_entry.pointer ||
+    if (left_entry.pointerValue != right_entry.pointerValue ||
+        left_entry.pointer != right_entry.pointer ||
         left_entry.hasContext != right_entry.hasContext ||
         left_entry.contextDataState != right_entry.contextDataState ||
         left_entry.inputInteractionType != right_entry.inputInteractionType ||

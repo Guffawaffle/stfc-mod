@@ -66,6 +66,7 @@ using json = nlohmann::json;
 constexpr std::string_view kNavigationHookTraceFile                = "community_patch_navhook_trace.log";
 constexpr auto             kNavigationHookTraceMaxBytes            = 512 * 1024;
 constexpr auto             kNavigationHookTraceRotateCheckInterval = 128;
+constexpr auto             kNavigationHookTraceBackupCount         = 3;
 
 bool                                             g_recent_observations_initialized = false;
 TopCanvasObservation                             g_last_top_canvas;
@@ -100,6 +101,8 @@ RecentNavigationHookFollowUp g_recent_navigation_hook_follow_up;
 std::string                  g_last_navigation_poll_actionable_pointer;
 bool                         g_logged_navigation_hook_tick_enter         = false;
 bool                         g_logged_navigation_hook_tick_after_ui_poll = false;
+std::FILE*                   g_navigation_hook_trace_file               = nullptr;
+std::filesystem::path        g_navigation_hook_trace_open_path;
 
 constexpr bool                        kEnableLiveDebugUiPollingFromTick            = false;
 constexpr bool                        kEnableLiveDebugTopCanvasPolling             = true;
@@ -140,6 +143,41 @@ bool has_recent_live_debug_request_activity()
 std::filesystem::path get_live_debug_path(std::string_view filename)
 { return std::filesystem::path(File::MakePathString(filename)); }
 
+void close_navigation_hook_trace_file()
+{
+  if (!g_navigation_hook_trace_file) {
+    return;
+  }
+
+  std::fclose(g_navigation_hook_trace_file);
+  g_navigation_hook_trace_file = nullptr;
+  g_navigation_hook_trace_open_path.clear();
+}
+
+std::FILE* open_navigation_hook_trace_file(const std::filesystem::path& trace_path)
+{
+  if (g_navigation_hook_trace_file && g_navigation_hook_trace_open_path == trace_path) {
+    return g_navigation_hook_trace_file;
+  }
+
+  close_navigation_hook_trace_file();
+
+  const auto path_text = trace_path.string();
+  g_navigation_hook_trace_file = std::fopen(path_text.c_str(), "ab");
+  if (g_navigation_hook_trace_file) {
+    g_navigation_hook_trace_open_path = trace_path;
+  }
+
+  return g_navigation_hook_trace_file;
+}
+
+std::filesystem::path rotated_navigation_hook_trace_path(const std::filesystem::path& trace_path, int index)
+{
+  auto rotated_path = trace_path;
+  rotated_path.replace_extension("." + std::to_string(index) + ".log");
+  return rotated_path;
+}
+
 void rotate_navigation_hook_trace_if_needed(const std::filesystem::path& trace_path)
 {
   static uint32_t check_counter = 0;
@@ -153,11 +191,21 @@ void rotate_navigation_hook_trace_if_needed(const std::filesystem::path& trace_p
     return;
   }
 
-  auto rotated_path = trace_path;
-  rotated_path.replace_extension(".1.log");
-  std::filesystem::remove(rotated_path, error);
+  close_navigation_hook_trace_file();
+
+  std::filesystem::remove(rotated_navigation_hook_trace_path(trace_path, kNavigationHookTraceBackupCount), error);
   error.clear();
-  std::filesystem::rename(trace_path, rotated_path, error);
+  for (int index = kNavigationHookTraceBackupCount - 1; index >= 1; --index) {
+    const auto source = rotated_navigation_hook_trace_path(trace_path, index);
+    const auto target = rotated_navigation_hook_trace_path(trace_path, index + 1);
+    if (std::filesystem::exists(source, error)) {
+      error.clear();
+      std::filesystem::rename(source, target, error);
+      error.clear();
+    }
+  }
+
+  std::filesystem::rename(trace_path, rotated_navigation_hook_trace_path(trace_path, 1), error);
 }
 
 std::string pointer_to_string(const void* pointer)
@@ -177,8 +225,7 @@ void append_navigation_hook_trace_step(const char* step, const char* phase, cons
                                        const void* sender = nullptr, const void* callback_context = nullptr)
 {
   const auto trace_path = get_live_debug_path(kNavigationHookTraceFile);
-  const auto path_text  = trace_path.string();
-  auto*      trace_file = std::fopen(path_text.c_str(), "ab");
+  auto*      trace_file = open_navigation_hook_trace_file(trace_path);
   if (!trace_file) {
     return;
   }
@@ -187,7 +234,6 @@ void append_navigation_hook_trace_step(const char* step, const char* phase, cons
                static_cast<long long>(current_time_millis_utc()), step ? step : "", phase ? phase : "", controller,
                sender, callback_context);
   std::fflush(trace_file);
-  std::fclose(trace_file);
   rotate_navigation_hook_trace_if_needed(trace_path);
 }
 
@@ -259,9 +305,9 @@ find_navigation_interaction_entry(const NavigationInteractionObservation& observ
     return nullptr;
   }
 
-  const auto controller_pointer = pointer_to_string(controller);
+  const auto controller_pointer = reinterpret_cast<uintptr_t>(controller);
   for (const auto& entry : observation.entries) {
-    if (entry.pointer == controller_pointer) {
+    if (entry.pointerValue == controller_pointer) {
       return &entry;
     }
   }
@@ -297,7 +343,7 @@ void append_navigation_hook_actionable_follow_up_event(const NavigationInteracti
 
   const bool sender_matches_top_canvas =
       g_recent_navigation_hook_follow_up.sender && g_last_top_canvas.found
-      && pointer_to_string(g_recent_navigation_hook_follow_up.sender) == g_last_top_canvas.pointer;
+      && reinterpret_cast<uintptr_t>(g_recent_navigation_hook_follow_up.sender) == g_last_top_canvas.pointerValue;
   if (!sender_matches_top_canvas) {
     append_navigation_hook_trace_step("followup/clear-top-canvas-miss", g_recent_navigation_hook_follow_up.phase,
                                       g_recent_navigation_hook_follow_up.controller,
@@ -478,7 +524,8 @@ void flush_pending_navigation_hook_note()
     }
 
     if (note.sender && note.prePollTopCanvas.found) {
-      details["prePollSenderMatchesTopCanvas"] = pointer_to_string(note.sender) == note.prePollTopCanvas.pointer;
+      details["prePollSenderMatchesTopCanvas"] =
+          reinterpret_cast<uintptr_t>(note.sender) == note.prePollTopCanvas.pointerValue;
     }
     append_navigation_hook_trace_step("flush/after-pre-poll-match-loop", note.phase, note.controller, note.sender,
                                       note.callbackContext);
@@ -503,7 +550,7 @@ void flush_pending_navigation_hook_note()
   if (note.sender && g_last_top_canvas.found) {
     append_navigation_hook_trace_step("flush/before-sender-compare", note.phase, note.controller, note.sender,
                                       note.callbackContext);
-    details["senderMatchesTopCanvas"] = pointer_to_string(note.sender) == g_last_top_canvas.pointer;
+    details["senderMatchesTopCanvas"] = reinterpret_cast<uintptr_t>(note.sender) == g_last_top_canvas.pointerValue;
     append_navigation_hook_trace_step(details["senderMatchesTopCanvas"].get<bool>() ? "flush/after-sender-compare/match"
                                                                                     : "flush/after-sender-compare/miss",
                                       note.phase, note.controller, note.sender, note.callbackContext);

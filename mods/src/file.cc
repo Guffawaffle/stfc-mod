@@ -9,7 +9,17 @@
 #include "file.h"
 #include "platform_bridge.h"
 #include "windowtitle.h"
- 
+
+namespace
+{
+std::filesystem::path path_with_extension(const std::filesystem::path& path, const char* extension)
+{
+  auto result = path;
+  result.replace_extension(extension);
+  return result;
+}
+} // namespace
+
 std::filesystem::path File::Path()
 {
   if (!File::initialized) {
@@ -81,17 +91,10 @@ std::wstring File::Title()
   return cacheNameTitle;
 }
 
-#if !_WIN32
-std::u8string File::MakePath(std::string_view filename, bool create_dir, bool old_path)
+std::string File::MakePath(std::string_view filename, bool create_dir, bool old_path)
 {
-  return platform_bridge::ModStoragePath(filename, create_dir, old_path).u8string();
+  return MakePathString(filename, create_dir, old_path);
 }
-#else
-std::string_view File::MakePath(std::string_view filename, bool create_dir, bool old_path)
-{
-  return filename;
-}
-#endif
 
 std::string File::MakePathString(std::string_view filename, bool create_dir, bool old_path)
 {
@@ -133,13 +136,15 @@ void File::Init()
       configPath     = std::filesystem::path(cacheNameDefault);
     }
 
+    const auto configured_base_path = configPath;
+
     /*******************************
      *
      * Set the battle log file name
      *
      *******************************/
     if (File::override) {
-      cacheNameBattles = configPath.replace_extension(FILE_EXT_JSON).string();
+      cacheNameBattles = path_with_extension(configured_base_path, FILE_EXT_JSON).string();
     } else {
       cacheNameBattles = std::string(FILE_DEF_BL);
     }
@@ -150,7 +155,7 @@ void File::Init()
      *
      *******************************/
     if (File::override) {
-      cacheNameLog = configPath.replace_extension(FILE_EXT_LOG).string();
+      cacheNameLog = path_with_extension(configured_base_path, FILE_EXT_LOG).string();
     } else {
       cacheNameLog = std::string(FILE_DEF_LOG);
     }
@@ -162,7 +167,7 @@ void File::Init()
      *******************************/
 
     if (File::override) {
-      cacheNameVar = configPath.replace_extension(FILE_EXT_VARS).string();
+      cacheNameVar = path_with_extension(configured_base_path, FILE_EXT_VARS).string();
     } else {
       cacheNameVar = std::string(FILE_DEF_VARS);
     }
@@ -173,7 +178,8 @@ void File::Init()
      *
      *******************************/
     if (File::override) {
-      cacheNameConfig = configPath.replace_extension(FILE_EXT_TOML).string();
+      configPath      = path_with_extension(configured_base_path, FILE_EXT_TOML);
+      cacheNameConfig = configPath.string();
     } else {
       cacheNameConfig = std::string(FILE_DEF_CONFIG);
     }
