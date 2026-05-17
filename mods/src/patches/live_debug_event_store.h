@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -63,6 +64,7 @@ public:
 private:
   void rebuild_kind_index() const;
 
+  mutable std::mutex         mutex_;
   size_t                     capacity_ = 0;
   uint64_t                   nextSequence_ = 0;
   uint64_t                   evictedCount_ = 0;

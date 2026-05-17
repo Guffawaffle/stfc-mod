@@ -1,5 +1,8 @@
 #include "test_pure_common.h"
 
+#include <atomic>
+#include <thread>
+
 // ===========================================================================
 // live_debug_pure
 // ===========================================================================
@@ -126,6 +129,58 @@ TEST_SUITE("live_debug_recent_event_store")
     REQUIRE(exact_snapshot.events.size() == 2);
     CHECK(exact_snapshot.events[0]["seq"] == 1);
     CHECK(exact_snapshot.events[1]["seq"] == 4);
+  }
+
+  TEST_CASE("snapshot can run while append and clear mutate the store")
+  {
+    LiveDebugRecentEventStore store(64);
+    std::atomic_bool          writers_done     = false;
+    std::atomic_bool          invariant_failed = false;
+
+    std::thread writer_a([&store] {
+      for (int i = 0; i < 250; ++i) {
+        store.append("event-a", nlohmann::json{{"payload", i}}, i);
+      }
+    });
+
+    std::thread writer_b([&store] {
+      for (int i = 0; i < 250; ++i) {
+        store.append("event-b", nlohmann::json{{"payload", i}}, i);
+      }
+    });
+
+    std::thread clearer([&store] {
+      for (int i = 0; i < 8; ++i) {
+        std::this_thread::yield();
+        store.clear();
+      }
+    });
+
+    std::thread reader([&store, &writers_done, &invariant_failed] {
+      LiveDebugRecentEventStoreQuery query;
+      query.kinds          = {"event-a", "event-b"};
+      query.match          = "payload";
+      query.limit          = 16;
+      query.includeDetails = false;
+
+      while (!writers_done.load()) {
+        const auto snapshot = store.snapshot(query);
+        if (snapshot.count > snapshot.capacity || snapshot.returnedCount != snapshot.events.size()
+            || snapshot.returnedCount > query.limit) {
+          invariant_failed.store(true);
+        }
+      }
+    });
+
+    writer_a.join();
+    writer_b.join();
+    clearer.join();
+    writers_done.store(true);
+    reader.join();
+
+    const auto snapshot = store.snapshot();
+    CHECK(snapshot.count <= snapshot.capacity);
+    CHECK_FALSE(invariant_failed.load());
   }
 
   TEST_CASE("recent-events request parser merges filters and summary flags")
