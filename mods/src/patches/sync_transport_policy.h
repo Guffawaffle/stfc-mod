@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -57,5 +58,6 @@ struct ModCapabilitySnapshotInput {
 [[nodiscard]] std::map<std::string, std::string> BuildSyncTargetHeaders(const SyncTargetConfig& target_config,
                                                                         std::string powered_by);
 [[nodiscard]] nlohmann::json BuildModCapabilitySnapshot(const ModCapabilitySnapshotInput& input);
+[[nodiscard]] std::optional<nlohmann::json> BuildFleetAssignmentSnapshot(const nlohmann::json& slot_delta);
 [[nodiscard]] nlohmann::json BuildMajelIngestEnvelope(const MajelIngestEnvelopeInput& input);
 } // namespace http

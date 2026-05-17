@@ -9,6 +9,7 @@
 #include "patches/sync_battle_logs.h"
 #include "patches/sync_scheduler.h"
 #include "patches/sync_transport.h"
+#include "patches/sync_transport_policy.h"
 
 #include <Digit.PrimeServer.Models.pb.h>
 #include <prime/EntityGroup.h>
@@ -647,6 +648,19 @@ void process_global_active_buffs(std::unique_ptr<std::string>&& bytes)
 static std::unordered_map<int64_t, int64_t> slot_states;
 static std::mutex                           slot_states_mtx;
 
+static void queue_fleet_assignment_snapshots(const nlohmann::json& slot_array)
+{
+  for (const auto& slot_delta : slot_array) {
+    if (slot_delta.value("slot_type", -1) != Digit::PrimeServer::Models::SLOTTYPE_FLEETPRESET) {
+      continue;
+    }
+
+    if (auto snapshot = http::BuildFleetAssignmentSnapshot(slot_delta); snapshot.has_value()) {
+      queue_data(SyncConfig::Type::FleetAssignments, snapshot.value());
+    }
+  }
+}
+
 inline std::optional<std::chrono::time_point<std::chrono::system_clock>> parse_timestamp(const std::string& timestamp)
 {
 #ifdef _WIN32
@@ -747,6 +761,7 @@ void process_entity_slots(std::unique_ptr<std::string>&& bytes)
 
     if (!slot_array.empty()) {
       queue_data(SyncConfig::Type::Slots, slot_array);
+      queue_fleet_assignment_snapshots(slot_array);
     }
   } else {
     spdlog::error("Failed to parse entity slots");
@@ -845,6 +860,7 @@ void process_entity_slots_rtc(std::unique_ptr<std::string>&& json_payload)
                               {"params", slot_params}});
 
         queue_data(SyncConfig::Type::Slots, slot_array);
+        queue_fleet_assignment_snapshots(slot_array);
       }
     }
   } catch (json::exception& e) {

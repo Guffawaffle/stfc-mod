@@ -44,6 +44,7 @@ public:
     Inventory,
     Jobs,
     Missions,
+    FleetAssignments,
     ModCapabilities,
     Officer,
     Research,
@@ -116,6 +117,9 @@ constexpr std::string to_string(const SyncConfig::Type type)
 {
   if (type == SyncConfig::Type::ModCapabilities) {
     return "mod_capabilities";
+  }
+  if (type == SyncConfig::Type::FleetAssignments) {
+    return "fleet_assignments";
   }
 
   for (const auto& opt : SyncOptions) {
