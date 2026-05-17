@@ -89,12 +89,12 @@ void ScreenManager_Update_FrameTick_Hook(auto original, ScreenManager* screen_ma
 {
   ScopedModImpactTimer impact_timer(ModImpactProbe::FrameTickTotal, ModImpactMonitorEnabled());
 
-  tick_live_debug(screen_manager);
-
   const auto should_call_original = tick_hotkeys(screen_manager);
   if (should_call_original) {
-    return impact_timer.ExcludeCall([&] { original(screen_manager); });
+    impact_timer.ExcludeCall([&] { original(screen_manager); });
   }
+
+  tick_live_debug(screen_manager);
 }
 }
 

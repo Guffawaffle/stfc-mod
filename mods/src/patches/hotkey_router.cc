@@ -462,4 +462,7 @@ void hotkey_router_bind_context(RewardsButtonWidget* _this)
 { HandleCargoBindContext(_this); }
 
 void hotkey_router_show_fleet(PreScanTargetWidget* _this)
-{ HandleCargoShowFleet(_this); }
+{
+  RememberShownPreScanTarget(_this);
+  HandleCargoShowFleet(_this);
+}

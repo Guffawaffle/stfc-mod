@@ -146,9 +146,10 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
-  auto             install_live_debug_hooks           = LiveDebugChannelEnabled();
+  auto             install_live_debug_hooks           =
+      LiveDebugChannelEnabled() || (cfg.installSyncPatches && cfg.sync_options.fleet_runtime);
   auto             install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
-  auto             install_frame_tick_hooks           = cfg.installHotkeyHooks || install_live_debug_hooks;
+  auto             install_frame_tick_hooks           = cfg.installHotkeyHooks || LiveDebugChannelEnabled();
   const PatchEntry patches[]                          = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},

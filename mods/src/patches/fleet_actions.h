@@ -16,6 +16,7 @@
 #include <cstdint>
 
 struct BattleTargetData;
+struct PreScanTargetWidget;
 
 /** When true, the next frame will re-attempt the primary space action (deferred engage). */
 extern bool force_space_action_next_frame;
@@ -36,6 +37,14 @@ uint64_t DeferredSpaceActionGeneration();
  * @return true if the selection was handled (caller should skip original).
  */
 bool     HandleShipSelection(int ship_select_request);
+
+/**
+ * @brief Remember the most recently shown pre-scan target widget for the fast space-action path.
+ *
+ * The ShowWithFleet hook gives us the target widget the game just displayed.  Space actions can use that pointer
+ * before falling back to a broader tracked-object scan.
+ */
+void     RememberShownPreScanTarget(PreScanTargetWidget* pre_scan_widget);
 
 /**
  * @brief Execute the contextual space action for the currently selected fleet.

@@ -51,27 +51,10 @@ FleetSlotObservation observe_fleet_slot(int slot_index, FleetBarViewController* 
 
   return observation;
 }
-}
 
-int get_selected_fleet_index(FleetBarViewController* fleet_bar)
-{
-  if (!fleet_bar) {
-    return -1;
-  }
-
-  for (int index = 0; index < kFleetIndexMax; ++index) {
-    if (fleet_bar->IsIndexSelected(index)) {
-      return index;
-    }
-  }
-
-  return -1;
-}
-
-FleetObservation observe_fleetbar()
+FleetObservation observe_fleetbar(FleetBarViewController* fleet_bar)
 {
   FleetObservation observation;
-  auto fleet_bar = GetLatestTrackedObject<FleetBarViewController>();
   observation.tracked = fleet_bar != nullptr;
 
   if (!fleet_bar) {
@@ -101,21 +84,79 @@ FleetObservation observe_fleetbar()
   return observation;
 }
 
-std::array<FleetSlotObservation, kFleetIndexMax> observe_fleet_slots()
+std::array<FleetSlotObservation, kFleetIndexMax> observe_fleet_slots(FleetBarViewController* fleet_bar)
 {
   std::array<FleetSlotObservation, kFleetIndexMax> observations{};
-  auto fleet_bar = GetLatestTrackedObject<FleetBarViewController>();
+  if (!fleet_bar) {
+    for (int slot_index = 0; slot_index < kFleetIndexMax; ++slot_index) {
+      observations[static_cast<size_t>(slot_index)].slotIndex = slot_index;
+    }
+    return observations;
+  }
 
+  auto fleets_manager = FleetsManager::Instance();
   for (int slot_index = 0; slot_index < kFleetIndexMax; ++slot_index) {
     auto& observation = observations[static_cast<size_t>(slot_index)];
     observation.slotIndex = slot_index;
+    observation.selected = fleet_bar->IsIndexSelected(slot_index);
 
-    if (!fleet_bar) {
+    if (!fleets_manager) {
       continue;
     }
 
-    observation = observe_fleet_slot(slot_index, fleet_bar);
+    auto fleet = fleets_manager->GetFleetPlayerData(slot_index);
+    if (!fleet) {
+      continue;
+    }
+
+    observation.present = true;
+    observation.fleetId = fleet->Id;
+    observation.currentState = static_cast<int>(fleet->CurrentState);
+    observation.previousState = static_cast<int>(fleet->PreviousState);
+    observation.cargoFillPercent = static_cast<int>(fleet->CargoResourceFillLevel * 100.0f);
+    observation.cargoFillBasisPoints = static_cast<int>(fleet->CargoResourceFillLevel * 10000.0f);
+
+    if (auto hull = fleet->Hull; hull && hull->Name) {
+      observation.hullName = to_string(hull->Name);
+    }
   }
 
   return observations;
+}
+}
+
+int get_selected_fleet_index(FleetBarViewController* fleet_bar)
+{
+  if (!fleet_bar) {
+    return -1;
+  }
+
+  for (int index = 0; index < kFleetIndexMax; ++index) {
+    if (fleet_bar->IsIndexSelected(index)) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+FleetObservation observe_fleetbar()
+{
+  auto fleet_bar = GetLatestTrackedObject<FleetBarViewController>();
+  return observe_fleetbar(fleet_bar);
+}
+
+std::array<FleetSlotObservation, kFleetIndexMax> observe_fleet_slots()
+{
+  auto fleet_bar = GetLatestTrackedObject<FleetBarViewController>();
+  return observe_fleet_slots(fleet_bar);
+}
+
+FleetRuntimeSnapshot observe_fleet_runtime_snapshot()
+{
+  FleetRuntimeSnapshot snapshot;
+  auto fleet_bar = GetLatestTrackedObject<FleetBarViewController>();
+  snapshot.fleet = observe_fleetbar(fleet_bar);
+  snapshot.slots = observe_fleet_slots(fleet_bar);
+  return snapshot;
 }

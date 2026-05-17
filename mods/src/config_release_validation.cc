@@ -64,6 +64,7 @@ namespace
       "sync.buffs",
       "sync.buildings",
       "sync.debug",
+      "sync.fleet_runtime",
       "sync.inventory",
       "sync.jobs",
       "sync.logging",

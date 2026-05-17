@@ -325,6 +325,7 @@ namespace Sync
   constexpr bool battlelogs_realtime = false; ///< Export canonical battle feed events to realtime ingest targets.
   constexpr bool buffs               = true;  ///< Sync buff / Emerald Chain data.
   constexpr bool buildings           = true;  ///< Sync station module data.
+  constexpr bool fleet_runtime       = false; ///< Sync low-rate fleet-bar runtime state.
   constexpr bool inventory           = true;  ///< Sync inventory contents.
   constexpr bool jobs                = true;  ///< Sync active job/build queues.
   constexpr bool missions            = true;  ///< Sync mission progress.

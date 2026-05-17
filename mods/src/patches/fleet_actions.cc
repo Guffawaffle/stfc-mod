@@ -59,6 +59,7 @@ FleetActionExecutionResult TryExecuteRepair(FleetBarViewController* fleet_bar);
 namespace
 {
 fleet_deferred_action::State deferred_space_action_state;
+PreScanTargetWidget*         last_shown_pre_scan_target = nullptr;
 
 struct ScanSubmission {
   uint64_t                              fleet_id        = 0;
@@ -372,24 +373,35 @@ bool TryExecuteArmadaAttack(PreScanTargetWidget* pre_scan_widget, ScanEngageButt
 
 bool DeferredSpaceActionTargetMatches(FleetPlayerData* fleet, PreScanTargetWidget* widget, BattleTargetData* target);
 
+void AppendVisiblePreScanTargetContext(SpaceActionRuntimeContext& runtime_context, FleetPlayerData* fleet,
+                                       PreScanTargetWidget* pre_scan_widget)
+{
+  if (!IsViewerVisible(pre_scan_widget)) {
+    return;
+  }
+
+  ++runtime_context.visible_pre_scan_target_count;
+
+  auto scan_engage_buttons_widget = pre_scan_widget->_scanEngageButtonsWidget;
+  auto target_context             = scan_engage_buttons_widget ? scan_engage_buttons_widget->Context : nullptr;
+  runtime_context.visible_pre_scan_targets.push_back(
+      {pre_scan_widget, scan_engage_buttons_widget, target_context, GetHullTypeFromBattleTarget(target_context),
+       DeferredSpaceActionTargetMatches(fleet, pre_scan_widget, target_context)});
+}
+
 SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet)
 {
   SpaceActionRuntimeContext runtime_context;
 
-  const auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAllNonNull();
-  runtime_context.visible_pre_scan_targets.reserve(all_pre_scan_widgets.size());
-  for (auto pre_scan_widget : all_pre_scan_widgets) {
-    if (!IsViewerVisible(pre_scan_widget)) {
-      continue;
+  if (IsViewerVisible(last_shown_pre_scan_target)) {
+    runtime_context.visible_pre_scan_targets.reserve(1);
+    AppendVisiblePreScanTargetContext(runtime_context, fleet, last_shown_pre_scan_target);
+  } else {
+    const auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAllNonNull();
+    runtime_context.visible_pre_scan_targets.reserve(all_pre_scan_widgets.size());
+    for (auto pre_scan_widget : all_pre_scan_widgets) {
+      AppendVisiblePreScanTargetContext(runtime_context, fleet, pre_scan_widget);
     }
-
-    ++runtime_context.visible_pre_scan_target_count;
-
-    auto scan_engage_buttons_widget = pre_scan_widget->_scanEngageButtonsWidget;
-    auto target_context             = scan_engage_buttons_widget ? scan_engage_buttons_widget->Context : nullptr;
-    runtime_context.visible_pre_scan_targets.push_back(
-        {pre_scan_widget, scan_engage_buttons_widget, target_context, GetHullTypeFromBattleTarget(target_context),
-         DeferredSpaceActionTargetMatches(fleet, pre_scan_widget, target_context)});
   }
 
   runtime_context.mining_viewer_widget  = ObjectFinder<MiningObjectViewerWidget>::Get();
@@ -422,6 +434,11 @@ void ClearDeferredSpaceAction()
 {
   fleet_deferred_action::Clear(deferred_space_action_state);
   force_space_action_next_frame = deferred_space_action_state.pending;
+}
+
+void RememberShownPreScanTarget(PreScanTargetWidget* pre_scan_widget)
+{
+  last_shown_pre_scan_target = pre_scan_widget;
 }
 
 uint64_t DeferredSpaceActionGeneration()
@@ -942,6 +959,7 @@ bool ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
 
   auto action_queue   = ActionQueueManager::Instance();
   auto queue_unlocked = has_queue && action_queue && action_queue->IsQueueUnlocked();
+  auto queue_full     = queue_unlocked && action_queue->IsQueueFull(fleet);
 
   for (const auto& pre_scan_target : runtime_context.visible_pre_scan_targets) {
     auto pre_scan_widget             = pre_scan_target.widget;
@@ -987,7 +1005,7 @@ bool ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
       auto queue_input               = primary_input;
       queue_input.queue_mode_enabled = true;
       queue_input.queue_unlocked     = true;
-      queue_input.queue_full         = action_queue->IsQueueFull(fleet);
+      queue_input.queue_full         = queue_full;
       const auto queue_outcome       = DecideFleetPrimary(queue_input);
 
       if (TryHandlePreScanQueueOutcome(queue_outcome, fleet, pre_scan_widget, context, queue_input.queue_full,
