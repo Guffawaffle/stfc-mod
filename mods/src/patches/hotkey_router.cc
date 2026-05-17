@@ -361,8 +361,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
           auto deferred_generation = DeferredSpaceActionGeneration();
           {
             ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeySpaceAction, ModImpactMonitorEnabled());
-            ExecuteSpaceAction(fleet_bar, space_action_inputs);
-            handled_space_action = true;
+            handled_space_action = ExecuteSpaceAction(fleet_bar, space_action_inputs);
           }
           if (hotkey_router_should_clear_deferred_space_action(was_forced, deferred_generation,
                                                                DeferredSpaceActionGeneration())) {
