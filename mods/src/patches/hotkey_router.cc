@@ -122,6 +122,9 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   {
     ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipSelection, ModImpactMonitorEnabled());
     if (HandleShipSelection(ship_select_request)) {
+      if (ModImpactMonitorEnabled()) {
+        spdlog::trace("[HotkeyDiag] action=ship-select slot={}", ship_select_request);
+      }
       return !ship_select_consumes_original;
     }
   }
@@ -144,6 +147,9 @@ bool hotkey_router_screen_update(ScreenManager* _this)
                 query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kSelectCurrent)
                     == input_binding::InputActionId::SelectCurrent)
             == HotkeyRouterSelectCurrentAction::ViewActiveFleet) {
+          if (ModImpactMonitorEnabled()) {
+            spdlog::trace("[HotkeyDiag] action=select-current");
+          }
           auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
           if (fleet_bar) {
             auto fleet = fleet_bar->_fleetPanelController->fleet;
@@ -165,6 +171,9 @@ bool hotkey_router_screen_update(ScreenManager* _this)
         if (hotkey_router_should_toggle_queue(is_in_chat, input_focused,
                                               queue_toggle_action == input_binding::InputActionId::FleetQueueToggle)) {
           config->queue_enabled = !config->queue_enabled;
+          if (ModImpactMonitorEnabled()) {
+            spdlog::trace("[HotkeyDiag] action=queue-toggle queue_now={}", config->queue_enabled);
+          }
           return false;
         }
       }
@@ -216,6 +225,9 @@ bool hotkey_router_screen_update(ScreenManager* _this)
                 break;
             }
           }
+          if (ModImpactMonitorEnabled() && chat_open_handled) {
+            spdlog::trace("[HotkeyDiag] action=chat-open consumes_original={}", chat_open_consumes_original);
+          }
           if (chat_open_handled && chat_open_consumes_original) {
             return false;
           }
@@ -230,11 +242,17 @@ bool hotkey_router_screen_update(ScreenManager* _this)
             query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kOfficerCanvas))) {
           case HotkeyRouterOfficerCanvasAction::MoveLeft:
             if (MoveOfficerCanvas(true)) {
+              if (ModImpactMonitorEnabled()) {
+                spdlog::trace("[HotkeyDiag] action=officer-canvas dir=left");
+              }
               return false;
             }
             break;
           case HotkeyRouterOfficerCanvasAction::MoveRight:
             if (MoveOfficerCanvas(false)) {
+              if (ModImpactMonitorEnabled()) {
+                spdlog::trace("[HotkeyDiag] action=officer-canvas dir=right");
+              }
               return false;
             }
             break;
@@ -254,6 +272,9 @@ bool hotkey_router_screen_update(ScreenManager* _this)
           if (table_winner
               && query::dispatch_runtime_bound_table_action(*table_winner)
                      == HotkeyRouterDispatchAction::SuppressOriginal) {
+            if (ModImpactMonitorEnabled()) {
+              spdlog::trace("[HotkeyDiag] action=table-dispatch");
+            }
             return false;
           }
         }
@@ -268,12 +289,15 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       switch (hotkey_router_chat_channel_action(
           is_in_chat, query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kChatChannel))) {
         case HotkeyRouterChatChannelAction::Global:
+          if (ModImpactMonitorEnabled()) { spdlog::trace("[HotkeyDiag] action=chat-channel channel=global"); }
           chat_manager->OpenChannel(ChatChannelCategory::Global);
           return false;
         case HotkeyRouterChatChannelAction::Alliance:
+          if (ModImpactMonitorEnabled()) { spdlog::trace("[HotkeyDiag] action=chat-channel channel=alliance"); }
           chat_manager->OpenChannel(ChatChannelCategory::Alliance);
           return false;
         case HotkeyRouterChatChannelAction::Private:
+          if (ModImpactMonitorEnabled()) { spdlog::trace("[HotkeyDiag] action=chat-channel channel=private"); }
           chat_manager->OpenChannel(ChatChannelCategory::Private);
           return false;
         default:
@@ -344,6 +368,9 @@ bool hotkey_router_screen_update(ScreenManager* _this)
     }
 
     if (simple_fleet_action == HotkeyRouterSimpleFleetAction::QueueClear) {
+      if (ModImpactMonitorEnabled()) {
+        spdlog::trace("[HotkeyDiag] action=queue-clear");
+      }
       query::dispatch_runtime_bound_simple_fleet_action(input_binding::InputActionId::FleetQueueClear);
       if (query::runtime_binding_consumes_original_key_event(
               runtime_dispatch_plan, input_binding::InputActionId::FleetQueueClear, input_binding::InputLayer::Fleet)) {
@@ -362,6 +389,11 @@ bool hotkey_router_screen_update(ScreenManager* _this)
           {
             ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeySpaceAction, ModImpactMonitorEnabled());
             handled_space_action = ExecuteSpaceAction(fleet_bar, space_action_inputs);
+          }
+          if (ModImpactMonitorEnabled()) {
+            spdlog::trace("[HotkeyDiag] action=space primary={} secondary={} recall={} repair={} handled={}",
+                          space_action_inputs.primary, space_action_inputs.secondary,
+                          space_action_inputs.recall, space_action_inputs.repair, handled_space_action);
           }
           if (hotkey_router_should_clear_deferred_space_action(was_forced, deferred_generation,
                                                                DeferredSpaceActionGeneration())) {
@@ -394,6 +426,9 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
     // ActionView — toggle cargo/rewards info panel
     if (simple_fleet_action == HotkeyRouterSimpleFleetAction::ViewInfo) {
+      if (ModImpactMonitorEnabled()) {
+        spdlog::trace("[HotkeyDiag] action=view-info");
+      }
       HandleActionView();
       if (query::runtime_binding_consumes_original_key_event(
               runtime_dispatch_plan, input_binding::InputActionId::FleetViewInfo, input_binding::InputLayer::Fleet)) {
