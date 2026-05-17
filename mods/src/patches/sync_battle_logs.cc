@@ -98,6 +98,25 @@ struct CachedAllianceData {
 std::unordered_map<int64_t, CachedAllianceData> alliance_data_cache;
 std::mutex                                      alliance_data_cache_mtx;
 
+static constexpr size_t kPlayerDataCacheMaxEntries   = 4096;
+static constexpr size_t kAllianceDataCacheMaxEntries = 1024;
+
+template <typename Cache>
+void prune_resolver_cache_locked(Cache& cache, size_t max_entries, std::chrono::steady_clock::time_point now)
+{
+  for (auto it = cache.begin(); it != cache.end();) {
+    if (it->second.expires_at <= now) {
+      it = cache.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  while (cache.size() > max_entries) {
+    cache.erase(cache.begin());
+  }
+}
+
 static eastl::ring_buffer<uint64_t> previously_sent_battlelogs;
 static std::mutex                   previously_sent_battlelogs_mtx;
 static std::mutex                   battle_feed_file_mtx;
@@ -731,6 +750,7 @@ void cache_player_names(std::unique_ptr<std::string>&& bytes)
     {
       std::lock_guard lk(player_data_cache_mtx);
       player_data_cache.insert(names.begin(), names.end());
+      prune_resolver_cache_locked(player_data_cache, kPlayerDataCacheMaxEntries, std::chrono::steady_clock::now());
     }
   } else {
     spdlog::error("Failed to parse user profile");
@@ -754,6 +774,7 @@ void cache_alliance_names(std::unique_ptr<std::string>&& bytes)
     {
       std::lock_guard lk(alliance_data_cache_mtx);
       alliance_data_cache.insert(names.begin(), names.end());
+      prune_resolver_cache_locked(alliance_data_cache, kAllianceDataCacheMaxEntries, std::chrono::steady_clock::now());
     }
 
   } else {
@@ -905,6 +926,7 @@ static void ship_combat_log_data()
                   {"name", name}, {"alliance_id", alliance_id}, {"alliance_name", nullptr}, {"alliance_tag", nullptr}};
               player_data_cache[player_id] = {name, alliance_id, expires_at};
             }
+            prune_resolver_cache_locked(player_data_cache, kPlayerDataCacheMaxEntries, now);
           } catch (const json::exception& exception) {
             spdlog::error("Failed to parse user profiles: {}", exception.what());
           }
@@ -935,6 +957,7 @@ static void ship_combat_log_data()
 
               alliance_data_cache[id] = {name, tag, expires_at};
             }
+            prune_resolver_cache_locked(alliance_data_cache, kAllianceDataCacheMaxEntries, now);
           } catch (json::exception& exception) {
             spdlog::error("Failed to parse alliance profiles: {}", exception.what());
           }
