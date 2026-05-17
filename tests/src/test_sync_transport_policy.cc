@@ -84,15 +84,22 @@ TEST_SUITE("sync_transport_policy")
   {
     SyncTargetConfig target;
     target.ships = true;
+    target.slots = true;
 
     CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::Ships));
     CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::ModCapabilities));
+    CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetAssignments));
 
     target.mode = SyncTargetConfig::Mode::Majel;
     CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::ModCapabilities));
+    CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetAssignments));
 
+    target.slots = false;
+    CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetAssignments));
+    target.slots = true;
     target.mode = SyncTargetConfig::Mode::SidecarBroker;
     CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::ModCapabilities));
+    CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetAssignments));
   }
 
   TEST_CASE("mod capability snapshot is redacted and declares supported schemas")
@@ -121,6 +128,48 @@ TEST_SUITE("sync_transport_policy")
     CHECK(snapshot["privacy"]["containsEndpointUrls"] == false);
     CHECK(snapshot.dump().find("secret-token") == std::string::npos);
     CHECK(snapshot.dump().find("https://") == std::string::npos);
+  }
+
+  TEST_CASE("fleet assignment snapshot projects existing fleet preset slot deltas")
+  {
+    const auto slot_delta = nlohmann::json{
+        {"type", "slot"},
+        {"sid", 123456},
+        {"slot_type", 7},
+        {"spec_id", 789},
+        {"item_id", nullptr},
+        {"params",
+         {
+             {"name", "Freebooter X"},
+             {"order", 2},
+             {"setup",
+              nlohmann::json::array({
+                  {
+                      {"drydock_id", 1},
+                      {"ship_id", 987654321},
+                      {"officer_ids", nlohmann::json::array({111, 222, 333})},
+                  },
+                  {
+                      {"drydock_id", 2},
+                      {"ship_id", nullptr},
+                      {"officer_ids", nlohmann::json::array()},
+                  },
+              })},
+         }},
+    };
+
+    const auto snapshot = http::BuildFleetAssignmentSnapshot(slot_delta);
+    REQUIRE(snapshot.has_value());
+    CHECK((*snapshot)["schemaVersion"] == "stfc.fleet.assignment_snapshot.v1");
+    CHECK((*snapshot)["sourceSlotId"] == "123456");
+    CHECK((*snapshot)["sourceSlotSpecId"] == 789);
+    CHECK((*snapshot)["presetName"] == "Freebooter X");
+    CHECK((*snapshot)["presetOrder"] == 2);
+    CHECK((*snapshot)["assignments"][0]["drydockId"] == "1");
+    CHECK((*snapshot)["assignments"][0]["shipId"] == "987654321");
+    CHECK((*snapshot)["assignments"][0]["officerIds"] == nlohmann::json::array({"111", "222", "333"}));
+    CHECK((*snapshot)["assignments"][1]["drydockId"] == "2");
+    CHECK((*snapshot)["assignments"][1]["shipId"].is_null());
   }
 
   TEST_CASE("Majel envelope preserves schema payloads and wraps legacy deltas")

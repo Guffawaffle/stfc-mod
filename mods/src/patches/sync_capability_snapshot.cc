@@ -75,6 +75,7 @@ void queue_mod_capability_snapshot()
           {
               "stfc.mod.capability_snapshot.v1",
               "stfc.sync.delta_batch.v1",
+              "stfc.fleet.assignment_snapshot.v1",
               "stfc.fleet.runtime_snapshot.v1",
               "stfc.battle.summary.v1",
           },

@@ -29,6 +29,8 @@ std::string schema_for_sync_type(const SyncConfig::Type type, const nlohmann::js
     case SyncConfig::Type::Battles:
     case SyncConfig::Type::BattlelogsRealtime:
       return "stfc.battle.summary.v1";
+    case SyncConfig::Type::FleetAssignments:
+      return "stfc.fleet.assignment_snapshot.v1";
     case SyncConfig::Type::FleetRuntime:
       return "stfc.fleet.runtime_snapshot.v1";
     case SyncConfig::Type::ModCapabilities:
@@ -83,6 +85,9 @@ bool SyncTargetAcceptsType(const SyncTargetConfig& target_config, const SyncConf
   if (type == SyncConfig::Type::ModCapabilities) {
     return SyncTargetUsesMajelEnvelope(target_config.mode);
   }
+  if (type == SyncConfig::Type::FleetAssignments) {
+    return SyncTargetUsesMajelEnvelope(target_config.mode) && target_config.slots;
+  }
 
   for (const auto& option : SyncOptions) {
     if (option.type == type) {
@@ -134,6 +139,79 @@ nlohmann::json BuildModCapabilitySnapshot(const ModCapabilitySnapshotInput& inpu
            {"containsCallbacks", false},
            {"readOnly", true},
        }},
+  };
+}
+
+static nlohmann::json json_id_to_string(const nlohmann::json& value)
+{
+  if (value.is_null() || value.is_discarded()) {
+    return nullptr;
+  }
+  if (value.is_string()) {
+    return value;
+  }
+  if (value.is_number_unsigned()) {
+    return std::to_string(value.get<uint64_t>());
+  }
+  if (value.is_number_integer()) {
+    return std::to_string(value.get<int64_t>());
+  }
+
+  return nullptr;
+}
+
+static nlohmann::json officer_ids_to_strings(const nlohmann::json& value)
+{
+  auto officer_ids = nlohmann::json::array();
+  if (!value.is_array()) {
+    return officer_ids;
+  }
+
+  for (const auto& officer_id : value) {
+    if (auto normalized = json_id_to_string(officer_id); !normalized.is_null()) {
+      officer_ids.push_back(std::move(normalized));
+    }
+  }
+
+  return officer_ids;
+}
+
+std::optional<nlohmann::json> BuildFleetAssignmentSnapshot(const nlohmann::json& slot_delta)
+{
+  if (!slot_delta.is_object()) {
+    return std::nullopt;
+  }
+
+  const auto params = slot_delta.find("params");
+  if (params == slot_delta.end() || !params->is_object()) {
+    return std::nullopt;
+  }
+
+  const auto setup = params->find("setup");
+  if (setup == params->end() || !setup->is_array()) {
+    return std::nullopt;
+  }
+
+  auto assignments = nlohmann::json::array();
+  for (const auto& item : *setup) {
+    if (!item.is_object()) {
+      continue;
+    }
+
+    assignments.push_back({
+        {"drydockId", json_id_to_string(item.value("drydock_id", nlohmann::json(nullptr)))},
+        {"shipId", json_id_to_string(item.value("ship_id", nlohmann::json(nullptr)))},
+        {"officerIds", officer_ids_to_strings(item.value("officer_ids", nlohmann::json::array()))},
+    });
+  }
+
+  return nlohmann::json{
+      {"schemaVersion", "stfc.fleet.assignment_snapshot.v1"},
+      {"sourceSlotId", json_id_to_string(slot_delta.value("sid", nlohmann::json(nullptr)))},
+      {"sourceSlotSpecId", slot_delta.value("spec_id", nlohmann::json(nullptr))},
+      {"presetName", params->value("name", "")},
+      {"presetOrder", params->value("order", nlohmann::json(nullptr))},
+      {"assignments", std::move(assignments)},
   };
 }
 

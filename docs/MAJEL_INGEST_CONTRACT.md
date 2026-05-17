@@ -42,6 +42,7 @@ Payload rules:
 
 - Payloads that already carry `schemaVersion` or `schema` keep that schema and payload shape.
 - Existing legacy sync arrays are wrapped as `stfc.sync.delta_batch.v1` with `syncType` and `items`.
+- Fleet preset slot deltas also emit Majel-only `stfc.fleet.assignment_snapshot.v1` events.
 - Fleet runtime snapshots emit as `stfc.fleet.runtime_snapshot.v1`.
 - Battle sync targets map to `stfc.battle.summary.v1` until a narrower battle projection is split out.
 - Majel-envelope targets also receive `stfc.mod.capability_snapshot.v1` once at sync startup.
