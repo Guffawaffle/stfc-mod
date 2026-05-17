@@ -796,6 +796,7 @@ battlelogs = true
 battlelogs_realtime = false
 buffs = true
 buildings = true
+fleet_runtime = false
 inventory = true
 jobs = true
 missions = true
@@ -875,6 +876,7 @@ allow_unsafe_tls_without_certificate_validation = false
 # url = "http://127.0.0.1:43127/api/fleet/sync"
 # battlelogs = false
 # battlelogs_realtime = false
+# fleet_runtime = true
 # ships = true
 # slots = true
 

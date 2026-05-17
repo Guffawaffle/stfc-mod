@@ -65,8 +65,9 @@ nlohmann::json TopCanvas()
 nlohmann::json FleetbarState()
 {
   auto fleet_bar = GetLatestTrackedObject<FleetBarViewController>();
+  const auto snapshot = observe_fleet_runtime_snapshot();
 
-  nlohmann::json result = {{"tracked", fleet_bar != nullptr}};
+  nlohmann::json result = {{"tracked", snapshot.fleet.tracked}};
 
   if (!fleet_bar) {
     return result;
@@ -76,9 +77,23 @@ nlohmann::json FleetbarState()
   auto fleet = fleet_controller ? fleet_controller->fleet : nullptr;
 
   result["pointer"] = pointer_to_string(fleet_bar);
-  result["selectedIndex"] = get_selected_fleet_index(fleet_bar);
+  result["selectedIndex"] = snapshot.fleet.selectedIndex;
   result["hasController"] = fleet_controller != nullptr;
-  result["fleet"] = fleet_to_json(fleet);
+  result["fleet"] = {{"present", snapshot.fleet.hasFleet}};
+  if (snapshot.fleet.hasFleet) {
+    result["fleet"]["id"] = snapshot.fleet.fleetId;
+    result["fleet"]["currentState"] = snapshot.fleet.currentState;
+    result["fleet"]["currentStateName"] = fleet_state_name_from_value(snapshot.fleet.currentState);
+    result["fleet"]["previousState"] = snapshot.fleet.previousState;
+    result["fleet"]["previousStateName"] = fleet_state_name_from_value(snapshot.fleet.previousState);
+    result["fleet"]["cargoFill"] = fleet ? fleet->CargoResourceFillLevel : 0.0f;
+
+    if (fleet && fleet->Hull) {
+      result["fleet"]["hull"] = fleet_to_json(fleet)["hull"];
+    } else {
+      result["fleet"]["hull"] = nullptr;
+    }
+  }
   return result;
 }
 
@@ -86,7 +101,8 @@ nlohmann::json FleetSlotsState()
 {
   auto fleet_bar = GetLatestTrackedObject<FleetBarViewController>();
 
-  const auto slot_observations = observe_fleet_slots();
+  const auto snapshot = observe_fleet_runtime_snapshot();
+  const auto& slot_observations = snapshot.slots;
   size_t present_count = 0;
   for (const auto& slot : slot_observations) {
     if (slot.present) {

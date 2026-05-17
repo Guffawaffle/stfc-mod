@@ -14,6 +14,7 @@
 #include "patches/live_debug_fleet_runtime_observers.h"
 #include "patches/live_debug_fleet_runtime_serializers.h"
 #include "patches/live_debug_fleet_serializers.h"
+#include "patches/fleet_runtime_sync.h"
 #include "patches/live_debug_observation_compare.h"
 #include "patches/live_debug_recent_event_requests.h"
 #include "patches/live_debug_request_dispatch.h"
@@ -592,9 +593,11 @@ void initialize_recent_model_observations(std::string_view source)
     return;
   }
 
+  const auto fleet_runtime = observe_fleet_runtime_snapshot();
+
   const auto top_canvas             = kEnableLiveDebugTopCanvasPolling ? observe_top_canvas() : TopCanvasObservation{};
-  const auto fleet                  = observe_fleetbar();
-  const auto fleet_slots            = observe_fleet_slots();
+  const auto& fleet                 = fleet_runtime.fleet;
+  const auto& fleet_slots           = fleet_runtime.slots;
   const auto station_warning        = kEnableLiveDebugStationWarningPolling
                                           ? observe_station_warning(ui_observer_trace_hooks())
                                           : StationWarningObservation{};
@@ -704,8 +707,10 @@ void capture_recent_model_events(std::string_view source)
 
   poll_recent_ui_events();
 
-  const auto fleet       = observe_fleetbar();
-  const auto fleet_slots = observe_fleet_slots();
+  const auto fleet_runtime = observe_fleet_runtime_snapshot();
+
+  const auto& fleet       = fleet_runtime.fleet;
+  const auto& fleet_slots = fleet_runtime.slots;
 
   if (!same_fleet_observation(fleet, g_last_fleet)) {
     append_fleet_change_events(g_last_fleet, fleet);
@@ -720,84 +725,129 @@ void capture_recent_model_events(std::string_view source)
   g_last_fleet_slots = fleet_slots;
 }
 
+void capture_fleet_runtime_sync_event(std::string_view source)
+{
+  if (!Config::Get().installSyncPatches || !Config::Get().sync_options.fleet_runtime) {
+    return;
+  }
+
+  try {
+    fleet_runtime_sync_capture(source);
+  } catch (const std::exception& ex) {
+    spdlog::error("[FleetRuntimeSync] source={} status=failed error='{}'", source, ex.what());
+  } catch (...) {
+    spdlog::error("[FleetRuntimeSync] source={} status=failed error='unknown exception'", source);
+  }
+}
+
 void DeploymentEvents_TriggerFleetStateChangeEvent_Hook(auto original, IList* fleets)
 {
   original(fleets);
-  live_debug_events::RecordEvent("deployment-fleet-state-event", json{{"fleetCount", count_list_items(fleets)},
-                                                                      {"fleets", deployed_fleet_list_to_json(fleets)}});
+  if (LiveDebugChannelEnabled()) {
+    live_debug_events::RecordEvent("deployment-fleet-state-event",
+                                   json{{"fleetCount", count_list_items(fleets)},
+                                        {"fleets", deployed_fleet_list_to_json(fleets)}});
+  }
   capture_recent_model_events("deployment-fleet-state-event");
+  capture_fleet_runtime_sync_event("deployment-fleet-state-event");
 }
 
 void DeploymentEvents_TriggerPlayerFleetsUpdatedEvent_Hook(auto original, IList* fleets)
 {
   original(fleets);
   capture_recent_model_events("deployment-player-fleets-updated-event");
+  capture_fleet_runtime_sync_event("deployment-player-fleets-updated-event");
 }
 
 void DeploymentEvents_TriggerCoursePlannedEvent_Hook(auto original, IList* courses)
 {
   original(courses);
-  live_debug_events::RecordEvent("deployment-course-planned-event", json{{"courseCount", count_list_items(courses)}});
+  if (LiveDebugChannelEnabled()) {
+    live_debug_events::RecordEvent("deployment-course-planned-event", json{{"courseCount", count_list_items(courses)}});
+  }
   capture_recent_model_events("deployment-course-planned-event");
+  capture_fleet_runtime_sync_event("deployment-course-planned-event");
 }
 
 void DeploymentEvents_TriggerCourseStartEvent_Hook(auto original, IList* courses)
 {
   original(courses);
-  live_debug_events::RecordEvent("deployment-course-start-event", json{{"courseCount", count_list_items(courses)}});
+  if (LiveDebugChannelEnabled()) {
+    live_debug_events::RecordEvent("deployment-course-start-event", json{{"courseCount", count_list_items(courses)}});
+  }
   capture_recent_model_events("deployment-course-start-event");
+  capture_fleet_runtime_sync_event("deployment-course-start-event");
 }
 
 void DeploymentEvents_TriggerCourseChangeEvent_Hook(auto original, IList* old_courses, IList* new_courses)
 {
   original(old_courses, new_courses);
-  live_debug_events::RecordEvent(
-      "deployment-course-change-event",
-      json{{"oldCourseCount", count_list_items(old_courses)}, {"newCourseCount", count_list_items(new_courses)}});
+  if (LiveDebugChannelEnabled()) {
+    live_debug_events::RecordEvent(
+        "deployment-course-change-event",
+        json{{"oldCourseCount", count_list_items(old_courses)}, {"newCourseCount", count_list_items(new_courses)}});
+  }
   capture_recent_model_events("deployment-course-change-event");
+  capture_fleet_runtime_sync_event("deployment-course-change-event");
 }
 
 void DeploymentEvents_TriggerCourseEndEvent_Hook(auto original, IList* courses)
 {
   original(courses);
-  live_debug_events::RecordEvent("deployment-course-end-event", json{{"courseCount", count_list_items(courses)}});
+  if (LiveDebugChannelEnabled()) {
+    live_debug_events::RecordEvent("deployment-course-end-event", json{{"courseCount", count_list_items(courses)}});
+  }
   capture_recent_model_events("deployment-course-end-event");
+  capture_fleet_runtime_sync_event("deployment-course-end-event");
 }
 
 void DeploymentEvents_TriggerSetCourseResponseEvent_Hook(auto original, long fleet_id, bool success,
                                                          bool is_recall_course, void* planned_course_data)
 {
   original(fleet_id, success, is_recall_course, planned_course_data);
-  live_debug_events::RecordEvent("deployment-set-course-response-event",
-                                 json{{"fleetId", fleet_id},
-                                      {"success", success},
-                                      {"isRecallCourse", is_recall_course},
-                                      {"hasCourseData", planned_course_data != nullptr}});
+  if (LiveDebugChannelEnabled()) {
+    live_debug_events::RecordEvent("deployment-set-course-response-event",
+                                   json{{"fleetId", fleet_id},
+                                        {"success", success},
+                                        {"isRecallCourse", is_recall_course},
+                                        {"hasCourseData", planned_course_data != nullptr}});
+  }
   capture_recent_model_events("deployment-set-course-response-event");
+  capture_fleet_runtime_sync_event("deployment-set-course-response-event");
 }
 
 void DeploymentEvents_TriggerBattleStartEvent_Hook(auto original, IList* fleets)
 {
   original(fleets);
-  live_debug_events::RecordEvent(
-      "deployment-battle-start-event",
-      json{{"fleetCount", count_list_items(fleets)}, {"fleets", deployed_fleet_list_to_json(fleets)}});
+  if (LiveDebugChannelEnabled()) {
+    live_debug_events::RecordEvent(
+        "deployment-battle-start-event",
+        json{{"fleetCount", count_list_items(fleets)}, {"fleets", deployed_fleet_list_to_json(fleets)}});
+  }
   capture_recent_model_events("deployment-battle-start-event");
+  capture_fleet_runtime_sync_event("deployment-battle-start-event");
 }
 
 void DeploymentEvents_TriggerBattleEndEvent_Hook(auto original, IList* fleets)
 {
   original(fleets);
-  live_debug_events::RecordEvent("deployment-battle-end-event", json{{"fleetCount", count_list_items(fleets)},
-                                                                     {"fleets", deployed_fleet_list_to_json(fleets)}});
+  if (LiveDebugChannelEnabled()) {
+    live_debug_events::RecordEvent("deployment-battle-end-event",
+                                   json{{"fleetCount", count_list_items(fleets)},
+                                        {"fleets", deployed_fleet_list_to_json(fleets)}});
+  }
   capture_recent_model_events("deployment-battle-end-event");
+  capture_fleet_runtime_sync_event("deployment-battle-end-event");
 }
 
 void DeploymentEvents_TriggerStaleFleetDataDetected_Hook(auto original)
 {
   original();
-  live_debug_events::RecordEvent("deployment-stale-fleet-data-detected-event", json::object());
+  if (LiveDebugChannelEnabled()) {
+    live_debug_events::RecordEvent("deployment-stale-fleet-data-detected-event", json::object());
+  }
   capture_recent_model_events("deployment-stale-fleet-data-detected-event");
+  capture_fleet_runtime_sync_event("deployment-stale-fleet-data-detected-event");
 }
 
 json handle_recent_events(const std::string& request_id, const json& request)
