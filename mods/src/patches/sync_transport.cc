@@ -256,6 +256,7 @@ void sync_log_trace(const std::string& type, const std::string& target, const st
 
 static const std::string CURL_TYPE_UPLOAD   = "UPLOAD";
 static const std::string CURL_TYPE_DOWNLOAD = "DOWNLOAD";
+static constexpr size_t  kTargetWorkerMaxQueuedRequests = 256;
 
 struct TargetWorker {
   TargetWorker() = default;
@@ -270,6 +271,7 @@ struct TargetWorker {
   std::queue<request_t>         request_queue;
   std::mutex                    queue_mtx;
   std::condition_variable       queue_cv;
+  uint64_t                      dropped_requests = 0;
 };
 
 static std::unordered_map<std::string, std::shared_ptr<TargetWorker>> target_workers;
@@ -423,6 +425,14 @@ void send_data(SyncConfig::Type type, const std::string& post_data, bool is_firs
 
       {
         std::lock_guard lk(worker->queue_mtx);
+        if (worker->request_queue.size() >= kTargetWorkerMaxQueuedRequests) {
+          ++worker->dropped_requests;
+          sync_log_warn(CURL_TYPE_UPLOAD, target_identifier,
+                        STR_FORMAT("Dropping request because target queue is full (queue size: {}, dropped: {})",
+                                   worker->request_queue.size(), worker->dropped_requests));
+          continue;
+        }
+
         worker->request_queue.emplace(target_identifier, post_data, is_first_sync);
         sync_log_trace(CURL_TYPE_UPLOAD, target_identifier,
                        STR_FORMAT("Queued request (queue size: {})", worker->request_queue.size()));
