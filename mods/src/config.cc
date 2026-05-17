@@ -1311,13 +1311,21 @@ void Config::Load()
     this->notifications.ClearToastStates();
 
     std::vector<std::string> notify_types = StrSplit(legacy_notify_banner_types, ',');
-    for (const auto& [key, value] : bannerTypes) {
-      auto upper_key = AsciiStrToUpper(key);
-      for (const std::string_view raw_type : notify_types) {
-        auto stripped_type = StripLeadingAsciiWhitespace(raw_type);
-        auto upper_type    = AsciiStrToUpper(stripped_type);
-        if (upper_key == upper_type) {
-          this->notifications.SetToastStateEnabled(value, true);
+    const bool legacy_notify_all_requested =
+        std::ranges::any_of(notify_types, legacy_notification_allowlist_requests_all);
+    if (legacy_notify_all_requested) {
+      for (const auto& spec : notificationToggleSpecs) {
+        this->notifications.SetToastStateEnabled(spec.toast_state, true);
+      }
+    } else {
+      for (const auto& [key, value] : bannerTypes) {
+        auto upper_key = AsciiStrToUpper(key);
+        for (const std::string_view raw_type : notify_types) {
+          auto stripped_type = StripLeadingAsciiWhitespace(raw_type);
+          auto upper_type    = AsciiStrToUpper(stripped_type);
+          if (upper_key == upper_type) {
+            this->notifications.SetToastStateEnabled(value, true);
+          }
         }
       }
     }
