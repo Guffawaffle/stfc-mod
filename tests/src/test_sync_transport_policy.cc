@@ -80,6 +80,49 @@ TEST_SUITE("sync_transport_policy")
     CHECK(http::SyncTargetUsesMajelEnvelope(target.mode));
   }
 
+  TEST_CASE("mod capability snapshots only target Majel-envelope transports")
+  {
+    SyncTargetConfig target;
+    target.ships = true;
+
+    CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::Ships));
+    CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::ModCapabilities));
+
+    target.mode = SyncTargetConfig::Mode::Majel;
+    CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::ModCapabilities));
+
+    target.mode = SyncTargetConfig::Mode::SidecarBroker;
+    CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::ModCapabilities));
+  }
+
+  TEST_CASE("mod capability snapshot is redacted and declares supported schemas")
+  {
+    const auto snapshot = http::BuildModCapabilitySnapshot({
+        .source_version = "2.0.1-test",
+        .platform = "windows",
+        .targets =
+            {
+                {
+                    .name = "majel",
+                    .mode = SyncTargetConfig::Mode::Majel,
+                    .enabled_sync_types = {"ship", "slot", "fleet_runtime"},
+                },
+            },
+        .supported_schemas = {"stfc.mod.capability_snapshot.v1", "stfc.sync.delta_batch.v1"},
+    });
+
+    CHECK(snapshot["schemaVersion"] == "stfc.mod.capability_snapshot.v1");
+    CHECK(snapshot["modVersion"] == "2.0.1-test");
+    CHECK(snapshot["platform"] == "windows");
+    CHECK(snapshot["targets"][0]["name"] == "majel");
+    CHECK(snapshot["targets"][0]["mode"] == "majel");
+    CHECK(snapshot["targets"][0]["enabledSyncTypes"][2] == "fleet_runtime");
+    CHECK(snapshot["privacy"]["tokenRedacted"] == true);
+    CHECK(snapshot["privacy"]["containsEndpointUrls"] == false);
+    CHECK(snapshot.dump().find("secret-token") == std::string::npos);
+    CHECK(snapshot.dump().find("https://") == std::string::npos);
+  }
+
   TEST_CASE("Majel envelope preserves schema payloads and wraps legacy deltas")
   {
     const auto fleet_payload = nlohmann::json{

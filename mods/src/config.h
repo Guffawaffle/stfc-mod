@@ -44,6 +44,7 @@ public:
     Inventory,
     Jobs,
     Missions,
+    ModCapabilities,
     Officer,
     Research,
     Resources,
@@ -113,6 +114,10 @@ constexpr std::array SyncOptions{
 
 constexpr std::string to_string(const SyncConfig::Type type)
 {
+  if (type == SyncConfig::Type::ModCapabilities) {
+    return "mod_capabilities";
+  }
+
   for (const auto& opt : SyncOptions) {
     if (opt.type == type) {
       return std::string(opt.type_str);
