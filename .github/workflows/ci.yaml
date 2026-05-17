@@ -1,20 +1,23 @@
 # @file ci.yaml
 # @brief CI build workflow — compiles the community patch on Windows and macOS.
 #
-# Triggers on every push and on PRs targeting main/dev.  Builds release
+# Triggers automatically for main branch updates and for PRs only when they
+# are opened/reopened as reviewable or moved out of draft. Builds release
 # artifacts for both platforms using xmake, creates a universal macOS app
 # bundle (arm64 + x86_64 via lipo), ad-hoc signs it, and packages a .dmg
-# installer.  Uploads version.dll (Windows) and the .dmg (macOS) as
-# build artifacts.
+# installer. Uploads version.dll (Windows) and the .dmg (macOS) as build
+# artifacts.
 
 name: Build
 
 on:
   push:
     branches:
-      - "**"
+      - main
   pull_request:
     branches: ["main", "dev"]
+    types: [opened, reopened, ready_for_review]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,6 +28,7 @@ env:
 
 jobs:
   build-win:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-2025-vs2026
     steps:
       - name: Checkout
@@ -74,6 +78,7 @@ jobs:
           if-no-files-found: error
 
   build-mac:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: macos-26
     steps:
       - name: Checkout
