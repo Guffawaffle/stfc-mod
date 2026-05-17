@@ -122,6 +122,8 @@ static std::mutex                   previously_sent_battlelogs_mtx;
 static std::mutex                   battle_feed_file_mtx;
 
 static constexpr char kBattleFeedFile[] = "community_patch_battle_feed.jsonl";
+static constexpr auto kBattleFeedHardMaxBytes = static_cast<std::uintmax_t>(10 * 1024 * 1024);
+static constexpr auto kBattleFeedRetentionReadMaxBytes = static_cast<std::uintmax_t>(5 * 1024 * 1024);
 
 struct RetainedBattleFeedGroup {
   std::string              key;
@@ -222,6 +224,51 @@ static std::optional<int64_t> battle_feed_capture_ms(const nlohmann::json& event
   return std::nullopt;
 }
 
+static std::optional<std::uintmax_t> battle_feed_file_size(const std::filesystem::path& feed_path)
+{
+  std::error_code error;
+  const auto      size = std::filesystem::file_size(feed_path, error);
+  if (error) {
+    return std::nullopt;
+  }
+
+  return size;
+}
+
+static bool seek_to_bounded_battle_feed_suffix(std::ifstream& input, const std::filesystem::path& feed_path,
+                                               std::uintmax_t feed_size)
+{
+  if (feed_size <= kBattleFeedRetentionReadMaxBytes) {
+    return false;
+  }
+
+  const auto suffix_offset = feed_size - kBattleFeedRetentionReadMaxBytes;
+  spdlog::warn("Sidecar feed {} is {} bytes; retention will parse only the newest {} bytes to bound memory use",
+               feed_path.string(), feed_size, kBattleFeedRetentionReadMaxBytes);
+
+  if (suffix_offset == 0) {
+    input.seekg(0, std::ios::beg);
+    return false;
+  }
+
+  input.seekg(static_cast<std::streamoff>(suffix_offset - 1), std::ios::beg);
+  char previous = '\0';
+  if (!input.get(previous)) {
+    input.clear();
+    input.seekg(0, std::ios::beg);
+    return false;
+  }
+
+  if (previous == '\n') {
+    input.seekg(static_cast<std::streamoff>(suffix_offset), std::ios::beg);
+    return true;
+  }
+
+  std::string partial_line;
+  std::getline(input, partial_line);
+  return true;
+}
+
 static BattleFeedLineMetadata battle_feed_line_metadata_from_line(const std::string& line, size_t line_id)
 {
   const auto event = nlohmann::json::parse(line, nullptr, false);
@@ -248,7 +295,10 @@ static void drop_expired_battle_feed_groups(std::deque<RetainedBattleFeedGroup>&
 static void retain_recent_jsonl_sidecar_events_locked(size_t recent_logs, int replay_seconds)
 {
   replay_seconds = std::max(0, replay_seconds);
-  if (recent_logs == 0 && replay_seconds == 0) {
+  const auto    feed_path = std::filesystem::path(File::MakePathString(kBattleFeedFile, true));
+  const auto    feed_size = battle_feed_file_size(feed_path);
+  const auto    has_retention_limit = recent_logs > 0 || replay_seconds > 0;
+  if (!has_retention_limit && (!feed_size || *feed_size <= kBattleFeedHardMaxBytes)) {
     return;
   }
 
@@ -256,17 +306,19 @@ static void retain_recent_jsonl_sidecar_events_locked(size_t recent_logs, int re
       ? std::optional<int64_t>(current_probe_unix_ms() - static_cast<int64_t>(replay_seconds) * 1000)
       : std::nullopt;
 
-  const auto    feed_path = std::filesystem::path(File::MakePathString(kBattleFeedFile, true));
   std::ifstream input(feed_path, std::ios::in | std::ios::binary);
   if (!input.is_open()) {
     return;
   }
 
+  const auto read_suffix_only =
+      feed_size ? seek_to_bounded_battle_feed_suffix(input, feed_path, *feed_size) : false;
+
   std::deque<RetainedBattleFeedGroup> retained_groups;
   std::string                         line;
   size_t                              line_id           = 0;
   size_t                              total_group_count = 0;
-  bool                                dropped_groups    = false;
+  bool                                dropped_groups    = read_suffix_only;
 
   while (std::getline(input, line)) {
     const auto metadata = battle_feed_line_metadata_from_line(line, ++line_id);
@@ -348,15 +400,27 @@ static void retain_recent_jsonl_sidecar_events_locked(size_t recent_logs, int re
     spdlog::warn("Failed to remove sidecar feed retention backup: {} ({})", backup_path, error.message());
   }
 
-  spdlog::info("Retained {} of {} battle-log group(s) in {} ({} JSONL line(s))", retained_groups.size(),
-               total_group_count, feed_path.string(), retained_line_count);
+  if (read_suffix_only) {
+    spdlog::info("Retained {} battle-log group(s) from bounded suffix of {} ({} JSONL line(s))",
+                 retained_groups.size(), feed_path.string(), retained_line_count);
+  } else {
+    spdlog::info("Retained {} of {} battle-log group(s) in {} ({} JSONL line(s))", retained_groups.size(),
+                 total_group_count, feed_path.string(), retained_line_count);
+  }
 }
 
 static void append_jsonl_sidecar_events(const nlohmann::json& sidecar_events)
 {
   std::lock_guard lk(battle_feed_file_mtx);
 
-  const auto feed_path = File::MakePathString(kBattleFeedFile, true);
+  const auto recent_logs = SyncSidecarJsonlRecentLogs();
+  const auto retention_recent_logs = recent_logs > 0 ? static_cast<size_t>(recent_logs) : 0;
+  const auto replay_seconds       = SyncSidecarJsonlReplaySeconds();
+  const auto feed_path            = File::MakePathString(kBattleFeedFile, true);
+
+  if (const auto feed_size = battle_feed_file_size(feed_path); feed_size && *feed_size > kBattleFeedHardMaxBytes) {
+    retain_recent_jsonl_sidecar_events_locked(retention_recent_logs, replay_seconds);
+  }
 
   std::ofstream file(feed_path, std::ios::out | std::ios::binary | std::ios::app);
   if (!file.is_open()) {
@@ -370,9 +434,7 @@ static void append_jsonl_sidecar_events(const nlohmann::json& sidecar_events)
 
   file.close();
 
-  const auto recent_logs = SyncSidecarJsonlRecentLogs();
-  retain_recent_jsonl_sidecar_events_locked(recent_logs > 0 ? static_cast<size_t>(recent_logs) : 0,
-                                            SyncSidecarJsonlReplaySeconds());
+  retain_recent_jsonl_sidecar_events_locked(retention_recent_logs, replay_seconds);
 }
 
 static void export_sidecar_events_to_jsonl(const nlohmann::json& sidecar_events, uint64_t journal_id)
