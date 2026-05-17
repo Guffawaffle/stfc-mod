@@ -23,10 +23,12 @@ public:
     bool     worker_active = false;
     uint64_t enqueued = 0;
     uint64_t dequeued = 0;
+    uint64_t dropped = 0;
     uint64_t worker_errors = 0;
+    size_t   max_depth = 0;
   };
 
-  AsyncWorkQueue() = default;
+  explicit AsyncWorkQueue(size_t max_depth = 0) : max_depth_(max_depth) {}
   AsyncWorkQueue(const AsyncWorkQueue&) = delete;
   AsyncWorkQueue& operator=(const AsyncWorkQueue&) = delete;
 
@@ -35,6 +37,11 @@ public:
     {
       std::lock_guard lock(mutex_);
       if (shutdown_requested_) {
+        return false;
+      }
+
+      if (max_depth_ > 0 && queue_.size() >= max_depth_) {
+        ++dropped_;
         return false;
       }
 
@@ -137,7 +144,9 @@ public:
       worker_active_,
       enqueued_,
       dequeued_,
+      dropped_,
       worker_errors_,
+      max_depth_,
     };
   }
 
@@ -159,9 +168,11 @@ private:
   mutable std::mutex      mutex_;
   std::condition_variable condition_;
   std::deque<WorkItem>    queue_;
+  size_t                  max_depth_ = 0;
   bool                    shutdown_requested_ = false;
   bool                    worker_active_ = false;
   uint64_t                enqueued_ = 0;
   uint64_t                dequeued_ = 0;
+  uint64_t                dropped_ = 0;
   uint64_t                worker_errors_ = 0;
 };

@@ -33,7 +33,8 @@ namespace
 {
 using SyncQueueItem = std::tuple<SyncConfig::Type, std::string, bool>;
 
-AsyncWorkQueue<SyncQueueItem> s_sync_data_queue;
+constexpr size_t              kSyncDataQueueMaxDepth = 256;
+AsyncWorkQueue<SyncQueueItem> s_sync_data_queue(kSyncDataQueueMaxDepth);
 std::once_flag                s_sync_worker_once;
 std::thread                   s_sync_worker_thread;
 constexpr auto                kSyncWorkerSlowJoinThreshold = std::chrono::seconds(5);
@@ -50,7 +51,11 @@ void log_worker_join_time(const std::string_view worker_name, const std::chrono:
 void queue_data(SyncConfig::Type type, const std::string& data, bool is_first_sync)
 {
   if (!s_sync_data_queue.enqueue({type, data, is_first_sync})) {
-    http::sync_log_warn("QUEUE", to_string(type), "Dropping data because sync scheduler shutdown is in progress");
+    const auto diagnostics = s_sync_data_queue.diagnostics();
+    http::sync_log_warn("QUEUE", to_string(type),
+                        diagnostics.shutdown_requested
+                            ? "Dropping data because sync scheduler shutdown is in progress"
+                            : "Dropping data because sync scheduler queue is full");
     return;
   }
 
@@ -60,7 +65,11 @@ void queue_data(SyncConfig::Type type, const std::string& data, bool is_first_sy
 void queue_data(SyncConfig::Type type, const nlohmann::json& data, bool is_first_sync)
 {
   if (!s_sync_data_queue.enqueue({type, data.dump(), is_first_sync})) {
-    http::sync_log_warn("QUEUE", to_string(type), "Dropping data because sync scheduler shutdown is in progress");
+    const auto diagnostics = s_sync_data_queue.diagnostics();
+    http::sync_log_warn("QUEUE", to_string(type),
+                        diagnostics.shutdown_requested
+                            ? "Dropping data because sync scheduler shutdown is in progress"
+                            : "Dropping data because sync scheduler queue is full");
     return;
   }
 

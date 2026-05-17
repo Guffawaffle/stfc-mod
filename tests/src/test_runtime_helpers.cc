@@ -119,6 +119,26 @@ TEST_SUITE("async_work_queue")
     CHECK(diagnostics.dequeued == 2);
   }
 
+  TEST_CASE("bounded queue rejects new work at max depth")
+  {
+    AsyncWorkQueue<int> queue(2);
+
+    CHECK(queue.enqueue(10));
+    CHECK(queue.enqueue(20));
+    CHECK_FALSE(queue.enqueue(30));
+
+    auto diagnostics = queue.diagnostics();
+    CHECK(diagnostics.depth == 2);
+    CHECK(diagnostics.max_depth == 2);
+    CHECK(diagnostics.enqueued == 2);
+    CHECK(diagnostics.dropped == 1);
+
+    auto batch = queue.drain();
+    REQUIRE(batch.size() == 2);
+    CHECK(batch[0] == 10);
+    CHECK(batch[1] == 20);
+  }
+
   TEST_CASE("rejects new work after shutdown while preserving queued work")
   {
     AsyncWorkQueue<std::string> queue;

@@ -143,7 +143,8 @@ const char* notification_toast_title(int state)
 
 // ─── Platform Notification Delivery ──────────────────────────────────────────────────
 #if STFCMOD_PLATFORM_WINDOWS
-static AsyncWorkQueue<NotificationQueueRequest> s_notification_queue;
+static constexpr size_t        kNotificationQueueMaxDepth     = 256;
+static AsyncWorkQueue<NotificationQueueRequest> s_notification_queue(kNotificationQueueMaxDepth);
 static std::mutex              s_recent_toast_mutex;
 static std::once_flag          s_notification_worker_once;
 static std::thread             s_notification_worker_thread;
@@ -188,9 +189,13 @@ static void queue_system_notification(const char* title, const char* body, const
   request.queued_at = std::chrono::steady_clock::now();
 
   if (!s_notification_queue.enqueue(std::move(request))) {
-    spdlog::warn("[NotifyQueue] drop source={} title='{}' reason=shutdown",
+    const auto diagnostics = s_notification_queue.diagnostics();
+    spdlog::warn("[NotifyQueue] drop source={} title='{}' reason={} queue_size={} dropped={}",
                  source ? source : "unknown",
-                 title ? notification_flatten_text(title) : "");
+                 title ? notification_flatten_text(title) : "",
+                 diagnostics.shutdown_requested ? "shutdown" : "full",
+                 diagnostics.depth,
+                 diagnostics.dropped);
     return;
   }
 
