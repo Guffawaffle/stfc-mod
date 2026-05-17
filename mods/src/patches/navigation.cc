@@ -14,14 +14,26 @@
 #include "prime/NavigationSectionManager.h"
 #include "prime/ScreenManager.h"
 
+#include <cstring>
+
 void GotoSection(SectionID sectionID, void* section_data)
 {
-  Hub::get_SectionManager()->TriggerSectionChange(sectionID, section_data, false, false, true);
+  auto* section_manager = Hub::get_SectionManager();
+  if (!section_manager) {
+    NavigationSectionManager::ChangeNavigationSection(sectionID);
+    return;
+  }
+
+  section_manager->TriggerSectionChange(sectionID, section_data, false, false, true);
 }
 
 void ChangeNavigationSection(SectionID sectionID)
 {
-  const auto section_data = Hub::get_SectionManager()->_sectionStorage->GetState(sectionID);
+  void* section_data = nullptr;
+  if (auto* section_manager = Hub::get_SectionManager();
+      section_manager && section_manager->_sectionStorage) {
+    section_data = section_manager->_sectionStorage->GetState(sectionID);
+  }
 
   if (section_data) {
     GotoSection(sectionID, section_data);
@@ -37,7 +49,9 @@ bool MoveOfficerCanvas(bool goLeft)
   // ScreenManager/CanvasRoot/MainFrame/LeftArrow and RightArrow
 
   auto const canvas = ScreenManager::GetTopCanvas(true);
-  if (strcmp(((Il2CppObject*)(canvas))->klass->name, "OfficerShowcase_Canvas") == 0) {}
+  auto*      canvas_object = reinterpret_cast<Il2CppObject*>(canvas);
+  if (canvas_object && canvas_object->klass && canvas_object->klass->name
+      && strcmp(canvas_object->klass->name, "OfficerShowcase_Canvas") == 0) {}
 
   return false;
 }

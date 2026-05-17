@@ -114,6 +114,22 @@ TEST_SUITE("battle_log_decoder")
     CHECK_FALSE(capture["capture"]["journal"]["data"].contains("battle_log"));
   }
 
+  TEST_CASE("build_sidecar_battle_capture_event caps lossless integer recursion")
+  {
+    auto nested = nlohmann::json{{"leaf", 42}};
+    for (int depth = 0; depth < 160; ++depth) {
+      nested = nlohmann::json{{"next", std::move(nested)}};
+    }
+
+    auto journal          = nlohmann::json::object();
+    journal["id"]         = 123;
+    journal["battle_log"] = nlohmann::json::array({-96, -97});
+    journal["nested"]     = std::move(nested);
+
+    CHECK_NOTHROW(
+        (void)battle_log_decoder::build_sidecar_battle_capture_event(journal, nlohmann::json::object(), 0, 0));
+  }
+
   TEST_CASE("hostile display names ignore retrieving placeholders and derive from reward keys")
   {
     const auto names   = nlohmann::json{{"mar_42", {{"name", "Retrieving..."}}}};

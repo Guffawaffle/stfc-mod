@@ -515,6 +515,11 @@ bool TryExecuteWarpCancel(FleetBarViewController* fleet_bar, FleetPlayerData* fl
                           bool has_queue, bool has_queue_clear, bool has_recall, bool has_repair,
                           bool has_recall_cancel, bool suppress_warp_cancel, SpaceActionDiagnostics& diagnostics)
 {
+  if (!fleet_bar || !fleet_bar->_fleetPanelController || !fleet) {
+    diagnostics.SetOutcome("warp-cancel-missing-fleet-context");
+    return false;
+  }
+
   if (suppress_warp_cancel) {
     live_debug_record_space_action_warp_cancel_suppressed(
         fleet_bar, fleet, has_primary, has_secondary, has_queue, has_queue_clear, has_recall, has_repair,
@@ -660,9 +665,15 @@ bool HandleShipSelection(int ship_select_request)
   if (Key::HasShift()) {
     ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipTow, ModImpactMonitorEnabled());
 
+    auto* fleets_manager     = FleetsManager::Instance();
+    auto* deployment_manager = DeploymentManger::Instance();
+    if (!fleets_manager || !deployment_manager) {
+      return false;
+    }
+
     FleetPlayerData* foundDisco = nullptr;
     for (int discoIdx = 0; discoIdx < 10; ++discoIdx) {
-      auto fleetPlayerData = FleetsManager::Instance()->GetFleetPlayerData(discoIdx);
+      auto fleetPlayerData = fleets_manager->GetFleetPlayerData(discoIdx);
       if (fleetPlayerData && fleetPlayerData->Hull && fleetPlayerData->Hull->Id == 1307832955) {
         foundDisco = fleetPlayerData;
         break;
@@ -670,14 +681,18 @@ bool HandleShipSelection(int ship_select_request)
     }
 
     if (foundDisco) {
-      auto towedFleetId = FleetsManager::Instance()->GetFleetPlayerData(ship_select_request)->Id;
+      auto* towed_fleet = fleets_manager->GetFleetPlayerData(ship_select_request);
+      if (!towed_fleet) {
+        return false;
+      }
+
+      auto towedFleetId = towed_fleet->Id;
       auto plannedCourse =
-          DeploymentManger::Instance()->PlanCourse(FleetsManager::Instance()->GetFleetPlayerData(ship_select_request),
-                                                   foundDisco->Address, Vector3::zero(), nullptr, nullptr, nullptr);
-      while (plannedCourse->MoveNext()) {
+          deployment_manager->PlanCourse(towed_fleet, foundDisco->Address, Vector3::zero(), nullptr, nullptr, nullptr);
+      while (plannedCourse && plannedCourse->MoveNext()) {
         ;
       }
-      DeploymentManger::Instance()->SetTowRequest(towedFleetId, foundDisco->Id);
+      deployment_manager->SetTowRequest(towedFleetId, foundDisco->Id);
     }
   } else {
     FleetBarViewController* fleet_bar  = nullptr;
@@ -700,16 +715,26 @@ bool HandleShipSelection(int ship_select_request)
       if (action == FleetSelectAction::Locate) {
         ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipLocate, ModImpactMonitorEnabled());
 
-        auto fleet = fleet_bar->_fleetPanelController->fleet;
+        auto fleet_controller = fleet_bar->_fleetPanelController;
+        auto fleet            = fleet_controller ? fleet_controller->fleet : nullptr;
+        if (!fleet) {
+          return false;
+        }
+
         {
           ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipLocateHideInteraction, ModImpactMonitorEnabled());
-          if (NavigationSectionManager::Instance() && NavigationSectionManager::Instance()->SNavigationManager) {
-            NavigationSectionManager::Instance()->SNavigationManager->HideInteraction();
+          if (auto* navigation_section_manager = NavigationSectionManager::Instance();
+              navigation_section_manager && navigation_section_manager->SNavigationManager) {
+            navigation_section_manager->SNavigationManager->HideInteraction();
           }
         }
         {
           ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipLocateRequestView, ModImpactMonitorEnabled());
-          FleetsManager::Instance()->RequestViewFleet(fleet, true);
+          if (auto* fleets_manager = FleetsManager::Instance()) {
+            fleets_manager->RequestViewFleet(fleet, true);
+          } else {
+            return false;
+          }
         }
       } else {
         ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipSelectPanel, ModImpactMonitorEnabled());
@@ -764,6 +789,10 @@ inline FleetActionExecutionResult
 DidExecuteFleetAction(std::string_view actionText, ActionType actionType, FleetBarViewController* fleet_bar,
                       const std::span<const FleetState> wantedStates, FleetState helpState = FleetState::Unknown)
 {
+  if (!fleet_bar || !fleet_bar->_fleetPanelController || !fleet_bar->_fleetPanelController->fleet) {
+    return {};
+  }
+
   auto fleet_controller = fleet_bar->_fleetPanelController;
   auto fleet            = fleet_bar->_fleetPanelController->fleet;
   auto fleet_state      = fleet->CurrentState;
@@ -787,8 +816,9 @@ DidExecuteFleetAction(std::string_view actionText, ActionType actionType, FleetB
   if (canAction) {
     switch (result.request_mode) {
       case FleetActionRequestMode::Default:
-        if (NavigationSectionManager::Instance() && NavigationSectionManager::Instance()->SNavigationManager) {
-          NavigationSectionManager::Instance()->SNavigationManager->HideInteraction();
+        if (auto* navigation_section_manager = NavigationSectionManager::Instance();
+            navigation_section_manager && navigation_section_manager->SNavigationManager) {
+          navigation_section_manager->SNavigationManager->HideInteraction();
         }
 
         result.did_action = fleet_controller->RequestAction(fleet, actionType, 0, ActionBehaviour::Default);
@@ -838,6 +868,10 @@ void ClearFleetActionQueue(FleetBarViewController* fleet_bar)
 
 bool ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInputs& inputs)
 {
+  if (!fleet_bar || !fleet_bar->_fleetPanelController || !fleet_bar->_fleetPanelController->fleet) {
+    return false;
+  }
+
   auto fleet_controller = fleet_bar->_fleetPanelController;
   auto fleet            = fleet_controller->fleet;
 
@@ -864,9 +898,13 @@ bool ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
 
   if (has_queue_clear) {
     auto action_queue = ActionQueueManager::Instance();
-    action_queue->ClearQueue(fleet);
-    diagnostics.Complete("queue-clear");
-    return true;
+    if (action_queue) {
+      action_queue->ClearQueue(fleet);
+      diagnostics.Complete("queue-clear");
+      return true;
+    }
+    diagnostics.SetOutcome("queue-manager-missing");
+    return false;
   }
 
   const auto target_context_requested = has_primary || has_secondary || has_queue;
@@ -903,7 +941,7 @@ bool ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
   }
 
   auto action_queue   = ActionQueueManager::Instance();
-  auto queue_unlocked = has_queue && action_queue->IsQueueUnlocked();
+  auto queue_unlocked = has_queue && action_queue && action_queue->IsQueueUnlocked();
 
   for (const auto& pre_scan_target : runtime_context.visible_pre_scan_targets) {
     auto pre_scan_widget             = pre_scan_target.widget;
