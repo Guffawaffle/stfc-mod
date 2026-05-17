@@ -65,7 +65,6 @@ pwsh -NoProfile -File .ax\ax.ps1 cycle
 pwsh -NoProfile -File .ax\ax.ps1 config -RuntimeVars -Compact
 pwsh -NoProfile -File .ax\ax.ps1 log -Boot -Summary
 pwsh -NoProfile -File .ax\ax.ps1 log-query -Profile errors -MaxResults 80
-pwsh -NoProfile -File .ax\ax.ps1 hotkeys-trace -Last 160
 ```
 
 For manual reproductions, bracket the action and collect only relevant appended
@@ -74,7 +73,7 @@ lines/events:
 ```powershell
 pwsh -NoProfile -File .ax\ax.ps1 mark -Label 'before hotkey repro'
 pwsh -NoProfile -File .ax\ax.ps1 observe -DurationSec 15 -LogProfile hotkeys -Mark -Label 'hotkey repro'
-pwsh -NoProfile -File .ax\ax.ps1 log-query -Profile hotkeys -Pattern 'HotkeyProbe|native shortcut|SpaceAction' -MaxResults 120
+pwsh -NoProfile -File .ax\ax.ps1 log-query -Profile hotkeys -Pattern 'native shortcut|ShortcutsManager' -MaxResults 120
 ```
 
 Use `dirty` for suspicious failures. Normal fallback or suppression decisions

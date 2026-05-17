@@ -29,12 +29,6 @@ bool win32_key_pressed(int virtual_key);
 /// True when the foreground window belongs to this process. Always true off Windows.
 bool process_window_has_foreground();
 
-/// Convenience probes used by the trace log to compare Unity vs Win32 readings.
-bool win32_digit1_pressed();
-bool win32_left_alt_pressed();
-bool win32_right_alt_pressed();
-bool win32_alt_pressed();
-
 /**
  * @brief Map a `KeyCode` to the matching Win32 virtual-key code.
  *

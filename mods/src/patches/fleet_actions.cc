@@ -14,7 +14,6 @@
 #include "patches/fleet_deferred_action.h"
 #include "patches/fleet_input_policy.h"
 #include "patches/hotkey_router.h"
-#include "patches/hotkey_router_trace_log.h"
 #include "patches/live_debug.h"
 #include "patches/mod_impact_monitor.h"
 #include "patches/viewer_mgmt.h"
@@ -925,32 +924,12 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
       primary_input.target_context_resolved = type != HullType::Any;
       primary_input.is_deferred_retry       = deferred_primary_for_target;
 
-      if ((has_primary_for_target || has_secondary || has_queue)
-          && hotkey_router_trace_log::hotkey_trace_space_action_probe_enabled()) {
-        spdlog::debug(
-            "[SpaceActionProbe] prescan-gate inputs[p={} s={} q={}] queue_unlocked={} add_queue_widget={} "
-            "add_queue_active={} scan_engage={} scan_engage_enabled={} target_type={} context_resolved={} "
-            "engage_available={} deferred_target={}",
-            has_primary_for_target, has_secondary, has_queue, queue_unlocked, add_to_queue_button != nullptr,
-            add_to_queue_button && add_to_queue_button->isActiveAndEnabled, scan_engage_buttons_widget != nullptr,
-            scan_engage_buttons_widget && scan_engage_buttons_widget->enabled, static_cast<int>(type),
-            primary_input.target_context_resolved, primary_input.target_engage_available, deferred_primary_for_target);
-      }
-
       if (queue_unlocked && add_to_queue_button && scan_engage_buttons_widget) {
         auto queue_input               = primary_input;
         queue_input.queue_mode_enabled = true;
         queue_input.queue_unlocked     = true;
         queue_input.queue_full         = action_queue->IsQueueFull(fleet);
         const auto queue_outcome       = DecideFleetPrimary(queue_input);
-
-        if (hotkey_router_trace_log::hotkey_trace_space_action_probe_enabled()) {
-          spdlog::debug("[SpaceActionProbe] queue-outcome outcome={} queue_full={} queue_widget_active={} "
-                        "target_type={} context_resolved={}",
-                        FleetPrimaryOutcomeName(queue_outcome), queue_input.queue_full,
-                        add_to_queue_button->isActiveAndEnabled, static_cast<int>(type),
-                        queue_input.target_context_resolved);
-        }
 
         if (TryHandlePreScanQueueOutcome(queue_outcome, fleet, pre_scan_widget, context, queue_input.queue_full,
                                          diagnostics)) {

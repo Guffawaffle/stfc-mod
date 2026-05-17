@@ -17,6 +17,9 @@ debug.log
 /vsxmake*/
 .DS_Store
 
+# Local security/privacy handoffs; not public docs.
+docs/HOTKEY_TRACE_PRIVACY_HANDOFF.md
+
 # Generated Info.plist files (generated from templates)
 **/Info.plist
 mods/.xmake

@@ -5,14 +5,11 @@
 #include "patches/hotkey_router_runtime_query.h"
 
 #include "patches/fleet_actions.h"
-#include "patches/hotkey_router_trace_log.h"
 #include "patches/input_binding/input_runtime_bindings.h"
 #include "testable_functions.h"
 
 #include "prime/FleetBarViewController.h"
 #include "prime/Hub.h"
-
-#include <spdlog/spdlog.h>
 
 #include <array>
 
@@ -65,22 +62,9 @@ GameFunction dispatcher_owned_game_function(const input_binding::InputActionId a
 
 HotkeyRouterDispatchAction dispatch_runtime_bound_table_action(const input_binding::DispatchCandidate& candidate)
 {
-  using hotkey_router_trace_log::dispatch_decision_name;
-  using hotkey_router_trace_log::game_function_name;
-  using hotkey_router_trace_log::hotkey_trace_action;
-  using hotkey_router_trace_log::input_action_name;
-  using hotkey_router_trace_log::key_code_name;
-  using hotkey_router_trace_log::router_dispatch_action_name;
-  using hotkey_router_trace_log::trigger_mode_name;
-
   const auto action        = candidate.action;
   const auto game_function = dispatcher_owned_game_function(action);
   if (game_function == GameFunction::Max) {
-    if (hotkey_trace_action(action)) {
-      spdlog::trace(
-          "[HotkeyTrace] table-dispatch action={} key={} game_function=Max result=continue reason=no-game-function",
-          input_action_name(action), key_code_name(candidate.key));
-    }
     return HotkeyRouterDispatchAction::Continue;
   }
 
@@ -93,20 +77,7 @@ HotkeyRouterDispatchAction dispatch_runtime_bound_table_action(const input_bindi
     const auto router_action = hotkey_router_dispatch_action(true, decision == DispatchDecision::HandledStop,
                                                              decision == DispatchDecision::HandledAllowOriginal,
                                                              input_binding::ConsumesOriginalKeyEvent(candidate));
-    if (hotkey_trace_action(action)) {
-      spdlog::trace("[HotkeyTrace] table-dispatch action={} key={} trigger={} game_function={} handler_decision={} "
-                    "consumes_original={} router_action={}",
-                    input_action_name(action), key_code_name(candidate.key), trigger_mode_name(candidate.trigger_mode),
-                    game_function_name(game_function), dispatch_decision_name(decision),
-                    input_binding::ConsumesOriginalKeyEvent(candidate), router_dispatch_action_name(router_action));
-    }
     return router_action;
-  }
-
-  if (hotkey_trace_action(action)) {
-    spdlog::trace(
-        "[HotkeyTrace] table-dispatch action={} key={} game_function={} result=continue reason=no-table-entry",
-        input_action_name(action), key_code_name(candidate.key), game_function_name(game_function));
   }
 
   return HotkeyRouterDispatchAction::Continue;

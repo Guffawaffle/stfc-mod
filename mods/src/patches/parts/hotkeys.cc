@@ -282,49 +282,6 @@ bool inspect_native_fleet_selection_component(const char* method, void* element,
   return suppress_any;
 }
 
-bool native_shortcut_probe_trace_enabled()
-{
-  const auto level = RuntimeTraceLevelSetting();
-  return level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
-}
-
-void log_native_shortcut_probe(const char* callback, const InputActionCallbackContext& context)
-{
-  if (!native_shortcut_probe_trace_enabled()) {
-    return;
-  }
-
-  spdlog::info("[HotkeyProbe] native-shortcut callback={} suppress_native_shortcuts={} context_state={:p} "
-               "action_index={} hotkeys_enabled={} scopely_shortcuts={} original_frame_policy={}",
-               callback, hotkey_router_should_suppress_native_shortcuts(), context.state, context.action_index,
-               Config::Get().hotkeys_enabled, scopely_shortcut_policy_name(ScopelyShortcutsPolicy()),
-               original_frame_policy_name(OriginalFramePolicySetting()));
-}
-
-void log_native_shortcut_probe_pointer(const char* callback, const void* context)
-{
-  if (!native_shortcut_probe_trace_enabled()) {
-    return;
-  }
-
-  // The void* is a pointer to a 16-byte InputAction.CallbackContext. UI-button-driven
-  // invocations pass a default-constructed (zeroed) context with state == nullptr;
-  // keyboard-driven invocations from Unity's InputSystem carry a non-null state pointer.
-  // Logging all three fields lets us validate that discriminator before we wire it into
-  // suppression decisions.
-  const auto* typed       = static_cast<const InputActionCallbackContext*>(context);
-  const void* state_ptr   = typed ? typed->state : nullptr;
-  const auto  action_idx  = typed ? typed->action_index : -1;
-  const auto  binding_idx = typed ? typed->binding_index : -1;
-  const char* source      = (state_ptr == nullptr) ? "ui-or-direct" : "keyboard-or-input-system";
-  spdlog::info("[HotkeyProbe] native-shortcut callback={} suppress_native_shortcuts={} context_ptr={:p} "
-               "state_ptr={:p} action_index={} binding_index={} source={} "
-               "hotkeys_enabled={} scopely_shortcuts={} original_frame_policy={}",
-               callback, hotkey_router_should_suppress_native_shortcuts(), context, state_ptr, action_idx, binding_idx,
-               source, Config::Get().hotkeys_enabled, scopely_shortcut_policy_name(ScopelyShortcutsPolicy()),
-               original_frame_policy_name(OriginalFramePolicySetting()));
-}
-
 } // namespace
 
 #define INSTALL_SHORTCUTS_MANAGER_POINTER_CALLBACK_GUARD(hooks, descriptor, hook_fn)                                   \
@@ -397,12 +354,12 @@ void ShortcutsManager_SelectShip_Hook(auto original, void* _this, int32_t index)
 template <typename OriginalFn>
 void HandleNativeShortcutPointerCallback(OriginalFn original, void* _this, void* context, const char* callback)
 {
+  (void)callback;
   hotkey_router_refresh_native_shortcut_suppression();
-  log_native_shortcut_probe_pointer(callback, context);
   const auto* typed_context         = static_cast<const InputActionCallbackContext*>(context);
   const auto  input_system_callback = typed_context && typed_context->state != nullptr;
   if (input_system_callback && hotkey_router_should_suppress_native_shortcuts()) {
-    spdlog::debug("[Hotkeys] suppressed native shortcut callback={} context_ptr={:p}", callback, context);
+    spdlog::debug("[Hotkeys] suppressed native shortcut callback");
     return;
   }
 

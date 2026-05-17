@@ -140,14 +140,7 @@ The biggest win is architectural clarity, not raw CPU time:
 
 ## Current Evidence From Alt+1
 
-The live trace proved the TOML binding and dispatcher are not the failing point:
-
-```text
-[HotkeyTrace] winner action=toggle_cargo_default layer=global key=1 trigger=down ...
-[HotkeyTrace] table-dispatch action=toggle_cargo_default ... handler_decision=handled-allow-original ...
-```
-
-That means the current `Alt+1` symptom is downstream of input detection. The action toggles config, but the visible cargo/rewards panel needs an explicit refresh to make the change observable immediately.
+The runtime checks proved the TOML binding and dispatcher were not the failing point. The action toggled config, but the visible cargo/rewards panel needed an explicit refresh to make the change observable immediately.
 
 Follow-up tracing then showed a second lower-level seam: native `ShortcutsManager.SelectShip(int)` could still run from the physical digit key before Unity frame polling saw the modified chord. The current fix routes native shortcut suppression through the same runtime binding plan using a physical key snapshot at the native shortcut seam. That keeps the logic binding-driven instead of hard-coding `ALT-1`.
 

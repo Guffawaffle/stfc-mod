@@ -52,42 +52,6 @@ bool process_window_has_foreground()
 #endif
 }
 
-bool win32_digit1_pressed()
-{
-#ifdef _WIN32
-  return win32_key_pressed('1');
-#else
-  return false;
-#endif
-}
-
-bool win32_left_alt_pressed()
-{
-#ifdef _WIN32
-  return win32_key_pressed(VK_LMENU);
-#else
-  return false;
-#endif
-}
-
-bool win32_right_alt_pressed()
-{
-#ifdef _WIN32
-  return win32_key_pressed(VK_RMENU);
-#else
-  return false;
-#endif
-}
-
-bool win32_alt_pressed()
-{
-#ifdef _WIN32
-  return win32_key_pressed(VK_MENU);
-#else
-  return false;
-#endif
-}
-
 int win32_virtual_key_for_key_code(const KeyCode key)
 {
 #ifdef _WIN32

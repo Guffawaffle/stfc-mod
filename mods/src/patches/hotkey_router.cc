@@ -15,7 +15,6 @@
  *   - hotkey_router_dispatch_cache.*   — per-frame DispatchPlan cache
  *   - hotkey_router_native_fleet_guard — singleton guard state + bypass RAII
  *   - hotkey_router_runtime_query.*    — winner queries + handler dispatch
- *   - hotkey_router_trace_log.*        — spdlog formatters + name lookups
  */
 #include "config.h"
 #include "errormsg.h"
@@ -28,7 +27,6 @@
 #include "patches/hotkey_router_dispatch_cache.h"
 #include "patches/hotkey_router_native_fleet_guard.h"
 #include "patches/hotkey_router_runtime_query.h"
-#include "patches/hotkey_router_trace_log.h"
 #include "patches/input_binding/action_registry.h"
 #include "patches/input_binding/input_dispatcher.h"
 #include "patches/key.h"
@@ -53,14 +51,11 @@
 
 #include <spdlog/spdlog.h>
 
-#include <string_view>
-
 namespace
 {
 namespace actions = hotkey_router_actions;
 namespace cache   = hotkey_router_dispatch_cache;
 namespace query   = hotkey_router_runtime_query;
-namespace trace   = hotkey_router_trace_log;
 } // namespace
 
 // ─── Main Per-Frame Hotkey Router ─────────────────────────────────────────────────────
@@ -78,12 +73,8 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   const auto  dispatcher_owns_inputs = hotkey_dispatcher_owns_inputs(Config::Get().hotkeys_enabled, scopely_shortcuts);
   hotkey_router_update_native_fleet_selection_guard(
       runtime_dispatch_plan, cache::frame_runtime_dispatch_cache().key_states, dispatcher_owns_inputs);
-  trace::log_hotkey_trace_frame(cache::frame_runtime_dispatch_cache().key_states, runtime_dispatch_plan);
   const auto startup_action = query::startup_action_from_runtime_bindings(runtime_dispatch_plan, scopely_shortcuts,
                                                                           Config::Get().hotkeys_enabled);
-  trace::log_hotkey_trace_startup_gate(cache::frame_runtime_dispatch_cache().key_states, runtime_dispatch_plan,
-                                       startup_action);
-  trace::log_raw_input_probe();
 
   switch (startup_action) {
     case HotkeyRouterStartupAction::DisableHotkeys:
@@ -111,8 +102,6 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   }
   const auto config = &Config::Get();
 
-  trace::log_hotkey_trace_context_gate(runtime_dispatch_plan, is_in_chat, input_focused);
-
 #ifdef _WIN32
   if (hotkey_router_quit_action(query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kQuit)
                                 == input_binding::InputActionId::Quit)
@@ -128,8 +117,6 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   if (ship_select_request != -1) {
     ship_select_consumes_original = query::runtime_binding_consumes_original_key_event(
         runtime_dispatch_plan, actions::kShipSelection[ship_select_request], input_binding::InputLayer::Fleet);
-    trace::log_runtime_winner("ship-selection", runtime_dispatch_plan, actions::kShipSelection[ship_select_request],
-                              input_binding::InputLayer::Fleet);
   }
 
   {
@@ -187,8 +174,6 @@ bool hotkey_router_screen_update(ScreenManager* _this)
         ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiChatOpen, ModImpactMonitorEnabled());
         const auto chat_open_action = query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kChatOpen);
         if (chat_open_action != input_binding::InputActionId::Max) {
-          trace::log_runtime_winner("chat-open", runtime_dispatch_plan, chat_open_action,
-                                    input_binding::InputLayer::Global);
           auto         chat_open_consumes_original = false;
           auto         chat_open_handled           = false;
           ChatManager* chat_manager                = nullptr;
@@ -263,12 +248,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
         const auto           table_dispatch_winner =
             query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kTableDispatch);
         const auto action = hotkey_router_table_dispatch_request(is_in_chat, input_focused, table_dispatch_winner);
-        if (trace::hotkey_trace_action(table_dispatch_winner)) {
-          spdlog::trace("[HotkeyTrace] table-request winner={} routed_action={}",
-                        trace::input_action_name(table_dispatch_winner), trace::input_action_name(action));
-        }
         if (action != input_binding::InputActionId::Max) {
-          trace::log_runtime_winner("table-dispatch", runtime_dispatch_plan, action, input_binding::InputLayer::Global);
           const auto* table_winner =
               query::runtime_binding_winner(runtime_dispatch_plan, action, input_binding::InputLayer::Global);
           if (table_winner
@@ -307,13 +287,6 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
     const auto simple_fleet_action = hotkey_router_simple_fleet_action(
         input_focused, query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kSimpleFleet));
-    if (simple_fleet_action == HotkeyRouterSimpleFleetAction::QueueClear) {
-      trace::log_runtime_winner("fleet-simple", runtime_dispatch_plan, input_binding::InputActionId::FleetQueueClear,
-                                input_binding::InputLayer::Fleet);
-    } else if (simple_fleet_action == HotkeyRouterSimpleFleetAction::ViewInfo) {
-      trace::log_runtime_winner("fleet-simple", runtime_dispatch_plan, input_binding::InputActionId::FleetViewInfo,
-                                input_binding::InputLayer::Fleet);
-    }
 
     const auto* fleet_primary_winner = query::runtime_binding_winner(
         runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary, input_binding::InputLayer::Fleet);
@@ -358,24 +331,6 @@ bool hotkey_router_screen_update(ScreenManager* _this)
       space_action_inputs.repair_key = fleet_service_winner->key;
     }
 
-    if (space_action_inputs.any_requested() && trace::hotkey_trace_space_action_probe_enabled()) {
-      const auto winner_key_name = [](const input_binding::DispatchCandidate* winner) -> std::string_view {
-        return winner ? trace::key_code_name(winner->key) : std::string_view{"none"};
-      };
-      spdlog::debug(
-          "[SpaceActionProbe] router-space-winners primary={} primary_key={} secondary={} secondary_key={} "
-          "queue={} queue_key={} recall_cancel={} recall_cancel_key={} recall={} recall_key={} "
-          "repair={} repair_key={} service={} service_key={} inputs[p={} s={} q={} qc={} r={} repair={} rc={}]",
-          fleet_primary_winner != nullptr, winner_key_name(fleet_primary_winner), fleet_secondary_winner != nullptr,
-          winner_key_name(fleet_secondary_winner), fleet_queue_add_winner != nullptr,
-          winner_key_name(fleet_queue_add_winner), fleet_recall_cancel_winner != nullptr,
-          winner_key_name(fleet_recall_cancel_winner), fleet_recall_winner != nullptr,
-          winner_key_name(fleet_recall_winner), fleet_repair_winner != nullptr, winner_key_name(fleet_repair_winner),
-          fleet_service_winner != nullptr, winner_key_name(fleet_service_winner), space_action_inputs.primary,
-          space_action_inputs.secondary, space_action_inputs.queue, space_action_inputs.queue_clear,
-          space_action_inputs.recall, space_action_inputs.repair, space_action_inputs.recall_cancel);
-    }
-
     // Escape to hide object viewers
     if (Key::Pressed(KeyCode::Escape) && DidHideViewers()) {
       return false;
@@ -399,30 +354,6 @@ bool hotkey_router_screen_update(ScreenManager* _this)
     // Space actions (engage, scan, recall, repair, queue, etc.)
     if (hotkey_router_should_execute_space_action(space_action_inputs, force_space_action_next_frame)) {
       auto handled_space_action = false;
-      if (space_action_inputs.primary) {
-        trace::log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetPrimary,
-                                  input_binding::InputLayer::Fleet);
-      }
-      if (space_action_inputs.secondary) {
-        trace::log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetSecondary,
-                                  input_binding::InputLayer::Fleet);
-      }
-      if (space_action_inputs.recall || space_action_inputs.repair) {
-        trace::log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetService,
-                                  input_binding::InputLayer::Fleet);
-        trace::log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetRecall,
-                                  input_binding::InputLayer::Fleet);
-        trace::log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetRepair,
-                                  input_binding::InputLayer::Fleet);
-      }
-      if (space_action_inputs.queue) {
-        trace::log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetQueueAdd,
-                                  input_binding::InputLayer::Fleet);
-      }
-      if (space_action_inputs.recall_cancel) {
-        trace::log_runtime_winner("fleet-space", runtime_dispatch_plan, input_binding::InputActionId::FleetRecallCancel,
-                                  input_binding::InputLayer::Fleet);
-      }
       if (Hub::IsInSystemOrGalaxyOrStarbase() && !Hub::IsInChat() && !input_focused) {
         auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
         if (fleet_bar) {
