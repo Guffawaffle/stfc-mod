@@ -85,6 +85,9 @@ SpaceActionInputs hotkey_router_runtime_space_action_inputs(bool fleet_primary_p
 // Resolve the canonical disable-hotkeys shortcut while accepting deprecated keys.
 HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(const HotkeyDisableShortcutAliasInput& input);
 
+// Legacy [ui].notify_on_banner_types / notify_banner_types compatibility.
+bool legacy_notification_allowlist_requests_all(std::string_view token);
+
 enum class HotkeyRouterStartupAction {
   Continue = 0,
   DisableHotkeys,

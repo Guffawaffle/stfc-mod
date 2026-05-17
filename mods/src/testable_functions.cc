@@ -4,6 +4,8 @@
 
 #include "testable_functions.h"
 
+#include "str_utils_pure.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -217,6 +219,15 @@ HotkeyDisableShortcutAliasDecision resolve_hotkey_disable_shortcut_alias(const H
   }
 
   return decision;
+}
+
+bool legacy_notification_allowlist_requests_all(const std::string_view token)
+{
+  const auto trimmed = StripAsciiWhitespace(token);
+  std::string normalized{trimmed};
+  std::ranges::transform(normalized, normalized.begin(),
+                         [](const unsigned char c) { return static_cast<char>(std::toupper(c)); });
+  return normalized == "ALL";
 }
 
 HotkeyRouterStartupAction hotkey_router_startup_action(bool disable_hotkeys_pressed, bool enable_hotkeys_pressed,

@@ -141,6 +141,18 @@ repair_complete = { system = true, audio = true, sound = "repair" }
   }
 }
 
+TEST_SUITE("legacy_notification_allowlist")
+{
+  TEST_CASE("ALL token is accepted case-insensitively with surrounding whitespace")
+  {
+    CHECK(legacy_notification_allowlist_requests_all("ALL"));
+    CHECK(legacy_notification_allowlist_requests_all(" all "));
+    CHECK(legacy_notification_allowlist_requests_all("\tAll\r\n"));
+    CHECK_FALSE(legacy_notification_allowlist_requests_all("FleetBattle"));
+    CHECK_FALSE(legacy_notification_allowlist_requests_all("ALLIES"));
+  }
+}
+
 // ===========================================================================
 // battle_log_decoder
 // ===========================================================================
