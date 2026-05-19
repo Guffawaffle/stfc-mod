@@ -59,6 +59,28 @@ Compared with the release tag, `main` now leans much harder on a shared input-di
 - Zoom, native ship selection, cargo interaction, and related hotkey paths now share the same binding and fallthrough logic.
 - The hotkey router internals were split into smaller concern-scoped files so future edits stay local.
 
+## Realtime Fleet Telemetry Closeout
+
+The realtime fleet telemetry MVP is complete enough to park. The mod can emit
+change-driven `fleet_runtime` snapshots to a local companion target, and the
+current sidecar/Majel proof path has working local projection reads.
+
+- Native trigger and suppression behavior is instrumented. Trigger, capture,
+  unchanged/non-meaningful suppression, queue, and post results are logged and
+  mirrored into recent-event breadcrumbs for operator review.
+- `fleet-slot-cargo-gained` is a live-debug diagnostic event, not the default
+  full runtime snapshot trigger. Full runtime sync is driven by deployment and
+  fleet-transition hooks such as set-course, battle, stale-data, and arrival
+  transitions.
+- Remaining weirdness is documented rather than promoted into a new roadmap:
+  packaged Fleet-page live-update still wants an explicit operator smoke
+  record, reconnect/stale-state notes belong in Companion QA, and oversized
+  `battlelogs_realtime` payloads remain a separate bug.
+- This is maintenance/harvest mode, not a new roadmap. The useful chain
+  exists, the diagnostics are in place, and follow-on work such as durable
+  outbox, cloud auth/token lifecycle, and storage generalization is
+  intentionally deferred.
+
 ## What's different in this fork?
 
 This fork (`main` for published builds, `guffa-dev` for current integration work) bundles experimental features that haven't been accepted upstream yet, or are too opinionated for the main project:
