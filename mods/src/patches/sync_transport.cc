@@ -277,13 +277,19 @@ struct TargetWorker {
   TargetWorker(const TargetWorker&) = delete;
   TargetWorker& operator=(const TargetWorker&) = delete;
 
-  using request_t = std::tuple<std::string, std::string, bool>;
+  struct Request {
+    std::string                             target_name;
+    std::string                             target_identifier;
+    std::string                             post_data;
+    bool                                    is_first_sync = false;
+    std::optional<FleetRuntimeTraceContext> fleet_runtime_trace;
+  };
 
   std::shared_ptr<cpr::Session> session;
   SyncTargetConfig::Mode        mode = SyncTargetConfig::Mode::Legacy;
   std::thread                   worker_thread;
   std::atomic_bool              stop_requested{false};
-  std::queue<request_t>         request_queue;
+  std::queue<Request>           request_queue;
   std::mutex                    queue_mtx;
   std::condition_variable       queue_cv;
   uint64_t                      dropped_requests = 0;
@@ -371,9 +377,7 @@ static void target_worker_thread(std::shared_ptr<TargetWorker> worker)
 #endif
 
   while (!worker->stop_requested.load(std::memory_order_acquire)) {
-    std::string identifier;
-    std::string post_data;
-    bool is_first_sync = false;
+    TargetWorker::Request request;
 
     {
       std::unique_lock lk(worker->queue_mtx);
@@ -388,13 +392,11 @@ static void target_worker_thread(std::shared_ptr<TargetWorker> worker)
       if (!worker->request_queue.empty()) {
         auto item = std::move(worker->request_queue.front());
         worker->request_queue.pop();
-        identifier = std::move(std::get<0>(item));
-        post_data = std::move(std::get<1>(item));
-        is_first_sync = std::get<2>(item);
+        request = std::move(item);
       }
     }
 
-    if (post_data.empty()) {
+    if (request.post_data.empty()) {
       continue;
     }
 
@@ -402,39 +404,69 @@ static void target_worker_thread(std::shared_ptr<TargetWorker> worker)
       const auto httpClient = worker->session;
       auto& request_headers = httpClient->GetHeader();
 
-      if (worker->mode == SyncTargetConfig::Mode::Legacy && is_first_sync) {
+      if (worker->mode == SyncTargetConfig::Mode::Legacy && request.is_first_sync) {
         request_headers.insert_or_assign("X-PRIME-SYNC", "2");
-        sync_log_trace(CURL_TYPE_UPLOAD, identifier, "Adding X-Prime-Sync header for initial sync");
+        sync_log_trace(CURL_TYPE_UPLOAD, request.target_identifier, "Adding X-Prime-Sync header for initial sync");
       } else {
         request_headers.erase("X-PRIME-SYNC");
       }
 
-      httpClient->SetBody(cpr::Body{post_data});
+      httpClient->SetBody(cpr::Body{request.post_data});
 
-      sync_log_debug(CURL_TYPE_UPLOAD, identifier, "Sending data to " + httpClient->GetFullRequestUrl());
+      sync_log_debug(CURL_TYPE_UPLOAD, request.target_identifier, "Sending data to " + httpClient->GetFullRequestUrl());
 
       const auto response = httpClient->Post();
+      const auto elapsed_ms = static_cast<int64_t>(response.elapsed * 1000.0);
 
       if (response.status_code == 0) {
-        sync_log_error(CURL_TYPE_UPLOAD, identifier, "Failed to send request: " + response.error.message);
+        if (request.fleet_runtime_trace.has_value()) {
+          fleet_runtime_diagnostics_post_result(*request.fleet_runtime_trace, request.target_name,
+                                                to_string(worker->mode), false, 0, "transport", elapsed_ms);
+        }
+        sync_log_error(CURL_TYPE_UPLOAD, request.target_identifier, "Failed to send request: " + response.error.message);
       } else if (response.status_code >= 400) {
-        sync_log_error(CURL_TYPE_UPLOAD, identifier,
+        if (request.fleet_runtime_trace.has_value()) {
+          fleet_runtime_diagnostics_post_result(*request.fleet_runtime_trace, request.target_name,
+                                                to_string(worker->mode), false, response.status_code,
+                                                "http_status", elapsed_ms);
+        }
+        sync_log_error(CURL_TYPE_UPLOAD, request.target_identifier,
                        STR_FORMAT("Failed to communicate with server: {} (after {:.1f}s)", response.status_line,
                                   response.elapsed));
       } else {
-        sync_log_debug(CURL_TYPE_UPLOAD, identifier,
+        if (request.fleet_runtime_trace.has_value()) {
+          fleet_runtime_diagnostics_post_result(*request.fleet_runtime_trace, request.target_name,
+                                                to_string(worker->mode), true, response.status_code, "", elapsed_ms);
+        }
+        sync_log_debug(CURL_TYPE_UPLOAD, request.target_identifier,
                        STR_FORMAT("Response: {} ({:.1f}s elapsed)", response.status_line, response.elapsed));
       }
     } catch (const std::runtime_error& exception) {
-      ErrorMsg::SyncRuntime(identifier.c_str(), exception);
+      if (request.fleet_runtime_trace.has_value()) {
+        fleet_runtime_diagnostics_post_result(*request.fleet_runtime_trace, request.target_name,
+                                              to_string(worker->mode), false, 0, "runtime_error", 0);
+      }
+      ErrorMsg::SyncRuntime(request.target_identifier.c_str(), exception);
     } catch (const std::exception& exception) {
-      ErrorMsg::SyncException(identifier.c_str(), exception);
+      if (request.fleet_runtime_trace.has_value()) {
+        fleet_runtime_diagnostics_post_result(*request.fleet_runtime_trace, request.target_name,
+                                              to_string(worker->mode), false, 0, "exception", 0);
+      }
+      ErrorMsg::SyncException(request.target_identifier.c_str(), exception);
 #if _WIN32
     } catch (winrt::hresult_error const& exception) {
-      ErrorMsg::SyncWinRT(identifier.c_str(), exception);
+      if (request.fleet_runtime_trace.has_value()) {
+        fleet_runtime_diagnostics_post_result(*request.fleet_runtime_trace, request.target_name,
+                                              to_string(worker->mode), false, 0, "winrt", 0);
+      }
+      ErrorMsg::SyncWinRT(request.target_identifier.c_str(), exception);
 #endif
     } catch (...) {
-      ErrorMsg::SyncMsg(identifier.c_str(), "Unknown error occurred");
+      if (request.fleet_runtime_trace.has_value()) {
+        fleet_runtime_diagnostics_post_result(*request.fleet_runtime_trace, request.target_name,
+                                              to_string(worker->mode), false, 0, "unknown", 0);
+      }
+      ErrorMsg::SyncMsg(request.target_identifier.c_str(), "Unknown error occurred");
     }
   }
 }
@@ -487,7 +519,8 @@ static std::shared_ptr<TargetWorker> get_curl_client_sync(const std::string& tar
   return worker;
 }
 
-void send_data(SyncConfig::Type type, const std::string& post_data, bool is_first_sync)
+void send_data(SyncConfig::Type type, const std::string& post_data, bool is_first_sync,
+               std::optional<FleetRuntimeTraceContext> fleet_runtime_trace)
 {
   if (target_workers_shutdown_requested.load(std::memory_order_acquire)) {
     return;
@@ -511,6 +544,14 @@ void send_data(SyncConfig::Type type, const std::string& post_data, bool is_firs
       const auto worker = get_curl_client_sync(target);
       const auto target_post_data = make_target_post_data(target_config, type, post_data, target_identifier);
       if (target_post_data.empty()) {
+        if (fleet_runtime_trace.has_value()) {
+          const size_t queue_depth = [&] {
+            std::lock_guard lk(worker->queue_mtx);
+            return worker->request_queue.size();
+          }();
+          fleet_runtime_diagnostics_target_queue(*fleet_runtime_trace, target, to_string(target_config.mode), false,
+                                                 queue_depth, worker->dropped_requests, "target-payload-empty");
+        }
         continue;
       }
 
@@ -518,23 +559,50 @@ void send_data(SyncConfig::Type type, const std::string& post_data, bool is_firs
         std::lock_guard lk(worker->queue_mtx);
         if (worker->request_queue.size() >= kTargetWorkerMaxQueuedRequests) {
           ++worker->dropped_requests;
+          if (fleet_runtime_trace.has_value()) {
+            fleet_runtime_diagnostics_target_queue(*fleet_runtime_trace, target, to_string(target_config.mode), false,
+                                                   worker->request_queue.size(), worker->dropped_requests,
+                                                   "target-queue-full");
+          }
           sync_log_warn(CURL_TYPE_UPLOAD, target_identifier,
                         STR_FORMAT("Dropping request because target queue is full (queue size: {}, dropped: {})",
                                    worker->request_queue.size(), worker->dropped_requests));
           continue;
         }
 
-        worker->request_queue.emplace(target_identifier, target_post_data, is_first_sync);
+        worker->request_queue.emplace(TargetWorker::Request{
+            .target_name = target,
+            .target_identifier = target_identifier,
+            .post_data = target_post_data,
+            .is_first_sync = is_first_sync,
+            .fleet_runtime_trace = fleet_runtime_trace,
+        });
+        if (fleet_runtime_trace.has_value()) {
+          fleet_runtime_diagnostics_target_queue(*fleet_runtime_trace, target, to_string(target_config.mode), true,
+                                                 worker->request_queue.size(), worker->dropped_requests);
+        }
         sync_log_trace(CURL_TYPE_UPLOAD, target_identifier,
                        STR_FORMAT("Queued request (queue size: {})", worker->request_queue.size()));
       }
       worker->queue_cv.notify_all();
 
     } catch (const std::runtime_error& exception) {
+      if (fleet_runtime_trace.has_value()) {
+        fleet_runtime_diagnostics_target_queue(*fleet_runtime_trace, target, to_string(target_config.mode), false, 0,
+                                               0, "target-worker-init-runtime-error");
+      }
       spdlog::error("Failed to send sync data to target '{}' - Runtime error: {}", target_identifier, exception.what());
     } catch (const std::exception& exception) {
+      if (fleet_runtime_trace.has_value()) {
+        fleet_runtime_diagnostics_target_queue(*fleet_runtime_trace, target, to_string(target_config.mode), false, 0,
+                                               0, "target-worker-init-exception");
+      }
       spdlog::error("Failed to send sync data to target '{}' - Exception: {}", target_identifier, exception.what());
     } catch (...) {
+      if (fleet_runtime_trace.has_value()) {
+        fleet_runtime_diagnostics_target_queue(*fleet_runtime_trace, target, to_string(target_config.mode), false, 0,
+                                               0, "target-worker-init-unknown");
+      }
       spdlog::error("Failed to send sync data to target '{}' - Unknown error occurred", target_identifier);
     }
   }

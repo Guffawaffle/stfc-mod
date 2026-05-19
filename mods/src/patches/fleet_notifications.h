@@ -22,10 +22,11 @@ struct FleetPlayerData;
 void fleet_notifications_init();
 
 /**
- * @brief Observe a fleet-bar state refresh and emit notifications as needed.
+ * @brief Observe a fleet-bar state refresh, emit notifications, and report a meaningful runtime trigger source.
  * @param fleet The fleet currently bound to the widget.
+ * @return A high-signal runtime trigger source name for meaningful state transitions, or nullptr.
  */
-void fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet);
+const char* fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet);
 
 /**
  * @brief Observe a mining node depletion event for a fleet.

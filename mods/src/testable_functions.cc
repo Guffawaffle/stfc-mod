@@ -1107,6 +1107,68 @@ bool fleet_state_can_dock_from_space(FleetBarTransitionState state)
 }
 } // namespace
 
+const char* fleet_runtime_trigger_source_for_state_transition(int old_state, int new_state)
+{
+  const auto oldState = fleet_bar_transition_state_from_value(old_state);
+  const auto newState = fleet_bar_transition_state_from_value(new_state);
+
+  if (oldState == newState) {
+    return nullptr;
+  }
+
+  if (oldState == FleetBarTransitionState::Docked && newState == FleetBarTransitionState::Repairing) {
+    return "fleet-slot-repair-started";
+  }
+
+  if (oldState == FleetBarTransitionState::Repairing && newState == FleetBarTransitionState::Docked) {
+    return "fleet-slot-repair-completed";
+  }
+
+  if (newState == FleetBarTransitionState::Battling && oldState != FleetBarTransitionState::Battling) {
+    return "fleet-slot-combat-started";
+  }
+
+  if (oldState == FleetBarTransitionState::Battling && newState != FleetBarTransitionState::Battling) {
+    return "fleet-slot-combat-ended";
+  }
+
+  if (oldState == FleetBarTransitionState::Mining && newState != FleetBarTransitionState::Mining) {
+    return "fleet-slot-mining-stopped";
+  }
+
+  if (oldState == FleetBarTransitionState::Warping && newState == FleetBarTransitionState::Impulsing) {
+    return "fleet-slot-arrived-in-system";
+  }
+
+  if (newState == FleetBarTransitionState::Docked && oldState != FleetBarTransitionState::Repairing
+      && fleet_state_can_dock_from_space(oldState)) {
+    return "fleet-slot-docked";
+  }
+
+  if (oldState == FleetBarTransitionState::Impulsing && fleet_state_can_arrive_at_destination(newState)) {
+    return "fleet-slot-arrived-at-destination";
+  }
+
+  if (newState == FleetBarTransitionState::Mining && oldState != FleetBarTransitionState::Mining) {
+    return "fleet-slot-mining-started";
+  }
+
+  if (newState == FleetBarTransitionState::WarpCharging && oldState != FleetBarTransitionState::WarpCharging) {
+    return "fleet-slot-warp-started";
+  }
+
+  if (newState == FleetBarTransitionState::Warping && oldState != FleetBarTransitionState::Warping) {
+    return "fleet-slot-warp-engaged";
+  }
+
+  if (newState == FleetBarTransitionState::Impulsing && oldState != FleetBarTransitionState::Impulsing
+      && oldState != FleetBarTransitionState::Warping) {
+    return "fleet-slot-impulse-started";
+  }
+
+  return nullptr;
+}
+
 FleetBarTransitionNotificationDecision
 fleet_bar_transition_notification_decision(const FleetBarTransitionNotificationInput& input)
 {

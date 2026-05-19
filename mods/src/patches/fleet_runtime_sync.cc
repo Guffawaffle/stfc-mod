@@ -4,16 +4,21 @@
  */
 #include "patches/fleet_runtime_sync.h"
 
+#include "config.h"
+#include "patches/fleet_runtime_diagnostics.h"
 #include "patches/live_debug_fleet_runtime_observers.h"
 #include "patches/sync_scheduler.h"
 
 #include <nlohmann/json.hpp>
+
+#include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <compare>
 #include <cstdint>
+#include <exception>
 #include <optional>
 #include <ranges>
 #include <string>
@@ -152,14 +157,14 @@ json slots_to_json(const std::array<FleetSlotObservation, kFleetIndexMax>& slots
   return result;
 }
 
-json build_snapshot_payload(std::string_view source, const FleetObservation& fleet,
+json build_snapshot_payload(std::string_view source, int64_t observed_at_ms, const FleetObservation& fleet,
                             const std::array<FleetSlotObservation, kFleetIndexMax>& slots)
 {
   return json{
       {"type", "fleet.runtime"},
       {"schemaVersion", "stfc.fleet.runtime_snapshot.v1"},
       {"source", source},
-      {"observedAtMs", current_time_millis_utc()},
+      {"observedAtMs", observed_at_ms},
       {"fleetBarTracked", fleet.tracked},
       {"selectedIndex", fleet.selectedIndex},
       {"fleet", fleet_to_json(fleet)},
@@ -168,21 +173,50 @@ json build_snapshot_payload(std::string_view source, const FleetObservation& fle
 }
 } // namespace
 
+void fleet_runtime_sync_trigger(std::string_view source)
+{
+  if (!Config::Get().installSyncPatches || !Config::Get().sync_options.fleet_runtime) {
+    return;
+  }
+
+  fleet_runtime_diagnostics_trigger(source);
+
+  try {
+    fleet_runtime_sync_capture(source);
+  } catch (const std::exception& ex) {
+    spdlog::error("[FleetRuntimeSync] source={} status=failed error='{}'", source, ex.what());
+  } catch (...) {
+    spdlog::error("[FleetRuntimeSync] source={} status=failed error='unknown exception'", source);
+  }
+}
+
 void fleet_runtime_sync_capture(std::string_view source)
 {
   static std::optional<FleetStateKey> last_state;
 
+  const auto capture_started_at = std::chrono::steady_clock::now();
   const auto snapshot = observe_fleet_runtime_snapshot();
   const auto state = make_state_key(snapshot.fleet, snapshot.slots);
+  const auto observed_at_ms = current_time_millis_utc();
+  const auto capture_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                       std::chrono::steady_clock::now() - capture_started_at)
+                                       .count();
+
+  fleet_runtime_diagnostics_capture_attempt(source, capture_duration_ms);
 
   if (!is_meaningful_state(state) && !last_state.has_value()) {
+    fleet_runtime_diagnostics_suppressed_non_meaningful(source, capture_duration_ms);
     return;
   }
 
   if (last_state.has_value() && *last_state == state) {
+    fleet_runtime_diagnostics_suppressed_unchanged(source, capture_duration_ms);
     return;
   }
 
   last_state = state;
-  queue_data(SyncConfig::Type::FleetRuntime, build_snapshot_payload(source, snapshot.fleet, snapshot.slots));
+  const auto trace = fleet_runtime_diagnostics_make_trace(source, snapshot.fleet, snapshot.slots, observed_at_ms,
+                                                          capture_duration_ms);
+  queue_data(SyncConfig::Type::FleetRuntime,
+             build_snapshot_payload(source, observed_at_ms, snapshot.fleet, snapshot.slots), false, trace);
 }
