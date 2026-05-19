@@ -8,6 +8,8 @@
 
 #include "prime/FleetPlayerData.h"
 
+#include "testable_functions.h"
+
 #include <nlohmann/json.hpp>
 
 namespace {
@@ -22,35 +24,8 @@ const char* classify_fleet_slot_transition_kind(const FleetSlotObservation& prev
   if (previous.present && !current.present) {
     return "fleet-slot-cleared";
   }
-  if (from == static_cast<int>(FleetState::Docked) && to == static_cast<int>(FleetState::Repairing)) {
-    return "fleet-slot-repair-started";
-  }
-  if (from == static_cast<int>(FleetState::Repairing) && to == static_cast<int>(FleetState::Docked)) {
-    return "fleet-slot-repair-completed";
-  }
-  if (to == static_cast<int>(FleetState::Battling) && from != static_cast<int>(FleetState::Battling)) {
-    return "fleet-slot-combat-started";
-  }
-  if (from == static_cast<int>(FleetState::Battling) && to != static_cast<int>(FleetState::Battling)) {
-    return "fleet-slot-combat-ended";
-  }
-  if (to == static_cast<int>(FleetState::WarpCharging)) {
-    return "fleet-slot-warp-started";
-  }
-  if (to == static_cast<int>(FleetState::Warping)) {
-    return "fleet-slot-warp-engaged";
-  }
-  if (from == static_cast<int>(FleetState::Warping) && to == static_cast<int>(FleetState::Impulsing)) {
-    return "fleet-slot-arrived-in-system";
-  }
-  if (to == static_cast<int>(FleetState::Docked) && from != static_cast<int>(FleetState::Repairing)) {
-    return "fleet-slot-docked";
-  }
-  if (to == static_cast<int>(FleetState::Mining) && from != static_cast<int>(FleetState::Mining)) {
-    return "fleet-slot-mining-started";
-  }
-  if (from == static_cast<int>(FleetState::Mining) && to != static_cast<int>(FleetState::Mining)) {
-    return "fleet-slot-mining-stopped";
+  if (const auto* kind = fleet_runtime_trigger_source_for_state_transition(from, to)) {
+    return kind;
   }
 
   return "fleet-slot-state-changed";

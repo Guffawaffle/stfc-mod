@@ -459,6 +459,31 @@ TEST_SUITE("fleet_notification_formatting")
     CHECK(repairComplete.body == "Your K'VORT finished repairs");
   }
 
+  TEST_CASE("fleet runtime trigger sources stay high-signal")
+  {
+    CHECK(fleet_runtime_trigger_source_for_state_transition(static_cast<int>(FleetBarTransitionState::IdleInSpace),
+                    static_cast<int>(FleetBarTransitionState::Mining))
+      == std::string_view{"fleet-slot-mining-started"});
+    CHECK(fleet_runtime_trigger_source_for_state_transition(static_cast<int>(FleetBarTransitionState::Mining),
+                    static_cast<int>(FleetBarTransitionState::WarpCharging))
+      == std::string_view{"fleet-slot-mining-stopped"});
+    CHECK(fleet_runtime_trigger_source_for_state_transition(static_cast<int>(FleetBarTransitionState::IdleInSpace),
+                    static_cast<int>(FleetBarTransitionState::Impulsing))
+      == std::string_view{"fleet-slot-impulse-started"});
+    CHECK(fleet_runtime_trigger_source_for_state_transition(static_cast<int>(FleetBarTransitionState::Warping),
+                    static_cast<int>(FleetBarTransitionState::Impulsing))
+      == std::string_view{"fleet-slot-arrived-in-system"});
+    CHECK(fleet_runtime_trigger_source_for_state_transition(static_cast<int>(FleetBarTransitionState::Impulsing),
+                    static_cast<int>(FleetBarTransitionState::IdleInSpace))
+      == std::string_view{"fleet-slot-arrived-at-destination"});
+    CHECK(fleet_runtime_trigger_source_for_state_transition(static_cast<int>(FleetBarTransitionState::Battling),
+                    static_cast<int>(FleetBarTransitionState::Impulsing))
+      == std::string_view{"fleet-slot-combat-ended"});
+    CHECK(fleet_runtime_trigger_source_for_state_transition(static_cast<int>(FleetBarTransitionState::Docked),
+                    static_cast<int>(FleetBarTransitionState::Docked))
+      == nullptr);
+  }
+
   TEST_CASE("fleet transition delivery policy separates OS and audio arrival toggles")
   {
     constexpr auto arrival = FleetBarTransitionNotificationKind::ArrivedInSystem;

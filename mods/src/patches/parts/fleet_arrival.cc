@@ -10,6 +10,7 @@
 #include "errormsg.h"
 
 #include <patches/fleet_notifications.h>
+#include <patches/fleet_runtime_sync.h>
 #include <patches/live_debug.h>
 #include <il2cpp/il2cpp_helper.h>
 #include <prime/FleetPlayerData.h>
@@ -78,7 +79,9 @@ FleetPlayerData* fleet_bar_widget_context(void* self)
 void FleetStateWidget_SetWidgetData_Hook(auto original, void* self)
 {
   auto* fleet = fleet_bar_widget_context(self);
-  fleet_notifications_observe_fleet_bar(fleet);
+  if (const auto* trigger_source = fleet_notifications_observe_fleet_bar(fleet)) {
+    fleet_runtime_sync_trigger(trigger_source);
+  }
 
   original(self);
 }

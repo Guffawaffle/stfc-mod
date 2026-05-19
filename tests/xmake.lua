@@ -16,6 +16,7 @@ do
     add_files("../mods/src/patches/live_debug_event_store.cc")
     add_files("../mods/src/patches/live_debug_recent_event_requests.cc")
     add_files("../mods/src/patches/live_debug_fleet_serializers.cc")
+    add_files("../mods/src/patches/fleet_runtime_diagnostics.cc")
     add_files("../mods/src/patches/live_debug_ui_serializers.cc")
     add_files("../mods/src/patches/live_debug_viewer_serializers.cc")
     add_files("../mods/src/patches/battle_log_decoder.cc")
@@ -36,6 +37,7 @@ do
     add_packages("doctest", "nlohmann_json", "toml++", "spdlog")
 
     add_defines("NOMINMAX")
+    add_defines("STFC_MOD_TESTS")
 
     if is_plat("windows") then
         add_cxflags("/bigobj")

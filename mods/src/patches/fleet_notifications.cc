@@ -317,10 +317,10 @@ void fleet_notifications_init()
   notification_audio_init();
 }
 
-void fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet)
+const char* fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet)
 {
   if (!fleet) {
-    return;
+    return nullptr;
   }
 
   auto fleetId        = fleet->Id;
@@ -338,6 +338,8 @@ void fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet)
     hadPreviousState = true;
   }
 
+  const char* runtimeTriggerSource = nullptr;
+
   s_fleet_bar_ship_names[fleetId] = shipName;
   if (!resourceName.empty()) {
     s_fleet_bar_resource_names[fleetId] = resourceName;
@@ -346,9 +348,12 @@ void fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet)
 
   if (hadPreviousState && previousState != currentState) {
     maybe_notify_fleet_bar_transition(fleetId, shipName, previousState, currentState, resourceName, cargoText);
+    runtimeTriggerSource = fleet_runtime_trigger_source_for_state_transition(static_cast<int>(previousState),
+                                                                             static_cast<int>(currentState));
   }
 
   s_fleet_bar_states[fleetId] = currentState;
+  return runtimeTriggerSource;
 }
 
 void fleet_notifications_observe_node_depleted(int64_t fleetId)

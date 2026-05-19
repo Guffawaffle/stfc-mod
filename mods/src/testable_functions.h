@@ -316,6 +316,7 @@ bool fleet_bar_transition_arrived_in_system_event_enabled(bool osArrivedInSystem
 bool fleet_bar_transition_should_notify_os(FleetBarTransitionNotificationKind kind, bool osArrivedInSystemEnabled);
 bool fleet_bar_transition_should_notify_audio(FleetBarTransitionNotificationKind kind, bool audioEnabled,
                                               bool audioArrivedInSystemEnabled);
+const char* fleet_runtime_trigger_source_for_state_transition(int old_state, int new_state);
 FleetBarTransitionNotificationDecision
 fleet_bar_transition_notification_decision(const FleetBarTransitionNotificationInput& input);
 
