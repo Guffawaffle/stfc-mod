@@ -82,6 +82,24 @@ const char* original_frame_policy_name(const OriginalFramePolicy policy)
 bool hotkey_dispatcher_owns_inputs(const bool hotkeys_enabled, const ScopelyShortcutPolicy scopely_shortcuts)
 { return hotkeys_enabled && scopely_shortcuts != ScopelyShortcutPolicy::Native; }
 
+bool should_install_native_shortcut_pointer_callback_guards(const bool                  hotkeys_enabled,
+                                                            const ScopelyShortcutPolicy scopely_shortcuts)
+{
+  (void)hotkeys_enabled;
+  (void)scopely_shortcuts;
+  return false;
+}
+
+const char* native_shortcut_pointer_callback_guard_reason(const bool                  hotkeys_enabled,
+                                                          const ScopelyShortcutPolicy scopely_shortcuts)
+{
+  if (!hotkey_dispatcher_owns_inputs(hotkeys_enabled, scopely_shortcuts)) {
+    return "input dispatcher does not own shortcuts";
+  }
+
+  return "disabled: unsafe opaque callback ABI seam";
+}
+
 bool hotkey_router_should_suppress_native_shortcut_callback(const bool                  input_system_callback,
                                                             const bool                  hotkeys_enabled,
                                                             const ScopelyShortcutPolicy scopely_shortcuts,

@@ -536,15 +536,15 @@ void InstallHotkeyHooks()
 
 #define INSTALL_SHORTCUT_POINTER_CALLBACK_GUARD(token, method)                                                         \
   do {                                                                                                                 \
-    /* Pointer-style shortcut callbacks cross an opaque native ABI seam. Keep fallback/native                           \
-       fallthrough working by initializing Scopely shortcuts, but do not install this guard family                      \
-       until there is a layout-safe way to classify callback ownership. */                                             \
-    const auto install_guard = false;                                                                                  \
+    const auto install_guard = should_install_native_shortcut_pointer_callback_guards(                                  \
+        Config::Get().hotkeys_enabled, ScopelyShortcutsPolicy());                                                      \
     if (install_guard) {                                                                                               \
       INSTALL_SHORTCUTS_MANAGER_POINTER_CALLBACK_GUARD(hooks, kShortcut##token##GuardHook,                             \
                                                        ShortcutsManager_##method##_GuardHook);                         \
     } else {                                                                                                           \
-      hooks.record_skipped(kShortcut##token##GuardHook, "disabled: unsafe opaque callback ABI seam");                \
+      hooks.record_skipped(kShortcut##token##GuardHook,                                                                 \
+                           native_shortcut_pointer_callback_guard_reason(                                               \
+                               Config::Get().hotkeys_enabled, ScopelyShortcutsPolicy()));                              \
     }                                                                                                                  \
   } while (false);
 

@@ -51,6 +51,10 @@ OriginalFramePolicy   resolve_original_frame_policy(bool allow_key_fallthrough);
 const char*           scopely_shortcut_policy_name(ScopelyShortcutPolicy policy);
 const char*           original_frame_policy_name(OriginalFramePolicy policy);
 bool                  hotkey_dispatcher_owns_inputs(bool hotkeys_enabled, ScopelyShortcutPolicy scopely_shortcuts);
+bool should_install_native_shortcut_pointer_callback_guards(bool hotkeys_enabled,
+                                                            ScopelyShortcutPolicy scopely_shortcuts);
+const char* native_shortcut_pointer_callback_guard_reason(bool hotkeys_enabled,
+                                                          ScopelyShortcutPolicy scopely_shortcuts);
 bool hotkey_router_should_suppress_native_shortcut_callback(bool input_system_callback, bool hotkeys_enabled,
                                                             ScopelyShortcutPolicy scopely_shortcuts,
                                                             bool                  native_shortcuts_suppressed);
