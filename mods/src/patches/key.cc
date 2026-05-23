@@ -59,6 +59,20 @@ bool WindowsModifierPressed(const KeyCode key)
 bool WindowsModifierPressed(const KeyCode)
 { return false; }
 #endif
+
+bool IsTrackedInputFocused()
+{
+  for (auto* input_field : ObjectFinder<TMP_InputField>::GetAllNonNull()) {
+    try {
+      if (input_field->isFocused) {
+        return true;
+      }
+    } catch (...) {
+    }
+  }
+
+  return false;
+}
 } // namespace
 
 // ─── Name → KeyCode Lookup Table ─────────────────────────────────────────────
@@ -320,6 +334,10 @@ bool Key::IsInputFocused()
         }
       } catch (...) {
       }
+    }
+
+    if (cacheInputFocused != 1 && IsTrackedInputFocused()) {
+      cacheInputFocused = 1;
     }
   }
 

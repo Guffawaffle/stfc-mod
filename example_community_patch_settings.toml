@@ -659,6 +659,14 @@ zoom_reset = "="
 # can send one JSON request into the running game and receive a JSON response.
 live_query = false
 
+# Use the widget's queue-click event handler directly instead of the generic
+# button press path. Enable only during local diagnostics.
+queue_add_direct_handler = false
+
+# When true, queue-add presses also close open viewers via DidHideViewers().
+# Set false during local diagnostics to isolate queue-button cost from viewer cleanup cost.
+queue_add_hide_viewers = true
+
 # Emit focused refinery lifecycle, selection, analytics, and purchase-result
 # breadcrumbs to the legacy plain-text community_patch.log troubleshooting log.
 # Keep disabled during normal play because it detours shared shop/showcase

@@ -113,6 +113,10 @@ const char* ModImpactProbeName(const ModImpactProbe probe)
       return "hotkey.dispatch_plan";
     case ModImpactProbe::HotkeySpaceAction:
       return "hotkey.space_action";
+    case ModImpactProbe::HotkeySpaceActionContext:
+      return "hotkey.space_action.context";
+    case ModImpactProbe::HotkeySpaceActionPreScanFallback:
+      return "hotkey.space_action.prescan_fallback";
     case ModImpactProbe::HotkeyContextState:
       return "hotkey.context_state";
     case ModImpactProbe::HotkeyShipSelection:
@@ -199,6 +203,7 @@ bool ModImpactProbeEnabledForLevel(const ModImpactProbe probe, const RuntimeTrac
     case ModImpactProbe::HotkeyUiRouting:
     case ModImpactProbe::HotkeyFleetRouting:
     case ModImpactProbe::HotkeySpaceAction:
+    case ModImpactProbe::HotkeySpaceActionContext:
       return true;
     default:
       return false;

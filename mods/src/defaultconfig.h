@@ -93,6 +93,10 @@ namespace Debug
 {
   /// Enable the live debug/query channel for AX and runtime inspection. Default: false.
   constexpr bool live_query = false;
+  /// Use the widget's direct queue-add handler instead of the generic button press path. Default: false.
+  constexpr bool queue_add_direct_handler = false;
+  /// Keep queue-add viewer cleanup enabled after pressing the in-game Add to Queue button. Default: true.
+  constexpr bool queue_add_hide_viewers = true;
   /// Enable focused refinery lifecycle/action diagnostics in community_patch.log. Default: false.
   constexpr bool refinery_diagnostics = false;
   /// Enable periodic runtime impact summaries for frame-owned mod hooks. Default: false.

@@ -391,6 +391,16 @@ OriginalFramePolicy OriginalFramePolicySetting();
 bool LiveDebugChannelEnabled();
 
 /**
+ * @brief Whether queue-add should use the widget's direct click handler instead of the generic button press path.
+ */
+bool QueueAddDirectHandlerEnabled();
+
+/**
+ * @brief Whether queue-add should hide open viewers after pressing the in-game queue button.
+ */
+bool QueueAddHideViewersEnabled();
+
+/**
  * @brief Whether live battle_log decoding is enabled.
  */
 bool BattleLogDecoderEnabled();

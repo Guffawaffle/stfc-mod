@@ -66,6 +66,8 @@ static bool                  g_allow_key_fallthrough             = false;
 static ScopelyShortcutPolicy g_scopely_shortcuts_policy          = ScopelyShortcutPolicy::Off;
 static OriginalFramePolicy   g_original_frame_policy             = OriginalFramePolicy::Mod;
 static bool                  g_live_debug_channel                = false;
+static bool                  g_queue_add_direct_handler          = DCD::queue_add_direct_handler;
+static bool                  g_queue_add_hide_viewers            = DCD::queue_add_hide_viewers;
 static bool                  g_battle_log_decoder_enabled        = false;
 static bool                  g_battle_log_decoder_segments       = true;
 static bool                  g_battle_log_decoder_feed           = true;
@@ -89,6 +91,12 @@ OriginalFramePolicy OriginalFramePolicySetting()
 
 bool LiveDebugChannelEnabled()
 { return g_live_debug_channel; }
+
+bool QueueAddDirectHandlerEnabled()
+{ return g_queue_add_direct_handler; }
+
+bool QueueAddHideViewersEnabled()
+{ return g_queue_add_hide_viewers; }
 
 bool BattleLogDecoderEnabled()
 { return g_battle_log_decoder_enabled; }
@@ -1103,6 +1111,10 @@ void Config::Load()
                                                               DCS::sidecar_jsonl_recent_logs, write_config);
   g_sync_sidecar_jsonl_recent_logs    = std::max(0, g_sync_sidecar_jsonl_recent_logs);
   g_live_debug_channel = get_config_or_default(config, parsed, "debug", "live_query", DCD::live_query, write_config);
+  g_queue_add_direct_handler = get_config_or_default(config, parsed, "debug", "queue_add_direct_handler",
+                                                     DCD::queue_add_direct_handler, write_config);
+  g_queue_add_hide_viewers = get_config_or_default(config, parsed, "debug", "queue_add_hide_viewers",
+                                                   DCD::queue_add_hide_viewers, write_config);
   g_refinery_diagnostics =
       get_config_or_default(config, parsed, "debug", "refinery_diagnostics", DCD::refinery_diagnostics, write_config);
   g_mod_impact_monitor =

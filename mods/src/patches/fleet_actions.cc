@@ -41,6 +41,7 @@
 #include <chrono>
 #include <cstdint>
 #include <span>
+#include <type_traits>
 #include <vector>
 
 // ─── Ship Selection ───────────────────────────────────────────────────────────────────
@@ -70,6 +71,12 @@ struct ScanSubmission {
 constexpr auto kDuplicateScanSuppressionWindow = std::chrono::milliseconds(750);
 
 ScanSubmission last_scan_submission;
+
+bool SpaceActionDiagnosticsEnabled()
+{
+  const auto runtime_trace_level = RuntimeTraceLevelSetting();
+  return runtime_trace_level == RuntimeTraceLevel::Detailed || runtime_trace_level == RuntimeTraceLevel::Verbose;
+}
 
 template <typename T> bool IsViewerVisible(T* widget)
 {
@@ -153,9 +160,17 @@ struct SpaceActionDiagnostics {
   bool                                  repair                     = false;
   bool                                  recall_cancel              = false;
   int                                   visible_pre_scan_count     = 0;
+  int                                   resolved_pre_scan_count    = 0;
+  int                                   unresolved_pre_scan_count  = 0;
   bool                                  mining_visible             = false;
   bool                                  star_node_visible          = false;
   bool                                  navigation_visible         = false;
+  bool                                  pre_scan_fallback_used     = false;
+  uint64_t                              context_duration_us        = 0;
+  uint64_t                              pre_scan_fallback_us       = 0;
+  uint64_t                              outcome_execution_us       = 0;
+  uint64_t                              queue_button_press_us      = 0;
+  uint64_t                              hide_viewers_us            = 0;
   const char*                           outcome                    = "none";
   bool                                  handled                    = false;
 
@@ -179,6 +194,10 @@ struct SpaceActionDiagnostics {
 
   ~SpaceActionDiagnostics()
   {
+    if (!SpaceActionDiagnosticsEnabled()) {
+      return;
+    }
+
     const auto elapsed           = std::chrono::steady_clock::now() - started_at;
     const auto elapsed_us        = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
     const auto slow_threshold_us = ModImpactMonitorEnabled() ? 1000 : 8000;
@@ -192,11 +211,14 @@ struct SpaceActionDiagnostics {
     if (handled_primary) {
       spdlog::debug(
           "[SpaceActionDiag] handled-primary outcome={} duration_us={} fleet={} state={} prev={} inputs[p={} dp={} "
-          "df={} s={} q={} qc={} r={} repair={} rc={}] context[preScan={} mining={} star={} nav={}] "
+          "df={} s={} q={} qc={} r={} repair={} rc={}] context[preScan={} resolved={} unresolved={} mining={} "
+          "star={} nav={} fallback={} context_us={} fallback_us={} exec_us={} queue_press_us={} hide_viewers_us={}] "
           "deferred[fleet={} widget={} target={}]",
           outcome, elapsed_us, fleet_id, fleet_state, previous_state, physical_primary, deferred_pending,
           deferred_primary_for_fleet, secondary, queue, queue_clear, recall, repair, recall_cancel,
-          visible_pre_scan_count, mining_visible, star_node_visible, navigation_visible,
+          visible_pre_scan_count, resolved_pre_scan_count, unresolved_pre_scan_count, mining_visible,
+          star_node_visible, navigation_visible, pre_scan_fallback_used, context_duration_us, pre_scan_fallback_us,
+          outcome_execution_us, queue_button_press_us, hide_viewers_us,
           deferred_space_action_state.fleet_id,
           reinterpret_cast<const void*>(deferred_space_action_state.widget_identity),
           reinterpret_cast<const void*>(deferred_space_action_state.target_identity));
@@ -205,11 +227,14 @@ struct SpaceActionDiagnostics {
     if (long_detour) {
       spdlog::warn(
           "[SpaceActionDiag] slow outcome={} handled={} duration_us={} fleet={} state={} prev={} inputs[p={} dp={} "
-          "df={} s={} q={} qc={} r={} repair={} rc={}] context[preScan={} mining={} star={} nav={}] "
+          "df={} s={} q={} qc={} r={} repair={} rc={}] context[preScan={} resolved={} unresolved={} mining={} "
+          "star={} nav={} fallback={} context_us={} fallback_us={} exec_us={} queue_press_us={} hide_viewers_us={}] "
           "deferred[fleet={} widget={} target={}]",
           outcome, handled, elapsed_us, fleet_id, fleet_state, previous_state, physical_primary, deferred_pending,
           deferred_primary_for_fleet, secondary, queue, queue_clear, recall, repair, recall_cancel,
-          visible_pre_scan_count, mining_visible, star_node_visible, navigation_visible,
+          visible_pre_scan_count, resolved_pre_scan_count, unresolved_pre_scan_count, mining_visible,
+          star_node_visible, navigation_visible, pre_scan_fallback_used, context_duration_us, pre_scan_fallback_us,
+          outcome_execution_us, queue_button_press_us, hide_viewers_us,
           deferred_space_action_state.fleet_id,
           reinterpret_cast<const void*>(deferred_space_action_state.widget_identity),
           reinterpret_cast<const void*>(deferred_space_action_state.target_identity));
@@ -217,24 +242,65 @@ struct SpaceActionDiagnostics {
 
     if (!handled && had_action_input && (had_visible_context || deferred_pending)) {
       spdlog::warn("[SpaceActionDiag] unresolved outcome={} duration_us={} fleet={} state={} prev={} inputs[p={} dp={} "
-                   "df={} s={} q={} qc={} r={} repair={} rc={}] context[preScan={} mining={} star={} nav={}] "
+                   "df={} s={} q={} qc={} r={} repair={} rc={}] context[preScan={} resolved={} unresolved={} "
+                   "mining={} star={} nav={} fallback={} context_us={} fallback_us={} exec_us={} queue_press_us={} hide_viewers_us={}] "
                    "deferred[fleet={} widget={} target={}]",
                    outcome, elapsed_us, fleet_id, fleet_state, previous_state, physical_primary, deferred_pending,
                    deferred_primary_for_fleet, secondary, queue, queue_clear, recall, repair, recall_cancel,
-                   visible_pre_scan_count, mining_visible, star_node_visible, navigation_visible,
+                   visible_pre_scan_count, resolved_pre_scan_count, unresolved_pre_scan_count, mining_visible,
+                   star_node_visible, navigation_visible, pre_scan_fallback_used, context_duration_us,
+                   pre_scan_fallback_us, outcome_execution_us, queue_button_press_us, hide_viewers_us,
                    deferred_space_action_state.fleet_id,
                    reinterpret_cast<const void*>(deferred_space_action_state.widget_identity),
                    reinterpret_cast<const void*>(deferred_space_action_state.target_identity));
     }
   }
 
-  void SetContext(int pre_scan_count, bool has_mining, bool has_star_node, bool has_navigation)
+  void SetContext(int pre_scan_count, int resolved_pre_scan_count_value, int unresolved_pre_scan_count_value,
+                  bool has_mining, bool has_star_node, bool has_navigation, bool used_pre_scan_fallback,
+                  uint64_t context_duration_us_value, uint64_t pre_scan_fallback_us_value)
   {
-    visible_pre_scan_count = pre_scan_count;
-    mining_visible         = has_mining;
-    star_node_visible      = has_star_node;
-    navigation_visible     = has_navigation;
+    visible_pre_scan_count    = pre_scan_count;
+    resolved_pre_scan_count   = resolved_pre_scan_count_value;
+    unresolved_pre_scan_count = unresolved_pre_scan_count_value;
+    mining_visible            = has_mining;
+    star_node_visible         = has_star_node;
+    navigation_visible        = has_navigation;
+    pre_scan_fallback_used    = used_pre_scan_fallback;
+    context_duration_us       = context_duration_us_value;
+    pre_scan_fallback_us      = pre_scan_fallback_us_value;
   }
+
+  template <typename Callback>
+  static decltype(auto) MeasureExecutionSlice(uint64_t& accumulator, Callback&& callback)
+  {
+    const auto started_at_value = std::chrono::steady_clock::now();
+    if constexpr (std::is_void_v<decltype(callback())>) {
+      callback();
+      accumulator += static_cast<uint64_t>(
+          std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - started_at_value)
+              .count());
+      return;
+    } else {
+      auto result = callback();
+      accumulator += static_cast<uint64_t>(
+          std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - started_at_value)
+              .count());
+      return result;
+    }
+  }
+
+  template <typename Callback>
+  decltype(auto) MeasureOutcomeExecution(Callback&& callback)
+  { return MeasureExecutionSlice(outcome_execution_us, callback); }
+
+  template <typename Callback>
+  decltype(auto) MeasureQueueButtonPress(Callback&& callback)
+  { return MeasureExecutionSlice(queue_button_press_us, callback); }
+
+  template <typename Callback>
+  decltype(auto) MeasureHideViewers(Callback&& callback)
+  { return MeasureExecutionSlice(hide_viewers_us, callback); }
 
   void SetOutcome(const char* value)
   { outcome = value; }
@@ -257,6 +323,8 @@ struct VisiblePreScanTargetContext {
 struct SpaceActionRuntimeContext {
   std::vector<VisiblePreScanTargetContext> visible_pre_scan_targets;
   int                                      visible_pre_scan_target_count  = 0;
+  int                                      resolved_pre_scan_target_count = 0;
+  int                                      unresolved_pre_scan_target_count = 0;
   MiningObjectViewerWidget*                mining_viewer_widget           = nullptr;
   bool                                     mining_viewer_visible          = false;
   bool                                     mining_scan_available          = false;
@@ -266,6 +334,9 @@ struct SpaceActionRuntimeContext {
   bool                                     navigation_interaction_visible = false;
   ArmadaObjectViewerWidget*                armada_widget                  = nullptr;
   bool                                     armada_visible                 = false;
+  bool                                     used_pre_scan_fallback         = false;
+  uint64_t                                 context_duration_us            = 0;
+  uint64_t                                 pre_scan_fallback_duration_us  = 0;
 };
 
 bool TryExecuteQueueAdd(PreScanTargetWidget* pre_scan_widget, SpaceActionDiagnostics& diagnostics)
@@ -278,21 +349,34 @@ bool TryExecuteQueueAdd(PreScanTargetWidget* pre_scan_widget, SpaceActionDiagnos
     return false;
   }
 
-  auto listener = pre_scan_widget->_addToQueueButtonWidget->SemaphoreListener;
-  if (!listener) {
-    diagnostics.SetOutcome("queue-listener-missing");
-    return true;
+  const bool direct_handler = QueueAddDirectHandlerEnabled();
+
+  Button* button = nullptr;
+  if (!direct_handler) {
+    auto listener = pre_scan_widget->_addToQueueButtonWidget->SemaphoreListener;
+    if (!listener) {
+      diagnostics.SetOutcome("queue-listener-missing");
+      return true;
+    }
+
+    button = listener->TheButton;
+    if (!button) {
+      diagnostics.SetOutcome("queue-button-missing");
+      return true;
+    }
   }
 
-  auto button = listener->TheButton;
-  if (!button) {
-    diagnostics.SetOutcome("queue-button-missing");
-    return true;
-  }
-
-  diagnostics.Complete("queue-add");
-  button->Press();
-  DidHideViewers();
+  diagnostics.MeasureOutcomeExecution([&]() {
+    if (direct_handler) {
+      diagnostics.MeasureQueueButtonPress([&]() { pre_scan_widget->OnAddToQueueClickedEventHandler(); });
+    } else {
+      diagnostics.MeasureQueueButtonPress([&]() { button->Press(); });
+    }
+    if (QueueAddHideViewersEnabled()) {
+      diagnostics.MeasureHideViewers([&]() { DidHideViewers(); });
+    }
+  });
+  diagnostics.Complete(direct_handler ? "queue-add-direct" : "queue-add");
   return true;
 }
 
@@ -328,14 +412,16 @@ bool TryExecuteScanAction(FleetPlayerData* fleet, ScanEngageButtonsWidget* scan_
   if (space_action_duplicate_submission_should_suppress(last_scan_submission.fleet_id,
                                                         last_scan_submission.target_identity, fleet_id, target_identity,
                                                         elapsed_ms, kDuplicateScanSuppressionWindow.count())) {
-    spdlog::trace("[SpaceActionDiag] suppressed duplicate scan outcome={} fleet={} target={} elapsed_ms={}",
-                  duplicate_outcome, fleet_id, target_identity, elapsed_ms);
+    if (SpaceActionDiagnosticsEnabled()) {
+      spdlog::trace("[SpaceActionDiag] suppressed duplicate scan outcome={} fleet={} target={} elapsed_ms={}",
+                    duplicate_outcome, fleet_id, target_identity, elapsed_ms);
+    }
     diagnostics.Complete(duplicate_outcome);
     return true;
   }
 
   last_scan_submission = {fleet_id, target_identity, now};
-  scan_engage_buttons_widget->OnScanButtonClicked();
+  diagnostics.MeasureOutcomeExecution([&]() { scan_engage_buttons_widget->OnScanButtonClicked(); });
   diagnostics.Complete(success_outcome);
   return true;
 }
@@ -357,8 +443,8 @@ bool TryExecuteArmadaAttack(PreScanTargetWidget* pre_scan_widget, ScanEngageButt
       return true;
     }
 
+    diagnostics.MeasureOutcomeExecution([&]() { button->Press(); });
     diagnostics.Complete("armada-attack-button");
-    button->Press();
     return true;
   }
 
@@ -366,8 +452,8 @@ bool TryExecuteArmadaAttack(PreScanTargetWidget* pre_scan_widget, ScanEngageButt
     return false;
   }
 
+  diagnostics.MeasureOutcomeExecution([&]() { scan_engage_buttons_widget->OnArmadaButtonClicked(); });
   diagnostics.Complete("armada-button-clicked");
-  scan_engage_buttons_widget->OnArmadaButtonClicked();
   return true;
 }
 
@@ -384,24 +470,39 @@ void AppendVisiblePreScanTargetContext(SpaceActionRuntimeContext& runtime_contex
 
   auto scan_engage_buttons_widget = pre_scan_widget->_scanEngageButtonsWidget;
   auto target_context             = scan_engage_buttons_widget ? scan_engage_buttons_widget->Context : nullptr;
+  auto target_hull_type           = GetHullTypeFromBattleTarget(target_context);
+  if (target_hull_type == HullType::Any) {
+    ++runtime_context.unresolved_pre_scan_target_count;
+  } else {
+    ++runtime_context.resolved_pre_scan_target_count;
+  }
   runtime_context.visible_pre_scan_targets.push_back(
-      {pre_scan_widget, scan_engage_buttons_widget, target_context, GetHullTypeFromBattleTarget(target_context),
+      {pre_scan_widget, scan_engage_buttons_widget, target_context, target_hull_type,
        DeferredSpaceActionTargetMatches(fleet, pre_scan_widget, target_context)});
 }
 
 SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet)
 {
+  ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeySpaceActionContext, ModImpactMonitorEnabled());
+  const auto context_started_at = std::chrono::steady_clock::now();
   SpaceActionRuntimeContext runtime_context;
 
   if (IsViewerVisible(last_shown_pre_scan_target)) {
     runtime_context.visible_pre_scan_targets.reserve(1);
     AppendVisiblePreScanTargetContext(runtime_context, fleet, last_shown_pre_scan_target);
   } else {
+    ScopedModImpactTimer fallback_timer(ModImpactProbe::HotkeySpaceActionPreScanFallback,
+                                        ModImpactMonitorEnabled());
+    runtime_context.used_pre_scan_fallback = true;
+    const auto fallback_started_at = std::chrono::steady_clock::now();
     const auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAllNonNull();
     runtime_context.visible_pre_scan_targets.reserve(all_pre_scan_widgets.size());
     for (auto pre_scan_widget : all_pre_scan_widgets) {
       AppendVisiblePreScanTargetContext(runtime_context, fleet, pre_scan_widget);
     }
+    runtime_context.pre_scan_fallback_duration_us = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - fallback_started_at)
+            .count());
   }
 
   runtime_context.mining_viewer_widget  = ObjectFinder<MiningObjectViewerWidget>::Get();
@@ -425,6 +526,9 @@ SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet
   runtime_context.armada_widget  = ObjectFinder<ArmadaObjectViewerWidget>::Get();
   const auto armada_state        = GetArmadaVisibilityState(runtime_context.armada_widget);
   runtime_context.armada_visible = armada_state == VisibilityState::Visible || armada_state == VisibilityState::Show;
+  runtime_context.context_duration_us = static_cast<uint64_t>(
+      std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - context_started_at)
+          .count());
 
   return runtime_context;
 }
@@ -495,8 +599,9 @@ bool TryHandlePreScanPrimaryOutcome(FleetPrimaryOutcome outcome, FleetPlayerData
     case FleetPrimaryOutcome::ArmadaAttack:
       return TryExecuteArmadaAttack(pre_scan_widget, scan_engage_buttons_widget, diagnostics);
     case FleetPrimaryOutcome::Engage:
+      // If viewer cleanup stays cheap, consider mirroring queue-add's DidHideViewers() after hostile Attack clicks.
+      diagnostics.MeasureOutcomeExecution([&]() { scan_engage_buttons_widget->OnEngageButtonClicked(); });
       diagnostics.Complete("engage-prescan");
-      scan_engage_buttons_widget->OnEngageButtonClicked();
       return true;
     case FleetPrimaryOutcome::DeferUntilTargetResolved:
       ArmDeferredSpaceAction(fleet, pre_scan_widget, context);
@@ -552,7 +657,7 @@ bool TryExecuteWarpCancel(FleetBarViewController* fleet_bar, FleetPlayerData* fl
                                              runtime_context.visible_pre_scan_target_count,
                                              runtime_context.mining_viewer_visible, runtime_context.star_node_visible,
                                              runtime_context.navigation_interaction_visible);
-  fleet_bar->_fleetPanelController->CancelButtonClicked();
+  diagnostics.MeasureOutcomeExecution([&]() { fleet_bar->_fleetPanelController->CancelButtonClicked(); });
   diagnostics.Complete("warp-cancel");
   return true;
 }
@@ -581,7 +686,7 @@ bool TryHandleNoPreScanSecondaryOutcome(FleetSecondaryOutcome outcome, FleetPlay
       return TryExecuteScanAction(fleet, runtime_context.mining_viewer_widget->_scanEngageButtonsWidget, nullptr,
                                   "scan-mining-viewer", "scan-mining-viewer-suppressed-duplicate", diagnostics);
     case FleetSecondaryOutcome::ViewStarNode:
-      runtime_context.star_node_viewer_widget->OnViewButtonActivation();
+      diagnostics.MeasureOutcomeExecution([&]() { runtime_context.star_node_viewer_widget->OnViewButtonActivation(); });
       diagnostics.Complete("view-star-node");
       return true;
     case FleetSecondaryOutcome::None:
@@ -596,19 +701,19 @@ bool TryHandleNoPreScanPrimaryOutcome(FleetPrimaryOutcome outcome, const SpaceAc
 {
   switch (outcome) {
     case FleetPrimaryOutcome::Mine:
+      diagnostics.MeasureOutcomeExecution([&]() { runtime_context.mining_viewer_widget->MineClicked(); });
       diagnostics.Complete("mine-viewer");
-      runtime_context.mining_viewer_widget->MineClicked();
       return true;
     case FleetPrimaryOutcome::JoinArmada:
+      diagnostics.MeasureOutcomeExecution([&]() { runtime_context.armada_widget->ValidateThenJoinArmada(); });
       diagnostics.Complete("join-armada");
-      runtime_context.armada_widget->ValidateThenJoinArmada();
       return true;
     case FleetPrimaryOutcome::ArmadaJoinUnavailable:
       diagnostics.SetOutcome(armada_join_button_present ? "join-armada-not-interactable"
                                                         : "join-armada-button-missing");
       return false;
     case FleetPrimaryOutcome::WarpToNode:
-      runtime_context.star_node_viewer_widget->InitiateWarp();
+      diagnostics.MeasureOutcomeExecution([&]() { runtime_context.star_node_viewer_widget->InitiateWarp(); });
       diagnostics.Complete("warp-star-node");
       return true;
     case FleetPrimaryOutcome::SetCourse:
@@ -616,8 +721,8 @@ bool TryHandleNoPreScanPrimaryOutcome(FleetPrimaryOutcome outcome, const SpaceAc
         diagnostics.SetOutcome("set-course-controller-missing");
         return false;
       }
+      diagnostics.MeasureOutcomeExecution([&]() { runtime_context.navigation_ui_controller->OnSetCourseButtonClick(); });
       diagnostics.Complete("set-course");
-      runtime_context.navigation_ui_controller->OnSetCourseButtonClick();
       return true;
     default:
       return false;
@@ -944,8 +1049,12 @@ bool ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
   }
 
   const auto runtime_context = GatherSpaceActionRuntimeContext(fleet);
-  diagnostics.SetContext(runtime_context.visible_pre_scan_target_count, runtime_context.mining_viewer_visible,
-                         runtime_context.star_node_visible, runtime_context.navigation_interaction_visible);
+  diagnostics.SetContext(runtime_context.visible_pre_scan_target_count,
+                         runtime_context.resolved_pre_scan_target_count,
+                         runtime_context.unresolved_pre_scan_target_count, runtime_context.mining_viewer_visible,
+                         runtime_context.star_node_visible, runtime_context.navigation_interaction_visible,
+                         runtime_context.used_pre_scan_fallback, runtime_context.context_duration_us,
+                         runtime_context.pre_scan_fallback_duration_us);
 
   if (has_recall_cancel && fleet_is_warping) {
     if (TryExecuteWarpCancel(
@@ -985,8 +1094,8 @@ bool ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
           return true;
         }
       } else if (has_primary_for_target) {
+        diagnostics.MeasureOutcomeExecution([&]() { runtime_context.mining_viewer_widget->MineClicked(); });
         diagnostics.Complete("mine-prescan-viewer");
-        runtime_context.mining_viewer_widget->MineClicked();
         return true;
       }
     }

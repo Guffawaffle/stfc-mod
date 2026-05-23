@@ -20,6 +20,8 @@ enum class ModImpactProbe : uint8_t {
   HotkeyResetCache,
   HotkeyDispatchPlan,
   HotkeySpaceAction,
+  HotkeySpaceActionContext,
+  HotkeySpaceActionPreScanFallback,
   HotkeyContextState,
   HotkeyShipSelection,
   HotkeyUiRouting,
