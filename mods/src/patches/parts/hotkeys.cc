@@ -44,7 +44,6 @@ const char* initialize_actions_reason()
 
 #define SHORTCUTS_MANAGER_POINTER_CALLBACK_GUARDS(X)                                                                   \
   X(ShipManage, OnShipManageAction)                                                                                    \
-  X(ShipLocate, OnShipLocateAction)                                                                                    \
   X(ShipRecall, OnShipRecallAction)                                                                                    \
   X(Interior, OnInteriorAction)                                                                                        \
   X(Exterior, OnExteriorAction)                                                                                        \
