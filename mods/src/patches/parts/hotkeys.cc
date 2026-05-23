@@ -354,12 +354,13 @@ void ShortcutsManager_SelectShip_Hook(auto original, void* _this, int32_t index)
 template <typename OriginalFn>
 void HandleNativeShortcutPointerCallback(OriginalFn original, void* _this, void* context, const char* callback)
 {
-  (void)callback;
   hotkey_router_refresh_native_shortcut_suppression();
   const auto* typed_context         = static_cast<const InputActionCallbackContext*>(context);
   const auto  input_system_callback = typed_context && typed_context->state != nullptr;
-  if (input_system_callback && hotkey_router_should_suppress_native_shortcuts()) {
-    spdlog::debug("[Hotkeys] suppressed native shortcut callback");
+  if (hotkey_router_should_suppress_native_shortcut_callback(input_system_callback, Config::Get().hotkeys_enabled,
+                                                             ScopelyShortcutsPolicy(),
+                                                             hotkey_router_should_suppress_native_shortcuts())) {
+    spdlog::trace("[Hotkeys] suppressed native shortcut callback={}", callback);
     return;
   }
 
@@ -535,11 +536,16 @@ void InstallHotkeyHooks()
 
 #define INSTALL_SHORTCUT_POINTER_CALLBACK_GUARD(token, method)                                                         \
   do {                                                                                                                 \
-    if (kEnableNativeShortcutPointerCallbackGuards) {                                                                  \
+    const auto install_guard =                                                                                         \
+        kEnableNativeShortcutPointerCallbackGuards                                                                     \
+        && hotkey_dispatcher_owns_inputs(Config::Get().hotkeys_enabled, ScopelyShortcutsPolicy());                     \
+    if (install_guard) {                                                                                               \
       INSTALL_SHORTCUTS_MANAGER_POINTER_CALLBACK_GUARD(hooks, kShortcut##token##GuardHook,                             \
                                                        ShortcutsManager_##method##_GuardHook);                         \
     } else {                                                                                                           \
-      hooks.record_skipped(kShortcut##token##GuardHook, "compile-time disabled");                                      \
+      hooks.record_skipped(kShortcut##token##GuardHook, kEnableNativeShortcutPointerCallbackGuards                     \
+                                                            ? "input dispatcher does not own shortcuts"                \
+                                                            : "compile-time disabled");                                \
     }                                                                                                                  \
   } while (false);
 

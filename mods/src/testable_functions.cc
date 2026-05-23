@@ -82,6 +82,26 @@ const char* original_frame_policy_name(const OriginalFramePolicy policy)
 bool hotkey_dispatcher_owns_inputs(const bool hotkeys_enabled, const ScopelyShortcutPolicy scopely_shortcuts)
 { return hotkeys_enabled && scopely_shortcuts != ScopelyShortcutPolicy::Native; }
 
+bool hotkey_router_should_suppress_native_shortcut_callback(const bool                  input_system_callback,
+                                                            const bool                  hotkeys_enabled,
+                                                            const ScopelyShortcutPolicy scopely_shortcuts,
+                                                            const bool                  native_shortcuts_suppressed)
+{
+  if (!input_system_callback) {
+    return false;
+  }
+
+  if (!hotkey_dispatcher_owns_inputs(hotkeys_enabled, scopely_shortcuts)) {
+    return false;
+  }
+
+  if (scopely_shortcuts == ScopelyShortcutPolicy::Off) {
+    return true;
+  }
+
+  return native_shortcuts_suppressed;
+}
+
 bool should_suppress_escape_exit(bool disable_escape_exit, bool escape_pressed, int escape_exit_timer_ms,
                                  int64_t elapsed_ms_since_last_escape_press)
 {

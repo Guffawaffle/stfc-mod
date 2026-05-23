@@ -328,6 +328,21 @@ TEST_SUITE("hotkey_decisions")
     CHECK_FALSE(hotkey_dispatcher_owns_inputs(false, ScopelyShortcutPolicy::Native));
   }
 
+  TEST_CASE("native shortcut callback hooks preserve fallback fallthrough unless mod-owned")
+  {
+    CHECK_FALSE(
+        hotkey_router_should_suppress_native_shortcut_callback(false, true, ScopelyShortcutPolicy::Fallback, true));
+    CHECK_FALSE(
+        hotkey_router_should_suppress_native_shortcut_callback(true, true, ScopelyShortcutPolicy::Native, false));
+    CHECK_FALSE(
+        hotkey_router_should_suppress_native_shortcut_callback(true, false, ScopelyShortcutPolicy::Fallback, false));
+    CHECK_FALSE(
+        hotkey_router_should_suppress_native_shortcut_callback(true, true, ScopelyShortcutPolicy::Fallback, false));
+
+    CHECK(hotkey_router_should_suppress_native_shortcut_callback(true, true, ScopelyShortcutPolicy::Off, false));
+    CHECK(hotkey_router_should_suppress_native_shortcut_callback(true, true, ScopelyShortcutPolicy::Fallback, true));
+  }
+
   TEST_CASE("Escape exit suppression only blocks Escape-triggered exit outside the double-tap window")
   {
     CHECK_FALSE(should_suppress_escape_exit(false, true, 500, -1));
