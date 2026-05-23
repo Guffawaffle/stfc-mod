@@ -165,7 +165,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       || fleet_notifications_runtime_events_enabled();
   auto             install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
       auto             install_frame_tick_hooks           =
-        cfg.installHotkeyHooks || LiveDebugChannelEnabled() || fleet_notifications_runtime_events_enabled();
+        cfg.installHotkeyHooks || LiveDebugChannelEnabled();
   const PatchEntry patches[]                          = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
