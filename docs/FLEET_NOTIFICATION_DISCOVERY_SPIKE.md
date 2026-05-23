@@ -115,6 +115,139 @@ Files:
 | Sidecar `fleet.snapshot` projection | producer-dependent | Durable state projector, not a source of truth. It can only project what the mod emits. |
 | Sidecar timer/projection logic | not currently implemented for arrivals | Candidate fallback only if mod emits enough course timing and invalidation signals. |
 
+## What The Current Code Actually Gives Us
+
+### 1. Where `FleetBarViewController` gets its fleet facts
+
+From the current wrappers, `FleetBarViewController` exposes selection and currently bound fleet context, not an authoritative slot-state store:
+
+- `FleetBarViewController::IsIndexSelected(index)` gives UI selection state.
+- `FleetBarViewController::_fleetPanelController->fleet` gives the currently bound `FleetPlayerData*`.
+- `FleetBarContext.CurrentFleet` is another UI-bound current-fleet surface.
+- `FleetStateWidget_SetWidgetData_Hook` also receives `FleetPlayerData*` as widget context.
+
+In other words, the fleet bar appears to consume `FleetPlayerData`; it is not the only place fleet facts exist.
+
+The strongest code-level clue is the runtime observer itself: `observe_fleet_slot(slot_index, fleet_bar)` already reads slot facts from `FleetsManager::GetFleetPlayerData(slot_index)` and uses the fleet bar only for `selected` state. The current bulk helper becomes UI-dependent only because `observe_fleet_slots(FleetBarViewController*)` returns early when `fleet_bar` is null.
+
+### 2. What we can read directly without the fleet bar
+
+Passive runtime reads already available through current wrappers:
+
+- `FleetsManager::GetFleetPlayerData(slot)`
+- `FleetPlayerData::Id`
+- `FleetPlayerData::CurrentState`
+- `FleetPlayerData::PreviousState`
+- `FleetPlayerData::Hull`
+- `FleetPlayerData::MiningData`
+- `FleetPlayerData::CargoResourceFillLevel`
+- `FleetPlayerData::Address`
+- `DeploymentEvents.Trigger*` lifecycle hooks already wired in `parts/live_debug.cc`
+- `DeploymentEvents.TriggerSetCourseResponseEvent(fleet_id, success, is_recall_course, planned_course_data)`
+- `DeploymentEvents.TriggerStaleFleetDataDetected`
+
+Nearby runtime objects that look promising but are not currently exposed by a safe wrapper in this codebase:
+
+- deployed/course event objects passed through `TriggerCoursePlanned/Start/Change/End`
+- `planned_course_data` from `TriggerSetCourseResponseEvent`
+- protobuf model evidence for `DeployedFleet` fields such as `courseId`, `nodeId`, `nodeAddress`, `warpData.destinationNodeId`, and `latestCourseVectorX/Y`
+
+That split matters:
+
+- slot presence and movement state are already reachable passively through `FleetsManager`
+- destination-change identity is not yet proven from the current `FleetPlayerData` wrapper alone
+
+### 3. Field-level classification map
+
+| Question | Enough with current passive reads? | Candidate fields / evidence | Notes |
+| --- | --- | --- | --- |
+| arrived in system | yes, if snapshots capture both sides | `CurrentState`, `PreviousState`, previous snapshot state | Current classifier already uses `Warping -> Impulsing`. |
+| docked | yes | `CurrentState`, previous snapshot state | Current classifier already uses `newState == Docked` with space-state guard. |
+| recalled | partial | `CurrentState`, `TriggerSetCourseResponseEvent.is_recall_course`, course-end timing | State alone can show docked/end state, but not reliably distinguish recall cause from other dock outcomes. |
+| started impulse | yes | previous snapshot state, `CurrentState`, `PreviousState` | Existing helper uses `newState == Impulsing` and excludes warp-arrival. |
+| started warp | yes | previous snapshot state, `CurrentState`, `PreviousState` | Existing helper distinguishes `WarpCharging` and `Warping`. |
+| changed destination | not with confidence yet | likely course/deployed-fleet fields such as `courseId`, `nodeAddress`, `destinationNodeId`; maybe `Address` | `FleetPlayerData::Address` is exposed, but its destination semantics are not yet proven in this branch. |
+| ship disappeared | yes | slot `present` false, slot `fleetId` changed | Existing fleet-change events already emit `fleet-slot-cleared` and `fleet-slot-fleet-changed`. |
+| stale state | yes | `TriggerStaleFleetDataDetected`, unchanged snapshot suppression, all-slots-empty snapshots | We can observe stale-data events now. |
+| session reset | partial | stale-data event, all-slots-cleared transition, fleet id turnover | A real session id is still missing from the current runtime snapshot model. |
+
+### 4. Passive and low-risk reads
+
+Safest current reads:
+
+- `FleetsManager::Instance()` existence
+- `GetFleetPlayerData(slot)` per slot
+- `FleetPlayerData` scalar/model properties already wrapped (`Id`, states, hull, mining, cargo, address)
+- deployment lifecycle hooks that are already installed for live debug / runtime sync
+- existing change-driven snapshot machinery in `fleet_runtime_sync`
+
+These are passive because they do not issue game actions, do not depend on widget refresh, and do not require callback-style input interception.
+
+### 5. Reads that still depend on UI or menu state
+
+UI-dependent or action-surface reads:
+
+- `FleetStateWidget.SetWidgetData`
+- tracked `FleetBarViewController`
+- `FleetBarViewController::IsIndexSelected`
+- `_fleetPanelController->fleet`
+- `MiningObjectViewerWidget.UpdateTimerWidget`
+- object viewer visibility used by `fleet_actions`
+- `HandleShipSelection` / `RequestViewFleet` locate path
+
+These are useful for selection context, visible-viewer context, or user actions, but they should not be treated as the root observation model for reliable fleet notifications.
+
+## Recommended Proof Plan
+
+### Smallest read-only proof surface
+
+The smallest credible proof is still the runtime slot observer, but now the implementation surface can be stated more concretely:
+
+1. Keep the existing deployment-event hooks as the trigger surface.
+2. Change only `observe_fleet_slots(FleetBarViewController*)` so it does not early-return when `fleet_bar` is null.
+3. Continue reading slot facts from `FleetsManager::GetFleetPlayerData(slot_index)` for every slot.
+4. When `fleet_bar` is null, leave `selected=false` for slots and keep selected-index metadata at `-1`.
+5. Keep `observe_fleetbar(fleet_bar)` and `fleetBarTracked` metadata unchanged so the payload still tells us whether UI context was present.
+6. Reuse existing `fleet_runtime_sync_trigger(...)` calls from deployment events.
+7. Validate by comparing runtime snapshots and recent fleet-change events while the shop/faction screens are open.
+
+### Tiny instrumentation patch this proof would require
+
+This proof is not purely observational in the current codebase because one small read-only patch is still needed:
+
+- file: `mods/src/patches/live_debug_fleet_runtime_observers.cc`
+- change: remove the `if (!fleet_bar) return empty slots;` early return from `observe_fleet_slots(FleetBarViewController*)`
+- behavior: still populate slot observations from `FleetsManager`; only selection metadata remains UI-dependent
+
+That patch does not add a new hook family, does not issue any actions, and does not touch hotkey/callback seams.
+
+### What this proof can and cannot prove
+
+This proof can prove:
+
+- whether `FleetsManager` remains readable while menus are open
+- whether slot presence and movement-state transitions continue to advance without the fleet bar
+- whether arrival/docked/warp/impulse classification can be driven from runtime slot state instead of widget refresh
+- whether stale-fleet-data events line up with snapshot changes
+
+This proof cannot yet prove:
+
+- destination change identity with confidence
+- recall-vs-other-dock cause without using course-response data
+- session identity / reconnect boundaries beyond stale-data and all-slots-cleared heuristics
+
+### If the proof succeeds
+
+If this proof works, the next narrow step should be:
+
+- keep arrival/docked/warp/impulse classification mod-side from runtime slot observations
+- add one separate destination/course discovery pass around deployment course objects or `planned_course_data`
+- defer any sidecar timer fallback until after runtime truth is proven
+
+### If the proof fails
+
+If this proof fails, the next investigation target should be the course/deployed-fleet objects carried by deployment events, not more widget hooks and not callback-style action guards.
+
 ## Architecture Candidates
 
 ### Candidate A: Mod-side runtime transition detection
