@@ -311,7 +311,8 @@ bool inspect_native_fleet_selection_component(const char* method, void* element,
  */
 void InitializeActions_Hook(auto original, void* _this)
 {
-  const auto should_call_original = hotkey_router_should_call_original_initialize_actions();
+  const auto requested_policy     = ScopelyShortcutsPolicy();
+  const auto should_call_original = should_call_original_initialize_actions(requested_policy);
   spdlog::info("[Hotkeys] ShortcutsManager.InitializeActions original={} reason={} use_scopely_hotkeys={} "
                "allow_key_fallthrough={} scopely_shortcuts={} original_frame_policy={}",
                should_call_original ? "called" : "suppressed", initialize_actions_reason(),
@@ -535,16 +536,15 @@ void InstallHotkeyHooks()
 
 #define INSTALL_SHORTCUT_POINTER_CALLBACK_GUARD(token, method)                                                         \
   do {                                                                                                                 \
-    const auto install_guard =                                                                                         \
-        kEnableNativeShortcutPointerCallbackGuards                                                                     \
-        && hotkey_dispatcher_owns_inputs(Config::Get().hotkeys_enabled, ScopelyShortcutsPolicy());                     \
+    /* Pointer-style shortcut callbacks cross an opaque native ABI seam. Keep fallback/native                           \
+       fallthrough working by initializing Scopely shortcuts, but do not install this guard family                      \
+       until there is a layout-safe way to classify callback ownership. */                                             \
+    const auto install_guard = false;                                                                                  \
     if (install_guard) {                                                                                               \
       INSTALL_SHORTCUTS_MANAGER_POINTER_CALLBACK_GUARD(hooks, kShortcut##token##GuardHook,                             \
                                                        ShortcutsManager_##method##_GuardHook);                         \
     } else {                                                                                                           \
-      hooks.record_skipped(kShortcut##token##GuardHook, kEnableNativeShortcutPointerCallbackGuards                     \
-                                                            ? "input dispatcher does not own shortcuts"                \
-                                                            : "compile-time disabled");                                \
+      hooks.record_skipped(kShortcut##token##GuardHook, "disabled: unsafe opaque callback ABI seam");                \
     }                                                                                                                  \
   } while (false);
 
