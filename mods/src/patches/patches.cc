@@ -12,6 +12,7 @@
  */
 #include "patches.h"
 #include "file.h"
+#include "patches/fleet_notifications.h"
 #include "patches/notification_service.h"
 #include "patches/sync_battle_logs.h"
 #include "patches/sync_payload_builders.h"
@@ -159,10 +160,12 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
-  auto             install_live_debug_hooks           =
-      LiveDebugChannelEnabled() || (cfg.installSyncPatches && cfg.sync_options.fleet_runtime);
+    auto             install_live_debug_hooks           =
+      LiveDebugChannelEnabled() || (cfg.installSyncPatches && cfg.sync_options.fleet_runtime)
+      || fleet_notifications_runtime_events_enabled();
   auto             install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
-  auto             install_frame_tick_hooks           = cfg.installHotkeyHooks || LiveDebugChannelEnabled();
+      auto             install_frame_tick_hooks           =
+        cfg.installHotkeyHooks || LiveDebugChannelEnabled() || fleet_notifications_runtime_events_enabled();
   const PatchEntry patches[]                          = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},

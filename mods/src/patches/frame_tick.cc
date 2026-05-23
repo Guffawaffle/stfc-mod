@@ -5,9 +5,11 @@
 #include "config.h"
 #include "errormsg.h"
 
+#include <chrono>
 #include <exception>
 #include <spdlog/spdlog.h>
 
+#include "patches/fleet_notifications.h"
 #include "patches/frame_tick.h"
 #include "patches/hook_registry.h"
 #include "patches/hotkey_router.h"
@@ -19,7 +21,9 @@
 namespace {
 constexpr bool kEnableFrameTickHook = true;
 constexpr bool kEnableHotkeyFrameSubscriber = true;
+constexpr bool kEnableFleetNotificationFrameSubscriber = true;
 constexpr bool kEnableLiveDebugFrameSubscriber = true;
+constexpr auto kFleetNotificationPollInterval = std::chrono::milliseconds(250);
 
 constexpr HookDescriptor kScreenManagerUpdateHook = {
   "ScreenManager.Update",
@@ -33,9 +37,26 @@ bool hotkey_frame_subscriber_enabled()
   return kEnableHotkeyFrameSubscriber && Config::Get().installHotkeyHooks;
 }
 
+bool fleet_notification_frame_subscriber_enabled()
+{
+  return kEnableFleetNotificationFrameSubscriber && fleet_notifications_runtime_events_enabled();
+}
+
 bool live_debug_frame_subscriber_enabled()
 {
   return kEnableLiveDebugFrameSubscriber && LiveDebugChannelEnabled();
+}
+
+bool should_poll_fleet_notifications()
+{
+  static auto next_poll = std::chrono::steady_clock::time_point{};
+  const auto  now       = std::chrono::steady_clock::now();
+  if (now < next_poll) {
+    return false;
+  }
+
+  next_poll = now + kFleetNotificationPollInterval;
+  return true;
 }
 
 void log_frame_tick_subscribers()
@@ -43,9 +64,28 @@ void log_frame_tick_subscribers()
   spdlog::info("[FrameTick] subscriber=hotkey_router enabled={} reason=installHotkeyHooks compile_time_enabled={}",
                hotkey_frame_subscriber_enabled(),
                kEnableHotkeyFrameSubscriber);
+  spdlog::info("[FrameTick] subscriber=fleet_notifications enabled={} reason=runtime_fleet_notifications compile_time_enabled={} poll_interval_ms={}",
+               fleet_notification_frame_subscriber_enabled(),
+               kEnableFleetNotificationFrameSubscriber,
+               static_cast<int>(kFleetNotificationPollInterval.count()));
   spdlog::info("[FrameTick] subscriber=live_debug enabled={} reason=live_debug_channel compile_time_enabled={}",
                live_debug_frame_subscriber_enabled(),
                kEnableLiveDebugFrameSubscriber);
+}
+
+void tick_fleet_notifications()
+{
+  if (!fleet_notification_frame_subscriber_enabled() || !should_poll_fleet_notifications()) {
+    return;
+  }
+
+  try {
+    fleet_notifications_observe_runtime_fleets();
+  } catch (const std::exception& ex) {
+    spdlog::error("[FrameTick] subscriber=fleet_notifications status=failed error='{}'", ex.what());
+  } catch (...) {
+    spdlog::error("[FrameTick] subscriber=fleet_notifications status=failed error='unknown exception'");
+  }
 }
 
 void tick_live_debug(ScreenManager* screen_manager)
@@ -94,6 +134,7 @@ void ScreenManager_Update_FrameTick_Hook(auto original, ScreenManager* screen_ma
     impact_timer.ExcludeCall([&] { original(screen_manager); });
   }
 
+  tick_fleet_notifications();
   tick_live_debug(screen_manager);
 }
 }
@@ -109,7 +150,8 @@ void InstallFrameTickHooks()
     return;
   }
 
-  if (!hotkey_frame_subscriber_enabled() && !live_debug_frame_subscriber_enabled()) {
+  if (!hotkey_frame_subscriber_enabled() && !fleet_notification_frame_subscriber_enabled()
+      && !live_debug_frame_subscriber_enabled()) {
     hooks.record_skipped(kScreenManagerUpdateHook, "no enabled frame subscribers");
     hooks.log_summary();
     return;
