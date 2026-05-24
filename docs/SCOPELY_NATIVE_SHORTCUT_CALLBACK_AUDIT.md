@@ -4,6 +4,10 @@ Source folder: `D:\dev\stfc-mod`
 
 Status: source/dump audit plus implementation notes for central dispatcher-owned native shortcut suppression.
 
+## 2026-05-23 Safety Update
+
+The `Shift+Space` / `OnShipLocateAction` crash RCA supersedes the original locate-callback recommendation in this audit. Removing `X(ShipLocate, OnShipLocateAction)` from the generated pointer callback guard list stopped the crash. Treat `OnShipLocateAction` as a failed/unsafe seam unless a future branch validates it as a one-callback, default-off canary with its own ledger entry. See [Native Probe Safety](NATIVE_PROBE_SAFETY.md) for the current policy and [Native Seam Ledger](NATIVE_SEAM_LEDGER.md) for seeded seam status.
+
 ## 2026-05-16 Implementation Update
 
 Fallback-mode native shortcut suppression uses a centralized pointer-shaped `ShortcutsManager.On*` callback guard registry in `mods/src/patches/parts/hotkeys.cc`. Each registered callback routes through the same dispatcher ownership check and skips the original native callback only when the callback came from Unity's input system and the unified dispatcher owns the current physical chord.
@@ -70,7 +74,7 @@ Callbacks classify into these product buckets, but the runtime rule is uniform: 
 | `OnShipAAction` ... `OnShipHAction` | covered | `select_ship1` ... `select_ship8` | Keep suppressing at `SelectShip(int)`, not each public callback. |
 | `SelectShip(int)` | covered | `select_shipN` and modified-number conflicts | This is the confirmed seam for number-key fallthrough. |
 | `OnShipManageAction` | dispatcher-owned | `show_ships`, maybe native manage selected ship | Keep covered by the shared pointer-shaped guard. |
-| `OnShipLocateAction` | dispatcher-owned | double-tap locate, `select_shipN`, `select_current` | Keep covered by the shared pointer-shaped guard. |
+| `OnShipLocateAction` | failed/unsafe | double-tap locate, `select_shipN`, `select_current` | Keep out of the shared pointer-shaped guard. Only revisit as a one-callback, default-off canary with a native seam ledger entry. |
 | `OnShipRecallAction` | dispatcher-owned | `fleet_service`, `action_recall`, `action_recall_cancel` | Keep covered by the shared pointer-shaped guard; be conservative because recall/cancel is stateful. |
 
 ### Navigation And Panel Deep Links
@@ -129,6 +133,6 @@ Do not hook all `On*Action` callbacks just because they exist. macOS does not to
 
 - Does `ShortcutsManager.LateUpdate` suppression already prevent every panel/chat native action, or only some action processing phases?
 - Which Scopely native default bindings overlap with mod defaults on the current game build?
-- Does `OnShipLocateAction` participate in native double-tap locate or a separate explicit locate shortcut?
+- What lower-risk signal should replace `OnShipLocateAction` for native locate/fallthrough detection, if this question still matters?
 - Are `OnChallengeTrackAction` and `OnChallengesAction` separate surfaces, and which one best maps to `show_qtrials`?
 - Can we safely extract the current physical-key snapshot/native-suppression logic into a focused `native_shortcut_guard` module before any future private diagnostics?

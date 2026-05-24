@@ -4,6 +4,8 @@ Source folder: `D:\dev\stfc-mod`
 
 Status: historical handoff, sanitized after the public input-trace cleanup.
 
+Safety update: current native probe policy and living seam status are in [Native Probe Safety](NATIVE_PROBE_SAFETY.md) and [Native Seam Ledger](NATIVE_SEAM_LEDGER.md). Treat this handoff as historical context where it discusses broad pointer-shaped callback guards.
+
 ## Verified Behavior To Preserve
 
 - `ALT-1` toggles cargo/default and no longer selects ship 1.
@@ -71,6 +73,8 @@ Key rules:
 ## Relevant Docs
 
 - `docs/SCOPELY_NATIVE_SHORTCUT_CALLBACK_AUDIT.md`
+- `docs/NATIVE_PROBE_SAFETY.md`
+- `docs/NATIVE_SEAM_LEDGER.md`
 - `docs/CENTRAL_INPUT_DISPATCHER_FOLLOWUP.md`
 - `docs/EVENT_DRIVEN_INPUT_SPIKE.md`
 - `docs/KEYBIND_ACTION_SYSTEM_AUDIT.md`

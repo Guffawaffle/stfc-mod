@@ -19,6 +19,7 @@ The recent `Shift+Space` crash is a concrete warning that some native action/cal
 - `ShortcutsManager.OnShipLocateAction` / callback-guard style hooks should be treated as suspect by default.
 - This spike should prefer read-only state observation and reconciliation over action/callback interception.
 - If a future branch needs to revisit native callback hooks, it should do so as a separate, isolated experiment with explicit crash validation.
+- Use [Native Probe Safety](NATIVE_PROBE_SAFETY.md) and [Native Seam Ledger](NATIVE_SEAM_LEDGER.md) before proposing any new native seam.
 
 ## Current Observation Paths
 
@@ -391,7 +392,7 @@ Hooking every movement or steering method is tempting but risky. Existing `Deplo
 
 ### Toxic callback seams
 
-The recent `ShipLocate` callback-guard failure is a concrete example of why action/callback interception should not be the first proof surface here. A discovery branch for reliable notifications should avoid introducing new pointer-style native callback guards unless that branch is explicitly about validating the hook seam itself.
+The recent `ShipLocate` callback-guard failure is a concrete example of why action/callback interception should not be the first proof surface here. A discovery branch for reliable notifications should avoid introducing new pointer-style native callback guards unless that branch is explicitly about validating the hook seam itself. The current policy and ledger are [Native Probe Safety](NATIVE_PROBE_SAFETY.md) and [Native Seam Ledger](NATIVE_SEAM_LEDGER.md).
 
 ### Duplicate notifications
 
