@@ -31,6 +31,7 @@ struct FleetSlotStateKey {
   bool        selected = false;
   bool        present = false;
   uint64_t    fleet_id = 0;
+  int64_t     hull_spec_id = -1;
   int         current_state = -1;
   int         previous_state = -1;
   int         cargo_fill_percent = -1;
@@ -45,6 +46,7 @@ struct FleetStateKey {
 
   bool        fleet_present = false;
   uint64_t    fleet_id = 0;
+  int64_t     hull_spec_id = -1;
   int         current_state = -1;
   int         previous_state = -1;
   int         cargo_fill_percent = -1;
@@ -80,6 +82,7 @@ FleetStateKey make_state_key(const FleetObservation& fleet,
   key.selected_index = fleet.selectedIndex;
   key.fleet_present = fleet.hasFleet;
   key.fleet_id = fleet.fleetId;
+  key.hull_spec_id = fleet.hullSpecId;
   key.current_state = fleet.currentState;
   key.previous_state = fleet.previousState;
   key.cargo_fill_percent = cargo_fill_percent_bucket(fleet.cargoFillBasisPoints, fleet.cargoFillPercent);
@@ -91,6 +94,7 @@ FleetStateKey make_state_key(const FleetObservation& fleet,
     state.selected = slot.selected;
     state.present = slot.present;
     state.fleet_id = slot.fleetId;
+    state.hull_spec_id = slot.hullSpecId;
     state.current_state = slot.currentState;
     state.previous_state = slot.previousState;
     state.cargo_fill_percent = cargo_fill_percent_bucket(slot.cargoFillBasisPoints, slot.cargoFillPercent);
@@ -121,6 +125,9 @@ json fleet_to_json(const FleetObservation& fleet)
   result["previousStateName"] = fleet_state_name_from_value(fleet.previousState);
   result["cargoFillPercent"] = fleet.cargoFillPercent;
   result["cargoFillBasisPoints"] = fleet.cargoFillBasisPoints;
+  if (fleet.hullSpecId >= 0) {
+    result["hullSpecId"] = fleet.hullSpecId;
+  }
   result["hullName"] = fleet.hullName;
   return result;
 }
@@ -144,6 +151,9 @@ json fleet_slot_to_json(const FleetSlotObservation& slot)
   result["previousStateName"] = fleet_state_name_from_value(slot.previousState);
   result["cargoFillPercent"] = slot.cargoFillPercent;
   result["cargoFillBasisPoints"] = slot.cargoFillBasisPoints;
+  if (slot.hullSpecId >= 0) {
+    result["hullSpecId"] = slot.hullSpecId;
+  }
   result["hullName"] = slot.hullName;
   return result;
 }

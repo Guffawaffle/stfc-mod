@@ -15,6 +15,7 @@ struct FleetObservation {
   bool        hasController = false;
   bool        hasFleet = false;
   uint64_t    fleetId = 0;
+  int64_t     hullSpecId = -1;
   int         currentState = -1;
   int         previousState = -1;
   int         cargoFillPercent = -1;
@@ -27,6 +28,7 @@ struct FleetSlotObservation {
   bool        selected = false;
   bool        present = false;
   uint64_t    fleetId = 0;
+  int64_t     hullSpecId = -1;
   int         currentState = -1;
   int         previousState = -1;
   int         cargoFillPercent = -1;

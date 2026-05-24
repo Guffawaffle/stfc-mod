@@ -82,6 +82,9 @@ json fleet_observation_to_json(const FleetObservation& observation)
     result["fleet"]["previousStateName"] = fleet_state_name_from_value(observation.previousState);
     result["fleet"]["cargoFillPercent"] = observation.cargoFillPercent;
     result["fleet"]["cargoFillBasisPoints"] = observation.cargoFillBasisPoints;
+    if (observation.hullSpecId >= 0) {
+      result["fleet"]["hullSpecId"] = observation.hullSpecId;
+    }
     result["fleet"]["hullName"] = observation.hullName;
   }
 
@@ -105,6 +108,9 @@ json fleet_slot_observation_to_json(const FleetSlotObservation& observation)
   result["previousStateName"] = fleet_state_name_from_value(observation.previousState);
   result["cargoFillPercent"] = observation.cargoFillPercent;
   result["cargoFillBasisPoints"] = observation.cargoFillBasisPoints;
+  if (observation.hullSpecId >= 0) {
+    result["hullSpecId"] = observation.hullSpecId;
+  }
   result["hullName"] = observation.hullName;
   return result;
 }

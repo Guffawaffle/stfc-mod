@@ -45,8 +45,11 @@ FleetSlotObservation observe_fleet_slot(int slot_index, FleetBarViewController* 
   observation.cargoFillPercent = static_cast<int>(fleet->CargoResourceFillLevel * 100.0f);
   observation.cargoFillBasisPoints = static_cast<int>(fleet->CargoResourceFillLevel * 10000.0f);
 
-  if (auto hull = fleet->Hull; hull && hull->Name) {
-    observation.hullName = to_string(hull->Name);
+  if (auto hull = fleet->Hull; hull) {
+    observation.hullSpecId = hull->Id;
+    if (hull->Name) {
+      observation.hullName = to_string(hull->Name);
+    }
   }
 
   return observation;
@@ -76,8 +79,11 @@ FleetObservation observe_fleetbar(FleetBarViewController* fleet_bar)
     observation.cargoFillPercent = static_cast<int>(fleet->CargoResourceFillLevel * 100.0f);
     observation.cargoFillBasisPoints = static_cast<int>(fleet->CargoResourceFillLevel * 10000.0f);
 
-    if (auto hull = fleet->Hull; hull && hull->Name) {
-      observation.hullName = to_string(hull->Name);
+    if (auto hull = fleet->Hull; hull) {
+      observation.hullSpecId = hull->Id;
+      if (hull->Name) {
+        observation.hullName = to_string(hull->Name);
+      }
     }
   }
 
