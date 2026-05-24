@@ -49,7 +49,7 @@ The downstream `FleetBarViewController` guards should be treated as defensive un
    - Initial dump-backed audit is in `docs/SCOPELY_NATIVE_SHORTCUT_CALLBACK_AUDIT.md`.
    - Current native seam policy and per-seam evidence live in `docs/NATIVE_PROBE_SAFETY.md` and `docs/NATIVE_SEAM_LEDGER.md`.
    - Find native methods equivalent to `SelectShip` for chat, panels, zoom, and other shortcut actions.
-   - Classify each as `dispatcher-owned`, `native-owned`, or `passthrough`.
+   - Classify action ownership as `dispatcher-owned`, `native-owned`, or `passthrough` only as a static product mapping, not as native seam safety confidence.
    - Add targeted seam hooks only after the seam has its own confidence entry and a consumed dispatcher chord can otherwise trigger native behavior.
 
 2. Move physical-key suppression out of `hotkey_router.cc`.

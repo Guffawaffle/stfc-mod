@@ -33,6 +33,26 @@ Risk classes are also defined there: R0 static, R1 passive runtime, R2 managed l
 
 ## Entries
 
+### Static Inventory Snapshot - 2026-05-23
+
+This inventory records source-level seams from a static-only review. It does not claim new runtime observation, payload confidence, original/trampoline confidence, or product-safe status. "Operationally relied on" below means the seam is part of current product code paths; it is not a new confidence rung and is not evidence from this pass.
+
+| Seam | Owner / file | Functionality supported | Risk class | Confidence / status |
+| --- | --- | --- | --- | --- |
+| `ScreenManager.Update` frame tick | `mods/src/patches/frame_tick.cc`, installed from `mods/src/patches/patches.cc` | Central frame fan-out for hotkeys, optional live-debug tick, and original frame policy | R5 behavioral | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
+| `ShortcutsManager.InitializeActions` | `mods/src/patches/parts/hotkeys.cc` | Controls whether Scopely shortcut initialization runs according to shortcut policy | R5 behavioral | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
+| `ShortcutsManager.LateUpdate` | `mods/src/patches/parts/hotkeys.cc` | Suppresses native shortcut update when dispatcher-owned input should win | R5 behavioral | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
+| `ShortcutsManager.SelectShip(int)` | `mods/src/patches/parts/hotkeys.cc` | Native fleet-selection suppression/fallthrough around numeric ship selection | R5 behavioral | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
+| `RewardsButtonWidget.OnDidBindContext` | `mods/src/patches/parts/hotkeys.cc` | Reward/cargo context capture for hotkey action state | R4/R5 native interpretation / product behavior | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
+| `PreScanTargetWidget.ShowWithFleet` | `mods/src/patches/parts/hotkeys.cc` | Pre-scan target and fleet context capture for scan/cargo actions | R4/R5 native interpretation / product behavior | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
+| `FleetBarViewController.RequestSelect(int)`, `RequestSelect(Component)`, `ElementAction(int)` | `mods/src/patches/parts/hotkeys.cc` | Defensive suppression around native fleet selection and fleet-bar click/select paths | R5 behavioral | Grouped because the seams support one fleet-bar selection boundary; operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
+| `SectionManager.BackButtonPressed` | `mods/src/patches/parts/hotkeys.cc` | Escape/back duplicate suppression | R5 behavioral | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
+| `NavigationInteractionUIViewController.OnSetCourseButtonClick` | `mods/src/patches/parts/hotkeys.cc` | Duplicate set-course suppression | R5 behavioral | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
+| `NavigationZoom.Update` | `mods/src/patches/parts/zoom.cc` | Zoom in/out, preset, min/max, and reset dispatch | R5 behavioral | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
+| `DeploymentEvents.Trigger*` live-debug/runtime-sync hooks | `mods/src/patches/parts/live_debug.cc`, installed from `mods/src/patches/patches.cc` when live query, fleet runtime sync, or fleet notifications need them | Fleet runtime observation, live-debug recent events, notifications, and sync triggers | R4/R5 native interpretation / product behavior | Grouped because the hooks share one event-source boundary; operationally relied on where configured; static relationship mapped; not newly runtime-verified by this pass. |
+| `live_debug_tick(ScreenManager*)` | `mods/src/patches/parts/live_debug.cc`, reached through the frame tick subscriber when live query is enabled | File-backed live-debug request polling and read-only response generation | R4 native interpretation | Static relationship mapped; gated by `LiveDebugChannelEnabled()`; not newly runtime-verified by this pass. |
+| `probe::dump_*` / `probe::search_methods` | `mods/src/probe/probe.h` | Header-only IL2CPP runtime introspection toolkit | R0 while unused; R3/R4 if invoked in-process | Static toolkit only in this inventory. No active call site was found in the reviewed patch surface; do not treat it as a safe runtime probe without a separate ledger row and approval. |
+
 ### `Digit.Prime.GameInput.ShortcutsManager.OnShipLocateAction(InputAction.CallbackContext)`
 
 - Owner / file: `mods/src/patches/parts/hotkeys.cc`, formerly in `SHORTCUTS_MANAGER_POINTER_CALLBACK_GUARDS`.
@@ -51,12 +71,20 @@ Risk classes are also defined there: R0 static, R1 passive runtime, R2 managed l
 
 - Owner / file: `mods/src/patches/parts/hotkeys.cc`.
 - Intended question: shared suppression for native `ShortcutsManager.On*` pointer-shaped shortcut callbacks when dispatcher-owned input should win.
-- Static evidence: the macro expands one source list into descriptors, hook functions, and install calls for `ShortcutsManager.On*` callback guards. The current source list is a generated-family risk surface after `OnShipLocateAction` was removed.
+- Static evidence: the macro expands one source list into descriptors, hook functions, and install calls for `ShortcutsManager.On*` callback guards. The current source list is a generated-family risk surface after `OnShipLocateAction` was removed. The family still exists in source, but the current install gate `should_install_native_shortcut_pointer_callback_guards(...)` returns `false`.
 - Risk class: R5 when installed or changed as a broad generated family; individual callbacks must start lower as separate ledger entries.
-- Confidence rung: static relationship for the family shape only. No runtime confidence for unclassified members.
+- Confidence rung: static relationship for the family shape and disabled install gate only. No runtime confidence for unclassified members.
 - Runtime evidence: the former `OnShipLocateAction` member failed/unsafe; that failure does not classify the remaining callbacks as safe or unsafe.
 - Payload confidence: none for the family. The shared handler casts `void*` to `InputActionCallbackContext`; each callback needs its own payload confidence before payload interpretation is trusted.
 - Original/trampoline confidence: unclassified for the family. The shared handler may call `original(_this, context)` when not suppressed, so original/trampoline confidence must be tracked per callback.
 - Flag / rollback path: do not use a single generated-family flag as a discovery mechanism. Any future probe should enable one callback/action at a time with an explicit disable path.
-- Status: broad generated-family risk / inventory candidate.
-- Next action: create individual ledger entries before touching any member; do not invent confidence for the remaining callbacks.
+- Status: broad generated-family risk; currently disabled by policy gate; not product-safe.
+- Next action: create individual ledger entries before touching any member; do not enable without per-callback ledger promotion; do not invent confidence for the remaining callbacks.
+
+## Potential Future Enforcement
+
+These are documentation notes only, not requested code changes:
+
+- Add a static check that `OnShipLocateAction` stays out of `SHORTCUTS_MANAGER_POINTER_CALLBACK_GUARDS` unless it is explicitly re-promoted through a new one-callback ledger entry.
+- Add a static check that generated pointer callback guards remain disabled unless a future change explicitly promotes one callback at a time.
+- Consider cleaning up or annotating the confusing `kEnableNativeShortcutPointerCallbackGuards = true` source constant so readers do not mistake it for the effective install policy.
