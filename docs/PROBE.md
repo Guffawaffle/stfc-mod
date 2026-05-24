@@ -8,6 +8,12 @@ All output goes to spdlog (tagged `[probe]`), so check `community_patch.log`.
 
 ---
 
+## Safety First
+
+Before adding runtime probe calls, read [Native Probe Safety](NATIVE_PROBE_SAFETY.md). Static source and dump review should come first, and every runtime probe should have a narrow question, a disable path, and an exit plan.
+
+---
+
 ## Include
 
 ```cpp
@@ -58,7 +64,7 @@ All functions live in the `probe::` namespace. Every function takes
 `(assembly, namespace, class)` strings matching the IL2CPP metadata.
 
 | Function | What it dumps |
-|---|---|
+| --- | --- |
 | `dump_class(asm, ns, cls)` | Everything below, all at once |
 | `dump_hierarchy(asm, ns, cls)` | Parent chain + implemented interfaces + instance size |
 | `dump_fields(asm, ns, cls)` | Field name, type, byte offset |
@@ -91,14 +97,14 @@ probe::search_methods("Assembly-CSharp", "RequestSelect", 20);
 Methods include the runtime function pointer, which you can use directly with
 MinHook if you need to hook something you just discovered:
 
-```
+```text
 [probe]    13. System.Void RequestSelect(System.Int32 index, System.Boolean simulated) @ 0x7ffd8e70afb0
 ```
 
 Fields include byte offsets from the object base, matching what you'd put in a
 header struct:
 
-```
+```text
 [probe]     3. Digit.Prime.Ships.FleetLocalViewController _fleetPanelController (offset: 0x50)
 ```
 

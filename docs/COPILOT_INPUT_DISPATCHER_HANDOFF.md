@@ -4,13 +4,15 @@ Source folder: `D:\dev\stfc-mod`
 
 Status: historical handoff, sanitized after the public input-trace cleanup.
 
+Safety update: current native probe policy and living seam status are in [Native Probe Safety](NATIVE_PROBE_SAFETY.md) and [Native Seam Ledger](NATIVE_SEAM_LEDGER.md). Treat this handoff as historical context where it discusses broad pointer-shaped callback guards; that generated family has since been removed/quarantined from product hook code. Historical behavior-preservation notes below are not per-callback safety confidence.
+
 ## Verified Behavior To Preserve
 
 - `ALT-1` toggles cargo/default and no longer selects ship 1.
 - Bare `1` still selects ship 1.
 - Double-tap ship locate works after the dispatcher/native suppression changes.
 - With the mod TOML binding `show_bookmarks = "B"`, bare `B` opens bookmarks through the mod dispatcher and does not also fire the game's native recall binding.
-- Chat, native Manage Ship, and mod-owned `show_ships` behavior should continue to work under the current pointer-shaped native shortcut guard.
+- Chat, native Manage Ship, and mod-owned `show_ships` behavior were expected to continue working under the then-current pointer-shaped native shortcut guard. That guard family is now removed/quarantined; any reliance on those callback seams needs ledger-backed safety review first.
 
 ## Dispatcher / Native Ownership Semantics
 
@@ -26,7 +28,7 @@ Current intended policy:
 Implementation notes:
 
 - `hotkey_router_native_shortcuts_suppressed(...)` treats dispatcher-owned winners as native-consuming regardless of whether the chord has modifiers.
-- Pointer-shaped native shortcut callbacks route through a shared helper that refreshes dispatcher suppression and skips `original` when the dispatcher owns the current key.
+- Historical implementation note: pointer-shaped native shortcut callbacks routed through a shared helper that refreshed dispatcher suppression and skipped `original` when the dispatcher owned the current key. The shared callback family is now removed/quarantined and treated as a generated-family risk surface, not as product-safe by default.
 - Fleet-bar selection hooks still guard against native fallthrough, but `HandleShipSelection(...)` uses a scoped bypass while making its own `FleetBarViewController::RequestSelect(...)` and `ElementAction(...)` calls. Without that bypass, bare `1` can toggle the ship card without actually selecting the ship.
 
 ## ABI Lesson
@@ -41,13 +43,13 @@ void Probe(auto original, void* _this, InputActionCallbackContext context);
 
 Likely reason: `InputAction.CallbackContext` is a 16-byte value struct in the IL2CPP dump, and Windows x64 passes these by hidden reference/pointer. Treat callback-context methods as pointer-shaped at the native ABI unless a dedicated ABI audit proves otherwise.
 
-Use this shape for the shared guard:
+If a future one-callback guard is approved by the native seam ledger, use this pointer-shaped ABI form:
 
 ```cpp
 void Guard(auto original, void* _this, void* context);
 ```
 
-The public build should not expose per-key or per-callback input trace logging. Any future deep diagnostics for this path belong in a private-only patch or worktree outside the normal public build and AX command surface.
+The public build should not expose per-key or per-callback input trace logging. Any future deep diagnostics for this path belong in a private-only patch or worktree outside the normal public build and AX command surface. ABI shape alone does not prove that original/trampoline calls or payload reads are safe.
 
 ## Detour Single-Owner Policy
 
@@ -71,6 +73,8 @@ Key rules:
 ## Relevant Docs
 
 - `docs/SCOPELY_NATIVE_SHORTCUT_CALLBACK_AUDIT.md`
+- `docs/NATIVE_PROBE_SAFETY.md`
+- `docs/NATIVE_SEAM_LEDGER.md`
 - `docs/CENTRAL_INPUT_DISPATCHER_FOLLOWUP.md`
 - `docs/EVENT_DRIVEN_INPUT_SPIKE.md`
 - `docs/KEYBIND_ACTION_SYSTEM_AUDIT.md`

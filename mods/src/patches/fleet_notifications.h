@@ -22,11 +22,21 @@ struct FleetPlayerData;
 void fleet_notifications_init();
 
 /**
+ * @brief True when runtime deployment-event observation is worth installing for fleet notifications.
+ */
+bool fleet_notifications_runtime_events_enabled();
+
+/**
  * @brief Observe a fleet-bar state refresh, emit notifications, and report a meaningful runtime trigger source.
  * @param fleet The fleet currently bound to the widget.
  * @return A high-signal runtime trigger source name for meaningful state transitions, or nullptr.
  */
 const char* fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet);
+
+/**
+ * @brief Observe current FleetsManager state for all fleet slots and feed the fleet notification state machine.
+ */
+void fleet_notifications_observe_runtime_fleets();
 
 /**
  * @brief Observe a mining node depletion event for a fleet.

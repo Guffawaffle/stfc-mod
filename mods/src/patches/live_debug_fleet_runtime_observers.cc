@@ -87,38 +87,10 @@ FleetObservation observe_fleetbar(FleetBarViewController* fleet_bar)
 std::array<FleetSlotObservation, kFleetIndexMax> observe_fleet_slots(FleetBarViewController* fleet_bar)
 {
   std::array<FleetSlotObservation, kFleetIndexMax> observations{};
-  if (!fleet_bar) {
-    for (int slot_index = 0; slot_index < kFleetIndexMax; ++slot_index) {
-      observations[static_cast<size_t>(slot_index)].slotIndex = slot_index;
-    }
-    return observations;
-  }
-
-  auto fleets_manager = FleetsManager::Instance();
   for (int slot_index = 0; slot_index < kFleetIndexMax; ++slot_index) {
-    auto& observation = observations[static_cast<size_t>(slot_index)];
-    observation.slotIndex = slot_index;
-    observation.selected = fleet_bar->IsIndexSelected(slot_index);
-
-    if (!fleets_manager) {
-      continue;
-    }
-
-    auto fleet = fleets_manager->GetFleetPlayerData(slot_index);
-    if (!fleet) {
-      continue;
-    }
-
-    observation.present = true;
-    observation.fleetId = fleet->Id;
-    observation.currentState = static_cast<int>(fleet->CurrentState);
-    observation.previousState = static_cast<int>(fleet->PreviousState);
-    observation.cargoFillPercent = static_cast<int>(fleet->CargoResourceFillLevel * 100.0f);
-    observation.cargoFillBasisPoints = static_cast<int>(fleet->CargoResourceFillLevel * 10000.0f);
-
-    if (auto hull = fleet->Hull; hull && hull->Name) {
-      observation.hullName = to_string(hull->Name);
-    }
+    // Slot state comes from FleetsManager even when the fleet bar is unavailable.
+    // Only selection metadata remains UI-dependent on FleetBarViewController.
+    observations[static_cast<size_t>(slot_index)] = observe_fleet_slot(slot_index, fleet_bar);
   }
 
   return observations;

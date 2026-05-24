@@ -10,11 +10,13 @@
 #include "config.h"
 #include "errormsg.h"
 #include "patches/live_debug.h"
+#include "patches/live_debug_fleet_serializers.h"
 #include "patches/notification_audio.h"
 #include "patches/notification_policy.h"
 #include "patches/notification_service.h"
 
 #include <prime/FleetPlayerData.h>
+#include <prime/FleetsManager.h>
 #include <prime/NotificationIncomingFleetParams.h>
 #include <prime/SpecManager.h>
 #include <prime/Toast.h>
@@ -317,6 +319,19 @@ void fleet_notifications_init()
   notification_audio_init();
 }
 
+bool fleet_notifications_runtime_events_enabled()
+{
+  if (!Config::Get().installFleetArrivalHooks) {
+    return false;
+  }
+
+  return notification_delivery_enabled(NotificationKind::FleetArrivedInSystem)
+         || notification_delivery_enabled(NotificationKind::FleetArrivedAtDestination)
+         || notification_delivery_enabled(NotificationKind::FleetStartedMining)
+         || notification_delivery_enabled(NotificationKind::FleetDocked)
+         || notification_delivery_enabled(NotificationKind::FleetRepairComplete);
+}
+
 const char* fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet)
 {
   if (!fleet) {
@@ -354,6 +369,27 @@ const char* fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet)
 
   s_fleet_bar_states[fleetId] = currentState;
   return runtimeTriggerSource;
+}
+
+void fleet_notifications_observe_runtime_fleets()
+{
+  if (!fleet_notifications_runtime_events_enabled()) {
+    return;
+  }
+
+  auto* fleets_manager = FleetsManager::Instance();
+  if (!fleets_manager) {
+    return;
+  }
+
+  for (int slot_index = 0; slot_index < kFleetIndexMax; ++slot_index) {
+    auto* fleet = fleets_manager->GetFleetPlayerData(slot_index);
+    if (!fleet) {
+      continue;
+    }
+
+    fleet_notifications_observe_fleet_bar(fleet);
+  }
 }
 
 void fleet_notifications_observe_node_depleted(int64_t fleetId)
