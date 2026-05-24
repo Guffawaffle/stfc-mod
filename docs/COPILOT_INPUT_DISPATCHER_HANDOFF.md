@@ -4,7 +4,7 @@ Source folder: `D:\dev\stfc-mod`
 
 Status: historical handoff, sanitized after the public input-trace cleanup.
 
-Safety update: current native probe policy and living seam status are in [Native Probe Safety](NATIVE_PROBE_SAFETY.md) and [Native Seam Ledger](NATIVE_SEAM_LEDGER.md). Treat this handoff as historical context where it discusses broad pointer-shaped callback guards. Historical behavior-preservation notes below are not per-callback safety confidence.
+Safety update: current native probe policy and living seam status are in [Native Probe Safety](NATIVE_PROBE_SAFETY.md) and [Native Seam Ledger](NATIVE_SEAM_LEDGER.md). Treat this handoff as historical context where it discusses broad pointer-shaped callback guards; that generated family has since been removed/quarantined from product hook code. Historical behavior-preservation notes below are not per-callback safety confidence.
 
 ## Verified Behavior To Preserve
 
@@ -12,7 +12,7 @@ Safety update: current native probe policy and living seam status are in [Native
 - Bare `1` still selects ship 1.
 - Double-tap ship locate works after the dispatcher/native suppression changes.
 - With the mod TOML binding `show_bookmarks = "B"`, bare `B` opens bookmarks through the mod dispatcher and does not also fire the game's native recall binding.
-- Chat, native Manage Ship, and mod-owned `show_ships` behavior were expected to continue working under the then-current pointer-shaped native shortcut guard. Post-RCA, any reliance on those callback seams needs ledger-backed safety review first.
+- Chat, native Manage Ship, and mod-owned `show_ships` behavior were expected to continue working under the then-current pointer-shaped native shortcut guard. That guard family is now removed/quarantined; any reliance on those callback seams needs ledger-backed safety review first.
 
 ## Dispatcher / Native Ownership Semantics
 
@@ -28,7 +28,7 @@ Current intended policy:
 Implementation notes:
 
 - `hotkey_router_native_shortcuts_suppressed(...)` treats dispatcher-owned winners as native-consuming regardless of whether the chord has modifiers.
-- Historical implementation note: pointer-shaped native shortcut callbacks routed through a shared helper that refreshed dispatcher suppression and skipped `original` when the dispatcher owned the current key. The shared callback family is now treated as a generated-family risk surface, not as product-safe by default.
+- Historical implementation note: pointer-shaped native shortcut callbacks routed through a shared helper that refreshed dispatcher suppression and skipped `original` when the dispatcher owned the current key. The shared callback family is now removed/quarantined and treated as a generated-family risk surface, not as product-safe by default.
 - Fleet-bar selection hooks still guard against native fallthrough, but `HandleShipSelection(...)` uses a scoped bypass while making its own `FleetBarViewController::RequestSelect(...)` and `ElementAction(...)` calls. Without that bypass, bare `1` can toggle the ship card without actually selecting the ship.
 
 ## ABI Lesson

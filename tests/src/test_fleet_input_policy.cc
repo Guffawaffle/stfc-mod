@@ -328,35 +328,6 @@ TEST_SUITE("hotkey_decisions")
     CHECK_FALSE(hotkey_dispatcher_owns_inputs(false, ScopelyShortcutPolicy::Native));
   }
 
-  TEST_CASE("pointer callback guards remain disabled until the opaque callback ABI seam is replaced")
-  {
-    CHECK_FALSE(should_install_native_shortcut_pointer_callback_guards(true, ScopelyShortcutPolicy::Off));
-    CHECK_FALSE(should_install_native_shortcut_pointer_callback_guards(true, ScopelyShortcutPolicy::Fallback));
-    CHECK_FALSE(should_install_native_shortcut_pointer_callback_guards(true, ScopelyShortcutPolicy::Native));
-
-    CHECK(std::string(native_shortcut_pointer_callback_guard_reason(false, ScopelyShortcutPolicy::Native))
-          == "input dispatcher does not own shortcuts");
-    CHECK(std::string(native_shortcut_pointer_callback_guard_reason(true, ScopelyShortcutPolicy::Off))
-          == "disabled: unsafe opaque callback ABI seam");
-    CHECK(std::string(native_shortcut_pointer_callback_guard_reason(true, ScopelyShortcutPolicy::Fallback))
-          == "disabled: unsafe opaque callback ABI seam");
-  }
-
-  TEST_CASE("native shortcut callback hooks preserve fallback fallthrough unless mod-owned")
-  {
-    CHECK_FALSE(
-        hotkey_router_should_suppress_native_shortcut_callback(false, true, ScopelyShortcutPolicy::Fallback, true));
-    CHECK_FALSE(
-        hotkey_router_should_suppress_native_shortcut_callback(true, true, ScopelyShortcutPolicy::Native, false));
-    CHECK_FALSE(
-        hotkey_router_should_suppress_native_shortcut_callback(true, false, ScopelyShortcutPolicy::Fallback, false));
-    CHECK_FALSE(
-        hotkey_router_should_suppress_native_shortcut_callback(true, true, ScopelyShortcutPolicy::Fallback, false));
-
-    CHECK(hotkey_router_should_suppress_native_shortcut_callback(true, true, ScopelyShortcutPolicy::Off, false));
-    CHECK(hotkey_router_should_suppress_native_shortcut_callback(true, true, ScopelyShortcutPolicy::Fallback, true));
-  }
-
   TEST_CASE("Escape exit suppression only blocks Escape-triggered exit outside the double-tap window")
   {
     CHECK_FALSE(should_suppress_escape_exit(false, true, 500, -1));

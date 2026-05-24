@@ -6,17 +6,17 @@ Status: historical source/dump audit plus implementation notes for central dispa
 
 ## 2026-05-23 Safety Update
 
-The `Shift+Space` / `OnShipLocateAction` crash RCA supersedes the original locate-callback recommendation in this audit. Removing `X(ShipLocate, OnShipLocateAction)` from the generated pointer callback guard list stopped the crash. Treat `OnShipLocateAction` as a failed/unsafe seam unless a future branch validates it as a one-callback, default-off canary with its own ledger entry. See [Native Probe Safety](NATIVE_PROBE_SAFETY.md) for the current policy and [Native Seam Ledger](NATIVE_SEAM_LEDGER.md) for seeded seam status.
+The `Shift+Space` / `OnShipLocateAction` crash RCA supersedes the original locate-callback recommendation in this audit. Removing `X(ShipLocate, OnShipLocateAction)` from the generated pointer callback guard list stopped the crash, and the remaining generated pointer callback guard family has since been removed/quarantined from product hook code. Treat `OnShipLocateAction` as a failed/unsafe seam unless a future branch validates it as a one-callback, default-off canary with its own ledger entry. See [Native Probe Safety](NATIVE_PROBE_SAFETY.md) for the current policy and [Native Seam Ledger](NATIVE_SEAM_LEDGER.md) for seeded seam status.
 
-Historical rows below that recommend keeping callbacks covered by the shared pointer-shaped guard are static audit recommendations only. They are not ledger-backed runtime confidence. Before relying on, expanding, or restoring any `ShortcutsManager.On*` callback guard, add a seam-specific ledger entry and follow the safety ladder.
+Historical rows below that recommend keeping callbacks covered by the shared pointer-shaped guard are static audit recommendations only. They are not ledger-backed runtime confidence. Before relying on, expanding, restoring, or reintroducing any `ShortcutsManager.On*` callback guard, add a seam-specific ledger entry and follow the safety ladder.
 
 ## 2026-05-16 Historical Implementation Snapshot
 
-At the time of this audit, fallback-mode native shortcut suppression used a centralized pointer-shaped `ShortcutsManager.On*` callback guard registry in `mods/src/patches/parts/hotkeys.cc`. Each registered callback routed through the same dispatcher ownership check and skipped the original native callback only when the callback came from Unity's input system and the unified dispatcher owned the current physical chord.
+At the time of this audit, fallback-mode native shortcut suppression used a centralized pointer-shaped `ShortcutsManager.On*` callback guard registry in `mods/src/patches/parts/hotkeys.cc`. Each registered callback routed through the same dispatcher ownership check and skipped the original native callback only when the callback came from Unity's input system and the unified dispatcher owned the current physical chord. That generated registry is now removed/quarantined from product hook code.
 
 This replaces the earlier single-callback experiment. UI/direct callbacks with a zero/default `InputAction.CallbackContext` are allowed through so a held mod key does not accidentally swallow a legitimate button-driven action. The by-value `InputAction.CallbackContext` hook shape remains unsafe and should not be reintroduced.
 
-Post-RCA safety note: this implementation shape is now classified as a broad generated-family risk surface in the ledger. ABI shape and static callback membership do not prove that any specific callback is safe, product-ready, or safe to call through.
+Post-RCA safety note: this implementation shape is now classified as a removed/quarantined broad generated-family risk surface in the ledger. ABI shape and static callback membership do not prove that any specific callback is safe, product-ready, or safe to call through.
 
 The public build no longer exposes per-key or per-callback input trace logging for this path. Diagnostics should use sanitized hook health, settings, and operational status from AX.
 
@@ -43,12 +43,12 @@ Mod hooks described by this historical audit:
 - `ShortcutsManager.InitializeActions`: decides whether Scopely native shortcut actions initialize.
 - `ShortcutsManager.LateUpdate`: skips native shortcut processing when the dispatcher consumed the current physical chord.
 - `ShortcutsManager.SelectShip(int)`: suppresses native number-key ship selection for consumed modified chords.
-- `ShortcutsManager.On*Action(InputAction.CallbackContext)` pointer callbacks: registered as one guard family for fallback-mode native shortcut callbacks that can fire before the frame router. The family is now tracked as broad generated-family risk in the ledger, not as per-callback confidence.
+- `ShortcutsManager.On*Action(InputAction.CallbackContext)` pointer callbacks: historically registered as one guard family for fallback-mode native shortcut callbacks that can fire before the frame router. The family is now removed/quarantined and tracked as broad generated-family risk in the ledger, not as per-callback confidence.
 - `FleetBarViewController.RequestSelect(...)` and `ElementAction(...)`: defensive downstream fleet-selection guards.
 
 ## Historical Implementation Model
 
-`ShortcutsManager.SelectShip(int)` remains the right low-level seam for confirmed number-key ship-selection fallthrough. The broader `ShortcutsManager.On*` callback family was intercepted through one shared pointer-shaped registry, not bespoke per-callback logic.
+`ShortcutsManager.SelectShip(int)` remains the right low-level seam for confirmed number-key ship-selection fallthrough. The broader `ShortcutsManager.On*` callback family was historically intercepted through one shared pointer-shaped registry, not bespoke per-callback logic; that registry is now removed/quarantined.
 
 Callbacks were classified into these product buckets as static/action-ownership notes, not native seam confidence. Under the old runtime rule, if the callback came from Unity's input system and the unified dispatcher owned the current physical chord, the guard skipped the native callback; otherwise it called through.
 
@@ -83,7 +83,7 @@ Callbacks were classified into these product buckets as static/action-ownership 
 
 ### Navigation And Panel Deep Links
 
-The mod implements most panel navigation in `hotkey_dispatch.cc`, so consumed dispatcher chords should not also run native deep links. Historical note: the May 16 design expected the shared pointer-shaped guard to cover the registered native callback family when fallback-mode native shortcuts were active. Post-RCA, that expectation requires per-callback ledger-backed safety review before it is treated as product guidance.
+The mod implements most panel navigation in `hotkey_dispatch.cc`, so consumed dispatcher chords should not also run native deep links. Historical note: the May 16 design expected the shared pointer-shaped guard to cover the registered native callback family when fallback-mode native shortcuts were active. Post-RCA, that expectation requires per-callback ledger-backed safety review and reintroduction through a one-callback allowlist before it is treated as product guidance.
 
 ### Chat Shortcuts
 

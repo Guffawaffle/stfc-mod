@@ -55,7 +55,7 @@ This inventory records source-level seams from a static-only review. It does not
 
 ### `Digit.Prime.GameInput.ShortcutsManager.OnShipLocateAction(InputAction.CallbackContext)`
 
-- Owner / file: `mods/src/patches/parts/hotkeys.cc`, formerly in `SHORTCUTS_MANAGER_POINTER_CALLBACK_GUARDS`.
+- Owner / file: `mods/src/patches/parts/hotkeys.cc`, formerly in the removed generated pointer callback guard family.
 - Intended question: suppress native locate fallthrough when dispatcher-owned input should win.
 - Static evidence: source/dump evidence showed the callback exists and has `InputAction.CallbackContext` shape; this is static only.
 - Risk class: R5 as part of the generated guard family; R3/R4 only if revisited as a one-callback private canary.
@@ -63,28 +63,28 @@ This inventory records source-level seams from a static-only review. It does not
 - Runtime evidence: plain `Space` worked; `Shift+Space` crashed; live config secondary was `TAB`; removing logging did not stop the crash; opaque payload treatment did not stop the crash; removing `OnShipLocateAction` from the generated guard list stopped the crash.
 - Payload confidence: failed/unsafe. Do not dereference payload for this seam without a new isolated proof.
 - Original/trampoline confidence: failed/unsafe. Do not rely on original/trampoline behavior for this seam without a new isolated proof.
-- Flag / rollback path: keep absent from the generated guard list. Any revisit must be one-callback, default-off, and removable without touching siblings.
+- Flag / rollback path: keep absent from product hook code and any generated guard list. Any revisit must be one-callback, default-off, and removable without touching siblings.
 - Status: failed/unsafe/superseded.
 - Next action: keep deleted from the product guard family; only revisit from R0/R1 with explicit approval.
 
 ### `SHORTCUTS_MANAGER_POINTER_CALLBACK_GUARDS`
 
-- Owner / file: `mods/src/patches/parts/hotkeys.cc`.
+- Owner / file: formerly `mods/src/patches/parts/hotkeys.cc`; removed from product hook code.
 - Intended question: shared suppression for native `ShortcutsManager.On*` pointer-shaped shortcut callbacks when dispatcher-owned input should win.
-- Static evidence: the macro expands one source list into descriptors, hook functions, and install calls for `ShortcutsManager.On*` callback guards. The current source list is a generated-family risk surface after `OnShipLocateAction` was removed. The family still exists in source, but the current install gate `should_install_native_shortcut_pointer_callback_guards(...)` returns `false`.
+- Static evidence: the former macro expanded one source list into descriptors, hook functions, and install calls for `ShortcutsManager.On*` callback guards. After the quarantine patch, the macro list, shared handler, generated hook functions, and generated install machinery are absent from product hook code.
 - Risk class: R5 when installed or changed as a broad generated family; individual callbacks must start lower as separate ledger entries.
-- Confidence rung: static relationship for the family shape and disabled install gate only. No runtime confidence for unclassified members.
+- Confidence rung: static relationship for the historical family shape only. No runtime confidence for unclassified members.
 - Runtime evidence: the former `OnShipLocateAction` member failed/unsafe; that failure does not classify the remaining callbacks as safe or unsafe.
-- Payload confidence: none for the family. The shared handler casts `void*` to `InputActionCallbackContext`; each callback needs its own payload confidence before payload interpretation is trusted.
-- Original/trampoline confidence: unclassified for the family. The shared handler may call `original(_this, context)` when not suppressed, so original/trampoline confidence must be tracked per callback.
-- Flag / rollback path: do not use a single generated-family flag as a discovery mechanism. Any future probe should enable one callback/action at a time with an explicit disable path.
-- Status: broad generated-family risk; currently disabled by policy gate; not product-safe.
-- Next action: create individual ledger entries before touching any member; do not enable without per-callback ledger promotion; do not invent confidence for the remaining callbacks.
+- Payload confidence: none for the family. The former shared handler cast `void*` to `InputActionCallbackContext`; each callback needs its own payload confidence before payload interpretation is trusted.
+- Original/trampoline confidence: unclassified for the family. The former shared handler could call `original(_this, context)` when not suppressed, so original/trampoline confidence must be tracked per callback.
+- Flag / rollback path: removal/quarantine is the rollback path. Do not use a single generated-family flag as a discovery mechanism. Any future probe should enable one callback/action at a time with an explicit disable path.
+- Status: removed/quarantined; not product-safe.
+- Next action: keep absent from product hook code; create individual ledger entries before touching any member; do not reintroduce without per-callback ledger promotion.
 
-## Potential Future Enforcement
+## Static Enforcement
 
-These are documentation notes only, not requested code changes:
+The quarantine patch adds a source-level static guardrail for product hook code:
 
-- Add a static check that `OnShipLocateAction` stays out of `SHORTCUTS_MANAGER_POINTER_CALLBACK_GUARDS` unless it is explicitly re-promoted through a new one-callback ledger entry.
-- Add a static check that generated pointer callback guards remain disabled unless a future change explicitly promotes one callback at a time.
-- Consider cleaning up or annotating the confusing `kEnableNativeShortcutPointerCallbackGuards = true` source constant so readers do not mistake it for the effective install policy.
+- `SHORTCUTS_MANAGER_POINTER_CALLBACK_GUARDS` must stay absent.
+- `OnShipLocateAction` must stay absent from `mods/src/patches/parts/hotkeys.cc` unless it is explicitly re-promoted through a new one-callback ledger entry.
+- Generated pointer callback guard install machinery must stay absent unless a future change carries an explicit allowlist/promotion marker tied to a ledger entry.
