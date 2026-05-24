@@ -62,10 +62,6 @@ TEST_CASE("generated native shortcut pointer callback guard family stays quarant
       || contains(hotkeys_source, "should_install_native_shortcut_pointer_callback_guards")
       || contains(hotkeys_source, "native_shortcut_pointer_callback_guard_reason")
       || contains(hotkeys_source, "hotkey_router_should_suppress_native_shortcut_callback");
-  const auto has_explicit_promotion_marker =
-      contains(hotkeys_source, "NATIVE_SHORTCUT_CALLBACK_GUARD_ALLOWLIST_PROMOTED");
-  const auto has_unpromoted_generated_callback_guard_install =
-      has_generated_callback_guard_install && !has_explicit_promotion_marker;
 
-  CHECK_FALSE(has_unpromoted_generated_callback_guard_install);
+    CHECK_FALSE(has_generated_callback_guard_install);
 }
