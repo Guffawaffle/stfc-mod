@@ -9,6 +9,7 @@
 #include "config.h"
 #include "config_metadata.h"
 #include "config_redaction.h"
+#include "config_sidecar.h"
 #include "config_schema.h"
 #include "file.h"
 #include "patches/input_binding/input_config_bridge.h"
@@ -32,6 +33,7 @@
 #include <iostream>
 #include <optional>
 #include <ranges>
+#include <set>
 #include <string>
 #include <string_view>
 
@@ -43,6 +45,7 @@ namespace DCC   = DefaultConfig::Control;
 namespace DCU   = DefaultConfig::UI;
 namespace DCBS  = DefaultConfig::Buffs;
 namespace DCS   = DefaultConfig::Sync;
+namespace DCSL  = DefaultConfig::Sidecar::Logging;
 namespace DCSC  = DefaultConfig::SystemConfig;
 namespace DCSH  = DefaultConfig::Shortcuts;
 namespace DCBLD = DefaultConfig::BattleLogDecoder;
@@ -71,8 +74,9 @@ static bool                  g_queue_add_hide_viewers            = DCD::queue_ad
 static bool                  g_battle_log_decoder_enabled        = false;
 static bool                  g_battle_log_decoder_segments       = true;
 static bool                  g_battle_log_decoder_feed           = true;
-static int                   g_sync_sidecar_jsonl_replay_seconds = DCS::sidecar_jsonl_replay_seconds;
-static int                   g_sync_sidecar_jsonl_recent_logs    = DCS::sidecar_jsonl_recent_logs;
+static SidecarConfig         g_sidecar_config{};
+static int                   g_sidecar_logging_jsonl_replay_seconds = DCSL::jsonl_replay_seconds;
+static int                   g_sidecar_logging_jsonl_recent_logs    = DCSL::jsonl_recent_logs;
 static bool                  g_refinery_diagnostics              = DCD::refinery_diagnostics;
 static bool                  g_mod_impact_monitor                = DCD::mod_impact_monitor;
 static RuntimeTraceLevel     g_runtime_trace_level               = RuntimeTraceLevel::Off;
@@ -101,17 +105,32 @@ bool QueueAddHideViewersEnabled()
 bool BattleLogDecoderEnabled()
 { return g_battle_log_decoder_enabled; }
 
+const SidecarConfig& SidecarSettings()
+{ return g_sidecar_config; }
+
+const SidecarSyncConfig& SidecarSyncSettings()
+{ return g_sidecar_config.sync; }
+
+const SidecarProbesConfig& SidecarProbesSettings()
+{ return g_sidecar_config.probes; }
+
+const SidecarLoggingConfig& SidecarLoggingSettings()
+{ return g_sidecar_config.logging; }
+
+const SidecarDiagnosticsConfig& SidecarDiagnosticsSettings()
+{ return g_sidecar_config.diagnostics; }
+
 bool BattleLogDecoderEmitSegments()
 { return g_battle_log_decoder_segments; }
 
 bool BattleLogDecoderEmitFeed()
 { return g_battle_log_decoder_feed; }
 
-int SyncSidecarJsonlReplaySeconds()
-{ return g_sync_sidecar_jsonl_replay_seconds; }
+int SidecarLoggingJsonlReplaySeconds()
+{ return g_sidecar_logging_jsonl_replay_seconds; }
 
-int SyncSidecarJsonlRecentLogs()
-{ return g_sync_sidecar_jsonl_recent_logs; }
+int SidecarLoggingJsonlRecentLogs()
+{ return g_sidecar_logging_jsonl_recent_logs; }
 
 bool RefineryDiagnosticsEnabled()
 { return g_refinery_diagnostics; }
@@ -549,6 +568,24 @@ bool read_bool_config_entry(toml::table& config, toml::table& new_config, const 
   return result.value;
 }
 
+void log_config_diagnostic(const config_schema::Diagnostic& diagnostic)
+{
+  switch (diagnostic.severity) {
+    case config_schema::DiagnosticSeverity::Info:
+      spdlog::info("[ConfigSchema] info path={} source={} message='{}'", diagnostic.path, diagnostic.source_path,
+                   diagnostic.message);
+      break;
+    case config_schema::DiagnosticSeverity::Warning:
+      spdlog::warn("[ConfigSchema] warning path={} source={} message='{}'", diagnostic.path, diagnostic.source_path,
+                   diagnostic.message);
+      break;
+    case config_schema::DiagnosticSeverity::Error:
+      spdlog::error("[ConfigSchema] error path={} source={} message='{}'", diagnostic.path, diagnostic.source_path,
+                    diagnostic.message);
+      break;
+  }
+}
+
 bool notification_toggle_key_exists(toml::table& config, const NotificationToggleSpec& spec)
 {
   return config_key_exists(config, spec.section, spec.key)
@@ -627,9 +664,6 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
     }
     if (*value == "majel") {
       return SyncTargetConfig::Mode::Majel;
-    }
-    if (*value == "sidecar_broker") {
-      return SyncTargetConfig::Mode::SidecarBroker;
     }
 
     spdlog::warn("Invalid target [{}] mode '{}'; using legacy.", target_section, *value);
@@ -1102,14 +1136,15 @@ void Config::Load()
 
   this->sync_debug   = get_config_or_default(config, parsed, "sync", "debug", DCS::debug, write_config);
   this->sync_logging = get_config_or_default(config, parsed, "sync", "logging", DCS::logging, write_config);
-  this->sync_sidecar_jsonl =
-      get_config_or_default(config, parsed, "sync", "sidecar_jsonl", DCS::sidecar_jsonl, write_config);
-  g_sync_sidecar_jsonl_replay_seconds = get_config_or_default(config, parsed, "sync", "sidecar_jsonl_replay_seconds",
-                                                              DCS::sidecar_jsonl_replay_seconds, write_config);
-  g_sync_sidecar_jsonl_replay_seconds = std::max(0, g_sync_sidecar_jsonl_replay_seconds);
-  g_sync_sidecar_jsonl_recent_logs    = get_config_or_default(config, parsed, "sync", "sidecar_jsonl_recent_logs",
-                                                              DCS::sidecar_jsonl_recent_logs, write_config);
-  g_sync_sidecar_jsonl_recent_logs    = std::max(0, g_sync_sidecar_jsonl_recent_logs);
+  const auto sidecar_config_result = ParseSidecarConfig(config);
+  g_sidecar_config                 = sidecar_config_result.config;
+  for (const auto& diagnostic : sidecar_config_result.diagnostics) {
+    log_config_diagnostic(diagnostic);
+  }
+  this->sidecar_logging_jsonl          = g_sidecar_config.logging.jsonl;
+  g_sidecar_logging_jsonl_replay_seconds = std::max(0, g_sidecar_config.logging.jsonl_replay_seconds);
+  g_sidecar_logging_jsonl_recent_logs    = std::max(0, g_sidecar_config.logging.jsonl_recent_logs);
+  WriteSidecarConfigRuntimeSnapshot(parsed, g_sidecar_config);
   g_live_debug_channel = get_config_or_default(config, parsed, "debug", "live_query", DCD::live_query, write_config);
   g_queue_add_direct_handler = get_config_or_default(config, parsed, "debug", "queue_add_direct_handler",
                                                      DCD::queue_add_direct_handler, write_config);
@@ -1176,11 +1211,26 @@ void Config::Load()
   parsed["sync"].as_table()->emplace<toml::table>("targets", toml::table());
   read_sync_targets(config, parsed, this->sync_targets, sync_defaults);
 
+  if (auto* rejected_targets = parsed["sync"]["targets"].as_table()) {
+    std::set<std::string> rejected_target_names;
+    for (const auto& rejected : sidecar_config_result.rejected_sync_targets) {
+      rejected_target_names.emplace(rejected.target_name);
+    }
+
+    for (const auto& target_name : rejected_target_names) {
+      this->sync_targets.erase(target_name);
+      rejected_targets->erase(target_name);
+    }
+  }
+
   // handle legacy sync options
   auto sync_url   = config["sync"]["url"].value<std::string>();
   auto sync_token = config["sync"]["token"].value<std::string>();
 
   if (sync_url.has_value() && sync_token.has_value()) {
+    if (sidecar_config_result.reject_legacy_sync_url) {
+      spdlog::error("Ignoring legacy [sync].url / [sync].token loopback sidecar endpoint. Configure [sidecar.sync] instead.");
+    } else {
     spdlog::warn("Deprecation Warning: Legacy config options 'sync_url' and 'sync_token' have been moved to "
                  "[sync.targets.<name>] sections and may be removed in a future version.");
 
@@ -1208,6 +1258,7 @@ void Config::Load()
       spdlog::error("Failed to convert legacy config options sync_url: {} and sync_token: {} as [sync.targets.default] "
                     "was already specified.",
                     sync_url.value(), mask_token(sync_token.value()));
+    }
     }
   }
 

@@ -149,12 +149,64 @@ public:
   enum class Mode {
     Legacy,
     Majel,
-    SidecarBroker,
   };
 
   std::string url;   ///< Endpoint URL for this sync target.
   std::string token; ///< Bearer token / API key.
   Mode        mode = Mode::Legacy; ///< Outbound wire contract for this target.
+};
+
+/**
+ * @brief Canonical local sidecar delivery settings from `[sidecar.sync]`.
+ *
+ * These values are parsed independently from `[sync.targets.*]` so local
+ * sidecar routing can move off the external/community sync surface.
+ */
+struct SidecarSyncConfig {
+  bool        enabled = false;
+  std::string url;
+  std::string token;
+  std::string proxy;
+  bool        verify_ssl = true;
+  bool        allow_unsafe_tls_without_certificate_validation = false;
+  bool        battlelogs_realtime = false;
+  bool        fleet_runtime       = false;
+};
+
+/**
+ * @brief Reserved native observability toggles for future sidecar probe work.
+ */
+struct SidecarProbesConfig {
+  bool ship_identity      = false;
+  bool battle_log_decoder = false;
+  bool battle_catalog     = false;
+};
+
+/**
+ * @brief Local sidecar logging settings from `[sidecar.logging]`.
+ */
+struct SidecarLoggingConfig {
+  bool jsonl                = false;
+  int  jsonl_replay_seconds = 30;
+  int  jsonl_recent_logs    = 300;
+};
+
+/**
+ * @brief Reserved diagnostics toggles for sidecar-focused native debugging.
+ */
+struct SidecarDiagnosticsConfig {
+  bool debug   = false;
+  bool logging = false;
+};
+
+/**
+ * @brief Unified sidecar-native config surface rooted at `[sidecar]`.
+ */
+struct SidecarConfig {
+  SidecarSyncConfig        sync;
+  SidecarProbesConfig      probes;
+  SidecarLoggingConfig     logging;
+  SidecarDiagnosticsConfig diagnostics;
 };
 
 constexpr std::string_view to_string(const SyncTargetConfig::Mode mode)
@@ -164,8 +216,6 @@ constexpr std::string_view to_string(const SyncTargetConfig::Mode mode)
       return "legacy";
     case SyncTargetConfig::Mode::Majel:
       return "majel";
-    case SyncTargetConfig::Mode::SidecarBroker:
-      return "sidecar_broker";
   }
 
   return "legacy";
@@ -331,7 +381,7 @@ public:
 
   bool       sync_logging;
   bool       sync_debug;
-  bool       sync_sidecar_jsonl;
+  bool       sidecar_logging_jsonl;
   int        sync_resolver_cache_ttl;
   SyncConfig sync_options;
 
@@ -406,6 +456,31 @@ bool QueueAddHideViewersEnabled();
 bool BattleLogDecoderEnabled();
 
 /**
+ * @brief Canonical `[sidecar]` settings resolved during config load.
+ */
+const SidecarConfig& SidecarSettings();
+
+/**
+ * @brief Canonical local sidecar delivery settings from `[sidecar.sync]`.
+ */
+const SidecarSyncConfig& SidecarSyncSettings();
+
+/**
+ * @brief Reserved native sidecar probe toggles from `[sidecar.probes]`.
+ */
+const SidecarProbesConfig& SidecarProbesSettings();
+
+/**
+ * @brief Local sidecar logging settings from `[sidecar.logging]`.
+ */
+const SidecarLoggingConfig& SidecarLoggingSettings();
+
+/**
+ * @brief Sidecar diagnostics toggles from `[sidecar.diagnostics]`.
+ */
+const SidecarDiagnosticsConfig& SidecarDiagnosticsSettings();
+
+/**
  * @brief Whether decoded battle_log segment summaries should be emitted.
  */
 bool BattleLogDecoderEmitSegments();
@@ -416,14 +491,14 @@ bool BattleLogDecoderEmitSegments();
 bool BattleLogDecoderEmitFeed();
 
 /**
- * @brief Seconds retained in the local sidecar JSONL replay window.
+ * @brief Seconds retained in the optional local sidecar JSONL evidence window.
  */
-int SyncSidecarJsonlReplaySeconds();
+int SidecarLoggingJsonlReplaySeconds();
 
 /**
- * @brief Number of recent battle-log groups retained in the local sidecar JSONL feed.
+ * @brief Number of recent battle-log groups retained in optional local sidecar JSONL evidence.
  */
-int SyncSidecarJsonlRecentLogs();
+int SidecarLoggingJsonlRecentLogs();
 
 /**
  * @brief Whether focused refinery diagnostics should be installed.
