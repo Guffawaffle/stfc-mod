@@ -362,6 +362,7 @@ TEST_SUITE("live_debug_fleet_serializers")
     observation.cargoFillPercent     = 37;
     observation.cargoFillBasisPoints = 3700;
     observation.hullName             = "Mayflower";
+    observation.shipIdentityProbeId  = "2679690622826529803";
 
     const auto result = fleet_observation_to_json(observation);
 
@@ -372,6 +373,8 @@ TEST_SUITE("live_debug_fleet_serializers")
     CHECK(result["fleet"]["previousStateName"] == "IdleInSpace");
     CHECK(result["fleet"]["cargoFillBasisPoints"] == 3700);
     CHECK(result["fleet"]["hullName"] == "Mayflower");
+    CHECK(result["fleet"]["shipIdentityProbe"]["shipId"] == "2679690622826529803");
+    CHECK(result["fleet"]["shipIdentityProbe"]["source"] == "FleetPlayerData.Ship.ID");
   }
 
   TEST_CASE("fleet slot serializer preserves slot order and readable states")
@@ -387,6 +390,7 @@ TEST_SUITE("live_debug_fleet_serializers")
     observations[1].cargoFillPercent     = 82;
     observations[1].cargoFillBasisPoints = 8200;
     observations[1].hullName             = "Enterprise";
+    observations[1].shipIdentityProbeId  = "2679690622826529803";
 
     const auto result = fleet_slots_to_json(observations);
 
@@ -397,6 +401,8 @@ TEST_SUITE("live_debug_fleet_serializers")
     CHECK(result[1]["currentStateName"] == "Warping");
     CHECK(result[1]["previousStateName"] == "WarpCharging");
     CHECK(result[1]["hullName"] == "Enterprise");
+    CHECK(result[1]["shipIdentityProbe"]["shipId"] == "2679690622826529803");
+    CHECK(result[1]["shipIdentityProbe"]["source"] == "FleetPlayerData.Ship.ID");
   }
 }
 

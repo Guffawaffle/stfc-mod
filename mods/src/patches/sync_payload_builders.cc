@@ -6,6 +6,7 @@
 
 #include "config.h"
 #include "str_utils.h"
+#include "patches/sidecar_local_ingest_policy.h"
 #include "patches/sync_battle_logs.h"
 #include "patches/sync_scheduler.h"
 #include "patches/sync_transport.h"
@@ -58,9 +59,10 @@ static bool has_enabled_sync_target(SyncConfig::Type type)
 static bool battle_header_processing_enabled()
 {
   const auto& config = Config::Get();
-  return config.sync_options.battlelogs || config.sync_sidecar_jsonl
-      || has_enabled_sync_target(SyncConfig::Type::Battles)
-      || has_enabled_sync_target(SyncConfig::Type::BattlelogsRealtime);
+  return BattleHeaderProcessingEnabledForSync(config.sync_options.battlelogs, config.sidecar_logging_jsonl,
+                                              has_enabled_sync_target(SyncConfig::Type::Battles),
+                                              has_enabled_sync_target(SyncConfig::Type::BattlelogsRealtime),
+                                              SidecarSyncSettings());
 }
 
 struct SyncPayloadWorkItem {

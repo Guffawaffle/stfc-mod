@@ -1,18 +1,18 @@
 # Majel Ingest Contract
 
-This mod can send optional fire-and-forget telemetry to Majel directly, or to a local sidecar broker that later uploads
-to Majel. Both paths are opt-in sync targets.
+This mod can send optional fire-and-forget telemetry to Majel directly. Local sidecar delivery is moving onto the
+dedicated `[sidecar.*]` namespace and is no longer configured through sync targets.
 
 ## Target Modes
 
 `[sync.targets.<name>]` supports:
 
 - `mode = "legacy"`: existing sync behavior. Sends the original sync JSON body with `stfc-sync-token`.
-- `mode = "sidecar_broker"`: sends a Majel-safe ingest envelope to a local sidecar endpoint with `stfc-sync-token`.
 - `mode = "majel"`: sends a Majel-safe ingest envelope directly to Majel with `Authorization: Bearer <token>`.
 
-Sidecar broker mode remains the preferred durability/retry path. Direct Majel mode is best-effort from the mod process.
-Neither mode enables callbacks, remote settings writes, or gameplay commands.
+`mode = "sidecar_broker"` is now invalid in the config parser. Local sidecar settings belong under `[sidecar.sync]`.
+Direct Majel mode is best-effort from the mod process. Neither supported mode enables callbacks, remote settings
+writes, or gameplay commands.
 
 When sync starts, Majel-envelope targets receive one redacted `stfc.mod.capability_snapshot.v1` event. It lists the mod
 version, platform, enabled sync categories, target modes, and supported schemas. It does not include target URLs, tokens,
@@ -20,7 +20,7 @@ callbacks, remote settings, raw game payloads, or endpoint credentials.
 
 ## Envelope
 
-Majel-mode and sidecar-broker-mode targets POST one event envelope per queued sync item:
+Majel-mode targets POST one event envelope per queued sync item:
 
 ```json
 {

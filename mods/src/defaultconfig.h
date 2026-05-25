@@ -345,16 +345,46 @@ namespace Sync
   constexpr const char* url          = "";    ///< Endpoint URL (legacy, prefer targets).
   constexpr bool        debug        = false; ///< Extra debug logging for sync subsystem.
   constexpr bool        logging      = false; ///< Log raw sync payloads.
-  constexpr bool sidecar_jsonl = false; ///< Explicit opt-in local JSONL fallback feed; prefer ingress/sidecar export.
-  constexpr auto sidecar_jsonl_replay_seconds =
-      30; ///< Retain this many seconds in the JSONL replay window (0 = no time cap; internal size cap still applies).
-  constexpr auto sidecar_jsonl_recent_logs =
-      300;                          ///< Retain this many recent battle logs in the JSONL feed (0 = no count cap; internal size cap still applies).
   constexpr bool verify_ssl = true; ///< Verify TLS certificates on sync requests.
   constexpr bool allow_unsafe_tls_without_certificate_validation = false; ///< Explicit unsafe TLS override.
   /// DNS resolver cache TTL in seconds. Default: 300 (5 min).
   constexpr auto resolver_cache_ttl = 300;
 } // namespace Sync
+
+namespace Sidecar
+{
+namespace Sync
+{
+  constexpr bool        enabled = false;
+  constexpr const char* url     = "";
+  constexpr const char* token   = "";
+  constexpr const char* proxy   = "";
+  constexpr bool        verify_ssl = true;
+  constexpr bool        allow_unsafe_tls_without_certificate_validation = false;
+  constexpr bool        battlelogs_realtime = false;
+  constexpr bool        fleet_runtime       = false;
+} // namespace Sync
+
+namespace Probes
+{
+  constexpr bool ship_identity      = false;
+  constexpr bool battle_log_decoder = false;
+  constexpr bool battle_catalog     = false;
+} // namespace Probes
+
+namespace Logging
+{
+  constexpr bool jsonl                = false;
+  constexpr int  jsonl_replay_seconds = 30;
+  constexpr int  jsonl_recent_logs    = 300;
+} // namespace Logging
+
+namespace Diagnostics
+{
+  constexpr bool debug   = false;
+  constexpr bool logging = false;
+} // namespace Diagnostics
+} // namespace Sidecar
 
 namespace UI
 {

@@ -78,7 +78,7 @@ ScopelySessionHeaders BuildScopelySessionHeaders(const headers::SessionHeaderSna
 }
 
 bool SyncTargetUsesMajelEnvelope(const SyncTargetConfig::Mode mode)
-{ return mode == SyncTargetConfig::Mode::Majel || mode == SyncTargetConfig::Mode::SidecarBroker; }
+{ return mode == SyncTargetConfig::Mode::Majel; }
 
 bool SyncTargetAcceptsType(const SyncTargetConfig& target_config, const SyncConfig::Type type)
 {

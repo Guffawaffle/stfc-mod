@@ -9,6 +9,7 @@
 #include "file.h"
 #include "patches/async_work_queue.h"
 #include "patches/battle_log_decoder.h"
+#include "patches/sidecar_local_ingest.h"
 #include "patches/sync_transport.h"
 #include "str_utils.h"
 #include "testable_functions.h"
@@ -413,9 +414,9 @@ static void append_jsonl_sidecar_events(const nlohmann::json& sidecar_events)
 {
   std::lock_guard lk(battle_feed_file_mtx);
 
-  const auto recent_logs = SyncSidecarJsonlRecentLogs();
+  const auto recent_logs = SidecarLoggingJsonlRecentLogs();
   const auto retention_recent_logs = recent_logs > 0 ? static_cast<size_t>(recent_logs) : 0;
-  const auto replay_seconds       = SyncSidecarJsonlReplaySeconds();
+  const auto replay_seconds       = SidecarLoggingJsonlReplaySeconds();
   const auto feed_path            = File::MakePathString(kBattleFeedFile, true);
 
   if (const auto feed_size = battle_feed_file_size(feed_path); feed_size && *feed_size > kBattleFeedHardMaxBytes) {
@@ -439,7 +440,7 @@ static void append_jsonl_sidecar_events(const nlohmann::json& sidecar_events)
 
 static void export_sidecar_events_to_jsonl(const nlohmann::json& sidecar_events, uint64_t journal_id)
 {
-  if (!Config::Get().sync_sidecar_jsonl || sidecar_events.empty()) {
+  if (!Config::Get().sidecar_logging_jsonl || sidecar_events.empty()) {
     return;
   }
 
@@ -929,9 +930,10 @@ static void ship_combat_log_data()
 
     const bool send_battlelogs            = has_enabled_sync_target(SyncConfig::Type::Battles);
     const bool export_battlelogs_realtime = has_enabled_sync_target(SyncConfig::Type::BattlelogsRealtime);
-    const bool export_sidecar_jsonl       = Config::Get().sync_sidecar_jsonl;
+    const bool export_sidecar_local       = sidecar_local_ingest::BattleEventsEnabled();
+    const bool export_sidecar_jsonl       = Config::Get().sidecar_logging_jsonl;
 
-    if (!send_battlelogs && !export_battlelogs_realtime && !export_sidecar_jsonl) {
+    if (!send_battlelogs && !export_battlelogs_realtime && !export_sidecar_local && !export_sidecar_jsonl) {
       spdlog::debug("Skipping combat log fetch for battle {} because no battle export targets are enabled", journal_id);
       continue;
     }
@@ -1046,13 +1048,13 @@ static void ship_combat_log_data()
       const auto captured_at_unix_ms = current_probe_unix_ms();
       auto       decoded             = nlohmann::json::object();
 
-      if (BattleLogDecoderEnabled() && (export_battlelogs_realtime || export_sidecar_jsonl)) {
+      if (BattleLogDecoderEnabled() && (export_battlelogs_realtime || export_sidecar_local || export_sidecar_jsonl)) {
         battle_log_decoder::DecodeOptions decode_options;
         decode_options.include_segments = BattleLogDecoderEmitSegments();
         decoded = battle_log_decoder::decode_journal(journal, names, decode_options, journal_id);
       }
 
-      if (export_battlelogs_realtime || export_sidecar_jsonl) {
+      if (export_battlelogs_realtime || export_sidecar_local || export_sidecar_jsonl) {
         const auto sidecar_events =
             collect_sidecar_export_events(journal_id, names, journal, decoded, captured_at_unix_ms);
         export_sidecar_events_to_jsonl(sidecar_events, journal_id);
@@ -1060,6 +1062,9 @@ static void ship_combat_log_data()
         if (export_battlelogs_realtime && !sidecar_events.empty()) {
           http::send_data(SyncConfig::Type::BattlelogsRealtime, sidecar_events.dump(), false);
           spdlog::debug("Exported {} realtime battle feed event(s) for journal {}", sidecar_events.size(), journal_id);
+        }
+        if (export_sidecar_local && !sidecar_events.empty()) {
+          sidecar_local_ingest::EnqueueBattleEvents(sidecar_events);
         }
       }
 

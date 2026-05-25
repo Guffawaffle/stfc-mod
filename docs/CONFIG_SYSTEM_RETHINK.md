@@ -181,8 +181,8 @@ enabled = true
 [notifications.audio.fleet]
 arrived_in_system = true
 
-[sync]
-sidecar_jsonl_recent_logs = 300
+[sidecar.logging]
+jsonl_recent_logs = 300
 ```
 
 The runtime snapshot can still be exhaustive, because its job is inspection:
@@ -340,14 +340,24 @@ Use arrays for allow/deny lists instead of comma-delimited strings:
 hidden = ["standard", "faction_warning"]
 ```
 
-For sync targets, the current nested table pattern is good and should be kept:
+For non-sidecar external sync targets, the current nested table pattern is good and should be kept:
 
 ```toml
-[sync.targets.sidecar]
-url = "http://127.0.0.1:43127/ingest"
+[sync.targets.majel]
+url = "https://majel.example.test/api/ingest/events"
 token = "..."
 battlelogs_realtime = true
 battlelogs = false
+```
+
+Local sidecar delivery should move to its own root namespace instead of staying under `[sync.targets.*]`:
+
+```toml
+[sidecar.sync]
+enabled = true
+url = "http://127.0.0.1:43127/api/sidecar/ingest"
+token = "..."
+battlelogs_realtime = true
 ```
 
 ## Defaults Policy

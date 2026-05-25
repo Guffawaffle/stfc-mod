@@ -50,6 +50,11 @@ const char* fleet_state_name(int state)
       return "Unmapped";
   }
 }
+
+const char* ship_identity_probe_source()
+{
+  return "FleetPlayerData.Ship.ID";
+}
 }
 
 const char* fleet_state_name_from_value(int state)
@@ -86,6 +91,12 @@ json fleet_observation_to_json(const FleetObservation& observation)
       result["fleet"]["hullSpecId"] = observation.hullSpecId;
     }
     result["fleet"]["hullName"] = observation.hullName;
+    if (observation.shipIdentityProbeId.has_value()) {
+      result["fleet"]["shipIdentityProbe"] = {
+          {"shipId", *observation.shipIdentityProbeId},
+          {"source", ship_identity_probe_source()},
+      };
+    }
   }
 
   return result;
@@ -112,6 +123,12 @@ json fleet_slot_observation_to_json(const FleetSlotObservation& observation)
     result["hullSpecId"] = observation.hullSpecId;
   }
   result["hullName"] = observation.hullName;
+  if (observation.shipIdentityProbeId.has_value()) {
+    result["shipIdentityProbe"] = {
+        {"shipId", *observation.shipIdentityProbeId},
+        {"source", ship_identity_probe_source()},
+    };
+  }
   return result;
 }
 

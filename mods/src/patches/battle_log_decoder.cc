@@ -248,6 +248,11 @@ void append_unique(std::vector<int64_t>& values, int64_t value)
   return result;
 }
 
+[[nodiscard]] nlohmann::json json_optional_i64_string(const std::optional<int64_t>& value)
+{
+  return value ? nlohmann::json(std::to_string(*value)) : nlohmann::json();
+}
+
 [[nodiscard]] nlohmann::json json_token_string_array(const nlohmann::json& values)
 {
   auto result = nlohmann::json::array();
@@ -681,10 +686,12 @@ void collect_fleet_data(EntityIndex& index, const nlohmann::json& names, const n
                                 {"alliance_tag", participant.alliance_tag},
                                 {"participant_kind", participant.participant_kind},
                                 {"ship_ids", json_i64_array(participant.ship_ids)},
+                                {"ship_ids_exact", json_i64_string_array(participant.ship_ids)},
                                 {"hull_ids", json_i64_array(participant.hull_ids)},
                                 {"component_ids", json_i64_array(participant.component_ids)}};
 
     entry["fleet_id"] = participant.fleet_id ? nlohmann::json(*participant.fleet_id) : nlohmann::json();
+    entry["fleet_id_exact"] = json_optional_i64_string(participant.fleet_id);
     entry["fleet_type"] = participant.fleet_type ? nlohmann::json(*participant.fleet_type) : nlohmann::json();
     entry["ship_level"] = participant.ship_level ? nlohmann::json(*participant.ship_level) : nlohmann::json();
     entry["offense_rating"] = participant.offense_rating ? nlohmann::json(*participant.offense_rating) : nlohmann::json();
@@ -737,7 +744,7 @@ void collect_fleet_data(EntityIndex& index, const nlohmann::json& names, const n
     return nlohmann::json();
   }
 
-  auto result = nlohmann::json{{"shipId", *ship_id}};
+  auto result = nlohmann::json{{"shipId", *ship_id}, {"shipIdExact", std::to_string(*ship_id)}};
   const auto* participant = participant_for_ship_id(index, *ship_id);
   if (participant == nullptr) {
     return result;
@@ -750,6 +757,7 @@ void collect_fleet_data(EntityIndex& index, const nlohmann::json& names, const n
   result["participantKind"] = participant->participant_kind;
   result["side"] = participant->side;
   result["fleetId"] = participant->fleet_id ? nlohmann::json(*participant->fleet_id) : nlohmann::json();
+  result["fleetIdExact"] = json_optional_i64_string(participant->fleet_id);
   result["shipLevel"] = participant->ship_level ? nlohmann::json(*participant->ship_level) : nlohmann::json();
   result["hullIds"] = json_i64_array(participant->hull_ids);
   return result;
@@ -916,9 +924,11 @@ void collect_fleet_data(EntityIndex& index, const nlohmann::json& names, const n
   auto component_refs = nlohmann::json::array();
   for (const auto component_id : component_ids) {
     const auto ship = entity_index.component_to_ship.find(component_id);
+    const std::optional<int64_t> ship_id = ship != entity_index.component_to_ship.end() ? std::optional<int64_t>(ship->second)
+                                                                                          : std::nullopt;
     component_refs.push_back({{"component_id", component_id},
-                              {"ship_id", ship != entity_index.component_to_ship.end() ? nlohmann::json(ship->second)
-                                                                                          : nlohmann::json()}});
+                              {"ship_id", ship_id ? nlohmann::json(*ship_id) : nlohmann::json()},
+                              {"ship_id_exact", json_optional_i64_string(ship_id)}});
   }
 
   const auto length = end >= start ? end - start + 1 : size_t{0};
@@ -934,6 +944,7 @@ void collect_fleet_data(EntityIndex& index, const nlohmann::json& names, const n
                                                                             : json_slice(battle_log, start, length)},
                         {"markers", json_i64_array(markers)},
                         {"ship_ids", json_i64_array(ship_ids)},
+                        {"ship_ids_exact", json_i64_string_array(ship_ids)},
                         {"component_refs", component_refs},
                         {"zero_count", zero_count},
                         {"unknown_positive_integer_sample", json_i64_array(unknown_positive_ids)}};
@@ -984,6 +995,7 @@ void collect_fleet_data(EntityIndex& index, const nlohmann::json& names, const n
 
     const auto ship_id = json_to_i64(record[index + 1]);
     effects.push_back({{"shipId", ship_id ? nlohmann::json(*ship_id) : nlohmann::json()},
+               {"shipIdExact", json_optional_i64_string(ship_id)},
                        {"ship", build_ship_ref_json(entity_index, ship_id)},
                        {"refA", record[index + 3]},
                        {"refB", record[index + 4]},
@@ -1064,6 +1076,7 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
                                {"lastTokens", json_tail(record, options.edge_token_count)},
                                {"markers", json_i64_array(markers)},
                                {"shipIds", json_i64_array(ship_ids)},
+                               {"shipIdsExact", json_i64_string_array(ship_ids)},
                                {"componentIds", json_i64_array(component_ids)},
                                {"zeroCount", zero_count}};
 
@@ -1072,6 +1085,7 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
     const auto ship_id = json_to_i64(record[0]);
     result["kind"] = "component_scalar";
     result["shipId"] = ship_id ? nlohmann::json(*ship_id) : nlohmann::json();
+    result["shipIdExact"] = json_optional_i64_string(ship_id);
     result["ship"] = build_ship_ref_json(entity_index, ship_id);
     result["componentId"] = record[2];
     result["scalar"] = record[4];
@@ -1096,7 +1110,9 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
   result["preAttackTokenCount"] = payload_index;
   result["preAttackMarkers"] = json_i64_array(collect_negative_markers(json_slice(record, 0, payload_index)));
   result["attackerShipId"] = attacker_ship_id ? nlohmann::json(*attacker_ship_id) : nlohmann::json();
+  result["attackerShipIdExact"] = json_optional_i64_string(attacker_ship_id);
   result["targetShipId"] = target_ship_id ? nlohmann::json(*target_ship_id) : nlohmann::json();
+  result["targetShipIdExact"] = json_optional_i64_string(target_ship_id);
   result["attacker"] = build_ship_ref_json(entity_index, attacker_ship_id);
   result["target"] = build_ship_ref_json(entity_index, target_ship_id);
   result["componentId"] = component_id ? nlohmann::json(*component_id) : nlohmann::json();
@@ -1271,6 +1287,7 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
          {"criticalCount", segment["summary"].value("criticalCount", 0)},
          {"markers", segment.value("markers", nlohmann::json::array())},
          {"shipIds", segment.value("ship_ids", nlohmann::json::array())},
+          {"shipIdsExact", segment.value("ship_ids_exact", nlohmann::json::array())},
          {"summary", segment.value("summary", empty_record_summary_json())}});
     merge_record_summary(analytics.rounds[current_round_position]["summary"],
                          segment.value("summary", empty_record_summary_json()));

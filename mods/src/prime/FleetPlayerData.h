@@ -4,6 +4,7 @@
 #include "HullSpec.h"
 #include "MiningSlot.h"
 #include "RecallRequirement.h"
+#include "Ship.h"
 #include "CanRepairRequirement.h"
 
 #include <cstdint>
@@ -37,6 +38,7 @@ public:
   __declspec(property(get = __get_PreviousState)) FleetState PreviousState;
   __declspec(property(get = __get_Id)) uint64_t Id;
   __declspec(property(get = __get_Hull)) HullSpec* Hull;
+  __declspec(property(get = __get_Ship)) ::Ship* Ship;
   __declspec(property(get = __get_MiningData)) MiningSlot* MiningData;
   __declspec(property(get = __get_CargoResourceFillLevel)) float CargoResourceFillLevel;
   __declspec(property(get = __get_Address)) void* Address;
@@ -56,6 +58,12 @@ public:
   {
     static auto field = get_class_helper().GetProperty("Hull");
     return field.GetRaw<HullSpec>(this);
+  }
+
+  ::Ship* __get_Ship()
+  {
+    static auto field = get_class_helper().GetProperty("Ship");
+    return field.GetRaw<::Ship>(this);
   }
 
   MiningSlot* __get_MiningData()
