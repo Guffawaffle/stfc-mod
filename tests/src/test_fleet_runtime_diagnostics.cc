@@ -65,10 +65,10 @@ TEST_SUITE("fleet_runtime_diagnostics")
     trace.statusSummary = "docked:2,empty:7,mining:1";
 
     fleet_runtime_diagnostics_scheduler_queue(trace, true, 1);
-    fleet_runtime_diagnostics_target_queue(trace, "local-sidecar", "sidecar_broker", false, 256, 5,
+  fleet_runtime_diagnostics_target_queue(trace, "cloud-majel", "majel", false, 256, 5,
                                            "target-queue-full");
-    fleet_runtime_diagnostics_post_result(trace, "local-sidecar", "sidecar_broker", true, 202, "", 35);
-    fleet_runtime_diagnostics_post_result(trace, "local-sidecar", "sidecar_broker", false, 0, "transport", 0);
+  fleet_runtime_diagnostics_post_result(trace, "cloud-majel", "majel", true, 202, "", 35);
+  fleet_runtime_diagnostics_post_result(trace, "cloud-majel", "majel", false, 0, "transport", 0);
 
     const auto snapshot = fleet_runtime_diagnostics_snapshot();
     CHECK(snapshot.schedulerQueueAcceptedCount == 1);

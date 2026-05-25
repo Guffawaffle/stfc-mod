@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include <nlohmann/json.hpp>
@@ -21,6 +22,7 @@ struct FleetObservation {
   int         cargoFillPercent = -1;
   int         cargoFillBasisPoints = -1;
   std::string hullName;
+  std::optional<std::string> shipIdentityProbeId;
 };
 
 struct FleetSlotObservation {
@@ -34,6 +36,7 @@ struct FleetSlotObservation {
   int         cargoFillPercent = -1;
   int         cargoFillBasisPoints = -1;
   std::string hullName;
+  std::optional<std::string> shipIdentityProbeId;
 };
 
 const char* fleet_state_name_from_value(int state);

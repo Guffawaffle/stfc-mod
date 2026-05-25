@@ -14,6 +14,7 @@
 #include "file.h"
 #include "patches/fleet_notifications.h"
 #include "patches/notification_service.h"
+#include "patches/sidecar_local_ingest.h"
 #include "patches/sync_battle_logs.h"
 #include "patches/sync_payload_builders.h"
 #include "patches/sync_scheduler.h"
@@ -161,7 +162,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 
   spdlog::info("Initializing code hooks:");
     auto             install_live_debug_hooks           =
-      LiveDebugChannelEnabled() || (cfg.installSyncPatches && cfg.sync_options.fleet_runtime)
+      LiveDebugChannelEnabled() || (cfg.installSyncPatches && (cfg.sync_options.fleet_runtime || sidecar_local_ingest::FleetRuntimeEnabled()))
       || fleet_notifications_runtime_events_enabled();
   auto             install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
       auto             install_frame_tick_hooks           =
@@ -289,6 +290,7 @@ void ShutdownPatches()
   ShutdownSyncPayloadWorkers();
   ShutdownSyncSchedulerWorker();
   ShutdownCombatLogWorker();
+  sidecar_local_ingest::Shutdown();
   notification_shutdown();
   http::shutdown_workers();
 }

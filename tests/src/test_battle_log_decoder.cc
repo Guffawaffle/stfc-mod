@@ -114,6 +114,100 @@ TEST_SUITE("battle_log_decoder")
     CHECK_FALSE(capture["capture"]["journal"]["data"].contains("battle_log"));
   }
 
+  TEST_CASE("battle report preserves exact ship and fleet ids alongside numeric compatibility fields")
+  {
+    constexpr int64_t kPlayerFleetId = 2644013931949275600LL;
+    constexpr int64_t kPlayerShipId = 2682548280591992155LL;
+    constexpr int64_t kTargetFleetId = 2644013931932498400LL;
+    constexpr int64_t kTargetShipId = 2679690622826529803LL;
+
+    const auto names = nlohmann::json{{"player-1", {{"name", "Guff"}, {"alliance_name", "House of Test"}, {"alliance_tag", "HOT"}}},
+                                      {"mar_45", {{"name", "Target"}}}};
+    auto journal = nlohmann::json{{"id", 333},
+                                  {"battle_type", 8},
+                                  {"battle_time", "2026-05-24T22:46:59"},
+                                  {"initiator_id", "player-1"},
+                                  {"target_id", "mar_45"},
+                                  {"initiator_wins", true},
+                                  {"battle_log",
+                                   nlohmann::json::array({-96,
+                                                          kPlayerShipId,
+                                                          -98,
+                                                          900,
+                                                          kTargetShipId,
+                                                          1.0,
+                                                          0.0,
+                                                          1,
+                                                          1,
+                                                          1878,
+                                                          83380359.0,
+                                                          7514,
+                                                          30103950.0,
+                                                          7636.33728,
+                                                          5405,
+                                                          0.0,
+                                                          0.0,
+                                                          -99,
+                                                          -89,
+                                                          -97})}};
+    journal["initiator_fleet_data"]["deployed_fleets"]["1"] = {
+        {"uid", "player-1"},
+        {"fleet_id", kPlayerFleetId},
+        {"ship_ids", nlohmann::json::array({kPlayerShipId})},
+        {"hull_ids", nlohmann::json::array({77})},
+        {"ship_components", {{std::to_string(kPlayerShipId), nlohmann::json::array({900})}}},
+    };
+    journal["target_fleet_data"]["deployed_fleet"] = {
+        {"uid", "mar_45"},
+        {"fleet_id", kTargetFleetId},
+        {"type", 2},
+        {"ship_ids", nlohmann::json::array({kTargetShipId})},
+        {"hull_ids", nlohmann::json::array({3066099110})},
+        {"ship_components", {{std::to_string(kTargetShipId), nlohmann::json::array({800})}}},
+    };
+
+    battle_log_decoder::DecodeOptions options;
+    options.include_segments = true;
+
+    const auto decoded = battle_log_decoder::decode_journal(journal, names, options);
+    REQUIRE(decoded.value("ok", false));
+    REQUIRE(decoded["participants"].is_array());
+    CHECK(decoded["participants"][0]["fleet_id"] == kPlayerFleetId);
+    CHECK(decoded["participants"][0]["fleet_id_exact"] == std::to_string(kPlayerFleetId));
+    CHECK(decoded["participants"][0]["ship_ids"] == nlohmann::json::array({kPlayerShipId}));
+    CHECK(decoded["participants"][0]["ship_ids_exact"] == nlohmann::json::array({std::to_string(kPlayerShipId)}));
+
+    const auto report = battle_log_decoder::build_sidecar_battle_report_event(journal, decoded, 333, 222);
+    REQUIRE(report["report"]["fleets"].is_array());
+    REQUIRE(report["report"]["attackRows"].is_array());
+    REQUIRE(report["report"]["events"].is_array());
+    CHECK(report["report"]["fleets"][0]["fleet_id"] == kPlayerFleetId);
+    CHECK(report["report"]["fleets"][0]["fleet_id_exact"] == std::to_string(kPlayerFleetId));
+    CHECK(report["report"]["fleets"][0]["ship_ids"] == nlohmann::json::array({kPlayerShipId}));
+    CHECK(report["report"]["fleets"][0]["ship_ids_exact"] == nlohmann::json::array({std::to_string(kPlayerShipId)}));
+    CHECK(report["report"]["events"][0]["ship_ids_exact"]
+          == nlohmann::json::array({std::to_string(kPlayerShipId), std::to_string(kTargetShipId)}));
+    CHECK(report["report"]["attackRows"][0]["attackerShipId"] == kPlayerShipId);
+    CHECK(report["report"]["attackRows"][0]["attackerShipIdExact"] == std::to_string(kPlayerShipId));
+    CHECK(report["report"]["attackRows"][0]["targetShipId"] == kTargetShipId);
+    CHECK(report["report"]["attackRows"][0]["targetShipIdExact"] == std::to_string(kTargetShipId));
+    CHECK(report["report"]["attackRows"][0]["attacker"]["shipId"] == kPlayerShipId);
+    CHECK(report["report"]["attackRows"][0]["attacker"]["shipIdExact"] == std::to_string(kPlayerShipId));
+    CHECK(report["report"]["attackRows"][0]["attacker"]["fleetId"] == kPlayerFleetId);
+    CHECK(report["report"]["attackRows"][0]["attacker"]["fleetIdExact"] == std::to_string(kPlayerFleetId));
+    CHECK(report["report"]["attackRows"][0]["target"]["shipId"] == kTargetShipId);
+    CHECK(report["report"]["attackRows"][0]["target"]["shipIdExact"] == std::to_string(kTargetShipId));
+    CHECK(report["report"]["attackRows"][0]["target"]["fleetId"] == kTargetFleetId);
+    CHECK(report["report"]["attackRows"][0]["target"]["fleetIdExact"] == std::to_string(kTargetFleetId));
+
+    const auto analytics = battle_log_decoder::build_sidecar_battle_analytics_event(journal, decoded, 333, 222);
+    REQUIRE(analytics["analytics"]["attackRows"].is_array());
+    CHECK(analytics["analytics"]["attackRows"][0]["attackerShipId"] == kPlayerShipId);
+    CHECK(analytics["analytics"]["attackRows"][0]["attackerShipIdExact"] == std::to_string(kPlayerShipId));
+    CHECK(analytics["analytics"]["attackRows"][0]["targetShipId"] == kTargetShipId);
+    CHECK(analytics["analytics"]["attackRows"][0]["targetShipIdExact"] == std::to_string(kTargetShipId));
+  }
+
   TEST_CASE("build_sidecar_battle_capture_event caps lossless integer recursion")
   {
     auto nested = nlohmann::json{{"leaf", 42}};

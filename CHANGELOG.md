@@ -23,11 +23,10 @@
 
 - Added `battlelogs_realtime` sync target type: mod can POST canonical battle events
   directly to a local sidecar ingest endpoint as each battle resolves
-- Added `sync_sidecar_jsonl` config toggle (defaults `true`) to retain the
-  append-only JSONL feed as a zero-dependency basic mode
-- Added `sync.sidecar_jsonl_recent_logs` retention (defaults `300`) so the
-  local battle feed keeps complete recent battle-log groups instead of growing
-  without bound
+- Added optional local JSONL evidence capture so the append-only battle feed can
+  be retained for offline review without requiring a sidecar service
+- Added bounded recent-log retention (defaults `300`) so the local battle feed
+  keeps complete recent battle-log groups instead of growing without bound
 - Added `[debug].refinery_diagnostics` logging for refinery section transitions,
   selection mode, quantity changes, analytics events, and purchase outcomes;
   it defaults off and avoids non-refinery shop/showcase purchase flows

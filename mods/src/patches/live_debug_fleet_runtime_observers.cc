@@ -13,6 +13,7 @@
 #include "str_utils.h"
 
 #include <sstream>
+#include <string>
 
 namespace {
 std::string pointer_to_string(const void* pointer)
@@ -52,6 +53,10 @@ FleetSlotObservation observe_fleet_slot(int slot_index, FleetBarViewController* 
     }
   }
 
+  if (auto ship = fleet->Ship; ship) {
+    observation.shipIdentityProbeId = std::to_string(ship->ID);
+  }
+
   return observation;
 }
 
@@ -84,6 +89,10 @@ FleetObservation observe_fleetbar(FleetBarViewController* fleet_bar)
       if (hull->Name) {
         observation.hullName = to_string(hull->Name);
       }
+    }
+
+    if (auto ship = fleet->Ship; ship) {
+      observation.shipIdentityProbeId = std::to_string(ship->ID);
     }
   }
 

@@ -12,6 +12,7 @@ do
     add_files("../mods/src/testable_functions.cc")
     add_files("../mods/src/config_redaction.cc")
     add_files("../mods/src/config_release_validation.cc")
+    add_files("../mods/src/config_sidecar.cc")
     add_files("../mods/src/config_schema.cc")
     add_files("../mods/src/patches/live_debug_event_store.cc")
     add_files("../mods/src/patches/live_debug_recent_event_requests.cc")
@@ -32,6 +33,7 @@ do
     add_files("../mods/src/patches/notification_queue.cc")
     add_files("../mods/src/patches/notification_policy.cc")
     add_files("../mods/src/patches/notification_text.cc")
+    add_files("../mods/src/patches/sidecar_local_ingest_policy.cc")
     add_files("../mods/src/patches/sync_transport_policy.cc")
 
     add_packages("doctest", "nlohmann_json", "toml++", "spdlog")

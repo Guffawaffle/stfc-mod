@@ -65,7 +65,7 @@ that the parse value of that setting was correctly applied. You may also need to
 - `community_patch.log` is a bounded legacy troubleshooting log used for parse/load and boot
    investigation. It is not the preferred durable export format.
 - Local JSONL export such as `community_patch_battle_feed.jsonl` should be treated as explicit
-   opt-in fallback capture. Enabling local capture can add runtime overhead and create large
+   opt-in diagnostics/evidence capture. Enabling local capture can add runtime overhead and create large
    storage churn.
 - Prefer ingress paths such as the Sidecar local HTTP ingest or other configured sync targets
    for durable export and review.

@@ -72,12 +72,6 @@ TEST_SUITE("sync_transport_policy")
     CHECK(headers["Authorization"] == "Bearer secret-token");
     CHECK(headers.find("stfc-sync-token") == headers.end());
     CHECK(http::SyncTargetUsesMajelEnvelope(target.mode));
-
-    target.mode = SyncTargetConfig::Mode::SidecarBroker;
-    headers = http::BuildSyncTargetHeaders(target, "test-powered-by");
-    CHECK(headers["stfc-sync-token"] == "secret-token");
-    CHECK(headers.find("Authorization") == headers.end());
-    CHECK(http::SyncTargetUsesMajelEnvelope(target.mode));
   }
 
   TEST_CASE("mod capability snapshots only target Majel-envelope transports")
@@ -96,10 +90,6 @@ TEST_SUITE("sync_transport_policy")
 
     target.slots = false;
     CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetAssignments));
-    target.slots = true;
-    target.mode = SyncTargetConfig::Mode::SidecarBroker;
-    CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::ModCapabilities));
-    CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetAssignments));
   }
 
   TEST_CASE("mod capability snapshot is redacted and declares supported schemas")

@@ -8,6 +8,13 @@
 
 using nlohmann::json;
 
+namespace {
+const char* ship_identity_probe_source()
+{
+  return "FleetPlayerData.Ship.ID";
+}
+}
+
 const char* deployed_fleet_type_name(int fleet_type)
 {
   switch (fleet_type) {
@@ -53,6 +60,13 @@ json fleet_to_json(FleetPlayerData* fleet)
     };
   } else {
     result["hull"] = nullptr;
+  }
+
+  if (auto ship = fleet->Ship; ship) {
+    result["shipIdentityProbe"] = {
+        {"shipId", std::to_string(ship->ID)},
+        {"source", ship_identity_probe_source()},
+    };
   }
 
   return result;

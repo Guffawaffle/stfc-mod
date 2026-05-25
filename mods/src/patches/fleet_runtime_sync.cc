@@ -7,6 +7,7 @@
 #include "config.h"
 #include "patches/fleet_runtime_diagnostics.h"
 #include "patches/live_debug_fleet_runtime_observers.h"
+#include "patches/sidecar_local_ingest.h"
 #include "patches/sync_scheduler.h"
 
 #include <nlohmann/json.hpp>
@@ -36,6 +37,7 @@ struct FleetSlotStateKey {
   int         previous_state = -1;
   int         cargo_fill_percent = -1;
   std::string hull_name;
+  std::optional<std::string> ship_identity_probe_id;
 
   auto operator<=>(const FleetSlotStateKey&) const = default;
 };
@@ -51,6 +53,7 @@ struct FleetStateKey {
   int         previous_state = -1;
   int         cargo_fill_percent = -1;
   std::string hull_name;
+  std::optional<std::string> ship_identity_probe_id;
 
   std::array<FleetSlotStateKey, kFleetIndexMax> slots{};
 
@@ -87,6 +90,7 @@ FleetStateKey make_state_key(const FleetObservation& fleet,
   key.previous_state = fleet.previousState;
   key.cargo_fill_percent = cargo_fill_percent_bucket(fleet.cargoFillBasisPoints, fleet.cargoFillPercent);
   key.hull_name = fleet.hullName;
+  key.ship_identity_probe_id = fleet.shipIdentityProbeId;
 
   for (size_t index = 0; index < slots.size(); ++index) {
     const auto& slot = slots[index];
@@ -99,6 +103,7 @@ FleetStateKey make_state_key(const FleetObservation& fleet,
     state.previous_state = slot.previousState;
     state.cargo_fill_percent = cargo_fill_percent_bucket(slot.cargoFillBasisPoints, slot.cargoFillPercent);
     state.hull_name = slot.hullName;
+    state.ship_identity_probe_id = slot.shipIdentityProbeId;
   }
 
   return key;
@@ -129,6 +134,12 @@ json fleet_to_json(const FleetObservation& fleet)
     result["hullSpecId"] = fleet.hullSpecId;
   }
   result["hullName"] = fleet.hullName;
+  if (fleet.shipIdentityProbeId.has_value()) {
+    result["shipIdentityProbe"] = {
+        {"shipId", *fleet.shipIdentityProbeId},
+        {"source", "FleetPlayerData.Ship.ID"},
+    };
+  }
   return result;
 }
 
@@ -155,6 +166,12 @@ json fleet_slot_to_json(const FleetSlotObservation& slot)
     result["hullSpecId"] = slot.hullSpecId;
   }
   result["hullName"] = slot.hullName;
+  if (slot.shipIdentityProbeId.has_value()) {
+    result["shipIdentityProbe"] = {
+        {"shipId", *slot.shipIdentityProbeId},
+        {"source", "FleetPlayerData.Ship.ID"},
+    };
+  }
   return result;
 }
 
@@ -185,7 +202,8 @@ json build_snapshot_payload(std::string_view source, int64_t observed_at_ms, con
 
 void fleet_runtime_sync_trigger(std::string_view source)
 {
-  if (!Config::Get().installSyncPatches || !Config::Get().sync_options.fleet_runtime) {
+  if (!Config::Get().installSyncPatches
+      || (!Config::Get().sync_options.fleet_runtime && !sidecar_local_ingest::FleetRuntimeEnabled())) {
     return;
   }
 
@@ -227,6 +245,11 @@ void fleet_runtime_sync_capture(std::string_view source)
   last_state = state;
   const auto trace = fleet_runtime_diagnostics_make_trace(source, snapshot.fleet, snapshot.slots, observed_at_ms,
                                                           capture_duration_ms);
-  queue_data(SyncConfig::Type::FleetRuntime,
-             build_snapshot_payload(source, observed_at_ms, snapshot.fleet, snapshot.slots), false, trace);
+  const auto payload = build_snapshot_payload(source, observed_at_ms, snapshot.fleet, snapshot.slots);
+  if (Config::Get().sync_options.fleet_runtime) {
+    queue_data(SyncConfig::Type::FleetRuntime, payload, false, trace);
+  }
+  if (sidecar_local_ingest::FleetRuntimeEnabled()) {
+    sidecar_local_ingest::EnqueueFleetRuntimeSnapshot(payload);
+  }
 }
