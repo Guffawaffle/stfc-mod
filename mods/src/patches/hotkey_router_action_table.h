@@ -73,6 +73,7 @@ inline constexpr std::array kRuntimeSpace{
 };
 
 inline constexpr std::array kTableDispatch{
+    input_binding::InputActionId::ManualNavigationRefresh,
     input_binding::InputActionId::ShowQTrials,
     input_binding::InputActionId::ShowBookmarks,
     input_binding::InputActionId::ShowLookup,

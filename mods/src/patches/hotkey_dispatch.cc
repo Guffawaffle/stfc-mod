@@ -9,6 +9,7 @@
  */
 #include "patches/hotkey_dispatch.h"
 #include "patches/cargo_display.h"
+#include "patches/manual_navigation_refresh.h"
 #include "patches/navigation.h"
 
 #include "config.h"
@@ -286,6 +287,14 @@ static DispatchDecision HandleToggleCargoArmada()
   return DispatchDecision::HandledAllowOriginal;
 }
 
+static DispatchDecision HandleManualNavigationRefresh()
+{
+  const auto queued = ManualNavigationRefreshRequest("hotkey");
+  spdlog::info("[Hotkeys] manual_nav_refresh phase={} trigger=hotkey enabled={}",
+               queued ? "queued" : "rejected", ManualNavigationRefreshEnabled());
+  return DispatchDecision::HandledStop;
+}
+
 // ─── Log Level Handlers ───────────────────────────────────────────────────────────────
 // Change spdlog level and flush-on threshold at runtime for live debugging.
 
@@ -393,6 +402,7 @@ static constexpr HotkeyEntry g_dispatch_table[] = {
     {GameFunction::ToggleCargoStation, HandleToggleCargoStation},
     {GameFunction::ToggleCargoHostile, HandleToggleCargoHostile},
     {GameFunction::ToggleCargoArmada, HandleToggleCargoArmada},
+    {GameFunction::ManualNavigationRefresh, HandleManualNavigationRefresh},
 
     // Log levels
     {GameFunction::LogLevelOff, HandleLogLevelOff},

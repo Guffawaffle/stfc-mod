@@ -74,6 +74,7 @@ void InstallPanHooks();
 void InstallImproveResponsivenessHooks();
 void InstallFrameTickHooks();
 void InstallHotkeyHooks();
+void InstallManualNavigationRefreshHooks();
 void InstallLiveDebugHooks();
 void InstallRefineryDiagnosticsHooks();
 void InstallTestPatches();
@@ -165,6 +166,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       LiveDebugChannelEnabled() || (cfg.installSyncPatches && (cfg.sync_options.fleet_runtime || sidecar_local_ingest::FleetRuntimeEnabled()))
       || fleet_notifications_runtime_events_enabled();
   auto             install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
+  auto             install_manual_navigation_refresh_hooks =
+      cfg.installHotkeyHooks && ManualNavigationRefreshEnabled();
       auto             install_frame_tick_hooks           =
         cfg.installHotkeyHooks || LiveDebugChannelEnabled();
   const PatchEntry patches[]                          = {
@@ -176,6 +179,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"ImproveResponsivenessHooks", {InstallImproveResponsivenessHooks, &cfg.installImproveResponsivenessHooks}},
       {"FrameTickHooks", {InstallFrameTickHooks, &install_frame_tick_hooks}},
       {"HotkeyHooks", {InstallHotkeyHooks, &cfg.installHotkeyHooks}},
+      {"ManualNavigationRefresh", {InstallManualNavigationRefreshHooks, &install_manual_navigation_refresh_hooks}},
       {"LiveDebugHooks", {InstallLiveDebugHooks, &install_live_debug_hooks}},
       {"RefineryDiagnosticsHooks", {InstallRefineryDiagnosticsHooks, &install_refinery_diagnostics_hooks}},
 #if _WIN32

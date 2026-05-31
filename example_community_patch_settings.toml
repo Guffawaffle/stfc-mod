@@ -84,6 +84,10 @@ hotkeys_extended = true
 # If you have the Kir'Shara artifact, should the queue be enabled by default?
 queue_enabled = true
 
+# Experimental manual system refresh hotkey. This can drain visible runtime layers while reload behavior is still under
+# investigation, so leave disabled unless actively collecting navigation refresh diagnostics.
+manual_navigation_refresh_enabled = false
+
 # If you prefer to use Scopely's hotkeys set this to true
 use_scopely_hotkeys = false
 
@@ -490,6 +494,9 @@ action_recall_cancel = "SPACE|MOUSE1"
 
 # R or Mouse3
 action_repair = "R|MOUSE3"
+
+# Experimental manual navigation refresh diagnostic
+manual_navigation_refresh = "CTRL-SHIFT-G"
 
 # Subgroup: Screens
 # -----------------

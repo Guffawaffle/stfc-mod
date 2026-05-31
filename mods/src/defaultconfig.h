@@ -41,6 +41,8 @@ namespace Control
   constexpr const char* original_frame_policy = "mod";
   /// Enable the action queue system. Default: true.
   constexpr bool queue_enabled = true;
+  /// Enable the experimental manual navigation refresh hotkey. Default: false.
+  constexpr bool manual_navigation_refresh_enabled = false;
   /// Delay in ms before a tap is registered as a select action. Default: 500.
   constexpr auto select_timer = 500;
 } // namespace Control
@@ -236,6 +238,7 @@ namespace Shortcuts
   constexpr const char* action_recall         = "R|MOUSE3";
   constexpr const char* action_recall_cancel  = "SPACE|MOUSE1";
   constexpr const char* action_repair         = "R|MOUSE3";
+  constexpr const char* manual_navigation_refresh = "CTRL-SHIFT-G";
   constexpr const char* action_secondary      = "TAB|MOUSE4";
   constexpr const char* action_view           = "V|MOUSE2";
   constexpr const char* set_hotkeys_disabled  = "CTRL-ALT-MINUS";

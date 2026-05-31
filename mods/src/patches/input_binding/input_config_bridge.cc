@@ -37,6 +37,9 @@ namespace
   constexpr BindingConfigAlias kFleetQueueToggleAliases[] = {
       {"toggle_queue", BindingConfigSourceKind::LegacyAlias, {}},
   };
+  constexpr BindingConfigAlias kManualNavigationRefreshAliases[] = {
+      {"manual_navigation_refresh", BindingConfigSourceKind::LegacyAlias, {}},
+  };
   constexpr BindingConfigAlias kHotkeysDisableAliases[] = {
       {"set_hotkeys_disable", BindingConfigSourceKind::LegacyAlias, {}},
       {"set_hotkeys_disble", BindingConfigSourceKind::DeprecatedAlias,
@@ -369,6 +372,8 @@ std::span<const BindingConfigAlias> ShortcutConfigAliases(const InputActionId ac
       return kFleetQueueClearAliases;
     case InputActionId::FleetQueueToggle:
       return kFleetQueueToggleAliases;
+    case InputActionId::ManualNavigationRefresh:
+      return kManualNavigationRefreshAliases;
     case InputActionId::SelectShip1:
       return kSelectShip1Aliases;
     case InputActionId::SelectShip2:

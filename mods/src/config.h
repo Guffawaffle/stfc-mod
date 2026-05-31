@@ -451,6 +451,11 @@ bool QueueAddDirectHandlerEnabled();
 bool QueueAddHideViewersEnabled();
 
 /**
+ * @brief Whether the experimental manual navigation refresh hotkey may perform actions.
+ */
+bool ManualNavigationRefreshEnabled();
+
+/**
  * @brief Whether live battle_log decoding is enabled.
  */
 bool BattleLogDecoderEnabled();

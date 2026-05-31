@@ -25,6 +25,7 @@ enum class InputActionId : uint16_t {
   FleetViewInfo,
   FleetQueueClear,
   FleetQueueToggle,
+  ManualNavigationRefresh,
   SelectShip1,
   SelectShip2,
   SelectShip3,

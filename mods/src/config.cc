@@ -71,6 +71,7 @@ static OriginalFramePolicy   g_original_frame_policy             = OriginalFrame
 static bool                  g_live_debug_channel                = false;
 static bool                  g_queue_add_direct_handler          = DCD::queue_add_direct_handler;
 static bool                  g_queue_add_hide_viewers            = DCD::queue_add_hide_viewers;
+static bool                  g_manual_navigation_refresh_enabled = DCC::manual_navigation_refresh_enabled;
 static bool                  g_battle_log_decoder_enabled        = false;
 static bool                  g_battle_log_decoder_segments       = true;
 static bool                  g_battle_log_decoder_feed           = true;
@@ -101,6 +102,9 @@ bool QueueAddDirectHandlerEnabled()
 
 bool QueueAddHideViewersEnabled()
 { return g_queue_add_hide_viewers; }
+
+bool ManualNavigationRefreshEnabled()
+{ return g_manual_navigation_refresh_enabled; }
 
 bool BattleLogDecoderEnabled()
 { return g_battle_log_decoder_enabled; }
@@ -986,6 +990,9 @@ void Config::Load()
 
   this->queue_enabled =
       get_config_or_default(config, parsed, "control", "queue_enabled", DCC::queue_enabled, write_config);
+  g_manual_navigation_refresh_enabled =
+      get_config_or_default(config, parsed, "control", "manual_navigation_refresh_enabled",
+                            DCC::manual_navigation_refresh_enabled, write_config);
   this->hotkeys_enabled     = read_bool_config_entry(config, parsed, kHotkeysEnabledConfig, write_config);
   this->hotkeys_extended    = read_bool_config_entry(config, parsed, kHotkeysExtendedConfig, write_config);
   this->use_scopely_hotkeys = read_bool_config_entry(config, parsed, kUseScopelyHotkeysConfig, write_config);
@@ -1465,6 +1472,8 @@ void Config::Load()
   parse_config_shortcut(config, parsed, "action_recall_cancel", GameFunction::ActionRecallCancel,
                         DCSH::action_recall_cancel);
   parse_config_shortcut(config, parsed, "action_repair", GameFunction::ActionRepair, DCSH::action_repair);
+  parse_config_shortcut(config, parsed, "manual_navigation_refresh", GameFunction::ManualNavigationRefresh,
+                        DCSH::manual_navigation_refresh);
   parse_config_shortcut(config, parsed, "show_chat", GameFunction::ShowChat, DCSH::show_chat);
   parse_config_shortcut(config, parsed, "show_chatside1", GameFunction::ShowChatSide1, DCSH::show_chatside1);
   parse_config_shortcut(config, parsed, "show_chatside2", GameFunction::ShowChatSide2, DCSH::show_chatside2);

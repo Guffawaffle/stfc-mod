@@ -91,6 +91,7 @@ enum GameFunction {
   ActionRecall,
   ActionRecallCancel,
   ActionRepair,
+  ManualNavigationRefresh,    ///< Experimental manual system drain/reload diagnostic.
 
   // ─── Zoom Preset Assignment ──────────────────────────────────────────────
   SetZoomPreset1,
