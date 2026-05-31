@@ -14,6 +14,7 @@
 #include "patches/live_debug_fleet_runtime_observers.h"
 #include "patches/live_debug_fleet_runtime_serializers.h"
 #include "patches/live_debug_fleet_serializers.h"
+#include "patches/live_debug_navhook_trace_sink.h"
 #include "patches/fleet_notifications.h"
 #include "patches/fleet_runtime_diagnostics.h"
 #include "patches/fleet_runtime_sync.h"
@@ -29,7 +30,6 @@
 
 #include "config.h"
 #include "errormsg.h"
-#include "file.h"
 #include "patches/object_tracker_state.h"
 #include "prime/CelestialObjectViewerWidget.h"
 #include "prime/FleetBarViewController.h"
@@ -53,23 +53,14 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
-#include <cstdio>
-#include <filesystem>
-#include <fstream>
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <vector>
 
 namespace
 {
 using json = nlohmann::json;
-
-constexpr std::string_view kNavigationHookTraceFile                = "community_patch_navhook_trace.log";
-constexpr auto             kNavigationHookTraceMaxBytes            = 512 * 1024;
-constexpr auto             kNavigationHookTraceRotateCheckInterval = 128;
-constexpr auto             kNavigationHookTraceBackupCount         = 3;
 
 bool                                             g_recent_observations_initialized = false;
 TopCanvasObservation                             g_last_top_canvas;
@@ -104,8 +95,6 @@ RecentNavigationHookFollowUp g_recent_navigation_hook_follow_up;
 std::string                  g_last_navigation_poll_actionable_pointer;
 bool                         g_logged_navigation_hook_tick_enter         = false;
 bool                         g_logged_navigation_hook_tick_after_ui_poll = false;
-std::FILE*                   g_navigation_hook_trace_file               = nullptr;
-std::filesystem::path        g_navigation_hook_trace_open_path;
 
 constexpr bool                        kEnableLiveDebugUiPollingFromTick            = false;
 constexpr bool                        kEnableLiveDebugTopCanvasPolling             = true;
@@ -143,74 +132,6 @@ bool has_recent_live_debug_request_activity()
          && std::chrono::steady_clock::now() - g_last_live_debug_request_at <= kLiveDebugRecentActivityWindow;
 }
 
-std::filesystem::path get_live_debug_path(std::string_view filename)
-{ return std::filesystem::path(File::MakePathString(filename)); }
-
-void close_navigation_hook_trace_file()
-{
-  if (!g_navigation_hook_trace_file) {
-    return;
-  }
-
-  std::fclose(g_navigation_hook_trace_file);
-  g_navigation_hook_trace_file = nullptr;
-  g_navigation_hook_trace_open_path.clear();
-}
-
-std::FILE* open_navigation_hook_trace_file(const std::filesystem::path& trace_path)
-{
-  if (g_navigation_hook_trace_file && g_navigation_hook_trace_open_path == trace_path) {
-    return g_navigation_hook_trace_file;
-  }
-
-  close_navigation_hook_trace_file();
-
-  const auto path_text = trace_path.string();
-  g_navigation_hook_trace_file = std::fopen(path_text.c_str(), "ab");
-  if (g_navigation_hook_trace_file) {
-    g_navigation_hook_trace_open_path = trace_path;
-  }
-
-  return g_navigation_hook_trace_file;
-}
-
-std::filesystem::path rotated_navigation_hook_trace_path(const std::filesystem::path& trace_path, int index)
-{
-  auto rotated_path = trace_path;
-  rotated_path.replace_extension("." + std::to_string(index) + ".log");
-  return rotated_path;
-}
-
-void rotate_navigation_hook_trace_if_needed(const std::filesystem::path& trace_path)
-{
-  static uint32_t check_counter = 0;
-  if (++check_counter % kNavigationHookTraceRotateCheckInterval != 0) {
-    return;
-  }
-
-  std::error_code error;
-  const auto      trace_size = std::filesystem::file_size(trace_path, error);
-  if (error || trace_size <= kNavigationHookTraceMaxBytes) {
-    return;
-  }
-
-  close_navigation_hook_trace_file();
-
-  std::filesystem::remove(rotated_navigation_hook_trace_path(trace_path, kNavigationHookTraceBackupCount), error);
-  error.clear();
-  for (int index = kNavigationHookTraceBackupCount - 1; index >= 1; --index) {
-    const auto source = rotated_navigation_hook_trace_path(trace_path, index);
-    const auto target = rotated_navigation_hook_trace_path(trace_path, index + 1);
-    if (std::filesystem::exists(source, error)) {
-      error.clear();
-      std::filesystem::rename(source, target, error);
-      error.clear();
-    }
-  }
-
-  std::filesystem::rename(trace_path, rotated_navigation_hook_trace_path(trace_path, 1), error);
-}
-
 std::string pointer_to_string(const void* pointer)
 {
   std::ostringstream stream;
@@ -227,17 +148,7 @@ int64_t current_time_millis_utc()
 void append_navigation_hook_trace_step(const char* step, const char* phase, const void* controller = nullptr,
                                        const void* sender = nullptr, const void* callback_context = nullptr)
 {
-  const auto trace_path = get_live_debug_path(kNavigationHookTraceFile);
-  auto*      trace_file = open_navigation_hook_trace_file(trace_path);
-  if (!trace_file) {
-    return;
-  }
-
-  std::fprintf(trace_file, "[%lld] step=%s phase='%s' controller=%p sender=%p callbackContext=%p\n",
-               static_cast<long long>(current_time_millis_utc()), step ? step : "", phase ? phase : "", controller,
-               sender, callback_context);
-  std::fflush(trace_file);
-  rotate_navigation_hook_trace_if_needed(trace_path);
+  live_debug_navhook_trace_sink::AppendStep(step, phase, controller, sender, callback_context);
 }
 
 void append_ui_observer_trace_step(const char* step, const char* phase, const void* controller = nullptr,
