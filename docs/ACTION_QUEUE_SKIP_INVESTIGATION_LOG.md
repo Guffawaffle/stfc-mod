@@ -65,6 +65,18 @@ Track queue-skip experiments in one place so we can correlate code changes with 
   - do not let the exact engaged id drop just because the game sends an early combat-end style signal
   - prefer restoring native `LastEngagedTargetId` from sticky exact id when it still matches live queue contents
 
+### 5. Defer arrival-triggered manual removal repair
+
+- New data point after sticky latch:
+  - skipped run showed all queued ids eventually removed, but the first head was manually removed by our repair immediately after `fleet-slot-arrived-at-destination`
+  - no later `fleet-slot-combat-started` was observed for that removed head before the queue advanced
+- Change:
+  - when native `RemoveActionFromQueue(target)` returns true but leaves the target in the live queue, defer our manual `RemoveAt` repair if the latest trigger is `fleet-slot-arrived-at-destination`
+  - keep logging the deferred case as `defer-arrival-remove-repair`
+- Intended effect:
+  - avoid treating arrival as proof that the hostile is dead
+  - let the same queue head proceed into combat and rely on combat-end/remove for authoritative cleanup
+
 ## Important Live Signatures
 
 ### Early end signal before authoritative queue removal
@@ -85,7 +97,8 @@ This means combat-end is not sufficient proof that the queue head should be forg
   - `RemoveActionFromQueue(target A)` runs
   - queue advances to target B
 
-This path is real and should not be treated the same as a stale combat-end cleanup.
+This path can be real, but the 2026-05-31 15:53 run showed it can also remove the head before combat starts for that target.
+For now, arrival-triggered manual repair is deferred so we do not advance the queue solely on arrival.
 
 ## Current Risks
 
@@ -110,4 +123,4 @@ This path is real and should not be treated the same as a stale combat-end clean
 
 - Does sticky-target preservation reduce skips back toward the old occasional baseline?
 - When a skip still happens, did we ever have an authoritative exact target id latched before the skip?
-- Are the worst skips concentrated in the `arrived-at-destination` turnover path or in the pre-remove early-combat-end path?
+- Does deferring arrival-triggered manual repair reduce skips back toward the old occasional baseline?

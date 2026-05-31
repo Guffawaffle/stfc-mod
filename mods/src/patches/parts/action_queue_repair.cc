@@ -247,6 +247,9 @@ bool ShouldClearEngagingForRemovedMissingTarget(const FleetRuntimeDiagnosticsSna
          || IsRecentFleetRuntimeTrigger(latest_trigger, "deployment-battle-end-event");
 }
 
+bool ShouldDeferArrivalRemoveRepair(const FleetRuntimeDiagnosticsSnapshot& latest_trigger)
+{ return IsRecentFleetRuntimeTrigger(latest_trigger, "fleet-slot-arrived-at-destination"); }
+
 bool ShouldPreserveOrphanedEngagingInStall(const FleetRuntimeDiagnosticsSnapshot& latest_trigger)
 {
   return IsRecentFleetRuntimeTrigger(latest_trigger, "fleet-slot-arrived-at-destination", 20000)
@@ -838,11 +841,15 @@ bool ActionQueueManager_RemoveActionFromQueue(auto original, ActionQueueManager*
   auto       list_after            = ProbeActionQueueInstanceList(target_instance_after);
   const auto target_index_after    = FindActionQueueItemIndex(list_after, target_id);
   const auto count_after_original  = list_after ? list_after->Count : -1;
+  const auto latest_trigger        = fleet_runtime_diagnostics_snapshot();
+  const auto defer_arrival_remove_repair =
+      result && target_index_after >= 0 && count_before >= 0 && count_after_original >= count_before
+      && ShouldDeferArrivalRemoveRepair(latest_trigger);
   const auto apply_remove_repair =
-      result && target_index_after >= 0 && count_before >= 0 && count_after_original >= count_before;
+      result && target_index_after >= 0 && count_before >= 0 && count_after_original >= count_before
+      && !defer_arrival_remove_repair;
   const auto applied_remove_repair  = apply_remove_repair && RemoveActionQueueListAt(list_after, target_index_after);
   const auto count_after_repair     = list_after ? list_after->Count : -1;
-  const auto latest_trigger         = fleet_runtime_diagnostics_snapshot();
   const auto sticky_target_before   = StickyActionQueueTargetId(target_instance_before);
   auto       cleared_engaging_state = false;
   if (applied_remove_repair) {
@@ -892,6 +899,27 @@ bool ActionQueueManager_RemoveActionFromQueue(auto original, ActionQueueManager*
                    target_id, target_index_after, count_after_original, count_after_repair);
     }
   }
+  if (defer_arrival_remove_repair) {
+    AppendActionQueueProbeJsonlIfEnabled([&]() {
+      return nlohmann::json{{"phase", "repair"},
+                            {"hook", "RemoveActionFromQueue"},
+                            {"repair", "defer-arrival-remove-repair"},
+                            {"target_id", target_id},
+                            {"target_index_before", target_index_before},
+                            {"target_index_after", target_index_after},
+                            {"count_before", count_before},
+                            {"count_after_original", count_after_original},
+                            {"latest_trigger", FleetRuntimeTriggerJson(latest_trigger)},
+                            {"instance", ActionQueueInstanceJson(target_instance_after)},
+                            {"slots", ActionQueueSlotsJson(_this)}};
+    });
+
+    if (ActionQueueProbeEnabled()) {
+      spdlog::warn("[ActionQueueProbe] repair hook=RemoveActionFromQueue deferred arrival remove target={} index={} "
+                   "count_after_original={}",
+                   target_id, target_index_after, count_after_original);
+    }
+  }
   if (!applied_remove_repair && result && target_index_after < 0
       && ShouldClearEngagingForRemovedMissingTarget(latest_trigger)) {
     if (sticky_target_before == target_id) {
@@ -933,6 +961,7 @@ bool ActionQueueManager_RemoveActionFromQueue(auto original, ActionQueueManager*
     after["count_after_original"]   = count_after_original;
     after["count_after_repair"]     = count_after_repair;
     after["applied_remove_repair"]  = applied_remove_repair;
+    after["deferred_arrival_remove_repair"] = defer_arrival_remove_repair;
     after["cleared_engaging_state"] = cleared_engaging_state;
     after["latest_trigger"]         = FleetRuntimeTriggerJson(latest_trigger);
     return after;
