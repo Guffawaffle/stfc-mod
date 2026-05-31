@@ -6,6 +6,8 @@
 /out/
 */build/*
 /build/
+/artifacts/crashdumps/
+*.dmp
 *.code-workspace
 /.cache/
 compile_commands.json
