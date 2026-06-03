@@ -20,6 +20,18 @@ namespace
     return false;
   }
 
+  bool has_diagnostic_source(const std::vector<config_schema::Diagnostic>& diagnostics, std::string_view path,
+                             std::string_view source_path, config_schema::DiagnosticSeverity severity)
+  {
+    for (const auto& diagnostic : diagnostics) {
+      if (diagnostic.path == path && diagnostic.source_path == source_path && diagnostic.severity == severity) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   bool has_rejected_target(const std::vector<SidecarRejectedSyncTarget>& rejected_targets, std::string_view target_name)
   {
     for (const auto& rejected : rejected_targets) {
@@ -34,7 +46,32 @@ namespace
 
 TEST_SUITE("sidecar_config")
 {
-  TEST_CASE("parses sidecar namespaces and rejects legacy sync jsonl keys")
+  TEST_CASE("omitting advanced namespaces keeps normal config parsing backward compatible")
+  {
+    auto config = toml::parse(R"(
+[sidecar.sync]
+enabled = true
+url = "http://127.0.0.1:43127/api/sidecar/ingest"
+
+[sidecar.logging]
+jsonl = false
+jsonl_replay_seconds = 30
+jsonl_recent_logs = 300
+)");
+
+    const auto result = ParseSidecarConfig(config);
+
+    CHECK(result.config.sync.enabled);
+    CHECK(result.config.sync.url == "http://127.0.0.1:43127/api/sidecar/ingest");
+    CHECK_FALSE(result.advanced.diagnostics.ship_identity);
+    CHECK_FALSE(result.advanced.diagnostics.battle_log_decoder);
+    CHECK_FALSE(result.advanced.diagnostics.battle_catalog);
+    CHECK_FALSE(result.advanced.diagnostics.debug);
+    CHECK_FALSE(result.advanced.diagnostics.logging);
+    CHECK(result.diagnostics.empty());
+  }
+
+  TEST_CASE("parses advanced diagnostics, keeps sidecar sync and logging canonical, and rejects legacy sync jsonl keys")
   {
     auto config = toml::parse(R"(
 [sidecar.sync]
@@ -47,19 +84,19 @@ allow_unsafe_tls_without_certificate_validation = true
 battlelogs_realtime = true
 fleet_runtime = true
 
-[sidecar.probes]
+[advanced.diagnostics]
 ship_identity = true
 battle_log_decoder = true
 battle_catalog = false
+debug = true
+logging = true
+
+[advanced.queue]
 
 [sidecar.logging]
 jsonl = true
 jsonl_replay_seconds = 45
 jsonl_recent_logs = 12
-
-[sidecar.diagnostics]
-debug = true
-logging = true
 
 [sync]
 sidecar_jsonl = true
@@ -78,6 +115,12 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.config.sync.battlelogs_realtime);
     CHECK(result.config.sync.fleet_runtime);
 
+    CHECK(result.advanced.diagnostics.ship_identity);
+    CHECK(result.advanced.diagnostics.battle_log_decoder);
+    CHECK_FALSE(result.advanced.diagnostics.battle_catalog);
+    CHECK(result.advanced.diagnostics.debug);
+    CHECK(result.advanced.diagnostics.logging);
+
     CHECK(result.config.probes.ship_identity);
     CHECK(result.config.probes.battle_log_decoder);
     CHECK_FALSE(result.config.probes.battle_catalog);
@@ -85,15 +128,42 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.config.logging.jsonl);
     CHECK(result.config.logging.jsonl_replay_seconds == 45);
     CHECK(result.config.logging.jsonl_recent_logs == 12);
-
-    CHECK(result.config.diagnostics.debug);
-    CHECK(result.config.diagnostics.logging);
+    CHECK_FALSE(has_diagnostic(result.diagnostics, "advanced.queue", config_schema::DiagnosticSeverity::Warning));
 
     CHECK(has_diagnostic(result.diagnostics, "sync.sidecar_jsonl", config_schema::DiagnosticSeverity::Error));
     CHECK(has_diagnostic(result.diagnostics, "sync.sidecar_jsonl_replay_seconds",
                          config_schema::DiagnosticSeverity::Error));
     CHECK(has_diagnostic(result.diagnostics, "sync.sidecar_jsonl_recent_logs",
                          config_schema::DiagnosticSeverity::Error));
+  }
+
+  TEST_CASE("deprecated sidecar observability aliases still populate advanced diagnostics")
+  {
+    auto config = toml::parse(R"(
+[sidecar.probes]
+ship_identity = true
+battle_log_decoder = false
+battle_catalog = true
+
+[sidecar.diagnostics]
+debug = true
+logging = false
+)");
+
+    const auto result = ParseSidecarConfig(config);
+
+    CHECK(result.advanced.diagnostics.ship_identity);
+    CHECK_FALSE(result.advanced.diagnostics.battle_log_decoder);
+    CHECK(result.advanced.diagnostics.battle_catalog);
+    CHECK(result.advanced.diagnostics.debug);
+    CHECK_FALSE(result.advanced.diagnostics.logging);
+
+    CHECK(has_diagnostic_source(result.diagnostics, "advanced.diagnostics.ship_identity",
+                                "sidecar.probes.ship_identity", config_schema::DiagnosticSeverity::Info));
+    CHECK(has_diagnostic_source(result.diagnostics, "advanced.diagnostics.battle_catalog",
+                                "sidecar.probes.battle_catalog", config_schema::DiagnosticSeverity::Info));
+    CHECK(has_diagnostic_source(result.diagnostics, "advanced.diagnostics.debug",
+                                "sidecar.diagnostics.debug", config_schema::DiagnosticSeverity::Info));
   }
 
   TEST_CASE("rejects legacy sidecar sync targets and loopback sync urls without flagging external targets")
@@ -136,27 +206,38 @@ mode = "majel"
 
   TEST_CASE("runtime snapshot redacts sidecar secrets")
   {
-    SidecarConfig config;
-    config.sync.enabled                             = true;
-    config.sync.url                                 = "http://127.0.0.1:43127/api/sidecar/ingest";
-    config.sync.token                               = "secret-sidecar-token";
-    config.sync.proxy                               = "http://user:pass@example.invalid:8080";
-    config.sync.battlelogs_realtime                 = true;
-    config.logging.jsonl                            = true;
-    config.logging.jsonl_replay_seconds             = 15;
-    config.logging.jsonl_recent_logs                = 7;
-    config.diagnostics.debug                        = true;
+    SidecarConfig  sidecar;
+    AdvancedConfig advanced;
+    sidecar.sync.enabled                 = true;
+    sidecar.sync.url                     = "http://127.0.0.1:43127/api/sidecar/ingest";
+    sidecar.sync.token                   = "secret-sidecar-token";
+    sidecar.sync.proxy                   = "http://user:pass@example.invalid:8080";
+    sidecar.sync.battlelogs_realtime     = true;
+    sidecar.logging.jsonl                = true;
+    sidecar.logging.jsonl_replay_seconds = 15;
+    sidecar.logging.jsonl_recent_logs    = 7;
+    advanced.diagnostics.debug           = true;
+    advanced.diagnostics.ship_identity   = true;
 
     toml::table runtime_snapshot;
-    WriteSidecarConfigRuntimeSnapshot(runtime_snapshot, config);
+    WriteSidecarConfigRuntimeSnapshot(runtime_snapshot, sidecar);
+    WriteAdvancedConfigRuntimeSnapshot(runtime_snapshot, advanced);
 
     REQUIRE(runtime_snapshot["sidecar"]["sync"]["token"].is_string());
     REQUIRE(runtime_snapshot["sidecar"]["sync"]["proxy"].is_string());
     CHECK(runtime_snapshot["sidecar"]["sync"]["token"].value<std::string>().value_or("")
-          == config_redaction::redact_secret_for_runtime_snapshot(config.sync.token));
+          == config_redaction::redact_secret_for_runtime_snapshot(sidecar.sync.token));
     CHECK(runtime_snapshot["sidecar"]["sync"]["proxy"].value<std::string>().value_or("")
-          == config_redaction::mask_proxy_userinfo(config.sync.proxy));
+          == config_redaction::mask_proxy_userinfo(sidecar.sync.proxy));
     CHECK(runtime_snapshot["sidecar"]["logging"]["jsonl"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["sidecar"]["logging"]["jsonl_replay_seconds"].value<int>().value_or(0) == 15);
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["debug"].value<bool>().value_or(false));
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["ship_identity"].value<bool>().value_or(false));
+    REQUIRE(runtime_snapshot["advanced"]["queue"].is_table());
+
+    const auto* sidecar_table = runtime_snapshot["sidecar"].as_table();
+    REQUIRE(sidecar_table != nullptr);
+    CHECK_FALSE(sidecar_table->contains("probes"));
+    CHECK_FALSE(sidecar_table->contains("diagnostics"));
   }
 }

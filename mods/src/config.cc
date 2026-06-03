@@ -75,6 +75,7 @@ static bool                  g_battle_log_decoder_enabled        = false;
 static bool                  g_battle_log_decoder_segments       = true;
 static bool                  g_battle_log_decoder_feed           = true;
 static SidecarConfig         g_sidecar_config{};
+static AdvancedConfig        g_advanced_config{};
 static int                   g_sidecar_logging_jsonl_replay_seconds = DCSL::jsonl_replay_seconds;
 static int                   g_sidecar_logging_jsonl_recent_logs    = DCSL::jsonl_recent_logs;
 static bool                  g_refinery_diagnostics              = DCD::refinery_diagnostics;
@@ -108,6 +109,9 @@ bool BattleLogDecoderEnabled()
 const SidecarConfig& SidecarSettings()
 { return g_sidecar_config; }
 
+const AdvancedConfig& AdvancedSettings()
+{ return g_advanced_config; }
+
 const SidecarSyncConfig& SidecarSyncSettings()
 { return g_sidecar_config.sync; }
 
@@ -119,6 +123,12 @@ const SidecarLoggingConfig& SidecarLoggingSettings()
 
 const SidecarDiagnosticsConfig& SidecarDiagnosticsSettings()
 { return g_sidecar_config.diagnostics; }
+
+const AdvancedDiagnosticsConfig& AdvancedDiagnosticsSettings()
+{ return g_advanced_config.diagnostics; }
+
+const AdvancedQueueConfig& AdvancedQueueSettings()
+{ return g_advanced_config.queue; }
 
 bool BattleLogDecoderEmitSegments()
 { return g_battle_log_decoder_segments; }
@@ -1138,6 +1148,7 @@ void Config::Load()
   this->sync_logging = get_config_or_default(config, parsed, "sync", "logging", DCS::logging, write_config);
   const auto sidecar_config_result = ParseSidecarConfig(config);
   g_sidecar_config                 = sidecar_config_result.config;
+  g_advanced_config                = sidecar_config_result.advanced;
   for (const auto& diagnostic : sidecar_config_result.diagnostics) {
     log_config_diagnostic(diagnostic);
   }
@@ -1145,6 +1156,7 @@ void Config::Load()
   g_sidecar_logging_jsonl_replay_seconds = std::max(0, g_sidecar_config.logging.jsonl_replay_seconds);
   g_sidecar_logging_jsonl_recent_logs    = std::max(0, g_sidecar_config.logging.jsonl_recent_logs);
   WriteSidecarConfigRuntimeSnapshot(parsed, g_sidecar_config);
+  WriteAdvancedConfigRuntimeSnapshot(parsed, g_advanced_config);
   g_live_debug_channel = get_config_or_default(config, parsed, "debug", "live_query", DCD::live_query, write_config);
   g_queue_add_direct_handler = get_config_or_default(config, parsed, "debug", "queue_add_direct_handler",
                                                      DCD::queue_add_direct_handler, write_config);

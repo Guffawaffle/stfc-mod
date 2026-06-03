@@ -856,12 +856,6 @@ allow_unsafe_tls_without_certificate_validation = false
 battlelogs_realtime = false
 fleet_runtime = false
 
-[sidecar.probes]
-# Reserved native observability toggles for future sidecar probe work.
-ship_identity = false
-battle_log_decoder = false
-battle_catalog = false
-
 [sidecar.logging]
 # Explicit opt-in local JSONL evidence/import feed for offline review and diagnostics.
 # Keep this disabled unless you specifically need local file capture.
@@ -871,10 +865,19 @@ jsonl_replay_seconds = 30
 # Optional second cap on retained battle-log groups.
 jsonl_recent_logs = 300
 
-[sidecar.diagnostics]
-# Reserved sidecar-focused diagnostics toggles.
+[advanced.diagnostics]
+# Reserved native observability/probing namespace for future non-sidecar diagnostics.
+# Older [sidecar.probes] and [sidecar.diagnostics] inputs are still accepted as deprecated aliases.
+# `debug` and `logging` are dormant compatibility placeholders only in this slice.
+# They are not newly active diagnostics controls yet.
+ship_identity = false
+battle_log_decoder = false
+battle_catalog = false
 debug = false
 logging = false
+
+[advanced.queue]
+# Reserved queue experiment/dev-test namespace. No active keys live here yet.
 
 #  <[=========================================================================================================================================]>
 #

@@ -13,6 +13,7 @@ struct SidecarRejectedSyncTarget {
 
 struct SidecarConfigParseResult {
   SidecarConfig                    config;
+  AdvancedConfig                   advanced;
   std::vector<config_schema::Diagnostic> diagnostics;
   std::vector<SidecarRejectedSyncTarget> rejected_sync_targets;
   bool                             reject_legacy_sync_url = false;
@@ -21,4 +22,6 @@ struct SidecarConfigParseResult {
 [[nodiscard]] SidecarConfigParseResult ParseSidecarConfig(const toml::table& config);
 void                                    WriteSidecarConfigRuntimeSnapshot(toml::table& runtime_config,
                                                                           const SidecarConfig& config);
+void                                    WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config,
+                                                                           const AdvancedConfig& config);
 [[nodiscard]] bool                      IsLoopbackSidecarSyncUrl(std::string_view url);

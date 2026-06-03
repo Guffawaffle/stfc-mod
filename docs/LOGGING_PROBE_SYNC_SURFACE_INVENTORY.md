@@ -10,11 +10,11 @@ This inventory maps the current logging, probe, sync, and sidecar-adjacent obser
 
 This pass is documentation only:
 - No runtime behavior changes.
-- No config parsing changes.
+- No active config-key migrations.
 - No queue-repair changes.
 
 Current-main rules for this snapshot:
-- Current code and config truth lives on `main` at `79d54c3`.
+- This branch starts from `main` at `79d54c3` and adds dormant `[advanced.*]` schema support without moving active runtime keys.
 - `manual_navigation_refresh`, ghost-hostile refresh, view drain/reload, and refresh hotkey work are abandoned and are not current runtime surfaces.
 - The queue-only Kir'shara repair exists on current `main`; it is included here only where it emits probe or log artifacts.
 - `.ax` operator tooling is not tracked on current `main`, so it is not documented here as active repo truth.
@@ -105,20 +105,21 @@ Current-main rules for this snapshot:
   - `[sidecar.logging]`
     - Sidecar-oriented local JSONL output behavior
     - `jsonl`, `jsonl_replay_seconds`, `jsonl_recent_logs`
-  - `[sidecar.probes]`
-    - Current reserved sidecar-scoped probe toggles
-    - `ship_identity`, `battle_log_decoder`, `battle_catalog`
-  - `[sidecar.diagnostics]`
-    - Current reserved sidecar-focused diagnostics toggles
-    - `debug`, `logging`
+  - `[sidecar.probes]` and `[sidecar.diagnostics]`
+    - Deprecated legacy input aliases for reserved observability toggles now owned by `[advanced.diagnostics]`
+- Dormant advanced-native gates:
+  - `[advanced.diagnostics]`
+    - Canonical reserved native observability/probing namespace
+    - `ship_identity`, `battle_log_decoder`, `battle_catalog`, `debug`, `logging`
+    - `debug` and `logging` are dormant compatibility placeholders, not new active diagnostics controls
+  - `[advanced.queue]`
+    - Canonical reserved queue experiment/dev-test namespace
+    - No active keys yet; empty reserved table
 - Legacy and invalid sidecar config handling:
   - `sync.sidecar_jsonl*` legacy keys are rejected in favor of `[sidecar.logging]`
   - `[sync.targets.sidecar]` is invalid
   - `mode = "sidecar_broker"` is invalid
   - Loopback sidecar ingest URLs are invalid under `[sync]` and `[sync.targets.*]`
-- Proposed future namespace:
-  - `[advanced.diagnostics]` does not exist on current `main`
-  - If broader native diagnostics are added later, this is the preferred future namespace, off by default
 
 Primary definitions and parsing:
 - `mods/src/config.h`
@@ -295,9 +296,10 @@ These are the cleanest current seams for follow-on no-behavior-change work:
 6. `Runtime Trace and Impact Monitor` as independent observability
 - `runtime_trace_config.h`, `mod_impact_monitor.*`, and `[debug].runtime_trace*`
 
-7. `General native diagnostics config` as a future dedicated namespace
-- Current `main` does not implement `[advanced.diagnostics]`.
-- If broader native diagnostics are added later, they should not be added to `[sidecar.*]` unless they directly concern sidecar delivery or sidecar-oriented logging.
+7. `General native diagnostics config` as a dedicated dormant namespace
+- Current branch implements `[advanced.diagnostics]` as the canonical reserved home for inactive native observability toggles.
+- `[sidecar.probes]` and `[sidecar.diagnostics]` remain deprecated input aliases only.
+- Broader native diagnostics should not be added to `[sidecar.*]` unless they directly concern sidecar delivery or sidecar-oriented logging.
 
 ## H) Current-Main Corrections
 Compared with older branch-local observability notes, current `main` requires these corrections:
@@ -306,7 +308,8 @@ Compared with older branch-local observability notes, current `main` requires th
 - The tracked `spdlog::` emitter count is `38`, not `40`.
 - `.ax` is not tracked on current `main`, so AX command surfaces are not active repo truth here.
 - `manual_navigation_refresh` and ghost-hostile refresh diagnostics are not present on current `main`.
-- `[sidecar.probes]` and `[sidecar.diagnostics]` do exist on current `main`, but they are reserved sidecar-scoped toggles, not the right long-term home for unrelated native diagnostics.
+- `[advanced.diagnostics]` and `[advanced.queue]` now exist as dormant schema targets on this branch.
+- `[sidecar.probes]` and `[sidecar.diagnostics]` are retained only as deprecated input aliases for reserved observability toggles.
 
 ## I) Notes for the Next Planning Pass
 - Current `main` already has a dedicated `config_sidecar.cc` parser and validation surface.
@@ -314,4 +317,5 @@ Compared with older branch-local observability notes, current `main` requires th
 - The next docs or code pass should preserve the current ownership rule:
   - `[sidecar.sync]` for local native-to-sidecar delivery
   - `[sidecar.logging]` for sidecar-oriented local output behavior
-  - broader native diagnostics under a future `[advanced.diagnostics]`, off by default
+  - broader native diagnostics under `[advanced.diagnostics]`, off by default
+  - future queue experiment/dev-test keys under `[advanced.queue]`, not back under `[sidecar.*]`

@@ -13,7 +13,8 @@
 #include <string>
 #include <string_view>
 
-namespace DCSidecar = DefaultConfig::Sidecar;
+namespace DCSidecar  = DefaultConfig::Sidecar;
+namespace DCAdvanced = DefaultConfig::Advanced;
 
 namespace
 {
@@ -198,6 +199,29 @@ namespace
     table->insert_or_assign(std::string(segments.back()), value);
   }
 
+  void ensure_table(toml::table& config, std::string_view path)
+  {
+    const auto segments = split_path(path);
+    if (segments.empty()) {
+      return;
+    }
+
+    auto* table = &config;
+    for (const auto segment_view : segments) {
+      const auto segment = std::string(segment_view);
+      auto*      node    = table->get(segment);
+      if (!node || !node->is_table()) {
+        table->insert_or_assign(segment, toml::table{});
+        node = table->get(segment);
+      }
+
+      table = node->as_table();
+      if (!table) {
+        return;
+      }
+    }
+  }
+
   std::string ascii_lower(std::string_view value)
   {
     std::string lowered(value);
@@ -221,6 +245,18 @@ namespace
     output.push_back({target_name});
     return true;
   }
+
+  std::string make_invalid_table_message(std::string_view path, std::string_view actual_type,
+                                         std::string_view description)
+  {
+    std::ostringstream message;
+    message << "Invalid config " << path;
+    if (!description.empty()) {
+      message << " (" << description << ")";
+    }
+    message << ". Expected table, found " << actual_type << "; ignoring contents.";
+    return message.str();
+  }
 } // namespace
 
 bool IsLoopbackSidecarSyncUrl(std::string_view url)
@@ -229,7 +265,7 @@ bool IsLoopbackSidecarSyncUrl(std::string_view url)
   constexpr std::array<std::string_view, 3> kLoopbackHosts{
       "://127.0.0.1", "://localhost", "://[::1]",
   };
-    constexpr std::array<std::string_view, 4> kSidecarPaths{
+  constexpr std::array<std::string_view, 4> kSidecarPaths{
       "/api/events", "/api/sidecar/ingest", "/api/majel/ingest", "/api/fleet/",
   };
 
@@ -282,16 +318,6 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                   {"sidecar.sync.fleet_runtime", DCSidecar::Sync::fleet_runtime, {},
                    "sidecar fleet-runtime delivery"});
 
-  read_bool_value(result.config.probes.ship_identity,
-                  {"sidecar.probes.ship_identity", DCSidecar::Probes::ship_identity, {},
-                   "ship identity observability probes"});
-  read_bool_value(result.config.probes.battle_log_decoder,
-                  {"sidecar.probes.battle_log_decoder", DCSidecar::Probes::battle_log_decoder, {},
-                   "battle log decoder observability probes"});
-  read_bool_value(result.config.probes.battle_catalog,
-                  {"sidecar.probes.battle_catalog", DCSidecar::Probes::battle_catalog, {},
-                   "battle catalog observability probes"});
-
   read_bool_value(result.config.logging.jsonl,
                   {"sidecar.logging.jsonl", DCSidecar::Logging::jsonl, {}, "local sidecar JSONL capture"});
   read_int_value(result.config.logging.jsonl_replay_seconds, "sidecar.logging.jsonl_replay_seconds",
@@ -301,12 +327,51 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                  DCSidecar::Logging::jsonl_recent_logs, "sidecar JSONL retained recent battle logs");
   result.config.logging.jsonl_recent_logs = std::max(0, result.config.logging.jsonl_recent_logs);
 
-  read_bool_value(result.config.diagnostics.debug,
-                  {"sidecar.diagnostics.debug", DCSidecar::Diagnostics::debug, {},
-                   "sidecar-specific debug logging"});
-  read_bool_value(result.config.diagnostics.logging,
-                  {"sidecar.diagnostics.logging", DCSidecar::Diagnostics::logging, {},
-                   "sidecar-specific payload logging"});
+  if (const auto* diagnostics_node = node_at_path(config, "advanced.diagnostics");
+      diagnostics_node && !diagnostics_node->is_table()) {
+    result.diagnostics.push_back(
+        make_diagnostic(config_schema::DiagnosticSeverity::Warning, "advanced.diagnostics", "advanced.diagnostics",
+                        make_invalid_table_message("advanced.diagnostics", toml_type_name(diagnostics_node->type()),
+                                                   "reserved native diagnostics namespace")));
+  }
+
+  if (const auto* queue_node = node_at_path(config, "advanced.queue"); queue_node && !queue_node->is_table()) {
+    result.diagnostics.push_back(
+        make_diagnostic(config_schema::DiagnosticSeverity::Warning, "advanced.queue", "advanced.queue",
+                        make_invalid_table_message("advanced.queue", toml_type_name(queue_node->type()),
+                                                   "reserved queue experiment namespace")));
+  }
+
+  constexpr std::array<std::string_view, 1> kShipIdentityAlias{"sidecar.probes.ship_identity"};
+  constexpr std::array<std::string_view, 1> kBattleLogDecoderAlias{"sidecar.probes.battle_log_decoder"};
+  constexpr std::array<std::string_view, 1> kBattleCatalogAlias{"sidecar.probes.battle_catalog"};
+  constexpr std::array<std::string_view, 1> kDebugAlias{"sidecar.diagnostics.debug"};
+  constexpr std::array<std::string_view, 1> kLoggingAlias{"sidecar.diagnostics.logging"};
+
+  read_bool_value(result.advanced.diagnostics.ship_identity,
+                  {"advanced.diagnostics.ship_identity", DCAdvanced::Diagnostics::ship_identity, kShipIdentityAlias,
+                   "reserved ship identity observability probes"});
+  read_bool_value(result.advanced.diagnostics.battle_log_decoder,
+                  {"advanced.diagnostics.battle_log_decoder", DCAdvanced::Diagnostics::battle_log_decoder,
+                   kBattleLogDecoderAlias,
+                   "reserved battle log decoder observability probes"});
+  read_bool_value(result.advanced.diagnostics.battle_catalog,
+                  {"advanced.diagnostics.battle_catalog", DCAdvanced::Diagnostics::battle_catalog, kBattleCatalogAlias,
+                   "reserved battle catalog observability probes"});
+  read_bool_value(result.advanced.diagnostics.debug,
+                  {"advanced.diagnostics.debug", DCAdvanced::Diagnostics::debug, kDebugAlias,
+                   "reserved native debug diagnostics"});
+  read_bool_value(result.advanced.diagnostics.logging,
+                  {"advanced.diagnostics.logging", DCAdvanced::Diagnostics::logging, kLoggingAlias,
+                   "reserved native payload logging diagnostics"});
+
+  // Keep the deprecated sidecar-scoped members mirrored for low-risk
+  // compatibility, but treat advanced.diagnostics as canonical.
+  result.config.probes.ship_identity      = result.advanced.diagnostics.ship_identity;
+  result.config.probes.battle_log_decoder = result.advanced.diagnostics.battle_log_decoder;
+  result.config.probes.battle_catalog     = result.advanced.diagnostics.battle_catalog;
+  result.config.diagnostics.debug         = result.advanced.diagnostics.debug;
+  result.config.diagnostics.logging       = result.advanced.diagnostics.logging;
 
   constexpr std::array<std::pair<std::string_view, std::string_view>, 3> kLegacySidecarSyncPaths{{
       {"sync.sidecar_jsonl", "sidecar.logging.jsonl"},
@@ -384,14 +449,18 @@ void WriteSidecarConfigRuntimeSnapshot(toml::table& runtime_config, const Sideca
   config_schema::write_bool(runtime_config, "sidecar.sync.battlelogs_realtime", config.sync.battlelogs_realtime);
   config_schema::write_bool(runtime_config, "sidecar.sync.fleet_runtime", config.sync.fleet_runtime);
 
-  config_schema::write_bool(runtime_config, "sidecar.probes.ship_identity", config.probes.ship_identity);
-  config_schema::write_bool(runtime_config, "sidecar.probes.battle_log_decoder", config.probes.battle_log_decoder);
-  config_schema::write_bool(runtime_config, "sidecar.probes.battle_catalog", config.probes.battle_catalog);
-
   config_schema::write_bool(runtime_config, "sidecar.logging.jsonl", config.logging.jsonl);
   write_scalar(runtime_config, "sidecar.logging.jsonl_replay_seconds", config.logging.jsonl_replay_seconds);
   write_scalar(runtime_config, "sidecar.logging.jsonl_recent_logs", config.logging.jsonl_recent_logs);
+}
 
-  config_schema::write_bool(runtime_config, "sidecar.diagnostics.debug", config.diagnostics.debug);
-  config_schema::write_bool(runtime_config, "sidecar.diagnostics.logging", config.diagnostics.logging);
+void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const AdvancedConfig& config)
+{
+  config_schema::write_bool(runtime_config, "advanced.diagnostics.ship_identity", config.diagnostics.ship_identity);
+  config_schema::write_bool(runtime_config, "advanced.diagnostics.battle_log_decoder",
+                            config.diagnostics.battle_log_decoder);
+  config_schema::write_bool(runtime_config, "advanced.diagnostics.battle_catalog", config.diagnostics.battle_catalog);
+  config_schema::write_bool(runtime_config, "advanced.diagnostics.debug", config.diagnostics.debug);
+  config_schema::write_bool(runtime_config, "advanced.diagnostics.logging", config.diagnostics.logging);
+  ensure_table(runtime_config, "advanced.queue");
 }

@@ -109,6 +109,24 @@ namespace Debug
   constexpr int runtime_trace_report_interval_ms = 5000;
 } // namespace Debug
 
+namespace Advanced
+{
+  namespace Diagnostics
+  {
+    /// Reserved native observability toggles for future diagnostics and probes. Default: false.
+    constexpr bool ship_identity = false;
+    constexpr bool battle_log_decoder = false;
+    constexpr bool battle_catalog = false;
+    constexpr bool debug = false;
+    constexpr bool logging = false;
+  } // namespace Diagnostics
+
+  namespace Queue
+  {
+    // Reserved queue namespace. No active keys live here yet.
+  } // namespace Queue
+} // namespace Advanced
+
 namespace BattleLogDecoder
 {
   /// Enable live battle_log segment decoding beside the raw battle probe. Default: false.

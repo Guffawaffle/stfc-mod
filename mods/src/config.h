@@ -174,7 +174,10 @@ struct SidecarSyncConfig {
 };
 
 /**
- * @brief Reserved native observability toggles for future sidecar probe work.
+ * @brief Deprecated legacy aliases for reserved observability probe toggles.
+ *
+ * Canonical ownership now lives under `[advanced.diagnostics]`, but these
+ * members remain in the runtime model for low-risk compatibility.
  */
 struct SidecarProbesConfig {
   bool ship_identity      = false;
@@ -192,7 +195,10 @@ struct SidecarLoggingConfig {
 };
 
 /**
- * @brief Reserved diagnostics toggles for sidecar-focused native debugging.
+ * @brief Deprecated legacy aliases for reserved diagnostics toggles.
+ *
+ * Canonical ownership now lives under `[advanced.diagnostics]`, but these
+ * members remain in the runtime model for low-risk compatibility.
  */
 struct SidecarDiagnosticsConfig {
   bool debug   = false;
@@ -207,6 +213,37 @@ struct SidecarConfig {
   SidecarProbesConfig      probes;
   SidecarLoggingConfig     logging;
   SidecarDiagnosticsConfig diagnostics;
+};
+
+/**
+ * @brief Reserved native observability toggles rooted at `[advanced.diagnostics]`.
+ *
+ * These are dormant schema targets for future native diagnostics and probes.
+ * No active runtime features depend on them in this slice.
+ */
+struct AdvancedDiagnosticsConfig {
+  bool ship_identity      = false;
+  bool battle_log_decoder = false;
+  bool battle_catalog     = false;
+  bool debug              = false;
+  bool logging            = false;
+};
+
+/**
+ * @brief Reserved queue experiment namespace rooted at `[advanced.queue]`.
+ *
+ * This namespace is intentionally empty for now. It exists so future queue
+ * experiments can move off `[debug]` without changing active behavior in this
+ * groundwork slice.
+ */
+struct AdvancedQueueConfig {};
+
+/**
+ * @brief Unified advanced-native config surface rooted at `[advanced]`.
+ */
+struct AdvancedConfig {
+  AdvancedDiagnosticsConfig diagnostics;
+  AdvancedQueueConfig       queue;
 };
 
 constexpr std::string_view to_string(const SyncTargetConfig::Mode mode)
@@ -461,12 +498,17 @@ bool BattleLogDecoderEnabled();
 const SidecarConfig& SidecarSettings();
 
 /**
+ * @brief Canonical `[advanced]` settings resolved during config load.
+ */
+const AdvancedConfig& AdvancedSettings();
+
+/**
  * @brief Canonical local sidecar delivery settings from `[sidecar.sync]`.
  */
 const SidecarSyncConfig& SidecarSyncSettings();
 
 /**
- * @brief Reserved native sidecar probe toggles from `[sidecar.probes]`.
+ * @brief Deprecated legacy observability probe aliases from `[sidecar.probes]`.
  */
 const SidecarProbesConfig& SidecarProbesSettings();
 
@@ -476,9 +518,19 @@ const SidecarProbesConfig& SidecarProbesSettings();
 const SidecarLoggingConfig& SidecarLoggingSettings();
 
 /**
- * @brief Sidecar diagnostics toggles from `[sidecar.diagnostics]`.
+ * @brief Deprecated legacy observability aliases from `[sidecar.diagnostics]`.
  */
 const SidecarDiagnosticsConfig& SidecarDiagnosticsSettings();
+
+/**
+ * @brief Canonical reserved observability toggles from `[advanced.diagnostics]`.
+ */
+const AdvancedDiagnosticsConfig& AdvancedDiagnosticsSettings();
+
+/**
+ * @brief Canonical reserved queue namespace from `[advanced.queue]`.
+ */
+const AdvancedQueueConfig& AdvancedQueueSettings();
 
 /**
  * @brief Whether decoded battle_log segment summaries should be emitted.

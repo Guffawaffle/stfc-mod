@@ -11,14 +11,14 @@ Define current ownership for logging, probe, sync, and sidecar-adjacent observab
 This document is inventory and planning only:
 - No code movement.
 - No behavior changes.
-- No config changes.
+- No active config-key migration.
 
 ## Relationship to Inventory
 - Source snapshot: [LOGGING_PROBE_SYNC_SURFACE_INVENTORY.md](./LOGGING_PROBE_SYNC_SURFACE_INVENTORY.md)
 - This document: current ownership, guardrails, and future boundary proposals derived from that inventory
 
 ## Scope Notes
-- Current code and config truth lives on `main` at `79d54c3`.
+- This branch starts from `main` at `79d54c3` and adds dormant `[advanced.*]` schema support without moving active runtime keys.
 - The queue-only Kir'shara repair is present on current `main`, but it is not a target of this cleanup beyond its existing probe/log surfaces.
 - `manual_navigation_refresh`, ghost-hostile refresh, view drain/reload, refresh hotkeys, and ghost-specific watch/probe behavior are abandoned and out of scope.
 - Older branch-local docs that treated `.ax` as tracked repo truth are outdated for current `main`.
@@ -30,10 +30,14 @@ This document is inventory and planning only:
 | `[debug].runtime_trace*` | `mods/src/config.cc`, `mods/src/runtime_trace_config.h`, `mods/src/patches/mod_impact_monitor.*` | General native runtime trace level, overhead tracking, and report cadence | Keep as the current home for native runtime tracing |
 | `[sidecar.sync]` | `mods/src/config_sidecar.cc`, `mods/src/patches/sidecar_local_ingest*`, `mods/src/patches/fleet_runtime_sync.cc`, `mods/src/patches/sync_battle_logs.cc` | Local native-to-sidecar delivery and loopback transport policy | Keep delivery-only; do not expand with unrelated probes or diagnostics |
 | `[sidecar.logging]` | `mods/src/config_sidecar.cc`, `mods/src/patches/sync_battle_logs.cc` | Sidecar-oriented local JSONL output, replay window, and retention controls | Keep output-only; do not use for unrelated native diagnostics |
-| `[sidecar.probes]` | `mods/src/config.h`, `mods/src/defaultconfig.h`, `mods/src/config_sidecar.cc`, `tests/src/test_sidecar_config.cc` | Current reserved sidecar-scoped probe toggles and runtime snapshot schema | Keep sidecar-scoped only; do not treat as a general diagnostics namespace |
-| `[sidecar.diagnostics]` | `mods/src/config.h`, `mods/src/defaultconfig.h`, `mods/src/config_sidecar.cc`, `tests/src/test_sidecar_config.cc` | Current reserved sidecar-focused diagnostics toggles and runtime snapshot schema | Keep sidecar-scoped only; do not use as a dumping ground for broader native diagnostics |
+| `[sidecar.probes]` | `mods/src/config.h`, `mods/src/config_sidecar.cc`, `tests/src/test_sidecar_config.cc` | Deprecated legacy input aliases for reserved observability toggles now owned by `[advanced.diagnostics]` | Keep input-compatible only; do not use as the preferred namespace |
+| `[sidecar.diagnostics]` | `mods/src/config.h`, `mods/src/config_sidecar.cc`, `tests/src/test_sidecar_config.cc` | Deprecated legacy input aliases for reserved observability toggles now owned by `[advanced.diagnostics]` | Keep input-compatible only; do not use as a dumping ground for broader native diagnostics |
 | `[battle_log_decoder]` | `mods/src/config.cc`, `mods/src/defaultconfig.h`, `mods/src/patches/battle_log_decoder.*`, `mods/src/patches/sync_battle_logs.cc` | Decoder enablement and sidecar-event shaping controls for battle exports | Keep separate from sidecar transport namespaces |
-| `[advanced.diagnostics]` | Not implemented on current `main` | Future proposed home for extra native diagnostics | **Proposed:** if broader native diagnostics are added, put them here and default them off |
+| `[advanced.diagnostics]` | `mods/src/config.h`, `mods/src/defaultconfig.h`, `mods/src/config_sidecar.cc`, `tests/src/test_sidecar_config.cc` | Canonical dormant home for reserved native observability/probing toggles and runtime snapshot schema | Keep off by default and use it for broader native diagnostics instead of expanding `[sidecar.*]` |
+| `[advanced.queue]` | `mods/src/config.h`, `mods/src/config_sidecar.cc`, `mods/src/config_release_validation.cc`, `tests/src/test_sidecar_config.cc` | Canonical dormant home for future queue-specific experiments and dev-test toggles | Keep empty/off by default until active queue keys are intentionally migrated |
+
+Current dormant-key note:
+- `advanced.diagnostics.debug` and `advanced.diagnostics.logging` are compatibility placeholders carried forward from deprecated sidecar aliases. They are not active diagnostic controls in this slice.
 
 ## 2) Logging Sinks and On-Disk Evidence
 | Surface | Current Owner (existing) | Current Responsibility | Proposed Boundary (proposed) |
@@ -89,8 +93,9 @@ This document is inventory and planning only:
 4. `mods/src/patches/fleet_runtime_sync.cc`
 - Still mixes snapshot-state derivation, suppression policy, and output routing.
 
-5. Sidecar diagnostics namespaces
-- `[sidecar.probes]` and `[sidecar.diagnostics]` exist today, but broad native diagnostics do not belong there unless they directly concern sidecar delivery or sidecar-oriented output behavior.
+5. Reserved observability namespaces
+- `[advanced.diagnostics]` is now the canonical dormant namespace for reserved native diagnostics.
+- `[sidecar.probes]` and `[sidecar.diagnostics]` remain deprecated input aliases only.
 
 ## 7) Risk Matrix
 | Change Type | Risk | Notes |
@@ -101,19 +106,20 @@ This document is inventory and planning only:
 | Split live debug command dispatch from `parts/live_debug.cc` | Medium | Must preserve request semantics and tick timing |
 | Split battle JSONL sink logic from battle pipeline | Medium | Must preserve retention and ordering behavior |
 | Re-home general native diagnostics under sidecar namespaces | Medium | Blurs config ownership and makes later cleanup harder |
-| Introduce future `[advanced.diagnostics]` config surface | Medium | Should be off by default and come with explicit config validation updates |
+| Introduce dormant `[advanced.*]` config surfaces without moving active keys | Medium | Keep the new namespaces off by default and limit them to schema groundwork |
 | Touch sync ingress, queue behavior, or queue-only Kir'shara repair | High | Out of scope for this slice and high regression risk |
 
 ## 8) Recommended Sequencing
 1. Land docs that pin current ownership boundaries and correct old branch-local assumptions.
 2. Preserve the current rule that `[sidecar.sync]` is delivery-only and `[sidecar.logging]` is sidecar-output-only.
-3. If broader native diagnostics are needed, introduce `[advanced.diagnostics]` as a new off-by-default namespace instead of expanding `[sidecar.*]`.
-4. Continue separating live debug command dispatch from `parts/live_debug.cc` while keeping the request-cycle ordering unchanged.
-5. Isolate sidecar JSONL sink operations from `sync_battle_logs.cc` without changing event content, ordering, or retention behavior.
-6. Consider splitting `fleet_runtime_sync.cc` into capture and routing helpers only after targeted parity checks are ready.
+3. Use `[advanced.diagnostics]` for new dormant native diagnostics scaffolding instead of expanding `[sidecar.*]`.
+4. Leave active `[debug]` diagnostic and queue keys where they are until a dedicated migration slice is ready.
+5. Continue separating live debug command dispatch from `parts/live_debug.cc` while keeping the request-cycle ordering unchanged.
+6. Isolate sidecar JSONL sink operations from `sync_battle_logs.cc` without changing event content, ordering, or retention behavior.
+7. Consider splitting `fleet_runtime_sync.cc` into capture and routing helpers only after targeted parity checks are ready.
 
 ## 9) Ownership Guardrails
-- Current code and config truth lives on `main`; do not resurrect abandoned manual-refresh-era or ghost-specific observability surfaces.
+- Current cleanup still inherits its behavior baseline from `main`; do not resurrect abandoned manual-refresh-era or ghost-specific observability surfaces.
 - Treat file-backed transport and evidence paths such as `*.cmd`, `*.out`, and `*.jsonl` as contracts once tooling or operators depend on them.
 - Preserve existing defaults and gates:
   - `[debug].runtime_trace = "off"` by default
@@ -121,4 +127,5 @@ This document is inventory and planning only:
   - sidecar and sync opt-in behavior
 - Keep `config_sidecar.cc` and `tests/src/test_sidecar_config.cc` aligned on legacy rejection rules such as `sync.sidecar_jsonl*`, `[sync.targets.sidecar]`, `mode = "sidecar_broker"`, and loopback sidecar URLs under `[sync]`.
 - Do not put extra native probes or diagnostics under `[sidecar.*]` unless they directly concern sidecar delivery or sidecar-oriented logging/output behavior.
-- If `[advanced.diagnostics]` is added later, keep it off by default and scope it to general native diagnostics that are not sidecar-specific.
+- Keep `[advanced.diagnostics]` off by default and scope it to general native diagnostics that are not sidecar-specific.
+- Keep `[advanced.queue]` dormant until a dedicated queue-migration slice intentionally moves active queue experiment keys out of `[debug]`.

@@ -72,3 +72,11 @@ TEST_CASE("keymapping generated compatibility section stays in sync")
   CHECK(config_release_validation::NormalizeMarkdownNewlines(actual_section)
         == config_release_validation::NormalizeMarkdownNewlines(expected_section));
 }
+
+TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh keys")
+{
+  const auto source = read_text_file("example_community_patch_settings.toml");
+
+  CHECK(source.find("manual_navigation_refresh") == std::string::npos);
+  CHECK(source.find("ghost_owner_diagnostics") == std::string::npos);
+}
