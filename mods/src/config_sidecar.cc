@@ -371,6 +371,15 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                    DCAdvanced::Diagnostics::runtime_trace_track_overhead,
                    {},
                    "record runtime trace overhead separately"});
+  read_bool_value(result.advanced.diagnostics.mod_impact_monitor,
+                  {"advanced.diagnostics.mod_impact_monitor",
+                   DCAdvanced::Diagnostics::mod_impact_monitor,
+                   {},
+                   "emit periodic runtime impact summaries"});
+  read_int_value(result.advanced.diagnostics.runtime_trace_report_interval_ms,
+                 "advanced.diagnostics.runtime_trace_report_interval_ms",
+                 DCAdvanced::Diagnostics::runtime_trace_report_interval_ms,
+                 "runtime trace summary report interval");
 
   // Keep the deprecated sidecar-scoped members mirrored for low-risk
   // compatibility, but treat advanced.diagnostics as canonical.
@@ -472,5 +481,9 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
   write_scalar(runtime_config, "advanced.diagnostics.runtime_trace", config.diagnostics.runtime_trace);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.runtime_trace_track_overhead",
                             config.diagnostics.runtime_trace_track_overhead);
+  config_schema::write_bool(runtime_config, "advanced.diagnostics.mod_impact_monitor",
+                            config.diagnostics.mod_impact_monitor);
+  write_scalar(runtime_config, "advanced.diagnostics.runtime_trace_report_interval_ms",
+               config.diagnostics.runtime_trace_report_interval_ms);
   ensure_table(runtime_config, "advanced.queue");
 }

@@ -673,15 +673,6 @@ queue_add_hide_viewers = true
 # methods, adds runtime overhead, and is not the preferred export path.
 refinery_diagnostics = false
 
-# Emit periodic summaries of hook-owned runtime work so release validation can
-# confirm the setting remains documented alongside the rest of the debug surface.
-mod_impact_monitor = false
-
-# Milliseconds between runtime trace summary reports. Lower values increase
-# diagnostic log churn. Values are clamped by the mod. The trace level and
-# overhead toggle now live under [advanced.diagnostics].
-runtime_trace_report_interval_ms = 5000
-
 [ui]
 # Skip the reveal box animation, and just open the boxes
 always_skip_reveal_sequence = true
@@ -855,7 +846,7 @@ jsonl_replay_seconds = 30
 jsonl_recent_logs = 300
 
 [advanced.diagnostics]
-# Reserved native observability/probing namespace for future non-sidecar diagnostics.
+# Canonical native observability/probing namespace for non-sidecar diagnostics.
 # Older [sidecar.probes] and [sidecar.diagnostics] inputs are still accepted as deprecated aliases.
 # `debug` and `logging` are dormant compatibility placeholders only in this slice.
 # They are not newly active diagnostics controls yet.
@@ -876,6 +867,15 @@ runtime_trace = "off"
 # be separated from mod and game function timing. This adds more diagnostic work
 # in exchange for cleaner attribution.
 runtime_trace_track_overhead = false
+
+# Emit periodic summaries of hook-owned runtime work. If runtime_trace is left
+# unset, this enables summary-level tracing/reporting. If runtime_trace is set
+# explicitly, that level still controls the effective trace mode.
+mod_impact_monitor = false
+
+# Milliseconds between runtime trace summary reports. Lower values increase
+# diagnostic log churn. Values are clamped by the mod.
+runtime_trace_report_interval_ms = 5000
 
 [advanced.queue]
 # Reserved queue experiment/dev-test namespace. No active keys live here yet.

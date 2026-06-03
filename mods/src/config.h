@@ -222,13 +222,15 @@ struct SidecarConfig {
  * stay dormant/reserved until later diagnostic families migrate off `[debug]`.
  */
 struct AdvancedDiagnosticsConfig {
-  bool ship_identity      = false;
-  bool battle_log_decoder = false;
-  bool battle_catalog     = false;
-  bool debug              = false;
-  bool logging            = false;
-  std::string runtime_trace = "off";
-  bool        runtime_trace_track_overhead = false;
+  bool        ship_identity                   = false;
+  bool        battle_log_decoder              = false;
+  bool        battle_catalog                  = false;
+  bool        debug                           = false;
+  bool        logging                         = false;
+  std::string runtime_trace                   = "off";
+  bool        runtime_trace_track_overhead    = false;
+  bool        mod_impact_monitor              = false;
+  int         runtime_trace_report_interval_ms = 5000;
 };
 
 /**
@@ -560,7 +562,7 @@ int SidecarLoggingJsonlRecentLogs();
 bool RefineryDiagnosticsEnabled();
 
 /**
- * @brief Whether opt-in runtime mod impact monitoring is enabled.
+ * @brief Whether `[advanced.diagnostics]` enables runtime mod impact monitoring.
  */
 bool ModImpactMonitorEnabled();
 
@@ -575,6 +577,6 @@ RuntimeTraceLevel RuntimeTraceLevelSetting();
 bool RuntimeTraceTrackOverhead();
 
 /**
- * @brief Milliseconds between runtime trace summary reports.
+ * @brief Milliseconds between `[advanced.diagnostics]` runtime trace summary reports.
  */
 int RuntimeTraceReportIntervalMs();

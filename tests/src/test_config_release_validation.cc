@@ -86,6 +86,10 @@ TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh
   REQUIRE(advanced != nullptr);
   CHECK_FALSE(debug->contains("runtime_trace"));
   CHECK_FALSE(debug->contains("runtime_trace_track_overhead"));
+  CHECK_FALSE(debug->contains("mod_impact_monitor"));
+  CHECK_FALSE(debug->contains("runtime_trace_report_interval_ms"));
   CHECK(advanced->contains("runtime_trace"));
   CHECK(advanced->contains("runtime_trace_track_overhead"));
+  CHECK(advanced->contains("mod_impact_monitor"));
+  CHECK(advanced->contains("runtime_trace_report_interval_ms"));
 }

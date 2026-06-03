@@ -11,14 +11,14 @@ Define current ownership for logging, probe, sync, and sidecar-adjacent observab
 This document is inventory and planning only:
 - No code movement beyond documented config ownership.
 - No runtime trace behavior changes.
-- Only the `runtime_trace` / `runtime_trace_track_overhead` key family moved in this slice.
+- Only the runtime trace and mod-impact reporting key families moved in these slices.
 
 ## Relationship to Inventory
 - Source snapshot: [LOGGING_PROBE_SYNC_SURFACE_INVENTORY.md](./LOGGING_PROBE_SYNC_SURFACE_INVENTORY.md)
 - This document: current ownership, guardrails, and future boundary proposals derived from that inventory
 
 ## Scope Notes
-- This branch starts from `main` at `79d54c3`, adds dormant `[advanced.*]` schema support, and moves only the active runtime trace key family into `[advanced.diagnostics]`.
+- This branch starts from `main` at `79d54c3`, adds dormant `[advanced.*]` schema support, and now keeps the active runtime trace and mod-impact reporting keys under `[advanced.diagnostics]`.
 - The queue-only Kir'shara repair is present on current `main`, but it is not a target of this cleanup beyond its existing probe/log surfaces.
 - `manual_navigation_refresh`, ghost-hostile refresh, view drain/reload, refresh hotkeys, and ghost-specific watch/probe behavior are abandoned and out of scope.
 - Older branch-local docs that treated `.ax` as tracked repo truth are outdated for current `main`.
@@ -28,7 +28,7 @@ This document is inventory and planning only:
 | Surface | Current Owner (existing) | Current Responsibility | Boundary Rule |
 |---|---|---|---|
 | `[advanced.diagnostics].runtime_trace` / `.runtime_trace_track_overhead` | `mods/src/config.cc`, `mods/src/runtime_trace_config.h`, `mods/src/config_sidecar.cc`, `mods/src/patches/mod_impact_monitor.*` | Canonical runtime trace level and trace-overhead toggle | Keep as the canonical home for active runtime tracing config |
-| `[debug].runtime_trace_report_interval_ms` | `mods/src/config.cc`, `mods/src/defaultconfig.h`, `mods/src/patches/mod_impact_monitor.*` | Runtime trace summary cadence | Leave here for now; move only when the remaining trace family migration is ready |
+| `[advanced.diagnostics].mod_impact_monitor` / `.runtime_trace_report_interval_ms` | `mods/src/config.cc`, `mods/src/defaultconfig.h`, `mods/src/config_sidecar.cc`, `mods/src/patches/mod_impact_monitor.*` | Canonical shorthand for summary-level impact reporting and its report cadence | Keep with the rest of the runtime trace / impact-monitor config family |
 | `[sidecar.sync]` | `mods/src/config_sidecar.cc`, `mods/src/patches/sidecar_local_ingest*`, `mods/src/patches/fleet_runtime_sync.cc`, `mods/src/patches/sync_battle_logs.cc` | Local native-to-sidecar delivery and loopback transport policy | Keep delivery-only; do not expand with unrelated probes or diagnostics |
 | `[sidecar.logging]` | `mods/src/config_sidecar.cc`, `mods/src/patches/sync_battle_logs.cc` | Sidecar-oriented local JSONL output, replay window, and retention controls | Keep output-only; do not use for unrelated native diagnostics |
 | `[sidecar.probes]` | `mods/src/config.h`, `mods/src/config_sidecar.cc`, `tests/src/test_sidecar_config.cc` | Deprecated legacy input aliases for reserved observability toggles now owned by `[advanced.diagnostics]` | Keep input-compatible only; do not use as the preferred namespace |
@@ -39,7 +39,7 @@ This document is inventory and planning only:
 
 Current dormant-key note:
 - `advanced.diagnostics.debug` and `advanced.diagnostics.logging` are compatibility placeholders carried forward from deprecated sidecar aliases. They are not active diagnostic controls in this slice.
-- `advanced.diagnostics.runtime_trace` and `.runtime_trace_track_overhead` are active and canonical on this branch.
+- `advanced.diagnostics.runtime_trace`, `.runtime_trace_track_overhead`, `.mod_impact_monitor`, and `.runtime_trace_report_interval_ms` are active and canonical on this branch.
 
 ## 2) Logging Sinks and On-Disk Evidence
 | Surface | Current Owner (existing) | Current Responsibility | Proposed Boundary (proposed) |
@@ -115,7 +115,7 @@ Current dormant-key note:
 1. Land docs that pin current ownership boundaries and correct old branch-local assumptions.
 2. Preserve the current rule that `[sidecar.sync]` is delivery-only and `[sidecar.logging]` is sidecar-output-only.
 3. Use `[advanced.diagnostics]` for new dormant native diagnostics scaffolding instead of expanding `[sidecar.*]`.
-4. Leave active `[debug]` diagnostic and queue keys where they are until a dedicated migration slice is ready.
+4. Leave the remaining active `[debug]` diagnostic and queue keys where they are until dedicated migration slices are ready.
 5. Continue separating live debug command dispatch from `parts/live_debug.cc` while keeping the request-cycle ordering unchanged.
 6. Isolate sidecar JSONL sink operations from `sync_battle_logs.cc` without changing event content, ordering, or retention behavior.
 7. Consider splitting `fleet_runtime_sync.cc` into capture and routing helpers only after targeted parity checks are ready.
@@ -125,6 +125,8 @@ Current dormant-key note:
 - Treat file-backed transport and evidence paths such as `*.cmd`, `*.out`, and `*.jsonl` as contracts once tooling or operators depend on them.
 - Preserve existing defaults and gates:
   - `[advanced.diagnostics].runtime_trace = "off"` by default
+  - `[advanced.diagnostics].mod_impact_monitor = false` by default
+  - `[advanced.diagnostics].runtime_trace_report_interval_ms = 5000` by default
   - live query opt-in
   - sidecar and sync opt-in behavior
 - Keep `config_sidecar.cc` and `tests/src/test_sidecar_config.cc` aligned on legacy rejection rules such as `sync.sidecar_jsonl*`, `[sync.targets.sidecar]`, `mode = "sidecar_broker"`, and loopback sidecar URLs under `[sync]`.

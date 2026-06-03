@@ -99,10 +99,6 @@ namespace Debug
   constexpr bool queue_add_hide_viewers = true;
   /// Enable focused refinery lifecycle/action diagnostics in community_patch.log. Default: false.
   constexpr bool refinery_diagnostics = false;
-  /// Enable periodic runtime impact summaries for frame-owned mod hooks. Default: false.
-  constexpr bool mod_impact_monitor = false;
-  /// Runtime trace summary report interval in milliseconds. Lower intervals increase diagnostic log churn. Default: 5000.
-  constexpr int runtime_trace_report_interval_ms = 5000;
 } // namespace Debug
 
 namespace Advanced
@@ -119,6 +115,10 @@ namespace Advanced
     constexpr const char* runtime_trace = "off";
     /// Track runtime trace instrumentation overhead as a separate probe. Default: false for this private fork.
     constexpr bool runtime_trace_track_overhead = false;
+    /// Enable periodic runtime impact summaries for frame-owned mod hooks. Default: false.
+    constexpr bool mod_impact_monitor = false;
+    /// Runtime trace summary report interval in milliseconds. Lower intervals increase diagnostic log churn. Default: 5000.
+    constexpr int runtime_trace_report_interval_ms = 5000;
   } // namespace Diagnostics
 
   namespace Queue

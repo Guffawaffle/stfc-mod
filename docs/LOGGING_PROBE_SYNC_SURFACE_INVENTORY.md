@@ -10,11 +10,11 @@ This inventory maps the current logging, probe, sync, and sidecar-adjacent obser
 
 This pass records the current branch state:
 - No runtime trace behavior changes.
-- Only the `runtime_trace` / `runtime_trace_track_overhead` key family migrated.
+- Only the runtime trace and mod-impact reporting key families migrated.
 - No queue-repair changes.
 
 Current-main rules for this snapshot:
-- This branch starts from `main` at `79d54c3`, adds dormant `[advanced.*]` schema support, and moves only the active runtime trace key family into `[advanced.diagnostics]`.
+- This branch starts from `main` at `79d54c3`, adds dormant `[advanced.*]` schema support, and now keeps the active runtime trace and mod-impact reporting keys under `[advanced.diagnostics]`.
 - `manual_navigation_refresh`, ghost-hostile refresh, view drain/reload, and refresh hotkey work are abandoned and are not current runtime surfaces.
 - The queue-only Kir'shara repair exists on current `main`; it is included here only where it emits probe or log artifacts.
 - `.ax` operator tooling is not tracked on current `main`, so it is not documented here as active repo truth.
@@ -82,11 +82,11 @@ Current-main rules for this snapshot:
   - `[debug].live_query`
   - `[debug].action_queue_probe`
   - `[debug].refinery_diagnostics`
-  - `[debug].mod_impact_monitor`
-  - `[debug].runtime_trace_report_interval_ms`
 - Active advanced diagnostics gates:
   - `[advanced.diagnostics].runtime_trace`
   - `[advanced.diagnostics].runtime_trace_track_overhead`
+  - `[advanced.diagnostics].mod_impact_monitor`
+  - `[advanced.diagnostics].runtime_trace_report_interval_ms`
 - Battle decode and sidecar-event shaping gates:
   - `[battle_log_decoder].enabled`
   - `[battle_log_decoder].emit_segments`
@@ -111,7 +111,8 @@ Current-main rules for this snapshot:
 - Dormant advanced-native gates:
   - `[advanced.diagnostics]`
     - Canonical native observability/probing namespace
-    - Active in this slice: `runtime_trace`, `runtime_trace_track_overhead`
+    - Active in this slice: `runtime_trace`, `runtime_trace_track_overhead`, `mod_impact_monitor`,
+      `runtime_trace_report_interval_ms`
     - Still dormant/reserved: `ship_identity`, `battle_log_decoder`, `battle_catalog`, `debug`, `logging`
     - `debug` and `logging` are dormant compatibility placeholders, not new active diagnostics controls
   - `[advanced.queue]`
@@ -297,7 +298,8 @@ These are the cleanest current seams for follow-on no-behavior-change work:
 
 6. `Runtime Trace and Impact Monitor` as independent observability
 - `runtime_trace_config.h`, `mod_impact_monitor.*`, `[advanced.diagnostics].runtime_trace`,
-  `[advanced.diagnostics].runtime_trace_track_overhead`, and `[debug].runtime_trace_report_interval_ms`
+  `[advanced.diagnostics].runtime_trace_track_overhead`, `[advanced.diagnostics].mod_impact_monitor`, and
+  `[advanced.diagnostics].runtime_trace_report_interval_ms`
 
 7. `General native diagnostics config` as the canonical namespace
 - Current branch implements `[advanced.diagnostics]` as the canonical home for active runtime trace config plus additional dormant observability toggles.
@@ -311,7 +313,7 @@ Compared with older branch-local observability notes, current `main` requires th
 - The tracked `spdlog::` emitter count is `38`, not `40`.
 - `.ax` is not tracked on current `main`, so AX command surfaces are not active repo truth here.
 - `manual_navigation_refresh` and ghost-hostile refresh diagnostics are not present on current `main`.
-- `[advanced.diagnostics]` and `[advanced.queue]` now exist as canonical config surfaces on this branch; only the runtime-trace keys are active so far.
+- `[advanced.diagnostics]` and `[advanced.queue]` now exist as canonical config surfaces on this branch; the runtime trace and mod-impact reporting keys are active so far.
 - `[sidecar.probes]` and `[sidecar.diagnostics]` are retained only as deprecated input aliases for reserved observability toggles.
 
 ## I) Notes for the Next Planning Pass

@@ -2,7 +2,7 @@
 
 Date: 2026-05-07  
 Branch: `guffa-dev`  
-Sample source: live `community_patch.log` impact rows emitted by `debug.mod_impact_monitor = true`
+Sample source: live `community_patch.log` impact rows emitted by `advanced.diagnostics.mod_impact_monitor = true`
 
 ## Summary
 
@@ -136,6 +136,6 @@ Priority: low for performance based on this sample. Keep them monitored, but do 
 
 ## Operational Notes
 
-1. `debug.mod_impact_monitor` should stay off by default. It is useful for diagnosis, but it adds instrumentation and log writes every five seconds.
+1. `advanced.diagnostics.mod_impact_monitor` should stay off by default. It is useful for diagnosis, but it adds instrumentation and log writes every five seconds.
 2. `debug.live_query` should be treated as a development/AX feature, not a normal gameplay feature; with the three-second poll throttle, commands can take up to three seconds to execute.
 3. Any future live sample should record whether the game is boot/menu/system/galaxy and whether AX live-query commands are active. The current sample includes both early and navigation-present phases, so the aggregate is useful but not a controlled benchmark.
