@@ -909,7 +909,7 @@ async function sendDebugRequest(request, options) {
     request: requestObject,
     cmdFile: paths.debugCmdFile,
     outFile: paths.debugOutFile,
-    hint: "Timed out waiting for the game to answer. Ensure prime.exe is running and [debug].live_query = true."
+    hint: "Timed out waiting for the game to answer. Ensure prime.exe is running and [advanced.diagnostics].live_query = true."
   };
 }
 

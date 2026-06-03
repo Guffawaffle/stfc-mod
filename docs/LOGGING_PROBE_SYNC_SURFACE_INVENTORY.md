@@ -37,7 +37,7 @@ Current-main rules for this snapshot:
 ## A) Runtime Logging Infrastructure
 - Root logger bootstrap and rotating archive policy:
   - `mods/src/patches/patches.cc`
-  - Creates and rotates `community_patch.log` using `[debug].log_archive_count`.
+  - Creates and rotates `community_patch.log`; no active user-facing `log_archive_count` config consumer was found on this branch.
 - Canonical file naming and path resolution:
   - `mods/src/file.h`
   - `mods/src/file.cc`
@@ -77,7 +77,8 @@ Current-main rules for this snapshot:
   - Resolved runtime config snapshot.
 
 ## C) Config Gates for Logging, Probe, Sync, and Sidecar Observability
-- Debug and logging gates:
+- No active top-level `[debug]` observability gates remain on this branch.
+- Historical stale references removed from this inventory after confirming there are no current consumers for:
   - `[debug].log_archive_count`
   - `[debug].action_queue_probe`
 - Active advanced diagnostics gates:
@@ -316,6 +317,7 @@ Compared with older branch-local observability notes, current `main` requires th
 - `manual_navigation_refresh` and ghost-hostile refresh diagnostics are not present on current `main`.
 - `[advanced.diagnostics]` and `[advanced.queue]` now exist as canonical config surfaces on this branch; the live-query, runtime-trace, mod-impact reporting, refinery-diagnostics, and queue experiment keys are active so far.
 - `dev_commands` is not consumed by current repo config. If it appears in a live TOML, treat it as stale local residue rather than repo truth.
+- `[debug].log_archive_count` and `[debug].action_queue_probe` were stale documentation references only; no parser or runtime consumers were found on this branch.
 - `[sidecar.probes]` and `[sidecar.diagnostics]` are retained only as deprecated input aliases for reserved observability toggles.
 
 ## I) Notes for the Next Planning Pass

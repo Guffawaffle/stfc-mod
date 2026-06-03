@@ -118,7 +118,7 @@ Current dormant-key note:
 1. Land docs that pin current ownership boundaries and correct old branch-local assumptions.
 2. Preserve the current rule that `[sidecar.sync]` is delivery-only and `[sidecar.logging]` is sidecar-output-only.
 3. Use `[advanced.diagnostics]` for new dormant native diagnostics scaffolding instead of expanding `[sidecar.*]`.
-4. Leave any remaining active `[debug]` keys where they are until dedicated migration slices are ready.
+4. This branch no longer has active top-level `[debug]` observability keys; treat any new ones as regressions unless they are introduced deliberately with clear ownership.
 5. Continue separating live debug command dispatch from `parts/live_debug.cc` while keeping the request-cycle ordering unchanged.
 6. Isolate sidecar JSONL sink operations from `sync_battle_logs.cc` without changing event content, ordering, or retention behavior.
 7. Consider splitting `fleet_runtime_sync.cc` into capture and routing helpers only after targeted parity checks are ready.
