@@ -380,6 +380,11 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                  "advanced.diagnostics.runtime_trace_report_interval_ms",
                  DCAdvanced::Diagnostics::runtime_trace_report_interval_ms,
                  "runtime trace summary report interval");
+  read_bool_value(result.advanced.diagnostics.refinery_diagnostics,
+                  {"advanced.diagnostics.refinery_diagnostics",
+                   DCAdvanced::Diagnostics::refinery_diagnostics,
+                   {},
+                   "emit focused refinery lifecycle diagnostics"});
 
   // Keep the deprecated sidecar-scoped members mirrored for low-risk
   // compatibility, but treat advanced.diagnostics as canonical.
@@ -485,5 +490,7 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
                             config.diagnostics.mod_impact_monitor);
   write_scalar(runtime_config, "advanced.diagnostics.runtime_trace_report_interval_ms",
                config.diagnostics.runtime_trace_report_interval_ms);
+  config_schema::write_bool(runtime_config, "advanced.diagnostics.refinery_diagnostics",
+                            config.diagnostics.refinery_diagnostics);
   ensure_table(runtime_config, "advanced.queue");
 }

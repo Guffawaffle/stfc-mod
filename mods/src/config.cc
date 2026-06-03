@@ -79,7 +79,7 @@ static SidecarConfig         g_sidecar_config{};
 static AdvancedConfig        g_advanced_config{};
 static int                   g_sidecar_logging_jsonl_replay_seconds = DCSL::jsonl_replay_seconds;
 static int                   g_sidecar_logging_jsonl_recent_logs    = DCSL::jsonl_recent_logs;
-static bool                  g_refinery_diagnostics              = DCD::refinery_diagnostics;
+static bool                  g_refinery_diagnostics              = DCAD::refinery_diagnostics;
 static bool                  g_mod_impact_monitor                = DCAD::mod_impact_monitor;
 static RuntimeTraceLevel     g_runtime_trace_level               = RuntimeTraceLevel::Off;
 static bool                  g_runtime_trace_track_overhead      = DCAD::runtime_trace_track_overhead;
@@ -1165,8 +1165,7 @@ void Config::Load()
                                                      DCD::queue_add_direct_handler, write_config);
   g_queue_add_hide_viewers = get_config_or_default(config, parsed, "debug", "queue_add_hide_viewers",
                                                    DCD::queue_add_hide_viewers, write_config);
-  g_refinery_diagnostics =
-      get_config_or_default(config, parsed, "debug", "refinery_diagnostics", DCD::refinery_diagnostics, write_config);
+  g_refinery_diagnostics = g_advanced_config.diagnostics.refinery_diagnostics;
 
   const auto* advanced_table = config["advanced"].as_table();
   const auto* advanced_diagnostics_table =

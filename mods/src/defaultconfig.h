@@ -97,8 +97,6 @@ namespace Debug
   constexpr bool queue_add_direct_handler = false;
   /// Keep queue-add viewer cleanup enabled after pressing the in-game Add to Queue button. Default: true.
   constexpr bool queue_add_hide_viewers = true;
-  /// Enable focused refinery lifecycle/action diagnostics in community_patch.log. Default: false.
-  constexpr bool refinery_diagnostics = false;
 } // namespace Debug
 
 namespace Advanced
@@ -119,6 +117,8 @@ namespace Advanced
     constexpr bool mod_impact_monitor = false;
     /// Runtime trace summary report interval in milliseconds. Lower intervals increase diagnostic log churn. Default: 5000.
     constexpr int runtime_trace_report_interval_ms = 5000;
+    /// Enable focused refinery lifecycle/action diagnostics in community_patch.log. Default: false.
+    constexpr bool refinery_diagnostics = false;
   } // namespace Diagnostics
 
   namespace Queue

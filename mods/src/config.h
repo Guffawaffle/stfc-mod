@@ -218,8 +218,9 @@ struct SidecarConfig {
 /**
  * @brief Canonical native diagnostics surface rooted at `[advanced.diagnostics]`.
  *
- * Runtime trace level and overhead tracking now live here. The remaining keys
- * stay dormant/reserved until later diagnostic families migrate off `[debug]`.
+ * Active runtime trace, mod-impact reporting, and refinery diagnostics now
+ * live here. The remaining keys stay dormant/reserved until later diagnostic
+ * families migrate off `[debug]`.
  */
 struct AdvancedDiagnosticsConfig {
   bool        ship_identity                   = false;
@@ -231,6 +232,7 @@ struct AdvancedDiagnosticsConfig {
   bool        runtime_trace_track_overhead    = false;
   bool        mod_impact_monitor              = false;
   int         runtime_trace_report_interval_ms = 5000;
+  bool        refinery_diagnostics            = false;
 };
 
 /**

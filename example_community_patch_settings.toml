@@ -667,12 +667,6 @@ queue_add_direct_handler = false
 # Set false during local diagnostics to isolate queue-button cost from viewer cleanup cost.
 queue_add_hide_viewers = true
 
-# Emit focused refinery lifecycle, selection, analytics, and purchase-result
-# breadcrumbs to the legacy plain-text community_patch.log troubleshooting log.
-# Keep disabled during normal play because it detours shared shop/showcase
-# methods, adds runtime overhead, and is not the preferred export path.
-refinery_diagnostics = false
-
 [ui]
 # Skip the reveal box animation, and just open the boxes
 always_skip_reveal_sequence = true
@@ -876,6 +870,12 @@ mod_impact_monitor = false
 # Milliseconds between runtime trace summary reports. Lower values increase
 # diagnostic log churn. Values are clamped by the mod.
 runtime_trace_report_interval_ms = 5000
+
+# Emit focused refinery lifecycle, selection, analytics, and purchase-result
+# breadcrumbs to the legacy plain-text community_patch.log troubleshooting log.
+# Keep disabled during normal play because it detours shared shop/showcase
+# methods, adds runtime overhead, and is not the preferred export path.
+refinery_diagnostics = false
 
 [advanced.queue]
 # Reserved queue experiment/dev-test namespace. No active keys live here yet.
