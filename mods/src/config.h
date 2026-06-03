@@ -237,13 +237,12 @@ struct AdvancedDiagnosticsConfig {
 };
 
 /**
- * @brief Reserved queue experiment namespace rooted at `[advanced.queue]`.
- *
- * This namespace is intentionally empty for now. It exists so future queue
- * experiments can move off `[debug]` without changing active behavior in this
- * groundwork slice.
+ * @brief Queue experiment/dev-test namespace rooted at `[advanced.queue]`.
  */
-struct AdvancedQueueConfig {};
+struct AdvancedQueueConfig {
+  bool queue_add_direct_handler = false;
+  bool queue_add_hide_viewers   = true;
+};
 
 /**
  * @brief Unified advanced-native config surface rooted at `[advanced]`.
@@ -535,7 +534,7 @@ const SidecarDiagnosticsConfig& SidecarDiagnosticsSettings();
 const AdvancedDiagnosticsConfig& AdvancedDiagnosticsSettings();
 
 /**
- * @brief Canonical reserved queue namespace from `[advanced.queue]`.
+ * @brief Canonical queue experiment/dev-test namespace from `[advanced.queue]`.
  */
 const AdvancedQueueConfig& AdvancedQueueSettings();
 

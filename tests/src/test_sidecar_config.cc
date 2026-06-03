@@ -74,6 +74,8 @@ jsonl_recent_logs = 300
     CHECK_FALSE(result.advanced.diagnostics.mod_impact_monitor);
     CHECK(result.advanced.diagnostics.runtime_trace_report_interval_ms == 5000);
     CHECK_FALSE(result.advanced.diagnostics.refinery_diagnostics);
+    CHECK_FALSE(result.advanced.queue.queue_add_direct_handler);
+    CHECK(result.advanced.queue.queue_add_hide_viewers);
     CHECK(result.diagnostics.empty());
   }
 
@@ -104,6 +106,8 @@ runtime_trace_report_interval_ms = 9000
 refinery_diagnostics = true
 
 [advanced.queue]
+queue_add_direct_handler = true
+queue_add_hide_viewers = false
 
 [sidecar.logging]
 jsonl = true
@@ -138,6 +142,8 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.diagnostics.mod_impact_monitor);
     CHECK(result.advanced.diagnostics.runtime_trace_report_interval_ms == 9000);
     CHECK(result.advanced.diagnostics.refinery_diagnostics);
+    CHECK(result.advanced.queue.queue_add_direct_handler);
+    CHECK_FALSE(result.advanced.queue.queue_add_hide_viewers);
 
     CHECK(result.config.probes.ship_identity);
     CHECK(result.config.probes.battle_log_decoder);
@@ -242,6 +248,8 @@ mode = "majel"
     advanced.diagnostics.mod_impact_monitor = true;
     advanced.diagnostics.runtime_trace_report_interval_ms = 7000;
     advanced.diagnostics.refinery_diagnostics = true;
+    advanced.queue.queue_add_direct_handler = true;
+    advanced.queue.queue_add_hide_viewers = false;
 
     toml::table runtime_snapshot;
     WriteSidecarConfigRuntimeSnapshot(runtime_snapshot, sidecar);
@@ -265,6 +273,8 @@ mode = "majel"
           == 7000);
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["refinery_diagnostics"].value<bool>().value_or(false));
     REQUIRE(runtime_snapshot["advanced"]["queue"].is_table());
+    CHECK(runtime_snapshot["advanced"]["queue"]["queue_add_direct_handler"].value<bool>().value_or(false));
+    CHECK_FALSE(runtime_snapshot["advanced"]["queue"]["queue_add_hide_viewers"].value<bool>().value_or(true));
 
     const auto* sidecar_table = runtime_snapshot["sidecar"].as_table();
     REQUIRE(sidecar_table != nullptr);

@@ -79,21 +79,37 @@ TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh
   const auto config = toml::parse(source);
   const auto* debug = config["debug"].as_table();
   const auto* advanced = config["advanced"]["diagnostics"].as_table();
+  const auto* advanced_queue = config["advanced"]["queue"].as_table();
 
   CHECK(source.find("manual_navigation_refresh") == std::string::npos);
   CHECK(source.find("ghost_owner_diagnostics") == std::string::npos);
-  REQUIRE(debug != nullptr);
   REQUIRE(advanced != nullptr);
-  CHECK_FALSE(debug->contains("live_query"));
-  CHECK_FALSE(debug->contains("runtime_trace"));
-  CHECK_FALSE(debug->contains("runtime_trace_track_overhead"));
-  CHECK_FALSE(debug->contains("mod_impact_monitor"));
-  CHECK_FALSE(debug->contains("runtime_trace_report_interval_ms"));
-  CHECK_FALSE(debug->contains("refinery_diagnostics"));
+  REQUIRE(advanced_queue != nullptr);
+  const auto debug_has_live_query = debug != nullptr && debug->contains("live_query");
+  const auto debug_has_runtime_trace = debug != nullptr && debug->contains("runtime_trace");
+  const auto debug_has_runtime_trace_track_overhead =
+      debug != nullptr && debug->contains("runtime_trace_track_overhead");
+  const auto debug_has_mod_impact_monitor = debug != nullptr && debug->contains("mod_impact_monitor");
+  const auto debug_has_runtime_trace_report_interval_ms =
+      debug != nullptr && debug->contains("runtime_trace_report_interval_ms");
+  const auto debug_has_refinery_diagnostics = debug != nullptr && debug->contains("refinery_diagnostics");
+  const auto debug_has_queue_add_direct_handler = debug != nullptr && debug->contains("queue_add_direct_handler");
+  const auto debug_has_queue_add_hide_viewers = debug != nullptr && debug->contains("queue_add_hide_viewers");
+
+  CHECK_FALSE(debug_has_live_query);
+  CHECK_FALSE(debug_has_runtime_trace);
+  CHECK_FALSE(debug_has_runtime_trace_track_overhead);
+  CHECK_FALSE(debug_has_mod_impact_monitor);
+  CHECK_FALSE(debug_has_runtime_trace_report_interval_ms);
+  CHECK_FALSE(debug_has_refinery_diagnostics);
+  CHECK_FALSE(debug_has_queue_add_direct_handler);
+  CHECK_FALSE(debug_has_queue_add_hide_viewers);
   CHECK(advanced->contains("live_query"));
   CHECK(advanced->contains("runtime_trace"));
   CHECK(advanced->contains("runtime_trace_track_overhead"));
   CHECK(advanced->contains("mod_impact_monitor"));
   CHECK(advanced->contains("runtime_trace_report_interval_ms"));
   CHECK(advanced->contains("refinery_diagnostics"));
+  CHECK(advanced_queue->contains("queue_add_direct_handler"));
+  CHECK(advanced_queue->contains("queue_add_hide_viewers"));
 }

@@ -10,11 +10,11 @@ This inventory maps the current logging, probe, sync, and sidecar-adjacent obser
 
 This pass records the current branch state:
 - No runtime trace behavior changes.
-- Only the live-query, runtime-trace, mod-impact reporting, and refinery-diagnostics key families migrated.
+- Only the live-query, runtime-trace, mod-impact reporting, refinery-diagnostics, and queue experiment key families migrated.
 - No queue-repair changes.
 
 Current-main rules for this snapshot:
-- This branch starts from `main` at `79d54c3`, adds dormant `[advanced.*]` schema support, and now keeps the active live-query, runtime-trace, mod-impact reporting, and refinery diagnostics keys under `[advanced.diagnostics]`.
+- This branch starts from `main` at `79d54c3`, adds `[advanced.*]` schema support, and now keeps the active live-query, runtime-trace, mod-impact reporting, and refinery diagnostics keys under `[advanced.diagnostics]`, plus queue experiment/dev-test keys under `[advanced.queue]`.
 - `manual_navigation_refresh`, ghost-hostile refresh, view drain/reload, and refresh hotkey work are abandoned and are not current runtime surfaces.
 - The queue-only Kir'shara repair exists on current `main`; it is included here only where it emits probe or log artifacts.
 - `.ax` operator tooling is not tracked on current `main`, so it is not documented here as active repo truth.
@@ -108,7 +108,7 @@ Current-main rules for this snapshot:
     - `jsonl`, `jsonl_replay_seconds`, `jsonl_recent_logs`
   - `[sidecar.probes]` and `[sidecar.diagnostics]`
     - Deprecated legacy input aliases for reserved observability toggles now owned by `[advanced.diagnostics]`
-- Dormant advanced-native gates:
+- Advanced-native gates:
   - `[advanced.diagnostics]`
     - Canonical native observability/probing namespace
     - Active in this slice: `live_query`, `runtime_trace`, `runtime_trace_track_overhead`, `mod_impact_monitor`,
@@ -116,8 +116,8 @@ Current-main rules for this snapshot:
     - Still dormant/reserved: `ship_identity`, `battle_log_decoder`, `battle_catalog`, `debug`, `logging`
     - `debug` and `logging` are dormant compatibility placeholders, not new active diagnostics controls
   - `[advanced.queue]`
-    - Canonical reserved queue experiment/dev-test namespace
-    - No active keys yet; empty reserved table
+    - Canonical queue experiment/dev-test namespace
+    - Active in this slice: `queue_add_direct_handler`, `queue_add_hide_viewers`
 - Legacy and invalid sidecar config handling:
   - `sync.sidecar_jsonl*` legacy keys are rejected in favor of `[sidecar.logging]`
   - `[sync.targets.sidecar]` is invalid
@@ -302,9 +302,8 @@ These are the cleanest current seams for follow-on no-behavior-change work:
   `[advanced.diagnostics].runtime_trace_report_interval_ms`
 
 7. `General native diagnostics config` as the canonical namespace
-- Current branch implements `[advanced.diagnostics]` as the canonical home for active runtime trace config plus additional dormant observability toggles.
-- Current branch implements `[advanced.diagnostics]` as the canonical home for active runtime trace config, mod-impact reporting, refinery diagnostics, and additional dormant observability toggles.
 - Current branch implements `[advanced.diagnostics]` as the canonical home for active live-query config, runtime trace config, mod-impact reporting, refinery diagnostics, and additional dormant observability toggles.
+- Current branch implements `[advanced.queue]` as the canonical home for active queue experiment/dev-test controls.
 - `[sidecar.probes]` and `[sidecar.diagnostics]` remain deprecated input aliases only.
 - Broader native diagnostics should not be added to `[sidecar.*]` unless they directly concern sidecar delivery or sidecar-oriented logging.
 
@@ -315,7 +314,7 @@ Compared with older branch-local observability notes, current `main` requires th
 - The tracked `spdlog::` emitter count is `38`, not `40`.
 - `.ax` is not tracked on current `main`, so AX command surfaces are not active repo truth here.
 - `manual_navigation_refresh` and ghost-hostile refresh diagnostics are not present on current `main`.
-- `[advanced.diagnostics]` and `[advanced.queue]` now exist as canonical config surfaces on this branch; the live-query, runtime-trace, mod-impact reporting, and refinery-diagnostics keys are active so far.
+- `[advanced.diagnostics]` and `[advanced.queue]` now exist as canonical config surfaces on this branch; the live-query, runtime-trace, mod-impact reporting, refinery-diagnostics, and queue experiment keys are active so far.
 - `dev_commands` is not consumed by current repo config. If it appears in a live TOML, treat it as stale local residue rather than repo truth.
 - `[sidecar.probes]` and `[sidecar.diagnostics]` are retained only as deprecated input aliases for reserved observability toggles.
 

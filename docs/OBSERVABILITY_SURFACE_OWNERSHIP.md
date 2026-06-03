@@ -11,14 +11,14 @@ Define current ownership for logging, probe, sync, and sidecar-adjacent observab
 This document is inventory and planning only:
 - No code movement beyond documented config ownership.
 - No runtime trace behavior changes.
-- Only the live-query, runtime-trace, mod-impact reporting, and refinery-diagnostics key families moved in these slices.
+- Only the live-query, runtime-trace, mod-impact reporting, refinery-diagnostics, and queue experiment key families moved in these slices.
 
 ## Relationship to Inventory
 - Source snapshot: [LOGGING_PROBE_SYNC_SURFACE_INVENTORY.md](./LOGGING_PROBE_SYNC_SURFACE_INVENTORY.md)
 - This document: current ownership, guardrails, and future boundary proposals derived from that inventory
 
 ## Scope Notes
-- This branch starts from `main` at `79d54c3`, adds dormant `[advanced.*]` schema support, and now keeps the active live-query, runtime-trace, mod-impact reporting, and refinery diagnostics keys under `[advanced.diagnostics]`.
+- This branch starts from `main` at `79d54c3`, adds `[advanced.*]` schema support, and now keeps the active live-query, runtime-trace, mod-impact reporting, and refinery diagnostics keys under `[advanced.diagnostics]`, plus queue experiment/dev-test keys under `[advanced.queue]`.
 - The queue-only Kir'shara repair is present on current `main`, but it is not a target of this cleanup beyond its existing probe/log surfaces.
 - `manual_navigation_refresh`, ghost-hostile refresh, view drain/reload, refresh hotkeys, and ghost-specific watch/probe behavior are abandoned and out of scope.
 - Older branch-local docs that treated `.ax` as tracked repo truth are outdated for current `main`.
@@ -37,7 +37,7 @@ This document is inventory and planning only:
 | `[sidecar.diagnostics]` | `mods/src/config.h`, `mods/src/config_sidecar.cc`, `tests/src/test_sidecar_config.cc` | Deprecated legacy input aliases for reserved observability toggles now owned by `[advanced.diagnostics]` | Keep input-compatible only; do not use as a dumping ground for broader native diagnostics |
 | `[battle_log_decoder]` | `mods/src/config.cc`, `mods/src/defaultconfig.h`, `mods/src/patches/battle_log_decoder.*`, `mods/src/patches/sync_battle_logs.cc` | Decoder enablement and sidecar-event shaping controls for battle exports | Keep separate from sidecar transport namespaces |
 | `[advanced.diagnostics]` | `mods/src/config.h`, `mods/src/defaultconfig.h`, `mods/src/config_sidecar.cc`, `tests/src/test_sidecar_config.cc` | Canonical home for active runtime trace config plus additional dormant native observability/probing toggles and runtime snapshot schema | Keep off by default and use it for broader native diagnostics instead of expanding `[sidecar.*]` |
-| `[advanced.queue]` | `mods/src/config.h`, `mods/src/config_sidecar.cc`, `mods/src/config_release_validation.cc`, `tests/src/test_sidecar_config.cc` | Canonical dormant home for future queue-specific experiments and dev-test toggles | Keep empty/off by default until active queue keys are intentionally migrated |
+| `[advanced.queue].queue_add_direct_handler` / `.queue_add_hide_viewers` | `mods/src/config.cc`, `mods/src/config.h`, `mods/src/defaultconfig.h`, `mods/src/config_sidecar.cc`, `mods/src/patches/fleet_actions.cc`, `tests/src/test_sidecar_config.cc` | Canonical queue experiment/dev-test controls for the local queue-add dispatch path and viewer cleanup coupling | Keep as queue experiment/dev-test ownership only; do not treat as general diagnostics or behavior changes |
 
 Current dormant-key note:
 - `advanced.diagnostics.debug` and `advanced.diagnostics.logging` are compatibility placeholders carried forward from deprecated sidecar aliases. They are not active diagnostic controls in this slice.
@@ -98,8 +98,9 @@ Current dormant-key note:
 - Still mixes snapshot-state derivation, suppression policy, and output routing.
 
 5. Reserved observability namespaces
-- `[advanced.diagnostics]` is now the canonical namespace for active runtime trace config and for remaining dormant native diagnostics.
+- `[advanced.diagnostics]` is now the canonical namespace for active live-debug and observability config and for remaining dormant native diagnostics.
 - `[sidecar.probes]` and `[sidecar.diagnostics]` remain deprecated input aliases only.
+- `[advanced.queue]` now owns the active queue experiment/dev-test toggles; this migration did not change queue semantics.
 
 ## 7) Risk Matrix
 | Change Type | Risk | Notes |
@@ -117,7 +118,7 @@ Current dormant-key note:
 1. Land docs that pin current ownership boundaries and correct old branch-local assumptions.
 2. Preserve the current rule that `[sidecar.sync]` is delivery-only and `[sidecar.logging]` is sidecar-output-only.
 3. Use `[advanced.diagnostics]` for new dormant native diagnostics scaffolding instead of expanding `[sidecar.*]`.
-4. Leave the remaining active `[debug]` diagnostic and queue keys where they are until dedicated migration slices are ready.
+4. Leave any remaining active `[debug]` keys where they are until dedicated migration slices are ready.
 5. Continue separating live debug command dispatch from `parts/live_debug.cc` while keeping the request-cycle ordering unchanged.
 6. Isolate sidecar JSONL sink operations from `sync_battle_logs.cc` without changing event content, ordering, or retention behavior.
 7. Consider splitting `fleet_runtime_sync.cc` into capture and routing helpers only after targeted parity checks are ready.
@@ -134,4 +135,4 @@ Current dormant-key note:
 - Keep `config_sidecar.cc` and `tests/src/test_sidecar_config.cc` aligned on legacy rejection rules such as `sync.sidecar_jsonl*`, `[sync.targets.sidecar]`, `mode = "sidecar_broker"`, and loopback sidecar URLs under `[sync]`.
 - Do not put extra native probes or diagnostics under `[sidecar.*]` unless they directly concern sidecar delivery or sidecar-oriented logging/output behavior.
 - Keep `[advanced.diagnostics]` off by default and scope it to general native diagnostics that are not sidecar-specific.
-- Keep `[advanced.queue]` dormant until a dedicated queue-migration slice intentionally moves active queue experiment keys out of `[debug]`.
+- Keep `[advanced.queue]` scoped to queue experiment/dev-test controls only. Do not use it as a cover for queue behavior changes.

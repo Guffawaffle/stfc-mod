@@ -41,6 +41,7 @@ namespace DCP   = DefaultConfig::Patches;
 namespace DCG   = DefaultConfig::Graphics;
 namespace DCD   = DefaultConfig::Debug;
 namespace DCAD  = DefaultConfig::Advanced::Diagnostics;
+namespace DCAQ  = DefaultConfig::Advanced::Queue;
 namespace DCN   = DefaultConfig::Notifications;
 namespace DCC   = DefaultConfig::Control;
 namespace DCU   = DefaultConfig::UI;
@@ -70,8 +71,8 @@ static bool                  g_allow_key_fallthrough             = false;
 static ScopelyShortcutPolicy g_scopely_shortcuts_policy          = ScopelyShortcutPolicy::Off;
 static OriginalFramePolicy   g_original_frame_policy             = OriginalFramePolicy::Mod;
 static bool                  g_live_debug_channel                = DCAD::live_query;
-static bool                  g_queue_add_direct_handler          = DCD::queue_add_direct_handler;
-static bool                  g_queue_add_hide_viewers            = DCD::queue_add_hide_viewers;
+static bool                  g_queue_add_direct_handler          = DCAQ::queue_add_direct_handler;
+static bool                  g_queue_add_hide_viewers            = DCAQ::queue_add_hide_viewers;
 static bool                  g_battle_log_decoder_enabled        = false;
 static bool                  g_battle_log_decoder_segments       = true;
 static bool                  g_battle_log_decoder_feed           = true;
@@ -1161,10 +1162,8 @@ void Config::Load()
   WriteSidecarConfigRuntimeSnapshot(parsed, g_sidecar_config);
   WriteAdvancedConfigRuntimeSnapshot(parsed, g_advanced_config);
   g_live_debug_channel = g_advanced_config.diagnostics.live_query;
-  g_queue_add_direct_handler = get_config_or_default(config, parsed, "debug", "queue_add_direct_handler",
-                                                     DCD::queue_add_direct_handler, write_config);
-  g_queue_add_hide_viewers = get_config_or_default(config, parsed, "debug", "queue_add_hide_viewers",
-                                                   DCD::queue_add_hide_viewers, write_config);
+  g_queue_add_direct_handler = g_advanced_config.queue.queue_add_direct_handler;
+  g_queue_add_hide_viewers   = g_advanced_config.queue.queue_add_hide_viewers;
   g_refinery_diagnostics = g_advanced_config.diagnostics.refinery_diagnostics;
 
   const auto* advanced_table = config["advanced"].as_table();

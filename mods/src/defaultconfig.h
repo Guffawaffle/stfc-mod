@@ -91,10 +91,6 @@ namespace Graphics
 
 namespace Debug
 {
-  /// Use the widget's direct queue-add handler instead of the generic button press path. Default: false.
-  constexpr bool queue_add_direct_handler = false;
-  /// Keep queue-add viewer cleanup enabled after pressing the in-game Add to Queue button. Default: true.
-  constexpr bool queue_add_hide_viewers = true;
 } // namespace Debug
 
 namespace Advanced
@@ -123,7 +119,10 @@ namespace Advanced
 
   namespace Queue
   {
-    // Reserved queue namespace. No active keys live here yet.
+    /// Use the widget's direct queue-add handler instead of the generic button press path. Default: false.
+    constexpr bool queue_add_direct_handler = false;
+    /// Keep queue-add viewer cleanup enabled after pressing the in-game Add to Queue button. Default: true.
+    constexpr bool queue_add_hide_viewers = true;
   } // namespace Queue
 } // namespace Advanced
 

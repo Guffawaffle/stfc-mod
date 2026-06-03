@@ -653,16 +653,6 @@ zoom_reset = "="
 #        ***     *
 #
 #  <[==================]>
-
-[debug]
-# Use the widget's queue-click event handler directly instead of the generic
-# button press path. Enable only during local diagnostics.
-queue_add_direct_handler = false
-
-# When true, queue-add presses also close open viewers via DidHideViewers().
-# Set false during local diagnostics to isolate queue-button cost from viewer cleanup cost.
-queue_add_hide_viewers = true
-
 [ui]
 # Skip the reveal box animation, and just open the boxes
 always_skip_reveal_sequence = true
@@ -878,7 +868,17 @@ runtime_trace_report_interval_ms = 5000
 refinery_diagnostics = false
 
 [advanced.queue]
-# Reserved queue experiment/dev-test namespace. No active keys live here yet.
+# Queue experiment/dev-test namespace. These keys do not change the intended
+# queue outcome; they only change which local path is used while diagnosing
+# queue-add behavior and whether viewer cleanup is folded into that path.
+
+# Use the widget's queue-click event handler directly instead of the generic
+# button press path. Enable only during local diagnostics.
+queue_add_direct_handler = false
+
+# When true, queue-add presses also close open viewers via DidHideViewers().
+# Set false during local diagnostics to isolate queue-button cost from viewer cleanup cost.
+queue_add_hide_viewers = true
 
 #  <[=========================================================================================================================================]>
 #

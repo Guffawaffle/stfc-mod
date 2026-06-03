@@ -40,6 +40,8 @@ namespace
       "advanced.diagnostics.runtime_trace_track_overhead",
       "advanced.diagnostics.ship_identity",
       "advanced.queue",
+      "advanced.queue.queue_add_direct_handler",
+      "advanced.queue.queue_add_hide_viewers",
       "graphics.allow_cursor",
       "graphics.borderless_fullscreen",
       "graphics.default_system_zoom",

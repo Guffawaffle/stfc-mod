@@ -339,7 +339,7 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
     result.diagnostics.push_back(
         make_diagnostic(config_schema::DiagnosticSeverity::Warning, "advanced.queue", "advanced.queue",
                         make_invalid_table_message("advanced.queue", toml_type_name(queue_node->type()),
-                                                   "reserved queue experiment namespace")));
+                                                   "queue experiment/dev-test namespace")));
   }
 
   constexpr std::array<std::string_view, 1> kShipIdentityAlias{"sidecar.probes.ship_identity"};
@@ -390,6 +390,16 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                    DCAdvanced::Diagnostics::refinery_diagnostics,
                    {},
                    "emit focused refinery lifecycle diagnostics"});
+  read_bool_value(result.advanced.queue.queue_add_direct_handler,
+                  {"advanced.queue.queue_add_direct_handler",
+                   DefaultConfig::Advanced::Queue::queue_add_direct_handler,
+                   {},
+                   "use the direct queue-add handler during local diagnostics"});
+  read_bool_value(result.advanced.queue.queue_add_hide_viewers,
+                  {"advanced.queue.queue_add_hide_viewers",
+                   DefaultConfig::Advanced::Queue::queue_add_hide_viewers,
+                   {},
+                   "keep queue-add viewer cleanup enabled during local diagnostics"});
 
   // Keep the deprecated sidecar-scoped members mirrored for low-risk
   // compatibility, but treat advanced.diagnostics as canonical.
@@ -498,5 +508,8 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
                config.diagnostics.runtime_trace_report_interval_ms);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.refinery_diagnostics",
                             config.diagnostics.refinery_diagnostics);
-  ensure_table(runtime_config, "advanced.queue");
+  config_schema::write_bool(runtime_config, "advanced.queue.queue_add_direct_handler",
+                            config.queue.queue_add_direct_handler);
+  config_schema::write_bool(runtime_config, "advanced.queue.queue_add_hide_viewers",
+                            config.queue.queue_add_hide_viewers);
 }
