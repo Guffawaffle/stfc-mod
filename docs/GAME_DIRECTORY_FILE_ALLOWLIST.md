@@ -18,9 +18,10 @@ may place beside the game or config folder. The policy target is:
 | --- | --- | --- | --- | --- |
 | `community_patch_settings.toml` | Mod + user | User config | Created if missing | Source of truth for user overrides. |
 | `community_patch_runtime.vars` | Mod | Runtime state snapshot | Rewritten on launch | Resolved settings snapshot after defaults/aliases. Do not edit. |
-| `community_patch.log` / `community_patch.*.log` | Mod | Legacy troubleshooting log | Created by current bootstrap logger | Plain-text spdlog output for boot/load troubleshooting. Rotated at a small bounded size. Not the preferred durable export format. |
+| `community_patch.log` / `community_patch.*.log` | Mod | Legacy troubleshooting log | Created by current bootstrap logger | Plain-text spdlog output for boot/load troubleshooting. Rotated at a small bounded size. Not the preferred durable export format. The bootstrap logger still owns its path on this branch. |
 | `community_patch_battle_feed.jsonl` | Mod | Structured local evidence/export feed | Explicit opt-in | Optional sidecar diagnostics/import-replay feed. Cyclic/bounded by replay/group retention settings. |
-| `community_patch_navhook_trace.log` / `community_patch_navhook_trace.1.log` | Live debug / developer-only | Legacy debug trace | Normally absent | Plain-text developer trace for specific navigation-hook investigation. Sampled rotation keeps it bounded. Not a stable user-facing export surface. |
+| `community_patch_navhook_trace.log` / `community_patch_navhook_trace.*.log` | Live debug / developer-only | Legacy debug trace | Normally absent | Plain-text developer trace for specific navigation-hook investigation. Bounded by `[advanced.diagnostics.files]` and can be redirected with `root`. Not a stable user-facing export surface. |
+| `community_patch_action_queue_probe.jsonl` / `community_patch_action_queue_probe.*.jsonl` | Mod diagnostics | Structured local queue probe trace | Runtime-trace gated | Structured action queue probe output used during detailed/verbose runtime tracing. Bounded by `[advanced.diagnostics.files]` and can be redirected with `root`. |
 
 ## Adjacent Artifacts
 

@@ -223,6 +223,14 @@ struct SidecarConfig {
  * diagnostic families migrate off `[debug]`.
  */
 struct AdvancedDiagnosticsConfig {
+  struct FilesConfig {
+    std::string root                      = "";
+    int         navhook_trace_max_kb      = 4096;
+    int         navhook_trace_files       = 3;
+    int         action_queue_probe_max_kb = 8192;
+    int         action_queue_probe_files  = 3;
+  };
+
   bool        ship_identity                   = false;
   bool        battle_log_decoder              = false;
   bool        battle_catalog                  = false;
@@ -234,6 +242,7 @@ struct AdvancedDiagnosticsConfig {
   bool        mod_impact_monitor              = false;
   int         runtime_trace_report_interval_ms = 5000;
   bool        refinery_diagnostics            = false;
+  FilesConfig files;
 };
 
 /**
@@ -532,6 +541,11 @@ const SidecarDiagnosticsConfig& SidecarDiagnosticsSettings();
  * @brief Canonical reserved observability toggles from `[advanced.diagnostics]`.
  */
 const AdvancedDiagnosticsConfig& AdvancedDiagnosticsSettings();
+
+/**
+ * @brief Native diagnostics file policy from `[advanced.diagnostics.files]`.
+ */
+const AdvancedDiagnosticsConfig::FilesConfig& AdvancedDiagnosticsFileSettings();
 
 /**
  * @brief Canonical queue experiment/dev-test namespace from `[advanced.queue]`.

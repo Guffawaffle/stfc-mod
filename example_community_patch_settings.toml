@@ -867,6 +867,27 @@ runtime_trace_report_interval_ms = 5000
 # methods, adds runtime overhead, and is not the preferred export path.
 refinery_diagnostics = false
 
+[advanced.diagnostics.files]
+# Optional root directory for the heavier native diagnostics files in this
+# slice. Empty preserves the current per-platform locations. When set to a
+# usable directory, the navhook trace and action queue probe outputs write
+# there.
+# Example override for moving high-churn diagnostics off the game directory:
+# root = "D:/stfc-diagnostics/native-logs"
+root = ""
+
+# Total navhook trace files to keep, including the active file.
+# Default keeps about 4 MB per active trace file so one investigation cycle
+# does not immediately churn away the evidence.
+navhook_trace_max_kb = 4096
+navhook_trace_files = 3
+
+# Total action queue probe files to keep, including the active file.
+# Default keeps about 8 MB per active JSONL file because structured queue
+# traces are denser and usually need more history than the navhook trace.
+action_queue_probe_max_kb = 8192
+action_queue_probe_files = 3
+
 [advanced.queue]
 # Queue experiment/dev-test namespace. These keys do not change the intended
 # queue outcome; they only change which local path is used while diagnosing

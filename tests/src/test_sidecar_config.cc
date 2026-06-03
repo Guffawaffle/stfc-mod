@@ -74,6 +74,11 @@ jsonl_recent_logs = 300
     CHECK_FALSE(result.advanced.diagnostics.mod_impact_monitor);
     CHECK(result.advanced.diagnostics.runtime_trace_report_interval_ms == 5000);
     CHECK_FALSE(result.advanced.diagnostics.refinery_diagnostics);
+    CHECK(result.advanced.diagnostics.files.root.empty());
+    CHECK(result.advanced.diagnostics.files.navhook_trace_max_kb == 4096);
+    CHECK(result.advanced.diagnostics.files.navhook_trace_files == 3);
+    CHECK(result.advanced.diagnostics.files.action_queue_probe_max_kb == 8192);
+    CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 3);
     CHECK_FALSE(result.advanced.queue.queue_add_direct_handler);
     CHECK(result.advanced.queue.queue_add_hide_viewers);
     CHECK(result.diagnostics.empty());
@@ -104,6 +109,13 @@ runtime_trace_track_overhead = true
 mod_impact_monitor = true
 runtime_trace_report_interval_ms = 9000
 refinery_diagnostics = true
+
+[advanced.diagnostics.files]
+root = "custom/native-logs"
+navhook_trace_max_kb = 2048
+navhook_trace_files = 5
+action_queue_probe_max_kb = 6144
+action_queue_probe_files = 6
 
 [advanced.queue]
 queue_add_direct_handler = true
@@ -142,6 +154,11 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.diagnostics.mod_impact_monitor);
     CHECK(result.advanced.diagnostics.runtime_trace_report_interval_ms == 9000);
     CHECK(result.advanced.diagnostics.refinery_diagnostics);
+    CHECK(result.advanced.diagnostics.files.root == "custom/native-logs");
+    CHECK(result.advanced.diagnostics.files.navhook_trace_max_kb == 2048);
+    CHECK(result.advanced.diagnostics.files.navhook_trace_files == 5);
+    CHECK(result.advanced.diagnostics.files.action_queue_probe_max_kb == 6144);
+    CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 6);
     CHECK(result.advanced.queue.queue_add_direct_handler);
     CHECK_FALSE(result.advanced.queue.queue_add_hide_viewers);
 
@@ -248,6 +265,11 @@ mode = "majel"
     advanced.diagnostics.mod_impact_monitor = true;
     advanced.diagnostics.runtime_trace_report_interval_ms = 7000;
     advanced.diagnostics.refinery_diagnostics = true;
+    advanced.diagnostics.files.root = "custom/native-logs";
+    advanced.diagnostics.files.navhook_trace_max_kb = 4096;
+    advanced.diagnostics.files.navhook_trace_files = 4;
+    advanced.diagnostics.files.action_queue_probe_max_kb = 8192;
+    advanced.diagnostics.files.action_queue_probe_files = 5;
     advanced.queue.queue_add_direct_handler = true;
     advanced.queue.queue_add_hide_viewers = false;
 
@@ -272,6 +294,15 @@ mode = "majel"
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_report_interval_ms"].value<int>().value_or(0)
           == 7000);
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["refinery_diagnostics"].value<bool>().value_or(false));
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["files"]["root"].value<std::string>().value_or("")
+          == "custom/native-logs");
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["files"]["navhook_trace_max_kb"].value<int>().value_or(0)
+          == 4096);
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["files"]["navhook_trace_files"].value<int>().value_or(0) == 4);
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["files"]["action_queue_probe_max_kb"].value<int>().value_or(0)
+          == 8192);
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["files"]["action_queue_probe_files"].value<int>().value_or(0)
+          == 5);
     REQUIRE(runtime_snapshot["advanced"]["queue"].is_table());
     CHECK(runtime_snapshot["advanced"]["queue"]["queue_add_direct_handler"].value<bool>().value_or(false));
     CHECK_FALSE(runtime_snapshot["advanced"]["queue"]["queue_add_hide_viewers"].value<bool>().value_or(true));
@@ -280,5 +311,23 @@ mode = "majel"
     REQUIRE(sidecar_table != nullptr);
     CHECK_FALSE(sidecar_table->contains("probes"));
     CHECK_FALSE(sidecar_table->contains("diagnostics"));
+  }
+
+  TEST_CASE("clamps advanced diagnostics file policy to positive bounds")
+  {
+    auto config = toml::parse(R"(
+[advanced.diagnostics.files]
+navhook_trace_max_kb = -10
+navhook_trace_files = 0
+action_queue_probe_max_kb = -1
+action_queue_probe_files = 0
+)");
+
+    const auto result = ParseSidecarConfig(config);
+
+    CHECK(result.advanced.diagnostics.files.navhook_trace_max_kb == 1);
+    CHECK(result.advanced.diagnostics.files.navhook_trace_files == 1);
+    CHECK(result.advanced.diagnostics.files.action_queue_probe_max_kb == 1);
+    CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 1);
   }
 }

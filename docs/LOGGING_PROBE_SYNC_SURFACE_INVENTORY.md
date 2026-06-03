@@ -55,7 +55,8 @@ Current-main rules for this snapshot:
   - Bootstrapped in `mods/src/patches/patches.cc`.
 - `community_patch_action_queue_probe.jsonl`
   - Action queue probe JSONL.
-  - Written by `mods/src/patches/action_queue_probe_logging.cc`.
+  - Written by `mods/src/patches/parts/action_queue_repair.cc`.
+  - Bounded by `mods/src/diagnostics_file_policy.*`.
 - `community_patch_battle_feed.jsonl`
   - Sidecar-oriented local battle event JSONL feed.
   - Written and retained by `mods/src/patches/sync_battle_logs.cc`.
@@ -88,6 +89,11 @@ Current-main rules for this snapshot:
   - `[advanced.diagnostics].mod_impact_monitor`
   - `[advanced.diagnostics].runtime_trace_report_interval_ms`
   - `[advanced.diagnostics].refinery_diagnostics`
+  - `[advanced.diagnostics.files].root`
+  - `[advanced.diagnostics.files].navhook_trace_max_kb`
+  - `[advanced.diagnostics.files].navhook_trace_files`
+  - `[advanced.diagnostics.files].action_queue_probe_max_kb`
+  - `[advanced.diagnostics.files].action_queue_probe_files`
 - Battle decode and sidecar-event shaping gates:
   - `[battle_log_decoder].enabled`
   - `[battle_log_decoder].emit_segments`

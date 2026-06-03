@@ -14,6 +14,7 @@ do
     add_files("../mods/src/config_release_validation.cc")
     add_files("../mods/src/config_sidecar.cc")
     add_files("../mods/src/config_schema.cc")
+    add_files("../mods/src/diagnostics_file_policy.cc")
     add_files("../mods/src/patches/live_debug_event_store.cc")
     add_files("../mods/src/patches/live_debug_recent_event_requests.cc")
     add_files("../mods/src/patches/live_debug_fleet_serializers.cc")

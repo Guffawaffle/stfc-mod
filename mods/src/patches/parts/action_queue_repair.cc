@@ -8,6 +8,8 @@
  */
 #include "errormsg.h"
 #include "file.h"
+#include "config.h"
+#include "diagnostics_file_policy.h"
 #include "patches/fleet_runtime_diagnostics.h"
 
 #include <algorithm>
@@ -59,6 +61,48 @@ std::mutex& ActionQueueProbeJsonlMutex()
 {
   static std::mutex mutex;
   return mutex;
+}
+
+const std::filesystem::path& ActionQueueProbeJsonlPath()
+{
+  static const auto path = []() {
+    const auto& settings = AdvancedDiagnosticsFileSettings();
+    const auto  target   = ResolveDiagnosticsFileTarget(
+        kActionQueueProbeJsonlFile, std::filesystem::path(File::MakePathString(kActionQueueProbeJsonlFile, true)),
+        settings.root);
+    if (target.warning.has_value()) {
+      spdlog::warn("[ActionQueueProbe] {}", *target.warning);
+    }
+    return target.path;
+  }();
+
+  return path;
+}
+
+std::uintmax_t ActionQueueProbeJsonlMaxBytes()
+{
+  const auto& settings = AdvancedDiagnosticsFileSettings();
+  return static_cast<std::uintmax_t>(std::max(1, settings.action_queue_probe_max_kb)) * 1024u;
+}
+
+int ActionQueueProbeJsonlTotalFiles()
+{
+  return std::max(1, AdvancedDiagnosticsFileSettings().action_queue_probe_files);
+}
+
+void WarnActionQueueProbePolicyOnce(const std::optional<std::string>& warning)
+{
+  if (!warning.has_value()) {
+    return;
+  }
+
+  static bool warned = false;
+  if (warned) {
+    return;
+  }
+
+  warned = true;
+  spdlog::warn("[ActionQueueProbe] {}", *warning);
 }
 
 template <typename EventFactory> void AppendActionQueueProbeJsonlIfEnabled(EventFactory build_event);
@@ -268,20 +312,27 @@ void AppendActionQueueProbeJsonl(nlohmann::json event)
   }
 
   event["ts_ms"] = ActionQueueProbeTimestampMs();
+  const auto payload = event.dump();
 
   std::lock_guard lk(ActionQueueProbeJsonlMutex());
-  const auto      path = File::MakePathString(kActionQueueProbeJsonlFile, true);
-  std::ofstream   file(path, std::ios::out | std::ios::binary | std::ios::app);
+  const auto&     path = ActionQueueProbeJsonlPath();
+  const auto      prepare = PrepareDiagnosticsFileForAppend(
+      path, ActionQueueProbeJsonlMaxBytes(), ActionQueueProbeJsonlTotalFiles(), payload.size() + 1);
+  WarnActionQueueProbePolicyOnce(prepare.warning);
+  if (!prepare.append_allowed) {
+    return;
+  }
+  std::ofstream file(path, std::ios::out | std::ios::binary | std::ios::app);
   if (!file.is_open()) {
     static auto warned = false;
     if (!warned) {
       warned = true;
-      spdlog::error("Failed to open action queue probe JSONL for append: {}", path);
+      spdlog::error("Failed to open action queue probe JSONL for append: {}", path.string());
     }
     return;
   }
 
-  file << event.dump() << '\n';
+  file << payload << '\n';
 }
 
 template <typename EventFactory> void AppendActionQueueProbeJsonlIfEnabled(EventFactory build_event)
@@ -300,10 +351,10 @@ void ResetActionQueueProbeJsonl()
   }
 
   std::lock_guard lk(ActionQueueProbeJsonlMutex());
-  const auto      path = File::MakePathString(kActionQueueProbeJsonlFile, true);
+  const auto&     path = ActionQueueProbeJsonlPath();
   std::ofstream   file(path, std::ios::out | std::ios::binary | std::ios::trunc);
   if (!file.is_open()) {
-    spdlog::error("Failed to open action queue probe JSONL for reset: {}", path);
+    spdlog::error("Failed to open action queue probe JSONL for reset: {}", path.string());
     return;
   }
 

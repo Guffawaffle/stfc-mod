@@ -335,6 +335,17 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                                                    "reserved native diagnostics namespace")));
   }
 
+  if (const auto* diagnostics_files_node = node_at_path(config, "advanced.diagnostics.files");
+      diagnostics_files_node && !diagnostics_files_node->is_table()) {
+    result.diagnostics.push_back(
+        make_diagnostic(config_schema::DiagnosticSeverity::Warning,
+                        "advanced.diagnostics.files",
+                        "advanced.diagnostics.files",
+                        make_invalid_table_message("advanced.diagnostics.files",
+                                                   toml_type_name(diagnostics_files_node->type()),
+                                                   "native diagnostics file policy namespace")));
+  }
+
   if (const auto* queue_node = node_at_path(config, "advanced.queue"); queue_node && !queue_node->is_table()) {
     result.diagnostics.push_back(
         make_diagnostic(config_schema::DiagnosticSeverity::Warning, "advanced.queue", "advanced.queue",
@@ -390,6 +401,34 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                    DCAdvanced::Diagnostics::refinery_diagnostics,
                    {},
                    "emit focused refinery lifecycle diagnostics"});
+  read_string_value(result.advanced.diagnostics.files.root,
+                    "advanced.diagnostics.files.root",
+                    DCAdvanced::Diagnostics::Files::root,
+                    "optional native diagnostics root");
+  read_int_value(result.advanced.diagnostics.files.navhook_trace_max_kb,
+                 "advanced.diagnostics.files.navhook_trace_max_kb",
+                 DCAdvanced::Diagnostics::Files::navhook_trace_max_kb,
+                 "navhook trace max size in KB");
+  read_int_value(result.advanced.diagnostics.files.navhook_trace_files,
+                 "advanced.diagnostics.files.navhook_trace_files",
+                 DCAdvanced::Diagnostics::Files::navhook_trace_files,
+                 "navhook trace total file count");
+  read_int_value(result.advanced.diagnostics.files.action_queue_probe_max_kb,
+                 "advanced.diagnostics.files.action_queue_probe_max_kb",
+                 DCAdvanced::Diagnostics::Files::action_queue_probe_max_kb,
+                 "action queue probe max size in KB");
+  read_int_value(result.advanced.diagnostics.files.action_queue_probe_files,
+                 "advanced.diagnostics.files.action_queue_probe_files",
+                 DCAdvanced::Diagnostics::Files::action_queue_probe_files,
+                 "action queue probe total file count");
+  result.advanced.diagnostics.files.navhook_trace_max_kb =
+      std::max(1, result.advanced.diagnostics.files.navhook_trace_max_kb);
+  result.advanced.diagnostics.files.navhook_trace_files =
+      std::max(1, result.advanced.diagnostics.files.navhook_trace_files);
+  result.advanced.diagnostics.files.action_queue_probe_max_kb =
+      std::max(1, result.advanced.diagnostics.files.action_queue_probe_max_kb);
+  result.advanced.diagnostics.files.action_queue_probe_files =
+      std::max(1, result.advanced.diagnostics.files.action_queue_probe_files);
   read_bool_value(result.advanced.queue.queue_add_direct_handler,
                   {"advanced.queue.queue_add_direct_handler",
                    DefaultConfig::Advanced::Queue::queue_add_direct_handler,
@@ -508,6 +547,17 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
                config.diagnostics.runtime_trace_report_interval_ms);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.refinery_diagnostics",
                             config.diagnostics.refinery_diagnostics);
+  write_scalar(runtime_config, "advanced.diagnostics.files.root", config.diagnostics.files.root);
+  write_scalar(runtime_config,
+               "advanced.diagnostics.files.navhook_trace_max_kb",
+               config.diagnostics.files.navhook_trace_max_kb);
+  write_scalar(runtime_config, "advanced.diagnostics.files.navhook_trace_files", config.diagnostics.files.navhook_trace_files);
+  write_scalar(runtime_config,
+               "advanced.diagnostics.files.action_queue_probe_max_kb",
+               config.diagnostics.files.action_queue_probe_max_kb);
+  write_scalar(runtime_config,
+               "advanced.diagnostics.files.action_queue_probe_files",
+               config.diagnostics.files.action_queue_probe_files);
   config_schema::write_bool(runtime_config, "advanced.queue.queue_add_direct_handler",
                             config.queue.queue_add_direct_handler);
   config_schema::write_bool(runtime_config, "advanced.queue.queue_add_hide_viewers",

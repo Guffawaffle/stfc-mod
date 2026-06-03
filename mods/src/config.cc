@@ -129,6 +129,9 @@ const SidecarDiagnosticsConfig& SidecarDiagnosticsSettings()
 const AdvancedDiagnosticsConfig& AdvancedDiagnosticsSettings()
 { return g_advanced_config.diagnostics; }
 
+const AdvancedDiagnosticsConfig::FilesConfig& AdvancedDiagnosticsFileSettings()
+{ return g_advanced_config.diagnostics.files; }
+
 const AdvancedQueueConfig& AdvancedQueueSettings()
 { return g_advanced_config.queue; }
 

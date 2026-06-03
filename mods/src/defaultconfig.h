@@ -97,6 +97,18 @@ namespace Advanced
 {
   namespace Diagnostics
   {
+    namespace Files
+    {
+      /// Optional root directory for heavy native diagnostics outputs. Empty preserves current locations.
+      constexpr const char* root = "";
+      /// Total number of navhook trace files to keep, including the active file. Default: 3.
+      constexpr int navhook_trace_max_kb = 4096;
+      constexpr int navhook_trace_files  = 3;
+      /// Total number of action queue probe files to keep, including the active file. Default: 3.
+      constexpr int action_queue_probe_max_kb = 8192;
+      constexpr int action_queue_probe_files  = 3;
+    } // namespace Files
+
     /// Reserved native observability toggles for future diagnostics and probes. Default: false.
     constexpr bool ship_identity      = false;
     constexpr bool battle_log_decoder = false;

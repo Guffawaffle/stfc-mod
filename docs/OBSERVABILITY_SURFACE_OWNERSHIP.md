@@ -42,6 +42,7 @@ This document is inventory and planning only:
 Current dormant-key note:
 - `advanced.diagnostics.debug` and `advanced.diagnostics.logging` are compatibility placeholders carried forward from deprecated sidecar aliases. They are not active diagnostic controls in this slice.
 - `advanced.diagnostics.live_query`, `.runtime_trace`, `.runtime_trace_track_overhead`, `.mod_impact_monitor`, `.runtime_trace_report_interval_ms`, and `.refinery_diagnostics` are active and canonical on this branch.
+- `advanced.diagnostics.files.*` owns native diagnostics file retention and optional custom-root policy. On this branch the active consumers are the navhook trace sink and the action queue probe sink; `community_patch.log` remains on the bootstrap logger path until startup config loading is unified.
 
 ## 2) Logging Sinks and On-Disk Evidence
 | Surface | Current Owner (existing) | Current Responsibility | Proposed Boundary (proposed) |
@@ -49,7 +50,7 @@ Current dormant-key note:
 | `community_patch.log` | `mods/src/patches/patches.cc`, `mods/src/file.*` | Root `spdlog` bootstrap, rotating archive, and path resolution | Keep as root logger bootstrap; no split needed now |
 | `community_patch_navhook_trace.log` | `mods/src/patches/live_debug_navhook_trace_sink.*` | Dedicated navhook trace append, rotate, and size handling | Already isolated; keep as a dedicated sink |
 | `community_patch_debug.cmd` / `.out` | `mods/src/patches/parts/live_debug_connector.cc`, `mods/src/patches/live_debug_request_dispatch.h` | File-backed live debug request and response transport | **Proposed:** keep transport-only and continue pulling request dispatch away from `parts/live_debug.cc` |
-| `community_patch_action_queue_probe.jsonl` | `mods/src/patches/action_queue_probe_logging.*`, `mods/src/patches/parts/action_queue_repair.cc` | Queue probe JSONL emission for queue-repair investigation | Keep helper split; do not widen queue-repair scope during observability cleanup |
+| `community_patch_action_queue_probe.jsonl` | `mods/src/patches/parts/action_queue_repair.cc`, `mods/src/diagnostics_file_policy.*` | Queue probe JSONL emission plus bounded file retention for queue-repair investigation | Keep helper split; do not widen queue-repair scope during observability cleanup |
 | `community_patch_battle_feed.jsonl` | `mods/src/patches/sync_battle_logs.cc` | Sidecar-oriented local battle event JSONL append and retention under `[sidecar.logging]` | **Proposed:** split JSONL sink mechanics from battle decode and export workflow |
 | `community_patch_runtime.vars` | `mods/src/config.cc`, `mods/src/config_sidecar.cc`, `mods/src/file.*` | Resolved runtime config snapshot write, including sidecar redaction | Keep with config system |
 | `patch_battlelogs_sent.json` | `mods/src/file.*` naming, `mods/src/patches/sync_battle_logs.cc` behavior | Legacy battle-log sent-id persistence | **Proposed:** document whether the legacy file contract remains intentional before deeper refactors |
@@ -59,7 +60,7 @@ Current dormant-key note:
 |---|---|---|---|
 | Live debug event producers | `mods/src/patches/parts/live_debug.cc` plus `live_debug_*` observers, serializers, and event modules | Fleet, UI, viewer, and deployment observation with recent-event emission | **Proposed:** reduce `parts/live_debug.cc` to hook and tick wiring over time |
 | Recent event ring | `mods/src/patches/live_debug_event_store.*`, `live_debug_event_dispatcher.*` | Bounded event storage and append facade | Keep as a dedicated shared store |
-| Queue probe logging | `mods/src/patches/action_queue_probe_logging.*` | Structured queue probe JSONL emission | Keep separate from queue-repair behavior |
+| Queue probe logging | `mods/src/patches/parts/action_queue_repair.cc`, `mods/src/diagnostics_file_policy.*` | Structured queue probe JSONL emission with bounded retention | Keep separate from queue-repair behavior |
 | Fleet runtime diagnostics | `mods/src/patches/fleet_runtime_diagnostics.*` | Diagnostic counters, queue results, post results, and breadcrumbs | Keep separate from transport primitives |
 | Fleet runtime capture | `mods/src/patches/fleet_runtime_sync.*` | Snapshot capture, delta suppression, and fanout to sync and sidecar paths | **Proposed:** split capture/state-key logic from routing and delivery fanout |
 | Runtime impact probes | `mods/src/patches/mod_impact_monitor.*` | Runtime trace probe timing and periodic impact reports | Keep as dedicated observability utility |
