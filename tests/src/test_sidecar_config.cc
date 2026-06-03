@@ -68,10 +68,12 @@ jsonl_recent_logs = 300
     CHECK_FALSE(result.advanced.diagnostics.battle_catalog);
     CHECK_FALSE(result.advanced.diagnostics.debug);
     CHECK_FALSE(result.advanced.diagnostics.logging);
+    CHECK(result.advanced.diagnostics.runtime_trace == "off");
+    CHECK_FALSE(result.advanced.diagnostics.runtime_trace_track_overhead);
     CHECK(result.diagnostics.empty());
   }
 
-  TEST_CASE("parses advanced diagnostics, keeps sidecar sync and logging canonical, and rejects legacy sync jsonl keys")
+  TEST_CASE("parses advanced diagnostics including runtime trace, keeps sidecar sync and logging canonical, and rejects legacy sync jsonl keys")
   {
     auto config = toml::parse(R"(
 [sidecar.sync]
@@ -90,6 +92,8 @@ battle_log_decoder = true
 battle_catalog = false
 debug = true
 logging = true
+runtime_trace = "verbose"
+runtime_trace_track_overhead = true
 
 [advanced.queue]
 
@@ -120,6 +124,8 @@ sidecar_jsonl_recent_logs = 120
     CHECK_FALSE(result.advanced.diagnostics.battle_catalog);
     CHECK(result.advanced.diagnostics.debug);
     CHECK(result.advanced.diagnostics.logging);
+    CHECK(result.advanced.diagnostics.runtime_trace == "verbose");
+    CHECK(result.advanced.diagnostics.runtime_trace_track_overhead);
 
     CHECK(result.config.probes.ship_identity);
     CHECK(result.config.probes.battle_log_decoder);
@@ -218,6 +224,8 @@ mode = "majel"
     sidecar.logging.jsonl_recent_logs    = 7;
     advanced.diagnostics.debug           = true;
     advanced.diagnostics.ship_identity   = true;
+    advanced.diagnostics.runtime_trace   = "detailed";
+    advanced.diagnostics.runtime_trace_track_overhead = false;
 
     toml::table runtime_snapshot;
     WriteSidecarConfigRuntimeSnapshot(runtime_snapshot, sidecar);
@@ -233,6 +241,8 @@ mode = "majel"
     CHECK(runtime_snapshot["sidecar"]["logging"]["jsonl_replay_seconds"].value<int>().value_or(0) == 15);
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["debug"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["ship_identity"].value<bool>().value_or(false));
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace"].value<std::string>().value_or("") == "detailed");
+    CHECK_FALSE(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_track_overhead"].value<bool>().value_or(true));
     REQUIRE(runtime_snapshot["advanced"]["queue"].is_table());
 
     const auto* sidecar_table = runtime_snapshot["sidecar"].as_table();

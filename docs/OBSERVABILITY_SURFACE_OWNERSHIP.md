@@ -9,16 +9,16 @@ Baseline commit: `79d54c3` (`fix(queue): restore queue-only Kir'shara repair`)
 Define current ownership for logging, probe, sync, and sidecar-adjacent observability surfaces on current `main`, then pin low-risk future boundaries for follow-on cleanup.
 
 This document is inventory and planning only:
-- No code movement.
-- No behavior changes.
-- No active config-key migration.
+- No code movement beyond documented config ownership.
+- No runtime trace behavior changes.
+- Only the `runtime_trace` / `runtime_trace_track_overhead` key family moved in this slice.
 
 ## Relationship to Inventory
 - Source snapshot: [LOGGING_PROBE_SYNC_SURFACE_INVENTORY.md](./LOGGING_PROBE_SYNC_SURFACE_INVENTORY.md)
 - This document: current ownership, guardrails, and future boundary proposals derived from that inventory
 
 ## Scope Notes
-- This branch starts from `main` at `79d54c3` and adds dormant `[advanced.*]` schema support without moving active runtime keys.
+- This branch starts from `main` at `79d54c3`, adds dormant `[advanced.*]` schema support, and moves only the active runtime trace key family into `[advanced.diagnostics]`.
 - The queue-only Kir'shara repair is present on current `main`, but it is not a target of this cleanup beyond its existing probe/log surfaces.
 - `manual_navigation_refresh`, ghost-hostile refresh, view drain/reload, refresh hotkeys, and ghost-specific watch/probe behavior are abandoned and out of scope.
 - Older branch-local docs that treated `.ax` as tracked repo truth are outdated for current `main`.
@@ -27,17 +27,19 @@ This document is inventory and planning only:
 ## 1) Config Ownership Rules
 | Surface | Current Owner (existing) | Current Responsibility | Boundary Rule |
 |---|---|---|---|
-| `[debug].runtime_trace*` | `mods/src/config.cc`, `mods/src/runtime_trace_config.h`, `mods/src/patches/mod_impact_monitor.*` | General native runtime trace level, overhead tracking, and report cadence | Keep as the current home for native runtime tracing |
+| `[advanced.diagnostics].runtime_trace` / `.runtime_trace_track_overhead` | `mods/src/config.cc`, `mods/src/runtime_trace_config.h`, `mods/src/config_sidecar.cc`, `mods/src/patches/mod_impact_monitor.*` | Canonical runtime trace level and trace-overhead toggle | Keep as the canonical home for active runtime tracing config |
+| `[debug].runtime_trace_report_interval_ms` | `mods/src/config.cc`, `mods/src/defaultconfig.h`, `mods/src/patches/mod_impact_monitor.*` | Runtime trace summary cadence | Leave here for now; move only when the remaining trace family migration is ready |
 | `[sidecar.sync]` | `mods/src/config_sidecar.cc`, `mods/src/patches/sidecar_local_ingest*`, `mods/src/patches/fleet_runtime_sync.cc`, `mods/src/patches/sync_battle_logs.cc` | Local native-to-sidecar delivery and loopback transport policy | Keep delivery-only; do not expand with unrelated probes or diagnostics |
 | `[sidecar.logging]` | `mods/src/config_sidecar.cc`, `mods/src/patches/sync_battle_logs.cc` | Sidecar-oriented local JSONL output, replay window, and retention controls | Keep output-only; do not use for unrelated native diagnostics |
 | `[sidecar.probes]` | `mods/src/config.h`, `mods/src/config_sidecar.cc`, `tests/src/test_sidecar_config.cc` | Deprecated legacy input aliases for reserved observability toggles now owned by `[advanced.diagnostics]` | Keep input-compatible only; do not use as the preferred namespace |
 | `[sidecar.diagnostics]` | `mods/src/config.h`, `mods/src/config_sidecar.cc`, `tests/src/test_sidecar_config.cc` | Deprecated legacy input aliases for reserved observability toggles now owned by `[advanced.diagnostics]` | Keep input-compatible only; do not use as a dumping ground for broader native diagnostics |
 | `[battle_log_decoder]` | `mods/src/config.cc`, `mods/src/defaultconfig.h`, `mods/src/patches/battle_log_decoder.*`, `mods/src/patches/sync_battle_logs.cc` | Decoder enablement and sidecar-event shaping controls for battle exports | Keep separate from sidecar transport namespaces |
-| `[advanced.diagnostics]` | `mods/src/config.h`, `mods/src/defaultconfig.h`, `mods/src/config_sidecar.cc`, `tests/src/test_sidecar_config.cc` | Canonical dormant home for reserved native observability/probing toggles and runtime snapshot schema | Keep off by default and use it for broader native diagnostics instead of expanding `[sidecar.*]` |
+| `[advanced.diagnostics]` | `mods/src/config.h`, `mods/src/defaultconfig.h`, `mods/src/config_sidecar.cc`, `tests/src/test_sidecar_config.cc` | Canonical home for active runtime trace config plus additional dormant native observability/probing toggles and runtime snapshot schema | Keep off by default and use it for broader native diagnostics instead of expanding `[sidecar.*]` |
 | `[advanced.queue]` | `mods/src/config.h`, `mods/src/config_sidecar.cc`, `mods/src/config_release_validation.cc`, `tests/src/test_sidecar_config.cc` | Canonical dormant home for future queue-specific experiments and dev-test toggles | Keep empty/off by default until active queue keys are intentionally migrated |
 
 Current dormant-key note:
 - `advanced.diagnostics.debug` and `advanced.diagnostics.logging` are compatibility placeholders carried forward from deprecated sidecar aliases. They are not active diagnostic controls in this slice.
+- `advanced.diagnostics.runtime_trace` and `.runtime_trace_track_overhead` are active and canonical on this branch.
 
 ## 2) Logging Sinks and On-Disk Evidence
 | Surface | Current Owner (existing) | Current Responsibility | Proposed Boundary (proposed) |
@@ -94,7 +96,7 @@ Current dormant-key note:
 - Still mixes snapshot-state derivation, suppression policy, and output routing.
 
 5. Reserved observability namespaces
-- `[advanced.diagnostics]` is now the canonical dormant namespace for reserved native diagnostics.
+- `[advanced.diagnostics]` is now the canonical namespace for active runtime trace config and for remaining dormant native diagnostics.
 - `[sidecar.probes]` and `[sidecar.diagnostics]` remain deprecated input aliases only.
 
 ## 7) Risk Matrix
@@ -122,7 +124,7 @@ Current dormant-key note:
 - Current cleanup still inherits its behavior baseline from `main`; do not resurrect abandoned manual-refresh-era or ghost-specific observability surfaces.
 - Treat file-backed transport and evidence paths such as `*.cmd`, `*.out`, and `*.jsonl` as contracts once tooling or operators depend on them.
 - Preserve existing defaults and gates:
-  - `[debug].runtime_trace = "off"` by default
+  - `[advanced.diagnostics].runtime_trace = "off"` by default
   - live query opt-in
   - sidecar and sync opt-in behavior
 - Keep `config_sidecar.cc` and `tests/src/test_sidecar_config.cc` aligned on legacy rejection rules such as `sync.sidecar_jsonl*`, `[sync.targets.sidecar]`, `mode = "sidecar_broker"`, and loopback sidecar URLs under `[sync]`.

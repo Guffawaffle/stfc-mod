@@ -40,6 +40,7 @@
 namespace DCP   = DefaultConfig::Patches;
 namespace DCG   = DefaultConfig::Graphics;
 namespace DCD   = DefaultConfig::Debug;
+namespace DCAD  = DefaultConfig::Advanced::Diagnostics;
 namespace DCN   = DefaultConfig::Notifications;
 namespace DCC   = DefaultConfig::Control;
 namespace DCU   = DefaultConfig::UI;
@@ -81,7 +82,7 @@ static int                   g_sidecar_logging_jsonl_recent_logs    = DCSL::json
 static bool                  g_refinery_diagnostics              = DCD::refinery_diagnostics;
 static bool                  g_mod_impact_monitor                = DCD::mod_impact_monitor;
 static RuntimeTraceLevel     g_runtime_trace_level               = RuntimeTraceLevel::Off;
-static bool                  g_runtime_trace_track_overhead      = DCD::runtime_trace_track_overhead;
+static bool                  g_runtime_trace_track_overhead      = DCAD::runtime_trace_track_overhead;
 static int                   g_runtime_trace_report_interval_ms  = DCD::runtime_trace_report_interval_ms;
 
 /** @brief Accessor for the file-scope allow_key_fallthrough flag. */
@@ -496,10 +497,15 @@ void write_input_policy_config(toml::table& new_config, const ScopelyShortcutPol
 void write_runtime_trace_config(toml::table& new_config, const RuntimeTraceLevel level, const bool track_overhead,
                                 const int report_interval_ms, const bool legacy_mod_impact_monitor)
 {
+  new_config.emplace<toml::table>("advanced", toml::table());
+  auto* advanced = new_config["advanced"].as_table();
+  advanced->emplace<toml::table>("diagnostics", toml::table());
+  auto* diagnostics = (*advanced)["diagnostics"].as_table();
+  diagnostics->insert_or_assign("runtime_trace", RuntimeTraceLevelName(level));
+  diagnostics->insert_or_assign("runtime_trace_track_overhead", track_overhead);
+
   new_config.emplace<toml::table>("debug", toml::table());
   auto* debug = new_config["debug"].as_table();
-  debug->insert_or_assign("runtime_trace", RuntimeTraceLevelName(level));
-  debug->insert_or_assign("runtime_trace_track_overhead", track_overhead);
   debug->insert_or_assign("runtime_trace_report_interval_ms", report_interval_ms);
   debug->insert_or_assign("mod_impact_monitor", legacy_mod_impact_monitor);
 }
@@ -1167,22 +1173,25 @@ void Config::Load()
   g_mod_impact_monitor =
       get_config_or_default(config, parsed, "debug", "mod_impact_monitor", DCD::mod_impact_monitor, write_config);
 
-  const auto explicit_runtime_trace = config_key_exists(config, "debug", "runtime_trace");
+  const auto* advanced_table = config["advanced"].as_table();
+  const auto* advanced_diagnostics_table =
+      advanced_table ? (*advanced_table)["diagnostics"].as_table() : nullptr;
+  const auto explicit_runtime_trace =
+      advanced_diagnostics_table && advanced_diagnostics_table->contains("runtime_trace");
   g_runtime_trace_level             = g_mod_impact_monitor ? RuntimeTraceLevel::Summary : RuntimeTraceLevel::Off;
-  if (auto trace_level_value =
-          read_string_config_value_if_present(config, "debug", "runtime_trace", "Realtime trace level.")) {
-    const auto normalized_trace_level = AsciiStrToLower(*trace_level_value);
+  if (explicit_runtime_trace) {
+    const auto normalized_trace_level = AsciiStrToLower(g_advanced_config.diagnostics.runtime_trace);
     if (auto level = ParseRuntimeTraceLevel(normalized_trace_level)) {
       g_runtime_trace_level = *level;
     } else {
-      spdlog::warn("Invalid string config [debug].runtime_trace value='{}'; expected off, summary, detailed, or "
-                   "verbose. Using {}.",
-                   *trace_level_value, RuntimeTraceLevelName(g_runtime_trace_level));
+      spdlog::warn(
+          "Invalid string config [advanced.diagnostics].runtime_trace value='{}'; expected off, summary, detailed, "
+          "or verbose. Using {}.",
+          g_advanced_config.diagnostics.runtime_trace, RuntimeTraceLevelName(g_runtime_trace_level));
     }
   }
 
-  g_runtime_trace_track_overhead     = get_config_or_default(config, parsed, "debug", "runtime_trace_track_overhead",
-                                                             DCD::runtime_trace_track_overhead, write_config);
+  g_runtime_trace_track_overhead     = g_advanced_config.diagnostics.runtime_trace_track_overhead;
   g_runtime_trace_report_interval_ms = get_config_or_default(
       config, parsed, "debug", "runtime_trace_report_interval_ms", DCD::runtime_trace_report_interval_ms, write_config);
   g_runtime_trace_report_interval_ms = std::clamp(g_runtime_trace_report_interval_ms, 1000, 60000);
@@ -1192,7 +1201,7 @@ void Config::Load()
                                  g_runtime_trace_report_interval_ms);
   if (!explicit_runtime_trace && g_mod_impact_monitor) {
     spdlog::warn("[Trace] [debug].mod_impact_monitor=true is a legacy alias for runtime_trace=summary. Prefer "
-                 "[debug].runtime_trace for sidecar-controlled realtime traces.");
+                 "[advanced.diagnostics].runtime_trace for sidecar-controlled realtime traces.");
   }
   g_battle_log_decoder_enabled =
       get_config_or_default(config, parsed, "battle_log_decoder", "enabled", DCBLD::enabled, write_config);

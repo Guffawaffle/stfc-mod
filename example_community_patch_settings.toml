@@ -677,20 +677,9 @@ refinery_diagnostics = false
 # confirm the setting remains documented alongside the rest of the debug surface.
 mod_impact_monitor = false
 
-# Realtime trace level for sidecar/AX diagnostics: off, summary, detailed, or verbose.
-# Disabled is the normal-play default. Every level above off adds runtime
-# overhead, and longer investigations can increase local log/storage churn.
-# Prefer sidecar/spocks.club ingress for durable export instead of long-lived
-# local capture.
-runtime_trace = "off"
-
-# Include trace instrumentation overhead as its own probe so profiler cost can be
-# separated from mod and game function timing. This adds more diagnostic work in
-# exchange for cleaner attribution.
-runtime_trace_track_overhead = true
-
 # Milliseconds between runtime trace summary reports. Lower values increase
-# diagnostic log churn. Values are clamped by the mod.
+# diagnostic log churn. Values are clamped by the mod. The trace level and
+# overhead toggle now live under [advanced.diagnostics].
 runtime_trace_report_interval_ms = 5000
 
 [ui]
@@ -875,6 +864,18 @@ battle_log_decoder = false
 battle_catalog = false
 debug = false
 logging = false
+
+# Realtime trace level for sidecar/AX diagnostics: off, summary, detailed, or verbose.
+# Disabled is the normal-play default. Every level above off adds runtime
+# overhead, and longer investigations can increase local log/storage churn.
+# Prefer sidecar/spocks.club ingress for durable export instead of long-lived
+# local capture.
+runtime_trace = "off"
+
+# Include trace instrumentation overhead as its own probe so profiler cost can
+# be separated from mod and game function timing. This adds more diagnostic work
+# in exchange for cleaner attribution.
+runtime_trace_track_overhead = false
 
 [advanced.queue]
 # Reserved queue experiment/dev-test namespace. No active keys live here yet.

@@ -76,7 +76,16 @@ TEST_CASE("keymapping generated compatibility section stays in sync")
 TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh keys")
 {
   const auto source = read_text_file("example_community_patch_settings.toml");
+  const auto config = toml::parse(source);
+  const auto* debug = config["debug"].as_table();
+  const auto* advanced = config["advanced"]["diagnostics"].as_table();
 
   CHECK(source.find("manual_navigation_refresh") == std::string::npos);
   CHECK(source.find("ghost_owner_diagnostics") == std::string::npos);
+  REQUIRE(debug != nullptr);
+  REQUIRE(advanced != nullptr);
+  CHECK_FALSE(debug->contains("runtime_trace"));
+  CHECK_FALSE(debug->contains("runtime_trace_track_overhead"));
+  CHECK(advanced->contains("runtime_trace"));
+  CHECK(advanced->contains("runtime_trace_track_overhead"));
 }

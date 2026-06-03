@@ -216,10 +216,10 @@ struct SidecarConfig {
 };
 
 /**
- * @brief Reserved native observability toggles rooted at `[advanced.diagnostics]`.
+ * @brief Canonical native diagnostics surface rooted at `[advanced.diagnostics]`.
  *
- * These are dormant schema targets for future native diagnostics and probes.
- * No active runtime features depend on them in this slice.
+ * Runtime trace level and overhead tracking now live here. The remaining keys
+ * stay dormant/reserved until later diagnostic families migrate off `[debug]`.
  */
 struct AdvancedDiagnosticsConfig {
   bool ship_identity      = false;
@@ -227,6 +227,8 @@ struct AdvancedDiagnosticsConfig {
   bool battle_catalog     = false;
   bool debug              = false;
   bool logging            = false;
+  std::string runtime_trace = "off";
+  bool        runtime_trace_track_overhead = false;
 };
 
 /**
@@ -563,12 +565,12 @@ bool RefineryDiagnosticsEnabled();
 bool ModImpactMonitorEnabled();
 
 /**
- * @brief Runtime trace intensity selected by [debug].runtime_trace.
+ * @brief Runtime trace intensity selected by [advanced.diagnostics].runtime_trace.
  */
 RuntimeTraceLevel RuntimeTraceLevelSetting();
 
 /**
- * @brief Whether trace instrumentation overhead should be recorded separately.
+ * @brief Whether [advanced.diagnostics].runtime_trace_track_overhead is enabled.
  */
 bool RuntimeTraceTrackOverhead();
 

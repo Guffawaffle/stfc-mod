@@ -101,10 +101,6 @@ namespace Debug
   constexpr bool refinery_diagnostics = false;
   /// Enable periodic runtime impact summaries for frame-owned mod hooks. Default: false.
   constexpr bool mod_impact_monitor = false;
-  /// Realtime runtime trace level: off, summary, detailed, or verbose. Any level above off adds runtime overhead.
-  constexpr const char* runtime_trace = "off";
-  /// Track runtime trace instrumentation overhead as a separate probe. This adds more diagnostic work in exchange for cleaner attribution.
-  constexpr bool runtime_trace_track_overhead = true;
   /// Runtime trace summary report interval in milliseconds. Lower intervals increase diagnostic log churn. Default: 5000.
   constexpr int runtime_trace_report_interval_ms = 5000;
 } // namespace Debug
@@ -114,11 +110,15 @@ namespace Advanced
   namespace Diagnostics
   {
     /// Reserved native observability toggles for future diagnostics and probes. Default: false.
-    constexpr bool ship_identity = false;
+    constexpr bool ship_identity      = false;
     constexpr bool battle_log_decoder = false;
-    constexpr bool battle_catalog = false;
-    constexpr bool debug = false;
-    constexpr bool logging = false;
+    constexpr bool battle_catalog     = false;
+    constexpr bool debug              = false;
+    constexpr bool logging            = false;
+    /// Realtime runtime trace level: off, summary, detailed, or verbose. Any level above off adds runtime overhead.
+    constexpr const char* runtime_trace = "off";
+    /// Track runtime trace instrumentation overhead as a separate probe. Default: false for this private fork.
+    constexpr bool runtime_trace_track_overhead = false;
   } // namespace Diagnostics
 
   namespace Queue

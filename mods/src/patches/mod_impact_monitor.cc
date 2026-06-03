@@ -6,7 +6,7 @@
 
 namespace {
 RuntimeTraceLevel g_runtime_trace_level              = RuntimeTraceLevel::Off;
-bool              g_runtime_trace_track_overhead     = true;
+bool              g_runtime_trace_track_overhead     = false;
 int               g_runtime_trace_report_interval_ms = 5000;
 
 int64_t now_ms()

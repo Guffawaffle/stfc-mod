@@ -8,13 +8,13 @@ Baseline commit: `79d54c3` (`fix(queue): restore queue-only Kir'shara repair`)
 ## Scope
 This inventory maps the current logging, probe, sync, and sidecar-adjacent observability surfaces on current `main`.
 
-This pass is documentation only:
-- No runtime behavior changes.
-- No active config-key migrations.
+This pass records the current branch state:
+- No runtime trace behavior changes.
+- Only the `runtime_trace` / `runtime_trace_track_overhead` key family migrated.
 - No queue-repair changes.
 
 Current-main rules for this snapshot:
-- This branch starts from `main` at `79d54c3` and adds dormant `[advanced.*]` schema support without moving active runtime keys.
+- This branch starts from `main` at `79d54c3`, adds dormant `[advanced.*]` schema support, and moves only the active runtime trace key family into `[advanced.diagnostics]`.
 - `manual_navigation_refresh`, ghost-hostile refresh, view drain/reload, and refresh hotkey work are abandoned and are not current runtime surfaces.
 - The queue-only Kir'shara repair exists on current `main`; it is included here only where it emits probe or log artifacts.
 - `.ax` operator tooling is not tracked on current `main`, so it is not documented here as active repo truth.
@@ -83,9 +83,10 @@ Current-main rules for this snapshot:
   - `[debug].action_queue_probe`
   - `[debug].refinery_diagnostics`
   - `[debug].mod_impact_monitor`
-  - `[debug].runtime_trace`
-  - `[debug].runtime_trace_track_overhead`
   - `[debug].runtime_trace_report_interval_ms`
+- Active advanced diagnostics gates:
+  - `[advanced.diagnostics].runtime_trace`
+  - `[advanced.diagnostics].runtime_trace_track_overhead`
 - Battle decode and sidecar-event shaping gates:
   - `[battle_log_decoder].enabled`
   - `[battle_log_decoder].emit_segments`
@@ -109,8 +110,9 @@ Current-main rules for this snapshot:
     - Deprecated legacy input aliases for reserved observability toggles now owned by `[advanced.diagnostics]`
 - Dormant advanced-native gates:
   - `[advanced.diagnostics]`
-    - Canonical reserved native observability/probing namespace
-    - `ship_identity`, `battle_log_decoder`, `battle_catalog`, `debug`, `logging`
+    - Canonical native observability/probing namespace
+    - Active in this slice: `runtime_trace`, `runtime_trace_track_overhead`
+    - Still dormant/reserved: `ship_identity`, `battle_log_decoder`, `battle_catalog`, `debug`, `logging`
     - `debug` and `logging` are dormant compatibility placeholders, not new active diagnostics controls
   - `[advanced.queue]`
     - Canonical reserved queue experiment/dev-test namespace
@@ -294,10 +296,11 @@ These are the cleanest current seams for follow-on no-behavior-change work:
 - The queue-only Kir'shara repair itself is not part of this cleanup slice.
 
 6. `Runtime Trace and Impact Monitor` as independent observability
-- `runtime_trace_config.h`, `mod_impact_monitor.*`, and `[debug].runtime_trace*`
+- `runtime_trace_config.h`, `mod_impact_monitor.*`, `[advanced.diagnostics].runtime_trace`,
+  `[advanced.diagnostics].runtime_trace_track_overhead`, and `[debug].runtime_trace_report_interval_ms`
 
-7. `General native diagnostics config` as a dedicated dormant namespace
-- Current branch implements `[advanced.diagnostics]` as the canonical reserved home for inactive native observability toggles.
+7. `General native diagnostics config` as the canonical namespace
+- Current branch implements `[advanced.diagnostics]` as the canonical home for active runtime trace config plus additional dormant observability toggles.
 - `[sidecar.probes]` and `[sidecar.diagnostics]` remain deprecated input aliases only.
 - Broader native diagnostics should not be added to `[sidecar.*]` unless they directly concern sidecar delivery or sidecar-oriented logging.
 
@@ -308,7 +311,7 @@ Compared with older branch-local observability notes, current `main` requires th
 - The tracked `spdlog::` emitter count is `38`, not `40`.
 - `.ax` is not tracked on current `main`, so AX command surfaces are not active repo truth here.
 - `manual_navigation_refresh` and ghost-hostile refresh diagnostics are not present on current `main`.
-- `[advanced.diagnostics]` and `[advanced.queue]` now exist as dormant schema targets on this branch.
+- `[advanced.diagnostics]` and `[advanced.queue]` now exist as canonical config surfaces on this branch; only the runtime-trace keys are active so far.
 - `[sidecar.probes]` and `[sidecar.diagnostics]` are retained only as deprecated input aliases for reserved observability toggles.
 
 ## I) Notes for the Next Planning Pass

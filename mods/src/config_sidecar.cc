@@ -364,6 +364,13 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
   read_bool_value(result.advanced.diagnostics.logging,
                   {"advanced.diagnostics.logging", DCAdvanced::Diagnostics::logging, kLoggingAlias,
                    "reserved native payload logging diagnostics"});
+  read_string_value(result.advanced.diagnostics.runtime_trace, "advanced.diagnostics.runtime_trace",
+                    DCAdvanced::Diagnostics::runtime_trace, "runtime trace level");
+  read_bool_value(result.advanced.diagnostics.runtime_trace_track_overhead,
+                  {"advanced.diagnostics.runtime_trace_track_overhead",
+                   DCAdvanced::Diagnostics::runtime_trace_track_overhead,
+                   {},
+                   "record runtime trace overhead separately"});
 
   // Keep the deprecated sidecar-scoped members mirrored for low-risk
   // compatibility, but treat advanced.diagnostics as canonical.
@@ -462,5 +469,8 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
   config_schema::write_bool(runtime_config, "advanced.diagnostics.battle_catalog", config.diagnostics.battle_catalog);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.debug", config.diagnostics.debug);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.logging", config.diagnostics.logging);
+  write_scalar(runtime_config, "advanced.diagnostics.runtime_trace", config.diagnostics.runtime_trace);
+  config_schema::write_bool(runtime_config, "advanced.diagnostics.runtime_trace_track_overhead",
+                            config.diagnostics.runtime_trace_track_overhead);
   ensure_table(runtime_config, "advanced.queue");
 }
