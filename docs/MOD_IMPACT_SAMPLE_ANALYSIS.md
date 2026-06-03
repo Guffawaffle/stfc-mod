@@ -6,7 +6,7 @@ Sample source: live `community_patch.log` impact rows emitted by `advanced.diagn
 
 ## Summary
 
-The original sample confirmed that the mod processes several hooks every frame. The measured mod-owned time was small relative to a 60 FPS frame budget, but it was not zero. The clearest improvement opportunity was the live-debug channel: with `debug.live_query = true`, `ScreenManager.Update` calls the live-debug tick every frame, and before the throttle the steady cost was dominated by that path.
+The original sample confirmed that the mod processes several hooks every frame. The measured mod-owned time was small relative to a 60 FPS frame budget, but it was not zero. The clearest improvement opportunity was the live-debug channel: with `advanced.diagnostics.live_query = true`, `ScreenManager.Update` calls the live-debug tick every frame, and before the throttle the steady cost was dominated by that path.
 
 The sample does not point at zoom, pan, or UI scale as the primary source of glitchiness. Their steady costs are low. The biggest non-live-debug risk is `AspectRatioConstraintHandler::Update`, because it runs every frame and occasionally spikes into multi-millisecond territory while doing Win32 and Unity screen/resolution queries.
 
@@ -49,15 +49,15 @@ Relevant path:
 - `mods/src/patches/parts/live_debug.cc`
 - `mods/src/patches/parts/live_debug_connector.cc`
 
-With `debug.live_query = true`, `live_debug_tick()` runs every frame. In the originally sampled build, most UI polling inside `live_debug_tick()` was compile-time disabled, but the tick still called `live_debug_process_request_cycle()` every frame. That function performed a `std::filesystem::exists()` check for `community_patch_debug.cmd` on every frame and only then returned.
+With `advanced.diagnostics.live_query = true`, `live_debug_tick()` runs every frame. In the originally sampled build, most UI polling inside `live_debug_tick()` was compile-time disabled, but the tick still called `live_debug_process_request_cycle()` every frame. That function performed a `std::filesystem::exists()` check for `community_patch_debug.cmd` on every frame and only then returned.
 
 That matches the sample: `frame_tick.live_debug` accounts for most of `frame_tick.total` average cost. The average is consistent with repeated negative filesystem checks on Windows.
 
 Follow-up status:
 
 1. `live_debug_process_request_cycle()` is now throttled to a three-second cadence, removing almost all steady frame-owned filesystem checks.
-2. A remaining cleanup option is to split `debug.live_query` into request serving and frame observation modes. File request polling does not need to be structurally tied to every `ScreenManager.Update` tick.
-3. Another remaining option is to add a runtime-visible warning when `debug.live_query = true`, similar to the impact monitor toggle, because it is diagnostic infrastructure with measurable frame cost.
+2. A remaining cleanup option is to split `advanced.diagnostics.live_query` into request serving and frame observation modes. File request polling does not need to be structurally tied to every `ScreenManager.Update` tick.
+3. Another remaining option is to add a runtime-visible warning when `advanced.diagnostics.live_query = true`, similar to the impact monitor toggle, because it is diagnostic infrastructure with measurable frame cost.
 
 Priority: high. This is the largest steady-state cost in the sample and the easiest to make less frame-owned.
 
@@ -137,5 +137,5 @@ Priority: low for performance based on this sample. Keep them monitored, but do 
 ## Operational Notes
 
 1. `advanced.diagnostics.mod_impact_monitor` should stay off by default. It is useful for diagnosis, but it adds instrumentation and log writes every five seconds.
-2. `debug.live_query` should be treated as a development/AX feature, not a normal gameplay feature; with the three-second poll throttle, commands can take up to three seconds to execute.
+2. `advanced.diagnostics.live_query` should be treated as a development/AX feature, not a normal gameplay feature; with the three-second poll throttle, commands can take up to three seconds to execute.
 3. Any future live sample should record whether the game is boot/menu/system/galaxy and whether AX live-query commands are active. The current sample includes both early and navigation-present phases, so the aggregate is useful but not a controlled benchmark.

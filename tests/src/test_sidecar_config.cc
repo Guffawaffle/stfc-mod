@@ -68,6 +68,7 @@ jsonl_recent_logs = 300
     CHECK_FALSE(result.advanced.diagnostics.battle_catalog);
     CHECK_FALSE(result.advanced.diagnostics.debug);
     CHECK_FALSE(result.advanced.diagnostics.logging);
+    CHECK_FALSE(result.advanced.diagnostics.live_query);
     CHECK(result.advanced.diagnostics.runtime_trace == "off");
     CHECK_FALSE(result.advanced.diagnostics.runtime_trace_track_overhead);
     CHECK_FALSE(result.advanced.diagnostics.mod_impact_monitor);
@@ -95,6 +96,7 @@ battle_log_decoder = true
 battle_catalog = false
 debug = true
 logging = true
+live_query = true
 runtime_trace = "verbose"
 runtime_trace_track_overhead = true
 mod_impact_monitor = true
@@ -130,6 +132,7 @@ sidecar_jsonl_recent_logs = 120
     CHECK_FALSE(result.advanced.diagnostics.battle_catalog);
     CHECK(result.advanced.diagnostics.debug);
     CHECK(result.advanced.diagnostics.logging);
+    CHECK(result.advanced.diagnostics.live_query);
     CHECK(result.advanced.diagnostics.runtime_trace == "verbose");
     CHECK(result.advanced.diagnostics.runtime_trace_track_overhead);
     CHECK(result.advanced.diagnostics.mod_impact_monitor);
@@ -233,6 +236,7 @@ mode = "majel"
     sidecar.logging.jsonl_recent_logs    = 7;
     advanced.diagnostics.debug           = true;
     advanced.diagnostics.ship_identity   = true;
+    advanced.diagnostics.live_query      = true;
     advanced.diagnostics.runtime_trace   = "detailed";
     advanced.diagnostics.runtime_trace_track_overhead = false;
     advanced.diagnostics.mod_impact_monitor = true;
@@ -253,6 +257,7 @@ mode = "majel"
     CHECK(runtime_snapshot["sidecar"]["logging"]["jsonl_replay_seconds"].value<int>().value_or(0) == 15);
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["debug"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["ship_identity"].value<bool>().value_or(false));
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["live_query"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace"].value<std::string>().value_or("") == "detailed");
     CHECK_FALSE(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_track_overhead"].value<bool>().value_or(true));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["mod_impact_monitor"].value<bool>().value_or(false));

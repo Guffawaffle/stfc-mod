@@ -655,10 +655,6 @@ zoom_reset = "="
 #  <[==================]>
 
 [debug]
-# Development-only live query channel for AX. When enabled, `ax debug-send`
-# can send one JSON request into the running game and receive a JSON response.
-live_query = false
-
 # Use the widget's queue-click event handler directly instead of the generic
 # button press path. Enable only during local diagnostics.
 queue_add_direct_handler = false
@@ -849,6 +845,10 @@ battle_log_decoder = false
 battle_catalog = false
 debug = false
 logging = false
+
+# Development-only live query channel for AX. When enabled, `ax debug-send`
+# can send one JSON request into the running game and receive a JSON response.
+live_query = false
 
 # Realtime trace level for sidecar/AX diagnostics: off, summary, detailed, or verbose.
 # Disabled is the normal-play default. Every level above off adds runtime

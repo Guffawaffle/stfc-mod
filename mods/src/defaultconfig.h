@@ -91,8 +91,6 @@ namespace Graphics
 
 namespace Debug
 {
-  /// Enable the live debug/query channel for AX and runtime inspection. Default: false.
-  constexpr bool live_query = false;
   /// Use the widget's direct queue-add handler instead of the generic button press path. Default: false.
   constexpr bool queue_add_direct_handler = false;
   /// Keep queue-add viewer cleanup enabled after pressing the in-game Add to Queue button. Default: true.
@@ -109,6 +107,8 @@ namespace Advanced
     constexpr bool battle_catalog     = false;
     constexpr bool debug              = false;
     constexpr bool logging            = false;
+    /// Enable the live debug/query channel for AX and runtime inspection. Default: false.
+    constexpr bool live_query = false;
     /// Realtime runtime trace level: off, summary, detailed, or verbose. Any level above off adds runtime overhead.
     constexpr const char* runtime_trace = "off";
     /// Track runtime trace instrumentation overhead as a separate probe. Default: false for this private fork.

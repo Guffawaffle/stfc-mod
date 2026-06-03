@@ -364,6 +364,11 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
   read_bool_value(result.advanced.diagnostics.logging,
                   {"advanced.diagnostics.logging", DCAdvanced::Diagnostics::logging, kLoggingAlias,
                    "reserved native payload logging diagnostics"});
+  read_bool_value(result.advanced.diagnostics.live_query,
+                  {"advanced.diagnostics.live_query",
+                   DCAdvanced::Diagnostics::live_query,
+                   {},
+                   "enable the live debug query channel"});
   read_string_value(result.advanced.diagnostics.runtime_trace, "advanced.diagnostics.runtime_trace",
                     DCAdvanced::Diagnostics::runtime_trace, "runtime trace level");
   read_bool_value(result.advanced.diagnostics.runtime_trace_track_overhead,
@@ -483,6 +488,7 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
   config_schema::write_bool(runtime_config, "advanced.diagnostics.battle_catalog", config.diagnostics.battle_catalog);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.debug", config.diagnostics.debug);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.logging", config.diagnostics.logging);
+  config_schema::write_bool(runtime_config, "advanced.diagnostics.live_query", config.diagnostics.live_query);
   write_scalar(runtime_config, "advanced.diagnostics.runtime_trace", config.diagnostics.runtime_trace);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.runtime_trace_track_overhead",
                             config.diagnostics.runtime_trace_track_overhead);
