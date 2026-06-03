@@ -9,17 +9,15 @@
  *   - Buff extraction null-guard (prevent crash on null list entries)
  *   - Shop reveal sequence skip
  *   - First interstitial popup dismissal
- *   - Action queue logging (diagnostic, currently disabled)
  */
 #include "config.h"
 #include "errormsg.h"
 
 #include <prime/BundleDataWidget.h>
 #include <prime/ClientModifierType.h>
-#include <prime/Hub.h>
 #include <prime/IList.h>
+#include <prime/InterstitialViewController.h>
 #include <prime/InventoryForPopup.h>
-#include <prime/ShopSummaryDirector.h>
 
 #include <il2cpp/il2cpp_helper.h>
 
@@ -30,8 +28,8 @@
 #endif
 
 #include <algorithm>
-#include <prime/ActionQueueManager.h>
-#include <prime/InterstitialViewController.h>
+#include <cstdint>
+#include <vector>
 
 // ─── Donation Slider Extension ───────────────────────────────────────────────
 
@@ -145,7 +143,6 @@ ResolutionArray* GetResolutions_Hook(auto original)
   auto resolutions = original();
 
 #if _WIN32
-  // Modify
   auto screenWidth  = GetSystemMetrics(SM_CXSCREEN);
   auto screenHeight = GetSystemMetrics(SM_CYSCREEN);
 
@@ -257,6 +254,8 @@ void TriggerOpenSectionChange_Hook(auto original, void* _this, void* data, bool 
  */
 bool isFirstInterstitial = true;
 
+void InstallActionQueueRepairHooks();
+
 void InterstitialViewController_AboutToShow(auto original, InterstitialViewController* _this)
 {
   if (false /* TEMP: disable_first_popup effect disabled */ && Config::Get().disable_first_popup && isFirstInterstitial
@@ -268,15 +267,6 @@ void InterstitialViewController_AboutToShow(auto original, InterstitialViewContr
   }
 }
 
-/// Diagnostic hook for action queue logging (currently commented out in install).
-void ActionQueueManager_AddActionToQueue(auto original, ActionQueueManager* _this, long fleet_id)
-{
-  spdlog::warn("ActionQueueManager_AddActionToQueue({})", fleet_id);
-  original(_this, fleet_id);
-}
-
-//   const auto section_data = Hub::get_SectionManager()->_sectionStorage->GetState(sectionID);
-
 /**
  * @brief Installs crash-fix and QoL hooks.
  *
@@ -285,7 +275,7 @@ void ActionQueueManager_AddActionToQueue(auto original, ActionQueueManager* _thi
  *   - ShopSceneManager::ShouldShowRevealSequence (skip reveal animation)
  *   - ShopSceneManager::TriggerOpenSectionChange (force reveal skip flag)
  *   - InterstitialViewController::AboutToShow (dismiss first popup)
- *   - ActionQueueManager::AddActionToQueue (diagnostic, currently disabled)
+ *   - Action queue repair hooks and diagnostics (delegated to action_queue_repair.cc)
  */
 void InstallTempCrashFixes()
 {
@@ -334,16 +324,5 @@ void InstallTempCrashFixes()
     }
   }
 
-  static auto actionqueue_manager =
-      il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager");
-  if (!actionqueue_manager.isValidHelper()) {
-    ErrorMsg::MissingHelper("ActionQueue", "ActionQueueMaanger");
-  } else {
-    auto addtoqueue_method = actionqueue_manager.GetMethod("AddActionToQueue");
-    if (addtoqueue_method == nullptr) {
-      ErrorMsg::MissingMethod("ActionQueueManager", "AddActionToQueue");
-    } else {
-      // SPUD_STATIC_DETOUR(addtoqueue_method, ActionQueueManager_AddActionToQueue);
-    }
-  }
+  InstallActionQueueRepairHooks();
 }
