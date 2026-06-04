@@ -75,14 +75,18 @@ void InstallImproveResponsivenessHooks();
 void InstallFrameTickHooks();
 void InstallHotkeyHooks();
 void InstallLiveDebugHooks();
+#if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
 void InstallRefineryDiagnosticsHooks();
+#endif
 void InstallTestPatches();
 void InstallMiscPatches();
 void InstallChatPatches();
 void InstallResolutionListFix();
 void InstallTempCrashFixes();
 void InstallSyncPatches();
+#if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
 void InstallObjectTrackers();
+#endif
 void InstallFleetArrivalHooks();
 void InstallLoadingScreenBgHooks();
 
@@ -161,12 +165,14 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
-    auto             install_live_debug_hooks           =
+  auto             install_live_debug_hooks           =
       LiveDebugChannelEnabled() || (cfg.installSyncPatches && (cfg.sync_options.fleet_runtime || sidecar_local_ingest::FleetRuntimeEnabled()))
       || fleet_notifications_runtime_events_enabled();
+#if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   auto             install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
-      auto             install_frame_tick_hooks           =
-        cfg.installHotkeyHooks || LiveDebugChannelEnabled();
+#endif
+  auto             install_frame_tick_hooks           =
+      cfg.installHotkeyHooks || LiveDebugChannelEnabled();
   const PatchEntry patches[]                          = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
@@ -177,7 +183,9 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"FrameTickHooks", {InstallFrameTickHooks, &install_frame_tick_hooks}},
       {"HotkeyHooks", {InstallHotkeyHooks, &cfg.installHotkeyHooks}},
       {"LiveDebugHooks", {InstallLiveDebugHooks, &install_live_debug_hooks}},
+#if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
       {"RefineryDiagnosticsHooks", {InstallRefineryDiagnosticsHooks, &install_refinery_diagnostics_hooks}},
+#endif
 #if _WIN32
       {"FreeResizeHooks", {InstallFreeResizeHooks, &cfg.installFreeResizeHooks}},
 #endif
@@ -187,7 +195,9 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"ChatPatches", {InstallChatPatches, &cfg.installChatPatches}},
       {"ResolutionListFix", {InstallResolutionListFix, &cfg.installResolutionListFix}},
       {"SyncPatches", {InstallSyncPatches, &cfg.installSyncPatches}},
+#if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
       {"ObjectTracker", {InstallObjectTrackers, &cfg.installObjectTracker}},
+#endif
       {"FleetArrival", {InstallFleetArrivalHooks, &cfg.installFleetArrivalHooks}},
       {"LoadingScreenBgHooks", {InstallLoadingScreenBgHooks, &cfg.installLoadingScreenBgHooks}},
   };

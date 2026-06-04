@@ -48,6 +48,12 @@ add_rules("mode.debug")
 add_rules("mode.release")
 add_rules("mode.releasedbg")
 
+option("stfc_public_release")
+    set_default(false)
+    set_showmenu(true)
+    set_description("Build the public release profile without dev-only science hooks")
+option_end()
+
 -- ─── Local / Vendored Packages ───────────────────────────────────────────────
 
 package("libil2cpp")

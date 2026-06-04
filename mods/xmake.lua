@@ -10,10 +10,23 @@ do
     add_ldflags("-v")
     set_kind("static")
 
+    local public_release = has_config("stfc_public_release")
+
     -- C++ sources
     add_files("src/**.cc")
     add_headerfiles("src/**.h")
     add_includedirs("src", { public = true })
+
+    if public_release then
+        remove_files("src/patches/parts/action_queue_repair.cc")
+        remove_files("src/patches/refinery_diagnostics.cc")
+        remove_files("src/patches/parts/object_tracker.cc")
+        add_defines("STFC_PUBLIC_RELEASE=1")
+        add_defines("STFC_ENABLE_DEV_SCIENCE_TOOLS=0")
+    else
+        add_defines("STFC_PUBLIC_RELEASE=0")
+        add_defines("STFC_ENABLE_DEV_SCIENCE_TOOLS=1")
+    end
 
     -- Packages
     add_packages("spud", "nlohmann_json", "protobuf", "libil2cpp", "eastl", "toml++", "spdlog", "simdutf", "libcurl", "capstone", "cpr")

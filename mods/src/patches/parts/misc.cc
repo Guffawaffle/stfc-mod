@@ -254,7 +254,12 @@ void TriggerOpenSectionChange_Hook(auto original, void* _this, void* data, bool 
  */
 bool isFirstInterstitial = true;
 
+#if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
 void InstallActionQueueRepairHooks();
+#else
+static void InstallActionQueueRepairHooks()
+{}
+#endif
 
 void InterstitialViewController_AboutToShow(auto original, InterstitialViewController* _this)
 {
