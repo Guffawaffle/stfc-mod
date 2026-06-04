@@ -892,14 +892,20 @@ action_queue_probe_files = 3
 # Queue experiment/dev-test namespace. These keys do not change the intended
 # queue outcome; they only change which local path is used while diagnosing
 # queue-add behavior and whether viewer cleanup is folded into that path.
+# Leave the master gate off during normal play so none of the queue repair or
+# probe detours install at all.
+
+# Master opt-in gate for queue repair/probe experiments. Missing or false keeps
+# the queue repair layer structurally inactive.
+queue_repair_enabled = false
 
 # Use the widget's queue-click event handler directly instead of the generic
-# button press path. Enable only during local diagnostics.
+# button press path. Ignored unless queue_repair_enabled is true.
 queue_add_direct_handler = false
 
 # When true, queue-add presses also close open viewers via DidHideViewers().
-# Set false during local diagnostics to isolate queue-button cost from viewer cleanup cost.
-queue_add_hide_viewers = true
+# Ignored unless queue_repair_enabled is true. Keep false during isolation work.
+queue_add_hide_viewers = false
 
 #  <[=========================================================================================================================================]>
 #

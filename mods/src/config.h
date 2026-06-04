@@ -249,8 +249,9 @@ struct AdvancedDiagnosticsConfig {
  * @brief Queue experiment/dev-test namespace rooted at `[advanced.queue]`.
  */
 struct AdvancedQueueConfig {
+  bool queue_repair_enabled    = false;
   bool queue_add_direct_handler = false;
-  bool queue_add_hide_viewers   = true;
+  bool queue_add_hide_viewers   = false;
 };
 
 /**
@@ -491,6 +492,11 @@ OriginalFramePolicy OriginalFramePolicySetting();
  * @brief Whether the file-backed live debug channel is enabled.
  */
 bool LiveDebugChannelEnabled();
+
+/**
+ * @brief Whether the queue repair/probe experiment layer is allowed to activate.
+ */
+bool QueueRepairEnabled();
 
 /**
  * @brief Whether queue-add should use the widget's direct click handler instead of the generic button press path.

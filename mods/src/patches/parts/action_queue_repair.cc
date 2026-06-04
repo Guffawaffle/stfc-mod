@@ -35,6 +35,10 @@
 
 bool ActionQueueProbeEnabled()
 {
+  if (!QueueRepairEnabled()) {
+    return false;
+  }
+
   const auto level = RuntimeTraceLevelSetting();
   return level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
 }
@@ -43,7 +47,7 @@ bool ActionQueueProbeDetoursEnabled()
 { return ActionQueueProbeEnabled(); }
 
 bool ActionQueueRepairEnabled()
-{ return true; }
+{ return QueueRepairEnabled(); }
 
 constexpr char kActionQueueProbeJsonlFile[] = "community_patch_action_queue_probe.jsonl";
 
@@ -1320,6 +1324,11 @@ void InstallActionQueueRepairHooks()
   const auto install_action_queue_repairs     = ActionQueueRepairEnabled();
   const auto install_action_queue_diagnostics = ActionQueueProbeDetoursEnabled();
 
+  if (!install_action_queue_repairs && !install_action_queue_diagnostics) {
+    spdlog::info("[ActionQueueRepair] disabled; skipping repair/probe detours");
+    return;
+  }
+
   if (ActionQueueProbeEnabled()) {
     ResetActionQueueProbeJsonl();
     spdlog::info("[ActionQueueProbe] install level={} repair_detours={} diagnostic_detours={}",
@@ -1330,10 +1339,6 @@ void InstallActionQueueRepairHooks()
                                  {"level", RuntimeTraceLevelName(RuntimeTraceLevelSetting())},
                                  {"repair_detours", install_action_queue_repairs},
                                  {"diagnostic_detours", install_action_queue_diagnostics}});
-  }
-
-  if (!install_action_queue_repairs && !install_action_queue_diagnostics) {
-    return;
   }
 
   static auto actionqueue_manager =
