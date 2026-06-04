@@ -35,7 +35,11 @@ bool hotkey_frame_subscriber_enabled()
 
 bool live_debug_frame_subscriber_enabled()
 {
+#if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   return kEnableLiveDebugFrameSubscriber && LiveDebugChannelEnabled();
+#else
+  return false;
+#endif
 }
 
 void log_frame_tick_subscribers()
