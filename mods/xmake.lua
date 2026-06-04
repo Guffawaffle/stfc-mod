@@ -21,6 +21,7 @@ do
         remove_files("src/patches/parts/action_queue_repair.cc")
         remove_files("src/patches/refinery_diagnostics.cc")
         remove_files("src/patches/parts/object_tracker.cc")
+        remove_files("src/patches/parts/testing_config_override.cc")
         add_defines("STFC_PUBLIC_RELEASE=1")
         add_defines("STFC_ENABLE_DEV_SCIENCE_TOOLS=0")
     else
