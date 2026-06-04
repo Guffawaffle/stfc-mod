@@ -144,4 +144,3 @@ If a probe crashes, record:
 2. Add one disabled-by-default experimental probe surface for discovering battle-result UI rows or pre-attack marker groups.
 3. Emit bounded diagnostic rows with raw IDs/kinds and token/view-model provenance only.
 4. After IDs/kinds are proven, decide whether to expand catalog resolver domains, static officer ability source families, or marker grammar first.
-
