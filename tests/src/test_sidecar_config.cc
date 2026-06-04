@@ -96,6 +96,7 @@ proxy = "http://user:pass@example.invalid:8080"
 verify_ssl = false
 allow_unsafe_tls_without_certificate_validation = true
 battlelogs_realtime = true
+battlelog_enrichment = true
 fleet_runtime = true
 
 [advanced.diagnostics]
@@ -143,6 +144,7 @@ sidecar_jsonl_recent_logs = 120
     CHECK_FALSE(result.config.sync.verify_ssl);
     CHECK(result.config.sync.allow_unsafe_tls_without_certificate_validation);
     CHECK(result.config.sync.battlelogs_realtime);
+    CHECK(result.config.sync.battlelog_enrichment);
     CHECK(result.config.sync.fleet_runtime);
 
     CHECK(result.advanced.diagnostics.ship_identity);
@@ -179,6 +181,59 @@ sidecar_jsonl_recent_logs = 120
                          config_schema::DiagnosticSeverity::Error));
     CHECK(has_diagnostic(result.diagnostics, "sync.sidecar_jsonl_recent_logs",
                          config_schema::DiagnosticSeverity::Error));
+  }
+
+  TEST_CASE("sidecar battlelog enrichment defaults closed and accepts legacy decoder alias")
+  {
+    {
+      auto config = toml::parse(R"(
+[sidecar.sync]
+enabled = true
+battlelogs_realtime = true
+
+[advanced.diagnostics]
+battle_log_decoder = true
+battle_catalog = true
+)");
+
+      const auto result = ParseSidecarConfig(config);
+
+      CHECK(result.config.sync.battlelogs_realtime);
+      CHECK_FALSE(result.config.sync.battlelog_enrichment);
+      CHECK(result.advanced.diagnostics.battle_log_decoder);
+      CHECK(result.advanced.diagnostics.battle_catalog);
+      CHECK_FALSE(has_diagnostic_source(result.diagnostics, "sidecar.sync.battlelog_enrichment",
+                                        "battle_log_decoder.enabled", config_schema::DiagnosticSeverity::Info));
+    }
+
+    {
+      auto config = toml::parse(R"(
+[battle_log_decoder]
+enabled = true
+)");
+
+      const auto result = ParseSidecarConfig(config);
+
+      CHECK(result.config.sync.battlelog_enrichment);
+      CHECK(has_diagnostic_source(result.diagnostics, "sidecar.sync.battlelog_enrichment",
+                                  "battle_log_decoder.enabled", config_schema::DiagnosticSeverity::Info));
+    }
+
+    {
+      auto config = toml::parse(R"(
+[sidecar.sync]
+battlelog_enrichment = false
+
+[battle_log_decoder]
+enabled = true
+)");
+
+      const auto result = ParseSidecarConfig(config);
+
+      CHECK_FALSE(result.config.sync.battlelog_enrichment);
+      CHECK(has_diagnostic_source(result.diagnostics, "sidecar.sync.battlelog_enrichment",
+                                  "battle_log_decoder.enabled", config_schema::DiagnosticSeverity::Warning));
+    }
   }
 
   TEST_CASE("deprecated sidecar observability aliases still populate advanced diagnostics")
@@ -257,6 +312,7 @@ mode = "majel"
     sidecar.sync.token                   = "secret-sidecar-token";
     sidecar.sync.proxy                   = "http://user:pass@example.invalid:8080";
     sidecar.sync.battlelogs_realtime     = true;
+    sidecar.sync.battlelog_enrichment    = true;
     sidecar.logging.jsonl                = true;
     sidecar.logging.jsonl_replay_seconds = 15;
     sidecar.logging.jsonl_recent_logs    = 7;
@@ -288,6 +344,7 @@ mode = "majel"
     CHECK(runtime_snapshot["sidecar"]["sync"]["proxy"].value<std::string>().value_or("")
           == config_redaction::mask_proxy_userinfo(sidecar.sync.proxy));
     CHECK(runtime_snapshot["sidecar"]["logging"]["jsonl"].value<bool>().value_or(false));
+    CHECK(runtime_snapshot["sidecar"]["sync"]["battlelog_enrichment"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["sidecar"]["logging"]["jsonl_replay_seconds"].value<int>().value_or(0) == 15);
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["debug"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["ship_identity"].value<bool>().value_or(false));

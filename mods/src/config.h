@@ -170,6 +170,7 @@ struct SidecarSyncConfig {
   bool        verify_ssl = true;
   bool        allow_unsafe_tls_without_certificate_validation = false;
   bool        battlelogs_realtime = false;
+  bool        battlelog_enrichment = false;
   bool        fleet_runtime       = false;
 };
 

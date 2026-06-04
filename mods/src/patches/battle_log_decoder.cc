@@ -2282,6 +2282,33 @@ nlohmann::json build_sidecar_catalog_snapshot_event(const nlohmann::json& journa
   return event;
 }
 
+nlohmann::json build_sidecar_battle_event_sequence(const nlohmann::json& journal, const nlohmann::json& names,
+                                                   const nlohmann::json& decoded, const CatalogResolver& resolver,
+                                                   bool include_enrichment, uint64_t journal_id_override,
+                                                   int64_t captured_at_unix_ms)
+{
+  auto events = nlohmann::json::array();
+
+  auto append_if_ok = [&events](nlohmann::json event) {
+    if (event.value("ok", true) != false) {
+      events.push_back(std::move(event));
+    }
+  };
+
+  append_if_ok(build_sidecar_battle_capture_event(journal, names, journal_id_override, captured_at_unix_ms));
+
+  if (!include_enrichment) {
+    return events;
+  }
+
+  append_if_ok(build_sidecar_battle_report_event(journal, decoded, journal_id_override, captured_at_unix_ms));
+  append_if_ok(build_sidecar_catalog_snapshot_event(journal, names, decoded, resolver, journal_id_override,
+                                                    captured_at_unix_ms));
+  append_if_ok(build_sidecar_battle_analytics_event(journal, decoded, journal_id_override, captured_at_unix_ms));
+
+  return events;
+}
+
 nlohmann::json compare_probe_entries(const nlohmann::json& left, const nlohmann::json& right, const DecodeOptions& options)
 {
   auto summary_options = options;

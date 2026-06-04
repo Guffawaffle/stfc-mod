@@ -77,6 +77,7 @@ namespace
       "sidecar.logging.jsonl_recent_logs",
       "sidecar.logging.jsonl_replay_seconds",
       "sidecar.sync.allow_unsafe_tls_without_certificate_validation",
+      "sidecar.sync.battlelog_enrichment",
       "sidecar.sync.battlelogs_realtime",
       "sidecar.sync.enabled",
       "sidecar.sync.fleet_runtime",

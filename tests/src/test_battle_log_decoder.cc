@@ -114,6 +114,75 @@ TEST_SUITE("battle_log_decoder")
     CHECK_FALSE(capture["capture"]["journal"]["data"].contains("battle_log"));
   }
 
+  TEST_CASE("sidecar battle event sequence is capture-only until enrichment is enabled")
+  {
+    const auto names = nlohmann::json{{"player-1", {{"name", "Guff"}, {"alliance_name", "House of Test"}}},
+                                      {"mar_45", {{"name", "Target"}}}};
+    auto journal = nlohmann::json{{"id", 12345},
+                                  {"battle_type", 8},
+                                  {"battle_time", "2026-04-26T23:04:17"},
+                                  {"initiator_id", "player-1"},
+                                  {"target_id", "mar_45"},
+                                  {"initiator_wins", true},
+                                  {"battle_log",
+                                   nlohmann::json::array({-96,
+                                                          -90,
+                                                          -88,
+                                                          111,
+                                                          -86,
+                                                          10,
+                                                          20,
+                                                          0.5,
+                                                          -85,
+                                                          222,
+                                                          -98,
+                                                          900,
+                                                          1,
+                                                          -99,
+                                                          -89,
+                                                          -90,
+                                                          -88,
+                                                          0,
+                                                          -87,
+                                                          -84,
+                                                          -83,
+                                                          -89,
+                                                          -97})}};
+    journal["initiator_fleet_data"]["deployed_fleets"]["1"] = {
+        {"uid", "player-1"},
+        {"fleet_id", 1},
+        {"ship_ids", nlohmann::json::array({111})},
+        {"hull_ids", nlohmann::json::array({77})},
+        {"ship_components", {{"111", nlohmann::json::array({900})}}},
+    };
+    journal["target_fleet_data"]["deployed_fleet"] = {
+        {"uid", "mar_45"},
+        {"fleet_id", 2},
+        {"type", 2},
+        {"ship_ids", nlohmann::json::array({0})},
+        {"hull_ids", nlohmann::json::array({3066099110})},
+        {"ship_components", {{"0", nlohmann::json::array({800})}}},
+    };
+
+    battle_log_decoder::DecodeOptions options;
+    options.include_segments = true;
+    const auto decoded = battle_log_decoder::decode_journal(journal, names, options, 12345);
+    REQUIRE(decoded.value("ok", false));
+
+    const auto capture_only = battle_log_decoder::build_sidecar_battle_event_sequence(
+        journal, names, decoded, battle_log_decoder::CatalogResolver{}, false, 12345, 111);
+    REQUIRE(capture_only.size() == 1);
+    CHECK(capture_only[0]["type"] == "battle.capture");
+
+    const auto enriched = battle_log_decoder::build_sidecar_battle_event_sequence(
+        journal, names, decoded, battle_log_decoder::CatalogResolver{}, true, 12345, 111);
+    REQUIRE(enriched.size() == 4);
+    CHECK(enriched[0]["type"] == "battle.capture");
+    CHECK(enriched[1]["type"] == "battle.report");
+    CHECK(enriched[2]["type"] == "catalog.snapshot");
+    CHECK(enriched[3]["type"] == "battle.analytics");
+  }
+
   TEST_CASE("battle report preserves exact ship and fleet ids alongside numeric compatibility fields")
   {
     constexpr int64_t kPlayerFleetId = 2644013931949275600LL;

@@ -698,50 +698,10 @@ static nlohmann::json collect_sidecar_export_events(uint64_t journal_id, const n
                                                     const nlohmann::json& journal, const nlohmann::json& decoded,
                                                     int64_t captured_at_unix_ms)
 {
-  auto events = nlohmann::json::array();
-
-  auto capture_event =
-      battle_log_decoder::build_sidecar_battle_capture_event(journal, names, journal_id, captured_at_unix_ms);
-  if (capture_event.value("ok", true) == false) {
-    spdlog::warn("Battle capture export skipped journal {}: {}", journal_id,
-                 capture_event.value("reason", std::string{"unknown"}));
-  } else {
-    events.push_back(std::move(capture_event));
-  }
-
-  if (!BattleLogDecoderEnabled()) {
-    return events;
-  }
-
-  auto report_event =
-      battle_log_decoder::build_sidecar_battle_report_event(journal, decoded, journal_id, captured_at_unix_ms);
-  if (report_event.value("ok", true) == false) {
-    spdlog::warn("Battle report export skipped journal {}: {}", journal_id,
-                 report_event.value("reason", std::string{"unknown"}));
-  } else {
-    events.push_back(std::move(report_event));
-  }
-
   auto catalog_resolver = build_catalog_resolver();
-  auto catalog_event    = battle_log_decoder::build_sidecar_catalog_snapshot_event(
-      journal, names, decoded, catalog_resolver, journal_id, captured_at_unix_ms);
-  if (catalog_event.value("ok", true) == false) {
-    spdlog::warn("Catalog snapshot export skipped journal {}: {}", journal_id,
-                 catalog_event.value("reason", std::string{"unknown"}));
-  } else {
-    events.push_back(std::move(catalog_event));
-  }
-
-  auto analytics_event =
-      battle_log_decoder::build_sidecar_battle_analytics_event(journal, decoded, journal_id, captured_at_unix_ms);
-  if (analytics_event.value("ok", true) == false) {
-    spdlog::warn("Battle analytics export skipped journal {}: {}", journal_id,
-                 analytics_event.value("reason", std::string{"unknown"}));
-  } else {
-    events.push_back(std::move(analytics_event));
-  }
-
-  return events;
+  return battle_log_decoder::build_sidecar_battle_event_sequence(journal, names, decoded, catalog_resolver,
+                                                                 BattleLogDecoderEnabled(), journal_id,
+                                                                 captured_at_unix_ms);
 }
 
 void load_previously_sent_logs()

@@ -1200,8 +1200,8 @@ void Config::Load()
                              g_mod_impact_monitor, g_runtime_trace_report_interval_ms);
   ConfigureModImpactRuntimeTrace(g_runtime_trace_level, g_runtime_trace_track_overhead,
                                  g_runtime_trace_report_interval_ms);
-  g_battle_log_decoder_enabled =
-      get_config_or_default(config, parsed, "battle_log_decoder", "enabled", DCBLD::enabled, write_config);
+  g_battle_log_decoder_enabled = g_sidecar_config.sync.battlelog_enrichment;
+  config_schema::write_bool(parsed, "battle_log_decoder.enabled", g_battle_log_decoder_enabled);
   g_battle_log_decoder_segments =
       get_config_or_default(config, parsed, "battle_log_decoder", "emit_segments", DCBLD::emit_segments, write_config);
   g_battle_log_decoder_feed =

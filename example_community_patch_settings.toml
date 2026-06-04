@@ -52,10 +52,13 @@ assets_url_override = ""
 settings_url = ""
 
 [battle_log_decoder]
-# Enable live decoding of captured battle journal battle_log token streams.
-# When enabled, parser outputs are on by default unless explicitly disabled below.
+# Legacy alias for sidecar.sync.battlelog_enrichment. Prefer the [sidecar.sync]
+# key below when enabling local Battle Workbench enrichment.
 enabled = false
+# Decoder detail knobs used when sidecar.sync.battlelog_enrichment is enabled.
 emit_segments = true
+# Legacy compatibility placeholder; normal local Workbench enrichment is
+# controlled by sidecar.sync.battlelog_enrichment.
 emit_feed = true
 
 #  <[=====================================================]>
@@ -807,13 +810,22 @@ allow_unsafe_tls_without_certificate_validation = false
 [sidecar.sync]
 # Dedicated local STFC Mod Sidecar delivery.
 # This is the only supported home for sidecar-local HTTP config.
+# Local Battle Workbench reads the sidecar event store through /api/events.
+# Cloud Sync Monitor and Majel/cloud targets are not required for local sidecar ingest.
 enabled = false
 token = ""
 url = "http://127.0.0.1:43127/api/sidecar/ingest"
 proxy = ""
 verify_ssl = true
 allow_unsafe_tls_without_certificate_validation = false
+# Sends raw battle capture events to the local sidecar. With this alone, the
+# Workbench may show sparse capture-only battle rows.
 battlelogs_realtime = false
+# Decodes local sidecar battle journals and emits battle.report,
+# catalog.snapshot, and battle.analytics events for Names <-> IDs, catalog
+# snapshots, and Prime CSV parity rows. Legacy [battle_log_decoder].enabled is
+# accepted as an alias, but this is the canonical local Workbench gate.
+battlelog_enrichment = false
 fleet_runtime = false
 
 [sidecar.logging]
@@ -830,6 +842,8 @@ jsonl_recent_logs = 300
 # Older [sidecar.probes] and [sidecar.diagnostics] inputs are still accepted as deprecated aliases.
 # `debug` and `logging` are dormant compatibility placeholders only in this slice.
 # They are not newly active diagnostics controls yet.
+# These battle probe keys do not enable normal local Battle Workbench enrichment;
+# use [sidecar.sync].battlelog_enrichment for that producer path.
 ship_identity = false
 battle_log_decoder = false
 battle_catalog = false

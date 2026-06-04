@@ -393,6 +393,7 @@ namespace Sync
   constexpr bool        verify_ssl = true;
   constexpr bool        allow_unsafe_tls_without_certificate_validation = false;
   constexpr bool        battlelogs_realtime = false;
+  constexpr bool        battlelog_enrichment = false;
   constexpr bool        fleet_runtime       = false;
 } // namespace Sync
 

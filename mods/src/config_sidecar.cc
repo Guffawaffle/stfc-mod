@@ -314,6 +314,11 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
   read_bool_value(result.config.sync.battlelogs_realtime,
                   {"sidecar.sync.battlelogs_realtime", DCSidecar::Sync::battlelogs_realtime, {},
                    "sidecar battle-log delivery"});
+  constexpr std::array<std::string_view, 1> kBattlelogEnrichmentAlias{"battle_log_decoder.enabled"};
+  read_bool_value(result.config.sync.battlelog_enrichment,
+                  {"sidecar.sync.battlelog_enrichment", DCSidecar::Sync::battlelog_enrichment,
+                   kBattlelogEnrichmentAlias,
+                   "decode local sidecar battle reports, catalog snapshots, and analytics"});
   read_bool_value(result.config.sync.fleet_runtime,
                   {"sidecar.sync.fleet_runtime", DCSidecar::Sync::fleet_runtime, {},
                    "sidecar fleet-runtime delivery"});
@@ -527,6 +532,7 @@ void WriteSidecarConfigRuntimeSnapshot(toml::table& runtime_config, const Sideca
   config_schema::write_bool(runtime_config, "sidecar.sync.allow_unsafe_tls_without_certificate_validation",
                             config.sync.allow_unsafe_tls_without_certificate_validation);
   config_schema::write_bool(runtime_config, "sidecar.sync.battlelogs_realtime", config.sync.battlelogs_realtime);
+  config_schema::write_bool(runtime_config, "sidecar.sync.battlelog_enrichment", config.sync.battlelog_enrichment);
   config_schema::write_bool(runtime_config, "sidecar.sync.fleet_runtime", config.sync.fleet_runtime);
 
   config_schema::write_bool(runtime_config, "sidecar.logging.jsonl", config.logging.jsonl);
