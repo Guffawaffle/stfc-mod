@@ -6,6 +6,10 @@ Branch: `experiment/runtime-battle-ability-rows`
 
 This track is separate from the static modifier catalog slice. The static catalog answers "what can happen"; runtime ability/effect rows should answer "what actually happened in this battle." Do not mix runtime discovery probes into the static catalog branch or expand static source families from this work until runtime IDs/kinds are observed and understood.
 
+Resolver-domain scouting is tracked separately in [Battle Runtime Ref Resolver Probe](BATTLE_RUNTIME_REF_RESOLVER_PROBE.md).
+That probe searches local catalog/dump surfaces for exact runtime refs and must not be confused with final ability-row
+resolution.
+
 ## Stella Fixture Correction
 
 `STELLA` in the screenshot is the participant/owner ship whose battle log group contains the visible rows. It is not the source of every ability or effect.
