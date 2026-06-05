@@ -230,6 +230,15 @@ namespace
     return candidates;
   }
 
+  [[nodiscard]] bool has_meaningful_unparsed_group_evidence(const nlohmann::json& record, size_t start, size_t end,
+                                                            const EntityHints& entity_hints)
+  {
+    if (owner_ship_id_from_pre_attack_group(record, start, end, entity_hints)) {
+      return true;
+    }
+    return !candidate_integer_tokens_json(record, start, end, entity_hints).empty();
+  }
+
   [[nodiscard]] nlohmann::json build_candidate_json(const nlohmann::json& record, size_t start, size_t end,
                                                     size_t payload_start, const EntityHints& entity_hints)
   {
@@ -424,7 +433,9 @@ nlohmann::json BuildPreAttackCandidates(const nlohmann::json& record, size_t pay
     auto field_candidates =
         build_marker_field_candidates_json(record, group_start, group_end, payload_start, entity_hints);
     if (field_candidates.empty()) {
-      candidates.push_back(build_candidate_json(record, group_start, group_end, payload_start, entity_hints));
+      if (has_meaningful_unparsed_group_evidence(record, group_start, group_end, entity_hints)) {
+        candidates.push_back(build_candidate_json(record, group_start, group_end, payload_start, entity_hints));
+      }
     } else {
       for (auto& candidate : field_candidates) {
         candidates.push_back(std::move(candidate));

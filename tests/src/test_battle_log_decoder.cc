@@ -438,7 +438,7 @@ TEST_SUITE("battle_log_decoder")
     const auto discovery_decoded = battle_log_decoder::decode_journal(journal, names, discovery_options);
     REQUIRE(discovery_decoded.contains("runtime_ability_row_candidates"));
     REQUIRE(discovery_decoded["runtime_ability_row_candidates"].is_array());
-    REQUIRE(discovery_decoded["runtime_ability_row_candidates"].size() == 3);
+    REQUIRE(discovery_decoded["runtime_ability_row_candidates"].size() == 2);
     const auto& candidate = discovery_decoded["runtime_ability_row_candidates"][0];
     CHECK(candidate.value("schema", std::string{}) == "stfc.runtime_ability_row_candidate.v0");
     CHECK(candidate.value("phase", std::string{}) == "round_start");
@@ -464,7 +464,7 @@ TEST_SUITE("battle_log_decoder")
     REQUIRE(candidate["candidateIntegerTokens"].size() == 2);
     CHECK(candidate["candidateIntegerTokens"][0].value("exact", std::string{}) == "10");
     CHECK(candidate["candidateIntegerTokens"][1].value("exact", std::string{}) == "20");
-    const auto& triggered_candidate = discovery_decoded["runtime_ability_row_candidates"][2];
+    const auto& triggered_candidate = discovery_decoded["runtime_ability_row_candidates"][1];
     CHECK(triggered_candidate.value("schema", std::string{}) == "stfc.runtime_ability_row_candidate.v0");
     CHECK(triggered_candidate.value("phase", std::string{}) == "post_attack");
     CHECK(triggered_candidate.value("ownerShipId", std::string{}) == "111");
@@ -481,12 +481,12 @@ TEST_SUITE("battle_log_decoder")
 
     const auto discovery_report = battle_log_decoder::build_sidecar_battle_report_event(journal, discovery_decoded, 333, 222);
     REQUIRE(discovery_report["report"].contains("experimental"));
-    CHECK(discovery_report["report"]["experimental"]["runtimeAbilityRowCandidates"].size() == 3);
+    CHECK(discovery_report["report"]["experimental"]["runtimeAbilityRowCandidates"].size() == 2);
 
     const auto discovery_analytics =
         battle_log_decoder::build_sidecar_battle_analytics_event(journal, discovery_decoded, 333, 222);
     REQUIRE(discovery_analytics["analytics"].contains("experimental"));
-    CHECK(discovery_analytics["analytics"]["experimental"]["runtimeAbilityRowCandidates"].size() == 3);
+    CHECK(discovery_analytics["analytics"]["experimental"]["runtimeAbilityRowCandidates"].size() == 2);
     CHECK(discovery_analytics["analytics"]["csvParity"]["coverage"]["abilityRowCount"] == 0);
   }
 
