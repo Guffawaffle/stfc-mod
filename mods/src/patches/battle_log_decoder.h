@@ -57,6 +57,10 @@ struct DecodeOptions {
  * recorded with `unresolved: true`.
  */
 struct CatalogResolver {
+  // IL2CPP-backed callbacks are not safe to invoke from every export path. Keep
+  // battle ref probing scan-only unless a caller supplies thread-safe callbacks.
+  bool allow_ref_probe_callbacks = false;
+
   std::function<std::string(int64_t)> hull_name;
   std::function<std::string(int64_t)> hull_type;
   std::function<std::string(int64_t)> ship_name;

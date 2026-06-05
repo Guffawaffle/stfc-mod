@@ -359,7 +359,8 @@ nlohmann::json BuildResolverProbe(const nlohmann::json& decoded, const CatalogRe
       observed_in.push_back(observation_json(observation));
     }
 
-    auto candidates = resolve_candidates(probe, resolver, domains_searched);
+    auto candidates = resolver.allow_ref_probe_callbacks ? resolve_candidates(probe, resolver, domains_searched)
+                              : nlohmann::json::array();
     if (candidates.empty()) {
       unresolved_refs.push_back(ref);
     } else {
@@ -375,7 +376,7 @@ nlohmann::json BuildResolverProbe(const nlohmann::json& decoded, const CatalogRe
 
   return nlohmann::json{
       {"schema", "stfc.battle.ref_resolver_probe.v0"},
-      {"status", "candidate_probe"},
+      {"status", resolver.allow_ref_probe_callbacks ? "candidate_probe" : "scan_only"},
       {"coverage",
        {{"refsScanned", collected.size()},
         {"refsWithCandidateMatches", refs_with_candidate_matches},
@@ -438,7 +439,7 @@ nlohmann::json BuildValueStatementBridge(const nlohmann::json& resolver_probe)
 
   return nlohmann::json{
       {"schema", "stfc.battle.resolver_bridge.v0"},
-      {"status", "candidate_probe"},
+      {"status", resolver_probe.value("status", std::string{"scan_only"})},
       {"refsScanned", coverage.value("refsScanned", size_t{0})},
       {"refsWithCandidateMatches", coverage.value("refsWithCandidateMatches", size_t{0})},
       {"candidateMatchCount", coverage.value("candidateMatchCount", size_t{0})},

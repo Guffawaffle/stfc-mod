@@ -566,9 +566,23 @@ TEST_SUITE("battle_log_decoder")
     CHECK(discovery_analytics["analytics"]["experimental"]["runtimeAbilityCandidateSummary"]["groups"][0].contains("valueDisplay"));
     CHECK(discovery_analytics["analytics"]["valueStatement"]["candidateAbilityEffectReadiness"]["runtimeAbilityCandidateCount"] == 2);
     CHECK(discovery_analytics["analytics"]["valueStatement"]["candidateAbilityEffectReadiness"]["triggeredEffectCandidateCount"] == 1);
+    CHECK(discovery_analytics["analytics"]["valueStatement"]["resolverBridge"]["status"] == "scan_only");
     CHECK(discovery_analytics["analytics"]["csvParity"]["coverage"]["abilityRowCount"] == 0);
 
+    bool scan_only_callback_called = false;
+    battle_log_decoder::CatalogResolver scan_only_resolver{};
+    scan_only_resolver.officer_metadata = [&scan_only_callback_called](int64_t) {
+      scan_only_callback_called = true;
+      return nlohmann::json{{"unexpected", true}};
+    };
+    const auto scan_only_analytics =
+        battle_log_decoder::build_sidecar_battle_analytics_event(journal, discovery_decoded, scan_only_resolver, 333, 222);
+    CHECK_FALSE(scan_only_callback_called);
+    CHECK(scan_only_analytics["analytics"]["experimental"]["resolver"]["status"] == "scan_only");
+    CHECK(scan_only_analytics["analytics"]["experimental"]["resolver"]["coverage"]["refsWithCandidateMatches"] == 0);
+
     battle_log_decoder::CatalogResolver resolver{};
+    resolver.allow_ref_probe_callbacks = true;
     resolver.officer_name = [](int64_t id) { return id == 10 ? std::string{"Test Officer"} : std::string{}; };
     resolver.ability_name = [](int64_t id) { return id == 20 ? std::string{"Test Ability"} : std::string{}; };
     resolver.component_name = [](int64_t id) {

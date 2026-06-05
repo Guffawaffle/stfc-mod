@@ -88,6 +88,8 @@ JavaScript number round-trips alone.
 - Resolver probe output is candidate-only. It scans exact string refs from runtime candidate `sourceRef`/`effectRef`,
   triggered effect refs, exact component refs, and exact hull refs, then attaches `resolverCandidates` only when the
   catalog resolver returns exact-id evidence. It does not promote candidates into CSV ability rows.
+- Live IL2CPP-backed export keeps ref probing scan-only unless the caller marks resolver callbacks as thread-safe for
+  the probe. Background battle export must not call gameplay catalog services just to test broad candidate domains.
 
 This suggests the visible UI rows are likely one of:
 
