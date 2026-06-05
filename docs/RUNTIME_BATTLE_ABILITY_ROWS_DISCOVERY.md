@@ -118,10 +118,14 @@ Near-term contract priorities:
 - Preserve source category guesses only when backed by local battle/account evidence, such as bridge officer IDs,
   component IDs, hull IDs, or ship IDs from the same capture.
 - Preserve unknown IDs instead of dropping or inventing names for them.
+- Include known bridge/officer IDs in the battle-scoped catalog snapshot so runtime `sourceCategory = officer` rows have
+  a stable catalog join point even when display-name resolution is unavailable.
 - Keep display names optional annotations. They are useful for humans, but should not be the join key.
 - Keep static catalog facts separate from runtime candidate rows. Static catalog facts answer "what can happen"; runtime
   rows answer "what appeared or actually occurred in this battle."
 - Treat post-attack triggered rows as occurrence evidence. Opportunity counts are still future work.
+- Do not classify `effectId` values into ability/buff/debuff domains until marker grammar, static catalog rows, or UI
+  presenter evidence proves the domain.
 
 The useful bridge sample shape for stfc.phd is the experimental candidate subset:
 

@@ -2167,6 +2167,9 @@ nlohmann::json build_sidecar_catalog_snapshot_event(const nlohmann::json& journa
       component_ids.insert(id);
     }
   }
+  for (auto id : entity_index.officer_ids) {
+    officer_ids.insert(id);
+  }
 
   // Resource IDs from rewards (keys are stringified ints).
   const auto collect_resource_ids = [&](const nlohmann::json& bag) {

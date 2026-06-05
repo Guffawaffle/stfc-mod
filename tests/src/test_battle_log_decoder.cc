@@ -526,6 +526,7 @@ TEST_SUITE("battle_log_decoder")
         {"hull_ids", nlohmann::json::array({77})},
         {"ship_components", {{"111", nlohmann::json::array({900})}}},
     };
+    journal["initiator_fleet_data"]["bridge_officers"] = nlohmann::json::array({{{"id", 10}, {"level", 10}, {"rank", 2}}});
 
     // No resolver wired ΓÇö exercise the dataless path first.
     {
@@ -547,6 +548,8 @@ TEST_SUITE("battle_log_decoder")
       CHECK(domains["ships"]["111"]["unresolved"] == true);
 
       REQUIRE(domains["components"].contains("900"));
+      REQUIRE(domains["officers"].contains("10"));
+      CHECK(domains["officers"]["10"]["unresolved"] == true);
       CHECK(domains["resources"].size() == 2);
       REQUIRE(domains["resources"].contains("4001"));
       CHECK(domains["systems"].contains("555"));
@@ -565,6 +568,7 @@ TEST_SUITE("battle_log_decoder")
       const auto& coverage = event["catalog"]["coverage"];
       const auto  present  = coverage["domainsPresent"];
       CHECK(std::ranges::find(present, "hulls") != present.end());
+      CHECK(std::ranges::find(present, "officers") != present.end());
       CHECK(std::ranges::find(present, "players") != present.end());
       CHECK(std::ranges::find(present, "alliances") != present.end());
       CHECK(coverage["totalEntries"].get<int>() > 0);
@@ -577,6 +581,7 @@ TEST_SUITE("battle_log_decoder")
       resolver.hull_name          = [](int64_t id) { return id == 77 ? std::string{"Saladin"} : std::string{}; };
       resolver.hull_type          = [](int64_t id) { return id == 77 ? std::string{"Battleship"} : std::string{}; };
       resolver.component_name     = [](int64_t id) { return id == 900 ? std::string{"Phaser Bank"} : std::string{}; };
+      resolver.officer_name       = [](int64_t id) { return id == 10 ? std::string{"Test Officer"} : std::string{}; };
       resolver.component_metadata = [](int64_t id) {
         return id == 900 ? nlohmann::json{{"locaId", "12345"}, {"locaKey", "component_phaser_bank"}}
                          : nlohmann::json::object();
@@ -595,6 +600,10 @@ TEST_SUITE("battle_log_decoder")
       CHECK(components["900"]["locaId"] == "12345");
       CHECK(components["900"]["locaKey"] == "component_phaser_bank");
       CHECK(components["900"]["unresolved"] == false);
+      const auto& officers = event["catalog"]["domains"]["officers"];
+      REQUIRE(officers.contains("10"));
+      CHECK(officers["10"]["name"] == "Test Officer");
+      CHECK(officers["10"]["unresolved"] == false);
     }
   }
 
