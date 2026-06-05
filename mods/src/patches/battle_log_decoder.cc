@@ -4,6 +4,7 @@
  */
 #include "patches/battle_log_decoder.h"
 
+#include "patches/battle_ref_resolver.h"
 #include "patches/battle_runtime_ability_candidates.h"
 
 #include <algorithm>
@@ -1881,7 +1882,8 @@ void append_chest_rewards(nlohmann::json& rewards, const nlohmann::json& chest_d
 }
 
 [[nodiscard]] nlohmann::json build_battle_value_statement(const nlohmann::json& decoded, const nlohmann::json& summary,
-                                                          const nlohmann::json& csv_parity)
+                                                          const nlohmann::json& csv_parity,
+                                                          const nlohmann::json& resolver_probe)
 {
   const auto& coverage = csv_parity.contains("coverage") && csv_parity["coverage"].is_object() ? csv_parity["coverage"]
                                                                                                   : nlohmann::json::object();
@@ -1926,6 +1928,7 @@ void append_chest_rewards(nlohmann::json& rewards, const nlohmann::json& chest_d
         {"effectRef", "unresolved runtime/catalog bridge ref"},
         {"resolutionStatus", "unresolved|hinted|resolved"},
         {"sourceCategory", "unknown until resolver confirmation"}}},
+      {"resolverBridge", battle_ref_resolver::BuildValueStatementBridge(resolver_probe)},
       {"knownNonClaims",
        nlohmann::json::array({"Runtime ability/effect candidates are not finalized ability activations.",
                               "triggeredEffectCount is the legacy narrow decoded-record count, not all ability activations.",
@@ -2127,6 +2130,14 @@ nlohmann::json build_sidecar_battle_report_event(const nlohmann::json& journal, 
 nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journal, const nlohmann::json& decoded,
                                                     uint64_t journal_id_override, int64_t captured_at_unix_ms)
 {
+  return build_sidecar_battle_analytics_event(journal, decoded, CatalogResolver{}, journal_id_override,
+                                              captured_at_unix_ms);
+}
+
+nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journal, const nlohmann::json& decoded,
+                                                    const CatalogResolver& resolver, uint64_t journal_id_override,
+                                                    int64_t captured_at_unix_ms)
+{
   if (!journal.is_object()) {
     return nlohmann::json{{"ok", false}, {"reason", "journal is not an object"}};
   }
@@ -2144,6 +2155,7 @@ nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journa
                                                                                                    : nlohmann::json::array();
   const auto summary = build_report_summary(journal, decoded);
   const auto csv_parity = build_csv_parity(journal, decoded);
+  const auto resolver_probe = battle_ref_resolver::BuildResolverProbe(decoded, resolver);
 
   auto event = nlohmann::json{{"protocolVersion", "stfc.sidecar.events.v0"},
                               {"type", "battle.analytics"},
@@ -2158,7 +2170,8 @@ nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journa
                                 {"rounds", rounds},
                                 {"attackRows", attack_rows},
                                 {"csvParity", csv_parity},
-                                {"valueStatement", build_battle_value_statement(decoded, summary, csv_parity)},
+                                {"valueStatement", build_battle_value_statement(decoded, summary, csv_parity,
+                                                                                resolver_probe)},
                                 {"provenance",
                                  {{"source", "stfc-community-mod battle_log_decoder"},
                                   {"ruleVersion", "csv_parity_attack_rows.v1"},
@@ -2175,6 +2188,7 @@ nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journa
   if (decoded.contains("runtime_ability_candidate_summary") && decoded["runtime_ability_candidate_summary"].is_object()) {
     event["analytics"]["experimental"]["runtimeAbilityCandidateSummary"] = decoded["runtime_ability_candidate_summary"];
   }
+  battle_ref_resolver::AttachResolverCandidates(event["analytics"], resolver_probe);
 
   return event;
 }
@@ -2584,7 +2598,7 @@ nlohmann::json build_sidecar_battle_event_sequence(const nlohmann::json& journal
   append_if_ok(build_sidecar_battle_report_event(journal, decoded, journal_id_override, captured_at_unix_ms));
   append_if_ok(build_sidecar_catalog_snapshot_event(journal, names, decoded, resolver, journal_id_override,
                                                     captured_at_unix_ms));
-  append_if_ok(build_sidecar_battle_analytics_event(journal, decoded, journal_id_override, captured_at_unix_ms));
+  append_if_ok(build_sidecar_battle_analytics_event(journal, decoded, resolver, journal_id_override, captured_at_unix_ms));
 
   return events;
 }

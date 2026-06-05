@@ -83,8 +83,11 @@ JavaScript number round-trips alone.
   are not raw token-text preservation unless a later decoder explicitly captures raw token text.
 - CSV parity display cells should avoid scientific notation for damage/mitigation/scalar values.
 - `battle.analytics.valueStatement.schema = stfc.battle.value_statement.v0` summarizes count reconciliation, exact-ID
-  policy, numeric display policy, candidate readiness, resolver bridge refs, and known non-claims without dumping every
-  attack row.
+  policy, numeric display policy, candidate readiness, resolver bridge refs, resolver probe coverage, and known
+  non-claims without dumping every attack row.
+- Resolver probe output is candidate-only. It scans exact string refs from runtime candidate `sourceRef`/`effectRef`,
+  triggered effect refs, exact component refs, and exact hull refs, then attaches `resolverCandidates` only when the
+  catalog resolver returns exact-id evidence. It does not promote candidates into CSV ability rows.
 
 This suggests the visible UI rows are likely one of:
 

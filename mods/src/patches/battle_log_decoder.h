@@ -81,6 +81,12 @@ struct CatalogResolver {
   std::function<nlohmann::json(int64_t)> debuff_metadata;
 };
 
+[[nodiscard]] nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journal,
+                                                                  const nlohmann::json& decoded,
+                                                                  const CatalogResolver& resolver,
+                                                                  uint64_t journal_id_override = 0,
+                                                                  int64_t captured_at_unix_ms = 0);
+
 [[nodiscard]] nlohmann::json build_sidecar_catalog_snapshot_event(const nlohmann::json& journal,
                                                                   const nlohmann::json& names,
                                                                   const nlohmann::json& decoded,

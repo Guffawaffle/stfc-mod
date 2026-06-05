@@ -567,6 +567,80 @@ TEST_SUITE("battle_log_decoder")
     CHECK(discovery_analytics["analytics"]["valueStatement"]["candidateAbilityEffectReadiness"]["runtimeAbilityCandidateCount"] == 2);
     CHECK(discovery_analytics["analytics"]["valueStatement"]["candidateAbilityEffectReadiness"]["triggeredEffectCandidateCount"] == 1);
     CHECK(discovery_analytics["analytics"]["csvParity"]["coverage"]["abilityRowCount"] == 0);
+
+    battle_log_decoder::CatalogResolver resolver{};
+    resolver.officer_name = [](int64_t id) { return id == 10 ? std::string{"Test Officer"} : std::string{}; };
+    resolver.ability_name = [](int64_t id) { return id == 20 ? std::string{"Test Ability"} : std::string{}; };
+    resolver.component_name = [](int64_t id) {
+      return id == 800 ? std::string{"Hostile Weapon"} : id == 900 ? std::string{"Player Weapon"} : std::string{};
+    };
+    resolver.hull_name = [](int64_t id) {
+      return id == 77 ? std::string{"Player Hull"}
+                      : id == 3066099110LL ? std::string{"Central Command Hull"} : std::string{};
+    };
+    resolver.ability_metadata = [](int64_t id) {
+      return id == 20 ? nlohmann::json{{"locaId", "20020"}} : nlohmann::json::object();
+    };
+
+    const auto resolved_analytics =
+        battle_log_decoder::build_sidecar_battle_analytics_event(journal, discovery_decoded, resolver, 333, 222);
+    REQUIRE(resolved_analytics["analytics"].contains("experimental"));
+    REQUIRE(resolved_analytics["analytics"]["experimental"].contains("resolver"));
+    const auto& resolver_probe = resolved_analytics["analytics"]["experimental"]["resolver"];
+    REQUIRE(resolver_probe["refs"].is_array());
+    const auto& resolver_coverage = resolver_probe["coverage"];
+    CHECK(resolver_coverage["refsScanned"].get<size_t>() >= 9);
+    CHECK(resolver_coverage["refsWithCandidateMatches"].get<size_t>() >= 5);
+    CHECK(resolver_coverage["candidateMatchCount"].get<size_t>() >= 5);
+    CHECK(resolver_coverage["promotedToCsvRows"] == false);
+    CHECK(std::ranges::find(resolver_coverage["domainsSearched"], "officer") != resolver_coverage["domainsSearched"].end());
+    CHECK(std::ranges::find(resolver_coverage["domainsSearched"], "ability") != resolver_coverage["domainsSearched"].end());
+    CHECK(std::ranges::find(resolver_coverage["domainsSearched"], "ship_component")
+          != resolver_coverage["domainsSearched"].end());
+    CHECK(std::ranges::find(resolver_coverage["domainsSearched"], "hull") != resolver_coverage["domainsSearched"].end());
+
+    const auto find_ref = [](const nlohmann::json& refs, std::string_view ref) -> const nlohmann::json* {
+      for (const auto& entry : refs) {
+        if (entry.is_object() && entry.value("ref", std::string{}) == ref) {
+          return &entry;
+        }
+      }
+      return nullptr;
+    };
+    const auto* officer_ref = find_ref(resolver_probe["refs"], "10");
+    REQUIRE(officer_ref != nullptr);
+    CHECK((*officer_ref)["resolutionStatus"] == "candidate_matches");
+    REQUIRE((*officer_ref)["resolverCandidates"].is_array());
+    CHECK((*officer_ref)["resolverCandidates"][0]["domain"] == "officer");
+    CHECK((*officer_ref)["resolverCandidates"][0]["name"] == "Test Officer");
+    CHECK((*officer_ref)["resolverCandidates"][0]["matchType"] == "id_exact");
+
+    const auto* missing_trigger_ref = find_ref(resolver_probe["refs"], "1449938138");
+    REQUIRE(missing_trigger_ref != nullptr);
+    CHECK((*missing_trigger_ref)["resolutionStatus"] == "unresolved");
+    CHECK((*missing_trigger_ref)["resolverCandidates"].empty());
+    CHECK(std::ranges::find(resolver_coverage["unresolvedRefs"], "1449938138")
+          != resolver_coverage["unresolvedRefs"].end());
+
+    const auto& resolved_candidates = resolved_analytics["analytics"]["experimental"]["runtimeAbilityRowCandidates"];
+    REQUIRE(resolved_candidates.size() == 2);
+    CHECK(resolved_candidates[0]["sourceName"].is_null());
+    CHECK(resolved_candidates[0]["abilityName"].is_null());
+    CHECK(resolved_candidates[0]["resolverStatus"] == "candidate_matches");
+    CHECK(resolved_candidates[0]["resolutionStatus"] == "candidate_matches");
+    REQUIRE(resolved_candidates[0]["resolverCandidates"].is_array());
+    CHECK(resolved_candidates[0]["resolverCandidates"].size() >= 2);
+    CHECK(resolved_candidates[1]["resolverStatus"] == "unresolved");
+    CHECK(resolved_candidates[1]["resolutionStatus"] == "unresolved");
+
+    const auto& resolver_bridge = resolved_analytics["analytics"]["valueStatement"]["resolverBridge"];
+    CHECK(resolver_bridge["schema"] == "stfc.battle.resolver_bridge.v0");
+    CHECK(resolver_bridge["refsScanned"] == resolver_coverage["refsScanned"]);
+    CHECK(resolver_bridge["refsWithCandidateMatches"] == resolver_coverage["refsWithCandidateMatches"]);
+    CHECK(resolver_bridge["promotedToCsvRows"] == false);
+    CHECK(resolved_analytics["analytics"]["csvParity"]["coverage"]["abilityRowCount"] == 0);
+    CHECK(resolved_analytics["analytics"]["csvParity"]["rows"].size()
+          == resolved_analytics["analytics"]["summary"]["attackRowCount"]);
   }
 
   TEST_CASE("runtime ability candidates preserve mitigation or scalar marker rows")
