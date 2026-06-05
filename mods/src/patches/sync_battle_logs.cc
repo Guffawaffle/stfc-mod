@@ -1011,6 +1011,7 @@ static void ship_combat_log_data()
       if (BattleLogDecoderEnabled() && (export_battlelogs_realtime || export_sidecar_local || export_sidecar_jsonl)) {
         battle_log_decoder::DecodeOptions decode_options;
         decode_options.include_segments = BattleLogDecoderEmitSegments();
+        decode_options.include_runtime_ability_candidates = AdvancedDiagnosticsSettings().battle_log_decoder;
         decoded = battle_log_decoder::decode_journal(journal, names, decode_options, journal_id);
       }
 

@@ -19,6 +19,7 @@ struct DecodeOptions {
   size_t               segment_limit = 0;
   size_t               edge_token_count = 12;
   size_t               top_segment_length_limit = 6;
+  bool                 include_runtime_ability_candidates = false;
   std::vector<int64_t> battle_type_filter;
 };
 

@@ -4,6 +4,8 @@
  */
 #include "patches/battle_log_decoder.h"
 
+#include "patches/battle_runtime_ability_candidates.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cctype>
@@ -25,7 +27,6 @@ constexpr int64_t kRecordTerminator = -99;
 constexpr int64_t kRoundStartMarker = -96;
 constexpr int64_t kComponentRefMarker = -98;
 constexpr int64_t kScalarMarker = -95;
-constexpr int64_t kAttackPreludeTerminator = -83;
 constexpr int64_t kTriggeredEffectStartMarker = -93;
 constexpr int64_t kTriggeredEffectShipMarker = -91;
 constexpr int64_t kTriggeredEffectEndMarker = -92;
@@ -57,7 +58,9 @@ struct EntityIndex {
   std::unordered_map<int64_t, size_t>  ship_to_participant;
   std::unordered_map<int64_t, int64_t> component_to_ship;
   std::unordered_set<int64_t>          ship_ids;
+  std::unordered_set<int64_t>          hull_ids;
   std::unordered_set<int64_t>          component_ids;
+  std::unordered_set<int64_t>          officer_ids;
   std::unordered_set<std::string>      participant_keys;
 };
 
@@ -612,6 +615,9 @@ void add_participant(EntityIndex& index, const nlohmann::json& names, const nloh
     index.ship_ids.insert(ship_id);
     index.ship_to_participant.emplace(ship_id, participant_index);
   }
+  for (const auto hull_id : participant.hull_ids) {
+    index.hull_ids.insert(hull_id);
+  }
 
   if (fleet.contains("ship_components") && fleet["ship_components"].is_object()) {
     for (const auto& [ship_key, component_value] : fleet["ship_components"].items()) {
@@ -661,14 +667,59 @@ void collect_fleet_data(EntityIndex& index, const nlohmann::json& names, const n
   }
 }
 
+void collect_officer_ids_from_array(EntityIndex& index, const nlohmann::json& officers)
+{
+  if (!officers.is_array()) {
+    return;
+  }
+
+  for (const auto& officer : officers) {
+    if (!officer.is_object() || !officer.contains("id")) {
+      continue;
+    }
+    if (const auto id = json_to_i64(officer["id"])) {
+      index.officer_ids.insert(*id);
+    }
+  }
+}
+
+void collect_officer_ids_from_fleet_data(EntityIndex& index, const nlohmann::json& fleet_data)
+{
+  if (!fleet_data.is_object()) {
+    return;
+  }
+
+  if (fleet_data.contains("bridge_officers")) {
+    collect_officer_ids_from_array(index, fleet_data["bridge_officers"]);
+  }
+
+  if (fleet_data.contains("fleets_officers") && fleet_data["fleets_officers"].is_object()) {
+    for (const auto& [_fleet_id, officers] : fleet_data["fleets_officers"].items()) {
+      collect_officer_ids_from_array(index, officers);
+    }
+  }
+
+  if (fleet_data.contains("deployed_fleet") && fleet_data["deployed_fleet"].is_object()) {
+    collect_officer_ids_from_fleet_data(index, fleet_data["deployed_fleet"]);
+  }
+
+  if (fleet_data.contains("deployed_fleets") && fleet_data["deployed_fleets"].is_object()) {
+    for (const auto& [_fleet_id, fleet] : fleet_data["deployed_fleets"].items()) {
+      collect_officer_ids_from_fleet_data(index, fleet);
+    }
+  }
+}
+
 [[nodiscard]] EntityIndex build_entity_index(const nlohmann::json& journal, const nlohmann::json& names)
 {
   EntityIndex index;
   if (journal.contains("initiator_fleet_data")) {
     collect_fleet_data(index, names, journal, journal["initiator_fleet_data"], "initiator");
+    collect_officer_ids_from_fleet_data(index, journal["initiator_fleet_data"]);
   }
   if (journal.contains("target_fleet_data")) {
     collect_fleet_data(index, names, journal, journal["target_fleet_data"], "target");
+    collect_officer_ids_from_fleet_data(index, journal["target_fleet_data"]);
   }
   return index;
 }
@@ -1109,6 +1160,28 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
   result["payloadStart"] = payload_index;
   result["preAttackTokenCount"] = payload_index;
   result["preAttackMarkers"] = json_i64_array(collect_negative_markers(json_slice(record, 0, payload_index)));
+  if (options.include_runtime_ability_candidates) {
+    battle_runtime_ability_candidates::EntityHints entity_hints{
+        .is_ship_id = [&](int64_t id) { return entity_index.ship_ids.contains(id); },
+        .is_hull_id = [&](int64_t id) { return entity_index.hull_ids.contains(id); },
+        .is_component_id = [&](int64_t id) { return entity_index.component_ids.contains(id); },
+        .is_officer_id = [&](int64_t id) { return entity_index.officer_ids.contains(id); },
+    };
+    auto candidates = battle_runtime_ability_candidates::BuildPreAttackCandidates(record, payload_index, entity_hints);
+    auto triggered_candidates =
+        battle_runtime_ability_candidates::BuildTriggeredEffectCandidates(record, payload_index + 16, entity_hints);
+    for (auto& candidate : triggered_candidates) {
+      candidates.push_back(std::move(candidate));
+    }
+    for (auto& candidate : candidates) {
+      if (!candidate.is_object()) {
+        continue;
+      }
+      const auto owner_ship_id = candidate.contains("ownerShipId") ? json_to_i64(candidate["ownerShipId"]) : std::nullopt;
+      candidate["ownerShip"] = build_ship_ref_json(entity_index, owner_ship_id);
+    }
+    result["runtimeAbilityRowCandidates"] = std::move(candidates);
+  }
   result["attackerShipId"] = attacker_ship_id ? nlohmann::json(*attacker_ship_id) : nlohmann::json();
   result["attackerShipIdExact"] = json_optional_i64_string(attacker_ship_id);
   result["targetShipId"] = target_ship_id ? nlohmann::json(*target_ship_id) : nlohmann::json();
@@ -1265,13 +1338,21 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
     segment["subRound"] = sub_round_index;
 
     if (segment.contains("records") && segment["records"].is_array()) {
-      for (auto& record : segment["records"]) {
+      for (size_t record_index = 0; record_index < segment["records"].size(); ++record_index) {
+        auto& record = segment["records"][record_index];
         if (!record.is_object()) {
           continue;
         }
         record["segmentIndex"] = segment.value("index", size_t{0});
         record["round"] = round_index;
         record["subRound"] = sub_round_index;
+        if (record.contains("runtimeAbilityRowCandidates") && record["runtimeAbilityRowCandidates"].is_array()) {
+          battle_runtime_ability_candidates::AddCombatContext(record["runtimeAbilityRowCandidates"],
+                                                              segment.value("index", size_t{0}),
+                                                              record_index,
+                                                              round_index,
+                                                              sub_round_index);
+        }
         if (record.value("kind", std::string{}) == "attack") {
           analytics.attack_rows.push_back(record);
         }
@@ -1800,6 +1881,14 @@ nlohmann::json decode_journal(const nlohmann::json& journal, const nlohmann::jso
     decoded["segments"] = std::move(segments);
     decoded["rounds"] = std::move(analytics.rounds);
     decoded["attack_rows"] = std::move(analytics.attack_rows);
+    if (options.include_runtime_ability_candidates) {
+      const auto battle_id = journal.contains("id") ? json_id_to_string(journal["id"]) : std::to_string(journal_id);
+      auto candidates =
+          battle_runtime_ability_candidates::CollectFromAttackRows(decoded["attack_rows"], battle_id);
+      if (!candidates.empty()) {
+        decoded["runtime_ability_row_candidates"] = std::move(candidates);
+      }
+    }
   }
 
   return decoded;
@@ -1854,6 +1943,9 @@ nlohmann::json build_sidecar_battle_report_event(const nlohmann::json& journal, 
   if (captured_at_unix_ms > 0) {
     event["capturedAtUnixMs"] = captured_at_unix_ms;
   }
+  if (decoded.contains("runtime_ability_row_candidates") && decoded["runtime_ability_row_candidates"].is_array()) {
+    event["report"]["experimental"]["runtimeAbilityRowCandidates"] = decoded["runtime_ability_row_candidates"];
+  }
 
   return event;
 }
@@ -1897,6 +1989,9 @@ nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journa
 
   if (captured_at_unix_ms > 0) {
     event["capturedAtUnixMs"] = captured_at_unix_ms;
+  }
+  if (decoded.contains("runtime_ability_row_candidates") && decoded["runtime_ability_row_candidates"].is_array()) {
+    event["analytics"]["experimental"]["runtimeAbilityRowCandidates"] = decoded["runtime_ability_row_candidates"];
   }
 
   return event;

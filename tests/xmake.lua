@@ -22,6 +22,7 @@ do
     add_files("../mods/src/patches/live_debug_ui_serializers.cc")
     add_files("../mods/src/patches/live_debug_viewer_serializers.cc")
     add_files("../mods/src/patches/battle_log_decoder.cc")
+    add_files("../mods/src/patches/battle_runtime_ability_candidates.cc")
     add_files("../mods/src/patches/fleet_deferred_action.cc")
     add_files("../mods/src/patches/fleet_input_policy.cc")
     add_files("../mods/src/patches/il2cpp_safety.cc")
@@ -55,6 +56,7 @@ do
 
     add_files("tools/battle_log_decode_tool.cc")
     add_files("../mods/src/patches/battle_log_decoder.cc")
+    add_files("../mods/src/patches/battle_runtime_ability_candidates.cc")
     add_includedirs("../mods/src", { public = true })
     add_packages("nlohmann_json")
     add_defines("NOMINMAX")

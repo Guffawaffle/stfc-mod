@@ -144,3 +144,63 @@ If a probe crashes, record:
 2. Add one disabled-by-default experimental probe surface for discovering battle-result UI rows or pre-attack marker groups.
 3. Emit bounded diagnostic rows with raw IDs/kinds and token/view-model provenance only.
 4. After IDs/kinds are proven, decide whether to expand catalog resolver domains, static officer ability source families, or marker grammar first.
+
+## First Probe Slice
+
+The first native implementation slice uses the existing disabled-by-default `[advanced.diagnostics].battle_log_decoder`
+gate. When enabled with battle-log enrichment, the decoder emits `runtimeAbilityRowCandidates` under the
+`experimental` section of `battle.report` and `battle.analytics`.
+
+This first probe only preserves pre-attack marker groups. It does not resolve officer names, ability names, buff names,
+or effect semantics. The candidate rows intentionally keep source/effect fields null or `unknown` until IDs and marker
+meaning are proven.
+
+## Manual Cycle Evidence: 2026-06-04
+
+Recent sidecar battle `2737473116774917542` showed the same UI/export split:
+
+- UI owner group: `VOR'CHA`
+- Visible source/effect rows included:
+  - `SNW SAM KIRK - Phaser-Based Study`, value `90%`
+  - `SNW ORTEGAS - Frequency Plating`, value `1,100%`
+  - `SNW PIKE - Prepared For Anything`, value `11%`
+  - `SNW PIKE - Quick Thinker`, value `25%`
+  - `ALOK SAHAR - Augment's Sagacity`, value `1000`
+  - `S31 Torpedo Pods`, value `800%`
+- Stored `battle.analytics` still had `csvParity.coverage.abilityRowCount = 0` and no experimental candidate section,
+  which means this cycle was captured before the native experimental candidate emission was active in-game.
+- The raw capture's first pre-attack prefix had `preAttackTokenCount = 48` and markers
+  `[-96,-90,-88,-86,-85,-87,-84,-82,-81,-83]`.
+- The `-86` fields matched bridge officer IDs from the same capture:
+  - `1426126747, 2813724537, 0.9`
+  - `1689277174, 2416006584, 11.0`
+  - `2241990218, 3308805436, 0.11`
+  - `2241990218, 1761806598, 0.25`
+  - `2100903263, 3098652344, 1000.0`
+- The `-82` fields looked like non-officer or ship/equipment effect candidates:
+  - `473132032, 405335503, 8.0`
+  - `473132032, 2573953069, 4.0`
+
+Working hypothesis for the next probe slice:
+
+- `-88` / `-85` / `-84` / `-81` carry or refresh owner/participant ship context.
+- `-86` carries `sourceId, effectId, value`; when `sourceId` matches captured bridge officer IDs, classify it as
+  `sourceCategory = officer`.
+- `-82` also carries `sourceId, effectId, value`, but source category remains `unknown` until static catalog or UI
+  presenter evidence proves whether it is ship ability, forbidden tech, buff, or equipment.
+
+Longer battles from the same cycle showed post-attack proc evidence:
+
+- Battle `2737476041672811642`: `56` attack rows, `10` decoded triggered-effect blocks.
+- Battle `2737475839280866385`: `51` attack rows, `5` decoded triggered-effect blocks.
+- Stored analytics still had `abilityRowCount = 0` and no experimental candidate section, so these were emitted by the
+  older in-game build before candidate emission was loaded.
+- Repeating post-attack token shape:
+  - `-93, ownerShipId, -91, sourceId, effectId, value, -92, ... , -94, -99`
+- Observed triggered rows included:
+  - `4290764940, 1120204726, 0.7`
+  - `3426564736, 3426564736, 0.03`
+- Interpretation for the experimental probe:
+  - `-86` / `-82` rows are candidate static/runtime availability rows for "what is active or can happen."
+  - `-93` / `-91` rows are candidate occurrence rows for "what actually triggered during this attack."
+  - `opportunityCount` is still unknown; this slice only records occurrence evidence.

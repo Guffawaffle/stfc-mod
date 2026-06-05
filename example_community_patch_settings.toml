@@ -845,6 +845,9 @@ jsonl_recent_logs = 300
 # These battle probe keys do not enable normal local Battle Workbench enrichment;
 # use [sidecar.sync].battlelog_enrichment for that producer path.
 ship_identity = false
+# Experimental disabled-by-default battle-log decoder probe. When enabled with
+# [sidecar.sync].battlelog_enrichment, emits bounded runtimeAbilityRowCandidates
+# under experimental report/analytics payloads for marker grammar discovery.
 battle_log_decoder = false
 battle_catalog = false
 debug = false
