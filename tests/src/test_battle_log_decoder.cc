@@ -1,4 +1,5 @@
 #include "test_pure_common.h"
+#include "patches/battle_runtime_ability_candidates.h"
 
 // ===========================================================================
 // battle_log_decoder
@@ -488,6 +489,22 @@ TEST_SUITE("battle_log_decoder")
     REQUIRE(discovery_analytics["analytics"].contains("experimental"));
     CHECK(discovery_analytics["analytics"]["experimental"]["runtimeAbilityRowCandidates"].size() == 2);
     CHECK(discovery_analytics["analytics"]["csvParity"]["coverage"]["abilityRowCount"] == 0);
+  }
+
+  TEST_CASE("runtime ability candidates ignore owner-only pre-attack marker prefixes")
+  {
+    const auto record = nlohmann::json::array(
+        {-96, -90, -88, 111, -87, -84, 111, -83, 0, -98, 800, 111, 1.0, 0.0, 1, 0, 6076, 10886810.0, 25085,
+         474368857.0, 34419.4303585508, 20752, 843897.5, 7574.55, -99});
+    const battle_runtime_ability_candidates::EntityHints hints{
+        .is_ship_id = [](int64_t id) { return id == 111 || id == 0; },
+        .is_hull_id = [](int64_t id) { return id == 77 || id == 3066099110LL; },
+        .is_component_id = [](int64_t id) { return id == 800 || id == 900; },
+        .is_officer_id = [](int64_t id) { return id == 10; },
+    };
+
+    const auto candidates = battle_runtime_ability_candidates::BuildPreAttackCandidates(record, 8, hints);
+    CHECK(candidates.empty());
   }
 
   TEST_CASE("build_sidecar_catalog_snapshot_event collects observed IDs and resolves players + alliances")

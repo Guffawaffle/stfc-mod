@@ -233,9 +233,7 @@ namespace
   [[nodiscard]] bool has_meaningful_unparsed_group_evidence(const nlohmann::json& record, size_t start, size_t end,
                                                             const EntityHints& entity_hints)
   {
-    if (owner_ship_id_from_pre_attack_group(record, start, end, entity_hints)) {
-      return true;
-    }
+    // Owner/phase-only marker prefixes describe combat-log structure, not ability/effect rows.
     return !candidate_integer_tokens_json(record, start, end, entity_hints).empty();
   }
 

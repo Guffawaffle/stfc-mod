@@ -105,6 +105,47 @@ Notes only. Do not implement as final analytics yet.
 
 Stable IDs/kinds are the first useful target. Once runtime rows carry source IDs, ability IDs, buff IDs, target codes, and trigger codes, consumers such as stfc.phd can join those rows against static catalog facts without depending on display text.
 
+## Sudo / stfc.phd Bridge Goal
+
+The immediate consumer goal is to make battle exports useful to stfc.phd without forcing it to depend on our display
+strings, UI wording, or final CSV parity work. Sudo already has substantial static exports/name lookup data, but still
+needs reliable battle-log IDs and enough runtime evidence to join combat rows against research, buffs, exocomps,
+officers, hostiles, and other modifier sources.
+
+Near-term contract priorities:
+
+- Keep stable native IDs primary: owner ship IDs, source IDs, effect IDs, component IDs, hull IDs, and battle IDs.
+- Preserve source category guesses only when backed by local battle/account evidence, such as bridge officer IDs,
+  component IDs, hull IDs, or ship IDs from the same capture.
+- Preserve unknown IDs instead of dropping or inventing names for them.
+- Keep display names optional annotations. They are useful for humans, but should not be the join key.
+- Keep static catalog facts separate from runtime candidate rows. Static catalog facts answer "what can happen"; runtime
+  rows answer "what appeared or actually occurred in this battle."
+- Treat post-attack triggered rows as occurrence evidence. Opportunity counts are still future work.
+
+The useful bridge sample shape for stfc.phd is the experimental candidate subset:
+
+```json
+{
+  "battleId": "2737488725357159795",
+  "phase": "round_start|pre_attack|post_attack",
+  "ownerShipId": "2731143593850127402",
+  "sourceCategory": "officer|ship_ability|component|ship|unknown",
+  "sourceId": "4290764940",
+  "effectId": "1120204726",
+  "value": 0.7,
+  "triggered": true,
+  "occurrenceCount": 1,
+  "tokenRange": {
+    "segmentIndex": 1,
+    "recordIndex": 0,
+    "recordStart": 25,
+    "recordEnd": 29
+  },
+  "confidence": "experimental_marker_decode"
+}
+```
+
 ## Discovery Surfaces
 
 Next useful work is source-surface discovery, not final analytics:
@@ -151,9 +192,10 @@ The first native implementation slice uses the existing disabled-by-default `[ad
 gate. When enabled with battle-log enrichment, the decoder emits `runtimeAbilityRowCandidates` under the
 `experimental` section of `battle.report` and `battle.analytics`.
 
-This first probe only preserves pre-attack marker groups. It does not resolve officer names, ability names, buff names,
-or effect semantics. The candidate rows intentionally keep source/effect fields null or `unknown` until IDs and marker
-meaning are proven.
+This first probe preserves source/effect/value marker groups from pre-attack prefixes and post-attack triggered-effect
+markers. It does not resolve officer names, ability names, buff names, or effect semantics. The candidate rows
+intentionally keep display fields null and source categories `unknown` unless same-battle entity evidence proves a
+specific category.
 
 After the first cleanup, marker-only owner/phase prefixes are not emitted as candidate rows. A short battle that shows
 only normal damage, mitigation, barrier, and shield/hull receive rows should produce zero
