@@ -1,6 +1,8 @@
 #include "test_pure_common.h"
 #include "patches/battle_runtime_ability_candidates.h"
 
+#include <numeric>
+
 // ===========================================================================
 // battle_log_decoder
 // ===========================================================================
@@ -386,6 +388,11 @@ TEST_SUITE("battle_log_decoder")
     REQUIRE(decoded["segments"].size() == 3);
     REQUIRE(decoded["rounds"].size() == 2);
     REQUIRE(decoded["attack_rows"].size() == 2);
+    const auto decoded_round_attack_total = std::accumulate(
+        decoded["rounds"].begin(), decoded["rounds"].end(), 0, [](int total, const nlohmann::json& round) {
+          return total + round["summary"].value("attackCount", 0);
+        });
+    CHECK(decoded_round_attack_total == static_cast<int>(decoded["attack_rows"].size()));
 
     CHECK(decoded["segments"][0]["round"] == 1);
     CHECK(decoded["segments"][0]["subRound"] == 1);
@@ -406,6 +413,8 @@ TEST_SUITE("battle_log_decoder")
     CHECK(decoded["attack_rows"][1]["attacker"]["allianceName"] == "House of Test");
     CHECK(decoded["attack_rows"][1]["targetShipId"] == 0);
     CHECK(decoded["attack_rows"][1]["triggeredEffectCount"] == 1);
+    CHECK(decoded["attack_rows"][1]["promotedTriggeredEffectCount"] == 1);
+    CHECK(decoded["attack_rows"][1]["triggeredEffectCandidateCount"] == 0);
     CHECK(decoded["attack_rows"][1]["triggeredEffects"][0]["value"] == doctest::Approx(0.02));
 
     const auto report = battle_log_decoder::build_sidecar_battle_report_event(journal, decoded, 333, 222);
@@ -421,6 +430,9 @@ TEST_SUITE("battle_log_decoder")
     CHECK(report["report"]["csvParity"]["rows"][1]["attackerName"] == "Guff");
     CHECK(report["report"]["csvParity"]["rows"][1]["attackerAlliance"] == "House of Test");
     CHECK(report["report"]["rounds"][1]["summary"]["componentScalarCount"] == 1);
+    CHECK(report["report"]["rounds"][1]["summary"]["triggeredEffectCount"] == 1);
+    CHECK(report["report"]["rounds"][1]["summary"]["promotedTriggeredEffectCount"] == 1);
+    CHECK(report["report"]["rounds"][1]["summary"]["triggeredEffectCandidateCount"] == 0);
     CHECK(report["report"]["attackRows"][1]["round"] == 2);
     CHECK(report["report"]["attackRows"][1]["subRound"] == 1);
 
@@ -432,7 +444,22 @@ TEST_SUITE("battle_log_decoder")
     CHECK(analytics["capturedAtUnixMs"] == 222);
     REQUIRE(analytics["analytics"]["csvParity"]["rows"].size() == 2);
     CHECK(analytics["analytics"]["csvParity"]["coverage"]["attackRecordCount"] == 2);
+    CHECK(analytics["analytics"]["csvParity"]["coverage"]["csvParityRowCount"] == 2);
+    CHECK(analytics["analytics"]["csvParity"]["coverage"]["attackRecordCount"]
+          == analytics["analytics"]["summary"]["attackRowCount"]);
+    CHECK(analytics["analytics"]["csvParity"]["coverage"]["csvParityRowCount"]
+          == analytics["analytics"]["csvParity"]["coverage"]["attackRecordCount"]);
     CHECK(analytics["analytics"]["csvParity"]["coverage"]["catalogResolved"] == false);
+    const auto analytics_round_attack_total = std::accumulate(
+        analytics["analytics"]["rounds"].begin(), analytics["analytics"]["rounds"].end(), 0,
+        [](int total, const nlohmann::json& round) { return total + round["summary"].value("attackCount", 0); });
+    CHECK(analytics_round_attack_total == analytics["analytics"]["summary"]["attackRowCount"]);
+    const auto& csv_row = analytics["analytics"]["csvParity"]["rows"][0];
+    CHECK(csv_row["attackerShipIdExact"] == "0");
+    CHECK(csv_row["targetShipIdExact"] == "111");
+    CHECK(csv_row["componentIdExact"] == "800");
+    CHECK(csv_row.value("mitigatedDamage", std::string{}).find('e') == std::string::npos);
+    CHECK(csv_row.value("mitigatedDamage", std::string{}).find('E') == std::string::npos);
 
     auto discovery_options = options;
     discovery_options.include_runtime_ability_candidates = true;
@@ -487,6 +514,11 @@ TEST_SUITE("battle_log_decoder")
     CHECK(triggered_candidate.value("marker", 0) == -91);
     CHECK(triggered_candidate.value("markerKind", std::string{}) == "triggered_effect_value");
     CHECK(triggered_candidate.value("confidence", std::string{}) == "experimental_triggered_effect_marker");
+    CHECK(discovery_decoded["attack_rows"][1]["promotedTriggeredEffectCount"] == 1);
+    CHECK(discovery_decoded["attack_rows"][1]["triggeredEffectCandidateCount"] == 1);
+    CHECK(discovery_decoded["rounds"][1]["summary"]["promotedTriggeredEffectCount"] == 1);
+    CHECK(discovery_decoded["rounds"][1]["summary"]["triggeredEffectCandidateCount"] == 1);
+    CHECK(discovery_decoded["rounds"][1]["summary"]["runtimeAbilityCandidateCount"] == 1);
 
     const auto discovery_report = battle_log_decoder::build_sidecar_battle_report_event(journal, discovery_decoded, 333, 222);
     REQUIRE(discovery_report["report"].contains("experimental"));

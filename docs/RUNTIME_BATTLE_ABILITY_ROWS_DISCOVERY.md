@@ -45,6 +45,9 @@ The current fixture shows a battle UI/export mismatch:
 - Attack row 0 `preAttackMarkers` include `[-96, -90, -88, -86, -85, -87, -84, -83]`.
 - The related `catalog.snapshot` has empty `officers`, `abilities`, `buffs`, `debuffs`, and `forbiddenTech` domains.
 - Current `triggeredEffectCount` is a narrow decoded-record count from the known post-attack marker grammar. It must not be interpreted as "all ability activations."
+- `promotedTriggeredEffectCount` is the explicit name for the legacy attached triggered-effect count.
+- `triggeredEffectCandidateCount` is the count of experimental post-attack candidates with `triggered = true`.
+- `runtimeAbilityCandidateCount` is the broader experimental candidate count and can include declarations and scalar rows.
 - One decoded `triggeredEffect` with value `0.12` exists, but it does not by itself explain the visible UI rows above.
 
 ## Current Decoder Boundaries

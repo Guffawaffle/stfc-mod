@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cctype>
+#include <iomanip>
 #include <iterator>
 #include <limits>
 #include <numeric>
@@ -1065,6 +1066,9 @@ void collect_officer_ids_from_fleet_data(EntityIndex& index, const nlohmann::jso
                         {"componentScalarCount", 0},
                         {"opaqueCount", 0},
                         {"triggeredEffectCount", 0},
+                        {"promotedTriggeredEffectCount", 0},
+                        {"triggeredEffectCandidateCount", 0},
+                        {"runtimeAbilityCandidateCount", 0},
                         {"hullDamageTotal", 0.0},
                         {"shieldDamageTotal", 0.0},
                         {"mitigatedDamageTotal", 0.0},
@@ -1079,6 +1083,12 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
   destination["componentScalarCount"] = destination.value("componentScalarCount", 0) + source.value("componentScalarCount", 0);
   destination["opaqueCount"] = destination.value("opaqueCount", 0) + source.value("opaqueCount", 0);
   destination["triggeredEffectCount"] = destination.value("triggeredEffectCount", 0) + source.value("triggeredEffectCount", 0);
+  destination["promotedTriggeredEffectCount"] = destination.value("promotedTriggeredEffectCount", 0)
+                                                 + source.value("promotedTriggeredEffectCount", source.value("triggeredEffectCount", 0));
+  destination["triggeredEffectCandidateCount"] =
+      destination.value("triggeredEffectCandidateCount", 0) + source.value("triggeredEffectCandidateCount", 0);
+  destination["runtimeAbilityCandidateCount"] =
+      destination.value("runtimeAbilityCandidateCount", 0) + source.value("runtimeAbilityCandidateCount", 0);
   destination["hullDamageTotal"] = destination.value("hullDamageTotal", 0.0) + source.value("hullDamageTotal", 0.0);
   destination["shieldDamageTotal"] = destination.value("shieldDamageTotal", 0.0) + source.value("shieldDamageTotal", 0.0);
   destination["mitigatedDamageTotal"] = destination.value("mitigatedDamageTotal", 0.0) + source.value("mitigatedDamageTotal", 0.0);
@@ -1186,6 +1196,10 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
       candidate["ownerShip"] = build_ship_ref_json(entity_index, owner_ship_id);
     }
     result["runtimeAbilityCandidateCount"] = candidates.size();
+    result["triggeredEffectCandidateCount"] = static_cast<size_t>(std::ranges::count_if(candidates, [](const auto& candidate) {
+      return candidate.is_object() && candidate.contains("triggered") && candidate["triggered"].is_boolean()
+             && candidate["triggered"].get<bool>();
+    }));
     result["runtimeAbilityRowCandidates"] = std::move(candidates);
   }
   result["attackerShipId"] = attacker_ship_id ? nlohmann::json(*attacker_ship_id) : nlohmann::json();
@@ -1206,6 +1220,13 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
                                      {"unknownScalarB", record[payload_index + 15]}};
   result["triggeredEffects"] = triggered_effects;
   result["triggeredEffectCount"] = triggered_effects.size();
+  result["promotedTriggeredEffectCount"] = triggered_effects.size();
+  if (!result.contains("triggeredEffectCandidateCount")) {
+    result["triggeredEffectCandidateCount"] = 0;
+  }
+  if (!result.contains("runtimeAbilityCandidateCount")) {
+    result["runtimeAbilityCandidateCount"] = 0;
+  }
   return result;
 }
 
@@ -1288,6 +1309,13 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
       summary["totalIsolyticDamageTotal"] = summary.value("totalIsolyticDamageTotal", 0.0)
                                               + damage.value("totalIsolytic", 0.0);
       summary["triggeredEffectCount"] = summary.value("triggeredEffectCount", 0) + record.value("triggeredEffectCount", 0);
+      summary["promotedTriggeredEffectCount"] = summary.value("promotedTriggeredEffectCount", 0)
+                                                 + record.value("promotedTriggeredEffectCount",
+                                                                record.value("triggeredEffectCount", 0));
+      summary["triggeredEffectCandidateCount"] =
+          summary.value("triggeredEffectCandidateCount", 0) + record.value("triggeredEffectCandidateCount", 0);
+      summary["runtimeAbilityCandidateCount"] =
+          summary.value("runtimeAbilityCandidateCount", 0) + record.value("runtimeAbilityCandidateCount", 0);
       continue;
     }
 
@@ -1569,6 +1597,8 @@ void append_chest_rewards(nlohmann::json& rewards, const nlohmann::json& chest_d
                                                       "CSV battle event rows are represented as decoded battle_log segments until marker semantics are complete."})}};
 }
 
+[[nodiscard]] std::string double_cell(double value);
+
 [[nodiscard]] std::string json_cell(const nlohmann::json& value)
 {
   if (value.is_null() || value.is_discarded()) {
@@ -1580,6 +1610,10 @@ void append_chest_rewards(nlohmann::json& rewards, const nlohmann::json& chest_d
   }
   if (value.is_boolean()) {
     return value.get<bool>() ? "YES" : "NO";
+  }
+  if (value.is_number_float()) {
+    const auto parsed = json_to_double(value);
+    return parsed ? double_cell(*parsed) : std::string{"--"};
   }
   if (value.is_number()) {
     return value.dump();
@@ -1608,8 +1642,15 @@ void append_chest_rewards(nlohmann::json& rewards, const nlohmann::json& chest_d
   }
 
   std::ostringstream stream;
-  stream << value;
-  return stream.str();
+  stream << std::fixed << std::setprecision(12) << value;
+  auto text = stream.str();
+  while (!text.empty() && text.back() == '0') {
+    text.pop_back();
+  }
+  if (!text.empty() && text.back() == '.') {
+    text.pop_back();
+  }
+  return text.empty() ? std::string{"0"} : text;
 }
 
 [[nodiscard]] std::string ship_owner_cell(const nlohmann::json& ship)
@@ -1740,8 +1781,19 @@ void append_chest_rewards(nlohmann::json& rewards, const nlohmann::json& chest_d
                         {"sourceSegmentIndex", attack.contains("segmentIndex") ? attack["segmentIndex"] : nlohmann::json()},
                         {"sourceRecordIndex", attack.contains("index") ? attack["index"] : nlohmann::json()},
                         {"attackerShipId", attack.contains("attackerShipId") ? attack["attackerShipId"] : nlohmann::json()},
+                        {"attackerShipIdExact",
+                         attack.contains("attackerShipIdExact") ? attack["attackerShipIdExact"] : nlohmann::json()},
+                        {"attackerFleetIdExact",
+                         attacker.contains("fleetIdExact") ? attacker["fleetIdExact"] : nlohmann::json()},
                         {"targetShipId", attack.contains("targetShipId") ? attack["targetShipId"] : nlohmann::json()},
+                        {"targetShipIdExact",
+                         attack.contains("targetShipIdExact") ? attack["targetShipIdExact"] : nlohmann::json()},
+                        {"targetFleetIdExact", target.contains("fleetIdExact") ? target["fleetIdExact"] : nlohmann::json()},
                         {"componentId", attack.contains("componentId") ? attack["componentId"] : nlohmann::json()},
+                        {"componentIdExact",
+                         attack.contains("componentId") && !attack["componentId"].is_null()
+                             ? nlohmann::json(json_cell(attack["componentId"]))
+                             : nlohmann::json()},
                         {"confidence", "stable_attack_payload_v1"},
                         {"identityStatus", "partial_catalog_unresolved"}};
 }
@@ -1770,7 +1822,8 @@ void append_chest_rewards(nlohmann::json& rewards, const nlohmann::json& chest_d
                         {"notes",
                          nlohmann::json::array({"Attack rows are generated in Prime CSV column shape from decoded battle_log attack records.",
                                                 "Officer, forbidden-tech, ship-ability, resource, ship, and location names require the sidecar catalog resolver.",
-                                                "Rows keep source segment/record indexes and component IDs for resolver joins and provenance."})}};
+                                                "Rows keep source segment/record indexes, exact string IDs, and component IDs for resolver joins and provenance.",
+                                                "Target defeated/destroyed flags are currently derived from targetHullRemaining == 0 and remain provisional until compared against native client CSV output."})}};
 }
 
 [[nodiscard]] nlohmann::json build_raw_summary(const nlohmann::json& journal, const nlohmann::json& decoded)
