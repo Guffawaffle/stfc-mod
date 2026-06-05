@@ -321,3 +321,31 @@ Current status:
 - No local resolver has yet proven whether the listed effect refs are officer ability buff IDs, buff IDs, modifier refs,
   target/trigger refs, or another catalog domain.
 - Full fixture data should remain local-only; public docs/issues should use minimized sanitized token snippets.
+
+## Repro Evidence After Conservative Ref Schema: 2026-06-04
+
+Fresh sidecar events after the conservative ref/hint schema change confirmed the expected shape:
+
+- Latest rich battle `2737510270523729113`: `56` attack rows, `64` runtime candidates.
+- `runtimeAbilityCandidateCount = 64`.
+- `runtimeAbilityCandidateSummary.totalCandidateCount = 64`.
+- `runtimeAbilityCandidateSummary.groups = 15`.
+- `sourceId` and `effectId` stay null for unresolved candidates.
+- `sourceCategory` stays `unknown`.
+- `sourceCategoryHint` carries local evidence such as `officer_ref` or `hull_or_ship_effect`.
+- `-80 ... -79` rows are preserved as `markerKind = mitigation_or_scalar_value`.
+- The matching battle-scoped `catalog.snapshot` includes `officers`, so `officer_ref` rows have a catalog join point.
+
+Sanitized recurring candidate groups:
+
+| Count | Marker kind | Phase | Category hint | Source ref | Effect ref | Value | Triggered count |
+|---:|---|---|---|---|---|---:|---:|
+| 20 | `triggered_effect_value` | `post_attack` | `hull_or_ship_effect` | `3426564736` | `3426564736` | `0.03` | 20 |
+| 16 | `triggered_effect_value` | `post_attack` | `officer_ref` | `4290764940` | `1120204726` | `0.7` | 16 |
+| 13 | `source_value` | `pre_attack` | `officer_ref` | `4290764940` | `1120204726` | `0.7` | 0 |
+| 3 | `source_value` | `round_start` | `officer_ref` | `182221633` | `2974230331` | `0.05` | 0 |
+| 1 each | `mitigation_or_scalar_value` | `mitigation` | null | null | null | scalar value | 0 |
+
+The scalar candidates carried `ownerShipId`/`targetShipId` and raw token snippets like
+`[-80, ownerShipId, numericValue, -79]`, but no source/effect refs. That matches the current "mitigation or scalar UI
+row" hypothesis without overclaiming a source category.
