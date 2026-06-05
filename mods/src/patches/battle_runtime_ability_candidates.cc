@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <limits>
 #include <optional>
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -21,6 +22,8 @@ namespace
   constexpr int64_t kSecondaryOwnerMarker          = -84;
   constexpr int64_t kSecondaryValueMarker          = -82;
   constexpr int64_t kSecondaryOwnerEndMarker       = -81;
+  constexpr int64_t kMitigationOrScalarStartMarker = -80;
+  constexpr int64_t kMitigationOrScalarEndMarker   = -79;
   constexpr int64_t kCombatantRefMarker            = -88;
   constexpr int64_t kAttackPreludeTerminator       = -83;
   constexpr int64_t kTriggeredEffectStartMarker    = -93;
@@ -165,21 +168,39 @@ namespace
   [[nodiscard]] bool is_officer_id(const EntityHints& entity_hints, int64_t value)
   { return entity_hints.is_officer_id && entity_hints.is_officer_id(value); }
 
-  [[nodiscard]] std::string source_category_for(const EntityHints& entity_hints, int64_t source_id)
+  [[nodiscard]] std::string source_category_hint_for(const EntityHints& entity_hints, int64_t source_ref)
   {
-    if (is_officer_id(entity_hints, source_id)) {
-      return "officer";
+    if (is_officer_id(entity_hints, source_ref)) {
+      return "officer_ref";
     }
-    if (is_hull_id(entity_hints, source_id)) {
-      return "ship_ability";
+    if (is_hull_id(entity_hints, source_ref)) {
+      return "hull_or_ship_effect";
     }
-    if (is_component_id(entity_hints, source_id)) {
-      return "component";
+    if (is_component_id(entity_hints, source_ref)) {
+      return "component_ref";
     }
-    if (is_ship_id(entity_hints, source_id)) {
-      return "ship";
+    if (is_ship_id(entity_hints, source_ref)) {
+      return "ship_ref";
     }
-    return "unknown";
+    return {};
+  }
+
+  [[nodiscard]] nlohmann::json json_optional_string(const std::string& value)
+  { return value.empty() ? nlohmann::json() : nlohmann::json(value); }
+
+  [[nodiscard]] std::string resolution_status_for_hint(const std::string& hint)
+  { return hint.empty() ? "unresolved" : "hinted"; }
+
+  [[nodiscard]] nlohmann::json unresolved_ref_fields(std::optional<int64_t> source_ref, std::optional<int64_t> effect_ref,
+                                                     const std::string& source_category_hint)
+  {
+    return nlohmann::json{{"sourceCategory", "unknown"},
+                          {"sourceCategoryHint", json_optional_string(source_category_hint)},
+                          {"resolutionStatus", resolution_status_for_hint(source_category_hint)},
+                          {"sourceRef", json_optional_i64_string(source_ref)},
+                          {"sourceId", nlohmann::json()},
+                          {"effectRef", json_optional_i64_string(effect_ref)},
+                          {"effectId", nlohmann::json()}};
   }
 
   [[nodiscard]] std::optional<int64_t> owner_ship_id_from_pre_attack_group(const nlohmann::json& record, size_t start,
@@ -243,32 +264,33 @@ namespace
     const auto markers         = collect_negative_markers(json_slice(record, start, end - start + 1));
     const auto owner_ship_id   = owner_ship_id_from_pre_attack_group(record, start, end, entity_hints);
     const auto raw_token_count = end - start + 1;
-    return nlohmann::json{{"schema", "stfc.runtime_ability_row_candidate.v0"},
-                          {"phase", marker_list_contains(markers, kRoundStartMarker) ? "round_start" : "pre_attack"},
-                          {"ownerShipId", json_optional_i64_string(owner_ship_id)},
-                          {"ownerShipName", nlohmann::json()},
-                          {"sourceCategory", "unknown"},
-                          {"sourceId", nlohmann::json()},
-                          {"sourceName", nlohmann::json()},
-                          {"abilityName", nlohmann::json()},
-                          {"effectName", nlohmann::json()},
-                          {"targetShipId", nlohmann::json()},
-                          {"targetScope", nlohmann::json()},
-                          {"triggered", nlohmann::json()},
-                          {"opportunityCount", nlohmann::json()},
-                          {"occurrenceCount", nlohmann::json()},
-                          {"chance", nlohmann::json()},
-                          {"value", nlohmann::json()},
-                          {"durationRounds", nlohmann::json()},
-                          {"stackCount", nlohmann::json()},
-                          {"rawMarkers", json_i64_array(markers)},
-                          {"rawTokenCount", raw_token_count},
-                          {"rawTokens", json_slice(record, start, std::min(raw_token_count, kMaxRawTokenSamples))},
-                          {"rawTokensTruncated", raw_token_count > kMaxRawTokenSamples},
-                          {"markerFields", marker_field_samples_json(record, start, end)},
-                          {"candidateIntegerTokens", candidate_integer_tokens_json(record, start, end, entity_hints)},
-                          {"tokenRange", {{"recordStart", start}, {"recordEnd", end}, {"payloadStart", payload_start}}},
-                          {"confidence", "experimental_pre_attack_marker_group"}};
+    auto candidate = nlohmann::json{{"schema", "stfc.runtime_ability_row_candidate.v0"},
+                                    {"phase", marker_list_contains(markers, kRoundStartMarker) ? "round_start" : "pre_attack"},
+                                    {"ownerShipId", json_optional_i64_string(owner_ship_id)},
+                                    {"ownerShipName", nlohmann::json()},
+                                    {"sourceName", nlohmann::json()},
+                                    {"abilityId", nlohmann::json()},
+                                    {"abilityName", nlohmann::json()},
+                                    {"effectName", nlohmann::json()},
+                                    {"targetShipId", nlohmann::json()},
+                                    {"targetScope", nlohmann::json()},
+                                    {"triggered", nlohmann::json()},
+                                    {"opportunityCount", nlohmann::json()},
+                                    {"occurrenceCount", nlohmann::json()},
+                                    {"chance", nlohmann::json()},
+                                    {"value", nlohmann::json()},
+                                    {"durationRounds", nlohmann::json()},
+                                    {"stackCount", nlohmann::json()},
+                                    {"rawMarkers", json_i64_array(markers)},
+                                    {"rawTokenCount", raw_token_count},
+                                    {"rawTokens", json_slice(record, start, std::min(raw_token_count, kMaxRawTokenSamples))},
+                                    {"rawTokensTruncated", raw_token_count > kMaxRawTokenSamples},
+                                    {"markerFields", marker_field_samples_json(record, start, end)},
+                                    {"candidateIntegerTokens", candidate_integer_tokens_json(record, start, end, entity_hints)},
+                                    {"tokenRange", {{"recordStart", start}, {"recordEnd", end}, {"payloadStart", payload_start}}},
+                                    {"confidence", "experimental_pre_attack_marker_group"}};
+    candidate.update(unresolved_ref_fields(std::nullopt, std::nullopt, {}));
+    return candidate;
   }
 
   [[nodiscard]] nlohmann::json build_marker_field_candidate_json(const nlohmann::json& record, size_t marker_index,
@@ -280,17 +302,15 @@ namespace
     const auto source_id       = json_to_i64(record[marker_index + 1]);
     const auto effect_id       = json_to_i64(record[marker_index + 2]);
     const auto raw_token_count = size_t{4};
+    const auto hint            = source_id ? source_category_hint_for(entity_hints, *source_id) : std::string{};
     auto       candidate       = nlohmann::json{
         {"schema", "stfc.runtime_ability_row_candidate.v0"},
         {"phase", is_round_start_group ? "round_start" : "pre_attack"},
         {"ownerShipId", json_optional_i64_string(owner_ship_id)},
         {"ownerShipName", nlohmann::json()},
-        {"sourceCategory", source_id ? source_category_for(entity_hints, *source_id) : "unknown"},
-        {"sourceId", json_optional_i64_string(source_id)},
         {"sourceName", nlohmann::json()},
         {"abilityId", nlohmann::json()},
         {"abilityName", nlohmann::json()},
-        {"effectId", json_optional_i64_string(effect_id)},
         {"effectName", nlohmann::json()},
         {"targetShipId", nlohmann::json()},
         {"targetScope", nlohmann::json()},
@@ -317,6 +337,7 @@ namespace
         {"tokenRange",
          {{"recordStart", marker_index}, {"recordEnd", marker_index + 3}, {"payloadStart", payload_start}}},
         {"confidence", "experimental_pre_attack_marker_field"}};
+    candidate.update(unresolved_ref_fields(source_id, effect_id, hint));
     return candidate;
   }
 
@@ -327,17 +348,15 @@ namespace
     const auto affected_ship_id = json_to_i64(record[trigger_ship_index]);
     const auto source_id        = json_to_i64(record[marker_index + 1]);
     const auto effect_id        = json_to_i64(record[marker_index + 2]);
-    return nlohmann::json{
+    const auto hint = source_id ? source_category_hint_for(entity_hints, *source_id) : std::string{};
+    auto       candidate = nlohmann::json{
         {"schema", "stfc.runtime_ability_row_candidate.v0"},
         {"phase", "post_attack"},
         {"ownerShipId", json_optional_i64_string(affected_ship_id)},
         {"ownerShipName", nlohmann::json()},
-        {"sourceCategory", source_id ? source_category_for(entity_hints, *source_id) : "unknown"},
-        {"sourceId", json_optional_i64_string(source_id)},
         {"sourceName", nlohmann::json()},
         {"abilityId", nlohmann::json()},
         {"abilityName", nlohmann::json()},
-        {"effectId", json_optional_i64_string(effect_id)},
         {"effectName", nlohmann::json()},
         {"targetShipId", json_optional_i64_string(affected_ship_id)},
         {"targetScope", nlohmann::json()},
@@ -365,6 +384,52 @@ namespace
         {"tokenRange",
          {{"recordStart", marker_index}, {"recordEnd", marker_index + 4}, {"payloadStart", marker_index}}},
         {"confidence", "experimental_triggered_effect_marker"}};
+    candidate.update(unresolved_ref_fields(source_id, effect_id, hint));
+    return candidate;
+  }
+
+  [[nodiscard]] nlohmann::json build_mitigation_or_scalar_candidate_json(const nlohmann::json& record, size_t marker_index,
+                                                                         size_t payload_start,
+                                                                         const EntityHints& entity_hints)
+  {
+    const auto owner_ship_id   = json_to_i64(record[marker_index + 1]);
+    const auto raw_token_count = size_t{4};
+    auto       candidate       = nlohmann::json{
+        {"schema", "stfc.runtime_ability_row_candidate.v0"},
+        {"phase", "mitigation"},
+        {"ownerShipId",
+         owner_ship_id && is_ship_id(entity_hints, *owner_ship_id) ? json_optional_i64_string(owner_ship_id) : nlohmann::json()},
+        {"ownerShipName", nlohmann::json()},
+        {"sourceName", nlohmann::json()},
+        {"abilityId", nlohmann::json()},
+        {"abilityName", nlohmann::json()},
+        {"effectName", nlohmann::json()},
+        {"targetShipId", owner_ship_id && is_ship_id(entity_hints, *owner_ship_id) ? json_optional_i64_string(owner_ship_id)
+                                                                                   : nlohmann::json()},
+        {"targetScope", nlohmann::json()},
+        {"triggered", nlohmann::json()},
+        {"opportunityCount", nlohmann::json()},
+        {"occurrenceCount", nlohmann::json()},
+        {"chance", nlohmann::json()},
+        {"value", record[marker_index + 2]},
+        {"durationRounds", nlohmann::json()},
+        {"stackCount", nlohmann::json()},
+        {"marker", kMitigationOrScalarStartMarker},
+        {"markerKind", "mitigation_or_scalar_value"},
+        {"rawMarkers", nlohmann::json::array({kMitigationOrScalarStartMarker, kMitigationOrScalarEndMarker})},
+        {"rawTokenCount", raw_token_count},
+        {"rawTokens", json_slice(record, marker_index, raw_token_count)},
+        {"rawTokensTruncated", false},
+        {"markerFields",
+         nlohmann::json::array({{{"marker", kMitigationOrScalarStartMarker},
+                                 {"values", nlohmann::json::array({token_sample_json(record, marker_index + 1),
+                                                                   token_sample_json(record, marker_index + 2)})}}})},
+        {"candidateIntegerTokens", nlohmann::json::array()},
+        {"tokenRange",
+         {{"recordStart", marker_index}, {"recordEnd", marker_index + 3}, {"payloadStart", payload_start}}},
+        {"confidence", "experimental_mitigation_or_scalar_marker"}};
+    candidate.update(unresolved_ref_fields(std::nullopt, std::nullopt, {}));
+    return candidate;
   }
 
   [[nodiscard]] nlohmann::json build_marker_field_candidates_json(const nlohmann::json& record, size_t start,
@@ -483,6 +548,25 @@ nlohmann::json BuildTriggeredEffectCandidates(const nlohmann::json& record, size
   return candidates;
 }
 
+nlohmann::json BuildMitigationOrScalarCandidates(const nlohmann::json& record, size_t payload_start,
+                                                 const EntityHints& entity_hints)
+{
+  auto candidates = nlohmann::json::array();
+  if (!record.is_array()) {
+    return candidates;
+  }
+
+  for (size_t index = 0; index + 3 < record.size(); ++index) {
+    if (!json_matches_i64(record[index], kMitigationOrScalarStartMarker)
+        || !json_matches_i64(record[index + 3], kMitigationOrScalarEndMarker)) {
+      continue;
+    }
+    candidates.push_back(build_mitigation_or_scalar_candidate_json(record, index, payload_start, entity_hints));
+  }
+
+  return candidates;
+}
+
 void AddCombatContext(nlohmann::json& candidates, size_t segment_index, size_t record_index, size_t round,
                       size_t sub_round)
 {
@@ -526,5 +610,71 @@ nlohmann::json CollectFromAttackRows(const nlohmann::json& attack_rows, const st
   }
 
   return candidates;
+}
+
+nlohmann::json BuildCandidateSummary(const nlohmann::json& candidates)
+{
+  auto summary = nlohmann::json{{"schema", "stfc.runtime_ability_candidate_summary.v0"},
+                                {"totalCandidateCount", 0},
+                                {"groups", nlohmann::json::array()}};
+  if (!candidates.is_array()) {
+    return summary;
+  }
+
+  std::map<std::string, nlohmann::json> groups;
+  for (const auto& candidate : candidates) {
+    if (!candidate.is_object()) {
+      continue;
+    }
+    const auto marker_kind = candidate.value("markerKind", std::string{});
+    const auto phase       = candidate.value("phase", std::string{});
+    const auto source_ref  = candidate.contains("sourceRef") && candidate["sourceRef"].is_string()
+                                 ? candidate["sourceRef"].get<std::string>()
+                                 : std::string{};
+    const auto effect_ref  = candidate.contains("effectRef") && candidate["effectRef"].is_string()
+                                 ? candidate["effectRef"].get<std::string>()
+                                 : std::string{};
+    const auto value_key   = candidate.contains("value") ? candidate["value"].dump() : std::string{"null"};
+    const auto key         = marker_kind + "|" + source_ref + "|" + effect_ref + "|" + value_key + "|" + phase;
+
+    auto& group = groups[key];
+    if (!group.is_object()) {
+      group = nlohmann::json{{"markerKind", marker_kind},
+                             {"phase", phase},
+                             {"sourceRef", source_ref.empty() ? nlohmann::json() : nlohmann::json(source_ref)},
+                             {"effectRef", effect_ref.empty() ? nlohmann::json() : nlohmann::json(effect_ref)},
+                             {"value", candidate.contains("value") ? candidate["value"] : nlohmann::json()},
+                             {"count", 0},
+                             {"triggeredCount", 0},
+                             {"countsByRound", nlohmann::json::object()},
+                             {"countsBySubRound", nlohmann::json::object()},
+                             {"countsBySegment", nlohmann::json::object()}};
+    }
+
+    group["count"] = group.value("count", 0) + 1;
+    if (candidate.contains("triggered") && candidate["triggered"].is_boolean() && candidate["triggered"].get<bool>()) {
+      group["triggeredCount"] = group.value("triggeredCount", 0) + 1;
+    }
+    if (candidate.contains("round") && candidate["round"].is_number_integer()) {
+      const auto round_key = std::to_string(candidate["round"].get<int64_t>());
+      group["countsByRound"][round_key] = group["countsByRound"].value(round_key, 0) + 1;
+      if (candidate.contains("subRound") && candidate["subRound"].is_number_integer()) {
+        const auto sub_round_key = round_key + "." + std::to_string(candidate["subRound"].get<int64_t>());
+        group["countsBySubRound"][sub_round_key] = group["countsBySubRound"].value(sub_round_key, 0) + 1;
+      }
+    }
+    if (candidate.contains("tokenRange") && candidate["tokenRange"].is_object()
+        && candidate["tokenRange"].contains("segmentIndex")
+        && candidate["tokenRange"]["segmentIndex"].is_number_integer()) {
+      const auto segment_key = std::to_string(candidate["tokenRange"]["segmentIndex"].get<int64_t>());
+      group["countsBySegment"][segment_key] = group["countsBySegment"].value(segment_key, 0) + 1;
+    }
+    summary["totalCandidateCount"] = summary.value("totalCandidateCount", 0) + 1;
+  }
+
+  for (auto& [_key, group] : groups) {
+    summary["groups"].push_back(std::move(group));
+  }
+  return summary;
 }
 } // namespace battle_runtime_ability_candidates

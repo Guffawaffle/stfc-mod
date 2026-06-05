@@ -445,12 +445,16 @@ TEST_SUITE("battle_log_decoder")
     CHECK(candidate.value("phase", std::string{}) == "round_start");
     CHECK(candidate.value("ownerShipId", std::string{}) == "111");
     CHECK(candidate["ownerShip"]["shipId"] == 111);
-    CHECK(candidate.value("sourceCategory", std::string{}) == "officer");
-    CHECK(candidate.value("sourceId", std::string{}) == "10");
+    CHECK(candidate.value("sourceCategory", std::string{}) == "unknown");
+    CHECK(candidate.value("sourceCategoryHint", std::string{}) == "officer_ref");
+    CHECK(candidate.value("resolutionStatus", std::string{}) == "hinted");
+    CHECK(candidate.value("sourceRef", std::string{}) == "10");
+    CHECK(candidate["sourceId"].is_null());
     CHECK(candidate["sourceName"].is_null());
     CHECK(candidate["abilityId"].is_null());
     CHECK(candidate["abilityName"].is_null());
-    CHECK(candidate.value("effectId", std::string{}) == "20");
+    CHECK(candidate.value("effectRef", std::string{}) == "20");
+    CHECK(candidate["effectId"].is_null());
     CHECK(candidate["effectName"].is_null());
     CHECK(candidate.value("value", 0.0) == doctest::Approx(0.5));
     CHECK(candidate.value("marker", 0) == -86);
@@ -471,8 +475,12 @@ TEST_SUITE("battle_log_decoder")
     CHECK(triggered_candidate.value("ownerShipId", std::string{}) == "111");
     CHECK(triggered_candidate.value("targetShipId", std::string{}) == "111");
     CHECK(triggered_candidate.value("sourceCategory", std::string{}) == "unknown");
-    CHECK(triggered_candidate.value("sourceId", std::string{}) == "1449938138");
-    CHECK(triggered_candidate.value("effectId", std::string{}) == "2481912459");
+    CHECK(triggered_candidate["sourceCategoryHint"].is_null());
+    CHECK(triggered_candidate.value("resolutionStatus", std::string{}) == "unresolved");
+    CHECK(triggered_candidate.value("sourceRef", std::string{}) == "1449938138");
+    CHECK(triggered_candidate["sourceId"].is_null());
+    CHECK(triggered_candidate.value("effectRef", std::string{}) == "2481912459");
+    CHECK(triggered_candidate["effectId"].is_null());
     CHECK(triggered_candidate.value("triggered", false));
     CHECK(triggered_candidate.value("occurrenceCount", 0) == 1);
     CHECK(triggered_candidate.value("value", 0.0) == doctest::Approx(0.02));
@@ -482,13 +490,44 @@ TEST_SUITE("battle_log_decoder")
 
     const auto discovery_report = battle_log_decoder::build_sidecar_battle_report_event(journal, discovery_decoded, 333, 222);
     REQUIRE(discovery_report["report"].contains("experimental"));
+    CHECK(discovery_report["report"]["experimental"]["runtimeAbilityCandidateCount"] == 2);
     CHECK(discovery_report["report"]["experimental"]["runtimeAbilityRowCandidates"].size() == 2);
+    REQUIRE(discovery_report["report"]["experimental"].contains("runtimeAbilityCandidateSummary"));
+    CHECK(discovery_report["report"]["experimental"]["runtimeAbilityCandidateSummary"]["totalCandidateCount"] == 2);
 
     const auto discovery_analytics =
         battle_log_decoder::build_sidecar_battle_analytics_event(journal, discovery_decoded, 333, 222);
     REQUIRE(discovery_analytics["analytics"].contains("experimental"));
+    CHECK(discovery_analytics["analytics"]["experimental"]["runtimeAbilityCandidateCount"] == 2);
     CHECK(discovery_analytics["analytics"]["experimental"]["runtimeAbilityRowCandidates"].size() == 2);
+    REQUIRE(discovery_analytics["analytics"]["experimental"].contains("runtimeAbilityCandidateSummary"));
+    CHECK(discovery_analytics["analytics"]["experimental"]["runtimeAbilityCandidateSummary"]["groups"].size() == 2);
     CHECK(discovery_analytics["analytics"]["csvParity"]["coverage"]["abilityRowCount"] == 0);
+  }
+
+  TEST_CASE("runtime ability candidates preserve mitigation or scalar marker rows")
+  {
+    const auto record = nlohmann::json::array(
+        {-96, -80, 111, 35421.98, -79, -90, -88, 111, -83, 0, -98, 800, 111, 1.0, 0.0, 1, 0, 6076, 10886810.0,
+         25085, 474368857.0, 34419.4303585508, 20752, 843897.5, 7574.55, -99});
+    const battle_runtime_ability_candidates::EntityHints hints{
+        .is_ship_id = [](int64_t id) { return id == 111 || id == 0; },
+        .is_hull_id = [](int64_t id) { return id == 77 || id == 3066099110LL; },
+        .is_component_id = [](int64_t id) { return id == 800 || id == 900; },
+        .is_officer_id = [](int64_t id) { return id == 10; },
+    };
+
+    const auto candidates = battle_runtime_ability_candidates::BuildMitigationOrScalarCandidates(record, 9, hints);
+    REQUIRE(candidates.size() == 1);
+    const auto& candidate = candidates[0];
+    CHECK(candidate.value("phase", std::string{}) == "mitigation");
+    CHECK(candidate.value("markerKind", std::string{}) == "mitigation_or_scalar_value");
+    CHECK(candidate.value("ownerShipId", std::string{}) == "111");
+    CHECK(candidate.value("targetShipId", std::string{}) == "111");
+    CHECK(candidate.value("value", 0.0) == doctest::Approx(35421.98));
+    CHECK(candidate["sourceRef"].is_null());
+    CHECK(candidate["effectRef"].is_null());
+    CHECK(candidate.value("resolutionStatus", std::string{}) == "unresolved");
   }
 
   TEST_CASE("runtime ability candidates ignore owner-only pre-attack marker prefixes")

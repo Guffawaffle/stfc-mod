@@ -26,8 +26,13 @@ struct EntityHints {
 [[nodiscard]] nlohmann::json BuildTriggeredEffectCandidates(const nlohmann::json& record, size_t search_start,
                                                             const EntityHints& entity_hints);
 
+[[nodiscard]] nlohmann::json BuildMitigationOrScalarCandidates(const nlohmann::json& record, size_t payload_start,
+                                                               const EntityHints& entity_hints);
+
 void AddCombatContext(nlohmann::json& candidates, size_t segment_index, size_t record_index, size_t round,
                       size_t sub_round);
 
 [[nodiscard]] nlohmann::json CollectFromAttackRows(const nlohmann::json& attack_rows, const std::string& battle_id);
+
+[[nodiscard]] nlohmann::json BuildCandidateSummary(const nlohmann::json& candidates);
 } // namespace battle_runtime_ability_candidates

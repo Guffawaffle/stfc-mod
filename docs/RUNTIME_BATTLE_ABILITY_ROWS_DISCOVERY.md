@@ -22,8 +22,11 @@ Interpret the visible rows as:
 The runtime row model must keep participant/owner ship identity separate from source ability identity:
 
 - `ownerShipId` / `participantShipId`: the ship whose battle log group the row appears under.
-- `sourceCategory`: officer, ship ability, forbidden tech, buff, mitigation, unknown, etc.
-- `sourceId`: the actual source ID when known.
+- `sourceRef` / `effectRef`: raw battle-log references from marker fields.
+- `sourceCategoryHint`: local evidence hint, such as `officer_ref`, `component_ref`, `ship_ref`, or
+  `hull_or_ship_effect`.
+- `sourceCategory`: resolved source category only. Keep this `unknown` until a resolver proves the domain.
+- `sourceId`: resolved source ID only. Keep this null until a resolver proves the domain.
 - `sourceName`: source display name, such as `B'Elanna Torres`, `Wok Saavik`, or `QUASI`.
 - `abilityName`: ability label, such as `Knock it Down`, `By The Book`, or `Adaptive Transformation`.
 - `effectName`: effect label, such as `Hull Breach`, `Apex Shred`, `Isolytic Cascade`, or Standard damage mitigation.
@@ -79,6 +82,9 @@ Notes only. Do not implement as final analytics yet.
   "ownerShipId": "string",
   "ownerShipName": "Stella",
   "sourceCategory": "officer|ship_ability|forbidden_tech|buff|mitigation|unknown",
+  "sourceCategoryHint": "officer_ref|null",
+  "resolutionStatus": "unresolved|hinted|resolved",
+  "sourceRef": "string|null",
   "sourceId": "string|null",
   "sourceName": "B'Elanna Torres",
   "abilityName": "Knock it Down",
@@ -103,7 +109,7 @@ Notes only. Do not implement as final analytics yet.
 }
 ```
 
-Stable IDs/kinds are the first useful target. Once runtime rows carry source IDs, ability IDs, buff IDs, target codes, and trigger codes, consumers such as stfc.phd can join those rows against static catalog facts without depending on display text.
+Stable refs/kinds are the first useful target. Once runtime rows carry source refs, ability refs, buff refs, target codes, and trigger codes, consumers such as stfc.phd can join those rows against static catalog facts without depending on display text.
 
 ## Sudo / stfc.phd Bridge Goal
 
@@ -114,18 +120,20 @@ officers, hostiles, and other modifier sources.
 
 Near-term contract priorities:
 
-- Keep stable native IDs primary: owner ship IDs, source IDs, effect IDs, component IDs, hull IDs, and battle IDs.
-- Preserve source category guesses only when backed by local battle/account evidence, such as bridge officer IDs,
+- Keep stable native refs/IDs primary: owner ship IDs, source refs, effect refs, component IDs, hull IDs, and battle IDs.
+- Preserve source category hints only when backed by local battle/account evidence, such as bridge officer IDs,
   component IDs, hull IDs, or ship IDs from the same capture.
 - Preserve unknown IDs instead of dropping or inventing names for them.
-- Include known bridge/officer IDs in the battle-scoped catalog snapshot so runtime `sourceCategory = officer` rows have
-  a stable catalog join point even when display-name resolution is unavailable.
+- Include known bridge/officer IDs in the battle-scoped catalog snapshot so runtime `sourceCategoryHint = officer_ref`
+  rows have a stable catalog join point even when display-name resolution is unavailable.
 - Keep display names optional annotations. They are useful for humans, but should not be the join key.
 - Keep static catalog facts separate from runtime candidate rows. Static catalog facts answer "what can happen"; runtime
   rows answer "what appeared or actually occurred in this battle."
 - Treat post-attack triggered rows as occurrence evidence. Opportunity counts are still future work.
-- Do not classify `effectId` values into ability/buff/debuff domains until marker grammar, static catalog rows, or UI
+- Do not classify `effectRef` values into ability/buff/debuff domains until marker grammar, static catalog rows, or UI
   presenter evidence proves the domain.
+- Do not classify hull refs such as `3426564736` as `ship_ability` solely because the ref equals a known hull ID; mark
+  those as `sourceCategoryHint = hull_or_ship_effect` and keep the resolved category unknown.
 
 The useful bridge sample shape for stfc.phd is the experimental candidate subset:
 
@@ -134,9 +142,11 @@ The useful bridge sample shape for stfc.phd is the experimental candidate subset
   "battleId": "2737488725357159795",
   "phase": "round_start|pre_attack|post_attack",
   "ownerShipId": "2731143593850127402",
-  "sourceCategory": "officer|ship_ability|component|ship|unknown",
-  "sourceId": "4290764940",
-  "effectId": "1120204726",
+  "sourceCategory": "unknown",
+  "sourceCategoryHint": "officer_ref",
+  "resolutionStatus": "hinted",
+  "sourceRef": "4290764940",
+  "effectRef": "1120204726",
   "value": 0.7,
   "triggered": true,
   "occurrenceCount": 1,
@@ -196,10 +206,10 @@ The first native implementation slice uses the existing disabled-by-default `[ad
 gate. When enabled with battle-log enrichment, the decoder emits `runtimeAbilityRowCandidates` under the
 `experimental` section of `battle.report` and `battle.analytics`.
 
-This first probe preserves source/effect/value marker groups from pre-attack prefixes and post-attack triggered-effect
-markers. It does not resolve officer names, ability names, buff names, or effect semantics. The candidate rows
-intentionally keep display fields null and source categories `unknown` unless same-battle entity evidence proves a
-specific category.
+This first probe preserves source/effect/value marker groups from pre-attack prefixes, post-attack triggered-effect
+markers, and mitigation/scalar-looking `-80 ... -79` marker groups. It does not resolve officer names, ability names,
+buff names, or effect semantics. The candidate rows intentionally keep display fields null and source categories
+`unknown` unless a resolver proves a specific category; same-battle entity evidence is recorded as hints only.
 
 After the first cleanup, marker-only owner/phase prefixes are not emitted as candidate rows. A short battle that shows
 only normal damage, mitigation, barrier, and shield/hull receive rows should produce zero
@@ -235,9 +245,9 @@ Recent sidecar battle `2737473116774917542` showed the same UI/export split:
 Working hypothesis for the next probe slice:
 
 - `-88` / `-85` / `-84` / `-81` carry or refresh owner/participant ship context.
-- `-86` carries `sourceId, effectId, value`; when `sourceId` matches captured bridge officer IDs, classify it as
-  `sourceCategory = officer`.
-- `-82` also carries `sourceId, effectId, value`, but source category remains `unknown` until static catalog or UI
+- `-86` carries `sourceRef, effectRef, value`; when `sourceRef` matches captured bridge officer IDs, classify it as
+  `sourceCategoryHint = officer_ref`.
+- `-82` also carries `sourceRef, effectRef, value`, but source category remains `unknown` until static catalog or UI
   presenter evidence proves whether it is ship ability, forbidden tech, buff, or equipment.
 
 Longer battles from the same cycle showed post-attack proc evidence:
@@ -247,7 +257,7 @@ Longer battles from the same cycle showed post-attack proc evidence:
 - Stored analytics still had `abilityRowCount = 0` and no experimental candidate section, so these were emitted by the
   older in-game build before candidate emission was loaded.
 - Repeating post-attack token shape:
-  - `-93, ownerShipId, -91, sourceId, effectId, value, -92, ... , -94, -99`
+  - `-93, ownerShipId, -91, sourceRef, effectRef, value, -92, ... , -94, -99`
 - Observed triggered rows included:
   - `4290764940, 1120204726, 0.7`
   - `3426564736, 3426564736, 0.03`
@@ -263,27 +273,51 @@ sidecar `battle.analytics` while CSV parity remains unchanged:
 
 - `battle.analytics.csvParity.coverage.abilityRowCount` remains `0`; final CSV parity still has only attack rows.
 - Short combat logs that visually show only damage/mitigation rows now emit `0` `runtimeAbilityRowCandidates`.
-- Longer combat logs emit stable candidate signatures with source/effect/value IDs:
+- Longer combat logs emit stable candidate signatures with source/effect/value refs:
   - Battle `2737488725357159795`: `63` attack rows, `70` candidates, `43` triggered occurrence candidates.
   - Candidate phases: `round_start:13`, `pre_attack:14`, `post_attack:43`.
   - No marker-only candidates were emitted in this run.
 
 Observed candidate signatures from battle `2737488725357159795`:
 
-| Count | Phase | Source category | Source ID | Effect ID | Value | Triggered | Marker kind |
+| Count | Phase | Category hint | Source ref | Effect ref | Value | Triggered | Marker kind |
 |---:|---|---|---|---|---:|---|---|
-| 25 | `post_attack` | `ship_ability` | `3426564736` | `3426564736` | `0.03` | `true` | `triggered_effect_value` |
-| 18 | `post_attack` | `officer` | `4290764940` | `1120204726` | `0.7` | `true` | `triggered_effect_value` |
-| 14 | `pre_attack` | `officer` | `4290764940` | `1120204726` | `0.7` | null | `source_value` |
-| 4 | `round_start` | `officer` | `4290764940` | `1120204726` | `0.7` | null | `source_value` |
-| 4 | `round_start` | `officer` | `182221633` | `2974230331` | `0.05` | null | `source_value` |
-| 1 | `round_start` | `officer` | `1426126747` | `2813724537` | `0.9` | null | `source_value` |
-| 1 | `round_start` | `officer` | `2241990218` | `3308805436` | `0.11` | null | `source_value` |
-| 1 | `round_start` | `officer` | `2241990218` | `1761806598` | `0.25` | null | `source_value` |
-| 1 | `round_start` | `unknown` | `473132032` | `405335503` | `8` | null | `secondary_source_value` |
-| 1 | `round_start` | `unknown` | `473132032` | `2573953069` | `4` | null | `secondary_source_value` |
+| 25 | `post_attack` | `hull_or_ship_effect` | `3426564736` | `3426564736` | `0.03` | `true` | `triggered_effect_value` |
+| 18 | `post_attack` | `officer_ref` | `4290764940` | `1120204726` | `0.7` | `true` | `triggered_effect_value` |
+| 14 | `pre_attack` | `officer_ref` | `4290764940` | `1120204726` | `0.7` | null | `source_value` |
+| 4 | `round_start` | `officer_ref` | `4290764940` | `1120204726` | `0.7` | null | `source_value` |
+| 4 | `round_start` | `officer_ref` | `182221633` | `2974230331` | `0.05` | null | `source_value` |
+| 1 | `round_start` | `officer_ref` | `1426126747` | `2813724537` | `0.9` | null | `source_value` |
+| 1 | `round_start` | `officer_ref` | `2241990218` | `3308805436` | `0.11` | null | `source_value` |
+| 1 | `round_start` | `officer_ref` | `2241990218` | `1761806598` | `0.25` | null | `source_value` |
+| 1 | `round_start` | null | `473132032` | `405335503` | `8` | null | `secondary_source_value` |
+| 1 | `round_start` | null | `473132032` | `2573953069` | `4` | null | `secondary_source_value` |
 
 The latest short-battle screenshot showed owner ship `SERENE SQUALL` versus `Suliban Stealth Cruiser` with only
 damage, mitigation, Apex Barrier, shield-health, and hull-health rows. This aligns with zero runtime ability candidates:
 those rows are normal combat/mitigation output, with passive research or always-on stat effects folded into the combat
 math rather than represented as visible ability activations.
+
+## Resolver Audit Notes
+
+Local worktree search for the current recurring refs found no checked-in static JSON/JSONL/protobuf payload containing
+the concrete values:
+
+- Source refs: `1426126747`, `2241990218`, `4290764940`, `182221633`, `473132032`, `3426564736`.
+- Effect refs: `2813724537`, `3308805436`, `1761806598`, `1120204726`, `2974230331`, `405335503`, `2573953069`.
+
+The native surfaces available for later resolution are:
+
+- `SpecManager::GetOfficerSpec`, `GetBuffSpec`, `GetForbiddenTechSpec`, `GetHull`, `SearchForSpec`.
+- `OfficerSpec` metadata: officer ID plus captain/officer/below-decks ability IDs.
+- `BuffSpec` metadata: buff ID and localization refs.
+- Static sync protobuf groups for `OfficerSpecs`, `OfficerAbilityBuffSpecs`, `ShipBonusBuffSpecs`, `BuffTargetSpecs`,
+  `BuffTriggerSpecs`, `ResearchEffects`, `ConsumableBuffsSpecs`, `ForbiddenTechSpecs`, and `ForbiddenTechBuffs`.
+
+Current status:
+
+- Battle/account state can hint that some source refs match bridge officer IDs.
+- Battle/account state can hint that `3426564736` matches the player hull ID in the Exborg fixture.
+- No local resolver has yet proven whether the listed effect refs are officer ability buff IDs, buff IDs, modifier refs,
+  target/trigger refs, or another catalog domain.
+- Full fixture data should remain local-only; public docs/issues should use minimized sanitized token snippets.

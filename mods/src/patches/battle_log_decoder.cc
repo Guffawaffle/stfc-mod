@@ -1170,7 +1170,12 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
     auto candidates = battle_runtime_ability_candidates::BuildPreAttackCandidates(record, payload_index, entity_hints);
     auto triggered_candidates =
         battle_runtime_ability_candidates::BuildTriggeredEffectCandidates(record, payload_index + 16, entity_hints);
+    auto scalar_candidates =
+        battle_runtime_ability_candidates::BuildMitigationOrScalarCandidates(record, payload_index, entity_hints);
     for (auto& candidate : triggered_candidates) {
+      candidates.push_back(std::move(candidate));
+    }
+    for (auto& candidate : scalar_candidates) {
       candidates.push_back(std::move(candidate));
     }
     for (auto& candidate : candidates) {
@@ -1180,6 +1185,7 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
       const auto owner_ship_id = candidate.contains("ownerShipId") ? json_to_i64(candidate["ownerShipId"]) : std::nullopt;
       candidate["ownerShip"] = build_ship_ref_json(entity_index, owner_ship_id);
     }
+    result["runtimeAbilityCandidateCount"] = candidates.size();
     result["runtimeAbilityRowCandidates"] = std::move(candidates);
   }
   result["attackerShipId"] = attacker_ship_id ? nlohmann::json(*attacker_ship_id) : nlohmann::json();
@@ -1886,6 +1892,9 @@ nlohmann::json decode_journal(const nlohmann::json& journal, const nlohmann::jso
       auto candidates =
           battle_runtime_ability_candidates::CollectFromAttackRows(decoded["attack_rows"], battle_id);
       if (!candidates.empty()) {
+        decoded["runtime_ability_candidate_count"] = candidates.size();
+        decoded["runtime_ability_candidate_summary"] =
+            battle_runtime_ability_candidates::BuildCandidateSummary(candidates);
         decoded["runtime_ability_row_candidates"] = std::move(candidates);
       }
     }
@@ -1944,7 +1953,12 @@ nlohmann::json build_sidecar_battle_report_event(const nlohmann::json& journal, 
     event["capturedAtUnixMs"] = captured_at_unix_ms;
   }
   if (decoded.contains("runtime_ability_row_candidates") && decoded["runtime_ability_row_candidates"].is_array()) {
+    event["report"]["experimental"]["runtimeAbilityCandidateCount"] =
+        decoded.value("runtime_ability_candidate_count", decoded["runtime_ability_row_candidates"].size());
     event["report"]["experimental"]["runtimeAbilityRowCandidates"] = decoded["runtime_ability_row_candidates"];
+  }
+  if (decoded.contains("runtime_ability_candidate_summary") && decoded["runtime_ability_candidate_summary"].is_object()) {
+    event["report"]["experimental"]["runtimeAbilityCandidateSummary"] = decoded["runtime_ability_candidate_summary"];
   }
 
   return event;
@@ -1991,7 +2005,12 @@ nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journa
     event["capturedAtUnixMs"] = captured_at_unix_ms;
   }
   if (decoded.contains("runtime_ability_row_candidates") && decoded["runtime_ability_row_candidates"].is_array()) {
+    event["analytics"]["experimental"]["runtimeAbilityCandidateCount"] =
+        decoded.value("runtime_ability_candidate_count", decoded["runtime_ability_row_candidates"].size());
     event["analytics"]["experimental"]["runtimeAbilityRowCandidates"] = decoded["runtime_ability_row_candidates"];
+  }
+  if (decoded.contains("runtime_ability_candidate_summary") && decoded["runtime_ability_candidate_summary"].is_object()) {
+    event["analytics"]["experimental"]["runtimeAbilityCandidateSummary"] = decoded["runtime_ability_candidate_summary"];
   }
 
   return event;
