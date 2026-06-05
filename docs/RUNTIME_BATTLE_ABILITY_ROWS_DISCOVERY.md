@@ -155,6 +155,11 @@ This first probe only preserves pre-attack marker groups. It does not resolve of
 or effect semantics. The candidate rows intentionally keep source/effect fields null or `unknown` until IDs and marker
 meaning are proven.
 
+After the first cleanup, marker-only owner/phase prefixes are not emitted as candidate rows. A short battle that shows
+only normal damage, mitigation, barrier, and shield/hull receive rows should produce zero
+`runtimeAbilityRowCandidates`; always-on research/passive stat impacts are static/account-state context, not runtime
+ability activations by themselves.
+
 ## Manual Cycle Evidence: 2026-06-04
 
 Recent sidecar battle `2737473116774917542` showed the same UI/export split:
@@ -204,3 +209,35 @@ Longer battles from the same cycle showed post-attack proc evidence:
   - `-86` / `-82` rows are candidate static/runtime availability rows for "what is active or can happen."
   - `-93` / `-91` rows are candidate occurrence rows for "what actually triggered during this attack."
   - `opportunityCount` is still unknown; this slice only records occurrence evidence.
+
+## Repro Evidence After Candidate Emission: 2026-06-04
+
+Fresh manual cycles with the experimental probe enabled confirmed that the game is now emitting candidate rows to
+sidecar `battle.analytics` while CSV parity remains unchanged:
+
+- `battle.analytics.csvParity.coverage.abilityRowCount` remains `0`; final CSV parity still has only attack rows.
+- Short combat logs that visually show only damage/mitigation rows now emit `0` `runtimeAbilityRowCandidates`.
+- Longer combat logs emit stable candidate signatures with source/effect/value IDs:
+  - Battle `2737488725357159795`: `63` attack rows, `70` candidates, `43` triggered occurrence candidates.
+  - Candidate phases: `round_start:13`, `pre_attack:14`, `post_attack:43`.
+  - No marker-only candidates were emitted in this run.
+
+Observed candidate signatures from battle `2737488725357159795`:
+
+| Count | Phase | Source category | Source ID | Effect ID | Value | Triggered | Marker kind |
+|---:|---|---|---|---|---:|---|---|
+| 25 | `post_attack` | `ship_ability` | `3426564736` | `3426564736` | `0.03` | `true` | `triggered_effect_value` |
+| 18 | `post_attack` | `officer` | `4290764940` | `1120204726` | `0.7` | `true` | `triggered_effect_value` |
+| 14 | `pre_attack` | `officer` | `4290764940` | `1120204726` | `0.7` | null | `source_value` |
+| 4 | `round_start` | `officer` | `4290764940` | `1120204726` | `0.7` | null | `source_value` |
+| 4 | `round_start` | `officer` | `182221633` | `2974230331` | `0.05` | null | `source_value` |
+| 1 | `round_start` | `officer` | `1426126747` | `2813724537` | `0.9` | null | `source_value` |
+| 1 | `round_start` | `officer` | `2241990218` | `3308805436` | `0.11` | null | `source_value` |
+| 1 | `round_start` | `officer` | `2241990218` | `1761806598` | `0.25` | null | `source_value` |
+| 1 | `round_start` | `unknown` | `473132032` | `405335503` | `8` | null | `secondary_source_value` |
+| 1 | `round_start` | `unknown` | `473132032` | `2573953069` | `4` | null | `secondary_source_value` |
+
+The latest short-battle screenshot showed owner ship `SERENE SQUALL` versus `Suliban Stealth Cruiser` with only
+damage, mitigation, Apex Barrier, shield-health, and hull-health rows. This aligns with zero runtime ability candidates:
+those rows are normal combat/mitigation output, with passive research or always-on stat effects folded into the combat
+math rather than represented as visible ability activations.
