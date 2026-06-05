@@ -5,9 +5,12 @@
 #include "patches/battle_runtime_ability_candidates.h"
 
 #include <algorithm>
+#include <cmath>
+#include <iomanip>
 #include <limits>
 #include <optional>
 #include <map>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -85,6 +88,41 @@ namespace
   [[nodiscard]] nlohmann::json json_optional_i64_string(const std::optional<int64_t>& value)
   { return value ? nlohmann::json(std::to_string(*value)) : nlohmann::json(); }
 
+  [[nodiscard]] std::string double_display_string(double value)
+  {
+    if (std::abs(value - std::round(value)) < 1e-6) {
+      return std::to_string(static_cast<int64_t>(std::llround(value)));
+    }
+
+    std::ostringstream stream;
+    stream << std::fixed << std::setprecision(9) << value;
+    auto text = stream.str();
+    while (!text.empty() && text.back() == '0') {
+      text.pop_back();
+    }
+    if (!text.empty() && text.back() == '.') {
+      text.pop_back();
+    }
+    return text.empty() ? std::string{"0"} : text;
+  }
+
+  [[nodiscard]] nlohmann::json numeric_display_string_json(const nlohmann::json& value)
+  {
+    try {
+      if (value.is_number_float()) {
+        return double_display_string(value.get<double>());
+      }
+      if (value.is_number_integer()) {
+        return std::to_string(value.get<int64_t>());
+      }
+      if (value.is_number_unsigned()) {
+        return std::to_string(value.get<uint64_t>());
+      }
+    } catch (...) {
+    }
+    return nlohmann::json();
+  }
+
   [[nodiscard]] nlohmann::json json_slice(const nlohmann::json& values, size_t start, size_t count)
   {
     auto result = nlohmann::json::array();
@@ -121,6 +159,9 @@ namespace
     auto sample = nlohmann::json{{"index", token_index}, {"value", record[token_index]}};
     if (const auto parsed = json_to_i64(record[token_index])) {
       sample["exact"] = std::to_string(*parsed);
+    }
+    if (const auto display = numeric_display_string_json(record[token_index]); !display.is_null()) {
+      sample["valueDisplay"] = display;
     }
     return sample;
   }
@@ -319,6 +360,7 @@ namespace
         {"occurrenceCount", nlohmann::json()},
         {"chance", nlohmann::json()},
         {"value", record[marker_index + 3]},
+        {"valueDisplay", numeric_display_string_json(record[marker_index + 3])},
         {"durationRounds", nlohmann::json()},
         {"stackCount", nlohmann::json()},
         {"marker", marker},
@@ -365,6 +407,7 @@ namespace
         {"occurrenceCount", 1},
         {"chance", nlohmann::json()},
         {"value", record[marker_index + 3]},
+        {"valueDisplay", numeric_display_string_json(record[marker_index + 3])},
         {"durationRounds", nlohmann::json()},
         {"stackCount", nlohmann::json()},
         {"marker", kTriggeredEffectValueMarker},
@@ -412,6 +455,7 @@ namespace
         {"occurrenceCount", nlohmann::json()},
         {"chance", nlohmann::json()},
         {"value", record[marker_index + 2]},
+        {"valueDisplay", numeric_display_string_json(record[marker_index + 2])},
         {"durationRounds", nlohmann::json()},
         {"stackCount", nlohmann::json()},
         {"marker", kMitigationOrScalarStartMarker},
@@ -644,6 +688,11 @@ nlohmann::json BuildCandidateSummary(const nlohmann::json& candidates)
                              {"sourceRef", source_ref.empty() ? nlohmann::json() : nlohmann::json(source_ref)},
                              {"effectRef", effect_ref.empty() ? nlohmann::json() : nlohmann::json(effect_ref)},
                              {"value", candidate.contains("value") ? candidate["value"] : nlohmann::json()},
+                             {"valueDisplay",
+                              candidate.contains("valueDisplay") ? candidate["valueDisplay"]
+                                                                  : numeric_display_string_json(
+                                                                        candidate.contains("value") ? candidate["value"]
+                                                                                                    : nlohmann::json())},
                              {"count", 0},
                              {"triggeredCount", 0},
                              {"countsByRound", nlohmann::json::object()},

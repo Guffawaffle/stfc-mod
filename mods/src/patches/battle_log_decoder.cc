@@ -740,7 +740,9 @@ void collect_officer_ids_from_fleet_data(EntityIndex& index, const nlohmann::jso
                                 {"ship_ids", json_i64_array(participant.ship_ids)},
                                 {"ship_ids_exact", json_i64_string_array(participant.ship_ids)},
                                 {"hull_ids", json_i64_array(participant.hull_ids)},
-                                {"component_ids", json_i64_array(participant.component_ids)}};
+                                {"hull_ids_exact", json_i64_string_array(participant.hull_ids)},
+                                {"component_ids", json_i64_array(participant.component_ids)},
+                                {"component_ids_exact", json_i64_string_array(participant.component_ids)}};
 
     entry["fleet_id"] = participant.fleet_id ? nlohmann::json(*participant.fleet_id) : nlohmann::json();
     entry["fleet_id_exact"] = json_optional_i64_string(participant.fleet_id);
@@ -812,6 +814,9 @@ void collect_officer_ids_from_fleet_data(EntityIndex& index, const nlohmann::jso
   result["fleetIdExact"] = json_optional_i64_string(participant->fleet_id);
   result["shipLevel"] = participant->ship_level ? nlohmann::json(*participant->ship_level) : nlohmann::json();
   result["hullIds"] = json_i64_array(participant->hull_ids);
+  result["hullIdsExact"] = json_i64_string_array(participant->hull_ids);
+  result["componentIds"] = json_i64_array(participant->component_ids);
+  result["componentIdsExact"] = json_i64_string_array(participant->component_ids);
   return result;
 }
 
@@ -1029,6 +1034,8 @@ void collect_officer_ids_from_fleet_data(EntityIndex& index, const nlohmann::jso
   return std::nullopt;
 }
 
+[[nodiscard]] std::string json_cell(const nlohmann::json& value);
+
 [[nodiscard]] nlohmann::json build_triggered_effects_json(const nlohmann::json& record, size_t start,
                                                           const EntityIndex& entity_index)
 {
@@ -1046,33 +1053,51 @@ void collect_officer_ids_from_fleet_data(EntityIndex& index, const nlohmann::jso
     }
 
     const auto ship_id = json_to_i64(record[index + 1]);
+    const auto ref_a = json_to_i64(record[index + 3]);
+    const auto ref_b = json_to_i64(record[index + 4]);
     effects.push_back({{"shipId", ship_id ? nlohmann::json(*ship_id) : nlohmann::json()},
-               {"shipIdExact", json_optional_i64_string(ship_id)},
+                       {"shipIdExact", json_optional_i64_string(ship_id)},
                        {"ship", build_ship_ref_json(entity_index, ship_id)},
                        {"refA", record[index + 3]},
+                       {"refAExact", json_optional_i64_string(ref_a)},
                        {"refB", record[index + 4]},
-                       {"value", record[index + 5]}});
+                       {"refBExact", json_optional_i64_string(ref_b)},
+                       {"value", record[index + 5]},
+                       {"valueDisplay", json_cell(record[index + 5])}});
     index += 7;
   }
 
   return effects;
 }
 
+[[nodiscard]] std::string double_cell(double value);
+
+void decorate_record_summary_display_fields(nlohmann::json& summary)
+{
+  summary["hullDamageTotalDisplay"] = double_cell(summary.value("hullDamageTotal", 0.0));
+  summary["shieldDamageTotalDisplay"] = double_cell(summary.value("shieldDamageTotal", 0.0));
+  summary["mitigatedDamageTotalDisplay"] = double_cell(summary.value("mitigatedDamageTotal", 0.0));
+  summary["totalIsolyticDamageTotalDisplay"] = double_cell(summary.value("totalIsolyticDamageTotal", 0.0));
+  summary["numericDisplayPolicy"] = "deterministic_formatted_from_parsed_numeric_values";
+}
+
 [[nodiscard]] nlohmann::json empty_record_summary_json()
 {
-  return nlohmann::json{{"recordCount", 0},
-                        {"attackCount", 0},
-                        {"criticalCount", 0},
-                        {"componentScalarCount", 0},
-                        {"opaqueCount", 0},
-                        {"triggeredEffectCount", 0},
-                        {"promotedTriggeredEffectCount", 0},
-                        {"triggeredEffectCandidateCount", 0},
-                        {"runtimeAbilityCandidateCount", 0},
-                        {"hullDamageTotal", 0.0},
-                        {"shieldDamageTotal", 0.0},
-                        {"mitigatedDamageTotal", 0.0},
-                        {"totalIsolyticDamageTotal", 0.0}};
+  auto summary = nlohmann::json{{"recordCount", 0},
+                                {"attackCount", 0},
+                                {"criticalCount", 0},
+                                {"componentScalarCount", 0},
+                                {"opaqueCount", 0},
+                                {"triggeredEffectCount", 0},
+                                {"promotedTriggeredEffectCount", 0},
+                                {"triggeredEffectCandidateCount", 0},
+                                {"runtimeAbilityCandidateCount", 0},
+                                {"hullDamageTotal", 0.0},
+                                {"shieldDamageTotal", 0.0},
+                                {"mitigatedDamageTotal", 0.0},
+                                {"totalIsolyticDamageTotal", 0.0}};
+  decorate_record_summary_display_fields(summary);
+  return summary;
 }
 
 void merge_record_summary(nlohmann::json& destination, const nlohmann::json& source)
@@ -1094,6 +1119,7 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
   destination["mitigatedDamageTotal"] = destination.value("mitigatedDamageTotal", 0.0) + source.value("mitigatedDamageTotal", 0.0);
   destination["totalIsolyticDamageTotal"] = destination.value("totalIsolyticDamageTotal", 0.0)
                                                + source.value("totalIsolyticDamageTotal", 0.0);
+  decorate_record_summary_display_fields(destination);
 }
 
 [[nodiscard]] nlohmann::json build_record_json(const nlohmann::json& record, size_t record_index,
@@ -1139,6 +1165,7 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
                                {"shipIds", json_i64_array(ship_ids)},
                                {"shipIdsExact", json_i64_string_array(ship_ids)},
                                {"componentIds", json_i64_array(component_ids)},
+                               {"componentIdsExact", json_i64_string_array(component_ids)},
                                {"zeroCount", zero_count}};
 
   if (record.is_array() && record.size() == 6 && json_matches_i64(record[1], kComponentRefMarker)
@@ -1149,7 +1176,9 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
     result["shipIdExact"] = json_optional_i64_string(ship_id);
     result["ship"] = build_ship_ref_json(entity_index, ship_id);
     result["componentId"] = record[2];
+    result["componentIdExact"] = json_optional_i64_string(json_to_i64(record[2]));
     result["scalar"] = record[4];
+    result["scalarDisplay"] = json_cell(record[4]);
     return result;
   }
 
@@ -1209,15 +1238,25 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
   result["attacker"] = build_ship_ref_json(entity_index, attacker_ship_id);
   result["target"] = build_ship_ref_json(entity_index, target_ship_id);
   result["componentId"] = component_id ? nlohmann::json(*component_id) : nlohmann::json();
+  result["componentIdExact"] = json_optional_i64_string(component_id);
   result["critical"] = critical_flag ? nlohmann::json(*critical_flag == 1) : nlohmann::json(false);
   result["damage"] = nlohmann::json{{"hull", record[payload_index + 8]},
+                                     {"hullDisplay", json_cell(record[payload_index + 8])},
                                      {"targetHullRemaining", record[payload_index + 9]},
+                                     {"targetHullRemainingDisplay", json_cell(record[payload_index + 9])},
                                      {"shield", record[payload_index + 10]},
+                                     {"shieldDisplay", json_cell(record[payload_index + 10])},
                                      {"targetShieldRemaining", record[payload_index + 11]},
+                                     {"targetShieldRemainingDisplay", json_cell(record[payload_index + 11])},
                                      {"mitigated", record[payload_index + 12]},
+                                     {"mitigatedDisplay", json_cell(record[payload_index + 12])},
                                      {"totalIsolytic", record[payload_index + 13]},
+                                     {"totalIsolyticDisplay", json_cell(record[payload_index + 13])},
                                      {"unknownScalarA", record[payload_index + 14]},
-                                     {"unknownScalarB", record[payload_index + 15]}};
+                                     {"unknownScalarADisplay", json_cell(record[payload_index + 14])},
+                                     {"unknownScalarB", record[payload_index + 15]},
+                                     {"unknownScalarBDisplay", json_cell(record[payload_index + 15])},
+                                     {"displayPrecision", "deterministic_formatted_from_parsed_numeric_values"}};
   result["triggeredEffects"] = triggered_effects;
   result["triggeredEffectCount"] = triggered_effects.size();
   result["promotedTriggeredEffectCount"] = triggered_effects.size();
@@ -1327,6 +1366,7 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
     summary["opaqueCount"] = summary.value("opaqueCount", 0) + 1;
   }
 
+  decorate_record_summary_display_fields(summary);
   return summary;
 }
 
@@ -1642,7 +1682,7 @@ void append_chest_rewards(nlohmann::json& rewards, const nlohmann::json& chest_d
   }
 
   std::ostringstream stream;
-  stream << std::fixed << std::setprecision(12) << value;
+  stream << std::fixed << std::setprecision(9) << value;
   auto text = stream.str();
   while (!text.empty() && text.back() == '0') {
     text.pop_back();
@@ -1823,7 +1863,74 @@ void append_chest_rewards(nlohmann::json& rewards, const nlohmann::json& chest_d
                          nlohmann::json::array({"Attack rows are generated in Prime CSV column shape from decoded battle_log attack records.",
                                                 "Officer, forbidden-tech, ship-ability, resource, ship, and location names require the sidecar catalog resolver.",
                                                 "Rows keep source segment/record indexes, exact string IDs, and component IDs for resolver joins and provenance.",
+                                                "CSV display values are deterministic strings formatted from parsed numeric values; original numeric token text is not preserved.",
                                                 "Target defeated/destroyed flags are currently derived from targetHullRemaining == 0 and remain provisional until compared against native client CSV output."})}};
+}
+
+[[nodiscard]] int64_t sum_attack_row_count_field(const nlohmann::json& decoded, std::string_view field)
+{
+  const auto& attacks = decoded.contains("attack_rows") && decoded["attack_rows"].is_array() ? decoded["attack_rows"]
+                                                                                                : nlohmann::json::array();
+  int64_t total = 0;
+  for (const auto& attack : attacks) {
+    if (attack.is_object()) {
+      total += attack.value(std::string(field), 0);
+    }
+  }
+  return total;
+}
+
+[[nodiscard]] nlohmann::json build_battle_value_statement(const nlohmann::json& decoded, const nlohmann::json& summary,
+                                                          const nlohmann::json& csv_parity)
+{
+  const auto& coverage = csv_parity.contains("coverage") && csv_parity["coverage"].is_object() ? csv_parity["coverage"]
+                                                                                                  : nlohmann::json::object();
+  const auto runtime_candidate_count =
+      decoded.value("runtime_ability_candidate_count", sum_attack_row_count_field(decoded, "runtimeAbilityCandidateCount"));
+  const auto triggered_candidate_count = sum_attack_row_count_field(decoded, "triggeredEffectCandidateCount");
+  const auto promoted_triggered_effect_count = sum_attack_row_count_field(decoded, "promotedTriggeredEffectCount");
+
+  return nlohmann::json{
+      {"schema", "stfc.battle.value_statement.v0"},
+      {"attackRowCount", summary.value("attackRowCount", size_t{0})},
+      {"csvParityRowCount", coverage.value("csvParityRowCount", size_t{0})},
+      {"roundCount", summary.value("roundCount", size_t{0})},
+      {"exactIdPolicy",
+       {{"runtimeIds", "exact string siblings are emitted for battle/runtime join keys wherever practical"},
+        {"catalogRefs", "candidate sourceRef/effectRef are strings until a resolver proves their domain"},
+        {"numericFields", "numeric copies remain for compatibility and arithmetic, not as the only join source"},
+        {"representativeExactFields",
+         nlohmann::json::array({"journalId",
+                                "battleId",
+                                "shipIdExact",
+                                "fleetIdExact",
+                                "hullIdsExact",
+                                "componentIdExact",
+                                "componentIdsExact",
+                                "sourceRef",
+                                "effectRef"})}}},
+      {"numericDisplayPolicy",
+       {{"displayFields", "damage, mitigation, scalar, and candidate value fields carry deterministic display strings where emitted"},
+        {"rawTokenTextPreserved", false},
+        {"decimalSource", "formatted from parsed native JSON numeric values"},
+        {"csvParityScientificNotation", false}}},
+      {"candidateAbilityEffectReadiness",
+       {{"status", "experimental_candidates_only"},
+        {"runtimeAbilityCandidateCount", runtime_candidate_count},
+        {"triggeredEffectCandidateCount", triggered_candidate_count},
+        {"promotedTriggeredEffectCount", promoted_triggered_effect_count},
+        {"abilityRowCount", coverage.value("abilityRowCount", 0)},
+        {"promotedToCsvRows", false}}},
+      {"resolverBridgeRefs",
+       {{"sourceRef", "unresolved runtime/catalog bridge ref"},
+        {"effectRef", "unresolved runtime/catalog bridge ref"},
+        {"resolutionStatus", "unresolved|hinted|resolved"},
+        {"sourceCategory", "unknown until resolver confirmation"}}},
+      {"knownNonClaims",
+       nlohmann::json::array({"Runtime ability/effect candidates are not finalized ability activations.",
+                              "triggeredEffectCount is the legacy narrow decoded-record count, not all ability activations.",
+                              "Ability candidates are not promoted into CSV parity ability rows in this slice.",
+                              "Opportunity counts, proc rates, stacking, refresh, expiration, and source names require later resolver/runtime work."})}};
 }
 
 [[nodiscard]] nlohmann::json build_raw_summary(const nlohmann::json& journal, const nlohmann::json& decoded)
@@ -2035,6 +2142,8 @@ nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journa
   const auto rounds = decoded.contains("rounds") && decoded["rounds"].is_array() ? decoded["rounds"] : nlohmann::json::array();
   const auto attack_rows = decoded.contains("attack_rows") && decoded["attack_rows"].is_array() ? decoded["attack_rows"]
                                                                                                    : nlohmann::json::array();
+  const auto summary = build_report_summary(journal, decoded);
+  const auto csv_parity = build_csv_parity(journal, decoded);
 
   auto event = nlohmann::json{{"protocolVersion", "stfc.sidecar.events.v0"},
                               {"type", "battle.analytics"},
@@ -2045,10 +2154,11 @@ nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journa
                               {"battleId", battle_id},
                               {"battleType", journal.contains("battle_type") ? journal["battle_type"] : nlohmann::json()},
                               {"analytics",
-                               {{"summary", build_report_summary(journal, decoded)},
+                               {{"summary", summary},
                                 {"rounds", rounds},
                                 {"attackRows", attack_rows},
-                                {"csvParity", build_csv_parity(journal, decoded)},
+                                {"csvParity", csv_parity},
+                                {"valueStatement", build_battle_value_statement(decoded, summary, csv_parity)},
                                 {"provenance",
                                  {{"source", "stfc-community-mod battle_log_decoder"},
                                   {"ruleVersion", "csv_parity_attack_rows.v1"},

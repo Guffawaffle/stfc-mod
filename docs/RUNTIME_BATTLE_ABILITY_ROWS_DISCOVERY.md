@@ -63,6 +63,25 @@ The current decoder:
 - Hard-codes `abilityRowCount = 0`.
 - Populates `catalog.snapshot` effect domains only from decoded `triggeredEffects` that already have a typed `kind` and `id`.
 
+## Analytics Precision Contract
+
+`battle.analytics` is safe to hand to a resolver collaborator only if joins and display-critical values do not depend on
+JavaScript number round-trips alone.
+
+- Runtime and catalog join keys should keep exact string fields wherever practical:
+  `journalId`, `battleId`, `shipIdExact`, `fleetIdExact`, `hullIdsExact`, `componentIdExact`,
+  `componentIdsExact`, `sourceRef`, and `effectRef`.
+- Numeric ID fields may remain for compatibility and local arithmetic, but exact string siblings are the preferred join
+  surface for sidecar/stfc.phd-style resolver work.
+- Damage, mitigation, scalar, and runtime candidate `value` fields may carry display string siblings such as
+  `mitigatedDisplay`, `targetHullRemainingDisplay`, `valueDisplay`, and summary `*Display` totals.
+- These decimal display strings are deterministic formatted values derived from parsed native JSON numeric values. They
+  are not raw token-text preservation unless a later decoder explicitly captures raw token text.
+- CSV parity display cells should avoid scientific notation for damage/mitigation/scalar values.
+- `battle.analytics.valueStatement.schema = stfc.battle.value_statement.v0` summarizes count reconciliation, exact-ID
+  policy, numeric display policy, candidate readiness, resolver bridge refs, and known non-claims without dumping every
+  attack row.
+
 This suggests the visible UI rows are likely one of:
 
 - separate records currently treated as opaque,

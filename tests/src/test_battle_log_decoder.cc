@@ -190,6 +190,8 @@ TEST_SUITE("battle_log_decoder")
   {
     constexpr int64_t kPlayerFleetId = 2644013931949275600LL;
     constexpr int64_t kPlayerShipId = 2682548280591992155LL;
+    constexpr int64_t kPlayerHullId = 77;
+    constexpr int64_t kPlayerComponentId = 900;
     constexpr int64_t kTargetFleetId = 2644013931932498400LL;
     constexpr int64_t kTargetShipId = 2679690622826529803LL;
 
@@ -226,8 +228,8 @@ TEST_SUITE("battle_log_decoder")
         {"uid", "player-1"},
         {"fleet_id", kPlayerFleetId},
         {"ship_ids", nlohmann::json::array({kPlayerShipId})},
-        {"hull_ids", nlohmann::json::array({77})},
-        {"ship_components", {{std::to_string(kPlayerShipId), nlohmann::json::array({900})}}},
+        {"hull_ids", nlohmann::json::array({kPlayerHullId})},
+        {"ship_components", {{std::to_string(kPlayerShipId), nlohmann::json::array({kPlayerComponentId})}}},
     };
     journal["target_fleet_data"]["deployed_fleet"] = {
         {"uid", "mar_45"},
@@ -248,6 +250,8 @@ TEST_SUITE("battle_log_decoder")
     CHECK(decoded["participants"][0]["fleet_id_exact"] == std::to_string(kPlayerFleetId));
     CHECK(decoded["participants"][0]["ship_ids"] == nlohmann::json::array({kPlayerShipId}));
     CHECK(decoded["participants"][0]["ship_ids_exact"] == nlohmann::json::array({std::to_string(kPlayerShipId)}));
+    CHECK(decoded["participants"][0]["hull_ids_exact"] == nlohmann::json::array({std::to_string(kPlayerHullId)}));
+    CHECK(decoded["participants"][0]["component_ids_exact"] == nlohmann::json::array({std::to_string(kPlayerComponentId)}));
 
     const auto report = battle_log_decoder::build_sidecar_battle_report_event(journal, decoded, 333, 222);
     REQUIRE(report["report"]["fleets"].is_array());
@@ -257,6 +261,8 @@ TEST_SUITE("battle_log_decoder")
     CHECK(report["report"]["fleets"][0]["fleet_id_exact"] == std::to_string(kPlayerFleetId));
     CHECK(report["report"]["fleets"][0]["ship_ids"] == nlohmann::json::array({kPlayerShipId}));
     CHECK(report["report"]["fleets"][0]["ship_ids_exact"] == nlohmann::json::array({std::to_string(kPlayerShipId)}));
+    CHECK(report["report"]["fleets"][0]["hull_ids_exact"] == nlohmann::json::array({std::to_string(kPlayerHullId)}));
+    CHECK(report["report"]["fleets"][0]["component_ids_exact"] == nlohmann::json::array({std::to_string(kPlayerComponentId)}));
     CHECK(report["report"]["events"][0]["ship_ids_exact"]
           == nlohmann::json::array({std::to_string(kPlayerShipId), std::to_string(kTargetShipId)}));
     CHECK(report["report"]["attackRows"][0]["attackerShipId"] == kPlayerShipId);
@@ -267,6 +273,9 @@ TEST_SUITE("battle_log_decoder")
     CHECK(report["report"]["attackRows"][0]["attacker"]["shipIdExact"] == std::to_string(kPlayerShipId));
     CHECK(report["report"]["attackRows"][0]["attacker"]["fleetId"] == kPlayerFleetId);
     CHECK(report["report"]["attackRows"][0]["attacker"]["fleetIdExact"] == std::to_string(kPlayerFleetId));
+    CHECK(report["report"]["attackRows"][0]["attacker"]["hullIdsExact"] == nlohmann::json::array({std::to_string(kPlayerHullId)}));
+    CHECK(report["report"]["attackRows"][0]["attacker"]["componentIdsExact"]
+          == nlohmann::json::array({std::to_string(kPlayerComponentId)}));
     CHECK(report["report"]["attackRows"][0]["target"]["shipId"] == kTargetShipId);
     CHECK(report["report"]["attackRows"][0]["target"]["shipIdExact"] == std::to_string(kTargetShipId));
     CHECK(report["report"]["attackRows"][0]["target"]["fleetId"] == kTargetFleetId);
@@ -408,6 +417,9 @@ TEST_SUITE("battle_log_decoder")
     CHECK(decoded["attack_rows"][0]["targetShipId"] == 111);
     CHECK(decoded["attack_rows"][0]["critical"] == true);
     CHECK(decoded["attack_rows"][0]["damage"]["hull"] == 1878);
+    CHECK(decoded["attack_rows"][0]["damage"]["mitigatedDisplay"] == "7636.33728");
+    CHECK(decoded["attack_rows"][0]["damage"]["targetHullRemainingDisplay"] == "83380359");
+    CHECK(decoded["attack_rows"][0]["componentIdExact"] == "800");
     CHECK_FALSE(decoded["attack_rows"][0].contains("runtimeAbilityRowCandidates"));
     CHECK(decoded["attack_rows"][1]["attackerShipId"] == 111);
     CHECK(decoded["attack_rows"][1]["attacker"]["allianceName"] == "House of Test");
@@ -415,7 +427,10 @@ TEST_SUITE("battle_log_decoder")
     CHECK(decoded["attack_rows"][1]["triggeredEffectCount"] == 1);
     CHECK(decoded["attack_rows"][1]["promotedTriggeredEffectCount"] == 1);
     CHECK(decoded["attack_rows"][1]["triggeredEffectCandidateCount"] == 0);
+    CHECK(decoded["attack_rows"][1]["triggeredEffects"][0]["refAExact"] == "1449938138");
+    CHECK(decoded["attack_rows"][1]["triggeredEffects"][0]["refBExact"] == "2481912459");
     CHECK(decoded["attack_rows"][1]["triggeredEffects"][0]["value"] == doctest::Approx(0.02));
+    CHECK(decoded["attack_rows"][1]["triggeredEffects"][0]["valueDisplay"] == "0.02");
 
     const auto report = battle_log_decoder::build_sidecar_battle_report_event(journal, decoded, 333, 222);
     CHECK(report["report"]["summary"]["roundCount"] == 2);
@@ -450,6 +465,16 @@ TEST_SUITE("battle_log_decoder")
     CHECK(analytics["analytics"]["csvParity"]["coverage"]["csvParityRowCount"]
           == analytics["analytics"]["csvParity"]["coverage"]["attackRecordCount"]);
     CHECK(analytics["analytics"]["csvParity"]["coverage"]["catalogResolved"] == false);
+    REQUIRE(analytics["analytics"].contains("valueStatement"));
+    CHECK(analytics["analytics"]["valueStatement"]["schema"] == "stfc.battle.value_statement.v0");
+    CHECK(analytics["analytics"]["valueStatement"]["attackRowCount"]
+          == analytics["analytics"]["summary"]["attackRowCount"]);
+    CHECK(analytics["analytics"]["valueStatement"]["csvParityRowCount"]
+          == analytics["analytics"]["csvParity"]["coverage"]["csvParityRowCount"]);
+    CHECK(analytics["analytics"]["valueStatement"]["roundCount"] == analytics["analytics"]["summary"]["roundCount"]);
+    CHECK(analytics["analytics"]["valueStatement"]["exactIdPolicy"]["catalogRefs"].is_string());
+    CHECK(analytics["analytics"]["valueStatement"]["numericDisplayPolicy"]["rawTokenTextPreserved"] == false);
+    CHECK(analytics["analytics"]["valueStatement"]["candidateAbilityEffectReadiness"]["promotedToCsvRows"] == false);
     const auto analytics_round_attack_total = std::accumulate(
         analytics["analytics"]["rounds"].begin(), analytics["analytics"]["rounds"].end(), 0,
         [](int total, const nlohmann::json& round) { return total + round["summary"].value("attackCount", 0); });
@@ -458,8 +483,10 @@ TEST_SUITE("battle_log_decoder")
     CHECK(csv_row["attackerShipIdExact"] == "0");
     CHECK(csv_row["targetShipIdExact"] == "111");
     CHECK(csv_row["componentIdExact"] == "800");
-    CHECK(csv_row.value("mitigatedDamage", std::string{}).find('e') == std::string::npos);
-    CHECK(csv_row.value("mitigatedDamage", std::string{}).find('E') == std::string::npos);
+    for (const auto* display_key : {"hullDamage", "shieldDamage", "mitigatedDamage", "totalDamage", "totalIsolyticDamage"}) {
+      CHECK(csv_row.value(display_key, std::string{}).find('e') == std::string::npos);
+      CHECK(csv_row.value(display_key, std::string{}).find('E') == std::string::npos);
+    }
 
     auto discovery_options = options;
     discovery_options.include_runtime_ability_candidates = true;
@@ -484,6 +511,7 @@ TEST_SUITE("battle_log_decoder")
     CHECK(candidate["effectId"].is_null());
     CHECK(candidate["effectName"].is_null());
     CHECK(candidate.value("value", 0.0) == doctest::Approx(0.5));
+    CHECK(candidate.value("valueDisplay", std::string{}) == "0.5");
     CHECK(candidate.value("marker", 0) == -86);
     CHECK(candidate.value("markerKind", std::string{}) == "source_value");
     CHECK(candidate["rawMarkers"].dump() == "[-86]");
@@ -511,6 +539,7 @@ TEST_SUITE("battle_log_decoder")
     CHECK(triggered_candidate.value("triggered", false));
     CHECK(triggered_candidate.value("occurrenceCount", 0) == 1);
     CHECK(triggered_candidate.value("value", 0.0) == doctest::Approx(0.02));
+    CHECK(triggered_candidate.value("valueDisplay", std::string{}) == "0.02");
     CHECK(triggered_candidate.value("marker", 0) == -91);
     CHECK(triggered_candidate.value("markerKind", std::string{}) == "triggered_effect_value");
     CHECK(triggered_candidate.value("confidence", std::string{}) == "experimental_triggered_effect_marker");
@@ -534,6 +563,9 @@ TEST_SUITE("battle_log_decoder")
     CHECK(discovery_analytics["analytics"]["experimental"]["runtimeAbilityRowCandidates"].size() == 2);
     REQUIRE(discovery_analytics["analytics"]["experimental"].contains("runtimeAbilityCandidateSummary"));
     CHECK(discovery_analytics["analytics"]["experimental"]["runtimeAbilityCandidateSummary"]["groups"].size() == 2);
+    CHECK(discovery_analytics["analytics"]["experimental"]["runtimeAbilityCandidateSummary"]["groups"][0].contains("valueDisplay"));
+    CHECK(discovery_analytics["analytics"]["valueStatement"]["candidateAbilityEffectReadiness"]["runtimeAbilityCandidateCount"] == 2);
+    CHECK(discovery_analytics["analytics"]["valueStatement"]["candidateAbilityEffectReadiness"]["triggeredEffectCandidateCount"] == 1);
     CHECK(discovery_analytics["analytics"]["csvParity"]["coverage"]["abilityRowCount"] == 0);
   }
 
@@ -557,6 +589,7 @@ TEST_SUITE("battle_log_decoder")
     CHECK(candidate.value("ownerShipId", std::string{}) == "111");
     CHECK(candidate.value("targetShipId", std::string{}) == "111");
     CHECK(candidate.value("value", 0.0) == doctest::Approx(35421.98));
+    CHECK(candidate.value("valueDisplay", std::string{}) == "35421.98");
     CHECK(candidate["sourceRef"].is_null());
     CHECK(candidate["effectRef"].is_null());
     CHECK(candidate.value("resolutionStatus", std::string{}) == "unresolved");
