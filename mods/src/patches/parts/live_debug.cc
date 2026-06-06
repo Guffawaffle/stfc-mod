@@ -8,6 +8,9 @@
  * which write bounded breadcrumbs to logs and recent-events.
  */
 #include "patches/live_debug.h"
+#include "patches/fleet_notifications.h"
+#include "patches/fleet_runtime_diagnostics.h"
+#include "patches/fleet_runtime_sync.h"
 #include "patches/live_debug_connector.h"
 #include "patches/live_debug_event_dispatcher.h"
 #include "patches/live_debug_fleet_change_events.h"
@@ -15,9 +18,6 @@
 #include "patches/live_debug_fleet_runtime_serializers.h"
 #include "patches/live_debug_fleet_serializers.h"
 #include "patches/live_debug_navhook_trace_sink.h"
-#include "patches/fleet_notifications.h"
-#include "patches/fleet_runtime_diagnostics.h"
-#include "patches/fleet_runtime_sync.h"
 #include "patches/live_debug_observation_compare.h"
 #include "patches/live_debug_recent_event_requests.h"
 #include "patches/live_debug_request_dispatch.h"
@@ -147,9 +147,7 @@ int64_t current_time_millis_utc()
 
 void append_navigation_hook_trace_step(const char* step, const char* phase, const void* controller = nullptr,
                                        const void* sender = nullptr, const void* callback_context = nullptr)
-{
-  live_debug_navhook_trace_sink::AppendStep(step, phase, controller, sender, callback_context);
-}
+{ live_debug_navhook_trace_sink::AppendStep(step, phase, controller, sender, callback_context); }
 
 void append_ui_observer_trace_step(const char* step, const char* phase, const void* controller = nullptr,
                                    const void* sender = nullptr, const void* callback_context = nullptr)
@@ -508,15 +506,15 @@ void initialize_recent_model_observations(std::string_view source)
 
   const auto fleet_runtime = observe_fleet_runtime_snapshot();
 
-  const auto top_canvas             = kEnableLiveDebugTopCanvasPolling ? observe_top_canvas() : TopCanvasObservation{};
-  const auto& fleet                 = fleet_runtime.fleet;
-  const auto& fleet_slots           = fleet_runtime.slots;
-  const auto station_warning        = kEnableLiveDebugStationWarningPolling
-                                          ? observe_station_warning(ui_observer_trace_hooks())
-                                          : StationWarningObservation{};
-  const auto navigation_interaction = kEnableLiveDebugNavigationInteractionPolling
-                                          ? observe_navigation_interaction(ui_observer_trace_hooks())
-                                          : NavigationInteractionObservation{};
+  const auto  top_canvas             = kEnableLiveDebugTopCanvasPolling ? observe_top_canvas() : TopCanvasObservation{};
+  const auto& fleet                  = fleet_runtime.fleet;
+  const auto& fleet_slots            = fleet_runtime.slots;
+  const auto  station_warning        = kEnableLiveDebugStationWarningPolling
+                                           ? observe_station_warning(ui_observer_trace_hooks())
+                                           : StationWarningObservation{};
+  const auto  navigation_interaction = kEnableLiveDebugNavigationInteractionPolling
+                                           ? observe_navigation_interaction(ui_observer_trace_hooks())
+                                           : NavigationInteractionObservation{};
 
   g_last_top_canvas                 = top_canvas;
   g_last_fleet                      = fleet;
@@ -642,9 +640,9 @@ void DeploymentEvents_TriggerFleetStateChangeEvent_Hook(auto original, IList* fl
 {
   original(fleets);
   if (LiveDebugChannelEnabled()) {
-    live_debug_events::RecordEvent("deployment-fleet-state-event",
-                                   json{{"fleetCount", count_list_items(fleets)},
-                                        {"fleets", deployed_fleet_list_to_json(fleets)}});
+    live_debug_events::RecordEvent(
+        "deployment-fleet-state-event",
+        json{{"fleetCount", count_list_items(fleets)}, {"fleets", deployed_fleet_list_to_json(fleets)}});
   }
   capture_recent_model_events("deployment-fleet-state-event");
   fleet_notifications_observe_runtime_fleets();
@@ -738,9 +736,9 @@ void DeploymentEvents_TriggerBattleEndEvent_Hook(auto original, IList* fleets)
 {
   original(fleets);
   if (LiveDebugChannelEnabled()) {
-    live_debug_events::RecordEvent("deployment-battle-end-event",
-                                   json{{"fleetCount", count_list_items(fleets)},
-                                        {"fleets", deployed_fleet_list_to_json(fleets)}});
+    live_debug_events::RecordEvent(
+        "deployment-battle-end-event",
+        json{{"fleetCount", count_list_items(fleets)}, {"fleets", deployed_fleet_list_to_json(fleets)}});
   }
   capture_recent_model_events("deployment-battle-end-event");
   fleet_notifications_observe_runtime_fleets();
@@ -833,6 +831,9 @@ json execute_live_debug_command(const json& request)
     }
     if (cmd == "target-viewer-state") {
       return make_ok_response(request_id, live_debug_state_results::TargetViewerState());
+    }
+    if (cmd == "hostile-observation-state") {
+      return make_ok_response(request_id, live_debug_state_results::HostileObservationState());
     }
     if (cmd == "recent-events") {
       return handle_recent_events(request_id, request);

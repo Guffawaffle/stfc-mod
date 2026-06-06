@@ -189,84 +189,129 @@ void emit_observed_hostile(const std::string& signature, nlohmann::json details)
                signature);
 }
 
+nlohmann::json build_visible_prescan_target_sighting(PreScanTargetWidget* widget)
+{
+  if (!widget) {
+    return nullptr;
+  }
+
+  auto* visibility = widget->_visibilityController;
+  if (!visible_or_showing(visibility)) {
+    return nullptr;
+  }
+
+  auto* battle_target = widget->_battleTargetData;
+  auto* deployed      = battle_target ? battle_target->TargetFleetDeployedData : nullptr;
+  if (!deployed || !hostile_fleet_type(deployed->FleetType)) {
+    return nullptr;
+  }
+
+  auto*      hull             = deployed->Hull;
+  const auto runtime_fleet_id = std::to_string(static_cast<int64_t>(deployed->ID));
+  const auto hull_id          = hull ? static_cast<int64_t>(hull->Id) : 0;
+  const auto hull_name        = (hull && hull->Name) ? to_string(hull->Name) : std::string{};
+  const auto signature =
+      "prescan:" + runtime_fleet_id + ":" + std::to_string(hull_id) + ":" + std::to_string((int)deployed->FleetType);
+
+  return nlohmann::json{{"signature", signature},
+                        {"sourceSurface", "prescan_target_widget"},
+                        {"confidence", "strong"},
+                        {"widgetPointer", pointer_to_string(widget)},
+                        {"runtimeFleetId", runtime_fleet_id},
+                        {"fleetTypeValue", static_cast<int>(deployed->FleetType)},
+                        {"fleetTypeName", fleet_type_name(deployed->FleetType)},
+                        {"hullId", hull_id},
+                        {"hullName", hull_name},
+                        {"hullTypeValue", hull ? static_cast<int>(hull->Type) : -1},
+                        {"hullTypeName", hull ? hull_type_name(hull->Type) : ""},
+                        {"hasAddToQueueButton", widget->_addToQueueButtonWidget != nullptr},
+                        {"hasScanEngageButtons", widget->_scanEngageButtonsWidget != nullptr},
+                        {"hasRewardsButton", widget->_rewardsButtonWidget != nullptr},
+                        {"visibilityStateValue", visibility ? static_cast<int>(visibility->_state) : -1},
+                        {"visibilityStateName", visibility ? visibility_state_name(visibility->_state) : ""}};
+}
+
+nlohmann::json build_navigation_candidate_sighting(NavigationInteractionUIViewController* controller)
+{
+  if (!controller) {
+    return nullptr;
+  }
+
+  auto* context = controller->CanvasContext;
+  if (!hostile_navigation_candidate(context)) {
+    return nullptr;
+  }
+
+  const auto user_id     = context->UserId ? to_string(context->UserId) : std::string{};
+  const auto poi_pointer = context->Poi ? pointer_to_string(context->Poi) : std::string{};
+  const auto signature   = "nav:" + user_id + ":" + std::to_string(context->ThreatLevel) + ":"
+                           + std::to_string(context->LocationTranslationId) + ":" + (context->IsMarauder ? "1" : "0")
+                           + ":" + poi_pointer;
+
+  return nlohmann::json{{"signature", signature},
+                        {"sourceSurface", "navigation_interaction"},
+                        {"confidence", context->IsMarauder ? "candidate-high" : "candidate"},
+                        {"controllerPointer", pointer_to_string(controller)},
+                        {"contextDataState", context->ContextDataState},
+                        {"inputInteractionType", context->InputInteractionType},
+                        {"userId", user_id},
+                        {"isMarauder", context->IsMarauder},
+                        {"threatLevel", context->ThreatLevel},
+                        {"validNavigationInput", context->ValidNavigationInput},
+                        {"showSetCourseArm", context->ShowSetCourseArm},
+                        {"locationTranslationId", context->LocationTranslationId},
+                        {"poiPointer", poi_pointer}};
+}
+
+nlohmann::json collect_visible_prescan_targets(size_t& tracked_widget_count)
+{
+  const auto widgets   = GetTrackedObjects<PreScanTargetWidget>();
+  tracked_widget_count = widgets.size();
+
+  nlohmann::json sightings = nlohmann::json::array();
+  for (auto* widget : widgets) {
+    auto sighting = build_visible_prescan_target_sighting(widget);
+    if (!sighting.is_null()) {
+      sightings.push_back(std::move(sighting));
+    }
+  }
+
+  return sightings;
+}
+
+nlohmann::json collect_navigation_candidates(size_t& tracked_controller_count)
+{
+  const auto controllers   = GetTrackedObjects<NavigationInteractionUIViewController>();
+  tracked_controller_count = controllers.size();
+
+  nlohmann::json sightings = nlohmann::json::array();
+  for (auto* controller : controllers) {
+    auto sighting = build_navigation_candidate_sighting(controller);
+    if (!sighting.is_null()) {
+      sightings.push_back(std::move(sighting));
+    }
+  }
+
+  return sightings;
+}
+
 void observe_visible_prescan_targets()
 {
-  const auto widgets = GetTrackedObjects<PreScanTargetWidget>();
-  for (auto* widget : widgets) {
-    if (!widget) {
-      continue;
-    }
-
-    auto* visibility = widget->_visibilityController;
-    if (!visible_or_showing(visibility)) {
-      continue;
-    }
-
-    auto* battle_target = widget->_battleTargetData;
-    auto* deployed      = battle_target ? battle_target->TargetFleetDeployedData : nullptr;
-    if (!deployed || !hostile_fleet_type(deployed->FleetType)) {
-      continue;
-    }
-
-    auto*      hull             = deployed->Hull;
-    const auto runtime_fleet_id = std::to_string(static_cast<int64_t>(deployed->ID));
-    const auto hull_id          = hull ? static_cast<int64_t>(hull->Id) : 0;
-    const auto hull_name        = (hull && hull->Name) ? to_string(hull->Name) : std::string{};
-    const auto signature =
-        "prescan:" + runtime_fleet_id + ":" + std::to_string(hull_id) + ":" + std::to_string((int)deployed->FleetType);
-
-    emit_observed_hostile(
-        signature,
-        nlohmann::json{{"sourceSurface", "prescan_target_widget"},
-                       {"confidence", "strong"},
-                       {"widgetPointer", pointer_to_string(widget)},
-                       {"runtimeFleetId", runtime_fleet_id},
-                       {"fleetTypeValue", static_cast<int>(deployed->FleetType)},
-                       {"fleetTypeName", fleet_type_name(deployed->FleetType)},
-                       {"hullId", hull_id},
-                       {"hullName", hull_name},
-                       {"hullTypeValue", hull ? static_cast<int>(hull->Type) : -1},
-                       {"hullTypeName", hull ? hull_type_name(hull->Type) : ""},
-                       {"hasAddToQueueButton", widget->_addToQueueButtonWidget != nullptr},
-                       {"hasScanEngageButtons", widget->_scanEngageButtonsWidget != nullptr},
-                       {"hasRewardsButton", widget->_rewardsButtonWidget != nullptr},
-                       {"visibilityStateValue", visibility ? static_cast<int>(visibility->_state) : -1},
-                       {"visibilityStateName", visibility ? visibility_state_name(visibility->_state) : ""}});
+  size_t tracked_widget_count = 0;
+  auto   sightings            = collect_visible_prescan_targets(tracked_widget_count);
+  (void)tracked_widget_count;
+  for (auto& sighting : sightings) {
+    emit_observed_hostile(sighting.value("signature", std::string{}), std::move(sighting));
   }
 }
 
 void observe_navigation_candidates()
 {
-  const auto controllers = GetTrackedObjects<NavigationInteractionUIViewController>();
-  for (auto* controller : controllers) {
-    if (!controller) {
-      continue;
-    }
-
-    auto* context = controller->CanvasContext;
-    if (!hostile_navigation_candidate(context)) {
-      continue;
-    }
-
-    const auto user_id     = context->UserId ? to_string(context->UserId) : std::string{};
-    const auto poi_pointer = context->Poi ? pointer_to_string(context->Poi) : std::string{};
-    const auto signature   = "nav:" + user_id + ":" + std::to_string(context->ThreatLevel) + ":"
-                             + std::to_string(context->LocationTranslationId) + ":" + (context->IsMarauder ? "1" : "0")
-                             + ":" + poi_pointer;
-
-    emit_observed_hostile(signature,
-                          nlohmann::json{{"sourceSurface", "navigation_interaction"},
-                                         {"confidence", context->IsMarauder ? "candidate-high" : "candidate"},
-                                         {"controllerPointer", pointer_to_string(controller)},
-                                         {"contextDataState", context->ContextDataState},
-                                         {"inputInteractionType", context->InputInteractionType},
-                                         {"userId", user_id},
-                                         {"isMarauder", context->IsMarauder},
-                                         {"threatLevel", context->ThreatLevel},
-                                         {"validNavigationInput", context->ValidNavigationInput},
-                                         {"showSetCourseArm", context->ShowSetCourseArm},
-                                         {"locationTranslationId", context->LocationTranslationId},
-                                         {"poiPointer", poi_pointer}});
+  size_t tracked_controller_count = 0;
+  auto   sightings                = collect_navigation_candidates(tracked_controller_count);
+  (void)tracked_controller_count;
+  for (auto& sighting : sightings) {
+    emit_observed_hostile(sighting.value("signature", std::string{}), std::move(sighting));
   }
 }
 } // namespace
@@ -284,4 +329,22 @@ void hostile_observation_tick(ScreenManager* screen_manager)
 
   observe_visible_prescan_targets();
   observe_navigation_candidates();
+}
+
+nlohmann::json hostile_observation_state()
+{
+  size_t tracked_widget_count     = 0;
+  size_t tracked_controller_count = 0;
+  auto   prescan_sightings        = collect_visible_prescan_targets(tracked_widget_count);
+  auto   navigation_sightings     = collect_navigation_candidates(tracked_controller_count);
+
+  return nlohmann::json{{"enabled", hostile_observation_frame_subscriber_enabled()},
+                        {"objectTrackerInstalled", Config::Get().installObjectTracker},
+                        {"probeIntervalMs", kProbeInterval.count()},
+                        {"trackedPreScanWidgetCount", tracked_widget_count},
+                        {"trackedNavigationControllerCount", tracked_controller_count},
+                        {"visibleHostileCount", prescan_sightings.size()},
+                        {"navigationCandidateCount", navigation_sightings.size()},
+                        {"visibleHostilePreScanTargets", std::move(prescan_sightings)},
+                        {"navigationHostileCandidates", std::move(navigation_sightings)}};
 }

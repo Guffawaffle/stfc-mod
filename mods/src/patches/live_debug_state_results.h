@@ -6,7 +6,8 @@
 
 #include <nlohmann/json.hpp>
 
-namespace live_debug_state_results {
+namespace live_debug_state_results
+{
 nlohmann::json Ping();
 nlohmann::json TrackerList();
 nlohmann::json TopCanvas();
@@ -14,4 +15,5 @@ nlohmann::json FleetbarState();
 nlohmann::json FleetSlotsState();
 nlohmann::json MineViewerState();
 nlohmann::json TargetViewerState();
-}
+nlohmann::json HostileObservationState();
+} // namespace live_debug_state_results
