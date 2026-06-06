@@ -10,6 +10,7 @@
 #include "patches/async_work_queue.h"
 #include "patches/battle_log_decoder.h"
 #include "patches/sidecar_local_ingest.h"
+#include "patches/sync_battlelog_payload.h"
 #include "patches/sync_transport.h"
 #include "str_utils.h"
 #include "testable_functions.h"
@@ -1034,12 +1035,8 @@ static void ship_combat_log_data()
         continue;
       }
 
-      auto battle_array = json::array();
-      battle_array.push_back(
-          {{"type", SyncConfig::Type::Battles}, {"names", names}, {"journal", battle_json["journal"]}});
-
       try {
-        auto ship_data = battle_array.dump();
+        auto ship_data = sync_battlelog_payload::BuildLegacyBattlelogSyncPayload(names, battle_json["journal"]).dump();
         http::send_data(SyncConfig::Type::Battles, ship_data, false);
       } catch (const std::runtime_error& exception) {
         ErrorMsg::SyncRuntime("combat", exception);
