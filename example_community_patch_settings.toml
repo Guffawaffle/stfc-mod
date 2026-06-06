@@ -850,8 +850,10 @@ ship_identity = false
 battle_log_decoder = false
 battle_catalog = false
 # Experimental disabled-by-default hostile observation probe for sidecar-local
-# catalog work. Emits bounded hostile sightings from safe tracked UI/runtime
-# surfaces without routing anything through public sync.
+# catalog work. When [sidecar.sync].enabled has working local transport, this
+# emits observed.hostile events into the sidecar event store for
+# /api/observed-hostiles. It does not route through public [sync] targets or
+# enable any public battle/feed output.
 hostile_observation = false
 debug = false
 logging = false
