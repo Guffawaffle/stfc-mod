@@ -81,6 +81,8 @@ const char* fleet_type_name(DeployedFleetType type)
       return "Sentinel";
     case DeployedFleetType::Alliance:
       return "Alliance";
+    case DeployedFleetType::Challenge:
+      return "Challenge";
   }
 
   return "Unexpected";
@@ -114,6 +116,7 @@ bool hostile_fleet_type(DeployedFleetType type)
     case DeployedFleetType::Marauder:
     case DeployedFleetType::NpcInstantiated:
     case DeployedFleetType::Sentinel:
+    case DeployedFleetType::Challenge:
       return true;
     case DeployedFleetType::Nonexistent:
     case DeployedFleetType::Player:
@@ -304,7 +307,8 @@ void observe_visible_prescan_targets()
   auto   sightings            = collect_visible_prescan_targets(tracked_widget_count);
   (void)tracked_widget_count;
   for (auto& sighting : sightings) {
-    emit_observed_hostile(sighting.value("signature", std::string{}), std::move(sighting));
+    const auto signature = sighting.value("signature", std::string{});
+    emit_observed_hostile(signature, std::move(sighting));
   }
 }
 
@@ -314,7 +318,8 @@ void observe_navigation_candidates()
   auto   sightings                = collect_navigation_candidates(tracked_controller_count);
   (void)tracked_controller_count;
   for (auto& sighting : sightings) {
-    emit_observed_hostile(sighting.value("signature", std::string{}), std::move(sighting));
+    const auto signature = sighting.value("signature", std::string{});
+    emit_observed_hostile(signature, std::move(sighting));
   }
 }
 } // namespace

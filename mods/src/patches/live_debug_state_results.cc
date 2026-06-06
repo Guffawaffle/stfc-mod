@@ -6,6 +6,7 @@
 
 #include "errormsg.h"
 
+#include "patches/hostile_observation_fleet_data_hooks.h"
 #include "patches/hostile_observation_probe.h"
 #include "patches/live_debug_fleet_runtime_observers.h"
 #include "patches/live_debug_fleet_runtime_serializers.h"
@@ -121,5 +122,9 @@ nlohmann::json TargetViewerState()
 { return target_viewer_observation_to_json(observe_target_viewer()); }
 
 nlohmann::json HostileObservationState()
-{ return hostile_observation_state(); }
+{
+  auto result              = hostile_observation_state();
+  result["fleetDataHooks"] = hostile_observation_fleet_data_state();
+  return result;
+}
 } // namespace live_debug_state_results

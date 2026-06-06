@@ -29,9 +29,11 @@ enum class HullType {
  */
 struct HullSpec {
 public:
-  __declspec(property(get = __get_Id)) long Id;
+  __declspec(property(get = __get_Faction)) int        Faction;
+  __declspec(property(get = __get_Grade)) int          Grade;
+  __declspec(property(get = __get_Id)) long            Id;
   __declspec(property(get = __get_Name)) Il2CppString* Name;
-  __declspec(property(get = __get_Type)) HullType Type;
+  __declspec(property(get = __get_Type)) HullType      Type;
 
 private:
   static IL2CppClassHelper& get_class_helper()
@@ -42,6 +44,20 @@ private:
   }
 
 public:
+  int __get_Faction()
+  {
+    static auto prop  = get_class_helper().GetProperty("Faction");
+    auto*       value = prop.Get<int>(this);
+    return value ? *value : -1;
+  }
+
+  int __get_Grade()
+  {
+    static auto prop  = get_class_helper().GetProperty("Grade");
+    auto*       value = prop.Get<int>(this);
+    return value ? *value : -1;
+  }
+
   long __get_Id()
   {
     static auto field = get_class_helper().GetField("id_").offset();

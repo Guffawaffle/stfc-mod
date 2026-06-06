@@ -17,8 +17,10 @@
  */
 struct UserProfile {
 public:
-  __declspec(property(get = __get_LocaId)) long LocaId;
-  __declspec(property(get = __get_Name)) Il2CppString* Name;
+  __declspec(property(get = __get_UserId)) Il2CppString* UserId;
+  __declspec(property(get = __get_LocaId)) long          LocaId;
+  __declspec(property(get = __get_Name)) Il2CppString*   Name;
+  __declspec(property(get = __get_Level)) int            Level;
 
 private:
   static IL2CppClassHelper& get_class_helper()
@@ -29,6 +31,12 @@ private:
   }
 
 public:
+  Il2CppString* __get_UserId()
+  {
+    static auto prop = get_class_helper().GetProperty("UserId");
+    return prop.GetRaw<Il2CppString>(this);
+  }
+
   long __get_LocaId()
   {
     static auto field = get_class_helper().GetField("_locaId").offset();
@@ -39,5 +47,12 @@ public:
   {
     static auto field = get_class_helper().GetField("name_").offset();
     return *(Il2CppString**)((char*)this + field);
+  }
+
+  int __get_Level()
+  {
+    static auto prop  = get_class_helper().GetProperty("Level");
+    auto*       value = prop.Get<int>(this);
+    return value ? *value : -1;
   }
 };

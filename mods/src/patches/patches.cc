@@ -14,6 +14,7 @@
 #include "file.h"
 #include "patches/deployment_runtime_observers.h"
 #include "patches/fleet_notifications.h"
+#include "patches/hostile_observation_fleet_data_hooks.h"
 #include "patches/hostile_observation_probe.h"
 #include "patches/notification_service.h"
 #include "patches/sidecar_local_ingest.h"
@@ -93,6 +94,7 @@ void InstallObjectTrackers();
 #endif
 void InstallFleetArrivalHooks();
 void InstallLoadingScreenBgHooks();
+void InstallHostileObservationFleetDataHooks();
 
 /**
  * @brief Hook: il2cpp_init
@@ -182,11 +184,12 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   }
   auto install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
 #endif
-  auto install_frame_tick_hooks = cfg.installHotkeyHooks;
+  auto install_frame_tick_hooks                     = cfg.installHotkeyHooks;
+  auto install_hostile_observation_fleet_data_hooks = SidecarProbesSettings().hostile_observation;
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   install_frame_tick_hooks = install_frame_tick_hooks || LiveDebugChannelEnabled();
 #endif
-  install_frame_tick_hooks = install_frame_tick_hooks || hostile_observation_frame_subscriber_enabled();
+  install_frame_tick_hooks   = install_frame_tick_hooks || hostile_observation_frame_subscriber_enabled();
   const PatchEntry patches[] = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
@@ -212,6 +215,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"ChatPatches", {InstallChatPatches, &cfg.installChatPatches}},
       {"ResolutionListFix", {InstallResolutionListFix, &cfg.installResolutionListFix}},
       {"SyncPatches", {InstallSyncPatches, &cfg.installSyncPatches}},
+      {"HostileObservationFleetDataHooks",
+       {InstallHostileObservationFleetDataHooks, &install_hostile_observation_fleet_data_hooks}},
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
       {"ObjectTracker", {InstallObjectTrackers, &cfg.installObjectTracker}},
 #endif
@@ -232,7 +237,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
         !kLiveDebugOnlyHookIsolation || std::strcmp(patch.name, "DeploymentRuntimeObservers") == 0
         || std::strcmp(patch.name, "LiveDebugHooks") == 0 || std::strcmp(patch.name, "ObjectTracker") == 0
         || std::strcmp(patch.name, "FleetArrival") == 0 || std::strcmp(patch.name, "FrameTickHooks") == 0
-        || std::strcmp(patch.name, "HotkeyHooks") == 0;
+        || std::strcmp(patch.name, "HotkeyHooks") == 0
+        || std::strcmp(patch.name, "HostileObservationFleetDataHooks") == 0;
     const auto patch_install = patch_allowed_by_isolation && (patch_enabled && *patch_enabled);
     const auto patch_mode    = patch_install ? "+ Patch" : "x Skipp";
     spdlog::info(" {}ing {:>2} of {} ({})", patch_mode, patch_count, patch_total, patch.name);
