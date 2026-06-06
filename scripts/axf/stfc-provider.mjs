@@ -382,7 +382,7 @@ function commandBattleLog(options) {
     return fail("battle-log-decode not found.", {
       phase: "tool-exe",
       tool,
-      hint: "Run: axf run stfc-mod decode-tool --json"
+      hint: "Use AXF MCP: inspect and run global.stfc-mod.decode-tool"
     });
   }
 

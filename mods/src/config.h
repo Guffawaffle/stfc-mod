@@ -177,9 +177,10 @@ struct SidecarSyncConfig {
  * members remain in the runtime model for low-risk compatibility.
  */
 struct SidecarProbesConfig {
-  bool ship_identity      = false;
-  bool battle_log_decoder = false;
-  bool battle_catalog     = false;
+  bool ship_identity       = false;
+  bool battle_log_decoder  = false;
+  bool battle_catalog      = false;
+  bool hostile_observation = false;
 };
 
 /**
@@ -231,6 +232,7 @@ struct AdvancedDiagnosticsConfig {
   bool        ship_identity                    = false;
   bool        battle_log_decoder               = false;
   bool        battle_catalog                   = false;
+  bool        hostile_observation              = false;
   bool        debug                            = false;
   bool        logging                          = false;
   bool        live_query                       = false;

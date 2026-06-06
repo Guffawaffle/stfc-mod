@@ -37,6 +37,7 @@ namespace
       "advanced.diagnostics.files.navhook_trace_files",
       "advanced.diagnostics.files.navhook_trace_max_kb",
       "advanced.diagnostics.files.root",
+      "advanced.diagnostics.hostile_observation",
       "advanced.diagnostics.live_query",
       "advanced.diagnostics.logging",
       "advanced.diagnostics.mod_impact_monitor",

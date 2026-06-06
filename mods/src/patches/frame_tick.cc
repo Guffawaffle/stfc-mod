@@ -10,28 +10,29 @@
 
 #include "patches/frame_tick.h"
 #include "patches/hook_registry.h"
+#include "patches/hostile_observation_probe.h"
 #include "patches/hotkey_router.h"
 #include "patches/live_debug.h"
 #include "patches/mod_impact_monitor.h"
 
 #include "prime/ScreenManager.h"
 
-namespace {
-constexpr bool kEnableFrameTickHook = true;
-constexpr bool kEnableHotkeyFrameSubscriber = true;
-constexpr bool kEnableLiveDebugFrameSubscriber = true;
+namespace
+{
+constexpr bool kEnableFrameTickHook                     = true;
+constexpr bool kEnableHotkeyFrameSubscriber             = true;
+constexpr bool kEnableLiveDebugFrameSubscriber          = true;
+constexpr bool kEnableHostileObservationFrameSubscriber = true;
 
 constexpr HookDescriptor kScreenManagerUpdateHook = {
-  "ScreenManager.Update",
-  "fan out frame ticks to hotkeys, live-debug, and future frame observers",
-  {"Assembly-CSharp", "Digit.Client.UI", "ScreenManager", "Update"},
-  "frame-driven hotkeys or diagnostics will not tick",
+    "ScreenManager.Update",
+    "fan out frame ticks to hotkeys, live-debug, and future frame observers",
+    {"Assembly-CSharp", "Digit.Client.UI", "ScreenManager", "Update"},
+    "frame-driven hotkeys or diagnostics will not tick",
 };
 
 bool hotkey_frame_subscriber_enabled()
-{
-  return kEnableHotkeyFrameSubscriber && Config::Get().installHotkeyHooks;
-}
+{ return kEnableHotkeyFrameSubscriber && Config::Get().installHotkeyHooks; }
 
 bool live_debug_frame_subscriber_enabled()
 {
@@ -42,14 +43,18 @@ bool live_debug_frame_subscriber_enabled()
 #endif
 }
 
+bool hostile_observation_subscriber_enabled()
+{ return kEnableHostileObservationFrameSubscriber && hostile_observation_frame_subscriber_enabled(); }
+
 void log_frame_tick_subscribers()
 {
   spdlog::info("[FrameTick] subscriber=hotkey_router enabled={} reason=installHotkeyHooks compile_time_enabled={}",
-               hotkey_frame_subscriber_enabled(),
-               kEnableHotkeyFrameSubscriber);
+               hotkey_frame_subscriber_enabled(), kEnableHotkeyFrameSubscriber);
   spdlog::info("[FrameTick] subscriber=live_debug enabled={} reason=live_debug_channel compile_time_enabled={}",
-               live_debug_frame_subscriber_enabled(),
-               kEnableLiveDebugFrameSubscriber);
+               live_debug_frame_subscriber_enabled(), kEnableLiveDebugFrameSubscriber);
+  spdlog::info("[FrameTick] subscriber=hostile_observation enabled={} reason=advanced.diagnostics.hostile_observation"
+               "+installObjectTracker compile_time_enabled={}",
+               hostile_observation_subscriber_enabled(), kEnableHostileObservationFrameSubscriber);
 }
 
 void tick_live_debug(ScreenManager* screen_manager)
@@ -66,6 +71,21 @@ void tick_live_debug(ScreenManager* screen_manager)
     spdlog::error("[FrameTick] subscriber=live_debug status=failed error='{}'", ex.what());
   } catch (...) {
     spdlog::error("[FrameTick] subscriber=live_debug status=failed error='unknown exception'");
+  }
+}
+
+void tick_hostile_observation(ScreenManager* screen_manager)
+{
+  if (!hostile_observation_subscriber_enabled()) {
+    return;
+  }
+
+  try {
+    hostile_observation_tick(screen_manager);
+  } catch (const std::exception& ex) {
+    spdlog::error("[FrameTick] subscriber=hostile_observation status=failed error='{}'", ex.what());
+  } catch (...) {
+    spdlog::error("[FrameTick] subscriber=hostile_observation status=failed error='unknown exception'");
   }
 }
 
@@ -99,8 +119,9 @@ void ScreenManager_Update_FrameTick_Hook(auto original, ScreenManager* screen_ma
   }
 
   tick_live_debug(screen_manager);
+  tick_hostile_observation(screen_manager);
 }
-}
+} // namespace
 
 void InstallFrameTickHooks()
 {
@@ -113,7 +134,8 @@ void InstallFrameTickHooks()
     return;
   }
 
-  if (!hotkey_frame_subscriber_enabled() && !live_debug_frame_subscriber_enabled()) {
+  if (!hotkey_frame_subscriber_enabled() && !live_debug_frame_subscriber_enabled()
+      && !hostile_observation_subscriber_enabled()) {
     hooks.record_skipped(kScreenManagerUpdateHook, "no enabled frame subscribers");
     hooks.log_summary();
     return;

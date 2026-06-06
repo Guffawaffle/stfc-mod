@@ -354,6 +354,7 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
   constexpr std::array<std::string_view, 1> kShipIdentityAlias{"sidecar.probes.ship_identity"};
   constexpr std::array<std::string_view, 1> kBattleLogDecoderAlias{"sidecar.probes.battle_log_decoder"};
   constexpr std::array<std::string_view, 1> kBattleCatalogAlias{"sidecar.probes.battle_catalog"};
+  constexpr std::array<std::string_view, 1> kHostileObservationAlias{"sidecar.probes.hostile_observation"};
   constexpr std::array<std::string_view, 1> kDebugAlias{"sidecar.diagnostics.debug"};
   constexpr std::array<std::string_view, 1> kLoggingAlias{"sidecar.diagnostics.logging"};
 
@@ -366,6 +367,9 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
   read_bool_value(result.advanced.diagnostics.battle_catalog,
                   {"advanced.diagnostics.battle_catalog", DCAdvanced::Diagnostics::battle_catalog, kBattleCatalogAlias,
                    "reserved battle catalog observability probes"});
+  read_bool_value(result.advanced.diagnostics.hostile_observation,
+                  {"advanced.diagnostics.hostile_observation", DCAdvanced::Diagnostics::hostile_observation,
+                   kHostileObservationAlias, "opt-in hostile observation probes for sidecar-local catalog work"});
   read_bool_value(result.advanced.diagnostics.debug, {"advanced.diagnostics.debug", DCAdvanced::Diagnostics::debug,
                                                       kDebugAlias, "reserved native debug diagnostics"});
   read_bool_value(result.advanced.diagnostics.logging,
@@ -432,11 +436,12 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
 
   // Keep the deprecated sidecar-scoped members mirrored for low-risk
   // compatibility, but treat advanced.diagnostics as canonical.
-  result.config.probes.ship_identity      = result.advanced.diagnostics.ship_identity;
-  result.config.probes.battle_log_decoder = result.advanced.diagnostics.battle_log_decoder;
-  result.config.probes.battle_catalog     = result.advanced.diagnostics.battle_catalog;
-  result.config.diagnostics.debug         = result.advanced.diagnostics.debug;
-  result.config.diagnostics.logging       = result.advanced.diagnostics.logging;
+  result.config.probes.ship_identity       = result.advanced.diagnostics.ship_identity;
+  result.config.probes.battle_log_decoder  = result.advanced.diagnostics.battle_log_decoder;
+  result.config.probes.battle_catalog      = result.advanced.diagnostics.battle_catalog;
+  result.config.probes.hostile_observation = result.advanced.diagnostics.hostile_observation;
+  result.config.diagnostics.debug          = result.advanced.diagnostics.debug;
+  result.config.diagnostics.logging        = result.advanced.diagnostics.logging;
 
   constexpr std::array<std::pair<std::string_view, std::string_view>, 3> kLegacySidecarSyncPaths{{
       {"sync.sidecar_jsonl", "sidecar.logging.jsonl"},
@@ -543,6 +548,8 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
   config_schema::write_bool(runtime_config, "advanced.diagnostics.battle_log_decoder",
                             config.diagnostics.battle_log_decoder);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.battle_catalog", config.diagnostics.battle_catalog);
+  config_schema::write_bool(runtime_config, "advanced.diagnostics.hostile_observation",
+                            config.diagnostics.hostile_observation);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.debug", config.diagnostics.debug);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.logging", config.diagnostics.logging);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.live_query", config.diagnostics.live_query);

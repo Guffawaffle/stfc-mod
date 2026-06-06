@@ -849,6 +849,10 @@ ship_identity = false
 # under experimental report/analytics payloads for marker grammar discovery.
 battle_log_decoder = false
 battle_catalog = false
+# Experimental disabled-by-default hostile observation probe for sidecar-local
+# catalog work. Emits bounded hostile sightings from safe tracked UI/runtime
+# surfaces without routing anything through public sync.
+hostile_observation = false
 debug = false
 logging = false
 

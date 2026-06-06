@@ -1,15 +1,19 @@
 # STFC AXF Provider
 
-Linux-native command entrypoint for this repo:
+Agent-facing validation should go through the AXF MCP router, not through raw `axf` shell commands. When this provider is mounted in AXF/MCP, use MCP `operation=list`, then `operation=inspect`, then `operation=run` against the `global.stfc-mod.*` capability IDs.
 
-```sh
-axf run stfc-mod doctor --json
-axf run stfc-mod windows-interop --json
-axf run stfc-mod status --summary --json
-axf run stfc-mod pure-tests --json
-axf run stfc-mod battle-log --summary-only --no-build --json
-axf run stfc-mod cycle --json
+Primary capability IDs include:
+
+```text
+global.stfc-mod.doctor
+global.stfc-mod.windows-interop
+global.stfc-mod.status
+global.stfc-mod.pure-tests
+global.stfc-mod.battle-log
+global.stfc-mod.cycle
 ```
+
+Raw CLI execution is for provider development and manual debugging only.
 
 The AXF family and provider adapter live in `/srv/axf`:
 

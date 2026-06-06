@@ -110,11 +110,12 @@ namespace Advanced
     } // namespace Files
 
     /// Reserved native observability toggles for future diagnostics and probes. Default: false.
-    constexpr bool ship_identity      = false;
-    constexpr bool battle_log_decoder = false;
-    constexpr bool battle_catalog     = false;
-    constexpr bool debug              = false;
-    constexpr bool logging            = false;
+    constexpr bool ship_identity       = false;
+    constexpr bool battle_log_decoder  = false;
+    constexpr bool battle_catalog      = false;
+    constexpr bool hostile_observation = false;
+    constexpr bool debug               = false;
+    constexpr bool logging             = false;
     /// Enable the live debug/query channel for AX and runtime inspection. Default: false.
     constexpr bool live_query = false;
     /// Realtime runtime trace level: off, summary, detailed, or verbose. Any level above off adds runtime overhead.
@@ -399,9 +400,10 @@ namespace Sidecar
 
   namespace Probes
   {
-    constexpr bool ship_identity      = false;
-    constexpr bool battle_log_decoder = false;
-    constexpr bool battle_catalog     = false;
+    constexpr bool ship_identity       = false;
+    constexpr bool battle_log_decoder  = false;
+    constexpr bool battle_catalog      = false;
+    constexpr bool hostile_observation = false;
   } // namespace Probes
 
   namespace Logging
