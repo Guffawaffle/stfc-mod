@@ -5,6 +5,7 @@
 #include "patches/hostile_observation_probe.h"
 
 #include "config.h"
+#include "patches/hostile_observation_sidecar_sync.h"
 #include "patches/live_debug_event_dispatcher.h"
 #include "patches/object_tracker_state.h"
 
@@ -187,6 +188,8 @@ void emit_observed_hostile(const std::string& signature, nlohmann::json details)
                "locationTranslationId={} signature={}",
                source_surface, confidence, runtime_fleet_id, hull_id, hull_name, threat_level, location_translation_id,
                signature);
+
+  hostile_observation_sidecar_emit(details);
 }
 
 nlohmann::json build_visible_prescan_target_sighting(PreScanTargetWidget* widget)
@@ -317,7 +320,7 @@ void observe_navigation_candidates()
 } // namespace
 
 bool hostile_observation_frame_subscriber_enabled()
-{ return AdvancedDiagnosticsSettings().hostile_observation && Config::Get().installObjectTracker; }
+{ return SidecarProbesSettings().hostile_observation && Config::Get().installObjectTracker; }
 
 void hostile_observation_tick(ScreenManager* screen_manager)
 {
@@ -339,7 +342,9 @@ nlohmann::json hostile_observation_state()
   auto   navigation_sightings     = collect_navigation_candidates(tracked_controller_count);
 
   return nlohmann::json{{"enabled", hostile_observation_frame_subscriber_enabled()},
+                        {"probeConfigured", SidecarProbesSettings().hostile_observation},
                         {"objectTrackerInstalled", Config::Get().installObjectTracker},
+                        {"sidecarTransportReady", hostile_observation_sidecar_delivery_enabled()},
                         {"probeIntervalMs", kProbeInterval.count()},
                         {"trackedPreScanWidgetCount", tracked_widget_count},
                         {"trackedNavigationControllerCount", tracked_controller_count},

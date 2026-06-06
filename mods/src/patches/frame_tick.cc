@@ -52,8 +52,8 @@ void log_frame_tick_subscribers()
                hotkey_frame_subscriber_enabled(), kEnableHotkeyFrameSubscriber);
   spdlog::info("[FrameTick] subscriber=live_debug enabled={} reason=live_debug_channel compile_time_enabled={}",
                live_debug_frame_subscriber_enabled(), kEnableLiveDebugFrameSubscriber);
-  spdlog::info("[FrameTick] subscriber=hostile_observation enabled={} reason=advanced.diagnostics.hostile_observation"
-               "+installObjectTracker compile_time_enabled={}",
+  spdlog::info("[FrameTick] subscriber=hostile_observation enabled={} reason=sidecar.probes.hostile_observation"
+               "(advanced.diagnostics alias accepted)+installObjectTracker compile_time_enabled={}",
                hostile_observation_subscriber_enabled(), kEnableHostileObservationFrameSubscriber);
 }
 

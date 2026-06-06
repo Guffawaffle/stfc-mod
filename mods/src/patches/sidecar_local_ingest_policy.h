@@ -5,6 +5,7 @@
 enum class SidecarLocalIngestKind {
   BattleEvents = 0,
   FleetRuntime,
+  ObservedHostiles,
 };
 
 bool SidecarLocalSyncTransportReady(const SidecarSyncConfig& config);

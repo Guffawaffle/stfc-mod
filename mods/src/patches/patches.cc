@@ -14,6 +14,7 @@
 #include "file.h"
 #include "patches/deployment_runtime_observers.h"
 #include "patches/fleet_notifications.h"
+#include "patches/hostile_observation_probe.h"
 #include "patches/notification_service.h"
 #include "patches/sidecar_local_ingest.h"
 #include "patches/sync_battle_logs.h"
@@ -185,8 +186,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   install_frame_tick_hooks = install_frame_tick_hooks || LiveDebugChannelEnabled();
 #endif
-  install_frame_tick_hooks =
-      install_frame_tick_hooks || (AdvancedDiagnosticsSettings().hostile_observation && cfg.installObjectTracker);
+  install_frame_tick_hooks = install_frame_tick_hooks || hostile_observation_frame_subscriber_enabled();
   const PatchEntry patches[] = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},

@@ -48,6 +48,7 @@ const char* sidecar_local_kind_name(const SidecarLocalIngestKind kind)
   switch (kind) {
     case SidecarLocalIngestKind::BattleEvents: return "battle.events";
     case SidecarLocalIngestKind::FleetRuntime: return "fleet.runtime";
+    case SidecarLocalIngestKind::ObservedHostiles: return "observed.hostiles";
   }
 
   return "unknown";
@@ -88,7 +89,15 @@ std::string sidecar_local_session_id()
 std::string next_sidecar_batch_id(const SidecarLocalIngestKind kind)
 {
   const auto sequence = s_sidecar_local_batch_counter.fetch_add(1, std::memory_order_relaxed);
-  const auto prefix = kind == SidecarLocalIngestKind::BattleEvents ? "battle" : "fleet";
+  const auto prefix = [&]() {
+    switch (kind) {
+      case SidecarLocalIngestKind::BattleEvents: return "battle";
+      case SidecarLocalIngestKind::FleetRuntime: return "fleet";
+      case SidecarLocalIngestKind::ObservedHostiles: return "observed";
+    }
+
+    return "sidecar";
+  }();
   return std::format("{}-{}-{}", prefix, current_time_millis_utc(), sequence);
 }
 
@@ -155,6 +164,7 @@ json build_sidecar_local_envelope(const SidecarLocalIngestKind kind, const json&
   const char* payload_protocol = nullptr;
   switch (kind) {
     case SidecarLocalIngestKind::BattleEvents:
+    case SidecarLocalIngestKind::ObservedHostiles:
       if (!payload.is_array() || payload.empty()) {
         return nullptr;
       }
@@ -205,7 +215,8 @@ void post_sidecar_local_envelope(cpr::Session& session, const SidecarLocalIngest
 
 void process_sidecar_local_batch(cpr::Session& session, std::vector<SidecarLocalWorkItem>&& batch)
 {
-  json                battle_events = json::array();
+  json                battle_events     = json::array();
+  json                observed_hostiles = json::array();
   std::optional<json> fleet_runtime;
 
   for (auto& item : batch) {
@@ -222,6 +233,13 @@ void process_sidecar_local_batch(cpr::Session& session, std::vector<SidecarLocal
           fleet_runtime = std::move(item.payload);
         }
         break;
+      case SidecarLocalIngestKind::ObservedHostiles:
+        if (item.payload.is_array()) {
+          for (auto& event : item.payload) {
+            observed_hostiles.push_back(std::move(event));
+          }
+        }
+        break;
     }
   }
 
@@ -230,6 +248,9 @@ void process_sidecar_local_batch(cpr::Session& session, std::vector<SidecarLocal
   }
   if (fleet_runtime.has_value()) {
     post_sidecar_local_envelope(session, SidecarLocalIngestKind::FleetRuntime, *fleet_runtime);
+  }
+  if (!observed_hostiles.empty()) {
+    post_sidecar_local_envelope(session, SidecarLocalIngestKind::ObservedHostiles, observed_hostiles);
   }
 }
 
@@ -297,11 +318,17 @@ bool BattleEventsEnabled()
 bool FleetRuntimeEnabled()
 { return SidecarLocalSyncEnabledFor(SidecarSyncSettings(), SidecarLocalIngestKind::FleetRuntime); }
 
+bool ObservedHostilesEnabled()
+{ return SidecarLocalSyncEnabledFor(SidecarSyncSettings(), SidecarLocalIngestKind::ObservedHostiles); }
+
 bool EnqueueBattleEvents(const nlohmann::json& events)
 { return enqueue_sidecar_local_payload(SidecarLocalIngestKind::BattleEvents, events); }
 
 bool EnqueueFleetRuntimeSnapshot(const nlohmann::json& payload)
 { return enqueue_sidecar_local_payload(SidecarLocalIngestKind::FleetRuntime, payload); }
+
+bool EnqueueObservedHostileEvents(const nlohmann::json& events)
+{ return enqueue_sidecar_local_payload(SidecarLocalIngestKind::ObservedHostiles, events); }
 
 void Shutdown()
 {

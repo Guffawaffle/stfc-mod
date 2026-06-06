@@ -14,6 +14,8 @@ bool SidecarLocalSyncEnabledFor(const SidecarSyncConfig& config, const SidecarLo
       return config.battlelogs_realtime;
     case SidecarLocalIngestKind::FleetRuntime:
       return config.fleet_runtime;
+    case SidecarLocalIngestKind::ObservedHostiles:
+      return true;
   }
 
   return false;
