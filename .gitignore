@@ -23,3 +23,8 @@ docs/HOTKEY_TRACE_PRIVACY_HANDOFF.md
 # Generated Info.plist files (generated from templates)
 **/Info.plist
 mods/.xmake
+
+# Project-local AXF workspace and generated manifests are repo-owned.
+!axf.workspace.json
+!manifests/
+!manifests/**

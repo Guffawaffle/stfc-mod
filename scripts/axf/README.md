@@ -1,6 +1,10 @@
 # STFC AXF Provider
 
-Agent-facing validation should go through the AXF MCP router, not through raw `axf` shell commands. When this provider is mounted in AXF/MCP, use MCP `operation=list`, then `operation=inspect`, then `operation=run` against the `global.stfc-mod.*` capability IDs.
+Agent-facing validation should go through the AXF MCP router, not through raw
+`axf` shell commands. In this repo, the primary AXF surface is now declared
+locally from `axf.workspace.json` and imported from `.ax/ax.ps1`. Use MCP
+`operation=list`, then `operation=inspect`, then `operation=run` against the
+`global.stfc-mod.*` capability IDs.
 
 Primary capability IDs include:
 
@@ -15,10 +19,11 @@ global.stfc-mod.cycle
 
 Raw CLI execution is for provider development and manual debugging only.
 
-The AXF family and provider adapter live in `/srv/axf`:
-
-- `/srv/axf/manifests/families/stfc-mod.family.json`
-- `/srv/axf/adapters/stfc/`
+For AXF 1.0.0 and later, this repo owns its STFC family manifests locally.
+Run `axf scout --write` from the repo root to regenerate
+`manifests/families/stfc-mod.family.json` and any standalone capabilities from
+the `.ax` inventory. If you want to share the same family across multiple repos,
+place that shared pack on `AXF_MACHINE_ROOT`; project-local manifests still win.
 
 `build`, `deploy`, and `cycle` run through Windows interop. The provider
 syncs this WSL checkout to `/mnt/d/dev/stfc-mod-interop`, launches

@@ -1,0 +1,22 @@
+{
+  "manifestVersion": "axf/v0",
+  "name": "stfc-mod",
+  "imports": [
+    {
+      "kind": "ax-inventory",
+      "family": "stfc-mod",
+      "path": ".ax/ax.ps1",
+      "provider": "stfc",
+      "adapterType": "cli",
+      "providerArgStyle": "powershell-pascal",
+      "lifecycleState": "active",
+      "owner": "module:stfc",
+      "outputModes": [
+        "json"
+      ],
+      "policies": [
+        "require_workspace_binding"
+      ]
+    }
+  ]
+}

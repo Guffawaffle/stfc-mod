@@ -1,0 +1,2669 @@
+{
+  "manifestVersion": "axf/v0",
+  "family": "stfc-mod",
+  "scope": "global",
+  "provider": "stfc",
+  "adapterType": "cli",
+  "providerArgStyle": "powershell-pascal",
+  "lifecycleState": "active",
+  "owner": "module:stfc",
+  "outputModes": [
+    "json"
+  ],
+  "policies": [
+    "require_workspace_binding"
+  ],
+  "executionTarget": {
+    "launcher": {
+      "command": "pwsh",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File"
+      ]
+    },
+    "target": {
+      "path": ".ax/ax.ps1",
+      "relativeTo": "workspace"
+    }
+  },
+  "commands": {
+    "status": {
+      "summary": "One-shot health check: git, build, deploy, game, log",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "status"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "boolean"
+          },
+          "review": {
+            "type": "boolean"
+          },
+          "build-mode": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "summary": {},
+        "review": {},
+        "build-mode": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "validate": {
+      "summary": "Agent review gate: diff check, tests, build, and review status",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "validate"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "build-mode": {
+            "type": "string"
+          },
+          "tail": {
+            "type": "integer"
+          },
+          "clean-tree": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "build-mode": {},
+        "tail": {},
+        "clean-tree": {}
+      },
+      "warnings": [
+        "Side effects: writes xmake build/test artifacts and may take significant time.",
+        "-CleanTree fails validation when the selected repo has uncommitted changes."
+      ],
+      "details": [
+        "Runs review status, xmake configure, pure tests, target build, and git diff --check for the selected repo/build mode.",
+        "Use for explicit validation after code changes, not passive command discovery."
+      ]
+    },
+    "game-running": {
+      "summary": "Check if the game process is running",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "game-running"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {},
+      "warnings": [],
+      "details": []
+    },
+    "config": {
+      "summary": "Show settings TOML or runtime vars",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "config"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "runtime-vars": {
+            "type": "boolean"
+          },
+          "compact": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "runtime-vars": {},
+        "compact": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "hotkeys-check": {
+      "summary": "Explain active hotkey bindings, defaults, NONE disables, and surprising overlaps",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "hotkeys-check"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "include-panels": {
+            "type": "boolean"
+          },
+          "compact": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "include-panels": {},
+        "compact": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "build": {
+      "summary": "Build the mod with xmake for the selected repo/build mode",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "build"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "tail": {
+            "type": "integer"
+          },
+          "build-mode": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "tail": {},
+        "build-mode": {},
+        "branch": {}
+      },
+      "warnings": [
+        "Side effects: can run xmake clean/configure/build and write build artifacts.",
+        "Branch selection can switch to a local branch, but AX refuses branch switches while the selected repo has dirty changes.",
+        "If the game is running, the deployed DLL may be locked later even when build succeeds."
+      ],
+      "details": [
+        "Configures xmake and builds the selected mod target. When -Branch is supplied, AX selects that local branch before building.",
+        "Reports build, branch, game-running, and xmake output tail metadata as JSON."
+      ]
+    },
+    "deploy": {
+      "summary": "Build, copy, and verify the deployed DLL in one step",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "deploy"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "tail": {
+            "type": "integer"
+          },
+          "build-mode": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "tail": {},
+        "build-mode": {},
+        "branch": {}
+      },
+      "warnings": [
+        "Side effects: writes build artifacts and replaces the deployed game DLL.",
+        "Branch selection can switch to a local branch, but AX refuses branch switches while the selected repo has dirty changes.",
+        "Do not run during passive inspection; use ax deploy-status or ax deploy --help instead."
+      ],
+      "details": [
+        "Builds the selected target, copies the resulting DLL into the configured game directory, then verifies the deployed hash.",
+        "The command refuses to continue when prime.exe is running because the DLL may be locked."
+      ]
+    },
+    "cycle": {
+      "summary": "Deploy, wait for game restart, then verify boot and recent errors",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "cycle"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "tail": {
+            "type": "integer"
+          },
+          "stop-timeout-sec": {
+            "type": "integer"
+          },
+          "start-timeout-sec": {
+            "type": "integer"
+          },
+          "boot-timeout-sec": {
+            "type": "integer"
+          },
+          "poll-ms": {
+            "type": "integer"
+          },
+          "error-last": {
+            "type": "integer"
+          },
+          "build-mode": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "tail": {},
+        "stop-timeout-sec": {},
+        "start-timeout-sec": {},
+        "boot-timeout-sec": {},
+        "poll-ms": {},
+        "error-last": {},
+        "build-mode": {},
+        "branch": {}
+      },
+      "warnings": [
+        "Side effects: can stop the running STFC process, build the mod, copy the DLL into the game directory, and launch the game.",
+        "Branch selection can switch to a local branch, but AX refuses branch switches while the selected repo has dirty changes.",
+        "Do not run during passive inspection; use ax deploy-status, ax preflight, ax status, or ax cycle --help instead."
+      ],
+      "details": [
+        "Runs the full local development loop: stop the game if it is running, build/deploy the selected DLL, launch prime.exe, wait for fresh native log activity, then return boot status and recent warnings/errors as JSON.",
+        "Use this only when you intentionally want AX to touch the installed game and deployed DLL."
+      ]
+    },
+    "mark": {
+      "summary": "Write an AX marker into the live debug recent-events ring and native log",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "mark"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "timeout-sec": {
+            "type": "integer"
+          },
+          "poll-ms": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "label": {},
+        "source": {},
+        "timeout-sec": {},
+        "poll-ms": {}
+      },
+      "warnings": [
+        "Side effects: writes a marker entry into the live debug recent-events ring and native log.",
+        "Requires a running game with live debug enabled."
+      ],
+      "details": [
+        "Sends a live debug mark request so later log/recent-events output has a visible investigation boundary."
+      ]
+    },
+    "live-state": {
+      "summary": "Probe named live runtime state surfaces without hand-writing debug-send requests",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "live-state"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "view": {
+            "type": "string"
+          },
+          "match": {
+            "type": "string"
+          },
+          "namespace": {
+            "type": "string"
+          },
+          "class-name": {
+            "type": "string"
+          },
+          "pointer": {
+            "type": "string"
+          },
+          "min-count": {
+            "type": "integer"
+          },
+          "max-count": {
+            "type": "integer"
+          },
+          "top": {
+            "type": "integer"
+          },
+          "summary": {
+            "type": "boolean"
+          },
+          "names-only": {
+            "type": "boolean"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "timeout-sec": {
+            "type": "integer"
+          },
+          "poll-ms": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "view": {},
+        "match": {},
+        "namespace": {},
+        "class-name": {},
+        "pointer": {},
+        "min-count": {},
+        "max-count": {},
+        "top": {},
+        "summary": {},
+        "names-only": {},
+        "exact": {},
+        "timeout-sec": {},
+        "poll-ms": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "observe": {
+      "summary": "Bounded live observation: recent events plus filtered appended log lines",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "observe"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "duration-sec": {
+            "type": "integer"
+          },
+          "log-profile": {
+            "type": "string"
+          },
+          "log-pattern": {
+            "type": "string"
+          },
+          "log-exclude-pattern": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "event-match": {
+            "type": "string"
+          },
+          "interval-ms": {
+            "type": "integer"
+          },
+          "max-log-results": {
+            "type": "integer"
+          },
+          "max-event-results": {
+            "type": "integer"
+          },
+          "mark": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          },
+          "stop-on-match": {
+            "type": "boolean"
+          },
+          "timeout-sec": {
+            "type": "integer"
+          },
+          "poll-ms": {
+            "type": "integer"
+          },
+          "include-known": {
+            "type": "boolean"
+          },
+          "case-sensitive": {
+            "type": "boolean"
+          },
+          "raw": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "unknown",
+      "args": {
+        "duration-sec": {},
+        "log-profile": {},
+        "log-pattern": {},
+        "log-exclude-pattern": {},
+        "kind": {},
+        "event-match": {},
+        "interval-ms": {},
+        "max-log-results": {},
+        "max-event-results": {},
+        "mark": {},
+        "label": {},
+        "stop-on-match": {},
+        "timeout-sec": {},
+        "poll-ms": {},
+        "include-known": {},
+        "case-sensitive": {},
+        "raw": {}
+      },
+      "warnings": [
+        "Side effects are normally read/wait only, but -Mark writes marker entries through live debug.",
+        "Requires a running game for recent-events data and waits for the requested duration unless stopped by a match."
+      ],
+      "details": [
+        "Polls live recent-events and appended native log lines for a bounded observation window.",
+        "Useful for watching a specific repro while preserving filtered JSON output."
+      ]
+    },
+    "recent-events": {
+      "summary": "Read, follow, or clear the live debug recent-events recap",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "recent-events"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "last": {
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "match": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "after-seq": {
+            "type": "integer"
+          },
+          "summary": {
+            "type": "boolean"
+          },
+          "clear": {
+            "type": "boolean"
+          },
+          "follow": {
+            "type": "boolean"
+          },
+          "stream": {
+            "type": "boolean"
+          },
+          "duration-sec": {
+            "type": "integer"
+          },
+          "stop-on-match": {
+            "type": "boolean"
+          },
+          "interval-ms": {
+            "type": "integer"
+          },
+          "timeout-sec": {
+            "type": "integer"
+          },
+          "poll-ms": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "unknown",
+      "args": {
+        "last": {},
+        "kind": {},
+        "match": {},
+        "exact": {},
+        "after-seq": {},
+        "summary": {},
+        "clear": {},
+        "follow": {},
+        "stream": {},
+        "duration-sec": {},
+        "stop-on-match": {},
+        "interval-ms": {},
+        "timeout-sec": {},
+        "poll-ms": {}
+      },
+      "warnings": [
+        "Side effects are mixed: normal reads are passive, -Clear mutates the in-game recent-events buffer, and -Follow waits.",
+        "Requires a running game with live debug enabled."
+      ],
+      "details": [
+        "Reads recent live-debug events from the running mod and can filter, summarize, stream, or follow new events."
+      ]
+    },
+    "battle-log": {
+      "summary": "Decode captured battle probe JSONL journals and compare battle_log signatures",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "battle-log"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "probe-path": {
+            "type": "string"
+          },
+          "journal-id": {
+            "type": "string"
+          },
+          "compare": {
+            "type": "string"
+          },
+          "latest": {
+            "type": "boolean"
+          },
+          "segments": {
+            "type": "boolean"
+          },
+          "summary-only": {
+            "type": "boolean"
+          },
+          "feed": {
+            "type": "boolean"
+          },
+          "segment-limit": {
+            "type": "integer"
+          },
+          "battle-type": {
+            "type": "string"
+          },
+          "pretty": {
+            "type": "boolean"
+          },
+          "no-build": {
+            "type": "boolean"
+          },
+          "tail": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "probe-path": {},
+        "journal-id": {},
+        "compare": {},
+        "latest": {},
+        "segments": {},
+        "summary-only": {},
+        "feed": {},
+        "segment-limit": {},
+        "battle-type": {},
+        "pretty": {},
+        "no-build": {},
+        "tail": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "deploy-status": {
+      "summary": "Compare built and deployed DLL hashes",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "deploy-status"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "build-mode": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "build-mode": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "doctor": {
+      "summary": "Check Python, dump DB, paths, build outputs, and config files",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "doctor"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {},
+      "warnings": [],
+      "details": []
+    },
+    "log": {
+      "summary": "Unified native log entrypoint with slice/session/errors/boot modes",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "log"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "tail": {
+            "type": "integer"
+          },
+          "pattern": {
+            "type": "string"
+          },
+          "case-sensitive": {
+            "type": "boolean"
+          },
+          "raw": {
+            "type": "boolean"
+          },
+          "text-only": {
+            "type": "boolean"
+          },
+          "session": {
+            "type": "boolean"
+          },
+          "errors": {
+            "type": "boolean"
+          },
+          "boot": {
+            "type": "boolean"
+          },
+          "summary": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "tail": {},
+        "pattern": {},
+        "case-sensitive": {},
+        "raw": {},
+        "text-only": {},
+        "session": {},
+        "errors": {},
+        "boot": {},
+        "summary": {}
+      },
+      "warnings": [
+        "-Summary has no effect with -TextOnly because text mode prints lines directly.",
+        "Use -CaseSensitive only with the default tail view; session mode still rejects it.",
+        "Reads local game/mod logs. Treat output as potentially sensitive unless redaction is explicitly verified.",
+        "Read-only does not mean output-safe; do not auto-run without user approval."
+      ],
+      "details": [
+        "By default this tails community_patch.log. Add -Session, -Errors, or -Boot to switch modes without remembering the narrower commands.",
+        "-Summary works in JSON mode for all log views and omits the returned line arrays while keeping counts and metadata."
+      ]
+    },
+    "log-watch": {
+      "summary": "Bounded real-time log follow with the same high-signal filters as log-query",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "log-watch"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "string"
+          },
+          "pattern": {
+            "type": "string"
+          },
+          "exclude-pattern": {
+            "type": "string"
+          },
+          "duration-sec": {
+            "type": "integer"
+          },
+          "interval-ms": {
+            "type": "integer"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "from-start": {
+            "type": "boolean"
+          },
+          "stop-on-match": {
+            "type": "boolean"
+          },
+          "include-known": {
+            "type": "boolean"
+          },
+          "case-sensitive": {
+            "type": "boolean"
+          },
+          "raw": {
+            "type": "boolean"
+          },
+          "text-only": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "profile": {},
+        "pattern": {},
+        "exclude-pattern": {},
+        "duration-sec": {},
+        "interval-ms": {},
+        "max-results": {},
+        "from-start": {},
+        "stop-on-match": {},
+        "include-known": {},
+        "case-sensitive": {},
+        "raw": {},
+        "text-only": {}
+      },
+      "warnings": [
+        "Reads local game/mod logs. Treat output as potentially sensitive unless redaction is explicitly verified.",
+        "Read-only does not mean output-safe; do not auto-run without user approval."
+      ],
+      "details": []
+    },
+    "sidecar-package": {
+      "summary": "Fetch the sidecar AX package: status, event-store counts, and scoped recent event summaries",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "sidecar-package"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "server-url": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "battle-limit": {
+            "type": "integer"
+          },
+          "debug-limit": {
+            "type": "integer"
+          },
+          "timeout-sec": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "server-url": {},
+        "url": {},
+        "limit": {},
+        "battle-limit": {},
+        "debug-limit": {},
+        "timeout-sec": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "sidecar-export": {
+      "summary": "Export AX live diagnostics as sidecar-compatible debug.event JSONL or POST /api/events",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "sidecar-export"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "duration-sec": {
+            "type": "integer"
+          },
+          "recent-event-limit": {
+            "type": "integer"
+          },
+          "log-profile": {
+            "type": "string"
+          },
+          "log-pattern": {
+            "type": "string"
+          },
+          "log-exclude-pattern": {
+            "type": "string"
+          },
+          "max-log-results": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "output-path": {
+            "type": "string"
+          },
+          "no-write": {
+            "type": "boolean"
+          },
+          "post": {
+            "type": "boolean"
+          },
+          "url": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "session-id": {
+            "type": "string"
+          },
+          "timeout-sec": {
+            "type": "integer"
+          },
+          "poll-ms": {
+            "type": "integer"
+          },
+          "include-events": {
+            "type": "boolean"
+          },
+          "skip-recent-events": {
+            "type": "boolean"
+          },
+          "skip-logs": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "duration-sec": {},
+        "recent-event-limit": {},
+        "log-profile": {},
+        "log-pattern": {},
+        "log-exclude-pattern": {},
+        "max-log-results": {},
+        "label": {},
+        "output-path": {},
+        "no-write": {},
+        "post": {},
+        "url": {},
+        "token": {},
+        "session-id": {},
+        "timeout-sec": {},
+        "poll-ms": {},
+        "include-events": {},
+        "skip-recent-events": {},
+        "skip-logs": {}
+      },
+      "warnings": [
+        "Side effects: writes JSONL unless -NoWrite is used, and -Post sends diagnostics over HTTP.",
+        "Live event capture requires a running game with live debug enabled and may wait for -DurationSec."
+      ],
+      "details": [
+        "Collects selected logs and optional live recent-events into sidecar-compatible debug.event records.",
+        "By default it can write a local JSONL export; -NoWrite suppresses file output, and -Post sends events to a sidecar endpoint."
+      ]
+    },
+    "log-slice": {
+      "summary": "Tail/filter community_patch.log",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "log-slice"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "last": {
+            "type": "integer"
+          },
+          "pattern": {
+            "type": "string"
+          },
+          "case-sensitive": {
+            "type": "boolean"
+          },
+          "text-only": {
+            "type": "boolean"
+          },
+          "raw": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "last": {},
+        "pattern": {},
+        "case-sensitive": {},
+        "text-only": {},
+        "raw": {}
+      },
+      "warnings": [
+        "Reads local game/mod logs. Treat output as potentially sensitive unless redaction is explicitly verified.",
+        "Read-only does not mean output-safe; do not auto-run without user approval."
+      ],
+      "details": []
+    },
+    "log-boot": {
+      "summary": "Last boot sequence with hook install results",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "log-boot"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "raw": {
+            "type": "boolean"
+          },
+          "text-only": {
+            "type": "boolean"
+          },
+          "summary": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "raw": {},
+        "text-only": {},
+        "summary": {}
+      },
+      "warnings": [
+        "Reads local game/mod logs. Treat output as potentially sensitive unless redaction is explicitly verified.",
+        "Read-only does not mean output-safe; do not auto-run without user approval."
+      ],
+      "details": []
+    },
+    "log-session": {
+      "summary": "Post-boot log lines from the current session",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "log-session"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "last": {
+            "type": "integer"
+          },
+          "pattern": {
+            "type": "string"
+          },
+          "raw": {
+            "type": "boolean"
+          },
+          "text-only": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "last": {},
+        "pattern": {},
+        "raw": {},
+        "text-only": {}
+      },
+      "warnings": [
+        "Reads local game/mod logs. Treat output as potentially sensitive unless redaction is explicitly verified.",
+        "Read-only does not mean output-safe; do not auto-run without user approval."
+      ],
+      "details": []
+    },
+    "preflight": {
+      "summary": "Pre-cycle check: status + boot + recent errors",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "preflight"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "summary": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "postflight": {
+      "summary": "Post-cycle check: deploy + boot + recent errors",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "postflight"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "summary": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "investigate": {
+      "summary": "Class investigation: dump info, hierarchy, offsets, and prime header preview",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "investigate"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "class": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "header-preview-lines": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "class": {},
+        "exact": {},
+        "max-results": {},
+        "header-preview-lines": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-status": {
+      "summary": "Show dump/index freshness against the installed game binaries",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-status"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "stats": {
+            "type": "boolean"
+          },
+          "max-namespaces": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "stats": {},
+        "max-namespaces": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-refresh": {
+      "summary": "Regenerate dump.cs from the installed game and rebuild the SQLite index",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-refresh"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "game-dir": {
+            "type": "string"
+          },
+          "out-dir": {
+            "type": "string"
+          },
+          "dumper-path": {
+            "type": "string"
+          },
+          "db-path": {
+            "type": "string"
+          },
+          "skip-index": {
+            "type": "boolean"
+          },
+          "clean": {
+            "type": "boolean"
+          },
+          "tail": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "game-dir": {},
+        "out-dir": {},
+        "dumper-path": {},
+        "db-path": {},
+        "skip-index": {},
+        "clean": {},
+        "tail": {}
+      },
+      "warnings": [
+        "Side effects: writes or replaces generated dump files and cache/index data.",
+        "-Clean removes known dump outputs before regeneration. This can be slow and depends on installed game files."
+      ],
+      "details": [
+        "Runs Il2CppDumper against the installed game binaries, writes dump artifacts, and rebuilds the local dump SQLite index unless -SkipIndex is used."
+      ]
+    },
+    "dump-search": {
+      "summary": "Search Il2Cpp dump.cs for classes/methods/fields",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-search"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string"
+          },
+          "context": {
+            "type": "integer"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "case-sensitive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "pattern": {},
+        "context": {},
+        "max-results": {},
+        "case-sensitive": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-index": {
+      "summary": "Rebuild the SQLite dump index from dump.cs",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-index"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "dump-path": {
+            "type": "string"
+          },
+          "db-path": {
+            "type": "string"
+          },
+          "string-literal-path": {
+            "type": "string"
+          },
+          "script-path": {
+            "type": "string"
+          },
+          "skip-symbol-cards": {
+            "type": "boolean"
+          },
+          "skip-strings": {
+            "type": "boolean"
+          },
+          "skip-script": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "dump-path": {},
+        "db-path": {},
+        "string-literal-path": {},
+        "script-path": {},
+        "skip-symbol-cards": {},
+        "skip-strings": {},
+        "skip-script": {}
+      },
+      "warnings": [
+        "Side effects: writes local cache/index data and may replace the existing dump database.",
+        "Use read-only dump search commands for passive inspection."
+      ],
+      "details": [
+        "Builds or refreshes the local SQLite dump index from dump.cs, string literals, and script metadata."
+      ]
+    },
+    "dump-stats": {
+      "summary": "Summary stats for the dump index: counts, kinds, namespaces",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-stats"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "max-namespaces": {
+            "type": "integer"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "max-namespaces": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-class": {
+      "summary": "Look up a class by name from the dump index",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-class"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "fts": {
+            "type": "boolean"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "members": {
+            "type": "boolean"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "name": {},
+        "exact": {},
+        "fts": {},
+        "max-results": {},
+        "members": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-hierarchy": {
+      "summary": "Walk a class inheritance chain from the dump index",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-hierarchy"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "class": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "class": {},
+        "exact": {},
+        "max-results": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-method": {
+      "summary": "Find methods by name (optionally scoped to a class)",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-method"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "fts": {
+            "type": "boolean"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "name": {},
+        "class": {},
+        "exact": {},
+        "fts": {},
+        "max-results": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-enum": {
+      "summary": "Look up an enum and optionally list its values",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-enum"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "values": {
+            "type": "boolean"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "name": {},
+        "exact": {},
+        "max-results": {},
+        "values": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-offsets": {
+      "summary": "Show field offsets for a class",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-offsets"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "class": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "class": {},
+        "field": {},
+        "exact": {},
+        "max-results": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-fts": {
+      "summary": "FTS5 ranked search across classes, methods, and fields",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-fts"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "query": {},
+        "max-results": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-find": {
+      "summary": "Navigation-first dump search with curated next steps and short hit lists",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-find"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "query": {},
+        "max-results": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-symbol": {
+      "summary": "Search compact precomputed class symbol cards",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-symbol"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "like": {
+            "type": "boolean"
+          },
+          "card": {
+            "type": "boolean"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "query": {},
+        "exact": {},
+        "like": {},
+        "card": {},
+        "max-results": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-pack": {
+      "summary": "Return one token-budgetable class context pack",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-pack"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "class": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "like": {
+            "type": "boolean"
+          },
+          "max-script": {
+            "type": "integer"
+          },
+          "max-strings": {
+            "type": "integer"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "class": {},
+        "exact": {},
+        "like": {},
+        "max-script": {},
+        "max-strings": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-string": {
+      "summary": "Search indexed Il2Cpp string literals",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-string"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "like": {
+            "type": "boolean"
+          },
+          "min-length": {
+            "type": "integer"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "query": {},
+        "exact": {},
+        "like": {},
+        "min-length": {},
+        "max-results": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-script": {
+      "summary": "Search selected script.json ScriptMethod metadata",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-script"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "like": {
+            "type": "boolean"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "query": {},
+        "class": {},
+        "exact": {},
+        "like": {},
+        "max-results": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [],
+      "details": []
+    },
+    "dump-export": {
+      "summary": "Export embedding-ready JSONL from local dump indexes",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "dump-export"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "output": {
+            "type": "string"
+          },
+          "max-docs": {
+            "type": "integer"
+          },
+          "min-length": {
+            "type": "integer"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "kind": {},
+        "output": {},
+        "max-docs": {},
+        "min-length": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [
+        "Side effects: -Output writes a JSONL file and may produce a large artifact.",
+        "Reads local dump indexes only; it does not touch the running game."
+      ],
+      "details": [
+        "Exports selected local dump-index content as JSONL suitable for embedding, review, or corpus transfer.",
+        "Without -Output the export is written to stdout; with -Output it writes the requested file."
+      ]
+    },
+    "pure-tests": {
+      "summary": "Build and run stfc-mod-tests with JSON output",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "pure-tests"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "tail": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "tail": {}
+      },
+      "warnings": [
+        "Side effects: writes test build artifacts and executes the local test binary.",
+        "This is safe for validation but not passive inspection."
+      ],
+      "details": [
+        "Builds the stfc-mod-tests target and runs it, returning JSON with build/run exit codes and output tails."
+      ]
+    },
+    "release-validate": {
+      "summary": "Run schema/docs drift checks, pure tests, stfc-community-mod build, and git diff --check",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "release-validate"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "build-mode": {
+            "type": "string"
+          },
+          "tail": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "build-mode": {},
+        "tail": {}
+      },
+      "warnings": [
+        "Side effects: writes build/test artifacts and may take significant time.",
+        "Use only when explicitly validating release readiness."
+      ],
+      "details": [
+        "Runs the release validation path for the selected build mode: configure, pure tests, target build, and git diff --check."
+      ]
+    }
+  }
+}
