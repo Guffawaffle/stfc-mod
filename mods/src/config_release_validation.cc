@@ -87,7 +87,6 @@ namespace
       "sidecar.sync.verify_ssl",
       "sync.allow_unsafe_tls_without_certificate_validation",
       "sync.battlelogs",
-      "sync.battlelogs_realtime",
       "sync.buffs",
       "sync.buildings",
       "sync.debug",

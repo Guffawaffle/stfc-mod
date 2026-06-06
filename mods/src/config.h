@@ -36,7 +36,6 @@ public:
   /// Categories of game data that can be synced to an external service.
   enum class Type {
     Battles,
-    BattlelogsRealtime,
     Buffs,
     Buildings,
     EmeraldChain,
@@ -69,24 +68,23 @@ public:
   };
 
   std::string proxy;
-  bool        verify_ssl = true;
+  bool        verify_ssl                                      = true;
   bool        allow_unsafe_tls_without_certificate_validation = false;
 
-  bool battlelogs          = false;
-  bool battlelogs_realtime = false;
-  bool buffs               = false;
-  bool buildings           = false;
-  bool fleet_runtime       = false;
-  bool inventory           = false;
-  bool jobs                = false;
-  bool missions            = false;
-  bool officer             = false;
-  bool research            = false;
-  bool resources           = false;
-  bool ships               = false;
-  bool slots               = false;
-  bool tech                = false;
-  bool traits              = false;
+  bool battlelogs    = false;
+  bool buffs         = false;
+  bool buildings     = false;
+  bool fleet_runtime = false;
+  bool inventory     = false;
+  bool jobs          = false;
+  bool missions      = false;
+  bool officer       = false;
+  bool research      = false;
+  bool resources     = false;
+  bool ships         = false;
+  bool slots         = false;
+  bool tech          = false;
+  bool traits        = false;
 
   /** @brief Check whether a given sync type is enabled on this config. */
   [[nodiscard]] bool enabled(Type type) const;
@@ -95,8 +93,6 @@ public:
 /// Master table mapping every SyncConfig::Type to its JSON/TOML keys and member pointer.
 constexpr std::array SyncOptions{
     SyncConfig::Option{SyncConfig::Type::Battles, "battlelog", "battlelogs", &SyncConfig::battlelogs},
-    SyncConfig::Option{SyncConfig::Type::BattlelogsRealtime, "battlelog_realtime", "battlelogs_realtime",
-                       &SyncConfig::battlelogs_realtime},
     SyncConfig::Option{SyncConfig::Type::Buffs, "buff", "buffs", &SyncConfig::buffs},
     SyncConfig::Option{SyncConfig::Type::Buildings, "module", "buildings", &SyncConfig::buildings},
     SyncConfig::Option{SyncConfig::Type::EmeraldChain, "emerald_chain", "buffs", &SyncConfig::buffs},
@@ -151,8 +147,8 @@ public:
     Majel,
   };
 
-  std::string url;   ///< Endpoint URL for this sync target.
-  std::string token; ///< Bearer token / API key.
+  std::string url;                 ///< Endpoint URL for this sync target.
+  std::string token;               ///< Bearer token / API key.
   Mode        mode = Mode::Legacy; ///< Outbound wire contract for this target.
 };
 
@@ -167,11 +163,11 @@ struct SidecarSyncConfig {
   std::string url;
   std::string token;
   std::string proxy;
-  bool        verify_ssl = true;
+  bool        verify_ssl                                      = true;
   bool        allow_unsafe_tls_without_certificate_validation = false;
-  bool        battlelogs_realtime = false;
-  bool        battlelog_enrichment = false;
-  bool        fleet_runtime       = false;
+  bool        battlelogs_realtime                             = false;
+  bool        battlelog_enrichment                            = false;
+  bool        fleet_runtime                                   = false;
 };
 
 /**
@@ -232,17 +228,17 @@ struct AdvancedDiagnosticsConfig {
     int         action_queue_probe_files  = 3;
   };
 
-  bool        ship_identity                   = false;
-  bool        battle_log_decoder              = false;
-  bool        battle_catalog                  = false;
-  bool        debug                           = false;
-  bool        logging                         = false;
-  bool        live_query                      = false;
-  std::string runtime_trace                   = "off";
-  bool        runtime_trace_track_overhead    = false;
-  bool        mod_impact_monitor              = false;
+  bool        ship_identity                    = false;
+  bool        battle_log_decoder               = false;
+  bool        battle_catalog                   = false;
+  bool        debug                            = false;
+  bool        logging                          = false;
+  bool        live_query                       = false;
+  std::string runtime_trace                    = "off";
+  bool        runtime_trace_track_overhead     = false;
+  bool        mod_impact_monitor               = false;
   int         runtime_trace_report_interval_ms = 5000;
-  bool        refinery_diagnostics            = false;
+  bool        refinery_diagnostics             = false;
   FilesConfig files;
 };
 
@@ -250,7 +246,7 @@ struct AdvancedDiagnosticsConfig {
  * @brief Queue experiment/dev-test namespace rooted at `[advanced.queue]`.
  */
 struct AdvancedQueueConfig {
-  bool queue_repair_enabled    = false;
+  bool queue_repair_enabled     = false;
   bool queue_add_direct_handler = false;
   bool queue_add_hide_viewers   = false;
 };

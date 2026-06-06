@@ -8,40 +8,40 @@
 
 namespace
 {
-  bool has_diagnostic(const std::vector<config_schema::Diagnostic>& diagnostics, std::string_view path,
-                      config_schema::DiagnosticSeverity severity)
-  {
-    for (const auto& diagnostic : diagnostics) {
-      if (diagnostic.path == path && diagnostic.severity == severity) {
-        return true;
-      }
+bool has_diagnostic(const std::vector<config_schema::Diagnostic>& diagnostics, std::string_view path,
+                    config_schema::DiagnosticSeverity severity)
+{
+  for (const auto& diagnostic : diagnostics) {
+    if (diagnostic.path == path && diagnostic.severity == severity) {
+      return true;
     }
-
-    return false;
   }
 
-  bool has_diagnostic_source(const std::vector<config_schema::Diagnostic>& diagnostics, std::string_view path,
-                             std::string_view source_path, config_schema::DiagnosticSeverity severity)
-  {
-    for (const auto& diagnostic : diagnostics) {
-      if (diagnostic.path == path && diagnostic.source_path == source_path && diagnostic.severity == severity) {
-        return true;
-      }
-    }
+  return false;
+}
 
-    return false;
+bool has_diagnostic_source(const std::vector<config_schema::Diagnostic>& diagnostics, std::string_view path,
+                           std::string_view source_path, config_schema::DiagnosticSeverity severity)
+{
+  for (const auto& diagnostic : diagnostics) {
+    if (diagnostic.path == path && diagnostic.source_path == source_path && diagnostic.severity == severity) {
+      return true;
+    }
   }
 
-  bool has_rejected_target(const std::vector<SidecarRejectedSyncTarget>& rejected_targets, std::string_view target_name)
-  {
-    for (const auto& rejected : rejected_targets) {
-      if (rejected.target_name == target_name) {
-        return true;
-      }
-    }
+  return false;
+}
 
-    return false;
+bool has_rejected_target(const std::vector<SidecarRejectedSyncTarget>& rejected_targets, std::string_view target_name)
+{
+  for (const auto& rejected : rejected_targets) {
+    if (rejected.target_name == target_name) {
+      return true;
+    }
   }
+
+  return false;
+}
 } // namespace
 
 TEST_SUITE("sidecar_config")
@@ -85,7 +85,8 @@ jsonl_recent_logs = 300
     CHECK(result.diagnostics.empty());
   }
 
-  TEST_CASE("parses advanced diagnostics including runtime trace, keeps sidecar sync and logging canonical, and rejects legacy sync jsonl keys")
+  TEST_CASE("parses advanced diagnostics including runtime trace, keeps sidecar sync and logging canonical, and "
+            "rejects legacy sync jsonl keys")
   {
     auto config = toml::parse(R"(
 [sidecar.sync]
@@ -179,8 +180,8 @@ sidecar_jsonl_recent_logs = 120
     CHECK(has_diagnostic(result.diagnostics, "sync.sidecar_jsonl", config_schema::DiagnosticSeverity::Error));
     CHECK(has_diagnostic(result.diagnostics, "sync.sidecar_jsonl_replay_seconds",
                          config_schema::DiagnosticSeverity::Error));
-    CHECK(has_diagnostic(result.diagnostics, "sync.sidecar_jsonl_recent_logs",
-                         config_schema::DiagnosticSeverity::Error));
+    CHECK(
+        has_diagnostic(result.diagnostics, "sync.sidecar_jsonl_recent_logs", config_schema::DiagnosticSeverity::Error));
   }
 
   TEST_CASE("sidecar battlelog enrichment defaults closed and accepts legacy decoder alias")
@@ -215,8 +216,8 @@ enabled = true
       const auto result = ParseSidecarConfig(config);
 
       CHECK(result.config.sync.battlelog_enrichment);
-      CHECK(has_diagnostic_source(result.diagnostics, "sidecar.sync.battlelog_enrichment",
-                                  "battle_log_decoder.enabled", config_schema::DiagnosticSeverity::Info));
+      CHECK(has_diagnostic_source(result.diagnostics, "sidecar.sync.battlelog_enrichment", "battle_log_decoder.enabled",
+                                  config_schema::DiagnosticSeverity::Info));
     }
 
     {
@@ -231,8 +232,8 @@ enabled = true
       const auto result = ParseSidecarConfig(config);
 
       CHECK_FALSE(result.config.sync.battlelog_enrichment);
-      CHECK(has_diagnostic_source(result.diagnostics, "sidecar.sync.battlelog_enrichment",
-                                  "battle_log_decoder.enabled", config_schema::DiagnosticSeverity::Warning));
+      CHECK(has_diagnostic_source(result.diagnostics, "sidecar.sync.battlelog_enrichment", "battle_log_decoder.enabled",
+                                  config_schema::DiagnosticSeverity::Warning));
     }
   }
 
@@ -261,8 +262,8 @@ logging = false
                                 "sidecar.probes.ship_identity", config_schema::DiagnosticSeverity::Info));
     CHECK(has_diagnostic_source(result.diagnostics, "advanced.diagnostics.battle_catalog",
                                 "sidecar.probes.battle_catalog", config_schema::DiagnosticSeverity::Info));
-    CHECK(has_diagnostic_source(result.diagnostics, "advanced.diagnostics.debug",
-                                "sidecar.diagnostics.debug", config_schema::DiagnosticSeverity::Info));
+    CHECK(has_diagnostic_source(result.diagnostics, "advanced.diagnostics.debug", "sidecar.diagnostics.debug",
+                                config_schema::DiagnosticSeverity::Info));
   }
 
   TEST_CASE("rejects legacy sidecar sync targets and loopback sync urls without flagging external targets")
@@ -271,6 +272,7 @@ logging = false
 [sync]
 url = "http://127.0.0.1:43127/api/majel/ingest"
 token = "legacy-token"
+battlelogs_realtime = true
 
 [sync.targets.sidecar]
 url = "http://127.0.0.1:43127/api/events"
@@ -286,6 +288,7 @@ mode = "legacy"
 url = "https://majel.example.test/api/ingest/events"
 token = "cloud-token"
 mode = "majel"
+battlelogs_realtime = true
 )");
 
     const auto result = ParseSidecarConfig(config);
@@ -301,37 +304,40 @@ mode = "majel"
     CHECK(has_diagnostic(result.diagnostics, "sync.targets.sidecar_battle.url",
                          config_schema::DiagnosticSeverity::Error));
     CHECK(has_diagnostic(result.diagnostics, "sync.url", config_schema::DiagnosticSeverity::Error));
+    CHECK(has_diagnostic(result.diagnostics, "sync.battlelogs_realtime", config_schema::DiagnosticSeverity::Error));
+    CHECK(has_diagnostic(result.diagnostics, "sync.targets.external.battlelogs_realtime",
+                         config_schema::DiagnosticSeverity::Error));
   }
 
   TEST_CASE("runtime snapshot redacts sidecar secrets")
   {
     SidecarConfig  sidecar;
     AdvancedConfig advanced;
-    sidecar.sync.enabled                 = true;
-    sidecar.sync.url                     = "http://127.0.0.1:43127/api/sidecar/ingest";
-    sidecar.sync.token                   = "secret-sidecar-token";
-    sidecar.sync.proxy                   = "http://user:pass@example.invalid:8080";
-    sidecar.sync.battlelogs_realtime     = true;
-    sidecar.sync.battlelog_enrichment    = true;
-    sidecar.logging.jsonl                = true;
-    sidecar.logging.jsonl_replay_seconds = 15;
-    sidecar.logging.jsonl_recent_logs    = 7;
-    advanced.diagnostics.debug           = true;
-    advanced.diagnostics.ship_identity   = true;
-    advanced.diagnostics.live_query      = true;
-    advanced.diagnostics.runtime_trace   = "detailed";
-    advanced.diagnostics.runtime_trace_track_overhead = false;
-    advanced.diagnostics.mod_impact_monitor = true;
+    sidecar.sync.enabled                                  = true;
+    sidecar.sync.url                                      = "http://127.0.0.1:43127/api/sidecar/ingest";
+    sidecar.sync.token                                    = "secret-sidecar-token";
+    sidecar.sync.proxy                                    = "http://user:pass@example.invalid:8080";
+    sidecar.sync.battlelogs_realtime                      = true;
+    sidecar.sync.battlelog_enrichment                     = true;
+    sidecar.logging.jsonl                                 = true;
+    sidecar.logging.jsonl_replay_seconds                  = 15;
+    sidecar.logging.jsonl_recent_logs                     = 7;
+    advanced.diagnostics.debug                            = true;
+    advanced.diagnostics.ship_identity                    = true;
+    advanced.diagnostics.live_query                       = true;
+    advanced.diagnostics.runtime_trace                    = "detailed";
+    advanced.diagnostics.runtime_trace_track_overhead     = false;
+    advanced.diagnostics.mod_impact_monitor               = true;
     advanced.diagnostics.runtime_trace_report_interval_ms = 7000;
-    advanced.diagnostics.refinery_diagnostics = true;
-    advanced.diagnostics.files.root = "custom/native-logs";
-    advanced.diagnostics.files.navhook_trace_max_kb = 4096;
-    advanced.diagnostics.files.navhook_trace_files = 4;
-    advanced.diagnostics.files.action_queue_probe_max_kb = 8192;
-    advanced.diagnostics.files.action_queue_probe_files = 5;
-    advanced.queue.queue_repair_enabled = true;
-    advanced.queue.queue_add_direct_handler = true;
-    advanced.queue.queue_add_hide_viewers = false;
+    advanced.diagnostics.refinery_diagnostics             = true;
+    advanced.diagnostics.files.root                       = "custom/native-logs";
+    advanced.diagnostics.files.navhook_trace_max_kb       = 4096;
+    advanced.diagnostics.files.navhook_trace_files        = 4;
+    advanced.diagnostics.files.action_queue_probe_max_kb  = 8192;
+    advanced.diagnostics.files.action_queue_probe_files   = 5;
+    advanced.queue.queue_repair_enabled                   = true;
+    advanced.queue.queue_add_direct_handler               = true;
+    advanced.queue.queue_add_hide_viewers                 = false;
 
     toml::table runtime_snapshot;
     WriteSidecarConfigRuntimeSnapshot(runtime_snapshot, sidecar);
@@ -350,7 +356,8 @@ mode = "majel"
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["ship_identity"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["live_query"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace"].value<std::string>().value_or("") == "detailed");
-    CHECK_FALSE(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_track_overhead"].value<bool>().value_or(true));
+    CHECK_FALSE(
+        runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_track_overhead"].value<bool>().value_or(true));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["mod_impact_monitor"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_report_interval_ms"].value<int>().value_or(0)
           == 7000);

@@ -27,7 +27,6 @@ std::string schema_for_sync_type(const SyncConfig::Type type, const nlohmann::js
 
   switch (type) {
     case SyncConfig::Type::Battles:
-    case SyncConfig::Type::BattlelogsRealtime:
       return "stfc.battle.summary.v1";
     case SyncConfig::Type::FleetAssignments:
       return "stfc.fleet.assignment_snapshot.v1";
@@ -66,13 +65,11 @@ SyncTlsVerificationDecision DecideSyncTlsVerification(const SyncConfig& config)
 }
 
 ScopelySessionHeaders BuildScopelySessionHeaders(const headers::SessionHeaderSnapshot& snapshot,
-                                                 std::string transaction_id)
+                                                 std::string                           transaction_id)
 {
   return {
-      std::move(transaction_id),
-      snapshot.instanceSessionId,
-      snapshot.primeVersion,
-      format_instance_id(snapshot.instanceId),
+      std::move(transaction_id), snapshot.instanceSessionId,
+      snapshot.primeVersion,     format_instance_id(snapshot.instanceId),
       snapshot.unityVersion,
   };
 }
@@ -98,8 +95,7 @@ bool SyncTargetAcceptsType(const SyncTargetConfig& target_config, const SyncConf
   return false;
 }
 
-std::map<std::string, std::string> BuildSyncTargetHeaders(const SyncTargetConfig& target_config,
-                                                          std::string powered_by)
+std::map<std::string, std::string> BuildSyncTargetHeaders(const SyncTargetConfig& target_config, std::string powered_by)
 {
   std::map<std::string, std::string> headers{
       {"Content-Type", "application/json"},

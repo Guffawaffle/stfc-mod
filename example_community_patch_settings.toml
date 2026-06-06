@@ -764,7 +764,6 @@ url = ""
 # --------------
 
 battlelogs = true
-battlelogs_realtime = false
 buffs = true
 buildings = true
 fleet_runtime = false
@@ -955,7 +954,6 @@ queue_add_hide_viewers = false
 # url = "https://majel.example.test/api/ingest/events"
 # mode = "majel"
 # battlelogs = false
-# battlelogs_realtime = true
 # fleet_runtime = true
 
 #  <[=============================================================================================================]>

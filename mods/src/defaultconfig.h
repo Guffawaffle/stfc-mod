@@ -123,7 +123,8 @@ namespace Advanced
     constexpr bool runtime_trace_track_overhead = false;
     /// Enable periodic runtime impact summaries for frame-owned mod hooks. Default: false.
     constexpr bool mod_impact_monitor = false;
-    /// Runtime trace summary report interval in milliseconds. Lower intervals increase diagnostic log churn. Default: 5000.
+    /// Runtime trace summary report interval in milliseconds. Lower intervals increase diagnostic log churn. Default:
+    /// 5000.
     constexpr int runtime_trace_report_interval_ms = 5000;
     /// Enable focused refinery lifecycle/action diagnostics in community_patch.log. Default: false.
     constexpr bool refinery_diagnostics = false;
@@ -356,66 +357,65 @@ namespace Sync
 {
   // Per-category defaults — each maps to a [sync] TOML key.
   // Individual [sync.targets.<name>] sections can override these.
-  constexpr bool battlelogs          = true;  ///< Sync battle-log reports.
-  constexpr bool battlelogs_realtime = false; ///< Export canonical battle feed events to realtime ingest targets.
-  constexpr bool buffs               = true;  ///< Sync buff / Emerald Chain data.
-  constexpr bool buildings           = true;  ///< Sync station module data.
-  constexpr bool fleet_runtime       = false; ///< Sync low-rate fleet-bar runtime state.
-  constexpr bool inventory           = true;  ///< Sync inventory contents.
-  constexpr bool jobs                = true;  ///< Sync active job/build queues.
-  constexpr bool missions            = true;  ///< Sync mission progress.
-  constexpr bool officer             = true;  ///< Sync officer roster.
-  constexpr const char* proxy        = "";    ///< HTTP proxy for sync requests (empty = none).
-  constexpr bool        research     = true;  ///< Sync research tree state.
-  constexpr bool        resources    = true;  ///< Sync resource amounts.
-  constexpr bool        ships        = true;  ///< Sync fleet / ship data.
-  constexpr bool        slots        = true;  ///< Sync crew-slot assignments.
-  constexpr bool        tech         = true;  ///< Sync forbidden tech data.
-  constexpr bool        traits       = true;  ///< Sync officer traits.
-  constexpr const char* token        = "";    ///< Bearer token (legacy, prefer targets).
-  constexpr const char* url          = "";    ///< Endpoint URL (legacy, prefer targets).
-  constexpr bool        debug        = false; ///< Extra debug logging for sync subsystem.
-  constexpr bool        logging      = false; ///< Log raw sync payloads.
-  constexpr bool verify_ssl = true; ///< Verify TLS certificates on sync requests.
-  constexpr bool allow_unsafe_tls_without_certificate_validation = false; ///< Explicit unsafe TLS override.
+  constexpr bool        battlelogs    = true;  ///< Sync battle-log reports.
+  constexpr bool        buffs         = true;  ///< Sync buff / Emerald Chain data.
+  constexpr bool        buildings     = true;  ///< Sync station module data.
+  constexpr bool        fleet_runtime = false; ///< Sync low-rate fleet-bar runtime state.
+  constexpr bool        inventory     = true;  ///< Sync inventory contents.
+  constexpr bool        jobs          = true;  ///< Sync active job/build queues.
+  constexpr bool        missions      = true;  ///< Sync mission progress.
+  constexpr bool        officer       = true;  ///< Sync officer roster.
+  constexpr const char* proxy         = "";    ///< HTTP proxy for sync requests (empty = none).
+  constexpr bool        research      = true;  ///< Sync research tree state.
+  constexpr bool        resources     = true;  ///< Sync resource amounts.
+  constexpr bool        ships         = true;  ///< Sync fleet / ship data.
+  constexpr bool        slots         = true;  ///< Sync crew-slot assignments.
+  constexpr bool        tech          = true;  ///< Sync forbidden tech data.
+  constexpr bool        traits        = true;  ///< Sync officer traits.
+  constexpr const char* token         = "";    ///< Bearer token (legacy, prefer targets).
+  constexpr const char* url           = "";    ///< Endpoint URL (legacy, prefer targets).
+  constexpr bool        debug         = false; ///< Extra debug logging for sync subsystem.
+  constexpr bool        logging       = false; ///< Log raw sync payloads.
+  constexpr bool        verify_ssl    = true;  ///< Verify TLS certificates on sync requests.
+  constexpr bool        allow_unsafe_tls_without_certificate_validation = false; ///< Explicit unsafe TLS override.
   /// DNS resolver cache TTL in seconds. Default: 300 (5 min).
   constexpr auto resolver_cache_ttl = 300;
 } // namespace Sync
 
 namespace Sidecar
 {
-namespace Sync
-{
-  constexpr bool        enabled = false;
-  constexpr const char* url     = "";
-  constexpr const char* token   = "";
-  constexpr const char* proxy   = "";
-  constexpr bool        verify_ssl = true;
-  constexpr bool        allow_unsafe_tls_without_certificate_validation = false;
-  constexpr bool        battlelogs_realtime = false;
-  constexpr bool        battlelog_enrichment = false;
-  constexpr bool        fleet_runtime       = false;
-} // namespace Sync
+  namespace Sync
+  {
+    constexpr bool        enabled                                         = false;
+    constexpr const char* url                                             = "";
+    constexpr const char* token                                           = "";
+    constexpr const char* proxy                                           = "";
+    constexpr bool        verify_ssl                                      = true;
+    constexpr bool        allow_unsafe_tls_without_certificate_validation = false;
+    constexpr bool        battlelogs_realtime                             = false;
+    constexpr bool        battlelog_enrichment                            = false;
+    constexpr bool        fleet_runtime                                   = false;
+  } // namespace Sync
 
-namespace Probes
-{
-  constexpr bool ship_identity      = false;
-  constexpr bool battle_log_decoder = false;
-  constexpr bool battle_catalog     = false;
-} // namespace Probes
+  namespace Probes
+  {
+    constexpr bool ship_identity      = false;
+    constexpr bool battle_log_decoder = false;
+    constexpr bool battle_catalog     = false;
+  } // namespace Probes
 
-namespace Logging
-{
-  constexpr bool jsonl                = false;
-  constexpr int  jsonl_replay_seconds = 30;
-  constexpr int  jsonl_recent_logs    = 300;
-} // namespace Logging
+  namespace Logging
+  {
+    constexpr bool jsonl                = false;
+    constexpr int  jsonl_replay_seconds = 30;
+    constexpr int  jsonl_recent_logs    = 300;
+  } // namespace Logging
 
-namespace Diagnostics
-{
-  constexpr bool debug   = false;
-  constexpr bool logging = false;
-} // namespace Diagnostics
+  namespace Diagnostics
+  {
+    constexpr bool debug   = false;
+    constexpr bool logging = false;
+  } // namespace Diagnostics
 } // namespace Sidecar
 
 namespace UI

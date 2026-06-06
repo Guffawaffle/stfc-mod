@@ -5,12 +5,12 @@
 #include "patches/sync_payload_builders.h"
 
 #include "config.h"
-#include "str_utils.h"
 #include "patches/sidecar_local_ingest_policy.h"
 #include "patches/sync_battle_logs.h"
 #include "patches/sync_scheduler.h"
 #include "patches/sync_transport.h"
 #include "patches/sync_transport_policy.h"
+#include "str_utils.h"
 
 #include <Digit.PrimeServer.Models.pb.h>
 #include <prime/EntityGroup.h>
@@ -25,9 +25,9 @@
 
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <deque>
-#include <cmath>
 #include <format>
 #include <iterator>
 #include <memory>
@@ -61,12 +61,11 @@ static bool battle_header_processing_enabled()
   const auto& config = Config::Get();
   return BattleHeaderProcessingEnabledForSync(config.sync_options.battlelogs, config.sidecar_logging_jsonl,
                                               has_enabled_sync_target(SyncConfig::Type::Battles),
-                                              has_enabled_sync_target(SyncConfig::Type::BattlelogsRealtime),
                                               SidecarSyncSettings());
 }
 
 struct SyncPayloadWorkItem {
-  const char*                  label = "unknown";
+  const char*                  label     = "unknown";
   PayloadProcessor             processor = nullptr;
   std::unique_ptr<std::string> payload;
 };
@@ -161,13 +160,13 @@ private:
     }
   }
 
-  std::once_flag                   start_flag_;
-  std::mutex                       mutex_;
-  std::condition_variable          condition_;
-  std::deque<SyncPayloadWorkItem>  queue_;
-  std::vector<std::thread>         workers_;
-  bool                             shutdown_requested_ = false;
-  uint64_t                         dropped_ = 0;
+  std::once_flag                  start_flag_;
+  std::mutex                      mutex_;
+  std::condition_variable         condition_;
+  std::deque<SyncPayloadWorkItem> queue_;
+  std::vector<std::thread>        workers_;
+  bool                            shutdown_requested_ = false;
+  uint64_t                        dropped_            = 0;
 };
 
 SyncPayloadWorkerPool& sync_payload_worker_pool()
@@ -245,9 +244,7 @@ struct RankLevelState {
   }
 
   bool operator==(const RankLevelState& other) const
-  {
-    return this->rank == other.rank && this->level == other.level;
-  }
+  { return this->rank == other.rank && this->level == other.level; }
 
 private:
   int64_t rank  = -1;
@@ -264,9 +261,7 @@ struct RankLevelShardsState {
   }
 
   bool operator==(const RankLevelShardsState& other) const
-  {
-    return this->rank == other.rank && this->level == other.level && this->shards == other.shards;
-  }
+  { return this->rank == other.rank && this->level == other.level && this->shards == other.shards; }
 
 private:
   int32_t rank   = -1;
@@ -300,9 +295,7 @@ private:
 
 struct pairhash {
   template <typename T, typename U> std::size_t operator()(const std::pair<T, U>& x) const
-  {
-    return std::hash<T>()(x.first) ^ std::hash<U>()(x.second);
-  }
+  { return std::hash<T>()(x.first) ^ std::hash<U>()(x.second); }
 };
 
 // ─── Protobuf Entity Processors ─────────────────────────────────────────────
@@ -596,7 +589,6 @@ void process_global_active_buffs(std::unique_ptr<std::string>&& bytes)
   static std::mutex                                               buff_states_mtx;
   static std::atomic_bool                                         is_first_sync{true};
 
-
   if (auto response = Digit::PrimeServer::Models::GlobalActiveBuffsResponse(); response.ParseFromString(*bytes)) {
 
     http::sync_log_trace("PROCESS", "global buffs",
@@ -625,11 +617,11 @@ void process_global_active_buffs(std::unique_ptr<std::string>&& bytes)
       }
 
       // Remove buffs that are no longer present and record each removal.
-      for (auto it = buff_states.begin(); it != buff_states.end(); ) {
+      for (auto it = buff_states.begin(); it != buff_states.end();) {
         if (!present_ids.contains(it->first)) {
           buff_array.push_back({
-            {"type", "expired_" + SyncConfig::Type::Buffs},
-            {"bid", it->first},
+              {"type", "expired_" + SyncConfig::Type::Buffs},
+              {"bid", it->first},
           });
           it = buff_states.erase(it);
         } else {
@@ -666,7 +658,7 @@ static void queue_fleet_assignment_snapshots(const nlohmann::json& slot_array)
 inline std::optional<std::chrono::time_point<std::chrono::system_clock>> parse_timestamp(const std::string& timestamp)
 {
 #ifdef _WIN32
-  std::istringstream ss(timestamp);
+  std::istringstream                    ss(timestamp);
   std::chrono::system_clock::time_point time_point;
 
   if (!std::chrono::from_stream(ss, "%Y-%m-%dT%H:%M:%S", time_point)) {
@@ -779,7 +771,7 @@ void process_entity_slots_rtc(std::unique_ptr<std::string>&& json_payload)
     auto data = json::parse(*json_payload);
     http::sync_log_trace("PROCESS", "entity slots (RTC)", "Processing entity slot update");
 
-    const auto item = data["item_id"];
+    const auto item    = data["item_id"];
     const auto item_id = item.is_null() ? -1 : item.get<int64_t>();
 
     json    slot_params;
@@ -791,7 +783,8 @@ void process_entity_slots_rtc(std::unique_ptr<std::string>&& json_payload)
         if (const auto& expiry_time = data["consumable_slot_params"]["expiry_time"]; expiry_time.is_null()) {
           slot_params["expiry_time"] = nullptr;
         } else {
-          const auto timestamp = parse_timestamp(data["consumable_slot_params"]["expiry_time"].get_ref<const std::string&>());
+          const auto timestamp =
+              parse_timestamp(data["consumable_slot_params"]["expiry_time"].get_ref<const std::string&>());
           if (timestamp.has_value()) {
             slot_params["expiry_time"] = timestamp.value().time_since_epoch().count();
           } else {
@@ -939,10 +932,7 @@ void process_jobs(std::unique_ptr<std::string>&& bytes)
       std::lock_guard lk(jobs_active_mtx);
       for (auto it = jobs_active.begin(); it != jobs_active.end();) {
         if (!uuids_in_response.contains(*it)) {
-          job_array.push_back({
-            {"type", "completed_" + SyncConfig::Type::Jobs},
-            {"uuid", *it}
-          });
+          job_array.push_back({{"type", "completed_" + SyncConfig::Type::Jobs}, {"uuid", *it}});
           it = jobs_active.erase(it);
         } else {
           ++it;
@@ -1293,4 +1283,3 @@ void HandleRealtimeDataPayload(RealtimeDataPayload* data)
     spdlog::error("Failed to queue EntitySlotsRealtime sync payload task: unknown exception");
   }
 }
-

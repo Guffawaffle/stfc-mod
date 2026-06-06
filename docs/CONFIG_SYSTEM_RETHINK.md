@@ -346,8 +346,7 @@ For non-sidecar external sync targets, the current nested table pattern is good 
 [sync.targets.majel]
 url = "https://majel.example.test/api/ingest/events"
 token = "..."
-battlelogs_realtime = true
-battlelogs = false
+battlelogs = true
 ```
 
 Local sidecar delivery should move to its own root namespace instead of staying under `[sync.targets.*]`:

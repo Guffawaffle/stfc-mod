@@ -123,8 +123,8 @@ static eastl::ring_buffer<uint64_t> previously_sent_battlelogs;
 static std::mutex                   previously_sent_battlelogs_mtx;
 static std::mutex                   battle_feed_file_mtx;
 
-static constexpr char kBattleFeedFile[] = "community_patch_battle_feed.jsonl";
-static constexpr auto kBattleFeedHardMaxBytes = static_cast<std::uintmax_t>(10 * 1024 * 1024);
+static constexpr char kBattleFeedFile[]                = "community_patch_battle_feed.jsonl";
+static constexpr auto kBattleFeedHardMaxBytes          = static_cast<std::uintmax_t>(10 * 1024 * 1024);
 static constexpr auto kBattleFeedRetentionReadMaxBytes = static_cast<std::uintmax_t>(5 * 1024 * 1024);
 
 struct RetainedBattleFeedGroup {
@@ -148,6 +148,29 @@ static bool has_enabled_sync_target(SyncConfig::Type type)
 {
   const auto targets_view = Config::Get().sync_targets | std::views::values;
   return std::ranges::any_of(targets_view, [type](const auto& target) { return target.enabled(type); });
+}
+
+void LogBattleOutputConfiguration()
+{
+  const auto public_battlelogs = has_enabled_sync_target(SyncConfig::Type::Battles);
+  const auto sidecar_battles   = sidecar_local_ingest::BattleEventsEnabled();
+  const auto sidecar_jsonl     = Config::Get().sidecar_logging_jsonl;
+
+  if (public_battlelogs && sidecar_battles) {
+    spdlog::warn(
+        "[BattleSync] Public battlelog sync and local sidecar ingest are both enabled "
+        "(sync.battlelogs=true, sidecar.sync.battlelogs_realtime=true, sidecar.logging.jsonl={}). This duplicates "
+        "battle journal export work by configuration; public sync payloads remain upstream-compatible, and local "
+        "sidecar ingest will persist to the sidecar store.",
+        sidecar_jsonl);
+  }
+
+  if (sidecar_jsonl) {
+    spdlog::warn(
+        "[BattleSync] Optional battle JSONL evidence capture is enabled; {} is diagnostic/replay output, not a public "
+        "sync target or the primary sidecar ingest path.",
+        kBattleFeedFile);
+  }
 }
 
 static std::string json_key_value_as_string(const nlohmann::json& value)
@@ -282,7 +305,7 @@ static BattleFeedLineMetadata battle_feed_line_metadata_from_line(const std::str
 }
 
 static void drop_expired_battle_feed_groups(std::deque<RetainedBattleFeedGroup>& retained_groups,
-                                            const std::optional<int64_t> cutoff_ms)
+                                            const std::optional<int64_t>         cutoff_ms)
 {
   if (!cutoff_ms) {
     return;
@@ -296,25 +319,24 @@ static void drop_expired_battle_feed_groups(std::deque<RetainedBattleFeedGroup>&
 
 static void retain_recent_jsonl_sidecar_events_locked(size_t recent_logs, int replay_seconds)
 {
-  replay_seconds = std::max(0, replay_seconds);
-  const auto    feed_path = std::filesystem::path(File::MakePathString(kBattleFeedFile, true));
-  const auto    feed_size = battle_feed_file_size(feed_path);
-  const auto    has_retention_limit = recent_logs > 0 || replay_seconds > 0;
+  replay_seconds                 = std::max(0, replay_seconds);
+  const auto feed_path           = std::filesystem::path(File::MakePathString(kBattleFeedFile, true));
+  const auto feed_size           = battle_feed_file_size(feed_path);
+  const auto has_retention_limit = recent_logs > 0 || replay_seconds > 0;
   if (!has_retention_limit && (!feed_size || *feed_size <= kBattleFeedHardMaxBytes)) {
     return;
   }
 
-  const std::optional<int64_t> retention_cutoff_ms = replay_seconds > 0
-      ? std::optional<int64_t>(current_probe_unix_ms() - static_cast<int64_t>(replay_seconds) * 1000)
-      : std::nullopt;
+  const std::optional<int64_t> retention_cutoff_ms =
+      replay_seconds > 0 ? std::optional<int64_t>(current_probe_unix_ms() - static_cast<int64_t>(replay_seconds) * 1000)
+                         : std::nullopt;
 
   std::ifstream input(feed_path, std::ios::in | std::ios::binary);
   if (!input.is_open()) {
     return;
   }
 
-  const auto read_suffix_only =
-      feed_size ? seek_to_bounded_battle_feed_suffix(input, feed_path, *feed_size) : false;
+  const auto read_suffix_only = feed_size ? seek_to_bounded_battle_feed_suffix(input, feed_path, *feed_size) : false;
 
   std::deque<RetainedBattleFeedGroup> retained_groups;
   std::string                         line;
@@ -403,8 +425,8 @@ static void retain_recent_jsonl_sidecar_events_locked(size_t recent_logs, int re
   }
 
   if (read_suffix_only) {
-    spdlog::info("Retained {} battle-log group(s) from bounded suffix of {} ({} JSONL line(s))",
-                 retained_groups.size(), feed_path.string(), retained_line_count);
+    spdlog::info("Retained {} battle-log group(s) from bounded suffix of {} ({} JSONL line(s))", retained_groups.size(),
+                 feed_path.string(), retained_line_count);
   } else {
     spdlog::info("Retained {} of {} battle-log group(s) in {} ({} JSONL line(s))", retained_groups.size(),
                  total_group_count, feed_path.string(), retained_line_count);
@@ -415,10 +437,10 @@ static void append_jsonl_sidecar_events(const nlohmann::json& sidecar_events)
 {
   std::lock_guard lk(battle_feed_file_mtx);
 
-  const auto recent_logs = SidecarLoggingJsonlRecentLogs();
+  const auto recent_logs           = SidecarLoggingJsonlRecentLogs();
   const auto retention_recent_logs = recent_logs > 0 ? static_cast<size_t>(recent_logs) : 0;
-  const auto replay_seconds       = SidecarLoggingJsonlReplaySeconds();
-  const auto feed_path            = File::MakePathString(kBattleFeedFile, true);
+  const auto replay_seconds        = SidecarLoggingJsonlReplaySeconds();
+  const auto feed_path             = File::MakePathString(kBattleFeedFile, true);
 
   if (const auto feed_size = battle_feed_file_size(feed_path); feed_size && *feed_size > kBattleFeedHardMaxBytes) {
     retain_recent_jsonl_sidecar_events_locked(retention_recent_logs, replay_seconds);
@@ -700,9 +722,8 @@ static nlohmann::json collect_sidecar_export_events(uint64_t journal_id, const n
                                                     int64_t captured_at_unix_ms)
 {
   auto catalog_resolver = build_catalog_resolver();
-  return battle_log_decoder::build_sidecar_battle_event_sequence(journal, names, decoded, catalog_resolver,
-                                                                 BattleLogDecoderEnabled(), journal_id,
-                                                                 captured_at_unix_ms);
+  return battle_log_decoder::build_sidecar_battle_event_sequence(
+      journal, names, decoded, catalog_resolver, BattleLogDecoderEnabled(), journal_id, captured_at_unix_ms);
 }
 
 void load_previously_sent_logs()
@@ -749,11 +770,8 @@ void process_battle_headers(const nlohmann::json& section)
     for (const auto id : to_enqueue) {
       if (!s_combat_log_queue.enqueue(id)) {
         const auto diagnostics = s_combat_log_queue.diagnostics();
-        spdlog::warn("Battle {} dropped because combat log queue is {} (queue_size={}, dropped={})",
-                     id,
-                     diagnostics.shutdown_requested ? "shutting down" : "full",
-                     diagnostics.depth,
-                     diagnostics.dropped);
+        spdlog::warn("Battle {} dropped because combat log queue is {} (queue_size={}, dropped={})", id,
+                     diagnostics.shutdown_requested ? "shutting down" : "full", diagnostics.depth, diagnostics.dropped);
       }
     }
   }
@@ -889,12 +907,11 @@ static void ship_combat_log_data()
   uint64_t journal_id = 0;
   while (s_combat_log_queue.wait_pop(journal_id)) {
 
-    const bool send_battlelogs            = has_enabled_sync_target(SyncConfig::Type::Battles);
-    const bool export_battlelogs_realtime = has_enabled_sync_target(SyncConfig::Type::BattlelogsRealtime);
-    const bool export_sidecar_local       = sidecar_local_ingest::BattleEventsEnabled();
-    const bool export_sidecar_jsonl       = Config::Get().sidecar_logging_jsonl;
+    const bool send_battlelogs      = has_enabled_sync_target(SyncConfig::Type::Battles);
+    const bool export_sidecar_local = sidecar_local_ingest::BattleEventsEnabled();
+    const bool export_sidecar_jsonl = Config::Get().sidecar_logging_jsonl;
 
-    if (!send_battlelogs && !export_battlelogs_realtime && !export_sidecar_local && !export_sidecar_jsonl) {
+    if (!send_battlelogs && !export_sidecar_local && !export_sidecar_jsonl) {
       spdlog::debug("Skipping combat log fetch for battle {} because no battle export targets are enabled", journal_id);
       continue;
     }
@@ -1003,28 +1020,23 @@ static void ship_combat_log_data()
             }
           }
         }
-
       }
 
       const auto captured_at_unix_ms = current_probe_unix_ms();
       auto       decoded             = nlohmann::json::object();
 
-      if (BattleLogDecoderEnabled() && (export_battlelogs_realtime || export_sidecar_local || export_sidecar_jsonl)) {
+      if (BattleLogDecoderEnabled() && (export_sidecar_local || export_sidecar_jsonl)) {
         battle_log_decoder::DecodeOptions decode_options;
-        decode_options.include_segments = BattleLogDecoderEmitSegments();
+        decode_options.include_segments                   = BattleLogDecoderEmitSegments();
         decode_options.include_runtime_ability_candidates = AdvancedDiagnosticsSettings().battle_log_decoder;
         decoded = battle_log_decoder::decode_journal(journal, names, decode_options, journal_id);
       }
 
-      if (export_battlelogs_realtime || export_sidecar_local || export_sidecar_jsonl) {
+      if (export_sidecar_local || export_sidecar_jsonl) {
         const auto sidecar_events =
             collect_sidecar_export_events(journal_id, names, journal, decoded, captured_at_unix_ms);
         export_sidecar_events_to_jsonl(sidecar_events, journal_id);
 
-        if (export_battlelogs_realtime && !sidecar_events.empty()) {
-          http::send_data(SyncConfig::Type::BattlelogsRealtime, sidecar_events.dump(), false);
-          spdlog::debug("Exported {} realtime battle feed event(s) for journal {}", sidecar_events.size(), journal_id);
-        }
         if (export_sidecar_local && !sidecar_events.empty()) {
           sidecar_local_ingest::EnqueueBattleEvents(sidecar_events);
         }
@@ -1066,9 +1078,7 @@ static void ship_combat_log_data()
 
 void StartCombatLogWorker()
 {
-  std::call_once(s_combat_log_worker_once, [] {
-    s_combat_log_worker_thread = std::thread(ship_combat_log_data);
-  });
+  std::call_once(s_combat_log_worker_once, [] { s_combat_log_worker_thread = std::thread(ship_combat_log_data); });
 }
 
 void ShutdownCombatLogWorker()

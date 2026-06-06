@@ -99,7 +99,7 @@ Current-main rules for this snapshot:
   - `[battle_log_decoder].emit_segments`
   - `[battle_log_decoder].emit_feed`
 - External sync gates:
-  - `[sync]` booleans by type such as `battlelogs`, `battlelogs_realtime`, `fleet_runtime`, `ships`, `jobs`
+  - `[sync]` booleans by type such as `battlelogs`, `fleet_runtime`, `ships`, `jobs`
   - `[sync].proxy`
   - `[sync].verify_ssl`
   - `[sync].allow_unsafe_tls_without_certificate_validation`

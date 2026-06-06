@@ -30,10 +30,10 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
-#include <cstring>
-#include <cstdlib>
-#include <exception>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
 #include <string>
 
 #if _WIN32
@@ -60,7 +60,7 @@ void LogRootHookInstallFailure(const std::string& message)
   std::fprintf(stderr, "%s\n", message.c_str());
 #endif
 }
-}
+} // namespace
 
 // ─── Forward Declarations — per-module install functions ─────────────────────
 
@@ -162,27 +162,30 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   static auto& cfg = Config::Get();
+  if (cfg.installSyncPatches) {
+    LogBattleOutputConfiguration();
+  }
 
   spdlog::info("");
   spdlog::info("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
-  auto             install_deployment_runtime_observers =
+  auto install_deployment_runtime_observers =
       (cfg.installSyncPatches && (cfg.sync_options.fleet_runtime || sidecar_local_ingest::FleetRuntimeEnabled()))
       || fleet_notifications_runtime_events_enabled();
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
-  auto             install_live_debug_hooks           = LiveDebugChannelEnabled();
+  auto install_live_debug_hooks = LiveDebugChannelEnabled();
   if (install_live_debug_hooks) {
     install_deployment_runtime_observers = false;
   }
-  auto             install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
+  auto install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
 #endif
-  auto             install_frame_tick_hooks           = cfg.installHotkeyHooks;
+  auto install_frame_tick_hooks = cfg.installHotkeyHooks;
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   install_frame_tick_hooks = install_frame_tick_hooks || LiveDebugChannelEnabled();
 #endif
-  const PatchEntry patches[]                          = {
+  const PatchEntry patches[] = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
       {"BuffFixHooks", {InstallBuffFixHooks, &cfg.installBuffFixHooks}},
@@ -225,9 +228,9 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
     const auto [patch_func, patch_enabled] = patch.fnAndEnabled;
     const auto patch_allowed_by_isolation =
         !kLiveDebugOnlyHookIsolation || std::strcmp(patch.name, "DeploymentRuntimeObservers") == 0
-        || std::strcmp(patch.name, "LiveDebugHooks") == 0
-        || std::strcmp(patch.name, "ObjectTracker") == 0 || std::strcmp(patch.name, "FleetArrival") == 0
-        || std::strcmp(patch.name, "FrameTickHooks") == 0 || std::strcmp(patch.name, "HotkeyHooks") == 0;
+        || std::strcmp(patch.name, "LiveDebugHooks") == 0 || std::strcmp(patch.name, "ObjectTracker") == 0
+        || std::strcmp(patch.name, "FleetArrival") == 0 || std::strcmp(patch.name, "FrameTickHooks") == 0
+        || std::strcmp(patch.name, "HotkeyHooks") == 0;
     const auto patch_install = patch_allowed_by_isolation && (patch_enabled && *patch_enabled);
     const auto patch_mode    = patch_install ? "+ Patch" : "x Skipp";
     spdlog::info(" {}ing {:>2} of {} ({})", patch_mode, patch_count, patch_total, patch.name);
