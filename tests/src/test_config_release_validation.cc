@@ -9,43 +9,43 @@
 
 namespace
 {
-  std::filesystem::path find_repo_file(const std::string_view relative_path)
-  {
-    auto current = std::filesystem::current_path();
-    while (!current.empty()) {
-      const auto candidate = current / std::filesystem::path(relative_path);
-      if (std::filesystem::exists(candidate)) {
-        return candidate;
-      }
-
-      if (!current.has_parent_path()) {
-        break;
-      }
-
-      const auto parent = current.parent_path();
-      if (parent == current) {
-        break;
-      }
-
-      current = parent;
+std::filesystem::path find_repo_file(const std::string_view relative_path)
+{
+  auto current = std::filesystem::current_path();
+  while (!current.empty()) {
+    const auto candidate = current / std::filesystem::path(relative_path);
+    if (std::filesystem::exists(candidate)) {
+      return candidate;
     }
 
-    return {};
+    if (!current.has_parent_path()) {
+      break;
+    }
+
+    const auto parent = current.parent_path();
+    if (parent == current) {
+      break;
+    }
+
+    current = parent;
   }
 
-  std::string read_text_file(const std::string_view relative_path)
-  {
-    const auto path = find_repo_file(relative_path);
-    REQUIRE_MESSAGE(!path.empty(), "Failed to find " << std::string(relative_path));
-
-    std::ifstream input(path, std::ios::binary);
-    REQUIRE_MESSAGE(input.good(), "Failed to open " << path.string());
-
-    std::ostringstream buffer;
-    buffer << input.rdbuf();
-    return buffer.str();
-  }
+  return {};
 }
+
+std::string read_text_file(const std::string_view relative_path)
+{
+  const auto path = find_repo_file(relative_path);
+  REQUIRE_MESSAGE(!path.empty(), "Failed to find " << std::string(relative_path));
+
+  std::ifstream input(path, std::ios::binary);
+  REQUIRE_MESSAGE(input.good(), "Failed to open " << path.string());
+
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return buffer.str();
+}
+} // namespace
 
 TEST_CASE("example config covers public runtime settings")
 {
@@ -75,28 +75,32 @@ TEST_CASE("keymapping generated compatibility section stays in sync")
 
 TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh keys")
 {
-  const auto source = read_text_file("example_community_patch_settings.toml");
-  const auto config = toml::parse(source);
-  const auto* debug = config["debug"].as_table();
-  const auto* advanced = config["advanced"]["diagnostics"].as_table();
-  const auto* advanced_files = config["advanced"]["diagnostics"]["files"].as_table();
-  const auto* advanced_queue = config["advanced"]["queue"].as_table();
+  const auto  source                              = read_text_file("example_community_patch_settings.toml");
+  const auto  config                              = toml::parse(source);
+  const auto* debug                               = config["debug"].as_table();
+  const auto* advanced                            = config["advanced"]["diagnostics"].as_table();
+  const auto* advanced_files                      = config["advanced"]["diagnostics"]["files"].as_table();
+  const auto* advanced_kirshara_queue_diagnostics = config["advanced"]["diagnostics"]["kirshara_queue"].as_table();
+  const auto* advanced_kirshara_queue             = config["advanced"]["kirshara_queue"].as_table();
+  const auto* advanced_queue                      = config["advanced"]["queue"].as_table();
 
   CHECK(source.find("manual_navigation_refresh") == std::string::npos);
   CHECK(source.find("ghost_owner_diagnostics") == std::string::npos);
   REQUIRE(advanced != nullptr);
   REQUIRE(advanced_files != nullptr);
+  REQUIRE(advanced_kirshara_queue_diagnostics != nullptr);
+  REQUIRE(advanced_kirshara_queue != nullptr);
   REQUIRE(advanced_queue != nullptr);
-  const auto debug_has_live_query = debug != nullptr && debug->contains("live_query");
+  const auto debug_has_live_query    = debug != nullptr && debug->contains("live_query");
   const auto debug_has_runtime_trace = debug != nullptr && debug->contains("runtime_trace");
   const auto debug_has_runtime_trace_track_overhead =
       debug != nullptr && debug->contains("runtime_trace_track_overhead");
   const auto debug_has_mod_impact_monitor = debug != nullptr && debug->contains("mod_impact_monitor");
   const auto debug_has_runtime_trace_report_interval_ms =
       debug != nullptr && debug->contains("runtime_trace_report_interval_ms");
-  const auto debug_has_refinery_diagnostics = debug != nullptr && debug->contains("refinery_diagnostics");
+  const auto debug_has_refinery_diagnostics     = debug != nullptr && debug->contains("refinery_diagnostics");
   const auto debug_has_queue_add_direct_handler = debug != nullptr && debug->contains("queue_add_direct_handler");
-  const auto debug_has_queue_add_hide_viewers = debug != nullptr && debug->contains("queue_add_hide_viewers");
+  const auto debug_has_queue_add_hide_viewers   = debug != nullptr && debug->contains("queue_add_hide_viewers");
 
   CHECK_FALSE(debug_has_live_query);
   CHECK_FALSE(debug_has_runtime_trace);
@@ -116,6 +120,38 @@ TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh
   CHECK_FALSE(advanced_files->contains("main_log_max_kb"));
   CHECK_FALSE(advanced_files->contains("main_log_files"));
   CHECK(advanced_files->get("root")->value<std::string>().value_or("non-empty").empty());
+  CHECK(advanced_kirshara_queue_diagnostics->contains("enabled"));
+  CHECK_FALSE(advanced_kirshara_queue_diagnostics->get("enabled")->value<bool>().value_or(true));
+  CHECK(advanced_kirshara_queue_diagnostics->contains("dump_interesting_methods"));
+  CHECK_FALSE(advanced_kirshara_queue_diagnostics->get("dump_interesting_methods")->value<bool>().value_or(true));
+  CHECK(advanced_kirshara_queue_diagnostics->contains("on_strike_complete"));
+  CHECK_FALSE(advanced_kirshara_queue_diagnostics->get("on_strike_complete")->value<bool>().value_or(true));
+  CHECK(advanced_kirshara_queue_diagnostics->contains("remove_target_and_attack_next"));
+  CHECK_FALSE(advanced_kirshara_queue_diagnostics->get("remove_target_and_attack_next")->value<bool>().value_or(true));
+  CHECK(advanced_kirshara_queue_diagnostics->contains("check_to_clear_action_queue"));
+  CHECK_FALSE(advanced_kirshara_queue_diagnostics->get("check_to_clear_action_queue")->value<bool>().value_or(true));
+  CHECK(advanced_kirshara_queue_diagnostics->contains("is_target_valid"));
+  CHECK_FALSE(advanced_kirshara_queue_diagnostics->get("is_target_valid")->value<bool>().value_or(true));
+  CHECK(advanced_kirshara_queue_diagnostics->contains("process_queue_deployed"));
+  CHECK_FALSE(advanced_kirshara_queue_diagnostics->get("process_queue_deployed")->value<bool>().value_or(true));
+  CHECK(advanced_kirshara_queue_diagnostics->contains("process_queue_target"));
+  CHECK_FALSE(advanced_kirshara_queue_diagnostics->get("process_queue_target")->value<bool>().value_or(true));
+  CHECK(advanced_kirshara_queue_diagnostics->contains("on_set_course_response"));
+  CHECK_FALSE(advanced_kirshara_queue_diagnostics->get("on_set_course_response")->value<bool>().value_or(true));
+  CHECK(advanced_kirshara_queue_diagnostics->contains("on_player_fleet_state_changed"));
+  CHECK_FALSE(advanced_kirshara_queue_diagnostics->get("on_player_fleet_state_changed")->value<bool>().value_or(true));
+  CHECK(advanced_kirshara_queue_diagnostics->contains("on_fleet_state_change"));
+  CHECK_FALSE(advanced_kirshara_queue_diagnostics->get("on_fleet_state_change")->value<bool>().value_or(true));
+  CHECK(advanced_kirshara_queue_diagnostics->contains("on_fleets_disposed"));
+  CHECK_FALSE(advanced_kirshara_queue_diagnostics->get("on_fleets_disposed")->value<bool>().value_or(true));
+  CHECK(advanced_kirshara_queue->contains("enabled"));
+  CHECK_FALSE(advanced_kirshara_queue->get("enabled")->value<bool>().value_or(true));
+  CHECK_FALSE(advanced_kirshara_queue->contains("try_plan_path_and_engage_target"));
+  CHECK_FALSE(advanced_kirshara_queue->contains("completion_markers"));
+  CHECK(advanced_kirshara_queue->contains("course_target_completion"));
+  CHECK_FALSE(advanced_kirshara_queue->get("course_target_completion")->value<bool>().value_or(true));
+  CHECK_FALSE(advanced_kirshara_queue->contains("handle_stall"));
+  CHECK_FALSE(advanced_kirshara_queue->contains("remove_action_from_queue"));
   CHECK(advanced_queue->contains("queue_add_direct_handler"));
   CHECK(advanced_queue->contains("queue_add_hide_viewers"));
 }

@@ -127,6 +127,24 @@ namespace Advanced
     constexpr int runtime_trace_report_interval_ms = 5000;
     /// Enable focused refinery lifecycle/action diagnostics in community_patch.log. Default: false.
     constexpr bool refinery_diagnostics = false;
+
+    namespace KirsharaQueue
+    {
+      /// Master gate for Kir'shara queue marker diagnostics. Default: false.
+      constexpr bool enabled = false;
+      /// Dump current ActionQueueManager method metadata at boot. Default: false.
+      constexpr bool dump_interesting_methods      = false;
+      constexpr bool on_strike_complete            = false;
+      constexpr bool remove_target_and_attack_next = false;
+      constexpr bool check_to_clear_action_queue   = false;
+      constexpr bool is_target_valid               = false;
+      constexpr bool process_queue_deployed        = false;
+      constexpr bool process_queue_target          = false;
+      constexpr bool on_set_course_response        = false;
+      constexpr bool on_player_fleet_state_changed = false;
+      constexpr bool on_fleet_state_change         = false;
+      constexpr bool on_fleets_disposed            = false;
+    } // namespace KirsharaQueue
   } // namespace Diagnostics
 
   namespace Queue
@@ -138,6 +156,14 @@ namespace Advanced
     /// Keep queue-add viewer cleanup enabled after pressing the in-game Add to Queue button. Default: false.
     constexpr bool queue_add_hide_viewers = false;
   } // namespace Queue
+
+  namespace KirsharaQueue
+  {
+    /// Enable the focused Kir'shara queued-combat advancement repair. Default: false.
+    constexpr bool enabled = false;
+    /// Synthesize the missing target completion commit for off-screen queued combat. Default: false.
+    constexpr bool course_target_completion = false;
+  } // namespace KirsharaQueue
 } // namespace Advanced
 
 namespace BattleLogDecoder

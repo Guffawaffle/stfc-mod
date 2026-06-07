@@ -12,6 +12,7 @@
 #include "config_sidecar.h"
 #include "config_schema.h"
 #include "file.h"
+#include "patches/action_queue_repair_config.h"
 #include "patches/input_binding/input_config_bridge.h"
 #include "patches/input_binding/input_runtime_bindings.h"
 #include "patches/mapkey.h"
@@ -42,6 +43,7 @@ namespace DCG   = DefaultConfig::Graphics;
 namespace DCD   = DefaultConfig::Debug;
 namespace DCAD  = DefaultConfig::Advanced::Diagnostics;
 namespace DCAQ  = DefaultConfig::Advanced::Queue;
+namespace DCAKQ = DefaultConfig::Advanced::KirsharaQueue;
 namespace DCN   = DefaultConfig::Notifications;
 namespace DCC   = DefaultConfig::Control;
 namespace DCU   = DefaultConfig::UI;
@@ -72,6 +74,7 @@ static ScopelyShortcutPolicy g_scopely_shortcuts_policy          = ScopelyShortc
 static OriginalFramePolicy   g_original_frame_policy             = OriginalFramePolicy::Mod;
 static bool                  g_live_debug_channel                = DCAD::live_query;
 static bool                  g_queue_repair_enabled              = DCAQ::queue_repair_enabled;
+static KirsharaQueueRepairConfig g_kirshara_queue_repair_config{};
 static bool                  g_queue_add_direct_handler          = DCAQ::queue_add_direct_handler;
 static bool                  g_queue_add_hide_viewers            = DCAQ::queue_add_hide_viewers;
 static bool                  g_battle_log_decoder_enabled        = false;
@@ -102,6 +105,12 @@ bool LiveDebugChannelEnabled()
 
 bool QueueRepairEnabled()
 { return g_queue_repair_enabled; }
+
+bool KirsharaQueueRepairEnabled()
+{ return g_kirshara_queue_repair_config.enabled; }
+
+const KirsharaQueueRepairConfig& KirsharaQueueRepairSettings()
+{ return g_kirshara_queue_repair_config; }
 
 bool QueueAddDirectHandlerEnabled()
 { return g_queue_repair_enabled && g_queue_add_direct_handler; }
@@ -1163,12 +1172,18 @@ void Config::Load()
   for (const auto& diagnostic : sidecar_config_result.diagnostics) {
     log_config_diagnostic(diagnostic);
   }
+  const auto kirshara_queue_repair_config_result = ParseKirsharaQueueRepairConfig(config);
+  for (const auto& diagnostic : kirshara_queue_repair_config_result.diagnostics) {
+    log_config_diagnostic(diagnostic);
+  }
   this->sidecar_logging_jsonl          = g_sidecar_config.logging.jsonl;
   g_sidecar_logging_jsonl_replay_seconds = std::max(0, g_sidecar_config.logging.jsonl_replay_seconds);
   g_sidecar_logging_jsonl_recent_logs    = std::max(0, g_sidecar_config.logging.jsonl_recent_logs);
   WriteSidecarConfigRuntimeSnapshot(parsed, g_sidecar_config);
   WriteAdvancedConfigRuntimeSnapshot(parsed, g_advanced_config);
+  WriteKirsharaQueueRepairRuntimeSnapshot(parsed, kirshara_queue_repair_config_result.config);
   g_live_debug_channel = g_advanced_config.diagnostics.live_query;
+  g_kirshara_queue_repair_config = kirshara_queue_repair_config_result.config;
   g_queue_repair_enabled     = g_advanced_config.queue.queue_repair_enabled;
   g_queue_add_direct_handler = g_advanced_config.queue.queue_add_direct_handler;
   g_queue_add_hide_viewers   = g_advanced_config.queue.queue_add_hide_viewers;

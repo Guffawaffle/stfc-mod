@@ -24,6 +24,8 @@
 #include <Windows.h>
 #endif
 
+struct KirsharaQueueRepairConfig;
+
 /**
  * @brief Per-target synchronisation toggles and proxy settings.
  *
@@ -500,7 +502,18 @@ bool LiveDebugChannelEnabled();
 bool QueueRepairEnabled();
 
 /**
+ * @brief Whether the focused Kir'shara queued-combat advancement repair is enabled.
+ */
+bool KirsharaQueueRepairEnabled();
+
+/**
+ * @brief Canonical `[advanced.kirshara_queue]` settings resolved during config load.
+ */
+const KirsharaQueueRepairConfig& KirsharaQueueRepairSettings();
+
+/**
  * @brief Whether queue-add should use the widget's direct click handler instead of the generic button press path.
+
  */
 bool QueueAddDirectHandlerEnabled();
 
