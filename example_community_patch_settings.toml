@@ -911,15 +911,17 @@ navhook_trace_files = 3
 action_queue_probe_max_kb = 8192
 action_queue_probe_files = 3
 
-[advanced.queue]
-# Queue experiment/dev-test namespace. These keys do not change the intended
-# queue outcome; they only change which local path is used while diagnosing
-# queue-add behavior and whether viewer cleanup is folded into that path.
-# Leave the master gate off during normal play so none of the queue repair or
-# probe detours install at all.
+[advanced.kirshara_queue]
+# Focused Kir'shara queued-combat advancement repair. Leave disabled unless
+# you are validating the off-screen queue-stall regression workaround.
+enabled = false
 
-# Master opt-in gate for queue repair/probe experiments. Missing or false keeps
-# the queue repair layer structurally inactive.
+[advanced.queue]
+# Legacy queue-add experiment/dev-test namespace. These keys do not control
+# Kir'shara queue progression repair.
+
+# Master opt-in gate for the queue-add path experiments below. Missing or false
+# keeps the queue-add overrides inactive.
 queue_repair_enabled = false
 
 # Use the widget's queue-click event handler directly instead of the generic

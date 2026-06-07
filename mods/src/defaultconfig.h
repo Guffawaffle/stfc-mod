@@ -140,6 +140,12 @@ namespace Advanced
     /// Keep queue-add viewer cleanup enabled after pressing the in-game Add to Queue button. Default: false.
     constexpr bool queue_add_hide_viewers = false;
   } // namespace Queue
+
+  namespace KirsharaQueue
+  {
+    /// Enable the focused Kir'shara queued-combat advancement repair. Default: false.
+    constexpr bool enabled = false;
+  } // namespace KirsharaQueue
 } // namespace Advanced
 
 namespace BattleLogDecoder

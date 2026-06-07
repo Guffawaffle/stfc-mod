@@ -80,12 +80,14 @@ TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh
   const auto* debug = config["debug"].as_table();
   const auto* advanced = config["advanced"]["diagnostics"].as_table();
   const auto* advanced_files = config["advanced"]["diagnostics"]["files"].as_table();
+  const auto* advanced_kirshara_queue = config["advanced"]["kirshara_queue"].as_table();
   const auto* advanced_queue = config["advanced"]["queue"].as_table();
 
   CHECK(source.find("manual_navigation_refresh") == std::string::npos);
   CHECK(source.find("ghost_owner_diagnostics") == std::string::npos);
   REQUIRE(advanced != nullptr);
   REQUIRE(advanced_files != nullptr);
+  REQUIRE(advanced_kirshara_queue != nullptr);
   REQUIRE(advanced_queue != nullptr);
   const auto debug_has_live_query = debug != nullptr && debug->contains("live_query");
   const auto debug_has_runtime_trace = debug != nullptr && debug->contains("runtime_trace");
@@ -116,6 +118,8 @@ TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh
   CHECK_FALSE(advanced_files->contains("main_log_max_kb"));
   CHECK_FALSE(advanced_files->contains("main_log_files"));
   CHECK(advanced_files->get("root")->value<std::string>().value_or("non-empty").empty());
+  CHECK(advanced_kirshara_queue->contains("enabled"));
+  CHECK_FALSE(advanced_kirshara_queue->get("enabled")->value<bool>().value_or(true));
   CHECK(advanced_queue->contains("queue_add_direct_handler"));
   CHECK(advanced_queue->contains("queue_add_hide_viewers"));
 }

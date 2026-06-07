@@ -1,15 +1,15 @@
 /**
  * @file action_queue_repair.cc
- * @brief Action queue repair hooks and investigation diagnostics.
+ * @brief Focused Kir'shara action queue advancement repair hooks.
  *
- * Contains the narrow queue-skip repair hooks, sticky engaged-target experiment,
- * and trace-gated queue diagnostics used to investigate occasional skipped
- * hostile actions without importing the broader NetNiv runtime cleanup work.
+ * Contains the narrow queue-skip repair hooks used to keep queued combat advancing when native queue state drops
+ * target/completion bookkeeping.
  */
 #include "errormsg.h"
 #include "file.h"
 #include "config.h"
 #include "diagnostics_file_policy.h"
+#include "patches/action_queue_repair_config.h"
 #include "patches/fleet_runtime_diagnostics.h"
 
 #include <algorithm>
@@ -35,19 +35,20 @@
 
 bool ActionQueueProbeEnabled()
 {
-  if (!QueueRepairEnabled()) {
-    return false;
-  }
-
-  const auto level = RuntimeTraceLevelSetting();
-  return level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
+  const auto level                  = RuntimeTraceLevelSetting();
+  const auto detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
+  return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairEnabled(), detailed_runtime_trace).emit_probe_logs;
 }
 
 bool ActionQueueProbeDetoursEnabled()
-{ return ActionQueueProbeEnabled(); }
+{ return false; }
 
 bool ActionQueueRepairEnabled()
-{ return QueueRepairEnabled(); }
+{
+  const auto level                  = RuntimeTraceLevelSetting();
+  const auto detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
+  return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairEnabled(), detailed_runtime_trace).install_repair_hooks;
+}
 
 constexpr char kActionQueueProbeJsonlFile[] = "community_patch_action_queue_probe.jsonl";
 
@@ -1321,11 +1322,13 @@ void ActionQueueEvents_TriggerActionRemovedFromQueueEvent(auto original)
 
 void InstallActionQueueRepairHooks()
 {
-  const auto install_action_queue_repairs     = ActionQueueRepairEnabled();
-  const auto install_action_queue_diagnostics = ActionQueueProbeDetoursEnabled();
+  const auto level                  = RuntimeTraceLevelSetting();
+  const auto detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
+  const auto install_plan = BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairEnabled(), detailed_runtime_trace);
+  const auto install_action_queue_repairs     = install_plan.install_repair_hooks;
+  const auto install_action_queue_diagnostics = install_plan.install_diagnostic_hooks;
 
   if (!install_action_queue_repairs && !install_action_queue_diagnostics) {
-    spdlog::info("[ActionQueueRepair] disabled; skipping repair/probe detours");
     return;
   }
 

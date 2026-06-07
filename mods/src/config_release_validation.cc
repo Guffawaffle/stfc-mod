@@ -46,6 +46,8 @@ namespace
       "advanced.diagnostics.runtime_trace_report_interval_ms",
       "advanced.diagnostics.runtime_trace_track_overhead",
       "advanced.diagnostics.ship_identity",
+      "advanced.kirshara_queue",
+      "advanced.kirshara_queue.enabled",
       "advanced.queue",
       "advanced.queue.queue_repair_enabled",
       "advanced.queue.queue_add_direct_handler",

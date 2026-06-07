@@ -4,6 +4,13 @@
 > live branch and is now out of scope. This log is preserved as historical evidence; the active branch goal is the
 > narrow Kir'shara queue-skip repair only.
 
+## 2026-06-07 Restore Note
+
+- The focused repair is gated by `[advanced.kirshara_queue].enabled`, default `false`.
+- The intended repair surface is limited to queue progression hooks: `RemoveActionFromQueue`,
+  `TryPlanPathAndEngageTarget`, and `HandleStall`.
+- Manual navigation refresh, ghost refresh, and diagnostic-only queue detours remain out of scope.
+
 ## Goal
 
 Track queue-skip experiments in one place so we can correlate code changes with live behavior and avoid repeating dead ends.

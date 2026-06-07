@@ -257,8 +257,7 @@ bool isFirstInterstitial = true;
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
 void InstallActionQueueRepairHooks();
 #else
-static void InstallActionQueueRepairHooks()
-{}
+static void InstallActionQueueRepairHooks() {}
 #endif
 
 void InterstitialViewController_AboutToShow(auto original, InterstitialViewController* _this)
@@ -280,7 +279,7 @@ void InterstitialViewController_AboutToShow(auto original, InterstitialViewContr
  *   - ShopSceneManager::ShouldShowRevealSequence (skip reveal animation)
  *   - ShopSceneManager::TriggerOpenSectionChange (force reveal skip flag)
  *   - InterstitialViewController::AboutToShow (dismiss first popup)
- *   - Action queue repair hooks and diagnostics (delegated to action_queue_repair.cc)
+ *   - Kir'shara queue advancement repair hooks (delegated to action_queue_repair.cc)
  */
 void InstallTempCrashFixes()
 {
