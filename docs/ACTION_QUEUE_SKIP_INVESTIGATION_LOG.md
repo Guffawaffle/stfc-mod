@@ -7,7 +7,10 @@
 ## 2026-06-07 Restore Note
 
 - The focused repair is gated by `[advanced.kirshara_queue].enabled`, default `false`.
-- The active staged repair surface is limited to `RemoveActionFromQueue` and `HandleStall`.
+- The active repair surface is `course_target_completion`; `RemoveActionFromQueue` and `HandleStall` remain separate
+  staged flags and are not required for the current off-screen completion repair.
+- Marker-only diagnostics live under `[advanced.diagnostics.kirshara_queue]`, with one master diagnostics gate plus
+  individual marker gates.
 - `HandleStall` is not present on the current live build shape, so it is not a meaningful current seam until the dump
   says otherwise.
 - `TryPlanPathAndEngageTarget` is excluded from the current repair surface because the current dump now returns

@@ -129,6 +129,24 @@ namespace Advanced
     constexpr int runtime_trace_report_interval_ms = 5000;
     /// Enable focused refinery lifecycle/action diagnostics in community_patch.log. Default: false.
     constexpr bool refinery_diagnostics = false;
+
+    namespace KirsharaQueue
+    {
+      /// Master gate for Kir'shara queue marker diagnostics. Default: false.
+      constexpr bool enabled = false;
+      /// Dump current ActionQueueManager method metadata at boot. Default: false.
+      constexpr bool dump_interesting_methods      = false;
+      constexpr bool on_strike_complete            = false;
+      constexpr bool remove_target_and_attack_next = false;
+      constexpr bool check_to_clear_action_queue   = false;
+      constexpr bool is_target_valid               = false;
+      constexpr bool process_queue_deployed        = false;
+      constexpr bool process_queue_target          = false;
+      constexpr bool on_set_course_response        = false;
+      constexpr bool on_player_fleet_state_changed = false;
+      constexpr bool on_fleet_state_change         = false;
+      constexpr bool on_fleets_disposed            = false;
+    } // namespace KirsharaQueue
   } // namespace Diagnostics
 
   namespace Queue
@@ -148,8 +166,6 @@ namespace Advanced
     /// Parsed for compatibility only. The old TryPlanPathAndEngageTarget hook is unsafe on the current build because
     /// the method now returns IEnumerator. Default: false.
     constexpr bool try_plan_path_and_engage_target = false;
-    /// Install higher-level completion markers for queued-combat process/remove/advance investigation. Default: false.
-    constexpr bool completion_markers = false;
     /// Synthesize the missing target completion commit for off-screen queued combat. Default: false.
     constexpr bool course_target_completion = false;
     /// Install the HandleStall hook during staged Kir'shara repair testing. Default: false.

@@ -911,6 +911,27 @@ navhook_trace_files = 3
 action_queue_probe_max_kb = 8192
 action_queue_probe_files = 3
 
+[advanced.diagnostics.kirshara_queue]
+# Focused Kir'shara queue marker diagnostics. These only install selected
+# marker detours when [advanced.kirshara_queue].enabled is also true.
+enabled = false
+
+# Dump current ActionQueueManager method metadata at boot.
+dump_interesting_methods = false
+
+# Individual queued-combat completion markers. Keep disabled during normal
+# play; enable only the narrow marker needed for the current investigation.
+on_strike_complete = false
+remove_target_and_attack_next = false
+check_to_clear_action_queue = false
+is_target_valid = false
+process_queue_deployed = false
+process_queue_target = false
+on_set_course_response = false
+on_player_fleet_state_changed = false
+on_fleet_state_change = false
+on_fleets_disposed = false
+
 [advanced.kirshara_queue]
 # Focused Kir'shara queued-combat advancement repair. Leave disabled unless
 # you are validating the off-screen queue-stall regression workaround.
@@ -919,11 +940,6 @@ enabled = false
 # Parsed for compatibility only. This old hook is unsafe on the current build
 # because TryPlanPathAndEngageTarget currently returns IEnumerator.
 try_plan_path_and_engage_target = false
-
-# Install higher-level completion markers around strike-complete/process/
-# advance while investigating off-screen queue stalls. This intentionally stays
-# off the crash-prone RemoveActionFromQueue seam.
-completion_markers = false
 
 # Experimental repair candidate for off-screen queued combat. It replays the
 # target-bearing queue commit when native only emits the player fleet combat
