@@ -20,7 +20,7 @@ const PROVIDER_VERSION = "0.2.0";
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const DEFAULT_GAME_ROOT = "/mnt/c/Games/Star Trek Fleet Command/default/game";
 const GAME_ROOT = process.env.STFC_GAME_ROOT || DEFAULT_GAME_ROOT;
-const OLD_AX_ROOT = process.env.STFC_AX_REF_ROOT || "/mnt/d/dev/stfc-mod/.ax";
+const PRIVATE_AX_ROOT = process.env.STFC_PRIVATE_AX_ROOT || process.env.STFC_AX_REF_ROOT || "/mnt/d/dev/stfc-mod/.ax-priv";
 const WINDOWS_BUILD_ROOT = process.env.STFC_WINDOWS_BUILD_ROOT || "/mnt/d/dev/stfc-mod-interop";
 const WINDOWS_PWSH_CANDIDATES = [
   process.env.STFC_WINDOWS_PWSH,
@@ -217,8 +217,8 @@ function commandDoctor() {
   addPathCheck(checks, "repo-root", REPO_ROOT, true);
   addPathCheck(checks, "linux-validation-script", join(REPO_ROOT, "scripts", "validate-linux.sh"), true);
   addPathCheck(checks, "cmake-project", join(REPO_ROOT, "CMakeLists.txt"), true);
-  addPathCheck(checks, "reference-ax-root", OLD_AX_ROOT, false);
-  addPathCheck(checks, "dump-db", join(OLD_AX_ROOT, "cache", "stfc.db"), false);
+  addPathCheck(checks, "private-ax-root", PRIVATE_AX_ROOT, false);
+  addPathCheck(checks, "dump-db", join(PRIVATE_AX_ROOT, "cache", "stfc.db"), false);
   addPathCheck(checks, "dump-cs", paths.dumpCs, false);
   addPathCheck(checks, "prime-headers", paths.primeRoot, false);
   addPathCheck(checks, "build-dll", paths.buildDll, false);
@@ -236,7 +236,7 @@ function commandDoctor() {
     providerVersion: PROVIDER_VERSION,
     repoRoot: REPO_ROOT,
     gameRoot: GAME_ROOT,
-    oldAxReferenceRoot: OLD_AX_ROOT,
+    privateAxReferenceRoot: PRIVATE_AX_ROOT,
     windowsInterop: interop.summary,
     checks
   });
@@ -382,7 +382,7 @@ function commandBattleLog(options) {
     return fail("battle-log-decode not found.", {
       phase: "tool-exe",
       tool,
-      hint: "Run: axf run stfc-mod decode-tool --json"
+      hint: "Use AXF MCP: inspect and run global.stfc-mod.decode-tool"
     });
   }
 
@@ -763,12 +763,12 @@ function commandDumpSearch(options) {
 }
 
 function commandDumpIndex(options) {
-  const script = join(OLD_AX_ROOT, "build_dump_index.py");
+  const script = join(PRIVATE_AX_ROOT, "build_dump_index.py");
   if (!exists(script)) {
     return fail("Reference build_dump_index.py not found.", { script });
   }
   const dumpPath = stringOpt(options["dump-path"]) || getPaths().dumpCs;
-  const dbPath = stringOpt(options["db-path"]) || join(OLD_AX_ROOT, "cache", "stfc.db");
+  const dbPath = stringOpt(options["db-path"]) || join(PRIVATE_AX_ROOT, "cache", "stfc.db");
   const result = runProcess(pythonCommand(), [script, "--dump", dumpPath, "--db", dbPath], {
     cwd: REPO_ROOT,
     maxBuffer: 128 * 1024 * 1024
@@ -781,7 +781,7 @@ function commandDumpIndex(options) {
 
 function commandQueryDump(queryCommand, queryArgs, options) {
   if (queryArgs.ok === false) return queryArgs;
-  const script = join(OLD_AX_ROOT, "query_dump.py");
+  const script = join(PRIVATE_AX_ROOT, "query_dump.py");
   if (!exists(script)) {
     return fail("Reference query_dump.py not found.", { script });
   }
@@ -794,7 +794,7 @@ function commandQueryDump(queryCommand, queryArgs, options) {
   const data = {
     queryCommand,
     referenceScript: script,
-    referenceDb: join(OLD_AX_ROOT, "cache", "stfc.db"),
+    referenceDb: join(PRIVATE_AX_ROOT, "cache", "stfc.db"),
     exitCode: result.exitCode,
     stderrTail: tailLines(result.stderr, intOpt(options.tail, 30)),
     result: parsed
@@ -917,7 +917,7 @@ function getPaths() {
   const build = findBuildDll();
   return {
     repoRoot: REPO_ROOT,
-    oldAxRoot: OLD_AX_ROOT,
+    privateAxRoot: PRIVATE_AX_ROOT,
     gameRoot: GAME_ROOT,
     buildBase: join(REPO_ROOT, "build", "windows", "x64"),
     buildDll: build.path,
@@ -1020,7 +1020,7 @@ function windowsInteropInfo({ probe = false } = {}) {
   const pwsh = findWindowsPowershell();
   const sourceRepoRootWin = toWindowsPath(REPO_ROOT);
   const repoRootWin = toWindowsPath(WINDOWS_BUILD_ROOT);
-  const axScript = join(OLD_AX_ROOT, "ax.ps1");
+  const axScript = join(PRIVATE_AX_ROOT, "ax.ps1");
   const axScriptWin = toWindowsPath(axScript);
   const checks = [];
 
@@ -1060,7 +1060,7 @@ function windowsInteropInfo({ probe = false } = {}) {
     repoRootWin,
     buildMirrorRoot: WINDOWS_BUILD_ROOT,
     axScriptWin,
-    sourceAxRoot: OLD_AX_ROOT
+    sourceAxRoot: PRIVATE_AX_ROOT
   };
 
   if (probe && summary.available) {
