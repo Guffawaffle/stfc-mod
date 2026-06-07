@@ -75,6 +75,46 @@
       "warnings": [],
       "details": []
     },
+    "workspace-status": {
+      "summary": "Cross-repo status: mod, sidecar, desktop, server, and event store",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "workspace-status"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "sidecar-repo-root": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "sidecar-repo-root": {}
+      },
+      "warnings": [],
+      "details": [
+        "Returns one JSON snapshot covering the selected mod repo plus the local sidecar repo, managed desktop state, server health, and event-store presence.",
+        "This is read-only and intended for mixed-repo development sessions."
+      ]
+    },
     "validate": {
       "summary": "Agent review gate: diff check, tests, build, and review status",
       "executionTarget": {
@@ -1231,6 +1271,107 @@
       "details": [
         "Collects selected logs and optional live recent-events into sidecar-compatible debug.event records.",
         "By default it can write a local JSONL export; -NoWrite suppresses file output, and -Post sends events to a sidecar endpoint."
+      ]
+    },
+    "sidecar-roundtrip": {
+      "summary": "Post one tagged AX sidecar-export session, verify ingest through the live sidecar package, and optionally snapshot the hostile report",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "sidecar-roundtrip"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "sidecar-repo-root": {
+            "type": "string"
+          },
+          "server-url": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "duration-sec": {
+            "type": "integer"
+          },
+          "recent-event-limit": {
+            "type": "integer"
+          },
+          "log-profile": {
+            "type": "string"
+          },
+          "log-pattern": {
+            "type": "string"
+          },
+          "max-log-results": {
+            "type": "integer"
+          },
+          "verify-limit": {
+            "type": "integer"
+          },
+          "wait-for-ingest-sec": {
+            "type": "integer"
+          },
+          "poll-ms": {
+            "type": "integer"
+          },
+          "include-events": {
+            "type": "boolean"
+          },
+          "skip-community-report": {
+            "type": "boolean"
+          },
+          "include-community-markdown": {
+            "type": "boolean"
+          },
+          "report-preview": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "sidecar-repo-root": {},
+        "server-url": {},
+        "token": {},
+        "duration-sec": {},
+        "recent-event-limit": {},
+        "log-profile": {},
+        "log-pattern": {},
+        "max-log-results": {},
+        "verify-limit": {},
+        "wait-for-ingest-sec": {},
+        "poll-ms": {},
+        "include-events": {},
+        "skip-community-report": {},
+        "include-community-markdown": {},
+        "report-preview": {}
+      },
+      "warnings": [
+        "Side effects: writes debug events into the sidecar event store and performs authenticated POST requests to the local sidecar ingest endpoint.",
+        "The command fails fast when the sidecar server is not healthy; relaunch the managed sidecar desktop app or use the sidecar desktop-cycle tool instead of probing arbitrary ports.",
+        "Sync tokens are resolved from parameter, environment, or desktop settings and are never echoed in the JSON result."
+      ],
+      "details": [
+        "Resolves the local sidecar URL and sync token from the active desktop setup, posts a no-write AX sidecar-export batch to /api/events, then polls the sidecar AX package until the tagged debug session is visible.",
+        "This verifies the mod-to-sidecar debug ingest loop end to end without launching another server or writing a local JSONL export.",
+        "The observed-hostile community report is attached as a read-only summary by default because it is a useful sidecar health artifact, but it is not expected to change from debug-only export traffic."
       ]
     },
     "log-slice": {
