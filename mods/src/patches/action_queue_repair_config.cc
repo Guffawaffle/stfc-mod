@@ -10,25 +10,11 @@ KirsharaQueueRepairConfigParseResult ParseKirsharaQueueRepairConfig(const toml::
                                                          DefaultConfig::Advanced::KirsharaQueue::enabled,
                                                          {},
                                                          "enable the Kir'shara queued-combat advancement repair"});
-  const auto try_plan_path_and_engage_target =
-      config_schema::read_bool(config, {kKirsharaQueueRepairTryPlanPathAndEngageTargetPath,
-                                        DefaultConfig::Advanced::KirsharaQueue::try_plan_path_and_engage_target,
-                                        {},
-                                        "install the TryPlanPathAndEngageTarget Kir'shara repair hook"});
   const auto course_target_completion = config_schema::read_bool(
       config, {kKirsharaQueueRepairCourseTargetCompletionPath,
                DefaultConfig::Advanced::KirsharaQueue::course_target_completion,
                {},
                "synthesize the missing ProcessQueue target commit for off-screen queued combat"});
-  const auto handle_stall = config_schema::read_bool(config, {kKirsharaQueueRepairHandleStallPath,
-                                                              DefaultConfig::Advanced::KirsharaQueue::handle_stall,
-                                                              {},
-                                                              "install the HandleStall Kir'shara repair hook"});
-  const auto remove_action_from_queue =
-      config_schema::read_bool(config, {kKirsharaQueueRepairRemoveActionFromQueuePath,
-                                        DefaultConfig::Advanced::KirsharaQueue::remove_action_from_queue,
-                                        {},
-                                        "install the RemoveActionFromQueue Kir'shara repair hook"});
   const auto diagnostics_enabled =
       config_schema::read_bool(config, {kKirsharaQueueDiagnosticsEnabledPath,
                                         DefaultConfig::Advanced::Diagnostics::KirsharaQueue::enabled,
@@ -91,10 +77,7 @@ KirsharaQueueRepairConfigParseResult ParseKirsharaQueueRepairConfig(const toml::
                                         "install the OnFleetsDisposed Kir'shara marker"});
 
   result.config.enabled                                   = enabled.value;
-  result.config.try_plan_path_and_engage_target           = try_plan_path_and_engage_target.value;
   result.config.course_target_completion                  = course_target_completion.value;
-  result.config.handle_stall                              = handle_stall.value;
-  result.config.remove_action_from_queue                  = remove_action_from_queue.value;
   result.config.diagnostics.enabled                       = diagnostics_enabled.value;
   result.config.diagnostics.dump_interesting_methods      = dump_interesting_methods.value;
   result.config.diagnostics.on_strike_complete            = on_strike_complete.value;
@@ -109,13 +92,8 @@ KirsharaQueueRepairConfigParseResult ParseKirsharaQueueRepairConfig(const toml::
   result.config.diagnostics.on_fleets_disposed            = on_fleets_disposed.value;
 
   result.diagnostics = enabled.diagnostics;
-  result.diagnostics.insert(result.diagnostics.end(), try_plan_path_and_engage_target.diagnostics.begin(),
-                            try_plan_path_and_engage_target.diagnostics.end());
   result.diagnostics.insert(result.diagnostics.end(), course_target_completion.diagnostics.begin(),
                             course_target_completion.diagnostics.end());
-  result.diagnostics.insert(result.diagnostics.end(), handle_stall.diagnostics.begin(), handle_stall.diagnostics.end());
-  result.diagnostics.insert(result.diagnostics.end(), remove_action_from_queue.diagnostics.begin(),
-                            remove_action_from_queue.diagnostics.end());
   const config_schema::BoolReadResult* diagnostic_reads[] = {
       &diagnostics_enabled,           &dump_interesting_methods,    &on_strike_complete,
       &remove_target_and_attack_next, &check_to_clear_action_queue, &is_target_valid,
@@ -125,27 +103,14 @@ KirsharaQueueRepairConfigParseResult ParseKirsharaQueueRepairConfig(const toml::
   for (const auto* read : diagnostic_reads) {
     result.diagnostics.insert(result.diagnostics.end(), read->diagnostics.begin(), read->diagnostics.end());
   }
-  if (try_plan_path_and_engage_target.value) {
-    result.diagnostics.push_back({config_schema::DiagnosticSeverity::Warning,
-                                  std::string(kKirsharaQueueRepairTryPlanPathAndEngageTargetPath),
-                                  try_plan_path_and_engage_target.source_path.empty()
-                                      ? std::string(kKirsharaQueueRepairTryPlanPathAndEngageTargetPath)
-                                      : try_plan_path_and_engage_target.source_path,
-                                  std::string(kKirsharaQueueRepairTryPlanUnsafeMessage)});
-  }
   return result;
 }
 
 void WriteKirsharaQueueRepairRuntimeSnapshot(toml::table& runtime_config, const KirsharaQueueRepairConfig& config)
 {
   config_schema::write_bool(runtime_config, kKirsharaQueueRepairEnabledPath, config.enabled);
-  config_schema::write_bool(runtime_config, kKirsharaQueueRepairTryPlanPathAndEngageTargetPath,
-                            config.try_plan_path_and_engage_target);
   config_schema::write_bool(runtime_config, kKirsharaQueueRepairCourseTargetCompletionPath,
                             config.course_target_completion);
-  config_schema::write_bool(runtime_config, kKirsharaQueueRepairHandleStallPath, config.handle_stall);
-  config_schema::write_bool(runtime_config, kKirsharaQueueRepairRemoveActionFromQueuePath,
-                            config.remove_action_from_queue);
   config_schema::write_bool(runtime_config, kKirsharaQueueDiagnosticsEnabledPath, config.diagnostics.enabled);
   config_schema::write_bool(runtime_config, kKirsharaQueueDiagnosticsDumpInterestingMethodsPath,
                             config.diagnostics.dump_interesting_methods);
@@ -178,18 +143,12 @@ KirsharaQueueRepairInstallPlan BuildKirsharaQueueRepairInstallPlan(const Kirshar
     return {};
   }
 
-  const auto selected_hook_count = static_cast<int>(config.course_target_completion)
-                                   + static_cast<int>(config.handle_stall)
-                                   + static_cast<int>(config.remove_action_from_queue);
+  const auto selected_hook_count = static_cast<int>(config.course_target_completion);
 
   return {
-      .install_repair_hooks                          = selected_hook_count > 0,
-      .emit_probe_logs                               = detailed_runtime_trace && selected_hook_count > 0,
-      .install_diagnostic_hooks                      = false,
-      .install_course_target_completion              = config.course_target_completion,
-      .ignore_try_plan_path_and_engage_target_unsafe = config.try_plan_path_and_engage_target,
-      .install_handle_stall                          = config.handle_stall,
-      .install_remove_action_from_queue              = config.remove_action_from_queue,
+      .install_repair_hooks              = selected_hook_count > 0,
+      .emit_probe_logs                   = detailed_runtime_trace && selected_hook_count > 0,
+      .install_course_target_completion  = config.course_target_completion,
       .install_dump_interesting_methods  = config.diagnostics.enabled && config.diagnostics.dump_interesting_methods,
       .install_on_strike_complete_marker = config.diagnostics.enabled && config.diagnostics.on_strike_complete,
       .install_remove_target_and_attack_next_marker =

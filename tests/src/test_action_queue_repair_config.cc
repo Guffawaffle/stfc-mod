@@ -22,17 +22,13 @@ KirsharaQueueDiagnosticsConfig all_diagnostics_config(bool enabled = true)
   };
 }
 
-KirsharaQueueRepairConfig staged_repair_config(bool enabled, bool try_plan_path_and_engage_target, bool handle_stall,
-                                               bool remove_action_from_queue, bool course_target_completion = false,
-                                               KirsharaQueueDiagnosticsConfig diagnostics = {})
+KirsharaQueueRepairConfig repair_config(bool enabled, bool course_target_completion = false,
+                                        KirsharaQueueDiagnosticsConfig diagnostics = {})
 {
   return {
-      .enabled                         = enabled,
-      .try_plan_path_and_engage_target = try_plan_path_and_engage_target,
-      .course_target_completion        = course_target_completion,
-      .handle_stall                    = handle_stall,
-      .remove_action_from_queue        = remove_action_from_queue,
-      .diagnostics                     = diagnostics,
+      .enabled                  = enabled,
+      .course_target_completion = course_target_completion,
+      .diagnostics              = diagnostics,
   };
 }
 
@@ -87,10 +83,7 @@ TEST_SUITE("action_queue_repair_config")
     const auto result = ParseKirsharaQueueRepairConfig(config);
 
     CHECK_FALSE(result.config.enabled);
-    CHECK_FALSE(result.config.try_plan_path_and_engage_target);
     CHECK_FALSE(result.config.course_target_completion);
-    CHECK_FALSE(result.config.handle_stall);
-    CHECK_FALSE(result.config.remove_action_from_queue);
     CHECK_FALSE(result.config.diagnostics.enabled);
     CHECK_FALSE(result.config.diagnostics.dump_interesting_methods);
     CHECK_FALSE(result.config.diagnostics.on_strike_complete);
@@ -106,15 +99,12 @@ TEST_SUITE("action_queue_repair_config")
     CHECK(result.diagnostics.empty());
   }
 
-  TEST_CASE("Kirshara queue repair parses focused repair and diagnostic flags")
+  TEST_CASE("Kirshara queue repair parses final repair and diagnostic flags")
   {
     const auto config = toml::parse(R"(
 [advanced.kirshara_queue]
 enabled = true
-try_plan_path_and_engage_target = true
 course_target_completion = true
-handle_stall = true
-remove_action_from_queue = true
 
 [advanced.diagnostics.kirshara_queue]
 enabled = true
@@ -134,10 +124,7 @@ on_fleets_disposed = true
     const auto result = ParseKirsharaQueueRepairConfig(config);
 
     CHECK(result.config.enabled);
-    CHECK(result.config.try_plan_path_and_engage_target);
     CHECK(result.config.course_target_completion);
-    CHECK(result.config.handle_stall);
-    CHECK(result.config.remove_action_from_queue);
     CHECK(result.config.diagnostics.enabled);
     CHECK(result.config.diagnostics.dump_interesting_methods);
     CHECK(result.config.diagnostics.on_strike_complete);
@@ -150,7 +137,6 @@ on_fleets_disposed = true
     CHECK(result.config.diagnostics.on_player_fleet_state_changed);
     CHECK(result.config.diagnostics.on_fleet_state_change);
     CHECK(result.config.diagnostics.on_fleets_disposed);
-    CHECK(has_warning(result.diagnostics, kKirsharaQueueRepairTryPlanPathAndEngageTargetPath));
   }
 
   TEST_CASE("legacy advanced queue gate does not enable Kirshara queue repair")
@@ -183,16 +169,14 @@ enabled = "yes"
   {
     toml::table runtime_snapshot;
 
-    WriteKirsharaQueueRepairRuntimeSnapshot(
-        runtime_snapshot, staged_repair_config(true, true, true, true, true, all_diagnostics_config()));
+    WriteKirsharaQueueRepairRuntimeSnapshot(runtime_snapshot, repair_config(true, true, all_diagnostics_config()));
 
     CHECK(runtime_snapshot["advanced"]["kirshara_queue"]["enabled"].value<bool>().value_or(false));
-    CHECK(runtime_snapshot["advanced"]["kirshara_queue"]["try_plan_path_and_engage_target"].value<bool>().value_or(
-        false));
+    CHECK_FALSE(runtime_snapshot["advanced"]["kirshara_queue"].as_table()->contains("try_plan_path_and_engage_target"));
     CHECK_FALSE(runtime_snapshot["advanced"]["kirshara_queue"].as_table()->contains("completion_markers"));
     CHECK(runtime_snapshot["advanced"]["kirshara_queue"]["course_target_completion"].value<bool>().value_or(false));
-    CHECK(runtime_snapshot["advanced"]["kirshara_queue"]["handle_stall"].value<bool>().value_or(false));
-    CHECK(runtime_snapshot["advanced"]["kirshara_queue"]["remove_action_from_queue"].value<bool>().value_or(false));
+    CHECK_FALSE(runtime_snapshot["advanced"]["kirshara_queue"].as_table()->contains("handle_stall"));
+    CHECK_FALSE(runtime_snapshot["advanced"]["kirshara_queue"].as_table()->contains("remove_action_from_queue"));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["kirshara_queue"]["enabled"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["kirshara_queue"]["dump_interesting_methods"]
               .value<bool>()
@@ -226,43 +210,33 @@ enabled = "yes"
 
   TEST_CASE("Kirshara queue repair install plan is a true no-op when disabled")
   {
-    const auto plan = BuildKirsharaQueueRepairInstallPlan(
-        staged_repair_config(false, true, true, true, true, all_diagnostics_config()), true);
+    const auto plan = BuildKirsharaQueueRepairInstallPlan(repair_config(false, true, all_diagnostics_config()), true);
 
     CHECK_FALSE(plan.install_repair_hooks);
     CHECK_FALSE(plan.emit_probe_logs);
-    CHECK_FALSE(plan.install_diagnostic_hooks);
     CHECK_FALSE(plan.install_course_target_completion);
-    CHECK_FALSE(plan.ignore_try_plan_path_and_engage_target_unsafe);
-    CHECK_FALSE(plan.install_handle_stall);
-    CHECK_FALSE(plan.install_remove_action_from_queue);
     check_no_marker_hooks(plan);
     CHECK(plan.selected_hook_count == 0);
   }
 
   TEST_CASE("Kirshara queue repair install plan stays inert when master gate is on with no hooks selected")
   {
-    const auto plan = BuildKirsharaQueueRepairInstallPlan(staged_repair_config(true, false, false, false), false);
+    const auto plan = BuildKirsharaQueueRepairInstallPlan(repair_config(true), false);
 
     CHECK_FALSE(plan.install_repair_hooks);
     CHECK_FALSE(plan.emit_probe_logs);
-    CHECK_FALSE(plan.install_diagnostic_hooks);
     CHECK_FALSE(plan.install_course_target_completion);
-    CHECK_FALSE(plan.ignore_try_plan_path_and_engage_target_unsafe);
-    CHECK_FALSE(plan.install_handle_stall);
-    CHECK_FALSE(plan.install_remove_action_from_queue);
     check_no_marker_hooks(plan);
     CHECK(plan.selected_hook_count == 0);
   }
 
   TEST_CASE("Kirshara queue repair install plan requires diagnostic master gate for markers")
   {
-    const auto plan = BuildKirsharaQueueRepairInstallPlan(
-        staged_repair_config(true, false, false, false, false, all_diagnostics_config(false)), false);
+    const auto plan =
+        BuildKirsharaQueueRepairInstallPlan(repair_config(true, false, all_diagnostics_config(false)), false);
 
     CHECK_FALSE(plan.install_repair_hooks);
     CHECK_FALSE(plan.emit_probe_logs);
-    CHECK_FALSE(plan.install_diagnostic_hooks);
     CHECK_FALSE(plan.install_course_target_completion);
     check_no_marker_hooks(plan);
     CHECK(plan.selected_hook_count == 0);
@@ -274,12 +248,10 @@ enabled = "yes"
     diagnostics.enabled                = true;
     diagnostics.process_queue_deployed = true;
 
-    const auto plan =
-        BuildKirsharaQueueRepairInstallPlan(staged_repair_config(true, false, false, false, false, diagnostics), false);
+    const auto plan = BuildKirsharaQueueRepairInstallPlan(repair_config(true, false, diagnostics), false);
 
     CHECK_FALSE(plan.install_repair_hooks);
     CHECK_FALSE(plan.emit_probe_logs);
-    CHECK_FALSE(plan.install_diagnostic_hooks);
     CHECK_FALSE(plan.install_course_target_completion);
     CHECK_FALSE(plan.install_process_queue_target_marker);
     CHECK(plan.install_process_queue_deployed_marker);
@@ -288,104 +260,33 @@ enabled = "yes"
 
   TEST_CASE("Kirshara queue diagnostics can enable all markers independently")
   {
-    const auto plan = BuildKirsharaQueueRepairInstallPlan(
-        staged_repair_config(true, false, false, false, false, all_diagnostics_config()), false);
+    const auto plan = BuildKirsharaQueueRepairInstallPlan(repair_config(true, false, all_diagnostics_config()), false);
 
     CHECK_FALSE(plan.install_repair_hooks);
     CHECK_FALSE(plan.emit_probe_logs);
-    CHECK_FALSE(plan.install_diagnostic_hooks);
     CHECK_FALSE(plan.install_course_target_completion);
     check_all_marker_hooks(plan);
     CHECK(plan.selected_hook_count == 0);
   }
 
-  TEST_CASE("Kirshara queue repair install plan can stage course target completion without marker flags")
+  TEST_CASE("Kirshara queue repair install plan can enable course target completion without marker flags")
   {
-    const auto plan = BuildKirsharaQueueRepairInstallPlan(staged_repair_config(true, false, false, false, true), false);
+    const auto plan = BuildKirsharaQueueRepairInstallPlan(repair_config(true, true), false);
 
     CHECK(plan.install_repair_hooks);
     CHECK_FALSE(plan.emit_probe_logs);
-    CHECK_FALSE(plan.install_diagnostic_hooks);
     CHECK(plan.install_course_target_completion);
-    CHECK_FALSE(plan.ignore_try_plan_path_and_engage_target_unsafe);
-    CHECK_FALSE(plan.install_handle_stall);
-    CHECK_FALSE(plan.install_remove_action_from_queue);
     check_no_marker_hooks(plan);
-    CHECK(plan.selected_hook_count == 1);
+    CHECK(plan.selected_hook_count == kKirsharaQueueRepairSupportedHookCount);
   }
 
-  TEST_CASE("Kirshara queue repair install plan ignores unsafe TryPlanPathAndEngageTarget requests")
+  TEST_CASE("Kirshara queue repair install plan emits detailed probe logs only for behavior hooks")
   {
-    const auto plan = BuildKirsharaQueueRepairInstallPlan(staged_repair_config(true, true, false, false), false);
-
-    CHECK_FALSE(plan.install_repair_hooks);
-    CHECK_FALSE(plan.emit_probe_logs);
-    CHECK_FALSE(plan.install_diagnostic_hooks);
-    CHECK_FALSE(plan.install_course_target_completion);
-    CHECK(plan.ignore_try_plan_path_and_engage_target_unsafe);
-    CHECK_FALSE(plan.install_handle_stall);
-    CHECK_FALSE(plan.install_remove_action_from_queue);
-    check_no_marker_hooks(plan);
-    CHECK(plan.selected_hook_count == 0);
-  }
-
-  TEST_CASE("Kirshara queue repair install plan can stage only HandleStall")
-  {
-    const auto plan = BuildKirsharaQueueRepairInstallPlan(staged_repair_config(true, false, true, false), false);
-
-    CHECK(plan.install_repair_hooks);
-    CHECK_FALSE(plan.emit_probe_logs);
-    CHECK_FALSE(plan.install_diagnostic_hooks);
-    CHECK_FALSE(plan.install_course_target_completion);
-    CHECK_FALSE(plan.ignore_try_plan_path_and_engage_target_unsafe);
-    CHECK(plan.install_handle_stall);
-    CHECK_FALSE(plan.install_remove_action_from_queue);
-    check_no_marker_hooks(plan);
-    CHECK(plan.selected_hook_count == 1);
-  }
-
-  TEST_CASE("Kirshara queue repair install plan can stage only RemoveActionFromQueue")
-  {
-    const auto plan = BuildKirsharaQueueRepairInstallPlan(staged_repair_config(true, false, false, true), false);
-
-    CHECK(plan.install_repair_hooks);
-    CHECK_FALSE(plan.emit_probe_logs);
-    CHECK_FALSE(plan.install_diagnostic_hooks);
-    CHECK_FALSE(plan.install_course_target_completion);
-    CHECK_FALSE(plan.ignore_try_plan_path_and_engage_target_unsafe);
-    CHECK_FALSE(plan.install_handle_stall);
-    CHECK(plan.install_remove_action_from_queue);
-    check_no_marker_hooks(plan);
-    CHECK(plan.selected_hook_count == 1);
-  }
-
-  TEST_CASE("Kirshara queue repair install plan stages HandleStall while ignoring unsafe TryPlan")
-  {
-    const auto plan = BuildKirsharaQueueRepairInstallPlan(staged_repair_config(true, true, true, false), true);
+    const auto plan = BuildKirsharaQueueRepairInstallPlan(repair_config(true, true, all_diagnostics_config()), true);
 
     CHECK(plan.install_repair_hooks);
     CHECK(plan.emit_probe_logs);
-    CHECK_FALSE(plan.install_diagnostic_hooks);
-    CHECK_FALSE(plan.install_course_target_completion);
-    CHECK(plan.ignore_try_plan_path_and_engage_target_unsafe);
-    CHECK(plan.install_handle_stall);
-    CHECK_FALSE(plan.install_remove_action_from_queue);
-    check_no_marker_hooks(plan);
-    CHECK(plan.selected_hook_count == 1);
-  }
-
-  TEST_CASE("Kirshara queue repair install plan emits logs for all supported staged hooks")
-  {
-    const auto plan = BuildKirsharaQueueRepairInstallPlan(
-        staged_repair_config(true, true, true, true, true, all_diagnostics_config()), true);
-
-    CHECK(plan.install_repair_hooks);
-    CHECK(plan.emit_probe_logs);
-    CHECK_FALSE(plan.install_diagnostic_hooks);
     CHECK(plan.install_course_target_completion);
-    CHECK(plan.ignore_try_plan_path_and_engage_target_unsafe);
-    CHECK(plan.install_handle_stall);
-    CHECK(plan.install_remove_action_from_queue);
     check_all_marker_hooks(plan);
     CHECK(plan.selected_hook_count == kKirsharaQueueRepairSupportedHookCount);
   }

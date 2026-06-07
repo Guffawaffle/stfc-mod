@@ -146,15 +146,12 @@ TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh
   CHECK_FALSE(advanced_kirshara_queue_diagnostics->get("on_fleets_disposed")->value<bool>().value_or(true));
   CHECK(advanced_kirshara_queue->contains("enabled"));
   CHECK_FALSE(advanced_kirshara_queue->get("enabled")->value<bool>().value_or(true));
-  CHECK(advanced_kirshara_queue->contains("try_plan_path_and_engage_target"));
-  CHECK_FALSE(advanced_kirshara_queue->get("try_plan_path_and_engage_target")->value<bool>().value_or(true));
+  CHECK_FALSE(advanced_kirshara_queue->contains("try_plan_path_and_engage_target"));
   CHECK_FALSE(advanced_kirshara_queue->contains("completion_markers"));
   CHECK(advanced_kirshara_queue->contains("course_target_completion"));
   CHECK_FALSE(advanced_kirshara_queue->get("course_target_completion")->value<bool>().value_or(true));
-  CHECK(advanced_kirshara_queue->contains("handle_stall"));
-  CHECK_FALSE(advanced_kirshara_queue->get("handle_stall")->value<bool>().value_or(true));
-  CHECK(advanced_kirshara_queue->contains("remove_action_from_queue"));
-  CHECK_FALSE(advanced_kirshara_queue->get("remove_action_from_queue")->value<bool>().value_or(true));
+  CHECK_FALSE(advanced_kirshara_queue->contains("handle_stall"));
+  CHECK_FALSE(advanced_kirshara_queue->contains("remove_action_from_queue"));
   CHECK(advanced_queue->contains("queue_add_direct_handler"));
   CHECK(advanced_queue->contains("queue_add_hide_viewers"));
 }

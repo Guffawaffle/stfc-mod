@@ -163,15 +163,8 @@ namespace Advanced
   {
     /// Enable the focused Kir'shara queued-combat advancement repair. Default: false.
     constexpr bool enabled = false;
-    /// Parsed for compatibility only. The old TryPlanPathAndEngageTarget hook is unsafe on the current build because
-    /// the method now returns IEnumerator. Default: false.
-    constexpr bool try_plan_path_and_engage_target = false;
     /// Synthesize the missing target completion commit for off-screen queued combat. Default: false.
     constexpr bool course_target_completion = false;
-    /// Install the HandleStall hook during staged Kir'shara repair testing. Default: false.
-    constexpr bool handle_stall = false;
-    /// Install the RemoveActionFromQueue hook during staged Kir'shara repair testing. Default: false.
-    constexpr bool remove_action_from_queue = false;
   } // namespace KirsharaQueue
 } // namespace Advanced
 
