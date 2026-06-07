@@ -11,6 +11,7 @@
 #include "patches/live_debug_event_dispatcher.h"
 #endif
 #include "patches/live_debug_fleet_serializers.h"
+#include "patches/system_view_session_tracker.h"
 
 #include "prime/FleetDeployedData.h"
 #include "prime/HullSpec.h"
@@ -76,6 +77,9 @@ std::unordered_set<std::string> g_seen_signatures;
 std::atomic_uint64_t            g_callback_count = 0;
 std::atomic_uint64_t            g_hostile_count  = 0;
 std::atomic_uint64_t            g_emitted_count  = 0;
+
+bool hostile_observation_diagnostic_logging_enabled()
+{ return AdvancedDiagnosticsSettings().logging; }
 
 const char* fleet_type_name(const DeployedFleetType type)
 {
@@ -237,6 +241,8 @@ json build_fleet_sighting(const char* source_event, FleetDeployedData* fleet, No
 
 void emit_observed_hostile(const std::string& signature, json details)
 {
+  system_view_session_note_passive_observation(details);
+
   if (!remember_signature(signature)) {
     return;
   }
@@ -246,12 +252,14 @@ void emit_observed_hostile(const std::string& signature, json details)
 #endif
 
   ++g_emitted_count;
-  spdlog::info("[HostileObservation] source={} event={} confidence={} runtimeFleetId={} userId={} hullId={} "
-               "hullName='{}' systemId={} signature={}",
-               details.value("sourceSurface", std::string{}), details.value("sourceEvent", std::string{}),
-               details.value("confidence", std::string{}), details.value("runtimeFleetId", std::string{}),
-               details.value("userId", std::string{}), details.value("hullId", 0LL),
-               details.value("hullName", std::string{}), details.value("systemId", 0LL), signature);
+  if (hostile_observation_diagnostic_logging_enabled()) {
+    spdlog::info("[HostileObservation] source={} event={} confidence={} runtimeFleetId={} userId={} hullId={} "
+                 "hullName='{}' systemId={} signature={}",
+                 details.value("sourceSurface", std::string{}), details.value("sourceEvent", std::string{}),
+                 details.value("confidence", std::string{}), details.value("runtimeFleetId", std::string{}),
+                 details.value("userId", std::string{}), details.value("hullId", 0LL),
+                 details.value("hullName", std::string{}), details.value("systemId", 0LL), signature);
+  }
 
   hostile_observation_sidecar_emit(details);
 }

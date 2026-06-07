@@ -14,6 +14,7 @@
 #include "patches/hotkey_router.h"
 #include "patches/live_debug.h"
 #include "patches/mod_impact_monitor.h"
+#include "patches/system_view_session_tracker.h"
 
 #include "prime/ScreenManager.h"
 
@@ -22,6 +23,7 @@ namespace
 constexpr bool kEnableFrameTickHook                     = true;
 constexpr bool kEnableHotkeyFrameSubscriber             = true;
 constexpr bool kEnableLiveDebugFrameSubscriber          = true;
+constexpr bool kEnableSystemViewSessionFrameSubscriber  = true;
 constexpr bool kEnableHostileObservationFrameSubscriber = true;
 
 constexpr HookDescriptor kScreenManagerUpdateHook = {
@@ -46,12 +48,18 @@ bool live_debug_frame_subscriber_enabled()
 bool hostile_observation_subscriber_enabled()
 { return kEnableHostileObservationFrameSubscriber && hostile_observation_frame_subscriber_enabled(); }
 
+bool system_view_session_subscriber_enabled()
+{ return kEnableSystemViewSessionFrameSubscriber && system_view_session_frame_subscriber_enabled(); }
+
 void log_frame_tick_subscribers()
 {
   spdlog::info("[FrameTick] subscriber=hotkey_router enabled={} reason=installHotkeyHooks compile_time_enabled={}",
                hotkey_frame_subscriber_enabled(), kEnableHotkeyFrameSubscriber);
   spdlog::info("[FrameTick] subscriber=live_debug enabled={} reason=live_debug_channel compile_time_enabled={}",
                live_debug_frame_subscriber_enabled(), kEnableLiveDebugFrameSubscriber);
+  spdlog::info("[FrameTick] subscriber=system_view_section_audit enabled={} "
+               "reason=advanced.diagnostics.hostile_observation compile_time_enabled={}",
+               system_view_session_subscriber_enabled(), kEnableSystemViewSessionFrameSubscriber);
   spdlog::info("[FrameTick] subscriber=hostile_observation enabled={} reason=sidecar.probes.hostile_observation"
                "(advanced.diagnostics alias accepted)+installObjectTracker compile_time_enabled={}",
                hostile_observation_subscriber_enabled(), kEnableHostileObservationFrameSubscriber);
@@ -89,6 +97,21 @@ void tick_hostile_observation(ScreenManager* screen_manager)
   }
 }
 
+void tick_system_view_session(ScreenManager* screen_manager)
+{
+  if (!system_view_session_subscriber_enabled()) {
+    return;
+  }
+
+  try {
+    system_view_session_tick(screen_manager);
+  } catch (const std::exception& ex) {
+    spdlog::error("[FrameTick] subscriber=system_view_section_audit status=failed error='{}'", ex.what());
+  } catch (...) {
+    spdlog::error("[FrameTick] subscriber=system_view_section_audit status=failed error='unknown exception'");
+  }
+}
+
 bool tick_hotkeys(ScreenManager* screen_manager)
 {
   ScopedModImpactTimer impact_timer(ModImpactProbe::FrameTickHotkeys, ModImpactMonitorEnabled());
@@ -119,6 +142,7 @@ void ScreenManager_Update_FrameTick_Hook(auto original, ScreenManager* screen_ma
   }
 
   tick_live_debug(screen_manager);
+  tick_system_view_session(screen_manager);
   tick_hostile_observation(screen_manager);
 }
 } // namespace
@@ -135,7 +159,7 @@ void InstallFrameTickHooks()
   }
 
   if (!hotkey_frame_subscriber_enabled() && !live_debug_frame_subscriber_enabled()
-      && !hostile_observation_subscriber_enabled()) {
+      && !system_view_session_subscriber_enabled() && !hostile_observation_subscriber_enabled()) {
     hooks.record_skipped(kScreenManagerUpdateHook, "no enabled frame subscribers");
     hooks.log_summary();
     return;

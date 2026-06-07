@@ -4,6 +4,7 @@
  */
 #include "patches/hostile_observation_sidecar_sync.h"
 
+#include "config.h"
 #include "patches/sidecar_local_ingest.h"
 #include "version.h"
 
@@ -189,7 +190,9 @@ void hostile_observation_sidecar_emit(const nlohmann::json& observation)
 
   auto event = build_observed_hostile_event(observation);
   if (event.is_null()) {
-    spdlog::debug("[HostileObservation] skipped sidecar delivery for invalid observation payload");
+    if (AdvancedDiagnosticsSettings().logging) {
+      spdlog::debug("[HostileObservation] skipped sidecar delivery for invalid observation payload");
+    }
     return;
   }
 

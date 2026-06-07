@@ -13,6 +13,7 @@
 #include "patches/live_debug_ui_serializers.h"
 #include "patches/live_debug_viewer_runtime.h"
 #include "patches/object_tracker_state.h"
+#include "patches/system_view_session_tracker.h"
 
 #include "prime/FleetBarViewController.h"
 
@@ -125,6 +126,7 @@ nlohmann::json HostileObservationState()
 {
   auto result              = hostile_observation_state();
   result["fleetDataHooks"] = hostile_observation_fleet_data_state();
+  result["systemViewSectionAudit"] = system_view_session_state();
   return result;
 }
 } // namespace live_debug_state_results

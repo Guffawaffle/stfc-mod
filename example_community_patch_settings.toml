@@ -839,8 +839,8 @@ jsonl_recent_logs = 300
 [advanced.diagnostics]
 # Canonical native observability/probing namespace for non-sidecar diagnostics.
 # Older [sidecar.probes] and [sidecar.diagnostics] inputs are still accepted as deprecated aliases.
-# `debug` and `logging` are dormant compatibility placeholders only in this slice.
-# They are not newly active diagnostics controls yet.
+# `debug` remains a dormant compatibility placeholder in this slice.
+# `logging` enables verbose native diagnostics payload logging for probes that opt into it.
 # These battle probe keys do not enable normal local Battle Workbench enrichment;
 # use [sidecar.sync].battlelog_enrichment for that producer path.
 ship_identity = false
@@ -850,10 +850,11 @@ ship_identity = false
 battle_log_decoder = false
 battle_catalog = false
 # Experimental disabled-by-default hostile observation probe for sidecar-local
-# catalog work. When [sidecar.sync].enabled has working local transport, this
-# emits observed.hostile events into the sidecar event store for
-# /api/observed-hostiles. It does not route through public [sync] targets or
-# enable any public battle/feed output.
+# catalog work. When enabled, this also records diagnostics-only
+# system-view section transition audit breadcrumbs. When [sidecar.sync].enabled
+# has working local transport, it emits observed.hostile events into the
+# sidecar event store for /api/observed-hostiles. It does not route through
+# public [sync] targets or enable any public battle/feed output.
 hostile_observation = false
 debug = false
 logging = false

@@ -38,6 +38,7 @@ do
     add_files("../mods/src/patches/notification_policy.cc")
     add_files("../mods/src/patches/notification_text.cc")
     add_files("../mods/src/patches/sidecar_local_ingest_policy.cc")
+    add_files("../mods/src/patches/system_view_session_model.cc")
     add_files("../mods/src/patches/sync_transport_policy.cc")
 
     add_packages("doctest", "nlohmann_json", "toml++", "spdlog")

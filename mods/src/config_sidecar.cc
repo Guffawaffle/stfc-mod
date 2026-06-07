@@ -369,12 +369,13 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                    "reserved battle catalog observability probes"});
   read_bool_value(result.advanced.diagnostics.hostile_observation,
                   {"advanced.diagnostics.hostile_observation", DCAdvanced::Diagnostics::hostile_observation,
-                   kHostileObservationAlias, "opt-in hostile observation probes for sidecar-local catalog work"});
+                   kHostileObservationAlias,
+                   "opt-in hostile observation and system-view section audit probes for sidecar-local catalog work"});
   read_bool_value(result.advanced.diagnostics.debug, {"advanced.diagnostics.debug", DCAdvanced::Diagnostics::debug,
                                                       kDebugAlias, "reserved native debug diagnostics"});
   read_bool_value(result.advanced.diagnostics.logging,
                   {"advanced.diagnostics.logging", DCAdvanced::Diagnostics::logging, kLoggingAlias,
-                   "reserved native payload logging diagnostics"});
+                   "enable verbose native diagnostics payload logging"});
   read_bool_value(result.advanced.diagnostics.live_query, {"advanced.diagnostics.live_query",
                                                            DCAdvanced::Diagnostics::live_query,
                                                            {},
