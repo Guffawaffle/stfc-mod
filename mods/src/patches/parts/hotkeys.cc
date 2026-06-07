@@ -207,7 +207,7 @@ bool inspect_native_fleet_selection(const char* method, const int32_t index, con
 {
   const auto suppress = hotkey_router_should_suppress_native_fleet_selection(index);
   if (suppress) {
-    spdlog::trace("[Hotkeys] suppressed native fleet selection method={} index={} simulated={}", method, index,
+    spdlog::debug("[Hotkeys] suppressed native fleet selection method={} index={} simulated={}", method, index,
                   simulated);
   }
 
@@ -218,7 +218,7 @@ bool inspect_native_fleet_selection_component(const char* method, void* element,
 {
   const auto suppress_any = hotkey_router_should_suppress_any_native_fleet_selection();
   if (suppress_any) {
-    spdlog::trace("[Hotkeys] suppressed native fleet selection method={} element={:p} simulated={}", method, element,
+    spdlog::debug("[Hotkeys] suppressed native fleet selection method={} element={:p} simulated={}", method, element,
                   simulated);
   }
 
@@ -258,7 +258,7 @@ void ShortcutsManager_LateUpdate_Hook(auto original, void* _this)
   hotkey_router_refresh_native_shortcut_suppression();
   const auto suppress = hotkey_router_should_suppress_native_shortcuts();
   if (suppress) {
-    spdlog::trace("[Hotkeys] suppressed native shortcut update method=ShortcutsManager.LateUpdate");
+    spdlog::debug("[Hotkeys] suppressed native shortcut update method=ShortcutsManager.LateUpdate");
     return;
   }
 
@@ -271,7 +271,7 @@ void ShortcutsManager_SelectShip_Hook(auto original, void* _this, int32_t index)
   const auto suppress = hotkey_router_should_suppress_native_shortcuts();
 
   if (suppress) {
-    spdlog::trace("[Hotkeys] suppressed native shortcut ship selection method=ShortcutsManager.SelectShip index={}",
+    spdlog::debug("[Hotkeys] suppressed native shortcut ship selection method=ShortcutsManager.SelectShip index={}",
                   index);
     return;
   }
