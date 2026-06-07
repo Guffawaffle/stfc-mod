@@ -656,6 +656,17 @@ struct PlayerOnlyBattleStartCandidate {
   std::uint64_t seq           = 0;
 };
 
+struct FleetDeployedDataSnapshot {
+  bool         present             = false;
+  std::int64_t id                  = 0;
+  int          state               = -1;
+  int          previous_state      = -1;
+  int          type                = -1;
+  bool         destroyed           = false;
+  bool         currently_battling  = false;
+  bool         player_combat_start = false;
+};
+
 struct CourseTargetCompletionSynthesis {
   bool          should_synthesize = false;
   std::int64_t  fleet_key         = 0;
@@ -718,10 +729,35 @@ std::int64_t AgeMs(std::int64_t now, std::int64_t previous)
 
 bool IsPlayerCombatStart(FleetDeployedData* deployed_data)
 {
+  if (!deployed_data) {
+    return false;
+  }
+
   const auto previous_state = FleetDeployedPreviousState(deployed_data);
-  return deployed_data && FleetDeployedType(deployed_data) == static_cast<int>(DeployedFleetType::Player)
+  return FleetDeployedType(deployed_data) == static_cast<int>(DeployedFleetType::Player)
          && FleetDeployedState(deployed_data) == 6 && (previous_state == 0 || previous_state == 1)
          && FleetDeployedCurrentlyBattling(deployed_data) && !FleetDeployedIsDestroyed(deployed_data);
+}
+
+FleetDeployedDataSnapshot SnapshotFleetDeployedData(FleetDeployedData* deployed_data)
+{
+  FleetDeployedDataSnapshot snapshot;
+  if (!deployed_data) {
+    return snapshot;
+  }
+
+  snapshot.present            = true;
+  snapshot.id                 = FleetDeployedId(deployed_data);
+  snapshot.state              = FleetDeployedState(deployed_data);
+  snapshot.previous_state     = FleetDeployedPreviousState(deployed_data);
+  snapshot.type               = FleetDeployedType(deployed_data);
+  snapshot.destroyed          = FleetDeployedIsDestroyed(deployed_data);
+  snapshot.currently_battling = FleetDeployedCurrentlyBattling(deployed_data);
+  snapshot.player_combat_start =
+      snapshot.type == static_cast<int>(DeployedFleetType::Player) && snapshot.state == 6
+      && (snapshot.previous_state == 0 || snapshot.previous_state == 1) && snapshot.currently_battling
+      && !snapshot.destroyed;
+  return snapshot;
 }
 
 FleetPlayerData* FindPlayerFleetDataById(std::int64_t fleet_id)
@@ -854,10 +890,24 @@ void LatchPlayerOnlyBattleStart(void* fleets, std::uint64_t seq)
                key, deployed_id, seq);
 }
 
-CourseTargetCompletionSynthesis TakeCourseTargetCompletionSynthesis(ActionQueueManager* manager,
-                                                                    FleetDeployedData*  deployed_data)
+bool MarkCourseTargetCompletionConsumed(std::int64_t fleet_key, const CourseTargetCompletionCandidate& expected)
 {
-  if (!CourseTargetCompletionEnabled() || !IsPlayerCombatStart(deployed_data)) {
+  std::lock_guard lk(CourseTargetCompletionMutex());
+  auto&           targets = CourseTargetCompletionTargets();
+  const auto      target  = targets.find(fleet_key);
+  if (target == targets.end() || target->second.target_id != expected.target_id
+      || target->second.updated_at_ms != expected.updated_at_ms) {
+    return false;
+  }
+
+  target->second.consumed = true;
+  return true;
+}
+
+CourseTargetCompletionSynthesis TakeCourseTargetCompletionSynthesis(ActionQueueManager*                 manager,
+                                                                    const FleetDeployedDataSnapshot& deployed)
+{
+  if (!CourseTargetCompletionEnabled() || !deployed.player_combat_start) {
     return {};
   }
 
@@ -865,43 +915,48 @@ CourseTargetCompletionSynthesis TakeCourseTargetCompletionSynthesis(ActionQueueM
   constexpr std::int64_t kCourseTargetWindowMs = 300000;
 
   const auto now         = ActionQueueProbeTimestampMs();
-  const auto deployed_id = FleetDeployedId(deployed_data);
+  const auto deployed_id = deployed.id;
   const auto key         = deployed_id;
 
-  std::lock_guard lk(CourseTargetCompletionMutex());
-  auto&           targets = CourseTargetCompletionTargets();
-  auto&           starts  = CourseTargetCompletionBattleStarts();
-  const auto      target  = targets.find(key);
-  const auto      start   = starts.find(key);
-  if (target == targets.end() || start == starts.end() || target->second.consumed || target->second.target_id == 0) {
-    return {};
+  CourseTargetCompletionCandidate  target_state;
+  PlayerOnlyBattleStartCandidate   start_state;
+  {
+    std::lock_guard lk(CourseTargetCompletionMutex());
+    auto&           targets = CourseTargetCompletionTargets();
+    auto&           starts  = CourseTargetCompletionBattleStarts();
+    const auto      target  = targets.find(key);
+    const auto      start   = starts.find(key);
+    if (target == targets.end() || start == starts.end() || target->second.consumed || target->second.target_id == 0) {
+      return {};
+    }
+    target_state = target->second;
+    start_state  = start->second;
   }
 
-  const auto battle_age = AgeMs(now, start->second.updated_at_ms);
-  const auto course_age = AgeMs(now, target->second.updated_at_ms);
+  const auto battle_age = AgeMs(now, start_state.updated_at_ms);
+  const auto course_age = AgeMs(now, target_state.updated_at_ms);
   if (battle_age > kBattleStartWindowMs || course_age > kCourseTargetWindowMs) {
     return {};
   }
 
-  const auto guard = CheckCourseTargetStillQueued(manager, deployed_id, target->second.target_id);
+  const auto guard = CheckCourseTargetStillQueued(manager, deployed_id, target_state.target_id);
   if (!guard.relevant) {
-    target->second.consumed = true;
+    MarkCourseTargetCompletionConsumed(key, target_state);
     spdlog::info("[KirsharaQueueRepair] repair=course-target-completion phase=skip-synthesize-process-target "
                  "reason=target-not-queued fleet={} target={} queue_count={} target_index={} instance={}",
-                 deployed_id, target->second.target_id, guard.queue_count, guard.target_index,
-                 PtrValue(guard.instance));
+                 deployed_id, target_state.target_id, guard.queue_count, guard.target_index, PtrValue(guard.instance));
     return {};
   }
 
-  target->second.consumed = true;
+  MarkCourseTargetCompletionConsumed(key, target_state);
   return {
       .should_synthesize = true,
       .fleet_key         = key,
       .deployed_id       = deployed_id,
-      .target_id         = target->second.target_id,
+      .target_id         = target_state.target_id,
       .course_age_ms     = course_age,
       .battle_age_ms     = battle_age,
-      .battle_seq        = start->second.seq,
+      .battle_seq        = start_state.seq,
       .queue_count       = guard.queue_count,
       .target_index      = guard.target_index,
   };
@@ -1033,18 +1088,17 @@ void ActionQueueManager_ProcessQueueDeployed_Marker(auto original, ActionQueueMa
 {
   const auto seq        = NextKirsharaQueueMarkerSeq();
   const auto log_marker = KirsharaQueueMarkerEnabled(&KirsharaQueueDiagnosticsConfig::process_queue_deployed);
+  const auto deployed   = SnapshotFleetDeployedData(deployed_data);
   if (log_marker) {
     spdlog::info("[KirsharaQueueMarker] phase=before hook=ProcessQueue.deployed seq={} manager={} deployed={} "
                  "deployed_id={} state={} prev={} type={} destroyed={} battling={} can_select_new_target={}",
-                 seq, PtrValue(_this), PtrValue(deployed_data), FleetDeployedId(deployed_data),
-                 FleetDeployedState(deployed_data), FleetDeployedPreviousState(deployed_data),
-                 FleetDeployedType(deployed_data), FleetDeployedIsDestroyed(deployed_data),
-                 FleetDeployedCurrentlyBattling(deployed_data), can_select_new_target);
+                 seq, PtrValue(_this), PtrValue(deployed_data), deployed.id, deployed.state, deployed.previous_state,
+                 deployed.type, deployed.destroyed, deployed.currently_battling, can_select_new_target);
   }
 
   original(_this, deployed_data, can_select_new_target);
 
-  const auto synthesis = TakeCourseTargetCompletionSynthesis(_this, deployed_data);
+  const auto synthesis = TakeCourseTargetCompletionSynthesis(_this, deployed);
   if (synthesis.should_synthesize) {
     auto* process_target = ResolveProcessQueueTargetForCompletion();
     if (process_target) {
@@ -1064,11 +1118,10 @@ void ActionQueueManager_ProcessQueueDeployed_Marker(auto original, ActionQueueMa
 
   if (log_marker) {
     spdlog::info("[KirsharaQueueMarker] phase=after hook=ProcessQueue.deployed seq={} manager={} deployed={} "
-                 "deployed_id={} state={} prev={} type={} destroyed={} battling={} can_select_new_target={}",
-                 seq, PtrValue(_this), PtrValue(deployed_data), FleetDeployedId(deployed_data),
-                 FleetDeployedState(deployed_data), FleetDeployedPreviousState(deployed_data),
-                 FleetDeployedType(deployed_data), FleetDeployedIsDestroyed(deployed_data),
-                 FleetDeployedCurrentlyBattling(deployed_data), can_select_new_target);
+                 "deployed_id={} state={} prev={} type={} destroyed={} battling={} can_select_new_target={} "
+                 "snapshot=before-original",
+                 seq, PtrValue(_this), PtrValue(deployed_data), deployed.id, deployed.state, deployed.previous_state,
+                 deployed.type, deployed.destroyed, deployed.currently_battling, can_select_new_target);
   }
 }
 
