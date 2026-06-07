@@ -916,6 +916,26 @@ action_queue_probe_files = 3
 # you are validating the off-screen queue-stall regression workaround.
 enabled = false
 
+# Parsed for compatibility only. This old hook is unsafe on the current build
+# because TryPlanPathAndEngageTarget currently returns IEnumerator.
+try_plan_path_and_engage_target = false
+
+# Install higher-level completion markers around strike-complete/process/
+# advance while investigating off-screen queue stalls. This intentionally stays
+# off the crash-prone RemoveActionFromQueue seam.
+completion_markers = false
+
+# Experimental repair candidate for off-screen queued combat. It replays the
+# target-bearing queue commit when native only emits the player fleet combat
+# start event. Keep false unless testing Kir'shara queue advancement.
+course_target_completion = false
+
+# Install only the HandleStall staged repair hook.
+handle_stall = false
+
+# Install only the RemoveActionFromQueue staged repair hook.
+remove_action_from_queue = false
+
 [advanced.queue]
 # Legacy queue-add experiment/dev-test namespace. These keys do not control
 # Kir'shara queue progression repair.

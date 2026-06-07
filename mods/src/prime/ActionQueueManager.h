@@ -6,6 +6,8 @@
 #include "MonoSingleton.h"
 #include "errormsg.h"
 
+#include <cstdint>
+
 struct ActionQueueManager : MonoSingleton<ActionQueueManager> {
   friend struct MonoSingleton<ActionQueueManager>;
 
@@ -143,9 +145,10 @@ public:
     return false;
   }
 
-  void AddToQueue(long targetId)
+  void AddToQueue(std::int64_t targetId)
   {
-    static auto AddToQueueMethod = get_class_helper().GetMethod<void(ActionQueueManager*, long)>("AddActionToQueue");
+    static auto AddToQueueMethod =
+        get_class_helper().GetMethod<void(ActionQueueManager*, std::int64_t)>("AddActionToQueue");
     static auto AddToQueueWarn   = true;
 
     if (AddToQueueMethod != nullptr) {

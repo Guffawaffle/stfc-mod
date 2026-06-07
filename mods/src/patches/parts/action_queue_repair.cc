@@ -13,15 +13,20 @@
 #include "patches/fleet_runtime_diagnostics.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <mutex>
 #include <prime/ActionQueueManager.h>
 #include <prime/FleetDeployedData.h>
+#include <prime/FleetsManager.h>
+#include <prime/Hub.h>
 #include <prime/IList.h>
 #include <prime/Vector3.h>
 #include <spdlog/spdlog.h>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
@@ -37,7 +42,7 @@ bool ActionQueueProbeEnabled()
 {
   const auto level                  = RuntimeTraceLevelSetting();
   const auto detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
-  return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairEnabled(), detailed_runtime_trace).emit_probe_logs;
+  return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairSettings(), detailed_runtime_trace).emit_probe_logs;
 }
 
 bool ActionQueueProbeDetoursEnabled()
@@ -47,20 +52,24 @@ bool ActionQueueRepairEnabled()
 {
   const auto level                  = RuntimeTraceLevelSetting();
   const auto detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
-  return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairEnabled(), detailed_runtime_trace).install_repair_hooks;
+  return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairSettings(), detailed_runtime_trace).install_repair_hooks;
 }
 
 constexpr char kActionQueueProbeJsonlFile[] = "community_patch_action_queue_probe.jsonl";
 
 nlohmann::json ActionQueueInstanceJson(void* action_queue_instance);
 nlohmann::json ActionQueueSlotsJson(ActionQueueManager* manager);
-long           ActionQueueInstanceFleetId(void* action_queue_instance);
-long           ActionQueueInstanceLastTargetId(void* action_queue_instance);
-long           ActionQueueInstanceHeadTargetId(void* action_queue_instance);
+std::uint64_t  ActionQueueInstanceFleetId(void* action_queue_instance);
+std::int64_t   ActionQueueInstanceLastTargetId(void* action_queue_instance);
+std::int64_t   ActionQueueInstanceHeadTargetId(void* action_queue_instance);
 bool           ActionQueueInstanceIsEngaging(void* action_queue_instance);
 void           SetActionQueueInstanceIsEngaging(void* action_queue_instance, bool is_engaging);
-int            FindActionQueueItemIndex(IList* list, long target_id);
+int            ActionQueueInstanceCount(void* action_queue_instance);
+int            FindActionQueueItemIndex(IList* list, std::int64_t target_id);
 IList*         ProbeActionQueueInstanceList(void* action_queue_instance);
+bool           TryGetNativeActionQueueInstance(ActionQueueManager* manager, FleetPlayerData* fleet,
+                                               void**             action_queue_instance);
+void*          FindActionQueueInstanceForFleet(ActionQueueManager* manager, FleetPlayerData* fleet);
 
 std::mutex& ActionQueueProbeJsonlMutex()
 {
@@ -119,7 +128,7 @@ std::int64_t ActionQueueProbeTimestampMs()
 }
 
 struct StickyActionQueueTargetState {
-  long         target_id = 0;
+  std::int64_t target_id = 0;
   std::int64_t updated_at_ms = 0;
   std::string  source;
 };
@@ -139,7 +148,7 @@ std::unordered_map<std::uintptr_t, StickyActionQueueTargetState>& StickyActionQu
 std::uintptr_t StickyActionQueueTargetKey(void* action_queue_instance)
 { return reinterpret_cast<std::uintptr_t>(action_queue_instance); }
 
-long StickyActionQueueTargetId(void* action_queue_instance)
+std::int64_t StickyActionQueueTargetId(void* action_queue_instance)
 {
   if (!action_queue_instance) {
     return 0;
@@ -151,8 +160,8 @@ long StickyActionQueueTargetId(void* action_queue_instance)
   return it == targets.end() ? 0 : it->second.target_id;
 }
 
-bool LatchStickyActionQueueTarget(ActionQueueManager* manager, void* action_queue_instance, long target_id, const char* hook,
-                                  const char* reason)
+bool LatchStickyActionQueueTarget(ActionQueueManager* manager, void* action_queue_instance, std::int64_t target_id,
+                                  const char* hook, const char* reason)
 {
   if (!action_queue_instance || target_id == 0) {
     return false;
@@ -310,6 +319,110 @@ bool ShouldPreserveOrphanedEngagingInStall(const FleetRuntimeDiagnosticsSnapshot
 std::uintptr_t PtrValue(const void* ptr)
 { return reinterpret_cast<std::uintptr_t>(ptr); }
 
+std::uint64_t NextKirsharaQueueMarkerSeq()
+{
+  static std::atomic<std::uint64_t> seq{0};
+  return seq.fetch_add(1, std::memory_order_relaxed) + 1;
+}
+
+void DumpInterestingActionQueueManagerMethodsOnce()
+{
+  static bool dumped = false;
+  if (dumped) {
+    return;
+  }
+  dumped = true;
+
+  auto class_helper = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager");
+  auto* klass       = class_helper.get_cls();
+  if (!klass) {
+    spdlog::warn("[KirsharaQueueMarker] unable to dump ActionQueueManager methods: class not found");
+    return;
+  }
+
+  constexpr const char* kInterestingNameParts[] = {"Queue",  "Clear",  "Battle", "Combat", "Complete",
+                                                   "Strike", "Target", "Fleet",  "Course", "Stall"};
+
+  spdlog::info("[KirsharaQueueMarker] interesting ActionQueueManager methods:");
+  void* iter = nullptr;
+  while (const MethodInfo* method = il2cpp_class_get_methods(klass, &iter)) {
+    if (!method || !method->name) {
+      continue;
+    }
+
+    auto interesting = false;
+    for (const auto* part : kInterestingNameParts) {
+      if (std::strstr(method->name, part) != nullptr) {
+        interesting = true;
+        break;
+      }
+    }
+    if (!interesting) {
+      continue;
+    }
+
+    spdlog::info("[KirsharaQueueMarker]   {}", probe::detail::method_signature(method));
+  }
+}
+
+std::string KirsharaQueueMarkerViewSummary()
+{
+  auto* section_manager = Hub::get_SectionManager();
+  if (!section_manager) {
+    return "section=unavailable is_system=0 is_galaxy=0";
+  }
+
+  const auto section = section_manager->CurrentSection;
+  return std::string("section=") + std::to_string(static_cast<int64_t>(section))
+         + " is_system=" + std::to_string(section == SectionID::Navigation_System ? 1 : 0)
+         + " is_galaxy=" + std::to_string(section == SectionID::Navigation_Galaxy ? 1 : 0);
+}
+
+void LogFleetQueueStateSummary(const char* hook, const char* phase, ActionQueueManager* manager)
+{
+  auto* fleets_manager = FleetsManager::Instance();
+  if (!manager || !fleets_manager) {
+    spdlog::info(
+        "[KirsharaQueueMarker] phase={} hook={} view={} fleet_summary=unavailable manager={} fleets_manager={}", phase,
+        hook, KirsharaQueueMarkerViewSummary(), PtrValue(manager), PtrValue(fleets_manager));
+    return;
+  }
+
+  std::ostringstream summary;
+  auto               wrote_any = false;
+  for (int index = 0; index < 8; ++index) {
+    auto* fleet = fleets_manager->GetFleetPlayerData(index);
+    if (!fleet) {
+      continue;
+    }
+
+    int  reason   = -1;
+    auto count    = manager->GetActionQueueCount(fleet);
+    auto state    = manager->GetActionQueueState(fleet, &reason);
+    auto in_queue = manager->IsFleetInQueue(fleet);
+    auto action_queue_instance = (count > 0 || in_queue) ? FindActionQueueInstanceForFleet(manager, fleet) : nullptr;
+    const auto instance_count  = action_queue_instance ? ActionQueueInstanceCount(action_queue_instance) : -1;
+    const auto head_target_id  = action_queue_instance ? ActionQueueInstanceHeadTargetId(action_queue_instance) : 0;
+    const auto last_target_id  = action_queue_instance ? ActionQueueInstanceLastTargetId(action_queue_instance) : 0;
+    const auto is_engaging     = action_queue_instance ? ActionQueueInstanceIsEngaging(action_queue_instance) : false;
+
+    if (wrote_any) {
+      summary << "; ";
+    }
+    wrote_any = true;
+    summary << "slot=" << index << " id=" << fleet->Id << " state=" << static_cast<int>(fleet->CurrentState)
+            << " prev=" << static_cast<int>(fleet->PreviousState) << " count=" << count << " qstate=" << state
+            << " reason=" << reason << " inq=" << in_queue;
+    if (count > 0 || in_queue || action_queue_instance) {
+      summary << " inst_count=" << instance_count << " head=" << head_target_id << " last=" << last_target_id
+              << " engaging=" << is_engaging;
+    }
+  }
+
+  spdlog::info("[KirsharaQueueMarker] phase={} hook={} view={} fleet_summary={}", phase, hook,
+               KirsharaQueueMarkerViewSummary(), wrote_any ? summary.str() : "none");
+}
+
 void AppendActionQueueProbeJsonl(nlohmann::json event)
 {
   if (!ActionQueueProbeEnabled()) {
@@ -440,7 +553,7 @@ int ActionQueueInstanceCount(void* action_queue_instance)
   return list ? list->Count : -1;
 }
 
-long ActionQueueInstanceFleetId(void* action_queue_instance)
+std::uint64_t ActionQueueInstanceFleetId(void* action_queue_instance)
 {
   if (!action_queue_instance) {
     return 0;
@@ -452,10 +565,10 @@ long ActionQueueInstanceFleetId(void* action_queue_instance)
   }
 
   static auto field = class_helper.GetField("<PlayerFleetId>k__BackingField").offset();
-  return *(long*)((char*)action_queue_instance + field);
+  return *(std::uint64_t*)((char*)action_queue_instance + field);
 }
 
-long ActionQueueInstanceLastTargetId(void* action_queue_instance)
+std::int64_t ActionQueueInstanceLastTargetId(void* action_queue_instance)
 {
   if (!action_queue_instance) {
     return 0;
@@ -467,10 +580,10 @@ long ActionQueueInstanceLastTargetId(void* action_queue_instance)
   }
 
   static auto field = class_helper.GetField("LastEngagedTargetId").offset();
-  return *(long*)((char*)action_queue_instance + field);
+  return *(std::int64_t*)((char*)action_queue_instance + field);
 }
 
-void SetActionQueueInstanceLastTargetId(void* action_queue_instance, long target_id)
+void SetActionQueueInstanceLastTargetId(void* action_queue_instance, std::int64_t target_id)
 {
   if (!action_queue_instance) {
     return;
@@ -481,8 +594,8 @@ void SetActionQueueInstanceLastTargetId(void* action_queue_instance, long target
     return;
   }
 
-  static auto field                              = class_helper.GetField("LastEngagedTargetId").offset();
-  *(long*)((char*)action_queue_instance + field) = target_id;
+  static auto field                                        = class_helper.GetField("LastEngagedTargetId").offset();
+  *(std::int64_t*)((char*)action_queue_instance + field) = target_id;
 }
 
 bool RepairActionQueueInstanceLastTargetFromHead(ActionQueueManager* manager, void* action_queue_instance, const char* hook,
@@ -610,7 +723,7 @@ IList* ProbeActionQueueInstanceList(void* action_queue_instance)
   return *(IList**)((char*)action_queue_instance + field);
 }
 
-long ProbeQueueableActionFleetId(Il2CppObject* queueable_action)
+std::int64_t ProbeQueueableActionFleetId(Il2CppObject* queueable_action)
 {
   if (!queueable_action) {
     return 0;
@@ -622,7 +735,7 @@ long ProbeQueueableActionFleetId(Il2CppObject* queueable_action)
   }
 
   static auto field = class_helper.GetField("<FleetId>k__BackingField").offset();
-  return *(long*)((char*)queueable_action + field);
+  return *(std::int64_t*)((char*)queueable_action + field);
 }
 
 int ProbeQueueableActionRetryCount(Il2CppObject* queueable_action)
@@ -640,7 +753,7 @@ int ProbeQueueableActionRetryCount(Il2CppObject* queueable_action)
   return *(int*)((char*)queueable_action + field);
 }
 
-long ActionQueueInstanceHeadTargetId(void* action_queue_instance)
+std::int64_t ActionQueueInstanceHeadTargetId(void* action_queue_instance)
 {
   auto list = ProbeActionQueueInstanceList(action_queue_instance);
   if (!list || list->Count <= 0) {
@@ -650,7 +763,7 @@ long ActionQueueInstanceHeadTargetId(void* action_queue_instance)
   return ProbeQueueableActionFleetId(list->Get(0));
 }
 
-int FindActionQueueItemIndex(IList* list, long target_id)
+int FindActionQueueItemIndex(IList* list, std::int64_t target_id)
 {
   if (!list) {
     return -1;
@@ -666,7 +779,7 @@ int FindActionQueueItemIndex(IList* list, long target_id)
   return -1;
 }
 
-void* FindActionQueueInstanceContainingTarget(ActionQueueManager* manager, long target_id)
+void* FindActionQueueInstanceContainingTarget(ActionQueueManager* manager, std::int64_t target_id)
 {
   if (!manager || target_id == 0) {
     return nullptr;
@@ -695,7 +808,7 @@ void* FindActionQueueInstanceContainingTarget(ActionQueueManager* manager, long 
   return nullptr;
 }
 
-void* FindActionQueueInstanceWithLastTarget(ActionQueueManager* manager, long target_id)
+void* FindActionQueueInstanceWithLastTarget(ActionQueueManager* manager, std::int64_t target_id)
 {
   if (!manager || target_id == 0) {
     return nullptr;
@@ -721,6 +834,77 @@ void* FindActionQueueInstanceWithLastTarget(ActionQueueManager* manager, long ta
   }
 
   return nullptr;
+}
+
+void* FindActionQueueInstanceForFleet(ActionQueueManager* manager, FleetPlayerData* fleet)
+{
+  if (!manager || !fleet) {
+    return nullptr;
+  }
+
+  void* native_action_queue_instance = nullptr;
+  if (TryGetNativeActionQueueInstance(manager, fleet, &native_action_queue_instance) && native_action_queue_instance) {
+    return native_action_queue_instance;
+  }
+
+  static auto class_helper = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager");
+  if (!class_helper.isValidHelper()) {
+    return nullptr;
+  }
+
+  static auto battle_queue_field = class_helper.GetField("_battleQueue").offset();
+  auto        battle_queue       = *(Il2CppArray**)((char*)manager + battle_queue_field);
+  if (!battle_queue) {
+    return nullptr;
+  }
+
+  auto sized_array = reinterpret_cast<Il2CppArraySize*>(battle_queue);
+  for (size_t index = 0; index < static_cast<size_t>(sized_array->max_length); ++index) {
+    auto action_queue_instance = il2cpp_get_array_element<Il2CppObject>(battle_queue, index);
+    if (ActionQueueInstanceFleetId(action_queue_instance) == fleet->Id) {
+      return action_queue_instance;
+    }
+  }
+
+  return nullptr;
+}
+
+bool TryGetNativeActionQueueInstance(ActionQueueManager* manager, FleetPlayerData* fleet, void** action_queue_instance)
+{
+  if (action_queue_instance) {
+    *action_queue_instance = nullptr;
+  }
+  if (!manager || !fleet) {
+    return false;
+  }
+
+  static auto class_helper = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager");
+  if (!class_helper.isValidHelper()) {
+    return false;
+  }
+
+  static const MethodInfo* try_get_action_queue_instance =
+      class_helper.GetMethodInfoSpecial("TryGetActionQueueInstance", [](int param_count, const Il2CppType** params) {
+        return param_count == 2 && params && params[0]
+               && probe::detail::type_name(params[0]).find("FleetPlayerData") != std::string::npos;
+      });
+  if (!try_get_action_queue_instance) {
+    return false;
+  }
+
+  void*            instance  = nullptr;
+  void*            args[2]   = {fleet, &instance};
+  Il2CppException* exception = nullptr;
+  auto*            result    = il2cpp_runtime_invoke(try_get_action_queue_instance, manager, args, &exception);
+  if (exception || !result) {
+    return false;
+  }
+
+  const auto success = *reinterpret_cast<bool*>(il2cpp_object_unbox(result));
+  if (success && action_queue_instance) {
+    *action_queue_instance = instance;
+  }
+  return success;
 }
 
 bool RemoveActionQueueListAt(IList* list, int index)
@@ -845,10 +1029,252 @@ void LogActionQueueInstance(const char* phase, const char* hook, void* action_qu
                ActionQueueInstanceLastTargetId(action_queue_instance));
 }
 
-long FleetDeployedId(FleetDeployedData* deployed_data)
+std::int64_t FleetDeployedId(FleetDeployedData* deployed_data)
 { return deployed_data ? deployed_data->ID : 0; }
 
-void ActionQueueManager_AddActionToQueue(auto original, ActionQueueManager* _this, long target_id)
+int FleetDeployedState(FleetDeployedData* deployed_data)
+{ return deployed_data ? deployed_data->CurrentState : -1; }
+
+int FleetDeployedPreviousState(FleetDeployedData* deployed_data)
+{ return deployed_data ? deployed_data->PreviousState : -1; }
+
+int FleetDeployedType(FleetDeployedData* deployed_data)
+{ return deployed_data ? static_cast<int>(deployed_data->FleetType) : -1; }
+
+bool FleetDeployedIsDestroyed(FleetDeployedData* deployed_data)
+{ return deployed_data ? deployed_data->IsDestroyed : false; }
+
+bool FleetDeployedCurrentlyBattling(FleetDeployedData* deployed_data)
+{ return deployed_data ? deployed_data->CurrentlyBattling : false; }
+
+struct CourseTargetDeployedFleetId {
+  bool         present = false;
+  std::int64_t value   = 0;
+};
+
+struct CourseTargetCompletionCandidate {
+  std::int64_t target_id     = 0;
+  std::int64_t updated_at_ms = 0;
+  bool         consumed      = false;
+};
+
+struct PlayerOnlyBattleStartCandidate {
+  std::int64_t deployed_id   = 0;
+  std::int64_t updated_at_ms = 0;
+  std::uint64_t seq          = 0;
+};
+
+struct CourseTargetCompletionSynthesis {
+  bool          should_synthesize = false;
+  std::uint32_t fleet_key         = 0;
+  std::int64_t  deployed_id       = 0;
+  std::int64_t  target_id         = 0;
+  std::int64_t  course_age_ms     = 0;
+  std::int64_t  battle_age_ms     = 0;
+  std::uint64_t battle_seq        = 0;
+};
+
+CourseTargetDeployedFleetId ReadCourseDataTargetDeployedFleetId(void* course_data)
+{
+  if (!course_data) {
+    return {};
+  }
+
+  static auto class_helper =
+      il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "CourseData");
+  if (!class_helper.isValidHelper()) {
+    return {};
+  }
+
+  static auto field_offset = class_helper.GetField("<TargetDeployedFleetId>k__BackingField").offset();
+  auto*       nullable     = reinterpret_cast<const char*>(course_data) + field_offset;
+  const auto  present      = *reinterpret_cast<const bool*>(nullable);
+  const auto  value        = present ? *reinterpret_cast<const std::int64_t*>(nullable + 8) : 0;
+  return {present, value};
+}
+
+std::mutex& CourseTargetCompletionMutex()
+{
+  static std::mutex mutex;
+  return mutex;
+}
+
+std::unordered_map<std::uint32_t, CourseTargetCompletionCandidate>& CourseTargetCompletionTargets()
+{
+  static std::unordered_map<std::uint32_t, CourseTargetCompletionCandidate> targets;
+  return targets;
+}
+
+std::unordered_map<std::uint32_t, PlayerOnlyBattleStartCandidate>& CourseTargetCompletionBattleStarts()
+{
+  static std::unordered_map<std::uint32_t, PlayerOnlyBattleStartCandidate> starts;
+  return starts;
+}
+
+bool CourseTargetCompletionEnabled()
+{
+  const auto level                  = RuntimeTraceLevelSetting();
+  const auto detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
+  return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairSettings(), detailed_runtime_trace)
+      .install_course_target_completion;
+}
+
+std::uint32_t CourseTargetCompletionFleetKey(std::int64_t fleet_id)
+{ return static_cast<std::uint32_t>(static_cast<std::uint64_t>(fleet_id) & 0xffffffffu); }
+
+std::int64_t AgeMs(std::int64_t now, std::int64_t previous)
+{ return now >= previous ? now - previous : previous - now; }
+
+bool IsPlayerCombatStart(FleetDeployedData* deployed_data)
+{
+  const auto previous_state = FleetDeployedPreviousState(deployed_data);
+  return deployed_data && FleetDeployedType(deployed_data) == static_cast<int>(DeployedFleetType::Player)
+         && FleetDeployedState(deployed_data) == 6 && (previous_state == 0 || previous_state == 1)
+         && FleetDeployedCurrentlyBattling(deployed_data) && !FleetDeployedIsDestroyed(deployed_data);
+}
+
+void LatchCourseTargetCompletionTarget(std::int64_t fleet_id, std::int64_t target_id, const char* source)
+{
+  if (!CourseTargetCompletionEnabled() || target_id == 0) {
+    return;
+  }
+
+  const auto key = CourseTargetCompletionFleetKey(fleet_id);
+  {
+    std::lock_guard lk(CourseTargetCompletionMutex());
+    auto&           state   = CourseTargetCompletionTargets()[key];
+    state.target_id         = target_id;
+    state.updated_at_ms     = ActionQueueProbeTimestampMs();
+    state.consumed          = false;
+  }
+
+  spdlog::info("[KirsharaQueueRepair] repair=course-target-completion phase=latch-course-target fleet_key={} "
+               "fleet={} target={} source={}",
+               key, fleet_id, target_id, source ? source : "");
+}
+
+void LatchPlayerOnlyBattleStart(void* fleets, std::uint64_t seq)
+{
+  if (!CourseTargetCompletionEnabled() || !fleets) {
+    return;
+  }
+
+  auto* list = static_cast<IList*>(fleets);
+  if (list->Count != 1) {
+    return;
+  }
+
+  auto* deployed_data = reinterpret_cast<FleetDeployedData*>(list->Get(0));
+  if (!IsPlayerCombatStart(deployed_data)) {
+    return;
+  }
+
+  const auto deployed_id = FleetDeployedId(deployed_data);
+  const auto key         = CourseTargetCompletionFleetKey(deployed_id);
+  {
+    std::lock_guard lk(CourseTargetCompletionMutex());
+    CourseTargetCompletionBattleStarts()[key] = {
+        .deployed_id   = deployed_id,
+        .updated_at_ms = ActionQueueProbeTimestampMs(),
+        .seq           = seq,
+    };
+  }
+
+  spdlog::info("[KirsharaQueueRepair] repair=course-target-completion phase=latch-player-only-battle-start "
+               "fleet_key={} deployed_id={} seq={}",
+               key, deployed_id, seq);
+}
+
+CourseTargetCompletionSynthesis TakeCourseTargetCompletionSynthesis(FleetDeployedData* deployed_data)
+{
+  if (!CourseTargetCompletionEnabled() || !IsPlayerCombatStart(deployed_data)) {
+    return {};
+  }
+
+  constexpr std::int64_t kBattleStartWindowMs = 5000;
+  constexpr std::int64_t kCourseTargetWindowMs = 300000;
+
+  const auto now         = ActionQueueProbeTimestampMs();
+  const auto deployed_id = FleetDeployedId(deployed_data);
+  const auto key         = CourseTargetCompletionFleetKey(deployed_id);
+
+  std::lock_guard lk(CourseTargetCompletionMutex());
+  auto&           targets = CourseTargetCompletionTargets();
+  auto&           starts  = CourseTargetCompletionBattleStarts();
+  const auto      target  = targets.find(key);
+  const auto      start   = starts.find(key);
+  if (target == targets.end() || start == starts.end() || target->second.consumed || target->second.target_id == 0) {
+    return {};
+  }
+
+  const auto battle_age = AgeMs(now, start->second.updated_at_ms);
+  const auto course_age = AgeMs(now, target->second.updated_at_ms);
+  if (battle_age > kBattleStartWindowMs || course_age > kCourseTargetWindowMs) {
+    return {};
+  }
+
+  target->second.consumed = true;
+  return {
+      .should_synthesize = true,
+      .fleet_key         = key,
+      .deployed_id       = deployed_id,
+      .target_id         = target->second.target_id,
+      .course_age_ms     = course_age,
+      .battle_age_ms     = battle_age,
+      .battle_seq        = start->second.seq,
+  };
+}
+
+using ProcessQueueTargetMethod = void(ActionQueueManager*, std::int64_t, bool);
+
+ProcessQueueTargetMethod* ResolveProcessQueueTargetForCompletion()
+{
+  static auto actionqueue_manager =
+      il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager");
+  if (!actionqueue_manager.isValidHelper()) {
+    return nullptr;
+  }
+
+  static auto method =
+      actionqueue_manager.GetMethodSpecial<ProcessQueueTargetMethod>("ProcessQueue",
+                                                                     [](int param_count, const Il2CppType** params) {
+                                                                       return param_count == 2
+                                                                              && probe::detail::type_name(params[0])
+                                                                                         .find("Int64")
+                                                                                     != std::string::npos;
+                                                                     });
+  return method;
+}
+
+std::string FleetDeployedListSummary(void* fleets)
+{
+  if (!fleets) {
+    return "ptr=0 count=-1";
+  }
+
+  auto*              list = static_cast<IList*>(fleets);
+  std::ostringstream out;
+  const auto         count = list->Count;
+  const auto         limit = std::min(std::max(count, 0), 8);
+
+  out << "ptr=" << PtrValue(fleets) << " count=" << count;
+  for (auto index = 0; index < limit; ++index) {
+    auto* deployed_data = reinterpret_cast<FleetDeployedData*>(list->Get(index));
+    out << " item" << index << "_ptr=" << PtrValue(deployed_data) << " item" << index
+        << "_id=" << FleetDeployedId(deployed_data) << " item" << index
+        << "_state=" << FleetDeployedState(deployed_data) << " item" << index
+        << "_prev=" << FleetDeployedPreviousState(deployed_data) << " item" << index
+        << "_type=" << FleetDeployedType(deployed_data) << " item" << index
+        << "_destroyed=" << FleetDeployedIsDestroyed(deployed_data) << " item" << index
+        << "_battling=" << FleetDeployedCurrentlyBattling(deployed_data);
+  }
+  if (count > limit) {
+    out << " truncated=true";
+  }
+  return out.str();
+}
+
+void ActionQueueManager_AddActionToQueue(auto original, ActionQueueManager* _this, std::int64_t target_id)
 {
   auto before         = BuildActionQueueProbeEvent("before", "AddActionToQueue", _this, nullptr, nullptr);
   before["target_id"] = target_id;
@@ -870,7 +1296,7 @@ void ActionQueueManager_AddActionToQueue(auto original, ActionQueueManager* _thi
   }
 }
 
-bool ActionQueueManager_RemoveActionFromQueue(auto original, ActionQueueManager* _this, long target_id,
+bool ActionQueueManager_RemoveActionFromQueue(auto original, ActionQueueManager* _this, std::int64_t target_id,
                                               FleetPlayerData* fleet, int* index)
 {
   auto       target_instance_before = FindActionQueueInstanceContainingTarget(_this, target_id);
@@ -1176,6 +1602,183 @@ void ActionQueueManager_HandleStall(auto original, ActionQueueManager* _this, vo
   });
 }
 
+void ActionQueueManager_RemoveTargetAndAttackNext_Marker(auto original, ActionQueueManager* _this, void* action_queue_instance,
+                                                         Il2CppObject* target, FleetPlayerData* fleet)
+{
+  const auto seq = NextKirsharaQueueMarkerSeq();
+
+  spdlog::info(
+      "[KirsharaQueueMarker] phase=before hook=RemoveTargetAndAttackNext seq={} manager={} instance={} target={} "
+      "fleet={}",
+      seq, PtrValue(_this), PtrValue(action_queue_instance), PtrValue(target), PtrValue(fleet));
+
+  original(_this, action_queue_instance, target, fleet);
+
+  spdlog::info(
+      "[KirsharaQueueMarker] phase=after hook=RemoveTargetAndAttackNext seq={} manager={} instance={} target={} "
+      "fleet={}",
+      seq, PtrValue(_this), PtrValue(action_queue_instance), PtrValue(target), PtrValue(fleet));
+}
+
+void ActionQueueManager_CheckToClearActionQueue_Marker(auto original, ActionQueueManager* _this, FleetPlayerData* fleet)
+{
+  const auto seq = NextKirsharaQueueMarkerSeq();
+  spdlog::info("[KirsharaQueueMarker] phase=before hook=CheckToClearActionQueue seq={} manager={} fleet={}", seq,
+               PtrValue(_this), PtrValue(fleet));
+
+  original(_this, fleet);
+
+  spdlog::info("[KirsharaQueueMarker] phase=after hook=CheckToClearActionQueue seq={} manager={} fleet={}", seq,
+               PtrValue(_this), PtrValue(fleet));
+}
+
+void ActionQueueManager_OnFleetStateChangeEventHandler_Marker(auto original, ActionQueueManager* _this, void* fleets)
+{
+  const auto seq = NextKirsharaQueueMarkerSeq();
+  const auto before_fleets = FleetDeployedListSummary(fleets);
+  spdlog::info("[KirsharaQueueMarker] phase=before hook=OnFleetStateChange seq={} manager={} fleet_list={}", seq,
+               PtrValue(_this), before_fleets);
+  LatchPlayerOnlyBattleStart(fleets, seq);
+
+  original(_this, fleets);
+
+  const auto after_fleets = FleetDeployedListSummary(fleets);
+  spdlog::info("[KirsharaQueueMarker] phase=after hook=OnFleetStateChange seq={} manager={} fleet_list={}", seq,
+               PtrValue(_this), after_fleets);
+}
+
+void ActionQueueManager_OnFleetsDisposedEventHandler_Marker(auto original, ActionQueueManager* _this, void* fleets)
+{
+  const auto seq = NextKirsharaQueueMarkerSeq();
+  spdlog::info("[KirsharaQueueMarker] phase=before hook=OnFleetsDisposed seq={} manager={} fleets={}", seq,
+               PtrValue(_this), PtrValue(fleets));
+
+  // Disposal paths can tear down fleet/queue objects underneath us. Keep this hook marker-only.
+
+  original(_this, fleets);
+
+  spdlog::info("[KirsharaQueueMarker] phase=after hook=OnFleetsDisposed seq={} manager={} fleets={}", seq,
+               PtrValue(_this), PtrValue(fleets));
+}
+
+void ActionQueueManager_OnStrikeCompleteEventHandler_Marker(auto original, ActionQueueManager* _this, void* strike_data)
+{
+  const auto seq = NextKirsharaQueueMarkerSeq();
+  spdlog::info("[KirsharaQueueMarker] phase=before hook=OnStrikeComplete seq={} manager={} strike={}", seq,
+               PtrValue(_this), PtrValue(strike_data));
+
+  original(_this, strike_data);
+
+  spdlog::info("[KirsharaQueueMarker] phase=after hook=OnStrikeComplete seq={} manager={} strike={}", seq,
+               PtrValue(_this), PtrValue(strike_data));
+}
+
+void ActionQueueManager_ProcessQueueDeployed_Marker(auto original, ActionQueueManager* _this, FleetDeployedData* deployed_data,
+                                                    bool can_select_new_target)
+{
+  const auto seq = NextKirsharaQueueMarkerSeq();
+  spdlog::info("[KirsharaQueueMarker] phase=before hook=ProcessQueue.deployed seq={} manager={} deployed={} "
+               "deployed_id={} state={} prev={} type={} destroyed={} battling={} can_select_new_target={}",
+               seq, PtrValue(_this), PtrValue(deployed_data), FleetDeployedId(deployed_data),
+               FleetDeployedState(deployed_data), FleetDeployedPreviousState(deployed_data), FleetDeployedType(deployed_data),
+               FleetDeployedIsDestroyed(deployed_data), FleetDeployedCurrentlyBattling(deployed_data),
+               can_select_new_target);
+
+  original(_this, deployed_data, can_select_new_target);
+
+  const auto synthesis = TakeCourseTargetCompletionSynthesis(deployed_data);
+  if (synthesis.should_synthesize) {
+    auto* process_target = ResolveProcessQueueTargetForCompletion();
+    if (process_target) {
+      spdlog::info("[KirsharaQueueRepair] repair=course-target-completion phase=synthesize-process-target seq={} "
+                   "manager={} fleet_key={} deployed_id={} target={} course_age_ms={} battle_age_ms={} "
+                   "battle_seq={} can_select_new_target={}",
+                   seq, PtrValue(_this), synthesis.fleet_key, synthesis.deployed_id, synthesis.target_id,
+                   synthesis.course_age_ms, synthesis.battle_age_ms, synthesis.battle_seq, can_select_new_target);
+      process_target(_this, synthesis.target_id, can_select_new_target);
+    } else {
+      spdlog::warn("[KirsharaQueueRepair] repair=course-target-completion phase=synthesize-process-target "
+                   "result=missing-method seq={} manager={} fleet_key={} deployed_id={} target={}",
+                   seq, PtrValue(_this), synthesis.fleet_key, synthesis.deployed_id, synthesis.target_id);
+    }
+  }
+
+  spdlog::info("[KirsharaQueueMarker] phase=after hook=ProcessQueue.deployed seq={} manager={} deployed={} "
+               "deployed_id={} state={} prev={} type={} destroyed={} battling={} can_select_new_target={}",
+               seq, PtrValue(_this), PtrValue(deployed_data), FleetDeployedId(deployed_data),
+               FleetDeployedState(deployed_data), FleetDeployedPreviousState(deployed_data), FleetDeployedType(deployed_data),
+               FleetDeployedIsDestroyed(deployed_data), FleetDeployedCurrentlyBattling(deployed_data),
+               can_select_new_target);
+}
+
+bool ActionQueueManager_IsTargetValid_Marker(auto original, ActionQueueManager* _this, FleetDeployedData* marauder)
+{
+  const auto seq = NextKirsharaQueueMarkerSeq();
+  spdlog::info("[KirsharaQueueMarker] phase=before hook=IsTargetValid seq={} manager={} deployed={} deployed_id={} "
+               "state={} prev={} type={} destroyed={} battling={}",
+               seq, PtrValue(_this), PtrValue(marauder), FleetDeployedId(marauder), FleetDeployedState(marauder),
+               FleetDeployedPreviousState(marauder), FleetDeployedType(marauder), FleetDeployedIsDestroyed(marauder),
+               FleetDeployedCurrentlyBattling(marauder));
+
+  const auto result = original(_this, marauder);
+
+  spdlog::info("[KirsharaQueueMarker] phase=after hook=IsTargetValid seq={} manager={} deployed={} deployed_id={} "
+               "state={} prev={} type={} destroyed={} battling={} result={}",
+               seq, PtrValue(_this), PtrValue(marauder), FleetDeployedId(marauder), FleetDeployedState(marauder),
+               FleetDeployedPreviousState(marauder), FleetDeployedType(marauder), FleetDeployedIsDestroyed(marauder),
+               FleetDeployedCurrentlyBattling(marauder), result);
+  return result;
+}
+
+void ActionQueueManager_ProcessQueueTarget_Marker(auto original, ActionQueueManager* _this, std::int64_t target_id,
+                                                  bool can_select_new_target)
+{
+  const auto seq = NextKirsharaQueueMarkerSeq();
+  spdlog::info("[KirsharaQueueMarker] phase=before hook=ProcessQueue.target seq={} manager={} target={} "
+               "can_select_new_target={}",
+               seq, PtrValue(_this), target_id, can_select_new_target);
+
+  original(_this, target_id, can_select_new_target);
+
+  spdlog::info("[KirsharaQueueMarker] phase=after hook=ProcessQueue.target seq={} manager={} target={} "
+               "can_select_new_target={}",
+               seq, PtrValue(_this), target_id, can_select_new_target);
+}
+
+void ActionQueueManager_OnSetCourseResponseEventHandler_Marker(auto original, ActionQueueManager* _this,
+                                                               std::int64_t fleet_id, bool request_successful,
+                                                               bool is_recall, void* planned_course_data)
+{
+  const auto seq = NextKirsharaQueueMarkerSeq();
+  const auto course_target = ReadCourseDataTargetDeployedFleetId(planned_course_data);
+  spdlog::info("[KirsharaQueueMarker] phase=before hook=OnSetCourseResponse seq={} manager={} fleet={} ok={} "
+               "recall={} course={} course_target_present={} course_target={}",
+               seq, PtrValue(_this), fleet_id, request_successful, is_recall, PtrValue(planned_course_data),
+               course_target.present, course_target.value);
+  if (request_successful && !is_recall && course_target.present) {
+    LatchCourseTargetCompletionTarget(fleet_id, course_target.value, "OnSetCourseResponse.ok");
+  }
+
+  original(_this, fleet_id, request_successful, is_recall, planned_course_data);
+
+  spdlog::info("[KirsharaQueueMarker] phase=after hook=OnSetCourseResponse seq={} manager={} fleet={} ok={} "
+               "recall={} course={} course_target_present={} course_target={}",
+               seq, PtrValue(_this), fleet_id, request_successful, is_recall, PtrValue(planned_course_data),
+               course_target.present, course_target.value);
+}
+
+void ActionQueueManager_OnPlayerFleetStateChangedEventHandler_Marker(auto original, ActionQueueManager* _this, void* fleets)
+{
+  const auto seq = NextKirsharaQueueMarkerSeq();
+  spdlog::info("[KirsharaQueueMarker] phase=before hook=OnPlayerFleetStateChanged seq={} manager={} fleets={}", seq,
+               PtrValue(_this), PtrValue(fleets));
+
+  original(_this, fleets);
+
+  spdlog::info("[KirsharaQueueMarker] phase=after hook=OnPlayerFleetStateChanged seq={} manager={} fleets={}", seq,
+               PtrValue(_this), PtrValue(fleets));
+}
+
 void ActionQueueManager_ProcessQueueDeployed(auto original, ActionQueueManager* _this, FleetDeployedData* deployed_data,
                                              bool can_select_new_target)
 {
@@ -1203,7 +1806,7 @@ void ActionQueueManager_ProcessQueueDeployed(auto original, ActionQueueManager* 
   }
 }
 
-void ActionQueueManager_ProcessQueueTarget(auto original, ActionQueueManager* _this, long target_id,
+void ActionQueueManager_ProcessQueueTarget(auto original, ActionQueueManager* _this, std::int64_t target_id,
                                            bool can_select_new_target)
 {
   auto before                     = BuildActionQueueProbeEvent("before", "ProcessQueue.target", _this, nullptr, nullptr);
@@ -1250,25 +1853,37 @@ void ActionQueueManager_OnStrikeCompleteEventHandler(auto original, ActionQueueM
   }
 }
 
-void ActionQueueManager_OnSetCourseResponseEventHandler(auto original, ActionQueueManager* _this, void* args)
+void ActionQueueManager_OnSetCourseResponseEventHandler(auto original, ActionQueueManager* _this,
+                                                        std::int64_t fleet_id, bool request_successful,
+                                                        bool is_recall, void* planned_course_data)
 {
-  auto before    = BuildActionQueueProbeEvent("before", "OnSetCourseResponse", _this, nullptr, nullptr);
-  before["args"] = PtrValue(args);
+  auto before                   = BuildActionQueueProbeEvent("before", "OnSetCourseResponse", _this, nullptr, nullptr);
+  before["fleet_id"]            = fleet_id;
+  before["request_successful"]  = request_successful;
+  before["is_recall"]           = is_recall;
+  before["planned_course_data"] = PtrValue(planned_course_data);
   AppendActionQueueProbeJsonl(std::move(before));
 
   if (ActionQueueProbeEnabled()) {
-    spdlog::info("[ActionQueueProbe] phase=before hook=OnSetCourseResponse manager={} args={} any_queue={}",
-                 static_cast<void*>(_this), args, _this ? _this->AnyPlayerFleetInQueue() : false);
+    spdlog::info("[ActionQueueProbe] phase=before hook=OnSetCourseResponse manager={} fleet={} ok={} recall={} "
+                 "course={} any_queue={}",
+                 static_cast<void*>(_this), fleet_id, request_successful, is_recall, planned_course_data,
+                 _this ? _this->AnyPlayerFleetInQueue() : false);
   }
-  original(_this, args);
+  original(_this, fleet_id, request_successful, is_recall, planned_course_data);
 
-  auto after    = BuildActionQueueProbeEvent("after", "OnSetCourseResponse", _this, nullptr, nullptr);
-  after["args"] = PtrValue(args);
+  auto after                   = BuildActionQueueProbeEvent("after", "OnSetCourseResponse", _this, nullptr, nullptr);
+  after["fleet_id"]            = fleet_id;
+  after["request_successful"]  = request_successful;
+  after["is_recall"]           = is_recall;
+  after["planned_course_data"] = PtrValue(planned_course_data);
   AppendActionQueueProbeJsonl(std::move(after));
 
   if (ActionQueueProbeEnabled()) {
-    spdlog::info("[ActionQueueProbe] phase=after hook=OnSetCourseResponse manager={} args={} any_queue={}",
-                 static_cast<void*>(_this), args, _this ? _this->AnyPlayerFleetInQueue() : false);
+    spdlog::info("[ActionQueueProbe] phase=after hook=OnSetCourseResponse manager={} fleet={} ok={} recall={} course={} "
+                 "any_queue={}",
+                 static_cast<void*>(_this), fleet_id, request_successful, is_recall, planned_course_data,
+                 _this ? _this->AnyPlayerFleetInQueue() : false);
   }
 }
 
@@ -1324,11 +1939,22 @@ void InstallActionQueueRepairHooks()
 {
   const auto level                  = RuntimeTraceLevelSetting();
   const auto detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
-  const auto install_plan = BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairEnabled(), detailed_runtime_trace);
-  const auto install_action_queue_repairs     = install_plan.install_repair_hooks;
-  const auto install_action_queue_diagnostics = install_plan.install_diagnostic_hooks;
+  const auto& repair_settings       = KirsharaQueueRepairSettings();
+  const auto  install_plan          = BuildKirsharaQueueRepairInstallPlan(repair_settings, detailed_runtime_trace);
+  const auto install_action_queue_repairs      = install_plan.install_repair_hooks;
+  const auto install_action_queue_diagnostics  = install_plan.install_diagnostic_hooks;
+  const auto install_action_queue_markers      = install_plan.install_completion_markers;
+  const auto install_course_target_completion  = install_plan.install_course_target_completion;
+  const auto install_completion_pipeline_hooks = install_action_queue_markers || install_course_target_completion;
 
-  if (!install_action_queue_repairs && !install_action_queue_diagnostics) {
+  if (install_plan.ignore_try_plan_path_and_engage_target_unsafe) {
+    spdlog::warn("[ActionQueueRepair] {}", kKirsharaQueueRepairTryPlanUnsafeMessage);
+  }
+
+  if (!install_action_queue_repairs && !install_action_queue_diagnostics && !install_completion_pipeline_hooks) {
+    if (KirsharaQueueRepairEnabled()) {
+      spdlog::info("[ActionQueueRepair] enabled but no safe staged hooks selected; skipping repair install");
+    }
     return;
   }
 
@@ -1362,22 +1988,116 @@ void InstallActionQueueRepairHooks()
     });
 
     if (install_action_queue_repairs) {
-      if (auto ptr = actionqueue_manager.GetMethod("RemoveActionFromQueue"); ptr) {
-        SPUD_STATIC_DETOUR(ptr, ActionQueueManager_RemoveActionFromQueue);
-      } else {
-        ErrorMsg::MissingMethod("ActionQueueManager", "RemoveActionFromQueue");
+      if (install_plan.install_remove_action_from_queue) {
+        if (auto ptr = actionqueue_manager.GetMethod("RemoveActionFromQueue"); ptr) {
+          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_RemoveActionFromQueue);
+        } else {
+          ErrorMsg::MissingMethod("ActionQueueManager", "RemoveActionFromQueue");
+        }
       }
 
-      if (auto ptr = actionqueue_manager.GetMethod("TryPlanPathAndEngageTarget"); ptr) {
-        SPUD_STATIC_DETOUR(ptr, ActionQueueManager_TryPlanPathAndEngageTarget);
-      } else {
-        ErrorMsg::MissingMethod("ActionQueueManager", "TryPlanPathAndEngageTarget");
+      if (install_plan.install_handle_stall) {
+        if (auto ptr = actionqueue_manager.GetMethod("HandleStall"); ptr) {
+          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_HandleStall);
+        } else {
+          ErrorMsg::MissingMethod("ActionQueueManager", "HandleStall");
+        }
+      }
+    }
+
+    if (install_completion_pipeline_hooks) {
+      if (install_action_queue_markers) {
+        spdlog::info("[KirsharaQueueMarker] installing higher-level completion markers");
+      }
+      if (install_course_target_completion) {
+        spdlog::info("[KirsharaQueueRepair] installing course-target completion repair hooks");
+      }
+      DumpInterestingActionQueueManagerMethodsOnce();
+
+      if (install_action_queue_markers) {
+        if (auto ptr = actionqueue_manager.GetMethod("OnStrikeCompleteEventHandler"); ptr) {
+          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnStrikeCompleteEventHandler_Marker);
+        } else {
+          ErrorMsg::MissingMethod("ActionQueueManager", "OnStrikeCompleteEventHandler");
+        }
+
+        if (auto ptr = actionqueue_manager.GetMethod("RemoveTargetAndAttackNext"); ptr) {
+          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_RemoveTargetAndAttackNext_Marker);
+        } else {
+          ErrorMsg::MissingMethod("ActionQueueManager", "RemoveTargetAndAttackNext");
+        }
+
+        if (auto ptr = actionqueue_manager.GetMethod("CheckToClearActionQueue"); ptr) {
+          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_CheckToClearActionQueue_Marker);
+        } else {
+          ErrorMsg::MissingMethod("ActionQueueManager", "CheckToClearActionQueue");
+        }
+
+        if (auto ptr = actionqueue_manager.GetMethod("IsTargetValid"); ptr) {
+          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_IsTargetValid_Marker);
+        } else {
+          ErrorMsg::MissingMethod("ActionQueueManager", "IsTargetValid");
+        }
       }
 
-      if (auto ptr = actionqueue_manager.GetMethod("HandleStall"); ptr) {
-        SPUD_STATIC_DETOUR(ptr, ActionQueueManager_HandleStall);
+      auto ptr_process_deployed = actionqueue_manager.GetMethodSpecial("ProcessQueue", [](int param_count,
+                                                                                          const Il2CppType** params) {
+        return param_count == 2 && probe::detail::type_name(params[0]).find("FleetDeployedData") != std::string::npos;
+      });
+      if (ptr_process_deployed) {
+        SPUD_STATIC_DETOUR(ptr_process_deployed, ActionQueueManager_ProcessQueueDeployed_Marker);
       } else {
-        ErrorMsg::MissingMethod("ActionQueueManager", "HandleStall");
+        ErrorMsg::MissingMethod("ActionQueueManager", "ProcessQueue(FleetDeployedData, bool)");
+      }
+
+      auto ptr_process_target =
+          actionqueue_manager.GetMethodSpecial("ProcessQueue", [](int param_count, const Il2CppType** params) {
+            return param_count == 2 && probe::detail::type_name(params[0]).find("Int64") != std::string::npos;
+          });
+      if (ptr_process_target) {
+        SPUD_STATIC_DETOUR(ptr_process_target, ActionQueueManager_ProcessQueueTarget_Marker);
+      } else {
+        ErrorMsg::MissingMethod("ActionQueueManager", "ProcessQueue(Int64, bool)");
+      }
+
+      if (auto ptr = actionqueue_manager.GetMethod("OnSetCourseResponseEventHandler"); ptr) {
+        SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnSetCourseResponseEventHandler_Marker);
+      } else {
+        ErrorMsg::MissingMethod("ActionQueueManager", "OnSetCourseResponseEventHandler");
+      }
+
+      if (install_action_queue_markers) {
+        if (auto ptr = actionqueue_manager.GetMethod("OnPlayerFleetStateChangedEventHandler"); ptr) {
+          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnPlayerFleetStateChangedEventHandler_Marker);
+        } else {
+          ErrorMsg::MissingMethod("ActionQueueManager", "OnPlayerFleetStateChangedEventHandler");
+        }
+      }
+
+      if (auto ptr = actionqueue_manager.GetMethod("OnFleetStateChangeEventHandler"); ptr) {
+        SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnFleetStateChangeEventHandler_Marker);
+      } else {
+        ErrorMsg::MissingMethod("ActionQueueManager", "OnFleetStateChangeEventHandler");
+      }
+
+      if (install_action_queue_markers) {
+        if (auto ptr = actionqueue_manager.GetMethod("OnFleetsDisposedEventHandler"); ptr) {
+          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnFleetsDisposedEventHandler_Marker);
+        } else {
+          ErrorMsg::MissingMethod("ActionQueueManager", "OnFleetsDisposedEventHandler");
+        }
+      }
+
+      if (install_action_queue_markers) {
+        if (install_plan.install_remove_action_from_queue) {
+          spdlog::info(
+              "[KirsharaQueueMarker] RemoveActionFromQueue repair hook remains separately opt-in; marker install stays "
+              "off this crash-prone seam");
+        } else {
+          spdlog::info(
+              "[KirsharaQueueMarker] excluding RemoveActionFromQueue marker because watched-system runs reach that seam "
+              "but the off-screen stall likely happens earlier");
+        }
       }
     }
 
@@ -1417,7 +2137,7 @@ void InstallActionQueueRepairHooks()
       if (ptr_process_target) {
         SPUD_STATIC_DETOUR(ptr_process_target, ActionQueueManager_ProcessQueueTarget);
       } else {
-        ErrorMsg::MissingMethod("ActionQueueManager", "ProcessQueue(long, bool)");
+        ErrorMsg::MissingMethod("ActionQueueManager", "ProcessQueue(Int64, bool)");
       }
 
       if (auto ptr = actionqueue_manager.GetMethod("OnStrikeCompleteEventHandler"); ptr) {

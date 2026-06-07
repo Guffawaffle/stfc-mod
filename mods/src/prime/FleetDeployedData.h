@@ -3,6 +3,7 @@
 #include "HullSpec.h"
 #include "NodeAddress.h"
 #include "UserProfile.h"
+#include <cstdint>
 #include <il2cpp/il2cpp_helper.h>
 
 enum class DeployedFleetType {
@@ -20,7 +21,7 @@ public:
   __declspec(property(get = __get_Address)) NodeAddress*        Address;
   __declspec(property(get = __get_CurrentlyBattling)) bool      CurrentlyBattling;
   __declspec(property(get = __get_CurrentState)) int            CurrentState;
-  __declspec(property(get = __get_ID)) long                     ID;
+  __declspec(property(get = __get_ID)) std::int64_t             ID;
   __declspec(property(get = __get_IsDestroyed)) bool            IsDestroyed;
   __declspec(property(get = __get_Hull)) HullSpec*              Hull;
   __declspec(property(get = __get_FleetType)) DeployedFleetType FleetType;
@@ -58,10 +59,10 @@ public:
     return value ? *value : -1;
   }
 
-  long __get_ID()
+  std::int64_t __get_ID()
   {
     static auto field = get_class_helper().GetProperty("ID");
-    return *field.Get<long>(this);
+    return *field.Get<std::int64_t>(this);
   }
 
   bool __get_IsDestroyed()

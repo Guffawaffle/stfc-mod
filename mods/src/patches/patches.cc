@@ -37,6 +37,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <filesystem>
 #include <string>
 
 #if _WIN32
@@ -52,6 +53,54 @@ namespace
 constexpr bool kLiveDebugOnlyHookIsolation = false;
 constexpr auto kLegacyLogMaxBytes          = 512 * 1024;
 constexpr auto kLegacyLogMaxFiles          = 2;
+
+struct LegacyLogResetResult {
+  int         removed_count = 0;
+  int         failure_count = 0;
+  std::string first_failure;
+};
+
+std::filesystem::path LegacyRotatedLogPath(const std::filesystem::path& log_path, int index)
+{
+  if (index <= 0) {
+    return log_path;
+  }
+
+  const auto stem = log_path.stem().string();
+  const auto ext  = log_path.extension().string();
+  if (stem.empty()) {
+    return std::filesystem::path(log_path.string() + "." + std::to_string(index));
+  }
+
+  return log_path.parent_path() / std::filesystem::path(stem + "." + std::to_string(index) + ext);
+}
+
+LegacyLogResetResult ResetLegacyLogFiles()
+{
+  LegacyLogResetResult result;
+  const auto           remove_if_present = [&](const std::filesystem::path& path) {
+    std::error_code error;
+    const auto      removed = std::filesystem::remove(path, error);
+    if (removed) {
+      ++result.removed_count;
+      return;
+    }
+    if (error) {
+      ++result.failure_count;
+      if (result.first_failure.empty()) {
+        result.first_failure = path.string() + " (" + error.message() + ")";
+      }
+    }
+  };
+
+  const auto log_path = std::filesystem::path(File::Log());
+  remove_if_present(log_path);
+  for (int index = 1; index <= kLegacyLogMaxFiles; ++index) {
+    remove_if_present(LegacyRotatedLogPath(log_path, index));
+  }
+
+  return result;
+}
 
 void LogRootHookInstallFailure(const std::string& message)
 {
@@ -123,6 +172,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #endif
 
   File::Init();
+  const auto legacy_log_reset = ResetLegacyLogFiles();
 
   auto file_logger = spdlog::rotating_logger_mt("default", File::Log(), kLegacyLogMaxBytes, kLegacyLogMaxFiles);
   auto sink        = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -141,6 +191,12 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
     spdlog::info("Using custom names");
   } else {
     spdlog::info("Using standard names");
+  }
+
+  spdlog::info("  Legacy log reset removed {} file(s)", legacy_log_reset.removed_count);
+  if (legacy_log_reset.failure_count > 0) {
+    spdlog::warn("  Legacy log reset had {} failure(s); first={}", legacy_log_reset.failure_count,
+                 legacy_log_reset.first_failure);
   }
 
   spdlog::info("  Log: {}", File::Log());
@@ -329,4 +385,5 @@ void ShutdownPatches()
   sidecar_local_ingest::Shutdown();
   notification_shutdown();
   http::shutdown_workers();
+  spdlog::shutdown();
 }

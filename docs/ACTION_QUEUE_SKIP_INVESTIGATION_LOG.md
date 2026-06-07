@@ -7,8 +7,19 @@
 ## 2026-06-07 Restore Note
 
 - The focused repair is gated by `[advanced.kirshara_queue].enabled`, default `false`.
-- The intended repair surface is limited to queue progression hooks: `RemoveActionFromQueue`,
-  `TryPlanPathAndEngageTarget`, and `HandleStall`.
+- The active staged repair surface is limited to `RemoveActionFromQueue` and `HandleStall`.
+- `HandleStall` is not present on the current live build shape, so it is not a meaningful current seam until the dump
+  says otherwise.
+- `TryPlanPathAndEngageTarget` is excluded from the current repair surface because the current dump now returns
+  `IEnumerator`; the old "success seam" assumption is stale and requires a coroutine-aware investigation before it can
+  be safely reconsidered.
+- A watched-system repro on 2026-06-07 reached `RemoveActionFromQueue` and then crashed immediately after marker-only
+  logs. The off-screen stall repro still does not prove that native removal fires at all, so current debug markers
+  stay above `RemoveActionFromQueue` unless we deliberately revisit that hot seam.
+- Later watched/off-screen comparison showed the watched success path commits the target-bearing queue step through
+  `ProcessQueue(Int64,bool)`, while the off-screen failure path only receives the player-fleet `ProcessQueue` callback.
+  The current narrow candidate is `course_target_completion`, which latches `CourseData.TargetDeployedFleetId` from a
+  successful course response and replays the missing target commit only for a recent player-only battle-start event.
 - Manual navigation refresh, ghost refresh, and diagnostic-only queue detours remain out of scope.
 
 ## Goal
@@ -65,7 +76,9 @@ Track queue-skip experiments in one place so we can correlate code changes with 
 - Change:
   - add a mod-side sticky engaged target per action-queue instance
   - set it only from queue-authoritative points:
-    - successful `TryPlanPathAndEngageTarget`
+    - historical note: the old `TryPlanPathAndEngageTarget` "success" seam is stale on the current build because the
+      method now returns `IEnumerator`, so it is excluded from the active repair surface pending coroutine-specific
+      investigation
     - native nonzero `LastEngagedTargetId`
     - stall-time repair when native state is already engaging and we restore the last target
   - clear it only from queue-authoritative points:

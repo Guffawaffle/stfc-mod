@@ -74,7 +74,7 @@ static ScopelyShortcutPolicy g_scopely_shortcuts_policy          = ScopelyShortc
 static OriginalFramePolicy   g_original_frame_policy             = OriginalFramePolicy::Mod;
 static bool                  g_live_debug_channel                = DCAD::live_query;
 static bool                  g_queue_repair_enabled              = DCAQ::queue_repair_enabled;
-static bool                  g_kirshara_queue_repair_enabled     = DCAKQ::enabled;
+static KirsharaQueueRepairConfig g_kirshara_queue_repair_config{};
 static bool                  g_queue_add_direct_handler          = DCAQ::queue_add_direct_handler;
 static bool                  g_queue_add_hide_viewers            = DCAQ::queue_add_hide_viewers;
 static bool                  g_battle_log_decoder_enabled        = false;
@@ -107,7 +107,10 @@ bool QueueRepairEnabled()
 { return g_queue_repair_enabled; }
 
 bool KirsharaQueueRepairEnabled()
-{ return g_kirshara_queue_repair_enabled; }
+{ return g_kirshara_queue_repair_config.enabled; }
+
+const KirsharaQueueRepairConfig& KirsharaQueueRepairSettings()
+{ return g_kirshara_queue_repair_config; }
 
 bool QueueAddDirectHandlerEnabled()
 { return g_queue_repair_enabled && g_queue_add_direct_handler; }
@@ -1180,7 +1183,7 @@ void Config::Load()
   WriteAdvancedConfigRuntimeSnapshot(parsed, g_advanced_config);
   WriteKirsharaQueueRepairRuntimeSnapshot(parsed, kirshara_queue_repair_config_result.config);
   g_live_debug_channel = g_advanced_config.diagnostics.live_query;
-  g_kirshara_queue_repair_enabled = kirshara_queue_repair_config_result.config.enabled;
+  g_kirshara_queue_repair_config = kirshara_queue_repair_config_result.config;
   g_queue_repair_enabled     = g_advanced_config.queue.queue_repair_enabled;
   g_queue_add_direct_handler = g_advanced_config.queue.queue_add_direct_handler;
   g_queue_add_hide_viewers   = g_advanced_config.queue.queue_add_hide_viewers;
