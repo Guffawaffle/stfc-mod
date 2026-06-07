@@ -84,6 +84,22 @@ void SomeFunction_Hook(auto original, SomeClass* _this, ...) {
 ```
 macOS does not tolerate repeated hooks of the same function. If multiple features need to intercept the same game method, consolidate the behavior behind one detour or add platform guards instead of installing overlapping hooks.
 
+**Draft new/revived hook metadata SOP** — Before enabling behavior-changing hooks against a game class or method, add a narrow diagnostics-gated boot-time metadata dump for the relevant class surface.
+
+Capture, where available:
+- Method name
+- Address or resolved pointer status
+- Return type
+- Parameter count and parameter types
+- Visibility and static/instance shape
+- Relevant field names and offsets
+- Whether the method shape matches the hook typedef
+- Whether the hook is behavior-changing or marker-only
+
+Use this especially when reviving an old hook, working after a game patch, hooking queue/combat/navigation/runtime model code, relying on prior investigation notes, or seeing method names stay the same while behavior may have changed.
+
+Do not install behavior-changing hooks until the current runtime metadata agrees with the hook signature and mental model. If metadata disagrees with older notes, treat the notes as historical evidence, not authority.
+
 **IL2CPP class resolution** — Game classes are resolved at runtime using helpers:
 ```cpp
 static auto class_helper = il2cpp_get_class_helper("Assembly.Name", "Namespace", "ClassName");
