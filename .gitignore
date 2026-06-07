@@ -28,3 +28,8 @@ mods/.xmake
 !axf.workspace.json
 !manifests/
 !manifests/**
+
+# Public AX facade is tracked; the private AX repo stays local-only.
+!.ax/
+!.ax/**
+.ax-priv/

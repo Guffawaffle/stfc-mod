@@ -29,9 +29,9 @@ Repo-local and sibling scout runs checked:
 - `tools/il2cpp-dump/dump.cs`
 - `tools/il2cpp-dump/script.json`
 - `tools/il2cpp-dump/stringliteral.json`
-- `.ax/cache/dump-corpus.jsonl`
-- `.ax/cache/stfc.db`
-- `.ax/tools/Il2CppDumper/stringliteral.json`
+- `.ax-priv/cache/dump-corpus.jsonl`
+- `.ax-priv/cache/stfc.db`
+- `.ax-priv/tools/Il2CppDumper/stringliteral.json`
 - `D:\dev\stfc-mod-sidecar-static-modifier-catalog`
 - `D:\dev\netniv\stfc-mod`
 
@@ -152,6 +152,10 @@ Unresolved representative refs:
 
 The current local metadata/dump surfaces are enough to prove that the seed refs are not trivially available as checked-in
 JSON/JSONL/CSV rows, IL2CPP string literals, AX string literals, or enum values.
+
+The tracked `.ax/` folder in this repo is now a public facade. The private dump
+cache for this probe lives in `.ax-priv/` when present, and the probe also
+checks `.ax/` as a fallback for older local layouts.
 
 They are not enough to produce named ability rows for Sudo/stfc.phd. They are enough to demonstrate:
 

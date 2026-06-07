@@ -569,12 +569,16 @@ def extract_refs_from_json_path(path: Path) -> list[str]:
 
 
 def default_roots(repo_root: Path) -> list[Path]:
-    return [
-        repo_root / "tools" / "il2cpp-dump",
-        repo_root / ".ax" / "cache" / "dump-corpus.jsonl",
-        repo_root / ".ax" / "cache" / "stfc.db",
-        repo_root / ".ax" / "tools" / "Il2CppDumper" / "stringliteral.json",
-    ]
+    roots = [repo_root / "tools" / "il2cpp-dump"]
+    for ax_root in (repo_root / ".ax-priv", repo_root / ".ax"):
+        roots.extend(
+            [
+                ax_root / "cache" / "dump-corpus.jsonl",
+                ax_root / "cache" / "stfc.db",
+                ax_root / "tools" / "Il2CppDumper" / "stringliteral.json",
+            ]
+        )
+    return roots
 
 
 def run_probe(args: argparse.Namespace) -> dict[str, Any]:

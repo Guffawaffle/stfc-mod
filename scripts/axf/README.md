@@ -6,6 +6,10 @@ locally from `axf.workspace.json` and imported from `.ax/ax.ps1`. Use MCP
 `operation=list`, then `operation=inspect`, then `operation=run` against the
 `global.stfc-mod.*` capability IDs.
 
+The tracked `.ax/` folder is a small public facade only. The working private AX
+repo can live in `.ax-priv/`, and the tracked wrapper delegates there when it
+is present.
+
 Primary capability IDs include:
 
 ```text
@@ -21,17 +25,18 @@ Raw CLI execution is for provider development and manual debugging only.
 
 For AXF 1.0.0 and later, this repo owns its STFC family manifests locally.
 Run `axf scout --write` from the repo root to regenerate
-`manifests/families/stfc-mod.family.json` and any standalone capabilities from
-the `.ax` inventory. If you want to share the same family across multiple repos,
-place that shared pack on `AXF_MACHINE_ROOT`; project-local manifests still win.
+`manifests/families/stfc-mod.family.json` and any standalone capabilities
+through the `.ax/ax.ps1` facade. If you want to share the same family across
+multiple repos, place that shared pack on `AXF_MACHINE_ROOT`; project-local
+manifests still win.
 
 `build`, `deploy`, and `cycle` run through Windows interop. The provider
 syncs this WSL checkout to `/mnt/d/dev/stfc-mod-interop`, launches
 Windows PowerShell from WSL, sets `AX_REPO_ROOT` to that Windows mirror,
-then calls the reference `.ax` dispatcher at
-`/mnt/d/dev/stfc-mod/.ax/ax.ps1`. The existing Windows worktree at
+then calls the private dispatcher at `/mnt/d/dev/stfc-mod/.ax-priv/ax.ps1`
+through the tracked `.ax/ax.ps1` facade. The existing Windows worktree at
 `/mnt/d/dev/stfc-mod` is not used as the build root.
 
 The dump query commands currently run the existing Python dump tools from
-`/mnt/d/dev/stfc-mod/.ax` and use that reference cache. The pure decoder
+`/mnt/d/dev/stfc-mod/.ax-priv` and use that reference cache. The pure decoder
 validation path is native to `/srv/stfc-mod`.
