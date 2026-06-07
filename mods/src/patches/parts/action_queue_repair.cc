@@ -741,6 +741,33 @@ FleetPlayerData* FindPlayerFleetDataById(std::int64_t fleet_id)
   return nullptr;
 }
 
+FleetPlayerData* FindPlayerFleetDataByCourseFleetId(std::int64_t fleet_id)
+{
+  auto* fleets_manager = FleetsManager::Instance();
+  if (!fleets_manager || fleet_id == 0) {
+    return nullptr;
+  }
+
+  const auto low_fleet_id = static_cast<std::uint32_t>(static_cast<std::uint64_t>(fleet_id));
+  auto*      low_match    = static_cast<FleetPlayerData*>(nullptr);
+  for (int index = 0; index < 8; ++index) {
+    auto* fleet = fleets_manager->GetFleetPlayerData(index);
+    if (!fleet) {
+      continue;
+    }
+
+    if (fleet->Id == fleet_id) {
+      return fleet;
+    }
+
+    if (static_cast<std::uint32_t>(fleet->Id) == low_fleet_id) {
+      low_match = fleet;
+    }
+  }
+
+  return low_match;
+}
+
 struct CourseTargetQueueGuard {
   bool  relevant     = false;
   int   queue_count  = -1;
@@ -779,7 +806,9 @@ void LatchCourseTargetCompletionTarget(std::int64_t fleet_id, std::int64_t targe
     return;
   }
 
-  const auto key = fleet_id;
+  auto*      fleet              = FindPlayerFleetDataByCourseFleetId(fleet_id);
+  const auto normalized_fleet_id = fleet ? static_cast<std::int64_t>(fleet->Id) : fleet_id;
+  const auto key                 = normalized_fleet_id;
   {
     std::lock_guard lk(CourseTargetCompletionMutex());
     auto&           state = CourseTargetCompletionTargets()[key];
@@ -789,8 +818,8 @@ void LatchCourseTargetCompletionTarget(std::int64_t fleet_id, std::int64_t targe
   }
 
   spdlog::info("[KirsharaQueueRepair] repair=course-target-completion phase=latch-course-target fleet_key={} "
-               "fleet={} target={} source={}",
-               key, fleet_id, target_id, source ? source : "");
+               "fleet={} normalized_fleet={} target={} source={}",
+               key, fleet_id, normalized_fleet_id, target_id, source ? source : "");
 }
 
 void LatchPlayerOnlyBattleStart(void* fleets, std::uint64_t seq)
