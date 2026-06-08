@@ -11,13 +11,13 @@
 
 #include "bounded_ttl_cache.h"
 #include "config.h"
-#include "platform_config.h"
 #include "patches/async_work_queue.h"
 #include "patches/notification_audio.h"
 #include "patches/notification_platform.h"
 #include "patches/notification_policy.h"
 #include "patches/notification_queue.h"
 #include "patches/notification_text.h"
+#include "platform_config.h"
 #include "str_utils.h"
 
 #include <il2cpp/il2cpp_helper.h>
@@ -38,7 +38,7 @@
 // ─── IL2CPP Method Cache ──────────────────────────────────────────────────────────────
 
 /** Cached LanguageManager::Localize(out string, LocaleTextContext) method pointer. */
-static const MethodInfo* s_localize_ltc = nullptr;
+static const MethodInfo* s_localize_ltc             = nullptr;
 static bool              s_notification_initialized = false;
 
 static FieldInfo* find_il2cpp_field(Il2CppClass* klass, const char* primary_name, const char* fallback_name = nullptr)
@@ -54,8 +54,7 @@ static FieldInfo* find_il2cpp_field(Il2CppClass* klass, const char* primary_name
 
   if (!field) {
     spdlog::warn("[Notify] Could not resolve {}.{} field",
-                 il2cpp_class_get_name(klass) ? il2cpp_class_get_name(klass) : "<unknown>",
-                 primary_name);
+                 il2cpp_class_get_name(klass) ? il2cpp_class_get_name(klass) : "<unknown>", primary_name);
   }
 
   return field;
@@ -77,11 +76,8 @@ static T* read_il2cpp_reference_field(Il2CppObject* obj, const char* primary_nam
   return *reinterpret_cast<T**>(reinterpret_cast<char*>(obj) + field_offset);
 }
 
-template <typename T>
-static T read_il2cpp_boxed_value(Il2CppObject* obj)
-{
-  return *reinterpret_cast<T*>(reinterpret_cast<char*>(obj) + sizeof(Il2CppObject));
-}
+template <typename T> static T read_il2cpp_boxed_value(Il2CppObject* obj)
+{ return *reinterpret_cast<T*>(reinterpret_cast<char*>(obj) + sizeof(Il2CppObject)); }
 
 // ─── Toast State → Human-Readable Title ───────────────────────────────────────────────
 
@@ -93,67 +89,105 @@ static T read_il2cpp_boxed_value(Il2CppObject* obj)
 static const char* toast_state_title(int state)
 {
   switch (state) {
-    case Victory:                   return "Victory!";
-    case Defeat:                    return "Defeat";
-    case PartialVictory:            return "Partial Victory";
-    case StationVictory:            return "Station Victory!";
-    case StationDefeat:             return "Station Defeat";
-    case StationBattle:             return "Station Under Attack!";
-    case IncomingAttack:            return "Incoming Attack!";
-    case IncomingAttackFaction:     return "Incoming Faction Attack!";
-    case FleetBattle:               return "Fleet Battle";
-    case ArmadaBattleWon:           return "Armada Victory!";
-    case ArmadaBattleLost:          return "Armada Defeated";
-    case ArmadaCreated:             return "Armada Created";
-    case ArmadaCanceled:            return "Armada Canceled";
-    case ArmadaIncomingAttack:      return "Armada Under Attack!";
-    case AssaultVictory:            return "Assault Victory!";
-    case AssaultDefeat:             return "Assault Defeat";
-    case Tournament:                return "Event Progress";
-    case ChainedEventScored:        return "Event Progress";
-    case Achievement:               return "Achievement";
-    case ChallengeComplete:         return "Challenge Complete";
-    case ChallengeFailed:           return "Challenge Failed";
-    case TakeoverVictory:           return "Takeover Victory!";
-    case TakeoverDefeat:            return "Takeover Defeat";
-    case TreasuryProgress:          return "Treasury Progress";
-    case TreasuryFull:              return "Treasury Full";
-    case WarchestProgress:          return "Warchest Progress";
-    case WarchestFull:              return "Warchest Full";
-    case FactionLevelUp:            return "Faction Level Up";
-    case FactionLevelDown:          return "Faction Level Down";
-    case FactionDiscovered:         return "Faction Discovered";
-    case FactionWarning:            return "Faction Warning";
-    case DiplomacyUpdated:          return "Diplomacy Updated";
-    case StrikeHit:                 return "Strike Hit";
-    case StrikeDefeat:              return "Strike Defeat";
-    case SurgeWarmUpEnded:          return "Surge Started";
-    case SurgeHostileGroupDefeated: return "Surge Hostiles Defeated";
-    case SurgeTimeLeft:             return "Surge Time Warning";
-    case ArenaTimeLeft:             return "Arena Time Warning";
-    case FleetPresetApplied:        return "Fleet Preset Applied";
-    default:                        return nullptr;
+    case Victory:
+      return "Victory!";
+    case Defeat:
+      return "Defeat";
+    case PartialVictory:
+      return "Partial Victory";
+    case StationVictory:
+      return "Station Victory!";
+    case StationDefeat:
+      return "Station Defeat";
+    case StationBattle:
+      return "Station Under Attack!";
+    case IncomingAttack:
+      return "Incoming Attack!";
+    case IncomingAttackFaction:
+      return "Incoming Faction Attack!";
+    case FleetBattle:
+      return "Fleet Battle";
+    case ArmadaBattleWon:
+      return "Armada Victory!";
+    case ArmadaBattleLost:
+      return "Armada Defeated";
+    case ArmadaCreated:
+      return "Armada Created";
+    case ArmadaCanceled:
+      return "Armada Canceled";
+    case ArmadaIncomingAttack:
+      return "Armada Under Attack!";
+    case AssaultVictory:
+      return "Assault Victory!";
+    case AssaultDefeat:
+      return "Assault Defeat";
+    case Tournament:
+      return "Event Progress";
+    case ChainedEventScored:
+      return "Event Progress";
+    case Achievement:
+      return "Achievement";
+    case ChallengeComplete:
+      return "Challenge Complete";
+    case ChallengeFailed:
+      return "Challenge Failed";
+    case TakeoverVictory:
+      return "Takeover Victory!";
+    case TakeoverDefeat:
+      return "Takeover Defeat";
+    case TreasuryProgress:
+      return "Treasury Progress";
+    case TreasuryFull:
+      return "Treasury Full";
+    case WarchestProgress:
+      return "Warchest Progress";
+    case WarchestFull:
+      return "Warchest Full";
+    case FactionLevelUp:
+      return "Faction Level Up";
+    case FactionLevelDown:
+      return "Faction Level Down";
+    case FactionDiscovered:
+      return "Faction Discovered";
+    case FactionWarning:
+      return "Faction Warning";
+    case DiplomacyUpdated:
+      return "Diplomacy Updated";
+    case StrikeHit:
+      return "Strike Hit";
+    case StrikeDefeat:
+      return "Strike Defeat";
+    case SurgeWarmUpEnded:
+      return "Surge Started";
+    case SurgeHostileGroupDefeated:
+      return "Surge Hostiles Defeated";
+    case SurgeTimeLeft:
+      return "Surge Time Warning";
+    case ArenaTimeLeft:
+      return "Arena Time Warning";
+    case FleetPresetApplied:
+      return "Fleet Preset Applied";
+    default:
+      return nullptr;
   }
 }
 
 const char* notification_toast_title(int state)
-{
-  return toast_state_title(state);
-}
+{ return toast_state_title(state); }
 
 // ─── Platform Notification Delivery ──────────────────────────────────────────────────
 #if STFCMOD_PLATFORM_WINDOWS
-static constexpr size_t        kNotificationQueueMaxDepth     = 256;
+static constexpr size_t                         kNotificationQueueMaxDepth = 256;
 static AsyncWorkQueue<NotificationQueueRequest> s_notification_queue(kNotificationQueueMaxDepth);
-static std::mutex              s_recent_toast_mutex;
-static std::once_flag          s_notification_worker_once;
-static std::thread             s_notification_worker_thread;
-static constexpr auto          kNotificationCoalesceWindow   = std::chrono::milliseconds(750);
-static constexpr auto          kRecentToastDedupWindow       = std::chrono::milliseconds(500);
-static constexpr size_t        kRecentToastDedupMaxEntries   = 256;
-static constexpr size_t        kNotificationSummaryLimit     = 4;
-static constexpr auto          kNotificationJoinWarnThreshold = std::chrono::seconds(5);
-static BoundedTtlDeduper<uintptr_t> s_recent_toasts(kRecentToastDedupMaxEntries);
+static std::mutex                               s_recent_toast_mutex;
+static std::once_flag                           s_notification_worker_once;
+static std::thread                              s_notification_worker_thread;
+static constexpr auto                           kNotificationCoalesceWindow    = std::chrono::milliseconds(750);
+static constexpr auto                           kRecentToastDedupWindow        = std::chrono::milliseconds(500);
+static constexpr size_t                         kRecentToastDedupMaxEntries    = 256;
+static constexpr size_t                         kNotificationSummaryLimit      = 4;
+static constexpr auto                           kNotificationJoinWarnThreshold = std::chrono::seconds(5);
+static BoundedTtlDeduper<uintptr_t>             s_recent_toasts(kRecentToastDedupMaxEntries);
 
 bool notification_should_process_toast(Toast* toast)
 {
@@ -165,7 +199,7 @@ bool notification_should_process_toast(Toast* toast)
   const auto key = reinterpret_cast<uintptr_t>(toast);
 
   std::lock_guard lock(s_recent_toast_mutex);
-  const auto dedupe_result = s_recent_toasts.should_emit(key, now, kRecentToastDedupWindow);
+  const auto      dedupe_result = s_recent_toasts.should_emit(key, now, kRecentToastDedupWindow);
   if (!dedupe_result.emitted) {
     spdlog::debug("[Notify] Duplicate toast pointer {:p}, suppressing repeated notification pass", (const void*)toast);
     return false;
@@ -191,20 +225,15 @@ static void queue_system_notification(const char* title, const char* body, const
   if (!s_notification_queue.enqueue(std::move(request))) {
     const auto diagnostics = s_notification_queue.diagnostics();
     spdlog::warn("[NotifyQueue] drop source={} title='{}' reason={} queue_size={} dropped={}",
-                 source ? source : "unknown",
-                 title ? notification_flatten_text(title) : "",
-                 diagnostics.shutdown_requested ? "shutdown" : "full",
-                 diagnostics.depth,
-                 diagnostics.dropped);
+                 source ? source : "unknown", title ? notification_flatten_text(title) : "",
+                 diagnostics.shutdown_requested ? "shutdown" : "full", diagnostics.depth, diagnostics.dropped);
     return;
   }
 
   const auto diagnostics = s_notification_queue.diagnostics();
 
-  spdlog::debug("[NotifyQueue] enqueue source={} title='{}' queue_size={}",
-                source ? source : "unknown",
-                title ? notification_flatten_text(title) : "",
-                diagnostics.depth);
+  spdlog::debug("[NotifyQueue] enqueue source={} title='{}' queue_size={}", source ? source : "unknown",
+                title ? notification_flatten_text(title) : "", diagnostics.depth);
 }
 
 static void notification_worker_main()
@@ -223,19 +252,16 @@ static void notification_worker_main()
       continue;
     }
 
-    const auto batch_start = batch.front().queued_at;
-    const auto batch_end   = batch.back().queued_at;
-    const auto batch_span  = std::chrono::duration_cast<std::chrono::milliseconds>(batch_end - batch_start).count();
+    const auto batch_start   = batch.front().queued_at;
+    const auto batch_end     = batch.back().queued_at;
+    const auto batch_span    = std::chrono::duration_cast<std::chrono::milliseconds>(batch_end - batch_start).count();
     const auto batch_preview = notification_queue_batch_preview(batch, kNotificationSummaryLimit);
-    const auto batch_count = batch.size();
+    const auto batch_count   = batch.size();
 
     auto collapsed = notification_queue_collapse_batch(std::move(batch), kNotificationSummaryLimit);
     if (!collapsed.title.empty()) {
       spdlog::debug("[NotifyQueue] flush count={} span_ms={} preview=[{}] collapsed_title='{}' collapsed_body='{}'",
-                    batch_count,
-                    batch_span,
-                    batch_preview,
-                    notification_escape_text_for_log(collapsed.title),
+                    batch_count, batch_span, batch_preview, notification_escape_text_for_log(collapsed.title),
                     notification_escape_text_for_log(collapsed.body));
       try {
         notification_platform_show(collapsed.title.c_str(), collapsed.body.c_str());
@@ -251,15 +277,11 @@ static void notification_worker_main()
 
   s_notification_queue.set_worker_active(false);
   const auto diagnostics = s_notification_queue.diagnostics();
-  spdlog::debug("[NotifyQueue] worker stopped dequeued={} errors={}",
-                diagnostics.dequeued,
-                diagnostics.worker_errors);
+  spdlog::debug("[NotifyQueue] worker stopped dequeued={} errors={}", diagnostics.dequeued, diagnostics.worker_errors);
 }
 #else
 bool notification_should_process_toast(Toast*)
-{
-  return false;
-}
+{ return false; }
 #endif
 
 // ─── Toast Text Resolution ───────────────────────────────────────────────────────────
@@ -275,20 +297,24 @@ bool notification_should_process_toast(Toast*)
  */
 static std::string resolve_toast_text(Toast* toast)
 {
-  if (!s_localize_ltc) return {};
+  if (!s_localize_ltc)
+    return {};
 
   auto* ltc = toast->get_TextLocaleTextContext();
-  if (!ltc) return {};
+  if (!ltc)
+    return {};
 
   auto* langMgr = LanguageManager::Instance();
-  if (!langMgr) return {};
+  if (!langMgr)
+    return {};
 
-  Il2CppString*  resolved = nullptr;
-  void*          params[2] = { &resolved, ltc };
-  Il2CppException* exc = nullptr;
+  Il2CppString*    resolved  = nullptr;
+  void*            params[2] = {&resolved, ltc};
+  Il2CppException* exc       = nullptr;
   il2cpp_runtime_invoke(s_localize_ltc, langMgr, params, &exc);
 
-  if (exc || !resolved) return {};
+  if (exc || !resolved)
+    return {};
   return to_string(resolved);
 }
 
@@ -309,9 +335,9 @@ static std::string resolve_ltc_param(Il2CppObject* obj)
     if (s_localize_ltc) {
       auto* langMgr = LanguageManager::Instance();
       if (langMgr) {
-        Il2CppString*  resolved = nullptr;
-        void*          params[2] = { &resolved, obj };
-        Il2CppException* exc = nullptr;
+        Il2CppString*    resolved  = nullptr;
+        void*            params[2] = {&resolved, obj};
+        Il2CppException* exc       = nullptr;
         il2cpp_runtime_invoke(s_localize_ltc, langMgr, params, &exc);
         if (!exc && resolved) {
           return to_string(resolved);
@@ -330,7 +356,7 @@ static std::string resolve_ltc_param(Il2CppObject* obj)
   if (name == "BoxedDouble" || name == "BoxedFloat" || name == "BoxedInt" || name == "BoxedLong") {
     void* iter = nullptr;
     while (auto* field = il2cpp_class_get_fields(klass, &iter)) {
-      auto field_offset  = il2cpp_field_get_offset(field);
+      auto  field_offset = il2cpp_field_get_offset(field);
       auto* field_type   = il2cpp_field_get_type(field);
       if (!field_type) {
         continue;
@@ -401,7 +427,7 @@ static std::string resolve_ltc_formatted(void* ltc, std::string_view template_te
     return notification_strip_unity_rich_text(template_text);
   }
 
-  auto length = il2cpp_array_length(text_parameters);
+  auto  length   = il2cpp_array_length(text_parameters);
   auto* elements = reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(text_parameters) + sizeof(Il2CppArray));
 
   auto result = std::string(template_text);
@@ -452,9 +478,8 @@ void notification_init()
 
 #if STFCMOD_PLATFORM_WINDOWS
   notification_platform_init();
-  std::call_once(s_notification_worker_once, []() {
-    s_notification_worker_thread = std::thread(notification_worker_main);
-  });
+  std::call_once(s_notification_worker_once,
+                 []() { s_notification_worker_thread = std::thread(notification_worker_main); });
   spdlog::debug("[Notify] Windows notification service initialized");
 #elif STFCMOD_PLATFORM_MACOS
   if (Config::Get().notifications.enabled) {
@@ -540,17 +565,19 @@ void notification_handle_generic_toast(Toast* toast, int state, const char* titl
   }
 
   if (!title) {
-    spdlog::debug("[Notify] No title mapping for toast state {}, skipping", state);
+    if (AdvancedDiagnosticsSettings().notification_skip_logging) {
+      spdlog::debug("[Notify] No title mapping for toast state {}, skipping", state);
+    }
     return;
   }
 
   auto* ltc = toast->get_TextLocaleTextContext();
 
-  auto parsed_body = battle_notify_parse(toast);
+  auto        parsed_body = battle_notify_parse(toast);
   std::string localized_body;
   std::string formatted_localized_body;
   if (parsed_body.empty()) {
-    localized_body = resolve_toast_text(toast);
+    localized_body           = resolve_toast_text(toast);
     formatted_localized_body = resolve_ltc_formatted(ltc, localized_body);
   }
   auto body = notification_choose_body(parsed_body, formatted_localized_body, localized_body);

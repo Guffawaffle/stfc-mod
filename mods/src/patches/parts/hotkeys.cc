@@ -30,13 +30,13 @@
 
 namespace
 {
-constexpr bool kEnableShortcutInitializeHook              = true;
-constexpr bool kEnableShortcutLateUpdateGuardHook         = true;
-constexpr bool kEnableRewardsButtonHook                   = true;
-constexpr bool kEnablePreScanTargetHook                   = true;
-constexpr bool kEnableSectionManagerBackButtonHook        = true;
-constexpr bool kEnableNavigationSetCourseHook             = true;
-constexpr bool kEnableFleetBarSelectionGuardHooks         = true;
+constexpr bool kEnableShortcutInitializeHook       = true;
+constexpr bool kEnableShortcutLateUpdateGuardHook  = true;
+constexpr bool kEnableRewardsButtonHook            = true;
+constexpr bool kEnablePreScanTargetHook            = true;
+constexpr bool kEnableSectionManagerBackButtonHook = true;
+constexpr bool kEnableNavigationSetCourseHook      = true;
+constexpr bool kEnableFleetBarSelectionGuardHooks  = true;
 
 const char* initialize_actions_reason()
 { return scopely_shortcut_policy_name(ScopelyShortcutsPolicy()); }
@@ -258,7 +258,9 @@ void ShortcutsManager_LateUpdate_Hook(auto original, void* _this)
   hotkey_router_refresh_native_shortcut_suppression();
   const auto suppress = hotkey_router_should_suppress_native_shortcuts();
   if (suppress) {
-    spdlog::debug("[Hotkeys] suppressed native shortcut update method=ShortcutsManager.LateUpdate");
+    if (AdvancedDiagnosticsSettings().hotkey_suppression_logging) {
+      spdlog::debug("[Hotkeys] suppressed native shortcut update method=ShortcutsManager.LateUpdate");
+    }
     return;
   }
 

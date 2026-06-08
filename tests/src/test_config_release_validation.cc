@@ -111,6 +111,12 @@ TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh
   CHECK_FALSE(debug_has_queue_add_direct_handler);
   CHECK_FALSE(debug_has_queue_add_hide_viewers);
   CHECK(advanced->contains("live_query"));
+  CHECK(advanced->contains("hotkey_suppression_logging"));
+  CHECK_FALSE(advanced->get("hotkey_suppression_logging")->value<bool>().value_or(true));
+  CHECK(advanced->contains("notification_skip_logging"));
+  CHECK_FALSE(advanced->get("notification_skip_logging")->value<bool>().value_or(true));
+  CHECK(advanced->contains("fleet_selection_timing_logging"));
+  CHECK_FALSE(advanced->get("fleet_selection_timing_logging")->value<bool>().value_or(true));
   CHECK(advanced->contains("runtime_trace"));
   CHECK(advanced->contains("runtime_trace_track_overhead"));
   CHECK(advanced->contains("mod_impact_monitor"));

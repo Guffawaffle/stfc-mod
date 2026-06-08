@@ -110,11 +110,14 @@ namespace Advanced
     } // namespace Files
 
     /// Reserved native observability toggles for future diagnostics and probes. Default: false.
-    constexpr bool ship_identity      = false;
-    constexpr bool battle_log_decoder = false;
-    constexpr bool battle_catalog     = false;
-    constexpr bool debug              = false;
-    constexpr bool logging            = false;
+    constexpr bool ship_identity                  = false;
+    constexpr bool battle_log_decoder             = false;
+    constexpr bool battle_catalog                 = false;
+    constexpr bool debug                          = false;
+    constexpr bool logging                        = false;
+    constexpr bool hotkey_suppression_logging     = false;
+    constexpr bool notification_skip_logging      = false;
+    constexpr bool fleet_selection_timing_logging = false;
     /// Enable the live debug/query channel for AX and runtime inspection. Default: false.
     constexpr bool live_query = false;
     /// Realtime runtime trace level: off, summary, detailed, or verbose. Any level above off adds runtime overhead.
@@ -123,7 +126,8 @@ namespace Advanced
     constexpr bool runtime_trace_track_overhead = false;
     /// Enable periodic runtime impact summaries for frame-owned mod hooks. Default: false.
     constexpr bool mod_impact_monitor = false;
-    /// Runtime trace summary report interval in milliseconds. Lower intervals increase diagnostic log churn. Default: 5000.
+    /// Runtime trace summary report interval in milliseconds. Lower intervals increase diagnostic log churn. Default:
+    /// 5000.
     constexpr int runtime_trace_report_interval_ms = 5000;
     /// Enable focused refinery lifecycle/action diagnostics in community_patch.log. Default: false.
     constexpr bool refinery_diagnostics = false;
@@ -402,46 +406,46 @@ namespace Sync
   constexpr const char* url          = "";    ///< Endpoint URL (legacy, prefer targets).
   constexpr bool        debug        = false; ///< Extra debug logging for sync subsystem.
   constexpr bool        logging      = false; ///< Log raw sync payloads.
-  constexpr bool verify_ssl = true; ///< Verify TLS certificates on sync requests.
-  constexpr bool allow_unsafe_tls_without_certificate_validation = false; ///< Explicit unsafe TLS override.
+  constexpr bool        verify_ssl   = true;  ///< Verify TLS certificates on sync requests.
+  constexpr bool        allow_unsafe_tls_without_certificate_validation = false; ///< Explicit unsafe TLS override.
   /// DNS resolver cache TTL in seconds. Default: 300 (5 min).
   constexpr auto resolver_cache_ttl = 300;
 } // namespace Sync
 
 namespace Sidecar
 {
-namespace Sync
-{
-  constexpr bool        enabled = false;
-  constexpr const char* url     = "";
-  constexpr const char* token   = "";
-  constexpr const char* proxy   = "";
-  constexpr bool        verify_ssl = true;
-  constexpr bool        allow_unsafe_tls_without_certificate_validation = false;
-  constexpr bool        battlelogs_realtime = false;
-  constexpr bool        battlelog_enrichment = false;
-  constexpr bool        fleet_runtime       = false;
-} // namespace Sync
+  namespace Sync
+  {
+    constexpr bool        enabled                                         = false;
+    constexpr const char* url                                             = "";
+    constexpr const char* token                                           = "";
+    constexpr const char* proxy                                           = "";
+    constexpr bool        verify_ssl                                      = true;
+    constexpr bool        allow_unsafe_tls_without_certificate_validation = false;
+    constexpr bool        battlelogs_realtime                             = false;
+    constexpr bool        battlelog_enrichment                            = false;
+    constexpr bool        fleet_runtime                                   = false;
+  } // namespace Sync
 
-namespace Probes
-{
-  constexpr bool ship_identity      = false;
-  constexpr bool battle_log_decoder = false;
-  constexpr bool battle_catalog     = false;
-} // namespace Probes
+  namespace Probes
+  {
+    constexpr bool ship_identity      = false;
+    constexpr bool battle_log_decoder = false;
+    constexpr bool battle_catalog     = false;
+  } // namespace Probes
 
-namespace Logging
-{
-  constexpr bool jsonl                = false;
-  constexpr int  jsonl_replay_seconds = 30;
-  constexpr int  jsonl_recent_logs    = 300;
-} // namespace Logging
+  namespace Logging
+  {
+    constexpr bool jsonl                = false;
+    constexpr int  jsonl_replay_seconds = 30;
+    constexpr int  jsonl_recent_logs    = 300;
+  } // namespace Logging
 
-namespace Diagnostics
-{
-  constexpr bool debug   = false;
-  constexpr bool logging = false;
-} // namespace Diagnostics
+  namespace Diagnostics
+  {
+    constexpr bool debug   = false;
+    constexpr bool logging = false;
+  } // namespace Diagnostics
 } // namespace Sidecar
 
 namespace UI

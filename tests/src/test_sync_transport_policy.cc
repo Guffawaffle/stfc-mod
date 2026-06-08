@@ -122,6 +122,11 @@ TEST_SUITE("sync_transport_policy")
 
   TEST_CASE("fleet assignment snapshot projects existing fleet preset slot deltas")
   {
+    constexpr int64_t kDrydockId = 2644013931949275600LL;
+    constexpr int64_t kShipId    = 2682548280591992155LL;
+    constexpr int64_t kOfficerA  = 4294967297LL;
+    constexpr int64_t kOfficerB  = 8589934593LL;
+
     const auto slot_delta = nlohmann::json{
         {"type", "slot"},
         {"sid", 123456},
@@ -135,9 +140,9 @@ TEST_SUITE("sync_transport_policy")
              {"setup",
               nlohmann::json::array({
                   {
-                      {"drydock_id", 1},
-                      {"ship_id", 987654321},
-                      {"officer_ids", nlohmann::json::array({111, 222, 333})},
+                      {"drydock_id", kDrydockId},
+                      {"ship_id", kShipId},
+                      {"officer_ids", nlohmann::json::array({kOfficerA, kOfficerB})},
                   },
                   {
                       {"drydock_id", 2},
@@ -155,9 +160,10 @@ TEST_SUITE("sync_transport_policy")
     CHECK((*snapshot)["sourceSlotSpecId"] == 789);
     CHECK((*snapshot)["presetName"] == "Freebooter X");
     CHECK((*snapshot)["presetOrder"] == 2);
-    CHECK((*snapshot)["assignments"][0]["drydockId"] == "1");
-    CHECK((*snapshot)["assignments"][0]["shipId"] == "987654321");
-    CHECK((*snapshot)["assignments"][0]["officerIds"] == nlohmann::json::array({"111", "222", "333"}));
+    CHECK((*snapshot)["assignments"][0]["drydockId"] == std::to_string(kDrydockId));
+    CHECK((*snapshot)["assignments"][0]["shipId"] == std::to_string(kShipId));
+    CHECK((*snapshot)["assignments"][0]["officerIds"]
+          == nlohmann::json::array({std::to_string(kOfficerA), std::to_string(kOfficerB)}));
     CHECK((*snapshot)["assignments"][1]["drydockId"] == "2");
     CHECK((*snapshot)["assignments"][1]["shipId"].is_null());
   }

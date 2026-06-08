@@ -201,6 +201,32 @@ TEST_SUITE("incoming_attack_policy")
     CHECK(global.target_id == 0);
   }
 
+  TEST_CASE("fleet dedupe keys preserve full 64-bit runtime target identity")
+  {
+    constexpr uint64_t kFirstFleetId  = 0x0000000100000001ULL;
+    constexpr uint64_t kSecondFleetId = 0x0000000200000001ULL;
+
+    const auto first = incoming_attack_policy_dedupe_key(kFirstFleetId,
+                                                         1,
+                                                         IncomingAttackPolicyAttackerKind::Hostile,
+                                                         "hostile");
+    const auto second = incoming_attack_policy_dedupe_key(kSecondFleetId,
+                                                          1,
+                                                          IncomingAttackPolicyAttackerKind::Hostile,
+                                                          "hostile");
+
+    CHECK(first.target_kind == IncomingAttackPolicyTargetKind::Fleet);
+    CHECK(second.target_kind == IncomingAttackPolicyTargetKind::Fleet);
+    CHECK(first.target_id == kFirstFleetId);
+    CHECK(second.target_id == kSecondFleetId);
+    CHECK_FALSE(first == second);
+
+    IncomingAttackPolicyDeduper deduper;
+    CHECK(deduper.should_emit(first, 100).emitted);
+    CHECK(deduper.should_emit(second, 101).emitted);
+    CHECK(deduper.size() == 2);
+  }
+
   TEST_CASE("target type names remain stable")
   {
     CHECK(std::string(incoming_attack_policy_target_type_name(0)) == "None");

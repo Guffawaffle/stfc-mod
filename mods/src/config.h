@@ -71,7 +71,7 @@ public:
   };
 
   std::string proxy;
-  bool        verify_ssl = true;
+  bool        verify_ssl                                      = true;
   bool        allow_unsafe_tls_without_certificate_validation = false;
 
   bool battlelogs          = false;
@@ -153,8 +153,8 @@ public:
     Majel,
   };
 
-  std::string url;   ///< Endpoint URL for this sync target.
-  std::string token; ///< Bearer token / API key.
+  std::string url;                 ///< Endpoint URL for this sync target.
+  std::string token;               ///< Bearer token / API key.
   Mode        mode = Mode::Legacy; ///< Outbound wire contract for this target.
 };
 
@@ -169,11 +169,11 @@ struct SidecarSyncConfig {
   std::string url;
   std::string token;
   std::string proxy;
-  bool        verify_ssl = true;
+  bool        verify_ssl                                      = true;
   bool        allow_unsafe_tls_without_certificate_validation = false;
-  bool        battlelogs_realtime = false;
-  bool        battlelog_enrichment = false;
-  bool        fleet_runtime       = false;
+  bool        battlelogs_realtime                             = false;
+  bool        battlelog_enrichment                            = false;
+  bool        fleet_runtime                                   = false;
 };
 
 /**
@@ -234,17 +234,20 @@ struct AdvancedDiagnosticsConfig {
     int         action_queue_probe_files  = 3;
   };
 
-  bool        ship_identity                   = false;
-  bool        battle_log_decoder              = false;
-  bool        battle_catalog                  = false;
-  bool        debug                           = false;
-  bool        logging                         = false;
-  bool        live_query                      = false;
-  std::string runtime_trace                   = "off";
-  bool        runtime_trace_track_overhead    = false;
-  bool        mod_impact_monitor              = false;
+  bool        ship_identity                    = false;
+  bool        battle_log_decoder               = false;
+  bool        battle_catalog                   = false;
+  bool        debug                            = false;
+  bool        logging                          = false;
+  bool        hotkey_suppression_logging       = false;
+  bool        notification_skip_logging        = false;
+  bool        fleet_selection_timing_logging   = false;
+  bool        live_query                       = false;
+  std::string runtime_trace                    = "off";
+  bool        runtime_trace_track_overhead     = false;
+  bool        mod_impact_monitor               = false;
   int         runtime_trace_report_interval_ms = 5000;
-  bool        refinery_diagnostics            = false;
+  bool        refinery_diagnostics             = false;
   FilesConfig files;
 };
 
@@ -252,7 +255,7 @@ struct AdvancedDiagnosticsConfig {
  * @brief Queue experiment/dev-test namespace rooted at `[advanced.queue]`.
  */
 struct AdvancedQueueConfig {
-  bool queue_repair_enabled    = false;
+  bool queue_repair_enabled     = false;
   bool queue_add_direct_handler = false;
   bool queue_add_hide_viewers   = false;
 };

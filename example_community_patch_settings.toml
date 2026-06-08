@@ -850,6 +850,12 @@ battle_catalog = false
 debug = false
 logging = false
 
+# Verbose breadcrumbs for noisy diagnostics. These remain off by default even
+# when advanced.diagnostics.debug is enabled.
+hotkey_suppression_logging = false
+notification_skip_logging = false
+fleet_selection_timing_logging = false
+
 # Development-only live query channel for AX. When enabled, `ax debug-send`
 # can send one JSON request into the running game and receive a JSON response.
 live_query = false
