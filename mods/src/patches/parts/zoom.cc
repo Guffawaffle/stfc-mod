@@ -47,6 +47,7 @@ namespace
 struct ZoomRuntimeDispatchCache {
   uint64_t                                     generation = 0;
   std::vector<KeyCode>                         watched_keys;
+  std::vector<KeyCode>                         original_guard_keys;
   std::vector<input_binding::DispatchKeyState> key_states;
   input_binding::DispatchPlan                  plan;
 };
@@ -62,10 +63,54 @@ constexpr std::array kZoomActions{
     input_binding::InputActionId::SetZoomPreset5, input_binding::InputActionId::SetZoomDefault,
 };
 
+constexpr std::array kZoomDefaultGuardActions{
+    input_binding::InputActionId::ZoomPreset1,    input_binding::InputActionId::ZoomPreset2,
+    input_binding::InputActionId::ZoomPreset3,    input_binding::InputActionId::ZoomPreset4,
+    input_binding::InputActionId::ZoomPreset5,    input_binding::InputActionId::ZoomMin,
+    input_binding::InputActionId::ZoomMax,        input_binding::InputActionId::ZoomReset,
+    input_binding::InputActionId::SetZoomPreset1, input_binding::InputActionId::SetZoomPreset2,
+    input_binding::InputActionId::SetZoomPreset3, input_binding::InputActionId::SetZoomPreset4,
+    input_binding::InputActionId::SetZoomPreset5, input_binding::InputActionId::SetZoomDefault,
+};
+
 ZoomRuntimeDispatchCache &zoom_runtime_dispatch_cache()
 {
   static auto cache = ZoomRuntimeDispatchCache{};
   return cache;
+}
+
+void append_unique_key(std::vector<KeyCode> &keys, const KeyCode key)
+{
+  if (key == KeyCode::None || std::ranges::find(keys, key) != keys.end()) {
+    return;
+  }
+
+  keys.push_back(key);
+}
+
+const std::vector<KeyCode> &default_zoom_original_guard_keys()
+{
+  static const auto keys = [] {
+    auto defaults = std::vector<KeyCode>{};
+    defaults.reserve(kZoomDefaultGuardActions.size());
+
+    for (const auto action : kZoomDefaultGuardActions) {
+      const auto *spec = input_binding::FindActionSpec(action);
+      if (!spec) {
+        continue;
+      }
+
+      const auto parsed = input_binding::ParseBinding(spec->default_bind);
+      for (const auto &chord : parsed.chords) {
+        if (chord.valid) {
+          append_unique_key(defaults, chord.key);
+        }
+      }
+    }
+    return defaults;
+  }();
+
+  return keys;
 }
 
 input_binding::ModifierMask zoom_held_modifier_mask()
@@ -91,7 +136,14 @@ void rebuild_zoom_watched_keys(ZoomRuntimeDispatchCache &cache, const input_bind
 
   cache.watched_keys = input_binding::WatchedKeysForActions(
       runtime_bindings, input_binding::InputPhase::NavigationZoomUpdate, kZoomActions);
+  cache.original_guard_keys = default_zoom_original_guard_keys();
   cache.generation = generation;
+}
+
+bool zoom_original_guard_key_active(const ZoomRuntimeDispatchCache &cache)
+{
+  return std::ranges::any_of(cache.original_guard_keys,
+                             [](const auto key) { return Key::Down(key) || Key::Pressed(key); });
 }
 
 const input_binding::DispatchPlan &navigation_zoom_dispatch_plan()
@@ -192,6 +244,7 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
   bool       do_absolute_zoom = false;
   bool       do_store_zoom    = false;
   auto       config           = &Config::Get();
+  bool       suppress_original_update = false;
 
   if (!Key::IsInputFocused()) {
     const auto dispatcher_owns_zoom =
@@ -200,7 +253,9 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
     auto zoom_out_pressed = false;
 
     if (dispatcher_owns_zoom) {
+      auto       &zoom_cache         = zoom_runtime_dispatch_cache();
       const auto &zoom_dispatch_plan = navigation_zoom_dispatch_plan();
+      suppress_original_update       = zoom_original_guard_key_active(zoom_cache);
 
       const auto set_zoom_action = first_zoom_winner(
           zoom_dispatch_plan,
@@ -312,6 +367,10 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
   }
 
   do_default_zoom = false;
+
+  if (suppress_original_update) {
+    return;
+  }
 
   impact_timer.ExcludeCall([&] { original(_this); });
 }

@@ -702,6 +702,64 @@ set_zoom_default = "CTRL-="
     CHECK(set_zoom_default->source_key == "[shortcuts].set_zoom_default");
   }
 
+  TEST_CASE("config bridge keeps zoom preset and default NONE aliases unbound")
+  {
+    const auto config = toml::parse(R"(
+[shortcuts]
+zoom_preset1 = "NONE"
+set_zoom_preset1 = ""
+zoom_reset = "NONE"
+set_zoom_default = ""
+)");
+
+    const auto bridge            = input_binding::ResolveInputBindingConfig(config);
+    const auto zoom_preset1      = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::ZoomPreset1;
+    });
+    const auto set_zoom_preset1  = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::SetZoomPreset1;
+    });
+    const auto zoom_reset        = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::ZoomReset;
+    });
+    const auto set_zoom_default  = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::SetZoomDefault;
+    });
+
+    REQUIRE(zoom_preset1 != bridge.bindings.end());
+    REQUIRE(set_zoom_preset1 != bridge.bindings.end());
+    REQUIRE(zoom_reset != bridge.bindings.end());
+    REQUIRE(set_zoom_default != bridge.bindings.end());
+    CHECK(zoom_preset1->binding == "NONE");
+    CHECK(zoom_preset1->source_key == "[shortcuts].zoom_preset1");
+    CHECK(set_zoom_preset1->binding == "NONE");
+    CHECK(set_zoom_preset1->source_key == "[shortcuts].set_zoom_preset1");
+    CHECK(zoom_reset->binding == "NONE");
+    CHECK(zoom_reset->source_key == "[shortcuts].zoom_reset");
+    CHECK(set_zoom_default->binding == "NONE");
+    CHECK(set_zoom_default->source_key == "[shortcuts].set_zoom_default");
+
+    const auto compiled = input_binding::CompileBindingSet(bridge.AsOverrides());
+    const auto zoom_keys = input_binding::WatchedKeysForActions(
+        compiled, input_binding::InputPhase::NavigationZoomUpdate,
+        std::array{input_binding::InputActionId::ZoomPreset1, input_binding::InputActionId::SetZoomPreset1,
+                   input_binding::InputActionId::ZoomReset, input_binding::InputActionId::SetZoomDefault});
+    CHECK(zoom_keys.empty());
+
+    const auto no_modifiers       = input_binding::ModifierMask{};
+    auto       shift_modifiers    = input_binding::ModifierMask::FromPressedKey(KeyCode::LeftShift);
+    auto       ctrl_modifiers     = input_binding::ModifierMask::FromPressedKey(KeyCode::LeftControl);
+    const auto f1_matches         = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::F1, no_modifiers);
+    const auto shift_f1_matches   = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::F1, shift_modifiers);
+    const auto equals_matches     = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Equals, no_modifiers);
+    const auto ctrl_equals_matches =
+        compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Equals, ctrl_modifiers);
+    CHECK(f1_matches.empty());
+    CHECK(shift_f1_matches.empty());
+    CHECK(equals_matches.empty());
+    CHECK(ctrl_equals_matches.empty());
+  }
+
   TEST_CASE("config bridge runtime config emits canonical bindings and sources")
   {
     const auto config = toml::parse(R"(
