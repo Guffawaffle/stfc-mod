@@ -24,6 +24,7 @@ public:
     uint64_t enqueued = 0;
     uint64_t dequeued = 0;
     uint64_t dropped = 0;
+    uint64_t coalesced = 0;
     uint64_t worker_errors = 0;
     size_t   max_depth = 0;
   };
@@ -38,6 +39,39 @@ public:
       std::lock_guard lock(mutex_);
       if (shutdown_requested_) {
         return false;
+      }
+
+      if (max_depth_ > 0 && queue_.size() >= max_depth_) {
+        ++dropped_;
+        return false;
+      }
+
+      queue_.emplace_back(std::move(item));
+      ++enqueued_;
+    }
+
+    condition_.notify_one();
+    return true;
+  }
+
+  template <typename Predicate>
+  bool enqueue_or_replace(WorkItem item, Predicate&& should_replace, bool& replaced)
+  {
+    replaced = false;
+    {
+      std::lock_guard lock(mutex_);
+      if (shutdown_requested_) {
+        return false;
+      }
+
+      for (auto it = queue_.rbegin(); it != queue_.rend(); ++it) {
+        if (should_replace(*it)) {
+          *it = std::move(item);
+          ++coalesced_;
+          replaced = true;
+          condition_.notify_one();
+          return true;
+        }
       }
 
       if (max_depth_ > 0 && queue_.size() >= max_depth_) {
@@ -145,6 +179,7 @@ public:
       enqueued_,
       dequeued_,
       dropped_,
+      coalesced_,
       worker_errors_,
       max_depth_,
     };
@@ -174,5 +209,6 @@ private:
   uint64_t                enqueued_ = 0;
   uint64_t                dequeued_ = 0;
   uint64_t                dropped_ = 0;
+  uint64_t                coalesced_ = 0;
   uint64_t                worker_errors_ = 0;
 };

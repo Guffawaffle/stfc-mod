@@ -20,6 +20,7 @@
 #include <compare>
 #include <cstdint>
 #include <exception>
+#include <mutex>
 #include <optional>
 #include <ranges>
 #include <string>
@@ -27,6 +28,15 @@
 namespace
 {
 using json = nlohmann::json;
+
+constexpr auto kFleetRuntimeSyncQuietDelay = std::chrono::milliseconds(2500);
+
+std::mutex                            s_pending_sync_mutex;
+bool                                  s_pending_sync = false;
+std::string                           s_pending_sync_source;
+std::chrono::steady_clock::time_point s_pending_sync_requested_at;
+uint64_t                              s_pending_sync_sequence = 0;
+bool                                  s_pending_sync_delay_logged = false;
 
 struct FleetSlotStateKey {
   bool        selected = false;
@@ -64,6 +74,12 @@ int64_t current_time_millis_utc()
 {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   return std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+}
+
+bool fleet_runtime_sync_enabled()
+{
+  return Config::Get().installSyncPatches
+         && (Config::Get().sync_options.fleet_runtime || sidecar_local_ingest::FleetRuntimeEnabled());
 }
 
 int cargo_fill_percent_bucket(int basis_points, int percent)
@@ -202,12 +218,75 @@ json build_snapshot_payload(std::string_view source, int64_t observed_at_ms, con
 
 void fleet_runtime_sync_trigger(std::string_view source)
 {
-  if (!Config::Get().installSyncPatches
-      || (!Config::Get().sync_options.fleet_runtime && !sidecar_local_ingest::FleetRuntimeEnabled())) {
+  if (!fleet_runtime_sync_enabled()) {
     return;
   }
 
+  std::lock_guard lock(s_pending_sync_mutex);
+  s_pending_sync        = true;
+  s_pending_sync_source = std::string(source);
+  s_pending_sync_requested_at = std::chrono::steady_clock::now();
+  ++s_pending_sync_sequence;
+  s_pending_sync_delay_logged = false;
+  spdlog::debug("[FleetRuntimeSync] stage=request source={} decision=deferred quietDelayMs={} seq={}",
+                source,
+                kFleetRuntimeSyncQuietDelay.count(),
+                s_pending_sync_sequence);
+}
+
+bool fleet_runtime_sync_frame_subscriber_enabled()
+{ return fleet_runtime_sync_enabled(); }
+
+void fleet_runtime_sync_process_pending()
+{
+  std::string source;
+  uint64_t    sequence = 0;
+  {
+    std::lock_guard lock(s_pending_sync_mutex);
+    if (!s_pending_sync) {
+      return;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    const auto age = std::chrono::duration_cast<std::chrono::milliseconds>(now - s_pending_sync_requested_at);
+    if (age < kFleetRuntimeSyncQuietDelay) {
+      if (!s_pending_sync_delay_logged) {
+        const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+            kFleetRuntimeSyncQuietDelay - age);
+        spdlog::debug("[FleetRuntimeSync] stage=flush source={} decision=deferred reason=quiet-window "
+                      "ageMs={} remainingMs={} seq={}",
+                      s_pending_sync_source,
+                      age.count(),
+                      remaining.count(),
+                      s_pending_sync_sequence);
+        s_pending_sync_delay_logged = true;
+      }
+      return;
+    }
+
+    source = s_pending_sync_source;
+    sequence = s_pending_sync_sequence;
+    s_pending_sync = false;
+    s_pending_sync_source.clear();
+    s_pending_sync_delay_logged = false;
+  }
+
+  if (!fleet_runtime_sync_enabled()) {
+    spdlog::warn("[FleetRuntimeSync] stage=flush source={} decision=skipped reason=disabled", source);
+    return;
+  }
+
+  spdlog::info("[FleetRuntimeSync] stage=flush source={} decision=executed reason=quiet-window seq={}",
+               source,
+               sequence);
   fleet_runtime_diagnostics_trigger(source);
+
+  if (sidecar_local_ingest::FleetRuntimeRequestOnlyMode()) {
+    spdlog::info("[FleetRuntimeSync] stage=capture source={} decision=skipped reason=request-only mode={}",
+                 source,
+                 sidecar_local_ingest::FleetRuntimeMode());
+    return;
+  }
 
   try {
     fleet_runtime_sync_capture(source);
@@ -250,6 +329,30 @@ void fleet_runtime_sync_capture(std::string_view source)
     queue_data(SyncConfig::Type::FleetRuntime, payload, false, trace);
   }
   if (sidecar_local_ingest::FleetRuntimeEnabled()) {
-    sidecar_local_ingest::EnqueueFleetRuntimeSnapshot(payload);
+    if (sidecar_local_ingest::FleetRuntimeSnapshotOnlyMode()) {
+      spdlog::info("[FleetRuntimeSync] stage=sidecar-publish source={} decision=skipped reason=snapshot-only "
+                   "captureDurationMs={} mode={}",
+                   source,
+                   capture_duration_ms,
+                   sidecar_local_ingest::FleetRuntimeMode());
+      return;
+    }
+
+    const auto enqueue_started_at = std::chrono::steady_clock::now();
+    const auto enqueue = sidecar_local_ingest::EnqueueFleetRuntimeSnapshot(payload);
+    const auto enqueue_duration_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                                         std::chrono::steady_clock::now() - enqueue_started_at)
+                                         .count();
+    spdlog::info("[FleetRuntimeSync] stage=sidecar-enqueue source={} accepted={} coalesced={} depth={} "
+                 "enqueued={} dropped={} coalescedTotal={} durationUs={} mode={}",
+                 source,
+                 enqueue.accepted,
+                 enqueue.coalesced,
+                 enqueue.depth,
+                 enqueue.enqueued,
+                 enqueue.dropped,
+                 enqueue.coalesced_total,
+                 enqueue_duration_us,
+                 sidecar_local_ingest::FleetRuntimeMode());
   }
 }

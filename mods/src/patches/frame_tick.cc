@@ -9,6 +9,7 @@
 #include <spdlog/spdlog.h>
 
 #include "patches/frame_tick.h"
+#include "patches/fleet_runtime_sync.h"
 #include "patches/hook_registry.h"
 #include "patches/hotkey_router.h"
 #include "patches/live_debug.h"
@@ -20,6 +21,7 @@ namespace {
 constexpr bool kEnableFrameTickHook = true;
 constexpr bool kEnableHotkeyFrameSubscriber = true;
 constexpr bool kEnableLiveDebugFrameSubscriber = true;
+constexpr bool kEnableFleetRuntimeSyncFrameSubscriber = true;
 
 constexpr HookDescriptor kScreenManagerUpdateHook = {
   "ScreenManager.Update",
@@ -42,6 +44,11 @@ bool live_debug_frame_subscriber_enabled()
 #endif
 }
 
+bool fleet_runtime_sync_frame_subscriber_allowed()
+{
+  return kEnableFleetRuntimeSyncFrameSubscriber && fleet_runtime_sync_frame_subscriber_enabled();
+}
+
 void log_frame_tick_subscribers()
 {
   spdlog::info("[FrameTick] subscriber=hotkey_router enabled={} reason=installHotkeyHooks compile_time_enabled={}",
@@ -50,6 +57,9 @@ void log_frame_tick_subscribers()
   spdlog::info("[FrameTick] subscriber=live_debug enabled={} reason=live_debug_channel compile_time_enabled={}",
                live_debug_frame_subscriber_enabled(),
                kEnableLiveDebugFrameSubscriber);
+  spdlog::info("[FrameTick] subscriber=fleet_runtime_sync enabled={} reason=fleet_runtime compile_time_enabled={}",
+               fleet_runtime_sync_frame_subscriber_allowed(),
+               kEnableFleetRuntimeSyncFrameSubscriber);
 }
 
 void tick_live_debug(ScreenManager* screen_manager)
@@ -66,6 +76,21 @@ void tick_live_debug(ScreenManager* screen_manager)
     spdlog::error("[FrameTick] subscriber=live_debug status=failed error='{}'", ex.what());
   } catch (...) {
     spdlog::error("[FrameTick] subscriber=live_debug status=failed error='unknown exception'");
+  }
+}
+
+void tick_fleet_runtime_sync()
+{
+  if (!fleet_runtime_sync_frame_subscriber_allowed()) {
+    return;
+  }
+
+  try {
+    fleet_runtime_sync_process_pending();
+  } catch (const std::exception& ex) {
+    spdlog::error("[FrameTick] subscriber=fleet_runtime_sync status=failed error='{}'", ex.what());
+  } catch (...) {
+    spdlog::error("[FrameTick] subscriber=fleet_runtime_sync status=failed error='unknown exception'");
   }
 }
 
@@ -99,6 +124,7 @@ void ScreenManager_Update_FrameTick_Hook(auto original, ScreenManager* screen_ma
   }
 
   tick_live_debug(screen_manager);
+  tick_fleet_runtime_sync();
 }
 }
 
@@ -113,7 +139,8 @@ void InstallFrameTickHooks()
     return;
   }
 
-  if (!hotkey_frame_subscriber_enabled() && !live_debug_frame_subscriber_enabled()) {
+  if (!hotkey_frame_subscriber_enabled() && !live_debug_frame_subscriber_enabled()
+      && !fleet_runtime_sync_frame_subscriber_allowed()) {
     hooks.record_skipped(kScreenManagerUpdateHook, "no enabled frame subscribers");
     hooks.log_summary();
     return;

@@ -174,6 +174,7 @@ struct SidecarSyncConfig {
   bool        battlelogs_realtime                             = false;
   bool        battlelog_enrichment                            = false;
   bool        fleet_runtime                                   = false;
+  std::string fleet_runtime_mode                              = "normal";
 };
 
 /**

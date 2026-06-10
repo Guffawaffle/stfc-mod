@@ -139,6 +139,26 @@ TEST_SUITE("async_work_queue")
     CHECK(batch[1] == 20);
   }
 
+  TEST_CASE("can replace existing queued work without growing depth")
+  {
+    AsyncWorkQueue<int> queue(4);
+    bool                replaced = false;
+
+    CHECK(queue.enqueue(10));
+    CHECK(queue.enqueue_or_replace(20, [](int value) { return value == 10; }, replaced));
+    CHECK(replaced);
+
+    auto diagnostics = queue.diagnostics();
+    CHECK(diagnostics.depth == 1);
+    CHECK(diagnostics.enqueued == 1);
+    CHECK(diagnostics.coalesced == 1);
+    CHECK(diagnostics.dropped == 0);
+
+    auto batch = queue.drain();
+    REQUIRE(batch.size() == 1);
+    CHECK(batch[0] == 20);
+  }
+
   TEST_CASE("rejects new work after shutdown while preserving queued work")
   {
     AsyncWorkQueue<std::string> queue;

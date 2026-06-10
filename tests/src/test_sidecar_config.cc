@@ -102,6 +102,7 @@ allow_unsafe_tls_without_certificate_validation = true
 battlelogs_realtime = true
 battlelog_enrichment = true
 fleet_runtime = true
+fleet_runtime_mode = "snapshot_only"
 
 [advanced.diagnostics]
 ship_identity = true
@@ -153,6 +154,7 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.config.sync.battlelogs_realtime);
     CHECK(result.config.sync.battlelog_enrichment);
     CHECK(result.config.sync.fleet_runtime);
+    CHECK(result.config.sync.fleet_runtime_mode == "snapshot_only");
 
     CHECK(result.advanced.diagnostics.ship_identity);
     CHECK(result.advanced.diagnostics.battle_log_decoder);
@@ -208,6 +210,20 @@ logging = true
     CHECK_FALSE(result.advanced.diagnostics.hotkey_suppression_logging);
     CHECK_FALSE(result.advanced.diagnostics.notification_skip_logging);
     CHECK_FALSE(result.advanced.diagnostics.fleet_selection_timing_logging);
+  }
+
+  TEST_CASE("invalid sidecar fleet runtime mode falls back to normal")
+  {
+    auto config = toml::parse(R"(
+[sidecar.sync]
+fleet_runtime_mode = "surprise"
+)");
+
+    const auto result = ParseSidecarConfig(config);
+
+    CHECK(result.config.sync.fleet_runtime_mode == "normal");
+    CHECK(has_diagnostic(result.diagnostics, "sidecar.sync.fleet_runtime_mode",
+                         config_schema::DiagnosticSeverity::Warning));
   }
 
   TEST_CASE("sidecar battlelog enrichment defaults closed and accepts legacy decoder alias")

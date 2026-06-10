@@ -13,7 +13,7 @@
 #include "patches.h"
 #include "file.h"
 #include "patches/deployment_runtime_observers.h"
-#include "patches/fleet_notifications.h"
+#include "patches/fleet_runtime_sync.h"
 #include "patches/notification_service.h"
 #include "patches/sidecar_local_ingest.h"
 #include "patches/sync_battle_logs.h"
@@ -225,19 +225,20 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 
   spdlog::info("Initializing code hooks:");
   auto             install_deployment_runtime_observers =
-      (cfg.installSyncPatches && (cfg.sync_options.fleet_runtime || sidecar_local_ingest::FleetRuntimeEnabled()))
-      || fleet_notifications_runtime_events_enabled();
+      cfg.installSyncPatches && cfg.sync_options.fleet_runtime;
+  if (sidecar_local_ingest::FleetRuntimeEnabled()) {
+    spdlog::info("[FleetRuntimeSync] sidecar fleet_runtime uses fleet-bar transition requests; deployment event "
+                 "observers disabled");
+  }
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   auto             install_live_debug_hooks           = LiveDebugChannelEnabled();
-  if (install_live_debug_hooks) {
-    install_deployment_runtime_observers = false;
-  }
   auto             install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
 #endif
   auto             install_frame_tick_hooks           = cfg.installHotkeyHooks;
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   install_frame_tick_hooks = install_frame_tick_hooks || LiveDebugChannelEnabled();
 #endif
+  install_frame_tick_hooks = install_frame_tick_hooks || fleet_runtime_sync_frame_subscriber_enabled();
   const PatchEntry patches[]                          = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},

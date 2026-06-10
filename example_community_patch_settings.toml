@@ -827,6 +827,12 @@ battlelogs_realtime = false
 # accepted as an alias, but this is the canonical local Workbench gate.
 battlelog_enrichment = false
 fleet_runtime = false
+# Fleet runtime sidecar safety/probe mode:
+# normal, request_only, snapshot_only, or enqueue_no_transport.
+# request_only records requests but skips snapshot reads.
+# snapshot_only reads/builds owned snapshots but skips publish/enqueue.
+# enqueue_no_transport enqueues latest-wins runtime snapshots but suppresses HTTP transport.
+fleet_runtime_mode = "normal"
 
 [sidecar.logging]
 # Explicit opt-in local JSONL evidence/import feed for offline review and diagnostics.

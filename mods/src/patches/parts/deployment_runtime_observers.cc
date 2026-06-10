@@ -1,11 +1,10 @@
 /**
  * @file deployment_runtime_observers.cc
- * @brief Public deployment-event observers for fleet notifications and runtime sync.
+ * @brief Public deployment-event observers for fleet runtime sync.
  */
 #include "patches/deployment_runtime_observers.h"
 
 #include "errormsg.h"
-#include "patches/fleet_notifications.h"
 #include "patches/fleet_runtime_sync.h"
 
 #include "prime/IList.h"
@@ -15,7 +14,6 @@
 namespace {
 void observe_runtime_deployment_event(const char* source)
 {
-  fleet_notifications_observe_runtime_fleets();
   fleet_runtime_sync_trigger(source);
 }
 

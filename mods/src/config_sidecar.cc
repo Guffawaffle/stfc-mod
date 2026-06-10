@@ -229,6 +229,17 @@ bool contains_any(std::string_view value, std::span<const std::string_view> need
   return std::ranges::any_of(needles, [value](const auto needle) { return value.find(needle) != std::string::npos; });
 }
 
+bool is_valid_fleet_runtime_mode(std::string_view mode)
+{
+  constexpr std::array<std::string_view, 4> kModes{
+      "normal",
+      "request_only",
+      "snapshot_only",
+      "enqueue_no_transport",
+  };
+  return std::ranges::find(kModes, mode) != kModes.end();
+}
+
 bool rejected_target_name_seen(std::set<std::string>& rejected_targets, const std::string& target_name,
                                std::vector<SidecarRejectedSyncTarget>& output)
 {
@@ -318,6 +329,18 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                    kBattlelogEnrichmentAlias, "decode local sidecar battle reports, catalog snapshots, and analytics"});
   read_bool_value(result.config.sync.fleet_runtime,
                   {"sidecar.sync.fleet_runtime", DCSidecar::Sync::fleet_runtime, {}, "sidecar fleet-runtime delivery"});
+  read_string_value(result.config.sync.fleet_runtime_mode, "sidecar.sync.fleet_runtime_mode",
+                    DCSidecar::Sync::fleet_runtime_mode, "sidecar fleet-runtime diagnostic mode");
+  result.config.sync.fleet_runtime_mode = ascii_lower(result.config.sync.fleet_runtime_mode);
+  if (!is_valid_fleet_runtime_mode(result.config.sync.fleet_runtime_mode)) {
+    result.diagnostics.push_back(make_diagnostic(
+        config_schema::DiagnosticSeverity::Warning,
+        "sidecar.sync.fleet_runtime_mode",
+        "sidecar.sync.fleet_runtime_mode",
+        "Invalid sidecar.sync.fleet_runtime_mode. Expected normal, request_only, snapshot_only, or "
+        "enqueue_no_transport; using normal."));
+    result.config.sync.fleet_runtime_mode = DCSidecar::Sync::fleet_runtime_mode;
+  }
 
   read_bool_value(result.config.logging.jsonl,
                   {"sidecar.logging.jsonl", DCSidecar::Logging::jsonl, {}, "local sidecar JSONL capture"});
@@ -531,6 +554,7 @@ void WriteSidecarConfigRuntimeSnapshot(toml::table& runtime_config, const Sideca
   config_schema::write_bool(runtime_config, "sidecar.sync.battlelogs_realtime", config.sync.battlelogs_realtime);
   config_schema::write_bool(runtime_config, "sidecar.sync.battlelog_enrichment", config.sync.battlelog_enrichment);
   config_schema::write_bool(runtime_config, "sidecar.sync.fleet_runtime", config.sync.fleet_runtime);
+  write_scalar(runtime_config, "sidecar.sync.fleet_runtime_mode", config.sync.fleet_runtime_mode);
 
   config_schema::write_bool(runtime_config, "sidecar.logging.jsonl", config.logging.jsonl);
   write_scalar(runtime_config, "sidecar.logging.jsonl_replay_seconds", config.logging.jsonl_replay_seconds);

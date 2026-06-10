@@ -36,8 +36,44 @@
 
 #include "probe/probe.h"
 
+namespace
+{
+// Current live game builds now appear to handle the Kir'shara stall case natively.
+// Until we re-validate the queue paths against the new build, keep every repair and
+// marker detour in this file unloaded to avoid reintroducing stalls from our side.
+constexpr bool kKirsharaQueueHooksForceDisabledByNativePatch = true;
+
+bool KirsharaQueueHooksForceDisabled()
+{ return kKirsharaQueueHooksForceDisabledByNativePatch; }
+
+bool KirsharaQueueMarkerHooksRequested(const KirsharaQueueRepairInstallPlan& install_plan)
+{
+  return install_plan.install_dump_interesting_methods || install_plan.install_on_strike_complete_marker
+         || install_plan.install_remove_target_and_attack_next_marker
+         || install_plan.install_check_to_clear_action_queue_marker || install_plan.install_is_target_valid_marker
+         || install_plan.install_process_queue_deployed_marker || install_plan.install_process_queue_target_marker
+         || install_plan.install_on_set_course_response_marker || install_plan.install_on_player_fleet_state_changed_marker
+         || install_plan.install_on_fleet_state_change_marker || install_plan.install_on_fleets_disposed_marker;
+}
+
+void LogKirsharaQueueHooksForceDisabled(const KirsharaQueueRepairInstallPlan& install_plan)
+{
+  static std::once_flag once;
+  std::call_once(once, [&] {
+    spdlog::warn(
+        "[KirsharaQueueRepair] force-disabled after native game queue update; leaving repair and marker hooks "
+        "unloaded pending compatibility re-validation (course_target_completion={} marker_hooks={})",
+        install_plan.install_course_target_completion, KirsharaQueueMarkerHooksRequested(install_plan));
+  });
+}
+} // namespace
+
 bool ActionQueueProbeEnabled()
 {
+  if (KirsharaQueueHooksForceDisabled()) {
+    return false;
+  }
+
   const auto level                  = RuntimeTraceLevelSetting();
   const auto detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
   return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairSettings(), detailed_runtime_trace).emit_probe_logs;
@@ -48,6 +84,10 @@ bool ActionQueueProbeDetoursEnabled()
 
 bool ActionQueueRepairEnabled()
 {
+  if (KirsharaQueueHooksForceDisabled()) {
+    return false;
+  }
+
   const auto level                  = RuntimeTraceLevelSetting();
   const auto detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
   return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairSettings(), detailed_runtime_trace)
@@ -718,6 +758,10 @@ std::unordered_map<std::int64_t, PlayerOnlyBattleStartCandidate>& CourseTargetCo
 
 bool CourseTargetCompletionEnabled()
 {
+  if (KirsharaQueueHooksForceDisabled()) {
+    return false;
+  }
+
   const auto level                  = RuntimeTraceLevelSetting();
   const auto detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
   return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairSettings(), detailed_runtime_trace)
@@ -1361,15 +1405,18 @@ void InstallActionQueueRepairHooks()
   const auto  detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
   const auto& repair_settings        = KirsharaQueueRepairSettings();
   const auto  install_plan           = BuildKirsharaQueueRepairInstallPlan(repair_settings, detailed_runtime_trace);
+
+  if (KirsharaQueueHooksForceDisabled()) {
+    if (install_plan.install_repair_hooks || install_plan.install_course_target_completion
+        || KirsharaQueueMarkerHooksRequested(install_plan)) {
+      LogKirsharaQueueHooksForceDisabled(install_plan);
+    }
+    return;
+  }
+
   const auto  install_action_queue_repairs     = install_plan.install_repair_hooks;
   const auto  install_course_target_completion = install_plan.install_course_target_completion;
-  const auto  install_any_action_queue_marker =
-      install_plan.install_dump_interesting_methods || install_plan.install_on_strike_complete_marker
-      || install_plan.install_remove_target_and_attack_next_marker
-      || install_plan.install_check_to_clear_action_queue_marker || install_plan.install_is_target_valid_marker
-      || install_plan.install_process_queue_deployed_marker || install_plan.install_process_queue_target_marker
-      || install_plan.install_on_set_course_response_marker || install_plan.install_on_player_fleet_state_changed_marker
-      || install_plan.install_on_fleet_state_change_marker || install_plan.install_on_fleets_disposed_marker;
+  const auto  install_any_action_queue_marker  = KirsharaQueueMarkerHooksRequested(install_plan);
   const auto install_completion_pipeline_hooks = install_any_action_queue_marker || install_course_target_completion;
 
   if (!install_action_queue_repairs && !install_completion_pipeline_hooks) {

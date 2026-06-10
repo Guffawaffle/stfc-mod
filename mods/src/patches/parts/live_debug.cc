@@ -101,6 +101,7 @@ constexpr bool                        kEnableLiveDebugTopCanvasPolling          
 constexpr bool                        kEnableLiveDebugStationWarningPolling        = false;
 constexpr bool                        kEnableLiveDebugNavigationInteractionPolling = false;
 constexpr bool                        kEnableLiveDebugObserverStepTrace            = false;
+constexpr bool                        kEnableLiveDebugDeploymentEventHooks         = false;
 constexpr auto                        kLiveDebugRequestPollInterval                = std::chrono::seconds(3);
 constexpr auto                        kLiveDebugRecentActivityWindow               = std::chrono::seconds(15);
 bool                                  g_ui_observer_trace_current_poll             = false;
@@ -884,6 +885,11 @@ std::string live_debug_handle_request_text(std::string_view request_text)
 
 void InstallLiveDebugHooks()
 {
+  if (!kEnableLiveDebugDeploymentEventHooks) {
+    spdlog::info("[LiveDebug] deployment event hooks disabled; live query channel remains frame-tick/request driven");
+    return;
+  }
+
   auto deployment_events_helper =
       il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Events", "DeploymentEvents");
   if (!deployment_events_helper.isValidHelper()) {

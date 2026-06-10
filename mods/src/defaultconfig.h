@@ -425,6 +425,7 @@ namespace Sidecar
     constexpr bool        battlelogs_realtime                             = false;
     constexpr bool        battlelog_enrichment                            = false;
     constexpr bool        fleet_runtime                                   = false;
+    constexpr const char* fleet_runtime_mode                              = "normal";
   } // namespace Sync
 
   namespace Probes
