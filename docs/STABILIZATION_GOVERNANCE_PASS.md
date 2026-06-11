@@ -2,7 +2,8 @@
 
 Date: 2026-06-10
 Base checkpoint: `5a00512` (`fix: avoid unattended queue stalls from observers`)
-Working branch: `docs/gameplay-seam-ownership`
+Initial docs branch: `docs/gameplay-seam-ownership`
+Follow-up audit branch: `audit/gameplay-seam-registry-baseline`
 
 ## Purpose
 
@@ -125,6 +126,59 @@ This table is a static source inventory plus runtime findings from the current i
 | Toast banner suppression | `mods/src/patches/parts/disable_banners.cc` | Banner visibility policy | Existing behavior | Config relationship to notifications/banners is semantically tangled. |
 | Hotkey and fleet action seams | `mods/src/patches/parts/hotkeys.cc`, `hotkey_router.cc`, `fleet_actions.cc` | Unified input, fleet action runtime | Existing high-risk behavioral hooks | Continue separately under input/fleet action migration docs. |
 
+## Future Enforcement: Gameplay Seam Registry And Hook Ingress
+
+The long-term enforcement direction is a single gameplay hook ingress point backed by a `GameplaySeamRegistry`, but that is not the current state.
+
+Current state:
+
+- governance law for seam ownership and game-access boundaries
+- manual unmanaged seam/hook inventory
+- existing partial `HookModuleHealth` / hook owner registry coverage
+- no complete scanner/tripwire yet
+- no runtime `GameplaySeamRegistry` system of record yet
+
+Next state:
+
+- scanner/tripwire that detects raw hook-like calls outside the future registry
+- checked-in unmanaged legacy baseline
+- failure only for net-new unmanaged hook-like calls after the baseline exists
+
+Later state:
+
+- runtime `GameplaySeamRegistry` / hook ingress system of record
+- one-at-a-time migration of existing seams into the system of record
+
+The eventual registry should record:
+
+- gameplay seam
+- owner module
+- source file/function
+- reason / why the seam is touched
+- originating effect class
+- allowed extraction scope
+- published evidence surface
+- known subscribers
+- risk level
+- validation evidence
+- status: active, disabled, deprecated, probe-only, or migration exception
+
+Once scanner/tripwire enforcement exists, all new gameplay-affecting hooks or detours must either enter through the approved registry path or carry an explicit reviewed exception. Raw hook-like installs outside the future registry are not acceptable as silent growth.
+
+Flashlight first, cop second:
+
+1. Identify hook-like behavior outside the future registry.
+2. Create a legacy unmanaged-hook baseline.
+3. Allow existing baseline findings temporarily.
+4. Add scanner/tripwire enforcement that fails only new unmanaged hook-like calls.
+5. Migrate existing seams into the system of record one at a time.
+
+This audit branch is the flashlight stage. It must not change runtime hook behavior.
+
+Long-term rule:
+
+A gameplay hook cannot be installed without a registered seam claim. Duplicate active claims are rejected unless explicitly marked as temporary migration/probe exceptions with owner, reason, expiry, and validation plan.
+
 ## Game Access And Async Boundary Policy
 
 Do not reduce the rule to "everything async." Unity/STFC state usually must be read on the game/main thread.
@@ -240,17 +294,20 @@ Recommended branch sequence:
 | Branch | Purpose | Risk / blast radius | Tests |
 | --- | --- | --- | --- |
 | `docs/gameplay-seam-ownership` | Docs/inventory only; establish owner and async boundary rules | Low | `git diff --check`; markdown review |
+| `audit/gameplay-seam-registry-baseline` | Manual unmanaged hook/seam baseline and scanner/tripwire design notes without changing runtime behavior | Low; audit-only | Baseline review; `git diff --check`; no runtime behavior changes |
 | `refactor/gameplay-dispatch-ownership` | Introduce owner/source/reason metadata where lowest risk | Medium; metadata only first | Pure tests for metadata builders; runtime smoke for queue/Fleet Watch |
 | `refactor/sidecar-runtime-boundary` | Harden copied snapshot, bounded queue/coalescing, offline backoff contracts | Medium; sidecar and telemetry paths | Sidecar-offline, sidecar-running Fleet Watch, battle event ingest |
 | `config/notification-namespace-cleanup` | Structured notification config with aliases/deprecations | Medium; config and notification behavior | Config parser tests, runtime notification/audio smoke |
 | `config/advanced-settings-taxonomy` | Move mechanism/diagnostic settings out of normal examples | Low to medium; config compatibility risk | Config alias tests, runtime vars snapshot review |
 | `audit/mod-wide-soc-pass` | Continue subsystem-by-subsystem SOC cleanup | Variable | Per-subsystem narrow tests and runtime validation |
 
-Recommended first cleanup branch after the functional fix is on mainline:
+Current sequencing:
 
-`docs/gameplay-seam-ownership`
+- `docs/gameplay-seam-ownership` has landed locally on `main`.
+- `audit/gameplay-seam-registry-baseline` is the current next branch.
+- This branch is audit-only and must not change runtime hook behavior.
 
-If this local branch remains stacked on `fix/kirshara-native-disable-hooks`, rebase it onto main after the functional fix lands.
+Push sequencing should keep remote ancestry sane: push local `main` first, then push the stacked audit branch.
 
 ## Test Plan For Stabilization And Follow-Up
 

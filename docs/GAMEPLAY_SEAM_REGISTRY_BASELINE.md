@@ -6,9 +6,29 @@ Base checkpoint: `0f33462` (`docs: record stabilization validation evidence`)
 
 ## Purpose
 
-This is the audit-only baseline before implementing a broader gameplay seam registry or current-operating-posture enforcement. It records the current hook-like surface so future branches can distinguish existing unmanaged legacy from newly introduced unmanaged hooks.
+This is the audit-only, initial/manual baseline before implementing a broader gameplay seam registry or current-operating-posture enforcement. It records the current hook-like surface so future branches can distinguish existing unmanaged legacy from newly introduced unmanaged hooks.
 
 This document does not change runtime hook behavior.
+
+This document is not scanner-generated output. It is a manually curated baseline produced from static searches and source review. The scanner/tripwire does not exist yet.
+
+Current state:
+
+- governance law
+- manual unmanaged seam/hook inventory
+- partial existing hook owner registry for some hook families
+
+Next state:
+
+- scanner/tripwire that detects raw hook-like calls outside the future registry
+- checked-in machine-readable baseline if useful
+- review gate that fails only net-new unmanaged hook-like calls
+
+Later state:
+
+- runtime `GameplaySeamRegistry` / hook ingress system of record
+- migrated seam ownership metadata
+- one-at-a-time migration of existing seams into the system of record
 
 ## Scope
 
@@ -25,7 +45,7 @@ Excluded:
 - Ordinary `GetMethod`/`GetMethodInfo` calls that invoke methods but do not install detours.
 - Runtime behavior changes, hook conversion, config migration, or new C++ enforcement.
 
-## Static Inventory Summary
+## Manual Static Inventory Summary
 
 Static query used:
 
@@ -33,7 +53,7 @@ Static query used:
 rg -n "\b(HOOK_REGISTRY_SPUD_STATIC_DETOUR|SPUD_STATIC_DETOUR)\b" mods/src --glob "*.cc" --glob "*.h"
 ```
 
-Current posture:
+Manual inventory posture:
 
 | Category | Count | Notes |
 | --- | ---: | --- |
@@ -41,7 +61,7 @@ Current posture:
 | Registry-backed ordinary call sites | 11 | `FrameTickHooks` plus `HotkeyHooks`. |
 | Registry-backed macro family | 21 hooks | `RefineryDiagnosticsHooks` uses `INSTALL_REFINERY_DIAG_HOOK(...)`, which routes through `HOOK_REGISTRY_SPUD_STATIC_DETOUR`. |
 
-The most important number for future enforcement is the direct legacy count: `93`.
+The most important number for future scanner enforcement is the direct legacy count: `93`. The future scanner should initially preserve this count as a grandfathered baseline and fail only increases or new unmanaged direct-hook files unless an exception is reviewed.
 
 ## Direct Legacy Baseline By File
 
@@ -112,38 +132,56 @@ The first enforcement branch should not demand immediate conversion of all legac
 Instead:
 
 1. Treat this document as the legacy unmanaged baseline.
-2. Any net-new `SPUD_STATIC_DETOUR` site must either use `HOOK_REGISTRY_SPUD_STATIC_DETOUR` or update this baseline with an explicit exception and rationale.
-3. Any new gameplay seam must declare owner, target, purpose, effect class, source/reason metadata, and expected subscribers before runtime implementation.
-4. Existing direct sites may be converted opportunistically only when the owning feature is already being touched and runtime validation is available.
-5. Duplicate detours to a known gameplay seam are rejected unless the existing owner cannot publish the needed event/snapshot and that gap is documented.
-6. Disabled/probe-only detours still count as seams. They must not be re-enabled because they are "already present" in legacy code.
-7. The enforcement tool should fail on net-new unmanaged hook installs, not on the existing `93` direct legacy sites.
+2. Build scanner/tripwire tooling that identifies hook-like calls outside the future registry.
+3. Allow existing baseline findings temporarily.
+4. Fail only net-new unmanaged hook-like calls after the baseline/scanner exists.
+5. Require any net-new `SPUD_STATIC_DETOUR` site to use `HOOK_REGISTRY_SPUD_STATIC_DETOUR` or carry an explicit reviewed exception and rationale.
+6. Require any new gameplay seam to declare owner, target, purpose, effect class, source/reason metadata, and expected subscribers before runtime implementation.
+7. Migrate existing direct sites opportunistically only when the owning feature is already being touched and runtime validation is available.
+8. Reject duplicate detours to a known gameplay seam unless the existing owner cannot publish the needed event/snapshot and that gap is documented.
+9. Count disabled/probe-only detours as seams. They must not be re-enabled because they are "already present" in legacy code.
+10. The enforcement tool should fail on net-new unmanaged hook installs, not on the existing `93` direct legacy sites.
 
 Suggested future checks:
 
 - A static hook inventory command that emits direct and registry-backed hook sites.
-- A checked-in machine-readable baseline generated from this document.
+- A checked-in machine-readable baseline generated from the scanner or derived from this manual inventory.
 - A CI/review gate that fails when direct unmanaged count increases or a new direct unmanaged file appears.
 - A softer warning when registry-backed hook descriptors lack owner/effect metadata.
 
 ## Next Branch Boundary
 
-The next implementation branch may add tooling or metadata, but should still avoid runtime hook behavior changes until the baseline is accepted.
+The next implementation branch may add scanner tooling or metadata, but should still avoid runtime hook behavior changes until the baseline is accepted.
 
-Recommended next branch:
+Recommended next branch after this baseline:
 
-`audit/gameplay-seam-registry-baseline`
+`audit/gameplay-seam-scanner-tripwire`
 
 Allowed changes on this branch:
 
 - Documentation inventory.
-- Static audit scripts.
-- Machine-readable baseline data.
-- Tests for audit scripts that do not compile into the mod DLL.
+- Manual baseline inventory.
+- Scanner/audit design notes.
+- Future branch plan.
 
 Not allowed on this branch:
 
+- Hook install wrapper changes.
+- Runtime `GameplaySeamRegistry` wiring.
 - Converting direct detours to registry wrappers.
 - Re-enabling disabled deployment/live-debug/Kir'shara hooks.
 - Adding runtime subscribers.
+- Detour migration.
+- Config migration.
 - Changing config defaults or hook install conditions.
+- Sidecar behavior changes.
+- Queue behavior changes.
+- Notification behavior changes.
+- Battle log behavior changes.
+
+Allowed changes on the future scanner/tripwire branch:
+
+- Static audit scripts.
+- Machine-readable baseline data.
+- Tests for audit scripts that do not compile into the mod DLL.
+- CI/review tripwire wiring that fails only net-new unmanaged hook-like calls.
