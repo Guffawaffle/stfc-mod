@@ -26,9 +26,9 @@ Current functional checkpoint:
 
 - Commit `5a00512` contains the current stable Kir'shara/fleet-runtime fix set.
 - Digit's native unattended queue advancement is working with the mod loaded.
-- Sidecar Fleet Watch is reported working again with `fleetarrivalhooks = true`, `[sidecar.sync].fleet_runtime = true`, and `fleet_runtime_mode = "normal"`.
+- Sidecar Fleet Watch is working with `fleetarrivalhooks = true`, `[sidecar.sync].fleet_runtime = true`, and `fleet_runtime_mode = "normal"`.
 - Runtime validation proved queue advancement with `live_query`, `fleetarrivalhooks`, sidecar fleet runtime, and sidecar-absent backoff enabled.
-- Battle log behavior has not been fully revalidated after this incident and must be explicitly marked unverified until tested.
+- Battle log capture and sidecar event ingest were revalidated against the sidecar API/event store.
 
 Functional commit scope:
 
@@ -72,10 +72,20 @@ Config cleanup candidates not included in the functional fix:
 
 Still needed before mainline confidence:
 
-- Sidecar-running Fleet Watch positive validation.
-- Battle log capture/export validation.
-- Sidecar battle event ingest validation.
-- Optional sidecar-offline repeat after any further sidecar-local transport edits.
+- Optional deeper Battle Workbench/UI validation. The governed readiness checkpoint only validated capture, sidecar ingest, and event-store summary.
+
+### Runtime Validation Evidence
+
+Observed on 2026-06-10 with the live game config using `fleetarrivalhooks = true`, `[sidecar.sync].fleet_runtime = true`, `fleet_runtime_mode = "normal"`, and sidecar Fleet Watch enabled:
+
+| Requirement | Status | Evidence |
+| --- | --- | --- |
+| Attended queue advances | Confirmed | User-visible queue confirmation completed after tool/log validation. |
+| Unattended queue advances | Confirmed | User-visible queue confirmation completed after prior boundary matrix runs with request-only, snapshot-only, enqueue-no-transport, and normal sidecar-absent modes. |
+| Sidecar Fleet Watch works with sidecar running | Confirmed | `fleet.runtime` payloads were sent successfully; `/api/fleet/projection` returned `available=true`, fresh `observedAt`, and populated slots. |
+| Sidecar-offline mode does not stall or hot-loop | Confirmed for transport behavior; queue non-stall was previously user-confirmed in normal sidecar-absent mode | Sidecar absence produced bounded failures/backoff, suppressed sends during backoff, and later transport recovery instead of a hot loop. |
+| Fleet arrival notification/audio still works if configured | Confirmed | Log showed `fleet.arrived_in_system`, `NotifyAudio` playing `arrival`, WinRT notification request, and follow-up fleet runtime capture. |
+| Battle log behavior | Governed readiness confirmed; full UI not exhaustively tested | Mod sent `battle.events`; sidecar health reported fresh battle data; `/api/events?scope=battle&detail=summary` returned current `battle.capture` rows. |
 
 ## Gameplay Seam Ownership Rule
 
@@ -108,8 +118,8 @@ This table is a static source inventory plus runtime findings from the current i
 | `DeploymentEvents.Trigger*` family | `mods/src/patches/parts/deployment_runtime_observers.cc` for legacy/cloud `sync.fleet_runtime` only | `fleet_runtime_sync_trigger` for legacy/cloud sync | High-risk. Sidecar fleet runtime must not install this seam. | `parts/live_debug.cc` has a disabled duplicate hook family; this caused observer spaghetti. |
 | Live-debug deployment event hooks | `mods/src/patches/parts/live_debug.cc` | Live debug recent events, fleet notification runtime walk, fleet runtime trigger | Disabled by current functional fix | Duplicate of `DeploymentRuntimeObservers`; do not re-enable without ownership redesign. |
 | Fleet runtime snapshot read | `mods/src/patches/live_debug_fleet_runtime_observers.cc` | Fleet runtime sync, live-debug state results, live-debug recent model polling | Snapshot-only passed when deployment observer detours were skipped | Needs explicit capture metadata; live-debug request reads should remain diagnostic and bounded. |
-| Sidecar-local `fleet.runtime` enqueue/transport | `mods/src/patches/sidecar_local_ingest.cc` | Fleet Watch / local sidecar server | Current safe path uses latest-wins coalescing and backoff | Sidecar-running positive path still needs final revalidation. |
-| Battle log capture/decode/export | `mods/src/patches/sync_battle_logs.cc`, `mods/src/patches/battle_log_decoder.*` | External sync, sidecar local battle events, sidecar JSONL | Not revalidated in this pass | Mixed queueing, decode, JSONL retention, sidecar delivery, and cloud delivery. |
+| Sidecar-local `fleet.runtime` enqueue/transport | `mods/src/patches/sidecar_local_ingest.cc` | Fleet Watch / local sidecar server | Current safe path uses latest-wins coalescing and backoff; sidecar-running API path revalidated | Continue to audit sidecar-offline and queue behavior as separate acceptance cases. |
+| Battle log capture/decode/export | `mods/src/patches/sync_battle_logs.cc`, `mods/src/patches/battle_log_decoder.*` | External sync, sidecar local battle events, sidecar JSONL | Capture and sidecar event-store summary revalidated | Mixed queueing, decode, JSONL retention, sidecar delivery, and cloud delivery still need a dedicated audit. |
 | Sync model ingest / data container parse hooks | `mods/src/patches/parts/sync.cc` | `sync_payload_builders`, scheduler, transport | Existing broad sync surface | Needs separate audit, not part of Kir'shara stabilization. |
 | Action queue repair and markers | `mods/src/patches/parts/action_queue_repair.cc` | Queue repair/probe diagnostics | Force-disabled after native queue patch | Do not re-enable marker or repair detours without new runtime approval. |
 | Toast banner suppression | `mods/src/patches/parts/disable_banners.cc` | Banner visibility policy | Existing behavior | Config relationship to notifications/banners is semantically tangled. |
@@ -150,7 +160,7 @@ Current findings:
 
 - Fleet runtime now mostly matches this policy: lightweight request, deferred quiet-window capture, owned payload, sidecar enqueue, worker transport.
 - `sidecar_local_ingest` now has bounded backoff and fleet runtime coalescing.
-- Battle events still need a fresh audit for ordered-history bounds and sidecar-offline behavior. The shared backoff path helps, but battle log behavior was not revalidated in this pass.
+- Battle events were revalidated for capture and sidecar ingest, but still need a fresh audit for ordered-history bounds, sidecar-offline behavior, and UI/workbench presentation.
 - Live-debug request handlers can synchronously call `observe_fleet_runtime_snapshot()`. Keep this diagnostic-only, bounded, and clearly labeled as observed/captured state.
 - `fleet_notifications_observe_runtime_fleets()` remains a synchronous fleet walk. It must not be casually reattached to deployment event detours.
 - External/cloud `sync.fleet_runtime` still has a legacy route through deployment observers. It should be reviewed before being treated as product-safe under the new rule.
@@ -246,12 +256,12 @@ If this local branch remains stacked on `fix/kirshara-native-disable-hooks`, reb
 
 Required before treating the functional fix as mainline-ready:
 
-- Unattended queue with sidecar Fleet Watch on and sidecar absent.
+- Attended queue with sidecar Fleet Watch on and sidecar running.
 - Unattended queue with sidecar Fleet Watch on and sidecar running.
-- Fleet Watch UI receives fresh `fleet.runtime` after fleet transition.
+- Unattended queue with sidecar Fleet Watch on and sidecar absent.
+- Fleet Watch UI/API receives fresh `fleet.runtime` after fleet transition.
 - Fleet-arrival notification still fires with audio when configured.
-- Battle logs still capture and export to existing configured destinations.
-- Sidecar battle events ingest when sidecar is running.
+- Battle logs still capture and sidecar event-store ingest works when sidecar is running.
 - Sidecar-offline mode does not hot-loop logs or stall gameplay.
 
 Do not touch yet:
