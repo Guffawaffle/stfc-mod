@@ -24,6 +24,7 @@ do
     add_files("../mods/src/patches/live_debug_viewer_serializers.cc")
     add_files("../mods/src/patches/battle_log_decoder.cc")
     add_files("../mods/src/patches/fleet_deferred_action.cc")
+    add_files("../mods/src/patches/fleet_alert_evidence.cc")
     add_files("../mods/src/patches/fleet_input_policy.cc")
     add_files("../mods/src/patches/il2cpp_safety.cc")
     add_files("../mods/src/patches/input_binding/input_binding.cc")

@@ -94,37 +94,43 @@ look conceptually like this:
 {
   "protocolVersion": "stfc.sidecar.ingest.v1",
   "kind": "fleet.alert_evidence",
-  "payload": {
-    "schemaVersion": "stfc.fleet.alert_evidence.v0",
-    "eventType": "fleet.arrived_in_system",
-    "observedAtUnixMs": 1770000000000,
-    "source": {
-      "owner": "FleetArrivalHooks",
-      "seam": "Digit.Prime.HUD.FleetStateWidget.SetWidgetData",
-      "reason": "fleet-slot-arrived-in-system",
-      "effect": "publish-fleet-alert-evidence"
-    },
-    "fleet": {
-      "fleetId": "12345678901234567890",
-      "slotIndex": 2,
-      "state": {
-        "previous": 3,
-        "previousName": "Traveling",
-        "current": 4,
-        "currentName": "ArrivedInSystem"
+  "payloadProtocol": "stfc.sidecar.events.v0",
+  "payload": [
+    {
+      "protocolVersion": "stfc.sidecar.events.v0",
+      "type": "fleet.alert_evidence",
+      "schemaVersion": "stfc.fleet.alert_evidence.v0",
+      "timestamp": "2026-06-11T12:34:56Z",
+      "eventType": "fleet.arrived_in_system",
+      "observedAtUnixMs": 1770000000000,
+      "dispatch": {
+        "owner": "FleetArrivalHooks",
+        "seam": "Digit.Prime.HUD.FleetStateWidget.SetWidgetData",
+        "reason": "fleet-slot-arrived-in-system",
+        "effect": "publish-fleet-alert-evidence"
+      },
+      "fleet": {
+        "fleetId": "12345678901234567890",
+        "slotIndex": 2,
+        "state": {
+          "previous": 3,
+          "previousName": "Traveling",
+          "current": 4,
+          "currentName": "ArrivedInSystem"
+        }
+      },
+      "ship": {
+        "shipId": "9876543210987654321",
+        "hullSpecId": "12345",
+        "displayName": "Squall",
+        "hullName": "USS Enterprise"
+      },
+      "location": {
+        "systemId": "778899",
+        "displayName": "Sol"
       }
-    },
-    "ship": {
-      "shipId": "9876543210987654321",
-      "hullSpecId": "12345",
-      "displayName": "Squall",
-      "hullName": "USS Enterprise"
-    },
-    "location": {
-      "systemId": "778899",
-      "displayName": "Sol"
     }
-  }
+  ]
 }
 ```
 

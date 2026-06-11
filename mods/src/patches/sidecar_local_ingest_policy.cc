@@ -12,6 +12,7 @@ bool SidecarLocalSyncEnabledFor(const SidecarSyncConfig& config, const SidecarLo
   switch (kind) {
     case SidecarLocalIngestKind::BattleEvents: return config.battlelogs_realtime;
     case SidecarLocalIngestKind::FleetRuntime: return config.fleet_runtime;
+    case SidecarLocalIngestKind::FleetAlertEvidence: return config.fleet_runtime;
   }
 
   return false;

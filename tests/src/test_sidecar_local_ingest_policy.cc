@@ -24,23 +24,28 @@ TEST_SUITE("sidecar_local_ingest_policy")
     CHECK_FALSE(SidecarLocalSyncTransportReady(config));
     CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::BattleEvents));
     CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::FleetRuntime));
+    CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::FleetAlertEvidence));
 
     config = configured_sidecar_sync();
     CHECK(SidecarLocalSyncTransportReady(config));
     CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::BattleEvents));
     CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::FleetRuntime));
+    CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::FleetAlertEvidence));
 
     config.battlelogs_realtime = true;
     CHECK(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::BattleEvents));
     CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::FleetRuntime));
+    CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::FleetAlertEvidence));
 
     config.fleet_runtime = true;
     CHECK(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::BattleEvents));
     CHECK(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::FleetRuntime));
+    CHECK(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::FleetAlertEvidence));
 
     config.enabled = false;
     CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::BattleEvents));
     CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::FleetRuntime));
+    CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::FleetAlertEvidence));
   }
 
   TEST_CASE("missing sidecar token or url disables only the local sidecar path")

@@ -21,11 +21,13 @@ struct EnqueueResult {
 
 bool BattleEventsEnabled();
 bool FleetRuntimeEnabled();
+bool FleetAlertEvidenceEnabled();
 std::string_view FleetRuntimeMode();
 bool FleetRuntimeRequestOnlyMode();
 bool FleetRuntimeSnapshotOnlyMode();
 bool FleetRuntimeEnqueueNoTransportMode();
 bool EnqueueBattleEvents(const nlohmann::json& events, const SidecarLocalDispatchContext& context);
 EnqueueResult EnqueueFleetRuntimeSnapshot(const nlohmann::json& payload, const SidecarLocalDispatchContext& context);
+bool EnqueueFleetAlertEvidence(const nlohmann::json& events, const SidecarLocalDispatchContext& context);
 void Shutdown();
 } // namespace sidecar_local_ingest

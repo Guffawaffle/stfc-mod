@@ -9,6 +9,8 @@
 
 #include "config.h"
 #include "errormsg.h"
+#include "patches/fleet_alert_evidence.h"
+#include "patches/fleet_alert_evidence_dispatch.h"
 #include "patches/live_debug.h"
 #include "patches/live_debug_fleet_serializers.h"
 #include "patches/notification_audio.h"
@@ -27,6 +29,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <ctime>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -40,6 +43,11 @@ std::unordered_map<uint64_t, float>       s_fleet_bar_cargo_fill_levels;
 std::unordered_map<uint64_t, int64_t>     s_mining_viewer_remaining_seconds;
 
 constexpr size_t kIncomingAttackDedupeMaxEntries = 256;
+constexpr std::string_view kFleetArrivalOwner = "FleetArrivalHooks";
+constexpr std::string_view kFleetStateWidgetSeam = "Digit.Prime.HUD.FleetStateWidget.SetWidgetData";
+constexpr std::string_view kToastFleetObserverQueueNotificationsSeam =
+    "Digit.Prime.HUD.ToastFleetObserver.QueueNotifications";
+constexpr std::string_view kFleetAlertEvidenceEffect = "publish-fleet-alert-evidence";
 
 IncomingAttackPolicyDeduper s_recent_incoming_attack_notifications(kIncomingAttackDedupeMaxEntries);
 
@@ -53,6 +61,92 @@ struct IncomingAttackNotificationContext {
 int64_t incoming_attack_now_seconds()
 {
   return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+int64_t current_time_millis_utc()
+{
+  const auto now = std::chrono::system_clock::now().time_since_epoch();
+  return std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+}
+
+std::string current_time_iso_utc()
+{
+  const auto now = std::chrono::system_clock::now();
+  const auto now_time = std::chrono::system_clock::to_time_t(now);
+
+  std::tm utc{};
+#if _WIN32
+  gmtime_s(&utc, &now_time);
+#else
+  gmtime_r(&utc, &now_time);
+#endif
+
+  char buffer[sizeof("2026-05-17T22:00:00Z")];
+  if (std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", &utc) == 0) {
+    return {};
+  }
+
+  return buffer;
+}
+
+FleetAlertRuntimeContext fleet_alert_runtime_context(std::string_view source,
+                                                     std::string_view owner,
+                                                     std::string_view seam,
+                                                     std::string_view reason)
+{
+  return FleetAlertRuntimeContext{
+      gameplay_dispatch_context(source, owner, seam, reason, kFleetAlertEvidenceEffect),
+      current_time_iso_utc(),
+      current_time_millis_utc(),
+  };
+}
+
+std::string fleet_alert_state_name(FleetState state)
+{
+  switch (fleet_bar_transition_state_from_value(static_cast<int>(state))) {
+    case FleetBarTransitionState::Unknown:
+      return "Unknown";
+    case FleetBarTransitionState::IdleInSpace:
+      return "IdleInSpace";
+    case FleetBarTransitionState::Docked:
+      return "Docked";
+    case FleetBarTransitionState::Mining:
+      return "Mining";
+    case FleetBarTransitionState::Destroyed:
+      return "Destroyed";
+    case FleetBarTransitionState::TieringUp:
+      return "TieringUp";
+    case FleetBarTransitionState::Repairing:
+      return "Repairing";
+    case FleetBarTransitionState::CannotLaunch:
+      return "CannotLaunch";
+    case FleetBarTransitionState::Battling:
+      return "Battling";
+    case FleetBarTransitionState::WarpCharging:
+      return "WarpCharging";
+    case FleetBarTransitionState::Warping:
+      return "Warping";
+    case FleetBarTransitionState::CanRemove:
+      return "CanRemove";
+    case FleetBarTransitionState::CannotMove:
+      return "CannotMove";
+    case FleetBarTransitionState::Impulsing:
+      return "Impulsing";
+    case FleetBarTransitionState::CanManage:
+      return "CanManage";
+    case FleetBarTransitionState::Capturing:
+      return "Capturing";
+    case FleetBarTransitionState::CanRecall:
+      return "CanRecall";
+    case FleetBarTransitionState::CanEngage:
+      return "CanEngage";
+    case FleetBarTransitionState::Deployed:
+      return "Deployed";
+    case FleetBarTransitionState::CanLocate:
+      return "CanLocate";
+  }
+
+  return "Unknown";
 }
 
 bool incoming_attack_notifications_enabled_for_kind(IncomingAttackPolicyAttackerKind attackerKind,
@@ -147,6 +241,28 @@ std::string fleet_bar_ship_name(FleetPlayerData* fleet)
   }
 
   return name;
+}
+
+FleetAlertShipEvidence fleet_bar_ship_evidence(FleetPlayerData* fleet, const std::string& display_name)
+{
+  FleetAlertShipEvidence evidence;
+  evidence.display_name = display_name;
+  evidence.hull_name = display_name;
+
+  auto* hull = fleet ? fleet->Hull : nullptr;
+  if (hull) {
+    evidence.hull_spec_id = std::to_string(hull->Id);
+    if (hull->Name) {
+      evidence.hull_name = fleet_bar_ship_name(fleet);
+    }
+  }
+
+  auto* ship = fleet ? fleet->Ship : nullptr;
+  if (ship && ship->ID != 0) {
+    evidence.ship_id = std::to_string(ship->ID);
+  }
+
+  return evidence;
 }
 
 std::string fleet_bar_cached_ship_name(uint64_t fleetId)
@@ -311,6 +427,71 @@ void maybe_notify_fleet_bar_transition(uint64_t fleetId, const std::string& ship
     notification_emit(notification_kind.value(), decision.title.c_str(), decision.body.c_str());
   }
 }
+
+void maybe_publish_fleet_transition_alert_evidence(FleetPlayerData* fleet,
+                                                   uint64_t fleetId,
+                                                   const std::string& shipName,
+                                                   FleetState previousState,
+                                                   FleetState currentState,
+                                                   const char* runtimeTriggerSource)
+{
+  if (!runtimeTriggerSource) {
+    return;
+  }
+
+  const auto alert_event_type = fleet_alert_event_type_for_transition_reason(runtimeTriggerSource);
+  if (!alert_event_type.has_value()) {
+    return;
+  }
+
+  FleetAlertFleetTransitionEvidence evidence;
+  evidence.runtime = fleet_alert_runtime_context(runtimeTriggerSource,
+                                                 kFleetArrivalOwner,
+                                                 kFleetStateWidgetSeam,
+                                                 runtimeTriggerSource);
+  evidence.alert_event_type = *alert_event_type;
+  evidence.fleet_id = fleetId;
+  evidence.previous_state = static_cast<int>(previousState);
+  evidence.current_state = static_cast<int>(currentState);
+  evidence.previous_state_name = fleet_alert_state_name(previousState);
+  evidence.current_state_name = fleet_alert_state_name(currentState);
+  evidence.ship = fleet_bar_ship_evidence(fleet, shipName);
+  evidence.missing_evidence.push_back("systemId");
+  fleet_alert_evidence_publish_fleet_transition(evidence);
+}
+
+void publish_incoming_attack_alert_evidence(const char* source,
+                                            uint64_t targetFleetId,
+                                            int targetType,
+                                            int attackerFleetType,
+                                            IncomingAttackPolicyAttackerKind attackerKind,
+                                            std::string_view attackerIdentity,
+                                            const IncomingAttackNotificationContext& context)
+{
+  FleetAlertIncomingAttackEvidence evidence;
+  evidence.runtime = fleet_alert_runtime_context(source ? source : "unknown",
+                                                 kFleetArrivalOwner,
+                                                 kToastFleetObserverQueueNotificationsSeam,
+                                                 "incoming-attack-materialized");
+  evidence.target_type = targetType;
+  evidence.target_type_name = incoming_attack_policy_target_type_name(targetType);
+  evidence.target_fleet_id = targetFleetId;
+  evidence.resolved_fleet_id = context.fleet_id;
+  evidence.resolved_fleet_state = static_cast<int>(context.state);
+  evidence.resolved_fleet_state_name = fleet_alert_state_name(context.state);
+  evidence.target_ship_display_name = context.ship_name;
+  evidence.attacker_fleet_type = attackerFleetType;
+  evidence.attacker_kind = incoming_attack_policy_attacker_kind_name(attackerKind);
+  evidence.attacker_identity = std::string(attackerIdentity);
+  evidence.missing_evidence.push_back("systemId");
+  if (context.fleet_id == 0) {
+    evidence.missing_evidence.push_back("resolvedFleetId");
+  }
+  if (context.ship_name.empty()) {
+    evidence.missing_evidence.push_back("targetShipDisplayName");
+  }
+  fleet_alert_evidence_publish_incoming_attack(evidence);
+}
 } // namespace
 
 void fleet_notifications_init()
@@ -362,9 +543,11 @@ const char* fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet)
   s_fleet_bar_cargo_fill_levels[fleetId] = cargoFillLevel;
 
   if (hadPreviousState && previousState != currentState) {
-    maybe_notify_fleet_bar_transition(fleetId, shipName, previousState, currentState, resourceName, cargoText);
     runtimeTriggerSource = fleet_runtime_trigger_source_for_state_transition(static_cast<int>(previousState),
                                                                              static_cast<int>(currentState));
+    maybe_publish_fleet_transition_alert_evidence(fleet, fleetId, shipName, previousState, currentState,
+                                                  runtimeTriggerSource);
+    maybe_notify_fleet_bar_transition(fleetId, shipName, previousState, currentState, resourceName, cargoText);
   }
 
   s_fleet_bar_states[fleetId] = currentState;
@@ -419,6 +602,14 @@ void fleet_notifications_notify_incoming_attack_target(const ToastFleetQueueNoti
 
   if (targetType == static_cast<int>(NotificationIncomingAttackTargetType::Station)) {
     const bool hide_notification = should_hide_unknown_incoming_attack_notification(attacker_kind);
+    IncomingAttackNotificationContext context;
+    publish_incoming_attack_alert_evidence(source,
+                                           targetFleetId,
+                                           targetType,
+                                           attackerFleetType,
+                                           attacker_kind,
+                                           attackerIdentity,
+                                           context);
     if (!should_emit_incoming_attack_notification(source, 0, targetType, attacker_kind, true, attackerIdentity)) {
       return;
     }
@@ -445,6 +636,14 @@ void fleet_notifications_notify_incoming_attack_target(const ToastFleetQueueNoti
   const auto context           = context_from_target_fleet(targetFleetId);
   const auto dedupe_fleet_id   = targetFleetId != 0 ? targetFleetId : context.fleet_id;
   const bool hide_notification = should_hide_unknown_incoming_attack_notification(attacker_kind);
+
+  publish_incoming_attack_alert_evidence(source,
+                                         targetFleetId,
+                                         targetType,
+                                         attackerFleetType,
+                                         attacker_kind,
+                                         attackerIdentity,
+                                         context);
 
   if (!should_emit_incoming_attack_notification(source, dedupe_fleet_id, targetType, attacker_kind, true,
                                                 attackerIdentity)) {

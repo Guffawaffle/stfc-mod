@@ -60,6 +60,7 @@ const char* sidecar_local_kind_name(const SidecarLocalIngestKind kind)
   switch (kind) {
     case SidecarLocalIngestKind::BattleEvents: return "battle.events";
     case SidecarLocalIngestKind::FleetRuntime: return "fleet.runtime";
+    case SidecarLocalIngestKind::FleetAlertEvidence: return "fleet.alert_evidence";
   }
 
   return "unknown";
@@ -218,6 +219,9 @@ std::string next_sidecar_batch_id(const SidecarLocalIngestKind kind)
 {
   const auto sequence = s_sidecar_local_batch_counter.fetch_add(1, std::memory_order_relaxed);
   const auto prefix = kind == SidecarLocalIngestKind::BattleEvents ? "battle" : "fleet";
+  if (kind == SidecarLocalIngestKind::FleetAlertEvidence) {
+    return std::format("fleet-alert-{}-{}", current_time_millis_utc(), sequence);
+  }
   return std::format("{}-{}-{}", prefix, current_time_millis_utc(), sequence);
 }
 
@@ -284,6 +288,7 @@ json build_sidecar_local_envelope(const SidecarLocalIngestKind kind, const json&
   const char* payload_protocol = nullptr;
   switch (kind) {
     case SidecarLocalIngestKind::BattleEvents:
+    case SidecarLocalIngestKind::FleetAlertEvidence:
       if (!payload.is_array() || payload.empty()) {
         return nullptr;
       }
@@ -353,7 +358,9 @@ void post_sidecar_local_envelope(cpr::Session& session,
 void process_sidecar_local_batch(cpr::Session& session, std::vector<SidecarLocalWorkItem>&& batch)
 {
   json                                      battle_events = json::array();
+  json                                      fleet_alert_evidence = json::array();
   std::optional<SidecarLocalDispatchContext> battle_context;
+  std::optional<SidecarLocalDispatchContext> fleet_alert_context;
   std::optional<SidecarLocalWorkItem>        fleet_runtime;
 
   for (auto& item : batch) {
@@ -366,6 +373,14 @@ void process_sidecar_local_batch(cpr::Session& session, std::vector<SidecarLocal
           battle_context = item.context;
         }
         break;
+      case SidecarLocalIngestKind::FleetAlertEvidence:
+        if (item.payload.is_array()) {
+          for (auto& event : item.payload) {
+            fleet_alert_evidence.push_back(std::move(event));
+          }
+          fleet_alert_context = item.context;
+        }
+        break;
       case SidecarLocalIngestKind::FleetRuntime:
         if (item.payload.is_object()) {
           fleet_runtime = std::move(item);
@@ -376,6 +391,10 @@ void process_sidecar_local_batch(cpr::Session& session, std::vector<SidecarLocal
 
   if (!battle_events.empty() && battle_context.has_value()) {
     post_sidecar_local_envelope(session, SidecarLocalIngestKind::BattleEvents, battle_events, *battle_context);
+  }
+  if (!fleet_alert_evidence.empty() && fleet_alert_context.has_value()) {
+    post_sidecar_local_envelope(
+        session, SidecarLocalIngestKind::FleetAlertEvidence, fleet_alert_evidence, *fleet_alert_context);
   }
   if (fleet_runtime.has_value()) {
     if (fleet_runtime_mode_is("enqueue_no_transport")) {
@@ -530,6 +549,9 @@ bool BattleEventsEnabled()
 bool FleetRuntimeEnabled()
 { return SidecarLocalSyncEnabledFor(SidecarSyncSettings(), SidecarLocalIngestKind::FleetRuntime); }
 
+bool FleetAlertEvidenceEnabled()
+{ return SidecarLocalSyncEnabledFor(SidecarSyncSettings(), SidecarLocalIngestKind::FleetAlertEvidence); }
+
 std::string_view FleetRuntimeMode()
 { return fleet_runtime_mode(); }
 
@@ -547,6 +569,9 @@ bool EnqueueBattleEvents(const nlohmann::json& events, const SidecarLocalDispatc
 
 EnqueueResult EnqueueFleetRuntimeSnapshot(const nlohmann::json& payload, const SidecarLocalDispatchContext& context)
 { return enqueue_fleet_runtime_payload(payload, context); }
+
+bool EnqueueFleetAlertEvidence(const nlohmann::json& events, const SidecarLocalDispatchContext& context)
+{ return enqueue_sidecar_local_payload(SidecarLocalIngestKind::FleetAlertEvidence, events, context); }
 
 void Shutdown()
 {
