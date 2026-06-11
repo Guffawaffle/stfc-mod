@@ -295,6 +295,7 @@ Recommended branch sequence:
 | --- | --- | --- | --- |
 | `docs/gameplay-seam-ownership` | Docs/inventory only; establish owner and async boundary rules | Low | `git diff --check`; markdown review |
 | `audit/gameplay-seam-registry-baseline` | Manual unmanaged hook/seam baseline and scanner/tripwire design notes without changing runtime behavior | Low; audit-only | Baseline review; `git diff --check`; no runtime behavior changes |
+| `audit/gameplay-seam-scanner-tripwire` | Static scanner, deterministic unmanaged baseline file, and fixture self-test for new raw hook-like additions | Low; tooling-only | Scanner command; scanner self-test; `git diff --check`; pure tests |
 | `refactor/gameplay-dispatch-ownership` | Introduce owner/source/reason metadata where lowest risk | Medium; metadata only first | Pure tests for metadata builders; runtime smoke for queue/Fleet Watch |
 | `refactor/sidecar-runtime-boundary` | Harden copied snapshot, bounded queue/coalescing, offline backoff contracts | Medium; sidecar and telemetry paths | Sidecar-offline, sidecar-running Fleet Watch, battle event ingest |
 | `config/notification-namespace-cleanup` | Structured notification config with aliases/deprecations | Medium; config and notification behavior | Config parser tests, runtime notification/audio smoke |
@@ -304,10 +305,11 @@ Recommended branch sequence:
 Current sequencing:
 
 - `docs/gameplay-seam-ownership` has landed locally on `main`.
-- `audit/gameplay-seam-registry-baseline` is the current next branch.
-- This branch is audit-only and must not change runtime hook behavior.
+- `audit/gameplay-seam-registry-baseline` has landed as a pushed audit-only branch.
+- `audit/gameplay-seam-scanner-tripwire` is the current tooling branch.
+- This branch is audit/tooling-only and must not change runtime hook behavior.
 
-Push sequencing should keep remote ancestry sane: push local `main` first, then push the stacked audit branch.
+Push sequencing should keep remote ancestry sane: push local `main` first, then the baseline branch, then the scanner branch.
 
 ## Test Plan For Stabilization And Follow-Up
 

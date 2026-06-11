@@ -1,0 +1,753 @@
+{
+  "schema_version": 1,
+  "baseline_kind": "manual_current_state",
+  "scan_roots": [
+    "mods/src"
+  ],
+  "accepted_unmanaged_findings": [
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/action_queue_repair.cc:fc8fdbfc782e:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/action_queue_repair.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnStrikeCompleteEventHandler_Marker);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/action_queue_repair.cc:5e6e7a8a048f:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/action_queue_repair.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ActionQueueManager_RemoveTargetAndAttackNext_Marker);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/action_queue_repair.cc:b6330b6c1f3d:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/action_queue_repair.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ActionQueueManager_CheckToClearActionQueue_Marker);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/action_queue_repair.cc:7943387bdb51:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/action_queue_repair.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ActionQueueManager_IsTargetValid_Marker);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/action_queue_repair.cc:b357be7a3346:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/action_queue_repair.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr_process_deployed, ActionQueueManager_ProcessQueueDeployed_Marker);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/action_queue_repair.cc:9b58ab1e2ed9:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/action_queue_repair.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr_process_target, ActionQueueManager_ProcessQueueTarget_Marker);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/action_queue_repair.cc:6d7bf47495a0:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/action_queue_repair.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnSetCourseResponseEventHandler_Marker);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/action_queue_repair.cc:96944b4a7617:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/action_queue_repair.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnPlayerFleetStateChangedEventHandler_Marker);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/action_queue_repair.cc:4110399f17da:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/action_queue_repair.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnFleetStateChangeEventHandler_Marker);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/action_queue_repair.cc:c5bcdcd15088:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/action_queue_repair.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnFleetsDisposedEventHandler_Marker);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/buff_fixes.cc:30f0c943db3b:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/buff_fixes.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, BuffService_IsBuffConditionMet);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/chat.cc:cc4d80db162a:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/chat.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, FullScreenChatViewController_AboutToShow);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/chat.cc:87114b2a75d5:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/chat.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, FullScreenChatViewController_OnDidChangeSelectedTab);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/chat.cc:909d17ad772e:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/chat.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ChatPreviewController_AboutToShow);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/chat.cc:cfaaf55b7f1f:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/chat.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ChatPreviewController_OnPanelFocused);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/chat.cc:ee74f6359090:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/chat.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ChatPreviewController_OnGlobalMessageReceived);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/chat.cc:541bcd438e32:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/chat.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ChatPreviewController_OnRegionalMessageReceived);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/deployment_runtime_observers.cc:944a47727566:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/deployment_runtime_observers.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_fleet_state_change_event, DeploymentEvents_TriggerFleetStateChangeEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/deployment_runtime_observers.cc:85098cf51e41:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/deployment_runtime_observers.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_player_fleets_updated_event, DeploymentEvents_TriggerPlayerFleetsUpdatedEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/deployment_runtime_observers.cc:938e52a20a9a:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/deployment_runtime_observers.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_course_planned_event, DeploymentEvents_TriggerCoursePlannedEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/deployment_runtime_observers.cc:ce921231cf90:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/deployment_runtime_observers.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_course_start_event, DeploymentEvents_TriggerCourseStartEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/deployment_runtime_observers.cc:04e25aad2729:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/deployment_runtime_observers.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_course_change_event, DeploymentEvents_TriggerCourseChangeEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/deployment_runtime_observers.cc:1d6c602f7a12:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/deployment_runtime_observers.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_course_end_event, DeploymentEvents_TriggerCourseEndEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/deployment_runtime_observers.cc:59fa01550932:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/deployment_runtime_observers.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_set_course_response_event, DeploymentEvents_TriggerSetCourseResponseEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/deployment_runtime_observers.cc:f07ef0324a92:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/deployment_runtime_observers.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_battle_start_event, DeploymentEvents_TriggerBattleStartEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/deployment_runtime_observers.cc:30052febb47d:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/deployment_runtime_observers.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_battle_end_event, DeploymentEvents_TriggerBattleEndEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/deployment_runtime_observers.cc:0c25089e6064:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/deployment_runtime_observers.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_stale_fleet_data_detected, DeploymentEvents_TriggerStaleFleetDataDetected_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/disable_banners.cc:ab783216bac6:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/disable_banners.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ToastObserver_EnqueueToast_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/disable_banners.cc:34dfab7d2e3c:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/disable_banners.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ToastObserver_EnqueueOrCombineToast_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/disable_banners.cc:9ea9e8169f66:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/disable_banners.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, ToastObserver_AddFirstOrCombineToast_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/fix_pan.cc:a0e534f8e046:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/fix_pan.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, TKTouch_populateWithPosition_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/fix_pan.cc:1580c0e1c0dd:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/fix_pan.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, NavigationPan_LateUpdate_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/fleet_arrival.cc:521482d00446:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/fleet_arrival.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(set_widget_data, FleetStateWidget_SetWidgetData_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/fleet_arrival.cc:7fc0c7d656d0:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/fleet_arrival.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(handle_mining_depleted, ToastFleetObserver_HandleMiningDepleted_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/fleet_arrival.cc:7dab15373dbd:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/fleet_arrival.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(queue_notifications, ToastFleetObserver_QueueNotifications_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/fleet_arrival.cc:b7db5b22e22c:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/fleet_arrival.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(update_timer_widget, MiningObjectViewerWidget_UpdateTimerWidget_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/free_resize.cc:be0e0cdee2c6:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/free_resize.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr_update, AspectRatioConstraintHandler_Update);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/free_resize.cc:11a88454342b:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/free_resize.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr_wndproc, AspectRatioConstraintHandler_WndProc);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/improve_responsiveness.cc:0c7be74d6eb9:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/improve_responsiveness.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(awake, TransitionManager_Awake);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/live_debug.cc:bffdd36a0a6d:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/live_debug.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_fleet_state_change_event, DeploymentEvents_TriggerFleetStateChangeEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/live_debug.cc:d11ef25312da:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/live_debug.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_player_fleets_updated_event, DeploymentEvents_TriggerPlayerFleetsUpdatedEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/live_debug.cc:5b9f3ac23a06:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/live_debug.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_course_planned_event, DeploymentEvents_TriggerCoursePlannedEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/live_debug.cc:e9583a1caac5:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/live_debug.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_course_start_event, DeploymentEvents_TriggerCourseStartEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/live_debug.cc:7e948679dc72:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/live_debug.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_course_change_event, DeploymentEvents_TriggerCourseChangeEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/live_debug.cc:58604e619361:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/live_debug.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_course_end_event, DeploymentEvents_TriggerCourseEndEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/live_debug.cc:550c6c95774b:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/live_debug.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_set_course_response_event, DeploymentEvents_TriggerSetCourseResponseEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/live_debug.cc:06cfaa6ad8bc:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/live_debug.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_battle_start_event, DeploymentEvents_TriggerBattleStartEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/live_debug.cc:63691bf080ce:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/live_debug.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_battle_end_event, DeploymentEvents_TriggerBattleEndEvent_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/live_debug.cc:4b1b502eb202:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/live_debug.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_stale_fleet_data_detected, DeploymentEvents_TriggerStaleFleetDataDetected_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/loading_screen_bg.cc:9b698d2ad1be:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/loading_screen_bg.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(m, TransitionManager_SetLoadingScreen_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/loading_screen_bg.cc:27101e52ac5c:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/loading_screen_bg.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(m, TransitionViewController_Awake_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/loading_screen_bg.cc:214962e2cc55:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/loading_screen_bg.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(m, TransitionViewController_AboutToShow_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/loading_screen_bg.cc:c5779f6b05b6:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/loading_screen_bg.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(m, TransitionViewController_OnAssetBundleDidBeginDownload_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/loading_screen_bg.cc:ef8fad2ecec3:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/loading_screen_bg.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(m, TransitionViewController_DidAssetBundleDownloadComplete_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/loading_screen_bg.cc:db58912e60d7:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/loading_screen_bg.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(m, SlideShowViewController_ShowCurrentSlide_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/loading_screen_bg.cc:310715bf2dd9:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/loading_screen_bg.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(m, LoginSequence_Awake_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/misc.cc:9620a37dfd58:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/misc.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, InventoryForPopup_set_MaxItemsToUse);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/misc.cc:67360fcb99d1:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/misc.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, BundleDataWidget_OnActionButtonPressedCallback);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/misc.cc:0ba1d8cc7a5b:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/misc.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(get_resolutions, GetResolutions_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/misc.cc:c4898560b001:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/misc.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr_extract_buffs_of_type, ExtractBuffsOfType_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/misc.cc:6468f86de8e3:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/misc.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(reveal_show, ShouldShowRevealHook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/misc.cc:7dbc021bcb4f:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/misc.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(trigger_open_section_change, TriggerOpenSectionChange_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/misc.cc:f2b9a7d2357d:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/misc.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(interstitial_show, InterstitialViewController_AboutToShow);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/object_tracker.cc:1d778ddbfd61:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/object_tracker.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ctor, track_ctor);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/object_tracker.cc:2d434b2cfa3d:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/object_tracker.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(on_destroy, track_destroy);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/object_tracker.cc:89c9355d2957:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/object_tracker.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(il2cpp_unity_liveness_finalize, calc_liveness_hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:8a206eeabd11:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, GameServerModelRegistry_ProcessResultInternal);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:3d5deddb170d:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, GameServerModelRegistry_ParseBinaryObjectsHelper);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:8a206eeabd11:2",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, GameServerModelRegistry_ProcessResultInternal);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:c1940c78c2ca:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:c1940c78c2ca:2",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:c1940c78c2ca:3",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:c1940c78c2ca:4",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:c1940c78c2ca:5",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:c1940c78c2ca:6",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:c1940c78c2ca:7",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:c1940c78c2ca:8",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:c1940c78c2ca:9",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:275787da190a:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, DataContainer_ParseEntitySlotsData);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:109293b872b2:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, DataContainer_ParseSlotData);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:109293b872b2:2",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, DataContainer_ParseSlotData);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:226030ed7e52:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, PrimeApp_InitPrimeServer);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:0296a2ea22f4:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, GameServer_Initialise);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/sync.cc:3a792dd3cd71:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/sync.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr, GameServer_SetInstanceIdHeader);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/testing.cc:5b5cbcbaa077:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/testing.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(cursorMethod, Cursor_SetCursor);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/testing.cc:c73ca5ec666d:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/testing.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(is_queue_unlocked, IsQueueEnabled);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/testing_config_override.cc:3dd12340dc1c:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/testing_config_override.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(load_configs_ptr, Model_LoadConfigs);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/ui_scale.cc:8b3d59ab12e4:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/ui_scale.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr_update_scale, ScreenManager_UpdateCanvasRootScaleFactor_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/ui_scale.cc:467f0ea5527d:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/ui_scale.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr_canvas_show, CanvasController_Show);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/zoom.cc:2e171acda317:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/zoom.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr_update, NavigationZoom_Update_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/zoom.cc:91cb06f4afca:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/zoom.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr_set_depth, NavigationZoom_SetDepth_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/zoom.cc:80d06eaf24d5:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/zoom.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(ptr_set_view_parameters, NavigationZoom_SetViewParameters_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/patches.cc:bc27994d9684:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/patches.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(n, il2cpp_init_hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+    }
+  ]
+}
