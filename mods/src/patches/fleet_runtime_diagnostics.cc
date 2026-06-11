@@ -173,9 +173,6 @@ void fleet_runtime_diagnostics_trigger(const GameplayDispatchContext& dispatch)
                       with_summary(with_dispatch(json{{"triggerMs", trigger_at_ms}}, dispatch), snapshot));
 }
 
-void fleet_runtime_diagnostics_trigger(std::string_view source)
-{ fleet_runtime_diagnostics_trigger(gameplay_legacy_dispatch_context(source, "defer-fleet-runtime-snapshot")); }
-
 void fleet_runtime_diagnostics_capture_attempt(const GameplayDispatchContext& dispatch, int64_t capture_duration_ms)
 {
   const auto snapshot = update_snapshot([&](auto& state) { ++state.captureAttemptCount; });
@@ -191,12 +188,6 @@ void fleet_runtime_diagnostics_capture_attempt(const GameplayDispatchContext& di
                       with_summary(with_dispatch(json{{"status", "attempt"}, {"durationMs", capture_duration_ms}},
                                                  dispatch),
                                    snapshot));
-}
-
-void fleet_runtime_diagnostics_capture_attempt(std::string_view source, int64_t capture_duration_ms)
-{
-  fleet_runtime_diagnostics_capture_attempt(gameplay_legacy_dispatch_context(source, "capture-fleet-runtime-snapshot"),
-                                            capture_duration_ms);
 }
 
 void fleet_runtime_diagnostics_suppressed_unchanged(const GameplayDispatchContext& dispatch,
@@ -218,13 +209,6 @@ void fleet_runtime_diagnostics_suppressed_unchanged(const GameplayDispatchContex
                                    snapshot));
 }
 
-void fleet_runtime_diagnostics_suppressed_unchanged(std::string_view source, int64_t capture_duration_ms)
-{
-  fleet_runtime_diagnostics_suppressed_unchanged(gameplay_legacy_dispatch_context(source,
-                                                                                  "capture-fleet-runtime-snapshot"),
-                                                 capture_duration_ms);
-}
-
 void fleet_runtime_diagnostics_suppressed_non_meaningful(const GameplayDispatchContext& dispatch,
                                                          int64_t capture_duration_ms)
 {
@@ -243,12 +227,6 @@ void fleet_runtime_diagnostics_suppressed_non_meaningful(const GameplayDispatchC
                                                      {"durationMs", capture_duration_ms}},
                                                  dispatch),
                                    snapshot));
-}
-
-void fleet_runtime_diagnostics_suppressed_non_meaningful(std::string_view source, int64_t capture_duration_ms)
-{
-  fleet_runtime_diagnostics_suppressed_non_meaningful(
-      gameplay_legacy_dispatch_context(source, "capture-fleet-runtime-snapshot"), capture_duration_ms);
 }
 
 FleetRuntimeTraceContext fleet_runtime_diagnostics_make_trace(
@@ -279,21 +257,6 @@ FleetRuntimeTraceContext fleet_runtime_diagnostics_make_trace(
   });
 
   return trace;
-}
-
-FleetRuntimeTraceContext fleet_runtime_diagnostics_make_trace(
-    std::string_view source,
-    const FleetObservation& fleet,
-    const std::array<FleetSlotObservation, kFleetIndexMax>& slots,
-    const int64_t observed_at_ms,
-    const int64_t capture_duration_ms)
-{
-  return fleet_runtime_diagnostics_make_trace(gameplay_legacy_dispatch_context(source,
-                                                                               "capture-fleet-runtime-snapshot"),
-                                              fleet,
-                                              slots,
-                                              observed_at_ms,
-                                              capture_duration_ms);
 }
 
 void fleet_runtime_diagnostics_scheduler_queue(const FleetRuntimeTraceContext& trace,

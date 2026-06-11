@@ -216,9 +216,6 @@ json build_snapshot_payload(std::string_view source, int64_t observed_at_ms, con
 }
 } // namespace
 
-void fleet_runtime_sync_trigger(std::string_view source)
-{ fleet_runtime_sync_trigger(gameplay_legacy_dispatch_context(source, "defer-fleet-runtime-snapshot")); }
-
 void fleet_runtime_sync_trigger(const GameplayDispatchContext& dispatch)
 {
   if (!fleet_runtime_sync_enabled()) {
@@ -336,9 +333,6 @@ void fleet_runtime_sync_process_pending()
                   dispatch.effect);
   }
 }
-
-void fleet_runtime_sync_capture(std::string_view source)
-{ fleet_runtime_sync_capture(gameplay_legacy_dispatch_context(source, "capture-fleet-runtime-snapshot")); }
 
 void fleet_runtime_sync_capture(const GameplayDispatchContext& dispatch)
 {

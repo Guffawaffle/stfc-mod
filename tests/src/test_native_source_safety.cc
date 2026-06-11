@@ -65,3 +65,20 @@ TEST_CASE("generated native shortcut pointer callback guard family stays quarant
 
     CHECK_FALSE(has_generated_callback_guard_install);
 }
+
+TEST_CASE("fleet runtime sync requests require gameplay dispatch provenance")
+{
+  const auto sync_header = read_text_file("mods/src/patches/fleet_runtime_sync.h");
+  CHECK_FALSE(contains(sync_header, "fleet_runtime_sync_trigger(std::string_view"));
+  CHECK_FALSE(contains(sync_header, "fleet_runtime_sync_capture(std::string_view"));
+
+  const auto diagnostics_header = read_text_file("mods/src/patches/fleet_runtime_diagnostics.h");
+  CHECK_FALSE(contains(diagnostics_header, "fleet_runtime_diagnostics_trigger(std::string_view"));
+  CHECK_FALSE(contains(diagnostics_header, "fleet_runtime_diagnostics_capture_attempt(std::string_view"));
+  CHECK_FALSE(contains(diagnostics_header, "fleet_runtime_diagnostics_suppressed_unchanged(std::string_view"));
+  CHECK_FALSE(contains(diagnostics_header, "fleet_runtime_diagnostics_suppressed_non_meaningful(std::string_view"));
+  CHECK_FALSE(contains(diagnostics_header, "fleet_runtime_diagnostics_make_trace(\n    std::string_view source"));
+
+  const auto live_debug_source = read_text_file("mods/src/patches/parts/live_debug.cc");
+  CHECK_FALSE(contains(live_debug_source, "fleet_runtime_sync_trigger(\""));
+}

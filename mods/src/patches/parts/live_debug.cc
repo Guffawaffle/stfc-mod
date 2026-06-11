@@ -102,6 +102,8 @@ constexpr bool                        kEnableLiveDebugStationWarningPolling     
 constexpr bool                        kEnableLiveDebugNavigationInteractionPolling = false;
 constexpr bool                        kEnableLiveDebugObserverStepTrace            = false;
 constexpr bool                        kEnableLiveDebugDeploymentEventHooks         = false;
+constexpr std::string_view            kLiveDebugDeploymentOwner                    = "LiveDebugDeploymentEventHooks";
+constexpr std::string_view            kFleetRuntimeSyncEffect                      = "defer-fleet-runtime-snapshot";
 constexpr auto                        kLiveDebugRequestPollInterval                = std::chrono::seconds(3);
 constexpr auto                        kLiveDebugRecentActivityWindow               = std::chrono::seconds(15);
 bool                                  g_ui_observer_trace_current_poll             = false;
@@ -111,6 +113,15 @@ void append_navigation_hook_actionable_follow_up_event(const NavigationInteracti
                                                        const NavigationInteractionObservation& current);
 void append_navigation_poll_actionable_event(const NavigationInteractionObservation& previous,
                                              const NavigationInteractionObservation& current);
+
+void trigger_live_debug_deployment_fleet_runtime_sync(const char* seam, const char* reason)
+{
+  fleet_runtime_sync_trigger(gameplay_dispatch_context(reason,
+                                                       kLiveDebugDeploymentOwner,
+                                                       seam,
+                                                       reason,
+                                                       kFleetRuntimeSyncEffect));
+}
 
 bool should_poll_live_debug_request_channel()
 {
@@ -649,7 +660,8 @@ void DeploymentEvents_TriggerFleetStateChangeEvent_Hook(auto original, IList* fl
   }
   capture_recent_model_events("deployment-fleet-state-event");
   fleet_notifications_observe_runtime_fleets();
-  fleet_runtime_sync_trigger("deployment-fleet-state-event");
+  trigger_live_debug_deployment_fleet_runtime_sync(
+      "Digit.PrimeServer.Events.DeploymentEvents.TriggerFleetStateChangeEvent", "deployment-fleet-state-event");
 }
 
 void DeploymentEvents_TriggerPlayerFleetsUpdatedEvent_Hook(auto original, IList* fleets)
@@ -657,7 +669,9 @@ void DeploymentEvents_TriggerPlayerFleetsUpdatedEvent_Hook(auto original, IList*
   original(fleets);
   capture_recent_model_events("deployment-player-fleets-updated-event");
   fleet_notifications_observe_runtime_fleets();
-  fleet_runtime_sync_trigger("deployment-player-fleets-updated-event");
+  trigger_live_debug_deployment_fleet_runtime_sync(
+      "Digit.PrimeServer.Events.DeploymentEvents.TriggerPlayerFleetsUpdatedEvent",
+      "deployment-player-fleets-updated-event");
 }
 
 void DeploymentEvents_TriggerCoursePlannedEvent_Hook(auto original, IList* courses)
@@ -668,7 +682,8 @@ void DeploymentEvents_TriggerCoursePlannedEvent_Hook(auto original, IList* cours
   }
   capture_recent_model_events("deployment-course-planned-event");
   fleet_notifications_observe_runtime_fleets();
-  fleet_runtime_sync_trigger("deployment-course-planned-event");
+  trigger_live_debug_deployment_fleet_runtime_sync(
+      "Digit.PrimeServer.Events.DeploymentEvents.TriggerCoursePlannedEvent", "deployment-course-planned-event");
 }
 
 void DeploymentEvents_TriggerCourseStartEvent_Hook(auto original, IList* courses)
@@ -679,7 +694,8 @@ void DeploymentEvents_TriggerCourseStartEvent_Hook(auto original, IList* courses
   }
   capture_recent_model_events("deployment-course-start-event");
   fleet_notifications_observe_runtime_fleets();
-  fleet_runtime_sync_trigger("deployment-course-start-event");
+  trigger_live_debug_deployment_fleet_runtime_sync(
+      "Digit.PrimeServer.Events.DeploymentEvents.TriggerCourseStartEvent", "deployment-course-start-event");
 }
 
 void DeploymentEvents_TriggerCourseChangeEvent_Hook(auto original, IList* old_courses, IList* new_courses)
@@ -692,7 +708,8 @@ void DeploymentEvents_TriggerCourseChangeEvent_Hook(auto original, IList* old_co
   }
   capture_recent_model_events("deployment-course-change-event");
   fleet_notifications_observe_runtime_fleets();
-  fleet_runtime_sync_trigger("deployment-course-change-event");
+  trigger_live_debug_deployment_fleet_runtime_sync(
+      "Digit.PrimeServer.Events.DeploymentEvents.TriggerCourseChangeEvent", "deployment-course-change-event");
 }
 
 void DeploymentEvents_TriggerCourseEndEvent_Hook(auto original, IList* courses)
@@ -703,7 +720,8 @@ void DeploymentEvents_TriggerCourseEndEvent_Hook(auto original, IList* courses)
   }
   capture_recent_model_events("deployment-course-end-event");
   fleet_notifications_observe_runtime_fleets();
-  fleet_runtime_sync_trigger("deployment-course-end-event");
+  trigger_live_debug_deployment_fleet_runtime_sync(
+      "Digit.PrimeServer.Events.DeploymentEvents.TriggerCourseEndEvent", "deployment-course-end-event");
 }
 
 void DeploymentEvents_TriggerSetCourseResponseEvent_Hook(auto original, long fleet_id, bool success,
@@ -719,7 +737,9 @@ void DeploymentEvents_TriggerSetCourseResponseEvent_Hook(auto original, long fle
   }
   capture_recent_model_events("deployment-set-course-response-event");
   fleet_notifications_observe_runtime_fleets();
-  fleet_runtime_sync_trigger("deployment-set-course-response-event");
+  trigger_live_debug_deployment_fleet_runtime_sync(
+      "Digit.PrimeServer.Events.DeploymentEvents.TriggerSetCourseResponseEvent",
+      "deployment-set-course-response-event");
 }
 
 void DeploymentEvents_TriggerBattleStartEvent_Hook(auto original, IList* fleets)
@@ -732,7 +752,8 @@ void DeploymentEvents_TriggerBattleStartEvent_Hook(auto original, IList* fleets)
   }
   capture_recent_model_events("deployment-battle-start-event");
   fleet_notifications_observe_runtime_fleets();
-  fleet_runtime_sync_trigger("deployment-battle-start-event");
+  trigger_live_debug_deployment_fleet_runtime_sync(
+      "Digit.PrimeServer.Events.DeploymentEvents.TriggerBattleStartEvent", "deployment-battle-start-event");
 }
 
 void DeploymentEvents_TriggerBattleEndEvent_Hook(auto original, IList* fleets)
@@ -745,7 +766,8 @@ void DeploymentEvents_TriggerBattleEndEvent_Hook(auto original, IList* fleets)
   }
   capture_recent_model_events("deployment-battle-end-event");
   fleet_notifications_observe_runtime_fleets();
-  fleet_runtime_sync_trigger("deployment-battle-end-event");
+  trigger_live_debug_deployment_fleet_runtime_sync(
+      "Digit.PrimeServer.Events.DeploymentEvents.TriggerBattleEndEvent", "deployment-battle-end-event");
 }
 
 void DeploymentEvents_TriggerStaleFleetDataDetected_Hook(auto original)
@@ -756,7 +778,9 @@ void DeploymentEvents_TriggerStaleFleetDataDetected_Hook(auto original)
   }
   capture_recent_model_events("deployment-stale-fleet-data-detected-event");
   fleet_notifications_observe_runtime_fleets();
-  fleet_runtime_sync_trigger("deployment-stale-fleet-data-detected-event");
+  trigger_live_debug_deployment_fleet_runtime_sync(
+      "Digit.PrimeServer.Events.DeploymentEvents.TriggerStateFleetDataDetected",
+      "deployment-stale-fleet-data-detected-event");
 }
 
 json handle_recent_events(const std::string& request_id, const json& request)
