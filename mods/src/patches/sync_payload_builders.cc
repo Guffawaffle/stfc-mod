@@ -1111,7 +1111,7 @@ void process_json(std::unique_ptr<std::string>&& bytes)
           continue;
         }
 
-        process_battle_headers(section);
+        process_battle_headers(section, battle_journal_runtime_dispatch_context());
 
       } else if (key == "resources") {
         if (!Config::Get().sync_options.resources) {
@@ -1293,4 +1293,3 @@ void HandleRealtimeDataPayload(RealtimeDataPayload* data)
     spdlog::error("Failed to queue EntitySlotsRealtime sync payload task: unknown exception");
   }
 }
-

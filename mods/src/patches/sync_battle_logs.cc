@@ -68,11 +68,16 @@ struct WinRtApartmentGuard {
 
 namespace
 {
-constexpr size_t         kCombatLogQueueMaxDepth = 512;
-AsyncWorkQueue<uint64_t> s_combat_log_queue(kCombatLogQueueMaxDepth);
-std::once_flag           s_combat_log_worker_once;
-std::thread              s_combat_log_worker_thread;
-constexpr auto           kCombatLogWorkerSlowJoinThreshold = std::chrono::seconds(5);
+struct BattleJournalQueueItem {
+  uint64_t                     journal_id = 0;
+  BattleJournalDispatchContext dispatch;
+};
+
+constexpr size_t                      kCombatLogQueueMaxDepth = 512;
+AsyncWorkQueue<BattleJournalQueueItem> s_combat_log_queue(kCombatLogQueueMaxDepth);
+std::once_flag                        s_combat_log_worker_once;
+std::thread                           s_combat_log_worker_thread;
+constexpr auto                        kCombatLogWorkerSlowJoinThreshold = std::chrono::seconds(5);
 
 void log_worker_join_time(const std::string_view worker_name, const std::chrono::steady_clock::duration elapsed)
 {
@@ -137,7 +142,7 @@ struct BattleFeedLineMetadata {
   std::optional<int64_t> capture_ms;
 };
 
-static int64_t current_probe_unix_ms()
+static int64_t current_capture_unix_ms()
 {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
       .count();
@@ -304,7 +309,7 @@ static void retain_recent_jsonl_sidecar_events_locked(size_t recent_logs, int re
   }
 
   const std::optional<int64_t> retention_cutoff_ms = replay_seconds > 0
-      ? std::optional<int64_t>(current_probe_unix_ms() - static_cast<int64_t>(replay_seconds) * 1000)
+      ? std::optional<int64_t>(current_capture_unix_ms() - static_cast<int64_t>(replay_seconds) * 1000)
       : std::nullopt;
 
   std::ifstream input(feed_path, std::ios::in | std::ios::binary);
@@ -696,10 +701,11 @@ static battle_log_decoder::CatalogResolver build_catalog_resolver()
 
 static nlohmann::json collect_sidecar_export_events(uint64_t journal_id, const nlohmann::json& names,
                                                     const nlohmann::json& journal, const nlohmann::json& decoded,
+                                                    const BattleJournalDispatchContext& dispatch,
                                                     int64_t captured_at_unix_ms)
 {
   auto catalog_resolver = build_catalog_resolver();
-  return battle_log_decoder::build_sidecar_battle_event_sequence(journal, names, decoded, catalog_resolver,
+  return battle_log_decoder::build_sidecar_battle_event_sequence(journal, names, decoded, dispatch, catalog_resolver,
                                                                  BattleLogDecoderEnabled(), journal_id,
                                                                  captured_at_unix_ms);
 }
@@ -708,6 +714,8 @@ void load_previously_sent_logs()
 {
   std::lock_guard lk(previously_sent_battlelogs_mtx);
 
+  // Classification: retired legacy persistence. The old patch_battlelogs_sent.json path remains named in file.h for
+  // compatibility, but this runtime keeps dedupe in memory only and does not read or write that file.
   previously_sent_battlelogs.set_capacity(300);
   previously_sent_battlelogs.clear();
   spdlog::debug("Initialized empty in-memory battle log cache");
@@ -716,9 +724,15 @@ void load_previously_sent_logs()
 static void save_previously_sent_logs()
 { spdlog::trace("Battle log dedupe is in-memory only; no sent-ID file is written"); }
 
-void process_battle_headers(const nlohmann::json& section)
+void process_battle_headers(const nlohmann::json& section, const BattleJournalDispatchContext& dispatch)
 {
-  http::sync_log_trace("PROCESS", "battle headers", STR_FORMAT("Processing {} battle headers", section.size()));
+  http::sync_log_trace("PROCESS",
+                       "battle headers",
+                       STR_FORMAT("Processing {} battle headers owner={} seam={} reason={}",
+                                  section.size(),
+                                  dispatch.dispatch.owner,
+                                  dispatch.dispatch.seam,
+                                  dispatch.dispatch.reason));
 
   std::vector<uint64_t> battle_ids;
   battle_ids.reserve(section.size());
@@ -746,7 +760,7 @@ void process_battle_headers(const nlohmann::json& section)
                          STR_FORMAT("Queuing {} battles for background processing", to_enqueue.size()));
 
     for (const auto id : to_enqueue) {
-      if (!s_combat_log_queue.enqueue(id)) {
+      if (!s_combat_log_queue.enqueue(BattleJournalQueueItem{id, dispatch})) {
         const auto diagnostics = s_combat_log_queue.diagnostics();
         spdlog::warn("Battle {} dropped because combat log queue is {} (queue_size={}, dropped={})",
                      id,
@@ -885,8 +899,10 @@ static void ship_combat_log_data()
   WinRtApartmentGuard apartmentGuard;
 #endif
 
-  uint64_t journal_id = 0;
-  while (s_combat_log_queue.wait_pop(journal_id)) {
+  BattleJournalQueueItem queue_item;
+  while (s_combat_log_queue.wait_pop(queue_item)) {
+    const auto journal_id = queue_item.journal_id;
+    const auto dispatch = queue_item.dispatch;
 
     const bool send_battlelogs            = has_enabled_sync_target(SyncConfig::Type::Battles);
     const bool export_battlelogs_realtime = has_enabled_sync_target(SyncConfig::Type::BattlelogsRealtime);
@@ -1005,7 +1021,7 @@ static void ship_combat_log_data()
 
       }
 
-      const auto captured_at_unix_ms = current_probe_unix_ms();
+      const auto captured_at_unix_ms = current_capture_unix_ms();
       auto       decoded             = nlohmann::json::object();
 
       if (BattleLogDecoderEnabled() && (export_battlelogs_realtime || export_sidecar_local || export_sidecar_jsonl)) {
@@ -1016,7 +1032,7 @@ static void ship_combat_log_data()
 
       if (export_battlelogs_realtime || export_sidecar_local || export_sidecar_jsonl) {
         const auto sidecar_events =
-            collect_sidecar_export_events(journal_id, names, journal, decoded, captured_at_unix_ms);
+            collect_sidecar_export_events(journal_id, names, journal, decoded, dispatch, captured_at_unix_ms);
         export_sidecar_events_to_jsonl(sidecar_events, journal_id);
 
         if (export_battlelogs_realtime && !sidecar_events.empty()) {

@@ -77,6 +77,8 @@ TEST_SUITE("battle_log_decoder")
     CHECK(report["schemaVersion"] == "stfc.sidecar.battle-report.v0");
     CHECK(report["journalId"] == "12345");
     CHECK(report["capturedAtUnixMs"] == 111);
+    CHECK(report["dispatch"]["classification"] == "quarantined-probe-only");
+    CHECK(report["dispatch"]["seam"] == "offline-probe-or-test-fixture");
     CHECK(report["report"]["summary"]["outcome"] == "initiator_victory");
     CHECK(report["report"]["parity"]["sections"]["battleEvents"] == "decoded_segments");
     CHECK(report["report"]["rewards"].size() == 2);
@@ -103,6 +105,7 @@ TEST_SUITE("battle_log_decoder")
     CHECK(capture["schemaVersion"] == "stfc.battle.capture.v1");
     CHECK(capture["journalId"] == "2709118446356718841");
     CHECK(capture["capturedAtUnixMs"] == 222);
+    CHECK(capture["dispatch"]["classification"] == "quarantined-probe-only");
     CHECK(capture["capture"]["sourceKind"] == "scopely.journal.battle");
     CHECK(capture["capture"]["battleLog"]["encoding"] == "string_tokens.v1");
     CHECK(capture["capture"]["battleLog"]["tokenCount"] == 3);
@@ -174,13 +177,21 @@ TEST_SUITE("battle_log_decoder")
     REQUIRE(capture_only.size() == 1);
     CHECK(capture_only[0]["type"] == "battle.capture");
 
+    const auto runtime_dispatch = battle_journal_runtime_dispatch_context();
     const auto enriched = battle_log_decoder::build_sidecar_battle_event_sequence(
-        journal, names, decoded, battle_log_decoder::CatalogResolver{}, true, 12345, 111);
+        journal, names, decoded, runtime_dispatch, battle_log_decoder::CatalogResolver{}, true, 12345, 111);
     REQUIRE(enriched.size() == 4);
     CHECK(enriched[0]["type"] == "battle.capture");
     CHECK(enriched[1]["type"] == "battle.report");
     CHECK(enriched[2]["type"] == "catalog.snapshot");
     CHECK(enriched[3]["type"] == "battle.analytics");
+    for (const auto& event : enriched) {
+      CHECK(event["dispatch"]["classification"] == "runtime-evidence");
+      CHECK(event["dispatch"]["owner"] == "SyncEntityGroupHooks");
+      CHECK(event["dispatch"]["seam"] == "entity-group-json.battle_result_headers");
+      CHECK(event["dispatch"]["reason"] == "battle-result-headers-observed");
+      CHECK(event["dispatch"]["effect"] == "enqueue-battle-journal-fetch");
+    }
   }
 
   TEST_CASE("battle report preserves exact ship and fleet ids alongside numeric compatibility fields")

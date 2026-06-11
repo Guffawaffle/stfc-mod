@@ -66,6 +66,21 @@ struct DerivedCombatAnalytics {
   nlohmann::json attack_rows = nlohmann::json::array();
 };
 
+[[nodiscard]] nlohmann::json battle_dispatch_to_json(const BattleJournalDispatchContext& context)
+{
+  return nlohmann::json{{"source", context.dispatch.source},
+                        {"owner", context.dispatch.owner},
+                        {"seam", context.dispatch.seam},
+                        {"reason", context.dispatch.reason},
+                        {"effect", context.dispatch.effect},
+                        {"evidenceKind", context.evidence_kind},
+                        {"classification", context.classification},
+                        {"validation", context.validation}};
+}
+
+void attach_battle_dispatch(nlohmann::json& event, const BattleJournalDispatchContext& context)
+{ event["dispatch"] = battle_dispatch_to_json(context); }
+
 [[nodiscard]] const nlohmann::json& journal_from_probe_or_journal(const nlohmann::json& probe_or_journal)
 {
   if (probe_or_journal.is_object() && probe_or_journal.contains("journal") && probe_or_journal["journal"].is_object()) {
@@ -1805,8 +1820,11 @@ nlohmann::json decode_journal(const nlohmann::json& journal, const nlohmann::jso
   return decoded;
 }
 
-nlohmann::json build_sidecar_battle_report_event(const nlohmann::json& journal, const nlohmann::json& decoded,
-                                                 uint64_t journal_id_override, int64_t captured_at_unix_ms)
+nlohmann::json build_sidecar_battle_report_event(const nlohmann::json& journal,
+                                                 const nlohmann::json& decoded,
+                                                 const BattleJournalDispatchContext& dispatch,
+                                                 uint64_t journal_id_override,
+                                                 int64_t captured_at_unix_ms)
 {
   if (!journal.is_object()) {
     return nlohmann::json{{"ok", false}, {"reason", "journal is not an object"}};
@@ -1851,6 +1869,8 @@ nlohmann::json build_sidecar_battle_report_event(const nlohmann::json& journal, 
                                   {"parity", build_parity_status(decoded)},
                                 {"raw", build_raw_summary(journal, decoded)}}}};
 
+  attach_battle_dispatch(event, dispatch);
+
   if (captured_at_unix_ms > 0) {
     event["capturedAtUnixMs"] = captured_at_unix_ms;
   }
@@ -1858,8 +1878,21 @@ nlohmann::json build_sidecar_battle_report_event(const nlohmann::json& journal, 
   return event;
 }
 
-nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journal, const nlohmann::json& decoded,
-                                                    uint64_t journal_id_override, int64_t captured_at_unix_ms)
+nlohmann::json build_sidecar_battle_report_event(const nlohmann::json& journal, const nlohmann::json& decoded,
+                                                 uint64_t journal_id_override, int64_t captured_at_unix_ms)
+{
+  return build_sidecar_battle_report_event(journal,
+                                           decoded,
+                                           battle_journal_probe_dispatch_context("probe-build-battle-report-event"),
+                                           journal_id_override,
+                                           captured_at_unix_ms);
+}
+
+nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journal,
+                                                    const nlohmann::json& decoded,
+                                                    const BattleJournalDispatchContext& dispatch,
+                                                    uint64_t journal_id_override,
+                                                    int64_t captured_at_unix_ms)
 {
   if (!journal.is_object()) {
     return nlohmann::json{{"ok", false}, {"reason", "journal is not an object"}};
@@ -1895,6 +1928,8 @@ nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journa
                                   {"ruleVersion", "csv_parity_attack_rows.v1"},
                                   {"sourceEventTypes", nlohmann::json::array({"battle.capture", "battle.report"})}}}}}};
 
+  attach_battle_dispatch(event, dispatch);
+
   if (captured_at_unix_ms > 0) {
     event["capturedAtUnixMs"] = captured_at_unix_ms;
   }
@@ -1902,8 +1937,21 @@ nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journa
   return event;
 }
 
-nlohmann::json build_sidecar_battle_capture_event(const nlohmann::json& journal, const nlohmann::json& names,
-                                                  uint64_t journal_id_override, int64_t captured_at_unix_ms)
+nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journal, const nlohmann::json& decoded,
+                                                    uint64_t journal_id_override, int64_t captured_at_unix_ms)
+{
+  return build_sidecar_battle_analytics_event(journal,
+                                              decoded,
+                                              battle_journal_probe_dispatch_context("probe-build-battle-analytics-event"),
+                                              journal_id_override,
+                                              captured_at_unix_ms);
+}
+
+nlohmann::json build_sidecar_battle_capture_event(const nlohmann::json& journal,
+                                                  const nlohmann::json& names,
+                                                  const BattleJournalDispatchContext& dispatch,
+                                                  uint64_t journal_id_override,
+                                                  int64_t captured_at_unix_ms)
 {
   if (!journal.is_object()) {
     return nlohmann::json{{"ok", false}, {"reason", "journal is not an object"}};
@@ -1939,12 +1987,26 @@ nlohmann::json build_sidecar_battle_capture_event(const nlohmann::json& journal,
                                 {"names", lossless_integer_json(names)},
                                 {"journal", build_lossless_journal_without_battle_log(journal)}}}};
 
+  attach_battle_dispatch(event, dispatch);
+
   if (captured_at_unix_ms > 0) {
     event["capturedAtUnixMs"] = captured_at_unix_ms;
     event["capture"]["capturedAtUnixMs"] = captured_at_unix_ms;
   }
 
   return event;
+}
+
+nlohmann::json build_sidecar_battle_capture_event(const nlohmann::json& journal,
+                                                  const nlohmann::json& names,
+                                                  uint64_t journal_id_override,
+                                                  int64_t captured_at_unix_ms)
+{
+  return build_sidecar_battle_capture_event(journal,
+                                            names,
+                                            battle_journal_probe_dispatch_context("probe-build-battle-capture-event"),
+                                            journal_id_override,
+                                            captured_at_unix_ms);
 }
 
 namespace
@@ -2034,9 +2096,13 @@ void collect_observed_ids_from_decoded(const nlohmann::json& decoded,
 }
 } // namespace
 
-nlohmann::json build_sidecar_catalog_snapshot_event(const nlohmann::json& journal, const nlohmann::json& names,
-                                                    const nlohmann::json& decoded, const CatalogResolver& resolver,
-                                                    uint64_t journal_id_override, int64_t captured_at_unix_ms)
+nlohmann::json build_sidecar_catalog_snapshot_event(const nlohmann::json& journal,
+                                                    const nlohmann::json& names,
+                                                    const nlohmann::json& decoded,
+                                                    const BattleJournalDispatchContext& dispatch,
+                                                    const CatalogResolver& resolver,
+                                                    uint64_t journal_id_override,
+                                                    int64_t captured_at_unix_ms)
 {
   if (!journal.is_object()) {
     return nlohmann::json{{"ok", false}, {"reason", "journal is not an object"}};
@@ -2275,6 +2341,8 @@ nlohmann::json build_sidecar_catalog_snapshot_event(const nlohmann::json& journa
           {"ruleVersion", "catalog_observed_ids.v1"},
           {"sourceEventTypes", nlohmann::json::array({"battle.capture", "battle.report"})}}}}}};
 
+  attach_battle_dispatch(event, dispatch);
+
   if (captured_at_unix_ms > 0) {
     event["capturedAtUnixMs"] = captured_at_unix_ms;
   }
@@ -2282,9 +2350,29 @@ nlohmann::json build_sidecar_catalog_snapshot_event(const nlohmann::json& journa
   return event;
 }
 
-nlohmann::json build_sidecar_battle_event_sequence(const nlohmann::json& journal, const nlohmann::json& names,
-                                                   const nlohmann::json& decoded, const CatalogResolver& resolver,
-                                                   bool include_enrichment, uint64_t journal_id_override,
+nlohmann::json build_sidecar_catalog_snapshot_event(const nlohmann::json& journal,
+                                                    const nlohmann::json& names,
+                                                    const nlohmann::json& decoded,
+                                                    const CatalogResolver& resolver,
+                                                    uint64_t journal_id_override,
+                                                    int64_t captured_at_unix_ms)
+{
+  return build_sidecar_catalog_snapshot_event(journal,
+                                              names,
+                                              decoded,
+                                              battle_journal_probe_dispatch_context("probe-build-catalog-snapshot-event"),
+                                              resolver,
+                                              journal_id_override,
+                                              captured_at_unix_ms);
+}
+
+nlohmann::json build_sidecar_battle_event_sequence(const nlohmann::json& journal,
+                                                   const nlohmann::json& names,
+                                                   const nlohmann::json& decoded,
+                                                   const BattleJournalDispatchContext& dispatch,
+                                                   const CatalogResolver& resolver,
+                                                   bool include_enrichment,
+                                                   uint64_t journal_id_override,
                                                    int64_t captured_at_unix_ms)
 {
   auto events = nlohmann::json::array();
@@ -2295,18 +2383,40 @@ nlohmann::json build_sidecar_battle_event_sequence(const nlohmann::json& journal
     }
   };
 
-  append_if_ok(build_sidecar_battle_capture_event(journal, names, journal_id_override, captured_at_unix_ms));
+  append_if_ok(build_sidecar_battle_capture_event(journal, names, dispatch, journal_id_override, captured_at_unix_ms));
 
   if (!include_enrichment) {
     return events;
   }
 
-  append_if_ok(build_sidecar_battle_report_event(journal, decoded, journal_id_override, captured_at_unix_ms));
-  append_if_ok(build_sidecar_catalog_snapshot_event(journal, names, decoded, resolver, journal_id_override,
+  append_if_ok(build_sidecar_battle_report_event(journal, decoded, dispatch, journal_id_override, captured_at_unix_ms));
+  append_if_ok(build_sidecar_catalog_snapshot_event(journal, names, decoded, dispatch, resolver, journal_id_override,
                                                     captured_at_unix_ms));
-  append_if_ok(build_sidecar_battle_analytics_event(journal, decoded, journal_id_override, captured_at_unix_ms));
+  append_if_ok(build_sidecar_battle_analytics_event(journal,
+                                                    decoded,
+                                                    dispatch,
+                                                    journal_id_override,
+                                                    captured_at_unix_ms));
 
   return events;
+}
+
+nlohmann::json build_sidecar_battle_event_sequence(const nlohmann::json& journal,
+                                                   const nlohmann::json& names,
+                                                   const nlohmann::json& decoded,
+                                                   const CatalogResolver& resolver,
+                                                   bool include_enrichment,
+                                                   uint64_t journal_id_override,
+                                                   int64_t captured_at_unix_ms)
+{
+  return build_sidecar_battle_event_sequence(journal,
+                                             names,
+                                             decoded,
+                                             battle_journal_probe_dispatch_context("probe-build-battle-event-sequence"),
+                                             resolver,
+                                             include_enrichment,
+                                             journal_id_override,
+                                             captured_at_unix_ms);
 }
 
 nlohmann::json compare_probe_entries(const nlohmann::json& left, const nlohmann::json& right, const DecodeOptions& options)

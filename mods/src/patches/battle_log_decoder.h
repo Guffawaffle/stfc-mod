@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include "patches/battle_journal_dispatch_context.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -34,14 +36,47 @@ struct DecodeOptions {
 
 [[nodiscard]] nlohmann::json build_sidecar_battle_report_event(const nlohmann::json& journal,
                                                                const nlohmann::json& decoded,
+                                                               const BattleJournalDispatchContext& dispatch,
+                                                               uint64_t journal_id_override = 0,
+                                                               int64_t captured_at_unix_ms = 0);
+
+/**
+ * @brief Quarantined probe/test compatibility wrapper.
+ *
+ * Runtime battle emission must pass an explicit BattleJournalDispatchContext.
+ */
+[[nodiscard]] nlohmann::json build_sidecar_battle_report_event(const nlohmann::json& journal,
+                                                               const nlohmann::json& decoded,
                                                                uint64_t journal_id_override = 0,
                                                                int64_t captured_at_unix_ms = 0);
 
 [[nodiscard]] nlohmann::json build_sidecar_battle_capture_event(const nlohmann::json& journal,
-                                                                const nlohmann::json& names = nlohmann::json::object(),
+                                                                const nlohmann::json& names,
+                                                                const BattleJournalDispatchContext& dispatch,
                                                                 uint64_t journal_id_override = 0,
                                                                 int64_t captured_at_unix_ms = 0);
 
+/**
+ * @brief Quarantined probe/test compatibility wrapper.
+ *
+ * Runtime battle emission must pass an explicit BattleJournalDispatchContext.
+ */
+[[nodiscard]] nlohmann::json build_sidecar_battle_capture_event(const nlohmann::json& journal,
+                                                                const nlohmann::json& names,
+                                                                uint64_t journal_id_override = 0,
+                                                                int64_t captured_at_unix_ms = 0);
+
+[[nodiscard]] nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journal,
+                                                                  const nlohmann::json& decoded,
+                                                                  const BattleJournalDispatchContext& dispatch,
+                                                                  uint64_t journal_id_override = 0,
+                                                                  int64_t captured_at_unix_ms = 0);
+
+/**
+ * @brief Quarantined probe/test compatibility wrapper.
+ *
+ * Runtime battle emission must pass an explicit BattleJournalDispatchContext.
+ */
 [[nodiscard]] nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journal,
                                                                   const nlohmann::json& decoded,
                                                                   uint64_t journal_id_override = 0,
@@ -83,10 +118,37 @@ struct CatalogResolver {
 [[nodiscard]] nlohmann::json build_sidecar_catalog_snapshot_event(const nlohmann::json& journal,
                                                                   const nlohmann::json& names,
                                                                   const nlohmann::json& decoded,
+                                                                  const BattleJournalDispatchContext& dispatch,
                                                                   const CatalogResolver& resolver = {},
                                                                   uint64_t journal_id_override = 0,
                                                                   int64_t captured_at_unix_ms = 0);
 
+/**
+ * @brief Quarantined probe/test compatibility wrapper.
+ *
+ * Runtime battle emission must pass an explicit BattleJournalDispatchContext.
+ */
+[[nodiscard]] nlohmann::json build_sidecar_catalog_snapshot_event(const nlohmann::json& journal,
+                                                                  const nlohmann::json& names,
+                                                                  const nlohmann::json& decoded,
+                                                                  const CatalogResolver& resolver = {},
+                                                                  uint64_t journal_id_override = 0,
+                                                                  int64_t captured_at_unix_ms = 0);
+
+[[nodiscard]] nlohmann::json build_sidecar_battle_event_sequence(const nlohmann::json& journal,
+                                                                 const nlohmann::json& names,
+                                                                 const nlohmann::json& decoded,
+                                                                 const BattleJournalDispatchContext& dispatch,
+                                                                 const CatalogResolver& resolver = {},
+                                                                 bool include_enrichment = false,
+                                                                 uint64_t journal_id_override = 0,
+                                                                 int64_t captured_at_unix_ms = 0);
+
+/**
+ * @brief Quarantined probe/test compatibility wrapper.
+ *
+ * Runtime battle emission must pass an explicit BattleJournalDispatchContext.
+ */
 [[nodiscard]] nlohmann::json build_sidecar_battle_event_sequence(const nlohmann::json& journal,
                                                                  const nlohmann::json& names,
                                                                  const nlohmann::json& decoded,

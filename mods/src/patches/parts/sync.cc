@@ -196,6 +196,8 @@ void InstallSyncPatches()
   }
 
 #if 0
+  // Classification: temporary exception, parked for `audit/legacy-sync-platform-registry-hook`.
+  // This disabled legacy hook must not be re-enabled without seam-owner review and provenance metadata.
   if (auto platform_model_registry =
           il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimePlatform.Core", "PlatformModelRegistry");
       !platform_model_registry.isValidHelper()) {
