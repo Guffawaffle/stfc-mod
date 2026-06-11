@@ -38,6 +38,20 @@ The gameplay seam scanner is blocking in this contract. The standalone scanner
 command remains useful for focused local checks, but review-ready branches should
 use the AXF review contract so the scanner is not skipped.
 
+## Collaboration Contract
+
+Use `docs/AXF_COLLABORATION_CONTRACT.md` as the lightweight shared vocabulary for
+STFC missions, reports, and reviews. It defines gameplay seams, seam owners,
+evidence surfaces, subscribers, provenance, drift, classifications, and parked
+follow-ups.
+
+This is not a second blocking gate and should not turn every report into
+ceremony. It is the preferred place to route information when the concept
+applies: live game work through gameplay seams, copied game facts through
+evidence surfaces, old probe paths through explicit classification, changed
+mission shape through drift, and useful out-of-scope ideas through parked
+follow-ups.
+
 For AXF 1.0.0 and later, this repo owns its STFC family manifests locally.
 Run `axf scout --write` from the repo root to regenerate
 `manifests/families/stfc-mod.family.json` and any standalone capabilities

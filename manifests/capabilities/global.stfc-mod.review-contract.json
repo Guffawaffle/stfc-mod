@@ -59,6 +59,7 @@
     "Runs scripts/scan_gameplay_seams.py as a blocking gameplay seam tripwire.",
     "Runs git diff --check and git diff --cached --check.",
     "Runs AX pure-tests through .ax/ax.ps1.",
-    "Agents should run this before reporting a code or hook-affecting branch as review-ready."
+    "Agents should run this before reporting a code or hook-affecting branch as review-ready.",
+    "Use docs/AXF_COLLABORATION_CONTRACT.md for the non-blocking mission/report vocabulary: gameplay seams, evidence surfaces, provenance, drift, classifications, and parked follow-ups."
   ]
 }
