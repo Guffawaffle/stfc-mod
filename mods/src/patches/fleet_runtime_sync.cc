@@ -33,7 +33,7 @@ constexpr auto kFleetRuntimeSyncQuietDelay = std::chrono::milliseconds(2500);
 
 std::mutex                            s_pending_sync_mutex;
 bool                                  s_pending_sync = false;
-std::string                           s_pending_sync_source;
+GameplayDispatchContext               s_pending_sync_dispatch;
 std::chrono::steady_clock::time_point s_pending_sync_requested_at;
 uint64_t                              s_pending_sync_sequence = 0;
 bool                                  s_pending_sync_delay_logged = false;
@@ -217,19 +217,27 @@ json build_snapshot_payload(std::string_view source, int64_t observed_at_ms, con
 } // namespace
 
 void fleet_runtime_sync_trigger(std::string_view source)
+{ fleet_runtime_sync_trigger(gameplay_legacy_dispatch_context(source, "defer-fleet-runtime-snapshot")); }
+
+void fleet_runtime_sync_trigger(const GameplayDispatchContext& dispatch)
 {
   if (!fleet_runtime_sync_enabled()) {
     return;
   }
 
   std::lock_guard lock(s_pending_sync_mutex);
-  s_pending_sync        = true;
-  s_pending_sync_source = std::string(source);
+  s_pending_sync          = true;
+  s_pending_sync_dispatch = dispatch;
   s_pending_sync_requested_at = std::chrono::steady_clock::now();
   ++s_pending_sync_sequence;
   s_pending_sync_delay_logged = false;
-  spdlog::debug("[FleetRuntimeSync] stage=request source={} decision=deferred quietDelayMs={} seq={}",
-                source,
+  spdlog::debug("[FleetRuntimeSync] stage=request source={} owner={} seam={} reason={} effect={} decision=deferred "
+                "quietDelayMs={} seq={}",
+                dispatch.source,
+                dispatch.owner,
+                dispatch.seam,
+                dispatch.reason,
+                dispatch.effect,
                 kFleetRuntimeSyncQuietDelay.count(),
                 s_pending_sync_sequence);
 }
@@ -239,8 +247,8 @@ bool fleet_runtime_sync_frame_subscriber_enabled()
 
 void fleet_runtime_sync_process_pending()
 {
-  std::string source;
-  uint64_t    sequence = 0;
+  GameplayDispatchContext dispatch;
+  uint64_t                sequence = 0;
   {
     std::lock_guard lock(s_pending_sync_mutex);
     if (!s_pending_sync) {
@@ -253,9 +261,13 @@ void fleet_runtime_sync_process_pending()
       if (!s_pending_sync_delay_logged) {
         const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
             kFleetRuntimeSyncQuietDelay - age);
-        spdlog::debug("[FleetRuntimeSync] stage=flush source={} decision=deferred reason=quiet-window "
-                      "ageMs={} remainingMs={} seq={}",
-                      s_pending_sync_source,
+        spdlog::debug("[FleetRuntimeSync] stage=flush source={} owner={} seam={} reason={} effect={} "
+                      "decision=deferred deferReason=quiet-window ageMs={} remainingMs={} seq={}",
+                      s_pending_sync_dispatch.source,
+                      s_pending_sync_dispatch.owner,
+                      s_pending_sync_dispatch.seam,
+                      s_pending_sync_dispatch.reason,
+                      s_pending_sync_dispatch.effect,
                       age.count(),
                       remaining.count(),
                       s_pending_sync_sequence);
@@ -264,40 +276,71 @@ void fleet_runtime_sync_process_pending()
       return;
     }
 
-    source = s_pending_sync_source;
+    dispatch = s_pending_sync_dispatch;
     sequence = s_pending_sync_sequence;
     s_pending_sync = false;
-    s_pending_sync_source.clear();
+    s_pending_sync_dispatch = {};
     s_pending_sync_delay_logged = false;
   }
 
   if (!fleet_runtime_sync_enabled()) {
-    spdlog::warn("[FleetRuntimeSync] stage=flush source={} decision=skipped reason=disabled", source);
+    spdlog::warn("[FleetRuntimeSync] stage=flush source={} owner={} seam={} reason={} effect={} decision=skipped "
+                 "skipReason=disabled",
+                 dispatch.source,
+                 dispatch.owner,
+                 dispatch.seam,
+                 dispatch.reason,
+                 dispatch.effect);
     return;
   }
 
-  spdlog::info("[FleetRuntimeSync] stage=flush source={} decision=executed reason=quiet-window seq={}",
-               source,
+  spdlog::info("[FleetRuntimeSync] stage=flush source={} owner={} seam={} reason={} effect={} decision=executed "
+               "flushReason=quiet-window seq={}",
+               dispatch.source,
+               dispatch.owner,
+               dispatch.seam,
+               dispatch.reason,
+               dispatch.effect,
                sequence);
-  fleet_runtime_diagnostics_trigger(source);
+  fleet_runtime_diagnostics_trigger(dispatch);
 
   if (sidecar_local_ingest::FleetRuntimeRequestOnlyMode()) {
-    spdlog::info("[FleetRuntimeSync] stage=capture source={} decision=skipped reason=request-only mode={}",
-                 source,
+    spdlog::info("[FleetRuntimeSync] stage=capture source={} owner={} seam={} reason={} effect={} decision=skipped "
+                 "skipReason=request-only mode={}",
+                 dispatch.source,
+                 dispatch.owner,
+                 dispatch.seam,
+                 dispatch.reason,
+                 dispatch.effect,
                  sidecar_local_ingest::FleetRuntimeMode());
     return;
   }
 
   try {
-    fleet_runtime_sync_capture(source);
+    fleet_runtime_sync_capture(dispatch);
   } catch (const std::exception& ex) {
-    spdlog::error("[FleetRuntimeSync] source={} status=failed error='{}'", source, ex.what());
+    spdlog::error("[FleetRuntimeSync] source={} owner={} seam={} reason={} effect={} status=failed error='{}'",
+                  dispatch.source,
+                  dispatch.owner,
+                  dispatch.seam,
+                  dispatch.reason,
+                  dispatch.effect,
+                  ex.what());
   } catch (...) {
-    spdlog::error("[FleetRuntimeSync] source={} status=failed error='unknown exception'", source);
+    spdlog::error("[FleetRuntimeSync] source={} owner={} seam={} reason={} effect={} status=failed error='unknown "
+                  "exception'",
+                  dispatch.source,
+                  dispatch.owner,
+                  dispatch.seam,
+                  dispatch.reason,
+                  dispatch.effect);
   }
 }
 
 void fleet_runtime_sync_capture(std::string_view source)
+{ fleet_runtime_sync_capture(gameplay_legacy_dispatch_context(source, "capture-fleet-runtime-snapshot")); }
+
+void fleet_runtime_sync_capture(const GameplayDispatchContext& dispatch)
 {
   static std::optional<FleetStateKey> last_state;
 
@@ -309,30 +352,34 @@ void fleet_runtime_sync_capture(std::string_view source)
                                        std::chrono::steady_clock::now() - capture_started_at)
                                        .count();
 
-  fleet_runtime_diagnostics_capture_attempt(source, capture_duration_ms);
+  fleet_runtime_diagnostics_capture_attempt(dispatch, capture_duration_ms);
 
   if (!is_meaningful_state(state) && !last_state.has_value()) {
-    fleet_runtime_diagnostics_suppressed_non_meaningful(source, capture_duration_ms);
+    fleet_runtime_diagnostics_suppressed_non_meaningful(dispatch, capture_duration_ms);
     return;
   }
 
   if (last_state.has_value() && *last_state == state) {
-    fleet_runtime_diagnostics_suppressed_unchanged(source, capture_duration_ms);
+    fleet_runtime_diagnostics_suppressed_unchanged(dispatch, capture_duration_ms);
     return;
   }
 
   last_state = state;
-  const auto trace = fleet_runtime_diagnostics_make_trace(source, snapshot.fleet, snapshot.slots, observed_at_ms,
+  const auto trace = fleet_runtime_diagnostics_make_trace(dispatch, snapshot.fleet, snapshot.slots, observed_at_ms,
                                                           capture_duration_ms);
-  const auto payload = build_snapshot_payload(source, observed_at_ms, snapshot.fleet, snapshot.slots);
+  const auto payload = build_snapshot_payload(dispatch.source, observed_at_ms, snapshot.fleet, snapshot.slots);
   if (Config::Get().sync_options.fleet_runtime) {
     queue_data(SyncConfig::Type::FleetRuntime, payload, false, trace);
   }
   if (sidecar_local_ingest::FleetRuntimeEnabled()) {
     if (sidecar_local_ingest::FleetRuntimeSnapshotOnlyMode()) {
-      spdlog::info("[FleetRuntimeSync] stage=sidecar-publish source={} decision=skipped reason=snapshot-only "
-                   "captureDurationMs={} mode={}",
-                   source,
+      spdlog::info("[FleetRuntimeSync] stage=sidecar-publish source={} owner={} seam={} reason={} effect={} "
+                   "decision=skipped skipReason=snapshot-only captureDurationMs={} mode={}",
+                   dispatch.source,
+                   dispatch.owner,
+                   dispatch.seam,
+                   dispatch.reason,
+                   dispatch.effect,
                    capture_duration_ms,
                    sidecar_local_ingest::FleetRuntimeMode());
       return;
@@ -343,9 +390,13 @@ void fleet_runtime_sync_capture(std::string_view source)
     const auto enqueue_duration_us = std::chrono::duration_cast<std::chrono::microseconds>(
                                          std::chrono::steady_clock::now() - enqueue_started_at)
                                          .count();
-    spdlog::info("[FleetRuntimeSync] stage=sidecar-enqueue source={} accepted={} coalesced={} depth={} "
-                 "enqueued={} dropped={} coalescedTotal={} durationUs={} mode={}",
-                 source,
+    spdlog::info("[FleetRuntimeSync] stage=sidecar-enqueue source={} owner={} seam={} reason={} effect={} "
+                 "accepted={} coalesced={} depth={} enqueued={} dropped={} coalescedTotal={} durationUs={} mode={}",
+                 dispatch.source,
+                 dispatch.owner,
+                 dispatch.seam,
+                 dispatch.reason,
+                 dispatch.effect,
                  enqueue.accepted,
                  enqueue.coalesced,
                  enqueue.depth,

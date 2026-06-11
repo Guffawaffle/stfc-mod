@@ -26,9 +26,13 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 namespace {
 constexpr int kNotificationProducerTypeIncomingFleet = 7;
+constexpr std::string_view kFleetArrivalOwner = "FleetArrivalHooks";
+constexpr std::string_view kFleetStateWidgetSeam = "Digit.Prime.HUD.FleetStateWidget.SetWidgetData";
+constexpr std::string_view kFleetRuntimeSyncEffect = "defer-fleet-runtime-snapshot";
 constexpr ptrdiff_t kIncomingFleetParamsTargetTypeOffset = 0x18;
 constexpr ptrdiff_t kIncomingFleetParamsQuickScanResultOffset = 0x20;
 constexpr ptrdiff_t kIncomingFleetParamsParamsObjectOffset = 0x28;
@@ -80,7 +84,11 @@ void FleetStateWidget_SetWidgetData_Hook(auto original, void* self)
 {
   auto* fleet = fleet_bar_widget_context(self);
   if (const auto* trigger_source = fleet_notifications_observe_fleet_bar(fleet)) {
-    fleet_runtime_sync_trigger(trigger_source);
+    fleet_runtime_sync_trigger(gameplay_dispatch_context(trigger_source,
+                                                         kFleetArrivalOwner,
+                                                         kFleetStateWidgetSeam,
+                                                         trigger_source,
+                                                         kFleetRuntimeSyncEffect));
   }
 
   original(self);

@@ -11,71 +11,90 @@
 
 #include <spud/detour.h>
 
+#include <string_view>
+
 namespace {
-void observe_runtime_deployment_event(const char* source)
+constexpr std::string_view kDeploymentRuntimeObserverOwner = "DeploymentRuntimeObservers";
+constexpr std::string_view kFleetRuntimeSyncEffect = "defer-fleet-runtime-snapshot";
+
+void observe_runtime_deployment_event(const char* seam, const char* reason)
 {
-  fleet_runtime_sync_trigger(source);
+  fleet_runtime_sync_trigger(gameplay_dispatch_context(reason,
+                                                       kDeploymentRuntimeObserverOwner,
+                                                       seam,
+                                                       reason,
+                                                       kFleetRuntimeSyncEffect));
 }
 
 void DeploymentEvents_TriggerFleetStateChangeEvent_Hook(auto original, IList* fleets)
 {
   original(fleets);
-  observe_runtime_deployment_event("deployment-fleet-state-event");
+  observe_runtime_deployment_event("Digit.PrimeServer.Events.DeploymentEvents.TriggerFleetStateChangeEvent",
+                                   "deployment-fleet-state-event");
 }
 
 void DeploymentEvents_TriggerPlayerFleetsUpdatedEvent_Hook(auto original, IList* fleets)
 {
   original(fleets);
-  observe_runtime_deployment_event("deployment-player-fleets-updated-event");
+  observe_runtime_deployment_event("Digit.PrimeServer.Events.DeploymentEvents.TriggerPlayerFleetsUpdatedEvent",
+                                   "deployment-player-fleets-updated-event");
 }
 
 void DeploymentEvents_TriggerCoursePlannedEvent_Hook(auto original, IList* courses)
 {
   original(courses);
-  observe_runtime_deployment_event("deployment-course-planned-event");
+  observe_runtime_deployment_event("Digit.PrimeServer.Events.DeploymentEvents.TriggerCoursePlannedEvent",
+                                   "deployment-course-planned-event");
 }
 
 void DeploymentEvents_TriggerCourseStartEvent_Hook(auto original, IList* courses)
 {
   original(courses);
-  observe_runtime_deployment_event("deployment-course-start-event");
+  observe_runtime_deployment_event("Digit.PrimeServer.Events.DeploymentEvents.TriggerCourseStartEvent",
+                                   "deployment-course-start-event");
 }
 
 void DeploymentEvents_TriggerCourseChangeEvent_Hook(auto original, IList* old_courses, IList* new_courses)
 {
   original(old_courses, new_courses);
-  observe_runtime_deployment_event("deployment-course-change-event");
+  observe_runtime_deployment_event("Digit.PrimeServer.Events.DeploymentEvents.TriggerCourseChangeEvent",
+                                   "deployment-course-change-event");
 }
 
 void DeploymentEvents_TriggerCourseEndEvent_Hook(auto original, IList* courses)
 {
   original(courses);
-  observe_runtime_deployment_event("deployment-course-end-event");
+  observe_runtime_deployment_event("Digit.PrimeServer.Events.DeploymentEvents.TriggerCourseEndEvent",
+                                   "deployment-course-end-event");
 }
 
 void DeploymentEvents_TriggerSetCourseResponseEvent_Hook(auto original, long fleet_id, bool success,
                                                          bool is_recall_course, void* planned_course_data)
 {
   original(fleet_id, success, is_recall_course, planned_course_data);
-  observe_runtime_deployment_event("deployment-set-course-response-event");
+  observe_runtime_deployment_event("Digit.PrimeServer.Events.DeploymentEvents.TriggerSetCourseResponseEvent",
+                                   "deployment-set-course-response-event");
 }
 
 void DeploymentEvents_TriggerBattleStartEvent_Hook(auto original, IList* fleets)
 {
   original(fleets);
-  observe_runtime_deployment_event("deployment-battle-start-event");
+  observe_runtime_deployment_event("Digit.PrimeServer.Events.DeploymentEvents.TriggerBattleStartEvent",
+                                   "deployment-battle-start-event");
 }
 
 void DeploymentEvents_TriggerBattleEndEvent_Hook(auto original, IList* fleets)
 {
   original(fleets);
-  observe_runtime_deployment_event("deployment-battle-end-event");
+  observe_runtime_deployment_event("Digit.PrimeServer.Events.DeploymentEvents.TriggerBattleEndEvent",
+                                   "deployment-battle-end-event");
 }
 
 void DeploymentEvents_TriggerStaleFleetDataDetected_Hook(auto original)
 {
   original();
-  observe_runtime_deployment_event("deployment-stale-fleet-data-detected-event");
+  observe_runtime_deployment_event("Digit.PrimeServer.Events.DeploymentEvents.TriggerStateFleetDataDetected",
+                                   "deployment-stale-fleet-data-detected-event");
 }
 }
 

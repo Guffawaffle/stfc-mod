@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "patches/gameplay_dispatch_context.h"
 #include "patches/live_debug_fleet_runtime_observers.h"
 
 #include <cstddef>
@@ -18,6 +19,10 @@ struct FleetRuntimeTraceContext {
   int         slotCount = 0;
   int         presentShipCount = 0;
   std::string source;
+  std::string owner;
+  std::string seam;
+  std::string reason;
+  std::string effect;
   std::string statusSummary;
 };
 
@@ -33,15 +38,31 @@ struct FleetRuntimeDiagnosticsSnapshot {
   uint64_t    postSuccessCount = 0;
   uint64_t    postFailureCount = 0;
   std::string latestTriggerSource;
+  std::string latestTriggerOwner;
+  std::string latestTriggerSeam;
+  std::string latestTriggerReason;
+  std::string latestTriggerEffect;
   int64_t     latestTriggerAtMs = 0;
   uint64_t    latestLocalSequence = 0;
   int64_t     latestObservedAtMs = 0;
 };
 
+void fleet_runtime_diagnostics_trigger(const GameplayDispatchContext& dispatch);
 void fleet_runtime_diagnostics_trigger(std::string_view source);
+void fleet_runtime_diagnostics_capture_attempt(const GameplayDispatchContext& dispatch, int64_t capture_duration_ms);
 void fleet_runtime_diagnostics_capture_attempt(std::string_view source, int64_t capture_duration_ms);
+void fleet_runtime_diagnostics_suppressed_unchanged(const GameplayDispatchContext& dispatch, int64_t capture_duration_ms);
 void fleet_runtime_diagnostics_suppressed_unchanged(std::string_view source, int64_t capture_duration_ms);
+void fleet_runtime_diagnostics_suppressed_non_meaningful(const GameplayDispatchContext& dispatch,
+                                                         int64_t capture_duration_ms);
 void fleet_runtime_diagnostics_suppressed_non_meaningful(std::string_view source, int64_t capture_duration_ms);
+
+FleetRuntimeTraceContext fleet_runtime_diagnostics_make_trace(
+    const GameplayDispatchContext& dispatch,
+    const FleetObservation& fleet,
+    const std::array<FleetSlotObservation, kFleetIndexMax>& slots,
+    int64_t observed_at_ms,
+    int64_t capture_duration_ms);
 
 FleetRuntimeTraceContext fleet_runtime_diagnostics_make_trace(
     std::string_view source,

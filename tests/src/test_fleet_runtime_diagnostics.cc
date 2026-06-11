@@ -8,9 +8,15 @@ TEST_SUITE("fleet_runtime_diagnostics")
   {
     fleet_runtime_diagnostics_reset();
 
-    fleet_runtime_diagnostics_trigger("deployment-set-course-response-event");
-    fleet_runtime_diagnostics_capture_attempt("deployment-set-course-response-event", 4);
-    fleet_runtime_diagnostics_suppressed_unchanged("deployment-set-course-response-event", 4);
+    const auto dispatch = gameplay_dispatch_context(
+        "deployment-set-course-response-event",
+        "DeploymentRuntimeObservers",
+        "Digit.PrimeServer.Events.DeploymentEvents.TriggerSetCourseResponseEvent",
+        "deployment-set-course-response-event",
+        "defer-fleet-runtime-snapshot");
+    fleet_runtime_diagnostics_trigger(dispatch);
+    fleet_runtime_diagnostics_capture_attempt(dispatch, 4);
+    fleet_runtime_diagnostics_suppressed_unchanged(dispatch, 4);
 
     const auto snapshot = fleet_runtime_diagnostics_snapshot();
     CHECK(snapshot.triggerCount == 1);
@@ -18,6 +24,10 @@ TEST_SUITE("fleet_runtime_diagnostics")
     CHECK(snapshot.suppressedUnchangedCount == 1);
     CHECK(snapshot.suppressedNonMeaningfulCount == 0);
     CHECK(snapshot.latestTriggerSource == "deployment-set-course-response-event");
+    CHECK(snapshot.latestTriggerOwner == "DeploymentRuntimeObservers");
+    CHECK(snapshot.latestTriggerSeam == "Digit.PrimeServer.Events.DeploymentEvents.TriggerSetCourseResponseEvent");
+    CHECK(snapshot.latestTriggerReason == "deployment-set-course-response-event");
+    CHECK(snapshot.latestTriggerEffect == "defer-fleet-runtime-snapshot");
     CHECK(snapshot.latestTriggerAtMs > 0);
   }
 
@@ -37,7 +47,13 @@ TEST_SUITE("fleet_runtime_diagnostics")
     slots[1].present = true;
     slots[1].currentState = 64;
 
-    const auto trace = fleet_runtime_diagnostics_make_trace("deployment-battle-end-event", fleet, slots, 123456, 7);
+    const auto dispatch = gameplay_dispatch_context(
+        "deployment-battle-end-event",
+        "DeploymentRuntimeObservers",
+        "Digit.PrimeServer.Events.DeploymentEvents.TriggerBattleEndEvent",
+        "deployment-battle-end-event",
+        "defer-fleet-runtime-snapshot");
+    const auto trace = fleet_runtime_diagnostics_make_trace(dispatch, fleet, slots, 123456, 7);
 
     CHECK(trace.localSequence == 1);
     CHECK(trace.observedAtMs == 123456);
@@ -45,6 +61,10 @@ TEST_SUITE("fleet_runtime_diagnostics")
     CHECK(trace.slotCount == 10);
     CHECK(trace.presentShipCount == 2);
     CHECK(trace.source == "deployment-battle-end-event");
+    CHECK(trace.owner == "DeploymentRuntimeObservers");
+    CHECK(trace.seam == "Digit.PrimeServer.Events.DeploymentEvents.TriggerBattleEndEvent");
+    CHECK(trace.reason == "deployment-battle-end-event");
+    CHECK(trace.effect == "defer-fleet-runtime-snapshot");
     CHECK(trace.statusSummary == "battling:1,docked:1,empty:8");
 
     const auto snapshot = fleet_runtime_diagnostics_snapshot();
@@ -60,15 +80,19 @@ TEST_SUITE("fleet_runtime_diagnostics")
     trace.localSequence = 9;
     trace.observedAtMs = 222;
     trace.source = "deployment-course-start-event";
+    trace.owner = "DeploymentRuntimeObservers";
+    trace.seam = "Digit.PrimeServer.Events.DeploymentEvents.TriggerCourseStartEvent";
+    trace.reason = "deployment-course-start-event";
+    trace.effect = "defer-fleet-runtime-snapshot";
     trace.slotCount = 10;
     trace.presentShipCount = 3;
     trace.statusSummary = "docked:2,empty:7,mining:1";
 
     fleet_runtime_diagnostics_scheduler_queue(trace, true, 1);
-  fleet_runtime_diagnostics_target_queue(trace, "cloud-majel", "majel", false, 256, 5,
+    fleet_runtime_diagnostics_target_queue(trace, "cloud-majel", "majel", false, 256, 5,
                                            "target-queue-full");
-  fleet_runtime_diagnostics_post_result(trace, "cloud-majel", "majel", true, 202, "", 35);
-  fleet_runtime_diagnostics_post_result(trace, "cloud-majel", "majel", false, 0, "transport", 0);
+    fleet_runtime_diagnostics_post_result(trace, "cloud-majel", "majel", true, 202, "", 35);
+    fleet_runtime_diagnostics_post_result(trace, "cloud-majel", "majel", false, 0, "transport", 0);
 
     const auto snapshot = fleet_runtime_diagnostics_snapshot();
     CHECK(snapshot.schedulerQueueAcceptedCount == 1);

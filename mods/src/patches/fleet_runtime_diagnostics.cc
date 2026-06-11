@@ -107,6 +107,10 @@ json snapshot_to_json(const FleetRuntimeDiagnosticsSnapshot& snapshot)
               {"postSuccessCount", snapshot.postSuccessCount},
               {"postFailureCount", snapshot.postFailureCount},
               {"latestTriggerSource", snapshot.latestTriggerSource},
+              {"latestTriggerOwner", snapshot.latestTriggerOwner},
+              {"latestTriggerSeam", snapshot.latestTriggerSeam},
+              {"latestTriggerReason", snapshot.latestTriggerReason},
+              {"latestTriggerEffect", snapshot.latestTriggerEffect},
               {"latestTriggerAtMs", snapshot.latestTriggerAtMs},
               {"latestLocalSequence", snapshot.latestLocalSequence},
               {"latestObservedAtMs", snapshot.latestObservedAtMs}};
@@ -115,6 +119,22 @@ json snapshot_to_json(const FleetRuntimeDiagnosticsSnapshot& snapshot)
 json with_summary(json details, const FleetRuntimeDiagnosticsSnapshot& snapshot)
 {
   details["summary"] = snapshot_to_json(snapshot);
+  return details;
+}
+
+json dispatch_to_json(const GameplayDispatchContext& dispatch)
+{
+  return json{{"source", dispatch.source},
+              {"owner", dispatch.owner},
+              {"seam", dispatch.seam},
+              {"reason", dispatch.reason},
+              {"effect", dispatch.effect}};
+}
+
+json with_dispatch(json details, const GameplayDispatchContext& dispatch)
+{
+  details["source"] = dispatch.source;
+  details["dispatch"] = dispatch_to_json(dispatch);
   return details;
 }
 
@@ -129,59 +149,110 @@ void record_recent_event(std::string_view kind, json details)
 }
 } // namespace
 
-void fleet_runtime_diagnostics_trigger(std::string_view source)
+void fleet_runtime_diagnostics_trigger(const GameplayDispatchContext& dispatch)
 {
   const auto trigger_at_ms = current_time_millis_utc();
   const auto snapshot = update_snapshot([&](auto& state) {
     ++state.triggerCount;
-    state.latestTriggerSource = std::string(source);
+    state.latestTriggerSource = dispatch.source;
+    state.latestTriggerOwner = dispatch.owner;
+    state.latestTriggerSeam = dispatch.seam;
+    state.latestTriggerReason = dispatch.reason;
+    state.latestTriggerEffect = dispatch.effect;
     state.latestTriggerAtMs = trigger_at_ms;
   });
 
-  spdlog::info("[FleetRuntimeTrigger] source={} triggerMs={}", source, trigger_at_ms);
+  spdlog::info("[FleetRuntimeTrigger] source={} owner={} seam={} reason={} effect={} triggerMs={}",
+               dispatch.source,
+               dispatch.owner,
+               dispatch.seam,
+               dispatch.reason,
+               dispatch.effect,
+               trigger_at_ms);
   record_recent_event("fleet-runtime-trigger",
-                      with_summary(json{{"source", source}, {"triggerMs", trigger_at_ms}}, snapshot));
+                      with_summary(with_dispatch(json{{"triggerMs", trigger_at_ms}}, dispatch), snapshot));
+}
+
+void fleet_runtime_diagnostics_trigger(std::string_view source)
+{ fleet_runtime_diagnostics_trigger(gameplay_legacy_dispatch_context(source, "defer-fleet-runtime-snapshot")); }
+
+void fleet_runtime_diagnostics_capture_attempt(const GameplayDispatchContext& dispatch, int64_t capture_duration_ms)
+{
+  const auto snapshot = update_snapshot([&](auto& state) { ++state.captureAttemptCount; });
+
+  spdlog::info("[FleetRuntimeCapture] source={} owner={} seam={} reason={} effect={} status=attempt durationMs={}",
+               dispatch.source,
+               dispatch.owner,
+               dispatch.seam,
+               dispatch.reason,
+               dispatch.effect,
+               capture_duration_ms);
+  record_recent_event("fleet-runtime-capture",
+                      with_summary(with_dispatch(json{{"status", "attempt"}, {"durationMs", capture_duration_ms}},
+                                                 dispatch),
+                                   snapshot));
 }
 
 void fleet_runtime_diagnostics_capture_attempt(std::string_view source, int64_t capture_duration_ms)
 {
-  const auto snapshot = update_snapshot([&](auto& state) { ++state.captureAttemptCount; });
+  fleet_runtime_diagnostics_capture_attempt(gameplay_legacy_dispatch_context(source, "capture-fleet-runtime-snapshot"),
+                                            capture_duration_ms);
+}
 
-  spdlog::info("[FleetRuntimeCapture] source={} status=attempt durationMs={}", source, capture_duration_ms);
-  record_recent_event("fleet-runtime-capture",
-                      with_summary(json{{"source", source},
-                                        {"status", "attempt"},
-                                        {"durationMs", capture_duration_ms}},
+void fleet_runtime_diagnostics_suppressed_unchanged(const GameplayDispatchContext& dispatch,
+                                                    int64_t capture_duration_ms)
+{
+  const auto snapshot = update_snapshot([&](auto& state) { ++state.suppressedUnchangedCount; });
+
+  spdlog::info("[FleetRuntimeSuppressed] source={} owner={} seam={} reason={} effect={} suppressedReason=unchanged "
+               "durationMs={}",
+               dispatch.source,
+               dispatch.owner,
+               dispatch.seam,
+               dispatch.reason,
+               dispatch.effect,
+               capture_duration_ms);
+  record_recent_event("fleet-runtime-suppressed",
+                      with_summary(with_dispatch(json{{"reason", "unchanged"}, {"durationMs", capture_duration_ms}},
+                                                 dispatch),
                                    snapshot));
 }
 
 void fleet_runtime_diagnostics_suppressed_unchanged(std::string_view source, int64_t capture_duration_ms)
 {
-  const auto snapshot = update_snapshot([&](auto& state) { ++state.suppressedUnchangedCount; });
+  fleet_runtime_diagnostics_suppressed_unchanged(gameplay_legacy_dispatch_context(source,
+                                                                                  "capture-fleet-runtime-snapshot"),
+                                                 capture_duration_ms);
+}
 
-  spdlog::info("[FleetRuntimeSuppressed] source={} reason=unchanged durationMs={}", source, capture_duration_ms);
+void fleet_runtime_diagnostics_suppressed_non_meaningful(const GameplayDispatchContext& dispatch,
+                                                         int64_t capture_duration_ms)
+{
+  const auto snapshot = update_snapshot([&](auto& state) { ++state.suppressedNonMeaningfulCount; });
+
+  spdlog::info("[FleetRuntimeSuppressed] source={} owner={} seam={} reason={} effect={} "
+               "suppressedReason=non-meaningful durationMs={}",
+               dispatch.source,
+               dispatch.owner,
+               dispatch.seam,
+               dispatch.reason,
+               dispatch.effect,
+               capture_duration_ms);
   record_recent_event("fleet-runtime-suppressed",
-                      with_summary(json{{"source", source},
-                                        {"reason", "unchanged"},
-                                        {"durationMs", capture_duration_ms}},
+                      with_summary(with_dispatch(json{{"reason", "non-meaningful"},
+                                                     {"durationMs", capture_duration_ms}},
+                                                 dispatch),
                                    snapshot));
 }
 
 void fleet_runtime_diagnostics_suppressed_non_meaningful(std::string_view source, int64_t capture_duration_ms)
 {
-  const auto snapshot = update_snapshot([&](auto& state) { ++state.suppressedNonMeaningfulCount; });
-
-  spdlog::info("[FleetRuntimeSuppressed] source={} reason=non-meaningful durationMs={}", source,
-               capture_duration_ms);
-  record_recent_event("fleet-runtime-suppressed",
-                      with_summary(json{{"source", source},
-                                        {"reason", "non-meaningful"},
-                                        {"durationMs", capture_duration_ms}},
-                                   snapshot));
+  fleet_runtime_diagnostics_suppressed_non_meaningful(
+      gameplay_legacy_dispatch_context(source, "capture-fleet-runtime-snapshot"), capture_duration_ms);
 }
 
 FleetRuntimeTraceContext fleet_runtime_diagnostics_make_trace(
-    std::string_view source,
+    const GameplayDispatchContext& dispatch,
     const FleetObservation&,
     const std::array<FleetSlotObservation, kFleetIndexMax>& slots,
     const int64_t observed_at_ms,
@@ -195,7 +266,11 @@ FleetRuntimeTraceContext fleet_runtime_diagnostics_make_trace(
   trace.presentShipCount = static_cast<int>(std::count_if(slots.begin(), slots.end(), [](const auto& slot) {
     return slot.present;
   }));
-  trace.source = std::string(source);
+  trace.source = dispatch.source;
+  trace.owner = dispatch.owner;
+  trace.seam = dispatch.seam;
+  trace.reason = dispatch.reason;
+  trace.effect = dispatch.effect;
   trace.statusSummary = build_status_summary(slots);
 
   update_snapshot([&](auto& state) {
@@ -204,6 +279,21 @@ FleetRuntimeTraceContext fleet_runtime_diagnostics_make_trace(
   });
 
   return trace;
+}
+
+FleetRuntimeTraceContext fleet_runtime_diagnostics_make_trace(
+    std::string_view source,
+    const FleetObservation& fleet,
+    const std::array<FleetSlotObservation, kFleetIndexMax>& slots,
+    const int64_t observed_at_ms,
+    const int64_t capture_duration_ms)
+{
+  return fleet_runtime_diagnostics_make_trace(gameplay_legacy_dispatch_context(source,
+                                                                               "capture-fleet-runtime-snapshot"),
+                                              fleet,
+                                              slots,
+                                              observed_at_ms,
+                                              capture_duration_ms);
 }
 
 void fleet_runtime_diagnostics_scheduler_queue(const FleetRuntimeTraceContext& trace,
@@ -221,20 +311,26 @@ void fleet_runtime_diagnostics_scheduler_queue(const FleetRuntimeTraceContext& t
 
   if (accepted) {
     spdlog::info(
-        "[FleetRuntimeQueued] stage=scheduler source={} localSeq={} observedAtMs={} slotCount={} presentCount={} "
-        "states={} depth={} accepted=true",
-        trace.source, trace.localSequence, trace.observedAtMs, trace.slotCount, trace.presentShipCount,
+        "[FleetRuntimeQueued] stage=scheduler source={} owner={} seam={} reason={} effect={} localSeq={} "
+        "observedAtMs={} slotCount={} presentCount={} states={} depth={} accepted=true",
+        trace.source, trace.owner, trace.seam, trace.reason, trace.effect, trace.localSequence, trace.observedAtMs,
+        trace.slotCount, trace.presentShipCount,
         trace.statusSummary, queue_depth);
   } else {
-    spdlog::warn("[FleetRuntimeQueued] stage=scheduler source={} localSeq={} observedAtMs={} depth={} "
-                 "accepted=false reason={}",
-                 trace.source, trace.localSequence, trace.observedAtMs, queue_depth,
+    spdlog::warn("[FleetRuntimeQueued] stage=scheduler source={} owner={} seam={} reason={} effect={} localSeq={} "
+                 "observedAtMs={} depth={} accepted=false queueReason={}",
+                 trace.source, trace.owner, trace.seam, trace.reason, trace.effect, trace.localSequence,
+                 trace.observedAtMs, queue_depth,
                  reason.empty() ? "unknown" : reason);
   }
 
   auto details = json{{"stage", "scheduler"},
                       {"accepted", accepted},
                       {"source", trace.source},
+                      {"owner", trace.owner},
+                      {"seam", trace.seam},
+                      {"reason", trace.reason},
+                      {"effect", trace.effect},
                       {"localSequence", trace.localSequence},
                       {"observedAtMs", trace.observedAtMs},
                       {"slotCount", trace.slotCount},
@@ -242,7 +338,7 @@ void fleet_runtime_diagnostics_scheduler_queue(const FleetRuntimeTraceContext& t
                       {"statusSummary", trace.statusSummary},
                       {"queueDepth", queue_depth}};
   if (!reason.empty()) {
-    details["reason"] = reason;
+    details["queueReason"] = reason;
   }
   record_recent_event("fleet-runtime-queued", with_summary(std::move(details), snapshot));
 }
@@ -265,19 +361,26 @@ void fleet_runtime_diagnostics_target_queue(const FleetRuntimeTraceContext& trac
 
   if (accepted) {
     spdlog::info(
-        "[FleetRuntimeQueued] stage=target source={} localSeq={} target={} mode={} depth={} accepted=true",
-        trace.source, trace.localSequence, target, mode, queue_depth);
+        "[FleetRuntimeQueued] stage=target source={} owner={} seam={} reason={} effect={} localSeq={} target={} "
+        "mode={} depth={} accepted=true",
+        trace.source, trace.owner, trace.seam, trace.reason, trace.effect, trace.localSequence, target, mode,
+        queue_depth);
   } else {
     spdlog::warn(
-        "[FleetRuntimeQueued] stage=target source={} localSeq={} target={} mode={} depth={} dropped={} "
-        "accepted=false reason={}",
-        trace.source, trace.localSequence, target, mode, queue_depth, dropped_count,
+        "[FleetRuntimeQueued] stage=target source={} owner={} seam={} reason={} effect={} localSeq={} target={} "
+        "mode={} depth={} dropped={} accepted=false queueReason={}",
+        trace.source, trace.owner, trace.seam, trace.reason, trace.effect, trace.localSequence, target, mode,
+        queue_depth, dropped_count,
         reason.empty() ? "unknown" : reason);
   }
 
   auto details = json{{"stage", "target"},
                       {"accepted", accepted},
                       {"source", trace.source},
+                      {"owner", trace.owner},
+                      {"seam", trace.seam},
+                      {"reason", trace.reason},
+                      {"effect", trace.effect},
                       {"localSequence", trace.localSequence},
                       {"observedAtMs", trace.observedAtMs},
                       {"slotCount", trace.slotCount},
@@ -288,7 +391,7 @@ void fleet_runtime_diagnostics_target_queue(const FleetRuntimeTraceContext& trac
                       {"queueDepth", queue_depth},
                       {"droppedCount", dropped_count}};
   if (!reason.empty()) {
-    details["reason"] = reason;
+    details["queueReason"] = reason;
   }
   record_recent_event("fleet-runtime-queued", with_summary(std::move(details), snapshot));
 }
@@ -311,17 +414,24 @@ void fleet_runtime_diagnostics_post_result(const FleetRuntimeTraceContext& trace
 
   if (success) {
     spdlog::info(
-        "[FleetRuntimePost] source={} localSeq={} target={} mode={} outcome=success statusCode={} elapsedMs={}",
-        trace.source, trace.localSequence, target, mode, status_code, elapsed_ms);
+        "[FleetRuntimePost] source={} owner={} seam={} reason={} effect={} localSeq={} target={} mode={} "
+        "outcome=success statusCode={} elapsedMs={}",
+        trace.source, trace.owner, trace.seam, trace.reason, trace.effect, trace.localSequence, target, mode,
+        status_code, elapsed_ms);
   } else {
     spdlog::warn(
-        "[FleetRuntimePost] source={} localSeq={} target={} mode={} outcome=failure statusCode={} errorClass={} "
-        "elapsedMs={}",
-        trace.source, trace.localSequence, target, mode, status_code, error_class, elapsed_ms);
+        "[FleetRuntimePost] source={} owner={} seam={} reason={} effect={} localSeq={} target={} mode={} "
+        "outcome=failure statusCode={} errorClass={} elapsedMs={}",
+        trace.source, trace.owner, trace.seam, trace.reason, trace.effect, trace.localSequence, target, mode,
+        status_code, error_class, elapsed_ms);
   }
 
   record_recent_event("fleet-runtime-post",
                       with_summary(json{{"source", trace.source},
+                                        {"owner", trace.owner},
+                                        {"seam", trace.seam},
+                                        {"reason", trace.reason},
+                                        {"effect", trace.effect},
                                         {"localSequence", trace.localSequence},
                                         {"observedAtMs", trace.observedAtMs},
                                         {"target", target},
