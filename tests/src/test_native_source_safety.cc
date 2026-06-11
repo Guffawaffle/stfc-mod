@@ -82,3 +82,17 @@ TEST_CASE("fleet runtime sync requests require gameplay dispatch provenance")
   const auto live_debug_source = read_text_file("mods/src/patches/parts/live_debug.cc");
   CHECK_FALSE(contains(live_debug_source, "fleet_runtime_sync_trigger(\""));
 }
+
+TEST_CASE("sidecar local enqueue requires copied payload provenance")
+{
+  const auto sidecar_header = read_text_file("mods/src/patches/sidecar_local_ingest.h");
+  CHECK_FALSE(contains(sidecar_header, "EnqueueBattleEvents(const nlohmann::json& events);"));
+  CHECK_FALSE(contains(sidecar_header, "EnqueueFleetRuntimeSnapshot(const nlohmann::json& payload);"));
+  CHECK(contains(sidecar_header, "const SidecarLocalDispatchContext& context"));
+
+  const auto battle_source = read_text_file("mods/src/patches/sync_battle_logs.cc");
+  CHECK_FALSE(contains(battle_source, "EnqueueBattleEvents(sidecar_events);"));
+
+  const auto fleet_source = read_text_file("mods/src/patches/fleet_runtime_sync.cc");
+  CHECK_FALSE(contains(fleet_source, "EnqueueFleetRuntimeSnapshot(payload);"));
+}

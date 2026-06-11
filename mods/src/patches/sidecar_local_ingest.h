@@ -1,5 +1,7 @@
 #pragma once
 
+#include "patches/sidecar_local_dispatch_context.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -23,7 +25,7 @@ std::string_view FleetRuntimeMode();
 bool FleetRuntimeRequestOnlyMode();
 bool FleetRuntimeSnapshotOnlyMode();
 bool FleetRuntimeEnqueueNoTransportMode();
-bool EnqueueBattleEvents(const nlohmann::json& events);
-EnqueueResult EnqueueFleetRuntimeSnapshot(const nlohmann::json& payload);
+bool EnqueueBattleEvents(const nlohmann::json& events, const SidecarLocalDispatchContext& context);
+EnqueueResult EnqueueFleetRuntimeSnapshot(const nlohmann::json& payload, const SidecarLocalDispatchContext& context);
 void Shutdown();
 } // namespace sidecar_local_ingest

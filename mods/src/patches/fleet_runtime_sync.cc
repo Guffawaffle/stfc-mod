@@ -303,7 +303,7 @@ void fleet_runtime_sync_process_pending()
 
   if (sidecar_local_ingest::FleetRuntimeRequestOnlyMode()) {
     spdlog::info("[FleetRuntimeSync] stage=capture source={} owner={} seam={} reason={} effect={} decision=skipped "
-                 "skipReason=request-only mode={}",
+                 "skipReason=request-only mode={} classification=quarantined-diagnostic-mode",
                  dispatch.source,
                  dispatch.owner,
                  dispatch.seam,
@@ -368,7 +368,8 @@ void fleet_runtime_sync_capture(const GameplayDispatchContext& dispatch)
   if (sidecar_local_ingest::FleetRuntimeEnabled()) {
     if (sidecar_local_ingest::FleetRuntimeSnapshotOnlyMode()) {
       spdlog::info("[FleetRuntimeSync] stage=sidecar-publish source={} owner={} seam={} reason={} effect={} "
-                   "decision=skipped skipReason=snapshot-only captureDurationMs={} mode={}",
+                   "decision=skipped skipReason=snapshot-only captureDurationMs={} mode={} "
+                   "classification=quarantined-diagnostic-mode",
                    dispatch.source,
                    dispatch.owner,
                    dispatch.seam,
@@ -379,8 +380,14 @@ void fleet_runtime_sync_capture(const GameplayDispatchContext& dispatch)
       return;
     }
 
+    const auto sidecar_context = sidecar_local_dispatch_context(
+        dispatch,
+        "stfc.fleet.runtime_snapshot.v1",
+        "runtime-evidence",
+        "sidecar-local.fleet-runtime",
+        "game thread copied fleet runtime snapshot before async sidecar publish");
     const auto enqueue_started_at = std::chrono::steady_clock::now();
-    const auto enqueue = sidecar_local_ingest::EnqueueFleetRuntimeSnapshot(payload);
+    const auto enqueue = sidecar_local_ingest::EnqueueFleetRuntimeSnapshot(payload, sidecar_context);
     const auto enqueue_duration_us = std::chrono::duration_cast<std::chrono::microseconds>(
                                          std::chrono::steady_clock::now() - enqueue_started_at)
                                          .count();

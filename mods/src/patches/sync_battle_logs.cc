@@ -1040,7 +1040,13 @@ static void ship_combat_log_data()
           spdlog::debug("Exported {} realtime battle feed event(s) for journal {}", sidecar_events.size(), journal_id);
         }
         if (export_sidecar_local && !sidecar_events.empty()) {
-          sidecar_local_ingest::EnqueueBattleEvents(sidecar_events);
+          const auto sidecar_context = sidecar_local_dispatch_context(
+              dispatch.dispatch,
+              "stfc.sidecar.events.v0",
+              dispatch.classification,
+              "sidecar-local.battle-events",
+              "combat log worker copied battle sidecar events before async sidecar publish");
+          sidecar_local_ingest::EnqueueBattleEvents(sidecar_events, sidecar_context);
         }
       }
 
