@@ -16,6 +16,14 @@ The scanner makes unmanaged hook-like behavior visible:
 
 ## Command
 
+Normal AXF review contract:
+
+```text
+global.stfc-mod.review-contract
+```
+
+This is the blocking command agents should run before reporting code or hook-adjacent branches as review-ready. It runs the gameplay seam scanner, `git diff --check`, `git diff --cached --check`, and AX `pure-tests`.
+
 Windows:
 
 ```powershell
@@ -80,6 +88,8 @@ These failures are review gates, not automatic proof of a bug. The expected resp
 - reject the hook
 - add a reviewed temporary exception to the baseline with rationale
 - update the baseline after intentionally removing or migrating a legacy site
+
+In `global.stfc-mod.review-contract`, scanner failures are blocking. The standalone scanner is also blocking by exit code, but it is scoped to this tripwire only and does not replace the full review contract.
 
 ## Boundaries
 

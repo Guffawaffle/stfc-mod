@@ -13,6 +13,7 @@ is present.
 Primary capability IDs include:
 
 ```text
+global.stfc-mod.review-contract
 global.stfc-mod.doctor
 global.stfc-mod.windows-interop
 global.stfc-mod.status
@@ -22,6 +23,20 @@ global.stfc-mod.cycle
 ```
 
 Raw CLI execution is for provider development and manual debugging only.
+
+## Review Contract
+
+Use `global.stfc-mod.review-contract` as the normal blocking agent review gate
+for code and hook-adjacent branches. It runs:
+
+- `scripts/scan_gameplay_seams.py` against the unmanaged gameplay seam baseline
+- `git diff --check`
+- `git diff --cached --check`
+- AX `pure-tests`
+
+The gameplay seam scanner is blocking in this contract. The standalone scanner
+command remains useful for focused local checks, but review-ready branches should
+use the AXF review contract so the scanner is not skipped.
 
 For AXF 1.0.0 and later, this repo owns its STFC family manifests locally.
 Run `axf scout --write` from the repo root to regenerate
