@@ -2,6 +2,11 @@
 
 The notification stack is split between a thin platform router and targeted feature modules.
 
+Sidecar fleet alerting is not part of the native OS/audio notification delivery
+path yet. See [Sidecar Fleet Alert Evidence Contract](SIDECAR_FLEET_ALERT_CONTRACT.md)
+for the provider-neutral evidence/intent/provider model that should guide future
+sidecar alerts.
+
 ## Boundaries
 
 - `notification_service.cc` owns generic toast routing, queue batching, localization fallback, and OS notification delivery.
