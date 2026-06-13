@@ -81,6 +81,8 @@ namespace Graphics
   constexpr bool use_presets_as_default = true;
   /// Maximum camera zoom distance (game units). Default: 5000.
   constexpr auto zoom = 5000;
+  /// Scale the system backdrop to hide edge void at extreme zoom. 1.0 = off. Default: 2.0.
+  constexpr auto fr_scale = 2.0;
   /// Replace TVC/SlideShow backgrounds. Default: true.
   constexpr bool loader_transition = true;
   /// Replace LoginSequence background. Default: true.
