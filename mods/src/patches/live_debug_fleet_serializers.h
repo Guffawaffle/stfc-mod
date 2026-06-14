@@ -21,6 +21,11 @@ struct FleetObservation {
   int         previousState = -1;
   int         cargoFillPercent = -1;
   int         cargoFillBasisPoints = -1;
+  int64_t     activeTimerRemainingMs = -1;
+  int64_t     activeTimerRemainingTicks = -1;
+  int         activeTimerType = -1;
+  int         activeTimerState = -1;
+  bool        activeTimerShowLabel = false;
   std::string hullName;
   std::optional<std::string> shipIdentityProbeId;
 };
@@ -35,6 +40,11 @@ struct FleetSlotObservation {
   int         previousState = -1;
   int         cargoFillPercent = -1;
   int         cargoFillBasisPoints = -1;
+  int64_t     activeTimerRemainingMs = -1;
+  int64_t     activeTimerRemainingTicks = -1;
+  int         activeTimerType = -1;
+  int         activeTimerState = -1;
+  bool        activeTimerShowLabel = false;
   std::string hullName;
   std::optional<std::string> shipIdentityProbeId;
 };

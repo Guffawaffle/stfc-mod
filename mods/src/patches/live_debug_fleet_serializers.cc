@@ -55,6 +55,18 @@ const char* ship_identity_probe_source()
 {
   return "FleetPlayerData.Ship.ID";
 }
+
+json active_timer_to_json(int64_t remaining_ticks, int64_t remaining_ms, int timer_type, int timer_state,
+                          bool show_timer_label)
+{
+  return {{"remainingTicks", remaining_ticks},
+          {"remainingMs", remaining_ms},
+          {"remainingSeconds", static_cast<double>(remaining_ms) / 1000.0},
+          {"timerType", timer_type},
+          {"timerState", timer_state},
+          {"showTimerLabel", show_timer_label},
+          {"source", "FleetPlayerData.Timer.RemainingTime"}};
+}
 }
 
 const char* fleet_state_name_from_value(int state)
@@ -87,6 +99,13 @@ json fleet_observation_to_json(const FleetObservation& observation)
     result["fleet"]["previousStateName"] = fleet_state_name_from_value(observation.previousState);
     result["fleet"]["cargoFillPercent"] = observation.cargoFillPercent;
     result["fleet"]["cargoFillBasisPoints"] = observation.cargoFillBasisPoints;
+    if (observation.activeTimerRemainingMs >= 0) {
+      result["fleet"]["activeTimer"] = active_timer_to_json(observation.activeTimerRemainingTicks,
+                                                            observation.activeTimerRemainingMs,
+                                                            observation.activeTimerType,
+                                                            observation.activeTimerState,
+                                                            observation.activeTimerShowLabel);
+    }
     if (observation.hullSpecId >= 0) {
       result["fleet"]["hullSpecId"] = observation.hullSpecId;
     }
@@ -119,6 +138,13 @@ json fleet_slot_observation_to_json(const FleetSlotObservation& observation)
   result["previousStateName"] = fleet_state_name_from_value(observation.previousState);
   result["cargoFillPercent"] = observation.cargoFillPercent;
   result["cargoFillBasisPoints"] = observation.cargoFillBasisPoints;
+  if (observation.activeTimerRemainingMs >= 0) {
+    result["activeTimer"] = active_timer_to_json(observation.activeTimerRemainingTicks,
+                                                 observation.activeTimerRemainingMs,
+                                                 observation.activeTimerType,
+                                                 observation.activeTimerState,
+                                                 observation.activeTimerShowLabel);
+  }
   if (observation.hullSpecId >= 0) {
     result["hullSpecId"] = observation.hullSpecId;
   }

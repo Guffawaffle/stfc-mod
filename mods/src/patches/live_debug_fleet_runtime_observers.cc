@@ -16,11 +16,36 @@
 #include <string>
 
 namespace {
+constexpr int64_t kTimeSpanTicksPerMillisecond = 10000;
+
 std::string pointer_to_string(const void* pointer)
 {
   std::ostringstream stream;
   stream << pointer;
   return stream.str();
+}
+
+template <typename T> void observe_active_timer(FleetPlayerData* fleet, T& observation)
+{
+  if (!fleet) {
+    return;
+  }
+
+  auto timer = fleet->Timer;
+  if (!timer) {
+    return;
+  }
+
+  const auto remaining_ticks = timer->RemainingTime.Ticks;
+  if (remaining_ticks <= 0) {
+    return;
+  }
+
+  observation.activeTimerRemainingTicks = remaining_ticks;
+  observation.activeTimerRemainingMs = remaining_ticks / kTimeSpanTicksPerMillisecond;
+  observation.activeTimerType = timer->TimerTypeValue;
+  observation.activeTimerState = timer->TimerStateValue;
+  observation.activeTimerShowLabel = timer->ShowTimerLabel;
 }
 
 FleetSlotObservation observe_fleet_slot(int slot_index, FleetBarViewController* fleet_bar)
@@ -45,6 +70,7 @@ FleetSlotObservation observe_fleet_slot(int slot_index, FleetBarViewController* 
   observation.previousState = static_cast<int>(fleet->PreviousState);
   observation.cargoFillPercent = static_cast<int>(fleet->CargoResourceFillLevel * 100.0f);
   observation.cargoFillBasisPoints = static_cast<int>(fleet->CargoResourceFillLevel * 10000.0f);
+  observe_active_timer(fleet, observation);
 
   if (auto hull = fleet->Hull; hull) {
     observation.hullSpecId = hull->Id;
@@ -83,6 +109,7 @@ FleetObservation observe_fleetbar(FleetBarViewController* fleet_bar)
     observation.previousState = static_cast<int>(fleet->PreviousState);
     observation.cargoFillPercent = static_cast<int>(fleet->CargoResourceFillLevel * 100.0f);
     observation.cargoFillBasisPoints = static_cast<int>(fleet->CargoResourceFillLevel * 10000.0f);
+    observe_active_timer(fleet, observation);
 
     if (auto hull = fleet->Hull; hull) {
       observation.hullSpecId = hull->Id;

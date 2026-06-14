@@ -18,6 +18,7 @@ bool same_fleet_observation(const FleetObservation& left, const FleetObservation
       left.hasController == right.hasController && left.hasFleet == right.hasFleet &&
   left.fleetId == right.fleetId && left.hullSpecId == right.hullSpecId && left.currentState == right.currentState &&
       left.previousState == right.previousState && left.cargoFillBasisPoints == right.cargoFillBasisPoints &&
+      left.activeTimerRemainingMs == right.activeTimerRemainingMs &&
       left.hullName == right.hullName;
 }
 
@@ -26,6 +27,7 @@ bool same_fleet_slot_observation(const FleetSlotObservation& left, const FleetSl
   return left.slotIndex == right.slotIndex && left.present == right.present &&
   left.fleetId == right.fleetId && left.hullSpecId == right.hullSpecId && left.currentState == right.currentState &&
       left.previousState == right.previousState && left.cargoFillBasisPoints == right.cargoFillBasisPoints &&
+      left.activeTimerRemainingMs == right.activeTimerRemainingMs &&
       left.hullName == right.hullName;
 }
 

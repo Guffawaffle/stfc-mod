@@ -6,6 +6,7 @@
 #include "RecallRequirement.h"
 #include "Ship.h"
 #include "CanRepairRequirement.h"
+#include "TimerDataContext.h"
 
 #include <cstdint>
 
@@ -44,6 +45,7 @@ public:
   __declspec(property(get = __get_Address)) void* Address;
   __declspec(property(get = __get_RecallRequirements)) RecallRequirement* RecallRequirements;
   __declspec(property(get = __get_CanRepairRequirement)) CanRepairRequirement* CanRepairRequirements;
+  __declspec(property(get = __get_Timer)) TimerDataContext* Timer;
 
 private:
   static IL2CppClassHelper& get_class_helper()
@@ -99,6 +101,12 @@ public:
   {
     static auto field = get_class_helper().GetProperty("CanRepairRequirement");
     return field.GetRaw<CanRepairRequirement>(this);
+  }
+
+  TimerDataContext* __get_Timer()
+  {
+    static auto field = get_class_helper().GetProperty("Timer");
+    return field.GetRaw<TimerDataContext>(this);
   }
 
 

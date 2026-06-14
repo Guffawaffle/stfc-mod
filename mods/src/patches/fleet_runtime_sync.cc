@@ -46,6 +46,7 @@ struct FleetSlotStateKey {
   int         current_state = -1;
   int         previous_state = -1;
   int         cargo_fill_percent = -1;
+  int64_t     active_timer_remaining_ms = -1;
   std::string hull_name;
   std::optional<std::string> ship_identity_probe_id;
 
@@ -62,6 +63,7 @@ struct FleetStateKey {
   int         current_state = -1;
   int         previous_state = -1;
   int         cargo_fill_percent = -1;
+  int64_t     active_timer_remaining_ms = -1;
   std::string hull_name;
   std::optional<std::string> ship_identity_probe_id;
 
@@ -105,6 +107,7 @@ FleetStateKey make_state_key(const FleetObservation& fleet,
   key.current_state = fleet.currentState;
   key.previous_state = fleet.previousState;
   key.cargo_fill_percent = cargo_fill_percent_bucket(fleet.cargoFillBasisPoints, fleet.cargoFillPercent);
+  key.active_timer_remaining_ms = fleet.activeTimerRemainingMs;
   key.hull_name = fleet.hullName;
   key.ship_identity_probe_id = fleet.shipIdentityProbeId;
 
@@ -118,6 +121,7 @@ FleetStateKey make_state_key(const FleetObservation& fleet,
     state.current_state = slot.currentState;
     state.previous_state = slot.previousState;
     state.cargo_fill_percent = cargo_fill_percent_bucket(slot.cargoFillBasisPoints, slot.cargoFillPercent);
+    state.active_timer_remaining_ms = slot.activeTimerRemainingMs;
     state.hull_name = slot.hullName;
     state.ship_identity_probe_id = slot.shipIdentityProbeId;
   }
@@ -146,6 +150,17 @@ json fleet_to_json(const FleetObservation& fleet)
   result["previousStateName"] = fleet_state_name_from_value(fleet.previousState);
   result["cargoFillPercent"] = fleet.cargoFillPercent;
   result["cargoFillBasisPoints"] = fleet.cargoFillBasisPoints;
+  if (fleet.activeTimerRemainingMs >= 0) {
+    result["activeTimer"] = {
+        {"remainingTicks", fleet.activeTimerRemainingTicks},
+        {"remainingMs", fleet.activeTimerRemainingMs},
+        {"remainingSeconds", static_cast<double>(fleet.activeTimerRemainingMs) / 1000.0},
+        {"timerType", fleet.activeTimerType},
+        {"timerState", fleet.activeTimerState},
+        {"showTimerLabel", fleet.activeTimerShowLabel},
+        {"source", "FleetPlayerData.Timer.RemainingTime"},
+    };
+  }
   if (fleet.hullSpecId >= 0) {
     result["hullSpecId"] = fleet.hullSpecId;
   }
@@ -178,6 +193,17 @@ json fleet_slot_to_json(const FleetSlotObservation& slot)
   result["previousStateName"] = fleet_state_name_from_value(slot.previousState);
   result["cargoFillPercent"] = slot.cargoFillPercent;
   result["cargoFillBasisPoints"] = slot.cargoFillBasisPoints;
+  if (slot.activeTimerRemainingMs >= 0) {
+    result["activeTimer"] = {
+        {"remainingTicks", slot.activeTimerRemainingTicks},
+        {"remainingMs", slot.activeTimerRemainingMs},
+        {"remainingSeconds", static_cast<double>(slot.activeTimerRemainingMs) / 1000.0},
+        {"timerType", slot.activeTimerType},
+        {"timerState", slot.activeTimerState},
+        {"showTimerLabel", slot.activeTimerShowLabel},
+        {"source", "FleetPlayerData.Timer.RemainingTime"},
+    };
+  }
   if (slot.hullSpecId >= 0) {
     result["hullSpecId"] = slot.hullSpecId;
   }
