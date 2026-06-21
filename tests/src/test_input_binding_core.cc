@@ -427,7 +427,7 @@ select_ship1 = ["", "1"]
     CHECK(warned_for_empty_item);
   }
 
-  TEST_CASE("array binding with no valid items falls back to default and warns")
+  TEST_CASE("array binding with no valid items disables the action and warns")
   {
     const auto config = toml::parse(R"(
 [shortcuts]
@@ -440,8 +440,8 @@ select_ship1 = ["", "   "]
     });
 
     REQUIRE(ship1 != bridge.bindings.end());
-    CHECK(ship1->binding == "1"); // SelectShip1 default
-    CHECK(ship1->source_kind == input_binding::BindingConfigSourceKind::Default);
+    CHECK(ship1->binding == "NONE");
+    CHECK(ship1->source_key == "[shortcuts].select_ship1");
 
     const bool warned_for_no_valid_items =
         std::ranges::any_of(bridge.compatibility_warnings, [](const std::string& warning) {
@@ -449,6 +449,23 @@ select_ship1 = ["", "   "]
                  && warning.find("no valid string items") != std::string::npos;
         });
     CHECK(warned_for_no_valid_items);
+  }
+
+  TEST_CASE("explicit invalid binding string disables instead of falling back to default")
+  {
+    const auto config = toml::parse(R"(
+[shortcuts]
+zoom_preset1 = "NOT_A_KEY"
+)");
+
+    const auto bridge       = input_binding::ResolveInputBindingConfig(config);
+    const auto zoom_preset1 = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::ZoomPreset1;
+    });
+
+    REQUIRE(zoom_preset1 != bridge.bindings.end());
+    CHECK(zoom_preset1->binding == "NONE");
+    CHECK(zoom_preset1->source_key == "[shortcuts].zoom_preset1");
   }
 
   TEST_CASE("config bridge accepts migrated chat and officer canvas aliases")
