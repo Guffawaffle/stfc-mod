@@ -177,6 +177,32 @@ namespace
     return AsciiStrToUpper(trimmed);
   }
 
+  std::string normalize_explicit_binding_or_none(std::string normalized, const std::string& source_key,
+                                                 ConfigBridgeResult& result)
+  {
+    const auto parsed = ParseBinding(normalized);
+    for (const auto& diagnostic : parsed.diagnostics) {
+      if (diagnostic.severity == DiagnosticSeverity::Warning) {
+        add_warning(result, source_key + ": " + diagnostic.message + "; ignoring invalid token.");
+      }
+    }
+
+    if (parsed.unbound) {
+      return "NONE";
+    }
+
+    if (!parsed.has_valid_chord()) {
+      add_warning(result, source_key + " has no valid shortcut tokens; disabling configured action.");
+      return "NONE";
+    }
+
+    if (parsed.has_warnings()) {
+      return parsed.DisplayString();
+    }
+
+    return normalized;
+  }
+
   const toml::table* input_bindings_table(const toml::table& config)
   {
     const auto* input = config["input"].as_table();
@@ -194,7 +220,7 @@ namespace
       if (!normalized) {
         return std::string{"NONE"};
       }
-      return normalized;
+      return normalize_explicit_binding_or_none(std::move(*normalized), source_key, result);
     }
 
     if (const auto* array = node.as_array()) {
@@ -219,15 +245,15 @@ namespace
       }
 
       if (joined.empty()) {
-        add_warning(result, source_key + " has no valid string items; ignoring configured value.");
-        return std::nullopt;
+        add_warning(result, source_key + " has no valid string items; disabling configured action.");
+        return std::string{"NONE"};
       }
 
-      return joined;
+      return normalize_explicit_binding_or_none(std::move(joined), source_key, result);
     }
 
-    add_warning(result, source_key + " must be a string or array of strings; ignoring configured value.");
-    return std::nullopt;
+    add_warning(result, source_key + " must be a string or array of strings; disabling configured action.");
+    return std::string{"NONE"};
   }
 
   std::optional<BindingCandidate> read_candidate(const toml::table* table, const std::string_view key,

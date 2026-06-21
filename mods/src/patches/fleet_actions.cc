@@ -85,6 +85,16 @@ template <typename T> bool IsViewerVisible(T* widget)
              || widget->_visibilityController->_state == VisibilityState::Show);
 }
 
+bool IsVisibilityVisibleOrShowing(VisibilityController* visibility_controller)
+{
+  if (!visibility_controller) {
+    return false;
+  }
+
+  const auto state = visibility_controller->State;
+  return state == VisibilityState::Visible || state == VisibilityState::Show;
+}
+
 VisibilityState GetArmadaVisibilityState(ArmadaObjectViewerWidget* armada_widget)
 {
   if (!armada_widget) {
@@ -327,12 +337,53 @@ struct SpaceActionRuntimeContext {
   bool                                     star_node_visible                = false;
   NavigationInteractionUIViewController*   navigation_ui_controller         = nullptr;
   bool                                     navigation_interaction_visible   = false;
+  bool                                     navigation_set_course_actionable = false;
   ArmadaObjectViewerWidget*                armada_widget                    = nullptr;
   bool                                     armada_visible                   = false;
   bool                                     used_pre_scan_fallback           = false;
   uint64_t                                 context_duration_us              = 0;
   uint64_t                                 pre_scan_fallback_duration_us    = 0;
 };
+
+constexpr int kNavigationContextDataStateVerified        = 0;
+constexpr int kInputInteractionTypeHideAll               = 0;
+constexpr int kInputInteractionTypeTapOutOfBounds        = 13;
+constexpr int kInputInteractionTypeInvalidAction         = 28;
+constexpr int kInputInteractionTypeInvalidFleetSelection = 29;
+
+bool IsSetCourseContextTypeAllowed(const int interaction_type)
+{
+  return interaction_type != kInputInteractionTypeHideAll && interaction_type != kInputInteractionTypeTapOutOfBounds
+         && interaction_type != kInputInteractionTypeInvalidAction
+         && interaction_type != kInputInteractionTypeInvalidFleetSelection;
+}
+
+bool IsSetCourseWidgetActionable(SetCourseWidget* set_course_widget)
+{
+  if (!set_course_widget || !set_course_widget->_isVisible
+      || !IsVisibilityVisibleOrShowing(set_course_widget->_visibilityController)) {
+    return false;
+  }
+
+  auto* set_course_button = set_course_widget->SetCourseButton;
+  return set_course_button && set_course_button->Interactable;
+}
+
+bool IsNavigationSetCourseActionable(NavigationInteractionUIViewController* navigation_ui_controller)
+{
+  if (!navigation_ui_controller) {
+    return false;
+  }
+
+  auto* navigation_context = navigation_ui_controller->CanvasContext;
+  if (!navigation_context || navigation_context->ContextDataState != kNavigationContextDataStateVerified
+      || !IsSetCourseContextTypeAllowed(navigation_context->InputInteractionType)
+      || !(navigation_context->ValidNavigationInput || navigation_context->ShowSetCourseArm)) {
+    return false;
+  }
+
+  return IsSetCourseWidgetActionable(navigation_ui_controller->_setCourseWidget);
+}
 
 bool TryExecuteQueueAdd(PreScanTargetWidget* pre_scan_widget, SpaceActionDiagnostics& diagnostics)
 {
@@ -515,6 +566,8 @@ SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet
       runtime_context.navigation_interaction_visible =
           navigation_context->ValidNavigationInput || navigation_context->ShowSetCourseArm;
     }
+    runtime_context.navigation_set_course_actionable =
+        IsNavigationSetCourseActionable(runtime_context.navigation_ui_controller);
   }
 
   runtime_context.armada_widget  = ObjectFinder<ArmadaObjectViewerWidget>::Get();
@@ -658,9 +711,10 @@ bool ShouldPreferContextActionOverWarpCancel(const SpaceActionRuntimeContext& ru
                                              bool has_secondary, bool has_queue)
 {
   const auto has_visible_pre_scan_target = runtime_context.visible_pre_scan_target_count > 0;
-  const auto has_primary_context         = has_visible_pre_scan_target || runtime_context.mining_viewer_visible
-                                           || runtime_context.star_node_visible
-                                           || runtime_context.navigation_interaction_visible;
+  const auto has_primary_context =
+      has_visible_pre_scan_target || runtime_context.mining_viewer_visible || runtime_context.star_node_visible
+      || runtime_context.navigation_set_course_actionable
+      || (runtime_context.navigation_interaction_visible && runtime_context.armada_visible);
   const auto has_secondary_context =
       has_visible_pre_scan_target || runtime_context.mining_viewer_visible || runtime_context.star_node_visible;
   const auto has_queue_context = has_visible_pre_scan_target;
@@ -711,6 +765,10 @@ bool TryHandleNoPreScanPrimaryOutcome(FleetPrimaryOutcome outcome, const SpaceAc
     case FleetPrimaryOutcome::SetCourse:
       if (!runtime_context.navigation_ui_controller) {
         diagnostics.SetOutcome("set-course-controller-missing");
+        return false;
+      }
+      if (!runtime_context.navigation_set_course_actionable) {
+        diagnostics.SetOutcome("set-course-not-actionable");
         return false;
       }
       diagnostics.MeasureOutcomeExecution(
@@ -1151,12 +1209,14 @@ bool ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
     const auto armada_join_button_present = armada_join_button != nullptr;
 
     FleetPrimaryDecisionInput primary_input;
-    primary_input.fleet_state                    = ToFleetInputState(fleet->CurrentState);
-    primary_input.mining_viewer_visible          = runtime_context.mining_viewer_visible;
-    primary_input.star_node_visible              = runtime_context.star_node_visible;
-    primary_input.navigation_interaction_visible = runtime_context.navigation_interaction_visible;
-    primary_input.armada_widget_visible          = runtime_context.armada_widget && runtime_context.armada_visible;
-    primary_input.armada_join_interactable       = armada_join_button_present && armada_join_button->Interactable;
+    primary_input.fleet_state           = ToFleetInputState(fleet->CurrentState);
+    primary_input.mining_viewer_visible = runtime_context.mining_viewer_visible;
+    primary_input.star_node_visible     = runtime_context.star_node_visible;
+    primary_input.armada_widget_visible = runtime_context.armada_widget && runtime_context.armada_visible;
+    primary_input.navigation_interaction_visible =
+        runtime_context.navigation_set_course_actionable
+        || (runtime_context.navigation_interaction_visible && primary_input.armada_widget_visible);
+    primary_input.armada_join_interactable = armada_join_button_present && armada_join_button->Interactable;
 
     if (TryHandleNoPreScanPrimaryOutcome(DecideFleetPrimary(primary_input), runtime_context, armada_join_button_present,
                                          diagnostics)) {

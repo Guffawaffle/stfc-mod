@@ -125,11 +125,12 @@ void GameServerModelRegistry_ProcessResultInternal(auto original, void* _this, v
  * Same pattern as ProcessResultInternal but for binary-only responses.
  */
 void GameServerModelRegistry_ParseBinaryObjectsHelper(auto original, void* _this, void* parsing_context,
-                                                      ServiceResponse* service_response, MethodInfo* method)
+                                                      ServiceResponse* service_response, void* parsedEntityTypes,
+                                                      MethodInfo* method)
 {
   HandleServiceResponseEntityGroups(service_response);
 
-  return original(_this, parsing_context, service_response, method);
+  return original(_this, parsing_context, service_response, parsedEntityTypes, method);
 }
 
 /**

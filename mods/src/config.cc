@@ -9,8 +9,8 @@
 #include "config.h"
 #include "config_metadata.h"
 #include "config_redaction.h"
-#include "config_sidecar.h"
 #include "config_schema.h"
+#include "config_sidecar.h"
 #include "file.h"
 #include "patches/action_queue_repair_config.h"
 #include "patches/input_binding/input_config_bridge.h"
@@ -69,26 +69,26 @@ static_assert(!DCS::allow_unsafe_tls_without_certificate_validation, "Unsafe TLS
 
 // Standalone flag — NOT in Config struct to avoid struct layout sensitivity.
 // See: fix/lto-and-sync-crashes for context on why Config struct changes crash.
-static bool                  g_allow_key_fallthrough             = false;
-static ScopelyShortcutPolicy g_scopely_shortcuts_policy          = ScopelyShortcutPolicy::Off;
-static OriginalFramePolicy   g_original_frame_policy             = OriginalFramePolicy::Mod;
-static bool                  g_live_debug_channel                = DCAD::live_query;
-static bool                  g_queue_repair_enabled              = DCAQ::queue_repair_enabled;
+static bool                      g_allow_key_fallthrough    = false;
+static ScopelyShortcutPolicy     g_scopely_shortcuts_policy = ScopelyShortcutPolicy::Off;
+static OriginalFramePolicy       g_original_frame_policy    = OriginalFramePolicy::Mod;
+static bool                      g_live_debug_channel       = DCAD::live_query;
+static bool                      g_queue_repair_enabled     = DCAQ::queue_repair_enabled;
 static KirsharaQueueRepairConfig g_kirshara_queue_repair_config{};
-static bool                  g_queue_add_direct_handler          = DCAQ::queue_add_direct_handler;
-static bool                  g_queue_add_hide_viewers            = DCAQ::queue_add_hide_viewers;
-static bool                  g_battle_log_decoder_enabled        = false;
-static bool                  g_battle_log_decoder_segments       = true;
-static bool                  g_battle_log_decoder_feed           = true;
-static SidecarConfig         g_sidecar_config{};
-static AdvancedConfig        g_advanced_config{};
-static int                   g_sidecar_logging_jsonl_replay_seconds = DCSL::jsonl_replay_seconds;
-static int                   g_sidecar_logging_jsonl_recent_logs    = DCSL::jsonl_recent_logs;
-static bool                  g_refinery_diagnostics              = DCAD::refinery_diagnostics;
-static bool                  g_mod_impact_monitor                = DCAD::mod_impact_monitor;
-static RuntimeTraceLevel     g_runtime_trace_level               = RuntimeTraceLevel::Off;
-static bool                  g_runtime_trace_track_overhead      = DCAD::runtime_trace_track_overhead;
-static int                   g_runtime_trace_report_interval_ms  = DCAD::runtime_trace_report_interval_ms;
+static bool                      g_queue_add_direct_handler    = DCAQ::queue_add_direct_handler;
+static bool                      g_queue_add_hide_viewers      = DCAQ::queue_add_hide_viewers;
+static bool                      g_battle_log_decoder_enabled  = false;
+static bool                      g_battle_log_decoder_segments = true;
+static bool                      g_battle_log_decoder_feed     = true;
+static SidecarConfig             g_sidecar_config{};
+static AdvancedConfig            g_advanced_config{};
+static int                       g_sidecar_logging_jsonl_replay_seconds = DCSL::jsonl_replay_seconds;
+static int                       g_sidecar_logging_jsonl_recent_logs    = DCSL::jsonl_recent_logs;
+static bool                      g_refinery_diagnostics                 = DCAD::refinery_diagnostics;
+static bool                      g_mod_impact_monitor                   = DCAD::mod_impact_monitor;
+static RuntimeTraceLevel         g_runtime_trace_level                  = RuntimeTraceLevel::Off;
+static bool                      g_runtime_trace_track_overhead         = DCAD::runtime_trace_track_overhead;
+static int                       g_runtime_trace_report_interval_ms     = DCAD::runtime_trace_report_interval_ms;
 
 /** @brief Accessor for the file-scope allow_key_fallthrough flag. */
 bool AllowKeyFallthrough()
@@ -470,15 +470,17 @@ std::optional<std::string> read_string_config_value_if_present(toml::table& conf
 
 std::optional<ScopelyShortcutPolicy> parse_scopely_shortcut_policy(std::string_view value)
 {
-  if (value == "off") {
+  const auto normalized = AsciiStrToUpper(StripAsciiWhitespace(value));
+
+  if (normalized == "OFF") {
     return ScopelyShortcutPolicy::Off;
   }
 
-  if (value == "native") {
+  if (normalized == "NATIVE") {
     return ScopelyShortcutPolicy::Native;
   }
 
-  if (value == "fallback") {
+  if (normalized == "FALLBACK") {
     return ScopelyShortcutPolicy::Fallback;
   }
 
@@ -487,19 +489,68 @@ std::optional<ScopelyShortcutPolicy> parse_scopely_shortcut_policy(std::string_v
 
 std::optional<OriginalFramePolicy> parse_original_frame_policy(std::string_view value)
 {
-  if (value == "mod") {
+  const auto normalized = AsciiStrToUpper(StripAsciiWhitespace(value));
+
+  if (normalized == "MOD") {
     return OriginalFramePolicy::Mod;
   }
 
-  if (value == "fallthrough_unhandled") {
+  if (normalized == "FALLTHROUGH_UNHANDLED") {
     return OriginalFramePolicy::FallthroughUnhandled;
   }
 
-  if (value == "fallthrough_all") {
+  if (normalized == "FALLTHROUGH_ALL") {
     return OriginalFramePolicy::FallthroughAll;
   }
 
   return std::nullopt;
+}
+
+struct ScopelyHotkeysConfigValue {
+  bool                                 use_scopely_hotkeys = DCC::use_scopely_hotkeys;
+  std::optional<ScopelyShortcutPolicy> policy_override;
+};
+
+ScopelyHotkeysConfigValue read_scopely_hotkeys_config(toml::table& config, toml::table& new_config, bool write_log)
+{
+  ScopelyHotkeysConfigValue result;
+  auto                      section = kUseScopelyHotkeysConfig.section;
+  auto                      key     = kUseScopelyHotkeysConfig.key;
+
+  new_config.emplace<toml::table>(section, toml::table());
+  auto* new_section = new_config[section].as_table();
+
+  if (auto* section_table = config[section].as_table(); section_table && section_table->contains(key)) {
+    auto* node = section_table->get(key);
+    if (auto bool_value = node->value<bool>(); bool_value.has_value()) {
+      result.use_scopely_hotkeys = *bool_value;
+    } else if (auto string_value = node->value<std::string>(); string_value.has_value()) {
+      if (auto policy = parse_scopely_shortcut_policy(*string_value)) {
+        result.policy_override     = *policy;
+        result.use_scopely_hotkeys = *policy == ScopelyShortcutPolicy::Native;
+        spdlog::warn("Config [control].use_scopely_hotkeys='{}' is a legacy policy string. Prefer "
+                     "[input].scopely_shortcuts='{}' with [control].use_scopely_hotkeys={}.",
+                     *string_value, scopely_shortcut_policy_name(*policy),
+                     result.use_scopely_hotkeys ? "true" : "false");
+      } else {
+        spdlog::warn("Invalid string config [control].use_scopely_hotkeys value='{}'; expected boolean true/false or "
+                     "legacy policy off/native/fallback. Using default {}.",
+                     *string_value, result.use_scopely_hotkeys);
+      }
+    } else if (node) {
+      spdlog::warn("Invalid config [control].use_scopely_hotkeys ({}). Found {}; using default.",
+                   kUseScopelyHotkeysConfig.docs, get_config_type_as_string(node->type()));
+    }
+  }
+
+  new_section->insert_or_assign(kUseScopelyHotkeysConfig.runtime_key, result.use_scopely_hotkeys);
+
+  if (write_log) {
+    spdlog::debug("config value {}.{} value: {}", section, kUseScopelyHotkeysConfig.runtime_key,
+                  result.use_scopely_hotkeys);
+  }
+
+  return result;
 }
 
 void write_input_policy_config(toml::table& new_config, const ScopelyShortcutPolicy scopely_shortcuts,
@@ -687,7 +738,7 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
     return;
   }
 
-  const auto parse_mode = [](const std::string_view target_section,
+  const auto parse_mode = [](const std::string_view            target_section,
                              const std::optional<std::string>& value) -> SyncTargetConfig::Mode {
     if (!value.has_value() || value->empty() || *value == "legacy") {
       return SyncTargetConfig::Mode::Legacy;
@@ -750,9 +801,10 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
       new_config["sync"]["targets"].as_table()->emplace<toml::table>(target_key.str(), parsed_target);
       spdlog::debug("config value {} url: {}, token: {}, mode: {}", target_section, target.url,
                     mask_token(target.token), to_string(target.mode));
-      spdlog::info("target [{}] mode: {}, proxy: '{}', verify_ssl: {}, allow_unsafe_tls_without_certificate_validation: {}",
-                   target_section, to_string(target.mode), mask_proxy_for_log(target.proxy), target.verify_ssl,
-                   target.allow_unsafe_tls_without_certificate_validation);
+      spdlog::info(
+          "target [{}] mode: {}, proxy: '{}', verify_ssl: {}, allow_unsafe_tls_without_certificate_validation: {}",
+          target_section, to_string(target.mode), mask_proxy_for_log(target.proxy), target.verify_ssl,
+          target.allow_unsafe_tls_without_certificate_validation);
     }
   }
 }
@@ -764,7 +816,7 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
  * "NONE" explicitly unbinds the shortcut.
  */
 void parse_config_shortcut_value(toml::table& new_config, std::string_view item, GameFunction gameFunction,
-                                 std::string_view config_value, std::string_view default_value)
+                                 std::string_view config_value, std::string_view default_value, bool explicit_value)
 {
   auto section = "shortcuts";
 
@@ -772,7 +824,7 @@ void parse_config_shortcut_value(toml::table& new_config, std::string_view item,
 
   auto sectionTable = new_config[section];
 
-  auto valueTrimmed = StripTrailingAsciiWhitespace(config_value);
+  auto valueTrimmed = StripAsciiWhitespace(config_value);
   auto valueLowered = AsciiStrToUpper(valueTrimmed);
 
   // "NONE" — or an empty/whitespace-only value — explicitly unbinds this shortcut.
@@ -788,8 +840,9 @@ void parse_config_shortcut_value(toml::table& new_config, std::string_view item,
   auto wantedKeys = StrSplit(valueLowered, '|');
 
   bool keyAdded = false;
-  for (std::string_view wantedKey : wantedKeys) {
-    MapKey mapKey = MapKey::Parse(wantedKey);
+  for (std::string_view wantedKeyRaw : wantedKeys) {
+    const auto wantedKey = StripAsciiWhitespace(wantedKeyRaw);
+    MapKey     mapKey    = MapKey::Parse(wantedKey);
 
     if (mapKey.Key != KeyCode::None) {
       keyAdded = true;
@@ -798,10 +851,19 @@ void parse_config_shortcut_value(toml::table& new_config, std::string_view item,
                    config_value);
     }
 
-    MapKey::AddMappedKey(gameFunction, mapKey);
+    if (mapKey.Key != KeyCode::None) {
+      MapKey::AddMappedKey(gameFunction, mapKey);
+    }
   }
 
   if (!keyAdded) {
+    if (explicit_value) {
+      spdlog::warn("No valid shortcut tokens for explicit [shortcuts].{} value='{}'; disabling shortcut.", item,
+                   config_value);
+      sectionTable.as_table()->insert_or_assign(item, "NONE");
+      return;
+    }
+
     spdlog::warn("No valid shortcut tokens for [shortcuts].{} value='{}'; using default '{}'.", item, config_value,
                  default_value);
     MapKey mapKey = MapKey::Parse(default_value);
@@ -821,8 +883,21 @@ void parse_config_shortcut(toml::table& config, toml::table& new_config, std::st
 
   config.emplace<toml::table>(section, toml::table());
 
-  const auto config_value = config[section][item].value_or(std::string(default_value));
-  parse_config_shortcut_value(new_config, item, gameFunction, config_value, default_value);
+  auto*      shortcuts      = config[section].as_table();
+  const auto explicit_value = shortcuts && shortcuts->contains(item);
+  auto       config_value   = std::string(default_value);
+
+  if (explicit_value) {
+    if (auto value = config[section][item].value<std::string>(); value.has_value()) {
+      config_value = *value;
+    } else if (auto* node = shortcuts->get(item); node) {
+      spdlog::warn("Invalid shortcut config [shortcuts].{} ({}). Found {}; disabling shortcut.", item,
+                   "string shortcut binding", get_config_type_as_string(node->type()));
+      config_value = "NONE";
+    }
+  }
+
+  parse_config_shortcut_value(new_config, item, gameFunction, config_value, default_value, explicit_value);
 }
 
 bool shortcut_key_exists(toml::table& config, std::string_view item)
@@ -832,7 +907,22 @@ bool shortcut_key_exists(toml::table& config, std::string_view item)
 }
 
 std::string shortcut_value_or_default(toml::table& config, std::string_view item, std::string_view default_value)
-{ return config["shortcuts"][item].value_or(std::string(default_value)); }
+{
+  auto* shortcuts = config["shortcuts"].as_table();
+  if (!shortcuts || !shortcuts->contains(item)) {
+    return std::string(default_value);
+  }
+
+  if (auto value = config["shortcuts"][item].value<std::string>(); value.has_value()) {
+    return *value;
+  }
+
+  if (auto* node = shortcuts->get(item); node) {
+    spdlog::warn("Invalid shortcut config [shortcuts].{} ({}). Found {}; disabling shortcut.", item,
+                 "string shortcut binding", get_config_type_as_string(node->type()));
+  }
+  return "NONE";
+}
 
 void parse_disable_hotkeys_shortcut(toml::table& config, toml::table& new_config)
 {
@@ -866,8 +956,9 @@ void parse_disable_hotkeys_shortcut(toml::table& config, toml::table& new_config
                  decision.source_key, decision.value);
   }
 
+  const auto has_explicit_shortcut = input.has_canonical || input.has_deprecated_typo || input.has_legacy_disabled;
   parse_config_shortcut_value(new_config, kDisableHotkeysShortcutConfig.runtime_key, GameFunction::DisableHotKeys,
-                              decision.value, kDisableHotkeysShortcutConfig.default_value);
+                              decision.value, kDisableHotkeysShortcutConfig.default_value, has_explicit_shortcut);
 }
 
 /**
@@ -1016,9 +1107,10 @@ void Config::Load()
 
   this->queue_enabled =
       get_config_or_default(config, parsed, "control", "queue_enabled", DCC::queue_enabled, write_config);
-  this->hotkeys_enabled     = read_bool_config_entry(config, parsed, kHotkeysEnabledConfig, write_config);
-  this->hotkeys_extended    = read_bool_config_entry(config, parsed, kHotkeysExtendedConfig, write_config);
-  this->use_scopely_hotkeys = read_bool_config_entry(config, parsed, kUseScopelyHotkeysConfig, write_config);
+  this->hotkeys_enabled  = read_bool_config_entry(config, parsed, kHotkeysEnabledConfig, write_config);
+  this->hotkeys_extended = read_bool_config_entry(config, parsed, kHotkeysExtendedConfig, write_config);
+  const auto legacy_scopely_hotkeys_config = read_scopely_hotkeys_config(config, parsed, write_config);
+  this->use_scopely_hotkeys                = legacy_scopely_hotkeys_config.use_scopely_hotkeys;
   this->select_timer =
       get_config_or_default(config, parsed, "control", "select_timer", DCC::select_timer, write_config);
   this->enable_experimental =
@@ -1027,6 +1119,10 @@ void Config::Load()
   g_allow_key_fallthrough    = read_bool_config_entry(config, parsed, kAllowKeyFallthroughConfig, write_config);
   g_scopely_shortcuts_policy = resolve_scopely_shortcut_policy(this->use_scopely_hotkeys, g_allow_key_fallthrough);
   g_original_frame_policy    = resolve_original_frame_policy(g_allow_key_fallthrough);
+
+  if (legacy_scopely_hotkeys_config.policy_override) {
+    g_scopely_shortcuts_policy = *legacy_scopely_hotkeys_config.policy_override;
+  }
 
   const auto explicit_scopely_policy = config_key_exists(config, "input", "scopely_shortcuts");
   if (auto policy_value = read_string_config_value_if_present(config, "input", "scopely_shortcuts",
@@ -1052,6 +1148,25 @@ void Config::Load()
     }
   }
 
+  const auto legacy_control_frame_policy = config_key_exists(config, "control", "original_frame_policy");
+  if (!explicit_frame_policy) {
+    if (auto policy_value = read_string_config_value_if_present(config, "control", "original_frame_policy",
+                                                                "Original ScreenManager::Update call policy.")) {
+      if (auto policy = parse_original_frame_policy(*policy_value)) {
+        g_original_frame_policy = *policy;
+        spdlog::warn("Config [control].original_frame_policy='{}' is a compatibility alias. Prefer "
+                     "[input].original_frame_policy='{}'.",
+                     *policy_value, original_frame_policy_name(*policy));
+      } else {
+        spdlog::warn("Invalid string config [control].original_frame_policy value='{}'; expected mod, "
+                     "fallthrough_unhandled, or fallthrough_all. Using {}.",
+                     *policy_value, original_frame_policy_name(g_original_frame_policy));
+      }
+    }
+  } else if (legacy_control_frame_policy) {
+    spdlog::warn("Ignoring [control].original_frame_policy because [input].original_frame_policy is set.");
+  }
+
   write_input_policy_config(parsed, g_scopely_shortcuts_policy, g_original_frame_policy);
 
   spdlog::info(
@@ -1060,7 +1175,8 @@ void Config::Load()
       this->installHotkeyHooks, this->hotkeys_enabled, this->use_scopely_hotkeys, g_allow_key_fallthrough,
       scopely_shortcut_policy_name(g_scopely_shortcuts_policy), original_frame_policy_name(g_original_frame_policy));
 
-  if (g_allow_key_fallthrough && !this->use_scopely_hotkeys && !explicit_scopely_policy && !explicit_frame_policy) {
+  if (g_allow_key_fallthrough && !this->use_scopely_hotkeys && !explicit_scopely_policy && !explicit_frame_policy
+      && !legacy_scopely_hotkeys_config.policy_override && !legacy_control_frame_policy) {
     spdlog::warn("[Hotkeys] legacy allow_key_fallthrough=true now leaves scopely_shortcuts={} and maps "
                  "original_frame_policy={}. Native shortcut execution must be explicit or configured with "
                  "[input].scopely_shortcuts.",
@@ -1176,26 +1292,25 @@ void Config::Load()
   for (const auto& diagnostic : kirshara_queue_repair_config_result.diagnostics) {
     log_config_diagnostic(diagnostic);
   }
-  this->sidecar_logging_jsonl          = g_sidecar_config.logging.jsonl;
+  this->sidecar_logging_jsonl            = g_sidecar_config.logging.jsonl;
   g_sidecar_logging_jsonl_replay_seconds = std::max(0, g_sidecar_config.logging.jsonl_replay_seconds);
   g_sidecar_logging_jsonl_recent_logs    = std::max(0, g_sidecar_config.logging.jsonl_recent_logs);
   WriteSidecarConfigRuntimeSnapshot(parsed, g_sidecar_config);
   WriteAdvancedConfigRuntimeSnapshot(parsed, g_advanced_config);
   WriteKirsharaQueueRepairRuntimeSnapshot(parsed, kirshara_queue_repair_config_result.config);
-  g_live_debug_channel = g_advanced_config.diagnostics.live_query;
+  g_live_debug_channel           = g_advanced_config.diagnostics.live_query;
   g_kirshara_queue_repair_config = kirshara_queue_repair_config_result.config;
-  g_queue_repair_enabled     = g_advanced_config.queue.queue_repair_enabled;
-  g_queue_add_direct_handler = g_advanced_config.queue.queue_add_direct_handler;
-  g_queue_add_hide_viewers   = g_advanced_config.queue.queue_add_hide_viewers;
-  g_refinery_diagnostics = g_advanced_config.diagnostics.refinery_diagnostics;
+  g_queue_repair_enabled         = g_advanced_config.queue.queue_repair_enabled;
+  g_queue_add_direct_handler     = g_advanced_config.queue.queue_add_direct_handler;
+  g_queue_add_hide_viewers       = g_advanced_config.queue.queue_add_hide_viewers;
+  g_refinery_diagnostics         = g_advanced_config.diagnostics.refinery_diagnostics;
 
-  const auto* advanced_table = config["advanced"].as_table();
-  const auto* advanced_diagnostics_table =
-      advanced_table ? (*advanced_table)["diagnostics"].as_table() : nullptr;
-  const auto explicit_runtime_trace =
+  const auto* advanced_table             = config["advanced"].as_table();
+  const auto* advanced_diagnostics_table = advanced_table ? (*advanced_table)["diagnostics"].as_table() : nullptr;
+  const auto  explicit_runtime_trace =
       advanced_diagnostics_table && advanced_diagnostics_table->contains("runtime_trace");
-  g_mod_impact_monitor             = g_advanced_config.diagnostics.mod_impact_monitor;
-  g_runtime_trace_level             = g_mod_impact_monitor ? RuntimeTraceLevel::Summary : RuntimeTraceLevel::Off;
+  g_mod_impact_monitor  = g_advanced_config.diagnostics.mod_impact_monitor;
+  g_runtime_trace_level = g_mod_impact_monitor ? RuntimeTraceLevel::Summary : RuntimeTraceLevel::Off;
   if (explicit_runtime_trace) {
     const auto normalized_trace_level = AsciiStrToLower(g_advanced_config.diagnostics.runtime_trace);
     if (auto level = ParseRuntimeTraceLevel(normalized_trace_level)) {
@@ -1211,8 +1326,8 @@ void Config::Load()
   g_runtime_trace_track_overhead     = g_advanced_config.diagnostics.runtime_trace_track_overhead;
   g_runtime_trace_report_interval_ms = g_advanced_config.diagnostics.runtime_trace_report_interval_ms;
   g_runtime_trace_report_interval_ms = std::clamp(g_runtime_trace_report_interval_ms, 1000, 60000);
-  write_runtime_trace_config(parsed, g_runtime_trace_level, g_runtime_trace_track_overhead,
-                             g_mod_impact_monitor, g_runtime_trace_report_interval_ms);
+  write_runtime_trace_config(parsed, g_runtime_trace_level, g_runtime_trace_track_overhead, g_mod_impact_monitor,
+                             g_runtime_trace_report_interval_ms);
   ConfigureModImpactRuntimeTrace(g_runtime_trace_level, g_runtime_trace_track_overhead,
                                  g_runtime_trace_report_interval_ms);
   g_battle_log_decoder_enabled = g_sidecar_config.sync.battlelog_enrichment;
@@ -1262,36 +1377,38 @@ void Config::Load()
 
   if (sync_url.has_value() && sync_token.has_value()) {
     if (sidecar_config_result.reject_legacy_sync_url) {
-      spdlog::error("Ignoring legacy [sync].url / [sync].token loopback sidecar endpoint. Configure [sidecar.sync] instead.");
+      spdlog::error(
+          "Ignoring legacy [sync].url / [sync].token loopback sidecar endpoint. Configure [sidecar.sync] instead.");
     } else {
-    spdlog::warn("Deprecation Warning: Legacy config options 'sync_url' and 'sync_token' have been moved to "
-                 "[sync.targets.<name>] sections and may be removed in a future version.");
+      spdlog::warn("Deprecation Warning: Legacy config options 'sync_url' and 'sync_token' have been moved to "
+                   "[sync.targets.<name>] sections and may be removed in a future version.");
 
-    SyncTargetConfig converted_target;
-    static_cast<SyncConfig&>(converted_target) = sync_defaults;
-    converted_target.url                       = sync_url.value();
-    converted_target.token                     = sync_token.value();
+      SyncTargetConfig converted_target;
+      static_cast<SyncConfig&>(converted_target) = sync_defaults;
+      converted_target.url                       = sync_url.value();
+      converted_target.token                     = sync_token.value();
 
-    if (this->sync_targets.emplace("default", converted_target).second) {
-      toml::table default_target{
-          {"url", sync_url.value()},
-          {"token", config_redaction::redact_secret_for_runtime_snapshot(converted_target.token)},
-          {"proxy", config_redaction::mask_proxy_userinfo(converted_target.proxy)},
-          {"verify_ssl", converted_target.verify_ssl},
-          {"allow_unsafe_tls_without_certificate_validation",
-           converted_target.allow_unsafe_tls_without_certificate_validation}};
-      for (const auto& opt : SyncOptions) {
-        default_target.insert(opt.option_str, converted_target.*opt.option);
+      if (this->sync_targets.emplace("default", converted_target).second) {
+        toml::table default_target{
+            {"url", sync_url.value()},
+            {"token", config_redaction::redact_secret_for_runtime_snapshot(converted_target.token)},
+            {"proxy", config_redaction::mask_proxy_userinfo(converted_target.proxy)},
+            {"verify_ssl", converted_target.verify_ssl},
+            {"allow_unsafe_tls_without_certificate_validation",
+             converted_target.allow_unsafe_tls_without_certificate_validation}};
+        for (const auto& opt : SyncOptions) {
+          default_target.insert(opt.option_str, converted_target.*opt.option);
+        }
+        parsed["sync"]["targets"].as_table()->emplace<toml::table>("default", default_target);
+        spdlog::info("Legacy config options 'sync_url' and 'sync_token' were converted to sync.targets.default url: "
+                     "{}, token: {}",
+                     sync_url.value(), mask_token(sync_token.value()));
+      } else {
+        spdlog::error(
+            "Failed to convert legacy config options sync_url: {} and sync_token: {} as [sync.targets.default] "
+            "was already specified.",
+            sync_url.value(), mask_token(sync_token.value()));
       }
-      parsed["sync"]["targets"].as_table()->emplace<toml::table>("default", default_target);
-      spdlog::info(
-          "Legacy config options 'sync_url' and 'sync_token' were converted to sync.targets.default url: {}, token: {}",
-          sync_url.value(), mask_token(sync_token.value()));
-    } else {
-      spdlog::error("Failed to convert legacy config options sync_url: {} and sync_token: {} as [sync.targets.default] "
-                    "was already specified.",
-                    sync_url.value(), mask_token(sync_token.value()));
-    }
     }
   }
 
@@ -1426,7 +1543,7 @@ void Config::Load()
     this->notifications.ClearToastStates();
 
     std::vector<std::string> notify_types = StrSplit(legacy_notify_banner_types, ',');
-    const bool legacy_notify_all_requested =
+    const bool               legacy_notify_all_requested =
         std::ranges::any_of(notify_types, legacy_notification_allowlist_requests_all);
     if (legacy_notify_all_requested) {
       for (const auto& spec : notificationToggleSpecs) {
@@ -1623,8 +1740,25 @@ void Config::Load()
                  action_b ? action_b->canonical_key : std::string_view{"unknown"}, conflict.chord.display);
   }
 
-  parsed.insert_or_assign("input",
-                          input_binding::BuildInputBindingRuntimeConfig(input_binding_bridge, input_binding_compile));
+  auto input_binding_runtime =
+      input_binding::BuildInputBindingRuntimeConfig(input_binding_bridge, input_binding_compile);
+  parsed.emplace<toml::table>("input", toml::table());
+  auto* parsed_input = parsed["input"].as_table();
+  if (auto* bindings = input_binding_runtime["bindings"].as_table()) {
+    parsed_input->insert_or_assign("bindings", std::move(*bindings));
+  }
+  if (auto* sources = input_binding_runtime["binding_sources"].as_table()) {
+    parsed_input->insert_or_assign("binding_sources", std::move(*sources));
+  }
+  if (auto* warnings = input_binding_runtime["compatibility_warnings"].as_array()) {
+    parsed_input->insert_or_assign("compatibility_warnings", std::move(*warnings));
+  }
+  if (auto* diagnostics = input_binding_runtime["binding_diagnostics"].as_array()) {
+    parsed_input->insert_or_assign("binding_diagnostics", std::move(*diagnostics));
+  }
+  if (auto* conflicts = input_binding_runtime["binding_conflicts"].as_array()) {
+    parsed_input->insert_or_assign("binding_conflicts", std::move(*conflicts));
+  }
 
   message.str("");
   message << "Creating " << File::Vars() << " (final config file)";
