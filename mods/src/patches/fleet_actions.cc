@@ -91,7 +91,7 @@ bool IsVisibilityVisibleOrShowing(VisibilityController* visibility_controller)
     return false;
   }
 
-  const auto state = visibility_controller->State;
+  const auto state = visibility_controller->_state;
   return state == VisibilityState::Visible || state == VisibilityState::Show;
 }
 
@@ -369,14 +369,14 @@ bool IsSetCourseWidgetActionable(SetCourseWidget* set_course_widget)
   return set_course_button && set_course_button->Interactable;
 }
 
-bool IsNavigationSetCourseActionable(NavigationInteractionUIViewController* navigation_ui_controller)
+bool IsNavigationSetCourseActionable(NavigationInteractionUIViewController* navigation_ui_controller,
+                                     NavigationInteractionUIContext*        navigation_context)
 {
-  if (!navigation_ui_controller) {
+  if (!navigation_ui_controller || !navigation_context) {
     return false;
   }
 
-  auto* navigation_context = navigation_ui_controller->CanvasContext;
-  if (!navigation_context || navigation_context->ContextDataState != kNavigationContextDataStateVerified
+  if (navigation_context->ContextDataState != kNavigationContextDataStateVerified
       || !IsSetCourseContextTypeAllowed(navigation_context->InputInteractionType)
       || !(navigation_context->ValidNavigationInput || navigation_context->ShowSetCourseArm)) {
     return false;
@@ -565,9 +565,9 @@ SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet
     if (auto navigation_context = runtime_context.navigation_ui_controller->CanvasContext; navigation_context) {
       runtime_context.navigation_interaction_visible =
           navigation_context->ValidNavigationInput || navigation_context->ShowSetCourseArm;
+      runtime_context.navigation_set_course_actionable =
+          IsNavigationSetCourseActionable(runtime_context.navigation_ui_controller, navigation_context);
     }
-    runtime_context.navigation_set_course_actionable =
-        IsNavigationSetCourseActionable(runtime_context.navigation_ui_controller);
   }
 
   runtime_context.armada_widget  = ObjectFinder<ArmadaObjectViewerWidget>::Get();
