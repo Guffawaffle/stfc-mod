@@ -1,6 +1,6 @@
 {
   "manifestVersion": "axf/v0",
-  "id": "global.stfc-mod.debug-send",
+  "id": "global.stfc-mod-private.debug-send",
   "summary": "Send one live JSON debug command to the running game and wait for the response",
   "provider": "stfc",
   "adapterType": "cli",

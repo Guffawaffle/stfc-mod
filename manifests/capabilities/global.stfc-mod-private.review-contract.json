@@ -1,6 +1,6 @@
 {
   "manifestVersion": "axf/v0",
-  "id": "global.stfc-mod.review-contract",
+  "id": "global.stfc-mod-private.review-contract",
   "summary": "Blocking agent review contract: gameplay seam scanner, diff checks, and pure tests",
   "provider": "stfc",
   "adapterType": "cli",

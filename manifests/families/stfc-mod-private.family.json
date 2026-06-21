@@ -1,6 +1,6 @@
 {
   "manifestVersion": "axf/v0",
-  "family": "stfc-mod",
+  "family": "stfc-mod-private",
   "scope": "global",
   "provider": "stfc",
   "adapterType": "cli",
@@ -30,6 +30,49 @@
     }
   },
   "commands": {
+    "axf": {
+      "summary": "Run AXF CLI with this workspace's private machine-root pack preloaded when present",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "axf"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "forward-args": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "unknown",
+      "args": {
+        "forward-args": {}
+      },
+      "warnings": [
+        "This is a generic AXF wrapper. Side effects depend on the forwarded AXF subcommand.",
+        "The current private stfc-research family is read-only, but forwarded AXF commands such as promote, demote, or scout --write are not."
+      ],
+      "details": [
+        "For this workspace, the wrapper auto-selects the repo root as --workspace unless you pass an explicit AXF workspace/project-root flag.",
+        "When <repo>\\\\.ax-priv\\\\axf-machine exists, the wrapper sets AXF_MACHINE_ROOT for the child axf process automatically."
+      ]
+    },
     "status": {
       "summary": "One-shot health check: git, build, deploy, game, log",
       "executionTarget": {

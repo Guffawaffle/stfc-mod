@@ -1,10 +1,10 @@
 {
   "manifestVersion": "axf/v0",
-  "name": "stfc-mod",
+  "name": "stfc-mod-private",
   "imports": [
     {
       "kind": "ax-inventory",
-      "family": "stfc-mod",
+      "family": "stfc-mod-private",
       "path": ".ax/ax.ps1",
       "provider": "stfc",
       "adapterType": "cli",

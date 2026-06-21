@@ -4,7 +4,7 @@ Agent-facing validation should go through the AXF MCP router, not through raw
 `axf` shell commands. In this repo, the primary AXF surface is now declared
 locally from `axf.workspace.json` and imported from `.ax/ax.ps1`. Use MCP
 `operation=list`, then `operation=inspect`, then `operation=run` against the
-`global.stfc-mod.*` capability IDs.
+`global.stfc-mod-private.*` capability IDs.
 
 The tracked `.ax/` folder is a small public facade only. The working private AX
 repo can live in `.ax-priv/`, and the tracked wrapper delegates there when it
@@ -13,20 +13,20 @@ is present.
 Primary capability IDs include:
 
 ```text
-global.stfc-mod.review-contract
-global.stfc-mod.doctor
-global.stfc-mod.windows-interop
-global.stfc-mod.status
-global.stfc-mod.pure-tests
-global.stfc-mod.battle-log
-global.stfc-mod.cycle
+global.stfc-mod-private.review-contract
+global.stfc-mod-private.doctor
+global.stfc-mod-private.windows-interop
+global.stfc-mod-private.status
+global.stfc-mod-private.pure-tests
+global.stfc-mod-private.battle-log
+global.stfc-mod-private.cycle
 ```
 
 Raw CLI execution is for provider development and manual debugging only.
 
 ## Review Contract
 
-Use `global.stfc-mod.review-contract` as the normal blocking agent review gate
+Use `global.stfc-mod-private.review-contract` as the normal blocking agent review gate
 for code and hook-adjacent branches. It runs:
 
 - `scripts/scan_gameplay_seams.py` against the unmanaged gameplay seam baseline
@@ -40,7 +40,7 @@ use the AXF review contract so the scanner is not skipped.
 
 For AXF 1.0.0 and later, this repo owns its STFC family manifests locally.
 Run `axf scout --write` from the repo root to regenerate
-`manifests/families/stfc-mod.family.json` and any standalone capabilities
+`manifests/families/stfc-mod-private.family.json` and any standalone capabilities
 through the `.ax/ax.ps1` facade. If you want to share the same family across
 multiple repos, place that shared pack on `AXF_MACHINE_ROOT`; project-local
 manifests still win.

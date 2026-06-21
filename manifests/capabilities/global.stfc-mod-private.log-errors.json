@@ -1,7 +1,7 @@
 {
   "manifestVersion": "axf/v0",
-  "id": "global.stfc-mod.log-query",
-  "summary": "High-signal log query with profiles, excludes, counts, and bounded results",
+  "id": "global.stfc-mod-private.log-errors",
+  "summary": "Show error and warning lines from the log",
   "provider": "stfc",
   "adapterType": "cli",
   "executionTarget": {
@@ -20,43 +20,22 @@
       "relativeTo": "workspace"
     },
     "args": [
-      "log-query"
+      "log-errors"
     ]
   },
   "argsSchema": {
     "type": "object",
     "properties": {
-      "profile": {
-        "type": "string"
-      },
-      "pattern": {
-        "type": "string"
-      },
-      "exclude-pattern": {
-        "type": "string"
+      "last": {
+        "type": "integer"
       },
       "all": {
         "type": "boolean"
       },
-      "last": {
-        "type": "integer"
-      },
-      "max-results": {
-        "type": "integer"
-      },
-      "include-known": {
-        "type": "boolean"
-      },
-      "case-sensitive": {
-        "type": "boolean"
-      },
-      "summary": {
+      "raw": {
         "type": "boolean"
       },
       "text-only": {
-        "type": "boolean"
-      },
-      "raw": {
         "type": "boolean"
       }
     },
@@ -74,17 +53,10 @@
   ],
   "owner": "module:stfc",
   "argMap": {
-    "profile": "-Profile",
-    "pattern": "-Pattern",
-    "exclude-pattern": "-ExcludePattern",
-    "all": "-All",
     "last": "-Last",
-    "max-results": "-MaxResults",
-    "include-known": "-IncludeKnown",
-    "case-sensitive": "-CaseSensitive",
-    "summary": "-Summary",
-    "text-only": "-TextOnly",
-    "raw": "-Raw"
+    "all": "-All",
+    "raw": "-Raw",
+    "text-only": "-TextOnly"
   },
   "warnings": [
     "Reads local game/mod logs. Treat output as potentially sensitive unless redaction is explicitly verified.",

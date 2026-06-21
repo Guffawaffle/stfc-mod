@@ -162,7 +162,7 @@ try {
 
   $payload = [ordered]@{
     ok = $ok
-    contract = "stfc-mod.review-contract"
+    contract = "stfc-mod-private.review-contract"
     blocking = $true
     advisory = $false
     repoRoot = $repoRoot.Path
@@ -177,7 +177,7 @@ try {
 } catch {
   $payload = [ordered]@{
     ok = $false
-    contract = "stfc-mod.review-contract"
+    contract = "stfc-mod-private.review-contract"
     blocking = $true
     advisory = $false
     repoRoot = $repoRoot.Path
