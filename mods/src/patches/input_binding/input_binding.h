@@ -136,6 +136,31 @@ enum class ConflictGroup : uint8_t {
   Zoom,
 };
 
+enum class CompositionMode : uint8_t {
+  Independent = 0,
+  Exclusive,
+  OrderedPipeline,
+};
+
+enum class CompositionGroup : uint8_t {
+  None = 0,
+  FleetContext,
+  ShipSelection,
+  PanelNavigation,
+  ChatOpen,
+  ChatChannel,
+  OfficerCanvas,
+  GlobalControl,
+  Diagnostics,
+  Zoom,
+};
+
+struct ActionCompositionSpec {
+  CompositionMode  mode  = CompositionMode::Independent;
+  CompositionGroup group = CompositionGroup::None;
+  uint16_t         order = 0;
+};
+
 struct InputActionSpec {
   InputActionId    id;
   std::string_view canonical_key;
@@ -331,16 +356,25 @@ struct BindingConflict {
   ConflictGroup conflict_group = ConflictGroup::None;
 };
 
+struct BindingDuplicate {
+  InputActionId action_a = InputActionId::Max;
+  InputActionId action_b = InputActionId::Max;
+  ParsedChord   chord;
+  TriggerMode   trigger_mode = TriggerMode::Down;
+};
+
 struct CompileResult {
   BindingIndex                   index;
   std::vector<CompiledBinding>   bindings;
   std::vector<BindingDiagnostic> diagnostics;
   std::vector<BindingConflict>   conflicts;
+  std::vector<BindingDuplicate>  duplicates;
   size_t                         bound_chord_count = 0;
 
   [[nodiscard]] bool has_warnings() const;
   [[nodiscard]] bool has_errors() const;
   [[nodiscard]] bool has_conflicts() const;
+  [[nodiscard]] bool has_duplicates() const;
 };
 
 [[nodiscard]] std::span<const ActionSpec> ActionSpecs();

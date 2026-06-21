@@ -12,5 +12,8 @@ namespace input_binding
 [[nodiscard]] const ActionSpec*           FindAction(std::string_view canonical_key);
 [[nodiscard]] const ActionSpec*           FindActionByGameFunction(GameFunction game_function);
 [[nodiscard]] GameFunction                ActionGameFunction(InputActionId id);
+[[nodiscard]] ActionCompositionSpec       ActionComposition(InputActionId id);
+[[nodiscard]] std::string_view            CompositionModeName(CompositionMode mode);
+[[nodiscard]] std::string_view            CompositionGroupName(CompositionGroup group);
 
 } // namespace input_binding

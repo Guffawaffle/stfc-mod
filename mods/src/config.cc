@@ -13,6 +13,7 @@
 #include "config_sidecar.h"
 #include "file.h"
 #include "patches/action_queue_repair_config.h"
+#include "patches/input_binding/action_registry.h"
 #include "patches/input_binding/input_config_bridge.h"
 #include "patches/input_binding/input_runtime_bindings.h"
 #include "patches/mapkey.h"
@@ -1740,6 +1741,38 @@ void Config::Load()
                  action_b ? action_b->canonical_key : std::string_view{"unknown"}, conflict.chord.display);
   }
 
+  const auto binding_source_kind = [&](const input_binding::InputActionId action) {
+    const auto found = std::ranges::find_if(input_binding_bridge.bindings, [action](const auto& binding) {
+      return binding.action == action;
+    });
+    return found == input_binding_bridge.bindings.end() ? input_binding::BindingConfigSourceKind::Default
+                                                        : found->source_kind;
+  };
+
+  for (const auto& duplicate : input_binding_compile.duplicates) {
+    const auto* action_a      = input_binding::FindActionSpec(duplicate.action_a);
+    const auto* action_b      = input_binding::FindActionSpec(duplicate.action_b);
+    const auto  composition_a = input_binding::ActionComposition(duplicate.action_a);
+    const auto  composition_b = input_binding::ActionComposition(duplicate.action_b);
+    const auto  source_a      = binding_source_kind(duplicate.action_a);
+    const auto  source_b      = binding_source_kind(duplicate.action_b);
+    const bool  explicit_pair = source_a != input_binding::BindingConfigSourceKind::Default
+                               || source_b != input_binding::BindingConfigSourceKind::Default;
+    const bool exclusive_pair = composition_a.mode == input_binding::CompositionMode::Exclusive
+                                || composition_b.mode == input_binding::CompositionMode::Exclusive;
+    if (!explicit_pair && !exclusive_pair) {
+      continue;
+    }
+
+    spdlog::warn("[InputBindings] Duplicate binding: {} and {} both match '{}' policy={}/{} group={}/{} order={}>{}",
+                 action_a ? action_a->canonical_key : std::string_view{"unknown"},
+                 action_b ? action_b->canonical_key : std::string_view{"unknown"}, duplicate.chord.display,
+                 input_binding::CompositionModeName(composition_a.mode),
+                 input_binding::CompositionModeName(composition_b.mode),
+                 input_binding::CompositionGroupName(composition_a.group),
+                 input_binding::CompositionGroupName(composition_b.group), composition_a.order, composition_b.order);
+  }
+
   auto input_binding_runtime =
       input_binding::BuildInputBindingRuntimeConfig(input_binding_bridge, input_binding_compile);
   parsed.emplace<toml::table>("input", toml::table());
@@ -1758,6 +1791,9 @@ void Config::Load()
   }
   if (auto* conflicts = input_binding_runtime["binding_conflicts"].as_array()) {
     parsed_input->insert_or_assign("binding_conflicts", std::move(*conflicts));
+  }
+  if (auto* duplicates = input_binding_runtime["binding_duplicates"].as_array()) {
+    parsed_input->insert_or_assign("binding_duplicates", std::move(*duplicates));
   }
 
   message.str("");

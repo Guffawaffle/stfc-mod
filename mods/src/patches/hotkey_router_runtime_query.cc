@@ -19,14 +19,44 @@ bool runtime_binding_winner_present(const input_binding::DispatchPlan& plan, con
                                     const input_binding::InputLayer layer)
 { return plan.winner_lookup.Contains(action, layer); }
 
+bool runtime_binding_request_present(const input_binding::DispatchPlan& plan, const input_binding::InputActionId action,
+                                     const input_binding::InputLayer layer)
+{ return plan.request_lookup.Contains(action, layer); }
+
+bool runtime_binding_composed_present(const input_binding::DispatchPlan& plan,
+                                      const input_binding::InputActionId action,
+                                      const input_binding::InputLayer    layer)
+{ return plan.composed_lookup.Contains(action, layer); }
+
 const input_binding::DispatchCandidate* runtime_binding_winner(const input_binding::DispatchPlan& plan,
                                                                const input_binding::InputActionId action,
                                                                const input_binding::InputLayer    layer)
 {
-  for (const auto& winner : plan.winners) {
-    if (winner.action == action && winner.layer == layer) {
-      return &winner;
-    }
+  const auto index = plan.winner_lookup.IndexOf(action, layer);
+  if (index != input_binding::DispatchWinnerLookup::npos && index < plan.winners.size()) {
+    return &plan.winners[index];
+  }
+  return nullptr;
+}
+
+const input_binding::DispatchCandidate* runtime_binding_request(const input_binding::DispatchPlan& plan,
+                                                               const input_binding::InputActionId action,
+                                                               const input_binding::InputLayer    layer)
+{
+  const auto index = plan.request_lookup.IndexOf(action, layer);
+  if (index != input_binding::DispatchWinnerLookup::npos && index < plan.requests.size()) {
+    return &plan.requests[index];
+  }
+  return nullptr;
+}
+
+const input_binding::DispatchCandidate* runtime_binding_composed(const input_binding::DispatchPlan& plan,
+                                                                 const input_binding::InputActionId action,
+                                                                 const input_binding::InputLayer    layer)
+{
+  const auto index = plan.composed_lookup.IndexOf(action, layer);
+  if (index != input_binding::DispatchWinnerLookup::npos && index < plan.composed.size()) {
+    return &plan.composed[index];
   }
   return nullptr;
 }
@@ -39,9 +69,45 @@ bool runtime_binding_consumes_original_key_event(const input_binding::DispatchPl
   return winner && input_binding::ConsumesOriginalKeyEvent(*winner);
 }
 
+bool runtime_binding_request_consumes_original_key_event(const input_binding::DispatchPlan& plan,
+                                                         const input_binding::InputActionId action,
+                                                         const input_binding::InputLayer    layer)
+{
+  const auto* request = runtime_binding_request(plan, action, layer);
+  return request && input_binding::ConsumesOriginalKeyEvent(*request);
+}
+
+bool runtime_binding_composed_consumes_original_key_event(const input_binding::DispatchPlan& plan,
+                                                          const input_binding::InputActionId action,
+                                                          const input_binding::InputLayer    layer)
+{
+  const auto* request = runtime_binding_composed(plan, action, layer);
+  return request && input_binding::ConsumesOriginalKeyEvent(*request);
+}
+
 input_binding::InputActionId first_runtime_binding_winner(const input_binding::DispatchPlan&                  plan,
                                                           const std::span<const input_binding::InputActionId> actions)
 { return plan.winner_lookup.First(actions); }
+
+input_binding::InputActionId first_runtime_binding_request(const input_binding::DispatchPlan&                  plan,
+                                                           const std::span<const input_binding::InputActionId> actions)
+{ return plan.request_lookup.First(actions); }
+
+input_binding::InputActionId first_runtime_binding_composed(const input_binding::DispatchPlan&                  plan,
+                                                            const std::span<const input_binding::InputActionId> actions)
+{ return plan.composed_lookup.First(actions); }
+
+bool runtime_binding_composed_before(const input_binding::DispatchPlan& plan, const input_binding::CompositionGroup group,
+                                     const uint16_t order)
+{
+  for (const auto& request : plan.composed) {
+    const auto composition = input_binding::ActionComposition(request.action);
+    if (composition.group == group && composition.order < order) {
+      return true;
+    }
+  }
+  return false;
+}
 
 int ship_select_request_from_runtime_bindings(const input_binding::DispatchPlan& plan)
 {

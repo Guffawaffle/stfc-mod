@@ -1,7 +1,9 @@
 #include "patches/input_binding/input_config_bridge.h"
 
 #include "str_utils_pure.h"
+#include "patches/input_binding/action_registry.h"
 
+#include <algorithm>
 #include <optional>
 #include <sstream>
 #include <utility>
@@ -335,6 +337,41 @@ namespace
             << (action_b ? action_b->canonical_key : "unknown") << " on '" << conflict.chord.display << "'.";
     return message.str();
   }
+
+  std::string format_binding_duplicate(const BindingDuplicate& duplicate)
+  {
+    const auto* action_a      = FindActionSpec(duplicate.action_a);
+    const auto* action_b      = FindActionSpec(duplicate.action_b);
+    const auto  composition_a = ActionComposition(duplicate.action_a);
+    const auto  composition_b = ActionComposition(duplicate.action_b);
+
+    std::ostringstream message;
+    message << (action_a ? action_a->canonical_key : "unknown") << " and "
+            << (action_b ? action_b->canonical_key : "unknown") << " both match '" << duplicate.chord.display
+            << "'; policy=" << CompositionModeName(composition_a.mode) << "/"
+            << CompositionModeName(composition_b.mode) << " group=" << CompositionGroupName(composition_a.group)
+            << "/" << CompositionGroupName(composition_b.group) << " order=" << composition_a.order << ">"
+            << composition_b.order << ".";
+    return message.str();
+  }
+
+  BindingConfigSourceKind binding_source_kind(const ConfigBridgeResult& bridge, const InputActionId action)
+  {
+    const auto found = std::ranges::find_if(bridge.bindings, [action](const auto& binding) {
+      return binding.action == action;
+    });
+    return found == bridge.bindings.end() ? BindingConfigSourceKind::Default : found->source_kind;
+  }
+
+  bool should_report_binding_duplicate(const ConfigBridgeResult& bridge, const BindingDuplicate& duplicate)
+  {
+    const auto composition_a = ActionComposition(duplicate.action_a);
+    const auto composition_b = ActionComposition(duplicate.action_b);
+    const auto source_a      = binding_source_kind(bridge, duplicate.action_a);
+    const auto source_b      = binding_source_kind(bridge, duplicate.action_b);
+    return source_a != BindingConfigSourceKind::Default || source_b != BindingConfigSourceKind::Default
+           || composition_a.mode == CompositionMode::Exclusive || composition_b.mode == CompositionMode::Exclusive;
+  }
 } // namespace
 
 std::vector<BindingOverride> ConfigBridgeResult::AsOverrides() const
@@ -596,6 +633,18 @@ toml::table BuildInputBindingRuntimeConfig(const ConfigBridgeResult& bridge, con
       conflicts.push_back(format_binding_conflict(conflict));
     }
     input_table.insert_or_assign("binding_conflicts", std::move(conflicts));
+  }
+  if (!compile.duplicates.empty()) {
+    toml::array duplicates;
+    for (const auto& duplicate : compile.duplicates) {
+      if (!should_report_binding_duplicate(bridge, duplicate)) {
+        continue;
+      }
+      duplicates.push_back(format_binding_duplicate(duplicate));
+    }
+    if (!duplicates.empty()) {
+      input_table.insert_or_assign("binding_duplicates", std::move(duplicates));
+    }
   }
 
   return input_table;

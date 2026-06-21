@@ -462,6 +462,11 @@ std::span<const ActionSpec> ActionRegistry()
 
 const ActionSpec* FindAction(const InputActionId id)
 {
+  const auto index = static_cast<size_t>(id);
+  if (index < kActionRegistry.size() && kActionRegistry[index].id == id) {
+    return &kActionRegistry[index];
+  }
+
   const auto registry = ActionRegistry();
   const auto found    = std::ranges::find_if(registry, [id](const auto& spec) { return spec.id == id; });
   return found == registry.end() ? nullptr : &*found;
@@ -489,6 +494,101 @@ GameFunction ActionGameFunction(const InputActionId id)
     return spec->game_function;
   }
   return GameFunction::Max;
+}
+
+ActionCompositionSpec ActionComposition(const InputActionId id)
+{
+  const auto* spec = FindAction(id);
+  if (!spec) {
+    return {};
+  }
+
+  switch (spec->executor) {
+    case ActionExecutor::FleetSpace:
+      switch (id) {
+        case InputActionId::FleetQueueAdd:
+          return {CompositionMode::OrderedPipeline, CompositionGroup::FleetContext, 100};
+        case InputActionId::FleetRecallCancel:
+          return {CompositionMode::OrderedPipeline, CompositionGroup::FleetContext, 110};
+        case InputActionId::FleetPrimary:
+          return {CompositionMode::OrderedPipeline, CompositionGroup::FleetContext, 200};
+        case InputActionId::FleetSecondary:
+          return {CompositionMode::OrderedPipeline, CompositionGroup::FleetContext, 300};
+        case InputActionId::FleetService:
+        case InputActionId::FleetRecall:
+        case InputActionId::FleetRepair:
+          return {CompositionMode::OrderedPipeline, CompositionGroup::FleetContext, 400};
+        default:
+          return {CompositionMode::OrderedPipeline, CompositionGroup::FleetContext, spec->priority};
+      }
+    case ActionExecutor::SelectCurrent:
+      return {CompositionMode::OrderedPipeline, CompositionGroup::FleetContext, 900};
+    case ActionExecutor::FleetSimple:
+      return {CompositionMode::OrderedPipeline, CompositionGroup::FleetContext, 500};
+    case ActionExecutor::FleetQueue:
+      return {CompositionMode::Exclusive, CompositionGroup::FleetContext, spec->priority};
+    case ActionExecutor::ShipSelection:
+      return {CompositionMode::Exclusive, CompositionGroup::ShipSelection, spec->priority};
+    case ActionExecutor::ChatOpen:
+      return {CompositionMode::Exclusive, CompositionGroup::ChatOpen, spec->priority};
+    case ActionExecutor::ChatChannel:
+      return {CompositionMode::Exclusive, CompositionGroup::ChatChannel, spec->priority};
+    case ActionExecutor::OfficerCanvas:
+      return {CompositionMode::Exclusive, CompositionGroup::OfficerCanvas, spec->priority};
+    case ActionExecutor::GlobalControl:
+      return {CompositionMode::Exclusive, CompositionGroup::GlobalControl, spec->priority};
+    case ActionExecutor::TableDispatch:
+      return {CompositionMode::Exclusive,
+              spec->category == ActionCategory::Diagnostics ? CompositionGroup::Diagnostics
+                                                            : CompositionGroup::PanelNavigation,
+              spec->priority};
+    case ActionExecutor::Zoom:
+      return {CompositionMode::Exclusive, CompositionGroup::Zoom, spec->priority};
+    default:
+      return {CompositionMode::Independent, CompositionGroup::None, spec->priority};
+  }
+}
+
+std::string_view CompositionModeName(const CompositionMode mode)
+{
+  switch (mode) {
+    case CompositionMode::Independent:
+      return "independent";
+    case CompositionMode::Exclusive:
+      return "exclusive";
+    case CompositionMode::OrderedPipeline:
+      return "ordered-pipeline";
+    default:
+      return "unknown";
+  }
+}
+
+std::string_view CompositionGroupName(const CompositionGroup group)
+{
+  switch (group) {
+    case CompositionGroup::None:
+      return "none";
+    case CompositionGroup::FleetContext:
+      return "fleet-context";
+    case CompositionGroup::ShipSelection:
+      return "ship-selection";
+    case CompositionGroup::PanelNavigation:
+      return "panel-navigation";
+    case CompositionGroup::ChatOpen:
+      return "chat-open";
+    case CompositionGroup::ChatChannel:
+      return "chat-channel";
+    case CompositionGroup::OfficerCanvas:
+      return "officer-canvas";
+    case CompositionGroup::GlobalControl:
+      return "global-control";
+    case CompositionGroup::Diagnostics:
+      return "diagnostics";
+    case CompositionGroup::Zoom:
+      return "zoom";
+    default:
+      return "unknown";
+  }
 }
 
 } // namespace input_binding

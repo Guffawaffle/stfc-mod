@@ -241,6 +241,7 @@ TEST_SUITE("input_binding")
     CHECK_FALSE(compiled.has_warnings());
     CHECK_FALSE(compiled.has_errors());
     CHECK_FALSE(compiled.has_conflicts());
+    CHECK(compiled.has_duplicates());
 
     const auto held    = input_binding::ModifierMask{};
     auto       matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, held);
@@ -290,15 +291,42 @@ TEST_SUITE("input_binding")
   TEST_CASE("compiler reports same group chord conflicts")
   {
     const std::array overrides{
-        input_binding::BindingOverride{input_binding::InputActionId::FleetSecondary, "SPACE"},
+        input_binding::BindingOverride{input_binding::InputActionId::ShowChat, "ALT-C"},
     };
 
     const auto compiled = input_binding::CompileBindingSet(overrides);
     CHECK(compiled.has_errors());
     CHECK(compiled.has_conflicts());
     REQUIRE(compiled.conflicts.size() == 1);
-    CHECK(compiled.conflicts[0].action_a == input_binding::InputActionId::FleetPrimary);
-    CHECK(compiled.conflicts[0].action_b == input_binding::InputActionId::FleetSecondary);
+    REQUIRE(compiled.duplicates.size() >= 1);
+    CHECK(compiled.conflicts[0].action_a == input_binding::InputActionId::ShowChatSide1);
+    CHECK(compiled.conflicts[0].action_b == input_binding::InputActionId::ShowChat);
+    CHECK(std::ranges::any_of(compiled.duplicates, [](const auto& duplicate) {
+      return duplicate.action_a == input_binding::InputActionId::ShowChatSide1
+             && duplicate.action_b == input_binding::InputActionId::ShowChat;
+    }));
+
+    const auto held    = input_binding::ModifierMask::Logical(input_binding::ModifierGroup::Alt);
+    const auto matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::C, held);
+    REQUIRE(matches.size() == 2);
+    CHECK(matches[0] == input_binding::InputActionId::ShowChatSide1);
+    CHECK(matches[1] == input_binding::InputActionId::ShowChat);
+  }
+
+  TEST_CASE("compiler allows ordered pipeline chord duplicates")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::FleetSecondary, "SPACE"},
+    };
+
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+    CHECK_FALSE(compiled.has_errors());
+    CHECK_FALSE(compiled.has_conflicts());
+    CHECK(compiled.has_duplicates());
+    CHECK(std::ranges::any_of(compiled.duplicates, [](const auto& duplicate) {
+      return duplicate.action_a == input_binding::InputActionId::FleetPrimary
+             && duplicate.action_b == input_binding::InputActionId::FleetSecondary;
+    }));
 
     const auto matches =
         compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, input_binding::ModifierMask{});
@@ -312,21 +340,20 @@ TEST_SUITE("input_binding")
   TEST_CASE("compiler reports logical and physical modifier overlaps")
   {
     const std::array overrides{
-        input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "CTRL-SPACE"},
-        input_binding::BindingOverride{input_binding::InputActionId::FleetSecondary, "LCTRL-SPACE"},
-        input_binding::BindingOverride{input_binding::InputActionId::SelectCurrent, "NONE"},
+        input_binding::BindingOverride{input_binding::InputActionId::ShowChat, "LALT-C"},
     };
 
     const auto compiled = input_binding::CompileBindingSet(overrides);
     CHECK(compiled.has_errors());
     CHECK(compiled.has_conflicts());
     REQUIRE(compiled.conflicts.size() == 1);
+    CHECK(compiled.has_duplicates());
 
-    const auto held    = input_binding::ModifierMask::FromPressedKey(KeyCode::LeftControl);
-    const auto matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, held);
+    const auto held    = input_binding::ModifierMask::FromPressedKey(KeyCode::LeftAlt);
+    const auto matches = compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::C, held);
     REQUIRE(matches.size() == 2);
-    CHECK(matches[0] == input_binding::InputActionId::FleetPrimary);
-    CHECK(matches[1] == input_binding::InputActionId::FleetSecondary);
+    CHECK(matches[0] == input_binding::InputActionId::ShowChatSide1);
+    CHECK(matches[1] == input_binding::InputActionId::ShowChat);
   }
 
   TEST_CASE("config bridge resolves defaults into canonical bindings")

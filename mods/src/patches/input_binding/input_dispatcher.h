@@ -50,6 +50,8 @@ struct DispatchCandidate {
 };
 
 struct DispatchWinnerLookup {
+  static constexpr size_t npos = static_cast<size_t>(-1);
+
   std::array<uint16_t, kDispatchActionCount>                           winner_order{};
   std::array<std::array<bool, kInputLayerCount>, kDispatchActionCount> action_layers{};
 
@@ -57,12 +59,17 @@ struct DispatchWinnerLookup {
   void Add(const DispatchCandidate& candidate, size_t winner_index);
 
   [[nodiscard]] bool          Contains(InputActionId action, InputLayer layer) const;
+  [[nodiscard]] size_t        IndexOf(InputActionId action, InputLayer layer) const;
   [[nodiscard]] InputActionId First(std::span<const InputActionId> actions) const;
 };
 
 struct DispatchPlan {
   std::vector<DispatchCandidate> candidates;
+  std::vector<DispatchCandidate> requests;
+  std::vector<DispatchCandidate> composed;
   std::vector<DispatchCandidate> winners;
+  DispatchWinnerLookup           request_lookup;
+  DispatchWinnerLookup           composed_lookup;
   DispatchWinnerLookup           winner_lookup;
 
   [[nodiscard]] bool empty() const;

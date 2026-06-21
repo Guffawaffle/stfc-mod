@@ -148,8 +148,18 @@ namespace
   bool modifiers_can_match_same_input(const ParsedChord& lhs, const ParsedChord& rhs)
   { return lhs.modifiers.effective_logical_bits() == rhs.modifiers.effective_logical_bits(); }
 
-  bool conflicts_with(const ConflictGroup lhs, const ConflictGroup rhs)
-  { return lhs != ConflictGroup::None && lhs == rhs; }
+  bool composition_conflicts(const InputActionId lhs, const InputActionId rhs)
+  {
+    const auto lhs_composition = ActionComposition(lhs);
+    const auto rhs_composition = ActionComposition(rhs);
+    if (lhs_composition.group == CompositionGroup::None || lhs_composition.group != rhs_composition.group) {
+      return false;
+    }
+    if (lhs_composition.mode == CompositionMode::Independent || rhs_composition.mode == CompositionMode::Independent) {
+      return false;
+    }
+    return lhs_composition.mode == CompositionMode::Exclusive || rhs_composition.mode == CompositionMode::Exclusive;
+  }
 
   std::optional<std::string_view> find_override(const std::span<const BindingOverride> overrides,
                                                 const InputActionId                    action)
@@ -221,6 +231,9 @@ bool CompileResult::has_errors() const
 
 bool CompileResult::has_conflicts() const
 { return !conflicts.empty(); }
+
+bool CompileResult::has_duplicates() const
+{ return !duplicates.empty(); }
 
 void BindingIndex::Register(const InputActionId action, ParsedChord chord, const TriggerMode trigger_mode,
                             const uint16_t priority)
@@ -434,14 +447,16 @@ CompileResult CompileBindingSet(const std::span<const BindingOverride> overrides
 
       for (const auto& registered : registered_chords) {
         if (registered.trigger_mode != spec.trigger_mode || registered.chord.key != chord.key
-            || !modifiers_can_match_same_input(registered.chord, chord)
-            || !conflicts_with(registered.conflict_group, spec.conflict_group)) {
+            || !modifiers_can_match_same_input(registered.chord, chord)) {
           continue;
         }
 
-        result.conflicts.push_back({registered.action, spec.id, chord, spec.trigger_mode, spec.conflict_group});
-        result.diagnostics.push_back(
-            {DiagnosticSeverity::Error, "Binding conflict", result.bound_chord_count, spec.id});
+        result.duplicates.push_back({registered.action, spec.id, chord, spec.trigger_mode});
+        if (composition_conflicts(registered.action, spec.id)) {
+          result.conflicts.push_back({registered.action, spec.id, chord, spec.trigger_mode, spec.conflict_group});
+          result.diagnostics.push_back(
+              {DiagnosticSeverity::Error, "Binding conflict", result.bound_chord_count, spec.id});
+        }
       }
 
       result.bindings.push_back({spec.id, chord, spec.trigger_mode, spec.priority});

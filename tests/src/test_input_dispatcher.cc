@@ -52,12 +52,70 @@ TEST_SUITE("input_dispatcher")
 
     const auto plan = input_binding::PlanDispatch(compiled, request);
     REQUIRE(plan.candidates.size() == 6);
+    REQUIRE(plan.requests.size() == 6);
+    REQUIRE(plan.composed.size() == 6);
     REQUIRE(plan.winners.size() == 5);
+    CHECK(plan.request_lookup.Contains(input_binding::InputActionId::FleetSecondary, input_binding::InputLayer::Fleet));
+    CHECK(plan.composed_lookup.Contains(input_binding::InputActionId::FleetSecondary, input_binding::InputLayer::Fleet));
     CHECK(plan.winners[0].action == input_binding::InputActionId::HotkeysDisable);
     CHECK(plan.winners[1].action == input_binding::InputActionId::LogDebug);
     CHECK(plan.winners[2].action == input_binding::InputActionId::FleetPrimary);
     CHECK(plan.winners[3].action == input_binding::InputActionId::FleetQueueAdd);
     CHECK(plan.winners[4].action == input_binding::InputActionId::FleetRecallCancel);
+  }
+
+  TEST_CASE("dispatcher requests preserve fleet actions hidden by legacy winner collapse")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::SelectCurrent, "CTRL-X"},
+        input_binding::BindingOverride{input_binding::InputActionId::FleetPrimary, "CTRL-X"},
+        input_binding::BindingOverride{input_binding::InputActionId::FleetQueueAdd, "NONE"},
+        input_binding::BindingOverride{input_binding::InputActionId::FleetRecallCancel, "NONE"},
+    };
+
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+
+    input_binding::DispatchRequest request;
+    request.trigger_mode   = input_binding::TriggerMode::Down;
+    request.phase          = input_binding::InputPhase::Frame;
+    request.key            = KeyCode::X;
+    request.held_modifiers = input_binding::ModifierMask::Logical(input_binding::ModifierGroup::Ctrl);
+
+    const auto plan = input_binding::PlanDispatch(compiled, request);
+    REQUIRE(plan.requests.size() == 2);
+    CHECK(plan.request_lookup.Contains(input_binding::InputActionId::SelectCurrent, input_binding::InputLayer::Fleet));
+    CHECK(plan.request_lookup.Contains(input_binding::InputActionId::FleetPrimary, input_binding::InputLayer::Fleet));
+    REQUIRE(plan.composed.size() == 2);
+    CHECK(plan.composed_lookup.Contains(input_binding::InputActionId::SelectCurrent, input_binding::InputLayer::Fleet));
+    CHECK(plan.composed_lookup.Contains(input_binding::InputActionId::FleetPrimary, input_binding::InputLayer::Fleet));
+    CHECK(plan.composed[0].action == input_binding::InputActionId::FleetPrimary);
+    CHECK(plan.composed[1].action == input_binding::InputActionId::SelectCurrent);
+    REQUIRE(plan.winners.size() == 1);
+    CHECK(plan.winners[0].action == input_binding::InputActionId::SelectCurrent);
+  }
+
+  TEST_CASE("dispatcher composition collapses exclusive duplicate requests")
+  {
+    const std::array overrides{
+        input_binding::BindingOverride{input_binding::InputActionId::ShowChat, "ALT-C"},
+    };
+
+    const auto compiled = input_binding::CompileBindingSet(overrides);
+
+    input_binding::DispatchRequest request;
+    request.trigger_mode   = input_binding::TriggerMode::Down;
+    request.phase          = input_binding::InputPhase::Frame;
+    request.key            = KeyCode::C;
+    request.held_modifiers = input_binding::ModifierMask::Logical(input_binding::ModifierGroup::Alt);
+
+    const auto plan = input_binding::PlanDispatch(compiled, request);
+    REQUIRE(plan.requests.size() == 2);
+    CHECK(plan.request_lookup.Contains(input_binding::InputActionId::ShowChatSide1, input_binding::InputLayer::Global));
+    CHECK(plan.request_lookup.Contains(input_binding::InputActionId::ShowChat, input_binding::InputLayer::Global));
+    REQUIRE(plan.composed.size() == 1);
+    CHECK(plan.composed[0].action == input_binding::InputActionId::ShowChatSide1);
+    CHECK(plan.composed_lookup.Contains(input_binding::InputActionId::ShowChatSide1, input_binding::InputLayer::Global));
+    CHECK_FALSE(plan.composed_lookup.Contains(input_binding::InputActionId::ShowChat, input_binding::InputLayer::Global));
   }
 
   TEST_CASE("dispatcher combines original call decisions conservatively")

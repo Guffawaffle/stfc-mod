@@ -9,6 +9,7 @@ namespace input_binding
 namespace
 {
   using UsedConflictGroups = std::array<bool, static_cast<size_t>(ConflictGroup::Zoom) + 1>;
+  using UsedCompositionGroups = std::array<bool, static_cast<size_t>(CompositionGroup::Zoom) + 1>;
 
   bool candidate_allowed(const InputActionSpec& spec, const DispatchRequest& request)
   { return spec.phase == request.phase && request.active_layers.Contains(spec.layer); }
@@ -23,15 +24,57 @@ namespace
     });
   }
 
-  void select_winners(DispatchPlan& plan)
+  void resolve_requests_and_winners(DispatchPlan& plan)
   {
     UsedConflictGroups used_groups{};
     sort_by_priority(plan.candidates);
+    plan.requests = plan.candidates;
+    plan.request_lookup.Reset();
+    plan.composed.clear();
+    plan.composed.reserve(plan.requests.size());
+    plan.composed_lookup.Reset();
     plan.winners.clear();
     plan.winners.reserve(plan.candidates.size());
     plan.winner_lookup.Reset();
 
-    for (const auto& candidate : plan.candidates) {
+    for (size_t index = 0; index < plan.requests.size(); ++index) {
+      plan.request_lookup.Add(plan.requests[index], index);
+    }
+
+    UsedCompositionGroups used_composition_groups{};
+    for (const auto& candidate : plan.requests) {
+      const auto composition = ActionComposition(candidate.action);
+      if (composition.mode == CompositionMode::Exclusive && composition.group != CompositionGroup::None) {
+        const auto group_index = static_cast<size_t>(composition.group);
+        if (used_composition_groups[group_index]) {
+          continue;
+        }
+        used_composition_groups[group_index] = true;
+      }
+
+      plan.composed.push_back(candidate);
+    }
+
+    std::ranges::stable_sort(plan.composed, [](const auto& lhs, const auto& rhs) {
+      const auto lhs_composition = ActionComposition(lhs.action);
+      const auto rhs_composition = ActionComposition(rhs.action);
+      if (lhs_composition.group != rhs_composition.group) {
+        return static_cast<uint8_t>(lhs_composition.group) < static_cast<uint8_t>(rhs_composition.group);
+      }
+      if (lhs_composition.order != rhs_composition.order) {
+        return lhs_composition.order < rhs_composition.order;
+      }
+      if (lhs.priority != rhs.priority) {
+        return lhs.priority > rhs.priority;
+      }
+      return static_cast<uint16_t>(lhs.action) < static_cast<uint16_t>(rhs.action);
+    });
+
+    for (size_t index = 0; index < plan.composed.size(); ++index) {
+      plan.composed_lookup.Add(plan.composed[index], index);
+    }
+
+    for (const auto& candidate : plan.requests) {
       if (candidate.conflict_group != ConflictGroup::None) {
         const auto group_index = static_cast<size_t>(candidate.conflict_group);
         if (used_groups[group_index]) {
@@ -109,7 +152,22 @@ void DispatchWinnerLookup::Add(const DispatchCandidate& candidate, const size_t 
 }
 
 bool DispatchWinnerLookup::Contains(const InputActionId action, const InputLayer layer) const
-{ return action_layers[static_cast<size_t>(action)][static_cast<size_t>(layer)]; }
+{
+  const auto action_index = static_cast<size_t>(action);
+  const auto layer_index  = static_cast<size_t>(layer);
+  return action_index < kDispatchActionCount && layer_index < kInputLayerCount
+         && action_layers[action_index][layer_index];
+}
+
+size_t DispatchWinnerLookup::IndexOf(const InputActionId action, const InputLayer layer) const
+{
+  if (!Contains(action, layer)) {
+    return npos;
+  }
+
+  const auto order = winner_order[static_cast<size_t>(action)];
+  return order == 0 ? npos : static_cast<size_t>(order - 1);
+}
 
 InputActionId DispatchWinnerLookup::First(const std::span<const InputActionId> actions) const
 {
@@ -136,7 +194,7 @@ DispatchPlan PlanDispatch(const CompileResult& compile, const DispatchRequest& r
   DispatchPlan plan;
 
   append_candidates(compile, request, plan);
-  select_winners(plan);
+  resolve_requests_and_winners(plan);
   return plan;
 }
 
@@ -145,9 +203,15 @@ void PlanDispatchSnapshot(const CompileResult& compile, const InputPhase phase, 
                           const bool allow_extra_modifiers)
 {
   plan.candidates.clear();
+  plan.requests.clear();
+  plan.composed.clear();
   plan.winners.clear();
+  plan.request_lookup.Reset();
+  plan.composed_lookup.Reset();
   plan.winner_lookup.Reset();
   plan.candidates.reserve(key_states.size());
+  plan.requests.reserve(key_states.size());
+  plan.composed.reserve(key_states.size());
   plan.winners.reserve(key_states.size());
 
   for (const auto& key_state : key_states) {
@@ -170,7 +234,7 @@ void PlanDispatchSnapshot(const CompileResult& compile, const InputPhase phase, 
     }
   }
 
-  select_winners(plan);
+  resolve_requests_and_winners(plan);
 }
 
 DispatchPlan PlanDispatchSnapshot(const CompileResult& compile, const InputPhase phase,
