@@ -336,6 +336,7 @@ struct SpaceActionRuntimeContext {
   StarNodeObjectViewerWidget*              star_node_viewer_widget          = nullptr;
   bool                                     star_node_visible                = false;
   NavigationInteractionUIViewController*   navigation_ui_controller         = nullptr;
+  bool                                     mission_location_set_course      = false;
   bool                                     navigation_interaction_visible   = false;
   bool                                     navigation_set_course_actionable = false;
   ArmadaObjectViewerWidget*                armada_widget                    = nullptr;
@@ -383,6 +384,17 @@ bool IsNavigationSetCourseActionable(NavigationInteractionUIViewController* navi
   }
 
   return IsSetCourseWidgetActionable(navigation_ui_controller->_setCourseWidget);
+}
+
+bool IsMissionLocationSetCourseActionable(NavigationInteractionUIViewController* navigation_ui_controller)
+{
+  if (!navigation_ui_controller || !navigation_ui_controller->_missionLocationWidget
+      || !navigation_ui_controller->_missionLocationWidget->_isVisible) {
+    return false;
+  }
+
+  auto* set_course_button = navigation_ui_controller->_missionLocationWidget->SetCourseButton;
+  return set_course_button && set_course_button->Interactable;
 }
 
 bool TryExecuteQueueAdd(PreScanTargetWidget* pre_scan_widget, SpaceActionDiagnostics& diagnostics)
@@ -561,6 +573,8 @@ SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet
       runtime_context.star_node_viewer_widget && runtime_context.star_node_viewer_widget->Context;
 
   runtime_context.navigation_ui_controller = ObjectFinder<NavigationInteractionUIViewController>::Get();
+  runtime_context.mission_location_set_course =
+      IsMissionLocationSetCourseActionable(runtime_context.navigation_ui_controller);
   if (runtime_context.navigation_ui_controller) {
     if (auto navigation_context = runtime_context.navigation_ui_controller->CanvasContext; navigation_context) {
       runtime_context.navigation_interaction_visible =
@@ -713,7 +727,7 @@ bool ShouldPreferContextActionOverWarpCancel(const SpaceActionRuntimeContext& ru
   const auto has_visible_pre_scan_target = runtime_context.visible_pre_scan_target_count > 0;
   const auto has_primary_context =
       has_visible_pre_scan_target || runtime_context.mining_viewer_visible || runtime_context.star_node_visible
-      || runtime_context.navigation_set_course_actionable
+      || runtime_context.mission_location_set_course || runtime_context.navigation_set_course_actionable
       || (runtime_context.navigation_interaction_visible && runtime_context.armada_visible);
   const auto has_secondary_context =
       has_visible_pre_scan_target || runtime_context.mining_viewer_visible || runtime_context.star_node_visible;
@@ -763,6 +777,12 @@ bool TryHandleNoPreScanPrimaryOutcome(FleetPrimaryOutcome outcome, const SpaceAc
       diagnostics.Complete("warp-star-node");
       return true;
     case FleetPrimaryOutcome::SetCourse:
+      if (runtime_context.mission_location_set_course) {
+        diagnostics.MeasureOutcomeExecution(
+            [&]() { runtime_context.navigation_ui_controller->OnMissionLocationSetCourseButtonClick(); });
+        diagnostics.Complete("set-course-mission-location");
+        return true;
+      }
       if (!runtime_context.navigation_ui_controller) {
         diagnostics.SetOutcome("set-course-controller-missing");
         return false;
@@ -1214,7 +1234,7 @@ bool ExecuteSpaceAction(FleetBarViewController* fleet_bar, const SpaceActionInpu
     primary_input.star_node_visible     = runtime_context.star_node_visible;
     primary_input.armada_widget_visible = runtime_context.armada_widget && runtime_context.armada_visible;
     primary_input.navigation_interaction_visible =
-        runtime_context.navigation_set_course_actionable
+        runtime_context.mission_location_set_course || runtime_context.navigation_set_course_actionable
         || (runtime_context.navigation_interaction_visible && primary_input.armada_widget_visible);
     primary_input.armada_join_interactable = armada_join_button_present && armada_join_button->Interactable;
 
