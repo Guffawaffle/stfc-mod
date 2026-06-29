@@ -2,6 +2,8 @@
 
 Purpose: define the first practical safety model for native probe work in the STFC community mod. This is a documentation artifact only. It does not add hooks, probes, runtime behavior, feature flags, product code, deployment steps, or game-affecting commands.
 
+Operational patch-delta workflow lives in [Patch Delta Delve SOP](PATCH_DELVE_SOP.md). New exploratory probes and hooks start with a file in [Probe Directory](probes/README.md) before runtime code is added.
+
 The immediate trigger is the recent `Shift+Space` / `ShortcutsManager.OnShipLocateAction` crash RCA. The broader goal is to make future exploration start from static evidence and climb toward runtime confidence one narrow seam at a time.
 
 Living seam-specific evidence belongs in [Native Seam Ledger](NATIVE_SEAM_LEDGER.md). Keep this file focused on policy; keep the ledger focused on per-seam confidence.

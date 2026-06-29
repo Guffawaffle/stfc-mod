@@ -602,6 +602,11 @@ int SidecarLoggingJsonlRecentLogs();
 bool RefineryDiagnosticsEnabled();
 
 /**
+ * @brief Whether the Gifts view should open its existing bulk-claim flyout automatically.
+ */
+bool AutoOpenBulkClaimGiftsEnabled();
+
+/**
  * @brief Whether `[advanced.diagnostics]` enables runtime mod impact monitoring.
  */
 bool ModImpactMonitorEnabled();

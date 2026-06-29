@@ -124,6 +124,8 @@ void InstallPanHooks();
 void InstallImproveResponsivenessHooks();
 void InstallFrameTickHooks();
 void InstallHotkeyHooks();
+void InstallOpenBulkClaimGiftsHooks();
+void InstallSectionChangeRouterHooks();
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
 void InstallLiveDebugHooks();
 #endif
@@ -234,6 +236,12 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   auto             install_live_debug_hooks           = LiveDebugChannelEnabled();
   auto             install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
 #endif
+  auto             install_open_bulk_claim_gifts_hooks = AutoOpenBulkClaimGiftsEnabled();
+  auto             install_section_change_router_hooks = install_open_bulk_claim_gifts_hooks;
+#if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
+  install_section_change_router_hooks =
+      install_section_change_router_hooks || install_refinery_diagnostics_hooks;
+#endif
   auto             install_frame_tick_hooks           = cfg.installHotkeyHooks;
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   install_frame_tick_hooks = install_frame_tick_hooks || LiveDebugChannelEnabled();
@@ -248,6 +256,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"ImproveResponsivenessHooks", {InstallImproveResponsivenessHooks, &cfg.installImproveResponsivenessHooks}},
       {"FrameTickHooks", {InstallFrameTickHooks, &install_frame_tick_hooks}},
       {"HotkeyHooks", {InstallHotkeyHooks, &cfg.installHotkeyHooks}},
+      {"OpenBulkClaimGiftsHooks", {InstallOpenBulkClaimGiftsHooks, &install_open_bulk_claim_gifts_hooks}},
       {"DeploymentRuntimeObservers", {InstallDeploymentRuntimeObserverHooks, &install_deployment_runtime_observers}},
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
       {"LiveDebugHooks", {InstallLiveDebugHooks, &install_live_debug_hooks}},
@@ -255,6 +264,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
       {"RefineryDiagnosticsHooks", {InstallRefineryDiagnosticsHooks, &install_refinery_diagnostics_hooks}},
 #endif
+      {"SectionChangeRouterHooks", {InstallSectionChangeRouterHooks, &install_section_change_router_hooks}},
 #if _WIN32
       {"FreeResizeHooks", {InstallFreeResizeHooks, &cfg.installFreeResizeHooks}},
 #endif

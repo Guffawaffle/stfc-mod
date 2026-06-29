@@ -455,6 +455,8 @@ namespace UI
   constexpr bool always_skip_reveal_sequence = true;
   /// Auto-confirm new system discoveries. Default: true.
   constexpr bool auto_confirm_discovery = true;
+  /// Open the existing Gifts bulk-claim selection flyout automatically. Default: false.
+  constexpr bool auto_open_bulk_claim_flyout = false;
   /// Block the Escape key from closing the game. Default: true.
   constexpr bool disable_escape_exit = true;
   /// Max ms between two Escape presses to count as a double-tap.

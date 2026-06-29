@@ -1738,7 +1738,7 @@
       "details": []
     },
     "dump-refresh": {
-      "summary": "Regenerate dump.cs from the installed game and rebuild the SQLite index",
+      "summary": "Regenerate dump.cs, rebuild indexes, and track research corpus changes",
       "executionTarget": {
         "launcher": {
           "command": "pwsh",
@@ -1776,6 +1776,36 @@
           "skip-index": {
             "type": "boolean"
           },
+          "skip-research-diff": {
+            "type": "boolean"
+          },
+          "skip-research-index": {
+            "type": "boolean"
+          },
+          "skip-research-timeline": {
+            "type": "boolean"
+          },
+          "research-corpus-db": {
+            "type": "string"
+          },
+          "research-diff-path": {
+            "type": "string"
+          },
+          "research-timeline-path": {
+            "type": "string"
+          },
+          "research-patch-label": {
+            "type": "string"
+          },
+          "research-max-items": {
+            "type": "integer"
+          },
+          "research-focus": {
+            "type": "string"
+          },
+          "research-watch": {
+            "type": "string"
+          },
           "clean": {
             "type": "boolean"
           },
@@ -1792,15 +1822,27 @@
         "dumper-path": {},
         "db-path": {},
         "skip-index": {},
+        "skip-research-diff": {},
+        "skip-research-index": {},
+        "skip-research-timeline": {},
+        "research-corpus-db": {},
+        "research-diff-path": {},
+        "research-timeline-path": {},
+        "research-patch-label": {},
+        "research-max-items": {},
+        "research-focus": {},
+        "research-watch": {},
         "clean": {},
         "tail": {}
       },
       "warnings": [
-        "Side effects: writes or replaces generated dump files and cache/index data.",
+        "Side effects: writes or replaces generated dump files, cache/index data, research diff reports, research timeline entries, and the private research corpus baseline.",
         "-Clean removes known dump outputs before regeneration. This can be slow and depends on installed game files."
       ],
       "details": [
-        "Runs Il2CppDumper against the installed game binaries, writes dump artifacts, and rebuilds the local dump SQLite index unless -SkipIndex is used."
+        "Runs Il2CppDumper against the installed game binaries, writes dump artifacts, and rebuilds the local dump SQLite index unless -SkipIndex is used.",
+        "By default, compares the previous private research corpus against the new dump, writes a detailed report, records it in the append-only research timeline, then advances the corpus baseline for future refreshes.",
+        "If the timeline write fails after a diff was produced, the command refuses to advance the corpus baseline."
       ]
     },
     "dump-search": {
@@ -2759,6 +2801,662 @@
       "details": [
         "Exports selected local dump-index content as JSONL suitable for embedding, review, or corpus transfer.",
         "Without -Output the export is written to stdout; with -Output it writes the requested file."
+      ]
+    },
+    "research-index": {
+      "summary": "Build or refresh the private source-neutral research corpus index",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "research-index"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "corpus-db": {
+            "type": "string"
+          },
+          "dump-db": {
+            "type": "string"
+          },
+          "include": {
+            "type": "string"
+          },
+          "jsonl": {
+            "type": "string"
+          },
+          "build-id": {
+            "type": "string"
+          },
+          "game-version": {
+            "type": "string"
+          },
+          "reset": {
+            "type": "boolean"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "corpus-db": {},
+        "dump-db": {},
+        "include": {},
+        "jsonl": {},
+        "build-id": {},
+        "game-version": {},
+        "reset": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [
+        "Side effects: writes or replaces private corpus cache/index data.",
+        "Private research tooling only; do not ship this implementation in stfc-mod."
+      ],
+      "details": [
+        "Seeds the private research corpus from the existing dump SQLite index and optional JSONL documents.",
+        "The corpus schema is source-neutral so later localization, asset, Addressables, proto, or scrape extractors can feed the same search and context surface."
+      ]
+    },
+    "local-research-sources": {
+      "summary": "Extract privacy-scoped LocaleDB strings and local cache manifests into research JSONL",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "local-research-sources"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "persistent-root": {
+            "type": "string"
+          },
+          "locale-db-path": {
+            "type": "string"
+          },
+          "output": {
+            "type": "string"
+          },
+          "include": {
+            "type": "string"
+          },
+          "terms": {
+            "type": "string"
+          },
+          "all-locale": {
+            "type": "boolean"
+          },
+          "min-string-length": {
+            "type": "integer"
+          },
+          "max-locale-strings": {
+            "type": "integer"
+          },
+          "cache-dir": {
+            "type": "string"
+          },
+          "max-cache-files": {
+            "type": "integer"
+          },
+          "hash-files": {
+            "type": "boolean"
+          },
+          "index": {
+            "type": "boolean"
+          },
+          "corpus-db": {
+            "type": "string"
+          },
+          "build-id": {
+            "type": "string"
+          },
+          "game-version": {
+            "type": "string"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "persistent-root": {},
+        "locale-db-path": {},
+        "output": {},
+        "include": {},
+        "terms": {},
+        "all-locale": {},
+        "min-string-length": {},
+        "max-locale-strings": {},
+        "cache-dir": {},
+        "max-cache-files": {},
+        "hash-files": {},
+        "index": {},
+        "corpus-db": {},
+        "build-id": {},
+        "game-version": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [
+        "Side effects: writes private JSONL output and, with -Index, updates the private research corpus database.",
+        "Output can reveal unreleased local game data; keep it private and do not copy raw findings to public stfc-mod."
+      ],
+      "details": [
+        "Writes source-neutral JSONL under .ax-priv\\\\cache by default and can index it through research-index with -Index.",
+        "LocaleDB extraction is text mining with generic email/token redaction; cache extraction is manifest-only unless -HashFiles is supplied.",
+        "Request and server cache payload bytes are not decoded by this command."
+      ]
+    },
+    "research-search": {
+      "summary": "Search the private source-neutral research corpus",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "research-search"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "corpus-db": {
+            "type": "string"
+          },
+          "source-kind": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "like": {
+            "type": "boolean"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "query": {},
+        "corpus-db": {},
+        "source-kind": {},
+        "exact": {},
+        "like": {},
+        "max-results": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [
+        "Read-only, but output may include private or unreleased local research data; keep reports bounded and private."
+      ],
+      "details": [
+        "Searches corpus documents across dump symbols, IL2CPP literals, script metadata, and future private sources.",
+        "Use this when the source is unknown or broader than one dump table."
+      ]
+    },
+    "research-context": {
+      "summary": "Expand one corpus hit with nearby and related private evidence",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "research-context"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "doc-id": {
+            "type": "string"
+          },
+          "corpus-db": {
+            "type": "string"
+          },
+          "source-kind": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "like": {
+            "type": "boolean"
+          },
+          "related-query": {
+            "type": "string"
+          },
+          "max-nearby": {
+            "type": "integer"
+          },
+          "max-related": {
+            "type": "integer"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "query": {},
+        "doc-id": {},
+        "corpus-db": {},
+        "source-kind": {},
+        "exact": {},
+        "like": {},
+        "related-query": {},
+        "max-nearby": {},
+        "max-related": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [
+        "Read-only, but output may include private or unreleased local research data; keep reports bounded and private."
+      ],
+      "details": [
+        "Finds one corpus document, then returns nearby documents from the same source lane and related documents from the broader corpus.",
+        "This is the first stop after research-search when an agent needs enough context to reason about a string, route, class, or metadata hit."
+      ]
+    },
+    "research-diff": {
+      "summary": "Analyze changes from the previous research corpus to a refreshed dump index",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "research-diff"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "baseline-db": {
+            "type": "string"
+          },
+          "dump-db": {
+            "type": "string"
+          },
+          "output": {
+            "type": "string"
+          },
+          "max-items": {
+            "type": "integer"
+          },
+          "focus": {
+            "type": "string"
+          },
+          "watch": {
+            "type": "string"
+          },
+          "summary-only": {
+            "type": "boolean"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "unknown",
+      "args": {
+        "baseline-db": {},
+        "dump-db": {},
+        "output": {},
+        "max-items": {},
+        "focus": {},
+        "watch": {},
+        "summary-only": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [
+        "Read-only unless -Output is supplied.",
+        "Output may include private or unreleased local research data; keep reports bounded and private."
+      ],
+      "details": [
+        "Compares the existing research corpus snapshot against a dump SQLite index and reports added, removed, and changed symbols, literals, and script methods.",
+        "Use this immediately after dump-index or dump-refresh and before research-index advances the corpus snapshot."
+      ]
+    },
+    "research-timeline": {
+      "summary": "Read the append-only private research patch timeline",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "research-timeline"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "timeline-path": {
+            "type": "string"
+          },
+          "max-entries": {
+            "type": "integer"
+          },
+          "refresh-id": {
+            "type": "string"
+          },
+          "event-type": {
+            "type": "string"
+          },
+          "patch-label": {
+            "type": "string"
+          },
+          "summary-only": {
+            "type": "boolean"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "timeline-path": {},
+        "max-entries": {},
+        "refresh-id": {},
+        "event-type": {},
+        "patch-label": {},
+        "summary-only": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [
+        "Read-only, but output may include private or unreleased local research data; keep reports bounded and private."
+      ],
+      "details": [
+        "Reads the JSONL timeline populated by dump-refresh and returns patch-to-patch diff and baseline-advance events.",
+        "Use -SummaryOnly for the high-level timeline view before opening an individual research diff report."
+      ]
+    },
+    "research-stats": {
+      "summary": "Summarize private research corpus counts and sources",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "research-stats"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "corpus-db": {
+            "type": "string"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "read",
+      "args": {
+        "corpus-db": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [
+        "Read-only, but source paths and build labels may be machine-local/private."
+      ],
+      "details": [
+        "Reports document counts by source kind plus the indexed source records."
+      ]
+    },
+    "research-export": {
+      "summary": "Export private research corpus documents as JSONL",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "research-export"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "output": {
+            "type": "string"
+          },
+          "corpus-db": {
+            "type": "string"
+          },
+          "source-kind": {
+            "type": "string"
+          },
+          "max-docs": {
+            "type": "integer"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "output": {},
+        "corpus-db": {},
+        "source-kind": {},
+        "max-docs": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [
+        "Side effects: writes a JSONL export file and may produce a large private artifact.",
+        "Do not publish unreleased or private research rows."
+      ],
+      "details": [
+        "Exports normalized corpus documents for offline review or future embedding pipelines.",
+        "No embeddings or network calls are performed by AX."
       ]
     },
     "pure-tests": {

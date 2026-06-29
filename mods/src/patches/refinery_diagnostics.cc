@@ -1,4 +1,5 @@
 #include "patches/hook_registry.h"
+#include "patches/section_change_router.h"
 
 #include "str_utils.h"
 
@@ -23,12 +24,6 @@ class RefineSelectionContainer;
 
 namespace
 {
-constexpr HookDescriptor kSectionManagerTriggerSectionChangeHook{
-    "SectionManager.TriggerSectionChange",
-    "Log refinery section transitions before the game starts loading the target section.",
-    {"Assembly-CSharp", "Digit.Client.Sections", "SectionManager", "TriggerSectionChange"},
-    "Missing refinery section-change entries around a hang."};
-
 constexpr HookDescriptor kShopSectionChangeRefineSelectionModeHook{
     "ShopSectionContext.ChangeRefineSelectionMode",
     "Log entry and exit from refinery selection mode.",
@@ -502,23 +497,23 @@ void log_gs_error(void* error)
                il2cpp_string_or_label(requestUrl));
 }
 
-void SectionManager_TriggerSectionChange_RefineryDiagnostics_Hook(auto original, SectionManager* self,
-                                                                  SectionID nextSectionID, void* args,
-                                                                  bool forcedSectionChange, bool isGoBackStep,
-                                                                  bool allowSameSection)
+void RefineryDiagnosticsSectionChangeBeforeOriginal(const SectionChangeContext& context)
 {
-  if (is_refinery_related_section(nextSectionID)) {
-    remember_refinery_activity(self);
-    log_refinery_edge("section-change enter", self);
+  if (is_refinery_related_section(context.next_section)) {
+    remember_refinery_activity(context.manager);
+    log_refinery_edge("section-change enter", context.manager);
     spdlog::info("[RefineryDiag] section-change begin manager={} next={}({}) args={} forced={} goBack={} allowSame={}",
-                 static_cast<const void*>(self), static_cast<int32_t>(nextSectionID), section_label(nextSectionID),
-                 args, forcedSectionChange, isGoBackStep, allowSameSection);
-    original(self, nextSectionID, args, forcedSectionChange, isGoBackStep, allowSameSection);
-    log_refinery_edge("section-change returned", self);
-    return;
+                 static_cast<const void*>(context.manager), static_cast<int32_t>(context.next_section),
+                 section_label(context.next_section), context.args, context.forced_section_change,
+                 context.is_go_back_step, context.allow_same_section);
   }
+}
 
-  original(self, nextSectionID, args, forcedSectionChange, isGoBackStep, allowSameSection);
+void RefineryDiagnosticsSectionChangeAfterOriginal(const SectionChangeContext& context)
+{
+  if (is_refinery_related_section(context.next_section)) {
+    log_refinery_edge("section-change returned", context.manager);
+  }
 }
 
 void ShopSectionContext_ChangeRefineSelectionMode_Hook(auto original, ShopSectionContext* context, bool enabled)
@@ -856,8 +851,8 @@ void InstallRefineryDiagnosticsHooks()
 {
   HookModuleHealth hooks("RefineryDiagnosticsHooks");
 
-  INSTALL_REFINERY_DIAG_HOOK(hooks, kSectionManagerTriggerSectionChangeHook,
-                             SectionManager_TriggerSectionChange_RefineryDiagnostics_Hook);
+  RegisterSectionChangeObserver({"refinery_diagnostics", RefineryDiagnosticsSectionChangeBeforeOriginal,
+                                 RefineryDiagnosticsSectionChangeAfterOriginal});
   INSTALL_REFINERY_DIAG_HOOK(hooks, kShopSectionChangeRefineSelectionModeHook,
                              ShopSectionContext_ChangeRefineSelectionMode_Hook);
   INSTALL_REFINERY_DIAG_HOOK(hooks, kShopSectionSetBundleQuantityHook,

@@ -128,6 +128,7 @@ namespace
       "sync.url",
       "sync.verify_ssl",
       "ui.always_skip_reveal_sequence",
+      "ui.auto_open_bulk_claim_flyout",
       "ui.disable_escape_exit",
       "ui.disable_first_popup",
       "ui.disable_galaxy_chat",

@@ -494,14 +494,6 @@
       "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
     },
     {
-      "id": "raw_spud_static_detour:mods/src/patches/parts/misc.cc:7dbc021bcb4f:1",
-      "kind": "raw_spud_static_detour",
-      "path": "mods/src/patches/parts/misc.cc",
-      "normalized_text": "SPUD_STATIC_DETOUR(trigger_open_section_change, TriggerOpenSectionChange_Hook);",
-      "category": "legacy_unmanaged",
-      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
-    },
-    {
       "id": "raw_spud_static_detour:mods/src/patches/parts/misc.cc:f2b9a7d2357d:1",
       "kind": "raw_spud_static_detour",
       "path": "mods/src/patches/parts/misc.cc",

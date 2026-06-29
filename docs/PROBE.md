@@ -10,7 +10,7 @@ All output goes to spdlog (tagged `[probe]`), so check `community_patch.log`.
 
 ## Safety First
 
-Before adding runtime probe calls, read [Native Probe Safety](NATIVE_PROBE_SAFETY.md). Static source and dump review should come first, and every runtime probe should have a narrow question, a disable path, and an exit plan.
+Before adding runtime probe calls, read [Native Probe Safety](NATIVE_PROBE_SAFETY.md) and [Patch Delta Delve SOP](PATCH_DELVE_SOP.md). Static source and dump review should come first, and every runtime probe should have a narrow question, a probe-directory entry, a disable path, and an exit plan.
 
 ---
 

@@ -85,6 +85,7 @@ static AdvancedConfig            g_advanced_config{};
 static int                       g_sidecar_logging_jsonl_replay_seconds = DCSL::jsonl_replay_seconds;
 static int                       g_sidecar_logging_jsonl_recent_logs    = DCSL::jsonl_recent_logs;
 static bool                      g_refinery_diagnostics                 = DCAD::refinery_diagnostics;
+static bool                      g_auto_open_bulk_claim_gifts           = DCU::auto_open_bulk_claim_flyout;
 static bool                      g_mod_impact_monitor                   = DCAD::mod_impact_monitor;
 static RuntimeTraceLevel         g_runtime_trace_level                  = RuntimeTraceLevel::Off;
 static bool                      g_runtime_trace_track_overhead         = DCAD::runtime_trace_track_overhead;
@@ -162,6 +163,9 @@ int SidecarLoggingJsonlRecentLogs()
 
 bool RefineryDiagnosticsEnabled()
 { return g_refinery_diagnostics; }
+
+bool AutoOpenBulkClaimGiftsEnabled()
+{ return g_auto_open_bulk_claim_gifts; }
 
 bool ModImpactMonitorEnabled()
 { return g_runtime_trace_level != RuntimeTraceLevel::Off; }
@@ -1252,6 +1256,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "ui", "disable_move_keys", DCU::disable_move_keys, write_config);
   this->disable_toast_banners =
       get_config_or_default(config, parsed, "ui", "disable_toast_banners", DCU::disable_toast_banners, write_config);
+  g_auto_open_bulk_claim_gifts = get_config_or_default(config, parsed, "ui", "auto_open_bulk_claim_flyout",
+                                                       DCU::auto_open_bulk_claim_flyout, write_config);
 
 #if _WIN32
   this->extend_donation_slider =
