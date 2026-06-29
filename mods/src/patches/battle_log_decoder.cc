@@ -185,6 +185,25 @@ void attach_battle_dispatch(nlohmann::json& event, const BattleJournalDispatchCo
   return {};
 }
 
+[[nodiscard]] std::string json_string_or_empty(const nlohmann::json& value)
+{
+  return value.is_string() ? value.get<std::string>() : std::string{};
+}
+
+[[nodiscard]] std::string json_object_string_or_empty(const nlohmann::json& object, std::string_view key)
+{
+  if (!object.is_object()) {
+    return {};
+  }
+
+  const auto iterator = object.find(key);
+  if (iterator == object.end()) {
+    return {};
+  }
+
+  return json_string_or_empty(*iterator);
+}
+
 [[nodiscard]] std::string trim_copy(std::string value)
 {
   const auto is_space = [](unsigned char character) { return std::isspace(character) != 0; };
@@ -349,7 +368,7 @@ void append_unique(std::vector<int64_t>& values, int64_t value)
     return {};
   }
 
-  auto name = names[uid].value("name", std::string{});
+  auto name = json_object_string_or_empty(names[uid], "name");
   return is_placeholder_display_name(name) ? std::string{} : trim_copy(std::move(name));
 }
 
@@ -440,7 +459,7 @@ void populate_participant_profile_fields(ParticipantInfo& participant, const nlo
   }
 
   const auto& chest_drop = journal["chest_drop"];
-  auto loot_roll_key = chest_drop.value("loot_roll_key", std::string{});
+  auto loot_roll_key = json_object_string_or_empty(chest_drop, "loot_roll_key");
   if (!loot_roll_key.empty()) {
     return loot_roll_key;
   }
@@ -454,7 +473,7 @@ void populate_participant_profile_fields(ParticipantInfo& participant, const nlo
       continue;
     }
 
-    auto chest_name = chest["params"].value("chest_name", std::string{});
+    auto chest_name = json_object_string_or_empty(chest["params"], "chest_name");
     if (!chest_name.empty()) {
       return chest_name;
     }
@@ -589,7 +608,7 @@ void add_participant(EntityIndex& index, const nlohmann::json& names, const nloh
 
   ParticipantInfo participant;
   participant.side = std::move(side);
-  participant.uid = fleet.value("uid", std::string{});
+  participant.uid = json_object_string_or_empty(fleet, "uid");
   participant.name = participant_name_for_uid(names, participant.uid);
   populate_participant_profile_fields(participant, names);
 
@@ -1211,7 +1230,7 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
       continue;
     }
 
-    const auto kind = record.value("kind", std::string{});
+    const auto kind = json_object_string_or_empty(record, "kind");
     if (kind == "attack") {
       summary["attackCount"] = summary.value("attackCount", 0) + 1;
       if (record.value("critical", false)) {
@@ -1287,7 +1306,7 @@ void merge_record_summary(nlohmann::json& destination, const nlohmann::json& sou
         record["segmentIndex"] = segment.value("index", size_t{0});
         record["round"] = round_index;
         record["subRound"] = sub_round_index;
-        if (record.value("kind", std::string{}) == "attack") {
+        if (json_object_string_or_empty(record, "kind") == "attack") {
           analytics.attack_rows.push_back(record);
         }
       }
@@ -1432,7 +1451,7 @@ void append_chest_rewards(nlohmann::json& rewards, const nlohmann::json& chest_d
                        {"source", "chest_drop"},
                        {"count", chest.contains("count") ? chest["count"] : nlohmann::json()},
                        {"refId", params.contains("ref_id") ? params["ref_id"] : nlohmann::json()},
-                       {"nameKey", params.value("chest_name", std::string{})},
+                       {"nameKey", json_object_string_or_empty(params, "chest_name")},
                        {"items", params.contains("items") ? params["items"] : nlohmann::json::array()}});
   }
 }
@@ -1463,15 +1482,15 @@ void append_chest_rewards(nlohmann::json& rewards, const nlohmann::json& chest_d
 
   return nlohmann::json{{"battleId", journal.contains("id") ? json_id_to_string(journal["id"]) : std::string{}},
                         {"battleType", journal.contains("battle_type") ? journal["battle_type"] : nlohmann::json()},
-                        {"battleTime", journal.value("battle_time", std::string{})},
+                        {"battleTime", json_object_string_or_empty(journal, "battle_time")},
                         {"battleDuration", journal.value("battle_duration", 0)},
-                        {"initiatorId", journal.value("initiator_id", std::string{})},
-                        {"targetId", journal.value("target_id", std::string{})},
+                        {"initiatorId", json_object_string_or_empty(journal, "initiator_id")},
+                        {"targetId", json_object_string_or_empty(journal, "target_id")},
                         {"initiatorWins", initiator_wins},
                         {"outcome", initiator_wins ? "initiator_victory" : "target_victory"},
                         {"systemId", journal.contains("system_id") ? journal["system_id"] : nlohmann::json()},
                         {"coords", journal.contains("coords") ? journal["coords"] : nlohmann::json()},
-                        {"lootRollKey", chest_drop.value("loot_roll_key", std::string{})},
+                        {"lootRollKey", json_object_string_or_empty(chest_drop, "loot_roll_key")},
                         {"participantCount", decoded.value("participant_count", size_t{0})},
                         {"shipCount", decoded.value("ship_count", size_t{0})},
                         {"componentCount", decoded.value("component_count", size_t{0})},
@@ -1718,15 +1737,15 @@ void append_chest_rewards(nlohmann::json& rewards, const nlohmann::json& chest_d
                                                                                                   : nlohmann::json::object();
 
   return nlohmann::json{{"battleType", journal.contains("battle_type") ? journal["battle_type"] : nlohmann::json()},
-                        {"battleTime", journal.value("battle_time", std::string{})},
+                        {"battleTime", json_object_string_or_empty(journal, "battle_time")},
                         {"battleDuration", journal.value("battle_duration", 0)},
-                        {"initiatorId", journal.value("initiator_id", std::string{})},
-                        {"targetId", journal.value("target_id", std::string{})},
+                        {"initiatorId", json_object_string_or_empty(journal, "initiator_id")},
+                        {"targetId", json_object_string_or_empty(journal, "target_id")},
                         {"initiatorWins", initiator_wins},
                         {"outcome", initiator_wins ? "initiator_victory" : "target_victory"},
                         {"systemId", journal.contains("system_id") ? json_id_to_string(journal["system_id"]) : std::string{}},
                         {"coords", journal.contains("coords") ? journal["coords"] : nlohmann::json()},
-                        {"lootRollKey", chest_drop.value("loot_roll_key", std::string{})}};
+                        {"lootRollKey", json_object_string_or_empty(chest_drop, "loot_roll_key")}};
 }
 
 [[nodiscard]] nlohmann::json build_lossless_journal_without_battle_log(const nlohmann::json& journal)
@@ -1798,9 +1817,9 @@ nlohmann::json decode_journal(const nlohmann::json& journal, const nlohmann::jso
                                 {"journal_id", journal_id},
                                 {"battle_id", journal.contains("id") ? journal["id"] : nlohmann::json(journal_id)},
                                 {"battle_type", journal.contains("battle_type") ? journal["battle_type"] : nlohmann::json()},
-                                {"battle_time", journal.value("battle_time", std::string{})},
-                                {"initiator_id", journal.value("initiator_id", std::string{})},
-                                {"target_id", journal.value("target_id", std::string{})},
+                                {"battle_time", json_object_string_or_empty(journal, "battle_time")},
+                                {"initiator_id", json_object_string_or_empty(journal, "initiator_id")},
+                                {"target_id", json_object_string_or_empty(journal, "target_id")},
                                 {"initiator_wins", journal.value("initiator_wins", false)},
                                 {"participant_count", entity_index.participants.size()},
                                 {"ship_count", entity_index.ship_ids.size()},
@@ -1837,7 +1856,7 @@ nlohmann::json build_sidecar_battle_report_event(const nlohmann::json& journal,
   const auto journal_id = journal_id_override != 0 ? std::to_string(journal_id_override)
                                                    : (journal.contains("id") ? json_id_to_string(journal["id"]) : std::string{});
   const auto battle_id = journal.contains("id") ? json_id_to_string(journal["id"]) : journal_id;
-  const auto timestamp = journal.value("battle_time", std::string{});
+  const auto timestamp = json_object_string_or_empty(journal, "battle_time");
   const auto events = decoded.contains("segments") && decoded["segments"].is_array() ? decoded["segments"]
                                                                                          : nlohmann::json::array();
   const auto rounds = decoded.contains("rounds") && decoded["rounds"].is_array() ? decoded["rounds"] : nlohmann::json::array();
@@ -1905,7 +1924,7 @@ nlohmann::json build_sidecar_battle_analytics_event(const nlohmann::json& journa
   const auto journal_id = journal_id_override != 0 ? std::to_string(journal_id_override)
                                                    : (journal.contains("id") ? json_id_to_string(journal["id"]) : std::string{});
   const auto battle_id = journal.contains("id") ? json_id_to_string(journal["id"]) : journal_id;
-  const auto timestamp = journal.value("battle_time", std::string{});
+  const auto timestamp = json_object_string_or_empty(journal, "battle_time");
   const auto rounds = decoded.contains("rounds") && decoded["rounds"].is_array() ? decoded["rounds"] : nlohmann::json::array();
   const auto attack_rows = decoded.contains("attack_rows") && decoded["attack_rows"].is_array() ? decoded["attack_rows"]
                                                                                                    : nlohmann::json::array();
@@ -1964,7 +1983,7 @@ nlohmann::json build_sidecar_battle_capture_event(const nlohmann::json& journal,
   const auto journal_id = journal_id_override != 0 ? std::to_string(journal_id_override)
                                                    : (journal.contains("id") ? json_id_to_string(journal["id"]) : std::string{});
   const auto battle_id = journal.contains("id") ? json_id_to_string(journal["id"]) : journal_id;
-  const auto timestamp = journal.value("battle_time", std::string{});
+  const auto timestamp = json_object_string_or_empty(journal, "battle_time");
   const auto entity_index = build_entity_index(journal, names);
   const auto& battle_log = journal["battle_log"];
 
@@ -2046,7 +2065,7 @@ void collect_observed_ids_from_decoded(const nlohmann::json& decoded,
         continue;
       }
 
-      const auto kind = effect.value("kind", std::string{});
+      const auto kind = json_object_string_or_empty(effect, "kind");
       const auto effect_id = effect.contains("id") ? json_to_i64(effect["id"]) : std::nullopt;
       if (!effect_id) {
         continue;
@@ -2111,7 +2130,7 @@ nlohmann::json build_sidecar_catalog_snapshot_event(const nlohmann::json& journa
   const auto journal_id = journal_id_override != 0 ? std::to_string(journal_id_override)
                                                    : (journal.contains("id") ? json_id_to_string(journal["id"]) : std::string{});
   const auto battle_id = journal.contains("id") ? json_id_to_string(journal["id"]) : journal_id;
-  const auto timestamp = journal.value("battle_time", std::string{});
+  const auto timestamp = json_object_string_or_empty(journal, "battle_time");
 
   // Walk the entity index to gather IDs that appear in this battle.
   const auto entity_index = build_entity_index(journal, names);

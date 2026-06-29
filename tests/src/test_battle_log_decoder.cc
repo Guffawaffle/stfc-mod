@@ -117,6 +117,45 @@ TEST_SUITE("battle_log_decoder")
     CHECK_FALSE(capture["capture"]["journal"]["data"].contains("battle_log"));
   }
 
+  TEST_CASE("decoder tolerates nullable string fields in armada-like journal payloads")
+  {
+    auto journal = nlohmann::json{{"id", 12345},
+                                  {"battle_type", 8},
+                                  {"battle_time", nullptr},
+                                  {"initiator_id", "player-1"},
+                                  {"target_id", nullptr},
+                                  {"initiator_wins", true},
+                                  {"battle_log", nlohmann::json::array({-96, -97})}};
+    journal["initiator_fleet_data"]["deployed_fleets"]["1"] = {
+        {"uid", "player-1"},
+        {"fleet_id", 1},
+        {"ship_ids", nlohmann::json::array({111})},
+        {"hull_ids", nlohmann::json::array({77})},
+    };
+    journal["target_fleet_data"]["deployed_fleet"] = {
+        {"uid", nullptr},
+        {"fleet_id", 2},
+        {"type", 2},
+        {"ship_ids", nlohmann::json::array({0})},
+        {"hull_ids", nlohmann::json::array({3066099110})},
+    };
+
+    const auto names = nlohmann::json{{"player-1", {{"name", nullptr}}}};
+
+    battle_log_decoder::DecodeOptions options;
+    const auto decoded = battle_log_decoder::decode_journal(journal, names, options, 12345);
+    CHECK(decoded.value("ok", false));
+    CHECK(decoded["battle_time"] == "");
+    CHECK(decoded["target_id"] == "");
+    REQUIRE(decoded["participants"].is_array());
+    REQUIRE(decoded["participants"].size() == 2);
+    CHECK(decoded["participants"][1]["uid"] == "");
+
+    const auto capture = battle_log_decoder::build_sidecar_battle_capture_event(journal, names, 12345, 222);
+    CHECK(capture["timestamp"] == "");
+    CHECK(capture["capture"]["participants"][1]["uid"] == "");
+  }
+
   TEST_CASE("sidecar battle event sequence is capture-only until enrichment is enabled")
   {
     const auto names = nlohmann::json{{"player-1", {{"name", "Guff"}, {"alliance_name", "House of Test"}}},

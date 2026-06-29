@@ -823,8 +823,18 @@ inline void collect_user_ids_from_fleet(const nlohmann::json& fleet_data, std::u
 {
   if (!fleet_data.contains("ref_ids") || fleet_data["ref_ids"].is_null()) {
     for (const auto& fleet : fleet_data["deployed_fleets"]) {
-      const auto& player_id = fleet["uid"].get<std::string>();
-      user_ids.insert(player_id);
+      if (!fleet.is_object()) {
+        continue;
+      }
+
+      const auto uid = fleet.find("uid");
+      if (uid == fleet.end()) {
+        continue;
+      }
+
+      if (const auto player_id = json_key_value_as_string(*uid); !player_id.empty()) {
+        user_ids.insert(player_id);
+      }
     }
   }
 }

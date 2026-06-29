@@ -1338,6 +1338,11 @@ void Config::Load()
                                  g_runtime_trace_report_interval_ms);
   g_battle_log_decoder_enabled = g_sidecar_config.sync.battlelog_enrichment;
   config_schema::write_bool(parsed, "battle_log_decoder.enabled", g_battle_log_decoder_enabled);
+  if (g_sidecar_config.sync.enabled && g_sidecar_config.sync.battlelogs_realtime && !g_battle_log_decoder_enabled) {
+    spdlog::info(
+        "sidecar.sync.battlelogs_realtime is enabled without sidecar.sync.battlelog_enrichment; local sidecar battle "
+        "feeds will remain capture-only.");
+  }
   g_battle_log_decoder_segments =
       get_config_or_default(config, parsed, "battle_log_decoder", "emit_segments", DCBLD::emit_segments, write_config);
   g_battle_log_decoder_feed =

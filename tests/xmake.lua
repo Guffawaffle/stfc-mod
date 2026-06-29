@@ -35,6 +35,7 @@ do
     add_files("../mods/src/patches/notification_queue.cc")
     add_files("../mods/src/patches/notification_policy.cc")
     add_files("../mods/src/patches/notification_text.cc")
+    add_files("../mods/src/patches/sidecar_local_chunking.cc")
     add_files("../mods/src/patches/sidecar_local_ingest_policy.cc")
     add_files("../mods/src/patches/sync_transport_policy.cc")
 

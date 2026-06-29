@@ -2,6 +2,7 @@
 
 #include "config.h"
 #include "patches/async_work_queue.h"
+#include "patches/sidecar_local_chunking.h"
 #include "patches/sidecar_local_ingest_policy.h"
 #include "patches/sync_transport.h"
 #include "patches/sync_transport_policy.h"
@@ -324,21 +325,47 @@ void post_sidecar_local_envelope(cpr::Session& session,
     return;
   }
 
-  session.SetBody(cpr::Body{envelope.dump()});
-  const auto response = session.Post();
-  if (response.error.code != cpr::ErrorCode::OK) {
-    sidecar_local_transport_failure(kind, context, response.error.message);
-    return;
-  }
+  const auto post_serialized_body = [&](const std::string& body) {
+    session.SetBody(cpr::Body{body});
+    const auto response = session.Post();
+    if (response.error.code != cpr::ErrorCode::OK) {
+      sidecar_local_transport_failure(kind, context, response.error.message);
+      return false;
+    }
 
-  if (response.status_code < 200 || response.status_code >= 300) {
-    sidecar_local_transport_failure(kind, context, std::format("HTTP {}", response.status_code));
+    if (response.status_code < 200 || response.status_code >= 300) {
+      sidecar_local_transport_failure(kind, context, std::format("HTTP {}", response.status_code));
+      return false;
+    }
+
+    return true;
+  };
+
+  const auto serialized_envelope = envelope.dump();
+  size_t     chunk_count = 1;
+  std::string transport_mode = "single";
+
+  if (sidecar_local_chunking::EnvelopeRequiresChunking(serialized_envelope)) {
+    const auto chunk_envelopes =
+        sidecar_local_chunking::BuildTransportChunkEnvelopes(envelope, serialized_envelope, sidecar_local_chunking::kChunkDataBytes);
+    if (!chunk_envelopes.empty()) {
+      chunk_count = chunk_envelopes.size();
+      transport_mode = "chunked";
+      for (const auto& chunk_envelope : chunk_envelopes) {
+        if (!post_serialized_body(chunk_envelope.dump())) {
+          return;
+        }
+      }
+    } else if (!post_serialized_body(serialized_envelope)) {
+      return;
+    }
+  } else if (!post_serialized_body(serialized_envelope)) {
     return;
   }
 
   sidecar_local_transport_success(kind, context);
   spdlog::debug("[SidecarLocal] kind={} boundary={} classification={} source={} owner={} seam={} reason={} effect={} "
-                "transport=sent url={}",
+                "transport=sent transportMode={} bytes={} chunkCount={} url={}",
                 sidecar_local_kind_name(kind),
                 context.boundary,
                 context.classification,
@@ -347,6 +374,9 @@ void post_sidecar_local_envelope(cpr::Session& session,
                 context.dispatch.seam,
                 context.dispatch.reason,
                 context.dispatch.effect,
+                transport_mode,
+                serialized_envelope.size(),
+                chunk_count,
                 SidecarSyncSettings().url);
 }
 
