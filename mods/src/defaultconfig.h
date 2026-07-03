@@ -492,6 +492,15 @@ namespace UI
   constexpr bool show_player_cargo = true;
   /// Show cargo overlay on stations. Default: true.
   constexpr bool show_station_cargo = true;
+
+  namespace MissionHud
+  {
+    constexpr const char* q_trials       = "auto";
+    constexpr const char* field_training = "auto";
+    constexpr const char* outposts       = "auto";
+    constexpr const char* daily_goals    = "auto";
+    constexpr const char* missions       = "auto";
+  } // namespace MissionHud
 } // namespace UI
 
 } // namespace DefaultConfig

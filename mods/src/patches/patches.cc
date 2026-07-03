@@ -125,6 +125,7 @@ void InstallImproveResponsivenessHooks();
 void InstallFrameTickHooks();
 void InstallHotkeyHooks();
 void InstallOpenBulkClaimGiftsHooks();
+void InstallMissionHudTweaksHooks();
 void InstallSectionChangeRouterHooks();
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
 void InstallLiveDebugHooks();
@@ -237,6 +238,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   auto             install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
 #endif
   auto             install_open_bulk_claim_gifts_hooks = AutoOpenBulkClaimGiftsEnabled();
+  auto             install_mission_hud_tweaks_hooks    = MissionHudTweaksEnabled();
   auto             install_section_change_router_hooks = install_open_bulk_claim_gifts_hooks;
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   install_section_change_router_hooks =
@@ -257,6 +259,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"FrameTickHooks", {InstallFrameTickHooks, &install_frame_tick_hooks}},
       {"HotkeyHooks", {InstallHotkeyHooks, &cfg.installHotkeyHooks}},
       {"OpenBulkClaimGiftsHooks", {InstallOpenBulkClaimGiftsHooks, &install_open_bulk_claim_gifts_hooks}},
+      {"MissionHudTweaks", {InstallMissionHudTweaksHooks, &install_mission_hud_tweaks_hooks}},
       {"DeploymentRuntimeObservers", {InstallDeploymentRuntimeObserverHooks, &install_deployment_runtime_observers}},
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
       {"LiveDebugHooks", {InstallLiveDebugHooks, &install_live_debug_hooks}},

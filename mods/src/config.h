@@ -158,6 +158,12 @@ public:
   Mode        mode = Mode::Legacy; ///< Outbound wire contract for this target.
 };
 
+enum class MissionHudVisibility {
+  Auto,
+  Always,
+  Never,
+};
+
 /**
  * @brief Canonical local sidecar delivery settings from `[sidecar.sync]`.
  *
@@ -605,6 +611,16 @@ bool RefineryDiagnosticsEnabled();
  * @brief Whether the Gifts view should open its existing bulk-claim flyout automatically.
  */
 bool AutoOpenBulkClaimGiftsEnabled();
+
+/**
+ * @brief Visibility override for one `[ui.mission_hud]` button.
+ */
+MissionHudVisibility MissionHudButtonVisibility(std::string_view button_name);
+
+/**
+ * @brief Whether mission HUD visibility has any non-auto button overrides.
+ */
+bool MissionHudTweaksEnabled();
 
 /**
  * @brief Whether `[advanced.diagnostics]` enables runtime mod impact monitoring.

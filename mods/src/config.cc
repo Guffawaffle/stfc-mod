@@ -47,6 +47,7 @@ namespace DCAKQ = DefaultConfig::Advanced::KirsharaQueue;
 namespace DCN   = DefaultConfig::Notifications;
 namespace DCC   = DefaultConfig::Control;
 namespace DCU   = DefaultConfig::UI;
+namespace DCMH  = DefaultConfig::UI::MissionHud;
 namespace DCBS  = DefaultConfig::Buffs;
 namespace DCS   = DefaultConfig::Sync;
 namespace DCSL  = DefaultConfig::Sidecar::Logging;
@@ -86,10 +87,13 @@ static int                       g_sidecar_logging_jsonl_replay_seconds = DCSL::
 static int                       g_sidecar_logging_jsonl_recent_logs    = DCSL::jsonl_recent_logs;
 static bool                      g_refinery_diagnostics                 = DCAD::refinery_diagnostics;
 static bool                      g_auto_open_bulk_claim_gifts           = DCU::auto_open_bulk_claim_flyout;
-static bool                      g_mod_impact_monitor                   = DCAD::mod_impact_monitor;
-static RuntimeTraceLevel         g_runtime_trace_level                  = RuntimeTraceLevel::Off;
-static bool                      g_runtime_trace_track_overhead         = DCAD::runtime_trace_track_overhead;
-static int                       g_runtime_trace_report_interval_ms     = DCAD::runtime_trace_report_interval_ms;
+
+static std::map<std::string, MissionHudVisibility> g_mission_hud_buttons;
+
+static bool              g_mod_impact_monitor               = DCAD::mod_impact_monitor;
+static RuntimeTraceLevel g_runtime_trace_level              = RuntimeTraceLevel::Off;
+static bool              g_runtime_trace_track_overhead     = DCAD::runtime_trace_track_overhead;
+static int               g_runtime_trace_report_interval_ms = DCAD::runtime_trace_report_interval_ms;
 
 /** @brief Accessor for the file-scope allow_key_fallthrough flag. */
 bool AllowKeyFallthrough()
@@ -166,6 +170,18 @@ bool RefineryDiagnosticsEnabled()
 
 bool AutoOpenBulkClaimGiftsEnabled()
 { return g_auto_open_bulk_claim_gifts; }
+
+MissionHudVisibility MissionHudButtonVisibility(std::string_view button_name)
+{
+  const auto it = g_mission_hud_buttons.find(std::string(button_name));
+  return it == g_mission_hud_buttons.end() ? MissionHudVisibility::Auto : it->second;
+}
+
+bool MissionHudTweaksEnabled()
+{
+  return std::ranges::any_of(g_mission_hud_buttons,
+                             [](const auto& button) { return button.second != MissionHudVisibility::Auto; });
+}
 
 bool ModImpactMonitorEnabled()
 { return g_runtime_trace_level != RuntimeTraceLevel::Off; }
@@ -717,6 +733,107 @@ T get_config_or_default(toml::table& config, toml::table& new_config, std::strin
   }
 
   return (T)final_value;
+}
+
+struct MissionHudVisibilityConfigSpec {
+  std::string_view key;
+  std::string_view default_value;
+};
+
+constexpr std::array<MissionHudVisibilityConfigSpec, 5> kMissionHudVisibilityConfigSpecs{{
+    {"q_trials", DCMH::q_trials},
+    {"field_training", DCMH::field_training},
+    {"outposts", DCMH::outposts},
+    {"daily_goals", DCMH::daily_goals},
+    {"missions", DCMH::missions},
+}};
+
+std::string_view MissionHudVisibilityName(MissionHudVisibility visibility)
+{
+  switch (visibility) {
+    case MissionHudVisibility::Always:
+      return "always";
+    case MissionHudVisibility::Never:
+      return "never";
+    case MissionHudVisibility::Auto:
+    default:
+      return "auto";
+  }
+}
+
+MissionHudVisibility ParseMissionHudVisibility(std::string_view item, std::string_view value)
+{
+  const auto normalized = AsciiStrToLower(StripAsciiWhitespace(value));
+
+  if (normalized == "always") {
+    return MissionHudVisibility::Always;
+  }
+  if (normalized == "never") {
+    return MissionHudVisibility::Never;
+  }
+  if (normalized == "auto" || normalized.empty()) {
+    return MissionHudVisibility::Auto;
+  }
+
+  spdlog::warn("invalid config value ui.mission_hud.{}: '{}'; using auto", item, value);
+  return MissionHudVisibility::Auto;
+}
+
+std::string MissionHudVisibilityValue(toml::table& config, std::string_view item, std::string_view default_value)
+{
+  auto* ui_table = config["ui"].as_table();
+  if (!ui_table) {
+    return std::string(default_value);
+  }
+
+  auto* mission_hud_table = (*ui_table)["mission_hud"].as_table();
+  if (!mission_hud_table) {
+    if (ui_table->contains("mission_hud")) {
+      spdlog::warn("invalid config value ui.mission_hud; expected table");
+    }
+    return std::string(default_value);
+  }
+
+  auto* node = mission_hud_table->get(item);
+  if (!node) {
+    return std::string(default_value);
+  }
+
+  if (auto value = node->value<std::string>(); value.has_value()) {
+    return *value;
+  }
+
+  spdlog::warn("invalid config value ui.mission_hud.{}; found {}; using auto", item,
+               get_config_type_as_string(node->type()));
+  return std::string(default_value);
+}
+
+toml::table& EnsureUiMissionHudTable(toml::table& config)
+{
+  config.emplace<toml::table>("ui", toml::table());
+  auto* ui_table = config["ui"].as_table();
+
+  if (!ui_table->contains("mission_hud") || !(*ui_table)["mission_hud"].is_table()) {
+    ui_table->insert_or_assign("mission_hud", toml::table());
+  }
+
+  return *(*ui_table)["mission_hud"].as_table();
+}
+
+MissionHudVisibility GetMissionHudVisibility(toml::table& config, toml::table& new_config,
+                                             const MissionHudVisibilityConfigSpec& spec, bool write_log)
+{
+  const auto value = MissionHudVisibilityValue(config, spec.key, spec.default_value);
+  const auto mode  = ParseMissionHudVisibility(spec.key, value);
+
+  auto& mission_hud = EnsureUiMissionHudTable(new_config);
+  mission_hud.insert_or_assign(spec.key, std::string(MissionHudVisibilityName(mode)));
+
+  if (write_log) {
+    spdlog::debug("config value ui.mission_hud.{} value: {}", spec.key, MissionHudVisibilityName(mode));
+  }
+
+  return mode;
 }
 
 /**
@@ -1283,6 +1400,10 @@ void Config::Load()
 
   this->always_skip_reveal_sequence = get_config_or_default(config, parsed, "ui", "always_skip_reveal_sequence",
                                                             DCU::always_skip_reveal_sequence, write_config);
+  g_mission_hud_buttons.clear();
+  for (const auto& spec : kMissionHudVisibilityConfigSpecs) {
+    g_mission_hud_buttons.emplace(std::string(spec.key), GetMissionHudVisibility(config, parsed, spec, write_config));
+  }
 
   spdlog::debug("");
 
