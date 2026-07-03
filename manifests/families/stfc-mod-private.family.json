@@ -2887,7 +2887,7 @@
       ]
     },
     "local-research-sources": {
-      "summary": "Extract privacy-scoped LocaleDB strings and local cache manifests into research JSONL",
+      "summary": "Extract privacy-scoped LocaleDB strings, cache manifests, and opt-in cache payload strings into research JSONL",
       "executionTarget": {
         "launcher": {
           "command": "pwsh",
@@ -2916,6 +2916,9 @@
           "locale-db-path": {
             "type": "string"
           },
+          "pre-bundles-root": {
+            "type": "string"
+          },
           "output": {
             "type": "string"
           },
@@ -2934,6 +2937,9 @@
           "max-locale-strings": {
             "type": "integer"
           },
+          "max-bundle-strings": {
+            "type": "integer"
+          },
           "cache-dir": {
             "type": "string"
           },
@@ -2942,6 +2948,27 @@
           },
           "hash-files": {
             "type": "boolean"
+          },
+          "cache-payload-strings": {
+            "type": "boolean"
+          },
+          "all-cache-payload-strings": {
+            "type": "boolean"
+          },
+          "cache-payload-min-string-length": {
+            "type": "integer"
+          },
+          "cache-payload-max-string-chars": {
+            "type": "integer"
+          },
+          "max-cache-payload-files": {
+            "type": "integer"
+          },
+          "max-cache-payload-bytes": {
+            "type": "integer"
+          },
+          "max-cache-payload-strings": {
+            "type": "integer"
           },
           "index": {
             "type": "boolean"
@@ -2974,15 +3001,24 @@
       "args": {
         "persistent-root": {},
         "locale-db-path": {},
+        "pre-bundles-root": {},
         "output": {},
         "include": {},
         "terms": {},
         "all-locale": {},
         "min-string-length": {},
         "max-locale-strings": {},
+        "max-bundle-strings": {},
         "cache-dir": {},
         "max-cache-files": {},
         "hash-files": {},
+        "cache-payload-strings": {},
+        "all-cache-payload-strings": {},
+        "cache-payload-min-string-length": {},
+        "cache-payload-max-string-chars": {},
+        "max-cache-payload-files": {},
+        "max-cache-payload-bytes": {},
+        "max-cache-payload-strings": {},
         "index": {},
         "corpus-db": {},
         "build-id": {},
@@ -2999,7 +3035,200 @@
       "details": [
         "Writes source-neutral JSONL under .ax-priv\\\\cache by default and can index it through research-index with -Index.",
         "LocaleDB extraction is text mining with generic email/token redaction; cache extraction is manifest-only unless -HashFiles is supplied.",
-        "Request and server cache payload bytes are not decoded by this command."
+        "Request and server cache .bin payload strings are only scanned when -CachePayloadStrings or -Include cache-payload is supplied.",
+        "Cache payload scanning emits redacted term-filtered strings from JSON-like payloads and embedded raw UTF-8/UTF-16 strings; it is not full protobuf/object decoding."
+      ]
+    },
+    "cache-manifest-db": {
+      "summary": "Import and diff private local cache manifest snapshots",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "cache-manifest-db"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "jsonl": {
+            "type": "string"
+          },
+          "database": {
+            "type": "string"
+          },
+          "snapshot-id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "baseline": {
+            "type": "string"
+          },
+          "current": {
+            "type": "string"
+          },
+          "max-snapshots": {
+            "type": "integer"
+          },
+          "max-samples": {
+            "type": "integer"
+          },
+          "replace": {
+            "type": "boolean"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "action": {},
+        "jsonl": {},
+        "database": {},
+        "snapshot-id": {},
+        "label": {},
+        "baseline": {},
+        "current": {},
+        "max-snapshots": {},
+        "max-samples": {},
+        "replace": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [
+        "Side effects: writes private SQLite cache manifest snapshot data.",
+        "Output can reveal unreleased local game data names and cache-relative paths; keep it private."
+      ],
+      "details": [
+        "Imports local_cache_manifest JSONL rows into .ax-priv\\\\cache\\\\cache-manifest.db by default.",
+        "The DB stores cache-relative file paths, byte sizes, mtimes, extensions, optional SHA256 hashes, and PNG dimensions; it does not store image or cache payload bytes.",
+        "Use Diff after two or more snapshots to report added, removed, and changed cache files."
+      ]
+    },
+    "cache-image-report": {
+      "summary": "Report local cache image asset changes with an optional HTML preview grid",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "cache-image-report"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "baseline": {
+            "type": "string"
+          },
+          "current": {
+            "type": "string"
+          },
+          "persistent-root": {
+            "type": "string"
+          },
+          "cache": {
+            "type": "string"
+          },
+          "extension": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "max-items": {
+            "type": "integer"
+          },
+          "output": {
+            "type": "string"
+          },
+          "html-output": {
+            "type": "string"
+          },
+          "database": {
+            "type": "string"
+          },
+          "compact": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "baseline": {},
+        "current": {},
+        "persistent-root": {},
+        "cache": {},
+        "extension": {},
+        "status": {},
+        "max-items": {},
+        "output": {},
+        "html-output": {},
+        "database": {},
+        "compact": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [
+        "Read-only except for report files.",
+        "Output can reveal unreleased asset names/hashes and local file paths; keep it private."
+      ],
+      "details": [
+        "Reads .ax-priv\\\\cache\\\\cache-manifest.db and filters image assets, defaulting to DownloadCacheManager .png files.",
+        "When output paths are omitted it writes JSON and HTML under .ax-priv\\\\cache\\\\cache-image-reports.",
+        "The HTML preview links to current local cache files; it does not copy or archive image bytes."
       ]
     },
     "research-search": {
