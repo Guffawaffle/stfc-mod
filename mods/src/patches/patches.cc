@@ -139,9 +139,7 @@ void InstallChatPatches();
 void InstallResolutionListFix();
 void InstallTempCrashFixes();
 void InstallSyncPatches();
-#if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
 void InstallObjectTrackers();
-#endif
 void InstallFleetArrivalHooks();
 void InstallLoadingScreenBgHooks();
 
@@ -277,9 +275,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"ChatPatches", {InstallChatPatches, &cfg.installChatPatches}},
       {"ResolutionListFix", {InstallResolutionListFix, &cfg.installResolutionListFix}},
       {"SyncPatches", {InstallSyncPatches, &cfg.installSyncPatches}},
-#if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
       {"ObjectTracker", {InstallObjectTrackers, &cfg.installObjectTracker}},
-#endif
       {"FleetArrival", {InstallFleetArrivalHooks, &cfg.installFleetArrivalHooks}},
       {"LoadingScreenBgHooks", {InstallLoadingScreenBgHooks, &cfg.installLoadingScreenBgHooks}},
   };

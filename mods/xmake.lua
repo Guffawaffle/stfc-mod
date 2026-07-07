@@ -20,7 +20,7 @@ do
     if public_release then
         remove_files("src/patches/parts/action_queue_repair.cc")
         remove_files("src/patches/refinery_diagnostics.cc")
-        remove_files("src/patches/parts/object_tracker.cc")
+        remove_files("src/patches/object_tracker_public_stubs.cc")
         remove_files("src/patches/parts/testing_config_override.cc")
         remove_files("src/patches/parts/live_debug.cc")
         remove_files("src/patches/parts/live_debug_connector.cc")
