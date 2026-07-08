@@ -11,6 +11,7 @@ struct SectionChangeContext {
   bool            forced_section_change = false;
   bool            is_go_back_step = false;
   bool            allow_same_section = false;
+  bool            changed = false;
 };
 
 struct SectionChangeObserver {

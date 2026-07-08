@@ -215,20 +215,22 @@ public:
   __declspec(property(get = __get__sectionStorage)) SectionStorage* _sectionStorage;
   __declspec(property(get = __get__history)) SectionNavHistory* _history;
 
-  void TriggerSectionChange(SectionID nextSectionID, void* args, bool forcedSectionChange = false,
+  bool TriggerSectionChange(SectionID nextSectionID, void* args, bool forcedSectionChange = false,
                             bool isGoBackStep = false, bool allowSameSection = false)
   {
     static auto triggerWarn = true;
     static auto triggerMethod =
-        get_class_helper().GetMethod<void(void*, SectionID, void*, bool, bool isGoBackStep, bool allowSameSection)>(
-            "TriggerSectionChange");
+        get_class_helper().GetMethod<bool(void*, SectionID, void*, bool, bool isGoBackStep, bool allowSameSection)>(
+            "TriggerSectionChange", 5);
 
     if (triggerMethod) {
-      triggerMethod(this, nextSectionID, args, forcedSectionChange, isGoBackStep, allowSameSection);
+      return triggerMethod(this, nextSectionID, args, forcedSectionChange, isGoBackStep, allowSameSection);
     } else if (triggerWarn) {
       triggerWarn = false;
       ErrorMsg::MissingMethod("SectionManager", "TriggerSectionChange");
     }
+
+    return false;
   }
 
 private:
