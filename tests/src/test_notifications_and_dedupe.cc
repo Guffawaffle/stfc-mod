@@ -94,6 +94,58 @@ TEST_SUITE("notification_text")
   TEST_CASE("strips Unity rich text tags")
   { CHECK(notification_strip_unity_rich_text("<color=#fff>Alpha</color> <b>Beta</b>") == "Alpha Beta"); }
 
+  TEST_CASE("strips Armada toast rich text without losing notification copy")
+  {
+    CHECK(notification_strip_unity_rich_text("<size=28><color=#FF7F7F>ARMADA ALERT!</color></size> "
+                                             "<size=20><color=#40FF60>[ABC] Pike</color> is targeting your "
+                                             "station.</size>")
+          == "ARMADA ALERT! [ABC] Pike is targeting your station.");
+  }
+
+  TEST_CASE("strips quoted TMP link tags and preserves non-tag angle text")
+  {
+    CHECK(notification_strip_unity_rich_text(
+              "Find <link=\"fleetcommand://link/navigation/system?ID=159663443\">Alma</link> now")
+          == "Find Alma now");
+    CHECK(notification_strip_unity_rich_text("Keep values < 10 > 5 visible") == "Keep values < 10 > 5 visible");
+  }
+
+  TEST_CASE("formats localization placeholders before stripping Armada rich text")
+  {
+    const std::vector<std::string> parameters{"#40FF60", "ABC", "Pike", "5", "unused", "120K", "in 5m"};
+    const auto                     formatted = notification_format_placeholders(
+        "<color={0}>[{1}] {2}</color> started an Armada! <size=30>down {3} up {5.000} {6}</size>", parameters);
+
+    CHECK(notification_strip_unity_rich_text(formatted) == "[ABC] Pike started an Armada! down 5 up 120K in 5m");
+  }
+
+  TEST_CASE("zero-pads numeric localization placeholders")
+  {
+    const std::vector<std::string> numeric{"5", "-7", "120K"};
+
+    CHECK(notification_format_placeholders("{0:000}", numeric) == "005");
+    CHECK(notification_format_placeholders("{1:000}", numeric) == "-007");
+    CHECK(notification_format_placeholders("{2:000}", numeric) == "120K");
+  }
+
+  TEST_CASE("formats Armada Created fallback body")
+  {
+    const auto body = notification_format_armada_created_body(
+        "<color={0}>[{1}] {2}</color> started an Armada!\n<size=30>down</size> "
+        "<size=24><b>{3} </b></size><color={4}><size=20> up {5:000} {6}",
+        "#ffffff", "HORD", "xxxpalpainexxx", "6", "#ffffff", "45", "Armada Target");
+
+    CHECK(body == "[HORD] xxxpalpainexxx started an Armada!\ndown 6  up 045 Armada Target");
+  }
+
+  TEST_CASE("detects unresolved localization placeholders")
+  {
+    CHECK(notification_contains_placeholders("[{1}] {2} started an Armada"));
+    CHECK(notification_contains_placeholders("up {5.000} {6}"));
+    CHECK_FALSE(notification_contains_placeholders("Keep values < 10 > 5 visible"));
+    CHECK_FALSE(notification_contains_placeholders("literal {name} text"));
+  }
+
   TEST_CASE("chooses parsed body before localized fallbacks")
   {
     CHECK(notification_choose_body("parsed", "formatted", "raw") == "parsed");
