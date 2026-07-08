@@ -38,7 +38,7 @@ void notify_observer(const SectionChangeObserver& observer,
   }
 }
 
-void SectionManager_TriggerSectionChange_Router_Hook(auto            original,
+bool SectionManager_TriggerSectionChange_Router_Hook(auto            original,
                                                      SectionManager* self,
                                                      SectionID       nextSectionID,
                                                      void*           args,
@@ -46,7 +46,7 @@ void SectionManager_TriggerSectionChange_Router_Hook(auto            original,
                                                      bool            isGoBackStep,
                                                      bool            allowSameSection)
 {
-  const SectionChangeContext context{
+  SectionChangeContext context{
       .manager               = self,
       .next_section          = nextSectionID,
       .args                  = args,
@@ -59,11 +59,14 @@ void SectionManager_TriggerSectionChange_Router_Hook(auto            original,
     notify_observer(observer, context, observer.before_original);
   }
 
-  original(self, nextSectionID, args, forcedSectionChange, isGoBackStep, allowSameSection);
+  const auto changed = original(self, nextSectionID, args, forcedSectionChange, isGoBackStep, allowSameSection);
+  context.changed    = changed;
 
   for (const auto& observer : observers()) {
     notify_observer(observer, context, observer.after_original);
   }
+
+  return changed;
 }
 } // namespace
 
@@ -105,7 +108,7 @@ void InstallSectionChangeRouterHooks()
     return;
   }
 
-  auto trigger_section_change = section_manager.GetMethod("TriggerSectionChange");
+  auto trigger_section_change = section_manager.GetMethod("TriggerSectionChange", 5);
   if (trigger_section_change == nullptr) {
     hooks.record_missing_method(kSectionManagerTriggerSectionChangeHook);
     hooks.log_summary();
