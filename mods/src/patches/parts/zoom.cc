@@ -20,6 +20,7 @@
 
 #include "config.h"
 #include "errormsg.h"
+#include "patches/hook_registry.h"
 #include "patches/mod_impact_monitor.h"
 
 #include "patches/input_binding/input_dispatcher.h"
@@ -47,6 +48,18 @@
 
 namespace
 {
+constexpr HookDescriptor kPlanetViewUtilsCameraZoomedEventHandlerHook{
+    "PlanetViewUtils.CameraZoomedEventHandler",
+    "Re-apply backdrop presentation and trigger flat-renderable scaling after system zoom events.",
+    {"Assembly-CSharp", "Digit.Prime.Navigation", "PlanetViewUtils", "CameraZoomedEventHandler"},
+    "System-view border suppression can regress after zoom changes."};
+
+constexpr HookDescriptor kPlanetViewUtilsGetFlatRenderableHook{
+    "PlanetViewUtils.get_FlatRenderable",
+    "Scale the flat renderable to hide edge void at extreme system zoom.",
+    {"Assembly-CSharp", "Digit.Prime.Navigation", "PlanetViewUtils", "get_FlatRenderable"},
+    "Extreme system zoom can expose backdrop void at the edges."};
+
 struct ZoomRuntimeDispatchCache {
   uint64_t                                     generation = 0;
   std::vector<KeyCode>                         watched_keys;
@@ -523,24 +536,34 @@ void NavigationCamera_SetSystemViewSizeData_Hook(auto original, uint8_t *_this_c
 /** @brief Resolves NavigationZoom IL2CPP methods and installs all zoom hooks. */
 void InstallZoomHooks()
 {
+  HookModuleHealth hooks("ZoomPlanetViewHooks");
+
   auto planet_view_utils_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "PlanetViewUtils");
   if (!planet_view_utils_helper.isValidHelper()) {
+    hooks.record_missing_helper(kPlanetViewUtilsCameraZoomedEventHandlerHook);
+    hooks.record_missing_helper(kPlanetViewUtilsGetFlatRenderableHook);
     ErrorMsg::MissingHelper("Navigation", "PlanetViewUtils");
   } else {
     auto ptr_camera_zoomed = planet_view_utils_helper.GetMethod("CameraZoomedEventHandler");
     if (ptr_camera_zoomed == nullptr) {
+      hooks.record_missing_method(kPlanetViewUtilsCameraZoomedEventHandlerHook);
       ErrorMsg::MissingMethod("PlanetViewUtils", "CameraZoomedEventHandler");
     } else {
-      SPUD_STATIC_DETOUR(ptr_camera_zoomed, PlanetViewUtils_CameraZoomedEventHandler_Hook);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kPlanetViewUtilsCameraZoomedEventHandlerHook, ptr_camera_zoomed,
+                                       PlanetViewUtils_CameraZoomedEventHandler_Hook);
     }
 
     auto ptr_flat_renderable = planet_view_utils_helper.GetMethod("get_FlatRenderable");
     if (ptr_flat_renderable == nullptr) {
+      hooks.record_missing_method(kPlanetViewUtilsGetFlatRenderableHook);
       ErrorMsg::MissingMethod("PlanetViewUtils", "get_FlatRenderable");
     } else {
-      SPUD_STATIC_DETOUR(ptr_flat_renderable, PlanetViewUtils_get_FlatRenderable_Hook);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kPlanetViewUtilsGetFlatRenderableHook, ptr_flat_renderable,
+                                       PlanetViewUtils_get_FlatRenderable_Hook);
     }
   }
+
+  hooks.log_summary();
 
   auto screen_manager_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "NavigationZoom");
   if (!screen_manager_helper.isValidHelper()) {
