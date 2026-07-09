@@ -56,6 +56,7 @@
     "This is a blocking review contract. Do not use -skip-pure-tests for final validation."
   ],
   "details": [
+    "Runs scripts/validate_hook_support_tiers.py as a blocking release-tier/config exposure gate.",
     "Runs scripts/scan_gameplay_seams.py as a blocking gameplay seam tripwire.",
     "Runs git diff --check and git diff --cached --check.",
     "Runs AX pure-tests through .ax/ax.ps1.",

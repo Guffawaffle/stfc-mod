@@ -19,10 +19,21 @@ The scanner makes unmanaged hook-like behavior visible:
 Normal AXF review contract:
 
 ```text
-global.stfc-mod.review-contract
+global.stfc-mod-private.review-contract
 ```
 
-This is the blocking command agents should run before reporting code or hook-adjacent branches as review-ready. It runs the gameplay seam scanner, `git diff --check`, `git diff --cached --check`, and AX `pure-tests`.
+This is the blocking command agents should run before reporting code or hook-adjacent branches as review-ready.
+It runs hook support-tier validation, the gameplay seam scanner, `git diff --check`, `git diff --cached --check`,
+and AX `pure-tests`.
+
+Hook support-tier validation:
+
+```powershell
+py scripts\validate_hook_support_tiers.py --format json
+```
+
+This gate reads `manifests/hook_support_tiers.json`, verifies registry-backed hook module coverage, and blocks
+science/dormant config surfaces from `example_community_patch_settings.toml`.
 
 Windows:
 
@@ -89,7 +100,8 @@ These failures are review gates, not automatic proof of a bug. The expected resp
 - add a reviewed temporary exception to the baseline with rationale
 - update the baseline after intentionally removing or migrating a legacy site
 
-In `global.stfc-mod.review-contract`, scanner failures are blocking. The standalone scanner is also blocking by exit code, but it is scoped to this tripwire only and does not replace the full review contract.
+In `global.stfc-mod-private.review-contract`, scanner failures are blocking. The standalone scanner is also blocking
+by exit code, but it is scoped to this tripwire only and does not replace the full review contract.
 
 ## Boundaries
 

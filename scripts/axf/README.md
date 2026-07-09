@@ -49,14 +49,16 @@ leased worktree, and the bridge collects the handoff before cleanup. See
 Use `global.stfc-mod-private.review-contract` as the normal blocking agent review gate
 for code and hook-adjacent branches. It runs:
 
+- `scripts/validate_hook_support_tiers.py` against the hook support-tier manifest
 - `scripts/scan_gameplay_seams.py` against the unmanaged gameplay seam baseline
 - `git diff --check`
 - `git diff --cached --check`
 - AX `pure-tests`
 
-The gameplay seam scanner is blocking in this contract. The standalone scanner
-command remains useful for focused local checks, but review-ready branches should
-use the AXF review contract so the scanner is not skipped.
+The hook support-tier validator and gameplay seam scanner are blocking in this
+contract. The standalone scanner commands remain useful for focused local
+checks, but review-ready branches should use the AXF review contract so these
+gates are not skipped.
 
 ## Release Preflight
 
