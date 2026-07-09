@@ -147,6 +147,14 @@ function ConvertTo-Slug {
   return $slug
 }
 
+function Get-WorkspacePathComparison {
+  if ([System.IO.Path]::DirectorySeparatorChar -eq '\') {
+    return [System.StringComparison]::OrdinalIgnoreCase
+  }
+
+  return [System.StringComparison]::Ordinal
+}
+
 function Resolve-UnderRoot {
   param(
     [string]$Path,
@@ -154,6 +162,7 @@ function Resolve-UnderRoot {
     [string]$Label
   )
 
+  $comparison = Get-WorkspacePathComparison
   $rootFull = [System.IO.Path]::GetFullPath($Root).TrimEnd([System.IO.Path]::DirectorySeparatorChar,
                                                           [System.IO.Path]::AltDirectorySeparatorChar)
   $candidate = if ([System.IO.Path]::IsPathRooted($Path)) {
@@ -163,8 +172,8 @@ function Resolve-UnderRoot {
   }
   $fullPath = [System.IO.Path]::GetFullPath($candidate)
   $prefix = "$rootFull$([System.IO.Path]::DirectorySeparatorChar)"
-  if (-not ($fullPath.Equals($rootFull, [System.StringComparison]::OrdinalIgnoreCase) -or
-            $fullPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase))) {
+  if (-not ($fullPath.Equals($rootFull, $comparison) -or
+            $fullPath.StartsWith($prefix, $comparison))) {
     throw "$Label must stay within $rootFull`: $Path"
   }
 
@@ -177,13 +186,14 @@ function Test-IsSameOrUnder {
     [string]$Root
   )
 
+  $comparison = Get-WorkspacePathComparison
   $rootFull = [System.IO.Path]::GetFullPath($Root).TrimEnd([System.IO.Path]::DirectorySeparatorChar,
                                                           [System.IO.Path]::AltDirectorySeparatorChar)
   $pathFull = [System.IO.Path]::GetFullPath($Path).TrimEnd([System.IO.Path]::DirectorySeparatorChar,
                                                           [System.IO.Path]::AltDirectorySeparatorChar)
   $prefix = "$rootFull$([System.IO.Path]::DirectorySeparatorChar)"
-  return $pathFull.Equals($rootFull, [System.StringComparison]::OrdinalIgnoreCase) -or
-         $pathFull.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)
+  return $pathFull.Equals($rootFull, $comparison) -or
+         $pathFull.StartsWith($prefix, $comparison)
 }
 
 function ConvertTo-ComparablePath {
@@ -196,6 +206,7 @@ function ConvertTo-ComparablePath {
 function Resolve-LeaseStatePath {
   param([string]$Path)
 
+  $comparison = Get-WorkspacePathComparison
   $candidate = if ([System.IO.Path]::IsPathRooted($Path)) {
     $Path
   } else {
@@ -206,10 +217,10 @@ function Resolve-LeaseStatePath {
     [System.IO.Path]::DirectorySeparatorChar,
     [System.IO.Path]::AltDirectorySeparatorChar)
   $prefix = "$stateRoot$([System.IO.Path]::DirectorySeparatorChar)"
-  if ($fullPath.Equals($stateRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+  if ($fullPath.Equals($stateRoot, $comparison)) {
     throw "LeaseStatePath must be a file under .ax/agent-worktrees: $Path"
   }
-  if (-not $fullPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+  if (-not $fullPath.StartsWith($prefix, $comparison)) {
     throw "LeaseStatePath must stay under .ax/agent-worktrees: $Path"
   }
 
@@ -422,13 +433,14 @@ function Find-RegisteredWorktree {
     [string]$Path
   )
 
+  $comparison = Get-WorkspacePathComparison
   $target = ConvertTo-ComparablePath $Path
   foreach ($worktree in $Worktrees) {
     if (-not $worktree.worktree) {
       continue
     }
     $candidate = ConvertTo-ComparablePath ([string]$worktree.worktree)
-    if ($candidate.Equals($target, [System.StringComparison]::OrdinalIgnoreCase)) {
+    if ($candidate.Equals($target, $comparison)) {
       return $worktree
     }
   }
@@ -564,6 +576,7 @@ try {
   } else {
     $BranchName
   }
+  $effectiveBranchName = $branchNameResolved
   $leasePath = Resolve-UnderRoot $leaseIdResolved $worktreeRootFullPath "Lease path"
 } catch {
   $payload = [ordered]@{
@@ -600,33 +613,38 @@ try {
     $lease = Get-LatestLease $records $leaseIdResolved
     if ($null -eq $lease) {
       Add-Problem $blockers "lease-not-found" "Lease $leaseIdResolved was not found in $LeaseStatePath."
-    } elseif ($lease.event -eq "cleanup") {
-      Add-Problem $warnings "lease-cleaned" "Lease $leaseIdResolved is already recorded as cleaned."
-    } elseif ($lease.worktreePath) {
-      $leaseRoot = Resolve-LeaseRoot $lease
-      $effectiveWorktreeRoot = $leaseRoot
-      $leasePath = Resolve-UnderRoot $lease.worktreePath $leaseRoot "Lease path"
-      $registration = Test-RegisteredLeaseWorktree $leasePath $lease.branchName
-      $steps.registeredWorktree = $registration
-      if ($registration.exitCode -ne 0) {
-        Add-Problem $blockers "worktree-list-failed" "Could not verify registered git worktrees."
-      } elseif (-not $registration.registered) {
-        Add-Problem $blockers "worktree-not-registered" "Lease path is not registered as a worktree for this repository."
-      } elseif (-not $registration.branchOk) {
-        Add-Problem $blockers "worktree-branch-mismatch" "Lease worktree is not on the recorded lease branch."
-      } elseif (Test-Path -LiteralPath $leasePath) {
-        $status = Invoke-Captured $git @("-C", $leasePath, "status", "--short", "--branch")
-        $steps.worktreeStatus = [ordered]@{
-          ok = $status.exitCode -eq 0
-          exitCode = $status.exitCode
-          stdoutTail = $status.stdoutTail
-          stderrTail = $status.stderrTail
+    } else {
+      if (-not [string]::IsNullOrWhiteSpace([string]$lease.branchName)) {
+        $effectiveBranchName = [string]$lease.branchName
+      }
+      if ($lease.event -eq "cleanup") {
+        Add-Problem $warnings "lease-cleaned" "Lease $leaseIdResolved is already recorded as cleaned."
+      } elseif ($lease.worktreePath) {
+        $leaseRoot = Resolve-LeaseRoot $lease
+        $effectiveWorktreeRoot = $leaseRoot
+        $leasePath = Resolve-UnderRoot $lease.worktreePath $leaseRoot "Lease path"
+        $registration = Test-RegisteredLeaseWorktree $leasePath $lease.branchName
+        $steps.registeredWorktree = $registration
+        if ($registration.exitCode -ne 0) {
+          Add-Problem $blockers "worktree-list-failed" "Could not verify registered git worktrees."
+        } elseif (-not $registration.registered) {
+          Add-Problem $blockers "worktree-not-registered" "Lease path is not registered as a worktree for this repository."
+        } elseif (-not $registration.branchOk) {
+          Add-Problem $blockers "worktree-branch-mismatch" "Lease worktree is not on the recorded lease branch."
+        } elseif (Test-Path -LiteralPath $leasePath) {
+          $status = Invoke-Captured $git @("-C", $leasePath, "status", "--short", "--branch")
+          $steps.worktreeStatus = [ordered]@{
+            ok = $status.exitCode -eq 0
+            exitCode = $status.exitCode
+            stdoutTail = $status.stdoutTail
+            stderrTail = $status.stderrTail
+          }
+        } else {
+          Add-Problem $warnings "worktree-path-missing" "Lease path is not present on disk."
         }
       } else {
-        Add-Problem $warnings "worktree-path-missing" "Lease path is not present on disk."
+        Add-Problem $warnings "worktree-path-missing" "Lease record does not contain a worktree path."
       }
-    } else {
-      Add-Problem $warnings "worktree-path-missing" "Lease record does not contain a worktree path."
     }
   } elseif ($Action -eq "create") {
     if ([string]::IsNullOrWhiteSpace($Objective)) {
@@ -706,100 +724,105 @@ try {
     $lease = Get-LatestLease $records $leaseIdResolved
     if ($null -eq $lease) {
       Add-Problem $blockers "lease-not-found" "Lease $leaseIdResolved was not found in $LeaseStatePath."
-    } elseif ($lease.event -eq "cleanup") {
-      Add-Problem $warnings "lease-already-cleaned" "Lease $leaseIdResolved is already recorded as cleaned."
     } else {
-      $leaseRoot = Resolve-LeaseRoot $lease
-      $effectiveWorktreeRoot = $leaseRoot
-      $leasePath = Resolve-UnderRoot $lease.worktreePath $leaseRoot "Lease path"
-      $registration = Test-RegisteredLeaseWorktree $leasePath $lease.branchName
-      $steps.registeredWorktree = $registration
-      if ($registration.exitCode -ne 0) {
-        Add-Problem $blockers "worktree-list-failed" "Could not verify registered git worktrees."
-      } elseif (-not $registration.registered) {
-        Add-Problem $blockers "worktree-not-registered" "Lease path is not registered as a worktree for this repository."
-      } elseif (-not $registration.branchOk) {
-        Add-Problem $blockers "worktree-branch-mismatch" "Lease worktree is not on the recorded lease branch."
+      if (-not [string]::IsNullOrWhiteSpace([string]$lease.branchName)) {
+        $effectiveBranchName = [string]$lease.branchName
       }
-      if (-not (Test-Path -LiteralPath $leasePath)) {
-        Add-Problem $warnings "worktree-path-missing" "Lease path is not present on disk: $leasePath"
-      } elseif ($blockers.Count -eq 0) {
-        $status = Invoke-Captured $git @("-C", $leasePath, "status", "--porcelain", "--ignored=matching")
-        $statusLines = Split-StatusText $status.stdout
-        $brokerOwnedStatusLines = @(
-          Select-BrokerOwnedStatusLines $statusLines |
-            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-        )
-        $brokerExtraItems = Get-BrokerLeaseDirectoryExtraItems $leasePath
-        $userStatusLines = @(
-          @((Remove-BrokerOwnedStatusLines $statusLines) + $brokerExtraItems) |
-            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-        )
-        $dirty = $userStatusLines.Count -gt 0
-        $steps.worktreeStatus = [ordered]@{
-          ok = $status.exitCode -eq 0
-          exitCode = $status.exitCode
-          dirty = $dirty
-          stdoutTail = @($userStatusLines | Select-Object -Last 40)
-          brokerOwnedTail = @($brokerOwnedStatusLines | Select-Object -Last 40)
-          brokerExtraTail = @($brokerExtraItems | Select-Object -Last 40)
-          stderrTail = $status.stderrTail
-        }
-        if ($status.exitCode -ne 0) {
-          Add-Problem $blockers "worktree-status-failed" "Could not inspect worktree status."
-        } elseif ($dirty -and -not $Force) {
-          Add-Problem $blockers "worktree-dirty" "Worktree has local changes; use -Force only after collecting the handoff."
-        }
-      }
-
-      [void]$planned.Add([ordered]@{
-        kind = "remove-broker-lease-files"
-        paths = @("AGENT_LEASE.md", ".agent-worktree/")
-        destructive = $true
-      })
-      $args = if ($Force) {
-        @("worktree", "remove", "--force", $leasePath)
+      if ($lease.event -eq "cleanup") {
+        Add-Problem $warnings "lease-already-cleaned" "Lease $leaseIdResolved is already recorded as cleaned."
       } else {
-        @("worktree", "remove", $leasePath)
-      }
-      [void]$planned.Add([ordered]@{
-        kind = "cleanup-worktree"
-        display = Format-DisplayCommand $git $args
-        args = $args
-        destructive = $true
-      })
-
-      if ($Execute -and $blockers.Count -eq 0) {
-        $removedBrokerFiles = Remove-BrokerOwnedLeaseFiles $leasePath
-        [void]$executed.Add([ordered]@{
-          kind = "remove-broker-lease-files"
-          removed = @($removedBrokerFiles)
-        })
-        $cleanup = Invoke-Captured $git $args
-        [void]$executed.Add([ordered]@{
-          kind = "cleanup-worktree"
-          exitCode = $cleanup.exitCode
-          stdoutTail = $cleanup.stdoutTail
-          stderrTail = $cleanup.stderrTail
-        })
-        if ($cleanup.exitCode -ne 0) {
-          Add-Problem $blockers "worktree-cleanup-failed" "git worktree remove failed."
-        } else {
-          $record = [ordered]@{
-            event = "cleanup"
-            recordedAt = $timestamp
-            leaseId = $leaseIdResolved
-            agentName = $lease.agentName
-            objective = $lease.objective
-            issue = $lease.issue
-            baseRef = $lease.baseRef
-            baseSha = $lease.baseSha
-            branchName = $lease.branchName
-            worktreeRoot = $lease.worktreeRoot
-            worktreePath = $leasePath
-            force = [bool]$Force
+        $leaseRoot = Resolve-LeaseRoot $lease
+        $effectiveWorktreeRoot = $leaseRoot
+        $leasePath = Resolve-UnderRoot $lease.worktreePath $leaseRoot "Lease path"
+        $registration = Test-RegisteredLeaseWorktree $leasePath $lease.branchName
+        $steps.registeredWorktree = $registration
+        if ($registration.exitCode -ne 0) {
+          Add-Problem $blockers "worktree-list-failed" "Could not verify registered git worktrees."
+        } elseif (-not $registration.registered) {
+          Add-Problem $blockers "worktree-not-registered" "Lease path is not registered as a worktree for this repository."
+        } elseif (-not $registration.branchOk) {
+          Add-Problem $blockers "worktree-branch-mismatch" "Lease worktree is not on the recorded lease branch."
+        }
+        if (-not (Test-Path -LiteralPath $leasePath)) {
+          Add-Problem $warnings "worktree-path-missing" "Lease path is not present on disk: $leasePath"
+        } elseif ($blockers.Count -eq 0) {
+          $status = Invoke-Captured $git @("-C", $leasePath, "status", "--porcelain", "--ignored=matching")
+          $statusLines = Split-StatusText $status.stdout
+          $brokerOwnedStatusLines = @(
+            Select-BrokerOwnedStatusLines $statusLines |
+              Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+          )
+          $brokerExtraItems = Get-BrokerLeaseDirectoryExtraItems $leasePath
+          $userStatusLines = @(
+            @((Remove-BrokerOwnedStatusLines $statusLines) + $brokerExtraItems) |
+              Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+          )
+          $dirty = $userStatusLines.Count -gt 0
+          $steps.worktreeStatus = [ordered]@{
+            ok = $status.exitCode -eq 0
+            exitCode = $status.exitCode
+            dirty = $dirty
+            stdoutTail = @($userStatusLines | Select-Object -Last 40)
+            brokerOwnedTail = @($brokerOwnedStatusLines | Select-Object -Last 40)
+            brokerExtraTail = @($brokerExtraItems | Select-Object -Last 40)
+            stderrTail = $status.stderrTail
           }
-          Write-LeaseRecord $record $leaseStateFullPath
+          if ($status.exitCode -ne 0) {
+            Add-Problem $blockers "worktree-status-failed" "Could not inspect worktree status."
+          } elseif ($dirty -and -not $Force) {
+            Add-Problem $blockers "worktree-dirty" "Worktree has local changes; use -Force only after collecting the handoff."
+          }
+        }
+
+        [void]$planned.Add([ordered]@{
+          kind = "remove-broker-lease-files"
+          paths = @("AGENT_LEASE.md", ".agent-worktree/")
+          destructive = $true
+        })
+        $args = if ($Force) {
+          @("worktree", "remove", "--force", $leasePath)
+        } else {
+          @("worktree", "remove", $leasePath)
+        }
+        [void]$planned.Add([ordered]@{
+          kind = "cleanup-worktree"
+          display = Format-DisplayCommand $git $args
+          args = $args
+          destructive = $true
+        })
+
+        if ($Execute -and $blockers.Count -eq 0) {
+          $removedBrokerFiles = Remove-BrokerOwnedLeaseFiles $leasePath
+          [void]$executed.Add([ordered]@{
+            kind = "remove-broker-lease-files"
+            removed = @($removedBrokerFiles)
+          })
+          $cleanup = Invoke-Captured $git $args
+          [void]$executed.Add([ordered]@{
+            kind = "cleanup-worktree"
+            exitCode = $cleanup.exitCode
+            stdoutTail = $cleanup.stdoutTail
+            stderrTail = $cleanup.stderrTail
+          })
+          if ($cleanup.exitCode -ne 0) {
+            Add-Problem $blockers "worktree-cleanup-failed" "git worktree remove failed."
+          } else {
+            $record = [ordered]@{
+              event = "cleanup"
+              recordedAt = $timestamp
+              leaseId = $leaseIdResolved
+              agentName = $lease.agentName
+              objective = $lease.objective
+              issue = $lease.issue
+              baseRef = $lease.baseRef
+              baseSha = $lease.baseSha
+              branchName = $lease.branchName
+              worktreeRoot = $lease.worktreeRoot
+              worktreePath = $leasePath
+              force = [bool]$Force
+            }
+            Write-LeaseRecord $record $leaseStateFullPath
+          }
         }
       }
     }
@@ -815,7 +838,7 @@ try {
     worktreeRoot = $effectiveWorktreeRoot
     leaseStatePath = $leaseStateFullPath
     leaseId = $leaseIdResolved
-    branchName = $branchNameResolved
+    branchName = $effectiveBranchName
     leasePath = $leasePath
     blockers = @($blockers)
     warnings = @($warnings)
