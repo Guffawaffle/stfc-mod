@@ -2,6 +2,25 @@
 
 #include "defaultconfig.h"
 
+#include <sstream>
+
+int CountKirsharaQueueRequestedDiagnostics(const KirsharaQueueDiagnosticsConfig& diagnostics)
+{
+  return static_cast<int>(diagnostics.dump_interesting_methods) + static_cast<int>(diagnostics.on_strike_complete)
+         + static_cast<int>(diagnostics.remove_target_and_attack_next)
+         + static_cast<int>(diagnostics.check_to_clear_action_queue) + static_cast<int>(diagnostics.is_target_valid)
+         + static_cast<int>(diagnostics.process_queue_deployed) + static_cast<int>(diagnostics.process_queue_target)
+         + static_cast<int>(diagnostics.on_set_course_response)
+         + static_cast<int>(diagnostics.on_player_fleet_state_changed)
+         + static_cast<int>(diagnostics.on_fleet_state_change) + static_cast<int>(diagnostics.on_fleets_disposed);
+}
+
+bool KirsharaQueueDormantOptInRequested(const KirsharaQueueRepairConfig& config)
+{
+  return config.enabled || config.course_target_completion || config.diagnostics.enabled
+         || CountKirsharaQueueRequestedDiagnostics(config.diagnostics) > 0;
+}
+
 KirsharaQueueRepairConfigParseResult ParseKirsharaQueueRepairConfig(const toml::table& config)
 {
   KirsharaQueueRepairConfigParseResult result;
@@ -103,6 +122,22 @@ KirsharaQueueRepairConfigParseResult ParseKirsharaQueueRepairConfig(const toml::
   for (const auto* read : diagnostic_reads) {
     result.diagnostics.insert(result.diagnostics.end(), read->diagnostics.begin(), read->diagnostics.end());
   }
+
+  if (!kKirsharaQueueRepairRuntimeInstallEnabled && KirsharaQueueDormantOptInRequested(result.config)) {
+    const auto requested_diagnostic_markers = CountKirsharaQueueRequestedDiagnostics(result.config.diagnostics);
+    const auto source_path =
+        (result.config.enabled || result.config.course_target_completion) ? kKirsharaQueueRepairNamespacePath
+                                                                          : kKirsharaQueueDiagnosticsNamespacePath;
+    std::ostringstream message;
+    message << "Dormant Kir'shara queue config is set (enabled=" << result.config.enabled
+            << " course_target_completion=" << result.config.course_target_completion
+            << " diagnostics_enabled=" << result.config.diagnostics.enabled
+            << " requested_diagnostic_markers=" << requested_diagnostic_markers
+            << "); runtime detours are disabled on this branch.";
+    result.diagnostics.push_back({config_schema::DiagnosticSeverity::Warning, std::string(kKirsharaQueueRepairNamespacePath),
+                                  std::string(source_path), message.str()});
+  }
+
   return result;
 }
 

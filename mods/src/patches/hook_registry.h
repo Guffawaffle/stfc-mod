@@ -21,11 +21,19 @@ struct HookTarget {
   std::string_view method_name;
 };
 
+enum class HookSupportTier {
+  Production,
+  Science,
+  Dormant,
+  Internal,
+};
+
 struct HookDescriptor {
   std::string_view name;
   std::string_view purpose;
   HookTarget       target;
   std::string_view likely_symptom;
+  HookSupportTier  support_tier = HookSupportTier::Production;
 };
 
 enum class HookInstallStatus {

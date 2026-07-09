@@ -932,52 +932,9 @@ navhook_trace_files = 3
 action_queue_probe_max_kb = 8192
 action_queue_probe_files = 3
 
-[advanced.diagnostics.kirshara_queue]
-# Focused Kir'shara queue marker diagnostics. These only install selected
-# marker detours when [advanced.kirshara_queue].enabled is also true.
-enabled = false
-
-# Dump current ActionQueueManager method metadata at boot.
-dump_interesting_methods = false
-
-# Individual queued-combat completion markers. Keep disabled during normal
-# play; enable only the narrow marker needed for the current investigation.
-on_strike_complete = false
-remove_target_and_attack_next = false
-check_to_clear_action_queue = false
-is_target_valid = false
-process_queue_deployed = false
-process_queue_target = false
-on_set_course_response = false
-on_player_fleet_state_changed = false
-on_fleet_state_change = false
-on_fleets_disposed = false
-
-[advanced.kirshara_queue]
-# Focused Kir'shara queued-combat advancement repair. Leave disabled unless
-# you are validating the off-screen queue-stall regression workaround.
-enabled = false
-
-# Experimental repair candidate for off-screen queued combat. It replays the
-# target-bearing queue commit when native only emits the player fleet combat
-# start event. Keep false unless testing Kir'shara queue advancement.
-course_target_completion = false
-
-[advanced.queue]
-# Legacy queue-add experiment/dev-test namespace. These keys do not control
-# Kir'shara queue progression repair.
-
-# Master opt-in gate for the queue-add path experiments below. Missing or false
-# keeps the queue-add overrides inactive.
-queue_repair_enabled = false
-
-# Use the widget's queue-click event handler directly instead of the generic
-# button press path. Ignored unless queue_repair_enabled is true.
-queue_add_direct_handler = false
-
-# When true, queue-add presses also close open viewers via DidHideViewers().
-# Ignored unless queue_repair_enabled is true. Keep false during isolation work.
-queue_add_hide_viewers = false
+# Science-only queue repair and Kir'shara investigation settings are maintained
+# in example_science_patch_settings.toml so the normal release example only
+# advertises production/user-ready surfaces.
 
 #  <[=========================================================================================================================================]>
 #

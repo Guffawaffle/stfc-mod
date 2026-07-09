@@ -99,6 +99,11 @@ TEST_SUITE("action_queue_repair_config")
     CHECK(result.diagnostics.empty());
   }
 
+  TEST_CASE("Kirshara queue runtime install remains dormant")
+  {
+    CHECK_FALSE(kKirsharaQueueRepairRuntimeInstallEnabled);
+  }
+
   TEST_CASE("Kirshara queue repair parses final repair and diagnostic flags")
   {
     const auto config = toml::parse(R"(
@@ -137,6 +142,7 @@ on_fleets_disposed = true
     CHECK(result.config.diagnostics.on_player_fleet_state_changed);
     CHECK(result.config.diagnostics.on_fleet_state_change);
     CHECK(result.config.diagnostics.on_fleets_disposed);
+    CHECK(has_warning(result.diagnostics, kKirsharaQueueRepairNamespacePath));
   }
 
   TEST_CASE("legacy advanced queue gate does not enable Kirshara queue repair")
