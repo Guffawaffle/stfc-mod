@@ -16,7 +16,7 @@ param(
   [switch]$Execute,
   [switch]$Force,
   [string]$WorktreeRoot = "",
-  [string]$LeaseStatePath = ".agent-worktrees/leases.jsonl"
+  [string]$LeaseStatePath = ".ax/agent-worktrees/leases.jsonl"
 )
 
 $ErrorActionPreference = "Stop"
@@ -202,15 +202,15 @@ function Resolve-LeaseStatePath {
     Join-Path $repoRoot.Path $Path
   }
   $fullPath = [System.IO.Path]::GetFullPath($candidate)
-  $stateRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot.Path ".agent-worktrees")).TrimEnd(
+  $stateRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot.Path ".ax/agent-worktrees")).TrimEnd(
     [System.IO.Path]::DirectorySeparatorChar,
     [System.IO.Path]::AltDirectorySeparatorChar)
   $prefix = "$stateRoot$([System.IO.Path]::DirectorySeparatorChar)"
   if ($fullPath.Equals($stateRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-    throw "LeaseStatePath must be a file under .agent-worktrees: $Path"
+    throw "LeaseStatePath must be a file under .ax/agent-worktrees: $Path"
   }
   if (-not $fullPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-    throw "LeaseStatePath must stay under .agent-worktrees: $Path"
+    throw "LeaseStatePath must stay under .ax/agent-worktrees: $Path"
   }
 
   return $fullPath

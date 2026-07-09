@@ -91,7 +91,7 @@
       },
       "lease-state-path": {
         "type": "string",
-        "description": "Repo-local lease ledger path under .agent-worktrees."
+        "description": "Repo-local lease ledger path under .ax/agent-worktrees."
       }
     },
     "additionalProperties": false
@@ -106,7 +106,7 @@
     "action": "list",
     "agent-name": "background-agent",
     "base-ref": "HEAD",
-    "lease-state-path": ".agent-worktrees/leases.jsonl"
+    "lease-state-path": ".ax/agent-worktrees/leases.jsonl"
   },
   "policies": [
     "require_workspace_binding"
@@ -137,7 +137,7 @@
     "The bridge/orchestrator owns lease creation, cleanup, final validation, and publishing."
   ],
   "details": [
-    "Creates worktrees under a known local worktree root and records lease events under .agent-worktrees/leases.jsonl.",
+    "Creates worktrees under a known local worktree root and records lease events under .ax/agent-worktrees/leases.jsonl.",
     "Writes .agent-worktree/AGENT_LEASE.md inside created worktrees so background agents can see objective, scope, and permissions.",
     "Cleanup verifies that the recorded path is registered as this repository's worktree and still on the recorded lease branch before deleting broker-owned lease files."
   ]
