@@ -69,7 +69,7 @@
   "outputModes": [
     "json"
   ],
-  "sideEffects": "unknown",
+  "sideEffects": "write",
   "scope": "global",
   "lifecycleState": "active",
   "defaults": {

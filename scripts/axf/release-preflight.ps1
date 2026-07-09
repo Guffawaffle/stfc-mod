@@ -363,9 +363,18 @@ try {
       "--json",
       "databaseId,headSha,headBranch,status,conclusion,createdAt,url,workflowName,event"
     )
-    $runsData = ConvertFrom-JsonOrNull $runs.stdout
+    $runsData = $null
+    $runsJsonOk = $false
+    if ($runs.exitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace($runs.stdout)) {
+      try {
+        $runsData = $runs.stdout | ConvertFrom-Json -Depth 40
+        $runsJsonOk = $true
+      } catch {
+        $runsJsonOk = $false
+      }
+    }
     $runRows = @()
-    if ($runsData) {
+    if ($runsJsonOk -and $runsData) {
       $runRows = @($runsData)
     }
     $matchingBuild = $runRows | Where-Object {
@@ -376,9 +385,10 @@ try {
       ($matchingBuild.headBranch -eq $BaseBranch)
 
     $steps.buildRun = [ordered]@{
-      ok = ($runs.exitCode -eq 0) -and $matchingBuildIsReleaseBuild
+      ok = ($runs.exitCode -eq 0) -and $runsJsonOk -and $matchingBuildIsReleaseBuild
       command = "gh run list --repo $Repo --workflow Build --limit $RunLimit"
       exitCode = $runs.exitCode
+      jsonOk = $runsJsonOk
       inspectedRunCount = $runRows.Count
       matchingRun = $matchingBuild
       expectedEvent = "push"
@@ -387,7 +397,11 @@ try {
       stderrTail = $runs.stderrTail
     }
 
-    if (($runs.exitCode -eq 0) -and ($matchingBuild -ne $null) -and (-not $matchingBuildIsReleaseBuild)) {
+    if ($runs.exitCode -ne 0) {
+      Add-Problem $blockers "build-run-list-failed" "Could not list Build workflow runs for $Repo."
+    } elseif (-not $runsJsonOk) {
+      Add-Problem $blockers "build-run-list-json-failed" "Build workflow run list output was empty or not valid JSON."
+    } elseif (($matchingBuild -ne $null) -and (-not $matchingBuildIsReleaseBuild)) {
       Add-Problem $blockers "matching-build-not-main-push" "Matching Build run $($matchingBuild.databaseId) is not a push build for $BaseBranch."
     } elseif (-not $steps.buildRun.ok) {
       Add-Problem $blockers "matching-build-missing" "No successful Build workflow run found for target SHA $targetSha."
@@ -405,20 +419,30 @@ try {
       "api",
       "/repos/$Repo/actions/runs/$($matchingBuild.databaseId)/artifacts"
     )
-    $artifactData = ConvertFrom-JsonOrNull $artifacts.stdout
+    $artifactData = $null
+    $artifactsJsonOk = $false
+    if ($artifacts.exitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace($artifacts.stdout)) {
+      try {
+        $artifactData = $artifacts.stdout | ConvertFrom-Json -Depth 40
+        $artifactsJsonOk = $true
+      } catch {
+        $artifactsJsonOk = $false
+      }
+    }
     $artifactRows = @()
-    if ($artifactData -and $artifactData.artifacts) {
+    if ($artifactsJsonOk -and $artifactData -and $artifactData.artifacts) {
       $artifactRows = @($artifactData.artifacts)
     }
 
     $artifactNames = @($artifactRows | ForEach-Object { $_.name })
     $missingArtifacts = @($expectedArtifacts | Where-Object { $artifactNames -notcontains $_ })
     $expiredArtifacts = @($artifactRows | Where-Object { $_.expired -eq $true } | ForEach-Object { $_.name })
-    $artifactsOk = ($artifacts.exitCode -eq 0) -and ($missingArtifacts.Count -eq 0) -and ($expiredArtifacts.Count -eq 0)
+    $artifactsOk = ($artifacts.exitCode -eq 0) -and $artifactsJsonOk -and ($missingArtifacts.Count -eq 0) -and ($expiredArtifacts.Count -eq 0)
     $steps.artifacts = [ordered]@{
       ok = $artifactsOk
       command = "gh api /repos/$Repo/actions/runs/$($matchingBuild.databaseId)/artifacts"
       exitCode = $artifacts.exitCode
+      jsonOk = $artifactsJsonOk
       expected = $expectedArtifacts
       found = $artifactNames
       missing = $missingArtifacts
@@ -426,11 +450,17 @@ try {
       stderrTail = $artifacts.stderrTail
     }
 
-    foreach ($missing in $missingArtifacts) {
-      Add-Problem $blockers "artifact-missing" "Build run $($matchingBuild.databaseId) is missing artifact $missing."
-    }
-    foreach ($expired in $expiredArtifacts) {
-      Add-Problem $blockers "artifact-expired" "Build run $($matchingBuild.databaseId) artifact $expired is expired."
+    if ($artifacts.exitCode -ne 0) {
+      Add-Problem $blockers "artifact-api-failed" "Could not list artifacts for Build run $($matchingBuild.databaseId)."
+    } elseif (-not $artifactsJsonOk) {
+      Add-Problem $blockers "artifact-api-json-failed" "Artifact API output for Build run $($matchingBuild.databaseId) was empty or not valid JSON."
+    } else {
+      foreach ($missing in $missingArtifacts) {
+        Add-Problem $blockers "artifact-missing" "Build run $($matchingBuild.databaseId) is missing artifact $missing."
+      }
+      foreach ($expired in $expiredArtifacts) {
+        Add-Problem $blockers "artifact-expired" "Build run $($matchingBuild.databaseId) artifact $expired is expired."
+      }
     }
   } else {
     $steps.artifacts = [ordered]@{
