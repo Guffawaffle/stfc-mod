@@ -478,8 +478,10 @@ function Test-RegisteredLeaseWorktree {
   $registered = Find-RegisteredWorktree $worktrees $Path
   $actualBranch = ConvertTo-WorktreeBranchName $registered
   $expectedBranch = [string]$BranchName
+  $branchMatches = [string]::IsNullOrWhiteSpace($expectedBranch) -or
+                   [string]::Equals($actualBranch, $expectedBranch, [System.StringComparison]::Ordinal)
   $branchOk = ($null -ne $registered) -and
-              ([string]::IsNullOrWhiteSpace($expectedBranch) -or $actualBranch -eq $expectedBranch)
+              $branchMatches
 
   return [ordered]@{
     ok = ($worktreeList.exitCode -eq 0) -and ($null -ne $registered) -and $branchOk
@@ -671,7 +673,19 @@ try {
       Add-Problem $blockers "base-ref-unresolved" "Could not resolve base ref $BaseRef."
     }
 
-    $branchExists = Invoke-Captured $git @("rev-parse", "--verify", "--quiet", $branchNameResolved)
+    $branchFormat = Invoke-Captured $git @("check-ref-format", "--branch", $branchNameResolved)
+    $steps.branchName = [ordered]@{
+      ok = $branchFormat.exitCode -eq 0
+      branchName = $branchNameResolved
+      exitCode = $branchFormat.exitCode
+      stdoutTail = $branchFormat.stdoutTail
+      stderrTail = $branchFormat.stderrTail
+    }
+    if (-not $steps.branchName.ok) {
+      Add-Problem $blockers "branch-name-invalid" "Branch name is not a valid Git branch ref: $branchNameResolved"
+    }
+
+    $branchExists = Invoke-Captured $git @("show-ref", "--verify", "--quiet", "refs/heads/$branchNameResolved")
     if ($branchExists.exitCode -eq 0) {
       Add-Problem $blockers "branch-exists" "Branch $branchNameResolved already exists."
     }
