@@ -14,6 +14,7 @@ Primary capability IDs include:
 
 ```text
 global.stfc-mod-private.review-contract
+global.stfc-mod-private.release-preflight
 global.stfc-mod-private.doctor
 global.stfc-mod-private.windows-interop
 global.stfc-mod-private.status
@@ -37,6 +38,18 @@ for code and hook-adjacent branches. It runs:
 The gameplay seam scanner is blocking in this contract. The standalone scanner
 command remains useful for focused local checks, but review-ready branches should
 use the AXF review contract so the scanner is not skipped.
+
+## Release Preflight
+
+Use `global.stfc-mod-private.release-preflight` before pushing a fork release
+tag. The default mode is a dry run. It verifies the local GitHub repo target,
+the freshly fetched `origin/main` target SHA, the proposed `vX.Y.Z-guffa.N`
+tag, a successful matching `Build` workflow run from a push to `main`, expected
+release artifacts, and explicit smoke-test acknowledgement.
+
+Only pass `-PushTag` after the dry run is clean and the exact production
+artifact has been smoked. The release GitHub Actions workflow remains
+responsible for publishing release assets after the tag is pushed.
 
 For AXF 1.0.0 and later, this repo owns its STFC family manifests locally.
 Run `axf scout --write` from the repo root to regenerate
