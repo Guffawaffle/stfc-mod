@@ -12,7 +12,7 @@ param(
   [string]$ExtraForbidden = "",
   [switch]$AllowEdits,
   [switch]$AllowGitWrites,
-  [switch]$AllowGithubWrites,
+  [switch]$AllowGitHubWrites,
   [switch]$AllowRuntimeActions,
   [string]$OutputPath = ""
 )
@@ -90,6 +90,28 @@ function Split-ListText {
   return @($Text -split "`r?`n|;" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
 }
 
+function Add-Problem {
+  param(
+    [System.Collections.ArrayList]$Target,
+    [string]$Code,
+    [string]$Message
+  )
+
+  [void]$Target.Add([ordered]@{
+    code = $Code
+    message = $Message
+  })
+}
+
+function Get-WorkspacePathComparison {
+  if ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(
+      [System.Runtime.InteropServices.OSPlatform]::Windows)) {
+    return [System.StringComparison]::OrdinalIgnoreCase
+  }
+
+  return [System.StringComparison]::Ordinal
+}
+
 function Resolve-OutputPath {
   param([string]$Path)
 
@@ -106,8 +128,8 @@ function Resolve-OutputPath {
   $repoFullPath = [System.IO.Path]::GetFullPath($repoRoot.Path).TrimEnd([System.IO.Path]::DirectorySeparatorChar,
                                                                         [System.IO.Path]::AltDirectorySeparatorChar)
   $prefix = "$repoFullPath$([System.IO.Path]::DirectorySeparatorChar)"
-  if (-not ($fullPath.Equals($repoFullPath, [System.StringComparison]::OrdinalIgnoreCase) -or
-            $fullPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase))) {
+  $comparison = Get-WorkspacePathComparison
+  if (-not ($fullPath.Equals($repoFullPath, $comparison) -or $fullPath.StartsWith($prefix, $comparison))) {
     throw "OutputPath must stay within the repository workspace: $Path"
   }
 
@@ -126,17 +148,42 @@ function ConvertTo-BulletList {
 
 $git = Resolve-FirstCommand @("git")
 $gh = Resolve-FirstCommand @("gh") -Optional
+$blockers = [System.Collections.ArrayList]::new()
+$warnings = [System.Collections.ArrayList]::new()
+$steps = [ordered]@{}
 
 $branch = Invoke-Captured $git @("branch", "--show-current")
 $head = Invoke-Captured $git @("rev-parse", "HEAD")
 $status = Invoke-Captured $git @("status", "--short", "--branch")
 $remote = Invoke-Captured $git @("remote", "get-url", "origin")
+$steps.git = [ordered]@{
+  branch = $branch
+  head = $head
+  status = $status
+  origin = $remote
+}
+
+if ($branch.exitCode -ne 0 -or [string]::IsNullOrWhiteSpace($branch.stdout)) {
+  Add-Problem $blockers "branch-unresolved" "Could not resolve the current branch."
+}
+if ($head.exitCode -ne 0 -or [string]::IsNullOrWhiteSpace($head.stdout)) {
+  Add-Problem $blockers "head-unresolved" "Could not resolve HEAD."
+}
+if ($status.exitCode -ne 0) {
+  Add-Problem $blockers "status-unresolved" "Could not read worktree status."
+}
+if ($remote.exitCode -ne 0 -or [string]::IsNullOrWhiteSpace($remote.stdout)) {
+  Add-Problem $blockers "origin-unresolved" "Could not resolve origin remote URL."
+}
 
 $prUrl = $null
 if ($gh) {
   $prView = Invoke-Captured $gh @("pr", "view", "--json", "url", "--jq", ".url")
+  $steps.githubPullRequest = $prView
   if ($prView.exitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace($prView.stdout)) {
     $prUrl = $prView.stdout
+  } else {
+    Add-Problem $warnings "pull-request-unresolved" "Could not resolve an associated GitHub pull request."
   }
 }
 
@@ -157,7 +204,7 @@ if (-not $AllowEdits) {
 if (-not $AllowGitWrites) {
   $defaultForbidden += "Do not run git switch, checkout, rebase, merge, reset, commit, tag, or push."
 }
-if (-not $AllowGithubWrites) {
+if (-not $AllowGitHubWrites) {
   $defaultForbidden += "Do not create, edit, close, merge, label, or comment on GitHub issues, PRs, releases, or tags."
 }
 if (-not $AllowRuntimeActions) {
@@ -226,7 +273,7 @@ ${fence}
 "@
 
 $writtenPath = $null
-if (-not [string]::IsNullOrWhiteSpace($OutputPath)) {
+if ($blockers.Count -eq 0 -and -not [string]::IsNullOrWhiteSpace($OutputPath)) {
   $writtenPath = Resolve-OutputPath $OutputPath
   $directory = Split-Path -Parent $writtenPath
   if (-not [string]::IsNullOrWhiteSpace($directory)) {
@@ -236,7 +283,7 @@ if (-not [string]::IsNullOrWhiteSpace($OutputPath)) {
 }
 
 $payload = [ordered]@{
-  ok = $true
+  ok = $blockers.Count -eq 0
   command = "agent-brief"
   repoRoot = $repoRoot.Path
   mode = $Mode
@@ -253,9 +300,11 @@ $payload = [ordered]@{
   permissions = [ordered]@{
     editsAllowed = [bool]$AllowEdits
     gitWritesAllowed = [bool]$AllowGitWrites
-    githubWritesAllowed = [bool]$AllowGithubWrites
+    githubWritesAllowed = [bool]$AllowGitHubWrites
     runtimeActionsAllowed = [bool]$AllowRuntimeActions
   }
+  blockers = @($blockers)
+  warnings = @($warnings)
   scope = $scopeItems
   questions = $questionItems
   allowedActions = $allowed
@@ -263,7 +312,11 @@ $payload = [ordered]@{
   expectedOutput = $expectedOutput
   briefMarkdown = $briefMarkdown
   writtenPath = $writtenPath
+  steps = $steps
 }
 
 $payload | ConvertTo-Json -Depth 30
-exit 0
+if ($blockers.Count -eq 0) {
+  exit 0
+}
+exit 1

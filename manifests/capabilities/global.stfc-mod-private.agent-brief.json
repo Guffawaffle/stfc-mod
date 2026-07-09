@@ -114,7 +114,7 @@
     "extra-forbidden": "-ExtraForbidden",
     "allow-edits": "-AllowEdits",
     "allow-git-writes": "-AllowGitWrites",
-    "allow-github-writes": "-AllowGithubWrites",
+    "allow-github-writes": "-AllowGitHubWrites",
     "allow-runtime-actions": "-AllowRuntimeActions",
     "output-path": "-OutputPath"
   },

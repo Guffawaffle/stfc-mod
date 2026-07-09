@@ -21,7 +21,7 @@ The bridge is the main agent in the active session. The bridge owns:
 - PR creation, updates, and merges
 - tags, releases, and release withdrawal actions
 - game/client/sidecar cycling
-- Lex frame logging and durable handoff notes
+- Lex-frame logging and durable handoff notes
 
 The bridge may delegate investigation, but the bridge remains accountable for
 every mutation and final claim.
@@ -108,7 +108,7 @@ the needed permission instead of guessing.
 5. Collect handoffs and reconcile conflicts in the main session.
 6. Make any edits directly as the bridge.
 7. Run the relevant AXF validation.
-8. Record the outcome in GitHub, PR notes, or Lex frames as appropriate.
+8. Record the outcome in GitHub, PR notes, or Lex-frame entries as appropriate.
 
 This keeps fanout useful without letting parallel work fragment branch state.
 
