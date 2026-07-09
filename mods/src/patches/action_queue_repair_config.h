@@ -51,9 +51,11 @@ struct KirsharaQueueRepairInstallPlan {
   int  selected_hook_count                          = 0;
 };
 
+constexpr std::string_view kKirsharaQueueRepairNamespacePath = "advanced.kirshara_queue";
 constexpr std::string_view kKirsharaQueueRepairEnabledPath = "advanced.kirshara_queue.enabled";
 constexpr std::string_view kKirsharaQueueRepairCourseTargetCompletionPath =
     "advanced.kirshara_queue.course_target_completion";
+constexpr std::string_view kKirsharaQueueDiagnosticsNamespacePath = "advanced.diagnostics.kirshara_queue";
 constexpr std::string_view kKirsharaQueueDiagnosticsEnabledPath = "advanced.diagnostics.kirshara_queue.enabled";
 constexpr std::string_view kKirsharaQueueDiagnosticsDumpInterestingMethodsPath =
     "advanced.diagnostics.kirshara_queue.dump_interesting_methods";
@@ -78,7 +80,10 @@ constexpr std::string_view kKirsharaQueueDiagnosticsOnFleetStateChangePath =
 constexpr std::string_view kKirsharaQueueDiagnosticsOnFleetsDisposedPath =
     "advanced.diagnostics.kirshara_queue.on_fleets_disposed";
 constexpr int kKirsharaQueueRepairSupportedHookCount = 1;
+constexpr bool kKirsharaQueueRepairRuntimeInstallEnabled = false;
 
+[[nodiscard]] int CountKirsharaQueueRequestedDiagnostics(const KirsharaQueueDiagnosticsConfig& diagnostics);
+[[nodiscard]] bool KirsharaQueueDormantOptInRequested(const KirsharaQueueRepairConfig& config);
 [[nodiscard]] KirsharaQueueRepairConfigParseResult ParseKirsharaQueueRepairConfig(const toml::table& config);
 void WriteKirsharaQueueRepairRuntimeSnapshot(toml::table& runtime_config, const KirsharaQueueRepairConfig& config);
 [[nodiscard]] KirsharaQueueRepairInstallPlan

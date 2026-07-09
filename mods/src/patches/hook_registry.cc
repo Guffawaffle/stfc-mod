@@ -23,6 +23,18 @@ const char* hook_status_name(HookInstallStatus status)
   return "unknown";
 }
 
+const char* hook_support_tier_name(HookSupportTier tier)
+{
+  switch (tier) {
+    case HookSupportTier::Production: return "production";
+    case HookSupportTier::Science:    return "science";
+    case HookSupportTier::Dormant:    return "dormant";
+    case HookSupportTier::Internal:   return "internal";
+  }
+
+  return "unknown";
+}
+
 std::string hook_target_string(const HookTarget& target)
 {
   std::ostringstream out;
@@ -145,11 +157,13 @@ void HookModuleHealth::log_record(const HookInstallRecord& record) const
 {
   const auto target = hook_target_string(record.descriptor.target);
   const auto status = hook_status_name(record.status);
+  const auto tier   = hook_support_tier_name(record.descriptor.support_tier);
 
   if (record.status == HookInstallStatus::DetourInstalled || record.status == HookInstallStatus::Skipped) {
-    spdlog::info("[HookRegistry] module={} hook={} status={} target={} method_found={} detour_attempted={} purpose='{}' detail='{}'",
+    spdlog::info("[HookRegistry] module={} hook={} tier={} status={} target={} method_found={} detour_attempted={} purpose='{}' detail='{}'",
                  module_,
                  record.descriptor.name,
+                 tier,
                  status,
                  target,
                  record.method_found,
@@ -159,9 +173,10 @@ void HookModuleHealth::log_record(const HookInstallRecord& record) const
     return;
   }
 
-  spdlog::error("[HookRegistry] module={} hook={} status={} target={} method_found={} detour_attempted={} purpose='{}' symptom='{}' detail='{}'",
+  spdlog::error("[HookRegistry] module={} hook={} tier={} status={} target={} method_found={} detour_attempted={} purpose='{}' symptom='{}' detail='{}'",
                 module_,
                 record.descriptor.name,
+                tier,
                 status,
                 target,
                 record.method_found,
@@ -213,9 +228,9 @@ bool hook_registry_claim_owner(const HookDescriptor& descriptor, const std::stri
 
   if (const auto it = entries.find(method_ptr); it != entries.end()) {
     spdlog::error("[HookOwnerConflict] target={} already owned by hook='{}' (module={}); duplicate claim by hook='{}' "
-                  "(module={}, target={}). Refusing to install second detour.",
+                  "(module={}, target={}, tier={}). Refusing to install second detour.",
                   it->second.target, it->second.hook_name, it->second.module, descriptor.name, module,
-                  hook_target_string(descriptor.target));
+                  hook_target_string(descriptor.target), hook_support_tier_name(descriptor.support_tier));
 #if _MODDBG
     // In debug builds, fail loud so the conflict cannot be missed during development.
     std::abort();

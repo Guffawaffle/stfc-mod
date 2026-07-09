@@ -10,6 +10,7 @@
 #include "errormsg.h"
 #include "file.h"
 #include "patches/action_queue_repair_config.h"
+#include "patches/hook_registry.h"
 
 #include <algorithm>
 #include <atomic>
@@ -38,10 +39,90 @@
 
 namespace
 {
-// Current live game builds now appear to handle the Kir'shara stall case natively.
-// Until we re-validate the queue paths against the new build, keep every repair and
-// marker detour in this file unloaded to avoid reintroducing stalls from our side.
+// Kir'shara queue detours are retained only as dormant references on this branch.
+// They are not wired into the runtime patch table, and this force-disabled guard
+// remains as defense in depth in case a direct install path is reintroduced later.
 constexpr bool kKirsharaQueueHooksForceDisabledByNativePatch = true;
+
+constexpr HookDescriptor kActionQueueOnStrikeCompleteHook = {
+    "ActionQueueManager.OnStrikeCompleteEventHandler",
+    "observe strike completion while investigating dormant Kir'shara queue advancement repair",
+    {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "OnStrikeCompleteEventHandler"},
+    "dormant Kir'shara queue investigation loses strike-complete visibility",
+    HookSupportTier::Dormant,
+};
+
+constexpr HookDescriptor kActionQueueRemoveTargetAndAttackNextHook = {
+    "ActionQueueManager.RemoveTargetAndAttackNext",
+    "observe target dequeue transitions while investigating dormant Kir'shara queue advancement repair",
+    {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "RemoveTargetAndAttackNext"},
+    "dormant Kir'shara queue investigation loses dequeue visibility",
+    HookSupportTier::Dormant,
+};
+
+constexpr HookDescriptor kActionQueueCheckToClearActionQueueHook = {
+    "ActionQueueManager.CheckToClearActionQueue",
+    "observe queue-clear transitions while investigating dormant Kir'shara queue advancement repair",
+    {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "CheckToClearActionQueue"},
+    "dormant Kir'shara queue investigation loses queue-clear visibility",
+    HookSupportTier::Dormant,
+};
+
+constexpr HookDescriptor kActionQueueIsTargetValidHook = {
+    "ActionQueueManager.IsTargetValid",
+    "observe target validation while investigating dormant Kir'shara queue advancement repair",
+    {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "IsTargetValid"},
+    "dormant Kir'shara queue investigation loses target validation visibility",
+    HookSupportTier::Dormant,
+};
+
+constexpr HookDescriptor kActionQueueProcessQueueDeployedHook = {
+    "ActionQueueManager.ProcessQueue(FleetDeployedData,bool)",
+    "observe deployed-fleet queue processing and optional course-target completion replay for dormant Kir'shara repair",
+    {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "ProcessQueue(FleetDeployedData,bool)"},
+    "dormant Kir'shara queue repair cannot observe deployed-fleet queue processing",
+    HookSupportTier::Dormant,
+};
+
+constexpr HookDescriptor kActionQueueProcessQueueTargetHook = {
+    "ActionQueueManager.ProcessQueue(Int64,bool)",
+    "observe target-id queue commits while investigating dormant Kir'shara queue advancement repair",
+    {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "ProcessQueue(Int64,bool)"},
+    "dormant Kir'shara queue investigation loses target-id queue commit visibility",
+    HookSupportTier::Dormant,
+};
+
+constexpr HookDescriptor kActionQueueOnSetCourseResponseHook = {
+    "ActionQueueManager.OnSetCourseResponseEventHandler",
+    "observe course-response transitions and optional target replay for dormant Kir'shara queue repair",
+    {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "OnSetCourseResponseEventHandler"},
+    "dormant Kir'shara queue repair cannot observe set-course responses",
+    HookSupportTier::Dormant,
+};
+
+constexpr HookDescriptor kActionQueueOnPlayerFleetStateChangedHook = {
+    "ActionQueueManager.OnPlayerFleetStateChangedEventHandler",
+    "observe player fleet state transitions while investigating dormant Kir'shara queue advancement repair",
+    {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "OnPlayerFleetStateChangedEventHandler"},
+    "dormant Kir'shara queue investigation loses player fleet state visibility",
+    HookSupportTier::Dormant,
+};
+
+constexpr HookDescriptor kActionQueueOnFleetStateChangeHook = {
+    "ActionQueueManager.OnFleetStateChangeEventHandler",
+    "observe fleet state transitions and optional target replay for dormant Kir'shara queue repair",
+    {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "OnFleetStateChangeEventHandler"},
+    "dormant Kir'shara queue repair cannot observe fleet state changes",
+    HookSupportTier::Dormant,
+};
+
+constexpr HookDescriptor kActionQueueOnFleetsDisposedHook = {
+    "ActionQueueManager.OnFleetsDisposedEventHandler",
+    "observe fleet disposal while investigating dormant Kir'shara queue advancement repair",
+    {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "OnFleetsDisposedEventHandler"},
+    "dormant Kir'shara queue investigation loses fleet disposal visibility",
+    HookSupportTier::Dormant,
+};
 
 bool KirsharaQueueHooksForceDisabled()
 { return kKirsharaQueueHooksForceDisabledByNativePatch; }
@@ -1401,15 +1482,60 @@ void ActionQueueEvents_TriggerActionRemovedFromQueueEvent(auto original)
 
 void InstallActionQueueRepairHooks()
 {
+  if constexpr (!kKirsharaQueueRepairRuntimeInstallEnabled) {
+    const auto& repair_settings = KirsharaQueueRepairSettings();
+    const auto requested_diagnostic_markers = CountKirsharaQueueRequestedDiagnostics(repair_settings.diagnostics);
+    const auto requested_any = KirsharaQueueDormantOptInRequested(repair_settings);
+
+    if (requested_any) {
+      spdlog::warn("[ActionQueueRepair] dormant runtime install disabled for Kir'shara queue hooks "
+                   "(enabled={} course_target_completion={} diagnostics_enabled={} requested_diagnostic_markers={})",
+                   repair_settings.enabled, repair_settings.course_target_completion, repair_settings.diagnostics.enabled,
+                   requested_diagnostic_markers);
+    } else {
+      spdlog::info("[ActionQueueRepair] dormant runtime install disabled for Kir'shara queue hooks "
+                   "(enabled={} course_target_completion={} diagnostics_enabled={} requested_diagnostic_markers={})",
+                   repair_settings.enabled, repair_settings.course_target_completion, repair_settings.diagnostics.enabled,
+                   requested_diagnostic_markers);
+    }
+    return;
+  }
+
+  HookModuleHealth hooks("KirsharaQueueRepairHooks");
   const auto  level                  = RuntimeTraceLevelSetting();
   const auto  detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
   const auto& repair_settings        = KirsharaQueueRepairSettings();
   const auto  install_plan           = BuildKirsharaQueueRepairInstallPlan(repair_settings, detailed_runtime_trace);
+  const auto record_force_disabled_skip = [&hooks](const HookDescriptor& descriptor, const bool requested) {
+    if (requested) {
+      hooks.record_skipped(descriptor, "dormant support tier force-disabled after native queue update");
+    }
+  };
 
   if (KirsharaQueueHooksForceDisabled()) {
+    record_force_disabled_skip(kActionQueueOnStrikeCompleteHook, install_plan.install_on_strike_complete_marker);
+    record_force_disabled_skip(kActionQueueRemoveTargetAndAttackNextHook,
+                               install_plan.install_remove_target_and_attack_next_marker);
+    record_force_disabled_skip(kActionQueueCheckToClearActionQueueHook,
+                               install_plan.install_check_to_clear_action_queue_marker);
+    record_force_disabled_skip(kActionQueueIsTargetValidHook, install_plan.install_is_target_valid_marker);
+    record_force_disabled_skip(kActionQueueProcessQueueDeployedHook,
+                               install_plan.install_course_target_completion
+                                   || install_plan.install_process_queue_deployed_marker);
+    record_force_disabled_skip(kActionQueueProcessQueueTargetHook, install_plan.install_process_queue_target_marker);
+    record_force_disabled_skip(kActionQueueOnSetCourseResponseHook,
+                               install_plan.install_course_target_completion
+                                   || install_plan.install_on_set_course_response_marker);
+    record_force_disabled_skip(kActionQueueOnPlayerFleetStateChangedHook,
+                               install_plan.install_on_player_fleet_state_changed_marker);
+    record_force_disabled_skip(kActionQueueOnFleetStateChangeHook,
+                               install_plan.install_course_target_completion
+                                   || install_plan.install_on_fleet_state_change_marker);
+    record_force_disabled_skip(kActionQueueOnFleetsDisposedHook, install_plan.install_on_fleets_disposed_marker);
     if (install_plan.install_repair_hooks || install_plan.install_course_target_completion
         || KirsharaQueueMarkerHooksRequested(install_plan)) {
       LogKirsharaQueueHooksForceDisabled(install_plan);
+      hooks.log_summary();
     }
     return;
   }
@@ -1439,7 +1565,32 @@ void InstallActionQueueRepairHooks()
   static auto actionqueue_manager =
       il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager");
   if (!actionqueue_manager.isValidHelper()) {
+    const auto record_missing_helper = [&hooks](const HookDescriptor& descriptor, const bool requested) {
+      if (requested) {
+        hooks.record_missing_helper(descriptor);
+      }
+    };
+    record_missing_helper(kActionQueueOnStrikeCompleteHook, install_plan.install_on_strike_complete_marker);
+    record_missing_helper(kActionQueueRemoveTargetAndAttackNextHook,
+                          install_plan.install_remove_target_and_attack_next_marker);
+    record_missing_helper(kActionQueueCheckToClearActionQueueHook,
+                          install_plan.install_check_to_clear_action_queue_marker);
+    record_missing_helper(kActionQueueIsTargetValidHook, install_plan.install_is_target_valid_marker);
+    record_missing_helper(kActionQueueProcessQueueDeployedHook,
+                          install_plan.install_course_target_completion
+                              || install_plan.install_process_queue_deployed_marker);
+    record_missing_helper(kActionQueueProcessQueueTargetHook, install_plan.install_process_queue_target_marker);
+    record_missing_helper(kActionQueueOnSetCourseResponseHook,
+                          install_plan.install_course_target_completion
+                              || install_plan.install_on_set_course_response_marker);
+    record_missing_helper(kActionQueueOnPlayerFleetStateChangedHook,
+                          install_plan.install_on_player_fleet_state_changed_marker);
+    record_missing_helper(kActionQueueOnFleetStateChangeHook,
+                          install_plan.install_course_target_completion
+                              || install_plan.install_on_fleet_state_change_marker);
+    record_missing_helper(kActionQueueOnFleetsDisposedHook, install_plan.install_on_fleets_disposed_marker);
     ErrorMsg::MissingHelper("ActionQueue", "ActionQueueMaanger");
+    hooks.log_summary();
   } else {
     AppendActionQueueProbeJsonlIfEnabled([]() {
       return nlohmann::json{{"phase", "install-skip"},
@@ -1466,32 +1617,40 @@ void InstallActionQueueRepairHooks()
 
       if (install_plan.install_on_strike_complete_marker) {
         if (auto ptr = actionqueue_manager.GetMethod("OnStrikeCompleteEventHandler"); ptr) {
-          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnStrikeCompleteEventHandler_Marker);
+          HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueOnStrikeCompleteHook, ptr,
+                                           ActionQueueManager_OnStrikeCompleteEventHandler_Marker);
         } else {
+          hooks.record_missing_method(kActionQueueOnStrikeCompleteHook);
           ErrorMsg::MissingMethod("ActionQueueManager", "OnStrikeCompleteEventHandler");
         }
       }
 
       if (install_plan.install_remove_target_and_attack_next_marker) {
         if (auto ptr = actionqueue_manager.GetMethod("RemoveTargetAndAttackNext"); ptr) {
-          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_RemoveTargetAndAttackNext_Marker);
+          HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueRemoveTargetAndAttackNextHook, ptr,
+                                           ActionQueueManager_RemoveTargetAndAttackNext_Marker);
         } else {
+          hooks.record_missing_method(kActionQueueRemoveTargetAndAttackNextHook);
           ErrorMsg::MissingMethod("ActionQueueManager", "RemoveTargetAndAttackNext");
         }
       }
 
       if (install_plan.install_check_to_clear_action_queue_marker) {
         if (auto ptr = actionqueue_manager.GetMethod("CheckToClearActionQueue"); ptr) {
-          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_CheckToClearActionQueue_Marker);
+          HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueCheckToClearActionQueueHook, ptr,
+                                           ActionQueueManager_CheckToClearActionQueue_Marker);
         } else {
+          hooks.record_missing_method(kActionQueueCheckToClearActionQueueHook);
           ErrorMsg::MissingMethod("ActionQueueManager", "CheckToClearActionQueue");
         }
       }
 
       if (install_plan.install_is_target_valid_marker) {
         if (auto ptr = actionqueue_manager.GetMethod("IsTargetValid"); ptr) {
-          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_IsTargetValid_Marker);
+          HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueIsTargetValidHook, ptr,
+                                           ActionQueueManager_IsTargetValid_Marker);
         } else {
+          hooks.record_missing_method(kActionQueueIsTargetValidHook);
           ErrorMsg::MissingMethod("ActionQueueManager", "IsTargetValid");
         }
       }
@@ -1502,8 +1661,10 @@ void InstallActionQueueRepairHooks()
       });
       if (ptr_process_deployed
           && (install_course_target_completion || install_plan.install_process_queue_deployed_marker)) {
-        SPUD_STATIC_DETOUR(ptr_process_deployed, ActionQueueManager_ProcessQueueDeployed_Marker);
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueProcessQueueDeployedHook, ptr_process_deployed,
+                                         ActionQueueManager_ProcessQueueDeployed_Marker);
       } else if (install_course_target_completion || install_plan.install_process_queue_deployed_marker) {
+        hooks.record_missing_method(kActionQueueProcessQueueDeployedHook);
         ErrorMsg::MissingMethod("ActionQueueManager", "ProcessQueue(FleetDeployedData, bool)");
       }
 
@@ -1512,42 +1673,54 @@ void InstallActionQueueRepairHooks()
             return param_count == 2 && probe::detail::type_name(params[0]).find("Int64") != std::string::npos;
           });
       if (ptr_process_target && install_plan.install_process_queue_target_marker) {
-        SPUD_STATIC_DETOUR(ptr_process_target, ActionQueueManager_ProcessQueueTarget_Marker);
+        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueProcessQueueTargetHook, ptr_process_target,
+                                         ActionQueueManager_ProcessQueueTarget_Marker);
       } else if (install_plan.install_process_queue_target_marker) {
+        hooks.record_missing_method(kActionQueueProcessQueueTargetHook);
         ErrorMsg::MissingMethod("ActionQueueManager", "ProcessQueue(Int64, bool)");
       }
 
       if (install_course_target_completion || install_plan.install_on_set_course_response_marker) {
         if (auto ptr = actionqueue_manager.GetMethod("OnSetCourseResponseEventHandler"); ptr) {
-          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnSetCourseResponseEventHandler_Marker);
+          HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueOnSetCourseResponseHook, ptr,
+                                           ActionQueueManager_OnSetCourseResponseEventHandler_Marker);
         } else {
+          hooks.record_missing_method(kActionQueueOnSetCourseResponseHook);
           ErrorMsg::MissingMethod("ActionQueueManager", "OnSetCourseResponseEventHandler");
         }
       }
 
       if (install_plan.install_on_player_fleet_state_changed_marker) {
         if (auto ptr = actionqueue_manager.GetMethod("OnPlayerFleetStateChangedEventHandler"); ptr) {
-          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnPlayerFleetStateChangedEventHandler_Marker);
+          HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueOnPlayerFleetStateChangedHook, ptr,
+                                           ActionQueueManager_OnPlayerFleetStateChangedEventHandler_Marker);
         } else {
+          hooks.record_missing_method(kActionQueueOnPlayerFleetStateChangedHook);
           ErrorMsg::MissingMethod("ActionQueueManager", "OnPlayerFleetStateChangedEventHandler");
         }
       }
 
       if (install_course_target_completion || install_plan.install_on_fleet_state_change_marker) {
         if (auto ptr = actionqueue_manager.GetMethod("OnFleetStateChangeEventHandler"); ptr) {
-          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnFleetStateChangeEventHandler_Marker);
+          HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueOnFleetStateChangeHook, ptr,
+                                           ActionQueueManager_OnFleetStateChangeEventHandler_Marker);
         } else {
+          hooks.record_missing_method(kActionQueueOnFleetStateChangeHook);
           ErrorMsg::MissingMethod("ActionQueueManager", "OnFleetStateChangeEventHandler");
         }
       }
 
       if (install_plan.install_on_fleets_disposed_marker) {
         if (auto ptr = actionqueue_manager.GetMethod("OnFleetsDisposedEventHandler"); ptr) {
-          SPUD_STATIC_DETOUR(ptr, ActionQueueManager_OnFleetsDisposedEventHandler_Marker);
+          HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueOnFleetsDisposedHook, ptr,
+                                           ActionQueueManager_OnFleetsDisposedEventHandler_Marker);
         } else {
+          hooks.record_missing_method(kActionQueueOnFleetsDisposedHook);
           ErrorMsg::MissingMethod("ActionQueueManager", "OnFleetsDisposedEventHandler");
         }
       }
     }
+
+    hooks.log_summary();
   }
 }

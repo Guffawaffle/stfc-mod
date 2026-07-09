@@ -244,12 +244,6 @@ bool ShouldShowRevealHook(auto original, void* _this, bool ignore)
  */
 bool isFirstInterstitial = true;
 
-#if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
-void InstallActionQueueRepairHooks();
-#else
-static void InstallActionQueueRepairHooks() {}
-#endif
-
 void InterstitialViewController_AboutToShow(auto original, InterstitialViewController* _this)
 {
   if (false /* TEMP: disable_first_popup effect disabled */ && Config::Get().disable_first_popup && isFirstInterstitial
@@ -268,7 +262,6 @@ void InterstitialViewController_AboutToShow(auto original, InterstitialViewContr
  *   - BuffService::ExtractBuffsOfType (null-guard crash fix)
  *   - ShopSceneManager::ShouldShowRevealSequence (skip reveal animation)
  *   - InterstitialViewController::AboutToShow (dismiss first popup)
- *   - Kir'shara queue advancement repair hooks (delegated to action_queue_repair.cc)
  */
 void InstallTempCrashFixes()
 {
@@ -309,6 +302,4 @@ void InstallTempCrashFixes()
       SPUD_STATIC_DETOUR(interstitial_show, InterstitialViewController_AboutToShow);
     }
   }
-
-  InstallActionQueueRepairHooks();
 }
