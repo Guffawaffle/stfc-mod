@@ -33,8 +33,8 @@ mods/.xmake
 # Public AX facade is tracked; the private AX repo stays local-only.
 !.ax/
 !.ax/**
+.ax/agent-worktrees/
 .ax-priv/
 
-# Local background-agent worktree lease state and per-worktree briefs.
-.agent-worktrees/
+# Local background-agent per-worktree briefs.
 .agent-worktree/

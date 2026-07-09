@@ -46,7 +46,7 @@ D:\dev\stfc-mod-agent-worktrees
 Lease state is local-only and ignored by Git:
 
 ```text
-.agent-worktrees/leases.jsonl
+.ax/agent-worktrees/leases.jsonl
 ```
 
 ## Create A Lease
