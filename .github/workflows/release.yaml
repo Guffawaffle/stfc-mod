@@ -71,6 +71,17 @@ jobs:
         run: |
           (cd stfc-community-mod && zip -r - .) > stfc-community-mod.zip
 
+      - name: Package Windows mod archive
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+          mkdir -p stfc-community-mod-windows-x64
+          tar -cf - -C stfc-community-mod version.dll \
+            | zstd -19 -T0 -o stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst
+          sha256sum stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst \
+            | awk '{print $1}' \
+            > stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst.sha256
+
       - name: Prepare release assets
         run: |
           cp stfc-community-mod/version.dll version.dll
@@ -78,6 +89,8 @@ jobs:
           sha256sum version.dll \
             stfc-community-mod.zip \
             stfc-community-mod-${{ github.ref_name }}.zip \
+            stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst \
+            stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst \
             stfc-community-mod-installer/stfc-community-mod-installer.dmg > SHA256SUMS.txt
 
       # ✅ Step 4 — Detect prerelease (alpha/beta)
@@ -119,6 +132,8 @@ jobs:
           ### Release Assets
           - `stfc-community-mod.zip` — recommended Windows download
           - `stfc-community-mod-__TAG__.zip` — versioned Windows archive
+          - `stfc-community-mod-windows-x64.tar.zst` — Windows archive for launcher/update tooling
+          - `stfc-community-mod-macos-universal.tar.zst` — macOS dylib archive for launcher/update tooling
           - `version.dll` — direct drop-in update for existing installs
           - `SHA256SUMS.txt` — optional hash verification for release assets
 
@@ -160,6 +175,10 @@ jobs:
             version.dll \
             stfc-community-mod.zip \
             stfc-community-mod-${{ github.ref_name }}.zip \
+            stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst \
+            stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst.sha256 \
+            stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst \
+            stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst.sha256 \
             stfc-community-mod-installer/stfc-community-mod-installer.dmg \
             SHA256SUMS.txt \
             --repo "${{ github.repository }}" \

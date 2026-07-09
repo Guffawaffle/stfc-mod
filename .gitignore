@@ -16,6 +16,7 @@ debug.log
 /.xmake/
 /vsxmake*/
 .DS_Store
+/.localassets/*
 
 # Local security/privacy handoffs; not public docs.
 docs/HOTKEY_TRACE_PRIVACY_HANDOFF.md

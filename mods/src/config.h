@@ -394,6 +394,7 @@ public:
   float ui_scale_adjust;
   float ui_scale_viewer;
   float zoom;
+  float fr_scale;
   bool  allow_cursor;
   bool  free_resize;
   bool  adjust_scale_res;

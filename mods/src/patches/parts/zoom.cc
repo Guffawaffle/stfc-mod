@@ -20,6 +20,7 @@
 
 #include "config.h"
 #include "errormsg.h"
+#include "patches/hook_registry.h"
 #include "patches/mod_impact_monitor.h"
 
 #include "patches/input_binding/input_dispatcher.h"
@@ -31,11 +32,14 @@
 
 #include <prime/NavigationPan.h>
 #include <prime/NavigationZoom.h>
+#include <prime/PlanetViewUtils.h>
+#include <prime/Transform.h>
 
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -44,6 +48,18 @@
 
 namespace
 {
+constexpr HookDescriptor kPlanetViewUtilsCameraZoomedEventHandlerHook{
+    "PlanetViewUtils.CameraZoomedEventHandler",
+    "Re-apply backdrop presentation and trigger flat-renderable scaling after system zoom events.",
+    {"Assembly-CSharp", "Digit.Prime.Navigation", "PlanetViewUtils", "CameraZoomedEventHandler"},
+    "System-view border suppression can regress after zoom changes."};
+
+constexpr HookDescriptor kPlanetViewUtilsGetFlatRenderableHook{
+    "PlanetViewUtils.get_FlatRenderable",
+    "Scale the flat renderable to hide edge void at extreme system zoom.",
+    {"Assembly-CSharp", "Digit.Prime.Navigation", "PlanetViewUtils", "get_FlatRenderable"},
+    "Extreme system zoom can expose backdrop void at the edges."};
+
 struct ZoomRuntimeDispatchCache {
   uint64_t                                     generation = 0;
   std::vector<KeyCode>                         watched_keys;
@@ -144,6 +160,17 @@ inline void SetSceneCameraFarClip(NavigationZoom *zoom, float farClipPlane)
   }
 }
 
+inline void SetSceneCameraPresentation(NavigationZoom *zoom)
+{
+  if (!zoom || !zoom->_sceneCamera) {
+    return;
+  }
+
+  SetSceneCameraFarClip(zoom, Config::Get().zoom * 3.75f);
+  zoom->_sceneCamera->clearFlags      = 2;
+  zoom->_sceneCamera->backgroundColor = {0, 0, 0, 0};
+}
+
 /**
  * @brief Saves the current zoom distance as a named preset.
  * @param label  Human-readable preset name (for log output).
@@ -158,6 +185,41 @@ inline void StoreZoom(std::string label, float &zoom, NavigationZoom *_this)
   auto old_zoom = zoom;
   zoom          = (_this->Distance - _this->_minimum) / (_this->_maximum - _this->_minimum) * Config::Get().zoom;
   spdlog::info("Changing {} from {} to {}", label, old_zoom, zoom);
+}
+
+static float           s_expectedScale = 0.0f;
+static void           *s_cachedFR      = nullptr;
+static void           *s_lastScaledFR  = nullptr;
+static NavigationZoom *s_navZoom       = nullptr;
+
+static void ScaleFR(void *fr)
+{
+  if (!fr) {
+    return;
+  }
+
+  const auto factor = Config::Get().fr_scale;
+  if (factor <= 0.0f || factor == 1.0f) {
+    return;
+  }
+
+  static auto comp_helper   = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Component");
+  static auto get_transform = comp_helper.GetProperty("transform");
+
+  auto *t = reinterpret_cast<Transform *>(get_transform.GetRaw<Il2CppObject>(fr));
+  if (!t || !t->localScale) {
+    return;
+  }
+
+  const auto *scale = t->localScale;
+  if (fr == s_lastScaledFR && s_expectedScale > 0.0f && std::fabs(scale->x - s_expectedScale) < 0.1f) {
+    return;
+  }
+
+  Vector3 newScale{scale->x * factor, scale->y * factor, scale->z * factor};
+  t->localScale   = &newScale;
+  s_lastScaledFR  = fr;
+  s_expectedScale = newScale.x;
 }
 
 // ─── Main Zoom Hook ─────────────────────────────────────────────────────────
@@ -316,6 +378,27 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
   impact_timer.ExcludeCall([&] { original(_this); });
 }
 
+void PlanetViewUtils_CameraZoomedEventHandler_Hook(auto original, PlanetViewUtils *_this, float zoomDistance,
+                                                   float normalizedZoom)
+{
+  original(_this, zoomDistance, normalizedZoom);
+
+  // The game often reads the flat renderable field directly. Force the accessor path so our
+  // detour gets a chance to rescale the backdrop after zoom/view transitions.
+  if (_this) {
+    _this->GetFlatRenderable();
+  }
+
+  if (!s_navZoom || !s_navZoom->_sceneCamera) {
+    return;
+  }
+
+  const auto clear_flags = s_navZoom->_sceneCamera->clearFlags;
+  if (clear_flags >= 0 && clear_flags <= 4 && clear_flags != 2) {
+    SetSceneCameraPresentation(s_navZoom);
+  }
+}
+
 // ─── View Parameter / Depth Hooks ──────────────────────────────────────────
 
 /**
@@ -336,9 +419,10 @@ void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom *_this,
     auto ratio                     = (Config::Get().zoom / radius);
     _this->_farRatioSystemNormal   = 0.55f * ratio;
     _this->_farRatioSystemExtended = 1 * ratio;
-    SetSceneCameraFarClip(_this, Config::Get().zoom * 3.75f);
+    s_navZoom                      = _this;
+    SetSceneCameraPresentation(_this);
     original(_this, radius, depth);
-    SetSceneCameraFarClip(_this, Config::Get().zoom * 3.75f);
+    SetSceneCameraPresentation(_this);
     do_default_zoom = true;
   } else {
     original(_this, radius, depth);
@@ -389,13 +473,29 @@ void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom *_this, NodeDept
     auto ratio                     = (Config::Get().zoom / _this->_viewRadius);
     _this->_farRatioSystemNormal   = 0.55f * ratio;
     _this->_farRatioSystemExtended = 1 * ratio;
-    SetSceneCameraFarClip(_this, Config::Get().zoom * 3.75f);
+    s_navZoom                      = _this;
+    SetSceneCameraPresentation(_this);
     original(_this, depth);
-    SetSceneCameraFarClip(_this, Config::Get().zoom * 3.75f);
+    SetSceneCameraPresentation(_this);
     do_default_zoom = true;
+    if (s_cachedFR) {
+      ScaleFR(s_cachedFR);
+    }
   } else {
     original(_this, depth);
   }
+}
+
+void *PlanetViewUtils_get_FlatRenderable_Hook(auto original, PlanetViewUtils *_this)
+{
+  auto *fr = original(_this);
+  if (!fr) {
+    return fr;
+  }
+
+  s_cachedFR = fr;
+  ScaleFR(fr);
+  return fr;
 }
 
 /**
@@ -436,6 +536,35 @@ void NavigationCamera_SetSystemViewSizeData_Hook(auto original, uint8_t *_this_c
 /** @brief Resolves NavigationZoom IL2CPP methods and installs all zoom hooks. */
 void InstallZoomHooks()
 {
+  HookModuleHealth hooks("ZoomPlanetViewHooks");
+
+  auto planet_view_utils_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "PlanetViewUtils");
+  if (!planet_view_utils_helper.isValidHelper()) {
+    hooks.record_missing_helper(kPlanetViewUtilsCameraZoomedEventHandlerHook);
+    hooks.record_missing_helper(kPlanetViewUtilsGetFlatRenderableHook);
+    ErrorMsg::MissingHelper("Navigation", "PlanetViewUtils");
+  } else {
+    auto ptr_camera_zoomed = planet_view_utils_helper.GetMethod("CameraZoomedEventHandler");
+    if (ptr_camera_zoomed == nullptr) {
+      hooks.record_missing_method(kPlanetViewUtilsCameraZoomedEventHandlerHook);
+      ErrorMsg::MissingMethod("PlanetViewUtils", "CameraZoomedEventHandler");
+    } else {
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kPlanetViewUtilsCameraZoomedEventHandlerHook, ptr_camera_zoomed,
+                                       PlanetViewUtils_CameraZoomedEventHandler_Hook);
+    }
+
+    auto ptr_flat_renderable = planet_view_utils_helper.GetMethod("get_FlatRenderable");
+    if (ptr_flat_renderable == nullptr) {
+      hooks.record_missing_method(kPlanetViewUtilsGetFlatRenderableHook);
+      ErrorMsg::MissingMethod("PlanetViewUtils", "get_FlatRenderable");
+    } else {
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kPlanetViewUtilsGetFlatRenderableHook, ptr_flat_renderable,
+                                       PlanetViewUtils_get_FlatRenderable_Hook);
+    }
+  }
+
+  hooks.log_summary();
+
   auto screen_manager_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "NavigationZoom");
   if (!screen_manager_helper.isValidHelper()) {
     ErrorMsg::MissingHelper("Navigation", "NavigationZoom");
