@@ -1589,7 +1589,7 @@ void InstallActionQueueRepairHooks()
                           install_plan.install_course_target_completion
                               || install_plan.install_on_fleet_state_change_marker);
     record_missing_helper(kActionQueueOnFleetsDisposedHook, install_plan.install_on_fleets_disposed_marker);
-    ErrorMsg::MissingHelper("ActionQueue", "ActionQueueMaanger");
+    ErrorMsg::MissingHelper("ActionQueue", "ActionQueueManager");
     hooks.log_summary();
   } else {
     AppendActionQueueProbeJsonlIfEnabled([]() {
