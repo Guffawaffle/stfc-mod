@@ -55,6 +55,19 @@ Unless a task brief explicitly says otherwise, a background agent must not:
 The bridge can authorize a narrower exception, but the exception must appear in
 the brief.
 
+## Mutation Worktrees
+
+If a background agent needs to mutate files, the bridge should create a worktree
+lease with `global.stfc-mod-private.agent-worktree`. Worktree leases isolate the
+agent's files, index, and branch checkout from the main checkout.
+
+Worktrees do not isolate GitHub writes, release/tag writes, STFC runtime state,
+sidecar state, game files, TOML runtime configuration, or global build caches.
+Those lanes remain bridge-owned unless the lease explicitly says otherwise.
+
+See `docs/AGENT_WORKTREE_BROKER.md` for the lifecycle command and cleanup
+policy.
+
 ## Task Brief
 
 Every background-agent task should include:
@@ -103,12 +116,14 @@ the needed permission instead of guessing.
 
 1. Confirm the repo and branch are clean enough to delegate from.
 2. Generate a brief with `global.stfc-mod-private.agent-brief`.
-3. Assign one bounded question per background agent when possible.
-4. Keep background agents read-only by default.
-5. Collect handoffs and reconcile conflicts in the main session.
-6. Make any edits directly as the bridge.
-7. Run the relevant AXF validation.
-8. Record the outcome in GitHub, PR notes, or Lex frames as appropriate.
+3. For mutation-capable work, create a bridge-owned worktree lease.
+4. Assign one bounded question per background agent when possible.
+5. Keep background agents read-only by default.
+6. Collect handoffs and reconcile conflicts in the main session.
+7. Make final edits directly as the bridge or deliberately integrate lease output.
+8. Run the relevant AXF validation.
+9. Clean up any worktree leases.
+10. Record the outcome in GitHub, PR notes, or Lex frames as appropriate.
 
 This keeps fanout useful without letting parallel work fragment branch state.
 

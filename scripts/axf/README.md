@@ -14,6 +14,7 @@ Primary capability IDs include:
 
 ```text
 global.stfc-mod-private.agent-brief
+global.stfc-mod-private.agent-worktree
 global.stfc-mod-private.review-contract
 global.stfc-mod-private.release-preflight
 global.stfc-mod-private.doctor
@@ -36,6 +37,11 @@ handoff shape.
 The bridge/orchestrator remains responsible for mutations: edits, branch moves,
 GitHub writes, releases/tags, runtime actions, final validation, and Lex-frame
 logging. See `docs/AGENT_ORCHESTRATION.md` for the full workflow.
+
+Use `global.stfc-mod-private.agent-worktree` when a background agent needs an
+isolated mutation lane. The bridge creates the lease, the agent works inside the
+leased worktree, and the bridge collects the handoff before cleanup. See
+`docs/AGENT_WORKTREE_BROKER.md`.
 
 ## Review Contract
 
