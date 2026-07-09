@@ -34,3 +34,7 @@ mods/.xmake
 !.ax/
 !.ax/**
 .ax-priv/
+
+# Local background-agent worktree lease state and per-worktree briefs.
+.agent-worktrees/
+.agent-worktree/
