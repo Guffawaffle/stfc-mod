@@ -15,6 +15,7 @@ Primary capability IDs include:
 ```text
 global.stfc-mod-private.review-contract
 global.stfc-mod-private.release-preflight
+global.stfc-mod-private.release-withdrawal
 global.stfc-mod-private.doctor
 global.stfc-mod-private.windows-interop
 global.stfc-mod-private.status
@@ -50,6 +51,17 @@ release artifacts, and explicit smoke-test acknowledgement.
 Only pass `-PushTag` after the dry run is clean and the exact production
 artifact has been smoked. The release GitHub Actions workflow remains
 responsible for publishing release assets after the tag is pushed.
+
+## Release Withdrawal
+
+Use `global.stfc-mod-private.release-withdrawal` when a published fork release
+needs to be superseded, marked known-bad, or yanked. The default mode is a dry
+run. Executed actions require a reason and append a repo-local JSONL record under
+`docs/release-withdrawals/`.
+
+The `yanked` state deletes the GitHub release and remote tag. Use it only after
+reviewing the dry-run output and confirming that preserving the artifact is worse
+than losing public release/tag history.
 
 For AXF 1.0.0 and later, this repo owns its STFC family manifests locally.
 Run `axf scout --write` from the repo root to regenerate
