@@ -1,0 +1,102 @@
+{
+  "manifestVersion": "axf/v0",
+  "id": "global.stfc-mod-private.release-withdrawal",
+  "summary": "Dry-run-first release withdrawal helper for superseded, known-bad, and yanked fork releases",
+  "provider": "stfc",
+  "adapterType": "cli",
+  "executionTarget": {
+    "launcher": {
+      "command": "pwsh",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File"
+      ]
+    },
+    "target": {
+      "path": "scripts/axf/release-withdrawal.ps1",
+      "relativeTo": "workspace"
+    }
+  },
+  "argsSchema": {
+    "type": "object",
+    "properties": {
+      "repo": {
+        "type": "string",
+        "description": "GitHub repository owner/name. Defaults to Guffawaffle/stfc-mod."
+      },
+      "tag": {
+        "type": "string",
+        "description": "Stable fork release tag to mark, supersede, or yank. Must be shaped like vX.Y.Z-guffa.N."
+      },
+      "state": {
+        "type": "string",
+        "enum": [
+          "superseded",
+          "known-bad",
+          "yanked"
+        ],
+        "description": "Withdrawal state to apply."
+      },
+      "reason": {
+        "type": "string",
+        "description": "Required reason recorded in release notes or the withdrawal ledger."
+      },
+      "replacement-tag": {
+        "type": "string",
+        "description": "Replacement stable fork release tag, when one exists. Must be shaped like vX.Y.Z-guffa.N."
+      },
+      "operator": {
+        "type": "string",
+        "description": "Operator name to record. Defaults to the authenticated GitHub login."
+      },
+      "execute": {
+        "type": "boolean",
+        "description": "Run the planned action. Omit for dry-run."
+      },
+      "record-path": {
+        "type": "string",
+        "description": "Repo-local JSONL ledger path. Defaults to docs/release-withdrawals/release-withdrawals.jsonl."
+      }
+    },
+    "additionalProperties": false
+  },
+  "outputModes": [
+    "json"
+  ],
+  "sideEffects": "write",
+  "scope": "global",
+  "lifecycleState": "active",
+  "defaults": {
+    "repo": "Guffawaffle/stfc-mod",
+    "record-path": "docs/release-withdrawals/release-withdrawals.jsonl"
+  },
+  "policies": [
+    "require_workspace_binding"
+  ],
+  "owner": "module:stfc",
+  "argMap": {
+    "repo": "-Repo",
+    "tag": "-Tag",
+    "state": "-State",
+    "reason": "-Reason",
+    "replacement-tag": "-ReplacementTag",
+    "operator": "-Operator",
+    "execute": "-Execute",
+    "record-path": "-RecordPath"
+  },
+  "warnings": [
+    "Default mode is dry-run/read-only.",
+    "The yanked state deletes the GitHub release and remote tag when -execute is set.",
+    "Every state requires a non-empty reason.",
+    "Affected and replacement tags must be stable fork tags shaped like vX.Y.Z-guffa.N.",
+    "Executed actions append repo-local JSONL records; commit those records when using this command for a real withdrawal."
+  ],
+  "details": [
+    "superseded edits release notes/title and optionally marks the replacement tag latest.",
+    "known-bad edits release notes/title, marks the release prerelease, and optionally marks the replacement tag latest.",
+    "yanked writes a pre-yank repo-local withdrawal record, runs gh release delete <tag> --cleanup-tag --yes, then writes a post-yank outcome record."
+  ]
+}
