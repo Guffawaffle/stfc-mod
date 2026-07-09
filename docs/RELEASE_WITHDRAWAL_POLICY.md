@@ -40,6 +40,9 @@ docs/release-withdrawals/release-withdrawals.jsonl
 
 Commit the ledger update after an executed withdrawal.
 
+Release-withdrawal commands accept only stable fork tags shaped like
+`vX.Y.Z-guffa.N` for both the affected tag and replacement tag.
+
 ## Command
 
 Use `global.stfc-mod-private.release-withdrawal`, or run the backing script
@@ -67,9 +70,9 @@ To execute after reviewing the dry-run:
   -Execute
 ```
 
-For a yanked release, the command writes the local ledger record before the
-destructive GitHub action and prints the exact delete command to stderr before
-running it:
+For a yanked release, the command writes a `pre-yank` local ledger record before
+the destructive GitHub action, prints the exact delete command to stderr before
+running it, and then writes a `post-yank` ledger record with the delete outcome:
 
 ```powershell
 .\scripts\axf\release-withdrawal.ps1 `

@@ -14,6 +14,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $validStates = @("superseded", "known-bad", "yanked")
+$stableForkTagPattern = '^v\d+\.\d+\.\d+-guffa\.\d+$'
 
 function Resolve-FirstCommand {
   param([string[]]$Names)
@@ -161,7 +162,7 @@ function Resolve-RecordPath {
 
 function Write-WithdrawalRecord {
   param(
-    [hashtable]$Record,
+    [System.Collections.IDictionary]$Record,
     [string]$Path
   )
 
@@ -174,6 +175,79 @@ function Write-WithdrawalRecord {
   $line = ($Record | ConvertTo-Json -Depth 20 -Compress)
   [System.IO.File]::AppendAllText($fullPath, "$line`n", [System.Text.UTF8Encoding]::new($false))
   return $fullPath
+}
+
+function Copy-WithdrawalRecord {
+  param([System.Collections.IDictionary]$Record)
+
+  $copy = [ordered]@{}
+  foreach ($key in $Record.Keys) {
+    $copy[$key] = $Record[$key]
+  }
+
+  return $copy
+}
+
+function Remove-LeadingReleaseWithdrawalNotice {
+  param([string]$Body)
+
+  if ([string]::IsNullOrWhiteSpace($Body)) {
+    return ""
+  }
+
+  $lines = @($Body -split "`r?`n")
+  if ($lines.Count -lt 6) {
+    return $Body
+  }
+
+  $hasExistingNotice = ($lines[0] -eq "> [!WARNING]") -and
+                       $lines[1].StartsWith("> Fork release state: **", [System.StringComparison]::Ordinal)
+  if (-not $hasExistingNotice) {
+    return $Body
+  }
+
+  $requiredPrefixes = @("> Reason: ", "> Replacement: ", "> Operator: ", "> Recorded: ")
+  for ($i = 0; $i -lt $requiredPrefixes.Count; $i++) {
+    if (-not $lines[$i + 2].StartsWith($requiredPrefixes[$i], [System.StringComparison]::Ordinal)) {
+      return $Body
+    }
+  }
+
+  $dropCount = 6
+  if ($lines.Count -gt $dropCount -and $lines[$dropCount] -eq "") {
+    $dropCount++
+  }
+  if ($lines.Count -le $dropCount) {
+    return ""
+  }
+
+  return ($lines[$dropCount..($lines.Count - 1)] -join "`r`n")
+}
+
+function New-WithdrawalExecutionRecord {
+  param(
+    [System.Collections.IDictionary]$BaseRecord,
+    [string]$Event,
+    [System.Collections.ArrayList]$ExecutedActions,
+    [System.Collections.ArrayList]$Blockers
+  )
+
+  $copy = Copy-WithdrawalRecord $BaseRecord
+  $copy.event = $Event
+  $copy.recordedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+  $copy.ok = $Blockers.Count -eq 0
+  $deleteAction = @($ExecutedActions | Where-Object { $_.kind -eq "delete-release-and-tag" } | Select-Object -First 1)
+  if ($deleteAction.Count -gt 0) {
+    $copy.deleteExitCode = $deleteAction[0].exitCode
+    $copy.deleteSucceeded = $deleteAction[0].exitCode -eq 0
+  } else {
+    $copy.deleteExitCode = $null
+    $copy.deleteSucceeded = $false
+  }
+  $copy.executedActions = @($ExecutedActions)
+  $copy.blockers = @($Blockers)
+
+  return $copy
 }
 
 function Build-ReleaseNotice {
@@ -206,6 +280,7 @@ $blockers = [System.Collections.ArrayList]::new()
 $warnings = [System.Collections.ArrayList]::new()
 $plannedActions = [System.Collections.ArrayList]::new()
 $executedActions = [System.Collections.ArrayList]::new()
+$recordEventsWritten = [System.Collections.ArrayList]::new()
 $commands = [ordered]@{}
 $steps = [ordered]@{}
 $record = $null
@@ -223,6 +298,25 @@ try {
 
   if ([string]::IsNullOrWhiteSpace($normalizedTag)) {
     Add-Problem $blockers "tag-required" "A release tag is required."
+  }
+  $tagShapeOk = (-not [string]::IsNullOrWhiteSpace($normalizedTag)) -and ($normalizedTag -match $stableForkTagPattern)
+  if (-not [string]::IsNullOrWhiteSpace($normalizedTag) -and -not $tagShapeOk) {
+    Add-Problem $blockers "tag-shape-invalid" "Tag $normalizedTag is not a stable fork tag shaped like vX.Y.Z-guffa.N."
+  }
+  $replacementShapeOk = $true
+  if (-not [string]::IsNullOrWhiteSpace($normalizedReplacement)) {
+    $replacementShapeOk = $normalizedReplacement -match $stableForkTagPattern
+    if (-not $replacementShapeOk) {
+      Add-Problem $blockers "replacement-tag-shape-invalid" "Replacement tag $normalizedReplacement is not a stable fork tag shaped like vX.Y.Z-guffa.N."
+    }
+  }
+  $steps.tag = [ordered]@{
+    ok = $tagShapeOk
+    tag = if ($normalizedTag) { $normalizedTag } else { $null }
+    replacementTag = if ($normalizedReplacement) { $normalizedReplacement } else { $null }
+    expectedPattern = $stableForkTagPattern
+    shapeOk = $tagShapeOk
+    replacementShapeOk = $replacementShapeOk
   }
   if ($validStates -notcontains $normalizedState) {
     Add-Problem $blockers "state-required" "State must be one of: $($validStates -join ', ')."
@@ -248,7 +342,7 @@ try {
   $normalizedOperator = $Operator.Trim()
 
   $releaseData = $null
-  if (-not [string]::IsNullOrWhiteSpace($normalizedTag)) {
+  if ($tagShapeOk) {
     $releaseView = Invoke-Captured $gh @(
       "release",
       "view",
@@ -280,7 +374,11 @@ try {
       command = "gh release view $normalizedTag --repo $Repo"
       exitCode = $releaseView.exitCode
       data = $releaseSummary
-      stdoutTail = if ($releaseView.exitCode -eq 0) { $null } else { $releaseView.stdoutTail }
+      stdoutTail = if (($releaseView.exitCode -eq 0) -and ($releaseData -ne $null)) {
+        $null
+      } else {
+        $releaseView.stdoutTail
+      }
       stderrTail = $releaseView.stderrTail
     }
     if (-not $steps.release.ok) {
@@ -295,7 +393,7 @@ try {
     Add-Problem $blockers "replacement-same-as-tag" "Replacement tag must differ from the affected tag."
   }
 
-  if (-not [string]::IsNullOrWhiteSpace($normalizedReplacement)) {
+  if (-not [string]::IsNullOrWhiteSpace($normalizedReplacement) -and $replacementShapeOk) {
     $replacementView = Invoke-Captured $gh @(
       "release",
       "view",
@@ -311,7 +409,11 @@ try {
       command = "gh release view $normalizedReplacement --repo $Repo"
       exitCode = $replacementView.exitCode
       data = $replacementData
-      stdoutTail = if ($replacementView.exitCode -eq 0) { $null } else { $replacementView.stdoutTail }
+      stdoutTail = if (($replacementView.exitCode -eq 0) -and ($replacementData -ne $null)) {
+        $null
+      } else {
+        $replacementView.stdoutTail
+      }
       stderrTail = $replacementView.stderrTail
     }
     if (-not $steps.replacement.ok) {
@@ -407,16 +509,30 @@ try {
 
   if ($Execute -and $blockers.Count -eq 0) {
     $body = if ($null -eq $releaseData.body) { "" } else { [string]$releaseData.body }
+    $bodyWithoutExistingNotice = Remove-LeadingReleaseWithdrawalNotice $body
     $notesPath = $null
     if ($normalizedState -eq "superseded" -or $normalizedState -eq "known-bad") {
       $notesPath = [System.IO.Path]::GetTempFileName()
-      $notesBody = "$notice`r`n`r`n$body"
+      $notesBody = if ([string]::IsNullOrWhiteSpace($bodyWithoutExistingNotice)) {
+        $notice
+      } else {
+        "$notice`r`n`r`n$bodyWithoutExistingNotice"
+      }
       [System.IO.File]::WriteAllText($notesPath, $notesBody, [System.Text.UTF8Encoding]::new($false))
+      $steps.releaseNotice = [ordered]@{
+        existingNoticeRemoved = $bodyWithoutExistingNotice -ne $body
+        originalBodyLength = $body.Length
+        updatedBodyLength = $notesBody.Length
+      }
     }
 
     try {
       if ($normalizedState -eq "yanked") {
-        $recordWrittenPath = Write-WithdrawalRecord ([hashtable]$record) $RecordPath
+        $preActionRecord = Copy-WithdrawalRecord $record
+        $preActionRecord.event = "pre-yank"
+        $preActionRecord.auditNote = "Recorded before destructive release and tag deletion."
+        $recordWrittenPath = Write-WithdrawalRecord $preActionRecord $RecordPath
+        [void]$recordEventsWritten.Add("pre-yank")
       }
 
       foreach ($action in $plannedActions) {
@@ -451,7 +567,14 @@ try {
       }
 
       if ($normalizedState -ne "yanked" -and $blockers.Count -eq 0) {
-        $recordWrittenPath = Write-WithdrawalRecord ([hashtable]$record) $RecordPath
+        $appliedRecord = Copy-WithdrawalRecord $record
+        $appliedRecord.event = "applied"
+        $recordWrittenPath = Write-WithdrawalRecord $appliedRecord $RecordPath
+        [void]$recordEventsWritten.Add("applied")
+      } elseif ($normalizedState -eq "yanked") {
+        $outcomeRecord = New-WithdrawalExecutionRecord $record "post-yank" $executedActions $blockers
+        $recordWrittenPath = Write-WithdrawalRecord $outcomeRecord $RecordPath
+        [void]$recordEventsWritten.Add("post-yank")
       }
     } finally {
       if ($notesPath -and (Test-Path -LiteralPath $notesPath)) {
@@ -474,6 +597,7 @@ try {
     operator = if ($normalizedOperator) { $normalizedOperator } else { $null }
     recordPath = $RecordPath
     recordWrittenPath = $recordWrittenPath
+    recordEventsWritten = @($recordEventsWritten)
     blockers = @($blockers)
     warnings = @($warnings)
     plannedActions = @($plannedActions)
@@ -500,6 +624,7 @@ try {
     warnings = @($warnings)
     plannedActions = @($plannedActions)
     executedActions = @($executedActions)
+    recordEventsWritten = @($recordEventsWritten)
     record = $record
     steps = $steps
     commands = $commands

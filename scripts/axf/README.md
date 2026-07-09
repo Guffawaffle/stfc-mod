@@ -56,8 +56,8 @@ responsible for publishing release assets after the tag is pushed.
 
 Use `global.stfc-mod-private.release-withdrawal` when a published fork release
 needs to be superseded, marked known-bad, or yanked. The default mode is a dry
-run. Executed actions require a reason and append a repo-local JSONL record under
-`docs/release-withdrawals/`.
+run. Dry runs and executed actions require a reason. Executed actions append a
+repo-local JSONL record under `docs/release-withdrawals/`.
 
 The `yanked` state deletes the GitHub release and remote tag. Use it only after
 reviewing the dry-run output and confirming that preserving the artifact is worse

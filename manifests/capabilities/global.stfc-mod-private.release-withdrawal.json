@@ -29,7 +29,7 @@
       },
       "tag": {
         "type": "string",
-        "description": "Release tag to mark, supersede, or yank."
+        "description": "Stable fork release tag to mark, supersede, or yank. Must be shaped like vX.Y.Z-guffa.N."
       },
       "state": {
         "type": "string",
@@ -46,7 +46,7 @@
       },
       "replacement-tag": {
         "type": "string",
-        "description": "Replacement release tag, when one exists."
+        "description": "Replacement stable fork release tag, when one exists. Must be shaped like vX.Y.Z-guffa.N."
       },
       "operator": {
         "type": "string",
@@ -91,11 +91,12 @@
     "Default mode is dry-run/read-only.",
     "The yanked state deletes the GitHub release and remote tag when -execute is set.",
     "Every state requires a non-empty reason.",
-    "Executed actions append a repo-local JSONL record; commit that record when using this command for a real withdrawal."
+    "Affected and replacement tags must be stable fork tags shaped like vX.Y.Z-guffa.N.",
+    "Executed actions append repo-local JSONL records; commit those records when using this command for a real withdrawal."
   ],
   "details": [
     "superseded edits release notes/title and optionally marks the replacement tag latest.",
     "known-bad edits release notes/title, marks the release prerelease, and optionally marks the replacement tag latest.",
-    "yanked writes a repo-local withdrawal record and then runs gh release delete <tag> --cleanup-tag --yes."
+    "yanked writes a pre-yank repo-local withdrawal record, runs gh release delete <tag> --cleanup-tag --yes, then writes a post-yank outcome record."
   ]
 }

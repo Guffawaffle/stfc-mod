@@ -11,3 +11,6 @@ available.
 Use `global.stfc-mod-private.release-withdrawal` or
 `scripts/axf/release-withdrawal.ps1` to create records. Commit ledger updates
 after executing a real withdrawal.
+
+Yanked releases write a `pre-yank` record before deletion and a `post-yank`
+record after the attempted delete, including the delete exit code and outcome.
