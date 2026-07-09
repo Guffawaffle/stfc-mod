@@ -13,6 +13,7 @@ is present.
 Primary capability IDs include:
 
 ```text
+global.stfc-mod-private.agent-brief
 global.stfc-mod-private.review-contract
 global.stfc-mod-private.release-preflight
 global.stfc-mod-private.release-withdrawal
@@ -25,6 +26,17 @@ global.stfc-mod-private.cycle
 ```
 
 Raw CLI execution is for provider development and manual debugging only.
+
+## Agent Briefs
+
+Use `global.stfc-mod-private.agent-brief` to create scoped task briefs for
+background agents. Briefs default to read-only scout/review work and state the
+repo context, objective, allowed actions, forbidden actions, and expected
+handoff shape.
+
+The bridge/orchestrator remains responsible for mutations: edits, branch moves,
+GitHub writes, releases/tags, runtime actions, final validation, and Lex-frame
+logging. See `docs/AGENT_ORCHESTRATION.md` for the full workflow.
 
 ## Review Contract
 
