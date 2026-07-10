@@ -88,6 +88,9 @@ bool SyncTargetAcceptsType(const SyncTargetConfig& target_config, const SyncConf
   if (type == SyncConfig::Type::FleetAssignments) {
     return SyncTargetUsesMajelEnvelope(target_config.mode) && target_config.slots;
   }
+  if (type == SyncConfig::Type::FleetRuntime) {
+    return false;
+  }
 
   for (const auto& option : SyncOptions) {
     if (option.type == type) {

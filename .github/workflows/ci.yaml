@@ -14,6 +14,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*"
   pull_request:
     branches: ["main", "dev"]
     types: [opened, reopened, ready_for_review]
@@ -60,8 +62,11 @@ jobs:
         shell: pwsh
         run: |
           $args = @('f', '-m', 'release', '-y')
-          if ('${{ github.event_name }}' -eq 'push' -and '${{ github.ref }}' -eq 'refs/heads/main') {
+          if ('${{ github.event_name }}' -eq 'push' -and ('${{ github.ref }}' -eq 'refs/heads/main' -or '${{ github.ref_type }}' -eq 'tag')) {
             $args += '--stfc_public_release=y'
+          }
+          if ('${{ github.ref_type }}' -eq 'tag') {
+            $args += '--stfc_release_tag=${{ github.ref_name }}'
           }
           xmake @args
 
@@ -116,8 +121,11 @@ jobs:
         shell: bash
         run: |
           args=(f -p macosx -a arm64 -m release -y --target_minver=13.5)
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+          if [[ "${{ github.event_name }}" == "push" && ( "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref_type }}" == "tag" ) ]]; then
             args+=(--stfc_public_release=y)
+          fi
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            args+=(--stfc_release_tag=${{ github.ref_name }})
           fi
           xmake "${args[@]}"
 
@@ -128,8 +136,11 @@ jobs:
         shell: bash
         run: |
           args=(f -p macosx -a x86_64 -m release -y --target_minver=13.5)
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+          if [[ "${{ github.event_name }}" == "push" && ( "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref_type }}" == "tag" ) ]]; then
             args+=(--stfc_public_release=y)
+          fi
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            args+=(--stfc_release_tag=${{ github.ref_name }})
           fi
           xmake "${args[@]}"
 
@@ -140,8 +151,11 @@ jobs:
         shell: bash
         run: |
           args=(f -p macosx -a arm64 -m release -y --target_minver=13.5)
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+          if [[ "${{ github.event_name }}" == "push" && ( "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref_type }}" == "tag" ) ]]; then
             args+=(--stfc_public_release=y)
+          fi
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            args+=(--stfc_release_tag=${{ github.ref_name }})
           fi
           xmake "${args[@]}"
           xmake -r -y macOSLauncher

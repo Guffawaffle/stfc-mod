@@ -68,7 +68,7 @@ namespace
   std::string primeVersion{"1.000.45324"};
 } // namespace
 
-  const char poweredBy[] = "stfc community patch/" VER_FILE_VERSION_STR;
+  const char poweredBy[] = "stfc community patch/" VER_RUNTIME_VERSION_STR;
 
   void SetPrimeServerHeaders(std::string serverUrl, std::string sessionId)
   {
@@ -353,7 +353,7 @@ std::string make_target_post_data(const SyncTargetConfig& target_config, SyncCon
       .sync_type = type,
       .payload = std::move(payload),
       .event_id = std::move(event_id),
-      .source_version = VER_FILE_VERSION_STR,
+      .source_version = VER_RUNTIME_VERSION_STR,
       .install_id = "not_configured",
       .session_id = majel_session_id(),
       .sequence = sequence,
@@ -489,7 +489,7 @@ static std::shared_ptr<TargetWorker> get_curl_client_sync(const std::string& tar
   worker->mode = target_config.mode;
 
   worker->session->SetUrl(target_config.url);
-  worker->session->SetUserAgent("stfc community patch " VER_FILE_VERSION_STR " (libcurl/" LIBCURL_VERSION ")");
+  worker->session->SetUserAgent("stfc community patch " VER_RUNTIME_VERSION_STR " (libcurl/" LIBCURL_VERSION ")");
   worker->session->SetAcceptEncoding(cpr::AcceptEncoding{});
   worker->session->SetHttpVersion(cpr::HttpVersion{cpr::HttpVersionCode::VERSION_1_1});
   worker->session->SetRedirect(cpr::Redirect{3, true, false, cpr::PostRedirectFlags::POST_ALL});

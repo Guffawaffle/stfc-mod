@@ -60,6 +60,21 @@ option("stfc_public_release")
     set_description("Build the public release profile without dev-only science hooks")
 option_end()
 
+option("stfc_release_tag")
+    set_default("")
+    set_showmenu(true)
+    set_description("Optional release tag to expose in runtime diagnostics, sync payloads, and product metadata")
+option_end()
+
+local function c_string_define(value)
+    return value:gsub("\\", "\\\\"):gsub("\"", "\\\"")
+end
+
+local stfc_release_tag = get_config("stfc_release_tag")
+if stfc_release_tag and stfc_release_tag ~= "" then
+    add_defines("STFC_RELEASE_TAG=\"" .. c_string_define(stfc_release_tag) .. "\"")
+end
+
 -- ─── Local / Vendored Packages ───────────────────────────────────────────────
 
 package("libil2cpp")

@@ -79,14 +79,17 @@ TEST_SUITE("sync_transport_policy")
     SyncTargetConfig target;
     target.ships = true;
     target.slots = true;
+    target.fleet_runtime = true;
 
     CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::Ships));
     CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::ModCapabilities));
     CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetAssignments));
+    CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetRuntime));
 
     target.mode = SyncTargetConfig::Mode::Majel;
     CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::ModCapabilities));
     CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetAssignments));
+    CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetRuntime));
 
     target.slots = false;
     CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetAssignments));
@@ -102,7 +105,7 @@ TEST_SUITE("sync_transport_policy")
                 {
                     .name = "majel",
                     .mode = SyncTargetConfig::Mode::Majel,
-                    .enabled_sync_types = {"ship", "slot", "fleet_runtime"},
+                    .enabled_sync_types = {"ship", "slot"},
                 },
             },
         .supported_schemas = {"stfc.mod.capability_snapshot.v1", "stfc.sync.delta_batch.v1"},
@@ -113,7 +116,7 @@ TEST_SUITE("sync_transport_policy")
     CHECK(snapshot["platform"] == "windows");
     CHECK(snapshot["targets"][0]["name"] == "majel");
     CHECK(snapshot["targets"][0]["mode"] == "majel");
-    CHECK(snapshot["targets"][0]["enabledSyncTypes"][2] == "fleet_runtime");
+    CHECK(snapshot["targets"][0]["enabledSyncTypes"][1] == "slot");
     CHECK(snapshot["privacy"]["tokenRedacted"] == true);
     CHECK(snapshot["privacy"]["containsEndpointUrls"] == false);
     CHECK(snapshot.dump().find("secret-token") == std::string::npos);

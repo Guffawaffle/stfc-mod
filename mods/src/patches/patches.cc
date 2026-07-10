@@ -182,7 +182,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::set_level(log_level);
   spdlog::flush_on(log_level);
 
-  spdlog::info("Initializing STFC Community Mod ({})", VER_PRODUCT_VERSION_STR);
+  spdlog::info("Initializing STFC Community Mod ({})", VER_RUNTIME_VERSION_STR);
   spdlog::info("");
   if (File::hasCustomNames()) {
     spdlog::info("Using custom names");
@@ -225,8 +225,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
-  auto             install_deployment_runtime_observers =
-      cfg.installSyncPatches && cfg.sync_options.fleet_runtime;
+  auto             install_deployment_runtime_observers = false;
   if (sidecar_local_ingest::FleetRuntimeEnabled()) {
     spdlog::info("[FleetRuntimeSync] sidecar fleet_runtime uses fleet-bar transition requests; deployment event "
                  "observers disabled");
@@ -306,10 +305,10 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
 #if VERSION_PATCH
-  spdlog::info("Installed beta version {}.{}.{} (Patch {})", VERSION_MAJOR, VERSION_MINOR, VERSION_REVISION,
-               VERSION_PATCH);
+  spdlog::info("Installed beta version {} (base {}.{}.{} patch {})", VER_RUNTIME_VERSION_STR, VERSION_MAJOR,
+               VERSION_MINOR, VERSION_REVISION, VERSION_PATCH);
 #else
-  spdlog::info("Installed release version {}.{}.{}", VERSION_MAJOR, VERSION_MINOR, VERSION_REVISION);
+  spdlog::info("Installed release version {}", VER_RUNTIME_VERSION_STR);
 #endif
 
   spdlog::info("");
