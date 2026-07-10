@@ -22,26 +22,21 @@
 > **Short version**
 > If you want the standard, official STFC Community Mod experience, use **[netniV/stfc-mod](https://github.com/netniV/stfc-mod/releases/latest)**.
 > If you want this fork's validated public builds, use this fork's **`main`** releases.
-> If you want the in-progress integration branch where new fork work lands first, use **`guffa-dev`**.
 
 This fork exists so I can ship and test changes on my own branch without presenting them as official upstream behavior.
 
 - Use **`netniV/stfc-mod` `main` releases** if you want the official/default mod experience.
 - Use **`Guffawaffle/stfc-mod` `main` releases** if you want the current published state of this fork.
-- Use **`Guffawaffle/stfc-mod` `guffa-dev`** if you want the current working integration branch before changes are promoted to `main`.
 
 ## How This Fork Is Structured
 
 The official project lives on **`netniV/stfc-mod`**. That is the source of truth.
 
-This fork keeps two named branches with different jobs:
+This fork uses **`main`** as both its default branch and its working integration base. It is the branch people should see first when they open the repository, and the source of the fork's public releases.
 
-- **`main`** is the default branch and public release branch for the fork. This is the branch people should see first when they open the repository.
-- **`guffa-dev`** is the working integration branch. New fork-only features land here first and are promoted to `main` once they are ready.
+Feature work in this fork should branch from a current local **`main`** and return there through a fork PR. Upstream PRs should still be prepared from fresh branches based on **`upstream/main`**, not from the fork integration branch.
 
-Feature work in this fork should branch from **`guffa-dev`**. Upstream PRs should still be prepared from fresh branches based on **`upstream/main`**, not from the fork integration branch.
-
-The plain **`dev`** branch is intentionally not part of that layout anymore. It collides with upstream's branch naming and makes both human and agent workflows harder to reason about.
+The legacy **`guffa-dev`** and plain **`dev`** branches are intentionally not part of this layout. Keeping one fork baseline makes human and agent workflows easier to reason about.
 
 The fork-only delta is a small set of extra commits that are either:
 
@@ -83,7 +78,7 @@ current sidecar/Majel proof path has working local projection reads.
 
 ## What's different in this fork?
 
-This fork (`main` for published builds, `guffa-dev` for current integration work) bundles experimental features that haven't been accepted upstream yet, or are too opinionated for the main project:
+This fork's **`main`** branch bundles experimental features that haven't been accepted upstream yet, or are too opinionated for the main project:
 
 | Feature | Status | Upstream PR |
 |---------|--------|-------------|
