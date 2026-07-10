@@ -31,7 +31,7 @@ std::string pointer_to_string(const void* pointer)
 namespace live_debug_state_results {
 nlohmann::json Ping()
 {
-  return nlohmann::json{{"pong", true}, {"version", VER_PRODUCT_VERSION_STR}};
+  return nlohmann::json{{"pong", true}, {"version", VER_RUNTIME_VERSION_STR}};
 }
 
 nlohmann::json TrackerList()
