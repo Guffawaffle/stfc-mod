@@ -43,7 +43,7 @@ jobs:
             build_run_id=$(gh api \
               -H "Accept: application/vnd.github+json" \
               /repos/${{ github.repository }}/actions/runs \
-              --jq '.workflow_runs[] | select(.name=="Build" and .head_sha=="${{ github.sha }}" and .conclusion=="success") | .id' | head -n 1)
+              --jq '.workflow_runs[] | select(.name=="Build" and .event=="push" and .head_branch=="${{ github.ref_name }}" and .head_sha=="${{ github.sha }}" and .conclusion=="success") | .id' | head -n 1)
 
             if [ -n "$build_run_id" ]; then
               echo "✅ Found successful Build run ID: $build_run_id"

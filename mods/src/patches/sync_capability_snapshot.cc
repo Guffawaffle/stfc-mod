@@ -68,7 +68,7 @@ void queue_mod_capability_snapshot()
   }
 
   const auto snapshot = http::BuildModCapabilitySnapshot({
-      .source_version = VER_FILE_VERSION_STR,
+      .source_version = VER_RUNTIME_VERSION_STR,
       .platform       = current_platform_name(),
       .targets        = std::move(targets),
       .supported_schemas =

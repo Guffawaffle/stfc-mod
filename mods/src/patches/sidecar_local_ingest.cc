@@ -259,7 +259,7 @@ std::shared_ptr<cpr::Session> create_sidecar_local_session()
 
   auto session = std::make_shared<cpr::Session>();
   session->SetUrl(config.url);
-  session->SetUserAgent("stfc community patch " VER_FILE_VERSION_STR " (libcurl/" LIBCURL_VERSION ")");
+  session->SetUserAgent("stfc community patch " VER_RUNTIME_VERSION_STR " (libcurl/" LIBCURL_VERSION ")");
   session->SetAcceptEncoding(cpr::AcceptEncoding{});
   session->SetHttpVersion(cpr::HttpVersion{cpr::HttpVersionCode::VERSION_1_1});
   session->SetRedirect(cpr::Redirect{3, true, false, cpr::PostRedirectFlags::POST_ALL});
@@ -305,7 +305,7 @@ json build_sidecar_local_envelope(const SidecarLocalIngestKind kind, const json&
       {"producedAt", current_time_iso_utc()},
       {"sessionId", sidecar_local_session_id()},
       {"source", "stfc-community-mod"},
-      {"modVersion", VER_FILE_VERSION_STR},
+      {"modVersion", VER_RUNTIME_VERSION_STR},
       {"payloadProtocol", payload_protocol},
       {"payload", payload},
   };
