@@ -8,7 +8,6 @@
 #include "patches/fleet_runtime_diagnostics.h"
 #include "patches/live_debug_fleet_runtime_observers.h"
 #include "patches/sidecar_local_ingest.h"
-#include "patches/sync_scheduler.h"
 
 #include <nlohmann/json.hpp>
 
@@ -78,8 +77,7 @@ int64_t current_time_millis_utc()
 
 bool fleet_runtime_sync_enabled()
 {
-  return Config::Get().installSyncPatches
-         && (Config::Get().sync_options.fleet_runtime || sidecar_local_ingest::FleetRuntimeEnabled());
+  return Config::Get().installSyncPatches && sidecar_local_ingest::FleetRuntimeEnabled();
 }
 
 int cargo_fill_percent_bucket(int basis_points, int percent)
@@ -362,9 +360,6 @@ void fleet_runtime_sync_capture(const GameplayDispatchContext& dispatch)
   const auto trace = fleet_runtime_diagnostics_make_trace(dispatch, snapshot.fleet, snapshot.slots, observed_at_ms,
                                                           capture_duration_ms);
   const auto payload = build_snapshot_payload(dispatch.source, observed_at_ms, snapshot.fleet, snapshot.slots);
-  if (Config::Get().sync_options.fleet_runtime) {
-    queue_data(SyncConfig::Type::FleetRuntime, payload, false, trace);
-  }
   if (sidecar_local_ingest::FleetRuntimeEnabled()) {
     if (sidecar_local_ingest::FleetRuntimeSnapshotOnlyMode()) {
       spdlog::info("[FleetRuntimeSync] stage=sidecar-publish source={} owner={} seam={} reason={} effect={} "

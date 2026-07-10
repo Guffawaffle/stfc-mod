@@ -915,6 +915,12 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
 
     for (const auto& opt : SyncOptions) {
       target.*opt.option = values[opt.option_str].value<bool>().value_or(defaults.*opt.option);
+      if (opt.type == SyncConfig::Type::FleetRuntime && target.*opt.option) {
+        spdlog::warn("Ignoring unsupported {}.fleet_runtime=true. Fleet runtime delivery is sidecar-only; configure "
+                     "[sidecar.sync].fleet_runtime instead.",
+                     target_section);
+        target.*opt.option = false;
+      }
       parsed_target.insert(opt.option_str, target.*opt.option);
     }
 
@@ -1486,6 +1492,12 @@ void Config::Load()
   for (const auto& opt : SyncOptions) {
     sync_defaults.*opt.option = get_config_or_default(config, parsed, "sync", opt.option_str, false, write_config);
   }
+  if (sync_defaults.fleet_runtime) {
+    spdlog::warn("Ignoring unsupported [sync].fleet_runtime=true. Fleet runtime delivery is sidecar-only; configure "
+                 "[sidecar.sync].fleet_runtime instead.");
+    sync_defaults.fleet_runtime = false;
+    parsed["sync"].as_table()->insert_or_assign("fleet_runtime", false);
+  }
 
   spdlog::debug("");
 
@@ -1508,7 +1520,10 @@ void Config::Load()
   auto sync_url   = config["sync"]["url"].value<std::string>();
   auto sync_token = config["sync"]["token"].value<std::string>();
 
-  if (sync_url.has_value() && sync_token.has_value()) {
+  const bool legacy_sync_url_configured   = sync_url.has_value() && !sync_url->empty();
+  const bool legacy_sync_token_configured = sync_token.has_value() && !sync_token->empty();
+
+  if (legacy_sync_url_configured && legacy_sync_token_configured) {
     if (sidecar_config_result.reject_legacy_sync_url) {
       spdlog::error(
           "Ignoring legacy [sync].url / [sync].token loopback sidecar endpoint. Configure [sidecar.sync] instead.");
@@ -1543,6 +1558,9 @@ void Config::Load()
             sync_url.value(), mask_token(sync_token.value()));
       }
     }
+  } else if (legacy_sync_url_configured || legacy_sync_token_configured) {
+    spdlog::warn("Ignoring incomplete legacy [sync].url / [sync].token configuration. Both values must be non-empty "
+                 "to create sync.targets.default.");
   }
 
   if (auto sync_file = config["sync"]["file"].value<std::string>();

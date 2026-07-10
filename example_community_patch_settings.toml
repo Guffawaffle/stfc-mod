@@ -968,7 +968,7 @@ action_queue_probe_files = 3
 # mode = "majel"
 # battlelogs = false
 # battlelogs_realtime = true
-# fleet_runtime = true
+# Fleet runtime is sidecar-only. Configure [sidecar.sync].fleet_runtime instead.
 
 #  <[=============================================================================================================]>
 #
