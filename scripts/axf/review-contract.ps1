@@ -90,6 +90,17 @@ $steps = [ordered]@{}
 
 try {
   $python = Resolve-FirstCommand @("py", "python3", "python")
+  $hookTiers = Invoke-Captured $python @("scripts\validate_hook_support_tiers.py", "--format", "json")
+  $hookTiersData = Try-ParseJson $hookTiers.stdout
+  $steps.hookSupportTiers = [ordered]@{
+    ok = ($hookTiers.exitCode -eq 0)
+    command = "$python scripts\validate_hook_support_tiers.py --format json"
+    exitCode = $hookTiers.exitCode
+    data = $hookTiersData
+    stdoutTail = $hookTiers.stdoutTail
+    stderrTail = $hookTiers.stderrTail
+  }
+
   $scanner = Invoke-Captured $python @("scripts\scan_gameplay_seams.py", "--format", "json")
   $scannerData = Try-ParseJson $scanner.stdout
   $steps.scanner = [ordered]@{

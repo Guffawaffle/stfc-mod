@@ -8,6 +8,7 @@
 /build/
 *.code-workspace
 /.cache/
+__pycache__/
 compile_commands.json
 version.aps
 *.vars

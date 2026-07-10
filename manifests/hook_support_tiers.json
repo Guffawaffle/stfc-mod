@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "tiers": {
+    "production": {
+      "description": "User-ready and release-supported behavior."
+    },
+    "science": {
+      "description": "Active investigation or development-only behavior. Not advertised in release example config."
+    },
+    "dormant": {
+      "description": "Retained historical or compatibility code that must not be runtime-installed."
+    },
+    "internal": {
+      "description": "Implementation plumbing or shared fan-out, not a user-facing feature surface."
+    }
+  },
+  "hook_modules": [
+    {
+      "id": "FrameTickHooks",
+      "tier": "internal",
+      "source": "mods/src/patches/frame_tick.cc",
+      "rationale": "Central frame fan-out for registered subscribers."
+    },
+    {
+      "id": "HotkeyHooks",
+      "tier": "production",
+      "source": "mods/src/patches/parts/hotkeys.cc",
+      "rationale": "Release-supported hotkey and contextual action behavior."
+    },
+    {
+      "id": "KirsharaQueueRepairHooks",
+      "tier": "dormant",
+      "source": "mods/src/patches/parts/action_queue_repair.cc",
+      "rationale": "Kir'Shara queue investigation detours are force-disabled after native queue behavior changed.",
+      "runtime_install": "disabled"
+    },
+    {
+      "id": "MissionHudTweaks",
+      "tier": "production",
+      "source": "mods/src/patches/parts/mission_hud_tweaks.cc",
+      "rationale": "Release-supported UI visibility controls."
+    },
+    {
+      "id": "OpenBulkClaimGiftsHooks",
+      "tier": "production",
+      "source": "mods/src/patches/open_bulk_claim_gifts.cc",
+      "rationale": "Release-supported Claim All flyout workflow."
+    },
+    {
+      "id": "RefineryDiagnosticsHooks",
+      "tier": "production",
+      "source": "mods/src/patches/refinery_diagnostics.cc",
+      "rationale": "Release-supported opt-in diagnostic breadcrumbs with explicit config gating."
+    },
+    {
+      "id": "SectionChangeRouterHooks",
+      "tier": "internal",
+      "source": "mods/src/patches/section_change_router.cc",
+      "rationale": "Shared section-change fan-out for feature modules."
+    },
+    {
+      "id": "ZoomPlanetViewHooks",
+      "tier": "production",
+      "source": "mods/src/patches/parts/zoom.cc",
+      "rationale": "Release-supported zoom behavior."
+    }
+  ],
+  "config_surfaces": [
+    {
+      "path": "advanced.diagnostics.kirshara_queue",
+      "tier": "dormant",
+      "owner": "KirsharaQueueRepairHooks",
+      "release_example_allowed": false,
+      "science_example_required": true,
+      "rationale": "Dormant Kir'Shara marker diagnostics are retained for history and future investigation only."
+    },
+    {
+      "path": "advanced.kirshara_queue",
+      "tier": "dormant",
+      "owner": "KirsharaQueueRepairHooks",
+      "release_example_allowed": false,
+      "science_example_required": true,
+      "rationale": "Dormant Kir'Shara queue repair config must not be advertised as release-supported."
+    },
+    {
+      "path": "advanced.queue",
+      "tier": "science",
+      "owner": "KirsharaQueueRepairHooks",
+      "release_example_allowed": false,
+      "science_example_required": true,
+      "rationale": "Legacy queue-add experiment keys remain isolated from normal release example config."
+    }
+  ],
+  "promotion_process": {
+    "summary": "Promotion from science or dormant to production requires explicit manifest change, runtime evidence, release config review, and validation.",
+    "required_evidence": [
+      "updated hook/module tier and rationale in this manifest",
+      "runtime smoke on a production build or a documented reason why runtime validation is not applicable",
+      "release example config change only after the tier is production",
+      "AXF review contract passing after the promotion"
+    ]
+  }
+}

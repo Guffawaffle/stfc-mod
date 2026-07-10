@@ -13,7 +13,8 @@ constexpr HookDescriptor kSectionManagerTriggerSectionChangeHook{
     "SectionManager.TriggerSectionChange",
     "Fan out section-change evidence to seam-owned observers.",
     {"Assembly-CSharp", "Digit.Client.Sections", "SectionManager", "TriggerSectionChange"},
-    "Section-change observers will not receive runtime transition evidence."};
+    "Section-change observers will not receive runtime transition evidence.",
+    HookSupportTier::Internal};
 
 std::vector<SectionChangeObserver>& observers()
 {

@@ -28,6 +28,7 @@ constexpr HookDescriptor kScreenManagerUpdateHook = {
   "fan out frame ticks to hotkeys, live-debug, and future frame observers",
   {"Assembly-CSharp", "Digit.Client.UI", "ScreenManager", "Update"},
   "frame-driven hotkeys or diagnostics will not tick",
+  HookSupportTier::Internal,
 };
 
 bool hotkey_frame_subscriber_enabled()
