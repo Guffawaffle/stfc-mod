@@ -38,7 +38,6 @@ static void* g_logoGO               = nullptr;
 static void* g_ccLogoTexture        = nullptr;
 static void* g_ccLogoGO             = nullptr;
 static void* g_bgOverlayGO          = nullptr;
-static void* g_canvasAnimator       = nullptr; // TVC._animator; disabled after show, re-enabled before hide
 
 static Il2CppObject* InvokeRuntime(const MethodInfo* method, void* target, void** args, const char* name)
 {
@@ -582,23 +581,6 @@ static void ApplyCustomSpriteToBGImage(void* _this)
       }
     }
 
-    // Disable the root canvas animator (TVC._animator) so it stops overriding child RT values
-    // at their "ShowComplete" keyframes. Re-enabled in AboutToHide so the hide animation plays.
-    if (!g_canvasAnimator) {
-      static auto fn_animFieldCA = tv_h.GetField("_animator");
-      static auto fn_behavCA     = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Behaviour");
-      static auto fn_setEnCA     = fn_behavCA.GetMethodInfo("set_enabled");
-      if (fn_animFieldCA.isValidHelper() && fn_setEnCA) {
-        void* anim = *reinterpret_cast<void**>((char*)_this + fn_animFieldCA.offset());
-        if (anim) {
-          bool  off     = false;
-          void* args[1] = {&off};
-          InvokeVoid(fn_setEnCA, anim, args, "canvasAnimator.set_enabled(false)");
-          g_canvasAnimator = anim;
-        }
-      }
-    }
-
     g_spriteApplied = true;
   } catch (...) {
   }
@@ -632,30 +614,10 @@ void TransitionViewController_Awake_Hook(auto original, void* _this)
     g_ccLogoTexture        = nullptr;
     g_ccLogoGO             = nullptr;
     g_bgOverlayGO          = nullptr;
-    g_canvasAnimator       = nullptr;
     EnsureTextureLoaded();
     EnsureLogoLoaded();
   } catch (...) {
   }
-}
-
-void TransitionViewController_AboutToHide_Hook(auto original, void* _this)
-{
-  // Re-enable canvas animator BEFORE the original runs so it can play the hide animation.
-  try {
-    if (g_canvasAnimator) {
-      static auto fn_behav = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Behaviour");
-      static auto fn_setEn = fn_behav.GetMethodInfo("set_enabled");
-      if (fn_setEn) {
-        bool  on      = true;
-        void* args[1] = {&on};
-        InvokeVoid(fn_setEn, g_canvasAnimator, args, "canvasAnimator.set_enabled(true)");
-      }
-      g_canvasAnimator = nullptr;
-    }
-  } catch (...) {
-  }
-  original(_this);
 }
 
 void TransitionViewController_AboutToShow_Hook(auto original, void* _this)
@@ -833,8 +795,6 @@ void InstallLoadingScreenBgHooks()
       LS_INSTALL_HOOK(tv_h, "TransitionViewController", "Awake", TransitionViewController_Awake_Hook, "TVC.Awake");
       LS_INSTALL_HOOK(tv_h, "TransitionViewController", "AboutToShow", TransitionViewController_AboutToShow_Hook,
                       "TVC.AboutToShow");
-      LS_INSTALL_HOOK(tv_h, "TransitionViewController", "AboutToHide", TransitionViewController_AboutToHide_Hook,
-                      "TVC.AboutToHide");
       LS_INSTALL_HOOK(tv_h, "TransitionViewController", "OnAssetBundleDidBeginDownloadEventCallback",
                       TransitionViewController_OnAssetBundleDidBeginDownload_Hook, "TVC.OnAssetBundleDidBeginDownload");
       LS_INSTALL_HOOK(tv_h, "TransitionViewController", "DidAssetBundleDownloadCompleteEvent",
