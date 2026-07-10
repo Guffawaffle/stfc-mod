@@ -20,14 +20,17 @@ from typing import Any
 try:
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 fallback path.
-    tomllib = None  # type: ignore[assignment]
+    try:
+        import tomli as tomllib  # type: ignore[no-redef]
+    except ModuleNotFoundError:
+        tomllib = None  # type: ignore[assignment]
 
 
 DEFAULT_MANIFEST = "manifests/hook_support_tiers.json"
 DEFAULT_RELEASE_CONFIG = "example_community_patch_settings.toml"
 DEFAULT_SCIENCE_CONFIG = "example_science_patch_settings.toml"
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".mm"}
-HOOK_MODULE_PATTERN = re.compile(r'HookModuleHealth\s+hooks\s*\(\s*"([^"]+)"\s*\)')
+HOOK_MODULE_PATTERN = re.compile(r'\bHookModuleHealth\s+[A-Za-z_][A-Za-z0-9_]*\s*\(\s*"([^"]+)"\s*\)')
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -40,7 +43,10 @@ def load_json(path: Path) -> dict[str, Any]:
 
 def load_toml(path: Path) -> dict[str, Any]:
     if tomllib is None:
-        raise RuntimeError("Python 3.11+ tomllib is required to parse TOML")
+        raise RuntimeError(
+            "TOML parsing requires Python 3.11+ tomllib or the tomli backport; "
+            "install tomli when running under Python 3.10"
+        )
     with path.open("rb") as input_file:
         data = tomllib.load(input_file)
     if not isinstance(data, dict):
@@ -55,6 +61,19 @@ def path_exists(config: dict[str, Any], dotted_path: str) -> bool:
             return False
         current = current[segment]
     return True
+
+
+def resolve_repo_relative_path(repo_root: Path, path_text: str) -> Path | None:
+    path = Path(path_text)
+    if path.is_absolute() or ".." in path.parts:
+        return None
+
+    resolved = (repo_root / path).resolve()
+    try:
+        resolved.relative_to(repo_root)
+    except ValueError:
+        return None
+    return resolved
 
 
 def iter_source_files(repo_root: Path) -> list[Path]:
@@ -96,6 +115,7 @@ def validate_manifest(
     release_config: dict[str, Any],
     science_config: dict[str, Any],
 ) -> dict[str, Any]:
+    repo_root = repo_root.resolve()
     errors: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
 
@@ -138,10 +158,15 @@ def validate_manifest(
 
         if not isinstance(source, str) or not source:
             add_issue(errors, "hook-module-source", entry_path, "missing source")
-        elif not (repo_root / source).exists():
+            continue
+
+        source_path = resolve_repo_relative_path(repo_root, source)
+        if source_path is None:
+            add_issue(errors, "hook-module-source-unsafe", entry_path, f"source must stay within repo root: {source}")
+        elif not source_path.exists():
             add_issue(errors, "hook-module-source-missing", entry_path, f"source does not exist: {source}")
         elif tier in {"science", "dormant", "internal"}:
-            source_text = (repo_root / source).read_text(encoding="utf-8", errors="replace")
+            source_text = source_path.read_text(encoding="utf-8", errors="replace")
             expected_token = "HookSupportTier::" + str(tier).capitalize()
             if expected_token not in source_text:
                 add_issue(
@@ -311,7 +336,7 @@ def run_self_test() -> int:
         source = repo_root / "mods" / "src" / "patches" / "parts"
         source.mkdir(parents=True)
         (source / "action_queue_repair.cc").write_text(
-            'constexpr auto tier = HookSupportTier::Dormant;\nvoid f(){ HookModuleHealth hooks("KirsharaQueueRepairHooks"); }\n',
+            'constexpr auto tier = HookSupportTier::Dormant;\nvoid f(){ HookModuleHealth module_health("KirsharaQueueRepairHooks"); }\n',
             encoding="utf-8",
         )
 
@@ -327,12 +352,24 @@ def run_self_test() -> int:
             print_text_report(clean)
             print("self-test failed: clean fixture should pass")
             return 1
+        if not any(module["id"] == "KirsharaQueueRepairHooks" for module in clean["discovered_hook_modules"]):
+            print_text_report(clean)
+            print("self-test failed: HookModuleHealth discovery should accept non-hooks variable names")
+            return 1
 
         dirty_release = {"advanced": {"kirshara_queue": {}}}
         dirty = validate_manifest(repo_root, manifest, dirty_release, science)
         if dirty["ok"] or not any(issue["code"] == "non-production-release-example" for issue in dirty["errors"]):
             print_text_report(dirty)
             print("self-test failed: release fixture should reject dormant config surface")
+            return 1
+
+        unsafe_manifest = json.loads(json.dumps(manifest))
+        unsafe_manifest["hook_modules"][0]["source"] = "../outside.cc"
+        unsafe = validate_manifest(repo_root, unsafe_manifest, clean_release, science)
+        if unsafe["ok"] or not any(issue["code"] == "hook-module-source-unsafe" for issue in unsafe["errors"]):
+            print_text_report(unsafe)
+            print("self-test failed: source paths escaping the repo should be rejected")
             return 1
 
     print("self-test passed: hook support-tier manifest validation rejects dormant release config exposure")

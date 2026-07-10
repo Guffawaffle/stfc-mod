@@ -25,6 +25,9 @@ contract runs:
 py scripts\validate_hook_support_tiers.py --format json
 ```
 
+The validator uses Python 3.11+ `tomllib` for TOML parsing, or the `tomli`
+backport when running under Python 3.10.
+
 That validator reads `manifests/hook_support_tiers.json` and fails if any
 manifested non-production config surface with `release_example_allowed = false`
 appears in `example_community_patch_settings.toml`.
