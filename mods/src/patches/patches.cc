@@ -225,8 +225,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
-  auto             install_deployment_runtime_observers =
-      cfg.installSyncPatches && cfg.sync_options.fleet_runtime;
+  auto             install_deployment_runtime_observers = false;
   if (sidecar_local_ingest::FleetRuntimeEnabled()) {
     spdlog::info("[FleetRuntimeSync] sidecar fleet_runtime uses fleet-bar transition requests; deployment event "
                  "observers disabled");

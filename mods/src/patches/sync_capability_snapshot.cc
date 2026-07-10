@@ -29,12 +29,12 @@ const char* current_platform_name()
 #endif
 }
 
-std::vector<std::string> enabled_sync_type_names(const SyncConfig& config)
+std::vector<std::string> enabled_sync_type_names(const SyncTargetConfig& config)
 {
   std::vector<std::string> names;
   names.reserve(SyncOptions.size());
   for (const auto& option : SyncOptions) {
-    if (config.enabled(option.type)) {
+    if (http::SyncTargetAcceptsType(config, option.type)) {
       names.push_back(std::string(option.type_str));
     }
   }
@@ -76,7 +76,6 @@ void queue_mod_capability_snapshot()
               "stfc.mod.capability_snapshot.v1",
               "stfc.sync.delta_batch.v1",
               "stfc.fleet.assignment_snapshot.v1",
-              "stfc.fleet.runtime_snapshot.v1",
               "stfc.battle.summary.v1",
           },
   });

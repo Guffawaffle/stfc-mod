@@ -46,6 +46,21 @@ bool has_rejected_target(const std::vector<SidecarRejectedSyncTarget>& rejected_
 
 TEST_SUITE("sidecar_config")
 {
+  TEST_CASE("sidecar sync producers default off")
+  {
+    auto config = toml::parse(R"(
+[sidecar.sync]
+)");
+
+    const auto result = ParseSidecarConfig(config);
+
+    CHECK_FALSE(result.config.sync.enabled);
+    CHECK_FALSE(result.config.sync.battlelogs_realtime);
+    CHECK_FALSE(result.config.sync.battlelog_enrichment);
+    CHECK_FALSE(result.config.sync.fleet_runtime);
+    CHECK(result.config.sync.fleet_runtime_mode == "normal");
+  }
+
   TEST_CASE("omitting advanced namespaces keeps normal config parsing backward compatible")
   {
     auto config = toml::parse(R"(
