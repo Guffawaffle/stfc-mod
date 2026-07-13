@@ -16,6 +16,12 @@ option("bg_image")
     set_default("")
 option_end()
 
+option("use_original_bg")
+    set_showmenu(true)
+    set_description("Keep the original in-game loading screen background (logos remain enabled)")
+    set_default(false)
+option_end()
+
 set_languages("c++23")
 
 set_runtimes("MT") -- Set the default build to multi-threaded static
