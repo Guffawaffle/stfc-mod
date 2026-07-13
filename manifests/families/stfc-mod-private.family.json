@@ -71,6 +71,11 @@
       "details": [
         "For this workspace, the wrapper auto-selects the repo root as --workspace unless you pass an explicit AXF workspace/project-root flag.",
         "When <repo>\\\\.ax-priv\\\\axf-machine exists, the wrapper sets AXF_MACHINE_ROOT for the child axf process automatically."
+      ],
+      "examples": [
+        "ax axf list --json",
+        "ax axf inspect global.stfc-research.status --json",
+        "ax axf run global.stfc-research.status --json"
       ]
     },
     "status": {
@@ -116,7 +121,8 @@
         "build-mode": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "workspace-status": {
       "summary": "Cross-repo status: mod, sidecar, desktop, server, and event store",
@@ -156,6 +162,10 @@
       "details": [
         "Returns one JSON snapshot covering the selected mod repo plus the local sidecar repo, managed desktop state, server health, and event-store presence.",
         "This is read-only and intended for mixed-repo development sessions."
+      ],
+      "examples": [
+        "ax workspace-status",
+        "ax workspace-status -SidecarRepoRoot D:\\dev\\stfc-mod-sidecar"
       ]
     },
     "validate": {
@@ -207,6 +217,10 @@
       "details": [
         "Runs review status, xmake configure, pure tests, target build, and git diff --check for the selected repo/build mode.",
         "Use for explicit validation after code changes, not passive command discovery."
+      ],
+      "examples": [
+        "ax validate",
+        "ax validate -BuildMode releasedbg -CleanTree"
       ]
     },
     "game-running": {
@@ -238,7 +252,89 @@
       "sideEffects": "read",
       "args": {},
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
+    },
+    "native-baseline": {
+      "summary": "Check prerequisites or capture a bounded native performance baseline with PresentMon and process telemetry",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "native-baseline"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "scenario": {
+            "type": "string"
+          },
+          "duration-sec": {
+            "type": "integer"
+          },
+          "sample-interval-ms": {
+            "type": "integer"
+          },
+          "present-mon-path": {
+            "type": "string"
+          },
+          "output-root": {
+            "type": "string"
+          },
+          "process-name": {
+            "type": "string"
+          },
+          "allow-artifact-mismatch": {
+            "type": "boolean"
+          },
+          "compact-output": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "action": {},
+        "scenario": {},
+        "duration-sec": {},
+        "sample-interval-ms": {},
+        "present-mon-path": {},
+        "output-root": {},
+        "process-name": {},
+        "allow-artifact-mismatch": {},
+        "compact-output": {}
+      },
+      "warnings": [
+        "Capture starts a bounded ETW PresentMon session and writes private performance artifacts.",
+        "PresentMon requires an elevated token or Performance Log Users membership visible in the current process token.",
+        "AllowArtifactMismatch produces an explicitly noncanonical diagnostic capture; do not use it for promotion comparisons."
+      ],
+      "details": [
+        "Check validates game process, artifact identity, PresentMon installation, and current-token ETW access without writing capture files.",
+        "Capture writes a private PresentMon CSV and structured JSON result under .ax-priv/cache/performance-baselines by default.",
+        "A canonical result requires the deployed version.dll to match the selected local release artifact and the repository worktree to be clean."
+      ],
+      "examples": [
+        "ax native-baseline -Action Check -Compact",
+        "ax native-baseline -Action Capture -Scenario N1-idle-system -DurationSec 300 -Compact"
+      ]
     },
     "config": {
       "summary": "Show settings TOML or runtime vars",
@@ -267,7 +363,7 @@
           "runtime-vars": {
             "type": "boolean"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           }
         },
@@ -276,10 +372,11 @@
       "sideEffects": "read",
       "args": {
         "runtime-vars": {},
-        "compact": {}
+        "compact-output": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "hotkeys-check": {
       "summary": "Explain active hotkey bindings, defaults, NONE disables, and surprising overlaps",
@@ -308,7 +405,7 @@
           "include-panels": {
             "type": "boolean"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           }
         },
@@ -317,10 +414,11 @@
       "sideEffects": "read",
       "args": {
         "include-panels": {},
-        "compact": {}
+        "compact-output": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "build": {
       "summary": "Build the mod with xmake for the selected repo/build mode",
@@ -372,6 +470,11 @@
       "details": [
         "Configures xmake and builds the selected mod target. When -Branch is supplied, AX selects that local branch before building.",
         "Reports build, branch, game-running, and xmake output tail metadata as JSON."
+      ],
+      "examples": [
+        "ax build",
+        "ax build -BuildMode releasedbg",
+        "ax build -Branch guffa-dev-root -BuildMode releasedbg"
       ]
     },
     "deploy": {
@@ -424,6 +527,11 @@
       "details": [
         "Builds the selected target, copies the resulting DLL into the configured game directory, then verifies the deployed hash.",
         "The command refuses to continue when prime.exe is running because the DLL may be locked."
+      ],
+      "examples": [
+        "ax deploy",
+        "ax deploy -BuildMode releasedbg",
+        "ax deploy -Branch guffa-dev-root -BuildMode releasedbg"
       ]
     },
     "cycle": {
@@ -496,6 +604,12 @@
       "details": [
         "Runs the full local development loop: stop the game if it is running, build/deploy the selected DLL, launch prime.exe, wait for fresh native log activity, then return boot status and recent warnings/errors as JSON.",
         "Use this only when you intentionally want AX to touch the installed game and deployed DLL."
+      ],
+      "examples": [
+        "ax cycle",
+        "ax cycle -BuildMode releasedbg",
+        "ax cycle -Branch guffa-dev-root -BuildMode releasedbg",
+        "ax cycle -StopTimeoutSec 45 -StartTimeoutSec 300 -BootTimeoutSec 300"
       ]
     },
     "mark": {
@@ -550,6 +664,10 @@
       ],
       "details": [
         "Sends a live debug mark request so later log/recent-events output has a visible investigation boundary."
+      ],
+      "examples": [
+        "ax mark -Label \"before fleet action\"",
+        "ax mark -Label \"after repro\" -Source ax"
       ]
     },
     "live-state": {
@@ -635,7 +753,8 @@
         "poll-ms": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "observe": {
       "summary": "Bounded live observation: recent events plus filtered appended log lines",
@@ -742,6 +861,11 @@
       "details": [
         "Polls live recent-events and appended native log lines for a bounded observation window.",
         "Useful for watching a specific repro while preserving filtered JSON output."
+      ],
+      "examples": [
+        "ax observe -DurationSec 20 -LogProfile dirty",
+        "ax observe -DurationSec 60 -Kind fleet -StopOnMatch",
+        "ax observe -Mark -Label \"repro start\""
       ]
     },
     "recent-events": {
@@ -836,6 +960,11 @@
       ],
       "details": [
         "Reads recent live-debug events from the running mod and can filter, summarize, stream, or follow new events."
+      ],
+      "examples": [
+        "ax recent-events -Last 20",
+        "ax recent-events -Kind fleet -Summary",
+        "ax recent-events -Clear"
       ]
     },
     "battle-log": {
@@ -917,7 +1046,8 @@
         "tail": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "deploy-status": {
       "summary": "Compare built and deployed DLL hashes",
@@ -954,7 +1084,8 @@
         "build-mode": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "doctor": {
       "summary": "Check Python, dump DB, paths, build outputs, and config files",
@@ -985,7 +1116,8 @@
       "sideEffects": "read",
       "args": {},
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "log": {
       "summary": "Unified native log entrypoint with slice/session/errors/boot modes",
@@ -1062,6 +1194,12 @@
       "details": [
         "By default this tails community_patch.log. Add -Session, -Errors, or -Boot to switch modes without remembering the narrower commands.",
         "-Summary works in JSON mode for all log views and omits the returned line arrays while keeping counts and metadata."
+      ],
+      "examples": [
+        "ax log -Tail 40",
+        "ax log -Session -Pattern SpaceActionDiag -Summary",
+        "ax log -Errors -Summary",
+        "ax log -Boot -Summary"
       ]
     },
     "log-watch": {
@@ -1146,7 +1284,8 @@
         "Reads local game/mod logs. Treat output as potentially sensitive unless redaction is explicitly verified.",
         "Read-only does not mean output-safe; do not auto-run without user approval."
       ],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "sidecar-package": {
       "summary": "Fetch the sidecar AX package: status, event-store counts, and scoped recent event summaries",
@@ -1178,7 +1317,7 @@
           "url": {
             "type": "string"
           },
-          "limit": {
+          "result-limit": {
             "type": "integer"
           },
           "battle-limit": {
@@ -1197,13 +1336,14 @@
       "args": {
         "server-url": {},
         "url": {},
-        "limit": {},
+        "result-limit": {},
         "battle-limit": {},
         "debug-limit": {},
         "timeout-sec": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "sidecar-export": {
       "summary": "Export AX live diagnostics as sidecar-compatible debug.event JSONL or POST /api/events",
@@ -1314,6 +1454,11 @@
       "details": [
         "Collects selected logs and optional live recent-events into sidecar-compatible debug.event records.",
         "By default it can write a local JSONL export; -NoWrite suppresses file output, and -Post sends events to a sidecar endpoint."
+      ],
+      "examples": [
+        "ax sidecar-export -NoWrite",
+        "ax sidecar-export -OutputPath .ax\\\\out\\\\events.jsonl",
+        "ax sidecar-export -Post -Url http://127.0.0.1:8791/api/events"
       ]
     },
     "sidecar-roundtrip": {
@@ -1415,6 +1560,12 @@
         "Resolves the local sidecar URL and sync token from the active desktop setup, posts a no-write AX sidecar-export batch to /api/events, then polls the sidecar AX package until the tagged debug session is visible.",
         "This verifies the mod-to-sidecar debug ingest loop end to end without launching another server or writing a local JSONL export.",
         "The observed-hostile community report is attached as a read-only summary by default because it is a useful sidecar health artifact, but it is not expected to change from debug-only export traffic."
+      ],
+      "examples": [
+        "ax sidecar-roundtrip",
+        "ax sidecar-roundtrip -DurationSec 10 -LogProfile live -IncludeEvents",
+        "ax sidecar-roundtrip -SkipCommunityReport",
+        "ax sidecar-roundtrip -ServerUrl http://127.0.0.1:43127"
       ]
     },
     "log-slice": {
@@ -1471,7 +1622,8 @@
         "Reads local game/mod logs. Treat output as potentially sensitive unless redaction is explicitly verified.",
         "Read-only does not mean output-safe; do not auto-run without user approval."
       ],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "log-boot": {
       "summary": "Last boot sequence with hook install results",
@@ -1519,7 +1671,8 @@
         "Reads local game/mod logs. Treat output as potentially sensitive unless redaction is explicitly verified.",
         "Read-only does not mean output-safe; do not auto-run without user approval."
       ],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "log-session": {
       "summary": "Post-boot log lines from the current session",
@@ -1571,7 +1724,8 @@
         "Reads local game/mod logs. Treat output as potentially sensitive unless redaction is explicitly verified.",
         "Read-only does not mean output-safe; do not auto-run without user approval."
       ],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "preflight": {
       "summary": "Pre-cycle check: status + boot + recent errors",
@@ -1608,7 +1762,8 @@
         "summary": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "postflight": {
       "summary": "Post-cycle check: deploy + boot + recent errors",
@@ -1645,7 +1800,8 @@
         "summary": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "investigate": {
       "summary": "Class investigation: dump info, hierarchy, offsets, and prime header preview",
@@ -1694,7 +1850,8 @@
         "header-preview-lines": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-status": {
       "summary": "Show dump/index freshness against the installed game binaries",
@@ -1735,7 +1892,8 @@
         "max-namespaces": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-refresh": {
       "summary": "Regenerate dump.cs, rebuild indexes, and track research corpus changes",
@@ -1782,7 +1940,7 @@
           "skip-research-index": {
             "type": "boolean"
           },
-          "skip-research-timeline": {
+          "no-preserve-research-jsonl": {
             "type": "boolean"
           },
           "research-corpus-db": {
@@ -1806,6 +1964,9 @@
           "research-watch": {
             "type": "string"
           },
+          "skip-research-timeline": {
+            "type": "boolean"
+          },
           "clean": {
             "type": "boolean"
           },
@@ -1824,7 +1985,7 @@
         "skip-index": {},
         "skip-research-diff": {},
         "skip-research-index": {},
-        "skip-research-timeline": {},
+        "no-preserve-research-jsonl": {},
         "research-corpus-db": {},
         "research-diff-path": {},
         "research-timeline-path": {},
@@ -1832,6 +1993,7 @@
         "research-max-items": {},
         "research-focus": {},
         "research-watch": {},
+        "skip-research-timeline": {},
         "clean": {},
         "tail": {}
       },
@@ -1843,6 +2005,12 @@
         "Runs Il2CppDumper against the installed game binaries, writes dump artifacts, and rebuilds the local dump SQLite index unless -SkipIndex is used.",
         "By default, compares the previous private research corpus against the new dump, writes a detailed report, records it in the append-only research timeline, then advances the corpus baseline for future refreshes.",
         "If the timeline write fails after a diff was produced, the command refuses to advance the corpus baseline."
+      ],
+      "examples": [
+        "ax dump-refresh",
+        "ax dump-refresh -SkipIndex",
+        "ax dump-refresh -SkipResearchIndex",
+        "ax dump-refresh -Clean"
       ]
     },
     "dump-search": {
@@ -1892,7 +2060,8 @@
         "case-sensitive": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-index": {
       "summary": "Rebuild the SQLite dump index from dump.cs",
@@ -1958,6 +2127,10 @@
       ],
       "details": [
         "Builds or refreshes the local SQLite dump index from dump.cs, string literals, and script metadata."
+      ],
+      "examples": [
+        "ax dump-index",
+        "ax dump-index -SkipStrings -SkipScript"
       ]
     },
     "dump-stats": {
@@ -1987,7 +2160,7 @@
           "max-namespaces": {
             "type": "integer"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -2005,13 +2178,14 @@
       "sideEffects": "read",
       "args": {
         "max-namespaces": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-class": {
       "summary": "Look up a class by name from the dump index",
@@ -2052,7 +2226,7 @@
           "members": {
             "type": "boolean"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -2074,13 +2248,14 @@
         "fts": {},
         "max-results": {},
         "members": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-hierarchy": {
       "summary": "Walk a class inheritance chain from the dump index",
@@ -2115,7 +2290,7 @@
           "max-results": {
             "type": "integer"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -2135,13 +2310,14 @@
         "class": {},
         "exact": {},
         "max-results": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-method": {
       "summary": "Find methods by name (optionally scoped to a class)",
@@ -2182,7 +2358,7 @@
           "max-results": {
             "type": "integer"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -2204,13 +2380,14 @@
         "exact": {},
         "fts": {},
         "max-results": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-enum": {
       "summary": "Look up an enum and optionally list its values",
@@ -2248,7 +2425,7 @@
           "values": {
             "type": "boolean"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -2269,13 +2446,14 @@
         "exact": {},
         "max-results": {},
         "values": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-offsets": {
       "summary": "Show field offsets for a class",
@@ -2313,7 +2491,7 @@
           "max-results": {
             "type": "integer"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -2334,13 +2512,14 @@
         "field": {},
         "exact": {},
         "max-results": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-fts": {
       "summary": "FTS5 ranked search across classes, methods, and fields",
@@ -2372,7 +2551,7 @@
           "max-results": {
             "type": "integer"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -2391,13 +2570,14 @@
       "args": {
         "query": {},
         "max-results": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-find": {
       "summary": "Navigation-first dump search with curated next steps and short hit lists",
@@ -2429,7 +2609,7 @@
           "max-results": {
             "type": "integer"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -2448,13 +2628,14 @@
       "args": {
         "query": {},
         "max-results": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-symbol": {
       "summary": "Search compact precomputed class symbol cards",
@@ -2495,7 +2676,7 @@
           "max-results": {
             "type": "integer"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -2517,13 +2698,14 @@
         "like": {},
         "card": {},
         "max-results": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-pack": {
       "summary": "Return one token-budgetable class context pack",
@@ -2564,7 +2746,7 @@
           "max-strings": {
             "type": "integer"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -2586,13 +2768,14 @@
         "like": {},
         "max-script": {},
         "max-strings": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-string": {
       "summary": "Search indexed Il2Cpp string literals",
@@ -2633,7 +2816,7 @@
           "max-results": {
             "type": "integer"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -2655,13 +2838,14 @@
         "like": {},
         "min-length": {},
         "max-results": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-script": {
       "summary": "Search selected script.json ScriptMethod metadata",
@@ -2702,7 +2886,7 @@
           "max-results": {
             "type": "integer"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -2724,13 +2908,14 @@
         "exact": {},
         "like": {},
         "max-results": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
       },
       "warnings": [],
-      "details": []
+      "details": [],
+      "examples": []
     },
     "dump-export": {
       "summary": "Export embedding-ready JSONL from local dump indexes",
@@ -2768,7 +2953,7 @@
           "min-length": {
             "type": "integer"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -2789,7 +2974,7 @@
         "output": {},
         "max-docs": {},
         "min-length": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
@@ -2801,6 +2986,10 @@
       "details": [
         "Exports selected local dump-index content as JSONL suitable for embedding, review, or corpus transfer.",
         "Without -Output the export is written to stdout; with -Output it writes the requested file."
+      ],
+      "examples": [
+        "ax dump-export -Kind symbols -MaxDocs 100",
+        "ax dump-export -Kind all -Output .ax\\\\out\\\\dump-corpus.jsonl -Compact"
       ]
     },
     "research-index": {
@@ -2839,6 +3028,9 @@
           "jsonl": {
             "type": "string"
           },
+          "preserve-jsonl-sources-from": {
+            "type": "string"
+          },
           "build-id": {
             "type": "string"
           },
@@ -2848,7 +3040,7 @@
           "reset": {
             "type": "boolean"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -2869,10 +3061,11 @@
         "dump-db": {},
         "include": {},
         "jsonl": {},
+        "preserve-jsonl-sources-from": {},
         "build-id": {},
         "game-version": {},
         "reset": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
@@ -2884,6 +3077,11 @@
       "details": [
         "Seeds the private research corpus from the existing dump SQLite index and optional JSONL documents.",
         "The corpus schema is source-neutral so later localization, asset, Addressables, proto, or scrape extractors can feed the same search and context surface."
+      ],
+      "examples": [
+        "ax research-index -Reset",
+        "ax research-index -Include strings,script -Compact",
+        "ax research-index -Jsonl .ax\\\\cache\\\\extra-research-docs.jsonl"
       ]
     },
     "local-research-sources": {
@@ -2982,7 +3180,7 @@
           "game-version": {
             "type": "string"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -3023,7 +3221,7 @@
         "corpus-db": {},
         "build-id": {},
         "game-version": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
@@ -3037,6 +3235,13 @@
         "LocaleDB extraction is text mining with generic email/token redaction; cache extraction is manifest-only unless -HashFiles is supplied.",
         "Request and server cache .bin payload strings are only scanned when -CachePayloadStrings or -Include cache-payload is supplied.",
         "Cache payload scanning emits redacted term-filtered strings from JSON-like payloads and embedded raw UTF-8/UTF-16 strings; it is not full protobuf/object decoding."
+      ],
+      "examples": [
+        "ax local-research-sources -Compact -TokenBudget 1200",
+        "ax local-research-sources -Include locale -Terms \"officer,ability,arcfall\" -Index -Compact",
+        "ax local-research-sources -Include pre-bundles -Terms \"quantum,revenant\" -MaxBundleStrings 500 -Compact",
+        "ax local-research-sources -Include cache-manifest -CacheDir \"PlatformRequestCache,ServerRequestCache\" -MaxCacheFiles 500 -Index -Compact",
+        "ax local-research-sources -Include cache-payload -CacheDir \"PlatformRequestCache,ServerRequestCache\" -Terms \"claim,bundle,mission,research,tutorial\" -MaxCachePayloadFiles 250 -Compact"
       ]
     },
     "cache-manifest-db": {
@@ -3093,7 +3298,7 @@
           "replace": {
             "type": "boolean"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -3120,7 +3325,7 @@
         "max-snapshots": {},
         "max-samples": {},
         "replace": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
@@ -3133,6 +3338,11 @@
         "Imports local_cache_manifest JSONL rows into .ax-priv\\\\cache\\\\cache-manifest.db by default.",
         "The DB stores cache-relative file paths, byte sizes, mtimes, extensions, optional SHA256 hashes, and PNG dimensions; it does not store image or cache payload bytes.",
         "Use Diff after two or more snapshots to report added, removed, and changed cache files."
+      ],
+      "examples": [
+        "ax cache-manifest-db -Action Stats -Compact",
+        "ax cache-manifest-db -Action Import -Jsonl .ax-priv\\\\cache\\\\local-cache-manifest-full.jsonl -SnapshotId patch-92-1 -Replace -Compact",
+        "ax cache-manifest-db -Action Diff -Baseline patch-92-1 -Current patch-92-1-hotfix -Compact"
       ]
     },
     "cache-image-report": {
@@ -3189,7 +3399,7 @@
           "database": {
             "type": "string"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -3216,7 +3426,7 @@
         "output": {},
         "html-output": {},
         "database": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
@@ -3229,6 +3439,522 @@
         "Reads .ax-priv\\\\cache\\\\cache-manifest.db and filters image assets, defaulting to DownloadCacheManager .png files.",
         "When output paths are omitted it writes JSON and HTML under .ax-priv\\\\cache\\\\cache-image-reports.",
         "The HTML preview links to current local cache files; it does not copy or archive image bytes."
+      ],
+      "examples": [
+        "ax cache-image-report -Compact",
+        "ax cache-image-report -Status \"added,removed,changed\" -MaxItems 500 -Compact",
+        "ax cache-image-report -Baseline patch-92-1 -Current patch-92-1-hotfix -HtmlOutput .ax-priv\\\\cache\\\\cache-image-reports\\\\hotfix-assets.html"
+      ]
+    },
+    "hostile-research": {
+      "summary": "Find stfc.space hostile gaps, verify identity, decode abilities, or run the hostile research smoke suite",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "hostile-research"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "minimum-level": {
+            "type": "integer"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "static-pack": {
+            "type": "string"
+          },
+          "static-probe": {
+            "type": "string"
+          },
+          "site-summary": {
+            "type": "string"
+          },
+          "translations": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "detail-cache": {
+            "type": "string"
+          },
+          "python": {
+            "type": "string"
+          },
+          "no-fetch": {
+            "type": "boolean"
+          },
+          "output": {
+            "type": "string"
+          },
+          "compact-output": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "unknown",
+      "args": {
+        "action": {},
+        "query": {},
+        "minimum-level": {},
+        "max-results": {},
+        "static-pack": {},
+        "static-probe": {},
+        "site-summary": {},
+        "translations": {},
+        "locale": {},
+        "detail-cache": {},
+        "python": {},
+        "no-fetch": {},
+        "output": {},
+        "compact-output": {}
+      },
+      "warnings": [
+        "Read-only except for optional output and stfc.space detail cache files.",
+        "Verify performs network reads from data.stfc.space unless -NoFetch is supplied.",
+        "Output can reveal unreleased local game data; keep it private and do not copy raw findings to public stfc-mod.",
+        "Ability unit conversion is evidence-based for known modifier codes; unknown modifiers remain explicitly unknown."
+      ],
+      "details": [
+        "Gap compares private static hull rows with an stfc.space hostile summary and separates conservative loca+level misses from class-sensitive candidates.",
+        "Verify resolves matching stfc.space detail records and compares ordered component IDs when detail fetching is enabled.",
+        "Ability joins ship_buffs text hits to both hull localization IDs and attached ship-bonus localization IDs, preserving raw values while rendering known units.",
+        "Smoke reruns the saved missing-hostile, spelling ambiguity, ability, and percentage-semantics acceptance stories."
+      ],
+      "examples": [
+        "ax hostile-research -Action Gap -Query retribution -MinimumLevel 50 -Compact",
+        "ax hostile-research -Action Verify -Query revenge -NoFetch -Compact",
+        "ax hostile-research -Action Ability -Query \"Judicious Preparation\" -Compact",
+        "ax hostile-research -Action Smoke -NoFetch -Compact"
+      ]
+    },
+    "static-sync-probe": {
+      "summary": "Decode selected static ServiceResponse protobuf groups for private feature/hostile research",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "static-sync-probe"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "persistent-root": {
+            "type": "string"
+          },
+          "cache-dir": {
+            "type": "string"
+          },
+          "cache-file": {
+            "type": "string"
+          },
+          "generated-proto-dir": {
+            "type": "string"
+          },
+          "terms": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "research-question": {
+            "type": "string"
+          },
+          "max-files": {
+            "type": "integer"
+          },
+          "max-matches": {
+            "type": "integer"
+          },
+          "max-component-samples": {
+            "type": "integer"
+          },
+          "max-component-group-samples": {
+            "type": "integer"
+          },
+          "allow-player-groups": {
+            "type": "boolean"
+          },
+          "output": {
+            "type": "string"
+          },
+          "build-proto": {
+            "type": "boolean"
+          },
+          "python": {
+            "type": "string"
+          },
+          "compact-output": {
+            "type": "boolean"
+          },
+          "token-budget": {
+            "type": "integer"
+          },
+          "estimate": {
+            "type": "boolean"
+          },
+          "omit-empty": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "unknown",
+      "args": {
+        "persistent-root": {},
+        "cache-dir": {},
+        "cache-file": {},
+        "generated-proto-dir": {},
+        "terms": {},
+        "label": {},
+        "research-question": {},
+        "max-files": {},
+        "max-matches": {},
+        "max-component-samples": {},
+        "max-component-group-samples": {},
+        "allow-player-groups": {},
+        "output": {},
+        "build-proto": {},
+        "python": {},
+        "compact-output": {},
+        "token-budget": {},
+        "estimate": {},
+        "omit-empty": {}
+      },
+      "warnings": [
+        "Read-only unless -Output writes a private JSON report or -BuildProto refreshes generated protobuf bindings.",
+        "Output can reveal unreleased local game data; keep it private and do not copy raw findings to public stfc-mod."
+      ],
+      "details": [
+        "Scans ServerRequestCache static ServiceResponse files and decodes only hull, resource, faction, component, armada, marauder, and client ship stat lookup groups.",
+        "Player entity groups are skipped by default. Raw protobuf bytes, request URLs, account IDs, coordinates, balances, inventory, store, and purchase state are not emitted.",
+        "Use this for narrow private research questions such as new hostile families, armada directives, levels, and static combat component stats."
+      ],
+      "examples": [
+        "ax static-sync-probe -Terms \"quantum,continuum,adjudicator,tesseract,guardian,revenant\" -Compact",
+        "ax static-sync-probe -Output .ax-priv\\\\cache\\\\static-sync\\\\arcfall-quantum-hostiles.json",
+        "ax static-sync-probe -BuildProto -MaxFiles 10 -Compact"
+      ]
+    },
+    "static-sync-diff": {
+      "summary": "Compare two private static-sync probe reports and optionally append a research timeline frame",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "static-sync-diff"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "baseline": {
+            "type": "string"
+          },
+          "current": {
+            "type": "string"
+          },
+          "output": {
+            "type": "string"
+          },
+          "timeline-output": {
+            "type": "string"
+          },
+          "refresh-id": {
+            "type": "string"
+          },
+          "patch-label": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "max-items": {
+            "type": "integer"
+          },
+          "python": {
+            "type": "string"
+          },
+          "no-timeline": {
+            "type": "boolean"
+          },
+          "compact-output": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "baseline": {},
+        "current": {},
+        "output": {},
+        "timeline-output": {},
+        "refresh-id": {},
+        "patch-label": {},
+        "label": {},
+        "max-items": {},
+        "python": {},
+        "no-timeline": {},
+        "compact-output": {}
+      },
+      "warnings": [
+        "Side effects: writes a private diff report and, unless -NoTimeline is supplied, appends to the private research timeline.",
+        "ID-level match diffs are only complete when both input reports emitted complete match sets; sample-limited reports are explicitly warned.",
+        "Output can reveal unreleased local game data; keep it private and do not copy raw findings to public stfc-mod."
+      ],
+      "details": [
+        "Compares redacted static-sync-probe JSON reports without reading raw cache payloads.",
+        "Reports count deltas, cache file changes, emitted match additions/removals/changes, level-range changes, and sample-limit warnings.",
+        "By default it appends a static-sync-diff-recorded event to .ax-priv\\\\cache\\\\research-timeline.jsonl."
+      ],
+      "examples": [
+        "ax static-sync-diff -Baseline .ax-priv\\\\cache\\\\static-sync\\\\arcfall-prelaunch-static-20260625-082825Z.json -Current .ax-priv\\\\cache\\\\static-sync\\\\arcfall-live-static-20260625-095754Z.json -PatchLabel arcfall -Compact",
+        "ax static-sync-diff -Baseline old.json -Current new.json -NoTimeline"
+      ]
+    },
+    "sidecar-hostile-pack": {
+      "summary": "Export a sidecar-shaped hostile reference pack from a private static-sync report",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "sidecar-hostile-pack"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string"
+          },
+          "output": {
+            "type": "string"
+          },
+          "manifest-output": {
+            "type": "string"
+          },
+          "pack-id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "terms": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string"
+          },
+          "include-level-zero": {
+            "type": "boolean"
+          },
+          "python": {
+            "type": "string"
+          },
+          "compact-output": {
+            "type": "boolean"
+          },
+          "print-summary": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "input": {},
+        "output": {},
+        "manifest-output": {},
+        "pack-id": {},
+        "version": {},
+        "label": {},
+        "terms": {},
+        "family": {},
+        "include-level-zero": {},
+        "python": {},
+        "compact-output": {},
+        "print-summary": {}
+      },
+      "warnings": [
+        "Side effects: writes private JSON artifacts under .ax-priv\\\\cache\\\\sidecar-align by default.",
+        "Output can reveal unreleased local game data; keep it private and do not copy raw findings to public stfc-mod.",
+        "This exporter does not read raw protobuf payloads, request URLs, account IDs, coordinates, balances, inventory, store, or purchase state."
+      ],
+      "details": [
+        "Consumes a redacted static-sync-probe JSON report and emits a stfc.sidecar.reference-pack.v0 hostile_catalog JSON file.",
+        "Maps hull IDs, localized IDs, levels, native hull-type enum values, component IDs, and aggregate component stats into the sidecar reference-pack field names.",
+        "Mined-only fields are kept under extensions.staticSync so sidecar readers can ignore them safely."
+      ],
+      "examples": [
+        "ax sidecar-hostile-pack -Terms \"QuantumAdjudicator\" -Family quantum -Compact",
+        "ax sidecar-hostile-pack -Input .ax-priv\\\\cache\\\\static-sync\\\\arcfall-live-quantum-only-20260625-100020Z.json -Terms \"QuantumAdjudicator\"",
+        "ax sidecar-hostile-pack -PackId private.arcfall.quantum-hostiles -ManifestOutput .ax-priv\\\\cache\\\\sidecar-align\\\\manifest.json"
+      ]
+    },
+    "research-packet": {
+      "summary": "Compose a private Markdown and JSON research packet from redacted artifacts",
+      "executionTarget": {
+        "launcher": {
+          "command": "pwsh",
+          "args": [
+            "-NoLogo",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File"
+          ]
+        },
+        "target": {
+          "path": ".ax/ax.ps1",
+          "relativeTo": "workspace"
+        },
+        "args": [
+          "research-packet"
+        ]
+      },
+      "argsSchema": {
+        "type": "object",
+        "properties": {
+          "diff-report": {
+            "type": "string"
+          },
+          "hostile-pack": {
+            "type": "string"
+          },
+          "corpus-db": {
+            "type": "string"
+          },
+          "output-md": {
+            "type": "string"
+          },
+          "output-json": {
+            "type": "string"
+          },
+          "timeline-output": {
+            "type": "string"
+          },
+          "packet-id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "patch-label": {
+            "type": "string"
+          },
+          "query-terms": {
+            "type": "string"
+          },
+          "max-query-results": {
+            "type": "integer"
+          },
+          "python": {
+            "type": "string"
+          },
+          "no-timeline": {
+            "type": "boolean"
+          },
+          "compact-output": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "sideEffects": "write",
+      "args": {
+        "diff-report": {},
+        "hostile-pack": {},
+        "corpus-db": {},
+        "output-md": {},
+        "output-json": {},
+        "timeline-output": {},
+        "packet-id": {},
+        "label": {},
+        "patch-label": {},
+        "query-terms": {},
+        "max-query-results": {},
+        "python": {},
+        "no-timeline": {},
+        "compact-output": {}
+      },
+      "warnings": [
+        "Side effects: writes private Markdown and JSON artifacts and, unless -NoTimeline is supplied, appends to the private research timeline.",
+        "Output can reveal unreleased local game data; keep it private and do not copy raw findings to public stfc-mod.",
+        "This composer does not read raw protobuf payloads, request URLs, account IDs, coordinates, balances, inventory, store, or purchase state."
+      ],
+      "details": [
+        "Reads redacted static-sync diffs, sidecar hostile packs, and the private corpus index.",
+        "Writes a human Markdown brief plus a machine JSON summary under .ax-priv\\\\cache\\\\research-packets by default.",
+        "By default it appends a research-packet-recorded event to .ax-priv\\\\cache\\\\research-timeline.jsonl.",
+        "Use this as the handoff frame before deeper decoder or hook work."
+      ],
+      "examples": [
+        "ax research-packet -PacketId arcfall-20260625 -PatchLabel arcfall -Compact",
+        "ax research-packet -DiffReport .ax-priv\\\\cache\\\\static-sync-diffs\\\\static-sync-diff-arcfall-static-live-20260625-095754Z.json -HostilePack .ax-priv\\\\cache\\\\sidecar-align\\\\private.arcfall.quantum-hostiles.20260625-101538Z.json"
       ]
     },
     "research-search": {
@@ -3273,7 +3999,7 @@
           "max-results": {
             "type": "integer"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -3296,7 +4022,7 @@
         "exact": {},
         "like": {},
         "max-results": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
@@ -3307,6 +4033,10 @@
       "details": [
         "Searches corpus documents across dump symbols, IL2CPP literals, script metadata, and future private sources.",
         "Use this when the source is unknown or broader than one dump table."
+      ],
+      "examples": [
+        "ax research-search -Query cannot_attack -Compact",
+        "ax research-search -Query takeover -SourceKind il2cpp_literal -Like -MaxResults 20"
       ]
     },
     "research-context": {
@@ -3360,7 +4090,7 @@
           "max-related": {
             "type": "integer"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -3386,7 +4116,7 @@
         "related-query": {},
         "max-nearby": {},
         "max-related": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
@@ -3397,6 +4127,10 @@
       "details": [
         "Finds one corpus document, then returns nearby documents from the same source lane and related documents from the broader corpus.",
         "This is the first stop after research-search when an agent needs enough context to reason about a string, route, class, or metadata hit."
+      ],
+      "examples": [
+        "ax research-context -Query server_no_context_takeover -Compact",
+        "ax research-context -DocId il2cpp_literal:12345 -MaxNearby 5 -MaxRelated 5"
       ]
     },
     "research-diff": {
@@ -3444,7 +4178,7 @@
           "summary-only": {
             "type": "boolean"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -3468,7 +4202,7 @@
         "focus": {},
         "watch": {},
         "summary-only": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
@@ -3480,6 +4214,11 @@
       "details": [
         "Compares the existing research corpus snapshot against a dump SQLite index and reports added, removed, and changed symbols, literals, and script methods.",
         "Use this immediately after dump-index or dump-refresh and before research-index advances the corpus snapshot."
+      ],
+      "examples": [
+        "ax research-diff -Compact",
+        "ax research-diff -Output .ax-priv\\\\cache\\\\research-diffs\\\\latest.json -SummaryOnly",
+        "ax research-diff -Watch cannot_attack_territory_not_owned_or_no_takeover,cannot_attack"
       ]
     },
     "research-timeline": {
@@ -3524,7 +4263,7 @@
           "summary-only": {
             "type": "boolean"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -3547,7 +4286,7 @@
         "event-type": {},
         "patch-label": {},
         "summary-only": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
@@ -3558,6 +4297,11 @@
       "details": [
         "Reads the JSONL timeline populated by dump-refresh and returns patch-to-patch diff and baseline-advance events.",
         "Use -SummaryOnly for the high-level timeline view before opening an individual research diff report."
+      ],
+      "examples": [
+        "ax research-timeline -SummaryOnly -Compact",
+        "ax research-timeline -PatchLabel arcfall -SummaryOnly",
+        "ax research-timeline -RefreshId 20260625-100000Z"
       ]
     },
     "research-stats": {
@@ -3587,7 +4331,7 @@
           "corpus-db": {
             "type": "string"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -3605,7 +4349,7 @@
       "sideEffects": "read",
       "args": {
         "corpus-db": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
@@ -3615,6 +4359,9 @@
       ],
       "details": [
         "Reports document counts by source kind plus the indexed source records."
+      ],
+      "examples": [
+        "ax research-stats -Compact"
       ]
     },
     "research-export": {
@@ -3653,7 +4400,7 @@
           "max-docs": {
             "type": "integer"
           },
-          "compact": {
+          "compact-output": {
             "type": "boolean"
           },
           "token-budget": {
@@ -3674,7 +4421,7 @@
         "corpus-db": {},
         "source-kind": {},
         "max-docs": {},
-        "compact": {},
+        "compact-output": {},
         "token-budget": {},
         "estimate": {},
         "omit-empty": {}
@@ -3686,6 +4433,9 @@
       "details": [
         "Exports normalized corpus documents for offline review or future embedding pipelines.",
         "No embeddings or network calls are performed by AX."
+      ],
+      "examples": [
+        "ax research-export -SourceKind il2cpp_literal -MaxDocs 100 -Output .ax\\\\cache\\\\literal-sample.jsonl"
       ]
     },
     "pure-tests": {
@@ -3728,6 +4478,10 @@
       ],
       "details": [
         "Builds the stfc-mod-tests target and runs it, returning JSON with build/run exit codes and output tails."
+      ],
+      "examples": [
+        "ax pure-tests",
+        "ax pure-tests -Tail 80"
       ]
     },
     "release-validate": {
@@ -3774,6 +4528,10 @@
       ],
       "details": [
         "Runs the release validation path for the selected build mode: configure, pure tests, target build, and git diff --check."
+      ],
+      "examples": [
+        "ax release-validate",
+        "ax release-validate -BuildMode release"
       ]
     }
   }

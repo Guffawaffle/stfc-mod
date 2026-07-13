@@ -90,5 +90,6 @@
     "Reads local game/mod logs. Treat output as potentially sensitive unless redaction is explicitly verified.",
     "Read-only does not mean output-safe; do not auto-run without user approval."
   ],
-  "details": []
+  "details": [],
+  "examples": []
 }

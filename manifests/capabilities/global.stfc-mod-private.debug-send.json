@@ -65,5 +65,9 @@
   "details": [
     "Sends an arbitrary request through the live debug channel exposed by the running mod.",
     "Use for explicit live-debug workflows where the requested command and expected effect are understood."
+  ],
+  "examples": [
+    "ax debug-send -Cmd recentEvents",
+    "ax debug-send -Json '{\"cmd\":\"recentEvents\",\"last\":10}'"
   ]
 }

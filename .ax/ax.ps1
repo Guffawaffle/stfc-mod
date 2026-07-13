@@ -12,7 +12,60 @@ $privateRoot = Join-Path $repoRoot ".ax-priv"
 $privateScript = Join-Path $privateRoot "ax.ps1"
 
 if (Test-Path -LiteralPath $privateScript) {
-  & $privateScript @ForwardArgs
+  $inventoryRequest = $ForwardArgs.Count -gt 0 `
+    -and [string]$ForwardArgs[0] -eq "list" `
+    -and @($ForwardArgs | Where-Object { [string]$_ -in @("-Json", "--json") }).Count -gt 0
+
+  if ($inventoryRequest) {
+    $inventoryOutput = @(& $privateScript @ForwardArgs)
+    $inventoryExitCode = $LASTEXITCODE
+    if ($inventoryExitCode -ne 0) {
+      $inventoryOutput | Write-Output
+      exit $inventoryExitCode
+    }
+
+    try {
+      $inventory = ($inventoryOutput -join [Environment]::NewLine) | ConvertFrom-Json -Depth 40
+      foreach ($command in $inventory.commands) {
+        foreach ($parameter in $command.parameters) {
+          $providerName = [string]$parameter.name
+          $publicName = switch ($providerName) {
+            "Compact" { "CompactOutput" }
+            "Limit" { "ResultLimit" }
+            default { $providerName }
+          }
+          if ($publicName -eq $providerName) {
+            continue
+          }
+
+          $parameter.name = $publicName
+          $aliases = @($parameter.aliases)
+          if ($providerName -notin $aliases) {
+            $parameter.aliases = @($aliases + $providerName)
+          }
+        }
+      }
+      $inventory | ConvertTo-Json -Depth 40 | Write-Output
+    }
+    catch {
+      $inventoryOutput | Write-Output
+      Write-Error "Unable to normalize the private AX inventory for AXF: $($_.Exception.Message)"
+      exit 1
+    }
+    exit 0
+  }
+
+  $providerArgs = @($ForwardArgs | ForEach-Object {
+    switch ([string]$_) {
+      "-CompactOutput" { "-Compact" }
+      "--compact-output" { "--compact" }
+      "-ResultLimit" { "-Limit" }
+      "--result-limit" { "--limit" }
+      default { $_ }
+    }
+  })
+
+  & $privateScript @providerArgs
   exit $LASTEXITCODE
 }
 
