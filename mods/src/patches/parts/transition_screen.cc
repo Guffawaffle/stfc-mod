@@ -16,7 +16,6 @@ static void*  g_bgRectTransform = nullptr;
 static void*  g_bgOverlayGO     = nullptr;
 static void*  g_logoGO          = nullptr;
 static void*  g_ccLogoGO        = nullptr;
-static void*  g_canvasAnimator  = nullptr;
 
 // Called from PrepareAllForReload to null stale pointers before reload.
 // The Canvas/TVC hierarchy holding our overlays is replaced during
@@ -30,7 +29,6 @@ void ResetTransitionScreenState()
   g_bgOverlayGO     = nullptr;
   g_logoGO          = nullptr;
   g_ccLogoGO        = nullptr;
-  g_canvasAnimator  = nullptr;
   ResetLoadingScreenState();
   ResetLoadingTipState();
 }
@@ -120,22 +118,6 @@ static void ApplyTransitionCustomization(void* _this)
       static auto fn_get_tr = comp_h.GetMethod("get_transform");
       if (fn_get_tr)
         logoParent = reinterpret_cast<void* (*)(void*)>(fn_get_tr)(g_bgImageComp);
-    }
-
-    if (!g_canvasAnimator) {
-      static auto tv_h = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.LoadingScreen", "TransitionViewController");
-      static auto fn_animField = tv_h.GetField("_animator");
-      static auto behav_h      = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Behaviour");
-      static auto fn_setEn     = behav_h.GetMethodInfo("set_enabled");
-      if (fn_animField.isValidHelper() && fn_setEn) {
-        void* anim = *reinterpret_cast<void**>((char*)_this + fn_animField.offset());
-        if (anim) {
-          bool  off     = false;
-          void* args[1] = {&off};
-          ls::InvokeVoid(fn_setEn, anim, args, "canvasAnimator.set_enabled(false)");
-          g_canvasAnimator = anim;
-        }
-      }
     }
 
     if (cfg.loader_transition_black) {
@@ -251,7 +233,6 @@ static void TVC_Awake_Hook(auto original, void* _this)
     g_bgOverlayGO     = nullptr;
     g_logoGO          = nullptr;
     g_ccLogoGO        = nullptr;
-    g_canvasAnimator  = nullptr;
 
     ApplyTransitionCustomization(_this);
   } catch (...) {}
@@ -265,24 +246,6 @@ static void TVC_AboutToShow_Hook(auto original, void* _this)
     if (!Config::Get().loader_transition || g_spriteApplied) return;
     ApplyTransitionCustomization(_this);
   } catch (...) {}
-}
-
-static void TVC_AboutToHide_Hook(auto original, void* _this)
-{
-  try {
-    if (Config::Get().loader_transition && g_canvasAnimator) {
-      // Re-enable canvas animator so the hide animation plays
-      static auto behav_h  = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Behaviour");
-      static auto fn_setEn = behav_h.GetMethodInfo("set_enabled");
-      if (fn_setEn) {
-        bool  on      = true;
-        void* args[1] = {&on};
-        ls::InvokeVoid(fn_setEn, g_canvasAnimator, args, "canvasAnimator.set_enabled(true)");
-      }
-    }
-  } catch (...) {}
-
-  original(_this);
 }
 
 static void SlideShowViewer_ShowCurrentSlide_Hook(auto original, void* _this)
@@ -331,13 +294,6 @@ void InstallTransitionScreenHooks()
     SPUD_STATIC_DETOUR(m, TVC_AboutToShow_Hook);
   } else {
     ErrorMsg::MissingMethod("TransitionViewController", "AboutToShow");
-    ok = false;
-  }
-
-  if (auto m = tv_h.GetMethod("AboutToHide")) {
-    SPUD_STATIC_DETOUR(m, TVC_AboutToHide_Hook);
-  } else {
-    ErrorMsg::MissingMethod("TransitionViewController", "AboutToHide");
     ok = false;
   }
 
