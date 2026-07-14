@@ -18,6 +18,8 @@ const char* fleet_state_name(int state)
       return "Destroyed";
     case 16:
       return "TieringUp";
+    case 18:
+      return "CanReplaceOfficers";
     case 32:
       return "Repairing";
     case 56:
@@ -30,21 +32,27 @@ const char* fleet_state_name(int state)
       return "Warping";
     case 384:
       return "CanRemove";
-    case 504:
-      return "CannotMove";
     case 512:
       return "Impulsing";
-    case 899:
-      return "CanManage";
     case 1024:
       return "Capturing";
-    case 1541:
-      return "CanRecall";
-    case 1543:
+    case 2048:
+      return "AutoHunting";
+    case 2552:
+      return "CannotMove";
+    case 2947:
+      return "CanManage";
+    case 3589:
+      return "CanBeTargetedByAbility";
+    case 3591:
       return "CanEngage";
-    case 1989:
+    case 4096:
+      return "Outposting";
+    case 5637:
+      return "CanRecall";
+    case 8133:
       return "Deployed";
-    case 1991:
+    case 8135:
       return "CanLocate";
     default:
       return "Unmapped";

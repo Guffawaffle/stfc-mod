@@ -240,6 +240,9 @@ bool is_valid_fleet_runtime_mode(std::string_view mode)
   return std::ranges::find(kModes, mode) != kModes.end();
 }
 
+bool is_valid_ship_state_probe(std::string_view mode)
+{ return mode == "off" || mode == "repair_action_status"; }
+
 bool rejected_target_name_seen(std::set<std::string>& rejected_targets, const std::string& target_name,
                                std::vector<SidecarRejectedSyncTarget>& output)
 {
@@ -412,6 +415,16 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                                                            DCAdvanced::Diagnostics::live_query,
                                                            {},
                                                            "enable the live debug query channel"});
+  read_string_value(result.advanced.diagnostics.ship_state_probe, "advanced.diagnostics.ship_state_probe",
+                    DCAdvanced::Diagnostics::ship_state_probe, "science ship-state probe mode");
+  result.advanced.diagnostics.ship_state_probe = ascii_lower(result.advanced.diagnostics.ship_state_probe);
+  if (!is_valid_ship_state_probe(result.advanced.diagnostics.ship_state_probe)) {
+    result.diagnostics.push_back(make_diagnostic(
+        config_schema::DiagnosticSeverity::Warning, "advanced.diagnostics.ship_state_probe",
+        "advanced.diagnostics.ship_state_probe",
+        "Invalid advanced.diagnostics.ship_state_probe. Expected off or repair_action_status; using off."));
+    result.advanced.diagnostics.ship_state_probe = DCAdvanced::Diagnostics::ship_state_probe;
+  }
   read_string_value(result.advanced.diagnostics.runtime_trace, "advanced.diagnostics.runtime_trace",
                     DCAdvanced::Diagnostics::runtime_trace, "runtime trace level");
   read_bool_value(result.advanced.diagnostics.runtime_trace_track_overhead,
@@ -600,6 +613,7 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
   config_schema::write_bool(runtime_config, "advanced.diagnostics.fleet_selection_timing_logging",
                             config.diagnostics.fleet_selection_timing_logging);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.live_query", config.diagnostics.live_query);
+  write_scalar(runtime_config, "advanced.diagnostics.ship_state_probe", config.diagnostics.ship_state_probe);
   write_scalar(runtime_config, "advanced.diagnostics.runtime_trace", config.diagnostics.runtime_trace);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.runtime_trace_track_overhead",
                             config.diagnostics.runtime_trace_track_overhead);

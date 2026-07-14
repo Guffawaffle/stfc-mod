@@ -164,6 +164,9 @@ int SidecarLoggingJsonlRecentLogs()
 bool RefineryDiagnosticsEnabled()
 { return g_refinery_diagnostics; }
 
+bool RepairActionStatusProbeEnabled()
+{ return LiveDebugChannelEnabled() && g_advanced_config.diagnostics.ship_state_probe == "repair_action_status"; }
+
 bool AutoOpenBulkClaimGiftsEnabled()
 { return g_auto_open_bulk_claim_gifts; }
 

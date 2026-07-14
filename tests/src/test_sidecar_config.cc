@@ -99,6 +99,7 @@ jsonl_recent_logs = 300
     CHECK_FALSE(result.advanced.diagnostics.notification_skip_logging);
     CHECK_FALSE(result.advanced.diagnostics.fleet_selection_timing_logging);
     CHECK_FALSE(result.advanced.diagnostics.live_query);
+    CHECK(result.advanced.diagnostics.ship_state_probe == "off");
     CHECK(result.advanced.diagnostics.runtime_trace == "off");
     CHECK_FALSE(result.advanced.diagnostics.runtime_trace_track_overhead);
     CHECK_FALSE(result.advanced.diagnostics.action_queue_guard_logging);
@@ -142,6 +143,7 @@ hotkey_suppression_logging = true
 notification_skip_logging = true
 fleet_selection_timing_logging = true
 live_query = true
+ship_state_probe = "REPAIR_ACTION_STATUS"
 runtime_trace = "verbose"
 runtime_trace_track_overhead = true
 action_queue_guard_logging = true
@@ -195,6 +197,7 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.diagnostics.notification_skip_logging);
     CHECK(result.advanced.diagnostics.fleet_selection_timing_logging);
     CHECK(result.advanced.diagnostics.live_query);
+    CHECK(result.advanced.diagnostics.ship_state_probe == "repair_action_status");
     CHECK(result.advanced.diagnostics.runtime_trace == "verbose");
     CHECK(result.advanced.diagnostics.runtime_trace_track_overhead);
     CHECK(result.advanced.diagnostics.action_queue_guard_logging);
@@ -226,6 +229,20 @@ sidecar_jsonl_recent_logs = 120
                          config_schema::DiagnosticSeverity::Error));
     CHECK(
         has_diagnostic(result.diagnostics, "sync.sidecar_jsonl_recent_logs", config_schema::DiagnosticSeverity::Error));
+  }
+
+  TEST_CASE("invalid ship-state probe mode fails closed")
+  {
+    auto config = toml::parse(R"(
+[advanced.diagnostics]
+ship_state_probe = "fleet_reconciliation"
+)");
+
+    const auto result = ParseSidecarConfig(config);
+
+    CHECK(result.advanced.diagnostics.ship_state_probe == "off");
+    CHECK(has_diagnostic(result.diagnostics, "advanced.diagnostics.ship_state_probe",
+                         config_schema::DiagnosticSeverity::Warning));
   }
 
   TEST_CASE("advanced diagnostics debug does not enable noisy breadcrumb logging")
@@ -414,6 +431,7 @@ mode = "majel"
     advanced.diagnostics.notification_skip_logging        = true;
     advanced.diagnostics.fleet_selection_timing_logging   = true;
     advanced.diagnostics.live_query                       = true;
+    advanced.diagnostics.ship_state_probe                 = "repair_action_status";
     advanced.diagnostics.runtime_trace                    = "detailed";
     advanced.diagnostics.runtime_trace_track_overhead     = false;
     advanced.diagnostics.action_queue_guard_logging       = true;
@@ -448,6 +466,8 @@ mode = "majel"
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["notification_skip_logging"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["fleet_selection_timing_logging"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["live_query"].value<bool>().value_or(false));
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["ship_state_probe"].value<std::string>().value_or("")
+          == "repair_action_status");
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace"].value<std::string>().value_or("") == "detailed");
     CHECK_FALSE(
         runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_track_overhead"].value<bool>().value_or(true));

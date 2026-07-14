@@ -140,6 +140,7 @@ void InstallLiveDebugHooks();
 #endif
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
 void InstallRefineryDiagnosticsHooks();
+void InstallClientShipStateProbeHooks();
 #endif
 void InstallTestPatches();
 void InstallMiscPatches();
@@ -251,8 +252,9 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   const auto install_action_queue_guard = action_queue_guard::ShouldInstall(
       AdvancedQueueSettings().thin_queue_protection, AdvancedDiagnosticsSettings().action_queue_guard_logging);
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
-  auto install_live_debug_hooks           = LiveDebugChannelEnabled();
-  auto install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
+  auto             install_live_debug_hooks              = LiveDebugChannelEnabled();
+  auto             install_refinery_diagnostics_hooks    = RefineryDiagnosticsEnabled();
+  auto             install_client_ship_state_probe_hooks = RepairActionStatusProbeEnabled();
 #endif
   auto install_open_bulk_claim_gifts_hooks = AutoOpenBulkClaimGiftsEnabled();
   auto install_mission_hud_tweaks_hooks    = MissionHudTweaksEnabled();
@@ -293,6 +295,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
       {"RefineryDiagnosticsHooks", "advanced.diagnostics.refinery_diagnostics", "", "RefineryDiagnosticsHooks",
        InstallRefineryDiagnosticsHooks, install_refinery_diagnostics_hooks, false, true},
+      {"ClientShipStateProbe", "advanced.diagnostics.ship_state_probe", "", "ClientShipStateProbe",
+       InstallClientShipStateProbeHooks, install_client_ship_state_probe_hooks, false, true},
 #endif
       {"ActionQueueGuard", "advanced.queue.thin_queue_protection|advanced.diagnostics.action_queue_guard_logging", "",
        "ActionQueueGuard", InstallActionQueueGuardHooks, install_action_queue_guard, false, true},

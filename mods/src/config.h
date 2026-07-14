@@ -250,6 +250,7 @@ struct AdvancedDiagnosticsConfig {
   bool        notification_skip_logging        = false;
   bool        fleet_selection_timing_logging   = false;
   bool        live_query                       = false;
+  std::string ship_state_probe                 = "off";
   std::string runtime_trace                    = "off";
   bool        runtime_trace_track_overhead     = false;
   bool        action_queue_guard_logging       = false;
@@ -608,6 +609,14 @@ int SidecarLoggingJsonlRecentLogs();
  * @brief Whether focused refinery diagnostics should be installed.
  */
 bool RefineryDiagnosticsEnabled();
+
+/**
+ * @brief Whether the science repair action-status probe should own its native seam.
+ *
+ * The probe also requires the live-query event channel so observations remain
+ * bounded and retrievable without adding another logging transport.
+ */
+bool RepairActionStatusProbeEnabled();
 
 /**
  * @brief Whether the Gifts view should open its existing bulk-claim flyout automatically.

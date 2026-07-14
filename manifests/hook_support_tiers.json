@@ -71,6 +71,12 @@
       "rationale": "Release-supported opt-in diagnostic breadcrumbs with explicit config gating."
     },
     {
+      "id": "ClientShipStateProbe",
+      "tier": "science",
+      "source": "mods/src/patches/parts/client_ship_state_probe.cc",
+      "rationale": "Default-off passive canary for the current ship-state synchronization investigation."
+    },
+    {
       "id": "SectionChangeRouterHooks",
       "tier": "internal",
       "source": "mods/src/patches/section_change_router.cc",
@@ -90,6 +96,14 @@
     }
   ],
   "config_surfaces": [
+    {
+      "path": "advanced.diagnostics.ship_state_probe",
+      "tier": "science",
+      "owner": "ClientShipStateProbe",
+      "release_example_allowed": false,
+      "science_example_required": true,
+      "rationale": "Selects exactly one default-off ship-state investigation seam; currently repair_action_status only."
+    },
     {
       "path": "advanced.diagnostics.kirshara_queue",
       "tier": "dormant",

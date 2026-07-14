@@ -98,6 +98,34 @@ This inventory records source-level seams from a static-only review. It does not
 - Status: removed/quarantined; not product-safe.
 - Next action: keep absent from product hook code; create individual ledger entries before touching any member; do not reintroduce without per-callback ledger promotion.
 
+### `Digit.PrimeServer.Models.FleetPlayerData.GetActionStatus(ActionType)`
+
+- Owner / file: science-only `mods/src/patches/parts/client_ship_state_probe.cc`; experiment contract in `docs/probes/20260714-repair-action-status-transition.md`.
+- Intended question: which repair `ActionStatus` transitions occur between one Repair click and the stable Ask for Help button?
+- Static evidence: current dump and script metadata report `ActionStatus GetActionStatus(ActionType)` at RVA `0x17BE0B0`; repair presentation has distinct `InProgress`, `InProgress_Free`, and `InProgress_AskForHelp` states and ask-for-help locale settings.
+- Risk class: R4 native interpretation because a passive detour must use the original/trampoline and interpret the scalar argument/return.
+- Confidence rung: runtime reachability for the exact detour and established scalar/property reads; repair-transition semantics remain unproven.
+- Runtime evidence: one releasedbg airlock run installed exactly one owner and produced two deduplicated events on distinct docked fleets: repair action type, status/original return `0`, current state `Docked`, previous state `Unknown`. No crash, hang, input loss, duplicate owner, or behavior change was observed. No fleet entered repair.
+- Payload confidence: runtime confidence for the receiver, fleet ID, current/previous state, 32-bit `ActionType`, and 32-bit original return on the observed docked path only.
+- Original/trampoline confidence: reachability passed with the original return preserved as `0`; no claim yet for nonzero repair statuses.
+- Flag / rollback path: mutually exclusive science mode `repair_action_status`, default `off`; no stack capture is implemented; disable in TOML and restart, or remove one module/install entry.
+- Status: science canary implemented and default off; final runtime cycle confirmed it was skipped.
+- Next action: run the same bounded canary on one known damaged docked fleet. Keep stack capture closed until a real repair transition is observed.
+
+### `Digit.PrimeServer.Services.FleetService.UpdateFleetWithDeploymentData(FleetPlayerData, FleetDeployedData)`
+
+- Owner / file: proposed science-only `mods/src/patches/parts/client_ship_state_probe.cc`; experiment contract in `docs/probes/20260714-fleet-model-reconciliation.md`.
+- Intended question: when deployed-fleet data arrives, does `FleetService` update the matching client `FleetPlayerData` to a coherent state?
+- Static evidence: current dump and script metadata report `bool UpdateFleetWithDeploymentData(FleetPlayerData, FleetDeployedData)` at RVA `0x1613380`; `FleetService` owns the adjacent player-fleet update, state evaluation, job lifecycle, repair cleanup, and stuck-fleet recovery neighborhood.
+- Risk class: R4 native interpretation because a passive detour must use the original/trampoline and correlate two managed object pointers with a boolean return.
+- Confidence rung: static relationship.
+- Runtime evidence: none for this detour. Existing serial `fleet-slots-state` queries prove only that the current player-fleet model can be read passively.
+- Payload confidence: static type confidence only. Initial reads are limited to already-established scalar IDs/base states; pointer lifetimes and nested payloads remain unproven.
+- Original/trampoline confidence: unproven. Exact script ABI is recorded; require a single-seam reachability run before stack or payload escalation.
+- Flag / rollback path: proposed mutually exclusive science mode `fleet_reconciliation`, default `off`; stack budget independently defaults to zero; disable in TOML and restart, or remove one module/install entry.
+- Status: proposed; not implemented or approved for runtime.
+- Next action: review the probe contract and ABI, correct stale fleet-state diagnostic mappings, then explicitly approve or reject one bounded reachability run.
+
 ## Static Enforcement
 
 The quarantine patch adds a source-level static guardrail for product hook code:

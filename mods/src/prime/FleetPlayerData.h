@@ -14,20 +14,24 @@ enum class FleetState {
   Mining       = 4,
   Destroyed    = 8,
   TieringUp    = 16,
+  CanReplaceOfficers = 18,
   Repairing    = 32,
   CannotLaunch = 56,
   Battling     = 64,
   WarpCharging = 128,
   Warping      = 256,
   CanRemove    = 384,
-  CannotMove   = 504,
   Impulsing    = 512,
-  CanManage    = 899,
   Capturing    = 1024,
-  CanRecall    = 1541,
-  CanEngage    = 1543,
-  Deployed     = 1989,
-  CanLocate    = 1991
+  AutoHunting  = 2048,
+  CannotMove   = 2552,
+  CanManage    = 2947,
+  CanBeTargetedByAbility = 3589,
+  CanEngage    = 3591,
+  Outposting   = 4096,
+  CanRecall    = 5637,
+  Deployed     = 8133,
+  CanLocate    = 8135
 };
     
 struct FleetPlayerData {
@@ -90,7 +94,7 @@ public:
     static auto field = get_class_helper().GetProperty("PreviousState");
     return *field.Get<FleetState>(this);
   }
-  
+
   uint64_t __get_Id()
   {
     static auto field = get_class_helper().GetProperty("Id");

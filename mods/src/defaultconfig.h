@@ -133,6 +133,8 @@ namespace Advanced
     constexpr bool fleet_selection_timing_logging = false;
     /// Enable the live debug/query channel for AX and runtime inspection. Default: false.
     constexpr bool live_query = false;
+    /// Science-only ship-state probe mode: off or repair_action_status. Default: off.
+    constexpr const char* ship_state_probe = "off";
     /// Realtime runtime trace level: off, summary, detailed, or verbose. Any level above off adds runtime overhead.
     constexpr const char* runtime_trace = "off";
     /// Track runtime trace instrumentation overhead as a separate probe. Default: false for this private fork.

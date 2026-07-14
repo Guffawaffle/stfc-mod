@@ -29,6 +29,14 @@ on_player_fleet_state_changed = false
 on_fleet_state_change = false
 on_fleets_disposed = false
 
+[advanced.diagnostics]
+# Science-only, mutually exclusive ship-state probe selector. The implemented
+# mode observes repair ActionStatus transitions without changing return values.
+# It requires live_query = true so evidence stays in the bounded recent-event
+# ring. Restart the client after changing either key.
+live_query = false
+ship_state_probe = "off" # off | repair_action_status
+
 [advanced.kirshara_queue]
 # Focused Kir'shara queued-combat advancement repair. This is currently a
 # dormant science surface: preserve the config contract, but do not treat it as
