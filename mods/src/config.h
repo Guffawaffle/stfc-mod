@@ -251,6 +251,7 @@ struct AdvancedDiagnosticsConfig {
   bool        fleet_selection_timing_logging   = false;
   bool        live_query                       = false;
   std::string ship_state_probe                 = "off";
+  int         ship_state_probe_stack_budget    = 0;
   std::string runtime_trace                    = "off";
   bool        runtime_trace_track_overhead     = false;
   bool        action_queue_guard_logging       = false;
@@ -617,6 +618,11 @@ bool RefineryDiagnosticsEnabled();
  * bounded and retrievable without adding another logging transport.
  */
 bool RepairActionStatusProbeEnabled();
+
+/**
+ * @brief Remaining one-shot caller samples allowed for the repair status probe.
+ */
+int RepairActionStatusProbeStackBudget();
 
 /**
  * @brief Whether the Gifts view should open its existing bulk-claim flyout automatically.

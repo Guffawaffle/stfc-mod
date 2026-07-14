@@ -26,4 +26,26 @@ TEST_SUITE("client_ship_state_probe_policy")
     CHECK(cache.record(99, 0));
     CHECK(cache.record(1, 0));
   }
+
+  TEST_CASE("repair status transitions expose the prior distinct status")
+  {
+    ship_state_probe::RepairStatusTransitionCache cache;
+
+    const auto first = cache.observe(41, 201);
+    CHECK(first.changed);
+    CHECK_FALSE(first.has_previous);
+
+    const auto complete = cache.observe(41, 300);
+    CHECK(complete.changed);
+    CHECK(complete.has_previous);
+    CHECK(complete.previous_status == 201);
+
+    const auto ready = cache.observe(41, 100);
+    CHECK(ready.changed);
+    CHECK(ready.has_previous);
+    CHECK(ready.previous_status == 300);
+    CHECK(ship_state_probe::should_capture_complete_to_ready_caller(ready, 100, 32));
+    CHECK_FALSE(ship_state_probe::should_capture_complete_to_ready_caller(ready, 100, 2));
+    CHECK_FALSE(ship_state_probe::should_capture_complete_to_ready_caller(ready, 201, 32));
+  }
 }

@@ -36,6 +36,9 @@ on_fleets_disposed = false
 # ring. Restart the client after changing either key.
 live_query = false
 ship_state_probe = "off" # off | repair_action_status
+# Hard one-event caller-stack airlock. Leave zero unless a probe contract has
+# approved the exact transition and the current run.
+ship_state_probe_stack_budget = 0 # 0 | 1
 
 [advanced.kirshara_queue]
 # Focused Kir'shara queued-combat advancement repair. This is currently a

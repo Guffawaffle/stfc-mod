@@ -108,9 +108,9 @@ This inventory records source-level seams from a static-only review. It does not
 - Runtime evidence: one free-play reproduction produced `Ready → InProgress_Free → Complete → Ready → Disabled`. The fleet was still `Repairing` during the second `Ready` result and did not become `Docked` for about 1.55 seconds. Native fleet-bar evidence reported repair complete at the same millisecond that `Ready` reappeared. No crash, hang, input loss, duplicate owner, or probe-induced request was observed.
 - Payload confidence: runtime confidence for the receiver, fleet ID, current/previous state, 32-bit `ActionType`, and nonzero `ActionStatus`/original returns 100, 201, and 300 on the observed repair path.
 - Original/trampoline confidence: passed across the reproduced repair lifecycle with every original result returned unchanged.
-- Flag / rollback path: mutually exclusive science mode `repair_action_status`, default `off`; no stack capture is implemented; disable in TOML and restart, or remove one module/install entry.
-- Status: science canary implemented and default off; temporarily enabled in the current game config for the active reproduction window.
-- Next action: a one-event, module-relative caller sample is eligible only for `Complete → Ready` while the fleet remains `Repairing`; keep the broader reconciliation hook disabled.
+- Flag / rollback path: mutually exclusive science mode `repair_action_status`, default `off`; caller budget separately defaults to zero and is clamped to one; disable both in TOML and restart, or remove one module/install entry.
+- Status: science canary and one-event caller airlock implemented; both remain fail-closed by default. The transition probe is temporarily enabled in the current game config.
+- Next action: run one module-relative caller sample from Ship Manage only for `Complete → Ready` while the fleet remains `Repairing`; keep the broader reconciliation hook disabled.
 
 ### `Digit.PrimeServer.Services.FleetService.UpdateFleetWithDeploymentData(FleetPlayerData, FleetDeployedData)`
 

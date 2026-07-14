@@ -31,7 +31,7 @@ Which repair `ActionStatus` transitions occur between one Repair click and the s
 ## Implementation Plan
 
 - Module/file: `mods/src/patches/parts/client_ship_state_probe.cc`
-- Config or compile guard: science-only `[advanced.diagnostics].ship_state_probe = "repair_action_status"`; default `"off"`; no stack capture is implemented in the first airlock.
+- Config or compile guard: science-only `[advanced.diagnostics].ship_state_probe = "repair_action_status"`; default `"off"`. Caller capture uses a separate `ship_state_probe_stack_budget` integer clamped to 0-1 and defaulting to 0.
 - Hook descriptor name: `kRepairActionStatusHook`
 - Target assembly: `Digit.Client.PrimeLib.Runtime`
 - Target namespace: `Digit.PrimeServer.Models`
@@ -51,7 +51,7 @@ Registry requirements:
 
 ## Disable Path
 
-- Flag or code path to disable: set probe mode to `"off"` and restart the client; stack budget remains independently zero by default.
+- Flag or code path to disable: set probe mode to `"off"`, set `ship_state_probe_stack_budget = 0`, and restart the client.
 - File/entry to delete if it crashes: remove `client_ship_state_probe.cc` and its single `patches.cc` install entry.
 - Expected boot log when disabled: the science probe module is skipped and owns no hook target.
 
@@ -63,7 +63,7 @@ Observe one repair action-status sequence without altering the repair request or
 
 Steps:
 
-1. Enable only `repair_action_status`; leave stack budget zero.
+1. Enable only `repair_action_status`; leave stack budget zero for normal transition capture. Set it to one only for an explicitly approved caller-sample run.
 2. Build/deploy releasedbg and cycle the client.
 3. Confirm the hook registry reports exactly one installed probe seam.
 4. Mark the observation window.
@@ -104,6 +104,6 @@ Build commit, config snapshot, marker/sequence range, status sequence, final vis
 
 ## Exit Decision
 
-The repair transition and failure window are now captured cleanly, so a one-shot caller-stack airlock is eligible. It has not been opened yet. Any stack capture must trigger only on `Complete → Ready` while `CurrentState == Repairing`, use a one-event budget, and record module-relative addresses for offline symbolization.
+The repair transition and failure window are captured cleanly. A one-shot caller-stack airlock is now implemented but remains default zero. It triggers only on `Complete → Ready` while `CurrentState == Repairing`, consumes its one-event budget atomically, and records module basenames plus relative offsets for offline symbolization.
 
-Next action: identify the UI caller for the `Complete → Ready` transition and correlate it with the repair job/fleet-state completion ordering. Do not install the broader reconciliation seam concurrently.
+Next action: run the one-event caller sample from Ship Manage, identify the UI caller for the `Complete → Ready` transition, and correlate it with repair job/fleet-state completion ordering. Do not install the broader reconciliation seam concurrently.

@@ -167,6 +167,9 @@ bool RefineryDiagnosticsEnabled()
 bool RepairActionStatusProbeEnabled()
 { return LiveDebugChannelEnabled() && g_advanced_config.diagnostics.ship_state_probe == "repair_action_status"; }
 
+int RepairActionStatusProbeStackBudget()
+{ return g_advanced_config.diagnostics.ship_state_probe_stack_budget; }
+
 bool AutoOpenBulkClaimGiftsEnabled()
 { return g_auto_open_bulk_claim_gifts; }
 

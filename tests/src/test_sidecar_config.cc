@@ -100,6 +100,7 @@ jsonl_recent_logs = 300
     CHECK_FALSE(result.advanced.diagnostics.fleet_selection_timing_logging);
     CHECK_FALSE(result.advanced.diagnostics.live_query);
     CHECK(result.advanced.diagnostics.ship_state_probe == "off");
+    CHECK(result.advanced.diagnostics.ship_state_probe_stack_budget == 0);
     CHECK(result.advanced.diagnostics.runtime_trace == "off");
     CHECK_FALSE(result.advanced.diagnostics.runtime_trace_track_overhead);
     CHECK_FALSE(result.advanced.diagnostics.action_queue_guard_logging);
@@ -144,6 +145,7 @@ notification_skip_logging = true
 fleet_selection_timing_logging = true
 live_query = true
 ship_state_probe = "REPAIR_ACTION_STATUS"
+ship_state_probe_stack_budget = 1
 runtime_trace = "verbose"
 runtime_trace_track_overhead = true
 action_queue_guard_logging = true
@@ -198,6 +200,7 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.diagnostics.fleet_selection_timing_logging);
     CHECK(result.advanced.diagnostics.live_query);
     CHECK(result.advanced.diagnostics.ship_state_probe == "repair_action_status");
+    CHECK(result.advanced.diagnostics.ship_state_probe_stack_budget == 1);
     CHECK(result.advanced.diagnostics.runtime_trace == "verbose");
     CHECK(result.advanced.diagnostics.runtime_trace_track_overhead);
     CHECK(result.advanced.diagnostics.action_queue_guard_logging);
@@ -242,6 +245,20 @@ ship_state_probe = "fleet_reconciliation"
 
     CHECK(result.advanced.diagnostics.ship_state_probe == "off");
     CHECK(has_diagnostic(result.diagnostics, "advanced.diagnostics.ship_state_probe",
+                         config_schema::DiagnosticSeverity::Warning));
+  }
+
+  TEST_CASE("ship-state stack budget is clamped to a one-event airlock")
+  {
+    auto config = toml::parse(R"(
+[advanced.diagnostics]
+ship_state_probe_stack_budget = 12
+)");
+
+    const auto result = ParseSidecarConfig(config);
+
+    CHECK(result.advanced.diagnostics.ship_state_probe_stack_budget == 1);
+    CHECK(has_diagnostic(result.diagnostics, "advanced.diagnostics.ship_state_probe_stack_budget",
                          config_schema::DiagnosticSeverity::Warning));
   }
 
@@ -432,6 +449,7 @@ mode = "majel"
     advanced.diagnostics.fleet_selection_timing_logging   = true;
     advanced.diagnostics.live_query                       = true;
     advanced.diagnostics.ship_state_probe                 = "repair_action_status";
+    advanced.diagnostics.ship_state_probe_stack_budget    = 1;
     advanced.diagnostics.runtime_trace                    = "detailed";
     advanced.diagnostics.runtime_trace_track_overhead     = false;
     advanced.diagnostics.action_queue_guard_logging       = true;
@@ -468,6 +486,8 @@ mode = "majel"
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["live_query"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["ship_state_probe"].value<std::string>().value_or("")
           == "repair_action_status");
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["ship_state_probe_stack_budget"].value<int>().value_or(0)
+          == 1);
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace"].value<std::string>().value_or("") == "detailed");
     CHECK_FALSE(
         runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_track_overhead"].value<bool>().value_or(true));

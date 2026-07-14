@@ -135,6 +135,8 @@ namespace Advanced
     constexpr bool live_query = false;
     /// Science-only ship-state probe mode: off or repair_action_status. Default: off.
     constexpr const char* ship_state_probe = "off";
+    /// One-shot caller samples for the ship-state probe. Valid range: 0-1. Default: 0.
+    constexpr int ship_state_probe_stack_budget = 0;
     /// Realtime runtime trace level: off, summary, detailed, or verbose. Any level above off adds runtime overhead.
     constexpr const char* runtime_trace = "off";
     /// Track runtime trace instrumentation overhead as a separate probe. Default: false for this private fork.

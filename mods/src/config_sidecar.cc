@@ -425,6 +425,19 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
         "Invalid advanced.diagnostics.ship_state_probe. Expected off or repair_action_status; using off."));
     result.advanced.diagnostics.ship_state_probe = DCAdvanced::Diagnostics::ship_state_probe;
   }
+  read_int_value(result.advanced.diagnostics.ship_state_probe_stack_budget,
+                 "advanced.diagnostics.ship_state_probe_stack_budget",
+                 DCAdvanced::Diagnostics::ship_state_probe_stack_budget,
+                 "one-shot ship-state caller sample budget");
+  if (result.advanced.diagnostics.ship_state_probe_stack_budget < 0
+      || result.advanced.diagnostics.ship_state_probe_stack_budget > 1) {
+    result.diagnostics.push_back(make_diagnostic(
+        config_schema::DiagnosticSeverity::Warning, "advanced.diagnostics.ship_state_probe_stack_budget",
+        "advanced.diagnostics.ship_state_probe_stack_budget",
+        "Invalid advanced.diagnostics.ship_state_probe_stack_budget. Expected 0 or 1; clamping to that range."));
+    result.advanced.diagnostics.ship_state_probe_stack_budget =
+        std::clamp(result.advanced.diagnostics.ship_state_probe_stack_budget, 0, 1);
+  }
   read_string_value(result.advanced.diagnostics.runtime_trace, "advanced.diagnostics.runtime_trace",
                     DCAdvanced::Diagnostics::runtime_trace, "runtime trace level");
   read_bool_value(result.advanced.diagnostics.runtime_trace_track_overhead,
@@ -614,6 +627,8 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
                             config.diagnostics.fleet_selection_timing_logging);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.live_query", config.diagnostics.live_query);
   write_scalar(runtime_config, "advanced.diagnostics.ship_state_probe", config.diagnostics.ship_state_probe);
+  write_scalar(runtime_config, "advanced.diagnostics.ship_state_probe_stack_budget",
+               config.diagnostics.ship_state_probe_stack_budget);
   write_scalar(runtime_config, "advanced.diagnostics.runtime_trace", config.diagnostics.runtime_trace);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.runtime_trace_track_overhead",
                             config.diagnostics.runtime_trace_track_overhead);

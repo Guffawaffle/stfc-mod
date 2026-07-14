@@ -92,7 +92,7 @@ A free-play reproduction from a different screen captured the reported flip on o
 
 The critical mismatch is the second `Ready`: `GetActionStatus(Repair)` returned the cost-to-repair-ready status while `FleetPlayerData.CurrentState` still reported `Repairing`. The mismatch lasted about 1.55 seconds before the fleet became `Docked` and Repair became `Disabled`.
 
-Native fleet-bar logging reported `REPAIR_COMPLETE` at the same millisecond that `Ready` reappeared. An empty-title state-0 toast and the mod's repair-complete notification were also queued at that boundary. This supports a client ordering gap between job/action completion and fleet-state convergence; it does not yet identify whether the popup was the game toast, the mod notification, or a separate error dialog.
+Native fleet-bar logging reported `REPAIR_COMPLETE` at the same millisecond that `Ready` reappeared. On Ship Manage, the rebound action opened the instant lat-cost confirmation as though the cost button had been clicked. This makes the mismatch a spend-path interaction hazard, not merely visual churn. An empty-title state-0 toast and the mod's repair-complete notification were also queued at that boundary.
 
 ## Stuck-Fleet Findings
 
@@ -211,5 +211,5 @@ Disable the probe immediately if the game crashes, hangs, loses input, changes a
 - The dump provides exact symbols and ABI hints, not actual callers. Real caller evidence requires the stack-capture airlock.
 - The default-off repair probe installed as the sole owner of `GetActionStatus`, returned every original value unchanged, and later captured one real repair lifecycle without a crash or hang.
 - The confirmed mismatch is `ActionStatus::Ready` while the fleet remains `Repairing`; the client converged to `Docked` about 1.55 seconds later.
-- The stack-capture airlock is now eligible but not open. If used, it must be a one-event sample triggered only by `Complete → Ready` during `Repairing`.
+- The stack-capture airlock is implemented with a default-zero, clamped 0-1 budget. It triggers only on `Complete → Ready` during `Repairing` and records module-relative frames.
 - The current game config keeps `ship_state_probe = "repair_action_status"` enabled for this bounded active investigation; restore `off` before normal release use.
