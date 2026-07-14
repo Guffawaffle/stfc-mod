@@ -141,7 +141,9 @@ void InstallTempCrashFixes();
 void InstallSyncPatches();
 void InstallObjectTrackers();
 void InstallFleetArrivalHooks();
-void InstallLoadingScreenBgHooks();
+void InstallLoadingScreenHooks();
+void InstallTransitionScreenHooks();
+void InstallLoadingTipHooks();
 
 /**
  * @brief Hook: il2cpp_init
@@ -276,7 +278,9 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"SyncPatches", {InstallSyncPatches, &cfg.installSyncPatches}},
       {"ObjectTracker", {InstallObjectTrackers, &cfg.installObjectTracker}},
       {"FleetArrival", {InstallFleetArrivalHooks, &cfg.installFleetArrivalHooks}},
-      {"LoadingScreenBgHooks", {InstallLoadingScreenBgHooks, &cfg.installLoadingScreenBgHooks}},
+      {"LoadingScreen", {InstallLoadingScreenHooks, &cfg.installLoadingScreenHooks}},
+      {"TransitionScreen", {InstallTransitionScreenHooks, &cfg.installTransitionScreenHooks}},
+      {"LoadingTip", {InstallLoadingTipHooks, &cfg.loader_tip_enabled}},
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
 

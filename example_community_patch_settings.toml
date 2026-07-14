@@ -149,14 +149,23 @@ system_pan_momentum_falloff = 0.8
 # Subgroup: Loader
 # ----------------
 
-# Set to true to use the loader_image for the loading screen
+# Set to true to use the custom background and logos on the login screen
 loader_enabled = true
 
-# Path to the custom loading screen image (leave blank for embedded image)
+# Set to true to use the custom background and logos on transition screens
+loader_transition = true
+
+# Use the game's black transition background while retaining the logos
+loader_transition_black = false
+
+# Path to the custom loading/transition image (leave blank for embedded image)
 loader_image = ""
 
-# Set to true to use the loader image for the transition screen
-loader_transition = true
+# Scale multiplier for the loading-screen logos
+loader_logo_scale = 1.0
+
+# Show community tips on loading and transition screens
+loader_tip_enabled = true
 
 # Subgroup: Options
 # -----------------
@@ -324,6 +333,7 @@ chatpatches = true
 freeresizehooks = true
 hotkeyhooks = true
 improveresponsivenesshooks = true
+loadingscreenhooks = true
 miscpatches = true
 objecttracker = true
 panhooks = true
@@ -332,6 +342,7 @@ syncpatches = true
 tempcrashfixes = true
 testpatches = true
 toastbannerhooks = true
+transitionscreenhooks = true
 uiscalehooks = true
 zoomhooks = true
 

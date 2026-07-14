@@ -318,12 +318,52 @@
       "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
     },
     {
-      "id": "raw_spud_static_detour:mods/src/patches/parts/loading_screen_bg.cc:fc2c90bc1dec:1",
+      "id": "raw_spud_static_detour:mods/src/patches/parts/loading_screen.cc:5d068cc7829b:1",
       "kind": "raw_spud_static_detour",
-      "path": "mods/src/patches/parts/loading_screen_bg.cc",
-      "normalized_text": "SPUD_STATIC_DETOUR(m, HOOK); \\",
+      "path": "mods/src/patches/parts/loading_screen.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(m, LS_LoginSequence_Awake_Hook);",
       "category": "legacy_unmanaged",
-      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
+      "reason": "Reviewed relocation of the loading-screen hook during the upstream split for issue #191."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/loading_tip.cc:2e8bc1387473:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/loading_tip.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(m, LTVC_SetRandomTipLocalisedText_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Reviewed loading-tip hook introduced by the upstream loading-screen split for issue #191."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/transition_screen.cc:1d9ee26faf17:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/transition_screen.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(m, TVC_Awake_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Reviewed relocation of the transition-screen hook during the upstream split for issue #191."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/transition_screen.cc:7b1374adb392:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/transition_screen.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(m, TVC_AboutToShow_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Reviewed relocation of the transition-screen hook during the upstream split for issue #191."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/transition_screen.cc:23bec48076f5:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/transition_screen.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(m, SlideShowViewer_ShowCurrentSlide_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Reviewed relocation of the slideshow hook during the upstream split for issue #191."
+    },
+    {
+      "id": "raw_spud_static_detour:mods/src/patches/parts/transition_screen.cc:7aff1056dc3a:1",
+      "kind": "raw_spud_static_detour",
+      "path": "mods/src/patches/parts/transition_screen.cc",
+      "normalized_text": "SPUD_STATIC_DETOUR(m, TS_MonoSingleton_PrepareAllForReload_Hook);",
+      "category": "legacy_unmanaged",
+      "reason": "Reviewed reload-lifecycle hook introduced by the upstream loading-screen fix for issue #191."
     },
     {
       "id": "raw_spud_static_detour:mods/src/patches/parts/misc.cc:9620a37dfd58:1",

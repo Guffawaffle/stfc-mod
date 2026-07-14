@@ -83,12 +83,23 @@ namespace Graphics
   constexpr auto zoom = 5000;
   /// Scale the system backdrop to hide edge void at extreme zoom. 1.0 = off. Default: 2.0.
   constexpr auto fr_scale = 2.0;
-  /// Replace TVC/SlideShow backgrounds. Default: true.
-  constexpr bool loader_transition = true;
   /// Replace LoginSequence background. Default: true.
   constexpr bool loader_enabled = true;
+  /// Replace TVC/SlideShow backgrounds. Default: true.
+  constexpr bool loader_transition = true;
+#ifdef _USE_ORIGINAL_BG
+  /// Preserve the game's transition background when requested at build time.
+  constexpr bool loader_transition_black = true;
+#else
+  /// Use the game's black transition background instead of the custom image. Default: false.
+  constexpr bool loader_transition_black = false;
+#endif
   /// Optional custom loading image path (empty = embedded fallback). Default: empty.
   constexpr const char* loader_image = "";
+  /// Scale multiplier for loading-screen logos. Default: 1.0.
+  constexpr auto loader_logo_scale = 1.0;
+  /// Show community loading tips. Default: true.
+  constexpr bool loader_tip_enabled = true;
 } // namespace Graphics
 
 namespace Debug
@@ -284,7 +295,8 @@ namespace Patches
   constexpr bool toastbannerhooks           = true;  ///< Toast-banner filtering hooks.
   constexpr bool uiscalehooks               = true;  ///< UI scale override hooks.
   constexpr bool zoomhooks                  = true;  ///< Camera zoom override hooks.
-  constexpr bool loadingscreenbghooks       = true;  ///< Loading-screen background replacement hooks.
+  constexpr bool loadingscreenhooks         = true;  ///< Login loading-screen replacement hooks.
+  constexpr bool transitionscreenhooks      = true;  ///< In-game transition-screen replacement hooks.
 } // namespace Patches
 
 /// Default key-binding strings for the [shortcuts] TOML section.
