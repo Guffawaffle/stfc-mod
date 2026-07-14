@@ -44,6 +44,14 @@ if (Test-Path -LiteralPath $privateScript) {
             $parameter.aliases = @($aliases + $providerName)
           }
         }
+
+        if ($null -ne $command.examples) {
+          $command.examples = @($command.examples | ForEach-Object {
+            ([string]$_) `
+              -replace '(?<!\S)(?:-Compact|--compact)(?=\s|$)', '--compact-output' `
+              -replace '(?<!\S)(?:-Limit|--limit)(?=\s|$)', '--result-limit'
+          })
+        }
       }
       $inventory | ConvertTo-Json -Depth 40 | Write-Output
     }

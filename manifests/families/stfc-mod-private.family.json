@@ -332,8 +332,8 @@
         "A canonical result requires the deployed version.dll to match the selected local release artifact and the repository worktree to be clean."
       ],
       "examples": [
-        "ax native-baseline -Action Check -Compact",
-        "ax native-baseline -Action Capture -Scenario N1-idle-system -DurationSec 300 -Compact"
+        "ax native-baseline -Action Check --compact-output",
+        "ax native-baseline -Action Capture -Scenario N1-idle-system -DurationSec 300 --compact-output"
       ]
     },
     "config": {
@@ -2989,7 +2989,7 @@
       ],
       "examples": [
         "ax dump-export -Kind symbols -MaxDocs 100",
-        "ax dump-export -Kind all -Output .ax\\\\out\\\\dump-corpus.jsonl -Compact"
+        "ax dump-export -Kind all -Output .ax\\\\out\\\\dump-corpus.jsonl --compact-output"
       ]
     },
     "research-index": {
@@ -3080,7 +3080,7 @@
       ],
       "examples": [
         "ax research-index -Reset",
-        "ax research-index -Include strings,script -Compact",
+        "ax research-index -Include strings,script --compact-output",
         "ax research-index -Jsonl .ax\\\\cache\\\\extra-research-docs.jsonl"
       ]
     },
@@ -3237,11 +3237,11 @@
         "Cache payload scanning emits redacted term-filtered strings from JSON-like payloads and embedded raw UTF-8/UTF-16 strings; it is not full protobuf/object decoding."
       ],
       "examples": [
-        "ax local-research-sources -Compact -TokenBudget 1200",
-        "ax local-research-sources -Include locale -Terms \"officer,ability,arcfall\" -Index -Compact",
-        "ax local-research-sources -Include pre-bundles -Terms \"quantum,revenant\" -MaxBundleStrings 500 -Compact",
-        "ax local-research-sources -Include cache-manifest -CacheDir \"PlatformRequestCache,ServerRequestCache\" -MaxCacheFiles 500 -Index -Compact",
-        "ax local-research-sources -Include cache-payload -CacheDir \"PlatformRequestCache,ServerRequestCache\" -Terms \"claim,bundle,mission,research,tutorial\" -MaxCachePayloadFiles 250 -Compact"
+        "ax local-research-sources --compact-output -TokenBudget 1200",
+        "ax local-research-sources -Include locale -Terms \"officer,ability,arcfall\" -Index --compact-output",
+        "ax local-research-sources -Include pre-bundles -Terms \"quantum,revenant\" -MaxBundleStrings 500 --compact-output",
+        "ax local-research-sources -Include cache-manifest -CacheDir \"PlatformRequestCache,ServerRequestCache\" -MaxCacheFiles 500 -Index --compact-output",
+        "ax local-research-sources -Include cache-payload -CacheDir \"PlatformRequestCache,ServerRequestCache\" -Terms \"claim,bundle,mission,research,tutorial\" -MaxCachePayloadFiles 250 --compact-output"
       ]
     },
     "cache-manifest-db": {
@@ -3340,9 +3340,9 @@
         "Use Diff after two or more snapshots to report added, removed, and changed cache files."
       ],
       "examples": [
-        "ax cache-manifest-db -Action Stats -Compact",
-        "ax cache-manifest-db -Action Import -Jsonl .ax-priv\\\\cache\\\\local-cache-manifest-full.jsonl -SnapshotId patch-92-1 -Replace -Compact",
-        "ax cache-manifest-db -Action Diff -Baseline patch-92-1 -Current patch-92-1-hotfix -Compact"
+        "ax cache-manifest-db -Action Stats --compact-output",
+        "ax cache-manifest-db -Action Import -Jsonl .ax-priv\\\\cache\\\\local-cache-manifest-full.jsonl -SnapshotId patch-92-1 -Replace --compact-output",
+        "ax cache-manifest-db -Action Diff -Baseline patch-92-1 -Current patch-92-1-hotfix --compact-output"
       ]
     },
     "cache-image-report": {
@@ -3441,8 +3441,8 @@
         "The HTML preview links to current local cache files; it does not copy or archive image bytes."
       ],
       "examples": [
-        "ax cache-image-report -Compact",
-        "ax cache-image-report -Status \"added,removed,changed\" -MaxItems 500 -Compact",
+        "ax cache-image-report --compact-output",
+        "ax cache-image-report -Status \"added,removed,changed\" -MaxItems 500 --compact-output",
         "ax cache-image-report -Baseline patch-92-1 -Current patch-92-1-hotfix -HtmlOutput .ax-priv\\\\cache\\\\cache-image-reports\\\\hotfix-assets.html"
       ]
     },
@@ -3545,10 +3545,10 @@
         "Smoke reruns the saved missing-hostile, spelling ambiguity, ability, and percentage-semantics acceptance stories."
       ],
       "examples": [
-        "ax hostile-research -Action Gap -Query retribution -MinimumLevel 50 -Compact",
-        "ax hostile-research -Action Verify -Query revenge -NoFetch -Compact",
-        "ax hostile-research -Action Ability -Query \"Judicious Preparation\" -Compact",
-        "ax hostile-research -Action Smoke -NoFetch -Compact"
+        "ax hostile-research -Action Gap -Query retribution -MinimumLevel 50 --compact-output",
+        "ax hostile-research -Action Verify -Query revenge -NoFetch --compact-output",
+        "ax hostile-research -Action Ability -Query \"Judicious Preparation\" --compact-output",
+        "ax hostile-research -Action Smoke -NoFetch --compact-output"
       ]
     },
     "static-sync-probe": {
@@ -3667,9 +3667,9 @@
         "Use this for narrow private research questions such as new hostile families, armada directives, levels, and static combat component stats."
       ],
       "examples": [
-        "ax static-sync-probe -Terms \"quantum,continuum,adjudicator,tesseract,guardian,revenant\" -Compact",
+        "ax static-sync-probe -Terms \"quantum,continuum,adjudicator,tesseract,guardian,revenant\" --compact-output",
         "ax static-sync-probe -Output .ax-priv\\\\cache\\\\static-sync\\\\arcfall-quantum-hostiles.json",
-        "ax static-sync-probe -BuildProto -MaxFiles 10 -Compact"
+        "ax static-sync-probe -BuildProto -MaxFiles 10 --compact-output"
       ]
     },
     "static-sync-diff": {
@@ -3757,7 +3757,7 @@
         "By default it appends a static-sync-diff-recorded event to .ax-priv\\\\cache\\\\research-timeline.jsonl."
       ],
       "examples": [
-        "ax static-sync-diff -Baseline .ax-priv\\\\cache\\\\static-sync\\\\arcfall-prelaunch-static-20260625-082825Z.json -Current .ax-priv\\\\cache\\\\static-sync\\\\arcfall-live-static-20260625-095754Z.json -PatchLabel arcfall -Compact",
+        "ax static-sync-diff -Baseline .ax-priv\\\\cache\\\\static-sync\\\\arcfall-prelaunch-static-20260625-082825Z.json -Current .ax-priv\\\\cache\\\\static-sync\\\\arcfall-live-static-20260625-095754Z.json -PatchLabel arcfall --compact-output",
         "ax static-sync-diff -Baseline old.json -Current new.json -NoTimeline"
       ]
     },
@@ -3850,7 +3850,7 @@
         "Mined-only fields are kept under extensions.staticSync so sidecar readers can ignore them safely."
       ],
       "examples": [
-        "ax sidecar-hostile-pack -Terms \"QuantumAdjudicator\" -Family quantum -Compact",
+        "ax sidecar-hostile-pack -Terms \"QuantumAdjudicator\" -Family quantum --compact-output",
         "ax sidecar-hostile-pack -Input .ax-priv\\\\cache\\\\static-sync\\\\arcfall-live-quantum-only-20260625-100020Z.json -Terms \"QuantumAdjudicator\"",
         "ax sidecar-hostile-pack -PackId private.arcfall.quantum-hostiles -ManifestOutput .ax-priv\\\\cache\\\\sidecar-align\\\\manifest.json"
       ]
@@ -3953,7 +3953,7 @@
         "Use this as the handoff frame before deeper decoder or hook work."
       ],
       "examples": [
-        "ax research-packet -PacketId arcfall-20260625 -PatchLabel arcfall -Compact",
+        "ax research-packet -PacketId arcfall-20260625 -PatchLabel arcfall --compact-output",
         "ax research-packet -DiffReport .ax-priv\\\\cache\\\\static-sync-diffs\\\\static-sync-diff-arcfall-static-live-20260625-095754Z.json -HostilePack .ax-priv\\\\cache\\\\sidecar-align\\\\private.arcfall.quantum-hostiles.20260625-101538Z.json"
       ]
     },
@@ -4035,7 +4035,7 @@
         "Use this when the source is unknown or broader than one dump table."
       ],
       "examples": [
-        "ax research-search -Query cannot_attack -Compact",
+        "ax research-search -Query cannot_attack --compact-output",
         "ax research-search -Query takeover -SourceKind il2cpp_literal -Like -MaxResults 20"
       ]
     },
@@ -4129,7 +4129,7 @@
         "This is the first stop after research-search when an agent needs enough context to reason about a string, route, class, or metadata hit."
       ],
       "examples": [
-        "ax research-context -Query server_no_context_takeover -Compact",
+        "ax research-context -Query server_no_context_takeover --compact-output",
         "ax research-context -DocId il2cpp_literal:12345 -MaxNearby 5 -MaxRelated 5"
       ]
     },
@@ -4216,7 +4216,7 @@
         "Use this immediately after dump-index or dump-refresh and before research-index advances the corpus snapshot."
       ],
       "examples": [
-        "ax research-diff -Compact",
+        "ax research-diff --compact-output",
         "ax research-diff -Output .ax-priv\\\\cache\\\\research-diffs\\\\latest.json -SummaryOnly",
         "ax research-diff -Watch cannot_attack_territory_not_owned_or_no_takeover,cannot_attack"
       ]
@@ -4299,7 +4299,7 @@
         "Use -SummaryOnly for the high-level timeline view before opening an individual research diff report."
       ],
       "examples": [
-        "ax research-timeline -SummaryOnly -Compact",
+        "ax research-timeline -SummaryOnly --compact-output",
         "ax research-timeline -PatchLabel arcfall -SummaryOnly",
         "ax research-timeline -RefreshId 20260625-100000Z"
       ]
@@ -4361,7 +4361,7 @@
         "Reports document counts by source kind plus the indexed source records."
       ],
       "examples": [
-        "ax research-stats -Compact"
+        "ax research-stats --compact-output"
       ]
     },
     "research-export": {
