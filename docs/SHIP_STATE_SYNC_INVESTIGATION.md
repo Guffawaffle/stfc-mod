@@ -2,7 +2,7 @@
 
 Date: 2026-07-14
 Branch: `investigation/ship-state-sync`
-Status: repair action-status reachability passed; probe restored to off; real repair sequence pending
+Status: repair flip reproduced; transient client-model/action-status mismatch confirmed
 
 ## Problem Register
 
@@ -83,6 +83,16 @@ Relevant exact static evidence:
 - The current binary contains: `[FleetService] HandlePlayerFleetsUpdate() - Failed to add Repair Job {0} to fleet {1} because job state was 'Collected'. Cleaning up this job!`
 
 That literal supports an existing repair-job/fleet-update ordering edge. It does not prove that this exact edge causes the reported symptom.
+
+### Captured repair timeline
+
+A free-play reproduction from a different screen captured the reported flip on one fleet:
+
+`Ready → InProgress_Free → Complete → Ready → Disabled`
+
+The critical mismatch is the second `Ready`: `GetActionStatus(Repair)` returned the cost-to-repair-ready status while `FleetPlayerData.CurrentState` still reported `Repairing`. The mismatch lasted about 1.55 seconds before the fleet became `Docked` and Repair became `Disabled`.
+
+Native fleet-bar logging reported `REPAIR_COMPLETE` at the same millisecond that `Ready` reappeared. An empty-title state-0 toast and the mod's repair-complete notification were also queued at that boundary. This supports a client ordering gap between job/action completion and fleet-state convergence; it does not yet identify whether the popup was the game toast, the mod notification, or a separate error dialog.
 
 ## Stuck-Fleet Findings
 
@@ -199,6 +209,7 @@ Disable the probe immediately if the game crashes, hangs, loses input, changes a
 - `dump-method` works with the short class name; the fully qualified class plus `--fts` path currently fails in the private adapter.
 - Existing `fleet-slots-state` is a useful client-model baseline but lacks jobs, deployed state, action masks/status, callbacks, and callers.
 - The dump provides exact symbols and ABI hints, not actual callers. Real caller evidence requires the stack-capture airlock.
-- The default-off repair probe installed as the sole owner of `GetActionStatus`, returned the original value unchanged, and emitted two bounded status-0 observations for docked fleets without a crash or hang.
-- This was a reachability result, not a repair reproduction: no fleet entered `Repairing`, no Ask for Help transition was captured, and the stack-capture airlock therefore remains closed.
-- The game config is back on `ship_state_probe = "off"`, and the final releasedbg cycle logged the module as skipped.
+- The default-off repair probe installed as the sole owner of `GetActionStatus`, returned every original value unchanged, and later captured one real repair lifecycle without a crash or hang.
+- The confirmed mismatch is `ActionStatus::Ready` while the fleet remains `Repairing`; the client converged to `Docked` about 1.55 seconds later.
+- The stack-capture airlock is now eligible but not open. If used, it must be a one-event sample triggered only by `Complete → Ready` during `Repairing`.
+- The current game config keeps `ship_state_probe = "repair_action_status"` enabled for this bounded active investigation; restore `off` before normal release use.

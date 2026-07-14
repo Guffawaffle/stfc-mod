@@ -104,13 +104,13 @@ This inventory records source-level seams from a static-only review. It does not
 - Intended question: which repair `ActionStatus` transitions occur between one Repair click and the stable Ask for Help button?
 - Static evidence: current dump and script metadata report `ActionStatus GetActionStatus(ActionType)` at RVA `0x17BE0B0`; repair presentation has distinct `InProgress`, `InProgress_Free`, and `InProgress_AskForHelp` states and ask-for-help locale settings.
 - Risk class: R4 native interpretation because a passive detour must use the original/trampoline and interpret the scalar argument/return.
-- Confidence rung: runtime reachability for the exact detour and established scalar/property reads; repair-transition semantics remain unproven.
-- Runtime evidence: one releasedbg airlock run installed exactly one owner and produced two deduplicated events on distinct docked fleets: repair action type, status/original return `0`, current state `Docked`, previous state `Unknown`. No crash, hang, input loss, duplicate owner, or behavior change was observed. No fleet entered repair.
-- Payload confidence: runtime confidence for the receiver, fleet ID, current/previous state, 32-bit `ActionType`, and 32-bit original return on the observed docked path only.
-- Original/trampoline confidence: reachability passed with the original return preserved as `0`; no claim yet for nonzero repair statuses.
+- Confidence rung: runtime relationship for the exact detour, established scalar/property reads, and one reproduced repair lifecycle.
+- Runtime evidence: one free-play reproduction produced `Ready → InProgress_Free → Complete → Ready → Disabled`. The fleet was still `Repairing` during the second `Ready` result and did not become `Docked` for about 1.55 seconds. Native fleet-bar evidence reported repair complete at the same millisecond that `Ready` reappeared. No crash, hang, input loss, duplicate owner, or probe-induced request was observed.
+- Payload confidence: runtime confidence for the receiver, fleet ID, current/previous state, 32-bit `ActionType`, and nonzero `ActionStatus`/original returns 100, 201, and 300 on the observed repair path.
+- Original/trampoline confidence: passed across the reproduced repair lifecycle with every original result returned unchanged.
 - Flag / rollback path: mutually exclusive science mode `repair_action_status`, default `off`; no stack capture is implemented; disable in TOML and restart, or remove one module/install entry.
-- Status: science canary implemented and default off; final runtime cycle confirmed it was skipped.
-- Next action: run the same bounded canary on one known damaged docked fleet. Keep stack capture closed until a real repair transition is observed.
+- Status: science canary implemented and default off; temporarily enabled in the current game config for the active reproduction window.
+- Next action: a one-event, module-relative caller sample is eligible only for `Complete → Ready` while the fleet remains `Repairing`; keep the broader reconciliation hook disabled.
 
 ### `Digit.PrimeServer.Services.FleetService.UpdateFleetWithDeploymentData(FleetPlayerData, FleetDeployedData)`
 

@@ -1,6 +1,6 @@
 # Probe: Repair action-status transition
 
-- Status: implemented; reachability passed, repair sequence pending
+- Status: implemented; repair flip reproduced and captured
 - Owner: ship-state synchronization investigation
 - Date: 2026-07-14
 - Related patch label: none
@@ -86,13 +86,24 @@ Build commit, config snapshot, marker/sequence range, status sequence, final vis
 
 - Build/deploy command: `axf run global.stfc-mod-private.cycle --build-mode releasedbg`; run once with the probe off, once with `repair_action_status`, and once more after restoring `off`.
 - Runtime command: serial `live-state --view fleet-slots`, an AX marker, and bounded exact-kind `recent-events` follow calls.
-- Human action performed: two docked fleets were selected during the observation window; no fleet entered `Repairing`, so a Repair click was not established.
-- Observed log/event evidence: hook registry reported exactly one installed science seam. Two deduplicated events returned `actionType=-1850668115`, `actionStatus=0`, `originalReturn=0`, `currentState=2`, on the same thread for two distinct docked fleets. No later repair status appeared.
-- Crash/hang/recovery notes: none. Final cycle was healthy with the probe explicitly restored to `off` and skipped at boot.
-- Answer to the question: inconclusive for the repair sequence. The hook ABI, receiver reads, original return, filter, dedupe, and bounded event path are runtime-reachable; the required damaged-fleet repair transition was not reproduced.
+- Human action performed: during a later free-play window, Repair was clicked on one docked damaged fleet and the visible Free action was clicked from a different screen than the usual reproduction. The button then flipped back to the cost-to-repair presentation and a popup appeared.
+- Observed log/event evidence: exact-kind event-store sequence 297-305 and native log lines 1643-1652 captured the same fleet and thread. The original return was preserved at every call.
+
+| Local time | ActionStatus | Fleet state | Correlated event |
+| --- | --- | --- | --- |
+| 03:54:46.702 | `Ready` (100) | `Docked`, previous `IdleInSpace` | Pre-repair presentation |
+| 03:54:55.129 | `InProgress_Free` (201) | `Repairing`, previous `Docked` | `fleet-slot-repair-started` |
+| 03:54:56.702 | `Complete` (300) | `Repairing` | Job/action reports complete |
+| 03:54:57.452 | `Ready` (100) | `Repairing` | Invalid cost-to-repair presentation window begins |
+| 03:54:57.453 | unchanged | `Repairing` | Empty-title state-0 toast; native `REPAIR_COMPLETE`; repair-complete notification queued |
+| 03:54:59.000 | `Disabled` (0) | `Docked`, previous `Repairing` | Invalid presentation window ends after about 1.55 seconds |
+| 03:54:59.964 | unchanged | `Docked` | Debounced `fleet-slot-repair-completed` runtime capture executes |
+
+- Crash/hang/recovery notes: none. The fleet converged to Docked without manual recovery. The probe remains enabled for the current investigation window.
+- Answer to the question: confirmed. The observed sequence was `Ready → InProgress_Free → Complete → Ready → Disabled`. `GetActionStatus(Repair)` returned `Ready` for about 1.55 seconds while `CurrentState` was still `Repairing`, directly explaining the transient cost-to-repair button. The popup coincided with repair completion and an empty-title toast; its exact text is still needed to attribute it conclusively.
 
 ## Exit Decision
 
-Reachability passed, but the stack-capture airlock remains closed because no repair transition was observed. Re-enable this same probe only for one known damaged docked fleet; do not add stack capture until that sequence is captured cleanly.
+The repair transition and failure window are now captured cleanly, so a one-shot caller-stack airlock is eligible. It has not been opened yet. Any stack capture must trigger only on `Complete → Ready` while `CurrentState == Repairing`, use a one-event budget, and record module-relative addresses for offline symbolization.
 
-Next action: reproduce one real Repair action, record the complete distinct status sequence and visible button outcome, then decide whether one-shot caller capture is justified.
+Next action: identify the UI caller for the `Complete → Ready` transition and correlate it with the repair job/fleet-state completion ordering. Do not install the broader reconciliation seam concurrently.
