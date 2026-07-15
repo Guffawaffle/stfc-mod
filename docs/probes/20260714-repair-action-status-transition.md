@@ -119,9 +119,11 @@ Exact RVAs were `0x16517BA`, `0x11E63E6`, and `0x11E6C12` respectively. Disassem
 dispatches; `HandleReactiveInt` then copies the resulting context into the live instant-button context.
 
 A later observation at event-store sequence 181-183 showed the same `InProgress_Free → Ready` while `Repairing`
-transition when the button momentarily displayed a zero-cost Repair action. Native `REPAIR_COMPLETE` and an
-empty-title state-0 toast occurred in the same millisecond. Cost was not part of this probe payload, so the stack and
-disassembly locate the projection mechanism but do not directly prove the sampled cost value.
+transition after Free had finished the repair. The client momentarily re-exposed Repair with a displayed cost of
+zero: the action layer briefly considered the already-repaired ship repairable again before the fleet model converged
+to `Docked`. Native `REPAIR_COMPLETE` and an empty-title state-0 toast occurred in the same millisecond. Cost was not
+part of this probe payload, so the stack and disassembly locate the projection mechanism but do not directly prove
+the sampled cost value.
 
 ## Exit Decision
 
@@ -147,7 +149,7 @@ Every other action, fleet state, and status returns the exact original value. Th
 once. The transition event records both `originalReturn` and `returnedStatus` plus `guardApplied`, allowing the
 canary to prove that it blocked only the impossible state.
 
-Expected smoke-test result: the transient cost/zero-cost instant Repair action is replaced by a brief disabled state,
+Expected smoke-test result: the transient post-completion Repair reappearance is replaced by a brief disabled state,
 then the normal stable action appears after the fleet model converges. Disable immediately if Ask for Help cannot be
 requested, repair cannot complete, any non-Repair action changes, or a fleet remains stuck longer than the passive
 baseline.

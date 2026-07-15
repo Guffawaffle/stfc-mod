@@ -102,7 +102,7 @@ boundary. The original one-shot caller predicate deliberately required `Complete
 its budget. The predicate is now keyed to the invariant violation itself: any distinct transition to `Ready` while
 the fleet is still `Repairing`.
 
-### Caller sample and zero-cost variant
+### Caller sample and post-completion Repair reappearance
 
 The revised one-event airlock fired at 01:27:44.278 on an `InProgress_Free → Ready` transition while the fleet
 remained `Repairing`. Offline symbolization against the exact deployed DLL and current game dump resolved the
@@ -123,12 +123,14 @@ separately, then `HandleReactiveInt` copying the returned context into `_instant
 `GenericButtonContext.ValueCopy`. This is a real caller chain: a job-list tick refreshes the action widget while
 the repair model is between coherent states.
 
-At 01:39:02.195, a later user-observed variant displayed a zero-cost Repair button momentarily after Free was
-clicked. The transition evidence was again `InProgress_Free → Ready` while `CurrentState == Repairing`, and
-`REPAIR_COMPLETE` plus an empty-title state-0 toast occurred at the same millisecond. The zero amount is consistent
-with the instant-button context being rebuilt from independently observed status and instant-cost values during the
-non-atomic job update; the current probe does not record the cost payload, so that final payload relationship remains
-an evidence-backed inference rather than a direct measurement.
+At 01:39:02.195, after Free had finished the repair, the client momentarily re-exposed Repair with a displayed cost
+of zero. The transition evidence was again `InProgress_Free → Ready` while `CurrentState == Repairing`, and
+`REPAIR_COMPLETE` plus an empty-title state-0 toast occurred at the same millisecond. In user-visible terms, the
+action layer briefly considered the already-repaired ship repairable again while the fleet model had not yet
+converged from `Repairing` to `Docked`. The zero amount is consistent with the instant-button context being rebuilt
+from independently observed status and instant-cost values during the non-atomic job update; the current probe does
+not record the cost payload, so that final payload relationship remains an evidence-backed inference rather than a
+direct measurement.
 
 ## Stuck-Fleet Findings
 
@@ -255,6 +257,6 @@ Disable the probe immediately if the game crashes, hangs, loses input, changes a
 - The default-off passive repair probe installed as the sole owner of `GetActionStatus`, returned every original value unchanged, and captured multiple repair variants without a crash or hang.
 - The confirmed mismatch is `ActionStatus::Ready` while the fleet remains `Repairing`; the client converged to `Docked` about 1.55 seconds later.
 - The one-event caller airlock resolved the real UI refresh chain as `JobService.UpdateJobList → ActionElementWidget.HandleReactiveInt → ActionElementWidget.GetInstantButtonContext → IActionData.GetActionStatus/GetInstantCost`.
-- A later zero-cost Repair presentation shared the same `InProgress_Free → Ready` while `Repairing` invariant and repair-complete boundary.
+- A later post-completion Repair reappearance displayed cost zero and shared the same `InProgress_Free → Ready` while `Repairing` invariant and repair-complete boundary.
 - The persistent stack budget has been restored to zero after the successful sample.
 - The current game config keeps `ship_state_probe = "repair_action_status_guard"` enabled for its bounded human smoke, with stack budget zero; restore `off` before normal release use.
