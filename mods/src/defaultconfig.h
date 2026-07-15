@@ -126,8 +126,8 @@ namespace Advanced
     constexpr bool ship_identity                  = false;
     constexpr bool battle_log_decoder             = false;
     constexpr bool battle_catalog                 = false;
-    constexpr bool debug                          = false;
-    constexpr bool logging                        = false;
+    constexpr bool reserved_native_debug           = false;
+    constexpr bool reserved_native_payload_logging = false;
     constexpr bool hotkey_suppression_logging     = false;
     constexpr bool notification_skip_logging      = false;
     constexpr bool fleet_selection_timing_logging = false;

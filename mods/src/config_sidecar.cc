@@ -379,8 +379,10 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
   constexpr std::array<std::string_view, 1> kShipIdentityAlias{"sidecar.probes.ship_identity"};
   constexpr std::array<std::string_view, 1> kBattleLogDecoderAlias{"sidecar.probes.battle_log_decoder"};
   constexpr std::array<std::string_view, 1> kBattleCatalogAlias{"sidecar.probes.battle_catalog"};
-  constexpr std::array<std::string_view, 1> kDebugAlias{"sidecar.diagnostics.debug"};
-  constexpr std::array<std::string_view, 1> kLoggingAlias{"sidecar.diagnostics.logging"};
+  constexpr std::array<std::string_view, 2> kReservedNativeDebugAliases{
+      "advanced.diagnostics.debug", "sidecar.diagnostics.debug"};
+  constexpr std::array<std::string_view, 2> kReservedNativePayloadLoggingAliases{
+      "advanced.diagnostics.logging", "sidecar.diagnostics.logging"};
 
   read_bool_value(result.advanced.diagnostics.ship_identity,
                   {"advanced.diagnostics.ship_identity", DCAdvanced::Diagnostics::ship_identity, kShipIdentityAlias,
@@ -391,10 +393,15 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
   read_bool_value(result.advanced.diagnostics.battle_catalog,
                   {"advanced.diagnostics.battle_catalog", DCAdvanced::Diagnostics::battle_catalog, kBattleCatalogAlias,
                    "reserved battle catalog observability probes"});
-  read_bool_value(result.advanced.diagnostics.debug, {"advanced.diagnostics.debug", DCAdvanced::Diagnostics::debug,
-                                                      kDebugAlias, "reserved native debug diagnostics"});
-  read_bool_value(result.advanced.diagnostics.logging,
-                  {"advanced.diagnostics.logging", DCAdvanced::Diagnostics::logging, kLoggingAlias,
+  read_bool_value(result.advanced.diagnostics.reserved_native_debug,
+                  {"advanced.diagnostics.reserved_native_debug",
+                   DCAdvanced::Diagnostics::reserved_native_debug,
+                   kReservedNativeDebugAliases,
+                   "reserved native debug diagnostics"});
+  read_bool_value(result.advanced.diagnostics.reserved_native_payload_logging,
+                  {"advanced.diagnostics.reserved_native_payload_logging",
+                   DCAdvanced::Diagnostics::reserved_native_payload_logging,
+                   kReservedNativePayloadLoggingAliases,
                    "reserved native payload logging diagnostics"});
   read_bool_value(result.advanced.diagnostics.hotkey_suppression_logging,
                   {"advanced.diagnostics.hotkey_suppression_logging",
@@ -524,8 +531,9 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
   result.config.probes.ship_identity      = result.advanced.diagnostics.ship_identity;
   result.config.probes.battle_log_decoder = result.advanced.diagnostics.battle_log_decoder;
   result.config.probes.battle_catalog     = result.advanced.diagnostics.battle_catalog;
-  result.config.diagnostics.debug         = result.advanced.diagnostics.debug;
-  result.config.diagnostics.logging       = result.advanced.diagnostics.logging;
+  result.config.diagnostics.reserved_native_debug = result.advanced.diagnostics.reserved_native_debug;
+  result.config.diagnostics.reserved_native_payload_logging =
+      result.advanced.diagnostics.reserved_native_payload_logging;
 
   constexpr std::array<std::pair<std::string_view, std::string_view>, 3> kLegacySidecarSyncPaths{{
       {"sync.sidecar_jsonl", "sidecar.logging.jsonl"},
@@ -618,8 +626,10 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
   config_schema::write_bool(runtime_config, "advanced.diagnostics.battle_log_decoder",
                             config.diagnostics.battle_log_decoder);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.battle_catalog", config.diagnostics.battle_catalog);
-  config_schema::write_bool(runtime_config, "advanced.diagnostics.debug", config.diagnostics.debug);
-  config_schema::write_bool(runtime_config, "advanced.diagnostics.logging", config.diagnostics.logging);
+  config_schema::write_bool(runtime_config, "advanced.diagnostics.reserved_native_debug",
+                            config.diagnostics.reserved_native_debug);
+  config_schema::write_bool(runtime_config, "advanced.diagnostics.reserved_native_payload_logging",
+                            config.diagnostics.reserved_native_payload_logging);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.hotkey_suppression_logging",
                             config.diagnostics.hotkey_suppression_logging);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.notification_skip_logging",

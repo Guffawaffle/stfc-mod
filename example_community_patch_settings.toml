@@ -882,18 +882,18 @@ thin_queue_protection = true
 [advanced.diagnostics]
 # Canonical native observability/probing namespace for non-sidecar diagnostics.
 # Older [sidecar.probes] and [sidecar.diagnostics] inputs are still accepted as deprecated aliases.
-# `debug` and `logging` are dormant compatibility placeholders only in this slice.
-# They are not newly active diagnostics controls yet.
+# The reserved native debug/payload keys are dormant compatibility placeholders
+# only. They do not currently enable or gate the specific diagnostics below.
 # These battle probe keys do not enable normal local Battle Workbench enrichment;
 # use [sidecar.sync].battlelog_enrichment for that producer path.
 ship_identity = false
 battle_log_decoder = false
 battle_catalog = false
-debug = false
-logging = false
+reserved_native_debug = false
+reserved_native_payload_logging = false
 
-# Verbose breadcrumbs for noisy diagnostics. These remain off by default even
-# when advanced.diagnostics.debug is enabled.
+# Verbose breadcrumbs for noisy diagnostics. These are independent; the
+# reserved compatibility keys above do not gate them.
 hotkey_suppression_logging = false
 notification_skip_logging = false
 fleet_selection_timing_logging = false

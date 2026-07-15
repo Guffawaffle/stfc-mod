@@ -93,8 +93,8 @@ jsonl_recent_logs = 300
     CHECK_FALSE(result.advanced.diagnostics.ship_identity);
     CHECK_FALSE(result.advanced.diagnostics.battle_log_decoder);
     CHECK_FALSE(result.advanced.diagnostics.battle_catalog);
-    CHECK_FALSE(result.advanced.diagnostics.debug);
-    CHECK_FALSE(result.advanced.diagnostics.logging);
+    CHECK_FALSE(result.advanced.diagnostics.reserved_native_debug);
+    CHECK_FALSE(result.advanced.diagnostics.reserved_native_payload_logging);
     CHECK_FALSE(result.advanced.diagnostics.hotkey_suppression_logging);
     CHECK_FALSE(result.advanced.diagnostics.notification_skip_logging);
     CHECK_FALSE(result.advanced.diagnostics.fleet_selection_timing_logging);
@@ -138,8 +138,8 @@ fleet_runtime_mode = "snapshot_only"
 ship_identity = true
 battle_log_decoder = true
 battle_catalog = false
-debug = true
-logging = true
+reserved_native_debug = true
+reserved_native_payload_logging = true
 hotkey_suppression_logging = true
 notification_skip_logging = true
 fleet_selection_timing_logging = true
@@ -193,8 +193,8 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.diagnostics.ship_identity);
     CHECK(result.advanced.diagnostics.battle_log_decoder);
     CHECK_FALSE(result.advanced.diagnostics.battle_catalog);
-    CHECK(result.advanced.diagnostics.debug);
-    CHECK(result.advanced.diagnostics.logging);
+    CHECK(result.advanced.diagnostics.reserved_native_debug);
+    CHECK(result.advanced.diagnostics.reserved_native_payload_logging);
     CHECK(result.advanced.diagnostics.hotkey_suppression_logging);
     CHECK(result.advanced.diagnostics.notification_skip_logging);
     CHECK(result.advanced.diagnostics.fleet_selection_timing_logging);
@@ -276,7 +276,24 @@ ship_state_probe_stack_budget = 12
                          config_schema::DiagnosticSeverity::Warning));
   }
 
-  TEST_CASE("advanced diagnostics debug does not enable noisy breadcrumb logging")
+  TEST_CASE("reserved native compatibility toggles do not gate specific breadcrumb logging")
+  {
+    auto config = toml::parse(R"(
+[advanced.diagnostics]
+reserved_native_debug = true
+reserved_native_payload_logging = true
+)");
+
+    const auto result = ParseSidecarConfig(config);
+
+    CHECK(result.advanced.diagnostics.reserved_native_debug);
+    CHECK(result.advanced.diagnostics.reserved_native_payload_logging);
+    CHECK_FALSE(result.advanced.diagnostics.hotkey_suppression_logging);
+    CHECK_FALSE(result.advanced.diagnostics.notification_skip_logging);
+    CHECK_FALSE(result.advanced.diagnostics.fleet_selection_timing_logging);
+  }
+
+  TEST_CASE("deprecated generic advanced diagnostics aliases populate reserved native compatibility toggles")
   {
     auto config = toml::parse(R"(
 [advanced.diagnostics]
@@ -286,11 +303,12 @@ logging = true
 
     const auto result = ParseSidecarConfig(config);
 
-    CHECK(result.advanced.diagnostics.debug);
-    CHECK(result.advanced.diagnostics.logging);
-    CHECK_FALSE(result.advanced.diagnostics.hotkey_suppression_logging);
-    CHECK_FALSE(result.advanced.diagnostics.notification_skip_logging);
-    CHECK_FALSE(result.advanced.diagnostics.fleet_selection_timing_logging);
+    CHECK(result.advanced.diagnostics.reserved_native_debug);
+    CHECK(result.advanced.diagnostics.reserved_native_payload_logging);
+    CHECK(has_diagnostic_source(result.diagnostics, "advanced.diagnostics.reserved_native_debug",
+                                "advanced.diagnostics.debug", config_schema::DiagnosticSeverity::Info));
+    CHECK(has_diagnostic_source(result.diagnostics, "advanced.diagnostics.reserved_native_payload_logging",
+                                "advanced.diagnostics.logging", config_schema::DiagnosticSeverity::Info));
   }
 
   TEST_CASE("deprecated queue viewer key warns when its value is not boolean")
@@ -394,15 +412,15 @@ logging = false
     CHECK(result.advanced.diagnostics.ship_identity);
     CHECK_FALSE(result.advanced.diagnostics.battle_log_decoder);
     CHECK(result.advanced.diagnostics.battle_catalog);
-    CHECK(result.advanced.diagnostics.debug);
-    CHECK_FALSE(result.advanced.diagnostics.logging);
+    CHECK(result.advanced.diagnostics.reserved_native_debug);
+    CHECK_FALSE(result.advanced.diagnostics.reserved_native_payload_logging);
 
     CHECK(has_diagnostic_source(result.diagnostics, "advanced.diagnostics.ship_identity",
                                 "sidecar.probes.ship_identity", config_schema::DiagnosticSeverity::Info));
     CHECK(has_diagnostic_source(result.diagnostics, "advanced.diagnostics.battle_catalog",
                                 "sidecar.probes.battle_catalog", config_schema::DiagnosticSeverity::Info));
-    CHECK(has_diagnostic_source(result.diagnostics, "advanced.diagnostics.debug", "sidecar.diagnostics.debug",
-                                config_schema::DiagnosticSeverity::Info));
+    CHECK(has_diagnostic_source(result.diagnostics, "advanced.diagnostics.reserved_native_debug",
+                                "sidecar.diagnostics.debug", config_schema::DiagnosticSeverity::Info));
   }
 
   TEST_CASE("rejects legacy sidecar sync targets and loopback sync urls without flagging external targets")
@@ -456,7 +474,8 @@ mode = "majel"
     sidecar.logging.jsonl                                 = true;
     sidecar.logging.jsonl_replay_seconds                  = 15;
     sidecar.logging.jsonl_recent_logs                     = 7;
-    advanced.diagnostics.debug                            = true;
+    advanced.diagnostics.reserved_native_debug            = true;
+    advanced.diagnostics.reserved_native_payload_logging  = true;
     advanced.diagnostics.ship_identity                    = true;
     advanced.diagnostics.hotkey_suppression_logging       = true;
     advanced.diagnostics.notification_skip_logging        = true;
@@ -492,7 +511,10 @@ mode = "majel"
     CHECK(runtime_snapshot["sidecar"]["logging"]["jsonl"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["sidecar"]["sync"]["battlelog_enrichment"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["sidecar"]["logging"]["jsonl_replay_seconds"].value<int>().value_or(0) == 15);
-    CHECK(runtime_snapshot["advanced"]["diagnostics"]["debug"].value<bool>().value_or(false));
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["reserved_native_debug"].value<bool>().value_or(false));
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["reserved_native_payload_logging"]
+              .value<bool>()
+              .value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["ship_identity"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["hotkey_suppression_logging"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["notification_skip_logging"].value<bool>().value_or(false));
