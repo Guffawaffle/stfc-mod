@@ -30,8 +30,9 @@ on_fleet_state_change = false
 on_fleets_disposed = false
 
 [advanced.diagnostics]
-# Science-only, mutually exclusive ship-state probe selector. The implemented
-# mode observes repair ActionStatus transitions without changing return values.
+# Science-only, mutually exclusive ship-state probe selector. The passive mode
+# observes repair ActionStatus transitions without changing return values; the
+# explicit guard mode performs only the projection described below.
 # It requires live_query = true so evidence stays in the bounded recent-event
 # ring. Restart the client after changing either key.
 live_query = false

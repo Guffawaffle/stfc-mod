@@ -1,6 +1,6 @@
 # Probe: Repair action-status transition
 
-- Status: implemented; repair flip reproduced and captured
+- Status: passive probe proven; narrow guard implemented and awaiting human smoke
 - Owner: ship-state synchronization investigation
 - Date: 2026-07-14
 - Related patch label: none
@@ -22,11 +22,11 @@ Which repair `ActionStatus` transitions occur between one Repair click and the s
 
 ## Risk
 
-- Risk class: R4
-- Confidence rung: static relationship
-- Payload confidence: `ActionType` and `ActionStatus` are statically confirmed 32-bit enums; `FleetPlayerData*` lifetime at this seam and fleet-ID reads are not yet runtime-proven for this detour.
-- Original/trampoline confidence: unproven for a detour; exact script ABI is recorded, but a clean reachability run is required before parameter or stack escalation.
-- Behavior change expected: no
+- Risk class: R4 in passive `repair_action_status` mode; R5 in behavior-changing `repair_action_status_guard` mode.
+- Confidence rung: state-correlated for the passive seam and payload; the guard remains a science canary until its human smoke completes.
+- Payload confidence: runtime-proven for the receiver, fleet ID, current/previous fleet state, Repair `ActionType`, and observed `ActionStatus` values on this detour.
+- Original/trampoline confidence: runtime-proven across multiple passive repair lifecycles. The hook calls the original exactly once in both modes; guard mode intentionally projects only `Ready + Repairing` to `Disabled`.
+- Behavior change expected: none in passive mode; the explicit guard mode performs the single projection above.
 
 ## Implementation Plan
 
@@ -125,9 +125,9 @@ disassembly locate the projection mechanism but do not directly prove the sample
 
 ## Exit Decision
 
-The repair transition, failure window, and one caller stack are captured cleanly. The airlock consumed its one-event budget and the persistent configuration has been restored to zero.
+The repair transition, failure window, click path, and one caller stack are captured cleanly. The airlock consumed its one-event budget and the persistent configuration has been restored to zero.
 
-Next action: design the narrowest UI-projection guard that prevents `ActionElementWidget` from publishing an instant Repair context while the fleet is still `Repairing`. Keep the broader reconciliation hook disabled, and do not alter server requests until the click-path behavior is separately mapped.
+The narrow guard is implemented and deployed as `repair_action_status_guard`. The remaining evidence gate is one human repair smoke proving that invalid instant Repair is suppressed, repair completes, and Ask for Help remains usable. Keep the broader reconciliation hook disabled and do not promote this canary to production before that evidence is recorded.
 
 ## Resolution Canary Contract
 

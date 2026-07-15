@@ -2,7 +2,7 @@
 
 Date: 2026-07-14
 Branch: `investigation/ship-state-sync`
-Status: repair flip reproduced; transient client-model/action-status mismatch confirmed
+Status: repair mismatch and click path confirmed; narrow science guard awaiting human smoke
 
 ## Problem Register
 
@@ -252,9 +252,9 @@ Disable the probe immediately if the game crashes, hangs, loses input, changes a
 - `dump-method` works with the short class name; the fully qualified class plus `--fts` path currently fails in the private adapter.
 - Existing `fleet-slots-state` is a useful client-model baseline but lacks jobs, deployed state, action masks/status, callbacks, and callers.
 - The dump provides exact symbols and ABI hints, not actual callers. Real caller evidence requires the stack-capture airlock.
-- The default-off repair probe installed as the sole owner of `GetActionStatus`, returned every original value unchanged, and later captured one real repair lifecycle without a crash or hang.
+- The default-off passive repair probe installed as the sole owner of `GetActionStatus`, returned every original value unchanged, and captured multiple repair variants without a crash or hang.
 - The confirmed mismatch is `ActionStatus::Ready` while the fleet remains `Repairing`; the client converged to `Docked` about 1.55 seconds later.
 - The one-event caller airlock resolved the real UI refresh chain as `JobService.UpdateJobList → ActionElementWidget.HandleReactiveInt → ActionElementWidget.GetInstantButtonContext → IActionData.GetActionStatus/GetInstantCost`.
 - A later zero-cost Repair presentation shared the same `InProgress_Free → Ready` while `Repairing` invariant and repair-complete boundary.
 - The persistent stack budget has been restored to zero after the successful sample.
-- The current game config keeps `ship_state_probe = "repair_action_status"` enabled for this bounded active investigation; restore `off` before normal release use.
+- The current game config keeps `ship_state_probe = "repair_action_status_guard"` enabled for its bounded human smoke, with stack budget zero; restore `off` before normal release use.
