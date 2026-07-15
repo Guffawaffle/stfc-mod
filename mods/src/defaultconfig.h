@@ -133,7 +133,7 @@ namespace Advanced
     constexpr bool fleet_selection_timing_logging = false;
     /// Enable the live debug/query channel for AX and runtime inspection. Default: false.
     constexpr bool live_query = false;
-    /// Science-only ship-state mode: off, repair_action_status, or repair_action_status_guard. Default: off.
+    /// Science-only ship-state mode: off or repair_action_status. Default: off.
     constexpr const char* ship_state_probe = "off";
     /// One-shot caller samples for the ship-state probe. Valid range: 0-1. Default: 0.
     constexpr int ship_state_probe_stack_budget = 0;

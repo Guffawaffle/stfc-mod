@@ -620,11 +620,6 @@ bool RefineryDiagnosticsEnabled();
 bool RepairActionStatusProbeEnabled();
 
 /**
- * @brief Whether the science canary suppresses Repair Ready while the fleet is still Repairing.
- */
-bool RepairReadyWhileRepairingGuardEnabled();
-
-/**
  * @brief Remaining one-shot caller samples allowed for the repair status probe.
  */
 int RepairActionStatusProbeStackBudget();

@@ -227,7 +227,8 @@ It avoided changing job reconciliation or server requests, but its human smoke s
 before Ask for Help. One invalid `Ready` arrived while the model briefly reported `Docked` with previous state
 `Repairing`, outside the predicate; another matched the predicate and was projected to `Disabled`, yet the visible
 churn remained. The status-only guard is therefore insufficient and must not be promoted. Runtime configuration has
-been restored to the passive probe while the next single projection seam is reviewed.
+been restored to the passive probe, and the failed behavior mode has been removed while the next single projection
+seam is reviewed.
 
 ## Evidence Schema
 
@@ -260,6 +261,6 @@ Disable the probe immediately if the game crashes, hangs, loses input, changes a
 - The one-event caller airlock resolved the real UI refresh chain as `JobService.UpdateJobList → ActionElementWidget.HandleReactiveInt → ActionElementWidget.GetInstantButtonContext → IActionData.GetActionStatus/GetInstantCost`.
 - A later post-completion Repair reappearance displayed cost zero and shared the same `InProgress_Free → Ready` while `Repairing` invariant and repair-complete boundary.
 - The first `Ready + Repairing → Disabled` guard canary fired twice in a later smoke, but pay-to-repair still appeared before Ask for Help; a separate invalid `Ready` also occurred during a transient `Docked/previous Repairing` state.
-- The status-only behavior canary failed its visible-outcome goal and was rolled back rather than widened in place.
+- The status-only behavior canary failed its visible-outcome goal and was removed rather than widened in place.
 - The persistent stack budget has been restored to zero after the successful sample.
 - The current game config keeps passive `ship_state_probe = "repair_action_status"` enabled with stack budget zero while the next projection boundary is reviewed; restore `off` before normal release use.

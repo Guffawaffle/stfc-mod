@@ -167,11 +167,8 @@ bool RefineryDiagnosticsEnabled()
 bool RepairActionStatusProbeEnabled()
 {
   const auto& mode = g_advanced_config.diagnostics.ship_state_probe;
-  return LiveDebugChannelEnabled() && (mode == "repair_action_status" || mode == "repair_action_status_guard");
+  return LiveDebugChannelEnabled() && mode == "repair_action_status";
 }
-
-bool RepairReadyWhileRepairingGuardEnabled()
-{ return LiveDebugChannelEnabled() && g_advanced_config.diagnostics.ship_state_probe == "repair_action_status_guard"; }
 
 int RepairActionStatusProbeStackBudget()
 { return g_advanced_config.diagnostics.ship_state_probe_stack_budget; }

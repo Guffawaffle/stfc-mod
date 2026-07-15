@@ -22,16 +22,16 @@ Which repair `ActionStatus` transitions occur between one Repair click and the s
 
 ## Risk
 
-- Risk class: R4 in passive `repair_action_status` mode; R5 in behavior-changing `repair_action_status_guard` mode.
+- Risk class: R4 for the retained passive `repair_action_status` mode; the removed behavior canary was R5.
 - Confidence rung: state-correlated for the passive seam and payload; the guard is runtime-observed but not product-safe.
 - Payload confidence: runtime-proven for the receiver, fleet ID, current/previous fleet state, Repair `ActionType`, and observed `ActionStatus` values on this detour.
-- Original/trampoline confidence: runtime-proven across multiple passive repair lifecycles. The hook calls the original exactly once in both modes; guard mode intentionally projects only `Ready + Repairing` to `Disabled`.
-- Behavior change expected: none in passive mode; the explicit guard mode performs the single projection above.
+- Original/trampoline confidence: runtime-proven across multiple passive repair lifecycles. The retained hook calls the original exactly once and returns its result unchanged.
+- Behavior change expected: none. The failed behavior canary is preserved only as historical evidence below.
 
 ## Implementation Plan
 
 - Module/file: `mods/src/patches/parts/client_ship_state_probe.cc`
-- Config or compile guard: science-only `[advanced.diagnostics].ship_state_probe = "repair_action_status"` for passive observation or `"repair_action_status_guard"` for the explicit behavior canary; default `"off"`. Caller capture uses a separate `ship_state_probe_stack_budget` integer clamped to 0-1 and defaulting to 0.
+- Config or compile guard: science-only `[advanced.diagnostics].ship_state_probe = "repair_action_status"` for passive observation; default `"off"`. Caller capture uses a separate `ship_state_probe_stack_budget` integer clamped to 0-1 and defaulting to 0. The failed `"repair_action_status_guard"` mode is no longer accepted.
 - Hook descriptor name: `kRepairActionStatusHook`
 - Target assembly: `Digit.Client.PrimeLib.Runtime`
 - Target namespace: `Digit.PrimeServer.Models`
@@ -129,9 +129,9 @@ the sampled cost value.
 
 The repair transition, failure window, click path, and one caller stack are captured cleanly. The airlock consumed its one-event budget and the persistent configuration has been restored to zero.
 
-The first narrow guard was deployed as `repair_action_status_guard` and failed its human visible-outcome smoke: pay-to-repair choices still appeared before Ask for Help. The runtime was restored to passive `repair_action_status` with stack budget zero. Keep the broader reconciliation hook disabled and do not promote this guard.
+The first narrow guard was deployed as `repair_action_status_guard` and failed its human visible-outcome smoke: pay-to-repair choices still appeared before Ask for Help. The behavior mode was removed, and runtime was restored to passive `repair_action_status` with stack budget zero. Keep the broader reconciliation hook disabled.
 
-## Resolution Canary Contract
+## Historical Resolution Canary Contract
 
 Static disassembly of `ActionElementWidget.OnInstantButtonClickCallback` shows the instant button forwarding the
 target, action type, index, and instant behavior mask to `IActionHandler.RequestAction`. The stale instant context is
@@ -143,7 +143,7 @@ Only when all of these conditions are true does it project `Disabled (0)` instea
 - action type is Repair;
 - `FleetPlayerData.CurrentState == Repairing (32)`;
 - the original return is `Ready (100)`;
-- explicit science mode is `repair_action_status_guard`.
+- the now-removed science mode was `repair_action_status_guard`.
 
 Every other action, fleet state, and status returns the exact original value. The original is still called exactly
 once. The transition event records both `originalReturn` and `returnedStatus` plus `guardApplied`, allowing the
@@ -168,6 +168,6 @@ observed the pay-to-repair churn. An empty-title state-0 toast coincided with bo
 input, the affected fleets later converged to `Docked`.
 
 Conclusion: projecting only the `GetActionStatus` return is insufficient to make the visible instant-button context
-coherent. The failed behavior canary is rolled back to passive observation. The next investigation should stay
+coherent. The failed behavior mode was removed, leaving passive observation only. The next investigation should stay
 single-seam and examine the already-mapped `ActionElementWidget.GetInstantButtonContext` / `HandleReactiveInt`
 projection boundary rather than widening this predicate in place.
