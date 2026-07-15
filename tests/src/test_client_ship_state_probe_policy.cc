@@ -44,8 +44,14 @@ TEST_SUITE("client_ship_state_probe_policy")
     CHECK(ready.changed);
     CHECK(ready.has_previous);
     CHECK(ready.previous_status == 300);
-    CHECK(ship_state_probe::should_capture_complete_to_ready_caller(ready, 100, 32));
-    CHECK_FALSE(ship_state_probe::should_capture_complete_to_ready_caller(ready, 100, 2));
-    CHECK_FALSE(ship_state_probe::should_capture_complete_to_ready_caller(ready, 201, 32));
+    CHECK(ship_state_probe::should_capture_ready_while_repairing_caller(ready, 100, 32));
+    CHECK_FALSE(ship_state_probe::should_capture_ready_while_repairing_caller(ready, 100, 2));
+    CHECK_FALSE(ship_state_probe::should_capture_ready_while_repairing_caller(ready, 201, 32));
+
+    ship_state_probe::RepairStatusTransitionCache ask_for_help_cache;
+    const auto                                    ask_for_help_first    = ask_for_help_cache.observe(42, 202);
+    const auto                                    ask_for_help_to_ready = ask_for_help_cache.observe(42, 100);
+    CHECK_FALSE(ship_state_probe::should_capture_ready_while_repairing_caller(ask_for_help_first, 100, 32));
+    CHECK(ship_state_probe::should_capture_ready_while_repairing_caller(ask_for_help_to_ready, 100, 32));
   }
 }

@@ -105,12 +105,12 @@ This inventory records source-level seams from a static-only review. It does not
 - Static evidence: current dump and script metadata report `ActionStatus GetActionStatus(ActionType)` at RVA `0x17BE0B0`; repair presentation has distinct `InProgress`, `InProgress_Free`, and `InProgress_AskForHelp` states and ask-for-help locale settings.
 - Risk class: R4 native interpretation because a passive detour must use the original/trampoline and interpret the scalar argument/return.
 - Confidence rung: runtime relationship for the exact detour, established scalar/property reads, and one reproduced repair lifecycle.
-- Runtime evidence: one free-play reproduction produced `Ready → InProgress_Free → Complete → Ready → Disabled`. The fleet was still `Repairing` during the second `Ready` result and did not become `Docked` for about 1.55 seconds. Native fleet-bar evidence reported repair complete at the same millisecond that `Ready` reappeared. No crash, hang, input loss, duplicate owner, or probe-induced request was observed.
-- Payload confidence: runtime confidence for the receiver, fleet ID, current/previous state, 32-bit `ActionType`, and nonzero `ActionStatus`/original returns 100, 201, and 300 on the observed repair path.
+- Runtime evidence: one free-play reproduction produced `Ready → InProgress_Free → Complete → Ready → Disabled`. A second Ship Manage reproduction produced `InProgress_AskForHelp → Ready → InProgress_AskForHelp` while the fleet remained `Repairing`; the invalid `Ready` window lasted about 334 ms. Native fleet-bar evidence reported repair complete at the boundary in both variants. No crash, hang, input loss, duplicate owner, or probe-induced request was observed.
+- Payload confidence: runtime confidence for the receiver, fleet ID, current/previous state, 32-bit `ActionType`, and `ActionStatus`/original returns 0, 100, 200, 201, 202, and 300 on observed repair paths.
 - Original/trampoline confidence: passed across the reproduced repair lifecycle with every original result returned unchanged.
 - Flag / rollback path: mutually exclusive science mode `repair_action_status`, default `off`; caller budget separately defaults to zero and is clamped to one; disable both in TOML and restart, or remove one module/install entry.
 - Status: science canary and one-event caller airlock implemented; both remain fail-closed by default. The transition probe is temporarily enabled in the current game config.
-- Next action: run one module-relative caller sample from Ship Manage only for `Complete → Ready` while the fleet remains `Repairing`; keep the broader reconciliation hook disabled.
+- Next action: run one module-relative caller sample from Ship Manage for a distinct transition to `Ready` while the fleet remains `Repairing`; keep the broader reconciliation hook disabled.
 
 ### `Digit.PrimeServer.Services.FleetService.UpdateFleetWithDeploymentData(FleetPlayerData, FleetDeployedData)`
 

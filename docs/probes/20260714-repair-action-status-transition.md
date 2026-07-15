@@ -86,7 +86,7 @@ Build commit, config snapshot, marker/sequence range, status sequence, final vis
 
 - Build/deploy command: `axf run global.stfc-mod-private.cycle --build-mode releasedbg`; run once with the probe off, once with `repair_action_status`, and once more after restoring `off`.
 - Runtime command: serial `live-state --view fleet-slots`, an AX marker, and bounded exact-kind `recent-events` follow calls.
-- Human action performed: during a later free-play window, Repair was clicked on one docked damaged fleet and the visible Free action was clicked from a different screen than the usual reproduction. The button then flipped back to the cost-to-repair presentation and a popup appeared.
+- Human action performed: during a later free-play window, Repair was clicked on one docked damaged fleet and the visible Free action was clicked from a different screen than the usual reproduction. The button then flipped back to the cost-to-repair presentation and opened the instant lat-cost confirmation as though that button had been clicked.
 - Observed log/event evidence: exact-kind event-store sequence 297-305 and native log lines 1643-1652 captured the same fleet and thread. The original return was preserved at every call.
 
 | Local time | ActionStatus | Fleet state | Correlated event |
@@ -100,10 +100,16 @@ Build commit, config snapshot, marker/sequence range, status sequence, final vis
 | 03:54:59.964 | unchanged | `Docked` | Debounced `fleet-slot-repair-completed` runtime capture executes |
 
 - Crash/hang/recovery notes: none. The fleet converged to Docked without manual recovery. The probe remains enabled for the current investigation window.
-- Answer to the question: confirmed. The observed sequence was `Ready → InProgress_Free → Complete → Ready → Disabled`. `GetActionStatus(Repair)` returned `Ready` for about 1.55 seconds while `CurrentState` was still `Repairing`, directly explaining the transient cost-to-repair button. The popup coincided with repair completion and an empty-title toast; its exact text is still needed to attribute it conclusively.
+- Answer to the question: confirmed. The observed sequence was `Ready → InProgress_Free → Complete → Ready → Disabled`. `GetActionStatus(Repair)` returned `Ready` for about 1.55 seconds while `CurrentState` was still `Repairing`, directly explaining the transient cost-to-repair button and instant lat-cost confirmation.
+
+A second Ship Manage reproduction on 2026-07-15 produced a shorter variant on exact-kind event-store sequence
+388-391: `InProgress_AskForHelp (202) → Ready (100) → InProgress_AskForHelp (202)`, with `CurrentState ==
+Repairing` throughout. The invalid `Ready` window lasted about 334 ms. Native `REPAIR_COMPLETE` appeared one
+millisecond after `Ready`. The caller budget remained unused because its first predicate required
+`Complete → Ready`; this evidence justifies triggering on the invalid `Ready`-while-`Repairing` invariant instead.
 
 ## Exit Decision
 
-The repair transition and failure window are captured cleanly. A one-shot caller-stack airlock is now implemented but remains default zero. It triggers only on `Complete → Ready` while `CurrentState == Repairing`, consumes its one-event budget atomically, and records module basenames plus relative offsets for offline symbolization.
+The repair transition and failure window are captured cleanly. A one-shot caller-stack airlock is implemented but remains default zero. It triggers on any distinct transition to `Ready` while `CurrentState == Repairing`, consumes its one-event budget atomically, and records module basenames plus relative offsets for offline symbolization.
 
-Next action: run the one-event caller sample from Ship Manage, identify the UI caller for the `Complete → Ready` transition, and correlate it with repair job/fleet-state completion ordering. Do not install the broader reconciliation seam concurrently.
+Next action: run the one-event caller sample from Ship Manage, identify the UI caller for the invalid `Ready` projection, and correlate it with repair job/fleet-state completion ordering. Do not install the broader reconciliation seam concurrently.

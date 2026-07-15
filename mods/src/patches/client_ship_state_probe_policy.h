@@ -12,14 +12,12 @@ struct RepairStatusTransition {
   int32_t previous_status = 0;
 };
 
-constexpr bool should_capture_complete_to_ready_caller(const RepairStatusTransition& transition, int32_t current_status,
-                                                       int32_t current_fleet_state)
+constexpr bool should_capture_ready_while_repairing_caller(const RepairStatusTransition& transition,
+                                                           int32_t current_status, int32_t current_fleet_state)
 {
-  constexpr int32_t kActionStatusReady    = 100;
-  constexpr int32_t kActionStatusComplete = 300;
-  constexpr int32_t kFleetStateRepairing  = 32;
-  return transition.has_previous && transition.previous_status == kActionStatusComplete
-         && current_status == kActionStatusReady && current_fleet_state == kFleetStateRepairing;
+  constexpr int32_t kActionStatusReady   = 100;
+  constexpr int32_t kFleetStateRepairing = 32;
+  return transition.has_previous && current_status == kActionStatusReady && current_fleet_state == kFleetStateRepairing;
 }
 
 class RepairStatusTransitionCache

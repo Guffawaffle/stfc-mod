@@ -142,7 +142,8 @@ int32_t FleetPlayerData_GetActionStatus_Hook(auto original, FleetPlayerData* fle
                                   {"actionStatus", status},
                                   {"originalReturn", status}});
 
-  if (ship_state_probe::should_capture_complete_to_ready_caller(transition, status, static_cast<int32_t>(current_state))
+  if (ship_state_probe::should_capture_ready_while_repairing_caller(transition, status,
+                                                                    static_cast<int32_t>(current_state))
       && ConsumeStackBudget()) {
     auto frames = CaptureModuleRelativeStack();
     live_debug_events::RecordEvent("ship-state-probe.repair-action-status-caller-sample",
@@ -152,7 +153,7 @@ int32_t FleetPlayerData_GetActionStatus_Hook(auto original, FleetPlayerData* fle
                                     {"monotonicMicros", MonotonicMicros()},
                                     {"threadId", std::hash<std::thread::id>{}(std::this_thread::get_id())},
                                     {"seam", "FleetPlayerData.GetActionStatus(ActionType)"},
-                                    {"trigger", "CompleteToReadyWhileRepairing"},
+                                    {"trigger", "ReadyWhileRepairing"},
                                     {"fleetId", fleet_id},
                                     {"frameCount", frames.size()},
                                     {"frames", std::move(frames)}});

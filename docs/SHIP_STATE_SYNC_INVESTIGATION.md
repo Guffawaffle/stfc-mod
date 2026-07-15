@@ -94,6 +94,14 @@ The critical mismatch is the second `Ready`: `GetActionStatus(Repair)` returned 
 
 Native fleet-bar logging reported `REPAIR_COMPLETE` at the same millisecond that `Ready` reappeared. On Ship Manage, the rebound action opened the instant lat-cost confirmation as though the cost button had been clicked. This makes the mismatch a spend-path interaction hazard, not merely visual churn. An empty-title state-0 toast and the mod's repair-complete notification were also queued at that boundary.
 
+A second Ship Manage reproduction on 2026-07-15 showed that the invalid projection is not limited to a
+`Complete → Ready` transition. For one fleet, the observed sequence included
+`InProgress_AskForHelp → Ready → InProgress_AskForHelp` while `CurrentState` remained `Repairing`. The invalid
+`Ready` result lasted about 334 ms, and native fleet-bar logging again reported `REPAIR_COMPLETE` at the same
+boundary. The original one-shot caller predicate deliberately required `Complete → Ready`, so it did not consume
+its budget. The predicate is now keyed to the invariant violation itself: any distinct transition to `Ready` while
+the fleet is still `Repairing`.
+
 ## Stuck-Fleet Findings
 
 `FleetPlayerData` combines incoming deployed state, job state, course and warp data, action masks, and state evaluation into the model consumed by action gating. `FleetService` is the strongest shared repair/warp reconciliation neighborhood.
@@ -211,5 +219,5 @@ Disable the probe immediately if the game crashes, hangs, loses input, changes a
 - The dump provides exact symbols and ABI hints, not actual callers. Real caller evidence requires the stack-capture airlock.
 - The default-off repair probe installed as the sole owner of `GetActionStatus`, returned every original value unchanged, and later captured one real repair lifecycle without a crash or hang.
 - The confirmed mismatch is `ActionStatus::Ready` while the fleet remains `Repairing`; the client converged to `Docked` about 1.55 seconds later.
-- The stack-capture airlock is implemented with a default-zero, clamped 0-1 budget. It triggers only on `Complete → Ready` during `Repairing` and records module-relative frames.
+- The stack-capture airlock is implemented with a default-zero, clamped 0-1 budget. It triggers on a distinct transition to `Ready` during `Repairing` and records module-relative frames.
 - The current game config keeps `ship_state_probe = "repair_action_status"` enabled for this bounded active investigation; restore `off` before normal release use.
