@@ -31,7 +31,7 @@ Which repair `ActionStatus` transitions occur between one Repair click and the s
 ## Implementation Plan
 
 - Module/file: `mods/src/patches/parts/client_ship_state_probe.cc`
-- Config or compile guard: science-only `[advanced.diagnostics].ship_state_probe = "repair_action_status"`; default `"off"`. Caller capture uses a separate `ship_state_probe_stack_budget` integer clamped to 0-1 and defaulting to 0.
+- Config or compile guard: science-only `[advanced.diagnostics].ship_state_probe = "repair_action_status"` for passive observation or `"repair_action_status_guard"` for the explicit behavior canary; default `"off"`. Caller capture uses a separate `ship_state_probe_stack_budget` integer clamped to 0-1 and defaulting to 0.
 - Hook descriptor name: `kRepairActionStatusHook`
 - Target assembly: `Digit.Client.PrimeLib.Runtime`
 - Target namespace: `Digit.PrimeServer.Models`
@@ -51,7 +51,7 @@ Registry requirements:
 
 ## Disable Path
 
-- Flag or code path to disable: set probe mode to `"off"`, set `ship_state_probe_stack_budget = 0`, and restart the client.
+- Flag or code path to disable: set probe mode to `"off"` (or passive `"repair_action_status"`), set `ship_state_probe_stack_budget = 0`, and restart the client.
 - File/entry to delete if it crashes: remove `client_ship_state_probe.cc` and its single `patches.cc` install entry.
 - Expected boot log when disabled: the science probe module is skipped and owns no hook target.
 
@@ -108,8 +108,46 @@ Repairing` throughout. The invalid `Ready` window lasted about 334 ms. Native `R
 millisecond after `Ready`. The caller budget remained unused because its first predicate required
 `Complete → Ready`; this evidence justifies triggering on the invalid `Ready`-while-`Repairing` invariant instead.
 
+After deploying the revised predicate, event-store sequence 94-95 consumed the one-event budget on
+`InProgress_Free (201) → Ready (100)` while `CurrentState == Repairing`. The 25-frame sample symbolized to this
+relevant chain:
+
+`JobService.UpdateJobList → ActionElementWidget.HandleReactiveInt → ActionElementWidget.GetInstantButtonContext → FleetPlayerData.GetActionStatus`
+
+Exact RVAs were `0x16517BA`, `0x11E63E6`, and `0x11E6C12` respectively. Disassembly of
+`GetInstantButtonContext` confirms that it obtains action status and instant cost through separate `IActionData`
+dispatches; `HandleReactiveInt` then copies the resulting context into the live instant-button context.
+
+A later observation at event-store sequence 181-183 showed the same `InProgress_Free → Ready` while `Repairing`
+transition when the button momentarily displayed a zero-cost Repair action. Native `REPAIR_COMPLETE` and an
+empty-title state-0 toast occurred in the same millisecond. Cost was not part of this probe payload, so the stack and
+disassembly locate the projection mechanism but do not directly prove the sampled cost value.
+
 ## Exit Decision
 
-The repair transition and failure window are captured cleanly. A one-shot caller-stack airlock is implemented but remains default zero. It triggers on any distinct transition to `Ready` while `CurrentState == Repairing`, consumes its one-event budget atomically, and records module basenames plus relative offsets for offline symbolization.
+The repair transition, failure window, and one caller stack are captured cleanly. The airlock consumed its one-event budget and the persistent configuration has been restored to zero.
 
-Next action: run the one-event caller sample from Ship Manage, identify the UI caller for the invalid `Ready` projection, and correlate it with repair job/fleet-state completion ordering. Do not install the broader reconciliation seam concurrently.
+Next action: design the narrowest UI-projection guard that prevents `ActionElementWidget` from publishing an instant Repair context while the fleet is still `Repairing`. Keep the broader reconciliation hook disabled, and do not alter server requests until the click-path behavior is separately mapped.
+
+## Resolution Canary Contract
+
+Static disassembly of `ActionElementWidget.OnInstantButtonClickCallback` shows the instant button forwarding the
+target, action type, index, and instant behavior mask to `IActionHandler.RequestAction`. The stale instant context is
+therefore an actionable request path, not merely a label defect.
+
+The first behavior canary reuses the already-proven sole-owner `FleetPlayerData.GetActionStatus(ActionType)` seam.
+Only when all of these conditions are true does it project `Disabled (0)` instead of the original `Ready (100)`:
+
+- action type is Repair;
+- `FleetPlayerData.CurrentState == Repairing (32)`;
+- the original return is `Ready (100)`;
+- explicit science mode is `repair_action_status_guard`.
+
+Every other action, fleet state, and status returns the exact original value. The original is still called exactly
+once. The transition event records both `originalReturn` and `returnedStatus` plus `guardApplied`, allowing the
+canary to prove that it blocked only the impossible state.
+
+Expected smoke-test result: the transient cost/zero-cost instant Repair action is replaced by a brief disabled state,
+then the normal stable action appears after the fleet model converges. Disable immediately if Ask for Help cannot be
+requested, repair cannot complete, any non-Repair action changes, or a fleet remains stuck longer than the passive
+baseline.

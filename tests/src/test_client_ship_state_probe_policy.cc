@@ -54,4 +54,12 @@ TEST_SUITE("client_ship_state_probe_policy")
     CHECK_FALSE(ship_state_probe::should_capture_ready_while_repairing_caller(ask_for_help_first, 100, 32));
     CHECK(ship_state_probe::should_capture_ready_while_repairing_caller(ask_for_help_to_ready, 100, 32));
   }
+
+  TEST_CASE("repair guard suppresses only Ready while the fleet remains Repairing")
+  {
+    CHECK(ship_state_probe::project_repair_action_status(100, 32, true) == 0);
+    CHECK(ship_state_probe::project_repair_action_status(100, 2, true) == 100);
+    CHECK(ship_state_probe::project_repair_action_status(202, 32, true) == 202);
+    CHECK(ship_state_probe::project_repair_action_status(100, 32, false) == 100);
+  }
 }

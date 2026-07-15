@@ -102,6 +102,34 @@ boundary. The original one-shot caller predicate deliberately required `Complete
 its budget. The predicate is now keyed to the invariant violation itself: any distinct transition to `Ready` while
 the fleet is still `Repairing`.
 
+### Caller sample and zero-cost variant
+
+The revised one-event airlock fired at 01:27:44.278 on an `InProgress_Free → Ready` transition while the fleet
+remained `Repairing`. Offline symbolization against the exact deployed DLL and current game dump resolved the
+relevant frames:
+
+| Frame | Module-relative RVA | Symbol |
+| --- | --- | --- |
+| 0 | `VERSION.dll+0xF2D3A` | `CaptureModuleRelativeStack` |
+| 1 | `VERSION.dll+0xF25E0` | `FleetPlayerData_GetActionStatus_Hook` |
+| 2 | `GameAssembly.dll+0x11E6C12` | `ActionElementWidget.GetInstantButtonContext+0x72` |
+| 3 | `GameAssembly.dll+0x11E63E6` | `ActionElementWidget.HandleReactiveInt+0x216` |
+| 6 | `GameAssembly.dll+0x16517BA` | `JobService.UpdateJobList+0x31A` |
+| 7 | `GameAssembly.dll+0x1651368` | `JobService.Tick+0x4E8` |
+| 8 | `GameAssembly.dll+0x1530E7C` | `GameServer.TickServer+0x13C` |
+
+The exact disassembly shows `GetInstantButtonContext` querying `IActionData.GetActionStatus` and the instant cost
+separately, then `HandleReactiveInt` copying the returned context into `_instantButtonContext` through
+`GenericButtonContext.ValueCopy`. This is a real caller chain: a job-list tick refreshes the action widget while
+the repair model is between coherent states.
+
+At 01:39:02.195, a later user-observed variant displayed a zero-cost Repair button momentarily after Free was
+clicked. The transition evidence was again `InProgress_Free → Ready` while `CurrentState == Repairing`, and
+`REPAIR_COMPLETE` plus an empty-title state-0 toast occurred at the same millisecond. The zero amount is consistent
+with the instant-button context being rebuilt from independently observed status and instant-cost values during the
+non-atomic job update; the current probe does not record the cost payload, so that final payload relationship remains
+an evidence-backed inference rather than a direct measurement.
+
 ## Stuck-Fleet Findings
 
 `FleetPlayerData` combines incoming deployed state, job state, course and warp data, action masks, and state evaluation into the model consumed by action gating. `FleetService` is the strongest shared repair/warp reconciliation neighborhood.
@@ -191,6 +219,13 @@ Do not hook generated repair closures, replace callbacks, invoke recovery, add a
 
 Implement behavior only after the trace locates the divergence. Keep the repair fix and general stuck-fleet fix separate unless the same failed invariant is demonstrated in both reproductions.
 
+The trace has now located the repair divergence and mapped the instant-button click path. The selected first canary
+reuses the sole-owner `GetActionStatus` seam and changes only the impossible Repair result `Ready` while the fleet is
+still `Repairing` to `Disabled`. This is narrower than hooking the generic `ActionElementWidget`, avoids changing job
+reconciliation or server requests, and protects every UI entry point that consumes the invalid status. It remains an
+explicit default-off science mode until runtime smoke evidence establishes repair completion, Ask for Help, and
+non-Repair action safety.
+
 ## Evidence Schema
 
 Every emitted event should contain:
@@ -219,5 +254,7 @@ Disable the probe immediately if the game crashes, hangs, loses input, changes a
 - The dump provides exact symbols and ABI hints, not actual callers. Real caller evidence requires the stack-capture airlock.
 - The default-off repair probe installed as the sole owner of `GetActionStatus`, returned every original value unchanged, and later captured one real repair lifecycle without a crash or hang.
 - The confirmed mismatch is `ActionStatus::Ready` while the fleet remains `Repairing`; the client converged to `Docked` about 1.55 seconds later.
-- The stack-capture airlock is implemented with a default-zero, clamped 0-1 budget. It triggers on a distinct transition to `Ready` during `Repairing` and records module-relative frames.
+- The one-event caller airlock resolved the real UI refresh chain as `JobService.UpdateJobList → ActionElementWidget.HandleReactiveInt → ActionElementWidget.GetInstantButtonContext → IActionData.GetActionStatus/GetInstantCost`.
+- A later zero-cost Repair presentation shared the same `InProgress_Free → Ready` while `Repairing` invariant and repair-complete boundary.
+- The persistent stack budget has been restored to zero after the successful sample.
 - The current game config keeps `ship_state_probe = "repair_action_status"` enabled for this bounded active investigation; restore `off` before normal release use.

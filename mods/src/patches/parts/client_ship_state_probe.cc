@@ -30,15 +30,16 @@ namespace
 {
 constexpr HookDescriptor kRepairActionStatusHook{
     "FleetPlayerData.GetActionStatus(ActionType)",
-    "Observe distinct repair action-status results without changing game behavior.",
+    "Observe repair action-status transitions and optionally suppress impossible Ready-while-Repairing results.",
     {"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "FleetPlayerData", "GetActionStatus"},
-    "Repair action-status transitions will not be available to the bounded live-query event ring.",
+    "Repair action-status transitions and the explicit Ready-while-Repairing guard will be unavailable.",
     HookSupportTier::Science};
 
 ship_state_probe::RepairStatusTransitionCache g_observedRepairStatuses;
 std::mutex                                    g_observedRepairStatusesMutex;
 std::atomic<uint64_t>                         g_sequence{0};
 std::atomic<int>                              g_stackBudget{0};
+std::atomic<bool>                             g_guardEnabled{false};
 
 ship_state_probe::RepairStatusTransition ObserveRepairStatus(uint64_t fleet_id, int32_t status)
 {
@@ -118,48 +119,51 @@ int32_t FleetPlayerData_GetActionStatus_Hook(auto original, FleetPlayerData* fle
     return status;
   }
 
-  const auto fleet_id       = fleet->Id;
-  const auto current_state  = fleet->CurrentState;
-  const auto previous_state = fleet->PreviousState;
-  const auto transition     = ObserveRepairStatus(fleet_id, status);
-  if (!transition.changed) {
-    return status;
-  }
+  const auto fleet_id        = fleet->Id;
+  const auto current_state   = fleet->CurrentState;
+  const auto previous_state  = fleet->PreviousState;
+  const auto transition      = ObserveRepairStatus(fleet_id, status);
+  const auto returned_status = ship_state_probe::project_repair_action_status(
+      status, static_cast<int32_t>(current_state), g_guardEnabled.load(std::memory_order_relaxed));
 
-  const auto transition_sequence = g_sequence.fetch_add(1, std::memory_order_relaxed) + 1;
-  live_debug_events::RecordEvent("ship-state-probe.repair-action-status-transition",
-                                 {{"probeVersion", 1},
-                                  {"buildVersion", VER_RUNTIME_VERSION_STR},
-                                  {"sequence", transition_sequence},
-                                  {"monotonicMicros", MonotonicMicros()},
-                                  {"threadId", std::hash<std::thread::id>{}(std::this_thread::get_id())},
-                                  {"seam", "FleetPlayerData.GetActionStatus(ActionType)"},
-                                  {"phase", "transition"},
-                                  {"fleetId", fleet_id},
-                                  {"currentState", static_cast<int32_t>(current_state)},
-                                  {"previousState", static_cast<int32_t>(previous_state)},
-                                  {"actionType", static_cast<int32_t>(action_type)},
-                                  {"actionStatus", status},
-                                  {"originalReturn", status}});
-
-  if (ship_state_probe::should_capture_ready_while_repairing_caller(transition, status,
-                                                                    static_cast<int32_t>(current_state))
-      && ConsumeStackBudget()) {
-    auto frames = CaptureModuleRelativeStack();
-    live_debug_events::RecordEvent("ship-state-probe.repair-action-status-caller-sample",
+  if (transition.changed) {
+    const auto transition_sequence = g_sequence.fetch_add(1, std::memory_order_relaxed) + 1;
+    live_debug_events::RecordEvent("ship-state-probe.repair-action-status-transition",
                                    {{"probeVersion", 1},
                                     {"buildVersion", VER_RUNTIME_VERSION_STR},
-                                    {"triggerSequence", transition_sequence},
+                                    {"sequence", transition_sequence},
                                     {"monotonicMicros", MonotonicMicros()},
                                     {"threadId", std::hash<std::thread::id>{}(std::this_thread::get_id())},
                                     {"seam", "FleetPlayerData.GetActionStatus(ActionType)"},
-                                    {"trigger", "ReadyWhileRepairing"},
+                                    {"phase", "transition"},
                                     {"fleetId", fleet_id},
-                                    {"frameCount", frames.size()},
-                                    {"frames", std::move(frames)}});
+                                    {"currentState", static_cast<int32_t>(current_state)},
+                                    {"previousState", static_cast<int32_t>(previous_state)},
+                                    {"actionType", static_cast<int32_t>(action_type)},
+                                    {"actionStatus", status},
+                                    {"originalReturn", status},
+                                    {"returnedStatus", returned_status},
+                                    {"guardApplied", returned_status != status}});
+
+    if (ship_state_probe::should_capture_ready_while_repairing_caller(transition, status,
+                                                                      static_cast<int32_t>(current_state))
+        && ConsumeStackBudget()) {
+      auto frames = CaptureModuleRelativeStack();
+      live_debug_events::RecordEvent("ship-state-probe.repair-action-status-caller-sample",
+                                     {{"probeVersion", 1},
+                                      {"buildVersion", VER_RUNTIME_VERSION_STR},
+                                      {"triggerSequence", transition_sequence},
+                                      {"monotonicMicros", MonotonicMicros()},
+                                      {"threadId", std::hash<std::thread::id>{}(std::this_thread::get_id())},
+                                      {"seam", "FleetPlayerData.GetActionStatus(ActionType)"},
+                                      {"trigger", "ReadyWhileRepairing"},
+                                      {"fleetId", fleet_id},
+                                      {"frameCount", frames.size()},
+                                      {"frames", std::move(frames)}});
+    }
   }
 
-  return status;
+  return returned_status;
 }
 } // namespace
 
@@ -167,12 +171,14 @@ void InstallClientShipStateProbeHooks()
 {
   HookModuleHealth hooks("ClientShipStateProbe");
   if (!RepairActionStatusProbeEnabled()) {
-    hooks.record_skipped(kRepairActionStatusHook, "repair_action_status mode and live_query are not both enabled");
+    hooks.record_skipped(kRepairActionStatusHook,
+                         "a repair action-status science mode and live_query are not both enabled");
     hooks.log_summary();
     return;
   }
 
   g_stackBudget.store(RepairActionStatusProbeStackBudget(), std::memory_order_relaxed);
+  g_guardEnabled.store(RepairReadyWhileRepairingGuardEnabled(), std::memory_order_relaxed);
 
   static auto helper =
       il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "FleetPlayerData");

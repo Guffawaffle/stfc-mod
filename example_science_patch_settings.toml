@@ -35,7 +35,8 @@ on_fleets_disposed = false
 # It requires live_query = true so evidence stays in the bounded recent-event
 # ring. Restart the client after changing either key.
 live_query = false
-ship_state_probe = "off" # off | repair_action_status
+# repair_action_status_guard changes only Repair Ready+Repairing to Disabled.
+ship_state_probe = "off" # off | repair_action_status | repair_action_status_guard
 # Hard one-event caller-stack airlock. Leave zero unless a probe contract has
 # approved the exact transition and the current run.
 ship_state_probe_stack_budget = 0 # 0 | 1

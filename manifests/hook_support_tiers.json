@@ -74,7 +74,7 @@
       "id": "ClientShipStateProbe",
       "tier": "science",
       "source": "mods/src/patches/parts/client_ship_state_probe.cc",
-      "rationale": "Default-off passive canary for the current ship-state synchronization investigation."
+      "rationale": "Default-off ship-state canary; passive in repair_action_status mode and behavior-changing only in the explicit repair_action_status_guard mode."
     },
     {
       "id": "SectionChangeRouterHooks",
@@ -102,7 +102,7 @@
       "owner": "ClientShipStateProbe",
       "release_example_allowed": false,
       "science_example_required": true,
-      "rationale": "Selects exactly one default-off ship-state investigation seam; currently repair_action_status only."
+      "rationale": "Selects one default-off ship-state seam in passive repair_action_status or explicit repair_action_status_guard canary mode."
     },
     {
       "path": "advanced.diagnostics.ship_state_probe_stack_budget",
