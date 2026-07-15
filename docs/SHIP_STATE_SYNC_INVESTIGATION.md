@@ -2,7 +2,7 @@
 
 Date: 2026-07-14
 Branch: `investigation/ship-state-sync`
-Status: repair mismatch and click path confirmed; narrow science guard awaiting human smoke
+Status: repair mismatch and click path confirmed; first status-only guard failed visible-outcome smoke
 
 ## Problem Register
 
@@ -221,12 +221,13 @@ Do not hook generated repair closures, replace callbacks, invoke recovery, add a
 
 Implement behavior only after the trace locates the divergence. Keep the repair fix and general stuck-fleet fix separate unless the same failed invariant is demonstrated in both reproductions.
 
-The trace has now located the repair divergence and mapped the instant-button click path. The selected first canary
-reuses the sole-owner `GetActionStatus` seam and changes only the impossible Repair result `Ready` while the fleet is
-still `Repairing` to `Disabled`. This is narrower than hooking the generic `ActionElementWidget`, avoids changing job
-reconciliation or server requests, and protects every UI entry point that consumes the invalid status. It remains an
-explicit default-off science mode until runtime smoke evidence establishes repair completion, Ask for Help, and
-non-Repair action safety.
+The trace located the repair divergence and mapped the instant-button click path. The first canary reused the
+sole-owner `GetActionStatus` seam and changed only Repair `Ready` while the fleet was still `Repairing` to `Disabled`.
+It avoided changing job reconciliation or server requests, but its human smoke still displayed pay-to-repair choices
+before Ask for Help. One invalid `Ready` arrived while the model briefly reported `Docked` with previous state
+`Repairing`, outside the predicate; another matched the predicate and was projected to `Disabled`, yet the visible
+churn remained. The status-only guard is therefore insufficient and must not be promoted. Runtime configuration has
+been restored to the passive probe while the next single projection seam is reviewed.
 
 ## Evidence Schema
 
@@ -258,5 +259,7 @@ Disable the probe immediately if the game crashes, hangs, loses input, changes a
 - The confirmed mismatch is `ActionStatus::Ready` while the fleet remains `Repairing`; the client converged to `Docked` about 1.55 seconds later.
 - The one-event caller airlock resolved the real UI refresh chain as `JobService.UpdateJobList → ActionElementWidget.HandleReactiveInt → ActionElementWidget.GetInstantButtonContext → IActionData.GetActionStatus/GetInstantCost`.
 - A later post-completion Repair reappearance displayed cost zero and shared the same `InProgress_Free → Ready` while `Repairing` invariant and repair-complete boundary.
+- The first `Ready + Repairing → Disabled` guard canary fired twice in a later smoke, but pay-to-repair still appeared before Ask for Help; a separate invalid `Ready` also occurred during a transient `Docked/previous Repairing` state.
+- The status-only behavior canary failed its visible-outcome goal and was rolled back rather than widened in place.
 - The persistent stack budget has been restored to zero after the successful sample.
-- The current game config keeps `ship_state_probe = "repair_action_status_guard"` enabled for its bounded human smoke, with stack budget zero; restore `off` before normal release use.
+- The current game config keeps passive `ship_state_probe = "repair_action_status"` enabled with stack budget zero while the next projection boundary is reviewed; restore `off` before normal release use.

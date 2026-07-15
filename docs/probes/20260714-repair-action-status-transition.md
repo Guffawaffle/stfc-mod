@@ -1,6 +1,6 @@
 # Probe: Repair action-status transition
 
-- Status: passive probe proven; narrow guard implemented and awaiting human smoke
+- Status: passive probe proven; first narrow guard canary failed its visible-outcome smoke
 - Owner: ship-state synchronization investigation
 - Date: 2026-07-14
 - Related patch label: none
@@ -23,7 +23,7 @@ Which repair `ActionStatus` transitions occur between one Repair click and the s
 ## Risk
 
 - Risk class: R4 in passive `repair_action_status` mode; R5 in behavior-changing `repair_action_status_guard` mode.
-- Confidence rung: state-correlated for the passive seam and payload; the guard remains a science canary until its human smoke completes.
+- Confidence rung: state-correlated for the passive seam and payload; the guard is runtime-observed but not product-safe.
 - Payload confidence: runtime-proven for the receiver, fleet ID, current/previous fleet state, Repair `ActionType`, and observed `ActionStatus` values on this detour.
 - Original/trampoline confidence: runtime-proven across multiple passive repair lifecycles. The hook calls the original exactly once in both modes; guard mode intentionally projects only `Ready + Repairing` to `Disabled`.
 - Behavior change expected: none in passive mode; the explicit guard mode performs the single projection above.
@@ -129,7 +129,7 @@ the sampled cost value.
 
 The repair transition, failure window, click path, and one caller stack are captured cleanly. The airlock consumed its one-event budget and the persistent configuration has been restored to zero.
 
-The narrow guard is implemented and deployed as `repair_action_status_guard`. The remaining evidence gate is one human repair smoke proving that invalid instant Repair is suppressed, repair completes, and Ask for Help remains usable. Keep the broader reconciliation hook disabled and do not promote this canary to production before that evidence is recorded.
+The first narrow guard was deployed as `repair_action_status_guard` and failed its human visible-outcome smoke: pay-to-repair choices still appeared before Ask for Help. The runtime was restored to passive `repair_action_status` with stack budget zero. Keep the broader reconciliation hook disabled and do not promote this guard.
 
 ## Resolution Canary Contract
 
@@ -153,3 +153,21 @@ Expected smoke-test result: the transient post-completion Repair reappearance is
 then the normal stable action appears after the fleet model converges. Disable immediately if Ask for Help cannot be
 requested, repair cannot complete, any non-Repair action changes, or a fleet remains stuck longer than the passive
 baseline.
+
+## Resolution Canary Result
+
+The human smoke on 2026-07-15 reproduced the original pre-Ask-for-Help churn: pay-to-repair appeared multiple times
+before Ask for Help stabilized. The retained event ring contained two `guardApplied=true` transitions. On the latest
+fleet, the relevant sequence was:
+
+`AskForHelp (202), Repairing → Ready (100), Docked/previous Repairing → AskForHelp (202), Repairing → Ready (100), Repairing [returned Disabled by guard] → AskForHelp (202), Repairing`
+
+The first invalid `Ready` occurred after the fleet model briefly reported `Docked`, so it was outside the guard's
+`Ready + Repairing` predicate. The second matched the predicate and was returned as `Disabled`, yet the user still
+observed the pay-to-repair churn. An empty-title state-0 toast coincided with both `Ready` boundaries. With no further
+input, the affected fleets later converged to `Docked`.
+
+Conclusion: projecting only the `GetActionStatus` return is insufficient to make the visible instant-button context
+coherent. The failed behavior canary is rolled back to passive observation. The next investigation should stay
+single-seam and examine the already-mapped `ActionElementWidget.GetInstantButtonContext` / `HandleReactiveInt`
+projection boundary rather than widening this predicate in place.
