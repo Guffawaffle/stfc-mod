@@ -129,7 +129,11 @@ the sampled cost value.
 
 The repair transition, failure window, click path, and one caller stack are captured cleanly. The airlock consumed its one-event budget and the persistent configuration has been restored to zero.
 
-The first narrow guard was deployed as `repair_action_status_guard` and failed its human visible-outcome smoke: pay-to-repair choices still appeared before Ask for Help. The behavior mode was removed, and runtime was restored to passive `repair_action_status` with stack budget zero. Keep the broader reconciliation hook disabled.
+The first narrow guard was deployed as `repair_action_status_guard` and failed its human visible-outcome smoke: pay-to-repair choices still appeared before Ask for Help. The behavior mode was removed, and the merge-ready runtime configuration restores `ship_state_probe = "off"` with stack budget zero. Keep the broader reconciliation hook disabled.
+
+The final post-completion `Instant 0` button can still appear briefly. The observer has not accidentally activated it,
+and no unintended repair request or spend was observed. This remains a documented limitation, not a resolved outcome
+of this branch.
 
 ## Historical Resolution Canary Contract
 

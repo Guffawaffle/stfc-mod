@@ -226,9 +226,17 @@ sole-owner `GetActionStatus` seam and changed only Repair `Ready` while the flee
 It avoided changing job reconciliation or server requests, but its human smoke still displayed pay-to-repair choices
 before Ask for Help. One invalid `Ready` arrived while the model briefly reported `Docked` with previous state
 `Repairing`, outside the predicate; another matched the predicate and was projected to `Disabled`, yet the visible
-churn remained. The status-only guard is therefore insufficient and must not be promoted. Runtime configuration has
-been restored to the passive probe, and the failed behavior mode has been removed while the next single projection
+churn remained. The status-only guard is therefore insufficient and must not be promoted. The failed behavior mode
+has been removed, and merge-ready runtime configuration restores the probe to `off` while the next single projection
 seam is reviewed.
+
+### Known merge-boundary limitation
+
+After a repair completes, the Repair action can still briefly reappear as an `Instant 0` button before the client
+model converges to `Docked`. The observer has not accidentally activated this button, and this investigation captured
+no unintended repair request or spend from it. The behavior remains unresolved: this branch documents and safely
+probes the projection race, but does not claim to fix it. Any follow-up should begin at the mapped instant-button
+projection boundary rather than reviving the failed status-only guard.
 
 ## Evidence Schema
 
@@ -263,4 +271,4 @@ Disable the probe immediately if the game crashes, hangs, loses input, changes a
 - The first `Ready + Repairing → Disabled` guard canary fired twice in a later smoke, but pay-to-repair still appeared before Ask for Help; a separate invalid `Ready` also occurred during a transient `Docked/previous Repairing` state.
 - The status-only behavior canary failed its visible-outcome goal and was removed rather than widened in place.
 - The persistent stack budget has been restored to zero after the successful sample.
-- The current game config keeps passive `ship_state_probe = "repair_action_status"` enabled with stack budget zero while the next projection boundary is reviewed; restore `off` before normal release use.
+- The merge-ready game config restores `ship_state_probe = "off"`; the passive probe remains available for an explicitly bounded follow-up run.
