@@ -30,7 +30,7 @@ namespace
 {
 constexpr HookDescriptor kRepairActionStatusHook{
     "FleetPlayerData.GetActionStatus(ActionType)",
-    "Observe repair action-status transitions without changing the original result.",
+    "Observe repair action-status transitions and optionally suppress impossible Ready-while-Repairing results.",
     {"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "FleetPlayerData", "GetActionStatus"},
     "Repair action-status transitions and the explicit Ready-while-Repairing guard will be unavailable.",
     HookSupportTier::Science};
@@ -39,6 +39,7 @@ ship_state_probe::RepairStatusTransitionCache g_observedRepairStatuses;
 std::mutex                                    g_observedRepairStatusesMutex;
 std::atomic<uint64_t>                         g_sequence{0};
 std::atomic<int>                              g_stackBudget{0};
+std::atomic<bool>                             g_guardEnabled{false};
 
 ship_state_probe::RepairStatusTransition ObserveRepairStatus(uint64_t fleet_id, int32_t status)
 {
@@ -122,6 +123,9 @@ int32_t FleetPlayerData_GetActionStatus_Hook(auto original, FleetPlayerData* fle
   const auto current_state   = fleet->CurrentState;
   const auto previous_state  = fleet->PreviousState;
   const auto transition      = ObserveRepairStatus(fleet_id, status);
+  const auto returned_status = ship_state_probe::project_repair_action_status(
+      status, static_cast<int32_t>(current_state), g_guardEnabled.load(std::memory_order_relaxed));
+
   if (transition.changed) {
     const auto transition_sequence = g_sequence.fetch_add(1, std::memory_order_relaxed) + 1;
     live_debug_events::RecordEvent("ship-state-probe.repair-action-status-transition",
@@ -137,7 +141,9 @@ int32_t FleetPlayerData_GetActionStatus_Hook(auto original, FleetPlayerData* fle
                                     {"previousState", static_cast<int32_t>(previous_state)},
                                     {"actionType", static_cast<int32_t>(action_type)},
                                     {"actionStatus", status},
-                                    {"originalReturn", status}});
+                                    {"originalReturn", status},
+                                    {"returnedStatus", returned_status},
+                                    {"guardApplied", returned_status != status}});
 
     if (ship_state_probe::should_capture_ready_while_repairing_caller(transition, status,
                                                                       static_cast<int32_t>(current_state))
@@ -157,7 +163,7 @@ int32_t FleetPlayerData_GetActionStatus_Hook(auto original, FleetPlayerData* fle
     }
   }
 
-  return status;
+  return returned_status;
 }
 } // namespace
 
@@ -172,6 +178,7 @@ void InstallClientShipStateProbeHooks()
   }
 
   g_stackBudget.store(RepairActionStatusProbeStackBudget(), std::memory_order_relaxed);
+  g_guardEnabled.store(RepairReadyWhileRepairingGuardEnabled(), std::memory_order_relaxed);
 
   static auto helper =
       il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "FleetPlayerData");

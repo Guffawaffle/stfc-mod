@@ -20,6 +20,16 @@ constexpr bool should_capture_ready_while_repairing_caller(const RepairStatusTra
   return transition.has_previous && current_status == kActionStatusReady && current_fleet_state == kFleetStateRepairing;
 }
 
+constexpr int32_t project_repair_action_status(int32_t original_status, int32_t current_fleet_state, bool guard_enabled)
+{
+  constexpr int32_t kActionStatusDisabled = 0;
+  constexpr int32_t kActionStatusReady    = 100;
+  constexpr int32_t kFleetStateRepairing  = 32;
+  return guard_enabled && original_status == kActionStatusReady && current_fleet_state == kFleetStateRepairing
+             ? kActionStatusDisabled
+             : original_status;
+}
+
 class RepairStatusTransitionCache
 {
 public:

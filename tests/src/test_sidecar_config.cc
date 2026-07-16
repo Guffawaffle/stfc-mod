@@ -248,7 +248,7 @@ ship_state_probe = "fleet_reconciliation"
                          config_schema::DiagnosticSeverity::Warning));
   }
 
-  TEST_CASE("retired repair Ready guard mode fails closed")
+  TEST_CASE("repair Ready guard mode is accepted case-insensitively")
   {
     auto config = toml::parse(R"(
 [advanced.diagnostics]
@@ -257,9 +257,9 @@ ship_state_probe = "REPAIR_ACTION_STATUS_GUARD"
 
     const auto result = ParseSidecarConfig(config);
 
-    CHECK(result.advanced.diagnostics.ship_state_probe == "off");
-    CHECK(has_diagnostic(result.diagnostics, "advanced.diagnostics.ship_state_probe",
-                         config_schema::DiagnosticSeverity::Warning));
+    CHECK(result.advanced.diagnostics.ship_state_probe == "repair_action_status_guard");
+    CHECK_FALSE(has_diagnostic(result.diagnostics, "advanced.diagnostics.ship_state_probe",
+                               config_schema::DiagnosticSeverity::Warning));
   }
 
   TEST_CASE("ship-state stack budget is clamped to a one-event airlock")

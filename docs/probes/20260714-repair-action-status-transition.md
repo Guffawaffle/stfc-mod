@@ -1,6 +1,6 @@
 # Probe: Repair action-status transition
 
-- Status: passive probe proven; first narrow guard canary failed its visible-outcome smoke
+- Status: passive probe proven; original narrow guard restored for an isolated pre-Ask-for-Help smoke
 - Owner: ship-state synchronization investigation
 - Date: 2026-07-14
 - Related patch label: none
@@ -22,16 +22,16 @@ Which repair `ActionStatus` transitions occur between one Repair click and the s
 
 ## Risk
 
-- Risk class: R4 for the retained passive `repair_action_status` mode; the removed behavior canary was R5.
-- Confidence rung: state-correlated for the passive seam and payload; the guard is runtime-observed but not product-safe.
+- Risk class: R4 for passive `repair_action_status` mode; R5 for the explicit behavior-changing guard canary.
+- Confidence rung: state-correlated for the passive seam and payload; the restored guard is runtime-observed but not product-safe.
 - Payload confidence: runtime-proven for the receiver, fleet ID, current/previous fleet state, Repair `ActionType`, and observed `ActionStatus` values on this detour.
-- Original/trampoline confidence: runtime-proven across multiple passive repair lifecycles. The retained hook calls the original exactly once and returns its result unchanged.
-- Behavior change expected: none. The failed behavior canary is preserved only as historical evidence below.
+- Original/trampoline confidence: runtime-proven across multiple repair lifecycles. The hook calls the original exactly once; guard mode changes only `Ready + Repairing` to `Disabled`.
+- Behavior change expected: none in passive mode; the explicit guard performs only that single projection.
 
 ## Implementation Plan
 
 - Module/file: `mods/src/patches/parts/client_ship_state_probe.cc`
-- Config or compile guard: science-only `[advanced.diagnostics].ship_state_probe = "repair_action_status"` for passive observation; default `"off"`. Caller capture uses a separate `ship_state_probe_stack_budget` integer clamped to 0-1 and defaulting to 0. The failed `"repair_action_status_guard"` mode is no longer accepted.
+- Config or compile guard: science-only `[advanced.diagnostics].ship_state_probe = "repair_action_status"` for passive observation or `"repair_action_status_guard"` for the original narrow canary; default `"off"`. Caller capture uses a separate `ship_state_probe_stack_budget` integer clamped to 0-1 and defaulting to 0.
 - Hook descriptor name: `kRepairActionStatusHook`
 - Target assembly: `Digit.Client.PrimeLib.Runtime`
 - Target namespace: `Digit.PrimeServer.Models`
@@ -129,13 +129,15 @@ the sampled cost value.
 
 The repair transition, failure window, click path, and one caller stack are captured cleanly. The airlock consumed its one-event budget and the persistent configuration has been restored to zero.
 
-The first narrow guard was deployed as `repair_action_status_guard` and failed its human visible-outcome smoke: pay-to-repair choices still appeared before Ask for Help. The behavior mode was removed, and the merge-ready runtime configuration restores `ship_state_probe = "off"` with stack budget zero. Keep the broader reconciliation hook disabled.
+The first narrow guard was deployed as `repair_action_status_guard`. Its initial smoke appeared to improve the original
+pre-Ask-for-Help path; a later mixed-symptom smoke still showed visible churn. The exact original guard is restored for
+an isolated re-test with stack budget zero. Keep the broader reconciliation hook disabled.
 
 The final post-completion `Instant 0` button can still appear briefly. The observer has not accidentally activated it,
 and no unintended repair request or spend was observed. This remains a documented limitation, not a resolved outcome
 of this branch.
 
-## Historical Resolution Canary Contract
+## Restored Original-Issue Canary Contract
 
 Static disassembly of `ActionElementWidget.OnInstantButtonClickCallback` shows the instant button forwarding the
 target, action type, index, and instant behavior mask to `IActionHandler.RequestAction`. The stale instant context is
@@ -147,18 +149,18 @@ Only when all of these conditions are true does it project `Disabled (0)` instea
 - action type is Repair;
 - `FleetPlayerData.CurrentState == Repairing (32)`;
 - the original return is `Ready (100)`;
-- the now-removed science mode was `repair_action_status_guard`.
+- the explicit science mode is `repair_action_status_guard`.
 
 Every other action, fleet state, and status returns the exact original value. The original is still called exactly
 once. The transition event records both `originalReturn` and `returnedStatus` plus `guardApplied`, allowing the
 canary to prove that it blocked only the impossible state.
 
-Expected smoke-test result: the transient post-completion Repair reappearance is replaced by a brief disabled state,
-then the normal stable action appears after the fleet model converges. Disable immediately if Ask for Help cannot be
-requested, repair cannot complete, any non-Repair action changes, or a fleet remains stuck longer than the passive
-baseline.
+Expected smoke-test result: after one Repair click, no pay-to-repair option reappears before Ask for Help stabilizes.
+The post-completion `Instant 0` button is deliberately outside this canary's pass/fail criteria. Disable immediately if
+Ask for Help cannot be requested, repair cannot complete, any non-Repair action changes, or a fleet remains stuck
+longer than the passive baseline.
 
-## Resolution Canary Result
+## Prior Mixed-Symptom Canary Result
 
 The human smoke on 2026-07-15 reproduced the original pre-Ask-for-Help churn: pay-to-repair appeared multiple times
 before Ask for Help stabilized. The retained event ring contained two `guardApplied=true` transitions. On the latest
@@ -171,7 +173,8 @@ The first invalid `Ready` occurred after the fleet model briefly reported `Docke
 observed the pay-to-repair churn. An empty-title state-0 toast coincided with both `Ready` boundaries. With no further
 input, the affected fleets later converged to `Docked`.
 
-Conclusion: projecting only the `GetActionStatus` return is insufficient to make the visible instant-button context
-coherent. The failed behavior mode was removed, leaving passive observation only. The next investigation should stay
-single-seam and examine the already-mapped `ActionElementWidget.GetInstantButtonContext` / `HandleReactiveInt`
-projection boundary rather than widening this predicate in place.
+Conclusion: projecting only the `GetActionStatus` return is insufficient to make every instant-button context
+coherent, but the mixed smoke did not isolate the original churn from the later `Instant 0` symptom. The unchanged
+guard is restored to re-test the original symptom alone. Any follow-up for `Instant 0` should stay single-seam at the
+mapped `ActionElementWidget.GetInstantButtonContext` / `HandleReactiveInt` projection boundary rather than widening
+this predicate in place.

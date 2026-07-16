@@ -2,7 +2,7 @@
 
 Date: 2026-07-14
 Branch: `investigation/ship-state-sync`
-Status: repair mismatch and click path confirmed; first status-only guard failed visible-outcome smoke
+Status: repair mismatch and click path confirmed; original status-only guard restored for isolated re-evaluation
 
 ## Problem Register
 
@@ -226,17 +226,18 @@ sole-owner `GetActionStatus` seam and changed only Repair `Ready` while the flee
 It avoided changing job reconciliation or server requests, but its human smoke still displayed pay-to-repair choices
 before Ask for Help. One invalid `Ready` arrived while the model briefly reported `Docked` with previous state
 `Repairing`, outside the predicate; another matched the predicate and was projected to `Disabled`, yet the visible
-churn remained. The status-only guard is therefore insufficient and must not be promoted. The failed behavior mode
-has been removed, and merge-ready runtime configuration restores the probe to `off` while the next single projection
-seam is reviewed.
+churn remained. That mixed-symptom smoke proves the status seam is not a complete solution, but does not erase the
+initial improvement observed for the pre-Ask-for-Help path. The original guard has therefore been restored unchanged
+as a science canary. Its next acceptance test covers only the original churn; it must not be widened to absorb the
+post-completion `Instant 0` case.
 
 ### Known merge-boundary limitation
 
 After a repair completes, the Repair action can still briefly reappear as an `Instant 0` button before the client
 model converges to `Docked`. The observer has not accidentally activated this button, and this investigation captured
 no unintended repair request or spend from it. The behavior remains unresolved: this branch documents and safely
-probes the projection race, but does not claim to fix it. Any follow-up should begin at the mapped instant-button
-projection boundary rather than reviving the failed status-only guard.
+probes the projection race, but does not claim to fix it. Any follow-up for this separate symptom should begin at the
+mapped instant-button projection boundary rather than widening the original-issue guard.
 
 ## Evidence Schema
 
@@ -269,6 +270,6 @@ Disable the probe immediately if the game crashes, hangs, loses input, changes a
 - The one-event caller airlock resolved the real UI refresh chain as `JobService.UpdateJobList → ActionElementWidget.HandleReactiveInt → ActionElementWidget.GetInstantButtonContext → IActionData.GetActionStatus/GetInstantCost`.
 - A later post-completion Repair reappearance displayed cost zero and shared the same `InProgress_Free → Ready` while `Repairing` invariant and repair-complete boundary.
 - The first `Ready + Repairing → Disabled` guard canary fired twice in a later smoke, but pay-to-repair still appeared before Ask for Help; a separate invalid `Ready` also occurred during a transient `Docked/previous Repairing` state.
-- The status-only behavior canary failed its visible-outcome goal and was removed rather than widened in place.
+- The same status-only behavior canary is restored unchanged to re-test only the original pre-Ask-for-Help symptom; the post-completion `Instant 0` symptom is excluded from its acceptance criteria.
 - The persistent stack budget has been restored to zero after the successful sample.
-- The merge-ready game config restores `ship_state_probe = "off"`; the passive probe remains available for an explicitly bounded follow-up run.
+- Defaults remain `ship_state_probe = "off"`; the local investigation runtime explicitly enables `repair_action_status_guard` with stack budget zero for the bounded smoke.
