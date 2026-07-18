@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "1.0.0",
+  "modules": {
+    "runtime/core": {
+      "coords": [0, 0],
+      "owns_paths": [
+        "mods/src",
+        "mods/src/*.cc",
+        "mods/src/*.h"
+      ],
+      "description": "Core mod configuration, shared runtime helpers, and platform-neutral support code."
+    },
+    "runtime/patches": {
+      "coords": [1, 0],
+      "owns_paths": [
+        "mods/src/patches/**"
+      ],
+      "description": "Gameplay hooks, input routing, diagnostics, sync, notifications, and feature patches."
+    },
+    "runtime/il2cpp": {
+      "coords": [0, 1],
+      "owns_paths": [
+        "mods/src/il2cpp/**"
+      ],
+      "description": "IL2CPP class, method, field, and runtime-resolution helpers."
+    },
+    "runtime/prime": {
+      "coords": [1, 1],
+      "owns_paths": [
+        "mods/src/prime/**",
+        "mods/src/prime_types.h"
+      ],
+      "description": "Native mirrors of game classes and protobuf-backed game data types."
+    },
+    "platform/windows": {
+      "coords": [2, 0],
+      "owns_paths": [
+        "win-proxy-dll/**"
+      ],
+      "description": "Windows proxy DLL injection and packaging surface."
+    },
+    "platform/macos": {
+      "coords": [2, 1],
+      "owns_paths": [
+        "macos-dylib/**",
+        "macos-loader/**",
+        "macos-launcher/**"
+      ],
+      "description": "macOS dylib injection, loader, and native launcher application."
+    },
+    "build/release": {
+      "coords": [3, 0],
+      "owns_paths": [
+        "xmake.lua",
+        "xmake-packages/**",
+        "scripts/**",
+        ".github/**"
+      ],
+      "description": "Build definitions, validation scripts, CI, packaging, and release automation."
+    },
+    "tests": {
+      "coords": [3, 1],
+      "owns_paths": [
+        "tests/**"
+      ],
+      "description": "Pure logic, policy, safety, config, sync, and tooling validation."
+    },
+    "workspace/governance": {
+      "coords": [4, 0],
+      "owns_paths": [
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+        "README.md",
+        "axf.workspace.json",
+        ".ax/**",
+        "manifests/**",
+        "docs/**"
+      ],
+      "description": "Workspace instructions, architecture records, AXF manifests, and collaboration policy."
+    },
+    "assets/dependencies": {
+      "coords": [4, 1],
+      "owns_paths": [
+        "assets/**",
+        "third_party/**"
+      ],
+      "description": "Visual assets and vendored native dependency sources."
+    }
+  }
+}

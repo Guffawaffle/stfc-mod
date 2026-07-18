@@ -19,14 +19,13 @@ sponsorships are greatly appreciated.
 
 For this fork, keep the branch layout simple and explicit:
 
-- `main` is the default branch and the public/stable branch for this fork.
-- `guffa-dev` is the fork integration branch where new fork work lands first.
-- Create fork feature branches from `guffa-dev`, then promote validated work back to `main`.
-- Do not use a plain `dev` branch in this fork; it is too easy to confuse with `upstream/dev`.
+- `main` is the default branch, working integration base, and public release branch for this fork.
+- Create fork feature branches from a current local `main`, then return validated work through a fork PR targeting `main`.
+- The legacy `guffa-dev` and plain `dev` branches are not part of the active workflow. Do not select either branch merely because a stale local or remote ref exists.
 
 If you are preparing work for `netniV/stfc-mod`, do not branch from this fork's integration branch.
 Create a fresh branch from `upstream/main`, cherry-pick only the upstream-ready commits, and open the
-PR against `netniV/main`.
+PR against `netniV/main`. Never fall back to `upstream/dev` when another expected branch is missing.
 
 ## Building
 

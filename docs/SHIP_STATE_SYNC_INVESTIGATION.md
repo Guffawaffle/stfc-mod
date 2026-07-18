@@ -318,6 +318,24 @@ Runtime acceptance followed on USS Reliant at `03:11:45.073`: the same zero-amou
 advanced to status `200`. The interlock therefore blocks the stale action without blocking the next genuine
 Ask-for-Help action.
 
+### Validated checkpoint and next experiment
+
+The runtime-accepted implementation checkpoint is commit
+`085bfb6e1652b03e8a7a397bb899e7a48ad86a8c` (`fix: interlock stale repair actions`). Use that commit as the known-good
+rollback boundary if a later presentation experiment regresses Repair behavior; prefer reverting the later
+experiment first, or revert this checkpoint explicitly when the intent is to remove the complete probe/interlock.
+
+The next candidate combines presentation coherence with the accepted safety floor:
+
+- Retain the exact stale-click interlock unchanged so a mismatched widget can never invoke the native paid/error path.
+- At the final Repair button-context/presentation boundary, reject or defer only a proven incoherent button change
+  until current fleet state and native Repair status agree on the action.
+- Never allow previous `Repairing` state alone to authorize a projected label or action.
+- Never synthesize, replay, delay, or duplicate a click or `RequestHelpJob`; a human click is either accepted against
+  a coherent current action or explicitly suppressed.
+- Require runtime acceptance to show no Latinum confirmation or Ship Error in the stale window and exactly one help
+  request when the subsequent genuine Ask-for-Help action is clicked.
+
 ## Evidence Schema
 
 Every emitted event should contain:

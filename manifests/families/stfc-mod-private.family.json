@@ -474,7 +474,7 @@
       "examples": [
         "ax build",
         "ax build -BuildMode releasedbg",
-        "ax build -Branch guffa-dev-root -BuildMode releasedbg"
+        "ax build -Branch main -BuildMode releasedbg"
       ]
     },
     "deploy": {
@@ -531,7 +531,7 @@
       "examples": [
         "ax deploy",
         "ax deploy -BuildMode releasedbg",
-        "ax deploy -Branch guffa-dev-root -BuildMode releasedbg"
+        "ax deploy -Branch main -BuildMode releasedbg"
       ]
     },
     "cycle": {
@@ -608,7 +608,7 @@
       "examples": [
         "ax cycle",
         "ax cycle -BuildMode releasedbg",
-        "ax cycle -Branch guffa-dev-root -BuildMode releasedbg",
+        "ax cycle -Branch main -BuildMode releasedbg",
         "ax cycle -StopTimeoutSec 45 -StartTimeoutSec 300 -BootTimeoutSec 300"
       ]
     },
