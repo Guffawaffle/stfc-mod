@@ -110,7 +110,34 @@ This inventory records source-level seams from a static-only review. It does not
 - Original/trampoline confidence: passed across the reproduced passive repair lifecycles with every original result returned unchanged. The retained passive mode calls the original exactly once and returns it unchanged.
 - Flag / rollback path: science modes `repair_action_status` and `repair_action_status_guard`, default `off`, require `live_query`; caller budget separately defaults to zero and is clamped to one. Disable the probe and budget in TOML and restart, or remove one module/install entry.
 - Status: passive science canary runtime-proven; the original behavior guard is restored unchanged for a pre-Ask-for-Help-only smoke after a later mixed-symptom smoke showed incomplete coverage. The one-event caller airlock was consumed successfully and its persistent budget restored to zero. The separate final post-completion `Instant 0` button remains possible, but has not been accidentally activated and produced no observed unintended request or spend. Symbolized caller chain: `JobService.UpdateJobList → ActionElementWidget.HandleReactiveInt → ActionElementWidget.GetInstantButtonContext → FleetPlayerData.GetActionStatus`. Static disassembly also confirms the instant click path forwards to `IActionHandler.RequestAction`.
-- Next action: smoke the restored guard against only the original pre-Ask-for-Help churn. Keep `Instant 0` as a separate projection-boundary investigation; do not widen this predicate or enable the broader reconciliation hook.
+- Next action: retain the deployed `repair_action_status_hold` canary until the uncommon Ask-for-Help → Speed-Up
+  regression recurs. Two primary-transition flows passed as `202 → 200`; completion-only projections to `201` are
+  accepted for this pass. On the next visual regression, correlate whether `202 → 100` occurred and whether the hold
+  returned `202`. Keep the broader reconciliation hook disabled.
+
+### `Digit.Prime.Actions.ActionElementWidget.GetInstantButtonContext()`
+
+- Owner / file: science-only `mods/src/patches/parts/client_ship_state_probe.cc`; experiment contract in
+  `docs/probes/20260717-repair-instant-button-context.md`.
+- Intended question: which final interactability and amount tuple is projected when Repair/Instant briefly reappears
+  during an active or completing repair?
+- Static evidence: the current dump reports `GenericButtonContext GetInstantButtonContext()` at RVA `0x11E6CD0`.
+  The prior one-shot stack and exact disassembly place it between `JobService.UpdateJobList` and the live widget's
+  `_instantButtonContext`, with status and instant cost obtained independently.
+- Risk class: R4 native interpretation; passive default-off observer only.
+- Confidence rung: runtime-proven passive seam and scalar/property reads.
+- Runtime evidence: the released-debug cycle installed exactly this hook with zero failures or skips. During a user
+  reproduction it captured an interactable amount transition `75 → 74 → 0` while the fleet remained `Repairing`; the
+  zero transition preceded the independent `REPAIR_COMPLETE` boundary by approximately 1.345 seconds.
+- Payload confidence: static confidence for the Repair `ActionType`, exact `FleetPlayerData` receiver filter, numeric
+  current/previous fleet state, `GenericButtonContext.Interactable`, and `ResourceData.Amount`. No pointer is retained.
+- Original/trampoline confidence: runtime-proven. The hook calls the original exactly once and returns the exact
+  original context pointer unchanged.
+- Flag / rollback path: science mode `repair_instant_context`, default `off`, requires `live_query`. Set the mode to
+  `off` and restart, or remove this descriptor and install branch.
+- Status: passive observer runtime-proven; incorrect pre-completion zero-cost tuple captured.
+- Next action: retain this result as evidence. Do not generically disable zero-cost contexts because the valid
+  completed-repair flow intentionally uses `Finish Ship Repair — FREE`; smoke the coherent-status hold canary instead.
 
 ### `Digit.PrimeServer.Services.FleetService.UpdateFleetWithDeploymentData(FleetPlayerData, FleetDeployedData)`
 

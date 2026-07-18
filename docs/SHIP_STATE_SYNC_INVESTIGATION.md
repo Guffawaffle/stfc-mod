@@ -2,7 +2,7 @@
 
 Date: 2026-07-14
 Branch: `investigation/ship-state-sync`
-Status: repair mismatch and click path confirmed; original status-only guard restored for isolated re-evaluation
+Status: pre-completion projection race captured; coherent-status hold canary deployed, repair-flow smoke pending
 
 ## Problem Register
 
@@ -239,6 +239,85 @@ no unintended repair request or spend from it. The behavior remains unresolved: 
 probes the projection race, but does not claim to fix it. Any follow-up for this separate symptom should begin at the
 mapped instant-button projection boundary rather than widening the original-issue guard.
 
+### Verified reproduction (2026-07-17)
+
+A human smoke reproduced the pre-repair action-card layout while the repair flow was still transitioning: the card
+briefly showed `Repair [time]` above `Instant 0` instead of the expected active-repair action. This is the same unsafe
+visual replacement reported during the rapid `Ask for Help` → `Speed Up` cadence, where a muscle-memory second click
+can land on the reappearing Instant control.
+
+The first run's native log corroborated only its `REPAIR_COMPLETE` boundary. A second user reproduction while the
+passive Instant-context observer was active captured the incorrect tuple directly. For the same fleet, the projected
+Instant amount changed `75 → 74 → 0` while the state remained `Repairing` and previous state remained `Docked`; the
+zero transition occurred at `04:56:29.705`, while `REPAIR_COMPLETE` followed at `04:56:31.050`. The zero-cost context
+was still interactable and preceded completion by approximately 1.345 seconds. No unintended request or spend was
+observed.
+
+### Active next canary
+
+The passive `repair_instant_context` mode answered the projection question and remains documented in
+[Repair Instant-Button Context Probe](probes/20260717-repair-instant-button-context.md). A blanket
+`amount == 0 && Repairing` interlock would also suppress the legitimate `Finish Ship Repair — FREE` state, so the
+captured tuple does not support changing the instant context or click boundary directly.
+
+The narrower behavior canary is `repair_action_status_hold`. At the already runtime-proven
+`FleetPlayerData.GetActionStatus(Repair)` seam, it remembers only coherent in-progress statuses (`InProgress`,
+`InProgress_Free`, `InProgress_AskForHelp`, or `Complete`) and returns that last status when the original briefly
+regresses to `Ready` while current fleet state is still `Repairing`. A settling non-Ready status clears the
+held lifecycle. The mode is Repair-only, mutually exclusive, default-off, and leaves the Instant context and request
+path unchanged. Pure policy tests cover both Ask-for-Help and zero-cost completion sequences. The 2026-07-17
+released-debug deployment installed exactly the `FleetPlayerData.GetActionStatus(ActionType)` hook with zero failures
+or skips. Two repair flows then passed the primary Ask-for-Help → Speed-Up transition as `202 → 200`, without an
+intervening `Ready`. At each completion, the hold projected `Ready` back to `InProgress_Free`, matching the observed
+`FREE` finish presentation.
+
+Treat those as two primary-transition passes, not proof that the intermittent bug is fixed. For the current canary,
+the acceptance focus is only the unsafe Ask-for-Help → Speed-Up replacement; the coherent `FREE` completion state is
+not a failure and needs no further work in this pass.
+
+Two 2026-07-18 Quv'Sompek reproductions exposed a different repeated prefix: native status
+`InProgress_AskForHelp (202) → Ready (100) → InProgress_AskForHelp (202)` while the fleet still reported
+`Repairing`. The hold returned `202` for the transient native `100`, but the visible action still re-entered/rebound
+and Ask for Help appeared again. One flow continued through `202 → 200 → 201 → 0` and emitted a second independent
+`REPAIR_COMPLETE`. This proves the status projection did not create the native regression and also proves status
+return coherence alone does not guarantee a stable widget/request sequence.
+
+The active 2026-07-18 trace therefore keeps the same status hold but adds passive evidence at three downstream
+boundaries: final `GetInstantButtonContext`, both human button callbacks, and
+`JobService.RequestHelpJob(IJob, CallbackContainer<string>)`. Human-click events record the physical control,
+raw button behavior bits, last native/projected status, fleet state, and last final
+Instant context before calling the original exactly once. The help-request hook records only pre-dispatch job
+identity/repair/help flags and then calls the original exactly once. The click seam is observational except for the
+exact stale post-completion interlock documented below; no click or request is synthesized or duplicated.
+
+Runtime showed `_instantBehaviours == 0` for both Ask-for-Help and Speed-Up clicks, so that field is not treated as a
+semantic label. The physical click seam plus returned status and the downstream request seam are authoritative.
+
+The Junker reproduction at `01:50:41` established a safety boundary for that predicate. The fleet emitted
+`REPAIR_COMPLETE` and became `Docked/previous Repairing`; native Repair status and final Instant context had already
+settled to `Ready` plus paid amount `101558`. The original hold still returned `202` because it accepted previous
+Repairing, so the human's next Instant-control click saw Ask for Help but invoked the paid context and opened a
+`101.55K` Lat confirmation. No `RequestHelpJob` followed the click. At `01:52:36`, the same fleet then completed a
+normal `202 + help request → 200 → 201 → 0` sequence. The hold is therefore narrowed to current `Repairing` only;
+previous state remains evidence but cannot authorize presentation projection.
+
+The same tuple now defines an exact Instant-click interlock in hold mode: suppress only when current state is
+`Docked`, previous state is `Repairing`, native status is `Ready`, and the last final Instant context is present,
+interactable, and has an amount field. All ordinary Repair, Ask-for-Help, Speed-Up, and free-Finish tuples fall
+outside that predicate. A suppressed click is logged explicitly and does not call the game's instant callback.
+
+The Monaveen reproduction at `02:24:18` proved that the amount-zero variant is also stale and unsafe. Repair had
+completed at `02:24:17.985`; the fleet was `Docked/previous Repairing`, native status was `Ready`, and the final
+Instant amount was zero. The human click was not suppressed by the original paid-only predicate, the native callback
+ran, and the game displayed `SHIP ERROR`; the fleet re-entered `Repairing` at `02:24:19.967`. The predicate therefore
+does not require a positive amount: positive and zero are two outcomes of the same exact post-completion race.
+
+Runtime acceptance followed on USS Reliant at `03:11:45.073`: the same zero-amount post-completion click logged
+`suppressed=true` and produced neither a help dispatch nor a native error/Latinum action. After re-entry to
+`Repairing`, the next click at `03:11:46.796` remained unsuppressed, emitted exactly one repair-job help request, and
+advanced to status `200`. The interlock therefore blocks the stale action without blocking the next genuine
+Ask-for-Help action.
+
 ## Evidence Schema
 
 Every emitted event should contain:
@@ -271,5 +350,16 @@ Disable the probe immediately if the game crashes, hangs, loses input, changes a
 - A later post-completion Repair reappearance displayed cost zero and shared the same `InProgress_Free → Ready` while `Repairing` invariant and repair-complete boundary.
 - The first `Ready + Repairing → Disabled` guard canary fired twice in a later smoke, but pay-to-repair still appeared before Ask for Help; a separate invalid `Ready` also occurred during a transient `Docked/previous Repairing` state.
 - The same status-only behavior canary is restored unchanged to re-test only the original pre-Ask-for-Help symptom; the post-completion `Instant 0` symptom is excluded from its acceptance criteria.
+- The mutually exclusive `repair_instant_context` passive mode captured an interactable `74 → 0` projection while
+  the fleet remained `Repairing`; the zero transition preceded `REPAIR_COMPLETE` by approximately 1.345 seconds.
+- A default-off `repair_action_status_hold` behavior canary now preserves the last coherent Repair status across only
+  the proven transient `Ready` regression. It is built, unit-tested, deployed, and install-proven; behavior smoke is
+  active. Two Ask-for-Help → Speed-Up flows passed without a `Ready` regression; completion projections produced the
+  observed coherent `FREE` state.
+- Two Quv'Sompek bad paths regressed natively `202 → 100 → 202` despite the hold returning `202` continuously; one
+  continued to a second repair-complete boundary. The currently deployed trace adds passive final-context,
+  human-click, and actual help-request correlation so the next rare repro distinguishes widget rebinding from a
+  repeated player request.
 - The persistent stack budget has been restored to zero after the successful sample.
-- Defaults remain `ship_state_probe = "off"`; the local investigation runtime explicitly enables `repair_action_status_guard` with stack budget zero for the bounded smoke.
+- Defaults remain `ship_state_probe = "off"`; the local investigation runtime explicitly enables
+  `repair_action_status_hold` with stack budget zero for the bounded smoke.

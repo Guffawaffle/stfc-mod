@@ -74,7 +74,7 @@
       "id": "ClientShipStateProbe",
       "tier": "science",
       "source": "mods/src/patches/parts/client_ship_state_probe.cc",
-      "rationale": "Default-off ship-state canary; passive in repair_action_status mode and behavior-changing only in the explicit repair_action_status_guard mode."
+      "rationale": "Default-off ship-state canary; passive in repair_action_status and repair_instant_context modes. The explicit hold mode changes the status seam and suppresses only the proven Docked/previous-Repairing stale Instant click race while correlating final context, human clicks, and help dispatch."
     },
     {
       "id": "SectionChangeRouterHooks",
@@ -102,7 +102,7 @@
       "owner": "ClientShipStateProbe",
       "release_example_allowed": false,
       "science_example_required": true,
-      "rationale": "Selects one default-off ship-state seam in passive repair_action_status or explicit repair_action_status_guard canary mode."
+      "rationale": "Selects a default-off ship-state experiment: passive repair_action_status, passive repair_instant_context, explicit repair_action_status_guard, or coherent repair_action_status_hold with passive context/click/help correlation."
     },
     {
       "path": "advanced.diagnostics.ship_state_probe_stack_budget",

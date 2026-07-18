@@ -167,8 +167,22 @@ bool RefineryDiagnosticsEnabled()
 bool RepairActionStatusProbeEnabled()
 {
   const auto& mode = g_advanced_config.diagnostics.ship_state_probe;
-  return LiveDebugChannelEnabled() && (mode == "repair_action_status" || mode == "repair_action_status_guard");
+  return LiveDebugChannelEnabled()
+         && (mode == "repair_action_status" || mode == "repair_action_status_guard"
+             || mode == "repair_action_status_hold");
 }
+
+bool ClientShipStateProbeEnabled()
+{ return RepairActionStatusProbeEnabled() || RepairInstantButtonContextProbeEnabled(); }
+
+bool RepairInstantButtonContextProbeEnabled()
+{
+  const auto& mode = g_advanced_config.diagnostics.ship_state_probe;
+  return LiveDebugChannelEnabled() && (mode == "repair_instant_context" || mode == "repair_action_status_hold");
+}
+
+bool RepairCoherentActionStatusHoldEnabled()
+{ return LiveDebugChannelEnabled() && g_advanced_config.diagnostics.ship_state_probe == "repair_action_status_hold"; }
 
 bool RepairReadyWhileRepairingGuardEnabled()
 { return LiveDebugChannelEnabled() && g_advanced_config.diagnostics.ship_state_probe == "repair_action_status_guard"; }

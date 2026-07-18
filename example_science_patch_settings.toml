@@ -32,12 +32,18 @@ on_fleets_disposed = false
 [advanced.diagnostics]
 # Science-only, mutually exclusive ship-state probe selector. The passive mode
 # observes Repair ActionStatus transitions without changing return values; the
-# explicit guard mode performs only the projection described below.
+# Instant-context mode observes the final projected button context; the explicit
+# guard mode performs only the projection described below.
 # It requires live_query = true so evidence stays in the bounded recent-event
 # ring. Restart the client after changing either key.
 live_query = false
 # repair_action_status_guard changes only Repair Ready+Repairing to Disabled.
-ship_state_probe = "off" # off | repair_action_status | repair_action_status_guard
+# repair_action_status_hold preserves the last coherent in-progress Repair status across transient Ready only while
+# the fleet is currently Repairing, and
+# passively correlates the final Instant context, the human's Repair button click, and downstream help dispatch.
+# It also suppresses the exact Docked/previous-Repairing stale Instant click race proven to open either a paid
+# confirmation or Ship Error after Repair has already completed.
+ship_state_probe = "off" # off | repair_action_status | repair_action_status_guard | repair_action_status_hold | repair_instant_context
 # Hard one-event caller-stack airlock. Leave zero unless a probe contract has
 # approved the exact transition and the current run.
 ship_state_probe_stack_budget = 0 # 0 | 1

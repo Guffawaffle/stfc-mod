@@ -241,7 +241,10 @@ bool is_valid_fleet_runtime_mode(std::string_view mode)
 }
 
 bool is_valid_ship_state_probe(std::string_view mode)
-{ return mode == "off" || mode == "repair_action_status" || mode == "repair_action_status_guard"; }
+{
+  return mode == "off" || mode == "repair_action_status" || mode == "repair_action_status_guard"
+         || mode == "repair_action_status_hold" || mode == "repair_instant_context";
+}
 
 bool rejected_target_name_seen(std::set<std::string>& rejected_targets, const std::string& target_name,
                                std::vector<SidecarRejectedSyncTarget>& output)
@@ -429,8 +432,8 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
     result.diagnostics.push_back(make_diagnostic(
         config_schema::DiagnosticSeverity::Warning, "advanced.diagnostics.ship_state_probe",
         "advanced.diagnostics.ship_state_probe",
-        "Invalid advanced.diagnostics.ship_state_probe. Expected off, repair_action_status, or "
-        "repair_action_status_guard; using off."));
+        "Invalid advanced.diagnostics.ship_state_probe. Expected off, repair_action_status, "
+        "repair_action_status_guard, repair_action_status_hold, or repair_instant_context; using off."));
     result.advanced.diagnostics.ship_state_probe = DCAdvanced::Diagnostics::ship_state_probe;
   }
   read_int_value(result.advanced.diagnostics.ship_state_probe_stack_budget,

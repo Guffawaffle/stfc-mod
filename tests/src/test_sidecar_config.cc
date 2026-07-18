@@ -262,6 +262,34 @@ ship_state_probe = "REPAIR_ACTION_STATUS_GUARD"
                                config_schema::DiagnosticSeverity::Warning));
   }
 
+  TEST_CASE("repair Instant-context mode is accepted case-insensitively")
+  {
+    auto config = toml::parse(R"(
+[advanced.diagnostics]
+ship_state_probe = "REPAIR_INSTANT_CONTEXT"
+)");
+
+    const auto result = ParseSidecarConfig(config);
+
+    CHECK(result.advanced.diagnostics.ship_state_probe == "repair_instant_context");
+    CHECK_FALSE(has_diagnostic(result.diagnostics, "advanced.diagnostics.ship_state_probe",
+                               config_schema::DiagnosticSeverity::Warning));
+  }
+
+  TEST_CASE("repair coherent-status hold mode is accepted case-insensitively")
+  {
+    auto config = toml::parse(R"(
+[advanced.diagnostics]
+ship_state_probe = "REPAIR_ACTION_STATUS_HOLD"
+)");
+
+    const auto result = ParseSidecarConfig(config);
+
+    CHECK(result.advanced.diagnostics.ship_state_probe == "repair_action_status_hold");
+    CHECK_FALSE(has_diagnostic(result.diagnostics, "advanced.diagnostics.ship_state_probe",
+                               config_schema::DiagnosticSeverity::Warning));
+  }
+
   TEST_CASE("ship-state stack budget is clamped to a one-event airlock")
   {
     auto config = toml::parse(R"(

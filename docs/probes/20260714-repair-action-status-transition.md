@@ -1,6 +1,6 @@
 # Probe: Repair action-status transition
 
-- Status: passive probe proven; original narrow guard restored for an isolated pre-Ask-for-Help smoke
+- Status: passive probe proven; coherent-status hold and stale-click interlock runtime-accepted
 - Owner: ship-state synchronization investigation
 - Date: 2026-07-14
 - Related patch label: none
@@ -22,16 +22,22 @@ Which repair `ActionStatus` transitions occur between one Repair click and the s
 
 ## Risk
 
-- Risk class: R4 for passive `repair_action_status` mode; R5 for the explicit behavior-changing guard canary.
-- Confidence rung: state-correlated for the passive seam and payload; the restored guard is runtime-observed but not product-safe.
+- Risk class: R4 for passive `repair_action_status` mode; R5 for the explicit behavior-changing canaries.
+- Confidence rung: state-correlated for the passive seam and payload; the original guard is runtime-observed but not
+  product-safe, while the narrowed coherent-status hold and stale-click interlock are runtime-accepted.
 - Payload confidence: runtime-proven for the receiver, fleet ID, current/previous fleet state, Repair `ActionType`, and observed `ActionStatus` values on this detour.
-- Original/trampoline confidence: runtime-proven across multiple repair lifecycles. The hook calls the original exactly once; guard mode changes only `Ready + Repairing` to `Disabled`.
-- Behavior change expected: none in passive mode; the explicit guard performs only that single projection.
+- Original/trampoline confidence: runtime-proven across multiple repair lifecycles. The hook calls the original
+  exactly once; guard mode changes only `Ready + Repairing` to `Disabled`, while hold mode replaces only a transient
+  Repair `Ready` with the last coherent in-progress Repair status.
+- Behavior change expected: none in passive mode; each explicit canary performs only its documented projection.
 
 ## Implementation Plan
 
 - Module/file: `mods/src/patches/parts/client_ship_state_probe.cc`
-- Config or compile guard: science-only `[advanced.diagnostics].ship_state_probe = "repair_action_status"` for passive observation or `"repair_action_status_guard"` for the original narrow canary; default `"off"`. Caller capture uses a separate `ship_state_probe_stack_budget` integer clamped to 0-1 and defaulting to 0.
+- Config or compile guard: science-only `[advanced.diagnostics].ship_state_probe = "repair_action_status"` for passive
+  observation, `"repair_action_status_guard"` for the original narrow canary, or `"repair_action_status_hold"` for the
+  coherent-status canary; default `"off"`. Caller capture uses a separate `ship_state_probe_stack_budget` integer
+  clamped to 0-1 and defaulting to 0.
 - Hook descriptor name: `kRepairActionStatusHook`
 - Target assembly: `Digit.Client.PrimeLib.Runtime`
 - Target namespace: `Digit.PrimeServer.Models`
@@ -177,4 +183,31 @@ Conclusion: projecting only the `GetActionStatus` return is insufficient to make
 coherent, but the mixed smoke did not isolate the original churn from the later `Instant 0` symptom. The unchanged
 guard is restored to re-test the original symptom alone. Any follow-up for `Instant 0` should stay single-seam at the
 mapped `ActionElementWidget.GetInstantButtonContext` / `HandleReactiveInt` projection boundary rather than widening
-this predicate in place.
+this predicate in place. The passive, mutually exclusive
+[`repair_instant_context`](20260717-repair-instant-button-context.md) observer subsequently captured the projected
+Instant amount changing `74 → 0` while the fleet remained `Repairing`, approximately 1.345 seconds before
+`REPAIR_COMPLETE`.
+
+## Coherent-Status Hold Canary
+
+The captured tuple rules out a post-completion-only explanation but does not support disabling every zero-cost
+context, because the valid completion flow intentionally presents `Finish Ship Repair — FREE`. The next canary
+therefore remains on this already-proven status seam and preserves the last coherent Repair status only when the
+original regresses to `Ready` while current fleet state is `Repairing`. Previous Repairing state is evidence only and
+cannot authorize projection. Coherent held values are limited
+to `InProgress`, `InProgress_Free`, `InProgress_AskForHelp`, and `Complete`; any settling non-Ready result updates or
+clears the held lifecycle.
+
+The 2026-07-17 released-debug deployment matched the deployed DLL hash and installed exactly
+`FleetPlayerData.GetActionStatus(ActionType)` for `ClientShipStateProbe`, with zero failures or skips. Initial ordinary
+status observations were returned unchanged.
+
+Two subsequent user-driven Repair → Ask for Help → Speed Up → Smart Speed-Up flows passed the primary transition.
+Both recorded `InProgress_AskForHelp (202) → InProgress (200)` while `Repairing`, with no intervening `Ready` and no
+projection at that boundary. At completion, both recorded `InProgress_Free (201) → Ready (100)`; hold mode returned
+`201`, and the user saw the coherent `FREE` finish presentation rather than the unsafe base Repair/Instant layout.
+
+These are two passes for the Ask-for-Help → Speed-Up transition, not proof that the uncommon regression is fixed.
+Completion presentation is outside the current acceptance focus. Leave the canary unchanged and capture the next
+visual regression immediately; the decisive evidence is whether it includes `202 → 100` and whether the hold returns
+`202`.

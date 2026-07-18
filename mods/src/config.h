@@ -620,6 +620,21 @@ bool RefineryDiagnosticsEnabled();
 bool RepairActionStatusProbeEnabled();
 
 /**
+ * @brief Whether any science-only client ship-state probe mode is selected.
+ */
+bool ClientShipStateProbeEnabled();
+
+/**
+ * @brief Whether the passive repair Instant-button context observer is selected, including alongside status hold.
+ */
+bool RepairInstantButtonContextProbeEnabled();
+
+/**
+ * @brief Whether the repair status canary preserves the last coherent in-progress status across transient Ready.
+ */
+bool RepairCoherentActionStatusHoldEnabled();
+
+/**
  * @brief Whether the science canary suppresses Repair Ready while the fleet is still Repairing.
  */
 bool RepairReadyWhileRepairingGuardEnabled();

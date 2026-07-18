@@ -254,7 +254,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   auto             install_live_debug_hooks              = LiveDebugChannelEnabled();
   auto             install_refinery_diagnostics_hooks    = RefineryDiagnosticsEnabled();
-  auto             install_client_ship_state_probe_hooks = RepairActionStatusProbeEnabled();
+  auto             install_client_ship_state_probe_hooks = ClientShipStateProbeEnabled();
 #endif
   auto install_open_bulk_claim_gifts_hooks = AutoOpenBulkClaimGiftsEnabled();
   auto install_mission_hud_tweaks_hooks    = MissionHudTweaksEnabled();
