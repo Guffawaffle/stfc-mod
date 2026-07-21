@@ -187,14 +187,14 @@ public:
   /** @brief Check whether the given section exists anywhere in the history stack. */
   bool Contains(SectionID section)
   {
-    static auto ContainsMethod = get_class_helper().GetMethod<bool(SectionNavHistory*, SectionID)>("Contains");
+    static auto ContainsMethod = get_class_helper().GetMethod<bool(SectionNavHistory*, SectionID)>("ContainsSectionID");
     static auto ContainsWarn   = true;
 
     if (ContainsMethod) {
       return ContainsMethod(this, section);
     } else if (ContainsWarn) {
       ContainsWarn = false;
-      ErrorMsg::MissingMethod("SectionNavHistory", "Contains");
+      ErrorMsg::MissingMethod("SectionNavHistory", "ContainsSectionID");
     }
 
     return false;

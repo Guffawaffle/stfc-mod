@@ -8,6 +8,7 @@
  * names via SpecService.
  */
 #include "patches/battle_notify_parser.h"
+#include "patches/game_localization.h"
 
 #include "str_utils.h"
 #include "testable_functions.h"
@@ -86,6 +87,17 @@ static std::string parse_hull_key(const std::string& key)
     s = "Lv." + lvl + rest;
   }
 
+  auto new_word = true;
+  for (auto& character : s) {
+    const auto byte = static_cast<unsigned char>(character);
+    if (std::isalpha(byte)) {
+      character = static_cast<char>(new_word ? std::toupper(byte) : std::tolower(byte));
+      new_word  = false;
+    } else if (character == ' ' || character == '-' || character == '_') {
+      new_word = true;
+    }
+  }
+
   return s;
 }
 
@@ -107,6 +119,24 @@ static std::string resolve_hull_name(BattleResultHeader* brh, long hullId)
   auto* hull = specSvc->GetHull(hullId);
   if (!hull) return fmt::format("Hull#{}", hullId);
 
+  if (auto* id_refs = hull->IdRefsValue; id_refs) {
+    const auto numeric_id = id_refs->LocaId;
+    if (numeric_id != 0) {
+      auto localized = game_localization::LocalizeIdentifier("ship_name_{0}", "ships", numeric_id);
+      if (!localized.empty() && localized != fmt::format("ship_name_{}", numeric_id)) {
+        return localized;
+      }
+    }
+
+    if (auto* string_id = id_refs->LocaStringId; string_id) {
+      const auto identifier = to_string(string_id);
+      auto localized = game_localization::LocalizeIdentifier("ship_name_{0}", "ships", identifier);
+      if (!localized.empty() && localized != fmt::format("ship_name_{}", identifier)) {
+        return localized;
+      }
+    }
+  }
+
   auto* nameStr = hull->Name;
   auto nameKey  = nameStr ? to_string(nameStr) : std::string{};
   if (!nameKey.empty()) return parse_hull_key(nameKey);
@@ -122,6 +152,7 @@ struct BattleSummaryData {
   std::string enemyName;
   std::string playerShip;
   std::string enemyShip;
+  bool        isPvp = false;
 
   /** @brief Format the summary as "Player (Ship) vs Enemy (Ship)".
    *  For NPCs (empty name), uses the ship hull name as the identifier. */
@@ -135,7 +166,7 @@ struct BattleSummaryData {
     };
 
     auto left  = format_side(playerName, playerShip);
-    auto right = format_side(enemyName, enemyShip);
+    auto right = !isPvp && !enemyName.empty() ? enemyName : format_side(enemyName, enemyShip);
     if (left.empty() && right.empty()) return "";
     if (left.empty()) return right;
     if (right.empty()) return left;
@@ -178,10 +209,24 @@ static BattleSummaryData build_battle_data(Il2CppObject* data)
         if (profile) {
           auto* nameStr = profile->Name;
           if (nameStr) result.enemyName = to_string(nameStr);
-          // NPC profiles have empty names — leave blank, hull name used instead
+          if (result.enemyName.empty() && profile->LocaId != 0) {
+            auto localized =
+                game_localization::LocalizeIdentifier("marauder_name_only_{0}", "navigation", profile->LocaId);
+            if (!localized.empty() && localized != "Unknown") {
+              result.enemyName = std::move(localized);
+            }
+          }
         }
       }))
     spdlog::warn("[Notify] SEH: get_EnemyUserProfile crashed");
+
+  if (!seh_call([&] {
+        const auto type = brh->Type;
+        result.isPvp    = type == BattleType::Fleet || type == BattleType::Base || type == BattleType::ArmadaBase
+                       || type == BattleType::ArmadaAsb || type == BattleType::ArmadaMta
+                       || type == BattleType::PvpCuttingBeam || type == BattleType::PvpChainShot;
+      }))
+    spdlog::warn("[Notify] SEH: BattleType crashed");
 
   if (!seh_call([&] {
         auto hid          = brh->PlayerShipHullId;

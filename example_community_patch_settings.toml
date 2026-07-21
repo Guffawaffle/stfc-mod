@@ -331,14 +331,17 @@ arrived_in_system = false
 bufffixhooks = true
 chatpatches = true
 freeresizehooks = true
+fleetarrivalhooks = true
 hotkeyhooks = true
 improveresponsivenesshooks = true
 loadingscreenhooks = true
 miscpatches = true
 objecttracker = true
 panhooks = true
-resolutionlistfix = true
+resolutionlistfix = false
 syncpatches = true
+# Capture the game version for sync headers. Disable only to avoid a detour collision with another mod.
+game_version = true
 tempcrashfixes = true
 testpatches = true
 toastbannerhooks = true
@@ -431,17 +434,20 @@ select_ship8 = "8"
 # ⚠️ EXPERIMENTAL: Moves down the screen
 move_down = "S"
 
-# ⚠️ EXPERIMENTAL: Moves left the screen
-move_left = "A"
+# Moves to the previous officer or ship selection item
+move_left = "LEFT"
 
-# ⚠️ EXPERIMENTAL: Moves right the screen
-move_right = "D"
+# Moves to the next officer or ship selection item
+move_right = "RIGHT"
 
 # ⚠️ EXPERIMENTAL: Moves up the screen
 move_up = "W"
 
 # ⚠️ EXPERIMENTAL: Shows the bookmark->lookup screen
 show_lookup = "L"
+
+# Focuses the search field on supported inventory, officer, and ship-assignment screens
+focus_search = "CTRL-F"
 
 # Subgroup: Hotkeys Master Switch & Logs
 # --------------------------------------

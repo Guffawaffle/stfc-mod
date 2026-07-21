@@ -60,6 +60,10 @@ inline constexpr std::array kOfficerCanvas{
     input_binding::InputActionId::MoveRight,
 };
 
+inline constexpr std::array kSearchFocus{
+    input_binding::InputActionId::FocusSearch,
+};
+
 inline constexpr std::array kSimpleFleet{
     input_binding::InputActionId::FleetQueueClear,
     input_binding::InputActionId::FleetViewInfo,
@@ -129,7 +133,7 @@ inline constexpr auto kFrameActions = [] {
   std::array<input_binding::InputActionId, kStartup.size() + kQuit.size() + kQueue.size() + kShipSelection.size()
                                                + kSelectCurrent.size() + kSimpleFleet.size() + kRuntimeSpace.size()
                                                + kChatOpen.size() + kChatChannel.size() + kOfficerCanvas.size()
-                                               + kTableDispatch.size()>
+                                               + kSearchFocus.size() + kTableDispatch.size()>
        actions{};
   auto output = actions.begin();
 
@@ -161,6 +165,9 @@ inline constexpr auto kFrameActions = [] {
     *output++ = action;
   }
   for (const auto action : kOfficerCanvas) {
+    *output++ = action;
+  }
+  for (const auto action : kSearchFocus) {
     *output++ = action;
   }
   for (const auto action : kTableDispatch) {

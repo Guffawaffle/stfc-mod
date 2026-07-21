@@ -42,6 +42,7 @@ enum class InputActionId : uint16_t {
   SelectChatPrivate,
   MoveLeft,
   MoveRight,
+  FocusSearch,
   HotkeysDisable,
   HotkeysEnable,
   LogDebug,
@@ -133,6 +134,7 @@ enum class ConflictGroup : uint8_t {
   ChatOpen,
   ChatChannel,
   OfficerCanvas,
+  SearchFocus,
   Zoom,
 };
 
@@ -169,6 +171,7 @@ enum class ActionExecutor : uint8_t {
   ChatOpen,
   ChatChannel,
   OfficerCanvas,
+  SearchFocus,
   GlobalControl,
   TableDispatch,
   Zoom,

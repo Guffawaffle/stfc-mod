@@ -277,8 +277,7 @@ namespace Notifications
 
 namespace Patches
 {
-  // Debug-build toggles for individual hook categories.
-  // In release builds these are ignored and all patches are force-enabled.
+  // User-controlled toggles for individual hook categories in every build mode.
   constexpr bool bufffixhooks               = true;  ///< Out-of-dock power / buff calculation fixes.
   constexpr bool chatpatches                = true;  ///< Chat-related UI patches.
   constexpr bool freeresizehooks            = true;  ///< Free window resize hooks.
@@ -290,6 +289,7 @@ namespace Patches
   constexpr bool panhooks                   = true;  ///< Pan-momentum hooks.
   constexpr bool resolutionlistfix          = false; ///< Resolution-list population fix; disabled after Unity 6 update.
   constexpr bool syncpatches                = true;  ///< Data-sync network hooks.
+  constexpr bool game_version               = true;  ///< Capture the game version for sync request headers.
   constexpr bool tempcrashfixes             = true;  ///< Temporary crash mitigations.
   constexpr bool testpatches                = true;  ///< Test / experimental patches.
   constexpr bool toastbannerhooks           = true;  ///< Toast-banner filtering hooks.
@@ -392,8 +392,9 @@ namespace Shortcuts
   constexpr const char* zoom_preset5          = "F5";
   constexpr const char* move_up               = "W";
   constexpr const char* move_down             = "S";
-  constexpr const char* move_left             = "A";
-  constexpr const char* move_right            = "D";
+  constexpr const char* move_left             = "LEFT";
+  constexpr const char* move_right            = "RIGHT";
+  constexpr const char* focus_search          = "CTRL-F";
 } // namespace Shortcuts
 
 namespace Sync

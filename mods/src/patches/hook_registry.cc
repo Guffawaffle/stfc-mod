@@ -1,5 +1,7 @@
 #include "patches/hook_registry.h"
 
+#include "patches/hook_install_audit.h"
+
 #include <algorithm>
 #include <cstdlib>
 #include <mutex>
@@ -59,6 +61,7 @@ void HookModuleHealth::record_skipped(const HookDescriptor& descriptor, std::str
   auto& record = upsert(descriptor);
   record.status = HookInstallStatus::Skipped;
   record.detail = reason;
+  hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Skipped);
   log_record(record);
 }
 
@@ -67,6 +70,7 @@ void HookModuleHealth::record_missing_helper(const HookDescriptor& descriptor)
   auto& record = upsert(descriptor);
   record.status = HookInstallStatus::MissingHelper;
   record.detail = "class/helper lookup failed";
+  hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Missing);
   log_record(record);
 }
 
@@ -75,6 +79,7 @@ void HookModuleHealth::record_missing_method(const HookDescriptor& descriptor)
   auto& record = upsert(descriptor);
   record.status = HookInstallStatus::MissingMethod;
   record.detail = "method lookup failed";
+  hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Missing);
   log_record(record);
 }
 
@@ -84,6 +89,7 @@ void HookModuleHealth::record_detour_attempted(const HookDescriptor& descriptor)
   record.status = HookInstallStatus::DetourAttempted;
   record.method_found = true;
   record.detour_attempted = true;
+  hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Attempted);
 }
 
 void HookModuleHealth::record_detour_installed(const HookDescriptor& descriptor)
@@ -93,6 +99,7 @@ void HookModuleHealth::record_detour_installed(const HookDescriptor& descriptor)
   record.method_found = true;
   record.detour_attempted = true;
   record.detail.clear();
+  hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Installed);
   log_record(record);
 }
 
@@ -103,8 +110,12 @@ void HookModuleHealth::record_detour_failed(const HookDescriptor& descriptor, st
   record.method_found = true;
   record.detour_attempted = true;
   record.detail = error;
+  hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Failed);
   log_record(record);
 }
+
+std::string_view HookModuleHealth::module_name() const
+{ return module_; }
 
 void HookModuleHealth::log_summary() const
 {
@@ -248,6 +259,7 @@ void hook_registry_reset_owners_for_testing()
 {
   std::lock_guard<std::mutex> lock(owner_registry_mutex());
   owner_registry().clear();
+  hook_install_audit_reset_for_testing();
 }
 
 size_t hook_registry_owner_count_for_testing()

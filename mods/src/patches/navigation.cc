@@ -12,9 +12,7 @@
 
 #include "prime/Hub.h"
 #include "prime/NavigationSectionManager.h"
-#include "prime/ScreenManager.h"
-
-#include <cstring>
+#include "prime/ElementSelectorViewController.h"
 
 void GotoSection(SectionID sectionID, void* section_data)
 {
@@ -44,14 +42,14 @@ void ChangeNavigationSection(SectionID sectionID)
 
 bool MoveOfficerCanvas(bool goLeft)
 {
-  // ScreenManager/CanvasRoot/MainFrame/ShipManagement_Canvas/Content/Pagination/
-  // ScreenManager/CanvasRoot/MainFrame/OfficerShowcase_Canvas/
-  // ScreenManager/CanvasRoot/MainFrame/LeftArrow and RightArrow
+  bool acted = false;
+  for (auto* selector : ObjectFinder<ElementSelectorViewController>::GetAllNonNull()) {
+    if (!selector->isActiveAndEnabled()) {
+      continue;
+    }
 
-  auto const canvas = ScreenManager::GetTopCanvas(true);
-  auto*      canvas_object = reinterpret_cast<Il2CppObject*>(canvas);
-  if (canvas_object && canvas_object->klass && canvas_object->klass->name
-      && strcmp(canvas_object->klass->name, "OfficerShowcase_Canvas") == 0) {}
-
-  return false;
+    goLeft ? selector->PressDecrement() : selector->PressIncrement();
+    acted = true;
+  }
+  return acted;
 }

@@ -60,6 +60,21 @@ constexpr HookDescriptor kPlanetViewUtilsGetFlatRenderableHook{
     {"Assembly-CSharp", "Digit.Prime.Navigation", "PlanetViewUtils", "get_FlatRenderable"},
     "Extreme system zoom can expose backdrop void at the edges."};
 
+constexpr HookDescriptor kNavigationZoomUpdateHook{
+    "NavigationZoom.Update", "Route configured zoom bindings and preserve the configured system zoom range.",
+    {"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationZoom", "Update"},
+    "Keyboard zoom and the extended range stop working."};
+
+constexpr HookDescriptor kNavigationZoomSetDepthHook{
+    "NavigationZoom.SetDepth", "Apply system zoom presentation during Windows depth transitions.",
+    {"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationZoom", "SetDepth"},
+    "The default zoom or background scaling can regress on system entry."};
+
+constexpr HookDescriptor kNavigationZoomSetViewParametersHook{
+    "NavigationZoom.SetViewParameters", "Apply extended zoom ratios while system view parameters are initialized.",
+    {"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationZoom", "SetViewParameters"},
+    "The configured maximum zoom can be capped by the game."};
+
 struct ZoomRuntimeDispatchCache {
   uint64_t                                     generation = 0;
   std::vector<KeyCode>                         watched_keys;
@@ -153,6 +168,11 @@ vec3 GetMouseWorldPos(void *cam, vec3 *pos)
 /// Flag set by depth/view hooks to trigger a zoom-to-default on the next Update.
 auto do_default_zoom = false;
 
+static float           s_expectedScale = 0.0f;
+static void           *s_cachedFR      = nullptr;
+static void           *s_lastScaledFR  = nullptr;
+static NavigationZoom *s_navZoom       = nullptr;
+
 inline void SetSceneCameraFarClip(NavigationZoom *zoom, float farClipPlane)
 {
   if (zoom && zoom->_sceneCamera) {
@@ -171,6 +191,37 @@ inline void SetSceneCameraPresentation(NavigationZoom *zoom)
   zoom->_sceneCamera->backgroundColor = {0, 0, 0, 0};
 }
 
+void ApplySystemZoomRange(NavigationZoom *zoom, const float radius)
+{
+  const auto configured_maximum = Config::Get().zoom;
+  if (!zoom || radius <= 0.0f || configured_maximum <= 0.0f) {
+    return;
+  }
+
+  const auto ratio                 = configured_maximum / radius;
+  zoom->_farRatioSystemNormal      = 0.55f * ratio;
+  zoom->_farRatioSystemExtended    = ratio;
+  s_navZoom                        = zoom;
+}
+
+void EnsureSystemZoomRange(NavigationZoom *zoom)
+{
+  if (!zoom || zoom->_depth != NodeDepth::SolarSystem || Config::Get().zoom <= 0.0f) {
+    return;
+  }
+
+  ApplySystemZoomRange(zoom, zoom->_viewRadius);
+  if (zoom->_maximum < Config::Get().zoom) {
+    zoom->_maximum = Config::Get().zoom;
+  }
+
+  const auto range = zoom->_maximum - zoom->_minimum;
+  if (range > 0.0f) {
+    zoom->_zoomtotal = range;
+  }
+  SetSceneCameraPresentation(zoom);
+}
+
 /**
  * @brief Saves the current zoom distance as a named preset.
  * @param label  Human-readable preset name (for log output).
@@ -186,11 +237,6 @@ inline void StoreZoom(std::string label, float &zoom, NavigationZoom *_this)
   zoom          = (_this->Distance - _this->_minimum) / (_this->_maximum - _this->_minimum) * Config::Get().zoom;
   spdlog::info("Changing {} from {} to {}", label, old_zoom, zoom);
 }
-
-static float           s_expectedScale = 0.0f;
-static void           *s_cachedFR      = nullptr;
-static void           *s_lastScaledFR  = nullptr;
-static NavigationZoom *s_navZoom       = nullptr;
 
 static void ScaleFR(void *fr)
 {
@@ -248,6 +294,8 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
     impact_timer.ExcludeCall([&] { original(_this); });
     return;
   }
+
+  EnsureSystemZoomRange(_this);
 
   const auto dt               = GetDeltaTime();
   auto       zoomDelta        = 0.0f;
@@ -376,6 +424,7 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
   do_default_zoom = false;
 
   impact_timer.ExcludeCall([&] { original(_this); });
+  EnsureSystemZoomRange(_this);
 }
 
 void PlanetViewUtils_CameraZoomedEventHandler_Hook(auto original, PlanetViewUtils *_this, float zoomDistance,
@@ -416,10 +465,7 @@ void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom *_this,
   }
 
   if (depth == NodeDepth::SolarSystem) {
-    auto ratio                     = (Config::Get().zoom / radius);
-    _this->_farRatioSystemNormal   = 0.55f * ratio;
-    _this->_farRatioSystemExtended = 1 * ratio;
-    s_navZoom                      = _this;
+    ApplySystemZoomRange(_this, radius);
     SetSceneCameraPresentation(_this);
     original(_this, radius, depth);
     SetSceneCameraPresentation(_this);
@@ -470,10 +516,7 @@ void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom *_this, NodeDept
   }
 
   if (depth == NodeDepth::SolarSystem) {
-    auto ratio                     = (Config::Get().zoom / _this->_viewRadius);
-    _this->_farRatioSystemNormal   = 0.55f * ratio;
-    _this->_farRatioSystemExtended = 1 * ratio;
-    s_navZoom                      = _this;
+    ApplySystemZoomRange(_this, _this->_viewRadius);
     SetSceneCameraPresentation(_this);
     original(_this, depth);
     SetSceneCameraPresentation(_this);
@@ -563,33 +606,47 @@ void InstallZoomHooks()
     }
   }
 
-  hooks.log_summary();
-
   auto screen_manager_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "NavigationZoom");
   if (!screen_manager_helper.isValidHelper()) {
+    hooks.record_missing_helper(kNavigationZoomUpdateHook);
+    hooks.record_missing_helper(kNavigationZoomSetViewParametersHook);
+#if _WIN32
+    hooks.record_missing_helper(kNavigationZoomSetDepthHook);
+#else
+    hooks.record_skipped(kNavigationZoomSetDepthHook, "SetDepth detour is only required on Windows");
+#endif
     ErrorMsg::MissingHelper("Navigation", "NavigationZoom");
   } else {
     auto ptr_update = screen_manager_helper.GetMethod("Update");
     if (ptr_update == nullptr) {
+      hooks.record_missing_method(kNavigationZoomUpdateHook);
       ErrorMsg::MissingMethod("NavigationZoom", "Update");
     } else {
-      SPUD_STATIC_DETOUR(ptr_update, NavigationZoom_Update_Hook);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kNavigationZoomUpdateHook, ptr_update, NavigationZoom_Update_Hook);
     }
 
 #if _WIN32
     auto ptr_set_depth = screen_manager_helper.GetMethod("SetDepth");
     if (ptr_set_depth == nullptr) {
+      hooks.record_missing_method(kNavigationZoomSetDepthHook);
       ErrorMsg::MissingMethod("NavigationZoom", "SetDepth");
     } else {
-      SPUD_STATIC_DETOUR(ptr_set_depth, NavigationZoom_SetDepth_Hook);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kNavigationZoomSetDepthHook, ptr_set_depth,
+                                       NavigationZoom_SetDepth_Hook);
     }
+#else
+    hooks.record_skipped(kNavigationZoomSetDepthHook, "SetDepth detour is only required on Windows");
 #endif
 
     auto ptr_set_view_parameters = screen_manager_helper.GetMethod("SetViewParameters");
     if (ptr_set_view_parameters == nullptr) {
+      hooks.record_missing_method(kNavigationZoomSetViewParametersHook);
       ErrorMsg::MissingMethod("NavigationZoom", "SetViewParameters");
     } else {
-      SPUD_STATIC_DETOUR(ptr_set_view_parameters, NavigationZoom_SetViewParameters_Hook);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kNavigationZoomSetViewParametersHook, ptr_set_view_parameters,
+                                       NavigationZoom_SetViewParameters_Hook);
     }
   }
+
+  hooks.log_summary();
 }

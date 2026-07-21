@@ -34,7 +34,7 @@ add_requires("toml++")
 add_requires("nlohmann_json")
 add_requires("cpr")
 add_requireconfs("cpr.libcurl", { configs = { zlib = true } })
-add_requires("protobuf 32.1")
+add_requires("protobuf 35.1")
 
 -- ─── Platform-Specific Targets & Dependencies ────────────────────────────────
 
@@ -89,7 +89,7 @@ on_fetch(function(package, opt)
 end)
 package_end()
 
-add_requires("spud v0.2.0-2")
+add_requires("spud v0.2.0-3")
 add_requires("libil2cpp")
 add_requires("simdutf", { system = false })
 add_requires("doctest")

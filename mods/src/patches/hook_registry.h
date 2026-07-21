@@ -64,6 +64,7 @@ public:
   void record_detour_installed(const HookDescriptor& descriptor);
   void record_detour_failed(const HookDescriptor& descriptor, std::string_view error);
   void log_summary() const;
+  [[nodiscard]] std::string_view module_name() const;
 
 private:
   std::string                    module_;
@@ -103,7 +104,7 @@ size_t hook_registry_owner_count_for_testing();
   do { \
     const auto hook_registry_addr = (addr); \
     (registry).record_detour_attempted((descriptor)); \
-    if (!hook_registry_claim_owner((descriptor), #registry, static_cast<const void*>(hook_registry_addr))) { \
+    if (!hook_registry_claim_owner((descriptor), (registry).module_name(), static_cast<const void*>(hook_registry_addr))) { \
       (registry).record_detour_failed((descriptor), "duplicate detour owner — single-owner policy"); \
       break; \
     } \

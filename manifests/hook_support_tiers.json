@@ -47,6 +47,12 @@
       "rationale": "Release-supported Claim All flyout workflow."
     },
     {
+      "id": "ObjectTrackerHooks",
+      "tier": "internal",
+      "source": "mods/src/patches/parts/object_tracker.cc",
+      "rationale": "Shared managed-object lifecycle tracking used by feature modules without installing overlapping hooks."
+    },
+    {
       "id": "RefineryDiagnosticsHooks",
       "tier": "production",
       "source": "mods/src/patches/refinery_diagnostics.cc",
@@ -57,6 +63,12 @@
       "tier": "internal",
       "source": "mods/src/patches/section_change_router.cc",
       "rationale": "Shared section-change fan-out for feature modules."
+    },
+    {
+      "id": "SyncHooks",
+      "tier": "production",
+      "source": "mods/src/patches/parts/sync.cc",
+      "rationale": "Release-supported entity, session-header, and realtime slot synchronization hooks."
     },
     {
       "id": "ZoomPlanetViewHooks",

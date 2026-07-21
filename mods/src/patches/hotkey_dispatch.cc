@@ -42,7 +42,13 @@ static DispatchDecision HandleShowBookmarks()
 
 static DispatchDecision HandleShowLookup()
 {
-  GotoSection(SectionID::Bookmarks_Search_Coordinates);
+  auto* bookmark_manager = BookmarksManager::Instance();
+  if (!bookmark_manager) {
+    spdlog::warn("[CoordSearch] BookmarksManager is unavailable; opening the bookmarks section");
+    GotoSection(SectionID::Bookmarks_Main);
+  } else {
+    bookmark_manager->ViewCoordinateSearch();
+  }
   return DispatchDecision::HandledStop;
 }
 

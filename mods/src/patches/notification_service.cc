@@ -8,6 +8,7 @@
  */
 #include "patches/notification_service.h"
 #include "patches/battle_notify_parser.h"
+#include "patches/game_localization.h"
 
 #include "bounded_ttl_cache.h"
 #include "config.h"
@@ -22,6 +23,7 @@
 
 #include <il2cpp/il2cpp_helper.h>
 #include <prime/LanguageManager.h>
+#include <prime/EventModel.h>
 #include <prime/Toast.h>
 
 #include <spdlog/fmt/fmt.h>
@@ -224,6 +226,61 @@ static std::string resolve_armada_created_formatted(Toast* toast, int state, std
                                                  int_to_string_or_empty(target_level), target_label);
 }
 
+static const char* event_category_name(const int32_t category)
+{
+  switch (category) {
+    case 0: return "Standard";
+    case 1: return "Daily Goals";
+    case 2: return "Daily Milestone";
+    case 3: return "Leaderboard";
+    case 4: return "Stat";
+    case 5: return "Battle Pass Season";
+    case 6: return "Battle Pass Event";
+    case 7: return "Treasury Progress";
+    case 8: return "Treasury Reward";
+    case 9: return "Server Clash";
+    case 10: return "Webstore Event";
+    case 11: return "Player Lifecycle";
+    case 12: return "Field Training";
+    case 13: return "FT Category";
+    case 14: return "Cutscenes";
+    case 15: return "Minigame";
+    case 16: return "Minigame Stage";
+    case 17: return "Warchest";
+    case 18: return "Alliance Game";
+    case 19: return "Alliance Game Task";
+    case 20: return "Meta Event";
+    case 21: return "Meta Event Objective";
+    case 22: return "Invasion";
+    case 23: return "Loop Museum";
+    case 24: return "Loop Museum Task";
+    case 25: return "PLC BP Season";
+    case 26: return "PLC BP Event";
+    case 27: return "Progression Reward";
+    case 28: return "Faction Weekly Events";
+    default: return nullptr;
+  }
+}
+
+static std::string resolve_event_category(Toast* toast)
+{
+  auto* event = toast ? reinterpret_cast<EventModel*>(toast->get_Data()) : nullptr;
+  if (!event) {
+    return {};
+  }
+
+  const auto category = event->CategoryValue();
+  const auto* name    = category ? event_category_name(*category) : nullptr;
+  return name ? std::string{name} : std::string{};
+}
+
+static bool toast_state_uses_event_category(const int state)
+{
+  return state == Achievement || state == Tournament || state == ChainedEventScored || state == TreasuryProgress
+         || state == TreasuryFull || state == WarchestProgress || state == WarchestFull
+         || state == FactionWeeklyEventsProgress || state == FactionWeeklyEventsComplete;
+}
+
 // ─── Toast State → Human-Readable Title ───────────────────────────────────────────────
 
 /**
@@ -312,6 +369,36 @@ static const char* toast_state_title(int state)
       return "Arena Time Warning";
     case FleetPresetApplied:
       return "Fleet Preset Applied";
+    case QueueForLeaseActivated:
+      return "Queue Activated";
+    case QueueForLeaseExpired:
+      return "Queue Expired";
+    case PermanentQueuePurchased:
+      return "Permanent Queue Purchased";
+    case OutpostStartedOrEnded:
+      return "Outpost Update";
+    case CrossAllianceArmadaVictory:
+      return "Cross-Armada Victory!";
+    case CrossAllianceArmadaDefeat:
+      return "Cross-Armada Defeated";
+    case CrossAllianceArmadaPartialVictory:
+      return "Cross-Armada Partial Victory";
+    case FactionWeeklyEventsProgress:
+      return "Faction Weekly Event Progress";
+    case FactionWeeklyEventsComplete:
+      return "Faction Weekly Event Complete";
+    case ArmadaPlayerBlocked:
+      return "Armada Player Blocked";
+    case ArmadaPlayerUnblocked:
+      return "Armada Player Unblocked";
+    case DynamicCrisisUpdate:
+      return "Dynamic Crisis Update";
+    case DynamicCrisisFailed:
+      return "Dynamic Crisis Failed";
+    case DynamicCrisisCompleted:
+      return "Dynamic Crisis Completed";
+    case GalacticAnomalySystemEntered:
+      return "Galactic Anomaly Entered";
     default:
       return nullptr;
   }
@@ -470,6 +557,10 @@ static Il2CppArray* resolve_toast_text_parameters(Toast* toast, void* ltc)
 
 static std::string resolve_toast_text(void* ltc)
 {
+  if (auto localized = game_localization::LocalizeContext(ltc); !localized.empty()) {
+    return localized;
+  }
+
   if (!ltc) {
     return {};
   }
@@ -662,6 +753,7 @@ void notification_init()
     return;
   }
 
+  game_localization::Initialize();
   resolve_language_manager_localize_methods();
 
   if (!s_localize_ltc) {
@@ -773,6 +865,11 @@ void notification_handle_generic_toast(Toast* toast, int state, const char* titl
     formatted_localized_body = resolve_toast_formatted(toast, ltc, localized_body, state);
   }
   auto body = notification_choose_body(parsed_body, formatted_localized_body, localized_body);
+  if (toast_state_uses_event_category(state)) {
+    if (auto category = resolve_event_category(toast); !category.empty()) {
+      body = category + " - " + body;
+    }
+  }
 
   spdlog::debug("[Notify] {} — {}", title, body);
   notification_emit(kind.value(), title, body.c_str());
