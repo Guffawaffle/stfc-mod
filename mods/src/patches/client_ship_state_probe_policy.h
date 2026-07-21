@@ -33,6 +33,12 @@ struct RepairStatusSnapshot {
   int32_t returned_status = 0;
 };
 
+struct RepairPresentationHoldDecision {
+  bool     hold       = false;
+  bool     changed    = false;
+  uint64_t elapsed_ms = 0;
+};
+
 constexpr bool should_capture_ready_while_repairing_caller(const RepairStatusTransition& transition,
                                                            int32_t current_status, int32_t current_fleet_state)
 {
@@ -62,6 +68,91 @@ constexpr bool should_suppress_stale_instant_click_after_repair(int32_t current_
          && original_status == kActionStatusReady && instant_context.context_present && instant_context.interactable
          && instant_context.has_amount;
 }
+
+class RepairPresentationHoldCache
+{
+public:
+  static constexpr size_t   kCapacity       = 16;
+  static constexpr uint64_t kHoldDurationMs = 2500;
+
+  RepairPresentationHoldDecision evaluate(uint64_t fleet_id, int32_t current_fleet_state, int32_t previous_fleet_state,
+                                          int32_t original_status, uint64_t now_ms)
+  {
+    constexpr int32_t kActionStatusReady   = 100;
+    constexpr int32_t kFleetStateDocked    = 2;
+    constexpr int32_t kFleetStateRepairing = 32;
+    const auto        stale_transition     = current_fleet_state == kFleetStateDocked
+                                             && previous_fleet_state == kFleetStateRepairing
+                                             && original_status == kActionStatusReady;
+
+    auto* observed = find(fleet_id);
+    if (!stale_transition) {
+      if (observed == nullptr) {
+        return {};
+      }
+      const auto changed = observed->holding;
+      observed->active   = false;
+      observed->released = false;
+      observed->holding  = false;
+      return {false, changed, 0};
+    }
+
+    if (observed == nullptr) {
+      observed = insert(fleet_id);
+    }
+    if (!observed->active) {
+      observed->started_ms = now_ms;
+      observed->active     = true;
+      observed->released   = false;
+    }
+
+    const auto elapsed_ms = now_ms >= observed->started_ms ? now_ms - observed->started_ms : 0;
+    if (elapsed_ms >= kHoldDurationMs) {
+      observed->released = true;
+    }
+    const auto hold    = !observed->released;
+    const auto changed = hold != observed->holding;
+    observed->holding  = hold;
+    return {hold, changed, elapsed_ms};
+  }
+
+private:
+  struct ObservedRepairPresentation {
+    uint64_t fleet_id   = 0;
+    uint64_t started_ms = 0;
+    bool     active     = false;
+    bool     released   = false;
+    bool     holding    = false;
+    bool     occupied   = false;
+  };
+
+  ObservedRepairPresentation* find(uint64_t fleet_id)
+  {
+    for (auto& observed : observed_) {
+      if (observed.occupied && observed.fleet_id == fleet_id) {
+        return &observed;
+      }
+    }
+    return nullptr;
+  }
+
+  ObservedRepairPresentation* insert(uint64_t fleet_id)
+  {
+    for (auto& observed : observed_) {
+      if (!observed.occupied) {
+        observed = {.fleet_id = fleet_id, .occupied = true};
+        return &observed;
+      }
+    }
+
+    auto& observed = observed_[replacement_index_++ % observed_.size()];
+    observed       = {.fleet_id = fleet_id, .occupied = true};
+    return &observed;
+  }
+
+  std::array<ObservedRepairPresentation, kCapacity> observed_{};
+  size_t                                            replacement_index_ = 0;
+};
 
 class RepairStatusTransitionCache
 {

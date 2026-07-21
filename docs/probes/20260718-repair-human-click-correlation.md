@@ -93,3 +93,47 @@ the stale action is blocked and the subsequent genuine Ask-for-Help action remai
 
 Runtime also established that `_instantBehaviours` remains zero on both known Ask-for-Help and Speed-Up clicks. It is
 retained only as raw evidence; status plus actual `RequestHelpJob` dispatch determine the click meaning.
+
+## Layered Presentation Canary
+
+The accepted click interlock remains the safety floor. In `repair_action_status_hold` mode,
+`GetInstantButtonContext` now also rejects the same stale presentation proposal for at most 2.5 seconds by returning
+the widget's already-rooted live `_instantButtonContext`. `HandleReactiveInt` consequently value-copies that context
+onto itself and leaves the visible Instant action unchanged. No managed pointer is retained, no context is fabricated,
+and no click or request is queued or replayed. A coherent current fleet state releases the hold immediately; the
+fixed bound releases a persistently stale tuple so normal Docked presentation cannot freeze indefinitely.
+
+The implementation passes 298 test cases and 3040 assertions and the full released-debug build. Runtime acceptance
+requires one ordinary complete Repair flow plus one recurrence showing `presentationHeld=true`, no bad native action,
+and exactly one help request after coherent Repairing re-entry.
+
+## Layered Canary Runtime Acceptance
+
+The 2026-07-18 `17:14` Quv'Sompek flow passed the layered acceptance contract. At `17:14:19.638`, native Repair
+regressed to `Ready` while current state was still `Repairing`; status hold returned `202`, immediately followed by
+`REPAIR_COMPLETE`. At `17:14:19.639`, fleet state became `Docked/previous Repairing` and the zero-amount stale
+proposal logged `presentationHeld=true`. A human Instant click at `17:14:19.676` logged `suppressed=true` and emitted
+no help request or native error/Latinum action. The fleet re-entered `Repairing` at `17:14:20.712`; the presentation
+hold released, and the next human click at `17:14:21.389` emitted exactly one repair-job `RequestHelpJob` before
+status advanced to `200`.
+
+The same fleet produced a stronger presentation-only sample at `17:14:29.644`: after another completion, native
+proposed paid amount `251434` in the exact stale tuple, while the layered getter returned the existing amount-zero
+live context with `presentationHeld=true`. No click or bad native action followed. USS Crozier independently produced
+an amount-zero held completion sample at `17:14:16.572`. These traces runtime-prove that the presentation layer
+rejects both zero and paid stale proposals while the click interlock remains an independent safety boundary.
+
+A later no-click Quv'Sompek sample at `20:53` isolated presentation behavior from the click interlock. The fleet
+cycled through three completion boundaries:
+
+- `20:53:27.126`: native `Ready`, `Docked/previous Repairing`, amount-zero proposal held; Repairing re-entry followed
+  at `20:53:28.430` without a stale-window click.
+- `20:53:28.883`: native proposed paid amount `59914`, while the getter returned the existing amount-zero live
+  context with `presentationHeld=true`; Repairing re-entry followed at `20:53:29.334`, again without a stale click.
+- `20:53:30.656`: native again proposed paid amount `59914`, while the getter returned amount zero with
+  `presentationHeld=true`; no stale click or bad native action followed in the captured window.
+
+The sole nearby Instant click occurred at `20:53:30.035` while current state was `Repairing` and status was
+`InProgress_Free (201)`. It was correctly unsuppressed and represents the valid Finish action, not a stale-window
+interaction. This sample independently demonstrates that the presentation layer rejects repeated stale proposals
+without relying on a human click, while the valid completion control remains usable.

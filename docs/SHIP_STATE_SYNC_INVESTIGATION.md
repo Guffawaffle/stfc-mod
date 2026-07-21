@@ -325,7 +325,7 @@ The runtime-accepted implementation checkpoint is commit
 rollback boundary if a later presentation experiment regresses Repair behavior; prefer reverting the later
 experiment first, or revert this checkpoint explicitly when the intent is to remove the complete probe/interlock.
 
-The next candidate combines presentation coherence with the accepted safety floor:
+The next canary combines presentation coherence with the accepted safety floor:
 
 - Retain the exact stale-click interlock unchanged so a mismatched widget can never invoke the native paid/error path.
 - At the final Repair button-context/presentation boundary, reject or defer only a proven incoherent button change
@@ -335,6 +335,28 @@ The next candidate combines presentation coherence with the accepted safety floo
   a coherent current action or explicitly suppressed.
 - Require runtime acceptance to show no Latinum confirmation or Ship Error in the stale window and exactly one help
   request when the subsequent genuine Ask-for-Help action is clicked.
+
+Static disassembly resolves the commit mechanism without another detour. `HandleReactiveInt` loads the live
+`_instantButtonContext`, calls `GetInstantButtonContext`, and value-copies the returned context into that live object.
+In hold mode, the getter now recognizes only `Docked + previous Repairing + native Ready` and, for a maximum of 2.5
+seconds, returns the widget's already-rooted live context instead of the stale proposal. The resulting self-copy is a
+no-op, so the proposed button change is rejected without retaining or fabricating a managed object. Re-entry to any
+coherent current state releases the hold immediately; an unchanged stale tuple is released at the bound so the UI
+cannot freeze indefinitely. The independent click interlock remains active throughout and no input is replayed.
+
+The layered canary passes 298 policy/integration test cases and 3040 assertions plus the full released-debug build;
+runtime smoke passed on Quv'Sompek and USS Crozier. Quv'Sompek's first recurrence held an amount-zero stale proposal
+at `17:14:19.639`, suppressed the human click at `17:14:19.676`, released on Repairing re-entry at `17:14:20.712`,
+and allowed exactly one genuine help request at `17:14:21.389`. Its second recurrence at `17:14:29.644` proposed
+paid amount `251434`, but returned the existing amount-zero live context with `presentationHeld=true`; no bad action
+followed. USS Crozier independently held an amount-zero post-completion proposal at `17:14:16.572`. This satisfies
+the layered presentation and click-safety acceptance contract.
+
+At `20:53`, Quv'Sompek supplied a no-stale-click negative control across three further completion/re-entry cycles.
+The presentation layer held stale proposals at `20:53:27.126` (amount zero), `20:53:28.883` (native `59914`, returned
+zero), and `20:53:30.656` (native `59914`, returned zero). No human click occurred in any stale Docked window and no
+bad native action followed. The only nearby Instant click, at `20:53:30.035`, occurred while currently `Repairing`
+with status `201` and was correctly unsuppressed as the valid Finish control.
 
 ## Evidence Schema
 

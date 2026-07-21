@@ -142,4 +142,52 @@ TEST_SUITE("client_ship_state_probe_policy")
     CHECK_FALSE(ship_state_probe::should_suppress_stale_instant_click_after_repair(32, 2, 100, normal_help));
     CHECK_FALSE(ship_state_probe::should_suppress_stale_instant_click_after_repair(2, 32, 100, missing_context));
   }
+
+  TEST_CASE("repair presentation hold debounces only the proven post-completion race")
+  {
+    ship_state_probe::RepairPresentationHoldCache cache;
+
+    const auto first = cache.evaluate(41, 2, 32, 100, 1000);
+    CHECK(first.hold);
+    CHECK(first.changed);
+    CHECK(first.elapsed_ms == 0);
+
+    const auto bounded = cache.evaluate(41, 2, 32, 100, 3499);
+    CHECK(bounded.hold);
+    CHECK_FALSE(bounded.changed);
+    CHECK(bounded.elapsed_ms == 2499);
+
+    const auto released = cache.evaluate(41, 2, 32, 100, 3500);
+    CHECK_FALSE(released.hold);
+    CHECK(released.changed);
+    CHECK(released.elapsed_ms == ship_state_probe::RepairPresentationHoldCache::kHoldDurationMs);
+
+    const auto remains_released = cache.evaluate(41, 2, 32, 100, 4000);
+    CHECK_FALSE(remains_released.hold);
+    CHECK_FALSE(remains_released.changed);
+
+    const auto reset = cache.evaluate(41, 32, 2, 202, 4100);
+    CHECK_FALSE(reset.hold);
+    CHECK_FALSE(reset.changed);
+
+    const auto next_race = cache.evaluate(41, 2, 32, 100, 5000);
+    CHECK(next_race.hold);
+    CHECK(next_race.changed);
+  }
+
+  TEST_CASE("repair presentation hold leaves genuine Repair states untouched")
+  {
+    ship_state_probe::RepairPresentationHoldCache cache;
+
+    CHECK_FALSE(cache.evaluate(41, 32, 2, 202, 1000).hold);
+    CHECK_FALSE(cache.evaluate(41, 32, 2, 200, 1100).hold);
+    CHECK_FALSE(cache.evaluate(41, 32, 2, 201, 1200).hold);
+    CHECK_FALSE(cache.evaluate(41, 2, 32, 0, 1300).hold);
+    CHECK_FALSE(cache.evaluate(41, 2, 1, 100, 1400).hold);
+
+    CHECK(cache.evaluate(42, 2, 32, 100, 2000).hold);
+    const auto coherent_reentry = cache.evaluate(42, 32, 2, 202, 2100);
+    CHECK_FALSE(coherent_reentry.hold);
+    CHECK(coherent_reentry.changed);
+  }
 }

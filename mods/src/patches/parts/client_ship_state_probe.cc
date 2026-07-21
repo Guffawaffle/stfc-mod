@@ -40,7 +40,7 @@ constexpr HookDescriptor kRepairActionStatusHook{
 
 constexpr HookDescriptor kRepairInstantButtonContextHook{
     "ActionElementWidget.GetInstantButtonContext()",
-    "Observe the final Repair Instant-button context without changing the returned context or widget behavior.",
+    "Observe the final Repair Instant-button context and, in hold mode, debounce only the proven stale transition.",
     {"Assembly-CSharp", "Digit.Prime.Actions", "ActionElementWidget", "GetInstantButtonContext"},
     "Final Repair Instant-button context transitions will be unavailable.",
     HookSupportTier::Science};
@@ -76,6 +76,8 @@ ship_state_probe::RepairStatusSnapshotCache           g_repairStatusSnapshots;
 std::mutex                                            g_repairStatusSnapshotsMutex;
 ship_state_probe::RepairCoherentStatusHoldCache       g_repairCoherentStatusHold;
 std::mutex                                            g_repairCoherentStatusHoldMutex;
+ship_state_probe::RepairPresentationHoldCache         g_repairPresentationHold;
+std::mutex                                            g_repairPresentationHoldMutex;
 std::atomic<uint64_t>                                 g_sequence{0};
 std::atomic<int>                                      g_stackBudget{0};
 std::atomic<bool>                                     g_guardEnabled{false};
@@ -163,6 +165,15 @@ bool ReadButtonBehaviours(ActionElementWidget* widget, std::string_view control,
 
   behaviours = *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(widget) + field.offset());
   return true;
+}
+
+GenericButtonContext* ReadCurrentInstantButtonContext(ActionElementWidget* widget)
+{
+  static auto field = ActionElementWidgetHelper().GetField("_instantButtonContext");
+  if (widget == nullptr || !field.isValidHelper()) {
+    return nullptr;
+  }
+  return *reinterpret_cast<GenericButtonContext**>(reinterpret_cast<char*>(widget) + field.offset());
 }
 
 std::string_view RepairStatusName(int32_t status)
@@ -355,9 +366,38 @@ GenericButtonContext* ActionElementWidget_GetInstantButtonContext_Hook(auto orig
     snapshot.has_amount   = ReadInstantAmount(context, snapshot.amount);
   }
 
-  const auto fleet_id = fleet->Id;
-  if (!ObserveRepairInstantContext(fleet_id, snapshot)) {
-    return context;
+  const auto                             fleet_id = fleet->Id;
+  ship_state_probe::RepairStatusSnapshot status_snapshot{};
+  const auto                             has_status_snapshot = GetRepairStatusSnapshot(fleet_id, status_snapshot);
+
+  ship_state_probe::RepairPresentationHoldDecision hold_decision{};
+  if (g_holdEnabled.load(std::memory_order_relaxed) && has_status_snapshot) {
+    const auto             now_ms = static_cast<uint64_t>(MonotonicMicros() / 1000);
+    const std::scoped_lock lock(g_repairPresentationHoldMutex);
+    hold_decision = g_repairPresentationHold.evaluate(
+        fleet_id, snapshot.current_fleet_state, snapshot.previous_fleet_state, status_snapshot.original_status, now_ms);
+  }
+
+  auto*      returned_context  = context;
+  auto*      live_context      = hold_decision.hold ? ReadCurrentInstantButtonContext(widget) : nullptr;
+  const auto presentation_held = hold_decision.hold && live_context != nullptr;
+  if (presentation_held) {
+    returned_context = live_context;
+  }
+
+  ship_state_probe::RepairInstantContextSnapshot returned_snapshot = snapshot;
+  returned_snapshot.context_present                                = returned_context != nullptr;
+  returned_snapshot.interactable                                   = false;
+  returned_snapshot.has_amount                                     = false;
+  returned_snapshot.amount                                         = 0;
+  if (returned_context != nullptr) {
+    returned_snapshot.interactable = returned_context->Interactable;
+    returned_snapshot.has_amount   = ReadInstantAmount(returned_context, returned_snapshot.amount);
+  }
+
+  const auto context_changed = ObserveRepairInstantContext(fleet_id, snapshot);
+  if (!context_changed && !hold_decision.changed) {
+    return returned_context;
   }
 
   const auto transition_sequence = g_sequence.fetch_add(1, std::memory_order_relaxed) + 1;
@@ -376,13 +416,27 @@ GenericButtonContext* ActionElementWidget_GetInstantButtonContext_Hook(auto orig
                                   {"contextPresent", snapshot.context_present},
                                   {"interactable", snapshot.interactable},
                                   {"hasAmount", snapshot.has_amount},
-                                  {"amount", snapshot.amount}});
+                                  {"amount", snapshot.amount},
+                                  {"hasStatusSnapshot", has_status_snapshot},
+                                  {"nativeStatus", status_snapshot.original_status},
+                                  {"presentationHoldRequested", hold_decision.hold},
+                                  {"presentationHeld", presentation_held},
+                                  {"presentationHoldElapsedMs", hold_decision.elapsed_ms},
+                                  {"returnedContextPresent", returned_snapshot.context_present},
+                                  {"returnedInteractable", returned_snapshot.interactable},
+                                  {"returnedHasAmount", returned_snapshot.has_amount},
+                                  {"returnedAmount", returned_snapshot.amount}});
   spdlog::debug("[ShipStateProbe] seam=repair-instant-button-context sequence={} fleet_id={} current_state={} "
-                "previous_state={} context_present={} interactable={} has_amount={} amount={}",
+                "previous_state={} context_present={} interactable={} has_amount={} amount={} native_status={} "
+                "presentation_hold_requested={} presentation_held={} hold_elapsed_ms={} returned_context_present={} "
+                "returned_interactable={} returned_has_amount={} returned_amount={}",
                 transition_sequence, fleet_id, snapshot.current_fleet_state, snapshot.previous_fleet_state,
-                snapshot.context_present, snapshot.interactable, snapshot.has_amount, snapshot.amount);
+                snapshot.context_present, snapshot.interactable, snapshot.has_amount, snapshot.amount,
+                status_snapshot.original_status, hold_decision.hold, presentation_held, hold_decision.elapsed_ms,
+                returned_snapshot.context_present, returned_snapshot.interactable, returned_snapshot.has_amount,
+                returned_snapshot.amount);
 
-  return context;
+  return returned_context;
 }
 
 bool RecordRepairHumanClick(ActionElementWidget* widget, std::string_view control)

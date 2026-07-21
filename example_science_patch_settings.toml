@@ -42,7 +42,8 @@ live_query = false
 # the fleet is currently Repairing, and
 # passively correlates the final Instant context, the human's Repair button click, and downstream help dispatch.
 # It also suppresses the exact Docked/previous-Repairing stale Instant click race proven to open either a paid
-# confirmation or Ship Error after Repair has already completed.
+# confirmation or Ship Error after Repair has already completed. For at most 2.5 seconds, it preserves the existing
+# live Instant-button context across that same exact stale transition; the click interlock remains authoritative.
 ship_state_probe = "off" # off | repair_action_status | repair_action_status_guard | repair_action_status_hold | repair_instant_context
 # Hard one-event caller-stack airlock. Leave zero unless a probe contract has
 # approved the exact transition and the current run.

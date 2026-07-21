@@ -93,3 +93,8 @@ This rules out a post-completion-only explanation. It does not justify suppressi
 normal completed-repair flow intentionally presents `Finish Ship Repair — FREE`. The safer behavior-canary shape is
 to preserve the last coherent Repair action status across a transient `Ready`, leaving the original instant context
 and request path untouched.
+
+Follow-up runtime evidence narrowed the unsafe post-completion tuple to `Docked + previous Repairing + native Ready`.
+The passive `repair_instant_context` mode remains unchanged. The explicit `repair_action_status_hold` mode layers a
+bounded presentation hold at this getter and retains an independent click interlock; see
+`20260718-repair-human-click-correlation.md`.

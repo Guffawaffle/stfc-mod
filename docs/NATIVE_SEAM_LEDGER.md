@@ -124,20 +124,25 @@ This inventory records source-level seams from a static-only review. It does not
 - Static evidence: the current dump reports `GenericButtonContext GetInstantButtonContext()` at RVA `0x11E6CD0`.
   The prior one-shot stack and exact disassembly place it between `JobService.UpdateJobList` and the live widget's
   `_instantButtonContext`, with status and instant cost obtained independently.
-- Risk class: R4 native interpretation; passive default-off observer only.
-- Confidence rung: runtime-proven passive seam and scalar/property reads.
+- Risk class: R4 native interpretation in passive mode; R5 for the explicit bounded presentation hold in
+  `repair_action_status_hold` mode.
+- Confidence rung: runtime-proven passive seam, scalar/property reads, and bounded presentation canary.
 - Runtime evidence: the released-debug cycle installed exactly this hook with zero failures or skips. During a user
   reproduction it captured an interactable amount transition `75 → 74 → 0` while the fleet remained `Repairing`; the
   zero transition preceded the independent `REPAIR_COMPLETE` boundary by approximately 1.345 seconds.
 - Payload confidence: static confidence for the Repair `ActionType`, exact `FleetPlayerData` receiver filter, numeric
   current/previous fleet state, `GenericButtonContext.Interactable`, and `ResourceData.Amount`. No pointer is retained.
-- Original/trampoline confidence: runtime-proven. The hook calls the original exactly once and returns the exact
-  original context pointer unchanged.
-- Flag / rollback path: science mode `repair_instant_context`, default `off`, requires `live_query`. Set the mode to
-  `off` and restart, or remove this descriptor and install branch.
-- Status: passive observer runtime-proven; incorrect pre-completion zero-cost tuple captured.
-- Next action: retain this result as evidence. Do not generically disable zero-cost contexts because the valid
-  completed-repair flow intentionally uses `Finish Ship Repair — FREE`; smoke the coherent-status hold canary instead.
+- Original/trampoline confidence: runtime-proven. The hook calls the original exactly once. Passive mode returns the
+  exact original context pointer unchanged; hold mode may instead return the widget's already-rooted live Instant
+  context for at most 2.5 seconds during the exact `Docked/previous Repairing/native Ready` race.
+- Flag / rollback path: science modes `repair_instant_context` and `repair_action_status_hold`, default `off`, require
+  `live_query`. Set the mode to `off` and restart, or revert the layered presentation experiment to checkpoint
+  `085bfb6e1652b03e8a7a397bb899e7a48ad86a8c`.
+- Status: passive observer runtime-proven; bounded presentation canary runtime-accepted on zero and paid stale
+  proposals. Quv'Sompek proposed amount `251434` while the getter returned the existing amount-zero live context;
+  an earlier held stale click was independently suppressed, followed by one valid help request after re-entry.
+- Next action: retain the layered canary and accepted click interlock. Additional ordinary repairs are soak evidence;
+  any regression should be compared with checkpoint `085bfb6e1652b03e8a7a397bb899e7a48ad86a8c`.
 
 ### `Digit.PrimeServer.Services.FleetService.UpdateFleetWithDeploymentData(FleetPlayerData, FleetDeployedData)`
 
