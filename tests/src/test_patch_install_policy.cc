@@ -1,7 +1,14 @@
 #include <doctest/doctest.h>
 
 #include "patches/hook_install_audit.h"
+#include "patches/hook_registry.h"
 #include "patches/patch_install_policy.h"
+
+namespace {
+void registry_test_function()
+{
+}
+}
 
 TEST_SUITE("patch_install_policy")
 {
@@ -48,6 +55,39 @@ TEST_SUITE("patch_install_policy")
     CHECK(snapshot.failed == 1);
     CHECK(snapshot.skipped == 1);
     CHECK(snapshot.attempted == 0);
+  }
+
+  TEST_CASE("hook owner keys preserve object and typed function pointer identity")
+  {
+    int   object = 0;
+    auto* object_ptr = &object;
+    auto* function_ptr = &registry_test_function;
+
+    const auto object_key = hook_registry_target_key(object_ptr);
+    const auto function_key = hook_registry_target_key(function_ptr);
+
+    CHECK(object_key != 0);
+    CHECK(function_key != 0);
+    CHECK(object_key == hook_registry_target_key(object_ptr));
+    CHECK(function_key == hook_registry_target_key(function_ptr));
+
+    hook_registry_reset_owners_for_testing();
+    const HookDescriptor object_descriptor{
+      .name = "ObjectTarget",
+      .purpose = "test object-pointer key",
+      .target = {.class_name = "Object", .method_name = "Target"},
+      .likely_symptom = "test failure",
+    };
+    const HookDescriptor function_descriptor{
+      .name = "FunctionTarget",
+      .purpose = "test typed-function-pointer key",
+      .target = {.class_name = "Function", .method_name = "Target"},
+      .likely_symptom = "test failure",
+    };
+
+    CHECK(hook_registry_claim_owner(object_descriptor, "RegistryTests", object_key));
+    CHECK(hook_registry_claim_owner(function_descriptor, "RegistryTests", function_key));
+    CHECK(hook_registry_owner_count_for_testing() == 2);
   }
 
   TEST_CASE("reconciliation identifies leaks failures missing evidence and coverage gaps")

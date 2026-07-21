@@ -220,16 +220,17 @@ std::mutex& owner_registry_mutex()
   return m;
 }
 
-std::unordered_map<const void*, OwnerEntry>& owner_registry()
+std::unordered_map<HookTargetKey, OwnerEntry>& owner_registry()
 {
-  static std::unordered_map<const void*, OwnerEntry> entries;
+  static std::unordered_map<HookTargetKey, OwnerEntry> entries;
   return entries;
 }
 } // namespace
 
-bool hook_registry_claim_owner(const HookDescriptor& descriptor, const std::string_view module, const void* method_ptr)
+bool hook_registry_claim_owner(const HookDescriptor& descriptor, const std::string_view module,
+                               const HookTargetKey target_key)
 {
-  if (method_ptr == nullptr) {
+  if (target_key == 0) {
     // Caller already reported the missing method. Don't add a noisy log.
     return true;
   }
@@ -237,7 +238,7 @@ bool hook_registry_claim_owner(const HookDescriptor& descriptor, const std::stri
   std::lock_guard<std::mutex> lock(owner_registry_mutex());
   auto&                       entries = owner_registry();
 
-  if (const auto it = entries.find(method_ptr); it != entries.end()) {
+  if (const auto it = entries.find(target_key); it != entries.end()) {
     spdlog::error("[HookOwnerConflict] target={} already owned by hook='{}' (module={}); duplicate claim by hook='{}' "
                   "(module={}, target={}, tier={}). Refusing to install second detour.",
                   it->second.target, it->second.hook_name, it->second.module, descriptor.name, module,
@@ -250,7 +251,7 @@ bool hook_registry_claim_owner(const HookDescriptor& descriptor, const std::stri
 #endif
   }
 
-  entries.emplace(method_ptr, OwnerEntry{std::string(descriptor.name), std::string(module),
+  entries.emplace(target_key, OwnerEntry{std::string(descriptor.name), std::string(module),
                                          hook_target_string(descriptor.target)});
   return true;
 }

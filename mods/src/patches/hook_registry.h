@@ -7,9 +7,11 @@
  */
 #pragma once
 
+#include <cstdint>
 #include <exception>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #include <spud/detour.h>
@@ -53,6 +55,22 @@ struct HookInstallRecord {
   bool              detour_attempted = false;
 };
 
+using HookTargetKey = std::uintptr_t;
+
+/**
+ * @brief Normalize object and function pointers into an opaque registry key.
+ *
+ * Hook targets are never dereferenced by the owner registry. Keeping their
+ * identity as an integer avoids non-portable function-pointer-to-object-pointer
+ * conversions while preserving the typed pointer passed to SPUD.
+ */
+template <typename Pointer>
+  requires std::is_pointer_v<Pointer>
+[[nodiscard]] HookTargetKey hook_registry_target_key(Pointer ptr) noexcept
+{
+  return reinterpret_cast<HookTargetKey>(ptr);
+}
+
 class HookModuleHealth {
 public:
   explicit HookModuleHealth(std::string_view module);
@@ -86,13 +104,13 @@ private:
  * claim logs an error and, in `_MODDBG` builds, triggers `std::abort` so the
  * conflict is impossible to miss in development.
  *
- * @param method_ptr The address SPUD will detour. nullptr is treated as a
- *                   no-op claim (returns true) since callers must already have
- *                   reported a missing method.
+ * @param target_key The normalized address SPUD will detour. Zero is treated
+ *                   as a no-op claim (returns true) since callers must already
+ *                   have reported a missing method.
  * @return true on the first claim of a given method pointer. false (with an
  *         error log) on duplicate claims.
  */
-bool hook_registry_claim_owner(const HookDescriptor& descriptor, std::string_view module, const void* method_ptr);
+bool hook_registry_claim_owner(const HookDescriptor& descriptor, std::string_view module, HookTargetKey target_key);
 
 /// Test-only: clear the global owner registry. Not for runtime use.
 void hook_registry_reset_owners_for_testing();
@@ -104,7 +122,7 @@ size_t hook_registry_owner_count_for_testing();
   do { \
     const auto hook_registry_addr = (addr); \
     (registry).record_detour_attempted((descriptor)); \
-    if (!hook_registry_claim_owner((descriptor), (registry).module_name(), static_cast<const void*>(hook_registry_addr))) { \
+    if (!hook_registry_claim_owner((descriptor), (registry).module_name(), hook_registry_target_key(hook_registry_addr))) { \
       (registry).record_detour_failed((descriptor), "duplicate detour owner — single-owner policy"); \
       break; \
     } \
