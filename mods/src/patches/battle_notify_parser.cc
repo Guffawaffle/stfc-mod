@@ -23,6 +23,7 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/fmt.h>
 
+#include <cctype>
 #include <string>
 
 #if _WIN32
