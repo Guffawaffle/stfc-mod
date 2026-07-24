@@ -32,6 +32,20 @@ TEST_SUITE("input_binding")
     CHECK(show_chat->canonical_key == "show_chat");
     CHECK(show_chat->default_bind == "C");
 
+    const auto* move_left = input_binding::FindActionSpec(input_binding::InputActionId::MoveLeft);
+    REQUIRE(move_left != nullptr);
+    CHECK(move_left->default_bind == "LEFT");
+
+    const auto* move_right = input_binding::FindActionSpec(input_binding::InputActionId::MoveRight);
+    REQUIRE(move_right != nullptr);
+    CHECK(move_right->default_bind == "RIGHT");
+
+    const auto* focus_search = input_binding::FindActionSpec(input_binding::InputActionId::FocusSearch);
+    REQUIRE(focus_search != nullptr);
+    CHECK(focus_search->canonical_key == "focus_search");
+    CHECK(focus_search->default_bind == "CTRL-F");
+    CHECK(focus_search->executor == input_binding::ActionExecutor::SearchFocus);
+
     const auto* zoom_preset1 = input_binding::FindActionSpec(input_binding::InputActionId::ZoomPreset1);
     REQUIRE(zoom_preset1 != nullptr);
     CHECK(zoom_preset1->canonical_key == "zoom_preset1");
@@ -200,7 +214,7 @@ TEST_SUITE("input_binding")
     const auto compiled = input_binding::CompileBindingSet(overrides);
 
     CHECK(compiled.has_errors());
-    CHECK(compiled.bound_chord_count == 94);
+    CHECK(compiled.bound_chord_count == 95);
 
     auto modifiers = input_binding::ModifierMask{};
     modifiers.AddLogical(input_binding::ModifierGroup::Ctrl);
@@ -236,8 +250,8 @@ TEST_SUITE("input_binding")
   {
     const auto compiled = input_binding::CompileBindingSet();
 
-    CHECK(compiled.bound_chord_count == 95);
-    CHECK(compiled.index.size() == 95);
+    CHECK(compiled.bound_chord_count == 96);
+    CHECK(compiled.index.size() == 96);
     CHECK_FALSE(compiled.has_warnings());
     CHECK_FALSE(compiled.has_errors());
     CHECK_FALSE(compiled.has_conflicts());
@@ -265,7 +279,7 @@ TEST_SUITE("input_binding")
 
     const auto compiled = input_binding::CompileBindingSet(overrides);
     CHECK_FALSE(compiled.has_errors());
-    CHECK(compiled.bound_chord_count == 93);
+    CHECK(compiled.bound_chord_count == 94);
 
     const auto matches =
         compiled.index.Match(input_binding::TriggerMode::Down, KeyCode::Space, input_binding::ModifierMask{});
@@ -508,6 +522,33 @@ move_right = "RIGHT"
     CHECK(move_left->source_key == "[shortcuts].move_left");
     CHECK(move_right->binding == "RIGHT");
     CHECK(move_right->source_key == "[shortcuts].move_right");
+  }
+
+  TEST_CASE("focus search can be rebound or explicitly disabled")
+  {
+    auto config = toml::parse(R"(
+[input.bindings]
+focus_search = "ALT-S"
+)");
+    auto bridge = input_binding::ResolveInputBindingConfig(config);
+    auto focus  = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::FocusSearch;
+    });
+    REQUIRE(focus != bridge.bindings.end());
+    CHECK(focus->binding == "ALT-S");
+    CHECK(focus->source_key == "[input.bindings].focus_search");
+
+    config = toml::parse(R"(
+[shortcuts]
+focus_search = "NONE"
+)");
+    bridge = input_binding::ResolveInputBindingConfig(config);
+    focus  = std::ranges::find_if(bridge.bindings, [](const auto& binding) {
+      return binding.action == input_binding::InputActionId::FocusSearch;
+    });
+    REQUIRE(focus != bridge.bindings.end());
+    CHECK(focus->binding == "NONE");
+    CHECK(focus->source_key == "[shortcuts].focus_search");
   }
 
   TEST_CASE("dispatcher snapshot generates candidates and respects layer filtering")

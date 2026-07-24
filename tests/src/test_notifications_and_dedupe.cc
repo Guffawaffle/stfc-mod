@@ -1,4 +1,5 @@
 #include "test_pure_common.h"
+#include "toast_state.h"
 
 // ===========================================================================
 // notifications_and_dedupe
@@ -68,6 +69,27 @@ TEST_SUITE("bounded_ttl_deduper")
     CHECK_FALSE(deduper.contains("first"));
     CHECK(deduper.contains("second"));
     CHECK(deduper.contains("third"));
+  }
+}
+
+TEST_SUITE("notification_toast_policy")
+{
+  TEST_CASE("v1.1.4 toast states have distinct configurable event identities")
+  {
+    const std::array cases{
+        std::pair{QueueForLeaseActivated, NotificationKind::ExperimentalQueueForLeaseActivated},
+        std::pair{CrossAllianceArmadaVictory, NotificationKind::ExperimentalCrossAllianceArmadaVictory},
+        std::pair{FactionWeeklyEventsComplete, NotificationKind::ExperimentalFactionWeeklyEventsComplete},
+        std::pair{DynamicCrisisCompleted, NotificationKind::ExperimentalDynamicCrisisCompleted},
+        std::pair{GalacticAnomalySystemEntered, NotificationKind::ExperimentalGalacticAnomalySystemEntered},
+    };
+
+    for (const auto& [state, expected] : cases) {
+      const auto kind = notification_kind_from_toast_state(state);
+      REQUIRE(kind.has_value());
+      CHECK(*kind == expected);
+      CHECK(std::string_view(notification_kind_name(*kind)).starts_with("experimental."));
+    }
   }
 }
 

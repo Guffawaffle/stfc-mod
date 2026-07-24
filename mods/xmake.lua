@@ -31,10 +31,13 @@ do
             local size = #data
 
             os.mkdir(path.directory(output_file))
+            local temporary_output = output_file .. ".tmp"
 
-            local out = io.open(output_file, "w")
+            -- Use binary mode so generated headers use deterministic LF endings
+            -- on Windows as required by the repository's .gitattributes.
+            local out = io.open(temporary_output, "wb")
             if not out then
-                print("[error] cannot write: " .. output_file)
+                print("[error] cannot write: " .. temporary_output)
                 return
             end
 
@@ -43,8 +46,14 @@ do
 
             for i = 1, size do
                 out:write(string.format("0x%02X", data:byte(i)))
-                if i < size then out:write(", ") end
-                if i % 16 == 0 then out:write("\n") end
+                if i < size then
+                    out:write(",")
+                    if i % 16 == 0 then
+                        out:write("\n")
+                    else
+                        out:write(" ")
+                    end
+                end
             end
 
             out:write("\n};\n\n")
@@ -52,10 +61,36 @@ do
 
             out:close()
 
-            cprint("${green}[embed] %s -> %s (%d bytes)${clear}",
+            -- Older generated headers may contain CRLF endings or spaces before
+            -- newlines. Preserve an otherwise equivalent tracked file so an
+            -- ordinary build does not create a formatting-only diff.
+            local function normalized_generated_text(file)
+                if not os.isfile(file) then
+                    return nil
+                end
+
+                local handle = io.open(file, "rb")
+                if not handle then
+                    return nil
+                end
+
+                local text = handle:read("*all")
+                handle:close()
+                return text:gsub("\r\n", "\n"):gsub("[ \t]+\n", "\n")
+            end
+
+            local unchanged = normalized_generated_text(output_file) == normalized_generated_text(temporary_output)
+            if unchanged then
+                os.rm(temporary_output)
+            else
+                os.mv(temporary_output, output_file)
+            end
+
+            cprint("${green}[embed] %s -> %s (%d bytes%s)${clear}",
                 input_file,
                 path.filename(output_file),
-                size
+                size,
+                unchanged and ", unchanged" or ""
             )
         end
 

@@ -10,6 +10,8 @@
 
 #include <il2cpp/il2cpp_helper.h>
 
+#include "IdRefs.h"
+
 /** @brief Ship hull classification. */
 enum class HullType {
   Any          = -1,
@@ -32,6 +34,7 @@ public:
   __declspec(property(get = __get_Id)) long Id;
   __declspec(property(get = __get_Name)) Il2CppString* Name;
   __declspec(property(get = __get_Type)) HullType Type;
+  __declspec(property(get = __get_IdRefs)) IdRefs* IdRefsValue;
 
 private:
   static IL2CppClassHelper& get_class_helper()
@@ -58,5 +61,11 @@ public:
   {
     static auto prop = get_class_helper().GetProperty("Type");
     return *prop.Get<HullType>(this);
+  }
+
+  IdRefs* __get_IdRefs()
+  {
+    static auto property = get_class_helper().GetProperty("IdRefs");
+    return property.GetRaw<IdRefs>(this);
   }
 };

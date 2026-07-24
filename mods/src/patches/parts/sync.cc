@@ -43,26 +43,96 @@
  */
 
 #include "errormsg.h"
-#include "str_utils.h"
+#include "patches/hook_registry.h"
 #include "patches/sync_battle_logs.h"
 #include "patches/sync_capability_snapshot.h"
 #include "patches/sync_payload_builders.h"
 #include "patches/sync_scheduler.h"
 #include "patches/sync_transport.h"
+#include "str_utils.h"
 
 #include <il2cpp-api-types.h>
 #include <il2cpp/il2cpp_helper.h>
 #include <prime/EntityGroup.h>
 #include <prime/HttpResponse.h>
-#include <prime/ServiceResponse.h>
 #include <prime/RealtimeDataPayload.h>
+#include <prime/ServiceResponse.h>
 #include <spud/detour.h>
 
 #include <spdlog/spdlog.h>
 
 #include <string>
+#include <string_view>
 
 // Sync payload builders and entity-group dispatch live in sync_payload_builders.cc.
+
+namespace
+{
+constexpr HookDescriptor SyncHook(std::string_view name, std::string_view purpose, std::string_view namespc,
+                                  std::string_view class_name, std::string_view method_name,
+                                  std::string_view likely_symptom)
+{
+  return {name,
+          purpose,
+          {"Digit.Client.PrimeLib.Runtime", namespc, class_name, method_name},
+          likely_symptom,
+          HookSupportTier::Production};
+}
+
+constexpr auto kModelRegistryProcessResult =
+    SyncHook("model-registry-process-result", "capture service response entity groups", "Digit.PrimeServer.Core",
+             "GameServerModelRegistry", "ProcessResultInternal", "HTTP-backed sync categories stop updating");
+constexpr auto kModelRegistryParseBinary =
+    SyncHook("model-registry-parse-binary", "capture bulk binary entity groups", "Digit.PrimeServer.Core",
+             "GameServerModelRegistry", "ParseBinaryObjectsHelper", "binary sync categories stop updating");
+constexpr auto kBuffContainerParse =
+    SyncHook("buff-container-parse", "capture buff entity groups", "Digit.PrimeServer.Services", "BuffDataContainer",
+             "ParseBinaryObject", "buff sync stops updating");
+constexpr auto kBuffServiceParse =
+    SyncHook("buff-service-parse", "capture buff service entity groups", "Digit.PrimeServer.Services", "BuffService",
+             "ParseBinaryObject", "buff sync may miss service responses");
+constexpr auto kInventoryContainerParse =
+    SyncHook("inventory-container-parse", "capture inventory entity groups", "Digit.PrimeServer.Services",
+             "InventoryDataContainer", "ParseBinaryObject", "inventory sync stops updating");
+constexpr auto kJobServiceParse =
+    SyncHook("job-service-parse", "capture job entity groups", "Digit.PrimeServer.Services", "JobService",
+             "ParseBinaryObject", "job sync stops updating");
+constexpr auto kJobContainerParse =
+    SyncHook("job-container-parse", "capture job container entity groups", "Digit.PrimeServer.Services",
+             "JobServiceDataContainer", "ParseBinaryObject", "job sync misses container updates");
+constexpr auto kMissionsContainerParse =
+    SyncHook("missions-container-parse", "capture mission entity groups", "Digit.PrimeServer.Models",
+             "MissionsDataContainer", "ParseBinaryObject", "mission sync stops updating");
+constexpr auto kResearchContainerParse =
+    SyncHook("research-container-parse", "capture research entity groups", "Digit.PrimeServer.Services",
+             "ResearchDataContainer", "ParseBinaryObject", "research sync stops updating");
+constexpr auto kResearchServiceParse =
+    SyncHook("research-service-parse", "capture research service entity groups", "Digit.PrimeServer.Services",
+             "ResearchService", "ParseBinaryObject", "research sync misses service updates");
+constexpr auto kSlotContainerParse =
+    SyncHook("slot-container-parse", "capture full slot entity groups", "Digit.PrimeServer.Services",
+             "SlotDataContainer", "ParseBinaryObject", "slot sync stops receiving full snapshots");
+constexpr auto kSlotContainerEntitySlots =
+    SyncHook("slot-container-entity-slots", "capture parsed slot entity groups", "Digit.PrimeServer.Services",
+             "SlotDataContainer", "ParseEntitySlotsData", "slot sync misses parsed snapshots");
+constexpr auto kSlotAssignRtc =
+    SyncHook("slot-assign-rtc", "capture realtime slot assignments", "Digit.PrimeServer.Parsers", "SlotAssignRtcParser",
+             "ParseFinalPayload", "CT/FT equip assignments do not refresh sync consumers");
+constexpr auto kSlotClearRtc =
+    SyncHook("slot-clear-rtc", "capture realtime slot clears", "Digit.PrimeServer.Parsers", "SlotClearRtcParser",
+             "ParseFinalPayload", "CT/FT equip clears do not refresh sync consumers");
+constexpr HookDescriptor kPrimeAppInit{"prime-app-init",
+                                       "capture server URL and session identity",
+                                       {"Assembly-CSharp", "Digit.Client.Core", "PrimeApp", "InitPrimeServer"},
+                                       "authenticated Scopely sync requests fail",
+                                       HookSupportTier::Production};
+constexpr auto           kGameServerInitialise =
+    SyncHook("game-server-initialise", "capture the current game version", "Digit.PrimeServer.Core", "GameServer",
+             "Initialise", "sync requests use a stale game version header");
+constexpr auto kGameServerInstance =
+    SyncHook("game-server-instance", "capture the current instance id", "Digit.PrimeServer.Core", "GameServer",
+             "SetInstanceIdHeader", "sync requests use a stale instance header");
+} // namespace
 
 // ─── SPUD Hooks ─────────────────────────────────────────────────────────────
 
@@ -93,22 +163,20 @@ void DataContainer_ParseEntitySlotsData(auto original, void* _this, EntityGroup*
   return original(_this, group);
 }
 
-void DataContainer_ParseSlotData(auto original, void* _this, void* entity_slot, Il2CppString* channel_id)
-{
-  return original(_this, entity_slot, channel_id);
-}
+// IL2CPP value type. Passing this by value preserves the following arguments on
+// both x64 and macOS ARM64; a void* declaration shifts them on AAPCS64.
+struct CentrifugoInfo {
+  Il2CppString* Channel;
+  int32_t       Offset;
+};
 
-/**
- * @brief Hook: SlotDataContainer::ParseSlotUpdatedJson / ParseSlotRemovedJson
- *
- * Intercepts real-time slot update/removal notifications (RTC channel).
- * Original method: parses a JSON payload for slot changes.
- * Our modification: spawns process_entity_slots_rtc() on a detached thread.
- */
-void DataContainer_ParseRtcPayload(auto original, void* _this, bool incrementalJsonParsing, RealtimeDataPayload* data)
+static_assert(sizeof(CentrifugoInfo) == 16);
+
+void* RtcParser_ParseFinalPayload(auto original, void* _this, CentrifugoInfo centrifugo_info, RealtimeDataPayload* data,
+                                  void* final_payload)
 {
-  original(_this, incrementalJsonParsing, data);
   HandleRealtimeDataPayload(data);
+  return original(_this, centrifugo_info, data, final_payload);
 }
 
 /**
@@ -182,25 +250,32 @@ void GameServer_SetInstanceIdHeader(auto original, void* _this, int32_t instance
  */
 void InstallSyncPatches()
 {
+  HookModuleHealth hooks("SyncHooks");
   load_previously_sent_logs();
 
   if (auto game_server_model_registry =
           il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Core", "GameServerModelRegistry");
       !game_server_model_registry.isValidHelper()) {
     ErrorMsg::MissingHelper("Core", "GameServerModelRegistry");
+    hooks.record_missing_helper(kModelRegistryProcessResult);
+    hooks.record_missing_helper(kModelRegistryParseBinary);
   } else {
-    auto *ptr = game_server_model_registry.GetMethod("ProcessResultInternal");
+    auto* ptr = game_server_model_registry.GetMethod("ProcessResultInternal");
     if (ptr == nullptr) {
       ErrorMsg::MissingMethod("GameServerModelRegistry", "ProcessResultInternal");
+      hooks.record_missing_method(kModelRegistryProcessResult);
     } else {
-      SPUD_STATIC_DETOUR(ptr, GameServerModelRegistry_ProcessResultInternal);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kModelRegistryProcessResult, ptr,
+                                       GameServerModelRegistry_ProcessResultInternal);
     }
 
     ptr = game_server_model_registry.GetMethod("ParseBinaryObjectsHelper");
     if (ptr == nullptr) {
       ErrorMsg::MissingMethod("GameServerModelRegistry", "ParseBinaryObjectsHelper");
+      hooks.record_missing_method(kModelRegistryParseBinary);
     } else {
-      SPUD_STATIC_DETOUR(ptr, GameServerModelRegistry_ParseBinaryObjectsHelper);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kModelRegistryParseBinary, ptr,
+                                       GameServerModelRegistry_ParseBinaryObjectsHelper);
     }
   }
 
@@ -224,11 +299,13 @@ void InstallSyncPatches()
           il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "BuffDataContainer");
       !buff_data_container.isValidHelper()) {
     ErrorMsg::MissingHelper("Services", "BuffDataContainer");
+    hooks.record_missing_helper(kBuffContainerParse);
   } else {
     if (const auto ptr = buff_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("BuffDataContainer", "ParseBinaryObject");
+      hooks.record_missing_method(kBuffContainerParse);
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kBuffContainerParse, ptr, DataContainer_ParseBinaryObject);
     }
   }
 
@@ -236,16 +313,19 @@ void InstallSyncPatches()
   // 1.000.49105: BuffService.ParseBinaryObject is a 0x18-byte body immediately before HandleResponseData.
   // Spud's ARM64 absolute jump is larger than that, so detouring it overwrites the next function entry.
   spdlog::info("Skipping BuffService hook lookup on macOS");
+  hooks.record_skipped(kBuffServiceParse, "macOS method body is too small for the ARM64 absolute jump");
 #else
   if (auto buff_service =
           il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "BuffService");
       !buff_service.isValidHelper()) {
     ErrorMsg::MissingHelper("Services", "BuffService");
+    hooks.record_missing_helper(kBuffServiceParse);
   } else {
     if (const auto ptr = buff_service.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("BuffService", "ParseBinaryObject");
+      hooks.record_missing_method(kBuffServiceParse);
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kBuffServiceParse, ptr, DataContainer_ParseBinaryObject);
     }
   }
 #endif
@@ -254,11 +334,13 @@ void InstallSyncPatches()
                                                               "Digit.PrimeServer.Services", "InventoryDataContainer");
       !inventory_data_container.isValidHelper()) {
     ErrorMsg::MissingHelper("Services", "InventoryDataContainer");
+    hooks.record_missing_helper(kInventoryContainerParse);
   } else {
     if (const auto ptr = inventory_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("InventoryDataContainer", "ParseBinaryObject");
+      hooks.record_missing_method(kInventoryContainerParse);
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kInventoryContainerParse, ptr, DataContainer_ParseBinaryObject);
     }
   }
 
@@ -266,11 +348,13 @@ void InstallSyncPatches()
           il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "JobService");
       !job_service.isValidHelper()) {
     ErrorMsg::MissingHelper("Services", "JobService");
+    hooks.record_missing_helper(kJobServiceParse);
   } else {
     if (const auto ptr = job_service.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("JobService", "ParseBinaryObject");
+      hooks.record_missing_method(kJobServiceParse);
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kJobServiceParse, ptr, DataContainer_ParseBinaryObject);
     }
   }
 
@@ -278,11 +362,13 @@ void InstallSyncPatches()
           "Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "JobServiceDataContainer");
       !job_service_data_container.isValidHelper()) {
     ErrorMsg::MissingHelper("Services", "JobServiceDataContainer");
+    hooks.record_missing_helper(kJobContainerParse);
   } else {
     if (const auto ptr = job_service_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("JobServiceDataContainer", "ParseBinaryObject");
+      hooks.record_missing_method(kJobContainerParse);
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kJobContainerParse, ptr, DataContainer_ParseBinaryObject);
     }
   }
 
@@ -290,11 +376,13 @@ void InstallSyncPatches()
           il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "MissionsDataContainer");
       !missions_data_container.isValidHelper()) {
     ErrorMsg::MissingHelper("Models", "MissionsDataContainer");
+    hooks.record_missing_helper(kMissionsContainerParse);
   } else {
     if (const auto ptr = missions_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("MissionsDataContainer", "ParseBinaryObject");
+      hooks.record_missing_method(kMissionsContainerParse);
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kMissionsContainerParse, ptr, DataContainer_ParseBinaryObject);
     }
   }
 
@@ -302,11 +390,13 @@ void InstallSyncPatches()
                                                              "Digit.PrimeServer.Services", "ResearchDataContainer");
       !research_data_container.isValidHelper()) {
     ErrorMsg::MissingHelper("Services", "ResearchDataContainer");
+    hooks.record_missing_helper(kResearchContainerParse);
   } else {
     if (const auto ptr = research_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingHelper("ResearchDataContainer", "ParseBinaryObject");
+      hooks.record_missing_method(kResearchContainerParse);
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kResearchContainerParse, ptr, DataContainer_ParseBinaryObject);
     }
   }
 
@@ -314,11 +404,13 @@ void InstallSyncPatches()
           il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "ResearchService");
       !research_service.isValidHelper()) {
     ErrorMsg::MissingHelper("Services", "ResearchService");
+    hooks.record_missing_helper(kResearchServiceParse);
   } else {
     if (const auto ptr = research_service.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("ResearchService", "ParseBinaryObject");
+      hooks.record_missing_method(kResearchServiceParse);
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kResearchServiceParse, ptr, DataContainer_ParseBinaryObject);
     }
   }
 
@@ -326,40 +418,58 @@ void InstallSyncPatches()
           il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "SlotDataContainer");
       !slot_data_container.isValidHelper()) {
     ErrorMsg::MissingHelper("Services", "SlotDataContainer");
+    hooks.record_missing_helper(kSlotContainerParse);
+    hooks.record_missing_helper(kSlotContainerEntitySlots);
   } else {
     if (const auto ptr = slot_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
       ErrorMsg::MissingMethod("SlotDataContainer", "ParseBinaryObject");
+      hooks.record_missing_method(kSlotContainerParse);
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseBinaryObject);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kSlotContainerParse, ptr, DataContainer_ParseBinaryObject);
     }
 
     if (const auto ptr = slot_data_container.GetMethod("ParseEntitySlotsData"); ptr == nullptr) {
       ErrorMsg::MissingMethod("SlotDataContainer", "ParseEntitySlotsData");
+      hooks.record_missing_method(kSlotContainerEntitySlots);
     } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseEntitySlotsData);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kSlotContainerEntitySlots, ptr, DataContainer_ParseEntitySlotsData);
     }
+  }
 
-    if (const auto ptr = slot_data_container.GetMethod("UpdateSlotData"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("SlotDataContainer", "UpdateSlotData");
-    } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseSlotData);
-    }
+  if (auto slot_assign_parser =
+          il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Parsers", "SlotAssignRtcParser");
+      !slot_assign_parser.isValidHelper()) {
+    ErrorMsg::MissingHelper("Parsers", "SlotAssignRtcParser");
+    hooks.record_missing_helper(kSlotAssignRtc);
+  } else if (const auto ptr = slot_assign_parser.GetMethod("ParseFinalPayload"); ptr == nullptr) {
+    ErrorMsg::MissingMethod("SlotAssignRtcParser", "ParseFinalPayload");
+    hooks.record_missing_method(kSlotAssignRtc);
+  } else {
+    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kSlotAssignRtc, ptr, RtcParser_ParseFinalPayload);
+  }
 
-    if (const auto ptr = slot_data_container.GetMethod("RemoveSlotData"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("SlotDataContainer", "RemoveSlotData");
-    } else {
-      SPUD_STATIC_DETOUR(ptr, DataContainer_ParseSlotData);
-    }
+  if (auto slot_clear_parser =
+          il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Parsers", "SlotClearRtcParser");
+      !slot_clear_parser.isValidHelper()) {
+    ErrorMsg::MissingHelper("Parsers", "SlotClearRtcParser");
+    hooks.record_missing_helper(kSlotClearRtc);
+  } else if (const auto ptr = slot_clear_parser.GetMethod("ParseFinalPayload"); ptr == nullptr) {
+    ErrorMsg::MissingMethod("SlotClearRtcParser", "ParseFinalPayload");
+    hooks.record_missing_method(kSlotClearRtc);
+  } else {
+    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kSlotClearRtc, ptr, RtcParser_ParseFinalPayload);
   }
 
   if (auto prime_app = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Core", "PrimeApp");
       !prime_app.isValidHelper()) {
     ErrorMsg::MissingHelper("Core", "PrimeApp");
+    hooks.record_missing_helper(kPrimeAppInit);
   } else {
     if (const auto ptr = prime_app.GetMethod("InitPrimeServer"); ptr == nullptr) {
       ErrorMsg::MissingMethod("PrimeApp", "InitPrimeServer");
+      hooks.record_missing_method(kPrimeAppInit);
     } else {
-      SPUD_STATIC_DETOUR(ptr, PrimeApp_InitPrimeServer);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kPrimeAppInit, ptr, PrimeApp_InitPrimeServer);
     }
   }
 
@@ -367,19 +477,32 @@ void InstallSyncPatches()
           il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Core", "GameServer");
       !game_server.isValidHelper()) {
     ErrorMsg::MissingHelper("Core", "GameServer");
-  } else {
-    if (const auto ptr = game_server.GetMethod("Initialise"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("GameServer", "Initialise");
+    if (Config::Get().installGameVersionHook) {
+      hooks.record_missing_helper(kGameServerInitialise);
     } else {
-      SPUD_STATIC_DETOUR(ptr, GameServer_Initialise);
+      hooks.record_skipped(kGameServerInitialise, "disabled by patches.game_version");
+    }
+    hooks.record_missing_helper(kGameServerInstance);
+  } else {
+    if (!Config::Get().installGameVersionHook) {
+      spdlog::info("Sync: skipping GameServer::Initialise hook (patches.game_version = false)");
+      hooks.record_skipped(kGameServerInitialise, "disabled by patches.game_version");
+    } else if (const auto ptr = game_server.GetMethod("Initialise"); ptr == nullptr) {
+      ErrorMsg::MissingMethod("GameServer", "Initialise");
+      hooks.record_missing_method(kGameServerInitialise);
+    } else {
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kGameServerInitialise, ptr, GameServer_Initialise);
     }
 
     if (const auto ptr = game_server.GetMethod("SetInstanceIdHeader"); ptr == nullptr) {
       ErrorMsg::MissingMethod("GameServer", "SetInstanceIdHeader");
+      hooks.record_missing_method(kGameServerInstance);
     } else {
-      SPUD_STATIC_DETOUR(ptr, GameServer_SetInstanceIdHeader);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kGameServerInstance, ptr, GameServer_SetInstanceIdHeader);
     }
   }
+
+  hooks.log_summary();
 
   StartSyncSchedulerWorker();
   queue_mod_capability_snapshot();

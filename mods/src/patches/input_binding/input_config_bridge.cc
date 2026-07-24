@@ -85,6 +85,7 @@ namespace
       {"select_chatprivate", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kMoveLeftAliases[]       = {{"move_left", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kMoveRightAliases[]      = {{"move_right", BindingConfigSourceKind::LegacyAlias, {}}};
+  constexpr BindingConfigAlias kFocusSearchAliases[]    = {{"focus_search", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kLogDebugAliases[]       = {{"log_debug", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kZoomInAliases[]         = {{"zoom_in", BindingConfigSourceKind::LegacyAlias, {}}};
   constexpr BindingConfigAlias kZoomOutAliases[]        = {{"zoom_out", BindingConfigSourceKind::LegacyAlias, {}}};
@@ -429,6 +430,8 @@ std::span<const BindingConfigAlias> ShortcutConfigAliases(const InputActionId ac
       return kMoveLeftAliases;
     case InputActionId::MoveRight:
       return kMoveRightAliases;
+    case InputActionId::FocusSearch:
+      return kFocusSearchAliases;
     case InputActionId::HotkeysDisable:
       return kHotkeysDisableAliases;
     case InputActionId::HotkeysEnable:

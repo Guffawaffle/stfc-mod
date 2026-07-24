@@ -21,18 +21,23 @@
 #include <il2cpp/il2cpp_helper.h>
 
 #include "patches/object_tracker_state.h"
+#include "patches/hook_registry.h"
 
 #include "prime/AllianceStarbaseObjectViewerWidget.h"
 #include "prime/AnimatedRewardsScreenViewController.h"
 #include "prime/ArmadaObjectViewerWidget.h"
+#include "prime/AssignShipsWidget.h"
 #include "prime/CelestialObjectViewerWidget.h"
+#include "prime/ElementSelectorViewController.h"
 #include "prime/EmbassyObjectViewer.h"
 #include "prime/FleetBarViewController.h"
 #include "prime/FullScreenChatViewController.h"
 #include "prime/HousingObjectViewerWidget.h"
+#include "prime/InventoryListViewController.h"
 #include "prime/MiningObjectViewerWidget.h"
 #include "prime/MissionsObjectViewerWidget.h"
 #include "prime/NavigationInteractionUIViewController.h"
+#include "prime/OfficerAssignmentViewController.h"
 #include "prime/PreScanTargetWidget.h"
 #include "prime/StarNodeObjectViewerWidget.h"
 
@@ -386,21 +391,46 @@ static eastl::unordered_set<void*> seen_destroy;
  * Deduplicates hooks via seen_ctor / seen_destroy so that shared base
  * methods are only detoured once.
  */
-template <typename T> void TrackObject()
+template <typename T>
+void TrackObject(HookModuleHealth& hooks, const HookDescriptor& ctor_descriptor,
+                 const HookDescriptor& destroy_descriptor)
 {
   auto& object_class = T::get_class_helper();
-  auto  ctor         = object_class.GetMethod(".ctor");
-  auto  on_destroy   = object_class.GetMethod("OnDestroy");
-  if (seen_ctor.find(ctor) == seen_ctor.end()) {
-    SPUD_STATIC_DETOUR(ctor, track_ctor);
-    seen_ctor.emplace(ctor);
+  if (!object_class.isValidHelper()) {
+    hooks.record_missing_helper(ctor_descriptor);
+    hooks.record_missing_helper(destroy_descriptor);
+    return;
   }
 
-  if (seen_destroy.find(on_destroy) == seen_destroy.end()) {
-    SPUD_STATIC_DETOUR(on_destroy, track_destroy);
+  auto  ctor         = object_class.GetMethod(".ctor");
+  auto  on_destroy   = object_class.GetMethod("OnDestroy");
+  if (!ctor) {
+    hooks.record_missing_method(ctor_descriptor);
+  } else if (seen_ctor.find(ctor) == seen_ctor.end()) {
+    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, ctor_descriptor, ctor, track_ctor);
+    seen_ctor.emplace(ctor);
+  } else {
+    hooks.record_skipped(ctor_descriptor, "shared constructor is already tracked");
+  }
+
+  if (!on_destroy) {
+    hooks.record_missing_method(destroy_descriptor);
+  } else if (seen_destroy.find(on_destroy) == seen_destroy.end()) {
+    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, destroy_descriptor, on_destroy, track_destroy);
     seen_destroy.emplace(on_destroy);
+  } else {
+    hooks.record_skipped(destroy_descriptor, "shared OnDestroy method is already tracked");
   }
 }
+
+#define TRACK_OBJECT(hooks, type, namespc, class_name) \
+  TrackObject<type>((hooks), \
+                    HookDescriptor{#type ".ctor", "Track constructed managed objects", \
+                                   {"Assembly-CSharp", (namespc), (class_name), ".ctor"}, \
+                                   "ObjectFinder cannot discover newly constructed objects", HookSupportTier::Internal}, \
+                    HookDescriptor{#type ".OnDestroy", "Remove destroyed managed objects from tracking", \
+                                   {"Assembly-CSharp", (namespc), (class_name), "OnDestroy"}, \
+                                   "ObjectFinder may retain destroyed objects", HookSupportTier::Internal})
 
 /**
  * @brief Registers all tracked game object types, hooks the GC liveness
@@ -409,21 +439,35 @@ template <typename T> void TrackObject()
  */
 void InstallObjectTrackers()
 {
-  TrackObject<PreScanTargetWidget>();
-  TrackObject<FleetBarViewController>();
-  TrackObject<AllianceStarbaseObjectViewerWidget>();
-  TrackObject<AnimatedRewardsScreenViewController>();
-  TrackObject<ArmadaObjectViewerWidget>();
-  TrackObject<CelestialObjectViewerWidget>();
-  TrackObject<EmbassyObjectViewer>();
-  TrackObject<FullScreenChatViewController>();
-  TrackObject<HousingObjectViewerWidget>();
-  TrackObject<MiningObjectViewerWidget>();
-  TrackObject<MissionsObjectViewerWidget>();
-  TrackObject<NavigationInteractionUIViewController>();
-  TrackObject<StarNodeObjectViewerWidget>();
+  HookModuleHealth hooks("ObjectTrackerHooks");
 
-  SPUD_STATIC_DETOUR(il2cpp_unity_liveness_finalize, calc_liveness_hook);
+  TRACK_OBJECT(hooks, PreScanTargetWidget, "Digit.Prime.ObjectViewer", "PreScanTargetWidget");
+  TRACK_OBJECT(hooks, FleetBarViewController, "Digit.Prime.FleetManagement", "FleetBarViewController");
+  TRACK_OBJECT(hooks, AllianceStarbaseObjectViewerWidget, "Digit.Prime.ObjectViewer",
+               "AllianceStarbaseObjectViewerWidget");
+  TRACK_OBJECT(hooks, AnimatedRewardsScreenViewController, "Digit.Prime.Rewards",
+               "AnimatedRewardsScreenViewController");
+  TRACK_OBJECT(hooks, ArmadaObjectViewerWidget, "Digit.Prime.ObjectViewer", "ArmadaObjectViewerWidget");
+  TRACK_OBJECT(hooks, AssignShipsWidget, "Digit.Prime.Ships", "AssignShipsWidget");
+  TRACK_OBJECT(hooks, CelestialObjectViewerWidget, "Digit.Prime.ObjectViewer", "CelestialObjectViewerWidget");
+  TRACK_OBJECT(hooks, ElementSelectorViewController, "Digit.Prime.UI", "ElementSelectorViewController");
+  TRACK_OBJECT(hooks, EmbassyObjectViewer, "Digit.Prime.ObjectViewer", "EmbassyObjectViewer");
+  TRACK_OBJECT(hooks, FullScreenChatViewController, "Digit.Prime.Chat", "FullScreenChatViewController");
+  TRACK_OBJECT(hooks, HousingObjectViewerWidget, "Digit.Prime.ObjectViewer", "HousingObjectViewerWidget");
+  TRACK_OBJECT(hooks, InventoryListViewController, "Digit.Prime.Inventories", "InventoryListViewController");
+  TRACK_OBJECT(hooks, MiningObjectViewerWidget, "Digit.Prime.ObjectViewer", "MiningObjectViewerWidget");
+  TRACK_OBJECT(hooks, MissionsObjectViewerWidget, "Digit.Prime.ObjectViewer", "MissionsObjectViewerWidget");
+  TRACK_OBJECT(hooks, NavigationInteractionUIViewController, "Digit.Prime.Navigation",
+               "NavigationInteractionUIViewController");
+  TRACK_OBJECT(hooks, OfficerAssignmentViewController, "Digit.Prime.OfficerAssignment",
+               "OfficerAssignmentViewController");
+  TRACK_OBJECT(hooks, StarNodeObjectViewerWidget, "Digit.Prime.ObjectViewer", "StarNodeObjectViewerWidget");
+
+  static constexpr HookDescriptor liveness_descriptor{
+      "Il2CppUnityLivenessFinalize", "Evict managed objects marked by the Unity liveness pass",
+      {"GameAssembly", "il2cpp", "GC", "il2cpp_unity_liveness_finalize"},
+      "ObjectFinder may retain objects after garbage collection", HookSupportTier::Internal};
+  HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, liveness_descriptor, il2cpp_unity_liveness_finalize, calc_liveness_hook);
 
 #if _WIN32
   auto GC_register_finalizer_inner_matches =
@@ -440,4 +484,7 @@ void InstallObjectTrackers()
 
   const auto GC_register_finalizer_inner_match = GC_register_finalizer_inner_matches.get(0);
   GC_register_finalizer_inner = (decltype(GC_register_finalizer_inner))GC_register_finalizer_inner_match.address();
+  hooks.log_summary();
 }
+
+#undef TRACK_OBJECT

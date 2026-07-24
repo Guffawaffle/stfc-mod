@@ -1178,7 +1178,6 @@ void Config::Load()
     write_log    = false;
   }
 
-#if _MODDBG
   this->installUiScaleHooks =
       get_config_or_default(config, parsed, "patches", "uiscalehooks", DCP::uiscalehooks, write_config);
   this->installZoomHooks = get_config_or_default(config, parsed, "patches", "zoomhooks", DCP::zoomhooks, write_config);
@@ -1205,6 +1204,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "resolutionlistfix", DCP::resolutionlistfix, write_config);
   this->installSyncPatches =
       get_config_or_default(config, parsed, "patches", "syncpatches", DCP::syncpatches, write_config);
+  this->installGameVersionHook =
+      get_config_or_default(config, parsed, "patches", "game_version", DCP::game_version, write_config);
   this->installObjectTracker =
       get_config_or_default(config, parsed, "patches", "objecttracker", DCP::objecttracker, write_config);
   this->installFleetArrivalHooks =
@@ -1214,26 +1215,6 @@ void Config::Load()
   this->installTransitionScreenHooks = get_config_or_default(
       config, parsed, "patches", "transitionscreenhooks", DCP::transitionscreenhooks, write_config);
   spdlog::debug("");
-#else
-  this->installUiScaleHooks               = true;
-  this->installZoomHooks                  = true;
-  this->installBuffFixHooks               = true;
-  this->installToastBannerHooks           = true;
-  this->installPanHooks                   = true;
-  this->installImproveResponsivenessHooks = true;
-  this->installHotkeyHooks                = true;
-  this->installFreeResizeHooks            = true;
-  this->installTempCrashFixes             = true;
-  this->installTestPatches                = true;
-  this->installMiscPatches                = true;
-  this->installChatPatches                = true;
-  this->installResolutionListFix          = false; // this patch does not work after unity 6 update
-  this->installSyncPatches                = true;
-  this->installObjectTracker              = true;
-  this->installFleetArrivalHooks          = true;
-  this->installLoadingScreenHooks         = true;
-  this->installTransitionScreenHooks      = true;
-#endif
 
   this->queue_enabled =
       get_config_or_default(config, parsed, "control", "queue_enabled", DCC::queue_enabled, write_config);

@@ -25,6 +25,8 @@ do
     add_files("../mods/src/patches/battle_log_decoder.cc")
     add_files("../mods/src/patches/fleet_deferred_action.cc")
     add_files("../mods/src/patches/fleet_input_policy.cc")
+    add_files("../mods/src/patches/hook_install_audit.cc")
+    add_files("../mods/src/patches/hook_registry.cc")
     add_files("../mods/src/patches/il2cpp_safety.cc")
     add_files("../mods/src/patches/input_binding/input_binding.cc")
     add_files("../mods/src/patches/input_binding/action_registry.cc")
@@ -35,11 +37,12 @@ do
     add_files("../mods/src/patches/notification_queue.cc")
     add_files("../mods/src/patches/notification_policy.cc")
     add_files("../mods/src/patches/notification_text.cc")
+    add_files("../mods/src/patches/patch_install_policy.cc")
     add_files("../mods/src/patches/sidecar_local_chunking.cc")
     add_files("../mods/src/patches/sidecar_local_ingest_policy.cc")
     add_files("../mods/src/patches/sync_transport_policy.cc")
 
-    add_packages("doctest", "nlohmann_json", "toml++", "spdlog")
+    add_packages("doctest", "nlohmann_json", "toml++", "spdlog", "spud")
 
     add_defines("NOMINMAX")
     add_defines("STFC_MOD_TESTS")

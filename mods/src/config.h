@@ -454,7 +454,7 @@ public:
 
   std::map<std::string, SyncTargetConfig> sync_targets;
 
-  // ─── Patch Toggles (debug builds only — release forces all true) ──────────
+  // ─── Patch Toggles (honored in every build mode) ─────────────────────────
   bool installUiScaleHooks;
   bool installZoomHooks;
   bool installBuffFixHooks;
@@ -469,6 +469,7 @@ public:
   bool installChatPatches;
   bool installResolutionListFix;
   bool installSyncPatches;
+  bool installGameVersionHook;
   bool installObjectTracker;
   bool installFleetArrivalHooks;
 

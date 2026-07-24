@@ -115,6 +115,50 @@ constexpr std::array kEventSpecs{
                           NotificationSound::Success},
     NotificationEventSpec{NotificationKind::ExperimentalSurgeTimeLeft, "experimental", "surge_time_left",
                           SurgeTimeLeft, nullptr, nullptr, NotificationSound::Warning},
+    NotificationEventSpec{NotificationKind::ExperimentalQueueForLeaseActivated, "experimental",
+                          "queue_for_lease_activated", QueueForLeaseActivated, nullptr, nullptr,
+                          NotificationSound::Info},
+    NotificationEventSpec{NotificationKind::ExperimentalQueueForLeaseExpired, "experimental",
+                          "queue_for_lease_expired", QueueForLeaseExpired, nullptr, nullptr,
+                          NotificationSound::Warning},
+    NotificationEventSpec{NotificationKind::ExperimentalPermanentQueuePurchased, "experimental",
+                          "permanent_queue_purchased", PermanentQueuePurchased, nullptr, nullptr,
+                          NotificationSound::Success},
+    NotificationEventSpec{NotificationKind::ExperimentalOutpostStartedOrEnded, "experimental",
+                          "outpost_started_or_ended", OutpostStartedOrEnded, nullptr, nullptr,
+                          NotificationSound::Info},
+    NotificationEventSpec{NotificationKind::ExperimentalCrossAllianceArmadaVictory, "experimental",
+                          "cross_alliance_armada_victory", CrossAllianceArmadaVictory, nullptr, nullptr,
+                          NotificationSound::Success},
+    NotificationEventSpec{NotificationKind::ExperimentalCrossAllianceArmadaDefeat, "experimental",
+                          "cross_alliance_armada_defeat", CrossAllianceArmadaDefeat, nullptr, nullptr,
+                          NotificationSound::Warning},
+    NotificationEventSpec{NotificationKind::ExperimentalCrossAllianceArmadaPartialVictory, "experimental",
+                          "cross_alliance_armada_partial_victory", CrossAllianceArmadaPartialVictory, nullptr,
+                          nullptr, NotificationSound::Info},
+    NotificationEventSpec{NotificationKind::ExperimentalFactionWeeklyEventsProgress, "experimental",
+                          "faction_weekly_events_progress", FactionWeeklyEventsProgress, nullptr, nullptr,
+                          NotificationSound::Info},
+    NotificationEventSpec{NotificationKind::ExperimentalFactionWeeklyEventsComplete, "experimental",
+                          "faction_weekly_events_complete", FactionWeeklyEventsComplete, nullptr, nullptr,
+                          NotificationSound::Success},
+    NotificationEventSpec{NotificationKind::ExperimentalArmadaPlayerBlocked, "experimental",
+                          "armada_player_blocked", ArmadaPlayerBlocked, nullptr, nullptr,
+                          NotificationSound::Warning},
+    NotificationEventSpec{NotificationKind::ExperimentalArmadaPlayerUnblocked, "experimental",
+                          "armada_player_unblocked", ArmadaPlayerUnblocked, nullptr, nullptr,
+                          NotificationSound::Info},
+    NotificationEventSpec{NotificationKind::ExperimentalDynamicCrisisUpdate, "experimental",
+                          "dynamic_crisis_update", DynamicCrisisUpdate, nullptr, nullptr, NotificationSound::Info},
+    NotificationEventSpec{NotificationKind::ExperimentalDynamicCrisisFailed, "experimental",
+                          "dynamic_crisis_failed", DynamicCrisisFailed, nullptr, nullptr,
+                          NotificationSound::Warning},
+    NotificationEventSpec{NotificationKind::ExperimentalDynamicCrisisCompleted, "experimental",
+                          "dynamic_crisis_completed", DynamicCrisisCompleted, nullptr, nullptr,
+                          NotificationSound::Success},
+    NotificationEventSpec{NotificationKind::ExperimentalGalacticAnomalySystemEntered, "experimental",
+                          "galactic_anomaly_system_entered", GalacticAnomalySystemEntered, nullptr, nullptr,
+                          NotificationSound::Info},
     NotificationEventSpec{NotificationKind::FleetArrivedInSystem, "fleet", "arrived_in_system", -1,
                           &NotificationConfig::fleet_arrived_in_system,
                           &NotificationConfig::audio_fleet_arrived_in_system, NotificationSound::Arrival},
@@ -392,6 +436,22 @@ std::optional<NotificationKind> notification_kind_from_toast_state(int state)
     case SurgeWarmUpEnded: return NotificationKind::ExperimentalSurgeWarmupEnded;
     case SurgeHostileGroupDefeated: return NotificationKind::ExperimentalSurgeHostileGroupDefeated;
     case SurgeTimeLeft: return NotificationKind::ExperimentalSurgeTimeLeft;
+    case QueueForLeaseActivated: return NotificationKind::ExperimentalQueueForLeaseActivated;
+    case QueueForLeaseExpired: return NotificationKind::ExperimentalQueueForLeaseExpired;
+    case PermanentQueuePurchased: return NotificationKind::ExperimentalPermanentQueuePurchased;
+    case OutpostStartedOrEnded: return NotificationKind::ExperimentalOutpostStartedOrEnded;
+    case CrossAllianceArmadaVictory: return NotificationKind::ExperimentalCrossAllianceArmadaVictory;
+    case CrossAllianceArmadaDefeat: return NotificationKind::ExperimentalCrossAllianceArmadaDefeat;
+    case CrossAllianceArmadaPartialVictory:
+      return NotificationKind::ExperimentalCrossAllianceArmadaPartialVictory;
+    case FactionWeeklyEventsProgress: return NotificationKind::ExperimentalFactionWeeklyEventsProgress;
+    case FactionWeeklyEventsComplete: return NotificationKind::ExperimentalFactionWeeklyEventsComplete;
+    case ArmadaPlayerBlocked: return NotificationKind::ExperimentalArmadaPlayerBlocked;
+    case ArmadaPlayerUnblocked: return NotificationKind::ExperimentalArmadaPlayerUnblocked;
+    case DynamicCrisisUpdate: return NotificationKind::ExperimentalDynamicCrisisUpdate;
+    case DynamicCrisisFailed: return NotificationKind::ExperimentalDynamicCrisisFailed;
+    case DynamicCrisisCompleted: return NotificationKind::ExperimentalDynamicCrisisCompleted;
+    case GalacticAnomalySystemEntered: return NotificationKind::ExperimentalGalacticAnomalySystemEntered;
     default: return std::nullopt;
   }
 }
@@ -442,6 +502,29 @@ const char* notification_kind_name(NotificationKind kind)
     case NotificationKind::ExperimentalSurgeWarmupEnded: return "experimental.surge_warmup_ended";
     case NotificationKind::ExperimentalSurgeHostileGroupDefeated: return "experimental.surge_hostile_group_defeated";
     case NotificationKind::ExperimentalSurgeTimeLeft: return "experimental.surge_time_left";
+    case NotificationKind::ExperimentalQueueForLeaseActivated:
+      return "experimental.queue_for_lease_activated";
+    case NotificationKind::ExperimentalQueueForLeaseExpired: return "experimental.queue_for_lease_expired";
+    case NotificationKind::ExperimentalPermanentQueuePurchased:
+      return "experimental.permanent_queue_purchased";
+    case NotificationKind::ExperimentalOutpostStartedOrEnded: return "experimental.outpost_started_or_ended";
+    case NotificationKind::ExperimentalCrossAllianceArmadaVictory:
+      return "experimental.cross_alliance_armada_victory";
+    case NotificationKind::ExperimentalCrossAllianceArmadaDefeat:
+      return "experimental.cross_alliance_armada_defeat";
+    case NotificationKind::ExperimentalCrossAllianceArmadaPartialVictory:
+      return "experimental.cross_alliance_armada_partial_victory";
+    case NotificationKind::ExperimentalFactionWeeklyEventsProgress:
+      return "experimental.faction_weekly_events_progress";
+    case NotificationKind::ExperimentalFactionWeeklyEventsComplete:
+      return "experimental.faction_weekly_events_complete";
+    case NotificationKind::ExperimentalArmadaPlayerBlocked: return "experimental.armada_player_blocked";
+    case NotificationKind::ExperimentalArmadaPlayerUnblocked: return "experimental.armada_player_unblocked";
+    case NotificationKind::ExperimentalDynamicCrisisUpdate: return "experimental.dynamic_crisis_update";
+    case NotificationKind::ExperimentalDynamicCrisisFailed: return "experimental.dynamic_crisis_failed";
+    case NotificationKind::ExperimentalDynamicCrisisCompleted: return "experimental.dynamic_crisis_completed";
+    case NotificationKind::ExperimentalGalacticAnomalySystemEntered:
+      return "experimental.galactic_anomaly_system_entered";
     case NotificationKind::FleetArrivedInSystem: return "fleet.arrived_in_system";
     case NotificationKind::FleetArrivedAtDestination: return "fleet.arrived_at_destination";
     case NotificationKind::FleetStartedMining: return "fleet.started_mining";

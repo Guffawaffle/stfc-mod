@@ -15,6 +15,7 @@
 #include "patches/deployment_runtime_observers.h"
 #include "patches/fleet_runtime_sync.h"
 #include "patches/notification_service.h"
+#include "patches/patch_install_policy.h"
 #include "patches/sidecar_local_ingest.h"
 #include "patches/sync_battle_logs.h"
 #include "patches/sync_payload_builders.h"
@@ -35,7 +36,11 @@
 #include <exception>
 #include <cstdio>
 #include <filesystem>
+#include <iterator>
 #include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 #if _WIN32
 #include <Windows.h>
@@ -158,8 +163,14 @@ void InstallLoadingTipHooks();
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
 {
   struct PatchEntry {
-    const char*                  name;
-    std::pair<void (*)(), bool*> fnAndEnabled;
+    const char* name;
+    const char* config_key;
+    const char* enabled_by;
+    const char* registry_module;
+    void (*install)();
+    bool requested;
+    bool dependency_enabled;
+    bool platform_available;
   };
 
 #if _WIN32
@@ -249,60 +260,113 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #endif
   install_frame_tick_hooks = install_frame_tick_hooks || fleet_runtime_sync_frame_subscriber_enabled();
   const PatchEntry patches[]                          = {
-      {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
-      {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
-      {"BuffFixHooks", {InstallBuffFixHooks, &cfg.installBuffFixHooks}},
-      {"ToastBannerHooks", {InstallToastBannerHooks, &cfg.installToastBannerHooks}},
-      {"PanHooks", {InstallPanHooks, &cfg.installPanHooks}},
-      {"ImproveResponsivenessHooks", {InstallImproveResponsivenessHooks, &cfg.installImproveResponsivenessHooks}},
-      {"FrameTickHooks", {InstallFrameTickHooks, &install_frame_tick_hooks}},
-      {"HotkeyHooks", {InstallHotkeyHooks, &cfg.installHotkeyHooks}},
-      {"OpenBulkClaimGiftsHooks", {InstallOpenBulkClaimGiftsHooks, &install_open_bulk_claim_gifts_hooks}},
-      {"MissionHudTweaks", {InstallMissionHudTweaksHooks, &install_mission_hud_tweaks_hooks}},
-      {"DeploymentRuntimeObservers", {InstallDeploymentRuntimeObserverHooks, &install_deployment_runtime_observers}},
+      {"UiScaleHooks", "patches.uiscalehooks", "", "", InstallUiScaleHooks, cfg.installUiScaleHooks, false, true},
+      {"ZoomHooks", "patches.zoomhooks", "", "ZoomPlanetViewHooks", InstallZoomHooks, cfg.installZoomHooks, false,
+       true},
+      {"BuffFixHooks", "patches.bufffixhooks", "", "", InstallBuffFixHooks, cfg.installBuffFixHooks, false, true},
+      {"ToastBannerHooks", "patches.toastbannerhooks", "", "", InstallToastBannerHooks,
+       cfg.installToastBannerHooks, false, true},
+      {"PanHooks", "patches.panhooks", "", "", InstallPanHooks, cfg.installPanHooks, false, true},
+      {"ImproveResponsivenessHooks", "patches.improveresponsivenesshooks", "", "", InstallImproveResponsivenessHooks,
+       cfg.installImproveResponsivenessHooks, false, true},
+      {"FrameTickHooks", "", "hotkeys|live-debug|fleet-runtime-sync", "FrameTickHooks", InstallFrameTickHooks, false,
+       install_frame_tick_hooks, true},
+      {"HotkeyHooks", "patches.hotkeyhooks", "", "HotkeyHooks", InstallHotkeyHooks, cfg.installHotkeyHooks, false,
+       true},
+      {"OpenBulkClaimGiftsHooks", "ui.auto_open_bulk_claim_flyout", "", "OpenBulkClaimGiftsHooks",
+       InstallOpenBulkClaimGiftsHooks, install_open_bulk_claim_gifts_hooks, false, true},
+      {"MissionHudTweaks", "ui.mission_hud_tweaks", "", "MissionHudTweaks", InstallMissionHudTweaksHooks,
+       install_mission_hud_tweaks_hooks, false, true},
+      {"DeploymentRuntimeObservers", "", "fleet-runtime-observers", "", InstallDeploymentRuntimeObserverHooks,
+       false, install_deployment_runtime_observers, true},
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
-      {"LiveDebugHooks", {InstallLiveDebugHooks, &install_live_debug_hooks}},
+      {"LiveDebugHooks", "advanced.diagnostics.live_query", "", "", InstallLiveDebugHooks, install_live_debug_hooks,
+       false, true},
 #endif
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
-      {"RefineryDiagnosticsHooks", {InstallRefineryDiagnosticsHooks, &install_refinery_diagnostics_hooks}},
+      {"RefineryDiagnosticsHooks", "advanced.diagnostics.refinery_diagnostics", "", "RefineryDiagnosticsHooks",
+       InstallRefineryDiagnosticsHooks, install_refinery_diagnostics_hooks, false, true},
 #endif
-      {"SectionChangeRouterHooks", {InstallSectionChangeRouterHooks, &install_section_change_router_hooks}},
+      {"SectionChangeRouterHooks", "", "bulk-claim|refinery-diagnostics", "SectionChangeRouterHooks",
+       InstallSectionChangeRouterHooks, false, install_section_change_router_hooks, true},
 #if _WIN32
-      {"FreeResizeHooks", {InstallFreeResizeHooks, &cfg.installFreeResizeHooks}},
+      {"FreeResizeHooks", "patches.freeresizehooks", "", "", InstallFreeResizeHooks, cfg.installFreeResizeHooks,
+       false, true},
+#else
+      {"FreeResizeHooks", "patches.freeresizehooks", "", "", nullptr, cfg.installFreeResizeHooks, false, false},
 #endif
-      {"TempCrashFixes", {InstallTempCrashFixes, &cfg.installTempCrashFixes}},
-      {"TestPatches", {InstallTestPatches, &cfg.installTestPatches}},
-      {"MiscPatches", {InstallMiscPatches, &cfg.installMiscPatches}},
-      {"ChatPatches", {InstallChatPatches, &cfg.installChatPatches}},
-      {"ResolutionListFix", {InstallResolutionListFix, &cfg.installResolutionListFix}},
-      {"SyncPatches", {InstallSyncPatches, &cfg.installSyncPatches}},
-      {"ObjectTracker", {InstallObjectTrackers, &cfg.installObjectTracker}},
-      {"FleetArrival", {InstallFleetArrivalHooks, &cfg.installFleetArrivalHooks}},
-      {"LoadingScreen", {InstallLoadingScreenHooks, &cfg.installLoadingScreenHooks}},
-      {"TransitionScreen", {InstallTransitionScreenHooks, &cfg.installTransitionScreenHooks}},
-      {"LoadingTip", {InstallLoadingTipHooks, &cfg.loader_tip_enabled}},
+      {"TempCrashFixes", "patches.tempcrashfixes", "", "", InstallTempCrashFixes, cfg.installTempCrashFixes, false,
+       true},
+      {"TestPatches", "patches.testpatches", "", "", InstallTestPatches, cfg.installTestPatches, false, true},
+      {"MiscPatches", "patches.miscpatches", "", "", InstallMiscPatches, cfg.installMiscPatches, false, true},
+      {"ChatPatches", "patches.chatpatches", "", "", InstallChatPatches, cfg.installChatPatches, false, true},
+      {"ResolutionListFix", "patches.resolutionlistfix", "", "", InstallResolutionListFix,
+       cfg.installResolutionListFix, false, true},
+      {"SyncPatches", "patches.syncpatches", "", "SyncHooks", InstallSyncPatches, cfg.installSyncPatches, false, true},
+      {"ObjectTracker", "patches.objecttracker", "", "ObjectTrackerHooks", InstallObjectTrackers,
+       cfg.installObjectTracker, false, true},
+      {"FleetArrival", "patches.fleetarrivalhooks", "", "", InstallFleetArrivalHooks, cfg.installFleetArrivalHooks,
+       false, true},
+      {"LoadingScreen", "patches.loadingscreenhooks", "", "", InstallLoadingScreenHooks,
+       cfg.installLoadingScreenHooks, false, true},
+      {"TransitionScreen", "patches.transitionscreenhooks", "", "", InstallTransitionScreenHooks,
+       cfg.installTransitionScreenHooks, false, true},
+      {"LoadingTip", "graphics.loader_tip_enabled", "", "", InstallLoadingTipHooks, cfg.loader_tip_enabled, false,
+       true},
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
 
   auto r = original(domain_name);
 
-  auto patch_count = 0;
-  auto patch_total = sizeof(patches) / sizeof(patches[0]);
+  auto                              patch_count = 0;
+  const auto                        patch_total = std::size(patches);
+  std::vector<PatchInstallDecision> decisions;
+  decisions.reserve(patch_total);
 
   for (const auto& patch : patches) {
     patch_count++;
-    const auto [patch_func, patch_enabled] = patch.fnAndEnabled;
     const auto patch_allowed_by_isolation =
         !kLiveDebugOnlyHookIsolation || std::strcmp(patch.name, "DeploymentRuntimeObservers") == 0
         || std::strcmp(patch.name, "LiveDebugHooks") == 0
         || std::strcmp(patch.name, "ObjectTracker") == 0 || std::strcmp(patch.name, "FleetArrival") == 0
         || std::strcmp(patch.name, "FrameTickHooks") == 0 || std::strcmp(patch.name, "HotkeyHooks") == 0;
-    const auto patch_install = patch_allowed_by_isolation && (patch_enabled && *patch_enabled);
-    const auto patch_mode    = patch_install ? "+ Patch" : "x Skipp";
+    const auto decision = build_patch_install_decision({.requested          = patch.requested,
+                                                        .dependency_enabled = patch.dependency_enabled,
+                                                        .platform_available = patch.platform_available,
+                                                        .isolation_allowed  = patch_allowed_by_isolation});
+    decisions.push_back(decision);
+    const auto patch_mode = decision.effective ? "+ Patch" : "x Skipp";
     spdlog::info(" {}ing {:>2} of {} ({})", patch_mode, patch_count, patch_total, patch.name);
+    spdlog::info("[PatchPlan] module={} config={} requested={} dependency={} available={} isolation={} effective={} "
+                 "reason={} enabled_by={}",
+                 patch.name, patch.config_key, patch.requested, patch.dependency_enabled, patch.platform_available,
+                 patch_allowed_by_isolation, decision.effective, patch_install_reason_name(decision.reason),
+                 patch.enabled_by);
 
-    if (patch_install) {
-      patch_func();
+    if (decision.effective && patch.install) {
+      patch.install();
+    }
+  }
+
+  for (size_t index = 0; index < patch_total; ++index) {
+    const auto& patch           = patches[index];
+    const auto  registry_backed = patch.registry_module[0] != '\0';
+    const auto  hooks = registry_backed ? hook_install_audit_snapshot(patch.registry_module)
+                                        : HookAuditModuleSnapshot{.module = patch.name};
+    const auto audit = audit_patch_install(decisions[index], hooks, registry_backed);
+    const auto audit_message =
+        fmt::format("[PatchAudit] module={} registry_module={} requested={} effective={} status={} installed={} "
+                    "failed={} skipped={} attempted={} total={}",
+                    patch.name, patch.registry_module, decisions[index].requested, decisions[index].effective,
+                    patch_install_audit_status_name(audit), hooks.installed, hooks.failed, hooks.skipped,
+                    hooks.attempted, hooks.total);
+
+    if (audit == PatchInstallAuditStatus::DisabledModuleInstalled
+        || audit == PatchInstallAuditStatus::HookInstallFailed
+        || audit == PatchInstallAuditStatus::MissingRegistryEvidence) {
+      spdlog::error("{}", audit_message);
+    } else {
+      spdlog::info("{}", audit_message);
     }
   }
 

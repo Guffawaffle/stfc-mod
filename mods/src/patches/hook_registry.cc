@@ -1,5 +1,7 @@
 #include "patches/hook_registry.h"
 
+#include "patches/hook_install_audit.h"
+
 #include <algorithm>
 #include <cstdlib>
 #include <mutex>
@@ -59,6 +61,7 @@ void HookModuleHealth::record_skipped(const HookDescriptor& descriptor, std::str
   auto& record = upsert(descriptor);
   record.status = HookInstallStatus::Skipped;
   record.detail = reason;
+  hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Skipped);
   log_record(record);
 }
 
@@ -67,6 +70,7 @@ void HookModuleHealth::record_missing_helper(const HookDescriptor& descriptor)
   auto& record = upsert(descriptor);
   record.status = HookInstallStatus::MissingHelper;
   record.detail = "class/helper lookup failed";
+  hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Missing);
   log_record(record);
 }
 
@@ -75,6 +79,7 @@ void HookModuleHealth::record_missing_method(const HookDescriptor& descriptor)
   auto& record = upsert(descriptor);
   record.status = HookInstallStatus::MissingMethod;
   record.detail = "method lookup failed";
+  hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Missing);
   log_record(record);
 }
 
@@ -84,6 +89,7 @@ void HookModuleHealth::record_detour_attempted(const HookDescriptor& descriptor)
   record.status = HookInstallStatus::DetourAttempted;
   record.method_found = true;
   record.detour_attempted = true;
+  hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Attempted);
 }
 
 void HookModuleHealth::record_detour_installed(const HookDescriptor& descriptor)
@@ -93,6 +99,7 @@ void HookModuleHealth::record_detour_installed(const HookDescriptor& descriptor)
   record.method_found = true;
   record.detour_attempted = true;
   record.detail.clear();
+  hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Installed);
   log_record(record);
 }
 
@@ -103,8 +110,12 @@ void HookModuleHealth::record_detour_failed(const HookDescriptor& descriptor, st
   record.method_found = true;
   record.detour_attempted = true;
   record.detail = error;
+  hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Failed);
   log_record(record);
 }
+
+std::string_view HookModuleHealth::module_name() const
+{ return module_; }
 
 void HookModuleHealth::log_summary() const
 {
@@ -209,16 +220,17 @@ std::mutex& owner_registry_mutex()
   return m;
 }
 
-std::unordered_map<const void*, OwnerEntry>& owner_registry()
+std::unordered_map<HookTargetKey, OwnerEntry>& owner_registry()
 {
-  static std::unordered_map<const void*, OwnerEntry> entries;
+  static std::unordered_map<HookTargetKey, OwnerEntry> entries;
   return entries;
 }
 } // namespace
 
-bool hook_registry_claim_owner(const HookDescriptor& descriptor, const std::string_view module, const void* method_ptr)
+bool hook_registry_claim_owner(const HookDescriptor& descriptor, const std::string_view module,
+                               const HookTargetKey target_key)
 {
-  if (method_ptr == nullptr) {
+  if (target_key == 0) {
     // Caller already reported the missing method. Don't add a noisy log.
     return true;
   }
@@ -226,7 +238,7 @@ bool hook_registry_claim_owner(const HookDescriptor& descriptor, const std::stri
   std::lock_guard<std::mutex> lock(owner_registry_mutex());
   auto&                       entries = owner_registry();
 
-  if (const auto it = entries.find(method_ptr); it != entries.end()) {
+  if (const auto it = entries.find(target_key); it != entries.end()) {
     spdlog::error("[HookOwnerConflict] target={} already owned by hook='{}' (module={}); duplicate claim by hook='{}' "
                   "(module={}, target={}, tier={}). Refusing to install second detour.",
                   it->second.target, it->second.hook_name, it->second.module, descriptor.name, module,
@@ -239,7 +251,7 @@ bool hook_registry_claim_owner(const HookDescriptor& descriptor, const std::stri
 #endif
   }
 
-  entries.emplace(method_ptr, OwnerEntry{std::string(descriptor.name), std::string(module),
+  entries.emplace(target_key, OwnerEntry{std::string(descriptor.name), std::string(module),
                                          hook_target_string(descriptor.target)});
   return true;
 }
@@ -248,6 +260,7 @@ void hook_registry_reset_owners_for_testing()
 {
   std::lock_guard<std::mutex> lock(owner_registry_mutex());
   owner_registry().clear();
+  hook_install_audit_reset_for_testing();
 }
 
 size_t hook_registry_owner_count_for_testing()

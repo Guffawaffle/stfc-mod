@@ -57,6 +57,7 @@ struct BattleResultHeader {
 public:
   __declspec(property(get = __get_PlayerShipHullId)) long PlayerShipHullId;
   __declspec(property(get = __get_EnemyShipHullId)) long EnemyShipHullId;
+  __declspec(property(get = __get_BattleType)) BattleType Type;
 
   Il2CppObject* get_PlayerUserProfile()
   {
@@ -94,5 +95,11 @@ public:
   {
     static auto prop = get_class_helper().GetProperty("EnemyShipHullId");
     return *prop.Get<long>(this);
+  }
+
+  BattleType __get_BattleType()
+  {
+    static auto property = get_class_helper().GetProperty("BattleType");
+    return *property.Get<BattleType>(this);
   }
 };

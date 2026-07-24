@@ -23,6 +23,7 @@
 
 #include "patches/cargo_display.h"
 #include "patches/fleet_actions.h"
+#include "patches/focus_search.h"
 #include "patches/hotkey_router_action_table.h"
 #include "patches/hotkey_router_dispatch_cache.h"
 #include "patches/hotkey_router_native_fleet_guard.h"
@@ -262,6 +263,15 @@ bool hotkey_router_screen_update(ScreenManager* _this)
           default:
             break;
         }
+      }
+      if (!is_in_chat && !input_focused
+          && query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kSearchFocus)
+                 == input_binding::InputActionId::FocusSearch
+          && FocusSearchBox()) {
+        if (ModImpactMonitorEnabled()) {
+          spdlog::trace("[HotkeyDiag] action=focus-search");
+        }
+        return false;
       }
 
       {

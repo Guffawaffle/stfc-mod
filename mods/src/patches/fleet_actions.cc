@@ -21,6 +21,7 @@
 
 #include "prime/ActionQueueManager.h"
 #include "prime/ArmadaObjectViewerWidget.h"
+#include "prime/CanRepairRequirement.h"
 #include "prime/DeploymentManager.h"
 #include "prime/FleetBarViewController.h"
 #include "prime/FleetLocalViewController.h"
@@ -30,6 +31,7 @@
 #include "prime/NavigationInteractionUIViewController.h"
 #include "prime/NavigationSectionManager.h"
 #include "prime/PreScanTargetWidget.h"
+#include "prime/RecallRequirement.h"
 #include "prime/ScanEngageButtonsWidget.h"
 #include "prime/StarNodeObjectViewerWidget.h"
 
@@ -806,6 +808,9 @@ bool TryHandleFleetServiceOutcome(FleetServiceOutcome outcome, FleetBarViewContr
   switch (outcome) {
     case FleetServiceOutcome::Recall:
       if (const auto result = TryExecuteRecall(fleet_bar); result.did_action) {
+        if (force_space_action_next_frame) {
+          ClearDeferredSpaceAction();
+        }
         diagnostics.Complete("recall-default");
         return true;
       } else if (result.request_mode == FleetActionRequestMode::Default) {
@@ -816,6 +821,9 @@ bool TryHandleFleetServiceOutcome(FleetServiceOutcome outcome, FleetBarViewContr
       return false;
     case FleetServiceOutcome::Repair:
       if (const auto result = TryExecuteRepair(fleet_bar); result.did_action) {
+        if (force_space_action_next_frame) {
+          ClearDeferredSpaceAction();
+        }
         diagnostics.Complete(result.request_mode == FleetActionRequestMode::AskHelp ? "repair-ask-help"
                                                                                     : "repair-default");
         return true;

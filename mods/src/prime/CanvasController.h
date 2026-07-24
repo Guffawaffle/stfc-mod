@@ -6,6 +6,8 @@
 #include "errormsg.h"
 #include "Transform.h"
 
+#include <spdlog/spdlog.h>
+
 struct CanvasController {
 public:
   __declspec(property(get = __get_Transform)) Transform* transform;
@@ -68,3 +70,27 @@ private:
     return class_helper;
   }
 };
+
+inline CanvasController* GetCanvasControllerFromComponent(void* component)
+{
+  if (!component) {
+    return nullptr;
+  }
+
+  static auto component_class = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Component");
+  static auto method          = component_class.GetMethodInfo("GetComponentInParent", 1);
+  static auto canvas_type = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "CanvasController").GetType();
+  if (!method || !canvas_type) {
+    return nullptr;
+  }
+
+  Il2CppException* exception = nullptr;
+  void*            params[1] = {canvas_type};
+  auto*            result    = il2cpp_runtime_invoke(method, component, params, &exception);
+  if (exception) {
+    spdlog::error("[CanvasController] GetComponentInParent threw while resolving the owning canvas");
+    return nullptr;
+  }
+
+  return reinterpret_cast<CanvasController*>(result);
+}
