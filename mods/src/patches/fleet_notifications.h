@@ -2,7 +2,7 @@
  * @file fleet_notifications.h
  * @brief Fleet notification runtime logic independent from hook installation.
  *
- * The hook layer captures live fleet-bar and mining-viewer events, then hands
+ * The hook layer captures live fleet-state and mining-viewer events, then hands
  * those observations to this module. This file contains the notification state
  * machine and message formatting, while the `parts/` layer stays limited to
  * IL2CPP method discovery and hook injection.
@@ -27,11 +27,12 @@ void fleet_notifications_init();
 bool fleet_notifications_runtime_events_enabled();
 
 /**
- * @brief Observe a fleet-bar state refresh, emit notifications, and report a meaningful runtime trigger source.
+ * @brief Observe a fleet-state refresh, emit notifications, and report a meaningful runtime trigger source.
  * @param fleet The fleet currently bound to the widget.
+ * @param observation_source Stable diagnostic name for the observation seam.
  * @return A high-signal runtime trigger source name for meaningful state transitions, or nullptr.
  */
-const char* fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet);
+const char* fleet_notifications_observe_fleet_state(FleetPlayerData* fleet, std::string_view observation_source);
 
 /**
  * @brief Observe current FleetsManager state for all fleet slots and feed the fleet notification state machine.
@@ -49,7 +50,8 @@ void fleet_notifications_observe_node_depleted(int64_t fleetId);
  */
 void fleet_notifications_notify_incoming_attack_target(const ToastFleetQueueNotificationsSignal& signal);
 void fleet_notifications_notify_incoming_attack_target(const char* source, uint64_t targetFleetId, int targetType,
-													   int attackerFleetType = 0, std::string_view attackerIdentity = {});
+                                                       int              attackerFleetType = 0,
+                                                       std::string_view attackerIdentity  = {});
 
 /**
  * @brief Observe the current mining ETA from the mining viewer.

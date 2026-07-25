@@ -2,7 +2,7 @@
  * @file fleet_notifications.cc
  * @brief Fleet notification state machine and message generation.
  *
- * This module tracks the last observed fleet-bar states and mining ETA hints,
+ * This module tracks the last observed fleet states and mining ETA hints,
  * then emits OS notifications when meaningful fleet transitions occur.
  */
 #include "patches/fleet_notifications.h"
@@ -92,12 +92,18 @@ NotificationKind incoming_attack_notification_kind_for_delivery(IncomingAttackPo
 std::optional<NotificationKind> notification_kind_from_fleet_transition(FleetBarTransitionNotificationKind kind)
 {
   switch (kind) {
-    case FleetBarTransitionNotificationKind::ArrivedInSystem: return NotificationKind::FleetArrivedInSystem;
-    case FleetBarTransitionNotificationKind::ArrivedAtDestination: return NotificationKind::FleetArrivedAtDestination;
-    case FleetBarTransitionNotificationKind::StartedMining: return NotificationKind::FleetStartedMining;
-    case FleetBarTransitionNotificationKind::RepairComplete: return NotificationKind::FleetRepairComplete;
-    case FleetBarTransitionNotificationKind::Docked: return NotificationKind::FleetDocked;
-    default: return std::nullopt;
+    case FleetBarTransitionNotificationKind::ArrivedInSystem:
+      return NotificationKind::FleetArrivedInSystem;
+    case FleetBarTransitionNotificationKind::ArrivedAtDestination:
+      return NotificationKind::FleetArrivedAtDestination;
+    case FleetBarTransitionNotificationKind::StartedMining:
+      return NotificationKind::FleetStartedMining;
+    case FleetBarTransitionNotificationKind::RepairComplete:
+      return NotificationKind::FleetRepairComplete;
+    case FleetBarTransitionNotificationKind::Docked:
+      return NotificationKind::FleetDocked;
+    default:
+      return std::nullopt;
   }
 }
 
@@ -268,9 +274,9 @@ int64_t duration_ticks_to_seconds(int64_t ticks)
   return static_cast<int64_t>(std::llround(static_cast<double>(ticks) / 10000000.0));
 }
 
-void maybe_notify_fleet_bar_transition(uint64_t fleetId, const std::string& shipName, FleetState oldState,
-                                       FleetState newState, const std::string& resourceName,
-                                       const std::string& cargoText)
+void maybe_notify_fleet_state_transition(uint64_t fleetId, const std::string& shipName, FleetState oldState,
+                                         FleetState newState, const std::string& resourceName,
+                                         const std::string& cargoText, std::string_view observationSource)
 {
   auto eta_it = s_mining_viewer_remaining_seconds.find(fleetId);
   auto etaText =
@@ -295,8 +301,8 @@ void maybe_notify_fleet_bar_transition(uint64_t fleetId, const std::string& ship
   }
 
   if (decision.suppressed_ambiguous_docked) {
-    spdlog::debug("[FleetBar] suppress ambiguous docked transition id={} ship='{}' oldState={} newState={}", fleetId,
-                  shipName, static_cast<int>(oldState), static_cast<int>(newState));
+    spdlog::debug("[FleetState] source={} suppress ambiguous docked transition id={} ship='{}' oldState={} newState={}",
+                  observationSource, fleetId, shipName, static_cast<int>(oldState), static_cast<int>(newState));
     return;
   }
 
@@ -304,8 +310,9 @@ void maybe_notify_fleet_bar_transition(uint64_t fleetId, const std::string& ship
     return;
   }
 
-  spdlog::debug("[FleetBar] {} id={} ship='{}'", fleet_bar_transition_notification_kind_name(decision.kind), fleetId,
-                shipName);
+  spdlog::debug("[FleetState] source={} kind={} id={} ship='{}' oldState={} newState={}", observationSource,
+                fleet_bar_transition_notification_kind_name(decision.kind), fleetId, shipName,
+                static_cast<int>(oldState), static_cast<int>(newState));
   const auto notification_kind = notification_kind_from_fleet_transition(decision.kind);
   if (notification_kind.has_value()) {
     notification_emit(notification_kind.value(), decision.title.c_str(), decision.body.c_str());
@@ -332,7 +339,7 @@ bool fleet_notifications_runtime_events_enabled()
          || notification_delivery_enabled(NotificationKind::FleetRepairComplete);
 }
 
-const char* fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet)
+const char* fleet_notifications_observe_fleet_state(FleetPlayerData* fleet, std::string_view observationSource)
 {
   if (!fleet) {
     return nullptr;
@@ -362,7 +369,8 @@ const char* fleet_notifications_observe_fleet_bar(FleetPlayerData* fleet)
   s_fleet_bar_cargo_fill_levels[fleetId] = cargoFillLevel;
 
   if (hadPreviousState && previousState != currentState) {
-    maybe_notify_fleet_bar_transition(fleetId, shipName, previousState, currentState, resourceName, cargoText);
+    maybe_notify_fleet_state_transition(fleetId, shipName, previousState, currentState, resourceName, cargoText,
+                                        observationSource);
     runtimeTriggerSource = fleet_runtime_trigger_source_for_state_transition(static_cast<int>(previousState),
                                                                              static_cast<int>(currentState));
   }
@@ -388,7 +396,7 @@ void fleet_notifications_observe_runtime_fleets()
       continue;
     }
 
-    fleet_notifications_observe_fleet_bar(fleet);
+    fleet_notifications_observe_fleet_state(fleet, "fleets-manager-scan");
   }
 }
 
@@ -438,7 +446,7 @@ void fleet_notifications_notify_incoming_attack_target(const ToastFleetQueueNoti
       return;
     }
     notification_emit(incoming_attack_notification_kind_for_delivery(attacker_kind), title ? title : "Incoming Attack!",
-              body.c_str());
+                      body.c_str());
     return;
   }
 

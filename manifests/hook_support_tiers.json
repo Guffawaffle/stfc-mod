@@ -28,6 +28,12 @@
       "rationale": "Central frame fan-out for registered subscribers."
     },
     {
+      "id": "FleetArrivalHooks",
+      "tier": "production",
+      "source": "mods/src/patches/parts/fleet_arrival.cc",
+      "rationale": "Release-supported fleet-state, arrival, mining, and incoming-attack notification hooks."
+    },
+    {
       "id": "HotkeyHooks",
       "tier": "production",
       "source": "mods/src/patches/parts/hotkeys.cc",
