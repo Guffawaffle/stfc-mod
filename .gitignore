@@ -39,3 +39,7 @@ mods/.xmake
 
 # Local background-agent per-worktree briefs.
 .agent-worktree/
+
+# LexRunner local overlay and runtime artifacts.
+.smartergpt.local/
+.smartergpt/runner/
