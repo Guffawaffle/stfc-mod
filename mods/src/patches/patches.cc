@@ -12,6 +12,7 @@
  */
 #include "patches.h"
 #include "file.h"
+#include "patches/action_queue_guard_policy.h"
 #include "patches/deployment_runtime_observers.h"
 #include "patches/fleet_runtime_sync.h"
 #include "patches/notification_service.h"
@@ -132,12 +133,12 @@ void InstallHotkeyHooks();
 void InstallOpenBulkClaimGiftsHooks();
 void InstallMissionHudTweaksHooks();
 void InstallSectionChangeRouterHooks();
+void InstallActionQueueGuardHooks();
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
 void InstallLiveDebugHooks();
 #endif
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
 void InstallRefineryDiagnosticsHooks();
-void InstallActionQueueGuardDiagnosticsHooks();
 #endif
 void InstallTestPatches();
 void InstallMiscPatches();
@@ -244,12 +245,14 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
     spdlog::info("[FleetRuntimeSync] sidecar fleet_runtime uses fleet-bar transition requests; deployment event "
                  "observers disabled");
   }
+  const auto       runtime_trace_level                = RuntimeTraceLevelSetting();
+  const auto       install_action_queue_guard =
+      action_queue_guard::ShouldInstall(
+          AdvancedQueueSettings().thin_queue_protection,
+          runtime_trace_level == RuntimeTraceLevel::Detailed || runtime_trace_level == RuntimeTraceLevel::Verbose);
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   auto             install_live_debug_hooks           = LiveDebugChannelEnabled();
   auto             install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
-  const auto       runtime_trace_level                = RuntimeTraceLevelSetting();
-  auto             install_action_queue_guard_diagnostics =
-      runtime_trace_level == RuntimeTraceLevel::Detailed || runtime_trace_level == RuntimeTraceLevel::Verbose;
 #endif
   auto             install_open_bulk_claim_gifts_hooks = AutoOpenBulkClaimGiftsEnabled();
   auto             install_mission_hud_tweaks_hooks    = MissionHudTweaksEnabled();
@@ -290,9 +293,9 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
       {"RefineryDiagnosticsHooks", "advanced.diagnostics.refinery_diagnostics", "", "RefineryDiagnosticsHooks",
        InstallRefineryDiagnosticsHooks, install_refinery_diagnostics_hooks, false, true},
-      {"ActionQueueGuardDiagnostics", "advanced.diagnostics.runtime_trace", "", "ActionQueueGuardDiagnostics",
-       InstallActionQueueGuardDiagnosticsHooks, install_action_queue_guard_diagnostics, false, true},
 #endif
+      {"ActionQueueGuard", "advanced.queue.thin_queue_protection|advanced.diagnostics.runtime_trace", "",
+       "ActionQueueGuard", InstallActionQueueGuardHooks, install_action_queue_guard, false, true},
       {"SectionChangeRouterHooks", "", "bulk-claim|refinery-diagnostics", "SectionChangeRouterHooks",
        InstallSectionChangeRouterHooks, false, install_section_change_router_hooks, true},
 #if _WIN32

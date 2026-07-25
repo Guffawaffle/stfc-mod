@@ -110,6 +110,7 @@ jsonl_recent_logs = 300
     CHECK(result.advanced.diagnostics.files.action_queue_probe_max_kb == 8192);
     CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 3);
     CHECK_FALSE(result.advanced.queue.queue_repair_enabled);
+    CHECK_FALSE(result.advanced.queue.thin_queue_protection);
     CHECK_FALSE(result.advanced.queue.queue_add_direct_handler);
     CHECK(result.diagnostics.empty());
   }
@@ -155,6 +156,7 @@ action_queue_probe_files = 6
 
 [advanced.queue]
 queue_repair_enabled = true
+thin_queue_protection = true
 queue_add_direct_handler = true
 queue_add_hide_viewers = false
 
@@ -202,6 +204,7 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.diagnostics.files.action_queue_probe_max_kb == 6144);
     CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 6);
     CHECK(result.advanced.queue.queue_repair_enabled);
+    CHECK(result.advanced.queue.thin_queue_protection);
     CHECK(result.advanced.queue.queue_add_direct_handler);
     CHECK(has_diagnostic_source(result.diagnostics, "advanced.queue.queue_add_hide_viewers",
                                 "advanced.queue.queue_add_hide_viewers",
@@ -420,6 +423,7 @@ mode = "majel"
     advanced.diagnostics.files.action_queue_probe_max_kb  = 8192;
     advanced.diagnostics.files.action_queue_probe_files   = 5;
     advanced.queue.queue_repair_enabled                   = true;
+    advanced.queue.thin_queue_protection                  = true;
     advanced.queue.queue_add_direct_handler               = true;
 
     toml::table runtime_snapshot;
@@ -459,6 +463,7 @@ mode = "majel"
           == 5);
     REQUIRE(runtime_snapshot["advanced"]["queue"].is_table());
     CHECK(runtime_snapshot["advanced"]["queue"]["queue_repair_enabled"].value<bool>().value_or(false));
+    CHECK(runtime_snapshot["advanced"]["queue"]["thin_queue_protection"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["queue"]["queue_add_direct_handler"].value<bool>().value_or(false));
     CHECK_FALSE(runtime_snapshot["advanced"]["queue"].as_table()->contains("queue_add_hide_viewers"));
 

@@ -263,6 +263,7 @@ struct AdvancedDiagnosticsConfig {
  */
 struct AdvancedQueueConfig {
   bool queue_repair_enabled     = false;
+  bool thin_queue_protection    = false;
   bool queue_add_direct_handler = false;
 };
 

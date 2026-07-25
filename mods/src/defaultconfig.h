@@ -168,6 +168,8 @@ namespace Advanced
   {
     /// Master opt-in gate for queue repair/probe experiments. Default: false.
     constexpr bool queue_repair_enabled = false;
+    /// Recover an authoritative externally destroyed target only when it remains the exact idle head. Default: false.
+    constexpr bool thin_queue_protection = false;
     /// Use the widget's direct queue-add handler instead of the generic button press path. Default: false.
     constexpr bool queue_add_direct_handler = false;
   } // namespace Queue

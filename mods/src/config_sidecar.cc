@@ -457,6 +457,11 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                                                                DefaultConfig::Advanced::Queue::queue_repair_enabled,
                                                                {},
                                                                "enable queue repair and probe experiments"});
+  read_bool_value(result.advanced.queue.thin_queue_protection,
+                  {"advanced.queue.thin_queue_protection",
+                   DefaultConfig::Advanced::Queue::thin_queue_protection,
+                   {},
+                   "recover an authoritative externally destroyed target only at the exact idle queue head"});
   read_bool_value(result.advanced.queue.queue_add_direct_handler,
                   {"advanced.queue.queue_add_direct_handler",
                    DefaultConfig::Advanced::Queue::queue_add_direct_handler,
@@ -610,6 +615,8 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
   write_scalar(runtime_config, "advanced.diagnostics.files.action_queue_probe_files",
                config.diagnostics.files.action_queue_probe_files);
   config_schema::write_bool(runtime_config, "advanced.queue.queue_repair_enabled", config.queue.queue_repair_enabled);
+  config_schema::write_bool(runtime_config, "advanced.queue.thin_queue_protection",
+                            config.queue.thin_queue_protection);
   config_schema::write_bool(runtime_config, "advanced.queue.queue_add_direct_handler",
                             config.queue.queue_add_direct_handler);
 }
