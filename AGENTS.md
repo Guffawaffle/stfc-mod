@@ -115,5 +115,8 @@ static auto method = class_helper.GetMethodInfo("MethodName");
 
 ## Branches
 
-- `main` — stable releases
-- `dev` — active development (PR target)
+- `main` — default fork integration branch, stable release branch, and fork PR target
+- Create fork feature branches from a current `main` and return them through a PR to `main`.
+- For an upstream contribution, create a fresh branch from `upstream/main`, cherry-pick only the
+  upstream-ready commits, and target `netniV/main`.
+- The legacy `guffa-dev` and plain `dev` branches are not fork integration targets.
