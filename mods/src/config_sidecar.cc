@@ -465,12 +465,22 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
   constexpr std::string_view kLegacyQueueAddHideViewersPath = "advanced.queue.queue_add_hide_viewers";
   if (const auto* legacy_hide_viewers = node_at_path(config, kLegacyQueueAddHideViewersPath); legacy_hide_viewers) {
     const auto configured_value = legacy_hide_viewers->value<bool>();
-    const auto severity = configured_value.value_or(true) ? config_schema::DiagnosticSeverity::Info
-                                                          : config_schema::DiagnosticSeverity::Warning;
-    result.diagnostics.push_back(make_diagnostic(
-        severity, kLegacyQueueAddHideViewersPath, kLegacyQueueAddHideViewersPath,
-        "Deprecated config key advanced.queue.queue_add_hide_viewers is ignored; successful queue-add actions "
-        "always dismiss the target viewer."));
+    if (!configured_value.has_value()) {
+      std::ostringstream message;
+      message << "Invalid config " << kLegacyQueueAddHideViewersPath << ". Expected boolean, found "
+              << toml_type_name(legacy_hide_viewers->type())
+              << "; deprecated key is ignored and successful queue-add actions always dismiss the target viewer.";
+      result.diagnostics.push_back(
+          make_diagnostic(config_schema::DiagnosticSeverity::Warning, kLegacyQueueAddHideViewersPath,
+                          kLegacyQueueAddHideViewersPath, message.str()));
+    } else {
+      const auto severity = configured_value.value() ? config_schema::DiagnosticSeverity::Info
+                                                     : config_schema::DiagnosticSeverity::Warning;
+      result.diagnostics.push_back(make_diagnostic(
+          severity, kLegacyQueueAddHideViewersPath, kLegacyQueueAddHideViewersPath,
+          "Deprecated config key advanced.queue.queue_add_hide_viewers is ignored; successful queue-add actions "
+          "always dismiss the target viewer."));
+    }
   }
 
   // Keep the deprecated sidecar-scoped members mirrored for low-risk

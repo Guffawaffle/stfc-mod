@@ -32,6 +32,18 @@ bool has_diagnostic_source(const std::vector<config_schema::Diagnostic>& diagnos
   return false;
 }
 
+bool has_diagnostic_message_fragment(const std::vector<config_schema::Diagnostic>& diagnostics,
+                                     std::string_view path, std::string_view fragment)
+{
+  for (const auto& diagnostic : diagnostics) {
+    if (diagnostic.path == path && diagnostic.message.find(fragment) != std::string::npos) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool has_rejected_target(const std::vector<SidecarRejectedSyncTarget>& rejected_targets, std::string_view target_name)
 {
   for (const auto& rejected : rejected_targets) {
@@ -226,6 +238,22 @@ logging = true
     CHECK_FALSE(result.advanced.diagnostics.hotkey_suppression_logging);
     CHECK_FALSE(result.advanced.diagnostics.notification_skip_logging);
     CHECK_FALSE(result.advanced.diagnostics.fleet_selection_timing_logging);
+  }
+
+  TEST_CASE("deprecated queue viewer key warns when its value is not boolean")
+  {
+    auto config = toml::parse(R"(
+[advanced.queue]
+queue_add_hide_viewers = "false"
+)");
+
+    const auto result = ParseSidecarConfig(config);
+
+    CHECK(has_diagnostic_source(result.diagnostics, "advanced.queue.queue_add_hide_viewers",
+                                "advanced.queue.queue_add_hide_viewers",
+                                config_schema::DiagnosticSeverity::Warning));
+    CHECK(has_diagnostic_message_fragment(result.diagnostics, "advanced.queue.queue_add_hide_viewers",
+                                          "Expected boolean, found string"));
   }
 
   TEST_CASE("invalid sidecar fleet runtime mode falls back to normal")
