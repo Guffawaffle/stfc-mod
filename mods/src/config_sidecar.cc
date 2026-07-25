@@ -462,11 +462,16 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                    DefaultConfig::Advanced::Queue::queue_add_direct_handler,
                    {},
                    "use the direct queue-add handler during local diagnostics"});
-  read_bool_value(result.advanced.queue.queue_add_hide_viewers,
-                  {"advanced.queue.queue_add_hide_viewers",
-                   DefaultConfig::Advanced::Queue::queue_add_hide_viewers,
-                   {},
-                   "keep queue-add viewer cleanup enabled during local diagnostics"});
+  constexpr std::string_view kLegacyQueueAddHideViewersPath = "advanced.queue.queue_add_hide_viewers";
+  if (const auto* legacy_hide_viewers = node_at_path(config, kLegacyQueueAddHideViewersPath); legacy_hide_viewers) {
+    const auto configured_value = legacy_hide_viewers->value<bool>();
+    const auto severity = configured_value.value_or(true) ? config_schema::DiagnosticSeverity::Info
+                                                          : config_schema::DiagnosticSeverity::Warning;
+    result.diagnostics.push_back(make_diagnostic(
+        severity, kLegacyQueueAddHideViewersPath, kLegacyQueueAddHideViewersPath,
+        "Deprecated config key advanced.queue.queue_add_hide_viewers is ignored; successful queue-add actions "
+        "always dismiss the target viewer."));
+  }
 
   // Keep the deprecated sidecar-scoped members mirrored for low-risk
   // compatibility, but treat advanced.diagnostics as canonical.
@@ -597,6 +602,4 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
   config_schema::write_bool(runtime_config, "advanced.queue.queue_repair_enabled", config.queue.queue_repair_enabled);
   config_schema::write_bool(runtime_config, "advanced.queue.queue_add_direct_handler",
                             config.queue.queue_add_direct_handler);
-  config_schema::write_bool(runtime_config, "advanced.queue.queue_add_hide_viewers",
-                            config.queue.queue_add_hide_viewers);
 }

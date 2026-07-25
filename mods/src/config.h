@@ -264,7 +264,6 @@ struct AdvancedDiagnosticsConfig {
 struct AdvancedQueueConfig {
   bool queue_repair_enabled     = false;
   bool queue_add_direct_handler = false;
-  bool queue_add_hide_viewers   = false;
 };
 
 /**
@@ -532,11 +531,6 @@ const KirsharaQueueRepairConfig& KirsharaQueueRepairSettings();
 
  */
 bool QueueAddDirectHandlerEnabled();
-
-/**
- * @brief Whether queue-add should hide open viewers after pressing the in-game queue button.
- */
-bool QueueAddHideViewersEnabled();
 
 /**
  * @brief Whether live battle_log decoding is enabled.

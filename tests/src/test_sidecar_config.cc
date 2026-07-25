@@ -99,7 +99,6 @@ jsonl_recent_logs = 300
     CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 3);
     CHECK_FALSE(result.advanced.queue.queue_repair_enabled);
     CHECK_FALSE(result.advanced.queue.queue_add_direct_handler);
-    CHECK_FALSE(result.advanced.queue.queue_add_hide_viewers);
     CHECK(result.diagnostics.empty());
   }
 
@@ -192,7 +191,9 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 6);
     CHECK(result.advanced.queue.queue_repair_enabled);
     CHECK(result.advanced.queue.queue_add_direct_handler);
-    CHECK_FALSE(result.advanced.queue.queue_add_hide_viewers);
+    CHECK(has_diagnostic_source(result.diagnostics, "advanced.queue.queue_add_hide_viewers",
+                                "advanced.queue.queue_add_hide_viewers",
+                                config_schema::DiagnosticSeverity::Warning));
 
     CHECK(result.config.probes.ship_identity);
     CHECK(result.config.probes.battle_log_decoder);
@@ -392,7 +393,6 @@ mode = "majel"
     advanced.diagnostics.files.action_queue_probe_files   = 5;
     advanced.queue.queue_repair_enabled                   = true;
     advanced.queue.queue_add_direct_handler               = true;
-    advanced.queue.queue_add_hide_viewers                 = false;
 
     toml::table runtime_snapshot;
     WriteSidecarConfigRuntimeSnapshot(runtime_snapshot, sidecar);
@@ -432,7 +432,7 @@ mode = "majel"
     REQUIRE(runtime_snapshot["advanced"]["queue"].is_table());
     CHECK(runtime_snapshot["advanced"]["queue"]["queue_repair_enabled"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["queue"]["queue_add_direct_handler"].value<bool>().value_or(false));
-    CHECK_FALSE(runtime_snapshot["advanced"]["queue"]["queue_add_hide_viewers"].value<bool>().value_or(true));
+    CHECK_FALSE(runtime_snapshot["advanced"]["queue"].as_table()->contains("queue_add_hide_viewers"));
 
     const auto* sidecar_table = runtime_snapshot["sidecar"].as_table();
     REQUIRE(sidecar_table != nullptr);
