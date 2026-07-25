@@ -137,6 +137,7 @@ void InstallLiveDebugHooks();
 #endif
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
 void InstallRefineryDiagnosticsHooks();
+void InstallActionQueueGuardDiagnosticsHooks();
 #endif
 void InstallTestPatches();
 void InstallMiscPatches();
@@ -246,6 +247,9 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   auto             install_live_debug_hooks           = LiveDebugChannelEnabled();
   auto             install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
+  const auto       runtime_trace_level                = RuntimeTraceLevelSetting();
+  auto             install_action_queue_guard_diagnostics =
+      runtime_trace_level == RuntimeTraceLevel::Detailed || runtime_trace_level == RuntimeTraceLevel::Verbose;
 #endif
   auto             install_open_bulk_claim_gifts_hooks = AutoOpenBulkClaimGiftsEnabled();
   auto             install_mission_hud_tweaks_hooks    = MissionHudTweaksEnabled();
@@ -286,6 +290,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
       {"RefineryDiagnosticsHooks", "advanced.diagnostics.refinery_diagnostics", "", "RefineryDiagnosticsHooks",
        InstallRefineryDiagnosticsHooks, install_refinery_diagnostics_hooks, false, true},
+      {"ActionQueueGuardDiagnostics", "advanced.diagnostics.runtime_trace", "", "ActionQueueGuardDiagnostics",
+       InstallActionQueueGuardDiagnosticsHooks, install_action_queue_guard_diagnostics, false, true},
 #endif
       {"SectionChangeRouterHooks", "", "bulk-claim|refinery-diagnostics", "SectionChangeRouterHooks",
        InstallSectionChangeRouterHooks, false, install_section_change_router_hooks, true},
