@@ -209,7 +209,7 @@ void notification_audio_init()
   }
 
 #if _WIN32
-  if (!Config::Get().notifications.audio_enabled) {
+  if (!notification_policy_any_audio_enabled()) {
     spdlog::debug("[NotifyAudio] Windows notification audio disabled");
     s_notification_audio_initialized = true;
     return;
@@ -221,9 +221,9 @@ void notification_audio_init()
   });
   spdlog::debug("[NotifyAudio] Windows notification audio initialized with generated cue catalog");
 #elif STFCMOD_PLATFORM_MACOS
-  if (Config::Get().notifications.audio_enabled) {
-    spdlog::warn(
-        "[NotifyAudio] macOS does not support notification audio yet; [notifications].notifications_audio_enabled will be ignored");
+  if (notification_policy_any_audio_enabled()) {
+    spdlog::warn("[NotifyAudio] macOS does not support notification audio yet; configured audio deliveries are "
+                 "unavailable");
   } else {
     spdlog::debug("[NotifyAudio] Notification audio: macOS does not support this feature yet (no-op)");
   }

@@ -84,9 +84,10 @@ struct NotificationBoolConfigSpec {
 
 inline constexpr NotificationBoolConfigSpec notificationBoolConfigSpecs[] = {
     {"notifications.system.enabled", "notifications", "notifications_enabled", "notifications_enabled", DCN::enabled,
-     &NotificationConfig::enabled, "Master switch for OS notifications."},
+     &NotificationConfig::enabled, "Deprecated compatibility gate for OS notifications."},
     {"notifications.audio.enabled", "notifications", "notifications_audio_enabled", "notifications_audio_enabled",
-     DCN::audio_enabled, &NotificationConfig::audio_enabled, "Master switch for in-game audible notifications."},
+     DCN::audio_enabled, &NotificationConfig::audio_enabled,
+     "Deprecated compatibility gate for in-game audible notifications."},
     {"notifications.audio.fleet.arrived_in_system", "notifications", "notifications_audio_fleet_arrived_in_system",
      "notifications_audio_fleet_arrived_in_system", DCN::Audio::fleet_arrived_in_system,
      &NotificationConfig::audio_fleet_arrived_in_system, "Play an in-game sound when a fleet arrives in-system."},

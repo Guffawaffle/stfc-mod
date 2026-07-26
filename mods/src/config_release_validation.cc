@@ -1,8 +1,8 @@
 #include "config_release_validation.h"
 
-#include "config_metadata.h"
 #include "patches/input_binding/input_binding.h"
 #include "patches/input_binding/input_config_bridge.h"
+#include "patches/notification_catalog.h"
 
 #include <sstream>
 #include <string>
@@ -268,12 +268,8 @@ ExampleConfigValidationResult ValidateExampleConfig(const toml::table& config)
     require_path(config, path, result);
   }
 
-  for (const auto& spec : config_metadata::notificationBoolConfigSpecs) {
-    require_path(config, spec.canonical_path, result);
-  }
-
-  for (const auto& spec : config_metadata::notificationToggleSpecs) {
-    require_path(config, std::string(spec.section) + "." + std::string(spec.key), result);
+  for (const auto& spec : notification_event_catalog()) {
+    require_path(config, std::string("notifications.") + std::string(spec.canonical_key), result);
   }
 
   validate_input_binding_coverage(config, result);

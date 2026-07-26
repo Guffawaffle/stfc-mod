@@ -300,8 +300,8 @@ class NotificationConfig
 public:
   static constexpr size_t MaxToastStates = 64;
 
-  bool enabled                       = false;
-  bool audio_enabled                 = false;
+  bool enabled                       = true;
+  bool audio_enabled                 = true;
   bool audio_fleet_arrived_in_system = false;
   bool incoming_attack_player        = false;
   bool incoming_attack_hostile       = false;

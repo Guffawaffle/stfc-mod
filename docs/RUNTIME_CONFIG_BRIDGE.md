@@ -206,7 +206,9 @@ Preferred implementation path:
 2. The IPC listener thread validates and enqueues patches only.
 3. A safe hook tick drains the queue and applies changes.
 4. Each live setting has a narrow apply function, for example
-   `apply_notifications_audio_enabled(bool)`.
+   a per-event notification-policy apply operation. The former
+   `apply_notifications_audio_enabled(bool)` master is deprecated; canonical
+   notification events own their complete system/audio/sound policy.
 5. For simple read-mostly booleans, use an atomic/runtime store where possible
    instead of relying on unsynchronized public struct fields.
 

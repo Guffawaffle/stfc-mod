@@ -21,10 +21,7 @@ IncomingAttackToastAction incoming_attack_notifications_handle_toast(const Toast
     return IncomingAttackToastAction::NotIncomingAttack;
   }
 
-  const auto& notifications = Config::Get().notifications;
-  spdlog::debug("[IncomingAttack] consumed toast state={} title='{}' notificationsEnabled={}",
-                signal.state,
-                signal.title ? signal.title : "",
-                notifications.enabled);
+  spdlog::debug("[IncomingAttack] consumed toast state={} title='{}'", signal.state,
+                signal.title ? signal.title : "");
   return IncomingAttackToastAction::Consumed;
 }

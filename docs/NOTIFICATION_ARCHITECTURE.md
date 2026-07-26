@@ -2,6 +2,20 @@
 
 The notification stack is split between a thin platform router and targeted feature modules.
 
+## Configuration
+
+`notification_catalog.h` owns the complete event catalog and each event's
+canonical root key and fallback sound. `notification_policy.cc` resolves the
+canonical `false` / `true` / inline-table value or, when no canonical value is
+present, the deprecated compatibility inputs.
+
+Notification producers consume only the resolved event policy. The old system
+and audio masters are compatibility gates for deprecated inputs and must not be
+checked in producer or delivery code.
+
+See `NOTIFICATION_CONFIG_RETHINK.md` for the canonical schema, precedence, 3.0.0
+removal target, and runtime provenance contract.
+
 ## Boundaries
 
 - `notification_service.cc` owns generic toast routing, queue batching, localization fallback, and OS notification delivery.
