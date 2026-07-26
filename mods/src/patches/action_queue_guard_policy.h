@@ -29,10 +29,10 @@ constexpr bool ShouldProcessDestroyedHead(bool enabled, bool target_destroyed, s
          && after_native.last_engaged_target_id != target_id && after_native.pending_target_id != target_id;
 }
 
-constexpr bool IsNativePruneResumeCandidate(bool diagnostics_enabled, bool player_fleet_idle,
-                                            const QueueState& before_native, const QueueState& after_native)
+constexpr bool IsNativePruneResumeCandidate(bool enabled, bool player_fleet_idle, const QueueState& before_native,
+                                            const QueueState& after_native)
 {
-  if (!diagnostics_enabled || !player_fleet_idle || !before_native.present || !after_native.present
+  if (!enabled || !player_fleet_idle || !before_native.present || !after_native.present
       || before_native.player_fleet_id == 0 || before_native.player_fleet_id != after_native.player_fleet_id
       || before_native.count <= 0 || after_native.count <= 0 || after_native.count >= before_native.count
       || before_native.head_target_id == 0 || after_native.head_target_id == 0
@@ -47,6 +47,26 @@ constexpr bool IsNativePruneResumeCandidate(bool diagnostics_enabled, bool playe
   const auto removed_prefix = before_native.count - after_native.count;
   for (int index = 0; index < after_native.count; ++index) {
     if (after_native.target_ids[index] != before_native.target_ids[index + removed_prefix]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+constexpr bool IsStableResumePostcondition(const QueueState& expected, const QueueState& confirmed)
+{
+  if (!expected.present || !confirmed.present || expected.player_fleet_id == 0
+      || confirmed.player_fleet_id != expected.player_fleet_id || expected.count <= 0
+      || confirmed.count != expected.count || expected.head_target_id == 0
+      || confirmed.head_target_id != expected.head_target_id || expected.targets_truncated
+      || confirmed.targets_truncated || expected.captured_target_count != expected.count
+      || confirmed.captured_target_count != confirmed.count || confirmed.is_engaging
+      || confirmed.last_engaged_target_id != 0 || confirmed.pending_target_id != 0) {
+    return false;
+  }
+
+  for (int index = 0; index < expected.count; ++index) {
+    if (confirmed.target_ids[index] != expected.target_ids[index]) {
       return false;
     }
   }

@@ -30,9 +30,9 @@ namespace
 {
 constexpr HookDescriptor kActionQueueHandleStallHook = {
     "ActionQueueManager.HandleStall",
-    "observe native pruning and identify a stranded new queue head",
+    "resume an exact surviving queue suffix when native pruning leaves its new head idle",
     {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "HandleStall"},
-    "action-queue diagnostics lose the native watchdog postcondition",
+    "multi-target native pruning can leave the surviving queue head idle",
     HookSupportTier::Science,
 };
 
@@ -83,7 +83,8 @@ struct PlayerFleetIdentitySnapshot {
   int          ui_order_index = -1;
 };
 
-using ProcessQueueTargetMethod = void(ActionQueueManager*, std::int64_t, bool);
+using ProcessQueueTargetMethod         = void(ActionQueueManager*, std::int64_t, bool);
+using TryPlanPathAndEngageTargetMethod = int(ActionQueueManager*, FleetPlayerData*, void*);
 
 bool DiagnosticsEnabled()
 {
@@ -269,6 +270,17 @@ ProcessQueueTargetMethod* ResolveProcessQueueTarget()
   return method;
 }
 
+TryPlanPathAndEngageTargetMethod* ResolveTryPlanPathAndEngageTarget()
+{
+  if (!ActionQueueManagerClass().isValidHelper()) {
+    return nullptr;
+  }
+
+  static auto method =
+      ActionQueueManagerClass().GetMethod<TryPlanPathAndEngageTargetMethod>("TryPlanPathAndEngageTarget");
+  return method;
+}
+
 std::string SnapshotAllActionQueues(ActionQueueManager* manager)
 {
   auto* battle_queue = BattleQueueArray(manager);
@@ -442,14 +454,36 @@ void ActionQueueManager_HandleStall_Guard(auto original, ActionQueueManager* man
       && after_native.player_fleet_id == before.player_fleet_id && deployed_fleet->ID == before.player_fleet_id
       && player_fleet->CurrentState == FleetState::IdleInSpace && deployed_fleet->CurrentState == 0
       && !deployed_fleet->IsDestroyed && !deployed_fleet->CurrentlyBattling;
-  const auto resume_candidate = action_queue_guard::IsNativePruneResumeCandidate(
-      DiagnosticsEnabled(), player_idle, ToPolicyState(before), ToPolicyState(after_native));
+  const auto protection_enabled = ProtectionEnabled();
+  const auto resume_candidate   = action_queue_guard::IsNativePruneResumeCandidate(
+      protection_enabled || DiagnosticsEnabled(), player_idle, ToPolicyState(before), ToPolicyState(after_native));
+  auto replay_attempted = false;
+  auto replay_result    = -1;
 
   if (resume_candidate) {
-    spdlog::info("[ActionQueueGuard] candidate=resume-after-native-prune action=observe-only fleet={} old_head={} "
+    spdlog::info("[ActionQueueGuard] candidate=resume-after-native-prune action={} fleet={} old_head={} "
                  "new_head={} count_before={} count_after_native={}",
-                 after_native.player_fleet_id, before.head_target_id, after_native.head_target_id, before.count,
-                 after_native.count);
+                 protection_enabled ? "verify-and-resume" : "observe-only", after_native.player_fleet_id,
+                 before.head_target_id, after_native.head_target_id, before.count, after_native.count);
+  }
+
+  if (resume_candidate && protection_enabled) {
+    const auto confirmed = SnapshotActionQueueInstance(instance);
+    if (!action_queue_guard::IsStableResumePostcondition(ToPolicyState(after_native), ToPolicyState(confirmed))) {
+      spdlog::info("[ActionQueueGuard] action=resume-after-native-prune suppressed=postcondition-changed fleet={} "
+                   "expected_head={} confirmed_head={} expected_count={} confirmed_count={}",
+                   after_native.player_fleet_id, after_native.head_target_id, confirmed.head_target_id,
+                   after_native.count, confirmed.count);
+    } else if (auto* try_engage = ResolveTryPlanPathAndEngageTarget(); try_engage && player_fleet) {
+      replay_attempted = true;
+      replay_result    = try_engage(manager, player_fleet, instance);
+      spdlog::info("[ActionQueueGuard] action=resume-after-native-prune fleet={} head={} count={} engage_result={}",
+                   confirmed.player_fleet_id, confirmed.head_target_id, confirmed.count, replay_result);
+    } else {
+      spdlog::warn("[ActionQueueGuard] action=resume-after-native-prune skipped=missing-method-or-fleet fleet={} "
+                   "head={}",
+                   confirmed.player_fleet_id, confirmed.head_target_id);
+    }
   }
 
   if (DiagnosticsEnabled()) {
@@ -459,8 +493,8 @@ void ActionQueueManager_HandleStall_Guard(auto original, ActionQueueManager* man
                  static_cast<void*>(instance),
                  before.head_target_id != 0 && before.head_target_id == after_native.head_target_id,
                  before.count >= 0 && after_native.count >= 0 ? after_native.count - before.count : 0, resume_candidate,
-                 false, FormatActionQueueInstance(after_native), FormatActionQueueInstance(after_guard),
-                 SnapshotAllActionQueues(manager));
+                 replay_attempted ? replay_result : -1, FormatActionQueueInstance(after_native),
+                 FormatActionQueueInstance(after_guard), SnapshotAllActionQueues(manager));
   }
 }
 
@@ -566,8 +600,8 @@ void InstallActionQueueGuardHooks()
     return;
   }
 
-  if (!DiagnosticsEnabled()) {
-    hooks.record_skipped(kActionQueueHandleStallHook, "detailed runtime trace disabled");
+  if (!DiagnosticsEnabled() && !ProtectionEnabled()) {
+    hooks.record_skipped(kActionQueueHandleStallHook, "thin protection and detailed runtime trace disabled");
   } else {
     if (auto method = manager_class.GetMethod("HandleStall"); method) {
       HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueHandleStallHook, method,

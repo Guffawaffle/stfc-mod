@@ -146,4 +146,35 @@ TEST_SUITE("action_queue_guard_policy")
     after.player_fleet_id = 84;
     CHECK_FALSE(action_queue_guard::IsNativePruneResumeCandidate(true, true, before, after));
   }
+
+  TEST_CASE("resume postcondition requires the exact same idle surviving suffix")
+  {
+    const auto expected = Queue({303, 404});
+
+    CHECK(action_queue_guard::IsStableResumePostcondition(expected, expected));
+
+    auto confirmed          = expected;
+    confirmed.target_ids[1] = 505;
+    CHECK_FALSE(action_queue_guard::IsStableResumePostcondition(expected, confirmed));
+
+    confirmed             = expected;
+    confirmed.is_engaging = true;
+    CHECK_FALSE(action_queue_guard::IsStableResumePostcondition(expected, confirmed));
+
+    confirmed                   = expected;
+    confirmed.pending_target_id = 303;
+    CHECK_FALSE(action_queue_guard::IsStableResumePostcondition(expected, confirmed));
+
+    confirmed                 = expected;
+    confirmed.player_fleet_id = 84;
+    CHECK_FALSE(action_queue_guard::IsStableResumePostcondition(expected, confirmed));
+
+    confirmed                       = expected;
+    confirmed.count                 = 1;
+    confirmed.head_target_id        = 404;
+    confirmed.target_ids[0]         = 404;
+    confirmed.target_ids[1]         = 0;
+    confirmed.captured_target_count = 1;
+    CHECK_FALSE(action_queue_guard::IsStableResumePostcondition(expected, confirmed));
+  }
 }
