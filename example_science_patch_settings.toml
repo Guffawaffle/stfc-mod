@@ -47,10 +47,6 @@ course_target_completion = false
 # Master opt-in gate for the legacy queue repair and direct-handler experiments.
 queue_repair_enabled = false
 
-# Recover an authoritative externally destroyed target only when it remains the
-# exact idle queue head. Default-off while issue #186 is being validated.
-thin_queue_protection = false
-
 # Use the widget's queue-click event handler directly instead of the generic
 # button press path. Ignored unless queue_repair_enabled is true.
 queue_add_direct_handler = false

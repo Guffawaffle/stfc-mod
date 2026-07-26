@@ -75,17 +75,17 @@ TEST_CASE("keymapping generated compatibility section stays in sync")
 
 TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh keys")
 {
-  const auto  source                              = read_text_file("example_community_patch_settings.toml");
-  const auto  config                              = toml::parse(source);
-  const auto* debug                               = config["debug"].as_table();
-  const auto* advanced                            = config["advanced"]["diagnostics"].as_table();
-  const auto* advanced_files                      = config["advanced"]["diagnostics"]["files"].as_table();
+  const auto  source         = read_text_file("example_community_patch_settings.toml");
+  const auto  config         = toml::parse(source);
+  const auto* debug          = config["debug"].as_table();
+  const auto* advanced       = config["advanced"]["diagnostics"].as_table();
+  const auto* advanced_files = config["advanced"]["diagnostics"]["files"].as_table();
 
   CHECK(source.find("manual_navigation_refresh") == std::string::npos);
   CHECK(source.find("ghost_owner_diagnostics") == std::string::npos);
   CHECK(source.find("[advanced.diagnostics.kirshara_queue]") == std::string::npos);
   CHECK(source.find("[advanced.kirshara_queue]") == std::string::npos);
-  CHECK(source.find("[advanced.queue]") == std::string::npos);
+  CHECK(source.find("[advanced.queue]") != std::string::npos);
   CHECK(source.find("example_science_patch_settings.toml") != std::string::npos);
   REQUIRE(advanced != nullptr);
   REQUIRE(advanced_files != nullptr);
@@ -115,15 +115,17 @@ TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh
   CHECK_FALSE(advanced->get("notification_skip_logging")->value<bool>().value_or(true));
   CHECK(advanced->contains("fleet_selection_timing_logging"));
   CHECK_FALSE(advanced->get("fleet_selection_timing_logging")->value<bool>().value_or(true));
-  CHECK(advanced->contains("runtime_trace"));
-  CHECK(advanced->contains("runtime_trace_track_overhead"));
-  CHECK(advanced->contains("mod_impact_monitor"));
-  CHECK(advanced->contains("runtime_trace_report_interval_ms"));
+  CHECK_FALSE(advanced->contains("runtime_trace"));
+  CHECK_FALSE(advanced->contains("runtime_trace_track_overhead"));
+  CHECK_FALSE(advanced->contains("mod_impact_monitor"));
+  CHECK_FALSE(advanced->contains("runtime_trace_report_interval_ms"));
+  CHECK_FALSE(advanced->contains("action_queue_guard_logging"));
   CHECK(advanced->contains("refinery_diagnostics"));
   CHECK(advanced_files->contains("root"));
   CHECK_FALSE(advanced_files->contains("main_log_max_kb"));
   CHECK_FALSE(advanced_files->contains("main_log_files"));
   CHECK(advanced_files->get("root")->value<std::string>().value_or("non-empty").empty());
+  CHECK(config["advanced"]["queue"]["thin_queue_protection"].value<bool>().value_or(false));
 }
 
 TEST_CASE("science config captures dormant queue repair surfaces")
@@ -170,8 +172,7 @@ TEST_CASE("science config captures dormant queue repair surfaces")
 
   CHECK(advanced_queue->contains("queue_repair_enabled"));
   CHECK_FALSE(advanced_queue->get("queue_repair_enabled")->value<bool>().value_or(true));
-  CHECK(advanced_queue->contains("thin_queue_protection"));
-  CHECK_FALSE(advanced_queue->get("thin_queue_protection")->value<bool>().value_or(true));
+  CHECK_FALSE(advanced_queue->contains("thin_queue_protection"));
   CHECK(advanced_queue->contains("queue_add_direct_handler"));
   CHECK_FALSE(advanced_queue->get("queue_add_direct_handler")->value<bool>().value_or(true));
   CHECK_FALSE(advanced_queue->contains("queue_add_hide_viewers"));

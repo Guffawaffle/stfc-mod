@@ -33,7 +33,7 @@ constexpr HookDescriptor kActionQueueHandleStallHook = {
     "resume an exact surviving queue suffix when native pruning leaves its new head idle",
     {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "HandleStall"},
     "multi-target native pruning can leave the surviving queue head idle",
-    HookSupportTier::Science,
+    HookSupportTier::Production,
 };
 
 constexpr HookDescriptor kActionQueueOnFleetsDisposedHook = {
@@ -65,7 +65,7 @@ constexpr HookDescriptor kActionQueueDoPlanAndEngageHook = {
     "resume an exact surviving queue suffix immediately when native planning prunes its old head",
     {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "DoPlanPathAndEngageTarget"},
     "action-queue diagnostics cannot identify the native plan/engage boundary",
-    HookSupportTier::Science,
+    HookSupportTier::Production,
 };
 
 constexpr HookDescriptor kActionQueueOnFleetStateChangeHook = {
@@ -111,10 +111,7 @@ using ProcessQueueTargetMethod         = void(ActionQueueManager*, std::int64_t,
 using TryPlanPathAndEngageTargetMethod = int(ActionQueueManager*, FleetPlayerData*, void*);
 
 bool DiagnosticsEnabled()
-{
-  const auto level = RuntimeTraceLevelSetting();
-  return level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
-}
+{ return AdvancedDiagnosticsSettings().action_queue_guard_logging; }
 
 bool ProtectionEnabled()
 { return AdvancedQueueSettings().thin_queue_protection; }
@@ -845,7 +842,7 @@ void InstallActionQueueGuardHooks()
   }
 
   if (!guard_enabled) {
-    hooks.record_skipped(kActionQueueHandleStallHook, "thin protection and detailed runtime trace disabled");
+    hooks.record_skipped(kActionQueueHandleStallHook, "thin protection and action queue logging disabled");
   } else {
     if (auto method = manager_class.GetMethod("HandleStall"); method) {
       HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueHandleStallHook, method,
@@ -857,7 +854,7 @@ void InstallActionQueueGuardHooks()
   }
 
   if (!guard_enabled) {
-    hooks.record_skipped(kActionQueueDoPlanAndEngageHook, "thin protection and detailed runtime trace disabled");
+    hooks.record_skipped(kActionQueueDoPlanAndEngageHook, "thin protection and action queue logging disabled");
   } else if (auto method = manager_class.GetMethod("DoPlanPathAndEngageTarget"); method) {
     HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueDoPlanAndEngageHook, method,
                                      ActionQueueManager_DoPlanPathAndEngageTarget_Guard);
@@ -875,10 +872,10 @@ void InstallActionQueueGuardHooks()
   }
 
   if (!DiagnosticsEnabled()) {
-    hooks.record_skipped(kActionQueueOnStrikeCompleteHook, "detailed runtime trace disabled");
-    hooks.record_skipped(kActionQueueProcessTargetHook, "detailed runtime trace disabled");
-    hooks.record_skipped(kActionQueueOnFleetStateChangeHook, "detailed runtime trace disabled");
-    hooks.record_skipped(kActionQueueOnPlayerFleetStateChangedHook, "detailed runtime trace disabled");
+    hooks.record_skipped(kActionQueueOnStrikeCompleteHook, "action queue logging disabled");
+    hooks.record_skipped(kActionQueueProcessTargetHook, "action queue logging disabled");
+    hooks.record_skipped(kActionQueueOnFleetStateChangeHook, "action queue logging disabled");
+    hooks.record_skipped(kActionQueueOnPlayerFleetStateChangedHook, "action queue logging disabled");
   } else {
     if (auto method = manager_class.GetMethod("OnStrikeCompleteEventHandler"); method) {
       HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueOnStrikeCompleteHook, method,

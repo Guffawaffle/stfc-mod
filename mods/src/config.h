@@ -252,6 +252,7 @@ struct AdvancedDiagnosticsConfig {
   bool        live_query                       = false;
   std::string runtime_trace                    = "off";
   bool        runtime_trace_track_overhead     = false;
+  bool        action_queue_guard_logging       = false;
   bool        mod_impact_monitor               = false;
   int         runtime_trace_report_interval_ms = 5000;
   bool        refinery_diagnostics             = false;
@@ -263,7 +264,7 @@ struct AdvancedDiagnosticsConfig {
  */
 struct AdvancedQueueConfig {
   bool queue_repair_enabled     = false;
-  bool thin_queue_protection    = false;
+  bool thin_queue_protection    = true;
   bool queue_add_direct_handler = false;
 };
 

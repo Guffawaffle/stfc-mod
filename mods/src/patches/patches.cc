@@ -54,7 +54,7 @@
 namespace
 {
 constexpr bool kLiveDebugOnlyHookIsolation = false;
-constexpr auto kLegacyLogMaxBytes          = 256 * 1024 * 1024;
+constexpr auto kLegacyLogMaxBytes          = 4 * 1024 * 1024;
 constexpr auto kLegacyLogMaxFiles          = 2;
 
 struct LegacyLogResetResult {
@@ -212,9 +212,10 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   }
 
   spdlog::info("  Log: {}", File::Log());
-  spdlog::warn("  Local troubleshooting log is legacy-only; this diagnostics build retains up to {} MiB per file "
-               "across {} file(s).",
-               kLegacyLogMaxBytes / (1024 * 1024), kLegacyLogMaxFiles);
+  spdlog::warn("  Local troubleshooting log is legacy-only and bounded to one active plus {} rotated file(s), "
+               "{} MiB each (about {} MiB total).",
+               kLegacyLogMaxFiles, kLegacyLogMaxBytes / (1024 * 1024),
+               (kLegacyLogMaxFiles + 1) * kLegacyLogMaxBytes / (1024 * 1024));
   spdlog::info("  Cfg: {}", File::Config());
   spdlog::info("  Var: {}", File::Vars());
   spdlog::info("   BL: {}", File::Battles());
@@ -246,10 +247,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
     spdlog::info("[FleetRuntimeSync] sidecar fleet_runtime uses fleet-bar transition requests; deployment event "
                  "observers disabled");
   }
-  const auto runtime_trace_level        = RuntimeTraceLevelSetting();
   const auto install_action_queue_guard = action_queue_guard::ShouldInstall(
-      AdvancedQueueSettings().thin_queue_protection,
-      runtime_trace_level == RuntimeTraceLevel::Detailed || runtime_trace_level == RuntimeTraceLevel::Verbose);
+      AdvancedQueueSettings().thin_queue_protection, AdvancedDiagnosticsSettings().action_queue_guard_logging);
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   auto install_live_debug_hooks           = LiveDebugChannelEnabled();
   auto install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
@@ -293,7 +292,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"RefineryDiagnosticsHooks", "advanced.diagnostics.refinery_diagnostics", "", "RefineryDiagnosticsHooks",
        InstallRefineryDiagnosticsHooks, install_refinery_diagnostics_hooks, false, true},
 #endif
-      {"ActionQueueGuard", "advanced.queue.thin_queue_protection|advanced.diagnostics.runtime_trace", "",
+      {"ActionQueueGuard", "advanced.queue.thin_queue_protection|advanced.diagnostics.action_queue_guard_logging", "",
        "ActionQueueGuard", InstallActionQueueGuardHooks, install_action_queue_guard, false, true},
       {"SectionChangeRouterHooks", "", "bulk-claim|refinery-diagnostics", "SectionChangeRouterHooks",
        InstallSectionChangeRouterHooks, false, install_section_change_router_hooks, true},

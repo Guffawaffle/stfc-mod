@@ -101,6 +101,7 @@ jsonl_recent_logs = 300
     CHECK_FALSE(result.advanced.diagnostics.live_query);
     CHECK(result.advanced.diagnostics.runtime_trace == "off");
     CHECK_FALSE(result.advanced.diagnostics.runtime_trace_track_overhead);
+    CHECK_FALSE(result.advanced.diagnostics.action_queue_guard_logging);
     CHECK_FALSE(result.advanced.diagnostics.mod_impact_monitor);
     CHECK(result.advanced.diagnostics.runtime_trace_report_interval_ms == 5000);
     CHECK_FALSE(result.advanced.diagnostics.refinery_diagnostics);
@@ -110,7 +111,7 @@ jsonl_recent_logs = 300
     CHECK(result.advanced.diagnostics.files.action_queue_probe_max_kb == 8192);
     CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 3);
     CHECK_FALSE(result.advanced.queue.queue_repair_enabled);
-    CHECK_FALSE(result.advanced.queue.thin_queue_protection);
+    CHECK(result.advanced.queue.thin_queue_protection);
     CHECK_FALSE(result.advanced.queue.queue_add_direct_handler);
     CHECK(result.diagnostics.empty());
   }
@@ -143,6 +144,7 @@ fleet_selection_timing_logging = true
 live_query = true
 runtime_trace = "verbose"
 runtime_trace_track_overhead = true
+action_queue_guard_logging = true
 mod_impact_monitor = true
 runtime_trace_report_interval_ms = 9000
 refinery_diagnostics = true
@@ -195,6 +197,7 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.diagnostics.live_query);
     CHECK(result.advanced.diagnostics.runtime_trace == "verbose");
     CHECK(result.advanced.diagnostics.runtime_trace_track_overhead);
+    CHECK(result.advanced.diagnostics.action_queue_guard_logging);
     CHECK(result.advanced.diagnostics.mod_impact_monitor);
     CHECK(result.advanced.diagnostics.runtime_trace_report_interval_ms == 9000);
     CHECK(result.advanced.diagnostics.refinery_diagnostics);
@@ -207,8 +210,7 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.queue.thin_queue_protection);
     CHECK(result.advanced.queue.queue_add_direct_handler);
     CHECK(has_diagnostic_source(result.diagnostics, "advanced.queue.queue_add_hide_viewers",
-                                "advanced.queue.queue_add_hide_viewers",
-                                config_schema::DiagnosticSeverity::Warning));
+                                "advanced.queue.queue_add_hide_viewers", config_schema::DiagnosticSeverity::Warning));
 
     CHECK(result.config.probes.ship_identity);
     CHECK(result.config.probes.battle_log_decoder);
@@ -414,6 +416,7 @@ mode = "majel"
     advanced.diagnostics.live_query                       = true;
     advanced.diagnostics.runtime_trace                    = "detailed";
     advanced.diagnostics.runtime_trace_track_overhead     = false;
+    advanced.diagnostics.action_queue_guard_logging       = true;
     advanced.diagnostics.mod_impact_monitor               = true;
     advanced.diagnostics.runtime_trace_report_interval_ms = 7000;
     advanced.diagnostics.refinery_diagnostics             = true;
@@ -448,6 +451,7 @@ mode = "majel"
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace"].value<std::string>().value_or("") == "detailed");
     CHECK_FALSE(
         runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_track_overhead"].value<bool>().value_or(true));
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["action_queue_guard_logging"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["mod_impact_monitor"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_report_interval_ms"].value<int>().value_or(0)
           == 7000);
@@ -491,33 +495,29 @@ action_queue_probe_files = 0
     CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 1);
   }
 
-  TEST_CASE("implicit runtime trace is omitted only from generated user config")
+  TEST_CASE("opt-in runtime diagnostics are omitted from generated user config")
   {
     const auto source = R"toml(
 [advanced.diagnostics]
 runtime_trace = "off"
+runtime_trace_track_overhead = false
+runtime_trace_report_interval_ms = 5000
+mod_impact_monitor = false
+action_queue_guard_logging = false
 notification_skip_logging = false
 )toml";
 
-    SUBCASE("implicit default is omitted")
-    {
-      auto user_config = toml::parse(source);
+    auto user_config = toml::parse(source);
 
-      OmitImplicitRuntimeTraceFromUserConfig(user_config, false);
+    OmitOptInRuntimeDiagnosticsFromGeneratedUserConfig(user_config);
 
-      const auto* diagnostics = user_config["advanced"]["diagnostics"].as_table();
-      REQUIRE(diagnostics != nullptr);
-      CHECK_FALSE(diagnostics->contains("runtime_trace"));
-      CHECK(diagnostics->contains("notification_skip_logging"));
-    }
-
-    SUBCASE("explicit user value is retained")
-    {
-      auto user_config = toml::parse(source);
-
-      OmitImplicitRuntimeTraceFromUserConfig(user_config, true);
-
-      CHECK(user_config["advanced"]["diagnostics"]["runtime_trace"].value<std::string>().value_or("") == "off");
-    }
+    const auto* diagnostics = user_config["advanced"]["diagnostics"].as_table();
+    REQUIRE(diagnostics != nullptr);
+    CHECK_FALSE(diagnostics->contains("runtime_trace"));
+    CHECK_FALSE(diagnostics->contains("runtime_trace_track_overhead"));
+    CHECK_FALSE(diagnostics->contains("runtime_trace_report_interval_ms"));
+    CHECK_FALSE(diagnostics->contains("mod_impact_monitor"));
+    CHECK_FALSE(diagnostics->contains("action_queue_guard_logging"));
+    CHECK(diagnostics->contains("notification_skip_logging"));
   }
 }

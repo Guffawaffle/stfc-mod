@@ -333,12 +333,11 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                     DCSidecar::Sync::fleet_runtime_mode, "sidecar fleet-runtime diagnostic mode");
   result.config.sync.fleet_runtime_mode = ascii_lower(result.config.sync.fleet_runtime_mode);
   if (!is_valid_fleet_runtime_mode(result.config.sync.fleet_runtime_mode)) {
-    result.diagnostics.push_back(make_diagnostic(
-        config_schema::DiagnosticSeverity::Warning,
-        "sidecar.sync.fleet_runtime_mode",
-        "sidecar.sync.fleet_runtime_mode",
-        "Invalid sidecar.sync.fleet_runtime_mode. Expected normal, request_only, snapshot_only, or "
-        "enqueue_no_transport; using normal."));
+    result.diagnostics.push_back(
+        make_diagnostic(config_schema::DiagnosticSeverity::Warning, "sidecar.sync.fleet_runtime_mode",
+                        "sidecar.sync.fleet_runtime_mode",
+                        "Invalid sidecar.sync.fleet_runtime_mode. Expected normal, request_only, snapshot_only, or "
+                        "enqueue_no_transport; using normal."));
     result.config.sync.fleet_runtime_mode = DCSidecar::Sync::fleet_runtime_mode;
   }
 
@@ -420,6 +419,11 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                    DCAdvanced::Diagnostics::runtime_trace_track_overhead,
                    {},
                    "record runtime trace overhead separately"});
+  read_bool_value(result.advanced.diagnostics.action_queue_guard_logging,
+                  {"advanced.diagnostics.action_queue_guard_logging",
+                   DCAdvanced::Diagnostics::action_queue_guard_logging,
+                   {},
+                   "emit detailed action queue guard breadcrumbs"});
   read_bool_value(result.advanced.diagnostics.mod_impact_monitor, {"advanced.diagnostics.mod_impact_monitor",
                                                                    DCAdvanced::Diagnostics::mod_impact_monitor,
                                                                    {},
@@ -599,6 +603,8 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
   write_scalar(runtime_config, "advanced.diagnostics.runtime_trace", config.diagnostics.runtime_trace);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.runtime_trace_track_overhead",
                             config.diagnostics.runtime_trace_track_overhead);
+  config_schema::write_bool(runtime_config, "advanced.diagnostics.action_queue_guard_logging",
+                            config.diagnostics.action_queue_guard_logging);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.mod_impact_monitor",
                             config.diagnostics.mod_impact_monitor);
   write_scalar(runtime_config, "advanced.diagnostics.runtime_trace_report_interval_ms",
@@ -615,18 +621,13 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
   write_scalar(runtime_config, "advanced.diagnostics.files.action_queue_probe_files",
                config.diagnostics.files.action_queue_probe_files);
   config_schema::write_bool(runtime_config, "advanced.queue.queue_repair_enabled", config.queue.queue_repair_enabled);
-  config_schema::write_bool(runtime_config, "advanced.queue.thin_queue_protection",
-                            config.queue.thin_queue_protection);
+  config_schema::write_bool(runtime_config, "advanced.queue.thin_queue_protection", config.queue.thin_queue_protection);
   config_schema::write_bool(runtime_config, "advanced.queue.queue_add_direct_handler",
                             config.queue.queue_add_direct_handler);
 }
 
-void OmitImplicitRuntimeTraceFromUserConfig(toml::table& user_config, const bool runtime_trace_was_explicit)
+void OmitOptInRuntimeDiagnosticsFromGeneratedUserConfig(toml::table& user_config)
 {
-  if (runtime_trace_was_explicit) {
-    return;
-  }
-
   auto* advanced = user_config["advanced"].as_table();
   if (!advanced) {
     return;
@@ -635,5 +636,9 @@ void OmitImplicitRuntimeTraceFromUserConfig(toml::table& user_config, const bool
   auto* diagnostics = (*advanced)["diagnostics"].as_table();
   if (diagnostics) {
     diagnostics->erase("runtime_trace");
+    diagnostics->erase("runtime_trace_track_overhead");
+    diagnostics->erase("runtime_trace_report_interval_ms");
+    diagnostics->erase("mod_impact_monitor");
+    diagnostics->erase("action_queue_guard_logging");
   }
 }
