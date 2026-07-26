@@ -1647,7 +1647,7 @@ void Config::Load()
   const bool use_legacy_notify_allowlist = has_legacy_notify_banner_types && !has_explicit_notification_toggles;
 
   for (const auto& spec : notificationBoolConfigSpecs) {
-    this->notifications.*(spec.member) = read_bool_config_entry(config, parsed, spec, write_config);
+    this->notifications.*(spec.member) = read_bool_config_entry(config, parsed, spec, false);
   }
 
   this->notifications.ClearToastStates();
@@ -1666,7 +1666,7 @@ void Config::Load()
     }
 
     const bool enabled = read_bool_config_entry(config, parsed, spec.section, spec.key, spec.runtime_key,
-                                                enabled_default, spec.docs, write_config);
+                                                enabled_default, spec.docs, false);
     this->notifications.SetToastStateEnabled(spec.toast_state, enabled);
 
     if (has_deprecated_key && !has_canonical_key) {
@@ -1678,7 +1678,6 @@ void Config::Load()
   if (use_legacy_notify_allowlist) {
     if (!(notifications_table && notifications_table->contains("notifications_enabled"))) {
       this->notifications.enabled = true;
-      parsed["notifications"].as_table()->insert_or_assign("notifications_enabled", true);
     }
 
     this->notifications.ClearToastStates();
@@ -1701,11 +1700,6 @@ void Config::Load()
           }
         }
       }
-    }
-
-    for (const auto& spec : notificationToggleSpecs) {
-      parsed["notifications"].as_table()->insert_or_assign(spec.runtime_key,
-                                                           this->notifications.EnabledForToastState(spec.toast_state));
     }
 
     spdlog::warn("Deprecation Warning: [ui].notify_on_banner_types / [ui].notify_banner_types is deprecated. Migrate "
@@ -1855,11 +1849,13 @@ void Config::Load()
     // Keep opt-in runtime diagnostics absent from fresh user-facing config, then restore their effective values for
     // the runtime vars snapshot.
     OmitOptInRuntimeDiagnosticsFromGeneratedUserConfig(parsed);
+    notification_policy_prepare_generated_config(parsed);
     Config::Save(parsed, File::Config(), false);
     write_runtime_trace_config(parsed, g_runtime_trace_level, g_runtime_trace_track_overhead, g_mod_impact_monitor,
                                g_runtime_trace_report_interval_ms);
     config_schema::write_bool(parsed, "advanced.diagnostics.action_queue_guard_logging",
                               g_advanced_config.diagnostics.action_queue_guard_logging);
+    notification_policy_write_runtime_snapshot(parsed);
   }
 
   const auto input_binding_bridge = input_binding::ResolveInputBindingConfig(config);

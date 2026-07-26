@@ -766,9 +766,8 @@ void notification_init()
                  []() { s_notification_worker_thread = std::thread(notification_worker_main); });
   spdlog::debug("[Notify] Windows notification service initialized");
 #elif STFCMOD_PLATFORM_MACOS
-  if (Config::Get().notifications.enabled) {
-    spdlog::warn(
-        "[Notify] macOS does not support OS notifications yet; [notifications].notifications_enabled will be ignored");
+  if (notification_policy_any_system_enabled()) {
+    spdlog::warn("[Notify] macOS does not support OS notifications yet; configured system deliveries are unavailable");
   } else {
     spdlog::debug("[Notify] Notification service: macOS does not support this feature yet (no-op)");
   }
@@ -805,10 +804,6 @@ void notification_shutdown()
 void notification_show(const char* title, const char* body)
 {
 #if STFCMOD_PLATFORM_WINDOWS
-  if (!Config::Get().notifications.enabled) {
-    return;
-  }
-
   queue_system_notification(title, body, "direct");
 #endif
 }
@@ -819,24 +814,21 @@ bool notification_delivery_enabled(NotificationKind kind)
   (void)kind;
   return false;
 #else
-  const auto& notifications = Config::Get().notifications;
-  return (notifications.enabled && notification_policy_system_enabled(kind))
-         || (notifications.audio_enabled && notification_policy_audio_enabled(kind));
+  return notification_policy_has_delivery(kind);
 #endif
 }
 
 void notification_emit(NotificationKind kind, const char* title, const char* body)
 {
-  const auto& notifications = Config::Get().notifications;
-  const auto& policy        = notification_policy_for(kind);
+  const auto& policy = notification_policy_for(kind);
 
 #if STFCMOD_PLATFORM_WINDOWS
-  if (notifications.enabled && policy.system) {
+  if (policy.system) {
     queue_system_notification(title, body, notification_kind_name(kind));
   }
 #endif
 
-  if (notifications.audio_enabled && policy.audio && policy.sound != NotificationSound::None) {
+  if (policy.audio && policy.sound != NotificationSound::None) {
     notification_audio_play(policy.sound, notification_kind_name(kind));
   }
 }

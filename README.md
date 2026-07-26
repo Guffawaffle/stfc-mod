@@ -144,46 +144,42 @@ The older `[shortcuts]` keys still work, but `[input.bindings]` is the preferred
 
 ### Desktop notifications
 
-Desktop notifications are off by default. Turn on the system notification master switch, then enable the individual events you care about:
+Notifications are off per event by default. Set an event to `true` for a desktop
+notification, or use an inline table when you also want audio:
 
 ```toml
-[notifications.system]
-enabled = true
-
 [notifications]
-notifications_victory = true
-notifications_defeat = true
-notifications_armada_created = true
-notifications_armada_canceled = true
-
-[notifications.events.fleet]
-arrived_in_system = { system = true, audio = false, sound = "arrival" }
-arrived_at_destination = { system = true, audio = false, sound = "soft" }
-started_mining = { system = true, audio = false, sound = "ping" }
-node_depleted = { system = true, audio = false, sound = "warning" }
-docked = { system = true, audio = false, sound = "soft" }
-repair_complete = { system = true, audio = false, sound = "repair" }
+victory = true
+defeat = true
+armada_created = true
+armada_canceled = true
+fleet_arrived_in_system = true
+fleet_arrived_at_destination = true
+fleet_node_depleted = true
+fleet_repair_complete = true
 ```
 
-Battle, armada, event, and experimental toast-backed notifications are controlled by the flat `notifications_*` booleans in `[notifications]`. Fleet-bar derived notifications use the compact rows in `[notifications.events.fleet]`, where `system` controls the OS notification.
+Every notification uses one meaningful key in `[notifications]`. The old flat
+`notifications_*`, channel tables, and nested event tables remain compatible for
+the 2.x line but are deprecated and scheduled for removal in 3.0.0.
 
 ### Audio notifications
 
-Audio notifications are independent from desktop notifications. Turn on the audio master switch, then enable `audio = true` on the events you want to hear:
+Audio notifications are selected per event; there is no audio master or global
+default sound:
 
 ```toml
-[notifications.audio]
-enabled = true
-default_sound = "default"
-
-[notifications.events.fleet]
-arrived_in_system = { system = true, audio = true, sound = "arrival" }
-started_mining = { system = false, audio = true, sound = "ping" }
-node_depleted = { system = true, audio = true, sound = "warning" }
-repair_complete = { system = false, audio = true, sound = "repair" }
+[notifications]
+fleet_arrived_in_system = { system = true, audio = true, sound = "arrival" }
+fleet_started_mining = { system = false, audio = true, sound = "ping" }
+fleet_node_depleted = { system = true, audio = true, sound = "warning" }
+fleet_repair_complete = { system = false, audio = true, sound = "repair" }
 ```
 
 Supported sound names are `default`, `info`, `success`, `warning`, `alarm`, `arrival`, `soft`, `ping`, `repair`, and `none`. Use `none`, `off`, or `silent` when you want an event row to keep its desktop notification policy but suppress its sound.
+
+See [Canonical Notification Configuration](docs/NOTIFICATION_CONFIG_RETHINK.md)
+for policy precedence, compatibility, and runtime provenance.
 
 ## Downloads
 

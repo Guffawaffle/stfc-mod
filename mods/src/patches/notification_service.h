@@ -54,7 +54,7 @@ bool notification_should_process_toast(Toast* toast);
 void notification_handle_generic_toast(Toast* toast, int state, const char* title);
 
 /**
- * @brief True when the loaded policy and master switches allow any delivery channel for a notification kind.
+ * @brief True when the resolved event policy allows any supported delivery channel.
  */
 bool notification_delivery_enabled(NotificationKind kind);
 
@@ -72,4 +72,3 @@ void notification_emit(NotificationKind kind, const char* title, const char* bod
  * @param body  Notification body text.
  */
 void notification_show(const char* title, const char* body);
-

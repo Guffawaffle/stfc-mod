@@ -223,94 +223,88 @@ fr_scale = 2.0
 #  <[=============================================]>
 
 [notifications]
-# Toast-backed notification toggles are still flat during the schema migration.
-# New notification delivery channels are shown below as nested tables.
+# Every event is independent. false disables it; true enables a system notification only.
+# Use an inline table for complete channel control:
+# incoming_attack_player = { system = true, audio = true, sound = "alarm" }
+# Inline tables do not inherit omitted fields. Supported sounds:
+# none, default, info, success, warning, alarm, arrival, soft, ping, repair.
+# Invalid values warn and fall back to that event's safe catalog default.
+# Deprecated notification keys and nested tables remain accepted through 2.x and
+# are scheduled for removal in 3.0.0.
 
-# Supported: Battle notifications (fully parsed with player/ship detail)
-# Each type must be individually enabled
-notifications_victory = true
-notifications_defeat = true
-notifications_partial_victory = true
-notifications_station_victory = false
-notifications_station_defeat = false
-notifications_station_battle = false
-notifications_incoming_attack_player = false
-notifications_incoming_attack_hostile = false
-notifications_fleet_battle = false
-notifications_armada_battle_won = false
-notifications_armada_battle_lost = false
-notifications_assault_victory = false
-notifications_assault_defeat = false
+# Battle notifications (fully parsed with player/ship detail)
+victory = false
+defeat = false
+partial_victory = false
+station_victory = false
+station_defeat = false
+station_battle = false
+incoming_attack_player = false
+incoming_attack_hostile = false
+fleet_battle = false
+armada_battle_won = false
+armada_battle_lost = false
+assault_victory = false
+assault_defeat = false
 
-# Supported: Armada notifications (parsed with alliance/owner detail)
-notifications_armada_created = true
-notifications_armada_canceled = true
+# Armada notifications (parsed with alliance/owner detail)
+armada_created = false
+armada_canceled = false
 
-# Supported: Event notifications (best-effort text resolution)
-# These may still show raw placeholders depending on the game's toast payload.
-notifications_tournament = true
-notifications_chained_event_scored = true
+# Event notifications (best-effort text resolution)
+tournament = false
+chained_event_scored = false
 
-# Experimental — these use generic text resolution and may show raw placeholders
-# Enable individual types at your own risk
-notifications_standard = false
-notifications_faction_warning = false
-notifications_faction_level_up = false
-notifications_faction_level_down = false
-notifications_faction_discovered = false
-notifications_armada_incoming_attack = false
-notifications_diplomacy_updated = false
-notifications_joined_takeover = false
-notifications_competitor_joined_takeover = false
-notifications_abandoned_territory = false
-notifications_takeover_victory = false
-notifications_takeover_defeat = false
-notifications_treasury_progress = false
-notifications_treasury_full = false
-notifications_achievement = false
-notifications_challenge_complete = false
-notifications_challenge_failed = false
-notifications_strike_hit = false
-notifications_strike_defeat = false
-notifications_warchest_progress = false
-notifications_warchest_full = false
-notifications_arena_time_left = false
-notifications_fleet_preset_applied = false
-notifications_surge_warmup_ended = false
-notifications_surge_hostile_group_defeated = false
-notifications_surge_time_left = false
+# Toast-backed notifications that may expose generic or placeholder text
+standard = false
+faction_warning = false
+faction_level_up = false
+faction_level_down = false
+faction_discovered = false
+armada_incoming_attack = false
+diplomacy_updated = false
+joined_takeover = false
+competitor_joined_takeover = false
+abandoned_territory = false
+takeover_victory = false
+takeover_defeat = false
+treasury_progress = false
+treasury_full = false
+achievement = false
+challenge_complete = false
+challenge_failed = false
+strike_hit = false
+strike_defeat = false
+warchest_progress = false
+warchest_full = false
+arena_time_left = false
+fleet_preset_applied = false
+surge_warmup_ended = false
+surge_hostile_group_defeated = false
+surge_time_left = false
+queue_for_lease_activated = false
+queue_for_lease_expired = false
+permanent_queue_purchased = false
+outpost_started_or_ended = false
+cross_alliance_armada_victory = false
+cross_alliance_armada_defeat = false
+cross_alliance_armada_partial_victory = false
+faction_weekly_events_progress = false
+faction_weekly_events_complete = false
+armada_player_blocked = false
+armada_player_unblocked = false
+dynamic_crisis_update = false
+dynamic_crisis_failed = false
+dynamic_crisis_completed = false
+galactic_anomaly_system_entered = false
 
-[notifications.system]
-# Master switch for OS-native system notifications.
-enabled = false
-
-[notifications.system.fleet]
-# Fleet-state derived OS notifications.
-arrived_in_system = false
-arrived_at_destination = false
-started_mining = false
-node_depleted = false
-docked = false
-repair_complete = false
-
-[notifications.audio]
-# Master switch for in-game audible notification cues.
-enabled = false
-default_sound = "default"
-
-[notifications.events.fleet]
-# Compact per-notification policy rows. These override the legacy split tables above when present.
-# system controls desktop notifications; audio controls the generated cue; sound chooses the cue name.
-arrived_in_system = { system = false, audio = false, sound = "arrival" }
-arrived_at_destination = { system = false, audio = false, sound = "soft" }
-started_mining = { system = false, audio = false, sound = "ping" }
-node_depleted = { system = false, audio = false, sound = "warning" }
-docked = { system = false, audio = false, sound = "soft" }
-repair_complete = { system = false, audio = false, sound = "repair" }
-
-[notifications.audio.fleet]
-# Fleet-state derived audio cues. These are independent of OS notifications.
-arrived_in_system = false
+# Fleet-state derived notifications
+fleet_arrived_in_system = false
+fleet_arrived_at_destination = false
+fleet_started_mining = false
+fleet_node_depleted = false
+fleet_docked = false
+fleet_repair_complete = false
 
 #  <[=====================================================]>
 #

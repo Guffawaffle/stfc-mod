@@ -1,204 +1,117 @@
-# Notification Config Rethink
+# Canonical Notification Configuration
 
-Branch note for `guffa/notification-config-rethink`.
+Issue #185 replaces the duplicated notification settings with one event-first
+policy surface under `[notifications]`.
 
-For the broader config architecture proposal, see `docs/CONFIG_SYSTEM_RETHINK.md`.
+The TOML remains the power-user and compatibility surface. A future launcher UI
+should read and write the same event catalog rather than inventing another
+notification schema.
 
-Important framing: nested notification TOML is a migration bridge, not the final
-user experience. The long-term goal should be a schema-backed settings UI in the
-optional launcher/sidecar companion, with TOML retained for compatibility and
-power users.
+## Canonical values
 
-Runtime notification testing should use the runtime config bridge described in
-`docs/RUNTIME_CONFIG_BRIDGE.md`, not runtime TOML reloads.
-
-## Context
-
-The current notification settings are a crowded flat `[notifications]` section.
-They now cover several different concerns:
-
-- OS/system notifications, delivered outside the game.
-- In-game banner suppression, currently configured under `[ui].disabled_banner_types`.
-- In-game audio cues, recently added as `notifications_audio_*` keys.
-- Event selection for both toast-backed game events and fleet-derived events.
-
-Upstream issue `netniV/stfc-mod#28` already calls out the bigger config problem:
-config values are hand-read in the patch, defaults live near load logic, and future
-UIs would need duplicate schema knowledge. Notification config is a good contained
-place to prototype a cleaner shape without trying to solve the whole config system
-in one move.
-
-## Naming Model
-
-Prefer channel names that describe delivery or policy, not implementation details:
-
-- `notifications.system`: OS-native notifications, such as Windows toast delivery.
-- `notifications.audio`: in-game audible cues.
-- `notifications.banners`: in-game banner policy. This replaces the mental model of
-  "hide in game" with a concrete noun: banners.
-
-Avoid `notifications.hide_in_game` as a top-level concept. It reads like a delivery
-channel, but the mod is not delivering an in-game notification there; it is deciding
-which game banners to suppress.
-
-## Proposed TOML Shape
-
-Channel-first keeps the user's question simple: "where should this event show up?"
+Every supported event has one meaningful root key:
 
 ```toml
-[notifications.system]
-enabled = false
-
-[notifications.system.fleet]
-arrived_in_system = true
-node_depleted = true
-
-[notifications.system.battle]
+[notifications]
 victory = true
-defeat = true
-partial_victory = true
-
-[notifications.audio]
-enabled = false
-default_sound = "system:notification"
-cooldown_ms = 1500
-
-[notifications.audio.fleet]
-arrived_in_system = true
-
-[notifications.audio.incoming_attack]
-player = true
-hostile = true
-sound = "system:exclamation"
-
-[notifications.banners]
-# Game banners remain visible by default. Put only suppressed banner/event names here.
-hide = ["standard", "faction_warning"]
+incoming_attack_player = { system = true, audio = true, sound = "alarm" }
+armada_created = false
+fleet_arrived_in_system = { system = true, audio = true, sound = "arrival" }
+fleet_repair_complete = true
 ```
 
-Important defaults:
+The value is the entire policy for that event:
 
-- `notifications.system.enabled = false`
-- `notifications.audio.enabled = false`
-- Every event toggle defaults to `false` unless explicitly present.
-- `notifications.banners.hide = []`, so in-game banners remain visible unless listed.
+- `false`: no system or audio delivery.
+- `true`: system delivery only.
+- `{ system = bool, audio = bool, sound = string }`: explicit channel policy.
 
-That lets user configs stay sparse. A player only writes the events and delivery
-channels they actually want.
+An inline table never inherits omitted fields from deprecated settings. Omitted
+`system` and `audio` fields are `false`. If audio is enabled without a sound,
+the resolver warns and uses that event's catalog sound.
 
-## Why Channel-First
+Supported sound names are `none`, `default`, `info`, `success`, `warning`,
+`alarm`, `arrival`, `soft`, `ping`, and `repair`.
 
-An event-first shape is also possible:
+Invalid values warn and fall back to safe catalog fields for that event. They do
+not fall through to deprecated values. Unknown fields are ignored and recorded
+as diagnostics.
+
+## Defaults and master switches
+
+Every canonical event defaults to `false`. A newly generated config contains all
+canonical event keys and no notification master switches or nested channel/event
+tables.
+
+The old `notifications_enabled` and `notifications_audio_enabled` settings are
+not canonical master switches. They remain hidden compatibility gates, default
+to `true`, and affect only events resolved from deprecated settings. A canonical
+event policy is complete and ignores them.
+
+There is no global `default_sound`. Every event has an explicit catalog sound,
+and a missing or invalid sound is warned and resolved against that catalog.
+
+## Compatibility and precedence
+
+Deprecated notification settings remain readable through the 2.x line and are
+scheduled for removal in 3.0.0:
+
+- flat `notifications_*` and `notifications_audio_*` keys;
+- `[notifications.system]` and `[notifications.audio]` channel tables;
+- `[notifications.events.<category>]` event tables;
+- `[ui].notify_on_banner_types` and `[ui].notify_banner_types`.
+
+For an event with no canonical key, the resolver combines the deprecated inputs
+using the established compatibility precedence and then applies any explicit
+legacy master gates. It emits an aggregate deprecation warning.
+
+Sparse deprecated files are resolved per event: an old key for one event does
+not activate historical defaults for unrelated events. An explicit deprecated
+master is file-wide and therefore opts every event into its historical 2.x
+default before applying the gate. Missing deprecated masters use the hidden
+`true` compatibility default so an explicitly configured legacy event does not
+need a second switch.
+
+If a canonical key is present, it wins as a whole. All deprecated inputs for
+that event are ignored, conflicts are warned, and there is no partial merge or
+fallback into them.
+
+## Runtime provenance
+
+`community_patch_runtime.vars` always writes the normalized inline policy for
+every event:
 
 ```toml
-[notifications.fleet.arrived_in_system]
-system = true
-audio = true
-sound = "system:notification"
+[notifications]
+fleet_arrived_in_system = { system = true, audio = true, sound = "arrival" }
+
+[notifications.provenance]
+fleet_arrived_in_system = { source_kind = "canonical", system_source = "notifications.fleet_arrived_in_system.system", audio_source = "notifications.fleet_arrived_in_system.audio", sound_source = "notifications.fleet_arrived_in_system.sound", deprecated_inputs = false, conflict = false, removal_target = "", diagnostic_count = 0, diagnostics = [], diagnostics_truncated = false, ignored_sources = [], ignored_sources_truncated = false }
 ```
 
-That is compact for one event, but it becomes harder to scan when a user wants to
-answer questions like "what makes sound?" or "which events produce desktop
-notifications?" Channel-first also maps cleanly onto future UI tabs: System, Audio,
-Banners.
+Provenance records:
 
-## Separate `notifications.toml`
+- whether the result came from canonical input, deprecated compatibility, or an
+  invalid canonical fallback;
+- the source selected for each field;
+- whether deprecated inputs were present and their removal target;
+- ignored conflicting sources;
+- bounded diagnostic facts and their total count;
+- explicit truncation markers for diagnostic facts and ignored sources.
 
-A second file is tempting because the main config is large, but it should not be
-the first migration step.
+`notifications.resolution` separately lists unknown root keys, including likely
+typos, with its own count and truncation marker.
 
-Pros:
+When asking a user to report notification behavior, request both
+`community_patch_settings.toml` and `community_patch_runtime.vars`. The first
+shows intent; the second shows the exact resolved policy and why it won.
 
-- Keeps the main config shorter.
-- Makes notification presets easier to share.
-- Gives future UI code a smaller file to own.
+## Runtime ownership
 
-Cons:
+`notification_catalog.h` is the authoritative event/name/sound catalog.
+`notification_policy.cc` resolves configuration once during startup.
+Notification producers query the resolved per-event policy; they do not inspect
+master switches or configuration aliases directly.
 
-- Adds load-order questions: main file wins, notification file wins, or merge?
-- Creates a new missing-file and partial-file failure mode.
-- Makes runtime snapshots and generated defaults more complicated.
-- Risks solving one feature's config problem separately from issue #28's unified
-  config module goal.
-
-Recommendation: keep notifications in `community_patch_settings.toml` for this
-branch. Later, a generic config include/import system can support files like
-`notifications.toml` consistently for every subsystem.
-
-If an installable companion app becomes the normal settings surface, a separate
-`notifications.toml` becomes less important. The UI can edit the same canonical
-schema and write one sparse overlay file, while offering import/export presets for
-notification profiles.
-
-## Compatibility Plan
-
-Do not remove existing keys in the first implementation.
-
-Read order should be:
-
-1. Load legacy flat keys such as `notifications_enabled` and
-   `notifications_fleet_arrived_in_system`.
-2. Load the new nested channel keys if present.
-3. Let new nested keys override legacy keys.
-4. Write resolved values to `community_patch_runtime.vars` using the new nested
-   shape, plus optional legacy compatibility lines while the migration is active.
-
-This lets existing configs keep working while new configs can be much smaller.
-
-## Implementation Sketch
-
-Introduce an event catalog shared by all notification channels:
-
-```cpp
-enum class NotificationEvent {
-  BattleVictory,
-  BattleDefeat,
-  FleetArrivedInSystem,
-  FleetNodeDepleted,
-  IncomingAttackPlayer,
-  IncomingAttackHostile,
-};
-```
-
-Then model channels separately:
-
-```cpp
-struct NotificationChannelConfig {
-  bool enabled = false;
-  std::bitset<MaxNotificationEvents> events;
-};
-
-struct NotificationAudioConfig : NotificationChannelConfig {
-  std::string default_sound = "system:notification";
-  int cooldown_ms = 1500;
-};
-
-struct NotificationBannerConfig {
-  std::bitset<MaxNotificationEvents> hidden_events;
-};
-```
-
-The current `Toast::State` bitset can remain internally, but it should be derived
-from the event catalog rather than exposed as the primary config model.
-
-## First Code Slice
-
-The first parser change should be intentionally narrow:
-
-Status: implemented for the notification bool pilot. Canonical nested keys are
-read first, flat `notifications_*` keys remain aliases, and canonical keys win
-when both are present.
-
-- Add nested TOML reads for `notifications.system.enabled`.
-- Add nested TOML reads for `notifications.system.fleet.arrived_in_system`.
-- Add nested TOML reads for `notifications.audio.enabled`.
-- Add nested TOML reads for `notifications.audio.fleet.arrived_in_system`.
-- Keep the current flat keys as fallback.
-- Update only the example notification section to show the new shape.
-
-This proves the migration strategy with the known-working fleet arrival event
-before expanding the whole catalog.
-
-The same two audio booleans are also the safest first runtime-applyable settings:
-they change delivery policy only, so the player can enable them from the settings
-app and test the audio path without restarting the game.
+Runtime notification testing should use the bridge described in
+`RUNTIME_CONFIG_BRIDGE.md`, not an ad hoc TOML reload.

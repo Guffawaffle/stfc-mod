@@ -77,8 +77,6 @@ bool fleet_state_requires_scan_follow_through(const FleetState state)
 bool incoming_attack_notifications_enabled_for_kind(IncomingAttackPolicyAttackerKind attackerKind,
                                                     bool                             allow_when_unclassified)
 {
-  const auto& notifications = Config::Get().notifications;
-
   switch (attackerKind) {
     case IncomingAttackPolicyAttackerKind::Player:
       return notification_delivery_enabled(NotificationKind::BattleIncomingAttackPlayer);
@@ -90,7 +88,9 @@ bool incoming_attack_notifications_enabled_for_kind(IncomingAttackPolicyAttacker
         return false;
       }
 
-      return allow_when_unclassified || !notifications.IncomingAttackSplitEnabled();
+      return allow_when_unclassified
+             || notification_policy_delivery_equivalent(NotificationKind::BattleIncomingAttackPlayer,
+                                                        NotificationKind::BattleIncomingAttackHostile);
   }
 }
 
@@ -129,7 +129,8 @@ std::optional<NotificationKind> notification_kind_from_fleet_transition(FleetBar
 bool should_hide_unknown_incoming_attack_notification(IncomingAttackPolicyAttackerKind attackerKind)
 {
   return attackerKind == IncomingAttackPolicyAttackerKind::Unknown
-         && Config::Get().notifications.IncomingAttackSplitEnabled();
+         && !notification_policy_delivery_equivalent(NotificationKind::BattleIncomingAttackPlayer,
+                                                     NotificationKind::BattleIncomingAttackHostile);
 }
 
 bool should_emit_incoming_attack_notification(const char* source, uint64_t fleetId, int targetType,

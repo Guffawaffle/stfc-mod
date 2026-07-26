@@ -197,10 +197,10 @@ namespace BattleLogDecoder
 
 namespace Notifications
 {
-  /// Master switch for OS/system notifications. Default: false.
-  constexpr bool enabled = false;
-  /// Master switch for in-game audible notifications. Default: false.
-  constexpr bool audio_enabled = false;
+  /// Hidden legacy OS/system delivery gate. Canonical event policies ignore it. Default: true.
+  constexpr bool enabled = true;
+  /// Hidden legacy in-game audio delivery gate. Canonical event policies ignore it. Default: true.
+  constexpr bool audio_enabled = true;
 
   namespace Audio
   {

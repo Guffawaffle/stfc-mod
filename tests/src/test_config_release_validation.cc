@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "config_release_validation.h"
+#include "patches/notification_catalog.h"
 
 #include <filesystem>
 #include <fstream>
@@ -126,6 +127,27 @@ TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh
   CHECK_FALSE(advanced_files->contains("main_log_files"));
   CHECK(advanced_files->get("root")->value<std::string>().value_or("non-empty").empty());
   CHECK(config["advanced"]["queue"]["thin_queue_protection"].value<bool>().value_or(false));
+}
+
+TEST_CASE("example config exposes only the canonical notification event surface")
+{
+  const auto  source        = read_text_file("example_community_patch_settings.toml");
+  const auto  config        = toml::parse(source);
+  const auto* notifications = config["notifications"].as_table();
+
+  REQUIRE(notifications != nullptr);
+  CHECK(notifications->size() == notification_event_catalog().size());
+  for (const auto& spec : notification_event_catalog()) {
+    REQUIRE(notifications->contains(spec.canonical_key));
+    CHECK(notifications->get(spec.canonical_key)->value<bool>().value_or(true) == false);
+  }
+
+  CHECK(source.find("notifications_enabled") == std::string::npos);
+  CHECK(source.find("notifications_audio_enabled") == std::string::npos);
+  CHECK(source.find("[notifications.system") == std::string::npos);
+  CHECK(source.find("[notifications.audio") == std::string::npos);
+  CHECK(source.find("[notifications.events") == std::string::npos);
+  CHECK(source.find("default_sound") == std::string::npos);
 }
 
 TEST_CASE("science config captures dormant queue repair surfaces")
