@@ -296,7 +296,10 @@ arrived_in_system = { system = true, audio = false, sound = "alarm" }
     CHECK(runtime["notifications"]["provenance"]["fleet_arrived_in_system"]["deprecated_inputs"].value_or(false));
     CHECK(runtime["notifications"]["provenance"]["fleet_arrived_in_system"]["removal_target"].value_or(std::string{})
           == "3.0.0");
-    CHECK(runtime["notifications"]["provenance"]["fleet_arrived_in_system"]["ignored_sources"].as_array()->size() >= 2);
+    const auto* ignored_sources =
+        runtime["notifications"]["provenance"]["fleet_arrived_in_system"]["ignored_sources"].as_array();
+    REQUIRE(ignored_sources != nullptr);
+    CHECK(ignored_sources->size() >= 2);
   }
 
   TEST_CASE("invalid canonical values fall back to safe event catalog fields")
@@ -422,7 +425,9 @@ enabled = true
     CHECK(notification_policy_system_enabled(NotificationKind::BattleVictory));
     CHECK(runtime["notifications"]["provenance"]["victory"]["conflict"].value_or(false));
     CHECK(runtime["notifications"]["provenance"]["victory"]["diagnostic_count"].value_or(0) >= 1);
-    CHECK(runtime["notifications"]["provenance"]["victory"]["diagnostics"].as_array()->size() >= 1);
+    const auto* diagnostics = runtime["notifications"]["provenance"]["victory"]["diagnostics"].as_array();
+    REQUIRE(diagnostics != nullptr);
+    CHECK(diagnostics->size() >= 1);
   }
 
   TEST_CASE("sparse deprecated event input does not activate unrelated historical defaults")
@@ -515,7 +520,9 @@ fleet_arrived_in_sytem = true
     notification_policy_load(config, runtime, NotificationConfig{});
 
     CHECK(runtime["notifications"]["resolution"]["unknown_root_key_count"].value_or(0) == 1);
-    CHECK(runtime["notifications"]["resolution"]["unknown_root_keys"].as_array()->size() == 1);
+    const auto* unknown_root_keys = runtime["notifications"]["resolution"]["unknown_root_keys"].as_array();
+    REQUIRE(unknown_root_keys != nullptr);
+    CHECK(unknown_root_keys->size() == 1);
     CHECK_FALSE(runtime["notifications"]["resolution"]["unknown_root_keys_truncated"].value_or(true));
   }
 
@@ -529,7 +536,9 @@ victory = { x1 = true, x2 = true, x3 = true, x4 = true, x5 = true, x6 = true, x7
     toml::table runtime;
     notification_policy_load(diagnostics_config, runtime, NotificationConfig{});
     CHECK(runtime["notifications"]["provenance"]["victory"]["diagnostic_count"].value_or(0) == 10);
-    CHECK(runtime["notifications"]["provenance"]["victory"]["diagnostics"].as_array()->size() == 8);
+    const auto* diagnostics = runtime["notifications"]["provenance"]["victory"]["diagnostics"].as_array();
+    REQUIRE(diagnostics != nullptr);
+    CHECK(diagnostics->size() == 8);
     CHECK(runtime["notifications"]["provenance"]["victory"]["diagnostics_truncated"].value_or(false));
 
     auto ignored_config = toml::parse(R"(
@@ -562,7 +571,10 @@ notify_banner_types = "IncomingAttack"
 )");
 
     notification_policy_load(ignored_config, runtime, NotificationConfig{});
-    CHECK(runtime["notifications"]["provenance"]["incoming_attack_player"]["ignored_sources"].as_array()->size() == 8);
+    const auto* ignored_sources =
+        runtime["notifications"]["provenance"]["incoming_attack_player"]["ignored_sources"].as_array();
+    REQUIRE(ignored_sources != nullptr);
+    CHECK(ignored_sources->size() == 8);
     CHECK(
         runtime["notifications"]["provenance"]["incoming_attack_player"]["ignored_sources_truncated"].value_or(false));
   }
