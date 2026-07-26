@@ -2,9 +2,28 @@
 
 #include <array>
 #include <cstdint>
+#include <string_view>
 
 namespace action_queue_guard
 {
+constexpr int kEngageResultSuccess    = 0;
+constexpr int kEngageResultSkipTarget = 1;
+constexpr int kEngageResultStop       = 2;
+
+constexpr std::string_view EngageResultName(int result)
+{
+  switch (result) {
+    case kEngageResultSuccess:
+      return "success";
+    case kEngageResultSkipTarget:
+      return "skip-target";
+    case kEngageResultStop:
+      return "stop";
+    default:
+      return result < 0 ? "not-attempted" : "unknown";
+  }
+}
+
 struct QueueState {
   bool                        present         = false;
   std::int64_t                player_fleet_id = 0;

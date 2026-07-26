@@ -49,6 +49,15 @@ TEST_SUITE("action_queue_guard_policy")
     CHECK(action_queue_guard::ShouldInstall(true, true));
   }
 
+  TEST_CASE("native engage results have stable diagnostic names")
+  {
+    CHECK(action_queue_guard::EngageResultName(0).compare("success") == 0);
+    CHECK(action_queue_guard::EngageResultName(1).compare("skip-target") == 0);
+    CHECK(action_queue_guard::EngageResultName(2).compare("stop") == 0);
+    CHECK(action_queue_guard::EngageResultName(-1).compare("not-attempted") == 0);
+    CHECK(action_queue_guard::EngageResultName(99).compare("unknown") == 0);
+  }
+
   TEST_CASE("destroyed head processing is exact and feature gated")
   {
     const auto queue = Queue(2, 101);

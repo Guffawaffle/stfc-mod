@@ -552,7 +552,7 @@ struct ResumeAttempt {
   int  result    = -1;
 
   bool succeeded() const
-  { return attempted && result == 0; }
+  { return attempted && result == action_queue_guard::kEngageResultSuccess; }
 };
 
 ResumeAttempt TryResumeExactSurvivingSuffix(ActionQueueManager* manager, void* instance, FleetPlayerData* player_fleet,
@@ -593,8 +593,9 @@ ResumeAttempt TryResumeExactSurvivingSuffix(ActionQueueManager* manager, void* i
     attempt.attempted = true;
     attempt.result    = try_engage(manager, player_fleet, instance);
     spdlog::info("[ActionQueueGuard] action=resume-after-native-prune source={} fleet={} head={} count={} "
-                 "engage_result={}",
-                 source, confirmed.player_fleet_id, confirmed.head_target_id, confirmed.count, attempt.result);
+                 "engage_result={} engage_result_name={}",
+                 source, confirmed.player_fleet_id, confirmed.head_target_id, confirmed.count, attempt.result,
+                 action_queue_guard::EngageResultName(attempt.result));
   } else {
     spdlog::warn("[ActionQueueGuard] action=resume-after-native-prune source={} "
                  "skipped=missing-method-or-fleet fleet={} head={}",
@@ -627,13 +628,16 @@ bool ActionQueueManager_DoPlanPathAndEngageTarget_Guard(auto original, ActionQue
       TryResumeExactSurvivingSuffix(manager, instance, player_fleet, player_idle, before, after_native, "DoPlan");
 
   if (trace) {
-    spdlog::info(
-        "[ActionQueueGuard] phase=after hook=DoPlanPathAndEngageTarget player={} native_result={} "
-        "resume_candidate={} replay_result={} state={} prev={} queue_after_native={} queue_after_guard={}",
-        FormatPlayerFleetIdentity(player_identity), native_result, resume.candidate,
-        resume.attempted ? resume.result : -1, player_fleet ? static_cast<int>(player_fleet->CurrentState) : -1,
-        player_fleet ? static_cast<int>(player_fleet->PreviousState) : -1, FormatActionQueueInstance(after_native),
-        FormatActionQueueInstance(SnapshotActionQueueInstance(instance)));
+    spdlog::info("[ActionQueueGuard] phase=after hook=DoPlanPathAndEngageTarget player={} native_result={} "
+                 "resume_candidate={} replay_result={} replay_result_name={} state={} prev={} queue_after_native={} "
+                 "queue_after_guard={}",
+                 FormatPlayerFleetIdentity(player_identity), native_result, resume.candidate,
+                 resume.attempted ? resume.result : -1,
+                 action_queue_guard::EngageResultName(resume.attempted ? resume.result : -1),
+                 player_fleet ? static_cast<int>(player_fleet->CurrentState) : -1,
+                 player_fleet ? static_cast<int>(player_fleet->PreviousState) : -1,
+                 FormatActionQueueInstance(after_native),
+                 FormatActionQueueInstance(SnapshotActionQueueInstance(instance)));
   }
   return native_result || resume.succeeded();
 }
@@ -720,13 +724,15 @@ void ActionQueueManager_HandleStall_Guard(auto original, ActionQueueManager* man
 
   if (DiagnosticsEnabled()) {
     const auto after_guard = SnapshotActionQueueInstance(instance);
-    spdlog::info("[ActionQueueGuard] phase=after hook=HandleStall instance={} same_head={} count_delta_native={} "
-                 "resume_candidate={} replay_result={} queue_after_native={} queue_after_guard={}",
-                 static_cast<void*>(instance),
-                 before.head_target_id != 0 && before.head_target_id == after_native.head_target_id,
-                 before.count >= 0 && after_native.count >= 0 ? after_native.count - before.count : 0, resume.candidate,
-                 resume.attempted ? resume.result : -1, FormatActionQueueInstance(after_native),
-                 FormatActionQueueInstance(after_guard));
+    spdlog::info(
+        "[ActionQueueGuard] phase=after hook=HandleStall instance={} same_head={} count_delta_native={} "
+        "resume_candidate={} replay_result={} replay_result_name={} queue_after_native={} queue_after_guard={}",
+        static_cast<void*>(instance),
+        before.head_target_id != 0 && before.head_target_id == after_native.head_target_id,
+        before.count >= 0 && after_native.count >= 0 ? after_native.count - before.count : 0, resume.candidate,
+        resume.attempted ? resume.result : -1,
+        action_queue_guard::EngageResultName(resume.attempted ? resume.result : -1),
+        FormatActionQueueInstance(after_native), FormatActionQueueInstance(after_guard));
   }
 }
 
