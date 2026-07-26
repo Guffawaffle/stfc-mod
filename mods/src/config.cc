@@ -1208,8 +1208,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "fleetarrivalhooks", DCP::fleetarrivalhooks, write_config);
   this->installLoadingScreenHooks =
       get_config_or_default(config, parsed, "patches", "loadingscreenhooks", DCP::loadingscreenhooks, write_config);
-  this->installTransitionScreenHooks = get_config_or_default(
-      config, parsed, "patches", "transitionscreenhooks", DCP::transitionscreenhooks, write_config);
+  this->installTransitionScreenHooks = get_config_or_default(config, parsed, "patches", "transitionscreenhooks",
+                                                             DCP::transitionscreenhooks, write_config);
   spdlog::debug("");
 
   this->queue_enabled =
@@ -1577,8 +1577,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "graphics", "loader_enabled", DCG::loader_enabled, write_log);
   this->loader_transition =
       get_config_or_default(config, parsed, "graphics", "loader_transition", DCG::loader_transition, write_log);
-  this->loader_transition_black = get_config_or_default(
-      config, parsed, "graphics", "loader_transition_black", DCG::loader_transition_black, write_log);
+  this->loader_transition_black = get_config_or_default(config, parsed, "graphics", "loader_transition_black",
+                                                        DCG::loader_transition_black, write_log);
   if (!this->loader_transition)
     this->loader_transition_black = true;
 #ifdef _USE_ORIGINAL_BG
@@ -1852,7 +1852,14 @@ void Config::Load()
     message << "Creating " << File::Config() << " (default config file)";
     spdlog::warn(message.str());
 
+    // Keep opt-in runtime diagnostics absent from fresh user-facing config, then restore their effective values for
+    // the runtime vars snapshot.
+    OmitOptInRuntimeDiagnosticsFromGeneratedUserConfig(parsed);
     Config::Save(parsed, File::Config(), false);
+    write_runtime_trace_config(parsed, g_runtime_trace_level, g_runtime_trace_track_overhead, g_mod_impact_monitor,
+                               g_runtime_trace_report_interval_ms);
+    config_schema::write_bool(parsed, "advanced.diagnostics.action_queue_guard_logging",
+                              g_advanced_config.diagnostics.action_queue_guard_logging);
   }
 
   const auto input_binding_bridge = input_binding::ResolveInputBindingConfig(config);

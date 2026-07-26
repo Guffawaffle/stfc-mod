@@ -44,7 +44,7 @@ course_target_completion = false
 # Legacy queue-add experiment/dev-test namespace. These keys do not control
 # Kir'shara queue progression repair.
 
-# Master opt-in gate for queue repair and the direct-handler experiment below.
+# Master opt-in gate for the legacy queue repair and direct-handler experiments.
 queue_repair_enabled = false
 
 # Use the widget's queue-click event handler directly instead of the generic

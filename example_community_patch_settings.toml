@@ -878,6 +878,13 @@ jsonl_replay_seconds = 30
 # Optional second cap on retained battle-log groups.
 jsonl_recent_logs = 300
 
+[advanced.queue]
+# Safely resume the native action queue when authoritative game state proves
+# that another player destroyed the exact queued head. Detailed diagnostics
+# remain hidden and opt-in; this release-supported protection is enabled by
+# default.
+thin_queue_protection = true
+
 [advanced.diagnostics]
 # Canonical native observability/probing namespace for non-sidecar diagnostics.
 # Older [sidecar.probes] and [sidecar.diagnostics] inputs are still accepted as deprecated aliases.
@@ -900,27 +907,6 @@ fleet_selection_timing_logging = false
 # Development-only live query channel for AX. When enabled, `ax debug-send`
 # can send one JSON request into the running game and receive a JSON response.
 live_query = false
-
-# Realtime trace level for sidecar/AX diagnostics: off, summary, detailed, or verbose.
-# Disabled is the normal-play default. Every level above off adds runtime
-# overhead, and longer investigations can increase local log/storage churn.
-# Prefer sidecar/spocks.club ingress for durable export instead of long-lived
-# local capture.
-runtime_trace = "off"
-
-# Include trace instrumentation overhead as its own probe so profiler cost can
-# be separated from mod and game function timing. This adds more diagnostic work
-# in exchange for cleaner attribution.
-runtime_trace_track_overhead = false
-
-# Emit periodic summaries of hook-owned runtime work. If runtime_trace is left
-# unset, this enables summary-level tracing/reporting. If runtime_trace is set
-# explicitly, that level still controls the effective trace mode.
-mod_impact_monitor = false
-
-# Milliseconds between runtime trace summary reports. Lower values increase
-# diagnostic log churn. Values are clamped by the mod.
-runtime_trace_report_interval_ms = 5000
 
 # Emit focused refinery lifecycle, selection, analytics, and purchase-result
 # breadcrumbs to the legacy plain-text community_patch.log troubleshooting log.

@@ -16,6 +16,12 @@
   },
   "hook_modules": [
     {
+      "id": "ActionQueueGuard",
+      "tier": "production",
+      "source": "mods/src/patches/parts/action_queue_guard_diagnostics.cc",
+      "rationale": "Release-supported, target-specific recovery for authoritative destroyed-head and exact native-prefix queue transitions; detailed breadcrumbs remain separately opt-in."
+    },
+    {
       "id": "FrameTickHooks",
       "tier": "internal",
       "source": "mods/src/patches/frame_tick.cc",
@@ -95,12 +101,36 @@
       "rationale": "Dormant Kir'Shara queue repair config must not be advertised as release-supported."
     },
     {
-      "path": "advanced.queue",
+      "path": "advanced.queue.thin_queue_protection",
+      "tier": "production",
+      "owner": "ActionQueueGuard",
+      "release_example_allowed": true,
+      "science_example_required": false,
+      "rationale": "Release-supported thin protection for authoritative externally destroyed queue heads and exact native prefix pruning."
+    },
+    {
+      "path": "advanced.diagnostics.action_queue_guard_logging",
+      "tier": "science",
+      "owner": "ActionQueueGuard",
+      "release_example_allowed": false,
+      "science_example_required": false,
+      "rationale": "Detailed action queue breadcrumbs remain hidden, opt-in investigation tooling."
+    },
+    {
+      "path": "advanced.queue.queue_repair_enabled",
       "tier": "science",
       "owner": "KirsharaQueueRepairHooks",
       "release_example_allowed": false,
       "science_example_required": true,
-      "rationale": "Legacy queue-add experiment keys remain isolated from normal release example config."
+      "rationale": "Legacy queue-repair experiment gate remains isolated from normal release configuration."
+    },
+    {
+      "path": "advanced.queue.queue_add_direct_handler",
+      "tier": "science",
+      "owner": "KirsharaQueueRepairHooks",
+      "release_example_allowed": false,
+      "science_example_required": true,
+      "rationale": "Legacy direct-handler experiment remains isolated from normal release configuration."
     }
   ],
   "promotion_process": {

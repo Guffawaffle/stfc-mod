@@ -160,6 +160,7 @@ FleetInputHullType ToFleetInputHullType(const HullType type)
 struct SpaceActionDiagnostics {
   std::chrono::steady_clock::time_point started_at                 = std::chrono::steady_clock::now();
   uint64_t                              fleet_id                   = 0;
+  uint64_t                              target_id                  = 0;
   int                                   fleet_state                = -1;
   int                                   previous_state             = -1;
   bool                                  physical_primary           = false;
@@ -222,11 +223,12 @@ struct SpaceActionDiagnostics {
 
     if (handled_primary) {
       spdlog::debug(
-          "[SpaceActionDiag] handled-primary outcome={} duration_us={} fleet={} state={} prev={} inputs[p={} dp={} "
+          "[SpaceActionDiag] handled-primary outcome={} duration_us={} fleet={} target={} state={} prev={} "
+          "inputs[p={} dp={} "
           "df={} s={} q={} qc={} r={} repair={} rc={}] context[preScan={} resolved={} unresolved={} mining={} "
           "star={} nav={} fallback={} context_us={} fallback_us={} exec_us={} queue_press_us={} hide_viewers_us={}] "
           "deferred[fleet={} widget={} target={}]",
-          outcome, elapsed_us, fleet_id, fleet_state, previous_state, physical_primary, deferred_pending,
+          outcome, elapsed_us, fleet_id, target_id, fleet_state, previous_state, physical_primary, deferred_pending,
           deferred_primary_for_fleet, secondary, queue, queue_clear, recall, repair, recall_cancel,
           visible_pre_scan_count, resolved_pre_scan_count, unresolved_pre_scan_count, mining_visible, star_node_visible,
           navigation_visible, pre_scan_fallback_used, context_duration_us, pre_scan_fallback_us, outcome_execution_us,
@@ -237,12 +239,13 @@ struct SpaceActionDiagnostics {
 
     if (long_detour) {
       spdlog::warn(
-          "[SpaceActionDiag] slow outcome={} handled={} duration_us={} fleet={} state={} prev={} inputs[p={} dp={} "
+          "[SpaceActionDiag] slow outcome={} handled={} duration_us={} fleet={} target={} state={} prev={} "
+          "inputs[p={} dp={} "
           "df={} s={} q={} qc={} r={} repair={} rc={}] context[preScan={} resolved={} unresolved={} mining={} "
           "star={} nav={} fallback={} context_us={} fallback_us={} exec_us={} queue_press_us={} hide_viewers_us={}] "
           "deferred[fleet={} widget={} target={}]",
-          outcome, handled, elapsed_us, fleet_id, fleet_state, previous_state, physical_primary, deferred_pending,
-          deferred_primary_for_fleet, secondary, queue, queue_clear, recall, repair, recall_cancel,
+          outcome, handled, elapsed_us, fleet_id, target_id, fleet_state, previous_state, physical_primary,
+          deferred_pending, deferred_primary_for_fleet, secondary, queue, queue_clear, recall, repair, recall_cancel,
           visible_pre_scan_count, resolved_pre_scan_count, unresolved_pre_scan_count, mining_visible, star_node_visible,
           navigation_visible, pre_scan_fallback_used, context_duration_us, pre_scan_fallback_us, outcome_execution_us,
           queue_button_press_us, hide_viewers_us, deferred_space_action_state.fleet_id,
@@ -251,19 +254,18 @@ struct SpaceActionDiagnostics {
     }
 
     if (!handled && had_action_input && (had_visible_context || deferred_pending)) {
-      spdlog::warn("[SpaceActionDiag] unresolved outcome={} duration_us={} fleet={} state={} prev={} inputs[p={} dp={} "
-                   "df={} s={} q={} qc={} r={} repair={} rc={}] context[preScan={} resolved={} unresolved={} "
-                   "mining={} star={} nav={} fallback={} context_us={} fallback_us={} exec_us={} queue_press_us={} "
-                   "hide_viewers_us={}] "
-                   "deferred[fleet={} widget={} target={}]",
-                   outcome, elapsed_us, fleet_id, fleet_state, previous_state, physical_primary, deferred_pending,
-                   deferred_primary_for_fleet, secondary, queue, queue_clear, recall, repair, recall_cancel,
-                   visible_pre_scan_count, resolved_pre_scan_count, unresolved_pre_scan_count, mining_visible,
-                   star_node_visible, navigation_visible, pre_scan_fallback_used, context_duration_us,
-                   pre_scan_fallback_us, outcome_execution_us, queue_button_press_us, hide_viewers_us,
-                   deferred_space_action_state.fleet_id,
-                   reinterpret_cast<const void*>(deferred_space_action_state.widget_identity),
-                   reinterpret_cast<const void*>(deferred_space_action_state.target_identity));
+      spdlog::warn(
+          "[SpaceActionDiag] unresolved outcome={} duration_us={} fleet={} target={} state={} prev={} inputs[p={} "
+          "dp={} df={} s={} q={} qc={} r={} repair={} rc={}] context[preScan={} resolved={} unresolved={} "
+          "mining={} star={} nav={} fallback={} context_us={} fallback_us={} exec_us={} queue_press_us={} "
+          "hide_viewers_us={}] deferred[fleet={} widget={} target={}]",
+          outcome, elapsed_us, fleet_id, target_id, fleet_state, previous_state, physical_primary, deferred_pending,
+          deferred_primary_for_fleet, secondary, queue, queue_clear, recall, repair, recall_cancel,
+          visible_pre_scan_count, resolved_pre_scan_count, unresolved_pre_scan_count, mining_visible, star_node_visible,
+          navigation_visible, pre_scan_fallback_used, context_duration_us, pre_scan_fallback_us, outcome_execution_us,
+          queue_button_press_us, hide_viewers_us, deferred_space_action_state.fleet_id,
+          reinterpret_cast<const void*>(deferred_space_action_state.widget_identity),
+          reinterpret_cast<const void*>(deferred_space_action_state.target_identity));
     }
   }
 
@@ -311,6 +313,9 @@ struct SpaceActionDiagnostics {
 
   void SetOutcome(const char* value)
   { outcome = value; }
+
+  void SetTarget(uint64_t value)
+  { target_id = value; }
 
   void Complete(const char* value)
   {
@@ -408,6 +413,10 @@ bool TryExecuteQueueAdd(PreScanTargetWidget* pre_scan_widget, SpaceActionDiagnos
   if (!pre_scan_widget->_addToQueueButtonWidget->isActiveAndEnabled) {
     return false;
   }
+
+  auto* battle_target = pre_scan_widget->_battleTargetData;
+  auto* target_fleet  = battle_target ? battle_target->TargetFleetDeployedData : nullptr;
+  diagnostics.SetTarget(target_fleet ? target_fleet->ID : 0);
 
   const bool direct_handler = QueueAddDirectHandlerEnabled();
 

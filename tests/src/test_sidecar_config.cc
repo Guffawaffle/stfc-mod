@@ -101,6 +101,7 @@ jsonl_recent_logs = 300
     CHECK_FALSE(result.advanced.diagnostics.live_query);
     CHECK(result.advanced.diagnostics.runtime_trace == "off");
     CHECK_FALSE(result.advanced.diagnostics.runtime_trace_track_overhead);
+    CHECK_FALSE(result.advanced.diagnostics.action_queue_guard_logging);
     CHECK_FALSE(result.advanced.diagnostics.mod_impact_monitor);
     CHECK(result.advanced.diagnostics.runtime_trace_report_interval_ms == 5000);
     CHECK_FALSE(result.advanced.diagnostics.refinery_diagnostics);
@@ -110,6 +111,7 @@ jsonl_recent_logs = 300
     CHECK(result.advanced.diagnostics.files.action_queue_probe_max_kb == 8192);
     CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 3);
     CHECK_FALSE(result.advanced.queue.queue_repair_enabled);
+    CHECK(result.advanced.queue.thin_queue_protection);
     CHECK_FALSE(result.advanced.queue.queue_add_direct_handler);
     CHECK(result.diagnostics.empty());
   }
@@ -142,6 +144,7 @@ fleet_selection_timing_logging = true
 live_query = true
 runtime_trace = "verbose"
 runtime_trace_track_overhead = true
+action_queue_guard_logging = true
 mod_impact_monitor = true
 runtime_trace_report_interval_ms = 9000
 refinery_diagnostics = true
@@ -155,6 +158,7 @@ action_queue_probe_files = 6
 
 [advanced.queue]
 queue_repair_enabled = true
+thin_queue_protection = true
 queue_add_direct_handler = true
 queue_add_hide_viewers = false
 
@@ -193,6 +197,7 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.diagnostics.live_query);
     CHECK(result.advanced.diagnostics.runtime_trace == "verbose");
     CHECK(result.advanced.diagnostics.runtime_trace_track_overhead);
+    CHECK(result.advanced.diagnostics.action_queue_guard_logging);
     CHECK(result.advanced.diagnostics.mod_impact_monitor);
     CHECK(result.advanced.diagnostics.runtime_trace_report_interval_ms == 9000);
     CHECK(result.advanced.diagnostics.refinery_diagnostics);
@@ -202,10 +207,10 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.diagnostics.files.action_queue_probe_max_kb == 6144);
     CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 6);
     CHECK(result.advanced.queue.queue_repair_enabled);
+    CHECK(result.advanced.queue.thin_queue_protection);
     CHECK(result.advanced.queue.queue_add_direct_handler);
     CHECK(has_diagnostic_source(result.diagnostics, "advanced.queue.queue_add_hide_viewers",
-                                "advanced.queue.queue_add_hide_viewers",
-                                config_schema::DiagnosticSeverity::Warning));
+                                "advanced.queue.queue_add_hide_viewers", config_schema::DiagnosticSeverity::Warning));
 
     CHECK(result.config.probes.ship_identity);
     CHECK(result.config.probes.battle_log_decoder);
@@ -411,6 +416,7 @@ mode = "majel"
     advanced.diagnostics.live_query                       = true;
     advanced.diagnostics.runtime_trace                    = "detailed";
     advanced.diagnostics.runtime_trace_track_overhead     = false;
+    advanced.diagnostics.action_queue_guard_logging       = true;
     advanced.diagnostics.mod_impact_monitor               = true;
     advanced.diagnostics.runtime_trace_report_interval_ms = 7000;
     advanced.diagnostics.refinery_diagnostics             = true;
@@ -420,6 +426,7 @@ mode = "majel"
     advanced.diagnostics.files.action_queue_probe_max_kb  = 8192;
     advanced.diagnostics.files.action_queue_probe_files   = 5;
     advanced.queue.queue_repair_enabled                   = true;
+    advanced.queue.thin_queue_protection                  = true;
     advanced.queue.queue_add_direct_handler               = true;
 
     toml::table runtime_snapshot;
@@ -444,6 +451,7 @@ mode = "majel"
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace"].value<std::string>().value_or("") == "detailed");
     CHECK_FALSE(
         runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_track_overhead"].value<bool>().value_or(true));
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["action_queue_guard_logging"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["mod_impact_monitor"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_report_interval_ms"].value<int>().value_or(0)
           == 7000);
@@ -459,6 +467,7 @@ mode = "majel"
           == 5);
     REQUIRE(runtime_snapshot["advanced"]["queue"].is_table());
     CHECK(runtime_snapshot["advanced"]["queue"]["queue_repair_enabled"].value<bool>().value_or(false));
+    CHECK(runtime_snapshot["advanced"]["queue"]["thin_queue_protection"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["queue"]["queue_add_direct_handler"].value<bool>().value_or(false));
     CHECK_FALSE(runtime_snapshot["advanced"]["queue"].as_table()->contains("queue_add_hide_viewers"));
 
@@ -484,5 +493,31 @@ action_queue_probe_files = 0
     CHECK(result.advanced.diagnostics.files.navhook_trace_files == 1);
     CHECK(result.advanced.diagnostics.files.action_queue_probe_max_kb == 1);
     CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 1);
+  }
+
+  TEST_CASE("opt-in runtime diagnostics are omitted from generated user config")
+  {
+    const auto source = R"toml(
+[advanced.diagnostics]
+runtime_trace = "off"
+runtime_trace_track_overhead = false
+runtime_trace_report_interval_ms = 5000
+mod_impact_monitor = false
+action_queue_guard_logging = false
+notification_skip_logging = false
+)toml";
+
+    auto user_config = toml::parse(source);
+
+    OmitOptInRuntimeDiagnosticsFromGeneratedUserConfig(user_config);
+
+    const auto* diagnostics = user_config["advanced"]["diagnostics"].as_table();
+    REQUIRE(diagnostics != nullptr);
+    CHECK_FALSE(diagnostics->contains("runtime_trace"));
+    CHECK_FALSE(diagnostics->contains("runtime_trace_track_overhead"));
+    CHECK_FALSE(diagnostics->contains("runtime_trace_report_interval_ms"));
+    CHECK_FALSE(diagnostics->contains("mod_impact_monitor"));
+    CHECK_FALSE(diagnostics->contains("action_queue_guard_logging"));
+    CHECK(diagnostics->contains("notification_skip_logging"));
   }
 }

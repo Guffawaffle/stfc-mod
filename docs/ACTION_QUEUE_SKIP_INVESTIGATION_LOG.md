@@ -1,8 +1,118 @@
 # Action Queue Skip Investigation Log
 
-> Current status: the manual refresh and ghost-hostile investigation work recorded below has been removed from the
-> live branch and is now out of scope. This log is preserved as historical evidence; the active branch goal is the
-> narrow Kir'shara queue-skip repair only.
+> Current status: the experiments below are historical evidence. The 2026-07-24 corpus shows that the game's current
+> `ActionQueueManager` has its own stall watchdog. Issue #186 therefore starts with read-only native-watchdog
+> diagnostics; the dormant Kir'shara repair remains disabled.
+
+## 2026-07-25 Corpus Correction and Issue #186 Guardrail
+
+- Canonical corpus paths for this investigation are `tools/il2cpp-dump/*`; the similarly named
+  `.ax-priv/tools/Il2CppDumper/*` artifact copies are stale and must not be used as current evidence.
+- The refreshed 2026-07-24 Windows dump contains:
+  - `WatchdogCoroutine()`
+  - `HandleStall(ActionQueueInstance, FleetPlayerData, FleetDeployedData)`
+  - `OnFleetsDisposedEventHandler(List<FleetDeployedData>)`
+  - `OnStrikeCompleteEventHandler(StrikeData)`
+- `ActionQueueInstance` now exposes native correlation state for the investigation:
+  - `IsEngaging`
+  - `LastEngageAttemptTime`
+  - `LastEngagedTargetId`
+  - `PendingEngageTargetId`
+- This supersedes the 2026-06-07 statement that `HandleStall` was absent. That statement remains below only as a
+  historical record of the older corpus.
+- The first #186 slice is marker-only and science-tier:
+  - record queue state before and after native stall handling
+  - distinguish a local strike completion from disposal by another player
+  - prove whether native recovery preserves the next queued target
+- The guard must not generically pop, advance, or mutate the queue. Any later repair must be one-shot, target-specific,
+  and fenced against the local-kill path so our own strike cannot cause a second drop.
+
+### Current native decision tree
+
+- `OnFleetsDisposedEventHandler` only forwards fleets whose `FleetRemovalReason` is `Recalled`, then routes marauders
+  through `ProcessQueue(deployedData, false)`. A fleet removed as `Destroyed` is ignored by this handler.
+- `OnStrikeCompleteEventHandler` iterates `StrikeData.Targets` and routes each destroyed `StrikeTarget` through
+  `ProcessQueue(targetFleetId, false)`.
+- `ProcessQueue(targetFleetId, canSelectNewTarget)` removes that exact target from every action-queue instance. It only
+  plans the next engagement immediately when the removed item was the head and `canSelectNewTarget` is `true`.
+- `HandleStall` retries `DoPlanPathAndEngageTarget` only after the native threshold, while the player fleet is idle and
+  the queue instance is not engaging. It does not remove a destroyed queue head.
+- `DoPlanPathAndEngageTarget` loops while `TryPlanPathAndEngageTarget` returns `EngageResult::SkipTarget`, but increments
+  a loop index while the queue shrinks. If invalid heads are removed, `index >= new queue count` can terminate the pass
+  with a new head that was never evaluated. The Junker `4 -> 2` capture is the runtime manifestation of this loop
+  shape.
+
+### Local-kill control
+
+- A two-hostile queue completed normally with marker-only diagnostics installed.
+- For both local kills, the defeated target was already absent from the queue before `OnFleetsDisposedEventHandler`.
+- At the first disposal, the queue contained exactly one item and the next target was already the head.
+- Therefore, the minimum double-drop fence for any later repair is: after native handling, the disposed target ID must
+  still equal the exact live queue head. An absent target or a different head is a proven no-op.
+
+### 2026-07-25 wave capture
+
+- Curated raw evidence is preserved in [`20260725-action-queue-wave-log-snapshot.md`](20260725-action-queue-wave-log-snapshot.md).
+- During a live wave, fleet `2644013931932498622` ended combat at `15:58:46.893` with one queued target remaining:
+  `2774349984152551989`.
+- The fleet was idle and the target stayed at the exact queue head through `HandleStall` checks at `15:58:48.719` and
+  `15:58:51.732`.
+- At `15:58:54.734`, the next native `HandleStall` call caused the nested plan/engage path to remove exactly that
+  invalid head. The queue changed from one item to empty; no second item was removed.
+- A `fleet-slot-impulse-started` event followed at `15:58:54.748`.
+- This proves that current native recovery can heal a stale final target after approximately 7.8 seconds from combat
+  end. A thin guard must not race this window merely because the fleet is idle and the head has not advanced yet.
+- A separate reported five-second apparent stall on the user's Junker hull (GS31) resolved through the normal
+  local-combat path: the live head remained the latched battle target until combat ended, and the queue was already
+  empty before that target's disposal handler ran. This is another double-drop no-op control, not proof of an
+  externally destroyed target.
+- The diagnostics only recorded numeric player-fleet identity at capture time. An older FleetBar label for the same
+  identity reflected a ship that was no longer running, so future captures must include the current hull ID/name and
+  fleet index directly rather than correlating against historical ship labels.
+
+#### First external-destroy capture (reported on Crozier)
+
+- The user reported a visible stall on the Crozier while one active fleet had queued target `2774352659246085717`
+  as its only head. The running diagnostic did not yet include live hull identity, so the human hull report and numeric
+  fleet identity cannot be joined with certainty in this overlapping two-fleet window.
+- At `16:04:22.068`, `OnFleetsDisposedEventHandler` received that exact target as destroyed, but the before/after
+  snapshots both retained it as the queue head. This is the externally destroyed head signature that issue #186
+  needed to prove.
+- The player fleet was idle and not engaging. `HandleStall` checks at `16:04:22.603` and `16:04:25.604` left the
+  one-item queue unchanged.
+- At `16:04:28.615`, the next `HandleStall` nested plan/engage attempt removed exactly the stale head. The queue changed
+  from one item to empty approximately 6.55 seconds after the target's disposal.
+- `PendingEngageTargetId` still referenced an older target (`2774352655051781709`) throughout the stalled window and
+  after the head removal. A guard must therefore use the exact live head plus observed destruction identity; pending
+  state is not authoritative enough to select a removal target.
+- No second queue item was removed. This capture proves both the missing destroyed-target commit and the native
+  self-healing timeout, while preserving the local-kill double-drop fence.
+
+#### Junker multi-target stall requiring manual cancellation
+
+- The user reported a worse visible stall on the Junker and manually cancelled the queue.
+- The correlated queue was idle, not engaging, and had head `2774353197283015371`. While it remained stalled, queue
+  additions grew it from one item at `16:05:16.799` to four items at `16:05:22.828`.
+- At `16:05:22.836`, one native `HandleStall` pass removed two items in a single nested plan/engage attempt. The queue
+  changed from four items to two, with new head `2774353196771310282`, but the fleet remained idle, not engaging, and
+  had no pending target.
+- The removed old head was not delivered to `OnFleetsDisposedEventHandler` until `16:05:23.014`, after native stall
+  handling had already removed it. A disposal-only guard therefore cannot prevent every visible stall.
+- At `16:05:25.832`, the next `HandleStall` pass left the two-item queue unchanged. The manual recovery then issued a
+  set-course/impulse transition at `16:05:28.471`; by the `16:05:28.842` snapshot, the action-queue instance was gone.
+- The new head was not observed in a disposal event until `16:05:37.761`, after manual cancellation. The remaining
+  head therefore cannot be assumed destroyed merely because the preceding watchdog pass pruned other items.
+- This establishes two separate thin-guard responsibilities:
+  1. When a destroyed target is still the exact live head after native disposal handling, remove that target by ID.
+  2. When native `HandleStall` removes one or more invalid IDs but leaves a non-empty queue idle with no engaging or
+     pending target, resume planning from the new head without removing the new head.
+- The running snapshot only recorded count and head, so it cannot identify every item removed by a multi-remove
+  watchdog pass. Future diagnostics must include a bounded list of queue target IDs.
+- The first dogfood implementation intentionally ships only responsibility 1 behind
+  `advanced.queue.thin_queue_protection`. It calls the native exact-target `ProcessQueue(targetId, false)` path only
+  after a second live-head/count/fleet check. Responsibility 2 remains observe-only: detailed diagnostics record a
+  resume candidate only when the complete bounded post-watchdog queue is an exact strict suffix of the prior queue.
+  No plan replay is issued until the new-head validity and re-entry behavior are proven.
 
 ## 2026-06-07 Restore Note
 
