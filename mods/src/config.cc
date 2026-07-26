@@ -77,7 +77,6 @@ static bool                      g_live_debug_channel       = DCAD::live_query;
 static bool                      g_queue_repair_enabled     = DCAQ::queue_repair_enabled;
 static KirsharaQueueRepairConfig g_kirshara_queue_repair_config{};
 static bool                      g_queue_add_direct_handler    = DCAQ::queue_add_direct_handler;
-static bool                      g_queue_add_hide_viewers      = DCAQ::queue_add_hide_viewers;
 static bool                      g_battle_log_decoder_enabled  = false;
 static bool                      g_battle_log_decoder_segments = true;
 static bool                      g_battle_log_decoder_feed     = true;
@@ -119,9 +118,6 @@ const KirsharaQueueRepairConfig& KirsharaQueueRepairSettings()
 
 bool QueueAddDirectHandlerEnabled()
 { return g_queue_repair_enabled && g_queue_add_direct_handler; }
-
-bool QueueAddHideViewersEnabled()
-{ return g_queue_repair_enabled && g_queue_add_hide_viewers; }
 
 bool BattleLogDecoderEnabled()
 { return g_battle_log_decoder_enabled; }
@@ -1420,7 +1416,6 @@ void Config::Load()
   g_kirshara_queue_repair_config = kirshara_queue_repair_config_result.config;
   g_queue_repair_enabled         = g_advanced_config.queue.queue_repair_enabled;
   g_queue_add_direct_handler     = g_advanced_config.queue.queue_add_direct_handler;
-  g_queue_add_hide_viewers       = g_advanced_config.queue.queue_add_hide_viewers;
   g_refinery_diagnostics         = g_advanced_config.diagnostics.refinery_diagnostics;
 
   const auto* advanced_table             = config["advanced"].as_table();

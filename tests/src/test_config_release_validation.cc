@@ -172,6 +172,5 @@ TEST_CASE("science config captures dormant queue repair surfaces")
   CHECK_FALSE(advanced_queue->get("queue_repair_enabled")->value<bool>().value_or(true));
   CHECK(advanced_queue->contains("queue_add_direct_handler"));
   CHECK_FALSE(advanced_queue->get("queue_add_direct_handler")->value<bool>().value_or(true));
-  CHECK(advanced_queue->contains("queue_add_hide_viewers"));
-  CHECK_FALSE(advanced_queue->get("queue_add_hide_viewers")->value<bool>().value_or(true));
+  CHECK_FALSE(advanced_queue->contains("queue_add_hide_viewers"));
 }

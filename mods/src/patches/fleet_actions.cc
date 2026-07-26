@@ -432,9 +432,7 @@ bool TryExecuteQueueAdd(PreScanTargetWidget* pre_scan_widget, SpaceActionDiagnos
     } else {
       diagnostics.MeasureQueueButtonPress([&]() { button->Press(); });
     }
-    if (QueueAddHideViewersEnabled()) {
-      diagnostics.MeasureHideViewers([&]() { DidHideViewers(); });
-    }
+    diagnostics.MeasureHideViewers([&]() { DidHideViewers(); });
   });
   diagnostics.Complete(direct_handler ? "queue-add-direct" : "queue-add");
   return true;

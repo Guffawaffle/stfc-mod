@@ -170,8 +170,6 @@ namespace Advanced
     constexpr bool queue_repair_enabled = false;
     /// Use the widget's direct queue-add handler instead of the generic button press path. Default: false.
     constexpr bool queue_add_direct_handler = false;
-    /// Keep queue-add viewer cleanup enabled after pressing the in-game Add to Queue button. Default: false.
-    constexpr bool queue_add_hide_viewers = false;
   } // namespace Queue
 
   namespace KirsharaQueue

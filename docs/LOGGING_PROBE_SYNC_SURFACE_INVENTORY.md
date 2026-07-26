@@ -124,7 +124,9 @@ Current-main rules for this snapshot:
     - `debug` and `logging` are dormant compatibility placeholders, not new active diagnostics controls
   - `[advanced.queue]`
     - Canonical queue experiment/dev-test namespace
-    - Active in this slice: `queue_add_direct_handler`, `queue_add_hide_viewers`
+    - Active in this slice: `queue_add_direct_handler`
+    - Deprecated compatibility-only input: `queue_add_hide_viewers`; successful queue-add actions always dismiss the
+      target viewer
 - Legacy and invalid sidecar config handling:
   - `sync.sidecar_jsonl*` legacy keys are rejected in favor of `[sidecar.logging]`
   - `[sync.targets.sidecar]` is invalid

@@ -44,14 +44,9 @@ course_target_completion = false
 # Legacy queue-add experiment/dev-test namespace. These keys do not control
 # Kir'shara queue progression repair.
 
-# Master opt-in gate for the queue-add path experiments below. Missing or false
-# keeps the queue-add overrides inactive.
+# Master opt-in gate for queue repair and the direct-handler experiment below.
 queue_repair_enabled = false
 
 # Use the widget's queue-click event handler directly instead of the generic
 # button press path. Ignored unless queue_repair_enabled is true.
 queue_add_direct_handler = false
-
-# When true, queue-add presses also close open viewers via DidHideViewers().
-# Ignored unless queue_repair_enabled is true. Keep false during isolation work.
-queue_add_hide_viewers = false

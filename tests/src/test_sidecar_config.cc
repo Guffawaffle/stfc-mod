@@ -32,6 +32,18 @@ bool has_diagnostic_source(const std::vector<config_schema::Diagnostic>& diagnos
   return false;
 }
 
+bool has_diagnostic_message_fragment(const std::vector<config_schema::Diagnostic>& diagnostics,
+                                     std::string_view path, std::string_view fragment)
+{
+  for (const auto& diagnostic : diagnostics) {
+    if (diagnostic.path == path && diagnostic.message.find(fragment) != std::string::npos) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool has_rejected_target(const std::vector<SidecarRejectedSyncTarget>& rejected_targets, std::string_view target_name)
 {
   for (const auto& rejected : rejected_targets) {
@@ -99,7 +111,6 @@ jsonl_recent_logs = 300
     CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 3);
     CHECK_FALSE(result.advanced.queue.queue_repair_enabled);
     CHECK_FALSE(result.advanced.queue.queue_add_direct_handler);
-    CHECK_FALSE(result.advanced.queue.queue_add_hide_viewers);
     CHECK(result.diagnostics.empty());
   }
 
@@ -192,7 +203,9 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 6);
     CHECK(result.advanced.queue.queue_repair_enabled);
     CHECK(result.advanced.queue.queue_add_direct_handler);
-    CHECK_FALSE(result.advanced.queue.queue_add_hide_viewers);
+    CHECK(has_diagnostic_source(result.diagnostics, "advanced.queue.queue_add_hide_viewers",
+                                "advanced.queue.queue_add_hide_viewers",
+                                config_schema::DiagnosticSeverity::Warning));
 
     CHECK(result.config.probes.ship_identity);
     CHECK(result.config.probes.battle_log_decoder);
@@ -225,6 +238,22 @@ logging = true
     CHECK_FALSE(result.advanced.diagnostics.hotkey_suppression_logging);
     CHECK_FALSE(result.advanced.diagnostics.notification_skip_logging);
     CHECK_FALSE(result.advanced.diagnostics.fleet_selection_timing_logging);
+  }
+
+  TEST_CASE("deprecated queue viewer key warns when its value is not boolean")
+  {
+    auto config = toml::parse(R"(
+[advanced.queue]
+queue_add_hide_viewers = "false"
+)");
+
+    const auto result = ParseSidecarConfig(config);
+
+    CHECK(has_diagnostic_source(result.diagnostics, "advanced.queue.queue_add_hide_viewers",
+                                "advanced.queue.queue_add_hide_viewers",
+                                config_schema::DiagnosticSeverity::Warning));
+    CHECK(has_diagnostic_message_fragment(result.diagnostics, "advanced.queue.queue_add_hide_viewers",
+                                          "Expected boolean, found string"));
   }
 
   TEST_CASE("invalid sidecar fleet runtime mode falls back to normal")
@@ -392,7 +421,6 @@ mode = "majel"
     advanced.diagnostics.files.action_queue_probe_files   = 5;
     advanced.queue.queue_repair_enabled                   = true;
     advanced.queue.queue_add_direct_handler               = true;
-    advanced.queue.queue_add_hide_viewers                 = false;
 
     toml::table runtime_snapshot;
     WriteSidecarConfigRuntimeSnapshot(runtime_snapshot, sidecar);
@@ -432,7 +460,7 @@ mode = "majel"
     REQUIRE(runtime_snapshot["advanced"]["queue"].is_table());
     CHECK(runtime_snapshot["advanced"]["queue"]["queue_repair_enabled"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["queue"]["queue_add_direct_handler"].value<bool>().value_or(false));
-    CHECK_FALSE(runtime_snapshot["advanced"]["queue"]["queue_add_hide_viewers"].value<bool>().value_or(true));
+    CHECK_FALSE(runtime_snapshot["advanced"]["queue"].as_table()->contains("queue_add_hide_viewers"));
 
     const auto* sidecar_table = runtime_snapshot["sidecar"].as_table();
     REQUIRE(sidecar_table != nullptr);
