@@ -16,9 +16,11 @@ than audio or notification policy.
 The replacement subscriber:
 
 - is armed by a safe fleet widget or event observation of an active transition;
-- scans all fleet slots at a bounded 250 ms cadence only while a fleet still requires transition follow-through;
+- scans all fleet slots at 250 ms for the first 30 seconds, then backs off to five seconds while a fleet still
+  requires transition follow-through;
 - shuts itself off after all observed fleets reach stable states;
-- suspends after a runtime access failure until a safe observation rearms it;
+- suspends after eight consecutive zero-fleet reads or a runtime access failure until a safe observation rearms it;
+- expires after a hard 24-hour lifetime so one request cannot poll forever;
 - feeds the existing deduplicating fleet-state notification machine.
 
 The first guarded canary established that the scanner could activate safely:
@@ -65,7 +67,10 @@ The final bounded build then passed back-to-back human tests with the Faction an
 This proves the final subscriber remained dormant before activity, followed the active fleet across both modal tests,
 delivered each arrival exactly once, and stopped after the last fleet reached a stable state.
 
-## Follow-up
+On 2026-07-26, the human observer also confirmed arrival audio while the Claims window was open. This completes the
+named Faction, Claims, and representative modal-surface acceptance matrix.
 
-The event canary remains opportunistic but is not required for delivery. Decide separately whether its demonstrated
-coverage justifies retaining that additional detour; do not couple that cleanup to the validated scanner behavior.
+## Final hook decision
+
+The `FleetEvents.TriggerPlayerFleetsChangedEvent` canary was removed before release. It produced zero observations in
+the relevant runtime test and is not required by the validated widget-triggered, `FleetsManager` follow-through path.

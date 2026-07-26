@@ -182,38 +182,6 @@
       "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
     },
     {
-      "id": "raw_spud_static_detour:mods/src/patches/parts/fleet_arrival.cc:521482d00446:1",
-      "kind": "raw_spud_static_detour",
-      "path": "mods/src/patches/parts/fleet_arrival.cc",
-      "normalized_text": "SPUD_STATIC_DETOUR(set_widget_data, FleetStateWidget_SetWidgetData_Hook);",
-      "category": "legacy_unmanaged",
-      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
-    },
-    {
-      "id": "raw_spud_static_detour:mods/src/patches/parts/fleet_arrival.cc:7fc0c7d656d0:1",
-      "kind": "raw_spud_static_detour",
-      "path": "mods/src/patches/parts/fleet_arrival.cc",
-      "normalized_text": "SPUD_STATIC_DETOUR(handle_mining_depleted, ToastFleetObserver_HandleMiningDepleted_Hook);",
-      "category": "legacy_unmanaged",
-      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
-    },
-    {
-      "id": "raw_spud_static_detour:mods/src/patches/parts/fleet_arrival.cc:7dab15373dbd:1",
-      "kind": "raw_spud_static_detour",
-      "path": "mods/src/patches/parts/fleet_arrival.cc",
-      "normalized_text": "SPUD_STATIC_DETOUR(queue_notifications, ToastFleetObserver_QueueNotifications_Hook);",
-      "category": "legacy_unmanaged",
-      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
-    },
-    {
-      "id": "raw_spud_static_detour:mods/src/patches/parts/fleet_arrival.cc:b7db5b22e22c:1",
-      "kind": "raw_spud_static_detour",
-      "path": "mods/src/patches/parts/fleet_arrival.cc",
-      "normalized_text": "SPUD_STATIC_DETOUR(update_timer_widget, MiningObjectViewerWidget_UpdateTimerWidget_Hook);",
-      "category": "legacy_unmanaged",
-      "reason": "Grandfathered unmanaged hook-like site from the manual 2026-06 gameplay seam baseline."
-    },
-    {
       "id": "raw_spud_static_detour:mods/src/patches/parts/free_resize.cc:be0e0cdee2c6:1",
       "kind": "raw_spud_static_detour",
       "path": "mods/src/patches/parts/free_resize.cc",

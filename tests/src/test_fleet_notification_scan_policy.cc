@@ -9,16 +9,16 @@ TEST_SUITE("fleet_notification_scan_policy")
     FleetNotificationScanPolicy policy;
 
     CHECK_FALSE(policy.ScanRequested());
-    CHECK_FALSE(policy.ShouldScan(1'000));
+    CHECK(policy.Evaluate(1'000) == FleetNotificationScanDecision::Idle);
 
     policy.RequestScan();
 
     CHECK(policy.ScanRequested());
-    CHECK(policy.ShouldScan(1'000));
-    CHECK_FALSE(policy.ShouldScan(1'249));
-    CHECK(policy.ShouldScan(1'250));
-    CHECK_FALSE(policy.ShouldScan(1'499));
-    CHECK(policy.ShouldScan(1'500));
+    CHECK(policy.Evaluate(1'000) == FleetNotificationScanDecision::Scan);
+    CHECK(policy.Evaluate(1'249) == FleetNotificationScanDecision::Wait);
+    CHECK(policy.Evaluate(1'250) == FleetNotificationScanDecision::Scan);
+    CHECK(policy.Evaluate(1'499) == FleetNotificationScanDecision::Wait);
+    CHECK(policy.Evaluate(1'500) == FleetNotificationScanDecision::Scan);
   }
 
   TEST_CASE("recovers if the supplied monotonic clock moves backwards")
@@ -26,24 +26,62 @@ TEST_SUITE("fleet_notification_scan_policy")
     FleetNotificationScanPolicy policy;
     policy.RequestScan();
 
-    CHECK(policy.ShouldScan(5'000));
-    CHECK(policy.ShouldScan(4'000));
-    CHECK_FALSE(policy.ShouldScan(4'249));
-    CHECK(policy.ShouldScan(4'250));
+    CHECK(policy.Evaluate(5'000) == FleetNotificationScanDecision::Scan);
+    CHECK(policy.Evaluate(4'000) == FleetNotificationScanDecision::Scan);
+    CHECK(policy.Evaluate(4'249) == FleetNotificationScanDecision::Wait);
+    CHECK(policy.Evaluate(4'250) == FleetNotificationScanDecision::Scan);
   }
 
-  TEST_CASE("suspends after runtime access failure until rearmed")
+  TEST_CASE("backs off long-lived transitional scans")
   {
     FleetNotificationScanPolicy policy;
     policy.RequestScan();
-    REQUIRE(policy.ShouldScan(10'000));
+    REQUIRE(policy.Evaluate(10'000) == FleetNotificationScanDecision::Scan);
 
-    policy.Suspend();
+    CHECK(policy.Evaluate(10'000 + kFleetNotificationScanBackoffAfterMs) == FleetNotificationScanDecision::Scan);
+    CHECK(policy.Evaluate(10'000 + kFleetNotificationScanBackoffAfterMs + 4'999)
+          == FleetNotificationScanDecision::Wait);
+    CHECK(policy.Evaluate(10'000 + kFleetNotificationScanBackoffAfterMs + 5'000)
+          == FleetNotificationScanDecision::Scan);
+  }
 
+  TEST_CASE("suspends after repeated zero-fleet observations until rearmed")
+  {
+    FleetNotificationScanPolicy policy;
+    policy.RequestScan();
+    REQUIRE(policy.Evaluate(10'000) == FleetNotificationScanDecision::Scan);
+
+    for (int index = 1; index < kFleetNotificationScanMaxConsecutiveEmpty; ++index) {
+      CHECK(policy.RecordObservation(0, 0) == FleetNotificationScanObservation::Continue);
+    }
+    CHECK(policy.RecordObservation(0, 0) == FleetNotificationScanObservation::NoFleets);
     CHECK_FALSE(policy.ScanRequested());
-    CHECK_FALSE(policy.ShouldScan(10'250));
+    CHECK(policy.Evaluate(10'250) == FleetNotificationScanDecision::Idle);
 
     policy.RequestScan();
-    CHECK(policy.ShouldScan(10'250));
+    CHECK(policy.Evaluate(10'250) == FleetNotificationScanDecision::Scan);
+  }
+
+  TEST_CASE("settles when observed fleets no longer require follow-through")
+  {
+    FleetNotificationScanPolicy policy;
+    policy.RequestScan();
+    REQUIRE(policy.Evaluate(10'000) == FleetNotificationScanDecision::Scan);
+
+    CHECK(policy.RecordObservation(7, 1) == FleetNotificationScanObservation::Continue);
+    CHECK(policy.RecordObservation(7, 0) == FleetNotificationScanObservation::Settled);
+    CHECK_FALSE(policy.ScanRequested());
+  }
+
+  TEST_CASE("expires a scan request after the hard lifetime")
+  {
+    FleetNotificationScanPolicy policy;
+    policy.RequestScan();
+    REQUIRE(policy.Evaluate(10'000) == FleetNotificationScanDecision::Scan);
+
+    CHECK(policy.Evaluate(10'000 + kFleetNotificationScanMaxLifetimeMs) == FleetNotificationScanDecision::Expired);
+
+    CHECK_FALSE(policy.ScanRequested());
+    CHECK(policy.Evaluate(10'000 + kFleetNotificationScanMaxLifetimeMs + 250) == FleetNotificationScanDecision::Idle);
   }
 }

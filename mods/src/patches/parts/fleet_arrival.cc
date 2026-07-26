@@ -30,11 +30,9 @@
 
 namespace
 {
-constexpr int              kNotificationProducerTypeIncomingFleet = 7;
-constexpr std::string_view kFleetArrivalOwner                     = "FleetArrivalHooks";
-constexpr std::string_view kFleetStateWidgetSeam                  = "Digit.Prime.HUD.FleetStateWidget.SetWidgetData";
-constexpr std::string_view kPlayerFleetsChangedSeam =
-    "Digit.PrimeServer.Events.FleetEvents.TriggerPlayerFleetsChangedEvent";
+constexpr int              kNotificationProducerTypeIncomingFleet    = 7;
+constexpr std::string_view kFleetArrivalOwner                        = "FleetArrivalHooks";
+constexpr std::string_view kFleetStateWidgetSeam                     = "Digit.Prime.HUD.FleetStateWidget.SetWidgetData";
 constexpr std::string_view kFleetRuntimeSyncEffect                   = "defer-fleet-runtime-snapshot";
 constexpr ptrdiff_t        kIncomingFleetParamsTargetTypeOffset      = 0x18;
 constexpr ptrdiff_t        kIncomingFleetParamsQuickScanResultOffset = 0x20;
@@ -44,14 +42,6 @@ constexpr ptrdiff_t        kIncomingFleetParamsObjectFleetIdOffset   = 0x10;
 constexpr ptrdiff_t        kQuickScanFleetDataFleetTypeOffset        = 0x18;
 constexpr ptrdiff_t        kQuickScanFleetDataTargetIdOffset         = 0x20;
 constexpr ptrdiff_t        kQuickScanFleetDataTargetFleetIdOffset    = 0x28;
-
-constexpr HookDescriptor kPlayerFleetsChangedHook = {
-    "FleetEvents.TriggerPlayerFleetsChangedEvent",
-    "observe player fleet-state changes without depending on Fleet Bar visibility",
-    {"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Events", "FleetEvents", "TriggerPlayerFleetsChangedEvent"},
-    "fleet arrival notifications may be missed while full-screen UI is open",
-    HookSupportTier::Production,
-};
 
 constexpr HookDescriptor kFleetStateWidgetHook = {
     "FleetStateWidget.SetWidgetData",
@@ -140,18 +130,6 @@ void observe_fleet_state(FleetPlayerData* fleet, std::string_view seam, std::str
   }
 }
 
-void FleetEvents_TriggerPlayerFleetsChangedEvent_Hook(auto original, IList* changedFleets)
-{
-  original(changedFleets);
-
-  const auto changed_fleet_count = changedFleets ? changedFleets->Count : 0;
-  spdlog::debug("[FleetState] source=player-fleets-changed changedCount={}", changed_fleet_count);
-  for (int index = 0; changedFleets && index < changed_fleet_count; ++index) {
-    auto* fleet = reinterpret_cast<FleetPlayerData*>(changedFleets->Get(index));
-    observe_fleet_state(fleet, kPlayerFleetsChangedSeam, "player-fleets-changed");
-  }
-}
-
 void FleetStateWidget_SetWidgetData_Hook(auto original, void* self)
 {
   auto* fleet = fleet_bar_widget_context(self);
@@ -231,28 +209,6 @@ void InstallFleetArrivalHooks()
 {
   fleet_notifications_init();
   HookModuleHealth hooks("FleetArrivalHooks");
-
-  if (!fleet_notifications_runtime_events_enabled()) {
-    hooks.record_skipped(kPlayerFleetsChangedHook, "no enabled fleet-state notification deliveries");
-  } else {
-    auto fleet_events =
-        il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Events", "FleetEvents");
-    if (!fleet_events.isValidHelper()) {
-      fleet_events = il2cpp_get_class_helper("Assembly-CSharp", "Digit.PrimeServer.Events", "FleetEvents");
-    }
-
-    if (!fleet_events.isValidHelper()) {
-      hooks.record_missing_helper(kPlayerFleetsChangedHook);
-    } else {
-      auto trigger_player_fleets_changed = fleet_events.GetMethod("TriggerPlayerFleetsChangedEvent", 1);
-      if (trigger_player_fleets_changed == nullptr) {
-        hooks.record_missing_method(kPlayerFleetsChangedHook);
-      } else {
-        HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kPlayerFleetsChangedHook, trigger_player_fleets_changed,
-                                         FleetEvents_TriggerPlayerFleetsChangedEvent_Hook);
-      }
-    }
-  }
 
   auto fleet_state_widget = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "FleetStateWidget");
   if (!fleet_state_widget.isValidHelper()) {

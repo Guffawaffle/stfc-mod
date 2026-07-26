@@ -86,8 +86,8 @@ TEST_CASE("fleet runtime sync requests require gameplay dispatch provenance")
 TEST_CASE("fleet notifications use one targeted runtime owner and keep broad deployment observers dormant")
 {
   const auto fleet_arrival_source = read_text_file("mods/src/patches/parts/fleet_arrival.cc");
-  CHECK(contains(fleet_arrival_source, "FleetEvents.TriggerPlayerFleetsChangedEvent"));
-  CHECK(contains(fleet_arrival_source, "FleetEvents_TriggerPlayerFleetsChangedEvent_Hook"));
+  CHECK_FALSE(contains(fleet_arrival_source, "FleetEvents.TriggerPlayerFleetsChangedEvent"));
+  CHECK_FALSE(contains(fleet_arrival_source, "FleetEvents_TriggerPlayerFleetsChangedEvent_Hook"));
   CHECK(contains(fleet_arrival_source, "HOOK_REGISTRY_SPUD_STATIC_DETOUR"));
   CHECK(contains(fleet_arrival_source, "fleet_notifications_observe_fleet_state"));
 
@@ -104,8 +104,9 @@ TEST_CASE("fleet notifications use one targeted runtime owner and keep broad dep
 
   const auto fleet_notifications_source = read_text_file("mods/src/patches/fleet_notifications.cc");
   CHECK(contains(fleet_notifications_source, "status=scan-requested"));
-  CHECK(contains(fleet_notifications_source, "result.follow_through_count == 0"));
-  CHECK(contains(fleet_notifications_source, "s_runtime_scan_policy.Suspend()"));
+  CHECK(contains(fleet_notifications_source, "FleetNotificationScanObservation::Settled"));
+  CHECK(contains(fleet_notifications_source, "reason=no-fleets"));
+  CHECK(contains(fleet_notifications_source, "reason=max-lifetime"));
 }
 
 TEST_CASE("sidecar local enqueue requires copied payload provenance")

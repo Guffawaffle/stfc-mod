@@ -366,10 +366,10 @@ const char* fleet_notifications_observe_fleet_state(FleetPlayerData* fleet, std:
     return nullptr;
   }
 
-  auto fleetId        = fleet->Id;
-  auto currentState   = fleet->CurrentState;
-  if (observationSource != "fleets-manager-scan" && fleet_state_requires_scan_follow_through(currentState)
-      && !s_runtime_scan_policy.ScanRequested()) {
+  auto fleetId      = fleet->Id;
+  auto currentState = fleet->CurrentState;
+  if (fleet_notifications_runtime_events_enabled() && observationSource != "fleets-manager-scan"
+      && fleet_state_requires_scan_follow_through(currentState) && !s_runtime_scan_policy.ScanRequested()) {
     s_runtime_scan_policy.RequestScan();
     spdlog::info("[FleetState] source={} status=scan-requested fleet={} state={}", observationSource, fleetId,
                  static_cast<int>(currentState));
@@ -440,7 +440,14 @@ void fleet_notifications_tick()
   const auto now_ms =
       std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
           .count();
-  if (!s_runtime_scan_policy.ShouldScan(now_ms)) {
+  const auto scan_decision = s_runtime_scan_policy.Evaluate(now_ms);
+  if (scan_decision == FleetNotificationScanDecision::Expired) {
+    s_runtime_scan_active_logged = false;
+    spdlog::warn("[FleetState] source=fleets-manager-scan status=suspended reason=max-lifetime lifetimeMs={}",
+                 kFleetNotificationScanMaxLifetimeMs);
+    return;
+  }
+  if (scan_decision != FleetNotificationScanDecision::Scan) {
     return;
   }
 
@@ -451,10 +458,14 @@ void fleet_notifications_tick()
                  kFleetNotificationScanIntervalMs, result.observed_count, result.follow_through_count);
   }
 
-  if (result.observed_count > 0 && result.follow_through_count == 0) {
-    s_runtime_scan_policy.Suspend();
+  const auto observation = s_runtime_scan_policy.RecordObservation(result.observed_count, result.follow_through_count);
+  if (observation == FleetNotificationScanObservation::Settled) {
     s_runtime_scan_active_logged = false;
     spdlog::info("[FleetState] source=fleets-manager-scan status=idle");
+  } else if (observation == FleetNotificationScanObservation::NoFleets) {
+    s_runtime_scan_active_logged = false;
+    spdlog::warn("[FleetState] source=fleets-manager-scan status=suspended reason=no-fleets emptyScans={}",
+                 kFleetNotificationScanMaxConsecutiveEmpty);
   }
 }
 
