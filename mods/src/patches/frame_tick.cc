@@ -9,6 +9,7 @@
 #include <spdlog/spdlog.h>
 
 #include "patches/frame_tick.h"
+#include "patches/fleet_notifications.h"
 #include "patches/fleet_runtime_sync.h"
 #include "patches/hook_registry.h"
 #include "patches/hotkey_router.h"
@@ -21,13 +22,14 @@ namespace {
 constexpr bool kEnableFrameTickHook = true;
 constexpr bool kEnableHotkeyFrameSubscriber = true;
 constexpr bool kEnableLiveDebugFrameSubscriber = true;
+constexpr bool kEnableFleetNotificationFrameSubscriber = true;
 constexpr bool kEnableFleetRuntimeSyncFrameSubscriber = true;
 
 constexpr HookDescriptor kScreenManagerUpdateHook = {
   "ScreenManager.Update",
-  "fan out frame ticks to hotkeys, live-debug, and future frame observers",
+  "fan out frame ticks to hotkeys, fleet notifications, live-debug, and runtime sync",
   {"Assembly-CSharp", "Digit.Client.UI", "ScreenManager", "Update"},
-  "frame-driven hotkeys or diagnostics will not tick",
+  "frame-driven hotkeys, fleet notifications, or diagnostics will not tick",
   HookSupportTier::Internal,
 };
 
@@ -50,6 +52,11 @@ bool fleet_runtime_sync_frame_subscriber_allowed()
   return kEnableFleetRuntimeSyncFrameSubscriber && fleet_runtime_sync_frame_subscriber_enabled();
 }
 
+bool fleet_notification_frame_subscriber_enabled()
+{
+  return kEnableFleetNotificationFrameSubscriber && fleet_notifications_runtime_events_enabled();
+}
+
 void log_frame_tick_subscribers()
 {
   spdlog::info("[FrameTick] subscriber=hotkey_router enabled={} reason=installHotkeyHooks compile_time_enabled={}",
@@ -61,6 +68,9 @@ void log_frame_tick_subscribers()
   spdlog::info("[FrameTick] subscriber=fleet_runtime_sync enabled={} reason=fleet_runtime compile_time_enabled={}",
                fleet_runtime_sync_frame_subscriber_allowed(),
                kEnableFleetRuntimeSyncFrameSubscriber);
+  spdlog::info("[FrameTick] subscriber=fleet_notifications enabled={} reason=fleet_arrival_delivery "
+               "compile_time_enabled={}",
+               fleet_notification_frame_subscriber_enabled(), kEnableFleetNotificationFrameSubscriber);
 }
 
 void tick_live_debug(ScreenManager* screen_manager)
@@ -95,6 +105,23 @@ void tick_fleet_runtime_sync()
   }
 }
 
+void tick_fleet_notifications()
+{
+  if (!fleet_notification_frame_subscriber_enabled()) {
+    return;
+  }
+
+  try {
+    fleet_notifications_tick();
+  } catch (const std::exception& ex) {
+    fleet_notifications_suspend_runtime_scan();
+    spdlog::error("[FrameTick] subscriber=fleet_notifications status=failed error='{}'", ex.what());
+  } catch (...) {
+    fleet_notifications_suspend_runtime_scan();
+    spdlog::error("[FrameTick] subscriber=fleet_notifications status=failed error='unknown exception'");
+  }
+}
+
 bool tick_hotkeys(ScreenManager* screen_manager)
 {
   ScopedModImpactTimer impact_timer(ModImpactProbe::FrameTickHotkeys, ModImpactMonitorEnabled());
@@ -125,6 +152,7 @@ void ScreenManager_Update_FrameTick_Hook(auto original, ScreenManager* screen_ma
   }
 
   tick_live_debug(screen_manager);
+  tick_fleet_notifications();
   tick_fleet_runtime_sync();
 }
 }
@@ -141,7 +169,7 @@ void InstallFrameTickHooks()
   }
 
   if (!hotkey_frame_subscriber_enabled() && !live_debug_frame_subscriber_enabled()
-      && !fleet_runtime_sync_frame_subscriber_allowed()) {
+      && !fleet_notification_frame_subscriber_enabled() && !fleet_runtime_sync_frame_subscriber_allowed()) {
     hooks.record_skipped(kScreenManagerUpdateHook, "no enabled frame subscribers");
     hooks.log_summary();
     return;

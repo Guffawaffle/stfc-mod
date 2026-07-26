@@ -9,6 +9,7 @@
 
 #include "config.h"
 #include "errormsg.h"
+#include "patches/fleet_notification_scan_policy.h"
 #include "patches/live_debug.h"
 #include "patches/live_debug_fleet_serializers.h"
 #include "patches/notification_audio.h"
@@ -38,6 +39,8 @@ std::unordered_map<uint64_t, std::string> s_fleet_bar_ship_names;
 std::unordered_map<uint64_t, std::string> s_fleet_bar_resource_names;
 std::unordered_map<uint64_t, float>       s_fleet_bar_cargo_fill_levels;
 std::unordered_map<uint64_t, int64_t>     s_mining_viewer_remaining_seconds;
+FleetNotificationScanPolicy               s_runtime_scan_policy;
+bool                                      s_runtime_scan_active_logged = false;
 
 constexpr size_t kIncomingAttackDedupeMaxEntries = 256;
 
@@ -53,6 +56,22 @@ struct IncomingAttackNotificationContext {
 int64_t incoming_attack_now_seconds()
 {
   return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+bool fleet_state_requires_scan_follow_through(const FleetState state)
+{
+  switch (state) {
+    case FleetState::TieringUp:
+    case FleetState::Repairing:
+    case FleetState::Battling:
+    case FleetState::WarpCharging:
+    case FleetState::Warping:
+    case FleetState::Impulsing:
+    case FleetState::Capturing:
+      return true;
+    default:
+      return false;
+  }
 }
 
 bool incoming_attack_notifications_enabled_for_kind(IncomingAttackPolicyAttackerKind attackerKind,
@@ -322,6 +341,8 @@ void maybe_notify_fleet_state_transition(uint64_t fleetId, const std::string& sh
 
 void fleet_notifications_init()
 {
+  s_runtime_scan_policy.Reset();
+  s_runtime_scan_active_logged = false;
   notification_init();
   notification_audio_init();
 }
@@ -347,6 +368,13 @@ const char* fleet_notifications_observe_fleet_state(FleetPlayerData* fleet, std:
 
   auto fleetId        = fleet->Id;
   auto currentState   = fleet->CurrentState;
+  if (observationSource != "fleets-manager-scan" && fleet_state_requires_scan_follow_through(currentState)
+      && !s_runtime_scan_policy.ScanRequested()) {
+    s_runtime_scan_policy.RequestScan();
+    spdlog::info("[FleetState] source={} status=scan-requested fleet={} state={}", observationSource, fleetId,
+                 static_cast<int>(currentState));
+  }
+
   auto shipName       = fleet_bar_ship_name(fleet);
   auto resourceName   = fleet_bar_resource_name(fleet);
   auto cargoFillLevel = fleet->CargoResourceFillLevel;
@@ -379,15 +407,16 @@ const char* fleet_notifications_observe_fleet_state(FleetPlayerData* fleet, std:
   return runtimeTriggerSource;
 }
 
-void fleet_notifications_observe_runtime_fleets()
+FleetNotificationRuntimeScanResult fleet_notifications_observe_runtime_fleets()
 {
+  FleetNotificationRuntimeScanResult result;
   if (!fleet_notifications_runtime_events_enabled()) {
-    return;
+    return result;
   }
 
   auto* fleets_manager = FleetsManager::Instance();
   if (!fleets_manager) {
-    return;
+    return result;
   }
 
   for (int slot_index = 0; slot_index < kFleetIndexMax; ++slot_index) {
@@ -397,7 +426,42 @@ void fleet_notifications_observe_runtime_fleets()
     }
 
     fleet_notifications_observe_fleet_state(fleet, "fleets-manager-scan");
+    ++result.observed_count;
+    if (fleet_state_requires_scan_follow_through(fleet->CurrentState)) {
+      ++result.follow_through_count;
+    }
   }
+
+  return result;
+}
+
+void fleet_notifications_tick()
+{
+  const auto now_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+          .count();
+  if (!s_runtime_scan_policy.ShouldScan(now_ms)) {
+    return;
+  }
+
+  const auto result = fleet_notifications_observe_runtime_fleets();
+  if (result.observed_count > 0 && !s_runtime_scan_active_logged) {
+    s_runtime_scan_active_logged = true;
+    spdlog::info("[FleetState] source=fleets-manager-scan status=active cadenceMs={} fleetCount={} followThrough={}",
+                 kFleetNotificationScanIntervalMs, result.observed_count, result.follow_through_count);
+  }
+
+  if (result.observed_count > 0 && result.follow_through_count == 0) {
+    s_runtime_scan_policy.Suspend();
+    s_runtime_scan_active_logged = false;
+    spdlog::info("[FleetState] source=fleets-manager-scan status=idle");
+  }
+}
+
+void fleet_notifications_suspend_runtime_scan()
+{
+  s_runtime_scan_policy.Suspend();
+  s_runtime_scan_active_logged = false;
 }
 
 void fleet_notifications_observe_node_depleted(int64_t fleetId)

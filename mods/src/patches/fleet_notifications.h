@@ -16,6 +16,11 @@
 
 struct FleetPlayerData;
 
+struct FleetNotificationRuntimeScanResult {
+  int observed_count       = 0;
+  int follow_through_count = 0;
+};
+
 /**
  * @brief Initialize notification dependencies used by fleet notifications.
  */
@@ -36,8 +41,19 @@ const char* fleet_notifications_observe_fleet_state(FleetPlayerData* fleet, std:
 
 /**
  * @brief Observe current FleetsManager state for all fleet slots and feed the fleet notification state machine.
+ * @return Observed slot count and the number still requiring transition follow-through.
  */
-void fleet_notifications_observe_runtime_fleets();
+FleetNotificationRuntimeScanResult fleet_notifications_observe_runtime_fleets();
+
+/**
+ * @brief Run the throttled frame subscriber that observes fleets independently of Fleet Bar visibility.
+ */
+void fleet_notifications_tick();
+
+/**
+ * @brief Suspend frame scanning after a runtime access failure until a safe event or widget observation rearms it.
+ */
+void fleet_notifications_suspend_runtime_scan();
 
 /**
  * @brief Observe a mining node depletion event for a fleet.

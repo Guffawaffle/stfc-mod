@@ -96,6 +96,16 @@ TEST_CASE("fleet notifications use one targeted runtime owner and keep broad dep
 
   const auto patch_source = read_text_file("mods/src/patches/patches.cc");
   CHECK(contains(patch_source, "install_deployment_runtime_observers = false"));
+  CHECK(contains(patch_source, "fleet_notifications_runtime_events_enabled()"));
+
+  const auto frame_tick_source = read_text_file("mods/src/patches/frame_tick.cc");
+  CHECK(contains(frame_tick_source, "fleet_notifications_tick()"));
+  CHECK(contains(frame_tick_source, "subscriber=fleet_notifications"));
+
+  const auto fleet_notifications_source = read_text_file("mods/src/patches/fleet_notifications.cc");
+  CHECK(contains(fleet_notifications_source, "status=scan-requested"));
+  CHECK(contains(fleet_notifications_source, "result.follow_through_count == 0"));
+  CHECK(contains(fleet_notifications_source, "s_runtime_scan_policy.Suspend()"));
 }
 
 TEST_CASE("sidecar local enqueue requires copied payload provenance")
