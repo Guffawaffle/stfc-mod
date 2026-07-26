@@ -60,6 +60,30 @@ constexpr HookDescriptor kActionQueueProcessTargetHook = {
     HookSupportTier::Science,
 };
 
+constexpr HookDescriptor kActionQueueDoPlanAndEngageHook = {
+    "ActionQueueManager.DoPlanPathAndEngageTarget",
+    "observe native plan/engage entry, result, and queue postcondition",
+    {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "DoPlanPathAndEngageTarget"},
+    "action-queue diagnostics cannot identify the native plan/engage boundary",
+    HookSupportTier::Science,
+};
+
+constexpr HookDescriptor kActionQueueOnFleetStateChangeHook = {
+    "ActionQueueManager.OnFleetStateChangeEventHandler",
+    "correlate deployed-fleet state transitions with active action queues",
+    {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "OnFleetStateChangeEventHandler"},
+    "action-queue diagnostics cannot locate the deployed-state handoff preceding queue advancement",
+    HookSupportTier::Science,
+};
+
+constexpr HookDescriptor kActionQueueOnPlayerFleetStateChangedHook = {
+    "ActionQueueManager.OnPlayerFleetStateChangedEventHandler",
+    "correlate player-fleet state transitions with active action queues",
+    {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "OnPlayerFleetStateChangedEventHandler"},
+    "action-queue diagnostics cannot locate the player-state handoff preceding queue advancement",
+    HookSupportTier::Science,
+};
+
 struct ActionQueueInstanceSnapshot {
   bool                        present         = false;
   std::int64_t                player_fleet_id = 0;
@@ -299,6 +323,25 @@ std::string SnapshotAllActionQueues(ActionQueueManager* manager)
   return out.str();
 }
 
+bool HasAnyActiveQueue(ActionQueueManager* manager)
+{
+  auto* battle_queue = BattleQueueArray(manager);
+  if (!battle_queue) {
+    return false;
+  }
+
+  auto*      array = reinterpret_cast<Il2CppArraySize*>(battle_queue);
+  const auto count = std::min<size_t>(array->max_length, 8);
+  for (size_t index = 0; index < count; ++index) {
+    auto* instance = il2cpp_get_array_element<Il2CppObject>(battle_queue, index);
+    auto  snapshot = SnapshotActionQueueInstance(instance);
+    if (snapshot.present && snapshot.count > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 struct DestroyedTargetIds {
   std::array<std::int64_t, 8> values{};
   int                         count = 0;
@@ -366,6 +409,26 @@ std::string SnapshotDisposedFleets(void* fleets)
   return out.str();
 }
 
+std::string SnapshotPlayerFleets(void* fleets)
+{
+  if (!fleets) {
+    return "list-unavailable";
+  }
+
+  auto*              list  = static_cast<IList*>(fleets);
+  const auto         count = std::min(std::max(list->Count, 0), 8);
+  std::ostringstream out;
+  out << "count=" << list->Count;
+  for (int index = 0; index < count; ++index) {
+    auto* fleet    = reinterpret_cast<FleetPlayerData*>(list->Get(index));
+    auto  identity = SnapshotPlayerFleetIdentity(fleet);
+    out << " item" << index << "={" << FormatPlayerFleetIdentity(identity)
+        << " state=" << (fleet ? static_cast<int>(fleet->CurrentState) : -1)
+        << " prev=" << (fleet ? static_cast<int>(fleet->PreviousState) : -1) << '}';
+  }
+  return out.str();
+}
+
 struct StrikeSnapshot {
   std::int64_t attacker_fleet_id = 0;
   std::int64_t target_fleet_id   = 0;
@@ -429,6 +492,83 @@ std::string SnapshotStrikeTargets(void* strike)
     out << " item" << index << "={id=" << target_id << " destroyed=" << destroyed << '}';
   }
   return out.str();
+}
+
+bool ActionQueueManager_DoPlanPathAndEngageTarget_Diagnostics(auto original, ActionQueueManager* manager,
+                                                              FleetPlayerData* player_fleet)
+{
+  if (!DiagnosticsEnabled()) {
+    return original(manager, player_fleet);
+  }
+
+  const auto player_identity = SnapshotPlayerFleetIdentity(player_fleet);
+  spdlog::info("[ActionQueueGuard] phase=before hook=DoPlanPathAndEngageTarget player={} state={} prev={} queues={}",
+               FormatPlayerFleetIdentity(player_identity),
+               player_fleet ? static_cast<int>(player_fleet->CurrentState) : -1,
+               player_fleet ? static_cast<int>(player_fleet->PreviousState) : -1, SnapshotAllActionQueues(manager));
+
+  const auto result = original(manager, player_fleet);
+
+  spdlog::info("[ActionQueueGuard] phase=after hook=DoPlanPathAndEngageTarget player={} result={} state={} prev={} "
+               "queues={}",
+               FormatPlayerFleetIdentity(player_identity), result,
+               player_fleet ? static_cast<int>(player_fleet->CurrentState) : -1,
+               player_fleet ? static_cast<int>(player_fleet->PreviousState) : -1, SnapshotAllActionQueues(manager));
+  return result;
+}
+
+void ActionQueueManager_OnFleetStateChange_Diagnostics(auto original, ActionQueueManager* manager, void* fleets)
+{
+  const auto trace         = DiagnosticsEnabled();
+  const auto active_before = trace && HasAnyActiveQueue(manager);
+  const auto fleets_before = trace ? SnapshotDisposedFleets(fleets) : std::string{};
+  const auto queues_before = trace ? SnapshotAllActionQueues(manager) : std::string{};
+  if (active_before) {
+    spdlog::info("[ActionQueueGuard] phase=before hook=OnFleetStateChange fleets={} queues={}", fleets_before,
+                 queues_before);
+  }
+
+  original(manager, fleets);
+
+  if (!trace) {
+    return;
+  }
+  const auto active_after = HasAnyActiveQueue(manager);
+  if (!active_before && active_after) {
+    spdlog::info("[ActionQueueGuard] phase=before hook=OnFleetStateChange fleets={} queues={}", fleets_before,
+                 queues_before);
+  }
+  if (active_before || active_after) {
+    spdlog::info("[ActionQueueGuard] phase=after hook=OnFleetStateChange fleets={} queues={}",
+                 SnapshotDisposedFleets(fleets), SnapshotAllActionQueues(manager));
+  }
+}
+
+void ActionQueueManager_OnPlayerFleetStateChanged_Diagnostics(auto original, ActionQueueManager* manager, void* fleets)
+{
+  const auto trace         = DiagnosticsEnabled();
+  const auto active_before = trace && HasAnyActiveQueue(manager);
+  const auto fleets_before = trace ? SnapshotPlayerFleets(fleets) : std::string{};
+  const auto queues_before = trace ? SnapshotAllActionQueues(manager) : std::string{};
+  if (active_before) {
+    spdlog::info("[ActionQueueGuard] phase=before hook=OnPlayerFleetStateChanged fleets={} queues={}", fleets_before,
+                 queues_before);
+  }
+
+  original(manager, fleets);
+
+  if (!trace) {
+    return;
+  }
+  const auto active_after = HasAnyActiveQueue(manager);
+  if (!active_before && active_after) {
+    spdlog::info("[ActionQueueGuard] phase=before hook=OnPlayerFleetStateChanged fleets={} queues={}", fleets_before,
+                 queues_before);
+  }
+  if (active_before || active_after) {
+    spdlog::info("[ActionQueueGuard] phase=after hook=OnPlayerFleetStateChanged fleets={} queues={}",
+                 SnapshotPlayerFleets(fleets), SnapshotAllActionQueues(manager));
+  }
 }
 
 void ActionQueueManager_HandleStall_Guard(auto original, ActionQueueManager* manager, void* instance,
@@ -594,6 +734,9 @@ void InstallActionQueueGuardHooks()
       hooks.record_missing_helper(kActionQueueHandleStallHook);
       hooks.record_missing_helper(kActionQueueOnStrikeCompleteHook);
       hooks.record_missing_helper(kActionQueueProcessTargetHook);
+      hooks.record_missing_helper(kActionQueueDoPlanAndEngageHook);
+      hooks.record_missing_helper(kActionQueueOnFleetStateChangeHook);
+      hooks.record_missing_helper(kActionQueueOnPlayerFleetStateChangedHook);
     }
     ErrorMsg::MissingHelper("ActionQueue", "ActionQueueManager");
     hooks.log_summary();
@@ -623,6 +766,9 @@ void InstallActionQueueGuardHooks()
   if (!DiagnosticsEnabled()) {
     hooks.record_skipped(kActionQueueOnStrikeCompleteHook, "detailed runtime trace disabled");
     hooks.record_skipped(kActionQueueProcessTargetHook, "detailed runtime trace disabled");
+    hooks.record_skipped(kActionQueueDoPlanAndEngageHook, "detailed runtime trace disabled");
+    hooks.record_skipped(kActionQueueOnFleetStateChangeHook, "detailed runtime trace disabled");
+    hooks.record_skipped(kActionQueueOnPlayerFleetStateChangedHook, "detailed runtime trace disabled");
   } else {
     if (auto method = manager_class.GetMethod("OnStrikeCompleteEventHandler"); method) {
       HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueOnStrikeCompleteHook, method,
@@ -642,6 +788,30 @@ void InstallActionQueueGuardHooks()
     } else {
       hooks.record_missing_method(kActionQueueProcessTargetHook);
       ErrorMsg::MissingMethod("ActionQueueManager", "ProcessQueue(Int64, bool)");
+    }
+
+    if (auto method = manager_class.GetMethod("DoPlanPathAndEngageTarget"); method) {
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueDoPlanAndEngageHook, method,
+                                       ActionQueueManager_DoPlanPathAndEngageTarget_Diagnostics);
+    } else {
+      hooks.record_missing_method(kActionQueueDoPlanAndEngageHook);
+      ErrorMsg::MissingMethod("ActionQueueManager", "DoPlanPathAndEngageTarget");
+    }
+
+    if (auto method = manager_class.GetMethod("OnFleetStateChangeEventHandler"); method) {
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueOnFleetStateChangeHook, method,
+                                       ActionQueueManager_OnFleetStateChange_Diagnostics);
+    } else {
+      hooks.record_missing_method(kActionQueueOnFleetStateChangeHook);
+      ErrorMsg::MissingMethod("ActionQueueManager", "OnFleetStateChangeEventHandler");
+    }
+
+    if (auto method = manager_class.GetMethod("OnPlayerFleetStateChangedEventHandler"); method) {
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueOnPlayerFleetStateChangedHook, method,
+                                       ActionQueueManager_OnPlayerFleetStateChanged_Diagnostics);
+    } else {
+      hooks.record_missing_method(kActionQueueOnPlayerFleetStateChangedHook);
+      ErrorMsg::MissingMethod("ActionQueueManager", "OnPlayerFleetStateChangedEventHandler");
     }
   }
 
