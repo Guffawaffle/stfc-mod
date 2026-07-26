@@ -490,4 +490,34 @@ action_queue_probe_files = 0
     CHECK(result.advanced.diagnostics.files.action_queue_probe_max_kb == 1);
     CHECK(result.advanced.diagnostics.files.action_queue_probe_files == 1);
   }
+
+  TEST_CASE("implicit runtime trace is omitted only from generated user config")
+  {
+    const auto source = R"toml(
+[advanced.diagnostics]
+runtime_trace = "off"
+notification_skip_logging = false
+)toml";
+
+    SUBCASE("implicit default is omitted")
+    {
+      auto user_config = toml::parse(source);
+
+      OmitImplicitRuntimeTraceFromUserConfig(user_config, false);
+
+      const auto* diagnostics = user_config["advanced"]["diagnostics"].as_table();
+      REQUIRE(diagnostics != nullptr);
+      CHECK_FALSE(diagnostics->contains("runtime_trace"));
+      CHECK(diagnostics->contains("notification_skip_logging"));
+    }
+
+    SUBCASE("explicit user value is retained")
+    {
+      auto user_config = toml::parse(source);
+
+      OmitImplicitRuntimeTraceFromUserConfig(user_config, true);
+
+      CHECK(user_config["advanced"]["diagnostics"]["runtime_trace"].value<std::string>().value_or("") == "off");
+    }
+  }
 }

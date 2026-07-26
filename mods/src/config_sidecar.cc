@@ -620,3 +620,20 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
   config_schema::write_bool(runtime_config, "advanced.queue.queue_add_direct_handler",
                             config.queue.queue_add_direct_handler);
 }
+
+void OmitImplicitRuntimeTraceFromUserConfig(toml::table& user_config, const bool runtime_trace_was_explicit)
+{
+  if (runtime_trace_was_explicit) {
+    return;
+  }
+
+  auto* advanced = user_config["advanced"].as_table();
+  if (!advanced) {
+    return;
+  }
+
+  auto* diagnostics = (*advanced)["diagnostics"].as_table();
+  if (diagnostics) {
+    diagnostics->erase("runtime_trace");
+  }
+}

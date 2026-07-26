@@ -1852,7 +1852,12 @@ void Config::Load()
     message << "Creating " << File::Config() << " (default config file)";
     spdlog::warn(message.str());
 
+    // Keep this opt-in diagnostic absent from the user-facing config, then restore its effective value for the runtime
+    // vars snapshot.
+    OmitImplicitRuntimeTraceFromUserConfig(parsed, explicit_runtime_trace);
     Config::Save(parsed, File::Config(), false);
+    write_runtime_trace_config(parsed, g_runtime_trace_level, g_runtime_trace_track_overhead, g_mod_impact_monitor,
+                               g_runtime_trace_report_interval_ms);
   }
 
   const auto input_binding_bridge = input_binding::ResolveInputBindingConfig(config);

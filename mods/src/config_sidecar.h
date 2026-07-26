@@ -24,4 +24,6 @@ void                                    WriteSidecarConfigRuntimeSnapshot(toml::
                                                                           const SidecarConfig& config);
 void                                    WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config,
                                                                            const AdvancedConfig& config);
+void                                    OmitImplicitRuntimeTraceFromUserConfig(toml::table& user_config,
+                                                                                bool runtime_trace_was_explicit);
 [[nodiscard]] bool                      IsLoopbackSidecarSyncUrl(std::string_view url);
