@@ -146,3 +146,16 @@ DoPlanPathAndEngageTarget ... replay_result=0 ... queue_after_guard={engaging=1 
 The target runtime check is the previously observed multi-target invalid-prefix case. Ordinary queue completion,
 unchanged same-head callbacks, empty queues, reordered queues, fleet replacement, and active survivor latches must
 remain no-ops.
+
+## Incremental recovery deployment boundary
+
+- Commit `ade600a` was deployed as releasedbg at 20:42:36.
+- The build and deployed DLL shared SHA-256
+  `DDD140BD2BCD01C6E2701BDF2C9DABE7883ED183AB4E13BE18A7D81283743637`.
+- The prior game PID 30916 stopped cleanly and the restarted game PID is 32760.
+- AX cycle completed with a healthy boot. The ActionQueueGuard module produced its expected hook-registry and patch
+  audit records, and the post-cycle status reported a clean worktree, matching deploy hash, running game, and no
+  current log errors.
+- The local sidecar endpoint at `127.0.0.1:43127` was unavailable after boot. This does not block native file-log
+  evidence or the queue guard itself, but recent-event ingestion through that endpoint should not be assumed available
+  until the sidecar is restarted separately.
