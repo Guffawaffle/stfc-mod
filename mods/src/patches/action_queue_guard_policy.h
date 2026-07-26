@@ -29,6 +29,34 @@ constexpr bool ShouldProcessDestroyedHead(bool enabled, bool target_destroyed, s
          && after_native.last_engaged_target_id != target_id && after_native.pending_target_id != target_id;
 }
 
+constexpr bool IsNoTargetOrRemovedPrefix(std::int64_t target_id, const QueueState& before_native, int removed_prefix)
+{
+  if (target_id <= 0) {
+    return true;
+  }
+
+  for (int index = 0; index < removed_prefix; ++index) {
+    if (before_native.target_ids[index] == target_id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+constexpr bool LatchNamesSurvivingTarget(std::int64_t target_id, const QueueState& queue)
+{
+  if (target_id <= 0) {
+    return false;
+  }
+
+  for (int index = 0; index < queue.count; ++index) {
+    if (queue.target_ids[index] == target_id) {
+      return true;
+    }
+  }
+  return false;
+}
+
 constexpr bool IsNativePruneResumeCandidate(bool enabled, bool player_fleet_idle, const QueueState& before_native,
                                             const QueueState& after_native)
 {
@@ -37,7 +65,6 @@ constexpr bool IsNativePruneResumeCandidate(bool enabled, bool player_fleet_idle
       || before_native.count <= 0 || after_native.count <= 0 || after_native.count >= before_native.count
       || before_native.head_target_id == 0 || after_native.head_target_id == 0
       || after_native.head_target_id == before_native.head_target_id || after_native.is_engaging
-      || after_native.last_engaged_target_id != 0 || after_native.pending_target_id != 0
       || before_native.targets_truncated || after_native.targets_truncated
       || before_native.captured_target_count != before_native.count
       || after_native.captured_target_count != after_native.count) {
@@ -50,7 +77,9 @@ constexpr bool IsNativePruneResumeCandidate(bool enabled, bool player_fleet_idle
       return false;
     }
   }
-  return true;
+
+  return IsNoTargetOrRemovedPrefix(after_native.last_engaged_target_id, before_native, removed_prefix)
+         && IsNoTargetOrRemovedPrefix(after_native.pending_target_id, before_native, removed_prefix);
 }
 
 constexpr bool IsStableResumePostcondition(const QueueState& expected, const QueueState& confirmed)
@@ -60,8 +89,11 @@ constexpr bool IsStableResumePostcondition(const QueueState& expected, const Que
       || confirmed.count != expected.count || expected.head_target_id == 0
       || confirmed.head_target_id != expected.head_target_id || expected.targets_truncated
       || confirmed.targets_truncated || expected.captured_target_count != expected.count
-      || confirmed.captured_target_count != confirmed.count || confirmed.is_engaging
-      || confirmed.last_engaged_target_id != 0 || confirmed.pending_target_id != 0) {
+      || confirmed.captured_target_count != confirmed.count || confirmed.is_engaging || expected.is_engaging
+      || confirmed.last_engaged_target_id != expected.last_engaged_target_id
+      || confirmed.pending_target_id != expected.pending_target_id
+      || LatchNamesSurvivingTarget(confirmed.last_engaged_target_id, confirmed)
+      || LatchNamesSurvivingTarget(confirmed.pending_target_id, confirmed)) {
     return false;
   }
 

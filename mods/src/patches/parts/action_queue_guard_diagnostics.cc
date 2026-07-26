@@ -62,7 +62,7 @@ constexpr HookDescriptor kActionQueueProcessTargetHook = {
 
 constexpr HookDescriptor kActionQueueDoPlanAndEngageHook = {
     "ActionQueueManager.DoPlanPathAndEngageTarget",
-    "observe native plan/engage entry, result, and queue postcondition",
+    "resume an exact surviving queue suffix immediately when native planning prunes its old head",
     {"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager", "DoPlanPathAndEngageTarget"},
     "action-queue diagnostics cannot identify the native plan/engage boundary",
     HookSupportTier::Science,
@@ -281,6 +281,24 @@ ActionQueueInstanceSnapshot FindQueueWithExactHead(ActionQueueManager* manager, 
   return {};
 }
 
+void* FindQueueInstanceForPlayerFleet(ActionQueueManager* manager, std::int64_t player_fleet_id)
+{
+  auto* battle_queue = BattleQueueArray(manager);
+  if (!battle_queue || player_fleet_id == 0) {
+    return nullptr;
+  }
+
+  auto*      array = reinterpret_cast<Il2CppArraySize*>(battle_queue);
+  const auto count = std::min<size_t>(array->max_length, 8);
+  for (size_t index = 0; index < count; ++index) {
+    auto* instance = il2cpp_get_array_element<Il2CppObject>(battle_queue, index);
+    if (SnapshotActionQueueInstance(instance).player_fleet_id == player_fleet_id) {
+      return instance;
+    }
+  }
+  return nullptr;
+}
+
 ProcessQueueTargetMethod* ResolveProcessQueueTarget()
 {
   if (!ActionQueueManagerClass().isValidHelper()) {
@@ -323,10 +341,10 @@ std::string SnapshotAllActionQueues(ActionQueueManager* manager)
   return out.str();
 }
 
-bool HasAnyActiveQueue(ActionQueueManager* manager)
+bool HasActiveQueueForFleet(ActionQueueManager* manager, std::int64_t player_fleet_id)
 {
   auto* battle_queue = BattleQueueArray(manager);
-  if (!battle_queue) {
+  if (!battle_queue || player_fleet_id == 0) {
     return false;
   }
 
@@ -335,7 +353,41 @@ bool HasAnyActiveQueue(ActionQueueManager* manager)
   for (size_t index = 0; index < count; ++index) {
     auto* instance = il2cpp_get_array_element<Il2CppObject>(battle_queue, index);
     auto  snapshot = SnapshotActionQueueInstance(instance);
-    if (snapshot.present && snapshot.count > 0) {
+    if (snapshot.present && snapshot.player_fleet_id == player_fleet_id && snapshot.count > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool DeployedFleetListTouchesActiveQueue(ActionQueueManager* manager, void* fleets)
+{
+  if (!fleets) {
+    return false;
+  }
+
+  auto*      list  = static_cast<IList*>(fleets);
+  const auto count = std::max(list->Count, 0);
+  for (int index = 0; index < count; ++index) {
+    auto* fleet = reinterpret_cast<FleetDeployedData*>(list->Get(index));
+    if (fleet && HasActiveQueueForFleet(manager, fleet->ID)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool PlayerFleetListTouchesActiveQueue(ActionQueueManager* manager, void* fleets)
+{
+  if (!fleets) {
+    return false;
+  }
+
+  auto*      list  = static_cast<IList*>(fleets);
+  const auto count = std::max(list->Count, 0);
+  for (int index = 0; index < count; ++index) {
+    auto* fleet = reinterpret_cast<FleetPlayerData*>(list->Get(index));
+    if (fleet && HasActiveQueueForFleet(manager, static_cast<std::int64_t>(fleet->Id))) {
       return true;
     }
   }
@@ -494,33 +546,102 @@ std::string SnapshotStrikeTargets(void* strike)
   return out.str();
 }
 
-bool ActionQueueManager_DoPlanPathAndEngageTarget_Diagnostics(auto original, ActionQueueManager* manager,
-                                                              FleetPlayerData* player_fleet)
+struct ResumeAttempt {
+  bool candidate = false;
+  bool attempted = false;
+  int  result    = -1;
+
+  bool succeeded() const
+  { return attempted && result == 0; }
+};
+
+ResumeAttempt TryResumeExactSurvivingSuffix(ActionQueueManager* manager, void* instance, FleetPlayerData* player_fleet,
+                                            bool player_idle, const ActionQueueInstanceSnapshot& before_native,
+                                            const ActionQueueInstanceSnapshot& after_native, const char* source)
 {
-  if (!DiagnosticsEnabled()) {
-    return original(manager, player_fleet);
+  ResumeAttempt attempt;
+  const auto    protection_enabled = ProtectionEnabled();
+  attempt.candidate =
+      action_queue_guard::IsNativePruneResumeCandidate(protection_enabled || DiagnosticsEnabled(), player_idle,
+                                                       ToPolicyState(before_native), ToPolicyState(after_native));
+
+  if (attempt.candidate) {
+    spdlog::info("[ActionQueueGuard] candidate=resume-after-native-prune source={} action={} fleet={} old_head={} "
+                 "new_head={} count_before={} count_after_native={} last={} pending={}",
+                 source, protection_enabled ? "verify-and-resume" : "observe-only", after_native.player_fleet_id,
+                 before_native.head_target_id, after_native.head_target_id, before_native.count, after_native.count,
+                 after_native.last_engaged_target_id, after_native.pending_engage_target_id);
   }
 
-  const auto player_identity = SnapshotPlayerFleetIdentity(player_fleet);
-  spdlog::info("[ActionQueueGuard] phase=before hook=DoPlanPathAndEngageTarget player={} state={} prev={} queues={}",
-               FormatPlayerFleetIdentity(player_identity),
-               player_fleet ? static_cast<int>(player_fleet->CurrentState) : -1,
-               player_fleet ? static_cast<int>(player_fleet->PreviousState) : -1, SnapshotAllActionQueues(manager));
+  if (!attempt.candidate || !protection_enabled) {
+    return attempt;
+  }
 
-  const auto result = original(manager, player_fleet);
+  const auto confirmed = SnapshotActionQueueInstance(instance);
+  if (!action_queue_guard::IsStableResumePostcondition(ToPolicyState(after_native), ToPolicyState(confirmed))) {
+    spdlog::info("[ActionQueueGuard] action=resume-after-native-prune source={} suppressed=postcondition-changed "
+                 "fleet={} expected_head={} confirmed_head={} expected_count={} confirmed_count={} expected_last={} "
+                 "confirmed_last={} expected_pending={} confirmed_pending={}",
+                 source, after_native.player_fleet_id, after_native.head_target_id, confirmed.head_target_id,
+                 after_native.count, confirmed.count, after_native.last_engaged_target_id,
+                 confirmed.last_engaged_target_id, after_native.pending_engage_target_id,
+                 confirmed.pending_engage_target_id);
+    return attempt;
+  }
 
-  spdlog::info("[ActionQueueGuard] phase=after hook=DoPlanPathAndEngageTarget player={} result={} state={} prev={} "
-               "queues={}",
-               FormatPlayerFleetIdentity(player_identity), result,
-               player_fleet ? static_cast<int>(player_fleet->CurrentState) : -1,
-               player_fleet ? static_cast<int>(player_fleet->PreviousState) : -1, SnapshotAllActionQueues(manager));
-  return result;
+  if (auto* try_engage = ResolveTryPlanPathAndEngageTarget(); try_engage && player_fleet) {
+    attempt.attempted = true;
+    attempt.result    = try_engage(manager, player_fleet, instance);
+    spdlog::info("[ActionQueueGuard] action=resume-after-native-prune source={} fleet={} head={} count={} "
+                 "engage_result={}",
+                 source, confirmed.player_fleet_id, confirmed.head_target_id, confirmed.count, attempt.result);
+  } else {
+    spdlog::warn("[ActionQueueGuard] action=resume-after-native-prune source={} "
+                 "skipped=missing-method-or-fleet fleet={} head={}",
+                 source, confirmed.player_fleet_id, confirmed.head_target_id);
+  }
+  return attempt;
+}
+
+bool ActionQueueManager_DoPlanPathAndEngageTarget_Guard(auto original, ActionQueueManager* manager,
+                                                        FleetPlayerData* player_fleet)
+{
+  const auto trace           = DiagnosticsEnabled();
+  const auto player_identity = trace ? SnapshotPlayerFleetIdentity(player_fleet) : PlayerFleetIdentitySnapshot{};
+  const auto player_fleet_id = player_fleet ? static_cast<std::int64_t>(player_fleet->Id) : 0;
+  auto*      instance        = FindQueueInstanceForPlayerFleet(manager, player_fleet_id);
+  const auto before          = SnapshotActionQueueInstance(instance);
+  if (trace) {
+    spdlog::info("[ActionQueueGuard] phase=before hook=DoPlanPathAndEngageTarget player={} state={} prev={} queue={}",
+                 FormatPlayerFleetIdentity(player_identity),
+                 player_fleet ? static_cast<int>(player_fleet->CurrentState) : -1,
+                 player_fleet ? static_cast<int>(player_fleet->PreviousState) : -1, FormatActionQueueInstance(before));
+  }
+
+  const auto native_result = original(manager, player_fleet);
+  const auto after_native  = SnapshotActionQueueInstance(instance);
+  const auto player_idle   = !native_result && player_fleet && before.player_fleet_id == player_fleet_id
+                             && after_native.player_fleet_id == player_fleet_id
+                             && player_fleet->CurrentState == FleetState::IdleInSpace;
+  const auto resume =
+      TryResumeExactSurvivingSuffix(manager, instance, player_fleet, player_idle, before, after_native, "DoPlan");
+
+  if (trace) {
+    spdlog::info(
+        "[ActionQueueGuard] phase=after hook=DoPlanPathAndEngageTarget player={} native_result={} "
+        "resume_candidate={} replay_result={} state={} prev={} queue_after_native={} queue_after_guard={}",
+        FormatPlayerFleetIdentity(player_identity), native_result, resume.candidate,
+        resume.attempted ? resume.result : -1, player_fleet ? static_cast<int>(player_fleet->CurrentState) : -1,
+        player_fleet ? static_cast<int>(player_fleet->PreviousState) : -1, FormatActionQueueInstance(after_native),
+        FormatActionQueueInstance(SnapshotActionQueueInstance(instance)));
+  }
+  return native_result || resume.succeeded();
 }
 
 void ActionQueueManager_OnFleetStateChange_Diagnostics(auto original, ActionQueueManager* manager, void* fleets)
 {
   const auto trace         = DiagnosticsEnabled();
-  const auto active_before = trace && HasAnyActiveQueue(manager);
+  const auto active_before = trace && DeployedFleetListTouchesActiveQueue(manager, fleets);
   const auto fleets_before = trace ? SnapshotDisposedFleets(fleets) : std::string{};
   const auto queues_before = trace ? SnapshotAllActionQueues(manager) : std::string{};
   if (active_before) {
@@ -533,7 +654,7 @@ void ActionQueueManager_OnFleetStateChange_Diagnostics(auto original, ActionQueu
   if (!trace) {
     return;
   }
-  const auto active_after = HasAnyActiveQueue(manager);
+  const auto active_after = DeployedFleetListTouchesActiveQueue(manager, fleets);
   if (!active_before && active_after) {
     spdlog::info("[ActionQueueGuard] phase=before hook=OnFleetStateChange fleets={} queues={}", fleets_before,
                  queues_before);
@@ -547,7 +668,7 @@ void ActionQueueManager_OnFleetStateChange_Diagnostics(auto original, ActionQueu
 void ActionQueueManager_OnPlayerFleetStateChanged_Diagnostics(auto original, ActionQueueManager* manager, void* fleets)
 {
   const auto trace         = DiagnosticsEnabled();
-  const auto active_before = trace && HasAnyActiveQueue(manager);
+  const auto active_before = trace && PlayerFleetListTouchesActiveQueue(manager, fleets);
   const auto fleets_before = trace ? SnapshotPlayerFleets(fleets) : std::string{};
   const auto queues_before = trace ? SnapshotAllActionQueues(manager) : std::string{};
   if (active_before) {
@@ -560,7 +681,7 @@ void ActionQueueManager_OnPlayerFleetStateChanged_Diagnostics(auto original, Act
   if (!trace) {
     return;
   }
-  const auto active_after = HasAnyActiveQueue(manager);
+  const auto active_after = PlayerFleetListTouchesActiveQueue(manager, fleets);
   if (!active_before && active_after) {
     spdlog::info("[ActionQueueGuard] phase=before hook=OnPlayerFleetStateChanged fleets={} queues={}", fleets_before,
                  queues_before);
@@ -594,47 +715,18 @@ void ActionQueueManager_HandleStall_Guard(auto original, ActionQueueManager* man
       && after_native.player_fleet_id == before.player_fleet_id && deployed_fleet->ID == before.player_fleet_id
       && player_fleet->CurrentState == FleetState::IdleInSpace && deployed_fleet->CurrentState == 0
       && !deployed_fleet->IsDestroyed && !deployed_fleet->CurrentlyBattling;
-  const auto protection_enabled = ProtectionEnabled();
-  const auto resume_candidate   = action_queue_guard::IsNativePruneResumeCandidate(
-      protection_enabled || DiagnosticsEnabled(), player_idle, ToPolicyState(before), ToPolicyState(after_native));
-  auto replay_attempted = false;
-  auto replay_result    = -1;
-
-  if (resume_candidate) {
-    spdlog::info("[ActionQueueGuard] candidate=resume-after-native-prune action={} fleet={} old_head={} "
-                 "new_head={} count_before={} count_after_native={}",
-                 protection_enabled ? "verify-and-resume" : "observe-only", after_native.player_fleet_id,
-                 before.head_target_id, after_native.head_target_id, before.count, after_native.count);
-  }
-
-  if (resume_candidate && protection_enabled) {
-    const auto confirmed = SnapshotActionQueueInstance(instance);
-    if (!action_queue_guard::IsStableResumePostcondition(ToPolicyState(after_native), ToPolicyState(confirmed))) {
-      spdlog::info("[ActionQueueGuard] action=resume-after-native-prune suppressed=postcondition-changed fleet={} "
-                   "expected_head={} confirmed_head={} expected_count={} confirmed_count={}",
-                   after_native.player_fleet_id, after_native.head_target_id, confirmed.head_target_id,
-                   after_native.count, confirmed.count);
-    } else if (auto* try_engage = ResolveTryPlanPathAndEngageTarget(); try_engage && player_fleet) {
-      replay_attempted = true;
-      replay_result    = try_engage(manager, player_fleet, instance);
-      spdlog::info("[ActionQueueGuard] action=resume-after-native-prune fleet={} head={} count={} engage_result={}",
-                   confirmed.player_fleet_id, confirmed.head_target_id, confirmed.count, replay_result);
-    } else {
-      spdlog::warn("[ActionQueueGuard] action=resume-after-native-prune skipped=missing-method-or-fleet fleet={} "
-                   "head={}",
-                   confirmed.player_fleet_id, confirmed.head_target_id);
-    }
-  }
+  const auto resume =
+      TryResumeExactSurvivingSuffix(manager, instance, player_fleet, player_idle, before, after_native, "HandleStall");
 
   if (DiagnosticsEnabled()) {
     const auto after_guard = SnapshotActionQueueInstance(instance);
     spdlog::info("[ActionQueueGuard] phase=after hook=HandleStall instance={} same_head={} count_delta_native={} "
-                 "resume_candidate={} replay_result={} queue_after_native={} queue_after_guard={} all_queues={}",
+                 "resume_candidate={} replay_result={} queue_after_native={} queue_after_guard={}",
                  static_cast<void*>(instance),
                  before.head_target_id != 0 && before.head_target_id == after_native.head_target_id,
-                 before.count >= 0 && after_native.count >= 0 ? after_native.count - before.count : 0, resume_candidate,
-                 replay_attempted ? replay_result : -1, FormatActionQueueInstance(after_native),
-                 FormatActionQueueInstance(after_guard), SnapshotAllActionQueues(manager));
+                 before.count >= 0 && after_native.count >= 0 ? after_native.count - before.count : 0, resume.candidate,
+                 resume.attempted ? resume.result : -1, FormatActionQueueInstance(after_native),
+                 FormatActionQueueInstance(after_guard));
   }
 }
 
@@ -728,13 +820,16 @@ void InstallActionQueueGuardHooks()
 {
   HookModuleHealth hooks("ActionQueueGuard");
   auto&            manager_class = ActionQueueManagerClass();
+  const auto       guard_enabled = DiagnosticsEnabled() || ProtectionEnabled();
   if (!manager_class.isValidHelper()) {
     hooks.record_missing_helper(kActionQueueOnFleetsDisposedHook);
-    if (DiagnosticsEnabled()) {
+    if (guard_enabled) {
       hooks.record_missing_helper(kActionQueueHandleStallHook);
+      hooks.record_missing_helper(kActionQueueDoPlanAndEngageHook);
+    }
+    if (DiagnosticsEnabled()) {
       hooks.record_missing_helper(kActionQueueOnStrikeCompleteHook);
       hooks.record_missing_helper(kActionQueueProcessTargetHook);
-      hooks.record_missing_helper(kActionQueueDoPlanAndEngageHook);
       hooks.record_missing_helper(kActionQueueOnFleetStateChangeHook);
       hooks.record_missing_helper(kActionQueueOnPlayerFleetStateChangedHook);
     }
@@ -743,7 +838,7 @@ void InstallActionQueueGuardHooks()
     return;
   }
 
-  if (!DiagnosticsEnabled() && !ProtectionEnabled()) {
+  if (!guard_enabled) {
     hooks.record_skipped(kActionQueueHandleStallHook, "thin protection and detailed runtime trace disabled");
   } else {
     if (auto method = manager_class.GetMethod("HandleStall"); method) {
@@ -753,6 +848,16 @@ void InstallActionQueueGuardHooks()
       hooks.record_missing_method(kActionQueueHandleStallHook);
       ErrorMsg::MissingMethod("ActionQueueManager", "HandleStall");
     }
+  }
+
+  if (!guard_enabled) {
+    hooks.record_skipped(kActionQueueDoPlanAndEngageHook, "thin protection and detailed runtime trace disabled");
+  } else if (auto method = manager_class.GetMethod("DoPlanPathAndEngageTarget"); method) {
+    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueDoPlanAndEngageHook, method,
+                                     ActionQueueManager_DoPlanPathAndEngageTarget_Guard);
+  } else {
+    hooks.record_missing_method(kActionQueueDoPlanAndEngageHook);
+    ErrorMsg::MissingMethod("ActionQueueManager", "DoPlanPathAndEngageTarget");
   }
 
   if (auto method = manager_class.GetMethod("OnFleetsDisposedEventHandler"); method) {
@@ -766,7 +871,6 @@ void InstallActionQueueGuardHooks()
   if (!DiagnosticsEnabled()) {
     hooks.record_skipped(kActionQueueOnStrikeCompleteHook, "detailed runtime trace disabled");
     hooks.record_skipped(kActionQueueProcessTargetHook, "detailed runtime trace disabled");
-    hooks.record_skipped(kActionQueueDoPlanAndEngageHook, "detailed runtime trace disabled");
     hooks.record_skipped(kActionQueueOnFleetStateChangeHook, "detailed runtime trace disabled");
     hooks.record_skipped(kActionQueueOnPlayerFleetStateChangedHook, "detailed runtime trace disabled");
   } else {
@@ -788,14 +892,6 @@ void InstallActionQueueGuardHooks()
     } else {
       hooks.record_missing_method(kActionQueueProcessTargetHook);
       ErrorMsg::MissingMethod("ActionQueueManager", "ProcessQueue(Int64, bool)");
-    }
-
-    if (auto method = manager_class.GetMethod("DoPlanPathAndEngageTarget"); method) {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kActionQueueDoPlanAndEngageHook, method,
-                                       ActionQueueManager_DoPlanPathAndEngageTarget_Diagnostics);
-    } else {
-      hooks.record_missing_method(kActionQueueDoPlanAndEngageHook);
-      ErrorMsg::MissingMethod("ActionQueueManager", "DoPlanPathAndEngageTarget");
     }
 
     if (auto method = manager_class.GetMethod("OnFleetStateChangeEventHandler"); method) {

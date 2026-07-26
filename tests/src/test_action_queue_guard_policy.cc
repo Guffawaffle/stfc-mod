@@ -101,7 +101,7 @@ TEST_SUITE("action_queue_guard_policy")
     CHECK_FALSE(action_queue_guard::IsNativePruneResumeCandidate(true, true, before, after));
   }
 
-  TEST_CASE("resume requires idle and fully unlatched native state")
+  TEST_CASE("resume requires idle state and rejects latches on the surviving suffix")
   {
     const auto before = Queue({101, 202, 303});
 
@@ -118,6 +118,33 @@ TEST_SUITE("action_queue_guard_policy")
 
     after.last_engaged_target_id = 0;
     after.pending_target_id      = 202;
+    CHECK_FALSE(action_queue_guard::IsNativePruneResumeCandidate(true, true, before, after));
+  }
+
+  TEST_CASE("resume accepts no-target sentinels and stale latches from the removed prefix")
+  {
+    const auto before = Queue({101, 202, 303, 404});
+
+    auto after                   = Queue({303, 404});
+    after.last_engaged_target_id = 101;
+    after.pending_target_id      = 202;
+    CHECK(action_queue_guard::IsNativePruneResumeCandidate(true, true, before, after));
+
+    after.last_engaged_target_id = -1;
+    after.pending_target_id      = -1;
+    CHECK(action_queue_guard::IsNativePruneResumeCandidate(true, true, before, after));
+  }
+
+  TEST_CASE("resume rejects unrelated positive native latches")
+  {
+    const auto before = Queue({101, 202, 303});
+
+    auto after              = Queue({303});
+    after.pending_target_id = 909;
+    CHECK_FALSE(action_queue_guard::IsNativePruneResumeCandidate(true, true, before, after));
+
+    after.pending_target_id      = 0;
+    after.last_engaged_target_id = 909;
     CHECK_FALSE(action_queue_guard::IsNativePruneResumeCandidate(true, true, before, after));
   }
 
@@ -164,6 +191,18 @@ TEST_SUITE("action_queue_guard_policy")
     confirmed                   = expected;
     confirmed.pending_target_id = 303;
     CHECK_FALSE(action_queue_guard::IsStableResumePostcondition(expected, confirmed));
+
+    auto stale_latch                   = expected;
+    stale_latch.last_engaged_target_id = 101;
+    stale_latch.pending_target_id      = 202;
+    CHECK(action_queue_guard::IsStableResumePostcondition(stale_latch, stale_latch));
+
+    confirmed                   = stale_latch;
+    confirmed.pending_target_id = 101;
+    CHECK_FALSE(action_queue_guard::IsStableResumePostcondition(stale_latch, confirmed));
+
+    stale_latch.pending_target_id = 303;
+    CHECK_FALSE(action_queue_guard::IsStableResumePostcondition(stale_latch, stale_latch));
 
     confirmed                 = expected;
     confirmed.player_fleet_id = 84;
