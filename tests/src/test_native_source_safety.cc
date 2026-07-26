@@ -8,46 +8,46 @@
 
 namespace
 {
-  std::filesystem::path find_repo_file(const std::string_view relative_path)
-  {
-    auto current = std::filesystem::current_path();
-    while (!current.empty()) {
-      const auto candidate = current / std::filesystem::path(relative_path);
-      if (std::filesystem::exists(candidate)) {
-        return candidate;
-      }
-
-      if (!current.has_parent_path()) {
-        break;
-      }
-
-      const auto parent = current.parent_path();
-      if (parent == current) {
-        break;
-      }
-
-      current = parent;
+std::filesystem::path find_repo_file(const std::string_view relative_path)
+{
+  auto current = std::filesystem::current_path();
+  while (!current.empty()) {
+    const auto candidate = current / std::filesystem::path(relative_path);
+    if (std::filesystem::exists(candidate)) {
+      return candidate;
     }
 
-    return {};
+    if (!current.has_parent_path()) {
+      break;
+    }
+
+    const auto parent = current.parent_path();
+    if (parent == current) {
+      break;
+    }
+
+    current = parent;
   }
 
-  std::string read_text_file(const std::string_view relative_path)
-  {
-    const auto path = find_repo_file(relative_path);
-    REQUIRE_MESSAGE(!path.empty(), "Failed to find " << std::string(relative_path));
-
-    std::ifstream input(path, std::ios::binary);
-    REQUIRE_MESSAGE(input.good(), "Failed to open " << path.string());
-
-    std::ostringstream buffer;
-    buffer << input.rdbuf();
-    return buffer.str();
-  }
-
-  bool contains(const std::string& text, const std::string_view needle)
-  { return text.find(needle) != std::string::npos; }
+  return {};
 }
+
+std::string read_text_file(const std::string_view relative_path)
+{
+  const auto path = find_repo_file(relative_path);
+  REQUIRE_MESSAGE(!path.empty(), "Failed to find " << std::string(relative_path));
+
+  std::ifstream input(path, std::ios::binary);
+  REQUIRE_MESSAGE(input.good(), "Failed to open " << path.string());
+
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return buffer.str();
+}
+
+bool contains(const std::string& text, const std::string_view needle)
+{ return text.find(needle) != std::string::npos; }
+} // namespace
 
 TEST_CASE("generated native shortcut pointer callback guard family stays quarantined")
 {
@@ -63,7 +63,7 @@ TEST_CASE("generated native shortcut pointer callback guard family stays quarant
       || contains(hotkeys_source, "native_shortcut_pointer_callback_guard_reason")
       || contains(hotkeys_source, "hotkey_router_should_suppress_native_shortcut_callback");
 
-    CHECK_FALSE(has_generated_callback_guard_install);
+  CHECK_FALSE(has_generated_callback_guard_install);
 }
 
 TEST_CASE("fleet runtime sync requests require gameplay dispatch provenance")
@@ -81,6 +81,32 @@ TEST_CASE("fleet runtime sync requests require gameplay dispatch provenance")
 
   const auto live_debug_source = read_text_file("mods/src/patches/parts/live_debug.cc");
   CHECK_FALSE(contains(live_debug_source, "fleet_runtime_sync_trigger(\""));
+}
+
+TEST_CASE("fleet notifications use one targeted runtime owner and keep broad deployment observers dormant")
+{
+  const auto fleet_arrival_source = read_text_file("mods/src/patches/parts/fleet_arrival.cc");
+  CHECK_FALSE(contains(fleet_arrival_source, "FleetEvents.TriggerPlayerFleetsChangedEvent"));
+  CHECK_FALSE(contains(fleet_arrival_source, "FleetEvents_TriggerPlayerFleetsChangedEvent_Hook"));
+  CHECK(contains(fleet_arrival_source, "HOOK_REGISTRY_SPUD_STATIC_DETOUR"));
+  CHECK(contains(fleet_arrival_source, "fleet_notifications_observe_fleet_state"));
+
+  const auto deployment_observer_source = read_text_file("mods/src/patches/parts/deployment_runtime_observers.cc");
+  CHECK_FALSE(contains(deployment_observer_source, "fleet_notifications_observe_runtime_fleets"));
+
+  const auto patch_source = read_text_file("mods/src/patches/patches.cc");
+  CHECK(contains(patch_source, "install_deployment_runtime_observers = false"));
+  CHECK(contains(patch_source, "fleet_notifications_runtime_events_enabled()"));
+
+  const auto frame_tick_source = read_text_file("mods/src/patches/frame_tick.cc");
+  CHECK(contains(frame_tick_source, "fleet_notifications_tick()"));
+  CHECK(contains(frame_tick_source, "subscriber=fleet_notifications"));
+
+  const auto fleet_notifications_source = read_text_file("mods/src/patches/fleet_notifications.cc");
+  CHECK(contains(fleet_notifications_source, "status=scan-requested"));
+  CHECK(contains(fleet_notifications_source, "FleetNotificationScanObservation::Settled"));
+  CHECK(contains(fleet_notifications_source, "reason=no-fleets"));
+  CHECK(contains(fleet_notifications_source, "reason=max-lifetime"));
 }
 
 TEST_CASE("sidecar local enqueue requires copied payload provenance")

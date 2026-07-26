@@ -815,9 +815,14 @@ void notification_show(const char* title, const char* body)
 
 bool notification_delivery_enabled(NotificationKind kind)
 {
+#if !STFCMOD_PLATFORM_WINDOWS
+  (void)kind;
+  return false;
+#else
   const auto& notifications = Config::Get().notifications;
   return (notifications.enabled && notification_policy_system_enabled(kind))
          || (notifications.audio_enabled && notification_policy_audio_enabled(kind));
+#endif
 }
 
 void notification_emit(NotificationKind kind, const char* title, const char* body)

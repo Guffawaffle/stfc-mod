@@ -285,7 +285,7 @@ notifications_surge_time_left = false
 enabled = false
 
 [notifications.system.fleet]
-# Fleet-bar derived OS notifications.
+# Fleet-state derived OS notifications.
 arrived_in_system = false
 arrived_at_destination = false
 started_mining = false
@@ -309,7 +309,7 @@ docked = { system = false, audio = false, sound = "soft" }
 repair_complete = { system = false, audio = false, sound = "repair" }
 
 [notifications.audio.fleet]
-# Fleet-bar derived audio cues. These are independent of OS notifications.
+# Fleet-state derived audio cues. These are independent of OS notifications.
 arrived_in_system = false
 
 #  <[=====================================================]>

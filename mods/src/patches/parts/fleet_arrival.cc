@@ -7,12 +7,12 @@
  * feature has a single targeted path instead of several inference fallbacks.
  */
 #include "config.h"
-#include "errormsg.h"
 
+#include <il2cpp/il2cpp_helper.h>
 #include <patches/fleet_notifications.h>
 #include <patches/fleet_runtime_sync.h>
+#include <patches/hook_registry.h>
 #include <patches/live_debug.h>
-#include <il2cpp/il2cpp_helper.h>
 #include <prime/FleetPlayerData.h>
 #include <prime/IList.h>
 #include <prime/MiningObjectViewerWidget.h>
@@ -28,24 +28,57 @@
 #include <string>
 #include <string_view>
 
-namespace {
-constexpr int kNotificationProducerTypeIncomingFleet = 7;
-constexpr std::string_view kFleetArrivalOwner = "FleetArrivalHooks";
-constexpr std::string_view kFleetStateWidgetSeam = "Digit.Prime.HUD.FleetStateWidget.SetWidgetData";
-constexpr std::string_view kFleetRuntimeSyncEffect = "defer-fleet-runtime-snapshot";
-constexpr ptrdiff_t kIncomingFleetParamsTargetTypeOffset = 0x18;
-constexpr ptrdiff_t kIncomingFleetParamsQuickScanResultOffset = 0x20;
-constexpr ptrdiff_t kIncomingFleetParamsParamsObjectOffset = 0x28;
-constexpr ptrdiff_t kIncomingFleetParamsParamsCaseOffset = 0x30;
-constexpr ptrdiff_t kIncomingFleetParamsObjectFleetIdOffset = 0x10;
-constexpr ptrdiff_t kQuickScanFleetDataFleetTypeOffset = 0x18;
-constexpr ptrdiff_t kQuickScanFleetDataTargetIdOffset = 0x20;
-constexpr ptrdiff_t kQuickScanFleetDataTargetFleetIdOffset = 0x28;
+namespace
+{
+constexpr int              kNotificationProducerTypeIncomingFleet    = 7;
+constexpr std::string_view kFleetArrivalOwner                        = "FleetArrivalHooks";
+constexpr std::string_view kFleetStateWidgetSeam                     = "Digit.Prime.HUD.FleetStateWidget.SetWidgetData";
+constexpr std::string_view kFleetRuntimeSyncEffect                   = "defer-fleet-runtime-snapshot";
+constexpr ptrdiff_t        kIncomingFleetParamsTargetTypeOffset      = 0x18;
+constexpr ptrdiff_t        kIncomingFleetParamsQuickScanResultOffset = 0x20;
+constexpr ptrdiff_t        kIncomingFleetParamsParamsObjectOffset    = 0x28;
+constexpr ptrdiff_t        kIncomingFleetParamsParamsCaseOffset      = 0x30;
+constexpr ptrdiff_t        kIncomingFleetParamsObjectFleetIdOffset   = 0x10;
+constexpr ptrdiff_t        kQuickScanFleetDataFleetTypeOffset        = 0x18;
+constexpr ptrdiff_t        kQuickScanFleetDataTargetIdOffset         = 0x20;
+constexpr ptrdiff_t        kQuickScanFleetDataTargetFleetIdOffset    = 0x28;
+
+constexpr HookDescriptor kFleetStateWidgetHook = {
+    "FleetStateWidget.SetWidgetData",
+    "observe Fleet Bar state refreshes as an opportunistic arrival fallback",
+    {"Assembly-CSharp", "Digit.Prime.HUD", "FleetStateWidget", "SetWidgetData"},
+    "Fleet Bar refreshes will not provide fallback fleet-state observations",
+    HookSupportTier::Production,
+};
+
+constexpr HookDescriptor kMiningDepletedHook = {
+    "ToastFleetObserver.HandleMiningDepleted",
+    "emit node-depleted fleet notifications",
+    {"Assembly-CSharp", "Digit.Prime.HUD", "ToastFleetObserver", "HandleMiningDepleted"},
+    "node-depleted fleet notifications will not fire",
+    HookSupportTier::Production,
+};
+
+constexpr HookDescriptor kQueueNotificationsHook = {
+    "ToastFleetObserver.QueueNotifications",
+    "classify incoming fleet attacks from materialized game notifications",
+    {"Assembly-CSharp", "Digit.Prime.HUD", "ToastFleetObserver", "QueueNotifications"},
+    "incoming fleet attack notifications will not fire",
+    HookSupportTier::Production,
+};
+
+constexpr HookDescriptor kMiningTimerHook = {
+    "MiningObjectViewerWidget.UpdateTimerWidget",
+    "capture mining ETA context for fleet notifications",
+    {"Assembly-CSharp", "Digit.Prime.ObjectViewer", "MiningObjectViewerWidget", "UpdateTimerWidget"},
+    "mining ETA context will be absent from fleet notifications",
+    HookSupportTier::Production,
+};
 
 struct QuickScanData {
-  int fleet_type = 0;
+  int         fleet_type = 0;
   std::string target_id;
-  uint64_t target_fleet_id = 0;
+  uint64_t    target_fleet_id = 0;
 };
 
 std::string read_string_field(Il2CppObject* object, ptrdiff_t offset)
@@ -61,11 +94,11 @@ QuickScanData read_quick_scan_data(Il2CppObject* quickScanResult)
     return data;
   }
 
-  data.fleet_type = *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(quickScanResult) +
-                                                kQuickScanFleetDataFleetTypeOffset);
-  data.target_id = read_string_field(quickScanResult, kQuickScanFleetDataTargetIdOffset);
-  data.target_fleet_id = static_cast<uint64_t>(*reinterpret_cast<int64_t*>(reinterpret_cast<char*>(quickScanResult) +
-                                                                           kQuickScanFleetDataTargetFleetIdOffset));
+  data.fleet_type =
+      *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(quickScanResult) + kQuickScanFleetDataFleetTypeOffset);
+  data.target_id       = read_string_field(quickScanResult, kQuickScanFleetDataTargetIdOffset);
+  data.target_fleet_id = static_cast<uint64_t>(
+      *reinterpret_cast<int64_t*>(reinterpret_cast<char*>(quickScanResult) + kQuickScanFleetDataTargetFleetIdOffset));
   return data;
 }
 
@@ -80,10 +113,9 @@ FleetPlayerData* fleet_bar_widget_context(void* self)
   return get_context ? get_context(self) : nullptr;
 }
 
-void FleetStateWidget_SetWidgetData_Hook(auto original, void* self)
+void observe_fleet_state(FleetPlayerData* fleet, std::string_view seam, std::string_view observationSource)
 {
-  auto* fleet = fleet_bar_widget_context(self);
-  if (const auto* trigger_source = fleet_notifications_observe_fleet_bar(fleet)) {
+  if (const auto* trigger_source = fleet_notifications_observe_fleet_state(fleet, observationSource)) {
     auto*      hull       = fleet ? fleet->Hull : nullptr;
     const auto hull_name  = hull && hull->Name ? to_string(hull->Name) : std::string{};
     const auto fleet_id   = fleet ? fleet->Id : 0;
@@ -91,11 +123,17 @@ void FleetStateWidget_SetWidgetData_Hook(auto original, void* self)
     const auto prev_state = fleet ? static_cast<int>(fleet->PreviousState) : -1;
     spdlog::info("[FleetRuntimeTrigger] stage=observed source={} owner={} seam={} fleet={} hull='{}' state={} prev={} "
                  "effect={}",
-                 trigger_source, kFleetArrivalOwner, kFleetStateWidgetSeam, fleet_id, hull_name, state, prev_state,
+                 trigger_source, kFleetArrivalOwner, seam, fleet_id, hull_name, state, prev_state,
                  kFleetRuntimeSyncEffect);
-    fleet_runtime_sync_trigger(gameplay_dispatch_context(trigger_source, kFleetArrivalOwner, kFleetStateWidgetSeam,
-                                                         trigger_source, kFleetRuntimeSyncEffect));
+    fleet_runtime_sync_trigger(
+        gameplay_dispatch_context(trigger_source, kFleetArrivalOwner, seam, trigger_source, kFleetRuntimeSyncEffect));
   }
+}
+
+void FleetStateWidget_SetWidgetData_Hook(auto original, void* self)
+{
+  auto* fleet = fleet_bar_widget_context(self);
+  observe_fleet_state(fleet, kFleetStateWidgetSeam, "fleet-state-widget");
 
   original(self);
 }
@@ -116,49 +154,40 @@ void ToastFleetObserver_QueueNotifications_Hook(auto original, void* self, IList
       continue;
     }
 
-    auto* incoming_params = notification->IncomingFleetParams;
-    auto target_type = incoming_params ? *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(incoming_params) +
-                                                                     kIncomingFleetParamsTargetTypeOffset)
-                                       : -1;
+    auto* incoming_params   = notification->IncomingFleetParams;
+    auto  target_type       = incoming_params ? *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(incoming_params)
+                                                                            + kIncomingFleetParamsTargetTypeOffset)
+                                              : -1;
     auto* quick_scan_result = incoming_params
-                                  ? *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(incoming_params) +
-                                                                      kIncomingFleetParamsQuickScanResultOffset)
+                                  ? *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(incoming_params)
+                                                                      + kIncomingFleetParamsQuickScanResultOffset)
                                   : nullptr;
-    auto quick_scan = read_quick_scan_data(quick_scan_result);
-    auto params_case = incoming_params ? *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(incoming_params) +
-                                                                     kIncomingFleetParamsParamsCaseOffset)
-                                       : 0;
-    auto* params_object = incoming_params
-                              ? *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(incoming_params) +
-                                                                  kIncomingFleetParamsParamsObjectOffset)
-                              : nullptr;
+    auto  quick_scan        = read_quick_scan_data(quick_scan_result);
+    auto  params_case       = incoming_params ? *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(incoming_params)
+                                                                            + kIncomingFleetParamsParamsCaseOffset)
+                                              : 0;
+    auto* params_object = incoming_params ? *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(incoming_params)
+                                                                              + kIncomingFleetParamsParamsObjectOffset)
+                                          : nullptr;
     uint64_t target_fleet_id = 0;
     if (params_case == 4 && params_object) {
-      target_fleet_id = static_cast<uint64_t>(*reinterpret_cast<int64_t*>(reinterpret_cast<char*>(params_object) +
-                                                                          kIncomingFleetParamsObjectFleetIdOffset));
+      target_fleet_id = static_cast<uint64_t>(*reinterpret_cast<int64_t*>(reinterpret_cast<char*>(params_object)
+                                                                          + kIncomingFleetParamsObjectFleetIdOffset));
     }
 
-    spdlog::debug("[IncomingAttack] queue index={} count={} targetType={} paramsCase={} targetFleetId={} quickScanFleetType={} quickScanTargetFleetId={} quickScanTargetId='{}'",
-                  index,
-                  notification_count,
-                  target_type,
-                  params_case,
-                  target_fleet_id,
-                  quick_scan.fleet_type,
-                  quick_scan.target_fleet_id,
-                  quick_scan.target_id);
-    live_debug_record_incoming_fleet_materialized("ToastFleetObserver.QueueNotifications",
-                                                  target_type,
-                                                  target_fleet_id,
-                                                  quick_scan.fleet_type,
-                                                  quick_scan.target_fleet_id,
+    spdlog::debug("[IncomingAttack] queue index={} count={} targetType={} paramsCase={} targetFleetId={} "
+                  "quickScanFleetType={} quickScanTargetFleetId={} quickScanTargetId='{}'",
+                  index, notification_count, target_type, params_case, target_fleet_id, quick_scan.fleet_type,
+                  quick_scan.target_fleet_id, quick_scan.target_id);
+    live_debug_record_incoming_fleet_materialized("ToastFleetObserver.QueueNotifications", target_type, target_fleet_id,
+                                                  quick_scan.fleet_type, quick_scan.target_fleet_id,
                                                   quick_scan.target_id);
     ToastFleetQueueNotificationsSignal signal;
-    signal.source = "toast-fleet-queue";
-    signal.target_fleet_id = target_fleet_id;
-    signal.target_type = target_type;
+    signal.source              = "toast-fleet-queue";
+    signal.target_fleet_id     = target_fleet_id;
+    signal.target_type         = target_type;
     signal.attacker_fleet_type = quick_scan.fleet_type;
-    signal.attacker_identity = quick_scan.target_id;
+    signal.attacker_identity   = quick_scan.target_id;
     fleet_notifications_notify_incoming_attack_target(signal);
   }
 
@@ -170,8 +199,8 @@ void MiningObjectViewerWidget_UpdateTimerWidget_Hook(auto original, MiningObject
 {
   original(self, selectedFleet);
 
-  auto* timerContext  = self ? self->_miningTimerWidgetContext : nullptr;
-  auto remainingTicks = timerContext ? timerContext->RemainingTime.Ticks : -1;
+  auto* timerContext   = self ? self->_miningTimerWidgetContext : nullptr;
+  auto  remainingTicks = timerContext ? timerContext->RemainingTime.Ticks : -1;
   fleet_notifications_observe_mining_timer(selectedFleet, remainingTicks);
 }
 } // namespace
@@ -179,52 +208,57 @@ void MiningObjectViewerWidget_UpdateTimerWidget_Hook(auto original, MiningObject
 void InstallFleetArrivalHooks()
 {
   fleet_notifications_init();
+  HookModuleHealth hooks("FleetArrivalHooks");
 
   auto fleet_state_widget = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "FleetStateWidget");
   if (!fleet_state_widget.isValidHelper()) {
-    ErrorMsg::MissingHelper("Digit.Prime.HUD", "FleetStateWidget");
-    return;
+    hooks.record_missing_helper(kFleetStateWidgetHook);
+  } else {
+    auto set_widget_data = fleet_state_widget.GetMethod("SetWidgetData");
+    if (set_widget_data == nullptr) {
+      hooks.record_missing_method(kFleetStateWidgetHook);
+    } else {
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kFleetStateWidgetHook, set_widget_data,
+                                       FleetStateWidget_SetWidgetData_Hook);
+    }
   }
-
-  auto set_widget_data = fleet_state_widget.GetMethod("SetWidgetData");
-  if (set_widget_data == nullptr) {
-    ErrorMsg::MissingMethod("FleetStateWidget", "SetWidgetData");
-    return;
-  }
-
-  SPUD_STATIC_DETOUR(set_widget_data, FleetStateWidget_SetWidgetData_Hook);
 
   auto toast_fleet_observer = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "ToastFleetObserver");
   if (!toast_fleet_observer.isValidHelper()) {
-    spdlog::warn("[Fleet] ToastFleetObserver helper not found; fleet observer hooks disabled");
+    hooks.record_missing_helper(kMiningDepletedHook);
+    hooks.record_missing_helper(kQueueNotificationsHook);
   } else {
     auto handle_mining_depleted = toast_fleet_observer.GetMethod("HandleMiningDepleted");
     if (handle_mining_depleted == nullptr) {
-      spdlog::warn("[Fleet] ToastFleetObserver.HandleMiningDepleted not found; node depleted notifications disabled");
+      hooks.record_missing_method(kMiningDepletedHook);
     } else {
-      SPUD_STATIC_DETOUR(handle_mining_depleted, ToastFleetObserver_HandleMiningDepleted_Hook);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kMiningDepletedHook, handle_mining_depleted,
+                                       ToastFleetObserver_HandleMiningDepleted_Hook);
     }
 
     auto queue_notifications = toast_fleet_observer.GetMethod("QueueNotifications", 1);
     if (queue_notifications == nullptr) {
-      spdlog::warn("[IncomingAttack] ToastFleetObserver.QueueNotifications not found; incoming attack notifications disabled");
+      hooks.record_missing_method(kQueueNotificationsHook);
     } else {
-      SPUD_STATIC_DETOUR(queue_notifications, ToastFleetObserver_QueueNotifications_Hook);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kQueueNotificationsHook, queue_notifications,
+                                       ToastFleetObserver_QueueNotifications_Hook);
     }
   }
 
-  auto mining_object_viewer = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.ObjectViewer", "MiningObjectViewerWidget");
+  auto mining_object_viewer =
+      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.ObjectViewer", "MiningObjectViewerWidget");
   if (!mining_object_viewer.isValidHelper()) {
-    spdlog::warn("[MiningViewer] MiningObjectViewerWidget helper not found; mining ETA disabled");
-    return;
+    hooks.record_missing_helper(kMiningTimerHook);
+  } else {
+    auto update_timer_widget =
+        mining_object_viewer.GetMethod<void(MiningObjectViewerWidget*, FleetPlayerData*)>("UpdateTimerWidget", 1);
+    if (update_timer_widget == nullptr) {
+      hooks.record_missing_method(kMiningTimerHook);
+    } else {
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kMiningTimerHook, update_timer_widget,
+                                       MiningObjectViewerWidget_UpdateTimerWidget_Hook);
+    }
   }
 
-  auto update_timer_widget = mining_object_viewer.GetMethod<void(MiningObjectViewerWidget*, FleetPlayerData*)>(
-      "UpdateTimerWidget", 1);
-  if (update_timer_widget == nullptr) {
-    spdlog::warn("[MiningViewer] MiningObjectViewerWidget.UpdateTimerWidget not found; mining ETA disabled");
-    return;
-  }
-
-  SPUD_STATIC_DETOUR(update_timer_widget, MiningObjectViewerWidget_UpdateTimerWidget_Hook);
+  hooks.log_summary();
 }

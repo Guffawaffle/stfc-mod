@@ -14,6 +14,7 @@
 #include "file.h"
 #include "patches/action_queue_guard_policy.h"
 #include "patches/deployment_runtime_observers.h"
+#include "patches/fleet_notifications.h"
 #include "patches/fleet_runtime_sync.h"
 #include "patches/notification_service.h"
 #include "patches/patch_install_policy.h"
@@ -264,6 +265,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   install_frame_tick_hooks = install_frame_tick_hooks || LiveDebugChannelEnabled();
 #endif
   install_frame_tick_hooks   = install_frame_tick_hooks || fleet_runtime_sync_frame_subscriber_enabled();
+  install_frame_tick_hooks   = install_frame_tick_hooks || fleet_notifications_runtime_events_enabled();
   const PatchEntry patches[] = {
       {"UiScaleHooks", "patches.uiscalehooks", "", "", InstallUiScaleHooks, cfg.installUiScaleHooks, false, true},
       {"ZoomHooks", "patches.zoomhooks", "", "ZoomPlanetViewHooks", InstallZoomHooks, cfg.installZoomHooks, false,
@@ -274,8 +276,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"PanHooks", "patches.panhooks", "", "", InstallPanHooks, cfg.installPanHooks, false, true},
       {"ImproveResponsivenessHooks", "patches.improveresponsivenesshooks", "", "", InstallImproveResponsivenessHooks,
        cfg.installImproveResponsivenessHooks, false, true},
-      {"FrameTickHooks", "", "hotkeys|live-debug|fleet-runtime-sync", "FrameTickHooks", InstallFrameTickHooks, false,
-       install_frame_tick_hooks, true},
+      {"FrameTickHooks", "", "hotkeys|live-debug|fleet-notifications|fleet-runtime-sync", "FrameTickHooks",
+       InstallFrameTickHooks, false, install_frame_tick_hooks, true},
       {"HotkeyHooks", "patches.hotkeyhooks", "", "HotkeyHooks", InstallHotkeyHooks, cfg.installHotkeyHooks, false,
        true},
       {"OpenBulkClaimGiftsHooks", "ui.auto_open_bulk_claim_flyout", "", "OpenBulkClaimGiftsHooks",

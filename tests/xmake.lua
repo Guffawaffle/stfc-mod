@@ -16,6 +16,7 @@ do
     add_files("../mods/src/config_schema.cc")
     add_files("../mods/src/diagnostics_file_policy.cc")
     add_files("../mods/src/patches/action_queue_repair_config.cc")
+    add_files("../mods/src/patches/fleet_notification_scan_policy.cc")
     add_files("../mods/src/patches/live_debug_event_store.cc")
     add_files("../mods/src/patches/live_debug_recent_event_requests.cc")
     add_files("../mods/src/patches/live_debug_fleet_serializers.cc")

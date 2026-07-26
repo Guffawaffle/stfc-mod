@@ -39,7 +39,7 @@ This inventory records source-level seams from a static-only review. It does not
 
 | Seam | Owner / file | Functionality supported | Risk class | Confidence / status |
 | --- | --- | --- | --- | --- |
-| `ScreenManager.Update` frame tick | `mods/src/patches/frame_tick.cc`, installed from `mods/src/patches/patches.cc` | Central frame fan-out for hotkeys, optional live-debug tick, and original frame policy | R5 behavioral | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
+| `ScreenManager.Update` frame tick | `mods/src/patches/frame_tick.cc`, installed from `mods/src/patches/patches.cc` | Central frame fan-out for hotkeys, activity-triggered fleet-state follow-through, optional live-debug tick, and original frame policy | R5 behavioral | Operationally relied on; hook installation runtime-verified on 2026-07-25. |
 | `ShortcutsManager.InitializeActions` | `mods/src/patches/parts/hotkeys.cc` | Controls whether Scopely shortcut initialization runs according to shortcut policy | R5 behavioral | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
 | `ShortcutsManager.LateUpdate` | `mods/src/patches/parts/hotkeys.cc` | Suppresses native shortcut update when dispatcher-owned input should win | R5 behavioral | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
 | `ShortcutsManager.SelectShip(int)` | `mods/src/patches/parts/hotkeys.cc` | Native fleet-selection suppression/fallthrough around numeric ship selection | R5 behavioral | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
@@ -49,9 +49,26 @@ This inventory records source-level seams from a static-only review. It does not
 | `SectionManager.BackButtonPressed` | `mods/src/patches/parts/hotkeys.cc` | Escape/back duplicate suppression | R5 behavioral | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
 | `NavigationInteractionUIViewController.OnSetCourseButtonClick` | `mods/src/patches/parts/hotkeys.cc` | Duplicate set-course suppression | R5 behavioral | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
 | `NavigationZoom.Update` | `mods/src/patches/parts/zoom.cc` | Zoom in/out, preset, min/max, and reset dispatch | R5 behavioral | Operationally relied on; static relationship mapped; not newly runtime-verified by this pass. |
-| `DeploymentEvents.Trigger*` live-debug/runtime-sync hooks | `mods/src/patches/parts/live_debug.cc`, installed from `mods/src/patches/patches.cc` when live query, fleet runtime sync, or fleet notifications need them | Fleet runtime observation, live-debug recent events, notifications, and sync triggers | R4/R5 native interpretation / product behavior | Grouped because the hooks share one event-source boundary; operationally relied on where configured; static relationship mapped; not newly runtime-verified by this pass. |
+| `FleetEvents.TriggerPlayerFleetsChangedEvent(List<FleetPlayerData>)` | Removed release canary; historical evidence below | Rejected opportunistic player fleet-state observation for notifications | R4 native interpretation | Hook installed successfully on 2026-07-25 but produced zero observations during the relevant hidden-Fleet-Bar arrival and was removed before release. |
+| `FleetStateWidget.SetWidgetData` | `mods/src/patches/parts/fleet_arrival.cc`, owned by `FleetArrivalHooks` | Opportunistic Fleet Bar fallback into the shared fleet-state notification machine | R4/R5 native interpretation / product behavior | Operationally relied on; static relationship mapped; retained as a deduped fallback rather than the authoritative source. |
+| `FleetsManager` scan from the shared frame tick | `mods/src/patches/fleet_notifications.cc`, called from `mods/src/patches/frame_tick.cc` | Fleet Bar-independent follow-through at a bounded 250 ms cadence while an observed fleet remains transitional | R5 behavioral | Runtime-validated twice on 2026-07-25: hidden-Fleet-Bar arrivals produced the expected transition, audio playback, and WinRT request; continuous post-login polling removed before publication. |
+| `DeploymentEvents.Trigger*` live-debug/runtime-sync hooks | `mods/src/patches/parts/live_debug.cc` and `mods/src/patches/parts/deployment_runtime_observers.cc` | Historical fleet runtime observation, live-debug events, notifications, and sync triggers | R4/R5 native interpretation / product behavior | Dormant/disabled after unattended action-queue stall evidence; do not reactivate as the fleet-notification source. |
 | `live_debug_tick(ScreenManager*)` | `mods/src/patches/parts/live_debug.cc`, reached through the frame tick subscriber when live query is enabled | File-backed live-debug request polling and read-only response generation | R4 native interpretation | Static relationship mapped; gated by `LiveDebugChannelEnabled()`; not newly runtime-verified by this pass. |
 | `probe::dump_*` / `probe::search_methods` | `mods/src/probe/probe.h` | Header-only IL2CPP runtime introspection toolkit | R0 while unused; R3/R4 if invoked in-process | Static toolkit only in this inventory. No active call site was found in the reviewed patch surface; do not treat it as a safe runtime probe without a separate ledger row and approval. |
+
+### `Digit.PrimeServer.Events.FleetEvents.TriggerPlayerFleetsChangedEvent(List<FleetPlayerData>)`
+
+- Former owner / file: release canary in `FleetArrivalHooks`, removed from `mods/src/patches/parts/fleet_arrival.cc`.
+- Intended question: observe player fleet-state changes while full-screen UI prevents `FleetStateWidget` refreshes.
+- Static evidence: the 2026-07-25 private research corpus contains `FleetEvents.TriggerPlayerFleetsChangedEvent` at `0x1565180` with the static signature `void(List<FleetPlayerData>)`; multiple game systems subscribe handlers with the same payload.
+- Risk class: R4 native interpretation. The hook calls the original first, then reads only the supplied list and existing typed `FleetPlayerData` fields.
+- Confidence rung: static relationship.
+- Runtime evidence: the hook installed successfully on 2026-07-25, but a one-system arrival with the Fleet Bar hidden emitted neither hook traffic nor a notification. A visible-Fleet-Bar recall immediately afterward produced sound, isolating the failure to observation rather than delivery.
+- Payload confidence: list shape and element type are statically corroborated; firing order, coverage, and transition timing remain unverified.
+- Original/trampoline confidence: unverified for this exact seam.
+- Flag / rollback path: the canary was removed without changing the validated widget/scanner path.
+- Status: rejected and removed before release because it added hook surface without demonstrated coverage.
+- Next action: keep absent unless new authoritative runtime evidence justifies a separately reviewed seam.
 
 ### `Digit.Prime.GameInput.ShortcutsManager.OnShipLocateAction(InputAction.CallbackContext)`
 
