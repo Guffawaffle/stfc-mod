@@ -39,7 +39,6 @@ namespace
       "advanced.diagnostics.files.root",
       "advanced.diagnostics.live_query",
       "advanced.diagnostics.reserved_native_payload_logging",
-      "advanced.diagnostics.mod_impact_monitor",
       "advanced.diagnostics.hotkey_suppression_logging",
       "advanced.diagnostics.notification_skip_logging",
       "advanced.diagnostics.fleet_selection_timing_logging",
