@@ -158,6 +158,8 @@
       "objective": "Provide searchable, validated sparse TOML editing while preserving comments and unknown keys.",
       "acceptance": [
         "Settings are generated from the shared schema.",
+        "The compact launcher home remains separate from the larger searchable settings workspace.",
+        "Notifications are grouped, searchable, and expandable without flattening meaningful event names or rendering every delivery control at once.",
         "Unknown keys and comments survive normal edits.",
         "Save uses backup, validation, and atomic replacement.",
         "Raw-file open and remove-override actions are available.",
@@ -212,6 +214,7 @@
       "objective": "Explain unhealthy states, offer bounded repairs, and export previewable redacted diagnostics without automatic upload.",
       "acceptance": [
         "Every health failure maps to an explanation and safe next action.",
+        "Normal launcher UI omits filesystem paths, discovery provenance, and internal health detail unless the user explicitly opens diagnostics.",
         "Diagnostic contents are previewed.",
         "Fixture tests prove token, private path, and private endpoint redaction.",
         "Repair never modifies files outside the allowlist.",
