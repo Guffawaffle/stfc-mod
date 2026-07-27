@@ -121,12 +121,32 @@ The integrated chrome retains ordinary Windows behavior:
 - accessible minimize, maximize/restore, and close controls;
 - resize borders, title-area dragging, and double-click maximize;
 - system commands and keyboard shortcuts;
-- Windows 11 Snap Layout discovery by returning `HTMAXBUTTON` over the custom
-  maximize/restore control.
+- edge snapping and the Windows `Win+Z` Snap Layout shortcut.
 
-Caption controls use deterministic Segoe UI symbols rather than optional icon
-fonts. The application still exposes its full product title to Windows,
-assistive technology, and the task switcher.
+Caption controls use centered vector geometry rather than font glyphs. The
+application still exposes its full product title to Windows, assistive
+technology, and the task switcher.
+
+Returning `HTMAXBUTTON` from custom WPF chrome caused Windows to draw native
+caption visuals over the launcher's control and is not used. Hover-triggered
+Snap Layouts may be reconsidered only if they can be enabled without mixed
+native/custom rendering.
+
+### Application identity assets
+
+The production launcher uses the existing community-mod artwork in
+`assets/launcher.png` and `assets/launcher.icns`. The Windows asset pipeline
+produces a multi-resolution `.ico` from that approved source and applies it
+consistently to:
+
+- the executable and taskbar;
+- the window and task switcher;
+- shortcuts and installer/update surfaces;
+- About and release-facing launcher artwork where appropriate.
+
+The launcher does not invent substitute release artwork. The final asset must
+remain legible at small Windows icon sizes and in both light and dark shell
+contexts.
 
 ### Theme
 
@@ -224,6 +244,13 @@ used because they imply a clickable launch action.
 `Checking` and `Unavailable` appear only when the process service can
 truthfully distinguish those states; the synchronous `WL-002` probe currently
 resolves only `Running` and `Not running`.
+
+The launcher uses an unprivileged Windows shell window-created signal to
+identify a new `prime.exe` process and the tracked process's exit signal to
+detect shutdown. It re-runs the authoritative process inspection only after a
+transition and does not continuously poll or require WMI. A manual Refresh
+action remains available if the operating-system event subscription cannot be
+established.
 
 ## Settings workspace
 
@@ -404,6 +431,12 @@ About remains product-focused:
 
 About is not a catch-all operational dashboard.
 
+About is rendered through the reusable in-application dialog host rather than
+a Windows message box. The host provides theme-aware presentation, arbitrary
+content, accessible naming, Escape dismissal, focus transfer, and focus
+restoration. Confirmations and other small modal interactions should reuse this
+primitive rather than create one-off popups.
+
 Diagnostics is an explicit drawer, page, or modal reachable from About and
 Advanced settings. It provides:
 
@@ -421,6 +454,35 @@ does not depend on the main UI remaining verbose. Diagnostics are never
 uploaded automatically.
 
 ## Accessibility and Windows behavior
+
+Accessibility is a design-system requirement, not a final validation pass.
+Reusable interaction primitives carry keyboard, focus, target-size, contrast,
+automation-name, and disabled-state behavior so individual screens cannot
+silently omit them.
+
+Ordinary actions such as About, Refresh Status, and dialog Close use one shared
+utility-action button style rather than custom subclasses. The shared primitive
+provides a minimum 44-pixel target, a dual-contrast focus treatment, consistent
+padding and typography, and a control boundary with at least 3:1 contrast.
+Custom controls are reserved for reusable behavior, such as the in-application
+dialog host.
+
+The Windows typography stack prefers `Segoe UI Variable Text` with `Segoe UI`
+fallback and uses medium body weight to remain readable across display scales
+without presenting as bold.
+
+The current palette audit meets WCAG 2.2 AA for normal text and meaningful
+control boundaries:
+
+| Token use | Dark | Light | Requirement |
+|---|---:|---:|---:|
+| Primary text on window | 17.86:1 | 14.85:1 | 4.5:1 |
+| Secondary text on surface | 8.47:1 | 5.37:1 | 4.5:1 |
+| Text on primary action | 5.03:1 | 5.61:1 | 4.5:1 |
+| Success text on surface | 8.89:1 | 5.42:1 | 4.5:1 |
+| Warning text on surface | 10.19:1 | 4.87:1 | 4.5:1 |
+| Error text on surface | 6.41:1 | 5.26:1 | 4.5:1 |
+| Utility control boundary on surface | 3.57:1 | 3.65:1 | 3:1 |
 
 The implementation must support:
 

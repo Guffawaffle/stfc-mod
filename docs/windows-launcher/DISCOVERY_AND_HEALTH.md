@@ -87,6 +87,13 @@ The Home surface shows:
 - explicit Running or Not running game-client state;
 - Refresh, About, and Light/Dark theme actions.
 
+`prime.exe` start and stop notifications are event-driven. An unprivileged
+Windows shell window-created signal identifies a new game process, and the
+tracked process's exit signal detects shutdown. Both trigger a fresh
+authoritative `IGameProcessInspector` check, so the Home updates without WMI or
+a timer. The manual Refresh action remains as a fallback when event
+subscription is unavailable.
+
 Candidate counts, provenance, storage ownership, filesystem paths, and raw
 health dimensions are intentionally absent. They remain internal inputs for
 future structured logs and the explicit redacted diagnostic surface in

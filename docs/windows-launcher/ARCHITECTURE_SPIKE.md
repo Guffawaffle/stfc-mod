@@ -33,6 +33,10 @@ they do not block downstream work from stacking on PR #198.
   correctly reported the running `prime.exe` game client.
 - Process inspection is isolated behind `IGameProcessInspector` and checks
   `prime.exe` without WMI, injection, or process mutation.
+- The Home may subscribe to unprivileged Windows shell creation events and the
+  tracked game process's exit signal as event-driven invalidation. The
+  inspector remains authoritative, and no WMI subscription, interval polling,
+  or process mutation is introduced.
 - Per-user program files and mutable state have separate ownership roots.
 - CI can test and publish the launcher without changing the C++ build jobs.
 
