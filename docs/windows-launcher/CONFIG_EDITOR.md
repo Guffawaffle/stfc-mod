@@ -49,6 +49,27 @@ No generic row writes directly to disk. This prevents the first visual shell
 from accidentally introducing immediate-save behavior that conflicts with the
 accepted staged-edit contract.
 
+## Accepted destination
+
+The directional Settings design in
+[UX_DIRECTION.md](UX_DIRECTION.md) remains the accepted product vision. The
+current generic cards and category dropdown are integration scaffolding, not a
+replacement information architecture and not a pixel-polish target.
+
+The next UI weave converges on:
+
+- persistent left navigation for Home and major setting families;
+- category-specific, compact editors instead of one generic card shape;
+- grouped notification rows with event state and delivery policy visible at a
+  glance;
+- dedicated Hotkeys and Data Sync experiences;
+- a persistent footer that reports unsaved changes and owns Discard and Save
+  Changes.
+
+Schema-driven generation remains the implementation rule beneath that
+category-specific presentation. The launcher must not turn the accepted design
+back into a handwritten second configuration catalog.
+
 ## Next weave
 
 1. Load the active TOML into a staged configuration session and resolve
