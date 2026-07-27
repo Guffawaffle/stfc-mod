@@ -97,6 +97,21 @@ then calls the private dispatcher at `/mnt/d/dev/stfc-mod/.ax-priv/ax.ps1`
 through the tracked `.ax/ax.ps1` facade. The existing Windows worktree at
 `/mnt/d/dev/stfc-mod` is not used as the build root.
 
+Successful build/deploy/cycle receipts include `sourceProvenance`. The provider
+uses one Git tracked-plus-untracked-nonignored NUL-delimited manifest for both
+source identity and Windows synchronization. It materializes that manifest in a
+fresh mirror with a new Git checkout, verifies the staged fingerprint, and
+fails if the source changes during synchronization. Ignored/private files are
+neither synchronized nor disclosed, and dirty initialized submodules fail
+closed.
+
+Clean receipts identify a reproducible commit. Dirty receipts distinguish the
+HEAD base commit from a deterministic `sourceStateId`, include a
+privacy-bounded ordered path summary with truncation metadata, and retain the
+private dispatcher’s distinct build/deployed artifact hashes. Legacy
+dispatcher commit fields must agree with the canonical base commit. Diffs and
+source bodies are never returned.
+
 The dump query commands currently run the existing Python dump tools from
 `/mnt/d/dev/stfc-mod/.ax-priv` and use that reference cache. The pure decoder
 validation path is native to `/srv/stfc-mod`.
