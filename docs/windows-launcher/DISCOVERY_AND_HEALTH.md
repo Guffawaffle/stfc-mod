@@ -55,6 +55,12 @@ Every read revalidates the directory and `prime.exe`; a malformed document,
 unsupported schema, missing directory, or removed executable fails closed and
 asks for a new selection.
 
+The normal launcher UI reports whether the game folder is set and valid without
+rendering its filesystem path. Candidate and per-user launcher paths are hidden
+as well so that a streamed or shared launcher window does not disclose local
+directory or account names. The selected path remains available internally for
+validation, persistence, and choosing a replacement folder.
+
 ## Composable health
 
 The launcher reports independent health dimensions instead of hiding one state
