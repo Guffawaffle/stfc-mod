@@ -173,6 +173,22 @@ function parseExampleConfig() {
   return entries;
 }
 
+function parseBoolConfigMetadata() {
+  const values = new Map();
+  const source = read("mods/src/config_metadata.h");
+  const specPattern =
+    /inline\s+constexpr\s+BoolConfigSpec\s+[A-Za-z0-9_]+\s*\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"[^"]+"\s*,\s*(true|false)\s*,\s*"([^"]*)"/g;
+  for (const match of source.matchAll(specPattern)) {
+    const settingPath = `${match[1]}.${match[2]}`;
+    values.set(settingPath, {
+      value: match[3] === "true",
+      description: match[4],
+      source: `mods/src/config_metadata.h:${settingPath}`,
+    });
+  }
+  return values;
+}
+
 function captureBalancedCall(source, name, startIndex) {
   const open = source.indexOf("(", startIndex + name.length);
   if (open < 0) return null;
@@ -249,6 +265,34 @@ function scanLiteralParserPaths() {
     cursor += name.length;
   }
   return paths;
+}
+
+function scanCustomParserPaths(defaults) {
+  const paths = new Set();
+  const canonicalSources = [
+    "mods/src/config_sidecar.cc",
+    "mods/src/patches/action_queue_repair_config.h",
+  ];
+  const canonicalPattern =
+    /"(advanced\.(?:diagnostics|queue|kirshara_queue)\.[A-Za-z0-9_.]+|sidecar\.(?:sync|logging)\.[A-Za-z0-9_.]+)"/g;
+  for (const relativePath of canonicalSources) {
+    for (const match of read(relativePath).matchAll(canonicalPattern)) {
+      if (defaults.has(match[1])) paths.add(match[1]);
+    }
+  }
+
+  const metadata = read("mods/src/config_metadata.h");
+  const boolSpecPattern =
+    /inline\s+constexpr\s+BoolConfigSpec\s+[A-Za-z0-9_]+\s*\{\s*"([^"]+)"\s*,\s*"([^"]+)"/g;
+  for (const match of metadata.matchAll(boolSpecPattern)) {
+    const settingPath = `${match[1]}.${match[2]}`;
+    if (defaults.has(settingPath)) paths.add(settingPath);
+  }
+  return paths;
+}
+
+function scanRuntimeScalarPaths(defaults = parseDefaultConfig()) {
+  return new Set([...scanLiteralParserPaths(), ...scanCustomParserPaths(defaults)]);
 }
 
 function parseInputBindings() {
@@ -424,6 +468,7 @@ function schemaType(settingPath, value) {
   const enumValues = {
     "input.scopely_shortcuts": ["off", "native", "fallback"],
     "input.original_frame_policy": ["mod", "fallthrough_unhandled", "fallthrough_all"],
+    "advanced.diagnostics.runtime_trace": ["off", "summary", "detailed", "verbose"],
     "sidecar.sync.fleet_runtime_mode": ["normal", "request_only", "snapshot_only", "enqueue_no_transport"],
   };
   if (settingPath.startsWith("ui.mission_hud.")) {
@@ -445,7 +490,9 @@ function sensitivityFor(settingPath) {
 }
 
 function stabilityFor(settingPath) {
-  if (settingPath.startsWith("advanced.diagnostics.")) return "internal";
+  if (settingPath.startsWith("advanced.diagnostics.")
+      || settingPath.startsWith("advanced.kirshara_queue.")
+      || settingPath === "control.allow_key_fallthrough") return "internal";
   if (settingPath.startsWith("patches.")) return "advanced";
   if (settingPath === "control.enable_experimental" || settingPath.startsWith("advanced.queue.")) return "experimental";
   return "stable";
@@ -486,6 +533,12 @@ function constraintsFor(settingPath) {
   if (/^advanced\.diagnostics\.files\.(?:navhook_trace|action_queue_probe)_(?:max_kb|files)$/.test(settingPath)) {
     return { minimum: 1 };
   }
+  if (settingPath === "advanced.diagnostics.runtime_trace_report_interval_ms") {
+    return { minimum: 1000, maximum: 60000 };
+  }
+  if (settingPath === "sidecar.logging.jsonl_replay_seconds" || settingPath === "sidecar.logging.jsonl_recent_logs") {
+    return { minimum: 0 };
+  }
   return {};
 }
 
@@ -496,10 +549,31 @@ function resolveDefaultPath(settingPath) {
   return settingPath;
 }
 
+function makeScalarSetting(settingPath, fallback, description = "") {
+  const constraints = constraintsFor(settingPath);
+  return {
+    path: settingPath,
+    title: titleCase(settingPath.split(".").at(-1)),
+    description: fallback.description || description || `Configure ${titleCase(settingPath.split(".").at(-1)).toLowerCase()}.`,
+    category: settingPath.split(".")[0],
+    control: "scalar",
+    valueType: schemaType(settingPath, fallback.value),
+    ...(Object.keys(constraints).length > 0 ? { constraints } : {}),
+    default: fallback.value,
+    platforms: ["windows", "macos"],
+    apply: applyFor(settingPath),
+    sensitivity: sensitivityFor(settingPath),
+    stability: stabilityFor(settingPath),
+    sourceSupport: ["guffawaffle"],
+    aliases: scalarAliases(settingPath),
+    provenance: { runtimePath: settingPath, defaultSource: fallback.source },
+  };
+}
+
 function buildSchema() {
-  const defaults = parseDefaultConfig();
+  const defaults = new Map([...parseDefaultConfig(), ...parseBoolConfigMetadata()]);
   const example = parseExampleConfig();
-  const parserPaths = scanLiteralParserPaths();
+  const parserPaths = scanRuntimeScalarPaths(defaults);
   const settings = [];
   const seen = new Set();
 
@@ -512,29 +586,21 @@ function buildSchema() {
     seen.add(canonicalPath);
 
     const defaultPath = resolveDefaultPath(canonicalPath);
-    const fallback = defaults.get(defaultPath);
+    const fallback = defaultPath ? defaults.get(defaultPath) : null;
     if (!fallback) {
       throw new Error(`No runtime default was resolved for ${canonicalPath} (looked for ${defaultPath}).`);
     }
 
-    const constraints = constraintsFor(canonicalPath);
-    settings.push({
-      path: canonicalPath,
-      title: titleCase(canonicalPath.split(".").at(-1)),
-      description: fallback.description || entry.description || `Configure ${titleCase(canonicalPath.split(".").at(-1)).toLowerCase()}.`,
-      category: canonicalPath.split(".")[0],
-      control: "scalar",
-      valueType: schemaType(canonicalPath, fallback.value),
-      ...(Object.keys(constraints).length > 0 ? { constraints } : {}),
-      default: fallback.value,
-      platforms: ["windows", "macos"],
-      apply: applyFor(canonicalPath),
-      sensitivity: sensitivityFor(canonicalPath),
-      stability: stabilityFor(canonicalPath),
-      sourceSupport: ["guffawaffle"],
-      aliases: scalarAliases(canonicalPath),
-      provenance: { runtimePath: canonicalPath, defaultSource: fallback.source },
-    });
+    settings.push(makeScalarSetting(canonicalPath, fallback, entry.description));
+  }
+
+  for (const parserPath of parserPaths) {
+    if (seen.has(parserPath)) continue;
+    const defaultPath = resolveDefaultPath(parserPath);
+    const fallback = defaults.get(defaultPath);
+    if (!fallback) throw new Error(`No runtime default was resolved for custom parser path ${parserPath}.`);
+    seen.add(parserPath);
+    settings.push(makeScalarSetting(parserPath, fallback));
   }
 
   settings.push(...parseSyncTargetSettings(defaults), ...parseInputBindings(), ...parseNotificationSettings());
@@ -594,4 +660,12 @@ if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
   }
 }
 
-export { buildSchema, parseDefaultConfig, parseExampleConfig, scanLiteralParserPaths };
+export {
+  buildSchema,
+  parseDefaultConfig,
+  parseBoolConfigMetadata,
+  parseExampleConfig,
+  scanCustomParserPaths,
+  scanLiteralParserPaths,
+  scanRuntimeScalarPaths,
+};

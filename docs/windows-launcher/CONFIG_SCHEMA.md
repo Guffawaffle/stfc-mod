@@ -37,8 +37,10 @@ then delegates value-specific behavior to the matching adapter.
 
 - Ordinary runtime defaults and descriptions come from
   `mods/src/defaultconfig.h`. The public surface comes from the reference TOML,
-  while literal `get_config_or_default` reads in `Config::Load()` are scanned
-  as a release-drift guard.
+  while literal `get_config_or_default` reads and canonical custom-reader paths
+  are scanned as a release-drift guard. Hidden runtime settings remain in the
+  schema with `internal` or `experimental` stability so the player UI can omit
+  them without making provenance incomplete.
 - Input defaults come from `ActionSpecs()`. Legacy and deprecated
   `[shortcuts]` paths come from `ShortcutConfigAliases()`.
 - Notification names, legacy paths, sounds, and stability come from

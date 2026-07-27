@@ -22,6 +22,32 @@
   },
   "settings": [
     {
+      "path": "advanced.diagnostics.action_queue_guard_logging",
+      "title": "Action Queue Guard Logging",
+      "description": "Enable detailed action-queue guard breadcrumbs. Hidden opt-in; default: false.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.action_queue_guard_logging",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.action_queue_guard_logging"
+      }
+    },
+    {
       "path": "advanced.diagnostics.battle_catalog",
       "title": "Battle Catalog",
       "description": "Configure battle catalog.",
@@ -312,6 +338,318 @@
       }
     },
     {
+      "path": "advanced.diagnostics.kirshara_queue.check_to_clear_action_queue",
+      "title": "Check To Clear Action Queue",
+      "description": "Configure check to clear action queue.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.kirshara_queue.check_to_clear_action_queue",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.check_to_clear_action_queue"
+      }
+    },
+    {
+      "path": "advanced.diagnostics.kirshara_queue.dump_interesting_methods",
+      "title": "Dump Interesting Methods",
+      "description": "Dump current ActionQueueManager method metadata at boot. Default: false.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.kirshara_queue.dump_interesting_methods",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.dump_interesting_methods"
+      }
+    },
+    {
+      "path": "advanced.diagnostics.kirshara_queue.enabled",
+      "title": "Enabled",
+      "description": "Master gate for Kir'shara queue marker diagnostics. Default: false.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.kirshara_queue.enabled",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.enabled"
+      }
+    },
+    {
+      "path": "advanced.diagnostics.kirshara_queue.is_target_valid",
+      "title": "Is Target Valid",
+      "description": "Configure is target valid.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.kirshara_queue.is_target_valid",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.is_target_valid"
+      }
+    },
+    {
+      "path": "advanced.diagnostics.kirshara_queue.on_fleet_state_change",
+      "title": "On Fleet State Change",
+      "description": "Configure on fleet state change.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.kirshara_queue.on_fleet_state_change",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.on_fleet_state_change"
+      }
+    },
+    {
+      "path": "advanced.diagnostics.kirshara_queue.on_fleets_disposed",
+      "title": "On Fleets Disposed",
+      "description": "Configure on fleets disposed.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.kirshara_queue.on_fleets_disposed",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.on_fleets_disposed"
+      }
+    },
+    {
+      "path": "advanced.diagnostics.kirshara_queue.on_player_fleet_state_changed",
+      "title": "On Player Fleet State Changed",
+      "description": "Configure on player fleet state changed.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.kirshara_queue.on_player_fleet_state_changed",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.on_player_fleet_state_changed"
+      }
+    },
+    {
+      "path": "advanced.diagnostics.kirshara_queue.on_set_course_response",
+      "title": "On Set Course Response",
+      "description": "Configure on set course response.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.kirshara_queue.on_set_course_response",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.on_set_course_response"
+      }
+    },
+    {
+      "path": "advanced.diagnostics.kirshara_queue.on_strike_complete",
+      "title": "On Strike Complete",
+      "description": "Configure on strike complete.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.kirshara_queue.on_strike_complete",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.on_strike_complete"
+      }
+    },
+    {
+      "path": "advanced.diagnostics.kirshara_queue.process_queue_deployed",
+      "title": "Process Queue Deployed",
+      "description": "Configure process queue deployed.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.kirshara_queue.process_queue_deployed",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.process_queue_deployed"
+      }
+    },
+    {
+      "path": "advanced.diagnostics.kirshara_queue.process_queue_target",
+      "title": "Process Queue Target",
+      "description": "Configure process queue target.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.kirshara_queue.process_queue_target",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.process_queue_target"
+      }
+    },
+    {
+      "path": "advanced.diagnostics.kirshara_queue.remove_target_and_attack_next",
+      "title": "Remove Target And Attack Next",
+      "description": "Configure remove target and attack next.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.kirshara_queue.remove_target_and_attack_next",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.remove_target_and_attack_next"
+      }
+    },
+    {
       "path": "advanced.diagnostics.live_query",
       "title": "Live Query",
       "description": "Enable the live debug/query channel for AX and runtime inspection. Default: false.",
@@ -370,6 +708,32 @@
       }
     },
     {
+      "path": "advanced.diagnostics.mod_impact_monitor",
+      "title": "Mod Impact Monitor",
+      "description": "Enable periodic runtime impact summaries for frame-owned mod hooks. Default: false.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.mod_impact_monitor",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.mod_impact_monitor"
+      }
+    },
+    {
       "path": "advanced.diagnostics.notification_skip_logging",
       "title": "Notification Skip Logging",
       "description": "Configure notification skip logging.",
@@ -422,6 +786,94 @@
       }
     },
     {
+      "path": "advanced.diagnostics.runtime_trace",
+      "title": "Runtime Trace",
+      "description": "Realtime runtime trace level: off, summary, detailed, or verbose. Any level above off adds runtime overhead.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "enum",
+        "values": [
+          "off",
+          "summary",
+          "detailed",
+          "verbose"
+        ]
+      },
+      "default": "off",
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.runtime_trace",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.runtime_trace"
+      }
+    },
+    {
+      "path": "advanced.diagnostics.runtime_trace_report_interval_ms",
+      "title": "Runtime Trace Report Interval Ms",
+      "description": "Runtime trace summary report interval in milliseconds. Lower intervals increase diagnostic log churn. Default: 5000.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "integer"
+      },
+      "constraints": {
+        "minimum": 1000,
+        "maximum": 60000
+      },
+      "default": 5000,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.runtime_trace_report_interval_ms",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.runtime_trace_report_interval_ms"
+      }
+    },
+    {
+      "path": "advanced.diagnostics.runtime_trace_track_overhead",
+      "title": "Runtime Trace Track Overhead",
+      "description": "Track runtime trace instrumentation overhead as a separate probe. Default: false for this private fork.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.runtime_trace_track_overhead",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.runtime_trace_track_overhead"
+      }
+    },
+    {
       "path": "advanced.diagnostics.ship_identity",
       "title": "Ship Identity",
       "description": "Reserved native observability toggles for future diagnostics and probes. Default: false.",
@@ -451,6 +903,110 @@
       "provenance": {
         "runtimePath": "advanced.diagnostics.ship_identity",
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.ship_identity"
+      }
+    },
+    {
+      "path": "advanced.kirshara_queue.course_target_completion",
+      "title": "Course Target Completion",
+      "description": "Synthesize the missing target completion commit for off-screen queued combat. Default: false.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.kirshara_queue.course_target_completion",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.kirshara_queue.course_target_completion"
+      }
+    },
+    {
+      "path": "advanced.kirshara_queue.enabled",
+      "title": "Enabled",
+      "description": "Enable the focused Kir'shara queued-combat advancement repair. Default: false.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.kirshara_queue.enabled",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.kirshara_queue.enabled"
+      }
+    },
+    {
+      "path": "advanced.queue.queue_add_direct_handler",
+      "title": "Queue Add Direct Handler",
+      "description": "Use the widget's direct queue-add handler instead of the generic button press path. Default: false.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "experimental",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.queue.queue_add_direct_handler",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.queue.queue_add_direct_handler"
+      }
+    },
+    {
+      "path": "advanced.queue.queue_repair_enabled",
+      "title": "Queue Repair Enabled",
+      "description": "Master opt-in gate for queue repair/probe experiments. Default: false.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "experimental",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.queue.queue_repair_enabled",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.queue.queue_repair_enabled"
       }
     },
     {
@@ -607,6 +1163,32 @@
       "provenance": {
         "runtimePath": "config.settings_url",
         "defaultSource": "mods/src/defaultconfig.h:config.settings_url"
+      }
+    },
+    {
+      "path": "control.allow_key_fallthrough",
+      "title": "Allow Key Fallthrough",
+      "description": "Allow unhandled key frames to fall through to the original game input path.",
+      "category": "control",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "control.allow_key_fallthrough",
+        "defaultSource": "mods/src/config_metadata.h:control.allow_key_fallthrough"
       }
     },
     {
@@ -11071,6 +11653,9 @@
       "valueType": {
         "kind": "integer"
       },
+      "constraints": {
+        "minimum": 0
+      },
       "default": 300,
       "platforms": [
         "windows",
@@ -11096,6 +11681,9 @@
       "control": "scalar",
       "valueType": {
         "kind": "integer"
+      },
+      "constraints": {
+        "minimum": 0
       },
       "default": 30,
       "platforms": [

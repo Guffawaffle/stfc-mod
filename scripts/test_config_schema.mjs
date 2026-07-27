@@ -5,19 +5,22 @@ import test from "node:test";
 
 import {
   buildSchema,
+  parseBoolConfigMetadata,
   parseDefaultConfig,
   parseExampleConfig,
-  scanLiteralParserPaths,
+  scanRuntimeScalarPaths,
 } from "./generate_config_schema.mjs";
 
 test("default and example inventories are non-empty", () => {
   assert.ok(parseDefaultConfig().size > 150);
+  assert.ok(parseBoolConfigMetadata().has("control.allow_key_fallthrough"));
   assert.ok(parseExampleConfig().length > 250);
 });
 
-test("every literal generic parser path is represented", () => {
+test("every discovered runtime scalar parser path is represented", () => {
+  const defaults = parseDefaultConfig();
   const schemaPaths = new Set(buildSchema().settings.map((setting) => setting.path));
-  for (const parserPath of scanLiteralParserPaths()) {
+  for (const parserPath of scanRuntimeScalarPaths(defaults)) {
     assert.ok(schemaPaths.has(parserPath), `missing parser path: ${parserPath}`);
   }
 });
@@ -31,6 +34,7 @@ test("schema has three unified control adapters", () => {
 test("every setting has unique launcher and provenance metadata", () => {
   const schema = buildSchema();
   const paths = new Set();
+  const aliasOwners = new Map();
   for (const setting of schema.settings) {
     assert.ok(!paths.has(setting.path), `duplicate setting path: ${setting.path}`);
     paths.add(setting.path);
@@ -44,7 +48,12 @@ test("every setting has unique launcher and provenance metadata", () => {
     assert.ok(setting.stability);
     assert.ok(setting.provenance.runtimePath);
     assert.ok(setting.provenance.defaultSource);
-    for (const alias of setting.aliases) assert.ok(alias.precedence);
+    for (const alias of setting.aliases) {
+      assert.ok(alias.precedence);
+      assert.ok(!aliasOwners.has(alias.path),
+        `alias ${alias.path} is claimed by both ${aliasOwners.get(alias.path)} and ${setting.path}`);
+      aliasOwners.set(alias.path, setting.path);
+    }
   }
 });
 
@@ -84,4 +93,30 @@ test("deprecated sidecar observability paths are aliases, not duplicate settings
   assert.ok(enrichment.aliases.some((alias) => alias.path === "battle_log_decoder.enabled"));
   const shipIdentity = schema.settings.find((setting) => setting.path === "advanced.diagnostics.ship_identity");
   assert.ok(shipIdentity.aliases.some((alias) => alias.path === "sidecar.probes.ship_identity"));
+});
+
+test("hidden runtime settings remain machine-readable but internal", () => {
+  const schema = buildSchema();
+  for (const settingPath of [
+    "advanced.diagnostics.runtime_trace",
+    "advanced.diagnostics.runtime_trace_report_interval_ms",
+    "advanced.queue.queue_repair_enabled",
+    "advanced.kirshara_queue.course_target_completion",
+    "control.allow_key_fallthrough",
+  ]) {
+    const setting = schema.settings.find((candidate) => candidate.path === settingPath);
+    assert.ok(setting, `missing hidden runtime setting: ${settingPath}`);
+    assert.ok(["internal", "experimental"].includes(setting.stability));
+  }
+});
+
+test("every reference setting is canonical or represented by an alias", () => {
+  const schema = buildSchema();
+  const canonicalPaths = new Set(schema.settings.map((setting) => setting.path));
+  const aliasPaths = new Set(schema.settings.flatMap((setting) => setting.aliases.map((alias) => alias.path)));
+  for (const entry of parseExampleConfig()) {
+    const normalized = entry.path.replace(/^sync\.targets\.[^.]+\./, "sync.targets.*.");
+    assert.ok(canonicalPaths.has(normalized) || aliasPaths.has(normalized),
+      `reference setting is neither canonical nor an alias: ${entry.path}`);
+  }
 });
