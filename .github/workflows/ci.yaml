@@ -31,6 +31,20 @@ env:
   DOTNET_NOLOGO: true
 
 jobs:
+  provider-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Test AXF provider contracts
+        run: node --test scripts/axf/*.test.mjs
+
   build-win:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-2025-vs2026

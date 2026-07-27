@@ -12,11 +12,22 @@ import {
   statSync,
   writeFileSync
 } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import {
+  dirname,
+  join,
+  relative,
+  resolve
+} from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
+import {
+  assertIsolatedMirrorRoot,
+  collectSourceSnapshot,
+  fingerprintSourcePaths,
+  normalizeSourceReceipt
+} from "./source-provenance.mjs";
 
-const PROVIDER_VERSION = "0.2.0";
+const PROVIDER_VERSION = "0.3.0";
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const DEFAULT_GAME_ROOT = "/mnt/c/Games/Star Trek Fleet Command/default/game";
 const GAME_ROOT = process.env.STFC_GAME_ROOT || DEFAULT_GAME_ROOT;
@@ -299,10 +310,26 @@ function commandWindowsAx(axCommand, options, argMap = {}) {
     return fail("Windows interop is not available.", interop);
   }
   const shouldSync = axCommand !== "game-running";
-  const sync = shouldSync ? syncWindowsBuildRoot() : ok({ skipped: true, reason: "command does not use repo build files" });
+  let sourceSnapshot = null;
+  let sourceProvenance = null;
+  if (shouldSync) {
+    try {
+      sourceSnapshot = collectSourceSnapshot(REPO_ROOT);
+      sourceProvenance = sourceSnapshot.provenance;
+    } catch (error) {
+      return fail("Unable to establish build source provenance.", {
+        interop: interop.summary,
+        sourceProvenanceError: error?.message ?? String(error)
+      });
+    }
+  }
+  const sync = shouldSync
+    ? syncWindowsBuildRoot(sourceSnapshot)
+    : ok({ skipped: true, reason: "command does not use repo build files" });
   if (!sync.ok) {
     return fail("Failed to sync WSL repo to the Windows build mirror.", {
       interop: interop.summary,
+      sourceProvenance,
       sync: sync.data
     });
   }
@@ -310,6 +337,7 @@ function commandWindowsAx(axCommand, options, argMap = {}) {
   if (!xmakePrep.ok) {
     return fail("Failed to prepare Windows xmake configuration.", {
       interop: interop.summary,
+      sourceProvenance,
       sync: sync.data,
       xmakePrep: xmakePrep.data
     });
@@ -334,8 +362,18 @@ function commandWindowsAx(axCommand, options, argMap = {}) {
     maxBuffer: 128 * 1024 * 1024
   });
   const parsed = parseJsonMaybe(result.stdout);
+  let receipt = parsed;
+  let receiptError = null;
+  if (sourceProvenance) {
+    try {
+      receipt = normalizeSourceReceipt(parsed, sourceProvenance);
+    } catch (error) {
+      receiptError = error?.message ?? String(error);
+    }
+  }
   const data = {
     interop: interop.summary,
+    sourceProvenance,
     sync: sync.data,
     xmakePrep: xmakePrep.data,
     windowsCommand: axCommand,
@@ -344,10 +382,18 @@ function commandWindowsAx(axCommand, options, argMap = {}) {
     error: result.error,
     stdoutTail: tailLines(result.stdout, intOpt(options.tail, 40)),
     stderrTail: tailLines(result.stderr, intOpt(options.tail, 40)),
-    result: parsed
+    result: receiptError ? parsed : receipt
   };
-  const scriptOk = result.exitCode === 0 && !(parsed && typeof parsed === "object" && parsed.ok === false);
-  return scriptOk ? ok(parsed) : fail(`Windows .ax ${axCommand} failed.`, data);
+  if (receiptError) {
+    return fail("Windows .ax receipt source provenance is inconsistent.", {
+      ...data,
+      sourceProvenanceError: receiptError
+    });
+  }
+  const scriptOk =
+    result.exitCode === 0 &&
+    !(receipt && typeof receipt === "object" && receipt.ok === false);
+  return scriptOk ? ok(receipt) : fail(`Windows .ax ${axCommand} failed.`, data);
 }
 
 function commandValidation(validationCommand, options) {
@@ -956,7 +1002,8 @@ function runProcess(commandPath, args = [], options = {}) {
   const result = spawnSync(commandPath, args, {
     cwd: options.cwd ?? REPO_ROOT,
     encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: [options.input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+    input: options.input,
     env: options.env ?? process.env,
     maxBuffer: options.maxBuffer ?? 32 * 1024 * 1024
   });
@@ -1116,36 +1163,143 @@ function windowsInteropInfo({ probe = false } = {}) {
   };
 }
 
-function syncWindowsBuildRoot() {
-  mkdirSync(WINDOWS_BUILD_ROOT, { recursive: true });
-  const excludes = [
-    ".git/",
-    ".xmake/",
-    "build/",
-    "node_modules/",
-    ".cache/",
-    ".DS_Store"
-  ];
-  const args = [
-    "-a",
-    "--delete",
-    ...excludes.flatMap((entry) => ["--exclude", entry]),
-    `${REPO_ROOT}/`,
-    `${WINDOWS_BUILD_ROOT}/`
-  ];
-  const result = runProcess("rsync", args, {
-    cwd: REPO_ROOT,
-    maxBuffer: 64 * 1024 * 1024
-  });
-  const data = {
-    source: REPO_ROOT,
-    destination: WINDOWS_BUILD_ROOT,
-    destinationWin: toWindowsPath(WINDOWS_BUILD_ROOT),
-    exitCode: result.exitCode,
-    stdoutTail: tailLines(result.stdout, 40),
-    stderrTail: tailLines(result.stderr, 40)
-  };
-  return result.exitCode === 0 ? ok(data) : fail("rsync failed.", data);
+function assertSafeWindowsBuildRoot() {
+  return assertIsolatedMirrorRoot(WINDOWS_BUILD_ROOT, [
+    REPO_ROOT,
+    PRIVATE_AX_ROOT,
+    GAME_ROOT
+  ]);
+}
+
+function syncWindowsBuildRoot(sourceSnapshot) {
+  const buildRoot = assertSafeWindowsBuildRoot();
+  const suffix = `${process.pid}-${randomUUID()}`;
+  const protectedRoots = [REPO_ROOT, PRIVATE_AX_ROOT, GAME_ROOT];
+  const stageRoot = assertIsolatedMirrorRoot(
+    `${buildRoot}.stage-${suffix}`,
+    protectedRoots
+  );
+  const backupRoot = assertIsolatedMirrorRoot(
+    `${buildRoot}.previous-${suffix}`,
+    protectedRoots
+  );
+  let clone = null;
+  let sync = null;
+
+  try {
+    mkdirSync(dirname(buildRoot), { recursive: true });
+    clone = runProcess(
+      "git",
+      [
+        "clone",
+        "--no-hardlinks",
+        "--no-checkout",
+        "--no-recurse-submodules",
+        "--quiet",
+        REPO_ROOT,
+        stageRoot
+      ],
+      { cwd: dirname(buildRoot), maxBuffer: 64 * 1024 * 1024 }
+    );
+    if (clone.exitCode !== 0) {
+      throw new Error(`git clone failed: ${firstLine(clone.stderr)}`);
+    }
+    const cloneHead = runProcess(
+      "git",
+      ["-C", stageRoot, "rev-parse", "HEAD"],
+      { cwd: dirname(buildRoot) }
+    );
+    if (
+      cloneHead.exitCode !== 0 ||
+      cloneHead.stdout.trim() !== sourceSnapshot.provenance.baseCommit
+    ) {
+      throw new Error("Staged mirror HEAD does not match the canonical base commit.");
+    }
+
+    const manifestInput =
+      sourceSnapshot.manifest.paths.length > 0
+        ? `${sourceSnapshot.manifest.paths.join("\0")}\0`
+        : "";
+    sync = runProcess(
+      "rsync",
+      [
+        "-a",
+        "--relative",
+        "--from0",
+        "--files-from=-",
+        `${REPO_ROOT}/`,
+        `${stageRoot}/`
+      ],
+      {
+        cwd: REPO_ROOT,
+        input: manifestInput,
+        maxBuffer: 64 * 1024 * 1024
+      }
+    );
+    if (sync.exitCode !== 0) {
+      throw new Error(`rsync failed: ${firstLine(sync.stderr)}`);
+    }
+
+    const stagedFingerprint = fingerprintSourcePaths(
+      stageRoot,
+      sourceSnapshot.manifest.paths
+    );
+    if (stagedFingerprint !== sourceSnapshot.manifest.fingerprint) {
+      throw new Error("Staged mirror content does not match the canonical source manifest.");
+    }
+    const postSyncSnapshot = collectSourceSnapshot(REPO_ROOT);
+    if (
+      JSON.stringify(postSyncSnapshot.provenance) !==
+        JSON.stringify(sourceSnapshot.provenance) ||
+      postSyncSnapshot.manifest.fingerprint !==
+        sourceSnapshot.manifest.fingerprint
+    ) {
+      throw new Error("Repository source changed while the Windows mirror was synchronized.");
+    }
+
+    if (exists(buildRoot)) {
+      renameSync(buildRoot, backupRoot);
+    }
+    try {
+      renameSync(stageRoot, buildRoot);
+    } catch (error) {
+      if (exists(backupRoot) && !exists(buildRoot)) {
+        renameSync(backupRoot, buildRoot);
+      }
+      throw error;
+    }
+    if (exists(backupRoot)) {
+      rmSync(backupRoot, { recursive: true, force: true });
+    }
+
+    return ok({
+      source: REPO_ROOT,
+      destination: buildRoot,
+      destinationWin: toWindowsPath(buildRoot),
+      baseCommit: sourceSnapshot.provenance.baseCommit,
+      sourceManifestFingerprint: sourceSnapshot.manifest.fingerprint,
+      sourceFileCount: sourceSnapshot.manifest.paths.length,
+      cloneExitCode: clone.exitCode,
+      syncExitCode: sync.exitCode
+    });
+  } catch (error) {
+    if (exists(stageRoot)) {
+      rmSync(stageRoot, { recursive: true, force: true });
+    }
+    if (exists(backupRoot) && !exists(buildRoot)) {
+      renameSync(backupRoot, buildRoot);
+    }
+    return fail("Failed to materialize an exact Windows build mirror.", {
+      source: REPO_ROOT,
+      destination: buildRoot,
+      destinationWin: toWindowsPath(buildRoot),
+      error: error?.message ?? String(error),
+      cloneExitCode: clone?.exitCode ?? null,
+      cloneStderrTail: tailLines(clone?.stderr, 20),
+      syncExitCode: sync?.exitCode ?? null,
+      syncStderrTail: tailLines(sync?.stderr, 20)
+    });
+  }
 }
 
 function prepareWindowsXmake(interop) {
