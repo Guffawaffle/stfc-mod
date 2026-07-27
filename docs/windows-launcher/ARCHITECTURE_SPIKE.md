@@ -1,6 +1,6 @@
 # WL-001 Windows Launcher Architecture Decision
 
-Status: automated spike complete; manual acceptance pending
+Status: architecture accepted; release validation carried forward
 
 Issue: `Guffawaffle/stfc-mod#172`
 
@@ -15,8 +15,10 @@ Keep launcher policy and platform services in a UI-independent core assembly.
 Distribute the first production launcher through a per-user bootstrapper, with
 an unpackaged ZIP retained as a transparent recovery and CI artifact.
 
-The architecture remains provisional until CI and the manual DPI/process smoke
-are accepted.
+The architecture direction was accepted on 2026-07-27 after the self-contained
+preview was launched and reviewed. Remaining clean-machine, DPI, keyboard,
+screen-reader, CI-artifact, and signed-tag checks are release-quality evidence;
+they do not block downstream work from stacking on PR #198.
 
 ## Proven in this spike
 
@@ -134,11 +136,11 @@ replacement can strand the launcher.
 Rejected because transaction, discovery, redaction, and process policies must
 be deterministic and testable without WPF.
 
-## Gate remaining
+## Release evidence carried forward
 
 - Confirm the self-contained artifact starts on a machine without a separately
   installed .NET runtime, or in an equivalent clean Windows sandbox.
 - Record the 100%/150%/200% DPI and keyboard smoke.
 - Accept the launcher CI artifact on the delivery PR.
-- Accept or revise this decision before releasing `WL-002`, `WL-003`, and
-  `WL-005`.
+- Verify the tagged Authenticode signing path before retiring the sidecar
+  rollback credential.

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "project": "windows-launcher-parity-plus",
-  "status": "wl-001-active",
+  "status": "wl-002-active",
   "repository": "Guffawaffle/stfc-mod",
-  "baselineCommit": "be8d75a7613dae2b79cafe504aef500086b3e4e2",
+  "baselineCommit": "7a8ca4215326659c0f261466a36690c086ab3a57",
   "defaults": {
     "baseBranch": "main",
     "platform": "windows-x64",
@@ -46,7 +46,8 @@
         "WL-001"
       ],
       "scope": [
-        "windows-launcher/src/Core/",
+        "windows-launcher/src/STFCCommunityMod.Launcher.Core/",
+        "windows-launcher/src/STFCCommunityMod.Launcher/",
         "windows-launcher/tests/"
       ],
       "objective": "Discover bounded installation candidates, validate prime.exe targets, persist a user-confirmed selection, and expose a read-only health state.",
@@ -54,6 +55,8 @@
         "Discovery returns evidence and confidence for every candidate.",
         "Wrong official-launcher directories are rejected.",
         "Manual folder selection is supported.",
+        "A user-confirmed selection is persisted and revalidated.",
+        "Process, selection, and discovery health remain composable.",
         "Non-ASCII and non-default paths are covered by tests.",
         "No recursive drive scan occurs."
       ],

@@ -1,0 +1,79 @@
+# Windows Installation Discovery and Health
+
+Status: WL-002 implementation
+
+Issue: `Guffawaffle/stfc-mod#173`
+
+Branch: `feature/wl-002-stfc-discovery-health`
+
+Base: PR #198 at `7a8ca4215326659c0f261466a36690c086ab3a57`
+
+## Discovery boundary
+
+Discovery evaluates only explicit candidate paths. It never recursively scans a
+drive or guesses that an official-launcher directory is the game directory.
+
+Evidence sources, from strongest to weakest, are:
+
+1. a path the user previously confirmed;
+2. the official launcher's exact `*.GAME_PATH` value in
+   `%LOCALAPPDATA%\Star Trek Fleet Command\launcher_settings.ini`;
+3. an explicit `STFC_GAME_DIRECTORY` process-environment override;
+4. bounded conventional paths below Local AppData, Program Files, and
+   `<system-drive>\Games`.
+
+Duplicate paths are compared case-insensitively, merged, and retain every
+evidence record. The strongest evidence determines the displayed confidence.
+
+Manual selection evaluates exactly the chosen folder. It does not silently
+append `default\game` or descend into children.
+
+## Validation
+
+A valid game target:
+
+- is a valid, existing directory; and
+- directly contains `prime.exe`.
+
+A directory containing official-launcher markers or a `default` child but no
+`prime.exe` is reported specifically as an official-launcher directory. Missing
+and malformed paths remain distinct failure states.
+
+Validation is read-only. It does not open, hash, execute, or modify
+`prime.exe`.
+
+## Confirmed selection
+
+Only a valid user-selected folder is persisted. The launcher stores it at:
+
+```text
+%LOCALAPPDATA%\STFC Community Mod Launcher\install-selection.json
+```
+
+The document is versioned and written through a same-directory temporary file.
+Every read revalidates the directory and `prime.exe`; a malformed document,
+unsupported schema, missing directory, or removed executable fails closed and
+asks for a new selection.
+
+## Composable health
+
+The launcher reports independent health dimensions instead of hiding one state
+behind another:
+
+- process safety: whether STFC is running;
+- installation selection: missing, valid, unreadable, or no longer valid;
+- discovery: how many bounded candidates currently validate.
+
+For example, a confirmed installation can remain healthy while process safety
+blocks future mutations because the game is running. The headline status is a
+summary only; downstream mutation policy must evaluate the individual
+dimensions.
+
+## Safety invariants
+
+- No recursive drive scan.
+- No game-directory write.
+- No silent folder confirmation.
+- No launcher-root-to-game-root coercion.
+- Cancellation is observed between providers and bounded candidates.
+- Invalid persisted state never falls back to an unverified enabled target.
