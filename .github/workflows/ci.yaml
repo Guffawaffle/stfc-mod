@@ -77,6 +77,8 @@ jobs:
 
       - name: Test
         run: |
+          node --test scripts/test_config_schema.mjs
+          node scripts/generate_config_schema.mjs --check
           xmake build stfc-mod-tests
           xmake run stfc-mod-tests
 

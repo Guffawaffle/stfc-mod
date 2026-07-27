@@ -196,6 +196,11 @@ runtime remains the parser of record.
 The GUI editor operates against a generated, versioned configuration schema
 rather than duplicating defaults and descriptions by hand in C#.
 
+The settings experience is unified even when the schema delegates value
+handling to scalar, keybinding, and notification-policy adapters. Search,
+categories, changed-state, validation, and persistence behavior remain
+consistent across those control types.
+
 The schema must describe:
 
 - canonical key and section;
@@ -227,6 +232,23 @@ The UI must provide:
 - effective-value and restart-required indicators.
 
 Unknown keys and comments must survive normal edits.
+
+### Release source boundary
+
+The selected release source (`guffawaffle` parity+ or `netniv` upstream) is
+launcher state, not a mod TOML setting. It selects the release manifest,
+artifact trust policy, update stream, migration guidance, and matching
+configuration schema/capability adapter.
+
+Changing sources is a migration transaction. The launcher previews installed
+artifact and configuration compatibility, requires explicit confirmation, and
+retains backup and rollback guarantees. Automatic update never crosses release
+sources silently.
+
+TOML remains the runtime and interchange boundary for NetniV compatibility and
+safe source switching. A future Guffawaffle-only profile store may be richer,
+but it must compile/export deterministic sparse TOML while the C++ runtime
+consumes TOML.
 
 ## Launch contract
 
