@@ -1,0 +1,51 @@
+{
+  "specVersion": 1,
+  "minimumLauncherVersion": "0.1.0",
+  "artifacts": [
+    {
+      "id": "windows-mod-dll-x64",
+      "kind": "windows-mod",
+      "platform": "windows",
+      "architecture": "x64",
+      "sourcePath": "version.dll",
+      "fileName": "version.dll",
+      "mediaType": "application/vnd.microsoft.portable-executable",
+      "authenticity": {
+        "scheme": "authenticode",
+        "scope": "artifact"
+      }
+    },
+    {
+      "id": "windows-mod-archive-x64",
+      "kind": "windows-mod-archive",
+      "platform": "windows",
+      "architecture": "x64",
+      "sourcePath": "stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst",
+      "fileName": "stfc-community-mod-windows-x64.tar.zst",
+      "mediaType": "application/zstd",
+      "authenticity": {
+        "scheme": "authenticode",
+        "scope": "contents",
+        "signedFiles": [
+          "version.dll"
+        ]
+      }
+    },
+    {
+      "id": "windows-launcher-archive-x64",
+      "kind": "windows-launcher",
+      "platform": "windows",
+      "architecture": "x64",
+      "sourcePath": "stfc-community-mod-launcher-win-x64/stfc-community-mod-launcher-win-x64.zip",
+      "fileName": "stfc-community-mod-launcher-win-x64.zip",
+      "mediaType": "application/zip",
+      "authenticity": {
+        "scheme": "authenticode",
+        "scope": "contents",
+        "signedFiles": [
+          "STFCCommunityMod.Launcher.exe"
+        ]
+      }
+    }
+  ]
+}

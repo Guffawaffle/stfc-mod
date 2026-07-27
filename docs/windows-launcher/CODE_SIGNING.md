@@ -60,7 +60,11 @@ channels, hashes, or withdrawal state. A detached manifest-signature design
 with replay protection remains a separate release-control deliverable.
 
 Until that design is accepted, a manifest checksum must not be described as a
-manifest signature.
+manifest signature. Schema v1 therefore declares
+`manifestAuthenticity.scheme: none` while recording independent Authenticode
+expectations for each PE artifact or signed archive member. The complete
+producer and consumer contract is in
+`docs/windows-launcher/RELEASE_MANIFEST.md`.
 
 ## Rollback and credential retirement
 
