@@ -36,7 +36,9 @@ jobs:
           echo "Waiting for successful Build workflow for commit ${{ github.sha }}..."
           build_run_id=""
 
-          for attempt in $(seq 1 40); do
+          # Tagged Windows builds pause for approval in the protected
+          # windows-release environment before Artifact Signing can run.
+          for attempt in $(seq 1 120); do
             build_run_id=$(gh api \
               -H "Accept: application/vnd.github+json" \
               /repos/${{ github.repository }}/actions/runs \
@@ -48,7 +50,7 @@ jobs:
               exit 0
             fi
 
-            echo "No successful Build workflow yet (attempt ${attempt}/40). Sleeping 30 seconds..."
+            echo "No successful Build workflow yet (attempt ${attempt}/120). Sleeping 30 seconds..."
             sleep 30
           done
 
