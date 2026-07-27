@@ -75,6 +75,23 @@ blocks future mutations because the game is running. The headline status is a
 summary only; downstream mutation policy must evaluate the individual
 dimensions.
 
+## Home presentation
+
+`LauncherHomePresentation` resolves the internal snapshot into the compact,
+outcome-oriented Home contract without weakening the composable model.
+
+The Home surface shows:
+
+- a short actionable headline;
+- game-folder state and Set/Confirm/Change action;
+- current game-client state;
+- Refresh, About, and Light/Dark theme actions.
+
+Candidate counts, provenance, storage ownership, filesystem paths, and raw
+health dimensions are intentionally absent. They remain internal inputs for
+future structured logs and the explicit redacted diagnostic surface in
+`WL-008`.
+
 ## Safety invariants
 
 - No recursive drive scan.
