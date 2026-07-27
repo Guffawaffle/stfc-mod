@@ -252,6 +252,34 @@ transition and does not continuously poll or require WMI. A manual Refresh
 action remains available if the operating-system event subscription cannot be
 established.
 
+### Observable action feedback
+
+An accepted action must never appear to be a no-op merely because its result
+does not change the visible state. `Refresh status` currently performs
+synchronous work without acknowledging activation or successful unchanged
+completion. The final interaction is intentionally undecided and tracked in
+[#201](https://github.com/Guffawaffle/stfc-mod/issues/201).
+
+The shared action contract must represent at least idle, working, completed
+with changes, completed without changes, and failed or unavailable states. It
+must define:
+
+- the relationship between command state, button state, and operation state;
+- visible and screen-reader feedback without relying on animation, color, or
+  an icon alone;
+- duplicate-activation, focus, cancellation, retry, and reduced-motion
+  behavior;
+- when feedback belongs in the button, affected status row, a non-modal
+  confirmation, or a combination;
+- how short synchronous checks and future long-running install, repair, update,
+  and diagnostic operations share semantics without pretending they have the
+  same progress capabilities.
+
+Candidate treatments include temporary `Refreshing…` copy, a compact progress
+glyph, affected-row feedback, or a brief `Status is up to date` confirmation.
+None is accepted yet. A one-off Refresh animation must not precede the shared
+state and accessibility decision.
+
 ## Settings workspace
 
 Settings is not a modal and is not constrained to the compact home dimensions.
@@ -303,6 +331,32 @@ Profiles and launcher preferences require dedicated PM work before
 implementation. `WL-006` supplies the schema-driven configuration foundation,
 while `WL-007` supplies the launch handoff on which profile selection can
 operate.
+
+### Launcher and sidecar product family
+
+The intended direction is for the Windows launcher and sidecar to become one
+coherent product family. Launcher decisions should inform the sidecar where the
+product context matches, including visual tokens, typography, accessible
+interaction primitives, schema-driven configuration, installation/update
+contracts, diagnostics privacy, signing, and release behavior.
+
+The current working distinction is:
+
+- the basic launcher owns launch, install, update, repair, configuration, and
+  privacy-preserving diagnostics;
+- the full sidecar adds the richer always-available and runtime-companion
+  experience.
+
+This is direction, not a selected architecture. Separate applications with
+shared libraries, basic/full distributions, optional sidecar modules, and
+eventual full convergence all remain viable. Repository boundaries, process
+ownership, competing updater prevention, optional installation, migration,
+startup/background behavior, signing, privileges, rollback, and existing-user
+compatibility require ample product and architecture discussion.
+
+[#202](https://github.com/Guffawaffle/stfc-mod/issues/202) owns that decision.
+It does not authorize a sidecar redesign, expand the current launcher sprint,
+or permit user-facing copy to describe convergence as committed.
 
 ### Setting rows
 
@@ -516,6 +570,12 @@ The implementation must support:
 - `WL-008` owns the redacted diagnostic surface and support export.
 - `WL-010` validates both themes, adaptive window density, keyboard navigation,
   screen readers, reduced motion, and high DPI.
+- Issue #201 must settle shared action and button-state feedback before
+  Refresh, installer, repair, updater, or diagnostic surfaces grow independent
+  progress conventions.
+- Issue #202 is a post-sprint product/architecture decision and must not be
+  interpreted as approval to merge, rewrite, or independently duplicate the
+  launcher and sidecar.
 
 Implementation may refine copy and layout, but any change that weakens privacy,
 schema authority, sparse writes, progressive disclosure, or accessibility
