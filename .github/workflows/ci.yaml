@@ -27,6 +27,8 @@ concurrency:
 
 env:
   XMAKE_PACKAGE_CACHE_VERSION: v1
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: true
 
 jobs:
   build-win:
@@ -84,8 +86,185 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v7
         with:
-          name: stfc-community-mod
+          name: ${{ startsWith(github.ref, 'refs/tags/v') && 'stfc-community-mod-unsigned' || 'stfc-community-mod' }}
           path: version.dll
+          if-no-files-found: error
+
+  launcher-win:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: windows-2025-vs2026
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore launcher
+        run: dotnet restore windows-launcher/STFCCommunityMod.Launcher.sln
+
+      - name: Build and test launcher
+        run: dotnet test windows-launcher/STFCCommunityMod.Launcher.sln -c Release --no-restore
+
+      - name: Publish self-contained launcher
+        shell: pwsh
+        run: |
+          ./windows-launcher/scripts/publish.ps1 `
+            -OutputDirectory "${{ runner.temp }}/stfc-community-mod-launcher"
+
+      - name: Upload launcher spike artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ startsWith(github.ref, 'refs/tags/v') && 'stfc-community-mod-launcher-win-x64-unsigned' || 'stfc-community-mod-launcher-win-x64' }}
+          path: ${{ runner.temp }}/stfc-community-mod-launcher
+          if-no-files-found: error
+
+  sign-windows-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - build-win
+      - launcher-win
+    runs-on: windows-2025
+    environment:
+      name: windows-release
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      WIN_PUBLISHER_NAME: ${{ vars.WIN_PUBLISHER_NAME }}
+      AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ vars.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+      AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ vars.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
+      AZURE_CERTIFICATE_PROFILE_NAME: ${{ vars.AZURE_CERTIFICATE_PROFILE_NAME }}
+    steps:
+      - name: Checkout signing and packaging policy
+        uses: actions/checkout@v6
+
+      - name: Download unsigned Windows mod
+        uses: actions/download-artifact@v8
+        with:
+          name: stfc-community-mod-unsigned
+          path: ${{ runner.temp }}/stfc-community-mod
+
+      - name: Download unsigned Windows launcher
+        uses: actions/download-artifact@v8
+        with:
+          name: stfc-community-mod-launcher-win-x64-unsigned
+          path: ${{ runner.temp }}/stfc-community-mod-launcher
+
+      - name: Validate signing inputs
+        shell: pwsh
+        run: |
+          $required = @(
+            "WIN_PUBLISHER_NAME",
+            "AZURE_TRUSTED_SIGNING_ENDPOINT",
+            "AZURE_CODE_SIGNING_ACCOUNT_NAME",
+            "AZURE_CERTIFICATE_PROFILE_NAME"
+          )
+          $missing = @($required | Where-Object { -not [Environment]::GetEnvironmentVariable($_) })
+          if ($missing.Count -gt 0) {
+            throw "Missing signing environment values: $($missing -join ', ')"
+          }
+
+          $files = @(
+            "${{ runner.temp }}/stfc-community-mod/version.dll",
+            "${{ runner.temp }}/stfc-community-mod-launcher/app/STFCCommunityMod.Launcher.exe"
+          )
+          foreach ($file in $files) {
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
+              throw "Expected signing input was not found: $file"
+            }
+          }
+
+      - name: Azure login with GitHub OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign Windows mod DLL
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
+          certificate-profile-name: ${{ vars.AZURE_CERTIFICATE_PROFILE_NAME }}
+          files-folder: ${{ runner.temp }}/stfc-community-mod
+          files-folder-filter: dll
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: STFC Community Mod
+          description-url: https://github.com/Guffawaffle/stfc-mod
+
+      - name: Sign Windows launcher
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
+          certificate-profile-name: ${{ vars.AZURE_CERTIFICATE_PROFILE_NAME }}
+          files-folder: ${{ runner.temp }}/stfc-community-mod-launcher/app
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: STFC Community Mod Launcher
+          description-url: https://github.com/Guffawaffle/stfc-mod
+
+      - name: Verify Authenticode signatures
+        shell: pwsh
+        run: |
+          $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
+          if (-not $signtool) {
+            $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" `
+              -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue |
+              Sort-Object FullName -Descending |
+              Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $signtool) {
+            throw "signtool.exe was not found"
+          }
+
+          $files = @(
+            "${{ runner.temp }}/stfc-community-mod/version.dll",
+            "${{ runner.temp }}/stfc-community-mod-launcher/app/STFCCommunityMod.Launcher.exe"
+          )
+          foreach ($file in $files) {
+            & $signtool verify /pa /v $file
+            if ($LASTEXITCODE -ne 0) {
+              throw "signtool verification failed for $file"
+            }
+
+            $signature = Get-AuthenticodeSignature -LiteralPath $file
+            if ($signature.Status -ne "Valid") {
+              throw "Authenticode status was $($signature.Status) for $file"
+            }
+            if (-not $signature.SignerCertificate.Subject.StartsWith(
+                "CN=$env:WIN_PUBLISHER_NAME,",
+                [System.StringComparison]::OrdinalIgnoreCase)) {
+              throw "Unexpected Authenticode publisher for $file"
+            }
+          }
+
+      - name: Package signed launcher
+        shell: pwsh
+        run: |
+          ./windows-launcher/scripts/package.ps1 `
+            -OutputDirectory "${{ runner.temp }}/stfc-community-mod-launcher"
+
+      - name: Upload signed Windows mod
+        uses: actions/upload-artifact@v7
+        with:
+          name: stfc-community-mod
+          path: ${{ runner.temp }}/stfc-community-mod/version.dll
+          if-no-files-found: error
+
+      - name: Upload signed Windows launcher
+        uses: actions/upload-artifact@v7
+        with:
+          name: stfc-community-mod-launcher-win-x64
+          path: ${{ runner.temp }}/stfc-community-mod-launcher
           if-no-files-found: error
 
   build-mac:
