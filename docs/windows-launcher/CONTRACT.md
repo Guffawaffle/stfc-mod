@@ -1,8 +1,8 @@
 # Windows Launcher Parity+ Contract
 
-Status: planning anchored and paused
+Status: WL-001 architecture spike active
 Repository: `Guffawaffle/stfc-mod`
-Baseline commit: `be63aa45deeb803910f1c6c79a867c862c00339b`
+Baseline commit: `be8d75a7613dae2b79cafe504aef500086b3e4e2`
 
 ## Product statement
 

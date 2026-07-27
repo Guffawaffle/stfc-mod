@@ -29,7 +29,7 @@
         },
         {
           "name": "dotnet-test",
-          "run": "dotnet test"
+          "run": "dotnet test windows-launcher/STFCCommunityMod.Launcher.sln -c Release"
         },
         {
           "name": "windows-proxy-build",
@@ -49,7 +49,7 @@
         },
         {
           "name": "dotnet-test",
-          "run": "dotnet test"
+          "run": "dotnet test windows-launcher/STFCCommunityMod.Launcher.sln -c Release"
         }
       ]
     },
@@ -94,7 +94,7 @@
         },
         {
           "name": "dotnet-test",
-          "run": "dotnet test"
+          "run": "dotnet test windows-launcher/STFCCommunityMod.Launcher.sln -c Release"
         }
       ]
     },
@@ -111,7 +111,7 @@
         },
         {
           "name": "dotnet-test",
-          "run": "dotnet test"
+          "run": "dotnet test windows-launcher/STFCCommunityMod.Launcher.sln -c Release"
         }
       ]
     },
@@ -128,7 +128,7 @@
         },
         {
           "name": "dotnet-test",
-          "run": "dotnet test"
+          "run": "dotnet test windows-launcher/STFCCommunityMod.Launcher.sln -c Release"
         }
       ]
     },
@@ -146,7 +146,7 @@
         },
         {
           "name": "dotnet-test",
-          "run": "dotnet test"
+          "run": "dotnet test windows-launcher/STFCCommunityMod.Launcher.sln -c Release"
         }
       ]
     },
@@ -163,7 +163,7 @@
         },
         {
           "name": "dotnet-test",
-          "run": "dotnet test"
+          "run": "dotnet test windows-launcher/STFCCommunityMod.Launcher.sln -c Release"
         }
       ]
     },
@@ -182,7 +182,7 @@
         },
         {
           "name": "dotnet-test",
-          "run": "dotnet test"
+          "run": "dotnet test windows-launcher/STFCCommunityMod.Launcher.sln -c Release"
         },
         {
           "name": "windows-proxy-build",

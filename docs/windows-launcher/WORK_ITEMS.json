@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "project": "windows-launcher-parity-plus",
-  "status": "planning-anchored-paused",
+  "status": "wl-001-active",
   "repository": "Guffawaffle/stfc-mod",
-  "baselineCommit": "be63aa45deeb803910f1c6c79a867c862c00339b",
+  "baselineCommit": "be8d75a7613dae2b79cafe504aef500086b3e4e2",
   "defaults": {
     "baseBranch": "main",
     "platform": "windows-x64",
     "reviewContract": "global.stfc-mod-private.review-contract",
-    "mutationPolicy": "isolated-worktree-pending-resume-authorization",
+    "mutationPolicy": "foreground-single-workspace",
     "githubWrites": "bridge-only"
   },
   "workItems": [

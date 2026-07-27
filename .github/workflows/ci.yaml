@@ -27,6 +27,8 @@ concurrency:
 
 env:
   XMAKE_PACKAGE_CACHE_VERSION: v1
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: true
 
 jobs:
   build-win:
@@ -86,6 +88,37 @@ jobs:
         with:
           name: stfc-community-mod
           path: version.dll
+          if-no-files-found: error
+
+  launcher-win:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: windows-2025-vs2026
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore launcher
+        run: dotnet restore windows-launcher/STFCCommunityMod.Launcher.sln
+
+      - name: Build and test launcher
+        run: dotnet test windows-launcher/STFCCommunityMod.Launcher.sln -c Release --no-restore
+
+      - name: Publish self-contained launcher
+        shell: pwsh
+        run: |
+          ./windows-launcher/scripts/publish.ps1 `
+            -OutputDirectory "${{ runner.temp }}/stfc-community-mod-launcher"
+
+      - name: Upload launcher spike artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: stfc-community-mod-launcher-win-x64
+          path: ${{ runner.temp }}/stfc-community-mod-launcher
           if-no-files-found: error
 
   build-mac:
