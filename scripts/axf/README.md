@@ -24,6 +24,7 @@ global.stfc-mod-private.status
 global.stfc-mod-private.pure-tests
 global.stfc-mod-private.battle-log
 global.stfc-mod-private.cycle
+global.stfc-mod-private.corpus-status
 ```
 
 Raw CLI execution is for provider development and manual debugging only.
@@ -115,3 +116,22 @@ source bodies are never returned.
 The dump query commands currently run the existing Python dump tools from
 `/mnt/d/dev/stfc-mod/.ax-priv` and use that reference cache. The pure decoder
 validation path is native to `/srv/stfc-mod`.
+
+## Canonical IL2CPP Corpus
+
+Raw human and agent searches must use:
+
+```text
+tools/il2cpp-dump/dump.cs
+tools/il2cpp-dump/script.json
+```
+
+The matching query index is `.ax-priv/cache/stfc.db`. Files under
+`.ax-priv/tools/Il2CppDumper/` are private tool artifacts, not research inputs,
+even when their names look authoritative.
+
+Run `global.stfc-mod-private.corpus-status` before raw dump research. It reports
+the canonical paths and index metadata, fingerprints plausible legacy copies,
+and classifies each copy as identical, stale, divergent-newer, or legacy-only.
+The command never returns dump contents. Use `global.stfc-mod-private.dump-refresh`
+to regenerate the canonical corpus.
