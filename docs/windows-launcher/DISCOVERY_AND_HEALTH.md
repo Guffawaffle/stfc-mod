@@ -71,8 +71,8 @@ behind another:
 - discovery: how many bounded candidates currently validate.
 
 For example, a confirmed installation can remain healthy while process safety
-blocks future mutations because the game is running. The headline status is a
-summary only; downstream mutation policy must evaluate the individual
+blocks future mutations because the game is running. The Home presentation is
+a summary only; downstream mutation policy must evaluate the individual
 dimensions.
 
 ## Home presentation
@@ -82,9 +82,9 @@ outcome-oriented Home contract without weakening the composable model.
 
 The Home surface shows:
 
-- a short actionable headline;
-- game-folder state and Set/Confirm/Change action;
-- current game-client state;
+- stable product copy rather than duplicating row-level state;
+- game-folder state and contextual Set/Confirm/Change action;
+- explicit Running or Not running game-client state;
 - Refresh, About, and Light/Dark theme actions.
 
 Candidate counts, provenance, storage ownership, filesystem paths, and raw

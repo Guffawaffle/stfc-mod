@@ -110,6 +110,24 @@ The launcher has two presentation modes:
 Moving between them may resize or reflow the same window. It must not open
 multiple competing launcher windows.
 
+### Integrated window chrome
+
+The application name appears once in an integrated draggable title area. The
+Home does not repeat a native window title, product heading, and platform
+subtitle.
+
+The integrated chrome retains ordinary Windows behavior:
+
+- accessible minimize, maximize/restore, and close controls;
+- resize borders, title-area dragging, and double-click maximize;
+- system commands and keyboard shortcuts;
+- Windows 11 Snap Layout discovery by returning `HTMAXBUTTON` over the custom
+  maximize/restore control.
+
+Caption controls use deterministic Segoe UI symbols rather than optional icon
+fonts. The application still exposes its full product title to Windows,
+assistive technology, and the task switcher.
+
 ### Theme
 
 The theme preference is:
@@ -132,7 +150,7 @@ The healthy home contains:
 
 - application name;
 - theme and settings access;
-- a plain-language headline such as `Ready to play`;
+- stable product copy that does not repeat row-level health;
 - a game-installation row;
 - a community-mod row;
 - one contextual primary action;
@@ -141,12 +159,24 @@ The healthy home contains:
 Example healthy rows:
 
 ```text
-Game folder       [success icon] Set
+Game folder       [success icon]       Change
 Community mod     [success icon] Current
 ```
 
 The game row offers a quiet `Change` action when appropriate. It does not show
-the selected path.
+the selected path. A successful game-folder row does not repeat `Set` beside a
+success icon; its accessible name still announces `Game folder set`.
+
+The default Home copy is:
+
+```text
+Make STFC yours.
+Install, update, and configure the community mod in one place.
+```
+
+Row-level state remains in its row. Product copy is replaced only when a
+blocking or operation-wide condition materially changes the user's next safe
+action.
 
 The primary action changes with the resolved product state:
 
@@ -167,16 +197,33 @@ safe action.
 
 ## Status semantics
 
-Success, warning, and failure use consistent vector icons with adjacent text.
-Literal emoji are not the implementation contract because their appearance
-varies by Windows font and assistive technology.
+Success, warning, and failure use consistent vector icons with adjacent row
+labels and explicit status text when the user must distinguish or act on the
+state. Literal emoji are not the implementation contract because their
+appearance varies by Windows font and assistive technology.
 
 Every icon has:
 
-- a text label such as `Set`, `Missing`, or `Needs attention`;
+- an adjacent row label plus visible status text when it adds information;
 - a screen-reader name;
 - meaning that does not depend on color;
 - a deterministic action when user intervention is possible.
+
+The game-client row uses semantic process states:
+
+| State | Visual treatment | Visible text |
+|---|---|---|
+| Running | Filled green status light | `Running` |
+| Not running | Hollow neutral status light | `Not running` |
+| Checking | Blue progress indicator | `Checking…` |
+| Unavailable | Amber warning icon | `Status unavailable` |
+
+`Not running` is a normal inactive state and is never rendered as an error.
+Process-state icons are indicators, not controls; play or launch glyphs are not
+used because they imply a clickable launch action.
+`Checking` and `Unavailable` appear only when the process service can
+truthfully distinguish those states; the synchronous `WL-002` probe currently
+resolves only `Running` and `Not running`.
 
 ## Settings workspace
 
@@ -202,6 +249,33 @@ Initial categories are:
 
 Advanced contains experimental, developer, and support-directed controls. Patch
 installation toggles do not appear in common categories.
+
+### Launcher preferences and launch profiles
+
+Launcher-owned preferences are distinct from the schema-driven mod settings.
+The future General area may include:
+
+- start the launcher with Windows, explicitly opt-in and default off;
+- automatically check for launcher and mod updates;
+- separate consent and policy for downloading or installing an update;
+- release channel, theme, reduced motion, and close/minimize behavior;
+- behavior after launching STFC, such as remaining open, minimizing, or
+  closing.
+
+Labels must distinguish `Start the launcher with Windows` from starting STFC.
+Likewise, checking for an update is not permission to install it.
+
+Named launch profiles are a separate future product concept. A profile may
+select a mod configuration, launch mode, and supported launch-time behavior,
+but profiles must reuse the shared configuration schema rather than copy its
+definitions. The active profile must be visible before launch, and switching
+profiles must never silently materialize defaults, duplicate secrets, or
+rewrite unrelated TOML.
+
+Profiles and launcher preferences require dedicated PM work before
+implementation. `WL-006` supplies the schema-driven configuration foundation,
+while `WL-007` supplies the launch handoff on which profile selection can
+operate.
 
 ### Setting rows
 
