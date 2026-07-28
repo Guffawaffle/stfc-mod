@@ -58,7 +58,9 @@ TOML. Theme-aware tooltips explicitly own their foreground, background, and
 border so raw-key and help hover content retains contrast in Light and Dark
 themes. The settings scrollbar uses the same dynamic palette, and rows support
 mouse drag-to-scroll from non-interactive content without taking input away
-from toggles, buttons, editors, or the scrollbar itself.
+from toggles, buttons, editors, or the scrollbar itself. Faster flicks carry
+bounded momentum after release and decay without overscroll; new input cancels
+the motion, and Windows' reduced-motion preference disables inertia.
 
 Save builds the complete staged document in memory and writes it as one atomic
 replacement against the session's original contents. It creates a sibling
