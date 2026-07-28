@@ -44,10 +44,12 @@ The Settings workspace now uses the accepted persistent left navigation and
 footer structure. Search is global and opens from a toolbar control instead of
 permanently consuming a content row. Section navigation is schema-derived
 through one category resolver, the compact rail contains only navigation, and
-a compact back arrow returns to Home instead of consuming a labeled navigation
-row. Release-source identity appears in General and About rather than forcing
-the rail to accommodate metadata. Search-open state is a launcher UI preference
-stored outside both mod TOML formats; search text remains session-only.
+a compact toolbar aligns Back, the active section title, and Search directly
+beneath the window chrome. The back arrow returns to Home without consuming a
+labeled navigation row in the rail. Release-source identity appears in General
+and About rather than forcing the rail to accommodate metadata. Search-open
+state is a launcher UI preference stored outside both mod TOML formats; search
+text remains session-only.
 
 The first genuinely editable adapter covers the 82 directly editable scalar
 booleans. A toggle changes only an in-memory editing session. The persistent
