@@ -44,9 +44,10 @@ The Settings workspace now uses the accepted persistent left navigation and
 footer structure. Search is global and opens from a toolbar control instead of
 permanently consuming a content row. Section navigation is schema-derived
 through one category resolver, the compact rail contains only navigation, and
-Home remains inside the workspace instead of appearing as a duplicate outer
-action. Release-source identity appears in General and About rather than
-forcing the rail to accommodate metadata.
+a compact back arrow returns to Home instead of consuming a labeled navigation
+row. Release-source identity appears in General and About rather than forcing
+the rail to accommodate metadata. Search-open state is a launcher UI preference
+stored outside both mod TOML formats; search text remains session-only.
 
 The first genuinely editable adapter covers the 82 directly editable scalar
 booleans. A toggle changes only an in-memory editing session. The persistent
@@ -55,7 +56,9 @@ Changes in one compact row with 44-DIP action targets. Removing an override is
 also staged and restores the runtime default without materializing it into
 TOML. Theme-aware tooltips explicitly own their foreground, background, and
 border so raw-key and help hover content retains contrast in Light and Dark
-themes.
+themes. The settings scrollbar uses the same dynamic palette, and rows support
+mouse drag-to-scroll from non-interactive content without taking input away
+from toggles, buttons, editors, or the scrollbar itself.
 
 Save builds the complete staged document in memory and writes it as one atomic
 replacement against the session's original contents. It creates a sibling
@@ -81,7 +84,7 @@ information architecture and not a pixel-polish target.
 
 The next UI weave converges on:
 
-- persistent left navigation for Home and major setting families;
+- compact back navigation plus persistent major setting families;
 - category-specific, compact editors instead of one generic card shape;
 - grouped notification rows with event state and delivery policy visible at a
   glance;
