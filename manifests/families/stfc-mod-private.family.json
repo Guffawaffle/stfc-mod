@@ -1891,9 +1891,17 @@
         "stats": {},
         "max-namespaces": {}
       },
-      "warnings": [],
-      "details": [],
-      "examples": []
+      "warnings": [
+        "Raw IL2CPP research must use tools/il2cpp-dump; .ax-priv/tools/Il2CppDumper is a non-canonical legacy artifact tree."
+      ],
+      "details": [
+        "This compatibility command reports dump/index freshness against installed game binaries.",
+        "Run global.stfc-mod-private.corpus-status before raw searches to detect stale, identical, divergent, or legacy-only duplicate artifact trees."
+      ],
+      "examples": [
+        "ax dump-status",
+        "axf run global.stfc-mod-private.corpus-status --json"
+      ]
     },
     "dump-refresh": {
       "summary": "Regenerate dump.cs, rebuild indexes, and track research corpus changes",
