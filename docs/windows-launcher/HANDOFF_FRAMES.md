@@ -18,6 +18,91 @@ file records stable IDs so a fresh session can recover the intended sequence.
 | 10 | Foreground orchestrator | `frame-1785134447036-b398a5bb-6b1e-42f8-ac36-271555d2c5d4` | Player visual review refined WL-002: one integrated branded title area, accessible caption controls with Snap Layout hit-testing, no redundant healthy `Set` label, stable product copy, and explicit filled/hollow client status lights. Future launcher preferences and named launch profiles are separated from schema-driven mod settings. | Publish the refinement to draft PR #199, collect review, and split dedicated preferences/profile PM work before implementation. |
 | 11 | Foreground orchestrator | `frame-1785136412447-0c832d85-be50-4a33-a417-896484022229` | Blue-tape review hardened WL-002 with unprivileged event-driven game status, reusable accessible dialog and utility-action primitives, corrected custom chrome, stronger typography and WCAG AA palettes, and Windows identity derived from the approved macOS artwork. | Publish the hardened interactions to draft PR #199, update WL-002/WL-010 evidence, and observe one natural game shutdown to complete the event lifecycle smoke. |
 | 12 | Foreground orchestrator | `frame-1785136955081-6ef0a744-0242-44a9-ac76-6b9218ae9c94` | Refresh feedback is an unresolved reusable action-state contract in #201, while launcher/sidecar convergence is a planning-only product-family direction in #202. Neither expands or blocks WL-002. | Discuss and select the action-feedback contract and a staged product model before either planning issue is marked ready or dispatched. |
+| 13 | Foreground orchestrator | `frame-1785229655811-93652878-daa2-448b-bebb-39b40594b41e` | Home and Settings reached player-approved visual cadence on WL-006: unified title-bar navigation, compact category rail, accessible drag scrolling, conditional non-overlapping Save/Discard bar, and bounded Settings geometry. The current scalar-boolean adapter stages and atomically saves 82 settings; specialized input families remain deliberately separate. | Push the approved implementation commits and this handoff to PR #207, then resume the input-gap sprint without reopening the accepted shell. |
+
+## 2026-07-28 end-of-night resume packet
+
+### Exact state
+
+- Branch: `feature/wl-006-config-editor`
+- Accepted implementation checkpoint:
+  `820c7ab` (`Polish launcher navigation and contextual actions`); this handoff
+  commit follows it.
+- Remote state: three approved implementation commits plus this handoff commit
+  are ahead of `origin/feature/wl-006-config-editor`; the working tree is clean.
+- Pull request: [#207](https://github.com/Guffawaffle/stfc-mod/pull/207) is open
+  with its currently published checks passing. It does not yet include the
+  final implementation or handoff commits.
+- Validation: Release build clean, `69/69` launcher tests passing,
+  `dotnet format --verify-no-changes` clean, and `git diff --check` clean.
+- Last packaged executable:
+  `windows-launcher/artifacts/win-x64/app/STFCCommunityMod.Launcher.exe`.
+
+### Accepted UI contract — do not casually reopen
+
+- Home and Settings share one title-bar cadence:
+  `[gear] Settings | STFC Community Mod` on Home and
+  `[< Home] | STFC Community Mod` in Settings.
+- The Settings rail is compact; Search is a remembered title-bar action.
+- Mouse drag scrolling, bounded flick momentum, outside-window capture, themed
+  scrollbars/tooltips, and reduced-motion behavior have passed player smoke.
+- Save and Discard live in a dedicated bottom layout row that appears only
+  while edits are pending. It never overlays a setting, and no empty footer is
+  shown otherwise.
+- Settings cannot be resized below the width needed by the current editor
+  layout.
+- About and manual Refresh were removed from Home. About remains a Settings
+  destination; status refresh is expected to become event-driven product
+  behavior rather than a consumer-facing button.
+
+### Recommended first hour
+
+1. Confirm branch, clean state, and the four commits ahead of origin.
+2. Run the narrow launcher build/tests once if the machine or tooling changed
+   overnight.
+3. Push `feature/wl-006-config-editor` so PR #207 contains the accepted UI.
+4. Review the PR diff and any Copilot feedback before changing the editor
+   architecture.
+5. Continue the input-gap sprint one bounded adapter at a time:
+   ordinary non-boolean scalars, generated hotkey bindings, and union-typed
+   notification policies remain distinct catalog producers behind one schema
+   contract.
+
+### Product backlog reminders
+
+- Add first-class release-source selection for Guffawaffle and NetniV. NetniV
+  must retain TOML compatibility even if Guffawaffle later gains a richer
+  launcher-owned representation.
+- Implement the accepted notification experience without flattening meaningful
+  event prefixes or losing default/alias/provenance behavior.
+- Keep direct game launch and official game update support in the future-state
+  plan; this should eventually replace the ordinary STFC launcher path rather
+  than merely wrapping it.
+- Later launcher preferences include Windows startup, automatic update checks,
+  launch profiles, theme, and remembered UI state.
+- Launcher/sidecar convergence remains an intended direction requiring product
+  discussion, not permission to merge the products opportunistically.
+- Preserve modular, accessible controls and reuse approved macOS artwork.
+- Resume Azure/GitHub OIDC and protected release-environment hardening before a
+  public signed release.
+
+### Input wanted from Guff
+
+Nothing blocks the next engineering slice. When convenient, the highest-value
+inputs are:
+
+- choose which editor family should follow booleans first; the recommended
+  order is ordinary scalars, hotkeys, then notifications;
+- provide or point to representative, privacy-scrubbed NetniV and Guffawaffle
+  TOML files with real customizations for migration/preservation fixtures;
+- flag any must-have launcher preference or profile behavior before that schema
+  is frozen;
+- provide the highest-resolution original mod icon only if a better source than
+  the approved macOS asset becomes available;
+- be available later for interactive Azure/GitHub authentication or protected
+  environment changes—those should not be attempted unattended.
+
+No personal/admin action is needed overnight. Rest is the dependency.
 
 ## Current handoff contract
 
