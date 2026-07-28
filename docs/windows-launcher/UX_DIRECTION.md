@@ -174,7 +174,6 @@ The healthy home contains:
 - a game-installation row;
 - a community-mod row;
 - one contextual primary action;
-- quiet About access.
 
 Example healthy rows:
 
@@ -210,6 +209,33 @@ The primary action changes with the resolved product state:
 | Game running | Game is running | Bring game forward or disabled launch |
 | Operation active | Working | Progress/cancel when safe |
 | Offline but locally healthy | Ready offline | Launch game |
+
+### Future-state Game client row
+
+The accepted post-v1 direction is for the launcher to replace the official
+launcher during routine play. `Game client` therefore evolves from a status
+row into the home for base-game operations:
+
+```text
+Game client          Ready                  Launch game
+Game client          Update available       Update   Launch game
+Game client          Updating               Progress
+Game client          Running                Bring forward
+```
+
+`Launch game` remains visible whenever launch is safe. `Update` appears only
+when a base-game update is known to be available. If an update is mandatory or
+the installed game/mod combination is incompatible, launch is disabled with an
+actionable reason rather than silently attempted.
+
+Game update, mod update, and launcher update are different product states.
+Their labels, progress, error recovery, and diagnostics must never collapse
+into an ambiguous generic `Update`.
+
+This direction has macOS precedent, but Windows direct game updating remains a
+separate post-v1 architecture and security gate. The first production release
+continues to delegate base-game installation, authentication, updates, and
+repair to the official launcher.
 
 Detailed process safety, discovery provenance, artifact hashes, and internal
 health dimensions are logged. The home shows them only when they change the
@@ -248,17 +274,16 @@ resolves only `Running` and `Not running`.
 The launcher uses an unprivileged Windows shell window-created signal to
 identify a new `prime.exe` process and the tracked process's exit signal to
 detect shutdown. It re-runs the authoritative process inspection only after a
-transition and does not continuously poll or require WMI. A manual Refresh
-action remains available if the operating-system event subscription cannot be
-established.
+transition and does not continuously poll or require WMI. Manual `Refresh
+status` is a development affordance and is not part of the production Home.
+Failure to establish reliable automatic monitoring is surfaced as launcher
+health/diagnostic state rather than delegated to the player.
 
 ### Observable action feedback
 
 An accepted action must never appear to be a no-op merely because its result
-does not change the visible state. `Refresh status` currently performs
-synchronous work without acknowledging activation or successful unchanged
-completion. The final interaction is intentionally undecided and tracked in
-[#201](https://github.com/Guffawaffle/stfc-mod/issues/201).
+does not change the visible state. The shared interaction contract is tracked
+in [#201](https://github.com/Guffawaffle/stfc-mod/issues/201).
 
 The shared action contract must represent at least idle, working, completed
 with changes, completed without changes, and failed or unavailable states. It
@@ -275,10 +300,10 @@ must define:
   and diagnostic operations share semantics without pretending they have the
   same progress capabilities.
 
-Candidate treatments include temporary `Refreshing…` copy, a compact progress
-glyph, affected-row feedback, or a brief `Status is up to date` confirmation.
-None is accepted yet. A one-off Refresh animation must not precede the shared
-state and accessibility decision.
+Candidate treatments include operation copy, a compact progress glyph,
+affected-row feedback, or a brief unchanged-state confirmation. None is
+accepted globally yet; individual operations must not invent independent
+feedback before the shared state and accessibility decision.
 
 ## Settings workspace
 
@@ -389,8 +414,11 @@ uses a repeatable target editor rather than exposing flattened target keys.
 
 ### Save behavior
 
-Edits are staged until the user saves. A persistent footer reports the number
-of unsaved changes and offers `Discard` and `Save changes`.
+Edits are staged until the user saves. A bottom action bar appears only while
+changes are pending, reports their number, and offers `Discard` and
+`Save changes`. The settings viewport gives it a dedicated layout row only for
+as long as it is visible, so no setting is covered and no empty footer consumes
+space during ordinary browsing.
 
 Save follows the configuration contract:
 
@@ -514,12 +542,12 @@ Reusable interaction primitives carry keyboard, focus, target-size, contrast,
 automation-name, and disabled-state behavior so individual screens cannot
 silently omit them.
 
-Ordinary actions such as About, Refresh Status, and dialog Close use one shared
-utility-action button style rather than custom subclasses. The shared primitive
-provides a minimum 44-pixel target, a dual-contrast focus treatment, consistent
-padding and typography, and a control boundary with at least 3:1 contrast.
-Custom controls are reserved for reusable behavior, such as the in-application
-dialog host.
+Ordinary actions such as workspace navigation, raw configuration access, and
+dialog Close use shared button styles rather than custom subclasses. The
+shared primitives provide a minimum 44-pixel target, a dual-contrast focus
+treatment, consistent padding and typography, and a control boundary with at
+least 3:1 contrast. Custom controls are reserved for reusable behavior, such
+as the in-application dialog host.
 
 The Windows typography stack prefers `Segoe UI Variable Text` with `Segoe UI`
 fallback and uses medium body weight to remain readable across display scales
@@ -571,7 +599,7 @@ The implementation must support:
 - `WL-010` validates both themes, adaptive window density, keyboard navigation,
   screen readers, reduced motion, and high DPI.
 - Issue #201 must settle shared action and button-state feedback before
-  Refresh, installer, repair, updater, or diagnostic surfaces grow independent
+  installer, repair, updater, or diagnostic surfaces grow independent
   progress conventions.
 - Issue #202 is a post-sprint product/architecture decision and must not be
   interpreted as approval to merge, rewrite, or independently duplicate the

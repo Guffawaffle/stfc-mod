@@ -41,8 +41,8 @@ capabilities without matching source metadata.
 ## Current UI boundary
 
 The Settings workspace now uses the accepted persistent left navigation and
-footer structure. Search is global and opens from a toolbar control instead of
-permanently consuming a content row. Section navigation is schema-derived
+contextual save surface. Search is global and opens from a toolbar control
+instead of permanently consuming a content row. Section navigation is schema-derived
 through one category resolver, the compact rail contains only navigation, and
 a compact toolbar aligns Back, the active section title, and Search directly
 beneath the window chrome. The back arrow returns to Home without consuming a
@@ -52,9 +52,9 @@ state is a launcher UI preference stored outside both mod TOML formats; search
 text remains session-only.
 
 The first genuinely editable adapter covers the 82 directly editable scalar
-booleans. A toggle changes only an in-memory editing session. The persistent
-footer reports the exact unsaved-change count and owns Discard and Save
-Changes in one compact row with 44-DIP action targets. Removing an override is
+booleans. A toggle changes only an in-memory editing session. A bottom action
+bar appears only while changes are pending, reports their exact count, and owns
+Discard and Save Changes with 44-DIP action targets. Removing an override is
 also staged and restores the runtime default without materializing it into
 TOML. Theme-aware tooltips explicitly own their foreground, background, and
 border so raw-key and help hover content retains contrast in Light and Dark
@@ -93,8 +93,8 @@ The next UI weave converges on:
 - grouped notification rows with event state and delivery policy visible at a
   glance;
 - dedicated Hotkeys and Data Sync experiences;
-- a persistent footer that reports unsaved changes and owns Discard and Save
-  Changes.
+- a contextual bottom action bar that reports unsaved changes and owns Discard
+  and Save Changes without permanently consuming content space.
 
 Schema-driven generation remains the implementation rule beneath that
 category-specific presentation. The launcher must not turn the accepted design
