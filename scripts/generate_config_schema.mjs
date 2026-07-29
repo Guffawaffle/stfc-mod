@@ -5,6 +5,8 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { configPresentationOverrides } from "./config_presentation_overrides.mjs";
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outputPath = path.join(repoRoot, "docs", "windows-launcher", "config-schema.guffawaffle.v1.json");
 
@@ -552,6 +554,303 @@ function applyFor(settingPath) {
   return settingPath.startsWith("patches.") ? "restart-required" : "next-session";
 }
 
+const applyTimingLabels = new Map([
+  ["live", "Immediate"],
+  ["next-session", "Next launch"],
+  ["restart-required", "Restart required"],
+]);
+
+const presentationOverrideFields = new Set([
+  "path",
+  "label",
+  "help",
+  "group",
+  "searchTerms",
+  "unit",
+  "editorWidth",
+]);
+
+const editorWidths = new Set(["compact", "standard", "wide"]);
+
+function cleanPresentationHelp(description) {
+  const cleaned = description
+    .replace(/\s+Defaults?:\s*.*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || null;
+}
+
+function normalizeJoinedPresentationTokens(value) {
+  return value
+    .replace(/chatside/g, "chat_side")
+    .replace(/chat(alliance|global|private)/g, "chat_$1")
+    .replace(/awayteam/g, "away_team")
+    .replace(/station(interior|exterior)/g, "station_$1")
+    .replace(/qtrials/g, "q_trials")
+    .replace(/([a-z])(\d+)/g, "$1_$2");
+}
+
+function keybindingPresentationLabel(setting) {
+  const key = setting.path.split(".").at(-1);
+  const hotkeysAction = key.match(/^hotkeys_(enable|disable)$/);
+  if (hotkeysAction) return `${titleCase(hotkeysAction[1])} hotkeys`;
+  const loggingAction = key.match(/^log_(debug|error|info|off|trace|warn)$/);
+  if (loggingAction) return `Set logging to ${titleCase(loggingAction[1])}`;
+  const queueAction = key.match(/^fleet_queue_(add|clear|toggle)$/);
+  if (queueAction) {
+    const verb = titleCase(queueAction[1]);
+    return queueAction[1] === "add" ? "Add fleet to queue" : `${verb} fleet queue`;
+  }
+  const fleetAction = key.match(/^fleet_(recall|repair|service)$/);
+  if (fleetAction) return `${titleCase(fleetAction[1])} fleet`;
+  const fleetOrdinal = key.match(/^fleet_(primary|secondary)$/);
+  if (fleetOrdinal) return `${titleCase(fleetOrdinal[1])} fleet action`;
+  if (key === "fleet_recall_cancel") return "Cancel fleet recall";
+  if (key === "fleet_view_info") return "View fleet info";
+  if (key === "select_current") return "Select current ship";
+
+  return titleCase(normalizeJoinedPresentationTokens(key));
+}
+
+function keybindingPresentationHelp(label) {
+  return `Keyboard or mouse shortcut for ${label[0].toLowerCase()}${label.slice(1)}.`;
+}
+
+function notificationPresentationHelp(setting) {
+  const key = setting.path.split(".").at(-1);
+  const exactConsequences = new Map([
+    ["fleet_arrived_at_destination", "your fleet arrives at its destination"],
+    ["fleet_arrived_in_system", "your fleet arrives in a system"],
+    ["fleet_started_mining", "your fleet starts mining"],
+    ["fleet_node_depleted", "your fleet's mining node is depleted"],
+    ["fleet_docked", "your fleet docks"],
+    ["fleet_repair_complete", "fleet repairs finish"],
+    ["incoming_attack_player", "another player attacks one of your assets"],
+    ["incoming_attack_hostile", "a hostile attacks one of your assets"],
+    ["victory", "you win a battle"],
+    ["defeat", "you lose a battle"],
+    ["achievement", "you earn an achievement"],
+    ["armada_created", "an armada is created"],
+    ["armada_canceled", "an armada is canceled"],
+    ["armada_incoming_attack", "an armada attack is incoming"],
+    ["armada_player_blocked", "a player is blocked from an armada"],
+    ["armada_player_unblocked", "a player is unblocked from an armada"],
+    ["fleet_battle", "your fleet enters battle"],
+    ["station_battle", "your station enters battle"],
+    ["faction_level_up", "your faction level increases"],
+    ["faction_level_down", "your faction level decreases"],
+    ["faction_warning", "a faction warning is issued"],
+    ["chained_event_scored", "you score in a chained event"],
+    ["dynamic_crisis_update", "dynamic crisis status changes"],
+    ["galactic_anomaly_system_entered", "your fleet enters a galactic anomaly system"],
+    ["joined_takeover", "a takeover you joined becomes active"],
+    ["competitor_joined_takeover", "a competitor joins your takeover"],
+    ["abandoned_territory", "your alliance abandons territory"],
+    ["outpost_started_or_ended", "an outpost starts or ends"],
+    ["strike_hit", "a strike hits its target"],
+    ["surge_warmup_ended", "surge warmup ends"],
+    ["surge_hostile_group_defeated", "a surge hostile group is defeated"],
+    ["arena_time_left", "arena time is running low"],
+    ["surge_time_left", "surge time is running low"],
+  ]);
+  const exact = exactConsequences.get(key);
+  if (exact) return `Alerts you when ${exact}.`;
+
+  const partialVictory = key.match(/^(?:(.+)_)?partial_victory$/);
+  if (partialVictory) {
+    const subject = partialVictory[1]
+      ? `${normalizeJoinedPresentationTokens(partialVictory[1]).replaceAll("_", " ")} battle`
+      : "a battle";
+    return `Alerts you when ${subject} ends in a partial victory.`;
+  }
+
+  const outcome = key.match(/^(.+)_(victory|defeat)$/);
+  if (outcome) {
+    const subject = normalizeJoinedPresentationTokens(outcome[1]).replaceAll("_", " ");
+    const result = outcome[2] === "victory" ? "win" : "lose";
+    const article = /^[aeiou]/.test(subject) ? "an" : "a";
+    return `Alerts you when you ${result} ${subject === "station" ? "a station battle" : `${article} ${subject}`}.`;
+  }
+
+  const armadaBattle = key.match(/^(.*armada)_battle_(won|lost)$/);
+  if (armadaBattle) {
+    const subject = normalizeJoinedPresentationTokens(armadaBattle[1]).replaceAll("_", " ");
+    return `Alerts you when your ${subject} battle is ${armadaBattle[2]}.`;
+  }
+
+  const lifecycle = key.match(/^(.+)_(created|canceled|activated|expired|purchased|applied|updated|discovered)$/);
+  if (lifecycle) {
+    const subject = normalizeJoinedPresentationTokens(lifecycle[1]).replaceAll("_", " ");
+    return lifecycle[2] === "expired"
+      ? `Alerts you when ${subject} expires.`
+      : `Alerts you when ${subject} is ${lifecycle[2]}.`;
+  }
+
+  const completion = key.match(/^(.+)_(complete|completed|failed)$/);
+  if (completion) {
+    const subject = normalizeJoinedPresentationTokens(completion[1]).replaceAll("_", " ");
+    const auxiliary = subject.endsWith("events") ? "are" : "is";
+    if (completion[2] === "failed") return `Alerts you when ${subject} fails.`;
+    const state = completion[2] === "complete" ? "complete" : "completed";
+    return `Alerts you when ${subject} ${auxiliary} ${state}.`;
+  }
+
+  const capacity = key.match(/^(.+)_(full|progress)$/);
+  if (capacity) {
+    const subject = normalizeJoinedPresentationTokens(capacity[1]).replaceAll("_", " ");
+    return capacity[2] === "full"
+      ? `Alerts you when ${subject} is full.`
+      : `Alerts you when ${subject} progress changes.`;
+  }
+
+  return null;
+}
+
+function notificationPresentationGroup(setting) {
+  const canonicalKey = setting.path.split(".").at(-1);
+  const legacyAlias = setting.aliases.find((alias) => alias.path.startsWith("notifications.events."));
+  const legacyCategory = legacyAlias?.path.split(".")[2];
+  if (legacyCategory === "battle") return "Battle and incoming attacks";
+  if (legacyCategory === "fleet") {
+    return canonicalKey.includes("repair") || canonicalKey.includes("docked")
+      ? "Repairs and docking"
+      : "Fleet movement and mining";
+  }
+  if (legacyCategory === "armada") return "Armada";
+  if (legacyCategory === "event") return "Events and tournaments";
+
+  if (canonicalKey.includes("armada")) return "Armada";
+  if (/(takeover|territory|outpost)/.test(canonicalKey)) return "Territory and takeover";
+  if (/(treasury|warchest|queue.*(?:lease|purchased))/.test(canonicalKey)) return "Economy and treasury";
+  if (/(fleet|mining|node_depleted)/.test(canonicalKey)) return "Fleet movement and mining";
+  if (/(repair|docked)/.test(canonicalKey)) return "Repairs and docking";
+  if (/(event|tournament|challenge|crisis|surge|arena)/.test(canonicalKey)) return "Events and tournaments";
+  return "Experimental and generic toasts";
+}
+
+function presentationGroup(setting) {
+  if (setting.control === "keybinding") {
+    return titleCase(snakeCase(setting.valueType.actionCategory));
+  }
+  if (setting.control === "notification-policy") {
+    return notificationPresentationGroup(setting);
+  }
+  return titleCase(setting.category);
+}
+
+function defaultEditorWidth(setting) {
+  if (setting.control === "keybinding" || setting.valueType.kind === "string") return "wide";
+  if (["boolean", "integer", "number"].includes(setting.valueType.kind)) return "compact";
+  return "standard";
+}
+
+function uniqueSearchTerms(values) {
+  const seen = new Set();
+  const terms = [];
+  for (const raw of values.flat()) {
+    if (typeof raw !== "string") throw new Error("Presentation search terms must be strings.");
+    const value = raw.trim();
+    if (!value) throw new Error("Presentation search terms must not be blank.");
+    const key = value.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      terms.push(value);
+    }
+  }
+  return terms;
+}
+
+function validatePresentationOverrides(settings, overrides = configPresentationOverrides) {
+  const settingsByPath = new Map(settings.map((setting) => [setting.path, setting]));
+  const seenPaths = new Set();
+  for (const override of overrides) {
+    if (!override || typeof override !== "object" || Array.isArray(override)) {
+      throw new Error("Presentation overrides must be objects.");
+    }
+    for (const field of Object.keys(override)) {
+      if (!presentationOverrideFields.has(field)) {
+        throw new Error(`Presentation override for ${override.path ?? "<unknown>"} uses unsupported field '${field}'.`);
+      }
+    }
+    if (typeof override.path !== "string" || !override.path.trim()) {
+      throw new Error("Presentation overrides must declare a non-empty canonical path.");
+    }
+    if (seenPaths.has(override.path)) {
+      throw new Error(`Duplicate presentation override path: ${override.path}`);
+    }
+    seenPaths.add(override.path);
+    const setting = settingsByPath.get(override.path);
+    if (!setting) throw new Error(`Stale presentation override path: ${override.path}`);
+
+    for (const field of ["label", "help", "group", "unit"]) {
+      if (field in override && (typeof override[field] !== "string" || !override[field].trim())) {
+        throw new Error(`Presentation override ${override.path}.${field} must be a non-empty string.`);
+      }
+    }
+    if ("editorWidth" in override && !editorWidths.has(override.editorWidth)) {
+      throw new Error(`Presentation override ${override.path} uses unsupported editor width '${override.editorWidth}'.`);
+    }
+    if ("searchTerms" in override) {
+      if (!Array.isArray(override.searchTerms)) {
+        throw new Error(`Presentation override ${override.path}.searchTerms must be an array.`);
+      }
+      uniqueSearchTerms(override.searchTerms);
+    }
+    if ("unit" in override
+        && (setting.control !== "scalar" || !["integer", "number"].includes(setting.valueType.kind))) {
+      throw new Error(`Presentation override ${override.path} declares a unit for a non-numeric scalar setting.`);
+    }
+  }
+  return new Map(overrides.map((override) => [override.path, override]));
+}
+
+function addPresentationMetadata(settings, overrides = configPresentationOverrides) {
+  const overridesByPath = validatePresentationOverrides(settings, overrides);
+  for (const setting of settings) {
+    const override = overridesByPath.get(setting.path) ?? {};
+    const derivedLabel = setting.control === "keybinding"
+      ? keybindingPresentationLabel(setting)
+      : setting.title;
+    const derivedHelp = setting.control === "notification-policy"
+      ? notificationPresentationHelp(setting)
+      : setting.control === "keybinding"
+        ? keybindingPresentationHelp(derivedLabel)
+        : cleanPresentationHelp(setting.description);
+    const label = (override.label ?? derivedLabel).trim();
+    const help = (override.help ?? derivedHelp)?.trim() || null;
+    const group = (override.group ?? presentationGroup(setting)).trim();
+    const applyTiming = applyTimingLabels.get(setting.apply);
+    if (!applyTiming) throw new Error(`Setting ${setting.path} uses unsupported apply behavior '${setting.apply}'.`);
+    const editorWidth = override.editorWidth ?? defaultEditorWidth(setting);
+    if (!editorWidths.has(editorWidth)) {
+      throw new Error(`Setting ${setting.path} uses unsupported editor width '${editorWidth}'.`);
+    }
+
+    const searchTerms = uniqueSearchTerms([
+      setting.path,
+      setting.title,
+      setting.description,
+      setting.category,
+      group,
+      setting.aliases.map((alias) => alias.path),
+      override.searchTerms ?? [],
+    ]);
+    const accessibleHelp = [help, `Applies: ${applyTiming}.`].filter(Boolean).join(" ");
+    setting.presentation = {
+      label,
+      ...(help ? { help } : {}),
+      group,
+      searchTerms,
+      ...(override.unit ? { unit: override.unit.trim() } : {}),
+      editorWidth,
+      applyTiming,
+      accessibleName: label,
+      accessibleHelp,
+    };
+  }
+  return settings;
+}
+
 function scalarAliases(settingPath) {
   const aliases = {
     "input.original_frame_policy": [
@@ -660,6 +959,7 @@ function buildSchema() {
     ...parseNotificationSettings(),
   );
   settings.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
+  addPresentationMetadata(settings);
 
   const paths = new Set(settings.map((setting) => setting.path));
   const missingParserPaths = [...parserPaths]
@@ -717,6 +1017,7 @@ if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
 
 export {
   buildSchema,
+  addPresentationMetadata,
   parseDefaultConfig,
   parseBoolConfigMetadata,
   parseConfigMemberTypes,
@@ -724,4 +1025,5 @@ export {
   scanCustomParserPaths,
   scanLiteralParserPaths,
   scanRuntimeScalarPaths,
+  validatePresentationOverrides,
 };

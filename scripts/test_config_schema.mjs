@@ -4,12 +4,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  addPresentationMetadata,
   buildSchema,
   parseBoolConfigMetadata,
   parseConfigMemberTypes,
   parseDefaultConfig,
   parseExampleConfig,
   scanRuntimeScalarPaths,
+  validatePresentationOverrides,
 } from "./generate_config_schema.mjs";
 
 test("default and example inventories are non-empty", () => {
@@ -95,6 +97,160 @@ test("every setting has unique launcher and provenance metadata", () => {
       aliasOwners.set(alias.path, setting.path);
     }
   }
+});
+
+test("every setting has generated and validated player presentation", () => {
+  const schema = buildSchema();
+  const applyLabels = new Map([
+    ["live", "Immediate"],
+    ["next-session", "Next launch"],
+    ["restart-required", "Restart required"],
+  ]);
+
+  for (const setting of schema.settings) {
+    const presentation = setting.presentation;
+    assert.ok(presentation.label?.trim(), `missing presentation label: ${setting.path}`);
+    assert.ok(presentation.group?.trim(), `missing presentation group: ${setting.path}`);
+    assert.ok(presentation.accessibleName?.trim(), `missing accessible name: ${setting.path}`);
+    assert.ok(presentation.accessibleHelp?.trim(), `missing accessible help: ${setting.path}`);
+    assert.ok(["compact", "standard", "wide"].includes(presentation.editorWidth));
+    assert.equal(presentation.applyTiming, applyLabels.get(setting.apply));
+    assert.ok(presentation.searchTerms.includes(setting.path));
+    for (const alias of setting.aliases) {
+      assert.ok(
+        presentation.searchTerms.includes(alias.path),
+        `presentation search omits alias ${alias.path} for ${setting.path}`,
+      );
+    }
+    if (presentation.unit) {
+      assert.equal(setting.control, "scalar");
+      assert.ok(["integer", "number"].includes(setting.valueType.kind));
+    }
+  }
+});
+
+test("presentation overrides improve representative player copy without changing runtime metadata", () => {
+  const schema = buildSchema();
+  const backdrop = schema.settings.find((setting) => setting.path === "graphics.fr_scale");
+  assert.equal(backdrop.title, "Fr Scale");
+  assert.equal(backdrop.apply, "next-session");
+  assert.equal(backdrop.presentation.label, "System backdrop scale");
+  assert.equal(backdrop.presentation.group, "Camera");
+  assert.equal(backdrop.presentation.unit, "×");
+
+  const queueAdd = schema.settings.find((setting) => setting.path === "input.bindings.fleet_queue_add");
+  assert.equal(queueAdd.title, "Fleet Queue Add");
+  assert.equal(queueAdd.valueType.kind, "keybinding");
+  assert.equal(queueAdd.presentation.label, "Add fleet to queue");
+  assert.equal(queueAdd.presentation.group, "Fleet");
+});
+
+test("keybinding presentation normalizes joined tokens numbers and fleet actions", () => {
+  const schema = buildSchema();
+  const labels = new Map([
+    ["input.bindings.select_ship1", "Select Ship 1"],
+    ["input.bindings.set_zoom_preset1", "Set Zoom Preset 1"],
+    ["input.bindings.select_chatalliance", "Select Chat Alliance"],
+    ["input.bindings.show_awayteam", "Show Away Team"],
+    ["input.bindings.show_stationinterior", "Show Station Interior"],
+    ["input.bindings.fleet_queue_clear", "Clear fleet queue"],
+    ["input.bindings.fleet_recall_cancel", "Cancel fleet recall"],
+    ["input.bindings.fleet_repair", "Repair fleet"],
+    ["input.bindings.fleet_view_info", "View fleet info"],
+    ["input.bindings.hotkeys_disable", "Disable hotkeys"],
+    ["input.bindings.log_debug", "Set logging to Debug"],
+  ]);
+
+  for (const [settingPath, expectedLabel] of labels) {
+    const setting = schema.settings.find((candidate) => candidate.path === settingPath);
+    assert.equal(setting.presentation.label, expectedLabel, settingPath);
+    assert.match(setting.presentation.help, /^Keyboard or mouse shortcut for /);
+  }
+});
+
+test("notification presentation uses consequence help or intentionally omits it", () => {
+  const schema = buildSchema();
+  const expectedHelp = new Map([
+    ["notifications.fleet_started_mining", "Alerts you when your fleet starts mining."],
+    [
+      "notifications.incoming_attack_player",
+      "Alerts you when another player attacks one of your assets.",
+    ],
+    ["notifications.armada_created", "Alerts you when an armada is created."],
+    ["notifications.armada_battle_lost", "Alerts you when your armada battle is lost."],
+    ["notifications.assault_victory", "Alerts you when you win an assault."],
+    ["notifications.challenge_failed", "Alerts you when challenge fails."],
+    ["notifications.dynamic_crisis_failed", "Alerts you when dynamic crisis fails."],
+    ["notifications.dynamic_crisis_update", "Alerts you when dynamic crisis status changes."],
+    [
+      "notifications.cross_alliance_armada_partial_victory",
+      "Alerts you when cross alliance armada battle ends in a partial victory.",
+    ],
+    ["notifications.faction_weekly_events_complete", "Alerts you when faction weekly events are complete."],
+  ]);
+
+  for (const [settingPath, help] of expectedHelp) {
+    const setting = schema.settings.find((candidate) => candidate.path === settingPath);
+    assert.equal(setting.presentation.help, help, settingPath);
+  }
+
+  const generic = schema.settings.find((setting) => setting.path === "notifications.standard");
+  assert.equal(generic.presentation.help, undefined);
+  assert.equal(generic.presentation.accessibleHelp, "Applies: Next launch.");
+  assert.ok(schema.settings
+    .filter((setting) => setting.control === "notification-policy")
+    .every((setting) => !setting.presentation.help?.startsWith("Configure system and audio")));
+});
+
+test("presentation grouping derives bounded hotkey and notification domains", () => {
+  const schema = buildSchema();
+  const fleetPrimary = schema.settings.find((setting) => setting.path === "input.bindings.fleet_primary");
+  const battle = schema.settings.find((setting) => setting.path === "notifications.incoming_attack_player");
+  const repair = schema.settings.find((setting) => setting.path === "notifications.fleet_repair_complete");
+  assert.equal(fleetPrimary.presentation.group, "Fleet");
+  assert.equal(battle.presentation.group, "Battle and incoming attacks");
+  assert.equal(repair.presentation.group, "Repairs and docking");
+});
+
+test("presentation override validation rejects stale duplicate forbidden and incompatible entries", () => {
+  const settings = [{
+    path: "graphics.example",
+    title: "Example",
+    description: "Example.",
+    category: "graphics",
+    control: "scalar",
+    valueType: { kind: "boolean" },
+    apply: "next-session",
+    aliases: [],
+  }];
+
+  assert.throws(
+    () => validatePresentationOverrides(settings, [{ path: "graphics.missing", label: "Missing" }]),
+    /Stale presentation override path/,
+  );
+  assert.throws(
+    () => validatePresentationOverrides(settings, [
+      { path: "graphics.example", label: "First" },
+      { path: "graphics.example", label: "Second" },
+    ]),
+    /Duplicate presentation override path/,
+  );
+  assert.throws(
+    () => validatePresentationOverrides(settings, [{ path: "graphics.example", default: true }]),
+    /unsupported field 'default'/,
+  );
+  assert.throws(
+    () => validatePresentationOverrides(settings, [{ path: "graphics.example", unit: "%" }]),
+    /unit for a non-numeric scalar/,
+  );
+  assert.throws(
+    () => validatePresentationOverrides(settings, [{ path: "graphics.example", searchTerms: [""] }]),
+    /must not be blank/,
+  );
+  assert.throws(
+    () => addPresentationMetadata([{ ...settings[0], apply: "surprise" }], []),
+    /unsupported apply behavior/,
+  );
 });
 
 test("notification policies replace deprecated values as a whole", () => {
