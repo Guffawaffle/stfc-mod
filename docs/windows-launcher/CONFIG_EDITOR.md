@@ -94,10 +94,11 @@ is unbound.
 
 The Hotkeys adapter derives 90 bindings and their aliases directly from the
 runtime action registry. Each row renders multi-chord alternatives without
-flattening them, captures supported keyboard or mouse input, replaces or adds
-alternatives explicitly, supports `NONE` through Unbind, and removes canonical
-overrides through Use default. Binding parsing is strict and normalized before
-staging. Generated trigger mode, input phase/layer, action category, and
+flattening them, captures supported keyboard or mouse input, adds and removes
+individual alternatives as wrapping inline chips, supports `NONE` through
+Unbind, and removes canonical overrides through Use default. Binding parsing
+is strict and normalized before staging. Generated trigger mode, input
+phase/layer, action category, and
 conflict-group metadata let the launcher mirror runtime conflict semantics:
 same-trigger collisions in a real conflict group block Save, while deliberate
 shared bindings in `ConflictGroup::None` remain valid. Invalid configured
