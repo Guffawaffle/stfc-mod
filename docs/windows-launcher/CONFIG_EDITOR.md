@@ -51,9 +51,12 @@ and About rather than forcing the rail to accommodate metadata. Search-open
 state is a launcher UI preference stored outside both mod TOML formats; search
 text remains session-only.
 
-The first genuinely editable adapter covers the 82 directly editable scalar
-booleans. A toggle changes only an in-memory editing session. A bottom action
-bar appears only while changes are pending, reports their exact count, and owns
+The scalar adapter covers the 82 directly editable booleans and eight
+constrained enums. Boolean toggles and enum selections change only an in-memory
+editing session. Enum choices come from the generated schema, render friendly
+labels without changing their canonical values, and visibly fall back to the
+runtime default when an existing override is invalid. A bottom action bar
+appears only while changes are pending, reports their exact count, and owns
 Discard and Save Changes with 44-DIP action targets. Removing an override is
 also staged and restores the runtime default without materializing it into
 TOML. Theme-aware tooltips explicitly own their foreground, background, and
@@ -69,8 +72,8 @@ replacement against the session's original contents. It creates a sibling
 backup and reports a conflict instead of overwriting when the selected file or
 its contents changed after the session began.
 
-Numbers, strings, enums, keybindings, and notification policies remain
-read-only and identify the dedicated adapter they require. Notification rows
+Numbers, strings, keybindings, and notification policies remain read-only and
+identify the dedicated adapter they require. Notification rows
 already parse canonical `false`, `true`, and inline-table policies into compact
 On/Off and delivery summaries. Invalid canonical policy values visibly fall
 back to the event default, matching the runtime contract, instead of pretending
