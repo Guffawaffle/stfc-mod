@@ -90,8 +90,21 @@ sounds. Each interaction replaces the whole canonical event policy, stages
 through the same sparse editing session as scalar settings, and can remove an
 override with Use default. Invalid canonical values visibly fall back to the
 event default, matching the runtime contract, instead of pretending the policy
-is unbound. Keybindings remain read-only pending their dedicated capture and
-conflict adapter. NetniV schema selection is not yet packaged; the current
+is unbound.
+
+The Hotkeys adapter derives 90 bindings and their aliases directly from the
+runtime action registry. Each row renders multi-chord alternatives without
+flattening them, captures supported keyboard or mouse input, replaces or adds
+alternatives explicitly, supports `NONE` through Unbind, and removes canonical
+overrides through Use default. Binding parsing is strict and normalized before
+staging. Generated trigger mode, input phase/layer, action category, and
+conflict-group metadata let the launcher mirror runtime conflict semantics:
+same-trigger collisions in a real conflict group block Save, while deliberate
+shared bindings in `ConflictGroup::None` remain valid. Invalid configured
+bindings show the runtime default rather than presenting an unusable shortcut
+as active.
+
+NetniV schema selection is not yet packaged; the current
 session uses the Guffawaffle catalog while source-preserving tests prove that
 legacy NetniV notification families survive unrelated edits.
 
@@ -124,8 +137,8 @@ back into a handwritten second configuration catalog.
    never pass a wildcard schema path to the TOML mutation API.
 3. Add purpose-specific editors and redaction policy for private endpoints,
    paths, and secret values; do not route them through the public text adapter.
-4. Add the dedicated keybinding adapter and group notification events by family
-   without replacing the schema-derived catalog.
+4. Group notification and hotkey rows by runtime family without replacing the
+   schema-derived catalog.
 5. Add restart/apply summaries and a recoverable conflict-reload flow.
 6. Expand the curated real-world Guffawaffle and NetniV round-trip fixtures as
    new syntax families enter the editor.

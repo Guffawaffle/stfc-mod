@@ -113,6 +113,25 @@ test("keybindings derive defaults and aliases from runtime registries", () => {
   assert.equal(disable.default, "CTRL-ALT-MINUS");
   assert.ok(disable.aliases.some((alias) => alias.path === "shortcuts.set_hotkeys_disble"
     && alias.status === "deprecated"));
+
+  const fleetPrimary = schema.settings.find((setting) => setting.path === "input.bindings.fleet_primary");
+  assert.deepEqual(fleetPrimary.valueType, {
+    kind: "keybinding",
+    multiple: true,
+    unbound: "NONE",
+    triggerMode: "Down",
+    inputPhase: "Frame",
+    inputLayer: "Fleet",
+    conflictGroup: "FleetAction",
+    actionCategory: "Fleet",
+  });
+
+  const queueAdd = schema.settings.find((setting) => setting.path === "input.bindings.fleet_queue_add");
+  assert.equal(queueAdd.valueType.conflictGroup, "None");
+
+  const zoomIn = schema.settings.find((setting) => setting.path === "input.bindings.zoom_in");
+  assert.equal(zoomIn.valueType.triggerMode, "Pressed");
+  assert.equal(zoomIn.valueType.conflictGroup, "Zoom");
 });
 
 test("sensitivity and restart metadata cover risky settings", () => {

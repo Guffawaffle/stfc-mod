@@ -319,9 +319,19 @@ function parseInputBindings() {
   const bridge = read("mods/src/patches/input_binding/input_config_bridge.cc");
   const actions = [];
   const actionPattern =
-    /InputActionId::([A-Za-z0-9_]+)\s*,\s*"([^"]+)"\s*,\s*"([^"]*)"\s*,\s*TriggerMode::/g;
+    /InputActionId::([A-Za-z0-9_]+)\s*,\s*"([^"]+)"\s*,\s*"([^"]*)"\s*,\s*TriggerMode::([A-Za-z0-9_]+)\s*,\s*InputPhase::([A-Za-z0-9_]+)\s*,\s*InputLayer::([A-Za-z0-9_]+)\s*,\s*ConflictGroup::([A-Za-z0-9_]+)\s*,\s*(\d+)\s*\}\s*,\s*ActionCategory::([A-Za-z0-9_]+)/g;
   for (const match of registry.matchAll(actionPattern)) {
-    actions.push({ id: match[1], key: match[2], defaultValue: match[3] });
+    actions.push({
+      id: match[1],
+      key: match[2],
+      defaultValue: match[3],
+      triggerMode: match[4],
+      inputPhase: match[5],
+      inputLayer: match[6],
+      conflictGroup: match[7],
+      priority: Number.parseInt(match[8], 10),
+      actionCategory: match[9],
+    });
   }
 
   const aliasArrays = new Map();
@@ -353,7 +363,16 @@ function parseInputBindings() {
     description: `Keyboard or mouse binding for ${titleCase(action.key).toLowerCase()}.`,
     category: "input",
     control: "keybinding",
-    valueType: { kind: "keybinding" },
+    valueType: {
+      kind: "keybinding",
+      multiple: true,
+      unbound: "NONE",
+      triggerMode: action.triggerMode,
+      inputPhase: action.inputPhase,
+      inputLayer: action.inputLayer,
+      conflictGroup: action.conflictGroup,
+      actionCategory: action.actionCategory,
+    },
     default: action.defaultValue,
     platforms: ["windows", "macos"],
     apply: "next-session",

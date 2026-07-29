@@ -2032,7 +2032,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "FleetAction",
+        "actionCategory": "Fleet"
       },
       "default": "SPACE|MOUSE1",
       "platforms": [
@@ -2064,7 +2071,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "None",
+        "actionCategory": "Fleet"
       },
       "default": "SPACE|MOUSE1",
       "platforms": [
@@ -2096,7 +2110,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "FleetAction",
+        "actionCategory": "Fleet"
       },
       "default": "CTRL-C",
       "platforms": [
@@ -2128,7 +2149,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Fleet"
       },
       "default": "CTRL-Q",
       "platforms": [
@@ -2160,7 +2188,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "None",
+        "actionCategory": "Fleet"
       },
       "default": "R|MOUSE3",
       "platforms": [
@@ -2192,7 +2227,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "None",
+        "actionCategory": "Fleet"
       },
       "default": "SPACE|MOUSE1",
       "platforms": [
@@ -2224,7 +2266,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "None",
+        "actionCategory": "Fleet"
       },
       "default": "R|MOUSE3",
       "platforms": [
@@ -2256,7 +2305,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "FleetAction",
+        "actionCategory": "Fleet"
       },
       "default": "TAB|MOUSE4",
       "platforms": [
@@ -2288,7 +2344,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "None",
+        "actionCategory": "Fleet"
       },
       "default": "NONE",
       "platforms": [
@@ -2314,7 +2377,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "FleetAction",
+        "actionCategory": "Fleet"
       },
       "default": "V|MOUSE2",
       "platforms": [
@@ -2346,7 +2416,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "SearchFocus",
+        "actionCategory": "Interface"
       },
       "default": "CTRL-F",
       "platforms": [
@@ -2378,7 +2455,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "GlobalControl",
+        "actionCategory": "System"
       },
       "default": "CTRL-ALT-MINUS",
       "platforms": [
@@ -2420,7 +2504,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "GlobalControl",
+        "actionCategory": "System"
       },
       "default": "CTRL-ALT-=",
       "platforms": [
@@ -2457,7 +2548,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Diagnostics",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Diagnostics"
       },
       "default": "CTRL-SHIFT-F9",
       "platforms": [
@@ -2489,7 +2587,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Diagnostics",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Diagnostics"
       },
       "default": "CTRL-SHIFT-F11",
       "platforms": [
@@ -2521,7 +2626,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Diagnostics",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Diagnostics"
       },
       "default": "CTRL-SHIFT-F8",
       "platforms": [
@@ -2553,7 +2665,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Diagnostics",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Diagnostics"
       },
       "default": "CTRL-SHIFT-F12",
       "platforms": [
@@ -2585,7 +2704,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Diagnostics",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Diagnostics"
       },
       "default": "CTRL-SHIFT-F7",
       "platforms": [
@@ -2617,7 +2743,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Diagnostics",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Diagnostics"
       },
       "default": "CTRL-SHIFT-F10",
       "platforms": [
@@ -2649,7 +2782,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "OfficerCanvas",
+        "actionCategory": "Navigation"
       },
       "default": "LEFT",
       "platforms": [
@@ -2681,7 +2821,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "OfficerCanvas",
+        "actionCategory": "Navigation"
       },
       "default": "RIGHT",
       "platforms": [
@@ -2713,7 +2860,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "GlobalControl",
+        "actionCategory": "System"
       },
       "default": "F10",
       "platforms": [
@@ -2745,7 +2899,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "ChatChannel",
+        "actionCategory": "Chat"
       },
       "default": "CTRL-2",
       "platforms": [
@@ -2777,7 +2938,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "ChatChannel",
+        "actionCategory": "Chat"
       },
       "default": "CTRL-1",
       "platforms": [
@@ -2809,7 +2977,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "ChatChannel",
+        "actionCategory": "Chat"
       },
       "default": "CTRL-3",
       "platforms": [
@@ -2841,7 +3016,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "FleetAction",
+        "actionCategory": "Ships"
       },
       "default": "CTRL-SPACE",
       "platforms": [
@@ -2873,7 +3055,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "FleetAction",
+        "actionCategory": "Ships"
       },
       "default": "1",
       "platforms": [
@@ -2905,7 +3094,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "FleetAction",
+        "actionCategory": "Ships"
       },
       "default": "2",
       "platforms": [
@@ -2937,7 +3133,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "FleetAction",
+        "actionCategory": "Ships"
       },
       "default": "3",
       "platforms": [
@@ -2969,7 +3172,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "FleetAction",
+        "actionCategory": "Ships"
       },
       "default": "4",
       "platforms": [
@@ -3001,7 +3211,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "FleetAction",
+        "actionCategory": "Ships"
       },
       "default": "5",
       "platforms": [
@@ -3033,7 +3250,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "FleetAction",
+        "actionCategory": "Ships"
       },
       "default": "6",
       "platforms": [
@@ -3065,7 +3289,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "FleetAction",
+        "actionCategory": "Ships"
       },
       "default": "7",
       "platforms": [
@@ -3097,7 +3328,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Fleet",
+        "conflictGroup": "FleetAction",
+        "actionCategory": "Ships"
       },
       "default": "8",
       "platforms": [
@@ -3129,7 +3367,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "CTRL-=",
       "platforms": [
@@ -3161,7 +3406,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "SHIFT-F1",
       "platforms": [
@@ -3193,7 +3445,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "SHIFT-F2",
       "platforms": [
@@ -3225,7 +3484,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "SHIFT-F3",
       "platforms": [
@@ -3257,7 +3523,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "SHIFT-F4",
       "platforms": [
@@ -3289,7 +3562,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "SHIFT-F5",
       "platforms": [
@@ -3321,7 +3601,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "ALT-'",
       "platforms": [
@@ -3353,7 +3640,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "CTRL-'",
       "platforms": [
@@ -3385,7 +3679,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "SHIFT-'",
       "platforms": [
@@ -3417,7 +3718,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "SHIFT-I",
       "platforms": [
@@ -3449,7 +3757,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "T",
       "platforms": [
@@ -3481,7 +3796,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "B",
       "platforms": [
@@ -3513,7 +3835,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "ChatOpen",
+        "actionCategory": "Chat"
       },
       "default": "C",
       "platforms": [
@@ -3545,7 +3874,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "ChatOpen",
+        "actionCategory": "Chat"
       },
       "default": "ALT-C",
       "platforms": [
@@ -3577,7 +3913,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "ChatOpen",
+        "actionCategory": "Chat"
       },
       "default": "`",
       "platforms": [
@@ -3609,7 +3952,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "O",
       "platforms": [
@@ -3641,7 +3991,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "Z",
       "platforms": [
@@ -3673,7 +4030,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "SHIFT-E",
       "platforms": [
@@ -3705,7 +4069,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "X",
       "platforms": [
@@ -3737,7 +4108,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "F",
       "platforms": [
@@ -3769,7 +4147,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Navigation"
       },
       "default": "G",
       "platforms": [
@@ -3801,7 +4186,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "/",
       "platforms": [
@@ -3833,7 +4225,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "I",
       "platforms": [
@@ -3865,7 +4264,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "L",
       "platforms": [
@@ -3897,7 +4303,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "M",
       "platforms": [
@@ -3929,7 +4342,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "SHIFT-O",
       "platforms": [
@@ -3961,7 +4381,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "SHIFT-Q",
       "platforms": [
@@ -3993,7 +4420,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "SHIFT-F",
       "platforms": [
@@ -4025,7 +4459,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "U",
       "platforms": [
@@ -4057,7 +4498,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Panels"
       },
       "default": "Y",
       "platforms": [
@@ -4089,7 +4537,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Interface"
       },
       "default": "SHIFT-S",
       "platforms": [
@@ -4121,7 +4576,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Ships"
       },
       "default": "N",
       "platforms": [
@@ -4153,7 +4615,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Navigation"
       },
       "default": "SHIFT-G",
       "platforms": [
@@ -4185,7 +4654,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Navigation"
       },
       "default": "SHIFT-H",
       "platforms": [
@@ -4217,7 +4693,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Navigation"
       },
       "default": "H",
       "platforms": [
@@ -4249,7 +4732,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Ships"
       },
       "default": "ALT-5",
       "platforms": [
@@ -4281,7 +4771,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Ships"
       },
       "default": "ALT-1",
       "platforms": [
@@ -4313,7 +4810,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Ships"
       },
       "default": "ALT-4",
       "platforms": [
@@ -4345,7 +4849,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Ships"
       },
       "default": "ALT-2",
       "platforms": [
@@ -4377,7 +4888,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Ships"
       },
       "default": "ALT-3",
       "platforms": [
@@ -4409,7 +4927,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Interface"
       },
       "default": "CTRL-R",
       "platforms": [
@@ -4441,7 +4966,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Interface"
       },
       "default": "CTRL-T",
       "platforms": [
@@ -4473,7 +5005,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Pressed",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Interface"
       },
       "default": "PGDOWN",
       "platforms": [
@@ -4505,7 +5044,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Pressed",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Interface"
       },
       "default": "PGUP",
       "platforms": [
@@ -4537,7 +5083,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Pressed",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Interface"
       },
       "default": "SHIFT-PGDOWN",
       "platforms": [
@@ -4569,7 +5122,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Pressed",
+        "inputPhase": "Frame",
+        "inputLayer": "Global",
+        "conflictGroup": "FrameDispatch",
+        "actionCategory": "Interface"
       },
       "default": "SHIFT-PGUP",
       "platforms": [
@@ -4601,7 +5161,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Pressed",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "Q",
       "platforms": [
@@ -4633,7 +5200,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "MINUS",
       "platforms": [
@@ -4665,7 +5239,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "BACKSPACE",
       "platforms": [
@@ -4697,7 +5278,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Pressed",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "E",
       "platforms": [
@@ -4729,7 +5317,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "F1",
       "platforms": [
@@ -4761,7 +5356,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "F2",
       "platforms": [
@@ -4793,7 +5395,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "F3",
       "platforms": [
@@ -4825,7 +5434,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "F4",
       "platforms": [
@@ -4857,7 +5473,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "F5",
       "platforms": [
@@ -4889,7 +5512,14 @@
       "category": "input",
       "control": "keybinding",
       "valueType": {
-        "kind": "keybinding"
+        "kind": "keybinding",
+        "multiple": true,
+        "unbound": "NONE",
+        "triggerMode": "Down",
+        "inputPhase": "NavigationZoomUpdate",
+        "inputLayer": "Zoom",
+        "conflictGroup": "Zoom",
+        "actionCategory": "Camera"
       },
       "default": "=",
       "platforms": [
