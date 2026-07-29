@@ -88,15 +88,16 @@ Windows and audio delivery through notification and speaker glyphs; the sound
 dropdown is enabled only with audio delivery and exposes only catalogued
 sounds. Each interaction replaces the whole canonical event policy, stages
 through the same sparse editing session as scalar settings, and can remove an
-override with Use default. Invalid canonical values visibly fall back to the
-event default, matching the runtime contract, instead of pretending the policy
-is unbound.
+override with a contextual reset action. Invalid canonical values visibly fall
+back to the event default, matching the runtime contract, instead of pretending
+the policy is unbound.
 
 The Hotkeys adapter derives 90 bindings and their aliases directly from the
 runtime action registry. Each row renders multi-chord alternatives without
 flattening them, captures supported keyboard or mouse input, adds and removes
 individual alternatives as wrapping inline chips, supports `NONE` through
-Unbind, and removes canonical overrides through Use default. Binding parsing
+the empty binding state, and removes canonical overrides through a contextual
+reset action. Binding parsing
 is strict and normalized before staging. Generated trigger mode, input
 phase/layer, action category, and
 conflict-group metadata let the launcher mirror runtime conflict semantics:
@@ -119,7 +120,10 @@ information architecture and not a pixel-polish target.
 The next UI weave converges on:
 
 - compact back navigation plus persistent major setting families;
-- category-specific, compact editors instead of one generic card shape;
+- a borderless settings list with full-row hover/focus treatment, thin
+  dividers, and one stable control column;
+- category-specific, compact editors instead of one generic card shape or
+  detached right-side half-card;
 - grouped notification rows with event state and delivery policy visible at a
   glance;
 - dedicated Hotkeys and Data Sync experiences;
@@ -132,17 +136,50 @@ back into a handwritten second configuration catalog.
 
 ## Next weave
 
-1. Resolve deprecated aliases and expose canonical/default/alias provenance in
-   the editing session and future diagnostic export.
-2. Instantiate dynamic target templates with validated concrete target names;
-   never pass a wildcard schema path to the TOML mutation API.
-3. Add purpose-specific editors and redaction policy for private endpoints,
-   paths, and secret values; do not route them through the public text adapter.
-4. Group notification and hotkey rows by runtime family without replacing the
-   schema-derived catalog.
-5. Add restart/apply summaries and a recoverable conflict-reload flow.
-6. Expand the curated real-world Guffawaffle and NetniV round-trip fixtures as
-   new syntax families enter the editor.
+1. Add the generated-and-validated presentation envelope defined in
+   [CONFIG_SCHEMA.md](CONFIG_SCHEMA.md): player label, optional concise help,
+   grouping, unit, friendly apply timing, stability, search terms, and
+   accessibility text. Curated overrides may improve presentation but cannot
+   redefine runtime behavior.
+2. Introduce a semantic `AppIcon` layer backed initially by the monochrome
+   regular Microsoft Fluent System Icons exposed through `FluentIcons.Wpf`.
+   Filled variants are reserved for selected navigation or deliberately active
+   state. Application XAML must not select package glyphs directly.
+3. Replace the right-side half-cards with a borderless full-row renderer.
+   Borders belong to actual controls; rows receive a subtle full-width hover,
+   a thin divider, and a distinct additive keyboard focus ring. Selection,
+   hover, and keyboard focus are separate states.
+4. Normalize value presentation: compact numeric fields with schema-backed
+   units, grouped boolean state and switch, optional descriptions, neutral
+   `Next launch`/`Experimental`/`Modified` tags, and a reset icon revealed only
+   when an override exists. Raw keys, data types, literal defaults, and
+   provenance move out of the primary reading path.
+5. Finish the specialized inline editors. Hotkeys keep removable alternative
+   chips and use `+ Add` without a detached minus action. Notifications retain
+   direct system/audio toggles and sound selection. Group both families by
+   runtime domain without replacing the schema-derived catalog.
+6. Apply keyboard-accessible tooltips, accurate automation names and help
+   text, row-to-control labeling, 44-DIP action targets, and the shared focus
+   visual to every icon-only command.
+7. Resolve deprecated aliases and expose canonical/default/alias provenance in
+   the editing session, explicit technical details, and future diagnostic
+   export.
+8. Instantiate dynamic target templates with validated concrete target names;
+   never pass a wildcard schema path to the TOML mutation API. Add
+   purpose-specific editors and redaction policy for private endpoints, paths,
+   and secret values.
+9. Add restart/apply summaries, a recoverable conflict-reload flow, and
+   `Modified`, `Experimental`, and hotkey-conflict filters once the
+   presentation state exists.
+10. Expand the curated real-world Guffawaffle and NetniV round-trip fixtures as
+    new syntax families enter the editor.
+
+The already accepted shell remains fixed during this weave: the conditional
+non-overlapping save bar, compact category rail, remembered search toggle,
+integrated title area, theme cadence, drag scrolling, and bounded workspace
+geometry are not reopened. A permanent search field and a framework-wide
+Fluent theme migration are deferred until evidence shows that the current
+shell or toggle no longer scales.
 
 The editor is not accepted as complete until unknown keys and comments survive
 the manual save round-trip smoke on a disposable configuration copy and

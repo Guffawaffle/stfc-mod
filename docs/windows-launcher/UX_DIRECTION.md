@@ -385,19 +385,73 @@ or permit user-facing copy to describe convergence as committed.
 
 ### Setting rows
 
+A normal setting is one borderless full-width row. A thin divider separates
+rows, the complete row receives a subtle hover treatment, and the value
+controls align in a stable right-hand column. Only inputs and actionable
+buttons receive control borders. Cards remain available for meaningful groups,
+summaries, warnings, and errors; they are not repeated around each setting or
+around only the control half of a setting.
+
 A normal setting row contains:
 
 - friendly title;
-- short consequence-oriented description;
+- optional short consequence-oriented description;
 - appropriate control;
 - effective or explicit value state;
 - changed-from-default state;
 - reset/remove-override action;
 - restart or next-launch indicator when required.
 
-The canonical TOML key, provenance, deprecated aliases, and detailed validation
-may appear in an expandable technical area or tooltip. They are searchable but
-not primary labels.
+Recurring implementation copy such as raw `next-session`, `Decimal number`,
+`Default: true`, and canonical event identifiers does not appear in the
+primary reading path. Friendly metadata uses compact neutral tags such as
+`Next launch`, `Experimental`, and `Modified`. Numeric controls use a
+schema-backed unit or suffix where one exists and do not occupy more width
+than their supported values require.
+
+`Use default` is not persistent row prose. An untouched value has no reset
+control; once an override exists, the row exposes a semantic restore-default
+icon with an exact tooltip and automation name. Where inheritance makes
+explicit `On` different from an effective default of `On`, the editor must
+make that distinction visible through a tri-state control or a clear default
+or modified state. It must never hide semantically meaningful inheritance
+behind an ordinary two-state switch.
+
+The canonical TOML key, provenance, deprecated aliases, exact default, value
+type, and detailed validation may appear in an explicit technical area,
+keyboard-accessible tooltip, accessibility help, or diagnostics. They remain
+searchable but are not primary labels.
+
+### Renderer presentation contract
+
+Player copy and editor hints come from the generated presentation envelope
+defined in [CONFIG_SCHEMA.md](CONFIG_SCHEMA.md), not from one-off XAML
+exceptions. The envelope may supply a human label, optional help, group,
+search terms, unit, apply timing, stability, and accessibility text. A curated
+override may improve those fields only when its canonical schema path is
+validated during generation.
+
+This allows technical runtime names such as `Fr Scale` or
+`fleet_queue_add` to become player language such as `System backdrop scale`
+and `Add fleet to queue` without forking the authoritative type, default, or
+persistence contract.
+
+### Semantic icons
+
+The launcher standardizes on Microsoft Fluent System Icons through
+`FluentIcons.Wpf`, behind an application-owned semantic `AppIcon` abstraction.
+Views request meanings such as Search, Restore Default, Notification, Sound,
+Add, Remove, Next Launch, Warning, Keyboard, and Sync; they do not request
+package glyph names directly.
+
+Regular monochrome 20-DIP icons are the ordinary command treatment. Filled
+variants are limited to selected navigation or deliberately active state.
+Icon buttons retain 36–44-DIP targets and always provide tooltip, automation
+name, keyboard focus, and disabled-state semantics. The app uses one icon
+family and does not decorate every setting title merely because a glyph
+exists. A curated build-generated subset of the official SVG assets remains a
+future dependency-reduction option, not a prerequisite for the renderer
+weave.
 
 ### Search and filtering
 
@@ -411,6 +465,11 @@ aliases. The workspace supports filters for:
 
 The hotkey category also detects duplicate or conflicting bindings. Data Sync
 uses a repeatable target editor rather than exposing flattened target keys.
+
+The player-approved toolbar search toggle and its across-launch memory remain
+the current shell contract. A permanently visible field is not required to
+land the renderer weave. The toggle may reveal a real field and the filters
+above once their state is available.
 
 ### Save behavior
 
@@ -570,7 +629,12 @@ The implementation must support:
 
 - keyboard access to every action and setting;
 - visible focus and logical focus order;
+- additive navigation states: tonal hover, filled selection with accent strip,
+  and a deliberate 2-pixel keyboard focus ring;
 - accessible names for icons, controls, and status changes;
+- keyboard focus and press-and-hold access to supplemental tooltip content;
+- visible current, modified, invalid, and apply-timing state without requiring
+  hover;
 - text scaling and 100%, 150%, and 200% display scaling;
 - sufficient contrast in both themes;
 - reduced motion;
