@@ -16,9 +16,118 @@ capabilities without matching source metadata. Runtime facts, capabilities,
 feature policy, and startup activation are kept separate by the
 [runtime activation contract](RUNTIME_ACTIVATION.md).
 
+## Accepted modular architecture boundary
+
+Startup resolves behavior before the configuration workspace or WPF
+presentation is composed:
+
+```text
+RuntimeDetector
+  -> immutable ActivationPlan
+  -> selected provider modules
+  -> ResolvedConfigurationCatalog
+  -> document-scoped ConfigurationWorkspace
+  -> application controllers and queries
+  -> flattened visible WPF projections
+```
+
+The activation plan selects the Guffawaffle or NetniV providers, grouped or
+alphabetical layout, and legacy or composable Data Sync implementation. It is
+read-only diagnostic evidence after composition. Downstream models,
+controllers, and views do not repeat owner checks or branch on feature flags.
+
+`ResolvedConfigurationCatalog` is an aggregate of domain catalogs:
+
+- `ScalarSettingsCatalog`;
+- `CommandCatalog`;
+- `NotificationCatalog`;
+- `SyncTargetTypeCatalog`;
+- `ResolvedLayoutCatalog`.
+
+Catalog composition validates one owner per canonical persistence path, rejects
+canonical-path and alias collisions, and treats stable IDs as durable identity.
+Conflicts fail closed before a workspace is created. Layout metadata references
+domain nodes but does not define their semantics; approved legacy families are
+presentation projections only.
+
+`ConfigurationWorkspace` is the document-scoped logical unit of work, not the
+storage implementation. It coordinates domain-specific edit sessions for
+scalar settings, hotkey commands and binding collections, notification events
+and delivery policies, and desired sync topology. The sessions share tracked
+draft, validation, change-set, save, and discard primitives without being
+flattened into a universal setting model.
+
+The workspace prepares one semantic `ChangeSet`.
+`IConfigurationRepository` maps those semantic changes to a sparse TOML
+document and atomically commits against an expected baseline revision. No
+session advances its saved baseline until the complete active-document commit
+succeeds. A failed commit leaves every draft unchanged and dirty. This
+atomicity contract covers the active configuration document only, not future
+external stores such as credentials.
+
+External-change detection, revision, stale state, and conflict state belong to
+the workspace. Application controllers own user-facing replacement policy and
+decide when to ask for reload, rebase, discard, or overwrite; the workspace
+does not choose those actions independently.
+
+Desired sync configuration remains separate from the immutable
+startup-resolved `ResolvedSyncPlan`. `SyncTargetTypeCatalog` defines available
+target types, while `SyncTopologyEditSession` owns desired target instances,
+feeds, and routes. The editor may validate a candidate plan, but saving never
+mutates the active runtime topology before restart. The composable Data Sync
+module receives its own topology view instead of using the generic scalar row
+renderer.
+
+Raw invalid editor input is presentation/application state, not domain state.
+An `EditorDraftStore`, keyed by stable field or action ID, preserves raw text
+and parse issues across WPF projection disposal. Domain sessions receive typed
+values only after parsing. Commit eligibility combines editor parse issues,
+domain validation, and workspace-level cross-domain validation.
+
+Domain value semantics, editor input behavior, and TOML persistence remain
+separate:
+
+- domain semantics normalize, compare, and validate typed values;
+- editor adapters parse raw input and format editable or display text;
+- TOML infrastructure encodes, decodes, performs sparse writes, and preserves
+  unknown keys and comments.
+
+The canonical tracked-draft operations are `StageOverride(value)`,
+`ClearOverride()` (shown as **Use default**), and
+`RevertDraftToSaved()` (shown as **Revert changes**). Dirty comparison includes
+override presence as well as effective value.
+
+Application controllers coordinate document selection, load, save, discard,
+external-change handling, and lifecycle. Domain sessions retain transitions,
+validation, conflicts, and dirty state. Query/projection services own search,
+taxonomy projection, and display summaries. Workspace change events identify
+changed, added, and removed stable IDs, summary changes, validation changes,
+query/layout invalidations, and the workspace revision. Save, discard, and
+document replacement publish one batched transition rather than per-row
+events.
+
+WPF uses typed domain-specific requests and shared presentation commands
+without recreating a universal configuration model. The visible page is
+projected into one flattened list of group headers, family headers, and typed
+rows rendered by a single recycling items host with no nested scrolling or
+framework grouping. Section projection counts must prove that opening one
+section constructs no unrelated WPF rows. Domain-level hotkey conflict
+coverage, including hidden commands, must not depend on which projections are
+currently materialized.
+
+The first migration gate is lifecycle isolation: a game process change updates
+Home and causes zero Settings reloads. Subsequent extraction must preserve raw
+invalid input across projection disposal/recreation, publish granular batched
+workspace changes, perform no idle polling, and measure both section projection
+counts and opening time before physical assembly separation.
+
 ## Implemented foundation
 
 - The packaged launcher embeds and fail-closed loads schema version `1.0.0`.
+- Startup and game-process events refresh Home only. A narrow lifecycle
+  controller and deterministic counter tests prevent those events from
+  reloading the active Settings document; confirmed game-installation changes
+  retain explicit document-reload ownership.
 - The catalog retains all 332 settings while exposing only player-facing
   directly editable settings to the normal workspace. Dynamic
   `sync.targets.*.*` templates remain machine-readable but are withheld until
