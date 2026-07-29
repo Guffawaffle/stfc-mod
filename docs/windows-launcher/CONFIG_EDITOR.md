@@ -51,29 +51,33 @@ and About rather than forcing the rail to accommodate metadata. Search-open
 state is a launcher UI preference stored outside both mod TOML formats; search
 text remains session-only.
 
-The scalar adapter covers the 82 directly editable booleans and eight
-constrained enums. Boolean toggles and enum selections change only an in-memory
-editing session. Enum choices come from the generated schema, render friendly
-labels without changing their canonical values, and visibly fall back to the
-runtime default when an existing override is invalid. A bottom action bar
-appears only while changes are pending, reports their exact count, and owns
-Discard and Save Changes with 44-DIP action targets. Removing an override is
-also staged and restores the runtime default without materializing it into
-TOML. Theme-aware tooltips explicitly own their foreground, background, and
-border so raw-key and help hover content retains contrast in Light and Dark
-themes. The settings scrollbar uses the same dynamic palette, and rows support
-mouse drag-to-scroll from non-interactive content without taking input away
-from toggles, buttons, editors, or the scrollbar itself. Faster flicks carry
-bounded momentum after release and decay without overscroll; new input cancels
-the motion, and Windows' reduced-motion preference disables inertia.
+The scalar adapter covers the 82 directly editable booleans, eight constrained
+enums, and 22 integer/decimal settings. Boolean toggles, enum selections, and
+numeric edits change only an in-memory editing session. Enum choices come from
+the generated schema, render friendly labels without changing their canonical
+values, and visibly fall back to the runtime default when an existing override
+is invalid. Numeric rows retain schema minimum/maximum constraints, validate
+before staging, normalize accepted values to canonical TOML, and likewise show
+the runtime default instead of presenting an invalid override as active. A
+bottom action bar appears only while changes are pending, reports their exact
+count, and owns Discard and Save Changes with 44-DIP action targets. Removing
+an override is also staged and restores the runtime default without
+materializing it into TOML. Theme-aware tooltips explicitly own their
+foreground, background, and border so raw-key and help hover content retains
+contrast in Light and Dark themes. The settings scrollbar uses the same dynamic
+palette, and rows support mouse drag-to-scroll from non-interactive content
+without taking input away from toggles, buttons, editors, or the scrollbar
+itself. Faster flicks carry bounded momentum after release and decay without
+overscroll; new input cancels the motion, and Windows' reduced-motion
+preference disables inertia.
 
 Save builds the complete staged document in memory and writes it as one atomic
 replacement against the session's original contents. It creates a sibling
 backup and reports a conflict instead of overwriting when the selected file or
 its contents changed after the session began.
 
-Numbers, strings, keybindings, and notification policies remain read-only and
-identify the dedicated adapter they require. Notification rows
+Strings, keybindings, and notification policies remain read-only and identify
+the dedicated adapter they require. Notification rows
 already parse canonical `false`, `true`, and inline-table policies into compact
 On/Off and delivery summaries. Invalid canonical policy values visibly fall
 back to the event default, matching the runtime contract, instead of pretending
@@ -109,8 +113,7 @@ back into a handwritten second configuration catalog.
    the editing session and future diagnostic export.
 2. Instantiate dynamic target templates with validated concrete target names;
    never pass a wildcard schema path to the TOML mutation API.
-3. Add typed number, string, and enum scalar controls with constraints from the
-   generated schema.
+3. Add typed string scalar controls with constraints from the generated schema.
 4. Add dedicated keybinding and complete notification-policy adapters.
 5. Add restart/apply summaries and a recoverable conflict-reload flow.
 6. Expand the curated real-world Guffawaffle and NetniV round-trip fixtures as

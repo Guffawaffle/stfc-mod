@@ -1406,7 +1406,7 @@
       "category": "graphics",
       "control": "scalar",
       "valueType": {
-        "kind": "integer"
+        "kind": "number"
       },
       "default": 1750,
       "platforms": [
@@ -1432,7 +1432,7 @@
       "category": "graphics",
       "control": "scalar",
       "valueType": {
-        "kind": "integer"
+        "kind": "number"
       },
       "default": 2,
       "platforms": [
@@ -1484,7 +1484,7 @@
       "category": "graphics",
       "control": "scalar",
       "valueType": {
-        "kind": "integer"
+        "kind": "number"
       },
       "default": 350,
       "platforms": [
@@ -1562,7 +1562,7 @@
       "category": "graphics",
       "control": "scalar",
       "valueType": {
-        "kind": "integer"
+        "kind": "number"
       },
       "default": 1,
       "platforms": [
@@ -1744,7 +1744,7 @@
       "category": "graphics",
       "control": "scalar",
       "valueType": {
-        "kind": "integer"
+        "kind": "number"
       },
       "default": 50,
       "platforms": [
@@ -1770,7 +1770,7 @@
       "category": "graphics",
       "control": "scalar",
       "valueType": {
-        "kind": "integer"
+        "kind": "number"
       },
       "default": 500,
       "platforms": [
@@ -1796,7 +1796,7 @@
       "category": "graphics",
       "control": "scalar",
       "valueType": {
-        "kind": "integer"
+        "kind": "number"
       },
       "default": 1250,
       "platforms": [
@@ -1822,7 +1822,7 @@
       "category": "graphics",
       "control": "scalar",
       "valueType": {
-        "kind": "integer"
+        "kind": "number"
       },
       "default": 2750,
       "platforms": [
@@ -1848,7 +1848,7 @@
       "category": "graphics",
       "control": "scalar",
       "valueType": {
-        "kind": "integer"
+        "kind": "number"
       },
       "default": 5000,
       "platforms": [
@@ -2004,7 +2004,7 @@
       "category": "graphics",
       "control": "scalar",
       "valueType": {
-        "kind": "integer"
+        "kind": "number"
       },
       "default": 5000,
       "platforms": [

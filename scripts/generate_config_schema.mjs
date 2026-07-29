@@ -189,6 +189,25 @@ function parseBoolConfigMetadata() {
   return values;
 }
 
+function parseConfigMemberTypes() {
+  const values = new Map();
+  const source = read("mods/src/config.h");
+  const memberPattern =
+    /^\s*(bool|double|float|int|int32_t|int64_t|size_t|uint32_t|uint64_t)\s+([A-Za-z0-9_]+)\s*;/gm;
+  for (const match of source.matchAll(memberPattern)) {
+    let kind = "integer";
+    if (["double", "float"].includes(match[1])) kind = "number";
+    if (match[1] === "bool") kind = "boolean";
+    const existing = values.get(match[2]);
+    if (!existing) {
+      values.set(match[2], kind);
+    } else if (existing !== kind) {
+      values.set(match[2], "ambiguous");
+    }
+  }
+  return values;
+}
+
 function captureBalancedCall(source, name, startIndex) {
   const open = source.indexOf("(", startIndex + name.length);
   if (open < 0) return null;
@@ -408,7 +427,7 @@ function parseNotificationSettings() {
   return settings;
 }
 
-function parseSyncTargetSettings(defaults) {
+function parseSyncTargetSettings(defaults, configMemberTypes) {
   const configHeader = read("mods/src/config.h");
   const optionKeys = [...configHeader.matchAll(
     /SyncConfig::Option\{SyncConfig::Type::[A-Za-z0-9_]+,\s*"[^"]+",\s*"([^"]+)"/g,
@@ -433,7 +452,7 @@ function parseSyncTargetSettings(defaults) {
       description: fallback.description || `Configure ${titleCase(key).toLowerCase()} for this sync target.`,
       category: "sync",
       control: "scalar",
-      valueType: schemaType(settingPath, fallback.value),
+      valueType: schemaType(settingPath, fallback.value, configMemberTypes),
       default: fallback.value,
       platforms: ["windows", "macos"],
       apply: "next-session",
@@ -464,7 +483,7 @@ function parseSyncTargetSettings(defaults) {
   return settings;
 }
 
-function schemaType(settingPath, value) {
+function schemaType(settingPath, value, configMemberTypes = new Map()) {
   const enumValues = {
     "input.scopely_shortcuts": ["off", "native", "fallback"],
     "input.original_frame_policy": ["mod", "fallthrough_unhandled", "fallthrough_all"],
@@ -476,7 +495,11 @@ function schemaType(settingPath, value) {
   }
   if (enumValues[settingPath]) return { kind: "enum", values: enumValues[settingPath] };
   if (typeof value === "boolean") return { kind: "boolean" };
-  if (typeof value === "number") return { kind: Number.isInteger(value) ? "integer" : "number" };
+  if (typeof value === "number") {
+    const memberKind = configMemberTypes.get(settingPath.split(".").at(-1));
+    if (["integer", "number"].includes(memberKind)) return { kind: memberKind };
+    return { kind: Number.isInteger(value) ? "integer" : "number" };
+  }
   if (typeof value === "string") return { kind: "string" };
   if (Array.isArray(value)) return { kind: "array" };
   throw new Error(`Unsupported schema value: ${JSON.stringify(value)}`);
@@ -549,7 +572,7 @@ function resolveDefaultPath(settingPath) {
   return settingPath;
 }
 
-function makeScalarSetting(settingPath, fallback, description = "") {
+function makeScalarSetting(settingPath, fallback, description = "", configMemberTypes = new Map()) {
   const constraints = constraintsFor(settingPath);
   return {
     path: settingPath,
@@ -557,7 +580,7 @@ function makeScalarSetting(settingPath, fallback, description = "") {
     description: fallback.description || description || `Configure ${titleCase(settingPath.split(".").at(-1)).toLowerCase()}.`,
     category: settingPath.split(".")[0],
     control: "scalar",
-    valueType: schemaType(settingPath, fallback.value),
+    valueType: schemaType(settingPath, fallback.value, configMemberTypes),
     ...(Object.keys(constraints).length > 0 ? { constraints } : {}),
     default: fallback.value,
     platforms: ["windows", "macos"],
@@ -572,6 +595,7 @@ function makeScalarSetting(settingPath, fallback, description = "") {
 
 function buildSchema() {
   const defaults = new Map([...parseDefaultConfig(), ...parseBoolConfigMetadata()]);
+  const configMemberTypes = parseConfigMemberTypes();
   const example = parseExampleConfig();
   const parserPaths = scanRuntimeScalarPaths(defaults);
   const settings = [];
@@ -591,7 +615,7 @@ function buildSchema() {
       throw new Error(`No runtime default was resolved for ${canonicalPath} (looked for ${defaultPath}).`);
     }
 
-    settings.push(makeScalarSetting(canonicalPath, fallback, entry.description));
+    settings.push(makeScalarSetting(canonicalPath, fallback, entry.description, configMemberTypes));
   }
 
   for (const parserPath of parserPaths) {
@@ -600,10 +624,14 @@ function buildSchema() {
     const fallback = defaults.get(defaultPath);
     if (!fallback) throw new Error(`No runtime default was resolved for custom parser path ${parserPath}.`);
     seen.add(parserPath);
-    settings.push(makeScalarSetting(parserPath, fallback));
+    settings.push(makeScalarSetting(parserPath, fallback, "", configMemberTypes));
   }
 
-  settings.push(...parseSyncTargetSettings(defaults), ...parseInputBindings(), ...parseNotificationSettings());
+  settings.push(
+    ...parseSyncTargetSettings(defaults, configMemberTypes),
+    ...parseInputBindings(),
+    ...parseNotificationSettings(),
+  );
   settings.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
 
   const paths = new Set(settings.map((setting) => setting.path));
@@ -664,6 +692,7 @@ export {
   buildSchema,
   parseDefaultConfig,
   parseBoolConfigMetadata,
+  parseConfigMemberTypes,
   parseExampleConfig,
   scanCustomParserPaths,
   scanLiteralParserPaths,

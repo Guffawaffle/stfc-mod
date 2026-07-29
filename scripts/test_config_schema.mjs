@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   buildSchema,
   parseBoolConfigMetadata,
+  parseConfigMemberTypes,
   parseDefaultConfig,
   parseExampleConfig,
   scanRuntimeScalarPaths,
@@ -15,6 +16,30 @@ test("default and example inventories are non-empty", () => {
   assert.ok(parseDefaultConfig().size > 150);
   assert.ok(parseBoolConfigMetadata().has("control.allow_key_fallthrough"));
   assert.ok(parseExampleConfig().length > 250);
+});
+
+test("numeric schema kinds retain concrete Config member types", () => {
+  const memberTypes = parseConfigMemberTypes();
+  assert.equal(memberTypes.get("select_timer"), "integer");
+  assert.equal(memberTypes.get("default_system_zoom"), "number");
+  assert.equal(memberTypes.get("keyboard_zoom_speed"), "number");
+
+  const schema = buildSchema();
+  for (const settingPath of [
+    "graphics.default_system_zoom",
+    "graphics.fr_scale",
+    "graphics.keyboard_zoom_speed",
+    "graphics.loader_logo_scale",
+    "graphics.system_zoom_preset_1",
+    "graphics.system_zoom_preset_2",
+    "graphics.system_zoom_preset_3",
+    "graphics.system_zoom_preset_4",
+    "graphics.system_zoom_preset_5",
+    "graphics.zoom",
+  ]) {
+    const setting = schema.settings.find((candidate) => candidate.path === settingPath);
+    assert.equal(setting.valueType.kind, "number", `${settingPath} must retain its runtime float type`);
+  }
 });
 
 test("every discovered runtime scalar parser path is represented", () => {
