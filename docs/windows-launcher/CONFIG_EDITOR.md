@@ -82,15 +82,18 @@ replacement against the session's original contents. It creates a sibling
 backup and reports a conflict instead of overwriting when the selected file or
 its contents changed after the session began.
 
-Keybindings and notification policies remain read-only and identify the
-dedicated adapter they require. Notification rows
-already parse canonical `false`, `true`, and inline-table policies into compact
-On/Off and delivery summaries. Invalid canonical policy values visibly fall
-back to the event default, matching the runtime contract, instead of pretending
-the policy is unbound. They are not routed through an unsafe generic text
-editor. NetniV schema selection is not yet packaged; the current session uses
-the Guffawaffle catalog while source-preserving tests prove that legacy NetniV
-notification families survive unrelated edits.
+Notification rows parse canonical `false`, `true`, and inline-table policies
+into compact On/Off state. Schema-backed inline controls independently toggle
+Windows and audio delivery through notification and speaker glyphs; the sound
+dropdown is enabled only with audio delivery and exposes only catalogued
+sounds. Each interaction replaces the whole canonical event policy, stages
+through the same sparse editing session as scalar settings, and can remove an
+override with Use default. Invalid canonical values visibly fall back to the
+event default, matching the runtime contract, instead of pretending the policy
+is unbound. Keybindings remain read-only pending their dedicated capture and
+conflict adapter. NetniV schema selection is not yet packaged; the current
+session uses the Guffawaffle catalog while source-preserving tests prove that
+legacy NetniV notification families survive unrelated edits.
 
 ## Accepted destination
 
@@ -121,7 +124,8 @@ back into a handwritten second configuration catalog.
    never pass a wildcard schema path to the TOML mutation API.
 3. Add purpose-specific editors and redaction policy for private endpoints,
    paths, and secret values; do not route them through the public text adapter.
-4. Add dedicated keybinding and complete notification-policy adapters.
+4. Add the dedicated keybinding adapter and group notification events by family
+   without replacing the schema-derived catalog.
 5. Add restart/apply summaries and a recoverable conflict-reload flow.
 6. Expand the curated real-world Guffawaffle and NetniV round-trip fixtures as
    new syntax families enter the editor.
