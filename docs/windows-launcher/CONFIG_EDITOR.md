@@ -144,7 +144,10 @@ back into a handwritten second configuration catalog.
 2. Introduce a semantic `AppIcon` layer backed initially by the monochrome
    regular Microsoft Fluent System Icons exposed through `FluentIcons.Wpf`.
    Filled variants are reserved for selected navigation or deliberately active
-   state. Application XAML must not select package glyphs directly.
+   state. Application XAML must not select package glyphs directly. Replace the
+   current theme-cycle action with a keyboard-accessible selector whose closed
+   state shows `System`, `Light`, or `Dark`; keep future visual styles such as
+   LCARS separate from color mode.
 3. Replace the right-side half-cards with a borderless full-row renderer.
    Borders belong to actual controls; rows receive a subtle full-width hover,
    a thin divider, and a distinct additive keyboard focus ring. Selection,
@@ -170,13 +173,14 @@ back into a handwritten second configuration catalog.
    and secret values.
 9. Add restart/apply summaries, a recoverable conflict-reload flow, and
    `Modified`, `Experimental`, and hotkey-conflict filters once the
-   presentation state exists.
+   presentation state exists. The conditional dirty bar must derive a visible
+   apply-timing summary from the complete staged set.
 10. Expand the curated real-world Guffawaffle and NetniV round-trip fixtures as
     new syntax families enter the editor.
 
 The already accepted shell remains fixed during this weave: the conditional
 non-overlapping save bar, compact category rail, remembered search toggle,
-integrated title area, theme cadence, drag scrolling, and bounded workspace
+integrated title area, selected-mode theme dropdown, drag scrolling, and bounded workspace
 geometry are not reopened. A permanent search field and a framework-wide
 Fluent theme migration are deferred until evidence shows that the current
 shell or toggle no longer scales.

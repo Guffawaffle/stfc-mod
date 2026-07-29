@@ -156,6 +156,13 @@ The theme preference is:
 2. Light override;
 3. Dark override.
 
+The integrated title area exposes this preference as an accessible dropdown.
+Its closed state shows the selected preference, not an ambiguous action:
+`System`, `Light`, or `Dark`. The open menu marks the current selection and
+supports ordinary keyboard navigation. When `System` is selected, supplemental
+help may also name the currently resolved Windows mode without changing the
+stored preference.
+
 Light and dark themes preserve the same hierarchy and semantics. Green is
 reserved for healthy state, amber for warning, red for action-required or
 failure state, and the primary action color remains distinct from health
@@ -163,6 +170,14 @@ colors.
 
 Theme, motion, and scale preferences are launcher-owned state. They do not
 modify the mod TOML.
+
+Color mode and visual style remain separate internal axes. A future visual
+style selector could offer the standard Fluent presentation and an optional
+LCARS presentation, while each style still respects System, Light, or Dark
+where it supports them. LCARS is not a committed production style and must not
+enter the color-mode enum as a special-case theme value. Any added style must
+cover the complete shell, settings adapters, dialogs, accessibility states,
+high-DPI behavior, and release assets before it can ship.
 
 ## Home surface
 
@@ -479,6 +494,20 @@ changes are pending, reports their number, and offers `Discard` and
 as long as it is visible, so no setting is covered and no empty footer consumes
 space during ordinary browsing.
 
+The same dirty-state bar summarizes when the staged changes will take effect.
+That summary is derived from the apply metadata of the complete staged set, not
+hardcoded per category:
+
+- `Applies immediately` when every staged setting can take effect immediately;
+- `Applies next launch` when every staged setting shares that boundary;
+- `Some changes require a relaunch` when the staged set has mixed timing;
+- a stronger restart requirement when any staged setting explicitly requires
+  one.
+
+Mixed timing is never collapsed into a misleading single-setting label.
+Supplemental details may enumerate the affected settings, but the timing
+summary itself remains visible without hover.
+
 Save follows the configuration contract:
 
 1. preserve comments and unknown keys;
@@ -672,3 +701,24 @@ The implementation must support:
 Implementation may refine copy and layout, but any change that weakens privacy,
 schema authority, sparse writes, progressive disclosure, or accessibility
 requires an explicit product decision.
+
+## Lex concept-art reconciliation
+
+The July 2026 Lex settings concepts are accepted as a directional renderer
+reference. Their strongest adopted elements are:
+
+- borderless full-width setting rows and a stable inline control column;
+- restrained Fluent iconography and clear selected navigation;
+- humanized labels, concise help, modified/conflict state, and contextual
+  restore actions;
+- a theme dropdown whose closed state names the selected mode;
+- a conditional bottom bar that combines dirty count, apply timing, Discard,
+  and Save.
+
+They do not silently replace already tested product contracts. The remembered
+toolbar search toggle may still reveal the search field instead of reserving
+its width permanently. Back/Home cadence remains consistent across workspaces.
+The save bar remains absent when the session is clean. Decorative per-event
+icons, drag handles without a real ordering feature, category-wide restore,
+and a split Save button require their own behavior and accessibility case
+before implementation; they are not inferred from the artwork.
