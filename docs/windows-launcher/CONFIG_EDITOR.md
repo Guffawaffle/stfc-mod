@@ -128,6 +128,15 @@ counts and opening time before physical assembly separation.
   controller and deterministic counter tests prevent those events from
   reloading the active Settings document; confirmed game-installation changes
   retain explicit document-reload ownership.
+- A pure settings projection query resolves the active section or global
+  search into one flat sequence of explicit group headers, family headers, and
+  setting rows. The WPF list uses one recycling host without framework
+  grouping and constructs row ViewModels only for that sequence.
+- Projection snapshots record the constructed stable paths and header counts.
+  Windows presentation tests prove that General constructs no unrelated rows,
+  invalid raw editor text survives row disposal/recreation, and a visible
+  hotkey still reports conflicts with commands omitted by the current search
+  projection.
 - The catalog retains all 332 settings while exposing only player-facing
   directly editable settings to the normal workspace. Dynamic
   `sync.targets.*.*` templates remain machine-readable but are withheld until
