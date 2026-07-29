@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -18,6 +19,37 @@ test("default and example inventories are non-empty", () => {
   assert.ok(parseDefaultConfig().size > 150);
   assert.ok(parseBoolConfigMetadata().has("control.allow_key_fallthrough"));
   assert.ok(parseExampleConfig().length > 250);
+});
+
+test("runtime manifest positively identifies the principal taxonomy contract", () => {
+  const manifest = JSON.parse(readFileSync(
+    new URL("../docs/windows-launcher/runtime-manifest.guffawaffle.v1.json", import.meta.url),
+    "utf8",
+  ));
+  const versionHeader = readFileSync(
+    new URL("../mods/src/version.h", import.meta.url),
+    "utf8",
+  );
+  const versionParts = ["MAJOR", "MINOR", "REVISION", "PATCH"].map((part) => {
+    const match = versionHeader.match(new RegExp(`#define VERSION_${part}\\s+(\\d+)`));
+    assert.ok(match, `missing VERSION_${part}`);
+    return match[1];
+  });
+
+  assert.equal(manifest.manifestSchema, 1);
+  assert.equal(manifest.distributionId, "guffawaffle.stfc-community-mod");
+  assert.equal(manifest.runtimeVersion, versionParts.join("."));
+  assert.equal(typeof manifest.sourceRevision, "string");
+  assert.ok(manifest.sourceRevision.length > 0);
+  assert.deepEqual(manifest.capabilities, ["settings.principal-taxonomy.v1"]);
+  assert.equal(manifest.settingsCatalog.schemaVersion, 1);
+  assert.match(manifest.settingsCatalog.revision, /^guffawaffle-taxonomy-/);
+  const schema = buildSchema();
+  assert.equal(schema.source.id, "guffawaffle");
+  assert.equal(
+    manifest.settingsCatalog.schemaVersion,
+    Number.parseInt(schema.schemaVersion.split(".")[0], 10),
+  );
 });
 
 test("numeric schema kinds retain concrete Config member types", () => {

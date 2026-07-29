@@ -12,7 +12,9 @@ authority.
 The selected release source chooses the matching schema and capabilities.
 Guffawaffle is the only packaged source in this slice. NetniV support retains
 TOML as a hard compatibility boundary and must not reuse Guffawaffle-only
-capabilities without matching source metadata.
+capabilities without matching source metadata. Runtime facts, capabilities,
+feature policy, and startup activation are kept separate by the
+[runtime activation contract](RUNTIME_ACTIVATION.md).
 
 ## Implemented foundation
 
@@ -42,14 +44,14 @@ capabilities without matching source metadata.
 
 The Settings workspace now uses the accepted persistent left navigation and
 contextual save surface. Search is global and opens from a toolbar control
-instead of permanently consuming a content row. Section navigation is schema-derived
-through one category resolver, the compact rail contains only navigation, and
-a compact toolbar aligns Back, the active section title, and Search directly
-beneath the window chrome. The back arrow returns to Home without consuming a
-labeled navigation row in the rail. Release-source identity appears in General
-and About rather than forcing the rail to accommodate metadata. Search-open
-state is a launcher UI preference stored outside both mod TOML formats; search
-text remains session-only.
+instead of permanently consuming a content row. Section navigation is supplied
+by the startup-selected settings layout provider, the compact rail contains
+only navigation, and a compact toolbar aligns Back, the active section title,
+and Search directly beneath the window chrome. The back arrow returns to Home
+without consuming a labeled navigation row in the rail. Release-source identity
+appears in General and About rather than forcing the rail to accommodate
+metadata. Search-open state is a launcher UI preference stored outside both mod
+TOML formats; search text remains session-only.
 
 The scalar adapter covers the 82 directly editable booleans, eight constrained
 enums, 22 integer/decimal settings, and three public string settings. Boolean
@@ -83,14 +85,14 @@ backup and reports a conflict instead of overwriting when the selected file or
 its contents changed after the session began.
 
 Notification rows parse canonical `false`, `true`, and inline-table policies
-into compact On/Off state. Schema-backed inline controls independently toggle
-Windows and audio delivery through notification and speaker glyphs; the sound
-dropdown is enabled only with audio delivery and exposes only catalogued
-sounds. Each interaction replaces the whole canonical event policy, stages
-through the same sparse editing session as scalar settings, and can remove an
-override with a contextual reset action. Invalid canonical values visibly fall
-back to the event default, matching the runtime contract, instead of pretending
-the policy is unbound.
+into independent Windows and audio delivery controls. Notification and speaker
+glyphs communicate channel state without a redundant aggregate On/Off label;
+the sound dropdown is enabled only with audio delivery and exposes only
+catalogued sounds. Each interaction replaces the whole canonical event policy,
+stages through the same sparse editing session as scalar settings, and can
+clear an override through the contextual default action. Invalid canonical
+values visibly fall back to the event default, matching the runtime contract,
+instead of pretending the policy is unbound.
 
 The Hotkeys adapter derives 90 bindings and their aliases directly from the
 runtime action registry. Each row renders multi-chord alternatives without
@@ -172,7 +174,7 @@ back into a handwritten second configuration catalog.
    purpose-specific editors and redaction policy for private endpoints, paths,
    and secret values.
 9. Add restart/apply summaries, a recoverable conflict-reload flow, and
-   `Modified`, `Experimental`, and hotkey-conflict filters once the
+   `Custom`, `Unsaved`, `Experimental`, and hotkey-conflict filters once the
    presentation state exists. The conditional dirty bar must derive a visible
    apply-timing summary from the complete staged set.
 10. Expand the curated real-world Guffawaffle and NetniV round-trip fixtures as
