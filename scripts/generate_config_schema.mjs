@@ -566,18 +566,72 @@ const presentationOverrideFields = new Set([
   "help",
   "group",
   "searchTerms",
+  "enumOptions",
   "unit",
   "editorWidth",
 ]);
 
 const editorWidths = new Set(["compact", "standard", "wide"]);
 
-function cleanPresentationHelp(description) {
+function normalizePresentationCopy(value) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function cleanPresentationHelp(description, label) {
   const cleaned = description
     .replace(/\s+Defaults?:\s*.*$/i, "")
     .replace(/\s+/g, " ")
     .trim();
-  return cleaned || null;
+  if (!cleaned) return null;
+
+  const normalizedLabel = normalizePresentationCopy(label);
+  const normalizedHelp = normalizePresentationCopy(cleaned);
+  const withoutGenericVerb = normalizePresentationCopy(
+    cleaned.replace(/^(configure|enable|disable|toggle|set|choose)\s+/i, ""),
+  );
+  return normalizedHelp === normalizedLabel || withoutGenericVerb === normalizedLabel
+    ? null
+    : cleaned;
+}
+
+function sentenceCasePresentationLabel(value) {
+  const knownWords = new Map([
+    ["Battlelog", "Battle log"],
+    ["Battlelogs", "Battle logs"],
+    ["Realtime", "Real-time"],
+    ["Jsonl", "JSONL"],
+    ["Ttl", "TTL"],
+    ["Url", "URL"],
+    ["Tls", "TLS"],
+    ["Ssl", "SSL"],
+    ["Stfc", "STFC"],
+    ["Dpi", "DPI"],
+    ["Ui", "UI"],
+    ["Scopely", "Scopely"],
+  ]);
+  const words = value.split(/\s+/).flatMap((word) => {
+    const punctuation = word.match(/^(.*?)([:,]?)$/);
+    const body = punctuation?.[1] ?? word;
+    const suffix = punctuation?.[2] ?? "";
+    const replacement = knownWords.get(body) ?? body;
+    const parts = replacement.split(" ");
+    parts[parts.length - 1] += suffix;
+    return parts;
+  });
+
+  return words.map((word, index) => {
+    const punctuation = word.match(/^(.*?)([:,]?)$/);
+    const body = punctuation?.[1] ?? word;
+    const suffix = punctuation?.[2] ?? "";
+    if (index === 0 || /^[A-Z0-9]{2,}$/.test(body) || knownWords.has(body)) {
+      return `${body}${suffix}`;
+    }
+
+    return `${body.toLowerCase()}${suffix}`;
+  }).join(" ");
 }
 
 function normalizeJoinedPresentationTokens(value) {
@@ -782,13 +836,50 @@ function validatePresentationOverrides(settings, overrides = configPresentationO
     const setting = settingsByPath.get(override.path);
     if (!setting) throw new Error(`Stale presentation override path: ${override.path}`);
 
-    for (const field of ["label", "help", "group", "unit"]) {
+    for (const field of ["label", "group", "unit"]) {
       if (field in override && (typeof override[field] !== "string" || !override[field].trim())) {
         throw new Error(`Presentation override ${override.path}.${field} must be a non-empty string.`);
       }
     }
+    if ("help" in override
+        && override.help !== null
+        && (typeof override.help !== "string" || !override.help.trim())) {
+      throw new Error(`Presentation override ${override.path}.help must be a non-empty string or null.`);
+    }
     if ("editorWidth" in override && !editorWidths.has(override.editorWidth)) {
       throw new Error(`Presentation override ${override.path} uses unsupported editor width '${override.editorWidth}'.`);
+    }
+    if ("enumOptions" in override) {
+      if (setting.valueType.kind !== "enum" || !Array.isArray(override.enumOptions)) {
+        throw new Error(`Presentation override ${override.path}.enumOptions requires an enum setting and an array.`);
+      }
+      const declaredValues = setting.valueType.values;
+      const seenValues = new Set();
+      for (const option of override.enumOptions) {
+        if (!option || typeof option !== "object" || Array.isArray(option)) {
+          throw new Error(`Presentation override ${override.path}.enumOptions entries must be objects.`);
+        }
+        for (const field of Object.keys(option)) {
+          if (!["value", "label", "help"].includes(field)) {
+            throw new Error(`Presentation override ${override.path}.enumOptions uses unsupported field '${field}'.`);
+          }
+        }
+        for (const field of ["value", "label"]) {
+          if (typeof option[field] !== "string" || !option[field].trim()) {
+            throw new Error(`Presentation override ${override.path}.enumOptions.${field} must be non-empty.`);
+          }
+        }
+        if ("help" in option && (typeof option.help !== "string" || !option.help.trim())) {
+          throw new Error(`Presentation override ${override.path}.enumOptions.help must be non-empty when present.`);
+        }
+        if (!declaredValues.includes(option.value) || seenValues.has(option.value)) {
+          throw new Error(`Presentation override ${override.path}.enumOptions has invalid or duplicate value '${option.value}'.`);
+        }
+        seenValues.add(option.value);
+      }
+      if (seenValues.size !== declaredValues.length) {
+        throw new Error(`Presentation override ${override.path}.enumOptions must cover every declared value.`);
+      }
     }
     if ("searchTerms" in override) {
       if (!Array.isArray(override.searchTerms)) {
@@ -808,16 +899,18 @@ function addPresentationMetadata(settings, overrides = configPresentationOverrid
   const overridesByPath = validatePresentationOverrides(settings, overrides);
   for (const setting of settings) {
     const override = overridesByPath.get(setting.path) ?? {};
-    const derivedLabel = setting.control === "keybinding"
+    const rawDerivedLabel = setting.control === "keybinding"
       ? keybindingPresentationLabel(setting)
       : setting.title;
+    const derivedLabel = sentenceCasePresentationLabel(rawDerivedLabel);
+    const label = (override.label ?? derivedLabel).trim();
     const derivedHelp = setting.control === "notification-policy"
       ? notificationPresentationHelp(setting)
       : setting.control === "keybinding"
         ? keybindingPresentationHelp(derivedLabel)
-        : cleanPresentationHelp(setting.description);
-    const label = (override.label ?? derivedLabel).trim();
-    const help = (override.help ?? derivedHelp)?.trim() || null;
+        : cleanPresentationHelp(setting.description, label);
+    const helpSource = Object.hasOwn(override, "help") ? override.help : derivedHelp;
+    const help = helpSource?.trim() || null;
     const group = (override.group ?? presentationGroup(setting)).trim();
     const applyTiming = applyTimingLabels.get(setting.apply);
     if (!applyTiming) throw new Error(`Setting ${setting.path} uses unsupported apply behavior '${setting.apply}'.`);
@@ -841,6 +934,15 @@ function addPresentationMetadata(settings, overrides = configPresentationOverrid
       ...(help ? { help } : {}),
       group,
       searchTerms,
+      ...(override.enumOptions
+        ? {
+            enumOptions: override.enumOptions.map((option) => ({
+              value: option.value,
+              label: option.label.trim(),
+              ...(option.help ? { help: option.help.trim() } : {}),
+            })),
+          }
+        : {}),
       ...(override.unit ? { unit: override.unit.trim() } : {}),
       editorWidth,
       applyTiming,

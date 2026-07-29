@@ -47,7 +47,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.action_queue_guard_logging"
       },
       "presentation": {
-        "label": "Action Queue Guard Logging",
+        "label": "Action queue guard logging",
         "help": "Enable detailed action-queue guard breadcrumbs. Hidden opt-in;",
         "group": "Advanced",
         "searchTerms": [
@@ -58,7 +58,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Action Queue Guard Logging",
+        "accessibleName": "Action queue guard logging",
         "accessibleHelp": "Enable detailed action-queue guard breadcrumbs. Hidden opt-in; Applies: Next launch."
       }
     },
@@ -94,8 +94,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.battle_catalog"
       },
       "presentation": {
-        "label": "Battle Catalog",
-        "help": "Configure battle catalog.",
+        "label": "Battle catalog",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.battle_catalog",
@@ -106,8 +105,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Battle Catalog",
-        "accessibleHelp": "Configure battle catalog. Applies: Next launch."
+        "accessibleName": "Battle catalog",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -142,8 +141,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.battle_log_decoder"
       },
       "presentation": {
-        "label": "Battle Log Decoder",
-        "help": "Configure battle log decoder.",
+        "label": "Battle log decoder",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.battle_log_decoder",
@@ -154,8 +152,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Battle Log Decoder",
-        "accessibleHelp": "Configure battle log decoder. Applies: Next launch."
+        "accessibleName": "Battle log decoder",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -191,7 +189,6 @@
       },
       "presentation": {
         "label": "Debug",
-        "help": "Configure debug.",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.debug",
@@ -203,7 +200,7 @@
         "editorWidth": "compact",
         "applyTiming": "Next launch",
         "accessibleName": "Debug",
-        "accessibleHelp": "Configure debug. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -235,8 +232,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.files.action_queue_probe_files"
       },
       "presentation": {
-        "label": "Action Queue Probe Files",
-        "help": "Configure action queue probe files.",
+        "label": "Action queue probe files",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.files.action_queue_probe_files",
@@ -246,8 +242,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Action Queue Probe Files",
-        "accessibleHelp": "Configure action queue probe files. Applies: Next launch."
+        "accessibleName": "Action queue probe files",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -279,7 +275,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.files.action_queue_probe_max_kb"
       },
       "presentation": {
-        "label": "Action Queue Probe Max Kb",
+        "label": "Action queue probe max kb",
         "help": "Total number of action queue probe files to keep, including the active file.",
         "group": "Advanced",
         "searchTerms": [
@@ -290,7 +286,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Action Queue Probe Max Kb",
+        "accessibleName": "Action queue probe max kb",
         "accessibleHelp": "Total number of action queue probe files to keep, including the active file. Applies: Next launch."
       }
     },
@@ -323,8 +319,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.files.navhook_trace_files"
       },
       "presentation": {
-        "label": "Navhook Trace Files",
-        "help": "Configure navhook trace files.",
+        "label": "Navhook trace files",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.files.navhook_trace_files",
@@ -334,8 +329,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Navhook Trace Files",
-        "accessibleHelp": "Configure navhook trace files. Applies: Next launch."
+        "accessibleName": "Navhook trace files",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -367,7 +362,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.files.navhook_trace_max_kb"
       },
       "presentation": {
-        "label": "Navhook Trace Max Kb",
+        "label": "Navhook trace max kb",
         "help": "Total number of navhook trace files to keep, including the active file.",
         "group": "Advanced",
         "searchTerms": [
@@ -378,7 +373,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Navhook Trace Max Kb",
+        "accessibleName": "Navhook trace max kb",
         "accessibleHelp": "Total number of navhook trace files to keep, including the active file. Applies: Next launch."
       }
     },
@@ -449,8 +444,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.fleet_selection_timing_logging"
       },
       "presentation": {
-        "label": "Fleet Selection Timing Logging",
-        "help": "Configure fleet selection timing logging.",
+        "label": "Fleet selection timing logging",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.fleet_selection_timing_logging",
@@ -460,8 +454,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Fleet Selection Timing Logging",
-        "accessibleHelp": "Configure fleet selection timing logging. Applies: Next launch."
+        "accessibleName": "Fleet selection timing logging",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -490,7 +484,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.hotkey_suppression_logging"
       },
       "presentation": {
-        "label": "Hotkey Suppression Logging",
+        "label": "Hotkey suppression logging",
         "help": "Verbose breadcrumbs for noisy diagnostics. These remain off by default even when advanced.diagnostics.debug is enabled.",
         "group": "Advanced",
         "searchTerms": [
@@ -501,7 +495,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Hotkey Suppression Logging",
+        "accessibleName": "Hotkey suppression logging",
         "accessibleHelp": "Verbose breadcrumbs for noisy diagnostics. These remain off by default even when advanced.diagnostics.debug is enabled. Applies: Next launch."
       }
     },
@@ -531,8 +525,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.check_to_clear_action_queue"
       },
       "presentation": {
-        "label": "Check To Clear Action Queue",
-        "help": "Configure check to clear action queue.",
+        "label": "Check to clear action queue",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.kirshara_queue.check_to_clear_action_queue",
@@ -542,8 +535,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Check To Clear Action Queue",
-        "accessibleHelp": "Configure check to clear action queue. Applies: Next launch."
+        "accessibleName": "Check to clear action queue",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -572,7 +565,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.dump_interesting_methods"
       },
       "presentation": {
-        "label": "Dump Interesting Methods",
+        "label": "Dump interesting methods",
         "help": "Dump current ActionQueueManager method metadata at boot.",
         "group": "Advanced",
         "searchTerms": [
@@ -583,7 +576,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Dump Interesting Methods",
+        "accessibleName": "Dump interesting methods",
         "accessibleHelp": "Dump current ActionQueueManager method metadata at boot. Applies: Next launch."
       }
     },
@@ -654,8 +647,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.is_target_valid"
       },
       "presentation": {
-        "label": "Is Target Valid",
-        "help": "Configure is target valid.",
+        "label": "Is target valid",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.kirshara_queue.is_target_valid",
@@ -665,8 +657,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Is Target Valid",
-        "accessibleHelp": "Configure is target valid. Applies: Next launch."
+        "accessibleName": "Is target valid",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -695,8 +687,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.on_fleet_state_change"
       },
       "presentation": {
-        "label": "On Fleet State Change",
-        "help": "Configure on fleet state change.",
+        "label": "On fleet state change",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.kirshara_queue.on_fleet_state_change",
@@ -706,8 +697,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "On Fleet State Change",
-        "accessibleHelp": "Configure on fleet state change. Applies: Next launch."
+        "accessibleName": "On fleet state change",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -736,8 +727,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.on_fleets_disposed"
       },
       "presentation": {
-        "label": "On Fleets Disposed",
-        "help": "Configure on fleets disposed.",
+        "label": "On fleets disposed",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.kirshara_queue.on_fleets_disposed",
@@ -747,8 +737,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "On Fleets Disposed",
-        "accessibleHelp": "Configure on fleets disposed. Applies: Next launch."
+        "accessibleName": "On fleets disposed",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -777,8 +767,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.on_player_fleet_state_changed"
       },
       "presentation": {
-        "label": "On Player Fleet State Changed",
-        "help": "Configure on player fleet state changed.",
+        "label": "On player fleet state changed",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.kirshara_queue.on_player_fleet_state_changed",
@@ -788,8 +777,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "On Player Fleet State Changed",
-        "accessibleHelp": "Configure on player fleet state changed. Applies: Next launch."
+        "accessibleName": "On player fleet state changed",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -818,8 +807,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.on_set_course_response"
       },
       "presentation": {
-        "label": "On Set Course Response",
-        "help": "Configure on set course response.",
+        "label": "On set course response",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.kirshara_queue.on_set_course_response",
@@ -829,8 +817,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "On Set Course Response",
-        "accessibleHelp": "Configure on set course response. Applies: Next launch."
+        "accessibleName": "On set course response",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -859,8 +847,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.on_strike_complete"
       },
       "presentation": {
-        "label": "On Strike Complete",
-        "help": "Configure on strike complete.",
+        "label": "On strike complete",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.kirshara_queue.on_strike_complete",
@@ -870,8 +857,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "On Strike Complete",
-        "accessibleHelp": "Configure on strike complete. Applies: Next launch."
+        "accessibleName": "On strike complete",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -900,8 +887,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.process_queue_deployed"
       },
       "presentation": {
-        "label": "Process Queue Deployed",
-        "help": "Configure process queue deployed.",
+        "label": "Process queue deployed",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.kirshara_queue.process_queue_deployed",
@@ -911,8 +897,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Process Queue Deployed",
-        "accessibleHelp": "Configure process queue deployed. Applies: Next launch."
+        "accessibleName": "Process queue deployed",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -941,8 +927,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.process_queue_target"
       },
       "presentation": {
-        "label": "Process Queue Target",
-        "help": "Configure process queue target.",
+        "label": "Process queue target",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.kirshara_queue.process_queue_target",
@@ -952,8 +937,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Process Queue Target",
-        "accessibleHelp": "Configure process queue target. Applies: Next launch."
+        "accessibleName": "Process queue target",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -982,8 +967,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.kirshara_queue.remove_target_and_attack_next"
       },
       "presentation": {
-        "label": "Remove Target And Attack Next",
-        "help": "Configure remove target and attack next.",
+        "label": "Remove target and attack next",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.kirshara_queue.remove_target_and_attack_next",
@@ -993,8 +977,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Remove Target And Attack Next",
-        "accessibleHelp": "Configure remove target and attack next. Applies: Next launch."
+        "accessibleName": "Remove target and attack next",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -1023,7 +1007,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.live_query"
       },
       "presentation": {
-        "label": "Live Query",
+        "label": "Live query",
         "help": "Enable the live debug/query channel for AX and runtime inspection.",
         "group": "Advanced",
         "searchTerms": [
@@ -1034,7 +1018,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Live Query",
+        "accessibleName": "Live query",
         "accessibleHelp": "Enable the live debug/query channel for AX and runtime inspection. Applies: Next launch."
       }
     },
@@ -1071,7 +1055,6 @@
       },
       "presentation": {
         "label": "Logging",
-        "help": "Configure logging.",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.logging",
@@ -1083,7 +1066,7 @@
         "editorWidth": "compact",
         "applyTiming": "Next launch",
         "accessibleName": "Logging",
-        "accessibleHelp": "Configure logging. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -1112,7 +1095,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.mod_impact_monitor"
       },
       "presentation": {
-        "label": "Mod Impact Monitor",
+        "label": "Mod impact monitor",
         "help": "Enable periodic runtime impact summaries for frame-owned mod hooks.",
         "group": "Advanced",
         "searchTerms": [
@@ -1123,7 +1106,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Mod Impact Monitor",
+        "accessibleName": "Mod impact monitor",
         "accessibleHelp": "Enable periodic runtime impact summaries for frame-owned mod hooks. Applies: Next launch."
       }
     },
@@ -1153,8 +1136,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.notification_skip_logging"
       },
       "presentation": {
-        "label": "Notification Skip Logging",
-        "help": "Configure notification skip logging.",
+        "label": "Notification skip logging",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.notification_skip_logging",
@@ -1164,8 +1146,8 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Notification Skip Logging",
-        "accessibleHelp": "Configure notification skip logging. Applies: Next launch."
+        "accessibleName": "Notification skip logging",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -1194,7 +1176,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.refinery_diagnostics"
       },
       "presentation": {
-        "label": "Refinery Diagnostics",
+        "label": "Refinery diagnostics",
         "help": "Enable focused refinery lifecycle/action diagnostics in community_patch.log.",
         "group": "Advanced",
         "searchTerms": [
@@ -1205,7 +1187,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Refinery Diagnostics",
+        "accessibleName": "Refinery diagnostics",
         "accessibleHelp": "Enable focused refinery lifecycle/action diagnostics in community_patch.log. Applies: Next launch."
       }
     },
@@ -1241,7 +1223,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.runtime_trace"
       },
       "presentation": {
-        "label": "Runtime Trace",
+        "label": "Runtime trace",
         "help": "Realtime runtime trace level: off, summary, detailed, or verbose. Any level above off adds runtime overhead.",
         "group": "Advanced",
         "searchTerms": [
@@ -1252,7 +1234,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Runtime Trace",
+        "accessibleName": "Runtime trace",
         "accessibleHelp": "Realtime runtime trace level: off, summary, detailed, or verbose. Any level above off adds runtime overhead. Applies: Next launch."
       }
     },
@@ -1286,7 +1268,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.runtime_trace_report_interval_ms"
       },
       "presentation": {
-        "label": "Runtime Trace Report Interval Ms",
+        "label": "Runtime trace report interval ms",
         "help": "Runtime trace summary report interval in milliseconds. Lower intervals increase diagnostic log churn.",
         "group": "Advanced",
         "searchTerms": [
@@ -1297,7 +1279,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Runtime Trace Report Interval Ms",
+        "accessibleName": "Runtime trace report interval ms",
         "accessibleHelp": "Runtime trace summary report interval in milliseconds. Lower intervals increase diagnostic log churn. Applies: Next launch."
       }
     },
@@ -1327,7 +1309,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.runtime_trace_track_overhead"
       },
       "presentation": {
-        "label": "Runtime Trace Track Overhead",
+        "label": "Runtime trace track overhead",
         "help": "Track runtime trace instrumentation overhead as a separate probe.",
         "group": "Advanced",
         "searchTerms": [
@@ -1338,7 +1320,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Runtime Trace Track Overhead",
+        "accessibleName": "Runtime trace track overhead",
         "accessibleHelp": "Track runtime trace instrumentation overhead as a separate probe. Applies: Next launch."
       }
     },
@@ -1374,7 +1356,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.ship_identity"
       },
       "presentation": {
-        "label": "Ship Identity",
+        "label": "Ship identity",
         "help": "Reserved native observability toggles for future diagnostics and probes.",
         "group": "Advanced",
         "searchTerms": [
@@ -1386,7 +1368,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Ship Identity",
+        "accessibleName": "Ship identity",
         "accessibleHelp": "Reserved native observability toggles for future diagnostics and probes. Applies: Next launch."
       }
     },
@@ -1416,7 +1398,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.kirshara_queue.course_target_completion"
       },
       "presentation": {
-        "label": "Course Target Completion",
+        "label": "Course target completion",
         "help": "Synthesize the missing target completion commit for off-screen queued combat.",
         "group": "Advanced",
         "searchTerms": [
@@ -1427,7 +1409,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Course Target Completion",
+        "accessibleName": "Course target completion",
         "accessibleHelp": "Synthesize the missing target completion commit for off-screen queued combat. Applies: Next launch."
       }
     },
@@ -1498,7 +1480,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.queue.queue_add_direct_handler"
       },
       "presentation": {
-        "label": "Queue Add Direct Handler",
+        "label": "Queue add direct handler",
         "help": "Use the widget's direct queue-add handler instead of the generic button press path.",
         "group": "Advanced",
         "searchTerms": [
@@ -1509,7 +1491,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Queue Add Direct Handler",
+        "accessibleName": "Queue add direct handler",
         "accessibleHelp": "Use the widget's direct queue-add handler instead of the generic button press path. Applies: Next launch."
       }
     },
@@ -1539,7 +1521,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.queue.queue_repair_enabled"
       },
       "presentation": {
-        "label": "Queue Repair Enabled",
+        "label": "Queue repair enabled",
         "help": "Master opt-in gate for queue repair/probe experiments.",
         "group": "Advanced",
         "searchTerms": [
@@ -1550,7 +1532,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Queue Repair Enabled",
+        "accessibleName": "Queue repair enabled",
         "accessibleHelp": "Master opt-in gate for queue repair/probe experiments. Applies: Next launch."
       }
     },
@@ -1580,7 +1562,7 @@
         "defaultSource": "mods/src/defaultconfig.h:advanced.queue.thin_queue_protection"
       },
       "presentation": {
-        "label": "Thin Queue Protection",
+        "label": "Thin queue protection",
         "help": "Recover an authoritative externally destroyed target only when it remains the exact idle head.",
         "group": "Advanced",
         "searchTerms": [
@@ -1591,7 +1573,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Thin Queue Protection",
+        "accessibleName": "Thin queue protection",
         "accessibleHelp": "Recover an authoritative externally destroyed target only when it remains the exact idle head. Applies: Next launch."
       }
     },
@@ -1621,7 +1603,7 @@
         "defaultSource": "mods/src/defaultconfig.h:battle_log_decoder.emit_feed"
       },
       "presentation": {
-        "label": "Emit Feed",
+        "label": "Emit feed",
         "help": "Emit sidecar-ready battle report feed events when the decoder is enabled.",
         "group": "Battle Log Decoder",
         "searchTerms": [
@@ -1633,7 +1615,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Emit Feed",
+        "accessibleName": "Emit feed",
         "accessibleHelp": "Emit sidecar-ready battle report feed events when the decoder is enabled. Applies: Next launch."
       }
     },
@@ -1663,7 +1645,7 @@
         "defaultSource": "mods/src/defaultconfig.h:battle_log_decoder.emit_segments"
       },
       "presentation": {
-        "label": "Emit Segments",
+        "label": "Emit segments",
         "help": "Emit decoded segment summaries when the decoder is enabled.",
         "group": "Battle Log Decoder",
         "searchTerms": [
@@ -1675,7 +1657,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Emit Segments",
+        "accessibleName": "Emit segments",
         "accessibleHelp": "Emit decoded segment summaries when the decoder is enabled. Applies: Next launch."
       }
     },
@@ -1705,7 +1687,7 @@
         "defaultSource": "mods/src/defaultconfig.h:buffs.use_out_of_dock_power"
       },
       "presentation": {
-        "label": "Use Out Of Dock Power",
+        "label": "Use out of dock power",
         "help": "Apply out-of-dock power buffs even when the ship is undocked.",
         "group": "Buffs",
         "searchTerms": [
@@ -1716,7 +1698,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Use Out Of Dock Power",
+        "accessibleName": "Use out of dock power",
         "accessibleHelp": "Apply out-of-dock power buffs even when the ship is undocked. Applies: Next launch."
       }
     },
@@ -1747,7 +1729,7 @@
         "defaultSource": "mods/src/defaultconfig.h:config.assets_url_override"
       },
       "presentation": {
-        "label": "Assets URL Override",
+        "label": "Assets URL override",
         "help": "Override URL for downloading remote asset bundles (empty = use game default).",
         "group": "Config",
         "searchTerms": [
@@ -1758,7 +1740,7 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Assets URL Override",
+        "accessibleName": "Assets URL override",
         "accessibleHelp": "Override URL for downloading remote asset bundles (empty = use game default). Applies: Next launch."
       }
     },
@@ -1830,7 +1812,7 @@
         "defaultSource": "mods/src/config_metadata.h:control.allow_key_fallthrough"
       },
       "presentation": {
-        "label": "Allow Key Fallthrough",
+        "label": "Allow key fallthrough",
         "help": "Allow unhandled key frames to fall through to the original game input path.",
         "group": "Control",
         "searchTerms": [
@@ -1841,7 +1823,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Allow Key Fallthrough",
+        "accessibleName": "Allow key fallthrough",
         "accessibleHelp": "Allow unhandled key frames to fall through to the original game input path. Applies: Next launch."
       }
     },
@@ -1871,7 +1853,7 @@
         "defaultSource": "mods/src/defaultconfig.h:control.enable_experimental"
       },
       "presentation": {
-        "label": "Enable Experimental",
+        "label": "Enable experimental",
         "help": "Enable experimental/unstable features (e.g. pan-momentum, WASD move keys).",
         "group": "Control",
         "searchTerms": [
@@ -1882,7 +1864,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Enable Experimental",
+        "accessibleName": "Enable experimental",
         "accessibleHelp": "Enable experimental/unstable features (e.g. pan-momentum, WASD move keys). Applies: Next launch."
       }
     },
@@ -1912,7 +1894,7 @@
         "defaultSource": "mods/src/defaultconfig.h:control.hotkeys_enabled"
       },
       "presentation": {
-        "label": "Hotkeys Enabled",
+        "label": "Hotkeys enabled",
         "help": "Master toggle for keyboard hotkeys.",
         "group": "Control",
         "searchTerms": [
@@ -1923,7 +1905,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Hotkeys Enabled",
+        "accessibleName": "Hotkeys enabled",
         "accessibleHelp": "Master toggle for keyboard hotkeys. Applies: Next launch."
       }
     },
@@ -1953,7 +1935,7 @@
         "defaultSource": "mods/src/defaultconfig.h:control.hotkeys_extended"
       },
       "presentation": {
-        "label": "Hotkeys Extended",
+        "label": "Hotkeys extended",
         "help": "Enable the extended hotkey set (bookmarks, cargo toggles, etc.).",
         "group": "Control",
         "searchTerms": [
@@ -1964,7 +1946,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Hotkeys Extended",
+        "accessibleName": "Hotkeys extended",
         "accessibleHelp": "Enable the extended hotkey set (bookmarks, cargo toggles, etc.). Applies: Next launch."
       }
     },
@@ -1994,7 +1976,7 @@
         "defaultSource": "mods/src/defaultconfig.h:control.queue_enabled"
       },
       "presentation": {
-        "label": "Queue Enabled",
+        "label": "Queue enabled",
         "help": "Enable the action queue system.",
         "group": "Control",
         "searchTerms": [
@@ -2005,7 +1987,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Queue Enabled",
+        "accessibleName": "Queue enabled",
         "accessibleHelp": "Enable the action queue system. Applies: Next launch."
       }
     },
@@ -2035,7 +2017,7 @@
         "defaultSource": "mods/src/defaultconfig.h:control.select_timer"
       },
       "presentation": {
-        "label": "Select Timer",
+        "label": "Select timer",
         "help": "Delay in ms before a tap is registered as a select action.",
         "group": "Control",
         "searchTerms": [
@@ -2046,7 +2028,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Select Timer",
+        "accessibleName": "Select timer",
         "accessibleHelp": "Delay in ms before a tap is registered as a select action. Applies: Next launch."
       }
     },
@@ -2076,7 +2058,7 @@
         "defaultSource": "mods/src/defaultconfig.h:control.use_scopely_hotkeys"
       },
       "presentation": {
-        "label": "Use Scopely Hotkeys",
+        "label": "Use Scopely hotkeys",
         "help": "When true, use Scopely's built-in hotkey layer instead of the mod's.",
         "group": "Control",
         "searchTerms": [
@@ -2087,7 +2069,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Use Scopely Hotkeys",
+        "accessibleName": "Use Scopely hotkeys",
         "accessibleHelp": "When true, use Scopely's built-in hotkey layer instead of the mod's. Applies: Next launch."
       }
     },
@@ -2117,7 +2099,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.allow_cursor"
       },
       "presentation": {
-        "label": "Allow Cursor",
+        "label": "Allow cursor",
         "help": "Show the OS cursor instead of hiding it.",
         "group": "Graphics",
         "searchTerms": [
@@ -2128,7 +2110,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Allow Cursor",
+        "accessibleName": "Allow cursor",
         "accessibleHelp": "Show the OS cursor instead of hiding it. Applies: Next launch."
       }
     },
@@ -2158,7 +2140,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.borderless_fullscreen"
       },
       "presentation": {
-        "label": "Borderless Fullscreen",
+        "label": "Borderless fullscreen",
         "help": "Start in borderless-fullscreen mode.",
         "group": "Graphics",
         "searchTerms": [
@@ -2169,7 +2151,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Borderless Fullscreen",
+        "accessibleName": "Borderless fullscreen",
         "accessibleHelp": "Start in borderless-fullscreen mode. Applies: Next launch."
       }
     },
@@ -2199,7 +2181,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.default_system_zoom"
       },
       "presentation": {
-        "label": "Default System Zoom",
+        "label": "Default system zoom",
         "help": "Default system-view zoom level (game units).",
         "group": "Graphics",
         "searchTerms": [
@@ -2210,7 +2192,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Default System Zoom",
+        "accessibleName": "Default system zoom",
         "accessibleHelp": "Default system-view zoom level (game units). Applies: Next launch."
       }
     },
@@ -2285,7 +2267,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.free_resize"
       },
       "presentation": {
-        "label": "Free Resize",
+        "label": "Free resize",
         "help": "Allow free window resizing (not locked to 16:9).",
         "group": "Graphics",
         "searchTerms": [
@@ -2296,7 +2278,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Free Resize",
+        "accessibleName": "Free resize",
         "accessibleHelp": "Allow free window resizing (not locked to 16:9). Applies: Next launch."
       }
     },
@@ -2326,7 +2308,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.keyboard_zoom_speed"
       },
       "presentation": {
-        "label": "Keyboard Zoom Speed",
+        "label": "Keyboard zoom speed",
         "help": "Speed of keyboard-driven zoom (game units/s).",
         "group": "Graphics",
         "searchTerms": [
@@ -2337,7 +2319,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Keyboard Zoom Speed",
+        "accessibleName": "Keyboard zoom speed",
         "accessibleHelp": "Speed of keyboard-driven zoom (game units/s). Applies: Next launch."
       }
     },
@@ -2367,7 +2349,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.loader_enabled"
       },
       "presentation": {
-        "label": "Loader Enabled",
+        "label": "Loader enabled",
         "help": "Replace LoginSequence background.",
         "group": "Graphics",
         "searchTerms": [
@@ -2378,7 +2360,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Loader Enabled",
+        "accessibleName": "Loader enabled",
         "accessibleHelp": "Replace LoginSequence background. Applies: Next launch."
       }
     },
@@ -2408,7 +2390,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.loader_image"
       },
       "presentation": {
-        "label": "Loader Image",
+        "label": "Loader image",
         "help": "Optional custom loading image path (empty = embedded fallback).",
         "group": "Graphics",
         "searchTerms": [
@@ -2419,7 +2401,7 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Loader Image",
+        "accessibleName": "Loader image",
         "accessibleHelp": "Optional custom loading image path (empty = embedded fallback). Applies: Next launch."
       }
     },
@@ -2449,7 +2431,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.loader_logo_scale"
       },
       "presentation": {
-        "label": "Loader Logo Scale",
+        "label": "Loader logo scale",
         "help": "Scale multiplier for loading-screen logos.",
         "group": "Graphics",
         "searchTerms": [
@@ -2460,7 +2442,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Loader Logo Scale",
+        "accessibleName": "Loader logo scale",
         "accessibleHelp": "Scale multiplier for loading-screen logos. Applies: Next launch."
       }
     },
@@ -2490,7 +2472,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.loader_tip_enabled"
       },
       "presentation": {
-        "label": "Loader Tip Enabled",
+        "label": "Loader tip enabled",
         "help": "Show community loading tips.",
         "group": "Graphics",
         "searchTerms": [
@@ -2501,7 +2483,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Loader Tip Enabled",
+        "accessibleName": "Loader tip enabled",
         "accessibleHelp": "Show community loading tips. Applies: Next launch."
       }
     },
@@ -2531,7 +2513,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.loader_transition"
       },
       "presentation": {
-        "label": "Loader Transition",
+        "label": "Loader transition",
         "help": "Replace TVC/SlideShow backgrounds.",
         "group": "Graphics",
         "searchTerms": [
@@ -2542,7 +2524,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Loader Transition",
+        "accessibleName": "Loader transition",
         "accessibleHelp": "Replace TVC/SlideShow backgrounds. Applies: Next launch."
       }
     },
@@ -2572,7 +2554,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.loader_transition_black"
       },
       "presentation": {
-        "label": "Loader Transition Black",
+        "label": "Loader transition black",
         "help": "Use the game's black transition background instead of the custom image.",
         "group": "Graphics",
         "searchTerms": [
@@ -2583,7 +2565,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Loader Transition Black",
+        "accessibleName": "Loader transition black",
         "accessibleHelp": "Use the game's black transition background instead of the custom image. Applies: Next launch."
       }
     },
@@ -2613,7 +2595,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.show_all_resolutions"
       },
       "presentation": {
-        "label": "Show All Resolutions",
+        "label": "Show all resolutions",
         "help": "Expose all display resolutions, not just 16:9.",
         "group": "Graphics",
         "searchTerms": [
@@ -2624,7 +2606,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Show All Resolutions",
+        "accessibleName": "Show all resolutions",
         "accessibleHelp": "Expose all display resolutions, not just 16:9. Applies: Next launch."
       }
     },
@@ -2654,7 +2636,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.system_pan_momentum"
       },
       "presentation": {
-        "label": "System Pan Momentum",
+        "label": "System pan momentum",
         "help": "Initial pan-momentum strength (0–1).",
         "group": "Graphics",
         "searchTerms": [
@@ -2665,7 +2647,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "System Pan Momentum",
+        "accessibleName": "System pan momentum",
         "accessibleHelp": "Initial pan-momentum strength (0–1). Applies: Next launch."
       }
     },
@@ -2695,7 +2677,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.system_pan_momentum_falloff"
       },
       "presentation": {
-        "label": "System Pan Momentum Falloff",
+        "label": "System pan momentum falloff",
         "help": "Momentum decay rate for system-view panning (0–1, higher = slower decay).",
         "group": "Graphics",
         "searchTerms": [
@@ -2706,7 +2688,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "System Pan Momentum Falloff",
+        "accessibleName": "System pan momentum falloff",
         "accessibleHelp": "Momentum decay rate for system-view panning (0–1, higher = slower decay). Applies: Next launch."
       }
     },
@@ -2736,7 +2718,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.system_zoom_preset_1"
       },
       "presentation": {
-        "label": "System Zoom Preset 1",
+        "label": "System zoom preset 1",
         "help": "Zoom preset levels 1–5 (game units, low = close, high = far).",
         "group": "Graphics",
         "searchTerms": [
@@ -2747,7 +2729,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "System Zoom Preset 1",
+        "accessibleName": "System zoom preset 1",
         "accessibleHelp": "Zoom preset levels 1–5 (game units, low = close, high = far). Applies: Next launch."
       }
     },
@@ -2777,7 +2759,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.system_zoom_preset_2"
       },
       "presentation": {
-        "label": "System Zoom Preset 2",
+        "label": "System zoom preset 2",
         "help": "Zoom preset F2 for system view",
         "group": "Graphics",
         "searchTerms": [
@@ -2788,7 +2770,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "System Zoom Preset 2",
+        "accessibleName": "System zoom preset 2",
         "accessibleHelp": "Zoom preset F2 for system view Applies: Next launch."
       }
     },
@@ -2818,7 +2800,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.system_zoom_preset_3"
       },
       "presentation": {
-        "label": "System Zoom Preset 3",
+        "label": "System zoom preset 3",
         "help": "Zoom preset F3 for system view",
         "group": "Graphics",
         "searchTerms": [
@@ -2829,7 +2811,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "System Zoom Preset 3",
+        "accessibleName": "System zoom preset 3",
         "accessibleHelp": "Zoom preset F3 for system view Applies: Next launch."
       }
     },
@@ -2859,7 +2841,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.system_zoom_preset_4"
       },
       "presentation": {
-        "label": "System Zoom Preset 4",
+        "label": "System zoom preset 4",
         "help": "Zoom preset F4 for system view",
         "group": "Graphics",
         "searchTerms": [
@@ -2870,7 +2852,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "System Zoom Preset 4",
+        "accessibleName": "System zoom preset 4",
         "accessibleHelp": "Zoom preset F4 for system view Applies: Next launch."
       }
     },
@@ -2900,7 +2882,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.system_zoom_preset_5"
       },
       "presentation": {
-        "label": "System Zoom Preset 5",
+        "label": "System zoom preset 5",
         "help": "Zoom preset F5 for system view",
         "group": "Graphics",
         "searchTerms": [
@@ -2911,7 +2893,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "System Zoom Preset 5",
+        "accessibleName": "System zoom preset 5",
         "accessibleHelp": "Zoom preset F5 for system view Applies: Next launch."
       }
     },
@@ -2941,7 +2923,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.transition_time"
       },
       "presentation": {
-        "label": "Transition Time",
+        "label": "Transition time",
         "help": "Camera transition duration in seconds.",
         "group": "Graphics",
         "searchTerms": [
@@ -2952,7 +2934,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Transition Time",
+        "accessibleName": "Transition time",
         "accessibleHelp": "Camera transition duration in seconds. Applies: Next launch."
       }
     },
@@ -2982,7 +2964,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.ui_scale"
       },
       "presentation": {
-        "label": "UI Scale",
+        "label": "UI scale",
         "help": "Base UI scale multiplier.",
         "group": "Graphics",
         "searchTerms": [
@@ -2993,7 +2975,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "UI Scale",
+        "accessibleName": "UI scale",
         "accessibleHelp": "Base UI scale multiplier. Applies: Next launch."
       }
     },
@@ -3023,7 +3005,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.ui_scale_adjust"
       },
       "presentation": {
-        "label": "UI Scale Adjust",
+        "label": "UI scale adjust",
         "help": "Step size for PgUp/PgDown UI scale adjustment.",
         "group": "Graphics",
         "searchTerms": [
@@ -3034,7 +3016,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "UI Scale Adjust",
+        "accessibleName": "UI scale adjust",
         "accessibleHelp": "Step size for PgUp/PgDown UI scale adjustment. Applies: Next launch."
       }
     },
@@ -3064,7 +3046,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.ui_scale_viewer"
       },
       "presentation": {
-        "label": "UI Scale Viewer",
+        "label": "UI scale viewer",
         "help": "Scale multiplier for the object-viewer panel.",
         "group": "Graphics",
         "searchTerms": [
@@ -3075,7 +3057,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "UI Scale Viewer",
+        "accessibleName": "UI scale viewer",
         "accessibleHelp": "Scale multiplier for the object-viewer panel. Applies: Next launch."
       }
     },
@@ -3105,7 +3087,7 @@
         "defaultSource": "mods/src/defaultconfig.h:graphics.use_presets_as_default"
       },
       "presentation": {
-        "label": "Use Presets As Default",
+        "label": "Use presets as default",
         "help": "Use zoom presets as the initial zoom on system entry.",
         "group": "Graphics",
         "searchTerms": [
@@ -3116,7 +3098,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Use Presets As Default",
+        "accessibleName": "Use presets as default",
         "accessibleHelp": "Use zoom presets as the initial zoom on system entry. Applies: Next launch."
       }
     },
@@ -3753,8 +3735,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Focus Search",
-        "help": "Keyboard or mouse shortcut for focus Search.",
+        "label": "Focus search",
+        "help": "Keyboard or mouse shortcut for focus search.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.focus_search",
@@ -3766,8 +3748,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Focus Search",
-        "accessibleHelp": "Keyboard or mouse shortcut for focus Search. Applies: Next launch."
+        "accessibleName": "Focus search",
+        "accessibleHelp": "Keyboard or mouse shortcut for focus search. Applies: Next launch."
       }
     },
     {
@@ -3939,8 +3921,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set logging to Debug",
-        "help": "Keyboard or mouse shortcut for set logging to Debug.",
+        "label": "Set logging to debug",
+        "help": "Keyboard or mouse shortcut for set logging to debug.",
         "group": "Diagnostics",
         "searchTerms": [
           "input.bindings.log_debug",
@@ -3952,8 +3934,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set logging to Debug",
-        "accessibleHelp": "Keyboard or mouse shortcut for set logging to Debug. Applies: Next launch."
+        "accessibleName": "Set logging to debug",
+        "accessibleHelp": "Keyboard or mouse shortcut for set logging to debug. Applies: Next launch."
       }
     },
     {
@@ -3995,8 +3977,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set logging to Error",
-        "help": "Keyboard or mouse shortcut for set logging to Error.",
+        "label": "Set logging to error",
+        "help": "Keyboard or mouse shortcut for set logging to error.",
         "group": "Diagnostics",
         "searchTerms": [
           "input.bindings.log_error",
@@ -4008,8 +3990,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set logging to Error",
-        "accessibleHelp": "Keyboard or mouse shortcut for set logging to Error. Applies: Next launch."
+        "accessibleName": "Set logging to error",
+        "accessibleHelp": "Keyboard or mouse shortcut for set logging to error. Applies: Next launch."
       }
     },
     {
@@ -4051,8 +4033,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set logging to Info",
-        "help": "Keyboard or mouse shortcut for set logging to Info.",
+        "label": "Set logging to info",
+        "help": "Keyboard or mouse shortcut for set logging to info.",
         "group": "Diagnostics",
         "searchTerms": [
           "input.bindings.log_info",
@@ -4064,8 +4046,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set logging to Info",
-        "accessibleHelp": "Keyboard or mouse shortcut for set logging to Info. Applies: Next launch."
+        "accessibleName": "Set logging to info",
+        "accessibleHelp": "Keyboard or mouse shortcut for set logging to info. Applies: Next launch."
       }
     },
     {
@@ -4107,8 +4089,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set logging to Off",
-        "help": "Keyboard or mouse shortcut for set logging to Off.",
+        "label": "Set logging to off",
+        "help": "Keyboard or mouse shortcut for set logging to off.",
         "group": "Diagnostics",
         "searchTerms": [
           "input.bindings.log_off",
@@ -4120,8 +4102,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set logging to Off",
-        "accessibleHelp": "Keyboard or mouse shortcut for set logging to Off. Applies: Next launch."
+        "accessibleName": "Set logging to off",
+        "accessibleHelp": "Keyboard or mouse shortcut for set logging to off. Applies: Next launch."
       }
     },
     {
@@ -4163,8 +4145,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set logging to Trace",
-        "help": "Keyboard or mouse shortcut for set logging to Trace.",
+        "label": "Set logging to trace",
+        "help": "Keyboard or mouse shortcut for set logging to trace.",
         "group": "Diagnostics",
         "searchTerms": [
           "input.bindings.log_trace",
@@ -4176,8 +4158,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set logging to Trace",
-        "accessibleHelp": "Keyboard or mouse shortcut for set logging to Trace. Applies: Next launch."
+        "accessibleName": "Set logging to trace",
+        "accessibleHelp": "Keyboard or mouse shortcut for set logging to trace. Applies: Next launch."
       }
     },
     {
@@ -4219,8 +4201,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set logging to Warn",
-        "help": "Keyboard or mouse shortcut for set logging to Warn.",
+        "label": "Set logging to warn",
+        "help": "Keyboard or mouse shortcut for set logging to warn.",
         "group": "Diagnostics",
         "searchTerms": [
           "input.bindings.log_warn",
@@ -4232,8 +4214,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set logging to Warn",
-        "accessibleHelp": "Keyboard or mouse shortcut for set logging to Warn. Applies: Next launch."
+        "accessibleName": "Set logging to warn",
+        "accessibleHelp": "Keyboard or mouse shortcut for set logging to warn. Applies: Next launch."
       }
     },
     {
@@ -4275,8 +4257,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Move Left",
-        "help": "Keyboard or mouse shortcut for move Left.",
+        "label": "Move left",
+        "help": "Keyboard or mouse shortcut for move left.",
         "group": "Navigation",
         "searchTerms": [
           "input.bindings.move_left",
@@ -4288,8 +4270,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Move Left",
-        "accessibleHelp": "Keyboard or mouse shortcut for move Left. Applies: Next launch."
+        "accessibleName": "Move left",
+        "accessibleHelp": "Keyboard or mouse shortcut for move left. Applies: Next launch."
       }
     },
     {
@@ -4331,8 +4313,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Move Right",
-        "help": "Keyboard or mouse shortcut for move Right.",
+        "label": "Move right",
+        "help": "Keyboard or mouse shortcut for move right.",
         "group": "Navigation",
         "searchTerms": [
           "input.bindings.move_right",
@@ -4344,8 +4326,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Move Right",
-        "accessibleHelp": "Keyboard or mouse shortcut for move Right. Applies: Next launch."
+        "accessibleName": "Move right",
+        "accessibleHelp": "Keyboard or mouse shortcut for move right. Applies: Next launch."
       }
     },
     {
@@ -4443,8 +4425,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Select Chat Alliance",
-        "help": "Keyboard or mouse shortcut for select Chat Alliance.",
+        "label": "Select chat alliance",
+        "help": "Keyboard or mouse shortcut for select chat alliance.",
         "group": "Chat",
         "searchTerms": [
           "input.bindings.select_chatalliance",
@@ -4456,8 +4438,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Select Chat Alliance",
-        "accessibleHelp": "Keyboard or mouse shortcut for select Chat Alliance. Applies: Next launch."
+        "accessibleName": "Select chat alliance",
+        "accessibleHelp": "Keyboard or mouse shortcut for select chat alliance. Applies: Next launch."
       }
     },
     {
@@ -4499,8 +4481,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Select Chat Global",
-        "help": "Keyboard or mouse shortcut for select Chat Global.",
+        "label": "Select chat global",
+        "help": "Keyboard or mouse shortcut for select chat global.",
         "group": "Chat",
         "searchTerms": [
           "input.bindings.select_chatglobal",
@@ -4512,8 +4494,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Select Chat Global",
-        "accessibleHelp": "Keyboard or mouse shortcut for select Chat Global. Applies: Next launch."
+        "accessibleName": "Select chat global",
+        "accessibleHelp": "Keyboard or mouse shortcut for select chat global. Applies: Next launch."
       }
     },
     {
@@ -4555,8 +4537,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Select Chat Private",
-        "help": "Keyboard or mouse shortcut for select Chat Private.",
+        "label": "Select chat private",
+        "help": "Keyboard or mouse shortcut for select chat private.",
         "group": "Chat",
         "searchTerms": [
           "input.bindings.select_chatprivate",
@@ -4568,8 +4550,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Select Chat Private",
-        "accessibleHelp": "Keyboard or mouse shortcut for select Chat Private. Applies: Next launch."
+        "accessibleName": "Select chat private",
+        "accessibleHelp": "Keyboard or mouse shortcut for select chat private. Applies: Next launch."
       }
     },
     {
@@ -4667,8 +4649,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Select Ship 1",
-        "help": "Keyboard or mouse shortcut for select Ship 1.",
+        "label": "Select ship 1",
+        "help": "Keyboard or mouse shortcut for select ship 1.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship1",
@@ -4680,8 +4662,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Select Ship 1",
-        "accessibleHelp": "Keyboard or mouse shortcut for select Ship 1. Applies: Next launch."
+        "accessibleName": "Select ship 1",
+        "accessibleHelp": "Keyboard or mouse shortcut for select ship 1. Applies: Next launch."
       }
     },
     {
@@ -4723,8 +4705,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Select Ship 2",
-        "help": "Keyboard or mouse shortcut for select Ship 2.",
+        "label": "Select ship 2",
+        "help": "Keyboard or mouse shortcut for select ship 2.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship2",
@@ -4736,8 +4718,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Select Ship 2",
-        "accessibleHelp": "Keyboard or mouse shortcut for select Ship 2. Applies: Next launch."
+        "accessibleName": "Select ship 2",
+        "accessibleHelp": "Keyboard or mouse shortcut for select ship 2. Applies: Next launch."
       }
     },
     {
@@ -4779,8 +4761,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Select Ship 3",
-        "help": "Keyboard or mouse shortcut for select Ship 3.",
+        "label": "Select ship 3",
+        "help": "Keyboard or mouse shortcut for select ship 3.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship3",
@@ -4792,8 +4774,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Select Ship 3",
-        "accessibleHelp": "Keyboard or mouse shortcut for select Ship 3. Applies: Next launch."
+        "accessibleName": "Select ship 3",
+        "accessibleHelp": "Keyboard or mouse shortcut for select ship 3. Applies: Next launch."
       }
     },
     {
@@ -4835,8 +4817,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Select Ship 4",
-        "help": "Keyboard or mouse shortcut for select Ship 4.",
+        "label": "Select ship 4",
+        "help": "Keyboard or mouse shortcut for select ship 4.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship4",
@@ -4848,8 +4830,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Select Ship 4",
-        "accessibleHelp": "Keyboard or mouse shortcut for select Ship 4. Applies: Next launch."
+        "accessibleName": "Select ship 4",
+        "accessibleHelp": "Keyboard or mouse shortcut for select ship 4. Applies: Next launch."
       }
     },
     {
@@ -4891,8 +4873,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Select Ship 5",
-        "help": "Keyboard or mouse shortcut for select Ship 5.",
+        "label": "Select ship 5",
+        "help": "Keyboard or mouse shortcut for select ship 5.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship5",
@@ -4904,8 +4886,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Select Ship 5",
-        "accessibleHelp": "Keyboard or mouse shortcut for select Ship 5. Applies: Next launch."
+        "accessibleName": "Select ship 5",
+        "accessibleHelp": "Keyboard or mouse shortcut for select ship 5. Applies: Next launch."
       }
     },
     {
@@ -4947,8 +4929,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Select Ship 6",
-        "help": "Keyboard or mouse shortcut for select Ship 6.",
+        "label": "Select ship 6",
+        "help": "Keyboard or mouse shortcut for select ship 6.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship6",
@@ -4960,8 +4942,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Select Ship 6",
-        "accessibleHelp": "Keyboard or mouse shortcut for select Ship 6. Applies: Next launch."
+        "accessibleName": "Select ship 6",
+        "accessibleHelp": "Keyboard or mouse shortcut for select ship 6. Applies: Next launch."
       }
     },
     {
@@ -5003,8 +4985,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Select Ship 7",
-        "help": "Keyboard or mouse shortcut for select Ship 7.",
+        "label": "Select ship 7",
+        "help": "Keyboard or mouse shortcut for select ship 7.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship7",
@@ -5016,8 +4998,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Select Ship 7",
-        "accessibleHelp": "Keyboard or mouse shortcut for select Ship 7. Applies: Next launch."
+        "accessibleName": "Select ship 7",
+        "accessibleHelp": "Keyboard or mouse shortcut for select ship 7. Applies: Next launch."
       }
     },
     {
@@ -5059,8 +5041,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Select Ship 8",
-        "help": "Keyboard or mouse shortcut for select Ship 8.",
+        "label": "Select ship 8",
+        "help": "Keyboard or mouse shortcut for select ship 8.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship8",
@@ -5072,8 +5054,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Select Ship 8",
-        "accessibleHelp": "Keyboard or mouse shortcut for select Ship 8. Applies: Next launch."
+        "accessibleName": "Select ship 8",
+        "accessibleHelp": "Keyboard or mouse shortcut for select ship 8. Applies: Next launch."
       }
     },
     {
@@ -5115,8 +5097,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set Zoom Default",
-        "help": "Keyboard or mouse shortcut for set Zoom Default.",
+        "label": "Set zoom default",
+        "help": "Keyboard or mouse shortcut for set zoom default.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.set_zoom_default",
@@ -5128,8 +5110,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set Zoom Default",
-        "accessibleHelp": "Keyboard or mouse shortcut for set Zoom Default. Applies: Next launch."
+        "accessibleName": "Set zoom default",
+        "accessibleHelp": "Keyboard or mouse shortcut for set zoom default. Applies: Next launch."
       }
     },
     {
@@ -5171,8 +5153,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set Zoom Preset 1",
-        "help": "Keyboard or mouse shortcut for set Zoom Preset 1.",
+        "label": "Set zoom preset 1",
+        "help": "Keyboard or mouse shortcut for set zoom preset 1.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.set_zoom_preset1",
@@ -5184,8 +5166,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set Zoom Preset 1",
-        "accessibleHelp": "Keyboard or mouse shortcut for set Zoom Preset 1. Applies: Next launch."
+        "accessibleName": "Set zoom preset 1",
+        "accessibleHelp": "Keyboard or mouse shortcut for set zoom preset 1. Applies: Next launch."
       }
     },
     {
@@ -5227,8 +5209,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set Zoom Preset 2",
-        "help": "Keyboard or mouse shortcut for set Zoom Preset 2.",
+        "label": "Set zoom preset 2",
+        "help": "Keyboard or mouse shortcut for set zoom preset 2.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.set_zoom_preset2",
@@ -5240,8 +5222,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set Zoom Preset 2",
-        "accessibleHelp": "Keyboard or mouse shortcut for set Zoom Preset 2. Applies: Next launch."
+        "accessibleName": "Set zoom preset 2",
+        "accessibleHelp": "Keyboard or mouse shortcut for set zoom preset 2. Applies: Next launch."
       }
     },
     {
@@ -5283,8 +5265,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set Zoom Preset 3",
-        "help": "Keyboard or mouse shortcut for set Zoom Preset 3.",
+        "label": "Set zoom preset 3",
+        "help": "Keyboard or mouse shortcut for set zoom preset 3.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.set_zoom_preset3",
@@ -5296,8 +5278,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set Zoom Preset 3",
-        "accessibleHelp": "Keyboard or mouse shortcut for set Zoom Preset 3. Applies: Next launch."
+        "accessibleName": "Set zoom preset 3",
+        "accessibleHelp": "Keyboard or mouse shortcut for set zoom preset 3. Applies: Next launch."
       }
     },
     {
@@ -5339,8 +5321,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set Zoom Preset 4",
-        "help": "Keyboard or mouse shortcut for set Zoom Preset 4.",
+        "label": "Set zoom preset 4",
+        "help": "Keyboard or mouse shortcut for set zoom preset 4.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.set_zoom_preset4",
@@ -5352,8 +5334,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set Zoom Preset 4",
-        "accessibleHelp": "Keyboard or mouse shortcut for set Zoom Preset 4. Applies: Next launch."
+        "accessibleName": "Set zoom preset 4",
+        "accessibleHelp": "Keyboard or mouse shortcut for set zoom preset 4. Applies: Next launch."
       }
     },
     {
@@ -5395,8 +5377,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set Zoom Preset 5",
-        "help": "Keyboard or mouse shortcut for set Zoom Preset 5.",
+        "label": "Set zoom preset 5",
+        "help": "Keyboard or mouse shortcut for set zoom preset 5.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.set_zoom_preset5",
@@ -5408,8 +5390,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set Zoom Preset 5",
-        "accessibleHelp": "Keyboard or mouse shortcut for set Zoom Preset 5. Applies: Next launch."
+        "accessibleName": "Set zoom preset 5",
+        "accessibleHelp": "Keyboard or mouse shortcut for set zoom preset 5. Applies: Next launch."
       }
     },
     {
@@ -5451,8 +5433,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Alliance",
-        "help": "Keyboard or mouse shortcut for show Alliance.",
+        "label": "Show alliance",
+        "help": "Keyboard or mouse shortcut for show alliance.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_alliance",
@@ -5464,8 +5446,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Alliance",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Alliance. Applies: Next launch."
+        "accessibleName": "Show alliance",
+        "accessibleHelp": "Keyboard or mouse shortcut for show alliance. Applies: Next launch."
       }
     },
     {
@@ -5507,8 +5489,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Alliance Armada",
-        "help": "Keyboard or mouse shortcut for show Alliance Armada.",
+        "label": "Show alliance armada",
+        "help": "Keyboard or mouse shortcut for show alliance armada.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_alliance_armada",
@@ -5520,8 +5502,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Alliance Armada",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Alliance Armada. Applies: Next launch."
+        "accessibleName": "Show alliance armada",
+        "accessibleHelp": "Keyboard or mouse shortcut for show alliance armada. Applies: Next launch."
       }
     },
     {
@@ -5563,8 +5545,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Alliance Help",
-        "help": "Keyboard or mouse shortcut for show Alliance Help.",
+        "label": "Show alliance help",
+        "help": "Keyboard or mouse shortcut for show alliance help.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_alliance_help",
@@ -5576,8 +5558,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Alliance Help",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Alliance Help. Applies: Next launch."
+        "accessibleName": "Show alliance help",
+        "accessibleHelp": "Keyboard or mouse shortcut for show alliance help. Applies: Next launch."
       }
     },
     {
@@ -5619,8 +5601,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Artifacts",
-        "help": "Keyboard or mouse shortcut for show Artifacts.",
+        "label": "Show artifacts",
+        "help": "Keyboard or mouse shortcut for show artifacts.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_artifacts",
@@ -5632,8 +5614,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Artifacts",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Artifacts. Applies: Next launch."
+        "accessibleName": "Show artifacts",
+        "accessibleHelp": "Keyboard or mouse shortcut for show artifacts. Applies: Next launch."
       }
     },
     {
@@ -5675,8 +5657,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Away Team",
-        "help": "Keyboard or mouse shortcut for show Away Team.",
+        "label": "Show away team",
+        "help": "Keyboard or mouse shortcut for show away team.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_awayteam",
@@ -5688,8 +5670,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Away Team",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Away Team. Applies: Next launch."
+        "accessibleName": "Show away team",
+        "accessibleHelp": "Keyboard or mouse shortcut for show away team. Applies: Next launch."
       }
     },
     {
@@ -5731,8 +5713,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Bookmarks",
-        "help": "Keyboard or mouse shortcut for show Bookmarks.",
+        "label": "Show bookmarks",
+        "help": "Keyboard or mouse shortcut for show bookmarks.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_bookmarks",
@@ -5744,8 +5726,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Bookmarks",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Bookmarks. Applies: Next launch."
+        "accessibleName": "Show bookmarks",
+        "accessibleHelp": "Keyboard or mouse shortcut for show bookmarks. Applies: Next launch."
       }
     },
     {
@@ -5787,8 +5769,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Chat",
-        "help": "Keyboard or mouse shortcut for show Chat.",
+        "label": "Show chat",
+        "help": "Keyboard or mouse shortcut for show chat.",
         "group": "Chat",
         "searchTerms": [
           "input.bindings.show_chat",
@@ -5800,8 +5782,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Chat",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Chat. Applies: Next launch."
+        "accessibleName": "Show chat",
+        "accessibleHelp": "Keyboard or mouse shortcut for show chat. Applies: Next launch."
       }
     },
     {
@@ -5843,8 +5825,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Chat Side 1",
-        "help": "Keyboard or mouse shortcut for show Chat Side 1.",
+        "label": "Show chat side 1",
+        "help": "Keyboard or mouse shortcut for show chat side 1.",
         "group": "Chat",
         "searchTerms": [
           "input.bindings.show_chatside1",
@@ -5856,8 +5838,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Chat Side 1",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Chat Side 1. Applies: Next launch."
+        "accessibleName": "Show chat side 1",
+        "accessibleHelp": "Keyboard or mouse shortcut for show chat side 1. Applies: Next launch."
       }
     },
     {
@@ -5899,8 +5881,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Chat Side 2",
-        "help": "Keyboard or mouse shortcut for show Chat Side 2.",
+        "label": "Show chat side 2",
+        "help": "Keyboard or mouse shortcut for show chat side 2.",
         "group": "Chat",
         "searchTerms": [
           "input.bindings.show_chatside2",
@@ -5912,8 +5894,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Chat Side 2",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Chat Side 2. Applies: Next launch."
+        "accessibleName": "Show chat side 2",
+        "accessibleHelp": "Keyboard or mouse shortcut for show chat side 2. Applies: Next launch."
       }
     },
     {
@@ -5955,8 +5937,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Commander",
-        "help": "Keyboard or mouse shortcut for show Commander.",
+        "label": "Show commander",
+        "help": "Keyboard or mouse shortcut for show commander.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_commander",
@@ -5968,8 +5950,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Commander",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Commander. Applies: Next launch."
+        "accessibleName": "Show commander",
+        "accessibleHelp": "Keyboard or mouse shortcut for show commander. Applies: Next launch."
       }
     },
     {
@@ -6011,8 +5993,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Daily",
-        "help": "Keyboard or mouse shortcut for show Daily.",
+        "label": "Show daily",
+        "help": "Keyboard or mouse shortcut for show daily.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_daily",
@@ -6024,8 +6006,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Daily",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Daily. Applies: Next launch."
+        "accessibleName": "Show daily",
+        "accessibleHelp": "Keyboard or mouse shortcut for show daily. Applies: Next launch."
       }
     },
     {
@@ -6067,8 +6049,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Events",
-        "help": "Keyboard or mouse shortcut for show Events.",
+        "label": "Show events",
+        "help": "Keyboard or mouse shortcut for show events.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_events",
@@ -6080,8 +6062,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Events",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Events. Applies: Next launch."
+        "accessibleName": "Show events",
+        "accessibleHelp": "Keyboard or mouse shortcut for show events. Applies: Next launch."
       }
     },
     {
@@ -6123,8 +6105,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Exocomp",
-        "help": "Keyboard or mouse shortcut for show Exocomp.",
+        "label": "Show exocomp",
+        "help": "Keyboard or mouse shortcut for show exocomp.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_exocomp",
@@ -6136,8 +6118,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Exocomp",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Exocomp. Applies: Next launch."
+        "accessibleName": "Show exocomp",
+        "accessibleHelp": "Keyboard or mouse shortcut for show exocomp. Applies: Next launch."
       }
     },
     {
@@ -6179,8 +6161,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Factions",
-        "help": "Keyboard or mouse shortcut for show Factions.",
+        "label": "Show factions",
+        "help": "Keyboard or mouse shortcut for show factions.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_factions",
@@ -6192,8 +6174,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Factions",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Factions. Applies: Next launch."
+        "accessibleName": "Show factions",
+        "accessibleHelp": "Keyboard or mouse shortcut for show factions. Applies: Next launch."
       }
     },
     {
@@ -6235,8 +6217,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Galaxy",
-        "help": "Keyboard or mouse shortcut for show Galaxy.",
+        "label": "Show galaxy",
+        "help": "Keyboard or mouse shortcut for show galaxy.",
         "group": "Navigation",
         "searchTerms": [
           "input.bindings.show_galaxy",
@@ -6248,8 +6230,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Galaxy",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Galaxy. Applies: Next launch."
+        "accessibleName": "Show galaxy",
+        "accessibleHelp": "Keyboard or mouse shortcut for show galaxy. Applies: Next launch."
       }
     },
     {
@@ -6291,8 +6273,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Gifts",
-        "help": "Keyboard or mouse shortcut for show Gifts.",
+        "label": "Show gifts",
+        "help": "Keyboard or mouse shortcut for show gifts.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_gifts",
@@ -6304,8 +6286,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Gifts",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Gifts. Applies: Next launch."
+        "accessibleName": "Show gifts",
+        "accessibleHelp": "Keyboard or mouse shortcut for show gifts. Applies: Next launch."
       }
     },
     {
@@ -6347,8 +6329,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Inventory",
-        "help": "Keyboard or mouse shortcut for show Inventory.",
+        "label": "Show inventory",
+        "help": "Keyboard or mouse shortcut for show inventory.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_inventory",
@@ -6360,8 +6342,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Inventory",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Inventory. Applies: Next launch."
+        "accessibleName": "Show inventory",
+        "accessibleHelp": "Keyboard or mouse shortcut for show inventory. Applies: Next launch."
       }
     },
     {
@@ -6403,8 +6385,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Lookup",
-        "help": "Keyboard or mouse shortcut for show Lookup.",
+        "label": "Show lookup",
+        "help": "Keyboard or mouse shortcut for show lookup.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_lookup",
@@ -6416,8 +6398,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Lookup",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Lookup. Applies: Next launch."
+        "accessibleName": "Show lookup",
+        "accessibleHelp": "Keyboard or mouse shortcut for show lookup. Applies: Next launch."
       }
     },
     {
@@ -6459,8 +6441,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Missions",
-        "help": "Keyboard or mouse shortcut for show Missions.",
+        "label": "Show missions",
+        "help": "Keyboard or mouse shortcut for show missions.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_missions",
@@ -6472,8 +6454,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Missions",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Missions. Applies: Next launch."
+        "accessibleName": "Show missions",
+        "accessibleHelp": "Keyboard or mouse shortcut for show missions. Applies: Next launch."
       }
     },
     {
@@ -6515,8 +6497,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Officers",
-        "help": "Keyboard or mouse shortcut for show Officers.",
+        "label": "Show officers",
+        "help": "Keyboard or mouse shortcut for show officers.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_officers",
@@ -6528,8 +6510,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Officers",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Officers. Applies: Next launch."
+        "accessibleName": "Show officers",
+        "accessibleHelp": "Keyboard or mouse shortcut for show officers. Applies: Next launch."
       }
     },
     {
@@ -6571,8 +6553,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Q Trials",
-        "help": "Keyboard or mouse shortcut for show Q Trials.",
+        "label": "Show q trials",
+        "help": "Keyboard or mouse shortcut for show q trials.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_qtrials",
@@ -6584,8 +6566,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Q Trials",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Q Trials. Applies: Next launch."
+        "accessibleName": "Show q trials",
+        "accessibleHelp": "Keyboard or mouse shortcut for show q trials. Applies: Next launch."
       }
     },
     {
@@ -6627,8 +6609,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Refinery",
-        "help": "Keyboard or mouse shortcut for show Refinery.",
+        "label": "Show refinery",
+        "help": "Keyboard or mouse shortcut for show refinery.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_refinery",
@@ -6640,8 +6622,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Refinery",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Refinery. Applies: Next launch."
+        "accessibleName": "Show refinery",
+        "accessibleHelp": "Keyboard or mouse shortcut for show refinery. Applies: Next launch."
       }
     },
     {
@@ -6683,8 +6665,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Research",
-        "help": "Keyboard or mouse shortcut for show Research.",
+        "label": "Show research",
+        "help": "Keyboard or mouse shortcut for show research.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_research",
@@ -6696,8 +6678,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Research",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Research. Applies: Next launch."
+        "accessibleName": "Show research",
+        "accessibleHelp": "Keyboard or mouse shortcut for show research. Applies: Next launch."
       }
     },
     {
@@ -6739,8 +6721,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Scrapyard",
-        "help": "Keyboard or mouse shortcut for show Scrapyard.",
+        "label": "Show scrapyard",
+        "help": "Keyboard or mouse shortcut for show scrapyard.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_scrapyard",
@@ -6752,8 +6734,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Scrapyard",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Scrapyard. Applies: Next launch."
+        "accessibleName": "Show scrapyard",
+        "accessibleHelp": "Keyboard or mouse shortcut for show scrapyard. Applies: Next launch."
       }
     },
     {
@@ -6795,8 +6777,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Settings",
-        "help": "Keyboard or mouse shortcut for show Settings.",
+        "label": "Show settings",
+        "help": "Keyboard or mouse shortcut for show settings.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.show_settings",
@@ -6808,8 +6790,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Settings",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Settings. Applies: Next launch."
+        "accessibleName": "Show settings",
+        "accessibleHelp": "Keyboard or mouse shortcut for show settings. Applies: Next launch."
       }
     },
     {
@@ -6851,8 +6833,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Ships",
-        "help": "Keyboard or mouse shortcut for show Ships.",
+        "label": "Show ships",
+        "help": "Keyboard or mouse shortcut for show ships.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.show_ships",
@@ -6864,8 +6846,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Ships",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Ships. Applies: Next launch."
+        "accessibleName": "Show ships",
+        "accessibleHelp": "Keyboard or mouse shortcut for show ships. Applies: Next launch."
       }
     },
     {
@@ -6907,8 +6889,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Station Exterior",
-        "help": "Keyboard or mouse shortcut for show Station Exterior.",
+        "label": "Show station exterior",
+        "help": "Keyboard or mouse shortcut for show station exterior.",
         "group": "Navigation",
         "searchTerms": [
           "input.bindings.show_stationexterior",
@@ -6920,8 +6902,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Station Exterior",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Station Exterior. Applies: Next launch."
+        "accessibleName": "Show station exterior",
+        "accessibleHelp": "Keyboard or mouse shortcut for show station exterior. Applies: Next launch."
       }
     },
     {
@@ -6963,8 +6945,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show Station Interior",
-        "help": "Keyboard or mouse shortcut for show Station Interior.",
+        "label": "Show station interior",
+        "help": "Keyboard or mouse shortcut for show station interior.",
         "group": "Navigation",
         "searchTerms": [
           "input.bindings.show_stationinterior",
@@ -6976,8 +6958,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Station Interior",
-        "accessibleHelp": "Keyboard or mouse shortcut for show Station Interior. Applies: Next launch."
+        "accessibleName": "Show station interior",
+        "accessibleHelp": "Keyboard or mouse shortcut for show station interior. Applies: Next launch."
       }
     },
     {
@@ -7019,8 +7001,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Show System",
-        "help": "Keyboard or mouse shortcut for show System.",
+        "label": "Show system",
+        "help": "Keyboard or mouse shortcut for show system.",
         "group": "Navigation",
         "searchTerms": [
           "input.bindings.show_system",
@@ -7032,8 +7014,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Show System",
-        "accessibleHelp": "Keyboard or mouse shortcut for show System. Applies: Next launch."
+        "accessibleName": "Show system",
+        "accessibleHelp": "Keyboard or mouse shortcut for show system. Applies: Next launch."
       }
     },
     {
@@ -7075,8 +7057,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Toggle Cargo Armada",
-        "help": "Keyboard or mouse shortcut for toggle Cargo Armada.",
+        "label": "Toggle cargo armada",
+        "help": "Keyboard or mouse shortcut for toggle cargo armada.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.toggle_cargo_armada",
@@ -7088,8 +7070,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Toggle Cargo Armada",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle Cargo Armada. Applies: Next launch."
+        "accessibleName": "Toggle cargo armada",
+        "accessibleHelp": "Keyboard or mouse shortcut for toggle cargo armada. Applies: Next launch."
       }
     },
     {
@@ -7131,8 +7113,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Toggle Cargo Default",
-        "help": "Keyboard or mouse shortcut for toggle Cargo Default.",
+        "label": "Toggle cargo default",
+        "help": "Keyboard or mouse shortcut for toggle cargo default.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.toggle_cargo_default",
@@ -7144,8 +7126,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Toggle Cargo Default",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle Cargo Default. Applies: Next launch."
+        "accessibleName": "Toggle cargo default",
+        "accessibleHelp": "Keyboard or mouse shortcut for toggle cargo default. Applies: Next launch."
       }
     },
     {
@@ -7187,8 +7169,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Toggle Cargo Hostile",
-        "help": "Keyboard or mouse shortcut for toggle Cargo Hostile.",
+        "label": "Toggle cargo hostile",
+        "help": "Keyboard or mouse shortcut for toggle cargo hostile.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.toggle_cargo_hostile",
@@ -7200,8 +7182,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Toggle Cargo Hostile",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle Cargo Hostile. Applies: Next launch."
+        "accessibleName": "Toggle cargo hostile",
+        "accessibleHelp": "Keyboard or mouse shortcut for toggle cargo hostile. Applies: Next launch."
       }
     },
     {
@@ -7243,8 +7225,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Toggle Cargo Player",
-        "help": "Keyboard or mouse shortcut for toggle Cargo Player.",
+        "label": "Toggle cargo player",
+        "help": "Keyboard or mouse shortcut for toggle cargo player.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.toggle_cargo_player",
@@ -7256,8 +7238,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Toggle Cargo Player",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle Cargo Player. Applies: Next launch."
+        "accessibleName": "Toggle cargo player",
+        "accessibleHelp": "Keyboard or mouse shortcut for toggle cargo player. Applies: Next launch."
       }
     },
     {
@@ -7299,8 +7281,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Toggle Cargo Station",
-        "help": "Keyboard or mouse shortcut for toggle Cargo Station.",
+        "label": "Toggle cargo station",
+        "help": "Keyboard or mouse shortcut for toggle cargo station.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.toggle_cargo_station",
@@ -7312,8 +7294,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Toggle Cargo Station",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle Cargo Station. Applies: Next launch."
+        "accessibleName": "Toggle cargo station",
+        "accessibleHelp": "Keyboard or mouse shortcut for toggle cargo station. Applies: Next launch."
       }
     },
     {
@@ -7355,8 +7337,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Toggle Preview Locate",
-        "help": "Keyboard or mouse shortcut for toggle Preview Locate.",
+        "label": "Toggle preview locate",
+        "help": "Keyboard or mouse shortcut for toggle preview locate.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.toggle_preview_locate",
@@ -7368,8 +7350,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Toggle Preview Locate",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle Preview Locate. Applies: Next launch."
+        "accessibleName": "Toggle preview locate",
+        "accessibleHelp": "Keyboard or mouse shortcut for toggle preview locate. Applies: Next launch."
       }
     },
     {
@@ -7411,8 +7393,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Toggle Preview Recall",
-        "help": "Keyboard or mouse shortcut for toggle Preview Recall.",
+        "label": "Toggle preview recall",
+        "help": "Keyboard or mouse shortcut for toggle preview recall.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.toggle_preview_recall",
@@ -7424,8 +7406,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Toggle Preview Recall",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle Preview Recall. Applies: Next launch."
+        "accessibleName": "Toggle preview recall",
+        "accessibleHelp": "Keyboard or mouse shortcut for toggle preview recall. Applies: Next launch."
       }
     },
     {
@@ -7467,8 +7449,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "UI Scale Down",
-        "help": "Keyboard or mouse shortcut for uI Scale Down.",
+        "label": "UI scale down",
+        "help": "Keyboard or mouse shortcut for uI scale down.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.ui_scale_down",
@@ -7480,8 +7462,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "UI Scale Down",
-        "accessibleHelp": "Keyboard or mouse shortcut for uI Scale Down. Applies: Next launch."
+        "accessibleName": "UI scale down",
+        "accessibleHelp": "Keyboard or mouse shortcut for uI scale down. Applies: Next launch."
       }
     },
     {
@@ -7523,8 +7505,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "UI Scale Up",
-        "help": "Keyboard or mouse shortcut for uI Scale Up.",
+        "label": "UI scale up",
+        "help": "Keyboard or mouse shortcut for uI scale up.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.ui_scale_up",
@@ -7536,8 +7518,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "UI Scale Up",
-        "accessibleHelp": "Keyboard or mouse shortcut for uI Scale Up. Applies: Next launch."
+        "accessibleName": "UI scale up",
+        "accessibleHelp": "Keyboard or mouse shortcut for uI scale up. Applies: Next launch."
       }
     },
     {
@@ -7579,8 +7561,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "UI Viewer Scale Down",
-        "help": "Keyboard or mouse shortcut for uI Viewer Scale Down.",
+        "label": "UI viewer scale down",
+        "help": "Keyboard or mouse shortcut for uI viewer scale down.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.ui_viewer_scale_down",
@@ -7592,8 +7574,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "UI Viewer Scale Down",
-        "accessibleHelp": "Keyboard or mouse shortcut for uI Viewer Scale Down. Applies: Next launch."
+        "accessibleName": "UI viewer scale down",
+        "accessibleHelp": "Keyboard or mouse shortcut for uI viewer scale down. Applies: Next launch."
       }
     },
     {
@@ -7635,8 +7617,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "UI Viewer Scale Up",
-        "help": "Keyboard or mouse shortcut for uI Viewer Scale Up.",
+        "label": "UI viewer scale up",
+        "help": "Keyboard or mouse shortcut for uI viewer scale up.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.ui_viewer_scale_up",
@@ -7648,8 +7630,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "UI Viewer Scale Up",
-        "accessibleHelp": "Keyboard or mouse shortcut for uI Viewer Scale Up. Applies: Next launch."
+        "accessibleName": "UI viewer scale up",
+        "accessibleHelp": "Keyboard or mouse shortcut for uI viewer scale up. Applies: Next launch."
       }
     },
     {
@@ -7691,8 +7673,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom In",
-        "help": "Keyboard or mouse shortcut for zoom In.",
+        "label": "Zoom in",
+        "help": "Keyboard or mouse shortcut for zoom in.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_in",
@@ -7704,8 +7686,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom In",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom In. Applies: Next launch."
+        "accessibleName": "Zoom in",
+        "accessibleHelp": "Keyboard or mouse shortcut for zoom in. Applies: Next launch."
       }
     },
     {
@@ -7747,8 +7729,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom Max",
-        "help": "Keyboard or mouse shortcut for zoom Max.",
+        "label": "Zoom max",
+        "help": "Keyboard or mouse shortcut for zoom max.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_max",
@@ -7760,8 +7742,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom Max",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom Max. Applies: Next launch."
+        "accessibleName": "Zoom max",
+        "accessibleHelp": "Keyboard or mouse shortcut for zoom max. Applies: Next launch."
       }
     },
     {
@@ -7803,8 +7785,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom Min",
-        "help": "Keyboard or mouse shortcut for zoom Min.",
+        "label": "Zoom min",
+        "help": "Keyboard or mouse shortcut for zoom min.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_min",
@@ -7816,8 +7798,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom Min",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom Min. Applies: Next launch."
+        "accessibleName": "Zoom min",
+        "accessibleHelp": "Keyboard or mouse shortcut for zoom min. Applies: Next launch."
       }
     },
     {
@@ -7859,8 +7841,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom Out",
-        "help": "Keyboard or mouse shortcut for zoom Out.",
+        "label": "Zoom out",
+        "help": "Keyboard or mouse shortcut for zoom out.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_out",
@@ -7872,8 +7854,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom Out",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom Out. Applies: Next launch."
+        "accessibleName": "Zoom out",
+        "accessibleHelp": "Keyboard or mouse shortcut for zoom out. Applies: Next launch."
       }
     },
     {
@@ -7915,8 +7897,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom Preset 1",
-        "help": "Keyboard or mouse shortcut for zoom Preset 1.",
+        "label": "Zoom preset 1",
+        "help": "Keyboard or mouse shortcut for zoom preset 1.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_preset1",
@@ -7928,8 +7910,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom Preset 1",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom Preset 1. Applies: Next launch."
+        "accessibleName": "Zoom preset 1",
+        "accessibleHelp": "Keyboard or mouse shortcut for zoom preset 1. Applies: Next launch."
       }
     },
     {
@@ -7971,8 +7953,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom Preset 2",
-        "help": "Keyboard or mouse shortcut for zoom Preset 2.",
+        "label": "Zoom preset 2",
+        "help": "Keyboard or mouse shortcut for zoom preset 2.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_preset2",
@@ -7984,8 +7966,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom Preset 2",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom Preset 2. Applies: Next launch."
+        "accessibleName": "Zoom preset 2",
+        "accessibleHelp": "Keyboard or mouse shortcut for zoom preset 2. Applies: Next launch."
       }
     },
     {
@@ -8027,8 +8009,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom Preset 3",
-        "help": "Keyboard or mouse shortcut for zoom Preset 3.",
+        "label": "Zoom preset 3",
+        "help": "Keyboard or mouse shortcut for zoom preset 3.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_preset3",
@@ -8040,8 +8022,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom Preset 3",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom Preset 3. Applies: Next launch."
+        "accessibleName": "Zoom preset 3",
+        "accessibleHelp": "Keyboard or mouse shortcut for zoom preset 3. Applies: Next launch."
       }
     },
     {
@@ -8083,8 +8065,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom Preset 4",
-        "help": "Keyboard or mouse shortcut for zoom Preset 4.",
+        "label": "Zoom preset 4",
+        "help": "Keyboard or mouse shortcut for zoom preset 4.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_preset4",
@@ -8096,8 +8078,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom Preset 4",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom Preset 4. Applies: Next launch."
+        "accessibleName": "Zoom preset 4",
+        "accessibleHelp": "Keyboard or mouse shortcut for zoom preset 4. Applies: Next launch."
       }
     },
     {
@@ -8139,8 +8121,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom Preset 5",
-        "help": "Keyboard or mouse shortcut for zoom Preset 5.",
+        "label": "Zoom preset 5",
+        "help": "Keyboard or mouse shortcut for zoom preset 5.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_preset5",
@@ -8152,8 +8134,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom Preset 5",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom Preset 5. Applies: Next launch."
+        "accessibleName": "Zoom preset 5",
+        "accessibleHelp": "Keyboard or mouse shortcut for zoom preset 5. Applies: Next launch."
       }
     },
     {
@@ -8195,8 +8177,8 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom Reset",
-        "help": "Keyboard or mouse shortcut for zoom Reset.",
+        "label": "Zoom reset",
+        "help": "Keyboard or mouse shortcut for zoom reset.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_reset",
@@ -8208,8 +8190,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom Reset",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom Reset. Applies: Next launch."
+        "accessibleName": "Zoom reset",
+        "accessibleHelp": "Keyboard or mouse shortcut for zoom reset. Applies: Next launch."
       }
     },
     {
@@ -8249,7 +8231,7 @@
         "defaultSource": "mods/src/defaultconfig.h:control.original_frame_policy"
       },
       "presentation": {
-        "label": "Original Frame Policy",
+        "label": "Original frame policy",
         "help": "Explicit original frame policy: mod, fallthrough_unhandled, fallthrough_all.",
         "group": "Input",
         "searchTerms": [
@@ -8261,7 +8243,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Original Frame Policy",
+        "accessibleName": "Original frame policy",
         "accessibleHelp": "Explicit original frame policy: mod, fallthrough_unhandled, fallthrough_all. Applies: Next launch."
       }
     },
@@ -8296,7 +8278,7 @@
         "defaultSource": "mods/src/defaultconfig.h:control.scopely_shortcuts"
       },
       "presentation": {
-        "label": "Scopely Shortcuts",
+        "label": "Scopely shortcuts",
         "help": "Explicit Scopely shortcut initialization policy: off, native, fallback.",
         "group": "Input",
         "searchTerms": [
@@ -8307,7 +8289,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Scopely Shortcuts",
+        "accessibleName": "Scopely shortcuts",
         "accessibleHelp": "Explicit Scopely shortcut initialization policy: off, native, fallback. Applies: Next launch."
       }
     },
@@ -8407,7 +8389,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Abandoned Territory",
+        "label": "Abandoned territory",
         "help": "Alerts you when your alliance abandons territory.",
         "group": "Territory and takeover",
         "searchTerms": [
@@ -8423,7 +8405,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Abandoned Territory",
+        "accessibleName": "Abandoned territory",
         "accessibleHelp": "Alerts you when your alliance abandons territory. Applies: Next launch."
       }
     },
@@ -8639,7 +8621,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Arena Time Left",
+        "label": "Arena time left",
         "help": "Alerts you when arena time is running low.",
         "group": "Events and tournaments",
         "searchTerms": [
@@ -8655,7 +8637,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Arena Time Left",
+        "accessibleName": "Arena time left",
         "accessibleHelp": "Alerts you when arena time is running low. Applies: Next launch."
       }
     },
@@ -8755,7 +8737,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Armada Battle Lost",
+        "label": "Armada battle lost",
         "help": "Alerts you when your armada battle is lost.",
         "group": "Battle and incoming attacks",
         "searchTerms": [
@@ -8771,7 +8753,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Armada Battle Lost",
+        "accessibleName": "Armada battle lost",
         "accessibleHelp": "Alerts you when your armada battle is lost. Applies: Next launch."
       }
     },
@@ -8871,7 +8853,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Armada Battle Won",
+        "label": "Armada battle won",
         "help": "Alerts you when your armada battle is won.",
         "group": "Battle and incoming attacks",
         "searchTerms": [
@@ -8887,7 +8869,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Armada Battle Won",
+        "accessibleName": "Armada battle won",
         "accessibleHelp": "Alerts you when your armada battle is won. Applies: Next launch."
       }
     },
@@ -8987,7 +8969,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Armada Canceled",
+        "label": "Armada canceled",
         "help": "Alerts you when an armada is canceled.",
         "group": "Armada",
         "searchTerms": [
@@ -9003,7 +8985,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Armada Canceled",
+        "accessibleName": "Armada canceled",
         "accessibleHelp": "Alerts you when an armada is canceled. Applies: Next launch."
       }
     },
@@ -9103,7 +9085,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Armada Created",
+        "label": "Armada created",
         "help": "Alerts you when an armada is created.",
         "group": "Armada",
         "searchTerms": [
@@ -9119,7 +9101,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Armada Created",
+        "accessibleName": "Armada created",
         "accessibleHelp": "Alerts you when an armada is created. Applies: Next launch."
       }
     },
@@ -9219,7 +9201,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Armada Incoming Attack",
+        "label": "Armada incoming attack",
         "help": "Alerts you when an armada attack is incoming.",
         "group": "Armada",
         "searchTerms": [
@@ -9235,7 +9217,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Armada Incoming Attack",
+        "accessibleName": "Armada incoming attack",
         "accessibleHelp": "Alerts you when an armada attack is incoming. Applies: Next launch."
       }
     },
@@ -9335,7 +9317,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Armada Player Blocked",
+        "label": "Armada player blocked",
         "help": "Alerts you when a player is blocked from an armada.",
         "group": "Armada",
         "searchTerms": [
@@ -9351,7 +9333,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Armada Player Blocked",
+        "accessibleName": "Armada player blocked",
         "accessibleHelp": "Alerts you when a player is blocked from an armada. Applies: Next launch."
       }
     },
@@ -9451,7 +9433,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Armada Player Unblocked",
+        "label": "Armada player unblocked",
         "help": "Alerts you when a player is unblocked from an armada.",
         "group": "Armada",
         "searchTerms": [
@@ -9467,7 +9449,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Armada Player Unblocked",
+        "accessibleName": "Armada player unblocked",
         "accessibleHelp": "Alerts you when a player is unblocked from an armada. Applies: Next launch."
       }
     },
@@ -9567,7 +9549,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Assault Defeat",
+        "label": "Assault defeat",
         "help": "Alerts you when you lose an assault.",
         "group": "Battle and incoming attacks",
         "searchTerms": [
@@ -9583,7 +9565,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Assault Defeat",
+        "accessibleName": "Assault defeat",
         "accessibleHelp": "Alerts you when you lose an assault. Applies: Next launch."
       }
     },
@@ -9683,7 +9665,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Assault Victory",
+        "label": "Assault victory",
         "help": "Alerts you when you win an assault.",
         "group": "Battle and incoming attacks",
         "searchTerms": [
@@ -9699,7 +9681,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Assault Victory",
+        "accessibleName": "Assault victory",
         "accessibleHelp": "Alerts you when you win an assault. Applies: Next launch."
       }
     },
@@ -9799,7 +9781,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Chained Event Scored",
+        "label": "Chained event scored",
         "help": "Alerts you when you score in a chained event.",
         "group": "Events and tournaments",
         "searchTerms": [
@@ -9815,7 +9797,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Chained Event Scored",
+        "accessibleName": "Chained event scored",
         "accessibleHelp": "Alerts you when you score in a chained event. Applies: Next launch."
       }
     },
@@ -9915,7 +9897,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Challenge Complete",
+        "label": "Challenge complete",
         "help": "Alerts you when challenge is complete.",
         "group": "Events and tournaments",
         "searchTerms": [
@@ -9931,7 +9913,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Challenge Complete",
+        "accessibleName": "Challenge complete",
         "accessibleHelp": "Alerts you when challenge is complete. Applies: Next launch."
       }
     },
@@ -10031,7 +10013,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Challenge Failed",
+        "label": "Challenge failed",
         "help": "Alerts you when challenge fails.",
         "group": "Events and tournaments",
         "searchTerms": [
@@ -10047,7 +10029,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Challenge Failed",
+        "accessibleName": "Challenge failed",
         "accessibleHelp": "Alerts you when challenge fails. Applies: Next launch."
       }
     },
@@ -10147,7 +10129,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Competitor Joined Takeover",
+        "label": "Competitor joined takeover",
         "help": "Alerts you when a competitor joins your takeover.",
         "group": "Territory and takeover",
         "searchTerms": [
@@ -10163,7 +10145,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Competitor Joined Takeover",
+        "accessibleName": "Competitor joined takeover",
         "accessibleHelp": "Alerts you when a competitor joins your takeover. Applies: Next launch."
       }
     },
@@ -10263,7 +10245,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Cross Alliance Armada Defeat",
+        "label": "Cross alliance armada defeat",
         "help": "Alerts you when you lose a cross alliance armada.",
         "group": "Armada",
         "searchTerms": [
@@ -10279,7 +10261,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Cross Alliance Armada Defeat",
+        "accessibleName": "Cross alliance armada defeat",
         "accessibleHelp": "Alerts you when you lose a cross alliance armada. Applies: Next launch."
       }
     },
@@ -10379,7 +10361,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Cross Alliance Armada Partial Victory",
+        "label": "Cross alliance armada partial victory",
         "help": "Alerts you when cross alliance armada battle ends in a partial victory.",
         "group": "Armada",
         "searchTerms": [
@@ -10395,7 +10377,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Cross Alliance Armada Partial Victory",
+        "accessibleName": "Cross alliance armada partial victory",
         "accessibleHelp": "Alerts you when cross alliance armada battle ends in a partial victory. Applies: Next launch."
       }
     },
@@ -10495,7 +10477,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Cross Alliance Armada Victory",
+        "label": "Cross alliance armada victory",
         "help": "Alerts you when you win a cross alliance armada.",
         "group": "Armada",
         "searchTerms": [
@@ -10511,7 +10493,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Cross Alliance Armada Victory",
+        "accessibleName": "Cross alliance armada victory",
         "accessibleHelp": "Alerts you when you win a cross alliance armada. Applies: Next launch."
       }
     },
@@ -10727,7 +10709,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Diplomacy Updated",
+        "label": "Diplomacy updated",
         "help": "Alerts you when diplomacy is updated.",
         "group": "Experimental and generic toasts",
         "searchTerms": [
@@ -10743,7 +10725,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Diplomacy Updated",
+        "accessibleName": "Diplomacy updated",
         "accessibleHelp": "Alerts you when diplomacy is updated. Applies: Next launch."
       }
     },
@@ -10843,7 +10825,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Dynamic Crisis Completed",
+        "label": "Dynamic crisis completed",
         "help": "Alerts you when dynamic crisis is completed.",
         "group": "Events and tournaments",
         "searchTerms": [
@@ -10859,7 +10841,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Dynamic Crisis Completed",
+        "accessibleName": "Dynamic crisis completed",
         "accessibleHelp": "Alerts you when dynamic crisis is completed. Applies: Next launch."
       }
     },
@@ -10959,7 +10941,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Dynamic Crisis Failed",
+        "label": "Dynamic crisis failed",
         "help": "Alerts you when dynamic crisis fails.",
         "group": "Events and tournaments",
         "searchTerms": [
@@ -10975,7 +10957,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Dynamic Crisis Failed",
+        "accessibleName": "Dynamic crisis failed",
         "accessibleHelp": "Alerts you when dynamic crisis fails. Applies: Next launch."
       }
     },
@@ -11075,7 +11057,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Dynamic Crisis Update",
+        "label": "Dynamic crisis update",
         "help": "Alerts you when dynamic crisis status changes.",
         "group": "Events and tournaments",
         "searchTerms": [
@@ -11091,7 +11073,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Dynamic Crisis Update",
+        "accessibleName": "Dynamic crisis update",
         "accessibleHelp": "Alerts you when dynamic crisis status changes. Applies: Next launch."
       }
     },
@@ -11191,7 +11173,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Faction Discovered",
+        "label": "Faction discovered",
         "help": "Alerts you when faction is discovered.",
         "group": "Experimental and generic toasts",
         "searchTerms": [
@@ -11207,7 +11189,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Faction Discovered",
+        "accessibleName": "Faction discovered",
         "accessibleHelp": "Alerts you when faction is discovered. Applies: Next launch."
       }
     },
@@ -11307,7 +11289,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Faction Level Down",
+        "label": "Faction level down",
         "help": "Alerts you when your faction level decreases.",
         "group": "Experimental and generic toasts",
         "searchTerms": [
@@ -11323,7 +11305,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Faction Level Down",
+        "accessibleName": "Faction level down",
         "accessibleHelp": "Alerts you when your faction level decreases. Applies: Next launch."
       }
     },
@@ -11423,7 +11405,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Faction Level Up",
+        "label": "Faction level up",
         "help": "Alerts you when your faction level increases.",
         "group": "Experimental and generic toasts",
         "searchTerms": [
@@ -11439,7 +11421,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Faction Level Up",
+        "accessibleName": "Faction level up",
         "accessibleHelp": "Alerts you when your faction level increases. Applies: Next launch."
       }
     },
@@ -11539,7 +11521,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Faction Warning",
+        "label": "Faction warning",
         "help": "Alerts you when a faction warning is issued.",
         "group": "Experimental and generic toasts",
         "searchTerms": [
@@ -11555,7 +11537,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Faction Warning",
+        "accessibleName": "Faction warning",
         "accessibleHelp": "Alerts you when a faction warning is issued. Applies: Next launch."
       }
     },
@@ -11655,7 +11637,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Faction Weekly Events Complete",
+        "label": "Faction weekly events complete",
         "help": "Alerts you when faction weekly events are complete.",
         "group": "Events and tournaments",
         "searchTerms": [
@@ -11671,7 +11653,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Faction Weekly Events Complete",
+        "accessibleName": "Faction weekly events complete",
         "accessibleHelp": "Alerts you when faction weekly events are complete. Applies: Next launch."
       }
     },
@@ -11771,7 +11753,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Faction Weekly Events Progress",
+        "label": "Faction weekly events progress",
         "help": "Alerts you when faction weekly events progress changes.",
         "group": "Events and tournaments",
         "searchTerms": [
@@ -11787,7 +11769,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Faction Weekly Events Progress",
+        "accessibleName": "Faction weekly events progress",
         "accessibleHelp": "Alerts you when faction weekly events progress changes. Applies: Next launch."
       }
     },
@@ -11887,7 +11869,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Fleet Arrived At Destination",
+        "label": "Fleet arrived at destination",
         "help": "Alerts you when your fleet arrives at its destination.",
         "group": "Fleet movement and mining",
         "searchTerms": [
@@ -11903,7 +11885,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Fleet Arrived At Destination",
+        "accessibleName": "Fleet arrived at destination",
         "accessibleHelp": "Alerts you when your fleet arrives at its destination. Applies: Next launch."
       }
     },
@@ -12003,7 +11985,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Fleet Arrived In System",
+        "label": "Fleet arrived in system",
         "help": "Alerts you when your fleet arrives in a system.",
         "group": "Fleet movement and mining",
         "searchTerms": [
@@ -12019,7 +12001,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Fleet Arrived In System",
+        "accessibleName": "Fleet arrived in system",
         "accessibleHelp": "Alerts you when your fleet arrives in a system. Applies: Next launch."
       }
     },
@@ -12119,7 +12101,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Fleet Battle",
+        "label": "Fleet battle",
         "help": "Alerts you when your fleet enters battle.",
         "group": "Battle and incoming attacks",
         "searchTerms": [
@@ -12135,7 +12117,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Fleet Battle",
+        "accessibleName": "Fleet battle",
         "accessibleHelp": "Alerts you when your fleet enters battle. Applies: Next launch."
       }
     },
@@ -12235,7 +12217,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Fleet Docked",
+        "label": "Fleet docked",
         "help": "Alerts you when your fleet docks.",
         "group": "Repairs and docking",
         "searchTerms": [
@@ -12251,7 +12233,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Fleet Docked",
+        "accessibleName": "Fleet docked",
         "accessibleHelp": "Alerts you when your fleet docks. Applies: Next launch."
       }
     },
@@ -12351,7 +12333,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Fleet Node Depleted",
+        "label": "Fleet node depleted",
         "help": "Alerts you when your fleet's mining node is depleted.",
         "group": "Fleet movement and mining",
         "searchTerms": [
@@ -12367,7 +12349,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Fleet Node Depleted",
+        "accessibleName": "Fleet node depleted",
         "accessibleHelp": "Alerts you when your fleet's mining node is depleted. Applies: Next launch."
       }
     },
@@ -12467,7 +12449,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Fleet Preset Applied",
+        "label": "Fleet preset applied",
         "help": "Alerts you when fleet preset is applied.",
         "group": "Fleet movement and mining",
         "searchTerms": [
@@ -12483,7 +12465,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Fleet Preset Applied",
+        "accessibleName": "Fleet preset applied",
         "accessibleHelp": "Alerts you when fleet preset is applied. Applies: Next launch."
       }
     },
@@ -12583,7 +12565,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Fleet Repair Complete",
+        "label": "Fleet repair complete",
         "help": "Alerts you when fleet repairs finish.",
         "group": "Repairs and docking",
         "searchTerms": [
@@ -12599,7 +12581,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Fleet Repair Complete",
+        "accessibleName": "Fleet repair complete",
         "accessibleHelp": "Alerts you when fleet repairs finish. Applies: Next launch."
       }
     },
@@ -12699,7 +12681,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Fleet Started Mining",
+        "label": "Fleet started mining",
         "help": "Alerts you when your fleet starts mining.",
         "group": "Fleet movement and mining",
         "searchTerms": [
@@ -12715,7 +12697,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Fleet Started Mining",
+        "accessibleName": "Fleet started mining",
         "accessibleHelp": "Alerts you when your fleet starts mining. Applies: Next launch."
       }
     },
@@ -12815,7 +12797,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Galactic Anomaly System Entered",
+        "label": "Galactic anomaly system entered",
         "help": "Alerts you when your fleet enters a galactic anomaly system.",
         "group": "Experimental and generic toasts",
         "searchTerms": [
@@ -12831,7 +12813,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Galactic Anomaly System Entered",
+        "accessibleName": "Galactic anomaly system entered",
         "accessibleHelp": "Alerts you when your fleet enters a galactic anomaly system. Applies: Next launch."
       }
     },
@@ -12931,7 +12913,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Incoming Attack Hostile",
+        "label": "Incoming attack hostile",
         "help": "Alerts you when a hostile attacks one of your assets.",
         "group": "Battle and incoming attacks",
         "searchTerms": [
@@ -12947,7 +12929,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Incoming Attack Hostile",
+        "accessibleName": "Incoming attack hostile",
         "accessibleHelp": "Alerts you when a hostile attacks one of your assets. Applies: Next launch."
       }
     },
@@ -13047,7 +13029,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Incoming Attack Player",
+        "label": "Incoming attack player",
         "help": "Alerts you when another player attacks one of your assets.",
         "group": "Battle and incoming attacks",
         "searchTerms": [
@@ -13063,7 +13045,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Incoming Attack Player",
+        "accessibleName": "Incoming attack player",
         "accessibleHelp": "Alerts you when another player attacks one of your assets. Applies: Next launch."
       }
     },
@@ -13163,7 +13145,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Joined Takeover",
+        "label": "Joined takeover",
         "help": "Alerts you when a takeover you joined becomes active.",
         "group": "Territory and takeover",
         "searchTerms": [
@@ -13179,7 +13161,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Joined Takeover",
+        "accessibleName": "Joined takeover",
         "accessibleHelp": "Alerts you when a takeover you joined becomes active. Applies: Next launch."
       }
     },
@@ -13279,7 +13261,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Outpost Started Or Ended",
+        "label": "Outpost started or ended",
         "help": "Alerts you when an outpost starts or ends.",
         "group": "Territory and takeover",
         "searchTerms": [
@@ -13295,7 +13277,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Outpost Started Or Ended",
+        "accessibleName": "Outpost started or ended",
         "accessibleHelp": "Alerts you when an outpost starts or ends. Applies: Next launch."
       }
     },
@@ -13395,7 +13377,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Partial Victory",
+        "label": "Partial victory",
         "help": "Alerts you when a battle ends in a partial victory.",
         "group": "Battle and incoming attacks",
         "searchTerms": [
@@ -13411,7 +13393,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Partial Victory",
+        "accessibleName": "Partial victory",
         "accessibleHelp": "Alerts you when a battle ends in a partial victory. Applies: Next launch."
       }
     },
@@ -13511,7 +13493,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Permanent Queue Purchased",
+        "label": "Permanent queue purchased",
         "help": "Alerts you when permanent queue is purchased.",
         "group": "Economy and treasury",
         "searchTerms": [
@@ -13527,7 +13509,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Permanent Queue Purchased",
+        "accessibleName": "Permanent queue purchased",
         "accessibleHelp": "Alerts you when permanent queue is purchased. Applies: Next launch."
       }
     },
@@ -13627,7 +13609,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Queue For Lease Activated",
+        "label": "Queue for lease activated",
         "help": "Alerts you when queue for lease is activated.",
         "group": "Economy and treasury",
         "searchTerms": [
@@ -13643,7 +13625,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Queue For Lease Activated",
+        "accessibleName": "Queue for lease activated",
         "accessibleHelp": "Alerts you when queue for lease is activated. Applies: Next launch."
       }
     },
@@ -13743,7 +13725,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Queue For Lease Expired",
+        "label": "Queue for lease expired",
         "help": "Alerts you when queue for lease expires.",
         "group": "Economy and treasury",
         "searchTerms": [
@@ -13759,7 +13741,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Queue For Lease Expired",
+        "accessibleName": "Queue for lease expired",
         "accessibleHelp": "Alerts you when queue for lease expires. Applies: Next launch."
       }
     },
@@ -13974,7 +13956,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Station Battle",
+        "label": "Station battle",
         "help": "Alerts you when your station enters battle.",
         "group": "Battle and incoming attacks",
         "searchTerms": [
@@ -13990,7 +13972,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Station Battle",
+        "accessibleName": "Station battle",
         "accessibleHelp": "Alerts you when your station enters battle. Applies: Next launch."
       }
     },
@@ -14090,7 +14072,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Station Defeat",
+        "label": "Station defeat",
         "help": "Alerts you when you lose a station battle.",
         "group": "Battle and incoming attacks",
         "searchTerms": [
@@ -14106,7 +14088,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Station Defeat",
+        "accessibleName": "Station defeat",
         "accessibleHelp": "Alerts you when you lose a station battle. Applies: Next launch."
       }
     },
@@ -14206,7 +14188,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Station Victory",
+        "label": "Station victory",
         "help": "Alerts you when you win a station battle.",
         "group": "Battle and incoming attacks",
         "searchTerms": [
@@ -14222,7 +14204,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Station Victory",
+        "accessibleName": "Station victory",
         "accessibleHelp": "Alerts you when you win a station battle. Applies: Next launch."
       }
     },
@@ -14322,7 +14304,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Strike Defeat",
+        "label": "Strike defeat",
         "help": "Alerts you when you lose a strike.",
         "group": "Experimental and generic toasts",
         "searchTerms": [
@@ -14338,7 +14320,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Strike Defeat",
+        "accessibleName": "Strike defeat",
         "accessibleHelp": "Alerts you when you lose a strike. Applies: Next launch."
       }
     },
@@ -14438,7 +14420,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Strike Hit",
+        "label": "Strike hit",
         "help": "Alerts you when a strike hits its target.",
         "group": "Experimental and generic toasts",
         "searchTerms": [
@@ -14454,7 +14436,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Strike Hit",
+        "accessibleName": "Strike hit",
         "accessibleHelp": "Alerts you when a strike hits its target. Applies: Next launch."
       }
     },
@@ -14554,7 +14536,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Surge Hostile Group Defeated",
+        "label": "Surge hostile group defeated",
         "help": "Alerts you when a surge hostile group is defeated.",
         "group": "Events and tournaments",
         "searchTerms": [
@@ -14570,7 +14552,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Surge Hostile Group Defeated",
+        "accessibleName": "Surge hostile group defeated",
         "accessibleHelp": "Alerts you when a surge hostile group is defeated. Applies: Next launch."
       }
     },
@@ -14670,7 +14652,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Surge Time Left",
+        "label": "Surge time left",
         "help": "Alerts you when surge time is running low.",
         "group": "Events and tournaments",
         "searchTerms": [
@@ -14686,7 +14668,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Surge Time Left",
+        "accessibleName": "Surge time left",
         "accessibleHelp": "Alerts you when surge time is running low. Applies: Next launch."
       }
     },
@@ -14786,7 +14768,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Surge Warmup Ended",
+        "label": "Surge warmup ended",
         "help": "Alerts you when surge warmup ends.",
         "group": "Events and tournaments",
         "searchTerms": [
@@ -14802,7 +14784,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Surge Warmup Ended",
+        "accessibleName": "Surge warmup ended",
         "accessibleHelp": "Alerts you when surge warmup ends. Applies: Next launch."
       }
     },
@@ -14902,7 +14884,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Takeover Defeat",
+        "label": "Takeover defeat",
         "help": "Alerts you when you lose a takeover.",
         "group": "Territory and takeover",
         "searchTerms": [
@@ -14918,7 +14900,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Takeover Defeat",
+        "accessibleName": "Takeover defeat",
         "accessibleHelp": "Alerts you when you lose a takeover. Applies: Next launch."
       }
     },
@@ -15018,7 +15000,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Takeover Victory",
+        "label": "Takeover victory",
         "help": "Alerts you when you win a takeover.",
         "group": "Territory and takeover",
         "searchTerms": [
@@ -15034,7 +15016,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Takeover Victory",
+        "accessibleName": "Takeover victory",
         "accessibleHelp": "Alerts you when you win a takeover. Applies: Next launch."
       }
     },
@@ -15249,7 +15231,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Treasury Full",
+        "label": "Treasury full",
         "help": "Alerts you when treasury is full.",
         "group": "Economy and treasury",
         "searchTerms": [
@@ -15265,7 +15247,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Treasury Full",
+        "accessibleName": "Treasury full",
         "accessibleHelp": "Alerts you when treasury is full. Applies: Next launch."
       }
     },
@@ -15365,7 +15347,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Treasury Progress",
+        "label": "Treasury progress",
         "help": "Alerts you when treasury progress changes.",
         "group": "Economy and treasury",
         "searchTerms": [
@@ -15381,7 +15363,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Treasury Progress",
+        "accessibleName": "Treasury progress",
         "accessibleHelp": "Alerts you when treasury progress changes. Applies: Next launch."
       }
     },
@@ -15597,7 +15579,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Warchest Full",
+        "label": "Warchest full",
         "help": "Alerts you when warchest is full.",
         "group": "Economy and treasury",
         "searchTerms": [
@@ -15613,7 +15595,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Warchest Full",
+        "accessibleName": "Warchest full",
         "accessibleHelp": "Alerts you when warchest is full. Applies: Next launch."
       }
     },
@@ -15713,7 +15695,7 @@
         "defaultSource": "notification-event-catalog"
       },
       "presentation": {
-        "label": "Warchest Progress",
+        "label": "Warchest progress",
         "help": "Alerts you when warchest progress changes.",
         "group": "Economy and treasury",
         "searchTerms": [
@@ -15729,7 +15711,7 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Warchest Progress",
+        "accessibleName": "Warchest progress",
         "accessibleHelp": "Alerts you when warchest progress changes. Applies: Next launch."
       }
     },
@@ -15923,7 +15905,7 @@
         "defaultSource": "mods/src/defaultconfig.h:patches.game_version"
       },
       "presentation": {
-        "label": "Game Version",
+        "label": "Game version",
         "help": "Capture the game version for sync request headers.",
         "group": "Patches",
         "searchTerms": [
@@ -15934,7 +15916,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Restart required",
-        "accessibleName": "Game Version",
+        "accessibleName": "Game version",
         "accessibleHelp": "Capture the game version for sync request headers. Applies: Restart required."
       }
     },
@@ -16538,19 +16520,20 @@
         "defaultSource": "mods/src/defaultconfig.h:sidecar.logging.jsonl"
       },
       "presentation": {
-        "label": "JSONL",
-        "help": "Explicit opt-in local JSONL evidence/import feed for offline review and diagnostics. Keep this disabled unless you specifically need local file capture.",
-        "group": "Sidecar",
+        "label": "Save local evidence log",
+        "help": "Writes a local diagnostic feed for offline review. Leave this off unless you need evidence capture.",
+        "group": "Local sidecar",
         "searchTerms": [
           "sidecar.logging.jsonl",
           "JSONL",
           "Explicit opt-in local JSONL evidence/import feed for offline review and diagnostics. Keep this disabled unless you specifically need local file capture.",
-          "sidecar"
+          "sidecar",
+          "Local sidecar"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "JSONL",
-        "accessibleHelp": "Explicit opt-in local JSONL evidence/import feed for offline review and diagnostics. Keep this disabled unless you specifically need local file capture. Applies: Next launch."
+        "accessibleName": "Save local evidence log",
+        "accessibleHelp": "Writes a local diagnostic feed for offline review. Leave this off unless you need evidence capture. Applies: Next launch."
       }
     },
     {
@@ -16582,19 +16565,21 @@
         "defaultSource": "mods/src/defaultconfig.h:sidecar.logging.jsonl_recent_logs"
       },
       "presentation": {
-        "label": "JSONL Recent Logs",
-        "help": "Optional second cap on retained battle-log groups.",
-        "group": "Sidecar",
+        "label": "Retained battle-log groups",
+        "help": "Limits how many recent battle-log groups remain in the local evidence feed.",
+        "group": "Local sidecar",
         "searchTerms": [
           "sidecar.logging.jsonl_recent_logs",
           "JSONL Recent Logs",
           "Optional second cap on retained battle-log groups.",
-          "sidecar"
+          "sidecar",
+          "Local sidecar"
         ],
+        "unit": "groups",
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "JSONL Recent Logs",
-        "accessibleHelp": "Optional second cap on retained battle-log groups. Applies: Next launch."
+        "accessibleName": "Retained battle-log groups",
+        "accessibleHelp": "Limits how many recent battle-log groups remain in the local evidence feed. Applies: Next launch."
       }
     },
     {
@@ -16626,19 +16611,21 @@
         "defaultSource": "mods/src/defaultconfig.h:sidecar.logging.jsonl_replay_seconds"
       },
       "presentation": {
-        "label": "JSONL Replay Seconds",
-        "help": "Keep the local sidecar JSONL feed cyclic so replay does not grow unbounded.",
-        "group": "Sidecar",
+        "label": "Replay window",
+        "help": "Limits how long entries remain available for local replay.",
+        "group": "Local sidecar",
         "searchTerms": [
           "sidecar.logging.jsonl_replay_seconds",
           "JSONL Replay Seconds",
           "Keep the local sidecar JSONL feed cyclic so replay does not grow unbounded.",
-          "sidecar"
+          "sidecar",
+          "Local sidecar"
         ],
+        "unit": "seconds",
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "JSONL Replay Seconds",
-        "accessibleHelp": "Keep the local sidecar JSONL feed cyclic so replay does not grow unbounded. Applies: Next launch."
+        "accessibleName": "Replay window",
+        "accessibleHelp": "Limits how long entries remain available for local replay. Applies: Next launch."
       }
     },
     {
@@ -16667,19 +16654,20 @@
         "defaultSource": "mods/src/defaultconfig.h:sidecar.sync.allow_unsafe_tls_without_certificate_validation"
       },
       "presentation": {
-        "label": "Allow Unsafe TLS Without Certificate Validation",
-        "help": "Configure allow unsafe tls without certificate validation.",
-        "group": "Sidecar",
+        "label": "Allow unverified sidecar TLS",
+        "help": "Allows an encrypted sidecar connection without checking its certificate. Use only for a trusted local setup.",
+        "group": "Local sidecar",
         "searchTerms": [
           "sidecar.sync.allow_unsafe_tls_without_certificate_validation",
           "Allow Unsafe TLS Without Certificate Validation",
           "Configure allow unsafe tls without certificate validation.",
-          "sidecar"
+          "sidecar",
+          "Local sidecar"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Allow Unsafe TLS Without Certificate Validation",
-        "accessibleHelp": "Configure allow unsafe tls without certificate validation. Applies: Next launch."
+        "accessibleName": "Allow unverified sidecar TLS",
+        "accessibleHelp": "Allows an encrypted sidecar connection without checking its certificate. Use only for a trusted local setup. Applies: Next launch."
       }
     },
     {
@@ -16714,20 +16702,21 @@
         "defaultSource": "mods/src/defaultconfig.h:sidecar.sync.battlelog_enrichment"
       },
       "presentation": {
-        "label": "Battlelog Enrichment",
-        "help": "Decodes local sidecar battle journals and emits battle.report, catalog.snapshot, and battle.analytics events for Names <-> IDs, catalog snapshots, and Prime CSV parity rows. Legacy [battle_log_decoder].enabled is accepted as an alias, but this is the canonical local Workbench gate.",
-        "group": "Sidecar",
+        "label": "Battle-log enrichment",
+        "help": "Turns local battle journals into player, ship, catalog, and analytics details.",
+        "group": "Local sidecar",
         "searchTerms": [
           "sidecar.sync.battlelog_enrichment",
           "Battlelog Enrichment",
           "Decodes local sidecar battle journals and emits battle.report, catalog.snapshot, and battle.analytics events for Names <-> IDs, catalog snapshots, and Prime CSV parity rows. Legacy [battle_log_decoder].enabled is accepted as an alias, but this is the canonical local Workbench gate.",
           "sidecar",
+          "Local sidecar",
           "battle_log_decoder.enabled"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Battlelog Enrichment",
-        "accessibleHelp": "Decodes local sidecar battle journals and emits battle.report, catalog.snapshot, and battle.analytics events for Names <-> IDs, catalog snapshots, and Prime CSV parity rows. Legacy [battle_log_decoder].enabled is accepted as an alias, but this is the canonical local Workbench gate. Applies: Next launch."
+        "accessibleName": "Battle-log enrichment",
+        "accessibleHelp": "Turns local battle journals into player, ship, catalog, and analytics details. Applies: Next launch."
       }
     },
     {
@@ -16756,19 +16745,20 @@
         "defaultSource": "mods/src/defaultconfig.h:sidecar.sync.battlelogs_realtime"
       },
       "presentation": {
-        "label": "Battlelogs Realtime",
-        "help": "Sends raw battle capture events to the local sidecar. With this alone, the Workbench may show sparse capture-only battle rows.",
-        "group": "Sidecar",
+        "label": "Real-time battle capture",
+        "help": "Sends raw battle events to the local sidecar as they occur.",
+        "group": "Local sidecar",
         "searchTerms": [
           "sidecar.sync.battlelogs_realtime",
           "Battlelogs Realtime",
           "Sends raw battle capture events to the local sidecar. With this alone, the Workbench may show sparse capture-only battle rows.",
-          "sidecar"
+          "sidecar",
+          "Local sidecar"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Battlelogs Realtime",
-        "accessibleHelp": "Sends raw battle capture events to the local sidecar. With this alone, the Workbench may show sparse capture-only battle rows. Applies: Next launch."
+        "accessibleName": "Real-time battle capture",
+        "accessibleHelp": "Sends raw battle events to the local sidecar as they occur. Applies: Next launch."
       }
     },
     {
@@ -16797,19 +16787,20 @@
         "defaultSource": "mods/src/defaultconfig.h:sidecar.sync.enabled"
       },
       "presentation": {
-        "label": "Enabled",
-        "help": "Dedicated local STFC Mod Sidecar delivery. This is the only supported home for sidecar-local HTTP config. Local Battle Workbench reads the sidecar event store through /api/events. Cloud Sync Monitor and Majel/cloud targets are not required for local sidecar ingest.",
-        "group": "Sidecar",
+        "label": "Local sidecar delivery",
+        "help": "Sends supported mod data to the STFC Mod Sidecar running on this PC.",
+        "group": "Local sidecar",
         "searchTerms": [
           "sidecar.sync.enabled",
           "Enabled",
           "Dedicated local STFC Mod Sidecar delivery. This is the only supported home for sidecar-local HTTP config. Local Battle Workbench reads the sidecar event store through /api/events. Cloud Sync Monitor and Majel/cloud targets are not required for local sidecar ingest.",
-          "sidecar"
+          "sidecar",
+          "Local sidecar"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Enabled",
-        "accessibleHelp": "Dedicated local STFC Mod Sidecar delivery. This is the only supported home for sidecar-local HTTP config. Local Battle Workbench reads the sidecar event store through /api/events. Cloud Sync Monitor and Majel/cloud targets are not required for local sidecar ingest. Applies: Next launch."
+        "accessibleName": "Local sidecar delivery",
+        "accessibleHelp": "Sends supported mod data to the STFC Mod Sidecar running on this PC. Applies: Next launch."
       }
     },
     {
@@ -16838,19 +16829,20 @@
         "defaultSource": "mods/src/defaultconfig.h:sidecar.sync.fleet_runtime"
       },
       "presentation": {
-        "label": "Fleet Runtime",
-        "help": "Configure fleet runtime.",
-        "group": "Sidecar",
+        "label": "Fleet runtime snapshots",
+        "help": "Shares low-rate fleet status with the local sidecar.",
+        "group": "Local sidecar",
         "searchTerms": [
           "sidecar.sync.fleet_runtime",
           "Fleet Runtime",
           "Configure fleet runtime.",
-          "sidecar"
+          "sidecar",
+          "Local sidecar"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Fleet Runtime",
-        "accessibleHelp": "Configure fleet runtime. Applies: Next launch."
+        "accessibleName": "Fleet runtime snapshots",
+        "accessibleHelp": "Shares low-rate fleet status with the local sidecar. Applies: Next launch."
       }
     },
     {
@@ -16885,19 +16877,42 @@
         "defaultSource": "mods/src/defaultconfig.h:sidecar.sync.fleet_runtime_mode"
       },
       "presentation": {
-        "label": "Fleet Runtime Mode",
-        "help": "Fleet runtime sidecar safety/probe mode: normal, request_only, snapshot_only, or enqueue_no_transport. request_only records requests but skips snapshot reads. snapshot_only reads/builds owned snapshots but skips publish/enqueue. enqueue_no_transport enqueues latest-wins runtime snapshots but suppresses HTTP transport.",
-        "group": "Sidecar",
+        "label": "Fleet runtime behavior",
+        "help": "Controls how fleet runtime data moves through the local sidecar pipeline.",
+        "group": "Local sidecar",
         "searchTerms": [
           "sidecar.sync.fleet_runtime_mode",
           "Fleet Runtime Mode",
           "Fleet runtime sidecar safety/probe mode: normal, request_only, snapshot_only, or enqueue_no_transport. request_only records requests but skips snapshot reads. snapshot_only reads/builds owned snapshots but skips publish/enqueue. enqueue_no_transport enqueues latest-wins runtime snapshots but suppresses HTTP transport.",
-          "sidecar"
+          "sidecar",
+          "Local sidecar"
+        ],
+        "enumOptions": [
+          {
+            "value": "normal",
+            "label": "Normal",
+            "help": "Read, queue, and deliver fleet runtime snapshots."
+          },
+          {
+            "value": "request_only",
+            "label": "Requests only",
+            "help": "Record snapshot requests without reading fleet state."
+          },
+          {
+            "value": "snapshot_only",
+            "label": "Build snapshots only",
+            "help": "Read and build owned snapshots without queueing or publishing them."
+          },
+          {
+            "value": "enqueue_no_transport",
+            "label": "Queue without delivery",
+            "help": "Keep the latest snapshot queued without sending it over HTTP."
+          }
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Fleet Runtime Mode",
-        "accessibleHelp": "Fleet runtime sidecar safety/probe mode: normal, request_only, snapshot_only, or enqueue_no_transport. request_only records requests but skips snapshot reads. snapshot_only reads/builds owned snapshots but skips publish/enqueue. enqueue_no_transport enqueues latest-wins runtime snapshots but suppresses HTTP transport. Applies: Next launch."
+        "accessibleName": "Fleet runtime behavior",
+        "accessibleHelp": "Controls how fleet runtime data moves through the local sidecar pipeline. Applies: Next launch."
       }
     },
     {
@@ -16926,19 +16941,19 @@
         "defaultSource": "mods/src/defaultconfig.h:sidecar.sync.proxy"
       },
       "presentation": {
-        "label": "Proxy",
-        "help": "Configure proxy.",
-        "group": "Sidecar",
+        "label": "Sidecar proxy",
+        "group": "Local sidecar",
         "searchTerms": [
           "sidecar.sync.proxy",
           "Proxy",
           "Configure proxy.",
-          "sidecar"
+          "sidecar",
+          "Local sidecar"
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Proxy",
-        "accessibleHelp": "Configure proxy. Applies: Next launch."
+        "accessibleName": "Sidecar proxy",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -16967,19 +16982,20 @@
         "defaultSource": "mods/src/defaultconfig.h:sidecar.sync.token"
       },
       "presentation": {
-        "label": "Token",
-        "help": "Configure token.",
-        "group": "Sidecar",
+        "label": "Sidecar access token",
+        "help": "Credential used to authenticate with the local sidecar.",
+        "group": "Local sidecar",
         "searchTerms": [
           "sidecar.sync.token",
           "Token",
           "Configure token.",
-          "sidecar"
+          "sidecar",
+          "Local sidecar"
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Token",
-        "accessibleHelp": "Configure token. Applies: Next launch."
+        "accessibleName": "Sidecar access token",
+        "accessibleHelp": "Credential used to authenticate with the local sidecar. Applies: Next launch."
       }
     },
     {
@@ -17008,19 +17024,20 @@
         "defaultSource": "mods/src/defaultconfig.h:sidecar.sync.url"
       },
       "presentation": {
-        "label": "URL",
-        "help": "Configure url.",
-        "group": "Sidecar",
+        "label": "Sidecar address",
+        "help": "Address of the STFC Mod Sidecar running on this PC.",
+        "group": "Local sidecar",
         "searchTerms": [
           "sidecar.sync.url",
           "URL",
           "Configure url.",
-          "sidecar"
+          "sidecar",
+          "Local sidecar"
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "URL",
-        "accessibleHelp": "Configure url. Applies: Next launch."
+        "accessibleName": "Sidecar address",
+        "accessibleHelp": "Address of the STFC Mod Sidecar running on this PC. Applies: Next launch."
       }
     },
     {
@@ -17049,19 +17066,20 @@
         "defaultSource": "mods/src/defaultconfig.h:sidecar.sync.verify_ssl"
       },
       "presentation": {
-        "label": "Verify SSL",
-        "help": "Configure verify ssl.",
-        "group": "Sidecar",
+        "label": "Verify sidecar TLS certificates",
+        "help": "Rejects sidecar connections whose TLS certificate cannot be verified.",
+        "group": "Local sidecar",
         "searchTerms": [
           "sidecar.sync.verify_ssl",
           "Verify SSL",
           "Configure verify ssl.",
-          "sidecar"
+          "sidecar",
+          "Local sidecar"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Verify SSL",
-        "accessibleHelp": "Configure verify ssl. Applies: Next launch."
+        "accessibleName": "Verify sidecar TLS certificates",
+        "accessibleHelp": "Rejects sidecar connections whose TLS certificate cannot be verified. Applies: Next launch."
       }
     },
     {
@@ -17090,19 +17108,20 @@
         "defaultSource": "mods/src/defaultconfig.h:sync.allow_unsafe_tls_without_certificate_validation"
       },
       "presentation": {
-        "label": "Allow Unsafe TLS Without Certificate Validation",
-        "help": "Explicit unsafe TLS override.",
-        "group": "Sync",
+        "label": "Allow unverified sync TLS",
+        "help": "Allows encrypted sync connections without checking their certificates. Use only with trusted targets.",
+        "group": "Sync connection",
         "searchTerms": [
           "sync.allow_unsafe_tls_without_certificate_validation",
           "Allow Unsafe TLS Without Certificate Validation",
           "Explicit unsafe TLS override.",
-          "sync"
+          "sync",
+          "Sync connection"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Allow Unsafe TLS Without Certificate Validation",
-        "accessibleHelp": "Explicit unsafe TLS override. Applies: Next launch."
+        "accessibleName": "Allow unverified sync TLS",
+        "accessibleHelp": "Allows encrypted sync connections without checking their certificates. Use only with trusted targets. Applies: Next launch."
       }
     },
     {
@@ -17131,19 +17150,20 @@
         "defaultSource": "mods/src/defaultconfig.h:sync.battlelogs"
       },
       "presentation": {
-        "label": "Battlelogs",
-        "help": "Sync battle-log reports.",
-        "group": "Sync",
+        "label": "Battle-log reports",
+        "help": "Shares completed battle reports with configured sync targets.",
+        "group": "Shared data",
         "searchTerms": [
           "sync.battlelogs",
           "Battlelogs",
           "Sync battle-log reports.",
-          "sync"
+          "sync",
+          "Shared data"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Battlelogs",
-        "accessibleHelp": "Sync battle-log reports. Applies: Next launch."
+        "accessibleName": "Battle-log reports",
+        "accessibleHelp": "Shares completed battle reports with configured sync targets. Applies: Next launch."
       }
     },
     {
@@ -17172,19 +17192,20 @@
         "defaultSource": "mods/src/defaultconfig.h:sync.battlelogs_realtime"
       },
       "presentation": {
-        "label": "Battlelogs Realtime",
-        "help": "Export canonical battle feed events to realtime ingest targets.",
-        "group": "Sync",
+        "label": "Real-time battle events",
+        "help": "Shares battle events with configured sync targets as they occur.",
+        "group": "Shared data",
         "searchTerms": [
           "sync.battlelogs_realtime",
           "Battlelogs Realtime",
           "Export canonical battle feed events to realtime ingest targets.",
-          "sync"
+          "sync",
+          "Shared data"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Battlelogs Realtime",
-        "accessibleHelp": "Export canonical battle feed events to realtime ingest targets. Applies: Next launch."
+        "accessibleName": "Real-time battle events",
+        "accessibleHelp": "Shares battle events with configured sync targets as they occur. Applies: Next launch."
       }
     },
     {
@@ -17295,19 +17316,20 @@
         "defaultSource": "mods/src/defaultconfig.h:sync.debug"
       },
       "presentation": {
-        "label": "Debug",
-        "help": "Extra debug logging for sync subsystem.",
-        "group": "Sync",
+        "label": "Sync debug logging",
+        "help": "Adds diagnostic detail to sync logs.",
+        "group": "Sync diagnostics",
         "searchTerms": [
           "sync.debug",
           "Debug",
           "Extra debug logging for sync subsystem.",
-          "sync"
+          "sync",
+          "Sync diagnostics"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Debug",
-        "accessibleHelp": "Extra debug logging for sync subsystem. Applies: Next launch."
+        "accessibleName": "Sync debug logging",
+        "accessibleHelp": "Adds diagnostic detail to sync logs. Applies: Next launch."
       }
     },
     {
@@ -17336,19 +17358,20 @@
         "defaultSource": "mods/src/defaultconfig.h:sync.fleet_runtime"
       },
       "presentation": {
-        "label": "Fleet Runtime",
-        "help": "Sync low-rate fleet-bar runtime state.",
-        "group": "Sync",
+        "label": "Fleet runtime state",
+        "help": "Shares low-rate fleet-bar state with configured sync targets.",
+        "group": "Shared data",
         "searchTerms": [
           "sync.fleet_runtime",
           "Fleet Runtime",
           "Sync low-rate fleet-bar runtime state.",
-          "sync"
+          "sync",
+          "Shared data"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Fleet Runtime",
-        "accessibleHelp": "Sync low-rate fleet-bar runtime state. Applies: Next launch."
+        "accessibleName": "Fleet runtime state",
+        "accessibleHelp": "Shares low-rate fleet-bar state with configured sync targets. Applies: Next launch."
       }
     },
     {
@@ -17459,19 +17482,20 @@
         "defaultSource": "mods/src/defaultconfig.h:sync.logging"
       },
       "presentation": {
-        "label": "Logging",
-        "help": "Log raw sync payloads.",
-        "group": "Sync",
+        "label": "Raw sync payload logging",
+        "help": "Records complete sync payloads for diagnostics. These logs may contain sensitive game data.",
+        "group": "Sync diagnostics",
         "searchTerms": [
           "sync.logging",
           "Logging",
           "Log raw sync payloads.",
-          "sync"
+          "sync",
+          "Sync diagnostics"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Logging",
-        "accessibleHelp": "Log raw sync payloads. Applies: Next launch."
+        "accessibleName": "Raw sync payload logging",
+        "accessibleHelp": "Records complete sync payloads for diagnostics. These logs may contain sensitive game data. Applies: Next launch."
       }
     },
     {
@@ -17664,8 +17688,8 @@
         "defaultSource": "mods/src/defaultconfig.h:sync.resolver_cache_ttl"
       },
       "presentation": {
-        "label": "Resolver Cache Ttl",
-        "help": "DNS resolver cache TTL in seconds.",
+        "label": "DNS cache lifetime",
+        "help": "Controls how long resolved sync addresses remain cached.",
         "group": "Sync",
         "searchTerms": [
           "sync.resolver_cache_ttl",
@@ -17673,10 +17697,11 @@
           "DNS resolver cache TTL in seconds. Default: 300 (5 min).",
           "sync"
         ],
+        "unit": "seconds",
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Resolver Cache Ttl",
-        "accessibleHelp": "DNS resolver cache TTL in seconds. Applies: Next launch."
+        "accessibleName": "DNS cache lifetime",
+        "accessibleHelp": "Controls how long resolved sync addresses remain cached. Applies: Next launch."
       }
     },
     {
@@ -17828,7 +17853,7 @@
         "defaultSource": "mods/src/defaultconfig.h:sync.allow_unsafe_tls_without_certificate_validation"
       },
       "presentation": {
-        "label": "Allow Unsafe TLS Without Certificate Validation",
+        "label": "Allow unsafe TLS without certificate validation",
         "help": "Explicit unsafe TLS override.",
         "group": "Sync",
         "searchTerms": [
@@ -17839,7 +17864,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Allow Unsafe TLS Without Certificate Validation",
+        "accessibleName": "Allow unsafe TLS without certificate validation",
         "accessibleHelp": "Explicit unsafe TLS override. Applies: Next launch."
       }
     },
@@ -17869,7 +17894,7 @@
         "defaultSource": "mods/src/defaultconfig.h:sync.battlelogs"
       },
       "presentation": {
-        "label": "Battlelogs",
+        "label": "Battle logs",
         "help": "Sync battle-log reports.",
         "group": "Sync",
         "searchTerms": [
@@ -17880,7 +17905,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Battlelogs",
+        "accessibleName": "Battle logs",
         "accessibleHelp": "Sync battle-log reports. Applies: Next launch."
       }
     },
@@ -17910,7 +17935,7 @@
         "defaultSource": "mods/src/defaultconfig.h:sync.battlelogs_realtime"
       },
       "presentation": {
-        "label": "Battlelogs Realtime",
+        "label": "Battle logs real-time",
         "help": "Export canonical battle feed events to realtime ingest targets.",
         "group": "Sync",
         "searchTerms": [
@@ -17921,7 +17946,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Battlelogs Realtime",
+        "accessibleName": "Battle logs real-time",
         "accessibleHelp": "Export canonical battle feed events to realtime ingest targets. Applies: Next launch."
       }
     },
@@ -18033,7 +18058,7 @@
         "defaultSource": "mods/src/defaultconfig.h:sync.fleet_runtime"
       },
       "presentation": {
-        "label": "Fleet Runtime",
+        "label": "Fleet runtime",
         "help": "Sync low-rate fleet-bar runtime state.",
         "group": "Sync",
         "searchTerms": [
@@ -18044,7 +18069,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Fleet Runtime",
+        "accessibleName": "Fleet runtime",
         "accessibleHelp": "Sync low-rate fleet-bar runtime state. Applies: Next launch."
       }
     },
@@ -18898,7 +18923,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.always_skip_reveal_sequence"
       },
       "presentation": {
-        "label": "Always Skip Reveal Sequence",
+        "label": "Always skip reveal sequence",
         "help": "Auto-skip the ship/officer reveal animation.",
         "group": "UI",
         "searchTerms": [
@@ -18909,7 +18934,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Always Skip Reveal Sequence",
+        "accessibleName": "Always skip reveal sequence",
         "accessibleHelp": "Auto-skip the ship/officer reveal animation. Applies: Next launch."
       }
     },
@@ -18939,7 +18964,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.auto_confirm_discovery"
       },
       "presentation": {
-        "label": "Auto Confirm Discovery",
+        "label": "Auto confirm discovery",
         "help": "Auto-confirm new system discoveries.",
         "group": "UI",
         "searchTerms": [
@@ -18950,7 +18975,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Auto Confirm Discovery",
+        "accessibleName": "Auto confirm discovery",
         "accessibleHelp": "Auto-confirm new system discoveries. Applies: Next launch."
       }
     },
@@ -18980,7 +19005,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.auto_open_bulk_claim_flyout"
       },
       "presentation": {
-        "label": "Auto Open Bulk Claim Flyout",
+        "label": "Auto open bulk claim flyout",
         "help": "Open the existing Gifts bulk-claim selection flyout automatically.",
         "group": "UI",
         "searchTerms": [
@@ -18991,7 +19016,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Auto Open Bulk Claim Flyout",
+        "accessibleName": "Auto open bulk claim flyout",
         "accessibleHelp": "Open the existing Gifts bulk-claim selection flyout automatically. Applies: Next launch."
       }
     },
@@ -19021,7 +19046,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.disable_escape_exit"
       },
       "presentation": {
-        "label": "Disable Escape Exit",
+        "label": "Disable escape exit",
         "help": "Block the Escape key from closing the game.",
         "group": "UI",
         "searchTerms": [
@@ -19032,7 +19057,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Disable Escape Exit",
+        "accessibleName": "Disable escape exit",
         "accessibleHelp": "Block the Escape key from closing the game. Applies: Next launch."
       }
     },
@@ -19062,7 +19087,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.disable_first_popup"
       },
       "presentation": {
-        "label": "Disable First Popup",
+        "label": "Disable first popup",
         "help": "Suppress the first-run welcome popup.",
         "group": "UI",
         "searchTerms": [
@@ -19073,7 +19098,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Disable First Popup",
+        "accessibleName": "Disable first popup",
         "accessibleHelp": "Suppress the first-run welcome popup. Applies: Next launch."
       }
     },
@@ -19103,7 +19128,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.disable_galaxy_chat"
       },
       "presentation": {
-        "label": "Disable Galaxy Chat",
+        "label": "Disable galaxy chat",
         "help": "Hide galaxy chat entirely.",
         "group": "UI",
         "searchTerms": [
@@ -19114,7 +19139,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Disable Galaxy Chat",
+        "accessibleName": "Disable galaxy chat",
         "accessibleHelp": "Hide galaxy chat entirely. Applies: Next launch."
       }
     },
@@ -19144,7 +19169,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.disable_move_keys"
       },
       "presentation": {
-        "label": "Disable Move Keys",
+        "label": "Disable move keys",
         "help": "Disable WASD movement keys.",
         "group": "UI",
         "searchTerms": [
@@ -19155,7 +19180,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Disable Move Keys",
+        "accessibleName": "Disable move keys",
         "accessibleHelp": "Disable WASD movement keys. Applies: Next launch."
       }
     },
@@ -19185,7 +19210,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.disable_preview_locate"
       },
       "presentation": {
-        "label": "Disable Preview Locate",
+        "label": "Disable preview locate",
         "help": "Disable the \"locate\" preview on fleet-select.",
         "group": "UI",
         "searchTerms": [
@@ -19196,7 +19221,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Disable Preview Locate",
+        "accessibleName": "Disable preview locate",
         "accessibleHelp": "Disable the \"locate\" preview on fleet-select. Applies: Next launch."
       }
     },
@@ -19226,7 +19251,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.disable_preview_recall"
       },
       "presentation": {
-        "label": "Disable Preview Recall",
+        "label": "Disable preview recall",
         "help": "Disable the \"recall\" preview on fleet-select.",
         "group": "UI",
         "searchTerms": [
@@ -19237,7 +19262,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Disable Preview Recall",
+        "accessibleName": "Disable preview recall",
         "accessibleHelp": "Disable the \"recall\" preview on fleet-select. Applies: Next launch."
       }
     },
@@ -19267,7 +19292,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.disable_toast_banners"
       },
       "presentation": {
-        "label": "Disable Toast Banners",
+        "label": "Disable toast banners",
         "help": "Suppress all toast banners.",
         "group": "UI",
         "searchTerms": [
@@ -19278,7 +19303,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Disable Toast Banners",
+        "accessibleName": "Disable toast banners",
         "accessibleHelp": "Suppress all toast banners. Applies: Next launch."
       }
     },
@@ -19308,7 +19333,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.disable_veil_chat"
       },
       "presentation": {
-        "label": "Disable Veil Chat",
+        "label": "Disable veil chat",
         "help": "Hide Veil-sector chat.",
         "group": "UI",
         "searchTerms": [
@@ -19319,7 +19344,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Disable Veil Chat",
+        "accessibleName": "Disable veil chat",
         "accessibleHelp": "Hide Veil-sector chat. Applies: Next launch."
       }
     },
@@ -19350,7 +19375,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.disabled_banner_types"
       },
       "presentation": {
-        "label": "Disabled Banner Types",
+        "label": "Disabled banner types",
         "help": "Comma-separated list of toast banner type names to suppress (empty = none).",
         "group": "UI",
         "searchTerms": [
@@ -19361,7 +19386,7 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Disabled Banner Types",
+        "accessibleName": "Disabled banner types",
         "accessibleHelp": "Comma-separated list of toast banner type names to suppress (empty = none). Applies: Next launch."
       }
     },
@@ -19391,7 +19416,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.escape_exit_timer"
       },
       "presentation": {
-        "label": "Escape Exit Timer",
+        "label": "Escape exit timer",
         "help": "Max ms between two Escape presses to count as a double-tap. 0 = disabled (Escape fully blocked). 500 = half-second window.",
         "group": "UI",
         "searchTerms": [
@@ -19402,7 +19427,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Escape Exit Timer",
+        "accessibleName": "Escape exit timer",
         "accessibleHelp": "Max ms between two Escape presses to count as a double-tap. 0 = disabled (Escape fully blocked). 500 = half-second window. Applies: Next launch."
       }
     },
@@ -19432,7 +19457,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.extend_donation_max"
       },
       "presentation": {
-        "label": "Extend Donation Max",
+        "label": "Extend donation max",
         "help": "Maximum alliance-donation slider value (percentage).",
         "group": "UI",
         "searchTerms": [
@@ -19443,7 +19468,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Extend Donation Max",
+        "accessibleName": "Extend donation max",
         "accessibleHelp": "Maximum alliance-donation slider value (percentage). Applies: Next launch."
       }
     },
@@ -19473,7 +19498,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.extend_donation_slider"
       },
       "presentation": {
-        "label": "Extend Donation Slider",
+        "label": "Extend donation slider",
         "help": "Enable the extended donation slider range.",
         "group": "UI",
         "searchTerms": [
@@ -19484,7 +19509,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Extend Donation Slider",
+        "accessibleName": "Extend donation slider",
         "accessibleHelp": "Enable the extended donation slider range. Applies: Next launch."
       }
     },
@@ -19519,8 +19544,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.mission_hud.daily_goals"
       },
       "presentation": {
-        "label": "Daily Goals",
-        "help": "Configure daily goals.",
+        "label": "Daily goals",
         "group": "UI",
         "searchTerms": [
           "ui.mission_hud.daily_goals",
@@ -19530,8 +19554,8 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Daily Goals",
-        "accessibleHelp": "Configure daily goals. Applies: Next launch."
+        "accessibleName": "Daily goals",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -19565,8 +19589,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.mission_hud.field_training"
       },
       "presentation": {
-        "label": "Field Training",
-        "help": "Configure field training.",
+        "label": "Field training",
         "group": "UI",
         "searchTerms": [
           "ui.mission_hud.field_training",
@@ -19576,8 +19599,8 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Field Training",
-        "accessibleHelp": "Configure field training. Applies: Next launch."
+        "accessibleName": "Field training",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -19612,7 +19635,6 @@
       },
       "presentation": {
         "label": "Missions",
-        "help": "Configure missions.",
         "group": "UI",
         "searchTerms": [
           "ui.mission_hud.missions",
@@ -19623,7 +19645,7 @@
         "editorWidth": "standard",
         "applyTiming": "Next launch",
         "accessibleName": "Missions",
-        "accessibleHelp": "Configure missions. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -19658,7 +19680,6 @@
       },
       "presentation": {
         "label": "Outposts",
-        "help": "Configure outposts.",
         "group": "UI",
         "searchTerms": [
           "ui.mission_hud.outposts",
@@ -19669,7 +19690,7 @@
         "editorWidth": "standard",
         "applyTiming": "Next launch",
         "accessibleName": "Outposts",
-        "accessibleHelp": "Configure outposts. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -19703,8 +19724,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.mission_hud.q_trials"
       },
       "presentation": {
-        "label": "Q Trials",
-        "help": "Configure q trials.",
+        "label": "Q trials",
         "group": "UI",
         "searchTerms": [
           "ui.mission_hud.q_trials",
@@ -19714,8 +19734,8 @@
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
-        "accessibleName": "Q Trials",
-        "accessibleHelp": "Configure q trials. Applies: Next launch."
+        "accessibleName": "Q trials",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -19744,7 +19764,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.show_armada_cargo"
       },
       "presentation": {
-        "label": "Show Armada Cargo",
+        "label": "Show armada cargo",
         "help": "Show cargo overlay on armada targets by default.",
         "group": "UI",
         "searchTerms": [
@@ -19755,7 +19775,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Armada Cargo",
+        "accessibleName": "Show armada cargo",
         "accessibleHelp": "Show cargo overlay on armada targets by default. Applies: Next launch."
       }
     },
@@ -19785,7 +19805,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.show_cargo_default"
       },
       "presentation": {
-        "label": "Show Cargo Default",
+        "label": "Show cargo default",
         "help": "Show cargo overlay on all entities by default.",
         "group": "UI",
         "searchTerms": [
@@ -19796,7 +19816,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Cargo Default",
+        "accessibleName": "Show cargo default",
         "accessibleHelp": "Show cargo overlay on all entities by default. Applies: Next launch."
       }
     },
@@ -19826,7 +19846,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.show_hostile_cargo"
       },
       "presentation": {
-        "label": "Show Hostile Cargo",
+        "label": "Show hostile cargo",
         "help": "Show cargo overlay on hostile ships.",
         "group": "UI",
         "searchTerms": [
@@ -19837,7 +19857,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Hostile Cargo",
+        "accessibleName": "Show hostile cargo",
         "accessibleHelp": "Show cargo overlay on hostile ships. Applies: Next launch."
       }
     },
@@ -19867,7 +19887,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.show_player_cargo"
       },
       "presentation": {
-        "label": "Show Player Cargo",
+        "label": "Show player cargo",
         "help": "Show cargo overlay on player ships.",
         "group": "UI",
         "searchTerms": [
@@ -19878,7 +19898,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Player Cargo",
+        "accessibleName": "Show player cargo",
         "accessibleHelp": "Show cargo overlay on player ships. Applies: Next launch."
       }
     },
@@ -19908,7 +19928,7 @@
         "defaultSource": "mods/src/defaultconfig.h:ui.show_station_cargo"
       },
       "presentation": {
-        "label": "Show Station Cargo",
+        "label": "Show station cargo",
         "help": "Show cargo overlay on stations.",
         "group": "UI",
         "searchTerms": [
@@ -19919,7 +19939,7 @@
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
-        "accessibleName": "Show Station Cargo",
+        "accessibleName": "Show station cargo",
         "accessibleHelp": "Show cargo overlay on stations. Applies: Next launch."
       }
     }

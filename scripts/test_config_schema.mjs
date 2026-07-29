@@ -126,6 +126,14 @@ test("every setting has generated and validated player presentation", () => {
       assert.equal(setting.control, "scalar");
       assert.ok(["integer", "number"].includes(setting.valueType.kind));
     }
+    if (presentation.enumOptions) {
+      assert.equal(setting.valueType.kind, "enum");
+      assert.deepEqual(
+        new Set(presentation.enumOptions.map((option) => option.value)),
+        new Set(setting.valueType.values),
+      );
+      assert.ok(presentation.enumOptions.every((option) => option.label?.trim()));
+    }
   }
 });
 
@@ -148,17 +156,17 @@ test("presentation overrides improve representative player copy without changing
 test("keybinding presentation normalizes joined tokens numbers and fleet actions", () => {
   const schema = buildSchema();
   const labels = new Map([
-    ["input.bindings.select_ship1", "Select Ship 1"],
-    ["input.bindings.set_zoom_preset1", "Set Zoom Preset 1"],
-    ["input.bindings.select_chatalliance", "Select Chat Alliance"],
-    ["input.bindings.show_awayteam", "Show Away Team"],
-    ["input.bindings.show_stationinterior", "Show Station Interior"],
+    ["input.bindings.select_ship1", "Select ship 1"],
+    ["input.bindings.set_zoom_preset1", "Set zoom preset 1"],
+    ["input.bindings.select_chatalliance", "Select chat alliance"],
+    ["input.bindings.show_awayteam", "Show away team"],
+    ["input.bindings.show_stationinterior", "Show station interior"],
     ["input.bindings.fleet_queue_clear", "Clear fleet queue"],
     ["input.bindings.fleet_recall_cancel", "Cancel fleet recall"],
     ["input.bindings.fleet_repair", "Repair fleet"],
     ["input.bindings.fleet_view_info", "View fleet info"],
     ["input.bindings.hotkeys_disable", "Disable hotkeys"],
-    ["input.bindings.log_debug", "Set logging to Debug"],
+    ["input.bindings.log_debug", "Set logging to debug"],
   ]);
 
   for (const [settingPath, expectedLabel] of labels) {
@@ -166,6 +174,41 @@ test("keybinding presentation normalizes joined tokens numbers and fleet actions
     assert.equal(setting.presentation.label, expectedLabel, settingPath);
     assert.match(setting.presentation.help, /^Keyboard or mouse shortcut for /);
   }
+});
+
+test("data sync presentation hides implementation enums and supplies units", () => {
+  const schema = buildSchema();
+  const runtimeMode = schema.settings.find(
+    (setting) => setting.path === "sidecar.sync.fleet_runtime_mode",
+  );
+  assert.equal(runtimeMode.presentation.label, "Fleet runtime behavior");
+  assert.ok(!runtimeMode.presentation.help.includes("request_only"));
+  assert.deepEqual(
+    runtimeMode.presentation.enumOptions.map(({ value, label }) => ({ value, label })),
+    [
+      { value: "normal", label: "Normal" },
+      { value: "request_only", label: "Requests only" },
+      { value: "snapshot_only", label: "Build snapshots only" },
+      { value: "enqueue_no_transport", label: "Queue without delivery" },
+    ],
+  );
+  assert.ok(runtimeMode.presentation.enumOptions.every((option) => option.help?.trim()));
+
+  const retainedLogs = schema.settings.find(
+    (setting) => setting.path === "sidecar.logging.jsonl_recent_logs",
+  );
+  const replayWindow = schema.settings.find(
+    (setting) => setting.path === "sidecar.logging.jsonl_replay_seconds",
+  );
+  assert.equal(retainedLogs.presentation.label, "Retained battle-log groups");
+  assert.equal(retainedLogs.presentation.unit, "groups");
+  assert.equal(replayWindow.presentation.label, "Replay window");
+  assert.equal(replayWindow.presentation.unit, "seconds");
+
+  const generic = schema.settings.find(
+    (setting) => setting.path === "sidecar.sync.proxy",
+  );
+  assert.equal(generic.presentation.help, undefined);
 });
 
 test("notification presentation uses consequence help or intentionally omits it", () => {
@@ -250,6 +293,32 @@ test("presentation override validation rejects stale duplicate forbidden and inc
   assert.throws(
     () => addPresentationMetadata([{ ...settings[0], apply: "surprise" }], []),
     /unsupported apply behavior/,
+  );
+
+  const enumSetting = {
+    ...settings[0],
+    path: "graphics.mode",
+    valueType: { kind: "enum", values: ["one", "two"] },
+  };
+  assert.throws(
+    () => validatePresentationOverrides(
+      [enumSetting],
+      [{
+        path: "graphics.mode",
+        enumOptions: [{ value: "one", label: "One" }],
+      }],
+    ),
+    /must cover every declared value/,
+  );
+  assert.throws(
+    () => validatePresentationOverrides(
+      settings,
+      [{
+        path: "graphics.example",
+        enumOptions: [],
+      }],
+    ),
+    /requires an enum setting/,
   );
 });
 
