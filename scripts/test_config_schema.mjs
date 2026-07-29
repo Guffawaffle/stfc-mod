@@ -42,6 +42,21 @@ test("numeric schema kinds retain concrete Config member types", () => {
   }
 });
 
+test("public string settings declare purpose-specific editor formats", () => {
+  const schema = buildSchema();
+  const formats = new Map([
+    ["config.assets_url_override", "uri"],
+    ["config.settings_url", "uri"],
+    ["ui.disabled_banner_types", "comma-separated-list"],
+  ]);
+
+  for (const [settingPath, format] of formats) {
+    const setting = schema.settings.find((candidate) => candidate.path === settingPath);
+    assert.equal(setting.valueType.kind, "string");
+    assert.equal(setting.valueType.format, format);
+  }
+});
+
 test("every discovered runtime scalar parser path is represented", () => {
   const defaults = parseDefaultConfig();
   const schemaPaths = new Set(buildSchema().settings.map((setting) => setting.path));

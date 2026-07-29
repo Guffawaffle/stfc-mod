@@ -1120,7 +1120,8 @@
       "category": "config",
       "control": "scalar",
       "valueType": {
-        "kind": "string"
+        "kind": "string",
+        "format": "uri"
       },
       "default": "",
       "platforms": [
@@ -1146,7 +1147,8 @@
       "category": "config",
       "control": "scalar",
       "valueType": {
-        "kind": "string"
+        "kind": "string",
+        "format": "uri"
       },
       "default": "",
       "platforms": [
@@ -13415,7 +13417,8 @@
       "category": "ui",
       "control": "scalar",
       "valueType": {
-        "kind": "string"
+        "kind": "string",
+        "format": "comma-separated-list"
       },
       "default": "",
       "platforms": [

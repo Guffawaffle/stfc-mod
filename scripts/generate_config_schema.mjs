@@ -500,7 +500,15 @@ function schemaType(settingPath, value, configMemberTypes = new Map()) {
     if (["integer", "number"].includes(memberKind)) return { kind: memberKind };
     return { kind: Number.isInteger(value) ? "integer" : "number" };
   }
-  if (typeof value === "string") return { kind: "string" };
+  if (typeof value === "string") {
+    const stringFormats = {
+      "config.assets_url_override": "uri",
+      "config.settings_url": "uri",
+      "ui.disabled_banner_types": "comma-separated-list",
+    };
+    const format = stringFormats[settingPath];
+    return format ? { kind: "string", format } : { kind: "string" };
+  }
   if (Array.isArray(value)) return { kind: "array" };
   throw new Error(`Unsupported schema value: ${JSON.stringify(value)}`);
 }

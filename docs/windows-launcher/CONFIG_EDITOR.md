@@ -52,13 +52,19 @@ state is a launcher UI preference stored outside both mod TOML formats; search
 text remains session-only.
 
 The scalar adapter covers the 82 directly editable booleans, eight constrained
-enums, and 22 integer/decimal settings. Boolean toggles, enum selections, and
-numeric edits change only an in-memory editing session. Enum choices come from
+enums, 22 integer/decimal settings, and three public string settings. Boolean
+toggles, enum selections, numeric edits, and public string edits change only an
+in-memory editing session. Enum choices come from
 the generated schema, render friendly labels without changing their canonical
 values, and visibly fall back to the runtime default when an existing override
 is invalid. Numeric rows retain schema minimum/maximum constraints, validate
 before staging, normalize accepted values to canonical TOML, and likewise show
-the runtime default instead of presenting an invalid override as active. A
+the runtime default instead of presenting an invalid override as active. String
+rows use schema-declared URI or comma-separated-list adapters; URL values accept
+only absolute HTTP/HTTPS locations, list whitespace is normalized, and empty
+values preserve the runtime's default/disabled meaning. Private paths and
+endpoints, secret tokens, internal diagnostics paths, and dynamic target
+templates remain outside the generic scalar editor. A
 bottom action bar appears only while changes are pending, reports their exact
 count, and owns Discard and Save Changes with 44-DIP action targets. Removing
 an override is also staged and restores the runtime default without
@@ -76,8 +82,8 @@ replacement against the session's original contents. It creates a sibling
 backup and reports a conflict instead of overwriting when the selected file or
 its contents changed after the session began.
 
-Strings, keybindings, and notification policies remain read-only and identify
-the dedicated adapter they require. Notification rows
+Keybindings and notification policies remain read-only and identify the
+dedicated adapter they require. Notification rows
 already parse canonical `false`, `true`, and inline-table policies into compact
 On/Off and delivery summaries. Invalid canonical policy values visibly fall
 back to the event default, matching the runtime contract, instead of pretending
@@ -113,7 +119,8 @@ back into a handwritten second configuration catalog.
    the editing session and future diagnostic export.
 2. Instantiate dynamic target templates with validated concrete target names;
    never pass a wildcard schema path to the TOML mutation API.
-3. Add typed string scalar controls with constraints from the generated schema.
+3. Add purpose-specific editors and redaction policy for private endpoints,
+   paths, and secret values; do not route them through the public text adapter.
 4. Add dedicated keybinding and complete notification-policy adapters.
 5. Add restart/apply summaries and a recoverable conflict-reload flow.
 6. Expand the curated real-world Guffawaffle and NetniV round-trip fixtures as
