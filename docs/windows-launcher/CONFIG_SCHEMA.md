@@ -42,6 +42,8 @@ visible setting:
 
 - player-facing label and optional consequence-oriented help;
 - display group and search terms;
+- optional approved family metadata for repeated members of one conceptual
+  control set;
 - unit or suffix and compact editor-width hints;
 - friendly apply timing such as `Next launch`;
 - stability and modified-state tags;
@@ -53,6 +55,15 @@ Small curated overrides may improve copy or units for canonical paths, but the
 generator must reject stale paths, duplicate entries, invalid adapter hints,
 and visible settings without a usable player label. Overrides cannot redefine
 types, defaults, constraints, aliases, sensitivity, or persistence behavior.
+
+`group` answers where a setting belongs. Optional `family` metadata answers
+which independently persisted settings should be presented together. A family
+declares a stable ID, matching parent group, shared label and optional help,
+display order, constrained presentation hint, and each setting's member label
+and order. The current `compact-binding-list` hint is valid only for
+keybindings. The generator validates every family member and the renderer
+consumes this metadata directly; it must not infer families from path prefixes
+or numbered names at runtime.
 
 Canonical keys, exact defaults, value types, aliases, and provenance remain
 available to search, accessibility help, diagnostics, and an explicit

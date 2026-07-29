@@ -3183,7 +3183,6 @@
       },
       "presentation": {
         "label": "Primary fleet action",
-        "help": "Keyboard or mouse shortcut for primary fleet action.",
         "group": "Fleet",
         "searchTerms": [
           "input.bindings.fleet_primary",
@@ -3196,7 +3195,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Primary fleet action",
-        "accessibleHelp": "Keyboard or mouse shortcut for primary fleet action. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -3239,7 +3238,6 @@
       },
       "presentation": {
         "label": "Add fleet to queue",
-        "help": "Keyboard or mouse shortcut for add fleet to queue.",
         "group": "Fleet",
         "searchTerms": [
           "input.bindings.fleet_queue_add",
@@ -3252,7 +3250,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Add fleet to queue",
-        "accessibleHelp": "Keyboard or mouse shortcut for add fleet to queue. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -3295,7 +3293,6 @@
       },
       "presentation": {
         "label": "Clear fleet queue",
-        "help": "Keyboard or mouse shortcut for clear fleet queue.",
         "group": "Fleet",
         "searchTerms": [
           "input.bindings.fleet_queue_clear",
@@ -3308,7 +3305,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Clear fleet queue",
-        "accessibleHelp": "Keyboard or mouse shortcut for clear fleet queue. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -3351,7 +3348,6 @@
       },
       "presentation": {
         "label": "Toggle fleet queue",
-        "help": "Keyboard or mouse shortcut for toggle fleet queue.",
         "group": "Fleet",
         "searchTerms": [
           "input.bindings.fleet_queue_toggle",
@@ -3364,7 +3360,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Toggle fleet queue",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle fleet queue. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -3407,7 +3403,6 @@
       },
       "presentation": {
         "label": "Recall fleet",
-        "help": "Keyboard or mouse shortcut for recall fleet.",
         "group": "Fleet",
         "searchTerms": [
           "input.bindings.fleet_recall",
@@ -3420,7 +3415,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Recall fleet",
-        "accessibleHelp": "Keyboard or mouse shortcut for recall fleet. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -3463,7 +3458,6 @@
       },
       "presentation": {
         "label": "Cancel fleet recall",
-        "help": "Keyboard or mouse shortcut for cancel fleet recall.",
         "group": "Fleet",
         "searchTerms": [
           "input.bindings.fleet_recall_cancel",
@@ -3476,7 +3470,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Cancel fleet recall",
-        "accessibleHelp": "Keyboard or mouse shortcut for cancel fleet recall. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -3519,7 +3513,6 @@
       },
       "presentation": {
         "label": "Repair fleet",
-        "help": "Keyboard or mouse shortcut for repair fleet.",
         "group": "Fleet",
         "searchTerms": [
           "input.bindings.fleet_repair",
@@ -3532,7 +3525,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Repair fleet",
-        "accessibleHelp": "Keyboard or mouse shortcut for repair fleet. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -3575,7 +3568,6 @@
       },
       "presentation": {
         "label": "Secondary fleet action",
-        "help": "Keyboard or mouse shortcut for secondary fleet action.",
         "group": "Fleet",
         "searchTerms": [
           "input.bindings.fleet_secondary",
@@ -3588,7 +3580,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Secondary fleet action",
-        "accessibleHelp": "Keyboard or mouse shortcut for secondary fleet action. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -3625,7 +3617,6 @@
       },
       "presentation": {
         "label": "Service fleet",
-        "help": "Keyboard or mouse shortcut for service fleet.",
         "group": "Fleet",
         "searchTerms": [
           "input.bindings.fleet_service",
@@ -3637,7 +3628,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Service fleet",
-        "accessibleHelp": "Keyboard or mouse shortcut for service fleet. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -3680,7 +3671,6 @@
       },
       "presentation": {
         "label": "View fleet info",
-        "help": "Keyboard or mouse shortcut for view fleet info.",
         "group": "Fleet",
         "searchTerms": [
           "input.bindings.fleet_view_info",
@@ -3693,7 +3683,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "View fleet info",
-        "accessibleHelp": "Keyboard or mouse shortcut for view fleet info. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -3736,7 +3726,6 @@
       },
       "presentation": {
         "label": "Focus search",
-        "help": "Keyboard or mouse shortcut for focus search.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.focus_search",
@@ -3749,7 +3738,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Focus search",
-        "accessibleHelp": "Keyboard or mouse shortcut for focus search. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -3802,7 +3791,6 @@
       },
       "presentation": {
         "label": "Disable hotkeys",
-        "help": "Keyboard or mouse shortcut for disable hotkeys.",
         "group": "System",
         "searchTerms": [
           "input.bindings.hotkeys_disable",
@@ -3817,7 +3805,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Disable hotkeys",
-        "accessibleHelp": "Keyboard or mouse shortcut for disable hotkeys. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -3865,7 +3853,6 @@
       },
       "presentation": {
         "label": "Enable hotkeys",
-        "help": "Keyboard or mouse shortcut for enable hotkeys.",
         "group": "System",
         "searchTerms": [
           "input.bindings.hotkeys_enable",
@@ -3879,7 +3866,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Enable hotkeys",
-        "accessibleHelp": "Keyboard or mouse shortcut for enable hotkeys. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -3922,7 +3909,6 @@
       },
       "presentation": {
         "label": "Set logging to debug",
-        "help": "Keyboard or mouse shortcut for set logging to debug.",
         "group": "Diagnostics",
         "searchTerms": [
           "input.bindings.log_debug",
@@ -3935,7 +3921,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Set logging to debug",
-        "accessibleHelp": "Keyboard or mouse shortcut for set logging to debug. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -3978,7 +3964,6 @@
       },
       "presentation": {
         "label": "Set logging to error",
-        "help": "Keyboard or mouse shortcut for set logging to error.",
         "group": "Diagnostics",
         "searchTerms": [
           "input.bindings.log_error",
@@ -3991,7 +3976,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Set logging to error",
-        "accessibleHelp": "Keyboard or mouse shortcut for set logging to error. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4034,7 +4019,6 @@
       },
       "presentation": {
         "label": "Set logging to info",
-        "help": "Keyboard or mouse shortcut for set logging to info.",
         "group": "Diagnostics",
         "searchTerms": [
           "input.bindings.log_info",
@@ -4047,7 +4031,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Set logging to info",
-        "accessibleHelp": "Keyboard or mouse shortcut for set logging to info. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4090,7 +4074,6 @@
       },
       "presentation": {
         "label": "Set logging to off",
-        "help": "Keyboard or mouse shortcut for set logging to off.",
         "group": "Diagnostics",
         "searchTerms": [
           "input.bindings.log_off",
@@ -4103,7 +4086,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Set logging to off",
-        "accessibleHelp": "Keyboard or mouse shortcut for set logging to off. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4146,7 +4129,6 @@
       },
       "presentation": {
         "label": "Set logging to trace",
-        "help": "Keyboard or mouse shortcut for set logging to trace.",
         "group": "Diagnostics",
         "searchTerms": [
           "input.bindings.log_trace",
@@ -4159,7 +4141,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Set logging to trace",
-        "accessibleHelp": "Keyboard or mouse shortcut for set logging to trace. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4202,7 +4184,6 @@
       },
       "presentation": {
         "label": "Set logging to warn",
-        "help": "Keyboard or mouse shortcut for set logging to warn.",
         "group": "Diagnostics",
         "searchTerms": [
           "input.bindings.log_warn",
@@ -4215,7 +4196,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Set logging to warn",
-        "accessibleHelp": "Keyboard or mouse shortcut for set logging to warn. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4258,7 +4239,6 @@
       },
       "presentation": {
         "label": "Move left",
-        "help": "Keyboard or mouse shortcut for move left.",
         "group": "Navigation",
         "searchTerms": [
           "input.bindings.move_left",
@@ -4271,7 +4251,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Move left",
-        "accessibleHelp": "Keyboard or mouse shortcut for move left. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4314,7 +4294,6 @@
       },
       "presentation": {
         "label": "Move right",
-        "help": "Keyboard or mouse shortcut for move right.",
         "group": "Navigation",
         "searchTerms": [
           "input.bindings.move_right",
@@ -4327,7 +4306,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Move right",
-        "accessibleHelp": "Keyboard or mouse shortcut for move right. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4370,7 +4349,6 @@
       },
       "presentation": {
         "label": "Quit",
-        "help": "Keyboard or mouse shortcut for quit.",
         "group": "System",
         "searchTerms": [
           "input.bindings.quit",
@@ -4383,7 +4361,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Quit",
-        "accessibleHelp": "Keyboard or mouse shortcut for quit. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4426,7 +4404,6 @@
       },
       "presentation": {
         "label": "Select chat alliance",
-        "help": "Keyboard or mouse shortcut for select chat alliance.",
         "group": "Chat",
         "searchTerms": [
           "input.bindings.select_chatalliance",
@@ -4439,7 +4416,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Select chat alliance",
-        "accessibleHelp": "Keyboard or mouse shortcut for select chat alliance. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4482,7 +4459,6 @@
       },
       "presentation": {
         "label": "Select chat global",
-        "help": "Keyboard or mouse shortcut for select chat global.",
         "group": "Chat",
         "searchTerms": [
           "input.bindings.select_chatglobal",
@@ -4495,7 +4471,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Select chat global",
-        "accessibleHelp": "Keyboard or mouse shortcut for select chat global. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4538,7 +4514,6 @@
       },
       "presentation": {
         "label": "Select chat private",
-        "help": "Keyboard or mouse shortcut for select chat private.",
         "group": "Chat",
         "searchTerms": [
           "input.bindings.select_chatprivate",
@@ -4551,7 +4526,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Select chat private",
-        "accessibleHelp": "Keyboard or mouse shortcut for select chat private. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4594,7 +4569,6 @@
       },
       "presentation": {
         "label": "Select current ship",
-        "help": "Keyboard or mouse shortcut for select current ship.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_current",
@@ -4607,7 +4581,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Select current ship",
-        "accessibleHelp": "Keyboard or mouse shortcut for select current ship. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4650,7 +4624,6 @@
       },
       "presentation": {
         "label": "Select ship 1",
-        "help": "Keyboard or mouse shortcut for select ship 1.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship1",
@@ -4663,7 +4636,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Select ship 1",
-        "accessibleHelp": "Keyboard or mouse shortcut for select ship 1. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4706,7 +4679,6 @@
       },
       "presentation": {
         "label": "Select ship 2",
-        "help": "Keyboard or mouse shortcut for select ship 2.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship2",
@@ -4719,7 +4691,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Select ship 2",
-        "accessibleHelp": "Keyboard or mouse shortcut for select ship 2. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4762,7 +4734,6 @@
       },
       "presentation": {
         "label": "Select ship 3",
-        "help": "Keyboard or mouse shortcut for select ship 3.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship3",
@@ -4775,7 +4746,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Select ship 3",
-        "accessibleHelp": "Keyboard or mouse shortcut for select ship 3. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4818,7 +4789,6 @@
       },
       "presentation": {
         "label": "Select ship 4",
-        "help": "Keyboard or mouse shortcut for select ship 4.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship4",
@@ -4831,7 +4801,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Select ship 4",
-        "accessibleHelp": "Keyboard or mouse shortcut for select ship 4. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4874,7 +4844,6 @@
       },
       "presentation": {
         "label": "Select ship 5",
-        "help": "Keyboard or mouse shortcut for select ship 5.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship5",
@@ -4887,7 +4856,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Select ship 5",
-        "accessibleHelp": "Keyboard or mouse shortcut for select ship 5. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4930,7 +4899,6 @@
       },
       "presentation": {
         "label": "Select ship 6",
-        "help": "Keyboard or mouse shortcut for select ship 6.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship6",
@@ -4943,7 +4911,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Select ship 6",
-        "accessibleHelp": "Keyboard or mouse shortcut for select ship 6. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -4986,7 +4954,6 @@
       },
       "presentation": {
         "label": "Select ship 7",
-        "help": "Keyboard or mouse shortcut for select ship 7.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship7",
@@ -4999,7 +4966,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Select ship 7",
-        "accessibleHelp": "Keyboard or mouse shortcut for select ship 7. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5042,7 +5009,6 @@
       },
       "presentation": {
         "label": "Select ship 8",
-        "help": "Keyboard or mouse shortcut for select ship 8.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.select_ship8",
@@ -5055,7 +5021,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Select ship 8",
-        "accessibleHelp": "Keyboard or mouse shortcut for select ship 8. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5097,9 +5063,18 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set zoom default",
-        "help": "Keyboard or mouse shortcut for set zoom default.",
+        "label": "Save current zoom as default",
         "group": "Camera",
+        "family": {
+          "id": "camera.saved-zoom-positions",
+          "parentGroup": "Camera",
+          "label": "Save zoom positions",
+          "help": "Store the current system zoom as the default or in a numbered preset.",
+          "displayOrder": 10,
+          "presentationHint": "compact-binding-list",
+          "memberLabel": "Default",
+          "memberOrder": 0
+        },
         "searchTerms": [
           "input.bindings.set_zoom_default",
           "Set Zoom Default",
@@ -5110,8 +5085,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set zoom default",
-        "accessibleHelp": "Keyboard or mouse shortcut for set zoom default. Applies: Next launch."
+        "accessibleName": "Save current zoom as default",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5153,9 +5128,18 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set zoom preset 1",
-        "help": "Keyboard or mouse shortcut for set zoom preset 1.",
+        "label": "Save current zoom to preset 1",
         "group": "Camera",
+        "family": {
+          "id": "camera.saved-zoom-positions",
+          "parentGroup": "Camera",
+          "label": "Save zoom positions",
+          "help": "Store the current system zoom as the default or in a numbered preset.",
+          "displayOrder": 10,
+          "presentationHint": "compact-binding-list",
+          "memberLabel": "Preset 1",
+          "memberOrder": 1
+        },
         "searchTerms": [
           "input.bindings.set_zoom_preset1",
           "Set Zoom Preset1",
@@ -5166,8 +5150,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set zoom preset 1",
-        "accessibleHelp": "Keyboard or mouse shortcut for set zoom preset 1. Applies: Next launch."
+        "accessibleName": "Save current zoom to preset 1",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5209,9 +5193,18 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set zoom preset 2",
-        "help": "Keyboard or mouse shortcut for set zoom preset 2.",
+        "label": "Save current zoom to preset 2",
         "group": "Camera",
+        "family": {
+          "id": "camera.saved-zoom-positions",
+          "parentGroup": "Camera",
+          "label": "Save zoom positions",
+          "help": "Store the current system zoom as the default or in a numbered preset.",
+          "displayOrder": 10,
+          "presentationHint": "compact-binding-list",
+          "memberLabel": "Preset 2",
+          "memberOrder": 2
+        },
         "searchTerms": [
           "input.bindings.set_zoom_preset2",
           "Set Zoom Preset2",
@@ -5222,8 +5215,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set zoom preset 2",
-        "accessibleHelp": "Keyboard or mouse shortcut for set zoom preset 2. Applies: Next launch."
+        "accessibleName": "Save current zoom to preset 2",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5265,9 +5258,18 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set zoom preset 3",
-        "help": "Keyboard or mouse shortcut for set zoom preset 3.",
+        "label": "Save current zoom to preset 3",
         "group": "Camera",
+        "family": {
+          "id": "camera.saved-zoom-positions",
+          "parentGroup": "Camera",
+          "label": "Save zoom positions",
+          "help": "Store the current system zoom as the default or in a numbered preset.",
+          "displayOrder": 10,
+          "presentationHint": "compact-binding-list",
+          "memberLabel": "Preset 3",
+          "memberOrder": 3
+        },
         "searchTerms": [
           "input.bindings.set_zoom_preset3",
           "Set Zoom Preset3",
@@ -5278,8 +5280,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set zoom preset 3",
-        "accessibleHelp": "Keyboard or mouse shortcut for set zoom preset 3. Applies: Next launch."
+        "accessibleName": "Save current zoom to preset 3",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5321,9 +5323,18 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set zoom preset 4",
-        "help": "Keyboard or mouse shortcut for set zoom preset 4.",
+        "label": "Save current zoom to preset 4",
         "group": "Camera",
+        "family": {
+          "id": "camera.saved-zoom-positions",
+          "parentGroup": "Camera",
+          "label": "Save zoom positions",
+          "help": "Store the current system zoom as the default or in a numbered preset.",
+          "displayOrder": 10,
+          "presentationHint": "compact-binding-list",
+          "memberLabel": "Preset 4",
+          "memberOrder": 4
+        },
         "searchTerms": [
           "input.bindings.set_zoom_preset4",
           "Set Zoom Preset4",
@@ -5334,8 +5345,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set zoom preset 4",
-        "accessibleHelp": "Keyboard or mouse shortcut for set zoom preset 4. Applies: Next launch."
+        "accessibleName": "Save current zoom to preset 4",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5377,9 +5388,18 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Set zoom preset 5",
-        "help": "Keyboard or mouse shortcut for set zoom preset 5.",
+        "label": "Save current zoom to preset 5",
         "group": "Camera",
+        "family": {
+          "id": "camera.saved-zoom-positions",
+          "parentGroup": "Camera",
+          "label": "Save zoom positions",
+          "help": "Store the current system zoom as the default or in a numbered preset.",
+          "displayOrder": 10,
+          "presentationHint": "compact-binding-list",
+          "memberLabel": "Preset 5",
+          "memberOrder": 5
+        },
         "searchTerms": [
           "input.bindings.set_zoom_preset5",
           "Set Zoom Preset5",
@@ -5390,8 +5410,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Set zoom preset 5",
-        "accessibleHelp": "Keyboard or mouse shortcut for set zoom preset 5. Applies: Next launch."
+        "accessibleName": "Save current zoom to preset 5",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5434,7 +5454,6 @@
       },
       "presentation": {
         "label": "Show alliance",
-        "help": "Keyboard or mouse shortcut for show alliance.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_alliance",
@@ -5447,7 +5466,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show alliance",
-        "accessibleHelp": "Keyboard or mouse shortcut for show alliance. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5490,7 +5509,6 @@
       },
       "presentation": {
         "label": "Show alliance armada",
-        "help": "Keyboard or mouse shortcut for show alliance armada.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_alliance_armada",
@@ -5503,7 +5521,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show alliance armada",
-        "accessibleHelp": "Keyboard or mouse shortcut for show alliance armada. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5546,7 +5564,6 @@
       },
       "presentation": {
         "label": "Show alliance help",
-        "help": "Keyboard or mouse shortcut for show alliance help.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_alliance_help",
@@ -5559,7 +5576,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show alliance help",
-        "accessibleHelp": "Keyboard or mouse shortcut for show alliance help. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5602,7 +5619,6 @@
       },
       "presentation": {
         "label": "Show artifacts",
-        "help": "Keyboard or mouse shortcut for show artifacts.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_artifacts",
@@ -5615,7 +5631,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show artifacts",
-        "accessibleHelp": "Keyboard or mouse shortcut for show artifacts. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5658,7 +5674,6 @@
       },
       "presentation": {
         "label": "Show away team",
-        "help": "Keyboard or mouse shortcut for show away team.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_awayteam",
@@ -5671,7 +5686,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show away team",
-        "accessibleHelp": "Keyboard or mouse shortcut for show away team. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5714,7 +5729,6 @@
       },
       "presentation": {
         "label": "Show bookmarks",
-        "help": "Keyboard or mouse shortcut for show bookmarks.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_bookmarks",
@@ -5727,7 +5741,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show bookmarks",
-        "accessibleHelp": "Keyboard or mouse shortcut for show bookmarks. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5770,7 +5784,6 @@
       },
       "presentation": {
         "label": "Show chat",
-        "help": "Keyboard or mouse shortcut for show chat.",
         "group": "Chat",
         "searchTerms": [
           "input.bindings.show_chat",
@@ -5783,7 +5796,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show chat",
-        "accessibleHelp": "Keyboard or mouse shortcut for show chat. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5826,7 +5839,6 @@
       },
       "presentation": {
         "label": "Show chat side 1",
-        "help": "Keyboard or mouse shortcut for show chat side 1.",
         "group": "Chat",
         "searchTerms": [
           "input.bindings.show_chatside1",
@@ -5839,7 +5851,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show chat side 1",
-        "accessibleHelp": "Keyboard or mouse shortcut for show chat side 1. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5882,7 +5894,6 @@
       },
       "presentation": {
         "label": "Show chat side 2",
-        "help": "Keyboard or mouse shortcut for show chat side 2.",
         "group": "Chat",
         "searchTerms": [
           "input.bindings.show_chatside2",
@@ -5895,7 +5906,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show chat side 2",
-        "accessibleHelp": "Keyboard or mouse shortcut for show chat side 2. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5938,7 +5949,6 @@
       },
       "presentation": {
         "label": "Show commander",
-        "help": "Keyboard or mouse shortcut for show commander.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_commander",
@@ -5951,7 +5961,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show commander",
-        "accessibleHelp": "Keyboard or mouse shortcut for show commander. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -5994,7 +6004,6 @@
       },
       "presentation": {
         "label": "Show daily",
-        "help": "Keyboard or mouse shortcut for show daily.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_daily",
@@ -6007,7 +6016,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show daily",
-        "accessibleHelp": "Keyboard or mouse shortcut for show daily. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6050,7 +6059,6 @@
       },
       "presentation": {
         "label": "Show events",
-        "help": "Keyboard or mouse shortcut for show events.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_events",
@@ -6063,7 +6071,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show events",
-        "accessibleHelp": "Keyboard or mouse shortcut for show events. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6106,7 +6114,6 @@
       },
       "presentation": {
         "label": "Show exocomp",
-        "help": "Keyboard or mouse shortcut for show exocomp.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_exocomp",
@@ -6119,7 +6126,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show exocomp",
-        "accessibleHelp": "Keyboard or mouse shortcut for show exocomp. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6162,7 +6169,6 @@
       },
       "presentation": {
         "label": "Show factions",
-        "help": "Keyboard or mouse shortcut for show factions.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_factions",
@@ -6175,7 +6181,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show factions",
-        "accessibleHelp": "Keyboard or mouse shortcut for show factions. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6218,7 +6224,6 @@
       },
       "presentation": {
         "label": "Show galaxy",
-        "help": "Keyboard or mouse shortcut for show galaxy.",
         "group": "Navigation",
         "searchTerms": [
           "input.bindings.show_galaxy",
@@ -6231,7 +6236,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show galaxy",
-        "accessibleHelp": "Keyboard or mouse shortcut for show galaxy. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6274,7 +6279,6 @@
       },
       "presentation": {
         "label": "Show gifts",
-        "help": "Keyboard or mouse shortcut for show gifts.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_gifts",
@@ -6287,7 +6291,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show gifts",
-        "accessibleHelp": "Keyboard or mouse shortcut for show gifts. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6330,7 +6334,6 @@
       },
       "presentation": {
         "label": "Show inventory",
-        "help": "Keyboard or mouse shortcut for show inventory.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_inventory",
@@ -6343,7 +6346,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show inventory",
-        "accessibleHelp": "Keyboard or mouse shortcut for show inventory. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6386,7 +6389,6 @@
       },
       "presentation": {
         "label": "Show lookup",
-        "help": "Keyboard or mouse shortcut for show lookup.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_lookup",
@@ -6399,7 +6401,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show lookup",
-        "accessibleHelp": "Keyboard or mouse shortcut for show lookup. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6442,7 +6444,6 @@
       },
       "presentation": {
         "label": "Show missions",
-        "help": "Keyboard or mouse shortcut for show missions.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_missions",
@@ -6455,7 +6456,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show missions",
-        "accessibleHelp": "Keyboard or mouse shortcut for show missions. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6498,7 +6499,6 @@
       },
       "presentation": {
         "label": "Show officers",
-        "help": "Keyboard or mouse shortcut for show officers.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_officers",
@@ -6511,7 +6511,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show officers",
-        "accessibleHelp": "Keyboard or mouse shortcut for show officers. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6554,7 +6554,6 @@
       },
       "presentation": {
         "label": "Show q trials",
-        "help": "Keyboard or mouse shortcut for show q trials.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_qtrials",
@@ -6567,7 +6566,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show q trials",
-        "accessibleHelp": "Keyboard or mouse shortcut for show q trials. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6610,7 +6609,6 @@
       },
       "presentation": {
         "label": "Show refinery",
-        "help": "Keyboard or mouse shortcut for show refinery.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_refinery",
@@ -6623,7 +6621,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show refinery",
-        "accessibleHelp": "Keyboard or mouse shortcut for show refinery. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6666,7 +6664,6 @@
       },
       "presentation": {
         "label": "Show research",
-        "help": "Keyboard or mouse shortcut for show research.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_research",
@@ -6679,7 +6676,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show research",
-        "accessibleHelp": "Keyboard or mouse shortcut for show research. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6722,7 +6719,6 @@
       },
       "presentation": {
         "label": "Show scrapyard",
-        "help": "Keyboard or mouse shortcut for show scrapyard.",
         "group": "Panels",
         "searchTerms": [
           "input.bindings.show_scrapyard",
@@ -6735,7 +6731,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show scrapyard",
-        "accessibleHelp": "Keyboard or mouse shortcut for show scrapyard. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6778,7 +6774,6 @@
       },
       "presentation": {
         "label": "Show settings",
-        "help": "Keyboard or mouse shortcut for show settings.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.show_settings",
@@ -6791,7 +6786,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show settings",
-        "accessibleHelp": "Keyboard or mouse shortcut for show settings. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6834,7 +6829,6 @@
       },
       "presentation": {
         "label": "Show ships",
-        "help": "Keyboard or mouse shortcut for show ships.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.show_ships",
@@ -6847,7 +6841,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show ships",
-        "accessibleHelp": "Keyboard or mouse shortcut for show ships. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6890,7 +6884,6 @@
       },
       "presentation": {
         "label": "Show station exterior",
-        "help": "Keyboard or mouse shortcut for show station exterior.",
         "group": "Navigation",
         "searchTerms": [
           "input.bindings.show_stationexterior",
@@ -6903,7 +6896,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show station exterior",
-        "accessibleHelp": "Keyboard or mouse shortcut for show station exterior. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -6946,7 +6939,6 @@
       },
       "presentation": {
         "label": "Show station interior",
-        "help": "Keyboard or mouse shortcut for show station interior.",
         "group": "Navigation",
         "searchTerms": [
           "input.bindings.show_stationinterior",
@@ -6959,7 +6951,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show station interior",
-        "accessibleHelp": "Keyboard or mouse shortcut for show station interior. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7002,7 +6994,6 @@
       },
       "presentation": {
         "label": "Show system",
-        "help": "Keyboard or mouse shortcut for show system.",
         "group": "Navigation",
         "searchTerms": [
           "input.bindings.show_system",
@@ -7015,7 +7006,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Show system",
-        "accessibleHelp": "Keyboard or mouse shortcut for show system. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7058,7 +7049,6 @@
       },
       "presentation": {
         "label": "Toggle cargo armada",
-        "help": "Keyboard or mouse shortcut for toggle cargo armada.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.toggle_cargo_armada",
@@ -7071,7 +7061,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Toggle cargo armada",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle cargo armada. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7114,7 +7104,6 @@
       },
       "presentation": {
         "label": "Toggle cargo default",
-        "help": "Keyboard or mouse shortcut for toggle cargo default.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.toggle_cargo_default",
@@ -7127,7 +7116,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Toggle cargo default",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle cargo default. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7170,7 +7159,6 @@
       },
       "presentation": {
         "label": "Toggle cargo hostile",
-        "help": "Keyboard or mouse shortcut for toggle cargo hostile.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.toggle_cargo_hostile",
@@ -7183,7 +7171,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Toggle cargo hostile",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle cargo hostile. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7226,7 +7214,6 @@
       },
       "presentation": {
         "label": "Toggle cargo player",
-        "help": "Keyboard or mouse shortcut for toggle cargo player.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.toggle_cargo_player",
@@ -7239,7 +7226,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Toggle cargo player",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle cargo player. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7282,7 +7269,6 @@
       },
       "presentation": {
         "label": "Toggle cargo station",
-        "help": "Keyboard or mouse shortcut for toggle cargo station.",
         "group": "Ships",
         "searchTerms": [
           "input.bindings.toggle_cargo_station",
@@ -7295,7 +7281,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Toggle cargo station",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle cargo station. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7338,7 +7324,6 @@
       },
       "presentation": {
         "label": "Toggle preview locate",
-        "help": "Keyboard or mouse shortcut for toggle preview locate.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.toggle_preview_locate",
@@ -7351,7 +7336,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Toggle preview locate",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle preview locate. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7394,7 +7379,6 @@
       },
       "presentation": {
         "label": "Toggle preview recall",
-        "help": "Keyboard or mouse shortcut for toggle preview recall.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.toggle_preview_recall",
@@ -7407,7 +7391,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Toggle preview recall",
-        "accessibleHelp": "Keyboard or mouse shortcut for toggle preview recall. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7450,7 +7434,6 @@
       },
       "presentation": {
         "label": "UI scale down",
-        "help": "Keyboard or mouse shortcut for uI scale down.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.ui_scale_down",
@@ -7463,7 +7446,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "UI scale down",
-        "accessibleHelp": "Keyboard or mouse shortcut for uI scale down. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7506,7 +7489,6 @@
       },
       "presentation": {
         "label": "UI scale up",
-        "help": "Keyboard or mouse shortcut for uI scale up.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.ui_scale_up",
@@ -7519,7 +7501,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "UI scale up",
-        "accessibleHelp": "Keyboard or mouse shortcut for uI scale up. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7562,7 +7544,6 @@
       },
       "presentation": {
         "label": "UI viewer scale down",
-        "help": "Keyboard or mouse shortcut for uI viewer scale down.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.ui_viewer_scale_down",
@@ -7575,7 +7556,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "UI viewer scale down",
-        "accessibleHelp": "Keyboard or mouse shortcut for uI viewer scale down. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7618,7 +7599,6 @@
       },
       "presentation": {
         "label": "UI viewer scale up",
-        "help": "Keyboard or mouse shortcut for uI viewer scale up.",
         "group": "Interface",
         "searchTerms": [
           "input.bindings.ui_viewer_scale_up",
@@ -7631,7 +7611,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "UI viewer scale up",
-        "accessibleHelp": "Keyboard or mouse shortcut for uI viewer scale up. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7674,7 +7654,6 @@
       },
       "presentation": {
         "label": "Zoom in",
-        "help": "Keyboard or mouse shortcut for zoom in.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_in",
@@ -7687,7 +7666,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Zoom in",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom in. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7729,8 +7708,7 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom max",
-        "help": "Keyboard or mouse shortcut for zoom max.",
+        "label": "Zoom to maximum",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_max",
@@ -7742,8 +7720,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom max",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom max. Applies: Next launch."
+        "accessibleName": "Zoom to maximum",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7785,8 +7763,7 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom min",
-        "help": "Keyboard or mouse shortcut for zoom min.",
+        "label": "Zoom to minimum",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_min",
@@ -7798,8 +7775,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom min",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom min. Applies: Next launch."
+        "accessibleName": "Zoom to minimum",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7842,7 +7819,6 @@
       },
       "presentation": {
         "label": "Zoom out",
-        "help": "Keyboard or mouse shortcut for zoom out.",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_out",
@@ -7855,7 +7831,7 @@
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Zoom out",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom out. Applies: Next launch."
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7897,8 +7873,7 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom preset 1",
-        "help": "Keyboard or mouse shortcut for zoom preset 1.",
+        "label": "Use zoom preset 1",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_preset1",
@@ -7910,8 +7885,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom preset 1",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom preset 1. Applies: Next launch."
+        "accessibleName": "Use zoom preset 1",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -7953,8 +7928,7 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom preset 2",
-        "help": "Keyboard or mouse shortcut for zoom preset 2.",
+        "label": "Use zoom preset 2",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_preset2",
@@ -7966,8 +7940,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom preset 2",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom preset 2. Applies: Next launch."
+        "accessibleName": "Use zoom preset 2",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -8009,8 +7983,7 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom preset 3",
-        "help": "Keyboard or mouse shortcut for zoom preset 3.",
+        "label": "Use zoom preset 3",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_preset3",
@@ -8022,8 +7995,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom preset 3",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom preset 3. Applies: Next launch."
+        "accessibleName": "Use zoom preset 3",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -8065,8 +8038,7 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom preset 4",
-        "help": "Keyboard or mouse shortcut for zoom preset 4.",
+        "label": "Use zoom preset 4",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_preset4",
@@ -8078,8 +8050,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom preset 4",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom preset 4. Applies: Next launch."
+        "accessibleName": "Use zoom preset 4",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -8121,8 +8093,7 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom preset 5",
-        "help": "Keyboard or mouse shortcut for zoom preset 5.",
+        "label": "Use zoom preset 5",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_preset5",
@@ -8134,8 +8105,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom preset 5",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom preset 5. Applies: Next launch."
+        "accessibleName": "Use zoom preset 5",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -8177,8 +8148,7 @@
         "defaultSource": "input-action-registry"
       },
       "presentation": {
-        "label": "Zoom reset",
-        "help": "Keyboard or mouse shortcut for zoom reset.",
+        "label": "Reset zoom",
         "group": "Camera",
         "searchTerms": [
           "input.bindings.zoom_reset",
@@ -8190,8 +8160,8 @@
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
-        "accessibleName": "Zoom reset",
-        "accessibleHelp": "Keyboard or mouse shortcut for zoom reset. Applies: Next launch."
+        "accessibleName": "Reset zoom",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {

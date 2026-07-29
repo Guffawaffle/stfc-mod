@@ -446,6 +446,12 @@ search terms, unit, apply timing, stability, and accessibility text. A curated
 override may improve those fields only when its canonical schema path is
 validated during generation.
 
+Groups and families are separate presentation concepts. A group creates a
+page landmark such as Camera or Fleet. An optional approved family composes
+several independently persisted settings beneath one shared heading, with
+member labels and compact spacing. Family membership is generated and
+validated; the renderer does not guess it from similar names.
+
 This allows technical runtime names such as `Fr Scale` or
 `fleet_queue_add` to become player language such as `System backdrop scale`
 and `Add fleet to queue` without forking the authoritative type, default, or

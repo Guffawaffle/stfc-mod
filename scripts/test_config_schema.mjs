@@ -189,7 +189,7 @@ test("keybinding presentation normalizes joined tokens numbers and fleet actions
   const schema = buildSchema();
   const labels = new Map([
     ["input.bindings.select_ship1", "Select ship 1"],
-    ["input.bindings.set_zoom_preset1", "Set zoom preset 1"],
+    ["input.bindings.set_zoom_preset1", "Save current zoom to preset 1"],
     ["input.bindings.select_chatalliance", "Select chat alliance"],
     ["input.bindings.show_awayteam", "Show away team"],
     ["input.bindings.show_stationinterior", "Show station interior"],
@@ -204,7 +204,26 @@ test("keybinding presentation normalizes joined tokens numbers and fleet actions
   for (const [settingPath, expectedLabel] of labels) {
     const setting = schema.settings.find((candidate) => candidate.path === settingPath);
     assert.equal(setting.presentation.label, expectedLabel, settingPath);
-    assert.match(setting.presentation.help, /^Keyboard or mouse shortcut for /);
+    assert.equal(setting.presentation.help, undefined, settingPath);
+  }
+});
+
+test("approved hotkey families carry stable renderer metadata", () => {
+  const schema = buildSchema();
+  const family = schema.settings
+    .filter((setting) => setting.presentation.family?.id === "camera.saved-zoom-positions")
+    .sort((left, right) =>
+      left.presentation.family.memberOrder - right.presentation.family.memberOrder);
+
+  assert.equal(family.length, 6);
+  assert.deepEqual(
+    family.map((setting) => setting.presentation.family.memberLabel),
+    ["Default", "Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5"],
+  );
+  for (const setting of family) {
+    assert.equal(setting.presentation.family.parentGroup, "Camera");
+    assert.equal(setting.presentation.family.label, "Save zoom positions");
+    assert.equal(setting.presentation.family.presentationHint, "compact-binding-list");
   }
 });
 
@@ -325,6 +344,21 @@ test("presentation override validation rejects stale duplicate forbidden and inc
   assert.throws(
     () => addPresentationMetadata([{ ...settings[0], apply: "surprise" }], []),
     /unsupported apply behavior/,
+  );
+  assert.throws(
+    () => validatePresentationOverrides(settings, [{
+      path: "graphics.example",
+      family: {
+        id: "graphics.example",
+        parentGroup: "Graphics",
+        label: "Examples",
+        displayOrder: 1,
+        presentationHint: "compact-binding-list",
+        memberLabel: "Example",
+        memberOrder: 0,
+      },
+    }]),
+    /requires a keybinding family object/,
   );
 
   const enumSetting = {

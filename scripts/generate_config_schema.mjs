@@ -565,6 +565,7 @@ const presentationOverrideFields = new Set([
   "label",
   "help",
   "group",
+  "family",
   "searchTerms",
   "enumOptions",
   "unit",
@@ -662,12 +663,13 @@ function keybindingPresentationLabel(setting) {
   if (key === "fleet_recall_cancel") return "Cancel fleet recall";
   if (key === "fleet_view_info") return "View fleet info";
   if (key === "select_current") return "Select current ship";
+  if (key === "zoom_reset") return "Reset zoom";
+  if (key === "zoom_min") return "Zoom to minimum";
+  if (key === "zoom_max") return "Zoom to maximum";
+  const zoomPreset = key.match(/^zoom_preset([1-5])$/);
+  if (zoomPreset) return `Use zoom preset ${zoomPreset[1]}`;
 
   return titleCase(normalizeJoinedPresentationTokens(key));
-}
-
-function keybindingPresentationHelp(label) {
-  return `Keyboard or mouse shortcut for ${label[0].toLowerCase()}${label.slice(1)}.`;
 }
 
 function notificationPresentationHelp(setting) {
@@ -891,6 +893,73 @@ function validatePresentationOverrides(settings, overrides = configPresentationO
         && (setting.control !== "scalar" || !["integer", "number"].includes(setting.valueType.kind))) {
       throw new Error(`Presentation override ${override.path} declares a unit for a non-numeric scalar setting.`);
     }
+    if ("family" in override) {
+      const family = override.family;
+      if (setting.control !== "keybinding"
+          || !family
+          || typeof family !== "object"
+          || Array.isArray(family)) {
+        throw new Error(`Presentation override ${override.path}.family requires a keybinding family object.`);
+      }
+      const fields = new Set([
+        "id",
+        "parentGroup",
+        "label",
+        "help",
+        "displayOrder",
+        "presentationHint",
+        "memberLabel",
+        "memberOrder",
+      ]);
+      for (const field of Object.keys(family)) {
+        if (!fields.has(field)) {
+          throw new Error(`Presentation override ${override.path}.family uses unsupported field '${field}'.`);
+        }
+      }
+      for (const field of ["id", "parentGroup", "label", "presentationHint", "memberLabel"]) {
+        if (typeof family[field] !== "string" || !family[field].trim()) {
+          throw new Error(`Presentation override ${override.path}.family.${field} must be non-empty.`);
+        }
+      }
+      if ("help" in family
+          && family.help !== null
+          && (typeof family.help !== "string" || !family.help.trim())) {
+        throw new Error(`Presentation override ${override.path}.family.help must be non-empty or null.`);
+      }
+      for (const field of ["displayOrder", "memberOrder"]) {
+        if (!Number.isInteger(family[field]) || family[field] < 0) {
+          throw new Error(`Presentation override ${override.path}.family.${field} must be a non-negative integer.`);
+        }
+      }
+      if (family.presentationHint !== "compact-binding-list") {
+        throw new Error(`Presentation override ${override.path}.family uses unsupported presentation hint.`);
+      }
+      if (family.parentGroup !== (override.group ?? presentationGroup(setting))) {
+        throw new Error(`Presentation override ${override.path}.family.parentGroup must match its group.`);
+      }
+    }
+  }
+  const families = new Map();
+  const familyMembers = new Map();
+  for (const override of overrides.filter((item) => item.family)) {
+    const { memberLabel: _memberLabel, memberOrder: _memberOrder, ...shared } = override.family;
+    const existing = families.get(shared.id);
+    const serialized = JSON.stringify(shared);
+    if (existing && existing !== serialized) {
+      throw new Error(`Presentation family '${shared.id}' has inconsistent shared metadata.`);
+    }
+    families.set(shared.id, serialized);
+    const members = familyMembers.get(shared.id) ?? {
+      labels: new Set(),
+      orders: new Set(),
+    };
+    if (members.labels.has(override.family.memberLabel)
+        || members.orders.has(override.family.memberOrder)) {
+      throw new Error(`Presentation family '${shared.id}' has duplicate member metadata.`);
+    }
+    members.labels.add(override.family.memberLabel);
+    members.orders.add(override.family.memberOrder);
+    familyMembers.set(shared.id, members);
   }
   return new Map(overrides.map((override) => [override.path, override]));
 }
@@ -907,7 +976,7 @@ function addPresentationMetadata(settings, overrides = configPresentationOverrid
     const derivedHelp = setting.control === "notification-policy"
       ? notificationPresentationHelp(setting)
       : setting.control === "keybinding"
-        ? keybindingPresentationHelp(derivedLabel)
+        ? null
         : cleanPresentationHelp(setting.description, label);
     const helpSource = Object.hasOwn(override, "help") ? override.help : derivedHelp;
     const help = helpSource?.trim() || null;
@@ -933,6 +1002,20 @@ function addPresentationMetadata(settings, overrides = configPresentationOverrid
       label,
       ...(help ? { help } : {}),
       group,
+      ...(override.family
+        ? {
+            family: {
+              id: override.family.id.trim(),
+              parentGroup: override.family.parentGroup.trim(),
+              label: override.family.label.trim(),
+              ...(override.family.help ? { help: override.family.help.trim() } : {}),
+              displayOrder: override.family.displayOrder,
+              presentationHint: override.family.presentationHint,
+              memberLabel: override.family.memberLabel.trim(),
+              memberOrder: override.family.memberOrder,
+            },
+          }
+        : {}),
       searchTerms,
       ...(override.enumOptions
         ? {

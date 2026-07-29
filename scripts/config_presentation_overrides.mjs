@@ -1,3 +1,14 @@
+const savedZoomFamily = (memberLabel, memberOrder) => ({
+  id: "camera.saved-zoom-positions",
+  parentGroup: "Camera",
+  label: "Save zoom positions",
+  help: "Store the current system zoom as the default or in a numbered preset.",
+  displayOrder: 10,
+  presentationHint: "compact-binding-list",
+  memberLabel,
+  memberOrder,
+});
+
 /**
  * Sparse player-copy exceptions for the generated launcher presentation.
  *
@@ -6,6 +17,20 @@
  * types, defaults, constraints, apply behavior, or persistence metadata.
  */
 export const configPresentationOverrides = [
+  {
+    path: "input.bindings.set_zoom_default",
+    label: "Save current zoom as default",
+    help: null,
+    group: "Camera",
+    family: savedZoomFamily("Default", 0),
+  },
+  ...[1, 2, 3, 4, 5].map((preset) => ({
+    path: `input.bindings.set_zoom_preset${preset}`,
+    label: `Save current zoom to preset ${preset}`,
+    help: null,
+    group: "Camera",
+    family: savedZoomFamily(`Preset ${preset}`, preset),
+  })),
   {
     path: "graphics.fr_scale",
     label: "System backdrop scale",
