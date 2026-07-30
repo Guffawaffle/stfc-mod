@@ -133,7 +133,7 @@ void InstallFrameTickHooks();
 void InstallHotkeyHooks();
 void InstallOpenBulkClaimGiftsHooks();
 void InstallMissionHudTweaksHooks();
-void InstallOfficerAssignmentSortExperimentHooks();
+void InstallOfficerAssignmentSortHooks();
 void InstallSectionChangeRouterHooks();
 void InstallActionQueueGuardHooks();
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
@@ -255,10 +255,10 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   auto install_live_debug_hooks           = LiveDebugChannelEnabled();
   auto install_refinery_diagnostics_hooks = RefineryDiagnosticsEnabled();
 #endif
-  auto install_open_bulk_claim_gifts_hooks        = AutoOpenBulkClaimGiftsEnabled();
-  auto install_mission_hud_tweaks_hooks           = MissionHudTweaksEnabled();
-  auto install_officer_assignment_sort_experiment = OfficerBelowDeckAssignmentSortExperimentEnabled();
-  auto install_section_change_router_hooks        = install_open_bulk_claim_gifts_hooks;
+  auto install_open_bulk_claim_gifts_hooks = AutoOpenBulkClaimGiftsEnabled();
+  auto install_mission_hud_tweaks_hooks    = MissionHudTweaksEnabled();
+  auto install_officer_assignment_sort     = OfficerBelowDeckAssignmentSortEnabled();
+  auto install_section_change_router_hooks = install_open_bulk_claim_gifts_hooks;
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   install_section_change_router_hooks = install_section_change_router_hooks || install_refinery_diagnostics_hooks;
 #endif
@@ -286,9 +286,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
        InstallOpenBulkClaimGiftsHooks, install_open_bulk_claim_gifts_hooks, false, true},
       {"MissionHudTweaks", "ui.mission_hud_tweaks", "", "MissionHudTweaks", InstallMissionHudTweaksHooks,
        install_mission_hud_tweaks_hooks, false, true},
-      {"OfficerAssignmentSortExperiment", "ui.restore_below_decks_assignment_sort", "",
-       "OfficerAssignmentSortExperiment", InstallOfficerAssignmentSortExperimentHooks,
-       install_officer_assignment_sort_experiment, false, true},
+      {"OfficerAssignmentSort", "ui.restore_below_decks_assignment_sort", "", "OfficerAssignmentSort",
+       InstallOfficerAssignmentSortHooks, install_officer_assignment_sort, false, true},
       {"DeploymentRuntimeObservers", "", "fleet-runtime-observers", "", InstallDeploymentRuntimeObserverHooks, false,
        install_deployment_runtime_observers, true},
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS

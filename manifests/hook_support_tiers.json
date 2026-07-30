@@ -53,10 +53,10 @@
       "rationale": "Release-supported UI visibility controls."
     },
     {
-      "id": "OfficerAssignmentSortExperiment",
-      "tier": "science",
-      "source": "mods/src/patches/parts/officer_assignment_sort_experiment.cc",
-      "rationale": "Default-off experiment that restores a removed Manage Ship assignment sort through the retained game comparator and native assignment-sort generator."
+      "id": "OfficerAssignmentSort",
+      "tier": "production",
+      "source": "mods/src/patches/parts/officer_assignment_sort.cc",
+      "rationale": "Release-supported restoration of the localized Manage Ship Below Deck Ability assignment sort through retained game behavior."
     },
     {
       "id": "OpenBulkClaimGiftsHooks",
@@ -146,11 +146,11 @@
     },
     {
       "path": "ui.restore_below_decks_assignment_sort",
-      "tier": "science",
-      "owner": "OfficerAssignmentSortExperiment",
-      "release_example_allowed": false,
-      "science_example_required": true,
-      "rationale": "Default-off Manage Ship assignment-sort restoration experiment observed working with the retained assignment localization suffix; promotion remains an explicit follow-up."
+      "tier": "production",
+      "owner": "OfficerAssignmentSort",
+      "release_example_allowed": true,
+      "science_example_required": false,
+      "rationale": "Release-supported and default-on Manage Ship assignment-sort restoration with an explicit rollback switch."
     }
   ],
   "promotion_process": {

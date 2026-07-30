@@ -23,7 +23,7 @@ constexpr HookDescriptor kInitializeAssignmentSortersHook{
     "Restore the removed Below Deck Ability assignment sort through the game's existing assignment sort generator.",
     {"Assembly-CSharp", "Digit.Prime.Officers", "OfficerSortGenerators", "InitializeAssignmentSorters"},
     "The Below Deck Ability option will be absent from the Manage Ship officer-assignment sort dropdown.",
-    HookSupportTier::Science};
+    HookSupportTier::Production};
 
 IL2CppClassHelper& OfficerSortGeneratorsHelper()
 {
@@ -93,7 +93,7 @@ bool HasBelowDeckAssignmentSort(IList* options)
 Il2CppObject* FindSampleAssignmentComparatorDelegate(IList* options)
 {
   if (!options) {
-    spdlog::warn("[OfficerAssignmentSortExperiment] sample delegate lookup has no assignment options");
+    spdlog::warn("[OfficerAssignmentSort] sample delegate lookup has no assignment options");
     return nullptr;
   }
 
@@ -112,14 +112,13 @@ Il2CppObject* FindSampleAssignmentComparatorDelegate(IList* options)
     auto  sort_function = IL2CppClassHelper{sort->klass};
     auto* sample        = ReadReferenceField(sort, sort_function, "_ascending");
     if (sample) {
-      spdlog::debug("[OfficerAssignmentSortExperiment] borrowed comparator delegate from assignment option {}", index);
+      spdlog::debug("[OfficerAssignmentSort] borrowed comparator delegate from assignment option {}", index);
       return sample;
     }
   }
 
-  spdlog::warn(
-      "[OfficerAssignmentSortExperiment] no existing assignment option exposed an ascending comparator (options={})",
-      options->Count);
+  spdlog::warn("[OfficerAssignmentSort] no existing assignment option exposed an ascending comparator (options={})",
+               options->Count);
   return nullptr;
 }
 
@@ -132,7 +131,7 @@ Il2CppObject* CreateBelowDeckComparatorDelegate(Il2CppObject* sample_delegate)
   auto sorting_predicates = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Core", "SortingPredicates");
   auto delegate_helper    = il2cpp_get_class_helper("mscorlib", "System", "Delegate");
   if (!sorting_predicates.isValidHelper() || !delegate_helper.isValidHelper()) {
-    spdlog::warn("[OfficerAssignmentSortExperiment] delegate helpers unavailable (sorting_predicates={} delegate={})",
+    spdlog::warn("[OfficerAssignmentSort] delegate helpers unavailable (sorting_predicates={} delegate={})",
                  sorting_predicates.isValidHelper(), delegate_helper.isValidHelper());
     return nullptr;
   }
@@ -140,7 +139,7 @@ Il2CppObject* CreateBelowDeckComparatorDelegate(Il2CppObject* sample_delegate)
   const auto* comparator      = sorting_predicates.GetMethodInfo("OfficerSortByBelowDeckAbilityAscending", 2);
   const auto* create_delegate = delegate_helper.GetMethodInfo("CreateDelegate", 2);
   if (!comparator || !create_delegate) {
-    spdlog::warn("[OfficerAssignmentSortExperiment] delegate methods unavailable (comparator={} create_delegate={})",
+    spdlog::warn("[OfficerAssignmentSort] delegate methods unavailable (comparator={} create_delegate={})",
                  comparator != nullptr, create_delegate != nullptr);
     return nullptr;
   }
@@ -148,7 +147,7 @@ Il2CppObject* CreateBelowDeckComparatorDelegate(Il2CppObject* sample_delegate)
   auto* delegate_type = il2cpp_type_get_object(il2cpp_class_get_type(sample_delegate->klass));
   auto* method_object = il2cpp_method_get_object(comparator, comparator->klass);
   if (!delegate_type || !method_object) {
-    spdlog::warn("[OfficerAssignmentSortExperiment] delegate reflection objects unavailable (type={} method={})",
+    spdlog::warn("[OfficerAssignmentSort] delegate reflection objects unavailable (type={} method={})",
                  delegate_type != nullptr, method_object != nullptr);
     return nullptr;
   }
@@ -157,11 +156,11 @@ Il2CppObject* CreateBelowDeckComparatorDelegate(Il2CppObject* sample_delegate)
   Il2CppException* exception    = nullptr;
   auto*            result       = il2cpp_runtime_invoke(create_delegate, nullptr, arguments, &exception);
   if (exception) {
-    spdlog::warn("[OfficerAssignmentSortExperiment] Delegate.CreateDelegate raised a managed exception");
+    spdlog::warn("[OfficerAssignmentSort] Delegate.CreateDelegate raised a managed exception");
     return nullptr;
   }
   if (!result) {
-    spdlog::warn("[OfficerAssignmentSortExperiment] Delegate.CreateDelegate returned null");
+    spdlog::warn("[OfficerAssignmentSort] Delegate.CreateDelegate returned null");
   }
 
   return result;
@@ -175,7 +174,7 @@ Il2CppObject* BuildBelowDeckAssignmentSort(OfficerSortGenerators* generators, Il
 
   const auto* generate_sort = OfficerSortGeneratorsHelper().GetMethodInfo("StandardAssignmentSortFunction", 1);
   if (!generate_sort) {
-    spdlog::warn("[OfficerAssignmentSortExperiment] StandardAssignmentSortFunction method unavailable");
+    spdlog::warn("[OfficerAssignmentSort] StandardAssignmentSortFunction method unavailable");
     return nullptr;
   }
 
@@ -183,11 +182,11 @@ Il2CppObject* BuildBelowDeckAssignmentSort(OfficerSortGenerators* generators, Il
   Il2CppException* exception    = nullptr;
   auto*            result       = il2cpp_runtime_invoke(generate_sort, generators, arguments, &exception);
   if (exception) {
-    spdlog::warn("[OfficerAssignmentSortExperiment] StandardAssignmentSortFunction raised a managed exception");
+    spdlog::warn("[OfficerAssignmentSort] StandardAssignmentSortFunction raised a managed exception");
     return nullptr;
   }
   if (!result) {
-    spdlog::warn("[OfficerAssignmentSortExperiment] StandardAssignmentSortFunction returned null");
+    spdlog::warn("[OfficerAssignmentSort] StandardAssignmentSortFunction returned null");
   }
 
   return result;
@@ -202,7 +201,7 @@ bool AppendBelowDeckAssignmentSort(OfficerSortGenerators* generators, Il2CppObje
   const auto* add_sorter  = OfficerSortGeneratorsHelper().GetMethodInfo("AddAssignmentSorter", 2);
   auto*       display_key = il2cpp_string_new(kBelowDeckSortDisplaySuffix.data());
   if (!add_sorter || !display_key) {
-    spdlog::warn("[OfficerAssignmentSortExperiment] unable to prepare AddAssignmentSorter (method={} display_key={})",
+    spdlog::warn("[OfficerAssignmentSort] unable to prepare AddAssignmentSorter (method={} display_key={})",
                  add_sorter != nullptr, display_key != nullptr);
     return false;
   }
@@ -211,7 +210,7 @@ bool AppendBelowDeckAssignmentSort(OfficerSortGenerators* generators, Il2CppObje
   Il2CppException* exception    = nullptr;
   il2cpp_runtime_invoke(add_sorter, generators, arguments, &exception);
   if (exception) {
-    spdlog::warn("[OfficerAssignmentSortExperiment] AddAssignmentSorter raised a managed exception");
+    spdlog::warn("[OfficerAssignmentSort] AddAssignmentSorter raised a managed exception");
     return false;
   }
 
@@ -222,11 +221,11 @@ void RestoreBelowDeckAssignmentSort(OfficerSortGenerators* generators)
 {
   auto* options = AssignmentOptions(generators);
   if (!options) {
-    spdlog::warn("[OfficerAssignmentSortExperiment] assignment options unavailable after initialization");
+    spdlog::warn("[OfficerAssignmentSort] assignment options unavailable after initialization");
     return;
   }
   if (HasBelowDeckAssignmentSort(options)) {
-    spdlog::debug("[OfficerAssignmentSortExperiment] Below Deck Ability sort already present");
+    spdlog::debug("[OfficerAssignmentSort] Below Deck Ability sort already present");
     return;
   }
 
@@ -247,11 +246,11 @@ void RestoreBelowDeckAssignmentSort(OfficerSortGenerators* generators)
 
   const auto previous_count = options->Count;
   if (!AppendBelowDeckAssignmentSort(generators, sort_function) || options->Count != previous_count + 1) {
-    spdlog::warn("[OfficerAssignmentSortExperiment] game did not append Below Deck Ability sort");
+    spdlog::warn("[OfficerAssignmentSort] game did not append Below Deck Ability sort");
     return;
   }
 
-  spdlog::info("[OfficerAssignmentSortExperiment] restored '{}' assignment sort (display_suffix='{}' options={})",
+  spdlog::info("[OfficerAssignmentSort] restored '{}' assignment sort (display_suffix='{}' options={})",
                kBelowDeckSortLabel, kBelowDeckSortDisplaySuffix, options->Count);
 }
 
@@ -262,9 +261,9 @@ void OfficerSortGenerators_InitializeAssignmentSorters_Hook(auto original, Offic
 }
 } // namespace
 
-void InstallOfficerAssignmentSortExperimentHooks()
+void InstallOfficerAssignmentSortHooks()
 {
-  HookModuleHealth hooks("OfficerAssignmentSortExperiment");
+  HookModuleHealth hooks("OfficerAssignmentSort");
 
   auto& helper = OfficerSortGeneratorsHelper();
   if (!helper.isValidHelper()) {

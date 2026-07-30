@@ -617,7 +617,7 @@ bool AutoOpenBulkClaimGiftsEnabled();
 /**
  * @brief Whether the removed Below Deck Ability Manage Ship assignment sort should be restored.
  */
-bool OfficerBelowDeckAssignmentSortExperimentEnabled();
+bool OfficerBelowDeckAssignmentSortEnabled();
 
 /**
  * @brief Visibility override for one `[ui.mission_hud]` button.

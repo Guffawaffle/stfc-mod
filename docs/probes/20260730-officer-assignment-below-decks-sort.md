@@ -1,9 +1,9 @@
 # Probe: Restore Below Deck Ability officer-assignment sort
 
-- Status: observed
+- Status: promoted
 - Owner: `experiment/officer-sorting-dropdown`
 - Date: 2026-07-30
-- Related patch label: `OfficerAssignmentSortExperiment`
+- Related patch label: `OfficerAssignmentSort`
 - Related timeline refresh ID: 2026-07-30 client corpus refresh
 - Related diff report: local research diff for the 2026-07-30 client
 - Native seam ledger entry: `Digit.Prime.Officers.OfficerSortGenerators.InitializeAssignmentSorters()`
@@ -35,15 +35,15 @@ comparator through the game's existing assignment-sort generator?
 
 ## Implementation Plan
 
-- Module/file: `mods/src/patches/parts/officer_assignment_sort_experiment.cc`
-- Config or compile guard: `[ui].restore_below_decks_assignment_sort`, default `false`
+- Module/file: `mods/src/patches/parts/officer_assignment_sort.cc`
+- Config or compile guard: `[ui].restore_below_decks_assignment_sort`, default `true`
 - Hook descriptor name: `OfficerSortGenerators.InitializeAssignmentSorters`
 - Target assembly: `Assembly-CSharp`
 - Target namespace: `Digit.Prime.Officers`
 - Target class: `OfficerSortGenerators`
 - Target method: `InitializeAssignmentSorters`
-- Install path: `InstallOfficerAssignmentSortExperimentHooks`
-- Log tag or event kind: `[OfficerAssignmentSortExperiment]`
+- Install path: `InstallOfficerAssignmentSortHooks`
+- Log tag or event kind: `[OfficerAssignmentSort]`
 
 Registry requirements:
 
@@ -55,9 +55,9 @@ Registry requirements:
 ## Disable Path
 
 - Flag or code path to disable: set `ui.restore_below_decks_assignment_sort = false`.
-- File/entry to delete if it crashes: remove the `OfficerAssignmentSortExperiment` patch entry and
-  `officer_assignment_sort_experiment.cc`.
-- Expected boot log when disabled: patch audit reports `OfficerAssignmentSortExperiment` as not requested; no hook is
+- File/entry to delete if it crashes: remove the `OfficerAssignmentSort` patch entry and
+  `officer_assignment_sort.cc`.
+- Expected boot log when disabled: patch audit reports `OfficerAssignmentSort` as not requested; no hook is
   installed.
 
 ## Human Smoke Test
@@ -67,14 +67,14 @@ ordering.
 
 Steps:
 
-1. Enable `ui.restore_below_decks_assignment_sort`.
+1. Leave the default-on `ui.restore_below_decks_assignment_sort` enabled.
 2. Deploy and start the game.
 3. Open Manage Ship, choose Assign Officers, and open that view's sort dropdown.
 4. Select `BELOW DECK ABILITY`, then toggle ascending/descending.
 5. Compare officers with and without below-decks abilities.
 
 Expected log marker/event:
-`[OfficerAssignmentSortExperiment] restored 'Below Deck Ability' assignment sort`.
+`[OfficerAssignmentSort] restored 'Below Deck Ability' assignment sort`.
 
 Stop immediately if: the game crashes or hangs during boot/officer-screen entry, the dropdown stops opening, or
 selecting another ordinary sort stops working.
@@ -83,13 +83,15 @@ Report back: option visibility, label rendering, selected ordering, direction be
 
 ## Result
 
-- Build/deploy command: AXF `global.stfc-mod-private.cycle` with `build-mode=releasedbg`.
+- Build/deploy commands: initial behavior/label validation used AXF `global.stfc-mod-private.cycle` with
+  `build-mode=releasedbg`; promotion validation repeated the cycle with `build-mode=release`.
 - Runtime command: normal game launch through the AX cycle with local
   `[ui].restore_below_decks_assignment_sort = true`.
 - Human action performed: the user opened Manage Ship's Assign Officers sort dropdown and reported the restored option
   works.
 - Observed log/event evidence: the hook installed once, borrowed the concrete comparator delegate type from assignment
-  option zero, and appended option nine.
+  option zero, and appended option nine. The final release cycle reported
+  `module=OfficerAssignmentSort status=consistent installed=1 failed=0`.
 - Label evidence: the option initially rendered the generated localization key beginning with
   `officer_assignment_s...`. A bounded runtime dump showed every existing assignment option uses a leading-underscore
   display suffix (`_strength`, `_class`, `_ship`, and so on), while its nested `SortFunction` display key is empty.
@@ -102,6 +104,6 @@ Report back: option visibility, label rendering, selected ordering, direction be
 
 ## Exit Decision
 
-Retain as a default-off science experiment with the working localized label.
+Promote as a release-supported, default-on feature while retaining the config key as an explicit rollback switch.
 
-Next action: collect wider artifact feedback before considering promotion beyond a default-off science experiment.
+Next action: monitor normal release artifacts for future client dependency drift.

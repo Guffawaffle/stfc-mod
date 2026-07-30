@@ -168,7 +168,7 @@ bool RefineryDiagnosticsEnabled()
 bool AutoOpenBulkClaimGiftsEnabled()
 { return g_auto_open_bulk_claim_gifts; }
 
-bool OfficerBelowDeckAssignmentSortExperimentEnabled()
+bool OfficerBelowDeckAssignmentSortEnabled()
 { return g_restore_below_decks_assignment_sort; }
 
 MissionHudVisibility MissionHudButtonVisibility(std::string_view button_name)

@@ -499,8 +499,8 @@ namespace UI
   constexpr auto extend_donation_max = 80;
   /// Enable the extended donation slider range. Default: true. (Windows only.)
   constexpr bool extend_donation_slider = true;
-  /// Restore Below Deck Ability to the Manage Ship officer-assignment sort dropdown. Default: false.
-  constexpr bool restore_below_decks_assignment_sort = false;
+  /// Restore Below Deck Ability to the Manage Ship officer-assignment sort dropdown. Default: true.
+  constexpr bool restore_below_decks_assignment_sort = true;
   /// Show cargo overlay on armada targets by default. Default: true.
   constexpr bool show_armada_cargo = true;
   /// Show cargo overlay on all entities by default. Default: true.

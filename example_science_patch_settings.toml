@@ -50,8 +50,3 @@ queue_repair_enabled = false
 # Use the widget's queue-click event handler directly instead of the generic
 # button press path. Ignored unless queue_repair_enabled is true.
 queue_add_direct_handler = false
-
-[ui]
-# Restore the removed Below Deck Ability option to the Manage Ship officer-
-# assignment sort dropdown. This reuses the comparator still in the client.
-restore_below_decks_assignment_sort = false

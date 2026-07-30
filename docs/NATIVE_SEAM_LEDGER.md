@@ -58,7 +58,7 @@ This inventory records source-level seams from a static-only review. It does not
 
 ### `Digit.Prime.Officers.OfficerSortGenerators.InitializeAssignmentSorters()`
 
-- Owner / file: `mods/src/patches/parts/officer_assignment_sort_experiment.cc`
+- Owner / file: `mods/src/patches/parts/officer_assignment_sort.cc`
 - Intended question: can the removed Below Deck Ability sort in Manage Ship's Assign Officers view be restored through
   the game's existing assignment-sort generator without intercepting dropdown selection or officer payloads?
 - Static evidence: the 2026-07-30 corpus retains
@@ -67,18 +67,19 @@ This inventory records source-level seams from a static-only review. It does not
   `StandardAssignmentSortFunction` and `AddAssignmentSorter` methods.
 - Risk class: R5 behavioral.
 - Confidence rung: runtime-observed managed mutation plus human-confirmed dropdown behavior.
-- Runtime evidence: a 2026-07-30 releasedbg cycle installed the assignment hook once, borrowed the concrete comparator
-  delegate type from assignment option zero, and appended option nine. The game remained responsive and the user
-  confirmed the sort works.
+- Runtime evidence: 2026-07-30 releasedbg and release cycles installed the assignment hook once, borrowed the concrete
+  comparator delegate type from assignment option zero, and appended option nine. The release audit reported the
+  promoted `OfficerAssignmentSort` module consistent with one installed hook. The game remained responsive and the
+  user confirmed the sort works.
 - Payload confidence: no callback payload; the hook receives only the `OfficerSortGenerators` instance and operates
   after the original returns.
 - Original/trampoline confidence: observed returning successfully during client initialization.
-- Flag / rollback path: `[ui].restore_below_decks_assignment_sort`, default false; remove the single patch-table entry
-  and experiment module if the seam is unstable.
-- Status: observed at the assignment-options seam and reported functional by the user, default off. A bounded runtime
+- Flag / rollback path: `[ui].restore_below_decks_assignment_sort`, default true; set it to false or remove the single
+  patch-table entry and module if the seam is unstable.
+- Status: promoted to release-supported, default-on behavior after runtime validation. A bounded runtime
   dump established that assignment option display keys are leading-underscore suffixes; using
   `_below_deck_ability` resolves the retained assignment localization and renders `BELOW DECK ABILITY`.
-- Next action: retain the documented default-off experiment for wider artifact testing.
+- Next action: monitor normal release artifacts for future client dependency drift.
 
 ### `Digit.PrimeServer.Events.FleetEvents.TriggerPlayerFleetsChangedEvent(List<FleetPlayerData>)`
 
