@@ -8,15 +8,13 @@
 #include <spdlog/spdlog.h>
 
 #include <string>
-#include <string_view>
 
 namespace
 {
-struct OfficerSortGenerators {
-};
+struct OfficerSortGenerators;
 
-constexpr std::string_view kBelowDeckSortDisplaySuffix = "_below_deck_ability";
-constexpr std::string_view kBelowDeckSortLabel         = "Below Deck Ability";
+constexpr char kBelowDeckSortDisplaySuffix[] = "_below_deck_ability";
+constexpr char kBelowDeckSortLabel[]         = "Below Deck Ability";
 
 constexpr HookDescriptor kInitializeAssignmentSortersHook{
     "OfficerSortGenerators.InitializeAssignmentSorters",
@@ -199,7 +197,7 @@ bool AppendBelowDeckAssignmentSort(OfficerSortGenerators* generators, Il2CppObje
   }
 
   const auto* add_sorter  = OfficerSortGeneratorsHelper().GetMethodInfo("AddAssignmentSorter", 2);
-  auto*       display_key = il2cpp_string_new(kBelowDeckSortDisplaySuffix.data());
+  auto*       display_key = il2cpp_string_new(kBelowDeckSortDisplaySuffix);
   if (!add_sorter || !display_key) {
     spdlog::warn("[OfficerAssignmentSort] unable to prepare AddAssignmentSorter (method={} display_key={})",
                  add_sorter != nullptr, display_key != nullptr);
