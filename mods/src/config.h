@@ -615,6 +615,11 @@ bool RefineryDiagnosticsEnabled();
 bool AutoOpenBulkClaimGiftsEnabled();
 
 /**
+ * @brief Whether the removed Below Deck Ability Manage Ship assignment sort should be restored.
+ */
+bool OfficerBelowDeckAssignmentSortExperimentEnabled();
+
+/**
  * @brief Visibility override for one `[ui.mission_hud]` button.
  */
 MissionHudVisibility MissionHudButtonVisibility(std::string_view button_name);

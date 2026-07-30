@@ -86,6 +86,7 @@ static int                       g_sidecar_logging_jsonl_replay_seconds = DCSL::
 static int                       g_sidecar_logging_jsonl_recent_logs    = DCSL::jsonl_recent_logs;
 static bool                      g_refinery_diagnostics                 = DCAD::refinery_diagnostics;
 static bool                      g_auto_open_bulk_claim_gifts           = DCU::auto_open_bulk_claim_flyout;
+static bool                      g_restore_below_decks_assignment_sort  = DCU::restore_below_decks_assignment_sort;
 
 static std::map<std::string, MissionHudVisibility> g_mission_hud_buttons;
 
@@ -166,6 +167,9 @@ bool RefineryDiagnosticsEnabled()
 
 bool AutoOpenBulkClaimGiftsEnabled()
 { return g_auto_open_bulk_claim_gifts; }
+
+bool OfficerBelowDeckAssignmentSortExperimentEnabled()
+{ return g_restore_below_decks_assignment_sort; }
 
 MissionHudVisibility MissionHudButtonVisibility(std::string_view button_name)
 {
@@ -1362,6 +1366,9 @@ void Config::Load()
       get_config_or_default(config, parsed, "ui", "disable_toast_banners", DCU::disable_toast_banners, write_config);
   g_auto_open_bulk_claim_gifts = get_config_or_default(config, parsed, "ui", "auto_open_bulk_claim_flyout",
                                                        DCU::auto_open_bulk_claim_flyout, write_config);
+  g_restore_below_decks_assignment_sort =
+      get_config_or_default(config, parsed, "ui", "restore_below_decks_assignment_sort",
+                            DCU::restore_below_decks_assignment_sort, write_config);
 
 #if _WIN32
   this->extend_donation_slider =

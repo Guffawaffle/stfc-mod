@@ -53,6 +53,12 @@
       "rationale": "Release-supported UI visibility controls."
     },
     {
+      "id": "OfficerAssignmentSortExperiment",
+      "tier": "science",
+      "source": "mods/src/patches/parts/officer_assignment_sort_experiment.cc",
+      "rationale": "Default-off experiment that restores a removed Manage Ship assignment sort through the retained game comparator and native assignment-sort generator."
+    },
+    {
       "id": "OpenBulkClaimGiftsHooks",
       "tier": "production",
       "source": "mods/src/patches/open_bulk_claim_gifts.cc",
@@ -137,6 +143,14 @@
       "release_example_allowed": false,
       "science_example_required": true,
       "rationale": "Legacy direct-handler experiment remains isolated from normal release configuration."
+    },
+    {
+      "path": "ui.restore_below_decks_assignment_sort",
+      "tier": "science",
+      "owner": "OfficerAssignmentSortExperiment",
+      "release_example_allowed": false,
+      "science_example_required": true,
+      "rationale": "Default-off Manage Ship assignment-sort restoration experiment observed working; localization and promotion remain explicit follow-ups."
     }
   ],
   "promotion_process": {
