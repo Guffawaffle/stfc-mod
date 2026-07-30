@@ -90,14 +90,18 @@ Report back: option visibility, label rendering, selected ordering, direction be
   works.
 - Observed log/event evidence: the hook installed once, borrowed the concrete comparator delegate type from assignment
   option zero, and appended option nine.
-- Label evidence: the option currently renders the generated localization key beginning with
-  `officer_assignment_s...`; resolving that presentation defect is a separate follow-up.
+- Label evidence: the option initially rendered the generated localization key beginning with
+  `officer_assignment_s...`. A bounded runtime dump showed every existing assignment option uses a leading-underscore
+  display suffix (`_strength`, `_class`, `_ship`, and so on), while its nested `SortFunction` display key is empty.
+  Supplying `_below_deck_ability` lets the assignment widget resolve its retained
+  `officer_assignment_sort_below_deck_ability` label normally. The user confirmed the dropdown now renders
+  `BELOW DECK ABILITY`; no localization hook or post-construction field mutation is required.
 - Crash/hang/recovery notes: the game remained responsive after the hook and managed assignment-list mutation.
 - Answer to the question: yes. The retained comparator successfully produced an assignment-specific `SortFunction`,
   the game appended it to the intended options list, and the user confirmed the option works.
 
 ## Exit Decision
 
-Retain as a default-off science experiment while the localization follow-up is investigated.
+Retain as a default-off science experiment with the working localized label.
 
-Next action: determine the narrowest way to provide a localized display label without changing the working sort path.
+Next action: collect wider artifact feedback before considering promotion beyond a default-off science experiment.

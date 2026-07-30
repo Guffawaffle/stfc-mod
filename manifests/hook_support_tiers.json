@@ -150,7 +150,7 @@
       "owner": "OfficerAssignmentSortExperiment",
       "release_example_allowed": false,
       "science_example_required": true,
-      "rationale": "Default-off Manage Ship assignment-sort restoration experiment observed working; localization and promotion remain explicit follow-ups."
+      "rationale": "Default-off Manage Ship assignment-sort restoration experiment observed working with the retained assignment localization suffix; promotion remains an explicit follow-up."
     }
   ],
   "promotion_process": {

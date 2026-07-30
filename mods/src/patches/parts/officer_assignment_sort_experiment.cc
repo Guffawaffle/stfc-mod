@@ -15,8 +15,8 @@ namespace
 struct OfficerSortGenerators {
 };
 
-constexpr std::string_view kBelowDeckSortId    = "below_deck_ability";
-constexpr std::string_view kBelowDeckSortLabel = "Below Deck Ability";
+constexpr std::string_view kBelowDeckSortDisplaySuffix = "_below_deck_ability";
+constexpr std::string_view kBelowDeckSortLabel         = "Below Deck Ability";
 
 constexpr HookDescriptor kInitializeAssignmentSortersHook{
     "OfficerSortGenerators.InitializeAssignmentSorters",
@@ -81,7 +81,7 @@ bool HasBelowDeckAssignmentSort(IList* options)
     auto* display_key = *reinterpret_cast<Il2CppString**>(reinterpret_cast<char*>(option) + display_key_field.offset());
     if (display_key) {
       const auto value = to_string(display_key);
-      if (value.ends_with(kBelowDeckSortId)) {
+      if (value.ends_with(kBelowDeckSortDisplaySuffix)) {
         return true;
       }
     }
@@ -199,15 +199,15 @@ bool AppendBelowDeckAssignmentSort(OfficerSortGenerators* generators, Il2CppObje
     return false;
   }
 
-  const auto* add_sorter = OfficerSortGeneratorsHelper().GetMethodInfo("AddAssignmentSorter", 2);
-  auto*       sort_id    = il2cpp_string_new(kBelowDeckSortId.data());
-  if (!add_sorter || !sort_id) {
-    spdlog::warn("[OfficerAssignmentSortExperiment] unable to prepare AddAssignmentSorter (method={} id={})",
-                 add_sorter != nullptr, sort_id != nullptr);
+  const auto* add_sorter  = OfficerSortGeneratorsHelper().GetMethodInfo("AddAssignmentSorter", 2);
+  auto*       display_key = il2cpp_string_new(kBelowDeckSortDisplaySuffix.data());
+  if (!add_sorter || !display_key) {
+    spdlog::warn("[OfficerAssignmentSortExperiment] unable to prepare AddAssignmentSorter (method={} display_key={})",
+                 add_sorter != nullptr, display_key != nullptr);
     return false;
   }
 
-  void*            arguments[2] = {sort_id, sort_function};
+  void*            arguments[2] = {display_key, sort_function};
   Il2CppException* exception    = nullptr;
   il2cpp_runtime_invoke(add_sorter, generators, arguments, &exception);
   if (exception) {
@@ -251,8 +251,8 @@ void RestoreBelowDeckAssignmentSort(OfficerSortGenerators* generators)
     return;
   }
 
-  spdlog::info("[OfficerAssignmentSortExperiment] restored '{}' assignment sort (id='{}' options={})",
-               kBelowDeckSortLabel, kBelowDeckSortId, options->Count);
+  spdlog::info("[OfficerAssignmentSortExperiment] restored '{}' assignment sort (display_suffix='{}' options={})",
+               kBelowDeckSortLabel, kBelowDeckSortDisplaySuffix, options->Count);
 }
 
 void OfficerSortGenerators_InitializeAssignmentSorters_Hook(auto original, OfficerSortGenerators* generators)

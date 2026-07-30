@@ -75,10 +75,10 @@ This inventory records source-level seams from a static-only review. It does not
 - Original/trampoline confidence: observed returning successfully during client initialization.
 - Flag / rollback path: `[ui].restore_below_decks_assignment_sort`, default false; remove the single patch-table entry
   and experiment module if the seam is unstable.
-- Status: observed at the assignment-options seam and reported functional by the user, default off. The option still
-  renders a generated localization key instead of a friendly label.
-- Next action: investigate the label separately in
-  `docs/probes/20260730-officer-assignment-below-decks-sort.md` without changing the working assignment-sort path.
+- Status: observed at the assignment-options seam and reported functional by the user, default off. A bounded runtime
+  dump established that assignment option display keys are leading-underscore suffixes; using
+  `_below_deck_ability` resolves the retained assignment localization and renders `BELOW DECK ABILITY`.
+- Next action: retain the documented default-off experiment for wider artifact testing.
 
 ### `Digit.PrimeServer.Events.FleetEvents.TriggerPlayerFleetsChangedEvent(List<FleetPlayerData>)`
 
