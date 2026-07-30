@@ -137,6 +137,17 @@ counts and opening time before physical assembly separation.
   invalid raw editor text survives row disposal/recreation, and a visible
   hotkey still reports conflicts with commands omitted by the current search
   projection.
+- The active TOML is now loaded and committed through a document-scoped
+  `ConfigurationWorkspace` and `IConfigurationRepository`.
+  `SettingsViewModel` no longer reads configuration bytes or invokes the
+  atomic store. The workspace owns its SHA-256 baseline revision and prepares
+  one typed change set; only the TOML repository encodes those values and maps
+  them into the sparse document.
+- Repository failures leave every draft dirty and keep the saved baseline
+  revision unchanged. Optimistic conflicts preserve the external file, mark
+  the workspace stale, and leave replacement policy to the application layer.
+  Successful atomic replacement is the only path that advances the workspace
+  and edit-session baselines.
 - The catalog retains all 332 settings while exposing only player-facing
   directly editable settings to the normal workspace. Dynamic
   `sync.targets.*.*` templates remain machine-readable but are withheld until
