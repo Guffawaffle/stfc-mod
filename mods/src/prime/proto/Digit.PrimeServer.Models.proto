@@ -491,6 +491,15 @@ enum ClientModifierType {
   CLIENTMODIFIERTYPE_MODPVECHESTLOOTMULTIPLIERWOKTOKEN = 78016;
   CLIENTMODIFIERTYPE_MODM80TRANSOGENLOOT = 80002;
   CLIENTMODIFIERTYPE_MODM80TRANSOGENEPICLOOT = 80003;
+  CLIENTMODIFIERTYPE_MODCARGOCAPPING = 93100;
+  CLIENTMODIFIERTYPE_MODPROTECTEDCARGOCAPPING = 93101;
+  CLIENTMODIFIERTYPE_MODFPPOSALL = 83;
+  CLIENTMODIFIERTYPE_MODADDRANDSTATE = 221;
+  CLIENTMODIFIERTYPE_MODAPEXARMOR = 67001;
+  CLIENTMODIFIERTYPE_MODAPEXBARRIERSHRED = 76001;
+  CLIENTMODIFIERTYPE_MODCOMBATTECHNOLOGICALDISTINCTIVENESSREWARDS = 252;
+  CLIENTMODIFIERTYPE_MODAPEXISOMATTERAMOUNT = 65004;
+  CLIENTMODIFIERTYPE_MODSOLOOUTPOSTDUSTLOOT = 84004;
   CLIENTMODIFIERTYPE_MODNONE = -1000;
   CLIENTMODIFIERTYPE_SHIPDAMAGEPERROUND = -1;
   CLIENTMODIFIERTYPE_SHIPABSORPTION = -2;
@@ -2276,6 +2285,8 @@ message Attributes {
   int32 grade = 12;
   int64 moduleId = 13;
   int32 shipManagementDisplay = 14;
+  repeated int32 battleTypes = 15;
+  repeated BattleUnitState multiState = 16;
 }
 
   int64 buffId = 1;
@@ -3355,6 +3366,7 @@ enum Type {
   TYPE_GALACTICANOMALYBUFFSPECS = 8501;
   TYPE_DYNAMICGALAXYDATASYNC = 8502;
   TYPE_CROSSALLIANCEARMADAS = 87001;
+  TYPE_TRACKER = 9301;
 }
 
   Type type = 1;
@@ -5102,6 +5114,9 @@ message DisplayDynamicScrappingRewardsResponse {
 message UserProfileSettings {
   bool anonymousPurchases = 1;
   bool disabledArmadaPushNotifications = 2;
+  bool autojoinFactionEventFederation = 3;
+  bool autojoinFactionEventKlingon = 4;
+  bool autojoinFactionEventRomulan = 5;
 }
 
 message UserProfilesResponse {
@@ -5189,6 +5204,11 @@ message WaveDefenseChallengeDataResponse {
 
 message ActiveWormholesResponse {
   repeated Wormhole wormholes = 1;
+}
+
+message Tracker {
+  int32 counter = 1;
+  int32 limit = 2;
 }
 
 // Moved from stfc.proto -- needs to be here to prevent compile loops
