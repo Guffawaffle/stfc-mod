@@ -39,22 +39,26 @@
  * Intercepts the donation slider cap to allow larger donations.
  * Original method: sets the maximum slider value (hard-coded to 50 for donations).
  * Our modification: when extend_donation_slider is enabled and the caller is a
- *   donation popup with cap == 50, replaces it with the user's configured max
- *   (or returns -1 for unlimited if max <= 0).
+ *   donation popup with cap == 50, replaces it with the user's configured max.
+ *   A non-positive configured max preserves the popup's initial unlimited value.
  */
-int64_t InventoryForPopup_set_MaxItemsToUse(auto original, InventoryForPopup* a1, int64_t a2)
+void InventoryForPopup_set_MaxItemsToUse(auto original, InventoryForPopup* a1, int64_t a2)
 {
+  if (!a1) {
+    return;
+  }
+
   if (a1->IsDonationUse && a2 == 50 && Config::Get().extend_donation_slider) {
     const auto max = Config::Get().extend_donation_max;
     if (max > 0) {
       a2 = max;
     } else {
-      return -1;
+      // Leave the initial unlimited value in place instead of applying the game's donation cap.
+      return;
     }
   }
 
-  int64_t standard = original(a1, a2);
-  return standard;
+  original(a1, a2);
 }
 
 // ─── Bundle Cooldown Bypass ──────────────────────────────────────────────────
