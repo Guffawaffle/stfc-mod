@@ -186,3 +186,10 @@ message BundleStyle {
   BundleBorderShapeType borderShapeType = 1;
 }
 
+message DynamicTranslationsContainer {
+  repeated TranslationSection sections = 1;
+}
+
+message TournamentBundlesResponse {
+  repeated Bundle bundles = 1;
+}
