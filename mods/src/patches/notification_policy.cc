@@ -743,8 +743,11 @@ void notification_policy_load(const toml::table& config, toml::table& runtime_co
 void notification_policy_prepare_generated_config(toml::table& user_config)
 {
   toml::table notifications;
-  for (const auto& spec : kNotificationEventCatalog) {
-    notifications.insert_or_assign(std::string(spec.canonical_key), false);
+  for (const auto kind : kPublicNotificationKinds) {
+    const auto* spec = notification_catalog_entry(kind);
+    if (spec) {
+      notifications.insert_or_assign(std::string(spec->canonical_key), false);
+    }
   }
   user_config.insert_or_assign("notifications", std::move(notifications));
 }
@@ -811,6 +814,21 @@ std::optional<NotificationKind> notification_kind_from_toast_state(int state)
   const auto it =
       std::ranges::find_if(kNotificationEventCatalog, [state](const auto& spec) { return spec.toast_state == state; });
   return it == kNotificationEventCatalog.end() ? std::nullopt : std::optional{it->kind};
+}
+
+std::optional<NotificationKind> notification_kind_for_battle_context(int state, bool is_armada_battle,
+                                                                     bool armada_policy_enabled)
+{
+  if (is_armada_battle && armada_policy_enabled) {
+    if (state == Victory) {
+      return NotificationKind::BattleArmadaBattleWon;
+    }
+    if (state == Defeat) {
+      return NotificationKind::BattleArmadaBattleLost;
+    }
+  }
+
+  return notification_kind_from_toast_state(state);
 }
 
 const char* notification_kind_name(NotificationKind kind)

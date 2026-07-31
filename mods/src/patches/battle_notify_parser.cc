@@ -261,3 +261,23 @@ std::string battle_notify_parse(Toast* toast)
   auto bsd = build_battle_data(data);
   return bsd.format_body();
 }
+
+bool battle_notify_is_armada(Toast* toast)
+{
+  if (!toast) {
+    return false;
+  }
+
+  auto* data = toast->get_Data();
+  if (!data) {
+    return false;
+  }
+
+  bool is_armada = false;
+  if (!seh_call([&] { is_armada = reinterpret_cast<BattleResultHeader*>(data)->IsArmadaBattle; })) {
+    spdlog::warn("[Notify] SEH: IsArmadaBattle crashed");
+    return false;
+  }
+
+  return is_armada;
+}

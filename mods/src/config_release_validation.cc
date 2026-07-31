@@ -268,8 +268,11 @@ ExampleConfigValidationResult ValidateExampleConfig(const toml::table& config)
     require_path(config, path, result);
   }
 
-  for (const auto& spec : notification_event_catalog()) {
-    require_path(config, std::string("notifications.") + std::string(spec.canonical_key), result);
+  for (const auto kind : public_notification_kinds()) {
+    const auto* spec = notification_catalog_entry(kind);
+    if (spec) {
+      require_path(config, std::string("notifications.") + std::string(spec->canonical_key), result);
+    }
   }
 
   validate_input_binding_coverage(config, result);

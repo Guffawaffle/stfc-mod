@@ -22,3 +22,12 @@ struct Toast;
  * @return Formatted "Name (Ship) vs Name (Ship)" string, or empty.
  */
 std::string battle_notify_parse(Toast* toast);
+
+/**
+ * @brief Identify whether a generic victory/defeat toast describes an armada battle.
+ *
+ * Current clients retain dedicated armada toast states but produce ordinary
+ * Victory/Defeat states for armada-marauder and multi-target-armada results.
+ * Returns false when the payload is absent or cannot be read safely.
+ */
+bool battle_notify_is_armada(Toast* toast);

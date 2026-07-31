@@ -33,6 +33,46 @@ Risk classes are also defined there: R0 static, R1 passive runtime, R2 managed l
 
 ## Entries
 
+### Generic battle-result toast classification for Armada notifications
+
+- Owner / file: `mods/src/patches/notification_service.cc` and
+  `mods/src/patches/battle_notify_parser.cc`, reached through the existing
+  `ToastObserver` hooks in `mods/src/patches/parts/disable_banners.cc`.
+- Intended question: can `armada_battle_won` follow current armada result
+  production without adding another native hook or breaking the established
+  generic `victory` fallback?
+- Static evidence: the canonical 2026-07-30 corpus (`dump.cs` SHA-256
+  `0e3ab23ea6c0b7697485e45b4aaa5c8002597ed377a56854a8478c8aca89f205`)
+  retains `ToastState.ArmadaBattleWon = 18` and
+  `ToastState.ArmadaBattleLost = 19`, but current-client disassembly of
+  `ToastBattleResultObserver.CreateToastForBattle(string,
+  IBattleResultHeader)` at RVA `0x140F120` routes `BattleType.ArmadaMarauder`
+  (`8`) and `BattleType.ArmadaMta` (`11`) through the ordinary
+  `Victory`/`Defeat` (`10`/`11`) creation branch. `BattleResultHeader` exposes
+  the authoritative `IsArmadaBattle` property at RVA `0x1775FC0`.
+- Risk class: R4 native interpretation within an existing product hook.
+- Confidence rung: static relationship plus generic battle-payload runtime
+  evidence; armada-specific state correlation awaits artifact smoke.
+- Runtime evidence: retained 2026-07-30 logs show the existing
+  `BattleResultHeader` parser and `Defeat` delivery path completing
+  successfully. VIP feedback independently reports that `victory` delivers
+  while `armada_battle_won` does not, consistent with the static producer
+  relationship.
+- Payload confidence: the existing generic battle parser already reads this
+  toast payload. The new classification reads only the current
+  `BattleResultHeader.IsArmadaBattle` property under the same SEH boundary and
+  fails closed to generic routing.
+- Original/trampoline confidence: unchanged; no new hook or original call was
+  introduced.
+- Flag / rollback path: disabling `armada_battle_won` preserves the prior
+  `victory`/`defeat` selection. Removing the contextual classifier fully
+  restores the former exact-toast-state routing.
+- Status: release candidate. When the armada-specific policy is enabled it
+  specializes a generic armada result; otherwise the established generic
+  policy remains the fallback.
+- Next action: smoke an Armada victory with a production artifact and retain
+  the resulting `battle.armada_battle_won` queue/delivery evidence.
+
 ### Static Inventory Snapshot - 2026-05-23
 
 This inventory records source-level seams from a static-only review. It does not claim new runtime observation, payload confidence, original/trampoline confidence, or product-safe status. "Operationally relied on" below means the seam is part of current product code paths; it is not a new confidence rung and is not evidence from this pass.

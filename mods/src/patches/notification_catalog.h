@@ -298,8 +298,35 @@ static_assert([] {
   return true;
 }());
 
+// The complete catalog remains available for compatibility and private
+// experiments, but fresh/generated configs advertise only this explicitly
+// release-supported surface.
+inline constexpr std::array kPublicNotificationKinds{
+    NotificationKind::BattleVictory,         NotificationKind::BattleDefeat,
+    NotificationKind::BattleArmadaBattleWon, NotificationKind::ArmadaCreated,
+    NotificationKind::FleetArrivedInSystem,  NotificationKind::FleetNodeDepleted,
+    NotificationKind::FleetRepairComplete,
+};
+
+static_assert([] {
+  for (size_t index = 0; index < kPublicNotificationKinds.size(); ++index) {
+    if (static_cast<size_t>(kPublicNotificationKinds[index]) >= kNotificationKindCount) {
+      return false;
+    }
+    for (size_t other = index + 1; other < kPublicNotificationKinds.size(); ++other) {
+      if (kPublicNotificationKinds[index] == kPublicNotificationKinds[other]) {
+        return false;
+      }
+    }
+  }
+  return true;
+}());
+
 inline constexpr std::span<const NotificationEventCatalogEntry> notification_event_catalog()
 { return kNotificationEventCatalog; }
+
+inline constexpr std::span<const NotificationKind> public_notification_kinds()
+{ return kPublicNotificationKinds; }
 
 inline constexpr const NotificationEventCatalogEntry* notification_catalog_entry(const NotificationKind kind)
 {
