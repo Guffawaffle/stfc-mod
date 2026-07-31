@@ -678,6 +678,11 @@ always_skip_reveal_sequence = true
 # This opens the flyout only; it does not claim gifts or press claim-all.
 auto_open_bulk_claim_flyout = false
 
+# Restore the Below Deck Ability option to the Manage Ship officer-assignment
+# sort dropdown. Enabled by default; set false as a rollback if a future game
+# update removes one of the retained assignment-sort dependencies.
+restore_below_decks_assignment_sort = true
+
 # Prevent "escape" from prompting to exit the game
 disable_escape_exit = true
 
@@ -722,7 +727,7 @@ disable_veil_chat = false
 # Subgroup: Donations
 # -------------------
 
-# Extend donation slider to max value for next Alliance level
+# Extend donation slider to max value for next Alliance level; set to 0 for unlimited
 extend_donation_max = 80
 
 # Extend donation slider enable

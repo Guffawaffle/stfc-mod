@@ -56,6 +56,31 @@ This inventory records source-level seams from a static-only review. It does not
 | `live_debug_tick(ScreenManager*)` | `mods/src/patches/parts/live_debug.cc`, reached through the frame tick subscriber when live query is enabled | File-backed live-debug request polling and read-only response generation | R4 native interpretation | Static relationship mapped; gated by `LiveDebugChannelEnabled()`; not newly runtime-verified by this pass. |
 | `probe::dump_*` / `probe::search_methods` | `mods/src/probe/probe.h` | Header-only IL2CPP runtime introspection toolkit | R0 while unused; R3/R4 if invoked in-process | Static toolkit only in this inventory. No active call site was found in the reviewed patch surface; do not treat it as a safe runtime probe without a separate ledger row and approval. |
 
+### `Digit.Prime.Officers.OfficerSortGenerators.InitializeAssignmentSorters()`
+
+- Owner / file: `mods/src/patches/parts/officer_assignment_sort.cc`
+- Intended question: can the removed Below Deck Ability sort in Manage Ship's Assign Officers view be restored through
+  the game's existing assignment-sort generator without intercepting dropdown selection or officer payloads?
+- Static evidence: the 2026-07-30 corpus retains
+  `SortingPredicates.OfficerSortByBelowDeckAbilityAscending(object, object)`, while the prior corpus contained
+  `_assignBelowDeckAbilityId`. The current `OfficerSortGenerators` still exposes private
+  `StandardAssignmentSortFunction` and `AddAssignmentSorter` methods.
+- Risk class: R5 behavioral.
+- Confidence rung: runtime-observed managed mutation plus human-confirmed dropdown behavior.
+- Runtime evidence: 2026-07-30 releasedbg and release cycles installed the assignment hook once, borrowed the concrete
+  comparator delegate type from assignment option zero, and appended option nine. The release audit reported the
+  promoted `OfficerAssignmentSort` module consistent with one installed hook. The game remained responsive and the
+  user confirmed the sort works.
+- Payload confidence: no callback payload; the hook receives only the `OfficerSortGenerators` instance and operates
+  after the original returns.
+- Original/trampoline confidence: observed returning successfully during client initialization.
+- Flag / rollback path: `[ui].restore_below_decks_assignment_sort`, default true; set it to false or remove the single
+  patch-table entry and module if the seam is unstable.
+- Status: promoted to release-supported, default-on behavior after runtime validation. A bounded runtime
+  dump established that assignment option display keys are leading-underscore suffixes; using
+  `_below_deck_ability` resolves the retained assignment localization and renders `BELOW DECK ABILITY`.
+- Next action: monitor normal release artifacts for future client dependency drift.
+
 ### `Digit.PrimeServer.Events.FleetEvents.TriggerPlayerFleetsChangedEvent(List<FleetPlayerData>)`
 
 - Former owner / file: release canary in `FleetArrivalHooks`, removed from `mods/src/patches/parts/fleet_arrival.cc`.
