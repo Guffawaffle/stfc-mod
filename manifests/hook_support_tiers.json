@@ -53,6 +53,12 @@
       "rationale": "Release-supported UI visibility controls."
     },
     {
+      "id": "OfficerAssignmentSort",
+      "tier": "production",
+      "source": "mods/src/patches/parts/officer_assignment_sort.cc",
+      "rationale": "Release-supported restoration of the localized Manage Ship Below Deck Ability assignment sort through retained game behavior."
+    },
+    {
       "id": "OpenBulkClaimGiftsHooks",
       "tier": "production",
       "source": "mods/src/patches/open_bulk_claim_gifts.cc",
@@ -137,6 +143,14 @@
       "release_example_allowed": false,
       "science_example_required": true,
       "rationale": "Legacy direct-handler experiment remains isolated from normal release configuration."
+    },
+    {
+      "path": "ui.restore_below_decks_assignment_sort",
+      "tier": "production",
+      "owner": "OfficerAssignmentSort",
+      "release_example_allowed": true,
+      "science_example_required": false,
+      "rationale": "Release-supported and default-on Manage Ship assignment-sort restoration with an explicit rollback switch."
     }
   ],
   "promotion_process": {
