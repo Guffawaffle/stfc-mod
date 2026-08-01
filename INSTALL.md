@@ -78,7 +78,16 @@ that the parse value of that setting was correctly applied. You may also need to
 
 - `C:\Games\Star Trek Fleet Command\Star Trek Fleet Command\default\game`
 
-Installation of the Community Mod is a manual process for Windows (or Wine).
+For Windows 10/11 x64, the preferred fork path is the signed
+`stfc-community-mod-launcher-win-x64.zip` release asset. Extract it, verify that
+Windows reports **Joseph Gustavson** as the signer for both executables, then
+run `Install-Launcher.ps1` from PowerShell. Add `-DesktopShortcut` if desired.
+The script installs per-user without elevation, creates a Start menu shortcut,
+and starts the launcher. The launcher discovers STFC, explicitly adopts an
+existing manual DLL when requested, and provides verified install/update,
+configuration, launch handoff, repair/removal, diagnostics, and self-update.
+
+The manual DLL path remains fully supported on Windows and Wine:
 
 1. Download either the `stfc-community-mod.zip` file and extract `version.dll`, or download the `version.dll` asset directly from this fork's [releases page](https://github.com/Guffawaffle/stfc-mod/releases).
 
