@@ -33,6 +33,8 @@ void notification_policy_write_runtime_snapshot(toml::table& runtime_config);
 [[nodiscard]] bool                      notification_policy_any_audio_enabled();
 [[nodiscard]] bool notification_policy_delivery_equivalent(NotificationKind left, NotificationKind right);
 [[nodiscard]] std::optional<NotificationKind>  notification_kind_from_toast_state(int state);
+[[nodiscard]] std::optional<NotificationKind>  notification_kind_for_battle_context(int state, bool is_armada_battle,
+                                                                                    bool armada_policy_enabled);
 [[nodiscard]] const char*                      notification_kind_name(NotificationKind kind);
 [[nodiscard]] const char*                      notification_canonical_key(NotificationKind kind);
 [[nodiscard]] const char*                      notification_sound_name(NotificationSound sound);

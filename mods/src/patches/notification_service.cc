@@ -840,12 +840,21 @@ void notification_handle_generic_toast(Toast* toast, int state, const char* titl
 #elif STFCMOD_PLATFORM_OTHER
   return; // No notification delivery on unsupported non-Windows platforms yet
 #else
-  const auto kind = notification_kind_from_toast_state(state);
+  const auto armada_kind           = state == Victory  ? std::optional{NotificationKind::BattleArmadaBattleWon}
+                                     : state == Defeat ? std::optional{NotificationKind::BattleArmadaBattleLost}
+                                                       : std::nullopt;
+  const auto armada_policy_enabled = armada_kind.has_value() && notification_delivery_enabled(armada_kind.value());
+  const auto is_armada_battle      = armada_policy_enabled && battle_notify_is_armada(toast);
+  const auto kind = notification_kind_for_battle_context(state, is_armada_battle, armada_policy_enabled);
   if (!kind.has_value() || !notification_delivery_enabled(kind.value())) {
     return;
   }
 
-  if (!title) {
+  const auto* selected_spec  = notification_catalog_entry(kind.value());
+  const auto* selected_title = is_armada_battle && selected_spec
+                                   ? notification_toast_title(selected_spec->toast_state)
+                                   : title;
+  if (!selected_title) {
     if (AdvancedDiagnosticsSettings().notification_skip_logging) {
       spdlog::debug("[Notify] No title mapping for toast state {}, skipping", state);
     }
@@ -868,7 +877,7 @@ void notification_handle_generic_toast(Toast* toast, int state, const char* titl
     }
   }
 
-  spdlog::debug("[Notify] {} — {}", title, body);
-  notification_emit(kind.value(), title, body.c_str());
+  spdlog::debug("[Notify] {} — {}", selected_title, body);
+  notification_emit(kind.value(), selected_title, body.c_str());
 #endif
 }

@@ -579,7 +579,7 @@ notify_banner_types = "IncomingAttack"
         runtime["notifications"]["provenance"]["incoming_attack_player"]["ignored_sources_truncated"].value_or(false));
   }
 
-  TEST_CASE("fresh generated notification config contains only canonical disabled events")
+  TEST_CASE("fresh generated notification config contains only public supported disabled events")
   {
     toml::table generated;
     generated.insert_or_assign("notifications", toml::table{{"notifications_enabled", true}});
@@ -588,12 +588,15 @@ notify_banner_types = "IncomingAttack"
 
     const auto* notifications = generated["notifications"].as_table();
     REQUIRE(notifications != nullptr);
-    CHECK(notifications->size() == notification_event_catalog().size());
-    for (const auto& spec : notification_event_catalog()) {
-      const auto* node = notifications->get(spec.canonical_key);
+    CHECK(notifications->size() == public_notification_kinds().size());
+    for (const auto kind : public_notification_kinds()) {
+      const auto* spec = notification_catalog_entry(kind);
+      REQUIRE(spec != nullptr);
+      const auto* node = notifications->get(spec->canonical_key);
       REQUIRE(node != nullptr);
       CHECK(node->value<bool>().value_or(true) == false);
     }
+    CHECK_FALSE(notifications->contains("partial_victory"));
     CHECK_FALSE(notifications->contains("notifications_enabled"));
     CHECK_FALSE(notifications->contains("system"));
     CHECK_FALSE(notifications->contains("audio"));

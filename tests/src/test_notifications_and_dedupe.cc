@@ -74,6 +74,28 @@ TEST_SUITE("bounded_ttl_deduper")
 
 TEST_SUITE("notification_toast_policy")
 {
+  TEST_CASE("enabled armada policy specializes generic battle result states")
+  {
+    CHECK(notification_kind_for_battle_context(Victory, true, true)
+          == std::optional{NotificationKind::BattleArmadaBattleWon});
+    CHECK(notification_kind_for_battle_context(Defeat, true, true)
+          == std::optional{NotificationKind::BattleArmadaBattleLost});
+  }
+
+  TEST_CASE("generic victory and defeat remain fallback policies")
+  {
+    CHECK(notification_kind_for_battle_context(Victory, false, true) == std::optional{NotificationKind::BattleVictory});
+    CHECK(notification_kind_for_battle_context(Defeat, false, true) == std::optional{NotificationKind::BattleDefeat});
+    CHECK(notification_kind_for_battle_context(Victory, true, false) == std::optional{NotificationKind::BattleVictory});
+    CHECK(notification_kind_for_battle_context(Defeat, true, false) == std::optional{NotificationKind::BattleDefeat});
+  }
+
+  TEST_CASE("non-battle toast routing is unchanged by armada context")
+  {
+    CHECK(notification_kind_for_battle_context(ArmadaCreated, true, true)
+          == std::optional{NotificationKind::ArmadaCreated});
+  }
+
   TEST_CASE("v1.1.4 toast states have distinct configurable event identities")
   {
     const std::array cases{

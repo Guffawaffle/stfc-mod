@@ -151,10 +151,10 @@ notification, or use an inline table when you also want audio:
 [notifications]
 victory = true
 defeat = true
+armada_battle_won = true
+armada_battle_lost = true
 armada_created = true
-armada_canceled = true
 fleet_arrived_in_system = true
-fleet_arrived_at_destination = true
 fleet_node_depleted = true
 fleet_repair_complete = true
 ```
@@ -171,7 +171,6 @@ default sound:
 ```toml
 [notifications]
 fleet_arrived_in_system = { system = true, audio = true, sound = "arrival" }
-fleet_started_mining = { system = false, audio = true, sound = "ping" }
 fleet_node_depleted = { system = true, audio = true, sound = "warning" }
 fleet_repair_complete = { system = false, audio = true, sound = "repair" }
 ```

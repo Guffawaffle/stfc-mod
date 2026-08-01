@@ -58,6 +58,7 @@ public:
   __declspec(property(get = __get_PlayerShipHullId)) long PlayerShipHullId;
   __declspec(property(get = __get_EnemyShipHullId)) long EnemyShipHullId;
   __declspec(property(get = __get_BattleType)) BattleType Type;
+  __declspec(property(get = __get_IsArmadaBattle)) bool IsArmadaBattle;
 
   Il2CppObject* get_PlayerUserProfile()
   {
@@ -101,5 +102,11 @@ public:
   {
     static auto property = get_class_helper().GetProperty("BattleType");
     return *property.Get<BattleType>(this);
+  }
+
+  bool __get_IsArmadaBattle()
+  {
+    static auto property = get_class_helper().GetProperty("IsArmadaBattle");
+    return *property.Get<bool>(this);
   }
 };

@@ -232,78 +232,18 @@ fr_scale = 2.0
 # Deprecated notification keys and nested tables remain accepted through 2.x and
 # are scheduled for removal in 3.0.0.
 
-# Battle notifications (fully parsed with player/ship detail)
+# Release-supported battle notifications
 victory = false
 defeat = false
-partial_victory = false
-station_victory = false
-station_defeat = false
-station_battle = false
-incoming_attack_player = false
-incoming_attack_hostile = false
-fleet_battle = false
 armada_battle_won = false
 armada_battle_lost = false
-assault_victory = false
-assault_defeat = false
 
-# Armada notifications (parsed with alliance/owner detail)
+# Release-supported Armada notifications
 armada_created = false
-armada_canceled = false
 
-# Event notifications (best-effort text resolution)
-tournament = false
-chained_event_scored = false
-
-# Toast-backed notifications that may expose generic or placeholder text
-standard = false
-faction_warning = false
-faction_level_up = false
-faction_level_down = false
-faction_discovered = false
-armada_incoming_attack = false
-diplomacy_updated = false
-joined_takeover = false
-competitor_joined_takeover = false
-abandoned_territory = false
-takeover_victory = false
-takeover_defeat = false
-treasury_progress = false
-treasury_full = false
-achievement = false
-challenge_complete = false
-challenge_failed = false
-strike_hit = false
-strike_defeat = false
-warchest_progress = false
-warchest_full = false
-arena_time_left = false
-fleet_preset_applied = false
-surge_warmup_ended = false
-surge_hostile_group_defeated = false
-surge_time_left = false
-queue_for_lease_activated = false
-queue_for_lease_expired = false
-permanent_queue_purchased = false
-outpost_started_or_ended = false
-cross_alliance_armada_victory = false
-cross_alliance_armada_defeat = false
-cross_alliance_armada_partial_victory = false
-faction_weekly_events_progress = false
-faction_weekly_events_complete = false
-armada_player_blocked = false
-armada_player_unblocked = false
-dynamic_crisis_update = false
-dynamic_crisis_failed = false
-dynamic_crisis_completed = false
-galactic_anomaly_system_entered = false
-
-# Fleet-state derived notifications
+# Release-supported fleet-state notifications
 fleet_arrived_in_system = false
-fleet_arrived_at_destination = false
-fleet_started_mining = false
 fleet_node_depleted = false
-fleet_docked = false
 fleet_repair_complete = false
 
 #  <[=====================================================]>

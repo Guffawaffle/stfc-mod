@@ -9,6 +9,11 @@ canonical root key and fallback sound. `notification_policy.cc` resolves the
 canonical `false` / `true` / inline-table value or, when no canonical value is
 present, the deprecated compatibility inputs.
 
+The complete catalog is a compatibility and research surface. The smaller
+`kPublicNotificationKinds` allowlist owns which release-supported events appear
+in release examples and fresh generated configs. Adding a catalog entry does
+not promote it to that public surface.
+
 Notification producers consume only the resolved event policy. The old system
 and audio masters are compatibility gates for deprecated inputs and must not be
 checked in producer or delivery code.

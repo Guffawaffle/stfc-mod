@@ -63,6 +63,8 @@
 
 ### Fixes
 
+- Routed generic Armada victory and defeat results through their dedicated
+  notification policies while preserving generic battle fallbacks
 - Repaired mission HUD visibility controls against the current game UI: Q Trials,
   Field Training, Outposts, and Missions again honor `always`/`auto`/`never`;
   the removed Daily Goals HUD button setting is now ignored with a warning
