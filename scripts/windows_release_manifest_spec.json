@@ -53,7 +53,7 @@
       "kind": "windows-launcher-setup",
       "platform": "windows",
       "architecture": "x64",
-      "sourcePath": "stfc-community-mod-launcher-win-x64/setup/STFCCommunityMod.Launcher.Setup.exe",
+      "sourcePath": "stfc-community-mod-launcher-setup-win-x64/STFCCommunityMod.Launcher.Setup.exe",
       "fileName": "STFCCommunityMod.Launcher.Setup.exe",
       "mediaType": "application/vnd.microsoft.portable-executable",
       "authenticity": {
