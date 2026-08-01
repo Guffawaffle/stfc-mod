@@ -15,6 +15,7 @@ Every release-supported event has one meaningful root key:
 [notifications]
 victory = true
 armada_battle_won = { system = true, audio = true, sound = "success" }
+armada_battle_lost = { system = true, audio = true, sound = "warning" }
 armada_created = false
 fleet_arrived_in_system = { system = true, audio = true, sound = "arrival" }
 fleet_repair_complete = true

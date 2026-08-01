@@ -303,9 +303,9 @@ static_assert([] {
 // release-supported surface.
 inline constexpr std::array kPublicNotificationKinds{
     NotificationKind::BattleVictory,         NotificationKind::BattleDefeat,
-    NotificationKind::BattleArmadaBattleWon, NotificationKind::ArmadaCreated,
-    NotificationKind::FleetArrivedInSystem,  NotificationKind::FleetNodeDepleted,
-    NotificationKind::FleetRepairComplete,
+    NotificationKind::BattleArmadaBattleWon, NotificationKind::BattleArmadaBattleLost,
+    NotificationKind::ArmadaCreated,         NotificationKind::FleetArrivedInSystem,
+    NotificationKind::FleetNodeDepleted,     NotificationKind::FleetRepairComplete,
 };
 
 static_assert([] {

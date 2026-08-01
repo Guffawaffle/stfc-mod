@@ -38,9 +38,9 @@ Risk classes are also defined there: R0 static, R1 passive runtime, R2 managed l
 - Owner / file: `mods/src/patches/notification_service.cc` and
   `mods/src/patches/battle_notify_parser.cc`, reached through the existing
   `ToastObserver` hooks in `mods/src/patches/parts/disable_banners.cc`.
-- Intended question: can `armada_battle_won` follow current armada result
-  production without adding another native hook or breaking the established
-  generic `victory` fallback?
+- Intended question: can `armada_battle_won` and `armada_battle_lost` follow
+  current armada result production without adding another native hook or
+  breaking the established generic `victory`/`defeat` fallbacks?
 - Static evidence: the canonical 2026-07-30 corpus (`dump.cs` SHA-256
   `0e3ab23ea6c0b7697485e45b4aaa5c8002597ed377a56854a8478c8aca89f205`)
   retains `ToastState.ArmadaBattleWon = 18` and
@@ -51,27 +51,31 @@ Risk classes are also defined there: R0 static, R1 passive runtime, R2 managed l
   `Victory`/`Defeat` (`10`/`11`) creation branch. `BattleResultHeader` exposes
   the authoritative `IsArmadaBattle` property at RVA `0x1775FC0`.
 - Risk class: R4 native interpretation within an existing product hook.
-- Confidence rung: static relationship plus generic battle-payload runtime
-  evidence; armada-specific state correlation awaits artifact smoke.
+- Confidence rung: state-correlated for both Armada victory and defeat.
 - Runtime evidence: retained 2026-07-30 logs show the existing
   `BattleResultHeader` parser and `Defeat` delivery path completing
-  successfully. VIP feedback independently reports that `victory` delivers
-  while `armada_battle_won` does not, consistent with the static producer
-  relationship.
+  successfully. On 2026-07-31, an Armada victory on the release build logged
+  `source=battle.armada_battle_won title='Armada Victory!'`, played the
+  configured Armada audio policy, flushed and displayed the parsed battle
+  summary, and requested the WinRT notification. The human confirmed that the
+  notification appeared. A separate Armada defeat smoke on the same release
+  build also produced the configured `armada_battle_lost` notification and
+  warning audio.
 - Payload confidence: the existing generic battle parser already reads this
   toast payload. The new classification reads only the current
   `BattleResultHeader.IsArmadaBattle` property under the same SEH boundary and
   fails closed to generic routing.
 - Original/trampoline confidence: unchanged; no new hook or original call was
   introduced.
-- Flag / rollback path: disabling `armada_battle_won` preserves the prior
-  `victory`/`defeat` selection. Removing the contextual classifier fully
-  restores the former exact-toast-state routing.
-- Status: release candidate. When the armada-specific policy is enabled it
-  specializes a generic armada result; otherwise the established generic
-  policy remains the fallback.
-- Next action: smoke an Armada victory with a production artifact and retain
-  the resulting `battle.armada_battle_won` queue/delivery evidence.
+- Flag / rollback path: disabling the matching `armada_battle_won` or
+  `armada_battle_lost` policy preserves the prior `victory`/`defeat` selection.
+  Removing the contextual classifier fully restores the former exact-toast-state
+  routing.
+- Status: Armada victory and defeat are release-promoted and runtime-validated.
+  When the matching Armada policy is enabled it specializes a generic Armada
+  result; otherwise the established generic policy remains the fallback.
+- Next action: revalidate the classifier after relevant battle-result producer
+  or `BattleResultHeader` changes.
 
 ### Standard Recruit custom-quantity submission and failure callbacks
 

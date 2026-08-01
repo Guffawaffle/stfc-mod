@@ -152,6 +152,7 @@ notification, or use an inline table when you also want audio:
 victory = true
 defeat = true
 armada_battle_won = true
+armada_battle_lost = true
 armada_created = true
 fleet_arrived_in_system = true
 fleet_node_depleted = true

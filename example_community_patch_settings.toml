@@ -236,6 +236,7 @@ fr_scale = 2.0
 victory = false
 defeat = false
 armada_battle_won = false
+armada_battle_lost = false
 
 # Release-supported Armada notifications
 armada_created = false

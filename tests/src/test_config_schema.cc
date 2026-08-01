@@ -597,7 +597,6 @@ notify_banner_types = "IncomingAttack"
       CHECK(node->value<bool>().value_or(true) == false);
     }
     CHECK_FALSE(notifications->contains("partial_victory"));
-    CHECK_FALSE(notifications->contains("armada_battle_lost"));
     CHECK_FALSE(notifications->contains("notifications_enabled"));
     CHECK_FALSE(notifications->contains("system"));
     CHECK_FALSE(notifications->contains("audio"));

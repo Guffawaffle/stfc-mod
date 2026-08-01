@@ -145,7 +145,6 @@ TEST_CASE("example config exposes only the public supported notification event s
   }
 
   CHECK_FALSE(notifications->contains("partial_victory"));
-  CHECK_FALSE(notifications->contains("armada_battle_lost"));
   CHECK_FALSE(notifications->contains("standard"));
   CHECK(source.find("notifications_enabled") == std::string::npos);
   CHECK(source.find("notifications_audio_enabled") == std::string::npos);

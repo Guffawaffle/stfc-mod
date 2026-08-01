@@ -63,6 +63,8 @@
 
 ### Fixes
 
+- Routed generic Armada victory and defeat results through their dedicated
+  notification policies while preserving generic battle fallbacks
 - Added a Windows modifier-state fallback for Shift/Ctrl/Alt so `ALT-*` chords
   do not fall through as plain keys when Unity drops the modifier state
 - Fixed `Key::HasAlt()` checking RightShift instead of RightAlt
