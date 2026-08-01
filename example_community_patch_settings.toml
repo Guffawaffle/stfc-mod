@@ -715,6 +715,15 @@ disabled_banner_types = ""
 # Legacy [ui].notify_on_banner_types / notify_banner_types keys are still
 # accepted for migration from older configs, but they are not documented here.
 
+# Subgroup: Chest Purchases
+# -------------------------
+
+# Maximum quantity exposed by custom chest-purchase sliders on Windows (0-160).
+# Set to 0 to use the game's native ceiling. Two recruit chests accepted 160
+# and rejected 161. Larger configured values are clamped; a larger native
+# ceiling is never lowered.
+extend_chest_purchase_max = 160
+
 # Subgroup: Chat
 # --------------
 
