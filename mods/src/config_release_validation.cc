@@ -116,6 +116,7 @@ namespace
       "ui.disable_veil_chat",
       "ui.disabled_banner_types",
       "ui.escape_exit_timer",
+      "ui.extend_chest_purchase_max",
       "ui.extend_donation_max",
       "ui.extend_donation_slider",
       "ui.mission_hud.daily_goals",

@@ -73,6 +73,93 @@ Risk classes are also defined there: R0 static, R1 passive runtime, R2 managed l
 - Next action: smoke an Armada victory with a production artifact and retain
   the resulting `battle.armada_battle_won` queue/delivery evidence.
 
+### Standard Recruit custom-quantity submission and failure callbacks
+
+- Owner / file: completed temporary discovery record in
+  `docs/probes/20260730-standard-recruit-transaction-limit-discovery.md`.
+- Intended question: is the observed Standard Recruit inclusive ceiling of 160 present in client-visible bundle,
+  feature-config, request, or failure data?
+- Static evidence: the client-side feature-config method returns a generic/faction custom-quantity cap or fallback
+  50. Disassembly of the showcase and shop-manager request path forwards quantity without comparing it to 160. The
+  named generated `Bundle` fields expose purchase state and custom-quantity eligibility but no maximum custom
+  quantity.
+- Risk class: R2 managed log-only.
+- Confidence rung: payload understood.
+- Runtime evidence: the submission detour logged quantity 161 and Standard Recruit bundle ID `145512548`; its named
+  metadata exposed no maximum. Neither premium-purchase failure callback executed; the common loot-chest failure
+  handler captured both 161 and 520 as platform error 24, `InvalidBundleQuantity`, with message
+  `Can not purchase chosen quantity`. HTTP code, category, transaction ID, and request URL were empty, and no accepted
+  maximum was present. Human tests remain authoritative for the observed 159/160 success and 161 failure boundary.
+- Payload confidence: typed managed submission and loot-chest failure parameters; code 24 maps directly to the
+  current-client `PlatformError.ReponseCodes.InvalidBundleQuantity` enum.
+- Original/trampoline confidence: both retained probe seams executed and called their originals once with unchanged
+  arguments.
+- Flag / rollback path: temporary descriptors, detours, install blocks, and manifest module removed after capture.
+- Status: completed discovery evidence, not a feature or release surface.
+- Next action: revalidate the empirical boundary after relevant game updates or test a materially different
+  non-recruit chest category; do not infer a universal maximum from recruit chests.
+
+### Runtime Unity UI composition from `InventoryUseRowWidget.SetWidgetData()`
+
+- Owner / file: completed temporary capability proof recorded in
+  `docs/probes/20260730-runtime-unity-ui-injection.md`.
+- Intended question: can the injected mod compose a visible, arbitrarily positioned text object on an active game
+  canvas using the current client's Unity UI runtime?
+- Static evidence: the current corpus exposes `UnityEngine.Object.Instantiate(Object, Transform, bool)`,
+  `GameObject.GetComponent(Type)`, `Transform` parenting/sibling methods, `RectTransform` layout setters,
+  `TextLocalizer.OverrideLocalizedText(string)`, and `TMP_Text.set_fontSize(float)`. An existing popup-owned text
+  object supplies a compatible font, material, and renderer.
+- Risk class: R5 behavioral.
+- Confidence rung: runtime observed.
+- Runtime evidence: on 2026-07-30, a Windows release build cloned the Standard Recruit popup's amount text object,
+  reparented and centered it on the active root canvas, and displayed mod-authored purple-backed text. The human
+  supplied a screenshot confirming the visible result; the runtime logged
+  `[ChestPurchaseSlider] displayed experimental-limit in-game notice`.
+- Payload confidence: understood only for the tested popup-owned `TextLocalizer`, widget, and canvas relationship.
+- Original/trampoline confidence: the already registered chest-row detour returned successfully before composition;
+  the proof added no new detour.
+- Flag / rollback path: the prototype composition path was removed after its visual proof; only the evidence record
+  remains.
+- Status: ability proven possible in the current client, explicitly not product-safe. Object lifecycle, managed
+  rooting, scene/canvas replacement, deduplication, scaling, clipping, layering, raycast/input behavior, copied
+  component side effects, UI-thread assumptions, and future symbol drift remain unproven.
+- Next action: define and validate a bounded lifecycle contract before generalizing this into a reusable mod UI
+  service or shipping any screen element based on it.
+
+### `Digit.Prime.Inventories.InventoryUseRowWidget.SetWidgetData()`
+
+- Owner / file: release-supported bounded patch in `mods/src/patches/parts/misc.cc`; probe record in
+  `docs/probes/20260730-chest-purchase-slider-extension.md`.
+- Intended question: can the client-side quantity ceiling for explicitly tagged chest-purchase rows be raised
+  without changing donation, artifact-conversion, or ordinary inventory-use sliders?
+- Static evidence: the 2026-07-30 corpus retains `InventoryUseRowWidget.SetWidgetData()` at RVA `0x11A2890`,
+  `InventoryForPopup.IsChestPurchase` at offset `0x90`, and `InventoryForPopup.MaxItemsToUse` at offset `0x20`.
+  `InventoryManager.GetChestsMaxPurchaseCustomQuantity()` selects a generic or faction-store feature-config ceiling
+  and falls back to 50. Current-client disassembly shows the row renderer checking the chest tag after the context's
+  ceiling has been assigned, making this narrower than any global slider mutation.
+- Risk class: R5 behavioral.
+- Confidence rung: state-correlated.
+- Runtime evidence: a 2026-07-30 Windows release cycle resolved and installed the single hook
+  (`installed=1 failed=0 skipped=0 total=1`) and the client completed boot without a seam-related crash. An eligible
+  custom-quantity chest then logged `[ChestPurchaseSlider] extended quantity ceiling from 50 to 123`, and the human
+  confirmed that the rendered slider reached 123 without confirming a purchase. A later release cycle at the final
+  `0 = disabled` contract reported `installed=0 failed=0 skipped=1 total=1`, after which restoring 999 installed the
+  hook again and the same tagged row logged `[ChestPurchaseSlider] extended quantity ceiling from 50 to 999`.
+- Payload confidence: typed managed widget and typed `InventoryForPopup` context only; no opaque callback payload.
+- Original/trampoline confidence: observed returning successfully for the tested tagged chest row after the guarded
+  context adjustment.
+- Config / rollback path: `[ui].extend_chest_purchase_max`, Windows-only and default 160. Set it to 0 to skip the
+  hook and retain native behavior. Values from 1 through 160 are exposed and larger configured values clamp to 160.
+  A future native ceiling above the configured value wins and emits an explicit diagnostic.
+- End-to-end boundary: a Standard Recruit Chest purchase at 999 was rejected with the game's generic
+  purchase-failure dialog, while follow-up tests succeeded at 159 and 160 and failed at 161 despite sufficient claim
+  resources. Discovery logging captured the loot-chest service rejection as platform error 24,
+  `InvalidBundleQuantity`, with no maximum in its payload. A different recruit chest subsequently accepted 160 and
+  rejected 161 as well. This establishes a repeated empirical recruit-chest boundary, not a universal or
+  client-discoverable limit.
+- Status: runtime-observed, state-correlated, and release-promoted with a configurable, enforced 0-160 UI ceiling.
+- Next action: revalidate after relevant game updates or test a materially different non-recruit chest category.
+
 ### Static Inventory Snapshot - 2026-05-23
 
 This inventory records source-level seams from a static-only review. It does not claim new runtime observation, payload confidence, original/trampoline confidence, or product-safe status. "Operationally relied on" below means the seam is part of current product code paths; it is not a new confidence rung and is not evidence from this pass.

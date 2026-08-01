@@ -218,6 +218,9 @@ This project is maintained solely at my own cost of time, energy and money. Any 
 - Enable/Disable hotkeys (community mod or scopely)
 - Let unhandled hotkeys fall through to the game's original input path
 - Enable extended donation slider (alliance)
+- Extend tagged custom chest-purchase sliders up to the verified ceiling of 160 on Windows
+  (`[ui].extend_chest_purchase_max`; `0` disables). Two recruit chests accepted 160 and rejected 161; oversized
+  configured values are clamped, while a higher native game ceiling is preserved.
 - Fleet-bar arrival notifications for player ships
 - In-game audio cues for notification events
 - Show alternative cargo screens for:

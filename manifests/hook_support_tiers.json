@@ -34,6 +34,12 @@
       "rationale": "Release-supported fleet-state, arrival, mining, and incoming-attack notification hooks."
     },
     {
+      "id": "ChestPurchaseSliderHooks",
+      "tier": "production",
+      "source": "mods/src/patches/parts/misc.cc",
+      "rationale": "Release-supported Windows quantity extension scoped to InventoryForPopup rows explicitly tagged as chest purchases; two recruit chests accepted the enforced UI ceiling of 160 and rejected 161."
+    },
+    {
       "id": "HotkeyHooks",
       "tier": "production",
       "source": "mods/src/patches/parts/hotkeys.cc",
@@ -143,6 +149,14 @@
       "release_example_allowed": false,
       "science_example_required": true,
       "rationale": "Legacy direct-handler experiment remains isolated from normal release configuration."
+    },
+    {
+      "path": "ui.extend_chest_purchase_max",
+      "tier": "production",
+      "owner": "ChestPurchaseSliderHooks",
+      "release_example_allowed": true,
+      "science_example_required": false,
+      "rationale": "Release-supported Windows-only 0-160 ceiling for tagged chest-purchase quantity sliders; larger configured values clamp to 160, non-positive values disable the hook, and higher native ceilings are retained."
     },
     {
       "path": "ui.restore_below_decks_assignment_sort",
