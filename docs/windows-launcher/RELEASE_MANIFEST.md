@@ -108,6 +108,14 @@ not exceed the running launcher. Asset URLs are derived from the immutable tag
 and basename under that repository; manifest-provided arbitrary URLs or paths
 are not accepted.
 
+`GitHubWindowsReleaseClient` discovers bounded GitHub release metadata, skips
+drafts and the opposite channel, and considers only releases that publish the
+canonical manifest asset at its exact immutable-tag URL. GitHub and manifest
+tags must match. Release-list and manifest responses are size-bounded and
+non-success HTTP responses remain actionable instead of being interpreted as
+"no update." An already healthy local installation does not depend on this
+online discovery path to remain launchable.
+
 Windows file-version comparison is numeric. The consumer deterministically
 maps the release identity (for example, `2.1.0-guffa.8`) to the embedded DLL
 file version (`2.1.0.8`) and rejects release forms it cannot map.
