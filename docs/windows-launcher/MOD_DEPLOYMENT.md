@@ -22,7 +22,8 @@ bytes are retained under launcher-owned rollback state.
 4. require HTTPS plus bounded artifact metadata;
 5. verify HTTP status, declared length when present, actual length, and
    SHA-256 before writing beside the game;
-6. write and re-verify a same-volume stage file;
+6. write and re-verify a same-volume stage file, then require Windows
+   `WinVerifyTrust` and the configured Authenticode publisher identity;
 7. journal `Committing`, preserve any existing artifact, and replace the
    target;
 8. re-verify target size, SHA-256, and the expected embedded numeric file
@@ -61,6 +62,7 @@ The core test suite covers:
 - explicit adoption of a pre-existing DLL;
 - non-200 HTTP, declared-size, actual-size, and SHA-256 rejection;
 - bounded HTTP reads;
+- mandatory Authenticode rejection before commit;
 - embedded-version mismatch rollback;
 - injected failure after every persisted deployment boundary;
 - concurrent mutation denial;
