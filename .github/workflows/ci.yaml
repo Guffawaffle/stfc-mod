@@ -47,6 +47,20 @@ jobs:
       - name: Test AXF provider contracts
         run: node --test scripts/axf/*.test.mjs
 
+  release-manifest-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate release manifest fixtures
+        run: python -m unittest tests.test_generate_release_manifest -v
+
   build-win:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-2025-vs2026

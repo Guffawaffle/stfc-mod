@@ -154,21 +154,41 @@ action.
 Release discovery uses GitHub releases from `Guffawaffle/stfc-mod`. The
 launcher consumes a machine-readable manifest published with each release.
 
-Proposed manifest:
+The canonical schema, artifact kinds, channel mapping, authenticity boundary,
+withdrawal behavior, and producer/consumer validation rules are defined in
+`docs/windows-launcher/RELEASE_MANIFEST.md`.
+
+Schema v1 shape:
 
 ```json
 {
   "schemaVersion": 1,
   "releaseVersion": "2.1.0-guffa.6",
+  "tag": "v2.1.0-guffa.6",
   "channel": "stable",
+  "releaseState": "active",
   "minimumLauncherVersion": "0.1.0",
+  "source": {
+    "repository": "Guffawaffle/stfc-mod",
+    "targetCommit": "<40 lowercase hex characters>"
+  },
+  "manifestAuthenticity": {
+    "scheme": "none"
+  },
   "artifacts": [
     {
+      "id": "windows-mod-dll-x64",
       "kind": "windows-mod",
+      "platform": "windows",
       "architecture": "x64",
       "fileName": "version.dll",
+      "mediaType": "application/vnd.microsoft.portable-executable",
       "sha256": "<64 lowercase hex characters>",
-      "size": 123
+      "size": 123,
+      "authenticity": {
+        "scheme": "authenticode",
+        "scope": "artifact"
+      }
     }
   ]
 }
@@ -183,6 +203,7 @@ Rules:
 - Unknown manifest schema versions fail closed with an actionable message.
 - Downgrade requires explicit confirmation.
 - Withdrawn releases are not newly offered.
+- Checksums are artifact integrity metadata, not manifest authentication.
 - Network failure must not prevent launching an already healthy installation.
 
 Self-update must use a separate bootstrapper or replace-on-exit helper. The
