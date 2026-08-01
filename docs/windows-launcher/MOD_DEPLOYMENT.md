@@ -1,6 +1,7 @@
 # Windows Launcher Mod Deployment
 
-Status: WL-004 transaction core implemented; Home action wiring and installed-client smoke remain in progress.
+Status: WL-004 transaction core and Home install/update confirmation are implemented; recovery/uninstall UX and
+installed-client mutation smoke remain in progress.
 
 ## Ownership boundary
 
@@ -78,7 +79,8 @@ The core test suite covers:
 - allowlist-only uninstall, adopted-artifact restoration, external-change
   refusal, and uninstall rollback.
 
-Installed-client mutation smoke is intentionally deferred until release
-discovery and Home confirmation present the exact target, version, and effect
-to the user. Unit tests use isolated synthetic game/state directories and do
-not modify the real STFC installation.
+The packaged Home smoke confirms that mod state and its action are accessible,
+while deliberately stopping before confirmation. Installed-client mutation
+smoke remains deferred until a release publishes the canonical Windows
+manifest and artifact consumed by discovery. Unit tests use isolated synthetic
+game/state directories and do not modify the real STFC installation.
