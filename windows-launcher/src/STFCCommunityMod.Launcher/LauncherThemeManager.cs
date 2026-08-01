@@ -5,6 +5,7 @@ using System.Security;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
+using STFCCommunityMod.Launcher.Core;
 
 namespace STFCCommunityMod.Launcher;
 
@@ -30,7 +31,7 @@ internal static class LauncherThemeManager
             ["SurfaceBrush"] = "#111B2C",
             ["SurfaceMutedBrush"] = "#172337",
             ["TextPrimaryBrush"] = "#F7FAFC",
-            ["TextSecondaryBrush"] = "#A9B7CA",
+            ["TextSecondaryBrush"] = "#AEB4BF",
             ["BorderBrush"] = "#2A3950",
             ["ControlBorderBrush"] = "#60738E",
             ["AccentBrush"] = "#0B70C9",
@@ -55,7 +56,7 @@ internal static class LauncherThemeManager
             ["SurfaceBrush"] = "#FFFFFF",
             ["SurfaceMutedBrush"] = "#F0F3F7",
             ["TextPrimaryBrush"] = "#152238",
-            ["TextSecondaryBrush"] = "#5C6C80",
+            ["TextSecondaryBrush"] = "#626873",
             ["BorderBrush"] = "#D8DEE8",
             ["ControlBorderBrush"] = "#7A8798",
             ["AccentBrush"] = "#0068C0",
@@ -73,15 +74,23 @@ internal static class LauncherThemeManager
             ["DialogBackdropBrush"] = "#730B1220",
         };
 
-    public static LauncherTheme ApplySystemPreference()
+    public static LauncherTheme ApplyColorMode(LauncherColorMode colorMode)
     {
-        return Apply(IsSystemLightTheme() ? LauncherTheme.Light : LauncherTheme.Dark);
+        var theme = ResolveColorMode(colorMode, IsSystemLightTheme());
+        return Apply(theme);
     }
 
-    public static LauncherTheme Toggle(LauncherTheme current)
-    {
-        return Apply(current == LauncherTheme.Dark ? LauncherTheme.Light : LauncherTheme.Dark);
-    }
+    internal static LauncherTheme ResolveColorMode(
+        LauncherColorMode colorMode,
+        bool isSystemLightTheme) =>
+        colorMode switch
+        {
+            LauncherColorMode.System =>
+                isSystemLightTheme ? LauncherTheme.Light : LauncherTheme.Dark,
+            LauncherColorMode.Light => LauncherTheme.Light,
+            LauncherColorMode.Dark => LauncherTheme.Dark,
+            _ => throw new ArgumentOutOfRangeException(nameof(colorMode)),
+        };
 
     public static void ApplyWindowChrome(Window window, LauncherTheme theme)
     {

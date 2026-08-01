@@ -76,6 +76,39 @@ The Windows launcher must not reproduce Xsolla’s Windows updater in the first
 production release. It may detect a game-version change, start the official
 launcher, wait for it to exit, and then re-evaluate or repair the mod.
 
+### Future-state integrated game client
+
+The post-v1 product direction is to replace the official launcher for routine
+play on an established installation. The Windows launcher should eventually
+own both of these player-facing actions:
+
+- launch the installed STFC client with the selected community-mod release;
+- detect and apply an available base-game update without requiring the player
+  to open the official launcher.
+
+The Home `Game client` row becomes an operational surface rather than passive
+status. It offers `Launch game` whenever launch is safe and adds an `Update`
+action when a base-game update is available. Launch, game update, mod
+deployment, and launcher self-update remain distinct operations with distinct
+progress and failure states.
+
+The macOS launcher proves that this concept is technically real: its
+[`ActionView`](../../macos-launcher/src/ActionView.swift) exposes game-update
+and launch actions, while [`XsollaLib`](../../macos-launcher/src/XsollaLib.swift)
+checks installed/latest versions and executes the Xsolla download, extract,
+patch, delete, and version plan.
+
+That implementation is evidence, not a Windows port contract. Before Windows
+adopts direct game updating, a dedicated design must validate the current
+Windows Xsolla protocol, artifact integrity, interruption recovery,
+installation locking, required-update policy, game/mod compatibility, repair,
+and rollback behavior. Authentication and credential storage remain outside
+the community launcher; first-time sign-in or expired-session recovery may
+still hand off to the official launcher.
+
+Until those gates are satisfied, the first-production-release boundary above
+remains authoritative: launch and update use the supported official path.
+
 ## Supported environment
 
 - Windows 10 and Windows 11, x64.

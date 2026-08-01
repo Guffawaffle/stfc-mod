@@ -12,7 +12,7 @@
     <SolidColorBrush x:Key="SurfaceBrush" Color="#111B2C" />
     <SolidColorBrush x:Key="SurfaceMutedBrush" Color="#172337" />
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F7FAFC" />
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A9B7CA" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#AEB4BF" />
     <SolidColorBrush x:Key="BorderBrush" Color="#2A3950" />
     <SolidColorBrush x:Key="ControlBorderBrush" Color="#60738E" />
     <SolidColorBrush x:Key="AccentBrush" Color="#0B70C9" />
@@ -34,6 +34,31 @@
       <Setter Property="FontFamily" Value="{StaticResource LauncherTextFontFamily}" />
       <Setter Property="FontWeight" Value="Medium" />
       <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style TargetType="ToolTip">
+      <Setter Property="MaxWidth" Value="420" />
+      <Setter Property="Padding" Value="10,7" />
+      <Setter Property="FontFamily" Value="{StaticResource LauncherTextFontFamily}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceMutedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ToolTip">
+            <Border Padding="{TemplateBinding Padding}"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="6">
+              <ContentPresenter />
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
 
     <Style TargetType="Button">
@@ -122,6 +147,11 @@
           </ControlTemplate>
         </Setter.Value>
       </Setter>
+      <Style.Triggers>
+        <Trigger Property="IsEnabled" Value="False">
+          <Setter Property="Opacity" Value="0.5" />
+        </Trigger>
+      </Style.Triggers>
     </Style>
 
     <Style x:Key="QuietButtonStyle"

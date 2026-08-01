@@ -1,6 +1,6 @@
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.CompilerServices;
-using System.Windows.Input;
 using STFCCommunityMod.Launcher.Core;
 
 namespace STFCCommunityMod.Launcher.ViewModels;
@@ -17,7 +17,6 @@ internal sealed class MainWindowViewModel : INotifyPropertyChanged
         this.environmentProbe = environmentProbe;
         snapshot = environmentProbe.Capture();
         presentation = LauncherHomePresentation.FromSnapshot(snapshot);
-        RefreshCommand = new RelayCommand(Refresh);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -58,7 +57,10 @@ internal sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    public ICommand RefreshCommand { get; }
+    public string? ConfigurationFilePath =>
+        snapshot.SelectedGameDirectory is null
+            ? null
+            : Path.Combine(snapshot.SelectedGameDirectory, "community_patch_settings.toml");
 
     public static MainWindowViewModel CreateDefault()
     {
@@ -83,7 +85,6 @@ internal sealed class MainWindowViewModel : INotifyPropertyChanged
         selectionFeedback = candidate.Validation.IsValid
             ? "Game folder saved."
             : candidate.Validation.Message;
-        Refresh();
         OnPropertyChanged(nameof(SelectionFeedback));
         OnPropertyChanged(nameof(HasSelectionFeedback));
     }
@@ -104,6 +105,7 @@ internal sealed class MainWindowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(GameClientStatusAutomationName));
         OnPropertyChanged(nameof(IsGameRunning));
         OnPropertyChanged(nameof(InitialBrowseDirectory));
+        OnPropertyChanged(nameof(ConfigurationFilePath));
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

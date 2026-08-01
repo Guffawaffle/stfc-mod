@@ -156,6 +156,13 @@ The theme preference is:
 2. Light override;
 3. Dark override.
 
+The integrated title area exposes this preference as an accessible dropdown.
+Its closed state shows the selected preference, not an ambiguous action:
+`System`, `Light`, or `Dark`. The open menu marks the current selection and
+supports ordinary keyboard navigation. When `System` is selected, supplemental
+help may also name the currently resolved Windows mode without changing the
+stored preference.
+
 Light and dark themes preserve the same hierarchy and semantics. Green is
 reserved for healthy state, amber for warning, red for action-required or
 failure state, and the primary action color remains distinct from health
@@ -163,6 +170,14 @@ colors.
 
 Theme, motion, and scale preferences are launcher-owned state. They do not
 modify the mod TOML.
+
+Color mode and visual style remain separate internal axes. A future visual
+style selector could offer the standard Fluent presentation and an optional
+LCARS presentation, while each style still respects System, Light, or Dark
+where it supports them. LCARS is not a committed production style and must not
+enter the color-mode enum as a special-case theme value. Any added style must
+cover the complete shell, settings adapters, dialogs, accessibility states,
+high-DPI behavior, and release assets before it can ship.
 
 ## Home surface
 
@@ -174,7 +189,6 @@ The healthy home contains:
 - a game-installation row;
 - a community-mod row;
 - one contextual primary action;
-- quiet About access.
 
 Example healthy rows:
 
@@ -210,6 +224,33 @@ The primary action changes with the resolved product state:
 | Game running | Game is running | Bring game forward or disabled launch |
 | Operation active | Working | Progress/cancel when safe |
 | Offline but locally healthy | Ready offline | Launch game |
+
+### Future-state Game client row
+
+The accepted post-v1 direction is for the launcher to replace the official
+launcher during routine play. `Game client` therefore evolves from a status
+row into the home for base-game operations:
+
+```text
+Game client          Ready                  Launch game
+Game client          Update available       Update   Launch game
+Game client          Updating               Progress
+Game client          Running                Bring forward
+```
+
+`Launch game` remains visible whenever launch is safe. `Update` appears only
+when a base-game update is known to be available. If an update is mandatory or
+the installed game/mod combination is incompatible, launch is disabled with an
+actionable reason rather than silently attempted.
+
+Game update, mod update, and launcher update are different product states.
+Their labels, progress, error recovery, and diagnostics must never collapse
+into an ambiguous generic `Update`.
+
+This direction has macOS precedent, but Windows direct game updating remains a
+separate post-v1 architecture and security gate. The first production release
+continues to delegate base-game installation, authentication, updates, and
+repair to the official launcher.
 
 Detailed process safety, discovery provenance, artifact hashes, and internal
 health dimensions are logged. The home shows them only when they change the
@@ -248,17 +289,16 @@ resolves only `Running` and `Not running`.
 The launcher uses an unprivileged Windows shell window-created signal to
 identify a new `prime.exe` process and the tracked process's exit signal to
 detect shutdown. It re-runs the authoritative process inspection only after a
-transition and does not continuously poll or require WMI. A manual Refresh
-action remains available if the operating-system event subscription cannot be
-established.
+transition and does not continuously poll or require WMI. Manual `Refresh
+status` is a development affordance and is not part of the production Home.
+Failure to establish reliable automatic monitoring is surfaced as launcher
+health/diagnostic state rather than delegated to the player.
 
 ### Observable action feedback
 
 An accepted action must never appear to be a no-op merely because its result
-does not change the visible state. `Refresh status` currently performs
-synchronous work without acknowledging activation or successful unchanged
-completion. The final interaction is intentionally undecided and tracked in
-[#201](https://github.com/Guffawaffle/stfc-mod/issues/201).
+does not change the visible state. The shared interaction contract is tracked
+in [#201](https://github.com/Guffawaffle/stfc-mod/issues/201).
 
 The shared action contract must represent at least idle, working, completed
 with changes, completed without changes, and failed or unavailable states. It
@@ -275,10 +315,10 @@ must define:
   and diagnostic operations share semantics without pretending they have the
   same progress capabilities.
 
-Candidate treatments include temporary `Refreshing…` copy, a compact progress
-glyph, affected-row feedback, or a brief `Status is up to date` confirmation.
-None is accepted yet. A one-off Refresh animation must not precede the shared
-state and accessibility decision.
+Candidate treatments include operation copy, a compact progress glyph,
+affected-row feedback, or a brief unchanged-state confirmation. None is
+accepted globally yet; individual operations must not invent independent
+feedback before the shared state and accessibility decision.
 
 ## Settings workspace
 
@@ -360,19 +400,79 @@ or permit user-facing copy to describe convergence as committed.
 
 ### Setting rows
 
+A normal setting is one borderless full-width row. A thin divider separates
+rows, the complete row receives a subtle hover treatment, and the value
+controls align in a stable right-hand column. Only inputs and actionable
+buttons receive control borders. Cards remain available for meaningful groups,
+summaries, warnings, and errors; they are not repeated around each setting or
+around only the control half of a setting.
+
 A normal setting row contains:
 
 - friendly title;
-- short consequence-oriented description;
+- optional short consequence-oriented description;
 - appropriate control;
 - effective or explicit value state;
 - changed-from-default state;
 - reset/remove-override action;
 - restart or next-launch indicator when required.
 
-The canonical TOML key, provenance, deprecated aliases, and detailed validation
-may appear in an expandable technical area or tooltip. They are searchable but
-not primary labels.
+Recurring implementation copy such as raw `next-session`, `Decimal number`,
+`Default: true`, and canonical event identifiers does not appear in the
+primary reading path. Friendly metadata uses compact neutral tags such as
+`Next launch`, `Experimental`, and `Modified`. Numeric controls use a
+schema-backed unit or suffix where one exists and do not occupy more width
+than their supported values require.
+
+`Use default` is not persistent row prose. An untouched value has no reset
+control; once an override exists, the row exposes a semantic restore-default
+icon with an exact tooltip and automation name. Where inheritance makes
+explicit `On` different from an effective default of `On`, the editor must
+make that distinction visible through a tri-state control or a clear default
+or modified state. It must never hide semantically meaningful inheritance
+behind an ordinary two-state switch.
+
+The canonical TOML key, provenance, deprecated aliases, exact default, value
+type, and detailed validation may appear in an explicit technical area,
+keyboard-accessible tooltip, accessibility help, or diagnostics. They remain
+searchable but are not primary labels.
+
+### Renderer presentation contract
+
+Player copy and editor hints come from the generated presentation envelope
+defined in [CONFIG_SCHEMA.md](CONFIG_SCHEMA.md), not from one-off XAML
+exceptions. The envelope may supply a human label, optional help, group,
+search terms, unit, apply timing, stability, and accessibility text. A curated
+override may improve those fields only when its canonical schema path is
+validated during generation.
+
+Groups and families are separate presentation concepts. A group creates a
+page landmark such as Camera or Fleet. An optional approved family composes
+several independently persisted settings beneath one shared heading, with
+member labels and compact spacing. Family membership is generated and
+validated; the renderer does not guess it from similar names.
+
+This allows technical runtime names such as `Fr Scale` or
+`fleet_queue_add` to become player language such as `System backdrop scale`
+and `Add fleet to queue` without forking the authoritative type, default, or
+persistence contract.
+
+### Semantic icons
+
+The launcher standardizes on Microsoft Fluent System Icons through
+`FluentIcons.Wpf`, behind an application-owned semantic `AppIcon` abstraction.
+Views request meanings such as Search, Restore Default, Notification, Sound,
+Add, Remove, Next Launch, Warning, Keyboard, and Sync; they do not request
+package glyph names directly.
+
+Regular monochrome 20-DIP icons are the ordinary command treatment. Filled
+variants are limited to selected navigation or deliberately active state.
+Icon buttons retain 36–44-DIP targets and always provide tooltip, automation
+name, keyboard focus, and disabled-state semantics. The app uses one icon
+family and does not decorate every setting title merely because a glyph
+exists. A curated build-generated subset of the official SVG assets remains a
+future dependency-reduction option, not a prerequisite for the renderer
+weave.
 
 ### Search and filtering
 
@@ -387,10 +487,32 @@ aliases. The workspace supports filters for:
 The hotkey category also detects duplicate or conflicting bindings. Data Sync
 uses a repeatable target editor rather than exposing flattened target keys.
 
+The player-approved toolbar search toggle and its across-launch memory remain
+the current shell contract. A permanently visible field is not required to
+land the renderer weave. The toggle may reveal a real field and the filters
+above once their state is available.
+
 ### Save behavior
 
-Edits are staged until the user saves. A persistent footer reports the number
-of unsaved changes and offers `Discard` and `Save changes`.
+Edits are staged until the user saves. A bottom action bar appears only while
+changes are pending, reports their number, and offers `Discard` and
+`Save changes`. The settings viewport gives it a dedicated layout row only for
+as long as it is visible, so no setting is covered and no empty footer consumes
+space during ordinary browsing.
+
+The same dirty-state bar summarizes when the staged changes will take effect.
+That summary is derived from the apply metadata of the complete staged set, not
+hardcoded per category:
+
+- `Applies immediately` when every staged setting can take effect immediately;
+- `Applies next launch` when every staged setting shares that boundary;
+- `Some changes require a relaunch` when the staged set has mixed timing;
+- a stronger restart requirement when any staged setting explicitly requires
+  one.
+
+Mixed timing is never collapsed into a misleading single-setting label.
+Supplemental details may enumerate the affected settings, but the timing
+summary itself remains visible without hover.
 
 Save follows the configuration contract:
 
@@ -514,12 +636,12 @@ Reusable interaction primitives carry keyboard, focus, target-size, contrast,
 automation-name, and disabled-state behavior so individual screens cannot
 silently omit them.
 
-Ordinary actions such as About, Refresh Status, and dialog Close use one shared
-utility-action button style rather than custom subclasses. The shared primitive
-provides a minimum 44-pixel target, a dual-contrast focus treatment, consistent
-padding and typography, and a control boundary with at least 3:1 contrast.
-Custom controls are reserved for reusable behavior, such as the in-application
-dialog host.
+Ordinary actions such as workspace navigation, raw configuration access, and
+dialog Close use shared button styles rather than custom subclasses. The
+shared primitives provide a minimum 44-pixel target, a dual-contrast focus
+treatment, consistent padding and typography, and a control boundary with at
+least 3:1 contrast. Custom controls are reserved for reusable behavior, such
+as the in-application dialog host.
 
 The Windows typography stack prefers `Segoe UI Variable Text` with `Segoe UI`
 fallback and uses medium body weight to remain readable across display scales
@@ -542,7 +664,12 @@ The implementation must support:
 
 - keyboard access to every action and setting;
 - visible focus and logical focus order;
+- additive navigation states: tonal hover, filled selection with accent strip,
+  and a deliberate 2-pixel keyboard focus ring;
 - accessible names for icons, controls, and status changes;
+- keyboard focus and press-and-hold access to supplemental tooltip content;
+- visible current, modified, invalid, and apply-timing state without requiring
+  hover;
 - text scaling and 100%, 150%, and 200% display scaling;
 - sufficient contrast in both themes;
 - reduced motion;
@@ -571,7 +698,7 @@ The implementation must support:
 - `WL-010` validates both themes, adaptive window density, keyboard navigation,
   screen readers, reduced motion, and high DPI.
 - Issue #201 must settle shared action and button-state feedback before
-  Refresh, installer, repair, updater, or diagnostic surfaces grow independent
+  installer, repair, updater, or diagnostic surfaces grow independent
   progress conventions.
 - Issue #202 is a post-sprint product/architecture decision and must not be
   interpreted as approval to merge, rewrite, or independently duplicate the
@@ -580,3 +707,24 @@ The implementation must support:
 Implementation may refine copy and layout, but any change that weakens privacy,
 schema authority, sparse writes, progressive disclosure, or accessibility
 requires an explicit product decision.
+
+## Lex concept-art reconciliation
+
+The July 2026 Lex settings concepts are accepted as a directional renderer
+reference. Their strongest adopted elements are:
+
+- borderless full-width setting rows and a stable inline control column;
+- restrained Fluent iconography and clear selected navigation;
+- humanized labels, concise help, modified/conflict state, and contextual
+  restore actions;
+- a theme dropdown whose closed state names the selected mode;
+- a conditional bottom bar that combines dirty count, apply timing, Discard,
+  and Save.
+
+They do not silently replace already tested product contracts. The remembered
+toolbar search toggle may still reveal the search field instead of reserving
+its width permanently. Back/Home cadence remains consistent across workspaces.
+The save bar remains absent when the session is clean. Decorative per-event
+icons, drag handles without a real ordering feature, category-wide restore,
+and a split Save button require their own behavior and accessibility case
+before implementation; they are not inferred from the artwork.

@@ -33,6 +33,42 @@ These are not separate player-facing configuration systems. The launcher uses
 one search, category, validation, changed-state, and persistence experience,
 then delegates value-specific behavior to the matching adapter.
 
+## Presentation metadata
+
+The runtime schema is complete enough to validate and persist a value, but its
+technical title and description are not automatically suitable as primary
+player copy. The launcher therefore derives a presentation envelope for each
+visible setting:
+
+- player-facing label and optional consequence-oriented help;
+- display group and search terms;
+- optional approved family metadata for repeated members of one conceptual
+  control set;
+- unit or suffix and compact editor-width hints;
+- friendly apply timing such as `Next launch`;
+- stability and modified-state tags;
+- accessible control name and help text.
+
+This is a generated-and-validated view over the authoritative schema, not a
+second settings catalog. Most presentation data is derived mechanically.
+Small curated overrides may improve copy or units for canonical paths, but the
+generator must reject stale paths, duplicate entries, invalid adapter hints,
+and visible settings without a usable player label. Overrides cannot redefine
+types, defaults, constraints, aliases, sensitivity, or persistence behavior.
+
+`group` answers where a setting belongs. Optional `family` metadata answers
+which independently persisted settings should be presented together. A family
+declares a stable ID, matching parent group, shared label and optional help,
+display order, constrained presentation hint, and each setting's member label
+and order. The current `compact-binding-list` hint is valid only for
+keybindings. The generator validates every family member and the renderer
+consumes this metadata directly; it must not infer families from path prefixes
+or numbered names at runtime.
+
+Canonical keys, exact defaults, value types, aliases, and provenance remain
+available to search, accessibility help, diagnostics, and an explicit
+technical-details affordance. They are not the normal row title or description.
+
 ## Authoritative producers
 
 - Ordinary runtime defaults and descriptions come from
