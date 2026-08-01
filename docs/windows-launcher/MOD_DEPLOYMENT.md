@@ -1,7 +1,7 @@
 # Windows Launcher Mod Deployment
 
-Status: WL-004 transaction core and Home install/update confirmation are implemented; recovery/uninstall UX and
-installed-client mutation smoke remain in progress.
+Status: WL-004 transaction core and Home install/update/repair confirmation are implemented; recovery/uninstall are
+available through Diagnostics with exact-target confirmation. Installed-client mutation smoke remains in progress.
 
 ## Ownership boundary
 
@@ -61,6 +61,12 @@ removed; an explicitly adopted prior DLL is restored. Configuration, logs,
 runtime snapshots, and unrelated game files are untouched. If the managed DLL
 changed outside the launcher, uninstall refuses to guess ownership or delete
 it.
+
+Managed updates retain the original adopted artifact identity rather than
+turning the immediately previous managed release into the uninstall target.
+Explicit repair may replace a missing or changed launcher-managed DLL only
+after the same release verification and transaction checks; the changed bytes
+remain available for rollback until repair commits.
 
 ## Automated evidence
 
