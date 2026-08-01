@@ -98,6 +98,20 @@ Future bootstrapper or independently installed components receive distinct IDs
 and kinds. Their size, checksum, and authenticity metadata must not be borrowed
 from another artifact.
 
+The launcher consumer uses a closed schema and rejects unknown properties. For
+mod deployment it selects exactly one `windows-mod-dll-x64` artifact and
+requires `windows` / `x64`, the direct PE media type, `version.dll`, bounded
+size, lowercase SHA-256, and `authenticode` / `artifact` authenticity. The
+manifest repository must be exactly `Guffawaffle/stfc-mod`, the release must be
+active and match the user-selected channel, and `minimumLauncherVersion` must
+not exceed the running launcher. Asset URLs are derived from the immutable tag
+and basename under that repository; manifest-provided arbitrary URLs or paths
+are not accepted.
+
+Windows file-version comparison is numeric. The consumer deterministically
+maps the release identity (for example, `2.1.0-guffa.8`) to the embedded DLL
+file version (`2.1.0.8`) and rejects release forms it cannot map.
+
 `fileName` is a release-asset base name, never a local path or URL. Consumers
 resolve it only against the selected GitHub release. Redirects are allowed only
 over HTTPS.

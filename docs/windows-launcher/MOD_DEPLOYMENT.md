@@ -35,6 +35,13 @@ For example, release `2.1.0-guffa.8` carries numeric Windows file version
 `2.1.0.8`; release discovery must perform that explicit mapping instead of
 comparing the descriptive tag directly to `FileVersionInfo`.
 
+`WindowsReleaseManifestParser` and `WindowsReleaseSelectionPolicy` provide that
+bridge from the published release contract. They reject unknown schema fields,
+withdrawn or wrong-channel releases, unexpected repositories, incompatible
+minimum launcher versions, ambiguous artifacts, unsafe filenames, unsupported
+authenticity declarations, and release versions that cannot map to an embedded
+numeric version.
+
 The HTTP downloader refuses to buffer more than 128 MiB. Unknown journal
 schemas, corrupt state, invalid metadata, non-HTTPS artifact URLs, wrong
 targets, and externally changed managed DLLs fail closed.
