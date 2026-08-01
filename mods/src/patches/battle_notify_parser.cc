@@ -264,6 +264,12 @@ std::string battle_notify_parse(Toast* toast)
 
 bool battle_notify_is_armada(Toast* toast)
 {
+#if !defined(_WIN32)
+  // This payload read relies on Windows SEH for fail-closed access to IL2CPP
+  // memory. Do not expose an unguarded equivalent on other platforms.
+  (void)toast;
+  return false;
+#else
   if (!toast) {
     return false;
   }
@@ -280,4 +286,5 @@ bool battle_notify_is_armada(Toast* toast)
   }
 
   return is_armada;
+#endif
 }

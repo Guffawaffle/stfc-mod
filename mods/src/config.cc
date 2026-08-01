@@ -739,11 +739,10 @@ struct MissionHudVisibilityConfigSpec {
   std::string_view default_value;
 };
 
-constexpr std::array<MissionHudVisibilityConfigSpec, 5> kMissionHudVisibilityConfigSpecs{{
+constexpr std::array<MissionHudVisibilityConfigSpec, 4> kMissionHudVisibilityConfigSpecs{{
     {"q_trials", DCMH::q_trials},
     {"field_training", DCMH::field_training},
     {"outposts", DCMH::outposts},
-    {"daily_goals", DCMH::daily_goals},
     {"missions", DCMH::missions},
 }};
 
@@ -805,6 +804,20 @@ std::string MissionHudVisibilityValue(toml::table& config, std::string_view item
   spdlog::warn("invalid config value ui.mission_hud.{}; found {}; using auto", item,
                get_config_type_as_string(node->type()));
   return std::string(default_value);
+}
+
+void WarnRemovedMissionHudSettings(toml::table& config)
+{
+  auto* ui_table = config["ui"].as_table();
+  if (!ui_table) {
+    return;
+  }
+
+  auto* mission_hud_table = (*ui_table)["mission_hud"].as_table();
+  if (mission_hud_table && mission_hud_table->contains("daily_goals")) {
+    spdlog::warn("config value ui.mission_hud.daily_goals is no longer supported by the current game and will be "
+                 "ignored");
+  }
 }
 
 toml::table& EnsureUiMissionHudTable(toml::table& config)
@@ -1395,6 +1408,7 @@ void Config::Load()
 
   this->always_skip_reveal_sequence = get_config_or_default(config, parsed, "ui", "always_skip_reveal_sequence",
                                                             DCU::always_skip_reveal_sequence, write_config);
+  WarnRemovedMissionHudSettings(config);
   g_mission_hud_buttons.clear();
   for (const auto& spec : kMissionHudVisibilityConfigSpecs) {
     g_mission_hud_buttons.emplace(std::string(spec.key), GetMissionHudVisibility(config, parsed, spec, write_config));

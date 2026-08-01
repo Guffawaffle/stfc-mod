@@ -77,6 +77,33 @@ Risk classes are also defined there: R0 static, R1 passive runtime, R2 managed l
 - Next action: revalidate the classifier after relevant battle-result producer
   or `BattleResultHeader` changes.
 
+### `Digit.Prime.HUD.MissionsHudViewController` current-button visibility lifecycle
+
+- Owner / file: release-supported patch in `mods/src/patches/parts/mission_hud_tweaks.cc`; probe record in
+  `docs/probes/20260731-mission-hud-current-buttons.md`.
+- Intended question: can the four buttons retained by the current mission HUD continue to honor the configured
+  `always`/`auto`/`never` policy after the former common refresh method and Daily Goals button were removed?
+- Static evidence: the 2026-07-30 current-client corpus no longer contains `_dailyGoalsButton` or `UpdateButtons()`.
+  It retains `_missionsButton`, `_achievementsButton`, `_outpostsButton`, and `_challengesButton`, plus
+  `OnEnable()` and the narrower `HandleOutpostsAndChallengesHUD()` refresh method.
+- Risk class: R5 behavioral.
+- Confidence rung: state-correlated for `OnEnable()`; runtime observed for the dedicated refresh seam.
+- Runtime evidence: a Windows release experiment installed the replacement `OnEnable()` detour without failure.
+  With `q_trials = "never"`, the human confirmed Q Trials was hidden; with `q_trials = "auto"` and
+  `outposts = "always"`, the human confirmed all three buttons in that HUD state were visible. The final two-hook
+  release cycle resolved and installed both current methods (`installed=2 failed=0 skipped=0 total=2`), and
+  `PatchAudit` reported the module consistent.
+- Payload confidence: typed managed controller only; both hooks have no extra arguments.
+- Original/trampoline confidence: `OnEnable()` returned successfully and the UI remained interactive. The original
+  is called exactly once before the mod reapplies configured visibility.
+- Config / rollback path: `[ui.mission_hud]` retains `q_trials`, `field_training`, `outposts`, and `missions`.
+  Set all four to `auto` to skip the module and install no hooks. The obsolete `daily_goals` key is ignored with a
+  warning and omitted from rewritten/example configuration.
+- Status: release-promoted for the current four-button surface. Daily Goals remains navigable elsewhere but no
+  longer has a HUD component that this visibility feature can control.
+- Next action: recheck visibility after an outpost or challenge state refresh when practical, and revalidate the
+  explicit field/method dependency set after relevant client updates.
+
 ### Standard Recruit custom-quantity submission and failure callbacks
 
 - Owner / file: completed temporary discovery record in
