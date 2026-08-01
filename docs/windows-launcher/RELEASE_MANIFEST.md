@@ -92,7 +92,7 @@ Each artifact has a stable `id` and a semantic `kind`. Schema v1 publishes:
 |---|---|---|
 | `windows-mod-dll-x64` | `windows-mod` | Direct signed `version.dll` used by the transactional installer and retained for manual installation. |
 | `windows-mod-archive-x64` | `windows-mod-archive` | Existing Windows archive containing the signed mod DLL. |
-| `windows-launcher-archive-x64` | `windows-launcher` | Self-contained launcher archive containing the signed launcher executable. |
+| `windows-launcher-archive-x64` | `windows-launcher` | Self-contained launcher archive containing the signed launcher and replace-on-exit helper executables. |
 
 Future bootstrapper or independently installed components receive distinct IDs
 and kinds. Their size, checksum, and authenticity metadata must not be borrowed

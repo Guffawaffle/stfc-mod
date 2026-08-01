@@ -59,7 +59,10 @@ class ReleaseManifestTests(unittest.TestCase):
                             "authenticity": {
                                 "scheme": "authenticode",
                                 "scope": "contents",
-                                "signedFiles": ["STFCCommunityMod.Launcher.exe"],
+                                "signedFiles": [
+                                    "STFCCommunityMod.Launcher.exe",
+                                    "STFCCommunityMod.Launcher.Updater.exe",
+                                ],
                             },
                         },
                     ],

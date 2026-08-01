@@ -43,7 +43,8 @@
         "scheme": "authenticode",
         "scope": "contents",
         "signedFiles": [
-          "STFCCommunityMod.Launcher.exe"
+          "STFCCommunityMod.Launcher.exe",
+          "STFCCommunityMod.Launcher.Updater.exe"
         ]
       }
     }

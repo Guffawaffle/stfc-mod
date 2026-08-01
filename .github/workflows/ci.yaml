@@ -199,9 +199,10 @@ jobs:
             throw "Missing signing environment values: $($missing -join ', ')"
           }
 
-          $files = @(
-            "${{ runner.temp }}/stfc-community-mod/version.dll",
-            "${{ runner.temp }}/stfc-community-mod-launcher/app/STFCCommunityMod.Launcher.exe"
+            $files = @(
+              "${{ runner.temp }}/stfc-community-mod/version.dll",
+              "${{ runner.temp }}/stfc-community-mod-launcher/app/STFCCommunityMod.Launcher.exe",
+              "${{ runner.temp }}/stfc-community-mod-launcher/app/STFCCommunityMod.Launcher.Updater.exe"
           )
           foreach ($file in $files) {
             if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
@@ -258,9 +259,10 @@ jobs:
             throw "signtool.exe was not found"
           }
 
-          $files = @(
-            "${{ runner.temp }}/stfc-community-mod/version.dll",
-            "${{ runner.temp }}/stfc-community-mod-launcher/app/STFCCommunityMod.Launcher.exe"
+            $files = @(
+              "${{ runner.temp }}/stfc-community-mod/version.dll",
+              "${{ runner.temp }}/stfc-community-mod-launcher/app/STFCCommunityMod.Launcher.exe",
+              "${{ runner.temp }}/stfc-community-mod-launcher/app/STFCCommunityMod.Launcher.Updater.exe"
           )
           foreach ($file in $files) {
             & $signtool verify /pa /v $file
