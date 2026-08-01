@@ -56,7 +56,7 @@
       "id": "MissionHudTweaks",
       "tier": "production",
       "source": "mods/src/patches/parts/mission_hud_tweaks.cc",
-      "rationale": "Release-supported UI visibility controls."
+      "rationale": "Release-supported visibility controls for the four current mission HUD buttons, reapplied after controller enablement and outpost/challenge refreshes."
     },
     {
       "id": "OfficerAssignmentSort",
