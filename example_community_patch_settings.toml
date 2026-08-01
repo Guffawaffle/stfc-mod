@@ -365,17 +365,11 @@ select_ship8 = "8"
 # Subgroup: Experimental
 # ----------------------
 
-# ⚠️ EXPERIMENTAL: Moves down the screen
-move_down = "S"
-
 # Moves to the previous officer or ship selection item
 move_left = "LEFT"
 
 # Moves to the next officer or ship selection item
 move_right = "RIGHT"
-
-# ⚠️ EXPERIMENTAL: Moves up the screen
-move_up = "W"
 
 # ⚠️ EXPERIMENTAL: Shows the bookmark->lookup screen
 show_lookup = "L"
