@@ -9,41 +9,101 @@ internal sealed class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly LauncherEnvironmentProbe environmentProbe;
     private LauncherEnvironmentSnapshot snapshot;
+    private LauncherHomePresentation presentation;
+    private string selectionFeedback = string.Empty;
 
     private MainWindowViewModel(LauncherEnvironmentProbe environmentProbe)
     {
         this.environmentProbe = environmentProbe;
         snapshot = environmentProbe.Capture();
+        presentation = LauncherHomePresentation.FromSnapshot(snapshot);
         RefreshCommand = new RelayCommand(Refresh);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public string StatusTitle => snapshot.StatusTitle;
+    public string GameFolderStatus => presentation.GameFolderStatus;
 
-    public string StatusDetail => snapshot.StatusDetail;
+    public string GameFolderIcon => presentation.GameFolderIcon;
 
-    public string ProcessStatus => snapshot.IsGameRunning ? "STFC is running" : "STFC is not running";
+    public LauncherHomeTone GameFolderTone => presentation.GameFolderTone;
 
-    public string ProgramDirectory => snapshot.InstallLayout.ProgramDirectory;
+    public string GameFolderStatusAutomationName => presentation.GameFolderStatusAutomationName;
+
+    public string GameFolderActionLabel => presentation.GameFolderActionLabel;
+
+    public string GameFolderActionAutomationName => presentation.GameFolderActionAutomationName;
+
+    public string GameClientStatus => presentation.GameClientStatus;
+
+    public string GameClientIcon => presentation.GameClientIcon;
+
+    public LauncherHomeTone GameClientTone => presentation.GameClientTone;
+
+    public string GameClientStatusAutomationName => presentation.GameClientStatusAutomationName;
+
+    public bool IsGameRunning => presentation.IsGameRunning;
+
+    public string SelectionFeedback => selectionFeedback;
+
+    public bool HasSelectionFeedback => !string.IsNullOrWhiteSpace(selectionFeedback);
+
+    public string? InitialBrowseDirectory
+    {
+        get
+        {
+            var validCandidates = snapshot.Discovery.ValidCandidates;
+            return snapshot.SelectedGameDirectory
+                ?? (validCandidates.Count > 0 ? validCandidates[0].GameDirectory : null);
+        }
+    }
 
     public ICommand RefreshCommand { get; }
 
     public static MainWindowViewModel CreateDefault()
     {
+        var installLayout = PerUserInstallLayout.FromCurrentUser();
+        var installDiscovery = new GameInstallDiscovery(
+            new JsonGameInstallSelectionStore(installLayout.StateDirectory),
+            [
+                OfficialLauncherSettingsCandidateProvider.FromCurrentUser(),
+                BoundedGameInstallCandidateProvider.FromCurrentMachine(),
+            ]);
+
         return new(
             new LauncherEnvironmentProbe(
                 new SystemGameProcessInspector(),
-                PerUserInstallLayout.FromCurrentUser()));
+                installLayout,
+                installDiscovery));
     }
 
-    private void Refresh()
+    public void ConfirmManualSelection(string gameDirectory)
+    {
+        var candidate = environmentProbe.ConfirmManualSelection(gameDirectory);
+        selectionFeedback = candidate.Validation.IsValid
+            ? "Game folder saved."
+            : candidate.Validation.Message;
+        Refresh();
+        OnPropertyChanged(nameof(SelectionFeedback));
+        OnPropertyChanged(nameof(HasSelectionFeedback));
+    }
+
+    public void Refresh()
     {
         snapshot = environmentProbe.Capture();
-        OnPropertyChanged(nameof(StatusTitle));
-        OnPropertyChanged(nameof(StatusDetail));
-        OnPropertyChanged(nameof(ProcessStatus));
-        OnPropertyChanged(nameof(ProgramDirectory));
+        presentation = LauncherHomePresentation.FromSnapshot(snapshot);
+        OnPropertyChanged(nameof(GameFolderStatus));
+        OnPropertyChanged(nameof(GameFolderIcon));
+        OnPropertyChanged(nameof(GameFolderTone));
+        OnPropertyChanged(nameof(GameFolderStatusAutomationName));
+        OnPropertyChanged(nameof(GameFolderActionLabel));
+        OnPropertyChanged(nameof(GameFolderActionAutomationName));
+        OnPropertyChanged(nameof(GameClientStatus));
+        OnPropertyChanged(nameof(GameClientIcon));
+        OnPropertyChanged(nameof(GameClientTone));
+        OnPropertyChanged(nameof(GameClientStatusAutomationName));
+        OnPropertyChanged(nameof(IsGameRunning));
+        OnPropertyChanged(nameof(InitialBrowseDirectory));
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

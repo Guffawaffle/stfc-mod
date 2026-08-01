@@ -279,8 +279,17 @@ Diagnostics must be useful offline and must not upload automatically.
 
 ## UI contract
 
-The visual language may reuse the LCARS concept, but operation state must remain
-legible without relying on color alone.
+The accepted visual direction is a modern, compact Windows application with
+System, Light, and Dark themes. LCARS is no longer a product requirement.
+
+The home surface is outcome-oriented and shows only actionable game, mod, and
+operation state. Settings uses a separate, larger workspace with category
+navigation and search. Internal health dimensions, discovery provenance, and
+filesystem paths remain in structured logs and explicit redacted diagnostics
+rather than the normal launcher surface.
+
+See [the UX direction](UX_DIRECTION.md) for the home/settings information
+architecture, notification-scale behavior, and directional mockup.
 
 Required accessibility behavior:
 
