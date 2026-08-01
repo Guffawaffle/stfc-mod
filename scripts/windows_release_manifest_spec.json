@@ -47,6 +47,19 @@
           "STFCCommunityMod.Launcher.Updater.exe"
         ]
       }
+    },
+    {
+      "id": "windows-launcher-setup-x64",
+      "kind": "windows-launcher-setup",
+      "platform": "windows",
+      "architecture": "x64",
+      "sourcePath": "stfc-community-mod-launcher-win-x64/setup/STFCCommunityMod.Launcher.Setup.exe",
+      "fileName": "STFCCommunityMod.Launcher.Setup.exe",
+      "mediaType": "application/vnd.microsoft.portable-executable",
+      "authenticity": {
+        "scheme": "authenticode",
+        "scope": "artifact"
+      }
     }
   ]
 }

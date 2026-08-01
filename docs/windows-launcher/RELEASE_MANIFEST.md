@@ -93,10 +93,11 @@ Each artifact has a stable `id` and a semantic `kind`. Schema v1 publishes:
 | `windows-mod-dll-x64` | `windows-mod` | Direct signed `version.dll` used by the transactional installer and retained for manual installation. |
 | `windows-mod-archive-x64` | `windows-mod-archive` | Existing Windows archive containing the signed mod DLL. |
 | `windows-launcher-archive-x64` | `windows-launcher` | Self-contained launcher archive containing the signed launcher and replace-on-exit helper executables. |
+| `windows-launcher-setup-x64` | `windows-launcher-setup` | User-facing signed single executable that embeds, installs, and starts the signed launcher archive. |
 
-Future bootstrapper or independently installed components receive distinct IDs
-and kinds. Their size, checksum, and authenticity metadata must not be borrowed
-from another artifact.
+Future independently installed components receive distinct IDs and kinds.
+Their size, checksum, and authenticity metadata must not be borrowed from
+another artifact.
 
 The launcher consumer uses a closed schema and rejects unknown properties. For
 mod deployment it selects exactly one `windows-mod-dll-x64` artifact and
@@ -174,8 +175,9 @@ protection.
 The tagged release workflow runs:
 
 ```text
-build -> sign -> verify signatures -> package -> generate manifest
-      -> validate manifest against files -> hash manifest -> publish
+build -> sign inner executables -> verify -> package -> embed signed package
+      -> sign and verify setup -> generate manifest -> validate manifest
+      -> hash manifest -> publish
 ```
 
 The generator and validator use the same explicit release identity and checked-

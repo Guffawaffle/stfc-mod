@@ -36,21 +36,25 @@ The tag workflow signs and verifies:
 
 - `version.dll`
 - `STFCCommunityMod.Launcher.exe`
+- `STFCCommunityMod.Launcher.Updater.exe`
+- `STFCCommunityMod.Launcher.Setup.exe`
 
-Future executable release components, including the replace-on-exit
-bootstrapper, installer, uninstaller, and helper processes, must be added to an
-explicit signing allowlist before release.
+Future executable release components must be added to an explicit signing
+allowlist before release.
 
 The release order is:
 
 ```text
-build -> approve protected environment -> OIDC login -> sign -> verify
-      -> package -> hash -> publish
+build -> approve protected environment -> OIDC login -> sign inner executables
+      -> verify -> package -> embed package -> sign setup -> verify -> hash -> publish
 ```
 
 Packaging and checksums must occur after signing because Authenticode modifies
-the PE file. The workflow verifies both files with `signtool verify /pa /v` and
-`Get-AuthenticodeSignature`, including the expected certificate subject.
+the PE file. The setup must be built only after the signed launcher ZIP exists,
+because that exact ZIP is embedded in its PE; the setup is then signed as the
+outermost artifact. The workflow verifies the executables with
+`Get-AuthenticodeSignature` (and the inner release files with `signtool verify
+/pa /v`), including the expected certificate subject.
 
 ## Release manifest boundary
 

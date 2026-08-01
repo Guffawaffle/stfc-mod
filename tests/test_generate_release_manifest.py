@@ -138,6 +138,7 @@ class ReleaseManifestTests(unittest.TestCase):
                 "windows-mod-dll-x64",
                 "windows-mod-archive-x64",
                 "windows-launcher-archive-x64",
+                "windows-launcher-setup-x64",
             ],
             [artifact["id"] for artifact in manifest["artifacts"]],
         )
