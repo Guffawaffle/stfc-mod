@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "project": "windows-launcher-parity-plus",
-  "status": "wl-002-active",
+  "status": "wl-004-active",
   "repository": "Guffawaffle/stfc-mod",
-  "baselineCommit": "7a8ca4215326659c0f261466a36690c086ab3a57",
+  "baselineCommit": "f8b8998e3c0aef752077b915d955813631aaadd4",
   "defaults": {
     "baseBranch": "main",
     "platform": "windows-x64",

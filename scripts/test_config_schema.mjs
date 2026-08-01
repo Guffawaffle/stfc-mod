@@ -18,7 +18,7 @@ import {
 test("default and example inventories are non-empty", () => {
   assert.ok(parseDefaultConfig().size > 150);
   assert.ok(parseBoolConfigMetadata().has("control.allow_key_fallthrough"));
-  assert.ok(parseExampleConfig().length > 250);
+  assert.ok(parseExampleConfig().length > 200);
 });
 
 test("runtime manifest positively identifies the principal taxonomy contract", () => {

@@ -19402,6 +19402,47 @@
       }
     },
     {
+      "path": "ui.extend_chest_purchase_max",
+      "title": "Extend Chest Purchase Max",
+      "description": "Maximum quantity exposed by tagged chest-purchase sliders. Range: 0-160. Default: 160. (Windows only.)",
+      "category": "ui",
+      "control": "scalar",
+      "valueType": {
+        "kind": "integer"
+      },
+      "default": 160,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "stable",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "ui.extend_chest_purchase_max",
+        "defaultSource": "mods/src/defaultconfig.h:ui.extend_chest_purchase_max"
+      },
+      "presentation": {
+        "label": "Extend chest purchase max",
+        "help": "Maximum quantity exposed by tagged chest-purchase sliders. Range: 0-160.",
+        "group": "UI",
+        "searchTerms": [
+          "ui.extend_chest_purchase_max",
+          "Extend Chest Purchase Max",
+          "Maximum quantity exposed by tagged chest-purchase sliders. Range: 0-160. Default: 160. (Windows only.)",
+          "ui"
+        ],
+        "editorWidth": "compact",
+        "applyTiming": "Next launch",
+        "accessibleName": "Extend chest purchase max",
+        "accessibleHelp": "Maximum quantity exposed by tagged chest-purchase sliders. Range: 0-160. Applies: Next launch."
+      }
+    },
+    {
       "path": "ui.extend_donation_max",
       "title": "Extend Donation Max",
       "description": "Maximum alliance-donation slider value (percentage). Default: 80.",
@@ -19481,51 +19522,6 @@
         "applyTiming": "Next launch",
         "accessibleName": "Extend donation slider",
         "accessibleHelp": "Enable the extended donation slider range. Applies: Next launch."
-      }
-    },
-    {
-      "path": "ui.mission_hud.daily_goals",
-      "title": "Daily Goals",
-      "description": "Configure daily goals.",
-      "category": "ui",
-      "control": "scalar",
-      "valueType": {
-        "kind": "enum",
-        "values": [
-          "auto",
-          "always",
-          "never"
-        ]
-      },
-      "default": "auto",
-      "platforms": [
-        "windows",
-        "macos"
-      ],
-      "apply": "next-session",
-      "sensitivity": "public",
-      "stability": "stable",
-      "sourceSupport": [
-        "guffawaffle"
-      ],
-      "aliases": [],
-      "provenance": {
-        "runtimePath": "ui.mission_hud.daily_goals",
-        "defaultSource": "mods/src/defaultconfig.h:ui.mission_hud.daily_goals"
-      },
-      "presentation": {
-        "label": "Daily goals",
-        "group": "UI",
-        "searchTerms": [
-          "ui.mission_hud.daily_goals",
-          "Daily Goals",
-          "Configure daily goals.",
-          "ui"
-        ],
-        "editorWidth": "standard",
-        "applyTiming": "Next launch",
-        "accessibleName": "Daily goals",
-        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -19706,6 +19702,47 @@
         "applyTiming": "Next launch",
         "accessibleName": "Q trials",
         "accessibleHelp": "Applies: Next launch."
+      }
+    },
+    {
+      "path": "ui.restore_below_decks_assignment_sort",
+      "title": "Restore Below Decks Assignment Sort",
+      "description": "Restore Below Deck Ability to the Manage Ship officer-assignment sort dropdown. Default: true.",
+      "category": "ui",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": true,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "stable",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "ui.restore_below_decks_assignment_sort",
+        "defaultSource": "mods/src/defaultconfig.h:ui.restore_below_decks_assignment_sort"
+      },
+      "presentation": {
+        "label": "Restore below decks assignment sort",
+        "help": "Restore Below Deck Ability to the Manage Ship officer-assignment sort dropdown.",
+        "group": "UI",
+        "searchTerms": [
+          "ui.restore_below_decks_assignment_sort",
+          "Restore Below Decks Assignment Sort",
+          "Restore Below Deck Ability to the Manage Ship officer-assignment sort dropdown. Default: true.",
+          "ui"
+        ],
+        "editorWidth": "compact",
+        "applyTiming": "Next launch",
+        "accessibleName": "Restore below decks assignment sort",
+        "accessibleHelp": "Restore Below Deck Ability to the Manage Ship officer-assignment sort dropdown. Applies: Next launch."
       }
     },
     {
