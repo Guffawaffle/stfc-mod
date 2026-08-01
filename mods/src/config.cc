@@ -68,8 +68,7 @@ using config_metadata::notificationToggleSpecs;
 
 static_assert(!DCS::allow_unsafe_tls_without_certificate_validation, "Unsafe TLS override default must remain false.");
 
-// Standalone flag — NOT in Config struct to avoid struct layout sensitivity.
-// See: fix/lto-and-sync-crashes for context on why Config struct changes crash.
+// Legacy settings exposed through read-only accessors.
 static bool                      g_allow_key_fallthrough    = false;
 static ScopelyShortcutPolicy     g_scopely_shortcuts_policy = ScopelyShortcutPolicy::Off;
 static OriginalFramePolicy       g_original_frame_policy    = OriginalFramePolicy::Mod;
@@ -1371,6 +1370,8 @@ void Config::Load()
                             DCU::restore_below_decks_assignment_sort, write_config);
 
 #if _WIN32
+  this->extend_chest_purchase_max = get_config_or_default(config, parsed, "ui", "extend_chest_purchase_max",
+                                                          DCU::extend_chest_purchase_max, write_config);
   this->extend_donation_slider =
       get_config_or_default(config, parsed, "ui", "extend_donation_slider", DCU::extend_donation_slider, write_config);
   this->extend_donation_max =

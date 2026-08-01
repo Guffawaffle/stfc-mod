@@ -427,6 +427,7 @@ public:
   bool             borderless_fullscreen;
   std::vector<int> disabled_banner_types;
 
+  int  extend_chest_purchase_max;
   int  extend_donation_max;
   bool extend_donation_slider;
   bool disable_move_keys;
@@ -492,9 +493,7 @@ public:
 /**
  * @brief Whether unhandled key events pass through to the game's default input.
  *
- * Stored as a file-scope static in config.cc rather than a Config member to
- * avoid changing the struct layout, which can trigger LTO-related crashes.
- * @see fix/lto-and-sync-crashes
+ * This legacy setting is stored at file scope and exposed through a read-only accessor.
  */
 bool AllowKeyFallthrough();
 

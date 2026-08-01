@@ -495,6 +495,8 @@ namespace UI
   constexpr bool disable_veil_chat = false;
   /// Comma-separated list of toast banner type names to suppress (empty = none).
   constexpr const char* disabled_banner_types = "";
+  /// Maximum quantity exposed by tagged chest-purchase sliders. Range: 0-160. Default: 160. (Windows only.)
+  constexpr auto extend_chest_purchase_max = 160;
   /// Maximum alliance-donation slider value (percentage). Default: 80.
   constexpr auto extend_donation_max = 80;
   /// Enable the extended donation slider range. Default: true. (Windows only.)
