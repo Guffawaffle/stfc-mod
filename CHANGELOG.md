@@ -63,6 +63,9 @@
 
 ### Fixes
 
+- Repaired mission HUD visibility controls against the current game UI: Q Trials,
+  Field Training, Outposts, and Missions again honor `always`/`auto`/`never`;
+  the removed Daily Goals HUD button setting is now ignored with a warning
 - Added a Windows modifier-state fallback for Shift/Ctrl/Alt so `ALT-*` chords
   do not fall through as plain keys when Unity drops the modifier state
 - Fixed `Key::HasAlt()` checking RightShift instead of RightAlt

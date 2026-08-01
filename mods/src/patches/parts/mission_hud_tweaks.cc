@@ -5,9 +5,9 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
 #include <exception>
 #include <string>
 #include <string_view>
@@ -22,7 +22,6 @@ enum class MissionHudButtonId : std::size_t {
   QTrials,
   FieldTraining,
   Outposts,
-  DailyGoals,
   Missions,
   Count,
 };
@@ -49,15 +48,20 @@ constexpr std::array<MissionHudButtonSpec, kButtonCount> kButtonSpecs{{
     {MissionHudButtonId::QTrials, "q_trials", "_challengesButton"},
     {MissionHudButtonId::FieldTraining, "field_training", "_achievementsButton"},
     {MissionHudButtonId::Outposts, "outposts", "_outpostsButton"},
-    {MissionHudButtonId::DailyGoals, "daily_goals", "_dailyGoalsButton"},
     {MissionHudButtonId::Missions, "missions", "_missionsButton"},
 }};
 
-constexpr HookDescriptor kUpdateButtonsHook{
-    "MissionsHudViewController.UpdateButtons",
-    "Apply configured mission HUD button visibility after the game recalculates buttons.",
-    {"Assembly-CSharp", "Digit.Prime.HUD", "MissionsHudViewController", "UpdateButtons"},
+constexpr HookDescriptor kOnEnableHook{
+    "MissionsHudViewController.OnEnable",
+    "Apply configured mission HUD button visibility after the controller is enabled.",
+    {"Assembly-CSharp", "Digit.Prime.HUD", "MissionsHudViewController", "OnEnable"},
     "Configured mission HUD buttons may remain hidden or visible."};
+
+constexpr HookDescriptor kOutpostsAndChallengesRefreshHook{
+    "MissionsHudViewController.HandleOutpostsAndChallengesHUD",
+    "Reapply configured mission HUD visibility after outpost and challenge state changes.",
+    {"Assembly-CSharp", "Digit.Prime.HUD", "MissionsHudViewController", "HandleOutpostsAndChallengesHUD"},
+    "Configured Q Trials or Outposts visibility may revert after state changes."};
 
 using ComponentGetGameObjectFn = void* (*)(void*);
 using GameObjectSetActiveFn    = void (*)(void*, bool);
@@ -119,6 +123,13 @@ const MissionHudRuntimeConfig& RuntimeConfig()
 {
   static const auto config = ParseRuntimeConfig();
   return config;
+}
+
+bool NeedsOutpostsAndChallengesRefresh()
+{
+  return std::ranges::any_of(RuntimeConfig().buttons, [](const auto& button) {
+    return button.id == MissionHudButtonId::QTrials || button.id == MissionHudButtonId::Outposts;
+  });
 }
 
 const std::array<ptrdiff_t, kButtonCount>& ControllerFieldOffsets()
@@ -229,9 +240,8 @@ void ApplyConfiguredVisibility(MissionsHudViewController* controller)
   }
 }
 
-int32_t MissionsHudViewController_UpdateButtons_Hook(auto original, MissionsHudViewController* controller)
+void ApplyConfiguredVisibilitySafely(MissionsHudViewController* controller)
 {
-  const auto result = original(controller);
   try {
     ApplyConfiguredVisibility(controller);
   } catch (const std::exception& exception) {
@@ -239,7 +249,18 @@ int32_t MissionsHudViewController_UpdateButtons_Hook(auto original, MissionsHudV
   } catch (...) {
     spdlog::warn("[MissionHudTweaks] failed applying visibility");
   }
-  return result;
+}
+
+void MissionsHudViewController_OnEnable_Hook(auto original, MissionsHudViewController* controller)
+{
+  original(controller);
+  ApplyConfiguredVisibilitySafely(controller);
+}
+
+void MissionsHudViewController_HandleOutpostsAndChallengesHUD_Hook(auto original, MissionsHudViewController* controller)
+{
+  original(controller);
+  ApplyConfiguredVisibilitySafely(controller);
 }
 } // namespace
 
@@ -248,20 +269,31 @@ void InstallMissionHudTweaksHooks()
   HookModuleHealth hooks("MissionHudTweaks");
 
   if (RuntimeConfig().buttons.empty()) {
-    hooks.record_skipped(kUpdateButtonsHook, "no mission HUD button visibility overrides configured");
+    hooks.record_skipped(kOnEnableHook, "no mission HUD button visibility overrides configured");
+    hooks.record_skipped(kOutpostsAndChallengesRefreshHook, "no mission HUD button visibility overrides configured");
     hooks.log_summary();
     return;
   }
 
   auto& helper = MissionsHudClassHelper();
   if (!helper.isValidHelper()) {
-    hooks.record_missing_helper(kUpdateButtonsHook);
-  } else if (auto update_buttons = helper.GetMethod("UpdateButtons", 0); update_buttons == nullptr) {
-    hooks.record_missing_method(kUpdateButtonsHook);
+    hooks.record_missing_helper(kOnEnableHook);
+  } else if (auto on_enable = helper.GetMethod("OnEnable", 0); on_enable == nullptr) {
+    hooks.record_missing_method(kOnEnableHook);
   } else {
     (void)ControllerFieldOffsets();
-    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kUpdateButtonsHook, update_buttons,
-                                     MissionsHudViewController_UpdateButtons_Hook);
+    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kOnEnableHook, on_enable, MissionsHudViewController_OnEnable_Hook);
+  }
+
+  if (!NeedsOutpostsAndChallengesRefresh()) {
+    hooks.record_skipped(kOutpostsAndChallengesRefreshHook, "Q Trials and Outposts use native visibility");
+  } else if (!helper.isValidHelper()) {
+    hooks.record_missing_helper(kOutpostsAndChallengesRefreshHook);
+  } else if (auto refresh = helper.GetMethod("HandleOutpostsAndChallengesHUD", 0); refresh == nullptr) {
+    hooks.record_missing_method(kOutpostsAndChallengesRefreshHook);
+  } else {
+    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kOutpostsAndChallengesRefreshHook, refresh,
+                                     MissionsHudViewController_HandleOutpostsAndChallengesHUD_Hook);
   }
 
   hooks.log_summary();

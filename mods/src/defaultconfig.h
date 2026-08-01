@@ -519,7 +519,6 @@ namespace UI
     constexpr const char* q_trials       = "auto";
     constexpr const char* field_training = "auto";
     constexpr const char* outposts       = "auto";
-    constexpr const char* daily_goals    = "auto";
     constexpr const char* missions       = "auto";
   } // namespace MissionHud
 } // namespace UI

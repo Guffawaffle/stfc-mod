@@ -119,7 +119,6 @@ namespace
       "ui.extend_chest_purchase_max",
       "ui.extend_donation_max",
       "ui.extend_donation_slider",
-      "ui.mission_hud.daily_goals",
       "ui.mission_hud.field_training",
       "ui.mission_hud.missions",
       "ui.mission_hud.outposts",
