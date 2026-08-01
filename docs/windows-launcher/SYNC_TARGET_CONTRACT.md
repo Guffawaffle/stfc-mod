@@ -77,7 +77,8 @@ Majel-only capability and fleet-assignment snapshots are transport behavior and 
 
 Inheritance is field-scoped, not table-scoped. For each resolved field the launcher records one of:
 
-- `inherited`: the target omitted an inheritable field and uses `[sync]`.
+- `inherited`: the target omitted the field. External targets resolve it from `[sync]`; non-inheriting target kinds
+  resolve it from their own safe type default. Resolved values retain that source distinction.
 - `explicit_value`: the target supplied a value, including `true` and non-empty strings.
 - `explicit_false`: the target explicitly supplied boolean `false`; it overrides global `true`.
 - `explicit_empty`: the target explicitly supplied an empty string where empty is meaningful; it overrides a non-empty

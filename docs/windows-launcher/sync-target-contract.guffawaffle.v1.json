@@ -6,6 +6,11 @@
     "explicit_false",
     "explicit_empty"
   ],
+  "resolutionSources": [
+    "global_default",
+    "target_type_default",
+    "target"
+  ],
   "diagnosticSeverities": [
     "info",
     "warning",
