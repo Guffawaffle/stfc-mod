@@ -10,8 +10,10 @@ base-game update, repair, and first-time sign-in remain owned by that launcher.
 The community launcher does not reproduce the Xsolla protocol and does not
 start `prime.exe` directly.
 
-The action is explicitly a modded launch. A launcher-managed `version.dll`
-must exist and still match its persisted SHA-256 identity. An unmodded mode is
+The action is explicitly a modded launch. An existing manual `version.dll` is
+eligible without first being adopted into launcher ownership. Adoption remains
+an explicit mod-management action. A missing mod or a launcher-managed install
+whose recorded bytes no longer match still blocks launch. An unmodded mode is
 represented as a distinct blocked state; v1 does not claim it because safely
 disabling and restoring the proxy across an official-launcher handoff has not
 been accepted.

@@ -87,13 +87,13 @@ jobs:
           cp stfc-community-mod/version.dll version.dll
           cp stfc-community-mod.zip stfc-community-mod-${{ github.ref_name }}.zip
           test -f stfc-community-mod-launcher-win-x64/stfc-community-mod-launcher-win-x64.zip
-          test -f stfc-community-mod-launcher-win-x64/setup/STFCCommunityMod.Launcher.Setup.exe
+          test -f stfc-community-mod-launcher-setup-win-x64/STFCCommunityMod.Launcher.Setup.exe
           sha256sum version.dll \
             stfc-community-mod.zip \
             stfc-community-mod-${{ github.ref_name }}.zip \
             stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst \
             stfc-community-mod-launcher-win-x64/stfc-community-mod-launcher-win-x64.zip \
-            stfc-community-mod-launcher-win-x64/setup/STFCCommunityMod.Launcher.Setup.exe \
+            stfc-community-mod-launcher-setup-win-x64/STFCCommunityMod.Launcher.Setup.exe \
             stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst \
             stfc-community-mod-installer/stfc-community-mod-installer.dmg > SHA256SUMS.txt
 
@@ -175,7 +175,7 @@ jobs:
             stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst \
             stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst.sha256 \
             stfc-community-mod-launcher-win-x64/stfc-community-mod-launcher-win-x64.zip \
-            stfc-community-mod-launcher-win-x64/setup/STFCCommunityMod.Launcher.Setup.exe \
+            stfc-community-mod-launcher-setup-win-x64/STFCCommunityMod.Launcher.Setup.exe \
             stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst \
             stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst.sha256 \
             stfc-community-mod-installer/stfc-community-mod-installer.dmg \
