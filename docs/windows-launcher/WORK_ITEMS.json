@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "project": "windows-launcher-parity-plus",
-  "status": "wl-001-active",
+  "status": "wl-004-active",
   "repository": "Guffawaffle/stfc-mod",
-  "baselineCommit": "be8d75a7613dae2b79cafe504aef500086b3e4e2",
+  "baselineCommit": "f8b8998e3c0aef752077b915d955813631aaadd4",
   "defaults": {
     "baseBranch": "main",
     "platform": "windows-x64",
@@ -46,7 +46,8 @@
         "WL-001"
       ],
       "scope": [
-        "windows-launcher/src/Core/",
+        "windows-launcher/src/STFCCommunityMod.Launcher.Core/",
+        "windows-launcher/src/STFCCommunityMod.Launcher/",
         "windows-launcher/tests/"
       ],
       "objective": "Discover bounded installation candidates, validate prime.exe targets, persist a user-confirmed selection, and expose a read-only health state.",
@@ -54,6 +55,8 @@
         "Discovery returns evidence and confidence for every candidate.",
         "Wrong official-launcher directories are rejected.",
         "Manual folder selection is supported.",
+        "A user-confirmed selection is persisted and revalidated.",
+        "Process, selection, and discovery health remain composable.",
         "Non-ASCII and non-default paths are covered by tests.",
         "No recursive drive scan occurs."
       ],
@@ -155,6 +158,16 @@
       "objective": "Provide searchable, validated sparse TOML editing while preserving comments and unknown keys.",
       "acceptance": [
         "Settings are generated from the shared schema.",
+        "A generated presentation envelope supplies player-facing labels, optional help, units, apply timing, grouping, search terms, and accessibility text without redefining runtime defaults or persistence.",
+        "The compact launcher home remains separate from the larger searchable settings workspace.",
+        "Normal settings render as a borderless full-row list with a stable control column; hover, selection, and keyboard focus remain distinct and additive.",
+        "Raw keys, value types, literal defaults, and runtime apply tokens remain searchable and available through explicit technical detail rather than the primary reading path.",
+        "Microsoft Fluent System Icons are exposed through an application-owned semantic icon layer with accessible names and consistent target sizes.",
+        "The title-area theme selector shows and marks the selected System, Light, or Dark color mode while leaving future visual styles as a separate extensibility point.",
+        "Reset is contextual to an existing override, while settings with meaningful inheritance preserve an explicit Default/On/Off distinction.",
+        "Notifications are grouped, searchable, and expandable without flattening meaningful event names or rendering every delivery control at once.",
+        "Hotkey alternatives render as individually removable chips with one Add action and no detached ambiguous unbind control.",
+        "The conditional dirty-state bar derives a visible apply-timing summary from all staged settings and reports mixed timing without hiding it in a tooltip.",
         "Unknown keys and comments survive normal edits.",
         "Save uses backup, validation, and atomic replacement.",
         "Raw-file open and remove-override actions are available.",
@@ -209,6 +222,7 @@
       "objective": "Explain unhealthy states, offer bounded repairs, and export previewable redacted diagnostics without automatic upload.",
       "acceptance": [
         "Every health failure maps to an explanation and safe next action.",
+        "Normal launcher UI omits filesystem paths, discovery provenance, and internal health detail unless the user explicitly opens diagnostics.",
         "Diagnostic contents are previewed.",
         "Fixture tests prove token, private path, and private endpoint redaction.",
         "Repair never modifies files outside the allowlist.",
@@ -267,6 +281,7 @@
       "objective": "Publish a production-ready Windows launcher without removing the manual version.dll distribution path.",
       "acceptance": [
         "Windows CI builds, tests, and packages launcher and mod artifacts.",
+        "The executable, window, taskbar, shortcuts, and release surfaces use the approved multi-resolution community-mod application icon.",
         "Keyboard, screen reader, reduced motion, and high-DPI smoke tests pass.",
         "Clean install, adoption, update, game-update repair, rollback, uninstall, and offline launch are documented and smoked.",
         "Manual version.dll assets and installation documentation remain supported.",

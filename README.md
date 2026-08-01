@@ -25,6 +25,12 @@
 
 This fork exists so I can ship and test changes on my own branch without presenting them as official upstream behavior.
 
+Windows 10/11 x64 releases also publish a signed, per-user Community Mod
+Launcher archive. It can discover the game, manage verified mod releases,
+edit configuration, hand off launch/update work to the official client, export
+redacted diagnostics, and update itself. Direct `version.dll` downloads and
+manual installation remain supported.
+
 - Use **`netniV/stfc-mod` `main` releases** if you want the official/default mod experience.
 - Use **`Guffawaffle/stfc-mod` `main` releases** if you want the current published state of this fork.
 

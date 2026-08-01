@@ -16,6 +16,9 @@ may place beside the game or config folder. The policy target is:
 
 | Path | Owner | Class | Default State | Notes |
 | --- | --- | --- | --- | --- |
+| `version.dll` | Windows mod / launcher | Managed deployment artifact | Present after manual or launcher install | The launcher may replace or remove this file only after explicit target validation, release verification, ownership/adoption checks, and the game-running guard. Manual installation remains supported. |
+| `.version.dll.<transaction-id>.stage` | Windows launcher | Transaction staging | Normally absent | Same-volume verified staging file. It exists only during a journaled mutation and is removed on commit or rollback. |
+| `.version.dll.<transaction-id>.rollback` | Windows launcher | Transaction rollback | Normally absent | Same-volume recovery file used while replacing or removing `version.dll`. An incomplete transaction must recover it before another mutation starts. |
 | `community_patch_settings.toml` | Mod + user | User config | Created if missing | Source of truth for user overrides. |
 | `community_patch_runtime.vars` | Mod | Runtime state snapshot | Rewritten on launch | Resolved settings snapshot after defaults/aliases. Do not edit. |
 | `community_patch.log` / `community_patch.*.log` | Mod | Legacy troubleshooting log | Created by current bootstrap logger | Plain-text spdlog output for boot/load troubleshooting. Rotated at a small bounded size. Not the preferred durable export format. The bootstrap logger still owns its path on this branch. |

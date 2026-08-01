@@ -76,6 +76,39 @@ The Windows launcher must not reproduce Xsolla’s Windows updater in the first
 production release. It may detect a game-version change, start the official
 launcher, wait for it to exit, and then re-evaluate or repair the mod.
 
+### Future-state integrated game client
+
+The post-v1 product direction is to replace the official launcher for routine
+play on an established installation. The Windows launcher should eventually
+own both of these player-facing actions:
+
+- launch the installed STFC client with the selected community-mod release;
+- detect and apply an available base-game update without requiring the player
+  to open the official launcher.
+
+The Home `Game client` row becomes an operational surface rather than passive
+status. It offers `Launch game` whenever launch is safe and adds an `Update`
+action when a base-game update is available. Launch, game update, mod
+deployment, and launcher self-update remain distinct operations with distinct
+progress and failure states.
+
+The macOS launcher proves that this concept is technically real: its
+[`ActionView`](../../macos-launcher/src/ActionView.swift) exposes game-update
+and launch actions, while [`XsollaLib`](../../macos-launcher/src/XsollaLib.swift)
+checks installed/latest versions and executes the Xsolla download, extract,
+patch, delete, and version plan.
+
+That implementation is evidence, not a Windows port contract. Before Windows
+adopts direct game updating, a dedicated design must validate the current
+Windows Xsolla protocol, artifact integrity, interruption recovery,
+installation locking, required-update policy, game/mod compatibility, repair,
+and rollback behavior. Authentication and credential storage remain outside
+the community launcher; first-time sign-in or expired-session recovery may
+still hand off to the official launcher.
+
+Until those gates are satisfied, the first-production-release boundary above
+remains authoritative: launch and update use the supported official path.
+
 ## Supported environment
 
 - Windows 10 and Windows 11, x64.
@@ -154,21 +187,41 @@ action.
 Release discovery uses GitHub releases from `Guffawaffle/stfc-mod`. The
 launcher consumes a machine-readable manifest published with each release.
 
-Proposed manifest:
+The canonical schema, artifact kinds, channel mapping, authenticity boundary,
+withdrawal behavior, and producer/consumer validation rules are defined in
+`docs/windows-launcher/RELEASE_MANIFEST.md`.
+
+Schema v1 shape:
 
 ```json
 {
   "schemaVersion": 1,
   "releaseVersion": "2.1.0-guffa.6",
+  "tag": "v2.1.0-guffa.6",
   "channel": "stable",
+  "releaseState": "active",
   "minimumLauncherVersion": "0.1.0",
+  "source": {
+    "repository": "Guffawaffle/stfc-mod",
+    "targetCommit": "<40 lowercase hex characters>"
+  },
+  "manifestAuthenticity": {
+    "scheme": "none"
+  },
   "artifacts": [
     {
+      "id": "windows-mod-dll-x64",
       "kind": "windows-mod",
+      "platform": "windows",
       "architecture": "x64",
       "fileName": "version.dll",
+      "mediaType": "application/vnd.microsoft.portable-executable",
       "sha256": "<64 lowercase hex characters>",
-      "size": 123
+      "size": 123,
+      "authenticity": {
+        "scheme": "authenticode",
+        "scope": "artifact"
+      }
     }
   ]
 }
@@ -183,6 +236,7 @@ Rules:
 - Unknown manifest schema versions fail closed with an actionable message.
 - Downgrade requires explicit confirmation.
 - Withdrawn releases are not newly offered.
+- Checksums are artifact integrity metadata, not manifest authentication.
 - Network failure must not prevent launching an already healthy installation.
 
 Self-update must use a separate bootstrapper or replace-on-exit helper. The
@@ -195,6 +249,11 @@ runtime remains the parser of record.
 
 The GUI editor operates against a generated, versioned configuration schema
 rather than duplicating defaults and descriptions by hand in C#.
+
+The settings experience is unified even when the schema delegates value
+handling to scalar, keybinding, and notification-policy adapters. Search,
+categories, changed-state, validation, and persistence behavior remain
+consistent across those control types.
 
 The schema must describe:
 
@@ -227,6 +286,23 @@ The UI must provide:
 - effective-value and restart-required indicators.
 
 Unknown keys and comments must survive normal edits.
+
+### Release source boundary
+
+The selected release source (`guffawaffle` parity+ or `netniv` upstream) is
+launcher state, not a mod TOML setting. It selects the release manifest,
+artifact trust policy, update stream, migration guidance, and matching
+configuration schema/capability adapter.
+
+Changing sources is a migration transaction. The launcher previews installed
+artifact and configuration compatibility, requires explicit confirmation, and
+retains backup and rollback guarantees. Automatic update never crosses release
+sources silently.
+
+TOML remains the runtime and interchange boundary for NetniV compatibility and
+safe source switching. A future Guffawaffle-only profile store may be richer,
+but it must compile/export deterministic sparse TOML while the C++ runtime
+consumes TOML.
 
 ## Launch contract
 
@@ -279,8 +355,17 @@ Diagnostics must be useful offline and must not upload automatically.
 
 ## UI contract
 
-The visual language may reuse the LCARS concept, but operation state must remain
-legible without relying on color alone.
+The accepted visual direction is a modern, compact Windows application with
+System, Light, and Dark themes. LCARS is no longer a product requirement.
+
+The home surface is outcome-oriented and shows only actionable game, mod, and
+operation state. Settings uses a separate, larger workspace with category
+navigation and search. Internal health dimensions, discovery provenance, and
+filesystem paths remain in structured logs and explicit redacted diagnostics
+rather than the normal launcher surface.
+
+See [the UX direction](UX_DIRECTION.md) for the home/settings information
+architecture, notification-scale behavior, and directional mockup.
 
 Required accessibility behavior:
 
