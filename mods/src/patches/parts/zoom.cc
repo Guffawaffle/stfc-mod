@@ -50,9 +50,9 @@ namespace
 {
 constexpr HookDescriptor kPlanetViewUtilsCameraZoomedEventHandlerHook{
     "PlanetViewUtils.CameraZoomedEventHandler",
-    "Re-apply backdrop presentation and trigger flat-renderable scaling after system zoom events.",
+    "Trigger flat-renderable scaling after system zoom events.",
     {"Assembly-CSharp", "Digit.Prime.Navigation", "PlanetViewUtils", "CameraZoomedEventHandler"},
-    "System-view border suppression can regress after zoom changes."};
+    "System-view backdrop scaling can regress after zoom changes."};
 
 constexpr HookDescriptor kPlanetViewUtilsGetFlatRenderableHook{
     "PlanetViewUtils.get_FlatRenderable",
@@ -169,9 +169,7 @@ vec3 GetMouseWorldPos(void *cam, vec3 *pos)
 auto do_default_zoom = false;
 
 static float           s_expectedScale = 0.0f;
-static void           *s_cachedFR      = nullptr;
 static void           *s_lastScaledFR  = nullptr;
-static NavigationZoom *s_navZoom       = nullptr;
 
 inline void SetSceneCameraFarClip(NavigationZoom *zoom, float farClipPlane)
 {
@@ -201,7 +199,6 @@ void ApplySystemZoomRange(NavigationZoom *zoom, const float radius)
   const auto ratio                 = configured_maximum / radius;
   zoom->_farRatioSystemNormal      = 0.55f * ratio;
   zoom->_farRatioSystemExtended    = ratio;
-  s_navZoom                        = zoom;
 }
 
 void EnsureSystemZoomRange(NavigationZoom *zoom)
@@ -437,15 +434,6 @@ void PlanetViewUtils_CameraZoomedEventHandler_Hook(auto original, PlanetViewUtil
   if (_this) {
     _this->GetFlatRenderable();
   }
-
-  if (!s_navZoom || !s_navZoom->_sceneCamera) {
-    return;
-  }
-
-  const auto clear_flags = s_navZoom->_sceneCamera->clearFlags;
-  if (clear_flags >= 0 && clear_flags <= 4 && clear_flags != 2) {
-    SetSceneCameraPresentation(s_navZoom);
-  }
 }
 
 // ─── View Parameter / Depth Hooks ──────────────────────────────────────────
@@ -521,9 +509,6 @@ void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom *_this, NodeDept
     original(_this, depth);
     SetSceneCameraPresentation(_this);
     do_default_zoom = true;
-    if (s_cachedFR) {
-      ScaleFR(s_cachedFR);
-    }
   } else {
     original(_this, depth);
   }
@@ -536,7 +521,6 @@ void *PlanetViewUtils_get_FlatRenderable_Hook(auto original, PlanetViewUtils *_t
     return fr;
   }
 
-  s_cachedFR = fr;
   ScaleFR(fr);
   return fr;
 }
