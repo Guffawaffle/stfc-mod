@@ -21,29 +21,60 @@
       "persistencePattern": "sidecar.sync",
       "cardinality": "zero_or_one",
       "wireContract": "sidecar_local_ingest",
-      "inheritsGlobalSync": false
+      "inheritsGlobalSync": false,
+      "uiExposure": "existing_configuration_only"
     },
     "legacy_community": {
       "persistencePattern": "sync.targets.*",
       "cardinality": "zero_or_more",
       "wireContract": "legacy_sync_json",
-      "inheritsGlobalSync": true
+      "inheritsGlobalSync": true,
+      "uiExposure": "creatable"
     },
     "majel_ingest": {
       "persistencePattern": "sync.targets.*",
       "cardinality": "zero_or_more",
       "wireContract": "majel.ingest.v1",
-      "inheritsGlobalSync": true
+      "inheritsGlobalSync": true,
+      "uiExposure": "hidden"
     }
   },
   "presets": {
     "spocks_club": {
       "targetKind": "legacy_community",
-      "suggestedIdentity": "spocksclub"
+      "suggestedIdentity": "spocksclub",
+      "url": "https://spocks.club/sync/ingress/",
+      "feedDefaults": {
+        "resources": true,
+        "battlelogs": false,
+        "officer": true,
+        "missions": false,
+        "research": true,
+        "tech": false,
+        "traits": false,
+        "buildings": true,
+        "ships": false
+      }
     },
     "next_spocks_club": {
       "targetKind": "legacy_community",
-      "suggestedIdentity": "nextspocksclub"
+      "suggestedIdentity": "spocksclub-next",
+      "url": "https://next.spocks.club/sync/ingress/",
+      "feedDefaults": {
+        "battlelogs": false,
+        "buffs": true,
+        "buildings": true,
+        "inventory": true,
+        "jobs": false,
+        "missions": true,
+        "officer": true,
+        "research": true,
+        "resources": true,
+        "ships": true,
+        "slots": true,
+        "tech": true,
+        "traits": true
+      }
     }
   },
   "fields": {

@@ -31,18 +31,20 @@ Loading configuration never changes the desired topology or the TOML. A resolved
 
 | Kind | Persistence | Cardinality | Wire contract | Notes |
 |---|---|---:|---|---|
-| Local Sidecar | `[sidecar.sync]` | Zero or one | Local sidecar ingest | Fixed launcher identity; not an external target and never receives external network policy by inheritance. |
-| Legacy/community | `[sync.targets.<name>]` | Zero or more | Legacy STFC sync JSON | `mode` absent, empty, or `legacy`. Spocks Club presets use this kind. |
-| Majel ingest | `[sync.targets.<name>]` | Zero or more | `majel.ingest.v1` envelopes | `mode = "majel"`; one-way event ingest only. |
+| Local Sidecar | `[sidecar.sync]` | Zero or one | Local sidecar ingest | Existing-configuration-only in the ordinary UI; fixed identity and no external-network-policy inheritance. |
+| Ordinary Sync (compatibility kind `legacy_community`) | `[sync.targets.<name>]` | Zero or more | Established STFC sync JSON | Creatable; persisted `mode` is absent, empty, or `legacy`. |
+| Majel advanced mode | `[sync.targets.<name>]` | Zero or more | `majel.ingest.v1` envelopes | Hidden from the ordinary UI and preserved as an advanced TOML-only wrapper. |
 
 Provider names are presets, not protocol types:
 
-- **Spocks Club** creates a legacy/community target with the suggested identity `spocksclub`.
-- **Next Spocks Club** creates a legacy/community target with the suggested identity `nextspocksclub`.
-- **Custom legacy/community** and **Custom Majel** use the same concrete kinds without provider branding.
+- **Spocks Club** creates an ordinary destination named `spocksclub`, prefills
+  `https://spocks.club/sync/ingress/`, and applies its nine documented feed defaults.
+- **Next Spocks Club** creates an ordinary destination named `spocksclub-next`, prefills
+  `https://next.spocks.club/sync/ingress/`, and applies its thirteen documented feed defaults.
+- **Custom sync** creates the same ordinary kind without provider branding.
 
-The local sidecar appears as a target card in the launcher, but persists to the singleton `[sidecar.sync]` table. It is
-not represented as `[sync.targets.sidecar]`.
+The local Sidecar appears only when `[sidecar.sync]` is present. It is never synthesized by opening or saving the page
+and is not represented as `[sync.targets.sidecar]`.
 
 ## Field and capability matrix
 
