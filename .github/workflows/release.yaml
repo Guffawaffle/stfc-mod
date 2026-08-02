@@ -4,8 +4,8 @@
 # Triggered when a tag matching "v*" is pushed.  Verifies that the CI Build
 # workflow succeeded for the same commit, downloads its artifacts, packages
 # them into a .zip, detects alpha/beta pre-releases, and publishes a GitHub
-# release with the signed Windows mod, launcher archive, canonical release
-# manifest, existing manual archives, and macOS installer attached.
+# release with the signed Windows mod, canonical release manifest, existing
+# manual archives, and macOS installer attached.
 
 name: Create Release
 
@@ -86,14 +86,10 @@ jobs:
         run: |
           cp stfc-community-mod/version.dll version.dll
           cp stfc-community-mod.zip stfc-community-mod-${{ github.ref_name }}.zip
-          test -f stfc-community-mod-launcher-win-x64/stfc-community-mod-launcher-win-x64.zip
-          test -f stfc-community-mod-launcher-win-x64/setup/STFCCommunityMod.Launcher.Setup.exe
           sha256sum version.dll \
             stfc-community-mod.zip \
             stfc-community-mod-${{ github.ref_name }}.zip \
             stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst \
-            stfc-community-mod-launcher-win-x64/stfc-community-mod-launcher-win-x64.zip \
-            stfc-community-mod-launcher-win-x64/setup/STFCCommunityMod.Launcher.Setup.exe \
             stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst \
             stfc-community-mod-installer/stfc-community-mod-installer.dmg > SHA256SUMS.txt
 
@@ -126,7 +122,7 @@ jobs:
             --target "${{ github.sha }}" \
             --repository "${{ github.repository }}" \
             --artifact-root "$PWD" \
-            --spec scripts/windows_release_manifest_spec.json \
+            --spec scripts/mod_release_manifest_spec.json \
             --output stfc-community-mod-release-manifest.json
 
           python3 scripts/generate_release_manifest.py validate \
@@ -134,7 +130,7 @@ jobs:
             --target "${{ github.sha }}" \
             --repository "${{ github.repository }}" \
             --artifact-root "$PWD" \
-            --spec scripts/windows_release_manifest_spec.json \
+            --spec scripts/mod_release_manifest_spec.json \
             --manifest stfc-community-mod-release-manifest.json
 
           sha256sum stfc-community-mod-release-manifest.json >> SHA256SUMS.txt
@@ -174,8 +170,6 @@ jobs:
             stfc-community-mod-${{ github.ref_name }}.zip \
             stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst \
             stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst.sha256 \
-            stfc-community-mod-launcher-win-x64/stfc-community-mod-launcher-win-x64.zip \
-            stfc-community-mod-launcher-win-x64/setup/STFCCommunityMod.Launcher.Setup.exe \
             stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst \
             stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst.sha256 \
             stfc-community-mod-installer/stfc-community-mod-installer.dmg \

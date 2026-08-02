@@ -72,14 +72,66 @@ option("stfc_release_tag")
     set_description("Optional release tag to expose in runtime diagnostics, sync payloads, and product metadata")
 option_end()
 
+option("stfc_distribution_id")
+    set_default(os.getenv("STFC_DISTRIBUTION_ID") or "guffawaffle.stfc-community-mod")
+    set_showmenu(true)
+    set_description("Distribution lineage embedded in Windows DLL provenance")
+option_end()
+
+option("stfc_source_state_id")
+    set_default(os.getenv("STFC_SOURCE_STATE_ID") or "unknown")
+    set_showmenu(true)
+    set_description("Clean commit or dirty source fingerprint embedded in Windows DLL provenance")
+option_end()
+
+option("stfc_base_commit")
+    set_default(os.getenv("STFC_BASE_COMMIT") or "unknown")
+    set_showmenu(true)
+    set_description("Base source commit embedded in Windows DLL provenance")
+option_end()
+
+option("stfc_build_invocation_id")
+    set_default(os.getenv("STFC_BUILD_INVOCATION_ID") or "xmake-direct")
+    set_showmenu(true)
+    set_description("Build or AX cycle correlation identifier embedded in Windows DLL provenance")
+option_end()
+
+option("stfc_build_channel")
+    set_default(os.getenv("STFC_BUILD_CHANNEL") or "local")
+    set_showmenu(true)
+    set_description("Build channel embedded in Windows DLL provenance")
+option_end()
+
 local function c_string_define(value)
     return value:gsub("\\", "\\\\"):gsub("\"", "\\\"")
+end
+
+local function identity_define(option_name, fallback)
+    local value = get_config(option_name)
+    if not value or value == "" then
+        value = fallback
+    end
+    if #value > 160 then
+        raise(option_name .. " must not exceed 160 characters")
+    end
+    if not value:match("^[%w%._:+/%-]+$") then
+        raise(option_name .. " contains unsupported identity characters")
+    end
+    return c_string_define(value)
 end
 
 local stfc_release_tag = get_config("stfc_release_tag")
 if stfc_release_tag and stfc_release_tag ~= "" then
     add_defines("STFC_RELEASE_TAG=\"" .. c_string_define(stfc_release_tag) .. "\"")
 end
+
+add_defines("STFC_DISTRIBUTION_ID=\"" ..
+            identity_define("stfc_distribution_id", "guffawaffle.stfc-community-mod") .. "\"")
+add_defines("STFC_SOURCE_STATE_ID=\"" .. identity_define("stfc_source_state_id", "unknown") .. "\"")
+add_defines("STFC_BASE_COMMIT=\"" .. identity_define("stfc_base_commit", "unknown") .. "\"")
+add_defines("STFC_BUILD_INVOCATION_ID=\"" .. identity_define("stfc_build_invocation_id", "xmake-direct") .. "\"")
+add_defines("STFC_BUILD_CHANNEL=\"" .. identity_define("stfc_build_channel", "local") .. "\"")
+add_defines("STFC_BUILD_MODE=\"" .. identity_define("mode", "unknown") .. "\"")
 
 -- ─── Local / Vendored Packages ───────────────────────────────────────────────
 

@@ -25,9 +25,7 @@ class ReleaseManifestTests(unittest.TestCase):
         self.artifact_root = self.root / "artifacts"
         self.artifact_root.mkdir()
         self.mod = self.artifact_root / "version.dll"
-        self.launcher = self.artifact_root / "launcher.zip"
         self.mod.write_bytes(b"signed-mod-fixture")
-        self.launcher.write_bytes(b"signed-launcher-fixture")
         self.spec_path = self.root / "spec.json"
         self.spec_path.write_text(
             json.dumps(
@@ -46,23 +44,6 @@ class ReleaseManifestTests(unittest.TestCase):
                             "authenticity": {
                                 "scheme": "authenticode",
                                 "scope": "artifact",
-                            },
-                        },
-                        {
-                            "id": "windows-launcher-archive-x64",
-                            "kind": "windows-launcher",
-                            "platform": "windows",
-                            "architecture": "x64",
-                            "sourcePath": "launcher.zip",
-                            "fileName": "launcher.zip",
-                            "mediaType": "application/zip",
-                            "authenticity": {
-                                "scheme": "authenticode",
-                                "scope": "contents",
-                                "signedFiles": [
-                                    "STFCCommunityMod.Launcher.exe",
-                                    "STFCCommunityMod.Launcher.Updater.exe",
-                                ],
                             },
                         },
                     ],
@@ -106,7 +87,7 @@ class ReleaseManifestTests(unittest.TestCase):
 
     def test_checked_in_release_spec_round_trips_fixture_layout(self) -> None:
         repository_root = Path(__file__).resolve().parents[1]
-        checked_in_spec = repository_root / "scripts" / "windows_release_manifest_spec.json"
+        checked_in_spec = repository_root / "scripts" / "mod_release_manifest_spec.json"
         spec = json.loads(checked_in_spec.read_text(encoding="utf-8"))
         fixture_root = self.root / "release-layout"
         fixture_root.mkdir()
@@ -137,8 +118,6 @@ class ReleaseManifestTests(unittest.TestCase):
             [
                 "windows-mod-dll-x64",
                 "windows-mod-archive-x64",
-                "windows-launcher-archive-x64",
-                "windows-launcher-setup-x64",
             ],
             [artifact["id"] for artifact in manifest["artifacts"]],
         )
@@ -210,6 +189,24 @@ class ReleaseManifestTests(unittest.TestCase):
 
     def test_signed_archive_member_cannot_escape_extraction_root(self) -> None:
         spec = json.loads(self.spec_path.read_text(encoding="utf-8"))
+        archive = self.artifact_root / "archive.zip"
+        archive.write_bytes(b"signed-archive-fixture")
+        spec["artifacts"].append(
+            {
+                "id": "signed-archive-fixture",
+                "kind": "fixture",
+                "platform": "windows",
+                "architecture": "x64",
+                "sourcePath": "archive.zip",
+                "fileName": "archive.zip",
+                "mediaType": "application/zip",
+                "authenticity": {
+                    "scheme": "authenticode",
+                    "scope": "contents",
+                    "signedFiles": [],
+                },
+            }
+        )
         spec["artifacts"][1]["authenticity"]["signedFiles"] = ["../launcher.exe"]
         self.spec_path.write_text(json.dumps(spec), encoding="utf-8")
 

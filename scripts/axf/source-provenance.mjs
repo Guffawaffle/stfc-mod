@@ -157,7 +157,7 @@ function assertNoHiddenIndexEntries(repoRoot, prefix = "") {
   }
 }
 
-function listRepositoryFiles(repoRoot, prefix = "") {
+function listRepositoryFiles(repoRoot, prefix = "", excludedSubmodules = new Set()) {
   assertNoHiddenIndexEntries(repoRoot, prefix);
   const links = submoduleGitlinks(repoRoot);
   const files = [];
@@ -191,10 +191,15 @@ function listRepositoryFiles(repoRoot, prefix = "") {
           `Dirty or mismatched submodule source is not supported: ${normalizeGitPath(`${prefix}${path}`)}`
         );
       }
+      const qualifiedPath = normalizeGitPath(`${prefix}${path}`);
+      if (excludedSubmodules.has(qualifiedPath)) {
+        continue;
+      }
       files.push(
         ...listRepositoryFiles(
           submoduleRoot,
-          normalizeGitPath(`${prefix}${path}/`)
+          normalizeGitPath(`${prefix}${path}/`),
+          excludedSubmodules
         )
       );
       continue;
@@ -234,8 +239,9 @@ function manifestEvidence(repoRoot, path) {
   throw new Error(`Unsupported source manifest entry: ${path}`);
 }
 
-function createManifest(repoRoot) {
-  const paths = [...new Set(listRepositoryFiles(repoRoot))].sort(stableCompare);
+function createManifest(repoRoot, excludedSubmodules = []) {
+  const normalizedExclusions = [...new Set(excludedSubmodules.map(normalizeGitPath))].sort(stableCompare);
+  const paths = [...new Set(listRepositoryFiles(repoRoot, "", new Set(normalizedExclusions)))].sort(stableCompare);
   const windowsKeys = new Map();
   for (const path of paths) {
     const key = path.normalize("NFC").toLowerCase();
@@ -250,6 +256,7 @@ function createManifest(repoRoot) {
   const evidence = paths.map((path) => manifestEvidence(repoRoot, path));
   return {
     paths,
+    excludedSubmodules: normalizedExclusions,
     fingerprint: `sha256:${hashText(JSON.stringify(evidence))}`
   };
 }
@@ -262,7 +269,7 @@ export function fingerprintSourcePaths(repoRoot, paths) {
   return `sha256:${hashText(JSON.stringify(evidence))}`;
 }
 
-function collectStableSourceState(repoRoot) {
+function collectStableSourceState(repoRoot, excludedSubmodules) {
   const normalizedRoot = resolve(repoRoot);
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const baseCommit = git(normalizedRoot, ["rev-parse", "HEAD"]).trim();
@@ -273,7 +280,7 @@ function collectStableSourceState(repoRoot) {
       "--untracked-files=all",
       "--ignored=no"
     ]);
-    const manifest = createManifest(normalizedRoot);
+    const manifest = createManifest(normalizedRoot, excludedSubmodules);
     const baseAfter = git(normalizedRoot, ["rev-parse", "HEAD"]).trim();
     const statusAfter = git(normalizedRoot, [
       "status",
@@ -300,13 +307,16 @@ function collectStableSourceState(repoRoot) {
  */
 export function collectSourceSnapshot(
   repoRoot,
-  { pathLimit = DEFAULT_CHANGED_PATH_LIMIT } = {}
+  { pathLimit = DEFAULT_CHANGED_PATH_LIMIT, excludedSubmodules = [] } = {}
 ) {
   if (!Number.isInteger(pathLimit) || pathLimit < 0) {
     throw new Error("pathLimit must be a non-negative integer");
   }
 
-  const state = collectStableSourceState(repoRoot);
+  if (!Array.isArray(excludedSubmodules) || excludedSubmodules.some((path) => typeof path !== "string" || !path)) {
+    throw new Error("excludedSubmodules must contain non-empty repository-relative paths");
+  }
+  const state = collectStableSourceState(repoRoot, excludedSubmodules);
   const worktreeDirty = state.entries.length > 0;
   const fingerprint = worktreeDirty
     ? hashText(
@@ -333,6 +343,7 @@ export function collectSourceSnapshot(
       worktreeFingerprint: fingerprint ? `sha256:${fingerprint}` : null,
       sourceManifestFingerprint: state.manifest.fingerprint,
       sourceFileCount: state.manifest.paths.length,
+      excludedSubmodules: state.manifest.excludedSubmodules,
       changedPathCount: state.entries.length,
       changedPaths: state.entries.slice(0, pathLimit),
       changedPathsTruncated: state.entries.length > pathLimit,

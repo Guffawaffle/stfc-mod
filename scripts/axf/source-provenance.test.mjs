@@ -190,6 +190,34 @@ test("dirty initialized submodules fail closed", () => {
   );
 });
 
+test("explicit Windows exclusions omit a clean submodule but still disclose the policy", () => {
+  const submodule = fixture();
+  const root = fixture();
+  run(root, [
+    "-c",
+    "protocol.file.allow=always",
+    "submodule",
+    "add",
+    "-q",
+    submodule,
+    "vendor/macos-only"
+  ]);
+  run(root, ["commit", "-qm", "add excluded submodule"]);
+
+  const snapshot = collectSourceSnapshot(root, {
+    excludedSubmodules: ["vendor/macos-only"]
+  });
+  assert.deepEqual(snapshot.provenance.excludedSubmodules, ["vendor/macos-only"]);
+  assert.deepEqual(snapshot.manifest.excludedSubmodules, ["vendor/macos-only"]);
+  assert.equal(snapshot.manifest.paths.some((path) => path.startsWith("vendor/macos-only/")), false);
+
+  writeFileSync(join(root, "vendor", "macos-only", "tracked.cpp"), "int dirty = 1;\n");
+  assert.throws(
+    () => collectSourceSnapshot(root, { excludedSubmodules: ["vendor/macos-only"] }),
+    /Dirty or mismatched submodule source is not supported/
+  );
+});
+
 test("receipt normalization preserves artifacts and pins canonical source identity", () => {
   const root = fixture();
   writeFileSync(join(root, "tracked.cpp"), "int dirty = 1;\n");

@@ -26,6 +26,13 @@ import {
   fingerprintSourcePaths,
   normalizeSourceReceipt
 } from "./source-provenance.mjs";
+import {
+  assertIdentityMatches,
+  createAxBuildIdentity,
+  identityEnvironment,
+  identityXmakeArguments,
+  parseIdentityComment
+} from "./build-identity.mjs";
 
 const PROVIDER_VERSION = "0.3.0";
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -33,6 +40,7 @@ const DEFAULT_GAME_ROOT = "/mnt/c/Games/Star Trek Fleet Command/default/game";
 const GAME_ROOT = process.env.STFC_GAME_ROOT || DEFAULT_GAME_ROOT;
 const PRIVATE_AX_ROOT = process.env.STFC_PRIVATE_AX_ROOT || process.env.STFC_AX_REF_ROOT || "/mnt/d/dev/stfc-mod/.ax-priv";
 const WINDOWS_BUILD_ROOT = process.env.STFC_WINDOWS_BUILD_ROOT || "/mnt/d/dev/stfc-mod-interop";
+const WINDOWS_EXCLUDED_SUBMODULES = ["macos-launcher/deps/PLzmaSDK"];
 const WINDOWS_PWSH_CANDIDATES = [
   process.env.STFC_WINDOWS_PWSH,
   "/mnt/c/Program Files/PowerShell/7/pwsh.exe",
@@ -312,10 +320,15 @@ function commandWindowsAx(axCommand, options, argMap = {}) {
   const shouldSync = axCommand !== "game-running";
   let sourceSnapshot = null;
   let sourceProvenance = null;
+  let buildIdentity = null;
   if (shouldSync) {
     try {
-      sourceSnapshot = collectSourceSnapshot(REPO_ROOT);
+      sourceSnapshot = collectSourceSnapshot(REPO_ROOT, { excludedSubmodules: WINDOWS_EXCLUDED_SUBMODULES });
       sourceProvenance = sourceSnapshot.provenance;
+      buildIdentity = createAxBuildIdentity(sourceProvenance, {
+        buildInvocationId: `ax:${randomUUID()}`,
+        buildMode: process.env.STFC_XMAKE_MODE || "release"
+      });
     } catch (error) {
       return fail("Unable to establish build source provenance.", {
         interop: interop.summary,
@@ -333,7 +346,9 @@ function commandWindowsAx(axCommand, options, argMap = {}) {
       sync: sync.data
     });
   }
-  const xmakePrep = shouldSync ? prepareWindowsXmake(interop) : ok({ skipped: true, reason: "command does not build" });
+  const xmakePrep = shouldSync
+    ? prepareWindowsXmake(interop, buildIdentity)
+    : ok({ skipped: true, reason: "command does not build" });
   if (!xmakePrep.ok) {
     return fail("Failed to prepare Windows xmake configuration.", {
       interop: interop.summary,
@@ -347,6 +362,9 @@ function commandWindowsAx(axCommand, options, argMap = {}) {
   const psCommand = [
     "$ErrorActionPreference = 'Stop'",
     `$env:AX_REPO_ROOT = '${escapePowerShellSingleQuoted(interop.paths.repoRootWin)}'`,
+    ...Object.entries(buildIdentity ? identityEnvironment(buildIdentity) : {}).map(
+      ([name, value]) => `$env:${name} = '${escapePowerShellSingleQuoted(value)}'`
+    ),
     `& '${escapePowerShellSingleQuoted(interop.paths.axScriptWin)}' ${axArgs.map(powerShellSingleQuoted).join(" ")}`,
     "exit $LASTEXITCODE"
   ].join("; ");
@@ -374,6 +392,7 @@ function commandWindowsAx(axCommand, options, argMap = {}) {
   const data = {
     interop: interop.summary,
     sourceProvenance,
+    buildIdentity,
     sync: sync.data,
     xmakePrep: xmakePrep.data,
     windowsCommand: axCommand,
@@ -393,7 +412,20 @@ function commandWindowsAx(axCommand, options, argMap = {}) {
   const scriptOk =
     result.exitCode === 0 &&
     !(receipt && typeof receipt === "object" && receipt.ok === false);
-  return scriptOk ? ok(receipt) : fail(`Windows .ax ${axCommand} failed.`, data);
+  if (!scriptOk) return fail(`Windows .ax ${axCommand} failed.`, data);
+
+  if (buildIdentity) {
+    try {
+      const identityVerification = verifyWindowsBuildIdentity(interop, axCommand, buildIdentity);
+      receipt = { ...receipt, buildIdentity, identityVerification };
+    } catch (error) {
+      return fail("Built or deployed DLL identity does not match the AX cycle.", {
+        ...data,
+        identityError: error?.message ?? String(error)
+      });
+    }
+  }
+  return ok(receipt);
 }
 
 function commandValidation(validationCommand, options) {
@@ -1247,7 +1279,7 @@ function syncWindowsBuildRoot(sourceSnapshot) {
     if (stagedFingerprint !== sourceSnapshot.manifest.fingerprint) {
       throw new Error("Staged mirror content does not match the canonical source manifest.");
     }
-    const postSyncSnapshot = collectSourceSnapshot(REPO_ROOT);
+    const postSyncSnapshot = collectSourceSnapshot(REPO_ROOT, { excludedSubmodules: WINDOWS_EXCLUDED_SUBMODULES });
     if (
       JSON.stringify(postSyncSnapshot.provenance) !==
         JSON.stringify(sourceSnapshot.provenance) ||
@@ -1302,12 +1334,13 @@ function syncWindowsBuildRoot(sourceSnapshot) {
   }
 }
 
-function prepareWindowsXmake(interop) {
-  const mode = process.env.STFC_XMAKE_MODE || "release";
+function prepareWindowsXmake(interop, buildIdentity) {
+  const mode = buildIdentity.buildMode;
+  const configureArgs = ["f", "-y", "-m", mode, ...identityXmakeArguments(buildIdentity)];
   const commandText = [
     "$ErrorActionPreference = 'Stop'",
     `Set-Location '${escapePowerShellSingleQuoted(interop.paths.repoRootWin)}'`,
-    `& xmake f -y -m ${powerShellSingleQuoted(mode)}`,
+    `& xmake ${configureArgs.map(powerShellSingleQuoted).join(" ")}`,
     "exit $LASTEXITCODE"
   ].join("; ");
   const result = runProcess(
@@ -1326,6 +1359,53 @@ function prepareWindowsXmake(interop) {
     stderrTail: tailLines(result.stderr, 80)
   };
   return result.exitCode === 0 ? ok(data) : fail("xmake configure failed.", data);
+}
+
+function verifyWindowsBuildIdentity(interop, axCommand, expected) {
+  const buildDll = [
+    interop.paths.repoRootWin.replace(/[\\/]+$/, ""),
+    "build",
+    "windows",
+    "x64",
+    expected.buildMode,
+    "stfc-community-mod.dll"
+  ].join("\\");
+  const targets = [{ kind: "built", path: buildDll }];
+  if (axCommand === "deploy" || axCommand === "cycle") {
+    const deployedDll = toWindowsPath(join(GAME_ROOT, "version.dll"));
+    if (!deployedDll) throw new Error("Unable to resolve the deployed DLL Windows path.");
+    targets.push({ kind: "deployed", path: deployedDll });
+  }
+
+  return targets.map((target) => {
+    const commandText = [
+      "$ErrorActionPreference = 'Stop'",
+      `$info = [System.Diagnostics.FileVersionInfo]::GetVersionInfo('${escapePowerShellSingleQuoted(target.path)}')`,
+      "[pscustomobject]@{ comments = $info.Comments; fileVersion = $info.FileVersion; " +
+        "productVersion = $info.ProductVersion } | ConvertTo-Json -Compress"
+    ].join("; ");
+    const result = runProcess(
+      interop.paths.pwsh,
+      ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", commandText],
+      { cwd: REPO_ROOT }
+    );
+    if (result.exitCode !== 0) {
+      throw new Error(`Unable to read ${target.kind} DLL version metadata: ${firstLine(result.stderr)}`);
+    }
+    const versionInfo = parseJsonMaybe(result.stdout);
+    if (!versionInfo || typeof versionInfo !== "object") {
+      throw new Error(`${target.kind} DLL version metadata was not an object.`);
+    }
+    const identity = parseIdentityComment(versionInfo.comments);
+    assertIdentityMatches(identity, expected);
+    return {
+      kind: target.kind,
+      path: target.path,
+      fileVersion: versionInfo.fileVersion ?? null,
+      productVersion: versionInfo.productVersion ?? null,
+      identity
+    };
+  });
 }
 
 function findWindowsPowershell() {

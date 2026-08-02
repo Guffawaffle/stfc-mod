@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { configPresentationOverrides } from "./config_presentation_overrides.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const outputPath = path.join(repoRoot, "docs", "windows-launcher", "config-schema.guffawaffle.v1.json");
+const outputPath = path.join(repoRoot, "contracts", "windows-launcher", "config-schema.guffawaffle.v1.json");
 
 function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), "utf8").replaceAll("\r\n", "\n");

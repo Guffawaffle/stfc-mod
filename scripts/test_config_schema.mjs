@@ -23,7 +23,7 @@ test("default and example inventories are non-empty", () => {
 
 test("runtime manifest positively identifies the principal taxonomy contract", () => {
   const manifest = JSON.parse(readFileSync(
-    new URL("../docs/windows-launcher/runtime-manifest.guffawaffle.v1.json", import.meta.url),
+    new URL("../contracts/windows-launcher/runtime-manifest.guffawaffle.v1.json", import.meta.url),
     "utf8",
   ));
   const versionHeader = readFileSync(

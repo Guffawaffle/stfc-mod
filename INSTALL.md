@@ -78,14 +78,12 @@ that the parse value of that setting was correctly applied. You may also need to
 
 - `C:\Games\Star Trek Fleet Command\Star Trek Fleet Command\default\game`
 
-For Windows 10/11 x64, the preferred fork path is the signed
-`stfc-community-mod-launcher-win-x64.zip` release asset. Extract it, verify that
-Windows reports **Joseph Gustavson** as the signer for both executables, then
-run `Install-Launcher.ps1` from PowerShell. Add `-DesktopShortcut` if desired.
-The script installs per-user without elevation, creates a Start menu shortcut,
-and starts the launcher. The launcher discovers STFC, explicitly adopts an
-existing manual DLL when requested, and provides verified install/update,
-configuration, launch handoff, repair/removal, diagnostics, and self-update.
+For Windows 10/11 x64, the preferred managed path is the standalone launcher
+published from [`Guffawaffle/stfc-mod-launcher`](https://github.com/Guffawaffle/stfc-mod-launcher/releases).
+Use that project's current signed installer and installation instructions. The
+launcher discovers STFC and provides verified install/update, configuration,
+launch handoff, repair/removal, diagnostics, and self-update. Its application
+source and release artifacts are intentionally not carried in this repository.
 
 The manual DLL path remains fully supported on Windows and Wine:
 

@@ -104,7 +104,10 @@ source identity and Windows synchronization. It materializes that manifest in a
 fresh mirror with a new Git checkout, verifies the staged fingerprint, and
 fails if the source changes during synchronization. Ignored/private files are
 neither synchronized nor disclosed, and dirty initialized submodules fail
-closed.
+closed. The Windows-only mirror explicitly omits the clean, commit-verified
+`macos-launcher/deps/PLzmaSDK` submodule because its test corpus contains
+Unicode-normalization-equivalent names that cannot enter the Windows manifest;
+the exclusion is disclosed in the receipt.
 
 Clean receipts identify a reproducible commit. Dirty receipts distinguish the
 HEAD base commit from a deterministic `sourceStateId`, include a
@@ -112,6 +115,13 @@ privacy-bounded ordered path summary with truncation metadata, and retain the
 private dispatcher’s distinct build/deployed artifact hashes. Legacy
 dispatcher commit fields must agree with the canonical base commit. Diffs and
 source bodies are never returned.
+
+Each Windows build/deploy/cycle also receives one `ax:<uuid>` build invocation
+ID. XMake embeds it with the canonical source state in the DLL version resource.
+AX reads the built DLL metadata back—and the deployed DLL for deploy/cycle—and
+rejects a receipt when either identity differs. The mod logs that immutable
+build ID plus a separate runtime launch UUID on each game-process initialization.
+See `docs/WINDOWS_DLL_IDENTITY.md` for the consumer contract.
 
 The dump query commands currently run the existing Python dump tools from
 `/mnt/d/dev/stfc-mod/.ax-priv` and use that reference cache. The pure decoder

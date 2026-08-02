@@ -46,6 +46,7 @@
 
 #if _WIN32
 #include <Windows.h>
+#include <rpc.h>
 #else
 #include <dlfcn.h>
 #include <libgen.h>
@@ -57,6 +58,26 @@ namespace
 constexpr bool kLiveDebugOnlyHookIsolation = false;
 constexpr auto kLegacyLogMaxBytes          = 4 * 1024 * 1024;
 constexpr auto kLegacyLogMaxFiles          = 2;
+
+#if _WIN32
+std::string CreateRuntimeLaunchId()
+{
+  UUID             uuid{};
+  const RPC_STATUS create_status = UuidCreate(&uuid);
+  if (create_status != RPC_S_OK && create_status != RPC_S_UUID_LOCAL_ONLY) {
+    return "unavailable";
+  }
+
+  RPC_CSTR text = nullptr;
+  if (UuidToStringA(&uuid, &text) != RPC_S_OK || text == nullptr) {
+    return "unavailable";
+  }
+
+  std::string result(reinterpret_cast<const char*>(text));
+  RpcStringFreeA(&text);
+  return result;
+}
+#endif
 
 struct LegacyLogResetResult {
   int         removed_count = 0;
@@ -200,6 +221,13 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::flush_on(log_level);
 
   spdlog::info("Initializing STFC Community Mod ({})", VER_RUNTIME_VERSION_STR);
+#if _WIN32
+  const auto runtime_launch_id = CreateRuntimeLaunchId();
+  spdlog::info("Build identity: schema={} distribution={} source={} base={} invocation={} mode={} channel={}",
+               STFC_IDENTITY_SCHEMA_STR, STFC_DISTRIBUTION_ID, STFC_SOURCE_STATE_ID, STFC_BASE_COMMIT,
+               STFC_BUILD_INVOCATION_ID, STFC_BUILD_MODE, STFC_BUILD_CHANNEL);
+  spdlog::info("Runtime launch ID: {} (build invocation {})", runtime_launch_id, STFC_BUILD_INVOCATION_ID);
+#endif
   spdlog::info("");
   if (File::hasCustomNames()) {
     spdlog::info("Using custom names");

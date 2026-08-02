@@ -42,9 +42,7 @@ mods/.xmake
 
 # LexRunner local overlay and runtime artifacts.
 .smartergpt.local/
-.smartergpt/runner/
+.smartergpt/
 
-# Windows launcher local build and package outputs.
-windows-launcher/**/bin/
-windows-launcher/**/obj/
-windows-launcher/artifacts/
+# Local IL2CPP dump output. Canonical checked-in headers live elsewhere.
+tools/il2cpp-dump/
