@@ -91,6 +91,7 @@ Each artifact has a stable `id` and a semantic `kind`. Schema v1 publishes:
 | ID | Kind | Purpose |
 |---|---|---|
 | `windows-mod-dll-x64` | `windows-mod` | Direct signed `version.dll` used by the transactional installer and retained for manual installation. |
+| `windows-mod-runtime-manifest-x64` | `windows-mod-runtime-manifest` | Descriptive runtime-capability metadata bound to the exact DLL bytes and deployed only as its verified companion. |
 | `windows-mod-archive-x64` | `windows-mod-archive` | Existing Windows archive containing the signed mod DLL. |
 | `windows-launcher-archive-x64` | `windows-launcher` | Self-contained launcher archive containing the signed launcher and replace-on-exit helper executables. |
 | `windows-launcher-setup-x64` | `windows-launcher-setup` | User-facing signed single executable that embeds, installs, and starts the signed launcher archive. |
@@ -103,6 +104,17 @@ The launcher consumer uses a closed schema and rejects unknown properties. For
 mod deployment it selects exactly one `windows-mod-dll-x64` artifact and
 requires `windows` / `x64`, the direct PE media type, `version.dll`, bounded
 size, lowercase SHA-256, and `authenticode` / `artifact` authenticity. The
+optional `windows-mod-runtime-manifest-x64` companion requires `windows` /
+`x64`, JSON media type, the exact `stfc-runtime-manifest.json` basename,
+bounded size, lowercase SHA-256, and the explicit `none` / `none` authenticity
+declaration. That declaration is truthful: the companion is descriptive data,
+not an independently signed artifact. Its checksum supplies integrity only
+relative to this schema-v1 release manifest; neither document is an independent
+authorization boundary. The launcher must additionally bind its declared DLL
+hash and size to the exact selected signed DLL, and runtime capability activation
+requires a launcher-bundled reviewed exact-hash certification for the companion
+and pair. Releases without the companion—or without that reviewed
+certification—remain valid base-mod releases and imply no Battle capability. The
 manifest repository must be exactly `Guffawaffle/stfc-mod`, the release must be
 active and match the user-selected channel, and `minimumLauncherVersion` must
 not exceed the running launcher. Asset URLs are derived from the immutable tag
