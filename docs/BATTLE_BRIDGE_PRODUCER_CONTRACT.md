@@ -16,7 +16,10 @@ It pins the reviewed Sidecar golden-corpus inventory. After this work reaches a
 trusted CI or release build, that workflow emits `stfc-runtime-manifest.json`
 beside the exact `version.dll`. The manifest names the three producer
 declarations and binds them to the DLL's size, SHA-256, source commit, and
-numeric version.
+numeric version. The tagged-release workflow also inventories those exact JSON
+bytes as the optional `windows-mod-runtime-manifest-x64` artifact in the
+Windows release manifest; both that schema-v1 manifest and the producer JSON
+remain unsigned.
 
 The runtime manifest is compatibility evidence, not authenticity, safety, or
 gameplay authorization. The current Bridge still uses its embedded provider

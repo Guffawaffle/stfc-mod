@@ -136,12 +136,26 @@ class ReleaseManifestTests(unittest.TestCase):
         self.assertEqual(
             [
                 "windows-mod-dll-x64",
+                "windows-mod-runtime-manifest-x64",
                 "windows-mod-archive-x64",
                 "windows-launcher-archive-x64",
                 "windows-launcher-setup-x64",
             ],
             [artifact["id"] for artifact in manifest["artifacts"]],
         )
+        runtime_manifest_artifact = next(
+            artifact
+            for artifact in manifest["artifacts"]
+            if artifact["id"] == "windows-mod-runtime-manifest-x64"
+        )
+        self.assertEqual("windows-mod-runtime-manifest", runtime_manifest_artifact["kind"])
+        self.assertEqual("stfc-runtime-manifest.json", runtime_manifest_artifact["fileName"])
+        self.assertEqual("application/json", runtime_manifest_artifact["mediaType"])
+        self.assertEqual(
+            {"scheme": "none", "scope": "none"},
+            runtime_manifest_artifact["authenticity"],
+        )
+        self.assertRegex(runtime_manifest_artifact["sha256"], r"^[0-9a-f]{64}$")
 
     def test_preview_channel_is_derived_from_supported_tag(self) -> None:
         manifest = self._build("v2.2.0-guffa.rc1")

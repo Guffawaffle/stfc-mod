@@ -16,6 +16,19 @@
       }
     },
     {
+      "id": "windows-mod-runtime-manifest-x64",
+      "kind": "windows-mod-runtime-manifest",
+      "platform": "windows",
+      "architecture": "x64",
+      "sourcePath": "stfc-runtime-manifest.json",
+      "fileName": "stfc-runtime-manifest.json",
+      "mediaType": "application/json",
+      "authenticity": {
+        "scheme": "none",
+        "scope": "none"
+      }
+    },
+    {
       "id": "windows-mod-archive-x64",
       "kind": "windows-mod-archive",
       "platform": "windows",
