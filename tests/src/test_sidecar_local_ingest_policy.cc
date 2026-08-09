@@ -61,6 +61,25 @@ TEST_SUITE("sidecar_local_ingest_policy")
     CHECK(BattleHeaderProcessingEnabledForSync(false, true, false, false, config));
   }
 
+  TEST_CASE("disabled and unconfigured local producer paths remain inert despite per-kind requests")
+  {
+    SidecarSyncConfig config;
+    config.battlelogs_realtime = true;
+    config.fleet_runtime       = true;
+
+    CHECK_FALSE(SidecarLocalSyncTransportReady(config));
+    CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::BattleEvents));
+    CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::FleetRuntime));
+    CHECK_FALSE(BattleHeaderProcessingNeedsSidecarLocal(config));
+    CHECK_FALSE(BattleHeaderProcessingEnabledForSync(false, false, false, false, config));
+
+    config.enabled = true;
+    config.url     = "http://127.0.0.1:43127/api/sidecar/ingest";
+    CHECK_FALSE(SidecarLocalSyncTransportReady(config));
+    CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::BattleEvents));
+    CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::FleetRuntime));
+  }
+
   TEST_CASE("battle header processing stays alive for dedicated sidecar realtime delivery")
   {
     auto config = configured_sidecar_sync();

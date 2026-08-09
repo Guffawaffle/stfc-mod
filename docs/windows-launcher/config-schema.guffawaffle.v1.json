@@ -17097,7 +17097,7 @@
     {
       "path": "sync.battlelogs",
       "title": "Battlelogs",
-      "description": "Sync battle-log reports.",
+      "description": "Legacy-only battle journal export; Majel disables this setting.",
       "category": "sync",
       "control": "scalar",
       "valueType": {
@@ -17121,25 +17121,25 @@
       },
       "presentation": {
         "label": "Battle-log reports",
-        "help": "Shares completed battle reports with configured sync targets.",
+        "help": "Shares battle journals with legacy sync targets. Majel targets disable this setting.",
         "group": "Shared data",
         "searchTerms": [
           "sync.battlelogs",
           "Battlelogs",
-          "Sync battle-log reports.",
+          "Legacy-only battle journal export; Majel disables this setting.",
           "sync",
           "Shared data"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
         "accessibleName": "Battle-log reports",
-        "accessibleHelp": "Shares completed battle reports with configured sync targets. Applies: Next launch."
+        "accessibleHelp": "Shares battle journals with legacy sync targets. Majel targets disable this setting. Applies: Next launch."
       }
     },
     {
       "path": "sync.battlelogs_realtime",
       "title": "Battlelogs Realtime",
-      "description": "Export canonical battle feed events to realtime ingest targets.",
+      "description": "Legacy-only battle capture export; Majel disables this setting.",
       "category": "sync",
       "control": "scalar",
       "valueType": {
@@ -17163,19 +17163,19 @@
       },
       "presentation": {
         "label": "Real-time battle events",
-        "help": "Shares battle events with configured sync targets as they occur.",
+        "help": "Shares battle captures with legacy sync targets as they occur. Majel targets disable this setting.",
         "group": "Shared data",
         "searchTerms": [
           "sync.battlelogs_realtime",
           "Battlelogs Realtime",
-          "Export canonical battle feed events to realtime ingest targets.",
+          "Legacy-only battle capture export; Majel disables this setting.",
           "sync",
           "Shared data"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
         "accessibleName": "Real-time battle events",
-        "accessibleHelp": "Shares battle events with configured sync targets as they occur. Applies: Next launch."
+        "accessibleHelp": "Shares battle captures with legacy sync targets as they occur. Majel targets disable this setting. Applies: Next launch."
       }
     },
     {
@@ -17841,7 +17841,7 @@
     {
       "path": "sync.targets.*.battlelogs",
       "title": "Battlelogs",
-      "description": "Sync battle-log reports.",
+      "description": "Legacy-only battle journal export; Majel disables this setting.",
       "category": "sync",
       "control": "scalar",
       "valueType": {
@@ -17865,24 +17865,24 @@
       },
       "presentation": {
         "label": "Battle logs",
-        "help": "Sync battle-log reports.",
+        "help": "Legacy-only battle journal export; Majel disables this setting.",
         "group": "Sync",
         "searchTerms": [
           "sync.targets.*.battlelogs",
           "Battlelogs",
-          "Sync battle-log reports.",
+          "Legacy-only battle journal export; Majel disables this setting.",
           "sync"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
         "accessibleName": "Battle logs",
-        "accessibleHelp": "Sync battle-log reports. Applies: Next launch."
+        "accessibleHelp": "Legacy-only battle journal export; Majel disables this setting. Applies: Next launch."
       }
     },
     {
       "path": "sync.targets.*.battlelogs_realtime",
       "title": "Battlelogs Realtime",
-      "description": "Export canonical battle feed events to realtime ingest targets.",
+      "description": "Legacy-only battle capture export; Majel disables this setting.",
       "category": "sync",
       "control": "scalar",
       "valueType": {
@@ -17906,18 +17906,18 @@
       },
       "presentation": {
         "label": "Battle logs real-time",
-        "help": "Export canonical battle feed events to realtime ingest targets.",
+        "help": "Legacy-only battle capture export; Majel disables this setting.",
         "group": "Sync",
         "searchTerms": [
           "sync.targets.*.battlelogs_realtime",
           "Battlelogs Realtime",
-          "Export canonical battle feed events to realtime ingest targets.",
+          "Legacy-only battle capture export; Majel disables this setting.",
           "sync"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
         "accessibleName": "Battle logs real-time",
-        "accessibleHelp": "Export canonical battle feed events to realtime ingest targets. Applies: Next launch."
+        "accessibleHelp": "Legacy-only battle capture export; Majel disables this setting. Applies: Next launch."
       }
     },
     {
@@ -18169,7 +18169,7 @@
     {
       "path": "sync.targets.*.mode",
       "title": "Mode",
-      "description": "Outbound sync contract used by this target.",
+      "description": "Outbound contract: legacy or majel. Omission defaults to legacy; invalid explicit values reject the target.",
       "category": "sync",
       "control": "scalar",
       "valueType": {
@@ -18197,18 +18197,18 @@
       },
       "presentation": {
         "label": "Mode",
-        "help": "Outbound sync contract used by this target.",
+        "help": "Outbound contract: legacy or majel. Omission defaults to legacy; invalid explicit values reject the target.",
         "group": "Sync",
         "searchTerms": [
           "sync.targets.*.mode",
           "Mode",
-          "Outbound sync contract used by this target.",
+          "Outbound contract: legacy or majel. Omission defaults to legacy; invalid explicit values reject the target.",
           "sync"
         ],
         "editorWidth": "standard",
         "applyTiming": "Next launch",
         "accessibleName": "Mode",
-        "accessibleHelp": "Outbound sync contract used by this target. Applies: Next launch."
+        "accessibleHelp": "Outbound contract: legacy or majel. Omission defaults to legacy; invalid explicit values reject the target. Applies: Next launch."
       }
     },
     {

@@ -1,5 +1,7 @@
 #include "patches/sync_transport_policy.h"
 
+#include <algorithm>
+#include <stdexcept>
 #include <utility>
 
 namespace
@@ -26,9 +28,6 @@ std::string schema_for_sync_type(const SyncConfig::Type type, const nlohmann::js
   }
 
   switch (type) {
-    case SyncConfig::Type::Battles:
-    case SyncConfig::Type::BattlelogsRealtime:
-      return "stfc.battle.summary.v1";
     case SyncConfig::Type::FleetAssignments:
       return "stfc.fleet.assignment_snapshot.v1";
     case SyncConfig::Type::FleetRuntime:
@@ -80,6 +79,27 @@ ScopelySessionHeaders BuildScopelySessionHeaders(const headers::SessionHeaderSna
 bool SyncTargetUsesMajelEnvelope(const SyncTargetConfig::Mode mode)
 { return mode == SyncTargetConfig::Mode::Majel; }
 
+std::optional<SyncTargetConfig::Mode> ParseSyncTargetMode(const bool explicitly_configured,
+                                                          const std::optional<std::string>& value)
+{
+  if (!explicitly_configured) {
+    return SyncTargetConfig::Mode::Legacy;
+  }
+  if (value == "legacy") {
+    return SyncTargetConfig::Mode::Legacy;
+  }
+  if (value == "majel") {
+    return SyncTargetConfig::Mode::Majel;
+  }
+  return std::nullopt;
+}
+
+bool NormalizeSyncTargetTypeForMode(const SyncTargetConfig::Mode mode, const SyncConfig::Type type, const bool enabled)
+{
+  const auto is_battle_payload = type == SyncConfig::Type::Battles || type == SyncConfig::Type::BattlelogsRealtime;
+  return enabled && !(is_battle_payload && SyncTargetUsesMajelEnvelope(mode));
+}
+
 bool SyncTargetAcceptsType(const SyncTargetConfig& target_config, const SyncConfig::Type type)
 {
   if (type == SyncConfig::Type::ModCapabilities) {
@@ -89,6 +109,14 @@ bool SyncTargetAcceptsType(const SyncTargetConfig& target_config, const SyncConf
     return SyncTargetUsesMajelEnvelope(target_config.mode) && target_config.slots;
   }
   if (type == SyncConfig::Type::FleetRuntime) {
+    return false;
+  }
+  if (type == SyncConfig::Type::Battles || type == SyncConfig::Type::BattlelogsRealtime) {
+    for (const auto& option : SyncOptions) {
+      if (option.type == type) {
+        return NormalizeSyncTargetTypeForMode(target_config.mode, type, target_config.*option.option);
+      }
+    }
     return false;
   }
 
@@ -116,6 +144,15 @@ std::map<std::string, std::string> BuildSyncTargetHeaders(const SyncTargetConfig
   }
 
   return headers;
+}
+
+std::vector<std::string> MajelAdvertisedSchemas()
+{
+  return {
+      "stfc.mod.capability_snapshot.v1",
+      "stfc.sync.delta_batch.v1",
+      "stfc.fleet.assignment_snapshot.v1",
+  };
 }
 
 nlohmann::json BuildModCapabilitySnapshot(const ModCapabilitySnapshotInput& input)
@@ -220,6 +257,10 @@ std::optional<nlohmann::json> BuildFleetAssignmentSnapshot(const nlohmann::json&
 
 nlohmann::json BuildMajelIngestEnvelope(const MajelIngestEnvelopeInput& input)
 {
+  if (input.sync_type == SyncConfig::Type::Battles || input.sync_type == SyncConfig::Type::BattlelogsRealtime) {
+    throw std::invalid_argument("raw battle payloads are not supported by Majel");
+  }
+
   const auto schema = schema_for_sync_type(input.sync_type, input.payload);
 
   return nlohmann::json{
@@ -235,5 +276,21 @@ nlohmann::json BuildMajelIngestEnvelope(const MajelIngestEnvelopeInput& input)
       {"classification", "cloud_private"},
       {"payload", payload_for_sync_type(input.sync_type, input.payload)},
   };
+}
+
+WarningCoalescingDecision ObserveWarning(WarningCoalescingState& state, const int64_t now_ms,
+                                         const int64_t interval_ms)
+{
+  const auto effective_interval = std::max<int64_t>(interval_ms, 0);
+  if (!state.last_emitted_at_ms || now_ms < *state.last_emitted_at_ms
+      || now_ms - *state.last_emitted_at_ms >= effective_interval) {
+    const auto suppressed = state.suppressed;
+    state.last_emitted_at_ms = now_ms;
+    state.suppressed = 0;
+    return {.emit = true, .suppressed = suppressed};
+  }
+
+  ++state.suppressed;
+  return {};
 }
 } // namespace http

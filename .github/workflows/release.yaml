@@ -76,7 +76,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y zstd
           mkdir -p stfc-community-mod-windows-x64
-          tar -cf - -C stfc-community-mod version.dll \
+          tar -cf - -C stfc-community-mod version.dll stfc-runtime-manifest.json \
             | zstd -19 -T0 -o stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst
           sha256sum stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst \
             | awk '{print $1}' \
@@ -85,10 +85,12 @@ jobs:
       - name: Prepare release assets
         run: |
           cp stfc-community-mod/version.dll version.dll
+          cp stfc-community-mod/stfc-runtime-manifest.json stfc-runtime-manifest.json
           cp stfc-community-mod.zip stfc-community-mod-${{ github.ref_name }}.zip
           test -f stfc-community-mod-launcher-win-x64/stfc-community-mod-launcher-win-x64.zip
           test -f stfc-community-mod-launcher-win-x64/setup/STFCCommunityMod.Launcher.Setup.exe
           sha256sum version.dll \
+            stfc-runtime-manifest.json \
             stfc-community-mod.zip \
             stfc-community-mod-${{ github.ref_name }}.zip \
             stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst \
@@ -170,6 +172,7 @@ jobs:
         run: |
           gh release upload "${{ github.ref_name }}" \
             version.dll \
+            stfc-runtime-manifest.json \
             stfc-community-mod.zip \
             stfc-community-mod-${{ github.ref_name }}.zip \
             stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst \

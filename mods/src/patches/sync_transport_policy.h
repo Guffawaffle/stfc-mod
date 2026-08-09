@@ -50,14 +50,30 @@ struct ModCapabilitySnapshotInput {
   std::vector<std::string>              supported_schemas;
 };
 
+struct WarningCoalescingState {
+  std::optional<int64_t> last_emitted_at_ms;
+  uint64_t               suppressed = 0;
+};
+
+struct WarningCoalescingDecision {
+  bool     emit = false;
+  uint64_t suppressed = 0;
+};
+
 [[nodiscard]] SyncTlsVerificationDecision DecideSyncTlsVerification(const SyncConfig& config);
 [[nodiscard]] ScopelySessionHeaders BuildScopelySessionHeaders(const headers::SessionHeaderSnapshot& snapshot,
                                                               std::string transaction_id);
 [[nodiscard]] bool SyncTargetUsesMajelEnvelope(SyncTargetConfig::Mode mode);
+[[nodiscard]] std::optional<SyncTargetConfig::Mode> ParseSyncTargetMode(bool explicitly_configured,
+                                                                        const std::optional<std::string>& value);
+[[nodiscard]] bool NormalizeSyncTargetTypeForMode(SyncTargetConfig::Mode mode, SyncConfig::Type type, bool enabled);
 [[nodiscard]] bool SyncTargetAcceptsType(const SyncTargetConfig& target_config, SyncConfig::Type type);
 [[nodiscard]] std::map<std::string, std::string> BuildSyncTargetHeaders(const SyncTargetConfig& target_config,
                                                                         std::string powered_by);
+[[nodiscard]] std::vector<std::string> MajelAdvertisedSchemas();
 [[nodiscard]] nlohmann::json BuildModCapabilitySnapshot(const ModCapabilitySnapshotInput& input);
 [[nodiscard]] std::optional<nlohmann::json> BuildFleetAssignmentSnapshot(const nlohmann::json& slot_delta);
 [[nodiscard]] nlohmann::json BuildMajelIngestEnvelope(const MajelIngestEnvelopeInput& input);
+[[nodiscard]] WarningCoalescingDecision ObserveWarning(WarningCoalescingState& state, int64_t now_ms,
+                                                        int64_t interval_ms);
 } // namespace http

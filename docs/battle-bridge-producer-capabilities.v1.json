@@ -1,0 +1,52 @@
+{
+  "contractSchema": "stfc.battle-bridge.producer-capabilities.v1",
+  "distributionId": "guffawaffle.stfc-community-mod",
+  "activationStatus": "producer-groundwork",
+  "capabilityEvidencePin": {
+    "schema": "stfc.battle-bridge.capability-evidence-pin.v1",
+    "sha256": "aa6b738eab60a3bcb17a0c37cfcd533198096dd05d98abfd4a43308e891a9cc9"
+  },
+  "runtimeCapabilities": [
+    {
+      "id": "ingest.stfc-sidecar.v1",
+      "schema": "stfc.sidecar.ingest.v1",
+      "evidenceStatus": "payload-fixture-only",
+      "payloadKinds": ["battle.events", "fleet.runtime", "transport.chunk"]
+    },
+    {
+      "id": "battle.capture.v1",
+      "schema": "stfc.battle.capture.v1",
+      "evidenceStatus": "payload-fixture-only",
+      "envelopeKind": "battle.events"
+    },
+    {
+      "id": "fleet.runtime-snapshot.v1",
+      "schema": "stfc.fleet.runtime_snapshot.v1",
+      "evidenceStatus": "payload-fixture-only",
+      "envelopeKind": "fleet.runtime"
+    }
+  ],
+  "sourceObservedOnly": [
+    {"id": "battle.report.v0", "schema": "stfc.sidecar.battle-report.v0"},
+    {"id": "battle.analytics.v0", "schema": "stfc.battle.analytics.v0"},
+    {"id": "battle.catalog-snapshot.v0", "schema": "stfc.catalog.snapshot.v0"}
+  ],
+  "unproven": [
+    {"id": "fleet.alert-evidence.v0", "schema": "stfc.fleet.alert_evidence.v0"}
+  ],
+  "transportPolicy": {
+    "majelBattlelogs": "unsupported",
+    "majelBattlelogsRealtime": "unsupported",
+    "legacyBattlelogs": "unchanged",
+    "legacyBattlelogsRealtime": "unchanged",
+    "canonicalLocalBattleStream": "unchanged"
+  },
+  "bounds": {
+    "localQueueDepth": 128,
+    "localChunkThresholdBytes": 262144,
+    "localChunkDataBytes": 65536,
+    "localConnectTimeoutMs": 2500,
+    "localRequestTimeoutMs": 8000,
+    "warningCoalescingIntervalMs": 60000
+  }
+}

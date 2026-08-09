@@ -488,7 +488,7 @@ function parseSyncTargetSettings(defaults, configMemberTypes) {
   settings.push({
     path: "sync.targets.*.mode",
     title: "Mode",
-    description: "Outbound sync contract used by this target.",
+    description: "Outbound contract: legacy or majel. Omission defaults to legacy; invalid explicit values reject the target.",
     category: "sync",
     control: "scalar",
     valueType: { kind: "enum", values: ["legacy", "majel"] },
