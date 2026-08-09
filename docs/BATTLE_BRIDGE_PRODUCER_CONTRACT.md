@@ -22,15 +22,17 @@ Windows release manifest; both that schema-v1 manifest and the producer JSON
 remain unsigned.
 
 The runtime manifest is compatibility evidence, not authenticity, safety, or
-gameplay authorization. The current Bridge still uses its embedded provider
-manifest: it neither installs nor consumes this adjacent producer JSON. The
-first exact qualifying artifact can therefore exist only after a trusted
-workflow publishes one, and operational activation still requires a separate
-Bridge change for transactional installation, artifact binding, and adjacent
-manifest consumption after provider authentication. The wave-one
-current-release corpus remains unchanged with zero accepted runtime contracts.
-Another provider can publish any compatible subset without copying the
-Guffawaffle distribution ID.
+gameplay authorization. Bridge releases predating the transactional consumer in
+[`Guffawaffle/stfc-mod-bridge#134`](https://github.com/Guffawaffle/stfc-mod-bridge/issues/134)
+use only their embedded provider manifest. Compatible Bridge releases may
+install and consume the adjacent JSON only when its exact bytes and the DLL are
+both bound by a launcher-bundled reviewed release certification; neither this
+unsigned JSON nor the unsigned schema-v1 release manifest can activate a
+capability on its own. The first operational activation still requires a
+trusted workflow to publish an exact pair and a deliberate launcher catalog
+update to review that pair. The wave-one current-release corpus remains
+unchanged with zero accepted runtime contracts. Another provider can publish
+any compatible subset without copying the Guffawaffle distribution ID.
 
 ## Deliberate boundaries
 
