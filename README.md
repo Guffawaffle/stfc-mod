@@ -75,8 +75,9 @@ current sidecar/Majel proof path has working local projection reads.
   transitions.
 - Remaining weirdness is documented rather than promoted into a new roadmap:
   packaged Fleet-page live-update still wants an explicit operator smoke
-  record, reconnect/stale-state notes belong in Companion QA, and oversized
-  `battlelogs_realtime` payloads remain a separate bug.
+  record, and reconnect/stale-state notes belong in Companion QA. Raw battle
+  journals and realtime captures are intentionally rejected for Majel targets;
+  canonical local delivery remains bounded and legacy delivery is unchanged.
 - This is maintenance/harvest mode, not a new roadmap. The useful chain
   exists, the diagnostics are in place, and follow-on work such as durable
   outbox, cloud auth/token lifecycle, and storage generalization is

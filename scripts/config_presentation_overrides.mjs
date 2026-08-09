@@ -160,13 +160,13 @@ export const configPresentationOverrides = [
   {
     path: "sync.battlelogs",
     label: "Battle-log reports",
-    help: "Shares completed battle reports with configured sync targets.",
+    help: "Shares battle journals with legacy sync targets. Majel targets disable this setting.",
     group: "Shared data",
   },
   {
     path: "sync.battlelogs_realtime",
     label: "Real-time battle events",
-    help: "Shares battle events with configured sync targets as they occur.",
+    help: "Shares battle captures with legacy sync targets as they occur. Majel targets disable this setting.",
     group: "Shared data",
   },
   {

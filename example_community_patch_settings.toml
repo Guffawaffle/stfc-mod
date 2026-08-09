@@ -899,7 +899,8 @@ action_queue_probe_files = 3
 # The url of the server to send data to
 # url = ""
 
-# Outbound contract for this target: legacy or majel.
+# Outbound contract for this target: exactly legacy or majel. Omission defaults
+# to legacy; invalid explicit values reject the target.
 # mode = "legacy"
 
 # Optional direct Majel target. This sends one-way cloud-safe ingest envelopes
@@ -910,8 +911,8 @@ action_queue_probe_files = 3
 # token = ""
 # url = "https://majel.example.test/api/ingest/events"
 # mode = "majel"
-# battlelogs = false
-# battlelogs_realtime = true
+# battlelogs = false          # Raw battle journals are not supported by Majel targets.
+# battlelogs_realtime = false # Raw battle captures are not supported by Majel targets.
 # Fleet runtime is sidecar-only. Configure [sidecar.sync].fleet_runtime instead.
 
 #  <[=============================================================================================================]>

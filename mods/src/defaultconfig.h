@@ -403,8 +403,8 @@ namespace Sync
 {
   // Per-category defaults — each maps to a [sync] TOML key.
   // Individual [sync.targets.<name>] sections can override these.
-  constexpr bool battlelogs          = true;  ///< Sync battle-log reports.
-  constexpr bool battlelogs_realtime = false; ///< Export canonical battle feed events to realtime ingest targets.
+  constexpr bool battlelogs          = true;  ///< Legacy-only battle journal export; Majel disables this setting.
+  constexpr bool battlelogs_realtime = false; ///< Legacy-only battle capture export; Majel disables this setting.
   constexpr bool buffs               = true;  ///< Sync buff / Emerald Chain data.
   constexpr bool buildings           = true;  ///< Sync station module data.
   constexpr bool fleet_runtime       = false; ///< Sync low-rate fleet-bar runtime state.

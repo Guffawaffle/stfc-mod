@@ -2,6 +2,8 @@
 
 #include "patches/sync_transport_policy.h"
 
+#include <stdexcept>
+
 TEST_SUITE("sync_transport_policy")
 {
   TEST_CASE("verify_ssl stays enabled unless the explicit unsafe override is also set")
@@ -80,23 +82,61 @@ TEST_SUITE("sync_transport_policy")
     target.ships = true;
     target.slots = true;
     target.fleet_runtime = true;
+    target.battlelogs = true;
+    target.battlelogs_realtime = true;
 
     CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::Ships));
     CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::ModCapabilities));
     CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetAssignments));
     CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetRuntime));
+    CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::Battles));
+    CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::BattlelogsRealtime));
 
     target.mode = SyncTargetConfig::Mode::Majel;
     CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::ModCapabilities));
     CHECK(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetAssignments));
     CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetRuntime));
+    CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::Battles));
+    CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::BattlelogsRealtime));
 
     target.slots = false;
     CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::FleetAssignments));
   }
 
+  TEST_CASE("battle normalization disables Majel while preserving Legacy")
+  {
+    for (const auto type : {SyncConfig::Type::Battles, SyncConfig::Type::BattlelogsRealtime}) {
+      CHECK(http::NormalizeSyncTargetTypeForMode(SyncTargetConfig::Mode::Legacy, type, true));
+      CHECK_FALSE(http::NormalizeSyncTargetTypeForMode(SyncTargetConfig::Mode::Majel, type, true));
+      CHECK_FALSE(http::NormalizeSyncTargetTypeForMode(SyncTargetConfig::Mode::Legacy, type, false));
+      CHECK_FALSE(http::NormalizeSyncTargetTypeForMode(SyncTargetConfig::Mode::Majel, type, false));
+    }
+    CHECK(http::NormalizeSyncTargetTypeForMode(SyncTargetConfig::Mode::Majel, SyncConfig::Type::Ships, true));
+  }
+
+  TEST_CASE("explicit malformed target modes fail closed while omission preserves Legacy")
+  {
+    CHECK(http::ParseSyncTargetMode(false, std::nullopt) == SyncTargetConfig::Mode::Legacy);
+    CHECK(http::ParseSyncTargetMode(true, std::string("legacy")) == SyncTargetConfig::Mode::Legacy);
+    CHECK(http::ParseSyncTargetMode(true, std::string("majel")) == SyncTargetConfig::Mode::Majel);
+
+    for (const auto& malformed : {std::optional<std::string>(std::nullopt), std::optional<std::string>(""),
+                                  std::optional<std::string>("maje1"), std::optional<std::string>("Majel"),
+                                  std::optional<std::string>("majel ")}) {
+      const auto parsed = http::ParseSyncTargetMode(true, malformed);
+      CHECK_FALSE(parsed.has_value());
+    }
+  }
+
   TEST_CASE("mod capability snapshot is redacted and declares supported schemas")
   {
+    CHECK(http::MajelAdvertisedSchemas()
+          == std::vector<std::string>{
+              "stfc.mod.capability_snapshot.v1",
+              "stfc.sync.delta_batch.v1",
+              "stfc.fleet.assignment_snapshot.v1",
+          });
+
     const auto snapshot = http::BuildModCapabilitySnapshot({
         .source_version = "2.0.1-test",
         .platform = "windows",
@@ -211,4 +251,55 @@ TEST_SUITE("sync_transport_policy")
     CHECK(envelope["payload"]["syncType"] == "slot");
     CHECK(envelope["payload"]["items"] == legacy_items);
   }
+
+  TEST_CASE("Majel routing rejects raw battle journals and captures before envelope construction")
+  {
+    SyncTargetConfig target;
+    target.mode = SyncTargetConfig::Mode::Majel;
+    target.battlelogs = true;
+    target.battlelogs_realtime = true;
+
+    const auto raw_journal = nlohmann::json::array({{{"journal", {{"tokens", {"journal-secret", "-96"}}}}}});
+    const auto raw_capture = nlohmann::json{
+        {"type", "battle.capture"},
+        {"schemaVersion", "stfc.battle.capture.v1"},
+        {"capture", {{"battleLog", {{"tokens", {"secret-token", "-96", "42"}}}}}},
+    };
+
+    CHECK(raw_journal.dump().find("journal-secret") != std::string::npos);
+    CHECK(raw_capture.dump().find("secret-token") != std::string::npos);
+    CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::Battles));
+    CHECK_FALSE(http::SyncTargetAcceptsType(target, SyncConfig::Type::BattlelogsRealtime));
+    CHECK_THROWS_WITH_AS(
+        static_cast<void>(http::BuildMajelIngestEnvelope({.sync_type = SyncConfig::Type::Battles,
+                                                          .payload = raw_journal})),
+        "raw battle payloads are not supported by Majel", std::invalid_argument);
+    CHECK_THROWS_WITH_AS(
+        static_cast<void>(http::BuildMajelIngestEnvelope({.sync_type = SyncConfig::Type::BattlelogsRealtime,
+                                                          .payload = raw_capture})),
+        "raw battle payloads are not supported by Majel", std::invalid_argument);
+  }
+
+  TEST_CASE("warning coalescing is deterministic and reports suppressed occurrences")
+  {
+    http::WarningCoalescingState state;
+
+    auto decision = http::ObserveWarning(state, 1'000, 60'000);
+    CHECK(decision.emit);
+    CHECK(decision.suppressed == 0);
+
+    decision = http::ObserveWarning(state, 1'001, 60'000);
+    CHECK_FALSE(decision.emit);
+    decision = http::ObserveWarning(state, 60'999, 60'000);
+    CHECK_FALSE(decision.emit);
+
+    decision = http::ObserveWarning(state, 61'000, 60'000);
+    CHECK(decision.emit);
+    CHECK(decision.suppressed == 2);
+
+    decision = http::ObserveWarning(state, 500, 60'000);
+    CHECK(decision.emit);
+    CHECK(decision.suppressed == 0);
+  }
+
 }

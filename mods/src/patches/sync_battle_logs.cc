@@ -11,6 +11,7 @@
 #include "patches/battle_log_decoder.h"
 #include "patches/sidecar_local_ingest.h"
 #include "patches/sync_transport.h"
+#include "patches/sync_transport_policy.h"
 #include "str_utils.h"
 #include "testable_functions.h"
 
@@ -130,6 +131,32 @@ static std::mutex                   battle_feed_file_mtx;
 static constexpr char kBattleFeedFile[] = "community_patch_battle_feed.jsonl";
 static constexpr auto kBattleFeedHardMaxBytes = static_cast<std::uintmax_t>(10 * 1024 * 1024);
 static constexpr auto kBattleFeedRetentionReadMaxBytes = static_cast<std::uintmax_t>(5 * 1024 * 1024);
+static constexpr int64_t kBattleFeedWarningIntervalMs = 60'000;
+static http::WarningCoalescingState s_battle_feed_suffix_warning;
+static std::mutex                   s_battle_feed_warning_mtx;
+
+static void warn_bounded_battle_feed_suffix(const std::filesystem::path& feed_path,
+                                            const std::uintmax_t          feed_size)
+{
+  const auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                          std::chrono::steady_clock::now().time_since_epoch())
+                          .count();
+  http::WarningCoalescingDecision decision;
+  {
+    std::lock_guard lock(s_battle_feed_warning_mtx);
+    decision = http::ObserveWarning(s_battle_feed_suffix_warning, now_ms, kBattleFeedWarningIntervalMs);
+  }
+
+  if (!decision.emit) {
+    return;
+  }
+
+  spdlog::warn("Sidecar feed {} is {} bytes; retention will parse only the newest {} bytes to bound memory use{}",
+               feed_path.string(), feed_size, kBattleFeedRetentionReadMaxBytes,
+               decision.suppressed > 0
+                   ? STR_FORMAT(" ({} similar warning(s) suppressed since the previous report)", decision.suppressed)
+                   : "");
+}
 
 struct RetainedBattleFeedGroup {
   std::string              key;
@@ -249,8 +276,7 @@ static bool seek_to_bounded_battle_feed_suffix(std::ifstream& input, const std::
   }
 
   const auto suffix_offset = feed_size - kBattleFeedRetentionReadMaxBytes;
-  spdlog::warn("Sidecar feed {} is {} bytes; retention will parse only the newest {} bytes to bound memory use",
-               feed_path.string(), feed_size, kBattleFeedRetentionReadMaxBytes);
+  warn_bounded_battle_feed_suffix(feed_path, feed_size);
 
   if (suffix_offset == 0) {
     input.seekg(0, std::ios::beg);

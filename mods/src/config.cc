@@ -18,6 +18,7 @@
 #include "patches/mapkey.h"
 #include "patches/mod_impact_monitor.h"
 #include "patches/notification_policy.h"
+#include "patches/sync_transport_policy.h"
 #include "prime/KeyCode.h"
 #include "str_utils.h"
 #include "testable_functions.h"
@@ -871,19 +872,6 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
     return;
   }
 
-  const auto parse_mode = [](const std::string_view            target_section,
-                             const std::optional<std::string>& value) -> SyncTargetConfig::Mode {
-    if (!value.has_value() || value->empty() || *value == "legacy") {
-      return SyncTargetConfig::Mode::Legacy;
-    }
-    if (*value == "majel") {
-      return SyncTargetConfig::Mode::Majel;
-    }
-
-    spdlog::warn("Invalid target [{}] mode '{}'; using legacy.", target_section, *value);
-    return SyncTargetConfig::Mode::Legacy;
-  };
-
   for (const auto& [target_key, target_config] : *targets) {
     if (!target_config.is_table()) {
       continue;
@@ -904,10 +892,17 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
         continue;
       }
 
+      const auto mode = http::ParseSyncTargetMode(values.contains("mode"), values["mode"].value<std::string>());
+      if (!mode) {
+        spdlog::warn("Skipping sync target with invalid explicit mode; mode must be exactly 'legacy' or 'majel'. "
+                     "Omit mode to use legacy.");
+        continue;
+      }
+
       target.url        = url.value();
       target.token      = token.value();
       target.proxy      = proxy.value_or(defaults.proxy);
-      target.mode       = parse_mode(target_section, values["mode"].value<std::string>());
+      target.mode       = *mode;
       target.verify_ssl = values["verify_ssl"].value<bool>().value_or(defaults.verify_ssl);
       target.allow_unsafe_tls_without_certificate_validation =
           values["allow_unsafe_tls_without_certificate_validation"].value<bool>().value_or(
@@ -932,6 +927,14 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
                      "[sidecar.sync].fleet_runtime instead.",
                      target_section);
         target.*opt.option = false;
+      } else if (opt.type == SyncConfig::Type::Battles || opt.type == SyncConfig::Type::BattlelogsRealtime) {
+        const auto normalized = http::NormalizeSyncTargetTypeForMode(target.mode, opt.type, target.*opt.option);
+        if (target.*opt.option && !normalized) {
+          spdlog::warn("Ignoring unsupported {}.{}=true. Raw battle payloads cannot be sent to Majel; configure the "
+                       "local [sidecar.sync] battle pipeline instead.",
+                       target_section, opt.option_str);
+        }
+        target.*opt.option = normalized;
       }
       parsed_target.insert(opt.option_str, target.*opt.option);
     }
