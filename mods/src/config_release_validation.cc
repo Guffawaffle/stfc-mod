@@ -77,6 +77,8 @@ namespace
       "sidecar.sync.battlelogs_realtime",
       "sidecar.sync.enabled",
       "sidecar.sync.fleet_runtime",
+      "sidecar.sync.pipe_name",
+      "sidecar.sync.transport",
       "sidecar.sync.proxy",
       "sidecar.sync.token",
       "sidecar.sync.url",

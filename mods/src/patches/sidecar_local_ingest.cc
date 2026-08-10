@@ -4,6 +4,7 @@
 #include "patches/async_work_queue.h"
 #include "patches/sidecar_local_chunking.h"
 #include "patches/sidecar_local_ingest_policy.h"
+#include "patches/sidecar_named_pipe_transport.h"
 #include "patches/sync_transport.h"
 #include "patches/sync_transport_policy.h"
 #include "version.h"
@@ -258,6 +259,9 @@ std::shared_ptr<cpr::Session> create_sidecar_local_session()
   }
 
   auto session = std::make_shared<cpr::Session>();
+  if (SidecarLocalSyncUsesNamedPipe(config)) {
+    return session;
+  }
   session->SetUrl(config.url);
   session->SetUserAgent("stfc community patch " VER_RUNTIME_VERSION_STR " (libcurl/" LIBCURL_VERSION ")");
   session->SetAcceptEncoding(cpr::AcceptEncoding{});
@@ -326,6 +330,27 @@ void post_sidecar_local_envelope(cpr::Session& session,
   }
 
   const auto post_serialized_body = [&](const std::string& body) {
+    const auto& config = SidecarSyncSettings();
+    if (SidecarLocalSyncUsesNamedPipe(config)) {
+      const auto result = sidecar_named_pipe_transport::Send(
+          config.pipe_name,
+          config.token,
+          body,
+          std::chrono::milliseconds(kSidecarLocalConnectTimeoutMs),
+          std::chrono::milliseconds(kSidecarLocalRequestTimeoutMs));
+      if (result.code == sidecar_named_pipe_transport::ResultCode::Sent
+          || result.code == sidecar_named_pipe_transport::ResultCode::ChunkPending) {
+        return true;
+      }
+      const auto reason = result.code == sidecar_named_pipe_transport::ResultCode::TimedOut
+          ? "named-pipe-timeout"
+          : result.code == sidecar_named_pipe_transport::ResultCode::Rejected
+          ? "named-pipe-rejected"
+          : "named-pipe-unavailable";
+      sidecar_local_transport_failure(kind, context, reason);
+      return false;
+    }
+
     session.SetBody(cpr::Body{body});
     const auto response = session.Post();
     if (response.error.code != cpr::ErrorCode::OK) {
@@ -365,7 +390,7 @@ void post_sidecar_local_envelope(cpr::Session& session,
 
   sidecar_local_transport_success(kind, context);
   spdlog::debug("[SidecarLocal] kind={} boundary={} classification={} source={} owner={} seam={} reason={} effect={} "
-                "transport=sent transportMode={} bytes={} chunkCount={} url={}",
+                "transport=sent transportMode={} bytes={} chunkCount={} localTransport={}",
                 sidecar_local_kind_name(kind),
                 context.boundary,
                 context.classification,
@@ -377,7 +402,7 @@ void post_sidecar_local_envelope(cpr::Session& session,
                 transport_mode,
                 serialized_envelope.size(),
                 chunk_count,
-                SidecarSyncSettings().url);
+                SidecarSyncSettings().transport);
 }
 
 void process_sidecar_local_batch(cpr::Session& session, std::vector<SidecarLocalWorkItem>&& batch)

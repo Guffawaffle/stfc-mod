@@ -784,11 +784,14 @@ allow_unsafe_tls_without_certificate_validation = false
 #  <[======================================================================]>
 
 [sidecar.sync]
-# Dedicated local STFC Mod Sidecar delivery.
-# This is the only supported home for sidecar-local HTTP config.
+# Dedicated local STFC Mod Sidecar or Battle Bridge delivery.
+# Battle Bridge uses authenticated Windows named pipes. legacy_http remains for
+# older Sidecar installations and is not used by Battle Bridge.
 # Local Battle Workbench reads the sidecar event store through /api/events.
 # Cloud Sync Monitor and Majel/cloud targets are not required for local sidecar ingest.
 enabled = false
+transport = "legacy_http" # launcher-managed Battle Bridge value: named_pipe
+pipe_name = ""            # launcher-managed; bare safe name, never a path
 token = ""
 url = "http://127.0.0.1:43127/api/sidecar/ingest"
 proxy = ""
@@ -807,7 +810,7 @@ fleet_runtime = false
 # normal, request_only, snapshot_only, or enqueue_no_transport.
 # request_only records requests but skips snapshot reads.
 # snapshot_only reads/builds owned snapshots but skips publish/enqueue.
-# enqueue_no_transport enqueues latest-wins runtime snapshots but suppresses HTTP transport.
+# enqueue_no_transport enqueues latest-wins runtime snapshots but suppresses transport delivery.
 fleet_runtime_mode = "normal"
 
 [sidecar.logging]

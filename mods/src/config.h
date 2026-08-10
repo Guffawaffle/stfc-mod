@@ -171,7 +171,9 @@ enum class MissionHudVisibility {
  * sidecar routing can move off the external/community sync surface.
  */
 struct SidecarSyncConfig {
-  bool        enabled = false;
+  bool        enabled   = false;
+  std::string transport = "legacy_http";
+  std::string pipe_name;
   std::string url;
   std::string token;
   std::string proxy;

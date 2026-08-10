@@ -41,6 +41,7 @@ do
     add_files("../mods/src/patches/patch_install_policy.cc")
     add_files("../mods/src/patches/sidecar_local_chunking.cc")
     add_files("../mods/src/patches/sidecar_local_ingest_policy.cc")
+    add_files("../mods/src/patches/sidecar_named_pipe_transport.cc")
     add_files("../mods/src/patches/sync_transport_policy.cc")
 
     add_packages("doctest", "nlohmann_json", "toml++", "spdlog", "spud")
@@ -50,6 +51,7 @@ do
 
     if is_plat("windows") then
         add_cxflags("/bigobj")
+        add_syslinks("advapi32")
     end
 end
 
