@@ -8,10 +8,11 @@ enum class SidecarLocalIngestKind {
 };
 
 bool SidecarLocalSyncTransportReady(const SidecarSyncConfig& config);
+bool SidecarLocalSyncUsesNamedPipe(const SidecarSyncConfig& config);
+bool SidecarLocalNamedPipeNameValid(std::string_view value);
+bool SidecarLocalNamedPipeCredentialValid(std::string_view value);
 bool SidecarLocalSyncEnabledFor(const SidecarSyncConfig& config, SidecarLocalIngestKind kind);
 bool BattleHeaderProcessingNeedsSidecarLocal(const SidecarSyncConfig& config);
-bool BattleHeaderProcessingEnabledForSync(bool                   sync_battlelogs,
-                                          bool                   sidecar_logging_jsonl,
-                                          bool                   external_battles_enabled,
-                                          bool                   external_battlelogs_realtime_enabled,
+bool BattleHeaderProcessingEnabledForSync(bool sync_battlelogs, bool sidecar_logging_jsonl,
+                                          bool external_battles_enabled, bool external_battlelogs_realtime_enabled,
                                           const SidecarSyncConfig& sidecar_sync);

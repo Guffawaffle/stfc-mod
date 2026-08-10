@@ -434,6 +434,8 @@ namespace Sidecar
   namespace Sync
   {
     constexpr bool        enabled                                         = false;
+    constexpr const char* transport                                       = "legacy_http";
+    constexpr const char* pipe_name                                       = "";
     constexpr const char* url                                             = "";
     constexpr const char* token                                           = "";
     constexpr const char* proxy                                           = "";

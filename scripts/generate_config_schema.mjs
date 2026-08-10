@@ -510,6 +510,7 @@ function schemaType(settingPath, value, configMemberTypes = new Map()) {
     "input.original_frame_policy": ["mod", "fallthrough_unhandled", "fallthrough_all"],
     "advanced.diagnostics.runtime_trace": ["off", "summary", "detailed", "verbose"],
     "sidecar.sync.fleet_runtime_mode": ["normal", "request_only", "snapshot_only", "enqueue_no_transport"],
+    "sidecar.sync.transport": ["legacy_http", "named_pipe"],
   };
   if (settingPath.startsWith("ui.mission_hud.")) {
     return { kind: "enum", values: ["auto", "always", "never"] };

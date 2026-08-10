@@ -41,8 +41,25 @@ any compatible subset without copying the Guffawaffle distribution ID.
 - Fleet alert evidence remains unproven because this producer has no matching
   emitter. It is not advertised.
 - A disabled or incomplete `[sidecar.sync]` configuration starts no local
-  worker and performs no local HTTP request. Enabled hooks copy into a bounded
-  asynchronous queue; connect and request timeouts remain 2.5 and 8 seconds.
+  worker and performs no local transport request. Enabled hooks copy into a
+  bounded asynchronous queue; connect and total request timeouts remain 2.5
+  and 8 seconds.
+- `sidecar.sync.transport = "named_pipe"` is the Windows Battle Bridge path.
+  It requires a bare safe pipe name plus the exact 43-character unpadded
+  base64url projection of the launcher-owned 32-byte credential. It uses
+  length-prefixed byte frames, protocol
+  `stfc.battle-bridge.local-ipc.v1`, role `stfc-mod-runtime`, operation
+  `ingest`, and a closed bounded response contract. Each frame begins with an
+  unsigned 32-bit little-endian byte count; the authentication header and each
+  response are capped at 4 KiB, and payload frames at 512 KiB. The client uses
+  Windows `SecurityIdentification` quality-of-service so the pipe server can
+  identify it without receiving an impersonation-capable token. It does not
+  construct a URL, proxy, TLS policy, socket, or network listener. Invalid
+  explicit modes, names, and credentials fail closed rather than falling back
+  to HTTP.
+- `legacy_http` remains the default only for compatibility with older Sidecar
+  installations. It retains the existing URL/proxy/TLS behavior and is not the
+  Battle Bridge transport. Named-pipe failure never falls through to it.
 - Canonical local Battle events are losslessly chunked above 256 KiB in 64 KiB
   pieces. Legacy non-Majel battle delivery is unchanged. Majel targets reject
   both `Battles` and `BattlelogsRealtime` before envelope construction, so raw
@@ -51,5 +68,10 @@ any compatible subset without copying the Guffawaffle distribution ID.
 - Repeated JSONL bounded-suffix warnings are coalesced to at most one report per
   minute, with the next report carrying the suppressed count.
 
-No command channel, cloud destination, gameplay automation, or persistent
-secret is introduced by this contract.
+The named-pipe response carries acknowledgement state only; it is not a command
+channel. No cloud destination, gameplay automation, or new persistent secret is
+introduced by this contract. The existing plaintext TOML token is a
+launcher-managed projection of the authoritative DPAPI record and is never
+logged. Battle Bridge remains responsible for the pipe ACL, caller-process and
+runtime-evidence validation, protocol version, and per-operation authorization;
+the header's requested role is not caller proof.

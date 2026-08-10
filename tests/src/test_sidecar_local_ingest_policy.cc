@@ -6,14 +6,24 @@
 
 namespace
 {
-  SidecarSyncConfig configured_sidecar_sync()
-  {
-    SidecarSyncConfig config;
-    config.enabled = true;
-    config.url = "http://127.0.0.1:43127/api/sidecar/ingest";
-    config.token = "local-sidecar-token";
-    return config;
-  }
+SidecarSyncConfig configured_sidecar_sync()
+{
+  SidecarSyncConfig config;
+  config.enabled = true;
+  config.url     = "http://127.0.0.1:43127/api/sidecar/ingest";
+  config.token   = "local-sidecar-token";
+  return config;
+}
+
+SidecarSyncConfig configured_named_pipe_sync()
+{
+  auto config      = configured_sidecar_sync();
+  config.transport = "named_pipe";
+  config.url.clear();
+  config.pipe_name = "stfc-mod-bridge.battle.v1";
+  config.token     = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+  return config;
+}
 } // namespace
 
 TEST_SUITE("sidecar_local_ingest_policy")
@@ -45,7 +55,7 @@ TEST_SUITE("sidecar_local_ingest_policy")
 
   TEST_CASE("missing sidecar token or url disables only the local sidecar path")
   {
-    auto config = configured_sidecar_sync();
+    auto config                = configured_sidecar_sync();
     config.battlelogs_realtime = true;
 
     CHECK(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::BattleEvents));
@@ -54,11 +64,55 @@ TEST_SUITE("sidecar_local_ingest_policy")
     CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::BattleEvents));
     CHECK(BattleHeaderProcessingEnabledForSync(false, false, true, false, config));
 
-    config = configured_sidecar_sync();
+    config                     = configured_sidecar_sync();
     config.battlelogs_realtime = true;
     config.url.clear();
     CHECK_FALSE(SidecarLocalSyncEnabledFor(config, SidecarLocalIngestKind::BattleEvents));
     CHECK(BattleHeaderProcessingEnabledForSync(false, true, false, false, config));
+  }
+
+  TEST_CASE("named pipe transport requires an exact safe name and 32-byte base64url credential")
+  {
+    auto config = configured_named_pipe_sync();
+#if _WIN32
+    CHECK(SidecarLocalSyncTransportReady(config));
+#else
+    CHECK_FALSE(SidecarLocalSyncTransportReady(config));
+#endif
+    CHECK(SidecarLocalSyncUsesNamedPipe(config));
+    CHECK(SidecarLocalNamedPipeNameValid(config.pipe_name));
+    CHECK(SidecarLocalNamedPipeCredentialValid(config.token));
+    for (const auto final_character : std::string_view{"AEIMQUYcgkosw048"}) {
+      config.token.back() = final_character;
+      CHECK(SidecarLocalNamedPipeCredentialValid(config.token));
+    }
+
+    config.pipe_name = R"(\\.\pipe\attacker)";
+    CHECK_FALSE(SidecarLocalSyncTransportReady(config));
+    config           = configured_named_pipe_sync();
+    config.pipe_name = "../battle";
+    CHECK_FALSE(SidecarLocalSyncTransportReady(config));
+    config       = configured_named_pipe_sync();
+    config.token = "short";
+    CHECK_FALSE(SidecarLocalSyncTransportReady(config));
+    config              = configured_named_pipe_sync();
+    config.token.back() = '=';
+    CHECK_FALSE(SidecarLocalSyncTransportReady(config));
+    config              = configured_named_pipe_sync();
+    config.token.back() = '_';
+    CHECK_FALSE(SidecarLocalSyncTransportReady(config));
+    config           = configured_named_pipe_sync();
+    config.pipe_name = "battle\xC3\xA9";
+    CHECK_FALSE(SidecarLocalSyncTransportReady(config));
+  }
+
+  TEST_CASE("malformed or incomplete explicit transport never falls back to HTTP")
+  {
+    auto config      = configured_sidecar_sync();
+    config.transport = "named-pipe";
+    CHECK_FALSE(SidecarLocalSyncTransportReady(config));
+    config.transport.clear();
+    CHECK_FALSE(SidecarLocalSyncTransportReady(config));
   }
 
   TEST_CASE("disabled and unconfigured local producer paths remain inert despite per-kind requests")
@@ -82,30 +136,25 @@ TEST_SUITE("sidecar_local_ingest_policy")
 
   TEST_CASE("battle header processing stays alive for dedicated sidecar realtime delivery")
   {
-    auto config = configured_sidecar_sync();
+    auto config                = configured_sidecar_sync();
     config.battlelogs_realtime = true;
 
     CHECK(BattleHeaderProcessingNeedsSidecarLocal(config));
     CHECK(BattleHeaderProcessingEnabledForSync(false, false, false, false, config));
 
     SidecarSyncConfig disabled_config = config;
-    disabled_config.enabled = false;
+    disabled_config.enabled           = false;
     CHECK_FALSE(BattleHeaderProcessingNeedsSidecarLocal(disabled_config));
     CHECK_FALSE(BattleHeaderProcessingEnabledForSync(false, false, false, false, disabled_config));
   }
 
   TEST_CASE("sidecar local dispatch context preserves copied payload provenance")
   {
-    const auto dispatch = gameplay_dispatch_context("battle-result-headers",
-                                                    "SyncEntityGroupHooks",
+    const auto dispatch = gameplay_dispatch_context("battle-result-headers", "SyncEntityGroupHooks",
                                                     "entity-group-json.battle_result_headers",
-                                                    "battle-result-headers-observed",
-                                                    "enqueue-battle-journal-fetch");
-    const auto context = sidecar_local_dispatch_context(dispatch,
-                                                        "stfc.sidecar.events.v0",
-                                                        "runtime-evidence",
-                                                        "sidecar-local.battle-events",
-                                                        "copied battle events only");
+                                                    "battle-result-headers-observed", "enqueue-battle-journal-fetch");
+    const auto context  = sidecar_local_dispatch_context(dispatch, "stfc.sidecar.events.v0", "runtime-evidence",
+                                                         "sidecar-local.battle-events", "copied battle events only");
 
     CHECK(context.dispatch.source == "battle-result-headers");
     CHECK(context.dispatch.owner == "SyncEntityGroupHooks");

@@ -65,7 +65,19 @@ export const configPresentationOverrides = [
   {
     path: "sidecar.sync.enabled",
     label: "Local sidecar delivery",
-    help: "Sends supported mod data to the STFC Mod Sidecar running on this PC.",
+    help: "Sends supported mod data to Battle Bridge or a legacy Sidecar running on this PC.",
+    group: "Local sidecar",
+  },
+  {
+    path: "sidecar.sync.transport",
+    label: "Local transport",
+    help: "Uses authenticated Windows named pipes for Battle Bridge, or legacy HTTP for older Sidecar installations.",
+    group: "Local sidecar",
+  },
+  {
+    path: "sidecar.sync.pipe_name",
+    label: "Battle Bridge pipe",
+    help: "Launcher-managed local pipe name. Do not set this manually.",
     group: "Local sidecar",
   },
   {
@@ -116,8 +128,8 @@ export const configPresentationOverrides = [
   },
   {
     path: "sidecar.sync.url",
-    label: "Sidecar address",
-    help: "Address of the STFC Mod Sidecar running on this PC.",
+    label: "Legacy Sidecar address",
+    help: "Used only with the legacy HTTP transport. Battle Bridge uses the launcher-managed named pipe.",
     group: "Local sidecar",
   },
   {
@@ -128,20 +140,20 @@ export const configPresentationOverrides = [
   },
   {
     path: "sidecar.sync.proxy",
-    label: "Sidecar proxy",
+    label: "Legacy Sidecar proxy",
     help: null,
     group: "Local sidecar",
   },
   {
     path: "sidecar.sync.verify_ssl",
-    label: "Verify sidecar TLS certificates",
-    help: "Rejects sidecar connections whose TLS certificate cannot be verified.",
+    label: "Verify legacy Sidecar TLS",
+    help: "Used only with the legacy HTTP transport; named pipes do not use TLS.",
     group: "Local sidecar",
   },
   {
     path: "sidecar.sync.allow_unsafe_tls_without_certificate_validation",
     label: "Allow unverified sidecar TLS",
-    help: "Allows an encrypted sidecar connection without checking its certificate. Use only for a trusted local setup.",
+    help: "Legacy HTTP only. Allows an encrypted Sidecar connection without checking its certificate.",
     group: "Local sidecar",
   },
   {

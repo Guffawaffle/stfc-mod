@@ -308,6 +308,20 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
 
   read_bool_value(result.config.sync.enabled,
                   {"sidecar.sync.enabled", DCSidecar::Sync::enabled, {}, "enable local sidecar delivery"});
+  const auto* transport_node = node_at_path(config, "sidecar.sync.transport");
+  read_string_value(result.config.sync.transport, "sidecar.sync.transport", DCSidecar::Sync::transport,
+                    "local sidecar transport: legacy_http or named_pipe");
+  if (transport_node && !transport_node->is_string()) {
+    result.config.sync.transport = "invalid";
+  }
+  if (result.config.sync.transport != "legacy_http" && result.config.sync.transport != "named_pipe") {
+    result.diagnostics.push_back(make_diagnostic(
+        config_schema::DiagnosticSeverity::Error, "sidecar.sync.transport", "sidecar.sync.transport",
+        "Invalid sidecar.sync.transport. Expected legacy_http or named_pipe; local delivery is disabled."));
+    result.config.sync.transport = "invalid";
+  }
+  read_string_value(result.config.sync.pipe_name, "sidecar.sync.pipe_name", DCSidecar::Sync::pipe_name,
+                    "Battle Bridge named-pipe name");
   read_string_value(result.config.sync.url, "sidecar.sync.url", DCSidecar::Sync::url,
                     "loopback or local sidecar ingest URL");
   read_string_value(result.config.sync.token, "sidecar.sync.token", DCSidecar::Sync::token, "sidecar ingest token");
@@ -479,9 +493,9 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
       message << "Invalid config " << kLegacyQueueAddHideViewersPath << ". Expected boolean, found "
               << toml_type_name(legacy_hide_viewers->type())
               << "; deprecated key is ignored and successful queue-add actions always dismiss the target viewer.";
-      result.diagnostics.push_back(
-          make_diagnostic(config_schema::DiagnosticSeverity::Warning, kLegacyQueueAddHideViewersPath,
-                          kLegacyQueueAddHideViewersPath, message.str()));
+      result.diagnostics.push_back(make_diagnostic(config_schema::DiagnosticSeverity::Warning,
+                                                   kLegacyQueueAddHideViewersPath, kLegacyQueueAddHideViewersPath,
+                                                   message.str()));
     } else {
       const auto severity = configured_value.value() ? config_schema::DiagnosticSeverity::Info
                                                      : config_schema::DiagnosticSeverity::Warning;
@@ -568,6 +582,8 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
 void WriteSidecarConfigRuntimeSnapshot(toml::table& runtime_config, const SidecarConfig& config)
 {
   config_schema::write_bool(runtime_config, "sidecar.sync.enabled", config.sync.enabled);
+  write_scalar(runtime_config, "sidecar.sync.transport", config.sync.transport);
+  write_scalar(runtime_config, "sidecar.sync.pipe_name", config.sync.pipe_name);
   write_scalar(runtime_config, "sidecar.sync.url", config.sync.url);
   write_scalar(runtime_config, "sidecar.sync.token",
                config_redaction::redact_secret_for_runtime_snapshot(config.sync.token));
