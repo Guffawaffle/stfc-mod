@@ -294,6 +294,7 @@ namespace Patches
   constexpr bool objecttracker              = true;  ///< In-system object tracking overlay.
   constexpr bool fleetarrivalhooks          = true;  ///< Fleet arrival detection from player fleet-state changes.
   constexpr bool panhooks                   = true;  ///< Pan-momentum hooks.
+  constexpr bool repairactioninterlock      = true;  ///< Repair action presentation and stale-click protection.
   constexpr bool resolutionlistfix          = false; ///< Resolution-list population fix; disabled after Unity 6 update.
   constexpr bool syncpatches                = true;  ///< Data-sync network hooks.
   constexpr bool game_version               = true;  ///< Capture the game version for sync request headers.

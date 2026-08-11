@@ -134,6 +134,7 @@ void InstallHotkeyHooks();
 void InstallOpenBulkClaimGiftsHooks();
 void InstallMissionHudTweaksHooks();
 void InstallOfficerAssignmentSortHooks();
+void InstallRepairActionInterlockHooks();
 void InstallSectionChangeRouterHooks();
 void InstallActionQueueGuardHooks();
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
@@ -290,6 +291,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
        install_mission_hud_tweaks_hooks, false, true},
       {"OfficerAssignmentSort", "ui.restore_below_decks_assignment_sort", "", "OfficerAssignmentSort",
        InstallOfficerAssignmentSortHooks, install_officer_assignment_sort, false, true},
+      {"RepairActionInterlock", "patches.repairactioninterlock", "", "RepairActionInterlock",
+       InstallRepairActionInterlockHooks, cfg.installRepairActionInterlock, false, true},
       {"DeploymentRuntimeObservers", "", "fleet-runtime-observers", "", InstallDeploymentRuntimeObserverHooks, false,
        install_deployment_runtime_observers, true},
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
