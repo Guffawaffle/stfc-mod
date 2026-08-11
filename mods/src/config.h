@@ -476,6 +476,7 @@ public:
   bool installGameVersionHook;
   bool installObjectTracker;
   bool installFleetArrivalHooks;
+  bool installRepairActionInterlock;
 
   std::string config_settings_url;
   std::string config_assets_url_override;

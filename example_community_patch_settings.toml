@@ -272,6 +272,8 @@ loadingscreenhooks = true
 miscpatches = true
 objecttracker = true
 panhooks = true
+# Keep Repair actions coherent while the client settles and block stale post-completion Instant clicks.
+repairactioninterlock = true
 resolutionlistfix = false
 syncpatches = true
 # Capture the game version for sync headers. Disable only to avoid a detour collision with another mod.
