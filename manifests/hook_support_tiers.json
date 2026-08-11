@@ -65,6 +65,12 @@
       "rationale": "Release-supported restoration of the localized Manage Ship Below Deck Ability assignment sort through retained game behavior."
     },
     {
+      "id": "RepairActionInterlock",
+      "tier": "production",
+      "source": "mods/src/patches/parts/repair_action_interlock.cc",
+      "rationale": "Release-supported bounded Repair status/presentation hold and stale Instant-click suppression, promoted after repeated in-game interception without blocking the following genuine action."
+    },
+    {
       "id": "OpenBulkClaimGiftsHooks",
       "tier": "production",
       "source": "mods/src/patches/open_bulk_claim_gifts.cc",
@@ -133,6 +139,14 @@
       "release_example_allowed": false,
       "science_example_required": false,
       "rationale": "Detailed action queue breadcrumbs remain hidden, opt-in investigation tooling."
+    },
+    {
+      "path": "patches.repairactioninterlock",
+      "tier": "production",
+      "owner": "RepairActionInterlock",
+      "release_example_allowed": true,
+      "science_example_required": false,
+      "rationale": "Default-on public Repair action coherence and stale-click protection with an explicit rollback switch."
     },
     {
       "path": "advanced.queue.queue_repair_enabled",

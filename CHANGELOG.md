@@ -63,6 +63,8 @@
 
 ### Fixes
 
+- Kept Repair action presentation coherent through the client model's post-completion transition and suppressed
+  stale Instant clicks during the same bounded window
 - Routed generic Armada victory and defeat results through their dedicated
   notification policies while preserving generic battle fallbacks
 - Repaired mission HUD visibility controls against the current game UI: Q Trials,

@@ -1225,6 +1225,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "objecttracker", DCP::objecttracker, write_config);
   this->installFleetArrivalHooks =
       get_config_or_default(config, parsed, "patches", "fleetarrivalhooks", DCP::fleetarrivalhooks, write_config);
+  this->installRepairActionInterlock = get_config_or_default(
+      config, parsed, "patches", "repairactioninterlock", DCP::repairactioninterlock, write_config);
   this->installLoadingScreenHooks =
       get_config_or_default(config, parsed, "patches", "loadingscreenhooks", DCP::loadingscreenhooks, write_config);
   this->installTransitionScreenHooks = get_config_or_default(config, parsed, "patches", "transitionscreenhooks",

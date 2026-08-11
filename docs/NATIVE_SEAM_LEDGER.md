@@ -237,6 +237,42 @@ Risk classes are also defined there: R0 static, R1 passive runtime, R2 managed l
 - Status: runtime-observed, state-correlated, and release-promoted with a configurable, enforced 0-160 UI ceiling.
 - Next action: revalidate after relevant game updates or test a materially different non-recruit chest category.
 
+### Repair action coherence and stale-click interlock - 2026-08-11
+
+- Seams: `FleetPlayerData.GetActionStatus(ActionType)`,
+  `ActionElementWidget.GetInstantButtonContext()`, and
+  `ActionElementWidget.OnInstantButtonClickCallback()`.
+- Owner / file: `RepairActionInterlock` in `mods/src/patches/parts/repair_action_interlock.cc`; pure policy in
+  `mods/src/patches/repair_action_interlock_policy.h`.
+- Intended behavior: preserve the last coherent in-progress Repair status while the fleet is still `Repairing`, hold
+  the current instant-button presentation for at most 2.5 seconds across the proven `Docked` / previous `Repairing`
+  / native `Ready` race, and suppress an actionable stale Instant click only inside that same bounded window.
+- Static evidence: PR #168 mapped the caller chain through `JobService.UpdateJobList`,
+  `ActionElementWidget.HandleReactiveInt`, and `GetInstantButtonContext`; current dump lookup reports one exact
+  overload for each promoted seam.
+- Risk class: R5 behavioral. The interlock changes a returned status/context or omits one native click only for the
+  runtime-proven stale tuple.
+- Confidence rung: repeated in-game interception plus pure policy coverage. The science canary suppressed stale paid
+  and zero-amount clicks without blocking the following genuine Ask-for-Help request; promotion removes stack
+  capture, passive action-click observation, help-request observation, and live-debug event emission.
+- Payload confidence: `FleetPlayerData`, `ActionType`, `GenericButtonContext`, and the widget context/property shapes
+  were runtime-proven by PR #168. No managed pointer is retained.
+- Original/trampoline confidence: all three seams installed and returned normally during the investigation smokes;
+  the instant-click original is called exactly once unless the bounded stale predicate suppresses it.
+- Performance boundary: one early action-type branch for non-Repair status queries; Repair-only paths use a single
+  mutex over a fixed 16-entry array. There are no heap allocations, frame-tick work, polling, or normal-path logs;
+  only an actual suppression writes one informational line.
+- Performance smoke: canonical 60-second idle-system captures from clean commit `0ba8de7` used the same public
+  release DLL with this module enabled and disabled. Average process CPU was 3.422% enabled versus 3.379% disabled;
+  GPU-time p50 was 16.654 ms versus 16.666 ms and p95 was 17.742 ms versus 17.667 ms. The small, mixed deltas did not
+  reveal a regression signal in this bounded A/B sweep; capture IDs are
+  `20260811T094519Z-repair-interlock-enabled-idle-system-0ba8de7` and
+  `20260811T094720Z-repair-interlock-disabled-idle-system-0ba8de7`.
+- Flag / rollback path: `[patches].repairactioninterlock`, default `true`; set it to `false` and restart to remove all
+  three hooks.
+- Status: promoted from PR #168 science evidence to release-supported production behavior for issue #166.
+- Next action: revalidate the three exact seams and the bounded overhead comparison after relevant client updates.
+
 ### Static Inventory Snapshot - 2026-05-23
 
 This inventory records source-level seams from a static-only review. It does not claim new runtime observation, payload confidence, original/trampoline confidence, or product-safe status. "Operationally relied on" below means the seam is part of current product code paths; it is not a new confidence rung and is not evidence from this pass.

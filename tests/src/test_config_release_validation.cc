@@ -81,6 +81,7 @@ TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh
   const auto* debug          = config["debug"].as_table();
   const auto* advanced       = config["advanced"]["diagnostics"].as_table();
   const auto* advanced_files = config["advanced"]["diagnostics"]["files"].as_table();
+  const auto* patches        = config["patches"].as_table();
 
   CHECK(source.find("manual_navigation_refresh") == std::string::npos);
   CHECK(source.find("ghost_owner_diagnostics") == std::string::npos);
@@ -90,6 +91,7 @@ TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh
   CHECK(source.find("example_science_patch_settings.toml") != std::string::npos);
   REQUIRE(advanced != nullptr);
   REQUIRE(advanced_files != nullptr);
+  REQUIRE(patches != nullptr);
   const auto debug_has_live_query    = debug != nullptr && debug->contains("live_query");
   const auto debug_has_runtime_trace = debug != nullptr && debug->contains("runtime_trace");
   const auto debug_has_runtime_trace_track_overhead =
@@ -127,6 +129,8 @@ TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh
   CHECK_FALSE(advanced_files->contains("main_log_files"));
   CHECK(advanced_files->get("root")->value<std::string>().value_or("non-empty").empty());
   CHECK(config["advanced"]["queue"]["thin_queue_protection"].value<bool>().value_or(false));
+  REQUIRE(patches->contains("repairactioninterlock"));
+  CHECK(patches->get("repairactioninterlock")->value<bool>().value_or(false));
 }
 
 TEST_CASE("example config exposes only the public supported notification event surface")
