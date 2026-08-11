@@ -262,6 +262,12 @@ Risk classes are also defined there: R0 static, R1 passive runtime, R2 managed l
 - Performance boundary: one early action-type branch for non-Repair status queries; Repair-only paths use a single
   mutex over a fixed 16-entry array. There are no heap allocations, frame-tick work, polling, or normal-path logs;
   only an actual suppression writes one informational line.
+- Performance smoke: canonical 60-second idle-system captures from clean commit `0ba8de7` used the same public
+  release DLL with this module enabled and disabled. Average process CPU was 3.422% enabled versus 3.379% disabled;
+  GPU-time p50 was 16.654 ms versus 16.666 ms and p95 was 17.742 ms versus 17.667 ms. The small, mixed deltas did not
+  reveal a regression signal in this bounded A/B sweep; capture IDs are
+  `20260811T094519Z-repair-interlock-enabled-idle-system-0ba8de7` and
+  `20260811T094720Z-repair-interlock-disabled-idle-system-0ba8de7`.
 - Flag / rollback path: `[patches].repairactioninterlock`, default `true`; set it to `false` and restart to remove all
   three hooks.
 - Status: promoted from PR #168 science evidence to release-supported production behavior for issue #166.
