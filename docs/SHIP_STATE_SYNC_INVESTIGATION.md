@@ -2,7 +2,12 @@
 
 Date: 2026-07-14
 Branch: `investigation/ship-state-sync`
-Status: pre-completion projection race captured; coherent-status hold canary deployed, repair-flow smoke pending
+Status: archived evidence; production successor merged as PR #248
+
+> Final disposition (2026-08-11): the investigation-only `ClientShipStateProbe` runtime and its science-build config
+> were retired. The accepted behavior now ships through the production-tier, default-on `RepairActionInterlockHooks`
+> owner with `[patches].repairactioninterlock = false` as the restart rollback. Config names and procedures below are
+> retained as a historical record of the investigation, not as active runtime controls.
 
 ## Problem Register
 

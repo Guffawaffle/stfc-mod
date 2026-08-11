@@ -133,7 +133,6 @@ do
         remove_files("src/patches/parts/testing_config_override.cc")
         remove_files("src/patches/parts/live_debug.cc")
         remove_files("src/patches/parts/live_debug_connector.cc")
-        remove_files("src/patches/parts/client_ship_state_probe.cc")
         remove_files("src/patches/live_debug_event_dispatcher.cc")
         remove_files("src/patches/live_debug_event_store.cc")
         remove_files("src/patches/live_debug_fleet_change_events.cc")

@@ -363,65 +363,13 @@ This inventory records source-level seams from a static-only review. It does not
 - Status: removed/quarantined; not product-safe.
 - Next action: keep absent from product hook code; create individual ledger entries before touching any member; do not reintroduce without per-callback ledger promotion.
 
-### `Digit.PrimeServer.Models.FleetPlayerData.GetActionStatus(ActionType)`
+### Archived ship-state investigation seams
 
-- Owner / file: science-only `mods/src/patches/parts/client_ship_state_probe.cc`; experiment contract in `docs/probes/20260714-repair-action-status-transition.md`.
-- Intended question: which repair `ActionStatus` transitions occur between one Repair click and the stable Ask for Help button?
-- Static evidence: current dump and script metadata report `ActionStatus GetActionStatus(ActionType)` at RVA `0x17BE0B0`; repair presentation has distinct `InProgress`, `InProgress_Free`, and `InProgress_AskForHelp` states and ask-for-help locale settings.
-- Risk class: R4 native interpretation in passive mode; R5 behavioral in explicit guard mode.
-- Confidence rung: state-correlated for the exact passive detour and established scalar/property reads; the guard is runtime-observed, showed partial mitigation, and is restored for an isolated original-symptom smoke.
-- Runtime evidence: one free-play reproduction produced `Ready → InProgress_Free → Complete → Ready → Disabled`. A second Ship Manage reproduction produced `InProgress_AskForHelp → Ready → InProgress_AskForHelp` while the fleet remained `Repairing`; the invalid `Ready` window lasted about 334 ms. After another Free repair finished, Repair momentarily reappeared with displayed cost zero while the model still reported `Repairing`, producing the same `InProgress_Free → Ready` transition. In the guard smoke, two transitions recorded `guardApplied=true`, but the user still saw pay-to-repair choices before Ask for Help; one additional invalid `Ready` occurred while the model briefly reported `Docked` with previous state `Repairing`, outside the guard predicate. Native fleet-bar evidence reported repair complete at the boundary, and both fleets later converged to `Docked` without further input. No crash, hang, input loss, duplicate owner, or probe-induced request was observed.
-- Payload confidence: runtime confidence for the receiver, fleet ID, current/previous state, 32-bit `ActionType`, and `ActionStatus`/original returns 0, 100, 200, 201, 202, and 300 on observed repair paths.
-- Original/trampoline confidence: passed across the reproduced passive repair lifecycles with every original result returned unchanged. The retained passive mode calls the original exactly once and returns it unchanged.
-- Flag / rollback path: science modes `repair_action_status` and `repair_action_status_guard`, default `off`, require `live_query`; caller budget separately defaults to zero and is clamped to one. Disable the probe and budget in TOML and restart, or remove one module/install entry.
-- Status: passive science canary runtime-proven; the original behavior guard is restored unchanged for a pre-Ask-for-Help-only smoke after a later mixed-symptom smoke showed incomplete coverage. The one-event caller airlock was consumed successfully and its persistent budget restored to zero. The separate final post-completion `Instant 0` button remains possible, but has not been accidentally activated and produced no observed unintended request or spend. Symbolized caller chain: `JobService.UpdateJobList → ActionElementWidget.HandleReactiveInt → ActionElementWidget.GetInstantButtonContext → FleetPlayerData.GetActionStatus`. Static disassembly also confirms the instant click path forwards to `IActionHandler.RequestAction`.
-- Next action: retain the deployed `repair_action_status_hold` canary until the uncommon Ask-for-Help → Speed-Up
-  regression recurs. Two primary-transition flows passed as `202 → 200`; completion-only projections to `201` are
-  accepted for this pass. On the next visual regression, correlate whether `202 → 100` occurred and whether the hold
-  returned `202`. Keep the broader reconciliation hook disabled.
-
-### `Digit.Prime.Actions.ActionElementWidget.GetInstantButtonContext()`
-
-- Owner / file: science-only `mods/src/patches/parts/client_ship_state_probe.cc`; experiment contract in
-  `docs/probes/20260717-repair-instant-button-context.md`.
-- Intended question: which final interactability and amount tuple is projected when Repair/Instant briefly reappears
-  during an active or completing repair?
-- Static evidence: the current dump reports `GenericButtonContext GetInstantButtonContext()` at RVA `0x11E6CD0`.
-  The prior one-shot stack and exact disassembly place it between `JobService.UpdateJobList` and the live widget's
-  `_instantButtonContext`, with status and instant cost obtained independently.
-- Risk class: R4 native interpretation in passive mode; R5 for the explicit bounded presentation hold in
-  `repair_action_status_hold` mode.
-- Confidence rung: runtime-proven passive seam, scalar/property reads, and bounded presentation canary.
-- Runtime evidence: the released-debug cycle installed exactly this hook with zero failures or skips. During a user
-  reproduction it captured an interactable amount transition `75 → 74 → 0` while the fleet remained `Repairing`; the
-  zero transition preceded the independent `REPAIR_COMPLETE` boundary by approximately 1.345 seconds.
-- Payload confidence: static confidence for the Repair `ActionType`, exact `FleetPlayerData` receiver filter, numeric
-  current/previous fleet state, `GenericButtonContext.Interactable`, and `ResourceData.Amount`. No pointer is retained.
-- Original/trampoline confidence: runtime-proven. The hook calls the original exactly once. Passive mode returns the
-  exact original context pointer unchanged; hold mode may instead return the widget's already-rooted live Instant
-  context for at most 2.5 seconds during the exact `Docked/previous Repairing/native Ready` race.
-- Flag / rollback path: science modes `repair_instant_context` and `repair_action_status_hold`, default `off`, require
-  `live_query`. Set the mode to `off` and restart, or revert the layered presentation experiment to checkpoint
-  `085bfb6e1652b03e8a7a397bb899e7a48ad86a8c`.
-- Status: passive observer runtime-proven; bounded presentation canary runtime-accepted on zero and paid stale
-  proposals. Quv'Sompek proposed amount `251434` while the getter returned the existing amount-zero live context;
-  an earlier held stale click was independently suppressed, followed by one valid help request after re-entry.
-- Next action: retain the layered canary and accepted click interlock. Additional ordinary repairs are soak evidence;
-  any regression should be compared with checkpoint `085bfb6e1652b03e8a7a397bb899e7a48ad86a8c`.
-
-### `Digit.PrimeServer.Services.FleetService.UpdateFleetWithDeploymentData(FleetPlayerData, FleetDeployedData)`
-
-- Owner / file: proposed science-only `mods/src/patches/parts/client_ship_state_probe.cc`; experiment contract in `docs/probes/20260714-fleet-model-reconciliation.md`.
-- Intended question: when deployed-fleet data arrives, does `FleetService` update the matching client `FleetPlayerData` to a coherent state?
-- Static evidence: current dump and script metadata report `bool UpdateFleetWithDeploymentData(FleetPlayerData, FleetDeployedData)` at RVA `0x1613380`; `FleetService` owns the adjacent player-fleet update, state evaluation, job lifecycle, repair cleanup, and stuck-fleet recovery neighborhood.
-- Risk class: R4 native interpretation because a passive detour must use the original/trampoline and correlate two managed object pointers with a boolean return.
-- Confidence rung: static relationship.
-- Runtime evidence: none for this detour. Existing serial `fleet-slots-state` queries prove only that the current player-fleet model can be read passively.
-- Payload confidence: static type confidence only. Initial reads are limited to already-established scalar IDs/base states; pointer lifetimes and nested payloads remain unproven.
-- Original/trampoline confidence: unproven. Exact script ABI is recorded; require a single-seam reachability run before stack or payload escalation.
-- Flag / rollback path: proposed mutually exclusive science mode `fleet_reconciliation`, default `off`; stack budget independently defaults to zero; disable in TOML and restart, or remove one module/install entry.
-- Status: proposed; not implemented or approved for runtime.
-- Next action: review the probe contract and ABI, correct stale fleet-state diagnostic mappings, then explicitly approve or reject one bounded reachability run.
+- The July 2026 `ClientShipStateProbe` and its `ship_state_probe` configuration were removed after the investigation.
+- `FleetPlayerData.GetActionStatus`, `ActionElementWidget.GetInstantButtonContext`, and the stale-click seam now have
+  one production owner: `RepairActionInterlock`, documented in the release-supported entry above.
+- `FleetService.UpdateFleetWithDeploymentData` remains an unimplemented proposal; its probe contract is retained only
+  as historical research in `docs/probes/20260714-fleet-model-reconciliation.md`.
 
 ## Static Enforcement
 

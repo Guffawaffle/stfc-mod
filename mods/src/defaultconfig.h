@@ -123,21 +123,16 @@ namespace Advanced
     } // namespace Files
 
     /// Reserved native observability toggles for future diagnostics and probes. Default: false.
-    constexpr bool ship_identity                  = false;
-    constexpr bool battle_log_decoder             = false;
-    constexpr bool battle_catalog                 = false;
+    constexpr bool ship_identity                   = false;
+    constexpr bool battle_log_decoder              = false;
+    constexpr bool battle_catalog                  = false;
     constexpr bool reserved_native_debug           = false;
     constexpr bool reserved_native_payload_logging = false;
-    constexpr bool hotkey_suppression_logging     = false;
-    constexpr bool notification_skip_logging      = false;
-    constexpr bool fleet_selection_timing_logging = false;
+    constexpr bool hotkey_suppression_logging      = false;
+    constexpr bool notification_skip_logging       = false;
+    constexpr bool fleet_selection_timing_logging  = false;
     /// Enable the live debug/query channel for AX and runtime inspection. Default: false.
     constexpr bool live_query = false;
-    /// Science-only ship-state mode: off, repair_action_status, repair_action_status_guard,
-    /// repair_action_status_hold, or repair_instant_context. Default: off.
-    constexpr const char* ship_state_probe = "off";
-    /// One-shot caller samples for the ship-state probe. Valid range: 0-1. Default: 0.
-    constexpr int ship_state_probe_stack_budget = 0;
     /// Realtime runtime trace level: off, summary, detailed, or verbose. Any level above off adds runtime overhead.
     constexpr const char* runtime_trace = "off";
     /// Track runtime trace instrumentation overhead as a separate probe. Default: false for this private fork.

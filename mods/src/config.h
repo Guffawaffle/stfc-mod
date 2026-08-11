@@ -252,8 +252,6 @@ struct AdvancedDiagnosticsConfig {
   bool        notification_skip_logging        = false;
   bool        fleet_selection_timing_logging   = false;
   bool        live_query                       = false;
-  std::string ship_state_probe                 = "off";
-  int         ship_state_probe_stack_budget    = 0;
   std::string runtime_trace                    = "off";
   bool        runtime_trace_track_overhead     = false;
   bool        action_queue_guard_logging       = false;
@@ -612,39 +610,6 @@ int SidecarLoggingJsonlRecentLogs();
  * @brief Whether focused refinery diagnostics should be installed.
  */
 bool RefineryDiagnosticsEnabled();
-
-/**
- * @brief Whether the science repair action-status probe should own its native seam.
- *
- * The probe also requires the live-query event channel so observations remain
- * bounded and retrievable without adding another logging transport.
- */
-bool RepairActionStatusProbeEnabled();
-
-/**
- * @brief Whether any science-only client ship-state probe mode is selected.
- */
-bool ClientShipStateProbeEnabled();
-
-/**
- * @brief Whether the passive repair Instant-button context observer is selected, including alongside status hold.
- */
-bool RepairInstantButtonContextProbeEnabled();
-
-/**
- * @brief Whether the repair status canary preserves the last coherent in-progress status across transient Ready.
- */
-bool RepairCoherentActionStatusHoldEnabled();
-
-/**
- * @brief Whether the science canary suppresses Repair Ready while the fleet is still Repairing.
- */
-bool RepairReadyWhileRepairingGuardEnabled();
-
-/**
- * @brief Remaining one-shot caller samples allowed for the repair status probe.
- */
-int RepairActionStatusProbeStackBudget();
 
 /**
  * @brief Whether the Gifts view should open its existing bulk-claim flyout automatically.

@@ -89,12 +89,6 @@
       "rationale": "Release-supported opt-in diagnostic breadcrumbs with explicit config gating."
     },
     {
-      "id": "ClientShipStateProbe",
-      "tier": "science",
-      "source": "mods/src/patches/parts/client_ship_state_probe.cc",
-      "rationale": "Default-off ship-state canary; passive in repair_action_status and repair_instant_context modes. The explicit hold mode changes the status seam, briefly preserves the already-rooted live Instant context across only the proven stale transition, and retains the exact click interlock while correlating final context, human clicks, and help dispatch."
-    },
-    {
       "id": "SectionChangeRouterHooks",
       "tier": "internal",
       "source": "mods/src/patches/section_change_router.cc",
@@ -114,22 +108,6 @@
     }
   ],
   "config_surfaces": [
-    {
-      "path": "advanced.diagnostics.ship_state_probe",
-      "tier": "science",
-      "owner": "ClientShipStateProbe",
-      "release_example_allowed": false,
-      "science_example_required": true,
-      "rationale": "Selects a default-off ship-state experiment: passive repair_action_status, passive repair_instant_context, explicit repair_action_status_guard, or layered repair_action_status_hold with coherent status, bounded presentation hold, and click/help correlation."
-    },
-    {
-      "path": "advanced.diagnostics.ship_state_probe_stack_budget",
-      "tier": "science",
-      "owner": "ClientShipStateProbe",
-      "release_example_allowed": false,
-      "science_example_required": true,
-      "rationale": "Allows at most one module-relative caller sample for an approved exact ship-state transition."
-    },
     {
       "path": "advanced.diagnostics.kirshara_queue",
       "tier": "dormant",

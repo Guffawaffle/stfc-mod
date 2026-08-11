@@ -2,7 +2,8 @@
 
 using nlohmann::json;
 
-namespace {
+namespace
+{
 const char* fleet_state_name(int state)
 {
   switch (state) {
@@ -60,10 +61,8 @@ const char* fleet_state_name(int state)
 }
 
 const char* ship_identity_probe_source()
-{
-  return "FleetPlayerData.Ship.ID";
-}
-}
+{ return "FleetPlayerData.Ship.ID"; }
+} // namespace
 
 const char* fleet_state_name_from_value(int state)
 {
@@ -82,18 +81,18 @@ json fleet_observation_to_json(const FleetObservation& observation)
     return result;
   }
 
-  result["pointer"] = observation.pointer;
+  result["pointer"]       = observation.pointer;
   result["selectedIndex"] = observation.selectedIndex;
   result["hasController"] = observation.hasController;
-  result["fleet"] = {{"present", observation.hasFleet}};
+  result["fleet"]         = {{"present", observation.hasFleet}};
 
   if (observation.hasFleet) {
-    result["fleet"]["id"] = observation.fleetId;
-    result["fleet"]["currentState"] = observation.currentState;
-    result["fleet"]["currentStateName"] = fleet_state_name_from_value(observation.currentState);
-    result["fleet"]["previousState"] = observation.previousState;
-    result["fleet"]["previousStateName"] = fleet_state_name_from_value(observation.previousState);
-    result["fleet"]["cargoFillPercent"] = observation.cargoFillPercent;
+    result["fleet"]["id"]                   = observation.fleetId;
+    result["fleet"]["currentState"]         = observation.currentState;
+    result["fleet"]["currentStateName"]     = fleet_state_name_from_value(observation.currentState);
+    result["fleet"]["previousState"]        = observation.previousState;
+    result["fleet"]["previousStateName"]    = fleet_state_name_from_value(observation.previousState);
+    result["fleet"]["cargoFillPercent"]     = observation.cargoFillPercent;
     result["fleet"]["cargoFillBasisPoints"] = observation.cargoFillBasisPoints;
     if (observation.hullSpecId >= 0) {
       result["fleet"]["hullSpecId"] = observation.hullSpecId;
@@ -112,20 +111,19 @@ json fleet_observation_to_json(const FleetObservation& observation)
 
 json fleet_slot_observation_to_json(const FleetSlotObservation& observation)
 {
-  json result = {{"slotIndex", observation.slotIndex},
-                 {"selected", observation.selected},
-                 {"present", observation.present}};
+  json result = {
+      {"slotIndex", observation.slotIndex}, {"selected", observation.selected}, {"present", observation.present}};
 
   if (!observation.present) {
     return result;
   }
 
-  result["fleetId"] = observation.fleetId;
-  result["currentState"] = observation.currentState;
-  result["currentStateName"] = fleet_state_name_from_value(observation.currentState);
-  result["previousState"] = observation.previousState;
-  result["previousStateName"] = fleet_state_name_from_value(observation.previousState);
-  result["cargoFillPercent"] = observation.cargoFillPercent;
+  result["fleetId"]              = observation.fleetId;
+  result["currentState"]         = observation.currentState;
+  result["currentStateName"]     = fleet_state_name_from_value(observation.currentState);
+  result["previousState"]        = observation.previousState;
+  result["previousStateName"]    = fleet_state_name_from_value(observation.previousState);
+  result["cargoFillPercent"]     = observation.cargoFillPercent;
   result["cargoFillBasisPoints"] = observation.cargoFillBasisPoints;
   if (observation.hullSpecId >= 0) {
     result["hullSpecId"] = observation.hullSpecId;

@@ -259,7 +259,6 @@ TEST_SUITE("live_debug_recent_event_store")
   }
 }
 
-
 TEST_SUITE("live_debug_ui_serializers")
 {
   TEST_CASE("top canvas serializer preserves visible metadata")
@@ -337,7 +336,6 @@ TEST_SUITE("live_debug_ui_serializers")
   }
 }
 
-
 TEST_SUITE("live_debug_fleet_serializers")
 {
   TEST_CASE("fleet state names keep expected labels")
@@ -414,7 +412,6 @@ TEST_SUITE("live_debug_fleet_serializers")
     CHECK(result[1]["shipIdentityProbe"]["source"] == "FleetPlayerData.Ship.ID");
   }
 }
-
 
 TEST_SUITE("live_debug_viewer_serializers")
 {

@@ -1,8 +1,11 @@
 # Repair Instant-Button Context Probe
 
 Date: 2026-07-17
-Status: runtime-proven; incorrect pre-completion zero-cost tuple captured
-Support tier: science
+Status: archived evidence; accepted behavior promoted through PR #248
+Support tier: historical science probe; production successor is `RepairActionInterlockHooks`
+
+> Final disposition (2026-08-11): the `ClientShipStateProbe` runtime/config path was removed. This document preserves
+> the evidence that informed the production interlock and is not an active science-build procedure.
 
 ## Question
 

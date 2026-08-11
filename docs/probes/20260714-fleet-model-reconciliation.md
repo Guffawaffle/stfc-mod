@@ -1,12 +1,15 @@
 # Probe: Fleet model reconciliation
 
-- Status: proposed
+- Status: archived, never implemented
 - Owner: ship-state synchronization investigation
 - Date: 2026-07-14
 - Related patch label: none
 - Related timeline refresh ID: current local dump corpus
 - Related diff report: none
 - Native seam ledger entry: `Digit.PrimeServer.Services.FleetService.UpdateFleetWithDeploymentData(FleetPlayerData, FleetDeployedData)`
+
+> Final disposition (2026-08-11): this broader reconciliation probe was not implemented and has no runtime owner or
+> config surface. This document is retained only as an investigation proposal.
 
 ## Question
 

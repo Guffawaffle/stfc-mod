@@ -1,12 +1,16 @@
 # Probe: Repair action-status transition
 
-- Status: passive probe proven; coherent-status hold and stale-click interlock runtime-accepted
+- Status: archived evidence; accepted behavior promoted through PR #248
 - Owner: ship-state synchronization investigation
 - Date: 2026-07-14
 - Related patch label: none
 - Related timeline refresh ID: current local dump corpus
 - Related diff report: none
 - Native seam ledger entry: `Digit.PrimeServer.Models.FleetPlayerData.GetActionStatus(ActionType)`
+
+> Final disposition (2026-08-11): the science-only probe and its config surface were removed. The accepted bounded
+> behavior now ships through production-tier `RepairActionInterlockHooks`; the procedures below document the evidence
+> path and are not active configuration instructions.
 
 ## Question
 

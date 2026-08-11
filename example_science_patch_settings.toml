@@ -29,26 +29,6 @@ on_player_fleet_state_changed = false
 on_fleet_state_change = false
 on_fleets_disposed = false
 
-[advanced.diagnostics]
-# Science-only, mutually exclusive ship-state probe selector. The passive mode
-# observes Repair ActionStatus transitions without changing return values; the
-# Instant-context mode observes the final projected button context; the explicit
-# guard mode performs only the projection described below.
-# It requires live_query = true so evidence stays in the bounded recent-event
-# ring. Restart the client after changing either key.
-live_query = false
-# repair_action_status_guard changes only Repair Ready+Repairing to Disabled.
-# repair_action_status_hold preserves the last coherent in-progress Repair status across transient Ready only while
-# the fleet is currently Repairing, and
-# passively correlates the final Instant context, the human's Repair button click, and downstream help dispatch.
-# It also suppresses the exact Docked/previous-Repairing stale Instant click race proven to open either a paid
-# confirmation or Ship Error after Repair has already completed. For at most 2.5 seconds, it preserves the existing
-# live Instant-button context across that same exact stale transition; the click interlock remains authoritative.
-ship_state_probe = "off" # off | repair_action_status | repair_action_status_guard | repair_action_status_hold | repair_instant_context
-# Hard one-event caller-stack airlock. Leave zero unless a probe contract has
-# approved the exact transition and the current run.
-ship_state_probe_stack_budget = 0 # 0 | 1
-
 [advanced.kirshara_queue]
 # Focused Kir'shara queued-combat advancement repair. This is currently a
 # dormant science surface: preserve the config contract, but do not treat it as

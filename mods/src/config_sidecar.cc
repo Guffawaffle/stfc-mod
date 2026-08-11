@@ -240,12 +240,6 @@ bool is_valid_fleet_runtime_mode(std::string_view mode)
   return std::ranges::find(kModes, mode) != kModes.end();
 }
 
-bool is_valid_ship_state_probe(std::string_view mode)
-{
-  return mode == "off" || mode == "repair_action_status" || mode == "repair_action_status_guard"
-         || mode == "repair_action_status_hold" || mode == "repair_instant_context";
-}
-
 bool rejected_target_name_seen(std::set<std::string>& rejected_targets, const std::string& target_name,
                                std::vector<SidecarRejectedSyncTarget>& output)
 {
@@ -396,10 +390,10 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
   constexpr std::array<std::string_view, 1> kShipIdentityAlias{"sidecar.probes.ship_identity"};
   constexpr std::array<std::string_view, 1> kBattleLogDecoderAlias{"sidecar.probes.battle_log_decoder"};
   constexpr std::array<std::string_view, 1> kBattleCatalogAlias{"sidecar.probes.battle_catalog"};
-  constexpr std::array<std::string_view, 2> kReservedNativeDebugAliases{
-      "advanced.diagnostics.debug", "sidecar.diagnostics.debug"};
-  constexpr std::array<std::string_view, 2> kReservedNativePayloadLoggingAliases{
-      "advanced.diagnostics.logging", "sidecar.diagnostics.logging"};
+  constexpr std::array<std::string_view, 2> kReservedNativeDebugAliases{"advanced.diagnostics.debug",
+                                                                        "sidecar.diagnostics.debug"};
+  constexpr std::array<std::string_view, 2> kReservedNativePayloadLoggingAliases{"advanced.diagnostics.logging",
+                                                                                 "sidecar.diagnostics.logging"};
 
   read_bool_value(result.advanced.diagnostics.ship_identity,
                   {"advanced.diagnostics.ship_identity", DCAdvanced::Diagnostics::ship_identity, kShipIdentityAlias,
@@ -411,14 +405,11 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                   {"advanced.diagnostics.battle_catalog", DCAdvanced::Diagnostics::battle_catalog, kBattleCatalogAlias,
                    "reserved battle catalog observability probes"});
   read_bool_value(result.advanced.diagnostics.reserved_native_debug,
-                  {"advanced.diagnostics.reserved_native_debug",
-                   DCAdvanced::Diagnostics::reserved_native_debug,
-                   kReservedNativeDebugAliases,
-                   "reserved native debug diagnostics"});
+                  {"advanced.diagnostics.reserved_native_debug", DCAdvanced::Diagnostics::reserved_native_debug,
+                   kReservedNativeDebugAliases, "reserved native debug diagnostics"});
   read_bool_value(result.advanced.diagnostics.reserved_native_payload_logging,
                   {"advanced.diagnostics.reserved_native_payload_logging",
-                   DCAdvanced::Diagnostics::reserved_native_payload_logging,
-                   kReservedNativePayloadLoggingAliases,
+                   DCAdvanced::Diagnostics::reserved_native_payload_logging, kReservedNativePayloadLoggingAliases,
                    "reserved native payload logging diagnostics"});
   read_bool_value(result.advanced.diagnostics.hotkey_suppression_logging,
                   {"advanced.diagnostics.hotkey_suppression_logging",
@@ -439,30 +430,6 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                                                            DCAdvanced::Diagnostics::live_query,
                                                            {},
                                                            "enable the live debug query channel"});
-  read_string_value(result.advanced.diagnostics.ship_state_probe, "advanced.diagnostics.ship_state_probe",
-                    DCAdvanced::Diagnostics::ship_state_probe, "science ship-state probe mode");
-  result.advanced.diagnostics.ship_state_probe = ascii_lower(result.advanced.diagnostics.ship_state_probe);
-  if (!is_valid_ship_state_probe(result.advanced.diagnostics.ship_state_probe)) {
-    result.diagnostics.push_back(make_diagnostic(
-        config_schema::DiagnosticSeverity::Warning, "advanced.diagnostics.ship_state_probe",
-        "advanced.diagnostics.ship_state_probe",
-        "Invalid advanced.diagnostics.ship_state_probe. Expected off, repair_action_status, "
-        "repair_action_status_guard, repair_action_status_hold, or repair_instant_context; using off."));
-    result.advanced.diagnostics.ship_state_probe = DCAdvanced::Diagnostics::ship_state_probe;
-  }
-  read_int_value(result.advanced.diagnostics.ship_state_probe_stack_budget,
-                 "advanced.diagnostics.ship_state_probe_stack_budget",
-                 DCAdvanced::Diagnostics::ship_state_probe_stack_budget,
-                 "one-shot ship-state caller sample budget");
-  if (result.advanced.diagnostics.ship_state_probe_stack_budget < 0
-      || result.advanced.diagnostics.ship_state_probe_stack_budget > 1) {
-    result.diagnostics.push_back(make_diagnostic(
-        config_schema::DiagnosticSeverity::Warning, "advanced.diagnostics.ship_state_probe_stack_budget",
-        "advanced.diagnostics.ship_state_probe_stack_budget",
-        "Invalid advanced.diagnostics.ship_state_probe_stack_budget. Expected 0 or 1; clamping to that range."));
-    result.advanced.diagnostics.ship_state_probe_stack_budget =
-        std::clamp(result.advanced.diagnostics.ship_state_probe_stack_budget, 0, 1);
-  }
   read_string_value(result.advanced.diagnostics.runtime_trace, "advanced.diagnostics.runtime_trace",
                     DCAdvanced::Diagnostics::runtime_trace, "runtime trace level");
   read_bool_value(result.advanced.diagnostics.runtime_trace_track_overhead,
@@ -545,9 +512,9 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
 
   // Keep the deprecated sidecar-scoped members mirrored for low-risk
   // compatibility, but treat advanced.diagnostics as canonical.
-  result.config.probes.ship_identity      = result.advanced.diagnostics.ship_identity;
-  result.config.probes.battle_log_decoder = result.advanced.diagnostics.battle_log_decoder;
-  result.config.probes.battle_catalog     = result.advanced.diagnostics.battle_catalog;
+  result.config.probes.ship_identity              = result.advanced.diagnostics.ship_identity;
+  result.config.probes.battle_log_decoder         = result.advanced.diagnostics.battle_log_decoder;
+  result.config.probes.battle_catalog             = result.advanced.diagnostics.battle_catalog;
   result.config.diagnostics.reserved_native_debug = result.advanced.diagnostics.reserved_native_debug;
   result.config.diagnostics.reserved_native_payload_logging =
       result.advanced.diagnostics.reserved_native_payload_logging;
@@ -656,9 +623,6 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
   config_schema::write_bool(runtime_config, "advanced.diagnostics.fleet_selection_timing_logging",
                             config.diagnostics.fleet_selection_timing_logging);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.live_query", config.diagnostics.live_query);
-  write_scalar(runtime_config, "advanced.diagnostics.ship_state_probe", config.diagnostics.ship_state_probe);
-  write_scalar(runtime_config, "advanced.diagnostics.ship_state_probe_stack_budget",
-               config.diagnostics.ship_state_probe_stack_budget);
   write_scalar(runtime_config, "advanced.diagnostics.runtime_trace", config.diagnostics.runtime_trace);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.runtime_trace_track_overhead",
                             config.diagnostics.runtime_trace_track_overhead);

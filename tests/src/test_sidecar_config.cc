@@ -106,8 +106,6 @@ jsonl_recent_logs = 300
     CHECK_FALSE(result.advanced.diagnostics.notification_skip_logging);
     CHECK_FALSE(result.advanced.diagnostics.fleet_selection_timing_logging);
     CHECK_FALSE(result.advanced.diagnostics.live_query);
-    CHECK(result.advanced.diagnostics.ship_state_probe == "off");
-    CHECK(result.advanced.diagnostics.ship_state_probe_stack_budget == 0);
     CHECK(result.advanced.diagnostics.runtime_trace == "off");
     CHECK_FALSE(result.advanced.diagnostics.runtime_trace_track_overhead);
     CHECK_FALSE(result.advanced.diagnostics.action_queue_guard_logging);
@@ -142,8 +140,8 @@ url = "http://127.0.0.1:43127/api/sidecar/ingest"
     CHECK(has_diagnostic(result.diagnostics, "sidecar.sync.transport", config_schema::DiagnosticSeverity::Error));
     CHECK_FALSE(SidecarLocalSyncTransportReady(result.config.sync));
 
-    config            = toml::parse("[sidecar.sync]\nenabled = true\ntransport = 1\n");
-    const auto typed  = ParseSidecarConfig(config);
+    config           = toml::parse("[sidecar.sync]\nenabled = true\ntransport = 1\n");
+    const auto typed = ParseSidecarConfig(config);
     CHECK(typed.config.sync.transport == "invalid");
     CHECK_FALSE(SidecarLocalSyncTransportReady(typed.config.sync));
   }
@@ -174,8 +172,6 @@ hotkey_suppression_logging = true
 notification_skip_logging = true
 fleet_selection_timing_logging = true
 live_query = true
-ship_state_probe = "REPAIR_ACTION_STATUS"
-ship_state_probe_stack_budget = 1
 runtime_trace = "verbose"
 runtime_trace_track_overhead = true
 action_queue_guard_logging = true
@@ -229,8 +225,6 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.diagnostics.notification_skip_logging);
     CHECK(result.advanced.diagnostics.fleet_selection_timing_logging);
     CHECK(result.advanced.diagnostics.live_query);
-    CHECK(result.advanced.diagnostics.ship_state_probe == "repair_action_status");
-    CHECK(result.advanced.diagnostics.ship_state_probe_stack_budget == 1);
     CHECK(result.advanced.diagnostics.runtime_trace == "verbose");
     CHECK(result.advanced.diagnostics.runtime_trace_track_overhead);
     CHECK(result.advanced.diagnostics.action_queue_guard_logging);
@@ -262,76 +256,6 @@ sidecar_jsonl_recent_logs = 120
                          config_schema::DiagnosticSeverity::Error));
     CHECK(
         has_diagnostic(result.diagnostics, "sync.sidecar_jsonl_recent_logs", config_schema::DiagnosticSeverity::Error));
-  }
-
-  TEST_CASE("invalid ship-state probe mode fails closed")
-  {
-    auto config = toml::parse(R"(
-[advanced.diagnostics]
-ship_state_probe = "fleet_reconciliation"
-)");
-
-    const auto result = ParseSidecarConfig(config);
-
-    CHECK(result.advanced.diagnostics.ship_state_probe == "off");
-    CHECK(has_diagnostic(result.diagnostics, "advanced.diagnostics.ship_state_probe",
-                         config_schema::DiagnosticSeverity::Warning));
-  }
-
-  TEST_CASE("repair Ready guard mode is accepted case-insensitively")
-  {
-    auto config = toml::parse(R"(
-[advanced.diagnostics]
-ship_state_probe = "REPAIR_ACTION_STATUS_GUARD"
-)");
-
-    const auto result = ParseSidecarConfig(config);
-
-    CHECK(result.advanced.diagnostics.ship_state_probe == "repair_action_status_guard");
-    CHECK_FALSE(has_diagnostic(result.diagnostics, "advanced.diagnostics.ship_state_probe",
-                               config_schema::DiagnosticSeverity::Warning));
-  }
-
-  TEST_CASE("repair Instant-context mode is accepted case-insensitively")
-  {
-    auto config = toml::parse(R"(
-[advanced.diagnostics]
-ship_state_probe = "REPAIR_INSTANT_CONTEXT"
-)");
-
-    const auto result = ParseSidecarConfig(config);
-
-    CHECK(result.advanced.diagnostics.ship_state_probe == "repair_instant_context");
-    CHECK_FALSE(has_diagnostic(result.diagnostics, "advanced.diagnostics.ship_state_probe",
-                               config_schema::DiagnosticSeverity::Warning));
-  }
-
-  TEST_CASE("repair coherent-status hold mode is accepted case-insensitively")
-  {
-    auto config = toml::parse(R"(
-[advanced.diagnostics]
-ship_state_probe = "REPAIR_ACTION_STATUS_HOLD"
-)");
-
-    const auto result = ParseSidecarConfig(config);
-
-    CHECK(result.advanced.diagnostics.ship_state_probe == "repair_action_status_hold");
-    CHECK_FALSE(has_diagnostic(result.diagnostics, "advanced.diagnostics.ship_state_probe",
-                               config_schema::DiagnosticSeverity::Warning));
-  }
-
-  TEST_CASE("ship-state stack budget is clamped to a one-event airlock")
-  {
-    auto config = toml::parse(R"(
-[advanced.diagnostics]
-ship_state_probe_stack_budget = 12
-)");
-
-    const auto result = ParseSidecarConfig(config);
-
-    CHECK(result.advanced.diagnostics.ship_state_probe_stack_budget == 1);
-    CHECK(has_diagnostic(result.diagnostics, "advanced.diagnostics.ship_state_probe_stack_budget",
-                         config_schema::DiagnosticSeverity::Warning));
   }
 
   TEST_CASE("reserved native compatibility toggles do not gate specific breadcrumb logging")
@@ -540,8 +464,6 @@ mode = "majel"
     advanced.diagnostics.notification_skip_logging        = true;
     advanced.diagnostics.fleet_selection_timing_logging   = true;
     advanced.diagnostics.live_query                       = true;
-    advanced.diagnostics.ship_state_probe                 = "repair_action_status";
-    advanced.diagnostics.ship_state_probe_stack_budget    = 1;
     advanced.diagnostics.runtime_trace                    = "detailed";
     advanced.diagnostics.runtime_trace_track_overhead     = false;
     advanced.diagnostics.action_queue_guard_logging       = true;
@@ -574,18 +496,12 @@ mode = "majel"
     CHECK(runtime_snapshot["sidecar"]["sync"]["battlelog_enrichment"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["sidecar"]["logging"]["jsonl_replay_seconds"].value<int>().value_or(0) == 15);
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["reserved_native_debug"].value<bool>().value_or(false));
-    CHECK(runtime_snapshot["advanced"]["diagnostics"]["reserved_native_payload_logging"]
-              .value<bool>()
-              .value_or(false));
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["reserved_native_payload_logging"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["ship_identity"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["hotkey_suppression_logging"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["notification_skip_logging"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["fleet_selection_timing_logging"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["live_query"].value<bool>().value_or(false));
-    CHECK(runtime_snapshot["advanced"]["diagnostics"]["ship_state_probe"].value<std::string>().value_or("")
-          == "repair_action_status");
-    CHECK(runtime_snapshot["advanced"]["diagnostics"]["ship_state_probe_stack_budget"].value<int>().value_or(0)
-          == 1);
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace"].value<std::string>().value_or("") == "detailed");
     CHECK_FALSE(
         runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_track_overhead"].value<bool>().value_or(true));

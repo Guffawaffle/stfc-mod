@@ -1,8 +1,11 @@
 # Repair Human-Click and Help-Request Correlation
 
 Date: 2026-07-18
-Status: bad path and normal recovery captured; hold safety predicate narrowed
-Support tier: science
+Status: archived evidence; accepted behavior promoted through PR #248
+Support tier: historical science probe; production successor is `RepairActionInterlockHooks`
+
+> Final disposition (2026-08-11): the investigation hooks and `ship_state_probe` config were removed. The accepted
+> stale-click predicate now ships through the production interlock; the procedure below remains only as evidence.
 
 ## Question
 
