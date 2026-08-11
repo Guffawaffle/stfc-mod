@@ -122,7 +122,9 @@ public:
   }
 
 private:
-  static constexpr size_t kWorkerCount   = 2;
+  // Stateful snapshots and deltas must commit in submission order. Parallel
+  // processors can otherwise enqueue an older snapshot after a newer RTC/delta.
+  static constexpr size_t kWorkerCount   = 1;
   static constexpr size_t kMaxQueuedWork = 256;
 
   void start_once()
@@ -1009,11 +1011,9 @@ void process_alliance_games_props(std::unique_ptr<std::string>&& bytes)
   }
 }
 
-static std::unordered_map<int64_t, int64_t> resource_states;
-static std::mutex                           resource_states_mtx;
+static AbsoluteResourceState                resource_states;
 static std::atomic_bool                     resource_first_sync{true};
-static std::unordered_map<int64_t, int64_t> alliance_resource_states;
-static std::mutex                           alliance_resource_states_mtx;
+static AbsoluteResourceState                alliance_resource_states;
 static std::atomic_bool                     alliance_resource_first_sync{true};
 static std::unordered_map<int64_t, int32_t> module_states;
 static std::mutex                           module_states_mtx;
@@ -1027,15 +1027,10 @@ void process_resources_proto(std::unique_ptr<std::string>&& bytes)
     http::sync_log_trace("PROCESS", "resources", STR_FORMAT("Processing {} resources", response.resources_size()));
 
     auto resource_array = json::array();
-    {
-      std::lock_guard lk(resource_states_mtx);
-      for (const auto& resource : response.resources()) {
-        if (const auto& it = resource_states.find(resource.id());
-            it == resource_states.end() || it->second != resource.currentamount()) {
-          resource_states[resource.id()] = resource.currentamount();
-          resource_array.push_back(
-              {{"type", SyncConfig::Type::Resources}, {"rid", resource.id()}, {"amount", resource.currentamount()}});
-        }
+    for (const auto& resource : response.resources()) {
+      if (resource_states.observe_snapshot(resource.id(), resource.currentamount())) {
+        resource_array.push_back(
+            {{"type", SyncConfig::Type::Resources}, {"rid", resource.id()}, {"amount", resource.currentamount()}});
       }
     }
 
@@ -1055,15 +1050,16 @@ void process_resources_delta_proto(std::unique_ptr<std::string>&& bytes)
 
   if (auto response = Digit::PrimeServer::Models::ResourcesDeltaResponse(); response.ParseFromString(*bytes)) {
     auto resource_array = json::array();
-    {
-      std::lock_guard lk(resource_states_mtx);
-      for (const auto& resource : response.resources()) {
-        if (const auto& it = resource_states.find(resource.id());
-            it == resource_states.end() || it->second != resource.amount()) {
-          resource_states[resource.id()] = resource.amount();
-          resource_array.push_back(
-              {{"type", SyncConfig::Type::Resources}, {"rid", resource.id()}, {"amount", resource.amount()}});
-        }
+    for (const auto& resource : response.resources()) {
+      const auto result = resource_states.apply_delta(resource.id(), resource.amount());
+      if (result.status == ResourceDeltaStatus::Applied) {
+        resource_array.push_back(
+            {{"type", SyncConfig::Type::Resources}, {"rid", resource.id()}, {"amount", result.amount}});
+      } else if (result.status == ResourceDeltaStatus::NoSnapshot) {
+        http::sync_log_debug("PROCESS", "resources delta",
+                             STR_FORMAT("Skipping delta for uninitialized resource {}", resource.id()));
+      } else if (result.status == ResourceDeltaStatus::Overflow) {
+        spdlog::warn("Resource delta overflow for resource {}; preserving prior absolute balance", resource.id());
       }
     }
 
@@ -1083,20 +1079,15 @@ void process_alliance_resources(std::unique_ptr<std::string>&& bytes)
   if (auto response = Digit::PrimeServer::Models::AllianceGetBankResourcesResponse();
       response.ParseFromString(*bytes)) {
     auto resource_array = json::array();
-    {
-      std::lock_guard lk(alliance_resource_states_mtx);
-      for (const auto& item : response.items()) {
-        if (!item.has_commonparams()) {
-          continue;
-        }
+    for (const auto& item : response.items()) {
+      if (!item.has_commonparams()) {
+        continue;
+      }
 
-        const auto id     = item.commonparams().refid();
-        const auto amount = item.count();
-        if (const auto& it = alliance_resource_states.find(id);
-            it == alliance_resource_states.end() || it->second != amount) {
-          alliance_resource_states[id] = amount;
-          resource_array.push_back({{"type", SyncConfig::Type::Resources}, {"rid", id}, {"amount", amount}});
-        }
+      const auto id     = item.commonparams().refid();
+      const auto amount = item.count();
+      if (alliance_resource_states.observe_snapshot(id, amount)) {
+        resource_array.push_back({{"type", SyncConfig::Type::Resources}, {"rid", id}, {"amount", amount}});
       }
     }
 
@@ -1116,15 +1107,17 @@ void process_alliance_resources_delta(std::unique_ptr<std::string>&& bytes)
 
   if (auto response = Digit::PrimeServer::Models::AllianceResourcesDeltaResponse(); response.ParseFromString(*bytes)) {
     auto resource_array = json::array();
-    {
-      std::lock_guard lk(alliance_resource_states_mtx);
-      for (const auto& resource : response.resources()) {
-        if (const auto& it = alliance_resource_states.find(resource.id());
-            it == alliance_resource_states.end() || it->second != resource.amount()) {
-          alliance_resource_states[resource.id()] = resource.amount();
-          resource_array.push_back(
-              {{"type", SyncConfig::Type::Resources}, {"rid", resource.id()}, {"amount", resource.amount()}});
-        }
+    for (const auto& resource : response.resources()) {
+      const auto result = alliance_resource_states.apply_delta(resource.id(), resource.amount());
+      if (result.status == ResourceDeltaStatus::Applied) {
+        resource_array.push_back(
+            {{"type", SyncConfig::Type::Resources}, {"rid", resource.id()}, {"amount", result.amount}});
+      } else if (result.status == ResourceDeltaStatus::NoSnapshot) {
+        http::sync_log_debug("PROCESS", "alliance resources delta",
+                             STR_FORMAT("Skipping delta for uninitialized alliance resource {}", resource.id()));
+      } else if (result.status == ResourceDeltaStatus::Overflow) {
+        spdlog::warn("Alliance resource delta overflow for resource {}; preserving prior absolute balance",
+                     resource.id());
       }
     }
 
@@ -1173,17 +1166,12 @@ void process_resources(const nlohmann::json& section)
   http::sync_log_trace("PROCESS", "resources", STR_FORMAT("Processing {} resources", section.size()));
 
   auto resource_array = json::array();
-  {
-    std::lock_guard lk(resource_states_mtx);
+  for (const auto& [str_id, resource] : section.get<json::object_t>()) {
+    auto id     = std::stoll(str_id);
+    auto amount = resource["current_amount"].get<int64_t>();
 
-    for (const auto& [str_id, resource] : section.get<json::object_t>()) {
-      auto id     = std::stoll(str_id);
-      auto amount = resource["current_amount"].get<int64_t>();
-
-      if (const auto& it = resource_states.find(id); it == resource_states.end() || it->second != amount) {
-        resource_states[id] = amount;
-        resource_array.push_back({{"type", SyncConfig::Type::Resources}, {"rid", id}, {"amount", amount}});
-      }
+    if (resource_states.observe_snapshot(id, amount)) {
+      resource_array.push_back({{"type", SyncConfig::Type::Resources}, {"rid", id}, {"amount", amount}});
     }
   }
 

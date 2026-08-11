@@ -1,5 +1,7 @@
 #include "patches/sync_message_adapter.h"
 
+#include <limits>
+
 std::optional<SyncMessageKind> adapt_entity_group_type(const int32_t entity_group_type)
 {
   // Stable EntityGroup.Type protobuf values. This adapter intentionally has no
@@ -52,6 +54,53 @@ std::optional<SyncMessageKind> adapt_entity_group_type(const int32_t entity_grou
     default:
       return std::nullopt;
   }
+}
+
+bool AbsoluteResourceState::observe_snapshot(const int64_t resource_id, const int64_t amount)
+{
+  std::lock_guard lock(mutex_);
+  const auto [it, inserted] = amounts_.try_emplace(resource_id, amount);
+  if (inserted) {
+    return true;
+  }
+
+  if (it->second == amount) {
+    return false;
+  }
+
+  it->second = amount;
+  return true;
+}
+
+ResourceDeltaResult AbsoluteResourceState::apply_delta(const int64_t resource_id, const int64_t delta)
+{
+  std::lock_guard lock(mutex_);
+  const auto      it = amounts_.find(resource_id);
+  if (it == amounts_.end()) {
+    return {ResourceDeltaStatus::NoSnapshot, 0};
+  }
+
+  if (delta == 0) {
+    return {ResourceDeltaStatus::Unchanged, it->second};
+  }
+
+  const auto current = it->second;
+  if ((delta > 0 && current > std::numeric_limits<int64_t>::max() - delta)
+      || (delta < 0 && current < std::numeric_limits<int64_t>::min() - delta)) {
+    return {ResourceDeltaStatus::Overflow, current};
+  }
+
+  it->second += delta;
+  return {ResourceDeltaStatus::Applied, it->second};
+}
+
+std::optional<int64_t> AbsoluteResourceState::amount(const int64_t resource_id) const
+{
+  std::lock_guard lock(mutex_);
+  if (const auto it = amounts_.find(resource_id); it != amounts_.end()) {
+    return it->second;
+  }
+  return std::nullopt;
 }
 
 bool SlotStateDeduplicator::observe(const int64_t slot_id, const int64_t state, const SlotUpdateSource source)

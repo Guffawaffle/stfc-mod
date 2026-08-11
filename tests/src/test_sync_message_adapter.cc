@@ -2,6 +2,8 @@
 
 #include "patches/sync_message_adapter.h"
 
+#include <limits>
+
 TEST_SUITE("sync_message_adapter")
 {
   TEST_CASE("all supported client 253 entity groups map to stable sync message kinds")
@@ -43,5 +45,44 @@ TEST_SUITE("sync_message_adapter")
     CHECK_FALSE(slots.observe(7, 101, SlotUpdateSource::Snapshot));
     CHECK(slots.observe(8, 101, SlotUpdateSource::Snapshot));
     CHECK(slots.size() == 2);
+  }
+
+  TEST_CASE("resource deltas accumulate into an initialized absolute balance")
+  {
+    AbsoluteResourceState resources;
+
+    CHECK(resources.observe_snapshot(7, 100));
+    CHECK_FALSE(resources.observe_snapshot(7, 100));
+
+    const auto first = resources.apply_delta(7, 5);
+    CHECK(first.status == ResourceDeltaStatus::Applied);
+    CHECK(first.amount == 105);
+
+    const auto repeated = resources.apply_delta(7, 5);
+    CHECK(repeated.status == ResourceDeltaStatus::Applied);
+    CHECK(repeated.amount == 110);
+
+    const auto debit = resources.apply_delta(7, -20);
+    CHECK(debit.status == ResourceDeltaStatus::Applied);
+    CHECK(debit.amount == 90);
+    CHECK(resources.amount(7) == 90);
+  }
+
+  TEST_CASE("resource deltas fail closed without a snapshot or on overflow")
+  {
+    AbsoluteResourceState resources;
+
+    CHECK(resources.apply_delta(9, 5).status == ResourceDeltaStatus::NoSnapshot);
+    CHECK_FALSE(resources.amount(9).has_value());
+
+    REQUIRE(resources.observe_snapshot(9, std::numeric_limits<int64_t>::max()));
+    const auto overflow = resources.apply_delta(9, 1);
+    CHECK(overflow.status == ResourceDeltaStatus::Overflow);
+    CHECK(overflow.amount == std::numeric_limits<int64_t>::max());
+    CHECK(resources.amount(9) == std::numeric_limits<int64_t>::max());
+
+    const auto unchanged = resources.apply_delta(9, 0);
+    CHECK(unchanged.status == ResourceDeltaStatus::Unchanged);
+    CHECK(unchanged.amount == std::numeric_limits<int64_t>::max());
   }
 }

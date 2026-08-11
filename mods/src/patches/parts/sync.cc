@@ -62,6 +62,7 @@
 #include <spdlog/spdlog.h>
 
 #include <array>
+#include <cstring>
 #include <initializer_list>
 #include <sstream>
 #include <string>
@@ -181,26 +182,51 @@ const MethodInfo* find_exact_sync_method(IL2CppClassHelper& helper, const HookDe
                                          const std::initializer_list<std::string_view> expected_parameters,
                                          HookModuleHealth&                             health)
 {
-  const auto* method =
-      helper.GetMethodInfo(descriptor.target.method_name.data(), static_cast<int>(expected_parameters.size()));
-  if (method == nullptr) {
-    health.record_missing_method(descriptor);
-    return nullptr;
-  }
+  const auto parameters_match = [&expected_parameters](const int param_count, const Il2CppType** parameters) {
+    if (param_count != static_cast<int>(expected_parameters.size()) || (param_count != 0 && parameters == nullptr)) {
+      return false;
+    }
 
-  bool matches = il2cpp_type_name(il2cpp_method_get_return_type(method)) == expected_return;
-  if (il2cpp_method_get_param_count(method) != expected_parameters.size()) {
-    matches = false;
-  } else {
-    uint32_t index = 0;
+    size_t index = 0;
     for (const auto expected : expected_parameters) {
-      if (il2cpp_type_name(il2cpp_method_get_param(method, index++)) != expected) {
-        matches = false;
+      if (il2cpp_type_name(parameters[index++]) != expected) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const MethodInfo* method       = nullptr;
+  const MethodInfo* named_method = nullptr;
+  for (auto* klass = helper.get_cls(); klass != nullptr && method == nullptr; klass = il2cpp_class_get_parent(klass)) {
+    void* iterator = nullptr;
+    while (const auto* candidate = il2cpp_class_get_methods(klass, &iterator)) {
+      if (std::strcmp(candidate->name, descriptor.target.method_name.data()) != 0) {
+        continue;
+      }
+
+      if (named_method == nullptr) {
+        named_method = candidate;
+      }
+      if (parameters_match(candidate->parameters_count, candidate->parameters)) {
+        method = candidate;
+        break;
       }
     }
   }
 
-  if (!matches) {
+  if (method == nullptr) {
+    if (named_method != nullptr) {
+      health.record_signature_mismatch(descriptor,
+                                       "no overload matched the expected parameter types; first named overload: "
+                                           + method_signature(named_method));
+    } else {
+      health.record_missing_method(descriptor);
+    }
+    return nullptr;
+  }
+
+  if (il2cpp_type_name(il2cpp_method_get_return_type(method)) != expected_return) {
     health.record_signature_mismatch(descriptor, "expected " + std::string(expected_return) + " with "
                                                      + std::to_string(expected_parameters.size())
                                                      + " parameter(s); actual " + method_signature(method));
