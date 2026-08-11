@@ -129,19 +129,23 @@ TEST_CASE("example config does not reintroduce abandoned ghost or manual refresh
   CHECK(config["advanced"]["queue"]["thin_queue_protection"].value<bool>().value_or(false));
 }
 
-TEST_CASE("example config exposes only the canonical notification event surface")
+TEST_CASE("example config exposes only the public supported notification event surface")
 {
   const auto  source        = read_text_file("example_community_patch_settings.toml");
   const auto  config        = toml::parse(source);
   const auto* notifications = config["notifications"].as_table();
 
   REQUIRE(notifications != nullptr);
-  CHECK(notifications->size() == notification_event_catalog().size());
-  for (const auto& spec : notification_event_catalog()) {
-    REQUIRE(notifications->contains(spec.canonical_key));
-    CHECK(notifications->get(spec.canonical_key)->value<bool>().value_or(true) == false);
+  CHECK(notifications->size() == public_notification_kinds().size());
+  for (const auto kind : public_notification_kinds()) {
+    const auto* spec = notification_catalog_entry(kind);
+    REQUIRE(spec != nullptr);
+    REQUIRE(notifications->contains(spec->canonical_key));
+    CHECK(notifications->get(spec->canonical_key)->value<bool>().value_or(true) == false);
   }
 
+  CHECK_FALSE(notifications->contains("partial_victory"));
+  CHECK_FALSE(notifications->contains("standard"));
   CHECK(source.find("notifications_enabled") == std::string::npos);
   CHECK(source.find("notifications_audio_enabled") == std::string::npos);
   CHECK(source.find("[notifications.system") == std::string::npos);

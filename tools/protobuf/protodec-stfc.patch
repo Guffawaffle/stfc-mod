@@ -1,0 +1,139 @@
+diff --git a/src/LibProtodec/ProtodecContext.cs b/src/LibProtodec/ProtodecContext.cs
+index e11389b..79fc8d3 100644
+--- a/src/LibProtodec/ProtodecContext.cs
++++ b/src/LibProtodec/ProtodecContext.cs
+@@ -84,7 +84,8 @@ public class ProtodecContext
+ 
+         List<ICilField> idFields = messageClass.GetFields()
+                                                .AsValueEnumerable()
+-                                               .Where(static field => field is { IsPublic: true, IsStatic: true, IsLiteral: true })
++                                               .Where(static field => field is
++                                                   { IsPublic: true, IsStatic: true, IsLiteral: true, ConstantValue: int })
+                                                .ToList();
+ 
+         List<ICilProperty> properties = messageClass.GetProperties()
+@@ -94,10 +95,7 @@ public class ProtodecContext
+ 
+         for (int pi = 0, fi = 0; pi < properties.Count; pi++)
+         {
+-            ICilProperty property     = properties[pi];
+-            ICilType     propertyType = property.Type;
+-
+-            using IDisposable? __ = Logger?.BeginScopeParsingProperty(property.Name, propertyType.FullName);
++            ICilProperty property = properties[pi];
+ 
+             if (IsEnabled(options, CilParserOptions.RequireGeneratedCodeAttributeForProperties) && !HasGeneratedCodeAttribute(property.CustomAttributes, "protoc"))
+             {
+@@ -111,6 +109,10 @@ public class ProtodecContext
+                 continue;
+             }
+ 
++            ICilType propertyType = property.Type;
++
++            using IDisposable? __ = Logger?.BeginScopeParsingProperty(property.Name, propertyType.FullName);
++
+             // only OneOf enums are defined nested directly in the message class
+             if (propertyType.IsEnum && propertyType.DeclaringType?.Name == messageClass.Name)
+             {
+@@ -141,9 +143,18 @@ public class ProtodecContext
+                 Name       = TranslateMessageFieldName(property.Name),
+                 IsObsolete = HasObsoleteAttribute(property.CustomAttributes),
+                 HasHasProp = msgFieldHasHasProp
++                          || propertyType.FullName.StartsWith("System.Nullable`1", StringComparison.Ordinal)
+             };
+ 
+-            if (idFields.Count <= fi)
++            ICilField? namedIdField = idFields.AsValueEnumerable().SingleOrDefault(field =>
++                field.Name.Equals($"{property.Name}FieldNumber", StringComparison.OrdinalIgnoreCase));
++
++            if (namedIdField is not null)
++            {
++                field.Id = (int)namedIdField.ConstantValue!;
++                message.Fields.Add(field.Id.Value, field);
++            }
++            else if (idFields.Count <= fi)
+             {
+                 Logger?.LogFailedToLocateIdField();
+                 message.UnkFields.Add(field);
+@@ -208,6 +219,49 @@ public class ProtodecContext
+         return @enum;
+     }
+ 
++    private Enum ParseDataEnum(ICilType dataEnum, ICilType valuesClass, CilParserOptions options)
++    {
++        using IDisposable? _ = Logger?.BeginScopeParsingEnum(dataEnum.FullName);
++
++        if (_parsed.TryGetValue(dataEnum.FullName, out TopLevel? parsedEnum))
++        {
++            Logger?.LogParsedEnum(parsedEnum.Name);
++            return (Enum)parsedEnum;
++        }
++
++        ICilTypeNameProvider enumTypeName = TranslateTypeName(dataEnum);
++        Enum @enum = new()
++        {
++            Name       = enumTypeName.Name,
++            IsObsolete = HasObsoleteAttribute(dataEnum.CustomAttributes)
++        };
++        _parsed.Add(dataEnum.FullName, @enum);
++
++        Protobuf protobuf = GetProtobuf(dataEnum, @enum, enumTypeName.Namespace, options);
++
++        foreach (ICilField enumField in valuesClass.GetFields().AsValueEnumerable().Where(static field =>
++                     field is { IsPublic: true, IsStatic: true, IsLiteral: true, ConstantValue: int }))
++        {
++            EnumField field = new()
++            {
++                Id         = (int)enumField.ConstantValue!,
++                Name       = TranslateEnumFieldName(enumField.CustomAttributes, enumField.Name, @enum.Name),
++                IsObsolete = HasObsoleteAttribute(enumField.CustomAttributes)
++            };
++
++            @enum.Fields.Add(field);
++        }
++
++        if (@enum.Fields.AsValueEnumerable().All(static field => field.Id != 0))
++        {
++            protobuf.Edition = "2023";
++            @enum.IsClosed   = true;
++        }
++
++        Logger?.LogParsedEnum(@enum.Name);
++        return @enum;
++    }
++
+     public virtual Service ParseService(ICilType serviceClass, CilParserOptions options = CilParserOptions.None)
+     {
+         Guard.IsTrue(serviceClass.IsClass);
+@@ -354,6 +408,10 @@ public class ProtodecContext
+         switch (type.GenericTypeArguments.Count)
+         {
+             case 1:
++                if (type.FullName.StartsWith("System.Nullable`1", StringComparison.Ordinal))
++                {
++                    return ParseFieldType(type.GenericTypeArguments[0], options, referencingProtobuf);
++                }
+                 return new Repeated(
+                     ParseFieldType(type.GenericTypeArguments[0], options, referencingProtobuf));
+             case 2:
+@@ -375,7 +433,19 @@ public class ProtodecContext
+             }
+             else
+             {
+-                fieldType = ParseMessage(type, options);
++                ICilType? valuesClass = type.GetNestedTypes().AsValueEnumerable().SingleOrDefault(static nested =>
++                    nested.Name == "Values"
++                 && nested.GetFields().AsValueEnumerable().Any(static field =>
++                        field is { IsPublic: true, IsStatic: true, IsLiteral: true, ConstantValue: int }));
++
++                if (valuesClass is not null)
++                {
++                    fieldType = ParseDataEnum(type, valuesClass, options);
++                }
++                else
++                {
++                    fieldType = ParseMessage(type, options);
++                }
+             }
+         }
+ 

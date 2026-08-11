@@ -5,12 +5,13 @@
 #include "patches/sync_payload_builders.h"
 
 #include "config.h"
-#include "str_utils.h"
 #include "patches/sidecar_local_ingest_policy.h"
 #include "patches/sync_battle_logs.h"
+#include "patches/sync_message_adapter.h"
 #include "patches/sync_scheduler.h"
 #include "patches/sync_transport.h"
 #include "patches/sync_transport_policy.h"
+#include "str_utils.h"
 
 #include <Digit.PrimeServer.Models.pb.h>
 #include <prime/EntityGroup.h>
@@ -121,7 +122,9 @@ public:
   }
 
 private:
-  static constexpr size_t kWorkerCount   = 2;
+  // Stateful snapshots and deltas must commit in submission order. Parallel
+  // processors can otherwise enqueue an older snapshot after a newer RTC/delta.
+  static constexpr size_t kWorkerCount   = 1;
   static constexpr size_t kMaxQueuedWork = 256;
 
   void start_once()
@@ -647,8 +650,7 @@ void process_global_active_buffs(std::unique_ptr<std::string>&& bytes)
   }
 }
 
-static std::unordered_map<int64_t, int64_t> slot_states;
-static std::mutex                           slot_states_mtx;
+static SlotStateDeduplicator slot_states;
 
 static void queue_fleet_assignment_snapshots(const nlohmann::json& slot_array)
 {
@@ -686,79 +688,80 @@ inline std::optional<std::chrono::time_point<std::chrono::system_clock>> parse_t
 #endif
 }
 
+static void process_single_slot(const Digit::PrimeServer::Models::EntitySlot& slot, nlohmann::json& slot_array)
+{
+  using json = nlohmann::json;
+
+  json    slot_params;
+  int64_t state_value = slot.has_slotitemid() ? slot.slotitemid() : -1;
+
+  switch (slot.slottype()) {
+    case Digit::PrimeServer::Models::SLOTTYPE_CONSUMABLE:
+      if (slot.has_consumableslotparams()) {
+        const auto& consumable = slot.consumableslotparams();
+        slot_params["expiry_time"] =
+            consumable.has_expirytime() ? json(consumable.expirytime().seconds()) : json(nullptr);
+      }
+      break;
+    case Digit::PrimeServer::Models::SLOTTYPE_OFFICERPRESET:
+      if (slot.has_officerpresetslotparams()) {
+        const auto& preset = slot.officerpresetslotparams();
+        slot_params        = {{"name", preset.name()}, {"order", preset.order()}, {"officer_ids", preset.officerids()}};
+        state_value        = static_cast<int64_t>(std::hash<json>{}(slot_params));
+      }
+      break;
+    case Digit::PrimeServer::Models::SLOTTYPE_FLEETCOMMANDER:
+      if (slot.has_fleetcommanderslotparams()) {
+        slot_params["order"] = slot.fleetcommanderslotparams().order();
+      }
+      break;
+    case Digit::PrimeServer::Models::SLOTTYPE_SELECTABLESKILL:
+      if (slot.has_selectableskillslotparams()) {
+        const auto& skill = slot.selectableskillslotparams();
+        slot_params["cooldown_expiration"] =
+            skill.has_cooldownexpiration() ? json(skill.cooldownexpiration().seconds()) : json(nullptr);
+      }
+      break;
+    case Digit::PrimeServer::Models::SLOTTYPE_FLEETPRESET:
+      if (slot.has_fleetpresetslotparams()) {
+        const auto& preset     = slot.fleetpresetslotparams();
+        auto        setup_json = json::array();
+
+        for (const auto& setup : preset.setups()) {
+          setup_json.push_back({{"drydock_id", setup.drydockid()},
+                                {"ship_id", setup.shipids_size() > 0 ? json(setup.shipids()[0]) : json(nullptr)},
+                                {"officer_ids", setup.officerids()}});
+        }
+
+        slot_params = {{"name", preset.name()}, {"order", preset.order()}, {"setup", setup_json}};
+        state_value = static_cast<int64_t>(std::hash<json>{}(slot_params));
+      }
+      break;
+    default:
+      return;
+  }
+
+  if (slot_states.observe(slot.id(), state_value, SlotUpdateSource::Snapshot)) {
+    slot_array.push_back({{"type", SyncConfig::Type::Slots},
+                          {"sid", slot.id()},
+                          {"slot_type", slot.slottype()},
+                          {"spec_id", slot.slotspecid()},
+                          {"item_id", slot.has_slotitemid() ? json(slot.slotitemid()) : json(nullptr)},
+                          {"params", slot_params}});
+  }
+}
+
 /** @brief Processes EntitySlots (protobuf) - emits slot changes for consumables, presets, skills, etc. */
 void process_entity_slots(std::unique_ptr<std::string>&& bytes)
 {
   using json = nlohmann::json;
 
   if (auto response = Digit::PrimeServer::Models::EntitySlots(); response.ParseFromString(*bytes)) {
-
     http::sync_log_trace("PROCESS", "entity slots", STR_FORMAT("Processing {} slots", response.entityslots__size()));
 
     auto slot_array = json::array();
-    {
-      std::lock_guard lk(slot_states_mtx);
-
-      for (const auto& slot : response.entityslots_()) {
-        json    slot_params;
-        int64_t state_value = slot.has_slotitemid() ? slot.slotitemid() : -1;
-
-        switch (slot.slottype()) {
-          case Digit::PrimeServer::Models::SLOTTYPE_CONSUMABLE:
-            if (slot.has_consumableslotparams()) {
-              const auto& consumable = slot.consumableslotparams();
-              slot_params["expiry_time"] =
-                  consumable.has_expirytime() ? json(consumable.expirytime().seconds()) : json(nullptr);
-            }
-            break;
-          case Digit::PrimeServer::Models::SLOTTYPE_OFFICERPRESET:
-            if (slot.has_officerpresetslotparams()) {
-              const auto& preset = slot.officerpresetslotparams();
-              slot_params = {{"name", preset.name()}, {"order", preset.order()}, {"officer_ids", preset.officerids()}};
-              state_value = static_cast<int64_t>(std::hash<json>{}(slot_params));
-            }
-            break;
-          case Digit::PrimeServer::Models::SLOTTYPE_FLEETCOMMANDER:
-            if (slot.has_fleetcommanderslotparams()) {
-              slot_params["order"] = slot.fleetcommanderslotparams().order();
-            }
-            break;
-          case Digit::PrimeServer::Models::SLOTTYPE_SELECTABLESKILL:
-            if (slot.has_selectableskillslotparams()) {
-              const auto& skill = slot.selectableskillslotparams();
-              slot_params["cooldown_expiration"] =
-                  skill.has_cooldownexpiration() ? json(skill.cooldownexpiration().seconds()) : json(nullptr);
-            }
-            break;
-          case Digit::PrimeServer::Models::SLOTTYPE_FLEETPRESET:
-            if (slot.has_fleetpresetslotparams()) {
-              const auto& preset     = slot.fleetpresetslotparams();
-              auto        setup_json = json::array();
-
-              for (const auto& setup : preset.setups()) {
-                setup_json.push_back({{"drydock_id", setup.drydockid()},
-                                      {"ship_id", setup.shipids_size() > 0 ? json(setup.shipids()[0]) : json(nullptr)},
-                                      {"officer_ids", setup.officerids()}});
-              }
-
-              slot_params = {{"name", preset.name()}, {"order", preset.order()}, {"setup", setup_json}};
-              state_value = static_cast<int64_t>(std::hash<json>{}(slot_params));
-            }
-            break;
-          default:
-            continue;
-        }
-
-        if (const auto& it = slot_states.find(slot.id()); it == slot_states.end() || it->second != state_value) {
-          slot_states[slot.id()] = state_value;
-          slot_array.push_back({{"type", SyncConfig::Type::Slots},
-                                {"sid", slot.id()},
-                                {"slot_type", slot.slottype()},
-                                {"spec_id", slot.slotspecid()},
-                                {"item_id", slot.has_slotitemid() ? json(slot.slotitemid()) : json(nullptr)},
-                                {"params", slot_params}});
-        }
-      }
+    for (const auto& slot : response.entityslots_()) {
+      process_single_slot(slot, slot_array);
     }
 
     if (!slot_array.empty()) {
@@ -767,6 +770,31 @@ void process_entity_slots(std::unique_ptr<std::string>&& bytes)
     }
   } else {
     spdlog::error("Failed to parse entity slots");
+  }
+}
+
+/** @brief Processes EntitySlotsData snapshots introduced by the client-253 parser path. */
+void process_entity_slots_data(std::unique_ptr<std::string>&& bytes)
+{
+  using json = nlohmann::json;
+
+  if (auto response = Digit::PrimeServer::Models::EntitySlotsData(); response.ParseFromString(*bytes)) {
+    http::sync_log_trace("PROCESS", "entity slots data",
+                         STR_FORMAT("Processing {} entity slot groups", response.entityslots_size()));
+
+    auto slot_array = json::array();
+    for (const auto& slots : response.entityslots()) {
+      for (const auto& slot : slots.slots()) {
+        process_single_slot(slot, slot_array);
+      }
+    }
+
+    if (!slot_array.empty()) {
+      queue_data(SyncConfig::Type::Slots, slot_array);
+      queue_fleet_assignment_snapshots(slot_array);
+    }
+  } else {
+    spdlog::error("Failed to parse entity slots data");
   }
 }
 
@@ -847,23 +875,17 @@ void process_entity_slots_rtc(std::unique_ptr<std::string>&& json_payload)
     }
 
     const auto id = data["slot_id"].get<int64_t>();
-    {
-      std::lock_guard lk(slot_states_mtx);
+    if (slot_states.observe(id, state_value, SlotUpdateSource::Realtime)) {
+      auto slot_array = json::array();
+      slot_array.push_back({{"type", SyncConfig::Type::Slots},
+                            {"sid", id},
+                            {"slot_type", type},
+                            {"spec_id", data["slot_spec_id"]},
+                            {"item_id", item},
+                            {"params", slot_params}});
 
-      if (const auto& it = slot_states.find(id); it == slot_states.end() || it->second != state_value) {
-        slot_states[id] = state_value;
-
-        auto slot_array = json::array();
-        slot_array.push_back({{"type", SyncConfig::Type::Slots},
-                              {"sid", id},
-                              {"slot_type", type},
-                              {"spec_id", data["slot_spec_id"]},
-                              {"item_id", item},
-                              {"params", slot_params}});
-
-        queue_data(SyncConfig::Type::Slots, slot_array);
-        queue_fleet_assignment_snapshots(slot_array);
-      }
+      queue_data(SyncConfig::Type::Slots, slot_array);
+      queue_fleet_assignment_snapshots(slot_array);
     }
   } catch (json::exception& e) {
     spdlog::error("Failed to parse slots JSON: {}", e.what());
@@ -989,35 +1011,172 @@ void process_alliance_games_props(std::unique_ptr<std::string>&& bytes)
   }
 }
 
+static AbsoluteResourceState                resource_states;
+static std::atomic_bool                     resource_first_sync{true};
+static AbsoluteResourceState                alliance_resource_states;
+static std::atomic_bool                     alliance_resource_first_sync{true};
+static std::unordered_map<int64_t, int32_t> module_states;
+static std::mutex                           module_states_mtx;
+
+/** @brief Processes the client-253 typed resource snapshot. */
+void process_resources_proto(std::unique_ptr<std::string>&& bytes)
+{
+  using json = nlohmann::json;
+
+  if (auto response = Digit::PrimeServer::Models::ResourcesResponse(); response.ParseFromString(*bytes)) {
+    http::sync_log_trace("PROCESS", "resources", STR_FORMAT("Processing {} resources", response.resources_size()));
+
+    auto resource_array = json::array();
+    for (const auto& resource : response.resources()) {
+      if (resource_states.observe_snapshot(resource.id(), resource.currentamount())) {
+        resource_array.push_back(
+            {{"type", SyncConfig::Type::Resources}, {"rid", resource.id()}, {"amount", resource.currentamount()}});
+      }
+    }
+
+    if (!resource_array.empty()) {
+      const bool first_sync = resource_first_sync.exchange(false, std::memory_order_acq_rel);
+      queue_data(SyncConfig::Type::Resources, resource_array, first_sync);
+    }
+  } else {
+    spdlog::error("Failed to parse resources");
+  }
+}
+
+/** @brief Processes a client-253 typed resource delta. */
+void process_resources_delta_proto(std::unique_ptr<std::string>&& bytes)
+{
+  using json = nlohmann::json;
+
+  if (auto response = Digit::PrimeServer::Models::ResourcesDeltaResponse(); response.ParseFromString(*bytes)) {
+    auto resource_array = json::array();
+    for (const auto& resource : response.resources()) {
+      const auto result = resource_states.apply_delta(resource.id(), resource.amount());
+      if (result.status == ResourceDeltaStatus::Applied) {
+        resource_array.push_back(
+            {{"type", SyncConfig::Type::Resources}, {"rid", resource.id()}, {"amount", result.amount}});
+      } else if (result.status == ResourceDeltaStatus::NoSnapshot) {
+        http::sync_log_debug("PROCESS", "resources delta",
+                             STR_FORMAT("Skipping delta for uninitialized resource {}", resource.id()));
+      } else if (result.status == ResourceDeltaStatus::Overflow) {
+        spdlog::warn("Resource delta overflow for resource {}; preserving prior absolute balance", resource.id());
+      }
+    }
+
+    if (!resource_array.empty()) {
+      queue_data(SyncConfig::Type::Resources, resource_array);
+    }
+  } else {
+    spdlog::error("Failed to parse resources delta");
+  }
+}
+
+/** @brief Processes the alliance bank resource snapshot. */
+void process_alliance_resources(std::unique_ptr<std::string>&& bytes)
+{
+  using json = nlohmann::json;
+
+  if (auto response = Digit::PrimeServer::Models::AllianceGetBankResourcesResponse();
+      response.ParseFromString(*bytes)) {
+    auto resource_array = json::array();
+    for (const auto& item : response.items()) {
+      if (!item.has_commonparams()) {
+        continue;
+      }
+
+      const auto id     = item.commonparams().refid();
+      const auto amount = item.count();
+      if (alliance_resource_states.observe_snapshot(id, amount)) {
+        resource_array.push_back({{"type", SyncConfig::Type::Resources}, {"rid", id}, {"amount", amount}});
+      }
+    }
+
+    if (!resource_array.empty()) {
+      const bool first_sync = alliance_resource_first_sync.exchange(false, std::memory_order_acq_rel);
+      queue_data(SyncConfig::Type::Resources, resource_array, first_sync);
+    }
+  } else {
+    spdlog::error("Failed to parse alliance resources");
+  }
+}
+
+/** @brief Processes a client-253 typed alliance resource delta. */
+void process_alliance_resources_delta(std::unique_ptr<std::string>&& bytes)
+{
+  using json = nlohmann::json;
+
+  if (auto response = Digit::PrimeServer::Models::AllianceResourcesDeltaResponse(); response.ParseFromString(*bytes)) {
+    auto resource_array = json::array();
+    for (const auto& resource : response.resources()) {
+      const auto result = alliance_resource_states.apply_delta(resource.id(), resource.amount());
+      if (result.status == ResourceDeltaStatus::Applied) {
+        resource_array.push_back(
+            {{"type", SyncConfig::Type::Resources}, {"rid", resource.id()}, {"amount", result.amount}});
+      } else if (result.status == ResourceDeltaStatus::NoSnapshot) {
+        http::sync_log_debug("PROCESS", "alliance resources delta",
+                             STR_FORMAT("Skipping delta for uninitialized alliance resource {}", resource.id()));
+      } else if (result.status == ResourceDeltaStatus::Overflow) {
+        spdlog::warn("Alliance resource delta overflow for resource {}; preserving prior absolute balance",
+                     resource.id());
+      }
+    }
+
+    if (!resource_array.empty()) {
+      queue_data(SyncConfig::Type::Resources, resource_array);
+    }
+  } else {
+    spdlog::error("Failed to parse alliance resources delta");
+  }
+}
+
+/** @brief Processes the client-253 typed starbase-module snapshot. */
+void process_starbase_modules_proto(std::unique_ptr<std::string>&& bytes)
+{
+  using json = nlohmann::json;
+
+  if (auto response = Digit::PrimeServer::Models::StarbaseModulesResponse(); response.ParseFromString(*bytes)) {
+    auto module_array = json::array();
+    {
+      std::lock_guard lk(module_states_mtx);
+      for (const auto& module : response.modulestates()) {
+        if (const auto& it = module_states.find(module.id());
+            it == module_states.end() || it->second != module.level()) {
+          module_states[module.id()] = module.level();
+          module_array.push_back(
+              {{"type", SyncConfig::Type::Buildings}, {"bid", module.id()}, {"level", module.level()}});
+        }
+      }
+    }
+
+    if (!module_array.empty()) {
+      queue_data(SyncConfig::Type::Buildings, module_array);
+    }
+  } else {
+    spdlog::error("Failed to parse starbase modules");
+  }
+}
+
 // ─── JSON Entity Processors ──────────────────────────────────────────────────
 
 /** @brief Processes the resources JSON section — emits resource amount changes. */
 void process_resources(const nlohmann::json& section)
 {
   using json = nlohmann::json;
-  static std::unordered_map<int64_t, int64_t> resource_states;
-  static std::mutex                           resource_states_mtx;
-  static std::atomic_bool                     is_first_sync{true};
 
   http::sync_log_trace("PROCESS", "resources", STR_FORMAT("Processing {} resources", section.size()));
 
   auto resource_array = json::array();
-  {
-    std::lock_guard lk(resource_states_mtx);
+  for (const auto& [str_id, resource] : section.get<json::object_t>()) {
+    auto id     = std::stoll(str_id);
+    auto amount = resource["current_amount"].get<int64_t>();
 
-    for (const auto& [str_id, resource] : section.get<json::object_t>()) {
-      auto id     = std::stoll(str_id);
-      auto amount = resource["current_amount"].get<int64_t>();
-
-      if (const auto& it = resource_states.find(id); it == resource_states.end() || it->second != amount) {
-        resource_states[id] = amount;
-        resource_array.push_back({{"type", SyncConfig::Type::Resources}, {"rid", id}, {"amount", amount}});
-      }
+    if (resource_states.observe_snapshot(id, amount)) {
+      resource_array.push_back({{"type", SyncConfig::Type::Resources}, {"rid", id}, {"amount", amount}});
     }
   }
 
   if (!resource_array.empty()) {
-    bool first_sync = is_first_sync.exchange(false, std::memory_order_acq_rel);
+    const bool first_sync = resource_first_sync.exchange(false, std::memory_order_acq_rel);
     queue_data(SyncConfig::Type::Resources, resource_array, first_sync);
   }
 }
@@ -1026,8 +1185,6 @@ void process_resources(const nlohmann::json& section)
 void process_starbase_modules(const nlohmann::json& section)
 {
   using json = nlohmann::json;
-  static std::unordered_map<int64_t, int32_t> module_states;
-  static std::mutex                           module_states_mtx;
 
   http::sync_log_trace("PROCESS", "starbase modules", STR_FORMAT("Processing {} buildings", section.size()));
 
@@ -1170,78 +1327,116 @@ void HandleEntityGroup(EntityGroup* entity_group)
     }
   };
 
-  switch (entity_group->Type_) {
-    case EntityGroup::Type::ActiveMissions:
+  const auto message_kind = adapt_entity_group_type(static_cast<int32_t>(entity_group->Type_));
+  if (!message_kind.has_value()) {
+    return;
+  }
+
+  switch (*message_kind) {
+    case SyncMessageKind::BattleResultHeaders:
+    case SyncMessageKind::BattleReport:
+      // These typed messages do not yet expose the JSON journal headers used by
+      // the private battle-log pipeline. Preserve the existing JSON path.
+      break;
+    case SyncMessageKind::ActiveMissions:
       if (Config::Get().sync_options.missions) {
         submit_async("ActiveMissions", process_active_missions);
       }
       break;
-    case EntityGroup::Type::CompletedMissions:
+    case SyncMessageKind::CompletedMissions:
       if (Config::Get().sync_options.missions) {
         submit_async("CompletedMissions", process_completed_missions);
       }
       break;
-    case EntityGroup::Type::PlayerInventories:
+    case SyncMessageKind::PlayerInventories:
       if (Config::Get().sync_options.inventory) {
         submit_async("PlayerInventories", process_player_inventories);
       }
       break;
-    case EntityGroup::Type::ResearchTreesState:
+    case SyncMessageKind::ResearchTreesState:
       if (Config::Get().sync_options.research) {
         submit_async("ResearchTreesState", process_research_trees_state);
       }
       break;
-    case EntityGroup::Type::Officers:
+    case SyncMessageKind::Officers:
       if (Config::Get().sync_options.officer) {
         submit_async("Officers", process_officers);
       }
       break;
-    case EntityGroup::Type::ForbiddenTechs:
+    case SyncMessageKind::ForbiddenTechs:
       if (Config::Get().sync_options.tech) {
         submit_async("ForbiddenTechs", process_forbidden_techs);
       }
       break;
-    case EntityGroup::Type::ActiveOfficerTraits:
+    case SyncMessageKind::ActiveOfficerTraits:
       if (Config::Get().sync_options.traits) {
         submit_async("ActiveOfficerTraits", process_active_officer_traits);
       }
       break;
-    case EntityGroup::Type::Json:
+    case SyncMessageKind::Json:
       if (const auto& o = Config::Get().sync_options; o.battlelogs || o.resources || o.ships || o.buildings) {
         submit_async("Json", process_json);
       }
       break;
-    case EntityGroup::Type::Jobs:
+    case SyncMessageKind::Jobs:
       if (Config::Get().sync_options.jobs) {
         submit_async("Jobs", process_jobs);
       }
       break;
-    case EntityGroup::Type::GlobalActiveBuffs:
+    case SyncMessageKind::GlobalActiveBuffs:
       if (Config::Get().sync_options.buffs) {
         submit_async("GlobalActiveBuffs", process_global_active_buffs);
       }
       break;
-    case EntityGroup::Type::EntitySlots:
+    case SyncMessageKind::EntitySlots:
       if (Config::Get().sync_options.slots) {
         submit_async("EntitySlots", process_entity_slots);
       }
       break;
-    case EntityGroup::Type::AllianceGetGameProperties:
+    case SyncMessageKind::EntitySlotsData:
+      if (Config::Get().sync_options.slots) {
+        submit_async("EntitySlotsData", process_entity_slots_data);
+      }
+      break;
+    case SyncMessageKind::AllianceGetGameProperties:
       if (Config::Get().sync_options.buffs) {
         submit_async("AllianceGetGameProperties", process_alliance_games_props);
       }
       break;
-    case EntityGroup::Type::UserProfiles:
+    case SyncMessageKind::UserProfiles:
       if (Config::Get().sync_options.battlelogs) {
         submit_async("UserProfiles", cache_player_names);
       }
       break;
-    case EntityGroup::Type::AllianceProfiles:
+    case SyncMessageKind::AllianceProfiles:
       if (Config::Get().sync_options.battlelogs) {
         submit_async("AllianceProfiles", cache_alliance_names);
       }
       break;
-    default:
+    case SyncMessageKind::Resources:
+      if (Config::Get().sync_options.resources) {
+        submit_async("Resources", process_resources_proto);
+      }
+      break;
+    case SyncMessageKind::ResourcesDelta:
+      if (Config::Get().sync_options.resources) {
+        submit_async("ResourcesDelta", process_resources_delta_proto);
+      }
+      break;
+    case SyncMessageKind::AllianceGetBankResources:
+      if (Config::Get().sync_options.resources) {
+        submit_async("AllianceGetBankResources", process_alliance_resources);
+      }
+      break;
+    case SyncMessageKind::ResourcesDeltaAlliance:
+      if (Config::Get().sync_options.resources) {
+        submit_async("ResourcesDeltaAlliance", process_alliance_resources_delta);
+      }
+      break;
+    case SyncMessageKind::StarbaseModules:
+      if (Config::Get().sync_options.buildings) {
+        submit_async("StarbaseModules", process_starbase_modules_proto);
+      }
       break;
   }
 }

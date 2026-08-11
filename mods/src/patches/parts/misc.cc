@@ -4,6 +4,7 @@
  *
  * A collection of independent patches that don't warrant their own file:
  *   - Donation slider extension (raise the 50-item cap)
+ *   - Tagged chest-purchase slider extension
  *   - Bundle cooldown bypass (click through to info view while on cooldown)
  *   - Resolution list cleanup (deduplicate and normalize refresh rates)
  *   - Buff extraction null-guard (prevent crash on null list entries)
@@ -13,14 +14,24 @@
 #include "config.h"
 #include "errormsg.h"
 
+#if _WIN32
+#include "patches/hook_registry.h"
+#endif
+
 #include <prime/BundleDataWidget.h>
 #include <prime/ClientModifierType.h>
 #include <prime/IList.h>
 #include <prime/InterstitialViewController.h>
 #include <prime/InventoryForPopup.h>
+#if _WIN32
+#include <prime/InventoryUseRowWidget.h>
+#endif
 
 #include <il2cpp/il2cpp_helper.h>
 
+#if _WIN32
+#include <spdlog/spdlog.h>
+#endif
 #include <spud/detour.h>
 
 #if _WIN32
@@ -31,7 +42,21 @@
 #include <cstdint>
 #include <vector>
 
-// ─── Donation Slider Extension ───────────────────────────────────────────────
+// ─── Inventory Slider Extensions ─────────────────────────────────────────────
+
+#if _WIN32
+namespace
+{
+constexpr int64_t kMaximumChestPurchaseMax = 160;
+
+constexpr HookDescriptor kChestPurchaseSliderHook{
+    "InventoryUseRowWidget.SetWidgetData",
+    "Raise the quantity ceiling only for inventory rows tagged by the game as chest purchases.",
+    {"Assembly-CSharp", "Digit.Prime.Inventories", "InventoryUseRowWidget", "SetWidgetData"},
+    "Tagged chest-purchase sliders will retain the native quantity ceiling.",
+    HookSupportTier::Production};
+} // namespace
+#endif
 
 /**
  * @brief Hook: InventoryForPopup::set_MaxItemsToUse
@@ -39,23 +64,58 @@
  * Intercepts the donation slider cap to allow larger donations.
  * Original method: sets the maximum slider value (hard-coded to 50 for donations).
  * Our modification: when extend_donation_slider is enabled and the caller is a
- *   donation popup with cap == 50, replaces it with the user's configured max
- *   (or returns -1 for unlimited if max <= 0).
+ *   donation popup with cap == 50, replaces it with the user's configured max.
+ *   A non-positive configured max preserves the popup's initial unlimited value.
  */
-int64_t InventoryForPopup_set_MaxItemsToUse(auto original, InventoryForPopup* a1, int64_t a2)
+void InventoryForPopup_set_MaxItemsToUse(auto original, InventoryForPopup* a1, int64_t a2)
 {
+  if (!a1) {
+    return;
+  }
+
   if (a1->IsDonationUse && a2 == 50 && Config::Get().extend_donation_slider) {
     const auto max = Config::Get().extend_donation_max;
     if (max > 0) {
       a2 = max;
     } else {
-      return -1;
+      // Leave the initial unlimited value in place instead of applying the game's donation cap.
+      return;
     }
   }
 
-  int64_t standard = original(a1, a2);
-  return standard;
+  original(a1, a2);
 }
+
+/**
+ * @brief Hook: InventoryUseRowWidget::SetWidgetData
+ *
+ * The chest-purchase context is tagged only after its native MaxItemsToUse value is assigned, so the earlier setter
+ * hook cannot reliably distinguish it. This later row-render seam sees both values and raises only tagged chest
+ * purchase rows with a positive native ceiling. It never replaces an unknown/non-positive sentinel or lowers a
+ * native maximum. A non-positive configured value disables the hook at install.
+ */
+#if _WIN32
+void InventoryUseRowWidget_SetWidgetData(auto original, InventoryUseRowWidget* widget)
+{
+  if (widget) {
+    if (auto* context = widget->Context; context && context->IsChestPurchase) {
+      const auto native_max    = context->MaxItemsToUse;
+      const auto requested_max = static_cast<int64_t>(Config::Get().extend_chest_purchase_max);
+      const auto bounded_max   = std::min(requested_max, kMaximumChestPurchaseMax);
+      if (native_max > 0 && bounded_max > native_max) {
+        context->MaxItemsToUse = bounded_max;
+        spdlog::info("[ChestPurchaseSlider] extended quantity ceiling from {} to {}", native_max, bounded_max);
+      } else if (native_max > bounded_max) {
+        spdlog::info("[ChestPurchaseSlider] retained native quantity ceiling {} above bounded configured ceiling {} "
+                     "(requested {})",
+                     native_max, bounded_max, requested_max);
+      }
+    }
+  }
+
+  original(widget);
+}
+#endif
 
 // ─── Bundle Cooldown Bypass ──────────────────────────────────────────────────
 
@@ -77,14 +137,15 @@ void BundleDataWidget_OnActionButtonPressedCallback(auto original, BundleDataWid
 }
 
 /**
- * @brief Installs donation slider and bundle cooldown patches.
+ * @brief Installs inventory-slider and bundle-cooldown patches.
  *
- * Hooks InventoryForPopup::set_MaxItemsToUse (Windows only) and
- * BundleDataWidget::OnActionButtonPressedCallback.
+ * Hooks the donation setter and tagged chest-purchase row renderer on Windows, plus the bundle action callback.
  */
 void InstallMiscPatches()
 {
 #if _WIN32
+  HookModuleHealth chest_slider_hooks("ChestPurchaseSliderHooks");
+
   auto h = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Inventories", "InventoryForPopup");
   if (!h.isValidHelper()) {
     ErrorMsg::MissingHelper("Digit.Prime.Inventories", "InventoryForPopup");
@@ -96,6 +157,29 @@ void InstallMiscPatches()
       SPUD_STATIC_DETOUR(ptr, InventoryForPopup_set_MaxItemsToUse);
     }
   }
+
+  const auto configured_chest_max = Config::Get().extend_chest_purchase_max;
+  if (configured_chest_max <= 0) {
+    chest_slider_hooks.record_skipped(kChestPurchaseSliderHook, "configured maximum is non-positive");
+  } else {
+    if (configured_chest_max > kMaximumChestPurchaseMax) {
+      spdlog::warn("[ChestPurchaseSlider] configured extension ceiling {} exceeds verified transaction ceiling {}; "
+                   "clamping the extension (higher native ceilings remain unchanged)",
+                   configured_chest_max, kMaximumChestPurchaseMax);
+    }
+
+    auto& row_widget = InventoryUseRowWidget::get_class_helper();
+    if (!row_widget.isValidHelper()) {
+      chest_slider_hooks.record_missing_helper(kChestPurchaseSliderHook);
+    } else if (auto set_widget_data = row_widget.GetMethod("SetWidgetData", 0); set_widget_data == nullptr) {
+      chest_slider_hooks.record_missing_method(kChestPurchaseSliderHook);
+    } else {
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(chest_slider_hooks, kChestPurchaseSliderHook, set_widget_data,
+                                       InventoryUseRowWidget_SetWidgetData);
+    }
+  }
+
+  chest_slider_hooks.log_summary();
 #endif
 
   auto bundle_data_widget = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Shop", "BundleDataWidget");

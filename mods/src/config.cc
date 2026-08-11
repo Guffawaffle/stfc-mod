@@ -18,6 +18,7 @@
 #include "patches/mapkey.h"
 #include "patches/mod_impact_monitor.h"
 #include "patches/notification_policy.h"
+#include "patches/sync_transport_policy.h"
 #include "prime/KeyCode.h"
 #include "str_utils.h"
 #include "testable_functions.h"
@@ -68,8 +69,7 @@ using config_metadata::notificationToggleSpecs;
 
 static_assert(!DCS::allow_unsafe_tls_without_certificate_validation, "Unsafe TLS override default must remain false.");
 
-// Standalone flag — NOT in Config struct to avoid struct layout sensitivity.
-// See: fix/lto-and-sync-crashes for context on why Config struct changes crash.
+// Legacy settings exposed through read-only accessors.
 static bool                      g_allow_key_fallthrough    = false;
 static ScopelyShortcutPolicy     g_scopely_shortcuts_policy = ScopelyShortcutPolicy::Off;
 static OriginalFramePolicy       g_original_frame_policy    = OriginalFramePolicy::Mod;
@@ -86,6 +86,7 @@ static int                       g_sidecar_logging_jsonl_replay_seconds = DCSL::
 static int                       g_sidecar_logging_jsonl_recent_logs    = DCSL::jsonl_recent_logs;
 static bool                      g_refinery_diagnostics                 = DCAD::refinery_diagnostics;
 static bool                      g_auto_open_bulk_claim_gifts           = DCU::auto_open_bulk_claim_flyout;
+static bool                      g_restore_below_decks_assignment_sort  = DCU::restore_below_decks_assignment_sort;
 
 static std::map<std::string, MissionHudVisibility> g_mission_hud_buttons;
 
@@ -192,6 +193,9 @@ int RepairActionStatusProbeStackBudget()
 
 bool AutoOpenBulkClaimGiftsEnabled()
 { return g_auto_open_bulk_claim_gifts; }
+
+bool OfficerBelowDeckAssignmentSortEnabled()
+{ return g_restore_below_decks_assignment_sort; }
 
 MissionHudVisibility MissionHudButtonVisibility(std::string_view button_name)
 {
@@ -762,11 +766,10 @@ struct MissionHudVisibilityConfigSpec {
   std::string_view default_value;
 };
 
-constexpr std::array<MissionHudVisibilityConfigSpec, 5> kMissionHudVisibilityConfigSpecs{{
+constexpr std::array<MissionHudVisibilityConfigSpec, 4> kMissionHudVisibilityConfigSpecs{{
     {"q_trials", DCMH::q_trials},
     {"field_training", DCMH::field_training},
     {"outposts", DCMH::outposts},
-    {"daily_goals", DCMH::daily_goals},
     {"missions", DCMH::missions},
 }};
 
@@ -830,6 +833,20 @@ std::string MissionHudVisibilityValue(toml::table& config, std::string_view item
   return std::string(default_value);
 }
 
+void WarnRemovedMissionHudSettings(toml::table& config)
+{
+  auto* ui_table = config["ui"].as_table();
+  if (!ui_table) {
+    return;
+  }
+
+  auto* mission_hud_table = (*ui_table)["mission_hud"].as_table();
+  if (mission_hud_table && mission_hud_table->contains("daily_goals")) {
+    spdlog::warn("config value ui.mission_hud.daily_goals is no longer supported by the current game and will be "
+                 "ignored");
+  }
+}
+
 toml::table& EnsureUiMissionHudTable(toml::table& config)
 {
   config.emplace<toml::table>("ui", toml::table());
@@ -881,19 +898,6 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
     return;
   }
 
-  const auto parse_mode = [](const std::string_view            target_section,
-                             const std::optional<std::string>& value) -> SyncTargetConfig::Mode {
-    if (!value.has_value() || value->empty() || *value == "legacy") {
-      return SyncTargetConfig::Mode::Legacy;
-    }
-    if (*value == "majel") {
-      return SyncTargetConfig::Mode::Majel;
-    }
-
-    spdlog::warn("Invalid target [{}] mode '{}'; using legacy.", target_section, *value);
-    return SyncTargetConfig::Mode::Legacy;
-  };
-
   for (const auto& [target_key, target_config] : *targets) {
     if (!target_config.is_table()) {
       continue;
@@ -914,10 +918,17 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
         continue;
       }
 
+      const auto mode = http::ParseSyncTargetMode(values.contains("mode"), values["mode"].value<std::string>());
+      if (!mode) {
+        spdlog::warn("Skipping sync target with invalid explicit mode; mode must be exactly 'legacy' or 'majel'. "
+                     "Omit mode to use legacy.");
+        continue;
+      }
+
       target.url        = url.value();
       target.token      = token.value();
       target.proxy      = proxy.value_or(defaults.proxy);
-      target.mode       = parse_mode(target_section, values["mode"].value<std::string>());
+      target.mode       = *mode;
       target.verify_ssl = values["verify_ssl"].value<bool>().value_or(defaults.verify_ssl);
       target.allow_unsafe_tls_without_certificate_validation =
           values["allow_unsafe_tls_without_certificate_validation"].value<bool>().value_or(
@@ -942,6 +953,14 @@ void read_sync_targets(toml::table& config, toml::table& new_config,
                      "[sidecar.sync].fleet_runtime instead.",
                      target_section);
         target.*opt.option = false;
+      } else if (opt.type == SyncConfig::Type::Battles || opt.type == SyncConfig::Type::BattlelogsRealtime) {
+        const auto normalized = http::NormalizeSyncTargetTypeForMode(target.mode, opt.type, target.*opt.option);
+        if (target.*opt.option && !normalized) {
+          spdlog::warn("Ignoring unsupported {}.{}=true. Raw battle payloads cannot be sent to Majel; configure the "
+                       "local [sidecar.sync] battle pipeline instead.",
+                       target_section, opt.option_str);
+        }
+        target.*opt.option = normalized;
       }
       parsed_target.insert(opt.option_str, target.*opt.option);
     }
@@ -1388,8 +1407,13 @@ void Config::Load()
       get_config_or_default(config, parsed, "ui", "disable_toast_banners", DCU::disable_toast_banners, write_config);
   g_auto_open_bulk_claim_gifts = get_config_or_default(config, parsed, "ui", "auto_open_bulk_claim_flyout",
                                                        DCU::auto_open_bulk_claim_flyout, write_config);
+  g_restore_below_decks_assignment_sort =
+      get_config_or_default(config, parsed, "ui", "restore_below_decks_assignment_sort",
+                            DCU::restore_below_decks_assignment_sort, write_config);
 
 #if _WIN32
+  this->extend_chest_purchase_max = get_config_or_default(config, parsed, "ui", "extend_chest_purchase_max",
+                                                          DCU::extend_chest_purchase_max, write_config);
   this->extend_donation_slider =
       get_config_or_default(config, parsed, "ui", "extend_donation_slider", DCU::extend_donation_slider, write_config);
   this->extend_donation_max =
@@ -1413,6 +1437,7 @@ void Config::Load()
 
   this->always_skip_reveal_sequence = get_config_or_default(config, parsed, "ui", "always_skip_reveal_sequence",
                                                             DCU::always_skip_reveal_sequence, write_config);
+  WarnRemovedMissionHudSettings(config);
   g_mission_hud_buttons.clear();
   for (const auto& spec : kMissionHudVisibilityConfigSpecs) {
     g_mission_hud_buttons.emplace(std::string(spec.key), GetMissionHudVisibility(config, parsed, spec, write_config));

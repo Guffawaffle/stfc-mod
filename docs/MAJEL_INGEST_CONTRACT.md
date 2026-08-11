@@ -11,6 +11,8 @@ dedicated `[sidecar.*]` namespace and is no longer configured through sync targe
 - `mode = "majel"`: sends a Majel-safe ingest envelope directly to Majel with `Authorization: Bearer <token>`.
 
 `mode = "sidecar_broker"` is now invalid in the config parser. Local sidecar settings belong under `[sidecar.sync]`.
+Omitting `mode` preserves legacy compatibility. An explicit mode must be exactly lowercase `legacy` or `majel`; any
+other value rejects the complete target rather than falling back to raw-capable Legacy delivery.
 Direct Majel mode is best-effort from the mod process. Neither supported mode enables callbacks, remote settings
 writes, or gameplay commands.
 
@@ -44,7 +46,10 @@ Payload rules:
 - Existing legacy sync arrays are wrapped as `stfc.sync.delta_batch.v1` with `syncType` and `items`.
 - Fleet preset slot deltas also emit Majel-only `stfc.fleet.assignment_snapshot.v1` events.
 - Fleet runtime snapshots emit as `stfc.fleet.runtime_snapshot.v1`.
-- Battle sync targets map to `stfc.battle.summary.v1` until a narrower battle projection is split out.
+- `Battles` and `BattlelogsRealtime` are not accepted by Majel targets. This prevents raw journals and capture tokens
+  from entering a Majel request body under a misleading summary label. Configured `battlelogs = true` or
+  `battlelogs_realtime = true` values are reported and normalized to `false` in the runtime snapshot. Legacy non-Majel
+  delivery and the canonical local Sidecar Battle stream are unchanged.
 - Majel-envelope targets also receive `stfc.mod.capability_snapshot.v1` once at sync startup.
 
 ## Privacy

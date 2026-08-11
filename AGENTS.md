@@ -167,7 +167,9 @@ static auto method = class_helper.GetMethodInfo("MethodName");
 
 ## Branches
 
-- `main` — default branch, working integration base, and source of fork releases
-- Create fork feature branches from a current local `main`, then return validated work through a PR targeting `main`.
-- The legacy `guffa-dev` and plain `dev` branches are not part of the active fork workflow. Do not select either branch merely because a stale local or remote ref exists.
-- Prepare upstream contributions on fresh branches based on `upstream/main`; never fall back to `upstream/dev` when another expected branch is missing.
+- `main` — default fork integration branch, stable release branch, and fork PR target
+- Create fork feature branches from a current `main` and return them through a PR to `main`.
+- For an upstream contribution, create a fresh branch from `upstream/main`, cherry-pick only the
+  upstream-ready commits, and target `netniV/main`. Never fall back to `upstream/dev` when another
+  expected branch is missing.
+- The legacy `guffa-dev` and plain `dev` branches are not fork integration targets.

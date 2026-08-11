@@ -2,6 +2,7 @@
 
 #include "config_redaction.h"
 #include "config_sidecar.h"
+#include "patches/sidecar_local_ingest_policy.h"
 
 #include <string>
 #include <vector>
@@ -32,8 +33,8 @@ bool has_diagnostic_source(const std::vector<config_schema::Diagnostic>& diagnos
   return false;
 }
 
-bool has_diagnostic_message_fragment(const std::vector<config_schema::Diagnostic>& diagnostics,
-                                     std::string_view path, std::string_view fragment)
+bool has_diagnostic_message_fragment(const std::vector<config_schema::Diagnostic>& diagnostics, std::string_view path,
+                                     std::string_view fragment)
 {
   for (const auto& diagnostic : diagnostics) {
     if (diagnostic.path == path && diagnostic.message.find(fragment) != std::string::npos) {
@@ -67,6 +68,8 @@ TEST_SUITE("sidecar_config")
     const auto result = ParseSidecarConfig(config);
 
     CHECK_FALSE(result.config.sync.enabled);
+    CHECK(result.config.sync.transport == "legacy_http");
+    CHECK(result.config.sync.pipe_name.empty());
     CHECK_FALSE(result.config.sync.battlelogs_realtime);
     CHECK_FALSE(result.config.sync.battlelog_enrichment);
     CHECK_FALSE(result.config.sync.fleet_runtime);
@@ -78,6 +81,8 @@ TEST_SUITE("sidecar_config")
     auto config = toml::parse(R"(
 [sidecar.sync]
 enabled = true
+transport = "named_pipe"
+pipe_name = "stfc-mod-bridge.battle.v1"
 url = "http://127.0.0.1:43127/api/sidecar/ingest"
 
 [sidecar.logging]
@@ -89,6 +94,8 @@ jsonl_recent_logs = 300
     const auto result = ParseSidecarConfig(config);
 
     CHECK(result.config.sync.enabled);
+    CHECK(result.config.sync.transport == "named_pipe");
+    CHECK(result.config.sync.pipe_name == "stfc-mod-bridge.battle.v1");
     CHECK(result.config.sync.url == "http://127.0.0.1:43127/api/sidecar/ingest");
     CHECK_FALSE(result.advanced.diagnostics.ship_identity);
     CHECK_FALSE(result.advanced.diagnostics.battle_log_decoder);
@@ -116,6 +123,29 @@ jsonl_recent_logs = 300
     CHECK(result.advanced.queue.thin_queue_protection);
     CHECK_FALSE(result.advanced.queue.queue_add_direct_handler);
     CHECK(result.diagnostics.empty());
+  }
+
+  TEST_CASE("invalid explicit sidecar transport stays invalid and emits an error")
+  {
+    auto config = toml::parse(R"(
+[sidecar.sync]
+enabled = true
+transport = "Named_Pipe"
+pipe_name = "stfc-mod-bridge.battle.v1"
+token = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+url = "http://127.0.0.1:43127/api/sidecar/ingest"
+)");
+
+    const auto result = ParseSidecarConfig(config);
+
+    CHECK(result.config.sync.transport == "invalid");
+    CHECK(has_diagnostic(result.diagnostics, "sidecar.sync.transport", config_schema::DiagnosticSeverity::Error));
+    CHECK_FALSE(SidecarLocalSyncTransportReady(result.config.sync));
+
+    config            = toml::parse("[sidecar.sync]\nenabled = true\ntransport = 1\n");
+    const auto typed  = ParseSidecarConfig(config);
+    CHECK(typed.config.sync.transport == "invalid");
+    CHECK_FALSE(SidecarLocalSyncTransportReady(typed.config.sync));
   }
 
   TEST_CASE("parses advanced diagnostics including runtime trace, keeps sidecar sync and logging canonical, and "
@@ -349,8 +379,7 @@ queue_add_hide_viewers = "false"
     const auto result = ParseSidecarConfig(config);
 
     CHECK(has_diagnostic_source(result.diagnostics, "advanced.queue.queue_add_hide_viewers",
-                                "advanced.queue.queue_add_hide_viewers",
-                                config_schema::DiagnosticSeverity::Warning));
+                                "advanced.queue.queue_add_hide_viewers", config_schema::DiagnosticSeverity::Warning));
     CHECK(has_diagnostic_message_fragment(result.diagnostics, "advanced.queue.queue_add_hide_viewers",
                                           "Expected boolean, found string"));
   }
@@ -494,6 +523,8 @@ mode = "majel"
     SidecarConfig  sidecar;
     AdvancedConfig advanced;
     sidecar.sync.enabled                                  = true;
+    sidecar.sync.transport                                = "named_pipe";
+    sidecar.sync.pipe_name                                = "stfc-mod-bridge.battle.v1";
     sidecar.sync.url                                      = "http://127.0.0.1:43127/api/sidecar/ingest";
     sidecar.sync.token                                    = "secret-sidecar-token";
     sidecar.sync.proxy                                    = "http://user:pass@example.invalid:8080";
@@ -532,6 +563,9 @@ mode = "majel"
 
     REQUIRE(runtime_snapshot["sidecar"]["sync"]["token"].is_string());
     REQUIRE(runtime_snapshot["sidecar"]["sync"]["proxy"].is_string());
+    CHECK(runtime_snapshot["sidecar"]["sync"]["transport"].value<std::string>().value_or("") == "named_pipe");
+    CHECK(runtime_snapshot["sidecar"]["sync"]["pipe_name"].value<std::string>().value_or("")
+          == "stfc-mod-bridge.battle.v1");
     CHECK(runtime_snapshot["sidecar"]["sync"]["token"].value<std::string>().value_or("")
           == config_redaction::redact_secret_for_runtime_snapshot(sidecar.sync.token));
     CHECK(runtime_snapshot["sidecar"]["sync"]["proxy"].value<std::string>().value_or("")

@@ -408,8 +408,8 @@ namespace Sync
 {
   // Per-category defaults — each maps to a [sync] TOML key.
   // Individual [sync.targets.<name>] sections can override these.
-  constexpr bool battlelogs          = true;  ///< Sync battle-log reports.
-  constexpr bool battlelogs_realtime = false; ///< Export canonical battle feed events to realtime ingest targets.
+  constexpr bool battlelogs          = true;  ///< Legacy-only battle journal export; Majel disables this setting.
+  constexpr bool battlelogs_realtime = false; ///< Legacy-only battle capture export; Majel disables this setting.
   constexpr bool buffs               = true;  ///< Sync buff / Emerald Chain data.
   constexpr bool buildings           = true;  ///< Sync station module data.
   constexpr bool fleet_runtime       = false; ///< Sync low-rate fleet-bar runtime state.
@@ -439,6 +439,8 @@ namespace Sidecar
   namespace Sync
   {
     constexpr bool        enabled                                         = false;
+    constexpr const char* transport                                       = "legacy_http";
+    constexpr const char* pipe_name                                       = "";
     constexpr const char* url                                             = "";
     constexpr const char* token                                           = "";
     constexpr const char* proxy                                           = "";
@@ -500,10 +502,14 @@ namespace UI
   constexpr bool disable_veil_chat = false;
   /// Comma-separated list of toast banner type names to suppress (empty = none).
   constexpr const char* disabled_banner_types = "";
+  /// Maximum quantity exposed by tagged chest-purchase sliders. Range: 0-160. Default: 160. (Windows only.)
+  constexpr auto extend_chest_purchase_max = 160;
   /// Maximum alliance-donation slider value (percentage). Default: 80.
   constexpr auto extend_donation_max = 80;
   /// Enable the extended donation slider range. Default: true. (Windows only.)
   constexpr bool extend_donation_slider = true;
+  /// Restore Below Deck Ability to the Manage Ship officer-assignment sort dropdown. Default: true.
+  constexpr bool restore_below_decks_assignment_sort = true;
   /// Show cargo overlay on armada targets by default. Default: true.
   constexpr bool show_armada_cargo = true;
   /// Show cargo overlay on all entities by default. Default: true.
@@ -520,7 +526,6 @@ namespace UI
     constexpr const char* q_trials       = "auto";
     constexpr const char* field_training = "auto";
     constexpr const char* outposts       = "auto";
-    constexpr const char* daily_goals    = "auto";
     constexpr const char* missions       = "auto";
   } // namespace MissionHud
 } // namespace UI

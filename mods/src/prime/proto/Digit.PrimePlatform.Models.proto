@@ -141,6 +141,8 @@ message EventMetadata {
   repeated CTADeeplinkRange ctaDeeplinkRanges = 43;
   int32 battlePassOrder = 44;
   int64 ctaDeeplinkRangesFallbackCta = 45;
+  EventCardStyle cardStyle = 46;
+  string autojoinFactionEvent = 47;
 }
 
 message EventModel {
@@ -250,6 +252,8 @@ message AllianceGamesChangesNotification {
 
 message ApmFiltersStatus {
   bool apmRequired = 1;
+  string telemetryJwt = 2;
+  int64 telemetryJwtExpiresAt = 3;
 }
 
 message ApmFiltersNotification {
@@ -433,3 +437,37 @@ message PromoCodeRedeem {
   Digit.PrimePlatform.Content.Order order = 3;
 }
 
+enum EventCardRarity {
+  EVENTCARDRARITY_COMMON = 0;
+  EVENTCARDRARITY_UNCOMMON = 1;
+  EVENTCARDRARITY_RARE = 2;
+  EVENTCARDRARITY_EPIC = 3;
+  EVENTCARDRARITY_LEGENDARY = 4;
+  EVENTCARDRARITY_COMMONSEASONAL = 5;
+  EVENTCARDRARITY_UNCOMMONSEASONAL = 6;
+  EVENTCARDRARITY_RARESEASONAL = 7;
+  EVENTCARDRARITY_EPICSEASONAL = 8;
+  EVENTCARDRARITY_LEGENDARYSEASONAL = 9;
+}
+
+message EventCardStyle {
+  EventCardRarity rarity = 1;
+}
+
+message EventNotificationResponse {
+  repeated EventNotification tournamentNotifications = 1;
+}
+
+message GameNewsVideoHolder {
+  repeated GameNewsModel newsItems = 1;
+}
+
+message LeaderboardRankingResponse {
+  repeated EventRank ranks = 1;
+  string configId = 2;
+}
+
+message LeaderboardsModelResponse {
+  repeated EventModel tournaments = 1;
+  repeated int32 categories = 2;
+}

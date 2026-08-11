@@ -77,6 +77,8 @@ namespace
       "sidecar.sync.battlelogs_realtime",
       "sidecar.sync.enabled",
       "sidecar.sync.fleet_runtime",
+      "sidecar.sync.pipe_name",
+      "sidecar.sync.transport",
       "sidecar.sync.proxy",
       "sidecar.sync.token",
       "sidecar.sync.url",
@@ -116,9 +118,9 @@ namespace
       "ui.disable_veil_chat",
       "ui.disabled_banner_types",
       "ui.escape_exit_timer",
+      "ui.extend_chest_purchase_max",
       "ui.extend_donation_max",
       "ui.extend_donation_slider",
-      "ui.mission_hud.daily_goals",
       "ui.mission_hud.field_training",
       "ui.mission_hud.missions",
       "ui.mission_hud.outposts",
@@ -268,8 +270,11 @@ ExampleConfigValidationResult ValidateExampleConfig(const toml::table& config)
     require_path(config, path, result);
   }
 
-  for (const auto& spec : notification_event_catalog()) {
-    require_path(config, std::string("notifications.") + std::string(spec.canonical_key), result);
+  for (const auto kind : public_notification_kinds()) {
+    const auto* spec = notification_catalog_entry(kind);
+    if (spec) {
+      require_path(config, std::string("notifications.") + std::string(spec->canonical_key), result);
+    }
   }
 
   validate_input_binding_coverage(config, result);

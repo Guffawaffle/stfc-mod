@@ -232,78 +232,18 @@ fr_scale = 2.0
 # Deprecated notification keys and nested tables remain accepted through 2.x and
 # are scheduled for removal in 3.0.0.
 
-# Battle notifications (fully parsed with player/ship detail)
+# Release-supported battle notifications
 victory = false
 defeat = false
-partial_victory = false
-station_victory = false
-station_defeat = false
-station_battle = false
-incoming_attack_player = false
-incoming_attack_hostile = false
-fleet_battle = false
 armada_battle_won = false
 armada_battle_lost = false
-assault_victory = false
-assault_defeat = false
 
-# Armada notifications (parsed with alliance/owner detail)
+# Release-supported Armada notifications
 armada_created = false
-armada_canceled = false
 
-# Event notifications (best-effort text resolution)
-tournament = false
-chained_event_scored = false
-
-# Toast-backed notifications that may expose generic or placeholder text
-standard = false
-faction_warning = false
-faction_level_up = false
-faction_level_down = false
-faction_discovered = false
-armada_incoming_attack = false
-diplomacy_updated = false
-joined_takeover = false
-competitor_joined_takeover = false
-abandoned_territory = false
-takeover_victory = false
-takeover_defeat = false
-treasury_progress = false
-treasury_full = false
-achievement = false
-challenge_complete = false
-challenge_failed = false
-strike_hit = false
-strike_defeat = false
-warchest_progress = false
-warchest_full = false
-arena_time_left = false
-fleet_preset_applied = false
-surge_warmup_ended = false
-surge_hostile_group_defeated = false
-surge_time_left = false
-queue_for_lease_activated = false
-queue_for_lease_expired = false
-permanent_queue_purchased = false
-outpost_started_or_ended = false
-cross_alliance_armada_victory = false
-cross_alliance_armada_defeat = false
-cross_alliance_armada_partial_victory = false
-faction_weekly_events_progress = false
-faction_weekly_events_complete = false
-armada_player_blocked = false
-armada_player_unblocked = false
-dynamic_crisis_update = false
-dynamic_crisis_failed = false
-dynamic_crisis_completed = false
-galactic_anomaly_system_entered = false
-
-# Fleet-state derived notifications
+# Release-supported fleet-state notifications
 fleet_arrived_in_system = false
-fleet_arrived_at_destination = false
-fleet_started_mining = false
 fleet_node_depleted = false
-fleet_docked = false
 fleet_repair_complete = false
 
 #  <[=====================================================]>
@@ -425,17 +365,11 @@ select_ship8 = "8"
 # Subgroup: Experimental
 # ----------------------
 
-# ⚠️ EXPERIMENTAL: Moves down the screen
-move_down = "S"
-
 # Moves to the previous officer or ship selection item
 move_left = "LEFT"
 
 # Moves to the next officer or ship selection item
 move_right = "RIGHT"
-
-# ⚠️ EXPERIMENTAL: Moves up the screen
-move_up = "W"
 
 # ⚠️ EXPERIMENTAL: Shows the bookmark->lookup screen
 show_lookup = "L"
@@ -678,6 +612,11 @@ always_skip_reveal_sequence = true
 # This opens the flyout only; it does not claim gifts or press claim-all.
 auto_open_bulk_claim_flyout = false
 
+# Restore the Below Deck Ability option to the Manage Ship officer-assignment
+# sort dropdown. Enabled by default; set false as a rollback if a future game
+# update removes one of the retained assignment-sort dependencies.
+restore_below_decks_assignment_sort = true
+
 # Prevent "escape" from prompting to exit the game
 disable_escape_exit = true
 
@@ -710,6 +649,15 @@ disabled_banner_types = ""
 # Legacy [ui].notify_on_banner_types / notify_banner_types keys are still
 # accepted for migration from older configs, but they are not documented here.
 
+# Subgroup: Chest Purchases
+# -------------------------
+
+# Maximum quantity exposed by custom chest-purchase sliders on Windows (0-160).
+# Set to 0 to use the game's native ceiling. Two recruit chests accepted 160
+# and rejected 161. Larger configured values are clamped; a larger native
+# ceiling is never lowered.
+extend_chest_purchase_max = 160
+
 # Subgroup: Chat
 # --------------
 
@@ -722,7 +670,7 @@ disable_veil_chat = false
 # Subgroup: Donations
 # -------------------
 
-# Extend donation slider to max value for next Alliance level
+# Extend donation slider to max value for next Alliance level; set to 0 for unlimited
 extend_donation_max = 80
 
 # Extend donation slider enable
@@ -761,12 +709,11 @@ auto_confirm_discovery = true
 # Subgroup: Mission HUD
 # ---------------------
 
-# EXPERIMENTAL: Controls mission HUD button visibility. Valid values: "always", "auto", "never"
+# Controls the current mission HUD buttons. Valid values: "always", "auto", "never"
 [ui.mission_hud]
 q_trials = "auto"
 field_training = "auto"
 outposts = "auto"
-daily_goals = "auto"
 missions = "auto"
 
 #  <[===================================================================]>
@@ -837,11 +784,14 @@ allow_unsafe_tls_without_certificate_validation = false
 #  <[======================================================================]>
 
 [sidecar.sync]
-# Dedicated local STFC Mod Sidecar delivery.
-# This is the only supported home for sidecar-local HTTP config.
+# Dedicated local STFC Mod Sidecar or Battle Bridge delivery.
+# Battle Bridge uses authenticated Windows named pipes. legacy_http remains for
+# older Sidecar installations and is not used by Battle Bridge.
 # Local Battle Workbench reads the sidecar event store through /api/events.
 # Cloud Sync Monitor and Majel/cloud targets are not required for local sidecar ingest.
 enabled = false
+transport = "legacy_http" # launcher-managed Battle Bridge value: named_pipe
+pipe_name = ""            # launcher-managed; bare safe name, never a path
 token = ""
 url = "http://127.0.0.1:43127/api/sidecar/ingest"
 proxy = ""
@@ -860,7 +810,7 @@ fleet_runtime = false
 # normal, request_only, snapshot_only, or enqueue_no_transport.
 # request_only records requests but skips snapshot reads.
 # snapshot_only reads/builds owned snapshots but skips publish/enqueue.
-# enqueue_no_transport enqueues latest-wins runtime snapshots but suppresses HTTP transport.
+# enqueue_no_transport enqueues latest-wins runtime snapshots but suppresses transport delivery.
 fleet_runtime_mode = "normal"
 
 [sidecar.logging]
@@ -952,7 +902,8 @@ action_queue_probe_files = 3
 # The url of the server to send data to
 # url = ""
 
-# Outbound contract for this target: legacy or majel.
+# Outbound contract for this target: exactly legacy or majel. Omission defaults
+# to legacy; invalid explicit values reject the target.
 # mode = "legacy"
 
 # Optional direct Majel target. This sends one-way cloud-safe ingest envelopes
@@ -963,8 +914,8 @@ action_queue_probe_files = 3
 # token = ""
 # url = "https://majel.example.test/api/ingest/events"
 # mode = "majel"
-# battlelogs = false
-# battlelogs_realtime = true
+# battlelogs = false          # Raw battle journals are not supported by Majel targets.
+# battlelogs_realtime = false # Raw battle captures are not supported by Majel targets.
 # Fleet runtime is sidecar-only. Configure [sidecar.sync].fleet_runtime instead.
 
 #  <[=============================================================================================================]>

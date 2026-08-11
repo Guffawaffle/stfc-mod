@@ -25,6 +25,12 @@
 
 This fork exists so I can ship and test changes on my own branch without presenting them as official upstream behavior.
 
+Windows 10/11 x64 releases also publish a signed, per-user Community Mod
+Launcher archive. It can discover the game, manage verified mod releases,
+edit configuration, hand off launch/update work to the official client, export
+redacted diagnostics, and update itself. Direct `version.dll` downloads and
+manual installation remain supported.
+
 - Use **`netniV/stfc-mod` `main` releases** if you want the official/default mod experience.
 - Use **`Guffawaffle/stfc-mod` `main` releases** if you want the current published state of this fork.
 
@@ -69,8 +75,9 @@ current sidecar/Majel proof path has working local projection reads.
   transitions.
 - Remaining weirdness is documented rather than promoted into a new roadmap:
   packaged Fleet-page live-update still wants an explicit operator smoke
-  record, reconnect/stale-state notes belong in Companion QA, and oversized
-  `battlelogs_realtime` payloads remain a separate bug.
+  record, and reconnect/stale-state notes belong in Companion QA. Raw battle
+  journals and realtime captures are intentionally rejected for Majel targets;
+  canonical local delivery remains bounded and legacy delivery is unchanged.
 - This is maintenance/harvest mode, not a new roadmap. The useful chain
   exists, the diagnostics are in place, and follow-on work such as durable
   outbox, cloud auth/token lifecycle, and storage generalization is
@@ -151,10 +158,10 @@ notification, or use an inline table when you also want audio:
 [notifications]
 victory = true
 defeat = true
+armada_battle_won = true
+armada_battle_lost = true
 armada_created = true
-armada_canceled = true
 fleet_arrived_in_system = true
-fleet_arrived_at_destination = true
 fleet_node_depleted = true
 fleet_repair_complete = true
 ```
@@ -171,7 +178,6 @@ default sound:
 ```toml
 [notifications]
 fleet_arrived_in_system = { system = true, audio = true, sound = "arrival" }
-fleet_started_mining = { system = false, audio = true, sound = "ping" }
 fleet_node_depleted = { system = true, audio = true, sound = "warning" }
 fleet_repair_complete = { system = false, audio = true, sound = "repair" }
 ```
@@ -220,6 +226,9 @@ This project is maintained solely at my own cost of time, energy and money. Any 
 - Enable/Disable hotkeys (community mod or scopely)
 - Let unhandled hotkeys fall through to the game's original input path
 - Enable extended donation slider (alliance)
+- Extend tagged custom chest-purchase sliders up to the verified ceiling of 160 on Windows
+  (`[ui].extend_chest_purchase_max`; `0` disables). Two recruit chests accepted 160 and rejected 161; oversized
+  configured values are clamped, while a higher native game ceiling is preserved.
 - Fleet-bar arrival notifications for player ships
 - In-game audio cues for notification events
 - Show alternative cargo screens for:

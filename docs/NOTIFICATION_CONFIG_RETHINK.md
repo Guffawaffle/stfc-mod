@@ -3,18 +3,19 @@
 Issue #185 replaces the duplicated notification settings with one event-first
 policy surface under `[notifications]`.
 
-The TOML remains the power-user and compatibility surface. A future launcher UI
-should read and write the same event catalog rather than inventing another
-notification schema.
+The TOML remains the power-user and compatibility surface. Release examples and
+fresh configs expose the explicit release-supported event allowlist rather than
+treating every retained catalog mapping as proven.
 
 ## Canonical values
 
-Every supported event has one meaningful root key:
+Every release-supported event has one meaningful root key:
 
 ```toml
 [notifications]
 victory = true
-incoming_attack_player = { system = true, audio = true, sound = "alarm" }
+armada_battle_won = { system = true, audio = true, sound = "success" }
+armada_battle_lost = { system = true, audio = true, sound = "warning" }
 armada_created = false
 fleet_arrived_in_system = { system = true, audio = true, sound = "arrival" }
 fleet_repair_complete = true
@@ -39,9 +40,9 @@ as diagnostics.
 
 ## Defaults and master switches
 
-Every canonical event defaults to `false`. A newly generated config contains all
-canonical event keys and no notification master switches or nested channel/event
-tables.
+Every event defaults to `false`. A newly generated config contains the public
+release-supported event keys and no notification master switches or nested
+channel/event tables.
 
 The old `notifications_enabled` and `notifications_audio_enabled` settings are
 not canonical master switches. They remain hidden compatibility gates, default

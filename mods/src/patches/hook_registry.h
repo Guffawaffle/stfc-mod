@@ -7,6 +7,7 @@
  */
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <string>
@@ -39,9 +40,11 @@ struct HookDescriptor {
 };
 
 enum class HookInstallStatus {
+  Replaced,
   Skipped,
   MissingHelper,
   MissingMethod,
+  SignatureMismatch,
   DetourAttempted,
   DetourInstalled,
   DetourFailed,
@@ -75,9 +78,11 @@ class HookModuleHealth {
 public:
   explicit HookModuleHealth(std::string_view module);
 
+  void record_replaced(const HookDescriptor& descriptor, std::string_view replacement);
   void record_skipped(const HookDescriptor& descriptor, std::string_view reason);
   void record_missing_helper(const HookDescriptor& descriptor);
   void record_missing_method(const HookDescriptor& descriptor);
+  void record_signature_mismatch(const HookDescriptor& descriptor, std::string_view detail);
   void record_detour_attempted(const HookDescriptor& descriptor);
   void record_detour_installed(const HookDescriptor& descriptor);
   void record_detour_failed(const HookDescriptor& descriptor, std::string_view error);

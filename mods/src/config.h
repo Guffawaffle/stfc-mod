@@ -171,7 +171,9 @@ enum class MissionHudVisibility {
  * sidecar routing can move off the external/community sync surface.
  */
 struct SidecarSyncConfig {
-  bool        enabled = false;
+  bool        enabled   = false;
+  std::string transport = "legacy_http";
+  std::string pipe_name;
   std::string url;
   std::string token;
   std::string proxy;
@@ -429,6 +431,7 @@ public:
   bool             borderless_fullscreen;
   std::vector<int> disabled_banner_types;
 
+  int  extend_chest_purchase_max;
   int  extend_donation_max;
   bool extend_donation_slider;
   bool disable_move_keys;
@@ -494,9 +497,7 @@ public:
 /**
  * @brief Whether unhandled key events pass through to the game's default input.
  *
- * Stored as a file-scope static in config.cc rather than a Config member to
- * avoid changing the struct layout, which can trigger LTO-related crashes.
- * @see fix/lto-and-sync-crashes
+ * This legacy setting is stored at file scope and exposed through a read-only accessor.
  */
 bool AllowKeyFallthrough();
 
@@ -648,6 +649,11 @@ int RepairActionStatusProbeStackBudget();
  * @brief Whether the Gifts view should open its existing bulk-claim flyout automatically.
  */
 bool AutoOpenBulkClaimGiftsEnabled();
+
+/**
+ * @brief Whether the removed Below Deck Ability Manage Ship assignment sort should be restored.
+ */
+bool OfficerBelowDeckAssignmentSortEnabled();
 
 /**
  * @brief Visibility override for one `[ui.mission_hud]` button.

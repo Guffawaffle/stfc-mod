@@ -24,6 +24,7 @@ global.stfc-mod-private.status
 global.stfc-mod-private.pure-tests
 global.stfc-mod-private.battle-log
 global.stfc-mod-private.cycle
+global.stfc-mod-private.corpus-status
 ```
 
 Raw CLI execution is for provider development and manual debugging only.
@@ -97,6 +98,40 @@ then calls the private dispatcher at `/mnt/d/dev/stfc-mod/.ax-priv/ax.ps1`
 through the tracked `.ax/ax.ps1` facade. The existing Windows worktree at
 `/mnt/d/dev/stfc-mod` is not used as the build root.
 
+Successful build/deploy/cycle receipts include `sourceProvenance`. The provider
+uses one Git tracked-plus-untracked-nonignored NUL-delimited manifest for both
+source identity and Windows synchronization. It materializes that manifest in a
+fresh mirror with a new Git checkout, verifies the staged fingerprint, and
+fails if the source changes during synchronization. Ignored/private files are
+neither synchronized nor disclosed, and dirty initialized submodules fail
+closed.
+
+Clean receipts identify a reproducible commit. Dirty receipts distinguish the
+HEAD base commit from a deterministic `sourceStateId`, include a
+privacy-bounded ordered path summary with truncation metadata, and retain the
+private dispatcher’s distinct build/deployed artifact hashes. Legacy
+dispatcher commit fields must agree with the canonical base commit. Diffs and
+source bodies are never returned.
+
 The dump query commands currently run the existing Python dump tools from
 `/mnt/d/dev/stfc-mod/.ax-priv` and use that reference cache. The pure decoder
 validation path is native to `/srv/stfc-mod`.
+
+## Canonical IL2CPP Corpus
+
+Raw human and agent searches must use:
+
+```text
+tools/il2cpp-dump/dump.cs
+tools/il2cpp-dump/script.json
+```
+
+The matching query index is `.ax-priv/cache/stfc.db`. Files under
+`.ax-priv/tools/Il2CppDumper/` are private tool artifacts, not research inputs,
+even when their names look authoritative.
+
+Run `global.stfc-mod-private.corpus-status` before raw dump research. It reports
+the canonical paths and index metadata, fingerprints plausible legacy copies,
+and classifies each copy as identical, stale, divergent-newer, or legacy-only.
+The command never returns dump contents. Use `global.stfc-mod-private.dump-refresh`
+to regenerate the canonical corpus.

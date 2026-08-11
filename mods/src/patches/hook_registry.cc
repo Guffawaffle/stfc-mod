@@ -14,9 +14,11 @@ namespace {
 const char* hook_status_name(HookInstallStatus status)
 {
   switch (status) {
+    case HookInstallStatus::Replaced:        return "replaced";
     case HookInstallStatus::Skipped:         return "skipped";
     case HookInstallStatus::MissingHelper:   return "missing-helper";
     case HookInstallStatus::MissingMethod:   return "missing-method";
+    case HookInstallStatus::SignatureMismatch: return "signature-mismatch";
     case HookInstallStatus::DetourAttempted: return "detour-attempted";
     case HookInstallStatus::DetourInstalled: return "installed";
     case HookInstallStatus::DetourFailed:    return "detour-failed";
@@ -56,6 +58,15 @@ HookModuleHealth::HookModuleHealth(std::string_view module)
 {
 }
 
+void HookModuleHealth::record_replaced(const HookDescriptor& descriptor, std::string_view replacement)
+{
+  auto& record = upsert(descriptor);
+  record.status = HookInstallStatus::Replaced;
+  record.detail = replacement;
+  hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Skipped);
+  log_record(record);
+}
+
 void HookModuleHealth::record_skipped(const HookDescriptor& descriptor, std::string_view reason)
 {
   auto& record = upsert(descriptor);
@@ -80,6 +91,16 @@ void HookModuleHealth::record_missing_method(const HookDescriptor& descriptor)
   record.status = HookInstallStatus::MissingMethod;
   record.detail = "method lookup failed";
   hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Missing);
+  log_record(record);
+}
+
+void HookModuleHealth::record_signature_mismatch(const HookDescriptor& descriptor, std::string_view detail)
+{
+  auto& record = upsert(descriptor);
+  record.status = HookInstallStatus::SignatureMismatch;
+  record.detail = detail;
+  record.method_found = true;
+  hook_install_audit_record(module_, descriptor.name, HookAuditStatus::Failed);
   log_record(record);
 }
 
@@ -122,9 +143,13 @@ void HookModuleHealth::log_summary() const
   auto installed = 0;
   auto failed = 0;
   auto skipped = 0;
+  auto replaced = 0;
 
   for (const auto& record : records_) {
     switch (record.status) {
+      case HookInstallStatus::Replaced:
+        ++replaced;
+        break;
       case HookInstallStatus::DetourInstalled:
         ++installed;
         break;
@@ -133,6 +158,7 @@ void HookModuleHealth::log_summary() const
         break;
       case HookInstallStatus::MissingHelper:
       case HookInstallStatus::MissingMethod:
+      case HookInstallStatus::SignatureMismatch:
       case HookInstallStatus::DetourFailed:
         ++failed;
         break;
@@ -142,9 +168,10 @@ void HookModuleHealth::log_summary() const
     }
   }
 
-  spdlog::info("[HookRegistry] module={} summary installed={} failed={} skipped={} total={}",
+  spdlog::info("[HookRegistry] module={} summary installed={} replaced={} failed={} skipped={} total={}",
                module_,
                installed,
+               replaced,
                failed,
                skipped,
                records_.size());
@@ -170,7 +197,8 @@ void HookModuleHealth::log_record(const HookInstallRecord& record) const
   const auto status = hook_status_name(record.status);
   const auto tier   = hook_support_tier_name(record.descriptor.support_tier);
 
-  if (record.status == HookInstallStatus::DetourInstalled || record.status == HookInstallStatus::Skipped) {
+  if (record.status == HookInstallStatus::DetourInstalled || record.status == HookInstallStatus::Replaced
+      || record.status == HookInstallStatus::Skipped) {
     spdlog::info("[HookRegistry] module={} hook={} tier={} status={} target={} method_found={} detour_attempted={} purpose='{}' detail='{}'",
                  module_,
                  record.descriptor.name,

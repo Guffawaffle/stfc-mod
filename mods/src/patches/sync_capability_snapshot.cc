@@ -71,13 +71,7 @@ void queue_mod_capability_snapshot()
       .source_version = VER_RUNTIME_VERSION_STR,
       .platform       = current_platform_name(),
       .targets        = std::move(targets),
-      .supported_schemas =
-          {
-              "stfc.mod.capability_snapshot.v1",
-              "stfc.sync.delta_batch.v1",
-              "stfc.fleet.assignment_snapshot.v1",
-              "stfc.battle.summary.v1",
-          },
+      .supported_schemas = http::MajelAdvertisedSchemas(),
   });
 
   queue_data(SyncConfig::Type::ModCapabilities, snapshot, true);
