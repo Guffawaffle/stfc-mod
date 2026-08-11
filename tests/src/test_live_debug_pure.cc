@@ -259,7 +259,6 @@ TEST_SUITE("live_debug_recent_event_store")
   }
 }
 
-
 TEST_SUITE("live_debug_ui_serializers")
 {
   TEST_CASE("top canvas serializer preserves visible metadata")
@@ -337,14 +336,22 @@ TEST_SUITE("live_debug_ui_serializers")
   }
 }
 
-
 TEST_SUITE("live_debug_fleet_serializers")
 {
   TEST_CASE("fleet state names keep expected labels")
   {
     CHECK(fleet_state_name_from_value(-1) == doctest::String("None"));
     CHECK(fleet_state_name_from_value(2) == doctest::String("Docked"));
-    CHECK(fleet_state_name_from_value(1541) == doctest::String("CanRecall"));
+    CHECK(fleet_state_name_from_value(18) == doctest::String("CanReplaceOfficers"));
+    CHECK(fleet_state_name_from_value(2048) == doctest::String("AutoHunting"));
+    CHECK(fleet_state_name_from_value(2552) == doctest::String("CannotMove"));
+    CHECK(fleet_state_name_from_value(2947) == doctest::String("CanManage"));
+    CHECK(fleet_state_name_from_value(3589) == doctest::String("CanBeTargetedByAbility"));
+    CHECK(fleet_state_name_from_value(3591) == doctest::String("CanEngage"));
+    CHECK(fleet_state_name_from_value(4096) == doctest::String("Outposting"));
+    CHECK(fleet_state_name_from_value(5637) == doctest::String("CanRecall"));
+    CHECK(fleet_state_name_from_value(8133) == doctest::String("Deployed"));
+    CHECK(fleet_state_name_from_value(8135) == doctest::String("CanLocate"));
     CHECK(fleet_state_name_from_value(999999) == doctest::String("Unmapped"));
   }
 
@@ -405,7 +412,6 @@ TEST_SUITE("live_debug_fleet_serializers")
     CHECK(result[1]["shipIdentityProbe"]["source"] == "FleetPlayerData.Ship.ID");
   }
 }
-
 
 TEST_SUITE("live_debug_viewer_serializers")
 {

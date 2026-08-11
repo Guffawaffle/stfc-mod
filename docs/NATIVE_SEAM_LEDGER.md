@@ -363,6 +363,14 @@ This inventory records source-level seams from a static-only review. It does not
 - Status: removed/quarantined; not product-safe.
 - Next action: keep absent from product hook code; create individual ledger entries before touching any member; do not reintroduce without per-callback ledger promotion.
 
+### Archived ship-state investigation seams
+
+- The July 2026 `ClientShipStateProbe` and its `ship_state_probe` configuration were removed after the investigation.
+- `FleetPlayerData.GetActionStatus`, `ActionElementWidget.GetInstantButtonContext`, and the stale-click seam now have
+  one production owner: `RepairActionInterlock`, documented in the release-supported entry above.
+- `FleetService.UpdateFleetWithDeploymentData` remains an unimplemented proposal; its probe contract is retained only
+  as historical research in `docs/probes/20260714-fleet-model-reconciliation.md`.
+
 ## Static Enforcement
 
 The quarantine patch adds a source-level static guardrail for product hook code:

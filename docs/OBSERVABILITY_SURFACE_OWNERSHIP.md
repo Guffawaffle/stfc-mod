@@ -40,8 +40,8 @@ This document is inventory and planning only:
 | `[advanced.queue].queue_add_direct_handler` | `mods/src/config.cc`, `mods/src/config.h`, `mods/src/defaultconfig.h`, `mods/src/config_sidecar.cc`, `mods/src/patches/fleet_actions.cc`, `tests/src/test_sidecar_config.cc` | Repair-gated experiment for dispatching queue-add through the widget handler instead of its button | Keep behind the repair master; successful queue-add viewer dismissal is normal behavior, not an experiment |
 
 Current dormant-key note:
-- `advanced.diagnostics.debug` and `advanced.diagnostics.logging` are compatibility placeholders carried forward from deprecated sidecar aliases. They are not active diagnostic controls in this slice.
 - `advanced.queue.queue_add_hide_viewers` is accepted only as a deprecated compatibility key and ignored; successful queue-add actions always dismiss the target viewer.
+- `advanced.diagnostics.reserved_native_debug` and `.reserved_native_payload_logging` are dormant compatibility placeholders. The previous generic `advanced.diagnostics.debug` / `.logging` names and the older `[sidecar.diagnostics]` spellings remain accepted as deprecated input aliases; none of these keys enable or gate the specific diagnostic loggers.
 - `advanced.diagnostics.live_query`, `.runtime_trace`, `.runtime_trace_track_overhead`, `.mod_impact_monitor`, `.runtime_trace_report_interval_ms`, and `.refinery_diagnostics` are active and canonical on this branch.
 - `advanced.diagnostics.files.*` owns native diagnostics file retention and optional custom-root policy. On this branch the active consumers are the navhook trace sink and the action queue probe sink; `community_patch.log` remains on the bootstrap logger path until startup config loading is unified.
 

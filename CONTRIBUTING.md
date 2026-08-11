@@ -27,7 +27,7 @@ For this fork, keep the branch layout simple and explicit:
 
 If you are preparing work for `netniV/stfc-mod`, do not branch from this fork's `main`.
 Create a fresh branch from `upstream/main`, cherry-pick only the upstream-ready commits, and open the
-PR against `netniV/main`.
+PR against `netniV/main`. Never fall back to `upstream/dev` when another expected branch is missing.
 
 ## Building
 

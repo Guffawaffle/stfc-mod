@@ -1,0 +1,217 @@
+# Probe: Repair action-status transition
+
+- Status: archived evidence; accepted behavior promoted through PR #248
+- Owner: ship-state synchronization investigation
+- Date: 2026-07-14
+- Related patch label: none
+- Related timeline refresh ID: current local dump corpus
+- Related diff report: none
+- Native seam ledger entry: `Digit.PrimeServer.Models.FleetPlayerData.GetActionStatus(ActionType)`
+
+> Final disposition (2026-08-11): the science-only probe and its config surface were removed. The accepted bounded
+> behavior now ships through production-tier `RepairActionInterlockHooks`; the procedures below document the evidence
+> path and are not active configuration instructions.
+
+## Question
+
+Which repair `ActionStatus` transitions occur between one Repair click and the stable Ask for Help button?
+
+## Static Evidence
+
+- Symbol: `Digit.PrimeServer.Models.FleetPlayerData.GetActionStatus`
+- Method signature: `ActionStatus GetActionStatus(ActionType actionType)`; current script RVA `0x17BE0B0`.
+- String/script/config evidence: `ActionStatus` contains `InProgress=200`, `InProgress_Free=201`, and `InProgress_AskForHelp=202`; `ActionLocaleSetting` owns a distinct `_inProgressAskForHelpSettings` presentation.
+- Old/new diff context: none; this investigates a chronic runtime symptom.
+- Why this target is the narrowest candidate: its return value directly feeds action presentation while avoiding global action-widget hooks and repair request callback interception.
+
+## Risk
+
+- Risk class: R4 for passive `repair_action_status` mode; R5 for the explicit behavior-changing canaries.
+- Confidence rung: state-correlated for the passive seam and payload; the original guard is runtime-observed but not
+  product-safe, while the narrowed coherent-status hold and stale-click interlock are runtime-accepted.
+- Payload confidence: runtime-proven for the receiver, fleet ID, current/previous fleet state, Repair `ActionType`, and observed `ActionStatus` values on this detour.
+- Original/trampoline confidence: runtime-proven across multiple repair lifecycles. The hook calls the original
+  exactly once; guard mode changes only `Ready + Repairing` to `Disabled`, while hold mode replaces only a transient
+  Repair `Ready` with the last coherent in-progress Repair status.
+- Behavior change expected: none in passive mode; each explicit canary performs only its documented projection.
+
+## Implementation Plan
+
+- Module/file: `mods/src/patches/parts/client_ship_state_probe.cc`
+- Config or compile guard: science-only `[advanced.diagnostics].ship_state_probe = "repair_action_status"` for passive
+  observation, `"repair_action_status_guard"` for the original narrow canary, or `"repair_action_status_hold"` for the
+  coherent-status canary; default `"off"`. Caller capture uses a separate `ship_state_probe_stack_budget` integer
+  clamped to 0-1 and defaulting to 0.
+- Hook descriptor name: `kRepairActionStatusHook`
+- Target assembly: `Digit.Client.PrimeLib.Runtime`
+- Target namespace: `Digit.PrimeServer.Models`
+- Target class: `FleetPlayerData`
+- Target method: `GetActionStatus(ActionType)`
+- Install path: dedicated science module entry in `patches.cc`; install only when the exact mode is selected.
+- Log tag or event kind: `ship-state-probe.repair-action-status-transition`
+
+Emit only when `actionType == ActionType::Repair` and the returned numeric status changes for that fleet. Record sequence, monotonic timestamp, thread ID, numeric fleet/current/previous/action status, and original return. Do not retain the object pointer.
+
+Registry requirements:
+
+- Use `HookDescriptor`.
+- Use `HookModuleHealth`.
+- Use `HOOK_REGISTRY_SPUD_STATIC_DETOUR`.
+- Do not use raw `SPUD_STATIC_DETOUR`.
+
+## Disable Path
+
+- Flag or code path to disable: set probe mode to `"off"` (or passive `"repair_action_status"`), set `ship_state_probe_stack_budget = 0`, and restart the client.
+- File/entry to delete if it crashes: remove `client_ship_state_probe.cc` and its single `patches.cc` install entry.
+- Expected boot log when disabled: the science probe module is skipped and owns no hook target.
+
+## Human Smoke Test
+
+Goal:
+
+Observe one repair action-status sequence without altering the repair request or UI.
+
+Steps:
+
+1. Enable only `repair_action_status`; leave stack budget zero for normal transition capture. Set it to one only for an explicitly approved caller-sample run.
+2. Build/deploy releasedbg and cycle the client.
+3. Confirm the hook registry reports exactly one installed probe seam.
+4. Mark the observation window.
+5. Click Repair once on one damaged docked fleet and wait until Ask for Help appears or the state stops converging.
+6. Stop the observation window and disable the probe before another experiment.
+
+Expected log marker/event:
+
+`ship-state-probe.repair-action-status-transition` with a small ordered set of distinct numeric statuses.
+
+Stop immediately if:
+
+The game crashes, hangs, loses input, repair behavior changes, more than one server request is observed, duplicate hook ownership is reported, or events are emitted continuously without status changes.
+
+Report back:
+
+Build commit, config snapshot, marker/sequence range, status sequence, final visible button, any server error, and whether the game needed recovery.
+
+## Result
+
+- Build/deploy command: `axf run global.stfc-mod-private.cycle --build-mode releasedbg`; run once with the probe off, once with `repair_action_status`, and once more after restoring `off`.
+- Runtime command: serial `live-state --view fleet-slots`, an AX marker, and bounded exact-kind `recent-events` follow calls.
+- Human action performed: during a later free-play window, Repair was clicked on one docked damaged fleet and the visible Free action was clicked from a different screen than the usual reproduction. The button then flipped back to the cost-to-repair presentation and opened the instant lat-cost confirmation as though that button had been clicked.
+- Observed log/event evidence: exact-kind event-store sequence 297-305 and native log lines 1643-1652 captured the same fleet and thread. The original return was preserved at every call.
+
+| Local time | ActionStatus | Fleet state | Correlated event |
+| --- | --- | --- | --- |
+| 03:54:46.702 | `Ready` (100) | `Docked`, previous `IdleInSpace` | Pre-repair presentation |
+| 03:54:55.129 | `InProgress_Free` (201) | `Repairing`, previous `Docked` | `fleet-slot-repair-started` |
+| 03:54:56.702 | `Complete` (300) | `Repairing` | Job/action reports complete |
+| 03:54:57.452 | `Ready` (100) | `Repairing` | Invalid cost-to-repair presentation window begins |
+| 03:54:57.453 | unchanged | `Repairing` | Empty-title state-0 toast; native `REPAIR_COMPLETE`; repair-complete notification queued |
+| 03:54:59.000 | `Disabled` (0) | `Docked`, previous `Repairing` | Invalid presentation window ends after about 1.55 seconds |
+| 03:54:59.964 | unchanged | `Docked` | Debounced `fleet-slot-repair-completed` runtime capture executes |
+
+- Crash/hang/recovery notes: none. The fleet converged to Docked without manual recovery. The probe remains enabled for the current investigation window.
+- Answer to the question: confirmed. The observed sequence was `Ready → InProgress_Free → Complete → Ready → Disabled`. `GetActionStatus(Repair)` returned `Ready` for about 1.55 seconds while `CurrentState` was still `Repairing`, directly explaining the transient cost-to-repair button and instant lat-cost confirmation.
+
+A second Ship Manage reproduction on 2026-07-15 produced a shorter variant on exact-kind event-store sequence
+388-391: `InProgress_AskForHelp (202) → Ready (100) → InProgress_AskForHelp (202)`, with `CurrentState ==
+Repairing` throughout. The invalid `Ready` window lasted about 334 ms. Native `REPAIR_COMPLETE` appeared one
+millisecond after `Ready`. The caller budget remained unused because its first predicate required
+`Complete → Ready`; this evidence justifies triggering on the invalid `Ready`-while-`Repairing` invariant instead.
+
+After deploying the revised predicate, event-store sequence 94-95 consumed the one-event budget on
+`InProgress_Free (201) → Ready (100)` while `CurrentState == Repairing`. The 25-frame sample symbolized to this
+relevant chain:
+
+`JobService.UpdateJobList → ActionElementWidget.HandleReactiveInt → ActionElementWidget.GetInstantButtonContext → FleetPlayerData.GetActionStatus`
+
+Exact RVAs were `0x16517BA`, `0x11E63E6`, and `0x11E6C12` respectively. Disassembly of
+`GetInstantButtonContext` confirms that it obtains action status and instant cost through separate `IActionData`
+dispatches; `HandleReactiveInt` then copies the resulting context into the live instant-button context.
+
+A later observation at event-store sequence 181-183 showed the same `InProgress_Free → Ready` while `Repairing`
+transition after Free had finished the repair. The client momentarily re-exposed Repair with a displayed cost of
+zero: the action layer briefly considered the already-repaired ship repairable again before the fleet model converged
+to `Docked`. Native `REPAIR_COMPLETE` and an empty-title state-0 toast occurred in the same millisecond. Cost was not
+part of this probe payload, so the stack and disassembly locate the projection mechanism but do not directly prove
+the sampled cost value.
+
+## Exit Decision
+
+The repair transition, failure window, click path, and one caller stack are captured cleanly. The airlock consumed its one-event budget and the persistent configuration has been restored to zero.
+
+The first narrow guard was deployed as `repair_action_status_guard`. Its initial smoke appeared to improve the original
+pre-Ask-for-Help path; a later mixed-symptom smoke still showed visible churn. The exact original guard is restored for
+an isolated re-test with stack budget zero. Keep the broader reconciliation hook disabled.
+
+The final post-completion `Instant 0` button can still appear briefly. The observer has not accidentally activated it,
+and no unintended repair request or spend was observed. This remains a documented limitation, not a resolved outcome
+of this branch.
+
+## Restored Original-Issue Canary Contract
+
+Static disassembly of `ActionElementWidget.OnInstantButtonClickCallback` shows the instant button forwarding the
+target, action type, index, and instant behavior mask to `IActionHandler.RequestAction`. The stale instant context is
+therefore an actionable request path, not merely a label defect.
+
+The first behavior canary reuses the already-proven sole-owner `FleetPlayerData.GetActionStatus(ActionType)` seam.
+Only when all of these conditions are true does it project `Disabled (0)` instead of the original `Ready (100)`:
+
+- action type is Repair;
+- `FleetPlayerData.CurrentState == Repairing (32)`;
+- the original return is `Ready (100)`;
+- the explicit science mode is `repair_action_status_guard`.
+
+Every other action, fleet state, and status returns the exact original value. The original is still called exactly
+once. The transition event records both `originalReturn` and `returnedStatus` plus `guardApplied`, allowing the
+canary to prove that it blocked only the impossible state.
+
+Expected smoke-test result: after one Repair click, no pay-to-repair option reappears before Ask for Help stabilizes.
+The post-completion `Instant 0` button is deliberately outside this canary's pass/fail criteria. Disable immediately if
+Ask for Help cannot be requested, repair cannot complete, any non-Repair action changes, or a fleet remains stuck
+longer than the passive baseline.
+
+## Prior Mixed-Symptom Canary Result
+
+The human smoke on 2026-07-15 reproduced the original pre-Ask-for-Help churn: pay-to-repair appeared multiple times
+before Ask for Help stabilized. The retained event ring contained two `guardApplied=true` transitions. On the latest
+fleet, the relevant sequence was:
+
+`AskForHelp (202), Repairing → Ready (100), Docked/previous Repairing → AskForHelp (202), Repairing → Ready (100), Repairing [returned Disabled by guard] → AskForHelp (202), Repairing`
+
+The first invalid `Ready` occurred after the fleet model briefly reported `Docked`, so it was outside the guard's
+`Ready + Repairing` predicate. The second matched the predicate and was returned as `Disabled`, yet the user still
+observed the pay-to-repair churn. An empty-title state-0 toast coincided with both `Ready` boundaries. With no further
+input, the affected fleets later converged to `Docked`.
+
+Conclusion: projecting only the `GetActionStatus` return is insufficient to make every instant-button context
+coherent, but the mixed smoke did not isolate the original churn from the later `Instant 0` symptom. The unchanged
+guard is restored to re-test the original symptom alone. Any follow-up for `Instant 0` should stay single-seam at the
+mapped `ActionElementWidget.GetInstantButtonContext` / `HandleReactiveInt` projection boundary rather than widening
+this predicate in place. The passive, mutually exclusive
+[`repair_instant_context`](20260717-repair-instant-button-context.md) observer subsequently captured the projected
+Instant amount changing `74 → 0` while the fleet remained `Repairing`, approximately 1.345 seconds before
+`REPAIR_COMPLETE`.
+
+## Coherent-Status Hold Canary
+
+The captured tuple rules out a post-completion-only explanation but does not support disabling every zero-cost
+context, because the valid completion flow intentionally presents `Finish Ship Repair — FREE`. The next canary
+therefore remains on this already-proven status seam and preserves the last coherent Repair status only when the
+original regresses to `Ready` while current fleet state is `Repairing`. Previous Repairing state is evidence only and
+cannot authorize projection. Coherent held values are limited
+to `InProgress`, `InProgress_Free`, `InProgress_AskForHelp`, and `Complete`; any settling non-Ready result updates or
+clears the held lifecycle.
+
+The 2026-07-17 released-debug deployment matched the deployed DLL hash and installed exactly
+`FleetPlayerData.GetActionStatus(ActionType)` for `ClientShipStateProbe`, with zero failures or skips. Initial ordinary
+status observations were returned unchanged.
+
+Two subsequent user-driven Repair → Ask for Help → Speed Up → Smart Speed-Up flows passed the primary transition.
+Both recorded `InProgress_AskForHelp (202) → InProgress (200)` while `Repairing`, with no intervening `Ready` and no
+projection at that boundary. At completion, both recorded `InProgress_Free (201) → Ready (100)`; hold mode returned
+`201`, and the user saw the coherent `FREE` finish presentation rather than the unsafe base Repair/Instant layout.
+
+These are two passes for the Ask-for-Help → Speed-Up transition, not proof that the uncommon regression is fixed.
+Completion presentation is outside the current acceptance focus. Leave the canary unchanged and capture the next
+visual regression immediately; the decisive evidence is whether it includes `202 → 100` and whether the hold returns
+`202`.

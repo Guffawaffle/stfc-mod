@@ -213,8 +213,8 @@ struct SidecarLoggingConfig {
  * members remain in the runtime model for low-risk compatibility.
  */
 struct SidecarDiagnosticsConfig {
-  bool debug   = false;
-  bool logging = false;
+  bool reserved_native_debug           = false;
+  bool reserved_native_payload_logging = false;
 };
 
 /**
@@ -246,8 +246,8 @@ struct AdvancedDiagnosticsConfig {
   bool        ship_identity                    = false;
   bool        battle_log_decoder               = false;
   bool        battle_catalog                   = false;
-  bool        debug                            = false;
-  bool        logging                          = false;
+  bool        reserved_native_debug            = false;
+  bool        reserved_native_payload_logging  = false;
   bool        hotkey_suppression_logging       = false;
   bool        notification_skip_logging        = false;
   bool        fleet_selection_timing_logging   = false;

@@ -120,8 +120,10 @@ Current-main rules for this snapshot:
     - Canonical native observability/probing namespace
     - Active in this slice: `live_query`, `runtime_trace`, `runtime_trace_track_overhead`, `mod_impact_monitor`,
       `runtime_trace_report_interval_ms`, `refinery_diagnostics`
-    - Still dormant/reserved: `ship_identity`, `battle_log_decoder`, `battle_catalog`, `debug`, `logging`
-    - `debug` and `logging` are dormant compatibility placeholders, not new active diagnostics controls
+    - Still dormant/reserved: `ship_identity`, `battle_log_decoder`, `battle_catalog`, `reserved_native_debug`,
+      `reserved_native_payload_logging`
+    - The two `reserved_native_*` keys are compatibility placeholders, not active controls or gates for the specific
+      diagnostic loggers. The former generic `debug` / `logging` names remain deprecated input aliases.
   - `[advanced.queue]`
     - Canonical queue experiment/dev-test namespace
     - Active in this slice: `queue_add_direct_handler`
