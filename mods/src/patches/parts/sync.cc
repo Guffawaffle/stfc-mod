@@ -8,7 +8,7 @@
  *
  * Architecture:
  *  ┌─────────────────────────────────────────────────────────────┐
- *  │ Game hooks (DataContainer::ParseBinaryObject, etc.)         │
+ *  │ Central service-response hook plus session and RTC hooks    │
  *  │   → HandleEntityGroup() dispatches by EntityGroup::Type     │
  *  │       → process_* functions parse protobuf/JSON             │
  *  │           → queue_data() enqueues to sync_data_queue        │
@@ -61,6 +61,9 @@
 
 #include <spdlog/spdlog.h>
 
+#include <array>
+#include <initializer_list>
+#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -132,36 +135,88 @@ constexpr auto           kGameServerInitialise =
 constexpr auto kGameServerInstance =
     SyncHook("game-server-instance", "capture the current instance id", "Digit.PrimeServer.Core", "GameServer",
              "SetInstanceIdHeader", "sync requests use a stale instance header");
+
+constexpr std::array kReplacedBinaryHooks{kModelRegistryParseBinary, kBuffContainerParse,     kBuffServiceParse,
+                                          kInventoryContainerParse,  kJobServiceParse,        kJobContainerParse,
+                                          kMissionsContainerParse,   kResearchContainerParse, kResearchServiceParse,
+                                          kSlotContainerParse};
+
+std::string il2cpp_type_name(const Il2CppType* type)
+{
+  if (type == nullptr) {
+    return "<null>";
+  }
+
+  char* const raw_name = il2cpp_type_get_name(type);
+  if (raw_name == nullptr) {
+    return "<unknown>";
+  }
+
+  std::string name(raw_name);
+  il2cpp_free(raw_name);
+  return name;
+}
+
+std::string method_signature(const MethodInfo* method)
+{
+  if (method == nullptr) {
+    return "<missing>";
+  }
+
+  std::ostringstream out;
+  out << il2cpp_type_name(il2cpp_method_get_return_type(method)) << " (";
+  const auto count = il2cpp_method_get_param_count(method);
+  for (uint32_t index = 0; index < count; ++index) {
+    if (index != 0) {
+      out << ", ";
+    }
+    out << il2cpp_type_name(il2cpp_method_get_param(method, index));
+  }
+  out << ')';
+  return out.str();
+}
+
+const MethodInfo* find_exact_sync_method(IL2CppClassHelper& helper, const HookDescriptor& descriptor,
+                                         const std::string_view                        expected_return,
+                                         const std::initializer_list<std::string_view> expected_parameters,
+                                         HookModuleHealth&                             health)
+{
+  const auto* method =
+      helper.GetMethodInfo(descriptor.target.method_name.data(), static_cast<int>(expected_parameters.size()));
+  if (method == nullptr) {
+    health.record_missing_method(descriptor);
+    return nullptr;
+  }
+
+  bool matches = il2cpp_type_name(il2cpp_method_get_return_type(method)) == expected_return;
+  if (il2cpp_method_get_param_count(method) != expected_parameters.size()) {
+    matches = false;
+  } else {
+    uint32_t index = 0;
+    for (const auto expected : expected_parameters) {
+      if (il2cpp_type_name(il2cpp_method_get_param(method, index++)) != expected) {
+        matches = false;
+      }
+    }
+  }
+
+  if (!matches) {
+    health.record_signature_mismatch(descriptor, "expected " + std::string(expected_return) + " with "
+                                                     + std::to_string(expected_parameters.size())
+                                                     + " parameter(s); actual " + method_signature(method));
+    return nullptr;
+  }
+
+  if (method->methodPointer == nullptr) {
+    health.record_signature_mismatch(descriptor, "validated metadata has a null native method pointer");
+    return nullptr;
+  }
+
+  return method;
+}
 } // namespace
 
 // ─── SPUD Hooks ─────────────────────────────────────────────────────────────
-
-/**
- * @brief Hook: DataContainer::ParseBinaryObject
- *
- * Intercepts binary entity group parsing to extract data before the game processes it.
- * Original method: deserializes a protobuf entity group into the data container.
- * Our modification: calls HandleEntityGroup() first, then the original.
- */
-#if __APPLE__
-void DataContainer_ParseBinaryObject(auto original, void* _this, EntityGroup* group)
-{
-  HandleEntityGroup(group);
-  return original(_this, group);
-}
-#else
-void DataContainer_ParseBinaryObject(auto original, void* _this, EntityGroup* group, bool isPlayerData)
-{
-  HandleEntityGroup(group);
-  return original(_this, group, isPlayerData);
-}
-#endif
-
-void DataContainer_ParseEntitySlotsData(auto original, void* _this, EntityGroup* group)
-{
-  HandleEntityGroup(group);
-  return original(_this, group);
-}
 
 // IL2CPP value type. Passing this by value preserves the following arguments on
 // both x64 and macOS ARM64; a void* declaration shifts them on AAPCS64.
@@ -192,21 +247,6 @@ void GameServerModelRegistry_ProcessResultInternal(auto original, void* _this, v
   HandleServiceResponseEntityGroups(service_response);
 
   return original(_this, parsing_context, service_response, method);
-}
-
-/**
- * @brief Hook: GameServerModelRegistry::ParseBinaryObjectsHelper
- *
- * Intercepts bulk binary object handling to extract entity groups.
- * Same pattern as ProcessResultInternal but for binary-only responses.
- */
-void GameServerModelRegistry_ParseBinaryObjectsHelper(auto original, void* _this, void* parsing_context,
-                                                      ServiceResponse* service_response, void* parsedEntityTypes,
-                                                      MethodInfo* method)
-{
-  HandleServiceResponseEntityGroups(service_response);
-
-  return original(_this, parsing_context, service_response, parsedEntityTypes, method);
 }
 
 /**
@@ -242,8 +282,8 @@ void GameServer_SetInstanceIdHeader(auto original, void* _this, int32_t instance
 /**
  * @brief Installs all sync-related hooks and starts background threads.
  *
- * Hooks multiple DataContainer::ParseBinaryObject variants to intercept
- * entity group data, hooks PrimeApp/GameServer for session credentials,
+ * Hooks the central service-response seam to intercept entity-group data,
+ * hooks PrimeApp/GameServer for session credentials,
  * and spawns the two long-lived consumer threads:
  *  - ship_sync_data (main sync queue consumer)
  *  - ship_combat_log_data (combat log enrichment consumer)
@@ -253,187 +293,25 @@ void InstallSyncPatches()
   HookModuleHealth hooks("SyncHooks");
   load_previously_sent_logs();
 
+  for (const auto& descriptor : kReplacedBinaryHooks) {
+    hooks.record_replaced(descriptor,
+                          "client 253 removed the binary-container seam; central ProcessResultInternal owner");
+  }
+  hooks.record_replaced(
+      kSlotContainerEntitySlots,
+      "client 253 parameter is EntitySlotsData, not EntityGroup; central ProcessResultInternal owner");
+
   if (auto game_server_model_registry =
           il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Core", "GameServerModelRegistry");
       !game_server_model_registry.isValidHelper()) {
     ErrorMsg::MissingHelper("Core", "GameServerModelRegistry");
     hooks.record_missing_helper(kModelRegistryProcessResult);
-    hooks.record_missing_helper(kModelRegistryParseBinary);
-  } else {
-    auto* ptr = game_server_model_registry.GetMethod("ProcessResultInternal");
-    if (ptr == nullptr) {
-      ErrorMsg::MissingMethod("GameServerModelRegistry", "ProcessResultInternal");
-      hooks.record_missing_method(kModelRegistryProcessResult);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kModelRegistryProcessResult, ptr,
-                                       GameServerModelRegistry_ProcessResultInternal);
-    }
-
-    ptr = game_server_model_registry.GetMethod("ParseBinaryObjectsHelper");
-    if (ptr == nullptr) {
-      ErrorMsg::MissingMethod("GameServerModelRegistry", "ParseBinaryObjectsHelper");
-      hooks.record_missing_method(kModelRegistryParseBinary);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kModelRegistryParseBinary, ptr,
-                                       GameServerModelRegistry_ParseBinaryObjectsHelper);
-    }
-  }
-
-#if 0
-  // Classification: temporary exception, parked for `audit/legacy-sync-platform-registry-hook`.
-  // This disabled legacy hook must not be re-enabled without seam-owner review and provenance metadata.
-  if (auto platform_model_registry =
-          il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimePlatform.Core", "PlatformModelRegistry");
-      !platform_model_registry.isValidHelper()) {
-    ErrorMsg::MissingHelper("Core", "PlatformModelRegistry");
-  } else {
-    if (auto *const ptr = platform_model_registry.GetMethod("ProcessResultInternal"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("PlatformModelRegistry", "ProcessResultInternal");
-    } else {
-      SPUD_STATIC_DETOUR(ptr, GameServerModelRegistry_ProcessResultInternal);
-    }
-  }
-#endif
-
-  if (auto buff_data_container =
-          il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "BuffDataContainer");
-      !buff_data_container.isValidHelper()) {
-    ErrorMsg::MissingHelper("Services", "BuffDataContainer");
-    hooks.record_missing_helper(kBuffContainerParse);
-  } else {
-    if (const auto ptr = buff_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("BuffDataContainer", "ParseBinaryObject");
-      hooks.record_missing_method(kBuffContainerParse);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kBuffContainerParse, ptr, DataContainer_ParseBinaryObject);
-    }
-  }
-
-#if __APPLE__
-  // 1.000.49105: BuffService.ParseBinaryObject is a 0x18-byte body immediately before HandleResponseData.
-  // Spud's ARM64 absolute jump is larger than that, so detouring it overwrites the next function entry.
-  spdlog::info("Skipping BuffService hook lookup on macOS");
-  hooks.record_skipped(kBuffServiceParse, "macOS method body is too small for the ARM64 absolute jump");
-#else
-  if (auto buff_service =
-          il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "BuffService");
-      !buff_service.isValidHelper()) {
-    ErrorMsg::MissingHelper("Services", "BuffService");
-    hooks.record_missing_helper(kBuffServiceParse);
-  } else {
-    if (const auto ptr = buff_service.GetMethod("ParseBinaryObject"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("BuffService", "ParseBinaryObject");
-      hooks.record_missing_method(kBuffServiceParse);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kBuffServiceParse, ptr, DataContainer_ParseBinaryObject);
-    }
-  }
-#endif
-
-  if (auto inventory_data_container = il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime",
-                                                              "Digit.PrimeServer.Services", "InventoryDataContainer");
-      !inventory_data_container.isValidHelper()) {
-    ErrorMsg::MissingHelper("Services", "InventoryDataContainer");
-    hooks.record_missing_helper(kInventoryContainerParse);
-  } else {
-    if (const auto ptr = inventory_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("InventoryDataContainer", "ParseBinaryObject");
-      hooks.record_missing_method(kInventoryContainerParse);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kInventoryContainerParse, ptr, DataContainer_ParseBinaryObject);
-    }
-  }
-
-  if (auto job_service =
-          il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "JobService");
-      !job_service.isValidHelper()) {
-    ErrorMsg::MissingHelper("Services", "JobService");
-    hooks.record_missing_helper(kJobServiceParse);
-  } else {
-    if (const auto ptr = job_service.GetMethod("ParseBinaryObject"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("JobService", "ParseBinaryObject");
-      hooks.record_missing_method(kJobServiceParse);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kJobServiceParse, ptr, DataContainer_ParseBinaryObject);
-    }
-  }
-
-  if (auto job_service_data_container = il2cpp_get_class_helper(
-          "Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "JobServiceDataContainer");
-      !job_service_data_container.isValidHelper()) {
-    ErrorMsg::MissingHelper("Services", "JobServiceDataContainer");
-    hooks.record_missing_helper(kJobContainerParse);
-  } else {
-    if (const auto ptr = job_service_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("JobServiceDataContainer", "ParseBinaryObject");
-      hooks.record_missing_method(kJobContainerParse);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kJobContainerParse, ptr, DataContainer_ParseBinaryObject);
-    }
-  }
-
-  if (auto missions_data_container =
-          il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "MissionsDataContainer");
-      !missions_data_container.isValidHelper()) {
-    ErrorMsg::MissingHelper("Models", "MissionsDataContainer");
-    hooks.record_missing_helper(kMissionsContainerParse);
-  } else {
-    if (const auto ptr = missions_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("MissionsDataContainer", "ParseBinaryObject");
-      hooks.record_missing_method(kMissionsContainerParse);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kMissionsContainerParse, ptr, DataContainer_ParseBinaryObject);
-    }
-  }
-
-  if (auto research_data_container = il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime",
-                                                             "Digit.PrimeServer.Services", "ResearchDataContainer");
-      !research_data_container.isValidHelper()) {
-    ErrorMsg::MissingHelper("Services", "ResearchDataContainer");
-    hooks.record_missing_helper(kResearchContainerParse);
-  } else {
-    if (const auto ptr = research_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
-      ErrorMsg::MissingHelper("ResearchDataContainer", "ParseBinaryObject");
-      hooks.record_missing_method(kResearchContainerParse);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kResearchContainerParse, ptr, DataContainer_ParseBinaryObject);
-    }
-  }
-
-  if (auto research_service =
-          il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "ResearchService");
-      !research_service.isValidHelper()) {
-    ErrorMsg::MissingHelper("Services", "ResearchService");
-    hooks.record_missing_helper(kResearchServiceParse);
-  } else {
-    if (const auto ptr = research_service.GetMethod("ParseBinaryObject"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("ResearchService", "ParseBinaryObject");
-      hooks.record_missing_method(kResearchServiceParse);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kResearchServiceParse, ptr, DataContainer_ParseBinaryObject);
-    }
-  }
-
-  if (auto slot_data_container =
-          il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "SlotDataContainer");
-      !slot_data_container.isValidHelper()) {
-    ErrorMsg::MissingHelper("Services", "SlotDataContainer");
-    hooks.record_missing_helper(kSlotContainerParse);
-    hooks.record_missing_helper(kSlotContainerEntitySlots);
-  } else {
-    if (const auto ptr = slot_data_container.GetMethod("ParseBinaryObject"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("SlotDataContainer", "ParseBinaryObject");
-      hooks.record_missing_method(kSlotContainerParse);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kSlotContainerParse, ptr, DataContainer_ParseBinaryObject);
-    }
-
-    if (const auto ptr = slot_data_container.GetMethod("ParseEntitySlotsData"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("SlotDataContainer", "ParseEntitySlotsData");
-      hooks.record_missing_method(kSlotContainerEntitySlots);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kSlotContainerEntitySlots, ptr, DataContainer_ParseEntitySlotsData);
-    }
+  } else if (const auto* method = find_exact_sync_method(
+                 game_server_model_registry, kModelRegistryProcessResult, "System.Void",
+                 {"Digit.Networking.Core.Parsing.IParsingContext", "Digit.PrimeServer.Models.ServiceResponse"},
+                 hooks)) {
+    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kModelRegistryProcessResult, method->methodPointer,
+                                     GameServerModelRegistry_ProcessResultInternal);
   }
 
   if (auto slot_assign_parser =
@@ -441,11 +319,11 @@ void InstallSyncPatches()
       !slot_assign_parser.isValidHelper()) {
     ErrorMsg::MissingHelper("Parsers", "SlotAssignRtcParser");
     hooks.record_missing_helper(kSlotAssignRtc);
-  } else if (const auto ptr = slot_assign_parser.GetMethod("ParseFinalPayload"); ptr == nullptr) {
-    ErrorMsg::MissingMethod("SlotAssignRtcParser", "ParseFinalPayload");
-    hooks.record_missing_method(kSlotAssignRtc);
-  } else {
-    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kSlotAssignRtc, ptr, RtcParser_ParseFinalPayload);
+  } else if (const auto* method = find_exact_sync_method(
+                 slot_assign_parser, kSlotAssignRtc, "Digit.Networking.Core.GSRTCModel",
+                 {"Digit.Networking.Core.CentrifugoInfo", "Digit.Networking.RTC.RealtimeDataPayload", "IParsable"},
+                 hooks)) {
+    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kSlotAssignRtc, method->methodPointer, RtcParser_ParseFinalPayload);
   }
 
   if (auto slot_clear_parser =
@@ -453,24 +331,21 @@ void InstallSyncPatches()
       !slot_clear_parser.isValidHelper()) {
     ErrorMsg::MissingHelper("Parsers", "SlotClearRtcParser");
     hooks.record_missing_helper(kSlotClearRtc);
-  } else if (const auto ptr = slot_clear_parser.GetMethod("ParseFinalPayload"); ptr == nullptr) {
-    ErrorMsg::MissingMethod("SlotClearRtcParser", "ParseFinalPayload");
-    hooks.record_missing_method(kSlotClearRtc);
-  } else {
-    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kSlotClearRtc, ptr, RtcParser_ParseFinalPayload);
+  } else if (const auto* method = find_exact_sync_method(
+                 slot_clear_parser, kSlotClearRtc, "Digit.Networking.Core.GSRTCModel",
+                 {"Digit.Networking.Core.CentrifugoInfo", "Digit.Networking.RTC.RealtimeDataPayload", "IParsable"},
+                 hooks)) {
+    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kSlotClearRtc, method->methodPointer, RtcParser_ParseFinalPayload);
   }
 
   if (auto prime_app = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Core", "PrimeApp");
       !prime_app.isValidHelper()) {
     ErrorMsg::MissingHelper("Core", "PrimeApp");
     hooks.record_missing_helper(kPrimeAppInit);
-  } else {
-    if (const auto ptr = prime_app.GetMethod("InitPrimeServer"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("PrimeApp", "InitPrimeServer");
-      hooks.record_missing_method(kPrimeAppInit);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kPrimeAppInit, ptr, PrimeApp_InitPrimeServer);
-    }
+  } else if (const auto* method =
+                 find_exact_sync_method(prime_app, kPrimeAppInit, "System.Void",
+                                        {"System.String", "System.String", "System.String", "System.String"}, hooks)) {
+    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kPrimeAppInit, method->methodPointer, PrimeApp_InitPrimeServer);
   }
 
   if (auto game_server =
@@ -487,18 +362,16 @@ void InstallSyncPatches()
     if (!Config::Get().installGameVersionHook) {
       spdlog::info("Sync: skipping GameServer::Initialise hook (patches.game_version = false)");
       hooks.record_skipped(kGameServerInitialise, "disabled by patches.game_version");
-    } else if (const auto ptr = game_server.GetMethod("Initialise"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("GameServer", "Initialise");
-      hooks.record_missing_method(kGameServerInitialise);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kGameServerInitialise, ptr, GameServer_Initialise);
+    } else if (const auto* method = find_exact_sync_method(
+                   game_server, kGameServerInitialise, "System.Void",
+                   {"System.String", "System.String", "System.Boolean", "System.String"}, hooks)) {
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kGameServerInitialise, method->methodPointer, GameServer_Initialise);
     }
 
-    if (const auto ptr = game_server.GetMethod("SetInstanceIdHeader"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("GameServer", "SetInstanceIdHeader");
-      hooks.record_missing_method(kGameServerInstance);
-    } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kGameServerInstance, ptr, GameServer_SetInstanceIdHeader);
+    if (const auto* method =
+            find_exact_sync_method(game_server, kGameServerInstance, "System.Void", {"System.Int32"}, hooks)) {
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kGameServerInstance, method->methodPointer,
+                                       GameServer_SetInstanceIdHeader);
     }
   }
 

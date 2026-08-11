@@ -33,6 +33,52 @@ Risk classes are also defined there: R0 static, R1 passive runtime, R2 managed l
 
 ## Entries
 
+### `GameServerModelRegistry.ProcessResultInternal(IParsingContext, ServiceResponse)` for client-253 sync
+
+- Owner / file: `SyncHooks` in `mods/src/patches/parts/sync.cc`; payload routing in
+  `mods/src/patches/sync_payload_builders.cc`; probe record in
+  `docs/probes/20260810-client-253-sync-process-result.md`.
+- Intended question: can one surviving central response seam replace the removed binary-container hook family while
+  preserving the original entity-group type and protobuf bytes before typed client dispatch?
+- Static evidence: verified client-252 and client-253 corpus snapshots retain the logical
+  `ProcessResultInternal(IParsingContext, ServiceResponse)` relationship. Client-253 disassembly of the concrete
+  generic instantiation receives the service response, enumerates its entity groups, parses them, and later
+  completes typed dispatch. The old `ParseBinaryObject` / `ParseBinaryObjectsHelper` family is absent.
+- Risk class: R4 native interpretation on an established production seam.
+- Confidence rung: runtime observed in both the Netniv validation checkout and this private integration.
+- Runtime evidence: the private client-253 release build booted cleanly with six active sync hooks installed,
+  eleven removed/changed seams recorded as replaced, and zero failed. The configured receiver accepted officer,
+  mission, trait, forbidden-tech, research, module, and resource uploads with HTTP 200/204. One existing ship upload
+  received HTTP 400; the ship builder was unchanged by this repair and remains a separate receiver-contract
+  uncertainty.
+- Payload confidence: the hook reads only the `ServiceResponse.EntityGroups` wrapper, copies selected protobuf bytes,
+  and retains no IL2CPP object pointers across asynchronous work.
+- Original/trampoline confidence: validated in both builds; the private hook keeps the established ABI and calls the
+  original exactly once with unchanged arguments.
+- Flag / rollback path: disable `SyncPatches` through the existing sync patch configuration or remove the single
+  `model-registry-process-result` install entry. Removed container hooks remain absent.
+- Status: runtime-observed and promoted for client 253 in the private release build.
+- Next action: revalidate after client updates and investigate the isolated ship HTTP 400 only if it reproduces.
+
+### Removed client-253 binary sync seams and changed slot parser
+
+- Owner / file: replaced descriptors in `mods/src/patches/parts/sync.cc`.
+- Intended question: which pre-253 hooks must be prohibited rather than treated as ordinary missing methods?
+- Static evidence: client 253 contains no `ParseBinaryObject` container family or
+  `GameServerModelRegistry.ParseBinaryObjectsHelper`. `SlotDataContainer.ParseEntitySlotsData` changed from
+  `EntityGroup` to `EntitySlotsData` under the same method name.
+- Risk class: R4 native interpretation with one confirmed incompatible payload type.
+- Confidence rung: static relationship for removal/change; the unsafe same-name slot detour failed the signature
+  gate by construction and is not installed.
+- Runtime evidence: both the Netniv validation and private release builds booted without the changed slot-parser
+  detour; the private `SyncHooks` audit recorded it as replaced and installed the central owner with zero failures.
+- Payload confidence: the old `EntityGroup*` slot parser declaration is invalid for client 253 and must never be
+  reinstated. `EntitySlotsData` bytes are handled from their original central `EntityGroup` wrapper instead.
+- Original/trampoline confidence: not applicable because these seams are not detoured.
+- Flag / rollback path: replaced descriptors are diagnostic-only; rollback does not restore removed hooks.
+- Status: replaced / prohibited for client 253.
+- Next action: keep source guards and regression tests preventing lookup or installation from returning.
+
 ### Generic battle-result toast classification for Armada notifications
 
 - Owner / file: `mods/src/patches/notification_service.cc` and
