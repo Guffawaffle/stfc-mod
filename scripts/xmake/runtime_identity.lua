@@ -73,8 +73,8 @@ rule("stfc.runtime-identity")
         end
 
         local git_head = git_output({"rev-parse", "HEAD"}):lower()
-        local git_status = git_raw_output({
-            "status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignore-submodules=dirty"
+        local git_status = git_output({
+            "status", "--porcelain=v1", "--untracked-files=all", "--ignore-submodules=dirty"
         })
         if git_head ~= "" and (not git_head:match("^[0-9a-f]+$") or #git_head ~= 40) then
             raise("[runtime-identity] checked-out HEAD is not a 40-character commit SHA")
@@ -111,7 +111,8 @@ rule("stfc.runtime-identity")
                 end
                 source_commit = source_commit:lower()
                 if git_head ~= "" and git_status ~= "" then
-                    raise("[runtime-identity] a dirty Git checkout cannot claim a clean git source identity")
+                    raise("[runtime-identity] a dirty Git checkout cannot claim a clean git source identity:\n"
+                        .. git_status)
                 end
                 if git_head ~= "" and source_commit ~= git_head then
                     raise("[runtime-identity] git source identity must match checked-out HEAD")
