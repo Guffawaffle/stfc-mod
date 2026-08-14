@@ -30,7 +30,8 @@ CI must pass `--stfc_source_state_id=git:<sha>` and `--stfc_base_commit=<sha>`. 
 non-reproducible. In a Git checkout, configured source and base identities must match `HEAD`, and a clean identity is
 rejected when the worktree is dirty. Source archives without `.git` may provide matching explicit source and base
 identities. A release build fails configuration if it cannot prove a clean Git source. A test build fails configuration
-unless all three temporary-build fields are set.
+unless it has exact source/base identities and all three temporary-build fields. Development builds also require exact
+source/base identities; only an undistributed local archive build may report unavailable source state.
 
 The copyable support identity includes the downstream name and version, unofficial status, build class, distribution
 ID, exact source state, downstream base commit, upstream base, and reproducibility flag. Test identities also include

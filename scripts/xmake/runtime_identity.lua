@@ -149,6 +149,11 @@ rule("stfc.runtime-identity")
         local test_expiry = trimmed(get_config("stfc_test_expiry"))
         local support_boundary = trimmed(get_config("stfc_support_boundary"))
 
+        if (build_class == "test" or build_class == "development")
+            and (source_state_id == "unavailable" or base_commit == "") then
+            raise("[runtime-identity] distributed test and development builds require exact source and base identities")
+        end
+
         if build_class == "release" then
             if not has_config("stfc_public_release") then
                 raise("[runtime-identity] maintained release identity requires --stfc_public_release=y")
