@@ -14,8 +14,6 @@ static bool   g_spriteApplied   = false;
 static void*  g_bgImageComp     = nullptr;
 static void*  g_bgRectTransform = nullptr;
 static void*  g_bgOverlayGO     = nullptr;
-static void*  g_logoGO          = nullptr;
-static void*  g_ccLogoGO        = nullptr;
 
 // Called from PrepareAllForReload to null stale pointers before reload.
 // The Canvas/TVC hierarchy holding our overlays is replaced during
@@ -27,8 +25,6 @@ void ResetTransitionScreenState()
   g_bgImageComp     = nullptr;
   g_bgRectTransform = nullptr;
   g_bgOverlayGO     = nullptr;
-  g_logoGO          = nullptr;
-  g_ccLogoGO        = nullptr;
   ResetLoadingScreenState();
   ResetLoadingTipState();
 }
@@ -111,35 +107,31 @@ static void ApplyTransitionCustomization(void* _this)
       g_bgRectTransform = rt;
     }
 
-    // Determine logo parent transform
-    void* logoParent = g_bgRectTransform;
-    if (!logoParent && g_bgImageComp) {
+    // Determine the transform used for an optional custom background.
+    void* backgroundParent = g_bgRectTransform;
+    if (!backgroundParent && g_bgImageComp) {
       static auto comp_h    = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Component");
       static auto fn_get_tr = comp_h.GetMethod("get_transform");
       if (fn_get_tr)
-        logoParent = reinterpret_cast<void* (*)(void*)>(fn_get_tr)(g_bgImageComp);
+        backgroundParent = reinterpret_cast<void* (*)(void*)>(fn_get_tr)(g_bgImageComp);
     }
 
     if (cfg.loader_transition_black) {
-      if (logoParent) {
-        ls::CreateLogoOverlay(logoParent, g_logoGO);
-        ls::CreateCCLogoOverlay(logoParent, g_ccLogoGO);
-      }
       g_spriteApplied = true;
       return;
     }
 
 #ifndef _USE_ORIGINAL_BG
     {
-      if (logoParent && !g_bgOverlayGO) {
+      if (backgroundParent && !g_bgOverlayGO) {
         auto* asset = ls::GetLoadingAsset();
-        if (asset) g_bgOverlayGO = ls::CreateBGOverlay(logoParent, *asset);
+        if (asset) g_bgOverlayGO = ls::CreateBGOverlay(backgroundParent, *asset);
       }
 
       // Preserve the game's background unless the custom replacement is fully
       // constructed and attached. This keeps failures visible but harmless.
       if (!g_bgOverlayGO) {
-        spdlog::warn("[LS] custom transition background unavailable; preserving game background");
+        spdlog::debug("[LS] no custom transition background; preserving game background");
         return;
       }
 
@@ -164,11 +156,6 @@ static void ApplyTransitionCustomization(void* _this)
 
     }
 #endif
-
-    if (logoParent) {
-      ls::CreateLogoOverlay(logoParent, g_logoGO);
-      ls::CreateCCLogoOverlay(logoParent, g_ccLogoGO);
-    }
 
     {
       static auto mb_hR  = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "MonoBehaviour");
@@ -231,8 +218,6 @@ static void TVC_Awake_Hook(auto original, void* _this)
     g_bgImageComp     = nullptr;
     g_bgRectTransform = nullptr;
     g_bgOverlayGO     = nullptr;
-    g_logoGO          = nullptr;
-    g_ccLogoGO        = nullptr;
 
     ApplyTransitionCustomization(_this);
   } catch (...) {}

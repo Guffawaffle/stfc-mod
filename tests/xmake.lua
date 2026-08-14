@@ -2,6 +2,7 @@
 target("stfc-mod-tests")
 do
     set_kind("binary")
+    add_rules("stfc.runtime-identity")
     set_default(false) -- don't build with `xmake` alone; use `xmake build stfc-mod-tests`
     set_languages("c++23")
 
@@ -15,6 +16,7 @@ do
     add_files("../mods/src/config_sidecar.cc")
     add_files("../mods/src/config_schema.cc")
     add_files("../mods/src/diagnostics_file_policy.cc")
+    add_files("../mods/src/runtime_identity.cc")
     add_files("../mods/src/patches/action_queue_repair_config.cc")
     add_files("../mods/src/patches/fleet_notification_scan_policy.cc")
     add_files("../mods/src/patches/live_debug_event_store.cc")
