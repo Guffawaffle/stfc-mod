@@ -147,6 +147,7 @@ jobs:
             --tag "${{ github.ref_name }}" \
             --target "${{ github.sha }}" \
             --repo "${{ github.repository }}" \
+            --require-curated-notes \
             --output release-body.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

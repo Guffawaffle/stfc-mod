@@ -87,7 +87,12 @@ jobs:
           python-version: "3.12"
 
       - name: Validate release and runtime identity contracts
-        run: python -m unittest tests.test_generate_release_manifest tests.test_runtime_identity_policy -v
+        run: >-
+          python -m unittest
+          tests.test_generate_release_manifest
+          tests.test_generate_release_notes
+          tests.test_runtime_identity_policy
+          -v
 
   build-win:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

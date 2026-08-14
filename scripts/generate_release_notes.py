@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate fork release notes from merged PRs instead of raw commit titles."""
+"""Generate player-first fork release notes with traceable PR and issue inventory."""
 
 from __future__ import annotations
 
@@ -15,6 +15,13 @@ from typing import Any
 
 
 STABLE_FORK_TAG_PATTERN = re.compile(r"^v(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)-guffa\.(?P<fork>\d+)$")
+CURATED_NOTES_SUFFIX = ".highlights.md"
+CURATED_NOTES_FIRST_HEADING = "## Highlights"
+GENERATOR_OWNED_HEADINGS = {
+    "## Release Assets",
+    "## Included Changes",
+    "## Technical References",
+}
 
 
 @dataclass(frozen=True)
@@ -162,12 +169,54 @@ def markdown_link(label: str, url: str) -> str:
     return f"[{label}]({url})"
 
 
+def validate_curated_notes(notes: str, source: Path) -> str:
+    normalized = notes.strip()
+    if not normalized:
+        raise RuntimeError(f"curated release notes are empty: {source}")
+
+    lines = normalized.splitlines()
+    if lines[0].strip() != CURATED_NOTES_FIRST_HEADING:
+        raise RuntimeError(f"curated release notes must start with '{CURATED_NOTES_FIRST_HEADING}': {source}")
+
+    for line in lines:
+        heading = line.strip()
+        if heading.startswith("# "):
+            raise RuntimeError(f"curated release notes must not define the release title: {source}")
+        if heading in GENERATOR_OWNED_HEADINGS:
+            raise RuntimeError(f"curated release notes must not define generator-owned heading '{heading}': {source}")
+
+    return normalized
+
+
+def resolve_curated_notes(
+    tag: str,
+    repository_root: Path,
+    explicit_path: str | None,
+    required: bool,
+) -> str:
+    source = (
+        Path(explicit_path).expanduser()
+        if explicit_path
+        else repository_root / "docs" / "release-notes" / f"{tag}{CURATED_NOTES_SUFFIX}"
+    )
+    if not source.is_absolute():
+        source = repository_root / source
+
+    if not source.is_file():
+        if required or explicit_path:
+            raise RuntimeError(f"curated release notes not found: {source}")
+        return ""
+
+    return validate_curated_notes(source.read_text(encoding="utf-8"), source)
+
+
 def render_release_notes(
     tag: str,
     previous_tag: str,
     repo: str,
     prs: list[PullRequest],
     issues: list[Issue],
+    curated_notes: str = "",
 ) -> str:
     readme_url = f"https://github.com/{repo}/blob/{tag}/README.md#whats-different-in-this-fork"
     compare_url = f"https://github.com/{repo}/compare/{previous_tag}...{tag}"
@@ -184,21 +233,35 @@ def render_release_notes(
         "",
         "---",
         "",
-        "### Release Assets",
-        "- `stfc-community-mod.zip` - recommended Windows download",
-        f"- `stfc-community-mod-{tag}.zip` - versioned Windows archive",
-        "- `stfc-community-mod-windows-x64.tar.zst` - Windows archive for launcher/update tooling",
-        "- `stfc-community-mod-macos-universal.tar.zst` - macOS dylib archive for launcher/update tooling",
-        "- `version.dll` - direct drop-in update for existing installs",
-        "- `SHA256SUMS.txt` - optional hash verification for release assets",
-        "",
-        "### Included Changes",
-        f"Compared with {markdown_link(previous_tag, previous_release_url)}.",
-        "",
     ]
 
+    if curated_notes:
+        lines.extend(curated_notes.splitlines())
+        lines.append("")
+
+    lines.extend(
+        [
+            "## Release Assets",
+            "- `stfc-community-mod.zip` - recommended Windows download",
+            f"- `stfc-community-mod-{tag}.zip` - versioned Windows archive",
+            "- `stfc-community-mod-windows-x64.tar.zst` - Windows archive for launcher/update tooling",
+            "- `stfc-community-mod-launcher-win-x64.zip` - packaged Windows launcher",
+            "- `STFCCommunityMod.Launcher.Setup.exe` - Windows launcher installer",
+            "- `stfc-community-mod-macos-universal.tar.zst` - macOS dylib archive for launcher/update tooling",
+            "- `stfc-community-mod-installer.dmg` - macOS installer",
+            "- `version.dll` - direct drop-in update for existing installs",
+            "- `stfc-runtime-manifest.json` - signed-DLL capability and source binding",
+            "- `stfc-community-mod-release-manifest.json` - machine-readable release inventory",
+            "- `SHA256SUMS.txt` - optional hash verification for release assets",
+            "",
+            "## Included Changes",
+            f"Compared with {markdown_link(previous_tag, previous_release_url)}.",
+            "",
+        ]
+    )
+
     if prs:
-        lines.append("#### Merged PRs")
+        lines.append("### Merged PRs")
         for pr in prs:
             issue_suffix = ""
             if pr.issues:
@@ -206,10 +269,10 @@ def render_release_notes(
             lines.append(f"- {markdown_link(f'#{pr.number}', pr.url)} {pr.title}{issue_suffix}")
         lines.append("")
     else:
-        lines.extend(["#### Merged PRs", "- No merged PRs were detected in this release range.", ""])
+        lines.extend(["### Merged PRs", "- No merged PRs were detected in this release range.", ""])
 
     if issues:
-        lines.append("#### Issues Fixed")
+        lines.append("### Issues Fixed")
         for issue in issues:
             via = ", ".join(f"#{number}" for number in issue.prs)
             lines.append(f"- {markdown_link(f'#{issue.number}', issue.url)} {issue.title} (via {via})")
@@ -217,11 +280,9 @@ def render_release_notes(
 
     lines.extend(
         [
-            "### What's Different In This Fork?",
-            f"See the {markdown_link('fork README', readme_url)} for a list of experimental features.",
-            "",
-            "### Compare",
-            f"Full compare: {compare_url}",
+            "## Technical References",
+            f"- See the {markdown_link('fork README', readme_url)} for a list of experimental features.",
+            f"- {markdown_link(f'Full comparison with {previous_tag}', compare_url)}",
             "",
         ]
     )
@@ -236,6 +297,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--previous-tag", default="", help="Previous stable fork tag. Inferred when omitted.")
     parser.add_argument("--repo", default="", help="GitHub repository owner/name. Defaults to current gh repo.")
     parser.add_argument("--pr-limit", type=int, default=200, help="Merged PRs to inspect when matching merge commits.")
+    parser.add_argument(
+        "--curated-notes",
+        default="",
+        help="Player-facing Markdown fragment. Defaults to docs/release-notes/<tag>.highlights.md when present.",
+    )
+    parser.add_argument(
+        "--require-curated-notes",
+        action="store_true",
+        help="Fail when the curated player-facing release-note fragment is missing.",
+    )
     parser.add_argument("--output", default="", help="Write markdown to this path instead of stdout.")
     return parser.parse_args(argv)
 
@@ -247,11 +318,18 @@ def main(argv: list[str]) -> int:
 
     repo = resolve_repository(args.repo or None)
     previous_tag = resolve_previous_tag(args.tag, args.previous_tag or None)
+    repository_root = Path(git("rev-parse", "--show-toplevel"))
+    curated_notes = resolve_curated_notes(
+        args.tag,
+        repository_root,
+        args.curated_notes or None,
+        args.require_curated_notes,
+    )
     target_sha = git("rev-parse", f"{args.target}^{{commit}}")
     commit_order = {sha.lower(): index for index, sha in enumerate(commits_in_range(previous_tag, target_sha))}
     prs = merged_prs_for_commits(repo, commit_order, args.pr_limit)
     issues = issues_for_prs(repo, prs)
-    notes = render_release_notes(args.tag, previous_tag, repo, prs, issues)
+    notes = render_release_notes(args.tag, previous_tag, repo, prs, issues, curated_notes)
 
     if args.output:
         Path(args.output).write_text(notes, encoding="utf-8")
