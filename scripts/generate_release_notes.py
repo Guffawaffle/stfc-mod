@@ -10,18 +10,26 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
+
+from markdown_it import MarkdownIt
+from markdown_it.token import Token
 
 
 STABLE_FORK_TAG_PATTERN = re.compile(r"^v(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)-guffa\.(?P<fork>\d+)$")
 CURATED_NOTES_SUFFIX = ".highlights.md"
 CURATED_NOTES_FIRST_HEADING = "## Highlights"
 GENERATOR_OWNED_HEADINGS = {
-    "## Release Assets",
-    "## Included Changes",
-    "## Technical References",
+    (2, "Release Assets"),
+    (2, "Included Changes"),
+    (2, "Technical References"),
+    (3, "Merged PRs"),
+    (3, "Issues Fixed"),
 }
+HTML_HEADING_PATTERN = re.compile(r"<h[1-6](?:\s[^>]*)?\s*/?>", re.IGNORECASE)
+MARKDOWN = MarkdownIt("commonmark", {"html": True}).enable("strikethrough")
 
 
 @dataclass(frozen=True)
@@ -169,21 +177,105 @@ def markdown_link(label: str, url: str) -> str:
     return f"[{label}]({url})"
 
 
+def inline_visible_text(token: Token) -> str:
+    parts: list[str] = []
+    for child in token.children or []:
+        if child.type in {"text", "code_inline"}:
+            parts.append(child.content)
+        elif child.type in {"softbreak", "hardbreak"}:
+            parts.append(" ")
+        elif child.type == "image":
+            parts.append(child.content)
+    return " ".join("".join(parts).split())
+
+
+def github_heading_text(token: Token) -> str:
+    return " ".join(inline_visible_text(token).replace("~", "").split())
+
+
+def inline_has_player_content(token: Token) -> bool:
+    for child in token.children or []:
+        if child.type == "code_inline" and child.content.strip():
+            return True
+        if child.type == "image" and any(character.isalpha() for character in child.content):
+            return True
+    return any(character.isalpha() for character in inline_visible_text(token))
+
+
+class VisibleHtmlTextParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self.hidden_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() in {"head", "script", "style", "template"}:
+            self.hidden_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in {"head", "script", "style", "template"} and self.hidden_depth:
+            self.hidden_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if not self.hidden_depth:
+            self.parts.append(data)
+
+
+def html_has_player_content(content: str) -> bool:
+    parser = VisibleHtmlTextParser()
+    parser.feed(content)
+    return any(character.isalpha() for character in " ".join(parser.parts))
+
+
 def validate_curated_notes(notes: str, source: Path) -> str:
     normalized = notes.strip()
     if not normalized:
         raise RuntimeError(f"curated release notes are empty: {source}")
 
-    lines = normalized.splitlines()
-    if lines[0].strip() != CURATED_NOTES_FIRST_HEADING:
+    tokens = MARKDOWN.parse(normalized)
+    if (
+        len(tokens) < 3
+        or tokens[0].type != "heading_open"
+        or tokens[0].tag != "h2"
+        or tokens[0].markup != "##"
+        or tokens[1].type != "inline"
+        or inline_visible_text(tokens[1]) != "Highlights"
+    ):
         raise RuntimeError(f"curated release notes must start with '{CURATED_NOTES_FIRST_HEADING}': {source}")
 
-    for line in lines:
-        heading = line.strip()
-        if heading.startswith("# "):
+    heading_inline_indexes: set[int] = set()
+    for index, token in enumerate(tokens):
+        if token.type in {"html_block", "html_inline"}:
+            if HTML_HEADING_PATTERN.search(token.content):
+                raise RuntimeError(f"curated release notes must not use raw HTML headings: {source}")
+            if token.content.count("<!--") > token.content.count("-->"):
+                raise RuntimeError(f"curated release notes contain an unterminated HTML comment: {source}")
+        for child in token.children or []:
+            if child.type == "html_inline" and HTML_HEADING_PATTERN.search(child.content):
+                raise RuntimeError(f"curated release notes must not use raw HTML headings: {source}")
+        if token.type != "heading_open":
+            continue
+
+        level = int(token.tag[1:])
+        inline_index = index + 1
+        if inline_index >= len(tokens) or tokens[inline_index].type != "inline":
+            raise RuntimeError(f"curated release notes contain a malformed heading: {source}")
+        heading_inline_indexes.add(inline_index)
+        text = github_heading_text(tokens[inline_index])
+        if level == 1:
             raise RuntimeError(f"curated release notes must not define the release title: {source}")
-        if heading in GENERATOR_OWNED_HEADINGS:
+        if (level, text) in GENERATOR_OWNED_HEADINGS:
+            heading = f"{'#' * level} {text}"
             raise RuntimeError(f"curated release notes must not define generator-owned heading '{heading}': {source}")
+
+    visible_body = any(
+        (token.type in {"fence", "code_block"} and bool(token.content.strip()))
+        or (token.type == "inline" and index not in heading_inline_indexes and inline_has_player_content(token))
+        or (token.type == "html_block" and html_has_player_content(token.content))
+        for index, token in enumerate(tokens)
+    )
+    if not visible_body:
+        raise RuntimeError(f"curated release notes contain no player-facing content: {source}")
 
     return normalized
 

@@ -7,7 +7,8 @@ Release notes are player-facing product communication, not a raw commit or pull-
 
 ## Curated Fragment
 
-Before creating a stable fork tag, add:
+Every tag matched by the release workflow (`v*`) requires a curated fragment, including stable, RC, alpha, beta,
+and legacy tag formats. Before creating the tag, add:
 
 ```text
 docs/release-notes/<tag>.highlights.md
@@ -30,7 +31,8 @@ Do not repeat the release title, disclaimer, asset inventory, merged pull reques
 ## Release Flow
 
 1. Prepare and review the curated fragment before tagging.
-2. Run `scripts/generate_release_notes.py` locally with `--require-curated-notes`.
+2. Run `python -m pip install --require-hashes --requirement scripts/requirements-release.txt`, then run
+   `scripts/generate_release_notes.py` locally with `--require-curated-notes`.
 3. Smoke the exact successful production artifact and acknowledge it through release preflight.
 4. Push the tag. The release workflow fails if the curated fragment is missing or malformed.
 5. After publication, verify uploaded hashes, signatures, and manifests.

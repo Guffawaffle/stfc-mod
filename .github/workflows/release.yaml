@@ -30,6 +30,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scripts/requirements-release.txt
+
+      - name: Install release tooling dependencies
+        run: python -m pip install --require-hashes --requirement scripts/requirements-release.txt
+
       # ✅ Step 1 — Check if Build succeeded for this same commit
       - name: Wait for matching Build success
         id: check_build
@@ -143,7 +153,7 @@ jobs:
 
       - name: Generate release body
         run: |
-          python3 scripts/generate_release_notes.py \
+          python scripts/generate_release_notes.py \
             --tag "${{ github.ref_name }}" \
             --target "${{ github.sha }}" \
             --repo "${{ github.repository }}" \
