@@ -62,7 +62,7 @@ rule("stfc.runtime-identity")
         local function dirty_source_fingerprint(head_commit)
             local parts = {
                 "base=" .. head_commit,
-                git_raw_output({"diff", "--binary", "--no-ext-diff", head_commit, "--"})
+                git_raw_output({"diff", "--binary", "--no-ext-diff", "--ignore-submodules=dirty", head_commit, "--"})
             }
             local untracked = git_raw_output({"ls-files", "-z", "--others", "--exclude-standard"})
             for filename in untracked:gmatch("([^%z]+)%z") do
@@ -73,7 +73,9 @@ rule("stfc.runtime-identity")
         end
 
         local git_head = git_output({"rev-parse", "HEAD"}):lower()
-        local git_status = git_raw_output({"status", "--porcelain=v1", "-z", "--untracked-files=all"})
+        local git_status = git_raw_output({
+            "status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignore-submodules=dirty"
+        })
         if git_head ~= "" and (not git_head:match("^[0-9a-f]+$") or #git_head ~= 40) then
             raise("[runtime-identity] checked-out HEAD is not a 40-character commit SHA")
         end

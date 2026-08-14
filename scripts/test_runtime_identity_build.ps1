@@ -9,6 +9,7 @@ if ($worktreeStatus) {
 }
 $badCommit = "0000000000000000000000000000000000000000"
 $probePath = Join-Path $repositoryRoot "runtime_identity_dirty_probe.untracked"
+$submoduleProbePath = Join-Path $repositoryRoot "macos-launcher/deps/PLzmaSDK/runtime_identity_ci_probe.untracked"
 $headerPath = Join-Path $repositoryRoot "build/.gens/mods/windows/x64/release/rules/runtime_identity/runtime_identity.generated.h"
 $baseArguments = @(
   "f", "-p", "windows", "-m", "release", "-y",
@@ -93,6 +94,16 @@ Assert-ConfigureFails `
   -Name "malformed source identity" `
   -ExpectedMessage "source identity must be git:<40-hex-sha> or dirty-sha256:<64-hex-hash>" `
   -IdentityArguments @("--stfc_source_state_id=arbitrary", "--stfc_base_commit=$head")
+
+try {
+  [System.IO.File]::WriteAllText($submoduleProbePath, "submodule build-output probe")
+  Assert-ConfigureSucceeds `
+    -Name "dirty submodule worktree does not alter source identity" `
+    -IdentityArguments @("--stfc_source_state_id=git:$head", "--stfc_base_commit=$head")
+}
+finally {
+  Remove-Item -LiteralPath $submoduleProbePath -Force -ErrorAction SilentlyContinue
+}
 
 try {
   [System.IO.File]::WriteAllText($probePath, "dirty source identity probe")
