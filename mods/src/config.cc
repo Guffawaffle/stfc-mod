@@ -20,6 +20,7 @@
 #include "patches/notification_policy.h"
 #include "patches/sync_transport_policy.h"
 #include "prime/KeyCode.h"
+#include "runtime_identity.h"
 #include "str_utils.h"
 #include "testable_functions.h"
 #include "version.h"
@@ -274,7 +275,7 @@ void Config::Save(const toml::table& config, const std::string_view filename, bo
     config_file << "#######################################################################\n";
     config_file << "####                                                               ####\n";
     config_file << "#### NOTE: This file is not the configuration file that is used    ####\n";
-    config_file << "####       by the STFC Community Mod.  It is provided to help      ####\n";
+    config_file << "####       by " << runtime_identity::Current().display_name << ". It is provided to help       ####\n";
     config_file << "####       see what configuration is being used by the runtime     ####\n";
     config_file << "####       and any desired settings should be copied to the same   ####\n";
     config_file << "####       section in: " << defaultFile << "\n";
@@ -1931,6 +1932,26 @@ void Config::Load()
     parsed_input->insert_or_assign("binding_conflicts", std::move(*conflicts));
   }
 
+  const auto& identity = runtime_identity::Current();
+  toml::table identity_runtime;
+  identity_runtime.insert_or_assign("distribution_id", std::string(identity.distribution_id));
+  identity_runtime.insert_or_assign("display_name", std::string(identity.display_name));
+  identity_runtime.insert_or_assign("downstream_version", std::string(identity.downstream_version));
+  identity_runtime.insert_or_assign("unofficial_status", std::string(identity.unofficial_label));
+  identity_runtime.insert_or_assign("build_class", std::string(identity.build_class));
+  identity_runtime.insert_or_assign("build_class_label", std::string(identity.build_class_label));
+  identity_runtime.insert_or_assign("source_state_id", std::string(identity.source_state_id));
+  identity_runtime.insert_or_assign("base_commit", std::string(identity.base_commit));
+  identity_runtime.insert_or_assign("upstream_base", std::string(identity.upstream_base));
+  identity_runtime.insert_or_assign("source_reproducible", identity.reproducible);
+  identity_runtime.insert_or_assign("support_identity", runtime_identity::SupportIdentity(identity));
+  if (identity.build_class == "test") {
+    identity_runtime.insert_or_assign("test_target", std::string(identity.test_target));
+    identity_runtime.insert_or_assign("test_expiry", std::string(identity.test_expiry));
+    identity_runtime.insert_or_assign("support_boundary", std::string(identity.support_boundary));
+  }
+  parsed.insert_or_assign("runtime_identity", std::move(identity_runtime));
+
   message.str("");
   message << "Creating " << File::Vars() << " (final config file)";
   spdlog::info(message.str());
@@ -1946,18 +1967,8 @@ void Config::Load()
   Config::Save(parsed, File::Vars());
 
   std::cout << "\n\n-----------------------------\n\n"
-            << parsed << "\n\n-----------------------------\nVersion "
-
-#if VERSION_PATCH
-            << "Loaded beta version " << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_REVISION << " (Patch "
-            << VERSION_PATCH << ")\n\n"
-            << "NOTE: Beta versions may have unexpected bugs and issues.\n\n"
-#else
-            << "Loaded beta version " << VERSION_MAJOR << "." << VERSION_MINOR << "." << VERSION_REVISION
-            << " (Release)"
-#endif
-
-            << "\n\nPlease see https://github.com/netniv/stfc-mod for latest configuration help, examples and future "
-               "releases\n"
-            << "or visit the STFC Community Mod discord server at https://discord.gg/PrpHgs7Vjs\n\n";
+            << parsed << "\n\n-----------------------------\nSupport identity\n"
+            << runtime_identity::SupportIdentity(identity)
+            << "\n\nDownstream project: https://github.com/Guffawaffle/stfc-mod"
+            << "\nUpstream project and contributor credit: https://github.com/netniv/stfc-mod\n\n";
 }

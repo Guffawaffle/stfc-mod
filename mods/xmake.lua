@@ -9,8 +9,17 @@ target("mods")
 do
     add_ldflags("-v")
     set_kind("static")
+    add_rules("stfc.runtime-identity")
 
     local public_release = has_config("stfc_public_release")
+    local embedded_loading = get_config("bg_image")
+    local force_original_bg = get_config("use_original_bg")
+    if not force_original_bg and embedded_loading and embedded_loading ~= "" then
+        add_defines("STFC_HAS_EMBEDDED_LOADING_IMAGE=1")
+    else
+        add_defines("STFC_HAS_EMBEDDED_LOADING_IMAGE=0")
+    end
+
     -- Regenerate embedded image headers before each build
     before_build(function(target)
         local function embed_image(input_file, output_file, symbol)
@@ -94,31 +103,16 @@ do
             )
         end
 
-        local assets = path.join(target:scriptdir(), "../assets")
         local outdir  = path.join(target:scriptdir(), "src/patches/parts")
 
         local loading = get_config("bg_image")
-        if not loading or loading == "" then
-            loading = path.join(assets, "loadingscreen.png")
+        if not get_config("use_original_bg") and loading and loading ~= "" then
+            embed_image(
+                loading,
+                path.join(outdir, "embedded_loading_image.h"),
+                "g_embeddedLoadingImage"
+            )
         end
-
-        embed_image(
-            loading,
-            path.join(outdir, "embedded_loading_image.h"),
-            "g_embeddedLoadingImage"
-        )
-
-        embed_image(
-            path.join(assets, "stfc-mod-logo.png"),
-            path.join(outdir, "embedded_logo_image.h"),
-            "g_embeddedLogoImage"
-        )
-
-        embed_image(
-            path.join(assets, "official-cc-logo.png"),
-            path.join(outdir, "embedded_cc_logo_image.h"),
-            "g_embeddedCCLogoImage"
-        )
     end)
 
     -- C++ sources

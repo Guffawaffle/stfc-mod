@@ -9,16 +9,17 @@
 -- ─── Project Settings ────────────────────────────────────────────────────────
 
 set_project("stfc-community-mod")
+includes("scripts/xmake/runtime_identity.lua")
 
 option("bg_image")
     set_showmenu(true)
-    set_description("Path to a PNG to embed as the loading screen background (regenerates embedded_loading_image.h)")
+    set_description("Optional PNG to embed as a custom loading background; omitted builds preserve the game background")
     set_default("")
 option_end()
 
 option("use_original_bg")
     set_showmenu(true)
-    set_description("Keep the original in-game loading screen background (logos remain enabled)")
+    set_description("Force the original in-game loading background and ignore custom background images")
     set_default(false)
 option_end()
 
@@ -72,14 +73,41 @@ option("stfc_release_tag")
     set_description("Optional release tag to expose in runtime diagnostics, sync payloads, and product metadata")
 option_end()
 
-local function c_string_define(value)
-    return value:gsub("\\", "\\\\"):gsub("\"", "\\\"")
-end
+option("stfc_build_class")
+    set_default("local")
+    set_showmenu(true)
+    set_description("Runtime identity class: release, test, development, or local")
+option_end()
 
-local stfc_release_tag = get_config("stfc_release_tag")
-if stfc_release_tag and stfc_release_tag ~= "" then
-    add_defines("STFC_RELEASE_TAG=\"" .. c_string_define(stfc_release_tag) .. "\"")
-end
+option("stfc_source_state_id")
+    set_default("")
+    set_showmenu(true)
+    set_description("Exact source identity (for example git:<sha> or dirty-sha256:<fingerprint>)")
+option_end()
+
+option("stfc_base_commit")
+    set_default("")
+    set_showmenu(true)
+    set_description("Downstream base commit for runtime provenance")
+option_end()
+
+option("stfc_test_target")
+    set_default("")
+    set_showmenu(true)
+    set_description("Target repository and PR/candidate for an unofficial test build")
+option_end()
+
+option("stfc_test_expiry")
+    set_default("")
+    set_showmenu(true)
+    set_description("Expiry or supersession condition for an unofficial test build")
+option_end()
+
+option("stfc_support_boundary")
+    set_default("")
+    set_showmenu(true)
+    set_description("Support boundary for an unofficial test build")
+option_end()
 
 -- ─── Local / Vendored Packages ───────────────────────────────────────────────
 

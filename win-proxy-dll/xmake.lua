@@ -8,6 +8,7 @@
 target("stfc-community-mod")
 do
     set_kind("shared")
+    add_rules("stfc.runtime-identity")
     add_files("src/*.cc")
     add_files("src/*.rc")
     add_files("src/version.def")

@@ -20,6 +20,27 @@ on:
     branches: ["main", "dev"]
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+    inputs:
+      build_class:
+        description: Runtime identity class for this build
+        required: true
+        default: development
+        type: choice
+        options:
+          - development
+          - test
+      test_target:
+        description: Repository, PR, or candidate exercised by a test build
+        required: false
+        type: string
+      test_expiry:
+        description: Expiry or supersession condition for a test build
+        required: false
+        type: string
+      support_boundary:
+        description: Support owner or channel for a test build
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -29,6 +50,13 @@ env:
   XMAKE_PACKAGE_CACHE_VERSION: v1
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
   DOTNET_NOLOGO: true
+  STFC_CI_BUILD_CLASS: ${{ github.ref_type == 'tag' && 'release' || (github.event_name == 'workflow_dispatch' && inputs.build_class || 'development') }}
+  STFC_CI_SOURCE_STATE_ID: git:${{ github.sha }}
+  STFC_CI_BASE_COMMIT: ${{ github.sha }}
+  STFC_CI_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+  STFC_CI_TEST_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.test_target || '' }}
+  STFC_CI_TEST_EXPIRY: ${{ github.event_name == 'workflow_dispatch' && inputs.test_expiry || '' }}
+  STFC_CI_SUPPORT_BOUNDARY: ${{ github.event_name == 'workflow_dispatch' && inputs.support_boundary || '' }}
 
 # actions/cache@v5 uses Node.js 24 and requires Actions Runner 2.327.1+.
 # Every job in this workflow selects a GitHub-hosted runner label.
@@ -58,8 +86,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Validate release manifest fixtures
-        run: python -m unittest tests.test_generate_release_manifest -v
+      - name: Validate release and runtime identity contracts
+        run: python -m unittest tests.test_generate_release_manifest tests.test_runtime_identity_policy -v
 
   build-win:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -90,15 +118,27 @@ jobs:
           restore-keys: |
             xmake-packages-${{ env.XMAKE_PACKAGE_CACHE_VERSION }}-win-${{ runner.arch }}-
 
+      - name: Test runtime identity build matrix
+        shell: pwsh
+        run: ./scripts/test_runtime_identity_build.ps1
+
       - name: Configure
         shell: pwsh
         run: |
           $args = @('f', '-m', 'release', '-y')
+          $args += "--stfc_build_class=$env:STFC_CI_BUILD_CLASS"
+          $args += "--stfc_source_state_id=$env:STFC_CI_SOURCE_STATE_ID"
+          $args += "--stfc_base_commit=$env:STFC_CI_BASE_COMMIT"
           if ('${{ github.event_name }}' -eq 'push' -and ('${{ github.ref }}' -eq 'refs/heads/main' -or '${{ github.ref_type }}' -eq 'tag')) {
             $args += '--stfc_public_release=y'
           }
-          if ('${{ github.ref_type }}' -eq 'tag') {
-            $args += '--stfc_release_tag=${{ github.ref_name }}'
+          if ($env:STFC_CI_RELEASE_TAG) {
+            $args += "--stfc_release_tag=$env:STFC_CI_RELEASE_TAG"
+          }
+          if ($env:STFC_CI_BUILD_CLASS -eq 'test') {
+            $args += "--stfc_test_target=$env:STFC_CI_TEST_TARGET"
+            $args += "--stfc_test_expiry=$env:STFC_CI_TEST_EXPIRY"
+            $args += "--stfc_support_boundary=$env:STFC_CI_SUPPORT_BOUNDARY"
           }
           xmake @args
 
@@ -409,11 +449,19 @@ jobs:
         shell: bash
         run: |
           args=(f -p macosx -a arm64 -m release -y --target_minver=13.5)
+          args+=(--stfc_build_class="$STFC_CI_BUILD_CLASS")
+          args+=(--stfc_source_state_id="$STFC_CI_SOURCE_STATE_ID")
+          args+=(--stfc_base_commit="$STFC_CI_BASE_COMMIT")
           if [[ "${{ github.event_name }}" == "push" && ( "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref_type }}" == "tag" ) ]]; then
             args+=(--stfc_public_release=y)
           fi
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            args+=(--stfc_release_tag=${{ github.ref_name }})
+          if [[ -n "$STFC_CI_RELEASE_TAG" ]]; then
+            args+=(--stfc_release_tag="$STFC_CI_RELEASE_TAG")
+          fi
+          if [[ "$STFC_CI_BUILD_CLASS" == "test" ]]; then
+            args+=(--stfc_test_target="$STFC_CI_TEST_TARGET")
+            args+=(--stfc_test_expiry="$STFC_CI_TEST_EXPIRY")
+            args+=(--stfc_support_boundary="$STFC_CI_SUPPORT_BOUNDARY")
           fi
           xmake "${args[@]}"
 
@@ -424,11 +472,19 @@ jobs:
         shell: bash
         run: |
           args=(f -p macosx -a x86_64 -m release -y --target_minver=13.5)
+          args+=(--stfc_build_class="$STFC_CI_BUILD_CLASS")
+          args+=(--stfc_source_state_id="$STFC_CI_SOURCE_STATE_ID")
+          args+=(--stfc_base_commit="$STFC_CI_BASE_COMMIT")
           if [[ "${{ github.event_name }}" == "push" && ( "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref_type }}" == "tag" ) ]]; then
             args+=(--stfc_public_release=y)
           fi
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            args+=(--stfc_release_tag=${{ github.ref_name }})
+          if [[ -n "$STFC_CI_RELEASE_TAG" ]]; then
+            args+=(--stfc_release_tag="$STFC_CI_RELEASE_TAG")
+          fi
+          if [[ "$STFC_CI_BUILD_CLASS" == "test" ]]; then
+            args+=(--stfc_test_target="$STFC_CI_TEST_TARGET")
+            args+=(--stfc_test_expiry="$STFC_CI_TEST_EXPIRY")
+            args+=(--stfc_support_boundary="$STFC_CI_SUPPORT_BOUNDARY")
           fi
           xmake "${args[@]}"
 
@@ -439,11 +495,19 @@ jobs:
         shell: bash
         run: |
           args=(f -p macosx -a arm64 -m release -y --target_minver=13.5)
+          args+=(--stfc_build_class="$STFC_CI_BUILD_CLASS")
+          args+=(--stfc_source_state_id="$STFC_CI_SOURCE_STATE_ID")
+          args+=(--stfc_base_commit="$STFC_CI_BASE_COMMIT")
           if [[ "${{ github.event_name }}" == "push" && ( "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref_type }}" == "tag" ) ]]; then
             args+=(--stfc_public_release=y)
           fi
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            args+=(--stfc_release_tag=${{ github.ref_name }})
+          if [[ -n "$STFC_CI_RELEASE_TAG" ]]; then
+            args+=(--stfc_release_tag="$STFC_CI_RELEASE_TAG")
+          fi
+          if [[ "$STFC_CI_BUILD_CLASS" == "test" ]]; then
+            args+=(--stfc_test_target="$STFC_CI_TEST_TARGET")
+            args+=(--stfc_test_expiry="$STFC_CI_TEST_EXPIRY")
+            args+=(--stfc_support_boundary="$STFC_CI_SUPPORT_BOUNDARY")
           fi
           xmake "${args[@]}"
           xmake -r -y macOSLauncher

@@ -23,6 +23,7 @@
 #include "patches/sync_payload_builders.h"
 #include "patches/sync_scheduler.h"
 #include "patches/sync_transport.h"
+#include "runtime_identity.h"
 #include "version.h"
 
 #include <il2cpp/il2cpp-functions.h>
@@ -200,7 +201,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::set_level(log_level);
   spdlog::flush_on(log_level);
 
-  spdlog::info("Initializing STFC Community Mod ({})", VER_RUNTIME_VERSION_STR);
+  spdlog::info("Initializing {}", runtime_identity::ShortRuntimeLabel());
+  spdlog::info("Support identity: {}", runtime_identity::SupportIdentity());
   spdlog::info("");
   if (File::hasCustomNames()) {
     spdlog::info("Using custom names");
@@ -387,12 +389,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 
   spdlog::info("");
 
-#if VERSION_PATCH
-  spdlog::info("Installed beta version {} (base {}.{}.{} patch {})", VER_RUNTIME_VERSION_STR, VERSION_MAJOR,
-               VERSION_MINOR, VERSION_REVISION, VERSION_PATCH);
-#else
-  spdlog::info("Installed release version {}", VER_RUNTIME_VERSION_STR);
-#endif
+  spdlog::info("Installed {}", runtime_identity::ShortRuntimeLabel());
 
   spdlog::info("");
   spdlog::info("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
