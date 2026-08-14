@@ -2326,7 +2326,7 @@
     {
       "path": "graphics.loader_enabled",
       "title": "Loader Enabled",
-      "description": "Replace LoginSequence background. Default: true.",
+      "description": "Apply an explicitly configured custom LoginSequence background. Default: true.",
       "category": "graphics",
       "control": "scalar",
       "valueType": {
@@ -2350,24 +2350,24 @@
       },
       "presentation": {
         "label": "Loader enabled",
-        "help": "Replace LoginSequence background.",
+        "help": "Apply an explicitly configured custom LoginSequence background.",
         "group": "Graphics",
         "searchTerms": [
           "graphics.loader_enabled",
           "Loader Enabled",
-          "Replace LoginSequence background. Default: true.",
+          "Apply an explicitly configured custom LoginSequence background. Default: true.",
           "graphics"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
         "accessibleName": "Loader enabled",
-        "accessibleHelp": "Replace LoginSequence background. Applies: Next launch."
+        "accessibleHelp": "Apply an explicitly configured custom LoginSequence background. Applies: Next launch."
       }
     },
     {
       "path": "graphics.loader_image",
       "title": "Loader Image",
-      "description": "Optional custom loading image path (empty = embedded fallback). Default: empty.",
+      "description": "Optional custom image path; empty preserves game artwork unless the builder embedded an image. Default: empty.",
       "category": "graphics",
       "control": "scalar",
       "valueType": {
@@ -2391,24 +2391,24 @@
       },
       "presentation": {
         "label": "Loader image",
-        "help": "Optional custom loading image path (empty = embedded fallback).",
+        "help": "Optional custom image path; empty preserves game artwork unless the builder embedded an image.",
         "group": "Graphics",
         "searchTerms": [
           "graphics.loader_image",
           "Loader Image",
-          "Optional custom loading image path (empty = embedded fallback). Default: empty.",
+          "Optional custom image path; empty preserves game artwork unless the builder embedded an image. Default: empty.",
           "graphics"
         ],
         "editorWidth": "wide",
         "applyTiming": "Next launch",
         "accessibleName": "Loader image",
-        "accessibleHelp": "Optional custom loading image path (empty = embedded fallback). Applies: Next launch."
+        "accessibleHelp": "Optional custom image path; empty preserves game artwork unless the builder embedded an image. Applies: Next launch."
       }
     },
     {
       "path": "graphics.loader_logo_scale",
       "title": "Loader Logo Scale",
-      "description": "Scale multiplier for loading-screen logos. Default: 1.0.",
+      "description": "Deprecated compatibility setting; downstream builds no longer render a loading-screen logo.",
       "category": "graphics",
       "control": "scalar",
       "valueType": {
@@ -2432,18 +2432,18 @@
       },
       "presentation": {
         "label": "Loader logo scale",
-        "help": "Scale multiplier for loading-screen logos.",
+        "help": "Deprecated compatibility setting; downstream builds no longer render a loading-screen logo.",
         "group": "Graphics",
         "searchTerms": [
           "graphics.loader_logo_scale",
           "Loader Logo Scale",
-          "Scale multiplier for loading-screen logos. Default: 1.0.",
+          "Deprecated compatibility setting; downstream builds no longer render a loading-screen logo.",
           "graphics"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
         "accessibleName": "Loader logo scale",
-        "accessibleHelp": "Scale multiplier for loading-screen logos. Applies: Next launch."
+        "accessibleHelp": "Deprecated compatibility setting; downstream builds no longer render a loading-screen logo. Applies: Next launch."
       }
     },
     {
@@ -2490,7 +2490,7 @@
     {
       "path": "graphics.loader_transition",
       "title": "Loader Transition",
-      "description": "Replace TVC/SlideShow backgrounds. Default: true.",
+      "description": "Apply an explicitly configured custom TVC/SlideShow background. Default: true.",
       "category": "graphics",
       "control": "scalar",
       "valueType": {
@@ -2514,24 +2514,24 @@
       },
       "presentation": {
         "label": "Loader transition",
-        "help": "Replace TVC/SlideShow backgrounds.",
+        "help": "Apply an explicitly configured custom TVC/SlideShow background.",
         "group": "Graphics",
         "searchTerms": [
           "graphics.loader_transition",
           "Loader Transition",
-          "Replace TVC/SlideShow backgrounds. Default: true.",
+          "Apply an explicitly configured custom TVC/SlideShow background. Default: true.",
           "graphics"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
         "accessibleName": "Loader transition",
-        "accessibleHelp": "Replace TVC/SlideShow backgrounds. Applies: Next launch."
+        "accessibleHelp": "Apply an explicitly configured custom TVC/SlideShow background. Applies: Next launch."
       }
     },
     {
       "path": "graphics.loader_transition_black",
       "title": "Loader Transition Black",
-      "description": "Use the game's black transition background instead of the custom image. Default: false.",
+      "description": "Use the game's black transition background instead of a configured custom image. Default: false.",
       "category": "graphics",
       "control": "scalar",
       "valueType": {
@@ -2555,18 +2555,18 @@
       },
       "presentation": {
         "label": "Loader transition black",
-        "help": "Use the game's black transition background instead of the custom image.",
+        "help": "Use the game's black transition background instead of a configured custom image.",
         "group": "Graphics",
         "searchTerms": [
           "graphics.loader_transition_black",
           "Loader Transition Black",
-          "Use the game's black transition background instead of the custom image. Default: false.",
+          "Use the game's black transition background instead of a configured custom image. Default: false.",
           "graphics"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
         "accessibleName": "Loader transition black",
-        "accessibleHelp": "Use the game's black transition background instead of the custom image. Applies: Next launch."
+        "accessibleHelp": "Use the game's black transition background instead of a configured custom image. Applies: Next launch."
       }
     },
     {

@@ -3,6 +3,7 @@
 #include <doctest/doctest.h>
 
 #include "runtime_identity.h"
+#include "version.h"
 
 #include <string>
 
@@ -17,6 +18,11 @@ TEST_CASE("canonical runtime identity is unmistakably downstream")
   CHECK(support.find("distribution=guffawaffle.stfc-community-mod") != std::string::npos);
   CHECK(support.find("source=") != std::string::npos);
   CHECK(support.find("upstream=netniV/stfc-mod@v1.1.4#") != std::string::npos);
+}
+
+TEST_CASE("runtime and binary metadata expose the same support identity")
+{
+  CHECK(runtime_identity::SupportIdentity() == VER_SUPPORT_IDENTITY_STR);
 }
 
 TEST_CASE("test support identity includes target expiry and support boundary")

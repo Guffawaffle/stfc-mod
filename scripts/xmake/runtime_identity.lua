@@ -59,18 +59,24 @@ rule("stfc.runtime-identity")
             return trimmed(git_raw_output(arguments))
         end
 
-        local function dirty_source_fingerprint(base_commit)
-            local parts = {"base=" .. base_commit, git_raw_output({"diff", "--binary", "--no-ext-diff", "HEAD", "--"})}
-            local untracked = git_output({"ls-files", "--others", "--exclude-standard"})
-            for filename in untracked:gmatch("[^\r\n]+") do
+        local function dirty_source_fingerprint(head_commit)
+            local parts = {
+                "base=" .. head_commit,
+                git_raw_output({"diff", "--binary", "--no-ext-diff", head_commit, "--"})
+            }
+            local untracked = git_raw_output({"ls-files", "-z", "--others", "--exclude-standard"})
+            for filename in untracked:gmatch("([^%z]+)%z") do
                 local blob_hash = git_output({"hash-object", "--no-filters", "--", filename})
                 table.insert(parts, "untracked=" .. filename .. ":" .. blob_hash)
             end
             return hash.sha256(bytes(table.concat(parts, "\n")))
         end
 
-        local git_head = git_output({"rev-parse", "HEAD"})
-        local git_status = git_output({"status", "--porcelain=v1", "--untracked-files=all"})
+        local git_head = git_output({"rev-parse", "HEAD"}):lower()
+        local git_status = git_raw_output({"status", "--porcelain=v1", "-z", "--untracked-files=all"})
+        if git_head ~= "" and (not git_head:match("^[0-9a-f]+$") or #git_head ~= 40) then
+            raise("[runtime-identity] checked-out HEAD is not a 40-character commit SHA")
+        end
 
         local base_commit = trimmed(get_config("stfc_base_commit"))
         if base_commit == "" then
@@ -80,17 +86,20 @@ rule("stfc.runtime-identity")
             raise("[runtime-identity] stfc_base_commit must be a 40-character commit SHA")
         end
         base_commit = base_commit:lower()
+        if git_head ~= "" and base_commit ~= git_head then
+            raise("[runtime-identity] stfc_base_commit must match checked-out HEAD")
+        end
 
         local source_state_id = trimmed(get_config("stfc_source_state_id"))
         local source_reproducible = false
         if source_state_id == "" then
-            if base_commit == "" then
+            if git_head ~= "" and git_status ~= "" then
+                source_state_id = "dirty-sha256:" .. dirty_source_fingerprint(git_head)
+            elseif base_commit == "" then
                 source_state_id = "unavailable"
-            elseif git_status == "" then
+            else
                 source_state_id = "git:" .. base_commit
                 source_reproducible = true
-            else
-                source_state_id = "dirty-sha256:" .. dirty_source_fingerprint(base_commit)
             end
         else
             local source_commit = source_state_id:match("^git:([0-9a-fA-F]+)$")
@@ -98,10 +107,40 @@ rule("stfc.runtime-identity")
                 if #source_commit ~= 40 then
                     raise("[runtime-identity] git source identity must contain a 40-character commit SHA")
                 end
-                source_state_id = "git:" .. source_commit:lower()
+                source_commit = source_commit:lower()
+                if git_head ~= "" and git_status ~= "" then
+                    raise("[runtime-identity] a dirty Git checkout cannot claim a clean git source identity")
+                end
+                if git_head ~= "" and source_commit ~= git_head then
+                    raise("[runtime-identity] git source identity must match checked-out HEAD")
+                end
+                if base_commit == "" then
+                    base_commit = source_commit
+                elseif base_commit ~= source_commit then
+                    raise("[runtime-identity] git source identity and base commit must match")
+                end
+                source_state_id = "git:" .. source_commit
                 source_reproducible = true
             elseif source_state_id:match("^git:") then
                 raise("[runtime-identity] git source identity must contain a 40-character hexadecimal commit SHA")
+            else
+                local dirty_fingerprint = source_state_id:match("^dirty%-sha256:([0-9a-fA-F]+)$")
+                if not dirty_fingerprint or #dirty_fingerprint ~= 64 then
+                    raise("[runtime-identity] source identity must be git:<40-hex-sha> or dirty-sha256:<64-hex-hash>")
+                end
+                dirty_fingerprint = dirty_fingerprint:lower()
+                if base_commit == "" then
+                    raise("[runtime-identity] dirty source identity requires --stfc_base_commit")
+                end
+                if git_head ~= "" then
+                    if git_status == "" then
+                        raise("[runtime-identity] a clean Git checkout cannot claim a dirty source identity")
+                    end
+                    if dirty_fingerprint ~= dirty_source_fingerprint(git_head) then
+                        raise("[runtime-identity] dirty source identity must match the checked-out worktree")
+                    end
+                end
+                source_state_id = "dirty-sha256:" .. dirty_fingerprint
             end
         end
 
@@ -134,6 +173,12 @@ rule("stfc.runtime-identity")
             raise("[runtime-identity] test metadata is only valid with --stfc_build_class=test")
         end
 
+        local test_support_fields = ""
+        if build_class == "test" then
+            test_support_fields = " | target=" .. test_target .. " | expires=" .. test_expiry
+                .. " | support=" .. support_boundary
+        end
+
         local function string_define(name, value)
             local literal = json.encode(value):gsub("\\/", "/")
             return "#define " .. name .. " " .. literal
@@ -153,6 +198,7 @@ rule("stfc.runtime-identity")
             string_define("STFC_TEST_TARGET", test_target),
             string_define("STFC_TEST_EXPIRY", test_expiry),
             string_define("STFC_SUPPORT_BOUNDARY", support_boundary),
+            string_define("STFC_TEST_SUPPORT_FIELDS", test_support_fields),
             string_define("STFC_SOURCE_REPRODUCIBLE_STR", source_reproducible and "true" or "false"),
             "#define STFC_SOURCE_REPRODUCIBLE " .. (source_reproducible and "1" or "0")
         }

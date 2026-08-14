@@ -83,20 +83,20 @@ namespace Graphics
   constexpr auto zoom = 5000;
   /// Scale the system backdrop to hide edge void at extreme zoom. 1.0 = off. Default: 2.0.
   constexpr auto fr_scale = 2.0;
-  /// Replace LoginSequence background. Default: true.
+  /// Apply an explicitly configured custom LoginSequence background. Default: true.
   constexpr bool loader_enabled = true;
-  /// Replace TVC/SlideShow backgrounds. Default: true.
+  /// Apply an explicitly configured custom TVC/SlideShow background. Default: true.
   constexpr bool loader_transition = true;
 #ifdef _USE_ORIGINAL_BG
   /// Preserve the game's transition background when requested at build time.
   constexpr bool loader_transition_black = true;
 #else
-  /// Use the game's black transition background instead of the custom image. Default: false.
+  /// Use the game's black transition background instead of a configured custom image. Default: false.
   constexpr bool loader_transition_black = false;
 #endif
-  /// Optional custom loading image path (empty = embedded fallback). Default: empty.
+  /// Optional custom image path; empty preserves game artwork unless the builder embedded an image. Default: empty.
   constexpr const char* loader_image = "";
-  /// Scale multiplier for loading-screen logos. Default: 1.0.
+  /// Deprecated compatibility setting; downstream builds no longer render a loading-screen logo.
   constexpr auto loader_logo_scale = 1.0;
   /// Show community loading tips. Default: true.
   constexpr bool loader_tip_enabled = true;

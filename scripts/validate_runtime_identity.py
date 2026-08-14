@@ -15,7 +15,12 @@ EXPECTED_IDENTITY = {
     "displayName": "Guffawaffle STFC Mod",
     "unofficialLabel": "Unofficial downstream build",
 }
-EXPECTED_BUILD_CLASSES = {"release", "test", "development", "local"}
+EXPECTED_BUILD_CLASSES = {
+    "release": "Maintained fork release",
+    "test": "Unofficial test build",
+    "development": "Unofficial development build",
+    "local": "Local build",
+}
 
 FORBIDDEN_RUNTIME_TEXT = (
     "Official Community Mod",
@@ -65,9 +70,8 @@ def _iter_runtime_sources(root: Path):
             yield candidate
 
 
-def validate_repository(root: Path = REPOSITORY_ROOT) -> list[str]:
+def validate_identity(identity: dict[str, object]) -> list[str]:
     errors: list[str] = []
-    identity = _load_json(root / IDENTITY_PATH, errors)
 
     if identity.get("schemaVersion") != 1:
         errors.append(f"{IDENTITY_PATH}: schemaVersion must be 1")
@@ -86,8 +90,28 @@ def validate_repository(root: Path = REPOSITORY_ROOT) -> list[str]:
             errors.append(f"{IDENTITY_PATH}: upstream.commit must be a lowercase 40-character SHA")
 
     build_classes = identity.get("buildClasses")
-    if not isinstance(build_classes, dict) or set(build_classes) != EXPECTED_BUILD_CLASSES:
+    if not isinstance(build_classes, dict) or set(build_classes) != set(EXPECTED_BUILD_CLASSES):
         errors.append(f"{IDENTITY_PATH}: buildClasses must be exactly {sorted(EXPECTED_BUILD_CLASSES)}")
+    else:
+        for build_class, expected_label in EXPECTED_BUILD_CLASSES.items():
+            entry = build_classes.get(build_class)
+            if not isinstance(entry, dict) or entry.get("label") != expected_label:
+                errors.append(
+                    f"{IDENTITY_PATH}: buildClasses.{build_class}.label must be {expected_label!r}"
+                )
+
+    manifest_text = json.dumps(identity, ensure_ascii=True)
+    for forbidden in FORBIDDEN_RUNTIME_TEXT:
+        if forbidden.casefold() in manifest_text.casefold():
+            errors.append(f"{IDENTITY_PATH}: contains forbidden runtime branding {forbidden!r}")
+
+    return errors
+
+
+def validate_repository(root: Path = REPOSITORY_ROOT) -> list[str]:
+    errors: list[str] = []
+    identity = _load_json(root / IDENTITY_PATH, errors)
+    errors.extend(validate_identity(identity))
 
     capabilities = _load_json(root / CAPABILITIES_PATH, errors)
     if capabilities.get("distributionId") != identity.get("distributionId"):

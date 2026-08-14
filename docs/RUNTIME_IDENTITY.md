@@ -27,8 +27,10 @@ Windows `VERSIONINFO` consume the generated values through `runtime_identity::Cu
 
 CI must pass `--stfc_source_state_id=git:<sha>` and `--stfc_base_commit=<sha>`. A dirty local build uses a
 `dirty-sha256:<fingerprint>` source ID derived from tracked changes and untracked blob hashes. It is explicitly marked
-non-reproducible. A release build fails configuration if it cannot prove a clean Git source. A test build fails
-configuration unless all three temporary-build fields are set.
+non-reproducible. In a Git checkout, configured source and base identities must match `HEAD`, and a clean identity is
+rejected when the worktree is dirty. Source archives without `.git` may provide matching explicit source and base
+identities. A release build fails configuration if it cannot prove a clean Git source. A test build fails configuration
+unless all three temporary-build fields are set.
 
 The copyable support identity includes the downstream name and version, unofficial status, build class, distribution
 ID, exact source state, downstream base commit, upstream base, and reproducibility flag. Test identities also include

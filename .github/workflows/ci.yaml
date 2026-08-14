@@ -118,6 +118,10 @@ jobs:
           restore-keys: |
             xmake-packages-${{ env.XMAKE_PACKAGE_CACHE_VERSION }}-win-${{ runner.arch }}-
 
+      - name: Test runtime identity build matrix
+        shell: pwsh
+        run: ./scripts/test_runtime_identity_build.ps1
+
       - name: Configure
         shell: pwsh
         run: |

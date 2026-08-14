@@ -149,19 +149,19 @@ system_pan_momentum_falloff = 0.8
 # Subgroup: Loader
 # ----------------
 
-# Set to true to use the custom background and logos on the login screen
+# Apply an explicitly configured custom background on the login screen
 loader_enabled = true
 
-# Set to true to use the custom background and logos on transition screens
+# Apply an explicitly configured custom background on transition screens
 loader_transition = true
 
-# Use the game's black transition background while retaining the logos
+# Use the game's black transition background instead of a configured image
 loader_transition_black = false
 
-# Path to the custom loading/transition image (leave blank for embedded image)
+# Custom loading/transition image; blank preserves game artwork unless the build embeds an image
 loader_image = ""
 
-# Scale multiplier for the loading-screen logos
+# Deprecated compatibility setting; downstream builds no longer render a loading-screen logo
 loader_logo_scale = 1.0
 
 # Show community tips on loading and transition screens

@@ -53,6 +53,9 @@
 #ifndef STFC_SUPPORT_BOUNDARY
 #define STFC_SUPPORT_BOUNDARY        ""
 #endif
+#ifndef STFC_TEST_SUPPORT_FIELDS
+#define STFC_TEST_SUPPORT_FIELDS     ""
+#endif
 #ifndef STFC_SOURCE_REPRODUCIBLE
 #define STFC_SOURCE_REPRODUCIBLE     0
 #endif
@@ -85,10 +88,9 @@
                                     " | class=" STFC_BUILD_CLASS " | distribution=" STFC_DISTRIBUTION_ID       \
                                     " | source=" STFC_SOURCE_STATE_ID " | base=" STFC_BASE_COMMIT              \
                                     " | upstream=" STFC_UPSTREAM_BASE " | reproducible="                     \
-                                    STFC_SOURCE_REPRODUCIBLE_STR " | target=" STFC_TEST_TARGET                \
-                                    " | expires=" STFC_TEST_EXPIRY " | support=" STFC_SUPPORT_BOUNDARY
-#define VER_ORIGINAL_FILENAME_STR   "guffawaffle-stfc-mod.dll"
-#define VER_INTERNAL_NAME_STR       VER_ORIGINAL_FILENAME_STR
+                                    STFC_SOURCE_REPRODUCIBLE_STR STFC_TEST_SUPPORT_FIELDS
+#define VER_ORIGINAL_FILENAME_STR   "version.dll"
+#define VER_INTERNAL_NAME_STR       STFC_DISTRIBUTION_ID
 #define VER_COPYRIGHT_STR           "Copyright (C) 2026"
 
 #ifdef DEBUG

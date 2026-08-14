@@ -239,7 +239,7 @@ static void SlideShowViewer_ShowCurrentSlide_Hook(auto original, void* _this)
 
   try {
     const auto& cfg = Config::Get();
-    if (!cfg.loader_transition || cfg.loader_transition_black) return;
+    if (!cfg.loader_transition || cfg.loader_transition_black || !g_bgOverlayGO) return;
 
     static auto h  = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.SlideShow", "SlideShowViewController");
     static auto fi = h.GetField("_image");
