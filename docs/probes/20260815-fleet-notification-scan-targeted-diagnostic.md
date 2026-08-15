@@ -100,6 +100,12 @@ Stop immediately if:
   from the 250 ms cadence to the 5,000 ms cadence, and ended `settled`; zero lock, queue, shutdown, record-size, or
   writer failures; maximum scan time 988 us; cache sizes reached 7 state/name entries and 4 resource entries with zero
   stale entries and no truncated inspection
+- A follow-up process exposed two `dropped_lock_busy` admissions and orphaned `phase-completed` rows at session 6,
+  scan 114 and session 7, scan 232. That ordinary-contention failure triggered the MPSC and batching sweep.
+- Post-sweep evidence (`62e9d72`): 27 envelope-v2 records from a battle transition contained four complete scan pairs
+  and eight complete phase pairs with contiguous sequences, zero queue drops, zero writer failures, and zero shutdown
+  overruns. The first four-scan summary measured 626 us total producer time, 178 us maximum producer time, 40 us total
+  diagnostic overhead, 13 us maximum diagnostic overhead, and a 1 us exact current-slot cache snapshot.
 - Crash/hang/recovery notes: AXF's boot parser timed out during initial process startup, but the client reached a healthy,
   responsive state with the releasedbg build/deployed hashes equal and no native errors
 - Answer to the question: the scanner remains active while followed states recur, backs off to the intended 5-second
