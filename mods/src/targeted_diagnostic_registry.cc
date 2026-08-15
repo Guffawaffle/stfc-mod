@@ -6,6 +6,7 @@
 
 #include "patches/fleet_notification_diagnostics.h"
 #include "patches/runtime_impact_diagnostics.h"
+#include "patches/server_transfer_diagnostics.h"
 #include "version.h"
 
 #include <array>
@@ -20,9 +21,10 @@ namespace
       VERSION_REVISION,
   };
 
-  constexpr std::array<const targeted_diagnostics::ConcernSpec*, 2> kSpecs{
+  constexpr std::array<const targeted_diagnostics::ConcernSpec*, 3> kSpecs{
       &fleet_notification_diagnostics::kConcernSpec,
       &runtime_impact_diagnostics::kConcernSpec,
+      &server_transfer_diagnostics::kConcernSpec,
   };
 
   static_assert(targeted_diagnostics::ValidateConcernSpecs(kSpecs, kCurrentVersion, true)
@@ -36,6 +38,7 @@ std::span<targeted_diagnostics::Concern* const> Concerns()
   static std::array concerns{
       TARGET_DIAGNOSTIC_REGISTER(fleet_notification_diagnostics::Concern()),
       TARGET_DIAGNOSTIC_REGISTER(runtime_impact_diagnostics::Concern()),
+      TARGET_DIAGNOSTIC_REGISTER(server_transfer_diagnostics::Concern()),
   };
   return concerns;
 }

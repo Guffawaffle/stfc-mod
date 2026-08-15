@@ -27,6 +27,7 @@ reviewed in source. TOML remains activation-only.
 | File policy | `mods/src/diagnostics_file_policy.*` | Shared root and permanent global resource ceilings |
 | Fleet notification scan concern | `mods/src/patches/fleet_notification_diagnostics.*` | Temporary `fleet-notification-scan` records for issue #255 |
 | Runtime impact concern | `mods/src/patches/runtime_impact_diagnostics.*`, `runtime_impact_monitor.*` | Temporary `runtime-impact` aggregate timings and space-action timings for issue #257 |
+| Server transfer concern | `mods/src/patches/server_transfer_diagnostics*` | Temporary `server-transfer` relocation, request, polling, and error timeline for issue #258 |
 | Fleet runtime sync | `mods/src/patches/fleet_runtime_sync.*` | Functional snapshot capture and delivery only; no diagnostic logger or diagnostic mode |
 | Root application log | `community_patch.log` via the bootstrap logger | Operational status and actionable failures only; not high-volume timing evidence |
 | Live query | `mods/src/patches/parts/live_debug*` | Explicit runtime state inspection, separate from targeted diagnostic files |

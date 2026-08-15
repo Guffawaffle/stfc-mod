@@ -18,6 +18,7 @@
 #include "patches/fleet_runtime_sync.h"
 #include "patches/notification_service.h"
 #include "patches/patch_install_policy.h"
+#include "patches/server_transfer_diagnostics.h"
 #include "patches/sidecar_local_ingest.h"
 #include "patches/sync_battle_logs.h"
 #include "patches/sync_payload_builders.h"
@@ -270,6 +271,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   auto install_open_bulk_claim_gifts_hooks = AutoOpenBulkClaimGiftsEnabled();
   auto install_mission_hud_tweaks_hooks    = MissionHudTweaksEnabled();
   auto install_officer_assignment_sort     = OfficerBelowDeckAssignmentSortEnabled();
+  auto install_server_transfer_diagnostics = server_transfer_diagnostics::Enabled();
   auto install_section_change_router_hooks = install_open_bulk_claim_gifts_hooks;
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   install_section_change_router_hooks = install_section_change_router_hooks || install_refinery_diagnostics_hooks;
@@ -302,6 +304,9 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
        InstallOfficerAssignmentSortHooks, install_officer_assignment_sort, false, true},
       {"RepairActionInterlock", "patches.repairactioninterlock", "", "RepairActionInterlock",
        InstallRepairActionInterlockHooks, cfg.installRepairActionInterlock, false, true},
+      {"ServerTransferDiagnostics", "", "server-transfer", "ServerTransferDiagnostics",
+       server_transfer_diagnostics::InstallServerTransferDiagnosticHooks, false, install_server_transfer_diagnostics,
+       true},
       {"DeploymentRuntimeObservers", "", "fleet-runtime-observers", "", InstallDeploymentRuntimeObserverHooks, false,
        install_deployment_runtime_observers, true},
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS

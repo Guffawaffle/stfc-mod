@@ -107,6 +107,7 @@ TEST_CASE("temporary targeted diagnostics remain registered, searchable, and sun
   const auto registry_source = read_text_file("mods/src/targeted_diagnostic_registry.cc");
   CHECK(contains(registry_source, "TARGET_DIAGNOSTIC_REGISTER(fleet_notification_diagnostics::Concern())"));
   CHECK(contains(registry_source, "TARGET_DIAGNOSTIC_REGISTER(runtime_impact_diagnostics::Concern())"));
+  CHECK(contains(registry_source, "TARGET_DIAGNOSTIC_REGISTER(server_transfer_diagnostics::Concern())"));
   CHECK(contains(registry_source, "ValidateConcernSpecs(kSpecs, kCurrentVersion, true)"));
 
   const auto concern_header = read_text_file("mods/src/patches/fleet_notification_diagnostics.h");
@@ -126,6 +127,21 @@ TEST_CASE("temporary targeted diagnostics remain registered, searchable, and sun
   const auto impact_source = read_text_file("mods/src/patches/runtime_impact_diagnostics.cc");
   CHECK(contains(impact_source, "TARGET_DIAGNOSTIC_WRITE"));
   CHECK(contains(impact_source, "TARGET_DIAGNOSTIC_ENABLED"));
+
+  const auto transfer_header = read_text_file("mods/src/patches/server_transfer_diagnostics.h");
+  CHECK(contains(transfer_header, "= \"server-transfer\""));
+  CHECK(contains(transfer_header, "= \"#258\""));
+  CHECK(contains(transfer_header, "= {2, 2, 0}"));
+
+  const auto transfer_source = read_text_file("mods/src/patches/server_transfer_diagnostics.cc");
+  CHECK(contains(transfer_source, "TARGET_DIAGNOSTIC_WRITE"));
+  CHECK(contains(transfer_source, "TARGET_DIAGNOSTIC_ENABLED"));
+
+  const auto transfer_hooks = read_text_file("mods/src/patches/server_transfer_diagnostics_hooks.cc");
+  CHECK(contains(transfer_hooks, "HOOK_REGISTRY_SPUD_STATIC_DETOUR"));
+  CHECK(contains(transfer_hooks, "HookSupportTier::Science"));
+  CHECK_FALSE(contains(transfer_hooks, "GSError.Data"));
+  CHECK_FALSE(contains(transfer_hooks, "temporaryTransferReference"));
 
   const auto producer_source = read_text_file("mods/src/patches/fleet_notifications.cc");
   CHECK(contains(producer_source, "CacheSnapshotDue"));

@@ -40,6 +40,7 @@ do
     add_files("../mods/src/patches/input_binding/input_runtime_bindings.cc")
     add_files("../mods/src/patches/runtime_impact_monitor.cc")
     add_files("../mods/src/patches/runtime_impact_diagnostics.cc")
+    add_files("../mods/src/patches/server_transfer_diagnostics.cc")
     add_files("../mods/src/patches/notification_queue.cc")
     add_files("../mods/src/patches/notification_policy.cc")
     add_files("../mods/src/patches/notification_text.cc")

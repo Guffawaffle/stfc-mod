@@ -5,6 +5,7 @@
 #include "patches/fleet_notification_diagnostics.h"
 #include "patches/runtime_impact_diagnostics.h"
 #include "patches/runtime_impact_monitor.h"
+#include "patches/server_transfer_diagnostics.h"
 #include "targeted_diagnostics.h"
 
 #include <nlohmann/json.hpp>
@@ -455,6 +456,97 @@ TEST_SUITE("targeted_diagnostics")
     CHECK(rows[1]["fields"]["inputs"]["secondary"] == false);
     CHECK(rows[1]["fields"]["context"]["pre_scan_fallback_used"] == true);
     CHECK(rows[1]["fields"]["context"]["navigation_visible"] == false);
+  }
+
+  TEST_CASE("correlates server transfer intent dispatch relocation and bounded error evidence")
+  {
+    ScopedTempDir temp_dir;
+    auto&         concern = server_transfer_diagnostics::Concern();
+    std::array    registry{&concern};
+    auto          options   = options_for(temp_dir);
+    options.current_version = {2, 1, 0};
+    const std::vector<std::string> enabled{"server-transfer"};
+    targeted_diagnostics::Initialize(registry, enabled, options);
+    auto capture = targeted_diagnostics::CurrentCapture();
+    REQUIRE(capture);
+
+    server_transfer_diagnostics::Reset();
+    const auto intent_id =
+        server_transfer_diagnostics::RecordIntent(server_transfer_diagnostics::Direction::Rival, 711);
+    const auto dispatch_id = server_transfer_diagnostics::RecordDispatch(
+        server_transfer_diagnostics::Direction::Rival, 711,
+        {.transfer_timeout_seconds = 30, .max_poll_errors = 3, .polling_frequency_seconds = 2.0F});
+    CHECK(intent_id != 0);
+    CHECK(dispatch_id == intent_id);
+    const auto request_id = server_transfer_diagnostics::RecordRequestResult(
+        server_transfer_diagnostics::TransferStage::TemporaryRequestReturned,
+        server_transfer_diagnostics::Direction::Rival, 711, false, true, {.start_request_in_progress = true});
+    CHECK(request_id == intent_id);
+
+    server_transfer_diagnostics::RecordRelocation(
+        server_transfer_diagnostics::RelocationStage::MoveStarbaseToServerInstance, 123456, 711);
+    server_transfer_diagnostics::ErrorSnapshot error{
+        .category =
+            server_transfer_diagnostics::CopyBoundedText<server_transfer_diagnostics::kCategoryBytes>("game_world"),
+        .message = server_transfer_diagnostics::CopyBoundedText<server_transfer_diagnostics::kMessageBytes>(
+            "transfer rejected"),
+        .transaction_id =
+            server_transfer_diagnostics::CopyBoundedText<server_transfer_diagnostics::kTransactionIdBytes>(
+                "tx-support-123"),
+        .request_url = server_transfer_diagnostics::SanitizeRequestUrl(
+            "https://example.invalid/transfer/progress?token=secret#fragment"),
+        .type               = 3,
+        .code               = 409,
+        .http_response_code = 409,
+        .present            = true,
+    };
+    server_transfer_diagnostics::RecordError(server_transfer_diagnostics::ErrorStage::Poll, error,
+                                             {.polling_request_in_progress = true});
+
+    REQUIRE(capture->WaitUntilIdle(std::chrono::seconds(2)));
+    targeted_diagnostics::Shutdown();
+
+    const auto rows = read_jsonl(temp_dir.path() / "configured" / "community_patch_target_server-transfer.jsonl");
+    REQUIRE(rows.size() == 5);
+    CHECK(rows[0]["event_type"] == "transfer-event");
+    CHECK(rows[0]["fields"]["stage"] == "ui-intent");
+    CHECK(rows[1]["fields"]["attempt_id"] == intent_id);
+    CHECK(rows[1]["fields"]["manager"]["transfer_timeout_seconds"] == 30);
+    CHECK(rows[2]["fields"]["stage"] == "temporary-request-returned");
+    CHECK(rows[2]["fields"]["result_available"] == true);
+    CHECK(rows[2]["fields"]["result"] == false);
+    CHECK(rows[2]["fields"]["output_operation_present"] == true);
+    CHECK(rows[3]["event_type"] == "relocation-event");
+    CHECK(rows[3]["fields"]["active_transfer_attempt_id"] == intent_id);
+    CHECK(rows[3]["fields"]["target_instance_id"] == 711);
+    CHECK(rows[4]["event_type"] == "transfer-error");
+    CHECK(rows[4]["fields"]["attempt_id"] == intent_id);
+    CHECK(rows[4]["fields"]["error"]["transaction_id"] == "tx-support-123");
+    CHECK(rows[4]["fields"]["error"]["request_url"] == "https://example.invalid/transfer/progress");
+    CHECK_FALSE(rows[4].dump().contains("secret"));
+    server_transfer_diagnostics::Reset();
+  }
+
+  TEST_CASE("server transfer diagnostics stay inert when disabled and bound copied text")
+  {
+    ScopedTempDir temp_dir;
+    auto&         concern = server_transfer_diagnostics::Concern();
+    std::array    registry{&concern};
+    auto          options   = options_for(temp_dir);
+    options.current_version = {2, 1, 0};
+    targeted_diagnostics::Initialize(registry, {}, options);
+
+    server_transfer_diagnostics::Reset();
+    CHECK(server_transfer_diagnostics::RecordIntent(server_transfer_diagnostics::Direction::Home) == 0);
+    targeted_diagnostics::Shutdown();
+    CHECK_FALSE(
+        std::filesystem::exists(temp_dir.path() / "configured" / "community_patch_target_server-transfer.jsonl"));
+
+    const auto copied = server_transfer_diagnostics::CopyBoundedText<8>("123456789");
+    CHECK(std::string(copied.data()) == "1234567");
+    const auto fragment_only = server_transfer_diagnostics::SanitizeRequestUrl("/transfer#private");
+    CHECK(std::string(fragment_only.data()) == "/transfer");
+    server_transfer_diagnostics::Reset();
   }
 
   TEST_CASE("isolates two concerns into deterministic files")
