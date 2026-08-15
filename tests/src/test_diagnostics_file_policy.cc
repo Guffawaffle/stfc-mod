@@ -91,6 +91,7 @@ TEST_SUITE("diagnostics_file_policy")
 
     const auto prepare = PrepareDiagnosticsFileForAppend(path, 10, 3, 6);
     CHECK(prepare.append_allowed);
+    CHECK(prepare.rotated);
     CHECK_FALSE(prepare.warning.has_value());
     CHECK_FALSE(std::filesystem::exists(path));
     CHECK(read_text(DiagnosticsRotatedPath(path, 1)) == "current");
@@ -106,6 +107,7 @@ TEST_SUITE("diagnostics_file_policy")
     write_text(path, "0123456789");
     const auto prepare = PrepareDiagnosticsFileForAppend(path, 10, 1, 1);
     CHECK(prepare.append_allowed);
+    CHECK(prepare.rotated);
     CHECK_FALSE(prepare.warning.has_value());
     CHECK_FALSE(std::filesystem::exists(path));
   }
@@ -118,6 +120,7 @@ TEST_SUITE("diagnostics_file_policy")
     write_text(path, "current");
     const auto prepare = PrepareDiagnosticsFileForAppend(path, 10, 3, 11);
     CHECK_FALSE(prepare.append_allowed);
+    CHECK_FALSE(prepare.rotated);
     REQUIRE(prepare.warning.has_value());
     CHECK(prepare.warning->find("Dropping diagnostics append") != std::string::npos);
     CHECK(read_text(path) == "current");

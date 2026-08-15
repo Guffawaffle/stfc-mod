@@ -860,6 +860,12 @@ live_query = false
 # methods, adds runtime overhead, and is not the preferred export path.
 refinery_diagnostics = false
 
+[advanced.diagnostics.concerns]
+# Generic allowlist for temporary or supported targeted diagnostic concerns.
+# Unknown/removed IDs are reported once and ignored; known expired IDs are
+# reported once as expired. Adding a concern never adds another TOML key.
+enabled = []
+
 [advanced.diagnostics.files]
 # Optional root directory for the heavier native diagnostics files in this
 # slice. Empty preserves the current per-platform locations. When set to a

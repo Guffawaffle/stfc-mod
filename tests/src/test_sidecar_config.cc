@@ -112,6 +112,7 @@ jsonl_recent_logs = 300
     CHECK_FALSE(result.advanced.diagnostics.mod_impact_monitor);
     CHECK(result.advanced.diagnostics.runtime_trace_report_interval_ms == 5000);
     CHECK_FALSE(result.advanced.diagnostics.refinery_diagnostics);
+    CHECK(result.advanced.diagnostics.concerns.enabled.empty());
     CHECK(result.advanced.diagnostics.files.root.empty());
     CHECK(result.advanced.diagnostics.files.navhook_trace_max_kb == 4096);
     CHECK(result.advanced.diagnostics.files.navhook_trace_files == 3);
@@ -179,6 +180,9 @@ mod_impact_monitor = true
 runtime_trace_report_interval_ms = 9000
 refinery_diagnostics = true
 
+[advanced.diagnostics.concerns]
+enabled = ["fleet-notification-scan", "removed-concern"]
+
 [advanced.diagnostics.files]
 root = "custom/native-logs"
 navhook_trace_max_kb = 2048
@@ -231,6 +235,9 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.diagnostics.mod_impact_monitor);
     CHECK(result.advanced.diagnostics.runtime_trace_report_interval_ms == 9000);
     CHECK(result.advanced.diagnostics.refinery_diagnostics);
+    REQUIRE(result.advanced.diagnostics.concerns.enabled.size() == 2);
+    CHECK(result.advanced.diagnostics.concerns.enabled[0] == "fleet-notification-scan");
+    CHECK(result.advanced.diagnostics.concerns.enabled[1] == "removed-concern");
     CHECK(result.advanced.diagnostics.files.root == "custom/native-logs");
     CHECK(result.advanced.diagnostics.files.navhook_trace_max_kb == 2048);
     CHECK(result.advanced.diagnostics.files.navhook_trace_files == 5);
@@ -470,6 +477,7 @@ mode = "majel"
     advanced.diagnostics.mod_impact_monitor               = true;
     advanced.diagnostics.runtime_trace_report_interval_ms = 7000;
     advanced.diagnostics.refinery_diagnostics             = true;
+    advanced.diagnostics.concerns.enabled                 = {"fleet-notification-scan"};
     advanced.diagnostics.files.root                       = "custom/native-logs";
     advanced.diagnostics.files.navhook_trace_max_kb       = 4096;
     advanced.diagnostics.files.navhook_trace_files        = 4;
@@ -510,6 +518,10 @@ mode = "majel"
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_report_interval_ms"].value<int>().value_or(0)
           == 7000);
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["refinery_diagnostics"].value<bool>().value_or(false));
+    REQUIRE(runtime_snapshot["advanced"]["diagnostics"]["concerns"]["enabled"].is_array());
+    REQUIRE(runtime_snapshot["advanced"]["diagnostics"]["concerns"]["enabled"].as_array()->size() == 1);
+    CHECK(runtime_snapshot["advanced"]["diagnostics"]["concerns"]["enabled"][0].value<std::string>().value_or("")
+          == "fleet-notification-scan");
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["files"]["root"].value<std::string>().value_or("")
           == "custom/native-logs");
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["files"]["navhook_trace_max_kb"].value<int>().value_or(0)

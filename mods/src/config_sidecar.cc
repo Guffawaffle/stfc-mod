@@ -136,6 +136,45 @@ struct IntReadResult {
   std::vector<config_schema::Diagnostic> diagnostics;
 };
 
+struct StringArrayReadResult {
+  std::vector<std::string>               value;
+  std::vector<config_schema::Diagnostic> diagnostics;
+};
+
+StringArrayReadResult read_string_array(const toml::table& config, std::string_view path, std::string_view description)
+{
+  StringArrayReadResult result;
+  const auto*           node = node_at_path(config, path);
+  if (!node) {
+    return result;
+  }
+
+  const auto* array = node->as_array();
+  if (!array) {
+    result.diagnostics.push_back(make_diagnostic(
+        config_schema::DiagnosticSeverity::Warning, path, path,
+        make_invalid_scalar_message(path, "array of strings", toml_type_name(node->type()), description)));
+    return result;
+  }
+
+  for (size_t index = 0; index < array->size(); ++index) {
+    const auto* item = array->get(index);
+    if (item) {
+      if (const auto value = item->value<std::string>(); value.has_value()) {
+        result.value.push_back(*value);
+        continue;
+      }
+    }
+
+    const auto item_path = std::string(path) + "[" + std::to_string(index) + "]";
+    result.diagnostics.push_back(
+        make_diagnostic(config_schema::DiagnosticSeverity::Warning, path, item_path,
+                        "Invalid targeted diagnostics concern ID. Expected string; ignoring this entry."));
+  }
+
+  return result;
+}
+
 IntReadResult read_int(const toml::table& config, std::string_view path, int default_value,
                        std::string_view description)
 {
@@ -306,6 +345,13 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
     append_diagnostics(result.diagnostics, read);
   };
 
+  const auto read_string_array_value = [&config, &result](std::vector<std::string>& destination, std::string_view path,
+                                                          std::string_view description) {
+    const auto read = read_string_array(config, path, description);
+    destination     = read.value;
+    append_diagnostics(result.diagnostics, read);
+  };
+
   read_bool_value(result.config.sync.enabled,
                   {"sidecar.sync.enabled", DCSidecar::Sync::enabled, {}, "enable local sidecar delivery"});
   const auto* transport_node = node_at_path(config, "sidecar.sync.transport");
@@ -378,6 +424,14 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
         config_schema::DiagnosticSeverity::Warning, "advanced.diagnostics.files", "advanced.diagnostics.files",
         make_invalid_table_message("advanced.diagnostics.files", toml_type_name(diagnostics_files_node->type()),
                                    "native diagnostics file policy namespace")));
+  }
+
+  if (const auto* diagnostics_concerns_node = node_at_path(config, "advanced.diagnostics.concerns");
+      diagnostics_concerns_node && !diagnostics_concerns_node->is_table()) {
+    result.diagnostics.push_back(make_diagnostic(
+        config_schema::DiagnosticSeverity::Warning, "advanced.diagnostics.concerns", "advanced.diagnostics.concerns",
+        make_invalid_table_message("advanced.diagnostics.concerns", toml_type_name(diagnostics_concerns_node->type()),
+                                   "targeted diagnostics activation namespace")));
   }
 
   if (const auto* queue_node = node_at_path(config, "advanced.queue"); queue_node && !queue_node->is_table()) {
@@ -453,6 +507,8 @@ SidecarConfigParseResult ParseSidecarConfig(const toml::table& config)
                                                                      DCAdvanced::Diagnostics::refinery_diagnostics,
                                                                      {},
                                                                      "emit focused refinery lifecycle diagnostics"});
+  read_string_array_value(result.advanced.diagnostics.concerns.enabled, "advanced.diagnostics.concerns.enabled",
+                          "targeted diagnostics concern allowlist");
   read_string_value(result.advanced.diagnostics.files.root, "advanced.diagnostics.files.root",
                     DCAdvanced::Diagnostics::Files::root, "optional native diagnostics root");
   read_int_value(result.advanced.diagnostics.files.navhook_trace_max_kb,
@@ -634,6 +690,11 @@ void WriteAdvancedConfigRuntimeSnapshot(toml::table& runtime_config, const Advan
                config.diagnostics.runtime_trace_report_interval_ms);
   config_schema::write_bool(runtime_config, "advanced.diagnostics.refinery_diagnostics",
                             config.diagnostics.refinery_diagnostics);
+  toml::array enabled_concerns;
+  for (const auto& concern : config.diagnostics.concerns.enabled) {
+    enabled_concerns.push_back(concern);
+  }
+  write_scalar(runtime_config, "advanced.diagnostics.concerns.enabled", std::move(enabled_concerns));
   write_scalar(runtime_config, "advanced.diagnostics.files.root", config.diagnostics.files.root);
   write_scalar(runtime_config, "advanced.diagnostics.files.navhook_trace_max_kb",
                config.diagnostics.files.navhook_trace_max_kb);

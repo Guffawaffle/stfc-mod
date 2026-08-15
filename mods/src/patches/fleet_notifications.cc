@@ -9,6 +9,7 @@
 
 #include "config.h"
 #include "errormsg.h"
+#include "patches/fleet_notification_diagnostics.h"
 #include "patches/fleet_notification_scan_policy.h"
 #include "patches/live_debug.h"
 #include "patches/live_debug_fleet_serializers.h"
@@ -26,8 +27,10 @@
 #include <spdlog/spdlog.h>
 #include <str_utils.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -43,6 +46,7 @@ FleetNotificationScanPolicy               s_runtime_scan_policy;
 bool                                      s_runtime_scan_active_logged = false;
 
 constexpr size_t kIncomingAttackDedupeMaxEntries = 256;
+constexpr size_t kStaleCacheInspectionLimit      = 4096;
 
 IncomingAttackPolicyDeduper s_recent_incoming_attack_notifications(kIncomingAttackDedupeMaxEntries);
 
@@ -72,6 +76,104 @@ bool fleet_state_requires_scan_follow_through(const FleetState state)
     default:
       return false;
   }
+}
+
+size_t followed_state_index(const FleetState state)
+{
+  switch (state) {
+    case FleetState::TieringUp:
+      return 0;
+    case FleetState::Repairing:
+      return 1;
+    case FleetState::Battling:
+      return 2;
+    case FleetState::WarpCharging:
+      return 3;
+    case FleetState::Warping:
+      return 4;
+    case FleetState::Impulsing:
+      return 5;
+    case FleetState::Capturing:
+      return 6;
+    default:
+      return 7;
+  }
+}
+
+int64_t steady_now_ms()
+{
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+
+int64_t elapsed_us(const std::chrono::steady_clock::time_point started)
+{ return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - started).count(); }
+
+struct StaleCacheCount {
+  size_t count     = 0;
+  bool   truncated = false;
+};
+
+template <typename Map>
+StaleCacheCount stale_cache_entries(const Map& cache, const FleetNotificationRuntimeScanResult& scan)
+{
+  StaleCacheCount result;
+  size_t          inspected = 0;
+  for (const auto& [fleet_id, ignored] : cache) {
+    if (inspected >= kStaleCacheInspectionLimit) {
+      result.truncated = true;
+      break;
+    }
+    ++inspected;
+    (void)ignored;
+    const auto begin = scan.observed_fleet_ids.begin();
+    const auto end   = begin + scan.observed_fleet_id_count;
+    if (std::find(begin, end, fleet_id) == end) {
+      ++result.count;
+    }
+  }
+  return result;
+}
+
+fleet_notification_diagnostics::FollowedStateCounts
+followed_state_counts(const FleetNotificationRuntimeScanResult& scan)
+{
+  return {.tiering_up    = scan.followed_state_counts[0],
+          .repairing     = scan.followed_state_counts[1],
+          .battling      = scan.followed_state_counts[2],
+          .warp_charging = scan.followed_state_counts[3],
+          .warping       = scan.followed_state_counts[4],
+          .impulsing     = scan.followed_state_counts[5],
+          .capturing     = scan.followed_state_counts[6]};
+}
+
+fleet_notification_diagnostics::CacheSnapshot cache_snapshot(const FleetNotificationRuntimeScanResult& scan)
+{
+  const auto started        = std::chrono::steady_clock::now();
+  const auto states         = stale_cache_entries(s_fleet_bar_states, scan);
+  const auto ship_names     = stale_cache_entries(s_fleet_bar_ship_names, scan);
+  const auto resource_names = stale_cache_entries(s_fleet_bar_resource_names, scan);
+  const auto cargo_levels   = stale_cache_entries(s_fleet_bar_cargo_fill_levels, scan);
+  const auto mining_eta     = stale_cache_entries(s_mining_viewer_remaining_seconds, scan);
+
+  fleet_notification_diagnostics::CacheSnapshot snapshot{
+      .states                = s_fleet_bar_states.size(),
+      .ship_names            = s_fleet_bar_ship_names.size(),
+      .resource_names        = s_fleet_bar_resource_names.size(),
+      .cargo_fill_levels     = s_fleet_bar_cargo_fill_levels.size(),
+      .mining_eta            = s_mining_viewer_remaining_seconds.size(),
+      .stale_states          = states.count,
+      .stale_ship_names      = ship_names.count,
+      .stale_resource_names  = resource_names.count,
+      .stale_cargo_levels    = cargo_levels.count,
+      .stale_mining_eta      = mining_eta.count,
+      .stale_scan_limit      = kStaleCacheInspectionLimit,
+      .stale_scan_truncated  = states.truncated || ship_names.truncated || resource_names.truncated
+                               || cargo_levels.truncated || mining_eta.truncated,
+      .collection_elapsed_us = 0,
+  };
+  snapshot.collection_elapsed_us = elapsed_us(started);
+  return snapshot;
 }
 
 bool incoming_attack_notifications_enabled_for_kind(IncomingAttackPolicyAttackerKind attackerKind,
@@ -344,6 +446,7 @@ void fleet_notifications_init()
 {
   s_runtime_scan_policy.Reset();
   s_runtime_scan_active_logged = false;
+  fleet_notification_diagnostics::Reset();
   notification_init();
   notification_audio_init();
 }
@@ -372,6 +475,7 @@ const char* fleet_notifications_observe_fleet_state(FleetPlayerData* fleet, std:
   if (fleet_notifications_runtime_events_enabled() && observationSource != "fleets-manager-scan"
       && fleet_state_requires_scan_follow_through(currentState) && !s_runtime_scan_policy.ScanRequested()) {
     s_runtime_scan_policy.RequestScan();
+    fleet_notification_diagnostics::ScanWasRequested(static_cast<int>(currentState), steady_now_ms());
     spdlog::info("[FleetState] source={} status=scan-requested fleet={} state={}", observationSource, fleetId,
                  static_cast<int>(currentState));
   }
@@ -408,18 +512,24 @@ const char* fleet_notifications_observe_fleet_state(FleetPlayerData* fleet, std:
   return runtimeTriggerSource;
 }
 
-FleetNotificationRuntimeScanResult fleet_notifications_observe_runtime_fleets()
+FleetNotificationRuntimeScanResult fleet_notifications_observe_runtime_fleets(const uint64_t diagnostic_scan_id)
 {
   FleetNotificationRuntimeScanResult result;
   if (!fleet_notifications_runtime_events_enabled()) {
     return result;
   }
 
-  auto* fleets_manager = FleetsManager::Instance();
+  fleet_notification_diagnostics::BeginPhase(diagnostic_scan_id, fleet_notification_diagnostics::Phase::AcquireManager);
+  const auto manager_started = std::chrono::steady_clock::now();
+  auto*      fleets_manager  = FleetsManager::Instance();
+  fleet_notification_diagnostics::CompletePhase(
+      diagnostic_scan_id, fleet_notification_diagnostics::Phase::AcquireManager, elapsed_us(manager_started));
   if (!fleets_manager) {
     return result;
   }
 
+  fleet_notification_diagnostics::BeginPhase(diagnostic_scan_id, fleet_notification_diagnostics::Phase::EnumerateSlots);
+  const auto enumerate_started = std::chrono::steady_clock::now();
   for (int slot_index = 0; slot_index < kFleetIndexMax; ++slot_index) {
     auto* fleet = fleets_manager->GetFleetPlayerData(slot_index);
     if (!fleet) {
@@ -428,22 +538,31 @@ FleetNotificationRuntimeScanResult fleet_notifications_observe_runtime_fleets()
 
     fleet_notifications_observe_fleet_state(fleet, "fleets-manager-scan");
     ++result.observed_count;
+    if (diagnostic_scan_id != 0
+        && result.observed_fleet_id_count < static_cast<int>(result.observed_fleet_ids.size())) {
+      result.observed_fleet_ids[result.observed_fleet_id_count++] = fleet->Id;
+    }
     if (fleet_state_requires_scan_follow_through(fleet->CurrentState)) {
       ++result.follow_through_count;
+      const auto state_index = followed_state_index(fleet->CurrentState);
+      if (diagnostic_scan_id != 0 && state_index < result.followed_state_counts.size()) {
+        ++result.followed_state_counts[state_index];
+      }
     }
   }
+  fleet_notification_diagnostics::CompletePhase(
+      diagnostic_scan_id, fleet_notification_diagnostics::Phase::EnumerateSlots, elapsed_us(enumerate_started));
 
   return result;
 }
 
 void fleet_notifications_tick()
 {
-  const auto now_ms =
-      std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
-          .count();
+  const auto now_ms        = steady_now_ms();
   const auto scan_decision = s_runtime_scan_policy.Evaluate(now_ms);
   if (scan_decision == FleetNotificationScanDecision::Expired) {
     s_runtime_scan_active_logged = false;
+    fleet_notification_diagnostics::EndScanSession(fleet_notification_diagnostics::EndReason::MaxLifetime, now_ms);
     spdlog::warn("[FleetState] source=fleets-manager-scan status=suspended reason=max-lifetime lifetimeMs={}",
                  kFleetNotificationScanMaxLifetimeMs);
     return;
@@ -452,7 +571,20 @@ void fleet_notifications_tick()
     return;
   }
 
-  const auto result = fleet_notifications_observe_runtime_fleets();
+  const auto diagnostic_scan_id = fleet_notification_diagnostics::BeginScan(now_ms);
+  const auto scan_started       = std::chrono::steady_clock::now();
+  const auto result             = fleet_notifications_observe_runtime_fleets(diagnostic_scan_id);
+  const auto scan_elapsed_us    = elapsed_us(scan_started);
+  if (diagnostic_scan_id != 0) {
+    const auto                                                   completion_now_ms = steady_now_ms();
+    std::optional<fleet_notification_diagnostics::CacheSnapshot> cache;
+    if (fleet_notification_diagnostics::CacheSnapshotDue(completion_now_ms)) {
+      cache = cache_snapshot(result);
+    }
+    fleet_notification_diagnostics::CompleteScan(diagnostic_scan_id, steady_now_ms(), scan_elapsed_us,
+                                                 result.observed_count, result.follow_through_count,
+                                                 followed_state_counts(result), cache ? &*cache : nullptr);
+  }
   if (result.observed_count > 0 && !s_runtime_scan_active_logged) {
     s_runtime_scan_active_logged = true;
     spdlog::info("[FleetState] source=fleets-manager-scan status=active cadenceMs={} fleetCount={} followThrough={}",
@@ -462,9 +594,12 @@ void fleet_notifications_tick()
   const auto observation = s_runtime_scan_policy.RecordObservation(result.observed_count, result.follow_through_count);
   if (observation == FleetNotificationScanObservation::Settled) {
     s_runtime_scan_active_logged = false;
+    fleet_notification_diagnostics::EndScanSession(fleet_notification_diagnostics::EndReason::Settled, steady_now_ms());
     spdlog::info("[FleetState] source=fleets-manager-scan status=idle");
   } else if (observation == FleetNotificationScanObservation::NoFleets) {
     s_runtime_scan_active_logged = false;
+    fleet_notification_diagnostics::EndScanSession(fleet_notification_diagnostics::EndReason::NoFleets,
+                                                   steady_now_ms());
     spdlog::warn("[FleetState] source=fleets-manager-scan status=suspended reason=no-fleets emptyScans={}",
                  kFleetNotificationScanMaxConsecutiveEmpty);
   }
@@ -472,8 +607,13 @@ void fleet_notifications_tick()
 
 void fleet_notifications_suspend_runtime_scan()
 {
+  const auto was_requested = s_runtime_scan_policy.ScanRequested();
   s_runtime_scan_policy.Suspend();
   s_runtime_scan_active_logged = false;
+  if (was_requested) {
+    fleet_notification_diagnostics::EndScanSession(fleet_notification_diagnostics::EndReason::Suspended,
+                                                   steady_now_ms());
+  }
 }
 
 void fleet_notifications_observe_node_depleted(int64_t fleetId)

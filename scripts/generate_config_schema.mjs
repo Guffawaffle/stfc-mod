@@ -36,6 +36,10 @@ function parseLiteral(raw) {
   if (/^-?\d+$/.test(value)) return Number.parseInt(value, 10);
   if (/^-?(?:\d+\.\d*|\d*\.\d+)$/.test(value)) return Number.parseFloat(value);
   if (/^"(?:[^"\\]|\\.)*"$/.test(value)) return JSON.parse(value);
+  if (/^\[.*]$/.test(value)) {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) return parsed;
+  }
   throw new Error(`Unsupported C++/TOML scalar literal: ${raw}`);
 }
 
@@ -111,6 +115,12 @@ function parseDefaultConfig() {
     });
     comments = [];
   }
+
+  values.set("advanced.diagnostics.concerns.enabled", {
+    value: [],
+    description: "Generic allowlist of registered targeted diagnostic concern IDs.",
+    source: "mods/src/config.h:AdvancedDiagnosticsConfig::ConcernsConfig::enabled",
+  });
 
   return values;
 }

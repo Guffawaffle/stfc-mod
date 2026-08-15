@@ -235,6 +235,10 @@ struct SidecarConfig {
  * diagnostic families migrate off `[debug]`.
  */
 struct AdvancedDiagnosticsConfig {
+  struct ConcernsConfig {
+    std::vector<std::string> enabled;
+  };
+
   struct FilesConfig {
     std::string root                      = "";
     int         navhook_trace_max_kb      = 4096;
@@ -258,6 +262,7 @@ struct AdvancedDiagnosticsConfig {
   bool        mod_impact_monitor               = false;
   int         runtime_trace_report_interval_ms = 5000;
   bool        refinery_diagnostics             = false;
+  ConcernsConfig concerns;
   FilesConfig files;
 };
 

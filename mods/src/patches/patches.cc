@@ -24,6 +24,8 @@
 #include "patches/sync_scheduler.h"
 #include "patches/sync_transport.h"
 #include "runtime_identity.h"
+#include "targeted_diagnostic_registry.h"
+#include "targeted_diagnostics.h"
 #include "version.h"
 
 #include <il2cpp/il2cpp-functions.h>
@@ -242,6 +244,17 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 
   static auto& cfg = Config::Get();
 
+  const auto& diagnostic_files = AdvancedDiagnosticsFileSettings();
+  const auto& identity         = runtime_identity::Current();
+  targeted_diagnostics::Initialize(targeted_diagnostic_registry::Concerns(),
+                                   AdvancedDiagnosticsSettings().concerns.enabled,
+                                   {.fallback_root   = std::filesystem::path(File::Log()).parent_path(),
+                                    .configured_root = diagnostic_files.root,
+                                    .current_version = targeted_diagnostic_registry::CurrentVersion(),
+                                    .identity        = {.downstream_version = std::string(identity.downstream_version),
+                                                        .source_state_id    = std::string(identity.source_state_id),
+                                                        .build_class        = std::string(identity.build_class)}});
+
   spdlog::info("");
   spdlog::info("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
   spdlog::info("");
@@ -455,6 +468,7 @@ void ApplyPatches()
 
 void ShutdownPatches()
 {
+  targeted_diagnostics::Shutdown();
   ShutdownSyncPayloadWorkers();
   ShutdownSyncSchedulerWorker();
   ShutdownCombatLogWorker();

@@ -11,14 +11,18 @@
 
 #include "patches/signals.h"
 
+#include <array>
 #include <cstdint>
 #include <string_view>
 
 struct FleetPlayerData;
 
 struct FleetNotificationRuntimeScanResult {
-  int observed_count       = 0;
-  int follow_through_count = 0;
+  int                     observed_count          = 0;
+  int                     follow_through_count    = 0;
+  int                     observed_fleet_id_count = 0;
+  std::array<uint64_t, 8> observed_fleet_ids{};
+  std::array<int, 7>      followed_state_counts{};
 };
 
 /**
@@ -43,7 +47,7 @@ const char* fleet_notifications_observe_fleet_state(FleetPlayerData* fleet, std:
  * @brief Observe current FleetsManager state for all fleet slots and feed the fleet notification state machine.
  * @return Observed slot count and the number still requiring transition follow-through.
  */
-FleetNotificationRuntimeScanResult fleet_notifications_observe_runtime_fleets();
+FleetNotificationRuntimeScanResult fleet_notifications_observe_runtime_fleets(uint64_t diagnostic_scan_id = 0);
 
 /**
  * @brief Run the throttled frame subscriber that observes fleets independently of Fleet Bar visibility.

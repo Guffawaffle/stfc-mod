@@ -30,6 +30,8 @@ namespace
       "control.use_scopely_hotkeys",
       "advanced.diagnostics.battle_catalog",
       "advanced.diagnostics.battle_log_decoder",
+      "advanced.diagnostics.concerns",
+      "advanced.diagnostics.concerns.enabled",
       "advanced.diagnostics.reserved_native_debug",
       "advanced.diagnostics.files",
       "advanced.diagnostics.files.action_queue_probe_files",

@@ -25,6 +25,7 @@ may place beside the game or config folder. The policy target is:
 | `community_patch_battle_feed.jsonl` | Mod | Structured local evidence/export feed | Explicit opt-in | Optional sidecar diagnostics/import-replay feed. Cyclic/bounded by replay/group retention settings. |
 | `community_patch_navhook_trace.log` / `community_patch_navhook_trace.*.log` | Live debug / developer-only | Legacy debug trace | Normally absent | Plain-text developer trace for specific navigation-hook investigation. Bounded by `[advanced.diagnostics.files]` and can be redirected with `root`. Not a stable user-facing export surface. |
 | `community_patch_action_queue_probe.jsonl` / `community_patch_action_queue_probe.*.jsonl` | Mod diagnostics | Structured local queue probe trace | Runtime-trace gated | Structured action queue probe output used during detailed/verbose runtime tracing. Bounded by `[advanced.diagnostics.files]` and can be redirected with `root`. |
+| `community_patch_target_<concern-id>.jsonl` / `community_patch_target_<concern-id>.*.jsonl` | Targeted diagnostics | Concern-isolated structured diagnostic capture | Explicit concern allowlist | Temporary or promoted concern records only. The process-wide writer applies finite queue, record, file, and retention budgets under `[advanced.diagnostics.files].root`; concern registrations carry an owner, issue, and enforced sunset. |
 
 ## Adjacent Artifacts
 

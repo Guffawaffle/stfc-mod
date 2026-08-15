@@ -14,6 +14,7 @@ struct DiagnosticsFileTarget {
 
 struct DiagnosticsFilePrepareResult {
   bool append_allowed = true;
+  bool rotated = false;
   std::optional<std::string> warning;
 };
 

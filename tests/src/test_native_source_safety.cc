@@ -109,6 +109,27 @@ TEST_CASE("fleet notifications use one targeted runtime owner and keep broad dep
   CHECK(contains(fleet_notifications_source, "reason=max-lifetime"));
 }
 
+TEST_CASE("temporary fleet targeted diagnostics remain registered, searchable, and sunset-bound")
+{
+  const auto registry_source = read_text_file("mods/src/targeted_diagnostic_registry.cc");
+  CHECK(contains(registry_source, "TARGET_DIAGNOSTIC_REGISTER(fleet_notification_diagnostics::Concern())"));
+  CHECK(contains(registry_source, "ValidateConcernSpecs(kSpecs, kCurrentVersion, true)"));
+
+  const auto concern_header = read_text_file("mods/src/patches/fleet_notification_diagnostics.h");
+  CHECK(contains(concern_header, "= \"fleet-notification-scan\""));
+  CHECK(contains(concern_header, "= \"#255\""));
+  CHECK(contains(concern_header, "= {2, 2, 0}"));
+
+  const auto concern_source = read_text_file("mods/src/patches/fleet_notification_diagnostics.cc");
+  CHECK(contains(concern_source, "TARGET_DIAGNOSTIC_WRITE"));
+  CHECK(contains(concern_source, "TARGET_DIAGNOSTIC_ENABLED"));
+
+  const auto producer_source = read_text_file("mods/src/patches/fleet_notifications.cc");
+  CHECK(contains(producer_source, "CacheSnapshotDue"));
+  CHECK(contains(producer_source, "kStaleCacheInspectionLimit"));
+  CHECK_FALSE(contains(producer_source, "nlohmann"));
+}
+
 TEST_CASE("sidecar local enqueue requires copied payload provenance")
 {
   const auto sidecar_header = read_text_file("mods/src/patches/sidecar_local_ingest.h");

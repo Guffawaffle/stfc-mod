@@ -92,12 +92,12 @@ DiagnosticsFilePrepareResult PrepareDiagnosticsFileForAppend(const std::filesyst
     std::error_code error;
     std::filesystem::create_directories(parent, error);
     if (error) {
-      return {true, make_rotation_warning(parent, "prepare directory for", error)};
+      return {true, false, make_rotation_warning(parent, "prepare directory for", error)};
     }
   }
 
   if (incoming_bytes > max_bytes) {
-    return {false, make_oversize_warning(path, max_bytes, incoming_bytes)};
+    return {false, false, make_oversize_warning(path, max_bytes, incoming_bytes)};
   }
 
   std::error_code error;
@@ -105,13 +105,13 @@ DiagnosticsFilePrepareResult PrepareDiagnosticsFileForAppend(const std::filesyst
     if (!error || is_missing_path_error(error)) {
       return {};
     }
-    return {true, make_rotation_warning(path, "stat", error)};
+    return {true, false, make_rotation_warning(path, "stat", error)};
   }
 
   error.clear();
   const auto current_size = std::filesystem::file_size(path, error);
   if (error) {
-    return {true, make_rotation_warning(path, "read size for", error)};
+    return {true, false, make_rotation_warning(path, "read size for", error)};
   }
 
   if (current_size < max_bytes && incoming_bytes <= max_bytes - current_size) {
@@ -122,15 +122,15 @@ DiagnosticsFilePrepareResult PrepareDiagnosticsFileForAppend(const std::filesyst
   if (generations == 0) {
     std::filesystem::remove(path, error);
     if (!error || is_missing_path_error(error)) {
-      return {};
+      return {.append_allowed = true, .rotated = true};
     }
-    return {true, make_rotation_warning(path, "remove", error)};
+    return {true, false, make_rotation_warning(path, "remove", error)};
   }
 
   const auto oldest_path = DiagnosticsRotatedPath(path, generations);
   std::filesystem::remove(oldest_path, error);
   if (error && !is_missing_path_error(error)) {
-    return {true, make_rotation_warning(oldest_path, "remove", error)};
+    return {true, false, make_rotation_warning(oldest_path, "remove", error)};
   }
 
   for (int index = generations - 1; index >= 1; --index) {
@@ -139,7 +139,7 @@ DiagnosticsFilePrepareResult PrepareDiagnosticsFileForAppend(const std::filesyst
     error.clear();
     if (!std::filesystem::exists(source, error)) {
       if (error && !is_missing_path_error(error)) {
-        return {true, make_rotation_warning(source, "stat", error)};
+        return {true, false, make_rotation_warning(source, "stat", error)};
       }
       continue;
     }
@@ -148,15 +148,15 @@ DiagnosticsFilePrepareResult PrepareDiagnosticsFileForAppend(const std::filesyst
     error.clear();
     std::filesystem::rename(source, target, error);
     if (error) {
-      return {true, make_rotation_warning(source, "rotate", error)};
+      return {true, false, make_rotation_warning(source, "rotate", error)};
     }
   }
 
   error.clear();
   std::filesystem::rename(path, DiagnosticsRotatedPath(path, 1), error);
   if (error) {
-    return {true, make_rotation_warning(path, "rotate", error)};
+    return {true, false, make_rotation_warning(path, "rotate", error)};
   }
 
-  return {};
+  return {.append_allowed = true, .rotated = true};
 }
