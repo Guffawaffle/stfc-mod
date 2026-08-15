@@ -8,6 +8,8 @@
  * which write bounded breadcrumbs to logs and recent-events.
  */
 #include "patches/live_debug.h"
+#include "patches/fleet_notifications.h"
+#include "patches/fleet_runtime_sync.h"
 #include "patches/live_debug_connector.h"
 #include "patches/live_debug_event_dispatcher.h"
 #include "patches/live_debug_fleet_change_events.h"
@@ -15,9 +17,6 @@
 #include "patches/live_debug_fleet_runtime_serializers.h"
 #include "patches/live_debug_fleet_serializers.h"
 #include "patches/live_debug_navhook_trace_sink.h"
-#include "patches/fleet_notifications.h"
-#include "patches/fleet_runtime_diagnostics.h"
-#include "patches/fleet_runtime_sync.h"
 #include "patches/live_debug_observation_compare.h"
 #include "patches/live_debug_recent_event_requests.h"
 #include "patches/live_debug_request_dispatch.h"
@@ -116,11 +115,8 @@ void append_navigation_poll_actionable_event(const NavigationInteractionObservat
 
 void trigger_live_debug_deployment_fleet_runtime_sync(const char* seam, const char* reason)
 {
-  fleet_runtime_sync_trigger(gameplay_dispatch_context(reason,
-                                                       kLiveDebugDeploymentOwner,
-                                                       seam,
-                                                       reason,
-                                                       kFleetRuntimeSyncEffect));
+  fleet_runtime_sync_trigger(
+      gameplay_dispatch_context(reason, kLiveDebugDeploymentOwner, seam, reason, kFleetRuntimeSyncEffect));
 }
 
 bool should_poll_live_debug_request_channel()
@@ -159,9 +155,7 @@ int64_t current_time_millis_utc()
 
 void append_navigation_hook_trace_step(const char* step, const char* phase, const void* controller = nullptr,
                                        const void* sender = nullptr, const void* callback_context = nullptr)
-{
-  live_debug_navhook_trace_sink::AppendStep(step, phase, controller, sender, callback_context);
-}
+{ live_debug_navhook_trace_sink::AppendStep(step, phase, controller, sender, callback_context); }
 
 void append_ui_observer_trace_step(const char* step, const char* phase, const void* controller = nullptr,
                                    const void* sender = nullptr, const void* callback_context = nullptr)
@@ -520,15 +514,15 @@ void initialize_recent_model_observations(std::string_view source)
 
   const auto fleet_runtime = observe_fleet_runtime_snapshot();
 
-  const auto top_canvas             = kEnableLiveDebugTopCanvasPolling ? observe_top_canvas() : TopCanvasObservation{};
-  const auto& fleet                 = fleet_runtime.fleet;
-  const auto& fleet_slots           = fleet_runtime.slots;
-  const auto station_warning        = kEnableLiveDebugStationWarningPolling
-                                          ? observe_station_warning(ui_observer_trace_hooks())
-                                          : StationWarningObservation{};
-  const auto navigation_interaction = kEnableLiveDebugNavigationInteractionPolling
-                                          ? observe_navigation_interaction(ui_observer_trace_hooks())
-                                          : NavigationInteractionObservation{};
+  const auto  top_canvas             = kEnableLiveDebugTopCanvasPolling ? observe_top_canvas() : TopCanvasObservation{};
+  const auto& fleet                  = fleet_runtime.fleet;
+  const auto& fleet_slots            = fleet_runtime.slots;
+  const auto  station_warning        = kEnableLiveDebugStationWarningPolling
+                                           ? observe_station_warning(ui_observer_trace_hooks())
+                                           : StationWarningObservation{};
+  const auto  navigation_interaction = kEnableLiveDebugNavigationInteractionPolling
+                                           ? observe_navigation_interaction(ui_observer_trace_hooks())
+                                           : NavigationInteractionObservation{};
 
   g_last_top_canvas                 = top_canvas;
   g_last_fleet                      = fleet;
@@ -654,9 +648,9 @@ void DeploymentEvents_TriggerFleetStateChangeEvent_Hook(auto original, IList* fl
 {
   original(fleets);
   if (LiveDebugChannelEnabled()) {
-    live_debug_events::RecordEvent("deployment-fleet-state-event",
-                                   json{{"fleetCount", count_list_items(fleets)},
-                                        {"fleets", deployed_fleet_list_to_json(fleets)}});
+    live_debug_events::RecordEvent(
+        "deployment-fleet-state-event",
+        json{{"fleetCount", count_list_items(fleets)}, {"fleets", deployed_fleet_list_to_json(fleets)}});
   }
   capture_recent_model_events("deployment-fleet-state-event");
   fleet_notifications_observe_runtime_fleets();
@@ -694,8 +688,8 @@ void DeploymentEvents_TriggerCourseStartEvent_Hook(auto original, IList* courses
   }
   capture_recent_model_events("deployment-course-start-event");
   fleet_notifications_observe_runtime_fleets();
-  trigger_live_debug_deployment_fleet_runtime_sync(
-      "Digit.PrimeServer.Events.DeploymentEvents.TriggerCourseStartEvent", "deployment-course-start-event");
+  trigger_live_debug_deployment_fleet_runtime_sync("Digit.PrimeServer.Events.DeploymentEvents.TriggerCourseStartEvent",
+                                                   "deployment-course-start-event");
 }
 
 void DeploymentEvents_TriggerCourseChangeEvent_Hook(auto original, IList* old_courses, IList* new_courses)
@@ -708,8 +702,8 @@ void DeploymentEvents_TriggerCourseChangeEvent_Hook(auto original, IList* old_co
   }
   capture_recent_model_events("deployment-course-change-event");
   fleet_notifications_observe_runtime_fleets();
-  trigger_live_debug_deployment_fleet_runtime_sync(
-      "Digit.PrimeServer.Events.DeploymentEvents.TriggerCourseChangeEvent", "deployment-course-change-event");
+  trigger_live_debug_deployment_fleet_runtime_sync("Digit.PrimeServer.Events.DeploymentEvents.TriggerCourseChangeEvent",
+                                                   "deployment-course-change-event");
 }
 
 void DeploymentEvents_TriggerCourseEndEvent_Hook(auto original, IList* courses)
@@ -720,8 +714,8 @@ void DeploymentEvents_TriggerCourseEndEvent_Hook(auto original, IList* courses)
   }
   capture_recent_model_events("deployment-course-end-event");
   fleet_notifications_observe_runtime_fleets();
-  trigger_live_debug_deployment_fleet_runtime_sync(
-      "Digit.PrimeServer.Events.DeploymentEvents.TriggerCourseEndEvent", "deployment-course-end-event");
+  trigger_live_debug_deployment_fleet_runtime_sync("Digit.PrimeServer.Events.DeploymentEvents.TriggerCourseEndEvent",
+                                                   "deployment-course-end-event");
 }
 
 void DeploymentEvents_TriggerSetCourseResponseEvent_Hook(auto original, long fleet_id, bool success,
@@ -752,22 +746,22 @@ void DeploymentEvents_TriggerBattleStartEvent_Hook(auto original, IList* fleets)
   }
   capture_recent_model_events("deployment-battle-start-event");
   fleet_notifications_observe_runtime_fleets();
-  trigger_live_debug_deployment_fleet_runtime_sync(
-      "Digit.PrimeServer.Events.DeploymentEvents.TriggerBattleStartEvent", "deployment-battle-start-event");
+  trigger_live_debug_deployment_fleet_runtime_sync("Digit.PrimeServer.Events.DeploymentEvents.TriggerBattleStartEvent",
+                                                   "deployment-battle-start-event");
 }
 
 void DeploymentEvents_TriggerBattleEndEvent_Hook(auto original, IList* fleets)
 {
   original(fleets);
   if (LiveDebugChannelEnabled()) {
-    live_debug_events::RecordEvent("deployment-battle-end-event",
-                                   json{{"fleetCount", count_list_items(fleets)},
-                                        {"fleets", deployed_fleet_list_to_json(fleets)}});
+    live_debug_events::RecordEvent(
+        "deployment-battle-end-event",
+        json{{"fleetCount", count_list_items(fleets)}, {"fleets", deployed_fleet_list_to_json(fleets)}});
   }
   capture_recent_model_events("deployment-battle-end-event");
   fleet_notifications_observe_runtime_fleets();
-  trigger_live_debug_deployment_fleet_runtime_sync(
-      "Digit.PrimeServer.Events.DeploymentEvents.TriggerBattleEndEvent", "deployment-battle-end-event");
+  trigger_live_debug_deployment_fleet_runtime_sync("Digit.PrimeServer.Events.DeploymentEvents.TriggerBattleEndEvent",
+                                                   "deployment-battle-end-event");
 }
 
 void DeploymentEvents_TriggerStaleFleetDataDetected_Hook(auto original)

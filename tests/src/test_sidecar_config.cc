@@ -73,7 +73,6 @@ TEST_SUITE("sidecar_config")
     CHECK_FALSE(result.config.sync.battlelogs_realtime);
     CHECK_FALSE(result.config.sync.battlelog_enrichment);
     CHECK_FALSE(result.config.sync.fleet_runtime);
-    CHECK(result.config.sync.fleet_runtime_mode == "normal");
   }
 
   TEST_CASE("omitting advanced namespaces keeps normal config parsing backward compatible")
@@ -106,11 +105,7 @@ jsonl_recent_logs = 300
     CHECK_FALSE(result.advanced.diagnostics.notification_skip_logging);
     CHECK_FALSE(result.advanced.diagnostics.fleet_selection_timing_logging);
     CHECK_FALSE(result.advanced.diagnostics.live_query);
-    CHECK(result.advanced.diagnostics.runtime_trace == "off");
-    CHECK_FALSE(result.advanced.diagnostics.runtime_trace_track_overhead);
     CHECK_FALSE(result.advanced.diagnostics.action_queue_guard_logging);
-    CHECK_FALSE(result.advanced.diagnostics.mod_impact_monitor);
-    CHECK(result.advanced.diagnostics.runtime_trace_report_interval_ms == 5000);
     CHECK_FALSE(result.advanced.diagnostics.refinery_diagnostics);
     CHECK(result.advanced.diagnostics.concerns.enabled.empty());
     CHECK(result.advanced.diagnostics.files.root.empty());
@@ -147,7 +142,7 @@ url = "http://127.0.0.1:43127/api/sidecar/ingest"
     CHECK_FALSE(SidecarLocalSyncTransportReady(typed.config.sync));
   }
 
-  TEST_CASE("parses advanced diagnostics including runtime trace, keeps sidecar sync and logging canonical, and "
+  TEST_CASE("parses advanced diagnostics concerns, keeps sidecar sync and logging canonical, and "
             "rejects legacy sync jsonl keys")
   {
     auto config = toml::parse(R"(
@@ -161,7 +156,6 @@ allow_unsafe_tls_without_certificate_validation = true
 battlelogs_realtime = true
 battlelog_enrichment = true
 fleet_runtime = true
-fleet_runtime_mode = "snapshot_only"
 
 [advanced.diagnostics]
 ship_identity = true
@@ -173,11 +167,7 @@ hotkey_suppression_logging = true
 notification_skip_logging = true
 fleet_selection_timing_logging = true
 live_query = true
-runtime_trace = "verbose"
-runtime_trace_track_overhead = true
 action_queue_guard_logging = true
-mod_impact_monitor = true
-runtime_trace_report_interval_ms = 9000
 refinery_diagnostics = true
 
 [advanced.diagnostics.concerns]
@@ -218,7 +208,6 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.config.sync.battlelogs_realtime);
     CHECK(result.config.sync.battlelog_enrichment);
     CHECK(result.config.sync.fleet_runtime);
-    CHECK(result.config.sync.fleet_runtime_mode == "snapshot_only");
 
     CHECK(result.advanced.diagnostics.ship_identity);
     CHECK(result.advanced.diagnostics.battle_log_decoder);
@@ -229,11 +218,7 @@ sidecar_jsonl_recent_logs = 120
     CHECK(result.advanced.diagnostics.notification_skip_logging);
     CHECK(result.advanced.diagnostics.fleet_selection_timing_logging);
     CHECK(result.advanced.diagnostics.live_query);
-    CHECK(result.advanced.diagnostics.runtime_trace == "verbose");
-    CHECK(result.advanced.diagnostics.runtime_trace_track_overhead);
     CHECK(result.advanced.diagnostics.action_queue_guard_logging);
-    CHECK(result.advanced.diagnostics.mod_impact_monitor);
-    CHECK(result.advanced.diagnostics.runtime_trace_report_interval_ms == 9000);
     CHECK(result.advanced.diagnostics.refinery_diagnostics);
     REQUIRE(result.advanced.diagnostics.concerns.enabled.size() == 2);
     CHECK(result.advanced.diagnostics.concerns.enabled[0] == "fleet-notification-scan");
@@ -313,20 +298,6 @@ queue_add_hide_viewers = "false"
                                 "advanced.queue.queue_add_hide_viewers", config_schema::DiagnosticSeverity::Warning));
     CHECK(has_diagnostic_message_fragment(result.diagnostics, "advanced.queue.queue_add_hide_viewers",
                                           "Expected boolean, found string"));
-  }
-
-  TEST_CASE("invalid sidecar fleet runtime mode falls back to normal")
-  {
-    auto config = toml::parse(R"(
-[sidecar.sync]
-fleet_runtime_mode = "surprise"
-)");
-
-    const auto result = ParseSidecarConfig(config);
-
-    CHECK(result.config.sync.fleet_runtime_mode == "normal");
-    CHECK(has_diagnostic(result.diagnostics, "sidecar.sync.fleet_runtime_mode",
-                         config_schema::DiagnosticSeverity::Warning));
   }
 
   TEST_CASE("sidecar battlelog enrichment defaults closed and accepts legacy decoder alias")
@@ -453,39 +424,35 @@ mode = "majel"
   {
     SidecarConfig  sidecar;
     AdvancedConfig advanced;
-    sidecar.sync.enabled                                  = true;
-    sidecar.sync.transport                                = "named_pipe";
-    sidecar.sync.pipe_name                                = "stfc-mod-bridge.battle.v1";
-    sidecar.sync.url                                      = "http://127.0.0.1:43127/api/sidecar/ingest";
-    sidecar.sync.token                                    = "secret-sidecar-token";
-    sidecar.sync.proxy                                    = "http://user:pass@example.invalid:8080";
-    sidecar.sync.battlelogs_realtime                      = true;
-    sidecar.sync.battlelog_enrichment                     = true;
-    sidecar.logging.jsonl                                 = true;
-    sidecar.logging.jsonl_replay_seconds                  = 15;
-    sidecar.logging.jsonl_recent_logs                     = 7;
-    advanced.diagnostics.reserved_native_debug            = true;
-    advanced.diagnostics.reserved_native_payload_logging  = true;
-    advanced.diagnostics.ship_identity                    = true;
-    advanced.diagnostics.hotkey_suppression_logging       = true;
-    advanced.diagnostics.notification_skip_logging        = true;
-    advanced.diagnostics.fleet_selection_timing_logging   = true;
-    advanced.diagnostics.live_query                       = true;
-    advanced.diagnostics.runtime_trace                    = "detailed";
-    advanced.diagnostics.runtime_trace_track_overhead     = false;
-    advanced.diagnostics.action_queue_guard_logging       = true;
-    advanced.diagnostics.mod_impact_monitor               = true;
-    advanced.diagnostics.runtime_trace_report_interval_ms = 7000;
-    advanced.diagnostics.refinery_diagnostics             = true;
-    advanced.diagnostics.concerns.enabled                 = {"fleet-notification-scan"};
-    advanced.diagnostics.files.root                       = "custom/native-logs";
-    advanced.diagnostics.files.navhook_trace_max_kb       = 4096;
-    advanced.diagnostics.files.navhook_trace_files        = 4;
-    advanced.diagnostics.files.action_queue_probe_max_kb  = 8192;
-    advanced.diagnostics.files.action_queue_probe_files   = 5;
-    advanced.queue.queue_repair_enabled                   = true;
-    advanced.queue.thin_queue_protection                  = true;
-    advanced.queue.queue_add_direct_handler               = true;
+    sidecar.sync.enabled                                 = true;
+    sidecar.sync.transport                               = "named_pipe";
+    sidecar.sync.pipe_name                               = "stfc-mod-bridge.battle.v1";
+    sidecar.sync.url                                     = "http://127.0.0.1:43127/api/sidecar/ingest";
+    sidecar.sync.token                                   = "secret-sidecar-token";
+    sidecar.sync.proxy                                   = "http://user:pass@example.invalid:8080";
+    sidecar.sync.battlelogs_realtime                     = true;
+    sidecar.sync.battlelog_enrichment                    = true;
+    sidecar.logging.jsonl                                = true;
+    sidecar.logging.jsonl_replay_seconds                 = 15;
+    sidecar.logging.jsonl_recent_logs                    = 7;
+    advanced.diagnostics.reserved_native_debug           = true;
+    advanced.diagnostics.reserved_native_payload_logging = true;
+    advanced.diagnostics.ship_identity                   = true;
+    advanced.diagnostics.hotkey_suppression_logging      = true;
+    advanced.diagnostics.notification_skip_logging       = true;
+    advanced.diagnostics.fleet_selection_timing_logging  = true;
+    advanced.diagnostics.live_query                      = true;
+    advanced.diagnostics.action_queue_guard_logging      = true;
+    advanced.diagnostics.refinery_diagnostics            = true;
+    advanced.diagnostics.concerns.enabled                = {"fleet-notification-scan"};
+    advanced.diagnostics.files.root                      = "custom/native-logs";
+    advanced.diagnostics.files.navhook_trace_max_kb      = 4096;
+    advanced.diagnostics.files.navhook_trace_files       = 4;
+    advanced.diagnostics.files.action_queue_probe_max_kb = 8192;
+    advanced.diagnostics.files.action_queue_probe_files  = 5;
+    advanced.queue.queue_repair_enabled                  = true;
+    advanced.queue.thin_queue_protection                 = true;
+    advanced.queue.queue_add_direct_handler              = true;
 
     toml::table runtime_snapshot;
     WriteSidecarConfigRuntimeSnapshot(runtime_snapshot, sidecar);
@@ -510,13 +477,7 @@ mode = "majel"
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["notification_skip_logging"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["fleet_selection_timing_logging"].value<bool>().value_or(false));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["live_query"].value<bool>().value_or(false));
-    CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace"].value<std::string>().value_or("") == "detailed");
-    CHECK_FALSE(
-        runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_track_overhead"].value<bool>().value_or(true));
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["action_queue_guard_logging"].value<bool>().value_or(false));
-    CHECK(runtime_snapshot["advanced"]["diagnostics"]["mod_impact_monitor"].value<bool>().value_or(false));
-    CHECK(runtime_snapshot["advanced"]["diagnostics"]["runtime_trace_report_interval_ms"].value<int>().value_or(0)
-          == 7000);
     CHECK(runtime_snapshot["advanced"]["diagnostics"]["refinery_diagnostics"].value<bool>().value_or(false));
     REQUIRE(runtime_snapshot["advanced"]["diagnostics"]["concerns"]["enabled"].is_array());
     REQUIRE(runtime_snapshot["advanced"]["diagnostics"]["concerns"]["enabled"].as_array()->size() == 1);
@@ -565,10 +526,6 @@ action_queue_probe_files = 0
   {
     const auto source = R"toml(
 [advanced.diagnostics]
-runtime_trace = "off"
-runtime_trace_track_overhead = false
-runtime_trace_report_interval_ms = 5000
-mod_impact_monitor = false
 action_queue_guard_logging = false
 notification_skip_logging = false
 )toml";
@@ -579,10 +536,6 @@ notification_skip_logging = false
 
     const auto* diagnostics = user_config["advanced"]["diagnostics"].as_table();
     REQUIRE(diagnostics != nullptr);
-    CHECK_FALSE(diagnostics->contains("runtime_trace"));
-    CHECK_FALSE(diagnostics->contains("runtime_trace_track_overhead"));
-    CHECK_FALSE(diagnostics->contains("runtime_trace_report_interval_ms"));
-    CHECK_FALSE(diagnostics->contains("mod_impact_monitor"));
     CHECK_FALSE(diagnostics->contains("action_queue_guard_logging"));
     CHECK(diagnostics->contains("notification_skip_logging"));
   }

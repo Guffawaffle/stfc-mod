@@ -133,7 +133,8 @@ bool KirsharaQueueMarkerHooksRequested(const KirsharaQueueRepairInstallPlan& ins
          || install_plan.install_remove_target_and_attack_next_marker
          || install_plan.install_check_to_clear_action_queue_marker || install_plan.install_is_target_valid_marker
          || install_plan.install_process_queue_deployed_marker || install_plan.install_process_queue_target_marker
-         || install_plan.install_on_set_course_response_marker || install_plan.install_on_player_fleet_state_changed_marker
+         || install_plan.install_on_set_course_response_marker
+         || install_plan.install_on_player_fleet_state_changed_marker
          || install_plan.install_on_fleet_state_change_marker || install_plan.install_on_fleets_disposed_marker;
 }
 
@@ -141,10 +142,9 @@ void LogKirsharaQueueHooksForceDisabled(const KirsharaQueueRepairInstallPlan& in
 {
   static std::once_flag once;
   std::call_once(once, [&] {
-    spdlog::warn(
-        "[KirsharaQueueRepair] force-disabled after native game queue update; leaving repair and marker hooks "
-        "unloaded pending compatibility re-validation (course_target_completion={} marker_hooks={})",
-        install_plan.install_course_target_completion, KirsharaQueueMarkerHooksRequested(install_plan));
+    spdlog::warn("[KirsharaQueueRepair] force-disabled after native game queue update; leaving repair and marker hooks "
+                 "unloaded pending compatibility re-validation (course_target_completion={} marker_hooks={})",
+                 install_plan.install_course_target_completion, KirsharaQueueMarkerHooksRequested(install_plan));
   });
 }
 } // namespace
@@ -155,9 +155,7 @@ bool ActionQueueProbeEnabled()
     return false;
   }
 
-  const auto level                  = RuntimeTraceLevelSetting();
-  const auto detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
-  return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairSettings(), detailed_runtime_trace).emit_probe_logs;
+  return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairSettings(), false).emit_probe_logs;
 }
 
 bool ActionQueueProbeDetoursEnabled()
@@ -169,10 +167,7 @@ bool ActionQueueRepairEnabled()
     return false;
   }
 
-  const auto level                  = RuntimeTraceLevelSetting();
-  const auto detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
-  return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairSettings(), detailed_runtime_trace)
-      .install_repair_hooks;
+  return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairSettings(), false).install_repair_hooks;
 }
 
 constexpr char kActionQueueProbeJsonlFile[] = "community_patch_action_queue_probe.jsonl";
@@ -412,7 +407,7 @@ void ResetActionQueueProbeJsonl()
   nlohmann::json event;
   event["ts_ms"]   = ActionQueueProbeTimestampMs();
   event["event"]   = "session-start";
-  event["level"]   = RuntimeTraceLevelName(RuntimeTraceLevelSetting());
+  event["level"]   = "disabled";
   event["detours"] = ActionQueueProbeDetoursEnabled();
   file << event.dump() << '\n';
 }
@@ -843,10 +838,7 @@ bool CourseTargetCompletionEnabled()
     return false;
   }
 
-  const auto level                  = RuntimeTraceLevelSetting();
-  const auto detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
-  return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairSettings(), detailed_runtime_trace)
-      .install_course_target_completion;
+  return BuildKirsharaQueueRepairInstallPlan(KirsharaQueueRepairSettings(), false).install_course_target_completion;
 }
 
 std::int64_t AgeMs(std::int64_t now, std::int64_t previous)
@@ -871,17 +863,16 @@ FleetDeployedDataSnapshot SnapshotFleetDeployedData(FleetDeployedData* deployed_
     return snapshot;
   }
 
-  snapshot.present            = true;
-  snapshot.id                 = FleetDeployedId(deployed_data);
-  snapshot.state              = FleetDeployedState(deployed_data);
-  snapshot.previous_state     = FleetDeployedPreviousState(deployed_data);
-  snapshot.type               = FleetDeployedType(deployed_data);
-  snapshot.destroyed          = FleetDeployedIsDestroyed(deployed_data);
-  snapshot.currently_battling = FleetDeployedCurrentlyBattling(deployed_data);
-  snapshot.player_combat_start =
-      snapshot.type == static_cast<int>(DeployedFleetType::Player) && snapshot.state == 6
-      && (snapshot.previous_state == 0 || snapshot.previous_state == 1) && snapshot.currently_battling
-      && !snapshot.destroyed;
+  snapshot.present             = true;
+  snapshot.id                  = FleetDeployedId(deployed_data);
+  snapshot.state               = FleetDeployedState(deployed_data);
+  snapshot.previous_state      = FleetDeployedPreviousState(deployed_data);
+  snapshot.type                = FleetDeployedType(deployed_data);
+  snapshot.destroyed           = FleetDeployedIsDestroyed(deployed_data);
+  snapshot.currently_battling  = FleetDeployedCurrentlyBattling(deployed_data);
+  snapshot.player_combat_start = snapshot.type == static_cast<int>(DeployedFleetType::Player) && snapshot.state == 6
+                                 && (snapshot.previous_state == 0 || snapshot.previous_state == 1)
+                                 && snapshot.currently_battling && !snapshot.destroyed;
   return snapshot;
 }
 
@@ -967,7 +958,7 @@ void LatchCourseTargetCompletionTarget(std::int64_t fleet_id, std::int64_t targe
     return;
   }
 
-  auto*      fleet              = FindPlayerFleetDataByCourseFleetId(fleet_id);
+  auto*      fleet               = FindPlayerFleetDataByCourseFleetId(fleet_id);
   const auto normalized_fleet_id = fleet ? static_cast<std::int64_t>(fleet->Id) : fleet_id;
   const auto key                 = normalized_fleet_id;
   {
@@ -1029,7 +1020,7 @@ bool MarkCourseTargetCompletionConsumed(std::int64_t fleet_key, const CourseTarg
   return true;
 }
 
-CourseTargetCompletionSynthesis TakeCourseTargetCompletionSynthesis(ActionQueueManager*                 manager,
+CourseTargetCompletionSynthesis TakeCourseTargetCompletionSynthesis(ActionQueueManager*              manager,
                                                                     const FleetDeployedDataSnapshot& deployed)
 {
   if (!CourseTargetCompletionEnabled() || !deployed.player_combat_start) {
@@ -1043,8 +1034,8 @@ CourseTargetCompletionSynthesis TakeCourseTargetCompletionSynthesis(ActionQueueM
   const auto deployed_id = deployed.id;
   const auto key         = deployed_id;
 
-  CourseTargetCompletionCandidate  target_state;
-  PlayerOnlyBattleStartCandidate   start_state;
+  CourseTargetCompletionCandidate target_state;
+  PlayerOnlyBattleStartCandidate  start_state;
   {
     std::lock_guard lk(CourseTargetCompletionMutex());
     auto&           targets = CourseTargetCompletionTargets();
@@ -1483,30 +1474,28 @@ void ActionQueueEvents_TriggerActionRemovedFromQueueEvent(auto original)
 void InstallActionQueueRepairHooks()
 {
   if constexpr (!kKirsharaQueueRepairRuntimeInstallEnabled) {
-    const auto& repair_settings = KirsharaQueueRepairSettings();
-    const auto requested_diagnostic_markers = CountKirsharaQueueRequestedDiagnostics(repair_settings.diagnostics);
-    const auto requested_any = KirsharaQueueDormantOptInRequested(repair_settings);
+    const auto& repair_settings              = KirsharaQueueRepairSettings();
+    const auto  requested_diagnostic_markers = CountKirsharaQueueRequestedDiagnostics(repair_settings.diagnostics);
+    const auto  requested_any                = KirsharaQueueDormantOptInRequested(repair_settings);
 
     if (requested_any) {
       spdlog::warn("[ActionQueueRepair] dormant runtime install disabled for Kir'shara queue hooks "
                    "(enabled={} course_target_completion={} diagnostics_enabled={} requested_diagnostic_markers={})",
-                   repair_settings.enabled, repair_settings.course_target_completion, repair_settings.diagnostics.enabled,
-                   requested_diagnostic_markers);
+                   repair_settings.enabled, repair_settings.course_target_completion,
+                   repair_settings.diagnostics.enabled, requested_diagnostic_markers);
     } else {
       spdlog::info("[ActionQueueRepair] dormant runtime install disabled for Kir'shara queue hooks "
                    "(enabled={} course_target_completion={} diagnostics_enabled={} requested_diagnostic_markers={})",
-                   repair_settings.enabled, repair_settings.course_target_completion, repair_settings.diagnostics.enabled,
-                   requested_diagnostic_markers);
+                   repair_settings.enabled, repair_settings.course_target_completion,
+                   repair_settings.diagnostics.enabled, requested_diagnostic_markers);
     }
     return;
   }
 
   HookModuleHealth hooks("KirsharaQueueRepairHooks");
-  const auto  level                  = RuntimeTraceLevelSetting();
-  const auto  detailed_runtime_trace = level == RuntimeTraceLevel::Detailed || level == RuntimeTraceLevel::Verbose;
-  const auto& repair_settings        = KirsharaQueueRepairSettings();
-  const auto  install_plan           = BuildKirsharaQueueRepairInstallPlan(repair_settings, detailed_runtime_trace);
-  const auto record_force_disabled_skip = [&hooks](const HookDescriptor& descriptor, const bool requested) {
+  const auto&      repair_settings            = KirsharaQueueRepairSettings();
+  const auto       install_plan               = BuildKirsharaQueueRepairInstallPlan(repair_settings, false);
+  const auto       record_force_disabled_skip = [&hooks](const HookDescriptor& descriptor, const bool requested) {
     if (requested) {
       hooks.record_skipped(descriptor, "dormant support tier force-disabled after native queue update");
     }
@@ -1540,9 +1529,9 @@ void InstallActionQueueRepairHooks()
     return;
   }
 
-  const auto  install_action_queue_repairs     = install_plan.install_repair_hooks;
-  const auto  install_course_target_completion = install_plan.install_course_target_completion;
-  const auto  install_any_action_queue_marker  = KirsharaQueueMarkerHooksRequested(install_plan);
+  const auto install_action_queue_repairs      = install_plan.install_repair_hooks;
+  const auto install_course_target_completion  = install_plan.install_course_target_completion;
+  const auto install_any_action_queue_marker   = KirsharaQueueMarkerHooksRequested(install_plan);
   const auto install_completion_pipeline_hooks = install_any_action_queue_marker || install_course_target_completion;
 
   if (!install_action_queue_repairs && !install_completion_pipeline_hooks) {
@@ -1554,11 +1543,10 @@ void InstallActionQueueRepairHooks()
 
   if (ActionQueueProbeEnabled()) {
     ResetActionQueueProbeJsonl();
-    spdlog::info("[ActionQueueProbe] install level={} repair_detours={}",
-                 RuntimeTraceLevelName(RuntimeTraceLevelSetting()), install_action_queue_repairs);
+    spdlog::info("[ActionQueueProbe] install level=disabled repair_detours={}", install_action_queue_repairs);
     AppendActionQueueProbeJsonl({{"phase", "install"},
                                  {"hook", "InstallActionQueueRepairHooks"},
-                                 {"level", RuntimeTraceLevelName(RuntimeTraceLevelSetting())},
+                                 {"level", "disabled"},
                                  {"repair_detours", install_action_queue_repairs}});
   }
 
@@ -1585,9 +1573,8 @@ void InstallActionQueueRepairHooks()
                               || install_plan.install_on_set_course_response_marker);
     record_missing_helper(kActionQueueOnPlayerFleetStateChangedHook,
                           install_plan.install_on_player_fleet_state_changed_marker);
-    record_missing_helper(kActionQueueOnFleetStateChangeHook,
-                          install_plan.install_course_target_completion
-                              || install_plan.install_on_fleet_state_change_marker);
+    record_missing_helper(kActionQueueOnFleetStateChangeHook, install_plan.install_course_target_completion
+                                                                  || install_plan.install_on_fleet_state_change_marker);
     record_missing_helper(kActionQueueOnFleetsDisposedHook, install_plan.install_on_fleets_disposed_marker);
     ErrorMsg::MissingHelper("ActionQueue", "ActionQueueManager");
     hooks.log_summary();

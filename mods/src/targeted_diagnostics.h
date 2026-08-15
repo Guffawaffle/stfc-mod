@@ -185,8 +185,8 @@ struct CaptureLimits {
   size_t         global_queue_bytes      = 1024 * 1024;
   size_t         per_concern_queue_bytes = 256 * 1024;
   size_t         max_record_bytes        = 32 * 1024;
-  std::uintmax_t max_file_bytes          = 16 * 1024 * 1024;
-  int            total_files             = 4;
+  std::uintmax_t max_file_bytes          = 1024 * 1024;
+  int            total_files             = 2;
   // Bounds queued drain work after shutdown begins. One synchronous filesystem call may exceed this target.
   std::chrono::milliseconds shutdown_drain_timeout{750};
 };

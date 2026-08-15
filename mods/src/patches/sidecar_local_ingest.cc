@@ -31,47 +31,42 @@ namespace
 using json = nlohmann::json;
 
 struct SidecarLocalWorkItem {
-  SidecarLocalIngestKind   kind = SidecarLocalIngestKind::BattleEvents;
-  json                     payload;
+  SidecarLocalIngestKind      kind = SidecarLocalIngestKind::BattleEvents;
+  json                        payload;
   SidecarLocalDispatchContext context;
 };
 
-constexpr size_t kSidecarLocalQueueMaxDepth = 128;
-constexpr auto   kSidecarLocalBatchQuietFor = std::chrono::milliseconds(75);
-constexpr auto   kSidecarLocalJoinWarnAfter = std::chrono::seconds(2);
+constexpr size_t kSidecarLocalQueueMaxDepth    = 128;
+constexpr auto   kSidecarLocalBatchQuietFor    = std::chrono::milliseconds(75);
+constexpr auto   kSidecarLocalJoinWarnAfter    = std::chrono::seconds(2);
 constexpr int    kSidecarLocalConnectTimeoutMs = 2500;
 constexpr int    kSidecarLocalRequestTimeoutMs = 8000;
-constexpr auto   kSidecarLocalInitialBackoff = std::chrono::seconds(15);
-constexpr auto   kSidecarLocalMaxBackoff = std::chrono::minutes(2);
-constexpr auto   kSidecarLocalBackoffLogEvery = std::chrono::seconds(15);
+constexpr auto   kSidecarLocalInitialBackoff   = std::chrono::seconds(15);
+constexpr auto   kSidecarLocalMaxBackoff       = std::chrono::minutes(2);
+constexpr auto   kSidecarLocalBackoffLogEvery  = std::chrono::seconds(15);
 
 AsyncWorkQueue<SidecarLocalWorkItem> s_sidecar_local_queue(kSidecarLocalQueueMaxDepth);
 std::once_flag                       s_sidecar_local_worker_once;
 std::thread                          s_sidecar_local_worker_thread;
 std::atomic_uint64_t                 s_sidecar_local_batch_counter = 0;
-std::atomic_uint64_t                 s_fleet_runtime_transport_mode_suppressed = 0;
 
 std::mutex                            s_transport_backoff_mutex;
 std::chrono::steady_clock::time_point s_transport_backoff_until;
 std::chrono::steady_clock::time_point s_transport_backoff_last_log;
 uint32_t                              s_transport_consecutive_failures = 0;
-uint64_t                              s_transport_backoff_suppressed = 0;
+uint64_t                              s_transport_backoff_suppressed   = 0;
 
 const char* sidecar_local_kind_name(const SidecarLocalIngestKind kind)
 {
   switch (kind) {
-    case SidecarLocalIngestKind::BattleEvents: return "battle.events";
-    case SidecarLocalIngestKind::FleetRuntime: return "fleet.runtime";
+    case SidecarLocalIngestKind::BattleEvents:
+      return "battle.events";
+    case SidecarLocalIngestKind::FleetRuntime:
+      return "fleet.runtime";
   }
 
   return "unknown";
 }
-
-std::string_view fleet_runtime_mode()
-{ return SidecarSyncSettings().fleet_runtime_mode; }
-
-bool fleet_runtime_mode_is(std::string_view mode)
-{ return fleet_runtime_mode() == mode; }
 
 std::chrono::milliseconds sidecar_local_backoff_delay_for_failure_count(uint32_t failure_count)
 {
@@ -86,10 +81,10 @@ std::chrono::milliseconds sidecar_local_backoff_delay_for_failure_count(uint32_t
 
 bool sidecar_local_transport_backoff_active(SidecarLocalIngestKind kind, const SidecarLocalDispatchContext& context)
 {
-  const auto now = std::chrono::steady_clock::now();
-  uint64_t   suppressed = 0;
+  const auto now          = std::chrono::steady_clock::now();
+  uint64_t   suppressed   = 0;
   int64_t    remaining_ms = 0;
-  bool       should_log = false;
+  bool       should_log   = false;
 
   {
     std::lock_guard lock(s_transport_backoff_mutex);
@@ -98,89 +93,66 @@ bool sidecar_local_transport_backoff_active(SidecarLocalIngestKind kind, const S
     }
 
     ++s_transport_backoff_suppressed;
-    suppressed = s_transport_backoff_suppressed;
+    suppressed   = s_transport_backoff_suppressed;
     remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(s_transport_backoff_until - now).count();
     if (s_transport_backoff_last_log.time_since_epoch().count() == 0
         || now - s_transport_backoff_last_log >= kSidecarLocalBackoffLogEvery) {
       s_transport_backoff_last_log = now;
-      should_log = true;
+      should_log                   = true;
     }
   }
 
   if (should_log) {
     spdlog::info("[SidecarLocal] kind={} boundary={} classification={} source={} owner={} seam={} reason={} effect={} "
                  "transport=suppressed transportReason=backoff remainingMs={} suppressed={}",
-                 sidecar_local_kind_name(kind),
-                 context.boundary,
-                 context.classification,
-                 context.dispatch.source,
-                 context.dispatch.owner,
-                 context.dispatch.seam,
-                 context.dispatch.reason,
-                 context.dispatch.effect,
-                 remaining_ms,
-                 suppressed);
+                 sidecar_local_kind_name(kind), context.boundary, context.classification, context.dispatch.source,
+                 context.dispatch.owner, context.dispatch.seam, context.dispatch.reason, context.dispatch.effect,
+                 remaining_ms, suppressed);
   }
   return true;
 }
 
-void sidecar_local_transport_failure(SidecarLocalIngestKind kind,
-                                     const SidecarLocalDispatchContext& context,
+void sidecar_local_transport_failure(SidecarLocalIngestKind kind, const SidecarLocalDispatchContext& context,
                                      std::string_view message)
 {
-  uint32_t failures = 0;
+  uint32_t failures   = 0;
   int64_t  backoff_ms = 0;
   {
     std::lock_guard lock(s_transport_backoff_mutex);
-    failures = ++s_transport_consecutive_failures;
-    const auto delay = sidecar_local_backoff_delay_for_failure_count(failures);
-    s_transport_backoff_until = std::chrono::steady_clock::now() + delay;
+    failures                     = ++s_transport_consecutive_failures;
+    const auto delay             = sidecar_local_backoff_delay_for_failure_count(failures);
+    s_transport_backoff_until    = std::chrono::steady_clock::now() + delay;
     s_transport_backoff_last_log = {};
-    backoff_ms = delay.count();
+    backoff_ms                   = delay.count();
   }
 
   spdlog::warn("[SidecarLocal] kind={} boundary={} classification={} source={} owner={} seam={} reason={} effect={} "
                "transport=failed error='{}' backoffMs={} consecutiveFailures={}",
-               sidecar_local_kind_name(kind),
-               context.boundary,
-               context.classification,
-               context.dispatch.source,
-               context.dispatch.owner,
-               context.dispatch.seam,
-               context.dispatch.reason,
-               context.dispatch.effect,
-               message,
-               backoff_ms,
-               failures);
+               sidecar_local_kind_name(kind), context.boundary, context.classification, context.dispatch.source,
+               context.dispatch.owner, context.dispatch.seam, context.dispatch.reason, context.dispatch.effect, message,
+               backoff_ms, failures);
 }
 
 void sidecar_local_transport_success(SidecarLocalIngestKind kind, const SidecarLocalDispatchContext& context)
 {
-  uint32_t failures = 0;
+  uint32_t failures   = 0;
   uint64_t suppressed = 0;
   {
     std::lock_guard lock(s_transport_backoff_mutex);
-    failures = s_transport_consecutive_failures;
-    suppressed = s_transport_backoff_suppressed;
+    failures                         = s_transport_consecutive_failures;
+    suppressed                       = s_transport_backoff_suppressed;
     s_transport_consecutive_failures = 0;
-    s_transport_backoff_suppressed = 0;
-    s_transport_backoff_until = {};
-    s_transport_backoff_last_log = {};
+    s_transport_backoff_suppressed   = 0;
+    s_transport_backoff_until        = {};
+    s_transport_backoff_last_log     = {};
   }
 
   if (failures > 0 || suppressed > 0) {
     spdlog::info("[SidecarLocal] kind={} boundary={} classification={} source={} owner={} seam={} reason={} effect={} "
                  "transport=recovered previousFailures={} suppressedDuringBackoff={}",
-                 sidecar_local_kind_name(kind),
-                 context.boundary,
-                 context.classification,
-                 context.dispatch.source,
-                 context.dispatch.owner,
-                 context.dispatch.seam,
-                 context.dispatch.reason,
-                 context.dispatch.effect,
-                 failures,
-                 suppressed);
+                 sidecar_local_kind_name(kind), context.boundary, context.classification, context.dispatch.source,
+                 context.dispatch.owner, context.dispatch.seam, context.dispatch.reason, context.dispatch.effect,
+                 failures, suppressed);
   }
 }
 
@@ -192,7 +164,7 @@ int64_t current_time_millis_utc()
 
 std::string current_time_iso_utc()
 {
-  const auto now = std::chrono::system_clock::now();
+  const auto now      = std::chrono::system_clock::now();
   const auto now_time = std::chrono::system_clock::to_time_t(now);
 
   std::tm utc{};
@@ -219,7 +191,7 @@ std::string sidecar_local_session_id()
 std::string next_sidecar_batch_id(const SidecarLocalIngestKind kind)
 {
   const auto sequence = s_sidecar_local_batch_counter.fetch_add(1, std::memory_order_relaxed);
-  const auto prefix = kind == SidecarLocalIngestKind::BattleEvents ? "battle" : "fleet";
+  const auto prefix   = kind == SidecarLocalIngestKind::BattleEvents ? "battle" : "fleet";
   return std::format("{}-{}-{}", prefix, current_time_millis_utc(), sequence);
 }
 
@@ -236,7 +208,8 @@ bool apply_sidecar_tls_policy(cpr::Session& session, const SidecarSyncConfig& co
 {
   const auto decision = http::DecideSyncTlsVerification(sidecar_sync_transport_config(config));
   if (decision.warn_verify_ssl_ignored) {
-    spdlog::warn("[SidecarLocal] verify_ssl=false ignored because allow_unsafe_tls_without_certificate_validation=false");
+    spdlog::warn(
+        "[SidecarLocal] verify_ssl=false ignored because allow_unsafe_tls_without_certificate_validation=false");
   }
 
   if (decision.emit_unsafe_tls_error) {
@@ -315,9 +288,7 @@ json build_sidecar_local_envelope(const SidecarLocalIngestKind kind, const json&
   };
 }
 
-void post_sidecar_local_envelope(cpr::Session& session,
-                                 const SidecarLocalIngestKind kind,
-                                 const json& payload,
+void post_sidecar_local_envelope(cpr::Session& session, const SidecarLocalIngestKind kind, const json& payload,
                                  const SidecarLocalDispatchContext& context)
 {
   if (sidecar_local_transport_backoff_active(kind, context)) {
@@ -332,21 +303,17 @@ void post_sidecar_local_envelope(cpr::Session& session,
   const auto post_serialized_body = [&](const std::string& body) {
     const auto& config = SidecarSyncSettings();
     if (SidecarLocalSyncUsesNamedPipe(config)) {
-      const auto result = sidecar_named_pipe_transport::Send(
-          config.pipe_name,
-          config.token,
-          body,
-          std::chrono::milliseconds(kSidecarLocalConnectTimeoutMs),
-          std::chrono::milliseconds(kSidecarLocalRequestTimeoutMs));
+      const auto result = sidecar_named_pipe_transport::Send(config.pipe_name, config.token, body,
+                                                             std::chrono::milliseconds(kSidecarLocalConnectTimeoutMs),
+                                                             std::chrono::milliseconds(kSidecarLocalRequestTimeoutMs));
       if (result.code == sidecar_named_pipe_transport::ResultCode::Sent
           || result.code == sidecar_named_pipe_transport::ResultCode::ChunkPending) {
         return true;
       }
-      const auto reason = result.code == sidecar_named_pipe_transport::ResultCode::TimedOut
-          ? "named-pipe-timeout"
-          : result.code == sidecar_named_pipe_transport::ResultCode::Rejected
-          ? "named-pipe-rejected"
-          : "named-pipe-unavailable";
+      const auto reason = result.code == sidecar_named_pipe_transport::ResultCode::TimedOut ? "named-pipe-timeout"
+                          : result.code == sidecar_named_pipe_transport::ResultCode::Rejected
+                              ? "named-pipe-rejected"
+                              : "named-pipe-unavailable";
       sidecar_local_transport_failure(kind, context, reason);
       return false;
     }
@@ -366,15 +333,15 @@ void post_sidecar_local_envelope(cpr::Session& session,
     return true;
   };
 
-  const auto serialized_envelope = envelope.dump();
-  size_t     chunk_count = 1;
-  std::string transport_mode = "single";
+  const auto  serialized_envelope = envelope.dump();
+  size_t      chunk_count         = 1;
+  std::string transport_mode      = "single";
 
   if (sidecar_local_chunking::EnvelopeRequiresChunking(serialized_envelope)) {
-    const auto chunk_envelopes =
-        sidecar_local_chunking::BuildTransportChunkEnvelopes(envelope, serialized_envelope, sidecar_local_chunking::kChunkDataBytes);
+    const auto chunk_envelopes = sidecar_local_chunking::BuildTransportChunkEnvelopes(
+        envelope, serialized_envelope, sidecar_local_chunking::kChunkDataBytes);
     if (!chunk_envelopes.empty()) {
-      chunk_count = chunk_envelopes.size();
+      chunk_count    = chunk_envelopes.size();
       transport_mode = "chunked";
       for (const auto& chunk_envelope : chunk_envelopes) {
         if (!post_serialized_body(chunk_envelope.dump())) {
@@ -391,23 +358,14 @@ void post_sidecar_local_envelope(cpr::Session& session,
   sidecar_local_transport_success(kind, context);
   spdlog::debug("[SidecarLocal] kind={} boundary={} classification={} source={} owner={} seam={} reason={} effect={} "
                 "transport=sent transportMode={} bytes={} chunkCount={} localTransport={}",
-                sidecar_local_kind_name(kind),
-                context.boundary,
-                context.classification,
-                context.dispatch.source,
-                context.dispatch.owner,
-                context.dispatch.seam,
-                context.dispatch.reason,
-                context.dispatch.effect,
-                transport_mode,
-                serialized_envelope.size(),
-                chunk_count,
-                SidecarSyncSettings().transport);
+                sidecar_local_kind_name(kind), context.boundary, context.classification, context.dispatch.source,
+                context.dispatch.owner, context.dispatch.seam, context.dispatch.reason, context.dispatch.effect,
+                transport_mode, serialized_envelope.size(), chunk_count, SidecarSyncSettings().transport);
 }
 
 void process_sidecar_local_batch(cpr::Session& session, std::vector<SidecarLocalWorkItem>&& batch)
 {
-  json                                      battle_events = json::array();
+  json                                       battle_events = json::array();
   std::optional<SidecarLocalDispatchContext> battle_context;
   std::optional<SidecarLocalWorkItem>        fleet_runtime;
 
@@ -433,24 +391,8 @@ void process_sidecar_local_batch(cpr::Session& session, std::vector<SidecarLocal
     post_sidecar_local_envelope(session, SidecarLocalIngestKind::BattleEvents, battle_events, *battle_context);
   }
   if (fleet_runtime.has_value()) {
-    if (fleet_runtime_mode_is("enqueue_no_transport")) {
-      const auto suppressed = s_fleet_runtime_transport_mode_suppressed.fetch_add(1, std::memory_order_relaxed) + 1;
-      spdlog::info("[SidecarLocal] kind=fleet.runtime boundary={} classification=quarantined-diagnostic-mode "
-                   "source={} owner={} seam={} reason={} effect={} transport=suppressed "
-                   "transportReason=enqueue-no-transport count={}",
-                   fleet_runtime->context.boundary,
-                   fleet_runtime->context.dispatch.source,
-                   fleet_runtime->context.dispatch.owner,
-                   fleet_runtime->context.dispatch.seam,
-                   fleet_runtime->context.dispatch.reason,
-                   fleet_runtime->context.dispatch.effect,
-                   suppressed);
-    } else {
-      post_sidecar_local_envelope(session,
-                                  SidecarLocalIngestKind::FleetRuntime,
-                                  fleet_runtime->payload,
-                                  fleet_runtime->context);
-    }
+    post_sidecar_local_envelope(session, SidecarLocalIngestKind::FleetRuntime, fleet_runtime->payload,
+                                fleet_runtime->context);
   }
 }
 
@@ -489,11 +431,11 @@ void sidecar_local_worker_main()
 
 void ensure_sidecar_local_worker_started()
 {
-  std::call_once(s_sidecar_local_worker_once, [] { s_sidecar_local_worker_thread = std::thread(sidecar_local_worker_main); });
+  std::call_once(s_sidecar_local_worker_once,
+                 [] { s_sidecar_local_worker_thread = std::thread(sidecar_local_worker_main); });
 }
 
-bool enqueue_sidecar_local_payload(const SidecarLocalIngestKind kind,
-                                   const json& payload,
+bool enqueue_sidecar_local_payload(const SidecarLocalIngestKind kind, const json& payload,
                                    const SidecarLocalDispatchContext& context)
 {
   if (!SidecarLocalSyncEnabledFor(SidecarSyncSettings(), kind)) {
@@ -508,20 +450,13 @@ bool enqueue_sidecar_local_payload(const SidecarLocalIngestKind kind,
   const auto diagnostics = s_sidecar_local_queue.diagnostics();
   spdlog::warn("[SidecarLocal] kind={} boundary={} classification={} source={} owner={} seam={} reason={} effect={} "
                "enqueue=dropped dropReason=queue-full depth={} dropped={}",
-               sidecar_local_kind_name(kind),
-               context.boundary,
-               context.classification,
-               context.dispatch.source,
-               context.dispatch.owner,
-               context.dispatch.seam,
-               context.dispatch.reason,
-               context.dispatch.effect,
-               diagnostics.depth,
-               diagnostics.dropped);
+               sidecar_local_kind_name(kind), context.boundary, context.classification, context.dispatch.source,
+               context.dispatch.owner, context.dispatch.seam, context.dispatch.reason, context.dispatch.effect,
+               diagnostics.depth, diagnostics.dropped);
   return false;
 }
 
-sidecar_local_ingest::EnqueueResult enqueue_fleet_runtime_payload(const json& payload,
+sidecar_local_ingest::EnqueueResult enqueue_fleet_runtime_payload(const json&                        payload,
                                                                   const SidecarLocalDispatchContext& context)
 {
   sidecar_local_ingest::EnqueueResult result;
@@ -531,48 +466,18 @@ sidecar_local_ingest::EnqueueResult enqueue_fleet_runtime_payload(const json& pa
 
   ensure_sidecar_local_worker_started();
 
-  bool coalesced = false;
+  bool coalesced  = false;
   result.accepted = s_sidecar_local_queue.enqueue_or_replace(
       {SidecarLocalIngestKind::FleetRuntime, payload, context},
-      [](const SidecarLocalWorkItem& item) { return item.kind == SidecarLocalIngestKind::FleetRuntime; },
-      coalesced);
+      [](const SidecarLocalWorkItem& item) { return item.kind == SidecarLocalIngestKind::FleetRuntime; }, coalesced);
   result.coalesced = coalesced;
 
   const auto diagnostics = s_sidecar_local_queue.diagnostics();
-  result.depth = diagnostics.depth;
-  result.enqueued = diagnostics.enqueued;
-  result.dropped = diagnostics.dropped;
+  result.depth           = diagnostics.depth;
+  result.enqueued        = diagnostics.enqueued;
+  result.dropped         = diagnostics.dropped;
   result.coalesced_total = diagnostics.coalesced;
 
-  if (result.accepted) {
-    spdlog::debug("[SidecarLocal] kind=fleet.runtime boundary={} classification={} source={} owner={} seam={} "
-                  "reason={} effect={} enqueue=accepted coalesced={} depth={} enqueued={} coalescedTotal={} dropped={}",
-                  context.boundary,
-                  context.classification,
-                  context.dispatch.source,
-                  context.dispatch.owner,
-                  context.dispatch.seam,
-                  context.dispatch.reason,
-                  context.dispatch.effect,
-                  result.coalesced,
-                  result.depth,
-                  result.enqueued,
-                  result.coalesced_total,
-                  result.dropped);
-    return result;
-  }
-
-  spdlog::warn("[SidecarLocal] kind=fleet.runtime boundary={} classification={} source={} owner={} seam={} reason={} "
-               "effect={} enqueue=dropped dropReason=queue-full-or-stopped depth={} dropped={}",
-               context.boundary,
-               context.classification,
-               context.dispatch.source,
-               context.dispatch.owner,
-               context.dispatch.seam,
-               context.dispatch.reason,
-               context.dispatch.effect,
-               result.depth,
-               result.dropped);
   return result;
 }
 } // namespace
@@ -584,18 +489,6 @@ bool BattleEventsEnabled()
 
 bool FleetRuntimeEnabled()
 { return SidecarLocalSyncEnabledFor(SidecarSyncSettings(), SidecarLocalIngestKind::FleetRuntime); }
-
-std::string_view FleetRuntimeMode()
-{ return fleet_runtime_mode(); }
-
-bool FleetRuntimeRequestOnlyMode()
-{ return fleet_runtime_mode_is("request_only"); }
-
-bool FleetRuntimeSnapshotOnlyMode()
-{ return fleet_runtime_mode_is("snapshot_only"); }
-
-bool FleetRuntimeEnqueueNoTransportMode()
-{ return fleet_runtime_mode_is("enqueue_no_transport"); }
 
 bool EnqueueBattleEvents(const nlohmann::json& events, const SidecarLocalDispatchContext& context)
 { return enqueue_sidecar_local_payload(SidecarLocalIngestKind::BattleEvents, events, context); }

@@ -1,5 +1,9 @@
 # Runtime Impact Sample Analysis
 
+> Historical sample. The root-log impact monitor and its dedicated TOML keys
+> have been replaced by the activation-only `runtime-impact` targeted concern
+> tracked in issue #257.
+
 Date: 2026-05-07  
 Branch: `guffa-dev`  
 Sample source: live `community_patch.log` impact rows emitted by `advanced.diagnostics.mod_impact_monitor = true`

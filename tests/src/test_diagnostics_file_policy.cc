@@ -125,4 +125,20 @@ TEST_SUITE("diagnostics_file_policy")
     CHECK(prepare.warning->find("Dropping diagnostics append") != std::string::npos);
     CHECK(read_text(path) == "current");
   }
+
+  TEST_CASE("removes inherited files that exceed a tightened retention bound")
+  {
+    ScopedTempDir temp_dir;
+    const auto    path = temp_dir.path() / "community_patch_target_runtime-impact.jsonl";
+
+    write_text(path, "oversized-active");
+    write_text(DiagnosticsRotatedPath(path, 1), "oversized-generation");
+    const auto prepare = PrepareDiagnosticsFileForAppend(path, 10, 2, 1);
+
+    CHECK(prepare.append_allowed);
+    CHECK(prepare.rotated);
+    CHECK_FALSE(prepare.warning.has_value());
+    CHECK_FALSE(std::filesystem::exists(path));
+    CHECK_FALSE(std::filesystem::exists(DiagnosticsRotatedPath(path, 1)));
+  }
 }

@@ -10,7 +10,7 @@
  */
 #include "config.h"
 #include "errormsg.h"
-#include "patches/mod_impact_monitor.h"
+#include "patches/runtime_impact_monitor.h"
 
 #include <il2cpp/il2cpp_helper.h>
 
@@ -29,7 +29,7 @@
  */
 TKTouch *TKTouch_populateWithPosition_Hook(auto original, TKTouch *_this, uintptr_t pos, TouchPhase phase)
 {
-  ScopedModImpactTimer impact_timer(ModImpactProbe::NavigationTouchPopulate, ModImpactMonitorEnabled());
+  ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::NavigationTouchPopulate, RuntimeImpactDiagnosticsEnabled());
 
   auto r = original(_this, pos, phase);
   if (r->phase == TouchPhase::Stationary) {
@@ -50,13 +50,14 @@ TKTouch *TKTouch_populateWithPosition_Hook(auto original, TKTouch *_this, uintpt
  */
 bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan *_this)
 {
-  ScopedModImpactTimer impact_timer(ModImpactProbe::NavigationPanLateUpdate, ModImpactMonitorEnabled());
+  ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::NavigationPanLateUpdate, RuntimeImpactDiagnosticsEnabled());
 
   auto d = _this->_lastDelta;
 
   if (!Config::Get().disable_move_keys) {
     impact_timer.ExcludeCall([&] {
-      ScopedModImpactTimer original_timer(ModImpactProbe::NavigationPanOriginalLateUpdate, ModImpactMonitorEnabled());
+      ScopedRuntimeImpactTimer original_timer(RuntimeImpactProbe::NavigationPanOriginalLateUpdate,
+                                              RuntimeImpactDiagnosticsEnabled());
       original(_this);
     });
   }

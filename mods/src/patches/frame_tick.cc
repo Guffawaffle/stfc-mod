@@ -8,35 +8,34 @@
 #include <exception>
 #include <spdlog/spdlog.h>
 
-#include "patches/frame_tick.h"
 #include "patches/fleet_notifications.h"
 #include "patches/fleet_runtime_sync.h"
+#include "patches/frame_tick.h"
 #include "patches/hook_registry.h"
 #include "patches/hotkey_router.h"
 #include "patches/live_debug.h"
-#include "patches/mod_impact_monitor.h"
+#include "patches/runtime_impact_monitor.h"
 
 #include "prime/ScreenManager.h"
 
-namespace {
-constexpr bool kEnableFrameTickHook = true;
-constexpr bool kEnableHotkeyFrameSubscriber = true;
-constexpr bool kEnableLiveDebugFrameSubscriber = true;
+namespace
+{
+constexpr bool kEnableFrameTickHook                    = true;
+constexpr bool kEnableHotkeyFrameSubscriber            = true;
+constexpr bool kEnableLiveDebugFrameSubscriber         = true;
 constexpr bool kEnableFleetNotificationFrameSubscriber = true;
-constexpr bool kEnableFleetRuntimeSyncFrameSubscriber = true;
+constexpr bool kEnableFleetRuntimeSyncFrameSubscriber  = true;
 
 constexpr HookDescriptor kScreenManagerUpdateHook = {
-  "ScreenManager.Update",
-  "fan out frame ticks to hotkeys, fleet notifications, live-debug, and runtime sync",
-  {"Assembly-CSharp", "Digit.Client.UI", "ScreenManager", "Update"},
-  "frame-driven hotkeys, fleet notifications, or diagnostics will not tick",
-  HookSupportTier::Internal,
+    "ScreenManager.Update",
+    "fan out frame ticks to hotkeys, fleet notifications, live-debug, and runtime sync",
+    {"Assembly-CSharp", "Digit.Client.UI", "ScreenManager", "Update"},
+    "frame-driven hotkeys, fleet notifications, or diagnostics will not tick",
+    HookSupportTier::Internal,
 };
 
 bool hotkey_frame_subscriber_enabled()
-{
-  return kEnableHotkeyFrameSubscriber && Config::Get().installHotkeyHooks;
-}
+{ return kEnableHotkeyFrameSubscriber && Config::Get().installHotkeyHooks; }
 
 bool live_debug_frame_subscriber_enabled()
 {
@@ -48,26 +47,17 @@ bool live_debug_frame_subscriber_enabled()
 }
 
 bool fleet_runtime_sync_frame_subscriber_allowed()
-{
-  return kEnableFleetRuntimeSyncFrameSubscriber && fleet_runtime_sync_frame_subscriber_enabled();
-}
+{ return kEnableFleetRuntimeSyncFrameSubscriber && fleet_runtime_sync_frame_subscriber_enabled(); }
 
 bool fleet_notification_frame_subscriber_enabled()
-{
-  return kEnableFleetNotificationFrameSubscriber && fleet_notifications_runtime_events_enabled();
-}
+{ return kEnableFleetNotificationFrameSubscriber && fleet_notifications_runtime_events_enabled(); }
 
 void log_frame_tick_subscribers()
 {
   spdlog::info("[FrameTick] subscriber=hotkey_router enabled={} reason=installHotkeyHooks compile_time_enabled={}",
-               hotkey_frame_subscriber_enabled(),
-               kEnableHotkeyFrameSubscriber);
+               hotkey_frame_subscriber_enabled(), kEnableHotkeyFrameSubscriber);
   spdlog::info("[FrameTick] subscriber=live_debug enabled={} reason=live_debug_channel compile_time_enabled={}",
-               live_debug_frame_subscriber_enabled(),
-               kEnableLiveDebugFrameSubscriber);
-  spdlog::info("[FrameTick] subscriber=fleet_runtime_sync enabled={} reason=fleet_runtime compile_time_enabled={}",
-               fleet_runtime_sync_frame_subscriber_allowed(),
-               kEnableFleetRuntimeSyncFrameSubscriber);
+               live_debug_frame_subscriber_enabled(), kEnableLiveDebugFrameSubscriber);
   spdlog::info("[FrameTick] subscriber=fleet_notifications enabled={} reason=fleet_arrival_delivery "
                "compile_time_enabled={}",
                fleet_notification_frame_subscriber_enabled(), kEnableFleetNotificationFrameSubscriber);
@@ -75,7 +65,7 @@ void log_frame_tick_subscribers()
 
 void tick_live_debug(ScreenManager* screen_manager)
 {
-  ScopedModImpactTimer impact_timer(ModImpactProbe::FrameTickLiveDebug, ModImpactMonitorEnabled());
+  ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::FrameTickLiveDebug, RuntimeImpactDiagnosticsEnabled());
 
   if (!live_debug_frame_subscriber_enabled()) {
     return;
@@ -98,10 +88,8 @@ void tick_fleet_runtime_sync()
 
   try {
     fleet_runtime_sync_process_pending();
-  } catch (const std::exception& ex) {
-    spdlog::error("[FrameTick] subscriber=fleet_runtime_sync status=failed error='{}'", ex.what());
   } catch (...) {
-    spdlog::error("[FrameTick] subscriber=fleet_runtime_sync status=failed error='unknown exception'");
+    // Fleet runtime delivery is best effort and must not affect the game frame.
   }
 }
 
@@ -124,7 +112,7 @@ void tick_fleet_notifications()
 
 bool tick_hotkeys(ScreenManager* screen_manager)
 {
-  ScopedModImpactTimer impact_timer(ModImpactProbe::FrameTickHotkeys, ModImpactMonitorEnabled());
+  ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::FrameTickHotkeys, RuntimeImpactDiagnosticsEnabled());
 
   if (!hotkey_frame_subscriber_enabled()) {
     return true;
@@ -144,7 +132,7 @@ bool tick_hotkeys(ScreenManager* screen_manager)
 
 void ScreenManager_Update_FrameTick_Hook(auto original, ScreenManager* screen_manager)
 {
-  ScopedModImpactTimer impact_timer(ModImpactProbe::FrameTickTotal, ModImpactMonitorEnabled());
+  ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::FrameTickTotal, RuntimeImpactDiagnosticsEnabled());
 
   const auto should_call_original = tick_hotkeys(screen_manager);
   if (should_call_original) {
@@ -155,7 +143,7 @@ void ScreenManager_Update_FrameTick_Hook(auto original, ScreenManager* screen_ma
   tick_fleet_notifications();
   tick_fleet_runtime_sync();
 }
-}
+} // namespace
 
 void InstallFrameTickHooks()
 {

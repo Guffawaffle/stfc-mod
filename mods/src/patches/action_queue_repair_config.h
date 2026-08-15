@@ -87,4 +87,4 @@ constexpr bool kKirsharaQueueRepairRuntimeInstallEnabled = false;
 [[nodiscard]] KirsharaQueueRepairConfigParseResult ParseKirsharaQueueRepairConfig(const toml::table& config);
 void WriteKirsharaQueueRepairRuntimeSnapshot(toml::table& runtime_config, const KirsharaQueueRepairConfig& config);
 [[nodiscard]] KirsharaQueueRepairInstallPlan
-BuildKirsharaQueueRepairInstallPlan(const KirsharaQueueRepairConfig& config, bool detailed_runtime_trace);
+BuildKirsharaQueueRepairInstallPlan(const KirsharaQueueRepairConfig& config, bool emit_probe_logs);

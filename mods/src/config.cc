@@ -16,7 +16,6 @@
 #include "patches/input_binding/input_config_bridge.h"
 #include "patches/input_binding/input_runtime_bindings.h"
 #include "patches/mapkey.h"
-#include "patches/mod_impact_monitor.h"
 #include "patches/notification_policy.h"
 #include "patches/sync_transport_policy.h"
 #include "prime/KeyCode.h"
@@ -90,11 +89,6 @@ static bool                      g_auto_open_bulk_claim_gifts           = DCU::a
 static bool                      g_restore_below_decks_assignment_sort  = DCU::restore_below_decks_assignment_sort;
 
 static std::map<std::string, MissionHudVisibility> g_mission_hud_buttons;
-
-static bool              g_mod_impact_monitor               = DCAD::mod_impact_monitor;
-static RuntimeTraceLevel g_runtime_trace_level              = RuntimeTraceLevel::Off;
-static bool              g_runtime_trace_track_overhead     = DCAD::runtime_trace_track_overhead;
-static int               g_runtime_trace_report_interval_ms = DCAD::runtime_trace_report_interval_ms;
 
 /** @brief Accessor for the file-scope allow_key_fallthrough flag. */
 bool AllowKeyFallthrough()
@@ -184,18 +178,6 @@ bool MissionHudTweaksEnabled()
                              [](const auto& button) { return button.second != MissionHudVisibility::Auto; });
 }
 
-bool ModImpactMonitorEnabled()
-{ return g_runtime_trace_level != RuntimeTraceLevel::Off; }
-
-RuntimeTraceLevel RuntimeTraceLevelSetting()
-{ return g_runtime_trace_level; }
-
-bool RuntimeTraceTrackOverhead()
-{ return g_runtime_trace_track_overhead; }
-
-int RuntimeTraceReportIntervalMs()
-{ return g_runtime_trace_report_interval_ms; }
-
 /// Human-readable names → ToastState enum values.
 /// Used for [ui].disabled_banner_types and legacy [ui] notification allowlists.
 static const eastl::tuple<const char*, int> bannerTypes[] = {
@@ -275,7 +257,8 @@ void Config::Save(const toml::table& config, const std::string_view filename, bo
     config_file << "#######################################################################\n";
     config_file << "####                                                               ####\n";
     config_file << "#### NOTE: This file is not the configuration file that is used    ####\n";
-    config_file << "####       by " << runtime_identity::Current().display_name << ". It is provided to help       ####\n";
+    config_file << "####       by " << runtime_identity::Current().display_name
+                << ". It is provided to help       ####\n";
     config_file << "####       see what configuration is being used by the runtime     ####\n";
     config_file << "####       and any desired settings should be copied to the same   ####\n";
     config_file << "####       section in: " << defaultFile << "\n";
@@ -581,19 +564,6 @@ void write_input_policy_config(toml::table& new_config, const ScopelyShortcutPol
   auto* input = new_config["input"].as_table();
   input->insert_or_assign("scopely_shortcuts", scopely_shortcut_policy_name(scopely_shortcuts));
   input->insert_or_assign("original_frame_policy", original_frame_policy_name(original_frame_policy));
-}
-
-void write_runtime_trace_config(toml::table& new_config, const RuntimeTraceLevel level, const bool track_overhead,
-                                const bool mod_impact_monitor, const int report_interval_ms)
-{
-  new_config.emplace<toml::table>("advanced", toml::table());
-  auto* advanced = new_config["advanced"].as_table();
-  advanced->emplace<toml::table>("diagnostics", toml::table());
-  auto* diagnostics = (*advanced)["diagnostics"].as_table();
-  diagnostics->insert_or_assign("runtime_trace", RuntimeTraceLevelName(level));
-  diagnostics->insert_or_assign("runtime_trace_track_overhead", track_overhead);
-  diagnostics->insert_or_assign("mod_impact_monitor", mod_impact_monitor);
-  diagnostics->insert_or_assign("runtime_trace_report_interval_ms", report_interval_ms);
 }
 
 bool read_bool_config_entry(toml::table& config, toml::table& new_config, std::string_view section,
@@ -1226,8 +1196,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "objecttracker", DCP::objecttracker, write_config);
   this->installFleetArrivalHooks =
       get_config_or_default(config, parsed, "patches", "fleetarrivalhooks", DCP::fleetarrivalhooks, write_config);
-  this->installRepairActionInterlock = get_config_or_default(
-      config, parsed, "patches", "repairactioninterlock", DCP::repairactioninterlock, write_config);
+  this->installRepairActionInterlock = get_config_or_default(config, parsed, "patches", "repairactioninterlock",
+                                                             DCP::repairactioninterlock, write_config);
   this->installLoadingScreenHooks =
       get_config_or_default(config, parsed, "patches", "loadingscreenhooks", DCP::loadingscreenhooks, write_config);
   this->installTransitionScreenHooks = get_config_or_default(config, parsed, "patches", "transitionscreenhooks",
@@ -1446,31 +1416,6 @@ void Config::Load()
   g_queue_add_direct_handler     = g_advanced_config.queue.queue_add_direct_handler;
   g_refinery_diagnostics         = g_advanced_config.diagnostics.refinery_diagnostics;
 
-  const auto* advanced_table             = config["advanced"].as_table();
-  const auto* advanced_diagnostics_table = advanced_table ? (*advanced_table)["diagnostics"].as_table() : nullptr;
-  const auto  explicit_runtime_trace =
-      advanced_diagnostics_table && advanced_diagnostics_table->contains("runtime_trace");
-  g_mod_impact_monitor  = g_advanced_config.diagnostics.mod_impact_monitor;
-  g_runtime_trace_level = g_mod_impact_monitor ? RuntimeTraceLevel::Summary : RuntimeTraceLevel::Off;
-  if (explicit_runtime_trace) {
-    const auto normalized_trace_level = AsciiStrToLower(g_advanced_config.diagnostics.runtime_trace);
-    if (auto level = ParseRuntimeTraceLevel(normalized_trace_level)) {
-      g_runtime_trace_level = *level;
-    } else {
-      spdlog::warn(
-          "Invalid string config [advanced.diagnostics].runtime_trace value='{}'; expected off, summary, detailed, "
-          "or verbose. Using {}.",
-          g_advanced_config.diagnostics.runtime_trace, RuntimeTraceLevelName(g_runtime_trace_level));
-    }
-  }
-
-  g_runtime_trace_track_overhead     = g_advanced_config.diagnostics.runtime_trace_track_overhead;
-  g_runtime_trace_report_interval_ms = g_advanced_config.diagnostics.runtime_trace_report_interval_ms;
-  g_runtime_trace_report_interval_ms = std::clamp(g_runtime_trace_report_interval_ms, 1000, 60000);
-  write_runtime_trace_config(parsed, g_runtime_trace_level, g_runtime_trace_track_overhead, g_mod_impact_monitor,
-                             g_runtime_trace_report_interval_ms);
-  ConfigureModImpactRuntimeTrace(g_runtime_trace_level, g_runtime_trace_track_overhead,
-                                 g_runtime_trace_report_interval_ms);
   g_battle_log_decoder_enabled = g_sidecar_config.sync.battlelog_enrichment;
   config_schema::write_bool(parsed, "battle_log_decoder.enabled", g_battle_log_decoder_enabled);
   if (g_sidecar_config.sync.enabled && g_sidecar_config.sync.battlelogs_realtime && !g_battle_log_decoder_enabled) {
@@ -1879,8 +1824,6 @@ void Config::Load()
     OmitOptInRuntimeDiagnosticsFromGeneratedUserConfig(parsed);
     notification_policy_prepare_generated_config(parsed);
     Config::Save(parsed, File::Config(), false);
-    write_runtime_trace_config(parsed, g_runtime_trace_level, g_runtime_trace_track_overhead, g_mod_impact_monitor,
-                               g_runtime_trace_report_interval_ms);
     config_schema::write_bool(parsed, "advanced.diagnostics.action_queue_guard_logging",
                               g_advanced_config.diagnostics.action_queue_guard_logging);
     notification_policy_write_runtime_snapshot(parsed);

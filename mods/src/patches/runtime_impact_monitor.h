@@ -5,9 +5,7 @@
 #include <cstdint>
 #include <optional>
 
-#include "runtime_trace_config.h"
-
-enum class ModImpactProbe : uint8_t {
+enum class RuntimeImpactProbe : uint8_t {
   FrameTickTotal = 0,
   FrameTickHotkeys,
   FrameTickLiveDebug,
@@ -48,49 +46,48 @@ enum class ModImpactProbe : uint8_t {
   Max,
 };
 
-constexpr size_t kModImpactProbeCount = static_cast<size_t>(ModImpactProbe::Max);
+constexpr size_t kRuntimeImpactProbeCount = static_cast<size_t>(RuntimeImpactProbe::Max);
 
-struct ModImpactStats {
-  uint64_t samples = 0;
-  uint64_t total_ns = 0;
-  uint64_t max_ns = 0;
-  uint64_t over_250us = 0;
+struct RuntimeImpactStats {
+  uint64_t samples     = 0;
+  uint64_t total_ns    = 0;
+  uint64_t max_ns      = 0;
+  uint64_t over_250us  = 0;
   uint64_t over_1000us = 0;
 
   [[nodiscard]] uint64_t average_ns() const;
 };
 
-struct ModImpactReport {
-  int64_t window_ms = 0;
-  std::array<ModImpactStats, kModImpactProbeCount> probes{};
+struct RuntimeImpactReport {
+  int64_t                                                  window_ms = 0;
+  std::array<RuntimeImpactStats, kRuntimeImpactProbeCount> probes{};
 };
 
-class ModImpactAggregator
+class RuntimeImpactAggregator
 {
 public:
-  explicit ModImpactAggregator(int64_t report_interval_ms = 5000);
+  explicit RuntimeImpactAggregator(int64_t report_interval_ms = 5000);
 
-  [[nodiscard]] std::optional<ModImpactReport> Record(ModImpactProbe probe, uint64_t duration_ns, int64_t now_ms);
+  [[nodiscard]] std::optional<RuntimeImpactReport> Record(RuntimeImpactProbe probe, uint64_t duration_ns,
+                                                          int64_t now_ms);
 
 private:
-  int64_t report_interval_ms_ = 5000;
-  int64_t window_start_ms_ = -1;
-  std::array<ModImpactStats, kModImpactProbeCount> probes_{};
+  int64_t                                                  report_interval_ms_ = 5000;
+  int64_t                                                  window_start_ms_    = -1;
+  std::array<RuntimeImpactStats, kRuntimeImpactProbeCount> probes_{};
 };
 
-const char* ModImpactProbeName(ModImpactProbe probe);
-void ConfigureModImpactRuntimeTrace(RuntimeTraceLevel level, bool track_overhead, int report_interval_ms);
-bool ModImpactProbeEnabledForLevel(ModImpactProbe probe, RuntimeTraceLevel level);
-void mod_impact_monitor_record(ModImpactProbe probe, uint64_t duration_ns);
+const char*        RuntimeImpactProbeName(RuntimeImpactProbe probe);
+void               runtime_impact_monitor_record(RuntimeImpactProbe probe, uint64_t duration_ns);
+[[nodiscard]] bool RuntimeImpactDiagnosticsEnabled();
 
-class ScopedModImpactTimer
+class ScopedRuntimeImpactTimer
 {
 public:
-  ScopedModImpactTimer(ModImpactProbe probe, bool enabled);
-  ~ScopedModImpactTimer();
+  ScopedRuntimeImpactTimer(RuntimeImpactProbe probe, bool enabled);
+  ~ScopedRuntimeImpactTimer();
 
-  template <typename Callback>
-  decltype(auto) ExcludeCall(Callback&& callback)
+  template <typename Callback> decltype(auto) ExcludeCall(Callback&& callback)
   {
     if (!enabled_) {
       return callback();
@@ -113,8 +110,8 @@ private:
 
   [[nodiscard]] static uint64_t elapsed_ns(Clock::time_point start, Clock::time_point end);
 
-  ModImpactProbe    probe_ = ModImpactProbe::FrameTickTotal;
-  Clock::time_point start_{};
-  uint64_t          excluded_ns_ = 0;
-  bool              enabled_ = false;
+  RuntimeImpactProbe probe_ = RuntimeImpactProbe::FrameTickTotal;
+  Clock::time_point  start_{};
+  uint64_t           excluded_ns_ = 0;
+  bool               enabled_     = false;
 };

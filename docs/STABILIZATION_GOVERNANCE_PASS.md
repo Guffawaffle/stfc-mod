@@ -1,5 +1,9 @@
 # STFC Mod Stabilization Governance Pass
 
+> Historical governance snapshot. The `fleet_runtime_mode` diagnostic setting
+> described below has been removed; fleet runtime sync is functional delivery
+> only, and temporary investigations use registered targeted concerns.
+
 Date: 2026-06-10
 Base checkpoint: `5a00512` (`fix: avoid unattended queue stalls from observers`)
 Initial docs branch: `docs/gameplay-seam-ownership`

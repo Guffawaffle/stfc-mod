@@ -172,7 +172,7 @@ void WriteKirsharaQueueRepairRuntimeSnapshot(toml::table& runtime_config, const 
 }
 
 KirsharaQueueRepairInstallPlan BuildKirsharaQueueRepairInstallPlan(const KirsharaQueueRepairConfig& config,
-                                                                   const bool detailed_runtime_trace)
+                                                                   const bool emit_probe_logs)
 {
   if (!config.enabled) {
     return {};
@@ -182,7 +182,7 @@ KirsharaQueueRepairInstallPlan BuildKirsharaQueueRepairInstallPlan(const Kirshar
 
   return {
       .install_repair_hooks              = selected_hook_count > 0,
-      .emit_probe_logs                   = detailed_runtime_trace && selected_hook_count > 0,
+      .emit_probe_logs                   = emit_probe_logs && selected_hook_count > 0,
       .install_course_target_completion  = config.course_target_completion,
       .install_dump_interesting_methods  = config.diagnostics.enabled && config.diagnostics.dump_interesting_methods,
       .install_on_strike_complete_marker = config.diagnostics.enabled && config.diagnostics.on_strike_complete,

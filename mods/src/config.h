@@ -18,7 +18,6 @@
 #include <toml++/toml.h>
 
 #include "patches/hotkey_policy.h"
-#include "runtime_trace_config.h"
 
 #if _WIN32
 #include <Windows.h>
@@ -182,7 +181,6 @@ struct SidecarSyncConfig {
   bool        battlelogs_realtime                             = false;
   bool        battlelog_enrichment                            = false;
   bool        fleet_runtime                                   = false;
-  std::string fleet_runtime_mode                              = "normal";
 };
 
 /**
@@ -230,9 +228,9 @@ struct SidecarConfig {
 /**
  * @brief Canonical native diagnostics surface rooted at `[advanced.diagnostics]`.
  *
- * Active runtime trace, mod-impact reporting, refinery diagnostics, and live
- * query now live here. The remaining keys stay dormant/reserved until later
- * diagnostic families migrate off `[debug]`.
+ * Targeted concerns, refinery diagnostics, and live query live here. The
+ * remaining keys stay dormant/reserved until later diagnostic families
+ * migrate off `[debug]`.
  */
 struct AdvancedDiagnosticsConfig {
   struct ConcernsConfig {
@@ -256,11 +254,7 @@ struct AdvancedDiagnosticsConfig {
   bool        notification_skip_logging        = false;
   bool        fleet_selection_timing_logging   = false;
   bool        live_query                       = false;
-  std::string runtime_trace                    = "off";
-  bool        runtime_trace_track_overhead     = false;
   bool        action_queue_guard_logging       = false;
-  bool        mod_impact_monitor               = false;
-  int         runtime_trace_report_interval_ms = 5000;
   bool        refinery_diagnostics             = false;
   ConcernsConfig concerns;
   FilesConfig files;
@@ -635,23 +629,3 @@ MissionHudVisibility MissionHudButtonVisibility(std::string_view button_name);
  * @brief Whether mission HUD visibility has any non-auto button overrides.
  */
 bool MissionHudTweaksEnabled();
-
-/**
- * @brief Whether `[advanced.diagnostics]` enables runtime mod impact monitoring.
- */
-bool ModImpactMonitorEnabled();
-
-/**
- * @brief Runtime trace intensity selected by [advanced.diagnostics].runtime_trace.
- */
-RuntimeTraceLevel RuntimeTraceLevelSetting();
-
-/**
- * @brief Whether [advanced.diagnostics].runtime_trace_track_overhead is enabled.
- */
-bool RuntimeTraceTrackOverhead();
-
-/**
- * @brief Milliseconds between `[advanced.diagnostics]` runtime trace summary reports.
- */
-int RuntimeTraceReportIntervalMs();

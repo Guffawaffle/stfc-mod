@@ -31,8 +31,8 @@
 #include "patches/input_binding/action_registry.h"
 #include "patches/input_binding/input_dispatcher.h"
 #include "patches/key.h"
-#include "patches/mod_impact_monitor.h"
 #include "patches/navigation.h"
+#include "patches/runtime_impact_monitor.h"
 #include "patches/viewer_mgmt.h"
 #include "testable_functions.h"
 
@@ -65,7 +65,7 @@ namespace query   = hotkey_router_runtime_query;
 bool hotkey_router_screen_update(ScreenManager* _this)
 {
   {
-    ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyResetCache, ModImpactMonitorEnabled());
+    ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::HotkeyResetCache, RuntimeImpactDiagnosticsEnabled());
     Key::ResetCache();
   }
 
@@ -97,7 +97,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   bool is_in_chat    = false;
   bool input_focused = false;
   {
-    ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyContextState, ModImpactMonitorEnabled());
+    ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::HotkeyContextState, RuntimeImpactDiagnosticsEnabled());
     is_in_chat    = Hub::IsInChat();
     input_focused = Key::IsInputFocused();
   }
@@ -121,11 +121,8 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   }
 
   {
-    ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipSelection, ModImpactMonitorEnabled());
+    ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::HotkeyShipSelection, RuntimeImpactDiagnosticsEnabled());
     if (HandleShipSelection(ship_select_request)) {
-      if (ModImpactMonitorEnabled()) {
-        spdlog::trace("[HotkeyDiag] action=ship-select slot={}", ship_select_request);
-      }
       return !ship_select_consumes_original;
     }
   }
@@ -138,19 +135,17 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
   if (!is_in_chat) {
     if (!input_focused) {
-      ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyUiRouting, ModImpactMonitorEnabled());
+      ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::HotkeyUiRouting, RuntimeImpactDiagnosticsEnabled());
 
       // SelectCurrent — locate active fleet
       {
-        ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiSelectCurrent, ModImpactMonitorEnabled());
+        ScopedRuntimeImpactTimer sub_timer(RuntimeImpactProbe::HotkeyUiSelectCurrent,
+                                           RuntimeImpactDiagnosticsEnabled());
         if (hotkey_router_select_current_action(
                 is_in_chat, input_focused,
                 query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kSelectCurrent)
                     == input_binding::InputActionId::SelectCurrent)
             == HotkeyRouterSelectCurrentAction::ViewActiveFleet) {
-          if (ModImpactMonitorEnabled()) {
-            spdlog::trace("[HotkeyDiag] action=select-current");
-          }
           auto fleet_bar = ObjectFinder<FleetBarViewController>::Get();
           if (fleet_bar && fleet_bar->_fleetPanelController) {
             auto fleet = fleet_bar->_fleetPanelController->fleet;
@@ -170,29 +165,26 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
       // ToggleQueue
       {
-        ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiQueueToggle, ModImpactMonitorEnabled());
+        ScopedRuntimeImpactTimer sub_timer(RuntimeImpactProbe::HotkeyUiQueueToggle, RuntimeImpactDiagnosticsEnabled());
         const auto queue_toggle_action = query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kQueue);
         if (hotkey_router_should_toggle_queue(is_in_chat, input_focused,
                                               queue_toggle_action == input_binding::InputActionId::FleetQueueToggle)) {
           config->queue_enabled = !config->queue_enabled;
-          if (ModImpactMonitorEnabled()) {
-            spdlog::trace("[HotkeyDiag] action=queue-toggle queue_now={}", config->queue_enabled);
-          }
           return false;
         }
       }
 
       // ShowChat
       {
-        ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiChatOpen, ModImpactMonitorEnabled());
+        ScopedRuntimeImpactTimer sub_timer(RuntimeImpactProbe::HotkeyUiChatOpen, RuntimeImpactDiagnosticsEnabled());
         const auto chat_open_action = query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kChatOpen);
         if (chat_open_action != input_binding::InputActionId::Max) {
           auto         chat_open_consumes_original = false;
           auto         chat_open_handled           = false;
           ChatManager* chat_manager                = nullptr;
           {
-            ScopedModImpactTimer chat_manager_timer(ModImpactProbe::HotkeyUiChatManagerLookup,
-                                                    ModImpactMonitorEnabled());
+            ScopedRuntimeImpactTimer chat_manager_timer(RuntimeImpactProbe::HotkeyUiChatManagerLookup,
+                                                        RuntimeImpactDiagnosticsEnabled());
             chat_manager = ChatManager::Instance();
           }
           if (chat_manager) {
@@ -201,8 +193,8 @@ bool hotkey_router_screen_update(ScreenManager* _this)
             switch (hotkey_router_chat_open_action(is_in_chat, input_focused, chat_manager->IsSideChatOpen,
                                                    chat_open_action)) {
               case HotkeyRouterChatOpenAction::ActivateExistingInput: {
-                ScopedModImpactTimer activate_timer(ModImpactProbe::HotkeyUiChatActivateInput,
-                                                    ModImpactMonitorEnabled());
+                ScopedRuntimeImpactTimer activate_timer(RuntimeImpactProbe::HotkeyUiChatActivateInput,
+                                                        RuntimeImpactDiagnosticsEnabled());
                 if (auto view_controller = ObjectFinder<FullScreenChatViewController>::Get(); view_controller) {
                   if (auto message_list = view_controller->_messageList; message_list) {
                     if (auto message_field = message_list->_inputField; message_field) {
@@ -214,13 +206,15 @@ bool hotkey_router_screen_update(ScreenManager* _this)
                 chat_open_handled = true;
                 break;
               case HotkeyRouterChatOpenAction::OpenAllianceSide: {
-                ScopedModImpactTimer open_timer(ModImpactProbe::HotkeyUiChatOpenChannel, ModImpactMonitorEnabled());
+                ScopedRuntimeImpactTimer open_timer(RuntimeImpactProbe::HotkeyUiChatOpenChannel,
+                                                    RuntimeImpactDiagnosticsEnabled());
                 chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Side);
               }
                 chat_open_handled = true;
                 break;
               case HotkeyRouterChatOpenAction::OpenAllianceFullscreen: {
-                ScopedModImpactTimer open_timer(ModImpactProbe::HotkeyUiChatOpenChannel, ModImpactMonitorEnabled());
+                ScopedRuntimeImpactTimer open_timer(RuntimeImpactProbe::HotkeyUiChatOpenChannel,
+                                                    RuntimeImpactDiagnosticsEnabled());
                 chat_manager->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Fullscreen);
               }
                 chat_open_handled = true;
@@ -228,9 +222,6 @@ bool hotkey_router_screen_update(ScreenManager* _this)
               default:
                 break;
             }
-          }
-          if (ModImpactMonitorEnabled() && chat_open_handled) {
-            spdlog::trace("[HotkeyDiag] action=chat-open consumes_original={}", chat_open_consumes_original);
           }
           if (chat_open_handled && chat_open_consumes_original) {
             return false;
@@ -240,23 +231,18 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
       // MoveLeft / MoveRight (officer canvas)
       {
-        ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiOfficerCanvas, ModImpactMonitorEnabled());
+        ScopedRuntimeImpactTimer sub_timer(RuntimeImpactProbe::HotkeyUiOfficerCanvas,
+                                           RuntimeImpactDiagnosticsEnabled());
         switch (hotkey_router_officer_canvas_action(
             is_in_chat, input_focused,
             query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kOfficerCanvas))) {
           case HotkeyRouterOfficerCanvasAction::MoveLeft:
             if (MoveOfficerCanvas(true)) {
-              if (ModImpactMonitorEnabled()) {
-                spdlog::trace("[HotkeyDiag] action=officer-canvas dir=left");
-              }
               return false;
             }
             break;
           case HotkeyRouterOfficerCanvasAction::MoveRight:
             if (MoveOfficerCanvas(false)) {
-              if (ModImpactMonitorEnabled()) {
-                spdlog::trace("[HotkeyDiag] action=officer-canvas dir=right");
-              }
               return false;
             }
             break;
@@ -268,15 +254,13 @@ bool hotkey_router_screen_update(ScreenManager* _this)
           && query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kSearchFocus)
                  == input_binding::InputActionId::FocusSearch
           && FocusSearchBox()) {
-        if (ModImpactMonitorEnabled()) {
-          spdlog::trace("[HotkeyDiag] action=focus-search");
-        }
         return false;
       }
 
       {
-        ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiTableDispatch, ModImpactMonitorEnabled());
-        const auto           table_dispatch_winner =
+        ScopedRuntimeImpactTimer sub_timer(RuntimeImpactProbe::HotkeyUiTableDispatch,
+                                           RuntimeImpactDiagnosticsEnabled());
+        const auto               table_dispatch_winner =
             query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kTableDispatch);
         const auto action = hotkey_router_table_dispatch_request(is_in_chat, input_focused, table_dispatch_winner);
         if (action != input_binding::InputActionId::Max) {
@@ -285,32 +269,26 @@ bool hotkey_router_screen_update(ScreenManager* _this)
           if (table_winner
               && query::dispatch_runtime_bound_table_action(*table_winner)
                      == HotkeyRouterDispatchAction::SuppressOriginal) {
-            if (ModImpactMonitorEnabled()) {
-              spdlog::trace("[HotkeyDiag] action=table-dispatch");
-            }
             return false;
           }
         }
       }
     }
   } else {
-    ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyUiRouting, ModImpactMonitorEnabled());
-    ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyUiChatChannel, ModImpactMonitorEnabled());
+    ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::HotkeyUiRouting, RuntimeImpactDiagnosticsEnabled());
+    ScopedRuntimeImpactTimer sub_timer(RuntimeImpactProbe::HotkeyUiChatChannel, RuntimeImpactDiagnosticsEnabled());
 
     // ─── In-chat channel selection ─────────────────────────────────────────────────────
     if (auto chat_manager = ChatManager::Instance(); chat_manager) {
       switch (hotkey_router_chat_channel_action(
           is_in_chat, query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kChatChannel))) {
         case HotkeyRouterChatChannelAction::Global:
-          if (ModImpactMonitorEnabled()) { spdlog::trace("[HotkeyDiag] action=chat-channel channel=global"); }
           chat_manager->OpenChannel(ChatChannelCategory::Global);
           return false;
         case HotkeyRouterChatChannelAction::Alliance:
-          if (ModImpactMonitorEnabled()) { spdlog::trace("[HotkeyDiag] action=chat-channel channel=alliance"); }
           chat_manager->OpenChannel(ChatChannelCategory::Alliance);
           return false;
         case HotkeyRouterChatChannelAction::Private:
-          if (ModImpactMonitorEnabled()) { spdlog::trace("[HotkeyDiag] action=chat-channel channel=private"); }
           chat_manager->OpenChannel(ChatChannelCategory::Private);
           return false;
         default:
@@ -320,7 +298,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
   }
 
   if (!input_focused) {
-    ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyFleetRouting, ModImpactMonitorEnabled());
+    ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::HotkeyFleetRouting, RuntimeImpactDiagnosticsEnabled());
 
     const auto simple_fleet_action = hotkey_router_simple_fleet_action(
         input_focused, query::first_runtime_binding_winner(runtime_dispatch_plan, actions::kSimpleFleet));
@@ -385,9 +363,6 @@ bool hotkey_router_screen_update(ScreenManager* _this)
     }
 
     if (simple_fleet_action == HotkeyRouterSimpleFleetAction::QueueClear) {
-      if (ModImpactMonitorEnabled()) {
-        spdlog::trace("[HotkeyDiag] action=queue-clear");
-      }
       query::dispatch_runtime_bound_simple_fleet_action(input_binding::InputActionId::FleetQueueClear);
       if (query::runtime_binding_consumes_original_key_event(
               runtime_dispatch_plan, input_binding::InputActionId::FleetQueueClear, input_binding::InputLayer::Fleet)) {
@@ -404,18 +379,12 @@ bool hotkey_router_screen_update(ScreenManager* _this)
           bool was_forced          = force_space_action_next_frame;
           auto deferred_generation = DeferredSpaceActionGeneration();
           {
-            ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeySpaceAction, ModImpactMonitorEnabled());
+            ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::HotkeySpaceAction,
+                                                  RuntimeImpactDiagnosticsEnabled());
             handled_space_action = ExecuteSpaceAction(fleet_bar, space_action_inputs);
-          }
-          if (ModImpactMonitorEnabled()) {
-            spdlog::trace("[HotkeyDiag] action=space primary={} secondary={} recall={} repair={} handled={}",
-                          space_action_inputs.primary, space_action_inputs.secondary,
-                          space_action_inputs.recall, space_action_inputs.repair, handled_space_action);
           }
           if (hotkey_router_should_clear_deferred_space_action(was_forced, deferred_generation,
                                                                DeferredSpaceActionGeneration())) {
-            spdlog::trace("[SpaceActionDiag] cleared-deferred-retry reason=no-generation-advance generation={}",
-                          deferred_generation);
             ClearDeferredSpaceAction();
           }
         }
@@ -443,9 +412,6 @@ bool hotkey_router_screen_update(ScreenManager* _this)
 
     // ActionView — toggle cargo/rewards info panel
     if (simple_fleet_action == HotkeyRouterSimpleFleetAction::ViewInfo) {
-      if (ModImpactMonitorEnabled()) {
-        spdlog::trace("[HotkeyDiag] action=view-info");
-      }
       HandleActionView();
       if (query::runtime_binding_consumes_original_key_event(
               runtime_dispatch_plan, input_binding::InputActionId::FleetViewInfo, input_binding::InputLayer::Fleet)) {

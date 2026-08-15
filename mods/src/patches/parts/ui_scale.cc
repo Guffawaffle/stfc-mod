@@ -16,7 +16,7 @@
 #include "errormsg.h"
 #include <config.h>
 
-#include "patches/mod_impact_monitor.h"
+#include "patches/runtime_impact_monitor.h"
 
 #include <il2cpp/il2cpp_helper.h>
 
@@ -44,15 +44,15 @@
  */
 void ScreenManager_UpdateCanvasRootScaleFactor_Hook(auto original, ScreenManager* _this)
 {
-  ScopedModImpactTimer impact_timer(ModImpactProbe::UiScaleUpdate, ModImpactMonitorEnabled());
+  ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::UiScaleUpdate, RuntimeImpactDiagnosticsEnabled());
   impact_timer.ExcludeCall([&] { original(_this); });
 
-  #if _WIN32
+#if _WIN32
   static auto cursor = LoadCursor(NULL, IDC_ARROW);
   if (!Config::Get().allow_cursor) {
     SetCursor(cursor);
   }
-  #endif
+#endif
 
   if (_this && _this->m_canvasRootScaler && Config::Get().ui_scale != 0.0f) {
     static auto get_height_method = il2cpp_resolve_icall_typed<int()>("UnityEngine.Screen::get_height()");
@@ -93,7 +93,7 @@ void CanvasController_Show(auto original, CanvasController* _this, int desiredEn
 {
   const auto ui_scale_viewer = Config::Get().ui_scale_viewer;
   if (_this && ui_scale_viewer != 0.0f && to_wstring(_this->name) == L"ObjectViewerTemplate_Canvas") {
-    auto transform        = _this->transform;
+    auto transform = _this->transform;
     if (!transform || !transform->localScale) {
       return original(_this, desiredEntryPoint, instant);
     }

@@ -21,7 +21,7 @@
 #include "config.h"
 #include "errormsg.h"
 #include "patches/hook_registry.h"
-#include "patches/mod_impact_monitor.h"
+#include "patches/runtime_impact_monitor.h"
 
 #include "patches/input_binding/input_dispatcher.h"
 #include "patches/input_binding/input_runtime_bindings.h"
@@ -61,17 +61,20 @@ constexpr HookDescriptor kPlanetViewUtilsGetFlatRenderableHook{
     "Extreme system zoom can expose backdrop void at the edges."};
 
 constexpr HookDescriptor kNavigationZoomUpdateHook{
-    "NavigationZoom.Update", "Route configured zoom bindings and preserve the configured system zoom range.",
+    "NavigationZoom.Update",
+    "Route configured zoom bindings and preserve the configured system zoom range.",
     {"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationZoom", "Update"},
     "Keyboard zoom and the extended range stop working."};
 
 constexpr HookDescriptor kNavigationZoomSetDepthHook{
-    "NavigationZoom.SetDepth", "Apply system zoom presentation during Windows depth transitions.",
+    "NavigationZoom.SetDepth",
+    "Apply system zoom presentation during Windows depth transitions.",
     {"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationZoom", "SetDepth"},
     "The default zoom or background scaling can regress on system entry."};
 
 constexpr HookDescriptor kNavigationZoomSetViewParametersHook{
-    "NavigationZoom.SetViewParameters", "Apply extended zoom ratios while system view parameters are initialized.",
+    "NavigationZoom.SetViewParameters",
+    "Apply extended zoom ratios while system view parameters are initialized.",
     {"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationZoom", "SetViewParameters"},
     "The configured maximum zoom can be capped by the game."};
 
@@ -168,8 +171,8 @@ vec3 GetMouseWorldPos(void *cam, vec3 *pos)
 /// Flag set by depth/view hooks to trigger a zoom-to-default on the next Update.
 auto do_default_zoom = false;
 
-static float           s_expectedScale = 0.0f;
-static void           *s_lastScaledFR  = nullptr;
+static float s_expectedScale = 0.0f;
+static void *s_lastScaledFR  = nullptr;
 
 inline void SetSceneCameraFarClip(NavigationZoom *zoom, float farClipPlane)
 {
@@ -196,9 +199,9 @@ void ApplySystemZoomRange(NavigationZoom *zoom, const float radius)
     return;
   }
 
-  const auto ratio                 = configured_maximum / radius;
-  zoom->_farRatioSystemNormal      = 0.55f * ratio;
-  zoom->_farRatioSystemExtended    = ratio;
+  const auto ratio              = configured_maximum / radius;
+  zoom->_farRatioSystemNormal   = 0.55f * ratio;
+  zoom->_farRatioSystemExtended = ratio;
 }
 
 void EnsureSystemZoomRange(NavigationZoom *zoom)
@@ -281,7 +284,7 @@ static void ScaleFR(void *fr)
  */
 void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
 {
-  ScopedModImpactTimer impact_timer(ModImpactProbe::NavigationZoomUpdate, ModImpactMonitorEnabled());
+  ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::NavigationZoomUpdate, RuntimeImpactDiagnosticsEnabled());
 
   static auto GetMousePosition =
       il2cpp_resolve_icall_typed<void(vec3 *)>("UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)");
@@ -565,7 +568,8 @@ void InstallZoomHooks()
 {
   HookModuleHealth hooks("ZoomPlanetViewHooks");
 
-  auto planet_view_utils_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "PlanetViewUtils");
+  auto planet_view_utils_helper =
+      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "PlanetViewUtils");
   if (!planet_view_utils_helper.isValidHelper()) {
     hooks.record_missing_helper(kPlanetViewUtilsCameraZoomedEventHandlerHook);
     hooks.record_missing_helper(kPlanetViewUtilsGetFlatRenderableHook);
@@ -615,8 +619,7 @@ void InstallZoomHooks()
       hooks.record_missing_method(kNavigationZoomSetDepthHook);
       ErrorMsg::MissingMethod("NavigationZoom", "SetDepth");
     } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kNavigationZoomSetDepthHook, ptr_set_depth,
-                                       NavigationZoom_SetDepth_Hook);
+      HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kNavigationZoomSetDepthHook, ptr_set_depth, NavigationZoom_SetDepth_Hook);
     }
 #else
     hooks.record_skipped(kNavigationZoomSetDepthHook, "SetDepth detour is only required on Windows");

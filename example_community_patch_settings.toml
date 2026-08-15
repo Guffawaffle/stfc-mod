@@ -813,7 +813,6 @@ fleet_runtime = false
 # request_only records requests but skips snapshot reads.
 # snapshot_only reads/builds owned snapshots but skips publish/enqueue.
 # enqueue_no_transport enqueues latest-wins runtime snapshots but suppresses transport delivery.
-fleet_runtime_mode = "normal"
 
 [sidecar.logging]
 # Explicit opt-in local JSONL evidence/import feed for offline review and diagnostics.

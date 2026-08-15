@@ -5,10 +5,8 @@
 #pragma once
 
 #include "config.h"
-#include "patches/fleet_runtime_diagnostics.h"
 
 #include <cstdint>
-#include <optional>
 #include <string>
 
 namespace http
@@ -25,9 +23,9 @@ namespace headers
 
   extern const char poweredBy[];
 
-  void SetPrimeServerHeaders(std::string serverUrl, std::string sessionId);
-  void SetPrimeVersion(std::string version);
-  void SetInstanceId(int32_t instanceId);
+  void                  SetPrimeServerHeaders(std::string serverUrl, std::string sessionId);
+  void                  SetPrimeVersion(std::string version);
+  void                  SetInstanceId(int32_t instanceId);
   SessionHeaderSnapshot Snapshot();
 } // namespace headers
 
@@ -37,8 +35,7 @@ void sync_log_info(const std::string& type, const std::string& target, const std
 void sync_log_debug(const std::string& type, const std::string& target, const std::string& text);
 void sync_log_trace(const std::string& type, const std::string& target, const std::string& text);
 
-void send_data(SyncConfig::Type type, const std::string& post_data, bool is_first_sync,
-               std::optional<FleetRuntimeTraceContext> fleet_runtime_trace = std::nullopt);
+void        send_data(SyncConfig::Type type, const std::string& post_data, bool is_first_sync);
 std::string get_scopely_data(const std::string& path, const std::string& post_data);
-void shutdown_workers();
+void        shutdown_workers();
 } // namespace http

@@ -15,7 +15,8 @@
 #include "patches/fleet_input_policy.h"
 #include "patches/hotkey_router.h"
 #include "patches/live_debug.h"
-#include "patches/mod_impact_monitor.h"
+#include "patches/runtime_impact_diagnostics.h"
+#include "patches/runtime_impact_monitor.h"
 #include "patches/viewer_mgmt.h"
 #include "testable_functions.h"
 
@@ -75,10 +76,7 @@ constexpr auto kDuplicateScanSuppressionWindow = std::chrono::milliseconds(750);
 ScanSubmission last_scan_submission;
 
 bool SpaceActionDiagnosticsEnabled()
-{
-  const auto runtime_trace_level = RuntimeTraceLevelSetting();
-  return runtime_trace_level == RuntimeTraceLevel::Detailed || runtime_trace_level == RuntimeTraceLevel::Verbose;
-}
+{ return runtime_impact_diagnostics::Enabled(); }
 
 template <typename T> bool IsViewerVisible(T* widget)
 {
@@ -158,7 +156,8 @@ FleetInputHullType ToFleetInputHullType(const HullType type)
 }
 
 struct SpaceActionDiagnostics {
-  std::chrono::steady_clock::time_point started_at                 = std::chrono::steady_clock::now();
+  std::chrono::steady_clock::time_point started_at{};
+  bool                                  diagnostics_enabled        = false;
   uint64_t                              fleet_id                   = 0;
   uint64_t                              target_id                  = 0;
   int                                   fleet_state                = -1;
@@ -190,83 +189,70 @@ struct SpaceActionDiagnostics {
   SpaceActionDiagnostics(FleetPlayerData* fleet, bool has_physical_primary, bool has_deferred_primary_for_fleet,
                          bool has_deferred_pending, bool has_secondary, bool has_queue, bool has_queue_clear,
                          bool has_recall, bool has_repair, bool has_recall_cancel)
-      : fleet_id(fleet ? fleet->Id : 0)
-      , fleet_state(fleet ? static_cast<int>(fleet->CurrentState) : -1)
-      , previous_state(fleet ? static_cast<int>(fleet->PreviousState) : -1)
-      , physical_primary(has_physical_primary)
-      , deferred_primary_for_fleet(has_deferred_primary_for_fleet)
-      , deferred_pending(has_deferred_pending)
-      , secondary(has_secondary)
-      , queue(has_queue)
-      , queue_clear(has_queue_clear)
-      , recall(has_recall)
-      , repair(has_repair)
-      , recall_cancel(has_recall_cancel)
   {
+    diagnostics_enabled = SpaceActionDiagnosticsEnabled();
+    if (!diagnostics_enabled) {
+      return;
+    }
+
+    started_at                 = std::chrono::steady_clock::now();
+    fleet_id                   = fleet ? fleet->Id : 0;
+    fleet_state                = fleet ? static_cast<int>(fleet->CurrentState) : -1;
+    previous_state             = fleet ? static_cast<int>(fleet->PreviousState) : -1;
+    physical_primary           = has_physical_primary;
+    deferred_primary_for_fleet = has_deferred_primary_for_fleet;
+    deferred_pending           = has_deferred_pending;
+    secondary                  = has_secondary;
+    queue                      = has_queue;
+    queue_clear                = has_queue_clear;
+    recall                     = has_recall;
+    repair                     = has_repair;
+    recall_cancel              = has_recall_cancel;
   }
 
   ~SpaceActionDiagnostics()
   {
-    if (!SpaceActionDiagnosticsEnabled()) {
+    if (!diagnostics_enabled) {
       return;
     }
 
-    const auto elapsed           = std::chrono::steady_clock::now() - started_at;
-    const auto elapsed_us        = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-    const auto slow_threshold_us = ModImpactMonitorEnabled() ? 1000 : 8000;
-    const auto long_detour       = elapsed_us >= slow_threshold_us;
-    const auto had_action_input  = physical_primary || deferred_pending || deferred_primary_for_fleet || secondary
-                                   || queue || queue_clear || recall || repair || recall_cancel;
-    const auto had_visible_context =
-        visible_pre_scan_count > 0 || mining_visible || star_node_visible || navigation_visible;
-    const auto handled_primary = handled && (physical_primary || deferred_primary_for_fleet || deferred_pending);
-
-    if (handled_primary) {
-      spdlog::debug(
-          "[SpaceActionDiag] handled-primary outcome={} duration_us={} fleet={} target={} state={} prev={} "
-          "inputs[p={} dp={} "
-          "df={} s={} q={} qc={} r={} repair={} rc={}] context[preScan={} resolved={} unresolved={} mining={} "
-          "star={} nav={} fallback={} context_us={} fallback_us={} exec_us={} queue_press_us={} hide_viewers_us={}] "
-          "deferred[fleet={} widget={} target={}]",
-          outcome, elapsed_us, fleet_id, target_id, fleet_state, previous_state, physical_primary, deferred_pending,
-          deferred_primary_for_fleet, secondary, queue, queue_clear, recall, repair, recall_cancel,
-          visible_pre_scan_count, resolved_pre_scan_count, unresolved_pre_scan_count, mining_visible, star_node_visible,
-          navigation_visible, pre_scan_fallback_used, context_duration_us, pre_scan_fallback_us, outcome_execution_us,
-          queue_button_press_us, hide_viewers_us, deferred_space_action_state.fleet_id,
-          reinterpret_cast<const void*>(deferred_space_action_state.widget_identity),
-          reinterpret_cast<const void*>(deferred_space_action_state.target_identity));
+    const auto elapsed          = std::chrono::steady_clock::now() - started_at;
+    const auto elapsed_us       = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+    const auto long_detour      = elapsed_us >= 1'000;
+    const auto had_action_input = physical_primary || deferred_pending || deferred_primary_for_fleet || secondary
+                                  || queue || queue_clear || recall || repair || recall_cancel;
+    if (!had_action_input && !long_detour) {
+      return;
     }
 
-    if (long_detour) {
-      spdlog::warn(
-          "[SpaceActionDiag] slow outcome={} handled={} duration_us={} fleet={} target={} state={} prev={} "
-          "inputs[p={} dp={} "
-          "df={} s={} q={} qc={} r={} repair={} rc={}] context[preScan={} resolved={} unresolved={} mining={} "
-          "star={} nav={} fallback={} context_us={} fallback_us={} exec_us={} queue_press_us={} hide_viewers_us={}] "
-          "deferred[fleet={} widget={} target={}]",
-          outcome, handled, elapsed_us, fleet_id, target_id, fleet_state, previous_state, physical_primary,
-          deferred_pending, deferred_primary_for_fleet, secondary, queue, queue_clear, recall, repair, recall_cancel,
-          visible_pre_scan_count, resolved_pre_scan_count, unresolved_pre_scan_count, mining_visible, star_node_visible,
-          navigation_visible, pre_scan_fallback_used, context_duration_us, pre_scan_fallback_us, outcome_execution_us,
-          queue_button_press_us, hide_viewers_us, deferred_space_action_state.fleet_id,
-          reinterpret_cast<const void*>(deferred_space_action_state.widget_identity),
-          reinterpret_cast<const void*>(deferred_space_action_state.target_identity));
-    }
+    const uint16_t input_flags = static_cast<uint16_t>(physical_primary)
+                                 | static_cast<uint16_t>(deferred_primary_for_fleet) << 1
+                                 | static_cast<uint16_t>(deferred_pending) << 2 | static_cast<uint16_t>(secondary) << 3
+                                 | static_cast<uint16_t>(queue) << 4 | static_cast<uint16_t>(queue_clear) << 5
+                                 | static_cast<uint16_t>(recall) << 6 | static_cast<uint16_t>(repair) << 7
+                                 | static_cast<uint16_t>(recall_cancel) << 8;
+    const uint8_t  context_flags = static_cast<uint8_t>(mining_visible) | static_cast<uint8_t>(star_node_visible) << 1
+                                   | static_cast<uint8_t>(navigation_visible) << 2
+                                   | static_cast<uint8_t>(pre_scan_fallback_used) << 3;
 
-    if (!handled && had_action_input && (had_visible_context || deferred_pending)) {
-      spdlog::warn(
-          "[SpaceActionDiag] unresolved outcome={} duration_us={} fleet={} target={} state={} prev={} inputs[p={} "
-          "dp={} df={} s={} q={} qc={} r={} repair={} rc={}] context[preScan={} resolved={} unresolved={} "
-          "mining={} star={} nav={} fallback={} context_us={} fallback_us={} exec_us={} queue_press_us={} "
-          "hide_viewers_us={}] deferred[fleet={} widget={} target={}]",
-          outcome, elapsed_us, fleet_id, target_id, fleet_state, previous_state, physical_primary, deferred_pending,
-          deferred_primary_for_fleet, secondary, queue, queue_clear, recall, repair, recall_cancel,
-          visible_pre_scan_count, resolved_pre_scan_count, unresolved_pre_scan_count, mining_visible, star_node_visible,
-          navigation_visible, pre_scan_fallback_used, context_duration_us, pre_scan_fallback_us, outcome_execution_us,
-          queue_button_press_us, hide_viewers_us, deferred_space_action_state.fleet_id,
-          reinterpret_cast<const void*>(deferred_space_action_state.widget_identity),
-          reinterpret_cast<const void*>(deferred_space_action_state.target_identity));
-    }
+    runtime_impact_diagnostics::RecordSpaceActionTiming({
+        .outcome               = runtime_impact_diagnostics::CopyOutcome(outcome),
+        .duration_us           = static_cast<uint64_t>(std::max<int64_t>(0, elapsed_us)),
+        .context_us            = context_duration_us,
+        .pre_scan_fallback_us  = pre_scan_fallback_us,
+        .outcome_execution_us  = outcome_execution_us,
+        .queue_button_press_us = queue_button_press_us,
+        .hide_viewers_us       = hide_viewers_us,
+        .fleet_state           = fleet_state,
+        .previous_state        = previous_state,
+        .visible_pre_scan      = visible_pre_scan_count,
+        .resolved_pre_scan     = resolved_pre_scan_count,
+        .unresolved_pre_scan   = unresolved_pre_scan_count,
+        .input_flags           = input_flags,
+        .context_flags         = context_flags,
+        .handled               = handled,
+        .slow                  = long_detour,
+    });
   }
 
   void SetContext(int pre_scan_count, int resolved_pre_scan_count_value, int unresolved_pre_scan_count_value,
@@ -284,8 +270,12 @@ struct SpaceActionDiagnostics {
     pre_scan_fallback_us      = pre_scan_fallback_us_value;
   }
 
-  template <typename Callback> static decltype(auto) MeasureExecutionSlice(uint64_t& accumulator, Callback&& callback)
+  template <typename Callback> decltype(auto) MeasureExecutionSlice(uint64_t& accumulator, Callback&& callback)
   {
+    if (!diagnostics_enabled) {
+      return callback();
+    }
+
     const auto started_at_value = std::chrono::steady_clock::now();
     if constexpr (std::is_void_v<decltype(callback())>) {
       callback();
@@ -479,10 +469,6 @@ bool TryExecuteScanAction(FleetPlayerData* fleet, ScanEngageButtonsWidget* scan_
   if (space_action_duplicate_submission_should_suppress(last_scan_submission.fleet_id,
                                                         last_scan_submission.target_identity, fleet_id, target_identity,
                                                         elapsed_ms, kDuplicateScanSuppressionWindow.count())) {
-    if (SpaceActionDiagnosticsEnabled()) {
-      spdlog::trace("[SpaceActionDiag] suppressed duplicate scan outcome={} fleet={} target={} elapsed_ms={}",
-                    duplicate_outcome, fleet_id, target_identity, elapsed_ms);
-    }
     diagnostics.Complete(duplicate_outcome);
     return true;
   }
@@ -550,7 +536,8 @@ void AppendVisiblePreScanTargetContext(SpaceActionRuntimeContext& runtime_contex
 
 SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet)
 {
-  ScopedModImpactTimer      impact_timer(ModImpactProbe::HotkeySpaceActionContext, ModImpactMonitorEnabled());
+  ScopedRuntimeImpactTimer  impact_timer(RuntimeImpactProbe::HotkeySpaceActionContext,
+                                         RuntimeImpactDiagnosticsEnabled());
   const auto                context_started_at = std::chrono::steady_clock::now();
   SpaceActionRuntimeContext runtime_context;
 
@@ -558,7 +545,8 @@ SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet
     runtime_context.visible_pre_scan_targets.reserve(1);
     AppendVisiblePreScanTargetContext(runtime_context, fleet, last_shown_pre_scan_target);
   } else {
-    ScopedModImpactTimer fallback_timer(ModImpactProbe::HotkeySpaceActionPreScanFallback, ModImpactMonitorEnabled());
+    ScopedRuntimeImpactTimer fallback_timer(RuntimeImpactProbe::HotkeySpaceActionPreScanFallback,
+                                            RuntimeImpactDiagnosticsEnabled());
     runtime_context.used_pre_scan_fallback = true;
     const auto fallback_started_at         = std::chrono::steady_clock::now();
     const auto all_pre_scan_widgets        = ObjectFinder<PreScanTargetWidget>::GetAllNonNull();
@@ -871,7 +859,7 @@ bool HandleShipSelection(int ship_select_request)
   auto config = &Config::Get();
 
   if (Key::HasShift()) {
-    ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipTow, ModImpactMonitorEnabled());
+    ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::HotkeyShipTow, RuntimeImpactDiagnosticsEnabled());
 
     auto* fleets_manager     = FleetsManager::Instance();
     auto* deployment_manager = DeploymentManger::Instance();
@@ -906,7 +894,8 @@ bool HandleShipSelection(int ship_select_request)
     FleetBarViewController* fleet_bar  = nullptr;
     bool                    can_locate = false;
     {
-      ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipFleetBarLookup, ModImpactMonitorEnabled());
+      ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::HotkeyShipFleetBarLookup,
+                                            RuntimeImpactDiagnosticsEnabled());
       fleet_bar  = ObjectFinder<FleetBarViewController>::Get();
       can_locate = !config->disable_preview_locate || !CanHideViewers();
     }
@@ -923,7 +912,7 @@ bool HandleShipSelection(int ship_select_request)
       const FleetSelectAction action =
           DecideFleetSelectAction(can_locate, same_request_as_last, index_already_selected, within_select_timer);
       if (action == FleetSelectAction::Locate) {
-        ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipLocate, ModImpactMonitorEnabled());
+        ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::HotkeyShipLocate, RuntimeImpactDiagnosticsEnabled());
 
         auto fleet_controller = fleet_bar->_fleetPanelController;
         auto fleet            = fleet_controller ? fleet_controller->fleet : nullptr;
@@ -932,14 +921,16 @@ bool HandleShipSelection(int ship_select_request)
         }
 
         {
-          ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipLocateHideInteraction, ModImpactMonitorEnabled());
+          ScopedRuntimeImpactTimer sub_timer(RuntimeImpactProbe::HotkeyShipLocateHideInteraction,
+                                             RuntimeImpactDiagnosticsEnabled());
           if (auto* navigation_section_manager = NavigationSectionManager::Instance();
               navigation_section_manager && navigation_section_manager->SNavigationManager) {
             navigation_section_manager->SNavigationManager->HideInteraction();
           }
         }
         {
-          ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipLocateRequestView, ModImpactMonitorEnabled());
+          ScopedRuntimeImpactTimer sub_timer(RuntimeImpactProbe::HotkeyShipLocateRequestView,
+                                             RuntimeImpactDiagnosticsEnabled());
           if (auto* fleets_manager = FleetsManager::Instance()) {
             fleets_manager->RequestViewFleet(fleet, true);
           } else {
@@ -947,7 +938,8 @@ bool HandleShipSelection(int ship_select_request)
           }
         }
       } else {
-        ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipSelectPanel, ModImpactMonitorEnabled());
+        ScopedRuntimeImpactTimer               impact_timer(RuntimeImpactProbe::HotkeyShipSelectPanel,
+                                                            RuntimeImpactDiagnosticsEnabled());
         HotkeyRouterNativeFleetSelectionBypass fleet_selection_bypass;
 
         constexpr auto plan = FleetSelectOpenBranchPlan();
@@ -955,7 +947,8 @@ bool HandleShipSelection(int ship_select_request)
                       "Open-branch plan changed; HandleShipSelection must mirror it.");
 
         if (plan.call_request_select) {
-          ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipRequestSelect, ModImpactMonitorEnabled());
+          ScopedRuntimeImpactTimer sub_timer(RuntimeImpactProbe::HotkeyShipRequestSelect,
+                                             RuntimeImpactDiagnosticsEnabled());
           fleet_bar->RequestSelect(ship_select_request);
         }
         if (plan.call_element_action) {
@@ -963,7 +956,8 @@ bool HandleShipSelection(int ship_select_request)
           // the ship and toggles the FleetPanel. A previous explicit fleet_bar->TogglePanel()
           // call here produced a double-toggle that briefly opened then immediately closed
           // the panel. ElementAction alone is sufficient to surface the panel.
-          ScopedModImpactTimer sub_timer(ModImpactProbe::HotkeyShipElementAction, ModImpactMonitorEnabled());
+          ScopedRuntimeImpactTimer sub_timer(RuntimeImpactProbe::HotkeyShipElementAction,
+                                             RuntimeImpactDiagnosticsEnabled());
           fleet_bar->ElementAction(ship_select_request);
         }
         // plan.call_toggle_panel is intentionally false — see FleetSelectOpenBranchPlan().

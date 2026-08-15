@@ -518,8 +518,6 @@ function schemaType(settingPath, value, configMemberTypes = new Map()) {
   const enumValues = {
     "input.scopely_shortcuts": ["off", "native", "fallback"],
     "input.original_frame_policy": ["mod", "fallthrough_unhandled", "fallthrough_all"],
-    "advanced.diagnostics.runtime_trace": ["off", "summary", "detailed", "verbose"],
-    "sidecar.sync.fleet_runtime_mode": ["normal", "request_only", "snapshot_only", "enqueue_no_transport"],
     "sidecar.sync.transport": ["legacy_http", "named_pipe"],
   };
   if (settingPath.startsWith("ui.mission_hud.")) {
@@ -1077,9 +1075,6 @@ function scalarAliases(settingPath) {
 function constraintsFor(settingPath) {
   if (/^advanced\.diagnostics\.files\.(?:navhook_trace|action_queue_probe)_(?:max_kb|files)$/.test(settingPath)) {
     return { minimum: 1 };
-  }
-  if (settingPath === "advanced.diagnostics.runtime_trace_report_interval_ms") {
-    return { minimum: 1000, maximum: 60000 };
   }
   if (settingPath === "sidecar.logging.jsonl_replay_seconds" || settingPath === "sidecar.logging.jsonl_recent_logs") {
     return { minimum: 0 };

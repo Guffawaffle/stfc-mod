@@ -72,13 +72,6 @@ TEST_CASE("fleet runtime sync requests require gameplay dispatch provenance")
   CHECK_FALSE(contains(sync_header, "fleet_runtime_sync_trigger(std::string_view"));
   CHECK_FALSE(contains(sync_header, "fleet_runtime_sync_capture(std::string_view"));
 
-  const auto diagnostics_header = read_text_file("mods/src/patches/fleet_runtime_diagnostics.h");
-  CHECK_FALSE(contains(diagnostics_header, "fleet_runtime_diagnostics_trigger(std::string_view"));
-  CHECK_FALSE(contains(diagnostics_header, "fleet_runtime_diagnostics_capture_attempt(std::string_view"));
-  CHECK_FALSE(contains(diagnostics_header, "fleet_runtime_diagnostics_suppressed_unchanged(std::string_view"));
-  CHECK_FALSE(contains(diagnostics_header, "fleet_runtime_diagnostics_suppressed_non_meaningful(std::string_view"));
-  CHECK_FALSE(contains(diagnostics_header, "fleet_runtime_diagnostics_make_trace(\n    std::string_view source"));
-
   const auto live_debug_source = read_text_file("mods/src/patches/parts/live_debug.cc");
   CHECK_FALSE(contains(live_debug_source, "fleet_runtime_sync_trigger(\""));
 }
@@ -109,10 +102,11 @@ TEST_CASE("fleet notifications use one targeted runtime owner and keep broad dep
   CHECK(contains(fleet_notifications_source, "reason=max-lifetime"));
 }
 
-TEST_CASE("temporary fleet targeted diagnostics remain registered, searchable, and sunset-bound")
+TEST_CASE("temporary targeted diagnostics remain registered, searchable, and sunset-bound")
 {
   const auto registry_source = read_text_file("mods/src/targeted_diagnostic_registry.cc");
   CHECK(contains(registry_source, "TARGET_DIAGNOSTIC_REGISTER(fleet_notification_diagnostics::Concern())"));
+  CHECK(contains(registry_source, "TARGET_DIAGNOSTIC_REGISTER(runtime_impact_diagnostics::Concern())"));
   CHECK(contains(registry_source, "ValidateConcernSpecs(kSpecs, kCurrentVersion, true)"));
 
   const auto concern_header = read_text_file("mods/src/patches/fleet_notification_diagnostics.h");
@@ -124,12 +118,45 @@ TEST_CASE("temporary fleet targeted diagnostics remain registered, searchable, a
   CHECK(contains(concern_source, "TARGET_DIAGNOSTIC_WRITE"));
   CHECK(contains(concern_source, "TARGET_DIAGNOSTIC_ENABLED"));
 
+  const auto impact_header = read_text_file("mods/src/patches/runtime_impact_diagnostics.h");
+  CHECK(contains(impact_header, "= \"runtime-impact\""));
+  CHECK(contains(impact_header, "= \"#257\""));
+  CHECK(contains(impact_header, "= {2, 2, 0}"));
+
+  const auto impact_source = read_text_file("mods/src/patches/runtime_impact_diagnostics.cc");
+  CHECK(contains(impact_source, "TARGET_DIAGNOSTIC_WRITE"));
+  CHECK(contains(impact_source, "TARGET_DIAGNOSTIC_ENABLED"));
+
   const auto producer_source = read_text_file("mods/src/patches/fleet_notifications.cc");
   CHECK(contains(producer_source, "CacheSnapshotDue"));
   CHECK(contains(producer_source, "CountStaleFleetCacheEntries"));
   CHECK(contains(producer_source, "CompleteTick"));
   CHECK_FALSE(contains(producer_source, "kStaleCacheInspectionLimit"));
   CHECK_FALSE(contains(producer_source, "nlohmann"));
+}
+
+TEST_CASE("runtime impact diagnostics have no parallel legacy logger or configuration path")
+{
+  CHECK(find_repo_file("mods/src/runtime_trace_config.h").empty());
+  CHECK(find_repo_file("mods/src/patches/fleet_runtime_diagnostics.h").empty());
+  CHECK(find_repo_file("mods/src/patches/fleet_runtime_diagnostics.cc").empty());
+
+  const auto config_header = read_text_file("mods/src/config.h");
+  const auto defaults      = read_text_file("mods/src/defaultconfig.h");
+  const auto example       = read_text_file("example_community_patch_settings.toml");
+  for (const auto legacy_setting : {"runtime_trace", "mod_impact_monitor", "fleet_runtime_mode"}) {
+    CHECK_FALSE(contains(config_header, legacy_setting));
+    CHECK_FALSE(contains(defaults, legacy_setting));
+    CHECK_FALSE(contains(example, legacy_setting));
+  }
+
+  const auto impact_monitor = read_text_file("mods/src/patches/runtime_impact_monitor.cc");
+  const auto fleet_sync     = read_text_file("mods/src/patches/fleet_runtime_sync.cc");
+  const auto fleet_arrival  = read_text_file("mods/src/patches/parts/fleet_arrival.cc");
+  CHECK(contains(impact_monitor, "runtime_impact_diagnostics::RecordProbeWindow"));
+  CHECK_FALSE(contains(impact_monitor, "spdlog::"));
+  CHECK_FALSE(contains(fleet_sync, "[FleetRuntimeSync]"));
+  CHECK_FALSE(contains(fleet_arrival, "[FleetRuntimeTrigger]"));
 }
 
 TEST_CASE("sidecar local enqueue requires copied payload provenance")

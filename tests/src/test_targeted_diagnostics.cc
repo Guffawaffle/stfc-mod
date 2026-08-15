@@ -3,6 +3,8 @@
 #include "bounded_mpsc_queue.h"
 #include "diagnostics_file_policy.h"
 #include "patches/fleet_notification_diagnostics.h"
+#include "patches/runtime_impact_diagnostics.h"
+#include "patches/runtime_impact_monitor.h"
 #include "targeted_diagnostics.h"
 
 #include <nlohmann/json.hpp>
@@ -104,6 +106,13 @@ template <> struct EventTraits<TestEvent> {
 
 TEST_SUITE("targeted_diagnostics")
 {
+  TEST_CASE("production file retention defaults stay within the reviewed global ceiling")
+  {
+    const targeted_diagnostics::CaptureLimits limits;
+    CHECK(limits.max_file_bytes == 1024 * 1024);
+    CHECK(limits.total_files == 2);
+  }
+
   TEST_CASE("MPSC publication tolerates producers completing out of reservation order")
   {
     BoundedMpscQueue<int>   queue(BoundedMpscQueue<int>::slot_bytes() * 4);
@@ -397,6 +406,55 @@ TEST_SUITE("targeted_diagnostics")
     CHECK((*summary)["fields"]["diagnostic_overhead_total_us"] == 80);
     CHECK((*summary)["fields"]["diagnostic_overhead_max_us"] == 80);
     fleet_notification_diagnostics::Reset();
+  }
+
+  TEST_CASE("writes runtime impact records only to the registered concern file")
+  {
+    ScopedTempDir temp_dir;
+    auto&         concern = runtime_impact_diagnostics::Concern();
+    std::array    registry{&concern};
+    auto          options   = options_for(temp_dir);
+    options.current_version = {2, 1, 0};
+    const std::vector<std::string> enabled{"runtime-impact"};
+    targeted_diagnostics::Initialize(registry, enabled, options);
+    auto capture = targeted_diagnostics::CurrentCapture();
+    REQUIRE(capture);
+
+    runtime_impact_diagnostics::RecordProbeWindow({
+        .probe       = static_cast<uint8_t>(RuntimeImpactProbe::HotkeySpaceAction),
+        .window_ms   = 5'000,
+        .samples     = 3,
+        .total_ns    = 900'000,
+        .max_ns      = 500'000,
+        .over_250us  = 2,
+        .over_1000us = 0,
+    });
+    runtime_impact_diagnostics::RecordSpaceActionTiming({
+        .outcome              = runtime_impact_diagnostics::CopyOutcome("engage-prescan"),
+        .duration_us          = 1'200,
+        .context_us           = 150,
+        .outcome_execution_us = 900,
+        .input_flags          = 1 | (1 << 4),
+        .context_flags        = 1 << 3,
+        .handled              = true,
+        .slow                 = true,
+    });
+    REQUIRE(capture->WaitUntilIdle(std::chrono::seconds(2)));
+    targeted_diagnostics::Shutdown();
+
+    const auto rows = read_jsonl(temp_dir.path() / "configured" / "community_patch_target_runtime-impact.jsonl");
+    REQUIRE(rows.size() == 2);
+    CHECK(rows[0]["event_type"] == "probe-window");
+    CHECK(rows[0]["fields"]["probe"] == "hotkey.space_action");
+    CHECK(rows[0]["fields"]["average_us"] == 300.0);
+    CHECK(rows[1]["event_type"] == "space-action-timing");
+    CHECK(rows[1]["fields"]["outcome"] == "engage-prescan");
+    CHECK(rows[1]["fields"]["outcome_execution_us"] == 900);
+    CHECK(rows[1]["fields"]["inputs"]["physical_primary"] == true);
+    CHECK(rows[1]["fields"]["inputs"]["queue"] == true);
+    CHECK(rows[1]["fields"]["inputs"]["secondary"] == false);
+    CHECK(rows[1]["fields"]["context"]["pre_scan_fallback_used"] == true);
+    CHECK(rows[1]["fields"]["context"]["navigation_visible"] == false);
   }
 
   TEST_CASE("isolates two concerns into deterministic files")

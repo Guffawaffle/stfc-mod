@@ -116,15 +116,6 @@ FleetPlayerData* fleet_bar_widget_context(void* self)
 void observe_fleet_state(FleetPlayerData* fleet, std::string_view seam, std::string_view observationSource)
 {
   if (const auto* trigger_source = fleet_notifications_observe_fleet_state(fleet, observationSource)) {
-    auto*      hull       = fleet ? fleet->Hull : nullptr;
-    const auto hull_name  = hull && hull->Name ? to_string(hull->Name) : std::string{};
-    const auto fleet_id   = fleet ? fleet->Id : 0;
-    const auto state      = fleet ? static_cast<int>(fleet->CurrentState) : -1;
-    const auto prev_state = fleet ? static_cast<int>(fleet->PreviousState) : -1;
-    spdlog::info("[FleetRuntimeTrigger] stage=observed source={} owner={} seam={} fleet={} hull='{}' state={} prev={} "
-                 "effect={}",
-                 trigger_source, kFleetArrivalOwner, seam, fleet_id, hull_name, state, prev_state,
-                 kFleetRuntimeSyncEffect);
     fleet_runtime_sync_trigger(
         gameplay_dispatch_context(trigger_source, kFleetArrivalOwner, seam, trigger_source, kFleetRuntimeSyncEffect));
   }

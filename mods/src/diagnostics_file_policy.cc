@@ -100,6 +100,31 @@ DiagnosticsFilePrepareResult PrepareDiagnosticsFileForAppend(const std::filesyst
     return {false, false, make_oversize_warning(path, max_bytes, incoming_bytes)};
   }
 
+  const auto generations = std::max(0, total_files - 1);
+  for (int index = 1; index <= generations; ++index) {
+    const auto generation = DiagnosticsRotatedPath(path, index);
+    std::error_code generation_error;
+    if (!std::filesystem::exists(generation, generation_error)) {
+      if (generation_error && !is_missing_path_error(generation_error)) {
+        return {true, false, make_rotation_warning(generation, "stat", generation_error)};
+      }
+      continue;
+    }
+
+    const auto generation_size = std::filesystem::file_size(generation, generation_error);
+    if (generation_error) {
+      return {true, false, make_rotation_warning(generation, "read size for", generation_error)};
+    }
+    if (generation_size <= max_bytes) {
+      continue;
+    }
+
+    std::filesystem::remove(generation, generation_error);
+    if (generation_error && !is_missing_path_error(generation_error)) {
+      return {true, false, make_rotation_warning(generation, "remove oversized", generation_error)};
+    }
+  }
+
   std::error_code error;
   if (!std::filesystem::exists(path, error)) {
     if (!error || is_missing_path_error(error)) {
@@ -118,7 +143,14 @@ DiagnosticsFilePrepareResult PrepareDiagnosticsFileForAppend(const std::filesyst
     return {};
   }
 
-  const auto generations = std::max(0, total_files - 1);
+  if (current_size > max_bytes) {
+    std::filesystem::remove(path, error);
+    if (!error || is_missing_path_error(error)) {
+      return {.append_allowed = true, .rotated = true};
+    }
+    return {true, false, make_rotation_warning(path, "remove oversized", error)};
+  }
+
   if (generations == 0) {
     std::filesystem::remove(path, error);
     if (!error || is_missing_path_error(error)) {

@@ -99,34 +99,6 @@ export const configPresentationOverrides = [
     group: "Local sidecar",
   },
   {
-    path: "sidecar.sync.fleet_runtime_mode",
-    label: "Fleet runtime behavior",
-    help: "Controls how fleet runtime data moves through the local sidecar pipeline.",
-    group: "Local sidecar",
-    enumOptions: [
-      {
-        value: "normal",
-        label: "Normal",
-        help: "Read, queue, and deliver fleet runtime snapshots.",
-      },
-      {
-        value: "request_only",
-        label: "Requests only",
-        help: "Record snapshot requests without reading fleet state.",
-      },
-      {
-        value: "snapshot_only",
-        label: "Build snapshots only",
-        help: "Read and build owned snapshots without queueing or publishing them.",
-      },
-      {
-        value: "enqueue_no_transport",
-        label: "Queue without delivery",
-        help: "Keep the latest snapshot queued without sending it over HTTP.",
-      },
-    ],
-  },
-  {
     path: "sidecar.sync.url",
     label: "Legacy Sidecar address",
     help: "Used only with the legacy HTTP transport. Battle Bridge uses the launcher-managed named pipe.",

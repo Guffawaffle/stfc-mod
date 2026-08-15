@@ -133,17 +133,8 @@ namespace Advanced
     constexpr bool fleet_selection_timing_logging  = false;
     /// Enable the live debug/query channel for AX and runtime inspection. Default: false.
     constexpr bool live_query = false;
-    /// Realtime runtime trace level: off, summary, detailed, or verbose. Any level above off adds runtime overhead.
-    constexpr const char* runtime_trace = "off";
-    /// Track runtime trace instrumentation overhead as a separate probe. Default: false for this private fork.
-    constexpr bool runtime_trace_track_overhead = false;
     /// Enable detailed action-queue guard breadcrumbs. Hidden opt-in; default: false.
     constexpr bool action_queue_guard_logging = false;
-    /// Enable periodic runtime impact summaries for frame-owned mod hooks. Default: false.
-    constexpr bool mod_impact_monitor = false;
-    /// Runtime trace summary report interval in milliseconds. Lower intervals increase diagnostic log churn. Default:
-    /// 5000.
-    constexpr int runtime_trace_report_interval_ms = 5000;
     /// Enable focused refinery lifecycle/action diagnostics in community_patch.log. Default: false.
     constexpr bool refinery_diagnostics = false;
 
@@ -445,7 +436,6 @@ namespace Sidecar
     constexpr bool        battlelogs_realtime                             = false;
     constexpr bool        battlelog_enrichment                            = false;
     constexpr bool        fleet_runtime                                   = false;
-    constexpr const char* fleet_runtime_mode                              = "normal";
   } // namespace Sync
 
   namespace Probes

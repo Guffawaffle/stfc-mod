@@ -15,8 +15,8 @@
 
 #include "config.h"
 #include "errormsg.h"
-#include "patches/mod_impact_monitor.h"
 #include "file.h"
+#include "patches/runtime_impact_monitor.h"
 
 #include <spud/detour.h>
 
@@ -98,7 +98,7 @@ decltype(SetWindowLongW)* oSetWindowLong = nullptr;
  *   replaces the style with WS_OVERLAPPEDWINDOW (if free_resize is enabled)
  *   and installs the F11 WndProc sub-class (if borderless_fullscreen is enabled).
  */
-LONG                      SetWindowLongW_Hook(_In_ HWND hWnd, _In_ int nIndex, _In_ LONG dwNewLong)
+LONG SetWindowLongW_Hook(_In_ HWND hWnd, _In_ int nIndex, _In_ LONG dwNewLong)
 {
   if (nIndex == GWL_STYLE) {
     char clsName_v[256];
@@ -149,7 +149,7 @@ struct ResolutionArray {
  */
 void AspectRatioConstraintHandler_Update(auto original, void* _this)
 {
-  ScopedModImpactTimer impact_timer(ModImpactProbe::AspectRatioUpdate, ModImpactMonitorEnabled());
+  ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::AspectRatioUpdate, RuntimeImpactDiagnosticsEnabled());
 
   static auto set_title       = true;
   static auto get_fullscreen  = il2cpp_resolve_icall_typed<bool()>("UnityEngine.Screen::get_fullScreen()");

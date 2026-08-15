@@ -9,7 +9,7 @@
 #include "patches/hotkey_router_action_table.h"
 #include "patches/hotkey_router_modifier_query.h"
 #include "patches/key.h"
-#include "patches/mod_impact_monitor.h"
+#include "patches/runtime_impact_monitor.h"
 
 namespace hotkey_router_dispatch_cache
 {
@@ -46,7 +46,7 @@ void build_dispatch_key_snapshot(std::span<const KeyCode>                      w
 
 const input_binding::DispatchPlan& frame_runtime_dispatch_plan()
 {
-  ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyDispatchPlan, ModImpactMonitorEnabled());
+  ScopedRuntimeImpactTimer impact_timer(RuntimeImpactProbe::HotkeyDispatchPlan, RuntimeImpactDiagnosticsEnabled());
 
   auto&       cache            = frame_runtime_dispatch_cache();
   const auto& runtime_bindings = input_binding::RuntimeBindingModel();
@@ -57,4 +57,4 @@ const input_binding::DispatchPlan& frame_runtime_dispatch_plan()
 
   return cache.plan;
 }
-}  // namespace hotkey_router_dispatch_cache
+} // namespace hotkey_router_dispatch_cache

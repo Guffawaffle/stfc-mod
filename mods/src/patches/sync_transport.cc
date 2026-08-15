@@ -49,8 +49,10 @@
 
 #if _WIN32
 struct WinRtApartmentGuard {
-  WinRtApartmentGuard() { winrt::init_apartment(); }
-  ~WinRtApartmentGuard() { winrt::uninit_apartment(); }
+  WinRtApartmentGuard()
+  { winrt::init_apartment(); }
+  ~WinRtApartmentGuard()
+  { winrt::uninit_apartment(); }
 };
 #endif
 
@@ -58,15 +60,15 @@ namespace http
 {
 namespace headers
 {
-namespace
-{
-  std::mutex  header_mtx;
-  std::string gameServerUrl;
-  std::string instanceSessionId;
-  int32_t     instanceId = 0;
-  std::string unityVersion{"6000.0.52f1"};
-  std::string primeVersion{"1.000.45324"};
-} // namespace
+  namespace
+  {
+    std::mutex  header_mtx;
+    std::string gameServerUrl;
+    std::string instanceSessionId;
+    int32_t     instanceId = 0;
+    std::string unityVersion{"6000.0.52f1"};
+    std::string primeVersion{"1.000.45324"};
+  } // namespace
 
   const char poweredBy[] = "stfc community patch/" VER_RUNTIME_VERSION_STR;
 
@@ -93,11 +95,7 @@ namespace
   {
     std::lock_guard lk(header_mtx);
     return {
-        gameServerUrl,
-        instanceSessionId,
-        instanceId,
-        unityVersion,
-        primeVersion,
+        gameServerUrl, instanceSessionId, instanceId, unityVersion, primeVersion,
     };
   }
 } // namespace headers
@@ -121,9 +119,10 @@ bool should_disable_tls_verification(const SyncConfig& config, const std::string
   }
 
   if (decision.emit_unsafe_tls_error) {
-    spdlog::error("[Sync] UNSAFE TLS certificate verification disabled for '{}'. Traffic can be intercepted. Set "
-                  "verify_ssl=true or remove allow_unsafe_tls_without_certificate_validation to restore safe transport.",
-                  target_identifier);
+    spdlog::error(
+        "[Sync] UNSAFE TLS certificate verification disabled for '{}'. Traffic can be intercepted. Set "
+        "verify_ssl=true or remove allow_unsafe_tls_without_certificate_validation to restore safe transport.",
+        target_identifier);
   }
 
   return decision.disable_verification;
@@ -132,14 +131,14 @@ bool should_disable_tls_verification(const SyncConfig& config, const std::string
 [[nodiscard]] static std::string newUUID()
 {
 #ifdef _WIN32
-  UUID uuid{};
+  UUID       uuid{};
   const auto create_status = UuidCreate(&uuid);
   if (create_status != RPC_S_OK && create_status != RPC_S_UUID_LOCAL_ONLY) {
     spdlog::warn("[Sync] Failed to create UUID for request headers: status={}", create_status);
     return {};
   }
 
-  unsigned char* str = nullptr;
+  unsigned char* str              = nullptr;
   const auto     stringify_status = UuidToStringA(&uuid, &str);
   if (stringify_status != RPC_S_OK || !str) {
     spdlog::warn("[Sync] Failed to stringify UUID for request headers: status={}", stringify_status);
@@ -164,7 +163,8 @@ bool should_disable_tls_verification(const SyncConfig& config, const std::string
 class Url
 {
 public:
-  explicit Url(const std::string& url) : url_(url)
+  explicit Url(const std::string& url)
+      : url_(url)
   {
     handle_ = curl_url();
     if (handle_) {
@@ -179,13 +179,13 @@ public:
     }
   }
 
-  Url(const Url&) = delete;
+  Url(const Url&)            = delete;
   Url& operator=(const Url&) = delete;
 
-  Url(Url&& other) noexcept : handle_(other.handle_), url_(std::move(other.url_))
-  {
-    other.handle_ = nullptr;
-  }
+  Url(Url&& other) noexcept
+      : handle_(other.handle_)
+      , url_(std::move(other.url_))
+  { other.handle_ = nullptr; }
 
   Url& operator=(Url&& other) noexcept
   {
@@ -194,8 +194,8 @@ public:
         curl_url_cleanup(handle_);
       }
 
-      handle_ = other.handle_;
-      url_ = std::move(other.url_);
+      handle_       = other.handle_;
+      url_          = std::move(other.url_);
       other.handle_ = nullptr;
     }
 
@@ -208,11 +208,9 @@ public:
       return;
     }
 
-    if (CURLUcode result_code = curl_url_set(handle_, CURLUPART_PATH, path.c_str(), 0);
-        result_code == CURLUE_OK) {
+    if (CURLUcode result_code = curl_url_set(handle_, CURLUPART_PATH, path.c_str(), 0); result_code == CURLUE_OK) {
       char* url = nullptr;
-      if (result_code = curl_url_get(handle_, CURLUPART_URL, &url, CURLU_PUNYCODE);
-          result_code == CURLUE_OK) {
+      if (result_code = curl_url_get(handle_, CURLUPART_URL, &url, CURLU_PUNYCODE); result_code == CURLUE_OK) {
         url_ = url;
       }
 
@@ -223,9 +221,7 @@ public:
   }
 
   [[nodiscard]] const char* c_str() const
-  {
-    return url_.c_str();
-  }
+  { return url_.c_str(); }
 
 private:
   CURLU*      handle_ = nullptr;
@@ -267,22 +263,20 @@ void sync_log_trace(const std::string& type, const std::string& target, const st
   }
 }
 
-static const std::string CURL_TYPE_UPLOAD   = "UPLOAD";
-static const std::string CURL_TYPE_DOWNLOAD = "DOWNLOAD";
+static const std::string CURL_TYPE_UPLOAD               = "UPLOAD";
+static const std::string CURL_TYPE_DOWNLOAD             = "DOWNLOAD";
 static constexpr size_t  kTargetWorkerMaxQueuedRequests = 256;
-static constexpr size_t  kMajelIngestMaxEventBytes       = 256 * 1024;
+static constexpr size_t  kMajelIngestMaxEventBytes      = 256 * 1024;
 
 struct TargetWorker {
-  TargetWorker() = default;
-  TargetWorker(const TargetWorker&) = delete;
+  TargetWorker()                               = default;
+  TargetWorker(const TargetWorker&)            = delete;
   TargetWorker& operator=(const TargetWorker&) = delete;
 
   struct Request {
-    std::string                             target_name;
-    std::string                             target_identifier;
-    std::string                             post_data;
-    bool                                    is_first_sync = false;
-    std::optional<FleetRuntimeTraceContext> fleet_runtime_trace;
+    std::string target_identifier;
+    std::string post_data;
+    bool        is_first_sync = false;
   };
 
   std::shared_ptr<cpr::Session> session;
@@ -296,13 +290,13 @@ struct TargetWorker {
 };
 
 static std::unordered_map<std::string, std::shared_ptr<TargetWorker>> target_workers;
-static std::mutex target_workers_mtx;
-static std::atomic_bool target_workers_shutdown_requested = false;
-static std::atomic_uint64_t majel_event_sequence = 0;
+static std::mutex                                                     target_workers_mtx;
+static std::atomic_bool                                               target_workers_shutdown_requested = false;
+static std::atomic_uint64_t                                           majel_event_sequence              = 0;
 
 std::string current_time_iso_utc()
 {
-  const auto now = std::chrono::system_clock::now();
+  const auto now      = std::chrono::system_clock::now();
   const auto now_time = std::chrono::system_clock::to_time_t(now);
 
   std::tm utc{};
@@ -350,15 +344,16 @@ std::string make_target_post_data(const SyncTargetConfig& target_config, SyncCon
   }
 
   auto envelope = BuildMajelIngestEnvelope({
-      .sync_type = type,
-      .payload = std::move(payload),
-      .event_id = std::move(event_id),
-      .source_version = VER_RUNTIME_VERSION_STR,
-      .install_id = "not_configured",
-      .session_id = majel_session_id(),
-      .sequence = sequence,
-      .observed_at = current_time_iso_utc(),
-  }).dump();
+                                               .sync_type      = type,
+                                               .payload        = std::move(payload),
+                                               .event_id       = std::move(event_id),
+                                               .source_version = VER_RUNTIME_VERSION_STR,
+                                               .install_id     = "not_configured",
+                                               .session_id     = majel_session_id(),
+                                               .sequence       = sequence,
+                                               .observed_at    = current_time_iso_utc(),
+                                           })
+                      .dump();
 
   if (envelope.size() > kMajelIngestMaxEventBytes) {
     sync_log_warn(CURL_TYPE_UPLOAD, target_identifier,
@@ -401,8 +396,8 @@ static void target_worker_thread(std::shared_ptr<TargetWorker> worker)
     }
 
     try {
-      const auto httpClient = worker->session;
-      auto& request_headers = httpClient->GetHeader();
+      const auto httpClient      = worker->session;
+      auto&      request_headers = httpClient->GetHeader();
 
       if (worker->mode == SyncTargetConfig::Mode::Legacy && request.is_first_sync) {
         request_headers.insert_or_assign("X-PRIME-SYNC", "2");
@@ -416,56 +411,27 @@ static void target_worker_thread(std::shared_ptr<TargetWorker> worker)
       sync_log_debug(CURL_TYPE_UPLOAD, request.target_identifier, "Sending data to " + httpClient->GetFullRequestUrl());
 
       const auto response = httpClient->Post();
-      const auto elapsed_ms = static_cast<int64_t>(response.elapsed * 1000.0);
 
       if (response.status_code == 0) {
-        if (request.fleet_runtime_trace.has_value()) {
-          fleet_runtime_diagnostics_post_result(*request.fleet_runtime_trace, request.target_name,
-                                                to_string(worker->mode), false, 0, "transport", elapsed_ms);
-        }
-        sync_log_error(CURL_TYPE_UPLOAD, request.target_identifier, "Failed to send request: " + response.error.message);
+        sync_log_error(CURL_TYPE_UPLOAD, request.target_identifier,
+                       "Failed to send request: " + response.error.message);
       } else if (response.status_code >= 400) {
-        if (request.fleet_runtime_trace.has_value()) {
-          fleet_runtime_diagnostics_post_result(*request.fleet_runtime_trace, request.target_name,
-                                                to_string(worker->mode), false, response.status_code,
-                                                "http_status", elapsed_ms);
-        }
         sync_log_error(CURL_TYPE_UPLOAD, request.target_identifier,
                        STR_FORMAT("Failed to communicate with server: {} (after {:.1f}s)", response.status_line,
                                   response.elapsed));
       } else {
-        if (request.fleet_runtime_trace.has_value()) {
-          fleet_runtime_diagnostics_post_result(*request.fleet_runtime_trace, request.target_name,
-                                                to_string(worker->mode), true, response.status_code, "", elapsed_ms);
-        }
         sync_log_debug(CURL_TYPE_UPLOAD, request.target_identifier,
                        STR_FORMAT("Response: {} ({:.1f}s elapsed)", response.status_line, response.elapsed));
       }
     } catch (const std::runtime_error& exception) {
-      if (request.fleet_runtime_trace.has_value()) {
-        fleet_runtime_diagnostics_post_result(*request.fleet_runtime_trace, request.target_name,
-                                              to_string(worker->mode), false, 0, "runtime_error", 0);
-      }
       ErrorMsg::SyncRuntime(request.target_identifier.c_str(), exception);
     } catch (const std::exception& exception) {
-      if (request.fleet_runtime_trace.has_value()) {
-        fleet_runtime_diagnostics_post_result(*request.fleet_runtime_trace, request.target_name,
-                                              to_string(worker->mode), false, 0, "exception", 0);
-      }
       ErrorMsg::SyncException(request.target_identifier.c_str(), exception);
 #if _WIN32
     } catch (winrt::hresult_error const& exception) {
-      if (request.fleet_runtime_trace.has_value()) {
-        fleet_runtime_diagnostics_post_result(*request.fleet_runtime_trace, request.target_name,
-                                              to_string(worker->mode), false, 0, "winrt", 0);
-      }
       ErrorMsg::SyncWinRT(request.target_identifier.c_str(), exception);
 #endif
     } catch (...) {
-      if (request.fleet_runtime_trace.has_value()) {
-        fleet_runtime_diagnostics_post_result(*request.fleet_runtime_trace, request.target_name,
-                                              to_string(worker->mode), false, 0, "unknown", 0);
-      }
       ErrorMsg::SyncMsg(request.target_identifier.c_str(), "Unknown error occurred");
     }
   }
@@ -483,10 +449,10 @@ static std::shared_ptr<TargetWorker> get_curl_client_sync(const std::string& tar
     return found->second;
   }
 
-  auto worker = std::make_shared<TargetWorker>();
-  worker->session = std::make_shared<cpr::Session>();
+  auto worker               = std::make_shared<TargetWorker>();
+  worker->session           = std::make_shared<cpr::Session>();
   const auto& target_config = Config::Get().sync_targets[target];
-  worker->mode = target_config.mode;
+  worker->mode              = target_config.mode;
 
   worker->session->SetUrl(target_config.url);
   worker->session->SetUserAgent("stfc community patch " VER_RUNTIME_VERSION_STR " (libcurl/" LIBCURL_VERSION ")");
@@ -503,8 +469,7 @@ static std::shared_ptr<TargetWorker> get_curl_client_sync(const std::string& tar
 
   if (should_disable_tls_verification(target_config, target)) {
     worker->session->SetSslOptions(
-      cpr::Ssl(cpr::ssl::VerifyHost{false}, cpr::ssl::VerifyPeer{false}, cpr::ssl::NoRevoke{true})
-    );
+        cpr::Ssl(cpr::ssl::VerifyHost{false}, cpr::ssl::VerifyPeer{false}, cpr::ssl::NoRevoke{true}));
   }
 
   cpr::Header target_headers;
@@ -513,21 +478,20 @@ static std::shared_ptr<TargetWorker> get_curl_client_sync(const std::string& tar
   }
   worker->session->SetHeader(std::move(target_headers));
 
-  worker->worker_thread = std::thread(target_worker_thread, worker);
+  worker->worker_thread  = std::thread(target_worker_thread, worker);
   target_workers[target] = worker;
 
   return worker;
 }
 
-void send_data(SyncConfig::Type type, const std::string& post_data, bool is_first_sync,
-               std::optional<FleetRuntimeTraceContext> fleet_runtime_trace)
+void send_data(SyncConfig::Type type, const std::string& post_data, bool is_first_sync)
 {
   if (target_workers_shutdown_requested.load(std::memory_order_acquire)) {
     return;
   }
 
   static std::once_flag emit_warning;
-  const auto& targets = Config::Get().sync_targets;
+  const auto&           targets = Config::Get().sync_targets;
 
   std::call_once(emit_warning, [targets] {
     if (targets.empty()) {
@@ -535,23 +499,15 @@ void send_data(SyncConfig::Type type, const std::string& post_data, bool is_firs
     }
   });
 
-  for (const auto& [target, target_config] : targets
-       | std::views::filter(
-           [type](const auto& target_entry) { return SyncTargetAcceptsType(target_entry.second, type); })) {
+  for (const auto& [target, target_config] : targets | std::views::filter([type](const auto& target_entry) {
+                                               return SyncTargetAcceptsType(target_entry.second, type);
+                                             })) {
     const auto target_identifier = STR_FORMAT("{} ({})", target, to_string(type));
 
     try {
-      const auto worker = get_curl_client_sync(target);
+      const auto worker           = get_curl_client_sync(target);
       const auto target_post_data = make_target_post_data(target_config, type, post_data, target_identifier);
       if (target_post_data.empty()) {
-        if (fleet_runtime_trace.has_value()) {
-          const size_t queue_depth = [&] {
-            std::lock_guard lk(worker->queue_mtx);
-            return worker->request_queue.size();
-          }();
-          fleet_runtime_diagnostics_target_queue(*fleet_runtime_trace, target, to_string(target_config.mode), false,
-                                                 queue_depth, worker->dropped_requests, "target-payload-empty");
-        }
         continue;
       }
 
@@ -559,11 +515,6 @@ void send_data(SyncConfig::Type type, const std::string& post_data, bool is_firs
         std::lock_guard lk(worker->queue_mtx);
         if (worker->request_queue.size() >= kTargetWorkerMaxQueuedRequests) {
           ++worker->dropped_requests;
-          if (fleet_runtime_trace.has_value()) {
-            fleet_runtime_diagnostics_target_queue(*fleet_runtime_trace, target, to_string(target_config.mode), false,
-                                                   worker->request_queue.size(), worker->dropped_requests,
-                                                   "target-queue-full");
-          }
           sync_log_warn(CURL_TYPE_UPLOAD, target_identifier,
                         STR_FORMAT("Dropping request because target queue is full (queue size: {}, dropped: {})",
                                    worker->request_queue.size(), worker->dropped_requests));
@@ -571,38 +522,20 @@ void send_data(SyncConfig::Type type, const std::string& post_data, bool is_firs
         }
 
         worker->request_queue.emplace(TargetWorker::Request{
-            .target_name = target,
             .target_identifier = target_identifier,
-            .post_data = target_post_data,
-            .is_first_sync = is_first_sync,
-            .fleet_runtime_trace = fleet_runtime_trace,
+            .post_data         = target_post_data,
+            .is_first_sync     = is_first_sync,
         });
-        if (fleet_runtime_trace.has_value()) {
-          fleet_runtime_diagnostics_target_queue(*fleet_runtime_trace, target, to_string(target_config.mode), true,
-                                                 worker->request_queue.size(), worker->dropped_requests);
-        }
         sync_log_trace(CURL_TYPE_UPLOAD, target_identifier,
                        STR_FORMAT("Queued request (queue size: {})", worker->request_queue.size()));
       }
       worker->queue_cv.notify_all();
 
     } catch (const std::runtime_error& exception) {
-      if (fleet_runtime_trace.has_value()) {
-        fleet_runtime_diagnostics_target_queue(*fleet_runtime_trace, target, to_string(target_config.mode), false, 0,
-                                               0, "target-worker-init-runtime-error");
-      }
       spdlog::error("Failed to send sync data to target '{}' - Runtime error: {}", target_identifier, exception.what());
     } catch (const std::exception& exception) {
-      if (fleet_runtime_trace.has_value()) {
-        fleet_runtime_diagnostics_target_queue(*fleet_runtime_trace, target, to_string(target_config.mode), false, 0,
-                                               0, "target-worker-init-exception");
-      }
       spdlog::error("Failed to send sync data to target '{}' - Exception: {}", target_identifier, exception.what());
     } catch (...) {
-      if (fleet_runtime_trace.has_value()) {
-        fleet_runtime_diagnostics_target_queue(*fleet_runtime_trace, target, to_string(target_config.mode), false, 0,
-                                               0, "target-worker-init-unknown");
-      }
       spdlog::error("Failed to send sync data to target '{}' - Unknown error occurred", target_identifier);
     }
   }
@@ -639,12 +572,12 @@ void shutdown_workers()
 static std::shared_ptr<cpr::Session> get_curl_client_scopely()
 {
   static std::shared_ptr<cpr::Session> session{nullptr};
-  static std::once_flag init_flag;
+  static std::once_flag                init_flag;
 
   std::call_once(init_flag, [] {
     const auto header_snapshot = headers::Snapshot();
     const auto session_headers = BuildScopelySessionHeaders(header_snapshot, newUUID());
-    session = std::make_shared<cpr::Session>();
+    session                    = std::make_shared<cpr::Session>();
     session->SetAcceptEncoding(cpr::AcceptEncoding{});
     session->SetHttpVersion(cpr::HttpVersion{cpr::HttpVersionCode::VERSION_1_1});
     session->SetConnectTimeout(cpr::ConnectTimeout{kSyncConnectTimeoutMs});
@@ -656,20 +589,19 @@ static std::shared_ptr<cpr::Session> get_curl_client_scopely()
 
     if (should_disable_tls_verification(Config::Get().sync_options, "scopely-api")) {
       session->SetSslOptions(
-        cpr::Ssl(cpr::ssl::VerifyHost{false}, cpr::ssl::VerifyPeer{false}, cpr::ssl::NoRevoke{true})
-      );
+          cpr::Ssl(cpr::ssl::VerifyHost{false}, cpr::ssl::VerifyPeer{false}, cpr::ssl::NoRevoke{true}));
     }
 
     session->SetUserAgent("UnityPlayer/" + header_snapshot.unityVersion + " (UnityWebRequest/1.0, libcurl/8.10.1-DEV)");
     session->SetHeader({
         {"Accept", "application/json"},
         {"Content-Type", "application/json"},
-      {"X-TRANSACTION-ID", session_headers.transaction_id},
-      {"X-AUTH-SESSION-ID", session_headers.auth_session_id},
-      {"X-PRIME-VERSION", session_headers.prime_version},
-      {"X-Instance-ID", session_headers.instance_id},
+        {"X-TRANSACTION-ID", session_headers.transaction_id},
+        {"X-AUTH-SESSION-ID", session_headers.auth_session_id},
+        {"X-PRIME-VERSION", session_headers.prime_version},
+        {"X-Instance-ID", session_headers.instance_id},
         {"X-PRIME-SYNC", "0"},
-      {"X-Unity-Version", session_headers.unity_version},
+        {"X-Unity-Version", session_headers.unity_version},
         {"X-Powered-By", headers::poweredBy},
     });
   });
@@ -703,7 +635,7 @@ std::string get_scopely_data(const std::string& path, const std::string& post_da
     httpClient->SetUrl(url.c_str());
 
     const auto session_headers = BuildScopelySessionHeaders(header_snapshot, newUUID());
-    auto& request_headers = httpClient->GetHeader();
+    auto&      request_headers = httpClient->GetHeader();
     request_headers.insert_or_assign("X-TRANSACTION-ID", session_headers.transaction_id);
     request_headers.insert_or_assign("X-AUTH-SESSION-ID", session_headers.auth_session_id);
     request_headers.insert_or_assign("X-PRIME-VERSION", session_headers.prime_version);

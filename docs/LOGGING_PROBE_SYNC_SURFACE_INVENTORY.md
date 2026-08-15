@@ -1,5 +1,10 @@
 # Logging, Probe, and Sync Surface Inventory
 
+> Historical snapshot. Current ownership is defined in
+> `OBSERVABILITY_SURFACE_OWNERSHIP.md`. The runtime-trace controls and
+> fleet-runtime diagnostic logger recorded here have been retired and must not
+> be treated as current configuration.
+
 Date: 2026-06-02  
 Repo: `D:\dev\stfc-mod`  
 Branch: `feat/observability-config-cleanup`  

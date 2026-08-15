@@ -260,12 +260,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
-  auto install_deployment_runtime_observers = false;
-  if (sidecar_local_ingest::FleetRuntimeEnabled()) {
-    spdlog::info("[FleetRuntimeSync] sidecar fleet_runtime uses fleet-bar transition requests; deployment event "
-                 "observers disabled");
-  }
-  const auto install_action_queue_guard = action_queue_guard::ShouldInstall(
+  auto       install_deployment_runtime_observers = false;
+  const auto install_action_queue_guard           = action_queue_guard::ShouldInstall(
       AdvancedQueueSettings().thin_queue_protection, AdvancedDiagnosticsSettings().action_queue_guard_logging);
 #if !defined(STFC_ENABLE_DEV_SCIENCE_TOOLS) || STFC_ENABLE_DEV_SCIENCE_TOOLS
   auto install_live_debug_hooks           = LiveDebugChannelEnabled();

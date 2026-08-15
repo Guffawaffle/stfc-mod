@@ -24,14 +24,16 @@
 
 #if _WIN32
 struct WinRtApartmentGuard {
-  WinRtApartmentGuard() { winrt::init_apartment(); }
-  ~WinRtApartmentGuard() { winrt::uninit_apartment(); }
+  WinRtApartmentGuard()
+  { winrt::init_apartment(); }
+  ~WinRtApartmentGuard()
+  { winrt::uninit_apartment(); }
 };
 #endif
 
 namespace
 {
-using SyncQueueItem = std::tuple<SyncConfig::Type, std::string, bool, std::optional<FleetRuntimeTraceContext>>;
+using SyncQueueItem = std::tuple<SyncConfig::Type, std::string, bool>;
 
 constexpr size_t              kSyncDataQueueMaxDepth = 256;
 AsyncWorkQueue<SyncQueueItem> s_sync_data_queue(kSyncDataQueueMaxDepth);
@@ -48,51 +50,27 @@ void log_worker_join_time(const std::string_view worker_name, const std::chrono:
 }
 } // namespace
 
-void queue_data(SyncConfig::Type type, const std::string& data, bool is_first_sync,
-                std::optional<FleetRuntimeTraceContext> fleet_runtime_trace)
+void queue_data(SyncConfig::Type type, const std::string& data, bool is_first_sync)
 {
-  if (!s_sync_data_queue.enqueue({type, data, is_first_sync, fleet_runtime_trace})) {
+  if (!s_sync_data_queue.enqueue({type, data, is_first_sync})) {
     const auto diagnostics = s_sync_data_queue.diagnostics();
-    if (fleet_runtime_trace.has_value()) {
-      fleet_runtime_diagnostics_scheduler_queue(
-          *fleet_runtime_trace, false, diagnostics.depth,
-          diagnostics.shutdown_requested ? "scheduler-shutdown" : "scheduler-full");
-    }
     http::sync_log_warn("QUEUE", to_string(type),
-                        diagnostics.shutdown_requested
-                            ? "Dropping data because sync scheduler shutdown is in progress"
-                            : "Dropping data because sync scheduler queue is full");
+                        diagnostics.shutdown_requested ? "Dropping data because sync scheduler shutdown is in progress"
+                                                       : "Dropping data because sync scheduler queue is full");
     return;
-  }
-
-  if (fleet_runtime_trace.has_value()) {
-    const auto diagnostics = s_sync_data_queue.diagnostics();
-    fleet_runtime_diagnostics_scheduler_queue(*fleet_runtime_trace, true, diagnostics.depth);
   }
 
   http::sync_log_trace("QUEUE", to_string(type), "Added data to sync queue");
 }
 
-void queue_data(SyncConfig::Type type, const nlohmann::json& data, bool is_first_sync,
-                std::optional<FleetRuntimeTraceContext> fleet_runtime_trace)
+void queue_data(SyncConfig::Type type, const nlohmann::json& data, bool is_first_sync)
 {
-  if (!s_sync_data_queue.enqueue({type, data.dump(), is_first_sync, fleet_runtime_trace})) {
+  if (!s_sync_data_queue.enqueue({type, data.dump(), is_first_sync})) {
     const auto diagnostics = s_sync_data_queue.diagnostics();
-    if (fleet_runtime_trace.has_value()) {
-      fleet_runtime_diagnostics_scheduler_queue(
-          *fleet_runtime_trace, false, diagnostics.depth,
-          diagnostics.shutdown_requested ? "scheduler-shutdown" : "scheduler-full");
-    }
     http::sync_log_warn("QUEUE", to_string(type),
-                        diagnostics.shutdown_requested
-                            ? "Dropping data because sync scheduler shutdown is in progress"
-                            : "Dropping data because sync scheduler queue is full");
+                        diagnostics.shutdown_requested ? "Dropping data because sync scheduler shutdown is in progress"
+                                                       : "Dropping data because sync scheduler queue is full");
     return;
-  }
-
-  if (fleet_runtime_trace.has_value()) {
-    const auto diagnostics = s_sync_data_queue.diagnostics();
-    fleet_runtime_diagnostics_scheduler_queue(*fleet_runtime_trace, true, diagnostics.depth);
   }
 
   http::sync_log_trace("QUEUE", to_string(type), "Added " + std::to_string(data.size()) + " entries to sync queue");
@@ -109,8 +87,8 @@ static void ship_sync_data()
     while (s_sync_data_queue.wait_pop(sync_data)) {
 
       try {
-        auto& [type, data, is_first_sync, fleet_runtime_trace] = sync_data;
-        http::send_data(type, data, is_first_sync, fleet_runtime_trace);
+        auto& [type, data, is_first_sync] = sync_data;
+        http::send_data(type, data, is_first_sync);
       } catch (const std::runtime_error& exception) {
         ErrorMsg::SyncRuntime("ship", exception);
       } catch (const std::exception& exception) {
@@ -136,9 +114,7 @@ static void ship_sync_data()
 
 void StartSyncSchedulerWorker()
 {
-  std::call_once(s_sync_worker_once, [] {
-    s_sync_worker_thread = std::thread(ship_sync_data);
-  });
+  std::call_once(s_sync_worker_once, [] { s_sync_worker_thread = std::thread(ship_sync_data); });
 }
 
 void ShutdownSyncSchedulerWorker()

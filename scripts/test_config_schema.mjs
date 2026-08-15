@@ -227,24 +227,8 @@ test("approved hotkey families carry stable renderer metadata", () => {
   }
 });
 
-test("data sync presentation hides implementation enums and supplies units", () => {
+test("data sync presentation supplies units", () => {
   const schema = buildSchema();
-  const runtimeMode = schema.settings.find(
-    (setting) => setting.path === "sidecar.sync.fleet_runtime_mode",
-  );
-  assert.equal(runtimeMode.presentation.label, "Fleet runtime behavior");
-  assert.ok(!runtimeMode.presentation.help.includes("request_only"));
-  assert.deepEqual(
-    runtimeMode.presentation.enumOptions.map(({ value, label }) => ({ value, label })),
-    [
-      { value: "normal", label: "Normal" },
-      { value: "request_only", label: "Requests only" },
-      { value: "snapshot_only", label: "Build snapshots only" },
-      { value: "enqueue_no_transport", label: "Queue without delivery" },
-    ],
-  );
-  assert.ok(runtimeMode.presentation.enumOptions.every((option) => option.help?.trim()));
-
   const retainedLogs = schema.settings.find(
     (setting) => setting.path === "sidecar.logging.jsonl_recent_logs",
   );
@@ -448,8 +432,6 @@ test("deprecated sidecar observability paths are aliases, not duplicate settings
 test("hidden runtime settings remain machine-readable but internal", () => {
   const schema = buildSchema();
   for (const settingPath of [
-    "advanced.diagnostics.runtime_trace",
-    "advanced.diagnostics.runtime_trace_report_interval_ms",
     "advanced.queue.queue_repair_enabled",
     "advanced.kirshara_queue.course_target_completion",
     "control.allow_key_fallthrough",
