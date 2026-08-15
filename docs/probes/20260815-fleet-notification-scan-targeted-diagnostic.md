@@ -82,15 +82,16 @@ Stop immediately if:
 
 - Build/deploy command: `axf run global.stfc-mod-private.cycle --build-mode releasedbg --tail 40`
 - Runtime command: structured PowerShell query over the concern-isolated JSONL file
-- Human action performed: normal fleet battle transitions while the concern was enabled
-- Observed evidence: 306 contiguous records across two short sessions; 50 paired scan records and 100 paired phase
-  records; zero lock, queue, shutdown, record-size, or writer failures; maximum scan time 219 us; cache sizes reached
-  7 state/name entries and 4 resource entries with zero stale entries and no truncated inspection
+- Human action performed: normal fleet battle and impulse transitions while the concern was enabled
+- Observed evidence: 2,969 contiguous records across 20 sessions; one session remained active for 59,888 ms, crossed
+  from the 250 ms cadence to the 5,000 ms cadence, and ended `settled`; zero lock, queue, shutdown, record-size, or
+  writer failures; maximum scan time 988 us; cache sizes reached 7 state/name entries and 4 resource entries with zero
+  stale entries and no truncated inspection
 - Crash/hang/recovery notes: AXF's boot parser timed out during initial process startup, but the client reached a healthy,
   responsive state with the releasedbg build/deployed hashes equal and no native errors
-- Answer to the question: short battle-driven sessions show no accumulating scan cost or stale cache entries. Both
-  sessions settled before 30 seconds, so persistence after the cadence transition and long-session cache behavior remain
-  open and are the next evidence target.
+- Answer to the question: the scanner remains active while followed states recur, backs off to the intended 5-second
+  cadence after 30 seconds, and settles when follow-through stops. The observed one-minute boundary showed no
+  accumulating scan cost, cache cardinality, stale entries, or capture pressure. Multi-hour behavior remains unproven.
 
 ## Exit Decision
 
