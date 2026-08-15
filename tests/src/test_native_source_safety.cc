@@ -126,7 +126,9 @@ TEST_CASE("temporary fleet targeted diagnostics remain registered, searchable, a
 
   const auto producer_source = read_text_file("mods/src/patches/fleet_notifications.cc");
   CHECK(contains(producer_source, "CacheSnapshotDue"));
-  CHECK(contains(producer_source, "kStaleCacheInspectionLimit"));
+  CHECK(contains(producer_source, "CountStaleFleetCacheEntries"));
+  CHECK(contains(producer_source, "CompleteTick"));
+  CHECK_FALSE(contains(producer_source, "kStaleCacheInspectionLimit"));
   CHECK_FALSE(contains(producer_source, "nlohmann"));
 }
 

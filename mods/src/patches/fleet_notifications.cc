@@ -9,6 +9,7 @@
 
 #include "config.h"
 #include "errormsg.h"
+#include "patches/fleet_notification_cache_policy.h"
 #include "patches/fleet_notification_diagnostics.h"
 #include "patches/fleet_notification_scan_policy.h"
 #include "patches/live_debug.h"
@@ -46,7 +47,6 @@ FleetNotificationScanPolicy               s_runtime_scan_policy;
 bool                                      s_runtime_scan_active_logged = false;
 
 constexpr size_t kIncomingAttackDedupeMaxEntries = 256;
-constexpr size_t kStaleCacheInspectionLimit      = 4096;
 
 IncomingAttackPolicyDeduper s_recent_incoming_attack_notifications(kIncomingAttackDedupeMaxEntries);
 
@@ -109,32 +109,6 @@ int64_t steady_now_ms()
 int64_t elapsed_us(const std::chrono::steady_clock::time_point started)
 { return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - started).count(); }
 
-struct StaleCacheCount {
-  size_t count     = 0;
-  bool   truncated = false;
-};
-
-template <typename Map>
-StaleCacheCount stale_cache_entries(const Map& cache, const FleetNotificationRuntimeScanResult& scan)
-{
-  StaleCacheCount result;
-  size_t          inspected = 0;
-  for (const auto& [fleet_id, ignored] : cache) {
-    if (inspected >= kStaleCacheInspectionLimit) {
-      result.truncated = true;
-      break;
-    }
-    ++inspected;
-    (void)ignored;
-    const auto begin = scan.observed_fleet_ids.begin();
-    const auto end   = begin + scan.observed_fleet_id_count;
-    if (std::find(begin, end, fleet_id) == end) {
-      ++result.count;
-    }
-  }
-  return result;
-}
-
 fleet_notification_diagnostics::FollowedStateCounts
 followed_state_counts(const FleetNotificationRuntimeScanResult& scan)
 {
@@ -149,12 +123,10 @@ followed_state_counts(const FleetNotificationRuntimeScanResult& scan)
 
 fleet_notification_diagnostics::CacheSnapshot cache_snapshot(const FleetNotificationRuntimeScanResult& scan)
 {
-  const auto started        = std::chrono::steady_clock::now();
-  const auto states         = stale_cache_entries(s_fleet_bar_states, scan);
-  const auto ship_names     = stale_cache_entries(s_fleet_bar_ship_names, scan);
-  const auto resource_names = stale_cache_entries(s_fleet_bar_resource_names, scan);
-  const auto cargo_levels   = stale_cache_entries(s_fleet_bar_cargo_fill_levels, scan);
-  const auto mining_eta     = stale_cache_entries(s_mining_viewer_remaining_seconds, scan);
+  const auto started = std::chrono::steady_clock::now();
+  const auto current_fleet_ids =
+      std::span(scan.observed_fleet_ids)
+          .first(std::min<size_t>(scan.observed_fleet_id_count, scan.observed_fleet_ids.size()));
 
   fleet_notification_diagnostics::CacheSnapshot snapshot{
       .states                = s_fleet_bar_states.size(),
@@ -162,14 +134,13 @@ fleet_notification_diagnostics::CacheSnapshot cache_snapshot(const FleetNotifica
       .resource_names        = s_fleet_bar_resource_names.size(),
       .cargo_fill_levels     = s_fleet_bar_cargo_fill_levels.size(),
       .mining_eta            = s_mining_viewer_remaining_seconds.size(),
-      .stale_states          = states.count,
-      .stale_ship_names      = ship_names.count,
-      .stale_resource_names  = resource_names.count,
-      .stale_cargo_levels    = cargo_levels.count,
-      .stale_mining_eta      = mining_eta.count,
-      .stale_scan_limit      = kStaleCacheInspectionLimit,
-      .stale_scan_truncated  = states.truncated || ship_names.truncated || resource_names.truncated
-                               || cargo_levels.truncated || mining_eta.truncated,
+      .stale_states          = CountStaleFleetCacheEntries(s_fleet_bar_states, current_fleet_ids),
+      .stale_ship_names      = CountStaleFleetCacheEntries(s_fleet_bar_ship_names, current_fleet_ids),
+      .stale_resource_names  = CountStaleFleetCacheEntries(s_fleet_bar_resource_names, current_fleet_ids),
+      .stale_cargo_levels    = CountStaleFleetCacheEntries(s_fleet_bar_cargo_fill_levels, current_fleet_ids),
+      .stale_mining_eta      = CountStaleFleetCacheEntries(s_mining_viewer_remaining_seconds, current_fleet_ids),
+      .stale_scan_limit      = 0,
+      .stale_scan_truncated  = false,
       .collection_elapsed_us = 0,
   };
   snapshot.collection_elapsed_us = elapsed_us(started);
@@ -520,10 +491,12 @@ FleetNotificationRuntimeScanResult fleet_notifications_observe_runtime_fleets(co
   }
 
   fleet_notification_diagnostics::BeginPhase(diagnostic_scan_id, fleet_notification_diagnostics::Phase::AcquireManager);
-  const auto manager_started = std::chrono::steady_clock::now();
-  auto*      fleets_manager  = FleetsManager::Instance();
+  const auto manager_started    = std::chrono::steady_clock::now();
+  auto*      fleets_manager     = FleetsManager::Instance();
+  const auto manager_elapsed_us = elapsed_us(manager_started);
+  result.game_work_elapsed_us += manager_elapsed_us;
   fleet_notification_diagnostics::CompletePhase(
-      diagnostic_scan_id, fleet_notification_diagnostics::Phase::AcquireManager, elapsed_us(manager_started));
+      diagnostic_scan_id, fleet_notification_diagnostics::Phase::AcquireManager, manager_elapsed_us);
   if (!fleets_manager) {
     return result;
   }
@@ -550,8 +523,10 @@ FleetNotificationRuntimeScanResult fleet_notifications_observe_runtime_fleets(co
       }
     }
   }
+  const auto enumerate_elapsed_us = elapsed_us(enumerate_started);
+  result.game_work_elapsed_us += enumerate_elapsed_us;
   fleet_notification_diagnostics::CompletePhase(
-      diagnostic_scan_id, fleet_notification_diagnostics::Phase::EnumerateSlots, elapsed_us(enumerate_started));
+      diagnostic_scan_id, fleet_notification_diagnostics::Phase::EnumerateSlots, enumerate_elapsed_us);
 
   return result;
 }
@@ -571,6 +546,7 @@ void fleet_notifications_tick()
     return;
   }
 
+  const auto producer_started   = std::chrono::steady_clock::now();
   const auto diagnostic_scan_id = fleet_notification_diagnostics::BeginScan(now_ms);
   const auto scan_started       = std::chrono::steady_clock::now();
   const auto result             = fleet_notifications_observe_runtime_fleets(diagnostic_scan_id);
@@ -581,9 +557,11 @@ void fleet_notifications_tick()
     if (fleet_notification_diagnostics::CacheSnapshotDue(completion_now_ms)) {
       cache = cache_snapshot(result);
     }
-    fleet_notification_diagnostics::CompleteScan(diagnostic_scan_id, steady_now_ms(), scan_elapsed_us,
+    fleet_notification_diagnostics::CompleteScan(diagnostic_scan_id, completion_now_ms, scan_elapsed_us,
                                                  result.observed_count, result.follow_through_count,
                                                  followed_state_counts(result), cache ? &*cache : nullptr);
+    fleet_notification_diagnostics::CompleteTick(diagnostic_scan_id, steady_now_ms(), elapsed_us(producer_started),
+                                                 result.game_work_elapsed_us);
   }
   if (result.observed_count > 0 && !s_runtime_scan_active_logged) {
     s_runtime_scan_active_logged = true;

@@ -12,7 +12,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
+#include <new>
 #include <span>
 #include <string>
 #include <string_view>
@@ -133,20 +135,18 @@ enum class SubmitStatus : uint8_t {
   Accepted,
   Disabled,
   Expired,
-  LockBusy,
   QueueFull,
-  RecordTooLarge,
   WriterUnavailable,
 };
 
 struct ConcernStats {
   uint64_t accepted             = 0;
-  uint64_t dropped_lock_busy    = 0;
   uint64_t dropped_queue_full   = 0;
   uint64_t dropped_shutdown     = 0;
   uint64_t rejected_record_size = 0;
   uint64_t writer_failures      = 0;
   uint64_t rotations            = 0;
+  uint64_t shutdown_overruns    = 0;
 };
 
 class Concern
@@ -173,20 +173,21 @@ private:
   std::atomic_bool     enabled_{false};
   std::atomic_uint64_t sequence_{0};
   std::atomic_uint64_t accepted_{0};
-  std::atomic_uint64_t dropped_lock_busy_{0};
   std::atomic_uint64_t dropped_queue_full_{0};
   std::atomic_uint64_t dropped_shutdown_{0};
   std::atomic_uint64_t rejected_record_size_{0};
   std::atomic_uint64_t writer_failures_{0};
   std::atomic_uint64_t rotations_{0};
+  std::atomic_uint64_t shutdown_overruns_{0};
 };
 
 struct CaptureLimits {
-  size_t                    global_queue_bytes      = 1024 * 1024;
-  size_t                    per_concern_queue_bytes = 256 * 1024;
-  size_t                    max_record_bytes        = 32 * 1024;
-  std::uintmax_t            max_file_bytes          = 16 * 1024 * 1024;
-  int                       total_files             = 4;
+  size_t         global_queue_bytes      = 1024 * 1024;
+  size_t         per_concern_queue_bytes = 256 * 1024;
+  size_t         max_record_bytes        = 32 * 1024;
+  std::uintmax_t max_file_bytes          = 16 * 1024 * 1024;
+  int            total_files             = 4;
+  // Bounds queued drain work after shutdown begins. One synchronous filesystem call may exceed this target.
   std::chrono::milliseconds shutdown_drain_timeout{750};
 };
 
@@ -203,20 +204,103 @@ struct CaptureOptions {
   CaptureLimits         limits;
   CaptureIdentity       identity;
   bool                  start_writer = true;
+  // Test seam for proving shutdown behavior when the active writer call is delayed.
+  std::function<void()> before_record_write;
 };
 
-class Payload
-{
-public:
-  virtual ~Payload() = default;
-
-  [[nodiscard]] virtual std::string_view EventType() const noexcept                            = 0;
-  [[nodiscard]] virtual uint32_t         SchemaVersion() const noexcept                        = 0;
-  [[nodiscard]] virtual size_t           EstimatedQueueBytes() const noexcept                  = 0;
-  virtual void                           SerializeFields(nlohmann::ordered_json& fields) const = 0;
-};
+inline constexpr size_t kInlinePayloadBytes = 512;
 
 template <typename Event> struct EventTraits;
+
+class InlinePayload
+{
+public:
+  InlinePayload() = default;
+  ~InlinePayload()
+  { reset(); }
+
+  InlinePayload(const InlinePayload&)            = delete;
+  InlinePayload& operator=(const InlinePayload&) = delete;
+
+  InlinePayload(InlinePayload&& other) noexcept
+  { move_from(other); }
+
+  InlinePayload& operator=(InlinePayload&& other) noexcept
+  {
+    if (this != &other) {
+      reset();
+      move_from(other);
+    }
+    return *this;
+  }
+
+  template <typename Event, typename Source> explicit InlinePayload(std::in_place_type_t<Event>, Source&& event)
+  {
+    using OwnedEvent = Event;
+    static_assert(sizeof(OwnedEvent) <= kInlinePayloadBytes,
+                  "Targeted diagnostic events must fit the fixed inline queue payload; use bounded chunk records.");
+    static_assert(alignof(OwnedEvent) <= alignof(std::max_align_t));
+    static_assert(std::is_nothrow_move_constructible_v<OwnedEvent>);
+    new (storage_) OwnedEvent(std::forward<Source>(event));
+    vtable_ = &vtable_for<OwnedEvent>();
+  }
+
+  [[nodiscard]] std::string_view EventType() const noexcept
+  { return vtable_->event_type; }
+  [[nodiscard]] uint32_t SchemaVersion() const noexcept
+  { return vtable_->schema_version; }
+  void SerializeFields(nlohmann::ordered_json& fields) const
+  { vtable_->serialize(storage_, fields); }
+
+private:
+  struct VTable {
+    std::string_view event_type;
+    uint32_t         schema_version = 0;
+    void (*serialize)(const void*, nlohmann::ordered_json&);
+    void (*move)(void*, void*) noexcept;
+    void (*destroy)(void*) noexcept;
+  };
+
+  template <typename Event> static const VTable& vtable_for()
+  {
+    static const VTable table{
+        .event_type     = EventTraits<Event>::event_type,
+        .schema_version = EventTraits<Event>::schema_version,
+        .serialize =
+            [](const void* source, nlohmann::ordered_json& fields) {
+              EventTraits<Event>::SerializeFields(*static_cast<const Event*>(source), fields);
+            },
+        .move =
+            [](void* destination, void* source) noexcept {
+              new (destination) Event(std::move(*static_cast<Event*>(source)));
+              std::destroy_at(static_cast<Event*>(source));
+            },
+        .destroy = [](void* value) noexcept { std::destroy_at(static_cast<Event*>(value)); },
+    };
+    return table;
+  }
+
+  void move_from(InlinePayload& other) noexcept
+  {
+    if (!other.vtable_) {
+      return;
+    }
+    vtable_ = other.vtable_;
+    vtable_->move(storage_, other.storage_);
+    other.vtable_ = nullptr;
+  }
+
+  void reset() noexcept
+  {
+    if (vtable_) {
+      vtable_->destroy(storage_);
+      vtable_ = nullptr;
+    }
+  }
+
+  const VTable* vtable_ = nullptr;
+  alignas(std::max_align_t) std::byte storage_[kInlinePayloadBytes]{};
+};
 
 template <typename Event>
 concept DiagnosticEvent = requires(const std::remove_cvref_t<Event>& event, nlohmann::ordered_json& fields) {
@@ -224,29 +308,7 @@ concept DiagnosticEvent = requires(const std::remove_cvref_t<Event>& event, nloh
   { EventTraits<std::remove_cvref_t<Event>>::schema_version } -> std::convertible_to<uint32_t>;
   { EventTraits<std::remove_cvref_t<Event>>::owns_queued_data } -> std::convertible_to<bool>;
   requires EventTraits<std::remove_cvref_t<Event>>::owns_queued_data;
-  { EventTraits<std::remove_cvref_t<Event>>::EstimatedQueueBytes(event) } -> std::convertible_to<size_t>;
   EventTraits<std::remove_cvref_t<Event>>::SerializeFields(event, fields);
-};
-
-template <DiagnosticEvent Event> class OwnedPayload final : public Payload
-{
-public:
-  explicit OwnedPayload(Event event)
-      : event_(std::move(event))
-  {
-  }
-
-  [[nodiscard]] std::string_view EventType() const noexcept override
-  { return EventTraits<Event>::event_type; }
-  [[nodiscard]] uint32_t SchemaVersion() const noexcept override
-  { return EventTraits<Event>::schema_version; }
-  [[nodiscard]] size_t EstimatedQueueBytes() const noexcept override
-  { return EventTraits<Event>::EstimatedQueueBytes(event_); }
-  void SerializeFields(nlohmann::ordered_json& fields) const override
-  { EventTraits<Event>::SerializeFields(event_, fields); }
-
-private:
-  Event event_;
 };
 
 class Capture
@@ -259,7 +321,7 @@ public:
   Capture& operator=(const Capture&) = delete;
 
   [[nodiscard]] ConcernResolution Resolve(std::string_view id) const;
-  [[nodiscard]] SubmitStatus      Submit(Concern& concern, std::unique_ptr<Payload> payload);
+  [[nodiscard]] SubmitStatus      Submit(Concern& concern, InlinePayload payload);
   void                            Shutdown();
   [[nodiscard]] bool              WaitUntilIdle(std::chrono::milliseconds timeout) const;
 
@@ -270,7 +332,7 @@ public:
     }
 
     using OwnedEvent = std::remove_cvref_t<Event>;
-    return Submit(concern, std::make_unique<OwnedPayload<OwnedEvent>>(std::forward<Event>(event)));
+    return Submit(concern, InlinePayload(std::in_place_type<OwnedEvent>, std::forward<Event>(event)));
   }
 
 private:

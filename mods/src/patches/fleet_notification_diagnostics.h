@@ -98,19 +98,23 @@ struct ScanCompleted {
 };
 
 struct ScanSummary {
-  uint64_t            session_id            = 0;
-  uint64_t            window_sequence       = 0;
-  uint64_t            session_scan_count    = 0;
-  uint64_t            window_scan_count     = 0;
-  int64_t             active_age_ms         = 0;
-  int64_t             cadence_ms            = 0;
-  int64_t             window_elapsed_ms     = 0;
-  int64_t             scan_elapsed_total_us = 0;
-  int64_t             scan_elapsed_max_us   = 0;
-  uint64_t            scans_over_1ms        = 0;
-  uint64_t            scans_over_5ms        = 0;
-  uint64_t            observed_total        = 0;
-  uint64_t            follow_through_total  = 0;
+  uint64_t            session_id                   = 0;
+  uint64_t            window_sequence              = 0;
+  uint64_t            session_scan_count           = 0;
+  uint64_t            window_scan_count            = 0;
+  int64_t             active_age_ms                = 0;
+  int64_t             cadence_ms                   = 0;
+  int64_t             window_elapsed_ms            = 0;
+  int64_t             scan_elapsed_total_us        = 0;
+  int64_t             scan_elapsed_max_us          = 0;
+  int64_t             producer_elapsed_total_us    = 0;
+  int64_t             producer_elapsed_max_us      = 0;
+  int64_t             diagnostic_overhead_total_us = 0;
+  int64_t             diagnostic_overhead_max_us   = 0;
+  uint64_t            scans_over_1ms               = 0;
+  uint64_t            scans_over_5ms               = 0;
+  uint64_t            observed_total               = 0;
+  uint64_t            follow_through_total         = 0;
   FollowedStateCounts followed_states;
   CacheSnapshot       cache;
   CacheSnapshot       cache_high_water;
@@ -132,6 +136,7 @@ void                           BeginPhase(uint64_t scan_id, Phase phase);
 void                           CompletePhase(uint64_t scan_id, Phase phase, int64_t elapsed_us);
 void CompleteScan(uint64_t scan_id, int64_t now_ms, int64_t elapsed_us, int observed_count, int follow_through_count,
                   const FollowedStateCounts& followed_states, const CacheSnapshot* cache);
+void CompleteTick(uint64_t scan_id, int64_t now_ms, int64_t producer_elapsed_us, int64_t game_work_elapsed_us);
 void EndScanSession(EndReason reason, int64_t now_ms);
 
 std::string_view PhaseName(Phase phase);
@@ -141,58 +146,51 @@ std::string_view EndReasonName(EndReason reason);
 namespace targeted_diagnostics
 {
 template <> struct EventTraits<fleet_notification_diagnostics::ScanRequested> {
-  static constexpr std::string_view event_type     = "scan-requested";
-  static constexpr uint32_t         schema_version = 1;
+  static constexpr std::string_view event_type       = "scan-requested";
+  static constexpr uint32_t         schema_version   = 1;
   static constexpr bool             owns_queued_data = true;
-  static size_t                     EstimatedQueueBytes(const fleet_notification_diagnostics::ScanRequested&) noexcept;
   static void SerializeFields(const fleet_notification_diagnostics::ScanRequested&, nlohmann::ordered_json&);
 };
 
 template <> struct EventTraits<fleet_notification_diagnostics::ScanStarted> {
-  static constexpr std::string_view event_type     = "scan-started";
-  static constexpr uint32_t         schema_version = 1;
+  static constexpr std::string_view event_type       = "scan-started";
+  static constexpr uint32_t         schema_version   = 1;
   static constexpr bool             owns_queued_data = true;
-  static size_t                     EstimatedQueueBytes(const fleet_notification_diagnostics::ScanStarted&) noexcept;
   static void SerializeFields(const fleet_notification_diagnostics::ScanStarted&, nlohmann::ordered_json&);
 };
 
 template <> struct EventTraits<fleet_notification_diagnostics::PhaseStarted> {
-  static constexpr std::string_view event_type     = "phase-started";
-  static constexpr uint32_t         schema_version = 1;
+  static constexpr std::string_view event_type       = "phase-started";
+  static constexpr uint32_t         schema_version   = 1;
   static constexpr bool             owns_queued_data = true;
-  static size_t                     EstimatedQueueBytes(const fleet_notification_diagnostics::PhaseStarted&) noexcept;
   static void SerializeFields(const fleet_notification_diagnostics::PhaseStarted&, nlohmann::ordered_json&);
 };
 
 template <> struct EventTraits<fleet_notification_diagnostics::PhaseCompleted> {
-  static constexpr std::string_view event_type     = "phase-completed";
-  static constexpr uint32_t         schema_version = 1;
+  static constexpr std::string_view event_type       = "phase-completed";
+  static constexpr uint32_t         schema_version   = 1;
   static constexpr bool             owns_queued_data = true;
-  static size_t                     EstimatedQueueBytes(const fleet_notification_diagnostics::PhaseCompleted&) noexcept;
   static void SerializeFields(const fleet_notification_diagnostics::PhaseCompleted&, nlohmann::ordered_json&);
 };
 
 template <> struct EventTraits<fleet_notification_diagnostics::ScanCompleted> {
-  static constexpr std::string_view event_type     = "scan-completed";
-  static constexpr uint32_t         schema_version = 1;
+  static constexpr std::string_view event_type       = "scan-completed";
+  static constexpr uint32_t         schema_version   = 1;
   static constexpr bool             owns_queued_data = true;
-  static size_t                     EstimatedQueueBytes(const fleet_notification_diagnostics::ScanCompleted&) noexcept;
   static void SerializeFields(const fleet_notification_diagnostics::ScanCompleted&, nlohmann::ordered_json&);
 };
 
 template <> struct EventTraits<fleet_notification_diagnostics::ScanSummary> {
-  static constexpr std::string_view event_type     = "scan-summary";
-  static constexpr uint32_t         schema_version = 1;
+  static constexpr std::string_view event_type       = "scan-summary";
+  static constexpr uint32_t         schema_version   = 2;
   static constexpr bool             owns_queued_data = true;
-  static size_t                     EstimatedQueueBytes(const fleet_notification_diagnostics::ScanSummary&) noexcept;
   static void SerializeFields(const fleet_notification_diagnostics::ScanSummary&, nlohmann::ordered_json&);
 };
 
 template <> struct EventTraits<fleet_notification_diagnostics::ScanEnded> {
-  static constexpr std::string_view event_type     = "scan-ended";
-  static constexpr uint32_t         schema_version = 1;
+  static constexpr std::string_view event_type       = "scan-ended";
+  static constexpr uint32_t         schema_version   = 1;
   static constexpr bool             owns_queued_data = true;
-  static size_t                     EstimatedQueueBytes(const fleet_notification_diagnostics::ScanEnded&) noexcept;
   static void SerializeFields(const fleet_notification_diagnostics::ScanEnded&, nlohmann::ordered_json&);
 };
 } // namespace targeted_diagnostics

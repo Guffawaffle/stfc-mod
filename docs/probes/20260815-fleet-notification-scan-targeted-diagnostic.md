@@ -40,8 +40,21 @@ or retain notification cache entries after the corresponding fleets are no longe
 - Search markers: `TARGET_DIAGNOSTIC_ENABLED`, `TARGET_DIAGNOSTIC_WRITE`, `TARGET_DIAGNOSTIC_REGISTER`
 
 The concern records paired begin/end events around manager acquisition and slot enumeration. It emits a bounded
-10-second summary for scan cost, followed-state counts, and cache cardinality/high-water/staleness. Stale-map
-inspection stops after 4,096 entries per map and records truncation plus collection cost.
+10-second summary for scan cost, followed-state counts, cache cardinality/high-water/staleness, and the full producer
+path through `scan-completed` admission. Diagnostic overhead is the measured producer-path time minus the timed game
+work for manager acquisition and slot enumeration.
+Stale cardinality is exact and uses membership checks for at most the eight current fleet slots rather than walking
+historical cache entries.
+
+The shared substrate uses a preallocated bounded MPSC ring with fixed inline event storage. Queue limits account for
+the complete ring slot, so producers perform no event heap allocation and ordinary producer contention cannot create
+lock-busy gaps. The writer drains ready records in bursts and keeps each concern file open for the burst, making file
+preparation, size checks, and close/flush batch work rather than per-record work.
+
+Shutdown stops admission immediately and gives queued records 750 ms to drain. Records still queued at the deadline
+are counted as shutdown drops. A synchronous filesystem call already in flight is joined for memory and module-lifetime
+safety and may exceed that drain target; such an overrun is counted and warned. The blocked-writer test injects this
+condition and verifies both halves of the contract.
 
 ## Disable Path
 

@@ -19,20 +19,24 @@ namespace
   targeted_diagnostics::Concern s_concern{kConcernSpec};
 
   struct DiagnosticState {
-    bool                session_active         = false;
-    uint64_t            session_id             = 0;
-    uint64_t            session_scan_count     = 0;
-    uint64_t            window_sequence        = 0;
-    uint64_t            window_scan_count      = 0;
-    uint64_t            observed_total         = 0;
-    uint64_t            follow_through_total   = 0;
-    uint64_t            scans_over_1ms         = 0;
-    uint64_t            scans_over_5ms         = 0;
-    int64_t             session_started_ms     = 0;
-    int64_t             window_started_ms      = 0;
-    int64_t             scan_elapsed_total_us  = 0;
-    int64_t             scan_elapsed_max_us    = 0;
-    int64_t             last_cache_snapshot_ms = 0;
+    bool                session_active               = false;
+    uint64_t            session_id                   = 0;
+    uint64_t            session_scan_count           = 0;
+    uint64_t            window_sequence              = 0;
+    uint64_t            window_scan_count            = 0;
+    uint64_t            observed_total               = 0;
+    uint64_t            follow_through_total         = 0;
+    uint64_t            scans_over_1ms               = 0;
+    uint64_t            scans_over_5ms               = 0;
+    int64_t             session_started_ms           = 0;
+    int64_t             window_started_ms            = 0;
+    int64_t             scan_elapsed_total_us        = 0;
+    int64_t             scan_elapsed_max_us          = 0;
+    int64_t             producer_elapsed_total_us    = 0;
+    int64_t             producer_elapsed_max_us      = 0;
+    int64_t             diagnostic_overhead_total_us = 0;
+    int64_t             diagnostic_overhead_max_us   = 0;
+    int64_t             last_cache_snapshot_ms       = 0;
     FollowedStateCounts followed_states;
     CacheSnapshot       cache;
     CacheSnapshot       cache_high_water;
@@ -82,15 +86,19 @@ namespace
 
   void reset_window(const int64_t now_ms)
   {
-    s_state.window_started_ms     = now_ms;
-    s_state.window_scan_count     = 0;
-    s_state.observed_total        = 0;
-    s_state.follow_through_total  = 0;
-    s_state.scans_over_1ms        = 0;
-    s_state.scans_over_5ms        = 0;
-    s_state.scan_elapsed_total_us = 0;
-    s_state.scan_elapsed_max_us   = 0;
-    s_state.followed_states       = {};
+    s_state.window_started_ms            = now_ms;
+    s_state.window_scan_count            = 0;
+    s_state.observed_total               = 0;
+    s_state.follow_through_total         = 0;
+    s_state.scans_over_1ms               = 0;
+    s_state.scans_over_5ms               = 0;
+    s_state.scan_elapsed_total_us        = 0;
+    s_state.scan_elapsed_max_us          = 0;
+    s_state.producer_elapsed_total_us    = 0;
+    s_state.producer_elapsed_max_us      = 0;
+    s_state.diagnostic_overhead_total_us = 0;
+    s_state.diagnostic_overhead_max_us   = 0;
+    s_state.followed_states              = {};
   }
 
   void emit_summary(const int64_t now_ms)
@@ -101,22 +109,26 @@ namespace
 
     const auto  age_ms = active_age_ms(now_ms);
     ScanSummary event{
-        .session_id            = s_state.session_id,
-        .window_sequence       = ++s_state.window_sequence,
-        .session_scan_count    = s_state.session_scan_count,
-        .window_scan_count     = s_state.window_scan_count,
-        .active_age_ms         = age_ms,
-        .cadence_ms            = cadence_ms(age_ms),
-        .window_elapsed_ms     = std::max<int64_t>(0, now_ms - s_state.window_started_ms),
-        .scan_elapsed_total_us = s_state.scan_elapsed_total_us,
-        .scan_elapsed_max_us   = s_state.scan_elapsed_max_us,
-        .scans_over_1ms        = s_state.scans_over_1ms,
-        .scans_over_5ms        = s_state.scans_over_5ms,
-        .observed_total        = s_state.observed_total,
-        .follow_through_total  = s_state.follow_through_total,
-        .followed_states       = s_state.followed_states,
-        .cache                 = s_state.cache,
-        .cache_high_water      = s_state.cache_high_water,
+        .session_id                   = s_state.session_id,
+        .window_sequence              = ++s_state.window_sequence,
+        .session_scan_count           = s_state.session_scan_count,
+        .window_scan_count            = s_state.window_scan_count,
+        .active_age_ms                = age_ms,
+        .cadence_ms                   = cadence_ms(age_ms),
+        .window_elapsed_ms            = std::max<int64_t>(0, now_ms - s_state.window_started_ms),
+        .scan_elapsed_total_us        = s_state.scan_elapsed_total_us,
+        .scan_elapsed_max_us          = s_state.scan_elapsed_max_us,
+        .producer_elapsed_total_us    = s_state.producer_elapsed_total_us,
+        .producer_elapsed_max_us      = s_state.producer_elapsed_max_us,
+        .diagnostic_overhead_total_us = s_state.diagnostic_overhead_total_us,
+        .diagnostic_overhead_max_us   = s_state.diagnostic_overhead_max_us,
+        .scans_over_1ms               = s_state.scans_over_1ms,
+        .scans_over_5ms               = s_state.scans_over_5ms,
+        .observed_total               = s_state.observed_total,
+        .follow_through_total         = s_state.follow_through_total,
+        .followed_states              = s_state.followed_states,
+        .cache                        = s_state.cache,
+        .cache_high_water             = s_state.cache_high_water,
     };
     (void)TARGET_DIAGNOSTIC_WRITE(s_concern, event);
     reset_window(now_ms);
@@ -221,6 +233,22 @@ void CompleteScan(const uint64_t scan_id, const int64_t now_ms, const int64_t el
                                                          .elapsed_us           = bounded_elapsed_us,
                                                          .observed_count       = observed_count,
                                                          .follow_through_count = follow_through_count});
+}
+
+void CompleteTick(const uint64_t scan_id, const int64_t now_ms, const int64_t producer_elapsed_us,
+                  const int64_t game_work_elapsed_us)
+{
+  if (scan_id == 0 || !TARGET_DIAGNOSTIC_ENABLED(s_concern) || !s_state.session_active) {
+    return;
+  }
+
+  const auto bounded_producer_us = std::max<int64_t>(0, producer_elapsed_us);
+  const auto bounded_overhead_us =
+      std::max<int64_t>(0, bounded_producer_us - std::max<int64_t>(0, game_work_elapsed_us));
+  s_state.producer_elapsed_total_us += bounded_producer_us;
+  s_state.producer_elapsed_max_us = std::max(s_state.producer_elapsed_max_us, bounded_producer_us);
+  s_state.diagnostic_overhead_total_us += bounded_overhead_us;
+  s_state.diagnostic_overhead_max_us = std::max(s_state.diagnostic_overhead_max_us, bounded_overhead_us);
 
   if (now_ms - s_state.window_started_ms >= kSummaryIntervalMs) {
     emit_summary(now_ms);
@@ -298,13 +326,7 @@ namespace
             {"collection_elapsed_us", cache.collection_elapsed_us}};
   }
 
-  template <typename Event> size_t event_size(const Event&) noexcept
-  { return sizeof(Event); }
 } // namespace
-
-size_t EventTraits<fleet_notification_diagnostics::ScanRequested>::EstimatedQueueBytes(
-    const fleet_notification_diagnostics::ScanRequested& event) noexcept
-{ return event_size(event); }
 
 void EventTraits<fleet_notification_diagnostics::ScanRequested>::SerializeFields(
     const fleet_notification_diagnostics::ScanRequested& event, json& fields)
@@ -313,10 +335,6 @@ void EventTraits<fleet_notification_diagnostics::ScanRequested>::SerializeFields
             {"activation_count", event.activation_count},
             {"trigger_state", event.trigger_state}};
 }
-
-size_t EventTraits<fleet_notification_diagnostics::ScanStarted>::EstimatedQueueBytes(
-    const fleet_notification_diagnostics::ScanStarted& event) noexcept
-{ return event_size(event); }
 
 void EventTraits<fleet_notification_diagnostics::ScanStarted>::SerializeFields(
     const fleet_notification_diagnostics::ScanStarted& event, json& fields)
@@ -327,10 +345,6 @@ void EventTraits<fleet_notification_diagnostics::ScanStarted>::SerializeFields(
             {"cadence_ms", event.cadence_ms}};
 }
 
-size_t EventTraits<fleet_notification_diagnostics::PhaseStarted>::EstimatedQueueBytes(
-    const fleet_notification_diagnostics::PhaseStarted& event) noexcept
-{ return event_size(event); }
-
 void EventTraits<fleet_notification_diagnostics::PhaseStarted>::SerializeFields(
     const fleet_notification_diagnostics::PhaseStarted& event, json& fields)
 {
@@ -338,10 +352,6 @@ void EventTraits<fleet_notification_diagnostics::PhaseStarted>::SerializeFields(
             {"scan_id", event.scan_id},
             {"phase", fleet_notification_diagnostics::PhaseName(event.phase)}};
 }
-
-size_t EventTraits<fleet_notification_diagnostics::PhaseCompleted>::EstimatedQueueBytes(
-    const fleet_notification_diagnostics::PhaseCompleted& event) noexcept
-{ return event_size(event); }
 
 void EventTraits<fleet_notification_diagnostics::PhaseCompleted>::SerializeFields(
     const fleet_notification_diagnostics::PhaseCompleted& event, json& fields)
@@ -352,10 +362,6 @@ void EventTraits<fleet_notification_diagnostics::PhaseCompleted>::SerializeField
             {"elapsed_us", event.elapsed_us}};
 }
 
-size_t EventTraits<fleet_notification_diagnostics::ScanCompleted>::EstimatedQueueBytes(
-    const fleet_notification_diagnostics::ScanCompleted& event) noexcept
-{ return event_size(event); }
-
 void EventTraits<fleet_notification_diagnostics::ScanCompleted>::SerializeFields(
     const fleet_notification_diagnostics::ScanCompleted& event, json& fields)
 {
@@ -365,10 +371,6 @@ void EventTraits<fleet_notification_diagnostics::ScanCompleted>::SerializeFields
             {"observed_count", event.observed_count},
             {"follow_through_count", event.follow_through_count}};
 }
-
-size_t EventTraits<fleet_notification_diagnostics::ScanSummary>::EstimatedQueueBytes(
-    const fleet_notification_diagnostics::ScanSummary& event) noexcept
-{ return event_size(event); }
 
 void EventTraits<fleet_notification_diagnostics::ScanSummary>::SerializeFields(
     const fleet_notification_diagnostics::ScanSummary& event, json& fields)
@@ -382,6 +384,10 @@ void EventTraits<fleet_notification_diagnostics::ScanSummary>::SerializeFields(
             {"window_elapsed_ms", event.window_elapsed_ms},
             {"scan_elapsed_total_us", event.scan_elapsed_total_us},
             {"scan_elapsed_max_us", event.scan_elapsed_max_us},
+            {"producer_elapsed_total_us", event.producer_elapsed_total_us},
+            {"producer_elapsed_max_us", event.producer_elapsed_max_us},
+            {"diagnostic_overhead_total_us", event.diagnostic_overhead_total_us},
+            {"diagnostic_overhead_max_us", event.diagnostic_overhead_max_us},
             {"scans_over_1ms", event.scans_over_1ms},
             {"scans_over_5ms", event.scans_over_5ms},
             {"observed_total", event.observed_total},
@@ -390,10 +396,6 @@ void EventTraits<fleet_notification_diagnostics::ScanSummary>::SerializeFields(
             {"cache", cache_json(event.cache)},
             {"cache_high_water", cache_json(event.cache_high_water)}};
 }
-
-size_t EventTraits<fleet_notification_diagnostics::ScanEnded>::EstimatedQueueBytes(
-    const fleet_notification_diagnostics::ScanEnded& event) noexcept
-{ return event_size(event); }
 
 void EventTraits<fleet_notification_diagnostics::ScanEnded>::SerializeFields(
     const fleet_notification_diagnostics::ScanEnded& event, json& fields)

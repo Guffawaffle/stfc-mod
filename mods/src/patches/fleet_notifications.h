@@ -21,6 +21,7 @@ struct FleetNotificationRuntimeScanResult {
   int                     observed_count          = 0;
   int                     follow_through_count    = 0;
   int                     observed_fleet_id_count = 0;
+  int64_t                 game_work_elapsed_us    = 0;
   std::array<uint64_t, 8> observed_fleet_ids{};
   std::array<int, 7>      followed_state_counts{};
 };

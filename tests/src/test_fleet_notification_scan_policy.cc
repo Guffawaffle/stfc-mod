@@ -1,6 +1,10 @@
 #include <doctest/doctest.h>
 
+#include "patches/fleet_notification_cache_policy.h"
 #include "patches/fleet_notification_scan_policy.h"
+
+#include <array>
+#include <unordered_map>
 
 TEST_SUITE("fleet_notification_scan_policy")
 {
@@ -83,5 +87,28 @@ TEST_SUITE("fleet_notification_scan_policy")
 
     CHECK_FALSE(policy.ScanRequested());
     CHECK(policy.Evaluate(10'000 + kFleetNotificationScanMaxLifetimeMs + 250) == FleetNotificationScanDecision::Idle);
+  }
+}
+
+TEST_SUITE("fleet_notification_cache_policy")
+{
+  TEST_CASE("derives exact stale cardinality from current fleet membership")
+  {
+    std::unordered_map<uint64_t, int> cache;
+    for (uint64_t fleet_id = 1; fleet_id <= 10'000; ++fleet_id) {
+      cache.emplace(fleet_id, 0);
+    }
+    const std::array<uint64_t, 8> current{1, 2, 3, 4, 5, 6, 7, 8};
+
+    CHECK(CountStaleFleetCacheEntries(cache, std::span<const uint64_t>(current)) == 9'992);
+  }
+
+  TEST_CASE("does not double count duplicate current fleet IDs")
+  {
+    const std::unordered_map<uint64_t, int> cache{{10, 0}, {20, 0}, {30, 0}};
+    const std::array<uint64_t, 3>           current{10, 10, 99};
+
+    CHECK(CountStaleFleetCacheEntries(cache, std::span<const uint64_t>(current)) == 2);
+    CHECK(CountStaleFleetCacheEntries(cache, std::span<const uint64_t>{}) == 3);
   }
 }
