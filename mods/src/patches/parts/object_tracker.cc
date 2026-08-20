@@ -289,6 +289,10 @@ void* track_ctor(auto original, void* _this)
 
   std::scoped_lock lk{tracked_objects_mutex};
   auto             cls = (Il2CppObject*)_this;
+  if (cls->klass == nullptr) {
+    return obj;
+  }
+
   spdlog::trace("Tracking {}({})", _this, SafeClassName(cls->klass));
   if (!GC_register_finalizer_inner) {
     spdlog::warn("Object tracker cannot register GC finalizer for {}({}); resolver is unavailable", _this,
@@ -469,6 +473,15 @@ void InstallObjectTrackers()
       "ObjectFinder may retain objects after garbage collection", HookSupportTier::Internal};
   HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, liveness_descriptor, il2cpp_unity_liveness_finalize, calc_liveness_hook);
 
+#if defined(__APPLE__) && defined(SPUD_ARCH_ARM64)
+  // Replacing Boehm's per-object finalizers can expose null or stale callbacks during forced collection on Apple
+  // Silicon. OnDestroy and Unity liveness cleanup remain independent removal paths.
+  spdlog::warn("Object tracker: native per-object GC finalizers disabled on macOS ARM64; using OnDestroy and Unity "
+               "liveness cleanup");
+  hooks.log_summary();
+  return;
+#endif
+
 #if _WIN32
   auto GC_register_finalizer_inner_matches =
       spud::find_in_module("40 56 57 41 57 48 83 EC ? 83 3D", "GameAssembly.dll");
@@ -481,6 +494,12 @@ void InstallObjectTrackers()
       "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC ? 4C 89 45 ? 48 89 4D ? 83 3D", "GameAssembly.dylib");
 #endif
 #endif
+
+  if (GC_register_finalizer_inner_matches.size() == 0) {
+    spdlog::warn("Unable to resolve GC_register_finalizer_inner; object finalizers disabled");
+    hooks.log_summary();
+    return;
+  }
 
   const auto GC_register_finalizer_inner_match = GC_register_finalizer_inner_matches.get(0);
   GC_register_finalizer_inner = (decltype(GC_register_finalizer_inner))GC_register_finalizer_inner_match.address();
