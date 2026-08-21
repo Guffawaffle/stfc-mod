@@ -328,6 +328,103 @@ TEST_SUITE("hotkey_decisions")
     CHECK_FALSE(hotkey_dispatcher_owns_inputs(false, ScopelyShortcutPolicy::Native));
   }
 
+  TEST_CASE("orphaned tutorial shortcut repair requires the exact stable M94 signature")
+  {
+    OrphanedTutorialShortcutGateState state;
+    state.repair_enabled           = true;
+    state.native_shortcuts_enabled = true;
+    state.evidence_complete        = true;
+    state.actions_enabled          = true;
+    state.interior_action_enabled  = true;
+    state.galaxy_action_enabled    = true;
+    state.tutorial_active          = true;
+    state.has_tutorial_manager     = true;
+    state.has_mission              = true;
+    state.has_data                 = true;
+    state.step_identity            = 0x1234;
+    state.step_index               = 0;
+    state.mission_id               = 1463528981;
+    state.action_id                = -1401001831;
+    state.next_action_id           = state.action_id;
+    state.objective_being_cleared  = -1;
+    state.target_section           = -1;
+    state.step_type                = 0;
+
+    CHECK_FALSE(should_repair_orphaned_tutorial_shortcut_gate(state, state.step_identity, 1));
+    CHECK(should_repair_orphaned_tutorial_shortcut_gate(state, state.step_identity, 2));
+    CHECK_FALSE(should_repair_orphaned_tutorial_shortcut_gate(state, 0x5678, 2));
+
+    state.repair_enabled = false;
+    CHECK_FALSE(should_repair_orphaned_tutorial_shortcut_gate(state, state.step_identity, 2));
+  }
+
+  TEST_CASE("orphaned tutorial shortcut repair fails closed when any blocker or tutorial work remains")
+  {
+    OrphanedTutorialShortcutGateState baseline;
+    baseline.repair_enabled           = true;
+    baseline.native_shortcuts_enabled = true;
+    baseline.evidence_complete        = true;
+    baseline.actions_enabled          = true;
+    baseline.interior_action_enabled  = true;
+    baseline.galaxy_action_enabled    = true;
+    baseline.tutorial_active          = true;
+    baseline.has_tutorial_manager     = true;
+    baseline.has_mission              = true;
+    baseline.has_data                 = true;
+    baseline.step_identity            = 0x1234;
+    baseline.step_index               = 0;
+    baseline.mission_id               = 1463528981;
+    baseline.action_id                = -1401001831;
+    baseline.next_action_id           = baseline.action_id;
+    baseline.objective_being_cleared  = -1;
+    baseline.target_section           = -1;
+    baseline.step_type                = 0;
+
+    const auto blocked = [&](const OrphanedTutorialShortcutGateState& state) {
+      CHECK_FALSE(should_repair_orphaned_tutorial_shortcut_gate(state, state.step_identity, 2));
+    };
+
+    auto state              = baseline;
+    state.evidence_complete = false;
+    blocked(state);
+    state                   = baseline;
+    state.can_use_shortcuts = true;
+    blocked(state);
+    state                   = baseline;
+    state.tutorial_blocking = true;
+    blocked(state);
+    state                  = baseline;
+    state.tutorial_ui_open = true;
+    blocked(state);
+    state               = baseline;
+    state.has_component = true;
+    blocked(state);
+    state               = baseline;
+    state.has_objective = true;
+    blocked(state);
+    state                     = baseline;
+    state.has_objective_items = true;
+    blocked(state);
+    state               = baseline;
+    state.has_next_step = true;
+    blocked(state);
+    state                = baseline;
+    state.target_section = 0;
+    blocked(state);
+    state           = baseline;
+    state.step_type = 1;
+    blocked(state);
+    state            = baseline;
+    state.mission_id = 1;
+    blocked(state);
+    state                         = baseline;
+    state.objective_being_cleared = 0;
+    blocked(state);
+    state               = baseline;
+    state.input_focused = true;
+    blocked(state);
+  }
+
   TEST_CASE("Escape exit suppression only blocks Escape-triggered exit outside the double-tap window")
   {
     CHECK_FALSE(should_suppress_escape_exit(false, true, 500, -1));

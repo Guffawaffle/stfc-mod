@@ -48,6 +48,7 @@ namespace DCAQ  = DefaultConfig::Advanced::Queue;
 namespace DCAKQ = DefaultConfig::Advanced::KirsharaQueue;
 namespace DCN   = DefaultConfig::Notifications;
 namespace DCC   = DefaultConfig::Control;
+namespace DCI   = DefaultConfig::Input;
 namespace DCU   = DefaultConfig::UI;
 namespace DCMH  = DefaultConfig::UI::MissionHud;
 namespace DCBS  = DefaultConfig::Buffs;
@@ -71,11 +72,12 @@ using config_metadata::notificationToggleSpecs;
 static_assert(!DCS::allow_unsafe_tls_without_certificate_validation, "Unsafe TLS override default must remain false.");
 
 // Legacy settings exposed through read-only accessors.
-static bool                      g_allow_key_fallthrough    = false;
-static ScopelyShortcutPolicy     g_scopely_shortcuts_policy = ScopelyShortcutPolicy::Off;
-static OriginalFramePolicy       g_original_frame_policy    = OriginalFramePolicy::Mod;
-static bool                      g_live_debug_channel       = DCAD::live_query;
-static bool                      g_queue_repair_enabled     = DCAQ::queue_repair_enabled;
+static bool                      g_allow_key_fallthrough                  = false;
+static ScopelyShortcutPolicy     g_scopely_shortcuts_policy               = ScopelyShortcutPolicy::Off;
+static OriginalFramePolicy       g_original_frame_policy                  = OriginalFramePolicy::Mod;
+static bool                      g_repair_orphaned_tutorial_shortcut_gate = DCI::repair_orphaned_tutorial_shortcut_gate;
+static bool                      g_live_debug_channel                     = DCAD::live_query;
+static bool                      g_queue_repair_enabled                   = DCAQ::queue_repair_enabled;
 static KirsharaQueueRepairConfig g_kirshara_queue_repair_config{};
 static bool                      g_queue_add_direct_handler    = DCAQ::queue_add_direct_handler;
 static bool                      g_battle_log_decoder_enabled  = false;
@@ -105,6 +107,9 @@ ScopelyShortcutPolicy ScopelyShortcutsPolicy()
 
 OriginalFramePolicy OriginalFramePolicySetting()
 { return g_original_frame_policy; }
+
+bool RepairOrphanedTutorialShortcutGate()
+{ return g_repair_orphaned_tutorial_shortcut_gate; }
 
 bool LiveDebugChannelEnabled()
 { return g_live_debug_channel; }
@@ -1296,13 +1301,19 @@ void Config::Load()
     spdlog::warn("Ignoring [control].original_frame_policy because [input].original_frame_policy is set.");
   }
 
+  g_repair_orphaned_tutorial_shortcut_gate = read_bool_config_entry(
+      config, parsed, "input", "repair_orphaned_tutorial_shortcut_gate", "repair_orphaned_tutorial_shortcut_gate",
+      DCI::repair_orphaned_tutorial_shortcut_gate,
+      "Repair the M94 orphaned tutorial state that blocks Scopely shortcuts after restart.", write_config);
+
   write_input_policy_config(parsed, g_scopely_shortcuts_policy, g_original_frame_policy);
 
   spdlog::info(
       "[Hotkeys] config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} allow_key_fallthrough={} "
-      "scopely_shortcuts={} original_frame_policy={}",
+      "scopely_shortcuts={} original_frame_policy={} repair_orphaned_tutorial_shortcut_gate={}",
       this->installHotkeyHooks, this->hotkeys_enabled, this->use_scopely_hotkeys, g_allow_key_fallthrough,
-      scopely_shortcut_policy_name(g_scopely_shortcuts_policy), original_frame_policy_name(g_original_frame_policy));
+      scopely_shortcut_policy_name(g_scopely_shortcuts_policy), original_frame_policy_name(g_original_frame_policy),
+      g_repair_orphaned_tutorial_shortcut_gate);
 
   if (g_allow_key_fallthrough && !this->use_scopely_hotkeys && !explicit_scopely_policy && !explicit_frame_policy
       && !legacy_scopely_hotkeys_config.policy_override && !legacy_control_frame_policy) {

@@ -45,6 +45,12 @@ namespace Control
   constexpr auto select_timer = 500;
 } // namespace Control
 
+namespace Input
+{
+  /// Repair the M94 orphaned tutorial flag that can leave Scopely shortcuts disabled after restart. Default: false.
+  constexpr bool repair_orphaned_tutorial_shortcut_gate = false;
+} // namespace Input
+
 namespace Graphics
 {
   /// Start in borderless-fullscreen mode. Default: true.

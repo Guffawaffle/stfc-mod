@@ -157,53 +157,6 @@
       }
     },
     {
-      "path": "advanced.diagnostics.debug",
-      "title": "Debug",
-      "description": "Configure debug.",
-      "category": "advanced",
-      "control": "scalar",
-      "valueType": {
-        "kind": "boolean"
-      },
-      "default": false,
-      "platforms": [
-        "windows",
-        "macos"
-      ],
-      "apply": "next-session",
-      "sensitivity": "public",
-      "stability": "internal",
-      "sourceSupport": [
-        "guffawaffle"
-      ],
-      "aliases": [
-        {
-          "path": "sidecar.diagnostics.debug",
-          "status": "deprecated",
-          "precedence": "canonical-wins"
-        }
-      ],
-      "provenance": {
-        "runtimePath": "advanced.diagnostics.debug",
-        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.debug"
-      },
-      "presentation": {
-        "label": "Debug",
-        "group": "Advanced",
-        "searchTerms": [
-          "advanced.diagnostics.debug",
-          "Debug",
-          "Configure debug.",
-          "advanced",
-          "sidecar.diagnostics.debug"
-        ],
-        "editorWidth": "compact",
-        "applyTiming": "Next launch",
-        "accessibleName": "Debug",
-        "accessibleHelp": "Applies: Next launch."
-      }
-    },
-    {
       "path": "advanced.diagnostics.files.action_queue_probe_files",
       "title": "Action Queue Probe Files",
       "description": "Configure action queue probe files.",
@@ -461,7 +414,7 @@
     {
       "path": "advanced.diagnostics.hotkey_suppression_logging",
       "title": "Hotkey Suppression Logging",
-      "description": "Verbose breadcrumbs for noisy diagnostics. These remain off by default even when advanced.diagnostics.debug is enabled.",
+      "description": "Verbose breadcrumbs for noisy diagnostics. These are independent; the reserved compatibility keys above do not gate them.",
       "category": "advanced",
       "control": "scalar",
       "valueType": {
@@ -485,18 +438,18 @@
       },
       "presentation": {
         "label": "Hotkey suppression logging",
-        "help": "Verbose breadcrumbs for noisy diagnostics. These remain off by default even when advanced.diagnostics.debug is enabled.",
+        "help": "Verbose breadcrumbs for noisy diagnostics. These are independent; the reserved compatibility keys above do not gate them.",
         "group": "Advanced",
         "searchTerms": [
           "advanced.diagnostics.hotkey_suppression_logging",
           "Hotkey Suppression Logging",
-          "Verbose breadcrumbs for noisy diagnostics. These remain off by default even when advanced.diagnostics.debug is enabled.",
+          "Verbose breadcrumbs for noisy diagnostics. These are independent; the reserved compatibility keys above do not gate them.",
           "advanced"
         ],
         "editorWidth": "compact",
         "applyTiming": "Next launch",
         "accessibleName": "Hotkey suppression logging",
-        "accessibleHelp": "Verbose breadcrumbs for noisy diagnostics. These remain off by default even when advanced.diagnostics.debug is enabled. Applies: Next launch."
+        "accessibleHelp": "Verbose breadcrumbs for noisy diagnostics. These are independent; the reserved compatibility keys above do not gate them. Applies: Next launch."
       }
     },
     {
@@ -1023,53 +976,6 @@
       }
     },
     {
-      "path": "advanced.diagnostics.logging",
-      "title": "Logging",
-      "description": "Configure logging.",
-      "category": "advanced",
-      "control": "scalar",
-      "valueType": {
-        "kind": "boolean"
-      },
-      "default": false,
-      "platforms": [
-        "windows",
-        "macos"
-      ],
-      "apply": "next-session",
-      "sensitivity": "public",
-      "stability": "internal",
-      "sourceSupport": [
-        "guffawaffle"
-      ],
-      "aliases": [
-        {
-          "path": "sidecar.diagnostics.logging",
-          "status": "deprecated",
-          "precedence": "canonical-wins"
-        }
-      ],
-      "provenance": {
-        "runtimePath": "advanced.diagnostics.logging",
-        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.logging"
-      },
-      "presentation": {
-        "label": "Logging",
-        "group": "Advanced",
-        "searchTerms": [
-          "advanced.diagnostics.logging",
-          "Logging",
-          "Configure logging.",
-          "advanced",
-          "sidecar.diagnostics.logging"
-        ],
-        "editorWidth": "compact",
-        "applyTiming": "Next launch",
-        "accessibleName": "Logging",
-        "accessibleHelp": "Applies: Next launch."
-      }
-    },
-    {
       "path": "advanced.diagnostics.mod_impact_monitor",
       "title": "Mod Impact Monitor",
       "description": "Enable periodic runtime impact summaries for frame-owned mod hooks. Default: false.",
@@ -1189,6 +1095,86 @@
         "applyTiming": "Next launch",
         "accessibleName": "Refinery diagnostics",
         "accessibleHelp": "Enable focused refinery lifecycle/action diagnostics in community_patch.log. Applies: Next launch."
+      }
+    },
+    {
+      "path": "advanced.diagnostics.reserved_native_debug",
+      "title": "Reserved Native Debug",
+      "description": "Configure reserved native debug.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.reserved_native_debug",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.reserved_native_debug"
+      },
+      "presentation": {
+        "label": "Reserved native debug",
+        "group": "Advanced",
+        "searchTerms": [
+          "advanced.diagnostics.reserved_native_debug",
+          "Reserved Native Debug",
+          "Configure reserved native debug.",
+          "advanced"
+        ],
+        "editorWidth": "compact",
+        "applyTiming": "Next launch",
+        "accessibleName": "Reserved native debug",
+        "accessibleHelp": "Applies: Next launch."
+      }
+    },
+    {
+      "path": "advanced.diagnostics.reserved_native_payload_logging",
+      "title": "Reserved Native Payload Logging",
+      "description": "Configure reserved native payload logging.",
+      "category": "advanced",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "internal",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "advanced.diagnostics.reserved_native_payload_logging",
+        "defaultSource": "mods/src/defaultconfig.h:advanced.diagnostics.reserved_native_payload_logging"
+      },
+      "presentation": {
+        "label": "Reserved native payload logging",
+        "group": "Advanced",
+        "searchTerms": [
+          "advanced.diagnostics.reserved_native_payload_logging",
+          "Reserved Native Payload Logging",
+          "Configure reserved native payload logging.",
+          "advanced"
+        ],
+        "editorWidth": "compact",
+        "applyTiming": "Next launch",
+        "accessibleName": "Reserved native payload logging",
+        "accessibleHelp": "Applies: Next launch."
       }
     },
     {
@@ -8215,6 +8201,47 @@
         "applyTiming": "Next launch",
         "accessibleName": "Original frame policy",
         "accessibleHelp": "Explicit original frame policy: mod, fallthrough_unhandled, fallthrough_all. Applies: Next launch."
+      }
+    },
+    {
+      "path": "input.repair_orphaned_tutorial_shortcut_gate",
+      "title": "Repair Orphaned Tutorial Shortcut Gate",
+      "description": "Repair the M94 orphaned tutorial flag that can leave Scopely shortcuts disabled after restart. Default: false.",
+      "category": "input",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": false,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "next-session",
+      "sensitivity": "public",
+      "stability": "experimental",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "input.repair_orphaned_tutorial_shortcut_gate",
+        "defaultSource": "mods/src/defaultconfig.h:input.repair_orphaned_tutorial_shortcut_gate"
+      },
+      "presentation": {
+        "label": "Repair orphaned tutorial shortcut gate",
+        "help": "Repair the M94 orphaned tutorial flag that can leave Scopely shortcuts disabled after restart.",
+        "group": "Input",
+        "searchTerms": [
+          "input.repair_orphaned_tutorial_shortcut_gate",
+          "Repair Orphaned Tutorial Shortcut Gate",
+          "Repair the M94 orphaned tutorial flag that can leave Scopely shortcuts disabled after restart. Default: false.",
+          "input"
+        ],
+        "editorWidth": "compact",
+        "applyTiming": "Next launch",
+        "accessibleName": "Repair orphaned tutorial shortcut gate",
+        "accessibleHelp": "Repair the M94 orphaned tutorial flag that can leave Scopely shortcuts disabled after restart. Applies: Next launch."
       }
     },
     {
@@ -16134,6 +16161,47 @@
         "applyTiming": "Restart required",
         "accessibleName": "Panhooks",
         "accessibleHelp": "Pan-momentum hooks. Applies: Restart required."
+      }
+    },
+    {
+      "path": "patches.repairactioninterlock",
+      "title": "Repairactioninterlock",
+      "description": "Repair action presentation and stale-click protection.",
+      "category": "patches",
+      "control": "scalar",
+      "valueType": {
+        "kind": "boolean"
+      },
+      "default": true,
+      "platforms": [
+        "windows",
+        "macos"
+      ],
+      "apply": "restart-required",
+      "sensitivity": "public",
+      "stability": "advanced",
+      "sourceSupport": [
+        "guffawaffle"
+      ],
+      "aliases": [],
+      "provenance": {
+        "runtimePath": "patches.repairactioninterlock",
+        "defaultSource": "mods/src/defaultconfig.h:patches.repairactioninterlock"
+      },
+      "presentation": {
+        "label": "Repairactioninterlock",
+        "help": "Repair action presentation and stale-click protection.",
+        "group": "Patches",
+        "searchTerms": [
+          "patches.repairactioninterlock",
+          "Repairactioninterlock",
+          "Repair action presentation and stale-click protection.",
+          "patches"
+        ],
+        "editorWidth": "compact",
+        "applyTiming": "Restart required",
+        "accessibleName": "Repairactioninterlock",
+        "accessibleHelp": "Repair action presentation and stale-click protection. Applies: Restart required."
       }
     },
     {

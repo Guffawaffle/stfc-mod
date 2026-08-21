@@ -30,13 +30,15 @@
 
 namespace
 {
-constexpr bool kEnableShortcutInitializeHook       = true;
-constexpr bool kEnableShortcutLateUpdateGuardHook  = true;
-constexpr bool kEnableRewardsButtonHook            = true;
-constexpr bool kEnablePreScanTargetHook            = true;
-constexpr bool kEnableSectionManagerBackButtonHook = true;
-constexpr bool kEnableNavigationSetCourseHook      = true;
-constexpr bool kEnableFleetBarSelectionGuardHooks  = true;
+constexpr bool     kEnableShortcutInitializeHook             = true;
+constexpr bool     kEnableShortcutLateUpdateGuardHook        = true;
+constexpr bool     kEnableRewardsButtonHook                  = true;
+constexpr bool     kEnablePreScanTargetHook                  = true;
+constexpr bool     kEnableSectionManagerBackButtonHook       = true;
+constexpr bool     kEnableNavigationSetCourseHook            = true;
+constexpr bool     kEnableFleetBarSelectionGuardHooks        = true;
+// Require two stable samples while keeping the player-visible delay near one second at 60 FPS.
+constexpr uint64_t kOrphanedTutorialShortcutGateSampleFrames = 60;
 
 const char* initialize_actions_reason()
 { return scopely_shortcut_policy_name(ScopelyShortcutsPolicy()); }
@@ -225,6 +227,283 @@ bool inspect_native_fleet_selection_component(const char* method, void* element,
   return suppress_any;
 }
 
+template <typename T> bool read_instance_field(void* instance, FieldInfo* field, T& value)
+{
+  if (!instance || !field) {
+    return false;
+  }
+
+  value = *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(instance) + il2cpp_field_get_offset(field));
+  return true;
+}
+
+template <typename T> bool read_object_field(void* object, const char* field_name, T& value)
+{
+  if (!object) {
+    return false;
+  }
+
+  auto* klass = il2cpp_object_get_class(reinterpret_cast<Il2CppObject*>(object));
+  auto* field = klass ? il2cpp_class_get_field_from_name(klass, field_name) : nullptr;
+  return read_instance_field(object, field, value);
+}
+
+struct OrphanedTutorialShortcutRuntimeEvidence {
+  OrphanedTutorialShortcutGateState state;
+  void*                             mission         = nullptr;
+  void*                             step            = nullptr;
+  FieldInfo*                        is_active_field = nullptr;
+  bool (*get_is_active)()                           = nullptr;
+  bool (*get_can_use_shortcuts)()                   = nullptr;
+};
+
+OrphanedTutorialShortcutRuntimeEvidence collect_orphaned_tutorial_shortcut_evidence(void* shortcuts_manager)
+{
+  OrphanedTutorialShortcutRuntimeEvidence evidence;
+  auto&                                   state = evidence.state;
+  state.repair_enabled                          = RepairOrphanedTutorialShortcutGate();
+  state.native_shortcuts_enabled                = ScopelyShortcutsPolicy() != ScopelyShortcutPolicy::Off;
+
+  if (!shortcuts_manager || !state.repair_enabled || !state.native_shortcuts_enabled) {
+    return evidence;
+  }
+
+  static auto shortcuts_helper =
+      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager");
+  static auto* actions_field = il2cpp_class_get_field_from_name(shortcuts_helper.get_cls(), "_actions");
+  static auto* show_keybindings_field =
+      il2cpp_class_get_field_from_name(shortcuts_helper.get_cls(), "_showKeybindings");
+  static auto get_can_use_shortcuts = shortcuts_helper.GetMethod<bool()>("get_CanUseShortcuts");
+
+  static auto hub_helper               = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Core", "Hub");
+  static auto get_video_player_manager = hub_helper.GetMethod<void*()>("get_VideoPlayerManager");
+  static auto get_shop_scene_manager   = hub_helper.GetMethod<void*()>("get_ShopSceneManager");
+  static auto get_tutorial_manager     = hub_helper.GetMethod<void*()>("get_TutorialManager");
+
+  static auto video_player_manager_helper =
+      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Videos", "VideoPlayerManager");
+  static auto get_is_video_playing = video_player_manager_helper.GetMethod<bool(void*)>("get_IsVideoPlaying");
+
+  static auto tutorial_manager_helper =
+      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Tutorial", "TutorialManager");
+  static auto  get_is_tutorial_active   = tutorial_manager_helper.GetMethod<bool()>("get_IsActive");
+  static auto  get_is_tutorial_blocking = tutorial_manager_helper.GetMethod<bool()>("get_IsBlockingInput");
+  static auto* tutorial_is_active_field =
+      il2cpp_class_get_field_from_name(tutorial_manager_helper.get_cls(), "_isActive");
+  static auto* tutorial_ui_field = il2cpp_class_get_field_from_name(tutorial_manager_helper.get_cls(), "_loadAndShow");
+  static auto* tutorial_mission_field =
+      il2cpp_class_get_field_from_name(tutorial_manager_helper.get_cls(), "_currentMission");
+  static auto* tutorial_objective_field =
+      il2cpp_class_get_field_from_name(tutorial_manager_helper.get_cls(), "_currentTutorialObjective");
+  static auto* tutorial_data_field =
+      il2cpp_class_get_field_from_name(tutorial_manager_helper.get_cls(), "_currentTutorialData");
+  static auto* tutorial_component_field =
+      il2cpp_class_get_field_from_name(tutorial_manager_helper.get_cls(), "_currentComponent");
+  static auto* tutorial_items_field =
+      il2cpp_class_get_field_from_name(tutorial_manager_helper.get_cls(), "_currentObjectiveTutorialItems");
+  static auto* tutorial_end_step_field =
+      il2cpp_class_get_field_from_name(tutorial_manager_helper.get_cls(), "_endMissionTutorialStep");
+  static auto* tutorial_next_step_field =
+      il2cpp_class_get_field_from_name(tutorial_manager_helper.get_cls(), "_nextTutorialStep");
+  static auto* tutorial_step_field =
+      il2cpp_class_get_field_from_name(tutorial_manager_helper.get_cls(), "_currentTutorialStep");
+  static auto* tutorial_step_index_field =
+      il2cpp_class_get_field_from_name(tutorial_manager_helper.get_cls(), "_currentTutorialStepIndex");
+  static auto* tutorial_next_action_id_field =
+      il2cpp_class_get_field_from_name(tutorial_manager_helper.get_cls(), "_nextTutorialActionID");
+  static auto* tutorial_objective_being_cleared_field =
+      il2cpp_class_get_field_from_name(tutorial_manager_helper.get_cls(), "_currentObjectiveBeingCleared");
+  static auto* tutorial_target_section_field =
+      il2cpp_class_get_field_from_name(tutorial_manager_helper.get_cls(), "_currentTargetSection");
+
+  static auto message_box_helper         = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "MessageBox");
+  static auto get_is_message_box_visible = message_box_helper.GetMethod<bool()>("get_IsMessageBoxVisible");
+
+  static auto  touch_kit_helper  = il2cpp_get_class_helper("TouchKit", "", "TouchKit");
+  static auto* block_touch_field = il2cpp_class_get_field_from_name(touch_kit_helper.get_cls(), "BlockTouch");
+
+  static auto ui_manager_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.SharedFeatures", "UIManager");
+  static auto ui_manager_parent = ui_manager_helper.GetParent("MonoSingleton`1");
+  static auto ui_manager_instance  = ui_manager_parent.GetProperty("Instance");
+  static auto get_is_popup_visible = ui_manager_helper.GetMethod<bool(void*)>("get_IsPopupVisible");
+
+  static auto shop_scene_manager_helper =
+      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Shop", "ShopSceneManager");
+  static auto* plc_offer_popup_field =
+      il2cpp_class_get_field_from_name(shop_scene_manager_helper.get_cls(), "_plcOfferPopupLoadAndShow");
+  static auto generic_load_and_show_helper =
+      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "GenericLoadAndShowUI");
+  static auto is_open = generic_load_and_show_helper.GetMethod<bool(void*)>("IsOpen");
+
+  const auto bindings_complete =
+      shortcuts_helper.isValidHelper() && actions_field && show_keybindings_field && get_can_use_shortcuts
+      && hub_helper.isValidHelper() && get_video_player_manager && get_shop_scene_manager && get_tutorial_manager
+      && video_player_manager_helper.isValidHelper() && get_is_video_playing && tutorial_manager_helper.isValidHelper()
+      && get_is_tutorial_active && get_is_tutorial_blocking && tutorial_is_active_field && tutorial_ui_field
+      && tutorial_mission_field && tutorial_objective_field && tutorial_data_field && tutorial_component_field
+      && tutorial_items_field && tutorial_end_step_field && tutorial_next_step_field && tutorial_step_field
+      && tutorial_step_index_field && tutorial_next_action_id_field && tutorial_objective_being_cleared_field
+      && tutorial_target_section_field && message_box_helper.isValidHelper() && get_is_message_box_visible
+      && touch_kit_helper.isValidHelper() && block_touch_field && ui_manager_helper.isValidHelper()
+      && ui_manager_parent.isValidHelper() && ui_manager_instance.isValidHelper() && get_is_popup_visible
+      && shop_scene_manager_helper.isValidHelper() && plc_offer_popup_field
+      && generic_load_and_show_helper.isValidHelper() && is_open;
+  if (!bindings_complete) {
+    return evidence;
+  }
+
+  evidence.is_active_field       = tutorial_is_active_field;
+  evidence.get_is_active         = get_is_tutorial_active;
+  evidence.get_can_use_shortcuts = get_can_use_shortcuts;
+  state.can_use_shortcuts        = get_can_use_shortcuts();
+  state.tutorial_active          = get_is_tutorial_active();
+  state.tutorial_blocking        = get_is_tutorial_blocking();
+  state.message_box_visible      = get_is_message_box_visible();
+  state.input_focused            = Key::IsInputFocused();
+  il2cpp_field_static_get_value(block_touch_field, &state.touch_blocked);
+
+  void* actions        = nullptr;
+  auto  reads_complete = read_instance_field(shortcuts_manager, actions_field, actions)
+                         && read_instance_field(shortcuts_manager, show_keybindings_field, state.show_keybindings);
+
+  static auto input_action_asset_helper =
+      il2cpp_get_class_helper("Unity.InputSystem", "UnityEngine.InputSystem", "InputActionAsset");
+  static auto input_action_helper =
+      il2cpp_get_class_helper("Unity.InputSystem", "UnityEngine.InputSystem", "InputAction");
+  static auto asset_enabled  = input_action_asset_helper.GetMethod<bool(void*)>("get_enabled");
+  static auto find_action    = input_action_asset_helper.GetMethod<void*(void*, Il2CppString*, bool)>("FindAction");
+  static auto action_enabled = input_action_helper.GetMethod<bool(void*)>("get_enabled");
+  if (!input_action_asset_helper.isValidHelper() || !input_action_helper.isValidHelper() || !asset_enabled
+      || !find_action || !action_enabled) {
+    return evidence;
+  }
+  if (actions) {
+    state.actions_enabled         = asset_enabled(actions);
+    auto* interior_action         = find_action(actions, il2cpp_string_new("General/interior_view"), false);
+    auto* galaxy_action           = find_action(actions, il2cpp_string_new("General/galaxy_view"), false);
+    state.interior_action_enabled = interior_action && action_enabled(interior_action);
+    state.galaxy_action_enabled   = galaxy_action && action_enabled(galaxy_action);
+  }
+
+  if (auto* video_player_manager = get_video_player_manager(); video_player_manager) {
+    state.video_playing = get_is_video_playing(video_player_manager);
+  }
+  if (auto* ui_manager = ui_manager_instance.GetRaw<void>(nullptr); ui_manager) {
+    state.popup_visible = get_is_popup_visible(ui_manager);
+  }
+  if (auto* shop_scene_manager = get_shop_scene_manager(); shop_scene_manager) {
+    void* plc_offer_popup = nullptr;
+    reads_complete = read_instance_field(shop_scene_manager, plc_offer_popup_field, plc_offer_popup) && reads_complete;
+    if (plc_offer_popup) {
+      state.plc_offer_open = is_open(plc_offer_popup);
+    }
+  }
+
+  auto* tutorial_manager     = get_tutorial_manager();
+  state.has_tutorial_manager = tutorial_manager != nullptr;
+  if (!tutorial_manager) {
+    return evidence;
+  }
+
+  void* tutorial_ui     = nullptr;
+  void* objective       = nullptr;
+  void* data            = nullptr;
+  void* component       = nullptr;
+  void* objective_items = nullptr;
+  void* end_step        = nullptr;
+  void* next_step       = nullptr;
+  reads_complete        = read_instance_field(tutorial_manager, tutorial_ui_field, tutorial_ui) && reads_complete;
+  reads_complete = read_instance_field(tutorial_manager, tutorial_mission_field, evidence.mission) && reads_complete;
+  reads_complete = read_instance_field(tutorial_manager, tutorial_objective_field, objective) && reads_complete;
+  reads_complete = read_instance_field(tutorial_manager, tutorial_data_field, data) && reads_complete;
+  reads_complete = read_instance_field(tutorial_manager, tutorial_component_field, component) && reads_complete;
+  reads_complete = read_instance_field(tutorial_manager, tutorial_items_field, objective_items) && reads_complete;
+  reads_complete = read_instance_field(tutorial_manager, tutorial_end_step_field, end_step) && reads_complete;
+  reads_complete = read_instance_field(tutorial_manager, tutorial_next_step_field, next_step) && reads_complete;
+  reads_complete = read_instance_field(tutorial_manager, tutorial_step_field, evidence.step) && reads_complete;
+  reads_complete = read_instance_field(tutorial_manager, tutorial_step_index_field, state.step_index) && reads_complete;
+  reads_complete =
+      read_instance_field(tutorial_manager, tutorial_next_action_id_field, state.next_action_id) && reads_complete;
+  reads_complete =
+      read_instance_field(tutorial_manager, tutorial_objective_being_cleared_field, state.objective_being_cleared)
+      && reads_complete;
+  reads_complete =
+      read_instance_field(tutorial_manager, tutorial_target_section_field, state.target_section) && reads_complete;
+
+  state.tutorial_ui_open    = tutorial_ui && is_open(tutorial_ui);
+  state.has_mission         = evidence.mission != nullptr;
+  state.has_objective       = objective != nullptr;
+  state.has_data            = data != nullptr;
+  state.has_component       = component != nullptr;
+  state.has_objective_items = objective_items != nullptr;
+  state.has_end_step        = end_step != nullptr;
+  state.has_next_step       = next_step != nullptr;
+  state.step_identity       = reinterpret_cast<uintptr_t>(evidence.step);
+  reads_complete            = read_object_field(evidence.step, "type_", state.step_type) && reads_complete;
+  reads_complete            = read_object_field(evidence.mission, "missionId_", state.mission_id) && reads_complete;
+  reads_complete            = read_object_field(evidence.step, "actionId_", state.action_id) && reads_complete;
+
+  state.evidence_complete = reads_complete;
+  return evidence;
+}
+
+void repair_orphaned_tutorial_shortcut_gate_if_needed(void* shortcuts_manager)
+{
+  static uint64_t  frame                   = 0;
+  static uintptr_t candidate_step_identity = 0;
+  static int       consecutive_samples     = 0;
+
+  if (!RepairOrphanedTutorialShortcutGate() || ScopelyShortcutsPolicy() == ScopelyShortcutPolicy::Off) {
+    frame                   = 0;
+    candidate_step_identity = 0;
+    consecutive_samples     = 0;
+    return;
+  }
+
+  ++frame;
+  if (frame != 1 && frame % kOrphanedTutorialShortcutGateSampleFrames != 0) {
+    return;
+  }
+
+  auto  evidence = collect_orphaned_tutorial_shortcut_evidence(shortcuts_manager);
+  auto& state    = evidence.state;
+  if (!should_repair_orphaned_tutorial_shortcut_gate(state, state.step_identity, 2)) {
+    candidate_step_identity = 0;
+    consecutive_samples     = 0;
+    return;
+  }
+
+  if (candidate_step_identity != state.step_identity) {
+    candidate_step_identity = state.step_identity;
+    consecutive_samples     = 1;
+  } else {
+    ++consecutive_samples;
+  }
+
+  if (!should_repair_orphaned_tutorial_shortcut_gate(state, candidate_step_identity, consecutive_samples)) {
+    return;
+  }
+
+  bool inactive = false;
+  il2cpp_field_static_set_value(evidence.is_active_field, &inactive);
+  const auto tutorial_active_after   = evidence.get_is_active();
+  const auto can_use_shortcuts_after = evidence.get_can_use_shortcuts();
+  if (tutorial_active_after || !can_use_shortcuts_after) {
+    bool active = true;
+    il2cpp_field_static_set_value(evidence.is_active_field, &active);
+    spdlog::error("[Hotkeys] orphaned tutorial shortcut repair rolled back mission_id={} action_id={} "
+                  "tutorial_active_after={} can_use_shortcuts_after={}",
+                  state.mission_id, state.action_id, tutorial_active_after, can_use_shortcuts_after);
+  } else {
+    spdlog::warn("[Hotkeys] repaired orphaned tutorial shortcut gate mission_id={} action_id={} "
+                 "tutorial_active_after={} can_use_shortcuts_after={}",
+                 state.mission_id, state.action_id, tutorial_active_after, can_use_shortcuts_after);
+  }
+
+  candidate_step_identity = 0;
+  consecutive_samples     = 0;
+}
+
 } // namespace
 
 // ─── SPUD Hook Delegates ─────────────────────────────────────────────────────
@@ -255,6 +534,7 @@ void InitializeActions_Hook(auto original, void* _this)
 
 void ShortcutsManager_LateUpdate_Hook(auto original, void* _this)
 {
+  repair_orphaned_tutorial_shortcut_gate_if_needed(_this);
   hotkey_router_refresh_native_shortcut_suppression();
   const auto suppress = hotkey_router_should_suppress_native_shortcuts();
   if (suppress) {
@@ -387,11 +667,12 @@ void InstallHotkeyHooks()
   HookModuleHealth hooks("HotkeyHooks");
 
   spdlog::info("[Hotkeys] startup config installHotkeyHooks={} hotkeys_enabled={} use_scopely_hotkeys={} "
-               "allow_key_fallthrough={} scopely_shortcuts={} original_frame_policy={} frame_owner=FrameTickHooks "
-               "initialize_actions_hook={}",
+               "allow_key_fallthrough={} scopely_shortcuts={} original_frame_policy={} "
+               "repair_orphaned_tutorial_shortcut_gate={} frame_owner=FrameTickHooks initialize_actions_hook={}",
                Config::Get().installHotkeyHooks, Config::Get().hotkeys_enabled, Config::Get().use_scopely_hotkeys,
                AllowKeyFallthrough(), scopely_shortcut_policy_name(ScopelyShortcutsPolicy()),
-               original_frame_policy_name(OriginalFramePolicySetting()), kEnableShortcutInitializeHook);
+               original_frame_policy_name(OriginalFramePolicySetting()), RepairOrphanedTutorialShortcutGate(),
+               kEnableShortcutInitializeHook);
 
   if (kEnableShortcutInitializeHook) {
     auto shortcuts_manager_helper =
