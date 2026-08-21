@@ -52,6 +52,46 @@ const char*           scopely_shortcut_policy_name(ScopelyShortcutPolicy policy)
 const char*           original_frame_policy_name(OriginalFramePolicy policy);
 bool                  hotkey_dispatcher_owns_inputs(bool hotkeys_enabled, ScopelyShortcutPolicy scopely_shortcuts);
 
+struct OrphanedTutorialShortcutGateState {
+  bool      repair_enabled           = false;
+  bool      native_shortcuts_enabled = false;
+  bool      evidence_complete        = false;
+  bool      can_use_shortcuts        = false;
+  bool      actions_enabled          = false;
+  bool      interior_action_enabled  = false;
+  bool      galaxy_action_enabled    = false;
+  bool      video_playing            = false;
+  bool      tutorial_active          = false;
+  bool      tutorial_blocking        = false;
+  bool      tutorial_ui_open         = false;
+  bool      show_keybindings         = false;
+  bool      message_box_visible      = false;
+  bool      touch_blocked            = false;
+  bool      input_focused            = false;
+  bool      popup_visible            = false;
+  bool      plc_offer_open           = false;
+  bool      has_tutorial_manager     = false;
+  bool      has_mission              = false;
+  bool      has_objective            = false;
+  bool      has_data                 = false;
+  bool      has_component            = false;
+  bool      has_objective_items      = false;
+  bool      has_end_step             = false;
+  bool      has_next_step            = false;
+  uintptr_t step_identity            = 0;
+  int       step_index               = -1;
+  int64_t   mission_id               = 0;
+  int64_t   action_id                = 0;
+  int64_t   next_action_id           = 0;
+  int64_t   objective_being_cleared  = 0;
+  int64_t   target_section           = 0;
+  int64_t   step_type                = -1;
+};
+
+// The M94 repair requires the exact observed orphan signature and two consecutive samples of the same step.
+bool should_repair_orphaned_tutorial_shortcut_gate(const OrphanedTutorialShortcutGateState& state,
+                                                   uintptr_t candidate_step_identity, int consecutive_samples);
+
 // Escape-exit policy at the real back-button seam. Returns true when the current
 // Escape-triggered back-button press should be suppressed instead of letting the
 // game open its exit prompt.

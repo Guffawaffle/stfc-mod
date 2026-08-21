@@ -107,6 +107,9 @@ scopely_shortcuts = "off"
 # Original ScreenManager frame policy: mod, fallthrough_unhandled, or fallthrough_all
 original_frame_policy = "mod"
 
+# Repair the M94 orphaned tutorial state that can disable Scopely hotkeys after restart
+repair_orphaned_tutorial_shortcut_gate = false
+
 #  <[============================================================]>
 #
 #        ****                       *        *

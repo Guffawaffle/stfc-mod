@@ -49,6 +49,7 @@ function parseDefaultConfig() {
     ["Buffs", "buffs"],
     ["SystemConfig", "config"],
     ["Control", "control"],
+    ["Input", "input"],
     ["Graphics", "graphics"],
     ["Advanced", "advanced"],
     ["BattleLogDecoder", "battle_log_decoder"],
@@ -547,7 +548,9 @@ function stabilityFor(settingPath) {
       || settingPath.startsWith("advanced.kirshara_queue.")
       || settingPath === "control.allow_key_fallthrough") return "internal";
   if (settingPath.startsWith("patches.")) return "advanced";
-  if (settingPath === "control.enable_experimental" || settingPath.startsWith("advanced.queue.")) return "experimental";
+  if (settingPath === "control.enable_experimental"
+      || settingPath === "input.repair_orphaned_tutorial_shortcut_gate"
+      || settingPath.startsWith("advanced.queue.")) return "experimental";
   return "stable";
 }
 

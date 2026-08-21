@@ -68,6 +68,7 @@ namespace
       "graphics.use_presets_as_default",
       "graphics.zoom",
       "input.original_frame_policy",
+      "input.repair_orphaned_tutorial_shortcut_gate",
       "input.scopely_shortcuts",
       "sidecar.logging.jsonl",
       "sidecar.logging.jsonl_recent_logs",

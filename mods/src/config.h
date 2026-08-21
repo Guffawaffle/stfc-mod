@@ -511,6 +511,11 @@ ScopelyShortcutPolicy ScopelyShortcutsPolicy();
 OriginalFramePolicy OriginalFramePolicySetting();
 
 /**
+ * @brief Whether the guarded M94 orphaned-tutorial shortcut repair is enabled.
+ */
+bool RepairOrphanedTutorialShortcutGate();
+
+/**
  * @brief Whether the file-backed live debug channel is enabled.
  */
 bool LiveDebugChannelEnabled();

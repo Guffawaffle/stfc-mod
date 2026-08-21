@@ -82,6 +82,29 @@ const char* original_frame_policy_name(const OriginalFramePolicy policy)
 bool hotkey_dispatcher_owns_inputs(const bool hotkeys_enabled, const ScopelyShortcutPolicy scopely_shortcuts)
 { return hotkeys_enabled && scopely_shortcuts != ScopelyShortcutPolicy::Native; }
 
+namespace
+{
+constexpr int64_t kM94OrphanedTutorialMissionId = 1463528981;
+constexpr int64_t kM94OrphanedTutorialActionId  = -1401001831;
+} // namespace
+
+bool should_repair_orphaned_tutorial_shortcut_gate(const OrphanedTutorialShortcutGateState& state,
+                                                   const uintptr_t                          candidate_step_identity,
+                                                   const int                                consecutive_samples)
+{
+  return state.repair_enabled && state.native_shortcuts_enabled && state.evidence_complete && !state.can_use_shortcuts
+         && state.actions_enabled && state.interior_action_enabled && state.galaxy_action_enabled
+         && !state.video_playing && state.tutorial_active && !state.tutorial_blocking && !state.tutorial_ui_open
+         && !state.show_keybindings && !state.message_box_visible && !state.touch_blocked && !state.input_focused
+         && !state.popup_visible && !state.plc_offer_open && state.has_tutorial_manager && state.has_mission
+         && !state.has_objective && state.has_data && !state.has_component && !state.has_objective_items
+         && !state.has_end_step && !state.has_next_step && state.step_identity != 0
+         && state.step_identity == candidate_step_identity && state.step_index == 0 && state.target_section == -1
+         && state.mission_id == kM94OrphanedTutorialMissionId && state.action_id == kM94OrphanedTutorialActionId
+         && state.next_action_id == state.action_id
+         && state.objective_being_cleared == -1 && state.step_type == 0 && consecutive_samples >= 2;
+}
+
 bool should_suppress_escape_exit(bool disable_escape_exit, bool escape_pressed, int escape_exit_timer_ms,
                                  int64_t elapsed_ms_since_last_escape_press)
 {
