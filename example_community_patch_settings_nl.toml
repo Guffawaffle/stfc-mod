@@ -87,7 +87,7 @@ use_scopely_hotkeys = false
 enable_experimental = false
 
 [input]
-# Herstelt de verweesde M94-tutorialstatus die Scopely-sneltoetsen na een herstart kan uitschakelen
+# Herstelt de verweesde M94-sneltoetstutorialstatus waardoor CanUseShortcuts na een herstart uitgeschakeld blijft
 repair_orphaned_tutorial_shortcut_gate = false
 
 #  <[==============================================================================================================================================================]>

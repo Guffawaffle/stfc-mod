@@ -87,7 +87,7 @@ use_scopely_hotkeys = false
 enable_experimental = false
 
 [input]
-# Repair the M94 orphaned tutorial state that can disable Scopely hotkeys after restart
+# Repair the orphaned M94 keybind tutorial state that keeps CanUseShortcuts disabled after restart
 repair_orphaned_tutorial_shortcut_gate = false
 
 #  <[===========================================================================================================================]>

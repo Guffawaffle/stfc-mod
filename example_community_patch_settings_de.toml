@@ -87,7 +87,7 @@ use_scopely_hotkeys = false
 enable_experimental = false
 
 [input]
-# Repariert den verwaisten M94-Tutorialstatus, der Scopely-Hotkeys nach einem Neustart deaktivieren kann
+# Repariert den verwaisten M94-Tastenkürzel-Tutorialstatus, durch den CanUseShortcuts nach einem Neustart deaktiviert bleibt
 repair_orphaned_tutorial_shortcut_gate = false
 
 #  <[=========================================================================================================================================]>

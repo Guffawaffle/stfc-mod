@@ -87,7 +87,7 @@ use_scopely_hotkeys = false
 enable_experimental = false
 
 [input]
-# Corrige l’état de tutoriel M94 orphelin qui peut désactiver les raccourcis Scopely après un redémarrage
+# Corrige l’état orphelin du tutoriel des raccourcis M94 qui laisse CanUseShortcuts désactivé après un redémarrage
 repair_orphaned_tutorial_shortcut_gate = false
 
 #  <[=======================================================================================================================================================]>
