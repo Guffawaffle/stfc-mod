@@ -89,7 +89,7 @@ void dispatch_runtime_bound_simple_fleet_action(const input_binding::InputAction
     case input_binding::InputActionId::FleetQueueClear:
       if (Hub::IsInSystemOrGalaxyOrStarbase() && !Hub::IsInChat()) {
         if (auto fleet_bar = ObjectFinder<FleetBarViewController>::Get(); fleet_bar) {
-          ClearFleetActionQueue(fleet_bar);
+          ClearFleetActionQueue(fleet_bar.get());
         }
       }
       break;

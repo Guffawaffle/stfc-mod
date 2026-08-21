@@ -43,7 +43,7 @@ void ChangeNavigationSection(SectionID sectionID)
 bool MoveOfficerCanvas(bool goLeft)
 {
   bool acted = false;
-  for (auto* selector : ObjectFinder<ElementSelectorViewController>::GetAllNonNull()) {
+  for (const auto& selector : ObjectFinder<ElementSelectorViewController>::GetAllNonNull()) {
     if (!selector->isActiveAndEnabled()) {
       continue;
     }

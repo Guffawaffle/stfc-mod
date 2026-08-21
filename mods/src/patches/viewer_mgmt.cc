@@ -34,7 +34,7 @@ static int show_info_pending = 0;
 template <typename T>
 inline bool CanHideViewersOfType()
 {
-  for (auto widget : ObjectFinder<T>::GetAllNonNull()) {
+  for (const auto& widget : ObjectFinder<T>::GetAllNonNull()) {
     const auto visible = widget->_visibilityController != NULL
                          && (widget->_visibilityController->_state == VisibilityState::Visible
                              || widget->_visibilityController->_state == VisibilityState::Show);
@@ -61,7 +61,7 @@ inline bool DidHideViewersOfType()
 {
   const auto objects = ObjectFinder<T>::GetAllNonNull();
   auto       didHide = false;
-  for (auto widget : objects) {
+  for (const auto& widget : objects) {
     auto visbility_controller = widget->_visibilityController;
     if (!visbility_controller) {
       continue;

@@ -62,7 +62,7 @@ bool WindowsModifierPressed(const KeyCode)
 
 bool IsTrackedInputFocused()
 {
-  for (auto* input_field : ObjectFinder<TMP_InputField>::GetAllNonNull()) {
+  for (const auto& input_field : ObjectFinder<TMP_InputField>::GetAllNonNull()) {
     try {
       if (input_field->isFocused) {
         return true;

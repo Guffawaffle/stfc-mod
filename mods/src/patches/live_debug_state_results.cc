@@ -76,7 +76,7 @@ nlohmann::json FleetbarState()
   auto fleet_controller = fleet_bar->_fleetPanelController;
   auto fleet = fleet_controller ? fleet_controller->fleet : nullptr;
 
-  result["pointer"] = pointer_to_string(fleet_bar);
+  result["pointer"] = pointer_to_string(fleet_bar.get());
   result["selectedIndex"] = snapshot.fleet.selectedIndex;
   result["hasController"] = fleet_controller != nullptr;
   result["fleet"] = {{"present", snapshot.fleet.hasFleet}};
@@ -110,7 +110,7 @@ nlohmann::json FleetSlotsState()
     }
   }
 
-  return nlohmann::json{{"fleetBarTracked", fleet_bar != nullptr},
+  return nlohmann::json{{"fleetBarTracked", static_cast<bool>(fleet_bar)},
                         {"slotCount", kFleetIndexMax},
                         {"presentSlotCount", present_count},
                         {"slots", fleet_slots_to_json(slot_observations)}};

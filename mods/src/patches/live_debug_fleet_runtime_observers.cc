@@ -130,20 +130,20 @@ int get_selected_fleet_index(FleetBarViewController* fleet_bar)
 FleetObservation observe_fleetbar()
 {
   auto fleet_bar = GetLatestTrackedObject<FleetBarViewController>();
-  return observe_fleetbar(fleet_bar);
+  return observe_fleetbar(fleet_bar.get());
 }
 
 std::array<FleetSlotObservation, kFleetIndexMax> observe_fleet_slots()
 {
   auto fleet_bar = GetLatestTrackedObject<FleetBarViewController>();
-  return observe_fleet_slots(fleet_bar);
+  return observe_fleet_slots(fleet_bar.get());
 }
 
 FleetRuntimeSnapshot observe_fleet_runtime_snapshot()
 {
   FleetRuntimeSnapshot snapshot;
   auto fleet_bar = GetLatestTrackedObject<FleetBarViewController>();
-  snapshot.fleet = observe_fleetbar(fleet_bar);
-  snapshot.slots = observe_fleet_slots(fleet_bar);
+  snapshot.fleet = observe_fleetbar(fleet_bar.get());
+  snapshot.slots = observe_fleet_slots(fleet_bar.get());
   return snapshot;
 }

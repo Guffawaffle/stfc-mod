@@ -405,7 +405,7 @@ bool hotkey_router_screen_update(ScreenManager* _this)
           auto deferred_generation = DeferredSpaceActionGeneration();
           {
             ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeySpaceAction, ModImpactMonitorEnabled());
-            handled_space_action = ExecuteSpaceAction(fleet_bar, space_action_inputs);
+            handled_space_action = ExecuteSpaceAction(fleet_bar.get(), space_action_inputs);
           }
           if (ModImpactMonitorEnabled()) {
             spdlog::trace("[HotkeyDiag] action=space primary={} secondary={} recall={} repair={} handled={}",

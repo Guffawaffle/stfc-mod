@@ -147,18 +147,18 @@ TargetViewerObservation observe_target_viewer()
   auto prescan_station_target = GetLatestTrackedObject<PreScanStationTargetWidget>();
   auto celestial_viewer = GetLatestTrackedObject<CelestialObjectViewerWidget>();
 
-  observation.preScanTargetTracked = prescan_target != nullptr;
-  observation.preScanStationTargetTracked = prescan_station_target != nullptr;
-  observation.celestialViewerTracked = celestial_viewer != nullptr;
+  observation.preScanTargetTracked = static_cast<bool>(prescan_target);
+  observation.preScanStationTargetTracked = static_cast<bool>(prescan_station_target);
+  observation.celestialViewerTracked = static_cast<bool>(celestial_viewer);
 
   if (prescan_target) {
-    observation.preScanTargetPointer = pointer_to_string(prescan_target);
+    observation.preScanTargetPointer = pointer_to_string(prescan_target.get());
   }
   if (prescan_station_target) {
-    observation.preScanStationTargetPointer = pointer_to_string(prescan_station_target);
+    observation.preScanStationTargetPointer = pointer_to_string(prescan_station_target.get());
   }
   if (celestial_viewer) {
-    observation.celestialViewerPointer = pointer_to_string(celestial_viewer);
+    observation.celestialViewerPointer = pointer_to_string(celestial_viewer.get());
   }
 
   return observation;
@@ -170,14 +170,14 @@ MineViewerObservation observe_mine_viewer()
   auto mining_viewer = GetLatestTrackedObject<MiningObjectViewerWidget>();
   auto star_node_viewer = GetLatestTrackedObject<StarNodeObjectViewerWidget>();
 
-  observation.miningViewerTracked = mining_viewer != nullptr;
-  observation.starNodeViewerTracked = star_node_viewer != nullptr;
+  observation.miningViewerTracked = static_cast<bool>(mining_viewer);
+  observation.starNodeViewerTracked = static_cast<bool>(star_node_viewer);
 
   if (mining_viewer) {
     auto timer = mining_viewer->_miningTimerWidgetContext;
     auto parent = mining_viewer->Parent;
 
-    observation.miningPointer = pointer_to_string(mining_viewer);
+    observation.miningPointer = pointer_to_string(mining_viewer.get());
     observation.enabled = mining_viewer->enabled;
     observation.isActiveAndEnabled = mining_viewer->isActiveAndEnabled;
     observation.isInfoShown = mining_viewer->IsInfoShown;
@@ -196,7 +196,7 @@ MineViewerObservation observe_mine_viewer()
   }
 
   if (star_node_viewer) {
-    observation.starNodePointer = pointer_to_string(star_node_viewer);
+    observation.starNodePointer = pointer_to_string(star_node_viewer.get());
     observation.starNodeEnabled = star_node_viewer->enabled;
     observation.starNodeActiveAndEnabled = star_node_viewer->isActiveAndEnabled;
   }

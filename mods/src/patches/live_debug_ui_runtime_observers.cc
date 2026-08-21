@@ -51,55 +51,55 @@ StationWarningObservation observe_station_warning(const LiveDebugUiObserverTrace
   if (controller) {
     mark_current_poll_visible(trace_hooks);
   }
-  trace_step(trace_hooks, "station/after-get-controller", "observe_station_warning", controller);
-  observation.tracked = controller != nullptr;
+  trace_step(trace_hooks, "station/after-get-controller", "observe_station_warning", controller.get());
+  observation.tracked = static_cast<bool>(controller);
 
   if (!controller) {
     trace_step(trace_hooks, "station/no-controller", "observe_station_warning");
     return observation;
   }
 
-  observation.pointer = pointer_to_string(controller);
+  observation.pointer = pointer_to_string(controller.get());
 
-  trace_step(trace_hooks, "station/before-canvas-context", "observe_station_warning", controller);
+  trace_step(trace_hooks, "station/before-canvas-context", "observe_station_warning", controller.get());
   auto context = controller->CanvasContext;
-  trace_step(trace_hooks, "station/after-canvas-context", "observe_station_warning", controller, context);
+  trace_step(trace_hooks, "station/after-canvas-context", "observe_station_warning", controller.get(), context);
   observation.hasContext = context != nullptr;
   if (!context) {
-    trace_step(trace_hooks, "station/no-context", "observe_station_warning", controller);
+    trace_step(trace_hooks, "station/no-context", "observe_station_warning", controller.get());
     return observation;
   }
 
-  trace_step(trace_hooks, "station/before-target-fields", "observe_station_warning", controller, context);
+  trace_step(trace_hooks, "station/before-target-fields", "observe_station_warning", controller.get(), context);
   observation.targetType = static_cast<int>(context->TargetType);
   observation.targetFleetId = static_cast<uint64_t>(context->TargetFleetId);
-  trace_step(trace_hooks, "station/after-target-fields", "observe_station_warning", controller, context);
+  trace_step(trace_hooks, "station/after-target-fields", "observe_station_warning", controller.get(), context);
 
   if (auto target_user_id = context->TargetUserId; target_user_id) {
-    trace_step(trace_hooks, "station/before-target-user-id", "observe_station_warning", controller, context,
+    trace_step(trace_hooks, "station/before-target-user-id", "observe_station_warning", controller.get(), context,
                target_user_id);
     observation.targetUserId = to_string(target_user_id);
-    trace_step(trace_hooks, "station/after-target-user-id", "observe_station_warning", controller, context,
+    trace_step(trace_hooks, "station/after-target-user-id", "observe_station_warning", controller.get(), context,
                target_user_id);
   }
 
-  trace_step(trace_hooks, "station/before-quick-scan-result", "observe_station_warning", controller, context);
+  trace_step(trace_hooks, "station/before-quick-scan-result", "observe_station_warning", controller.get(), context);
   if (auto quick_scan_result = context->QuickScanResult; quick_scan_result) {
-    trace_step(trace_hooks, "station/after-quick-scan-result", "observe_station_warning", controller, context,
+    trace_step(trace_hooks, "station/after-quick-scan-result", "observe_station_warning", controller.get(), context,
                quick_scan_result);
     observation.quickScanTargetFleetId = static_cast<uint64_t>(quick_scan_result->TargetFleetId);
     if (auto quick_scan_target_id = quick_scan_result->TargetId; quick_scan_target_id) {
-      trace_step(trace_hooks, "station/before-quick-scan-target-id", "observe_station_warning", controller,
+      trace_step(trace_hooks, "station/before-quick-scan-target-id", "observe_station_warning", controller.get(),
                  quick_scan_result, quick_scan_target_id);
       observation.quickScanTargetId = to_string(quick_scan_target_id);
-      trace_step(trace_hooks, "station/after-quick-scan-target-id", "observe_station_warning", controller,
+      trace_step(trace_hooks, "station/after-quick-scan-target-id", "observe_station_warning", controller.get(),
                  quick_scan_result, quick_scan_target_id);
     }
   } else {
-    trace_step(trace_hooks, "station/no-quick-scan-result", "observe_station_warning", controller, context);
+    trace_step(trace_hooks, "station/no-quick-scan-result", "observe_station_warning", controller.get(), context);
   }
 
-  trace_step(trace_hooks, "station/return", "observe_station_warning", controller, context);
+  trace_step(trace_hooks, "station/return", "observe_station_warning", controller.get(), context);
   return observation;
 }
 
@@ -121,7 +121,8 @@ NavigationInteractionObservation observe_navigation_interaction(const LiveDebugU
   }
 
   observation.entries.reserve(controllers.size());
-  for (auto* controller : controllers) {
+  for (const auto& controller_lease : controllers) {
+    auto* controller = controller_lease.get();
     trace_step(trace_hooks, "nav/before-entry", "observe_navigation_interaction", controller);
     NavigationInteractionObservation::Entry entry;
     entry.pointerValue = reinterpret_cast<uintptr_t>(controller);

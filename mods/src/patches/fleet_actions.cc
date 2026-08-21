@@ -325,6 +325,7 @@ struct SpaceActionDiagnostics {
 };
 
 struct VisiblePreScanTargetContext {
+  TrackedObjectLease<PreScanTargetWidget> widget_lease;
   PreScanTargetWidget*     widget                      = nullptr;
   ScanEngageButtonsWidget* scan_engage_buttons_widget  = nullptr;
   BattleTargetData*        target_context              = nullptr;
@@ -337,16 +338,16 @@ struct SpaceActionRuntimeContext {
   int                                      visible_pre_scan_target_count    = 0;
   int                                      resolved_pre_scan_target_count   = 0;
   int                                      unresolved_pre_scan_target_count = 0;
-  MiningObjectViewerWidget*                mining_viewer_widget             = nullptr;
+  TrackedObjectLease<MiningObjectViewerWidget> mining_viewer_widget;
   bool                                     mining_viewer_visible            = false;
   bool                                     mining_scan_available            = false;
-  StarNodeObjectViewerWidget*              star_node_viewer_widget          = nullptr;
+  TrackedObjectLease<StarNodeObjectViewerWidget> star_node_viewer_widget;
   bool                                     star_node_visible                = false;
-  NavigationInteractionUIViewController*   navigation_ui_controller         = nullptr;
+  TrackedObjectLease<NavigationInteractionUIViewController> navigation_ui_controller;
   bool                                     mission_location_set_course      = false;
   bool                                     navigation_interaction_visible   = false;
   bool                                     navigation_set_course_actionable = false;
-  ArmadaObjectViewerWidget*                armada_widget                    = nullptr;
+  TrackedObjectLease<ArmadaObjectViewerWidget> armada_widget;
   bool                                     armada_visible                   = false;
   bool                                     used_pre_scan_fallback           = false;
   uint64_t                                 context_duration_us              = 0;
@@ -527,7 +528,8 @@ bool TryExecuteArmadaAttack(PreScanTargetWidget* pre_scan_widget, ScanEngageButt
 bool DeferredSpaceActionTargetMatches(FleetPlayerData* fleet, PreScanTargetWidget* widget, BattleTargetData* target);
 
 void AppendVisiblePreScanTargetContext(SpaceActionRuntimeContext& runtime_context, FleetPlayerData* fleet,
-                                       PreScanTargetWidget* pre_scan_widget)
+                                       PreScanTargetWidget* pre_scan_widget,
+                                       TrackedObjectLease<PreScanTargetWidget>&& widget_lease = {})
 {
   if (!IsViewerVisible(pre_scan_widget)) {
     return;
@@ -544,7 +546,7 @@ void AppendVisiblePreScanTargetContext(SpaceActionRuntimeContext& runtime_contex
     ++runtime_context.resolved_pre_scan_target_count;
   }
   runtime_context.visible_pre_scan_targets.push_back(
-      {pre_scan_widget, scan_engage_buttons_widget, target_context, target_hull_type,
+      {std::move(widget_lease), pre_scan_widget, scan_engage_buttons_widget, target_context, target_hull_type,
        DeferredSpaceActionTargetMatches(fleet, pre_scan_widget, target_context)});
 }
 
@@ -561,10 +563,11 @@ SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet
     ScopedModImpactTimer fallback_timer(ModImpactProbe::HotkeySpaceActionPreScanFallback, ModImpactMonitorEnabled());
     runtime_context.used_pre_scan_fallback = true;
     const auto fallback_started_at         = std::chrono::steady_clock::now();
-    const auto all_pre_scan_widgets        = ObjectFinder<PreScanTargetWidget>::GetAllNonNull();
+    auto       all_pre_scan_widgets        = ObjectFinder<PreScanTargetWidget>::GetAllNonNull();
     runtime_context.visible_pre_scan_targets.reserve(all_pre_scan_widgets.size());
-    for (auto pre_scan_widget : all_pre_scan_widgets) {
-      AppendVisiblePreScanTargetContext(runtime_context, fleet, pre_scan_widget);
+    for (auto& pre_scan_widget : all_pre_scan_widgets) {
+      auto* widget = pre_scan_widget.get();
+      AppendVisiblePreScanTargetContext(runtime_context, fleet, widget, std::move(pre_scan_widget));
     }
     runtime_context.pre_scan_fallback_duration_us = static_cast<uint64_t>(
         std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - fallback_started_at)
@@ -572,7 +575,7 @@ SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet
   }
 
   runtime_context.mining_viewer_widget  = ObjectFinder<MiningObjectViewerWidget>::Get();
-  runtime_context.mining_viewer_visible = IsViewerVisible(runtime_context.mining_viewer_widget);
+  runtime_context.mining_viewer_visible = IsViewerVisible(runtime_context.mining_viewer_widget.get());
   runtime_context.mining_scan_available = runtime_context.mining_viewer_widget
                                           && runtime_context.mining_viewer_widget->_scanEngageButtonsWidget
                                           && runtime_context.mining_viewer_widget->_scanEngageButtonsWidget->Context;
@@ -583,18 +586,18 @@ SpaceActionRuntimeContext GatherSpaceActionRuntimeContext(FleetPlayerData* fleet
 
   runtime_context.navigation_ui_controller = ObjectFinder<NavigationInteractionUIViewController>::Get();
   runtime_context.mission_location_set_course =
-      IsMissionLocationSetCourseActionable(runtime_context.navigation_ui_controller);
+      IsMissionLocationSetCourseActionable(runtime_context.navigation_ui_controller.get());
   if (runtime_context.navigation_ui_controller) {
     if (auto navigation_context = runtime_context.navigation_ui_controller->CanvasContext; navigation_context) {
       runtime_context.navigation_interaction_visible =
           navigation_context->ValidNavigationInput || navigation_context->ShowSetCourseArm;
       runtime_context.navigation_set_course_actionable =
-          IsNavigationSetCourseActionable(runtime_context.navigation_ui_controller, navigation_context);
+          IsNavigationSetCourseActionable(runtime_context.navigation_ui_controller.get(), navigation_context);
     }
   }
 
   runtime_context.armada_widget  = ObjectFinder<ArmadaObjectViewerWidget>::Get();
-  const auto armada_state        = GetArmadaVisibilityState(runtime_context.armada_widget);
+  const auto armada_state        = GetArmadaVisibilityState(runtime_context.armada_widget.get());
   runtime_context.armada_visible = armada_state == VisibilityState::Visible || armada_state == VisibilityState::Show;
   runtime_context.context_duration_us = static_cast<uint64_t>(
       std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - context_started_at)
@@ -903,8 +906,8 @@ bool HandleShipSelection(int ship_select_request)
       deployment_manager->SetTowRequest(towedFleetId, foundDisco->Id);
     }
   } else {
-    FleetBarViewController* fleet_bar  = nullptr;
-    bool                    can_locate = false;
+    TrackedObjectLease<FleetBarViewController> fleet_bar;
+    bool                                        can_locate = false;
     {
       ScopedModImpactTimer impact_timer(ModImpactProbe::HotkeyShipFleetBarLookup, ModImpactMonitorEnabled());
       fleet_bar  = ObjectFinder<FleetBarViewController>::Get();

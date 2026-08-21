@@ -19,7 +19,6 @@
 
 #include "il2cpp-functions.h"
 #include "patches/il2cpp_safety.h"
-#include "patches/object_tracker_core.h"
 
 #include <il2cpp-api-types.h>
 #include <il2cpp-class-internals.h>
@@ -27,6 +26,7 @@
 #include <il2cpp-object-internals.h>
 #include <utils/Il2CppHashMap.h>
 
+#include <utility>
 #include <vector>
 
 #if !_WIN32
@@ -517,60 +517,125 @@ template <typename T> inline T* il2cpp_get_array_element(Il2CppArray* array, siz
   return reinterpret_cast<T*>(sized_array->vector[index]);
 }
 
-/** @brief Global tracked-object core, keyed by Il2CppClass*. */
-extern ObjectTrackerCore<Il2CppClass*, uintptr_t> tracked_objects;
+namespace object_tracker
+{
+/** @brief Move-only strong GC handle that keeps a tracked managed object alive while native code uses it. */
+class ObjectLeaseHandle
+{
+public:
+  ObjectLeaseHandle() = default;
+
+  explicit ObjectLeaseHandle(Il2CppGCHandle handle)
+      : handle_(handle)
+  {
+  }
+
+  ObjectLeaseHandle(const ObjectLeaseHandle&)            = delete;
+  ObjectLeaseHandle& operator=(const ObjectLeaseHandle&) = delete;
+
+  ObjectLeaseHandle(ObjectLeaseHandle&& other) noexcept
+      : handle_(std::exchange(other.handle_, nullptr))
+  {
+  }
+
+  ObjectLeaseHandle& operator=(ObjectLeaseHandle&& other) noexcept
+  {
+    if (this != &other) {
+      reset();
+      handle_ = std::exchange(other.handle_, nullptr);
+    }
+    return *this;
+  }
+
+  ~ObjectLeaseHandle()
+  { reset(); }
+
+  Il2CppObject* get() const
+  { return handle_ ? il2cpp_gchandle_get_target(handle_) : nullptr; }
+
+private:
+  void reset()
+  {
+    if (handle_) {
+      il2cpp_gchandle_free(handle_);
+      handle_ = nullptr;
+    }
+  }
+
+  Il2CppGCHandle handle_ = nullptr;
+};
+
+ObjectLeaseHandle              AcquireLatest(Il2CppClass* klass);
+std::vector<ObjectLeaseHandle> AcquireAll(Il2CppClass* klass);
+} // namespace object_tracker
+
+/** @brief Typed RAII lease for a managed object returned by ObjectFinder. */
+template <typename T> class TrackedObjectLease
+{
+public:
+  TrackedObjectLease() = default;
+
+  explicit TrackedObjectLease(object_tracker::ObjectLeaseHandle&& handle)
+      : handle_(std::move(handle))
+  {
+  }
+
+  TrackedObjectLease(const TrackedObjectLease&)                = delete;
+  TrackedObjectLease& operator=(const TrackedObjectLease&)     = delete;
+  TrackedObjectLease(TrackedObjectLease&&) noexcept            = default;
+  TrackedObjectLease& operator=(TrackedObjectLease&&) noexcept = default;
+
+  T* get() const
+  { return reinterpret_cast<T*>(handle_.get()); }
+
+  T* operator->() const
+  { return get(); }
+
+  T& operator*() const
+  { return *get(); }
+
+  explicit operator bool() const
+  { return get() != nullptr; }
+
+private:
+  object_tracker::ObjectLeaseHandle handle_;
+};
 
 /**
  * @brief Look up live managed objects of a given type from the global tracked_objects map.
  *
- * The game's object-tracking hooks populate tracked_objects whenever a managed
- * object of interest is constructed or destroyed. ObjectFinder provides typed
- * access into that map.
+ * The game's object-tracking hooks retain weak handles for object identities.
+ * ObjectFinder promotes matching targets to strong, scoped leases so a forced
+ * collection cannot invalidate an object while native code is using it.
  *
  * @tparam T A prime/ struct type that exposes a static get_class_helper() method.
  */
 template <typename T> class ObjectFinder
 {
 public:
-  static T* Get()
-  {
-    return reinterpret_cast<T*>(tracked_objects.latest_for_class(T::get_class_helper().get_cls()));
-  }
+  static TrackedObjectLease<T> Get()
+  { return TrackedObjectLease<T>{object_tracker::AcquireLatest(T::get_class_helper().get_cls())}; }
 
-  static std::vector<T*> GetAll()
+  static std::vector<TrackedObjectLease<T>> GetAll()
   {
-    auto objects = tracked_objects.objects_for_class(T::get_class_helper().get_cls());
+    auto handles = object_tracker::AcquireAll(T::get_class_helper().get_cls());
 
-    std::vector<T*> typed_objects;
-    typed_objects.reserve(objects.size());
-    for (const auto object : objects) {
-      typed_objects.push_back(reinterpret_cast<T*>(object));
+    std::vector<TrackedObjectLease<T>> objects;
+    objects.reserve(handles.size());
+    for (auto& handle : handles) {
+      objects.emplace_back(std::move(handle));
     }
-    return typed_objects;
+    return objects;
   }
 
   /**
    * @brief Return the tracked snapshot with null entries filtered out.
    *
-   * The tracker stores raw pointer identities only; callers still own any
-   * nested field validation before dereference.
+   * The tracker stores weak handles and only returns targets that can be
+   * promoted to scoped strong leases.
    */
-  static std::vector<T*> GetAllNonNull()
-  {
-    auto objects = tracked_objects.objects_for_class(T::get_class_helper().get_cls());
-
-    std::vector<T*> typed_objects;
-    typed_objects.reserve(objects.size());
-    for (const auto object : objects) {
-      if (!object) {
-        continue;
-      }
-
-      typed_objects.push_back(reinterpret_cast<T*>(object));
-    }
-
-    return typed_objects;
-  }
+  static std::vector<TrackedObjectLease<T>> GetAllNonNull()
+  { return GetAll(); }
 };
 
 /**

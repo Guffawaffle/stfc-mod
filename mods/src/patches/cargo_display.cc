@@ -232,7 +232,7 @@ void RefreshVisibleCargoDisplays()
   auto hidden_panels   = 0;
 
   const auto pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAllNonNull();
-  for (auto* pre_scan_widget : pre_scan_widgets) {
+  for (const auto& pre_scan_widget : pre_scan_widgets) {
     if (!pre_scan_widget || !VisibleOrShowing(pre_scan_widget->_visibilityController)) {
       continue;
     }
@@ -242,12 +242,12 @@ void RefreshVisibleCargoDisplays()
     auto rewards_widget = pre_scan_widget->_rewardsButtonWidget;
     if (!rewards_widget || !rewards_widget->_rewardsController) {
       const auto decision = EvaluateCargoDecision(rewards_widget);
-      LogCargoDecision("refresh-missing-rewards", pre_scan_widget, rewards_widget, decision);
+      LogCargoDecision("refresh-missing-rewards", pre_scan_widget.get(), rewards_widget, decision);
       continue;
     }
 
     const auto decision = EvaluateCargoDecision(rewards_widget);
-    LogCargoDecision("refresh-visible", pre_scan_widget, rewards_widget, decision);
+    LogCargoDecision("refresh-visible", pre_scan_widget.get(), rewards_widget, decision);
     if (decision.show) {
       rewards_widget->_rewardsController->Show(true);
       SetInfoPending(1);
