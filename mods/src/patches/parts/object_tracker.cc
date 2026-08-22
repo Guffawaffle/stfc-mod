@@ -9,7 +9,7 @@
  *
  * Architecture:
  *  - track_ctor: hooks .ctor to register new objects and install a GC finalizer.
- *  - track_destroy / track_free: hooks OnDestroy to remove objects from tracking.
+ *  - track_destroy: hooks OnDestroy to remove objects from tracking.
  *  - calc_liveness_hook: runs after the GC liveness pass to evict objects the
  *    GC has marked for collection, keeping our map consistent.
  *  - GC_register_finalizer_inner: resolved via signature scan so we can register
@@ -55,22 +55,29 @@
 
 // ─── Tracking State ──────────────────────────────────────────────────────────
 
-std::mutex                                      tracked_objects_mutex;
-ObjectTrackerCore<Il2CppClass*, uintptr_t>      tracked_objects;
+std::mutex                                 tracked_objects_mutex;
+ObjectTrackerCore<Il2CppClass*, uintptr_t> tracked_objects;
 
-using FinalizerCallback = void (*)(void* object, void* client_data);
+using FinalizerCallback          = void (*)(void* object, void* client_data);
+using FinalizerMarkCallback      = void (*)(void* object);
+using RegisterFinalizerInnerFunc = void (*)(uintptr_t object, FinalizerCallback callback, void* client_data,
+                                            FinalizerCallback* old_callback, void** old_client_data,
+                                            FinalizerMarkCallback mark_callback);
 
 struct PreviousFinalizer {
   FinalizerCallback callback = nullptr;
   void*             data     = nullptr;
 };
 
-static constexpr size_t kObjectTrackerMaxClassWalkDepth = 64;
+static constexpr size_t                             kObjectTrackerMaxClassWalkDepth = 64;
 static std::unordered_map<void*, PreviousFinalizer> previous_finalizers;
 
+// Unity's Boehm GC fork stores this sixth argument in each finalization entry and invokes it from GC_finalize.
+// IL2CPP registers its own finalizers through GC_register_finalizer_no_order, which supplies an equivalent no-op.
+void gc_finalize_mark_proc_noop(void*) {}
+
 /// Function pointer resolved at runtime via signature scan (Boehm GC internal).
-void (*GC_register_finalizer_inner)(unsigned __int64 obj, void (*fn)(void*, void*), void* cd,
-                                    void (**ofn)(void*, void*), void** ocd) = nullptr;
+RegisterFinalizerInnerFunc GC_register_finalizer_inner = nullptr;
 
 static Il2CppClass* NormalizeClassPointer(Il2CppClass* klass)
 {
@@ -107,7 +114,7 @@ static void restore_previous_finalizer(void* object, const PreviousFinalizer& pr
   FinalizerCallback ignoredCallback = nullptr;
   void*             ignoredData     = nullptr;
   GC_register_finalizer_inner(reinterpret_cast<uintptr_t>(object), previous.callback, previous.data, &ignoredCallback,
-                              &ignoredData);
+                              &ignoredData, gc_finalize_mark_proc_noop);
 }
 
 static std::string ClassPointerToString(const Il2CppClass* klass)
@@ -222,31 +229,6 @@ void remove_from_tracking_all(void* _this)
   tracked_objects.remove_object_from_all(uintptr_t(_this));
 }
 
-/** @brief Removes an object from tracking by walking the class hierarchy upward. */
-void remove_from_tracking_recursive(Il2CppClass* klass, void* _this)
-{
-  eastl::unordered_set<Il2CppClass*> visited;
-  size_t                             depth = 0;
-
-  while (auto* normalized = NormalizeClassPointer(klass)) {
-    if (depth++ >= kObjectTrackerMaxClassWalkDepth) {
-      spdlog::warn("Object tracker stopped removing parent classes for {} after {} levels", _this,
-                   kObjectTrackerMaxClassWalkDepth);
-      return;
-    }
-
-    if (visited.find(normalized) != visited.end()) {
-      spdlog::warn("Object tracker detected a class hierarchy cycle at {} while removing {}", SafeClassName(normalized),
-                   _this);
-      return;
-    }
-
-    visited.emplace(normalized);
-    tracked_objects.remove(normalized, uintptr_t(_this));
-    klass = normalized->parent;
-  }
-}
-
 // ─── GC Integration ─────────────────────────────────────────────────────────
 
 /** @brief GC finalizer callback — removes the object from tracking when collected. */
@@ -289,6 +271,10 @@ void* track_ctor(auto original, void* _this)
 
   std::scoped_lock lk{tracked_objects_mutex};
   auto             cls = (Il2CppObject*)_this;
+  if (!cls->klass) {
+    return obj;
+  }
+
   spdlog::trace("Tracking {}({})", _this, SafeClassName(cls->klass));
   if (!GC_register_finalizer_inner) {
     spdlog::warn("Object tracker cannot register GC finalizer for {}({}); resolver is unavailable", _this,
@@ -299,7 +285,8 @@ void* track_ctor(auto original, void* _this)
 
   FinalizerCallback oldCallback = nullptr;
   void*             oldData     = nullptr;
-  GC_register_finalizer_inner(reinterpret_cast<uintptr_t>(_this), track_finalizer, nullptr, &oldCallback, &oldData);
+  GC_register_finalizer_inner(reinterpret_cast<uintptr_t>(_this), track_finalizer, nullptr, &oldCallback, &oldData,
+                              gc_finalize_mark_proc_noop);
   if (oldCallback && oldCallback != track_finalizer) {
     spdlog::warn("Object tracker is chaining existing GC finalizer for {}({})", _this, SafeClassName(cls->klass));
     previous_finalizers[_this] = PreviousFinalizer{oldCallback, oldData};
@@ -330,20 +317,6 @@ void track_destroy(auto original, Il2CppObject* _this, uint64_t a2, uint64_t a3)
   }
   restore_previous_finalizer(_this, previous);
   return original(_this, a2, a3);
-}
-
-/** @brief Hook: il2cpp_object_free — removes the object from tracking before deallocation. */
-void track_free(auto original, void* _this)
-{
-  PreviousFinalizer previous{};
-  if (_this != nullptr) {
-    std::scoped_lock lk{tracked_objects_mutex};
-    remove_from_tracking_all(_this);
-    previous = take_previous_finalizer_locked(_this);
-  }
-
-  restore_previous_finalizer(_this, previous);
-  return original(_this);
 }
 
 /**
@@ -482,8 +455,15 @@ void InstallObjectTrackers()
 #endif
 #endif
 
+  if (GC_register_finalizer_inner_matches.size() == 0) {
+    spdlog::warn("Unable to resolve GC_register_finalizer_inner; object finalizers disabled");
+    hooks.log_summary();
+    return;
+  }
+
   const auto GC_register_finalizer_inner_match = GC_register_finalizer_inner_matches.get(0);
-  GC_register_finalizer_inner = (decltype(GC_register_finalizer_inner))GC_register_finalizer_inner_match.address();
+  GC_register_finalizer_inner =
+      reinterpret_cast<RegisterFinalizerInnerFunc>(GC_register_finalizer_inner_match.address());
   hooks.log_summary();
 }
 
