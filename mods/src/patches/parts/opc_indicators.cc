@@ -203,6 +203,7 @@ void destroy_game_object(GameObject* game_object)
     return;
   }
 
+  game_object->SetActive(false);
   static auto object_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Object");
   static auto destroy       = object_helper.GetMethodInfo("Destroy", 1);
   void*       args[1]       = {game_object};
@@ -595,14 +596,21 @@ void* create_ui_component(const char* name, Transform* parent, IL2CppClassHelper
   bool  world_position_stays = false;
   void* parent_args[2]       = {parent, &world_position_stays};
   if (!transform || !invoke_void(set_parent, transform, parent_args, "Transform.SetParent")) {
+    destroy_game_object(game_object);
     il2cpp_gchandle_free(handle);
     return nullptr;
   }
 
-  void* component_type    = component_helper.GetType();
+  void* component_type = component_helper.GetType();
+  if (!component_type) {
+    destroy_game_object(game_object);
+    il2cpp_gchandle_free(handle);
+    return nullptr;
+  }
   void* component_args[1] = {component_type};
   auto* component         = invoke(add_component, game_object, component_args, operation);
   if (!component) {
+    destroy_game_object(game_object);
     il2cpp_gchandle_free(handle);
     return nullptr;
   }
@@ -736,21 +744,50 @@ void log_opc_eta(FleetPlayerData* fleet, const FleetOpcStatus& status, const std
   previous                      = {fleet_id, display};
   if (display.empty()) {
     if (previously_visible) {
-      spdlog::info("[OpcIndicators] slot={} fleet={} opcEta=hidden", slot, fleet_id);
+      spdlog::debug("[OpcIndicators] slot={} fleet={} opcEta=hidden", slot, fleet_id);
     }
     return;
   }
 
-  spdlog::info(
-      "[OpcIndicators] slot={} fleet={} cargo={:.0f} protected={:.0f} ratePerSecond={:.3f} opc={} etaSeconds={} label='{}'",
-      slot, fleet_id, status.current_cargo, status.protected_limit, status.rate_per_second, status.opc,
-      status.eta_seconds, display);
+  spdlog::debug("[OpcIndicators] slot={} fleet={} cargo={:.0f} protected={:.0f} ratePerSecond={:.3f} opc={} "
+                "etaSeconds={} label='{}'",
+                slot, fleet_id, status.current_cargo, status.protected_limit, status.rate_per_second, status.opc,
+                status.eta_seconds, display);
 }
 
 int64_t opc_eta_now_milliseconds()
 {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
       .count();
+}
+
+void hide_opc_eta(Transform* label_anchor)
+{
+  if (!label_anchor) {
+    return;
+  }
+  if (auto* transform = direct_child_named(label_anchor, kOpcEtaLabelName); transform && transform->gameObject) {
+    transform->gameObject->SetActive(false);
+  }
+  if (auto* transform = direct_child_named(label_anchor, kOpcEtaBackgroundName); transform && transform->gameObject) {
+    transform->gameObject->SetActive(false);
+  }
+}
+
+void reset_opc_eta_widget(void* fleet_state_widget)
+{
+  if (!fleet_state_widget) {
+    return;
+  }
+  for (int slot = 0; slot < kFleetSlotCount; ++slot) {
+    if (s_opc_eta_render_states[slot].widget == fleet_state_widget) {
+      s_opc_eta_render_states[slot]          = {};
+      s_last_opc_eta_log_states[slot]        = {};
+      s_last_opc_eta_refresh_fleet_ids[slot] = 0;
+      s_last_opc_eta_refresh_widgets[slot]   = nullptr;
+      s_last_opc_eta_refresh_ms[slot]        = 0;
+    }
+  }
 }
 
 bool opc_eta_refresh_due(void* fleet_state_widget, FleetPlayerData* fleet)
@@ -775,16 +812,17 @@ bool opc_eta_refresh_due(void* fleet_state_widget, FleetPlayerData* fleet)
 
 void update_opc_eta_label(void* fleet_state_widget, FleetPlayerData* fleet, Transform* known_label_anchor = nullptr)
 {
+  auto* label_anchor = known_label_anchor ? known_label_anchor : fleet_state_widget_label_anchor(fleet_state_widget);
   if (!fleet_state_widget || !fleet) {
+    hide_opc_eta(label_anchor);
+    reset_opc_eta_widget(fleet_state_widget);
     return;
   }
   const auto slot = fleet->Index;
   if (slot < 0 || slot >= kFleetSlotCount) {
     return;
   }
-  const bool can_create_missing_label =
-      known_label_anchor && (!s_opc_eta_render_states[slot].label || !s_opc_eta_render_states[slot].background);
-  if (!can_create_missing_label && !opc_eta_refresh_due(fleet_state_widget, fleet)) {
+  if (!opc_eta_refresh_due(fleet_state_widget, fleet)) {
     return;
   }
 
@@ -799,7 +837,6 @@ void update_opc_eta_label(void* fleet_state_widget, FleetPlayerData* fleet, Tran
     render.widget   = fleet_state_widget;
   }
 
-  auto* label_anchor = known_label_anchor ? known_label_anchor : fleet_state_widget_label_anchor(fleet_state_widget);
   if (!render.background) {
     render.background = find_opc_eta_background(label_anchor);
   }
@@ -828,6 +865,9 @@ void update_opc_eta_label(void* fleet_state_widget, FleetPlayerData* fleet, Tran
     render.background = create_opc_eta_background(label_anchor, selected);
   }
   if (!render.label) {
+    if (render.background) {
+      render.background->SetActive(false);
+    }
     render.label      = create_opc_eta_label(label_anchor, selected);
     render.background = find_opc_eta_background(label_anchor);
   }
@@ -836,9 +876,9 @@ void update_opc_eta_label(void* fleet_state_widget, FleetPlayerData* fleet, Tran
   if (!render.label || !label_object) {
     return;
   }
-  label_object->SetActive(true);
+  label_object->SetActive(false);
   if (render.background) {
-    render.background->SetActive(true);
+    render.background->SetActive(false);
   }
   if (!render.layout_initialized || render.selected != selected) {
     auto*      background_image      = opc_eta_background_image(render.background);
@@ -847,22 +887,30 @@ void update_opc_eta_label(void* fleet_state_widget, FleetPlayerData* fleet, Tran
     const bool label_configured      = configure_opc_eta_label(render.label, label_transform, selected);
     render.layout_initialized        = label_configured && background_configured;
     render.selected                  = selected;
-  }
-  if (render.display == display) {
-    return;
-  }
-
-  static auto tmp_helper = il2cpp_get_class_helper("Unity.TextMeshPro", "TMPro", "TMP_Text");
-  static auto set_text   = tmp_helper.GetMethodInfo("set_text", 1);
-  if (!set_text) {
-    return;
+    if (!render.layout_initialized) {
+      return;
+    }
   }
 
-  const auto desired = "<b>" + display + "</b>";
-  void*      args[1] = {il2cpp_string_new(desired.c_str())};
-  if (invoke_void(set_text, render.label, args, "TMP_Text.set_text")) {
+  if (render.display != display) {
+    static auto tmp_helper = il2cpp_get_class_helper("Unity.TextMeshPro", "TMPro", "TMP_Text");
+    static auto set_text   = tmp_helper.GetMethodInfo("set_text", 1);
+    if (!set_text) {
+      return;
+    }
+
+    const auto desired = "<b>" + display + "</b>";
+    void*      args[1] = {il2cpp_string_new(desired.c_str())};
+    if (!invoke_void(set_text, render.label, args, "TMP_Text.set_text")) {
+      return;
+    }
     render.display = display;
   }
+
+  if (render.background) {
+    render.background->SetActive(true);
+  }
+  label_object->SetActive(true);
 }
 
 FleetPlayerData* fleet_state_widget_context(void* self)
@@ -905,6 +953,13 @@ void FleetStateWidget_SetWidgetData_Hook(auto original, void* self)
   update_opc_eta_label(self, fleet);
 }
 
+void FleetStateWidget_ClearWidgetData_Hook(auto original, void* self)
+{
+  hide_opc_eta(fleet_state_widget_label_anchor(self));
+  reset_opc_eta_widget(self);
+  original(self);
+}
+
 void FleetbarFlagWidget_SetWidgetData_Hook(auto original, void* self)
 {
   original(self);
@@ -927,7 +982,9 @@ void FleetLocalViewController_BindDataContext_Hook(auto original, void* self, vo
   if (Config::Get().highlight_opc_fleets) {
     update_opc_highlight(opc_anchor_from_tile(tile_transform), fleet);
   }
-  update_opc_eta_label(fleet_state_widget_from_tile(self), fleet, opc_anchor_from_tile(tile_transform));
+  if (Config::Get().fleet_hud_opc_eta) {
+    update_opc_eta_label(fleet_state_widget_from_tile(self), fleet, opc_anchor_from_tile(tile_transform));
+  }
 }
 
 void FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook(auto original, void* self, int32_t dirty_flags)
@@ -938,7 +995,9 @@ void FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook(auto original, vo
   if (Config::Get().highlight_opc_fleets) {
     update_opc_highlight(opc_anchor_from_tile(tile_transform), fleet);
   }
-  update_opc_eta_label(fleet_state_widget_from_tile(self), fleet, opc_anchor_from_tile(tile_transform));
+  if (Config::Get().fleet_hud_opc_eta) {
+    update_opc_eta_label(fleet_state_widget_from_tile(self), fleet, opc_anchor_from_tile(tile_transform));
+  }
 }
 
 } // namespace
@@ -951,50 +1010,75 @@ void InstallOpcIndicatorHooks()
 
   const bool use_opc_highlight = Config::Get().highlight_opc_fleets;
   const bool use_opc_eta       = Config::Get().fleet_hud_opc_eta;
+  if (!use_opc_highlight && !use_opc_eta) {
+    return;
+  }
+
+  auto fleet_local_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Ships", "FleetLocalViewController");
+  auto bind_data_context =
+      fleet_local_helper.isValidHelper() ? fleet_local_helper.GetMethod("BindDataContext", 2) : nullptr;
+  auto cargo_updated =
+      fleet_local_helper.isValidHelper() ? fleet_local_helper.GetMethod("OnCurrentCargoReactiveEvent", 1) : nullptr;
+  if (!fleet_local_helper.isValidHelper()) {
+    ErrorMsg::MissingHelper("Ships", "FleetLocalViewController");
+  } else {
+    if (!bind_data_context) {
+      ErrorMsg::MissingMethod("FleetLocalViewController", "BindDataContext");
+    }
+    if (!cargo_updated) {
+      ErrorMsg::MissingMethod("FleetLocalViewController", "OnCurrentCargoReactiveEvent");
+    }
+  }
+  const bool local_ready = bind_data_context && cargo_updated;
+
+  void* state_set   = nullptr;
+  void* state_clear = nullptr;
   if (use_opc_eta) {
-    auto helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "FleetStateWidget");
-    if (!helper.isValidHelper()) {
+    auto state_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "FleetStateWidget");
+    if (!state_helper.isValidHelper()) {
       ErrorMsg::MissingHelper("HUD", "FleetStateWidget");
-    } else if (auto method = helper.GetMethod("SetWidgetData"); method) {
-      SPUD_STATIC_DETOUR(method, FleetStateWidget_SetWidgetData_Hook);
     } else {
-      ErrorMsg::MissingMethod("FleetStateWidget", "SetWidgetData");
+      state_set   = state_helper.GetMethod("SetWidgetData");
+      state_clear = state_helper.GetMethod("ClearWidgetData");
+      if (!state_set) {
+        ErrorMsg::MissingMethod("FleetStateWidget", "SetWidgetData");
+      }
+      if (!state_clear) {
+        ErrorMsg::MissingMethod("FleetStateWidget", "ClearWidgetData");
+      }
     }
   }
 
-  if (use_opc_highlight || use_opc_eta) {
+  void* flag_set   = nullptr;
+  void* flag_clear = nullptr;
+  if (use_opc_highlight) {
     auto flag_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "FleetbarFlagWidget");
-    auto fleet_local_helper =
-        il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Ships", "FleetLocalViewController");
-    if (use_opc_highlight && !flag_helper.isValidHelper()) {
+    if (!flag_helper.isValidHelper()) {
       ErrorMsg::MissingHelper("HUD", "FleetbarFlagWidget");
-    } else if (!fleet_local_helper.isValidHelper()) {
-      ErrorMsg::MissingHelper("Ships", "FleetLocalViewController");
     } else {
-      auto set_widget_data   = use_opc_highlight ? flag_helper.GetMethod("SetWidgetData") : nullptr;
-      auto clear_widget_data = use_opc_highlight ? flag_helper.GetMethod("ClearWidgetData") : nullptr;
-      auto bind_data_context = fleet_local_helper.GetMethod("BindDataContext", 2);
-      auto cargo_updated     = fleet_local_helper.GetMethod("OnCurrentCargoReactiveEvent", 1);
-      if (use_opc_highlight && !set_widget_data) {
+      flag_set   = flag_helper.GetMethod("SetWidgetData");
+      flag_clear = flag_helper.GetMethod("ClearWidgetData");
+      if (!flag_set) {
         ErrorMsg::MissingMethod("FleetbarFlagWidget", "SetWidgetData");
       }
-      if (use_opc_highlight && !clear_widget_data) {
+      if (!flag_clear) {
         ErrorMsg::MissingMethod("FleetbarFlagWidget", "ClearWidgetData");
       }
-      if (!cargo_updated) {
-        ErrorMsg::MissingMethod("FleetLocalViewController", "OnCurrentCargoReactiveEvent");
-      }
-      if (!bind_data_context) {
-        ErrorMsg::MissingMethod("FleetLocalViewController", "BindDataContext");
-      }
-      if (use_opc_highlight && set_widget_data && clear_widget_data) {
-        SPUD_STATIC_DETOUR(clear_widget_data, FleetbarFlagWidget_ClearWidgetData_Hook);
-        SPUD_STATIC_DETOUR(set_widget_data, FleetbarFlagWidget_SetWidgetData_Hook);
-      }
-      if (bind_data_context && cargo_updated) {
-        SPUD_STATIC_DETOUR(bind_data_context, FleetLocalViewController_BindDataContext_Hook);
-        SPUD_STATIC_DETOUR(cargo_updated, FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook);
-      }
     }
+  }
+
+  const bool eta_ready       = use_opc_eta && local_ready && state_set && state_clear;
+  const bool highlight_ready = use_opc_highlight && local_ready && flag_set && flag_clear;
+  if (eta_ready) {
+    SPUD_STATIC_DETOUR(state_clear, FleetStateWidget_ClearWidgetData_Hook);
+    SPUD_STATIC_DETOUR(state_set, FleetStateWidget_SetWidgetData_Hook);
+  }
+  if (highlight_ready) {
+    SPUD_STATIC_DETOUR(flag_clear, FleetbarFlagWidget_ClearWidgetData_Hook);
+    SPUD_STATIC_DETOUR(flag_set, FleetbarFlagWidget_SetWidgetData_Hook);
+  }
+  if (eta_ready || highlight_ready) {
+    SPUD_STATIC_DETOUR(bind_data_context, FleetLocalViewController_BindDataContext_Hook);
+    SPUD_STATIC_DETOUR(cargo_updated, FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook);
   }
 }
