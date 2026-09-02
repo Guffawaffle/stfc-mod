@@ -952,6 +952,16 @@ void FleetStateWidget_SetWidgetData_Hook(auto original, void* self)
   update_opc_eta_label(self, fleet_state_widget_context(self));
 }
 
+void FleetStateWidget_ClearWidgetData_Hook(auto original, void* self)
+{
+  auto*      fleet        = fleet_state_widget_context(self);
+  auto*      label_anchor = fleet_state_widget_label_anchor(self);
+  const auto slot         = fleet ? fleet->Index : -1;
+  original(self);
+  hide_opc_eta(label_anchor);
+  reset_opc_eta_slot(slot);
+}
+
 void FleetbarFlagWidget_SetWidgetData_Hook(auto original, void* self)
 {
   original(self);
@@ -970,15 +980,15 @@ void FleetLocalViewController_BindDataContext_Hook(auto original, void* self, vo
 {
   original(self, provider, data_context);
 
-  auto*      tile_transform = component_transform(self);
-  auto*      fleet          = fleet_local_view_fleet(self);
-  const auto slot           = fleet ? fleet->Index : -1;
-  reset_opc_eta_slot(slot);
+  auto* tile_transform = component_transform(self);
+  auto* label_anchor   = opc_anchor_from_tile(tile_transform);
+  auto* fleet          = fleet_local_view_fleet(self);
   if (s_highlight_enabled) {
-    update_opc_highlight(opc_anchor_from_tile(tile_transform), fleet);
+    update_opc_highlight(label_anchor, fleet);
   }
-  if (s_eta_enabled) {
-    update_opc_eta_label(self, fleet, opc_anchor_from_tile(tile_transform));
+  if (s_eta_enabled && label_anchor) {
+    reset_opc_eta_slot(fleet ? fleet->Index : -1);
+    update_opc_eta_label(self, fleet, label_anchor);
   }
 }
 
@@ -999,7 +1009,7 @@ void FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook(auto original, vo
 
 void InstallOpcIndicatorHooks()
 {
-#if !defined(_WIN32) && !defined(__APPLE__)
+#if !defined(_WIN32)
   return;
 #endif
 
@@ -1027,15 +1037,20 @@ void InstallOpcIndicatorHooks()
   }
   const bool local_ready = bind_data_context && cargo_updated;
 
-  const MethodInfo* state_set = nullptr;
+  const MethodInfo* state_set   = nullptr;
+  const MethodInfo* state_clear = nullptr;
   if (use_opc_eta) {
     auto state_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "FleetStateWidget");
     if (!state_helper.isValidHelper()) {
       ErrorMsg::MissingHelper("HUD", "FleetStateWidget");
     } else {
-      state_set = resolve_instance_void(state_helper, "SetWidgetData", 0);
+      state_set   = resolve_instance_void(state_helper, "SetWidgetData", 0);
+      state_clear = resolve_instance_void(state_helper, "ClearWidgetData", 0);
       if (!state_set) {
         ErrorMsg::MissingMethod("FleetStateWidget", "SetWidgetData");
+      }
+      if (!state_clear) {
+        ErrorMsg::MissingMethod("FleetStateWidget", "ClearWidgetData");
       }
     }
   }
@@ -1058,9 +1073,10 @@ void InstallOpcIndicatorHooks()
     }
   }
 
-  s_eta_enabled       = use_opc_eta && local_ready && state_set;
+  s_eta_enabled       = use_opc_eta && local_ready && state_set && state_clear;
   s_highlight_enabled = use_opc_highlight && local_ready && flag_set && flag_clear;
   if (s_eta_enabled) {
+    SPUD_STATIC_DETOUR(state_clear->methodPointer, FleetStateWidget_ClearWidgetData_Hook);
     SPUD_STATIC_DETOUR(state_set->methodPointer, FleetStateWidget_SetWidgetData_Hook);
   }
   if (s_highlight_enabled) {
