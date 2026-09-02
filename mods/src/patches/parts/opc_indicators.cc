@@ -25,6 +25,8 @@ constexpr const char* kOpcEtaLabelName      = "CommunityOpcEtaLabel";
 constexpr const char* kOpcEtaBackgroundName = "CommunityOpcEtaBackground";
 constexpr int         kFleetSlotCount       = 10;
 constexpr int64_t     kOpcEtaRefreshMs      = 1'000;
+constexpr int64_t     kUiRetryInitialMs     = 1'000;
+constexpr int64_t     kUiRetryMaximumMs     = 30'000;
 
 struct OpcEtaLogState {
   uint64_t    fleet_id = 0;
@@ -36,6 +38,8 @@ struct OpcEtaRenderState {
   std::string display;
   bool        selected           = false;
   bool        layout_initialized = false;
+  uint8_t     setup_failures     = 0;
+  int64_t     setup_retry_at_ms  = 0;
 };
 
 struct UiVector2 {
@@ -47,6 +51,9 @@ std::array<OpcEtaLogState, kFleetSlotCount>    s_last_opc_eta_log_states{};
 std::array<OpcEtaRenderState, kFleetSlotCount> s_opc_eta_render_states{};
 std::array<uint64_t, kFleetSlotCount>          s_last_opc_eta_refresh_fleet_ids{};
 std::array<int64_t, kFleetSlotCount>           s_last_opc_eta_refresh_ms{};
+std::array<uint8_t, kFleetSlotCount>           s_opc_highlight_setup_failures{};
+std::array<int64_t, kFleetSlotCount>           s_opc_highlight_retry_at_ms{};
+std::array<uint64_t, kFleetSlotCount>          s_opc_highlight_retry_fleet_ids{};
 bool                                           s_highlight_enabled = false;
 bool                                           s_eta_enabled       = false;
 
@@ -74,6 +81,30 @@ constexpr bool cargo_is_opc(double current_value, double protected_limit)
 static_assert(!cargo_is_opc(99.0, 100.0));
 static_assert(!cargo_is_opc(100.0, 100.0));
 static_assert(cargo_is_opc(101.0, 100.0));
+
+int64_t steady_now_milliseconds()
+{
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+
+void schedule_ui_retry(uint8_t& failure_count, int64_t& retry_at_ms)
+{
+  if (failure_count < 6) {
+    ++failure_count;
+  }
+  auto delay_ms = kUiRetryInitialMs << (failure_count - 1);
+  if (delay_ms > kUiRetryMaximumMs) {
+    delay_ms = kUiRetryMaximumMs;
+  }
+  retry_at_ms = steady_now_milliseconds() + delay_ms;
+}
+
+void clear_ui_retry(uint8_t& failure_count, int64_t& retry_at_ms)
+{
+  failure_count = 0;
+  retry_at_ms   = 0;
+}
 
 bool read_opc(FleetPlayerData* fleet, bool& known)
 {
@@ -456,15 +487,45 @@ static_assert(!is_deployed(FleetState::Destroyed));
 
 void update_opc_highlight(Transform* body_transform, FleetPlayerData* fleet)
 {
-  auto*      highlight = find_opc_highlight(body_transform);
-  bool       known     = false;
-  const bool show      = fleet && fleet->HasShip && is_deployed(fleet->CurrentState) && read_opc(fleet, known);
-  if (!highlight && show) {
+  if (!body_transform) {
+    return;
+  }
+
+  auto* highlight = find_opc_highlight(body_transform);
+  if (!fleet || fleet->Index < 0 || fleet->Index >= kFleetSlotCount) {
+    if (highlight) {
+      highlight->SetActive(false);
+    }
+    return;
+  }
+
+  const auto slot = fleet->Index;
+  if (s_opc_highlight_retry_fleet_ids[slot] != fleet->Id) {
+    s_opc_highlight_retry_fleet_ids[slot] = fleet->Id;
+    clear_ui_retry(s_opc_highlight_setup_failures[slot], s_opc_highlight_retry_at_ms[slot]);
+  }
+  bool       known = false;
+  const bool show  = fleet->HasShip && is_deployed(fleet->CurrentState) && read_opc(fleet, known);
+  if (!show) {
+    clear_ui_retry(s_opc_highlight_setup_failures[slot], s_opc_highlight_retry_at_ms[slot]);
+    if (highlight) {
+      highlight->SetActive(false);
+    }
+    return;
+  }
+
+  if (!highlight) {
+    if (s_opc_highlight_retry_at_ms[slot] > steady_now_milliseconds()) {
+      return;
+    }
     highlight = create_opc_highlight(body_transform);
+    if (!highlight) {
+      schedule_ui_retry(s_opc_highlight_setup_failures[slot], s_opc_highlight_retry_at_ms[slot]);
+      return;
+    }
+    clear_ui_retry(s_opc_highlight_setup_failures[slot], s_opc_highlight_retry_at_ms[slot]);
   }
-  if (highlight) {
-    highlight->SetActive(show);
-  }
+  highlight->SetActive(true);
 }
 
 Transform* fleet_state_widget_label_anchor(void* fleet_state_widget)
@@ -758,12 +819,6 @@ void log_opc_eta(FleetPlayerData* fleet, const FleetOpcStatus& status, const std
                 status.eta_seconds, display);
 }
 
-int64_t opc_eta_now_milliseconds()
-{
-  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
-      .count();
-}
-
 void hide_opc_eta(Transform* label_anchor)
 {
   if (!label_anchor) {
@@ -807,7 +862,7 @@ bool opc_eta_refresh_due(FleetPlayerData* fleet)
   }
 
   const auto fleet_id = fleet->Id;
-  const auto now_ms   = opc_eta_now_milliseconds();
+  const auto now_ms   = steady_now_milliseconds();
   if (s_last_opc_eta_refresh_fleet_ids[slot] == fleet_id && s_last_opc_eta_refresh_ms[slot] != 0
       && now_ms - s_last_opc_eta_refresh_ms[slot] < kOpcEtaRefreshMs) {
     return false;
@@ -848,15 +903,20 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     log_opc_eta(fleet, status, display);
   }
 
-  auto* background = find_opc_eta_background(label_anchor);
-  auto* label      = find_opc_eta_label(label_anchor);
-
   if (display.empty()) {
     hide_opc_eta(label_anchor);
     render.display.clear();
     render.layout_initialized = false;
+    clear_ui_retry(render.setup_failures, render.setup_retry_at_ms);
     return;
   }
+  if (render.setup_retry_at_ms > steady_now_milliseconds()) {
+    render.display = display;
+    return;
+  }
+
+  auto* background = find_opc_eta_background(label_anchor);
+  auto* label      = find_opc_eta_label(label_anchor);
 
   const bool selected = fleet_tile_is_selected(ui_component, fleet);
   bool       created  = false;
@@ -869,7 +929,6 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     created = created || label != nullptr;
   }
   if (created) {
-    render.display.clear();
     render.layout_initialized = false;
   }
   auto* label_transform      = component_transform(label);
@@ -878,8 +937,9 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
   auto* background_transform = component_transform(background_image);
   if (!background || !background_image || !background_transform || !label || !label_transform || !label_object) {
     destroy_opc_eta(label_anchor);
-    render.display.clear();
+    render.display            = display;
     render.layout_initialized = false;
+    schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
     return;
   }
 
@@ -890,25 +950,28 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     render.selected                  = selected;
     if (!render.layout_initialized) {
       destroy_opc_eta(label_anchor);
-      render.display.clear();
+      render.display = display;
+      schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
       return;
     }
   }
 
-  if (render.display != display) {
+  if (created || render.display != display) {
     static auto tmp_helper = il2cpp_get_class_helper("Unity.TextMeshPro", "TMPro", "TMP_Text");
     static auto set_text   = tmp_helper.GetMethodInfo("set_text", 1);
     const auto  desired    = "<b>" + display + "</b>";
     void*       args[1]    = {il2cpp_string_new(desired.c_str())};
     if (!set_text || !invoke_void(set_text, label, args, "TMP_Text.set_text")) {
       destroy_opc_eta(label_anchor);
-      render.display.clear();
+      render.display            = display;
       render.layout_initialized = false;
+      schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
       return;
     }
     render.display = display;
   }
 
+  clear_ui_retry(render.setup_failures, render.setup_retry_at_ms);
   background->SetActive(true);
   label_object->SetActive(true);
 }
@@ -958,8 +1021,10 @@ void FleetStateWidget_ClearWidgetData_Hook(auto original, void* self)
   auto*      label_anchor = fleet_state_widget_label_anchor(self);
   const auto slot         = fleet ? fleet->Index : -1;
   original(self);
-  hide_opc_eta(label_anchor);
-  reset_opc_eta_slot(slot);
+  if (label_anchor) {
+    hide_opc_eta(label_anchor);
+    reset_opc_eta_slot(slot);
+  }
 }
 
 void FleetbarFlagWidget_SetWidgetData_Hook(auto original, void* self)
@@ -1009,12 +1074,15 @@ void FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook(auto original, vo
 
 void InstallOpcIndicatorHooks()
 {
+  const bool use_opc_highlight = Config::Get().highlight_opc_fleets;
+  const bool use_opc_eta       = Config::Get().fleet_hud_opc_eta;
 #if !defined(_WIN32)
+  if (use_opc_highlight || use_opc_eta) {
+    spdlog::warn("[OpcIndicators] disabled: native hook validation is currently Windows-only");
+  }
   return;
 #endif
 
-  const bool use_opc_highlight = Config::Get().highlight_opc_fleets;
-  const bool use_opc_eta       = Config::Get().fleet_hud_opc_eta;
   if (!use_opc_highlight && !use_opc_eta) {
     return;
   }
