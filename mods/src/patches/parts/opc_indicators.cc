@@ -36,7 +36,9 @@ struct OpcEtaLogState {
 struct OpcEtaRenderState {
   uint64_t    fleet_id = 0;
   std::string display;
+  FleetState  fleet_state        = FleetState::Unknown;
   bool        selected           = false;
+  bool        fleet_state_known  = false;
   bool        layout_initialized = false;
   uint8_t     setup_failures     = 0;
   int64_t     setup_retry_at_ms  = 0;
@@ -54,6 +56,7 @@ std::array<int64_t, kFleetSlotCount>           s_last_opc_eta_refresh_ms{};
 std::array<uint8_t, kFleetSlotCount>           s_opc_highlight_setup_failures{};
 std::array<int64_t, kFleetSlotCount>           s_opc_highlight_retry_at_ms{};
 std::array<uint64_t, kFleetSlotCount>          s_opc_highlight_retry_fleet_ids{};
+std::array<uintptr_t, kFleetSlotCount>         s_opc_highlight_retry_anchor_ids{};
 bool                                           s_highlight_enabled = false;
 bool                                           s_eta_enabled       = false;
 
@@ -445,11 +448,9 @@ GameObject* create_opc_highlight(Transform* body_transform)
   }
 
   highlight->SetActive(false);
-  void* name_args[1] = {il2cpp_string_new(kOpcHighlightName)};
   auto* highlight_transform =
       reinterpret_cast<Transform*>(invoke(get_transform, highlight, nullptr, "GameObject.get_transform"));
-  if (!invoke_void(set_name, highlight, name_args, "Object.set_name") || !configure_opc_frame(highlight_transform)
-      || !configure_opc_inner(highlight_transform, body_transform)) {
+  if (!configure_opc_frame(highlight_transform) || !configure_opc_inner(highlight_transform, body_transform)) {
     destroy_game_object(highlight);
     il2cpp_gchandle_free(highlight_handle);
     return nullptr;
@@ -462,8 +463,11 @@ GameObject* create_opc_highlight(Transform* body_transform)
     }
   }
   void* sibling_args[1] = {&sibling_index};
+  void* name_args[1]    = {il2cpp_string_new(kOpcHighlightName)};
+  // Publish the discoverable name only after setup succeeds; Unity destruction is deferred until frame end.
   if (sibling_index >= body_transform->childCount
-      || !invoke_void(set_sibling_index, highlight_transform, sibling_args, "Transform.SetSiblingIndex")) {
+      || !invoke_void(set_sibling_index, highlight_transform, sibling_args, "Transform.SetSiblingIndex")
+      || !invoke_void(set_name, highlight, name_args, "Object.set_name")) {
     destroy_game_object(highlight);
     il2cpp_gchandle_free(highlight_handle);
     return nullptr;
@@ -500,8 +504,11 @@ void update_opc_highlight(Transform* body_transform, FleetPlayerData* fleet)
   }
 
   const auto slot = fleet->Index;
-  if (s_opc_highlight_retry_fleet_ids[slot] != fleet->Id) {
-    s_opc_highlight_retry_fleet_ids[slot] = fleet->Id;
+  // The address is an identity token only; retaining it never implies that the Unity object is still live.
+  const auto anchor_id = reinterpret_cast<uintptr_t>(body_transform);
+  if (s_opc_highlight_retry_fleet_ids[slot] != fleet->Id || s_opc_highlight_retry_anchor_ids[slot] != anchor_id) {
+    s_opc_highlight_retry_fleet_ids[slot]  = fleet->Id;
+    s_opc_highlight_retry_anchor_ids[slot] = anchor_id;
     clear_ui_retry(s_opc_highlight_setup_failures[slot], s_opc_highlight_retry_at_ms[slot]);
   }
   bool       known = false;
@@ -514,10 +521,14 @@ void update_opc_highlight(Transform* body_transform, FleetPlayerData* fleet)
     return;
   }
 
-  if (!highlight) {
-    if (s_opc_highlight_retry_at_ms[slot] > steady_now_milliseconds()) {
-      return;
+  if (s_opc_highlight_retry_at_ms[slot] > steady_now_milliseconds()) {
+    if (highlight) {
+      highlight->SetActive(false);
     }
+    return;
+  }
+
+  if (!highlight) {
     highlight = create_opc_highlight(body_transform);
     if (!highlight) {
       schedule_ui_retry(s_opc_highlight_setup_failures[slot], s_opc_highlight_retry_at_ms[slot]);
@@ -854,7 +865,7 @@ void reset_opc_eta_slot(int slot)
   s_last_opc_eta_refresh_ms[slot]        = 0;
 }
 
-bool opc_eta_refresh_due(FleetPlayerData* fleet)
+bool opc_eta_refresh_due(FleetPlayerData* fleet, bool force)
 {
   const auto slot = fleet ? fleet->Index : -1;
   if (slot < 0 || slot >= kFleetSlotCount) {
@@ -863,7 +874,7 @@ bool opc_eta_refresh_due(FleetPlayerData* fleet)
 
   const auto fleet_id = fleet->Id;
   const auto now_ms   = steady_now_milliseconds();
-  if (s_last_opc_eta_refresh_fleet_ids[slot] == fleet_id && s_last_opc_eta_refresh_ms[slot] != 0
+  if (!force && s_last_opc_eta_refresh_fleet_ids[slot] == fleet_id && s_last_opc_eta_refresh_ms[slot] != 0
       && now_ms - s_last_opc_eta_refresh_ms[slot] < kOpcEtaRefreshMs) {
     return false;
   }
@@ -895,9 +906,14 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     render.fleet_id = fleet->Id;
   }
 
-  const bool refresh_due = opc_eta_refresh_due(fleet);
+  const auto fleet_state   = fleet->CurrentState;
+  const bool state_changed = !render.fleet_state_known || render.fleet_state != fleet_state;
+  render.fleet_state       = fleet_state;
+  render.fleet_state_known = true;
+
+  const bool refresh_due = opc_eta_refresh_due(fleet, fleet_changed || state_changed);
   auto       display     = render.display;
-  if (fleet_changed || refresh_due) {
+  if (refresh_due) {
     const auto status = read_opc_status(fleet);
     display           = Config::Get().fleet_hud_opc_eta ? format_opc_eta(status) : std::string{};
     log_opc_eta(fleet, status, display);
@@ -1035,9 +1051,19 @@ void FleetbarFlagWidget_SetWidgetData_Hook(auto original, void* self)
 
 void FleetbarFlagWidget_ClearWidgetData_Hook(auto original, void* self)
 {
+  auto*      fleet  = fleetbar_flag_widget_context(self);
+  auto*      anchor = opc_anchor_from_fleetbar_flag(self);
+  const auto slot   = fleet ? fleet->Index : -1;
   original(self);
-  if (auto* highlight = find_opc_highlight(opc_anchor_from_fleetbar_flag(self)); highlight) {
-    highlight->SetActive(false);
+  if (anchor) {
+    if (auto* highlight = find_opc_highlight(anchor); highlight) {
+      highlight->SetActive(false);
+    }
+    if (slot >= 0 && slot < kFleetSlotCount) {
+      s_opc_highlight_retry_fleet_ids[slot]  = 0;
+      s_opc_highlight_retry_anchor_ids[slot] = 0;
+      clear_ui_retry(s_opc_highlight_setup_failures[slot], s_opc_highlight_retry_at_ms[slot]);
+    }
   }
 }
 
