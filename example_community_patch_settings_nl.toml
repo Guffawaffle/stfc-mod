@@ -593,6 +593,12 @@ auto_confirm_discovery = true
 # Open the bulk gift claim flyout automatically
 auto_open_bulk_claim_flyout = false
 
+# Highlight deployed fleet-bar portraits in amber when cargo exceeds protected cargo
+highlight_opc_fleets = false
+
+# Show estimated time to over-protected cargo below mining fleet status
+fleet_hud_opc_eta = false
+
 # Zorgt ervoor dat het gebruiken van "escape" het spel niet sluit
 disable_escape_exit = true
 
@@ -829,4 +835,3 @@ verify_ssl = true
 #  <[===========================================================================================================================]> 
 
 [sync.targets.spocksclub]
-

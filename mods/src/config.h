@@ -197,6 +197,8 @@ public:
   bool trace_audio_events;
   std::vector<std::string> disabled_audio_events;
   bool auto_open_bulk_claim_flyout;
+  bool highlight_opc_fleets;
+  bool fleet_hud_opc_eta;
   bool auto_confirm_ft_upgrade;
 
   std::vector<std::string> daily_bulk_claim_factions;
@@ -253,6 +255,7 @@ public:
   bool installDailyFactionBulkClaimHooks;
   bool installInstantWarpConfirmationHooks;
   bool installAudioEventHooks;
+  bool installOpcIndicatorHooks;
 
   std::string config_settings_url;
   std::string config_assets_url_override;

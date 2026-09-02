@@ -953,6 +953,11 @@ void Config::Load()
   this->installAudioEventHooks = this->trace_audio_events || !this->disabled_audio_events.empty();
   this->auto_open_bulk_claim_flyout = get_config_or_default(config, parsed, "ui", "auto_open_bulk_claim_flyout",
                                                              DCU::auto_open_bulk_claim_flyout, write_config);
+  this->highlight_opc_fleets = get_config_or_default(config, parsed, "ui", "highlight_opc_fleets",
+                                                      DCU::highlight_opc_fleets, write_config);
+  this->fleet_hud_opc_eta = get_config_or_default(config, parsed, "ui", "fleet_hud_opc_eta",
+                                                   DCU::fleet_hud_opc_eta, write_config);
+  this->installOpcIndicatorHooks = this->highlight_opc_fleets || this->fleet_hud_opc_eta;
 
   read_daily_bulk_claim_factions(config, parsed, this->daily_bulk_claim_factions, DCU::daily_bulk_claim_factions,
                                  write_config);
