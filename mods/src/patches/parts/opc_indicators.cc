@@ -11,10 +11,13 @@
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <string>
 
@@ -31,17 +34,21 @@ constexpr int64_t     kUiRetryMaximumMs     = 30'000;
 struct OpcEtaLogState {
   uint64_t    fleet_id = 0;
   std::string display;
+  std::string tooltip;
 };
 
 struct OpcEtaRenderState {
   uint64_t    fleet_id = 0;
   std::string display;
-  FleetState  fleet_state        = FleetState::Unknown;
-  bool        selected           = false;
-  bool        fleet_state_known  = false;
-  bool        layout_initialized = false;
-  uint8_t     setup_failures     = 0;
-  int64_t     setup_retry_at_ms  = 0;
+  std::string tooltip;
+  FleetState  fleet_state         = FleetState::Unknown;
+  bool        selected            = false;
+  bool        safe_on_node        = false;
+  bool        fleet_state_known   = false;
+  bool        layout_initialized  = false;
+  bool        tooltip_initialized = false;
+  uint8_t     setup_failures      = 0;
+  int64_t     setup_retry_at_ms   = 0;
 };
 
 struct UiVector2 {
@@ -68,22 +75,31 @@ struct Color {
 };
 
 struct FleetOpcStatus {
-  bool    mining          = false;
-  bool    cargo_known     = false;
-  bool    rate_known      = false;
-  bool    opc             = false;
-  double  current_cargo   = 0.0;
-  double  protected_limit = 0.0;
-  double  rate_per_second = 0.0;
-  int64_t eta_seconds     = -1;
+  bool    mining           = false;
+  bool    cargo_known      = false;
+  bool    rate_known       = false;
+  bool    node_known       = false;
+  bool    opc              = false;
+  bool    safe_on_node     = false;
+  double  current_cargo    = 0.0;
+  double  protected_limit  = 0.0;
+  double  rate_per_second  = 0.0;
+  double  node_remaining   = 0.0;
+  int64_t eta_seconds      = -1;
+  int64_t node_eta_seconds = -1;
 };
 
 constexpr bool cargo_is_opc(double current_value, double protected_limit)
 { return current_value > protected_limit; }
 
+constexpr bool node_stays_protected(double current_value, double protected_limit, double node_remaining)
+{ return !cargo_is_opc(current_value, protected_limit) && node_remaining <= protected_limit - current_value; }
+
 static_assert(!cargo_is_opc(99.0, 100.0));
 static_assert(!cargo_is_opc(100.0, 100.0));
 static_assert(cargo_is_opc(101.0, 100.0));
+static_assert(node_stays_protected(99.0, 100.0, 1.0));
+static_assert(!node_stays_protected(99.0, 100.0, 2.0));
 
 int64_t steady_now_milliseconds()
 {
@@ -148,6 +164,24 @@ FleetOpcStatus read_opc_status(FleetPlayerData* fleet)
   auto* mining_data      = fleet->MiningData;
   status.rate_per_second = mining_data ? mining_data->MiningSpeed : 0.0;
   status.rate_known      = std::isfinite(status.rate_per_second) && status.rate_per_second > 0.0;
+
+  if (mining_data) {
+    const auto node_current = mining_data->CurrentValue;
+    const auto node_max     = mining_data->MaxValue;
+    status.node_known =
+        std::isfinite(node_current) && std::isfinite(node_max) && node_current >= 0.0 && node_max >= node_current;
+    if (status.node_known) {
+      status.node_remaining = node_max - node_current;
+    }
+  }
+
+  if (status.rate_known && status.node_known) {
+    const auto node_seconds = std::ceil(status.node_remaining / status.rate_per_second);
+    if (std::isfinite(node_seconds) && node_seconds <= static_cast<double>(std::numeric_limits<int64_t>::max())) {
+      status.node_eta_seconds = static_cast<int64_t>(node_seconds);
+    }
+  }
+
   if (!status.cargo_known || status.opc || !status.rate_known) {
     status.eta_seconds = status.opc ? 0 : -1;
     return status;
@@ -158,25 +192,22 @@ FleetOpcStatus read_opc_status(FleetPlayerData* fleet)
   if (std::isfinite(seconds) && seconds <= static_cast<double>(std::numeric_limits<int64_t>::max())) {
     status.eta_seconds = static_cast<int64_t>(seconds);
   }
+  if (status.node_eta_seconds >= 0) {
+    status.safe_on_node = node_stays_protected(status.current_cargo, status.protected_limit, status.node_remaining);
+  }
   return status;
 }
 
-std::string format_opc_eta(const FleetOpcStatus& status)
+std::string format_duration(int64_t seconds)
 {
-  if (!status.mining || !status.cargo_known) {
+  if (seconds < 0) {
     return {};
   }
-  if (status.opc) {
-    return "OPC";
-  }
-  if (!status.rate_known || status.eta_seconds < 0) {
-    return {};
-  }
-  if (status.eta_seconds < 60) {
+  if (seconds < 60) {
     return "<1m";
   }
 
-  const auto minutes = (status.eta_seconds + 59) / 60;
+  const auto minutes = (seconds + 59) / 60;
   if (minutes < 60) {
     return std::to_string(minutes) + "m";
   }
@@ -198,6 +229,31 @@ std::string format_opc_eta(const FleetOpcStatus& status)
     result += " " + std::to_string(remaining_hours) + "h";
   }
   return result;
+}
+
+std::string format_opc_eta(const FleetOpcStatus& status)
+{
+  if (!status.mining || !status.cargo_known) {
+    return {};
+  }
+  if (status.opc) {
+    return "OPC";
+  }
+  if (!status.rate_known || status.eta_seconds < 0) {
+    return {};
+  }
+  return status.safe_on_node ? "SAFE" : format_duration(status.eta_seconds);
+}
+
+std::string format_opc_tooltip(const FleetOpcStatus& status)
+{
+  if (!status.mining || !status.cargo_known) {
+    return {};
+  }
+
+  const auto node = status.node_eta_seconds >= 0 ? format_duration(status.node_eta_seconds) : "Unknown";
+  const auto opc  = status.opc ? "Now" : status.eta_seconds >= 0 ? format_duration(status.eta_seconds) : "Unknown";
+  return "Node: " + node + "\nOPC:  " + opc;
 }
 
 Il2CppObject* invoke(const MethodInfo* method, void* target, void** args, const char* operation)
@@ -555,7 +611,7 @@ bool fleet_tile_is_selected(void* fleet_state_widget, FleetPlayerData* fleet)
   return fleet_bar && is_index_selected && is_index_selected(fleet_bar, fleet->Index);
 }
 
-bool configure_opc_eta_label(void* label, Transform* transform, bool selected)
+bool configure_opc_eta_label(void* label, Transform* transform, bool selected, bool safe_on_node)
 {
   if (!label || !transform) {
     return false;
@@ -584,10 +640,10 @@ bool configure_opc_eta_label(void* label, Transform* transform, bool selected)
   UiVector2 bottom_center{0.5f, 0.0f};
   UiVector2 size{148.0f, 36.0f};
   UiVector2 offset{0.0f, selected ? 24.0f : 14.0f};
-  float     font_size      = 18.0f;
-  int32_t   alignment      = 514; // TMPro.TextAlignmentOptions.Center
-  bool      raycast_target = false;
-  Color     amber{1.0f, 0.69f, 0.13f, 1.0f};
+  float     font_size         = 18.0f;
+  int32_t   alignment         = 514; // TMPro.TextAlignmentOptions.Center
+  bool      raycast_target    = false;
+  Color     text_color        = safe_on_node ? Color{0.45f, 0.86f, 1.0f, 1.0f} : Color{1.0f, 0.69f, 0.13f, 1.0f};
   void*     top_args[1]       = {&top_center};
   void*     bottom_args[1]    = {&bottom_center};
   void*     size_args[1]      = {&size};
@@ -595,7 +651,7 @@ bool configure_opc_eta_label(void* label, Transform* transform, bool selected)
   void*     font_args[1]      = {&font_size};
   void*     alignment_args[1] = {&alignment};
   void*     raycast_args[1]   = {&raycast_target};
-  void*     color_args[1]     = {&amber};
+  void*     color_args[1]     = {&text_color};
   return invoke_void(anchor_min, transform, top_args, "RectTransform.set_anchorMin")
          && invoke_void(anchor_max, transform, top_args, "RectTransform.set_anchorMax")
          && invoke_void(pivot_method, transform, bottom_args, "RectTransform.set_pivot")
@@ -709,6 +765,135 @@ void* opc_eta_background_image(GameObject* background)
   return invoke(get_component, background, args, "GameObject.GetComponent<Image>");
 }
 
+struct OverridableBoolValue {
+  bool serialized_value;
+  bool current_value;
+  bool modified;
+};
+
+static_assert(sizeof(OverridableBoolValue) == 3);
+
+bool is_boolean_field(const FieldInfo* field)
+{
+  return field && field->type && !field->type->byref && field->type->type == IL2CPP_TYPE_BOOLEAN
+         && (il2cpp_field_get_flags(const_cast<FieldInfo*>(field)) & FIELD_ATTRIBUTE_STATIC) == 0;
+}
+
+bool is_overridable_bool_field(const FieldInfo* field)
+{
+  if (!field || !field->type || field->type->byref || field->type->type != IL2CPP_TYPE_VALUETYPE
+      || (il2cpp_field_get_flags(const_cast<FieldInfo*>(field)) & FIELD_ATTRIBUTE_STATIC) != 0) {
+    return false;
+  }
+
+  auto* value_class = il2cpp_class_from_type(field->type);
+  if (!value_class || !value_class->namespaze || !value_class->name
+      || std::strcmp(value_class->namespaze, "Digit.Client.Serialization") != 0
+      || std::strcmp(value_class->name, "OverridableBool") != 0) {
+    return false;
+  }
+
+  uint32_t alignment = 0;
+  if (il2cpp_class_value_size(value_class, &alignment) != sizeof(OverridableBoolValue)
+      || alignment != alignof(OverridableBoolValue)) {
+    return false;
+  }
+
+  struct ExpectedField {
+    const char* name;
+    size_t      offset;
+  };
+  constexpr std::array expected_fields{
+      ExpectedField{"_serializedValue", 0},
+      ExpectedField{"_currentValue", 1},
+      ExpectedField{"_modified", 2},
+  };
+  return std::ranges::all_of(expected_fields, [value_class](const auto& expected) {
+    auto* nested = il2cpp_class_get_field_from_name(value_class, expected.name);
+    return is_boolean_field(nested) && nested->offset == sizeof(Il2CppObject) + expected.offset;
+  });
+}
+
+bool write_overridable_bool_field(void* instance, Il2CppClass* klass, const char* name,
+                                  const OverridableBoolValue& value)
+{
+  auto* field = instance && klass ? il2cpp_class_get_field_from_name(klass, name) : nullptr;
+  if (!is_overridable_bool_field(field) || field->offset < static_cast<int32_t>(sizeof(Il2CppObject))) {
+    return false;
+  }
+  auto copy = value;
+  il2cpp_field_set_value(reinterpret_cast<Il2CppObject*>(instance), field, &copy);
+  return true;
+}
+
+bool write_bool_field(void* instance, Il2CppClass* klass, const char* name, bool value)
+{
+  auto* field = instance && klass ? il2cpp_class_get_field_from_name(klass, name) : nullptr;
+  if (!is_boolean_field(field) || field->offset < static_cast<int32_t>(sizeof(Il2CppObject))) {
+    return false;
+  }
+  il2cpp_field_set_value(reinterpret_cast<Il2CppObject*>(instance), field, &value);
+  return true;
+}
+
+void* opc_eta_tooltip(GameObject* background)
+{
+  if (!background) {
+    return nullptr;
+  }
+
+  static auto game_object_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "GameObject");
+  static auto tooltip_helper     = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Tooltip", "TooltipTrigger");
+  static auto get_component      = game_object_helper.GetMethodInfo("GetComponent", 1);
+  static auto add_component      = game_object_helper.GetMethodInfo("AddComponent", 1);
+  if (!game_object_helper.get_cls() || !tooltip_helper.get_cls() || !get_component || !add_component) {
+    return nullptr;
+  }
+
+  void* tooltip_type = tooltip_helper.GetType();
+  void* args[1]      = {tooltip_type};
+  if (auto* existing = invoke(get_component, background, args, "GameObject.GetComponent<TooltipTrigger>"); existing) {
+    return existing;
+  }
+  return invoke(add_component, background, args, "GameObject.AddComponent<TooltipTrigger>");
+}
+
+bool configure_opc_eta_tooltip(GameObject* background, void* image, const std::string& tooltip_text)
+{
+  if (!background || !image || tooltip_text.empty()) {
+    return false;
+  }
+
+  static auto tooltip_helper   = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Tooltip", "TooltipTrigger");
+  static auto set_description  = tooltip_helper.GetMethodInfo("set_DescriptionOverrideText", 1);
+  static auto set_interactable = tooltip_helper.GetMethodInfo("set_IsInteractable", 1);
+  static auto graphic_helper   = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Graphic");
+  static auto set_raycast      = graphic_helper.GetMethodInfo("set_raycastTarget", 1);
+  auto*       tooltip          = opc_eta_tooltip(background);
+  if (!tooltip_helper.get_cls() || !graphic_helper.get_cls() || !tooltip || !set_description || !set_interactable
+      || !set_raycast) {
+    return false;
+  }
+
+  const OverridableBoolValue hidden{false, false, false};
+  const OverridableBoolValue shown{true, true, false};
+  const bool                 override_locale = true;
+  if (!write_overridable_bool_field(tooltip, tooltip_helper.get_cls(), "_showHeader", hidden)
+      || !write_overridable_bool_field(tooltip, tooltip_helper.get_cls(), "_showDescription", shown)
+      || !write_bool_field(tooltip, tooltip_helper.get_cls(), "_overrideLocale", override_locale)) {
+    return false;
+  }
+
+  bool  interactable         = true;
+  bool  raycast              = true;
+  void* description_args[1]  = {il2cpp_string_new(tooltip_text.c_str())};
+  void* interactable_args[1] = {&interactable};
+  void* raycast_args[1]      = {&raycast};
+  return invoke_void(set_description, tooltip, description_args, "TooltipTrigger.set_DescriptionOverrideText")
+         && invoke_void(set_interactable, tooltip, interactable_args, "TooltipTrigger.set_IsInteractable")
+         && invoke_void(set_raycast, image, raycast_args, "Graphic.set_raycastTarget");
+}
+
 bool configure_opc_eta_background(void* image, Transform* transform, bool selected)
 {
   if (!image || !transform) {
@@ -736,7 +921,7 @@ bool configure_opc_eta_background(void* image, Transform* transform, bool select
   UiVector2 size{108.0f, 30.0f};
   UiVector2 offset{0.0f, selected ? 25.0f : 15.0f};
   Color     background{0.035f, 0.075f, 0.10f, 0.86f};
-  bool      raycast_target  = false;
+  bool      raycast_target  = true;
   void*     top_args[1]     = {&top_center};
   void*     bottom_args[1]  = {&bottom_center};
   void*     size_args[1]    = {&size};
@@ -775,7 +960,7 @@ GameObject* create_opc_eta_background(Transform* label_anchor, bool selected)
   return game_object;
 }
 
-void* create_opc_eta_label(Transform* label_anchor, bool selected)
+void* create_opc_eta_label(Transform* label_anchor, bool selected, bool safe_on_node)
 {
   if (!label_anchor) {
     return nullptr;
@@ -793,7 +978,7 @@ void* create_opc_eta_label(Transform* label_anchor, bool selected)
       create_ui_component(kOpcEtaLabelName, label_anchor, text_helper, "GameObject.AddComponent<TextMeshProUGUI>");
   auto* transform   = component_transform(label);
   auto* game_object = transform ? transform->gameObject : nullptr;
-  if (!game_object || !configure_opc_eta_label(label, transform, selected)) {
+  if (!game_object || !configure_opc_eta_label(label, transform, selected, safe_on_node)) {
     destroy_game_object(game_object);
     return nullptr;
   }
@@ -802,7 +987,8 @@ void* create_opc_eta_label(Transform* label_anchor, bool selected)
   return label;
 }
 
-void log_opc_eta(FleetPlayerData* fleet, const FleetOpcStatus& status, const std::string& display)
+void log_opc_eta(FleetPlayerData* fleet, const FleetOpcStatus& status, const std::string& display,
+                 const std::string& tooltip)
 {
   const auto slot = fleet ? fleet->Index : -1;
   if (slot < 0 || slot >= kFleetSlotCount) {
@@ -811,12 +997,12 @@ void log_opc_eta(FleetPlayerData* fleet, const FleetOpcStatus& status, const std
 
   const auto fleet_id = fleet ? fleet->Id : 0;
   auto&      previous = s_last_opc_eta_log_states[slot];
-  if (previous.fleet_id == fleet_id && previous.display == display) {
+  if (previous.fleet_id == fleet_id && previous.display == display && previous.tooltip == tooltip) {
     return;
   }
 
   const bool previously_visible = !previous.display.empty();
-  previous                      = {fleet_id, display};
+  previous                      = {fleet_id, display, tooltip};
   if (display.empty()) {
     if (previously_visible) {
       spdlog::debug("[OpcIndicators] slot={} fleet={} opcEta=hidden", slot, fleet_id);
@@ -825,9 +1011,9 @@ void log_opc_eta(FleetPlayerData* fleet, const FleetOpcStatus& status, const std
   }
 
   spdlog::debug("[OpcIndicators] slot={} fleet={} cargo={:.0f} protected={:.0f} ratePerSecond={:.3f} opc={} "
-                "etaSeconds={} label='{}'",
+                "etaSeconds={} nodeEtaSeconds={} safeOnNode={} label='{}'",
                 slot, fleet_id, status.current_cargo, status.protected_limit, status.rate_per_second, status.opc,
-                status.eta_seconds, display);
+                status.eta_seconds, status.node_eta_seconds, status.safe_on_node, display);
 }
 
 void hide_opc_eta(Transform* label_anchor)
@@ -911,23 +1097,32 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
   render.fleet_state       = fleet_state;
   render.fleet_state_known = true;
 
-  const bool refresh_due = opc_eta_refresh_due(fleet, fleet_changed || state_changed);
-  auto       display     = render.display;
+  const bool refresh_due  = opc_eta_refresh_due(fleet, fleet_changed || state_changed);
+  auto       display      = render.display;
+  auto       tooltip      = render.tooltip;
+  auto       safe_on_node = render.safe_on_node;
   if (refresh_due) {
     const auto status = read_opc_status(fleet);
     display           = Config::Get().fleet_hud_opc_eta ? format_opc_eta(status) : std::string{};
-    log_opc_eta(fleet, status, display);
+    tooltip           = display.empty() ? std::string{} : format_opc_tooltip(status);
+    safe_on_node      = status.safe_on_node;
+    log_opc_eta(fleet, status, display, tooltip);
   }
 
   if (display.empty()) {
     hide_opc_eta(label_anchor);
     render.display.clear();
-    render.layout_initialized = false;
+    render.tooltip.clear();
+    render.safe_on_node        = false;
+    render.layout_initialized  = false;
+    render.tooltip_initialized = false;
     clear_ui_retry(render.setup_failures, render.setup_retry_at_ms);
     return;
   }
   if (render.setup_retry_at_ms > steady_now_milliseconds()) {
-    render.display = display;
+    render.display      = display;
+    render.tooltip      = tooltip;
+    render.safe_on_node = safe_on_node;
     return;
   }
 
@@ -941,11 +1136,12 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     created    = background != nullptr;
   }
   if (!label) {
-    label   = create_opc_eta_label(label_anchor, selected);
+    label   = create_opc_eta_label(label_anchor, selected, safe_on_node);
     created = created || label != nullptr;
   }
   if (created) {
-    render.layout_initialized = false;
+    render.layout_initialized  = false;
+    render.tooltip_initialized = false;
   }
   auto* label_transform      = component_transform(label);
   auto* label_object         = label_transform ? label_transform->gameObject : nullptr;
@@ -953,20 +1149,39 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
   auto* background_transform = component_transform(background_image);
   if (!background || !background_image || !background_transform || !label || !label_transform || !label_object) {
     destroy_opc_eta(label_anchor);
-    render.display            = display;
-    render.layout_initialized = false;
+    render.display             = display;
+    render.tooltip             = tooltip;
+    render.safe_on_node        = safe_on_node;
+    render.layout_initialized  = false;
+    render.tooltip_initialized = false;
     schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
     return;
   }
 
-  if (!render.layout_initialized || render.selected != selected) {
+  if (!render.layout_initialized || render.selected != selected || render.safe_on_node != safe_on_node) {
     const bool background_configured = configure_opc_eta_background(background_image, background_transform, selected);
-    const bool label_configured      = configure_opc_eta_label(label, label_transform, selected);
+    const bool label_configured      = configure_opc_eta_label(label, label_transform, selected, safe_on_node);
     render.layout_initialized        = label_configured && background_configured;
     render.selected                  = selected;
     if (!render.layout_initialized) {
       destroy_opc_eta(label_anchor);
-      render.display = display;
+      render.display             = display;
+      render.tooltip             = tooltip;
+      render.safe_on_node        = safe_on_node;
+      render.tooltip_initialized = false;
+      schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
+      return;
+    }
+  }
+
+  if (!render.tooltip_initialized || render.tooltip != tooltip) {
+    render.tooltip_initialized = configure_opc_eta_tooltip(background, background_image, tooltip);
+    if (!render.tooltip_initialized) {
+      destroy_opc_eta(label_anchor);
+      render.display            = display;
+      render.tooltip            = tooltip;
+      render.safe_on_node       = safe_on_node;
+      render.layout_initialized = false;
       schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
       return;
     }
@@ -979,14 +1194,19 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     void*       args[1]    = {il2cpp_string_new(desired.c_str())};
     if (!set_text || !invoke_void(set_text, label, args, "TMP_Text.set_text")) {
       destroy_opc_eta(label_anchor);
-      render.display            = display;
-      render.layout_initialized = false;
+      render.display             = display;
+      render.tooltip             = tooltip;
+      render.safe_on_node        = safe_on_node;
+      render.layout_initialized  = false;
+      render.tooltip_initialized = false;
       schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
       return;
     }
-    render.display = display;
   }
 
+  render.display      = display;
+  render.tooltip      = tooltip;
+  render.safe_on_node = safe_on_node;
   clear_ui_retry(render.setup_failures, render.setup_retry_at_ms);
   background->SetActive(true);
   label_object->SetActive(true);
