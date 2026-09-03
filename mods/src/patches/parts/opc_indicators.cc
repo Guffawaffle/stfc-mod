@@ -38,15 +38,17 @@ struct OpcEtaLogState {
 
 struct OpcEtaRenderState {
   uint64_t    fleet_id = 0;
-  std::string display;
-  std::string card_display;
-  FleetState  fleet_state        = FleetState::Unknown;
-  bool        selected           = false;
-  bool        safe_on_node       = false;
-  bool        fleet_state_known  = false;
-  bool        layout_initialized = false;
-  uint8_t     setup_failures     = 0;
-  int64_t     setup_retry_at_ms  = 0;
+  std::string computed_display;
+  std::string computed_card_display;
+  std::string rendered_display;
+  FleetState  fleet_state           = FleetState::Unknown;
+  bool        selected              = false;
+  bool        computed_safe         = false;
+  bool        rendered_safe_on_node = false;
+  bool        fleet_state_known     = false;
+  bool        layout_initialized    = false;
+  uint8_t     setup_failures        = 0;
+  int64_t     setup_retry_at_ms     = 0;
 };
 
 struct OpcCardRenderState {
@@ -1196,9 +1198,9 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
   render.fleet_state_known = true;
 
   const bool refresh_due  = opc_eta_refresh_due(fleet, fleet_changed || state_changed);
-  auto       display      = render.display;
-  auto       card_display = render.card_display;
-  auto       safe_on_node = render.safe_on_node;
+  auto       display      = render.computed_display;
+  auto       card_display = render.computed_card_display;
+  auto       safe_on_node = render.computed_safe;
   if (refresh_due) {
     const auto status = read_opc_status(fleet);
     display           = Config::Get().fleet_hud_opc_eta ? format_opc_eta(status) : std::string{};
@@ -1212,10 +1214,12 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     if (selected) {
       update_opc_card_label(ui_component, fleet, {});
     }
-    render.display.clear();
-    render.card_display.clear();
-    render.safe_on_node       = false;
-    render.layout_initialized = false;
+    render.computed_display.clear();
+    render.computed_card_display.clear();
+    render.rendered_display.clear();
+    render.computed_safe         = false;
+    render.rendered_safe_on_node = false;
+    render.layout_initialized    = false;
     clear_ui_retry(render.setup_failures, render.setup_retry_at_ms);
     return;
   }
@@ -1224,16 +1228,16 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     update_opc_card_label(ui_component, fleet, card_display);
   }
   if (!label_anchor) {
-    render.display      = display;
-    render.card_display = card_display;
-    render.safe_on_node = safe_on_node;
+    render.computed_display      = display;
+    render.computed_card_display = card_display;
+    render.computed_safe         = safe_on_node;
     return;
   }
 
   if (render.setup_retry_at_ms > steady_now_milliseconds()) {
-    render.display      = display;
-    render.card_display = card_display;
-    render.safe_on_node = safe_on_node;
+    render.computed_display      = display;
+    render.computed_card_display = card_display;
+    render.computed_safe         = safe_on_node;
     return;
   }
 
@@ -1258,48 +1262,50 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
   auto* background_transform = component_transform(background_image);
   if (!background || !background_image || !background_transform || !label || !label_transform || !label_object) {
     destroy_opc_eta(label_anchor);
-    render.display            = display;
-    render.card_display       = card_display;
-    render.safe_on_node       = safe_on_node;
-    render.layout_initialized = false;
+    render.computed_display      = display;
+    render.computed_card_display = card_display;
+    render.computed_safe         = safe_on_node;
+    render.layout_initialized    = false;
     schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
     return;
   }
 
-  if (!render.layout_initialized || render.selected != selected || render.safe_on_node != safe_on_node) {
+  if (!render.layout_initialized || render.selected != selected || render.rendered_safe_on_node != safe_on_node) {
     const bool background_configured = configure_opc_eta_background(background_image, background_transform, selected);
     const bool label_configured      = configure_opc_eta_label(label, label_transform, selected, safe_on_node);
     render.layout_initialized        = label_configured && background_configured;
     render.selected                  = selected;
     if (!render.layout_initialized) {
       destroy_opc_eta(label_anchor);
-      render.display      = display;
-      render.card_display = card_display;
-      render.safe_on_node = safe_on_node;
+      render.computed_display      = display;
+      render.computed_card_display = card_display;
+      render.computed_safe         = safe_on_node;
       schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
       return;
     }
   }
 
-  if (created || render.display != display) {
+  if (created || render.rendered_display != display) {
     static auto tmp_helper = il2cpp_get_class_helper("Unity.TextMeshPro", "TMPro", "TMP_Text");
     static auto set_text   = tmp_helper.GetMethodInfo("set_text", 1);
     const auto  desired    = "<b>" + display + "</b>";
     void*       args[1]    = {il2cpp_string_new(desired.c_str())};
     if (!set_text || !invoke_void(set_text, label, args, "TMP_Text.set_text")) {
       destroy_opc_eta(label_anchor);
-      render.display            = display;
-      render.card_display       = card_display;
-      render.safe_on_node       = safe_on_node;
-      render.layout_initialized = false;
+      render.computed_display      = display;
+      render.computed_card_display = card_display;
+      render.computed_safe         = safe_on_node;
+      render.layout_initialized    = false;
       schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
       return;
     }
   }
 
-  render.display      = display;
-  render.card_display = card_display;
-  render.safe_on_node = safe_on_node;
+  render.computed_display      = display;
+  render.computed_card_display = card_display;
+  render.computed_safe         = safe_on_node;
+  render.rendered_display      = display;
+  render.rendered_safe_on_node = safe_on_node;
   clear_ui_retry(render.setup_failures, render.setup_retry_at_ms);
   background->SetActive(true);
   label_object->SetActive(true);
