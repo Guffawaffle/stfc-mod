@@ -11,13 +11,10 @@
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
-#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
-#include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <limits>
 #include <string>
 
@@ -26,6 +23,7 @@ namespace
 constexpr const char* kOpcHighlightName     = "CommunityOPCHighlight";
 constexpr const char* kOpcEtaLabelName      = "CommunityOpcEtaLabel";
 constexpr const char* kOpcEtaBackgroundName = "CommunityOpcEtaBackground";
+constexpr const char* kOpcCardLabelName     = "CommunityOpcCardEtaLabel";
 constexpr int         kFleetSlotCount       = 10;
 constexpr int64_t     kOpcEtaRefreshMs      = 1'000;
 constexpr int64_t     kUiRetryInitialMs     = 1'000;
@@ -34,21 +32,27 @@ constexpr int64_t     kUiRetryMaximumMs     = 30'000;
 struct OpcEtaLogState {
   uint64_t    fleet_id = 0;
   std::string display;
-  std::string tooltip;
 };
 
 struct OpcEtaRenderState {
   uint64_t    fleet_id = 0;
   std::string display;
-  std::string tooltip;
-  FleetState  fleet_state         = FleetState::Unknown;
-  bool        selected            = false;
-  bool        safe_on_node        = false;
-  bool        fleet_state_known   = false;
-  bool        layout_initialized  = false;
-  bool        tooltip_initialized = false;
-  uint8_t     setup_failures      = 0;
-  int64_t     setup_retry_at_ms   = 0;
+  std::string card_display;
+  FleetState  fleet_state        = FleetState::Unknown;
+  bool        selected           = false;
+  bool        safe_on_node       = false;
+  bool        fleet_state_known  = false;
+  bool        layout_initialized = false;
+  uint8_t     setup_failures     = 0;
+  int64_t     setup_retry_at_ms  = 0;
+};
+
+struct OpcCardRenderState {
+  uint64_t    fleet_id = 0;
+  std::string display;
+  bool        layout_initialized = false;
+  uint8_t     setup_failures     = 0;
+  int64_t     setup_retry_at_ms  = 0;
 };
 
 struct UiVector2 {
@@ -66,6 +70,7 @@ std::array<uint64_t, kFleetSlotCount>          s_opc_highlight_retry_fleet_ids{}
 std::array<uintptr_t, kFleetSlotCount>         s_opc_highlight_retry_anchor_ids{};
 bool                                           s_highlight_enabled = false;
 bool                                           s_eta_enabled       = false;
+OpcCardRenderState                             s_opc_card_render_state{};
 
 struct Color {
   float r;
@@ -245,15 +250,14 @@ std::string format_opc_eta(const FleetOpcStatus& status)
   return status.safe_on_node ? "SAFE" : format_duration(status.eta_seconds);
 }
 
-std::string format_opc_tooltip(const FleetOpcStatus& status)
+std::string format_opc_card_display(const FleetOpcStatus& status)
 {
   if (!status.mining || !status.cargo_known) {
     return {};
   }
 
-  const auto node = status.node_eta_seconds >= 0 ? format_duration(status.node_eta_seconds) : "Unknown";
-  const auto opc  = status.opc ? "Now" : status.eta_seconds >= 0 ? format_duration(status.eta_seconds) : "Unknown";
-  return "Node: " + node + "\nOPC:  " + opc;
+  const auto opc = status.opc ? "Now" : status.eta_seconds >= 0 ? format_duration(status.eta_seconds) : "Unknown";
+  return "OPC: " + opc;
 }
 
 Il2CppObject* invoke(const MethodInfo* method, void* target, void** args, const char* operation)
@@ -365,6 +369,40 @@ Transform* opc_anchor_from_component(void* component)
       il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Ships", "FleetLocalViewController");
   auto* fleet_tile = component_in_parent(component, fleet_tile_helper);
   return opc_anchor_from_tile(component_transform(fleet_tile));
+}
+
+void* fleet_panel_controller(void* component)
+{
+  if (!component) {
+    return nullptr;
+  }
+
+  static auto fleet_bar_helper =
+      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "FleetBarViewController");
+  static auto panel_field = fleet_bar_helper.GetField("_fleetPanelController");
+  auto*       fleet_bar   = component_in_parent(component, fleet_bar_helper);
+  if (!fleet_bar || !panel_field.isValidHelper()) {
+    return nullptr;
+  }
+  return *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(fleet_bar) + panel_field.offset());
+}
+
+Transform* fleet_panel_timer_anchor(void* component)
+{
+  auto* fleet_panel = fleet_panel_controller(component);
+  if (!fleet_panel) {
+    return nullptr;
+  }
+
+  static auto fleet_local_helper =
+      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Ships", "FleetLocalViewController");
+  static auto timer_widget_field = fleet_local_helper.GetField("_timerWidget");
+  if (!timer_widget_field.isValidHelper()) {
+    return nullptr;
+  }
+  auto* timer_widget =
+      *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(fleet_panel) + timer_widget_field.offset());
+  return component_transform(timer_widget);
 }
 
 Transform* opc_anchor_from_fleetbar_flag(void* fleetbar_flag_widget)
@@ -664,6 +702,60 @@ bool configure_opc_eta_label(void* label, Transform* transform, bool selected, b
          && invoke_void(set_color, label, color_args, "Graphic.set_color");
 }
 
+bool configure_opc_card_label(void* label, Transform* transform)
+{
+  if (!label || !transform) {
+    return false;
+  }
+
+  static auto rect_helper      = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "RectTransform");
+  static auto anchor_min       = rect_helper.GetMethodInfo("set_anchorMin");
+  static auto anchor_max       = rect_helper.GetMethodInfo("set_anchorMax");
+  static auto pivot_method     = rect_helper.GetMethodInfo("set_pivot");
+  static auto size_delta       = rect_helper.GetMethodInfo("set_sizeDelta");
+  static auto position         = rect_helper.GetMethodInfo("set_anchoredPosition");
+  static auto transform_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Transform");
+  static auto last_sibling     = transform_helper.GetMethodInfo("SetAsLastSibling");
+  static auto text_helper      = il2cpp_get_class_helper("Unity.TextMeshPro", "TMPro", "TMP_Text");
+  static auto set_font_size    = text_helper.GetMethodInfo("set_fontSize", 1);
+  static auto set_alignment    = text_helper.GetMethodInfo("set_alignment", 1);
+  static auto graphic_helper   = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Graphic");
+  static auto set_raycast      = graphic_helper.GetMethodInfo("set_raycastTarget", 1);
+  static auto set_color        = graphic_helper.GetMethodInfo("set_color", 1);
+  if (!anchor_min || !anchor_max || !pivot_method || !size_delta || !position || !last_sibling || !set_font_size
+      || !set_alignment || !set_raycast || !set_color) {
+    return false;
+  }
+
+  // Runtime probe: the expanded panel's TimerContainer is 280x49.8 and its native Timer is centered at x=7.6.
+  // Place this single line just beneath the native 43.4-high timer without changing the panel's own layout.
+  UiVector2 center{0.5f, 0.5f};
+  UiVector2 size{190.0f, 26.0f};
+  UiVector2 offset{7.6f, -39.0f};
+  float     font_size      = 18.0f;
+  int32_t   alignment      = 514; // TMPro.TextAlignmentOptions.Center
+  bool      raycast_target = false;
+  Color     text_color{0.82f, 0.91f, 0.96f, 1.0f};
+  void*     anchor_args[1]    = {&center};
+  void*     pivot_args[1]     = {&center};
+  void*     size_args[1]      = {&size};
+  void*     offset_args[1]    = {&offset};
+  void*     font_args[1]      = {&font_size};
+  void*     alignment_args[1] = {&alignment};
+  void*     raycast_args[1]   = {&raycast_target};
+  void*     color_args[1]     = {&text_color};
+  return invoke_void(anchor_min, transform, anchor_args, "RectTransform.set_anchorMin")
+         && invoke_void(anchor_max, transform, anchor_args, "RectTransform.set_anchorMax")
+         && invoke_void(pivot_method, transform, pivot_args, "RectTransform.set_pivot")
+         && invoke_void(size_delta, transform, size_args, "RectTransform.set_sizeDelta")
+         && invoke_void(position, transform, offset_args, "RectTransform.set_anchoredPosition")
+         && invoke_void(last_sibling, transform, nullptr, "Transform.SetAsLastSibling")
+         && invoke_void(set_font_size, label, font_args, "TMP_Text.set_fontSize")
+         && invoke_void(set_alignment, label, alignment_args, "TMP_Text.set_alignment")
+         && invoke_void(set_raycast, label, raycast_args, "Graphic.set_raycastTarget")
+         && invoke_void(set_color, label, color_args, "Graphic.set_color");
+}
+
 void* find_opc_eta_label(Transform* label_anchor)
 {
   auto* label_transform = direct_child_named(label_anchor, kOpcEtaLabelName);
@@ -765,135 +857,6 @@ void* opc_eta_background_image(GameObject* background)
   return invoke(get_component, background, args, "GameObject.GetComponent<Image>");
 }
 
-struct OverridableBoolValue {
-  bool serialized_value;
-  bool current_value;
-  bool modified;
-};
-
-static_assert(sizeof(OverridableBoolValue) == 3);
-
-bool is_boolean_field(const FieldInfo* field)
-{
-  return field && field->type && !field->type->byref && field->type->type == IL2CPP_TYPE_BOOLEAN
-         && (il2cpp_field_get_flags(const_cast<FieldInfo*>(field)) & FIELD_ATTRIBUTE_STATIC) == 0;
-}
-
-bool is_overridable_bool_field(const FieldInfo* field)
-{
-  if (!field || !field->type || field->type->byref || field->type->type != IL2CPP_TYPE_VALUETYPE
-      || (il2cpp_field_get_flags(const_cast<FieldInfo*>(field)) & FIELD_ATTRIBUTE_STATIC) != 0) {
-    return false;
-  }
-
-  auto* value_class = il2cpp_class_from_type(field->type);
-  if (!value_class || !value_class->namespaze || !value_class->name
-      || std::strcmp(value_class->namespaze, "Digit.Client.Serialization") != 0
-      || std::strcmp(value_class->name, "OverridableBool") != 0) {
-    return false;
-  }
-
-  uint32_t alignment = 0;
-  if (il2cpp_class_value_size(value_class, &alignment) != sizeof(OverridableBoolValue)
-      || alignment != alignof(OverridableBoolValue)) {
-    return false;
-  }
-
-  struct ExpectedField {
-    const char* name;
-    size_t      offset;
-  };
-  constexpr std::array expected_fields{
-      ExpectedField{"_serializedValue", 0},
-      ExpectedField{"_currentValue", 1},
-      ExpectedField{"_modified", 2},
-  };
-  return std::ranges::all_of(expected_fields, [value_class](const auto& expected) {
-    auto* nested = il2cpp_class_get_field_from_name(value_class, expected.name);
-    return is_boolean_field(nested) && nested->offset == sizeof(Il2CppObject) + expected.offset;
-  });
-}
-
-bool write_overridable_bool_field(void* instance, Il2CppClass* klass, const char* name,
-                                  const OverridableBoolValue& value)
-{
-  auto* field = instance && klass ? il2cpp_class_get_field_from_name(klass, name) : nullptr;
-  if (!is_overridable_bool_field(field) || field->offset < static_cast<int32_t>(sizeof(Il2CppObject))) {
-    return false;
-  }
-  auto copy = value;
-  il2cpp_field_set_value(reinterpret_cast<Il2CppObject*>(instance), field, &copy);
-  return true;
-}
-
-bool write_bool_field(void* instance, Il2CppClass* klass, const char* name, bool value)
-{
-  auto* field = instance && klass ? il2cpp_class_get_field_from_name(klass, name) : nullptr;
-  if (!is_boolean_field(field) || field->offset < static_cast<int32_t>(sizeof(Il2CppObject))) {
-    return false;
-  }
-  il2cpp_field_set_value(reinterpret_cast<Il2CppObject*>(instance), field, &value);
-  return true;
-}
-
-void* opc_eta_tooltip(GameObject* background)
-{
-  if (!background) {
-    return nullptr;
-  }
-
-  static auto game_object_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "GameObject");
-  static auto tooltip_helper     = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Tooltip", "TooltipTrigger");
-  static auto get_component      = game_object_helper.GetMethodInfo("GetComponent", 1);
-  static auto add_component      = game_object_helper.GetMethodInfo("AddComponent", 1);
-  if (!game_object_helper.get_cls() || !tooltip_helper.get_cls() || !get_component || !add_component) {
-    return nullptr;
-  }
-
-  void* tooltip_type = tooltip_helper.GetType();
-  void* args[1]      = {tooltip_type};
-  if (auto* existing = invoke(get_component, background, args, "GameObject.GetComponent<TooltipTrigger>"); existing) {
-    return existing;
-  }
-  return invoke(add_component, background, args, "GameObject.AddComponent<TooltipTrigger>");
-}
-
-bool configure_opc_eta_tooltip(GameObject* background, void* image, const std::string& tooltip_text)
-{
-  if (!background || !image || tooltip_text.empty()) {
-    return false;
-  }
-
-  static auto tooltip_helper   = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Tooltip", "TooltipTrigger");
-  static auto set_description  = tooltip_helper.GetMethodInfo("set_DescriptionOverrideText", 1);
-  static auto set_interactable = tooltip_helper.GetMethodInfo("set_IsInteractable", 1);
-  static auto graphic_helper   = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Graphic");
-  static auto set_raycast      = graphic_helper.GetMethodInfo("set_raycastTarget", 1);
-  auto*       tooltip          = opc_eta_tooltip(background);
-  if (!tooltip_helper.get_cls() || !graphic_helper.get_cls() || !tooltip || !set_description || !set_interactable
-      || !set_raycast) {
-    return false;
-  }
-
-  const OverridableBoolValue hidden{false, false, false};
-  const OverridableBoolValue shown{true, true, false};
-  const bool                 override_locale = true;
-  if (!write_overridable_bool_field(tooltip, tooltip_helper.get_cls(), "_showHeader", hidden)
-      || !write_overridable_bool_field(tooltip, tooltip_helper.get_cls(), "_showDescription", shown)
-      || !write_bool_field(tooltip, tooltip_helper.get_cls(), "_overrideLocale", override_locale)) {
-    return false;
-  }
-
-  bool  interactable         = true;
-  bool  raycast              = true;
-  void* description_args[1]  = {il2cpp_string_new(tooltip_text.c_str())};
-  void* interactable_args[1] = {&interactable};
-  void* raycast_args[1]      = {&raycast};
-  return invoke_void(set_description, tooltip, description_args, "TooltipTrigger.set_DescriptionOverrideText")
-         && invoke_void(set_interactable, tooltip, interactable_args, "TooltipTrigger.set_IsInteractable")
-         && invoke_void(set_raycast, image, raycast_args, "Graphic.set_raycastTarget");
-}
-
 bool configure_opc_eta_background(void* image, Transform* transform, bool selected)
 {
   if (!image || !transform) {
@@ -921,7 +884,7 @@ bool configure_opc_eta_background(void* image, Transform* transform, bool select
   UiVector2 size{108.0f, 30.0f};
   UiVector2 offset{0.0f, selected ? 25.0f : 15.0f};
   Color     background{0.035f, 0.075f, 0.10f, 0.86f};
-  bool      raycast_target  = true;
+  bool      raycast_target  = false;
   void*     top_args[1]     = {&top_center};
   void*     bottom_args[1]  = {&bottom_center};
   void*     size_args[1]    = {&size};
@@ -987,8 +950,115 @@ void* create_opc_eta_label(Transform* label_anchor, bool selected, bool safe_on_
   return label;
 }
 
-void log_opc_eta(FleetPlayerData* fleet, const FleetOpcStatus& status, const std::string& display,
-                 const std::string& tooltip)
+void* find_opc_card_label(Transform* timer_anchor)
+{
+  auto* label_transform = direct_child_named(timer_anchor, kOpcCardLabelName);
+  auto* label_object    = label_transform ? label_transform->gameObject : nullptr;
+  if (!label_object) {
+    return nullptr;
+  }
+
+  static auto game_object_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "GameObject");
+  static auto text_helper        = il2cpp_get_class_helper("Unity.TextMeshPro", "TMPro", "TextMeshProUGUI");
+  static auto get_component      = game_object_helper.GetMethodInfo("GetComponent", 1);
+  void*       text_type          = text_helper.GetType();
+  void*       args[1]            = {text_type};
+  return invoke(get_component, label_object, args, "GameObject.GetComponent<OPC Card TextMeshProUGUI>");
+}
+
+void* create_opc_card_label(Transform* timer_anchor)
+{
+  if (!timer_anchor) {
+    return nullptr;
+  }
+  if (auto* child = direct_child_named(timer_anchor, kOpcCardLabelName); child) {
+    if (auto* existing = find_opc_card_label(timer_anchor); existing && component_transform(existing)) {
+      return existing;
+    }
+    destroy_game_object(child->gameObject);
+    return nullptr;
+  }
+
+  static auto text_helper = il2cpp_get_class_helper("Unity.TextMeshPro", "TMPro", "TextMeshProUGUI");
+  auto*       label       = create_ui_component(kOpcCardLabelName, timer_anchor, text_helper,
+                                                "GameObject.AddComponent<OPC Card TextMeshProUGUI>");
+  auto*       transform   = component_transform(label);
+  auto*       game_object = transform ? transform->gameObject : nullptr;
+  if (!game_object || !configure_opc_card_label(label, transform)) {
+    destroy_game_object(game_object);
+    return nullptr;
+  }
+
+  spdlog::info("[OpcIndicators] created selected-fleet OPC card label");
+  return label;
+}
+
+void hide_opc_card_label(Transform* timer_anchor)
+{
+  if (auto* transform = direct_child_named(timer_anchor, kOpcCardLabelName); transform && transform->gameObject) {
+    transform->gameObject->SetActive(false);
+  }
+}
+
+void destroy_opc_card_label(Transform* timer_anchor)
+{
+  auto* label = direct_child_named(timer_anchor, kOpcCardLabelName);
+  destroy_game_object(label ? label->gameObject : nullptr);
+}
+
+void update_opc_card_label(void* ui_component, FleetPlayerData* fleet, const std::string& display)
+{
+  auto* timer_anchor = fleet_panel_timer_anchor(ui_component);
+  auto& state        = s_opc_card_render_state;
+  if (!fleet || display.empty()) {
+    hide_opc_card_label(timer_anchor);
+    state = {};
+    return;
+  }
+
+  if (state.fleet_id != fleet->Id) {
+    state          = {};
+    state.fleet_id = fleet->Id;
+  }
+  if (state.setup_retry_at_ms > steady_now_milliseconds()) {
+    return;
+  }
+
+  auto* label   = find_opc_card_label(timer_anchor);
+  bool  created = false;
+  if (!label) {
+    label   = create_opc_card_label(timer_anchor);
+    created = label != nullptr;
+  }
+  auto* transform   = component_transform(label);
+  auto* game_object = transform ? transform->gameObject : nullptr;
+  if (!label || !transform || !game_object
+      || ((!state.layout_initialized || created) && !configure_opc_card_label(label, transform))) {
+    destroy_opc_card_label(timer_anchor);
+    state.layout_initialized = false;
+    schedule_ui_retry(state.setup_failures, state.setup_retry_at_ms);
+    return;
+  }
+
+  if (created || state.display != display) {
+    static auto tmp_helper = il2cpp_get_class_helper("Unity.TextMeshPro", "TMPro", "TMP_Text");
+    static auto set_text   = tmp_helper.GetMethodInfo("set_text", 1);
+    void*       args[1]    = {il2cpp_string_new(display.c_str())};
+    if (!set_text || !invoke_void(set_text, label, args, "TMP_Text.set_text")) {
+      destroy_opc_card_label(timer_anchor);
+      state.layout_initialized = false;
+      schedule_ui_retry(state.setup_failures, state.setup_retry_at_ms);
+      return;
+    }
+  }
+
+  state.display            = display;
+  state.layout_initialized = true;
+  clear_ui_retry(state.setup_failures, state.setup_retry_at_ms);
+  game_object->SetActive(true);
+}
+
+void log_opc_eta(FleetPlayerData* fleet, const FleetOpcStatus& status, const std::string& display)
 {
   const auto slot = fleet ? fleet->Index : -1;
   if (slot < 0 || slot >= kFleetSlotCount) {
@@ -997,12 +1067,12 @@ void log_opc_eta(FleetPlayerData* fleet, const FleetOpcStatus& status, const std
 
   const auto fleet_id = fleet ? fleet->Id : 0;
   auto&      previous = s_last_opc_eta_log_states[slot];
-  if (previous.fleet_id == fleet_id && previous.display == display && previous.tooltip == tooltip) {
+  if (previous.fleet_id == fleet_id && previous.display == display) {
     return;
   }
 
   const bool previously_visible = !previous.display.empty();
-  previous                      = {fleet_id, display, tooltip};
+  previous                      = {fleet_id, display};
   if (display.empty()) {
     if (previously_visible) {
       spdlog::debug("[OpcIndicators] slot={} fleet={} opcEta=hidden", slot, fleet_id);
@@ -1085,6 +1155,7 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     hide_opc_eta(label_anchor);
     return;
   }
+  const bool selected      = fleet_tile_is_selected(ui_component, fleet);
   auto&      render        = s_opc_eta_render_states[slot];
   const bool fleet_changed = render.fleet_id != fleet->Id;
   if (fleet_changed) {
@@ -1099,29 +1170,36 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
 
   const bool refresh_due  = opc_eta_refresh_due(fleet, fleet_changed || state_changed);
   auto       display      = render.display;
-  auto       tooltip      = render.tooltip;
+  auto       card_display = render.card_display;
   auto       safe_on_node = render.safe_on_node;
   if (refresh_due) {
     const auto status = read_opc_status(fleet);
     display           = Config::Get().fleet_hud_opc_eta ? format_opc_eta(status) : std::string{};
-    tooltip           = display.empty() ? std::string{} : format_opc_tooltip(status);
+    card_display      = display.empty() ? std::string{} : format_opc_card_display(status);
     safe_on_node      = status.safe_on_node;
-    log_opc_eta(fleet, status, display, tooltip);
+    log_opc_eta(fleet, status, display);
   }
 
   if (display.empty()) {
     hide_opc_eta(label_anchor);
+    if (selected) {
+      update_opc_card_label(ui_component, fleet, {});
+    }
     render.display.clear();
-    render.tooltip.clear();
-    render.safe_on_node        = false;
-    render.layout_initialized  = false;
-    render.tooltip_initialized = false;
+    render.card_display.clear();
+    render.safe_on_node       = false;
+    render.layout_initialized = false;
     clear_ui_retry(render.setup_failures, render.setup_retry_at_ms);
     return;
   }
+
+  if (selected) {
+    update_opc_card_label(ui_component, fleet, card_display);
+  }
+
   if (render.setup_retry_at_ms > steady_now_milliseconds()) {
     render.display      = display;
-    render.tooltip      = tooltip;
+    render.card_display = card_display;
     render.safe_on_node = safe_on_node;
     return;
   }
@@ -1129,8 +1207,7 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
   auto* background = find_opc_eta_background(label_anchor);
   auto* label      = find_opc_eta_label(label_anchor);
 
-  const bool selected = fleet_tile_is_selected(ui_component, fleet);
-  bool       created  = false;
+  bool created = false;
   if (!background) {
     background = create_opc_eta_background(label_anchor, selected);
     created    = background != nullptr;
@@ -1140,8 +1217,7 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     created = created || label != nullptr;
   }
   if (created) {
-    render.layout_initialized  = false;
-    render.tooltip_initialized = false;
+    render.layout_initialized = false;
   }
   auto* label_transform      = component_transform(label);
   auto* label_object         = label_transform ? label_transform->gameObject : nullptr;
@@ -1149,11 +1225,10 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
   auto* background_transform = component_transform(background_image);
   if (!background || !background_image || !background_transform || !label || !label_transform || !label_object) {
     destroy_opc_eta(label_anchor);
-    render.display             = display;
-    render.tooltip             = tooltip;
-    render.safe_on_node        = safe_on_node;
-    render.layout_initialized  = false;
-    render.tooltip_initialized = false;
+    render.display            = display;
+    render.card_display       = card_display;
+    render.safe_on_node       = safe_on_node;
+    render.layout_initialized = false;
     schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
     return;
   }
@@ -1165,23 +1240,9 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     render.selected                  = selected;
     if (!render.layout_initialized) {
       destroy_opc_eta(label_anchor);
-      render.display             = display;
-      render.tooltip             = tooltip;
-      render.safe_on_node        = safe_on_node;
-      render.tooltip_initialized = false;
-      schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
-      return;
-    }
-  }
-
-  if (!render.tooltip_initialized || render.tooltip != tooltip) {
-    render.tooltip_initialized = configure_opc_eta_tooltip(background, background_image, tooltip);
-    if (!render.tooltip_initialized) {
-      destroy_opc_eta(label_anchor);
-      render.display            = display;
-      render.tooltip            = tooltip;
-      render.safe_on_node       = safe_on_node;
-      render.layout_initialized = false;
+      render.display      = display;
+      render.card_display = card_display;
+      render.safe_on_node = safe_on_node;
       schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
       return;
     }
@@ -1194,18 +1255,17 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     void*       args[1]    = {il2cpp_string_new(desired.c_str())};
     if (!set_text || !invoke_void(set_text, label, args, "TMP_Text.set_text")) {
       destroy_opc_eta(label_anchor);
-      render.display             = display;
-      render.tooltip             = tooltip;
-      render.safe_on_node        = safe_on_node;
-      render.layout_initialized  = false;
-      render.tooltip_initialized = false;
+      render.display            = display;
+      render.card_display       = card_display;
+      render.safe_on_node       = safe_on_node;
+      render.layout_initialized = false;
       schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
       return;
     }
   }
 
   render.display      = display;
-  render.tooltip      = tooltip;
+  render.card_display = card_display;
   render.safe_on_node = safe_on_node;
   clear_ui_retry(render.setup_failures, render.setup_retry_at_ms);
   background->SetActive(true);
