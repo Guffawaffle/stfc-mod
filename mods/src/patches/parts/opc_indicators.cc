@@ -11,6 +11,7 @@
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -48,7 +49,8 @@ struct OpcEtaRenderState {
 };
 
 struct OpcCardRenderState {
-  uint64_t    fleet_id = 0;
+  uint64_t    fleet_id        = 0;
+  uintptr_t   timer_anchor_id = 0;
   std::string display;
   bool        layout_initialized = false;
   uint8_t     setup_failures     = 0;
@@ -212,7 +214,7 @@ std::string format_duration(int64_t seconds)
     return "<1m";
   }
 
-  const auto minutes = (seconds + 59) / 60;
+  const auto minutes = seconds / 60 + (seconds % 60 != 0);
   if (minutes < 60) {
     return std::to_string(minutes) + "m";
   }
@@ -371,6 +373,13 @@ Transform* opc_anchor_from_component(void* component)
   return opc_anchor_from_tile(component_transform(fleet_tile));
 }
 
+bool is_instance_class_field(const FieldInfo* field)
+{
+  return field && field->type && !field->type->byref && field->type->type == IL2CPP_TYPE_CLASS
+         && (il2cpp_field_get_flags(const_cast<FieldInfo*>(field)) & FIELD_ATTRIBUTE_STATIC) == 0
+         && field->offset >= static_cast<int32_t>(sizeof(Il2CppObject));
+}
+
 void* fleet_panel_controller(void* component)
 {
   if (!component) {
@@ -379,12 +388,14 @@ void* fleet_panel_controller(void* component)
 
   static auto fleet_bar_helper =
       il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "FleetBarViewController");
-  static auto panel_field = fleet_bar_helper.GetField("_fleetPanelController");
-  auto*       fleet_bar   = component_in_parent(component, fleet_bar_helper);
-  if (!fleet_bar || !panel_field.isValidHelper()) {
+  static auto* panel_field = fleet_bar_helper.get_cls()
+                                 ? il2cpp_class_get_field_from_name(fleet_bar_helper.get_cls(), "_fleetPanelController")
+                                 : nullptr;
+  auto*        fleet_bar   = component_in_parent(component, fleet_bar_helper);
+  if (!fleet_bar || !is_instance_class_field(panel_field)) {
     return nullptr;
   }
-  return *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(fleet_bar) + panel_field.offset());
+  return *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(fleet_bar) + panel_field->offset);
 }
 
 Transform* fleet_panel_timer_anchor(void* component)
@@ -396,12 +407,14 @@ Transform* fleet_panel_timer_anchor(void* component)
 
   static auto fleet_local_helper =
       il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Ships", "FleetLocalViewController");
-  static auto timer_widget_field = fleet_local_helper.GetField("_timerWidget");
-  if (!timer_widget_field.isValidHelper()) {
+  static auto* timer_widget_field = fleet_local_helper.get_cls()
+                                        ? il2cpp_class_get_field_from_name(fleet_local_helper.get_cls(), "_timerWidget")
+                                        : nullptr;
+  if (!is_instance_class_field(timer_widget_field)) {
     return nullptr;
   }
   auto* timer_widget =
-      *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(fleet_panel) + timer_widget_field.offset());
+      *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(fleet_panel) + timer_widget_field->offset);
   return component_transform(timer_widget);
 }
 
@@ -1008,17 +1021,19 @@ void destroy_opc_card_label(Transform* timer_anchor)
 
 void update_opc_card_label(void* ui_component, FleetPlayerData* fleet, const std::string& display)
 {
-  auto* timer_anchor = fleet_panel_timer_anchor(ui_component);
-  auto& state        = s_opc_card_render_state;
+  auto*      timer_anchor    = fleet_panel_timer_anchor(ui_component);
+  const auto timer_anchor_id = reinterpret_cast<uintptr_t>(timer_anchor);
+  auto&      state           = s_opc_card_render_state;
   if (!fleet || display.empty()) {
     hide_opc_card_label(timer_anchor);
     state = {};
     return;
   }
 
-  if (state.fleet_id != fleet->Id) {
-    state          = {};
-    state.fleet_id = fleet->Id;
+  if (state.fleet_id != fleet->Id || state.timer_anchor_id != timer_anchor_id) {
+    state                 = {};
+    state.fleet_id        = fleet->Id;
+    state.timer_anchor_id = timer_anchor_id;
   }
   if (state.setup_retry_at_ms > steady_now_milliseconds()) {
     return;
@@ -1142,20 +1157,24 @@ bool opc_eta_refresh_due(FleetPlayerData* fleet, bool force)
 
 void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform* known_label_anchor = nullptr)
 {
-  auto* label_anchor = known_label_anchor ? known_label_anchor : fleet_state_widget_label_anchor(ui_component);
+  auto*      label_anchor    = known_label_anchor ? known_label_anchor : fleet_state_widget_label_anchor(ui_component);
+  const bool panel_component = ui_component && fleet_panel_controller(ui_component) == ui_component;
   if (!ui_component || !fleet) {
     hide_opc_eta(label_anchor);
-    return;
-  }
-  if (!label_anchor) {
+    if (panel_component) {
+      update_opc_card_label(ui_component, nullptr, {});
+    }
     return;
   }
   const auto slot = fleet->Index;
   if (slot < 0 || slot >= kFleetSlotCount) {
     hide_opc_eta(label_anchor);
+    if (panel_component) {
+      update_opc_card_label(ui_component, nullptr, {});
+    }
     return;
   }
-  const bool selected      = fleet_tile_is_selected(ui_component, fleet);
+  const bool selected      = panel_component || fleet_tile_is_selected(ui_component, fleet);
   auto&      render        = s_opc_eta_render_states[slot];
   const bool fleet_changed = render.fleet_id != fleet->Id;
   if (fleet_changed) {
@@ -1195,6 +1214,9 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
 
   if (selected) {
     update_opc_card_label(ui_component, fleet, card_display);
+  }
+  if (!label_anchor) {
+    return;
   }
 
   if (render.setup_retry_at_ms > steady_now_milliseconds()) {
@@ -1321,6 +1343,12 @@ void FleetStateWidget_ClearWidgetData_Hook(auto original, void* self)
     hide_opc_eta(label_anchor);
     reset_opc_eta_slot(slot);
   }
+  if (fleet && s_opc_card_render_state.fleet_id == fleet->Id) {
+    auto* panel_fleet = fleet_local_view_fleet(fleet_panel_controller(self));
+    if (!panel_fleet || panel_fleet->Id != fleet->Id) {
+      update_opc_card_label(self, nullptr, {});
+    }
+  }
 }
 
 void FleetbarFlagWidget_SetWidgetData_Hook(auto original, void* self)
@@ -1357,7 +1385,8 @@ void FleetLocalViewController_BindDataContext_Hook(auto original, void* self, vo
   if (s_highlight_enabled) {
     update_opc_highlight(label_anchor, fleet);
   }
-  if (s_eta_enabled && label_anchor) {
+  const bool panel_component = fleet_panel_controller(self) == self;
+  if (s_eta_enabled && (label_anchor || panel_component)) {
     reset_opc_eta_slot(fleet ? fleet->Index : -1);
     update_opc_eta_label(self, fleet, label_anchor);
   }

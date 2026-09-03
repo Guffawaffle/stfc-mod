@@ -593,10 +593,10 @@ auto_confirm_discovery = true
 # Open the bulk gift claim flyout automatically
 auto_open_bulk_claim_flyout = false
 
-# Highlight deployed fleet-bar portraits in amber when cargo exceeds protected cargo
+# Windows only: highlight deployed fleet-bar portraits in amber when cargo exceeds protected cargo
 highlight_opc_fleets = false
 
-# Show estimated time to over-protected cargo below mining fleet status
+# Windows only: show estimated time to over-protected cargo below mining fleet status
 fleet_hud_opc_eta = false
 
 # Не показывать запрос выхода из игры при нажатии Escape
