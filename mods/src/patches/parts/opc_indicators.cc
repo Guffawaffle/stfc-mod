@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <string_view>
 
 namespace
 {
@@ -373,11 +374,18 @@ Transform* opc_anchor_from_component(void* component)
   return opc_anchor_from_tile(component_transform(fleet_tile));
 }
 
-bool is_instance_class_field(const FieldInfo* field)
+bool is_instance_class_field(const FieldInfo* field, std::string_view expected_namespace,
+                             std::string_view expected_name)
 {
-  return field && field->type && !field->type->byref && field->type->type == IL2CPP_TYPE_CLASS
-         && (il2cpp_field_get_flags(const_cast<FieldInfo*>(field)) & FIELD_ATTRIBUTE_STATIC) == 0
-         && field->offset >= static_cast<int32_t>(sizeof(Il2CppObject));
+  if (!field || !field->type || field->type->byref || field->type->type != IL2CPP_TYPE_CLASS
+      || (il2cpp_field_get_flags(const_cast<FieldInfo*>(field)) & FIELD_ATTRIBUTE_STATIC) != 0
+      || field->offset < static_cast<int32_t>(sizeof(Il2CppObject))) {
+    return false;
+  }
+
+  auto* field_class = il2cpp_class_from_type(field->type);
+  return field_class && field_class->namespaze && field_class->name && field_class->namespaze == expected_namespace
+         && field_class->name == expected_name;
 }
 
 void* fleet_panel_controller(void* component)
@@ -392,7 +400,7 @@ void* fleet_panel_controller(void* component)
                                  ? il2cpp_class_get_field_from_name(fleet_bar_helper.get_cls(), "_fleetPanelController")
                                  : nullptr;
   auto*        fleet_bar   = component_in_parent(component, fleet_bar_helper);
-  if (!fleet_bar || !is_instance_class_field(panel_field)) {
+  if (!fleet_bar || !is_instance_class_field(panel_field, "Digit.Prime.Ships", "FleetLocalViewController")) {
     return nullptr;
   }
   return *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(fleet_bar) + panel_field->offset);
@@ -410,7 +418,7 @@ Transform* fleet_panel_timer_anchor(void* component)
   static auto* timer_widget_field = fleet_local_helper.get_cls()
                                         ? il2cpp_class_get_field_from_name(fleet_local_helper.get_cls(), "_timerWidget")
                                         : nullptr;
-  if (!is_instance_class_field(timer_widget_field)) {
+  if (!is_instance_class_field(timer_widget_field, "Digit.Client.UI", "TimerWidget")) {
     return nullptr;
   }
   auto* timer_widget =
@@ -1216,6 +1224,9 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     update_opc_card_label(ui_component, fleet, card_display);
   }
   if (!label_anchor) {
+    render.display      = display;
+    render.card_display = card_display;
+    render.safe_on_node = safe_on_node;
     return;
   }
 
