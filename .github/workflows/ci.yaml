@@ -5,6 +5,8 @@ on:
     branches:
       - "main"
       - "dev"
+      # Standalone testing artifacts while the aggregate PR is closed.
+      - "testing/all-improvements-macos"
   pull_request:
     branches: ["main", "dev"]
 
