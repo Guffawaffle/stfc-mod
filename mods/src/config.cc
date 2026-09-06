@@ -993,6 +993,8 @@ void Config::Load()
   spdlog::debug("");
   this->queue_enabled =
       get_config_or_default(config, parsed, "control", "queue_enabled", DCC::queue_enabled, write_config);
+  this->kirshara_queue_repair = get_config_or_default(config, parsed, "control", "kirshara_queue_repair",
+                                                      DCC::kirshara_queue_repair, write_config);
   this->hotkeys_enabled =
       get_config_or_default(config, parsed, "control", "hotkeys_enabled", DCC::hotkeys_enabled, write_config);
   this->hotkeys_extended =

@@ -112,6 +112,9 @@ hotkeys_extended = true
 # Skal køen være aktiveret som standard, hvis du har Kir'Shara-artefakten?
 queue_enabled = true
 
+# Skal Kir'Shara-køen fortsætte, hvis et mål uden for skærmen bliver utilgængeligt før Scopelys overgang?
+kirshara_queue_repair = true
+
 # Sæt denne til sand, hvis du foretrækker at bruge Scopelys genvejstaster
 use_scopely_hotkeys = false
 

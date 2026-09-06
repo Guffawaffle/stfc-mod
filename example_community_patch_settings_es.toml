@@ -112,6 +112,9 @@ hotkeys_extended = true
 # Si tienes el artefacto Kir'Shara, ¿debe activarse la cola de forma predeterminada?
 queue_enabled = true
 
+# ¿Avanzar la cola de Kir'Shara si un objetivo fuera de pantalla deja de estar disponible antes de la transición de Scopely?
+kirshara_queue_repair = true
+
 # Si prefieres usar los atajos de Scopely, establece este valor en verdadero
 use_scopely_hotkeys = false
 

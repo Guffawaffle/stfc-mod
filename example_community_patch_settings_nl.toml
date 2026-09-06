@@ -112,6 +112,9 @@ hotkeys_extended = true
 # Als je de Kir'Shara artefect hebt, moet de wachtrij standaard ingeschakeld zijn?
 queue_enabled = true
 
+# De Kir'Shara-wachtrij vervroegd voortzetten als een doel buiten beeld niet meer beschikbaar is?
+kirshara_queue_repair = true
+
 # Als je de Scopely sneltoetsen prefereerd over die van de mod, schakel dit dan aan
 use_scopely_hotkeys = false
 

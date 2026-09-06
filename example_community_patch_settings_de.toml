@@ -112,6 +112,9 @@ hotkeys_extended = true
 # Soll die Warteschlange standardmäßig aktiviert sein, wenn das Kir'Shara-Artefakt vorhanden ist?
 queue_enabled = true
 
+# Soll die Kir'Shara-Warteschlange weiterschalten, wenn ein Ziel außerhalb des Bildschirms zu früh nicht verfügbar ist?
+kirshara_queue_repair = true
+
 # Auf true setzen, um die Hotkeys von Scopely zu verwenden
 use_scopely_hotkeys = false
 

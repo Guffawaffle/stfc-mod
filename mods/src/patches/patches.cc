@@ -56,6 +56,7 @@ void InstallOpcIndicatorHooks();
 void InstallDevConsole();
 void InstallGameErrorProbe();
 #endif
+void InstallActionQueueRepairHooks();
 
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
 {
@@ -163,6 +164,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"AudioEvents",          {InstallAudioEventHooks,                 &cfg.installAudioEventHooks}},
       {"OfficerPresetReorder", {InstallOfficerPresetReorderHooks, &cfg.allow_officer_preset_reordering}},
       {"OpcIndicators",       {InstallOpcIndicatorHooks,               &cfg.installOpcIndicatorHooks}},
+      {"KirsharaQueueRepair",  {InstallActionQueueRepairHooks,          &cfg.kirshara_queue_repair}},
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
 

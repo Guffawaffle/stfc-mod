@@ -112,6 +112,9 @@ hotkeys_extended = true
 # If you have the Kir'Shara artifact, should the queue be enabled by default?
 queue_enabled = true
 
+# Nudge the Kir'Shara queue along when an off-screen target disappears before Scopely catches up?
+kirshara_queue_repair = true
+
 # If you prefer to use Scopely's hotkeys set this to true
 use_scopely_hotkeys = false
 

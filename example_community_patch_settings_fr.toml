@@ -112,6 +112,9 @@ hotkeys_extended = true
 # Si vous avez l’artefact Kir’Shara, la file d’attente doit-elle être activée par défaut ?
 queue_enabled = true
 
+# Faire avancer la file Kir’Shara si une cible hors écran devient indisponible avant la transition de Scopely ?
+kirshara_queue_repair = true
+
 # Si vous préférez utiliser les raccourcis de Scopely mettez ça sur activer
 use_scopely_hotkeys = false
 

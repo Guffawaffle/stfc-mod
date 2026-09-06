@@ -112,6 +112,9 @@ hotkeys_extended = true
 # If you have  Kir'Shara artifact, should  queue be chu' by motlh?
 queue_enabled = true
 
+# Advance Kir'Shara queue when off-screen target becomes unavailable before Scopely transition?
+kirshara_queue_repair = true
+
 # If you prefer Daq  lo' Scopely's hotkeys cher this Daq  teH
 use_scopely_hotkeys = false
 
