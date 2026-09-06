@@ -1,6 +1,7 @@
 #include "config.h"
 #include "file.h"
 #include "patches/mapkey.h"
+#include "patches/keyboard_layout.h"
 #include "prime/KeyCode.h"
 #include "ship_name_match.h"
 #include "str_utils.h"
@@ -769,6 +770,7 @@ void parse_config_shortcut_value(toml::table& new_config, std::string_view item,
 
     if (mapKey.Key != KeyCode::None) {
       keyAdded = true;
+      keyboard_layout::RegisterShortcut(item, mapKey.GetParsedValues(), mapKey.Key);
       MapKey::AddMappedKey(gameFunction, std::move(mapKey));
     } else if (!wantedKey.empty()) {
       spdlog::warn("Invalid shortcut token [shortcuts].{} token='{}' value='{}'; ignoring token.",
@@ -997,6 +999,14 @@ void Config::Load()
       get_config_or_default(config, parsed, "control", "hotkeys_extended", DCC::hotkeys_extended, write_config);
   this->use_scopely_hotkeys =
       get_config_or_default(config, parsed, "control", "use_scopely_hotkeys", DCC::use_scopely_hotkeys, write_config);
+  this->keyboard_letter_mode = get_config_or_default(
+      config, parsed, "control", "keyboard_letter_mode", std::string(DCC::keyboard_letter_mode), write_config);
+  if (this->keyboard_letter_mode != "physical" && this->keyboard_letter_mode != "layout") {
+    spdlog::warn("Invalid [control].keyboard_letter_mode '{}'; using physical", this->keyboard_letter_mode);
+    this->keyboard_letter_mode = DCC::keyboard_letter_mode;
+    parsed["control"].as_table()->insert_or_assign("keyboard_letter_mode", this->keyboard_letter_mode);
+  }
+  keyboard_layout::Configure(this->keyboard_letter_mode);
   this->select_timer =
       get_config_or_default(config, parsed, "control", "select_timer", DCC::select_timer, write_config);
   this->enable_experimental =
@@ -1554,6 +1564,7 @@ void Config::Load()
     std::filesystem::remove(FILE_DEF_PARSED);
   }
 
+  keyboard_layout::InitializeDiagnostics(parsed);
   Config::Save(parsed, File::Vars());
 
   std::cout << "\n\n-----------------------------\n\n"
