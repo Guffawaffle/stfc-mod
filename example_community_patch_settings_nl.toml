@@ -654,6 +654,11 @@ auto_open_bulk_claim_flyout = false
 # Shift-click a preset's edit-name button to move it up; Ctrl-click to move it down
 # The chosen order is stored locally and does not change Scopely's preset slots
 allow_officer_preset_reordering = false
+# Windows only: highlight deployed fleet-bar portraits in amber when cargo exceeds protected cargo
+highlight_opc_fleets = false
+
+# Windows only: show estimated time to over-protected cargo below mining fleet status
+fleet_hud_opc_eta = false
 
 # Zorgt ervoor dat het gebruiken van "escape" het spel niet sluit
 disable_escape_exit = true
