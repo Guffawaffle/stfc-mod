@@ -99,6 +99,14 @@ enum GameFunction {
   Restart,
   Quit,
   FocusSearch,
+#ifdef _MODDBG
+  DevConsoleToggle,
+  DevConsoleClear,
+  DevConsoleScrollUp,
+  DevConsoleScrollDown,
+  DevConsoleScrollLive,
+  DevConsoleCycleOpacity,
+#endif
 
   // Automatic max value
   Max

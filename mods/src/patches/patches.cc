@@ -52,6 +52,11 @@ void InstallAudioEventHooks();
 void InstallOfficerPresetReorderHooks();
 void InstallOpcIndicatorHooks();
 
+#ifdef _MODDBG
+void InstallDevConsole();
+void InstallGameErrorProbe();
+#endif
+
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
 {
   struct PatchEntry {
@@ -177,6 +182,11 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       patch_func();
     }
   }
+
+#ifdef _MODDBG
+  InstallDevConsole();
+  InstallGameErrorProbe();
+#endif
 
   spdlog::info("");
 

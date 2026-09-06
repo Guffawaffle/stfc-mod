@@ -1418,6 +1418,20 @@ void Config::Load()
   parse_config_shortcut_aliases(config, parsed, "set_hotkeys_enabled", GameFunction::EnableHotKeys,
                                 DCSH::set_hotkeys_enabled, {"set_hotkeys_enable"});
 
+#ifdef _MODDBG
+  parse_config_shortcut(config, parsed, "dev_console_toggle", GameFunction::DevConsoleToggle,
+                        DCSH::dev_console_toggle);
+  parse_config_shortcut(config, parsed, "dev_console_clear", GameFunction::DevConsoleClear, DCSH::dev_console_clear);
+  parse_config_shortcut(config, parsed, "dev_console_scroll_up", GameFunction::DevConsoleScrollUp,
+                        DCSH::dev_console_scroll_up);
+  parse_config_shortcut(config, parsed, "dev_console_scroll_down", GameFunction::DevConsoleScrollDown,
+                        DCSH::dev_console_scroll_down);
+  parse_config_shortcut(config, parsed, "dev_console_scroll_live", GameFunction::DevConsoleScrollLive,
+                        DCSH::dev_console_scroll_live);
+  parse_config_shortcut(config, parsed, "dev_console_cycle_opacity", GameFunction::DevConsoleCycleOpacity,
+                        DCSH::dev_console_cycle_opacity);
+#endif
+
   parse_config_shortcut(config, parsed, "select_chatalliance", GameFunction::SelectChatAlliance,
                         DCSH::select_chatalliance);
   parse_config_shortcut(config, parsed, "select_chatglobal", GameFunction::SelectChatGlobal, DCSH::select_chatglobal);

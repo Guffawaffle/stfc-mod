@@ -121,6 +121,14 @@ namespace Shortcuts
   constexpr const char* log_trace             = "CTRL-SHIFT-F7";
   constexpr const char* restart               = "F9";
   constexpr const char* quit                  = "F10";
+#ifdef _MODDBG
+  constexpr const char* dev_console_toggle        = "CTRL-SHIFT-F6";
+  constexpr const char* dev_console_clear         = "CTRL-SHIFT-DELETE";
+  constexpr const char* dev_console_scroll_up     = "CTRL-SHIFT-UP";
+  constexpr const char* dev_console_scroll_down   = "CTRL-SHIFT-DOWN";
+  constexpr const char* dev_console_scroll_live   = "CTRL-SHIFT-END";
+  constexpr const char* dev_console_cycle_opacity = "CTRL-SHIFT-O";
+#endif
   constexpr const char* select_chatalliance   = "CTRL-2";
   constexpr const char* select_chatglobal     = "CTRL-1";
   constexpr const char* select_chatprivate    = "CTRL-3";

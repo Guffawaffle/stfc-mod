@@ -1,5 +1,6 @@
 target("mods")
 do
+    add_rules("stfc.identity")
     add_ldflags("-v")
     set_kind("static")
 

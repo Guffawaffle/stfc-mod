@@ -49,6 +49,7 @@
 
 #ifdef _MODDBG
 #include "patches/fleet_watch.h"
+#include "dev/dev_console.h"
 #endif
 
 #include <EASTL/vector.h>
@@ -442,16 +443,33 @@ bool MoveShipSelectionInDock(bool goLeft)
 void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
   dispatch_screen_manager_update_callbacks();
+
+#ifdef _MODDBG
+  Key::ResetCache();
+  const auto dev_console_handled = dev_console_update(_this);
+#endif
+
   if (!Config::Get().installHotkeyHooks) {
     return original(_this);
   }
+
+#ifdef _MODDBG
+  if (dev_console_handled) {
+    if (Config::Get().hotkeys_enabled) {
+      original(_this);
+    }
+    return;
+  }
+#endif
 
   // This function is called every frame to update the screen manager.
   // Create a global clock to detect time elapsed
   static std::chrono::time_point<std::chrono::steady_clock> select_clock             = std::chrono::steady_clock::now();
   static int32_t                                            last_ship_select_request = -1;
 
+#ifndef _MODDBG
   Key::ResetCache();
+#endif
 
   if (MapKey::IsDown(GameFunction::DisableHotKeys)) {
     if (shortcut_hints_ready) {
