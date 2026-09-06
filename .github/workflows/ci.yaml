@@ -616,6 +616,18 @@ jobs:
           path: ${{ runner.tool_cache }}/xmake
           key: ${{ steps.restore_xmake.outputs.cache-primary-key }}
 
+  # Preserve the fork's required check while requiring both architecture builds.
+  fork-mac-required-check:
+    name: build-mac
+    runs-on: ubuntu-latest
+    needs: build-mac
+    if: ${{ always() }}
+    steps:
+      - name: Require all macOS builds
+        env:
+          MAC_BUILD_RESULT: ${{ needs.build-mac.result }}
+        run: test "$MAC_BUILD_RESULT" = success
+
   package-mac:
     name: package-mac
     needs: build-mac
