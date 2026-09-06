@@ -50,6 +50,16 @@ constexpr auto kToastAudioAlerts = std::to_array<ToastAudioAlertConfig>({
     {ToastState::ArmadaBattleLost, "alert_armada_battle_lost", DCA::alert_armada_battle_lost,
      &Config::alert_armada_battle_lost},
 });
+
+constexpr bool is_all_audio_wildcard(std::string_view value)
+{
+  return value.size() == 3 && (value[0] == 'a' || value[0] == 'A') && (value[1] == 'l' || value[1] == 'L')
+         && (value[2] == 'l' || value[2] == 'L');
+}
+
+static_assert(is_all_audio_wildcard("aLl"));
+static_assert(!is_all_audio_wildcard(std::string_view{"All\0suffix", 10}));
+static_assert(!is_all_audio_wildcard(std::string_view{"\xffll", 3}));
 } // namespace
 
 static const eastl::tuple<const char*, int> bannerTypes[] = {
@@ -1073,14 +1083,18 @@ void Config::Load()
       get_config_or_default(config, parsed, "audio", "trace_events", DCA::trace_events, write_config);
   auto disabled_audio_events = get_config_or_default<std::string>(
       config, parsed, "audio", "disabled_events", DCA::disabled_events, write_config);
+  this->disable_all_audio_events = false;
   this->disabled_audio_events.clear();
   for (const auto& event : StrSplit(disabled_audio_events, ',')) {
     auto stripped = StripAsciiWhitespace(event);
-    if (!stripped.empty()) {
+    if (is_all_audio_wildcard(stripped)) {
+      this->disable_all_audio_events = true;
+    } else if (!stripped.empty()) {
       this->disabled_audio_events.emplace_back(stripped);
     }
   }
-  this->installAudioEventHooks = this->trace_audio_events || !this->disabled_audio_events.empty();
+  this->installAudioEventHooks =
+      this->trace_audio_events || this->disable_all_audio_events || !this->disabled_audio_events.empty();
   bool any_toast_audio_alert_configured = false;
   for (const auto& alert : kToastAudioAlerts) {
     const auto sound = get_notification_sound(config, parsed, alert.config_name, alert.default_sound, write_config);
