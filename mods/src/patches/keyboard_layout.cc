@@ -25,6 +25,7 @@ namespace
   };
 
   bool                   enabled           = false;
+  bool                   diagnostics       = false;
   bool                   failed            = false;
   bool                   initialized       = false;
   bool                   vars_ready        = false;
@@ -46,18 +47,17 @@ namespace
     vars.insert_or_assign(
         "keyboard_mapping",
         toml::table{
-            {"requested_mode", enabled ? "layout" : "physical"},
             {"effective_mode", !enabled ? "physical" : failed ? "unavailable" : "layout"},
-            {"provider", enabled ? "Unity.InputSystem.Keyboard.FindKeyOnCurrentKeyboardLayout" : "legacy KeyCode"},
             {"refresh", !enabled ? "not_queried" : !initialized ? "pending"
                                             : failed ? "disabled" : "device_notifications"},
             {"layout", layout_name},
             {"status", status},
             {"reason", reason},
             {"generation", generation},
-            {"scope", "configured printable keys; explicit modifiers and named controls unchanged"},
-            {"physical_key_reference", "US-QWERTY positions, not the user's printed keycaps"},
         });
+    vars.erase("shortcuts_resolved");
+    if (!enabled || !diagnostics)
+      return;
     toml::table resolved;
     for (const auto& shortcut : shortcuts) {
       auto* alternatives = resolved[shortcut.name].as_array();
@@ -66,18 +66,13 @@ namespace
         alternatives = resolved[shortcut.name].as_array();
       }
       toml::table entry{{"configured", shortcut.chord}};
-      if (IsLayoutKey(shortcut.key)) {
-        const auto  index = static_cast<int>(shortcut.key);
-        const auto& key   = resolved_keys[index];
-        entry.insert("configured_character", std::string(1, static_cast<char>(index)));
-        entry.insert("status", enabled ? key.status : "physical");
-        entry.insert("physical_us_key", enabled ? key.physical : std::string(1, static_cast<char>(index)));
-        entry.insert("layout_display_name", enabled ? key.display : "not_queried");
-        entry.insert("legacy_key_code", static_cast<int>(enabled ? key.key : shortcut.key));
-      } else {
-        entry.insert("status", "unchanged_named_control");
-        entry.insert("legacy_key_code", static_cast<int>(shortcut.key));
-      }
+      const auto  index = static_cast<int>(shortcut.key);
+      const auto& key   = resolved_keys[index];
+      entry.insert("configured_character", std::string(1, static_cast<char>(index)));
+      entry.insert("status", key.status);
+      entry.insert("physical_us_key", key.physical);
+      entry.insert("layout_display_name", key.display);
+      entry.insert("legacy_key_code", static_cast<int>(key.key));
       alternatives->push_back(std::move(entry));
     }
     vars.insert_or_assign("shortcuts_resolved", std::move(resolved));
@@ -220,18 +215,21 @@ namespace
   }
 } // namespace
 
-void Configure(std::string_view mode)
+void Configure(std::string_view mode, bool detailed_diagnostics)
 {
   enabled = mode == "layout";
+  diagnostics = detailed_diagnostics;
   status  = enabled ? "pending" : "physical";
   reason  = enabled ? "awaiting_game_input" : "configured_physical";
 }
 
 void RegisterShortcut(std::string_view name, std::string_view chord, KeyCode key)
 {
-  shortcuts.push_back({std::string(name), std::string(chord), key});
-  if (IsLayoutKey(key))
-    requested_keys[static_cast<int>(key)] = true;
+  if (!enabled || !IsLayoutKey(key))
+    return;
+  requested_keys[static_cast<int>(key)] = true;
+  if (diagnostics)
+    shortcuts.push_back({std::string(name), std::string(chord), key});
 }
 
 void InitializeDiagnostics(toml::table& vars)

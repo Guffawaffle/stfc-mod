@@ -104,6 +104,8 @@ use_scopely_hotkeys = false
 # Layoutwechsel werden im Spiel erkannt; gehaltene Tasten vor der Verwendung loslassen.
 # Layout-Benachrichtigungen: Windows x64; macOS arm64/x86_64 experimentell (Praxistest ausstehend). Bei Fehlern werden Layout-Bindungen mit Logmeldung deaktiviert; kein Polling.
 keyboard_layout_mode = "physical"
+# Ausführliche Layout-Zuordnungen zur Fehlersuche in der Vars-Datei; nur im Layout-Modus. Nach Änderung neu starten.
+keyboard_layout_diagnostics = false
 
 # Subgroup: Optionen
 # ------------------

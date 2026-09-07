@@ -7,7 +7,7 @@
 namespace keyboard_layout
 {
 // Config-time calls: no Unity access. Preserve configured text and its provenance.
-void Configure(std::string_view mode);
+void Configure(std::string_view mode, bool diagnostics);
 void RegisterShortcut(std::string_view name, std::string_view chord, KeyCode key);
 void InitializeDiagnostics(toml::table& vars);
 

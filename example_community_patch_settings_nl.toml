@@ -104,6 +104,8 @@ use_scopely_hotkeys = false
 # Layoutwisselingen worden in het spel herkend; laat ingedrukte toetsen eerst los.
 # Layoutmeldingen: Windows x64; experimenteel op macOS arm64/x86_64 (praktijktest volgt). Bij fouten worden layoutbindingen uitgeschakeld en gelogd; geen polling.
 keyboard_layout_mode = "physical"
+# Gedetailleerde layouttoewijzingen in het vars-bestand voor diagnose; alleen in layoutmodus. Herstart na wijzigen.
+keyboard_layout_diagnostics = false
 
 # Subgroup: Options
 # -----------------

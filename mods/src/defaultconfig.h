@@ -26,6 +26,7 @@ namespace Control
   constexpr bool hotkeys_extended    = true;
   constexpr bool use_scopely_hotkeys = false;
   constexpr const char* keyboard_layout_mode = "physical";
+  constexpr bool keyboard_layout_diagnostics = false;
   constexpr bool queue_enabled       = true;
   constexpr auto select_timer        = 500;
 } // namespace Control

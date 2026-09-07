@@ -61,10 +61,15 @@ legacy physical key reporting, including across a game restart. That evidence
 does not constitute macOS or every-layout runtime validation.
 
 The generated vars file preserves `[shortcuts]` and `[shortcuts_source]`.
-`[keyboard_mapping]` reports mode, provider, refresh mechanism, layout, status, generation, reason,
-scope and the US-reference position convention. `[shortcuts_resolved]` records
-each parsed alternative with its configured chord (including modifiers), `configured_character`,
-physical US-reference key, layout display name, legacy code and resolution status.
+By default, layout output is only a compact `[keyboard_mapping]` snapshot: effective
+mode, refresh mechanism, layout, status, generation and reason. For troubleshooting,
+set `[control].keyboard_layout_diagnostics = true` and restart with layout mode enabled.
+This adds `[shortcuts_resolved]` entries for configured printable alternatives only:
+configured chord (including modifiers), `configured_character`, physical US-reference
+key, layout display name, legacy code and resolution status. Named controls are
+omitted because layout resolution does not change them. Physical mode never emits
+this detailed table. Disable the diagnostics setting and restart to remove it.
+The physical key name describes the US-reference position, not the printed keycap.
 Startup is `pending` until a game-thread printable-key query can inspect the keyboard.
 Derived vars are rewritten on mapping/status changes only, not every frame; no
 user settings are rewritten. Transient hold suppression does not change the
@@ -74,8 +79,10 @@ retried only on another device notification. Current-keyboard changes without a
 notification remain undetected until one arrives.
 `key_unavailable` means Unity could not find the display name;
 `unsupported_physical_key` means its result cannot be bridged to legacy input.
-Named controls report `unchanged_named_control`. Overall `resolved`/`partial`
-status describes the configured printable keys, not every key on the keyboard.
+Overall `resolved`/`partial` status describes the configured printable keys, not
+every key on the keyboard. Diagnostics do not change resolution or its notification
+schedule. Failures are still logged with diagnostics disabled; details are written
+to the current vars snapshot, not appended as a history or emitted per keystroke.
 
 ## Validation
 

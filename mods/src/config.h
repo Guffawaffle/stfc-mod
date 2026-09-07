@@ -183,6 +183,7 @@ public:
   bool  hotkeys_extended;
   bool  use_scopely_hotkeys;
   std::string keyboard_layout_mode;
+  bool  keyboard_layout_diagnostics;
   bool  use_presets_as_default;
   bool  enable_experimental;
   float default_system_zoom;

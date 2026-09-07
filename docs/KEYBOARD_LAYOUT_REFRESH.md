@@ -3,8 +3,10 @@
 `[control].keyboard_layout_mode = "layout"` maps configured printable keys through
 Unity's `Keyboard.FindKeyOnCurrentKeyboardLayout`. Physical mode remains the default
 and bypasses the observer and all layout queries. Explicit modifiers, named controls, the legacy
-physical input cache, and generated `keyboard_mapping` / `shortcuts_resolved` diagnostics
-retain their existing meaning.
+physical input cache and configured shortcut provenance retain their existing meaning.
+Vars contains a compact `keyboard_mapping` status snapshot by default. Detailed
+`shortcuts_resolved` output requires `[control].keyboard_layout_diagnostics = true`
+and layout mode; it includes only printable bindings and is disabled by default.
 
 On Windows x64 and experimentally on macOS arm64/x86_64, an `InputSystem.onDeviceChange`
 observer invalidates the printable-key map
@@ -69,7 +71,8 @@ For a Mac developer reviewing this port:
    of the running game/mod. Confirm delegate metadata and invocation in the exact
    client's IL2CPP runtime, especially constructor setup and the static callback.
 2. With physical mode, confirm existing shortcuts still work. Opt into layout mode
-   and restart; expect the experimental notice and `refresh=device_notifications`.
+   and enable `keyboard_layout_diagnostics` for mapping details, then restart;
+   expect the experimental notice and `refresh=device_notifications`.
    A successful subscription log alone does not prove callbacks arrive.
 3. Switch between two input sources with different key positions and back, then
    query a configured printable shortcut. Confirm a new mapping generation and
