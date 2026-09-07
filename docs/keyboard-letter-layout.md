@@ -8,9 +8,11 @@ expanded behavior; the new setting takes precedence if both are present.
 For example, on German QWERTZ `show_daily = "Z"` follows German Z, which occupies
 the US-QWERTY Y position. Existing Y/Z workaround configurations should be undone
 when opting in. Restart once to change this setting; subsequent notified layout
-changes are detected in-game without restarting. Layout mode requires the Windows
-x64 notification adapter. Other platforms, including macOS, log unsupported
-notifications and disable layout-resolved bindings; physical mode still works.
+changes are detected in-game without restarting. The notification adapter is enabled
+on Windows x64 and experimentally on macOS arm64/x86_64. The Mac port still needs
+in-game validation on each architecture; see the [Mac handoff](KEYBOARD_LAYOUT_REFRESH.md#macos-validation-handoff).
+Unsupported or failed notification setup logs and disables layout-resolved bindings;
+physical mode still works. There is no polling fallback.
 
 This is action binding, not text input. Shift/Ctrl/Alt chords retain their existing
 semantics; no modifiers are inferred from a character. Named controls (Escape,

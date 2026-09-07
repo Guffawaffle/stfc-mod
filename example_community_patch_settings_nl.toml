@@ -102,7 +102,7 @@ use_scopely_hotkeys = false
 # Niet-opgeloste tekens worden uitgeschakeld: gebruik expliciete combinaties (bijv. SHIFT-8 voor het Duitse haakje openen).
 # keyboard_letter_mode blijft een alias; keyboard_layout_mode heeft voorrang. Zie docs/keyboard-letter-layout.md.
 # Layoutwisselingen worden in het spel herkend; laat ingedrukte toetsen eerst los.
-# Layoutmodus vereist Windows-x64-meldingen; bij fouten of ontbrekende ondersteuning worden layoutbindingen uitgeschakeld en gelogd (geen polling).
+# Layoutmeldingen: Windows x64; experimenteel op macOS arm64/x86_64 (praktijktest volgt). Bij fouten worden layoutbindingen uitgeschakeld en gelogd; geen polling.
 keyboard_layout_mode = "physical"
 
 # Subgroup: Options

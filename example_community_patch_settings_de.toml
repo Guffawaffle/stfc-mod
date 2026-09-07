@@ -102,7 +102,7 @@ use_scopely_hotkeys = false
 # Nicht auflösbare Zeichen werden deaktiviert: explizite Kombinationen verwenden (z. B. SHIFT-8 für die deutsche öffnende Klammer).
 # keyboard_letter_mode bleibt als Alias erhalten; keyboard_layout_mode hat Vorrang. Siehe docs/keyboard-letter-layout.md.
 # Layoutwechsel werden im Spiel erkannt; gehaltene Tasten vor der Verwendung loslassen.
-# Layout-Modus benötigt Windows-x64-Benachrichtigungen; bei fehlender Unterstützung/Fehlern werden Layout-Bindungen mit Logmeldung deaktiviert (kein Polling).
+# Layout-Benachrichtigungen: Windows x64; macOS arm64/x86_64 experimentell (Praxistest ausstehend). Bei Fehlern werden Layout-Bindungen mit Logmeldung deaktiviert; kein Polling.
 keyboard_layout_mode = "physical"
 
 # Subgroup: Optionen

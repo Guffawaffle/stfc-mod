@@ -102,7 +102,7 @@ use_scopely_hotkeys = false
 # Les symboles non résolus sont désactivés : utiliser une combinaison explicite (ex. SHIFT-8 pour la parenthèse ouvrante allemande).
 # keyboard_letter_mode reste un alias ; keyboard_layout_mode est prioritaire. Voir docs/keyboard-letter-layout.md.
 # Le changement de disposition est pris en compte en jeu ; relâcher les touches maintenues.
-# Le mode layout nécessite les notifications Windows x64 ; en cas d’échec ou de plateforme non prise en charge, les raccourcis layout sont désactivés et journalisés (sans interrogation périodique).
+# Notifications layout : Windows x64 ; macOS arm64/x86_64 expérimental (tests en jeu à venir). En cas d’échec, les raccourcis layout sont désactivés et journalisés ; sans interrogation périodique.
 keyboard_layout_mode = "physical"
 
 # Subgroup: Options

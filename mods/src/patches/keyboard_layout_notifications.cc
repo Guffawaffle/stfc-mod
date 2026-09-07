@@ -1,8 +1,13 @@
 #include "keyboard_layout_notifications.h"
 
-// The native delegate constructor/callback path has only been qualified on Windows x64.
-#if defined(_WIN32) && (defined(_M_X64) || defined(__x86_64__))
+// Use the client's generated delegate invoker on each native ABI. macOS is an
+// experimental port pending in-game validation on both arm64 and x86_64.
+#if (defined(_WIN32) && (defined(_M_X64) || defined(__x86_64__))) \
+    || (defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__) || defined(__x86_64__)))
 #include "il2cpp/il2cpp_helper.h"
+#if defined(__APPLE__)
+#include <spdlog/spdlog.h>
+#endif
 
 namespace keyboard_layout::notifications
 {
@@ -95,8 +100,10 @@ namespace
     state.native_method.virtualMethodPointer = state.native_method.methodPointer;
     const MethodInfo* entry                  = &state.native_method;
     void*             ctor_args[]{nullptr, &entry};
-    // The AOT invoker accepts a static native target; runtime_invoke's special
-    // delegate-constructor path rejects its null target on this client.
+    // Follow libil2cpp Type::InvokeDelegateConstructor: the client's generated
+    // invoker handles its platform's constructor ABI. Do not cast the constructor
+    // to a Windows-specific native signature. runtime_invoke's special delegate
+    // constructor path rejects the static null target on the researched client.
     try {
       ctor->invoker_method(ctor->methodPointer, ctor, delegate, ctor_args, nullptr);
     } catch (...) {
@@ -117,6 +124,9 @@ Result Start(RefreshState& refresh)
   auto& state = Get();
   if (!state.attempted) {
     state.attempted = true;
+#if defined(__APPLE__)
+    spdlog::warn("[KeyboardLayout] experimental macOS notification adapter; runtime validation pending");
+#endif
     state.refresh   = &refresh;
     state.active    = Create();
     if (!state.active)

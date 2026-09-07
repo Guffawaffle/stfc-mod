@@ -102,7 +102,7 @@ use_scopely_hotkeys = false
 # Symbols Unity cannot resolve are disabled: use explicit chords (e.g. SHIFT-8 for German opening parenthesis).
 # Legacy keyboard_letter_mode is an alias; keyboard_layout_mode takes precedence. See docs/keyboard-letter-layout.md.
 # Changes of OS layout apply live; release held keys before using the new layout.
-# Layout mode requires Windows x64 notifications; unsupported/failed setup logs and disables layout bindings (no polling).
+# Layout notifications: Windows x64; experimental macOS arm64/x86_64 (runtime testing pending). Setup failures log and disable layout bindings; no polling.
 keyboard_layout_mode = "physical"
 
 # Subgroup: Options
