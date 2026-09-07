@@ -13,7 +13,6 @@ namespace
     const MethodInfo *     add = nullptr, *remove = nullptr;
     Il2CppGCHandle         root    = 0;
     RefreshState*          refresh = nullptr;
-    std::atomic<uintptr_t> keyboard{0}; // Identity only; never dereferenced.
     std::atomic<bool>      accepting{false};
     bool                   attempted = false, subscribed = false, active = false;
   };
@@ -25,14 +24,15 @@ namespace
     return *state;
   }
 
-  void Changed(void* device, int32_t change, const MethodInfo*) noexcept
+  void Changed(void*, int32_t change, const MethodInfo*) noexcept
   {
     auto& state = Get();
     if (!state.accepting.load())
       return;
     // Added/Removed/Disconnected/Reconnected/Enabled/Disabled (0..5),
-    // or ConfigurationChanged (7) for the keyboard we mapped. No Unity calls here.
-    if ((change >= 0 && change <= 5) || (change == 7 && reinterpret_cast<uintptr_t>(device) == state.keyboard.load()))
+    // or ConfigurationChanged (7). Any device can change which keyboard is current;
+    // conservatively invalidate without polling or touching Unity in the callback.
+    if ((change >= 0 && change <= 5) || change == 7)
       state.refresh->Invalidate();
   }
 
@@ -112,7 +112,7 @@ namespace
   }
 } // namespace
 
-bool Start(RefreshState& refresh)
+Result Start(RefreshState& refresh)
 {
   auto& state = Get();
   if (!state.attempted) {
@@ -122,11 +122,8 @@ bool Start(RefreshState& refresh)
     if (!state.active)
       Stop();
   }
-  return state.active;
+  return state.active ? Result::Started : Result::Failed;
 }
-
-void Watch(uintptr_t keyboard)
-{ Get().keyboard = keyboard; }
 
 void Stop()
 {
@@ -148,9 +145,8 @@ void Stop()
 #else
 namespace keyboard_layout::notifications
 {
-bool Start(RefreshState&)
-{ return false; }
-void Watch(uintptr_t) {}
+Result Start(RefreshState&)
+{ return Result::Unsupported; }
 void Stop() {}
 } // namespace keyboard_layout::notifications
 #endif

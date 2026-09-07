@@ -29,7 +29,7 @@ void Key::ClaimDirectionalInput(KeyCode) {}
 
 namespace keyboard_layout
 {
-KeyCode Resolve(KeyCode configured) { return layout_enabled ? layout_bindings.Resolve(configured) : configured; }
+KeyCode Resolve(KeyCode configured) { return layout_enabled ? layout_bindings.Resolve(configured, [] { return 1; }, Key::Pressed) : configured; }
 } // namespace keyboard_layout
 
 void Check(bool condition, const char* message)
@@ -77,8 +77,7 @@ int main()
   keys[static_cast<int>(KeyCode::Plus)] = KeyCode::RightBracket;
   keys[static_cast<int>(KeyCode::Slash)] = KeyCode::Alpha7;
   keys[static_cast<int>(KeyCode::Alpha1)] = KeyCode::Alpha1;
-  layout_bindings.Replace(keys, Key::Pressed);
-  layout_bindings.BeginFrame(Key::Pressed);
+  layout_bindings.Replace(keys, Key::Pressed, 0);
   layout_enabled = true;
   MapKey::AddMappedKey(GameFunction::ShowDaily, MapKey::Parse("+"));
   MapKey::AddMappedKey(GameFunction::ShowScrapYard, MapKey::Parse("SHIFT-/"));

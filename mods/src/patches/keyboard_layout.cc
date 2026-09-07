@@ -28,11 +28,8 @@ namespace
   bool                   failed            = false;
   bool                   initialized       = false;
   bool                   vars_ready        = false;
-  bool                   event_refresh     = false;
   RefreshState           refresh;
   unsigned               generation        = 0;
-  uintptr_t              keyboard_identity = 0; // Identity only; never retained/dereferenced as a managed pointer.
-  std::u16string         layout_identity;
   std::string            layout_name;
   std::string            status = "physical";
   std::string            reason = "configured_physical";
@@ -50,10 +47,10 @@ namespace
         "keyboard_mapping",
         toml::table{
             {"requested_mode", enabled ? "layout" : "physical"},
-            {"effective_mode", enabled ? "layout" : "physical"},
+            {"effective_mode", !enabled ? "physical" : failed ? "unavailable" : "layout"},
             {"provider", enabled ? "Unity.InputSystem.Keyboard.FindKeyOnCurrentKeyboardLayout" : "legacy KeyCode"},
             {"refresh", !enabled ? "not_queried" : !initialized ? "pending"
-                                           : event_refresh ? "device_notifications" : "layout_name_polling"},
+                                            : failed ? "disabled" : "device_notifications"},
             {"layout", layout_name},
             {"status", status},
             {"reason", reason},
@@ -103,13 +100,19 @@ namespace
       return;
     status            = "unavailable";
     reason            = why;
-    keyboard_identity = 0;
-    layout_identity.clear();
     layout_name.clear();
     for (auto& key : resolved_keys)
       key = {KeyCode::None, {}, {}, "unavailable"};
-    bindings.Replace(LayoutKeys{}, [](KeyCode) { return false; });
+    bindings.Clear();
     Publish();
+  }
+
+  void Disable(std::string_view why)
+  {
+    failed = true;
+    notifications::Stop();
+    spdlog::warn("[KeyboardLayout] {}; layout bindings disabled until restart; no polling fallback", why);
+    Unavailable(why);
   }
 
   Il2CppObject* Invoke(const MethodInfo* method, void* self = nullptr, void** args = nullptr)
@@ -140,46 +143,41 @@ namespace
     frame_count    = il2cpp_resolve_icall_typed<int()>("UnityEngine.Time::get_frameCount()");
     if (!current_method || !layout_method || !find_method || !key_method || !name_method || !display_method
         || !frame_count) {
-      failed = true;
-      Unavailable("missing_unity_api");
+      Disable("missing_unity_api");
       return;
     }
-    event_refresh = notifications::Start(refresh);
-    spdlog::info("[KeyboardLayout] refresh={}", event_refresh ? "device_notifications" : "layout_name_polling");
+    const auto subscription = notifications::Start(refresh);
+    if (subscription != notifications::Result::Started) {
+      Disable(subscription == notifications::Result::Unsupported ? "notifications_unsupported"
+                                                                 : "notification_subscription_failed");
+      return;
+    }
+    spdlog::info("[KeyboardLayout] refresh=device_notifications");
   }
 
   void Update()
   {
     if (!initialized)
       Initialize();
-    if (failed) {
-      notifications::Stop();
+    if (failed || !refresh.Consume())
       return;
-    }
-    const auto tick = refresh.Begin(frame_count());
-    if (!tick.CheckKeyboard())
-      return;
-    // Notifications can arrive after another consumer queried this frame. Refresh
-    // then too, but never clear transition/held-key protection twice in one frame.
-    if (tick.new_frame)
-      bindings.BeginFrame(Key::Pressed);
+    // Initialization and notifications are the only reasons to query Unity.
     auto* keyboard = Invoke(current_method);
-    notifications::Watch(reinterpret_cast<uintptr_t>(keyboard));
     if (!keyboard) {
-      Unavailable(failed ? "unity_invocation_failed" : "keyboard_absent");
+      if (failed)
+        Disable("unity_invocation_failed");
+      else
+        Unavailable("keyboard_absent");
       return;
     }
-    const bool same_keyboard = keyboard_identity == reinterpret_cast<uintptr_t>(keyboard);
-    if (event_refresh && !tick.invalidated && same_keyboard)
-      return;
     auto* layout = reinterpret_cast<Il2CppString*>(Invoke(layout_method, keyboard));
     if (!layout || layout->length == 0) {
-      Unavailable(failed ? "unity_invocation_failed" : "layout_unavailable");
+      if (failed)
+        Disable("unity_invocation_failed");
+      else
+        Unavailable("layout_unavailable");
       return;
     }
-    const std::u16string_view identity(reinterpret_cast<const char16_t*>(layout->chars), layout->length);
-    if (!tick.invalidated && same_keyboard && layout_identity == identity)
-      return;
 
     // Resolve only configured printable keys, once per keyboard/layout generation.
     // No retained managed objects, per-frame strings, or silent physical fallback.
@@ -210,14 +208,12 @@ namespace
       all_resolved &= result.key != KeyCode::None;
     }
     if (failed) {
-      Unavailable("unity_invocation_failed");
+      Disable("unity_invocation_failed");
       return;
     }
-    keyboard_identity = reinterpret_cast<uintptr_t>(keyboard);
-    layout_identity   = identity;
     layout_name       = to_string(layout);
     resolved_keys     = std::move(next);
-    bindings.Replace(keys, Key::Pressed);
+    bindings.Replace(keys, Key::Pressed, frame_count());
     status = all_resolved ? "resolved" : "partial";
     reason = all_resolved ? "layout_lookup" : "unresolved_keys_disabled";
     Publish();
@@ -252,6 +248,6 @@ KeyCode Resolve(KeyCode configured)
   if (!enabled || !IsLayoutKey(configured))
     return configured;
   Update();
-  return bindings.Resolve(configured);
+  return bindings.Resolve(configured, frame_count, Key::Pressed);
 }
 } // namespace keyboard_layout

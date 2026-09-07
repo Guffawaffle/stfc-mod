@@ -7,8 +7,10 @@ shortcut parser. `keyboard_letter_mode` remains a compatibility alias with the
 expanded behavior; the new setting takes precedence if both are present.
 For example, on German QWERTZ `show_daily = "Z"` follows German Z, which occupies
 the US-QWERTY Y position. Existing Y/Z workaround configurations should be undone
-when opting in. Restart once to change this setting; subsequent OS layout changes
-are detected in-game without restarting.
+when opting in. Restart once to change this setting; subsequent notified layout
+changes are detected in-game without restarting. Layout mode requires the Windows
+x64 notification adapter. Other platforms, including macOS, log unsupported
+notifications and disable layout-resolved bindings; physical mode still works.
 
 This is action binding, not text input. Shift/Ctrl/Alt chords retain their existing
 semantics; no modifiers are inferred from a character. Named controls (Escape,
@@ -35,16 +37,18 @@ Select physical mode and restart to recover original behavior if needed.
 ## Implementation and provenance
 
 `MapKey` preserves configured keys/text and resolves a printable key just before querying
-the existing physical `Key` cache. A per-frame check reads Unity's current keyboard.
-On Windows x64, device notifications invalidate the layout cache, including when
-the layout name stays the same. Other platforms retain per-frame layout-name
-polling. Only distinct configured printable keys are looked up on invalidation or
-keyboard/layout change; duplicate bindings share the cached result.
-See [refresh implementation](KEYBOARD_LAYOUT_REFRESH.md) for lifetime and fallback details.
+the existing physical `Key` cache. Device notifications invalidate the layout cache,
+including when the layout name stays the same. Only distinct configured printable
+keys are looked up at initialization or after notification; duplicate bindings share
+the cached result. Quiet queries do not poll the frame clock, current keyboard, or
+layout. Unsupported or failed notifications log the reason and disable layout
+bindings until restart, with no polling fallback.
+See [refresh implementation](KEYBOARD_LAYOUT_REFRESH.md) for lifetime and failure details.
 Physical mode does not resolve Unity layout methods or poll keyboard layout state.
 There are no new detours, native offsets, OS layout changes, input injection, or
 key-event logging. A transition frame is suppressed; held resolved positions must
-be released before activating a binding under the new layout.
+be observed released by a binding query before activating under the new layout.
+Only blocked target keys require release checks; no per-frame held-key scan runs.
 
 Resolution uses Unity's `Keyboard.FindKeyOnCurrentKeyboardLayout` and translates
 its `Key` enum explicitly to legacy `KeyCode`. These enums are **not** numerically
@@ -63,7 +67,9 @@ Startup is `pending` until a game-thread printable-key query can inspect the key
 Derived vars are rewritten on mapping/status changes only, not every frame; no
 user settings are rewritten. Transient hold suppression does not change the
 resolved mapping and is not a vars generation. Missing Unity APIs or a managed
-exception disable layout-resolved bindings for that session; keyboard absence is retried.
+exception disable layout-resolved bindings for that session; keyboard absence is
+retried only on another device notification. Current-keyboard changes without a
+notification remain undetected until one arrives.
 `key_unavailable` means Unity could not find the display name;
 `unsupported_physical_key` means its result cannot be bridged to legacy input.
 Named controls report `unchanged_named_control`. Overall `resolved`/`partial`

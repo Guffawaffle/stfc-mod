@@ -85,19 +85,18 @@ using LayoutKeys = std::array<KeyCode, LayoutKeyCount>;
 class BindingState
 {
 public:
-  template <typename Held> void BeginFrame(Held held)
+  void Clear()
   {
+    keys_ = {};
+    blocked_.fill(false);
     transition_ = false;
-    for (std::size_t i = 0; i < blocked_.size(); ++i) {
-      if (blocked_[i] && !held(static_cast<KeyCode>(i)))
-        blocked_[i] = false;
-    }
   }
 
-  template <typename Held> void Replace(const LayoutKeys& keys, Held held)
+  template <typename Held> void Replace(const LayoutKeys& keys, Held held, int frame)
   {
     keys_       = keys;
     transition_ = true;
+    transition_frame_ = frame;
     blocked_.fill(false);
     for (auto key : keys_) {
       if (key != KeyCode::None)
@@ -105,17 +104,31 @@ public:
     }
   }
 
-  KeyCode Resolve(KeyCode configured) const
+  template <typename Frame, typename Held> KeyCode Resolve(KeyCode configured, Frame frame, Held held)
   {
     if (!IsLayoutKey(configured))
       return configured;
     const auto key = keys_[static_cast<int>(configured)];
-    return transition_ || blocked_[static_cast<int>(key)] ? KeyCode::None : key;
+    if (key == KeyCode::None)
+      return key;
+    if (transition_) {
+      if (frame() == transition_frame_)
+        return KeyCode::None;
+      transition_ = false;
+    }
+    auto& blocked = blocked_[static_cast<int>(key)];
+    if (blocked) {
+      if (held(key))
+        return KeyCode::None;
+      blocked = false;
+    }
+    return key;
   }
 
 private:
   LayoutKeys                                       keys_{};
   std::array<bool, static_cast<int>(KeyCode::Max)> blocked_{};
   bool                                             transition_ = false;
+  int                                              transition_frame_ = -1;
 };
 } // namespace keyboard_layout
