@@ -1,4 +1,4 @@
-// Link against the built mods library. Only Unity-dependent Key operations are stubbed;
+// Link against the built mods library. Unity-dependent Key and layout operations are stubbed;
 // MapKey parsing, ModifierKey parsing, binding detection, and hint caching are production code.
 #include "patches/mapkey.h"
 
@@ -17,6 +17,11 @@ bool Key::Pressed(KeyCode) { return false; }
 bool Key::Down(KeyCode) { return false; }
 bool Key::IsModified() { return false; }
 void Key::ClaimDirectionalInput(KeyCode) {}
+
+namespace keyboard_layout
+{
+KeyCode Resolve(KeyCode configured) { return configured; }
+} // namespace keyboard_layout
 
 void Check(bool condition, const char* message)
 {
