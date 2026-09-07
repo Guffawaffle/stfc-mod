@@ -6,8 +6,15 @@
 
 namespace keyboard_layout
 {
-constexpr bool IsLetter(KeyCode key)
-{ return key >= KeyCode::A && key <= KeyCode::Z; }
+// Printable keys accepted by Key::Parse. Named controls (including Space and
+// explicit numpad keys) keep their identity, independent of display-name lookup.
+constexpr bool IsLayoutKey(KeyCode key)
+{
+  return (key >= KeyCode::Exclaim && key <= KeyCode::At)
+         || (key >= KeyCode::LeftBracket && key <= KeyCode::Tilde);
+}
+
+constexpr std::size_t LayoutKeyCount = static_cast<int>(KeyCode::Tilde) + 1;
 
 // Unity.InputSystem.Key and legacy UnityEngine.KeyCode are different enums.
 // Explicit US-reference positions, including punctuation (French M is at US ';').
@@ -70,7 +77,7 @@ constexpr KeyCode ToLegacyKey(int input_system_key)
                                                                                   : KeyCode::None;
 }
 
-using LetterKeys = std::array<KeyCode, 26>;
+using LayoutKeys = std::array<KeyCode, LayoutKeyCount>;
 
 // Physical input caches remain physical. Only action bindings are translated.
 // Suppress the transition frame and held keys until release, so a layout change
@@ -87,7 +94,7 @@ public:
     }
   }
 
-  template <typename Held> void Replace(const LetterKeys& keys, Held held)
+  template <typename Held> void Replace(const LayoutKeys& keys, Held held)
   {
     keys_       = keys;
     transition_ = true;
@@ -100,14 +107,14 @@ public:
 
   KeyCode Resolve(KeyCode configured) const
   {
-    if (!IsLetter(configured))
+    if (!IsLayoutKey(configured))
       return configured;
-    const auto key = keys_[static_cast<int>(configured) - static_cast<int>(KeyCode::A)];
+    const auto key = keys_[static_cast<int>(configured)];
     return transition_ || blocked_[static_cast<int>(key)] ? KeyCode::None : key;
   }
 
 private:
-  LetterKeys                                       keys_{};
+  LayoutKeys                                       keys_{};
   std::array<bool, static_cast<int>(KeyCode::Max)> blocked_{};
   bool                                             transition_ = false;
 };

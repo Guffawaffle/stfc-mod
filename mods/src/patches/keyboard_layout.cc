@@ -19,7 +19,7 @@ namespace
     std::string name, chord;
     KeyCode     key;
   };
-  struct Letter {
+  struct ResolvedKey {
     KeyCode     key = KeyCode::None;
     std::string physical, display, status = "pending";
   };
@@ -37,7 +37,8 @@ namespace
   std::string            status = "physical";
   std::string            reason = "configured_physical";
   std::vector<Shortcut>  shortcuts;
-  std::array<Letter, 26> letters;
+  std::array<ResolvedKey, LayoutKeyCount> resolved_keys;
+  std::array<bool, LayoutKeyCount> requested_keys{};
   BindingState           bindings;
   toml::table            vars_snapshot;
   const MethodInfo *     current_method, *layout_method, *find_method, *key_method, *name_method, *display_method;
@@ -57,7 +58,7 @@ namespace
             {"status", status},
             {"reason", reason},
             {"generation", generation},
-            {"scope", "configured A-Z only; modifiers and nonletters unchanged"},
+            {"scope", "configured printable keys; explicit modifiers and named controls unchanged"},
             {"physical_key_reference", "US-QWERTY positions, not the user's printed keycaps"},
         });
     toml::table resolved;
@@ -68,16 +69,16 @@ namespace
         alternatives = resolved[shortcut.name].as_array();
       }
       toml::table entry{{"configured", shortcut.chord}};
-      if (IsLetter(shortcut.key)) {
-        const auto  index  = static_cast<int>(shortcut.key) - static_cast<int>(KeyCode::A);
-        const auto& letter = letters[index];
-        entry.insert("configured_letter", std::string(1, static_cast<char>('A' + index)));
-        entry.insert("status", enabled ? letter.status : "physical");
-        entry.insert("physical_us_key", enabled ? letter.physical : std::string(1, static_cast<char>('A' + index)));
-        entry.insert("layout_display_name", enabled ? letter.display : "not_queried");
-        entry.insert("legacy_key_code", static_cast<int>(enabled ? letter.key : shortcut.key));
+      if (IsLayoutKey(shortcut.key)) {
+        const auto  index = static_cast<int>(shortcut.key);
+        const auto& key   = resolved_keys[index];
+        entry.insert("configured_character", std::string(1, static_cast<char>(index)));
+        entry.insert("status", enabled ? key.status : "physical");
+        entry.insert("physical_us_key", enabled ? key.physical : std::string(1, static_cast<char>(index)));
+        entry.insert("layout_display_name", enabled ? key.display : "not_queried");
+        entry.insert("legacy_key_code", static_cast<int>(enabled ? key.key : shortcut.key));
       } else {
-        entry.insert("status", "unchanged_nonletter");
+        entry.insert("status", "unchanged_named_control");
         entry.insert("legacy_key_code", static_cast<int>(shortcut.key));
       }
       alternatives->push_back(std::move(entry));
@@ -105,9 +106,9 @@ namespace
     keyboard_identity = 0;
     layout_identity.clear();
     layout_name.clear();
-    for (auto& letter : letters)
-      letter = {KeyCode::None, {}, {}, "unavailable"};
-    bindings.Replace(LetterKeys{}, [](KeyCode) { return false; });
+    for (auto& key : resolved_keys)
+      key = {KeyCode::None, {}, {}, "unavailable"};
+    bindings.Replace(LayoutKeys{}, [](KeyCode) { return false; });
     Publish();
   }
 
@@ -119,7 +120,7 @@ namespace
     auto*            result    = il2cpp_runtime_invoke(method, self, args, &exception);
     if (exception) {
       failed = true;
-      spdlog::warn("[KeyboardLayout] Unity method {} failed; layout letters disabled until restart", method->name);
+      spdlog::warn("[KeyboardLayout] Unity method {} failed; layout bindings disabled until restart", method->name);
     }
     return exception ? nullptr : result;
   }
@@ -180,18 +181,20 @@ namespace
     if (!tick.invalidated && same_keyboard && layout_identity == identity)
       return;
 
-    // No retained managed objects or per-frame strings. Build all letters once per
-    // keyboard/layout generation; a missing letter is disabled, never silently physical.
-    LetterKeys             keys{};
-    std::array<Letter, 26> next;
+    // Resolve only configured printable keys, once per keyboard/layout generation.
+    // No retained managed objects, per-frame strings, or silent physical fallback.
+    LayoutKeys keys{};
+    std::array<ResolvedKey, LayoutKeyCount> next;
     bool                   all_resolved = true;
-    for (int index = 0; index < 26 && !failed; ++index) {
-      char  letter[]{static_cast<char>('a' + index), '\0'};
-      auto* text = il2cpp_string_new(letter);
+    for (std::size_t index = 0; index < requested_keys.size() && !failed; ++index) {
+      if (!requested_keys[index])
+        continue;
+      char  character[]{static_cast<char>(index), '\0'};
+      auto* text = il2cpp_string_new(character);
       void* args[]{text};
       auto* control = Invoke(find_method, keyboard, args);
       auto& result  = next[index];
-      result.status = "letter_unavailable";
+      result.status = "key_unavailable";
       if (control) {
         auto* boxed   = Invoke(key_method, control);
         auto* name    = reinterpret_cast<Il2CppString*>(Invoke(name_method, control));
@@ -213,10 +216,10 @@ namespace
     keyboard_identity = reinterpret_cast<uintptr_t>(keyboard);
     layout_identity   = identity;
     layout_name       = to_string(layout);
-    letters           = std::move(next);
+    resolved_keys     = std::move(next);
     bindings.Replace(keys, Key::Pressed);
     status = all_resolved ? "resolved" : "partial";
-    reason = all_resolved ? "layout_lookup" : "unresolved_letters_disabled";
+    reason = all_resolved ? "layout_lookup" : "unresolved_keys_disabled";
     Publish();
   }
 } // namespace
@@ -229,7 +232,11 @@ void Configure(std::string_view mode)
 }
 
 void RegisterShortcut(std::string_view name, std::string_view chord, KeyCode key)
-{ shortcuts.push_back({std::string(name), std::string(chord), key}); }
+{
+  shortcuts.push_back({std::string(name), std::string(chord), key});
+  if (IsLayoutKey(key))
+    requested_keys[static_cast<int>(key)] = true;
+}
 
 void InitializeDiagnostics(toml::table& vars)
 {
@@ -242,7 +249,7 @@ void InitializeDiagnostics(toml::table& vars)
 
 KeyCode Resolve(KeyCode configured)
 {
-  if (!enabled || !IsLetter(configured))
+  if (!enabled || !IsLayoutKey(configured))
     return configured;
   Update();
   return bindings.Resolve(configured);
