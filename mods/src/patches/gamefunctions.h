@@ -108,6 +108,10 @@ enum GameFunction {
   DevConsoleCycleOpacity,
 #endif
 
+  ShowShipConstruction,
+  ShowShields,
+  ShowBattlelogs,
+
   // Automatic max value
   Max
 };
