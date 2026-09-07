@@ -3,6 +3,7 @@
 #include "file.h"
 #include "key.h"
 #include "keyboard_layout_mapping.h"
+#include "keyboard_layout_probe.h"
 #include "str_utils.h"
 
 #include <cstdint>
@@ -144,12 +145,15 @@ namespace
   {
     if (!initialized)
       Initialize();
-    if (failed)
+    if (failed) {
+      probe::Cancel();
       return;
+    }
     const int frame = frame_count();
     if (frame == last_frame)
       return;
     last_frame = frame;
+    probe::Tick();
     bindings.BeginFrame(Key::Pressed);
     auto* keyboard = Invoke(current_method);
     if (!keyboard) {
