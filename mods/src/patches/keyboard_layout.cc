@@ -3,7 +3,7 @@
 #include "file.h"
 #include "key.h"
 #include "keyboard_layout_mapping.h"
-#include "keyboard_layout_probe.h"
+#include "keyboard_layout_notifications.h"
 #include "str_utils.h"
 
 #include <cstdint>
@@ -28,7 +28,8 @@ namespace
   bool                   failed            = false;
   bool                   initialized       = false;
   bool                   vars_ready        = false;
-  int                    last_frame        = -1;
+  bool                   event_refresh     = false;
+  RefreshState           refresh;
   unsigned               generation        = 0;
   uintptr_t              keyboard_identity = 0; // Identity only; never retained/dereferenced as a managed pointer.
   std::u16string         layout_identity;
@@ -50,6 +51,8 @@ namespace
             {"requested_mode", enabled ? "layout" : "physical"},
             {"effective_mode", enabled ? "layout" : "physical"},
             {"provider", enabled ? "Unity.InputSystem.Keyboard.FindKeyOnCurrentKeyboardLayout" : "legacy KeyCode"},
+            {"refresh", !enabled ? "not_queried" : !initialized ? "pending"
+                                           : event_refresh ? "device_notifications" : "layout_name_polling"},
             {"layout", layout_name},
             {"status", status},
             {"reason", reason},
@@ -138,7 +141,10 @@ namespace
         || !frame_count) {
       failed = true;
       Unavailable("missing_unity_api");
+      return;
     }
+    event_refresh = notifications::Start(refresh);
+    spdlog::info("[KeyboardLayout] refresh={}", event_refresh ? "device_notifications" : "layout_name_polling");
   }
 
   void Update()
@@ -146,27 +152,32 @@ namespace
     if (!initialized)
       Initialize();
     if (failed) {
-      probe::Cancel();
+      notifications::Stop();
       return;
     }
-    const int frame = frame_count();
-    if (frame == last_frame)
+    const auto tick = refresh.Begin(frame_count());
+    if (!tick.CheckKeyboard())
       return;
-    last_frame = frame;
-    probe::Tick();
-    bindings.BeginFrame(Key::Pressed);
+    // Notifications can arrive after another consumer queried this frame. Refresh
+    // then too, but never clear transition/held-key protection twice in one frame.
+    if (tick.new_frame)
+      bindings.BeginFrame(Key::Pressed);
     auto* keyboard = Invoke(current_method);
+    notifications::Watch(reinterpret_cast<uintptr_t>(keyboard));
     if (!keyboard) {
       Unavailable(failed ? "unity_invocation_failed" : "keyboard_absent");
       return;
     }
+    const bool same_keyboard = keyboard_identity == reinterpret_cast<uintptr_t>(keyboard);
+    if (event_refresh && !tick.invalidated && same_keyboard)
+      return;
     auto* layout = reinterpret_cast<Il2CppString*>(Invoke(layout_method, keyboard));
     if (!layout || layout->length == 0) {
       Unavailable(failed ? "unity_invocation_failed" : "layout_unavailable");
       return;
     }
     const std::u16string_view identity(reinterpret_cast<const char16_t*>(layout->chars), layout->length);
-    if (keyboard_identity == reinterpret_cast<uintptr_t>(keyboard) && layout_identity == identity)
+    if (!tick.invalidated && same_keyboard && layout_identity == identity)
       return;
 
     // No retained managed objects or per-frame strings. Build all letters once per

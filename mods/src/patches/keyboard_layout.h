@@ -12,6 +12,7 @@ void RegisterShortcut(std::string_view name, std::string_view chord, KeyCode key
 void InitializeDiagnostics(toml::table& vars);
 
 // Game-thread only, at the MapKey action boundary. Physical mode does no Unity
-// layout work. Layout mode checks once per input frame and rebuilds on change.
+// layout work. Layout mode checks the current keyboard once per frame and also
+// refreshes on device notifications where supported (layout-name polling otherwise).
 KeyCode Resolve(KeyCode configured);
 } // namespace keyboard_layout
