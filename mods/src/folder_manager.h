@@ -1,18 +1,7 @@
-/**
- * @file folder_manager.h
- * @brief macOS NSSearchPathForDirectoriesInDomains bridge for C++.
- *
- * Wraps the Objective-C Foundation API so C++ code can resolve standard
- * macOS directories (Library, Caches, Application Support, etc.) without
- * importing Foundation headers directly.
- */
 #pragma once
 
 namespace fm
 {
-/// NSSearchPathDirectory constants mirroring Apple's Foundation enum.
-/// Only the subset actually used by the mod is meaningful; the rest
-/// are included for completeness if future code needs them.
 enum {
   NSApplicationDirectory = 1,
   NSDemoApplicationDirectory,
@@ -44,7 +33,6 @@ enum {
 };
 typedef unsigned long SearchPathDirectory;
 
-/// NSSearchPathDomainMask constants.
 enum {
   NSUserDomainMask = 1, // user's home directory --- place to install user's personal items (~)
   NSLocalDomainMask =
@@ -56,21 +44,9 @@ enum {
 };
 typedef unsigned long SearchPathDomainMask;
 
-/**
- * @brief C++ bridge to NSSearchPathForDirectoriesInDomains.
- *
- * Implementation is in Objective-C++ (folder_manager.mm).  Returns
- * C strings owned by a static cache — valid for the process lifetime.
- */
 class FolderManager
 {
 public:
-  /**
-   * @brief Resolve a standard macOS directory.
-   * @param directory  NSSearchPathDirectory constant (e.g. NSLibraryDirectory).
-   * @param domainMask Domain mask (typically NSUserDomainMask).
-   * @return Null-terminated path string, valid for the process lifetime.
-   */
   static const char *pathForDirectory(SearchPathDirectory directory, SearchPathDomainMask domainMask);
   static const char *pathForDirectoryAppropriateForItemAtPath(SearchPathDirectory  directory,
                                                               SearchPathDomainMask domainMask, const char *itemPath,

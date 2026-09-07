@@ -1,14 +1,7 @@
--- @file xmake.lua
--- @brief Build target for the Windows version.dll proxy (shared library).
---
--- Produces stfc-community-mod.dll, which is deployed as version.dll beside
--- the game executable.  Links the "mods" static library and exports the real
--- version.dll symbols via version.def so the game's import table is satisfied.
-
 target("stfc-community-mod")
 do
     set_kind("shared")
-    add_rules("stfc.runtime-identity")
+    add_rules("stfc.identity")
     add_files("src/*.cc")
     add_files("src/*.rc")
     add_files("src/version.def")

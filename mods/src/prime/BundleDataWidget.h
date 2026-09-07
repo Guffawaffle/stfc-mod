@@ -2,7 +2,6 @@
 
 #include <il2cpp/il2cpp_helper.h>
 
-#include "errormsg.h"
 #include "Widget.h"
 
 class Bundle
@@ -53,7 +52,7 @@ public:
       AuxViewButtonPressedHandler(this);
     } else if (AuxViewButtonPressedWarn) {
       AuxViewButtonPressedWarn = false;
-      ErrorMsg::MissingMethod("BundleDataWidget", "AuxViewButtonPressedHandelr");
+      ErrorMsg::MissingMethod("BundleDataWidget", "AuxViewButtonPressedHandler");
     }
   }
 

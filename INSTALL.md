@@ -1,21 +1,20 @@
-# ⚠️ UNOFFICIAL FORK — Guffawaffle's STFC Community Mod
-
-> **This is NOT the official STFC Community Mod.** The official project is **[netniV/stfc-mod](https://github.com/netniV/stfc-mod)**.
-> To support the project, **[sponsor netniV](https://github.com/sponsors/netniV)** — he built this.
+# Star Trek Fleet Command - Community Mod
 
 <p align="center">
-  <a href="https://github.com/netniV/stfc-mod"><img src="https://img.shields.io/badge/Official_Mod-netniV%2Fstfc--mod-blue?style=for-the-badge" alt="Official Mod"></a>
-  <a href="https://github.com/sponsors/netniV"><img src="https://img.shields.io/badge/Sponsor-netniV-ea4aaa?style=for-the-badge&logo=github-sponsors" alt="Sponsor netniV"></a>
   <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPLv3">
+  <img src="https://img.shields.io/github/sponsors/netniv" alt="Sponsorship">
+</p>
+
+<p align="center">
+   A community mod (patch) for PC and macOS that adds a couple of tweaks to the <b>Star Trek Fleet Command&#8482;</b> game
 </p>
 
 ## Downloads / Releases
 
 The STFC Community Mod is available on GitHub.
 
-You can download builds from this fork's [releases page](https://github.com/Guffawaffle/stfc-mod/releases).
-
-> **Prefer the official mod?** Get it at **[netniV/stfc-mod releases](https://github.com/netniV/stfc-mod/releases/latest)**.
+You can download either the [latest official release](https://github.com/netniv/stfc-mod/releases/latest/) or any other
+release, including [alpha/beta](https://github.com/netniv/stfc-mod/releases/) builds.
 
 In the event that a game update breaks the latest release, please visit the [STFC Community Mod](https://discord.gg/PrpHgs7Vjs)
 discord server, and check the #INFO channel for the latest hotfixes.
@@ -25,11 +24,6 @@ discord server, and check the #INFO channel for the latest hotfixes.
 - GitHub may require you to log in to see the downloads for
   pre-releases, and you will need to expand the
   assets section to see the downloads.
-
-- Windows releases publish three useful assets:
-  - `stfc-community-mod.zip` containing `version.dll`
-  - `version.dll` for direct drop-in installs or updates
-  - `SHA256SUMS.txt` for optional hash verification
 
 - There is no difference between the versioned and unversioned zip
   files. They are simply named this way to allow people to store
@@ -59,18 +53,18 @@ If you have any problems with a setting, check for that setting in the _.vars_ f
 that the parse value of that setting was correctly applied. You may also need to check the
 `community_patch.log` file to see if any errors were encountered while parsing the _.toml_ file.
 
-## Diagnostics And Export Policy
+### Configuration example files
 
-- `community_patch_runtime.vars` is runtime state only. Do not edit it.
-- `community_patch.log` is a bounded legacy troubleshooting log used for parse/load and boot
-   investigation. It is not the preferred durable export format.
-- Local JSONL export such as `community_patch_battle_feed.jsonl` should be treated as explicit
-   opt-in diagnostics/evidence capture. Enabling local capture can add runtime overhead and create large
-   storage churn.
-- Prefer ingress paths such as the Sidecar local HTTP ingest or other configured sync targets
-   for durable export and review.
-- If you enable local JSONL capture, keep replay retention bounded. Unlimited append-only capture
-   should only be used deliberately and briefly.
+Commented example configurations are maintained separately for each supported language, using the same flags as
+[ModConfig](https://modconfig.pages.dev):
+
+- <img src="docs/flags/gb.svg" alt="United Kingdom flag" width="24"> [English](example_community_patch_settings_en.toml)
+- <img src="docs/flags/de.svg" alt="German flag" width="24"> [German](example_community_patch_settings_de.toml)
+- <img src="docs/flags/fr.svg" alt="French flag" width="24"> [French](example_community_patch_settings_fr.toml)
+- <img src="docs/flags/nl.svg" alt="Netherlands flag" width="24"> [Dutch](example_community_patch_settings_nl.toml)
+
+Choose the example for your preferred language and save a copy in the appropriate settings folder as
+`community_patch_settings.toml`.
 
 ## Installation on Windows
 
@@ -78,39 +72,24 @@ that the parse value of that setting was correctly applied. You may also need to
 
 - `C:\Games\Star Trek Fleet Command\Star Trek Fleet Command\default\game`
 
-For Windows 10/11 x64, the preferred fork path is the signed
-`stfc-community-mod-launcher-win-x64.zip` release asset. Extract it, verify that
-Windows reports **Joseph Gustavson** as the signer for both executables, then
-run `Install-Launcher.ps1` from PowerShell. Add `-DesktopShortcut` if desired.
-The script installs per-user without elevation, creates a Start menu shortcut,
-and starts the launcher. The launcher discovers STFC, explicitly adopts an
-existing manual DLL when requested, and provides verified install/update,
-configuration, launch handoff, repair/removal, diagnostics, and self-update.
+Installation of the Community Mod is a manual process for Windows (or Wine).
 
-The manual DLL path remains fully supported on Windows and Wine:
-
-1. Download either the `stfc-community-mod.zip` file and extract `version.dll`, or download the `version.dll` asset directly from this fork's [releases page](https://github.com/Guffawaffle/stfc-mod/releases).
-
-   **Optional:** If you want to verify the download first, compare it against the matching entry in `SHA256SUMS.txt` from the same release.
+1. Download the `stfc-community-mod.zip` file from your chosen [GitHub release](https://github.com/netniv/stfc-mod/releases/) and extract the `version.dll` file.
 
 2. Open the game folder in Explorer. The default folder for the game also holds the settings file.
 
-   **Note:** If this folder isn't present, or no log files are created when running the game,
+   **NOTE:** If this folder isn't present, or no log files are created when running the game,
    see the [Problems Under Windows](#problems-under-windows) section below.
 
 3. Move the extracted `version.dll` file into this folder.
-
-   To update later, replace the existing `version.dll` with the one from the newer release.
 
 4. Run the game! If all is well, and one does not already exist, the mod will
    create `community_patch_settings.toml` and populate this with the default
    values.
 
-5. For first time users of the Community Mod, it recommended to utilise the
-   [sample configuration file](example_community_patch_settings.toml), which can
-   be saved to the game folder with the name `community_patch_settings.toml`. This
-   sample file contains additional comments that explain the available settings,
-   including the warning-heavy diagnostics/export policy.
+5. For first-time users of the Community Mod, it is recommended to choose one of the
+   [localized configuration examples](#configuration-example-files) and save a copy to the game folder as
+   `community_patch_settings.toml`. These examples contain additional comments that explain the available settings.
 
 ## Installation on macOS - macOS 13.5 or later required
 
@@ -120,7 +99,7 @@ The manual DLL path remains fully supported on Windows and Wine:
 
 You should only need to access this folder if you need to view the `community_patch.log` file while troubleshooting a problem.
 
-1. Download the `stfc-community-mod-installer.dmg` file from this fork's [releases page](https://github.com/Guffawaffle/stfc-mod/releases).
+1. Download the `stfc-community-mod-installer.dmg` file from your chosen [GitHub release](https://github.com/netniv/stfc-mod/releases/).
 
 2. Open the DMG, then drag and drop the `STFC Community Mod` to your `Applications` folder. The
    STFC Community Mod launcher must be used to start the game to have the mod loaded. If
@@ -147,11 +126,9 @@ You should only need to access this folder if you need to view the `community_pa
    Note: By default, macOS hides the `~/Library` folder in Finder, so if it isn't visible,
    see the [Problems under macOS](#problems-under-macos) section below for tips on opening it.
 
-5. For first time users of the Community Mod, it recommended to use the
-   [sample configuration file](example_community_patch_settings.toml), which can
-   be saved to the settings folder with the name `community_patch_settings.toml`. This
-   sample file contains additional comments that explain the available settings,
-   including the warning-heavy diagnostics/export policy.
+5. For first-time users of the Community Mod, it is recommended to choose one of the
+   [localized configuration examples](#configuration-example-files) and save a copy to the settings folder as
+   `community_patch_settings.toml`. These examples contain additional comments that explain the available settings.
 
 ## Installation on Wine/Linux
 

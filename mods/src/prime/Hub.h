@@ -1,19 +1,7 @@
-/**
- * @file Hub.h
- * @brief Central game singleton and section/navigation management types.
- *
- * Mirrors the C# Digit.Client.Core.Hub static class, which is the top-level
- * access point for game services. Also defines SectionID (every UI screen in
- * the game), SectionManager (navigation state machine), and supporting types
- * like SectionStorage, SectionNavHistory, PrimeApp, and GSServiceRegistry.
- */
 #pragma once
-
-#include "errormsg.h"
 
 #include <il2cpp/il2cpp_helper.h>
 
-/** @brief Identifies every UI section / screen in the game. Values are stable hashes from the C# enum. */
 enum class SectionID {
   ArtifactHall_Inventory                   = -2058246328,
   Alliance_Contribution                    = -2035860712,
@@ -154,10 +142,8 @@ enum class SectionID {
   Tournament_Group_Selection               = 2138751318,
 };
 
-/** @brief Provides per-section persistent state storage. */
 struct SectionStorage {
 public:
-  /** @brief Retrieve the stored state object for the given section. */
   void* GetState(SectionID section)
   {
     static auto GetStateMethod = get_class_helper().GetMethod<void*(SectionStorage*, SectionID)>("GetState");
@@ -181,10 +167,8 @@ private:
   }
 };
 
-/** @brief Tracks the back-stack of visited sections for navigation history. */
 struct SectionNavHistory {
 public:
-  /** @brief Check whether the given section exists anywhere in the history stack. */
   bool Contains(SectionID section)
   {
     static auto ContainsMethod = get_class_helper().GetMethod<bool(SectionNavHistory*, SectionID)>("ContainsSectionID");
@@ -194,7 +178,7 @@ public:
       return ContainsMethod(this, section);
     } else if (ContainsWarn) {
       ContainsWarn = false;
-      ErrorMsg::MissingMethod("SectionNavHistory", "ContainsSectionID");
+      ErrorMsg::MissingMethod("SectionNavHistory", "Contains");
     }
 
     return false;
@@ -208,29 +192,26 @@ private:
   }
 };
 
-/** @brief Manages the current UI section and section transitions. */
 struct SectionManager {
 public:
   __declspec(property(get = __get_CurrentSection)) SectionID CurrentSection;
   __declspec(property(get = __get__sectionStorage)) SectionStorage* _sectionStorage;
   __declspec(property(get = __get__history)) SectionNavHistory* _history;
 
-  bool TriggerSectionChange(SectionID nextSectionID, void* args, bool forcedSectionChange = false,
+  void TriggerSectionChange(SectionID nextSectionID, void* args, bool forcedSectionChange = false,
                             bool isGoBackStep = false, bool allowSameSection = false)
   {
     static auto triggerWarn = true;
     static auto triggerMethod =
-        get_class_helper().GetMethod<bool(void*, SectionID, void*, bool, bool isGoBackStep, bool allowSameSection)>(
-            "TriggerSectionChange", 5);
+        get_class_helper().GetMethod<void(void*, SectionID, void*, bool, bool isGoBackStep, bool allowSameSection)>(
+            "TriggerSectionChange");
 
     if (triggerMethod) {
-      return triggerMethod(this, nextSectionID, args, forcedSectionChange, isGoBackStep, allowSameSection);
+      triggerMethod(this, nextSectionID, args, forcedSectionChange, isGoBackStep, allowSameSection);
     } else if (triggerWarn) {
       triggerWarn = false;
       ErrorMsg::MissingMethod("SectionManager", "TriggerSectionChange");
     }
-
-    return false;
   }
 
 private:
@@ -260,7 +241,6 @@ public:
   }
 };
 
-/** @brief Wrapper for the game's service registry (network, data, etc.). */
 struct GSServiceRegistry {
 private:
   static IL2CppClassHelper& get_class_helper()
@@ -270,8 +250,40 @@ private:
   }
 };
 
-/** @brief Top-level application object; owns the service registry. */
 struct PrimeApp {
+  void Quit()
+  {
+    static auto quit = get_class_helper().GetMethod<void(PrimeApp*)>("Quit");
+    static auto warn = true;
+    if (quit) {
+      quit(this);
+    } else if (warn) {
+      warn = false;
+      ErrorMsg::MissingMethod("PrimeApp", "Quit");
+    }
+  }
+
+  void Reload()
+  {
+    struct CustomReloadArgs {
+      void* SectionArgs;
+      bool  ForceFakeReload;
+    };
+    struct NullableCustomReloadArgs {
+      bool             hasValue;
+      CustomReloadArgs value;
+    };
+
+    static auto reload = get_class_helper().GetMethod<void(PrimeApp*, bool, NullableCustomReloadArgs, bool)>("Reload");
+    static auto warn   = true;
+    if (reload) {
+      reload(this, false, {}, false);
+    } else if (warn) {
+      warn = false;
+      ErrorMsg::MissingMethod("PrimeApp", "Reload");
+    }
+  }
+
   GSServiceRegistry* get_Services()
   {
     static auto field = get_class_helper().GetProperty("Services");
@@ -286,14 +298,6 @@ private:
   }
 };
 
-/**
- * @brief Central static game singleton (Digit.Client.Core.Hub).
- *
- * Provides static accessors for the section manager, application instance,
- * and convenience queries for the current navigation state. This is the
- * primary entry point for most mod code that needs to inspect or change
- * the game's UI state.
- */
 struct Hub {
   static SectionManager* get_SectionManager()
   {

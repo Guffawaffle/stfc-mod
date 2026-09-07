@@ -2,6 +2,5 @@
   "clangd.arguments": [
     "--compile-commands-dir=.vscode"
   ],
-  "cmake.configureOnOpen": false,
   "cmake.ignoreCMakeListsMissing": true
 }

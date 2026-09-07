@@ -1,37 +1,16 @@
-/**
- * @file misc.cc
- * @brief Miscellaneous quality-of-life patches and crash fixes.
- *
- * A collection of independent patches that don't warrant their own file:
- *   - Donation slider extension (raise the 50-item cap)
- *   - Tagged chest-purchase slider extension
- *   - Bundle cooldown bypass (click through to info view while on cooldown)
- *   - Resolution list cleanup (deduplicate and normalize refresh rates)
- *   - Buff extraction null-guard (prevent crash on null list entries)
- *   - Shop reveal sequence skip
- *   - First interstitial popup dismissal
- */
 #include "config.h"
 #include "errormsg.h"
 
-#if _WIN32
-#include "patches/hook_registry.h"
-#endif
-
 #include <prime/BundleDataWidget.h>
 #include <prime/ClientModifierType.h>
+#include <prime/Hub.h>
 #include <prime/IList.h>
-#include <prime/InterstitialViewController.h>
 #include <prime/InventoryForPopup.h>
-#if _WIN32
 #include <prime/InventoryUseRowWidget.h>
-#endif
+#include <prime/ShopSummaryDirector.h>
 
 #include <il2cpp/il2cpp_helper.h>
 
-#if _WIN32
-#include <spdlog/spdlog.h>
-#endif
 #include <spud/detour.h>
 
 #if _WIN32
@@ -39,34 +18,15 @@
 #endif
 
 #include <algorithm>
-#include <cstdint>
-#include <vector>
+#include <prime/ActionQueueManager.h>
+#include <prime/InterstitialViewController.h>
 
-// ─── Inventory Slider Extensions ─────────────────────────────────────────────
-
-#if _WIN32
 namespace
 {
 constexpr int64_t kMaximumChestPurchaseMax = 160;
+}
 
-constexpr HookDescriptor kChestPurchaseSliderHook{
-    "InventoryUseRowWidget.SetWidgetData",
-    "Raise the quantity ceiling only for inventory rows tagged by the game as chest purchases.",
-    {"Assembly-CSharp", "Digit.Prime.Inventories", "InventoryUseRowWidget", "SetWidgetData"},
-    "Tagged chest-purchase sliders will retain the native quantity ceiling.",
-    HookSupportTier::Production};
-} // namespace
-#endif
-
-/**
- * @brief Hook: InventoryForPopup::set_MaxItemsToUse
- *
- * Intercepts the donation slider cap to allow larger donations.
- * Original method: sets the maximum slider value (hard-coded to 50 for donations).
- * Our modification: when extend_donation_slider is enabled and the caller is a
- *   donation popup with cap == 50, replaces it with the user's configured max.
- *   A non-positive configured max preserves the popup's initial unlimited value.
- */
+#if _WIN32
 void InventoryForPopup_set_MaxItemsToUse(auto original, InventoryForPopup* a1, int64_t a2)
 {
   if (!a1) {
@@ -85,16 +45,10 @@ void InventoryForPopup_set_MaxItemsToUse(auto original, InventoryForPopup* a1, i
 
   original(a1, a2);
 }
+#endif
 
-/**
- * @brief Hook: InventoryUseRowWidget::SetWidgetData
- *
- * The chest-purchase context is tagged only after its native MaxItemsToUse value is assigned, so the earlier setter
- * hook cannot reliably distinguish it. This later row-render seam sees both values and raises only tagged chest
- * purchase rows with a positive native ceiling. It never replaces an unknown/non-positive sentinel or lowers a
- * native maximum. A non-positive configured value disables the hook at install.
- */
-#if _WIN32
+// IsChestPurchase is populated too late for the existing MaxItemsToUse setter hook, so adjust the tagged context at
+// the row-render seam instead.
 void InventoryUseRowWidget_SetWidgetData(auto original, InventoryUseRowWidget* widget)
 {
   if (widget) {
@@ -104,29 +58,23 @@ void InventoryUseRowWidget_SetWidgetData(auto original, InventoryUseRowWidget* w
       const auto bounded_max   = std::min(requested_max, kMaximumChestPurchaseMax);
       if (native_max > 0 && bounded_max > native_max) {
         context->MaxItemsToUse = bounded_max;
-        spdlog::info("[ChestPurchaseSlider] extended quantity ceiling from {} to {}", native_max, bounded_max);
-      } else if (native_max > bounded_max) {
-        spdlog::info("[ChestPurchaseSlider] retained native quantity ceiling {} above bounded configured ceiling {} "
-                     "(requested {})",
-                     native_max, bounded_max, requested_max);
       }
     }
   }
 
   original(widget);
 }
+
+#if __APPLE__
+void UnitySlider_set_maxValue(auto original, void* a1, float a2)
+{
+  if ((a2 == 50.0f || a2 == 100.0f) && Config::Get().extend_donation_slider && Config::Get().extend_donation_max > 0) {
+    a2 = (float)Config::Get().extend_donation_max;
+  }
+  original(a1, a2);
+}
 #endif
 
-// ─── Bundle Cooldown Bypass ──────────────────────────────────────────────────
-
-/**
- * @brief Hook: BundleDataWidget::OnActionButtonPressedCallback
- *
- * Intercepts shop bundle button presses to allow interaction during cooldown.
- * Original method: triggers the bundle's primary action (purchase flow).
- * Our modification: if the bundle is on cooldown, redirects to the auxiliary
- *   info view instead of blocking the press entirely.
- */
 void BundleDataWidget_OnActionButtonPressedCallback(auto original, BundleDataWidget* _this)
 {
   if (_this->CurrentState & BundleDataWidget::ItemState::CooldownTimerOn) {
@@ -136,16 +84,9 @@ void BundleDataWidget_OnActionButtonPressedCallback(auto original, BundleDataWid
   }
 }
 
-/**
- * @brief Installs inventory-slider and bundle-cooldown patches.
- *
- * Hooks the donation setter and tagged chest-purchase row renderer on Windows, plus the bundle action callback.
- */
 void InstallMiscPatches()
 {
 #if _WIN32
-  HookModuleHealth chest_slider_hooks("ChestPurchaseSliderHooks");
-
   auto h = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Inventories", "InventoryForPopup");
   if (!h.isValidHelper()) {
     ErrorMsg::MissingHelper("Digit.Prime.Inventories", "InventoryForPopup");
@@ -157,29 +98,34 @@ void InstallMiscPatches()
       SPUD_STATIC_DETOUR(ptr, InventoryForPopup_set_MaxItemsToUse);
     }
   }
+#endif
 
-  const auto configured_chest_max = Config::Get().extend_chest_purchase_max;
-  if (configured_chest_max <= 0) {
-    chest_slider_hooks.record_skipped(kChestPurchaseSliderHook, "configured maximum is non-positive");
-  } else {
-    if (configured_chest_max > kMaximumChestPurchaseMax) {
-      spdlog::warn("[ChestPurchaseSlider] configured extension ceiling {} exceeds verified transaction ceiling {}; "
-                   "clamping the extension (higher native ceilings remain unchanged)",
-                   configured_chest_max, kMaximumChestPurchaseMax);
-    }
-
-    auto& row_widget = InventoryUseRowWidget::get_class_helper();
+  if (Config::Get().extend_chest_purchase_max > 0) {
+    auto row_widget = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Inventories", "InventoryUseRowWidget");
     if (!row_widget.isValidHelper()) {
-      chest_slider_hooks.record_missing_helper(kChestPurchaseSliderHook);
-    } else if (auto set_widget_data = row_widget.GetMethod("SetWidgetData", 0); set_widget_data == nullptr) {
-      chest_slider_hooks.record_missing_method(kChestPurchaseSliderHook);
+      ErrorMsg::MissingHelper("Digit.Prime.Inventories", "InventoryUseRowWidget");
     } else {
-      HOOK_REGISTRY_SPUD_STATIC_DETOUR(chest_slider_hooks, kChestPurchaseSliderHook, set_widget_data,
-                                       InventoryUseRowWidget_SetWidgetData);
+      auto ptr = row_widget.GetMethod("SetWidgetData", 0);
+      if (!ptr) {
+        ErrorMsg::MissingMethod("InventoryUseRowWidget", "SetWidgetData");
+      } else {
+        SPUD_STATIC_DETOUR(ptr, InventoryUseRowWidget_SetWidgetData);
+      }
     }
   }
 
-  chest_slider_hooks.log_summary();
+#if __APPLE__
+  auto unity_slider = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Slider");
+  if (!unity_slider.isValidHelper()) {
+    ErrorMsg::MissingHelper("UnityEngine.UI", "Slider");
+  } else {
+    auto set_max_ptr = unity_slider.GetMethod("set_maxValue");
+    if (!set_max_ptr) {
+      ErrorMsg::MissingMethod("Slider", "set_maxValue");
+    } else {
+      SPUD_STATIC_DETOUR(set_max_ptr, UnitySlider_set_maxValue);
+    }
+  }
 #endif
 
   auto bundle_data_widget = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Shop", "BundleDataWidget");
@@ -194,100 +140,6 @@ void InstallMiscPatches()
   }
 }
 
-// ─── Resolution List Fix ─────────────────────────────────────────────────────
-
-struct Resolution {
-  int m_Width;
-  int m_Height;
-  int m_RefreshRate;
-
-  bool operator==(const Resolution& other) const
-  { return this->m_Height == other.m_Height && this->m_Width == other.m_Width; }
-};
-
-struct ResolutionArray {
-  Il2CppObject obj;
-  void*        bounds;
-  size_t       maxlength;
-  Resolution   data[1];
-};
-
-/**
- * @brief Hook: UnityEngine.Screen::get_resolutions
- *
- * Intercepts the resolution list to clean up duplicates and normalize refresh rates.
- * Original method: returns the raw array of supported screen resolutions.
- * Our modification: on Windows, finds the maximum refresh rate for the native
- *   resolution and (if show_all_resolutions is set) normalizes all entries to
- *   that rate, then deduplicates. This prevents the settings menu from showing
- *   the same resolution multiple times at different refresh rates.
- */
-ResolutionArray* GetResolutions_Hook(auto original)
-{
-  auto resolutions = original();
-
-#if _WIN32
-  auto screenWidth  = GetSystemMetrics(SM_CXSCREEN);
-  auto screenHeight = GetSystemMetrics(SM_CYSCREEN);
-
-  int targetRefreshRate = 0;
-  for (int i = 0; i < resolutions->maxlength; ++i) {
-    auto ores = resolutions->data[i];
-    if (ores.m_Width == screenWidth && ores.m_Height == screenHeight) {
-      targetRefreshRate = std::max(ores.m_RefreshRate, targetRefreshRate);
-    }
-  }
-
-  std::vector<Resolution> res;
-  for (int i = 0; i < resolutions->maxlength; ++i) {
-    if (Config::Get().show_all_resolutions)
-      resolutions->data[i].m_RefreshRate = targetRefreshRate;
-
-    auto ores = resolutions->data[i];
-    if (Config::Get().show_all_resolutions || (ores.m_RefreshRate == targetRefreshRate || targetRefreshRate == 0)) {
-      res.push_back(ores);
-    }
-  }
-
-  res.erase(unique(res.begin(), res.end()), res.end());
-
-  int i = 0;
-  for (const auto& resultRes : res) {
-    resolutions->data[i] = resultRes;
-    ++i;
-  }
-  resolutions->maxlength = res.size();
-#endif
-
-  return resolutions;
-}
-
-/**
- * @brief Installs the resolution list cleanup hook.
- *
- * Hooks UnityEngine.Screen::get_resolutions via IL2CPP icall resolution.
- */
-void InstallResolutionListFix()
-{
-  auto get_resolutions = il2cpp_resolve_icall_typed<ResolutionArray*()>("UnityEngine.Screen::get_resolutions()");
-  if (!get_resolutions) {
-    ErrorMsg::MissingMethod("UnityEngine.Screen", "get_resolutions");
-  } else {
-    SPUD_STATIC_DETOUR(get_resolutions, GetResolutions_Hook);
-  }
-}
-
-// ─── Crash Fixes & Misc Hooks ────────────────────────────────────────────────
-
-/**
- * @brief Hook: BuffService::ExtractBuffsOfType
- *
- * Null-guard for buff list extraction to prevent crashes.
- * Original method: filters a buff list by modifier type.
- * Our modification: checks each list element for null before passing to
- *   original; returns nullptr early if any entry is null (avoids a crash
- *   deep in the buff processing pipeline).
- */
 IList* ExtractBuffsOfType_Hook(auto original, ClientModifierType modifier, IList* list)
 {
   if (list) {
@@ -301,37 +153,108 @@ IList* ExtractBuffsOfType_Hook(auto original, ClientModifierType modifier, IList
   return original(modifier, list);
 }
 
-/**
- * @brief Hook: ShopSceneManager::ShouldShowRevealSequence
- *
- * Optionally skips the chest-opening reveal animation.
- * Original method: decides whether to play the reveal sequence.
- * Our modification: if always_skip_reveal_sequence is set, returns false
- *   regardless of the original result.
- */
 bool ShouldShowRevealHook(auto original, void* _this, bool ignore)
 {
+  auto result = original(_this, ignore);
   if (Config::Get().always_skip_reveal_sequence) {
     return false;
   }
-
-  return original(_this, ignore);
+  return result;
 }
 
-/**
- * @brief Hook: InterstitialViewController::AboutToShow
- *
- * Intercepts the first interstitial popup to auto-dismiss it.
- * Original method: displays the interstitial (typically a promo offer).
- * Our modification: if disable_first_popup is set and this is the first
- *   interstitial since launch, calls CloseWhenReady() instead of showing it.
- */
+struct ShopCategory {
+public:
+  __declspec(property(get = __get__flagValue)) int Value;
+
+private:
+  static IL2CppClassHelper& get_class_helper()
+  {
+    static auto class_helper =
+        il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.Prime.Shop", "ShopCategory");
+    return class_helper;
+  }
+
+public:
+  int __get__flagValue()
+  {
+    static auto field = get_class_helper().GetProperty("Value");
+    return *field.GetUnboxedSelf<int>(this);
+  }
+};
+
+struct CurrencyType {
+public:
+  __declspec(property(get = __get__flagValue)) int Value;
+  //
+
+private:
+  static IL2CppClassHelper& get_class_helper()
+  {
+    static auto class_helper =
+        il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimePlatform.Content", "CurrencyType");
+    return class_helper;
+  }
+
+public:
+  int __get__flagValue()
+  {
+    static auto field = get_class_helper().GetProperty("value");
+    return *field.GetUnboxedSelf<int>(this);
+  }
+};
+
+struct BundleGroupConfig {
+public:
+  __declspec(property(get = __get__category)) int _category;
+  __declspec(property(get = __get__currency)) int _currency;
+
+private:
+  static IL2CppClassHelper& get_class_helper()
+  {
+    static auto class_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Shop", "BundleGroupConfig");
+    return class_helper;
+  }
+
+public:
+  int __get__category()
+  {
+    static auto field = get_class_helper().GetField("_category");
+    return *(int*)((ptrdiff_t)this + field.offset());
+  }
+
+  int __get__currency()
+  {
+    static auto field = get_class_helper().GetField("_currency");
+    return *(int*)((ptrdiff_t)this + field.offset());
+  }
+};
+
+class ShopSectionContext
+{
+public:
+  __declspec(property(get = __get__bundleConfig)) BundleGroupConfig* _bundleConfig;
+
+private:
+  static IL2CppClassHelper& get_class_helper()
+  {
+    static auto class_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Shop", "ShopSectionContext");
+    return class_helper;
+  }
+
+public:
+  BundleGroupConfig* __get__bundleConfig()
+  {
+    static auto field = get_class_helper().GetProperty("BundleGroup");
+    return field.GetRaw<BundleGroupConfig>(this);
+  }
+};
+
 bool isFirstInterstitial = true;
 
 void InterstitialViewController_AboutToShow(auto original, InterstitialViewController* _this)
 {
-  if (false /* TEMP: disable_first_popup effect disabled */ && Config::Get().disable_first_popup && isFirstInterstitial
-      && _this != nullptr) {
+  if (false /* TEMP: disable_first_popup effect disabled */ && Config::Get().disable_first_popup
+      && isFirstInterstitial && _this != nullptr) {
     isFirstInterstitial = false;
     _this->CloseWhenReady();
   } else {
@@ -339,14 +262,14 @@ void InterstitialViewController_AboutToShow(auto original, InterstitialViewContr
   }
 }
 
-/**
- * @brief Installs crash-fix and QoL hooks.
- *
- * Hooks:
- *   - BuffService::ExtractBuffsOfType (null-guard crash fix)
- *   - ShopSceneManager::ShouldShowRevealSequence (skip reveal animation)
- *   - InterstitialViewController::AboutToShow (dismiss first popup)
- */
+void ActionQueueManager_AddActionToQueue(auto original, ActionQueueManager* _this, long fleet_id)
+{
+  spdlog::warn("ActionQueueManager_AddActionToQueue({})", fleet_id);
+  original(_this, fleet_id);
+}
+
+//   const auto section_data = Hub::get_SectionManager()->_sectionStorage->GetState(sectionID);
+
 void InstallTempCrashFixes()
 {
   auto BuffService_helper =
@@ -384,6 +307,19 @@ void InstallTempCrashFixes()
       ErrorMsg::MissingMethod("InterstitialViewController", "AboutToShow");
     } else {
       SPUD_STATIC_DETOUR(interstitial_show, InterstitialViewController_AboutToShow);
+    }
+  }
+
+  static auto actionqueue_manager =
+      il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager");
+  if (!actionqueue_manager.isValidHelper()) {
+    ErrorMsg::MissingHelper("ActionQueue", "ActionQueueManager");
+  } else {
+    auto addtoqueue_method = actionqueue_manager.GetMethod("AddActionToQueue");
+    if (addtoqueue_method == nullptr) {
+      ErrorMsg::MissingMethod("ActionQueueManager", "AddActionToQueue");
+    } else {
+      // SPUD_STATIC_DETOUR(addtoqueue_method, ActionQueueManager_AddActionToQueue);
     }
   }
 }

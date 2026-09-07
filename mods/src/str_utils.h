@@ -1,31 +1,100 @@
-/**
- * @file str_utils.h
- * @brief String utilities: whitespace stripping, case conversion, splitting,
- *        and cross-platform IL2CPP string conversion.
- *
- * Provides helpers to convert between IL2CPP's Il2CppString (UTF-16 on
- * Windows, UTF-32 on macOS/Linux), std::wstring, and std::string (UTF-8).
- * Uses simdutf for fast SIMD-accelerated encoding conversion on non-Windows
- * platforms; on Windows, delegates to WinRT / WideCharToMultiByte.
- */
 #pragma once
 
-// Re-export pure string utilities (no IL2CPP deps)
-#include "str_utils_pure.h"
-
-// Additional dependencies for IL2CPP + platform string conversion
-#include <il2cpp/il2cpp_helper.h>
+#include <algorithm>
+#include <cctype>
+#include <chrono>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include <simdutf.h>
+#include <il2cpp/il2cpp_helper.h>
+
 #if _WIN32
 #include <winrt/base.h>
+#else
+#include <time.h>
 #endif
 
-// ─── IL2CPP / Platform String Conversions ───────────────────────────────────────
-// IL2CPP: wchar_t is UTF-16 on Windows, UTF-32 on macOS/Linux.
-// These overloads abstract that difference using simdutf on non-Windows.
+inline bool ascii_isspace(unsigned char c)
+{
+  return std::isspace(c);
+}
 
-/** @brief Convert a UTF-8 std::string to std::wstring (platform-aware encoding). */
+constexpr std::string_view StripTrailingAsciiWhitespace(const std::string_view str)
+{
+  const auto it = std::find_if_not(str.rbegin(), str.rend(), ascii_isspace);
+  return str.substr(0, static_cast<size_t>(str.rend() - it));
+}
+
+constexpr std::string_view StripLeadingAsciiWhitespace(const std::string_view str)
+{
+  const auto it = std::ranges::find_if_not(str, ascii_isspace);
+  return str.substr(static_cast<size_t>(it - str.begin()));
+}
+
+constexpr std::string_view StripAsciiWhitespace(const std::string_view str)
+{
+  return StripTrailingAsciiWhitespace(StripLeadingAsciiWhitespace(str));
+}
+
+constexpr std::string_view StripSuffix(std::string_view str, const std::string_view suffix)
+{
+  if (str.size() >= suffix.size() && str.substr(str.size() - suffix.size()) == suffix) {
+    return str.substr(0, str.size() - suffix.size());
+  }
+  return str;
+}
+
+constexpr std::string_view StripPrefix(std::string_view str, const std::string_view prefix)
+{
+  if (str.size() >= prefix.size() && str.substr(0, prefix.size()) == prefix) {
+    return str.substr(prefix.size());
+  }
+  return str;
+}
+
+constexpr std::string AsciiStrToUpper(const std::string_view s)
+{
+  std::string str = s.data();
+  std::ranges::transform(str, str.begin(), ::toupper);
+  return str;
+}
+
+constexpr std::string AsciiStrToLower(const std::string_view s)
+{
+  std::string str = s.data();
+  std::ranges::transform(str, str.begin(), ::tolower);
+  return str;
+}
+
+constexpr std::vector<std::string> StrSplit(const std::string& input, const char delimiter)
+{
+  std::vector<std::string> result;
+  int                      last_pos = 0;
+  for (int i = 0; i < input.length(); i++) {
+    if (input[i] != delimiter) {
+      continue;
+    }
+
+    if (i - last_pos > 0) {
+      result.emplace_back(input.substr(last_pos, i - last_pos));
+    }
+    last_pos = i + 1;
+  }
+
+  if (last_pos != input.length()) {
+    auto sp = input.substr(last_pos, input.length() - last_pos);
+    sp      = StripAsciiWhitespace(sp);
+    if (!sp.empty()) {
+      result.emplace_back(sp);
+    }
+  }
+
+  return result;
+}
+
 inline std::wstring to_wstring(const std::string& str)
 {
 #if _WIN32
@@ -38,7 +107,6 @@ inline std::wstring to_wstring(const std::string& str)
 #endif
 }
 
-/** @brief Convert an IL2CPP string to std::wstring. */
 inline std::wstring to_wstring(Il2CppString* str)
 {
 #if _WIN32
@@ -51,7 +119,6 @@ inline std::wstring to_wstring(Il2CppString* str)
 #endif
 }
 
-/** @brief Convert std::wstring to UTF-8 std::string. */
 inline std::string to_string(const std::wstring& str)
 {
 #if _WIN32
@@ -67,9 +134,34 @@ inline std::string to_string(const std::wstring& str)
 #endif
 }
 
-/** @brief Convert an IL2CPP string to UTF-8 std::string (convenience overload). */
-inline std::string to_string(Il2CppString* str)
+inline std::string to_string(const Il2CppString* str)
 {
-  const auto s = to_wstring(str);
-  return to_string(s);
+  size_t expected_utf8_bytes = simdutf::utf8_length_from_utf16(
+    reinterpret_cast<const char16_t*>(str->chars), str->length);
+  std::string result(expected_utf8_bytes, '\0');
+  size_t actual_utf8_bytes = simdutf::convert_utf16_to_utf8(
+    reinterpret_cast<const char16_t*>(str->chars), str->length, result.data());
+  result.resize(actual_utf8_bytes);
+  return result;
+}
+
+inline std::optional<std::chrono::time_point<std::chrono::system_clock>> parse_timestamp(const std::string& timestamp)
+{
+#ifdef _WIN32
+  std::istringstream ss(timestamp);
+  std::chrono::system_clock::time_point time_point;
+
+  if (!std::chrono::from_stream(ss, "%Y-%m-%dT%H:%M:%S", time_point)) {
+    return std::nullopt;
+  }
+
+  return time_point;
+#else
+  std::tm tm = {};
+  if (strptime(timestamp.c_str(), "%Y-%m-%dT%H:%M:%S", &tm) == nullptr) {
+    return std::nullopt;
+  }
+
+  return std::chrono::system_clock::from_time_t(std::mktime(&tm));
+#endif
 }

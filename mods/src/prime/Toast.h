@@ -1,26 +1,81 @@
-/**
- * @file Toast.h
- * @brief Toast notification data and state enumeration.
- *
- * Mirrors Digit.Prime.HUD.Toast — the in-game popup notifications for
- * battles, faction events, armada status, territory capture, etc.
- */
 #pragma once
 
-#include "toast_state.h"
 #include <il2cpp/il2cpp_helper.h>
 
-/**
- * @brief A single toast notification displayed in the HUD.
- *
- * Provides access to the notification's locale text context, attached data
- * payload, and display state (e.g. victory, defeat, incoming attack).
- */
+enum ToastState {
+  All                       = -1,
+  Standard                  = 0,
+  FactionWarning            = 1,
+  FactionLevelUp            = 2,
+  FactionLevelDown          = 3,
+  FactionDiscovered         = 4,
+  IncomingAttack            = 5,
+  IncomingAttackFaction     = 6,
+  FleetBattle               = 7,
+  StationBattle             = 8,
+  StationVictory            = 9,
+  Victory                   = 10,
+  Defeat                    = 11,
+  StationDefeat             = 12,
+  Tournament                = 14,
+  ArmadaCreated             = 15,
+  ArmadaCanceled            = 16,
+  ArmadaIncomingAttack      = 17,
+  ArmadaBattleWon           = 18,
+  ArmadaBattleLost          = 19,
+  DiplomacyUpdated          = 20,
+  JoinedTakeover            = 21,
+  CompetitorJoinedTakeover  = 22,
+  AbandonedTerritory        = 23,
+  TakeoverVictory           = 24,
+  TakeoverDefeat            = 25,
+  TreasuryProgress          = 26,
+  TreasuryFull              = 27,
+  Achievement               = 28,
+  AssaultVictory            = 29,
+  AssaultDefeat             = 30,
+  ChallengeComplete         = 31,
+  ChallengeFailed           = 32,
+  StrikeHit                 = 33,
+  StrikeDefeat              = 34,
+  WarchestProgress          = 35,
+  WarchestFull              = 36,
+  PartialVictory            = 37,
+  ArenaTimeLeft             = 38,
+  ChainedEventScored        = 39,
+  FleetPresetApplied        = 40,
+  SurgeWarmUpEnded              = 41,
+  SurgeHostileGroupDefeated     = 42,
+  SurgeTimeLeft                 = 43,
+  QueueForLeaseActivated        = 44,
+  QueueForLeaseExpired          = 45,
+  PermanentQueuePurchased       = 46,
+  OutpostStartedOrEnded         = 47,
+  CrossAllianceArmadaVictory    = 48,
+  CrossAllianceArmadaDefeat     = 49,
+  CrossAllianceArmadaPartialVictory = 50,
+  FactionWeeklyEventsProgress   = 51,
+  FactionWeeklyEventsComplete   = 52,
+  ArmadaPlayerBlocked           = 53,
+  ArmadaPlayerUnblocked         = 54,
+  DynamicCrisisUpdate           = 55,
+  DynamicCrisisFailed           = 56,
+  DynamicCrisisCompleted        = 57,
+  GalacticAnomalySystemEntered  = 58,
+};
+
 struct Toast {
 public:
+  Il2CppArray* get_TextParameters()
+  {
+    static auto prop = get_class_helper().GetProperty("TextParameters");
+    return prop.GetRaw<Il2CppArray>(this);
+  }
+
   void* get_TextLocaleTextContext()
   {
-    return *reinterpret_cast<void**>(reinterpret_cast<char*>(this) + 0x20);
+    static auto prop = get_class_helper().GetProperty("TextLocaleTextContext");
+    return prop.GetRaw(this);
   }
 
   Il2CppObject* get_Data()

@@ -2,8 +2,6 @@
 
 #include <il2cpp/il2cpp_helper.h>
 
-#include <cstdint>
-
 using IActionData = void*;
 
 enum class ActionType : int32_t {

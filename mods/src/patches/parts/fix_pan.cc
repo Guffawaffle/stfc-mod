@@ -1,36 +1,20 @@
-/**
- * @file fix_pan.cc
- * @brief Fixes system-view camera panning and adds momentum falloff.
- *
- * The game's navigation pan has two issues this patch addresses:
- * 1. Touch input that reports "Stationary" phase is ignored, causing jittery
- *    panning — we reclassify it as "Moved" so the gesture stays smooth.
- * 2. After releasing a pan, the camera stops abruptly. We add configurable
- *    momentum falloff so the camera glides to a stop.
- */
 #include "config.h"
 #include "errormsg.h"
-#include "patches/mod_impact_monitor.h"
 
 #include <il2cpp/il2cpp_helper.h>
 
+#include <prime/Hub.h>
 #include <prime/NavigationPan.h>
+#include <prime/OrbitFrameProvider.h>
 #include <prime/TKTouch.h>
+
+#include <patches/key.h>
+#include <patches/mapkey.h>
 
 #include <spud/detour.h>
 
-/**
- * @brief Hook: TKTouch::populateWithPosition
- *
- * Intercepts touch input population to fix jittery panning.
- * Original method: populates a TKTouch struct with position and phase.
- * Our modification: converts Stationary phase to Moved so the pan gesture
- *   doesn't stall when the finger/cursor barely moves.
- */
 TKTouch *TKTouch_populateWithPosition_Hook(auto original, TKTouch *_this, uintptr_t pos, TouchPhase phase)
 {
-  ScopedModImpactTimer impact_timer(ModImpactProbe::NavigationTouchPopulate, ModImpactMonitorEnabled());
-
   auto r = original(_this, pos, phase);
   if (r->phase == TouchPhase::Stationary) {
     r->phase = TouchPhase::Moved;
@@ -38,27 +22,12 @@ TKTouch *TKTouch_populateWithPosition_Hook(auto original, TKTouch *_this, uintpt
   return r;
 }
 
-/**
- * @brief Hook: NavigationPan::LateUpdate
- *
- * Intercepts the per-frame pan update to add momentum-based camera glide.
- * Original method: processes pan input each frame and moves the camera.
- * Our modification: when no touch/mouse input is active and the camera isn't
- *   blocked or tracking a POI, applies a configurable falloff multiplier to
- *   the last pan delta so the camera decelerates smoothly. Also locks the
- *   extended far-zoom radius to the normal value.
- */
 bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan *_this)
 {
-  ScopedModImpactTimer impact_timer(ModImpactProbe::NavigationPanLateUpdate, ModImpactMonitorEnabled());
-
   auto d = _this->_lastDelta;
 
-  if (!Config::Get().disable_move_keys) {
-    impact_timer.ExcludeCall([&] {
-      ScopedModImpactTimer original_timer(ModImpactProbe::NavigationPanOriginalLateUpdate, ModImpactMonitorEnabled());
-      original(_this);
-    });
+  if (!Config::Get().disable_move_keys && !Key::IsDirectionalInputClaimed()) {
+    original(_this);
   }
 
   static auto GetMouseButton = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButton(System.Int32)");
@@ -78,14 +47,37 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan *_this)
   return true;
 }
 
-/**
- * @brief Installs pan-fix and momentum hooks.
- *
- * Hooks TKTouch::populateWithPosition (Stationary → Moved fix) and
- * NavigationPan::LateUpdate (momentum falloff).
- */
+void OrbitFrameProvider_UpdateInputData_Hook(auto original, OrbitFrameProvider *_this, Camera *primary_camera)
+{
+  original(_this, primary_camera);
+
+  auto section_manager = Hub::get_SectionManager();
+  if (!section_manager || section_manager->CurrentSection != SectionID::Starbase_Exterior || Key::IsInputFocused()) {
+    return;
+  }
+
+  static auto GetDeltaTime = il2cpp_resolve_icall_typed<float()>("UnityEngine.Time::get_deltaTime()");
+  constexpr float keyboard_rotation_speed = 45.0f;
+  const auto      frame_delta             = keyboard_rotation_speed * GetDeltaTime();
+
+  if (MapKey::IsPressed(GameFunction::MoveLeft)) {
+    _this->RotationAngleDelta() -= frame_delta;
+  }
+  if (MapKey::IsPressed(GameFunction::MoveRight)) {
+    _this->RotationAngleDelta() += frame_delta;
+  }
+}
+
 void InstallPanHooks()
 {
+  if (auto& orbit_helper = OrbitFrameProvider::get_class_helper(); !orbit_helper.isValidHelper()) {
+    ErrorMsg::MissingHelper("Digit.Client.CameraController", "OrbitFrameProvider");
+  } else if (const auto ptr = orbit_helper.GetMethod("UpdateInputData"); ptr == nullptr) {
+    ErrorMsg::MissingMethod("OrbitFrameProvider", "UpdateInputData");
+  } else {
+    SPUD_STATIC_DETOUR(ptr, OrbitFrameProvider_UpdateInputData_Hook);
+  }
+
   if (auto touchHelper = il2cpp_get_class_helper("TouchKit", "", "TKTouch"); !touchHelper.isValidHelper()) {
     ErrorMsg::MissingHelper("<global>", "TKTouch");
   } else {

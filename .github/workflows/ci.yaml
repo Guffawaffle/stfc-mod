@@ -1,561 +1,856 @@
-# @file ci.yaml
-# @brief CI build workflow — compiles the community patch on Windows and macOS.
-#
-# Triggers automatically for main branch updates and for reviewable PRs when
-# they are opened, updated, reopened, or moved out of draft. Builds release
-# artifacts for both platforms using xmake, creates a universal macOS app
-# bundle (arm64 + x86_64 via lipo), ad-hoc signs it, and packages a .dmg
-# installer. Uploads version.dll (Windows) and the .dmg (macOS) as build
-# artifacts.
-
 name: Build
 
 on:
   push:
     branches:
-      - main
-    tags:
-      - "v*"
+      - "main"
+      - "dev"
   pull_request:
     branches: ["main", "dev"]
-    types: [opened, synchronize, reopened, ready_for_review]
-  workflow_dispatch:
-    inputs:
-      build_class:
-        description: Runtime identity class for this build
-        required: true
-        default: development
-        type: choice
-        options:
-          - development
-          - test
-      test_target:
-        description: Repository, PR, or candidate exercised by a test build
-        required: false
-        type: string
-      test_expiry:
-        description: Expiry or supersession condition for a test build
-        required: false
-        type: string
-      support_boundary:
-        description: Support owner or channel for a test build
-        required: false
-        type: string
+
+permissions:
+  actions: read
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  XMAKE_PACKAGE_CACHE_VERSION: v1
-  DOTNET_CLI_TELEMETRY_OPTOUT: 1
-  DOTNET_NOLOGO: true
-  STFC_CI_BUILD_CLASS: ${{ github.ref_type == 'tag' && 'release' || (github.event_name == 'workflow_dispatch' && inputs.build_class || 'development') }}
-  STFC_CI_SOURCE_STATE_ID: git:${{ github.sha }}
-  STFC_CI_BASE_COMMIT: ${{ github.sha }}
-  STFC_CI_RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-  STFC_CI_TEST_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.test_target || '' }}
-  STFC_CI_TEST_EXPIRY: ${{ github.event_name == 'workflow_dispatch' && inputs.test_expiry || '' }}
-  STFC_CI_SUPPORT_BOUNDARY: ${{ github.event_name == 'workflow_dispatch' && inputs.support_boundary || '' }}
+  XMAKE_VERSION: "3.1.0"
+  # Bump this when a dependency cache must be invalidated manually.
+  XMAKE_CACHE_SCHEMA: "v4"
+  # Narrow protobuf-only compiler-cache experiment.
+  PROTOBUF_SCCACHE_VERSION: "v0.17.0"
+  PROTOBUF_SCCACHE_SCHEMA: "v1"
+  STFC_PROTOBUF_SCCACHE: "1"
+  # Keep sccache local; actions/cache owns persistence explicitly.
+  SCCACHE_GHA_ENABLED: "false"
+  # setup-xmake normally exports this when its integrated build cache is on.
+  # Keep XMake's compiler cache enabled while managing persistence ourselves.
+  XMAKE_ACTION_BUILD_CACHE: "true"
 
-# actions/cache@v5 uses Node.js 24 and requires Actions Runner 2.327.1+.
-# Every job in this workflow selects a GitHub-hosted runner label.
 jobs:
-  provider-contract:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-
-      - name: Test AXF provider contracts
-        run: node --test scripts/axf/*.test.mjs
-
-  release-manifest-contract:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: scripts/requirements-release.txt
-
-      - name: Install release tooling dependencies
-        run: python -m pip install --require-hashes --requirement scripts/requirements-release.txt
-
-      - name: Validate release and runtime identity contracts
-        run: >-
-          python -m unittest
-          tests.test_generate_release_manifest
-          tests.test_generate_release_notes
-          tests.test_runtime_identity_policy
-          -v
-
   build-win:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-2025-vs2026
+    outputs:
+      run_attempt: ${{ steps.build_identity.outputs.run_attempt }}
+    permissions:
+      actions: read
+      contents: read
+    env:
+      STFC_MSVC_SCCACHE: "1"
+      WINDOWS_SCCACHE_SCHEMA: "v1"
+      SCCACHE_DIR: ${{ github.workspace }}/build/.windows-sccache
+      SCCACHE_CACHE_SIZE: "2G"
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          submodules: "recursive"
-
-      - name: Setup
-        uses: xmake-io/github-action-setup-xmake@v1
-        with:
-          xmake-version: latest
-
-      - name: Resolve xmake package dir
-        id: xmake-package-dir
+      - name: Capture build identity
+        id: build_identity
         shell: pwsh
         run: |
-          $dir = xmake l -c "import(""core.package.package""); print(package.installdir())"
-          "dir=$dir" >> $env:GITHUB_OUTPUT
+          "run_attempt=${{ github.run_attempt }}" >> $env:GITHUB_OUTPUT
 
-      - name: Restore xmake package cache
-        uses: actions/cache@v5
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
-          path: ${{ steps.xmake-package-dir.outputs.dir }}
-          key: xmake-packages-${{ env.XMAKE_PACKAGE_CACHE_VERSION }}-win-${{ runner.arch }}-${{ hashFiles('xmake.lua', 'mods/xmake.lua', 'tests/xmake.lua', 'win-proxy-dll/xmake.lua', 'xmake-packages/**/*.lua') }}
-          restore-keys: |
-            xmake-packages-${{ env.XMAKE_PACKAGE_CACHE_VERSION }}-win-${{ runner.arch }}-
+          fetch-depth: 1
+          submodules: false
+          show-progress: false
 
-      - name: Test runtime identity build matrix
+      - name: Stamp commit hash
+        run: python scripts/stamp-version-hash.py "${{ github.sha }}"
+
+      - name: Restore XMake
+        id: restore_xmake
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.tool_cache }}/xmake
+          key: xmake-tool-${{ runner.os }}-${{ runner.arch }}-${{ env.XMAKE_VERSION }}-${{ env.XMAKE_CACHE_SCHEMA }}
+
+      - name: Setup XMake
+        uses: xmake-io/github-action-setup-xmake@v1.2.5
+        with:
+          xmake-version: ${{ env.XMAKE_VERSION }}
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.11
+        with:
+          version: ${{ env.PROTOBUF_SCCACHE_VERSION }}
+
+      - name: Identify Windows runner image
+        id: windows_toolchain
         shell: pwsh
-        run: ./scripts/test_runtime_identity_build.ps1
+        run: |
+          if (-not $env:ImageVersion) { throw "GitHub runner ImageVersion is unavailable" }
+          "image_version=$env:ImageVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Set Windows compiler cache identity
+        shell: pwsh
+        run: |
+          "SCCACHE_C_CUSTOM_CACHE_BUSTER=stfc-windows-${{ env.WINDOWS_SCCACHE_SCHEMA }}-xmake-${{ env.XMAKE_VERSION }}-${{ steps.windows_toolchain.outputs.image_version }}" >> $env:GITHUB_ENV
+
+      - name: Locate XMake caches
+        id: xmake_cache_paths
+        shell: pwsh
+        run: |
+          $packageDir = xmake l -c 'import("core.package.package"); print(package.installdir())'
+          $packageDir = $packageDir.Trim()
+
+          if (-not $packageDir) {
+            throw "XMake returned an empty package directory"
+          }
+
+          "package_dir=$packageDir" >> $env:GITHUB_OUTPUT
+
+      - name: Restore XMake packages
+        id: restore_packages
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ steps.xmake_cache_paths.outputs.package_dir }}
+          key: windows-x64-release-xmake-${{ env.XMAKE_VERSION }}-${{ env.XMAKE_CACHE_SCHEMA }}-${{ hashFiles('xmake/dependencies/common.lua', 'xmake/dependencies/windows.lua', 'xmake-requires.lock', 'xmake-packages/**') }}
+
+      - name: Restore XMake local packages
+        id: restore_local_packages
+        uses: actions/cache/restore@v6
+        with:
+          path: build/.packages
+          key: windows-x64-release-xmake-local-${{ env.XMAKE_VERSION }}-${{ env.XMAKE_CACHE_SCHEMA }}-${{ hashFiles('xmake/dependencies/common.lua', 'xmake/dependencies/windows.lua', 'xmake-requires.lock', 'xmake-packages/packages/s/spud/**') }}
+
+      - name: Restore Windows compiler cache
+        id: restore_windows_sccache
+        uses: actions/cache/restore@v6
+        with:
+          path: build/.windows-sccache
+          key: windows-x64-release-sccache-${{ env.PROTOBUF_SCCACHE_VERSION }}-${{ env.WINDOWS_SCCACHE_SCHEMA }}-${{ steps.windows_toolchain.outputs.image_version }}-${{ github.sha }}
+          restore-keys: |
+            windows-x64-release-sccache-${{ env.PROTOBUF_SCCACHE_VERSION }}-${{ env.WINDOWS_SCCACHE_SCHEMA }}-${{ steps.windows_toolchain.outputs.image_version }}-
+            windows-x64-release-sccache-${{ env.PROTOBUF_SCCACHE_VERSION }}-${{ env.WINDOWS_SCCACHE_SCHEMA }}-
 
       - name: Configure
+        id: configure_windows
+        timeout-minutes: 30
         shell: pwsh
         run: |
-          $args = @('f', '-m', 'release', '-y')
-          $args += "--stfc_build_class=$env:STFC_CI_BUILD_CLASS"
-          $args += "--stfc_source_state_id=$env:STFC_CI_SOURCE_STATE_ID"
-          $args += "--stfc_base_commit=$env:STFC_CI_BASE_COMMIT"
-          if ('${{ github.event_name }}' -eq 'push' -and ('${{ github.ref }}' -eq 'refs/heads/main' -or '${{ github.ref_type }}' -eq 'tag')) {
-            $args += '--stfc_public_release=y'
+          $commit = (git rev-parse HEAD).Trim()
+          if ($commit -notmatch '^[0-9a-f]{40}$') {
+            throw "Unable to resolve the checked-out commit for DLL provenance."
           }
-          if ($env:STFC_CI_RELEASE_TAG) {
-            $args += "--stfc_release_tag=$env:STFC_CI_RELEASE_TAG"
+
+          $sourceState = "git:$commit"
+          $buildInvocation = "github:${{ github.run_id }}:${{ github.run_attempt }}:windows"
+          $identity = "stfc-identity-v1;distribution=netniv.stfc-community-mod;source=$sourceState;" +
+            "base=$commit;build=$buildInvocation;mode=release;channel=ci"
+          "STFC_EXPECTED_IDENTITY=$identity" >> $env:GITHUB_ENV
+
+          $xmakeArgs = @(
+            'f', '-m', 'release', '-y', '-v',
+            "--stfc_source_state_id=$sourceState",
+            "--stfc_base_commit=$commit",
+            "--stfc_build_invocation_id=$buildInvocation",
+            '--stfc_build_channel=ci'
+          )
+          xmake @xmakeArgs
+
+      - name: Verify dependency lock
+        shell: pwsh
+        run: |
+          $lockFile = "xmake-requires.lock"
+
+          git ls-files --error-unmatch -- $lockFile *> $null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output "::warning file=${lockFile}::Dependency lock is not tracked. Run 'xmake l scripts/update-requires-lock.lua' and commit the result."
+            exit 0
           }
-          if ($env:STFC_CI_BUILD_CLASS -eq 'test') {
-            $args += "--stfc_test_target=$env:STFC_CI_TEST_TARGET"
-            $args += "--stfc_test_expiry=$env:STFC_CI_TEST_EXPIRY"
-            $args += "--stfc_support_boundary=$env:STFC_CI_SUPPORT_BOUNDARY"
+
+          git diff --quiet HEAD -- $lockFile
+          $diffExitCode = $LASTEXITCODE
+
+          if ($diffExitCode -eq 1) {
+            Write-Output "::warning file=${lockFile}::Dependency lock changed during configure. Regenerate and commit it."
+            git diff HEAD -- $lockFile
+          } elseif ($diffExitCode -ne 0) {
+            Write-Output "::warning file=${lockFile}::Git could not verify the dependency lock (exit code $diffExitCode)."
           }
-          xmake @args
+
+          exit 0
+
+      - name: Upload configure diagnostics
+        if: ${{ failure() && steps.configure_windows.outcome == 'failure' }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: xmake-configure-diagnostics-windows
+          path: ~/.xmake/cache/packages/**/installdir.failed/logs/install.txt
+          if-no-files-found: warn
+          include-hidden-files: true
+          retention-days: 3
+
+      - name: Reset compiler cache stats
+        shell: pwsh
+        run: sccache --zero-stats
 
       - name: Build
-        run: xmake -y
+        run: xmake build -y stfc-community-mod
 
-      - name: Test
-        run: |
-          node --test scripts/test_config_schema.mjs
-          node --test scripts/test_battle_bridge_producer_contract.mjs
-          node scripts/generate_config_schema.mjs --check
-          xmake build stfc-mod-tests
-          xmake run stfc-mod-tests
+      - name: Report compiler cache
+        shell: pwsh
+        run: sccache --show-stats
 
       - name: Package
         shell: pwsh
         run: |
-          Move-Item build/windows/x64/release/stfc-community-mod.dll version.dll
-          node scripts/generate_battle_bridge_runtime_manifest.mjs `
-            --dll version.dll `
-            --output stfc-runtime-manifest.json `
-            --source-revision ${{ github.sha }}
+          Move-Item `
+            "build/windows/x64/release/stfc-community-mod.dll" `
+            "version.dll"
+
+      - name: Verify DLL provenance
+        shell: pwsh
+        run: |
+          $dll = (Resolve-Path -LiteralPath 'version.dll').Path
+          $comments = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($dll).Comments
+          if (-not [string]::Equals($comments, $env:STFC_EXPECTED_IDENTITY, [System.StringComparison]::Ordinal)) {
+            throw "DLL provenance mismatch. Expected '$env:STFC_EXPECTED_IDENTITY'; found '$comments'."
+          }
+          Write-Host "Verified DLL provenance: $comments"
 
       - name: Upload
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ startsWith(github.ref, 'refs/tags/v') && 'stfc-community-mod-unsigned' || 'stfc-community-mod' }}
-          path: |
-            version.dll
-            stfc-runtime-manifest.json
-          if-no-files-found: error
-
-  launcher-win:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: windows-2025-vs2026
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 8.0.x
-
-      - name: Restore launcher
-        run: dotnet restore windows-launcher/STFCCommunityMod.Launcher.sln
-
-      - name: Build and test launcher
-        run: dotnet test windows-launcher/STFCCommunityMod.Launcher.sln -c Release --no-restore
-
-      - name: Publish self-contained launcher
-        shell: pwsh
-        run: |
-          ./windows-launcher/scripts/publish.ps1 `
-            -OutputDirectory "${{ runner.temp }}/stfc-community-mod-launcher"
-
-      - name: Upload launcher spike artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ startsWith(github.ref, 'refs/tags/v') && 'stfc-community-mod-launcher-win-x64-unsigned' || 'stfc-community-mod-launcher-win-x64' }}
-          path: ${{ runner.temp }}/stfc-community-mod-launcher
-          if-no-files-found: error
-
-  sign-windows-release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs:
-      - build-win
-      - launcher-win
-    runs-on: windows-2025
-    environment:
-      name: windows-release
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      WIN_PUBLISHER_NAME: ${{ vars.WIN_PUBLISHER_NAME }}
-      AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ vars.AZURE_TRUSTED_SIGNING_ENDPOINT }}
-      AZURE_CODE_SIGNING_ACCOUNT_NAME: ${{ vars.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
-      AZURE_CERTIFICATE_PROFILE_NAME: ${{ vars.AZURE_CERTIFICATE_PROFILE_NAME }}
-    steps:
-      - name: Checkout signing and packaging policy
-        uses: actions/checkout@v6
-
-      - name: Setup .NET 8 for signed bootstrapper build
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 8.0.x
-
-      - name: Download unsigned Windows mod
-        uses: actions/download-artifact@v8
-        with:
-          name: stfc-community-mod-unsigned
-          path: ${{ runner.temp }}/stfc-community-mod
-
-      - name: Download unsigned Windows launcher
-        uses: actions/download-artifact@v8
-        with:
-          name: stfc-community-mod-launcher-win-x64-unsigned
-          path: ${{ runner.temp }}/stfc-community-mod-launcher
-
-      - name: Validate signing inputs
-        shell: pwsh
-        run: |
-          $required = @(
-            "WIN_PUBLISHER_NAME",
-            "AZURE_TRUSTED_SIGNING_ENDPOINT",
-            "AZURE_CODE_SIGNING_ACCOUNT_NAME",
-            "AZURE_CERTIFICATE_PROFILE_NAME"
-          )
-          $missing = @($required | Where-Object { -not [Environment]::GetEnvironmentVariable($_) })
-          if ($missing.Count -gt 0) {
-            throw "Missing signing environment values: $($missing -join ', ')"
-          }
-
-          $files = @(
-            "${{ runner.temp }}/stfc-community-mod/version.dll",
-            "${{ runner.temp }}/stfc-community-mod-launcher/app/STFCCommunityMod.Launcher.exe",
-            "${{ runner.temp }}/stfc-community-mod-launcher/app/STFCCommunityMod.Launcher.Updater.exe"
-          )
-          foreach ($file in $files) {
-            if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
-              throw "Expected signing input was not found: $file"
-            }
-          }
-
-      - name: Azure login with GitHub OIDC
-        uses: azure/login@v3
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Sign Windows mod DLL
-        uses: azure/artifact-signing-action@v2
-        with:
-          endpoint: ${{ vars.AZURE_TRUSTED_SIGNING_ENDPOINT }}
-          signing-account-name: ${{ vars.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
-          certificate-profile-name: ${{ vars.AZURE_CERTIFICATE_PROFILE_NAME }}
-          files-folder: ${{ runner.temp }}/stfc-community-mod
-          files-folder-filter: dll
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-          description: STFC Community Mod
-          description-url: https://github.com/Guffawaffle/stfc-mod
-
-      - name: Sign Windows launcher
-        uses: azure/artifact-signing-action@v2
-        with:
-          endpoint: ${{ vars.AZURE_TRUSTED_SIGNING_ENDPOINT }}
-          signing-account-name: ${{ vars.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
-          certificate-profile-name: ${{ vars.AZURE_CERTIFICATE_PROFILE_NAME }}
-          files-folder: ${{ runner.temp }}/stfc-community-mod-launcher/app
-          files-folder-filter: exe
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-          description: STFC Community Mod Launcher
-          description-url: https://github.com/Guffawaffle/stfc-mod
-
-      - name: Verify Authenticode signatures
-        shell: pwsh
-        run: |
-          $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
-          if (-not $signtool) {
-            $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" `
-              -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue |
-              Sort-Object FullName -Descending |
-              Select-Object -First 1 -ExpandProperty FullName
-          }
-          if (-not $signtool) {
-            throw "signtool.exe was not found"
-          }
-
-          $files = @(
-            "${{ runner.temp }}/stfc-community-mod/version.dll",
-            "${{ runner.temp }}/stfc-community-mod-launcher/app/STFCCommunityMod.Launcher.exe",
-            "${{ runner.temp }}/stfc-community-mod-launcher/app/STFCCommunityMod.Launcher.Updater.exe"
-          )
-          foreach ($file in $files) {
-            & $signtool verify /pa /v $file
-            if ($LASTEXITCODE -ne 0) {
-              throw "signtool verification failed for $file"
-            }
-
-            $signature = Get-AuthenticodeSignature -LiteralPath $file
-            if ($signature.Status -ne "Valid") {
-              throw "Authenticode status was $($signature.Status) for $file"
-            }
-            if (-not $signature.SignerCertificate.Subject.StartsWith(
-                "CN=$env:WIN_PUBLISHER_NAME,",
-                [System.StringComparison]::OrdinalIgnoreCase)) {
-              throw "Unexpected Authenticode publisher for $file"
-            }
-          }
-
-      - name: Bind runtime capability manifest to signed DLL
-        shell: pwsh
-        run: |
-          node scripts/generate_battle_bridge_runtime_manifest.mjs `
-            --dll "${{ runner.temp }}/stfc-community-mod/version.dll" `
-            --output "${{ runner.temp }}/stfc-community-mod/stfc-runtime-manifest.json" `
-            --source-revision ${{ github.sha }}
-
-      - name: Package signed launcher
-        shell: pwsh
-        run: |
-          ./windows-launcher/scripts/package.ps1 `
-            -OutputDirectory "${{ runner.temp }}/stfc-community-mod-launcher"
-
-      - name: Build launcher setup from signed payload
-        shell: pwsh
-        run: |
-          ./windows-launcher/scripts/publish-bootstrapper.ps1 `
-            -OutputDirectory "${{ runner.temp }}/stfc-community-mod-launcher"
-
-      - name: Sign Windows launcher setup
-        uses: azure/artifact-signing-action@v2
-        with:
-          endpoint: ${{ vars.AZURE_TRUSTED_SIGNING_ENDPOINT }}
-          signing-account-name: ${{ vars.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
-          certificate-profile-name: ${{ vars.AZURE_CERTIFICATE_PROFILE_NAME }}
-          files-folder: ${{ runner.temp }}/stfc-community-mod-launcher/setup
-          files-folder-filter: exe
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-          description: STFC Community Mod Launcher Setup
-          description-url: https://github.com/Guffawaffle/stfc-mod
-
-      - name: Verify launcher setup signature
-        shell: pwsh
-        run: |
-          $setup = "${{ runner.temp }}/stfc-community-mod-launcher/setup/STFCCommunityMod.Launcher.Setup.exe"
-          if (-not (Test-Path -LiteralPath $setup -PathType Leaf)) {
-            throw "Expected launcher setup was not found: $setup"
-          }
-          $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
-          if (-not $signtool) {
-            $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" `
-              -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue |
-              Sort-Object FullName -Descending |
-              Select-Object -First 1 -ExpandProperty FullName
-          }
-          if (-not $signtool) {
-            throw "signtool.exe was not found"
-          }
-          & $signtool verify /pa /v $setup
-          if ($LASTEXITCODE -ne 0) {
-            throw "signtool verification failed for $setup"
-          }
-          $signature = Get-AuthenticodeSignature -LiteralPath $setup
-          if ($signature.Status -ne "Valid") {
-            throw "Authenticode status was $($signature.Status) for $setup"
-          }
-          if (-not $signature.SignerCertificate.Subject.StartsWith(
-              "CN=$env:WIN_PUBLISHER_NAME,",
-              [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw "Unexpected Authenticode publisher for $setup"
-          }
-
-      - name: Upload signed Windows mod
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: stfc-community-mod
-          path: |
-            ${{ runner.temp }}/stfc-community-mod/version.dll
-            ${{ runner.temp }}/stfc-community-mod/stfc-runtime-manifest.json
+          path: version.dll
+          compression-level: 0
           if-no-files-found: error
 
-      - name: Upload signed Windows launcher
-        uses: actions/upload-artifact@v7
+      - name: Save XMake packages
+        if: ${{ success() && !cancelled() && steps.restore_packages.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
         with:
-          name: stfc-community-mod-launcher-win-x64
-          path: ${{ runner.temp }}/stfc-community-mod-launcher
-          if-no-files-found: error
+          path: ${{ steps.xmake_cache_paths.outputs.package_dir }}
+          key: ${{ steps.restore_packages.outputs.cache-primary-key }}
+
+      - name: Save XMake local packages
+        if: ${{ success() && !cancelled() && steps.restore_local_packages.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: build/.packages
+          key: ${{ steps.restore_local_packages.outputs.cache-primary-key }}
+
+      - name: Save Windows compiler cache
+        if: ${{ success() && !cancelled() && steps.restore_windows_sccache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: build/.windows-sccache
+          key: ${{ steps.restore_windows_sccache.outputs.cache-primary-key }}
+
+      - name: Save XMake
+        if: ${{ success() && !cancelled() && steps.restore_xmake.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.tool_cache }}/xmake
+          key: ${{ steps.restore_xmake.outputs.cache-primary-key }}
+
+  attest-win:
+    name: attest-win
+    needs: build-win
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'netniV/stfc-mod' &&
+      github.ref_protected &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    runs-on: windows-2025-vs2026
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Download Windows DLL
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: stfc-community-mod
+          path: .artifacts/windows
+
+      - name: Verify DLL provenance
+        shell: pwsh
+        env:
+          STFC_SOURCE_COMMIT: ${{ github.sha }}
+          STFC_RUN_ID: ${{ github.run_id }}
+          STFC_BUILD_RUN_ATTEMPT: ${{ needs.build-win.outputs.run_attempt }}
+        run: |
+          $dll = (Resolve-Path -LiteralPath '.artifacts/windows/version.dll').Path
+          $commit = $env:STFC_SOURCE_COMMIT
+          $runId = $env:STFC_RUN_ID
+          $buildAttempt = $env:STFC_BUILD_RUN_ATTEMPT
+
+          if ($commit -notmatch '^[0-9a-f]{40}$') {
+            throw "Unable to resolve the workflow commit for DLL provenance."
+          }
+          if ($runId -notmatch '^[1-9][0-9]*$') {
+            throw "Unable to resolve the workflow run ID for DLL provenance."
+          }
+          if ($buildAttempt -notmatch '^[1-9][0-9]*$') {
+            throw "The producing build did not provide a valid run attempt."
+          }
+
+          $expected = "stfc-identity-v1;distribution=netniv.stfc-community-mod;source=git:$commit;" +
+            "base=$commit;build=github:${runId}:${buildAttempt}:windows;mode=release;channel=ci"
+          $comments = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($dll).Comments
+          if (-not [string]::Equals($comments, $expected, [System.StringComparison]::Ordinal)) {
+            throw "DLL provenance mismatch. Expected '$expected'; found '$comments'."
+          }
+          Write-Host "Verified DLL provenance: $comments"
+
+      - name: Attest Windows DLL
+        uses: actions/attest@v4.2.1
+        with:
+          subject-path: .artifacts/windows/version.dll
 
   build-mac:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: macos-26
+    name: build-mac (${{ matrix.arch }})
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-26
+            artifact: macos-arm64-build
+
+          - arch: x86_64
+            runner: macos-26-intel
+            artifact: macos-x86_64-build
+
+    runs-on: ${{ matrix.runner }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "13.5"
+      SWIFT_MODULE_CACHE_SCHEMA: "v1"
+      SCCACHE_DIR: ${{ github.workspace }}/build/.protobuf-sccache
+      SCCACHE_CACHE_SIZE: "1G"
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
+          fetch-depth: 1
           submodules: "recursive"
+          show-progress: false
 
-      - name: Setup
-        uses: xmake-io/github-action-setup-xmake@v1
+      - name: Stamp commit hash
+        run: python3 scripts/stamp-version-hash.py "${{ github.sha }}"
+
+      - name: Restore XMake
+        id: restore_xmake
+        uses: actions/cache/restore@v6
         with:
-          xmake-version: latest
+          path: ${{ runner.tool_cache }}/xmake
+          key: xmake-tool-${{ runner.os }}-${{ runner.arch }}-${{ env.XMAKE_VERSION }}-${{ env.XMAKE_CACHE_SCHEMA }}
 
-      - name: Resolve xmake package dir
-        id: xmake-package-dir
+      - name: Setup XMake
+        uses: xmake-io/github-action-setup-xmake@v1.2.5
+        with:
+          xmake-version: ${{ env.XMAKE_VERSION }}
+
+      - name: Setup protobuf sccache
+        uses: mozilla-actions/sccache-action@v0.0.11
+        with:
+          version: ${{ env.PROTOBUF_SCCACHE_VERSION }}
+
+      - name: Set protobuf compiler cache identity
         shell: bash
         run: |
-          dir="$(xmake l -c 'import("core.package.package"); print(package.installdir())')"
-          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+          echo "SCCACHE_C_CUSTOM_CACHE_BUSTER=stfc-protobuf-${{ env.PROTOBUF_SCCACHE_SCHEMA }}-xmake-${{ env.XMAKE_VERSION }}-macos-${{ matrix.arch }}-release-${{ env.MACOSX_DEPLOYMENT_TARGET }}-${{ hashFiles('mods/src/prime/proto/*.proto', 'mods/xmake.lua', 'xmake.lua', 'xmake-requires.lock', 'xmake/dependencies/common.lua', 'xmake/dependencies/macos.lua', 'xmake/rules/protobuf_sccache.lua') }}" >> "$GITHUB_ENV"
 
-      - name: Restore xmake package cache
-        uses: actions/cache@v5
+      - name: Locate XMake caches
+        id: xmake_cache_paths
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PACKAGE_DIR="$(xmake l -c 'import("core.package.package"); print(package.installdir())')"
+          test -n "$PACKAGE_DIR"
+          PLZMA_SHA="$(git -C macos-launcher/deps/PLzmaSDK rev-parse HEAD)"
+          test -n "$PLZMA_SHA"
+
+          echo "package_dir=$PACKAGE_DIR" >> "$GITHUB_OUTPUT"
+          echo "plzma_sha=$PLZMA_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Identify Swift toolchain
+        id: swift_toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            xcodebuild -version
+            xcrun swiftc --version
+            xcrun --sdk macosx --show-sdk-version
+          } | tee "$RUNNER_TEMP/swift-toolchain.txt"
+
+          TOOLCHAIN_HASH="$(shasum -a 256 "$RUNNER_TEMP/swift-toolchain.txt" | awk '{print $1}')"
+          test -n "$TOOLCHAIN_HASH"
+          echo "hash=$TOOLCHAIN_HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Restore XMake packages
+        id: restore_packages
+        uses: actions/cache/restore@v6
         with:
-          path: ${{ steps.xmake-package-dir.outputs.dir }}
-          key: xmake-packages-${{ env.XMAKE_PACKAGE_CACHE_VERSION }}-mac-${{ runner.arch }}-${{ hashFiles('xmake.lua', 'mods/xmake.lua', 'tests/xmake.lua', 'macos-dylib/xmake.lua', 'macos-loader/xmake.lua', 'macos-launcher/xmake.lua', 'xmake-packages/**/*.lua') }}
+          path: ${{ steps.xmake_cache_paths.outputs.package_dir }}
+          key: macos-${{ matrix.arch }}-release-xmake-${{ env.XMAKE_VERSION }}-${{ env.XMAKE_CACHE_SCHEMA }}-${{ env.MACOSX_DEPLOYMENT_TARGET }}-${{ steps.xmake_cache_paths.outputs.plzma_sha }}-${{ hashFiles('xmake/dependencies/common.lua', 'xmake/dependencies/macos.lua', 'xmake-requires.lock', 'xmake-packages/**') }}
+
+      - name: Restore XMake local packages
+        id: restore_local_packages
+        uses: actions/cache/restore@v6
+        with:
+          path: build/.packages
+          key: macos-${{ matrix.arch }}-release-xmake-local-${{ env.XMAKE_VERSION }}-${{ env.XMAKE_CACHE_SCHEMA }}-${{ env.MACOSX_DEPLOYMENT_TARGET }}-${{ steps.xmake_cache_paths.outputs.plzma_sha }}-${{ hashFiles('xmake/dependencies/common.lua', 'xmake/dependencies/macos.lua', 'xmake-requires.lock', 'xmake-packages/packages/s/spud/**', 'xmake-packages/packages/p/PLzmaSDK/**') }}
+
+      - name: Restore Swift module cache
+        id: restore_swift_modules
+        uses: actions/cache/restore@v6
+        with:
+          path: build/.swift-module-cache
+          key: macos-${{ matrix.arch }}-release-swift-modules-${{ env.SWIFT_MODULE_CACHE_SCHEMA }}-${{ env.MACOSX_DEPLOYMENT_TARGET }}-${{ steps.swift_toolchain.outputs.hash }}-${{ steps.xmake_cache_paths.outputs.plzma_sha }}-${{ hashFiles('macos-launcher/xmake.lua', 'macos-launcher/src/module.modulemap', 'xmake/dependencies/macos.lua', 'xmake-requires.lock', 'xmake-packages/packages/p/PLzmaSDK/**') }}
+
+      - name: Restore XMake compiler cache
+        id: restore_build
+        uses: actions/cache/restore@v6
+        with:
+          path: build/.build_cache
+          key: macos-${{ matrix.arch }}-release-${{ env.XMAKE_CACHE_SCHEMA }}-${{ github.sha }}
           restore-keys: |
-            xmake-packages-${{ env.XMAKE_PACKAGE_CACHE_VERSION }}-mac-${{ runner.arch }}-
+            macos-${{ matrix.arch }}-release-${{ env.XMAKE_CACHE_SCHEMA }}-
 
-      - name: Configure (arm64)
+      - name: Restore protobuf compiler cache
+        id: restore_protobuf_sccache
+        uses: actions/cache/restore@v6
+        with:
+          path: build/.protobuf-sccache
+          key: macos-${{ matrix.arch }}-release-protobuf-sccache-${{ env.PROTOBUF_SCCACHE_VERSION }}-${{ env.PROTOBUF_SCCACHE_SCHEMA }}-${{ steps.swift_toolchain.outputs.hash }}-${{ github.sha }}
+          restore-keys: |
+            macos-${{ matrix.arch }}-release-protobuf-sccache-${{ env.PROTOBUF_SCCACHE_VERSION }}-${{ env.PROTOBUF_SCCACHE_SCHEMA }}-${{ steps.swift_toolchain.outputs.hash }}-
+            macos-${{ matrix.arch }}-release-protobuf-sccache-${{ env.PROTOBUF_SCCACHE_VERSION }}-${{ env.PROTOBUF_SCCACHE_SCHEMA }}-
+
+      - name: Configure
+        id: configure
+        timeout-minutes: 30
+        run: >
+          xmake f
+          -p macosx
+          -a "${{ matrix.arch }}"
+          -m release
+          -y
+          -v
+          --target_minver="$MACOSX_DEPLOYMENT_TARGET"
+
+      - name: Verify dependency lock
         shell: bash
         run: |
-          args=(f -p macosx -a arm64 -m release -y --target_minver=13.5)
-          args+=(--stfc_build_class="$STFC_CI_BUILD_CLASS")
-          args+=(--stfc_source_state_id="$STFC_CI_SOURCE_STATE_ID")
-          args+=(--stfc_base_commit="$STFC_CI_BASE_COMMIT")
-          if [[ "${{ github.event_name }}" == "push" && ( "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref_type }}" == "tag" ) ]]; then
-            args+=(--stfc_public_release=y)
-          fi
-          if [[ -n "$STFC_CI_RELEASE_TAG" ]]; then
-            args+=(--stfc_release_tag="$STFC_CI_RELEASE_TAG")
-          fi
-          if [[ "$STFC_CI_BUILD_CLASS" == "test" ]]; then
-            args+=(--stfc_test_target="$STFC_CI_TEST_TARGET")
-            args+=(--stfc_test_expiry="$STFC_CI_TEST_EXPIRY")
-            args+=(--stfc_support_boundary="$STFC_CI_SUPPORT_BOUNDARY")
-          fi
-          xmake "${args[@]}"
+          LOCK_FILE="xmake-requires.lock"
 
-      - name: Build (arm64)
-        run: xmake -y
+          if ! git ls-files --error-unmatch "$LOCK_FILE" >/dev/null 2>&1; then
+            echo "::warning file=$LOCK_FILE::Dependency lock is not tracked. Run 'xmake l scripts/update-requires-lock.lua' and commit the result."
+          elif ! git diff --quiet HEAD -- "$LOCK_FILE"; then
+            echo "::warning file=$LOCK_FILE::Dependency lock changed during configure. Regenerate and commit it."
+            git diff HEAD -- "$LOCK_FILE"
+          fi
 
-      - name: Configure (x86)
+      - name: Upload configure diagnostics
+        if: ${{ failure() && steps.configure.outcome == 'failure' }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: xmake-configure-diagnostics-macos-${{ matrix.arch }}
+          path: ~/.xmake/cache/packages/**/installdir.failed/logs/install.txt
+          if-no-files-found: warn
+          include-hidden-files: true
+          retention-days: 3
+
+      - name: Reset protobuf compiler cache stats
+        shell: bash
+        run: sccache --zero-stats
+
+      - name: Build
+        # -D keeps the existing XMake compiler-cache diagnostics too.
+        run: xmake -y -D
+
+      - name: Report protobuf compiler cache
+        shell: bash
+        run: sccache --show-stats
+
+      - name: Report Swift module cache
         shell: bash
         run: |
-          args=(f -p macosx -a x86_64 -m release -y --target_minver=13.5)
-          args+=(--stfc_build_class="$STFC_CI_BUILD_CLASS")
-          args+=(--stfc_source_state_id="$STFC_CI_SOURCE_STATE_ID")
-          args+=(--stfc_base_commit="$STFC_CI_BASE_COMMIT")
-          if [[ "${{ github.event_name }}" == "push" && ( "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref_type }}" == "tag" ) ]]; then
-            args+=(--stfc_public_release=y)
-          fi
-          if [[ -n "$STFC_CI_RELEASE_TAG" ]]; then
-            args+=(--stfc_release_tag="$STFC_CI_RELEASE_TAG")
-          fi
-          if [[ "$STFC_CI_BUILD_CLASS" == "test" ]]; then
-            args+=(--stfc_test_target="$STFC_CI_TEST_TARGET")
-            args+=(--stfc_test_expiry="$STFC_CI_TEST_EXPIRY")
-            args+=(--stfc_support_boundary="$STFC_CI_SUPPORT_BOUNDARY")
-          fi
-          xmake "${args[@]}"
+          set -euo pipefail
 
-      - name: Build (x86)
-        run: xmake -y
+          if [[ -d build/.swift-module-cache ]]; then
+            du -sh build/.swift-module-cache
+            echo "files=$(find build/.swift-module-cache -type f | wc -l | tr -d ' ')"
+          else
+            echo "::warning::Swift module cache directory was not created"
+          fi
 
-      - name: Rebuild launcher assets
+      - name: Verify portable macOS linkage
         shell: bash
         run: |
-          args=(f -p macosx -a arm64 -m release -y --target_minver=13.5)
-          args+=(--stfc_build_class="$STFC_CI_BUILD_CLASS")
-          args+=(--stfc_source_state_id="$STFC_CI_SOURCE_STATE_ID")
-          args+=(--stfc_base_commit="$STFC_CI_BASE_COMMIT")
-          if [[ "${{ github.event_name }}" == "push" && ( "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref_type }}" == "tag" ) ]]; then
-            args+=(--stfc_public_release=y)
-          fi
-          if [[ -n "$STFC_CI_RELEASE_TAG" ]]; then
-            args+=(--stfc_release_tag="$STFC_CI_RELEASE_TAG")
-          fi
-          if [[ "$STFC_CI_BUILD_CLASS" == "test" ]]; then
-            args+=(--stfc_test_target="$STFC_CI_TEST_TARGET")
-            args+=(--stfc_test_expiry="$STFC_CI_TEST_EXPIRY")
-            args+=(--stfc_support_boundary="$STFC_CI_SUPPORT_BOUNDARY")
-          fi
-          xmake "${args[@]}"
-          xmake -r -y macOSLauncher
-          test -f build/macosx/arm64/release/macOSLauncher.app/Contents/Resources/Assets.car
+          set -euo pipefail
 
-      - name: Create App Bundle
+          RELEASE="build/macosx/${{ matrix.arch }}/release"
+
+          check_linkage() {
+            local binary="$1"
+            local deps
+
+            echo
+            echo "==> $binary"
+            deps="$(otool -L "$binary")"
+            printf '%s\n' "$deps"
+
+            if printf '%s\n' "$deps" | grep -E \
+              '/opt/homebrew/|/usr/local/(opt|Cellar)/|(^|/)libssl(\.[0-9]+)*\.dylib|(^|/)libcrypto(\.[0-9]+)*\.dylib|(^|/)libcurl(\.[0-9]+)*\.dylib'
+            then
+              echo "::error file=$binary::Forbidden dynamic dependency detected"
+              return 1
+            fi
+          }
+
+          check_linkage "$RELEASE/macOSLauncher"
+          check_linkage "$RELEASE/stfc-community-mod-loader"
+          check_linkage "$RELEASE/libstfc-community-mod.dylib"
+
+      - name: Finalize launcher bundle
+        if: ${{ matrix.arch == 'arm64' }}
+        shell: bash
         run: |
-          lipo -create build/macosx/arm64/release/macOSLauncher build/macosx/x86_64/release/macOSLauncher -output build/macosx/arm64/release/macOSLauncher.app/Contents/MacOS/macOSLauncher
-          lipo -create build/macosx/arm64/release/stfc-community-mod-loader build/macosx/x86_64/release/stfc-community-mod-loader -output build/macosx/arm64/release/macOSLauncher.app/Contents/stfc-community-mod-loader
-          lipo -create build/macosx/arm64/release/libstfc-community-mod.dylib build/macosx/x86_64/release/libstfc-community-mod.dylib -output build/macosx/arm64/release/macOSLauncher.app/Contents/libstfc-community-mod.dylib
-          cp assets/launcher.icns build/macosx/arm64/release/macOSLauncher.app/Contents/Resources/
-          cp macos-launcher/src/Info.plist build/macosx/arm64/release/macOSLauncher.app/Contents/
-          mv build/macosx/arm64/release/macOSLauncher.app build/macosx/arm64/release/STFC\ Community\ Mod.app
-          test -f build/macosx/arm64/release/STFC\ Community\ Mod.app/Contents/Resources/Assets.car
+          set -euo pipefail
+
+          APP="build/macosx/arm64/release/macOSLauncher.app"
+
+          test -f build/macosx/arm64/release/macOSLauncher
+          test -f "$APP/Contents/Resources/Assets.car"
+          test -f macos-launcher/src/Info.plist
+
+          cp macos-launcher/src/Info.plist \
+            "$APP/Contents/Info.plist"
+
+          test -f "$APP/Contents/Info.plist"
+
+      # Only transfer the files needed by package-mac instead of the
+      # complete XMake release directory.
+      - name: Package intermediate build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASE="build/macosx/${{ matrix.arch }}/release"
+          ARCHIVE="macos-${{ matrix.arch }}-build.tar"
+
+          test -f "$RELEASE/macOSLauncher"
+          test -f "$RELEASE/stfc-community-mod-loader"
+          test -f "$RELEASE/libstfc-community-mod.dylib"
+
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            test -d "$RELEASE/macOSLauncher.app"
+
+            tar -cf "$ARCHIVE" \
+              -C "$RELEASE" \
+              macOSLauncher \
+              stfc-community-mod-loader \
+              libstfc-community-mod.dylib \
+              macOSLauncher.app
+          else
+            tar -cf "$ARCHIVE" \
+              -C "$RELEASE" \
+              macOSLauncher \
+              stfc-community-mod-loader \
+              libstfc-community-mod.dylib
+          fi
+
+      - name: Upload intermediate build
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ${{ matrix.artifact }}
+          path: macos-${{ matrix.arch }}-build.tar
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Save XMake packages
+        if: ${{ success() && !cancelled() && steps.restore_packages.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ steps.xmake_cache_paths.outputs.package_dir }}
+          key: ${{ steps.restore_packages.outputs.cache-primary-key }}
+
+      - name: Save XMake local packages
+        if: ${{ success() && !cancelled() && steps.restore_local_packages.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: build/.packages
+          key: ${{ steps.restore_local_packages.outputs.cache-primary-key }}
+
+      - name: Save Swift module cache
+        if: ${{ success() && !cancelled() && steps.restore_swift_modules.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: build/.swift-module-cache
+          key: ${{ steps.restore_swift_modules.outputs.cache-primary-key }}
+
+      - name: Save protobuf compiler cache
+        if: ${{ success() && !cancelled() && steps.restore_protobuf_sccache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: build/.protobuf-sccache
+          key: ${{ steps.restore_protobuf_sccache.outputs.cache-primary-key }}
+
+      - name: Save XMake compiler cache
+        if: ${{ success() && !cancelled() && steps.restore_build.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: build/.build_cache
+          key: ${{ steps.restore_build.outputs.cache-primary-key }}
+
+      - name: Save XMake
+        if: ${{ success() && !cancelled() && steps.restore_xmake.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.tool_cache }}/xmake
+          key: ${{ steps.restore_xmake.outputs.cache-primary-key }}
+
+  # Preserve the fork's required check while requiring both architecture builds.
+  fork-mac-required-check:
+    name: build-mac
+    runs-on: ubuntu-latest
+    needs: build-mac
+    if: ${{ always() }}
+    steps:
+      - name: Require all macOS builds
+        env:
+          MAC_BUILD_RESULT: ${{ needs.build-mac.result }}
+        run: test "$MAC_BUILD_RESULT" = success
+
+  package-mac:
+    name: package-mac
+    needs: build-mac
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          submodules: false
+          show-progress: false
+
+      - name: Download ARM64 build
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: macos-arm64-build
+          path: .artifacts/arm64
+
+      - name: Download x86_64 build
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: macos-x86_64-build
+          path: .artifacts/x86_64
+
+      - name: Restore architecture builds
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p build/macosx/arm64/release
+          mkdir -p build/macosx/x86_64/release
+
+          tar -xf .artifacts/arm64/macos-arm64-build.tar \
+            -C build/macosx/arm64/release
+
+          tar -xf .artifacts/x86_64/macos-x86_64-build.tar \
+            -C build/macosx/x86_64/release
+
+          test -f build/macosx/arm64/release/macOSLauncher
+          test -f build/macosx/x86_64/release/macOSLauncher
+
+          test -f build/macosx/arm64/release/stfc-community-mod-loader
+          test -f build/macosx/x86_64/release/stfc-community-mod-loader
+
+          test -f build/macosx/arm64/release/libstfc-community-mod.dylib
+          test -f build/macosx/x86_64/release/libstfc-community-mod.dylib
+
+          test -f \
+            build/macosx/arm64/release/macOSLauncher.app/Contents/Resources/Assets.car
+
+          test -f \
+            build/macosx/arm64/release/macOSLauncher.app/Contents/Info.plist
+
+      - name: Create universal App Bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP="build/macosx/arm64/release/macOSLauncher.app"
+
+          lipo -create \
+            build/macosx/arm64/release/macOSLauncher \
+            build/macosx/x86_64/release/macOSLauncher \
+            -output "$APP/Contents/MacOS/macOSLauncher"
+
+          lipo -create \
+            build/macosx/arm64/release/stfc-community-mod-loader \
+            build/macosx/x86_64/release/stfc-community-mod-loader \
+            -output "$APP/Contents/stfc-community-mod-loader"
+
+          lipo -create \
+            build/macosx/arm64/release/libstfc-community-mod.dylib \
+            build/macosx/x86_64/release/libstfc-community-mod.dylib \
+            -output "$APP/Contents/libstfc-community-mod.dylib"
+
+          cp assets/launcher.icns \
+            "$APP/Contents/Resources/"
+
+          mv \
+            build/macosx/arm64/release/macOSLauncher.app \
+            "build/macosx/arm64/release/STFC Community Mod.app"
+
+          FINAL_APP="build/macosx/arm64/release/STFC Community Mod.app"
+
+          test -f "$FINAL_APP/Contents/Info.plist"
+          test -f "$FINAL_APP/Contents/Resources/Assets.car"
+          test -f "$FINAL_APP/Contents/Resources/launcher.icns"
+          test -f "$FINAL_APP/Contents/MacOS/macOSLauncher"
+          test -f "$FINAL_APP/Contents/stfc-community-mod-loader"
+          test -f "$FINAL_APP/Contents/libstfc-community-mod.dylib"
+
+      - name: Verify universal binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP="build/macosx/arm64/release/STFC Community Mod.app"
+
+          verify_universal() {
+            local file="$1"
+            local archs
+
+            archs="$(lipo -archs "$file")"
+            echo "$file: $archs"
+
+            [[ " $archs " == *" arm64 "* ]]
+            [[ " $archs " == *" x86_64 "* ]]
+          }
+
+          verify_universal \
+            "$APP/Contents/MacOS/macOSLauncher"
+
+          verify_universal \
+            "$APP/Contents/stfc-community-mod-loader"
+
+          verify_universal \
+            "$APP/Contents/libstfc-community-mod.dylib"
+
+      - name: Verify universal app linkage
+        shell: bash
+        run: |
+          set -euo pipefail
+      
+          APP="build/macosx/arm64/release/STFC Community Mod.app"
+      
+          check_linkage() {
+            local binary="$1"
+            local deps
+      
+            echo
+            echo "==> $binary"
+            deps="$(otool -L "$binary")"
+            printf '%s\n' "$deps"
+      
+            if printf '%s\n' "$deps" | grep -E \
+              '/opt/homebrew/|/usr/local/(opt|Cellar)/|(^|/)libssl(\.[0-9]+)*\.dylib|(^|/)libcrypto(\.[0-9]+)*\.dylib|(^|/)libcurl(\.[0-9]+)*\.dylib'
+            then
+              echo "::error file=$binary::Forbidden dynamic dependency detected"
+              return 1
+            fi
+          }
+      
+          check_linkage "$APP/Contents/MacOS/macOSLauncher"
+          check_linkage "$APP/Contents/stfc-community-mod-loader"
+          check_linkage "$APP/Contents/libstfc-community-mod.dylib"
 
       - name: Sign App Bundle
-        run: codesign --force --verify --verbose --deep --sign "-" build/macosx/arm64/release/STFC\ Community\ Mod.app
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          codesign \
+            --force \
+            --verify \
+            --verbose \
+            --deep \
+            --sign "-" \
+            "build/macosx/arm64/release/STFC Community Mod.app"
+
+      - name: Install packaging tools
+        shell: bash
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          set -euo pipefail
+
+          # zstd is currently preinstalled on the macOS 26 image.
+          # Keep the fallback so the workflow remains robust if the
+          # runner image changes later.
+          command -v zstd >/dev/null 2>&1 || brew install zstd
+          command -v create-dmg >/dev/null 2>&1 || brew install create-dmg
 
       - name: Package macOS mod archive
+        shell: bash
         run: |
-          brew install zstd
+          set -euo pipefail
+
           mkdir -p stfc-community-mod-macos-universal
+
           tar -cf - \
-            -C build/macosx/arm64/release/STFC\ Community\ Mod.app/Contents \
+            -C "build/macosx/arm64/release/STFC Community Mod.app/Contents" \
             libstfc-community-mod.dylib \
-            | zstd -19 -T0 -o stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst
-          shasum -a 256 stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst \
+            | zstd -15 -T0 \
+              -o stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst
+
+          shasum -a 256 \
+            stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst \
             | awk '{print $1}' \
             > stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst.sha256
 
-      - name: Install disk image creation tool
-        run: brew install create-dmg
-
       - name: Create installer
-        run: create-dmg --filesystem APFS --format ULFO --volname "STFC Community Mod Installer" --volicon assets/launcher.icns --background assets/mac_installer_background.png --window-pos 200 120 --window-size 800 400 --icon-size 100 --icon "STFC Community Mod.app" 200 190 --app-drop-link 600 185 stfc-community-mod-installer.dmg build/macosx/arm64/release/
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Upload
-        uses: actions/upload-artifact@v7
+          APP="build/macosx/arm64/release/STFC Community Mod.app"
+          DMG_SOURCE="build/macosx/arm64/release/dmg-source"
+
+          mkdir -p "$DMG_SOURCE"
+          mv "$APP" "$DMG_SOURCE/"
+
+          create_dmg_options=(
+            --filesystem APFS
+            --format ULFO
+            --volname "STFC Community Mod Installer"
+            --volicon assets/launcher.icns
+            --no-internet-enable
+            --background assets/mac_installer_background.png
+            --window-pos 200 120
+            --window-size 800 400
+            --icon-size 100
+            --icon "STFC Community Mod.app" 200 190
+            --app-drop-link 600 185
+            --applescript-sleep-duration 1
+          )
+
+          create-dmg "${create_dmg_options[@]}" \
+            stfc-community-mod-installer.dmg \
+            "$DMG_SOURCE/"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: stfc-community-mod-installer
           path: stfc-community-mod-installer.dmg
@@ -563,7 +858,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload macOS mod archive
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: stfc-community-mod-macos-universal
           path: stfc-community-mod-macos-universal

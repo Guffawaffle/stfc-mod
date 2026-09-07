@@ -6,6 +6,13 @@
 
 struct HttpResponse {
 public:
+  struct System_Byte_array {
+    Il2CppObject        obj;
+    Il2CppArrayBounds*  bounds;
+    il2cpp_array_size_t max_length;
+    uint8_t             m_Items[65535];
+  };
+
   __declspec(property(get = __get_Body)) Il2CppString* Body;
 
   HttpRequest* get_Request()

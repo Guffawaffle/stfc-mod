@@ -1,81 +1,44 @@
 #include "config.h"
-#include "patches/hook_registry.h"
+#include "errormsg.h"
 
 #include <il2cpp/il2cpp_helper.h>
 
 #include <spdlog/spdlog.h>
+#include <spud/detour.h>
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
-#include <exception>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace
 {
-struct MissionsHudViewController {
+struct MissionHudButtonDefinition {
+  const char*          canonical_name;
+  const char*          field_name;
+  MissionHudVisibility visibility   = MissionHudVisibility::Auto;
+  ptrdiff_t            field_offset = 0;
+  bool                 field_valid  = false;
 };
-
-enum class MissionHudButtonId : std::size_t {
-  QTrials,
-  FieldTraining,
-  Outposts,
-  Missions,
-  Count,
-};
-
-constexpr auto kButtonCount = static_cast<std::size_t>(MissionHudButtonId::Count);
-
-struct MissionHudButtonSpec {
-  MissionHudButtonId id;
-  const char*        config_name;
-  const char*        game_field_name;
-};
-
-struct MissionHudRuntimeButton {
-  MissionHudButtonId   id;
-  MissionHudVisibility visibility = MissionHudVisibility::Auto;
-};
-
-struct MissionHudRuntimeConfig {
-  std::vector<MissionHudRuntimeButton> buttons;
-  std::string                          summary;
-};
-
-constexpr std::array<MissionHudButtonSpec, kButtonCount> kButtonSpecs{{
-    {MissionHudButtonId::QTrials, "q_trials", "_challengesButton"},
-    {MissionHudButtonId::FieldTraining, "field_training", "_achievementsButton"},
-    {MissionHudButtonId::Outposts, "outposts", "_outpostsButton"},
-    {MissionHudButtonId::Missions, "missions", "_missionsButton"},
-}};
-
-constexpr HookDescriptor kOnEnableHook{
-    "MissionsHudViewController.OnEnable",
-    "Apply configured mission HUD button visibility after the controller is enabled.",
-    {"Assembly-CSharp", "Digit.Prime.HUD", "MissionsHudViewController", "OnEnable"},
-    "Configured mission HUD buttons may remain hidden or visible."};
-
-constexpr HookDescriptor kOutpostsAndChallengesRefreshHook{
-    "MissionsHudViewController.HandleOutpostsAndChallengesHUD",
-    "Reapply configured mission HUD visibility after outpost and challenge state changes.",
-    {"Assembly-CSharp", "Digit.Prime.HUD", "MissionsHudViewController", "HandleOutpostsAndChallengesHUD"},
-    "Configured Q Trials or Outposts visibility may revert after state changes."};
 
 using ComponentGetGameObjectFn = void* (*)(void*);
 using GameObjectSetActiveFn    = void (*)(void*, bool);
 
-IL2CppClassHelper& MissionsHudClassHelper()
-{
-  static auto class_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "MissionsHudViewController");
-  return class_helper;
-}
+std::array<MissionHudButtonDefinition, 5> g_button_definitions{{
+    {"q_trials", "_challengesButton"},
+    {"field_training", "_achievementsButton"},
+    {"outposts", "_outpostsButton"},
+    {"daily_goals", "_dailyGoalsButton"},
+    {"missions", "_missionsButton"},
+}};
 
-const MissionHudButtonSpec& ButtonSpec(MissionHudButtonId id)
-{ return kButtonSpecs[static_cast<std::size_t>(id)]; }
+std::vector<MissionHudButtonDefinition*> g_configured_buttons;
+ComponentGetGameObjectFn                 g_get_game_object = nullptr;
+GameObjectSetActiveFn                    g_set_active      = nullptr;
 
-std::string_view VisibilityName(MissionHudVisibility visibility)
+std::string_view to_string(MissionHudVisibility visibility)
 {
   switch (visibility) {
     case MissionHudVisibility::Always:
@@ -88,213 +51,130 @@ std::string_view VisibilityName(MissionHudVisibility visibility)
   }
 }
 
-void AppendSummary(std::string& summary, const MissionHudButtonSpec& spec, MissionHudVisibility visibility)
+std::vector<MissionHudButtonDefinition*> LoadConfiguredButtons()
 {
-  if (!summary.empty()) {
-    summary += ", ";
-  }
-  summary += spec.config_name;
-  summary += "=";
-  summary += VisibilityName(visibility);
-}
-
-MissionHudRuntimeConfig ParseRuntimeConfig()
-{
-  MissionHudRuntimeConfig parsed;
-  for (const auto& spec : kButtonSpecs) {
-    const auto visibility = MissionHudButtonVisibility(spec.config_name);
-    if (visibility == MissionHudVisibility::Auto) {
+  std::vector<MissionHudButtonDefinition*> configured_buttons;
+  for (auto& definition : g_button_definitions) {
+    definition.visibility = Config::Get().MissionHudButtonVisibility(definition.canonical_name);
+    if (definition.visibility == MissionHudVisibility::Auto) {
       continue;
     }
 
-    parsed.buttons.push_back({spec.id, visibility});
-    AppendSummary(parsed.summary, spec, visibility);
+    configured_buttons.emplace_back(&definition);
   }
-
-  if (parsed.summary.empty()) {
-    parsed.summary = "(none)";
-  }
-
-  spdlog::info("[MissionHudTweaks] visibility={}", parsed.summary);
-  return parsed;
+  return configured_buttons;
 }
 
-const MissionHudRuntimeConfig& RuntimeConfig()
+std::string ConfiguredButtonModes()
 {
-  static const auto config = ParseRuntimeConfig();
-  return config;
-}
-
-bool NeedsOutpostsAndChallengesRefresh()
-{
-  return std::ranges::any_of(RuntimeConfig().buttons, [](const auto& button) {
-    return button.id == MissionHudButtonId::QTrials || button.id == MissionHudButtonId::Outposts;
-  });
-}
-
-const std::array<ptrdiff_t, kButtonCount>& ControllerFieldOffsets()
-{
-  static const auto offsets = [] {
-    std::array<ptrdiff_t, kButtonCount> resolved{};
-    resolved.fill(-1);
-
-    auto& helper = MissionsHudClassHelper();
-    if (!helper.isValidHelper()) {
-      return resolved;
+  std::string modes;
+  for (const auto* button : g_configured_buttons) {
+    if (!modes.empty()) {
+      modes.append(", ");
     }
-
-    std::string map_summary;
-    for (const auto& button : RuntimeConfig().buttons) {
-      const auto& spec = ButtonSpec(button.id);
-      if (!map_summary.empty()) {
-        map_summary += "; ";
-      }
-      map_summary += spec.config_name;
-      map_summary += "=";
-      map_summary += spec.game_field_name;
-
-      auto field = helper.GetField(spec.game_field_name);
-      if (!field.isValidHelper()) {
-        spdlog::warn("[MissionHudTweaks] missing MissionsHudViewController field '{}'", spec.game_field_name);
-        continue;
-      }
-      resolved[static_cast<std::size_t>(spec.id)] = field.offset();
-    }
-
-    if (!map_summary.empty()) {
-      spdlog::info("[MissionHudTweaks] buttonMap {}", map_summary);
-    }
-    return resolved;
-  }();
-  return offsets;
+    modes.append(button->canonical_name);
+    modes.append("=");
+    modes.append(to_string(button->visibility));
+  }
+  return modes;
 }
 
-void* ControllerComponent(MissionsHudViewController* controller, MissionHudButtonId id)
+bool ResolveButtonFields(IL2CppClassHelper& controller_helper)
 {
-  if (controller == nullptr) {
-    return nullptr;
-  }
-
-  const auto offset = ControllerFieldOffsets()[static_cast<std::size_t>(id)];
-  if (offset < 0) {
-    return nullptr;
-  }
-
-  return *reinterpret_cast<void**>(reinterpret_cast<char*>(controller) + offset);
-}
-
-ComponentGetGameObjectFn ComponentGetGameObject()
-{
-  static auto component_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Component");
-  static auto get_game_object =
-      reinterpret_cast<ComponentGetGameObjectFn>(component_helper.GetMethod("get_gameObject", 0));
-  if (!component_helper.isValidHelper()) {
-    return nullptr;
-  }
-  return get_game_object;
-}
-
-GameObjectSetActiveFn GameObjectSetActive()
-{
-  static auto game_object_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "GameObject");
-  static auto set_active = reinterpret_cast<GameObjectSetActiveFn>(game_object_helper.GetMethod("SetActive", 1));
-  if (!game_object_helper.isValidHelper()) {
-    return nullptr;
-  }
-  return set_active;
-}
-
-bool SetComponentActive(void* component, bool active)
-{
-  auto get_game_object = ComponentGetGameObject();
-  auto set_active      = GameObjectSetActive();
-  if (component == nullptr || get_game_object == nullptr || set_active == nullptr) {
-    return false;
-  }
-
-  if (auto game_object = get_game_object(component)) {
-    set_active(game_object, active);
-    return true;
-  }
-
-  return false;
-}
-
-void ApplyConfiguredVisibility(MissionsHudViewController* controller)
-{
-  static std::array<bool, kButtonCount> warned_missing_component{};
-
-  for (const auto& button : RuntimeConfig().buttons) {
-    auto component = ControllerComponent(controller, button.id);
-    if (component == nullptr) {
-      const auto index = static_cast<std::size_t>(button.id);
-      if (!warned_missing_component[index]) {
-        warned_missing_component[index] = true;
-        spdlog::debug("[MissionHudTweaks] visibility requested for '{}' but no controller component is available",
-                      ButtonSpec(button.id).config_name);
-      }
+  auto valid_count = 0;
+  for (auto* button : g_configured_buttons) {
+    auto field = controller_helper.GetField(button->field_name);
+    if (!field.isValidHelper()) {
+      spdlog::error("MissionHudTweaks: unable to find MissionsHudViewController field '{}'", button->field_name);
       continue;
     }
 
-    SetComponentActive(component, button.visibility == MissionHudVisibility::Always);
+    button->field_offset = field.offset();
+    button->field_valid  = true;
+    valid_count++;
+    spdlog::info("MissionHudTweaks: mapped {} -> {}", button->canonical_name, button->field_name);
   }
+
+  return valid_count > 0;
 }
 
-void ApplyConfiguredVisibilitySafely(MissionsHudViewController* controller)
+void ApplyButtonVisibility(void* controller, const MissionHudButtonDefinition& button)
 {
-  try {
-    ApplyConfiguredVisibility(controller);
-  } catch (const std::exception& exception) {
-    spdlog::warn("[MissionHudTweaks] failed applying visibility: {}", exception.what());
-  } catch (...) {
-    spdlog::warn("[MissionHudTweaks] failed applying visibility");
-  }
-}
-
-void MissionsHudViewController_OnEnable_Hook(auto original, MissionsHudViewController* controller)
-{
-  original(controller);
-  ApplyConfiguredVisibilitySafely(controller);
-}
-
-void MissionsHudViewController_HandleOutpostsAndChallengesHUD_Hook(auto original, MissionsHudViewController* controller)
-{
-  original(controller);
-  ApplyConfiguredVisibilitySafely(controller);
-}
-} // namespace
-
-void InstallMissionHudTweaksHooks()
-{
-  HookModuleHealth hooks("MissionHudTweaks");
-
-  if (RuntimeConfig().buttons.empty()) {
-    hooks.record_skipped(kOnEnableHook, "no mission HUD button visibility overrides configured");
-    hooks.record_skipped(kOutpostsAndChallengesRefreshHook, "no mission HUD button visibility overrides configured");
-    hooks.log_summary();
+  if (!controller || !button.field_valid || !g_get_game_object || !g_set_active) {
     return;
   }
 
-  auto& helper = MissionsHudClassHelper();
-  if (!helper.isValidHelper()) {
-    hooks.record_missing_helper(kOnEnableHook);
-  } else if (auto on_enable = helper.GetMethod("OnEnable", 0); on_enable == nullptr) {
-    hooks.record_missing_method(kOnEnableHook);
-  } else {
-    (void)ControllerFieldOffsets();
-    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kOnEnableHook, on_enable, MissionsHudViewController_OnEnable_Hook);
+  auto* component = *reinterpret_cast<void**>(reinterpret_cast<char*>(controller) + button.field_offset);
+  if (!component) {
+    return;
   }
 
-  if (!NeedsOutpostsAndChallengesRefresh()) {
-    hooks.record_skipped(kOutpostsAndChallengesRefreshHook, "Q Trials and Outposts use native visibility");
-  } else if (!helper.isValidHelper()) {
-    hooks.record_missing_helper(kOutpostsAndChallengesRefreshHook);
-  } else if (auto refresh = helper.GetMethod("HandleOutpostsAndChallengesHUD", 0); refresh == nullptr) {
-    hooks.record_missing_method(kOutpostsAndChallengesRefreshHook);
-  } else {
-    HOOK_REGISTRY_SPUD_STATIC_DETOUR(hooks, kOutpostsAndChallengesRefreshHook, refresh,
-                                     MissionsHudViewController_HandleOutpostsAndChallengesHUD_Hook);
+  if (auto* game_object = g_get_game_object(component)) {
+    g_set_active(game_object, button.visibility == MissionHudVisibility::Always);
+  }
+}
+} // namespace
+
+int32_t MissionsHudViewController_UpdateButtons_Hook(auto original, void* controller)
+{
+  const auto result = original(controller);
+
+  for (const auto* button : g_configured_buttons) {
+    ApplyButtonVisibility(controller, *button);
   }
 
-  hooks.log_summary();
+  return result;
+}
+
+void InstallMissionHudTweaksHooks()
+{
+  g_configured_buttons = LoadConfiguredButtons();
+  if (g_configured_buttons.empty()) {
+    spdlog::warn("MissionHudTweaks: no mission HUD button overrides are configured");
+    return;
+  }
+
+  auto controller_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "MissionsHudViewController");
+  if (!controller_helper.isValidHelper()) {
+    ErrorMsg::MissingHelper("Digit.Prime.HUD", "MissionsHudViewController");
+    return;
+  }
+
+  if (!ResolveButtonFields(controller_helper)) {
+    return;
+  }
+
+  auto component_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Component");
+  if (!component_helper.isValidHelper()) {
+    ErrorMsg::MissingHelper("UnityEngine", "Component");
+    return;
+  }
+
+  g_get_game_object = reinterpret_cast<ComponentGetGameObjectFn>(component_helper.GetMethod("get_gameObject"));
+  if (!g_get_game_object) {
+    ErrorMsg::MissingMethod("Component", "get_gameObject");
+    return;
+  }
+
+  auto game_object_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "GameObject");
+  if (!game_object_helper.isValidHelper()) {
+    ErrorMsg::MissingHelper("UnityEngine", "GameObject");
+    return;
+  }
+
+  g_set_active = reinterpret_cast<GameObjectSetActiveFn>(game_object_helper.GetMethod("SetActive", 1));
+  if (!g_set_active) {
+    ErrorMsg::MissingMethod("GameObject", "SetActive");
+    return;
+  }
+
+  auto update_buttons = controller_helper.GetMethod("UpdateButtons", 0);
+  if (!update_buttons) {
+    ErrorMsg::MissingMethod("MissionsHudViewController", "UpdateButtons");
+    return;
+  }
+
+  spdlog::info("MissionHudTweaks: applying {}", ConfiguredButtonModes());
+  SPUD_STATIC_DETOUR(update_buttons, MissionsHudViewController_UpdateButtons_Hook);
+  spdlog::info("MissionHudTweaks: installed MissionsHudViewController.UpdateButtons hook");
 }

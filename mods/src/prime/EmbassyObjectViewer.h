@@ -18,4 +18,5 @@ public:
         il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.ObjectViewer", "EmbassyObjectViewer");
     return class_helper;
   }
+
 };

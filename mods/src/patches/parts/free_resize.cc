@@ -1,21 +1,8 @@
-/**
- * @file free_resize.cc
- * @brief Windows-only: enables free window resizing and borderless fullscreen (F11).
- *
- * The game ships as a fixed-size or pop-up window on Windows. This patch:
- *   - Intercepts SetWindowLongW to replace the window style with WS_OVERLAPPEDWINDOW,
- *     giving the user standard resize handles, minimize, and maximize buttons.
- *   - Optionally installs a WndProc sub-class that toggles borderless fullscreen on F11.
- *   - Hooks AspectRatioConstraintHandler to bypass Unity's aspect-ratio enforcement
- *     and fix resolution detection when going fullscreen.
- *   - Sets a custom window title from the user's config file.
- */
 #if _WIN32
 #include <Windows.h>
 
 #include "config.h"
 #include "errormsg.h"
-#include "patches/mod_impact_monitor.h"
 #include "file.h"
 
 #include <spud/detour.h>
@@ -24,8 +11,6 @@
 #include "prime/IList.h"
 #include "windowtitle.h"
 
-// ─── Globals ───────────────────────────────────────────────────────────────────
-
 static bool            WndProcInstalled  = false;
 static LONG_PTR        oWndProc          = NULL;
 static WINDOWPLACEMENT g_wpPrev          = {sizeof(g_wpPrev)};
@@ -33,9 +18,6 @@ LONG                   oldWindowStandard = 0;
 LONG                   oldWindowExtended = 0;
 HWND                   unityWindow       = nullptr;
 
-// ─── Borderless Fullscreen Toggle ───────────────────────────────────────────
-
-/// Toggles between borderless fullscreen and the previous windowed placement.
 void ToggleFullscreen(HWND hWnd)
 {
   // Get window styles
@@ -73,7 +55,6 @@ void ToggleFullscreen(HWND hWnd)
   }
 }
 
-/// WndProc sub-class that intercepts F11 for borderless fullscreen toggle.
 LRESULT __stdcall WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) // WndProc wrapper
 {
   switch (uMsg) {
@@ -86,18 +67,7 @@ LRESULT __stdcall WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) //
   return CallWindowProcW((WNDPROC)oWndProc, hWnd, uMsg, wParam, lParam);
 }
 
-// ─── Window Style Hook ────────────────────────────────────────────────────────
-
 decltype(SetWindowLongW)* oSetWindowLong = nullptr;
-/**
- * @brief Hook: SetWindowLongW (Win32 API)
- *
- * Intercepts window style changes to inject free-resize and borderless support.
- * Original behavior: Unity calls SetWindowLongW to set the game window style.
- * Our modification: when the target is GWL_STYLE on the Unity window class,
- *   replaces the style with WS_OVERLAPPEDWINDOW (if free_resize is enabled)
- *   and installs the F11 WndProc sub-class (if borderless_fullscreen is enabled).
- */
 LONG                      SetWindowLongW_Hook(_In_ HWND hWnd, _In_ int nIndex, _In_ LONG dwNewLong)
 {
   if (nIndex == GWL_STYLE) {
@@ -122,40 +92,18 @@ LONG                      SetWindowLongW_Hook(_In_ HWND hWnd, _In_ int nIndex, _
   return SetWindowLong(hWnd, nIndex, dwNewLong);
 }
 
-// ─── Aspect Ratio & Resolution Hooks ────────────────────────────────────────
-
 struct Resolution {
   int m_Width;
   int m_Height;
   int m_RefreshRate;
 };
 
-struct ResolutionArray {
-  Il2CppObject obj;
-  void*        bounds;
-  size_t       maxlength;
-  Resolution   data[1];
-};
-
-/**
- * @brief Hook: AspectRatioConstraintHandler::Update
- *
- * Intercepts per-frame aspect-ratio enforcement.
- * Original method: constrains the viewport to a fixed aspect ratio.
- * Our modification: bypasses the original entirely. Instead, detects when
- *   Unity reports 1024×768 while the monitor is larger (a common init quirk)
- *   and forces the resolution to match the monitor. Also applies the user's
- *   custom window title on the first call.
- */
 void AspectRatioConstraintHandler_Update(auto original, void* _this)
 {
-  ScopedModImpactTimer impact_timer(ModImpactProbe::AspectRatioUpdate, ModImpactMonitorEnabled());
-
   static auto set_title       = true;
   static auto get_fullscreen  = il2cpp_resolve_icall_typed<bool()>("UnityEngine.Screen::get_fullScreen()");
   static auto get_height      = il2cpp_resolve_icall_typed<int()>("UnityEngine.Screen::get_height()");
   static auto get_width       = il2cpp_resolve_icall_typed<int()>("UnityEngine.Screen::get_width()");
-  static auto get_resolutions = il2cpp_resolve_icall_typed<ResolutionArray*()>("UnityEngine.Screen::get_resolutions()");
   static auto SetResolution   = il2cpp_resolve_icall_typed<void(int, int, int, int)>(
       "UnityEngine.Screen::SetResolution(System.Int32,System.Int32,UnityEngine.FullScreenMode,System.Int32)");
 
@@ -195,14 +143,6 @@ void AspectRatioConstraintHandler_Update(auto original, void* _this)
   // SetResolution(1920, 1080, 4, 60);
 }
 
-/**
- * @brief Hook: AspectRatioConstraintHandler::WndProc
- *
- * Intercepts the game's custom WndProc for aspect-ratio messages.
- * Original method: filters WM_SIZE/WM_MOVE to enforce aspect ratio.
- * Our modification: when free_resize is enabled, bypasses the filter
- *   and forwards messages directly to Unity's original WndProc.
- */
 intptr_t AspectRatioConstraintHandler_WndProc(auto original, HWND hWnd, uint32_t msg, intptr_t wParam, intptr_t lParam)
 {
   if (Config::Get().free_resize) {
@@ -211,13 +151,6 @@ intptr_t AspectRatioConstraintHandler_WndProc(auto original, HWND hWnd, uint32_t
   return original(hWnd, msg, wParam, lParam);
 }
 
-/**
- * @brief Installs window resize and aspect-ratio bypass hooks.
- *
- * Hooks AspectRatioConstraintHandler::Update (resolution fix + title) and
- * AspectRatioConstraintHandler::WndProc (bypass aspect enforcement).
- * Note: SetWindowLongW is hooked separately at a lower level by the proxy DLL.
- */
 void InstallFreeResizeHooks()
 {
   auto AspectRatioConstraintHandler_helper =

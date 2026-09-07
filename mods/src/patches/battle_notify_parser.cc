@@ -1,17 +1,6 @@
-/**
- * @file battle_notify_parser.cc
- * @brief Extracts battle participant names and ship hulls from combat toast data.
- *
- * Parses BattleResultHeader objects attached to combat-related Toast events.
- * Uses SEH on Windows to guard against invalid IL2CPP pointers that can occur
- * when game objects are collected mid-access. Resolves hull IDs to readable
- * names via SpecService.
- */
 #include "patches/battle_notify_parser.h"
-#include "patches/game_localization.h"
 
 #include "str_utils.h"
-#include "testable_functions.h"
 
 #include <il2cpp/il2cpp_helper.h>
 #include <prime/BattleResultHeader.h>
@@ -23,23 +12,15 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/fmt.h>
 
-#include <cctype>
 #include <string>
 
 #if _WIN32
 #include <windows.h>
 #endif
 
-// ─── SEH Safety Wrapper ───────────────────────────────────────────────────────────────
-
-/**
- * @brief Execute a callable inside a Windows SEH __try/__except block.
- *
- * IL2CPP pointers may become invalid between frames due to GC. This wrapper
- * catches access violations so a single bad pointer doesn't crash the mod.
- *
- * @return true if fn() completed without an SEH exception.
- */
+// ---------------------------------------------------------------------------
+// SEH wrapper — catches access violations from bad IL2CPP pointers
+// ---------------------------------------------------------------------------
 template <typename Fn>
 static bool seh_call(Fn fn)
 {
@@ -56,25 +37,124 @@ static bool seh_call(Fn fn)
 #endif
 }
 
-// ─── Hull Name Parsing ───────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// IL2CPP localization infrastructure
+// ---------------------------------------------------------------------------
+namespace {
 
-/**
- * @brief Convert an internal hull key string to a human-readable name.
- *
- * Strips the "Hull_" prefix and "_LIVE" suffix, replaces underscores with
- * spaces, and converts level prefixes ("L30") to "Lv.30" format.
- * Example: "Hull_L30_Destroyer_Klingon_LIVE" → "Lv.30 Destroyer Klingon"
- *
- * @param key Raw hull name key from HullSpec.
- * @return Formatted display name.
- */
+struct LocaleCache {
+  Il2CppClass*        ltc_class           = nullptr; // LocaleTextContext
+  const MethodInfo*   ltc_ctor            = nullptr; // .ctor(string, string)
+  const MethodInfo*   ltc_apply_id_params = nullptr; // ApplyIdentifierParameters(object[])
+  const MethodInfo*   locale_localize     = nullptr; // LocaleUtilities.Localize(LTC, bool, bool)
+  Il2CppClass*        object_array_class  = nullptr; // System.Object[]
+  Il2CppClass*        int64_class         = nullptr; // System.Int64
+
+  bool ready() const { return ltc_class && ltc_ctor && ltc_apply_id_params && locale_localize && object_array_class; }
+};
+
+LocaleCache s_locale;
+
+void ensure_locale_cache()
+{
+  if (s_locale.ltc_class) return;
+
+  auto ltc = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "LocaleTextContext");
+  if (ltc.isValidHelper()) {
+    s_locale.ltc_class           = ltc.get_cls();
+    s_locale.ltc_ctor            = ltc.GetMethodInfo(".ctor", 2);
+    s_locale.ltc_apply_id_params = ltc.GetMethodInfo("ApplyIdentifierParameters", 1);
+  }
+  if (!s_locale.ltc_class || !s_locale.ltc_ctor || !s_locale.ltc_apply_id_params)
+    spdlog::warn("[Notify] Could not resolve LocaleTextContext methods");
+
+  auto lu = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Localization", "LocaleUtilities");
+  if (lu.isValidHelper()) {
+    auto* cls = lu.get_cls();
+    if (cls) {
+      void* iter = nullptr;
+      while (auto* m = il2cpp_class_get_methods(cls, &iter)) {
+        if (std::string_view(il2cpp_method_get_name(m)) == "Localize" &&
+            il2cpp_method_get_param_count(m) == 3) {
+          s_locale.locale_localize = m;
+          break;
+        }
+      }
+    }
+  }
+  if (!s_locale.locale_localize)
+    spdlog::warn("[Notify] Could not resolve LocaleUtilities.Localize — falling back to parse_hull_key");
+
+  auto obj = il2cpp_get_class_helper("mscorlib", "System", "Object");
+  if (obj.isValidHelper())
+    s_locale.object_array_class = il2cpp_array_class_get(obj.get_cls(), 1);
+
+  auto i64 = il2cpp_get_class_helper("mscorlib", "System", "Int64");
+  if (i64.isValidHelper())
+    s_locale.int64_class = i64.get_cls();
+}
+
+// Create a LocaleTextContext(identifier, category), apply the given parameter,
+// and call LocaleUtilities.Localize. Returns empty string on failure.
+std::string localize(const char* identifier, const char* category, Il2CppObject* param)
+{
+  ensure_locale_cache();
+  if (!s_locale.ready() || !param) return {};
+
+  std::string result;
+  if (!seh_call([&] {
+        auto* idStr  = il2cpp_string_new(identifier);
+        auto* catStr = il2cpp_string_new(category);
+        if (!idStr || !catStr) return;
+
+        auto* arr = il2cpp_array_new_specific(s_locale.object_array_class, 1);
+        if (!arr) return;
+        reinterpret_cast<Il2CppObject**>(reinterpret_cast<Il2CppArraySize*>(arr)->vector)[0] = param;
+
+        auto* ltc = il2cpp_object_new(s_locale.ltc_class);
+        if (!ltc) return;
+
+        void* ctorParams[2] = {idStr, catStr};
+        Il2CppException* exc = nullptr;
+        il2cpp_runtime_invoke(s_locale.ltc_ctor, ltc, ctorParams, &exc);
+        if (exc) return;
+
+        void* applyParams[1] = {arr};
+        exc = nullptr;
+        il2cpp_runtime_invoke(s_locale.ltc_apply_id_params, ltc, applyParams, &exc);
+        if (exc) return;
+
+        bool localText = false, invariant = false;
+        void* locParams[3] = {ltc, &localText, &invariant};
+        exc = nullptr;
+        auto* ret = il2cpp_runtime_invoke(s_locale.locale_localize, nullptr, locParams, &exc);
+        if (exc || !ret) return;
+        result = to_string(reinterpret_cast<Il2CppString*>(ret));
+      }))
+    spdlog::warn("[Notify] SEH: localize crashed for \"{}/{}\"", identifier, category);
+  return result;
+}
+
+// Box an int64 as Il2CppObject for use as a localization parameter.
+Il2CppObject* box_int64(int64_t value)
+{
+  ensure_locale_cache();
+  if (!s_locale.int64_class) return nullptr;
+  return il2cpp_value_box(s_locale.int64_class, &value);
+}
+
+} // namespace
+
+// ---------------------------------------------------------------------------
+// Hull name key → human-readable name
+//   "Hull_L30_Destroyer_Klingon_LIVE" → "Lv.30 Destroyer Klingon"
+// ---------------------------------------------------------------------------
 static std::string parse_hull_key(const std::string& key)
 {
   auto s = key;
 
   if (s.size() > 5 && s.ends_with("_LIVE"))
     s = s.substr(0, s.size() - 5);
-
   if (s.starts_with("Hull_"))
     s = s.substr(5);
 
@@ -88,28 +168,48 @@ static std::string parse_hull_key(const std::string& key)
     s = "Lv." + lvl + rest;
   }
 
-  auto new_word = true;
-  for (auto& character : s) {
-    const auto byte = static_cast<unsigned char>(character);
-    if (std::isalpha(byte)) {
-      character = static_cast<char>(new_word ? std::toupper(byte) : std::tolower(byte));
-      new_word  = false;
-    } else if (character == ' ' || character == '-' || character == '_') {
-      new_word = true;
+  bool newWord = true;
+  for (auto& c : s) {
+    if (newWord && std::isalpha(static_cast<unsigned char>(c))) {
+      c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+      newWord = false;
+    } else if (!newWord && std::isalpha(static_cast<unsigned char>(c))) {
+      c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
+    if (c == ' ') newWord = true;
   }
 
   return s;
 }
 
-// ─── Hull ID Resolution ──────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Localization helpers — thin wrappers over localize()
+// ---------------------------------------------------------------------------
 
-/**
- * @brief Resolve a hull ID to a display name via the game's SpecService.
- * @param brh BattleResultHeader providing access to SpecService.
- * @param hullId The numeric hull ID to look up.
- * @return Parsed display name, or "Hull#<id>" if lookup fails.
- */
+// Hull name via numeric locaId: "ship_name_{0}" / "ships"
+static std::string localize_hull_name(int64_t locaId)
+{
+  auto* boxed = box_int64(locaId);
+  return boxed ? localize("ship_name_{0}", "ships", boxed) : std::string{};
+}
+
+// Hull name via string locaStringId: "ship_name_{0}" / "ships"
+static std::string localize_hull_name(const std::string& locaStringId)
+{
+  auto* strObj = il2cpp_string_new(locaStringId.c_str());
+  return strObj ? localize("ship_name_{0}", "ships", reinterpret_cast<Il2CppObject*>(strObj)) : std::string{};
+}
+
+// Enemy commander name via locaId: "marauder_name_only_{0}" / "navigation"
+static std::string localize_enemy_name(int64_t locaId)
+{
+  auto* boxed = box_int64(locaId);
+  return boxed ? localize("marauder_name_only_{0}", "navigation", boxed) : std::string{};
+}
+
+// ---------------------------------------------------------------------------
+// Resolve hull ID → display name via SpecService + game localization
+// ---------------------------------------------------------------------------
 static std::string resolve_hull_name(BattleResultHeader* brh, long hullId)
 {
   if (hullId == 0) return "";
@@ -120,43 +220,61 @@ static std::string resolve_hull_name(BattleResultHeader* brh, long hullId)
   auto* hull = specSvc->GetHull(hullId);
   if (!hull) return fmt::format("Hull#{}", hullId);
 
-  if (auto* id_refs = hull->IdRefsValue; id_refs) {
-    const auto numeric_id = id_refs->LocaId;
-    if (numeric_id != 0) {
-      auto localized = game_localization::LocalizeIdentifier("ship_name_{0}", "ships", numeric_id);
-      if (!localized.empty() && localized != fmt::format("ship_name_{}", numeric_id)) {
-        return localized;
-      }
-    }
+  // Extract IdRefs from HullSpec (offset 0x90)
+  auto* idRefs = *reinterpret_cast<void**>(reinterpret_cast<char*>(hull) + 0x90);
+  std::string locaStringId;
+  int64_t locaId = 0;
+  if (idRefs) {
+    auto* locaStrPtr = *reinterpret_cast<Il2CppString**>(reinterpret_cast<char*>(idRefs) + 0x10);
+    if (locaStrPtr) locaStringId = to_string(locaStrPtr);
+    locaId = *reinterpret_cast<int64_t*>(reinterpret_cast<char*>(idRefs) + 0x40);
+  }
 
-    if (auto* string_id = id_refs->LocaStringId; string_id) {
-      const auto identifier = to_string(string_id);
-      auto localized = game_localization::LocalizeIdentifier("ship_name_{0}", "ships", identifier);
-      if (!localized.empty() && localized != fmt::format("ship_name_{}", identifier)) {
-        return localized;
-      }
-    }
+  // Try numeric locaId first, then string locaStringId, then manual parse
+  if (locaId != 0) {
+    auto localized = localize_hull_name(locaId);
+    if (!localized.empty() && localized != fmt::format("ship_name_{}", locaId))
+      return localized;
+  }
+  if (!locaStringId.empty()) {
+    auto localized = localize_hull_name(locaStringId);
+    if (!localized.empty() && localized != fmt::format("ship_name_{}", locaStringId))
+      return localized;
   }
 
   auto* nameStr = hull->Name;
-  auto nameKey  = nameStr ? to_string(nameStr) : std::string{};
-  if (!nameKey.empty()) return parse_hull_key(nameKey);
-
-  return fmt::format("Hull#{}", hullId);
+  if (!nameStr) return fmt::format("Hull#{}", hullId);
+  return parse_hull_key(to_string(nameStr));
 }
 
-// ─── Battle Summary Formatting ───────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Normalize ALL CAPS ship names to Title Case
+// ---------------------------------------------------------------------------
+static std::string normalize_ship_name(std::string name)
+{
+  bool nextUpper = true;
+  for (auto& c : name) {
+    if (nextUpper && c >= 'a' && c <= 'z')
+      c = std::toupper(static_cast<unsigned char>(c));
+    else if (!nextUpper && c >= 'A' && c <= 'Z')
+      c = std::tolower(static_cast<unsigned char>(c));
+    nextUpper = (c == ' ' || c == '-' || c == '_');
+  }
+  return name;
+}
 
-/** Intermediate structure holding extracted battle participant data. */
+// ---------------------------------------------------------------------------
+// Battle summary data model
+// ---------------------------------------------------------------------------
 struct BattleSummaryData {
   std::string playerName;
   std::string enemyName;
   std::string playerShip;
   std::string enemyShip;
-  bool        isPvp = false;
+  bool isPvp = false;
 
-  /** @brief Format the summary as "Player (Ship) vs Enemy (Ship)".
-   *  For NPCs (empty name), uses the ship hull name as the identifier. */
+  // Format as "Player (Ship) vs Enemy (Ship)".
+  // For non-PVP battles with a localized enemy name, the enemy ship class is omitted.
   std::string format_body() const
   {
     auto format_side = [](const std::string& name, const std::string& ship) -> std::string {
@@ -167,7 +285,8 @@ struct BattleSummaryData {
     };
 
     auto left  = format_side(playerName, playerShip);
-    auto right = !isPvp && !enemyName.empty() ? enemyName : format_side(enemyName, enemyShip);
+    auto right = (!isPvp && !enemyName.empty()) ? enemyName : format_side(enemyName, enemyShip);
+
     if (left.empty() && right.empty()) return "";
     if (left.empty()) return right;
     if (right.empty()) return left;
@@ -175,17 +294,9 @@ struct BattleSummaryData {
   }
 };
 
-// ─── BattleResultHeader Extraction ───────────────────────────────────────────────────
-
-/**
- * @brief Extract player and enemy names + ship hull names from a BattleResultHeader.
- *
- * Each field extraction is wrapped in seh_call() to survive invalid pointers.
- * Falls back to NPC LocaId formatting when player names are empty.
- *
- * @param data Raw Il2CppObject* from Toast::get_Data(), cast to BattleResultHeader.
- * @return Populated BattleSummaryData (fields may be empty on failure).
- */
+// ---------------------------------------------------------------------------
+// Extract player/enemy names + ship hulls from BattleResultHeader
+// ---------------------------------------------------------------------------
 static BattleSummaryData build_battle_data(Il2CppObject* data)
 {
   BattleSummaryData result;
@@ -194,65 +305,127 @@ static BattleSummaryData build_battle_data(Il2CppObject* data)
   auto* brh = reinterpret_cast<BattleResultHeader*>(data);
 
   if (!seh_call([&] {
-        auto* p       = brh->get_PlayerUserProfile();
-        auto* profile = reinterpret_cast<UserProfile*>(p);
-        if (profile) {
-          auto* nameStr = profile->Name;
-          if (nameStr) result.playerName = to_string(nameStr);
-          // NPC profiles have empty names — leave blank, hull name used instead
-        }
+        auto* profile = reinterpret_cast<UserProfile*>(brh->get_PlayerUserProfile());
+        if (profile && profile->Name)
+          result.playerName = to_string(profile->Name);
       }))
     spdlog::warn("[Notify] SEH: get_PlayerUserProfile crashed");
 
   if (!seh_call([&] {
-        auto* e       = brh->get_EnemyUserProfile();
-        auto* profile = reinterpret_cast<UserProfile*>(e);
+        auto* profile = reinterpret_cast<UserProfile*>(brh->get_EnemyUserProfile());
         if (profile) {
-          auto* nameStr = profile->Name;
-          if (nameStr) result.enemyName = to_string(nameStr);
-          if (result.enemyName.empty() && profile->LocaId != 0) {
-            auto localized =
-                game_localization::LocalizeIdentifier("marauder_name_only_{0}", "navigation", profile->LocaId);
-            if (!localized.empty() && localized != "Unknown") {
-              result.enemyName = std::move(localized);
+          if (profile->Name)
+            result.enemyName = to_string(profile->Name);
+          // NPC/marauder profiles have empty names — localize via LocaId
+          if (result.enemyName.empty()) {
+            auto locaId = profile->LocaId;
+            if (locaId != 0) {
+              auto localized = localize_enemy_name(locaId);
+              if (!localized.empty() && localized != "Unknown")
+                result.enemyName = localized;
             }
           }
         }
       }))
     spdlog::warn("[Notify] SEH: get_EnemyUserProfile crashed");
 
+  // PVP battle types — for non-PVP we drop the enemy hull classification
   if (!seh_call([&] {
-        const auto type = brh->Type;
-        result.isPvp    = type == BattleType::Fleet || type == BattleType::Base || type == BattleType::ArmadaBase
-                       || type == BattleType::ArmadaAsb || type == BattleType::ArmadaMta
-                       || type == BattleType::PvpCuttingBeam || type == BattleType::PvpChainShot;
+        auto bt = brh->get_BattleType();
+        result.isPvp = (bt == static_cast<int>(BattleType::Fleet) ||
+                        bt == static_cast<int>(BattleType::Base) ||
+                        bt == static_cast<int>(BattleType::ArmadaBase) ||
+                        bt == static_cast<int>(BattleType::ArmadaAsb) ||
+                        bt == static_cast<int>(BattleType::ArmadaMta) ||
+                        bt == static_cast<int>(BattleType::PvpCuttingBeam) ||
+                        bt == static_cast<int>(BattleType::PvpChainShot));
       }))
-    spdlog::warn("[Notify] SEH: BattleType crashed");
+    spdlog::warn("[Notify] SEH: get_BattleType crashed");
 
   if (!seh_call([&] {
-        auto hid          = brh->PlayerShipHullId;
-        result.playerShip = resolve_hull_name(brh, hid);
+        result.playerShip = normalize_ship_name(resolve_hull_name(brh, brh->PlayerShipHullId));
       }))
     spdlog::warn("[Notify] SEH: PlayerShipHullId crashed");
 
   if (!seh_call([&] {
-        auto hid         = brh->EnemyShipHullId;
-        result.enemyShip = resolve_hull_name(brh, hid);
+        result.enemyShip = normalize_ship_name(resolve_hull_name(brh, brh->EnemyShipHullId));
       }))
     spdlog::warn("[Notify] SEH: EnemyShipHullId crashed");
 
-  spdlog::debug("[Notify] Battle: {} ({}) vs {} ({})", result.playerName, result.playerShip,
-                result.enemyName, result.enemyShip);
   return result;
 }
 
-// ─── Public API ──────────────────────────────────────────────────────────────────────
+template <typename T>
+static T read_instance_field(Il2CppObject* obj, const char* name, T fallback = {})
+{
+  if (!obj) return fallback;
+  auto* field = il2cpp_class_get_field_from_name(il2cpp_object_get_class(obj), name);
+  if (!field) return fallback;
+
+  T value = fallback;
+  il2cpp_field_get_value(obj, field, &value);
+  return value;
+}
+
+static std::string build_armada_created_body(Il2CppObject* data)
+{
+  std::string result;
+  if (!seh_call([&] {
+        auto* attack   = read_instance_field<Il2CppObject*>(data, "ArmadaAttack");
+        auto* alliance = read_instance_field<Il2CppObject*>(data, "Alliance");
+        auto* owner    = read_instance_field<Il2CppObject*>(attack, "<Owner>k__BackingField");
+        auto* target   = read_instance_field<Il2CppObject*>(attack, "<TargetUserProfile>k__BackingField");
+
+        auto* tag_value   = read_instance_field<Il2CppString*>(alliance, "tag_");
+        auto* owner_value = read_instance_field<Il2CppString*>(owner, "name_");
+        auto* target_value = read_instance_field<Il2CppString*>(target, "name_");
+
+        auto tag         = tag_value ? to_string(tag_value) : std::string{};
+        auto owner_name  = owner_value ? to_string(owner_value) : std::string{};
+        auto target_name = target_value ? to_string(target_value) : std::string{};
+        auto target_level = read_instance_field<int32_t>(target, "level_");
+
+        if (target_name.empty()) {
+          auto loca_id = read_instance_field<int64_t>(target, "_locaId");
+          if (loca_id != 0) target_name = localize_enemy_name(loca_id);
+        }
+
+        if (owner_name.empty()) owner_name = "An alliance member";
+        if (target_name.empty() || target_name == "Unknown") target_name = "Armada target";
+
+        auto owner_label = tag.empty() ? owner_name : fmt::format("[{}] {}", tag, owner_name);
+        result = fmt::format("{} started an Armada!\nLv.{:03} {}", owner_label, target_level, target_name);
+      })) {
+    spdlog::warn("[Notify] SEH: ArmadaCreated data parsing crashed");
+    return {};
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 std::string battle_notify_parse(Toast* toast)
 {
-  auto state = toast->get_State();
+  if (toast->get_State() == ArmadaCreated)
+    return build_armada_created_body(toast->get_Data());
 
-  if (!toast_state_uses_battle_summary(state)) {
-    return {};
+  switch (toast->get_State()) {
+    case Victory:
+    case Defeat:
+    case PartialVictory:
+    case StationVictory:
+    case StationDefeat:
+    case StationBattle:
+    case IncomingAttack:
+    case FleetBattle:
+    case ArmadaBattleWon:
+    case ArmadaBattleLost:
+    case AssaultVictory:
+    case AssaultDefeat:
+      break;
+    default:
+      return {};
   }
 
   auto* data = toast->get_Data();
@@ -260,31 +433,4 @@ std::string battle_notify_parse(Toast* toast)
 
   auto bsd = build_battle_data(data);
   return bsd.format_body();
-}
-
-bool battle_notify_is_armada(Toast* toast)
-{
-#if !defined(_WIN32)
-  // This payload read relies on Windows SEH for fail-closed access to IL2CPP
-  // memory. Do not expose an unguarded equivalent on other platforms.
-  (void)toast;
-  return false;
-#else
-  if (!toast) {
-    return false;
-  }
-
-  auto* data = toast->get_Data();
-  if (!data) {
-    return false;
-  }
-
-  bool is_armada = false;
-  if (!seh_call([&] { is_armada = reinterpret_cast<BattleResultHeader*>(data)->IsArmadaBattle; })) {
-    spdlog::warn("[Notify] SEH: IsArmadaBattle crashed");
-    return false;
-  }
-
-  return is_armada;
-#endif
 }

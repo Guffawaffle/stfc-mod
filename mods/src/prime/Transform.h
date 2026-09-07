@@ -1,10 +1,3 @@
-/**
- * @file Transform.h
- * @brief Unity Transform wrapper.
- *
- * Mirrors UnityEngine.Transform. Exposes the localScale property for
- * reading and writing via IL2CPP reflection.
- */
 #pragma once
 
 #include <il2cpp/il2cpp_helper.h>
@@ -12,29 +5,11 @@
 #include "GameObject.h"
 #include "Vector3.h"
 
-/** @brief Wrapper for Unity's Transform component (position, rotation, scale). */
 struct Transform {
-  __declspec(property(get = __get_childCount)) int childCount;
-  __declspec(property(get = __get_gameObject)) GameObject* gameObject;
   __declspec(property(get = __get_LocalScale, put = __set_LocalScale)) Vector3* localScale;
-
-  int __get_childCount()
-  {
-    static auto field = get_class_helper().GetProperty("childCount");
-    return *field.Get<int>(this);
-  }
-
-  GameObject* __get_gameObject()
-  {
-    static auto field = get_class_helper().GetProperty("gameObject");
-    return field.GetRaw<GameObject>(this);
-  }
-
-  Transform* GetChild(int index)
-  {
-    static auto method = get_class_helper().GetMethod<Transform*(Transform*, int)>("GetChild");
-    return method(this, index);
-  }
+  __declspec(property(get = __get_ChildCount)) int32_t childCount;
+  __declspec(property(get = __get_GameObject)) GameObject* gameObject;
+  __declspec(property(get = __get_Parent)) Transform* parent;
 
   Vector3* __get_LocalScale()
   {
@@ -48,6 +23,29 @@ struct Transform {
     return prop.SetRaw((void*)this, *v);
   }
 
+  int32_t __get_ChildCount()
+  {
+    static auto field = get_class_helper().GetProperty("childCount");
+    return *field.Get<int32_t>(this);
+  }
+
+  GameObject* __get_GameObject()
+  {
+    static auto field = get_class_helper().GetParent("Component").GetProperty("gameObject");
+    return field.GetRaw<GameObject>(this);
+  }
+
+  Transform* GetChild(int32_t index)
+  {
+    static auto method = get_class_helper().GetMethod<Transform*(Transform*, int32_t)>("GetChild");
+    return method != nullptr ? method(this, index) : nullptr;
+  }
+
+  Transform* __get_Parent()
+  {
+    static auto field = get_class_helper().GetProperty("parent");
+    return field.GetRaw<Transform>(this);
+  }
 
 private:
   static IL2CppClassHelper& get_class_helper()

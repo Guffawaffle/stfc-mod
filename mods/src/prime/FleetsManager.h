@@ -1,15 +1,6 @@
-/**
- * @file FleetsManager.h
- * @brief Fleet management singleton.
- *
- * Mirrors Digit.Prime.FleetManagement.FleetsManager — handles fleet
- * operations such as viewing, recalling, towing, and accessing per-fleet
- * player data. Includes a nested IEnumerator_Tow coroutine wrapper.
- */
 #pragma once
 
 #include "CallbackContainer.h"
-#include "errormsg.h"
 #include "FleetDeployedData.h"
 #include "FleetPlayerData.h"
 #include "HullSpec.h"
@@ -19,13 +10,6 @@
 
 #include <il2cpp/il2cpp_helper.h>
 
-/**
- * @brief Singleton that manages all fleet operations for the local player.
- *
- * Provides methods for viewing, recalling, and towing fleets, as well as
- * querying per-fleet data. The target fleet (e.g. the one being viewed in
- * a combat report) is accessible via the targetFleetData property.
- */
 struct FleetsManager : MonoSingleton<FleetsManager> {
   friend struct MonoSingleton<FleetsManager>;
 
@@ -54,7 +38,8 @@ public:
   private:
     static IL2CppClassHelper& get_class_helper()
     {
-      static auto class_helper = il2cpp_get_class_helper("Assembly-CSharp", "", "FleetsManager.<Tow>d__192");
+      static auto class_helper =
+          il2cpp_get_class_helper("Assembly-CSharp", "", "FleetsManager.<Tow>d__192");
       return class_helper;
     }
   };
@@ -117,6 +102,42 @@ public:
     }
 
     return nullptr;
+  }
+
+  bool HasFleetService()
+  {
+    static auto* fleet_service_cache =
+        il2cpp_class_get_field_from_name(get_class_helper().get_cls(), "_fleetServiceCache");
+    static auto FleetServiceCacheWarn = true;
+    if (!fleet_service_cache) {
+      if (FleetServiceCacheWarn) {
+        FleetServiceCacheWarn = false;
+        spdlog::error("Unable to find field 'FleetsManager->_fleetServiceCache'");
+      }
+      return false;
+    }
+
+    auto* cache = reinterpret_cast<void**>(reinterpret_cast<char*>(this) + fleet_service_cache->offset);
+    if (*cache) {
+      return true;
+    }
+
+    static auto* HasServiceMethod = [] {
+      auto* cache_class = il2cpp_class_from_type(il2cpp_field_get_type(fleet_service_cache));
+      return cache_class ? il2cpp_class_get_method_from_name(cache_class, "get_HasService", 0) : nullptr;
+    }();
+    static auto HasServiceWarn = true;
+    if (!HasServiceMethod) {
+      if (HasServiceWarn) {
+        HasServiceWarn = false;
+        ErrorMsg::MissingMethod("CachedService<FleetService>", "get_HasService");
+      }
+      return false;
+    }
+
+    Il2CppException* exception = nullptr;
+    auto*            result    = il2cpp_runtime_invoke(HasServiceMethod, cache, nullptr, &exception);
+    return !exception && result && *static_cast<bool*>(il2cpp_object_unbox(result));
   }
 
   FleetDeployedData* __get_TargetFleetData()

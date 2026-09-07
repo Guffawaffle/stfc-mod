@@ -1,20 +1,9 @@
-/**
- * @file FleetBarViewController.h
- * @brief HUD fleet-selection bar UI controller.
- *
- * Mirrors Digit.Prime.HUD.FleetBarViewController and FleetBarContext.
- * The fleet bar is the row of fleet slot buttons at the bottom of the
- * navigation screen. This header exposes slot selection, index checking,
- * and access to the underlying fleet panel controller.
- */
 #pragma once
 
 #include <il2cpp/il2cpp_helper.h>
 
-#include "errormsg.h"
 #include "FleetLocalViewController.h"
 
-/** @brief Context object for the fleet bar, providing the currently selected fleet. */
 struct FleetBarContext {
 public:
   __declspec(property(get = __get_CurrentFleet)) void* CurrentFleet;
@@ -34,13 +23,6 @@ public:
   }
 };
 
-/**
- * @brief UI controller for the fleet selection bar in the HUD.
- *
- * Drives fleet slot selection, checks which index is active, and provides
- * access to the canvas context and underlying fleet panel controller.
- * Tracked by ObjectFinder for global lookup.
- */
 struct FleetBarViewController {
 public:
   __declspec(property(get = __get__fleetPanelController)) FleetLocalViewController* _fleetPanelController;
@@ -81,32 +63,6 @@ public:
     }
 
     return false;
-  }
-
-  void ElementAction(int32_t index)
-  {
-    static auto ElementActionWarn   = true;
-    static auto ElementActionMethod =
-        get_class_helper().GetMethod<void(FleetBarViewController*, int32_t)>("ElementAction");
-    if (ElementActionMethod) {
-      ElementActionMethod(this, index);
-    } else if (ElementActionWarn) {
-      ElementActionWarn = false;
-      ErrorMsg::MissingMethod("FleetBarViewController", "ElementAction");
-    }
-  }
-
-  void TogglePanel()
-  {
-    static auto TogglePanelWarn   = true;
-    static auto TogglePanelMethod =
-        get_class_helper().GetMethod<void(FleetBarViewController*)>("TogglePanel");
-    if (TogglePanelMethod) {
-      TogglePanelMethod(this);
-    } else if (TogglePanelWarn) {
-      TogglePanelWarn = false;
-      ErrorMsg::MissingMethod("FleetBarViewController", "TogglePanel");
-    }
   }
 
   FleetBarContext* CanvasContext()

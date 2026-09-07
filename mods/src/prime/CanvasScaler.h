@@ -1,6 +1,5 @@
 #pragma once
 
-#include "errormsg.h"
 #include "Vector2.h"
 
 struct CanvasScaler {
@@ -17,7 +16,7 @@ public:
       SetScaleFactorMethod(this, v);
     } else if (SetScaleFactorWarn) {
       SetScaleFactorWarn = false;
-      ErrorMsg::MissingMethod("CanvasScalar", "SetScaleFactor");
+      ErrorMsg::MissingMethod("CanvasScaler", "SetScaleFactor");
     }
   }
 

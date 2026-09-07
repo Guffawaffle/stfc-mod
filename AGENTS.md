@@ -44,58 +44,6 @@ Delete the `build/` folder to reset. Also delete `.vs/` for a full Visual Studio
 - Review the final diff for risky hooks, platform guards, config default mismatches, and missing example config updates.
 - If a subtree such as `macos-launcher/` needs specialized guidance, prefer a nested `AGENTS.md` near that code instead of overloading this root file.
 
-## STFC Workspace
-
-This workspace is intentional. Related STFC roots may be open nearby, but they are not interchangeable. Start in the repo/root named or implied by the task and treat that checkout as the task home.
-
-### Paved path
-
-Use AXF/Lex first for workspace navigation, repo selection, task context, validation, deploy, and runtime workflows.
-
-Preferred discovery order:
-- AXF MCP/capability router, if available
-- AXF CLI commands beginning with `axf`, using `axf inspect <capability-id>` before
-  `axf run <capability-id> [--kebab-case-arg value]`
-- normal repo-local discovery only after AXF/Lex is unavailable or insufficient
-
-Treat `.ax/ax.ps1` as an AXF provider adapter, not as the operator-facing command
-vocabulary. User-facing instructions and examples should begin with `axf`, never
-`ax` or a direct `.ax/ax.ps1` invocation.
-
-If AXF/Lex command discovery is unclear, inspect available entrypoints before guessing.
-
-### Runtime/process permission
-
-During STFC development sessions, agents may cycle or restart the STFC game client and the sidecar when needed for build, deploy, or runtime validation/testing. This is a default permission unless the human prompt revokes it for the session.
-
-Use AXF/Lex or repo-provided lifecycle commands when available, keep the scope to the STFC client and sidecar, do not touch unrelated processes, do not wipe stores, logs, or configs unless explicitly asked, and report when a cycle was performed. A reasonable game/sidecar cycle in service of the task is normal workflow.
-
-### Game config permission
-
-Agents may edit TOML configuration files under the workspace folder named `game` when a task requires mod/runtime configuration changes. In the current STFC workspace, `game` points to `C:\Games\Star Trek Fleet Command\default\game`.
-
-This permission is limited to TOML/config edits. Use AXF/Lex or repo-provided config flows when available, do not modify game binaries, assets, packaged data, executable files, or unrelated install contents unless the human prompt explicitly authorizes it, do not wipe stores, logs, or configs unless explicitly asked, and report any TOML/config changes made.
-
-### Nearby roots
-
-Common workspace roots may include:
-- `stfc-mod` — primary community mod repo in this checkout
-- `stfc-mod-guffa` — primary community mod repo in a parallel checkout when present
-- `stfc-mod-ax-private` — private AX/automation support
-- `STFC Diagnostics Logs (read-only)` — logs and evidence only; do not edit
-- `game` — local game install/runtime files
-- `majel` — Majel/service-related work
-- `stfc-mod-sidecar` — sidecar companion service/viewer
-- `netniv` — related upstream/reference repo
-
-### Working agreement
-
-- Use the intended checkout. Only create a new clone, worktree, or sibling checkout when the task explicitly calls for it.
-- If that checkout is already dirty in unrelated or unclear ways, report the branch and dirty files before implementation.
-- Read-only roots stay read-only.
-- Outside approved TOML/config edits under `game`, only mutate non-config game install/runtime files when the task explicitly needs deploy, copy, or runtime changes.
-- For cross-root work, name the roots you will touch before editing.
-
 ## Architecture
 
 ### Build Targets (xmake.lua files)
@@ -135,6 +83,8 @@ void SomeFunction_Hook(auto original, SomeClass* _this, ...) {
 }
 ```
 macOS does not tolerate repeated hooks of the same function. If multiple features need to intercept the same game method, consolidate the behavior behind one detour or add platform guards instead of installing overlapping hooks.
+Do not over-focus on hidden IL2CPP `MethodInfo*` parameters during drift repair; match the game-visible signature from `dump.cs` unless there is concrete runtime evidence that the hidden parameter is the issue.
+Before adding a detour to a small IL2CPP wrapper or thunk, verify its native method extent against SPUD's architecture-specific overwrite size on every supported architecture for the exact client build. A successful platform build does not validate hook fit; prefer a substantive downstream method when exact per-architecture extent is unavailable.
 
 **IL2CPP class resolution** — Game classes are resolved at runtime using helpers:
 ```cpp
@@ -144,7 +94,7 @@ static auto method = class_helper.GetMethodInfo("MethodName");
 
 **Adding a new patch** — Create a `.cc` file in `mods/src/patches/parts/`, write an `InstallXxxHooks()` function, declare it in `patches.cc`, add a `bool installXxx` to `Config`, and register in the `patches[]` array in `patches.cc`. Patch toggles are only read from TOML in `_MODDBG` builds, so update both the `_MODDBG` config parsing path and the non-`_MODDBG` release defaults in `config.cc`.
 
-**Config** — User settings are in TOML files. The `Config` singleton (`Config::Get()`) is loaded once during `il2cpp_init_hook`. Add new settings to `config.h`, add defaults in `defaultconfig.h`, and load them in `config.cc`. For user-facing settings, update `example_community_patch_settings.toml` unless the setting is intentionally internal.
+**Config** — User settings are in TOML files. The `Config` singleton (`Config::Get()`) is loaded once during `il2cpp_init_hook`. Add new settings to `config.h`, add defaults in `defaultconfig.h`, and load them in `config.cc`. For user-facing settings, update every localized example (`example_community_patch_settings_en.toml`, `example_community_patch_settings_de.toml`, `example_community_patch_settings_fr.toml`, and `example_community_patch_settings_nl.toml`) unless the setting is intentionally internal. The unsuffixed `example_community_patch_settings.toml` is only a pointer to these localized examples.
 
 ### Dependencies (via xmake packages)
 
@@ -167,9 +117,5 @@ static auto method = class_helper.GetMethodInfo("MethodName");
 
 ## Branches
 
-- `main` — default fork integration branch, stable release branch, and fork PR target
-- Create fork feature branches from a current `main` and return them through a PR to `main`.
-- For an upstream contribution, create a fresh branch from `upstream/main`, cherry-pick only the
-  upstream-ready commits, and target `netniV/main`. Never fall back to `upstream/dev` when another
-  expected branch is missing.
-- The legacy `guffa-dev` and plain `dev` branches are not fork integration targets.
+- `main` — stable releases
+- `dev` — active development (PR target)

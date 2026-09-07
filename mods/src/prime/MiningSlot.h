@@ -1,52 +1,16 @@
 #pragma once
 
-#include "TimeSpan.h"
-
 #include <il2cpp/il2cpp_helper.h>
 
-struct MiningNodeParams {
-public:
-  __declspec(property(get = __get_Amount)) int64_t Amount;
-  __declspec(property(get = __get_ResourceID)) int64_t ResourceID;
-  __declspec(property(get = __get_Rate)) int64_t Rate;
-
-private:
-  static IL2CppClassHelper& get_class_helper()
-  {
-    static auto class_helper =
-        il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "MiningNodeParams");
-    return class_helper;
-  }
-
-public:
-  int64_t __get_Amount()
-  {
-    static auto field = get_class_helper().GetProperty("Amount");
-    auto* value = field.Get<int64_t>(this);
-    return value ? *value : 0;
-  }
-
-  int64_t __get_ResourceID()
-  {
-    static auto field = get_class_helper().GetProperty("ResourceID");
-    auto* value = field.Get<int64_t>(this);
-    return value ? *value : 0;
-  }
-
-  int64_t __get_Rate()
-  {
-    static auto field = get_class_helper().GetProperty("Rate");
-    auto* value = field.Get<int64_t>(this);
-    return value ? *value : 0;
-  }
-};
+#include <cstdint>
+#include <limits>
 
 struct MiningSlot {
 public:
-  __declspec(property(get = __get_PointData)) MiningNodeParams* PointData;
-  __declspec(property(get = __get_ResourceId)) int64_t ResourceId;
-  __declspec(property(get = __get_PerHourRate)) int64_t PerHourRate;
-  __declspec(property(get = __get_RemainingTime)) TimeSpan RemainingTime;
+  __declspec(property(get = __get_ResourceId)) int64_t  ResourceId;
+  __declspec(property(get = __get_MiningSpeed)) float   MiningSpeed;
+  __declspec(property(get = __get_CurrentValue)) double CurrentValue;
+  __declspec(property(get = __get_MaxValue)) double     MaxValue;
 
 private:
   static IL2CppClassHelper& get_class_helper()
@@ -57,30 +21,31 @@ private:
   }
 
 public:
-  MiningNodeParams* __get_PointData()
-  {
-    static auto field = get_class_helper().GetProperty("PointData");
-    return field.GetRaw<MiningNodeParams>(this);
-  }
-
   int64_t __get_ResourceId()
   {
-    static auto field = get_class_helper().GetProperty("ResourceId");
-    auto* value = field.Get<int64_t>(this);
+    static auto property = get_class_helper().GetProperty("ResourceId");
+    auto*       value    = property.Get<int64_t>(this);
     return value ? *value : 0;
   }
 
-  int64_t __get_PerHourRate()
+  float __get_MiningSpeed()
   {
-    static auto field = get_class_helper().GetProperty("PerHourRate");
-    auto* value = field.Get<int64_t>(this);
+    static auto property = get_class_helper().GetProperty("MiningSpeed");
+    auto*       value    = property.Get<float>(this);
     return value ? *value : 0;
   }
 
-  TimeSpan __get_RemainingTime()
+  double __get_CurrentValue()
   {
-    static auto field = get_class_helper().GetProperty("RemainingTime");
-    auto* value = field.Get<TimeSpan>(this);
-    return value ? *value : TimeSpan{};
+    static auto property = get_class_helper().GetProperty("CurrentValue");
+    auto*       value    = property.Get<double>(this);
+    return value ? *value : std::numeric_limits<double>::quiet_NaN();
+  }
+
+  double __get_MaxValue()
+  {
+    static auto property = get_class_helper().GetProperty("MaxValue");
+    auto*       value    = property.Get<double>(this);
+    return value ? *value : std::numeric_limits<double>::quiet_NaN();
   }
 };

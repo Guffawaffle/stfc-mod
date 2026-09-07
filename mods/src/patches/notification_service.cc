@@ -1,244 +1,392 @@
-/**
- * @file notification_service.cc
- * @brief OS-native notification delivery for in-game toast events.
- *
- * Resolves IL2CPP LanguageManager::Localize at init time, maps toast states
- * to human-readable titles, strips Unity rich text tags from body text, and
- * delivers Windows toast notifications via WinRT for configured toast types.
- */
 #include "patches/notification_service.h"
 #include "patches/battle_notify_parser.h"
-#include "patches/game_localization.h"
-
-#include "bounded_ttl_cache.h"
-#include "config.h"
-#include "patches/async_work_queue.h"
 #include "patches/notification_audio.h"
-#include "patches/notification_platform.h"
-#include "patches/notification_policy.h"
-#include "patches/notification_queue.h"
-#include "patches/notification_text.h"
-#include "platform_config.h"
+
+#include "config.h"
 #include "str_utils.h"
 
 #include <il2cpp/il2cpp_helper.h>
 #include <prime/LanguageManager.h>
-#include <prime/EventModel.h>
 #include <prime/Toast.h>
 
-#include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 
-#include <chrono>
-#include <exception>
-#include <initializer_list>
-#include <mutex>
-#include <optional>
 #include <string>
-#include <string_view>
-#include <thread>
-#include <vector>
 
-// ─── IL2CPP Method Cache ──────────────────────────────────────────────────────────────
+#if _WIN32
+#include <windows.h>
+#include <winrt/Windows.Data.Xml.Dom.h>
+#include <winrt/Windows.UI.Notifications.h>
+#endif
 
-/** Cached LanguageManager::Localize(out string, LocaleTextContext) method pointer. */
-static const MethodInfo* s_localize_ltc             = nullptr;
-static bool              s_notification_initialized = false;
+// ---------------------------------------------------------------------------
+// IL2CPP method cache
+// ---------------------------------------------------------------------------
+static const MethodInfo* s_localize_ltc    = nullptr; // LanguageManager.Localize(out string, LocaleTextContext) — instance
+static const MethodInfo* s_locale_utils_localize = nullptr; // LocaleUtilities.Localize(LocaleTextContext, bool, bool) — static
+static const MethodInfo* s_object_tostring = nullptr;
+static bool              s_initialized     = false;
+static thread_local int   s_toast_notification_suppression_depth = 0;
 
-static FieldInfo* find_il2cpp_field(Il2CppClass* klass, std::initializer_list<const char*> candidate_names,
-                                    bool warn_on_missing = true)
+// ---------------------------------------------------------------------------
+// Toast state → human-readable title
+// ---------------------------------------------------------------------------
+static const char* toast_state_title(int state)
 {
-  if (!klass) {
-    return nullptr;
+  switch (state) {
+    case Standard:                  return "Notification";
+    case FactionWarning:            return "Faction Warning";
+    case FactionLevelUp:            return "Faction Level Up";
+    case FactionLevelDown:          return "Faction Level Down";
+    case FactionDiscovered:         return "Faction Discovered";
+    case IncomingAttack:            return "Incoming Attack!";
+    case IncomingAttackFaction:     return "Incoming Faction Attack!";
+    case FleetBattle:               return "Fleet Battle";
+    case StationBattle:             return "Station Under Attack!";
+    case StationVictory:            return "Station Victory!";
+    case Victory:                   return "Victory!";
+    case Defeat:                    return "Defeat";
+    case StationDefeat:             return "Station Defeat";
+    case Tournament:                return "Event Progress";
+    case ArmadaCreated:             return "Armada Created";
+    case ArmadaCanceled:            return "Armada Canceled";
+    case ArmadaIncomingAttack:      return "Armada Under Attack!";
+    case ArmadaBattleWon:           return "Armada Victory!";
+    case ArmadaBattleLost:          return "Armada Defeated";
+    case DiplomacyUpdated:          return "Diplomacy Updated";
+    case JoinedTakeover:            return "Territory Capture Joined";
+    case CompetitorJoinedTakeover:  return "Competitor Joined Territory";
+    case AbandonedTerritory:        return "Territory Abandoned";
+    case TakeoverVictory:           return "Takeover Victory!";
+    case TakeoverDefeat:            return "Takeover Defeat";
+    case TreasuryProgress:          return "Treasury Progress";
+    case TreasuryFull:              return "Treasury Full";
+    case Achievement:               return "Achievement";
+    case AssaultVictory:            return "Assault Victory!";
+    case AssaultDefeat:             return "Assault Defeat";
+    case ChallengeComplete:         return "Challenge Complete";
+    case ChallengeFailed:           return "Challenge Failed";
+    case StrikeHit:                 return "Strike Hit";
+    case StrikeDefeat:              return "Strike Defeat";
+    case WarchestProgress:          return "Warchest Progress";
+    case WarchestFull:              return "Warchest Full";
+    case PartialVictory:            return "Partial Victory";
+    case ArenaTimeLeft:             return "Arena Time Warning";
+    case ChainedEventScored:        return "Event Progress";
+    case FleetPresetApplied:        return "Fleet Preset Applied";
+    case SurgeWarmUpEnded:          return "Surge Started";
+    case SurgeHostileGroupDefeated: return "Surge Hostiles Defeated";
+    case SurgeTimeLeft:             return "Surge Time Warning";
+    case QueueForLeaseActivated:    return "Queue Activated";
+    case QueueForLeaseExpired:      return "Queue Expired";
+    case PermanentQueuePurchased:   return "Permanent Queue Purchased";
+    case OutpostStartedOrEnded:     return "Outpost Update";
+    case CrossAllianceArmadaVictory:      return "Cross-Armada Victory!";
+    case CrossAllianceArmadaDefeat:       return "Cross-Armada Defeated";
+    case CrossAllianceArmadaPartialVictory: return "Cross-Armada Partial Victory";
+    case FactionWeeklyEventsProgress:     return "Faction Weekly Event Progress";
+    case FactionWeeklyEventsComplete:     return "Faction Weekly Event Complete";
+    case ArmadaPlayerBlocked:       return "Armada Player Blocked";
+    case ArmadaPlayerUnblocked:     return "Armada Player Unblocked";
+    case DynamicCrisisUpdate:       return "Dynamic Crisis Update";
+    case DynamicCrisisFailed:       return "Dynamic Crisis Failed";
+    case DynamicCrisisCompleted:    return "Dynamic Crisis Completed";
+    case GalacticAnomalySystemEntered: return "Galactic Anomaly Entered";
+    default:                        return nullptr;
   }
-
-  const char* first_name = nullptr;
-  for (const auto* name : candidate_names) {
-    if (!name || !*name) {
-      continue;
-    }
-
-    if (!first_name) {
-      first_name = name;
-    }
-
-    if (auto* field = il2cpp_class_get_field_from_name(klass, name)) {
-      return field;
-    }
-  }
-
-  if (warn_on_missing) {
-    spdlog::warn("[Notify] Could not resolve {}.{} field",
-                 il2cpp_class_get_name(klass) ? il2cpp_class_get_name(klass) : "<unknown>",
-                 first_name ? first_name : "<unknown>");
-  }
-
-  return nullptr;
 }
 
-template <typename T>
-static T* read_il2cpp_reference_field(Il2CppObject* obj, std::initializer_list<const char*> candidate_names,
-                                      bool warn_on_missing = true)
+// ---------------------------------------------------------------------------
+// Platform notification delivery
+// ---------------------------------------------------------------------------
+#if _WIN32
+static void show_system_notification(const char* title, const char* body)
 {
-  if (!obj || !obj->klass) {
-    return nullptr;
+  try {
+    using namespace winrt::Windows::UI::Notifications;
+    using namespace winrt::Windows::Data::Xml::Dom;
+
+    auto xml   = ToastNotificationManager::GetTemplateContent(ToastTemplateType::ToastText02);
+    auto nodes = xml.GetElementsByTagName(L"text");
+    nodes.Item(0).InnerText(winrt::to_hstring(title));
+    nodes.Item(1).InnerText(winrt::to_hstring(body));
+
+    auto notification = ToastNotification(xml);
+    auto notifier     = ToastNotificationManager::CreateToastNotifier(L"Star Trek Fleet Command");
+    notifier.Show(notification);
+  } catch (const winrt::hresult_error& e) {
+    spdlog::warn("[Notify] WinRT notification failed: {}", winrt::to_string(e.message()));
+  } catch (...) {
+    spdlog::warn("[Notify] WinRT notification failed (unknown error)");
+  }
+}
+#endif
+
+// ---------------------------------------------------------------------------
+// Convert an IL2CPP object to string via virtual ToString()
+// ---------------------------------------------------------------------------
+static std::string il2cpp_object_to_string(Il2CppObject* obj)
+{
+  if (!obj) return {};
+
+  // Fast path: if it's a String, convert directly
+  auto* cls = il2cpp_object_get_class(obj);
+  if (cls) {
+    auto* name = il2cpp_class_get_name(cls);
+    if (name && std::string_view(name) == "String")
+      return to_string(reinterpret_cast<Il2CppString*>(obj));
   }
 
-  auto* field = find_il2cpp_field(obj->klass, candidate_names, warn_on_missing);
-  if (!field) {
-    return nullptr;
-  }
+  // Call virtual ToString() — resolve Object.ToString once, then dispatch per object
+  if (!s_object_tostring) return {};
 
-  return *reinterpret_cast<T**>(reinterpret_cast<char*>(obj) + il2cpp_field_get_offset(field));
+  auto* vm = il2cpp_object_get_virtual_method(obj, s_object_tostring);
+  if (!vm) return {};
+
+  Il2CppException* exc = nullptr;
+  auto* result = reinterpret_cast<Il2CppString*>(il2cpp_runtime_invoke(vm, obj, nullptr, &exc));
+  if (exc || !result) return {};
+  return to_string(result);
 }
 
-template <typename T> static T read_il2cpp_boxed_value(Il2CppObject* obj)
-{ return *reinterpret_cast<T*>(reinterpret_cast<char*>(obj) + sizeof(Il2CppObject)); }
-
-static std::string read_il2cpp_string_field(Il2CppObject* obj, std::initializer_list<const char*> candidate_names,
-                                            bool warn_on_missing = true)
+// ---------------------------------------------------------------------------
+// SEH wrapper — catches access violations from bad IL2CPP pointers
+// ---------------------------------------------------------------------------
+template <typename Fn>
+static bool seh_call(Fn fn)
 {
-  if (auto* value = read_il2cpp_reference_field<Il2CppString>(obj, candidate_names, warn_on_missing)) {
-    return to_string(value);
+#if _WIN32
+  __try {
+    fn();
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return false;
   }
+#else
+  fn();
+  return true;
+#endif
+}
+
+// ---------------------------------------------------------------------------
+// SEH-protected object to string conversion
+// ---------------------------------------------------------------------------
+static Il2CppString* seh_to_string_raw(Il2CppObject* obj)
+{
+  auto* cls = il2cpp_object_get_class(obj);
+  if (cls) {
+    auto* name = il2cpp_class_get_name(cls);
+    if (name && strcmp(name, "String") == 0)
+      return reinterpret_cast<Il2CppString*>(obj);
+  }
+  if (!s_object_tostring) return nullptr;
+  auto* vm = il2cpp_object_get_virtual_method(obj, s_object_tostring);
+  if (!vm) return nullptr;
+  Il2CppException* exc = nullptr;
+  return reinterpret_cast<Il2CppString*>(il2cpp_runtime_invoke(vm, obj, nullptr, &exc));
+}
+
+static std::string safe_il2cpp_to_string(Il2CppObject* obj, il2cpp_array_size_t index)
+{
+  Il2CppString* raw = nullptr;
+  if (!seh_call([&] { raw = seh_to_string_raw(obj); })) {
+    spdlog::warn("[Notify] SEH: ToString crashed for param {}", index);
+    return {};
+  }
+  if (!raw) return {};
+  return to_string(raw);
+}
+
+// ---------------------------------------------------------------------------
+// Replace {N} placeholders in template with values from an IL2CPP object[]
+// ---------------------------------------------------------------------------
+static std::string format_with_array(const std::string& tmpl, Il2CppArray* arr)
+{
+  if (!arr) return tmpl;
+
+  auto  len   = static_cast<il2cpp_array_size_t>(reinterpret_cast<Il2CppArraySize*>(arr)->max_length);
+  if (len == 0) return tmpl;
+
+  std::string result = tmpl;
+  for (il2cpp_array_size_t i = 0; i < len; ++i) {
+    auto* elem = reinterpret_cast<Il2CppObject**>(reinterpret_cast<Il2CppArraySize*>(arr)->vector)[i];
+    if (!elem) continue;
+
+    auto val = safe_il2cpp_to_string(elem, i);
+    if (val.empty()) continue;
+
+    auto prefix = "{" + std::to_string(i);
+    for (auto pos = result.find(prefix); pos != std::string::npos; pos = result.find(prefix, pos + val.size())) {
+      auto suffix = pos + prefix.size();
+      auto end    = result.find('}', suffix);
+      if (end == std::string::npos) break;
+
+      // Accept both {N} and the numeric zero-padding form used by toast
+      // templates, for example {5:000}.
+      auto replacement = val;
+      if (suffix != end) {
+        if (result[suffix] != ':') continue;
+        auto format = result.substr(suffix + 1, end - suffix - 1);
+        if (!format.empty() && format.find_first_not_of('0') == std::string::npos && replacement.size() < format.size())
+          replacement.insert(0, format.size() - replacement.size(), '0');
+      }
+
+      result.replace(pos, end - pos + 1, replacement);
+    }
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Try every instance array field on an object. Toast parameter arrays have
+// moved and changed names between game builds, including generated backing
+// fields, so runtime metadata is more reliable than names or offsets.
+// ---------------------------------------------------------------------------
+static std::string format_with_array_fields(const std::string& tmpl, Il2CppObject* obj, std::string& fields_seen)
+{
+  if (!obj) return tmpl;
+
+  auto result = tmpl;
+  for (auto* cls = il2cpp_object_get_class(obj); cls; cls = il2cpp_class_get_parent(cls)) {
+    void* iter = nullptr;
+    while (auto* field = il2cpp_class_get_fields(cls, &iter)) {
+      if ((il2cpp_field_get_flags(field) & 0x10) != 0) continue; // FieldAttributes.Static
+
+      auto* type = il2cpp_field_get_type(field);
+      auto  kind = type ? il2cpp_type_get_type(type) : IL2CPP_TYPE_END;
+      if (kind != IL2CPP_TYPE_SZARRAY && kind != IL2CPP_TYPE_ARRAY) continue;
+
+      Il2CppArray* arr = nullptr;
+      il2cpp_field_get_value(obj, field, &arr);
+
+      if (!fields_seen.empty()) fields_seen += ", ";
+      fields_seen += il2cpp_field_get_name(field);
+      fields_seen += arr ? "[" + std::to_string(reinterpret_cast<Il2CppArraySize*>(arr)->max_length) + "]" : "[null]";
+
+      if (!arr || reinterpret_cast<Il2CppArraySize*>(arr)->max_length == 0) continue;
+      auto candidate = format_with_array(tmpl, arr);
+      if (std::ranges::count(candidate, '{') < std::ranges::count(result, '{'))
+        result = std::move(candidate);
+    }
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Replace {N} placeholders using Toast.TextParameters, falling back to
+// LocaleTextContext._textParameters if the Toast array is empty.
+// ---------------------------------------------------------------------------
+static std::string format_placeholders(const std::string& tmpl, Toast* toast, void* ltc)
+{
+  // Try Toast.TextParameters first.
+  auto* toast_arr = toast->get_TextParameters();
+  if (toast_arr) {
+    auto len = static_cast<il2cpp_array_size_t>(reinterpret_cast<Il2CppArraySize*>(toast_arr)->max_length);
+    if (len > 0) {
+      return format_with_array(tmpl, toast_arr);
+    }
+  }
+
+  std::string fields_seen;
+  auto result = format_with_array_fields(tmpl, reinterpret_cast<Il2CppObject*>(toast), fields_seen);
+  if (result != tmpl) return result;
+
+  result = format_with_array_fields(tmpl, reinterpret_cast<Il2CppObject*>(ltc), fields_seen);
+  if (result != tmpl) return result;
+
+  if (tmpl.find('{') != std::string::npos) {
+    spdlog::warn("[Notify] Placeholders unresolved; array fields seen: {}. Template: \"{}\"",
+                 fields_seen.empty() ? "none" : fields_seen, tmpl);
+  }
+  return tmpl;
+}
+
+// ---------------------------------------------------------------------------
+// Resolve basic localized text from a Toast's TextLocaleTextContext
+// ---------------------------------------------------------------------------
+static std::string resolve_toast_text(Toast* toast)
+{
+  auto* ltc = toast->get_TextLocaleTextContext();
+  if (!ltc) {
+    spdlog::debug("[Notify] No TextLocaleTextContext for toast state {}", toast->get_State());
+    return {};
+  }
+
+  // Try the static LocaleUtilities.Localize(LTC, bool, bool) first — it handles
+  // parameter substitution internally and returns a fully formatted string.
+  if (s_locale_utils_localize) {
+    void* params[3] = { ltc, nullptr, nullptr };
+    // localizeTextParams = true, invariantCulture = false
+    bool localizeTextParams = true;
+    bool invariantCulture  = false;
+    params[1] = &localizeTextParams;
+    params[2] = &invariantCulture;
+
+    Il2CppException* exc = nullptr;
+    auto* ret = il2cpp_runtime_invoke(s_locale_utils_localize, nullptr, params, &exc);
+
+    if (exc) {
+      spdlog::warn("[Notify] LocaleUtilities.Localize threw exception");
+    } else if (ret) {
+      auto result = to_string(reinterpret_cast<Il2CppString*>(ret));
+      // LocaleUtilities.Localize may return a template with unresolved {N}
+      // placeholders if the LTC's own _textParameters are empty.  The actual
+      // parameter values may be in Toast.TextParameters, so run
+      // format_placeholders to substitute them.
+      if (result.find('{') != std::string::npos)
+        result = format_placeholders(result, toast, ltc);
+      return result;
+    } else {
+      spdlog::debug("[Notify] LocaleUtilities.Localize returned null for toast state {}", toast->get_State());
+    }
+  }
+
+  // Fall back to instance LanguageManager.Localize(out string, LTC)
+  if (s_localize_ltc) {
+    auto* langMgr = LanguageManager::Instance();
+    if (!langMgr) return {};
+
+    Il2CppString*  resolved = nullptr;
+    void*          params[2] = { &resolved, ltc };
+    Il2CppException* exc = nullptr;
+    auto* ret = il2cpp_runtime_invoke(s_localize_ltc, langMgr, params, &exc);
+
+    if (exc) {
+      spdlog::warn("[Notify] LanguageManager.Localize threw exception");
+      return {};
+    }
+
+    bool success = ret ? (*static_cast<bool*>(il2cpp_object_unbox(ret))) : false;
+    if (!success || !resolved) {
+      spdlog::debug("[Notify] LanguageManager.Localize returned false for toast state {}", toast->get_State());
+      return {};
+    }
+
+    auto tmpl = to_string(resolved);
+    return format_placeholders(tmpl, toast, ltc);
+  }
+
   return {};
 }
 
-static std::optional<int32_t> read_il2cpp_i32_field(Il2CppObject*                      obj,
-                                                    std::initializer_list<const char*> candidate_names)
+// ---------------------------------------------------------------------------
+// Resolve the event category from Toast.Data (EventModel) and map it to a
+// human-readable name.  EventModel.category_ is at offset 0x1E8 and holds an
+// EventCategories struct whose sole field (_flagValue) is an int32.
+// ---------------------------------------------------------------------------
+static const char* event_category_name(int32_t cat)
 {
-  if (!obj || !obj->klass) {
-    return std::nullopt;
-  }
-
-  auto* field = find_il2cpp_field(obj->klass, candidate_names, false);
-  if (!field) {
-    return std::nullopt;
-  }
-
-  return *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(obj) + il2cpp_field_get_offset(field));
-}
-
-static bool ascii_starts_with(std::string_view text, std::string_view prefix)
-{ return text.size() >= prefix.size() && text.substr(0, prefix.size()) == prefix; }
-
-static std::optional<int32_t> parse_trailing_level_token(std::string_view text)
-{
-  const auto separator = text.rfind('_');
-  if (separator == std::string_view::npos || separator + 1 >= text.size()) {
-    return std::nullopt;
-  }
-
-  int32_t level = 0;
-  for (size_t i = separator + 1; i < text.size(); ++i) {
-    const auto ch = text[i];
-    if (ch < '0' || ch > '9') {
-      return std::nullopt;
-    }
-    level = (level * 10) + static_cast<int32_t>(ch - '0');
-  }
-
-  return level;
-}
-
-static std::string int_to_string_or_empty(std::optional<int32_t> value)
-{ return value ? fmt::format("{}", *value) : std::string{}; }
-
-static std::string armada_target_label(Il2CppObject* target_user, Il2CppObject* target_hull,
-                                       Il2CppObject* target_alliance, std::string_view target_user_id)
-{
-  if (auto name = read_il2cpp_string_field(target_user, {"name_"}, false); !name.empty()) {
-    return name;
-  }
-
-  if (auto name = read_il2cpp_string_field(target_hull, {"name_"}, false); !name.empty()) {
-    return name;
-  }
-
-  if (auto tag = read_il2cpp_string_field(target_alliance, {"tag_"}, false); !tag.empty()) {
-    return tag;
-  }
-
-  if (auto name = read_il2cpp_string_field(target_alliance, {"name_"}, false); !name.empty()) {
-    return name;
-  }
-
-  if (ascii_starts_with(target_user_id, "mar_")) {
-    return "Armada Target";
-  }
-
-  if (!target_user_id.empty()) {
-    return std::string(target_user_id);
-  }
-
-  return "Armada Target";
-}
-
-static std::string resolve_armada_created_formatted(Toast* toast, int state, std::string_view template_text)
-{
-  if (state != ArmadaCreated || !toast || template_text.empty()) {
-    return {};
-  }
-
-  auto* data = toast->get_Data();
-  if (!data) {
-    return {};
-  }
-
-  auto* armada_attack = read_il2cpp_reference_field<Il2CppObject>(data, {"ArmadaAttack"});
-  auto* alliance      = read_il2cpp_reference_field<Il2CppObject>(data, {"Alliance"});
-  if (!armada_attack) {
-    return {};
-  }
-
-  auto* owner       = read_il2cpp_reference_field<Il2CppObject>(armada_attack, {"<Owner>k__BackingField", "Owner"});
-  auto* target_user = read_il2cpp_reference_field<Il2CppObject>(armada_attack, {"<TargetUserProfile>k__BackingField"});
-  auto* target_alliance =
-      read_il2cpp_reference_field<Il2CppObject>(armada_attack, {"<TargetAllianceProfile>k__BackingField"});
-  auto* target_hull = read_il2cpp_reference_field<Il2CppObject>(armada_attack, {"<TargetHullSpec>k__BackingField"});
-  auto* target_info = read_il2cpp_reference_field<Il2CppObject>(armada_attack, {"target_"});
-
-  auto alliance_tag = read_il2cpp_string_field(alliance, {"tag_"});
-  if (alliance_tag.empty()) {
-    alliance_tag = read_il2cpp_string_field(alliance, {"name_"});
-  }
-
-  auto owner_name = read_il2cpp_string_field(owner, {"name_"});
-  if (owner_name.empty()) {
-    owner_name = read_il2cpp_string_field(armada_attack, {"ownerId_"});
-  }
-
-  auto target_user_id = read_il2cpp_string_field(target_info, {"userId_"});
-  auto target_level   = read_il2cpp_i32_field(target_user, {"level_"});
-  if (!target_level || *target_level <= 0) {
-    target_level = parse_trailing_level_token(target_user_id);
-  }
-
-  auto target_label = armada_target_label(target_user, target_hull, target_alliance, target_user_id);
-  auto fleet_count  = read_il2cpp_i32_field(armada_attack, {"fleetCapacity_"});
-
-  if (alliance_tag.empty() && owner_name.empty() && target_label.empty()) {
-    return {};
-  }
-
-  return notification_format_armada_created_body(template_text, "#ffffff", alliance_tag, owner_name,
-                                                 int_to_string_or_empty(fleet_count), "#ffffff",
-                                                 int_to_string_or_empty(target_level), target_label);
-}
-
-static const char* event_category_name(const int32_t category)
-{
-  switch (category) {
-    case 0: return "Standard";
-    case 1: return "Daily Goals";
-    case 2: return "Daily Milestone";
-    case 3: return "Leaderboard";
-    case 4: return "Stat";
-    case 5: return "Battle Pass Season";
-    case 6: return "Battle Pass Event";
-    case 7: return "Treasury Progress";
-    case 8: return "Treasury Reward";
-    case 9: return "Server Clash";
+  switch (cat) {
+    case 0:  return "Standard";
+    case 1:  return "Daily Goals";
+    case 2:  return "Daily Milestone";
+    case 3:  return "Leaderboard";
+    case 4:  return "Stat";
+    case 5:  return "Battle Pass Season";
+    case 6:  return "Battle Pass Event";
+    case 7:  return "Treasury Progress";
+    case 8:  return "Treasury Reward";
+    case 9:  return "Server Clash";
     case 10: return "Webstore Event";
     case 11: return "Player Lifecycle";
     case 12: return "Field Training";
@@ -264,620 +412,180 @@ static const char* event_category_name(const int32_t category)
 
 static std::string resolve_event_category(Toast* toast)
 {
-  auto* event = toast ? reinterpret_cast<EventModel*>(toast->get_Data()) : nullptr;
-  if (!event) {
-    return {};
+  auto* data = toast->get_Data();
+  if (!data) return {};
+
+  std::string result;
+  if (!seh_call([&] {
+        // EventModel.category_ is at offset 0x1E8 (int32 _flagValue)
+        auto cat = *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(data) + 0x1E8);
+        auto* name = event_category_name(cat);
+        if (name) result = name;
+      })) {
+    spdlog::warn("[Notify] SEH: reading EventModel.category_ crashed");
   }
 
-  const auto category = event->CategoryValue();
-  const auto* name    = category ? event_category_name(*category) : nullptr;
-  return name ? std::string{name} : std::string{};
+  return result;
 }
 
-static bool toast_state_uses_event_category(const int state)
+// ---------------------------------------------------------------------------
+// Strip Unity rich text tags (e.g. <color=#FF0000>, <b>, </size>)
+// ---------------------------------------------------------------------------
+static std::string strip_unity_rich_text(const std::string& s)
 {
-  return state == Achievement || state == Tournament || state == ChainedEventScored || state == TreasuryProgress
-         || state == TreasuryFull || state == WarchestProgress || state == WarchestFull
-         || state == FactionWeeklyEventsProgress || state == FactionWeeklyEventsComplete;
-}
-
-// ─── Toast State → Human-Readable Title ───────────────────────────────────────────────
-
-/**
- * @brief Map a numeric toast state to a notification title string.
- * @param state The Toast::State enum value.
- * @return Static title string, or nullptr for unmapped states.
- */
-static const char* toast_state_title(int state)
-{
-  switch (state) {
-    case Victory:
-      return "Victory!";
-    case Defeat:
-      return "Defeat";
-    case PartialVictory:
-      return "Partial Victory";
-    case StationVictory:
-      return "Station Victory!";
-    case StationDefeat:
-      return "Station Defeat";
-    case StationBattle:
-      return "Station Under Attack!";
-    case IncomingAttack:
-      return "Incoming Attack!";
-    case IncomingAttackFaction:
-      return "Incoming Faction Attack!";
-    case FleetBattle:
-      return "Fleet Battle";
-    case ArmadaBattleWon:
-      return "Armada Victory!";
-    case ArmadaBattleLost:
-      return "Armada Defeated";
-    case ArmadaCreated:
-      return "Armada Created";
-    case ArmadaCanceled:
-      return "Armada Canceled";
-    case ArmadaIncomingAttack:
-      return "Armada Under Attack!";
-    case AssaultVictory:
-      return "Assault Victory!";
-    case AssaultDefeat:
-      return "Assault Defeat";
-    case Tournament:
-      return "Event Progress";
-    case ChainedEventScored:
-      return "Event Progress";
-    case Achievement:
-      return "Achievement";
-    case ChallengeComplete:
-      return "Challenge Complete";
-    case ChallengeFailed:
-      return "Challenge Failed";
-    case TakeoverVictory:
-      return "Takeover Victory!";
-    case TakeoverDefeat:
-      return "Takeover Defeat";
-    case TreasuryProgress:
-      return "Treasury Progress";
-    case TreasuryFull:
-      return "Treasury Full";
-    case WarchestProgress:
-      return "Warchest Progress";
-    case WarchestFull:
-      return "Warchest Full";
-    case FactionLevelUp:
-      return "Faction Level Up";
-    case FactionLevelDown:
-      return "Faction Level Down";
-    case FactionDiscovered:
-      return "Faction Discovered";
-    case FactionWarning:
-      return "Faction Warning";
-    case DiplomacyUpdated:
-      return "Diplomacy Updated";
-    case StrikeHit:
-      return "Strike Hit";
-    case StrikeDefeat:
-      return "Strike Defeat";
-    case SurgeWarmUpEnded:
-      return "Surge Started";
-    case SurgeHostileGroupDefeated:
-      return "Surge Hostiles Defeated";
-    case SurgeTimeLeft:
-      return "Surge Time Warning";
-    case ArenaTimeLeft:
-      return "Arena Time Warning";
-    case FleetPresetApplied:
-      return "Fleet Preset Applied";
-    case QueueForLeaseActivated:
-      return "Queue Activated";
-    case QueueForLeaseExpired:
-      return "Queue Expired";
-    case PermanentQueuePurchased:
-      return "Permanent Queue Purchased";
-    case OutpostStartedOrEnded:
-      return "Outpost Update";
-    case CrossAllianceArmadaVictory:
-      return "Cross-Armada Victory!";
-    case CrossAllianceArmadaDefeat:
-      return "Cross-Armada Defeated";
-    case CrossAllianceArmadaPartialVictory:
-      return "Cross-Armada Partial Victory";
-    case FactionWeeklyEventsProgress:
-      return "Faction Weekly Event Progress";
-    case FactionWeeklyEventsComplete:
-      return "Faction Weekly Event Complete";
-    case ArmadaPlayerBlocked:
-      return "Armada Player Blocked";
-    case ArmadaPlayerUnblocked:
-      return "Armada Player Unblocked";
-    case DynamicCrisisUpdate:
-      return "Dynamic Crisis Update";
-    case DynamicCrisisFailed:
-      return "Dynamic Crisis Failed";
-    case DynamicCrisisCompleted:
-      return "Dynamic Crisis Completed";
-    case GalacticAnomalySystemEntered:
-      return "Galactic Anomaly Entered";
-    default:
-      return nullptr;
-  }
-}
-
-const char* notification_toast_title(int state)
-{ return toast_state_title(state); }
-
-// ─── Platform Notification Delivery ──────────────────────────────────────────────────
-#if STFCMOD_PLATFORM_WINDOWS
-static constexpr size_t                         kNotificationQueueMaxDepth = 256;
-static AsyncWorkQueue<NotificationQueueRequest> s_notification_queue(kNotificationQueueMaxDepth);
-static std::mutex                               s_recent_toast_mutex;
-static std::once_flag                           s_notification_worker_once;
-static std::thread                              s_notification_worker_thread;
-static constexpr auto                           kNotificationCoalesceWindow    = std::chrono::milliseconds(750);
-static constexpr auto                           kRecentToastDedupWindow        = std::chrono::milliseconds(500);
-static constexpr size_t                         kRecentToastDedupMaxEntries    = 256;
-static constexpr size_t                         kNotificationSummaryLimit      = 4;
-static constexpr auto                           kNotificationJoinWarnThreshold = std::chrono::seconds(5);
-static BoundedTtlDeduper<uintptr_t>             s_recent_toasts(kRecentToastDedupMaxEntries);
-
-bool notification_should_process_toast(Toast* toast)
-{
-  if (!toast) {
-    return false;
-  }
-
-  const auto now = std::chrono::steady_clock::now();
-  const auto key = reinterpret_cast<uintptr_t>(toast);
-
-  std::lock_guard lock(s_recent_toast_mutex);
-  const auto      dedupe_result = s_recent_toasts.should_emit(key, now, kRecentToastDedupWindow);
-  if (!dedupe_result.emitted) {
-    spdlog::debug("[Notify] Duplicate toast pointer {:p}, suppressing repeated notification pass", (const void*)toast);
-    return false;
-  }
-
-  return true;
-}
-
-static void queue_system_notification(const char* title, const char* body, const char* source)
-{
-  NotificationQueueRequest request;
-  if (source) {
-    request.source = source;
-  }
-  if (title) {
-    request.title = title;
-  }
-  if (body) {
-    request.body = body;
-  }
-  request.queued_at = std::chrono::steady_clock::now();
-
-  if (!s_notification_queue.enqueue(std::move(request))) {
-    const auto diagnostics = s_notification_queue.diagnostics();
-    spdlog::warn("[NotifyQueue] drop source={} title='{}' reason={} queue_size={} dropped={}",
-                 source ? source : "unknown", title ? notification_flatten_text(title) : "",
-                 diagnostics.shutdown_requested ? "shutdown" : "full", diagnostics.depth, diagnostics.dropped);
-    return;
-  }
-
-  const auto diagnostics = s_notification_queue.diagnostics();
-
-  spdlog::debug("[NotifyQueue] enqueue source={} title='{}' queue_size={}", source ? source : "unknown",
-                title ? notification_flatten_text(title) : "", diagnostics.depth);
-}
-
-static void notification_worker_main()
-{
-  notification_platform_init();
-  s_notification_queue.set_worker_active(true);
-  spdlog::debug("[NotifyQueue] worker started");
-
-  for (;;) {
-    auto batch = s_notification_queue.wait_for_batch_after_quiet(kNotificationCoalesceWindow);
-
-    if (batch.empty()) {
-      if (s_notification_queue.shutdown_requested()) {
-        break;
-      }
-      continue;
+  std::string result;
+  result.reserve(s.size());
+  size_t i = 0;
+  while (i < s.size()) {
+    if (s[i] == '<') {
+      auto end = s.find('>', i);
+      if (end != std::string::npos) { i = end + 1; continue; }
     }
-
-    const auto batch_start   = batch.front().queued_at;
-    const auto batch_end     = batch.back().queued_at;
-    const auto batch_span    = std::chrono::duration_cast<std::chrono::milliseconds>(batch_end - batch_start).count();
-    const auto batch_preview = notification_queue_batch_preview(batch, kNotificationSummaryLimit);
-    const auto batch_count   = batch.size();
-
-    auto collapsed = notification_queue_collapse_batch(std::move(batch), kNotificationSummaryLimit);
-    if (!collapsed.title.empty()) {
-      spdlog::debug("[NotifyQueue] flush count={} span_ms={} preview=[{}] collapsed_title='{}' collapsed_body='{}'",
-                    batch_count, batch_span, batch_preview, notification_escape_text_for_log(collapsed.title),
-                    notification_escape_text_for_log(collapsed.body));
-      try {
-        notification_platform_show(collapsed.title.c_str(), collapsed.body.c_str());
-      } catch (const std::exception& exception) {
-        s_notification_queue.record_worker_error();
-        spdlog::error("[NotifyQueue] worker error: {}", exception.what());
-      } catch (...) {
-        s_notification_queue.record_worker_error();
-        spdlog::error("[NotifyQueue] worker error: unknown exception");
-      }
-    }
+    result += s[i++];
   }
-
-  s_notification_queue.set_worker_active(false);
-  const auto diagnostics = s_notification_queue.diagnostics();
-  spdlog::debug("[NotifyQueue] worker stopped dequeued={} errors={}", diagnostics.dequeued, diagnostics.worker_errors);
-}
-#else
-bool notification_should_process_toast(Toast*)
-{ return false; }
-#endif
-
-// ─── Toast Text Resolution ───────────────────────────────────────────────────────────
-
-static Il2CppArray* resolve_ltc_text_parameters(Il2CppObject* ltc_object)
-{
-  if (!ltc_object) {
-    return nullptr;
-  }
-
-  if (auto* text_parameters = read_il2cpp_reference_field<Il2CppArray>(
-          ltc_object, {"_textParameters", "TextParameters", "<TextParameters>k__BackingField"}, false)) {
-    return text_parameters;
-  }
-
-  return read_il2cpp_reference_field<Il2CppArray>(ltc_object, {"_identifierParameters"}, false);
+  return result;
 }
 
-static Il2CppArray* resolve_toast_text_parameters(Toast* toast, void* ltc)
-{
-  if (toast) {
-    auto* toast_object = reinterpret_cast<Il2CppObject*>(toast);
-    if (auto* text_parameters = read_il2cpp_reference_field<Il2CppArray>(
-            toast_object, {"<TextParameters>k__BackingField", "TextParameters", "_textParameters"}, false)) {
-      return text_parameters;
-    }
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
-    auto* secondary_ltc = read_il2cpp_reference_field<Il2CppObject>(
-        toast_object, {"<SecondaryTextLocaleTextContext>k__BackingField", "SecondaryTextLocaleTextContext"}, false);
-    if (auto* text_parameters = resolve_ltc_text_parameters(secondary_ltc)) {
-      return text_parameters;
-    }
-  }
+ScopedToastNotificationSuppression::ScopedToastNotificationSuppression()
+{ ++s_toast_notification_suppression_depth; }
 
-  if (ltc) {
-    return resolve_ltc_text_parameters(reinterpret_cast<Il2CppObject*>(ltc));
-  }
-
-  return nullptr;
-}
-
-static std::string resolve_toast_text(void* ltc)
-{
-  if (auto localized = game_localization::LocalizeContext(ltc); !localized.empty()) {
-    return localized;
-  }
-
-  if (!ltc) {
-    return {};
-  }
-
-  auto* langMgr = LanguageManager::Instance();
-  if (!langMgr) {
-    return {};
-  }
-
-  if (!s_localize_ltc) {
-    return {};
-  }
-
-  Il2CppString*    resolved  = nullptr;
-  void*            params[2] = {&resolved, ltc};
-  Il2CppException* exc       = nullptr;
-  il2cpp_runtime_invoke(s_localize_ltc, langMgr, params, &exc);
-
-  if (exc || !resolved)
-    return {};
-  return to_string(resolved);
-}
-
-static std::string resolve_ltc_param(Il2CppObject* obj)
-{
-  if (!obj) {
-    return {};
-  }
-
-  auto* klass = obj->klass;
-  if (!klass) {
-    return "?";
-  }
-
-  auto name = std::string_view(il2cpp_class_get_name(klass));
-
-  if (name == "LocaleTextContext") {
-    if (s_localize_ltc) {
-      auto* langMgr = LanguageManager::Instance();
-      if (langMgr) {
-        Il2CppString*    resolved  = nullptr;
-        void*            params[2] = {&resolved, obj};
-        Il2CppException* exc       = nullptr;
-        il2cpp_runtime_invoke(s_localize_ltc, langMgr, params, &exc);
-        if (!exc && resolved) {
-          return to_string(resolved);
-        }
-      }
-    }
-
-    auto* identifier =
-        read_il2cpp_reference_field<Il2CppString>(obj, {"_identifier", "Identifier", "<Identifier>k__BackingField"});
-    return identifier ? to_string(identifier) : "?";
-  }
-
-  if (name == "String") {
-    return to_string(reinterpret_cast<Il2CppString*>(obj));
-  }
-
-  if (name == "BoxedDouble" || name == "BoxedFloat" || name == "BoxedInt" || name == "BoxedLong") {
-    void* iter = nullptr;
-    while (auto* field = il2cpp_class_get_fields(klass, &iter)) {
-      auto  field_offset = il2cpp_field_get_offset(field);
-      auto* field_type   = il2cpp_field_get_type(field);
-      if (!field_type) {
-        continue;
-      }
-      auto field_type_id = il2cpp_type_get_type(field_type);
-
-      if (field_type_id == 13) {
-        auto value = *reinterpret_cast<double*>(reinterpret_cast<char*>(obj) + field_offset);
-        if (value == static_cast<int64_t>(value)) {
-          return fmt::format("{}", static_cast<int64_t>(value));
-        }
-        return fmt::format("{:.1f}", value);
-      }
-
-      if (field_type_id == 12) {
-        auto value = *reinterpret_cast<float*>(reinterpret_cast<char*>(obj) + field_offset);
-        return fmt::format("{:.1f}", value);
-      }
-
-      if (field_type_id == 8) {
-        auto value = *reinterpret_cast<int32_t*>(reinterpret_cast<char*>(obj) + field_offset);
-        return fmt::format("{}", value);
-      }
-
-      if (field_type_id == 10) {
-        auto value = *reinterpret_cast<int64_t*>(reinterpret_cast<char*>(obj) + field_offset);
-        return fmt::format("{}", value);
-      }
-    }
-  }
-
-  if (name == "Double") {
-    auto value = read_il2cpp_boxed_value<double>(obj);
-    if (value == static_cast<int64_t>(value)) {
-      return fmt::format("{}", static_cast<int64_t>(value));
-    }
-    return fmt::format("{:.1f}", value);
-  }
-
-  if (name == "Int32") {
-    auto value = read_il2cpp_boxed_value<int32_t>(obj);
-    return fmt::format("{}", value);
-  }
-
-  if (name == "Int64") {
-    auto value = read_il2cpp_boxed_value<int64_t>(obj);
-    return fmt::format("{}", value);
-  }
-
-  if (name == "Single") {
-    auto value = read_il2cpp_boxed_value<float>(obj);
-    return fmt::format("{:.1f}", value);
-  }
-
-  return fmt::format("<{}>", name);
-}
-
-static std::vector<std::string> resolve_text_parameter_values(Il2CppArray* text_parameters)
-{
-  if (!text_parameters) {
-    return {};
-  }
-
-  auto  length   = il2cpp_array_length(text_parameters);
-  auto* elements = reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(text_parameters) + sizeof(Il2CppArray));
-
-  std::vector<std::string> parameters;
-  parameters.reserve(length < 32 ? length : 32);
-  for (il2cpp_array_size_t i = 0; i < length && i < 32; ++i) {
-    parameters.push_back(resolve_ltc_param(elements[i]));
-  }
-
-  return parameters;
-}
-
-static std::string resolve_toast_formatted(Toast* toast, void* ltc, std::string_view template_text, int state)
-{
-  if (!ltc) {
-    return notification_strip_unity_rich_text(template_text);
-  }
-
-  auto parameters = resolve_text_parameter_values(resolve_toast_text_parameters(toast, ltc));
-  auto formatted  = notification_strip_unity_rich_text(notification_format_placeholders(template_text, parameters));
-  if (notification_contains_placeholders(formatted)) {
-    if (auto armada_formatted = resolve_armada_created_formatted(toast, state, template_text);
-        !armada_formatted.empty()) {
-      formatted = std::move(armada_formatted);
-    }
-  }
-  return formatted;
-}
-
-static void resolve_language_manager_localize_methods()
-{
-  auto lm_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Localization", "LanguageManager");
-  if (!lm_helper.isValidHelper()) {
-    spdlog::warn("[Notify] LanguageManager class helper is invalid");
-    return;
-  }
-
-  auto* cls = lm_helper.get_cls();
-  if (!cls) {
-    spdlog::warn("[Notify] LanguageManager class not found");
-    return;
-  }
-
-  void* iter = nullptr;
-  while (auto* method = il2cpp_class_get_methods(cls, &iter)) {
-    auto name = std::string_view(il2cpp_method_get_name(method));
-    if (name != "Localize") {
-      continue;
-    }
-
-    const auto pc = il2cpp_method_get_param_count(method);
-    if (pc == 2) {
-      s_localize_ltc = method;
-      break;
-    }
-  }
-}
-
-// ─── Public API ──────────────────────────────────────────────────────────────────────
+ScopedToastNotificationSuppression::~ScopedToastNotificationSuppression()
+{ --s_toast_notification_suppression_depth; }
 
 void notification_init()
 {
-  if (s_notification_initialized) {
+  if (s_initialized) {
     return;
   }
+  s_initialized = true;
 
-  game_localization::Initialize();
-  resolve_language_manager_localize_methods();
+#if _WIN32
+  // Resolve LanguageManager::Localize(out string, LocaleTextContext) — the
+  // 2-parameter overload that takes an LTC and returns a localized string.
+  auto lm_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Localization", "LanguageManager");
+  if (lm_helper.isValidHelper()) {
+    auto* cls = lm_helper.get_cls();
+    if (cls) {
+      void* iter = nullptr;
+      while (auto* method = il2cpp_class_get_methods(cls, &iter)) {
+        auto name = std::string_view(il2cpp_method_get_name(method));
+        auto pc   = il2cpp_method_get_param_count(method);
+        if (name == "Localize" && pc == 2) {
+          s_localize_ltc = method;
+          break;
+        }
+      }
+    }
+  }
 
   if (!s_localize_ltc) {
-    spdlog::warn("[Notify] Could not resolve LanguageManager::Localize — notifications will show titles only");
+    spdlog::warn("[Notify] Could not resolve LanguageManager::Localize — falling back to LocaleUtilities");
   }
 
-#if STFCMOD_PLATFORM_WINDOWS
-  notification_platform_init();
-  std::call_once(s_notification_worker_once,
-                 []() { s_notification_worker_thread = std::thread(notification_worker_main); });
-  spdlog::debug("[Notify] Windows notification service initialized");
-#elif STFCMOD_PLATFORM_MACOS
-  if (notification_policy_any_system_enabled()) {
-    spdlog::warn("[Notify] macOS does not support OS notifications yet; configured system deliveries are unavailable");
-  } else {
-    spdlog::debug("[Notify] Notification service: macOS does not support this feature yet (no-op)");
-  }
-#else
-  spdlog::debug("[Notify] Notification service: platform not supported (no-op)");
-#endif
-
-  notification_audio_init();
-
-  s_notification_initialized = true;
-}
-
-void notification_shutdown()
-{
-  notification_audio_shutdown();
-
-#if STFCMOD_PLATFORM_WINDOWS
-  s_notification_queue.request_shutdown();
-
-  if (!s_notification_worker_thread.joinable()) {
-    return;
-  }
-
-  const auto join_started_at = std::chrono::steady_clock::now();
-  s_notification_worker_thread.join();
-  const auto join_elapsed = std::chrono::steady_clock::now() - join_started_at;
-  if (join_elapsed > kNotificationJoinWarnThreshold) {
-    spdlog::warn("[NotifyQueue] worker join waited {} ms during shutdown",
-                 std::chrono::duration_cast<std::chrono::milliseconds>(join_elapsed).count());
-  }
-#endif
-}
-
-void notification_show(const char* title, const char* body)
-{
-#if STFCMOD_PLATFORM_WINDOWS
-  queue_system_notification(title, body, "direct");
-#endif
-}
-
-bool notification_delivery_enabled(NotificationKind kind)
-{
-#if !STFCMOD_PLATFORM_WINDOWS
-  (void)kind;
-  return false;
-#else
-  return notification_policy_has_delivery(kind);
-#endif
-}
-
-void notification_emit(NotificationKind kind, const char* title, const char* body)
-{
-  const auto& policy = notification_policy_for(kind);
-
-#if STFCMOD_PLATFORM_WINDOWS
-  if (policy.system) {
-    queue_system_notification(title, body, notification_kind_name(kind));
-  }
-#endif
-
-  if (policy.audio && policy.sound != NotificationSound::None) {
-    notification_audio_play(policy.sound, notification_kind_name(kind));
-  }
-}
-
-void notification_handle_generic_toast(Toast* toast, int state, const char* title)
-{
-#if STFCMOD_PLATFORM_MACOS
-  return; // No notification delivery on macOS yet
-#elif STFCMOD_PLATFORM_OTHER
-  return; // No notification delivery on unsupported non-Windows platforms yet
-#else
-  const auto armada_kind           = state == Victory  ? std::optional{NotificationKind::BattleArmadaBattleWon}
-                                     : state == Defeat ? std::optional{NotificationKind::BattleArmadaBattleLost}
-                                                       : std::nullopt;
-  const auto armada_policy_enabled = armada_kind.has_value() && notification_delivery_enabled(armada_kind.value());
-  const auto is_armada_battle      = armada_policy_enabled && battle_notify_is_armada(toast);
-  const auto kind = notification_kind_for_battle_context(state, is_armada_battle, armada_policy_enabled);
-  if (!kind.has_value() || !notification_delivery_enabled(kind.value())) {
-    return;
-  }
-
-  const auto* selected_spec  = notification_catalog_entry(kind.value());
-  const auto* selected_title = is_armada_battle && selected_spec
-                                   ? notification_toast_title(selected_spec->toast_state)
-                                   : title;
-  if (!selected_title) {
-    if (AdvancedDiagnosticsSettings().notification_skip_logging) {
-      spdlog::debug("[Notify] No title mapping for toast state {}, skipping", state);
+  // Resolve LocaleUtilities::Localize(LocaleTextContext, bool, bool) — static method
+  // that handles parameter substitution internally and returns a fully formatted string.
+  auto lu_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Localization", "LocaleUtilities");
+  if (lu_helper.isValidHelper()) {
+    auto* cls = lu_helper.get_cls();
+    if (cls) {
+      void* iter = nullptr;
+      while (auto* method = il2cpp_class_get_methods(cls, &iter)) {
+        auto name = std::string_view(il2cpp_method_get_name(method));
+        auto pc   = il2cpp_method_get_param_count(method);
+        if (name == "Localize" && pc == 3) {
+          s_locale_utils_localize = method;
+          break;
+        }
+      }
     }
+  }
+
+  if (!s_locale_utils_localize) {
+    spdlog::warn("[Notify] Could not resolve LocaleUtilities::Localize — will use LanguageManager fallback");
+  }
+
+  // Resolve System.Object::ToString() for converting IL2CPP objects to strings
+  s_object_tostring = il2cpp_get_class_helper("mscorlib", "System", "Object").GetMethodInfo("ToString", 0);
+  if (!s_object_tostring) {
+    spdlog::warn("[Notify] Could not resolve Object::ToString — placeholder formatting may be incomplete");
+  }
+
+  try {
+    winrt::init_apartment(winrt::apartment_type::single_threaded);
+    spdlog::info("[Notify] Windows notification service initialized");
+  } catch (const winrt::hresult_error& e) {
+    spdlog::warn("[Notify] Windows notification service failed: {:#x} {}",
+                 static_cast<unsigned long>(e.code()), winrt::to_string(e.message()));
+  } catch (...) {
+    spdlog::warn("[Notify] Windows notification service failed (unknown error)");
+  }
+#elif __APPLE__
+  spdlog::info("[Notify] macOS audio notification service ready");
+#else
+  spdlog::info("[Notify] Notification service: platform not supported (no-op)");
+#endif
+}
+
+void notification_emit(std::string_view title, std::string_view body)
+{
+#if _WIN32
+  const std::string owned_title{title};
+  const std::string owned_body{body};
+  show_system_notification(owned_title.c_str(), owned_body.c_str());
+#else
+  (void)title;
+  (void)body;
+#endif
+}
+
+void notification_handle_toast(Toast* toast)
+{
+  if (!toast) return;
+
+  const auto& config = Config::Get();
+  const auto  state  = toast->get_State();
+  notification_audio_play(config.NotificationSoundForToast(state));
+
+#if _WIN32
+  if (s_toast_notification_suppression_depth > 0) {
     return;
   }
 
-  auto* ltc = toast->get_TextLocaleTextContext();
-
-  auto        parsed_body = battle_notify_parse(toast);
-  std::string localized_body;
-  std::string formatted_localized_body;
-  if (parsed_body.empty()) {
-    localized_body           = resolve_toast_text(ltc);
-    formatted_localized_body = resolve_toast_formatted(toast, ltc, localized_body, state);
+  // Check if this toast type is in the user's notify list
+  const auto& notify_types = config.notify_banner_types;
+  if (std::ranges::find(notify_types, state) == notify_types.end()) {
+    return;
   }
-  auto body = notification_choose_body(parsed_body, formatted_localized_body, localized_body);
-  if (toast_state_uses_event_category(state)) {
-    if (auto category = resolve_event_category(toast); !category.empty()) {
+
+  auto* title = toast_state_title(state);
+  if (!title) {
+    spdlog::debug("[Notify] No title mapping for toast state {}, skipping", state);
+    return;
+  }
+
+  auto body = battle_notify_parse(toast);
+  if (body.empty()) {
+    body = strip_unity_rich_text(resolve_toast_text(toast));
+  }
+  if (body.empty()) {
+    body = "(no details available)";
+  }
+
+  // Prepend event category for event-based toasts that use EventModel as Data
+  if (state == Achievement || state == Tournament || state == ChainedEventScored ||
+      state == TreasuryProgress || state == TreasuryFull ||
+      state == WarchestProgress || state == WarchestFull ||
+      state == FactionWeeklyEventsProgress || state == FactionWeeklyEventsComplete) {
+    auto category = resolve_event_category(toast);
+    if (!category.empty()) {
       body = category + " - " + body;
     }
   }
 
-  spdlog::debug("[Notify] {} — {}", selected_title, body);
-  notification_emit(kind.value(), selected_title, body.c_str());
+  show_system_notification(title, body.c_str());
 #endif
 }

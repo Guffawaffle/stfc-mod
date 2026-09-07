@@ -2,12 +2,16 @@
 
 #include <il2cpp/il2cpp_helper.h>
 
+#include "ButtonAndContextWrapper.h"
 #include "InputFieldWidget.h"
+#include "SelectableList.h"
 
 struct AssignShipsWidget {
 public:
   __declspec(property(get = __get__inputField)) InputFieldWidget* _inputField;
-  __declspec(property(get = __get_isActiveAndEnabled)) bool       isActiveAndEnabled;
+  __declspec(property(get = __get_isActiveAndEnabled)) bool        isActiveAndEnabled;
+  __declspec(property(get = __get__assignButton)) ButtonAndContextWrapper* _assignButton;
+  __declspec(property(get = __get__selectableList)) SelectableList* _selectableList;
 
 private:
   friend class ObjectFinder<AssignShipsWidget>;
@@ -21,13 +25,25 @@ public:
 
   InputFieldWidget* __get__inputField()
   {
-    static auto offset = get_class_helper().GetField("_inputField").offset();
-    return *reinterpret_cast<InputFieldWidget**>(reinterpret_cast<uintptr_t>(this) + offset);
+    static auto field = get_class_helper().GetField("_inputField").offset();
+    return *(InputFieldWidget**)((uintptr_t)this + field);
   }
 
   bool __get_isActiveAndEnabled()
   {
-    static auto property = get_class_helper().GetProperty("isActiveAndEnabled");
-    return property.Get<bool>(this);
+    static auto field = get_class_helper().GetProperty("isActiveAndEnabled");
+    return field.Get<bool>(this);
+  }
+
+  ButtonAndContextWrapper* __get__assignButton()
+  {
+    static auto field = get_class_helper().GetField("_assignButton").offset();
+    return *(ButtonAndContextWrapper**)((uintptr_t)this + field);
+  }
+
+  SelectableList* __get__selectableList()
+  {
+    static auto field = get_class_helper().GetField("_selectableList").offset();
+    return *(SelectableList**)((uintptr_t)this + field);
   }
 };

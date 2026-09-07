@@ -1,17 +1,7 @@
-/**
- * @file BattleResultHeader.h
- * @brief Battle result data structures and enumerations.
- *
- * Mirrors Digit.PrimeServer.Models.BattleResultHeader and the associated
- * enums (BattleType, BattleResultType, FleetDataType). Used by the battle-
- * log mod to extract combatant ship hull IDs and user profiles from combat
- * reports.
- */
 #pragma once
 
 #include <il2cpp/il2cpp_helper.h>
 
-/** @brief Categorises the type of battle (fleet vs. base, PvP vs. PvE, armada, etc.). */
 enum class BattleType {
   Fleet                          = 0,
   Base                           = 1,
@@ -32,33 +22,22 @@ enum class BattleType {
   PvpChainShot                   = 16
 };
 
-/** @brief Outcome of a battle from the player's perspective. */
 enum class BattleResultType {
   Defeat         = 0,
   Victory        = 1,
   PartialVictory = 2
 };
 
-/** @brief Identifies the type of fleet data (deployed fleet, starbase, or armada). */
 enum class FleetDataType {
   DeployedFleet = 0,
   Starbase      = 1,
   Armada        = 2
 };
 
-/**
- * @brief Header data for a single battle result.
- *
- * Contains the player's and enemy's ship hull IDs, user profiles, and
- * a reference to the SpecService for resolving hull details. Accessed
- * from combat report screens and battle-log export functionality.
- */
 struct BattleResultHeader {
 public:
   __declspec(property(get = __get_PlayerShipHullId)) long PlayerShipHullId;
   __declspec(property(get = __get_EnemyShipHullId)) long EnemyShipHullId;
-  __declspec(property(get = __get_BattleType)) BattleType Type;
-  __declspec(property(get = __get_IsArmadaBattle)) bool IsArmadaBattle;
 
   Il2CppObject* get_PlayerUserProfile()
   {
@@ -75,6 +54,12 @@ public:
   Il2CppObject* get_SpecService()
   {
     return *reinterpret_cast<Il2CppObject**>(reinterpret_cast<char*>(this) + 0x18);
+  }
+
+  int get_BattleType()
+  {
+    static auto prop = get_class_helper().GetProperty("BattleType");
+    return *prop.Get<int>(this);
   }
 
 private:
@@ -96,17 +81,5 @@ public:
   {
     static auto prop = get_class_helper().GetProperty("EnemyShipHullId");
     return *prop.Get<long>(this);
-  }
-
-  BattleType __get_BattleType()
-  {
-    static auto property = get_class_helper().GetProperty("BattleType");
-    return *property.Get<BattleType>(this);
-  }
-
-  bool __get_IsArmadaBattle()
-  {
-    static auto property = get_class_helper().GetProperty("IsArmadaBattle");
-    return *property.Get<bool>(this);
   }
 };

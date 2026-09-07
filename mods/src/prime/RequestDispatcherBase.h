@@ -18,7 +18,6 @@ public:
   void* __get__armadaButton()
   {
     static auto field = get_class_helper().GetField("_armadaButton");
-    if (!field.isValidHelper()) return nullptr;
     return *(void**)((ptrdiff_t)this + field.offset());
   }
 };

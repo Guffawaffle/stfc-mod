@@ -1,6 +1,6 @@
 #include "config.h"
 #include "errormsg.h"
-#include "runtime_identity.h"
+#include "version.h"
 
 #include <il2cpp/il2cpp_helper.h>
 #include <il2cpp/il2cpp-functions.h>
@@ -23,11 +23,11 @@ struct TipEntry
   int         weight;
 };
 const TipEntry kCustomTips[] = {
-  {"Did you know? You can customize zoom presets, hotkeys, and UI scale in the Guffawaffle STFC Mod settings file to suit your playstyle.", 15},
-  {"This unofficial downstream mod supports custom loading screens, transition backgrounds, and borderless fullscreen mode.", 10},
+  {"Did you know? You can customize zoom presets, hotkeys, and UI scale in the community mod settings file to suit your playstyle.", 15},
+  {"The community mod supports custom loading screens, transition backgrounds, and borderless fullscreen mode for a better experience.", 10},
   {"Press F11 at any time to toggle between borderless fullscreen and windowed mode without restarting the game or losing your session.", 15},
   {"Visit https://stfc.pro to track player rankings and stats across over 236,000 players and 114 servers in Star Trek Fleet Command.", 50},
-  {"Report downstream-build issues at https://github.com/Guffawaffle/stfc-mod/issues.", 10},
+  {"Join the community Discord server to report bugs, request new features, and stay up to date with the latest mod releases and updates.", 10},
 };
 
 constexpr size_t kNumCustomTips = std::size(kCustomTips);
@@ -37,7 +37,8 @@ constexpr int kPassThroughChance  = 50;
 
 std::string GetLoadingScreenTip()
 {
-  return runtime_identity::ShortRuntimeLabel();
+  return "Welcome to Star Trek Fleet Command, Supported by the Community Mod v"
+         VER_FILE_VERSION_STR VERSION_PATCH_STR "! Please check our discord for the latest information!";
 }
 
 void SetTMPText(void* tmpObj, const std::string& text)

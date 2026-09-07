@@ -8,7 +8,6 @@
 /build/
 *.code-workspace
 /.cache/
-__pycache__/
 compile_commands.json
 version.aps
 *.vars
@@ -19,32 +18,8 @@ debug.log
 .DS_Store
 /.localassets/*
 
-# Local security/privacy handoffs; not public docs.
-docs/HOTKEY_TRACE_PRIVACY_HANDOFF.md
-
 # Generated Info.plist files (generated from templates)
 **/Info.plist
 mods/.xmake
-
-# Project-local AXF workspace and generated manifests are repo-owned.
-!axf.workspace.json
-!manifests/
-!manifests/**
-
-# Public AX facade is tracked; the private AX repo stays local-only.
-!.ax/
-!.ax/**
-.ax/agent-worktrees/
-.ax-priv/
-
-# Local background-agent per-worktree briefs.
-.agent-worktree/
-
-# LexRunner local overlay and runtime artifacts.
-.smartergpt.local/
-.smartergpt/runner/
-
-# Windows launcher local build and package outputs.
-windows-launcher/**/bin/
-windows-launcher/**/obj/
-windows-launcher/artifacts/
+Analyse-GameAssembly.ps1
+assets/LoadingScreens/*.psd

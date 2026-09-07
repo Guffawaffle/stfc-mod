@@ -1,6 +1,7 @@
 #pragma once
 
 #include "HullSpec.h"
+
 #include <cstdint>
 #include <il2cpp/il2cpp_helper.h>
 
@@ -16,8 +17,8 @@ enum class DeployedFleetType {
 
 struct FleetDeployedData {
 public:
-  __declspec(property(get = __get_CurrentlyBattling)) bool      CurrentlyBattling;
-  __declspec(property(get = __get_CurrentState)) int            CurrentState;
+  __declspec(property(get = __get_CurrentlyBattling)) bool CurrentlyBattling;
+  __declspec(property(get = __get_CurrentState)) int       CurrentState;
   __declspec(property(get = __get_ID)) std::int64_t             ID;
   __declspec(property(get = __get_IsDestroyed)) bool            IsDestroyed;
   __declspec(property(get = __get_Hull)) HullSpec*              Hull;
@@ -49,8 +50,9 @@ public:
 
   std::int64_t __get_ID()
   {
-    static auto field = get_class_helper().GetProperty("ID");
-    return *field.Get<std::int64_t>(this);
+    static auto prop  = get_class_helper().GetProperty("ID");
+    auto*       value = prop.Get<std::int64_t>(this);
+    return value ? *value : 0;
   }
 
   bool __get_IsDestroyed()
@@ -68,8 +70,9 @@ public:
 
   DeployedFleetType __get_FleetType()
   {
-    static auto field = get_class_helper().GetProperty("FleetType");
-    return *field.Get<DeployedFleetType>(this);
+    static auto prop  = get_class_helper().GetProperty("FleetType");
+    auto*       value = prop.Get<DeployedFleetType>(this);
+    return value ? *value : DeployedFleetType::Nonexistent;
   }
 
   int __get_PreviousState()
@@ -77,5 +80,17 @@ public:
     static auto prop  = get_class_helper().GetProperty("PreviousState");
     auto*       value = prop.Get<int>(this);
     return value ? *value : -1;
+  }
+
+  bool TryGetFleetType(DeployedFleetType& fleet_type)
+  {
+    static auto property = get_class_helper().GetProperty("FleetType");
+    const auto* value    = property.Get<DeployedFleetType>(this);
+    if (value == nullptr) {
+      return false;
+    }
+
+    fleet_type = *value;
+    return true;
   }
 };

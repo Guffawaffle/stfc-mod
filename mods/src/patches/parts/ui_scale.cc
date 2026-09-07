@@ -1,26 +1,10 @@
-/**
- * @file ui_scale.cc
- * @brief DPI-aware UI scaling system.
- *
- * Hooks ScreenManager::UpdateCanvasRootScaleFactor and CanvasController::Show
- * to apply user-configured UI scale factors. Accounts for screen resolution,
- * DPI, and provides a separate scale override for the ObjectViewer canvas.
- *
- * Config keys:
- *  - ui_scale:        global canvas scale multiplier (0 = disabled)
- *  - adjust_scale_res: whether to adjust for resolution vs. 1080p reference
- *  - ui_scale_viewer: separate scale for the ObjectViewer canvas (0 = disabled)
- *  - allow_cursor:    on Windows, whether to allow the system cursor to change
- */
-
 #include "errormsg.h"
 #include <config.h>
-
-#include "patches/mod_impact_monitor.h"
 
 #include <il2cpp/il2cpp_helper.h>
 
 #include <prime/CanvasScaler.h>
+#include <prime/FleetMeshSelector.h>
 #include <prime/ScreenManager.h>
 #include <prime/Transform.h>
 
@@ -30,22 +14,75 @@
 #include <prime/Vector3.h>
 #include <str_utils.h>
 
-// ─── SPUD Hooks ─────────────────────────────────────────────────────────────
+namespace
+{
+float ShipScaleMultiplier()
+{
+  const auto multiplier = Config::Get().ui_scale_ship;
+  return multiplier > 0.0f ? multiplier : 1.0f;
+}
 
-/**
- * @brief Hook: ScreenManager::UpdateCanvasRootScaleFactor
- *
- * Intercepts the per-frame canvas scale update to apply a custom DPI-aware
- * scale factor.
- * Original method: recalculates and sets the root canvas scaler.
- * Our modification: overrides scaleFactor with (ui_scale * resolution_ratio * DPI),
- *                   clamped to [0.1, 5.0]. Also resets the Windows cursor to
- *                   arrow when allow_cursor is disabled.
- */
+Transform* GetGameObjectTransform(void* game_object)
+{
+  if (game_object == nullptr) {
+    return nullptr;
+  }
+
+  static auto game_object_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "GameObject");
+  if (!game_object_helper.isValidHelper()) {
+    return nullptr;
+  }
+
+  static auto transform_property = game_object_helper.GetProperty("transform");
+  if (!transform_property.isValidHelper()) {
+    return nullptr;
+  }
+
+  return reinterpret_cast<Transform*>(transform_property.GetRaw<Il2CppObject>(game_object));
+}
+} // namespace
+
+void ApplyUiShipScaleToLoadedShips(float old_multiplier, float new_multiplier)
+{
+  if (old_multiplier <= 0.0f || new_multiplier <= 0.0f) {
+    return;
+  }
+
+  const auto ratio = new_multiplier / old_multiplier;
+
+  for (auto* selector : ObjectFinder<FleetMeshSelector>::GetAll()) {
+    if (selector == nullptr) {
+      continue;
+    }
+
+    auto* transform = GetGameObjectTransform(selector->LoadedObject());
+    if (transform == nullptr) {
+      continue;
+    }
+
+    auto* local_scale = transform->localScale;
+    if (local_scale == nullptr) {
+      continue;
+    }
+
+    Vector3 adjusted_scale{local_scale->x * ratio, local_scale->y * ratio, local_scale->z * ratio};
+    transform->localScale = &adjusted_scale;
+  }
+}
+
+bool SystemViewShip_TryGetShipAssetBundleResource_Hook(auto original, void* _this, float* scale,
+                                                       void** asset_bundle_resource)
+{
+  const auto result = original(_this, scale, asset_bundle_resource);
+  if (result && scale != nullptr) {
+    *scale *= ShipScaleMultiplier();
+  }
+  return result;
+}
+
 void ScreenManager_UpdateCanvasRootScaleFactor_Hook(auto original, ScreenManager* _this)
 {
-  ScopedModImpactTimer impact_timer(ModImpactProbe::UiScaleUpdate, ModImpactMonitorEnabled());
-  impact_timer.ExcludeCall([&] { original(_this); });
+  original(_this);
 
   #if _WIN32
   static auto cursor = LoadCursor(NULL, IDC_ARROW);
@@ -54,7 +91,7 @@ void ScreenManager_UpdateCanvasRootScaleFactor_Hook(auto original, ScreenManager
   }
   #endif
 
-  if (_this && _this->m_canvasRootScaler && Config::Get().ui_scale != 0.0f) {
+  if (Config::Get().ui_scale != 0.0f) {
     static auto get_height_method = il2cpp_resolve_icall_typed<int()>("UnityEngine.Screen::get_height()");
     static auto get_width_method  = il2cpp_resolve_icall_typed<int()>("UnityEngine.Screen::get_width()");
 
@@ -81,24 +118,18 @@ void ScreenManager_UpdateCanvasRootScaleFactor_Hook(auto original, ScreenManager
   }
 }
 
-/**
- * @brief Hook: CanvasController::Show(int, bool)
- *
- * Intercepts canvas display to apply a separate scale for the ObjectViewer.
- * Original method: shows a UI canvas with the given entry point.
- * Our modification: sets localScale on the ObjectViewerTemplate_Canvas
- *                   transform when ui_scale_viewer is configured.
- */
 void CanvasController_Show(auto original, CanvasController* _this, int desiredEntryPoint, bool instant)
 {
   const auto ui_scale_viewer = Config::Get().ui_scale_viewer;
   if (_this && ui_scale_viewer != 0.0f && to_wstring(_this->name) == L"ObjectViewerTemplate_Canvas") {
-    auto transform        = _this->transform;
-    if (!transform || !transform->localScale) {
+    auto transform = _this->transform;
+    if (transform == nullptr) {
       return original(_this, desiredEntryPoint, instant);
     }
-
-    auto localScale       = transform->localScale;
+    auto localScale = transform->localScale;
+    if (localScale == nullptr) {
+      return original(_this, desiredEntryPoint, instant);
+    }
     localScale->x         = ui_scale_viewer;
     localScale->y         = ui_scale_viewer;
     localScale->z         = ui_scale_viewer;
@@ -107,11 +138,19 @@ void CanvasController_Show(auto original, CanvasController* _this, int desiredEn
   return original(_this, desiredEntryPoint, instant);
 }
 
-// ─── Hook Installation ──────────────────────────────────────────────────────
-
-/** @brief Resolves IL2CPP methods and installs UI scaling hooks; refreshes DPI on startup. */
 void InstallUiScaleHooks()
 {
+  auto system_view_ship =
+      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "SystemViewShip");
+  if (!system_view_ship.isValidHelper()) {
+    ErrorMsg::MissingHelper("Navigation", "SystemViewShip");
+  } else if (auto try_get_ship_asset = system_view_ship.GetMethod("TryGetShipAssetBundleResource", 2);
+             try_get_ship_asset == nullptr) {
+    ErrorMsg::MissingMethod("SystemViewShip", "TryGetShipAssetBundleResource");
+  } else {
+    SPUD_STATIC_DETOUR(try_get_ship_asset, SystemViewShip_TryGetShipAssetBundleResource_Hook);
+  }
+
   auto screen_manager_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "ScreenManager");
   if (!screen_manager_helper.isValidHelper()) {
     ErrorMsg::MissingHelper("UI", "ScreenManager");

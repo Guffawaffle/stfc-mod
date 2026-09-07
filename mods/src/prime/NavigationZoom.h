@@ -1,12 +1,3 @@
-/**
- * @file NavigationZoom.h
- * @brief Camera zoom state for in-space navigation.
- *
- * Mirrors Digit.Prime.Navigation.NavigationZoom and the NodeDepth enum.
- * Exposes zoom distance, min/max bounds, view radius, and the scene
- * camera reference. Used by mods that alter zoom behaviour (e.g. extended
- * zoom range).
- */
 #pragma once
 
 #include <il2cpp/il2cpp_helper.h>
@@ -16,8 +7,8 @@
 
 #include "Camera.h"
 #include "NavigationPan.h"
+#include "ZoomLevels.h"
 
-/** @brief Depth level of the current navigation view. Bit-flag style values. */
 enum class NodeDepth {
   Galaxy       = 1,
   SolarSystem  = 2,
@@ -25,14 +16,6 @@ enum class NodeDepth {
   Starbase     = 8,
 };
 
-/**
- * @brief Camera zoom controller for the navigation scene.
- *
- * Provides read/write access to zoom distance, delta, min/max bounds,
- * view radius, stored zoom ratios, and the scene camera. Also exposes
- * SetViewParameters() and ZoomCameraAtWorldPoint() for programmatic
- * zoom changes.
- */
 struct NavigationZoom {
 public:
   void SetViewParameters(float radius, NodeDepth depth)
@@ -60,6 +43,8 @@ public:
   __declspec(property(get = __get__zoomtotal, put = __set__zoomtotal)) float _zoomtotal;
   __declspec(property(get = __get__minimum, put = __set__minimum)) float _minimum;
   __declspec(property(get = __get__maximum, put = __set__maximum)) float _maximum;
+  __declspec(property(get = __get__zoomLevel)) ZoomLevels _zoomLevel;
+  __declspec(property(get = __get_NormalizedZoom)) float NormalizedZoom;
   __declspec(property(get = __get__zoomDelta, put = __set__zoomDelta)) float _zoomDelta;
   __declspec(property(get = __get__viewRadius, put = __set__viewRadius)) float _viewRadius;
   __declspec(property(get = __get__lastZoomDelta, put = __set__lastZoomDelta)) float _lastZoomDelta;
@@ -89,7 +74,7 @@ public:
   void __set_Distance(float depth)
   {
     static auto field = get_class_helper().GetProperty("Distance");
-    return field.SetRaw(this, depth);
+    field.SetRaw(this, depth);
   }
 
   NodeDepth __get__depth()
@@ -150,6 +135,18 @@ public:
   {
     static auto field                           = get_class_helper().GetField("_maximum");
     *(float*)((ptrdiff_t)this + field.offset()) = delta;
+  }
+
+  ZoomLevels __get__zoomLevel()
+  {
+    static auto field = get_class_helper().GetField("_zoomLevel");
+    return *(ZoomLevels*)((ptrdiff_t)this + field.offset());
+  }
+
+  float __get_NormalizedZoom()
+  {
+    static auto field = get_class_helper().GetProperty("NormalizedZoom");
+    return *field.Get<float>(this);
   }
 
   float __get__actualDistance()

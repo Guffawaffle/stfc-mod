@@ -4,6 +4,7 @@
 #include "Widget.h"
 
 struct InventoryUseRowWidget : public Widget<InventoryForPopup, InventoryUseRowWidget> {
+public:
   static IL2CppClassHelper& get_class_helper()
   {
     static auto class_helper =

@@ -14,6 +14,9 @@ static bool   g_spriteApplied   = false;
 static void*  g_bgImageComp     = nullptr;
 static void*  g_bgRectTransform = nullptr;
 static void*  g_bgOverlayGO     = nullptr;
+static void*  g_logoGO          = nullptr;
+static void*  g_ccLogoGO        = nullptr;
+static void*  g_canvasAnimator  = nullptr;
 
 // Called from PrepareAllForReload to null stale pointers before reload.
 // The Canvas/TVC hierarchy holding our overlays is replaced during
@@ -25,6 +28,9 @@ void ResetTransitionScreenState()
   g_bgImageComp     = nullptr;
   g_bgRectTransform = nullptr;
   g_bgOverlayGO     = nullptr;
+  g_logoGO          = nullptr;
+  g_ccLogoGO        = nullptr;
+  g_canvasAnimator  = nullptr;
   ResetLoadingScreenState();
   ResetLoadingTipState();
 }
@@ -107,31 +113,51 @@ static void ApplyTransitionCustomization(void* _this)
       g_bgRectTransform = rt;
     }
 
-    // Determine the transform used for an optional custom background.
-    void* backgroundParent = g_bgRectTransform;
-    if (!backgroundParent && g_bgImageComp) {
+    // Determine logo parent transform
+    void* logoParent = g_bgRectTransform;
+    if (!logoParent && g_bgImageComp) {
       static auto comp_h    = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Component");
       static auto fn_get_tr = comp_h.GetMethod("get_transform");
       if (fn_get_tr)
-        backgroundParent = reinterpret_cast<void* (*)(void*)>(fn_get_tr)(g_bgImageComp);
+        logoParent = reinterpret_cast<void* (*)(void*)>(fn_get_tr)(g_bgImageComp);
+    }
+
+    if (!g_canvasAnimator) {
+      static auto tv_h = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.LoadingScreen", "TransitionViewController");
+      static auto fn_animField = tv_h.GetField("_animator");
+      static auto behav_h      = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Behaviour");
+      static auto fn_setEn     = behav_h.GetMethodInfo("set_enabled");
+      if (fn_animField.isValidHelper() && fn_setEn) {
+        void* anim = *reinterpret_cast<void**>((char*)_this + fn_animField.offset());
+        if (anim) {
+          bool  off     = false;
+          void* args[1] = {&off};
+          ls::InvokeVoid(fn_setEn, anim, args, "canvasAnimator.set_enabled(false)");
+          g_canvasAnimator = anim;
+        }
+      }
     }
 
     if (cfg.loader_transition_black) {
+      if (logoParent) {
+        ls::CreateLogoOverlay(logoParent, g_logoGO);
+        ls::CreateCCLogoOverlay(logoParent, g_ccLogoGO);
+      }
       g_spriteApplied = true;
       return;
     }
 
 #ifndef _USE_ORIGINAL_BG
     {
-      if (backgroundParent && !g_bgOverlayGO) {
+      if (logoParent && !g_bgOverlayGO) {
         auto* asset = ls::GetLoadingAsset();
-        if (asset) g_bgOverlayGO = ls::CreateBGOverlay(backgroundParent, *asset);
+        if (asset) g_bgOverlayGO = ls::CreateBGOverlay(logoParent, *asset);
       }
 
       // Preserve the game's background unless the custom replacement is fully
       // constructed and attached. This keeps failures visible but harmless.
       if (!g_bgOverlayGO) {
-        spdlog::debug("[LS] no custom transition background; preserving game background");
+        spdlog::warn("[LS] custom transition background unavailable; preserving game background");
         return;
       }
 
@@ -156,6 +182,11 @@ static void ApplyTransitionCustomization(void* _this)
 
     }
 #endif
+
+    if (logoParent) {
+      ls::CreateLogoOverlay(logoParent, g_logoGO);
+      ls::CreateCCLogoOverlay(logoParent, g_ccLogoGO);
+    }
 
     {
       static auto mb_hR  = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "MonoBehaviour");
@@ -218,6 +249,9 @@ static void TVC_Awake_Hook(auto original, void* _this)
     g_bgImageComp     = nullptr;
     g_bgRectTransform = nullptr;
     g_bgOverlayGO     = nullptr;
+    g_logoGO          = nullptr;
+    g_ccLogoGO        = nullptr;
+    g_canvasAnimator  = nullptr;
 
     ApplyTransitionCustomization(_this);
   } catch (...) {}
@@ -233,13 +267,31 @@ static void TVC_AboutToShow_Hook(auto original, void* _this)
   } catch (...) {}
 }
 
+static void TVC_AboutToHide_Hook(auto original, void* _this)
+{
+  try {
+    if (Config::Get().loader_transition && g_canvasAnimator) {
+      // Re-enable canvas animator so the hide animation plays
+      static auto behav_h  = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Behaviour");
+      static auto fn_setEn = behav_h.GetMethodInfo("set_enabled");
+      if (fn_setEn) {
+        bool  on      = true;
+        void* args[1] = {&on};
+        ls::InvokeVoid(fn_setEn, g_canvasAnimator, args, "canvasAnimator.set_enabled(true)");
+      }
+    }
+  } catch (...) {}
+
+  original(_this);
+}
+
 static void SlideShowViewer_ShowCurrentSlide_Hook(auto original, void* _this)
 {
   original(_this);
 
   try {
     const auto& cfg = Config::Get();
-    if (!cfg.loader_transition || cfg.loader_transition_black || !g_bgOverlayGO) return;
+    if (!cfg.loader_transition || cfg.loader_transition_black) return;
 
     static auto h  = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.SlideShow", "SlideShowViewController");
     static auto fi = h.GetField("_image");
@@ -279,6 +331,13 @@ void InstallTransitionScreenHooks()
     SPUD_STATIC_DETOUR(m, TVC_AboutToShow_Hook);
   } else {
     ErrorMsg::MissingMethod("TransitionViewController", "AboutToShow");
+    ok = false;
+  }
+
+  if (auto m = tv_h.GetMethod("AboutToHide")) {
+    SPUD_STATIC_DETOUR(m, TVC_AboutToHide_Hook);
+  } else {
+    ErrorMsg::MissingMethod("TransitionViewController", "AboutToHide");
     ok = false;
   }
 

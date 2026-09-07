@@ -1,25 +1,7 @@
-/**
- * @file key.cc
- * @brief Implementation of per-frame key state caching and key name parsing.
- *
- * All engine queries (GetKeyInt / GetKeyDownInt) are resolved once via
- * il2cpp_resolve_icall and cached per-frame in tri-state arrays so repeat
- * queries within the same frame are effectively free.
- */
 #include "key.h"
 #include "prime/EventSystem.h"
 #include "str_utils.h"
 #include <prime/TMP_InputField.h>
-
-#ifdef _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <Windows.h>
-#endif
 
 #include <string>
 #include <string_view>
@@ -27,57 +9,27 @@
 
 int Key::cacheInputFocused  = 0;
 int Key::cacheInputModified = 0;
+int Key::cacheFrame         = -1;
 
-std::array<int, (int)KeyCode::Max> Key::cacheKeyPressed = {};
-std::array<int, (int)KeyCode::Max> Key::cacheKeyDown    = {};
+std::array<int, (int)KeyCode::Max>  Key::cacheKeyPressed         = {};
+std::array<int, (int)KeyCode::Max>  Key::cacheKeyDown            = {};
+std::array<bool, (int)KeyCode::Max> Key::claimedDirectionalInput = {};
 
 namespace
 {
-#ifdef _WIN32
-bool WindowsModifierPressed(const KeyCode key)
+constexpr std::array directionalKeys = {
+    KeyCode::LeftArrow,
+    KeyCode::RightArrow,
+    KeyCode::UpArrow,
+    KeyCode::DownArrow,
+};
+
+int CurrentInputFrame()
 {
-  const auto pressed = [](const int virtual_key) { return (GetAsyncKeyState(virtual_key) & 0x8000) != 0; };
-
-  switch (key) {
-    case KeyCode::LeftShift:
-      return pressed(VK_LSHIFT);
-    case KeyCode::RightShift:
-      return pressed(VK_RSHIFT);
-    case KeyCode::LeftControl:
-      return pressed(VK_LCONTROL);
-    case KeyCode::RightControl:
-      return pressed(VK_RCONTROL);
-    case KeyCode::LeftAlt:
-      return pressed(VK_LMENU);
-    case KeyCode::RightAlt:
-      return pressed(VK_RMENU);
-    default:
-      return false;
-  }
+  static auto GetFrameCount = il2cpp_resolve_icall_typed<int()>("UnityEngine.Time::get_frameCount()");
+  return GetFrameCount();
 }
-#else
-bool WindowsModifierPressed(const KeyCode)
-{ return false; }
-#endif
-
-bool IsTrackedInputFocused()
-{
-  for (auto* input_field : ObjectFinder<TMP_InputField>::GetAllNonNull()) {
-    try {
-      if (input_field->isFocused) {
-        return true;
-      }
-    } catch (...) {
-    }
-  }
-
-  return false;
 }
-} // namespace
-
-// ─── Name → KeyCode Lookup Table ─────────────────────────────────────────────
-// Maps user-facing key name strings (from TOML config) to Unity KeyCode values.
-// All names are compared after upper-casing the input (see Parse()).
 
 const std::unordered_map<std::string, KeyCode> Key::mappedKeys = {
     {"LALT", KeyCode::LeftAlt},
@@ -124,7 +76,6 @@ const std::unordered_map<std::string, KeyCode> Key::mappedKeys = {
     {"MOUSE5", KeyCode::Mouse5},
     {"MOUSE6", KeyCode::Mouse6},
     {"SPACE", KeyCode::Space},
-    {"-", KeyCode::Minus},
     {"MINUS", KeyCode::Minus},
     {"_", KeyCode::Underscore},
     {",", KeyCode::Comma},
@@ -151,7 +102,6 @@ const std::unordered_map<std::string, KeyCode> Key::mappedKeys = {
     {"`", KeyCode::BackQuote},
     {"^", KeyCode::Caret},
     {"+", KeyCode::Plus},
-    {"PLUS", KeyCode::Plus},
     {"<", KeyCode::Less},
     {"=", KeyCode::Equals},
     {">", KeyCode::Greater},
@@ -229,8 +179,6 @@ const std::unordered_map<std::string, KeyCode> Key::mappedKeys = {
     {"KEYPLUS", KeyCode::KeypadPlus},
 };
 
-// ─── Parsing & Classification ────────────────────────────────────────────────
-
 KeyCode Key::Parse(std::string_view key)
 {
   auto wantedKey = AsciiStrToUpper(key);
@@ -263,8 +211,45 @@ bool Key::IsModifier(KeyCode key)
   }
 }
 
+void Key::ClaimDirectionalInput(KeyCode key)
+{
+  switch (key) {
+    case KeyCode::LeftArrow:
+    case KeyCode::RightArrow:
+    case KeyCode::UpArrow:
+    case KeyCode::DownArrow:
+      claimedDirectionalInput[(int)key] = true;
+      break;
+    default:
+      break;
+  }
+}
+
+bool Key::IsDirectionalInputClaimed()
+{
+  EnsureCurrentFrame();
+
+  auto claimed = false;
+  for (const auto key : directionalKeys) {
+    auto& directionClaimed = claimedDirectionalInput[(int)key];
+    if (!directionClaimed) {
+      continue;
+    }
+
+    if (Pressed(key)) {
+      claimed = true;
+    } else {
+      directionClaimed = false;
+    }
+  }
+
+  return claimed;
+}
+
 bool Key::IsModified()
 {
+  EnsureCurrentFrame();
+
   if (cacheInputModified == 0) {
     cacheInputModified = -1;
     if (Key::Pressed(KeyCode::LeftAlt) || Key::Pressed(KeyCode::LeftControl) || Key::Pressed(KeyCode::LeftShift)
@@ -278,21 +263,37 @@ bool Key::IsModified()
   return cacheInputModified == 1;
 }
 
-// ─── Per-frame Cache Management ──────────────────────────────────────────────
-
 void Key::ResetCache()
 {
+  Key::cacheFrame          = CurrentInputFrame();
   Key::cacheInputFocused  = 0;
   Key::cacheInputModified = 0;
   for (int i = 0; i < (int)KeyCode::Max; i++) {
     Key::cacheKeyDown[i]    = 0;
     Key::cacheKeyPressed[i] = 0;
   }
+
+  // Direction claims span frames while their key is held so one-shot chords cannot leak into native movement.
+  // Prune them here as well as at the consumer so claims cannot survive a scene without NavigationPan.
+  for (const auto key : directionalKeys) {
+    auto& directionClaimed = claimedDirectionalInput[(int)key];
+    if (directionClaimed && !Pressed(key)) {
+      directionClaimed = false;
+    }
+  }
 }
-// ─── Engine Key Queries (cached) ─────────────────────────────────────────────
+
+void Key::EnsureCurrentFrame()
+{
+  if (cacheFrame != CurrentInputFrame()) {
+    ResetCache();
+  }
+}
 
 bool Key::Down(KeyCode key)
 {
+  EnsureCurrentFrame();
+
   static auto GetKeyDownInt =
       il2cpp_resolve_icall_typed<bool(KeyCode)>("UnityEngine.Input::GetKeyDownInt(UnityEngine.KeyCode)");
 
@@ -305,20 +306,22 @@ bool Key::Down(KeyCode key)
 
 bool Key::Pressed(KeyCode key)
 {
+  EnsureCurrentFrame();
+
   static auto GetKeyInt =
       il2cpp_resolve_icall_typed<bool(KeyCode)>("UnityEngine.Input::GetKeyInt(UnityEngine.KeyCode)");
 
   if (cacheKeyPressed[(int)key] == 0) {
-    cacheKeyPressed[(int)key] = (GetKeyInt(key) || WindowsModifierPressed(key)) ? 1 : -1;
+    cacheKeyPressed[(int)key] = GetKeyInt(key) ? 1 : -1;
   }
 
   return cacheKeyPressed[(int)key] == 1;
 }
 
-// ─── Input Focus Detection ───────────────────────────────────────────────────
-
 bool Key::IsInputFocused()
 {
+  EnsureCurrentFrame();
+
   if (cacheInputFocused == 0) {
     cacheInputFocused = -1;
 
@@ -335,25 +338,25 @@ bool Key::IsInputFocused()
       } catch (...) {
       }
     }
-
-    if (cacheInputFocused != 1 && IsTrackedInputFocused()) {
-      cacheInputFocused = 1;
-    }
   }
 
   return cacheInputFocused == 1;
 }
 
-// ─── Convenience Modifier Helpers ────────────────────────────────────────────
-
 bool Key::HasShift()
-{ return Key::Pressed(KeyCode::LeftShift) || Key::Pressed(KeyCode::RightShift); }
+{
+  return Key::Pressed(KeyCode::LeftShift) || Key::Pressed(KeyCode::RightShift);
+}
 
 bool Key::HasAlt()
-{ return Key::Pressed(KeyCode::LeftAlt) || Key::Pressed(KeyCode::RightAlt); }
+{
+  return Key::Pressed(KeyCode::LeftAlt) || Key::Pressed(KeyCode::RightAlt);
+}
 
 bool Key::HasCtrl()
-{ return Key::Pressed(KeyCode::LeftControl) || Key::Pressed(KeyCode::RightControl); }
+{
+  return Key::Pressed(KeyCode::LeftControl) || Key::Pressed(KeyCode::RightControl);
+}
 
 void Key::ClearInputFocus()
 {

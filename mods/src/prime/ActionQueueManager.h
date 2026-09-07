@@ -6,8 +6,6 @@
 #include "MonoSingleton.h"
 #include "errormsg.h"
 
-#include <cstdint>
-
 struct ActionQueueManager : MonoSingleton<ActionQueueManager> {
   friend struct MonoSingleton<ActionQueueManager>;
 
@@ -41,53 +39,6 @@ public:
     return false;
   }
 
-  int GetActionQueueCount(FleetPlayerData* playerData)
-  {
-    static auto GetActionQueueCountMethod =
-        get_class_helper().GetMethod<int(ActionQueueManager*, FleetPlayerData*)>("GetActionQueueCount");
-    static auto GetActionQueueCountWarn = true;
-
-    if (GetActionQueueCountMethod) {
-      return GetActionQueueCountMethod(this, playerData);
-    } else if (GetActionQueueCountWarn) {
-      GetActionQueueCountWarn = false;
-      ErrorMsg::MissingMethod("ActionQueueManager", "GetActionQueueCount");
-    }
-
-    return -1;
-  }
-
-  int GetMaxQueueable()
-  {
-    static auto GetMaxQueueableMethod = get_class_helper().GetMethod<int(ActionQueueManager*)>("GetMaxQueueable");
-    static auto GetMaxQueueableWarn   = true;
-
-    if (GetMaxQueueableMethod) {
-      return GetMaxQueueableMethod(this);
-    } else if (GetMaxQueueableWarn) {
-      GetMaxQueueableWarn = false;
-      ErrorMsg::MissingMethod("ActionQueueManager", "GetMaxQueueable");
-    }
-
-    return -1;
-  }
-
-  bool AnyPlayerFleetInQueue()
-  {
-    static auto AnyPlayerFleetInQueueMethod =
-        get_class_helper().GetMethod<bool(ActionQueueManager*)>("AnyPlayerFleetInQueue");
-    static auto AnyPlayerFleetInQueueWarn = true;
-
-    if (AnyPlayerFleetInQueueMethod) {
-      return AnyPlayerFleetInQueueMethod(this);
-    } else if (AnyPlayerFleetInQueueWarn) {
-      AnyPlayerFleetInQueueWarn = false;
-      ErrorMsg::MissingMethod("ActionQueueManager", "AnyPlayerFleetInQueue");
-    }
-
-    return false;
-  }
-
   bool IsFleetInQueue(FleetPlayerData* playerData)
   {
     static auto IsFleetInQueueMethod =
@@ -98,7 +49,7 @@ public:
       return IsFleetInQueueMethod(this, playerData);
     } else if (IsFleetInQueueWarn) {
       IsFleetInQueueWarn = false;
-      ErrorMsg::MissingMethod("ActionQueueManager", "IFleetInQueue");
+      ErrorMsg::MissingMethod("ActionQueueManager", "IsFleetInQueue");
     }
 
     return false;
@@ -118,22 +69,6 @@ public:
     return false;
   }
 
-  int GetActionQueueState(FleetPlayerData* playerData, int* reason)
-  {
-    static auto GetActionQueueStateMethod =
-        get_class_helper().GetMethod<int(ActionQueueManager*, FleetPlayerData*, int*)>("GetActionQueueState");
-    static auto GetActionQueueStateWarn = true;
-
-    if (GetActionQueueStateMethod) {
-      return GetActionQueueStateMethod(this, playerData, reason);
-    } else if (GetActionQueueStateWarn) {
-      GetActionQueueStateWarn = false;
-      ErrorMsg::MissingMethod("ActionQueueManager", "GetActionQueueState");
-    }
-
-    return -1;
-  }
-
   bool CanAddToQueue(FleetPlayerData* playerData)
   {
     if (IsQueueUnlocked()) {
@@ -145,10 +80,9 @@ public:
     return false;
   }
 
-  void AddToQueue(std::int64_t targetId)
+  void AddToQueue(long targetId)
   {
-    static auto AddToQueueMethod =
-        get_class_helper().GetMethod<void(ActionQueueManager*, std::int64_t)>("AddActionToQueue");
+    static auto AddToQueueMethod = get_class_helper().GetMethod<void(ActionQueueManager*, long)>("AddActionToQueue");
     static auto AddToQueueWarn   = true;
 
     if (AddToQueueMethod != nullptr) {

@@ -4,8 +4,13 @@
 
 namespace ls = ls_common;
 
+static void* g_loginLogoGO    = nullptr;
+static void* g_loginCCLogoGO  = nullptr;
+
 void ResetLoadingScreenState()
 {
+  g_loginLogoGO   = nullptr;
+  g_loginCCLogoGO = nullptr;
 }
 
 static void* FindLoginBGImage(void* transform, int depth, int maxDepth,
@@ -83,6 +88,11 @@ static void LS_LoginSequence_Awake_Hook(auto original, void* _this)
     ls::ApplySpriteToImage(bgImg, *asset);
 #endif
 
+    void* bgImgTr = reinterpret_cast<void* (*)(void*)>(fn_ct)(bgImg);
+    if (bgImgTr) {
+      ls::CreateLogoOverlay(bgImgTr, g_loginLogoGO);
+      ls::CreateCCLogoOverlay(bgImgTr, g_loginCCLogoGO);
+    }
   } catch (...) {}
 }
 

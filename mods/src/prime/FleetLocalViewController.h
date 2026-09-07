@@ -3,7 +3,6 @@
 #include <il2cpp/il2cpp_helper.h>
 
 #include "ActionData.h"
-#include "errormsg.h"
 #include "FleetPlayerData.h"
 #include "ShipBarItemLocalViewController.h"
 
@@ -21,7 +20,7 @@ public:
       CancelButtonMethod(this);
     } else if (CancelButtonWarn) {
       CancelButtonWarn = false;
-      ErrorMsg::MissingMethod("FLeetLocalViewController", "CancelButtonClicked");
+      ErrorMsg::MissingMethod("FleetLocalViewController", "CancelButtonClicked");
     }
   }
 
@@ -68,7 +67,6 @@ public:
   ShipBarItemLocalViewController* __get__shipBarItemLocalViewController()
   {
     static auto field = get_class_helper().GetField("_shipBarItemLocalViewController");
-    if (!field.isValidHelper()) return nullptr;
     return *(ShipBarItemLocalViewController**)((ptrdiff_t)this + field.offset());
   }
 };

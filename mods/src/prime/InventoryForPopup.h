@@ -34,15 +34,14 @@ public:
 
   bool __get_IsDonationUse()
   {
-    static auto property = get_class_helper().GetProperty("IsDonationUse");
-    const auto* value    = property.Get<bool>(this);
-    return value ? *value : false;
+    static auto field = get_class_helper().GetProperty("IsDonationUse");
+    return field.GetRaw(this);
   }
 
-  void __set_IsDonationUse(bool value)
+  void __set_IsDonationUse(float v)
   {
-    static auto property = get_class_helper().GetProperty("IsDonationUse");
-    property.SetRaw(this, value);
+    static auto field = get_class_helper().GetProperty("IsDonationUse");
+    return field.SetRaw(this, v);
   }
 
   bool __get_IsChestPurchase()

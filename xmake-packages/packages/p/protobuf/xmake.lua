@@ -88,3 +88,4 @@ on_install(function (package)
 
     import("package.tools.cmake").install(package, configs, opt)
 end)
+

@@ -1,26 +1,30 @@
-/**
- * @file GameObject.h
- * @brief Unity GameObject wrapper.
- *
- * Mirrors UnityEngine.GameObject. Provides typed GetComponent() calls
- * (both reflection-invoke and direct-pointer variants), and access to
- * the activeInHierarchy flag and scene reference.
- */
 #pragma once
 
-/**
- * @brief Wrapper for Unity's GameObject, the fundamental scene-graph node.
- *
- * GetComponentFastPath() and GetComponentFastPath2() resolve a component
- * by its System.Type, matching Unity's generic GetComponent<T>() from C#.
- * The "2" variant uses il2cpp_runtime_invoke while the primary variant
- * calls the native method pointer directly.
- */
+#include "str_utils.h"
+
+#include <il2cpp/il2cpp_helper.h>
+
+#include <string>
+
 struct GameObject {
 public:
-  __declspec(property(get = __get_name)) Il2CppString* name;
   __declspec(property(get = __get_activeInHierarchy)) bool activeInHierarchy;
   __declspec(property(get = __get_scene)) void* scene;
+
+  std::string Name()
+  {
+    static auto field = get_class_helper().GetParent("Object").GetProperty("name");
+    auto        str   = field.GetRaw<Il2CppString>(this);
+    return str != nullptr ? to_string(str) : std::string{};
+  }
+
+  void SetActive(bool active)
+  {
+    static auto method = get_class_helper().GetMethod<void(GameObject*, bool)>("SetActive");
+    if (method != nullptr) {
+      method(this, active);
+    }
+  }
 
   template <typename T> T* GetComponentFastPath2()
   {
@@ -75,12 +79,6 @@ private:
   }
 
 public:
-  Il2CppString* __get_name()
-  {
-    static auto field = get_class_helper().GetProperty("name");
-    return field.GetRaw<Il2CppString>(this);
-  }
-
   bool __get_activeInHierarchy()
   {
     static auto field = get_class_helper().GetProperty("activeInHierarchy");

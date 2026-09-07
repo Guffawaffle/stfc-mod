@@ -7,8 +7,8 @@
 
 struct OfficerAssignmentViewController {
 public:
-  __declspec(property(get = __get__inputField)) InputFieldWidget*      _inputField;
-  __declspec(property(get = __get_isActiveAndEnabled)) bool            isActiveAndEnabled;
+  __declspec(property(get = __get__inputField)) InputFieldWidget* _inputField;
+  __declspec(property(get = __get_isActiveAndEnabled)) bool        isActiveAndEnabled;
   __declspec(property(get = __get_canvasController)) CanvasController* canvasController;
 
 private:
@@ -24,16 +24,18 @@ public:
 
   InputFieldWidget* __get__inputField()
   {
-    static auto offset = get_class_helper().GetField("_inputField").offset();
-    return *reinterpret_cast<InputFieldWidget**>(reinterpret_cast<uintptr_t>(this) + offset);
+    static auto field = get_class_helper().GetField("_inputField").offset();
+    return *(InputFieldWidget**)((uintptr_t)this + field);
   }
 
   bool __get_isActiveAndEnabled()
   {
-    static auto property = get_class_helper().GetProperty("isActiveAndEnabled");
-    return property.Get<bool>(this);
+    static auto field = get_class_helper().GetProperty("isActiveAndEnabled");
+    return field.Get<bool>(this);
   }
 
   CanvasController* __get_canvasController()
-  { return GetCanvasControllerFromComponent(this); }
+  {
+    return GetCanvasControllerFromComponent(this);
+  }
 };
