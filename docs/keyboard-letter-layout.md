@@ -18,8 +18,11 @@ to recover original behavior if the runtime API is unavailable.
 ## Implementation and provenance
 
 `MapKey` preserves configured keys/text and resolves a letter just before querying
-the existing physical `Key` cache. A single per-frame check reads Unity's current
-keyboard and layout. The 26-letter table is rebuilt only when either changes.
+the existing physical `Key` cache. A per-frame check reads Unity's current keyboard.
+On Windows x64, device notifications invalidate the layout cache, including when
+the layout name stays the same. Other platforms retain per-frame layout-name
+polling. The 26-letter table is rebuilt on invalidation or keyboard/layout change.
+See [refresh implementation](KEYBOARD_LAYOUT_REFRESH.md) for lifetime and fallback details.
 Physical mode does not resolve Unity layout methods or poll keyboard layout state.
 There are no new detours, native offsets, OS layout changes, input injection, or
 key-event logging. A transition frame is suppressed; held resolved positions must
@@ -34,7 +37,7 @@ legacy physical key reporting, including across a game restart. That evidence
 does not constitute macOS or every-layout runtime validation.
 
 The generated vars file preserves `[shortcuts]` and `[shortcuts_source]`.
-`[keyboard_mapping]` reports mode, provider, layout, status, generation, reason,
+`[keyboard_mapping]` reports mode, provider, refresh mechanism, layout, status, generation, reason,
 scope and the US-reference position convention. `[shortcuts_resolved]` records
 each parsed alternative with its configured chord (including modifiers), letter,
 physical US-reference key, layout display name, legacy code and resolution status.

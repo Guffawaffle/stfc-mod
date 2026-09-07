@@ -1,4 +1,5 @@
 #include "patches/keyboard_layout_mapping.h"
+#include "patches/keyboard_layout_refresh.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -76,6 +77,41 @@ int main()
   state.BeginFrame(released);
   Check(state.Resolve(KeyCode::A) == KeyCode::None && state.Resolve(KeyCode::Z) == KeyCode::None,
         "device loss invalidates old mapping");
+
+  RefreshState refresh;
+  auto tick = refresh.Begin(10);
+  Check(tick.new_frame && tick.invalidated && tick.CheckKeyboard(), "initial lookup required");
+  tick = refresh.Begin(10);
+  Check(!tick.new_frame && !tick.invalidated && !tick.CheckKeyboard(), "repeat query uses cache");
+  tick = refresh.Begin(11);
+  Check(tick.new_frame && !tick.invalidated && tick.CheckKeyboard(), "new frame still checks current keyboard");
+  state.Replace(us, released);
+  state.BeginFrame(released);
+  refresh.Invalidate();
+  refresh.Invalidate();
+  tick = refresh.Begin(11);
+  Check(!tick.new_frame && tick.invalidated && tick.CheckKeyboard(), "same-frame notifications coalesce but refresh");
+  if (tick.new_frame)
+    state.BeginFrame(holding_y);
+  state.Replace(de, holding_y);
+  tick = refresh.Begin(11);
+  if (tick.new_frame)
+    state.BeginFrame(holding_y);
+  Check(!tick.CheckKeyboard() && state.Resolve(KeyCode::Y) == KeyCode::None,
+        "another same-frame query cannot clear transition suppression");
+  refresh.Invalidate(); // A notification during the preceding lookup must survive it.
+  tick = refresh.Begin(11);
+  Check(tick.invalidated && !tick.new_frame, "notification during refresh is not lost");
+  state.Replace(de, holding_y); // Same-name/same-map notifications still rebuild.
+  tick = refresh.Begin(12);
+  if (tick.new_frame)
+    state.BeginFrame(holding_y);
+  Check(state.Resolve(KeyCode::Y) == KeyCode::Z && state.Resolve(KeyCode::Z) == KeyCode::None,
+        "next frame clears transition but preserves held key after notification");
+  tick = refresh.Begin(13);
+  if (tick.new_frame)
+    state.BeginFrame(released);
+  Check(state.Resolve(KeyCode::Z) == KeyCode::Y, "release recovers mapping after notification");
   std::cout
-      << "PASS: enum conversion, US/DE/FR, transitions, held-key suppression, missing letters/device, nonletters\n";
+      << "PASS: enum conversion, US/DE/FR, transitions, held keys, missing letters/device, nonletters, refresh timing\n";
 }
