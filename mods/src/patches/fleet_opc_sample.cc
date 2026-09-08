@@ -5,15 +5,22 @@
 #include <chrono>
 #include <cmath>
 
+namespace
+{
+FleetOpcSampleCache s_cache;
+}
+
+void invalidate_fleet_opc_sample(int slot)
+{ s_cache.Invalidate(slot); }
+
 FleetOpcCargo read_fleet_opc_sample(FleetPlayerData* fleet, int slot, uint64_t fleet_id, FleetState state)
 {
   if (!fleet)
     return {};
-  static FleetOpcSampleCache cache;
-  const auto                 now_ms =
+  const auto now_ms =
       std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
           .count();
-  return cache.Read(slot, fleet_id, reinterpret_cast<uintptr_t>(fleet), static_cast<int>(state), now_ms, [fleet] {
+  return s_cache.Read(slot, fleet_id, reinterpret_cast<uintptr_t>(fleet), static_cast<int>(state), now_ms, [fleet] {
     FleetOpcCargo sample;
     auto*         cargo    = fleet->CargoHoldData;
     auto*         progress = cargo ? cargo->UnprotectedCargoProgress : nullptr;

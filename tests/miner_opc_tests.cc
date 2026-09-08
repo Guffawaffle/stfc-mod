@@ -49,6 +49,25 @@ static_assert(quiet_baselines());
 static_assert(interrupted_mining());
 int main()
 {
+  // A cargo event within the TTL must not redraw the old protected state.
+  FleetOpcSampleCache event_cache;
+  int                 event_reads = 0;
+  bool                source_opc  = false;
+  auto                event_read  = [&] {
+    ++event_reads;
+    return FleetOpcCargo{true, source_opc, source_opc ? 2.0 : 0.0, 1.0};
+  };
+  assert(!event_cache.Read(0, 1, 100, 4, 1000, event_read).opc);
+  source_opc = true;
+  event_cache.Invalidate(0);
+  assert(event_cache.Read(0, 1, 100, 4, 1500, event_read).opc); // Cargo-event highlight sees fresh value.
+  assert(event_cache.Read(0, 1, 100, 4, 1501, event_read).opc); // Timer/alert reuse the new value.
+  assert(event_reads == 2);
+  event_cache.Invalidate(-1);
+  event_cache.Invalidate(10);
+  assert(event_cache.Read(0, 1, 100, 4, 1502, event_read).opc);
+  assert(event_reads == 2);
+
   FleetOpcSampleCache cache;
   int                 reads = 0;
   auto                read  = [&] {

@@ -1395,6 +1395,7 @@ void FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook(auto original, vo
   original(self, dirty_flags);
   auto* tile_transform = component_transform(self);
   auto* fleet          = fleet_local_view_fleet(self);
+  invalidate_fleet_opc_sample(fleet ? fleet->Index : -1);
   if (s_highlight_enabled) {
     update_opc_highlight(opc_anchor_from_tile(tile_transform), fleet);
   }

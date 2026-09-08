@@ -18,6 +18,13 @@ struct FleetOpcCargo {
 class FleetOpcSampleCache
 {
 public:
+  void Invalidate(int slot)
+  {
+    if (slot >= 0 && slot < static_cast<int>(entries.size())) {
+      entries[slot].valid = false;
+    }
+  }
+
   template <class Reader>
   FleetOpcCargo Read(int slot, uint64_t fleet_id, uintptr_t object_id, int state, int64_t now_ms, Reader read)
   {
@@ -46,3 +53,6 @@ private:
 };
 
 FleetOpcCargo read_fleet_opc_sample(FleetPlayerData* fleet, int slot, uint64_t fleet_id, FleetState state);
+
+// Call on the existing cargo-change callback before rendering from the shared sample.
+void invalidate_fleet_opc_sample(int slot);
