@@ -94,6 +94,17 @@ int main()
   Check(resolve(KeyCode::M) == KeyCode::Semicolon && resolve(KeyCode::Y) == KeyCode::None, "French M and missing key");
 
   RefreshState refresh;
+  // A failed symbol lookup publishes a partial map, without losing unrelated
+  // letters/digits. A later layout generation must restore that symbol.
+  auto partial = us;
+  partial[static_cast<int>(KeyCode::Slash)] = KeyCode::None;
+  state.Replace(partial, is_held, frame);
+  ++frame;
+  Check(resolve(KeyCode::Slash) == KeyCode::None && resolve(KeyCode::Z) == KeyCode::Z
+            && resolve(KeyCode::Alpha1) == KeyCode::Alpha1, "unavailable symbol isolates letters and digits");
+  state.Replace(us, is_held, frame);
+  ++frame;
+  Check(resolve(KeyCode::Slash) == KeyCode::Slash, "later mapping restores unavailable symbol");
   Check(refresh.Consume(), "one initial lookup");
   for (int i = 0; i < 1000; ++i)
     Check(!refresh.Consume(), "no notification means no refresh, regardless of elapsed frames");

@@ -107,6 +107,9 @@ do
     if is_mode("releasedbg") then
         add_defines("_MODDBG")  -- enable your debug flag
     end
+    if is_mode("debug", "releasedbg") then
+        add_defines("_KEYBOARD_LAYOUT_DIAGNOSTICS")
+    end
 
     if get_config("use_original_bg") then
         add_defines("_USE_ORIGINAL_BG")

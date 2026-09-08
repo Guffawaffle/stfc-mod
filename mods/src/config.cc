@@ -959,9 +959,14 @@ void Config::Load()
   }
   parsed["control"].as_table()->erase("keyboard_letter_mode");
   parsed["control"].as_table()->insert_or_assign("keyboard_layout_mode", this->keyboard_layout_mode);
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
   this->keyboard_layout_diagnostics = get_config_or_default(
       config, parsed, "control", "keyboard_layout_diagnostics", DCC::keyboard_layout_diagnostics, write_config);
   keyboard_layout::Configure(this->keyboard_layout_mode, this->keyboard_layout_diagnostics);
+#else
+  parsed["control"].as_table()->erase("keyboard_layout_diagnostics");
+  keyboard_layout::Configure(this->keyboard_layout_mode, false);
+#endif
   this->select_timer =
       get_config_or_default(config, parsed, "control", "select_timer", DCC::select_timer, write_config);
   this->enable_experimental =

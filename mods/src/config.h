@@ -183,7 +183,9 @@ public:
   bool  hotkeys_extended;
   bool  use_scopely_hotkeys;
   std::string keyboard_layout_mode;
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
   bool  keyboard_layout_diagnostics;
+#endif
   bool  use_presets_as_default;
   bool  enable_experimental;
   float default_system_zoom;

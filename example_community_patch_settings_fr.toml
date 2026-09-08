@@ -104,8 +104,6 @@ use_scopely_hotkeys = false
 # Le changement de disposition est pris en compte en jeu ; relâcher les touches maintenues.
 # Notifications layout : Windows x64 ; macOS arm64/x86_64 expérimental (tests en jeu à venir). En cas d’échec, les raccourcis layout sont désactivés et journalisés ; sans interrogation périodique.
 keyboard_layout_mode = "physical"
-# Détails des correspondances dans le fichier vars pour le diagnostic, uniquement en mode layout. Redémarrer après modification.
-keyboard_layout_diagnostics = false
 
 # Subgroup: Options
 # -----------------

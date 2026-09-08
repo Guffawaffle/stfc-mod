@@ -5,8 +5,8 @@ Unity's `Keyboard.FindKeyOnCurrentKeyboardLayout`. Physical mode remains the def
 and bypasses the observer and all layout queries. Explicit modifiers, named controls, the legacy
 physical input cache and configured shortcut provenance retain their existing meaning.
 Vars contains a compact `keyboard_mapping` status snapshot by default. Detailed
-`shortcuts_resolved` output requires `[control].keyboard_layout_diagnostics = true`
-and layout mode; it includes only printable bindings and is disabled by default.
+`shortcuts_resolved` output requires a `debug` or `releasedbg` build and `[control].keyboard_layout_diagnostics = true`
+and layout mode; it includes only printable bindings and is disabled by default. Release builds ignore this development setting and omit it from vars. Detailed getters, tables and exception formatting are compiled out of release; concise failure warnings and compact mapping status remain. Diagnostic getter failures never affect binding validity.
 
 On Windows x64 and experimentally on macOS arm64/x86_64, an `InputSystem.onDeviceChange`
 observer invalidates the printable-key map
@@ -33,7 +33,18 @@ The delegate is rooted for the process lifetime. A failed subscription logs
 `notification_subscription_failed` and disables layout bindings until restart.
 There is no polling or physical-position fallback. Failed removal disables the callback
 and retains its root and metadata to avoid a dangling listener. Live DLL unloading
-is not supported. Resolver failure disables layout-resolved bindings.
+is not supported. Keyboard/layout or control-metadata invocation failures disable
+layout-resolved bindings until restart. A display-name search exception instead
+marks only that character `lookup_failed` for the current generation; other
+bindings and the notification subscription remain active. A later notification
+retries that character, including when switching back to a layout where it exists.
+
+Unity Input System 1.14.2 leaves a null IMESelected slot in its key array but
+`FindKeyOnCurrentKeyboardLayout` dereferences every slot. A character without an
+earlier match can therefore throw instead of returning null. German punctuation
+reproduced this on Windows: the exception is contained at the individual search
+boundary. No physical fallback or inferred dead-key/Shift/AltGr sequence is added.
+See the pinned [Unity source](https://github.com/Unity-Technologies/InputSystem/blob/0d71d6adc5d098562f9e044a88c080b6dc82dba9/Packages/com.unity.inputsystem/InputSystem/Devices/Keyboard.cs).
 
 The native delegate path has Windows x64 runtime evidence. The macOS arm64/x86_64
 port is experimental and logs that status once when layout mode initializes;
@@ -71,7 +82,7 @@ For a Mac developer reviewing this port:
    of the running game/mod. Confirm delegate metadata and invocation in the exact
    client's IL2CPP runtime, especially constructor setup and the static callback.
 2. With physical mode, confirm existing shortcuts still work. Opt into layout mode
-   and enable `keyboard_layout_diagnostics` for mapping details, then restart;
+   and use a `debug` or `releasedbg` build with `keyboard_layout_diagnostics` enabled for mapping details, then restart;
    expect the experimental notice and `refresh=device_notifications`.
    A successful subscription log alone does not prove callbacks arrive.
 3. Switch between two input sources with different key positions and back, then

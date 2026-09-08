@@ -62,22 +62,26 @@ does not constitute macOS or every-layout runtime validation.
 
 The generated vars file preserves `[shortcuts]` and `[shortcuts_source]`.
 By default, layout output is only a compact `[keyboard_mapping]` snapshot: effective
-mode, refresh mechanism, layout, status, generation and reason. For troubleshooting,
+mode, refresh mechanism, layout, status, generation and reason. Release builds always use this compact output and ignore the development diagnostic setting. For troubleshooting with a `debug` or `releasedbg` build,
 set `[control].keyboard_layout_diagnostics = true` and restart with layout mode enabled.
 This adds `[shortcuts_resolved]` entries for configured printable alternatives only:
 configured chord (including modifiers), `configured_character`, physical US-reference
 key, layout display name, legacy code and resolution status. Named controls are
 omitted because layout resolution does not change them. Physical mode never emits
-this detailed table. Disable the diagnostics setting and restart to remove it.
+this detailed table. Disable the diagnostics setting and restart to remove it. Diagnostic getter failures leave bindings intact; unavailable diagnostic strings are empty. Release builds omit the detailed table, the setting from vars, the extra name/display getters, and exception stack formatting.
 The physical key name describes the US-reference position, not the printed keycap.
 Startup is `pending` until a game-thread printable-key query can inspect the keyboard.
 Derived vars are rewritten on mapping/status changes only, not every frame; no
 user settings are rewritten. Transient hold suppression does not change the
 resolved mapping and is not a vars generation. Missing Unity APIs or a managed
-exception disable layout-resolved bindings for that session; keyboard absence is
+exception in required mapping APIs outside the individual display-name search disable layout-resolved
+bindings for that session; keyboard absence is
 retried only on another device notification. Current-keyboard changes without a
 notification remain undetected until one arrives.
 `key_unavailable` means Unity could not find the display name;
+`lookup_failed` means the search threw, disabling only that character until the
+next notification rebuilds the mapping. Other bindings remain usable. Unity
+1.14.2 can throw for unmatched symbols; see [failure details](KEYBOARD_LAYOUT_REFRESH.md).
 `unsupported_physical_key` means its result cannot be bridged to legacy input.
 Overall `resolved`/`partial` status describes the configured printable keys, not
 every key on the keyboard. Diagnostics do not change resolution or its notification

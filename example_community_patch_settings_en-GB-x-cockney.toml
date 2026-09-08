@@ -104,8 +104,6 @@ use_scopely_hotkeys = false
 # Changes of OS layout apply live; release held keys before using the new layout.
 # Layout notifications: Windows x64; experimental macOS arm64/x86_64 (runtime testing pending). Setup failures log and disable layout bindings; no polling.
 keyboard_layout_mode = "physical"
-# Include detailed printable-key mappings in vars for troubleshooting; layout mode only. Restart after changing.
-keyboard_layout_diagnostics = false
 
 # Subgroup: Options
 # -----------------
