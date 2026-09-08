@@ -62,6 +62,7 @@ constexpr auto kCompactShortcutTokenMappings = std::to_array<CompactShortcutToke
     {"DELETE", "DEL"},
     {"MINUS", "-"},
     {"EQUAL", "="},
+    {"PIPE", "|"},
     {"LEFT", "LT"},
     {"RIGHT", "RT"},
     {"UP", "UP"},
