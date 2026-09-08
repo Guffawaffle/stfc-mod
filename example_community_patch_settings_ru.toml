@@ -54,6 +54,8 @@ alert_fleet_started_mining = "none"
 alert_fleet_node_depleted = "none"
 alert_fleet_docked = "none"
 alert_fleet_repair_complete = "none"
+# Alert when a mining fleet crosses above protected cargo (quiet on login).
+alert_fleet_miner_opc = "none"
 
 #  <[============================================================]> 
 #                                                                   
@@ -721,7 +723,7 @@ disabled_banner_types = ""
 notify_banner_types = ""
 
 # Fleet events that should trigger Windows notifications (comma separated, or "All")
-# Options: ArrivedInSystem, ArrivedAtDestination, StartedMining, NodeDepleted, Docked, RepairComplete
+# Options: ArrivedInSystem, ArrivedAtDestination, StartedMining, NodeDepleted, Docked, RepairComplete, MinerOPC
 notify_fleet_events = ""
 
 # Subgroup: Chat

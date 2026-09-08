@@ -1,5 +1,6 @@
 #include "config.h"
 #include "errormsg.h"
+#include "patches/fleet_opc_sample.h"
 
 #include <il2cpp-tabledefs.h>
 #include <il2cpp/il2cpp-functions.h>
@@ -135,41 +136,19 @@ void clear_ui_retry(uint8_t& failure_count, int64_t& retry_at_ms)
   retry_at_ms   = 0;
 }
 
-bool read_opc(FleetPlayerData* fleet, bool& known)
-{
-  known             = false;
-  auto* cargo_hold  = fleet ? fleet->CargoHoldData : nullptr;
-  auto* unprotected = cargo_hold ? cargo_hold->UnprotectedCargoProgress : nullptr;
-  if (!unprotected) {
-    return false;
-  }
-
-  const auto current_value   = unprotected->CurrentValue;
-  const auto protected_limit = unprotected->MinValue;
-  if (!std::isfinite(current_value) || !std::isfinite(protected_limit)) {
-    return false;
-  }
-
-  known = true;
-  return cargo_is_opc(current_value, protected_limit);
-}
-
-FleetOpcStatus read_opc_status(FleetPlayerData* fleet)
+FleetOpcStatus read_opc_status(FleetPlayerData* fleet, int slot, uint64_t fleet_id, FleetState state)
 {
   FleetOpcStatus status;
-  if (!fleet || fleet->CurrentState != FleetState::Mining) {
+  if (!fleet || state != FleetState::Mining) {
     return status;
   }
 
-  status.mining     = true;
-  auto* cargo_hold  = fleet->CargoHoldData;
-  auto* unprotected = cargo_hold ? cargo_hold->UnprotectedCargoProgress : nullptr;
-  if (unprotected) {
-    status.current_cargo   = unprotected->CurrentValue;
-    status.protected_limit = unprotected->MinValue;
-    status.cargo_known     = std::isfinite(status.current_cargo) && std::isfinite(status.protected_limit);
-    status.opc             = status.cargo_known && cargo_is_opc(status.current_cargo, status.protected_limit);
-  }
+  status.mining          = true;
+  const auto cargo       = read_fleet_opc_sample(fleet, slot, fleet_id, state);
+  status.current_cargo   = cargo.current;
+  status.protected_limit = cargo.protected_limit;
+  status.cargo_known     = cargo.known;
+  status.opc             = cargo.opc;
 
   auto* mining_data      = fleet->MiningData;
   status.rate_per_second = mining_data ? mining_data->MiningSpeed : 0.0;
@@ -613,23 +592,25 @@ void update_opc_highlight(Transform* body_transform, FleetPlayerData* fleet)
   }
 
   auto* highlight = find_opc_highlight(body_transform);
-  if (!fleet || fleet->Index < 0 || fleet->Index >= kFleetSlotCount) {
+  const auto slot = fleet ? fleet->Index : -1;
+  if (!fleet || slot < 0 || slot >= kFleetSlotCount) {
     if (highlight) {
       highlight->SetActive(false);
     }
     return;
   }
 
-  const auto slot = fleet->Index;
+  const auto fleet_id = fleet->Id;
   // The address is an identity token only; retaining it never implies that the Unity object is still live.
   const auto anchor_id = reinterpret_cast<uintptr_t>(body_transform);
-  if (s_opc_highlight_retry_fleet_ids[slot] != fleet->Id || s_opc_highlight_retry_anchor_ids[slot] != anchor_id) {
-    s_opc_highlight_retry_fleet_ids[slot]  = fleet->Id;
+  if (s_opc_highlight_retry_fleet_ids[slot] != fleet_id || s_opc_highlight_retry_anchor_ids[slot] != anchor_id) {
+    s_opc_highlight_retry_fleet_ids[slot]  = fleet_id;
     s_opc_highlight_retry_anchor_ids[slot] = anchor_id;
     clear_ui_retry(s_opc_highlight_setup_failures[slot], s_opc_highlight_retry_at_ms[slot]);
   }
-  bool       known = false;
-  const bool show  = fleet->HasShip && is_deployed(fleet->CurrentState) && read_opc(fleet, known);
+  const auto state = fleet->CurrentState;
+  const bool show  = fleet->HasShip && is_deployed(state)
+                     && read_fleet_opc_sample(fleet, slot, fleet_id, state).opc;
   if (!show) {
     clear_ui_retry(s_opc_highlight_setup_failures[slot], s_opc_highlight_retry_at_ms[slot]);
     if (highlight) {
@@ -1202,7 +1183,7 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
   auto       card_display = render.computed_card_display;
   auto       safe_on_node = render.computed_safe;
   if (refresh_due) {
-    const auto status = read_opc_status(fleet);
+    const auto status = read_opc_status(fleet, slot, render.fleet_id, fleet_state);
     display           = Config::Get().fleet_hud_opc_eta ? format_opc_eta(status) : std::string{};
     card_display      = display.empty() ? std::string{} : format_opc_card_display(status);
     safe_on_node      = status.safe_on_node;
@@ -1414,6 +1395,7 @@ void FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook(auto original, vo
   original(self, dirty_flags);
   auto* tile_transform = component_transform(self);
   auto* fleet          = fleet_local_view_fleet(self);
+  invalidate_fleet_opc_sample(fleet ? fleet->Index : -1);
   if (s_highlight_enabled) {
     update_opc_highlight(opc_anchor_from_tile(tile_transform), fleet);
   }
