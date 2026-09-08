@@ -6,8 +6,15 @@
 
 namespace keyboard_layout
 {
-constexpr bool IsLetter(KeyCode key)
-{ return key >= KeyCode::A && key <= KeyCode::Z; }
+// Printable keys accepted by Key::Parse. Named controls (including Space and
+// explicit numpad keys) keep their identity, independent of display-name lookup.
+constexpr bool IsLayoutKey(KeyCode key)
+{
+  return (key >= KeyCode::Exclaim && key <= KeyCode::At)
+         || (key >= KeyCode::LeftBracket && key <= KeyCode::Tilde);
+}
+
+constexpr std::size_t LayoutKeyCount = static_cast<int>(KeyCode::Tilde) + 1;
 
 // Unity.InputSystem.Key and legacy UnityEngine.KeyCode are different enums.
 // Explicit US-reference positions, including punctuation (French M is at US ';').
@@ -70,7 +77,7 @@ constexpr KeyCode ToLegacyKey(int input_system_key)
                                                                                   : KeyCode::None;
 }
 
-using LetterKeys = std::array<KeyCode, 26>;
+using LayoutKeys = std::array<KeyCode, LayoutKeyCount>;
 
 // Physical input caches remain physical. Only action bindings are translated.
 // Suppress the transition frame and held keys until release, so a layout change
@@ -78,19 +85,18 @@ using LetterKeys = std::array<KeyCode, 26>;
 class BindingState
 {
 public:
-  template <typename Held> void BeginFrame(Held held)
+  void Clear()
   {
+    keys_ = {};
+    blocked_.fill(false);
     transition_ = false;
-    for (std::size_t i = 0; i < blocked_.size(); ++i) {
-      if (blocked_[i] && !held(static_cast<KeyCode>(i)))
-        blocked_[i] = false;
-    }
   }
 
-  template <typename Held> void Replace(const LetterKeys& keys, Held held)
+  template <typename Held> void Replace(const LayoutKeys& keys, Held held, int frame)
   {
     keys_       = keys;
     transition_ = true;
+    transition_frame_ = frame;
     blocked_.fill(false);
     for (auto key : keys_) {
       if (key != KeyCode::None)
@@ -98,17 +104,31 @@ public:
     }
   }
 
-  KeyCode Resolve(KeyCode configured) const
+  template <typename Frame, typename Held> KeyCode Resolve(KeyCode configured, Frame frame, Held held)
   {
-    if (!IsLetter(configured))
+    if (!IsLayoutKey(configured))
       return configured;
-    const auto key = keys_[static_cast<int>(configured) - static_cast<int>(KeyCode::A)];
-    return transition_ || blocked_[static_cast<int>(key)] ? KeyCode::None : key;
+    const auto key = keys_[static_cast<int>(configured)];
+    if (key == KeyCode::None)
+      return key;
+    if (transition_) {
+      if (frame() == transition_frame_)
+        return KeyCode::None;
+      transition_ = false;
+    }
+    auto& blocked = blocked_[static_cast<int>(key)];
+    if (blocked) {
+      if (held(key))
+        return KeyCode::None;
+      blocked = false;
+    }
+    return key;
   }
 
 private:
-  LetterKeys                                       keys_{};
+  LayoutKeys                                       keys_{};
   std::array<bool, static_cast<int>(KeyCode::Max)> blocked_{};
   bool                                             transition_ = false;
+  int                                              transition_frame_ = -1;
 };
 } // namespace keyboard_layout

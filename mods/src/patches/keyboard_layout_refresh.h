@@ -8,25 +8,16 @@ namespace keyboard_layout
 class RefreshState
 {
 public:
-  struct Tick {
-    bool new_frame;
-    bool invalidated;
-    bool CheckKeyboard() const
-    { return new_frame || invalidated; }
-  };
-
   void Invalidate() noexcept
   { dirty_.store(true); }
 
-  Tick Begin(int frame)
+  bool Consume()
   {
-    const Tick tick{frame != last_frame_, dirty_.exchange(false)};
-    last_frame_ = frame;
-    return tick;
+    // Quiet queries do not need a read-modify-write, a frame clock, or Unity calls.
+    return dirty_.load() && dirty_.exchange(false);
   }
 
 private:
   std::atomic<bool> dirty_{true};
-  int               last_frame_ = -1;
 };
 } // namespace keyboard_layout

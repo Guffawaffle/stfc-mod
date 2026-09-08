@@ -118,10 +118,13 @@ kirshara_queue_repair = true
 # Auf true setzen, um die Hotkeys von Scopely zu verwenden
 use_scopely_hotkeys = false
 
-# Buchstaben: "physical" nutzt US-QWERTY-Positionen (Standard); "layout" folgt A-Z im aktiven Tastaturlayout.
-# Modifikatoren/andere Tasten bleiben gleich. Nicht auflösbare Buchstaben sind deaktiviert; Details stehen in vars.
-# Layoutwechsel werden sofort erkannt; gehaltene Tasten danach zuerst loslassen.
-keyboard_letter_mode = "physical"
+# Tastenmodus: "physical" (Standard) behält Positionen bei; "layout" folgt den Unity-Anzeigenamen.
+# Layout-Modus umfasst konfigurierte Buchstaben, Ziffern und Satzzeichen. Benannte Tasten und explizite Modifikatoren bleiben unverändert.
+# Nicht auflösbare Zeichen werden deaktiviert: explizite Kombinationen verwenden (z. B. SHIFT-8 für die deutsche öffnende Klammer).
+# keyboard_letter_mode bleibt als Alias erhalten; keyboard_layout_mode hat Vorrang. Siehe docs/keyboard-letter-layout.md.
+# Layoutwechsel werden im Spiel erkannt; gehaltene Tasten vor der Verwendung loslassen.
+# Layout-Benachrichtigungen: Windows x64; macOS arm64/x86_64 experimentell (Praxistest ausstehend). Bei Fehlern werden Layout-Bindungen mit Logmeldung deaktiviert; kein Polling.
+keyboard_layout_mode = "physical"
 
 # Subgroup: Optionen
 # ------------------

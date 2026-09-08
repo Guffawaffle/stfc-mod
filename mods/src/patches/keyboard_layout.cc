@@ -15,51 +15,55 @@ namespace keyboard_layout
 {
 namespace
 {
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
   struct Shortcut {
     std::string name, chord;
     KeyCode     key;
   };
-  struct Letter {
+  struct ResolvedKey {
     KeyCode     key = KeyCode::None;
     std::string physical, display, status = "pending";
   };
+  bool                                    diagnostics = false;
+  std::vector<Shortcut>                   shortcuts;
+  std::array<ResolvedKey, LayoutKeyCount> resolved_keys;
+  const MethodInfo *                      name_method = nullptr, *display_method = nullptr;
+#endif
 
-  bool                   enabled           = false;
-  bool                   failed            = false;
-  bool                   initialized       = false;
-  bool                   vars_ready        = false;
-  bool                   event_refresh     = false;
-  RefreshState           refresh;
-  unsigned               generation        = 0;
-  uintptr_t              keyboard_identity = 0; // Identity only; never retained/dereferenced as a managed pointer.
-  std::u16string         layout_identity;
-  std::string            layout_name;
-  std::string            status = "physical";
-  std::string            reason = "configured_physical";
-  std::vector<Shortcut>  shortcuts;
-  std::array<Letter, 26> letters;
-  BindingState           bindings;
-  toml::table            vars_snapshot;
-  const MethodInfo *     current_method, *layout_method, *find_method, *key_method, *name_method, *display_method;
+  bool                             enabled     = false;
+  bool                             failed      = false;
+  bool                             initialized = false;
+  bool                             vars_ready  = false;
+  RefreshState                     refresh;
+  unsigned                         generation = 0;
+  std::string                      layout_name;
+  std::string                      status = "physical";
+  std::string                      reason = "configured_physical";
+  std::array<bool, LayoutKeyCount> requested_keys{};
+  BindingState                     bindings;
+  toml::table                      vars_snapshot;
+  const MethodInfo *               current_method, *layout_method, *find_method, *key_method;
   int (*frame_count)() = nullptr;
 
   void WriteDiagnostics(toml::table& vars)
   {
-    vars.insert_or_assign(
-        "keyboard_mapping",
-        toml::table{
-            {"requested_mode", enabled ? "layout" : "physical"},
-            {"effective_mode", enabled ? "layout" : "physical"},
-            {"provider", enabled ? "Unity.InputSystem.Keyboard.FindKeyOnCurrentKeyboardLayout" : "legacy KeyCode"},
-            {"refresh", !enabled ? "not_queried" : !initialized ? "pending"
-                                           : event_refresh ? "device_notifications" : "layout_name_polling"},
-            {"layout", layout_name},
-            {"status", status},
-            {"reason", reason},
-            {"generation", generation},
-            {"scope", "configured A-Z only; modifiers and nonletters unchanged"},
-            {"physical_key_reference", "US-QWERTY positions, not the user's printed keycaps"},
-        });
+    vars.insert_or_assign("keyboard_mapping", toml::table{
+                                                  {"effective_mode", !enabled ? "physical"
+                                                                     : failed ? "unavailable"
+                                                                              : "layout"},
+                                                  {"refresh", !enabled       ? "not_queried"
+                                                              : !initialized ? "pending"
+                                                              : failed       ? "disabled"
+                                                                             : "device_notifications"},
+                                                  {"layout", layout_name},
+                                                  {"status", status},
+                                                  {"reason", reason},
+                                                  {"generation", generation},
+                                              });
+    vars.erase("shortcuts_resolved");
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
+    if (!enabled || !diagnostics)
+      return;
     toml::table resolved;
     for (const auto& shortcut : shortcuts) {
       auto* alternatives = resolved[shortcut.name].as_array();
@@ -68,21 +72,17 @@ namespace
         alternatives = resolved[shortcut.name].as_array();
       }
       toml::table entry{{"configured", shortcut.chord}};
-      if (IsLetter(shortcut.key)) {
-        const auto  index  = static_cast<int>(shortcut.key) - static_cast<int>(KeyCode::A);
-        const auto& letter = letters[index];
-        entry.insert("configured_letter", std::string(1, static_cast<char>('A' + index)));
-        entry.insert("status", enabled ? letter.status : "physical");
-        entry.insert("physical_us_key", enabled ? letter.physical : std::string(1, static_cast<char>('A' + index)));
-        entry.insert("layout_display_name", enabled ? letter.display : "not_queried");
-        entry.insert("legacy_key_code", static_cast<int>(enabled ? letter.key : shortcut.key));
-      } else {
-        entry.insert("status", "unchanged_nonletter");
-        entry.insert("legacy_key_code", static_cast<int>(shortcut.key));
-      }
+      const auto  index = static_cast<int>(shortcut.key);
+      const auto& key   = resolved_keys[index];
+      entry.insert("configured_character", std::string(1, static_cast<char>(index)));
+      entry.insert("status", key.status);
+      entry.insert("physical_us_key", key.physical);
+      entry.insert("layout_display_name", key.display);
+      entry.insert("legacy_key_code", static_cast<int>(key.key));
       alternatives->push_back(std::move(entry));
     }
     vars.insert_or_assign("shortcuts_resolved", std::move(resolved));
+#endif
   }
 
   void Publish()
@@ -100,26 +100,48 @@ namespace
   {
     if (status == "unavailable" && reason == why)
       return;
-    status            = "unavailable";
-    reason            = why;
-    keyboard_identity = 0;
-    layout_identity.clear();
+    status = "unavailable";
+    reason = why;
     layout_name.clear();
-    for (auto& letter : letters)
-      letter = {KeyCode::None, {}, {}, "unavailable"};
-    bindings.Replace(LetterKeys{}, [](KeyCode) { return false; });
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
+    for (auto& key : resolved_keys)
+      key = {KeyCode::None, {}, {}, "unavailable"};
+#endif
+    bindings.Clear();
     Publish();
   }
 
-  Il2CppObject* Invoke(const MethodInfo* method, void* self = nullptr, void** args = nullptr)
+  void Disable(std::string_view why)
+  {
+    failed = true;
+    notifications::Stop();
+    spdlog::warn("[KeyboardLayout] {}; layout bindings disabled until restart; no polling fallback", why);
+    Unavailable(why);
+  }
+
+  Il2CppObject* Invoke(const MethodInfo* method, void* self = nullptr, void** args = nullptr,
+                       bool* lookup_failed = nullptr)
   {
     if (failed || !method)
       return nullptr;
     Il2CppException* exception = nullptr;
     auto*            result    = il2cpp_runtime_invoke(method, self, args, &exception);
     if (exception) {
-      failed = true;
-      spdlog::warn("[KeyboardLayout] Unity method {} failed; layout letters disabled until restart", method->name);
+      if (lookup_failed)
+        *lookup_failed = true;
+      else
+        failed = true;
+      if (!lookup_failed)
+        spdlog::warn("[KeyboardLayout] Unity method {} failed; layout bindings disabled until restart", method->name);
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
+      if (diagnostics) {
+        char message[2048]{};
+        char trace[4096]{};
+        il2cpp_format_exception(exception, message, sizeof(message) - 1);
+        il2cpp_format_stack_trace(exception, trace, sizeof(trace) - 1);
+        spdlog::warn("[KeyboardLayout] exception: {}; stack: {}", message, trace);
+      }
+#endif
     }
     return exception ? nullptr : result;
   }
@@ -129,107 +151,148 @@ namespace
     initialized    = true;
     auto keyboard  = il2cpp_get_class_helper("Unity.InputSystem", "UnityEngine.InputSystem", "Keyboard");
     auto key       = il2cpp_get_class_helper("Unity.InputSystem", "UnityEngine.InputSystem.Controls", "KeyControl");
-    auto control   = il2cpp_get_class_helper("Unity.InputSystem", "UnityEngine.InputSystem", "InputControl");
     current_method = keyboard.GetMethodInfo("get_current", 0);
     layout_method  = keyboard.GetMethodInfo("get_keyboardLayout", 0);
     find_method    = keyboard.GetMethodInfo("FindKeyOnCurrentKeyboardLayout", 1);
     key_method     = key.GetMethodInfo("get_keyCode", 0);
-    name_method    = control.GetMethodInfo("get_name", 0);
-    display_method = control.GetMethodInfo("get_displayName", 0);
-    frame_count    = il2cpp_resolve_icall_typed<int()>("UnityEngine.Time::get_frameCount()");
-    if (!current_method || !layout_method || !find_method || !key_method || !name_method || !display_method
-        || !frame_count) {
-      failed = true;
-      Unavailable("missing_unity_api");
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
+    if (diagnostics) {
+      auto control   = il2cpp_get_class_helper("Unity.InputSystem", "UnityEngine.InputSystem", "InputControl");
+      name_method    = control.GetMethodInfo("get_name", 0);
+      display_method = control.GetMethodInfo("get_displayName", 0);
+    }
+#endif
+    frame_count = il2cpp_resolve_icall_typed<int()>("UnityEngine.Time::get_frameCount()");
+    if (!current_method || !layout_method || !find_method || !key_method || !frame_count) {
+      Disable("missing_unity_api");
       return;
     }
-    event_refresh = notifications::Start(refresh);
-    spdlog::info("[KeyboardLayout] refresh={}", event_refresh ? "device_notifications" : "layout_name_polling");
+    const auto subscription = notifications::Start(refresh);
+    if (subscription != notifications::Result::Started) {
+      Disable(subscription == notifications::Result::Unsupported ? "notifications_unsupported"
+                                                                 : "notification_subscription_failed");
+      return;
+    }
+    spdlog::info("[KeyboardLayout] refresh=device_notifications");
   }
 
   void Update()
   {
     if (!initialized)
       Initialize();
-    if (failed) {
-      notifications::Stop();
+    if (failed || !refresh.Consume())
       return;
-    }
-    const auto tick = refresh.Begin(frame_count());
-    if (!tick.CheckKeyboard())
-      return;
-    // Notifications can arrive after another consumer queried this frame. Refresh
-    // then too, but never clear transition/held-key protection twice in one frame.
-    if (tick.new_frame)
-      bindings.BeginFrame(Key::Pressed);
+    // Initialization and notifications are the only reasons to query Unity.
     auto* keyboard = Invoke(current_method);
-    notifications::Watch(reinterpret_cast<uintptr_t>(keyboard));
     if (!keyboard) {
-      Unavailable(failed ? "unity_invocation_failed" : "keyboard_absent");
+      if (failed)
+        Disable("unity_invocation_failed");
+      else
+        Unavailable("keyboard_absent");
       return;
     }
-    const bool same_keyboard = keyboard_identity == reinterpret_cast<uintptr_t>(keyboard);
-    if (event_refresh && !tick.invalidated && same_keyboard)
-      return;
     auto* layout = reinterpret_cast<Il2CppString*>(Invoke(layout_method, keyboard));
     if (!layout || layout->length == 0) {
-      Unavailable(failed ? "unity_invocation_failed" : "layout_unavailable");
+      if (failed)
+        Disable("unity_invocation_failed");
+      else
+        Unavailable("layout_unavailable");
       return;
     }
-    const std::u16string_view identity(reinterpret_cast<const char16_t*>(layout->chars), layout->length);
-    if (!tick.invalidated && same_keyboard && layout_identity == identity)
-      return;
 
-    // No retained managed objects or per-frame strings. Build all letters once per
-    // keyboard/layout generation; a missing letter is disabled, never silently physical.
-    LetterKeys             keys{};
-    std::array<Letter, 26> next;
-    bool                   all_resolved = true;
-    for (int index = 0; index < 26 && !failed; ++index) {
-      char  letter[]{static_cast<char>('a' + index), '\0'};
-      auto* text = il2cpp_string_new(letter);
+    // Resolve only configured printable keys, once per keyboard/layout generation.
+    // No retained managed objects, per-frame strings, or silent physical fallback.
+    LayoutKeys keys{};
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
+    std::array<ResolvedKey, LayoutKeyCount> next;
+#endif
+    bool all_resolved = true;
+    for (std::size_t index = 0; index < requested_keys.size() && !failed; ++index) {
+      if (!requested_keys[index])
+        continue;
+      char  character[]{static_cast<char>(index), '\0'};
+      auto* text = il2cpp_string_new(character);
       void* args[]{text};
-      auto* control = Invoke(find_method, keyboard, args);
-      auto& result  = next[index];
-      result.status = "letter_unavailable";
+      // Unity 1.14.2's search dereferences its null IMESelected slot when no
+      // earlier key matches. An unmatched symbol must not poison other bindings
+      // or unsubscribe layout notifications. Retry it only on the next generation.
+      bool  lookup_failed = false;
+      auto* control       = Invoke(find_method, keyboard, args, &lookup_failed);
+      if (lookup_failed)
+        spdlog::warn("[KeyboardLayout] lookup failed for character '{}' ({}) on layout '{}'", character, index,
+                     to_string(layout));
+      KeyCode resolved_key = KeyCode::None;
       if (control) {
-        auto* boxed   = Invoke(key_method, control);
-        auto* name    = reinterpret_cast<Il2CppString*>(Invoke(name_method, control));
-        auto* display = reinterpret_cast<Il2CppString*>(Invoke(display_method, control));
-        if (boxed && name && display) {
-          result.key      = ToLegacyKey(*static_cast<int*>(il2cpp_object_unbox(boxed)));
-          result.physical = to_string(name);
-          result.display  = to_string(display);
-          result.status   = result.key == KeyCode::None ? "unsupported_physical_key" : "resolved";
+        auto* boxed = Invoke(key_method, control);
+        if (boxed)
+          resolved_key = ToLegacyKey(*static_cast<int*>(il2cpp_object_unbox(boxed)));
+      }
+      keys[index] = resolved_key;
+      all_resolved &= resolved_key != KeyCode::None;
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
+      if (diagnostics) {
+        auto& result  = next[index];
+        result.key    = resolved_key;
+        result.status = lookup_failed                   ? "lookup_failed"
+                        : !control                      ? "key_unavailable"
+                        : resolved_key == KeyCode::None ? "unsupported_physical_key"
+                                                        : "resolved";
+        if (control && !failed) {
+          // Diagnostic metadata never determines binding validity.
+          bool  detail_failed = false;
+          auto* name          = reinterpret_cast<Il2CppString*>(Invoke(name_method, control, nullptr, &detail_failed));
+          auto* display = reinterpret_cast<Il2CppString*>(Invoke(display_method, control, nullptr, &detail_failed));
+          if (name)
+            result.physical = to_string(name);
+          if (display)
+            result.display = to_string(display);
+          if (!name || !display || detail_failed)
+            spdlog::warn("[KeyboardLayout] diagnostic metadata unavailable for character '{}'", character);
         }
       }
-      keys[index] = result.key;
-      all_resolved &= result.key != KeyCode::None;
+#endif
     }
     if (failed) {
-      Unavailable("unity_invocation_failed");
+      Disable("unity_invocation_failed");
       return;
     }
-    keyboard_identity = reinterpret_cast<uintptr_t>(keyboard);
-    layout_identity   = identity;
-    layout_name       = to_string(layout);
-    letters           = std::move(next);
-    bindings.Replace(keys, Key::Pressed);
+    layout_name = to_string(layout);
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
+    if (diagnostics)
+      resolved_keys = std::move(next);
+#endif
+    bindings.Replace(keys, Key::Pressed, frame_count());
     status = all_resolved ? "resolved" : "partial";
-    reason = all_resolved ? "layout_lookup" : "unresolved_letters_disabled";
+    reason = all_resolved ? "layout_lookup" : "unresolved_keys_disabled";
     Publish();
   }
 } // namespace
 
-void Configure(std::string_view mode)
+void Configure(std::string_view mode, bool detailed_diagnostics)
 {
   enabled = mode == "layout";
-  status  = enabled ? "pending" : "physical";
-  reason  = enabled ? "awaiting_game_input" : "configured_physical";
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
+  diagnostics = detailed_diagnostics;
+#else
+  (void)detailed_diagnostics;
+#endif
+  status = enabled ? "pending" : "physical";
+  reason = enabled ? "awaiting_game_input" : "configured_physical";
 }
 
 void RegisterShortcut(std::string_view name, std::string_view chord, KeyCode key)
-{ shortcuts.push_back({std::string(name), std::string(chord), key}); }
+{
+  if (!enabled || !IsLayoutKey(key))
+    return;
+  requested_keys[static_cast<int>(key)] = true;
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
+  if (diagnostics)
+    shortcuts.push_back({std::string(name), std::string(chord), key});
+#else
+  (void)name;
+  (void)chord;
+#endif
+}
 
 void InitializeDiagnostics(toml::table& vars)
 {
@@ -242,9 +305,9 @@ void InitializeDiagnostics(toml::table& vars)
 
 KeyCode Resolve(KeyCode configured)
 {
-  if (!enabled || !IsLetter(configured))
+  if (!enabled || !IsLayoutKey(configured))
     return configured;
   Update();
-  return bindings.Resolve(configured);
+  return bindings.Resolve(configured, frame_count, Key::Pressed);
 }
 } // namespace keyboard_layout

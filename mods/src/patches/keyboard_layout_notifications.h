@@ -6,8 +6,8 @@
 namespace keyboard_layout::notifications
 {
 // Game-thread calls only. The observer and refresh state must live until process exit.
-// Unsupported platforms or subscription failure return false: retain layout-name polling.
-bool Start(RefreshState& refresh);
-void Watch(uintptr_t keyboard);
+enum class Result { Started, Unsupported, Failed };
+// Unsupported platforms or subscription failure disable layout mode; never poll.
+Result Start(RefreshState& refresh);
 void Stop();
 } // namespace keyboard_layout::notifications
