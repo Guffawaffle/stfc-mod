@@ -2,6 +2,7 @@
 
 #include "config.h"
 #include "errormsg.h"
+#include "patches/fleet_opc_sample.h"
 #include "patches/fleet_watch.h"
 #include "patches/miner_opc_tracker.h"
 #include "patches/notification_service.h"
@@ -14,7 +15,6 @@
 
 #include <array>
 #include <chrono>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -142,18 +142,10 @@ void observe_miner_opc(const fleet_watch::Snapshot& snapshot, FleetPlayerData* f
   if (!event_enabled(FleetNotificationKind::MinerOpc) || snapshot.slot < 0 || snapshot.slot >= kFleetSlotCount) {
     return;
   }
-  const bool mining   = snapshot.state == FleetState::Mining;
-  auto*      cargo    = mining && fleet ? fleet->CargoHoldData : nullptr;
-  auto*      progress = cargo ? cargo->UnprotectedCargoProgress : nullptr;
-  bool       known    = false;
-  bool       opc      = false;
-  if (progress) {
-    const auto current         = progress->CurrentValue;
-    const auto protected_limit = progress->MinValue;
-    known                     = std::isfinite(current) && std::isfinite(protected_limit);
-    opc                       = known && current > protected_limit;
-  }
-  if (!s_miner_opc[snapshot.slot].Observe(snapshot.fleet_id, mining, known, opc, publish)) {
+  const bool mining = snapshot.state == FleetState::Mining;
+  const auto cargo  = mining ? read_fleet_opc_sample(fleet, snapshot.slot, snapshot.fleet_id, snapshot.state)
+                            : FleetOpcCargo{};
+  if (!s_miner_opc[snapshot.slot].Observe(snapshot.fleet_id, mining, cargo.known, cargo.opc, publish)) {
     return;
   }
   spdlog::debug("[FleetNotifications] event=MinerOPC slot={} fleet={}", snapshot.slot, snapshot.fleet_id);

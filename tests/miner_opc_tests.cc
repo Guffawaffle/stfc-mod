@@ -1,4 +1,10 @@
+#include "patches/fleet_opc_sample.h"
 #include "patches/miner_opc_tracker.h"
+
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
+#include <cassert>
 
 // Each scenario models a reachable observation sequence; compile-time checks also run in release builds.
 constexpr bool crossing_and_rearm()
@@ -41,4 +47,34 @@ constexpr bool interrupted_mining()
 static_assert(crossing_and_rearm());
 static_assert(quiet_baselines());
 static_assert(interrupted_mining());
-int main() {}
+int main()
+{
+  FleetOpcSampleCache cache;
+  int                 reads = 0;
+  auto                read  = [&] {
+    ++reads;
+    return FleetOpcCargo{true, reads > 1, static_cast<double>(reads), 1.0};
+  };
+  assert(!cache.Read(0, 1, 100, 4, 1000, read).opc); // Timer populates sample.
+  assert(!cache.Read(0, 1, 100, 4, 1200, read).opc); // Highlight reuses it.
+  assert(!cache.Read(0, 1, 100, 4, 1999, read).opc); // Alert reuses it.
+  assert(reads == 1);
+  assert(cache.Read(0, 1, 100, 4, 2000, read).opc); // Hidden overlay: alert refreshes expired sample.
+  assert(reads == 2);
+  cache.Read(0, 2, 100, 4, 2001, read); // New fleet.
+  cache.Read(0, 2, 200, 4, 2002, read); // New managed object.
+  cache.Read(0, 2, 200, 1, 2003, read); // New state.
+  assert(reads == 5);
+  cache.Read(1, 2, 200, 1, 2003, read); // Independent slot.
+  assert(reads == 6);
+  assert(!cache.Read(-1, 2, 200, 1, 2003, read).known);
+  assert(!cache.Read(10, 2, 200, 1, 2003, read).known);
+  assert(reads == 6);
+  auto unknown = [&] {
+    ++reads;
+    return FleetOpcCargo{};
+  };
+  assert(!cache.Read(0, 2, 200, 1, 3003, unknown).known);
+  assert(!cache.Read(0, 2, 200, 1, 3004, read).known); // Failed reads share the same bounded retry interval.
+  assert(reads == 7);
+}
