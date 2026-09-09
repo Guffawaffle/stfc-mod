@@ -4,6 +4,7 @@
 #include "key.h"
 #include "keyboard_layout_mapping.h"
 #include "keyboard_layout_notifications.h"
+#include "keyboard_layout_windows.h"
 #include "str_utils.h"
 
 #include <cstdint>
@@ -218,22 +219,30 @@ namespace
       // or unsubscribe layout notifications. Retry it only on the next generation.
       bool  lookup_failed = false;
       auto* control       = Invoke(find_method, keyboard, args, &lookup_failed);
-      if (lookup_failed)
-        spdlog::warn("[KeyboardLayout] lookup failed for character '{}' ({}) on layout '{}'", character, index,
-                     to_string(layout));
       KeyCode resolved_key = KeyCode::None;
       if (control) {
         auto* boxed = Invoke(key_method, control);
         if (boxed)
           resolved_key = ToLegacyKey(*static_cast<int*>(il2cpp_object_unbox(boxed)));
       }
+      bool dead_key_fallback = false;
+#if _WIN32
+      if (!control && !failed) {
+        resolved_key = ResolveWindowsDeadKey(character[0], to_string(layout));
+        dead_key_fallback = resolved_key != KeyCode::None;
+      }
+#endif
+      if (lookup_failed && !dead_key_fallback)
+        spdlog::warn("[KeyboardLayout] lookup failed for character '{}' ({}) on layout '{}'", character, index,
+                     to_string(layout));
       keys[index] = resolved_key;
       all_resolved &= resolved_key != KeyCode::None;
 #if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
       if (diagnostics) {
         auto& result  = next[index];
         result.key    = resolved_key;
-        result.status = lookup_failed                   ? "lookup_failed"
+        result.status = dead_key_fallback              ? "resolved_windows_dead_key"
+                        : lookup_failed                   ? "lookup_failed"
                         : !control                      ? "key_unavailable"
                         : resolved_key == KeyCode::None ? "unsupported_physical_key"
                                                         : "resolved";

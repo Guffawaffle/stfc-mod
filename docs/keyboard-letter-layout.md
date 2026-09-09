@@ -23,8 +23,13 @@ Every configured printable key is eligible for lookup, but Unity must report a
 matching display name and a physical position supported by the legacy input API.
 A missing/unsupported key is disabled in layout mode, never silently treated as
 physical. This includes symbols accessible only through Shift/AltGr when Unity
-does not expose them as display names. Unicode text composition, dead-key
-sequences, and automatic Shift/AltGr character translation are not supported.
+does not expose them as display names. On Windows, an unresolved unshifted dead
+key can use a native layout lookup when the current Windows layout name matches
+Unity's. For example, German `ALT-^` uses Alt plus the circumflex key directly.
+This fallback only accepts a unique supported physical position marked as a dead
+key by Windows; it does not infer Shift/AltGr or change text-composition state.
+Unicode text composition, dead-key sequences, and automatic Shift/AltGr character
+translation are not supported.
 Use an explicit chord with a resolvable base key in those cases. For example,
 German `(` is `SHIFT-8`; US `(` is `SHIFT-9`. These examples describe chords, not
 a promise that a literal `(` binding resolves on either layout. French number-row
@@ -51,6 +56,12 @@ There are no new detours, native offsets, OS layout changes, input injection, or
 key-event logging. A transition frame is suppressed; held resolved positions must
 be observed released by a binding query before activating under the new layout.
 Only blocked target keys require release checks; no per-frame held-key scan runs.
+
+The Windows dead-key fallback uses `MapVirtualKeyExW` with `MAPVK_VK_TO_CHAR`
+(the unshifted character and dead-key flag), only after a missing Unity lookup
+and only during the existing refresh. It adds no per-frame OS queries. macOS
+retains the Unity-only lookup. `resolved_windows_dead_key` identifies this path
+in detailed diagnostics; the legacy code records the resolved physical position.
 
 Resolution uses Unity's `Keyboard.FindKeyOnCurrentKeyboardLayout` and translates
 its `Key` enum explicitly to legacy `KeyCode`. These enums are **not** numerically

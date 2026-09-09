@@ -1,6 +1,8 @@
 #include "patches/keyboard_layout_mapping.h"
 #include "patches/keyboard_layout_refresh.h"
+#include "patches/keyboard_layout_windows.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 
@@ -20,6 +22,35 @@ int main()
   Check(ToLegacyKey(6) == KeyCode::Semicolon, "French M punctuation position");
   for (const auto code : {-1, 0, 51, 9999})
     Check(ToLegacyKey(code) == KeyCode::None, "unsupported codes fail closed");
+
+#if _WIN32
+  // Load translation tables without activating a layout on the test thread.
+  const auto before = GetKeyboardLayout(0);
+  HKL existing[256]{};
+  const auto count = GetKeyboardLayoutList(256, existing);
+  Check(count > 0, "existing Windows layouts available");
+  const auto german = LoadKeyboardLayoutW(L"00000407", 0);
+  const auto american = LoadKeyboardLayoutW(L"00000409", 0);
+  Check(german && american, "Windows test layouts available");
+  Check(FindUnshiftedDeadKey('^', german) == KeyCode::BackQuote, "German circumflex physical position");
+  BYTE keyboard_state[256]{};
+  wchar_t translated[8]{};
+  const auto accent_vk = MapVirtualKeyExW(0x29, MAPVK_VSC_TO_VK_EX, german);
+  Check(ToUnicodeEx(accent_vk, 0x29, keyboard_state, translated, 8, 0, german) < 0, "seed pending accent");
+  Check(FindUnshiftedDeadKey('^', german) == KeyCode::BackQuote, "lookup with pending accent");
+  Check(ToUnicodeEx('A', 0x1e, keyboard_state, translated, 8, 0, german) == 1 && translated[0] == L'\u00e2',
+        "native lookup preserves pending accent composition");
+  for (const char symbol : {'/', '=', '`', 'a'})
+    Check(FindUnshiftedDeadKey(symbol, german) == KeyCode::None, "shifted and non-dead symbols excluded");
+  Check(FindUnshiftedDeadKey('^', american) == KeyCode::None, "US shifted caret excluded");
+  Check(FindUnshiftedDeadKey('^', nullptr) == KeyCode::None, "missing Windows layout fails closed");
+  Check(ResolveWindowsDeadKey('^', "not-the-active-layout") == KeyCode::None, "layout disagreement fails closed");
+  Check(GetKeyboardLayout(0) == before, "lookup does not activate a layout");
+  if (std::find(existing, existing + count, german) == existing + count)
+    UnloadKeyboardLayout(german);
+  if (std::find(existing, existing + count, american) == existing + count)
+    UnloadKeyboardLayout(american);
+#endif
 
   LayoutKeys us{};
   for (int i = 0; i < 26; ++i) {
