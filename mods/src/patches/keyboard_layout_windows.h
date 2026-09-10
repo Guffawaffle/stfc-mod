@@ -35,14 +35,36 @@ inline KeyCode FindUnshiftedDeadKey(char character, HKL layout)
   return result;
 }
 
-inline KeyCode ResolveWindowsDeadKey(char character, std::string_view unity_layout)
+inline ResolvedChord FindWindowsChord(char character, HKL layout)
+{
+  if (!layout)
+    return {};
+  // Uppercase config tokens name letters, not uppercase text.
+  if (character >= 'A' && character <= 'Z')
+    character += 'a' - 'A';
+  const auto translated = VkKeyScanExW(static_cast<unsigned char>(character), layout);
+  if (translated == -1)
+    return {FindUnshiftedDeadKey(character, layout), false};
+  const auto modifiers = (static_cast<unsigned>(translated) >> 8) & 0xff;
+  // Inferring Ctrl/Alt (including AltGr) needs a separate modifier policy.
+  if (modifiers & ~1u)
+    return {};
+  const auto scan = MapVirtualKeyExW(static_cast<unsigned>(translated) & 0xff, MAPVK_VK_TO_VSC_EX, layout);
+  for (unsigned index = 0; index < std::size(kWindowsLayoutScans); ++index) {
+    if (scan == kWindowsLayoutScans[index])
+      return {ToLegacyKey(4 + index), (modifiers & 1) != 0};
+  }
+  return {};
+}
+
+inline ResolvedChord ResolveWindowsChord(char character, std::string_view unity_layout)
 {
   const auto layout = GetKeyboardLayout(0);
   char       name[KL_NAMELENGTH]{};
   if (!layout || !GetKeyboardLayoutNameA(name) || unity_layout != name)
-    return KeyCode::None;
-  const auto result = FindUnshiftedDeadKey(character, layout);
-  return GetKeyboardLayout(0) == layout ? result : KeyCode::None;
+    return {};
+  const auto chord = FindWindowsChord(character, layout);
+  return GetKeyboardLayout(0) == layout ? chord : ResolvedChord{};
 }
 } // namespace keyboard_layout
 #endif

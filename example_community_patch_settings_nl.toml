@@ -120,12 +120,9 @@ kirshara_queue_repair = true
 # Als je de Scopely sneltoetsen prefereerd over die van de mod, schakel dit dan aan
 use_scopely_hotkeys = false
 
-# Toetsmodus: "physical" (standaard) behoudt posities; "layout" volgt de weergavenamen van Unity.
-# Layoutmodus omvat ingestelde letters, cijfers en leestekens. Benoemde toetsen en expliciete modificatietoetsen blijven ongewijzigd.
-# Windows voegt vereiste Shift toe (bijv. / wordt Shift+7 op Duits); native AltGr-combinaties blijven uitgeschakeld.
-# keyboard_letter_mode blijft een alias; keyboard_layout_mode heeft voorrang. Zie docs/keyboard-letter-layout.md.
-# Layoutwisselingen worden in het spel herkend; laat ingedrukte toetsen eerst los.
-# Layoutmeldingen: Windows x64; experimenteel op macOS arm64/x86_64 (praktijktest volgt). Bij fouten worden layoutbindingen uitgeschakeld en gelogd; geen polling.
+# Windows x64: "physical" behoudt toetsposities; "layout" volgt de actieve indeling.
+# Vereiste Shift wordt toegevoegd; tekens met Ctrl/AltGr worden niet ondersteund.
+# Wisselen werkt direct; laat ingedrukte toetsen los. Zie docs/keyboard-letter-layout.md.
 keyboard_layout_mode = "physical"
 
 # Subgroup: Options

@@ -2,7 +2,7 @@
 // Key token parsing and input are test fixtures; layout lookup is injected below.
 // These tests do not exercise Unity lookup, native notifications or legacy input caching.
 #include "patches/mapkey.h"
-#include "patches/keyboard_layout_preview.h"
+#include "patches/keyboard_layout.h"
 #include "patches/keyboard_layout_mapping.h"
 
 #include <cstdlib>
@@ -13,7 +13,7 @@ static std::array<bool, static_cast<int>(KeyCode::Max)> pressed{};
 static std::array<bool, static_cast<int>(KeyCode::Max)> down{};
 static keyboard_layout::BindingState layout_bindings;
 static bool layout_enabled = false;
-static std::array<keyboard_layout::ChordCandidate, keyboard_layout::LayoutKeyCount> chords;
+static std::array<keyboard_layout::ResolvedChord, keyboard_layout::LayoutKeyCount> chords;
 
 KeyCode Key::Parse(std::string_view key)
 {
@@ -21,6 +21,7 @@ KeyCode Key::Parse(std::string_view key)
       {"=", KeyCode::Equals}, {"Z", KeyCode::Z}, {"LSHIFT", KeyCode::LeftShift},
       {"F7", KeyCode::F7}, {"F8", KeyCode::F8}, {"G", KeyCode::G}, {"+", KeyCode::Plus},
       {"/", KeyCode::Slash}, {"(", KeyCode::LeftParen}, {"1", KeyCode::Alpha1},
+      {"'", KeyCode::Quote}, {"^", KeyCode::Caret},
   };
   for (const auto& [token, code] : tokens) {
     if (key == token)
@@ -45,7 +46,7 @@ namespace keyboard_layout
 KeyCode Resolve(KeyCode configured) { return layout_enabled ? layout_bindings.Resolve(configured, [] { return 1; }, Key::Pressed) : configured; }
 ResolvedChord ResolveChord(KeyCode configured) {
   return {Resolve(configured), layout_enabled && IsLayoutKey(configured)
-                               && (chords[static_cast<int>(configured)].required_modifiers & 1) != 0};
+                               && (chords[static_cast<int>(configured)].shift) != 0};
 }
 } // namespace keyboard_layout
 
@@ -59,31 +60,6 @@ void Check(bool condition, const char* message)
 
 int main()
 {
-  {
-    using namespace keyboard_layout;
-    ChordCandidate equals;
-    equals.physical_key = KeyCode::Alpha0;
-    equals.required_modifiers = 1;
-    equals.base_label = "0";
-    equals.status = "candidate";
-    for (const auto* text : {"CTRL-=", "=-CTRL"}) {
-      const auto parsed = MapKey::Parse(text);
-      Check(parsed.Key == KeyCode::Equals, "Equals primary key retained");
-      const auto preview = PreviewChord(equals, PreviewModifierTokens(parsed.Modifiers));
-      Check(preview.explicit_modifiers == "CTRL" && preview.suggested_press == "CTRL+Shift+0",
-            "Preview uses parsed modifiers regardless of primary key position");
-    }
-    const auto side = MapKey::Parse("=-LSHIFT");
-    Check(PreviewChord(equals, PreviewModifierTokens(side.Modifiers)).suggested_press == "LSHIFT+0",
-          "Reversed side-specific Shift retains side without duplication");
-    auto letter = equals;
-    letter.physical_key = KeyCode::Z;
-    letter.required_modifiers = 0;
-    letter.base_label = "Z";
-    const auto reversed = MapKey::Parse("Z-CTRL");
-    Check(PreviewChord(letter, PreviewModifierTokens(reversed.Modifiers)).suggested_press == "CTRL+Z",
-          "Reversed letter chord retains Ctrl");
-  }
 
   constexpr auto toggle = GameFunction::ToggleShortcutHints;
   constexpr auto galaxy = GameFunction::ShowGalaxy;
@@ -151,10 +127,7 @@ int main()
 
   // German slash needs Shift on either side; plain 7 must not fire slash.
   auto& slash = chords[static_cast<int>(KeyCode::Slash)];
-  slash.physical_key = KeyCode::Alpha7;
-  slash.required_modifiers = 1;
-  slash.base_label = "7";
-  slash.status = "candidate";
+  slash.shift = true;
   constexpr auto slashAction = GameFunction::ShowAlliance;
   MapKey::AddMappedKey(slashAction, MapKey::Parse("/"));
   MapKey::CacheShortcutHints();
@@ -184,13 +157,37 @@ int main()
   Check(!MapKey::HasCorrectModifiers(explicitSide, true), "Inferred Shift bypassed explicit left side");
   pressed[static_cast<int>(KeyCode::LeftShift)] = true;
   Check(MapKey::HasCorrectModifiers(explicitSide, true), "Explicit left Shift was not accepted");
-  slash.status = "modifier_policy_required";
   Check(MapKey::GetShortcutHint(slashAction) == "/", "Resolution status rewrote configured hint");
   // Simulate the next US generation; no stale German recipe may remain cached.
-  slash.status = "candidate";
-  slash.required_modifiers = 0;
-  slash.base_label = "/";
+  slash.shift = false;
   Check(MapKey::GetShortcutHint(slashAction) == "/", "Hint retained previous layout's Shift");
+
+  // The upstream German defaults overlap under minimum modifier matching.
+  // Preserve that policy; verify the documented Help remap makes Armada distinct.
+  pressed.fill(false);
+  down.fill(false);
+  keys[static_cast<int>(KeyCode::Quote)] = KeyCode::Backslash;
+  keys[static_cast<int>(KeyCode::Caret)] = KeyCode::BackQuote;
+  chords[static_cast<int>(KeyCode::Quote)].shift = true;
+  layout_bindings.Replace(keys, Key::Pressed, 0);
+  MapKey::AddMappedKey(GameFunction::ShowAllianceHelp, MapKey::Parse("SHIFT-'"));
+  MapKey::AddMappedKey(GameFunction::ShowAllianceArmada, MapKey::Parse("CTRL-'"));
+  pressed[static_cast<int>(KeyCode::LeftControl)] = true;
+  pressed[static_cast<int>(KeyCode::LeftShift)] = true;
+  pressed[static_cast<int>(KeyCode::Backslash)] = down[static_cast<int>(KeyCode::Backslash)] = true;
+  Check(MapKey::IsDown(GameFunction::ShowAllianceHelp) && MapKey::IsDown(GameFunction::ShowAllianceArmada),
+        "German default overlap changed without an explicit modifier policy change");
+  // Use a spare action slot for the alternative configuration; the public API
+  // intentionally has no live binding replacement operation.
+  constexpr auto remappedHelp = GameFunction::ShowOfficers;
+  MapKey::AddMappedKey(remappedHelp, MapKey::Parse("SHIFT-^"));
+  Check(!MapKey::IsDown(remappedHelp) && MapKey::IsDown(GameFunction::ShowAllianceArmada),
+        "Documented Help remap still captures Armada");
+  pressed[static_cast<int>(KeyCode::LeftControl)] = false;
+  pressed[static_cast<int>(KeyCode::Backslash)] = down[static_cast<int>(KeyCode::Backslash)] = false;
+  pressed[static_cast<int>(KeyCode::BackQuote)] = down[static_cast<int>(KeyCode::BackQuote)] = true;
+  Check(MapKey::IsDown(remappedHelp) && !MapKey::IsDown(GameFunction::ShowAllianceArmada),
+        "Documented Shift-caret Help chord failed");
   layout_enabled = false;
   pressed.fill(false);
   down.fill(false);
