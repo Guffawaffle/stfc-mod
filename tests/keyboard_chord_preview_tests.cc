@@ -16,16 +16,22 @@ struct LayoutScope {
   HKL original = GetKeyboardLayout(0);
   HKL existing[256]{};
   int count    = GetKeyboardLayoutList(256, existing);
-  HKL german   = LoadKeyboardLayoutW(L"00000407", 0);
-  HKL american = LoadKeyboardLayoutW(L"00000409", 0);
-  ~LayoutScope()
+  HKL german   = nullptr;
+  HKL american = nullptr;
+  LayoutScope()
   {
-    ActivateKeyboardLayout(original, 0);
-    if (german && std::find(existing, existing + count, german) == existing + count)
-      UnloadKeyboardLayout(german);
-    if (american && std::find(existing, existing + count, american) == existing + count)
-      UnloadKeyboardLayout(american);
+    if (count <= 0 || count > 256)
+      return;
+    for (int i = 0; i < count; ++i) {
+      const auto id = reinterpret_cast<uintptr_t>(existing[i]) & 0xffffffffu;
+      if (id == 0x04070407u)
+        german = existing[i];
+      if (id == 0x04090409u)
+        american = existing[i];
+    }
   }
+  ~LayoutScope()
+  { ActivateKeyboardLayout(original, 0); }
 };
 #endif
 
@@ -36,7 +42,12 @@ int main()
     const auto original = GetKeyboardLayout(0);
     {
       LayoutScope layouts;
-      Check(layouts.count > 0 && layouts.german && layouts.american, "test layouts available");
+      Check(layouts.count > 0, "test layouts available");
+      if (!layouts.german || !layouts.american) {
+        std::cout << "SKIP: native fixtures require already-loaded standard US and German layouts; no layouts loaded "
+                     "by test\n";
+        return 0;
+      }
       auto de = [&](char c) { return FindWindowsChordCandidate(c, layouts.german); };
       auto us = [&](char c) { return FindWindowsChordCandidate(c, layouts.american); };
       Check(de('/').physical_key == KeyCode::Alpha7 && de('/').required_modifiers == 1, "German slash");
@@ -47,10 +58,10 @@ int main()
       Check(de('Z').physical_key == KeyCode::Y && de('Z').required_modifiers == 0, "uppercase config Z has no Shift");
       Check(de('@').required_modifiers == 6 && de('@').status == "modifier_policy_required",
             "AltGr not silently inferred");
-      Check(PreviewChord("@", de('@')).suggested_press.empty(), "AltGr has no executable-looking suggestion");
-      Check(PreviewChord("CTRL-=", de('=')).suggested_press == "CTRL+Shift+0", "configured Ctrl retained");
-      Check(PreviewChord("SHIFT-=", de('=')).suggested_press == "SHIFT+0", "Shift is deduplicated");
-      Check(PreviewChord("LSHIFT-=", de('=')).suggested_press == "LSHIFT+0", "side-specific Shift retained");
+      Check(PreviewChord(de('@')).suggested_press.empty(), "AltGr has no executable-looking suggestion");
+      Check(PreviewChord(de('='), "CTRL").suggested_press == "CTRL+Shift+0", "configured Ctrl retained");
+      Check(PreviewChord(de('='), "SHIFT").suggested_press == "SHIFT+0", "Shift is deduplicated");
+      Check(PreviewChord(de('='), "LSHIFT").suggested_press == "LSHIFT+0", "side-specific Shift retained");
       Check(us('/').physical_key == KeyCode::Slash && us('/').required_modifiers == 0, "US slash");
       Check(us('=').physical_key == KeyCode::Equals && us('=').required_modifiers == 0, "US equals");
       Check(us('`').physical_key == KeyCode::BackQuote && us('`').required_modifiers == 0, "US grave");
@@ -81,7 +92,9 @@ int main()
         for (const auto chord : {"/", "=", "CTRL-=", "`", "ALT-^", "@", "Z"}) {
           const std::string text(chord);
           const auto        candidate = FindWindowsChordCandidate(text.back(), layout);
-          const auto        preview   = PreviewChord(text, candidate);
+          const auto        preview   = PreviewChord(candidate, text.starts_with("CTRL-")  ? "CTRL"
+                                                                : text.starts_with("ALT-") ? "ALT"
+                                                                                           : "");
           std::cout << (layout == layouts.german ? "DE" : "US") << " | " << text << " | "
                     << CandidatePhysicalLabel(candidate.physical_key) << " | "
                     << CandidateModifiers(candidate.required_modifiers) << " | " << candidate.base_label << " | "

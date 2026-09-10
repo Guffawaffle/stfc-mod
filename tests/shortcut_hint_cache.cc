@@ -2,6 +2,7 @@
 // Key token parsing and input are test fixtures; layout lookup is injected below.
 // These tests do not exercise Unity lookup, native notifications or legacy input caching.
 #include "patches/mapkey.h"
+#include "patches/keyboard_layout_preview.h"
 #include "patches/keyboard_layout_mapping.h"
 
 #include <cstdlib>
@@ -16,6 +17,7 @@ static bool layout_enabled = false;
 KeyCode Key::Parse(std::string_view key)
 {
   static constexpr std::pair<std::string_view, KeyCode> tokens[] = {
+      {"=", KeyCode::Equals}, {"Z", KeyCode::Z}, {"LSHIFT", KeyCode::LeftShift},
       {"F7", KeyCode::F7}, {"F8", KeyCode::F8}, {"G", KeyCode::G}, {"+", KeyCode::Plus},
       {"/", KeyCode::Slash}, {"(", KeyCode::LeftParen}, {"1", KeyCode::Alpha1},
   };
@@ -25,7 +27,7 @@ KeyCode Key::Parse(std::string_view key)
   }
   return KeyCode::None;
 }
-bool Key::IsModifier(KeyCode) { return false; }
+bool Key::IsModifier(KeyCode key) { return key == KeyCode::LeftShift; }
 bool Key::Pressed(KeyCode key) { return pressed[static_cast<int>(key)]; }
 bool Key::Down(KeyCode key) { return down[static_cast<int>(key)]; }
 bool Key::IsModified() { return Key::Pressed(KeyCode::LeftShift); }
@@ -46,6 +48,32 @@ void Check(bool condition, const char* message)
 
 int main()
 {
+  {
+    using namespace keyboard_layout;
+    ChordCandidate equals;
+    equals.physical_key = KeyCode::Alpha0;
+    equals.required_modifiers = 1;
+    equals.base_label = "0";
+    equals.status = "candidate";
+    for (const auto* text : {"CTRL-=", "=-CTRL"}) {
+      const auto parsed = MapKey::Parse(text);
+      Check(parsed.Key == KeyCode::Equals, "Equals primary key retained");
+      const auto preview = PreviewChord(equals, PreviewModifierTokens(parsed.Modifiers));
+      Check(preview.explicit_modifiers == "CTRL" && preview.suggested_press == "CTRL+Shift+0",
+            "Preview uses parsed modifiers regardless of primary key position");
+    }
+    const auto side = MapKey::Parse("=-LSHIFT");
+    Check(PreviewChord(equals, PreviewModifierTokens(side.Modifiers)).suggested_press == "LSHIFT+0",
+          "Reversed side-specific Shift retains side without duplication");
+    auto letter = equals;
+    letter.physical_key = KeyCode::Z;
+    letter.required_modifiers = 0;
+    letter.base_label = "Z";
+    const auto reversed = MapKey::Parse("Z-CTRL");
+    Check(PreviewChord(letter, PreviewModifierTokens(reversed.Modifiers)).suggested_press == "CTRL+Z",
+          "Reversed letter chord retains Ctrl");
+  }
+
   constexpr auto toggle = GameFunction::ToggleShortcutHints;
   constexpr auto galaxy = GameFunction::ShowGalaxy;
   Check(!MapKey::HasBinding(toggle), "Absent binding must not enable hints");

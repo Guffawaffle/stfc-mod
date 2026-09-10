@@ -7,6 +7,7 @@
 #include "keyboard_layout_windows.h"
 #if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
 #include "keyboard_layout_preview_windows.h"
+#include "modifierkey.h"
 #endif
 #include "str_utils.h"
 
@@ -22,6 +23,7 @@ namespace
 #if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
   struct Shortcut {
     std::string name, chord;
+    std::string explicit_modifiers;
     KeyCode     key;
   };
   struct ResolvedKey {
@@ -84,7 +86,7 @@ namespace
       entry.insert("physical_us_key", key.physical);
       entry.insert("layout_display_name", key.display);
       entry.insert("legacy_key_code", static_cast<int>(key.key));
-      const auto preview = PreviewChord(shortcut.chord, key.candidate);
+      const auto preview = PreviewChord(key.candidate, shortcut.explicit_modifiers);
       entry.insert("chord_preview", toml::table{
           {"dispatch_active", false}, {"source", "windows_layout_candidate"},
           {"status", preview.status}, {"configured", shortcut.chord},
@@ -311,17 +313,20 @@ void Configure(std::string_view mode, bool detailed_diagnostics)
   reason = enabled ? "awaiting_game_input" : "configured_physical";
 }
 
-void RegisterShortcut(std::string_view name, std::string_view chord, KeyCode key)
+void RegisterShortcut(std::string_view name, std::string_view chord, KeyCode key,
+                      const std::vector<ModifierKey>& modifiers)
 {
   if (!enabled || !IsLayoutKey(key))
     return;
   requested_keys[static_cast<int>(key)] = true;
 #if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
-  if (diagnostics)
-    shortcuts.push_back({std::string(name), std::string(chord), key});
+  if (diagnostics) {
+    shortcuts.push_back({std::string(name), std::string(chord), PreviewModifierTokens(modifiers), key});
+  }
 #else
   (void)name;
   (void)chord;
+  (void)modifiers;
 #endif
 }
 

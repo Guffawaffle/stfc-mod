@@ -45,13 +45,27 @@ struct ChordPreview {
   std::string status;
 };
 
-inline ChordPreview PreviewChord(std::string_view configured, const ChordCandidate& candidate)
+// Use parsed modifier objects, not the position of tokens in the configured chord.
+template <class Modifiers> std::string PreviewModifierTokens(const Modifiers& modifiers)
+{
+  std::string result;
+  for (const auto& modifier : modifiers) {
+    const auto values = modifier.GetParsedValues();
+    if (values.empty())
+      continue;
+    if (!result.empty())
+      result += '-';
+    // Generic modifiers accept two sides, represented by repeated configured tokens.
+    result += values.substr(0, values.find('-'));
+  }
+  return result;
+}
+
+inline ChordPreview PreviewChord(const ChordCandidate& candidate, std::string_view explicit_modifiers = {})
 {
   ChordPreview preview;
-  preview.status       = candidate.status;
-  const auto separator = configured.rfind('-');
-  if (separator != std::string_view::npos)
-    preview.explicit_modifiers = configured.substr(0, separator);
+  preview.status             = candidate.status;
+  preview.explicit_modifiers = explicit_modifiers;
   if (candidate.physical_key == KeyCode::None)
     return preview;
   preview.required_press = CandidateModifiers(candidate.required_modifiers);

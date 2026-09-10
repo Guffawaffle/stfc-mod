@@ -121,7 +121,8 @@ layout mode is enabled. It never changes the live resolver, modifier matching,
 shortcut configuration, hints, or F7 rendering. `dispatch_active` is always false;
 the enclosing status/key fields still describe the actual binding.
 
-The candidate is a separate, value-only record for a future shared input/display
+Explicit modifiers come from the existing parser, preserving forms such as `Z-CTRL`
+as well as `CTRL-Z`. The candidate is a separate, value-only record for a future shared input/display
 model: configured chord, explicit modifier tokens, native required modifiers,
 supported physical position, unshifted layout label, layout/generation and status.
 `required_press` describes the native character chord; `suggested_press` combines
@@ -148,7 +149,8 @@ macOS reports `platform_not_implemented`; release builds omit the preview.
 inferred Shift, AltGr deferral, label generation, current-layout mismatch, US ->
 German -> US activation in the test thread, restoration, and preservation of a
 pending accent. It prints candidate rows for comparison with the proposed F7 view.
-It does not send keyboard input or alter the game's thread layout. Live vars/F7
+It selects only already-loaded layout fixtures (skipping if either is unavailable),
+never loads/unloads layouts, and does not send input or alter the game's thread layout. Live vars/F7
 validation and dispatch integration are separate next steps.
 
 References: [VkKeyScanExW](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-vkkeyscanexw),
