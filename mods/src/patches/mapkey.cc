@@ -178,7 +178,6 @@ std::string MapKey::GetShortcutHint(GameFunction gameFunction)
   const auto& mapKeys = MapKey::mappedKeys[gameFunction];
   return mapKeys.empty() ? "" : mapKeys.front().shortcutHint;
 }
-
 void MapKey::CacheShortcutHints()
 {
   // Native badges display only the first binding for each action.
@@ -208,11 +207,12 @@ bool MapKey::IsPressed(GameFunction gameFunction)
 {
   const auto &mapKeys = MapKey::mappedKeys[(int)gameFunction];
   for (const MapKey &mapKey : mapKeys) {
-    const auto key = keyboard_layout::Resolve(mapKey.Key);
+    const auto chord = keyboard_layout::ResolveChord(mapKey.Key);
+    const auto key = chord.key;
     if (key != KeyCode::None) {
       if (Key::Pressed(key)) {
-        if (MapKey::HasCorrectModifiers(mapKey)) {
-          if (mapKey.hasModifiers) {
+        if (MapKey::HasCorrectModifiers(mapKey, chord.shift)) {
+          if (mapKey.hasModifiers || chord.shift) {
             Key::ClaimDirectionalInput(mapKey.Key);
           }
           return true;
@@ -228,11 +228,12 @@ bool MapKey::IsDown(GameFunction gameFunction)
 {
   const auto &mapKeys = MapKey::mappedKeys[(int)gameFunction];
   for (const MapKey &mapKey : mapKeys) {
-    const auto key = keyboard_layout::Resolve(mapKey.Key);
+    const auto chord = keyboard_layout::ResolveChord(mapKey.Key);
+    const auto key = chord.key;
     if (key != KeyCode::None) {
       if (Key::Down(key)) {
-        if (MapKey::HasCorrectModifiers(mapKey)) {
-          if (mapKey.hasModifiers) {
+        if (MapKey::HasCorrectModifiers(mapKey, chord.shift)) {
+          if (mapKey.hasModifiers || chord.shift) {
             Key::ClaimDirectionalInput(mapKey.Key);
           }
           return true;
@@ -244,13 +245,28 @@ bool MapKey::IsDown(GameFunction gameFunction)
   return false;
 }
 
-bool MapKey::HasCorrectModifiers(const MapKey& mapKey)
+bool MapKey::HasCorrectModifiers(const MapKey& mapKey, bool requiredShift)
 {
+  if (requiredShift && !Key::Pressed(KeyCode::LeftShift) && !Key::Pressed(KeyCode::RightShift))
+    return false;
   auto        result  = false;
   std::string section = "non set";
   if (!mapKey.hasModifiers) {
     section = "no modifiers";
     result  = !Key::IsModified();
+    if (requiredShift) {
+      // Shift is part of typing this character. Other modifiers still prevent
+      // an unmodified action from stealing Ctrl/Alt/Command shortcuts.
+      result = true;
+      for (auto key : {KeyCode::LeftControl, KeyCode::RightControl, KeyCode::LeftAlt, KeyCode::RightAlt,
+                       KeyCode::AltGr, KeyCode::LeftCommand, KeyCode::RightCommand,
+                       KeyCode::LeftWindows, KeyCode::RightWindows}) {
+        if (Key::Pressed(key)) {
+          result = false;
+          break;
+        }
+      }
+    }
   } else {
     result = true;
     for (const ModifierKey& modifier : mapKey.Modifiers) {

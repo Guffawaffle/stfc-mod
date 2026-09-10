@@ -770,7 +770,7 @@ void parse_config_shortcut_value(toml::table& new_config, std::string_view item,
 
     if (mapKey.Key != KeyCode::None) {
       keyAdded = true;
-      keyboard_layout::RegisterShortcut(item, mapKey.GetParsedValues(), mapKey.Key);
+      keyboard_layout::RegisterShortcut(item, mapKey.GetParsedValues(), mapKey.Key, mapKey.Modifiers);
       MapKey::AddMappedKey(gameFunction, std::move(mapKey));
     } else if (!wantedKey.empty()) {
       spdlog::warn("Invalid shortcut token [shortcuts].{} token='{}' value='{}'; ignoring token.",
