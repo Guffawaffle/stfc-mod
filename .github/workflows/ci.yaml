@@ -5,8 +5,10 @@ on:
     branches:
       - "main"
       - "dev"
+      - "play"
+      - "play-dev"
   pull_request:
-    branches: ["main", "dev"]
+    branches: ["main", "dev", "play", "play-dev"]
 
 permissions:
   actions: read
