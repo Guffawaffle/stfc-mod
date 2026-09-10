@@ -112,3 +112,44 @@ Build success and modelled unit tests do not prove platform runtime behavior.
 The prior live Y/Z evidence predates the expanded scope. The expanded mapping and
 action tests cover digit/punctuation resolution and suppression, but reporter
 testing on actual keyboards is still needed. No live punctuation pass is claimed.
+
+## Experimental chord preview (diagnostics only)
+
+This prototype adds `chord_preview` under each detailed `shortcuts_resolved`
+alternative in debug/releasedbg when `keyboard_layout_diagnostics = true` and
+layout mode is enabled. It never changes the live resolver, modifier matching,
+shortcut configuration, hints, or F7 rendering. `dispatch_active` is always false;
+the enclosing status/key fields still describe the actual binding.
+
+The candidate is a separate, value-only record for a future shared input/display
+model: configured chord, explicit modifier tokens, native required modifiers,
+supported physical position, unshifted layout label, layout/generation and status.
+`required_press` describes the native character chord; `suggested_press` combines
+that with explicit shortcut modifiers only for the no-modifier/Shift cases.
+A literal German `CTRL-=` can therefore remain configured as `CTRL-=` while the
+preview says `CTRL+Shift+0`. `SHIFT-=` and `LSHIFT-=` do not acquire a duplicate Shift.
+
+Windows uses `VkKeyScanExW` and `MapVirtualKeyExW` with the current thread layout,
+only when its name agrees with Unity. Configured ASCII letters are normalized to
+lowercase before translation so uppercase config tokens do not infer Shift.
+There is no language-specific character table or additional refresh polling.
+The existing supported physical-position table is shared with the dead-key fallback.
+Candidates are queried only during an existing mapping rebuild with diagnostics on.
+
+`base_key_is_dead` describes the **unshifted base key**, not whether every modifier
+state is dead. For German backtick the label is acute accent and the required
+modifier is Shift. The prototype does not call text translation/composition APIs.
+Ctrl/Alt-required candidates (including Windows' Ctrl+Alt representation of AltGr)
+are marked `modifier_policy_required`, with no suggested combined chord. Conflicts
+between different configured shortcuts are not resolved or detected in this prototype.
+macOS reports `platform_not_implemented`; release builds omit the preview.
+
+`keyboard-chord-preview-tests` exercises native US/German candidates, explicit and
+inferred Shift, AltGr deferral, label generation, current-layout mismatch, US ->
+German -> US activation in the test thread, restoration, and preservation of a
+pending accent. It prints candidate rows for comparison with the proposed F7 view.
+It does not send keyboard input or alter the game's thread layout. Live vars/F7
+validation and dispatch integration are separate next steps.
+
+References: [VkKeyScanExW](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-vkkeyscanexw),
+[MapVirtualKeyExW](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-mapvirtualkeyexw).

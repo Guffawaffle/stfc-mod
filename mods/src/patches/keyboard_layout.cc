@@ -5,6 +5,9 @@
 #include "keyboard_layout_mapping.h"
 #include "keyboard_layout_notifications.h"
 #include "keyboard_layout_windows.h"
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
+#include "keyboard_layout_preview_windows.h"
+#endif
 #include "str_utils.h"
 
 #include <cstdint>
@@ -24,6 +27,7 @@ namespace
   struct ResolvedKey {
     KeyCode     key = KeyCode::None;
     std::string physical, display, status = "pending";
+    ChordCandidate candidate;
   };
   bool                                    diagnostics = false;
   std::vector<Shortcut>                   shortcuts;
@@ -80,6 +84,19 @@ namespace
       entry.insert("physical_us_key", key.physical);
       entry.insert("layout_display_name", key.display);
       entry.insert("legacy_key_code", static_cast<int>(key.key));
+      const auto preview = PreviewChord(shortcut.chord, key.candidate);
+      entry.insert("chord_preview", toml::table{
+          {"dispatch_active", false}, {"source", "windows_layout_candidate"},
+          {"status", preview.status}, {"configured", shortcut.chord},
+          {"explicit_modifiers", preview.explicit_modifiers},
+          {"required_modifiers", CandidateModifiers(key.candidate.required_modifiers)},
+          {"required_modifier_mask", static_cast<int64_t>(key.candidate.required_modifiers)},
+          {"physical_us_key", CandidatePhysicalLabel(key.candidate.physical_key)},
+          {"legacy_key_code", static_cast<int>(key.candidate.physical_key)},
+          {"scan_code", static_cast<int64_t>(key.candidate.scan_code)},
+          {"base_key_label", key.candidate.base_label}, {"base_key_is_dead", key.candidate.base_key_is_dead},
+          {"required_press", preview.required_press}, {"suggested_press", preview.suggested_press},
+          {"layout", layout_name}, {"generation", generation}});
       alternatives->push_back(std::move(entry));
     }
     vars.insert_or_assign("shortcuts_resolved", std::move(resolved));
@@ -241,6 +258,11 @@ namespace
       if (diagnostics) {
         auto& result  = next[index];
         result.key    = resolved_key;
+#if _WIN32
+        result.candidate = ResolveWindowsChordCandidate(character[0], to_string(layout));
+#else
+        result.candidate.status = "platform_not_implemented";
+#endif
         result.status = dead_key_fallback              ? "resolved_windows_dead_key"
                         : lookup_failed                   ? "lookup_failed"
                         : !control                      ? "key_unavailable"
