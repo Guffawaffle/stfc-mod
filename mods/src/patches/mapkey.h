@@ -19,9 +19,12 @@ public:
   static bool   HasBinding(GameFunction gameFunction);
   static bool   IsPressed(GameFunction gameFunction);
   static bool   IsDown(GameFunction gameFunction);
-  static bool   HasCorrectModifiers(const MapKey& mapKey);
+  static bool   HasCorrectModifiers(const MapKey& mapKey, bool requiredShift = false);
 
   static std::string GetShortcuts(GameFunction gameFunction);
+  // Human-readable current-layout recipes for help/F7 consumers. Config text
+  // remains available through GetShortcuts and is never rewritten.
+  static std::string GetResolvedShortcuts(GameFunction gameFunction);
   static std::string GetShortcutHint(GameFunction gameFunction);
   // Call once after config parsing, only when shortcut hints are enabled.
   static void CacheShortcutHints();

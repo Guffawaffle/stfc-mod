@@ -1,8 +1,8 @@
 # Layout-aware shortcuts
 
 `[control].keyboard_layout_mode = "physical"` preserves existing behavior (default).
-Set it to `"layout"` to resolve configured printable keys using Unity's active
-keyboard-layout display names: letters, digits, and punctuation accepted by the
+Set it to `"layout"` to resolve configured printable keys using the active
+keyboard layout: letters, digits, and punctuation accepted by the
 shortcut parser. `keyboard_letter_mode` remains a compatibility alias with the
 expanded behavior; the new setting takes precedence if both are present.
 For example, on German QWERTZ `show_daily = "Z"` follows German Z, which occupies
@@ -14,27 +14,24 @@ in-game validation on each architecture; see the [Mac handoff](KEYBOARD_LAYOUT_R
 Unsupported or failed notification setup logs and disables layout-resolved bindings;
 physical mode still works. There is no polling fallback.
 
-This is action binding, not text input. Shift/Ctrl/Alt chords retain their existing
-semantics; no modifiers are inferred from a character. Named controls (Escape,
+This is action binding, not text input. On Windows, Shift required to type a
+character is inferred and combined with explicit modifiers. Named controls (Escape,
 arrows, function keys, Space, explicit numpad keys, and mouse buttons), hardcoded
 controls, and native Scopely shortcuts retain their existing behavior.
 
-Every configured printable key is eligible for lookup, but Unity must report a
-matching display name and a physical position supported by the legacy input API.
+Every configured printable key is eligible for lookup, but its physical position
+must be supported by the legacy input API. Windows uses native character chords;
+other platforms and native lookup failures use Unity display names.
 A missing/unsupported key is disabled in layout mode, never silently treated as
-physical. This includes symbols accessible only through Shift/AltGr when Unity
-does not expose them as display names. On Windows, an unresolved unshifted dead
+physical. Native AltGr/Ctrl/Alt character requirements remain unsupported.
+On Windows, an unresolved unshifted dead
 key can use a native layout lookup when the current Windows layout name matches
 Unity's. For example, German `ALT-^` uses Alt plus the circumflex key directly.
 This fallback only accepts a unique supported physical position marked as a dead
 key by Windows; it does not infer Shift/AltGr or change text-composition state.
-Unicode text composition, dead-key sequences, and automatic Shift/AltGr character
-translation are not supported.
-Use an explicit chord with a resolvable base key in those cases. For example,
-German `(` is `SHIFT-8`; US `(` is `SHIFT-9`. These examples describe chords, not
-a promise that a literal `(` binding resolves on either layout. French number-row
-display names can also differ from digits; inspect the vars diagnostics before
-assuming `1` or `SHIFT-1` resolves. Explicit `KEY1` retains numpad identity.
+Unicode text composition and dead-key sequences are not supported. Windows literal
+`(` resolves to Shift+8 on German and Shift+9 on US. Other platforms may need an
+explicit chord with a resolvable base key. Explicit `KEY1` retains numpad identity.
 
 Use `MINUS` for `-` and `PIPE` for `|`, since those characters separate modifiers
 and alternatives in configuration. `EQUAL` is an alias for `=`. These aliases
@@ -113,45 +110,65 @@ The prior live Y/Z evidence predates the expanded scope. The expanded mapping an
 action tests cover digit/punctuation resolution and suppression, but reporter
 testing on actual keyboards is still needed. No live punctuation pass is claimed.
 
-## Experimental chord preview (diagnostics only)
+## Windows character chords
 
-This prototype adds `chord_preview` under each detailed `shortcuts_resolved`
+The native resolver publishes `chord_preview` under each detailed `shortcuts_resolved`
 alternative in debug/releasedbg when `keyboard_layout_diagnostics = true` and
-layout mode is enabled. It never changes the live resolver, modifier matching,
-shortcut configuration, hints, or F7 rendering. `dispatch_active` is always false;
-the enclosing status/key fields still describe the actual binding.
+layout mode is enabled. Native translations requiring no modifier or only Shift
+now drive live dispatch in all build modes, including release. `dispatch_active`
+identifies translations selected by dispatch; the enclosing status/key fields
+describe the actual binding. The diagnostics setting only controls reporting.
 
 Explicit modifiers come from the existing parser, preserving forms such as `Z-CTRL`
-as well as `CTRL-Z`. The candidate is a separate, value-only record for a future shared input/display
+as well as `CTRL-Z`. The candidate is a shared, value-only input/display
 model: configured chord, explicit modifier tokens, native required modifiers,
 supported physical position, unshifted layout label, layout/generation and status.
 `required_press` describes the native character chord; `suggested_press` combines
 that with explicit shortcut modifiers only for the no-modifier/Shift cases.
 A literal German `CTRL-=` can therefore remain configured as `CTRL-=` while the
-preview says `CTRL+Shift+0`. `SHIFT-=` and `LSHIFT-=` do not acquire a duplicate Shift.
+display says `CTRL+Shift+0`. `SHIFT-=` and `LSHIFT-=` do not acquire a duplicate Shift.
+Either Shift satisfies an inferred requirement; an explicitly configured left/right
+side still has to be held. Bare `/` accepts German Shift+7 but rejects additional
+Ctrl/Alt/Command modifiers. Explicitly modified shortcuts retain the existing
+minimum-modifier matching policy. Equivalent configured chords can still overlap;
+for example `/` and `SHIFT-/` both resolve to Shift+7 on German.
 
 Windows uses `VkKeyScanExW` and `MapVirtualKeyExW` with the current thread layout,
 only when its name agrees with Unity. Configured ASCII letters are normalized to
 lowercase before translation so uppercase config tokens do not infer Shift.
 There is no language-specific character table or additional refresh polling.
 The existing supported physical-position table is shared with the dead-key fallback.
-Candidates are queried only during an existing mapping rebuild with diagnostics on.
+Candidates are queried only during an existing mapping rebuild, independently of
+diagnostics. Accepted native recipes avoid Unity's display-name search. Other
+characters retain the existing Unity lookup and unshifted dead-key fallback.
+Named controls (F7, Enter, arrows, explicit numpad keys) bypass character translation.
 
 `base_key_is_dead` describes the **unshifted base key**, not whether every modifier
 state is dead. For German backtick the label is acute accent and the required
-modifier is Shift. The prototype does not call text translation/composition APIs.
+modifier is Shift. Shortcuts respond to the dead-key press; they do not require
+Space to finish a text character. No text translation/composition APIs are called.
+Apostrophe (`'`, character 39) and backtick (character 96) remain distinct:
+German `ALT-'` is Alt+Shift+#, whereas backtick is Shift+acute accent.
 Ctrl/Alt-required candidates (including Windows' Ctrl+Alt representation of AltGr)
-are marked `modifier_policy_required`, with no suggested combined chord. Conflicts
-between different configured shortcuts are not resolved or detected in this prototype.
-macOS reports `platform_not_implemented`; release builds omit the preview.
+are marked `modifier_policy_required` and disabled, with no suggested combined chord.
+macOS retains Unity resolution; no native macOS chord adapter is implemented.
+Release builds omit detailed diagnostics but use the same Windows chord dispatch.
+
+Native shortcut badges format the same resolved record, including inferred Shift
+and the local base-key label. `MapKey::GetResolvedShortcuts` exposes readable recipes
+for help/F7 consumers; `GetShortcuts` continues to return configured intent. The
+separate F7 map branch is not integrated here. Badges use the latest mapping when
+their existing text-update hook runs; this change adds no UI refresh hook.
 
 `keyboard-chord-preview-tests` exercises native US/German candidates, explicit and
 inferred Shift, AltGr deferral, label generation, current-layout mismatch, US ->
 German -> US activation in the test thread, restoration, and preservation of a
 pending accent. It prints candidate rows for comparison with the proposed F7 view.
 It selects only already-loaded layout fixtures (skipping if either is unavailable),
-never loads/unloads layouts, and does not send input or alter the game's thread layout. Live vars/F7
-validation and dispatch integration are separate next steps.
+never loads/unloads layouts, and does not send input or alter the game's thread layout.
+`tests/run-shortcut-hint-cache.ps1` links production dispatch and hint code against
+input fixtures, covering inferred Shift, modifier isolation, explicit modifier sides,
+and changing hint recipes. These are not a substitute for live game validation.
 
 References: [VkKeyScanExW](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-vkkeyscanexw),
 [MapVirtualKeyExW](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-mapvirtualkeyexw).

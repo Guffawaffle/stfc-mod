@@ -13,6 +13,7 @@ static std::array<bool, static_cast<int>(KeyCode::Max)> pressed{};
 static std::array<bool, static_cast<int>(KeyCode::Max)> down{};
 static keyboard_layout::BindingState layout_bindings;
 static bool layout_enabled = false;
+static std::array<keyboard_layout::ChordCandidate, keyboard_layout::LayoutKeyCount> chords;
 
 KeyCode Key::Parse(std::string_view key)
 {
@@ -30,12 +31,26 @@ KeyCode Key::Parse(std::string_view key)
 bool Key::IsModifier(KeyCode key) { return key == KeyCode::LeftShift; }
 bool Key::Pressed(KeyCode key) { return pressed[static_cast<int>(key)]; }
 bool Key::Down(KeyCode key) { return down[static_cast<int>(key)]; }
-bool Key::IsModified() { return Key::Pressed(KeyCode::LeftShift); }
+bool Key::IsModified() {
+  for (auto key : {KeyCode::LeftShift, KeyCode::RightShift, KeyCode::LeftControl, KeyCode::RightControl,
+                   KeyCode::LeftAlt, KeyCode::RightAlt, KeyCode::AltGr, KeyCode::LeftCommand,
+                   KeyCode::RightCommand, KeyCode::LeftWindows, KeyCode::RightWindows})
+    if (Key::Pressed(key)) return true;
+  return false;
+}
 void Key::ClaimDirectionalInput(KeyCode) {}
 
 namespace keyboard_layout
 {
 KeyCode Resolve(KeyCode configured) { return layout_enabled ? layout_bindings.Resolve(configured, [] { return 1; }, Key::Pressed) : configured; }
+ResolvedChord ResolveChord(KeyCode configured) {
+  return {Resolve(configured), layout_enabled && IsLayoutKey(configured)
+                               && (chords[static_cast<int>(configured)].required_modifiers & 1) != 0};
+}
+const ChordCandidate* DisplayChord(KeyCode configured) {
+  if (!layout_enabled || !IsLayoutKey(configured)) return nullptr;
+  return &chords[static_cast<int>(configured)];
+}
 } // namespace keyboard_layout
 
 void Check(bool condition, const char* message)
@@ -137,6 +152,51 @@ int main()
   down[static_cast<int>(KeyCode::Alpha1)] = true;
   Check(MapKey::IsDown(GameFunction::ShowInventory), "Digit action did not use resolved mapping");
   Check(MapKey::GetShortcuts(GameFunction::ShowScrapYard) == "SHIFT-/", "Resolution rewrote configured chord");
+
+  // German slash needs Shift on either side; plain 7 must not fire slash.
+  auto& slash = chords[static_cast<int>(KeyCode::Slash)];
+  slash.physical_key = KeyCode::Alpha7;
+  slash.required_modifiers = 1;
+  slash.base_label = "7";
+  slash.status = "candidate";
+  constexpr auto slashAction = GameFunction::ShowAlliance;
+  MapKey::AddMappedKey(slashAction, MapKey::Parse("/"));
+  MapKey::CacheShortcutHints();
+  pressed.fill(false);
+  down.fill(false);
+  pressed[static_cast<int>(KeyCode::Alpha7)] = down[static_cast<int>(KeyCode::Alpha7)] = true;
+  Check(!MapKey::IsDown(slashAction), "Bare 7 fired German slash");
+  for (const auto shift : {KeyCode::LeftShift, KeyCode::RightShift}) {
+    pressed[static_cast<int>(shift)] = true;
+    Check(MapKey::IsDown(slashAction) && MapKey::IsPressed(slashAction), "Inferred Shift chord did not dispatch");
+    for (const auto extra : {KeyCode::LeftControl, KeyCode::RightAlt, KeyCode::AltGr, KeyCode::LeftWindows}) {
+      pressed[static_cast<int>(extra)] = true;
+      Check(!MapKey::IsDown(slashAction), "Bare slash stole modified chord");
+      pressed[static_cast<int>(extra)] = false;
+    }
+    pressed[static_cast<int>(shift)] = false;
+  }
+  Check(MapKey::GetShortcutHint(slashAction) == "+7", "Hint omitted inferred Shift or used US slash label");
+  Check(MapKey::GetResolvedShortcuts(slashAction) == "Shift+7", "Help recipe differs from dispatch");
+  Check(MapKey::GetShortcutHint(GameFunction::ShowScrapYard) == "+7", "Hint duplicated explicit Shift");
+  Check(MapKey::GetShortcuts(slashAction) == "/", "Display rewrote configuration");
+  const auto explicitCtrl = MapKey::Parse("CTRL-/");
+  pressed[static_cast<int>(KeyCode::LeftControl)] = true;
+  Check(!MapKey::HasCorrectModifiers(explicitCtrl, true), "Explicit Ctrl bypassed inferred Shift");
+  pressed[static_cast<int>(KeyCode::RightShift)] = true;
+  Check(MapKey::HasCorrectModifiers(explicitCtrl, true), "Explicit Ctrl was not combined with inferred Shift");
+  const auto explicitSide = MapKey::Parse("LSHIFT-/");
+  Check(!MapKey::HasCorrectModifiers(explicitSide, true), "Inferred Shift bypassed explicit left side");
+  pressed[static_cast<int>(KeyCode::LeftShift)] = true;
+  Check(MapKey::HasCorrectModifiers(explicitSide, true), "Explicit left Shift was not accepted");
+  slash.status = "modifier_policy_required";
+  Check(MapKey::GetShortcutHint(slashAction).empty(), "Unsupported recipe displayed an active hint");
+  Check(MapKey::GetResolvedShortcuts(slashAction) == "/ (unavailable)", "Help concealed unavailable binding");
+  // Simulate the next US generation; no stale German recipe may remain cached.
+  slash.status = "candidate";
+  slash.required_modifiers = 0;
+  slash.base_label = "/";
+  Check(MapKey::GetShortcutHint(slashAction) == "/", "Hint retained previous layout's Shift");
   layout_enabled = false;
   pressed.fill(false);
   down.fill(false);

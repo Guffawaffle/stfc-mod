@@ -99,7 +99,7 @@ use_scopely_hotkeys = false
 
 # Tastenmodus: "physical" (Standard) behält Positionen bei; "layout" folgt den Unity-Anzeigenamen.
 # Layout-Modus umfasst konfigurierte Buchstaben, Ziffern und Satzzeichen. Benannte Tasten und explizite Modifikatoren bleiben unverändert.
-# Nicht auflösbare Zeichen werden deaktiviert: explizite Kombinationen verwenden (z. B. SHIFT-8 für die deutsche öffnende Klammer).
+# Windows ergänzt nötiges Shift (z. B. / wird auf Deutsch zu Shift+7); native AltGr-Kombinationen bleiben deaktiviert.
 # keyboard_letter_mode bleibt als Alias erhalten; keyboard_layout_mode hat Vorrang. Siehe docs/keyboard-letter-layout.md.
 # Layoutwechsel werden im Spiel erkannt; gehaltene Tasten vor der Verwendung loslassen.
 # Layout-Benachrichtigungen: Windows x64; macOS arm64/x86_64 experimentell (Praxistest ausstehend). Bei Fehlern werden Layout-Bindungen mit Logmeldung deaktiviert; kein Polling.

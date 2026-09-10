@@ -1,6 +1,7 @@
 #pragma once
 
 #include <prime/KeyCode.h>
+#include "keyboard_layout_preview.h"
 #include <string_view>
 #include <vector>
 
@@ -19,4 +20,8 @@ void InitializeDiagnostics(toml::table& vars);
 // layout work. Layout mode queries Unity only at initialization or after a device
 // notification. Unsupported/failed notifications disable layout bindings; no polling.
 KeyCode Resolve(KeyCode configured);
+ResolvedChord ResolveChord(KeyCode configured);
+// Cached generation metadata, without the held-key/transition dispatch suppression.
+// Null means the existing physical/Unity hint should be used.
+const ChordCandidate* DisplayChord(KeyCode configured);
 } // namespace keyboard_layout

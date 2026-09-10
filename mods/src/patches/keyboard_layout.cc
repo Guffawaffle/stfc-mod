@@ -5,10 +5,8 @@
 #include "keyboard_layout_mapping.h"
 #include "keyboard_layout_notifications.h"
 #include "keyboard_layout_windows.h"
-#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
 #include "keyboard_layout_preview_windows.h"
 #include "modifierkey.h"
-#endif
 #include "str_utils.h"
 
 #include <cstdint>
@@ -48,6 +46,7 @@ namespace
   std::string                      reason = "configured_physical";
   std::array<bool, LayoutKeyCount> requested_keys{};
   BindingState                     bindings;
+  std::array<ChordCandidate, LayoutKeyCount> chords;
   toml::table                      vars_snapshot;
   const MethodInfo *               current_method, *layout_method, *find_method, *key_method;
   int (*frame_count)() = nullptr;
@@ -88,7 +87,7 @@ namespace
       entry.insert("legacy_key_code", static_cast<int>(key.key));
       const auto preview = PreviewChord(key.candidate, shortcut.explicit_modifiers);
       entry.insert("chord_preview", toml::table{
-          {"dispatch_active", false}, {"source", "windows_layout_candidate"},
+          {"dispatch_active", key.status == "resolved_windows_chord"}, {"source", "windows_layout_candidate"},
           {"status", preview.status}, {"configured", shortcut.chord},
           {"explicit_modifiers", preview.explicit_modifiers},
           {"required_modifiers", CandidateModifiers(key.candidate.required_modifiers)},
@@ -128,6 +127,7 @@ namespace
       key = {KeyCode::None, {}, {}, "unavailable"};
 #endif
     bindings.Clear();
+    chords = {};
     Publish();
   }
 
@@ -223,6 +223,7 @@ namespace
     // Resolve only configured printable keys, once per keyboard/layout generation.
     // No retained managed objects, per-frame strings, or silent physical fallback.
     LayoutKeys keys{};
+    std::array<ChordCandidate, LayoutKeyCount> next_chords;
 #if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
     std::array<ResolvedKey, LayoutKeyCount> next;
 #endif
@@ -231,6 +232,30 @@ namespace
       if (!requested_keys[index])
         continue;
       char  character[]{static_cast<char>(index), '\0'};
+      auto& candidate = next_chords[index];
+#if _WIN32
+      candidate = ResolveWindowsChordCandidate(character[0], to_string(layout));
+      // Windows translates the character to a VK plus modifiers, then a scan
+      // position. Named controls never enter this path. Do not invoke Unity's
+      // exception-prone display-name search for a known native translation.
+      if (candidate.status == "candidate" || candidate.status == "modifier_policy_required") {
+        keys[index] = candidate.status == "candidate" ? candidate.physical_key : KeyCode::None;
+        all_resolved &= keys[index] != KeyCode::None;
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
+        if (diagnostics) {
+          auto& result = next[index];
+          result.key = keys[index];
+          result.candidate = candidate;
+          result.status = keys[index] != KeyCode::None ? "resolved_windows_chord" : candidate.status;
+          result.physical = CandidatePhysicalLabel(candidate.physical_key);
+          result.display = candidate.base_label;
+        }
+#endif
+        continue;
+      }
+#else
+      candidate.status = "platform_not_implemented";
+#endif
       auto* text = il2cpp_string_new(character);
       void* args[]{text};
       // Unity 1.14.2's search dereferences its null IMESelected slot when no
@@ -260,11 +285,7 @@ namespace
       if (diagnostics) {
         auto& result  = next[index];
         result.key    = resolved_key;
-#if _WIN32
-        result.candidate = ResolveWindowsChordCandidate(character[0], to_string(layout));
-#else
-        result.candidate.status = "platform_not_implemented";
-#endif
+        result.candidate = candidate;
         result.status = dead_key_fallback              ? "resolved_windows_dead_key"
                         : lookup_failed                   ? "lookup_failed"
                         : !control                      ? "key_unavailable"
@@ -284,6 +305,8 @@ namespace
         }
       }
 #endif
+      if (resolved_key != KeyCode::None)
+        candidate.status = "resolved_unity";
     }
     if (failed) {
       Disable("unity_invocation_failed");
@@ -295,6 +318,7 @@ namespace
       resolved_keys = std::move(next);
 #endif
     bindings.Replace(keys, Key::Pressed, frame_count());
+    chords = std::move(next_chords);
     status = all_resolved ? "resolved" : "partial";
     reason = all_resolved ? "layout_lookup" : "unresolved_keys_disabled";
     Publish();
@@ -345,5 +369,28 @@ KeyCode Resolve(KeyCode configured)
     return configured;
   Update();
   return bindings.Resolve(configured, frame_count, Key::Pressed);
+}
+
+ResolvedChord ResolveChord(KeyCode configured)
+{
+  const auto key = Resolve(configured);
+  return {key, enabled && IsLayoutKey(configured)
+                   && chords[static_cast<int>(configured)].status == "candidate"
+                   && (chords[static_cast<int>(configured)].required_modifiers & 1) != 0};
+}
+
+const ChordCandidate* DisplayChord(KeyCode configured)
+{
+  if (!enabled || !IsLayoutKey(configured))
+    return nullptr;
+  Update();
+  // Unity-only platforms retain their existing hints. Windows unresolved
+  // candidates are displayed as unavailable, never as an executable recipe.
+#if _WIN32
+  const auto& chord = chords[static_cast<int>(configured)];
+  return chord.status == "resolved_unity" ? nullptr : &chord;
+#else
+  return nullptr;
+#endif
 }
 } // namespace keyboard_layout

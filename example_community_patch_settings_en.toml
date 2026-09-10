@@ -99,7 +99,7 @@ use_scopely_hotkeys = false
 
 # Shortcut key mode: "physical" (default) preserves positions; "layout" follows Unity display names.
 # Layout mode includes configured letters, digits and punctuation. Named controls and explicit modifiers stay unchanged.
-# Symbols Unity cannot resolve are disabled: use explicit chords (e.g. SHIFT-8 for German opening parenthesis).
+# Windows infers required Shift (e.g. / becomes Shift+7 on German); native AltGr recipes remain disabled.
 # Legacy keyboard_letter_mode is an alias; keyboard_layout_mode takes precedence. See docs/keyboard-letter-layout.md.
 # Changes of OS layout apply live; release held keys before using the new layout.
 # Layout notifications: Windows x64; experimental macOS arm64/x86_64 (runtime testing pending). Setup failures log and disable layout bindings; no polling.

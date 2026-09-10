@@ -54,6 +54,9 @@ int main()
       Check(de('=').physical_key == KeyCode::Alpha0 && de('=').required_modifiers == 1, "German equals");
       Check(de('`').physical_key == KeyCode::Equals && de('`').required_modifiers == 1, "German grave");
       Check(de('`').base_key_is_dead && de('`').base_label == "\xC2\xB4", "German accent label");
+      Check(de('\'').physical_key == KeyCode::Backslash && de('\'').required_modifiers == 1,
+            "German apostrophe is distinct from grave");
+      Check(PreviewChord(de('\''), "ALT").suggested_press == "ALT+Shift+#", "German Alt-apostrophe recipe");
       Check(de('^').physical_key == KeyCode::BackQuote && de('^').required_modifiers == 0, "German caret");
       Check(de('Z').physical_key == KeyCode::Y && de('Z').required_modifiers == 0, "uppercase config Z has no Shift");
       Check(de('@').required_modifiers == 6 && de('@').status == "modifier_policy_required",
@@ -89,7 +92,7 @@ int main()
       std::cout
           << "layout | configured | physical US position | native modifiers | base label | suggested press | status\n";
       for (const auto layout : {layouts.american, layouts.german}) {
-        for (const auto chord : {"/", "=", "CTRL-=", "`", "ALT-^", "@", "Z"}) {
+        for (const auto chord : {"/", "=", "CTRL-=", "`", "ALT-'", "ALT-^", "@", "Z"}) {
           const std::string text(chord);
           const auto        candidate = FindWindowsChordCandidate(text.back(), layout);
           const auto        preview   = PreviewChord(candidate, text.starts_with("CTRL-")  ? "CTRL"

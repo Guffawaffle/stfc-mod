@@ -99,7 +99,7 @@ use_scopely_hotkeys = false
 
 # Toetsmodus: "physical" (standaard) behoudt posities; "layout" volgt de weergavenamen van Unity.
 # Layoutmodus omvat ingestelde letters, cijfers en leestekens. Benoemde toetsen en expliciete modificatietoetsen blijven ongewijzigd.
-# Niet-opgeloste tekens worden uitgeschakeld: gebruik expliciete combinaties (bijv. SHIFT-8 voor het Duitse haakje openen).
+# Windows voegt vereiste Shift toe (bijv. / wordt Shift+7 op Duits); native AltGr-combinaties blijven uitgeschakeld.
 # keyboard_letter_mode blijft een alias; keyboard_layout_mode heeft voorrang. Zie docs/keyboard-letter-layout.md.
 # Layoutwisselingen worden in het spel herkend; laat ingedrukte toetsen eerst los.
 # Layoutmeldingen: Windows x64; experimenteel op macOS arm64/x86_64 (praktijktest volgt). Bij fouten worden layoutbindingen uitgeschakeld en gelogd; geen polling.

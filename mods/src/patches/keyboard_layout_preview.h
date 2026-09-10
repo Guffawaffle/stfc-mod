@@ -6,7 +6,13 @@
 
 namespace keyboard_layout
 {
-// Diagnostic proposal only. Never read by live input dispatch.
+struct ResolvedChord {
+  KeyCode key = KeyCode::None;
+  bool shift = false;
+};
+
+// Native translation shared by dispatch and display. Only status="candidate"
+// with no modifiers beyond Shift is executable; Ctrl/Alt recipes remain diagnostic.
 struct ChordCandidate {
   KeyCode     physical_key       = KeyCode::None;
   unsigned    required_modifiers = 0; // Windows Shift=1, Ctrl=2, Alt=4; not an executable modifier policy.
