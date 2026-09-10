@@ -6,6 +6,10 @@
 
 namespace keyboard_layout
 {
+struct ResolvedChord {
+  KeyCode key = KeyCode::None;
+  bool shift = false;
+};
 // Printable keys accepted by Key::Parse. Named controls (including Space and
 // explicit numpad keys) keep their identity, independent of display-name lookup.
 constexpr bool IsLayoutKey(KeyCode key)

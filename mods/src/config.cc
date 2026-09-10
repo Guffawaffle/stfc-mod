@@ -770,7 +770,7 @@ void parse_config_shortcut_value(toml::table& new_config, std::string_view item,
 
     if (mapKey.Key != KeyCode::None) {
       keyAdded = true;
-      keyboard_layout::RegisterShortcut(item, mapKey.GetParsedValues(), mapKey.Key, mapKey.Modifiers);
+      keyboard_layout::RegisterShortcut(mapKey.Key);
       MapKey::AddMappedKey(gameFunction, std::move(mapKey));
     } else if (!wantedKey.empty()) {
       spdlog::warn("Invalid shortcut token [shortcuts].{} token='{}' value='{}'; ignoring token.",
@@ -1001,29 +1001,14 @@ void Config::Load()
       get_config_or_default(config, parsed, "control", "hotkeys_extended", DCC::hotkeys_extended, write_config);
   this->use_scopely_hotkeys =
       get_config_or_default(config, parsed, "control", "use_scopely_hotkeys", DCC::use_scopely_hotkeys, write_config);
-  const auto layout_mode_item = config["control"]["keyboard_layout_mode"] ? "keyboard_layout_mode"
-                               : config["control"]["keyboard_letter_mode"] ? "keyboard_letter_mode"
-                                                                           : "keyboard_layout_mode";
   this->keyboard_layout_mode = get_config_or_default(
-      config, parsed, "control", layout_mode_item, std::string(DCC::keyboard_layout_mode), write_config);
-  if (config["control"]["keyboard_letter_mode"]) {
-    spdlog::warn("[control].keyboard_letter_mode is a compatibility alias; use keyboard_layout_mode. "
-                 "Layout mode now includes printable digits and punctuation; explicit modifiers are unchanged.");
-  }
+      config, parsed, "control", "keyboard_layout_mode", std::string(DCC::keyboard_layout_mode), write_config);
   if (this->keyboard_layout_mode != "physical" && this->keyboard_layout_mode != "layout") {
-    spdlog::warn("Invalid [control].keyboard_layout_mode '{}'; using physical", this->keyboard_layout_mode);
-    this->keyboard_layout_mode = DCC::keyboard_layout_mode;
+    spdlog::warn("Invalid keyboard_layout_mode '{}'; using physical", this->keyboard_layout_mode);
+    this->keyboard_layout_mode = "physical";
+    parsed["control"].as_table()->insert_or_assign("keyboard_layout_mode", this->keyboard_layout_mode);
   }
-  parsed["control"].as_table()->erase("keyboard_letter_mode");
-  parsed["control"].as_table()->insert_or_assign("keyboard_layout_mode", this->keyboard_layout_mode);
-#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
-  this->keyboard_layout_diagnostics = get_config_or_default(
-      config, parsed, "control", "keyboard_layout_diagnostics", DCC::keyboard_layout_diagnostics, write_config);
-  keyboard_layout::Configure(this->keyboard_layout_mode, this->keyboard_layout_diagnostics);
-#else
-  parsed["control"].as_table()->erase("keyboard_layout_diagnostics");
-  keyboard_layout::Configure(this->keyboard_layout_mode, false);
-#endif
+  keyboard_layout::Configure(this->keyboard_layout_mode);
   this->select_timer =
       get_config_or_default(config, parsed, "control", "select_timer", DCC::select_timer, write_config);
   this->enable_experimental =

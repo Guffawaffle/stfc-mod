@@ -32,9 +32,6 @@ namespace Control
   constexpr bool hotkeys_extended    = true;
   constexpr bool use_scopely_hotkeys = false;
   constexpr const char* keyboard_layout_mode = "physical";
-#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
-  constexpr bool keyboard_layout_diagnostics = false;
-#endif
   constexpr bool queue_enabled       = true;
   constexpr bool kirshara_queue_repair = true;
   constexpr auto select_timer        = 500;

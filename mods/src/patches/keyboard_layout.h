@@ -1,24 +1,14 @@
 #pragma once
-
-#include <prime/KeyCode.h>
-#include "keyboard_layout_preview.h"
+#include "keyboard_layout_mapping.h"
 #include <string_view>
-#include <vector>
-
-struct ModifierKey;
 #include <toml++/toml.h>
 
 namespace keyboard_layout
 {
-// Config-time calls: no Unity access. Preserve configured text and its provenance.
-void Configure(std::string_view mode, bool diagnostics);
-void RegisterShortcut(std::string_view name, std::string_view chord, KeyCode key,
-                      const std::vector<ModifierKey>& modifiers);
+// Config-time calls do not access Unity or change configured shortcut text.
+void Configure(std::string_view mode);
+void RegisterShortcut(KeyCode key);
 void InitializeDiagnostics(toml::table& vars);
-
-// Game-thread only, at the MapKey action boundary. Physical mode does no Unity
-// layout work. Layout mode queries Unity only at initialization or after a device
-// notification. Unsupported/failed notifications disable layout bindings; no polling.
-KeyCode Resolve(KeyCode configured);
+// Game thread only; refresh on device notifications, never by polling.
 ResolvedChord ResolveChord(KeyCode configured);
 } // namespace keyboard_layout

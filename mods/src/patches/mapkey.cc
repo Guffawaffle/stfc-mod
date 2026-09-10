@@ -178,6 +178,7 @@ std::string MapKey::GetShortcutHint(GameFunction gameFunction)
   const auto& mapKeys = MapKey::mappedKeys[gameFunction];
   return mapKeys.empty() ? "" : mapKeys.front().shortcutHint;
 }
+
 void MapKey::CacheShortcutHints()
 {
   // Native badges display only the first binding for each action.

@@ -1,13 +1,8 @@
 #include "keyboard_layout_notifications.h"
 
-// Use the client's generated delegate invoker on each native ABI. macOS is an
-// experimental port pending in-game validation on both arm64 and x86_64.
-#if (defined(_WIN32) && (defined(_M_X64) || defined(__x86_64__))) \
-    || (defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__) || defined(__x86_64__)))
+// Use the tested Windows x64 delegate ABI.
+#if defined(_WIN32) && (defined(_M_X64) || defined(__x86_64__))
 #include "il2cpp/il2cpp_helper.h"
-#if defined(__APPLE__)
-#include <spdlog/spdlog.h>
-#endif
 
 namespace keyboard_layout::notifications
 {
@@ -124,9 +119,6 @@ Result Start(RefreshState& refresh)
   auto& state = Get();
   if (!state.attempted) {
     state.attempted = true;
-#if defined(__APPLE__)
-    spdlog::warn("[KeyboardLayout] experimental macOS notification adapter; runtime validation pending");
-#endif
     state.refresh   = &refresh;
     state.active    = Create();
     if (!state.active)
