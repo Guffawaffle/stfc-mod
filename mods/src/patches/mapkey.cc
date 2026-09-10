@@ -176,45 +176,8 @@ std::string MapKey::GetShortcuts(GameFunction gameFunction)
 std::string MapKey::GetShortcutHint(GameFunction gameFunction)
 {
   const auto& mapKeys = MapKey::mappedKeys[gameFunction];
-  if (mapKeys.empty() || mapKeys.front().shortcutHint.empty())
-    return "";
-  const auto& mapKey = mapKeys.front();
-  if (const auto* chord = keyboard_layout::DisplayChord(mapKey.Key)) {
-    if (chord->status != "candidate")
-      return "";
-    std::string hint;
-    bool explicitShift = false;
-    const auto tokens = keyboard_layout::PreviewModifierTokens(mapKey.Modifiers);
-    for (const auto token : StrSplit(tokens, '-')) {
-      hint += CompactShortcutToken(token, false);
-      explicitShift |= token == "SHIFT" || token == "LSHIFT" || token == "RSHIFT";
-    }
-    if ((chord->required_modifiers & 1) && !explicitShift)
-      hint += '+';
-    hint += CompactShortcutToken(chord->base_label, true);
-    return hint;
-  }
-  return mapKey.shortcutHint;
+  return mapKeys.empty() ? "" : mapKeys.front().shortcutHint;
 }
-
-std::string MapKey::GetResolvedShortcuts(GameFunction gameFunction)
-{
-  std::string result;
-  for (const auto& mapKey : mappedKeys[gameFunction]) {
-    if (!result.empty())
-      result += " | ";
-    if (const auto* chord = keyboard_layout::DisplayChord(mapKey.Key)) {
-      result += chord->status == "candidate"
-                    ? keyboard_layout::PreviewChord(*chord, keyboard_layout::PreviewModifierTokens(mapKey.Modifiers))
-                          .suggested_press
-                    : mapKey.GetParsedValues() + " (unavailable)";
-    } else {
-      result += mapKey.GetParsedValues();
-    }
-  }
-  return result;
-}
-
 void MapKey::CacheShortcutHints()
 {
   // Native badges display only the first binding for each action.

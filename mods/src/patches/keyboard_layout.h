@@ -21,7 +21,4 @@ void InitializeDiagnostics(toml::table& vars);
 // notification. Unsupported/failed notifications disable layout bindings; no polling.
 KeyCode Resolve(KeyCode configured);
 ResolvedChord ResolveChord(KeyCode configured);
-// Cached generation metadata, without the held-key/transition dispatch suppression.
-// Null means the existing physical/Unity hint should be used.
-const ChordCandidate* DisplayChord(KeyCode configured);
 } // namespace keyboard_layout

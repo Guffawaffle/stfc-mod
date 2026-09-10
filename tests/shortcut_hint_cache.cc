@@ -47,10 +47,6 @@ ResolvedChord ResolveChord(KeyCode configured) {
   return {Resolve(configured), layout_enabled && IsLayoutKey(configured)
                                && (chords[static_cast<int>(configured)].required_modifiers & 1) != 0};
 }
-const ChordCandidate* DisplayChord(KeyCode configured) {
-  if (!layout_enabled || !IsLayoutKey(configured)) return nullptr;
-  return &chords[static_cast<int>(configured)];
-}
 } // namespace keyboard_layout
 
 void Check(bool condition, const char* message)
@@ -176,9 +172,8 @@ int main()
     }
     pressed[static_cast<int>(shift)] = false;
   }
-  Check(MapKey::GetShortcutHint(slashAction) == "+7", "Hint omitted inferred Shift or used US slash label");
-  Check(MapKey::GetResolvedShortcuts(slashAction) == "Shift+7", "Help recipe differs from dispatch");
-  Check(MapKey::GetShortcutHint(GameFunction::ShowScrapYard) == "+7", "Hint duplicated explicit Shift");
+  Check(MapKey::GetShortcutHint(slashAction) == "/", "Hint replaced configured slash with physical recipe");
+  Check(MapKey::GetShortcutHint(GameFunction::ShowScrapYard) == "+/", "Hint changed explicit configured Shift");
   Check(MapKey::GetShortcuts(slashAction) == "/", "Display rewrote configuration");
   const auto explicitCtrl = MapKey::Parse("CTRL-/");
   pressed[static_cast<int>(KeyCode::LeftControl)] = true;
@@ -190,8 +185,7 @@ int main()
   pressed[static_cast<int>(KeyCode::LeftShift)] = true;
   Check(MapKey::HasCorrectModifiers(explicitSide, true), "Explicit left Shift was not accepted");
   slash.status = "modifier_policy_required";
-  Check(MapKey::GetShortcutHint(slashAction).empty(), "Unsupported recipe displayed an active hint");
-  Check(MapKey::GetResolvedShortcuts(slashAction) == "/ (unavailable)", "Help concealed unavailable binding");
+  Check(MapKey::GetShortcutHint(slashAction) == "/", "Resolution status rewrote configured hint");
   // Simulate the next US generation; no stale German recipe may remain cached.
   slash.status = "candidate";
   slash.required_modifiers = 0;

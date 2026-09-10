@@ -120,13 +120,13 @@ identifies translations selected by dispatch; the enclosing status/key fields
 describe the actual binding. The diagnostics setting only controls reporting.
 
 Explicit modifiers come from the existing parser, preserving forms such as `Z-CTRL`
-as well as `CTRL-Z`. The candidate is a shared, value-only input/display
+as well as `CTRL-Z`. The candidate is a shared, value-only input/diagnostic
 model: configured chord, explicit modifier tokens, native required modifiers,
 supported physical position, unshifted layout label, layout/generation and status.
 `required_press` describes the native character chord; `suggested_press` combines
 that with explicit shortcut modifiers only for the no-modifier/Shift cases.
 A literal German `CTRL-=` can therefore remain configured as `CTRL-=` while the
-display says `CTRL+Shift+0`. `SHIFT-=` and `LSHIFT-=` do not acquire a duplicate Shift.
+diagnostic recipe says `CTRL+Shift+0`. `SHIFT-=` and `LSHIFT-=` do not acquire a duplicate Shift.
 Either Shift satisfies an inferred requirement; an explicitly configured left/right
 side still has to be held. Bare `/` accepts German Shift+7 but rejects additional
 Ctrl/Alt/Command modifiers. Explicitly modified shortcuts retain the existing
@@ -154,11 +154,10 @@ are marked `modifier_policy_required` and disabled, with no suggested combined c
 macOS retains Unity resolution; no native macOS chord adapter is implemented.
 Release builds omit detailed diagnostics but use the same Windows chord dispatch.
 
-Native shortcut badges format the same resolved record, including inferred Shift
-and the local base-key label. `MapKey::GetResolvedShortcuts` exposes readable recipes
-for help/F7 consumers; `GetShortcuts` continues to return configured intent. The
-separate F7 map branch is not integrated here. Badges use the latest mapping when
-their existing text-update hook runs; this change adds no UI refresh hook.
+Shortcut badges and `MapKey::GetShortcuts` retain the configured TOML chord, using
+the existing compact modifier notation for badges. They never substitute the
+internal physical recipe. Thus German `/` still displays `/`, while diagnostics
+explain Shift+7. The separate F7 map branch is not integrated or changed here.
 
 `keyboard-chord-preview-tests` exercises native US/German candidates, explicit and
 inferred Shift, AltGr deferral, label generation, current-layout mismatch, US ->
@@ -168,7 +167,7 @@ It selects only already-loaded layout fixtures (skipping if either is unavailabl
 never loads/unloads layouts, and does not send input or alter the game's thread layout.
 `tests/run-shortcut-hint-cache.ps1` links production dispatch and hint code against
 input fixtures, covering inferred Shift, modifier isolation, explicit modifier sides,
-and changing hint recipes. These are not a substitute for live game validation.
+and unchanged configured hints across layouts. These are not a substitute for live game validation.
 
 References: [VkKeyScanExW](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-vkkeyscanexw),
 [MapVirtualKeyExW](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-mapvirtualkeyexw).

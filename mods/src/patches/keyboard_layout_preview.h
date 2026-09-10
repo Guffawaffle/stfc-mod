@@ -11,7 +11,7 @@ struct ResolvedChord {
   bool shift = false;
 };
 
-// Native translation shared by dispatch and display. Only status="candidate"
+// Native translation used by dispatch and diagnostics. Only status="candidate"
 // with no modifiers beyond Shift is executable; Ctrl/Alt recipes remain diagnostic.
 struct ChordCandidate {
   KeyCode     physical_key       = KeyCode::None;
