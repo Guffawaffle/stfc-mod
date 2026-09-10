@@ -4,7 +4,7 @@
 #include <string_view>
 #include <vector>
 
-class ModifierKey;
+struct ModifierKey;
 #include <toml++/toml.h>
 
 namespace keyboard_layout
