@@ -5,6 +5,8 @@
 #include "keyboard_layout_mapping.h"
 #include "keyboard_layout_notifications.h"
 #include "keyboard_layout_windows.h"
+#include "keyboard_layout_preview_windows.h"
+#include "modifierkey.h"
 #include "str_utils.h"
 
 #include <cstdint>
@@ -19,11 +21,13 @@ namespace
 #if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
   struct Shortcut {
     std::string name, chord;
+    std::string explicit_modifiers;
     KeyCode     key;
   };
   struct ResolvedKey {
     KeyCode     key = KeyCode::None;
     std::string physical, display, status = "pending";
+    ChordCandidate candidate;
   };
   bool                                    diagnostics = false;
   std::vector<Shortcut>                   shortcuts;
@@ -42,6 +46,7 @@ namespace
   std::string                      reason = "configured_physical";
   std::array<bool, LayoutKeyCount> requested_keys{};
   BindingState                     bindings;
+  std::array<bool, LayoutKeyCount> required_shift{};
   toml::table                      vars_snapshot;
   const MethodInfo *               current_method, *layout_method, *find_method, *key_method;
   int (*frame_count)() = nullptr;
@@ -80,6 +85,19 @@ namespace
       entry.insert("physical_us_key", key.physical);
       entry.insert("layout_display_name", key.display);
       entry.insert("legacy_key_code", static_cast<int>(key.key));
+      const auto preview = PreviewChord(key.candidate, shortcut.explicit_modifiers);
+      entry.insert("chord_preview", toml::table{
+          {"dispatch_active", key.status == "resolved_windows_chord"}, {"source", "windows_layout_candidate"},
+          {"status", preview.status}, {"configured", shortcut.chord},
+          {"explicit_modifiers", preview.explicit_modifiers},
+          {"required_modifiers", CandidateModifiers(key.candidate.required_modifiers)},
+          {"required_modifier_mask", static_cast<int64_t>(key.candidate.required_modifiers)},
+          {"physical_us_key", CandidatePhysicalLabel(key.candidate.physical_key)},
+          {"legacy_key_code", static_cast<int>(key.candidate.physical_key)},
+          {"scan_code", static_cast<int64_t>(key.candidate.scan_code)},
+          {"base_key_label", key.candidate.base_label}, {"base_key_is_dead", key.candidate.base_key_is_dead},
+          {"required_press", preview.required_press}, {"suggested_press", preview.suggested_press},
+          {"layout", layout_name}, {"generation", generation}});
       alternatives->push_back(std::move(entry));
     }
     vars.insert_or_assign("shortcuts_resolved", std::move(resolved));
@@ -109,6 +127,7 @@ namespace
       key = {KeyCode::None, {}, {}, "unavailable"};
 #endif
     bindings.Clear();
+    required_shift = {};
     Publish();
   }
 
@@ -204,6 +223,7 @@ namespace
     // Resolve only configured printable keys, once per keyboard/layout generation.
     // No retained managed objects, per-frame strings, or silent physical fallback.
     LayoutKeys keys{};
+    std::array<bool, LayoutKeyCount> next_shift{};
 #if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
     std::array<ResolvedKey, LayoutKeyCount> next;
 #endif
@@ -212,6 +232,31 @@ namespace
       if (!requested_keys[index])
         continue;
       char  character[]{static_cast<char>(index), '\0'};
+      ChordCandidate candidate;
+#if _WIN32
+      candidate = ResolveWindowsChordCandidate(character[0], to_string(layout));
+      // Windows translates the character to a VK plus modifiers, then a scan
+      // position. Named controls never enter this path. Do not invoke Unity's
+      // exception-prone display-name search for a known native translation.
+      if (candidate.status == "candidate" || candidate.status == "modifier_policy_required") {
+        keys[index] = candidate.status == "candidate" ? candidate.physical_key : KeyCode::None;
+        next_shift[index] = keys[index] != KeyCode::None && (candidate.required_modifiers & 1) != 0;
+        all_resolved &= keys[index] != KeyCode::None;
+#if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
+        if (diagnostics) {
+          auto& result = next[index];
+          result.key = keys[index];
+          result.candidate = candidate;
+          result.status = keys[index] != KeyCode::None ? "resolved_windows_chord" : candidate.status;
+          result.physical = CandidatePhysicalLabel(candidate.physical_key);
+          result.display = candidate.base_label;
+        }
+#endif
+        continue;
+      }
+#else
+      candidate.status = "platform_not_implemented";
+#endif
       auto* text = il2cpp_string_new(character);
       void* args[]{text};
       // Unity 1.14.2's search dereferences its null IMESelected slot when no
@@ -241,6 +286,7 @@ namespace
       if (diagnostics) {
         auto& result  = next[index];
         result.key    = resolved_key;
+        result.candidate = candidate;
         result.status = dead_key_fallback              ? "resolved_windows_dead_key"
                         : lookup_failed                   ? "lookup_failed"
                         : !control                      ? "key_unavailable"
@@ -271,6 +317,7 @@ namespace
       resolved_keys = std::move(next);
 #endif
     bindings.Replace(keys, Key::Pressed, frame_count());
+    required_shift = next_shift;
     status = all_resolved ? "resolved" : "partial";
     reason = all_resolved ? "layout_lookup" : "unresolved_keys_disabled";
     Publish();
@@ -289,17 +336,20 @@ void Configure(std::string_view mode, bool detailed_diagnostics)
   reason = enabled ? "awaiting_game_input" : "configured_physical";
 }
 
-void RegisterShortcut(std::string_view name, std::string_view chord, KeyCode key)
+void RegisterShortcut(std::string_view name, std::string_view chord, KeyCode key,
+                      const std::vector<ModifierKey>& modifiers)
 {
   if (!enabled || !IsLayoutKey(key))
     return;
   requested_keys[static_cast<int>(key)] = true;
 #if defined(_KEYBOARD_LAYOUT_DIAGNOSTICS)
-  if (diagnostics)
-    shortcuts.push_back({std::string(name), std::string(chord), key});
+  if (diagnostics) {
+    shortcuts.push_back({std::string(name), std::string(chord), PreviewModifierTokens(modifiers), key});
+  }
 #else
   (void)name;
   (void)chord;
+  (void)modifiers;
 #endif
 }
 
@@ -319,4 +369,12 @@ KeyCode Resolve(KeyCode configured)
   Update();
   return bindings.Resolve(configured, frame_count, Key::Pressed);
 }
+
+ResolvedChord ResolveChord(KeyCode configured)
+{
+  const auto key = Resolve(configured);
+  return {key, enabled && IsLayoutKey(configured)
+                   && required_shift[static_cast<int>(configured)]};
+}
+
 } // namespace keyboard_layout

@@ -122,7 +122,7 @@ use_scopely_hotkeys = false
 
 # Mode des touches : "physical" (par défaut) conserve les positions ; "layout" suit les noms affichés par Unity.
 # Le mode layout inclut lettres, chiffres et ponctuation configurés. Touches nommées et modificateurs explicites inchangés.
-# Les symboles non résolus sont désactivés : utiliser une combinaison explicite (ex. SHIFT-8 pour la parenthèse ouvrante allemande).
+# Windows ajoute Shift si nécessaire (ex. / devient Shift+7 en allemand) ; les combinaisons AltGr natives restent désactivées.
 # keyboard_letter_mode reste un alias ; keyboard_layout_mode est prioritaire. Voir docs/keyboard-letter-layout.md.
 # Le changement de disposition est pris en compte en jeu ; relâcher les touches maintenues.
 # Notifications layout : Windows x64 ; macOS arm64/x86_64 expérimental (tests en jeu à venir). En cas d’échec, les raccourcis layout sont désactivés et journalisés ; sans interrogation périodique.
