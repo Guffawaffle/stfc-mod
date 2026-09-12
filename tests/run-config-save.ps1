@@ -59,6 +59,42 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Config failure test compilation failed.' }
     & ./build/config-save-test/failure-test.exe (Join-Path $fixtureRoot 'failures')
     if ($LASTEXITCODE -ne 0) { throw 'Config failure regression failed.' }
+    & clang++ --driver-mode=cl /std:c++latest /EHsc /MT /Imods/src "/I$TomlInclude" `
+        tests/toml_editor_test.cc mods/src/toml_editor.cc mods/src/config_save.cc `
+        /Febuild/config-save-test/editor-test.exe /Fobuild/config-save-test/ -Wno-deprecated-literal-operator
+    if ($LASTEXITCODE -ne 0) { throw 'TOML editor test compilation failed.' }
+    & ./build/config-save-test/editor-test.exe (Join-Path $fixtureRoot 'editor')
+    if ($LASTEXITCODE -ne 0) { throw 'TOML editor regression failed.' }
+    & clang++ --driver-mode=cl /std:c++latest /EHsc /MT /Imods/src "/I$TomlInclude" `
+        tests/runtime_config_writer_test.cc /Febuild/config-save-test/worker-test.exe `
+        /Fobuild/config-save-test/ -Wno-deprecated-literal-operator
+    if ($LASTEXITCODE -ne 0) { throw 'Runtime writer test compilation failed.' }
+    & ./build/config-save-test/worker-test.exe
+    if ($LASTEXITCODE -ne 0) { throw 'Runtime writer regression failed.' }
+    & clang++ --driver-mode=cl /std:c++latest /EHsc /MT /Itests `
+        tests/runtime_config_test.cc /Febuild/config-save-test/adapter-test.exe /Fobuild/config-save-test/
+    if ($LASTEXITCODE -ne 0) { throw 'Native adapter test compilation failed.' }
+    & ./build/config-save-test/adapter-test.exe
+    if ($LASTEXITCODE -ne 0) { throw 'Native adapter regression failed.' }
+    foreach ($mode in @('idle', 'deadline', 'finished', 'missing-handle')) {
+        $outputPath = Join-Path $fixtureRoot ('force-' + $mode + '.txt')
+        $timer = [Diagnostics.Stopwatch]::StartNew()
+        $child = Start-Process -FilePath (Join-Path $repoRoot 'build/config-save-test/adapter-test.exe') `
+            -ArgumentList $mode -WindowStyle Hidden -PassThru -RedirectStandardOutput $outputPath
+        if (-not $child.WaitForExit(5000)) {
+            $child.Kill()
+            throw "Force-close fixture stalled: $mode"
+        }
+        $child.Refresh()
+        if ($child.ExitCode -ne 1) { throw "Force-close fixture did not terminate: $mode" }
+        if ($mode -eq 'deadline') {
+            if ($timer.ElapsedMilliseconds -lt 450 -or
+                (Get-Content $outputPath -Raw) -notmatch 'pending cancellation requested') {
+                throw 'Deadline did not allow best effort and request cancellation.'
+            }
+        }
+    }
+    Write-Output 'Native force-close child-process fixtures passed (500ms requested deadline; 5s harness watchdog).'
 } finally {
     Pop-Location
 }
