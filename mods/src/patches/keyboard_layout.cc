@@ -6,6 +6,7 @@
 #include "keyboard_layout_notifications.h"
 #include "keyboard_layout_windows.h"
 #include "str_utils.h"
+#include <exception>
 #include <spdlog/spdlog.h>
 
 namespace keyboard_layout
@@ -33,8 +34,17 @@ namespace
   {
     ++generation;
     if (vars_ready) {
-      WriteDiagnostics(vars_snapshot);
-      Config::Save(vars_snapshot, File::Vars());
+      try {
+        WriteDiagnostics(vars_snapshot);
+        Config::Save(vars_snapshot, File::Vars());
+      } catch (const std::exception& error) {
+        // Diagnostics must not unwind through the native keyboard input hook.
+        static bool reported = false;
+        if (!reported) {
+          reported = true;
+          spdlog::warn("[KeyboardLayout] Could not save diagnostics: {}", error.what());
+        }
+      }
     }
     spdlog::info("[KeyboardLayout] status={} layout='{}' generation={} reason={}", status, layout_name, generation,
                  reason);
