@@ -11,6 +11,11 @@ and replaces the destination. No threads, frame callbacks, runtime controls or
 shutdown interception are installed. This is not the preserving TOML editor:
 whole-document saves do not merge concurrent setting changes or preserve comments.
 
+The combined play stack also uses `Config::Save` when keyboard-layout diagnostics
+change. That existing synchronous diagnostic write catches save failures locally
+so input processing continues, and reports only the first failure. It is not an
+asynchronous settings editor; runtime settings coordination remains separate work.
+
 Windows uses `ReplaceFileW` to preserve existing permissions and streams, with a
 temporary backup for its documented partial-failure cases. A missing destination
 falls back to a non-replacing move. The caller's startup existence check is not an
