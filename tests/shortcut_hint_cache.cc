@@ -2,7 +2,6 @@
 // Key token parsing and input are test fixtures; layout lookup is injected below.
 // These tests do not exercise Unity lookup, native notifications or legacy input caching.
 #include "patches/mapkey.h"
-#include "patches/keyboard_layout.h"
 #include "patches/keyboard_layout_mapping.h"
 
 #include <cstdlib>
@@ -43,6 +42,7 @@ void Key::ClaimDirectionalInput(KeyCode) {}
 
 namespace keyboard_layout
 {
+void RegisterShortcut(KeyCode) {} // Runtime registration boundary, no Unity in this fixture.
 KeyCode Resolve(KeyCode configured) { return layout_enabled ? layout_bindings.Resolve(configured, [] { return 1; }, Key::Pressed) : configured; }
 ResolvedChord ResolveChord(KeyCode configured) {
   return {Resolve(configured), layout_enabled && IsLayoutKey(configured)
@@ -89,6 +89,17 @@ int main()
   Check(MapKey::GetShortcutHint(GameFunction::ShowResearch).empty(), "Unbound action acquired a badge");
   MapKey::CacheShortcutHints();
   Check(MapKey::GetShortcutHint(galaxy) == "^G", "Repeated cache preparation changed label");
+
+  MapKey::RegisterAction(galaxy, "show_galaxy", "CTRL-G | F8");
+  Check(MapKey::Definition(galaxy).key == "show_galaxy", "Canonical storage key missing");
+  Check(MapKey::ReplaceBindings(galaxy, {MapKey::Parse("F7"), MapKey::Parse("F8")}), "Replace action failed");
+  Check(MapKey::GetShortcuts(galaxy) == "F7 | F8" && MapKey::GetShortcutHint(galaxy) == "F7",
+        "Replacement did not publish full list and fresh hint together");
+  Check(!MapKey::ReplaceBindings(galaxy, {MapKey::Parse("INVALID")}), "Invalid replacement was accepted");
+  Check(MapKey::GetShortcuts(galaxy) == "F7 | F8", "Invalid replacement lost prior bindings");
+  Check(MapKey::ReplaceBindings(galaxy, {}) && !MapKey::HasBinding(galaxy) && MapKey::GetShortcutHint(galaxy).empty(),
+        "Unbind left active input or a stale hint");
+  Check(MapKey::ReplaceBindings(galaxy, {MapKey::Parse("CTRL-G"), MapKey::Parse("F8")}), "Restore failed");
 
   // Supply a mapping fixture to test action dispatch through BindingState.
   // This does not assert that Unity returns these mappings on any real layout.

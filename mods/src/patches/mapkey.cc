@@ -204,6 +204,30 @@ void MapKey::AddMappedKey(GameFunction gameFunction, MapKey mappedKey)
   MapKey::mappedKeys[gameFunction].emplace_back(std::move(mappedKey));
 }
 
+void MapKey::RegisterAction(GameFunction gameFunction, std::string_view key, std::string_view defaultBinding)
+{ definitions.at(static_cast<std::size_t>(gameFunction)) = {std::string(key), std::string(defaultBinding)}; }
+
+const MapKey::ActionDefinition& MapKey::Definition(GameFunction gameFunction)
+{ return definitions.at(static_cast<std::size_t>(gameFunction)); }
+
+const std::vector<MapKey>& MapKey::Bindings(GameFunction gameFunction)
+{ return mappedKeys.at(static_cast<std::size_t>(gameFunction)); }
+
+bool MapKey::ReplaceBindings(GameFunction gameFunction, std::vector<MapKey> bindings)
+{
+  if (gameFunction < 0 || gameFunction >= GameFunction::Max)
+    return false;
+  for (const auto& binding : bindings)
+    if (binding.Key == KeyCode::None)
+      return false;
+  if (!bindings.empty())
+    bindings.front().shortcutHint = CompactShortcutForHint(bindings.front().Shortcuts);
+  for (const auto& binding : bindings)
+    keyboard_layout::RegisterShortcut(binding.Key);
+  mappedKeys[gameFunction].swap(bindings);
+  return true;
+}
+
 bool MapKey::IsPressed(GameFunction gameFunction)
 {
   const auto &mapKeys = MapKey::mappedKeys[(int)gameFunction];
@@ -302,3 +326,4 @@ std::string MapKey::GetParsedValues() const
 }
 
 std::array<std::vector<MapKey>, (int)GameFunction::Max> MapKey::mappedKeys = {};
+std::array<MapKey::ActionDefinition, (int)GameFunction::Max> MapKey::definitions = {};

@@ -2,6 +2,7 @@
 #include "camera_settings.h"
 #include "fleet_labels.h"
 #include "preview_settings.h"
+#include "shortcut_settings.h"
 #include "warp_mode.h"
 
 namespace mod_settings
@@ -14,6 +15,7 @@ PageCatalog& ModPages()
 void RegisterModPages()
 {
   auto& catalog = ModPages();
+  RegisterShortcutPages(catalog);
   // Group by the existing TOML section only when there is a working control.
   // Placement and display names do not change setting or storage identities.
   catalog.AddPage("community_mod.graphics", "Graphics", "community_mod.settings");

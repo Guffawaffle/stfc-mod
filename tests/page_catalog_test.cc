@@ -80,6 +80,22 @@ int main()
   SliderSetting otherSlider({"other.zoom", "Threshold", [] { return ValueReadResult<float>::Known(0.5f, 1); },
                              [](float, std::uint64_t) { return ApplyResult::Applied; }},
                             0, 1, 0.01f, [] { return true; });
+  // Command registration/building is presentation-only: no invocation or read.
+  int           commandCalls = 0;
+  ActionSetting command{"record",
+                        "Record",
+                        [&] {
+                          ++commandCalls;
+                          return ActionSetting::Presentation{};
+                        },
+                        [&] { ++commandCalls; },
+                        {}};
+  PageCatalog   commands("commands", "Commands");
+  assert(commands.AddAction("commands", command) == Registration::Added);
+  assert(commands.AddAction("commands", command) == Registration::Duplicate);
+  const auto commandPlan = commands.Build();
+  assert(commandPlan.size() == 1 && commandPlan.front().ControlRows() == 1 && commandCalls == 0);
+  assert(commands.AddAction("commands", command) == Registration::Frozen);
   PageCatalog   combined("labels", "Fleet Labels");
   assert(combined.AddHeading("labels", "player.heading", "Player", true) == Registration::Added);
   assert(combined.AddChoice("labels", player) == Registration::Added);

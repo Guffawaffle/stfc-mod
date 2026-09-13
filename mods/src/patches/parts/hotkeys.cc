@@ -436,6 +436,10 @@ bool MoveShipSelectionInDock(bool goLeft)
 void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
   dispatch_screen_manager_update_callbacks();
+  // Capture owns the key through release. Do not run the native shortcut path
+  // or the console on this frame; UI mouse navigation continues via EventSystem.
+  if (Key::shortcutCaptureActive)
+    return;
 
 #ifdef _MODDBG
   Key::ResetCache();

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "action_setting.h"
 #include "boolean_settings.h"
 #include "choice_setting.h"
 #include "slider_setting.h"
@@ -19,7 +20,7 @@ public:
     std::string id, label;
     bool        collapsible = false;
   };
-  using Item = std::variant<Heading, BooleanSetting*, ChoiceSetting*, SliderSetting*>;
+  using Item = std::variant<Heading, BooleanSetting*, ChoiceSetting*, SliderSetting*, ActionSetting*>;
   struct Page {
     std::string       id, label, parent;
     std::vector<Item> items; // Registration order is visual order, including headings.
@@ -90,6 +91,8 @@ public:
   { return AddControl(page, setting); }
   Registration AddSlider(std::string_view page, SliderSetting& setting)
   { return AddControl(page, setting); }
+  Registration AddAction(std::string_view page, ActionSetting& action)
+  { return AddControl(page, action); }
   Registration AddHeading(std::string_view page_id, std::string id, std::string label, bool collapsible = false)
   {
     CheckThread();
@@ -134,7 +137,7 @@ private:
           using T = std::decay_t<decltype(value)>;
           if constexpr (std::is_same_v<T, Heading>)
             return value.id;
-          else if constexpr (std::is_same_v<T, BooleanSetting*>)
+          else if constexpr (std::is_same_v<T, BooleanSetting*> || std::is_same_v<T, ActionSetting*>)
             return value->id();
           else
             return value->state().id();
@@ -150,12 +153,18 @@ private:
     if (!page)
       return Registration::Invalid;
     const auto& state = [&]() -> const auto& {
-      if constexpr (std::is_same_v<T, BooleanSetting>)
+      if constexpr (std::is_same_v<T, BooleanSetting> || std::is_same_v<T, ActionSetting>)
         return setting;
       else
         return setting.state();
     }();
-    if (state.id().empty() || state.label().empty())
+    const auto& label = [&]() -> const std::string& {
+      if constexpr (std::is_same_v<T, ActionSetting>)
+        return state.label;
+      else
+        return state.label();
+    }();
+    if (state.id().empty() || label.empty())
       return Registration::Invalid;
     const Item candidate = &setting;
     for (const auto& existing : pages_)

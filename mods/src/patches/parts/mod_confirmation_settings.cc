@@ -3,6 +3,7 @@
 #include "settings/forbidden_tech.h"
 #include "settings/mod_pages.h"
 #include "settings/native_view_state.h"
+#include "settings/shortcut_settings.h"
 
 // Native extents are checked against Windows unwind records. Other platforms
 // omit the native UI until equivalent hook evidence is available.
@@ -38,6 +39,9 @@ NativeCallback<void, int>      selectionSetter;
 bool                           selectionActive = false;
 NativeCallback<float>          sliderGetter;
 NativeCallback<void, float>    sliderSetter;
+NativeCallback<void>           actionCallback;
+NativeCallback<Il2CppString*>  actionGetter;
+bool                           actionsActive = false;
 bool                           sliderActive = false;
 std::vector<PageCatalog::Page> pages;
 bool                           pagesActive = false;
@@ -1195,6 +1199,230 @@ void HeadingClearHook(auto original, Il2CppObject* widget)
     ClearPageText(widget);
   original(widget);
 }
+
+struct ActionMetadata {
+  IL2CppClassHelper widget =
+      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.GameSettings", "ButtonAndTextOptionWidget");
+  IL2CppClassHelper row =
+      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.GameSettings", "ButtonAndTextOptionContext");
+  const MethodInfo* add         = Meta().context.GetMethodInfo("AddButtonAndText", 6);
+  const MethodInfo* refresh     = widget.GetMethodInfo("SetWidgetData", 0);
+  const MethodInfo* release     = widget.GetMethodInfo("OnAboutToReleaseContext", 0);
+  const MethodInfo* getContext  = widget.GetMethodInfo("get_Context", 0);
+  FieldInfo*        label       = Field(widget.get_cls(), "_label");
+  FieldInfo*        buttonLabel = Field(widget.get_cls(), "_buttonLabel");
+  FieldInfo*        valueLabel  = Field(widget.get_cls(), "_valueLabel");
+  FieldInfo*        button      = Field(widget.get_cls(), "_button");
+};
+ActionMetadata& ActionMeta()
+{
+  static ActionMetadata metadata;
+  return metadata;
+}
+
+Il2CppObject* ActionToken(Il2CppObject* context)
+{
+  if (!context || context->klass != ActionMeta().row.get_cls())
+    return nullptr;
+  Root safe(Call(context, "get_Callback"));
+  if (!safe.get())
+    return nullptr;
+  Root callbacks(ReadField(safe.get(), Field(safe.get()->klass, "_callbacks")));
+  if (Count(callbacks.get()) != 1)
+    return nullptr;
+  auto* callback = reinterpret_cast<Il2CppDelegate*>(Item(callbacks.get(), 0));
+  return callback && callback->method == actionCallback.method()
+                 && callback->method_ptr == actionCallback.method()->methodPointer
+             ? callback->target
+             : nullptr;
+}
+ActionSetting* ActionFor(Il2CppObject* context)
+{
+  if (!ActionToken(context))
+    return nullptr;
+  for (const auto& page : pages)
+    for (auto* action : page.Controls<ActionSetting>())
+      if (HasLabel(context, action->id().c_str()))
+        return action;
+  return nullptr;
+}
+struct ActionView {
+  Il2CppGCHandle                widget = nullptr, context = nullptr, token = nullptr;
+  std::array<Il2CppGCHandle, 3> labels{};
+  Il2CppGCHandle                button    = nullptr;
+  ActionSetting*                action    = nullptr;
+  bool                          rendering = false;
+};
+std::deque<ActionView> actionViews;
+void                   ClearAction(ActionView& view, bool hidden = true)
+{
+  auto* action = view.action;
+  view.action  = nullptr; // No callback from cleanup can reuse this ownership.
+  for (auto& handle : view.labels) {
+    if (auto* label = Target(handle))
+      ClearPageText(label);
+    Free(handle);
+  }
+  try {
+    if (auto* button = Target(view.button))
+      Call(button, "ClearInteractable");
+  } catch (...) {
+    Warn();
+  }
+  Free(view.widget);
+  Free(view.context);
+  Free(view.token);
+  Free(view.button);
+  if (hidden && action && action->hidden)
+    action->hidden();
+}
+void RenderAction(ActionView& view)
+{
+  if (!view.action || view.rendering)
+    return;
+  struct Scope {
+    bool& value;
+    Scope(bool& v)
+        : value(v)
+    { value = true; }
+    ~Scope()
+    { value = false; }
+  } scope(view.rendering);
+  Root widget(Target(view.widget)), context(Target(view.context));
+  if (!widget.get() || !context.get() || Invoke(ActionMeta().getContext, widget.get()) != context.get()) {
+    ClearAction(view);
+    return;
+  }
+  const auto       presentation = view.action->read();
+  const std::array text{presentation.label, presentation.button, presentation.value};
+  for (std::size_t i = 0; i < text.size(); ++i) {
+    auto* label = Target(view.labels[i]);
+    SetPageText(label, label, text[i]);
+  }
+  bool  enabled = presentation.enabled;
+  void* args[]  = {&enabled};
+  Call(Target(view.button), "OverrideInteractable", 1, args);
+}
+void RefreshActions()
+{
+  if (!OnThread() || !actionsActive || !pagesActive)
+    return;
+  for (auto& view : actionViews) {
+    try {
+      RenderAction(view);
+    } catch (...) {
+      ClearAction(view);
+      Warn("settings command presentation unavailable");
+    }
+  }
+}
+void InvokeAction(Il2CppObject* token, const MethodInfo*)
+{
+  if (!OnThread() || !actionsActive || !pagesActive)
+    return;
+  try {
+    for (auto& view : actionViews) {
+      if (!view.action || view.rendering || Target(view.token) != token)
+        continue;
+      Root widget(Target(view.widget)), context(Target(view.context));
+      if (!widget.get() || !context.get() || Invoke(ActionMeta().getContext, widget.get()) != context.get()
+          || ActionToken(context.get()) != token)
+        return;
+      // EventSystem can submit a focused button with Enter/Space while capture
+      // is active. The command's current availability is authoritative too.
+      if (view.action->read().enabled)
+        view.action->invoke();
+      return;
+    }
+  } catch (...) {
+    Warn("settings command unavailable");
+  }
+}
+void ActionRefreshHook(auto original, Il2CppObject* widget)
+{
+  if (OnThread())
+    for (auto& view : actionViews)
+      if (Target(view.widget) == widget) {
+        // A native refresh of the same context does not end the editor visit.
+        bool same = false;
+        try {
+          same = Invoke(ActionMeta().getContext, widget) == Target(view.context);
+        } catch (...) {
+        }
+        ClearAction(view, !same);
+      }
+  original(widget);
+  if (!OnThread() || !actionsActive || !pagesActive)
+    return;
+  ActionView* tracked = nullptr;
+  try {
+    Root  context(Invoke(ActionMeta().getContext, widget));
+    auto* action = ActionFor(context.get());
+    if (!action)
+      return;
+    for (auto& view : actionViews)
+      if (!view.action && !view.rendering) {
+        tracked = &view;
+        break;
+      }
+    if (!tracked) {
+      actionViews.emplace_back();
+      tracked = &actionViews.back();
+    }
+    auto& view  = *tracked;
+    view.action = action;
+    auto weak   = [](Il2CppObject* object) {
+      const auto handle = object ? il2cpp_gchandle_new_weakref(object, false) : nullptr;
+      if (!handle)
+        throw std::runtime_error("settings command weak root");
+      return handle;
+    };
+    view.widget  = weak(widget);
+    view.context = weak(context.get());
+    view.token   = weak(ActionToken(context.get()));
+    const std::array fields{ActionMeta().label, ActionMeta().buttonLabel, ActionMeta().valueLabel};
+    for (std::size_t i = 0; i < fields.size(); ++i)
+      view.labels[i] = weak(ReadField(widget, fields[i]));
+    view.button = weak(ReadField(widget, ActionMeta().button));
+    RenderAction(view);
+  } catch (...) {
+    if (tracked)
+      ClearAction(*tracked);
+    Warn("settings command binding unavailable");
+  }
+}
+void ActionReleaseHook(auto original, Il2CppObject* widget)
+{
+  if (OnThread())
+    for (auto& view : actionViews)
+      if (Target(view.widget) == widget)
+        ClearAction(view);
+  original(widget);
+}
+void AddActionRow(Il2CppObject* director, Il2CppObject* context, Il2CppObject* parent, ActionSetting& action)
+{
+  if (!actionsActive)
+    return;
+  const auto* add = ActionMeta().add;
+  Root        children(Call(parent, "get_Children"));
+  const int   before = Count(children.get());
+  if (before == 128)
+    throw std::runtime_error("settings command capacity");
+  Root label(reinterpret_cast<Il2CppObject*>(il2cpp_string_new(action.id().c_str())));
+  Root empty(reinterpret_cast<Il2CppObject*>(il2cpp_string_new("")));
+  // A fresh plain Object is the closed callback's identity, owned by this native
+  // context. Old pooled-row events cannot invoke a later context's command.
+  Root  token(il2cpp_object_new(il2cpp_class_from_name(il2cpp_get_corlib(), "System", "Object")));
+  Root  callback(MakeDelegate(il2cpp_class_from_type(add->parameters[3]), token.get(), actionCallback.method()));
+  Root  get(MakeDelegate(il2cpp_class_from_type(add->parameters[4]), director, actionGetter.method()));
+  void* args[] = {parent, label.get(), empty.get(), callback.get(), get.get(), empty.get()};
+  Invoke(add, context, args);
+  if (Count(children.get()) != before + 1)
+    throw std::runtime_error("settings command insertion");
+  Root row(Item(children.get(), before));
+  if (ActionFor(row.get()) != &action || ActionToken(row.get()) != token.get())
+    throw std::runtime_error("settings command identity");
+}
 void AddHeadingRow(Il2CppObject* director, Il2CppObject* context, Il2CppObject* parent,
                    const PageCatalog::Heading& heading)
 {
@@ -1338,6 +1566,8 @@ void AddPages(Il2CppObject* director, Il2CppObject* context)
                 AddBooleanRow(director, context, category.get(), *value);
               else if constexpr (std::is_same_v<T, ChoiceSetting*>)
                 AddChoiceRows(director, context, category.get(), *value);
+              else if constexpr (std::is_same_v<T, ActionSetting*>)
+                AddActionRow(director, context, category.get(), *value);
               else
                 AddSliderRow(director, context, category.get(), *value);
             },
@@ -1752,7 +1982,7 @@ void InstallPages()
   pages                = ModPages().Build();
   std::size_t rowCount = 2; // FC and FT live on the native confirmation page.
   for (const auto& page : pages)
-    rowCount += page.ControlRows();
+    rowCount += page.ControlRows() - std::ranges::distance(page.Controls<ActionSetting>());
   Views().resize(std::max(Views().size(), rowCount));
   if (pages.empty())
     return;
@@ -1910,6 +2140,57 @@ void InstallPages()
     SPUD_STATIC_DETOUR(heading.refresh->methodPointer, HeadingRefreshHook);
     SPUD_STATIC_DETOUR(heading.clear->methodPointer, HeadingClearHook);
     headingsActive = true;
+  }
+  if (std::any_of(pages.begin(), pages.end(),
+                  [](const auto& page) { return !page.template Controls<ActionSetting>().empty(); })) {
+    try {
+      auto&       action      = ActionMeta();
+      auto*       objects     = il2cpp_class_from_name(il2cpp_get_corlib(), "System", "Object");
+      const auto* clickSchema = objects ? il2cpp_class_get_method_from_name(objects, ".ctor", 0) : nullptr;
+      const auto* getSchema   = Meta().director.GetMethodInfo("GetClientVersion", 0);
+      if (!Instance(action.add, 6, IL2CPP_TYPE_VOID) || !Reference(action.add->parameters[0])
+          || !Type(action.add->parameters[1], IL2CPP_TYPE_STRING)
+          || !Type(action.add->parameters[2], IL2CPP_TYPE_STRING) || !Reference(action.add->parameters[3])
+          || !Reference(action.add->parameters[4]) || !Type(action.add->parameters[5], IL2CPP_TYPE_STRING)
+          || !action.getContext || !Reference(action.getContext->return_type)
+          || !Instance(action.getContext, 0, action.getContext->return_type->type)
+          || !Instance(clickSchema, 0, IL2CPP_TYPE_VOID) || !Instance(getSchema, 0, IL2CPP_TYPE_STRING)
+          || !actionCallback.Initialize(clickSchema, InvokeAction)
+          || !actionGetter.Initialize(getSchema, EmptyHeadingValue))
+        throw std::runtime_error("settings command schema");
+      // build261 x64 GameAssembly 487af4bb: SetWidgetData CFD5F0..CFD8A5 (693)
+      // and OnAboutToReleaseContext CFD430..CFD53F (271), vs SPUD's 24 bytes.
+      // Metadata resolves current addresses; unwind checks still gate each load.
+      for (auto* target : {action.refresh, action.release}) {
+        if (!Instance(target, 0, IL2CPP_TYPE_VOID) || !Extent(target)
+            || action.refresh->methodPointer == action.release->methodPointer)
+          throw std::runtime_error("settings command hook extent");
+        for (auto* existing : {Meta().refresh, Meta().changed, Meta().release, Meta().addGeneral, Meta().reload,
+                               Meta().session, Meta().load, m.bind, m.release, m.selected, m.destroyed})
+          if (target->methodPointer == existing->methodPointer)
+            throw std::runtime_error("settings command hook overlap");
+        if (selectionActive)
+          for (auto* existing : {SelectionMeta().refresh, SelectionMeta().changed, SelectionMeta().release})
+            if (target->methodPointer == existing->methodPointer)
+              throw std::runtime_error("settings command selection overlap");
+        if (sliderActive)
+          for (auto* existing :
+               {SliderMeta().refresh, SliderMeta().changed, SliderMeta().release, SliderMeta().valueLabel})
+            if (target->methodPointer == existing->methodPointer)
+              throw std::runtime_error("settings command slider overlap");
+        if (headingsActive)
+          for (auto* existing : {HeadingMeta().refresh, HeadingMeta().clear})
+            if (target->methodPointer == existing->methodPointer)
+              throw std::runtime_error("settings command heading overlap");
+      }
+      if (!SPUD_STATIC_DETOUR(action.refresh->methodPointer, ActionRefreshHook)
+          || !SPUD_STATIC_DETOUR(action.release->methodPointer, ActionReleaseHook))
+        throw std::runtime_error("settings command hook installation");
+      actionsActive = true;
+      SetShortcutPresentationObserver(RefreshActions);
+    } catch (const std::exception& error) {
+      spdlog::warn("[ModSettings] Commands unavailable: {}", error.what());
+    }
   }
   for (const auto& page : pages)
     for (auto* setting : page.Controls<BooleanSetting>()) {
