@@ -46,6 +46,28 @@ int main()
   draft.Begin();
   draft.Stage(0, "CTRL-I");
   Check(draft.Apply() == Outcome::AppliedVerified && live == ShortcutList{"CTRL-I"}, "unbound action can be rebound");
+  const auto beforeDuplicates = writes;
+  draft.Begin();
+  Check(draft.Stage(1, "CTRL-I") == ShortcutStage::AlreadyBound && !draft.pending(),
+        "append must reject an existing binding");
+  Check(draft.Apply() == Outcome::Suppressed && writes == beforeDuplicates,
+        "duplicate append must not publish or save");
+  draft.Begin();
+  Check(draft.Stage(0, "CTRL-I") == ShortcutStage::AlreadyBound && !draft.pending(),
+        "re-recording the selected binding is a no-op");
+  live = {"SHIFT-I", "ALT-I"};
+  draft.Begin();
+  Check(draft.Stage(1, "F8") == ShortcutStage::Staged && draft.pending(), "stage another alternative");
+  Check(draft.Stage(1, "SHIFT-I") == ShortcutStage::AlreadyBound && !draft.pending(),
+        "duplicate replacement clears any preceding draft");
+  Check(draft.Apply() == Outcome::Suppressed && writes == beforeDuplicates && live == ShortcutList{"SHIFT-I", "ALT-I"},
+        "duplicate replacement preserves all alternatives without writing");
+  live = {"SHIFT-I", "SHIFT-I", "ALT-I"};
+  draft.Begin();
+  Check(writes == beforeDuplicates && live.size() == 3, "opening does not clean up existing duplicates");
+  Check(draft.Stage(0, {}) == ShortcutStage::Staged && draft.Apply() == Outcome::AppliedVerified
+            && live == ShortcutList{"SHIFT-I", "ALT-I"} && writes == beforeDuplicates + 1,
+        "explicit removal can clean up one existing duplicate without losing the shortcut");
   ShortcutCapture       capture;
   ShortcutCapture::Keys held{}, down{};
   auto                  modifier = [](KeyCode key) { return key == KeyCode::LeftControl; };

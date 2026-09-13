@@ -72,7 +72,9 @@ namespace
                    runtime_config::SaveSetting("shortcuts", MapKey::Definition(action).key.c_str(), serialized);
                    return ApplyResult::Applied;
                  }})
-        , draft(state)
+        , draft(state, [](const auto& first, const auto& second) {
+          return MapKey::SameBinding(MapKey::Parse(first), MapKey::Parse(second));
+        })
     {
     }
     ShortcutList Current()
@@ -184,9 +186,15 @@ namespace
           editor->status = "This key/layout is unavailable; record another";
         } else {
           token += Key::Token(key);
-          editor->draft.Stage(recordingIndex, token);
-          editor->overlaps = Overlaps(*editor, token);
-          editor->status   = "Pending: " + token;
+          const auto result = editor->draft.Stage(recordingIndex, token);
+          editor->overlaps.clear();
+          if (result == ShortcutStage::Staged) {
+            editor->overlaps = Overlaps(*editor, token);
+            editor->status   = "Pending: " + token;
+          } else {
+            editor->status = result == ShortcutStage::AlreadyBound ? "Already bound: " + token
+                                                                   : "Binding unavailable; reopen and try again";
+          }
         }
         recording = nullptr;
         Notify();

@@ -6,6 +6,7 @@
 #include "str_utils.h"
 #include <prime/KeyCode.h>
 
+#include <algorithm>
 #include <array>
 #include <iostream>
 #include <string>
@@ -310,6 +311,17 @@ bool MapKey::HasCorrectModifiers(const MapKey& mapKey, bool requiredShift)
 #endif
 
   return result;
+}
+
+bool MapKey::SameBinding(const MapKey& first, const MapKey& second)
+{
+  const auto containsAll = [](const auto& first, const auto& second) {
+    return std::all_of(first.begin(), first.end(), [&](const auto& modifier) {
+      return std::find(second.begin(), second.end(), modifier) != second.end();
+    });
+  };
+  return first.Key != KeyCode::None && first.Key == second.Key && containsAll(first.Modifiers, second.Modifiers)
+         && containsAll(second.Modifiers, first.Modifiers);
 }
 
 bool MapKey::MayOverlap(const MapKey& first, const MapKey& second)

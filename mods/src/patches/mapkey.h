@@ -33,6 +33,9 @@ public:
   // Whether some held modifier combination can match both bindings under the
   // current layout. Editor-only advisory; action contexts are not considered.
   static bool MayOverlap(const MapKey& first, const MapKey& second);
+  // Configured identity, independent of layout: modifier order and aliases do
+  // not create another binding, but generic and sided modifiers stay distinct.
+  static bool SameBinding(const MapKey& first, const MapKey& second);
 
   static std::string GetShortcuts(GameFunction gameFunction);
   static std::string GetShortcutHint(GameFunction gameFunction);

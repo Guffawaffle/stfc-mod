@@ -16,6 +16,11 @@ for a startup-disabled feature.
 ## Behavior contract
 
 - Edit one action and one binding at a time. Preserve its other alternatives.
+- Adding or replacing with a binding already on that action shows `Already bound`
+  and leaves Apply disabled, without publishing or saving. Compare parsed key and
+  modifier groups, ignoring modifier order, repeated groups and alias spelling;
+  generic and sided modifiers remain distinct. Existing duplicate entries can be
+  removed explicitly with Remove and Apply; opening a page never cleans up TOML.
 - Capture is a draft. Apply publishes the complete action list once; Cancel and
   Escape do not change live bindings or enqueue a save. Removing a binding is an
   explicit action; removing the last one stores the existing `NONE` spelling.

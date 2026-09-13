@@ -1,17 +1,21 @@
 #pragma once
 #include "value_settings.h"
+#include <algorithm>
 #include <vector>
 
 namespace mod_settings
 {
 using ShortcutList = std::vector<std::string>;
+enum class ShortcutStage { Staged, AlreadyBound, Invalid };
 // A draft edits exactly one alternative against the snapshot the user saw.
 // The existing ValueSetting owner provides reentry/stale-read protection.
 class ShortcutDraft
 {
 public:
-  explicit ShortcutDraft(ValueSetting<ShortcutList>& owner)
+  using SameBinding = std::function<bool(const std::string&, const std::string&)>;
+  explicit ShortcutDraft(ValueSetting<ShortcutList>& owner, SameBinding sameBinding = std::equal_to<std::string>{})
       : owner_(owner)
+      , same_binding_(std::move(sameBinding))
   {
   }
   void Begin()
@@ -19,17 +23,24 @@ public:
     Cancel();
     observed_ = owner_.Observe();
   }
-  void Stage(std::size_t index, std::optional<std::string> replacement)
+  ShortcutStage Stage(std::size_t index, std::optional<std::string> replacement)
   {
+    desired_.reset();
     if (!observed_.state.known()) {
       Cancel();
-      return;
+      return ShortcutStage::Invalid;
     }
     auto value = *observed_.state.value;
     if (index > value.size() || (!replacement && index == value.size())) {
       Cancel();
-      return;
+      return ShortcutStage::Invalid;
     }
+    // Reject an existing alternative without changing the snapshot or publishing
+    // a draft. Re-recording the selected binding is also a no-op.
+    if (replacement && std::any_of(value.begin(), value.end(), [&](const auto& binding) {
+          return same_binding_(binding, *replacement);
+        }))
+      return ShortcutStage::AlreadyBound;
     if (!replacement)
       value.erase(value.begin() + index);
     else if (index == value.size())
@@ -37,6 +48,7 @@ public:
     else
       value[index] = *replacement;
     desired_ = std::move(value);
+    return ShortcutStage::Staged;
   }
   bool pending() const
   { return desired_.has_value(); }
@@ -58,6 +70,7 @@ public:
 
 private:
   ValueSetting<ShortcutList>& owner_;
+  SameBinding                 same_binding_;
   ValueSnapshot<ShortcutList> observed_;
   std::optional<ShortcutList> desired_;
 };

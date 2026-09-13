@@ -1,8 +1,9 @@
 // Link production MapKey/ModifierKey parsing, action dispatch and hint caching from mods.lib.
 // Key token parsing and input are test fixtures; layout lookup is injected below.
 // These tests do not exercise Unity lookup, native notifications or legacy input caching.
-#include "patches/mapkey.h"
 #include "patches/keyboard_layout_mapping.h"
+#include "patches/mapkey.h"
+#include "settings/shortcut_draft.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -34,6 +35,8 @@ KeyCode Key::Parse(std::string_view key)
       {"RSHIFT", KeyCode::RightShift},
       {"LCTRL", KeyCode::LeftControl},
       {"RCTRL", KeyCode::RightControl},
+      {"ENTER", KeyCode::Return},
+      {"RETURN", KeyCode::Return},
   };
   for (const auto& [token, code] : tokens) {
     if (key == token)
@@ -103,6 +106,28 @@ void CheckOverlap(const char* first, const char* second, bool expected)
     std::cerr << "Overlap disagrees with dispatch: " << first << " / " << second << '\n';
     std::exit(1);
   }
+}
+
+void CheckDuplicate(const char* existing, const char* recorded, bool duplicate)
+{
+  using namespace mod_settings;
+  ShortcutList               live{existing};
+  int                        writes = 0;
+  ValueSetting<ShortcutList> owner({"shortcuts.duplicate_test", "Test",
+                                    [&] { return ValueReadResult<ShortcutList>::Known(live, 1); },
+                                    [&](ShortcutList value, std::uint64_t) {
+                                      live = std::move(value);
+                                      ++writes;
+                                      return ApplyResult::Applied;
+                                    }});
+  ShortcutDraft              draft(
+      owner, [](const auto& a, const auto& b) { return MapKey::SameBinding(MapKey::Parse(a), MapKey::Parse(b)); });
+  draft.Begin();
+  const auto result = draft.Stage(1, recorded);
+  Check((result == ShortcutStage::AlreadyBound) == duplicate, "Wrong same-action duplicate decision");
+  Check(writes == 0 && live == ShortcutList{existing}, "Recording changed live bindings");
+  Check(draft.Apply() == (duplicate ? Outcome::Suppressed : Outcome::AppliedVerified), "Wrong duplicate apply result");
+  Check(writes == (duplicate ? 0 : 1) && live.size() == (duplicate ? 1 : 2), "Duplicate escaped to writer");
 }
 
 int main()
@@ -271,6 +296,21 @@ int main()
   CheckOverlap("/", "CTRL-/", false);
   CheckOverlap("/", "/", true);
   CheckOverlap("(", "SHIFT-7", false); // Unresolved layout character.
+  layout_enabled = false;
+  CheckDuplicate("SHIFT-I", "SHIFT-I", true);
+  CheckDuplicate("shift-i", "SHIFT-I", true);
+  CheckDuplicate("SHIFT-CTRL-I", "CTRL-SHIFT-I", true);
+  CheckDuplicate("SHIFT-SHIFT-I", "SHIFT-I", true);
+  CheckDuplicate("CMD-I", "APPLE-I", true);
+  CheckDuplicate("RETURN", "ENTER", true);
+  CheckDuplicate("LSHIFT-I", "SHIFT-I", false);
+  CheckDuplicate("LSHIFT-I", "RSHIFT-I", false);
+  CheckDuplicate("SHIFT-I", "CTRL-I", false); // An overlap is not a duplicate.
+  CheckDuplicate("SHIFT-I", "SHIFT-G", false);
+  CheckDuplicate("I", "SHIFT-I", false);
+  // Current layout equivalence must not collapse two configured identities.
+  layout_enabled = true;
+  CheckDuplicate("/", "SHIFT-7", false);
   layout_enabled = false;
   std::cout << "Shortcut hint cache tests passed\n";
 }
