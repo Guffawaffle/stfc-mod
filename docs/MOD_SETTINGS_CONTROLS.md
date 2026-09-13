@@ -59,8 +59,10 @@ Locate and Recall use positive UI labels: ON allows the action while a preview i
 open, so the stored `disable_preview_*` value is false. These controls do not
 perform Locate or Recall. They affect the next ordinary shortcut action.
 
-Cargo auto-open is a master preference. The four target flags remain independently
-editable while it is off and are reused when it is turned on again. The native
+Cargo auto-open is a master preference. The Target types heading and four target
+switches appear only while it is on. Turning it off hides those rows without
+changing their saved choices; turning it on shows the same choices again. UI and
+shortcut changes refresh the section immediately. The native
 cargo viewer reads them when a target preview opens or binds; changing a setting
 does not forcibly close an already-open cargo panel. Re-select a target to see
 the new auto-open behavior.

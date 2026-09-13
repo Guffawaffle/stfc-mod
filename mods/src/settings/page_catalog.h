@@ -5,6 +5,7 @@
 #include "choice_setting.h"
 #include "slider_setting.h"
 #include <algorithm>
+#include <functional>
 #include <ranges>
 #include <string_view>
 #include <variant>
@@ -22,11 +23,32 @@ public:
   struct Heading {
     std::string id, label;
     bool        collapsible = false;
+    // Optional presentation dependency, including the heading and all following
+    // controls up to the next heading. It never changes their saved values.
+    std::function<bool()> visible;
   };
   using Item = std::variant<Heading, BooleanSetting*, ChoiceSetting*, SliderSetting*, ActionSetting*>;
   struct Page {
     std::string       id, label, parent;
     std::vector<Item> items; // Registration order is visual order, including headings.
+    bool              HasConditionalSections() const
+    {
+      return std::any_of(items.begin(), items.end(), [](const Item& item) {
+        const auto* heading = std::get_if<Heading>(&item);
+        return heading && static_cast<bool>(heading->visible);
+      });
+    }
+    bool IsVisible(std::string_view id) const
+    {
+      const Heading* section = nullptr;
+      for (const auto& item : items) {
+        if (const auto* heading = std::get_if<Heading>(&item))
+          section = heading;
+        if (Id(item) == id)
+          return !section || !section->visible || section->visible();
+      }
+      return true;
+    }
     std::size_t       PositionFor(std::string_view id) const
     {
       for (std::size_t i = 0; i < items.size(); ++i)
@@ -103,7 +125,8 @@ public:
   { return AddControl(page, setting); }
   Registration AddAction(std::string_view page, ActionSetting& action)
   { return AddControl(page, action); }
-  Registration AddHeading(std::string_view page_id, std::string id, std::string label, bool collapsible = false)
+  Registration AddHeading(std::string_view page_id, std::string id, std::string label, bool collapsible = false,
+                          std::function<bool()> visible = {})
   {
     CheckThread();
     if (frozen_)
@@ -117,7 +140,7 @@ public:
       for (const auto& item : existing.items)
         if (Id(item) == id)
           return Registration::Duplicate;
-    page->items.emplace_back(Heading{std::move(id), std::move(label), collapsible});
+    page->items.emplace_back(Heading{std::move(id), std::move(label), collapsible, std::move(visible)});
     return Registration::Added;
   }
 

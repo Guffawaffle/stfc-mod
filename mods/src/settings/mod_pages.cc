@@ -37,10 +37,11 @@ void RegisterModPages()
   if (CargoPreviewsAvailable()) {
     catalog.AddPage("community_mod.ui.cargo_previews", "Cargo previews", "community_mod.ui");
     catalog.AddBoolean("community_mod.ui.cargo_previews", PreviewSetting(PreviewOption::Cargo));
-    // Keep target preferences editable while auto-open is off. Re-enabling the
-    // master must reuse them, not replace them with a new set of defaults.
-    catalog.AddHeading("community_mod.ui.cargo_previews", "community_mod.ui.cargo_targets",
-                       "Target types (when auto-open is on)");
+    // Only presentation depends on the master; target choices remain saved.
+    catalog.AddHeading("community_mod.ui.cargo_previews", "community_mod.ui.cargo_targets", "Target types", false, [] {
+      const auto state = PreviewSetting(PreviewOption::Cargo).Observe().state;
+      return state.known() && *state.value;
+    });
     for (auto option : {PreviewOption::PlayerCargo, PreviewOption::StationCargo, PreviewOption::HostileCargo,
                         PreviewOption::ArmadaCargo})
       catalog.AddBoolean("community_mod.ui.cargo_previews", PreviewSetting(option));

@@ -162,6 +162,40 @@ int main()
   assert(!bounded[0].SectionFor("player")); // Controls before a heading are unaffected.
   assert(bounded[0].SectionFor("player.zoom")->id == "collapsible");
   assert(!bounded[0].SectionFor("other.zoom")); // A plain heading ends a collapsible section.
+  bool           masterOn = false, masterAvailable = true;
+  int            visibilityReads = 0;
+  BooleanSetting master({"master",
+                         "Master",
+                         [&] {
+                           ++visibilityReads;
+                           return masterAvailable ? ReadResult::Known(masterOn, 1) : ReadResult{};
+                         },
+                         {}});
+  PageCatalog    conditional("conditional", "Conditional sections");
+  assert(conditional.AddBoolean("conditional", master) == Registration::Added);
+  assert(conditional.AddHeading("conditional", "targets", "Targets", false, [&] {
+    const auto state = master.Observe().state;
+    return state.known() && *state.value;
+  }) == Registration::Added);
+  assert(conditional.AddBoolean("conditional", setting) == Registration::Added);
+  assert(conditional.AddHeading("conditional", "later", "Later section") == Registration::Added);
+  assert(conditional.AddSlider("conditional", playerSlider) == Registration::Added);
+  const auto  conditionalPlan = conditional.Build();
+  const auto& page            = conditionalPlan.front();
+  assert(visibilityReads == 0); // Building retains hidden controls without reading their dependency.
+  assert(page.HasConditionalSections() && !bounded[0].HasConditionalSections());
+  const auto writesBeforeVisibility = writes;
+  for (bool enabled : {false, true, false, true}) {
+    masterOn = enabled; // A live change from either UI or shortcut uses the same reader.
+    assert(page.IsVisible("master"));
+    assert(page.IsVisible("targets") == enabled);
+    assert(page.IsVisible(setting.id()) == enabled);
+    assert(page.IsVisible("later") && page.IsVisible(playerSlider.state().id()));
+    assert(value && writes == writesBeforeVisibility); // Hiding/revealing never clears a target preference.
+  }
+  masterAvailable = false;
+  assert(!page.IsVisible("targets") && !page.IsVisible(setting.id()));
+  assert(page.IsVisible("master") && page.IsVisible("unknown"));
   bool        rejected = false;
   std::thread wrong_thread([&] {
     try {

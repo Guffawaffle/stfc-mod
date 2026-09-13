@@ -21,6 +21,14 @@ retains no Unity objects. Views reuse `BooleanView` for guarded rendering, stale
 request rejection and authoritative readback. A released view cannot authorize
 another write. Rebuilding reads current state when each new view binds.
 
+A heading may supply a read-only visibility predicate. It controls the heading
+and following rows up to the next heading, independently of collapse state.
+Hidden rows stay registered and retain their setting owners and saved values.
+The current use is Cargo previews: Target types is visible while auto-open is on.
+Existing value-change notifications refresh the visible list; UI writes finish
+their request/readback scope before native rows can be rebound. Pages without a
+conditional section skip this extra refresh. No frame polling is added.
+
 The native adapter must create fresh managed contexts from this plan, avoid
 duplicate roots within one context, and release any temporary roots on failure.
 Pooled widgets must clear owned label/state overrides before reuse. No setting

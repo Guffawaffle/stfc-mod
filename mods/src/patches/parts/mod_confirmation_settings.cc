@@ -837,6 +837,7 @@ struct SectionPage {
   std::vector<std::string> collapsed;
   std::vector<Il2CppObject*> shown; // Comparison only; native context/panel owns rows.
   bool                     refreshing = false;
+  bool                       conditional = false;
 } sectionPage;
 struct SectionRefreshScope {
   SectionRefreshScope()
@@ -850,6 +851,7 @@ void ClearSectionPage()
   Free(sectionPage.context);
   sectionPage.collapsed.clear();
   sectionPage.shown.clear();
+  sectionPage.conditional = false;
 }
 const PageCatalog::Heading* CollapsibleHeadingFor(Il2CppObject* context)
 {
@@ -913,7 +915,7 @@ void ShowSections(Il2CppObject* controller, Il2CppObject* context, const PageCat
           id = heading->id;
           break;
         }
-    if (!section || !Collapsed(*section))
+    if (page.IsVisible(id) && (!section || !Collapsed(*section)))
       ordered.push_back({row, page.PositionFor(id), index});
   }
   // Repeated rows may have been appended after other native children. Keep the
@@ -1134,10 +1136,12 @@ void PageSelectedHook(auto original, Il2CppObject* controller, Il2CppObject* con
         sectionPage.context    = il2cpp_gchandle_new_weakref(context, false);
         if (!sectionPage.controller || !sectionPage.context)
           ClearSectionPage();
-        else
+        else {
+          sectionPage.conditional = page->HasConditionalSections();
           for (const auto& item : page->items)
             if (const auto* heading = std::get_if<PageCatalog::Heading>(&item); heading && heading->collapsible)
               sectionPage.collapsed.push_back(heading->id);
+        }
       }
     } catch (...) {
       ClearSectionPage();
@@ -1387,12 +1391,17 @@ void RenderAction(ActionView& view)
   void* args[]  = {&enabled};
   Call(Target(view.button), "OverrideInteractable", 1, args);
 }
-void RefreshActions()
+void RefreshPageRows()
 {
-  if (!OnThread() || !actionsActive || !pagesActive)
+  if (!OnThread() || !pagesActive)
     return;
   if (sectionPage.refreshing)
     return;
+  // Value-change observers run inside the write guard. Rebinding there could
+  // release the requesting row before it has consumed its authoritative result.
+  for (const auto& view : Views())
+    if (view.requesting || view.rendering || view.binding || view.clearing)
+      return;
   try {
     Root controller(Target(sectionPage.controller)), context(Target(sectionPage.context));
     if (controller.get() && context.get()) {
@@ -1404,8 +1413,19 @@ void RefreshActions()
       }
     }
   } catch (...) {
-    Warn("settings command list refresh unavailable");
+    Warn("settings page list refresh unavailable");
   }
+}
+void RefreshConditionalSections()
+{
+  if (sectionPage.conditional)
+    RefreshPageRows();
+}
+void RefreshActions()
+{
+  if (!OnThread() || !actionsActive || !pagesActive || sectionPage.refreshing)
+    return;
+  RefreshPageRows();
   // Binding during a callback may append a deque slot. References stay valid;
   // iterators do not, so visit only the slots that existed at entry.
   for (std::size_t i = 0, count = actionViews.size(); i < count; ++i) {
@@ -1901,6 +1921,7 @@ void RefreshViews()
       HideUnsupported(widget.get());
     }
   }
+  RefreshConditionalSections();
 }
 void ChangeValue(auto original, Il2CppObject* widget, auto desired)
 {
@@ -1917,23 +1938,26 @@ void ChangeValue(auto original, Il2CppObject* widget, auto desired)
       if (!view || view->rendering || view->binding || view->requesting || view->clearing
           || Target(view->context) != context.get())
         return;
-      struct RequestScope {
-        View& view;
-        explicit RequestScope(View* view)
-            : view(*view)
-        { view->requesting = true; }
-        ~RequestScope()
-        { view.requesting = false; }
-      } requestScope(view);
-      auto result = view->state->Request(desired);
-      if (Target(view->widget) != widget || Target(view->context) != context.get())
-        return;
-      if (result == Outcome::Suppressed || result == Outcome::Busy)
-        return;
-      // Refresh through the hook once, preserving the write result. A fresh Bind
-      // here would erase an unverified outcome merely because a later read works.
-      view->preserveNextRefresh = true;
-      Invoke(WidgetMeta(widget).refresh, widget);
+      {
+        struct RequestScope {
+          View& view;
+          explicit RequestScope(View* view)
+              : view(*view)
+          { view->requesting = true; }
+          ~RequestScope()
+          { view.requesting = false; }
+        } requestScope(view);
+        auto result = view->state->Request(desired);
+        if (Target(view->widget) != widget || Target(view->context) != context.get())
+          return;
+        if (result == Outcome::Suppressed || result == Outcome::Busy)
+          return;
+        // Refresh through the hook once, preserving the write result. A fresh Bind
+        // here would erase an unverified outcome merely because a later read works.
+        view->preserveNextRefresh = true;
+        Invoke(WidgetMeta(widget).refresh, widget);
+      }
+      RefreshConditionalSections(); // The requesting row may now safely be released/rebound.
       return;
     }
   } catch (...) {
