@@ -4,16 +4,19 @@
 #include <cmath>
 namespace mod_settings
 {
+enum class SliderLabel { Value, Percentage };
+
 class SliderSetting
 {
 public:
   SliderSetting(ValueDefinition<float> definition, float minimum, float maximum, float step,
-                std::function<bool()> enabled)
+                std::function<bool()> enabled, SliderLabel label = SliderLabel::Percentage)
       : state_(Checked(std::move(definition), minimum, maximum, enabled))
       , minimum_(minimum)
       , maximum_(maximum)
       , step_(step)
       , enabled_(std::move(enabled))
+      , label_(label)
   {
     if (!std::isfinite(step) || step <= 0)
       throw std::invalid_argument("slider step");
@@ -24,6 +27,8 @@ public:
   { return minimum_; }
   float maximum() const
   { return maximum_; }
+  SliderLabel label() const
+  { return label_; }
   bool enabled() const
   { return enabled_(); }
   float Snap(float value) const
@@ -58,5 +63,6 @@ private:
   ValueSetting<float>   state_;
   float                 minimum_, maximum_, step_;
   std::function<bool()> enabled_;
+  SliderLabel           label_;
 };
 } // namespace mod_settings

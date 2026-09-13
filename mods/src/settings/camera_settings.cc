@@ -23,7 +23,7 @@ SliderSetting& KeyboardZoomSpeedSetting()
                                                               std::chrono::milliseconds(150));
                                   return ApplyResult::Applied;
                                 }},
-                               0, 1000, 25, KeyboardZoomControlAvailable);
+                               0, 1000, 25, KeyboardZoomControlAvailable, SliderLabel::Value);
   return setting;
 }
 

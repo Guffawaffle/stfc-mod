@@ -1292,8 +1292,10 @@ void AddSliderRow(Il2CppObject* director, Il2CppObject* context, Il2CppObject* p
   Root row(Item(children.get(), before));
   if (row.get()->klass != m.row.get_cls() || !HasLabel(row.get(), setting.state().id().c_str()))
     throw std::runtime_error("slider row identity");
-  int   percentage  = 1; // SliderOptionLabelType.Percentage; value stays normalized 0..1.
-  void* labelArgs[] = {&percentage};
+  // Native SliderOptionLabelType: Value = 0, Percentage = 1. Speed is a raw
+  // number; fractional controls retain the existing percentage presentation.
+  int   labelType   = setting.label() == SliderLabel::Value ? 0 : 1;
+  void* labelArgs[] = {&labelType};
   Call(row.get(), "set_LabelType", 1, labelArgs);
 }
 

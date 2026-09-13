@@ -81,6 +81,8 @@ three times the default at its upper end, not a new limit on player-authored TOM
 Zero stops incremental keyboard zoom; absolute zoom presets and mouse zoom keep
 their existing behavior. Mod hotkeys must be enabled and Scopely hotkeys disabled
 for the keyboard zoom actions to run.
+The shared slider adapter selects the native Value label mode for this raw speed;
+fractional sliders retain their existing Percentage label mode.
 
 Pan glide edits the motion retained after mouse release from 0 to 0.99 in steps
 of 0.01 (default 0.8). Lower values stop sooner. The upper end deliberately stays
