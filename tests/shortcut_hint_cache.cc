@@ -35,8 +35,7 @@ KeyCode Key::Parse(std::string_view key)
       {"RSHIFT", KeyCode::RightShift},
       {"LCTRL", KeyCode::LeftControl},
       {"RCTRL", KeyCode::RightControl},
-      {"ENTER", KeyCode::Return},
-      {"RETURN", KeyCode::Return},
+      {"EQUAL", KeyCode::Equals},
   };
   for (const auto& [token, code] : tokens) {
     if (key == token)
@@ -302,7 +301,7 @@ int main()
   CheckDuplicate("SHIFT-CTRL-I", "CTRL-SHIFT-I", true);
   CheckDuplicate("SHIFT-SHIFT-I", "SHIFT-I", true);
   CheckDuplicate("CMD-I", "APPLE-I", true);
-  CheckDuplicate("RETURN", "ENTER", true);
+  CheckDuplicate("EQUAL", "=", true);
   CheckDuplicate("LSHIFT-I", "SHIFT-I", false);
   CheckDuplicate("LSHIFT-I", "RSHIFT-I", false);
   CheckDuplicate("SHIFT-I", "CTRL-I", false); // An overlap is not a duplicate.
