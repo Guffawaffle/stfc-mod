@@ -8,14 +8,18 @@ void InstallNativeSettings()
   // omit this UI until equivalent hook evidence is available.
 #if defined(_WIN32) && defined(_M_X64)
   using namespace mod_settings::native;
-  if (!InstallCoreValueWidgets())
-    return;
   try {
-    InstallPages();
+    if (!InstallCoreValueWidgets())
+      return;
+    try {
+      InstallPages();
+    } catch (...) {
+      DisablePages();
+      spdlog::warn("[ModSettings] Navigation unavailable; native confirmation control remains available");
+    }
+    spdlog::info("[ModSettings] Native settings adapter installed (Windows x64)");
   } catch (...) {
-    DisablePages();
-    spdlog::warn("[ModSettings] Navigation unavailable; native confirmation control remains available");
+    Warn();
   }
-  spdlog::info("[ModSettings] Native settings adapter installed (Windows x64)");
 #endif
 }
