@@ -16,6 +16,9 @@ namespace mod_settings
 class PageCatalog
 {
 public:
+  // Shared with the native adapter's child-list sanity check. Presentation
+  // producers must fit this budget without limiting the underlying config.
+  static constexpr int NativeChildLimit = 128;
   struct Heading {
     std::string id, label;
     bool        collapsible = false;

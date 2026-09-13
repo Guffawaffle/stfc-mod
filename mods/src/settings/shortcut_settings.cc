@@ -53,6 +53,10 @@ namespace
                  [action](ShortcutList list, std::uint64_t generation) {
                    if (generation != 1)
                      return ApplyResult::Rejected;
+                   // Existing oversized lists may be reduced/rebound, but a UI
+                   // addition must fit before either publication or persistence.
+                   if (!ShortcutCountFitsEdit(MapKey::Bindings(action).size(), list.size()))
+                     return ApplyResult::Rejected;
                    std::vector<MapKey> bindings;
                    for (const auto& text : list) {
                      auto parsed = MapKey::Parse(text);
@@ -129,7 +133,7 @@ namespace
     Cancel(editor);
     editor.draft.Begin();
     const auto list = editor.Current();
-    if (index > list.size())
+    if (index > list.size() || (index == list.size() && list.size() >= ShortcutBindingDisplayLimit))
       return;
     recordingIndex   = index;
     editor.replacing = index < list.size() ? list[index] : "";
@@ -231,7 +235,7 @@ namespace
       editor.rows.push_back(std::move(row));
     };
     using P = ActionSetting::Presentation;
-    auto count = [&editor] { return editor.Current().size(); };
+    auto count = [&editor] { return VisibleShortcutBindingCount(editor.Current().size()); };
     add(
         "binding", "Shortcut",
         [&editor](std::size_t index) {
@@ -242,7 +246,13 @@ namespace
     add(
         "add", "Add shortcut",
         [&editor](std::size_t) {
-          return P{editor.Current().empty() ? "No shortcut assigned" : "Add shortcut", "Record", "",
+          const auto size = editor.Current().size();
+          if (size > ShortcutBindingDisplayLimit)
+            return P{"Showing first " + std::to_string(ShortcutBindingDisplayLimit) + "; remove shortcuts or edit TOML",
+                     "", "", false};
+          if (size == ShortcutBindingDisplayLimit)
+            return P{"Remove a shortcut before adding another", "", "", false};
+          return P{size == 0 ? "No shortcut assigned" : "Add shortcut", "Record", "",
                    !capture.active() && !editor.draft.pending()};
         },
         [&editor](std::size_t) { Begin(editor, editor.Current().size()); }, true);

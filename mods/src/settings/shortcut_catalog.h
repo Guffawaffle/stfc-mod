@@ -1,4 +1,5 @@
 #pragma once
+#include "page_catalog.h"
 #include "patches/gamefunctions.h"
 #include <array>
 #include <stdexcept>
@@ -6,6 +7,13 @@
 
 namespace mod_settings
 {
+// Change + Remove per binding, four singleton command rows and More options.
+// Oversized player-authored lists stay live; the editor presents their prefix.
+inline constexpr std::size_t ShortcutBindingDisplayLimit = (PageCatalog::NativeChildLimit - 5) / 2;
+constexpr std::size_t        VisibleShortcutBindingCount(std::size_t count)
+{ return std::min(count, ShortcutBindingDisplayLimit); }
+constexpr bool ShortcutCountFitsEdit(std::size_t before, std::size_t after)
+{ return after <= ShortcutBindingDisplayLimit || after <= before; }
 enum class ShortcutGroup { Interface, Fleet, Travel, Camera, Chat, Client, Diagnostics };
 struct ShortcutGroupInfo {
   ShortcutGroup    group;

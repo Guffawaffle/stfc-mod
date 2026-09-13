@@ -89,7 +89,13 @@ Indices are presentation identities, not persistent binding IDs: a draft still
 compares the complete observed list before publication. The native page owns rows
 up to its largest binding count and reuses them after removals/additions. Refresh
 adds missing contexts, filters surplus/hidden rows and follows catalog order.
-The native adapter's existing 128-child sanity bound still applies. Refreshes run
+The native adapter's existing 128-child sanity bound still applies. Two rows per
+binding plus five fixed rows leave room for 61 bindings per action in the editor.
+It rejects further UI additions before publishing. Existing longer TOML lists
+stay live and saved in full: the UI explains that it shows the first 61, permits
+replacement/removal, and exposes subsequent bindings as earlier ones are removed.
+Opening an oversized list never rewrites it or removes unrelated settings pages.
+Refreshes run
 on settings actions and capture transitions; they do not add idle frame polling.
 An unchanged visible list is not rebound.
 

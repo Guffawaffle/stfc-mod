@@ -14,6 +14,18 @@ void Check(bool ok, const char* label)
 }
 int main()
 {
+  Check(ShortcutCountFitsEdit(60, 61) && !ShortcutCountFitsEdit(61, 62),
+        "native row budget rejects oversized growth before publication");
+  Check(ShortcutCountFitsEdit(62, 62) && ShortcutCountFitsEdit(62, 61) && !ShortcutCountFitsEdit(62, 63),
+        "existing oversized TOML lists can be rebound/reduced but not grown in UI");
+  Check(VisibleShortcutBindingCount(0) == 0 && VisibleShortcutBindingCount(1) == 1,
+        "empty/single-binding pages have no extra binding rows");
+  for (std::size_t count : {61u, 62u, 1000u}) {
+    Check(VisibleShortcutBindingCount(count) == 61,
+          "existing long lists present a bounded prefix without dropping other settings pages");
+    Check(2 * VisibleShortcutBindingCount(count) + 5 <= PageCatalog::NativeChildLimit,
+          "Change and Remove plus fixed rows fit native page capacity");
+  }
   Check(DescribeShortcut(ShowInventory).group == ShortcutGroup::Interface
             && DescribeShortcut(ShowArtifacts).group == ShortcutGroup::Interface,
         "opening inventory/artifacts belongs to interface, not map travel");

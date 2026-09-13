@@ -589,7 +589,7 @@ int Count(Il2CppObject* list)
   if (!value.get() || !Type(il2cpp_class_get_type(value.get()->klass), IL2CPP_TYPE_I4))
     throw std::runtime_error("settings child count");
   const int count = *static_cast<int*>(il2cpp_object_unbox(value.get()));
-  if (count < 0 || count > 128)
+  if (count < 0 || count > PageCatalog::NativeChildLimit)
     throw std::runtime_error("settings child bound");
   return count;
 }
@@ -626,7 +626,7 @@ void AddBooleanRow(Il2CppObject* director, Il2CppObject* context, Il2CppObject* 
   for (int i = 0; i < before; ++i)
     if (HasLabel(Item(children.get(), i), setting.id().c_str()))
       return;
-  if (before == 128)
+  if (before == PageCatalog::NativeChildLimit)
     throw std::runtime_error("settings category full");
   auto& m = Meta();
   Root  get(MakeDelegate(il2cpp_class_from_type(m.addToggle->parameters[2]), director, getter.method()));
@@ -1530,7 +1530,7 @@ void AddActionRow(Il2CppObject* director, Il2CppObject* context, Il2CppObject* p
   const auto* add = ActionMeta().add;
   Root        children(Call(parent, "get_Children"));
   const int   before = Count(children.get());
-  if (before == 128)
+  if (before == PageCatalog::NativeChildLimit)
     throw std::runtime_error("settings command capacity");
   Root label(reinterpret_cast<Il2CppObject*>(il2cpp_string_new(action.item_id(index).c_str())));
   Root empty(reinterpret_cast<Il2CppObject*>(il2cpp_string_new("")));
@@ -1567,7 +1567,7 @@ void SyncActionRows(Il2CppObject* controller, Il2CppObject* context, const PageC
         continue;
       // The adapter already bounds every native child list at 128. Check the
       // full addition before mutating it, including rows retained after removal.
-      if (size + missing.size() == 128)
+      if (size + missing.size() == PageCatalog::NativeChildLimit)
         throw std::runtime_error("settings command capacity");
       missing.push_back(row);
     }
@@ -1605,7 +1605,7 @@ void AddHeadingRow(Il2CppObject* director, Il2CppObject* context, Il2CppObject* 
   const auto* add = HeadingMeta().add;
   Root        children(Call(parent, "get_Children"));
   const int   before = Count(children.get());
-  if (before == 128)
+  if (before == PageCatalog::NativeChildLimit)
     throw std::runtime_error("settings heading capacity");
   Root  label(reinterpret_cast<Il2CppObject*>(il2cpp_string_new(heading.id.c_str())));
   Root  get(MakeDelegate(il2cpp_class_from_type(add->parameters[2]), director, headingGetter.method()));
@@ -1628,7 +1628,7 @@ void AddChoiceRows(Il2CppObject* director, Il2CppObject* context, Il2CppObject* 
   Root        children(Call(parent, "get_Children"));
   const int   before = Count(children.get());
   const auto  count  = setting.labels().size();
-  if (before + count > 128)
+  if (before + count > PageCatalog::NativeChildLimit)
     throw std::runtime_error("selection category capacity");
   Root values(reinterpret_cast<Il2CppObject*>(
       il2cpp_array_new(il2cpp_class_from_name(il2cpp_get_corlib(), "System", "String"), count)));
@@ -1671,7 +1671,7 @@ void AddSliderRow(Il2CppObject* director, Il2CppObject* context, Il2CppObject* p
   const auto* add = m.context.GetMethodInfo("AddSlider", 9);
   Root        children(Call(parent, "get_Children"));
   const int   before = Count(children.get());
-  if (before == 128)
+  if (before == PageCatalog::NativeChildLimit)
     throw std::runtime_error("slider category capacity");
   Root  label(reinterpret_cast<Il2CppObject*>(il2cpp_string_new(setting.state().id().c_str())));
   Root  get(MakeDelegate(il2cpp_class_from_type(add->parameters[2]), director, sliderGetter.method()));
