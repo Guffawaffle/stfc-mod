@@ -47,9 +47,11 @@ polling, animation replacement, asset loading or setting write in this hook.
 ## Preview shortcuts and cargo previews
 
 Both pages use the existing boolean rows and the same live Config members already
-read by the preview and keyboard paths. No new hook, polling callback, config key,
-or default is introduced. The pages are admitted only after their existing hooks
-were installed. Hotkey enablement and Scopely-hotkey selection still determine
+read by the preview and keyboard paths. No new hook implementation, polling
+callback, config key, or default is introduced. The plain cargo heading uses the
+framework's existing text-row hooks, which are installed when a page needs them.
+The pages are admitted only after their existing consumer hooks were installed.
+Hotkey enablement and Scopely-hotkey selection still determine
 whether the mod's Locate/Recall actions run.
 
 Locate and Recall use positive UI labels: ON allows the action while a preview is

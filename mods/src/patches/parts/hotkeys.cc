@@ -1371,9 +1371,8 @@ bool install_screen_manager_update_hook()
   if (!helper.isValidHelper()) {
     ErrorMsg::MissingHelper("UI", "ScreenManager");
   } else if (auto update = helper.GetMethod("Update"); update) {
-    SPUD_STATIC_DETOUR(update, ScreenManager_Update_Hook);
-    installed = true;
-    return true;
+    installed = SPUD_STATIC_DETOUR(update, ScreenManager_Update_Hook);
+    return installed;
   } else {
     ErrorMsg::MissingMethod("ScreenManager", "Update");
   }
