@@ -28,6 +28,7 @@ int main()
   view.Bind();
   stale.Bind();
   assert(view.known() && view.number() == 0.33333f); // Reading does not quantize player-authored values.
+  assert(view.displayNumber() == 0.33f && value == 0.33333f && writes == 0);
   assert(view.Request(0.604f) == Outcome::AppliedVerified && std::abs(value - 0.6f) < 0.000001f);
   assert(stale.Request(0.8f) == Outcome::Conflict && writes == 1);
   assert(view.Request(std::numeric_limits<float>::quiet_NaN()) == Outcome::Rejected);
@@ -59,6 +60,24 @@ int main()
   assert(catalog.AddSlider("labels", setting) == Registration::Duplicate);
   assert(catalog.Build().size() == 2);
   assert(catalog.AddSlider("labels", setting) == Registration::Frozen);
+
+  // Native drag labels can arrive after a change has already snapped/read back.
+  // Display that snapshot, and keep display precision independent of the step.
+  value = 382.1429f;
+  SliderSetting speed(
+      {"speed", "Speed", [&] { return ValueReadResult<float>::Known(value, 1); },
+       [&](float desired, std::uint64_t) {
+         value = desired;
+         return ApplyResult::Applied;
+       }},
+      0, 1000, 25, [] { return true; }, SliderLabel::Value, 0);
+  NativeViewState speedView(speed);
+  speedView.Bind();
+  assert(speedView.displayNumber() == 382 && value == 382.1429f);
+  assert(speedView.Request(382.1429f) == Outcome::AppliedVerified);
+  assert(speedView.number() == 375 && speedView.displayNumber() == 375);
+  assert(setting.DisplayValue(0.72575f) == 0.73f);
+  assert(setting.DisplayValue(0.0f) == 0 && setting.DisplayValue(0.99f) == 0.99f);
 
   Il2CppType single{}, nothing{}, integer{};
   single.type  = IL2CPP_TYPE_R4;

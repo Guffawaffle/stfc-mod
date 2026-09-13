@@ -169,6 +169,7 @@ struct Metadata {
   const MethodInfo* addToggle   = context.GetMethodInfo("AddToggle", 4);
   const MethodInfo* refresh     = widget.GetMethodInfo("SetWidgetData", 0);
   const MethodInfo* changed     = widget.GetMethodInfo(slider ? "OnSliderValueChanged" : "OnToggleValueChanged", 1);
+  const MethodInfo* valueLabel  = slider ? widget.GetMethodInfo("UpdateValueLabel", 1) : nullptr;
   const MethodInfo* release     = widget.GetMethodInfo("OnAboutToReleaseContext", 0);
   const MethodInfo* reload      = prefs.GetMethodInfo("RegisterEvents", 0);
   const MethodInfo* session     = prefs.GetMethodInfo("GameSessionStartedEventHandler", 0);
@@ -1552,6 +1553,26 @@ void ChangedHook(auto original, Il2CppObject* widget, bool desired)
 { ChangeValue(original, widget, desired); }
 void SliderChangedHook(auto original, Il2CppObject* widget, float desired)
 { ChangeValue(original, widget, desired); }
+void SliderValueLabelHook(auto original, Il2CppObject* widget, float value)
+{
+  if (OnThread() && sliderActive) {
+    try {
+      auto* view = Find(widget);
+      Root  context(view ? Invoke(SliderMeta().getContext, widget) : nullptr);
+      if (view && view->state && Target(view->context) == context.get() && Owned(context.get())
+          && view->state->known()) {
+        // Unity invokes this label listener separately after the change listener.
+        // Its raw drag position can otherwise overwrite the refreshed, snapped
+        // value. Format the applied snapshot; never send this rounded value to
+        // the slider, the setting owner, or the TOML writer.
+        value = view->state->displayNumber();
+      }
+    } catch (...) {
+      Warn("settings slider value label unavailable");
+    }
+  }
+  original(widget, value); // Keep native text formatting/localization and pooling.
+}
 void ReleaseHook(auto original, Il2CppObject* widget)
 {
   if (OnThread()) {
@@ -1821,11 +1842,12 @@ void InstallPages()
         || !Instance(slider.getContext, 0, slider.getContext->return_type->type)
         || !sliderGetter.Initialize(get, GetNumber) || !sliderSetter.Initialize(set, SetNumber))
       throw std::runtime_error("slider callback schema");
-    const std::array targets{slider.refresh, slider.changed, slider.release};
+    const std::array targets{slider.refresh, slider.changed, slider.release, slider.valueLabel};
     for (std::size_t i = 0; i < targets.size(); ++i) {
-      if (!Instance(targets[i], i == 1 ? 1 : 0, IL2CPP_TYPE_VOID) || !Extent(targets[i]))
+      const bool takesValue = i == 1 || i == 3;
+      if (!Instance(targets[i], takesValue ? 1 : 0, IL2CPP_TYPE_VOID) || !Extent(targets[i]))
         throw std::runtime_error("slider hook metadata/extent");
-      if (i == 1 && !Type(targets[i]->parameters[0], IL2CPP_TYPE_R4))
+      if (takesValue && !Type(targets[i]->parameters[0], IL2CPP_TYPE_R4))
         throw std::runtime_error("slider changed signature");
       for (std::size_t j = 0; j < i; ++j)
         if (targets[i]->methodPointer == targets[j]->methodPointer)
@@ -1847,6 +1869,8 @@ void InstallPages()
     SPUD_STATIC_DETOUR(slider.refresh->methodPointer, RefreshHook);
     SPUD_STATIC_DETOUR(slider.changed->methodPointer, SliderChangedHook);
     SPUD_STATIC_DETOUR(slider.release->methodPointer, ReleaseHook);
+    if (!SPUD_STATIC_DETOUR(slider.valueLabel->methodPointer, SliderValueLabelHook))
+      throw std::runtime_error("slider label hook installation");
     sliderActive = true;
   }
   if (std::any_of(pages.begin(), pages.end(), [](const auto& page) {
@@ -1879,7 +1903,7 @@ void InstallPages()
           if (target->methodPointer == existing->methodPointer)
             throw std::runtime_error("heading selection overlap");
       if (sliderActive)
-        for (auto* existing : {SliderMeta().refresh, SliderMeta().changed, SliderMeta().release})
+        for (auto* existing : {SliderMeta().refresh, SliderMeta().changed, SliderMeta().release, SliderMeta().valueLabel})
           if (target->methodPointer == existing->methodPointer)
             throw std::runtime_error("heading slider overlap");
     }

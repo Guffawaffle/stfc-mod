@@ -84,6 +84,14 @@ for the keyboard zoom actions to run.
 The shared slider adapter selects the native Value label mode for this raw speed;
 fractional sliders retain their existing Percentage label mode.
 
+Display precision belongs to each shared `SliderSetting` (`displayDecimals`,
+default 2; keyboard speed uses 0). The native slider label callback receives the
+rounded applied snapshot, including when a later drag listener supplies an
+unsnapped position. This covers all mod sliders, including Fleet Labels, while
+preserving the game's number formatting. It does not change the live value,
+slider step, player-authored TOML, or save timing. Stock slider labels take the
+native path. No label override or extra frame callback is retained.
+
 Pan glide edits the motion retained after mouse release from 0 to 0.99 in steps
 of 0.01 (default 0.8). Lower values stop sooner. The upper end deliberately stays
 below 1, which would preserve momentum indefinitely. It retains the existing
@@ -93,7 +101,7 @@ hook does not read it.
 
 Both sliders read their current Config member and change it on the UI thread.
 The existing camera hooks consume it on their next normal update; there are no
-new hooks, refresh callbacks, or frame logging. Each row is admitted only if its
+new camera hooks, refresh callbacks, or frame logging. Each row is admitted only if its
 existing consumer detour installed successfully; the Camera page is omitted if
 neither did. Live changes use the existing 150 ms coalesced TOML writer. Page
 navigation never saves, and existing out-of-range or non-finite values remain
@@ -160,6 +168,7 @@ Exact Windows build261 unwind extents, checked before expanding installation:
 | SliderOptionWidget.SetWidgetData | D09C50 | 592 |
 | SliderOptionWidget.OnSliderValueChanged | D0A1E0 | 117 |
 | SliderOptionWidget.OnAboutToReleaseContext | D09EA0 | 288 |
+| SliderOptionWidget.UpdateValueLabel | D0A260 | 458 |
 | NavigationLOD.UpdateLOD | F8ECF0 | 75 |
 | NavigationFleetWidget.OnDidBindContext | F7C870 | 335 |
 | NavigationFleetWidget.OnAboutToReleaseContext | F7CEA0 | 283 |

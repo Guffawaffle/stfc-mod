@@ -2,6 +2,7 @@
 #include "value_view.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 namespace mod_settings
 {
 enum class SliderLabel { Value, Percentage };
@@ -10,13 +11,15 @@ class SliderSetting
 {
 public:
   SliderSetting(ValueDefinition<float> definition, float minimum, float maximum, float step,
-                std::function<bool()> enabled, SliderLabel label = SliderLabel::Percentage)
+                std::function<bool()> enabled, SliderLabel label = SliderLabel::Percentage,
+                std::uint8_t displayDecimals = 2)
       : state_(Checked(std::move(definition), minimum, maximum, enabled))
       , minimum_(minimum)
       , maximum_(maximum)
       , step_(step)
       , enabled_(std::move(enabled))
       , label_(label)
+      , displayDecimals_(displayDecimals)
   {
     if (!std::isfinite(step) || step <= 0)
       throw std::invalid_argument("slider step");
@@ -29,6 +32,12 @@ public:
   { return maximum_; }
   SliderLabel label() const
   { return label_; }
+  float DisplayValue(float value) const
+  {
+    // Presentation only: never quantize a loaded preference or change its step.
+    const auto scale = std::pow(10.0, displayDecimals_);
+    return static_cast<float>(std::round(static_cast<double>(value) * scale) / scale);
+  }
   bool enabled() const
   { return enabled_(); }
   float Snap(float value) const
@@ -64,5 +73,6 @@ private:
   float                 minimum_, maximum_, step_;
   std::function<bool()> enabled_;
   SliderLabel           label_;
+  std::uint8_t          displayDecimals_;
 };
 } // namespace mod_settings

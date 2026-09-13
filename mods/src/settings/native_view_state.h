@@ -60,6 +60,8 @@ public:
   { return known() && (!sliderSetting_ || sliderSetting_->enabled()); }
   float number() const
   { return slider_ ? slider_->value().value_or(sliderSetting_->minimum()) : 0.0f; }
+  float displayNumber() const
+  { return sliderSetting_ ? sliderSetting_->DisplayValue(number()) : 0.0f; }
   std::optional<bool> value() const
   {
     if (boolean_)
