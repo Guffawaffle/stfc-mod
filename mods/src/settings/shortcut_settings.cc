@@ -287,9 +287,8 @@ namespace
     add(
         "overlaps", "Overlap information",
         [&editor] {
-          return P{editor.overlaps.empty()
-                       ? (editor.draft.pending() ? "No other mod binding on this key" : "Shared bindings are allowed")
-                       : "<color=#FFC66D>" + editor.overlaps + "</color>",
+          return P{editor.overlaps.empty() ? "Shared bindings are allowed"
+                                           : "<color=#FFC66D>" + editor.overlaps + "</color>",
                    "", "", false};
         },
         [] {});
