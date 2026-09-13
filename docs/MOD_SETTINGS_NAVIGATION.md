@@ -60,9 +60,11 @@ verified Windows x64 extents of 146, 355 and 281 bytes. Selection prefabs may pu
 their toggle on the row itself: an unavailable selection clears its selected
 index and disables interaction instead of hiding its label's container.
 
-The current native bridge shares the `ModConfirmationSettings` patch installation
-and its debug installation switch. Disabling that patch disables both native UI
-surfaces. Settings retain their own identity and persistence independently of it.
+The current native bridge uses `InstallNativeSettings`, retaining the historical
+`ModConfirmationSettings` debug patch key. Disabling that patch disables both
+native UI surfaces. Settings retain their own identity and persistence independently
+of it. See [native adapter ownership](MOD_SETTINGS_NATIVE_ADAPTER.md) for the
+module boundaries, installation order and retained lifecycle contracts.
 The shared native adapter sizes its stable weak-view storage once at installation
 from all registered control rows plus the two native confirmation rows, retaining
 the existing minimum of eight slots. Both fleet profiles need ten interactive

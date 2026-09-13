@@ -623,7 +623,7 @@ void InstallZoomHooks()
 #if defined(_WIN32) && defined(_M_X64)
   // Install once so native settings can switch away from Native during play.
   // Other platforms retain their existing startup configuration behavior.
-  enable_labels |= Config::Get().installModConfirmationSettings;
+  enable_labels |= Config::Get().installNativeSettings;
 #endif
   if (enable_labels) {
     auto lod_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "NavigationLOD");

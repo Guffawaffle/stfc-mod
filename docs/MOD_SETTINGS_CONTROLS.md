@@ -133,6 +133,9 @@ Each user edit updates the existing live profile and refreshes tracked labels.
 The native slider callbacks use the same typed snapshot/reentry guards as choices.
 Unknown values suppress the slider and numeric label; disabled known values remain
 visible. Releasing a pooled widget restores its label, active state and interaction.
+The feature supplies the short disabled instruction (`Select Threshold`) through
+`SliderSetting::disabledReason`; the shared widget has no Fleet Labels-specific
+wording. Native ownership is described in [the adapter map](MOD_SETTINGS_NATIVE_ADAPTER.md).
 
 Windows installs the existing fleet-label and Forbidden Tech hooks when the mod
 settings UI is enabled, so changing their values does not require a restart.

@@ -23,7 +23,7 @@ int main()
                            value = desired;
                            return ApplyResult::Applied;
                          }},
-                        0, 1, 0.01f, [&] { return enabled; });
+                        0, 1, 0.01f, [&] { return enabled; }, SliderLabel::Percentage, 2, "Enable test feature");
   NativeViewState view(setting), stale(setting);
   view.Bind();
   stale.Bind();
@@ -36,6 +36,7 @@ int main()
   assert(view.Request(-0.01f) == Outcome::Rejected && view.Request(1.01f) == Outcome::Rejected);
   enabled = false;
   assert(view.known() && !view.enabled() && view.Request(0.9f) == Outcome::Rejected && writes == 1);
+  assert(view.disabledReason() == "Enable test feature");
   enabled = true;
   {
     NativeViewState::RenderScope render(view);
@@ -73,6 +74,7 @@ int main()
       0, 1000, 25, [] { return true; }, SliderLabel::Value, 0);
   NativeViewState speedView(speed);
   speedView.Bind();
+  assert(speedView.disabledReason().empty()); // Generic sliders have no feature-specific instruction.
   assert(speedView.displayNumber() == 382 && value == 382.1429f);
   assert(speedView.Request(382.1429f) == Outcome::AppliedVerified);
   assert(speedView.number() == 375 && speedView.displayNumber() == 375);

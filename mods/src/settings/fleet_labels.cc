@@ -57,9 +57,11 @@ ChoiceSetting& FleetLabelDetailSetting(bool player)
 SliderSetting& FleetLabelThresholdSetting(bool player)
 {
   static SliderSetting players(Threshold(true), 0, 1, 0.01f,
-                               [] { return Profile(true).detail == FleetLabelDetail::Threshold; });
+                               [] { return Profile(true).detail == FleetLabelDetail::Threshold; },
+                               SliderLabel::Percentage, 2, "Select Threshold");
   static SliderSetting others(Threshold(false), 0, 1, 0.01f,
-                              [] { return Profile(false).detail == FleetLabelDetail::Threshold; });
+                              [] { return Profile(false).detail == FleetLabelDetail::Threshold; },
+                              SliderLabel::Percentage, 2, "Select Threshold");
   return player ? players : others;
 }
 } // namespace mod_settings
