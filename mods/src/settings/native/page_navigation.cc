@@ -17,6 +17,7 @@ namespace mod_settings::native
 {
 namespace
 {
+  constexpr auto                 saveNoticeId = "community_mod.save_notice";
   std::vector<PageCatalog::Page> pagePlan;
   std::vector<Il2CppGCHandle>    categoryWidgets;
   bool                           pagesActive = false;
@@ -528,7 +529,11 @@ void AddPages(Il2CppObject* director, Il2CppObject* context)
     for (auto it = Pages().rbegin(); it != Pages().rend(); ++it) {
       auto* category = parents.at(it->id);
       Root  items(Call(category, "get_Children"));
-      if (Count(items.get()) != 0)
+      const auto count  = Count(items.get());
+      const auto action = count == 1 && ActionsActive() ? ActionFor(Item(items.get(), 0)).first : nullptr;
+      // A failure-only notice is not supported content. If a widget family was
+      // unavailable, prune notice-only leaves and then their notice-only parents.
+      if (count != 0 && !(action && action->id() == saveNoticeId))
         continue;
       auto* parent = it->parent.empty() ? root.get() : parents.at(it->parent);
       void* args[] = {category};
@@ -585,7 +590,7 @@ void InstallPages()
 #endif
   pagePlan = ModPages().Build();
   // Add after empty-page pruning so a notice never creates an otherwise empty group.
-  static ActionSetting saveNotice{"community_mod.save_notice", "Save notice",
+  static ActionSetting saveNotice{saveNoticeId, "Save notice",
                                   [](std::size_t) {
                                     return ActionSetting::Presentation{
                                         "<color=#FFC66D>Active this session; couldn't save. See mod log.</color>", "",
@@ -659,8 +664,8 @@ void InstallPages()
     headingsActive = true;
   }
   InstallActionWidgets();
-  if (ActionsActive())
-    runtime_config::SetSaveStatusObserver(RefreshActions);
+  if (ActionsActive() && !runtime_config::SetSaveStatusObserver(RefreshActions))
+    Warn("settings save notice refresh unavailable");
   for (const auto& page : Pages())
     for (auto* setting : page.Controls<BooleanSetting>()) {
       if (setting->id() == FleetCommanderConfirmationSetting().id() && setting != &FleetCommanderConfirmationSetting())

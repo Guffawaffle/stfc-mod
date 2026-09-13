@@ -18,6 +18,7 @@ void                             Reset()
   persistence_unavailable = false;
   reported_save_failure   = false;
   save_status_changed     = nullptr;
+  fixture_update_callback = nullptr;
   draining = stopped = resume = false;
   vote                        = 0;
   resumes                     = 0;
@@ -51,13 +52,25 @@ int main(int argc, char** argv)
   Update();
   assert(notices == 2 && !runtime_config::HasSaveFailures());
   available = false;
+  writer                  = nullptr; // Configure/Install never supplied the normal update path.
+  fixture_update_callback = nullptr;
+  assert(runtime_config::SetSaveStatusObserver(save_status_changed));
+  assert(fixture_update_callback);
   runtime_config::SaveWarpMode("warp");
-  Update();
+  fixture_update_callback();
   assert(notices == 3 && runtime_config::HasSaveFailures());
   available = true;
+  writer    = &fixture;
   runtime_config::SaveWarpMode("jump");
   Update();
   assert(notices == 3 && runtime_config::HasSaveFailures()); // Rejected edits remain session-only.
+  Reset();
+  fixture.failures = true; // Transient thread-start failure is tracked by its key.
+  runtime_config::SaveWarpMode("warp");
+  assert(runtime_config::HasSaveFailures() && !persistence_unavailable);
+  fixture.failures = false;
+  runtime_config::SaveWarpMode("jump");
+  assert(!runtime_config::HasSaveFailures());
   Reset();
   assert(WantsQuit([] { return true; }));
   assert(fixture.stopped && stopped && !draining);

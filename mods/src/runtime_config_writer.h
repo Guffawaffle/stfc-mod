@@ -36,6 +36,9 @@ public:
   { return has_work_.load(); }
   bool HasFailures() const
   { return has_failures_.load(); }
+  // Failure-path query: lets a caller distinguish a tracked failed attempt from
+  // an untracked rejection. A same-key retry can clear the former normally.
+  bool HasFailure(std::string_view section, std::string_view key);
   // Owner thread only, like Submit. On Windows this observes native thread exit
   // before joining; it never joins a still-running worker on a game callback.
   bool PollStopped();

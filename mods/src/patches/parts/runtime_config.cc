@@ -155,6 +155,10 @@ bool SetSaveStatusObserver(void (*observer)())
 #if defined(_WIN32) && defined(_M_X64)
   if (save_status_changed && save_status_changed != observer)
     return false;
+  // Notices must also update if persistence/quit-hook validation failed, or no
+  // writer was configured. This existing dispatcher is idempotent and UI-owned.
+  if (!observer || !install_screen_manager_update_hook() || !register_screen_manager_update_callback(Update))
+    return false;
   save_status_changed = observer;
   return true;
 #else
@@ -255,8 +259,14 @@ void SaveSetting(const char* section, const char* key, config_edit::Value value,
 #if defined(_WIN32) && defined(_M_X64)
     if (available && !forcing && owner == GetCurrentThreadId() && !quit_depth) {
       std::lock_guard lock(lifecycle);
-      if (!draining && writer->Submit(section, key, std::move(value), delay))
-        return;
+      if (!draining) {
+        if (writer->Submit(section, key, std::move(value), delay))
+          return;
+        if (writer->HasFailure(section, key)) {
+          spdlog::warn("{}.{} changed for this session; runtime save submission failed", section, key);
+          return; // The writer owns this failure and its eventual same-key recovery.
+        }
+      }
     }
     persistence_unavailable.store(true);
 #else

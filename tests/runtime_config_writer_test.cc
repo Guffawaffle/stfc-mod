@@ -2,6 +2,7 @@
 #include <chrono>
 #include <iostream>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 using namespace config_edit;
@@ -17,6 +18,7 @@ std::thread::id                       save_thread;
 std::chrono::steady_clock::time_point save_entered_at;
 int                                   reports      = 0;
 bool                                  block_report = false, release_report = false;
+bool                                  fail_thread_start = false;
 
 void Check(bool value)
 {
@@ -73,10 +75,17 @@ void AwaitCompletion(RuntimeConfigWriter& writer, std::uint64_t revision)
     std::this_thread::yield();
   }
 }
+template <typename Function, typename Owner> std::thread StartWorker(Function function, Owner* owner)
+{
+  if (std::exchange(fail_thread_start, false))
+    throw std::runtime_error("fixture thread-start failure");
+  return std::thread(function, owner);
+}
 } // namespace
 
 // Block at the real worker's save boundary to exercise scheduling deterministically.
 #define CONFIG_EDIT_SAVE(editor, path, request) Save(editor, path, request)
+#define CONFIG_EDIT_START_WORKER(...) StartWorker(__VA_ARGS__)
 #include "../mods/src/runtime_config_writer.cc"
 
 int main()
@@ -146,6 +155,19 @@ int main()
       AwaitCompletion(writer, writer.Submit("jump"));
       Check(!writer.HasFailures()); // A later successful save of A clears it.
       Check(reports == 1);
+    }
+    Begin(Outcome::Saved);
+    {
+      RuntimeConfigWriter writer("unused", Value{std::string("none")});
+      fail_thread_start = true;
+      Check(!writer.Submit("warp"));
+      Check(writer.HasFailure("ui", "auto_confirm_instant_warp") && writer.HasFailures() && !writer.HasWork());
+      Check(!writer.HasFailure("other", "unregistered"));
+      const auto retry = writer.Submit("jump");
+      AwaitSave();
+      Release();
+      AwaitCompletion(writer, retry);
+      Check(!writer.HasFailures() && !writer.HasFailure("ui", "auto_confirm_instant_warp"));
     }
     Begin(Outcome::IoError);
     {

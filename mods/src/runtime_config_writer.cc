@@ -8,6 +8,9 @@
 #ifndef CONFIG_EDIT_SAVE
 #define CONFIG_EDIT_SAVE(editor, path, request) (editor).Save(path, request)
 #endif
+#ifndef CONFIG_EDIT_START_WORKER
+#define CONFIG_EDIT_START_WORKER(...) std::thread(__VA_ARGS__)
+#endif
 
 namespace config_edit
 {
@@ -53,7 +56,7 @@ std::uint64_t RuntimeConfigWriter::Submit(std::string section, std::string key, 
   has_work_.store(true);
   if (!worker_.joinable()) {
     try {
-      worker_ = std::thread(&RuntimeConfigWriter::Run, this);
+      worker_ = CONFIG_EDIT_START_WORKER(&RuntimeConfigWriter::Run, this);
     } catch (...) {
       pending_.clear();
       has_work_.store(false);
@@ -90,6 +93,12 @@ RuntimeConfigWriter::Completion RuntimeConfigWriter::LastCompletion()
 {
   std::lock_guard lock(mutex_);
   return completion_;
+}
+bool RuntimeConfigWriter::HasFailure(std::string_view section, std::string_view key)
+{
+  std::lock_guard lock(mutex_);
+  const auto      found = saved_.find(Key{std::string(section), std::string(key)});
+  return found != saved_.end() && found->second.failed;
 }
 
 void RuntimeConfigWriter::Run()
