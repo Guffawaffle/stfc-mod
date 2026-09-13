@@ -5,9 +5,12 @@ Reuse the existing MapKey parser, binding list, layout mapper and TOML writer.
 The settings expansion and daily play branches are separate from this work.
 
 The UI uses Settings > Mod Settings > Shortcuts, grouped by the action's effect:
-User Interface, Fleet Controls, Map & Travel, Camera, Chat, Client and Diagnostics.
-Opening inventory and artifacts belongs to User Interface; moving between map
-views and cycling instant warp belongs to Map & Travel. Explicit presentation
+Game Screens, Previews & Cargo, Interface Controls, Fleet Controls, Map & Travel,
+Camera, Chat, Client and Diagnostics. All nine categories are direct children of
+Shortcuts, with actions alphabetized by their human labels within each category.
+Game Screens opens inventory, artifacts and other panels; Previews & Cargo changes
+preview behavior; Interface Controls adjusts sizes, shortcut hints and search focus.
+Moving between map views and cycling instant warp belongs to Map & Travel. Explicit presentation
 metadata gives each action a human label without changing its config identity.
 It is available in the Windows native settings adapter
 when mod hotkeys are installed and Scopely hotkey mode is off. Only actions

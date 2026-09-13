@@ -321,8 +321,18 @@ void RegisterShortcutPages(PageCatalog& catalog)
   for (const auto& group : ShortcutGroups)
     catalog.AddPage(std::string("community_mod.shortcuts.") + std::string(group.id), std::string(group.label),
                     "community_mod.shortcuts");
-  for (int i = 0; i < GameFunction::Max; ++i) {
-    const auto  action = static_cast<GameFunction>(i);
+  // Sort presentation once at registration. English labels use ASCII folding so
+  // capitalized names (Away Teams, Exocomps) sort alongside the other screen names.
+  auto ordered = ShortcutCatalog;
+  std::stable_sort(ordered.begin(), ordered.end(), [](const ShortcutInfo& first, const ShortcutInfo& second) {
+    return std::lexicographical_compare(
+        first.label.begin(), first.label.end(), second.label.begin(), second.label.end(), [](char a, char b) {
+          const auto lower = [](char c) { return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c; };
+          return lower(a) < lower(b);
+        });
+  });
+  for (const auto& info : ordered) {
+    const auto  action = info.action;
     const auto& key    = MapKey::Definition(action).key;
     if (key.empty())
       continue;
@@ -332,7 +342,7 @@ void RegisterShortcutPages(PageCatalog& catalog)
       continue;
     auto        editor = std::make_unique<Editor>(action);
     const auto  group  = std::find_if(ShortcutGroups.begin(), ShortcutGroups.end(),
-                                      [&](const auto& group) { return group.group == DescribeShortcut(action).group; });
+                                      [&](const auto& group) { return group.group == info.group; });
     catalog.AddPage(editor->state.id(), editor->state.label(),
                     std::string("community_mod.shortcuts.") + std::string(group->id));
     AddRows(catalog, *editor);

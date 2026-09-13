@@ -26,9 +26,9 @@ int main()
     Check(2 * VisibleShortcutBindingCount(count) + 5 <= PageCatalog::NativeChildLimit,
           "Change and Remove plus fixed rows fit native page capacity");
   }
-  Check(DescribeShortcut(ShowInventory).group == ShortcutGroup::Interface
-            && DescribeShortcut(ShowArtifacts).group == ShortcutGroup::Interface,
-        "opening inventory/artifacts belongs to interface, not map travel");
+  Check(DescribeShortcut(ShowInventory).group == ShortcutGroup::Screens
+            && DescribeShortcut(ShowArtifacts).group == ShortcutGroup::Screens,
+        "opening inventory/artifacts belongs to game screens");
   Check(DescribeShortcut(ToggleAutoConfirmInstantWarp).group == ShortcutGroup::Travel,
         "instant warp shortcut belongs to map and travel");
   Check(DescribeShortcut(Restart).label == "Clear localization cache and reload",
