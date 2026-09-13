@@ -1,7 +1,8 @@
 #include "config.h"
 #include "patches/runtime_config.h"
-#include "settings/warp_mode.h"
 #include "settings/preview_settings.h"
+#include "settings/shortcut_settings.h"
+#include "settings/warp_mode.h"
 
 #include <spud/detour.h>
 
@@ -101,6 +102,8 @@ static ptrdiff_t                  shortcut_hint_text_localizer_offset = 0;
 static bool                       shortcut_hint_fields_ready          = false;
 static bool                       initialize_actions_hook_ready       = false;
 static bool                       shortcut_hints_ready                = false;
+bool                              mod_settings::ShortcutHintControlAvailable()
+{ return shortcut_hints_ready; }
 
 bool SetNativeShortcutHintsVisible(bool visible)
 {

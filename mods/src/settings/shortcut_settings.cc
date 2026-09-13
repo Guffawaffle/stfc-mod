@@ -315,6 +315,10 @@ void RegisterShortcutPages(PageCatalog& catalog)
     const auto& key    = MapKey::Definition(action).key;
     if (key.empty())
       continue;
+    // A startup NONE binding opts out of installing the hints adapter. Do not
+    // present a live editor for an action that cannot dispatch in this session.
+    if (action == GameFunction::ToggleShortcutHints && !ShortcutHintControlAvailable())
+      continue;
     auto        editor = std::make_unique<Editor>(action);
     const char* group =
         key.starts_with("show_") || key.starts_with("select_") ? "Navigation"

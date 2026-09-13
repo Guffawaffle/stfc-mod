@@ -46,6 +46,7 @@ bool                           sliderActive = false;
 std::vector<PageCatalog::Page> pages;
 bool                           pagesActive = false;
 bool                           HasLabel(Il2CppObject* row, const char* id);
+ActionSetting*                 ActionFor(Il2CppObject* context);
 BooleanSetting*                SettingFor(Il2CppObject* context)
 {
   auto& fc = FleetCommanderConfirmationSetting();
@@ -880,6 +881,9 @@ void ShowSections(Il2CppObject* controller, Il2CppObject* context, const PageCat
       else if (auto* setting = SettingFor(row))
         section = page.SectionFor(setting->id());
     }
+    if (actionsActive)
+      if (auto* action = ActionFor(row))
+        section = page.SectionFor(action->id());
     if (!section || !Collapsed(*section))
       visible.push_back(row);
   }
@@ -1251,7 +1255,7 @@ struct ActionView {
   std::array<Il2CppGCHandle, 3> labels{};
   Il2CppGCHandle                button    = nullptr;
   ActionSetting*                action    = nullptr;
-  bool                          rendering = false;
+  bool                          rendering = false, invoking = false;
 };
 std::deque<ActionView> actionViews;
 void                   ClearAction(ActionView& view, bool hidden = true)
@@ -1273,8 +1277,12 @@ void                   ClearAction(ActionView& view, bool hidden = true)
   Free(view.context);
   Free(view.token);
   Free(view.button);
-  if (hidden && action && action->hidden)
-    action->hidden();
+  try {
+    if (hidden && action && action->hidden)
+      action->hidden();
+  } catch (...) {
+    Warn("settings command release unavailable");
+  }
 }
 void RenderAction(ActionView& view)
 {
@@ -1307,7 +1315,10 @@ void RefreshActions()
 {
   if (!OnThread() || !actionsActive || !pagesActive)
     return;
-  for (auto& view : actionViews) {
+  // Binding during a callback may append a deque slot. References stay valid;
+  // iterators do not, so visit only the slots that existed at entry.
+  for (std::size_t i = 0, count = actionViews.size(); i < count; ++i) {
+    auto& view = actionViews[i];
     try {
       RenderAction(view);
     } catch (...) {
@@ -1322,16 +1333,29 @@ void InvokeAction(Il2CppObject* token, const MethodInfo*)
     return;
   try {
     for (auto& view : actionViews) {
-      if (!view.action || view.rendering || Target(view.token) != token)
+      if (!view.action || view.rendering || view.invoking || Target(view.token) != token)
         continue;
+      struct Scope {
+        bool& flag;
+        Scope(bool& value)
+            : flag(value)
+        { flag = true; }
+        ~Scope()
+        { flag = false; }
+      } scope(view.invoking);
+      auto* action = view.action;
       Root widget(Target(view.widget)), context(Target(view.context));
       if (!widget.get() || !context.get() || Invoke(ActionMeta().getContext, widget.get()) != context.get()
           || ActionToken(context.get()) != token)
         return;
       // EventSystem can submit a focused button with Enter/Space while capture
       // is active. The command's current availability is authoritative too.
-      if (view.action->read().enabled)
-        view.action->invoke();
+      const bool enabled = action->read().enabled;
+      // A feature-owned reader may release/rebind its row. Keep that callback
+      // from authorizing a different command or recursively invoking itself.
+      if (enabled && view.action == action && Target(view.context) == context.get() && Target(view.token) == token
+          && Invoke(ActionMeta().getContext, widget.get()) == context.get())
+        action->invoke();
       return;
     }
   } catch (...) {
@@ -1341,7 +1365,8 @@ void InvokeAction(Il2CppObject* token, const MethodInfo*)
 void ActionRefreshHook(auto original, Il2CppObject* widget)
 {
   if (OnThread())
-    for (auto& view : actionViews)
+    for (std::size_t i = 0, count = actionViews.size(); i < count; ++i) {
+      auto& view = actionViews[i];
       if (Target(view.widget) == widget) {
         // A native refresh of the same context does not end the editor visit.
         bool same = false;
@@ -1351,6 +1376,7 @@ void ActionRefreshHook(auto original, Il2CppObject* widget)
         }
         ClearAction(view, !same);
       }
+    }
   original(widget);
   if (!OnThread() || !actionsActive || !pagesActive)
     return;
@@ -1361,7 +1387,7 @@ void ActionRefreshHook(auto original, Il2CppObject* widget)
     if (!action)
       return;
     for (auto& view : actionViews)
-      if (!view.action && !view.rendering) {
+      if (!view.action && !view.rendering && !view.invoking) {
         tracked = &view;
         break;
       }
@@ -1394,9 +1420,11 @@ void ActionRefreshHook(auto original, Il2CppObject* widget)
 void ActionReleaseHook(auto original, Il2CppObject* widget)
 {
   if (OnThread())
-    for (auto& view : actionViews)
+    for (std::size_t i = 0, count = actionViews.size(); i < count; ++i) {
+      auto& view = actionViews[i];
       if (Target(view.widget) == widget)
         ClearAction(view);
+    }
   original(widget);
 }
 void AddActionRow(Il2CppObject* director, Il2CppObject* context, Il2CppObject* parent, ActionSetting& action)

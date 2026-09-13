@@ -9,6 +9,9 @@ Camera, Actions and Other. It is available in the Windows native settings adapte
 when mod hotkeys are installed and Scopely hotkey mode is off. Only actions
 registered by the existing configuration loader are listed. Their original
 gameplay contexts and feature enablement still apply.
+Shortcut-hint editing is omitted if its adapter was not installed at startup
+(including an initial `NONE` binding); the editor does not claim a live change
+for a startup-disabled feature.
 
 ## Behavior contract
 
