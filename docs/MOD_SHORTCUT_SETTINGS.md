@@ -7,7 +7,7 @@ The settings expansion and daily play branches are separate from this work.
 The UI uses Settings > Mod Settings > Shortcuts, grouped by the action's effect:
 Game Screens, Previews & Cargo, Interface Controls, Fleet Controls, Map & Travel,
 Camera, Chat, Client and Diagnostics. All nine categories are direct children of
-Shortcuts, with actions alphabetized by their human labels within each category.
+Shortcuts. Categories and their actions are alphabetized by their human labels.
 Game Screens opens inventory, artifacts and other panels; Previews & Cargo changes
 preview behavior; Interface Controls adjusts sizes, shortcut hints and search focus.
 Moving between map views and cycling instant warp belongs to Map & Travel. Explicit presentation
