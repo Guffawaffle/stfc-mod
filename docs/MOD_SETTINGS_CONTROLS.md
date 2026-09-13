@@ -9,6 +9,8 @@ independent of labels and placement.
 | Location | Control | Existing owner |
 | --- | --- | --- |
 | Mod Settings > User Interface | Instant warp mode: Normal (ask), Warp, Jump | `ui.auto_confirm_instant_warp` and the Alt+I action |
+| Mod Settings > User Interface > Preview shortcuts | Allow Locate / Recall while a preview is open | Inverse of `ui.disable_preview_locate`, `ui.disable_preview_recall` |
+| Mod Settings > User Interface > Cargo previews | Auto-open cargo, with Player / Station / Hostile / Armada preferences | Existing `ui.show_*_cargo` flags and `ui.show_cargo_default` |
 | Mod Settings > Graphics > Fleet Labels | Player label detail and zoom threshold | `graphics.zoom_label_player_detail`, `graphics.zoom_label_player_threshold` |
 | Mod Settings > Graphics > Fleet Labels | Non-player label detail and zoom threshold | `graphics.zoom_label_non_player_detail`, `graphics.zoom_label_non_player_threshold` |
 | Future separate branch: Hotkeys | Rebind existing actions | Existing shortcut parser and `MapKey` registrations |
@@ -41,6 +43,32 @@ previous override before pooling. A Windows-only `Selectable.DoStateTransition`
 hook observes input-state changes, calls the original once, then updates only
 owned selection rows. Other controls take the native path; there is no frame
 polling, animation replacement, asset loading or setting write in this hook.
+
+## Preview shortcuts and cargo previews
+
+Both pages use the existing boolean rows and the same live Config members already
+read by the preview and keyboard paths. No new hook, polling callback, config key,
+or default is introduced. The pages are admitted only after their existing hooks
+were installed. Hotkey enablement and Scopely-hotkey selection still determine
+whether the mod's Locate/Recall actions run.
+
+Locate and Recall use positive UI labels: ON allows the action while a preview is
+open, so the stored `disable_preview_*` value is false. These controls do not
+perform Locate or Recall. They affect the next ordinary shortcut action.
+
+Cargo auto-open is a master preference. The four target flags remain independently
+editable while it is off and are reused when it is turned on again. The native
+cargo viewer reads them when a target preview opens or binds; changing a setting
+does not forcibly close an already-open cargo panel. Re-select a target to see
+the new auto-open behavior.
+
+The existing Ctrl+R / Ctrl+T and Alt+1 through Alt+5 toggle actions now use the same
+setting owners as these pages. An open page refreshes immediately after a shortcut
+change. Both UI and shortcut edits submit the matching existing TOML key to the
+single writer on supported Windows x64 builds. These shortcuts therefore retain
+their preferences across restarts now; other platforms keep session-only behavior.
+Repeatedly choosing the current value, rendering, and page navigation do not save.
+Conflicts and failures leave live behavior in place and are reported in the log.
 
 ## Fleet Labels and Forbidden Tech
 

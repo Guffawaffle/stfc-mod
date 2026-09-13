@@ -1,6 +1,7 @@
 #include "config.h"
 #include "patches/runtime_config.h"
 #include "settings/warp_mode.h"
+#include "settings/preview_settings.h"
 
 #include <spud/detour.h>
 
@@ -69,6 +70,13 @@
 
 static bool reset_focus_next_frame = false;
 static int  show_info_pending      = 0;
+static bool preview_shortcuts_ready = false;
+static bool cargo_bind_ready = false, cargo_scan_ready = false;
+
+bool mod_settings::PreviewShortcutsAvailable()
+{ return preview_shortcuts_ready; }
+bool mod_settings::CargoPreviewsAvailable()
+{ return cargo_bind_ready && cargo_scan_ready; }
 
 using GetShowKeybindingsFn     = bool(void*);
 using SetShowKeybindingsFn     = void(void*, bool);
@@ -740,19 +748,19 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
       } else if (MapKey::IsDown(GameFunction::ToggleAutoConfirmInstantWarp)) {
         mod_settings::CycleWarpMode();
       } else if (MapKey::IsDown(GameFunction::TogglePreviewLocate)) {
-        config->disable_preview_locate = !config->disable_preview_locate;
+        mod_settings::TogglePreviewSetting(mod_settings::PreviewOption::Locate);
       } else if (MapKey::IsDown(GameFunction::TogglePreviewRecall)) {
-        config->disable_preview_recall = !config->disable_preview_recall;
+        mod_settings::TogglePreviewSetting(mod_settings::PreviewOption::Recall);
       } else if (MapKey::IsDown(GameFunction::ToggleCargoDefault)) {
-        config->show_cargo_default = !config->show_cargo_default;
+        mod_settings::TogglePreviewSetting(mod_settings::PreviewOption::Cargo);
       } else if (MapKey::IsDown(GameFunction::ToggleCargoPlayer)) {
-        config->show_player_cargo = !config->show_player_cargo;
+        mod_settings::TogglePreviewSetting(mod_settings::PreviewOption::PlayerCargo);
       } else if (MapKey::IsDown(GameFunction::ToggleCargoStation)) {
-        config->show_station_cargo = !config->show_station_cargo;
+        mod_settings::TogglePreviewSetting(mod_settings::PreviewOption::StationCargo);
       } else if (MapKey::IsDown(GameFunction::ToggleCargoHostile)) {
-        config->show_hostile_cargo = !config->show_hostile_cargo;
+        mod_settings::TogglePreviewSetting(mod_settings::PreviewOption::HostileCargo);
       } else if (MapKey::IsDown(GameFunction::ToggleCargoArmada)) {
-        config->show_armada_cargo = !config->show_armada_cargo;
+        mod_settings::TogglePreviewSetting(mod_settings::PreviewOption::ArmadaCargo);
       } else if (MapKey::IsDown(GameFunction::LogLevelOff)) {
         // spdlog::log("Setting log level to OFF");
         spdlog::set_level(spdlog::level::off);
@@ -1516,7 +1524,7 @@ void InstallHotkeyHooks()
 
   InstallShortcutHintHooks();
 
-  install_screen_manager_update_hook();
+  preview_shortcuts_ready = install_screen_manager_update_hook();
   runtime_config::Install();
 #ifdef _MODDBG
   fleet_watch::InstallRuntimeProbe();
@@ -1532,7 +1540,7 @@ void InstallHotkeyHooks()
     if (on_did_bind_context_ptr == nullptr) {
       ErrorMsg::MissingMethod("RewardsButtonWidget", "OnDidBindContext");
     } else {
-      SPUD_STATIC_DETOUR(on_did_bind_context_ptr, OnDidBindContext_Hook);
+      cargo_bind_ready = SPUD_STATIC_DETOUR(on_did_bind_context_ptr, OnDidBindContext_Hook);
     }
   }
 
@@ -1546,7 +1554,7 @@ void InstallHotkeyHooks()
     if (show_with_fleet_ptr == nullptr) {
       ErrorMsg::MissingMethod("PreScanTargetWidget", "ShowWithFleet");
     } else {
-      SPUD_STATIC_DETOUR(show_with_fleet_ptr, ShowWithFleet_Hook);
+      cargo_scan_ready = SPUD_STATIC_DETOUR(show_with_fleet_ptr, ShowWithFleet_Hook);
     }
   }
 }
