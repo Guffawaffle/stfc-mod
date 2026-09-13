@@ -1,24 +1,27 @@
-# First mod settings controls
+# Mod settings controls
+
+See [current settings architecture](MOD_SETTINGS.md) for the common behavior and
+navigation contract. This document retains feature and native-extent details.
 
 Build real controls on the navigation foundation in small slices. Register only
 working controls; omit empty groups. Stable setting keys and storage owners stay
 independent of labels and placement.
 
-## Initial layout
+## Current layout
 
 | Location | Control | Existing owner |
 | --- | --- | --- |
-| Mod Settings > User Interface | Instant warp mode: Normal (ask), Warp, Jump | `ui.auto_confirm_instant_warp` and the Alt+I action |
-| Mod Settings > User Interface > Preview shortcuts | Allow Locate / Recall while a preview is open | Inverse of `ui.disable_preview_locate`, `ui.disable_preview_recall` |
-| Mod Settings > User Interface > Cargo previews | Auto-open cargo, with Player / Station / Hostile / Armada preferences | Existing `ui.show_*_cargo` flags and `ui.show_cargo_default` |
-| Mod Settings > Graphics > Fleet Labels | Player label detail and zoom threshold | `graphics.zoom_label_player_detail`, `graphics.zoom_label_player_threshold` |
-| Mod Settings > Graphics > Fleet Labels | Non-player label detail and zoom threshold | `graphics.zoom_label_non_player_detail`, `graphics.zoom_label_non_player_threshold` |
-| Mod Settings > Graphics > Camera | Keyboard zoom speed and pan glide | `graphics.keyboard_zoom_speed`, `graphics.system_pan_momentum_falloff` |
-| Future separate branch: Hotkeys | Rebind existing actions | Existing shortcut parser and `MapKey` registrations |
+| Mod Settings > Map & Travel | Instant warp mode: Normal (ask), Warp, Jump | `ui.auto_confirm_instant_warp` and the Alt+I action |
+| Mod Settings > Previews & Cargo > Preview shortcuts | Allow Locate / Recall while a preview is open | Inverse of `ui.disable_preview_locate`, `ui.disable_preview_recall` |
+| Mod Settings > Previews & Cargo > Cargo previews | Auto-open cargo, with Player / Station / Hostile / Armada preferences | Existing `ui.show_*_cargo` flags and `ui.show_cargo_default` |
+| Mod Settings > Fleet Labels | Player label detail and zoom threshold | `graphics.zoom_label_player_detail`, `graphics.zoom_label_player_threshold` |
+| Mod Settings > Fleet Labels | Non-player label detail and zoom threshold | `graphics.zoom_label_non_player_detail`, `graphics.zoom_label_non_player_threshold` |
+| Mod Settings > Camera | Keyboard zoom speed and pan glide | `graphics.keyboard_zoom_speed`, `graphics.system_pan_momentum_falloff` |
+| Mod Settings > Shortcuts | Rebind existing actions | Existing shortcut parser and `MapKey` registrations |
 | General > confirmation page | Confirm Forbidden Tech upgrades | Inverse of `ui.auto_confirm_ft_upgrade` |
 
 The controls branch implements instant warp, Fleet Labels and Forbidden Tech on
-Windows x64. Hotkey editing remains a separate branch. Native confirmation
+Windows x64. Hotkey editing was developed on its separate feature branch. Native confirmation
 controls stay on the native page. FC retains its existing owner.
 
 ## Instant warp mode
@@ -31,7 +34,8 @@ the picker changes only the global fallback mode.
 
 Reuse the existing single runtime writer, optimistic conflict handling and
 source-preserving TOML edits. UI readback confirms the live value, not durable
-storage; asynchronous save failures continue to go to the log. Reopening must
+storage; asynchronous save failures show a quiet Mod Settings notice with details
+in the log. Reopening must
 read the current owner, and shortcut changes must refresh a visible selector.
 Native selection callbacks need the same rendering, stale-context and reentry
 protection already exercised for boolean controls.
@@ -107,7 +111,9 @@ new camera hooks, refresh callbacks, or frame logging. Each row is admitted only
 existing consumer detour installed successfully; the Camera page is omitted if
 neither did. Live changes use the existing 150 ms coalesced TOML writer. Page
 navigation never saves, and existing out-of-range or non-finite values remain
-untouched with the affected slider unavailable. Defaults, config parsing and
+untouched with `Out of range; edit TOML` or `Invalid value; edit TOML`. Reopening
+cannot fix a loaded value; a manual TOML correction takes effect after restart.
+Defaults, config parsing and
 other-platform behavior are unchanged. Native UI remains Windows x64 only.
 
 ## Fleet Labels and Forbidden Tech
@@ -192,16 +198,10 @@ This is Windows evidence, not proof of macOS hook fit or native widget behavior.
 
 ## Future organization and commands (design notes)
 
-Use the existing TOML sections as the organizing vocabulary: Audio (`[audio]`),
-Buffs (`[buffs]`), Config (`[config]`), Control (`[control]`), Graphics, and so on.
-Introduce a group when it gains a working control and an explicit apply path.
-Do not populate empty groups or build a generic editor for every config key.
-Human labels and nested pages can be clearer than raw keys; changing placement
-must not change storage identity. The current populated groups are Graphics
-(`[graphics]`, Fleet Labels and Camera) and User Interface (`[ui]`, Instant warp
-mode, Preview shortcuts and Cargo previews).
-Control (`[control]`) can be introduced with its own working controls, such as
-hotkeys; instant warp is not moved into that TOML section. Confirmations continue
+The initial TOML-section grouping has been superseded by player tasks, documented
+in [the current architecture](MOD_SETTINGS.md). Keep TOML sections as a storage
+reference. Introduce groups only when they gain working controls with explicit
+apply paths; do not build a generic editor for every key. Confirmations continue
 to use the native confirmation page.
 
 A future **Restart client** command could support controls that explicitly need

@@ -37,7 +37,9 @@ public:
     for (bool value : held)
       any |= value;
     if (phase_ == Phase::ReleaseOpeningKeys || phase_ == Phase::ReleaseCapturedKeys) {
-      if (!any)
+      // Unity may report no held keys while unfocused. Require a focused sample
+      // before releasing ownership, including when Alt-Tab cancelled recording.
+      if (focused && !any)
         phase_ = phase_ == Phase::ReleaseOpeningKeys ? Phase::Listening : Phase::Idle;
       return {};
     }

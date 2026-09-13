@@ -43,6 +43,7 @@ const PageCatalog::Page*              PageFor(Il2CppObject* context);
 bool                                  PageRefreshInProgress();
 void                                  ClearSectionPage();
 void                                  RefreshPageRows();
+void                                  RefreshPageSummaries();
 void                                  RefreshConditionalSections();
 void                                  AddPages(Il2CppObject* director, Il2CppObject* context);
 void                                  InstallPages();

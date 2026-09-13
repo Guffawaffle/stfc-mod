@@ -15,6 +15,9 @@ void                             Reset()
   available = true;
   owner     = GetCurrentThreadId();
   forcing   = false;
+  persistence_unavailable = false;
+  reported_save_failure   = false;
+  save_status_changed     = nullptr;
   draining = stopped = resume = false;
   vote                        = 0;
   resumes                     = 0;
@@ -34,6 +37,28 @@ int main(int argc, char** argv)
     Sleep(10000); // Parent kills this fixture if the independent deadline fails.
     return 9;
   }
+  unsigned         notices     = 0;
+  static unsigned* noticeCount = &notices;
+  assert(runtime_config::SetSaveStatusObserver([] { ++*noticeCount; }));
+  fixture.failures = true;
+  std::thread foreignNotice([] { Update(); });
+  foreignNotice.join();
+  assert(notices == 0 && runtime_config::HasSaveFailures());
+  Update();
+  Update();
+  assert(notices == 1); // One UI callback on a transition, never on each frame.
+  fixture.failures = false;
+  Update();
+  assert(notices == 2 && !runtime_config::HasSaveFailures());
+  available = false;
+  runtime_config::SaveWarpMode("warp");
+  Update();
+  assert(notices == 3 && runtime_config::HasSaveFailures());
+  available = true;
+  runtime_config::SaveWarpMode("jump");
+  Update();
+  assert(notices == 3 && runtime_config::HasSaveFailures()); // Rejected edits remain session-only.
+  Reset();
   assert(WantsQuit([] { return true; }));
   assert(fixture.stopped && stopped && !draining);
   runtime_config::SaveWarpMode("warp");

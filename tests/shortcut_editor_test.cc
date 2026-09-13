@@ -14,16 +14,17 @@ void Check(bool ok, const char* label)
 }
 int main()
 {
-  Check(ShortcutCountFitsEdit(60, 61) && !ShortcutCountFitsEdit(61, 62),
+  constexpr auto limit = ShortcutBindingDisplayLimit;
+  Check(ShortcutCountFitsEdit(limit - 1, limit) && !ShortcutCountFitsEdit(limit, limit + 1),
         "native row budget rejects oversized growth before publication");
   Check(ShortcutCountFitsEdit(62, 62) && ShortcutCountFitsEdit(62, 61) && !ShortcutCountFitsEdit(62, 63),
         "existing oversized TOML lists can be rebound/reduced but not grown in UI");
   Check(VisibleShortcutBindingCount(0) == 0 && VisibleShortcutBindingCount(1) == 1,
         "empty/single-binding pages have no extra binding rows");
   for (std::size_t count : {61u, 62u, 1000u}) {
-    Check(VisibleShortcutBindingCount(count) == 61,
+    Check(VisibleShortcutBindingCount(count) == limit,
           "existing long lists present a bounded prefix without dropping other settings pages");
-    Check(2 * VisibleShortcutBindingCount(count) + 5 <= PageCatalog::NativeChildLimit,
+    Check(2 * VisibleShortcutBindingCount(count) + ShortcutFixedRowLimit <= PageCatalog::NativeChildLimit,
           "Change and Remove plus fixed rows fit native page capacity");
   }
   Check(DescribeShortcut(ShowInventory).group == ShortcutGroup::Screens
@@ -33,6 +34,8 @@ int main()
         "instant warp shortcut belongs to map and travel");
   Check(DescribeShortcut(Restart).label == "Clear localization cache and reload",
         "cache-clearing shortcut must not promise a plain restart");
+  Check(DescribeShortcut(Quit).label == "Force close client" && !ShortcutExplanation(Quit).empty(),
+        "force close must be identified before binding it");
   ShortcutList               live{"LCTRL-G", "F8"};
   int                        writes = 0;
   ValueSetting<ShortcutList> owner({"shortcuts.test", "Test",
@@ -88,6 +91,24 @@ int main()
   Check(draft.Stage(0, {}) == ShortcutStage::Staged && draft.Apply() == Outcome::AppliedVerified
             && live == ShortcutList{"SHIFT-I", "ALT-I"} && writes == beforeDuplicates + 1,
         "explicit removal can clean up one existing duplicate without losing the shortcut");
+  const auto beforeRestore = writes;
+  draft.Begin();
+  Check(draft.Restore({"F8", "CTRL-G"}) == ShortcutStage::Staged && writes == beforeRestore,
+        "restoring defaults stages a full action without writing");
+  draft.Cancel();
+  Check(draft.Apply() == Outcome::Suppressed && writes == beforeRestore,
+        "cancelling default restoration preserves current bindings");
+  draft.Begin();
+  draft.Restore({"F8", "CTRL-G"});
+  live = {"F10"};
+  Check(draft.Apply() == Outcome::Conflict && live == ShortcutList{"F10"},
+        "restoration cannot overwrite an action changed since staging");
+  draft.Begin();
+  Check(draft.Restore({}) == ShortcutStage::Staged && draft.Apply() == Outcome::AppliedVerified && live.empty(),
+        "a NONE default explicitly unbinds the action");
+  draft.Begin();
+  Check(draft.Restore({}) == ShortcutStage::AlreadyBound && !draft.pending(),
+        "restoring an already active default is a no-op");
   ShortcutCapture       capture;
   ShortcutCapture::Keys held{}, down{};
   auto                  modifier = [](KeyCode key) { return key == KeyCode::LeftControl; };
@@ -132,7 +153,14 @@ int main()
   Check(!capture.Tick(held, down, false, modifier) && capture.active(), "focus loss cancels and drains");
   held = {};
   down = {};
+  capture.Tick(held, down, false, modifier);
+  Check(capture.active(), "an empty unfocused input sample must not end ownership");
+  held[(int)KeyCode::I] = true;
   tick();
+  Check(capture.active(), "refocusing with the chord still held remains blocked");
+  held = {};
+  tick();
+  Check(!capture.active(), "a focused release ends the cancellation drain");
   capture.Begin();
   tick();
   held[(int)KeyCode::I] = held[(int)KeyCode::G] = true;

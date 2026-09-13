@@ -19,7 +19,6 @@ struct ActionSetting {
   std::string                   identity, label;
   std::function<Presentation(std::size_t)> read;
   std::function<void(std::size_t)>         invoke;
-  std::function<void()>         hidden;
   // Optional repeated rows, evaluated only when building/refreshing settings.
   // Definitions stay stable while their list grows or shrinks.
   std::function<std::size_t()> count;

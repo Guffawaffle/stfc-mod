@@ -83,14 +83,12 @@ int main()
   // Command registration/building is presentation-only: no invocation or read.
   int           commandCalls = 0;
   std::size_t   commandCount = 2;
-  ActionSetting command{"record",
-                        "Record",
+  ActionSetting command{"record", "Record",
                         [&](std::size_t) {
                           ++commandCalls;
                           return ActionSetting::Presentation{};
                         },
                         [&](std::size_t) { ++commandCalls; },
-                        {},
                         [&] {
                           ++commandCalls;
                           return commandCount;

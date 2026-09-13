@@ -61,6 +61,20 @@ public:
   { return known() && (!sliderSetting_ || sliderSetting_->enabled()); }
   std::string_view disabledReason() const
   { return sliderSetting_ ? std::string_view(sliderSetting_->disabledReason()) : std::string_view{}; }
+  std::string_view unavailableReason() const
+  {
+    const auto reason = boolean_  ? boolean_->unavailableReason()
+                        : choice_ ? choice_->unavailableReason()
+                                  : slider_->unavailableReason();
+    switch (reason) {
+      case UnavailableReason::OutsideRange:
+        return "Out of range; edit TOML";
+      case UnavailableReason::InvalidValue:
+        return "Invalid value; edit TOML";
+      default:
+        return "Reopen to retry";
+    }
+  }
   float number() const
   { return slider_ ? slider_->value().value_or(sliderSetting_->minimum()) : 0.0f; }
   float displayNumber() const

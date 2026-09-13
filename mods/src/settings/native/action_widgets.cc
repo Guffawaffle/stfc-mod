@@ -4,6 +4,7 @@
 #include "row_style.h"
 #include "settings/native_boolean_callback.h"
 #include "settings/shortcut_settings.h"
+#include "timing.h"
 #include <deque>
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
@@ -90,10 +91,9 @@ struct ActionView {
   bool                          rendering = false, invoking = false;
 };
 std::deque<ActionView> actionViews;
-void                   ClearAction(ActionView& view, bool hidden = true)
+void                   ClearAction(ActionView& view)
 {
-  auto* action = view.action;
-  view.action  = nullptr; // No callback from cleanup can reuse this ownership.
+  view.action = nullptr;
   for (auto& handle : view.labels) {
     if (auto* label = Target(handle))
       ClearRowText(label);
@@ -113,12 +113,6 @@ void                   ClearAction(ActionView& view, bool hidden = true)
   Free(view.button);
   Free(view.buttonObject);
   view.buttonHidden = false;
-  try {
-    if (hidden && !PageRefreshInProgress() && action && action->hidden)
-      action->hidden();
-  } catch (...) {
-    Warn("settings command release unavailable");
-  }
 }
 void RenderAction(ActionView& view)
 {
@@ -165,7 +159,9 @@ void RefreshActions()
 {
   if (!OnUIThread() || !actionsActive || !PagesActive() || PageRefreshInProgress())
     return;
+  timing::Scope measurement(timing::Operation::RefreshActions);
   RefreshPageRows();
+  RefreshPageSummaries();
   // Binding during a callback may append a deque slot. References stay valid;
   // iterators do not, so visit only the slots that existed at entry.
   for (std::size_t i = 0, count = actionViews.size(); i < count; ++i) {
@@ -220,13 +216,8 @@ void ActionRefreshHook(auto original, Il2CppObject* widget)
     for (std::size_t i = 0, count = actionViews.size(); i < count; ++i) {
       auto& view = actionViews[i];
       if (Target(view.widget) == widget) {
-        // A native refresh of the same context does not end the editor visit.
-        bool same = false;
-        try {
-          same = Invoke(ActionMeta().getContext, widget) == Target(view.context);
-        } catch (...) {
-        }
-        ClearAction(view, !same);
+        // Pooling/refresh only releases the widget. The page owns its editor.
+        ClearAction(view);
       }
     }
   original(widget);

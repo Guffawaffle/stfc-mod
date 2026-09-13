@@ -356,7 +356,7 @@ void Render(ValueWidget& view, auto original, Il2CppObject* widget)
   // visibly truncated after "; tr" alongside the FC label. Keep these suffixes
   // short; recheck the full label at supported UI scales when changing wording.
   if (!view.state->known())
-    text += " — Reopen to retry";
+    text += " — " + std::string(view.state->unavailableReason());
   else if (view.state->failed())
     text += " — Retry";
   else if (!view.state->enabled() && !view.state->disabledReason().empty())
@@ -620,6 +620,7 @@ void RefreshViews()
     }
   }
   RefreshConditionalSections();
+  RefreshPageSummaries();
 }
 void ChangeValue(auto original, Il2CppObject* widget, auto desired)
 {

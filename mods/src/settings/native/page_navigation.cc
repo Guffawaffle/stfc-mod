@@ -2,9 +2,11 @@
 #include "page_navigation.h"
 #include "action_widgets.h"
 #include "patches/parts/fc_confirmation_reset.h"
+#include "patches/runtime_config.h"
 #include "row_style.h"
 #include "settings/mod_pages.h"
 #include "settings/native_boolean_callback.h"
+#include "timing.h"
 #include <cstdlib>
 #include <cstring>
 #include <spdlog/spdlog.h>
@@ -16,6 +18,7 @@ namespace mod_settings::native
 namespace
 {
   std::vector<PageCatalog::Page> pagePlan;
+  std::vector<Il2CppGCHandle>    categoryWidgets;
   bool                           pagesActive = false;
 } // namespace
 const std::vector<PageCatalog::Page>& Pages()
@@ -43,6 +46,7 @@ const PageCatalog::Page* PageFor(Il2CppObject* context)
 // every child; only the list's presentation is filtered. Back and save ownership
 // remain native, and a fresh page visit starts collapsed.
 struct SectionPage {
+  const PageCatalog::Page*   page       = nullptr;
   Il2CppGCHandle             controller = nullptr, context = nullptr;
   std::vector<std::string>   collapsed;
   std::vector<Il2CppObject*> shown; // Comparison only; native context/panel owns rows.
@@ -57,11 +61,19 @@ struct SectionRefreshScope {
 };
 void ClearSectionPage()
 {
+  timing::Flush();
+  const auto* leaving = std::exchange(sectionPage.page, nullptr);
   Free(sectionPage.controller);
   Free(sectionPage.context);
   sectionPage.collapsed.clear();
   sectionPage.shown.clear();
   sectionPage.conditional = false;
+  try {
+    if (leaving && leaving->leave)
+      leaving->leave();
+  } catch (...) {
+    Warn("settings page cleanup unavailable");
+  }
 }
 const PageCatalog::Heading* CollapsibleHeadingFor(Il2CppObject* context)
 {
@@ -85,6 +97,7 @@ bool Collapsed(const PageCatalog::Heading& heading)
 }
 void ShowSections(Il2CppObject* controller, Il2CppObject* context, const PageCatalog::Page& page, bool force = false)
 {
+  timing::Scope measurement(timing::Operation::ShowPage);
   SyncActionRows(controller, context, page);
   Root children(Call(context, "get_Children"));
   struct OrderedRow {
@@ -172,13 +185,8 @@ void ShowSections(Il2CppObject* controller, Il2CppObject* context, const PageCat
 
 bool PageRefreshInProgress()
 { return sectionPage.refreshing; }
-void CategoryBindHook(auto original, Il2CppObject* widget)
+void RenderCategory(Il2CppObject* widget)
 {
-  if (OnUIThread())
-    ClearRowText(widget);
-  original(widget);
-  if (!OnUIThread() || !pagesActive)
-    return;
   try {
     Root context(Call(widget, "get_Context"));
     if (auto* page = PageFor(context.get())) {
@@ -189,20 +197,70 @@ void CategoryBindHook(auto original, Il2CppObject* widget)
         Warn("settings background unavailable");
       }
       Root label(ReadField(widget, PageMeta().label));
-      SetRowText(widget, label.get(), page->label);
+      const auto summary = page->summary ? page->summary() : std::string{};
+      SetRowText(widget, label.get(), page->label + (summary.empty() ? "" : " — " + summary));
     } else if (const auto* heading = CollapsibleHeadingFor(context.get())) {
       Root label(ReadField(widget, PageMeta().label));
-      SetRowText(widget, label.get(), "<b><size=115%><color=#9ADBE7>" + heading->label + "</color></size></b>", true,
-                 !Collapsed(*heading));
+      const auto summary = Collapsed(*heading) && heading->summary ? heading->summary() : std::string{};
+      SetRowText(widget, label.get(),
+                 "<b><size=115%><color=#9ADBE7>" + heading->label + "</color></size></b>"
+                     + (summary.empty() ? "" : " — " + summary),
+                 true, !Collapsed(*heading));
     }
   } catch (...) {
     Warn();
   }
 }
+void ForgetCategory(Il2CppObject* widget)
+{
+  for (auto& handle : categoryWidgets)
+    if (!Target(handle) || Target(handle) == widget)
+      Free(handle);
+}
+void CategoryBindHook(auto original, Il2CppObject* widget)
+{
+  if (OnUIThread()) {
+    ForgetCategory(widget);
+    ClearRowText(widget);
+  }
+  original(widget);
+  if (!OnUIThread() || !pagesActive)
+    return;
+  try {
+    Root context(Call(widget, "get_Context"));
+    if (!PageFor(context.get()) && !CollapsibleHeadingFor(context.get()))
+      return;
+    auto slot = std::find(categoryWidgets.begin(), categoryWidgets.end(), nullptr);
+    if (slot == categoryWidgets.end()) {
+      categoryWidgets.push_back(nullptr);
+      slot = categoryWidgets.end() - 1;
+    }
+    *slot = il2cpp_gchandle_new_weakref(widget, false);
+    RenderCategory(widget);
+  } catch (...) {
+    Warn("settings category presentation unavailable");
+  }
+}
+void RefreshPageSummaries()
+{
+  if (!OnUIThread() || !pagesActive)
+    return;
+  // Weak records are reused on bind/release. No scene search or idle polling.
+  // Keep indices across native text callbacks, which may rebind a pooled row.
+  for (std::size_t i = 0, count = categoryWidgets.size(); i < count; ++i) {
+    Root widget(Target(categoryWidgets[i]));
+    if (widget.get())
+      RenderCategory(widget.get());
+    else
+      Free(categoryWidgets[i]);
+  }
+}
 void CategoryReleaseHook(auto original, Il2CppObject* widget)
 {
-  if (OnUIThread())
+  if (OnUIThread()) {
+    ForgetCategory(widget);
     ClearRowText(widget);
+  }
   original(widget);
 }
 void PageSelectedHook(auto original, Il2CppObject* controller, Il2CppObject* context)
@@ -252,6 +310,7 @@ void PageSelectedHook(auto original, Il2CppObject* controller, Il2CppObject* con
     ClearSectionPage();
     try {
       if (const auto* page = PageFor(context)) {
+        sectionPage.page       = page;
         sectionPage.controller = il2cpp_gchandle_new_weakref(controller, false);
         sectionPage.context    = il2cpp_gchandle_new_weakref(context, false);
         if (!sectionPage.controller || !sectionPage.context)
@@ -422,6 +481,7 @@ void AddPages(Il2CppObject* director, Il2CppObject* context)
 {
   if (!pagesActive || Pages().empty())
     return;
+  timing::Scope measurement(timing::Operation::BuildTree);
   Root root(Call(context, "get_RootOption"));
   Root children(Call(root.get(), "get_Children"));
   for (int i = 0, count = Count(children.get()); i < count; ++i)
@@ -523,7 +583,17 @@ void InstallPages()
     }
   }
 #endif
-  pagePlan             = ModPages().Build();
+  pagePlan = ModPages().Build();
+  // Add after empty-page pruning so a notice never creates an otherwise empty group.
+  static ActionSetting saveNotice{"community_mod.save_notice", "Save notice",
+                                  [](std::size_t) {
+                                    return ActionSetting::Presentation{
+                                        "<color=#FFC66D>Active this session; couldn't save. See mod log.</color>", "",
+                                        "", false, runtime_config::HasSaveFailures()};
+                                  },
+                                  [](std::size_t) {}};
+  for (auto& page : pagePlan)
+    page.items.insert(page.items.begin(), &saveNotice);
   std::size_t rowCount = 2; // FC and FT live on the native confirmation page.
   for (const auto& page : Pages())
     rowCount += page.ControlRows() - std::ranges::distance(page.Controls<ActionSetting>());
@@ -589,6 +659,8 @@ void InstallPages()
     headingsActive = true;
   }
   InstallActionWidgets();
+  if (ActionsActive())
+    runtime_config::SetSaveStatusObserver(RefreshActions);
   for (const auto& page : Pages())
     for (auto* setting : page.Controls<BooleanSetting>()) {
       if (setting->id() == FleetCommanderConfirmationSetting().id() && setting != &FleetCommanderConfirmationSetting())

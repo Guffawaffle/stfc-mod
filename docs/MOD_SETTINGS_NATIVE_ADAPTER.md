@@ -23,15 +23,14 @@ active flags stay with their owners. Each detour remains installed by exactly
 one module. The build continues to discover these sources through XMake's
 existing `src/**.cc` rule.
 
-## Contracts retained by the split
+## Current contracts
 
 - UI-thread ownership and weak-view lifetime rules remain unchanged. Views never
   keep old settings pages or account state alive.
 - A user request still uses the displayed snapshot, verifies the current owner,
   applies through that owner, then reads back. Rendering never authorizes writes.
-- Internal page-list rebinding preserves command drafts. Row release retains the
-  existing cancellation behavior; moving that responsibility to page departure is
-  a separate lifecycle improvement, not part of this refactor.
+- Page departure owns command draft cancellation. Row release and internal
+  page-list rebinding affect only widget ownership and preserve the draft.
 - Value refreshes still defer list rebinding while a value widget is busy. There
   is no new update callback, polling, save worker or persistence path.
 - Startup metadata/extent checks, overlap checks, activation gates and install
@@ -39,13 +38,14 @@ existing `src/**.cc` rule.
   the existing no-op entry point.
 - Feature wording stays with the feature. A slider may provide a short
   `disabledReason`; Fleet Labels supplies `Select Threshold`. Other sliders do
-  not inherit that instruction. Unknown and failed-state wording is unchanged.
+  not inherit that instruction. Range errors and save failures have distinct
+  explanations; see [the current contract](MOD_SETTINGS.md).
 
 The C++ entry point and member are `InstallNativeSettings` and
 `Config::installNativeSettings`. The existing debug patch key
 `ModConfirmationSettings` deliberately remains unchanged so existing patch
-configuration continues to work. No setting IDs, TOML keys, defaults or placement
-change in this refactor.
+configuration continues to work. Setting IDs, TOML keys and defaults remain
+stable while task-based presentation placement evolves.
 
 ## Validation
 

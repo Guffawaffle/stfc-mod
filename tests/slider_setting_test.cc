@@ -51,6 +51,7 @@ int main()
   value     = std::numeric_limits<float>::quiet_NaN();
   view.Bind();
   assert(!view.known());
+  assert(view.unavailableReason() == "Invalid value; edit TOML");
   value = 0.5f;
   view.Bind();
   view.Unbind();
@@ -75,6 +76,13 @@ int main()
   NativeViewState speedView(speed);
   speedView.Bind();
   assert(speedView.disabledReason().empty()); // Generic sliders have no feature-specific instruction.
+  value = 2000.0f;
+  speedView.Bind();
+  assert(!speedView.known() && speedView.unavailableReason() == "Out of range; edit TOML");
+  speedView.Bind(); // Reopening cannot repair a value outside this editor's range.
+  assert(value == 2000.0f && speedView.unavailableReason() == "Out of range; edit TOML");
+  value = 382.1429f;
+  speedView.Bind();
   assert(speedView.displayNumber() == 382 && value == 382.1429f);
   assert(speedView.Request(382.1429f) == Outcome::AppliedVerified);
   assert(speedView.number() == 375 && speedView.displayNumber() == 375);

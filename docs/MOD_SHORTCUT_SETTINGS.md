@@ -1,5 +1,8 @@
 # Mod shortcut editor
 
+See [current settings architecture](MOD_SETTINGS.md) for common ownership,
+navigation, failure notices and measurement contracts.
+
 Develop on `feature/play-shortcut-settings`, based on the tested settings build.
 Reuse the existing MapKey parser, binding list, layout mapper and TOML writer.
 The settings expansion and daily play branches are separate from this work.
@@ -24,8 +27,8 @@ for a startup-disabled feature.
 ## Behavior contract
 
 - Each binding has its own Change button, followed by Add shortcut. There is no
-  selected-binding cursor or Next button. More options starts collapsed and holds
-  the explicit Remove buttons. Recording reveals its status and Cancel; a valid
+  selected-binding cursor. More options starts collapsed and holds
+  the explicit Remove buttons and Restore default. Recording reveals its status and Cancel; a valid
   draft reveals Apply and any overlap warning. Inactive controls leave no gaps.
 - Edit one action and one binding at a time. Preserve its other alternatives.
 - Adding or replacing with a binding already on that action shows `Already bound`
@@ -48,7 +51,7 @@ for a startup-disabled feature.
   then publishes them together on the game thread. Layout registration must
   include newly introduced keys. Existing parsing/default fallback is unchanged.
 - Read back the actual active binding list. A stale editor draft must not replace
-  a newer list. File conflicts/failures retain the live edit and go to the log,
+  a newer list. File conflicts/failures retain the live edit, show a quiet notice and go to the log,
   consistently with the existing settings writer.
 - The game's rebinding popup uses Unity InputActions and Scopely's persistence.
   Reuse native UI only where mod ownership can be maintained; do not edit native
@@ -78,6 +81,11 @@ are included. Contexts may still make an overlap intentional; this does not audi
 Scopely or OS shortcuts. Gameplay dispatch rules remain unchanged.
 An overlap changes the draft's button to `Apply anyway`; its warning remains
 visible after applying, until the next edit or page departure.
+For multiple overlaps, Next cycles through every affected action with an index
+and total. Restore default uses the registered config definition, stages the
+whole action and follows the same explicit Apply, conflict and Cancel flow.
+Force close client is identified as such. Native shortcut variants explain that
+they invoke the game's own shortcut behavior rather than direct screen navigation.
 
 The command row reuses ButtonAndTextOptionWidget. Its unique closed delegate
 target is a plain managed Object owned by that native context. The cloned Object
@@ -86,7 +94,9 @@ entry point is replaced, and no constructor/game method is called by the command
 Only a currently bound, visible, enabled row with that target may invoke it.
 Release restores local text, button visibility and interactability overrides.
 Rebinding the visible list preserves the draft; leaving the editor cancels it.
-The Add row owns this visit callback, so recycling that row also cancels safely.
+The page owns the visit callback; recycling the Add row cannot discard a draft.
+An unfocused empty key sample cannot end input ownership: refocus and release
+are required before gameplay shortcuts resume.
 
 Action definitions can produce indexed rows and hide individual presentations.
 Indices are presentation identities, not persistent binding IDs: a draft still
@@ -94,9 +104,9 @@ compares the complete observed list before publication. The native page owns row
 up to its largest binding count and reuses them after removals/additions. Refresh
 adds missing contexts, filters surplus/hidden rows and follows catalog order.
 The native adapter's existing 128-child sanity bound still applies. Two rows per
-binding plus five fixed rows leave room for 61 bindings per action in the editor.
+binding plus up to eight fixed rows leave room for 60 bindings per action in the editor.
 It rejects further UI additions before publishing. Existing longer TOML lists
-stay live and saved in full: the UI explains that it shows the first 61, permits
+stay live and saved in full: the UI explains that it shows the first 60, permits
 replacement/removal, and exposes subsequent bindings as earlier ones are removed.
 Opening an oversized list never rewrites it or removes unrelated settings pages.
 Refreshes run

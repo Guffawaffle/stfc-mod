@@ -18,6 +18,9 @@ using Value = std::variant<bool, std::string, double, std::int64_t>;
 enum class Outcome { Conflict, InvalidDocument, Unsupported };
 // Controllable boundary; the fixture below includes the actual adapter bodies.
 struct RuntimeConfigWriter {
+  bool failures = false;
+  bool HasFailures() const
+  { return failures; }
   bool     work = false, stopped = false, finished = false, cancelled = false;
   bool     block_cancel = false;
   unsigned submissions  = 0;

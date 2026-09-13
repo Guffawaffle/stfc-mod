@@ -65,6 +65,14 @@ void Release()
   released = true;
   changed.notify_all();
 }
+void AwaitCompletion(RuntimeConfigWriter& writer, std::uint64_t revision)
+{
+  const auto deadline = std::chrono::steady_clock::now() + 5s;
+  while (writer.LastCompletion().revision != revision || writer.HasWork()) {
+    Check(std::chrono::steady_clock::now() < deadline);
+    std::this_thread::yield();
+  }
+}
 } // namespace
 
 // Block at the real worker's save boundary to exercise scheduling deterministically.
@@ -123,6 +131,21 @@ int main()
       Check(writer.LastCompletion().revision == 2);
       Check(writer.LastCompletion().outcome == Outcome::Cancelled);
       writer.Stop(true);
+    }
+    Begin(Outcome::IoError);
+    {
+      RuntimeConfigWriter writer("unused", Value{std::string("none")}, Report);
+      Check(writer.Register("graphics", "threshold", Value{0.5}));
+      const auto failed = writer.Submit("warp");
+      AwaitSave();
+      Release();
+      AwaitCompletion(writer, failed);
+      Check(writer.HasFailures());
+      AwaitCompletion(writer, writer.Submit("graphics", "threshold", 0.7));
+      Check(writer.HasFailures()); // Saving B cannot hide A's failed save.
+      AwaitCompletion(writer, writer.Submit("jump"));
+      Check(!writer.HasFailures()); // A later successful save of A clears it.
+      Check(reports == 1);
     }
     Begin(Outcome::IoError);
     {

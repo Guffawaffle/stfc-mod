@@ -61,8 +61,12 @@ private:
     auto write      = std::move(definition.write);
     definition.read = [read = std::move(read), minimum, maximum] {
       auto value = read();
-      if (value.known() && (!std::isfinite(*value.value) || *value.value < minimum || *value.value > maximum))
-        return ValueReadResult<float>{};
+      if (value.known()) {
+        if (!std::isfinite(*value.value))
+          return ValueReadResult<float>{Availability::Unavailable, {}, 0, UnavailableReason::InvalidValue};
+        if (*value.value < minimum || *value.value > maximum)
+          return ValueReadResult<float>{Availability::Unavailable, {}, 0, UnavailableReason::OutsideRange};
+      }
       return value;
     };
     definition.write = [write = std::move(write), minimum, maximum, enabled](float value, std::uint64_t generation) {

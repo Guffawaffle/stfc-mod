@@ -147,7 +147,7 @@ void StyleChoice(ValueWidget& view)
             false);
   std::string text = view.state->label();
   if (!view.state->known())
-    text += " — Reopen to retry";
+    text += " — " + std::string(view.state->unavailableReason());
   else if (view.state->failed())
     text += " — Retry";
   if (view.state->value().value_or(false))

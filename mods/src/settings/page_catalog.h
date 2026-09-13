@@ -26,11 +26,15 @@ public:
     // Optional presentation dependency, including the heading and all following
     // controls up to the next heading. It never changes their saved values.
     std::function<bool()> visible;
+    std::function<std::string()> summary;
   };
   using Item = std::variant<Heading, BooleanSetting*, ChoiceSetting*, SliderSetting*, ActionSetting*>;
   struct Page {
     std::string       id, label, parent;
     std::vector<Item> items; // Registration order is visual order, including headings.
+    // Page departure owns draft/capture cancellation, never a pooled row release.
+    std::function<void()>        leave;
+    std::function<std::string()> summary;
     bool              HasConditionalSections() const
     {
       return std::any_of(items.begin(), items.end(), [](const Item& item) {
@@ -119,6 +123,28 @@ public:
   }
   Registration AddBoolean(std::string_view page, BooleanSetting& setting)
   { return AddControl(page, setting); }
+  Registration OnLeave(std::string_view id, std::function<void()> callback)
+  {
+    CheckThread();
+    if (frozen_)
+      return Registration::Frozen;
+    auto* page = FindPage(id);
+    if (!page)
+      return Registration::Invalid;
+    page->leave = std::move(callback);
+    return Registration::Added;
+  }
+  Registration SetSummary(std::string_view id, std::function<std::string()> callback)
+  {
+    CheckThread();
+    if (frozen_)
+      return Registration::Frozen;
+    auto* page = FindPage(id);
+    if (!page)
+      return Registration::Invalid;
+    page->summary = std::move(callback);
+    return Registration::Added;
+  }
   Registration AddChoice(std::string_view page, ChoiceSetting& setting)
   { return AddControl(page, setting); }
   Registration AddSlider(std::string_view page, SliderSetting& setting)
@@ -126,7 +152,7 @@ public:
   Registration AddAction(std::string_view page, ActionSetting& action)
   { return AddControl(page, action); }
   Registration AddHeading(std::string_view page_id, std::string id, std::string label, bool collapsible = false,
-                          std::function<bool()> visible = {})
+                          std::function<bool()> visible = {}, std::function<std::string()> summary = {})
   {
     CheckThread();
     if (frozen_)
@@ -140,7 +166,8 @@ public:
       for (const auto& item : existing.items)
         if (Id(item) == id)
           return Registration::Duplicate;
-    page->items.emplace_back(Heading{std::move(id), std::move(label), collapsible, std::move(visible)});
+    page->items.emplace_back(
+        Heading{std::move(id), std::move(label), collapsible, std::move(visible), std::move(summary)});
     return Registration::Added;
   }
 

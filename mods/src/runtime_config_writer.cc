@@ -14,7 +14,7 @@ namespace config_edit
 RuntimeConfigWriter::RuntimeConfigWriter(std::filesystem::path path, std::optional<Value> initial, Reporter report)
     : path_(std::move(path))
     , report_(report)
-{ saved_.emplace(Key{"ui", "auto_confirm_instant_warp"}, std::move(initial)); }
+{ saved_.emplace(Key{"ui", "auto_confirm_instant_warp"}, Saved{std::move(initial)}); }
 
 RuntimeConfigWriter::~RuntimeConfigWriter()
 {
@@ -35,7 +35,7 @@ bool RuntimeConfigWriter::Register(std::string section, std::string key, std::op
   std::lock_guard lock(mutex_);
   if (worker_.joinable() || stopping_ || section.empty() || key.empty())
     return false;
-  return saved_.emplace(Key{std::move(section), std::move(key)}, std::move(initial)).second;
+  return saved_.emplace(Key{std::move(section), std::move(key)}, Saved{std::move(initial)}).second;
 }
 
 std::uint64_t RuntimeConfigWriter::Submit(std::string section, std::string key, Value desired,
@@ -46,9 +46,10 @@ std::uint64_t RuntimeConfigWriter::Submit(std::string section, std::string key, 
   const auto      saved = saved_.find(identity);
   if (stopping_ || cancel_pending_.load() || saved == saved_.end())
     return 0;
-  pending_.insert_or_assign(identity, Pending{++revision_,
-                                              {std::move(section), std::move(key), saved->second, std::move(desired)},
-                                              std::chrono::steady_clock::now() + delay});
+  pending_.insert_or_assign(identity,
+                            Pending{++revision_,
+                                    {std::move(section), std::move(key), saved->second.value, std::move(desired)},
+                                    std::chrono::steady_clock::now() + delay});
   has_work_.store(true);
   if (!worker_.joinable()) {
     try {
@@ -57,6 +58,8 @@ std::uint64_t RuntimeConfigWriter::Submit(std::string section, std::string key, 
       pending_.clear();
       has_work_.store(false);
       completion_ = {revision_, Outcome::IoError};
+      saved->second.failed = true;
+      has_failures_.store(true);
       return 0;
     }
   }
@@ -126,11 +129,16 @@ void RuntimeConfigWriter::Run()
         // Rebase our queued intent over our own successful write, never over a
         // conflicting external edit. Failed saves leave the acknowledged value alone.
         const Key identity{work.edit.section, work.edit.key};
-        auto&     saved = saved_.at(identity);
+        auto&     saved = saved_.at(identity).value;
         if (auto pending = pending_.find(identity); pending != pending_.end() && pending->second.edit.expected == saved)
           pending->second.edit.expected = work.edit.desired;
         saved = work.edit.desired;
       }
+      // A successful B save must not hide an unsaved A change.
+      saved_.at(Key{work.edit.section, work.edit.key}).failed =
+          outcome != Outcome::Saved && outcome != Outcome::AlreadySaved;
+      has_failures_.store(
+          std::any_of(saved_.begin(), saved_.end(), [](const auto& entry) { return entry.second.failed; }));
       if (work.revision >= completion_.revision)
         completion_ = {work.revision, outcome};
     }

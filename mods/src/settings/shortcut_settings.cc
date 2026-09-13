@@ -9,6 +9,7 @@
 #include "shortcut_capture.h"
 #include "shortcut_catalog.h"
 #include "shortcut_draft.h"
+#include "str_utils.h"
 #include <algorithm>
 #include <il2cpp/il2cpp_helper.h>
 #include <memory>
@@ -38,7 +39,9 @@ namespace
     GameFunction                                function;
     ValueSetting<ShortcutList>                  state;
     ShortcutDraft                               draft;
-    std::string                                 status, overlaps, replacing;
+    std::string                                 status, replacing;
+    std::vector<std::string>                    overlaps;
+    std::size_t                                 overlapIndex = 0;
     std::vector<std::unique_ptr<ActionSetting>> rows;
     explicit Editor(GameFunction action)
         : function(action)
@@ -89,13 +92,12 @@ namespace
 
   // Compare the dispatcher's modifier rules as well as the physical key.
   // Contexts may still make an overlap intentional; warn without removing either.
-  std::string Overlaps(Editor& editor, const std::string& token)
+  std::vector<std::string> Overlaps(Editor& editor, const std::string& token)
   {
     const auto candidate = MapKey::Parse(token);
     if (keyboard_layout::DescribeChord(candidate.Key).key == KeyCode::None)
-      return "Layout unavailable; check this binding";
-    std::string result;
-    unsigned    count = 0;
+      return {token + ": layout unavailable; check this binding"};
+    std::vector<std::string> result;
     for (int i = 0; i < GameFunction::Max; ++i) {
       const auto action = static_cast<GameFunction>(i);
       if (action == editor.function)
@@ -105,15 +107,9 @@ namespace
         overlap |= MapKey::MayOverlap(candidate, binding);
       if (!overlap)
         continue;
-      if (count++ < 2) {
-        if (!result.empty())
-          result += ", ";
-        result += DescribeShortcut(action).label;
-      }
+      result.push_back(token + " may overlap: " + std::string(DescribeShortcut(action).label));
     }
-    if (count > 2)
-      result += " + " + std::to_string(count - 2) + " more";
-    return count ? token + " may overlap: " + result : "";
+    return result;
   }
 
   void Cancel(Editor& editor)
@@ -124,6 +120,7 @@ namespace
     }
     editor.draft.Cancel();
     editor.overlaps.clear();
+    editor.overlapIndex = 0;
     editor.status.clear();
   }
   void Begin(Editor& editor, std::size_t index)
@@ -218,8 +215,15 @@ namespace
   }
   void AddRows(PageCatalog& catalog, Editor& editor)
   {
-    auto add = [&](const char* id, const char* label, auto read, auto invoke, bool ownsVisit = false,
-                   std::function<std::size_t()> count = {}) {
+    catalog.OnLeave(editor.state.id(), [&editor] { Cancel(editor); });
+    catalog.SetSummary(editor.state.id(), [&editor] {
+      const auto& bindings = MapKey::Bindings(editor.function);
+      if (bindings.empty())
+        return std::string{"Unbound"};
+      return bindings.front().GetParsedValues()
+             + (bindings.size() > 1 ? " +" + std::to_string(bindings.size() - 1) : "");
+    });
+    auto add = [&](const char* id, const char* label, auto read, auto invoke, std::function<std::size_t()> count = {}) {
       auto row      = std::make_unique<ActionSetting>();
       row->identity = editor.state.id() + "." + id;
       row->label    = label;
@@ -228,13 +232,16 @@ namespace
         invoke(index);
         Notify();
       };
-      if (ownsVisit)
-        row->hidden = [&editor] { Cancel(editor); };
       row->count = std::move(count);
       catalog.AddAction(editor.state.id(), *row);
       editor.rows.push_back(std::move(row));
     };
     using P = ActionSetting::Presentation;
+    const auto help = ShortcutExplanation(editor.function);
+    if (!help.empty())
+      add(
+          "help", "About this shortcut", [help](std::size_t) { return P{std::string(help), "", "", false}; },
+          [](std::size_t) {});
     auto count = [&editor] { return VisibleShortcutBindingCount(editor.Current().size()); };
     add(
         "binding", "Shortcut",
@@ -242,7 +249,7 @@ namespace
           const auto list = editor.Current();
           return P{list.at(index), "Change", "", !capture.active() && !editor.draft.pending()};
         },
-        [&editor](std::size_t index) { Begin(editor, index); }, false, count);
+        [&editor](std::size_t index) { Begin(editor, index); }, count);
     add(
         "add", "Add shortcut",
         [&editor](std::size_t) {
@@ -255,7 +262,7 @@ namespace
           return P{size == 0 ? "No shortcut assigned" : "Add shortcut", "Record", "",
                    !capture.active() && !editor.draft.pending()};
         },
-        [&editor](std::size_t) { Begin(editor, editor.Current().size()); }, true);
+        [&editor](std::size_t) { Begin(editor, editor.Current().size()); });
     add(
         "apply", "Pending change",
         [&editor](std::size_t) {
@@ -275,9 +282,19 @@ namespace
     add(
         "overlaps", "Overlap information",
         [&editor](std::size_t) {
-          return P{"<color=#FFC66D>" + editor.overlaps + "</color>", "", "", false, !editor.overlaps.empty()};
+          if (editor.overlaps.empty())
+            return P{"", "", "", false, false};
+          const auto count = editor.overlaps.size();
+          const auto text  = editor.overlaps.at(editor.overlapIndex % count);
+          const auto position =
+              count > 1 ? " (" + std::to_string(editor.overlapIndex % count + 1) + "/" + std::to_string(count) + ")"
+                        : "";
+          return P{"<color=#FFC66D>" + text + position + "</color>", count > 1 ? "Next" : "", "", true};
         },
-        [](std::size_t) {});
+        [&editor](std::size_t) {
+          if (!editor.overlaps.empty())
+            editor.overlapIndex = (editor.overlapIndex + 1) % editor.overlaps.size();
+        });
     add(
         "cancel", "Discard pending change",
         [&editor](std::size_t) {
@@ -285,6 +302,39 @@ namespace
         },
         [&editor](std::size_t) { Cancel(editor); });
     catalog.AddHeading(editor.state.id(), editor.state.id() + ".more", "More options", true);
+    add(
+        "default", "Restore default",
+        [&editor](std::size_t) {
+          return P{"Default: " + MapKey::Definition(editor.function).defaultBinding, "Restore", "",
+                   !capture.active() && !editor.draft.pending()};
+        },
+        [&editor](std::size_t) {
+          // Use the same definition and token parser as config loading. Never
+          // infer a default from the current live binding or rewrite other actions.
+          const auto&  definition = MapKey::Definition(editor.function).defaultBinding;
+          ShortcutList defaults;
+          if (AsciiStrToUpper(StripAsciiWhitespace(definition)) != "NONE") {
+            for (const auto& token : StrSplit(definition, '|')) {
+              const auto parsed = MapKey::Parse(token);
+              if (parsed.Key == KeyCode::None) {
+                editor.status = "Default unavailable; edit TOML";
+                return;
+              }
+              defaults.push_back(parsed.GetParsedValues());
+            }
+          }
+          Cancel(editor);
+          editor.draft.Begin();
+          const auto result = editor.draft.Restore(defaults);
+          editor.status     = result == ShortcutStage::Staged         ? "Restore default: " + Join(defaults)
+                              : result == ShortcutStage::AlreadyBound ? "Already using default"
+                                                                      : "Default unavailable; reopen settings";
+          if (result == ShortcutStage::Staged)
+            for (const auto& token : defaults) {
+              auto overlaps = Overlaps(editor, token);
+              editor.overlaps.insert(editor.overlaps.end(), overlaps.begin(), overlaps.end());
+            }
+        });
     add(
         "remove", "Remove shortcut",
         [&editor](std::size_t index) {
@@ -299,7 +349,7 @@ namespace
           editor.draft.Stage(index, {});
           editor.status = "Remove " + list[index];
         },
-        false, count);
+        count);
   }
 } // namespace
 

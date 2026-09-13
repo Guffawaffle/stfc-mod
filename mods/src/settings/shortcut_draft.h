@@ -7,7 +7,8 @@ namespace mod_settings
 {
 using ShortcutList = std::vector<std::string>;
 enum class ShortcutStage { Staged, AlreadyBound, Invalid };
-// A draft edits exactly one alternative against the snapshot the user saw.
+// A draft edits one alternative, or restores the action's complete default list,
+// against the snapshot the user saw.
 // The existing ValueSetting owner provides reentry/stale-read protection.
 class ShortcutDraft
 {
@@ -52,6 +53,16 @@ public:
   }
   bool pending() const
   { return desired_.has_value(); }
+  ShortcutStage Restore(ShortcutList defaults)
+  {
+    desired_.reset();
+    if (!observed_.state.known())
+      return ShortcutStage::Invalid;
+    if (defaults == *observed_.state.value)
+      return ShortcutStage::AlreadyBound;
+    desired_ = std::move(defaults);
+    return ShortcutStage::Staged;
+  }
   const std::optional<ShortcutList>& desired() const
   { return desired_; }
   Outcome Apply()

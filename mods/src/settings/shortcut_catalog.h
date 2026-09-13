@@ -7,9 +7,11 @@
 
 namespace mod_settings
 {
-// Change + Remove per binding, four singleton command rows and More options.
+// Change + Remove per binding, four singleton rows, More options, Restore,
+// optional action explanation and the shared save notice.
 // Oversized player-authored lists stay live; the editor presents their prefix.
-inline constexpr std::size_t ShortcutBindingDisplayLimit = (PageCatalog::NativeChildLimit - 5) / 2;
+inline constexpr std::size_t ShortcutFixedRowLimit       = 8;
+inline constexpr std::size_t ShortcutBindingDisplayLimit = (PageCatalog::NativeChildLimit - ShortcutFixedRowLimit) / 2;
 constexpr std::size_t        VisibleShortcutBindingCount(std::size_t count)
 { return std::min(count, ShortcutBindingDisplayLimit); }
 constexpr bool ShortcutCountFitsEdit(std::size_t before, std::size_t after)
@@ -36,6 +38,18 @@ struct ShortcutInfo {
   ShortcutGroup    group;
   std::string_view label;
 };
+constexpr std::string_view ShortcutExplanation(GameFunction action)
+{
+  switch (action) {
+    case Quit:
+      return "Force closes the client; allows up to 0.5s for pending saves.";
+    case NativeShortcutGalaxy:
+    case NativeShortcutEvents:
+      return "Uses the game's own shortcut behavior for this screen.";
+    default:
+      return {};
+  }
+}
 // Presentation metadata is explicit. Config names, defaults, dispatch and save
 // identities remain owned by MapKey/config; opening a screen is a UI action.
 inline constexpr auto ShortcutCatalog = std::to_array<ShortcutInfo>({
@@ -135,7 +149,7 @@ inline constexpr auto ShortcutCatalog = std::to_array<ShortcutInfo>({
     {LogLevelWarn, ShortcutGroup::Diagnostics, "Set logging to Warning"},
     {LogLevelOff, ShortcutGroup::Diagnostics, "Turn logging off"},
     {Restart, ShortcutGroup::Client, "Clear localization cache and reload"},
-    {Quit, ShortcutGroup::Client, "Quit client"},
+    {Quit, ShortcutGroup::Client, "Force close client"},
     {FocusSearch, ShortcutGroup::Interface, "Focus search"},
 #ifdef _MODDBG
     {DevConsoleToggle, ShortcutGroup::Diagnostics, "Toggle console"},
