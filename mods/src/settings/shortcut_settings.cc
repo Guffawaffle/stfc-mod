@@ -122,7 +122,7 @@ namespace
     }
     if (count > 2)
       result += " + " + std::to_string(count - 2) + " more";
-    return count ? "May overlap: " + result + ". Apply keeps both." : "No other mod binding on this key";
+    return count ? token + " may overlap: " + result : "";
   }
 
   void Cancel(Editor& editor)
@@ -244,8 +244,10 @@ namespace
         },
         [&editor] {
           const auto list = editor.Current();
-          if (!list.empty())
+          if (!list.empty()) {
+            Cancel(editor);
             ++editor.selected %= list.size();
+          }
         });
     add(
         "replace", "Replace selected binding",
@@ -269,21 +271,26 @@ namespace
     add(
         "apply", "Pending change",
         [&editor] {
-          return P{editor.status.empty() ? "No pending change" : editor.status, "Apply", "",
-                   editor.draft.pending() && !capture.active()};
+          return P{editor.status.empty() ? "No pending change" : editor.status,
+                   editor.overlaps.empty() ? "Apply" : "Apply anyway", "", editor.draft.pending() && !capture.active()};
         },
         [&editor] {
           const auto result = editor.draft.Apply();
           editor.status     = result == Outcome::AppliedVerified || result == Outcome::Unchanged
                                   ? "Applied"
                                   : "Binding changed; reopen and try again";
-          editor.overlaps.clear();
+          // Keep the applied binding's warning visible. Clearing it on Apply
+          // made a real overlap easy to miss after the button was pressed.
+          if (result != Outcome::AppliedVerified && result != Outcome::Unchanged)
+            editor.overlaps.clear();
         });
     add(
         "overlaps", "Overlap information",
         [&editor] {
-          return P{editor.overlaps.empty() ? "Overlaps are advisory; existing bindings are kept" : editor.overlaps, "",
-                   "", false};
+          return P{editor.overlaps.empty()
+                       ? (editor.draft.pending() ? "No other mod binding on this key" : "Shared bindings are allowed")
+                       : "<color=#FFC66D>" + editor.overlaps + "</color>",
+                   "", "", false};
         },
         [] {});
     add(

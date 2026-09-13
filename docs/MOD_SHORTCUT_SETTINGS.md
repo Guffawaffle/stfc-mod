@@ -56,6 +56,8 @@ ambiguous/unavailable characters rather than storing the wrong physical key.
 Overlap warnings conservatively list other mod actions sharing the resolved
 physical primary key. Contexts and modifier requirements may make an overlap
 intentional. This is not a complete audit of Scopely or OS shortcuts.
+An overlap changes the draft's button to `Apply anyway`; its warning remains
+visible after applying, until the next edit, binding selection or page departure.
 
 The command row reuses ButtonAndTextOptionWidget. Its unique closed delegate
 target is a plain managed Object owned by that native context. The cloned Object
