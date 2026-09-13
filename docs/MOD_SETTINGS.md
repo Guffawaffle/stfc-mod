@@ -33,8 +33,11 @@ reference. Moving a page does not rename stored keys or change defaults.
 | Shortcuts | Actions grouped by effect | `[shortcuts]` |
 
 Empty groups are omitted. Shortcut categories and actions are alphabetized;
-Diagnostics stays last. FC and Forbidden Tech remain in the game's native
-confirmation page. Fleet headings start collapsed and summarize their current
+Diagnostics stays last. Registered shortcuts without presentation overrides get
+a generated label in Uncategorized, immediately above Diagnostics when populated.
+Discovery runs once at startup and retains existing availability gates; it does
+not discover arbitrary TOML keys or infer numeric controls. FC and Forbidden Tech
+remain in the game's native confirmation page. Fleet headings start collapsed and summarize their current
 mode, with a two-decimal threshold where relevant. Shortcut action rows show the
 first binding and an additional-binding count. The warp page row shows its mode.
 Summaries refresh on binding and existing setting/presentation notifications.

@@ -43,10 +43,9 @@ namespace
     std::vector<std::string>                    overlaps;
     std::size_t                                 overlapIndex = 0;
     std::vector<std::unique_ptr<ActionSetting>> rows;
-    explicit Editor(GameFunction action)
+    Editor(GameFunction action, const std::string& label)
         : function(action)
-        , state({"community_mod.shortcuts." + MapKey::Definition(action).key,
-                 std::string(DescribeShortcut(action).label),
+        , state({"community_mod.shortcuts." + MapKey::Definition(action).key, label,
                  [action] {
                    ShortcutList list;
                    for (const auto& binding : MapKey::Bindings(action))
@@ -107,7 +106,7 @@ namespace
         overlap |= MapKey::MayOverlap(candidate, binding);
       if (!overlap)
         continue;
-      result.push_back(token + " may overlap: " + std::string(DescribeShortcut(action).label));
+      result.push_back(token + " may overlap: " + DescribeShortcut(action, MapKey::Definition(action).key).label);
     }
     return result;
   }
@@ -371,26 +370,20 @@ void RegisterShortcutPages(PageCatalog& catalog)
   for (const auto& group : ShortcutGroups)
     catalog.AddPage(std::string("community_mod.shortcuts.") + std::string(group.id), std::string(group.label),
                     "community_mod.shortcuts");
-  // Sort presentation once at registration. English labels use ASCII folding so
-  // capitalized names (Away Teams, Exocomps) sort alongside the other screen names.
-  auto ordered = ShortcutCatalog;
-  std::stable_sort(ordered.begin(), ordered.end(), [](const ShortcutInfo& first, const ShortcutInfo& second) {
-    return std::lexicographical_compare(
-        first.label.begin(), first.label.end(), second.label.begin(), second.label.end(), [](char a, char b) {
-          const auto lower = [](char c) { return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c; };
-          return lower(a) < lower(b);
-        });
-  });
-  for (const auto& info : ordered) {
-    const auto  action = info.action;
-    const auto& key    = MapKey::Definition(action).key;
-    if (key.empty())
-      continue;
+  const auto ordered = DiscoverShortcuts([](GameFunction action) -> std::string_view {
     // A startup NONE binding opts out of installing the hints adapter. Do not
     // present a live editor for an action that cannot dispatch in this session.
     if (action == GameFunction::ToggleShortcutHints && !ShortcutHintControlAvailable())
-      continue;
-    auto        editor = std::make_unique<Editor>(action);
+      return {};
+    return MapKey::Definition(action).key;
+  });
+  for (const auto& info : ordered) {
+#ifdef _MODDBG
+    if (info.fallback)
+      spdlog::warn("[Shortcuts] {} has no presentation override; listed in Uncategorized",
+                   MapKey::Definition(info.action).key);
+#endif
+    auto        editor = std::make_unique<Editor>(info.action, info.label);
     const auto  group  = std::find_if(ShortcutGroups.begin(), ShortcutGroups.end(),
                                       [&](const auto& group) { return group.group == info.group; });
     catalog.AddPage(editor->state.id(), editor->state.label(),

@@ -27,15 +27,62 @@ int main()
     Check(2 * VisibleShortcutBindingCount(count) + ShortcutFixedRowLimit <= PageCatalog::NativeChildLimit,
           "Change and Remove plus fixed rows fit native page capacity");
   }
-  Check(DescribeShortcut(ShowInventory).group == ShortcutGroup::Screens
-            && DescribeShortcut(ShowArtifacts).group == ShortcutGroup::Screens,
+  Check(DescribeShortcut(ShowInventory, "show_inventory").group == ShortcutGroup::Screens
+            && DescribeShortcut(ShowArtifacts, "show_artifacts").group == ShortcutGroup::Screens,
         "opening inventory/artifacts belongs to game screens");
-  Check(DescribeShortcut(ToggleAutoConfirmInstantWarp).group == ShortcutGroup::Travel,
+  Check(DescribeShortcut(ToggleAutoConfirmInstantWarp, "toggle_instant_warp").group == ShortcutGroup::Travel,
         "instant warp shortcut belongs to map and travel");
-  Check(DescribeShortcut(Restart).label == "Clear localization cache and reload",
+  Check(DescribeShortcut(Restart, "restart").label == "Clear localization cache and reload",
         "cache-clearing shortcut must not promise a plain restart");
-  Check(DescribeShortcut(Quit).label == "Force close client" && !ShortcutExplanation(Quit).empty(),
+  Check(DescribeShortcut(Quit, "quit").label == "Force close client" && !ShortcutExplanation(Quit).empty(),
         "force close must be identified before binding it");
+
+  // A sparse override list models adding an action without editing UI metadata.
+  // Discovery depends on registered keys, never on whether a binding is present.
+  constexpr auto partial = std::to_array<ShortcutInfo>({
+      {MoveRight, ShortcutGroup::Camera, "Pan right"},
+      {ShowArtifacts, ShortcutGroup::Screens, "Open artifacts"},
+  });
+  static_assert(ValidShortcutCatalog(partial));
+  constexpr auto duplicates = std::to_array<ShortcutInfo>({
+      {MoveRight, ShortcutGroup::Camera, "Pan right"},
+      {MoveRight, ShortcutGroup::Travel, "Duplicate"},
+  });
+  static_assert(!ValidShortcutCatalog(duplicates));
+  constexpr auto invalidAction = std::to_array<ShortcutInfo>({{GameFunction::Max, ShortcutGroup::Camera, "Invalid"}});
+  constexpr auto invalidGroup  = std::to_array<ShortcutInfo>({{MoveRight, static_cast<ShortcutGroup>(99), "Invalid"}});
+  constexpr auto emptyLabel    = std::to_array<ShortcutInfo>({{MoveRight, ShortcutGroup::Camera, ""}});
+  static_assert(!ValidShortcutCatalog(invalidAction) && !ValidShortcutCatalog(invalidGroup)
+                && !ValidShortcutCatalog(emptyLabel));
+  std::array<std::string_view, GameFunction::Max> registered{};
+  registered[MoveLeft]  = "toggle_new_feature";
+  registered[MoveRight] = "move_right";
+  registered[MoveUp]    = "test_value_2";
+  auto       key        = [&](GameFunction action) { return registered[action]; };
+  const auto discovered = DiscoverShortcuts(key, partial);
+  Check(discovered.size() == 3 && discovered[0].action == MoveRight && discovered[0].label == "Pan right"
+            && !discovered[0].fallback && discovered[0].group == ShortcutGroup::Camera,
+        "registered actions keep explicit labels and categories; metadata alone cannot expose an unregistered action");
+  Check(discovered[1].action == MoveUp && discovered[1].label == "Test value 2" && discovered[1].fallback
+            && discovered[2].action == MoveLeft && discovered[2].label == "Toggle new feature"
+            && discovered[2].group == ShortcutGroup::Uncategorized,
+        "uncatalogued registered actions are discovered and sorted with readable labels");
+  const auto promoted = std::to_array<ShortcutInfo>({{MoveLeft, ShortcutGroup::Interface, "Toggle polished feature"}});
+  const auto description = DescribeShortcut(MoveLeft, registered[MoveLeft], promoted);
+  Check(description.action == discovered[2].action && description.group == ShortcutGroup::Interface
+            && description.label == "Toggle polished feature" && !description.fallback,
+        "a later override changes presentation without changing action identity");
+  registered[MoveLeft] = {};
+  Check(DiscoverShortcuts(key, partial).size() == 2,
+        "startup availability filtering excludes actions before fallback discovery");
+  registered = {};
+  Check(DiscoverShortcuts(key, partial).empty(), "an empty registry cannot create fallback editors");
+  Check(ShortcutGroups[ShortcutGroups.size() - 2].group == ShortcutGroup::Uncategorized
+            && ShortcutGroups.back().group == ShortcutGroup::Diagnostics,
+        "Uncategorized precedes Diagnostics at the bottom");
+  Check(HumanizeShortcutKey("__open--panel_2__") == "Open panel 2" && HumanizeShortcutKey("__") == "Shortcut",
+        "fallback labels collapse separators, retain numbers and never become blank");
+
   ShortcutList               live{"LCTRL-G", "F8"};
   int                        writes = 0;
   ValueSetting<ShortcutList> owner({"shortcuts.test", "Test",

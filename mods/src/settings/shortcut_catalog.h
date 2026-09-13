@@ -1,9 +1,13 @@
 #pragma once
 #include "page_catalog.h"
 #include "patches/gamefunctions.h"
+#include <algorithm>
 #include <array>
+#include <span>
 #include <stdexcept>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace mod_settings
 {
@@ -16,7 +20,18 @@ constexpr std::size_t        VisibleShortcutBindingCount(std::size_t count)
 { return std::min(count, ShortcutBindingDisplayLimit); }
 constexpr bool ShortcutCountFitsEdit(std::size_t before, std::size_t after)
 { return after <= ShortcutBindingDisplayLimit || after <= before; }
-enum class ShortcutGroup { Screens, Previews, Interface, Fleet, Travel, Camera, Chat, Client, Diagnostics };
+enum class ShortcutGroup {
+  Screens,
+  Previews,
+  Interface,
+  Fleet,
+  Travel,
+  Camera,
+  Chat,
+  Client,
+  Uncategorized,
+  Diagnostics
+};
 struct ShortcutGroupInfo {
   ShortcutGroup    group;
   std::string_view id, label;
@@ -31,6 +46,7 @@ inline constexpr auto ShortcutGroups = std::to_array<ShortcutGroupInfo>({
     {ShortcutGroup::Interface, "interface", "Interface Controls"},
     {ShortcutGroup::Travel, "travel", "Map & Travel"},
     {ShortcutGroup::Previews, "previews", "Previews & Cargo"},
+    {ShortcutGroup::Uncategorized, "uncategorized", "Uncategorized"},
     {ShortcutGroup::Diagnostics, "diagnostics", "Diagnostics"},
 });
 struct ShortcutInfo {
@@ -50,7 +66,8 @@ constexpr std::string_view ShortcutExplanation(GameFunction action)
       return {};
   }
 }
-// Presentation metadata is explicit. Config names, defaults, dispatch and save
+// Optional presentation overrides. Missing actions use their registered config
+// key for a fallback label in Uncategorized. Config/defaults/dispatch/save
 // identities remain owned by MapKey/config; opening a screen is a UI action.
 inline constexpr auto ShortcutCatalog = std::to_array<ShortcutInfo>({
     {MoveLeft, ShortcutGroup::Camera, "Pan left"},
@@ -163,10 +180,10 @@ inline constexpr auto ShortcutCatalog = std::to_array<ShortcutInfo>({
     {ShowShields, ShortcutGroup::Screens, "Open shields"},
     {ShowBattlelogs, ShortcutGroup::Screens, "Open battle logs"},
 });
-consteval bool CompleteShortcutCatalog()
+constexpr bool ValidShortcutCatalog(std::span<const ShortcutInfo> catalog)
 {
   std::array<bool, GameFunction::Max> seen{};
-  for (const auto& info : ShortcutCatalog) {
+  for (const auto& info : catalog) {
     if (info.action < 0 || info.action >= GameFunction::Max || info.label.empty() || seen[info.action])
       return false;
     bool groupFound = false;
@@ -176,17 +193,67 @@ consteval bool CompleteShortcutCatalog()
       return false;
     seen[info.action] = true;
   }
-  for (bool present : seen)
-    if (!present)
-      return false;
   return true;
 }
-static_assert(CompleteShortcutCatalog(), "Assign every shortcut a human label and impact group");
-inline const ShortcutInfo& DescribeShortcut(GameFunction action)
+static_assert(ValidShortcutCatalog(ShortcutCatalog), "Shortcut overrides need unique valid actions, labels and groups");
+
+inline std::string HumanizeShortcutKey(std::string_view key)
 {
-  for (const auto& info : ShortcutCatalog)
+  std::string label;
+  bool        space = false;
+  for (char c : key) {
+    if (c == '_' || c == '-' || c == ' ') {
+      space = !label.empty();
+      continue;
+    }
+    if (space)
+      label += ' ';
+    space = false;
+    label += label.empty() && c >= 'a' && c <= 'z' ? static_cast<char>(c - ('a' - 'A')) : c;
+  }
+  return label.empty() ? "Shortcut" : label;
+}
+
+// Own generated text: descriptions survive sorting and never borrow temporary
+// labels. The same resolver names editors, summaries and overlap warnings.
+struct ShortcutDescription {
+  GameFunction  action;
+  ShortcutGroup group;
+  std::string   label;
+  bool          fallback;
+};
+inline ShortcutDescription DescribeShortcut(GameFunction action, std::string_view key,
+                                            std::span<const ShortcutInfo> catalog = ShortcutCatalog)
+{
+  if (action < 0 || action >= GameFunction::Max)
+    throw std::out_of_range("shortcut action");
+  for (const auto& info : catalog)
     if (info.action == action)
-      return info;
-  throw std::out_of_range("shortcut metadata");
+      return {action, info.group, std::string(info.label), false};
+  return {action, ShortcutGroup::Uncategorized, HumanizeShortcutKey(key), true};
+}
+
+// Discover registered actions once at startup, including unbound (NONE) actions.
+// An empty key excludes an unregistered or unavailable action. This never scans
+// TOML or infers a setting type from its value.
+inline std::vector<ShortcutDescription> DiscoverShortcuts(const auto&                   registeredKey,
+                                                          std::span<const ShortcutInfo> catalog = ShortcutCatalog)
+{
+  std::vector<ShortcutDescription> result;
+  for (int i = 0; i < GameFunction::Max; ++i) {
+    const auto action = static_cast<GameFunction>(i);
+    const auto key    = registeredKey(action);
+    if (!key.empty())
+      result.push_back(DescribeShortcut(action, key, catalog));
+  }
+  // ASCII folding preserves existing English label ordering (Away Teams, etc.).
+  std::stable_sort(result.begin(), result.end(), [](const auto& first, const auto& second) {
+    return std::lexicographical_compare(
+        first.label.begin(), first.label.end(), second.label.begin(), second.label.end(), [](char a, char b) {
+          const auto lower = [](char c) { return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c; };
+          return lower(a) < lower(b);
+        });
+  });
+  return result;
 }
 } // namespace mod_settings

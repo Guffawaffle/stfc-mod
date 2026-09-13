@@ -9,8 +9,9 @@ The settings expansion and daily play branches are separate from this work.
 
 The UI uses Settings > Mod Settings > Shortcuts, grouped by the action's effect:
 Game Screens, Previews & Cargo, Interface Controls, Fleet Controls, Map & Travel,
-Camera, Chat, Client and Diagnostics. All nine categories are direct children of
-Shortcuts. Categories are alphabetized with Diagnostics kept last; actions within
+Camera, Chat, Client and Diagnostics. These categories are direct children of
+Shortcuts. Uncategorized appears immediately before Diagnostics when needed.
+Categories are alphabetized with Diagnostics kept last; actions within
 each category are alphabetized by their human labels.
 Game Screens opens inventory, artifacts and other panels; Previews & Cargo changes
 preview behavior; Interface Controls adjusts sizes, shortcut hints and search focus.
@@ -23,6 +24,31 @@ gameplay contexts and feature enablement still apply.
 Shortcut-hint editing is omitted if its adapter was not installed at startup
 (including an initial `NONE` binding); the editor does not claim a live change
 for a startup-disabled feature.
+
+## Adding an action
+
+Register the new action through the existing shortcut configuration loader and
+implement its gameplay behavior as usual. The editor discovers registered actions
+once at startup, including actions whose binding is `NONE`. It does not scan TOML
+for unknown keys or infer new setting types from values.
+
+An entry in `ShortcutCatalog` supplies an optional human label and impact group.
+Without that entry, the action gets its complete binding editor in Uncategorized,
+with a fallback label derived from its canonical key: `toggle_new_feature` becomes
+`Toggle new feature`. Existing empty-page pruning hides the group when unused.
+Debug builds log a missing-override warning during registration; there is no
+recurring discovery or warning during gameplay.
+
+Adding the presentation override later changes the label and location only.
+The action, TOML key, bindings, default and existing availability gates remain
+authoritative. Missing overrides are allowed; duplicate actions, invalid groups
+and blank explicit labels still fail compile-time validation. Overlap warnings
+use the same label resolver as the editor, including for uncategorized actions.
+
+This fallback creates shortcut editors only. A separate numeric-input widget is
+follow-up work: registered numeric settings must define validation, precision and
+live read/write behavior before being exposed. A TOML number alone is insufficient
+to choose a range or control.
 
 ## Behavior contract
 
