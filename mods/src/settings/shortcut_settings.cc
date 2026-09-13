@@ -95,13 +95,12 @@ namespace
   ShortcutCapture                      capture;
   std::vector<KeyCode>                 sampledKeys;
 
-  // Advisory and deliberately conservative: matching physical primary keys can
-  // overlap in different contexts or with additional held modifiers. The legacy
-  // dispatcher allows extra modifiers, so exact chord equality would miss some.
+  // Compare the dispatcher's modifier rules as well as the physical key.
+  // Contexts may still make an overlap intentional; warn without removing either.
   std::string Overlaps(Editor& editor, const std::string& token)
   {
-    const auto candidate = keyboard_layout::DescribeChord(MapKey::Parse(token).Key);
-    if (candidate.key == KeyCode::None)
+    const auto candidate = MapKey::Parse(token);
+    if (keyboard_layout::DescribeChord(candidate.Key).key == KeyCode::None)
       return "Layout unavailable; check this binding";
     std::string result;
     unsigned    count = 0;
@@ -111,7 +110,7 @@ namespace
         continue;
       bool overlap = false;
       for (const auto& binding : MapKey::Bindings(action))
-        overlap |= keyboard_layout::DescribeChord(binding.Key).key == candidate.key;
+        overlap |= MapKey::MayOverlap(candidate, binding);
       if (!overlap)
         continue;
       if (count++ < 2) {

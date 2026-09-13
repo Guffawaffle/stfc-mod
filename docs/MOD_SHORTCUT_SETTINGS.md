@@ -53,9 +53,12 @@ OS shortcuts can still be handled by the OS; this is not a global keyboard hook.
 Layout capture supports the same character set as the existing mapper and rejects
 ambiguous/unavailable characters rather than storing the wrong physical key.
 
-Overlap warnings conservatively list other mod actions sharing the resolved
-physical primary key. Contexts and modifier requirements may make an overlap
-intentional. This is not a complete audit of Scopely or OS shortcuts.
+Overlap warnings list other mod actions whose resolved physical key and modifier
+rules can match together. Bare `I` rejects modifiers, so it does not overlap
+`SHIFT-I`. Explicit modifiers are minimum requirements: `SHIFT-I` and `CTRL-I`
+can both match while Ctrl+Shift+I is held. Layout-required Shift and sided modifiers
+are included. Contexts may still make an overlap intentional; this does not audit
+Scopely or OS shortcuts. Gameplay dispatch rules remain unchanged.
 An overlap changes the draft's button to `Apply anyway`; its warning remains
 visible after applying, until the next edit, binding selection or page departure.
 

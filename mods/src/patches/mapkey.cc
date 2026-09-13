@@ -312,6 +312,32 @@ bool MapKey::HasCorrectModifiers(const MapKey& mapKey, bool requiredShift)
   return result;
 }
 
+bool MapKey::MayOverlap(const MapKey& first, const MapKey& second)
+{
+  const auto a = keyboard_layout::DescribeChord(first.Key);
+  const auto b = keyboard_layout::DescribeChord(second.Key);
+  if (a.key == KeyCode::None || a.key != b.key)
+    return false;
+
+  // Keep this aligned with HasCorrectModifiers: explicit modifiers are minimum
+  // requirements, so holding their union can satisfy both (including both sides).
+  if (first.hasModifiers && second.hasModifiers)
+    return true;
+  if (!first.hasModifiers && !second.hasModifiers)
+    return a.shift == b.shift;
+
+  // Bare bindings reject modifiers, except Shift required to type a character.
+  // Thus plain I cannot overlap SHIFT-I; a layout's bare '/' may overlap SHIFT-7.
+  const auto& modified = first.hasModifiers ? first : second;
+  const auto  bare     = first.hasModifiers ? b : a;
+  if (!bare.shift)
+    return false;
+  for (const auto& modifier : modified.Modifiers)
+    if (!modifier.Contains(KeyCode::LeftShift) && !modifier.Contains(KeyCode::RightShift))
+      return false;
+  return true;
+}
+
 std::string MapKey::GetParsedValues() const
 {
   std::string output = "";

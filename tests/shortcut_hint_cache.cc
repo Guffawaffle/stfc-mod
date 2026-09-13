@@ -17,10 +17,23 @@ static std::array<keyboard_layout::ResolvedChord, keyboard_layout::LayoutKeyCoun
 KeyCode Key::Parse(std::string_view key)
 {
   static constexpr std::pair<std::string_view, KeyCode> tokens[] = {
-      {"=", KeyCode::Equals}, {"Z", KeyCode::Z}, {"LSHIFT", KeyCode::LeftShift},
-      {"F7", KeyCode::F7}, {"F8", KeyCode::F8}, {"G", KeyCode::G}, {"+", KeyCode::Plus},
-      {"/", KeyCode::Slash}, {"(", KeyCode::LeftParen}, {"1", KeyCode::Alpha1},
-      {"'", KeyCode::Quote}, {"^", KeyCode::Caret},
+      {"=", KeyCode::Equals},
+      {"Z", KeyCode::Z},
+      {"LSHIFT", KeyCode::LeftShift},
+      {"F7", KeyCode::F7},
+      {"F8", KeyCode::F8},
+      {"G", KeyCode::G},
+      {"+", KeyCode::Plus},
+      {"/", KeyCode::Slash},
+      {"(", KeyCode::LeftParen},
+      {"1", KeyCode::Alpha1},
+      {"'", KeyCode::Quote},
+      {"^", KeyCode::Caret},
+      {"I", KeyCode::I},
+      {"7", KeyCode::Alpha7},
+      {"RSHIFT", KeyCode::RightShift},
+      {"LCTRL", KeyCode::LeftControl},
+      {"RCTRL", KeyCode::RightControl},
   };
   for (const auto& [token, code] : tokens) {
     if (key == token)
@@ -28,7 +41,11 @@ KeyCode Key::Parse(std::string_view key)
   }
   return KeyCode::None;
 }
-bool Key::IsModifier(KeyCode key) { return key == KeyCode::LeftShift; }
+bool Key::IsModifier(KeyCode key)
+{
+  return key == KeyCode::LeftShift || key == KeyCode::RightShift || key == KeyCode::LeftControl
+         || key == KeyCode::RightControl;
+}
 bool Key::Pressed(KeyCode key) { return pressed[static_cast<int>(key)]; }
 bool Key::Down(KeyCode key) { return down[static_cast<int>(key)]; }
 bool Key::IsModified() {
@@ -48,12 +65,42 @@ ResolvedChord ResolveChord(KeyCode configured) {
   return {Resolve(configured), layout_enabled && IsLayoutKey(configured)
                                && (chords[static_cast<int>(configured)].shift) != 0};
 }
+ResolvedChord DescribeChord(KeyCode configured)
+{
+  return layout_enabled && IsLayoutKey(configured) ? chords[static_cast<int>(configured)]
+                                                   : ResolvedChord{configured, false};
+}
 } // namespace keyboard_layout
 
 void Check(bool condition, const char* message)
 {
   if (!condition) {
     std::cerr << message << '\n';
+    std::exit(1);
+  }
+}
+
+// Compare the editor prediction against production modifier dispatch over every
+// held modifier combination, including either side and layout-required Shift.
+void CheckOverlap(const char* first, const char* second, bool expected)
+{
+  const auto     a = MapKey::Parse(first), b = MapKey::Parse(second);
+  const auto     ca = keyboard_layout::DescribeChord(a.Key), cb = keyboard_layout::DescribeChord(b.Key);
+  bool           reachable = false;
+  constexpr auto modifiers =
+      std::to_array<KeyCode>({KeyCode::LeftShift, KeyCode::RightShift, KeyCode::LeftControl, KeyCode::RightControl,
+                              KeyCode::LeftAlt, KeyCode::RightAlt, KeyCode::AltGr, KeyCode::LeftCommand,
+                              KeyCode::RightCommand, KeyCode::LeftWindows, KeyCode::RightWindows});
+  for (unsigned mask = 0; mask < (1u << modifiers.size()); ++mask) {
+    pressed.fill(false);
+    for (std::size_t i = 0; i < modifiers.size(); ++i)
+      pressed[static_cast<int>(modifiers[i])] = (mask & (1u << i)) != 0;
+    reachable |= ca.key != KeyCode::None && ca.key == cb.key && MapKey::HasCorrectModifiers(a, ca.shift)
+                 && MapKey::HasCorrectModifiers(b, cb.shift);
+  }
+  pressed.fill(false);
+  if (reachable != expected || MapKey::MayOverlap(a, b) != reachable || MapKey::MayOverlap(b, a) != reachable) {
+    std::cerr << "Overlap disagrees with dispatch: " << first << " / " << second << '\n';
     std::exit(1);
   }
 }
@@ -205,5 +252,25 @@ int main()
   pressed[static_cast<int>(KeyCode::Plus)] = true;
   down[static_cast<int>(KeyCode::Plus)] = true;
   Check(MapKey::IsDown(GameFunction::ShowDaily), "Physical mode no longer uses configured key");
+
+  CheckOverlap("I", "SHIFT-I", false); // Inventory must not appear for Shift-I.
+  CheckOverlap("I", "I", true);
+  CheckOverlap("SHIFT-I", "SHIFT-I", true);   // Artifacts must still appear.
+  CheckOverlap("SHIFT-I", "CTRL-I", true);    // Both can match Ctrl+Shift+I.
+  CheckOverlap("LSHIFT-I", "RSHIFT-I", true); // Both sides can be held.
+  CheckOverlap("LCTRL-I", "CTRL-SHIFT-I", true);
+  CheckOverlap("SHIFT-I", "SHIFT-G", false);
+  CheckOverlap("NONE", "NONE", false);
+  layout_enabled                            = true;
+  chords[static_cast<int>(KeyCode::Slash)]  = {KeyCode::Alpha7, true};
+  chords[static_cast<int>(KeyCode::Alpha7)] = {KeyCode::Alpha7, false};
+  CheckOverlap("/", "7", false);
+  CheckOverlap("/", "SHIFT-7", true);
+  CheckOverlap("/", "RSHIFT-7", true);
+  CheckOverlap("/", "CTRL-SHIFT-7", false);
+  CheckOverlap("/", "CTRL-/", false);
+  CheckOverlap("/", "/", true);
+  CheckOverlap("(", "SHIFT-7", false); // Unresolved layout character.
+  layout_enabled = false;
   std::cout << "Shortcut hint cache tests passed\n";
 }
