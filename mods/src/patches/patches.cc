@@ -57,6 +57,7 @@ void InstallDevConsole();
 void InstallGameErrorProbe();
 #endif
 void InstallActionQueueRepairHooks();
+void InstallModConfirmationSettings();
 
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
 {
@@ -130,6 +131,10 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
+  bool install_forbidden_tech = cfg.auto_confirm_ft_upgrade;
+#if defined(_WIN32) && defined(_M_X64)
+  install_forbidden_tech |= cfg.installModConfirmationSettings;
+#endif
   const PatchEntry patches[] = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
@@ -139,8 +144,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"PanHooks", {InstallPanHooks, &cfg.installPanHooks}},
       {"HotkeyHooks", {InstallHotkeyHooks, &cfg.installHotkeyHooks}},
       {"GiftsBulkClaimHooks", {InstallGiftsBulkClaimHooks, &cfg.installGiftsBulkClaimHooks}},
-      {"DailyFactionBulkClaimHooks",
-       {InstallDailyFactionBulkClaimHooks, &cfg.installDailyFactionBulkClaimHooks}},
+      {"DailyFactionBulkClaimHooks", {InstallDailyFactionBulkClaimHooks, &cfg.installDailyFactionBulkClaimHooks}},
 #if _WIN32
       {"FreeResizeHooks", {InstallFreeResizeHooks, &cfg.installFreeResizeHooks}},
 #endif
@@ -151,20 +155,21 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"ChatPatches", {InstallChatPatches, &cfg.installChatPatches}},
       {"SyncPatches", {InstallSyncPatches, &cfg.installSyncPatches}},
       {"ObjectTracker", {InstallObjectTrackers, &cfg.installObjectTracker}},
-      {"LoadingScreen",        {InstallLoadingScreenHooks,   &cfg.installLoadingScreenHooks}},
-      {"TransitionScreen",     {InstallTransitionScreenHooks, &cfg.installTransitionScreenHooks}},
-      {"LoadingTip",           {InstallLoadingTipHooks,       &cfg.loader_tip_enabled}},
-      {"FocusSearch",          {InstallFocusSearchHooks,      &cfg.installFocusSearchHooks}},
-      {"CargoFormat",          {InstallCargoFormatHooks,      &cfg.installCargoFormatHooks}},
-      {"OfficerSortHooks",     {InstallOfficerSortHooks,      &cfg.installOfficerSortHooks}},
-      {"PinnedShipSort",       {InstallPinnedShipSortHooks,   &cfg.installPinnedShipSortHooks}},
+      {"LoadingScreen", {InstallLoadingScreenHooks, &cfg.installLoadingScreenHooks}},
+      {"TransitionScreen", {InstallTransitionScreenHooks, &cfg.installTransitionScreenHooks}},
+      {"LoadingTip", {InstallLoadingTipHooks, &cfg.loader_tip_enabled}},
+      {"FocusSearch", {InstallFocusSearchHooks, &cfg.installFocusSearchHooks}},
+      {"CargoFormat", {InstallCargoFormatHooks, &cfg.installCargoFormatHooks}},
+      {"OfficerSortHooks", {InstallOfficerSortHooks, &cfg.installOfficerSortHooks}},
+      {"PinnedShipSort", {InstallPinnedShipSortHooks, &cfg.installPinnedShipSortHooks}},
       {"DoubleClickAssignShip", {InstallDoubleClickAssignShipHooks, &cfg.double_click_to_assign_ship}},
-      {"InstantWarpConfirm",   {InstallInstantWarpConfirmationHooks, &cfg.installInstantWarpConfirmationHooks}},
-      {"ForbiddenTechConfirm", {InstallForbiddenTechConfirmationHooks, &cfg.auto_confirm_ft_upgrade}},
-      {"AudioEvents",          {InstallAudioEventHooks,                 &cfg.installAudioEventHooks}},
+      {"InstantWarpConfirm", {InstallInstantWarpConfirmationHooks, &cfg.installInstantWarpConfirmationHooks}},
+      {"ForbiddenTechConfirm", {InstallForbiddenTechConfirmationHooks, &install_forbidden_tech}},
+      {"AudioEvents", {InstallAudioEventHooks, &cfg.installAudioEventHooks}},
       {"OfficerPresetReorder", {InstallOfficerPresetReorderHooks, &cfg.allow_officer_preset_reordering}},
-      {"OpcIndicators",       {InstallOpcIndicatorHooks,               &cfg.installOpcIndicatorHooks}},
-      {"KirsharaQueueRepair",  {InstallActionQueueRepairHooks,          &cfg.kirshara_queue_repair}},
+      {"OpcIndicators", {InstallOpcIndicatorHooks, &cfg.installOpcIndicatorHooks}},
+      {"KirsharaQueueRepair", {InstallActionQueueRepairHooks, &cfg.kirshara_queue_repair}},
+      {"ModConfirmationSettings", {InstallModConfirmationSettings, &cfg.installModConfirmationSettings}},
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
 
