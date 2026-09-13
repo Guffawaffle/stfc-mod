@@ -1,4 +1,5 @@
 #include "mod_pages.h"
+#include "camera_settings.h"
 #include "fleet_labels.h"
 #include "preview_settings.h"
 #include "warp_mode.h"
@@ -16,6 +17,13 @@ void RegisterModPages()
   // Group by the existing TOML section only when there is a working control.
   // Placement and display names do not change setting or storage identities.
   catalog.AddPage("community_mod.graphics", "Graphics", "community_mod.settings");
+  if (KeyboardZoomControlAvailable() || PanGlideControlAvailable()) {
+    catalog.AddPage("community_mod.graphics.camera", "Camera", "community_mod.graphics");
+    if (KeyboardZoomControlAvailable())
+      catalog.AddSlider("community_mod.graphics.camera", KeyboardZoomSpeedSetting());
+    if (PanGlideControlAvailable())
+      catalog.AddSlider("community_mod.graphics.camera", PanGlideSetting());
+  }
   catalog.AddPage("community_mod.ui", "User Interface", "community_mod.settings");
   catalog.AddPage("community_mod.navigation.warp", "Instant warp mode", "community_mod.ui");
   catalog.AddChoice("community_mod.navigation.warp", WarpModeSetting());

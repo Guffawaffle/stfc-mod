@@ -13,6 +13,7 @@ independent of labels and placement.
 | Mod Settings > User Interface > Cargo previews | Auto-open cargo, with Player / Station / Hostile / Armada preferences | Existing `ui.show_*_cargo` flags and `ui.show_cargo_default` |
 | Mod Settings > Graphics > Fleet Labels | Player label detail and zoom threshold | `graphics.zoom_label_player_detail`, `graphics.zoom_label_player_threshold` |
 | Mod Settings > Graphics > Fleet Labels | Non-player label detail and zoom threshold | `graphics.zoom_label_non_player_detail`, `graphics.zoom_label_non_player_threshold` |
+| Mod Settings > Graphics > Camera | Keyboard zoom speed and pan glide | `graphics.keyboard_zoom_speed`, `graphics.system_pan_momentum_falloff` |
 | Future separate branch: Hotkeys | Rebind existing actions | Existing shortcut parser and `MapKey` registrations |
 | General > confirmation page | Confirm Forbidden Tech upgrades | Inverse of `ui.auto_confirm_ft_upgrade` |
 
@@ -71,6 +72,31 @@ single writer on supported Windows x64 builds. These shortcuts therefore retain
 their preferences across restarts now; other platforms keep session-only behavior.
 Repeatedly choosing the current value, rendering, and page navigation do not save.
 Conflicts and failures leave live behavior in place and are reported in the log.
+
+## Camera
+
+Keyboard zoom speed edits the existing System View keyboard zoom amount from 0
+to 1000 in steps of 25 (default 350). This is a convenient slider range, roughly
+three times the default at its upper end, not a new limit on player-authored TOML.
+Zero stops incremental keyboard zoom; absolute zoom presets and mouse zoom keep
+their existing behavior. Mod hotkeys must be enabled and Scopely hotkeys disabled
+for the keyboard zoom actions to run.
+
+Pan glide edits the motion retained after mouse release from 0 to 0.99 in steps
+of 0.01 (default 0.8). Lower values stop sooner. The upper end deliberately stays
+below 1, which would preserve momentum indefinitely. It retains the existing
+per-update decay, including its frame-rate dependence; this page does not change
+the camera algorithm. `system_pan_momentum` is not exposed because the active pan
+hook does not read it.
+
+Both sliders read their current Config member and change it on the UI thread.
+The existing camera hooks consume it on their next normal update; there are no
+new hooks, refresh callbacks, or frame logging. Each row is admitted only if its
+existing consumer detour installed successfully; the Camera page is omitted if
+neither did. Live changes use the existing 150 ms coalesced TOML writer. Page
+navigation never saves, and existing out-of-range or non-finite values remain
+untouched with the affected slider unavailable. Defaults, config parsing and
+other-platform behavior are unchanged. Native UI remains Windows x64 only.
 
 ## Fleet Labels and Forbidden Tech
 
@@ -156,7 +182,8 @@ Introduce a group when it gains a working control and an explicit apply path.
 Do not populate empty groups or build a generic editor for every config key.
 Human labels and nested pages can be clearer than raw keys; changing placement
 must not change storage identity. The current populated groups are Graphics
-(`[graphics]`, Fleet Labels) and User Interface (`[ui]`, Instant warp mode).
+(`[graphics]`, Fleet Labels and Camera) and User Interface (`[ui]`, Instant warp
+mode, Preview shortcuts and Cargo previews).
 Control (`[control]`) can be introduced with its own working controls, such as
 hotkeys; instant warp is not moved into that TOML section. Confirmations continue
 to use the native confirmation page.

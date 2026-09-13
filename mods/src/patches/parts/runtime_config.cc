@@ -151,6 +151,8 @@ void Configure(const toml::table& loaded)
                                        {"graphics", "zoom_label_non_player_detail"},
                                        {"graphics", "zoom_label_player_threshold"},
                                        {"graphics", "zoom_label_non_player_threshold"},
+                                       {"graphics", "keyboard_zoom_speed"},
+                                       {"graphics", "system_pan_momentum_falloff"},
                                        {"ui", "auto_confirm_ft_upgrade"},
                                        {"ui", "disable_preview_locate"},
                                        {"ui", "disable_preview_recall"},
