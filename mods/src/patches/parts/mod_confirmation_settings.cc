@@ -21,6 +21,7 @@
 #include <spud/detour.h>
 #include <stdexcept>
 #include <thread>
+#include <tuple>
 
 namespace
 {
@@ -46,7 +47,9 @@ bool                           sliderActive = false;
 std::vector<PageCatalog::Page> pages;
 bool                           pagesActive = false;
 bool                           HasLabel(Il2CppObject* row, const char* id);
-ActionSetting*                 ActionFor(Il2CppObject* context);
+using ActionRow = std::pair<ActionSetting*, std::size_t>;
+ActionRow ActionFor(Il2CppObject* context);
+void      SyncActionRows(Il2CppObject* controller, Il2CppObject* context, const PageCatalog::Page& page);
 BooleanSetting*                SettingFor(Il2CppObject* context)
 {
   auto& fc = FleetCommanderConfirmationSetting();
@@ -832,6 +835,7 @@ const PageCatalog::Page* PageFor(Il2CppObject* context)
 struct SectionPage {
   Il2CppGCHandle           controller = nullptr, context = nullptr;
   std::vector<std::string> collapsed;
+  std::vector<Il2CppObject*> shown; // Comparison only; native context/panel owns rows.
   bool                     refreshing = false;
 } sectionPage;
 struct SectionRefreshScope {
@@ -845,6 +849,7 @@ void ClearSectionPage()
   Free(sectionPage.controller);
   Free(sectionPage.context);
   sectionPage.collapsed.clear();
+  sectionPage.shown.clear();
 }
 const PageCatalog::Heading* CollapsibleHeadingFor(Il2CppObject* context)
 {
@@ -866,27 +871,61 @@ bool Collapsed(const PageCatalog::Heading& heading)
   return std::find(sectionPage.collapsed.begin(), sectionPage.collapsed.end(), heading.id)
          != sectionPage.collapsed.end();
 }
-void ShowSections(Il2CppObject* controller, Il2CppObject* context, const PageCatalog::Page& page)
+void ShowSections(Il2CppObject* controller, Il2CppObject* context, const PageCatalog::Page& page, bool force = false)
 {
+  SyncActionRows(controller, context, page);
   Root                       children(Call(context, "get_Children"));
-  std::vector<Il2CppObject*> visible;
+  struct OrderedRow {
+    Il2CppObject* row;
+    std::size_t   position, index;
+  };
+  std::vector<OrderedRow> ordered;
   for (int i = 0, count = Count(children.get()); i < count; ++i) {
     auto*                       row     = Item(children.get(), i); // Rooted by the unchanged native children.
     const PageCatalog::Heading* section = nullptr;
+    std::string                 id;
+    std::size_t                 index = 0;
     if (Owned(row)) {
-      if (const auto choice = ChoiceFor(row); choice.first)
+      if (const auto choice = ChoiceFor(row); choice.first) {
+        id      = choice.first->state().id();
+        index   = choice.second;
         section = page.SectionFor(choice.first->state().id());
-      else if (auto* slider = SliderFor(row))
+      } else if (auto* slider = SliderFor(row)) {
+        id      = slider->state().id();
         section = page.SectionFor(slider->state().id());
-      else if (auto* setting = SettingFor(row))
+      } else if (auto* setting = SettingFor(row)) {
+        id      = setting->id();
         section = page.SectionFor(setting->id());
+      }
     }
     if (actionsActive)
-      if (auto* action = ActionFor(row))
-        section = page.SectionFor(action->id());
+      if (auto action = ActionFor(row); action.first) {
+        if (!action.first->Read(action.second).visible)
+          continue;
+        id      = action.first->id();
+        index   = action.second;
+        section = page.SectionFor(id);
+      }
+    if (id.empty())
+      for (const auto& item : page.items)
+        if (const auto* heading = std::get_if<PageCatalog::Heading>(&item);
+            heading && HasLabel(row, heading->id.c_str())) {
+          id = heading->id;
+          break;
+        }
     if (!section || !Collapsed(*section))
-      visible.push_back(row);
+      ordered.push_back({row, page.PositionFor(id), index});
   }
+  // Repeated rows may have been appended after other native children. Keep the
+  // catalog's presentation order without rewriting the native ownership list.
+  std::stable_sort(ordered.begin(), ordered.end(), [](const auto& a, const auto& b) {
+    return std::tie(a.position, a.index) < std::tie(b.position, b.index);
+  });
+  std::vector<Il2CppObject*> visible;
+  for (const auto& row : ordered)
+    visible.push_back(row.row);
+  if (!force && visible == sectionPage.shown)
+    return;
   auto options = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.GameSettings", "OptionContext");
   Root list(reinterpret_cast<Il2CppObject*>(il2cpp_array_new(options.get_cls(), visible.size())));
   if (!list.get())
@@ -916,6 +955,7 @@ void ShowSections(Il2CppObject* controller, Il2CppObject* context, const PageCat
   // Native release/bind owns pooled widgets and their event subscriptions.
   void* args[] = {nullptr, list.get()};
   Invoke(bind, panel.get(), args);
+  sectionPage.shown = std::move(visible);
 }
 
 struct PageText {
@@ -1064,11 +1104,11 @@ void PageSelectedHook(auto original, Il2CppObject* controller, Il2CppObject* con
         else
           sectionPage.collapsed.push_back(heading->id);
         try {
-          ShowSections(controller, parent.get(), *PageFor(parent.get()));
+          ShowSections(controller, parent.get(), *PageFor(parent.get()), true);
         } catch (...) {
           sectionPage.collapsed = before;
           try {
-            ShowSections(controller, parent.get(), *PageFor(parent.get()));
+            ShowSections(controller, parent.get(), *PageFor(parent.get()), true);
           } catch (...) {
           }
           throw;
@@ -1114,7 +1154,7 @@ void PageSelectedHook(auto original, Il2CppObject* controller, Il2CppObject* con
       Root label(ReadField(controller, PageMeta().title));
       SetPageText(controller, label.get(), page->label);
       if (Target(sectionPage.controller) == controller && Target(sectionPage.context) == context
-          && !sectionPage.refreshing && !sectionPage.collapsed.empty()) {
+          && !sectionPage.refreshing) {
         // Let native navigation establish the page and Back target, then apply
         // the initial folded presentation in the same call, before a frame draws.
         SectionRefreshScope scope;
@@ -1240,21 +1280,39 @@ Il2CppObject* ActionToken(Il2CppObject* context)
              ? callback->target
              : nullptr;
 }
-ActionSetting* ActionFor(Il2CppObject* context)
+ActionRow ActionFor(Il2CppObject* context)
 {
   if (!ActionToken(context))
-    return nullptr;
-  for (const auto& page : pages)
-    for (auto* action : page.Controls<ActionSetting>())
-      if (HasLabel(context, action->id().c_str()))
-        return action;
-  return nullptr;
+    return {};
+  Root        parent(Call(context, "get_Parent"));
+  const auto* page = PageFor(parent.get());
+  if (!page)
+    return {};
+  Root label(Call(context, "get_LabelContext"));
+  Root identifier(Call(label.get(), "get_Identifier"));
+  if (!identifier.get() || !Type(il2cpp_class_get_type(identifier.get()->klass), IL2CPP_TYPE_STRING))
+    return {};
+  auto*       text = reinterpret_cast<Il2CppString*>(identifier.get());
+  std::string id;
+  for (int i = 0; i < il2cpp_string_length(text); ++i) {
+    const auto character = il2cpp_string_chars(text)[i];
+    if (character > 127)
+      return {};
+    id += static_cast<char>(character);
+  }
+  for (auto* action : page->Controls<ActionSetting>())
+    if (const auto index = action->item_index(id))
+      return {action, *index};
+  return {};
 }
 struct ActionView {
   Il2CppGCHandle                widget = nullptr, context = nullptr, token = nullptr;
   std::array<Il2CppGCHandle, 3> labels{};
   Il2CppGCHandle                button    = nullptr;
+  Il2CppGCHandle                buttonObject = nullptr;
   ActionSetting*                action    = nullptr;
+  std::size_t                   index        = 0;
+  bool                          buttonHidden = false, buttonBefore = false;
   bool                          rendering = false, invoking = false;
 };
 std::deque<ActionView> actionViews;
@@ -1270,6 +1328,8 @@ void                   ClearAction(ActionView& view, bool hidden = true)
   try {
     if (auto* button = Target(view.button))
       Call(button, "ClearInteractable");
+    if (view.buttonHidden)
+      SetActive(Target(view.buttonObject), view.buttonBefore);
   } catch (...) {
     Warn();
   }
@@ -1277,8 +1337,10 @@ void                   ClearAction(ActionView& view, bool hidden = true)
   Free(view.context);
   Free(view.token);
   Free(view.button);
+  Free(view.buttonObject);
+  view.buttonHidden = false;
   try {
-    if (hidden && action && action->hidden)
+    if (hidden && !sectionPage.refreshing && action && action->hidden)
       action->hidden();
   } catch (...) {
     Warn("settings command release unavailable");
@@ -1301,13 +1363,27 @@ void RenderAction(ActionView& view)
     ClearAction(view);
     return;
   }
-  const auto       presentation = view.action->read();
+  auto*      action       = view.action;
+  const auto index        = view.index;
+  const auto presentation = action->Read(index);
+  if (view.action != action || view.index != index || Target(view.context) != context.get()
+      || Invoke(ActionMeta().getContext, widget.get()) != context.get())
+    return;
   const std::array text{presentation.label, presentation.button, presentation.value};
   for (std::size_t i = 0; i < text.size(); ++i) {
     auto* label = Target(view.labels[i]);
     SetPageText(label, label, text[i]);
   }
-  bool  enabled = presentation.enabled;
+  if (view.buttonHidden) {
+    SetActive(Target(view.buttonObject), view.buttonBefore);
+    view.buttonHidden = false;
+  }
+  if (presentation.button.empty()) {
+    view.buttonBefore = Boolean(Call(Target(view.buttonObject), "get_activeSelf"));
+    view.buttonHidden = true;
+    SetActive(Target(view.buttonObject), false);
+  }
+  bool  enabled = presentation.actionable();
   void* args[]  = {&enabled};
   Call(Target(view.button), "OverrideInteractable", 1, args);
 }
@@ -1315,6 +1391,21 @@ void RefreshActions()
 {
   if (!OnThread() || !actionsActive || !pagesActive)
     return;
+  if (sectionPage.refreshing)
+    return;
+  try {
+    Root controller(Target(sectionPage.controller)), context(Target(sectionPage.context));
+    if (controller.get() && context.get()) {
+      Root canvas(Call(controller.get(), "get_CanvasContext"));
+      Root selected(Call(canvas.get(), "get_SelectedOption"));
+      if (const auto* page = PageFor(context.get()); page && selected.get() == context.get()) {
+        SectionRefreshScope scope;
+        ShowSections(controller.get(), context.get(), *page);
+      }
+    }
+  } catch (...) {
+    Warn("settings command list refresh unavailable");
+  }
   // Binding during a callback may append a deque slot. References stay valid;
   // iterators do not, so visit only the slots that existed at entry.
   for (std::size_t i = 0, count = actionViews.size(); i < count; ++i) {
@@ -1329,7 +1420,7 @@ void RefreshActions()
 }
 void InvokeAction(Il2CppObject* token, const MethodInfo*)
 {
-  if (!OnThread() || !actionsActive || !pagesActive)
+  if (!OnThread() || !actionsActive || !pagesActive || sectionPage.refreshing)
     return;
   try {
     for (auto& view : actionViews) {
@@ -1344,18 +1435,19 @@ void InvokeAction(Il2CppObject* token, const MethodInfo*)
         { flag = false; }
       } scope(view.invoking);
       auto* action = view.action;
+      const auto index  = view.index;
       Root widget(Target(view.widget)), context(Target(view.context));
       if (!widget.get() || !context.get() || Invoke(ActionMeta().getContext, widget.get()) != context.get()
           || ActionToken(context.get()) != token)
         return;
       // EventSystem can submit a focused button with Enter/Space while capture
       // is active. The command's current availability is authoritative too.
-      const bool enabled = action->read().enabled;
+      const bool enabled = action->Read(index).actionable();
       // A feature-owned reader may release/rebind its row. Keep that callback
       // from authorizing a different command or recursively invoking itself.
-      if (enabled && view.action == action && Target(view.context) == context.get() && Target(view.token) == token
-          && Invoke(ActionMeta().getContext, widget.get()) == context.get())
-        action->invoke();
+      if (enabled && view.action == action && view.index == index && Target(view.context) == context.get()
+          && Target(view.token) == token && Invoke(ActionMeta().getContext, widget.get()) == context.get())
+        action->invoke(index);
       return;
     }
   } catch (...) {
@@ -1383,8 +1475,8 @@ void ActionRefreshHook(auto original, Il2CppObject* widget)
   ActionView* tracked = nullptr;
   try {
     Root  context(Invoke(ActionMeta().getContext, widget));
-    auto* action = ActionFor(context.get());
-    if (!action)
+    const auto action = ActionFor(context.get());
+    if (!action.first)
       return;
     for (auto& view : actionViews)
       if (!view.action && !view.rendering && !view.invoking) {
@@ -1396,7 +1488,8 @@ void ActionRefreshHook(auto original, Il2CppObject* widget)
       tracked = &actionViews.back();
     }
     auto& view  = *tracked;
-    view.action = action;
+    view.action = action.first;
+    view.index  = action.second;
     auto weak   = [](Il2CppObject* object) {
       const auto handle = object ? il2cpp_gchandle_new_weakref(object, false) : nullptr;
       if (!handle)
@@ -1410,6 +1503,8 @@ void ActionRefreshHook(auto original, Il2CppObject* widget)
     for (std::size_t i = 0; i < fields.size(); ++i)
       view.labels[i] = weak(ReadField(widget, fields[i]));
     view.button = weak(ReadField(widget, ActionMeta().button));
+    Root buttonObject(Call(Target(view.button), "get_gameObject"));
+    view.buttonObject = weak(buttonObject.get());
     RenderAction(view);
   } catch (...) {
     if (tracked)
@@ -1427,7 +1522,8 @@ void ActionReleaseHook(auto original, Il2CppObject* widget)
     }
   original(widget);
 }
-void AddActionRow(Il2CppObject* director, Il2CppObject* context, Il2CppObject* parent, ActionSetting& action)
+void AddActionRow(Il2CppObject* director, Il2CppObject* context, Il2CppObject* parent, ActionSetting& action,
+                  std::size_t index)
 {
   if (!actionsActive)
     return;
@@ -1436,7 +1532,7 @@ void AddActionRow(Il2CppObject* director, Il2CppObject* context, Il2CppObject* p
   const int   before = Count(children.get());
   if (before == 128)
     throw std::runtime_error("settings command capacity");
-  Root label(reinterpret_cast<Il2CppObject*>(il2cpp_string_new(action.id().c_str())));
+  Root label(reinterpret_cast<Il2CppObject*>(il2cpp_string_new(action.item_id(index).c_str())));
   Root empty(reinterpret_cast<Il2CppObject*>(il2cpp_string_new("")));
   // A fresh plain Object is the closed callback's identity, owned by this native
   // context. Old pooled-row events cannot invoke a later context's command.
@@ -1448,8 +1544,49 @@ void AddActionRow(Il2CppObject* director, Il2CppObject* context, Il2CppObject* p
   if (Count(children.get()) != before + 1)
     throw std::runtime_error("settings command insertion");
   Root row(Item(children.get(), before));
-  if (ActionFor(row.get()) != &action || ActionToken(row.get()) != token.get())
+  if (ActionFor(row.get()) != ActionRow{&action, index} || ActionToken(row.get()) != token.get())
     throw std::runtime_error("settings command identity");
+}
+void SyncActionRows(Il2CppObject* controller, Il2CppObject* context, const PageCatalog::Page& page)
+{
+  if (!actionsActive)
+    return;
+  auto actions = page.Controls<ActionSetting>();
+  if (actions.empty())
+    return;
+  Root                   children(Call(context, "get_Children"));
+  const auto             size = Count(children.get());
+  std::vector<ActionRow> existing, missing;
+  for (int i = 0; i < size; ++i)
+    if (const auto row = ActionFor(Item(children.get(), i)); row.first)
+      existing.push_back(row);
+  for (auto* action : actions)
+    for (std::size_t index = 0, count = action->Count(); index < count; ++index) {
+      const ActionRow row{action, index};
+      if (std::find(existing.begin(), existing.end(), row) != existing.end())
+        continue;
+      // The adapter already bounds every native child list at 128. Check the
+      // full addition before mutating it, including rows retained after removal.
+      if (size + missing.size() == 128)
+        throw std::runtime_error("settings command capacity");
+      missing.push_back(row);
+    }
+  if (missing.empty())
+    return;
+  Root  callbackObject(ReadField(context, Meta().queryField));
+  auto* callback = reinterpret_cast<Il2CppDelegate*>(callbackObject.get());
+  if (!callback || callback->method != query.method() || callback->method_ptr != query.method()->methodPointer
+      || !callback->target || callback->target->klass != Meta().director.get_cls())
+    throw std::runtime_error("settings command page owner");
+  Root director(callback->target);
+  Root canvas(Call(controller, "get_CanvasContext"));
+  Root selected(Call(canvas.get(), "get_SelectedOption"));
+  if (!canvas.get() || canvas.get()->klass != Meta().context.get_cls() || selected.get() != context)
+    throw std::runtime_error("settings command page changed");
+  // Contexts remain owned by the native page up to its largest binding count.
+  // Shrinking hides surplus indices; later additions reuse those same contexts.
+  for (const auto& [action, index] : missing)
+    AddActionRow(director.get(), canvas.get(), context, *action, index);
 }
 void AddHeadingRow(Il2CppObject* director, Il2CppObject* context, Il2CppObject* parent,
                    const PageCatalog::Heading& heading)
@@ -1594,9 +1731,10 @@ void AddPages(Il2CppObject* director, Il2CppObject* context)
                 AddBooleanRow(director, context, category.get(), *value);
               else if constexpr (std::is_same_v<T, ChoiceSetting*>)
                 AddChoiceRows(director, context, category.get(), *value);
-              else if constexpr (std::is_same_v<T, ActionSetting*>)
-                AddActionRow(director, context, category.get(), *value);
-              else
+              else if constexpr (std::is_same_v<T, ActionSetting*>) {
+                for (std::size_t index = 0, count = value->Count(); index < count; ++index)
+                  AddActionRow(director, context, category.get(), *value, index);
+              } else
                 AddSliderRow(director, context, category.get(), *value);
             },
             item);

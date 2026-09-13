@@ -24,6 +24,13 @@ public:
   struct Page {
     std::string       id, label, parent;
     std::vector<Item> items; // Registration order is visual order, including headings.
+    std::size_t       PositionFor(std::string_view id) const
+    {
+      for (std::size_t i = 0; i < items.size(); ++i)
+        if (Id(items[i]) == id)
+          return i;
+      return items.size();
+    }
     // A heading owns following controls up to the next heading. Collapse is
     // presentation state only; this lookup never reads or writes a setting.
     const Heading* SectionFor(std::string_view setting_id) const

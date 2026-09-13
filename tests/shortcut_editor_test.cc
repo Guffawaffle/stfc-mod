@@ -1,4 +1,5 @@
 #include "settings/shortcut_capture.h"
+#include "settings/shortcut_catalog.h"
 #include "settings/shortcut_draft.h"
 #include <cstdlib>
 #include <iostream>
@@ -13,6 +14,13 @@ void Check(bool ok, const char* label)
 }
 int main()
 {
+  Check(DescribeShortcut(ShowInventory).group == ShortcutGroup::Interface
+            && DescribeShortcut(ShowArtifacts).group == ShortcutGroup::Interface,
+        "opening inventory/artifacts belongs to interface, not map travel");
+  Check(DescribeShortcut(ToggleAutoConfirmInstantWarp).group == ShortcutGroup::Travel,
+        "instant warp shortcut belongs to map and travel");
+  Check(DescribeShortcut(Restart).label == "Clear localization cache and reload",
+        "cache-clearing shortcut must not promise a plain restart");
   ShortcutList               live{"LCTRL-G", "F8"};
   int                        writes = 0;
   ValueSetting<ShortcutList> owner({"shortcuts.test", "Test",

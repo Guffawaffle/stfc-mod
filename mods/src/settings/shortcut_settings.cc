@@ -7,6 +7,7 @@
 #include "patches/runtime_config.h"
 #include "patches/screen_update_hook.h"
 #include "shortcut_capture.h"
+#include "shortcut_catalog.h"
 #include "shortcut_draft.h"
 #include <algorithm>
 #include <il2cpp/il2cpp_helper.h>
@@ -33,23 +34,16 @@ namespace
     }
     return result.empty() ? "NONE" : result;
   }
-  std::string HumanName(std::string text)
-  {
-    std::replace(text.begin(), text.end(), '_', ' ');
-    if (!text.empty() && text[0] >= 'a' && text[0] <= 'z')
-      text[0] -= 'a' - 'A';
-    return text;
-  }
   struct Editor {
     GameFunction                                function;
     ValueSetting<ShortcutList>                  state;
     ShortcutDraft                               draft;
-    std::size_t                                 selected = 0;
-    std::string                                 status, overlaps;
+    std::string                                 status, overlaps, replacing;
     std::vector<std::unique_ptr<ActionSetting>> rows;
     explicit Editor(GameFunction action)
         : function(action)
-        , state({"community_mod.shortcuts." + MapKey::Definition(action).key, HumanName(MapKey::Definition(action).key),
+        , state({"community_mod.shortcuts." + MapKey::Definition(action).key,
+                 std::string(DescribeShortcut(action).label),
                  [action] {
                    ShortcutList list;
                    for (const auto& binding : MapKey::Bindings(action))
@@ -80,15 +74,7 @@ namespace
     ShortcutList Current()
     {
       auto snapshot = state.Observe();
-      auto list     = snapshot.state.value.value_or(ShortcutList{});
-      if (selected >= list.size())
-        selected = 0;
-      return list;
-    }
-    std::string Selected()
-    {
-      auto list = Current();
-      return list.empty() ? "Unbound" : list[selected];
+      return snapshot.state.value.value_or(ShortcutList{});
     }
   };
   std::vector<std::unique_ptr<Editor>> editors;
@@ -118,7 +104,7 @@ namespace
       if (count++ < 2) {
         if (!result.empty())
           result += ", ";
-        result += HumanName(MapKey::Definition(action).key);
+        result += DescribeShortcut(action).label;
       }
     }
     if (count > 2)
@@ -136,13 +122,17 @@ namespace
     editor.overlaps.clear();
     editor.status.clear();
   }
-  void Begin(Editor& editor, bool append)
+  void Begin(Editor& editor, std::size_t index)
   {
     if (capture.active())
       return;
     Cancel(editor);
     editor.draft.Begin();
-    recordingIndex = append ? editor.Current().size() : editor.selected;
+    const auto list = editor.Current();
+    if (index > list.size())
+      return;
+    recordingIndex   = index;
+    editor.replacing = index < list.size() ? list[index] : "";
     recording      = &editor;
     capture.Begin();
     Key::shortcutCaptureActive = true;
@@ -190,7 +180,7 @@ namespace
           editor->overlaps.clear();
           if (result == ShortcutStage::Staged) {
             editor->overlaps = Overlaps(*editor, token);
-            editor->status   = "Pending: " + token;
+            editor->status   = editor->replacing.empty() ? "Add " + token : editor->replacing + " -> " + token;
           } else {
             editor->status = result == ShortcutStage::AlreadyBound ? "Already bound: " + token
                                                                    : "Binding unavailable; reopen and try again";
@@ -224,64 +214,45 @@ namespace
   }
   void AddRows(PageCatalog& catalog, Editor& editor)
   {
-    auto add = [&](const char* id, const char* label, auto read, auto invoke, bool ownsVisit = false) {
+    auto add = [&](const char* id, const char* label, auto read, auto invoke, bool ownsVisit = false,
+                   std::function<std::size_t()> count = {}) {
       auto row      = std::make_unique<ActionSetting>();
       row->identity = editor.state.id() + "." + id;
       row->label    = label;
       row->read     = read;
-      row->invoke   = [invoke] {
-        invoke();
+      row->invoke   = [invoke](std::size_t index) {
+        invoke(index);
         Notify();
       };
       if (ownsVisit)
         row->hidden = [&editor] { Cancel(editor); };
+      row->count = std::move(count);
       catalog.AddAction(editor.state.id(), *row);
       editor.rows.push_back(std::move(row));
     };
     using P = ActionSetting::Presentation;
+    auto count = [&editor] { return editor.Current().size(); };
     add(
-        "current", "Current binding",
-        [&editor] {
+        "binding", "Shortcut",
+        [&editor](std::size_t index) {
           const auto list = editor.Current();
-          return P{"Current binding"
-                       + (list.empty()
-                              ? ""
-                              : " (" + std::to_string(editor.selected + 1) + "/" + std::to_string(list.size()) + ")"),
-                   "Next", editor.Selected(), list.size() > 1 && !capture.active()};
+          return P{list.at(index), "Change", "", !capture.active() && !editor.draft.pending()};
         },
-        [&editor] {
-          const auto list = editor.Current();
-          if (!list.empty()) {
-            Cancel(editor);
-            ++editor.selected %= list.size();
-          }
-        });
+        [&editor](std::size_t index) { Begin(editor, index); }, false, count);
     add(
-        "replace", "Replace selected binding",
-        [&editor] { return P{"Replace selected binding", "Record", editor.Selected(), !capture.active()}; },
-        [&editor] { Begin(editor, false); }, true);
-    add(
-        "add", "Add another binding", [] { return P{"Add another binding", "Record", "", !capture.active()}; },
-        [&editor] { Begin(editor, true); });
-    add(
-        "remove", "Remove selected binding",
-        [&editor] {
-          return P{"Remove selected binding", "Remove", editor.Selected(),
-                   !editor.Current().empty() && !capture.active()};
+        "add", "Add shortcut",
+        [&editor](std::size_t) {
+          return P{editor.Current().empty() ? "No shortcut assigned" : "Add shortcut", "Record", "",
+                   !capture.active() && !editor.draft.pending()};
         },
-        [&editor] {
-          editor.draft.Begin();
-          editor.draft.Stage(editor.selected, {});
-          editor.status = "Pending removal: " + editor.Selected();
-          editor.overlaps.clear();
-        });
+        [&editor](std::size_t) { Begin(editor, editor.Current().size()); }, true);
     add(
         "apply", "Pending change",
-        [&editor] {
-          return P{editor.status.empty() ? "No pending change" : editor.status,
-                   editor.overlaps.empty() ? "Apply" : "Apply anyway", "", editor.draft.pending() && !capture.active()};
+        [&editor](std::size_t) {
+          const auto button = !editor.draft.pending() ? "" : editor.overlaps.empty() ? "Apply" : "Apply anyway";
+          return P{editor.status, button, "", editor.draft.pending() && !capture.active(), !editor.status.empty()};
         },
-        [&editor] {
+        [&editor](std::size_t) {
           const auto result = editor.draft.Apply();
           editor.status     = result == Outcome::AppliedVerified || result == Outcome::Unchanged
                                   ? "Applied"
@@ -293,16 +264,32 @@ namespace
         });
     add(
         "overlaps", "Overlap information",
-        [&editor] {
-          return P{editor.overlaps.empty() ? "Shared bindings are allowed"
-                                           : "<color=#FFC66D>" + editor.overlaps + "</color>",
-                   "", "", false};
+        [&editor](std::size_t) {
+          return P{"<color=#FFC66D>" + editor.overlaps + "</color>", "", "", false, !editor.overlaps.empty()};
         },
-        [] {});
+        [](std::size_t) {});
     add(
         "cancel", "Discard pending change",
-        [&editor] { return P{"Discard pending change", "Cancel", "", editor.draft.pending() || recording == &editor}; },
-        [&editor] { Cancel(editor); });
+        [&editor](std::size_t) {
+          return P{"Discard change", "Cancel", "", true, editor.draft.pending() || recording == &editor};
+        },
+        [&editor](std::size_t) { Cancel(editor); });
+    catalog.AddHeading(editor.state.id(), editor.state.id() + ".more", "More options", true);
+    add(
+        "remove", "Remove shortcut",
+        [&editor](std::size_t index) {
+          return P{editor.Current().at(index), "Remove", "", !capture.active() && !editor.draft.pending()};
+        },
+        [&editor](std::size_t index) {
+          const auto list = editor.Current();
+          if (index >= list.size())
+            return;
+          Cancel(editor);
+          editor.draft.Begin();
+          editor.draft.Stage(index, {});
+          editor.status = "Remove " + list[index];
+        },
+        false, count);
   }
 } // namespace
 
@@ -321,8 +308,9 @@ void RegisterShortcutPages(PageCatalog& catalog)
       sampledKeys.push_back(key);
   }
   catalog.AddPage("community_mod.shortcuts", "Shortcuts", "community_mod.settings");
-  for (const auto* group : {"Navigation", "Camera", "Actions", "Other"})
-    catalog.AddPage(std::string("community_mod.shortcuts.") + group, group, "community_mod.shortcuts");
+  for (const auto& group : ShortcutGroups)
+    catalog.AddPage(std::string("community_mod.shortcuts.") + std::string(group.id), std::string(group.label),
+                    "community_mod.shortcuts");
   for (int i = 0; i < GameFunction::Max; ++i) {
     const auto  action = static_cast<GameFunction>(i);
     const auto& key    = MapKey::Definition(action).key;
@@ -333,13 +321,10 @@ void RegisterShortcutPages(PageCatalog& catalog)
     if (action == GameFunction::ToggleShortcutHints && !ShortcutHintControlAvailable())
       continue;
     auto        editor = std::make_unique<Editor>(action);
-    const char* group =
-        key.starts_with("show_") || key.starts_with("select_") ? "Navigation"
-        : key.find("zoom") != std::string::npos || key.starts_with("move_") || key.find("scale") != std::string::npos
-            ? "Camera"
-        : key.starts_with("action_") || key.starts_with("toggle_") ? "Actions"
-                                                                   : "Other";
-    catalog.AddPage(editor->state.id(), editor->state.label(), std::string("community_mod.shortcuts.") + group);
+    const auto  group  = std::find_if(ShortcutGroups.begin(), ShortcutGroups.end(),
+                                      [&](const auto& group) { return group.group == DescribeShortcut(action).group; });
+    catalog.AddPage(editor->state.id(), editor->state.label(),
+                    std::string("community_mod.shortcuts.") + std::string(group->id));
     AddRows(catalog, *editor);
     editors.push_back(std::move(editor));
   }
