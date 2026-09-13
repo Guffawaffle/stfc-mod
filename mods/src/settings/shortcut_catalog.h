@@ -19,17 +19,17 @@ struct ShortcutGroupInfo {
   ShortcutGroup    group;
   std::string_view id, label;
 };
-// Category registration is display order; keep these human labels alphabetized.
+// Category registration is display order: alphabetized, with Diagnostics last.
 inline constexpr auto ShortcutGroups = std::to_array<ShortcutGroupInfo>({
     {ShortcutGroup::Camera, "camera", "Camera"},
     {ShortcutGroup::Chat, "chat", "Chat"},
     {ShortcutGroup::Client, "client", "Client"},
-    {ShortcutGroup::Diagnostics, "diagnostics", "Diagnostics"},
     {ShortcutGroup::Fleet, "fleet", "Fleet Controls"},
     {ShortcutGroup::Screens, "screens", "Game Screens"},
     {ShortcutGroup::Interface, "interface", "Interface Controls"},
     {ShortcutGroup::Travel, "travel", "Map & Travel"},
     {ShortcutGroup::Previews, "previews", "Previews & Cargo"},
+    {ShortcutGroup::Diagnostics, "diagnostics", "Diagnostics"},
 });
 struct ShortcutInfo {
   GameFunction     action;
