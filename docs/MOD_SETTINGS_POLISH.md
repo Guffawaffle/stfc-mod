@@ -5,7 +5,7 @@ branch. Completion requires implementation, review and appropriate evidence;
 fixture and native observations are distinguished below. No play promotion is
 part of this work.
 
-- [ ] 1. Honest unavailable reasons and a quiet persistence-failure notice.
+- [x] 1. Honest unavailable reasons and a quiet persistence-failure notice.
 - [x] 5. Page-owned editor lifetime; native scrolling, Back and focus transitions.
 - [x] 4. Native adapter concern separation and feature-owned disabled wording.
 - [x] 6. Measure construction/refresh costs; consolidate current documentation.
@@ -48,8 +48,8 @@ set, not a fixed count or supported limit.
 | Overlap inspection | A Ctrl+Alt+C draft in Pan left let Next cycle between Clear action queue and Open side chat 1; the draft was canceled. |
 | Conditional rows | Cargo target rows hid and reappeared when Automatically open cargo changed OFF/ON. |
 | Save failure | A deliberate external edit of one camera key caused a real writer conflict. The live slider remained usable and the amber failure notice fit without truncation. The temporary file value was restored through a guarded edit of that key only. |
+| Save recovery | A later successful save of the same camera key cleared the notice, confirmed by the user. The selected zoom speed was retained in TOML. |
 
-Native confirmation that a later successful save removes the notice is pending.
 The loaded out-of-range message and preservation have fixture evidence; no native
 out-of-range screenshot is claimed. Restore staging/cancellation was exercised
 natively; replacement of the complete default list is covered by guarded draft
