@@ -57,7 +57,7 @@ void InstallDevConsole();
 void InstallGameErrorProbe();
 #endif
 void InstallActionQueueRepairHooks();
-void InstallModConfirmationSettings();
+void InstallNativeSettings();
 
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
 {
@@ -133,7 +133,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("Initializing code hooks:");
   bool install_forbidden_tech = cfg.auto_confirm_ft_upgrade;
 #if defined(_WIN32) && defined(_M_X64)
-  install_forbidden_tech |= cfg.installModConfirmationSettings;
+  install_forbidden_tech |= cfg.installNativeSettings;
 #endif
   const PatchEntry patches[] = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
@@ -169,7 +169,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"OfficerPresetReorder", {InstallOfficerPresetReorderHooks, &cfg.allow_officer_preset_reordering}},
       {"OpcIndicators", {InstallOpcIndicatorHooks, &cfg.installOpcIndicatorHooks}},
       {"KirsharaQueueRepair", {InstallActionQueueRepairHooks, &cfg.kirshara_queue_repair}},
-      {"ModConfirmationSettings", {InstallModConfirmationSettings, &cfg.installModConfirmationSettings}},
+      // Retain the existing debug patch key; this installer now owns both settings surfaces.
+      {"ModConfirmationSettings", {InstallNativeSettings, &cfg.installNativeSettings}},
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
 

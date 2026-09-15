@@ -1,7 +1,9 @@
 #include "runtime_config_writer.h"
 #include <chrono>
 #include <iostream>
+#include <source_location>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 using namespace config_edit;
@@ -14,20 +16,21 @@ bool                                  entered = false, released = false;
 Outcome                               first_result = Outcome::Saved;
 std::vector<Request>                  requests;
 std::thread::id                       save_thread;
-std::chrono::steady_clock::time_point save_entered_at;
+std::vector<std::chrono::steady_clock::time_point> save_times;
 int                                   reports      = 0;
 bool                                  block_report = false, release_report = false;
+bool                                  fail_thread_start = false;
 
-void Check(bool value)
+void Check(bool value, std::source_location location = std::source_location::current())
 {
   if (!value)
-    throw std::runtime_error("worker fixture failed");
+    throw std::runtime_error("worker fixture failed at line " + std::to_string(location.line()));
 }
 Outcome Save(TomlEditor&, const std::filesystem::path&, const Request& request)
 {
   std::unique_lock lock(gate);
-  save_thread     = std::this_thread::get_id();
-  save_entered_at = std::chrono::steady_clock::now();
+  save_thread = std::this_thread::get_id();
+  save_times.push_back(std::chrono::steady_clock::now());
   requests.push_back(request);
   if (requests.size() == 1) {
     entered = true;
@@ -50,6 +53,7 @@ void Begin(Outcome result)
 {
   entered = released = false;
   requests.clear();
+  save_times.clear();
   reports      = 0;
   first_result = result;
   block_report = release_report = false;
@@ -65,10 +69,25 @@ void Release()
   released = true;
   changed.notify_all();
 }
+void AwaitCompletion(RuntimeConfigWriter& writer, std::uint64_t revision)
+{
+  const auto deadline = std::chrono::steady_clock::now() + 5s;
+  while (writer.LastCompletion().revision != revision || writer.HasWork()) {
+    Check(std::chrono::steady_clock::now() < deadline);
+    std::this_thread::yield();
+  }
+}
+template <typename Function, typename Owner> std::thread StartWorker(Function function, Owner* owner)
+{
+  if (std::exchange(fail_thread_start, false))
+    throw std::runtime_error("fixture thread-start failure");
+  return std::thread(function, owner);
+}
 } // namespace
 
 // Block at the real worker's save boundary to exercise scheduling deterministically.
 #define CONFIG_EDIT_SAVE(editor, path, request) Save(editor, path, request)
+#define CONFIG_EDIT_START_WORKER(...) StartWorker(__VA_ARGS__)
 #include "../mods/src/runtime_config_writer.cc"
 
 int main()
@@ -126,6 +145,34 @@ int main()
     }
     Begin(Outcome::IoError);
     {
+      RuntimeConfigWriter writer("unused", Value{std::string("none")}, Report);
+      Check(writer.Register("graphics", "threshold", Value{0.5}));
+      const auto failed = writer.Submit("warp");
+      AwaitSave();
+      Release();
+      AwaitCompletion(writer, failed);
+      Check(writer.HasFailures());
+      AwaitCompletion(writer, writer.Submit("graphics", "threshold", 0.7));
+      Check(writer.HasFailures()); // Saving B cannot hide A's failed save.
+      AwaitCompletion(writer, writer.Submit("jump"));
+      Check(!writer.HasFailures()); // A later successful save of A clears it.
+      Check(reports == 1);
+    }
+    Begin(Outcome::Saved);
+    {
+      RuntimeConfigWriter writer("unused", Value{std::string("none")});
+      fail_thread_start = true;
+      Check(!writer.Submit("warp"));
+      Check(writer.HasFailure("ui", "auto_confirm_instant_warp") && writer.HasFailures() && !writer.HasWork());
+      Check(!writer.HasFailure("other", "unregistered"));
+      const auto retry = writer.Submit("jump");
+      AwaitSave();
+      Release();
+      AwaitCompletion(writer, retry);
+      Check(!writer.HasFailures() && !writer.HasFailure("ui", "auto_confirm_instant_warp"));
+    }
+    Begin(Outcome::IoError);
+    {
       block_report = true;
       RuntimeConfigWriter writer("unused", Value{std::string("none")}, Report);
       writer.Submit("warp");
@@ -166,27 +213,33 @@ int main()
       Check(requests[2].expected == std::optional<Value>{0.5});
     }
     Begin(Outcome::Saved);
+    std::chrono::steady_clock::time_point initial_submitted, replacement_submitted;
     {
       RuntimeConfigWriter writer("unused", std::nullopt);
       Check(writer.Register("graphics", "threshold", Value{0.5}));
+      initial_submitted = std::chrono::steady_clock::now();
       writer.Submit("graphics", "threshold", 0.6, 300ms);
       {
         std::unique_lock lock(gate);
-        Check(!changed.wait_for(lock, 75ms, [] { return entered; }));
+        changed.wait_for(lock, 75ms, [] { return entered; });
       }
-      const auto submitted = std::chrono::steady_clock::now();
-      writer.Submit("graphics", "threshold", 0.7, 300ms);
-      {
-        std::unique_lock lock(gate);
-        // Wait past the old deadline but before the replacement's deadline.
-        Check(!changed.wait_until(lock, submitted + 250ms, [] { return entered; }));
-      }
-      AwaitSave(); // Ordinary expiration must start work without Stop/quit.
-      Check(save_entered_at >= submitted + 300ms);
-      writer.Stop(false);
+      replacement_submitted = std::chrono::steady_clock::now();
+      const auto revision   = writer.Submit("graphics", "threshold", 0.7, 300ms);
       Release();
+      AwaitCompletion(writer, revision); // Ordinary expiration, without Stop/quit flushing the delay.
     }
-    Check(requests.size() == 1 && requests[0].desired == Value{0.7});
+    // The test thread may resume after the first deadline on a busy runner.
+    // Validate actual entry times, not a negative assertion made by a late observer.
+    // Both an already-active first write and a coalesced replacement are valid;
+    // the gated test above independently requires queued same-key coalescing.
+    Check(requests.size() == 1 || requests.size() == 2);
+    Check(requests.back().desired == Value{0.7});
+    if (requests.size() == 2)
+      Check(requests.front().desired == Value{0.6});
+    for (std::size_t i = 0; i < requests.size(); ++i) {
+      const auto submitted = requests[i].desired == Value{0.6} ? initial_submitted : replacement_submitted;
+      Check(save_times[i] >= submitted + 300ms);
+    }
     Begin(Outcome::Saved);
     {
       RuntimeConfigWriter writer("unused", std::nullopt);

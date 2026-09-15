@@ -1,8 +1,8 @@
 # Rebuildable mod settings pages
 
 This foundation separates presentation placement from a setting's owner. The
-intended native path is Settings > Mod Settings > group > setting. Group names
-and final membership are deliberately undecided; moving a control must not rename
+native path is Settings > Mod Settings > group > setting. Current task-based
+placement is documented in [the architecture](MOD_SETTINGS.md); moving a control must not rename
 its stored setting or introduce another copy of its value. Confirmation controls
 continue to belong on the native confirmation page.
 
@@ -21,6 +21,14 @@ retains no Unity objects. Views reuse `BooleanView` for guarded rendering, stale
 request rejection and authoritative readback. A released view cannot authorize
 another write. Rebuilding reads current state when each new view binds.
 
+A heading may supply a read-only visibility predicate. It controls the heading
+and following rows up to the next heading, independently of collapse state.
+Hidden rows stay registered and retain their setting owners and saved values.
+The current use is Cargo previews: Target types is visible while auto-open is on.
+Existing value-change notifications refresh the visible list; UI writes finish
+their request/readback scope before native rows can be rebound. Pages without a
+conditional section skip this extra refresh. No frame polling is added.
+
 The native adapter must create fresh managed contexts from this plan, avoid
 duplicate roots within one context, and release any temporary roots on failure.
 Pooled widgets must clear owned label/state overrides before reuse. No setting
@@ -38,13 +46,12 @@ larger than SPUD's 24-byte overwrite. Other platforms omit the native UI pending
 their own hook evidence. Metadata/builds alone do not validate presentation or
 callback lifetime; repeated navigation/pooling remains a runtime gate.
 
-Register through `ModPages()` before settings installation. The first production
-groups follow populated TOML sections: User Interface > Instant warp mode shares
-Alt+I's owner and persistence; Graphics > Fleet Labels places player/non-player
+Register through `ModPages()` before settings installation. Map & Travel > Instant
+warp mode shares Alt+I's owner and persistence; Fleet Labels places player/non-player
 sections on one page, each with detail
 choices and a percentage slider. Headings use native text-only rows with scoped
 label overrides and optional row tints cleared on refresh/clear. Two text-widget hooks have Windows x64
-extents of 293 and 271 bytes. Future grouping follows the section-based direction in
+extents of 293 and 271 bytes. Current grouping and feature details are in
 [MOD_SETTINGS_CONTROLS.md](MOD_SETTINGS_CONTROLS.md). Native confirmation placement remains unchanged.
 Selection controls share the typed setting/view guards with booleans and retain
 the whole integer value in each row snapshot. Three selection-widget hooks have
@@ -52,9 +59,11 @@ verified Windows x64 extents of 146, 355 and 281 bytes. Selection prefabs may pu
 their toggle on the row itself: an unavailable selection clears its selected
 index and disables interaction instead of hiding its label's container.
 
-The current native bridge shares the `ModConfirmationSettings` patch installation
-and its debug installation switch. Disabling that patch disables both native UI
-surfaces. Settings retain their own identity and persistence independently of it.
+The current native bridge uses `InstallNativeSettings`, retaining the historical
+`ModConfirmationSettings` debug patch key. Disabling that patch disables both
+native UI surfaces. Settings retain their own identity and persistence independently
+of it. See [native adapter ownership](MOD_SETTINGS_NATIVE_ADAPTER.md) for the
+module boundaries, installation order and retained lifecycle contracts.
 The shared native adapter sizes its stable weak-view storage once at installation
 from all registered control rows plus the two native confirmation rows, retaining
 the existing minimum of eight slots. Both fleet profiles need ten interactive

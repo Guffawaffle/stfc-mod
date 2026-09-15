@@ -1,5 +1,9 @@
 # Boolean settings foundation and native FC control
 
+**Historical first-slice notes.** See [current settings architecture](MOD_SETTINGS.md)
+for the expanded system. Prototype view counts, hook counts, deferred features
+and proposed timing budgets below describe the original FC-only implementation.
+
 The controller and Fleet Commander preference adapter back a Windows x64 native
 confirmation-page control. Mod-owned TOML
 persistence and the Community Mod category are separate work.

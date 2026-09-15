@@ -34,6 +34,11 @@ public:
   Completion LastCompletion();
   bool       HasWork() const
   { return has_work_.load(); }
+  bool HasFailures() const
+  { return has_failures_.load(); }
+  // Failure-path query: lets a caller distinguish a tracked failed attempt from
+  // an untracked rejection. A same-key retry can clear the former normally.
+  bool HasFailure(std::string_view section, std::string_view key);
   // Owner thread only, like Submit. On Windows this observes native thread exit
   // before joining; it never joins a still-running worker on a game callback.
   bool PollStopped();
@@ -49,7 +54,11 @@ private:
   void                  Run();
   std::filesystem::path path_;
   using Key = std::pair<std::string, std::string>;
-  std::map<Key, std::optional<Value>> saved_;
+  struct Saved {
+    std::optional<Value> value;
+    bool                 failed = false;
+  };
+  std::map<Key, Saved>                saved_;
   Reporter                            report_;
   TomlEditor                          editor_;
   std::mutex                          mutex_;
@@ -60,5 +69,6 @@ private:
   std::uint64_t                       revision_ = 0;
   bool                                stopping_ = false;
   std::atomic_bool                    has_work_{false}, finished_{false}, cancel_pending_{false};
+  std::atomic_bool                    has_failures_{false};
 };
 } // namespace config_edit

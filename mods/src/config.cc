@@ -730,6 +730,7 @@ void set_shortcut_noop(toml::node_view<toml::node> sectionTable, toml::node_view
 void parse_config_shortcut_value(toml::table& new_config, std::string_view item, GameFunction gameFunction,
                                  std::string_view default_value, const ShortcutConfigValue& shortcut_value)
 {
+  MapKey::RegisterAction(gameFunction, item, default_value);
   auto section = "shortcuts";
   auto source  = "shortcuts_source";
 
@@ -1145,7 +1146,7 @@ void Config::Load()
       get_auto_confirm_instant_warp(config, parsed, DCU::auto_confirm_instant_warp, write_config);
   this->installInstantWarpConfirmationHooks = true;
   // Internal installation switch; UI availability is checked by the native adapter.
-  this->installModConfirmationSettings = true;
+  this->installNativeSettings = true;
   read_instant_warp_filter(config, parsed, "instant_warp_auto_jump", this->instant_warp_auto_jump,
                            this->instant_warp_auto_jump_all, DCU::instant_warp_auto_jump, write_config);
   read_instant_warp_filter(config, parsed, "instant_warp_auto_warp", this->instant_warp_auto_warp,
