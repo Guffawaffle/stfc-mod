@@ -51,7 +51,7 @@ int main(int argc, char** argv)
   fixture.failures = false;
   Update();
   assert(notices == 2 && !runtime_config::HasSaveFailures());
-  available = false;
+  available               = false;
   writer                  = nullptr; // Configure/Install never supplied the normal update path.
   fixture_update_callback = nullptr;
   assert(runtime_config::SetSaveStatusObserver(save_status_changed));
@@ -72,6 +72,8 @@ int main(int argc, char** argv)
   runtime_config::SaveWarpMode("jump");
   assert(!runtime_config::HasSaveFailures());
   Reset();
+  runtime_config::SaveWarpMode("invalid");
+  assert(fixture.submissions == 0); // Generic submission must retain the mode wrapper's domain check.
   assert(WantsQuit([] { return true; }));
   assert(fixture.stopped && stopped && !draining);
   runtime_config::SaveWarpMode("warp");

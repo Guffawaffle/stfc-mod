@@ -8,7 +8,8 @@ namespace runtime_config
 // Startup only: retain the semantic disk value as the optimistic comparison base.
 void Configure(const toml::table& loaded);
 void Install();
-// UI-thread presentation observer; worker threads never call native UI.
+// Register one process-lifetime observer during patch installation. Called on
+// the game thread when aggregate failure status changes, never by the worker.
 bool SetSaveStatusObserver(void (*observer)());
 bool HasSaveFailures() noexcept;
 void SaveWarpMode(const char* mode) noexcept;

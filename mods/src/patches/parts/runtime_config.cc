@@ -155,8 +155,8 @@ bool SetSaveStatusObserver(void (*observer)())
 #if defined(_WIN32) && defined(_M_X64)
   if (save_status_changed && save_status_changed != observer)
     return false;
-  // Notices must also update if persistence/quit-hook validation failed, or no
-  // writer was configured. This existing dispatcher is idempotent and UI-owned.
+  // Status must also update if persistence/quit-hook validation failed, or no
+  // writer was configured. Registration uses the existing idempotent dispatcher.
   if (!observer || !install_screen_manager_update_hook() || !register_screen_manager_update_callback(Update))
     return false;
   save_status_changed = observer;
@@ -285,7 +285,18 @@ void SaveSetting(const char* section, const char* key, config_edit::Value value,
 }
 
 void SaveWarpMode(const char* mode) noexcept
-{ SaveSetting("ui", "auto_confirm_instant_warp", std::string(mode), {}); }
+{
+  try {
+    const std::string value(mode);
+    if (value != "none" && value != "warp" && value != "jump")
+      return;
+    SaveSetting("ui", "auto_confirm_instant_warp", value, {});
+  } catch (...) { // Keep value construction inside the shortcut's failure boundary.
+#if defined(_WIN32) && defined(_M_X64)
+    persistence_unavailable.store(true);
+#endif
+  }
+}
 
 #if _WIN32
 void ForceClose() noexcept
