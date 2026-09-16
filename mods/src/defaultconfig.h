@@ -33,7 +33,6 @@ namespace Control
   constexpr bool use_scopely_hotkeys = false;
   constexpr const char* keyboard_layout_mode = "physical";
   constexpr bool queue_enabled       = true;
-  constexpr bool kirshara_queue_repair = true;
   constexpr auto select_timer        = 500;
 } // namespace Control
 

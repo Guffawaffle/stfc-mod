@@ -114,8 +114,8 @@ hotkeys_extended = true
 # Следует ли включать очередь по умолчанию при наличии артефакта Кир'Шара?
 queue_enabled = true
 
-# Продвигать очередь Кир'Шара, если цель вне экрана стала недоступна до перехода Scopely?
-kirshara_queue_repair = true
+# Retired off-screen queue completion repair: THIS WAS FIXED BY SCOPELY.
+# The former kirshara_queue_repair setting is no longer used.
 
 # Включите этот параметр, если предпочитаете горячие клавиши Scopely
 use_scopely_hotkeys = false
