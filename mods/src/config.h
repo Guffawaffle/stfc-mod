@@ -10,6 +10,7 @@
 
 #include "patches/notification_audio.h"
 #include "patches/fleet_notification_types.h"
+#include "patches/parts/galaxy_policy.h"
 
 #if _WIN32
 #include <Windows.h>
@@ -171,6 +172,10 @@ public:
   float fr_scale;
   FleetLabelProfile zoom_label_player;
   FleetLabelProfile zoom_label_non_player;
+  bool galaxy_multi_select;
+  std::array<bool, 4> galaxy_overlays; // Default, Mining, Hostiles, Hazards
+  galaxy_controls::ZoomProfile galaxy_label_major;
+  galaxy_controls::ZoomProfile galaxy_label_minor;
   bool  allow_cursor;
   bool  free_resize;
   bool  adjust_scale_res;
