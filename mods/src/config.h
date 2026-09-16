@@ -10,6 +10,7 @@
 
 #include "patches/notification_audio.h"
 #include "patches/fleet_notification_types.h"
+#include "patches/parts/galaxy_policy.h"
 
 #if _WIN32
 #include <Windows.h>
@@ -171,6 +172,10 @@ public:
   float fr_scale;
   FleetLabelProfile zoom_label_player;
   FleetLabelProfile zoom_label_non_player;
+  bool galaxy_multi_select;
+  std::array<bool, 4> galaxy_overlays; // Default, Mining, Hostiles, Hazards
+  galaxy_controls::ZoomProfile galaxy_label_major;
+  galaxy_controls::ZoomProfile galaxy_label_minor;
   bool  allow_cursor;
   bool  free_resize;
   bool  adjust_scale_res;
@@ -183,13 +188,13 @@ public:
   int   select_timer;
 
   bool  queue_enabled;
+  bool  faster_queue_recovery;
   bool  hotkeys_enabled;
   bool  hotkeys_extended;
   bool  use_scopely_hotkeys;
   std::string keyboard_layout_mode;
   bool  use_presets_as_default;
   bool  enable_experimental;
-  bool  kirshara_queue_repair;
   float default_system_zoom;
 
   float system_zoom_preset_1;

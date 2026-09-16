@@ -56,8 +56,9 @@ void InstallOpcIndicatorHooks();
 void InstallDevConsole();
 void InstallGameErrorProbe();
 #endif
-void InstallActionQueueRepairHooks();
 void InstallNativeSettings();
+void InstallGalaxyLabels();
+void InstallActionQueueRecovery();
 
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
 {
@@ -168,8 +169,9 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"AudioEvents", {InstallAudioEventHooks, &cfg.installAudioEventHooks}},
       {"OfficerPresetReorder", {InstallOfficerPresetReorderHooks, &cfg.allow_officer_preset_reordering}},
       {"OpcIndicators", {InstallOpcIndicatorHooks, &cfg.installOpcIndicatorHooks}},
-      {"KirsharaQueueRepair", {InstallActionQueueRepairHooks, &cfg.kirshara_queue_repair}},
-      // Retain the existing debug patch key; this installer now owns both settings surfaces.
+      // Galaxy availability must be established before settings pages register.
+      {"GalaxyLabels", {InstallGalaxyLabels, &cfg.installZoomHooks}},
+      // Retain the existing debug patch key; this installer owns both settings surfaces.
       {"ModConfirmationSettings", {InstallNativeSettings, &cfg.installNativeSettings}},
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
@@ -195,6 +197,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   InstallDevConsole();
   InstallGameErrorProbe();
 #endif
+  InstallActionQueueRecovery();
 
   spdlog::info("");
 
