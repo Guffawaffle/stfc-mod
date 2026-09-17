@@ -116,7 +116,7 @@ queue_enabled = true
 
 # Retired off-screen queue completion repair: THIS WAS FIXED BY SCOPELY.
 # The former kirshara_queue_repair setting is no longer used.
-# Reprise plus rapide de la file si une cible disparaît (client Windows 261 uniquement).
+# Reprise plus rapide de la file si une cible disparaît (Windows x64 uniquement).
 faster_queue_recovery = false
 
 # Si vous préférez utiliser les raccourcis de Scopely mettez ça sur activer
