@@ -116,7 +116,7 @@ queue_enabled = true
 
 # Retired off-screen queue completion repair: THIS WAS FIXED BY SCOPELY.
 # The former kirshara_queue_repair setting is no longer used.
-# Schnellere Warteschlangen-Wiederaufnahme, wenn ein Ziel verschwindet (nur Windows-Client 261).
+# Schnellere Warteschlangen-Wiederaufnahme, wenn ein Ziel verschwindet (nur Windows x64).
 faster_queue_recovery = false
 
 # Auf true setzen, um die Hotkeys von Scopely zu verwenden
