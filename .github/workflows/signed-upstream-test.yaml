@@ -1,0 +1,218 @@
+name: Signed upstream Smart App Control test
+
+on:
+  push:
+    tags: ["v*-sac-test.*"]
+  workflow_dispatch:
+    inputs:
+      upstream_commit:
+        description: Exact upstream main commit to sign
+        required: true
+        default: "4bf238c116ebc6300ee33c792117f06dd7c22199"
+      upstream_run_id:
+        description: Successful upstream main Build run for that commit
+        required: true
+        default: "35215911994"
+
+permissions: {}
+
+concurrency:
+  group: signed-upstream-test-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Tag-triggered runs use this reviewed upstream baseline. No fork code is built.
+  UPSTREAM_COMMIT: ${{ inputs.upstream_commit || '4bf238c116ebc6300ee33c792117f06dd7c22199' }}
+  UPSTREAM_RUN_ID: ${{ inputs.upstream_run_id || '35215911994' }}
+
+jobs:
+  prepare:
+    if: github.repository == 'Guffawaffle/stfc-mod'
+    runs-on: windows-2022
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Download and verify exact upstream main artifact
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:REF_TYPE -ne 'tag' -or $env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+-sac-test\.[1-9][0-9]*$') {
+            throw 'Run from a vX.Y.Z.W-sac-test.N tag. Branch dispatches cannot publish releases.'
+          }
+          if ($env:UPSTREAM_COMMIT -cnotmatch '^[0-9a-f]{40}$' -or $env:UPSTREAM_RUN_ID -notmatch '^[1-9][0-9]*$') {
+            throw 'An exact upstream commit and numeric workflow run ID are required.'
+          }
+          $runJson = gh api "repos/netniV/stfc-mod/actions/runs/$env:UPSTREAM_RUN_ID"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read upstream run.' }
+          $run = $runJson | ConvertFrom-Json
+          if ($run.repository.full_name -cne 'netniV/stfc-mod' -or $run.head_sha -cne $env:UPSTREAM_COMMIT -or
+              $run.event -ne 'push' -or $run.head_branch -ne 'main' -or $run.conclusion -ne 'success' -or
+              $run.path -ne '.github/workflows/ci.yaml') {
+            throw 'Run must be a successful upstream main CI push at the requested commit.'
+          }
+          New-Item -ItemType Directory -Path payload | Out-Null
+          gh run download $env:UPSTREAM_RUN_ID --repo netniV/stfc-mod --name stfc-community-mod --dir payload
+          if ($LASTEXITCODE -ne 0) { throw 'Upstream artifact download failed.' }
+          $files = @(Get-ChildItem payload -Recurse -Force -File)
+          if ($files.Count -ne 1 -or $files[0].FullName -ne (Join-Path $PWD 'payload/version.dll')) {
+            throw 'Expected exactly one version.dll in the upstream artifact.'
+          }
+          # Repository spelling is case-sensitive in attestation certificate identities.
+          gh attestation verify payload/version.dll --repo netniV/stfc-mod `
+            --signer-workflow netniV/stfc-mod/.github/workflows/ci.yaml `
+            --source-digest $env:UPSTREAM_COMMIT --source-ref refs/heads/main --deny-self-hosted-runners
+          if ($LASTEXITCODE -ne 0) { throw 'Upstream provenance verification failed.' }
+          $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path payload/version.dll)).FileVersion
+          if ($env:RELEASE_TAG -cnotmatch ('^v' + [regex]::Escape($version) + '-sac-test\.')) {
+            throw "Tag version does not match upstream DLL version '$version'."
+          }
+          $hash = (Get-FileHash payload/version.dll -Algorithm SHA256).Hash.ToLowerInvariant()
+          [ordered]@{
+            upstreamRepository = 'netniV/stfc-mod'
+            upstreamCommit = $env:UPSTREAM_COMMIT
+            upstreamRunId = $env:UPSTREAM_RUN_ID
+            upstreamRunUrl = $run.html_url
+            upstreamVersion = $version
+            unsignedSha256 = $hash
+          } | ConvertTo-Json | Set-Content payload/provenance.json -Encoding utf8NoBOM
+          "Verified upstream commit: $env:UPSTREAM_COMMIT`nUnsigned DLL SHA-256: $hash" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Retain verified unsigned input
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: upstream-signing-input
+          path: payload/
+          if-no-files-found: error
+          retention-days: 7
+
+  sign:
+    needs: prepare
+    runs-on: windows-2022
+    timeout-minutes: 15
+    environment: windows-release
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: upstream-signing-input
+          path: payload
+
+      - name: Azure login with existing release identity
+        uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign upstream DLL
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2
+        with:
+          endpoint: ${{ vars.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
+          certificate-profile-name: ${{ vars.AZURE_CERTIFICATE_PROFILE_NAME }}
+          files: ${{ github.workspace }}\payload\version.dll
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: STFC Community Mod - signed upstream test
+          description-url: https://github.com/Guffawaffle/stfc-mod
+
+      - name: Verify signature and package test release
+        shell: pwsh
+        env:
+          EXPECTED_PUBLISHER: ${{ vars.WIN_PUBLISHER_NAME }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sig = Get-AuthenticodeSignature -LiteralPath payload/version.dll
+          if ($sig.Status -ne 'Valid' -or -not $sig.TimeStamperCertificate) {
+            throw 'A valid, timestamped Authenticode signature is required.'
+          }
+          $cert = $sig.SignerCertificate
+          $publisher = $cert.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+          if (-not $env:EXPECTED_PUBLISHER -or $publisher -cne $env:EXPECTED_PUBLISHER) {
+            throw "Unexpected signing publisher '$publisher'."
+          }
+          $rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPublicKey($cert)
+          if (-not $rsa -or $rsa.KeySize -gt 4096 -or $rsa.KeySize -lt 2048) {
+            throw 'Expected an RSA code-signing certificate supported by Smart App Control.'
+          }
+          # Use the typed extension to require the Azure Public Trust marker.
+          $oids = @($cert.Extensions | Where-Object { $_ -is [System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension] } |
+            ForEach-Object { $_.EnhancedKeyUsages | ForEach-Object Value })
+          if ('1.3.6.1.4.1.311.97.1.0' -notin $oids -or '1.3.6.1.5.5.7.3.3' -notin $oids) {
+            throw 'Expected Azure Public Trust code-signing certificate EKUs.'
+          }
+          $provenance = Get-Content payload/provenance.json -Raw | ConvertFrom-Json -AsHashtable
+          $provenance.signedSha256 = (Get-FileHash payload/version.dll -Algorithm SHA256).Hash.ToLowerInvariant()
+          $provenance.signer = $publisher
+          $provenance.certificateThumbprint = $cert.Thumbprint
+          $provenance.keyAlgorithm = 'RSA'
+          $provenance.keySize = $rsa.KeySize
+          $rsa.Dispose()
+          $provenance.signingWorkflowCommit = $env:GITHUB_SHA
+          $provenance.signingRunUrl = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          $provenance | ConvertTo-Json | Set-Content payload/provenance.json -Encoding utf8NoBOM
+          New-Item -ItemType Directory -Path release | Out-Null
+          Copy-Item payload/version.dll, payload/provenance.json -Destination release
+          Compress-Archive -LiteralPath payload/version.dll -DestinationPath release/stfc-community-mod-signed-test.zip
+          Get-ChildItem release -File | Sort-Object Name | ForEach-Object {
+            '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
+          } | Set-Content release/SHA256SUMS.txt -Encoding ascii
+          @"
+          Signed upstream Smart App Control test. Windows x64 only.
+
+          Upstream source: https://github.com/netniV/stfc-mod/commit/$($provenance.upstreamCommit)
+          Upstream build: $($provenance.upstreamRunUrl)
+          Publisher: $publisher (RSA $($provenance.keySize), valid Authenticode signature and timestamp).
+
+          This is the upstream DLL with an added Authenticode signature; it contains no fork code changes.
+          The release tag identifies the signing workflow, not the upstream source commit.
+
+          Close the game, back up your existing version.dll, then replace it with version.dll from this release
+          (also included in stfc-community-mod-signed-test.zip). Leave Smart App Control enabled and launch normally.
+          Report whether the game starts; if blocked, include the error and the CodeIntegrity event naming the blocked file.
+          Restore the backup to undo the test. Automatic updates may replace this test DLL.
+
+          Signed DLL SHA-256: $($provenance.signedSha256)
+          "@ | Set-Content release/RELEASE_NOTES.md -Encoding utf8NoBOM
+
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: signed-upstream-test
+          path: release/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: sign
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: signed-upstream-test
+          path: release
+      - name: Publish test prerelease without changing latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$RELEASE_TAG" --verify-tag --prerelease --latest=false \
+            --title "Signed upstream SAC test: $RELEASE_TAG" \
+            --notes-file release/RELEASE_NOTES.md \
+            release/version.dll release/stfc-community-mod-signed-test.zip \
+            release/provenance.json release/SHA256SUMS.txt
