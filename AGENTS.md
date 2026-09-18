@@ -40,7 +40,7 @@ Delete the `build/` folder to reset. Also delete `.vs/` for a full Visual Studio
 
 - Keep changes scoped. Do not stage unrelated dirty files or generated artifacts unless the user explicitly asks.
 - Before finishing C++ or patch work, run `git diff --check` and the narrowest relevant xmake build.
-- For macOS core mod changes, use `xmake f -p macosx -a arm64 -m debug --target_minver=14.5 -y && xmake -y mods`.
+- For macOS core mod changes, use `xmake f -p macosx -a arm64 -m debug --target_minver=14.6 -y && xmake -y mods`.
 - Review the final diff for risky hooks, platform guards, config default mismatches, and missing example config updates.
 - If a subtree such as `macos-launcher/` needs specialized guidance, prefer a nested `AGENTS.md` near that code instead of overloading this root file.
 

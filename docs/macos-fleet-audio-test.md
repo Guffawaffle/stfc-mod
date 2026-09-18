@@ -6,6 +6,8 @@
 - The named-event `All` audio filter (#259, `cfe2227a`).
 - Fleet-transition notifications (#268 consumer commits `d5c8a010`, `49d8bc75`).
 - Independent generated fleet audio (`ae7e64bc`).
+- Xcode launcher build compatibility (#291, `bfa22bbd`), including the macOS 14.6
+  deployment target and updated CI tools.
 
 The Fleet Watch observer already comes from upstream. This branch does not include
 the rest of the personal play stack and does not yet change arrival detection.
@@ -14,7 +16,7 @@ automatically change this test build.
 
 ## Testing
 
-Use the universal macOS installer or mod archive from this branch's successful
+Requires macOS 14.6 or newer. Use the universal macOS installer or mod archive from this branch's successful
 Build run. Back up the existing mod and TOML first, close the game before replacing
 the mod, and retain the exact run URL with the results. Do not switch builds during
 a comparison. Verify the startup log identifies the installed test build.
