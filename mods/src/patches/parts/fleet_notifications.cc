@@ -1,4 +1,5 @@
 #include "patches/fleet_notification_types.h"
+#include "patches/fleet_arrival_tracker.h"
 
 #include "config.h"
 #include "errormsg.h"
@@ -70,9 +71,6 @@ constexpr bool state_can_dock_from_space(FleetState state)
   }
 }
 
-constexpr bool arrived_in_system(FleetState before, FleetState after)
-{ return before == FleetState::Warping && after == FleetState::Impulsing; }
-
 constexpr bool arrived_at_destination(FleetState before, FleetState after)
 { return before == FleetState::Impulsing && state_is_destination(after); }
 
@@ -86,7 +84,6 @@ constexpr bool repair_complete(FleetState before, FleetState after)
 { return before == FleetState::Repairing && after == FleetState::Docked; }
 
 constexpr std::array kTransitionRules{
-    TransitionRule{FleetNotificationKind::ArrivedInSystem, arrived_in_system, "Fleet Arrived", "has arrived in-system"},
     TransitionRule{FleetNotificationKind::ArrivedAtDestination, arrived_at_destination, "Fleet Arrived",
                    "has reached its destination"},
     TransitionRule{FleetNotificationKind::StartedMining, started_mining, "Fleet Mining", "started mining"},
@@ -94,7 +91,6 @@ constexpr std::array kTransitionRules{
     TransitionRule{FleetNotificationKind::RepairComplete, repair_complete, "Repair Complete", "finished repairs"},
 };
 
-static_assert(arrived_in_system(FleetState::Warping, FleetState::Impulsing));
 static_assert(arrived_at_destination(FleetState::Impulsing, FleetState::IdleInSpace));
 static_assert(started_mining(FleetState::IdleInSpace, FleetState::Mining));
 static_assert(docked(FleetState::Impulsing, FleetState::Docked));
@@ -155,8 +151,32 @@ void observe_miner_opc(const fleet_watch::Snapshot& snapshot, FleetPlayerData* f
   }
 }
 
+FleetArrivalPhase arrival_phase(FleetState state)
+{
+  switch (state) {
+    case FleetState::WarpCharging: return FleetArrivalPhase::Charging;
+    case FleetState::Warping: return FleetArrivalPhase::Warping;
+    case FleetState::Impulsing: return FleetArrivalPhase::Impulsing;
+    default: return FleetArrivalPhase::Other;
+  }
+}
+
+std::array<FleetArrivalTracker, kFleetSlotCount> s_arrivals{};
+
 void emit_transition(const fleet_watch::Transition& transition)
 {
+  const auto slot = transition.after.slot;
+  if (event_enabled(FleetNotificationKind::ArrivedInSystem) && slot >= 0 && slot < kFleetSlotCount) {
+    const bool native_warp = transition.after.state == FleetState::Impulsing && transition.fleet
+                             && transition.fleet->PreviousState == FleetState::Warping;
+    if (s_arrivals[slot].Observe(transition.after.fleet_id, transition.observation_epoch,
+                                 arrival_phase(transition.before.state), arrival_phase(transition.after.state),
+                                 native_warp)) {
+      play_event_audio(FleetNotificationKind::ArrivedInSystem);
+      if (notification_enabled(FleetNotificationKind::ArrivedInSystem))
+        notification_emit("Fleet Arrived", "Your " + fleet_subject(transition.fleet) + " has arrived in-system");
+    }
+  }
   for (const auto& rule : kTransitionRules) {
     if (!event_enabled(rule.kind) || !rule.matches(transition.before.state, transition.after.state)) {
       continue;
@@ -293,7 +313,7 @@ bool install_node_depletion_hook()
 
 void InstallFleetNotificationHooks()
 {
-#if _WIN32
+#if _WIN32 || __APPLE__
   s_enabled_notifications = Config::Get().notify_fleet_events;
 #endif
 #if _WIN32 || __APPLE__
