@@ -17,6 +17,13 @@ boundaries and instruction prologues. If a target cannot be verified, the
 affected adapter stays disabled. Logs contain `[MacHookExtent]` and
 `[ModSettings]` evidence; successful compilation alone is not hook validation.
 
+Changes save automatically; the game's Save button is not required. Confirm the
+startup log says `Runtime config persistence ready=true`. Change the galaxy
+threshold to 95%, close and reopen Mod Settings, then quit normally and relaunch.
+Verify both the selected profile and 95% survive. Also test quitting immediately
+after moving the slider. If saving fails, the page should show the amber
+“Active this session; couldn't save” notice and the log should explain why.
+
 ## Fleet and galaxy labels
 
 Start with the default Native profiles. In Mod Settings, change player and
