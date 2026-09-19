@@ -4,9 +4,8 @@
 
 void InstallNativeSettings()
 {
-  // Native extents are checked against Windows unwind records. Other platforms
-  // omit this UI until equivalent hook evidence is available.
-#if defined(_WIN32) && defined(_M_X64)
+  // Check loaded-image extents before installing native UI hooks.
+#if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
   using namespace mod_settings::native;
   try {
     if (!InstallCoreValueWidgets())
@@ -17,7 +16,7 @@ void InstallNativeSettings()
       DisablePages();
       spdlog::warn("[ModSettings] Navigation unavailable; native confirmation control remains available");
     }
-    spdlog::info("[ModSettings] Native settings adapter installed (Windows x64)");
+    spdlog::info("[ModSettings] Native settings adapter installed");
   } catch (...) {
     Warn();
   }

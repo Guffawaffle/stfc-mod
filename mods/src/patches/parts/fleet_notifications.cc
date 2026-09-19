@@ -293,7 +293,7 @@ bool install_node_depletion_hook()
 
 void InstallFleetNotificationHooks()
 {
-#if _WIN32
+#if _WIN32 || __APPLE__
   s_enabled_notifications = Config::Get().notify_fleet_events;
 #endif
 #if _WIN32 || __APPLE__
