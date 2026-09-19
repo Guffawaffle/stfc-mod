@@ -144,6 +144,9 @@ enable_experimental = false
 #  <[=========================================================================================================================================]> 
 
 [graphics]
+# Systeme bei weiter Galaxieansicht auswaehlen. Nur Windows-Client 262; Neustart erforderlich.
+galaxy_extended_selection = false
+
 
 # Subgroup: Anzeige
 # -----------------

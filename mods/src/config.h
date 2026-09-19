@@ -256,6 +256,7 @@ public:
   bool double_click_to_assign_ship;
   bool arrow_keys_to_select_ship;
 
+  bool galaxy_extended_selection = false;
   bool show_cargo_default;
   bool show_player_cargo;
   bool show_station_cargo;

@@ -1040,6 +1040,8 @@ void Config::Load()
 
   spdlog::debug("");
 
+  this->galaxy_extended_selection = get_config_or_default(config, parsed, "graphics", "galaxy_extended_selection",
+      DCG::galaxy_extended_selection, write_config);
   this->ui_scale = get_config_or_default(config, parsed, "graphics", "ui_scale", DCG::ui_scale, write_config);
   this->ui_scale_adjust =
       get_config_or_default(config, parsed, "graphics", "ui_scale_adjust", DCG::ui_scale_adjust, write_config);
