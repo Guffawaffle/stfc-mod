@@ -2,13 +2,13 @@
 
 #if __APPLE__
 #include <algorithm>
-#include <capstone/capstone.h>
 #include <cstring>
 #include <dlfcn.h>
 #include <limits>
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <spdlog/spdlog.h>
+#include <spud/detour.h>
 
 namespace
 {
@@ -84,44 +84,6 @@ size_t FunctionExtent(const void* method)
   return 0;
 }
 
-bool HasPrologue(const void* method, size_t extent)
-{
-  // SPUD: x64 mov r11 + indirect jmp + address = 24 bytes. ARM64 ldr,
-  // up to four mov instructions, br, address = at most 32 bytes.
-  // Reject early returns/tail jumps, including alignment after tiny thunks.
-#if defined(__aarch64__)
-  constexpr auto   architecture = CS_ARCH_AARCH64;
-  constexpr auto   mode         = CS_MODE_LITTLE_ENDIAN;
-  constexpr size_t overwrite    = 32;
-#elif defined(__x86_64__)
-  constexpr auto   architecture = CS_ARCH_X86;
-  constexpr auto   mode         = CS_MODE_64;
-  constexpr size_t overwrite    = 24;
-#else
-  return false;
-#endif
-#if defined(__aarch64__) || defined(__x86_64__)
-  csh handle{};
-  if (cs_open(architecture, mode, &handle) != CS_ERR_OK)
-    return false;
-  cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
-  cs_insn*   instructions = nullptr;
-  const auto count        = cs_disasm(handle, static_cast<const uint8_t*>(method), std::min(extent, size_t{64}),
-                                      reinterpret_cast<uintptr_t>(method), 0, &instructions);
-  size_t     bytes        = 0;
-  for (size_t i = 0; i < count && bytes < overwrite; ++i) {
-    const auto& instruction = instructions[i];
-    if (cs_insn_group(handle, &instruction, CS_GRP_RET) || cs_insn_group(handle, &instruction, CS_GRP_INT)
-        || std::strcmp(instruction.mnemonic, "b") == 0 || std::strcmp(instruction.mnemonic, "br") == 0
-        || std::strcmp(instruction.mnemonic, "jmp") == 0)
-      break;
-    bytes += instruction.size;
-  }
-  cs_free(instructions, count);
-  cs_close(&handle);
-  return bytes >= overwrite;
-#endif
-}
 } // namespace
 #endif
 
@@ -129,7 +91,7 @@ bool native_hooks::MacHookFits(const void* method)
 {
 #if __APPLE__
   const auto extent = FunctionExtent(method);
-  const bool fits   = extent >= 64 && HasPrologue(method, extent);
+  const bool fits   = extent >= 64 && spud::has_detour_prologue(method, extent);
   spdlog::info("[MacHookExtent] entry={} bytes={} accepted={}", method, extent, fits);
   return fits;
 #else
