@@ -653,6 +653,7 @@ void InstallZoomHooks()
                                        ? il2cpp_class_get_property_from_name(navigation_zoom_class, "NormalizedZoom")
                                        : nullptr;
   bool  enable_labels            = FleetLabelProfilesEnabled() || GalaxyLabelsRequested();
+  bool fleet_widget_hooks_ready = false;
 #if __APPLE__
   // Galaxy composition needs the shared LOD and zoom hooks, not the fleet-only
   // pooled-widget hooks. Verify their untouched entries before either owner
@@ -805,8 +806,7 @@ void InstallZoomHooks()
       const bool disabled = SPUD_STATIC_DETOUR(ptr_on_disable, NavigationFleetWidget_OnDisable_Hook);
       const bool bound = SPUD_STATIC_DETOUR(ptr_on_did_bind_context, NavigationFleetWidget_OnDidBindContext_Hook);
       const bool released = SPUD_STATIC_DETOUR(ptr_on_about_to_release_context, NavigationFleetWidget_OnAboutToReleaseContext_Hook);
-      fleet_label_hooks_installed = galaxy_lod_hook_installed && enabled && disabled && bound && released;
-      spdlog::info("Fleet label detail hooks ready={}", fleet_label_hooks_installed);
+      fleet_widget_hooks_ready = galaxy_lod_hook_installed && enabled && disabled && bound && released;
     } else {
       spdlog::error("Fleet label detail hooks were not installed; using native fleet labels");
     }
@@ -865,4 +865,9 @@ void InstallZoomHooks()
       SPUD_STATIC_DETOUR(ptr_set_view_parameters, NavigationZoom_SetViewParameters_Hook);
     }
   }
+  // Widget callbacks remain pass-through until their shared per-frame owner is ready.
+  fleet_label_hooks_installed = fleet_widget_hooks_ready && keyboard_zoom_hook_installed;
+  if (enable_labels)
+    spdlog::info("Fleet label detail hooks ready={}", fleet_label_hooks_installed);
+
 }

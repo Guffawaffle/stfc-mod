@@ -26,8 +26,8 @@ fleet to exercise pooled widgets. Return both profiles to Native and verify
 normal game labels resume. Changes should persist after restarting.
 
 In the galaxy, test major and minor system labels independently with Always
-and Threshold, then restore Native. Enable multi-select and combine resources,
-hostiles, hazards, and armadas. Check labels and icons while zooming, panning,
+and Threshold, then restore Native. Enable multi-select and combine Default,
+Mining, Hostiles, and Hazards. Check labels and icons while zooming, panning,
 and entering/leaving a system. Disable multi-select and confirm the game's
 single-overlay selection and layout resume. Restart to check persistence.
 Defaults remain Native with multi-select off.
