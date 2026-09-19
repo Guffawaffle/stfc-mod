@@ -48,4 +48,3 @@ do
         add_syslinks("user32")
     end
 end
-
