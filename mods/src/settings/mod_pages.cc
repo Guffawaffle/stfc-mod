@@ -1,4 +1,5 @@
 #include "mod_pages.h"
+#include "mission_hud.h"
 #include "camera_settings.h"
 #include "fleet_labels.h"
 #include "galaxy_labels.h"
@@ -44,6 +45,18 @@ void RegisterModPages()
     for (auto option : {PreviewOption::PlayerCargo, PreviewOption::StationCargo, PreviewOption::HostileCargo,
                         PreviewOption::ArmadaCargo})
       catalog.AddBoolean("community_mod.previews", PreviewSetting(option));
+  }
+  catalog.AddPage("community_mod.hud", "HUD Buttons", "community_mod.settings");
+  for (auto option : {MissionHudOption::Trials, MissionHudOption::FieldTraining,
+                      MissionHudOption::Outposts, MissionHudOption::Missions}) {
+    auto& setting = MissionHudSetting(option);
+    catalog.AddHeading("community_mod.hud", setting.state().id() + ".section", setting.state().label(), true, {},
+                       [option] {
+                         auto& choice = MissionHudSetting(option);
+                         const auto state = choice.state().Observe().state;
+                         return state.known() ? choice.labels().at(*state.value) : std::string("Unavailable");
+                       });
+    catalog.AddChoice("community_mod.hud", setting);
   }
   catalog.AddPage("community_mod.labels", "Fleet Labels", "community_mod.settings");
   for (bool player : {true, false}) {
