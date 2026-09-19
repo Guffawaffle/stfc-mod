@@ -144,7 +144,7 @@ enable_experimental = false
 #  <[=========================================================================================================================================]> 
 
 [graphics]
-# Systeme bei weiter Galaxieansicht auswaehlen. Nur Windows-Client 262; Neustart erforderlich.
+# Systeme bei weiter Galaxieansicht auswaehlen (Windows und macOS). Standard: aus.
 galaxy_extended_selection = false
 
 

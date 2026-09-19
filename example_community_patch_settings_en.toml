@@ -144,7 +144,7 @@ enable_experimental = false
 #  <[===========================================================================================================================]> 
 
 [graphics]
-# Select systems at far galaxy zoom. Windows client 262 only; restart after changing.
+# Select systems at far galaxy zoom (Windows and macOS). Default off.
 galaxy_extended_selection = false
 
 

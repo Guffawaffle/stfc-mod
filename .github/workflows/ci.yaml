@@ -501,6 +501,11 @@ jobs:
           bash tests/run-config-save.sh "$(dirname "$(dirname "$TOML_HEADER")")"
           bash tests/run-settings.sh
 
+      - name: Test Mac native hook extents
+        run: |
+          xmake -y macos-hook-extent-tests
+          xmake run macos-hook-extent-tests
+
       - name: Report Swift module cache
         shell: bash
         run: |

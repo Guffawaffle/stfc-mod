@@ -144,7 +144,7 @@ enable_experimental = false
 #  <[==============================================================================================================================================================]> 
 
 [graphics]
-# Selecteer systemen bij ver uitgezoomde melkweg. Alleen Windows-client 262; herstart vereist.
+# Selecteer systemen bij ver uitgezoomde melkweg (Windows en macOS). Standaard uit.
 galaxy_extended_selection = false
 
 

@@ -142,6 +142,9 @@ enable_experimental = false
 #  <[==========================================================================]> 
 
 [graphics]
+# Extended system selection at far galaxy zoom (Windows and macOS). Default off.
+galaxy_extended_selection = false
+
 
 # Subgroup: Display
 # -----------------

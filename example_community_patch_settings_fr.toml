@@ -144,7 +144,7 @@ enable_experimental = false
 #  <[=======================================================================================================================================================]> 
 
 [graphics]
-# Selectionner les systemes avec un zoom galactique eloigne. Client Windows 262 uniquement ; redemarrage requis.
+# Selectionner les systemes avec un zoom galactique eloigne (Windows et macOS). Desactive par defaut.
 galaxy_extended_selection = false
 
 
