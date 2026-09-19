@@ -1,6 +1,7 @@
 #include "config.h"
 #include "errormsg.h"
 #include "patches/fleet_opc_sample.h"
+#include "patches/native_hook_extent.h"
 
 #include <il2cpp-tabledefs.h>
 #include <il2cpp/il2cpp-functions.h>
@@ -20,6 +21,7 @@
 #include <limits>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace
 {
@@ -1328,11 +1330,16 @@ FleetPlayerData* fleet_local_view_fleet(void* self)
 void FleetStateWidget_SetWidgetData_Hook(auto original, void* self)
 {
   original(self);
-  update_opc_eta_label(self, fleet_state_widget_context(self));
+  if (s_eta_enabled)
+    update_opc_eta_label(self, fleet_state_widget_context(self));
 }
 
 void FleetStateWidget_ClearWidgetData_Hook(auto original, void* self)
 {
+  if (!s_eta_enabled) {
+    original(self);
+    return;
+  }
   auto*      fleet        = fleet_state_widget_context(self);
   auto*      label_anchor = fleet_state_widget_label_anchor(self);
   const auto slot         = fleet ? fleet->Index : -1;
@@ -1352,11 +1359,16 @@ void FleetStateWidget_ClearWidgetData_Hook(auto original, void* self)
 void FleetbarFlagWidget_SetWidgetData_Hook(auto original, void* self)
 {
   original(self);
-  update_opc_highlight(opc_anchor_from_fleetbar_flag(self), fleetbar_flag_widget_context(self));
+  if (s_highlight_enabled)
+    update_opc_highlight(opc_anchor_from_fleetbar_flag(self), fleetbar_flag_widget_context(self));
 }
 
 void FleetbarFlagWidget_ClearWidgetData_Hook(auto original, void* self)
 {
+  if (!s_highlight_enabled) {
+    original(self);
+    return;
+  }
   auto*      fleet  = fleetbar_flag_widget_context(self);
   auto*      anchor = opc_anchor_from_fleetbar_flag(self);
   const auto slot   = fleet ? fleet->Index : -1;
@@ -1410,9 +1422,9 @@ void InstallOpcIndicatorHooks()
 {
   const bool use_opc_highlight = Config::Get().highlight_opc_fleets;
   const bool use_opc_eta       = Config::Get().fleet_hud_opc_eta;
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(__APPLE__)
   if (use_opc_highlight || use_opc_eta) {
-    spdlog::warn("[OpcIndicators] disabled: native hook validation is currently Windows-only");
+    spdlog::warn("[OpcIndicators] disabled: unsupported platform");
   }
   return;
 #endif
@@ -1475,18 +1487,43 @@ void InstallOpcIndicatorHooks()
     }
   }
 
-  s_eta_enabled       = use_opc_eta && local_ready && state_set && state_clear;
-  s_highlight_enabled = use_opc_highlight && local_ready && flag_set && flag_clear;
-  if (s_eta_enabled) {
-    SPUD_STATIC_DETOUR(state_clear->methodPointer, FleetStateWidget_ClearWidgetData_Hook);
-    SPUD_STATIC_DETOUR(state_set->methodPointer, FleetStateWidget_SetWidgetData_Hook);
+#if __APPLE__
+  // Preflight every requested target before installing any detour. Mach-O
+  // prologue validation also rejects an existing detour trampoline.
+  std::vector<const MethodInfo*> targets{bind_data_context, cargo_updated};
+  if (use_opc_eta) { targets.push_back(state_set); targets.push_back(state_clear); }
+  if (use_opc_highlight) { targets.push_back(flag_set); targets.push_back(flag_clear); }
+  for (size_t i = 0; i < targets.size(); ++i) {
+    if (!targets[i] || !native_hooks::MacHookFits(reinterpret_cast<const void*>(targets[i]->methodPointer))) {
+      spdlog::warn("[OpcIndicators] disabled: Mac hook extent/prologue validation failed");
+      return;
+    }
+    for (size_t j = 0; j < i; ++j)
+      if (targets[i]->methodPointer == targets[j]->methodPointer) {
+        spdlog::warn("[OpcIndicators] disabled: shared native hook target");
+        return;
+      }
   }
-  if (s_highlight_enabled) {
-    SPUD_STATIC_DETOUR(flag_clear->methodPointer, FleetbarFlagWidget_ClearWidgetData_Hook);
-    SPUD_STATIC_DETOUR(flag_set->methodPointer, FleetbarFlagWidget_SetWidgetData_Hook);
+#endif
+
+  const bool eta_ready = use_opc_eta && local_ready && state_set && state_clear;
+  const bool highlight_ready = use_opc_highlight && local_ready && flag_set && flag_clear;
+  bool installed = true;
+  if (eta_ready) {
+    installed = SPUD_STATIC_DETOUR(state_clear->methodPointer, FleetStateWidget_ClearWidgetData_Hook)
+                && SPUD_STATIC_DETOUR(state_set->methodPointer, FleetStateWidget_SetWidgetData_Hook);
   }
-  if (s_eta_enabled || s_highlight_enabled) {
-    SPUD_STATIC_DETOUR(bind_data_context->methodPointer, FleetLocalViewController_BindDataContext_Hook);
-    SPUD_STATIC_DETOUR(cargo_updated->methodPointer, FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook);
+  if (installed && highlight_ready) {
+    installed = SPUD_STATIC_DETOUR(flag_clear->methodPointer, FleetbarFlagWidget_ClearWidgetData_Hook)
+                && SPUD_STATIC_DETOUR(flag_set->methodPointer, FleetbarFlagWidget_SetWidgetData_Hook);
   }
+  if (installed && (eta_ready || highlight_ready)) {
+    installed = SPUD_STATIC_DETOUR(bind_data_context->methodPointer, FleetLocalViewController_BindDataContext_Hook)
+                && SPUD_STATIC_DETOUR(cargo_updated->methodPointer, FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook);
+  }
+  // Partial installations stay on the original path; never retry them on macOS.
+  s_eta_enabled = installed && eta_ready;
+  s_highlight_enabled = installed && highlight_ready;
+  if (!installed)
+    spdlog::warn("[OpcIndicators] disabled: native hook installation failed");
 }

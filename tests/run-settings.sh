@@ -7,3 +7,8 @@ for fixture in boolean_settings boolean_view native_boolean_callback page_catalo
     "tests/${fixture}_test.cc" -o "build/settings-test/$fixture"
   "build/settings-test/$fixture"
 done
+
+# The Mac candidate carries the fleet-arrival fixes; keep their regression
+# fixture in the native-platform test run, with assertions enabled.
+clang++ -std=c++23 -I mods/src tests/fleet_arrival_tracker.cc -o build/settings-test/fleet_arrival_tracker
+build/settings-test/fleet_arrival_tracker
