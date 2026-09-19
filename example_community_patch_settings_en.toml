@@ -194,7 +194,7 @@ zoom_label_player_threshold = 0.5
 # 0 uses compact detail; 1 always expands; equality expands.
 # Compact retains native Far presentation, including some major names.
 # Combine Default, Hostiles, Mining and Hazards. Defaults preserve native behavior.
-# Windows x64 on validated clients; available in release and debug builds.
+# Windows x64 and macOS on validated clients; available in release and debug builds.
 galaxy_multi_select = false
 galaxy_overlay_default = true
 galaxy_overlay_mining = false

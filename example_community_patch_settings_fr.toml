@@ -194,7 +194,7 @@ zoom_label_player_threshold = 0.5
 # 0 utilise les détails compacts ; 1 affiche toujours les détails ; égalité : détails.
 # Le mode compact conserve la vue lointaine native et certains noms majeurs.
 # Combiner Default, Hostiles, Mining et Hazards. Les valeurs par défaut préservent le comportement natif.
-# Windows x64 avec client validé ; disponible en versions release et debug.
+# Windows x64 et macOS avec client validé ; disponible en versions release et debug.
 galaxy_multi_select = false
 galaxy_overlay_default = true
 galaxy_overlay_mining = false

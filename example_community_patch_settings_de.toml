@@ -194,7 +194,7 @@ zoom_label_player_threshold = 0.5
 # 0 nutzt kompakte Details; 1 zeigt immer Details; Gleichheit zeigt Details.
 # Kompakt behält die native Fernansicht mit manchen Hauptsystemnamen bei.
 # Default, Hostiles, Mining und Hazards kombinieren. Standardwerte erhalten das Spielverhalten.
-# Windows x64 mit geprüftem Client; in Release- und Debug-Builds verfügbar.
+# Windows x64 und macOS mit geprüftem Client; in Release- und Debug-Builds verfügbar.
 galaxy_multi_select = false
 galaxy_overlay_default = true
 galaxy_overlay_mining = false

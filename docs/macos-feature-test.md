@@ -1,7 +1,7 @@
 # macOS feature test
 
-This branch enables the native Mod Settings adapter, OPC fleet indicators, and
-desktop notification delivery on macOS. It is a test candidate, not a claim of
+This branch enables the native Mod Settings adapter, OPC fleet indicators, fleet and galaxy
+label controls, galaxy overlay composition, and desktop notification delivery on macOS. It is a test candidate, not a claim of
 in-game validation. Keep the previous working mod available for rollback.
 
 ## Settings
@@ -16,6 +16,26 @@ The adapter verifies hook entries against the loaded client's Mach-O function
 boundaries and instruction prologues. If a target cannot be verified, the
 affected adapter stays disabled. Logs contain `[MacHookExtent]` and
 `[ModSettings]` evidence; successful compilation alone is not hook validation.
+
+## Fleet and galaxy labels
+
+Start with the default Native profiles. In Mod Settings, change player and
+non-player fleet labels independently to Expanded, Compact, and Threshold.
+Zoom in and out across the threshold, switch systems, and recall/redeploy a
+fleet to exercise pooled widgets. Return both profiles to Native and verify
+normal game labels resume. Changes should persist after restarting.
+
+In the galaxy, test major and minor system labels independently with Always
+and Threshold, then restore Native. Enable multi-select and combine resources,
+hostiles, hazards, and armadas. Check labels and icons while zooming, panning,
+and entering/leaving a system. Disable multi-select and confirm the game's
+single-overlay selection and layout resume. Restart to check persistence.
+Defaults remain Native with multi-select off.
+
+These controls appear only when their hook family validates successfully.
+Capture `[GalaxyLabels]`, `Fleet label detail hooks`, and `[MacHookExtent]`
+startup messages if either family is missing. Fleet and galaxy reuse a single
+LOD hook; failure of a fleet-only binding should not disable galaxy controls.
 
 ## OPC and desktop notifications
 

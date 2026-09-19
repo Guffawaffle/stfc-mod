@@ -87,15 +87,17 @@ size_t FunctionExtent(const void* method)
 } // namespace
 #endif
 
-bool native_hooks::MacHookFits(const void* method)
+bool native_hooks::MacHookFits(const void* method, std::size_t minimum_extent)
 {
 #if __APPLE__
   const auto extent = FunctionExtent(method);
-  const bool fits   = extent >= 64 && spud::has_detour_prologue(method, extent);
+  const bool fits   = extent >= std::max(minimum_extent, std::size_t{32})
+                      && spud::has_detour_prologue(method, extent);
   spdlog::info("[MacHookExtent] entry={} bytes={} accepted={}", method, extent, fits);
   return fits;
 #else
   (void)method;
+  (void)minimum_extent;
   return false;
 #endif
 }

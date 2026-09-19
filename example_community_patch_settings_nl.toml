@@ -194,7 +194,7 @@ zoom_label_player_threshold = 0.5
 # 0 gebruikt compacte details; 1 toont altijd details; gelijkheid toont details.
 # Compact behoudt de oorspronkelijke verre weergave, inclusief sommige hoofdnamen.
 # Combineer Default, Hostiles, Mining en Hazards. Standaardwaarden behouden het spelgedrag.
-# Windows x64 met gevalideerde client; beschikbaar in release- en debug-builds.
+# Windows x64 en macOS met gevalideerde client; beschikbaar in release- en debug-builds.
 galaxy_multi_select = false
 galaxy_overlay_default = true
 galaxy_overlay_mining = false
