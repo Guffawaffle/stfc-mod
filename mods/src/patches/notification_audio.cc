@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <span>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -242,6 +243,22 @@ std::optional<NotificationSound> notification_sound_from_name(std::string_view n
 
 void notification_audio_play(NotificationSound sound)
 {
+  notification_audio_play(NotificationAudioCue(sound));
+}
+
+void notification_audio_play(const NotificationAudioCue& cue)
+{
+  // PlaySound is asynchronous and borrows the buffer. Retain a custom clip
+  // until another successful playback has replaced it, including across reload.
+  static std::mutex playback_mutex;
+  static std::shared_ptr<const std::vector<uint8_t>> current_clip;
+  std::scoped_lock lock(playback_mutex);
+  if (cue.data && !cue.data->empty()) {
+    if (notification_audio_platform_play(cue.data->data(), cue.data->size()))
+      current_clip = cue.data;
+    return;
+  }
+  const auto sound = cue.sound;
   if (sound == NotificationSound::None)
     return;
 
@@ -255,6 +272,8 @@ void notification_audio_play(NotificationSound sound)
 
   if (!notification_audio_platform_play(buffer.data(), buffer.size())) {
     spdlog::warn("[NotifyAudio] Failed to play '{}' cue", notification_sound_name(sound));
+  } else {
+    current_clip.reset();
   }
 }
 
@@ -264,4 +283,6 @@ bool notification_audio_platform_play(const uint8_t* data, size_t)
 #elif !defined(__APPLE__)
 bool notification_audio_platform_play(const uint8_t*, size_t)
 { return false; }
+std::vector<uint8_t> notification_audio_platform_prepare(std::span<const uint8_t>)
+{ return {}; }
 #endif
