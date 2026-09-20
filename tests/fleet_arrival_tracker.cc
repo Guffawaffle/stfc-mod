@@ -1,9 +1,28 @@
+#include "patches/fleet_audio_activation.h"
 #include "patches/fleet_arrival_tracker.h"
 #include <cassert>
 #include <iostream>
 
 int main()
 {
+  // The fleet changed before a new audio alert was enabled while other alerts
+  // kept the observer active. Its first sampled transition must remain silent.
+  FleetAudioActivation activation;
+  activation.Enable(fleet_notification_bit(FleetNotificationKind::Docked));
+  assert(!activation.Allows(2, FleetNotificationKind::Docked));
+  activation.Observe(2);
+  assert(!activation.Allows(2, FleetNotificationKind::Docked));
+  assert(activation.Allows(2, FleetNotificationKind::RepairComplete));
+  assert(!activation.Allows(3, FleetNotificationKind::Docked));
+  activation.Observe(2);
+  assert(activation.Allows(2, FleetNotificationKind::Docked));
+  // Each slot establishes its own baseline; enabling again suppresses anew.
+  activation.Observe(3);
+  assert(!activation.Allows(3, FleetNotificationKind::Docked));
+  activation.Enable(fleet_notification_bit(FleetNotificationKind::Docked));
+  activation.Observe(2);
+  assert(!activation.Allows(2, FleetNotificationKind::Docked));
+
   using P = FleetArrivalPhase;
   FleetArrivalTracker t;
   auto step = [&](P before, P after, bool native = false, uint64_t epoch = 1, uint64_t fleet = 10) {

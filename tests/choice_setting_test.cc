@@ -61,7 +61,7 @@ int main()
   assert(audio_pages.Build().at(1).ControlRows() == 11);
   NativeViewState custom(audio, 10), off(audio, 0);
   custom.Bind(); off.Bind();
-  assert(custom.value() && !off.value());
+  assert(custom.value() == true && off.value() == false);
   assert(off.Request(true) == Outcome::AppliedVerified && audio_value == 0);
   custom.Bind();
   assert(custom.Request(true) == Outcome::AppliedVerified && audio_value == 10);

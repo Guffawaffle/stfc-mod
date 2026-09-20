@@ -1,6 +1,7 @@
 #include "patches/fleet_notification_types.h"
 #include "patches/fleet_notification_settings.h"
 #include "patches/fleet_arrival_tracker.h"
+#include "patches/fleet_audio_activation.h"
 
 #include "config.h"
 #include "patches/native_hook_extent.h"
@@ -103,6 +104,7 @@ static_assert(repair_complete(FleetState::Repairing, FleetState::Docked));
 FleetNotificationMask s_enabled_notifications = 0;
 FleetNotificationMask s_enabled_events = 0;
 FleetNotificationMask s_available_events = 0;
+FleetAudioActivation s_audio_activation;
 
 bool notification_enabled(FleetNotificationKind kind)
 { return (s_enabled_notifications & fleet_notification_bit(kind)) != 0; }
@@ -110,8 +112,9 @@ bool notification_enabled(FleetNotificationKind kind)
 bool event_enabled(FleetNotificationKind kind)
 { return (s_enabled_events & fleet_notification_bit(kind)) != 0; }
 
-void play_event_audio(FleetNotificationKind kind)
+void play_event_audio(FleetNotificationKind kind, int slot = -1)
 {
+  if (!s_audio_activation.Allows(slot, kind)) return;
   notification_audio_play(Config::Get().alert_fleet_events[static_cast<std::size_t>(kind)]);
 }
 
@@ -139,6 +142,7 @@ std::array<MinerOpcTracker, kFleetSlotCount> s_miner_opc{};
 
 void observe_miner_opc(const fleet_watch::Snapshot& snapshot, FleetPlayerData* fleet, bool publish)
 {
+  s_audio_activation.Observe(snapshot.slot);
   if (!event_enabled(FleetNotificationKind::MinerOpc) || snapshot.slot < 0 || snapshot.slot >= kFleetSlotCount) {
     return;
   }
@@ -149,7 +153,7 @@ void observe_miner_opc(const fleet_watch::Snapshot& snapshot, FleetPlayerData* f
     return;
   }
   spdlog::debug("[FleetNotifications] event=MinerOPC slot={} fleet={}", snapshot.slot, snapshot.fleet_id);
-  play_event_audio(FleetNotificationKind::MinerOpc);
+  play_event_audio(FleetNotificationKind::MinerOpc, snapshot.slot);
   if (notification_enabled(FleetNotificationKind::MinerOpc)) {
     notification_emit("Miner Is OPC", "Your " + fleet_subject(fleet) + " is now over protected cargo.");
   }
@@ -176,7 +180,7 @@ void emit_transition(const fleet_watch::Transition& transition)
     if (s_arrivals[slot].Observe(transition.after.fleet_id, transition.observation_epoch,
                                  arrival_phase(transition.before.state), arrival_phase(transition.after.state),
                                  native_warp)) {
-      play_event_audio(FleetNotificationKind::ArrivedInSystem);
+      play_event_audio(FleetNotificationKind::ArrivedInSystem, slot);
       if (notification_enabled(FleetNotificationKind::ArrivedInSystem))
         notification_emit("Fleet Arrived", "Your " + fleet_subject(transition.fleet) + " has arrived in-system");
     }
@@ -190,7 +194,7 @@ void emit_transition(const fleet_watch::Transition& transition)
                  fleet_notification_name(rule.kind), transition.after.fleet_id,
                  static_cast<int>(transition.before.state), static_cast<int>(transition.after.state));
 #endif
-    play_event_audio(rule.kind);
+    play_event_audio(rule.kind, slot);
     if (notification_enabled(rule.kind)) {
       notification_emit(rule.title, "Your " + fleet_subject(transition.fleet) + " " + std::string{rule.message});
     }
@@ -355,12 +359,15 @@ bool FleetNotificationAudioAvailable(FleetNotificationKind kind)
 void RefreshFleetNotificationAudio()
 {
   auto& config = Config::Get();
+  const auto previous_audio = config.audio_fleet_events;
+  const auto previous_events = s_enabled_events;
   config.audio_fleet_events = 0;
   for (const auto& entry : kFleetNotificationCatalog)
     if (config.alert_fleet_events[static_cast<std::size_t>(entry.kind)].enabled())
       config.audio_fleet_events |= fleet_notification_bit(entry.kind);
   s_enabled_events = (s_enabled_notifications | config.audio_fleet_events) & s_available_events;
-  // Changes start a fresh alert history; never replay a stale journey/OPC edge.
-  s_arrivals = {};
-  s_miner_opc = {};
+  s_audio_activation.Enable(config.audio_fleet_events & ~previous_audio);
+  const auto newly_observed = s_enabled_events & ~previous_events;
+  if (newly_observed & fleet_notification_bit(FleetNotificationKind::ArrivedInSystem)) s_arrivals = {};
+  if (newly_observed & fleet_notification_bit(FleetNotificationKind::MinerOpc)) s_miner_opc = {};
 }
