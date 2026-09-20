@@ -1,4 +1,5 @@
 #include "config.h"
+#include "patches/galactic_anomaly_timer.h"
 #include "patches/screen_update_hook.h"
 
 #include <il2cpp/il2cpp_helper.h>
@@ -138,6 +139,7 @@ struct Root {
 };
 
 Root navigation, panel, label, anomalyManager;
+bool available = false;
 
 void Clear()
 {
@@ -379,10 +381,16 @@ void Update()
 }
 } // namespace
 
+bool GalacticAnomalyTimerAvailable()
+{
+  return available;
+}
+
 void InstallGalacticAnomalyTimer()
 {
   if (install_screen_manager_update_hook()) {
-    register_screen_manager_update_callback(Update);
-    spdlog::info("Galactic anomaly countdown enabled (below Help All / Engage / Claim)");
+    available = register_screen_manager_update_callback(Update);
+    if (available)
+      spdlog::info("Galactic anomaly countdown ready (below Help All / Engage / Claim)");
   }
 }

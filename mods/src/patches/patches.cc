@@ -134,6 +134,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
+  bool install_anomaly_timer = cfg.galactic_anomaly_timer || cfg.installNativeSettings;
   bool install_forbidden_tech = cfg.auto_confirm_ft_upgrade;
 #if defined(_WIN32) && defined(_M_X64)
   install_forbidden_tech |= cfg.installNativeSettings;
@@ -160,7 +161,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"ObjectTracker", {InstallObjectTrackers, &cfg.installObjectTracker}},
       {"LoadingScreen", {InstallLoadingScreenHooks, &cfg.installLoadingScreenHooks}},
       {"TransitionScreen", {InstallTransitionScreenHooks, &cfg.installTransitionScreenHooks}},
-      {"GalacticAnomalyTimer", {InstallGalacticAnomalyTimer, &cfg.galactic_anomaly_timer}},
+      {"GalacticAnomalyTimer", {InstallGalacticAnomalyTimer, &install_anomaly_timer}},
       {"LoadingTip", {InstallLoadingTipHooks, &cfg.loader_tip_enabled}},
       {"FocusSearch", {InstallFocusSearchHooks, &cfg.installFocusSearchHooks}},
       {"CargoFormat", {InstallCargoFormatHooks, &cfg.installCargoFormatHooks}},
