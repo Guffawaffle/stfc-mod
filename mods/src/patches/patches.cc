@@ -49,6 +49,7 @@ void InstallInstantWarpConfirmationHooks();
 void InstallForbiddenTechConfirmationHooks();
 void InstallAudioEventHooks();
 void InstallActionQueueRecovery();
+void InstallThinQueueProtection();
 
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
 {
@@ -173,6 +174,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   }
 
   InstallActionQueueRecovery();
+  InstallThinQueueProtection();
 
   spdlog::info("");
 

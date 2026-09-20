@@ -9,4 +9,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Action queue test compilation failed.' }
     & ./build/action_queue_tests.exe
     if ($LASTEXITCODE -ne 0) { throw 'Action queue regression failed.' }
+    & clang++ -std=c++23 -Imods/src tests/thin_queue_protection.cc -o build/thin_queue_protection_tests.exe
+    if ($LASTEXITCODE -ne 0) { throw 'Thin Queue Protection test compilation failed.' }
+    & ./build/thin_queue_protection_tests.exe
+    if ($LASTEXITCODE -ne 0) { throw 'Thin Queue Protection regression failed.' }
 } finally { Pop-Location }
