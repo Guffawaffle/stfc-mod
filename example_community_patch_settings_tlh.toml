@@ -675,6 +675,7 @@ auto_open_bulk_claim_flyout = false
 # The chosen order is stored locally and does not change Scopely's preset slots
 allow_officer_preset_reordering = false
 # Windows/macOS: highlight deployed fleet-bar portraits in amber when cargo exceeds protected cargo
+# Also available live in Mod Settings > Previews & Cargo.
 highlight_opc_fleets = false
 
 # Windows/macOS: show estimated time to over-protected cargo below mining fleet status

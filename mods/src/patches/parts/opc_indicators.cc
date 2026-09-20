@@ -1,6 +1,7 @@
 #include "config.h"
 #include "errormsg.h"
 #include "patches/fleet_opc_sample.h"
+#include "patches/opc_indicators.h"
 #include "patches/native_hook_extent.h"
 
 #include <il2cpp-tabledefs.h>
@@ -587,6 +588,50 @@ static_assert(is_deployed(FleetState::Warping));
 static_assert(!is_deployed(FleetState::Docked));
 static_assert(!is_deployed(FleetState::Destroyed));
 
+// Weak handles let a settings change hide our existing artwork without retaining
+// stale Unity pointers or keeping destroyed scene objects alive.
+struct IndicatorObject { Il2CppGCHandle handle; bool eta; };
+std::vector<IndicatorObject> s_indicator_objects;
+
+bool indicator_alive(Il2CppObject* object)
+{
+  if (!object) return false;
+  static auto helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Object");
+  static auto method = helper.GetMethodInfo("op_Implicit", 1);
+  void* args[]{object};
+  auto* result = invoke(method, nullptr, args, "Object.op_Implicit");
+  return result && *static_cast<bool*>(il2cpp_object_unbox(result));
+}
+
+void show_indicator(GameObject* object, bool eta)
+{
+  // The caller already resolved this live object; the hot path only compares
+  // weak targets. Prune destroyed objects when registering a new one.
+  for (const auto& entry : s_indicator_objects) {
+    if (il2cpp_gchandle_get_target(entry.handle) == reinterpret_cast<Il2CppObject*>(object)) {
+      object->SetActive(true);
+      return;
+    }
+  }
+  bool tracked = false;
+  for (auto it = s_indicator_objects.begin(); it != s_indicator_objects.end();) {
+    auto* target = il2cpp_gchandle_get_target(it->handle);
+    if (!indicator_alive(target)) {
+      il2cpp_gchandle_free(it->handle);
+      it = s_indicator_objects.erase(it);
+    } else {
+      tracked |= target == reinterpret_cast<Il2CppObject*>(object);
+      ++it;
+    }
+  }
+  if (!tracked) {
+    auto handle = il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(object), false);
+    if (!handle) return;
+    s_indicator_objects.push_back({handle, eta});
+  }
+  object->SetActive(true);
+}
+
 void update_opc_highlight(Transform* body_transform, FleetPlayerData* fleet)
 {
   if (!body_transform) {
@@ -636,7 +681,7 @@ void update_opc_highlight(Transform* body_transform, FleetPlayerData* fleet)
     }
     clear_ui_retry(s_opc_highlight_setup_failures[slot], s_opc_highlight_retry_at_ms[slot]);
   }
-  highlight->SetActive(true);
+  show_indicator(highlight, false);
 }
 
 Transform* fleet_state_widget_label_anchor(void* fleet_state_widget)
@@ -838,7 +883,7 @@ void* create_ui_component(const char* name, Transform* parent, IL2CppClassHelper
     return nullptr;
   }
 
-  game_object->SetActive(true);
+  show_indicator(game_object, true);
   il2cpp_gchandle_free(handle);
   return component;
 }
@@ -1063,7 +1108,7 @@ void update_opc_card_label(void* ui_component, FleetPlayerData* fleet, const std
   state.display            = display;
   state.layout_initialized = true;
   clear_ui_retry(state.setup_failures, state.setup_retry_at_ms);
-  game_object->SetActive(true);
+  show_indicator(game_object, true);
 }
 
 void log_opc_eta(FleetPlayerData* fleet, const FleetOpcStatus& status, const std::string& display)
@@ -1290,8 +1335,8 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
   render.rendered_display      = display;
   render.rendered_safe_on_node = safe_on_node;
   clear_ui_retry(render.setup_failures, render.setup_retry_at_ms);
-  background->SetActive(true);
-  label_object->SetActive(true);
+  show_indicator(background, true);
+  show_indicator(label_object, true);
 }
 
 FleetPlayerData* fleet_state_widget_context(void* self)
@@ -1330,7 +1375,7 @@ FleetPlayerData* fleet_local_view_fleet(void* self)
 void FleetStateWidget_SetWidgetData_Hook(auto original, void* self)
 {
   original(self);
-  if (s_eta_enabled)
+  if (s_eta_enabled && Config::Get().fleet_hud_opc_eta)
     update_opc_eta_label(self, fleet_state_widget_context(self));
 }
 
@@ -1359,7 +1404,7 @@ void FleetStateWidget_ClearWidgetData_Hook(auto original, void* self)
 void FleetbarFlagWidget_SetWidgetData_Hook(auto original, void* self)
 {
   original(self);
-  if (s_highlight_enabled)
+  if (s_highlight_enabled && Config::Get().highlight_opc_fleets)
     update_opc_highlight(opc_anchor_from_fleetbar_flag(self), fleetbar_flag_widget_context(self));
 }
 
@@ -1388,15 +1433,17 @@ void FleetbarFlagWidget_ClearWidgetData_Hook(auto original, void* self)
 void FleetLocalViewController_BindDataContext_Hook(auto original, void* self, void* provider, void* data_context)
 {
   original(self, provider, data_context);
+  if (!(s_highlight_enabled && Config::Get().highlight_opc_fleets)
+      && !(s_eta_enabled && Config::Get().fleet_hud_opc_eta)) return;
 
   auto* tile_transform = component_transform(self);
   auto* label_anchor   = opc_anchor_from_tile(tile_transform);
   auto* fleet          = fleet_local_view_fleet(self);
-  if (s_highlight_enabled) {
+  if (s_highlight_enabled && Config::Get().highlight_opc_fleets) {
     update_opc_highlight(label_anchor, fleet);
   }
   const bool panel_component = fleet_panel_controller(self) == self;
-  if (s_eta_enabled && (label_anchor || panel_component)) {
+  if (s_eta_enabled && Config::Get().fleet_hud_opc_eta && (label_anchor || panel_component)) {
     reset_opc_eta_slot(fleet ? fleet->Index : -1);
     update_opc_eta_label(self, fleet, label_anchor);
   }
@@ -1405,13 +1452,15 @@ void FleetLocalViewController_BindDataContext_Hook(auto original, void* self, vo
 void FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook(auto original, void* self, int32_t dirty_flags)
 {
   original(self, dirty_flags);
+  if (!(s_highlight_enabled && Config::Get().highlight_opc_fleets)
+      && !(s_eta_enabled && Config::Get().fleet_hud_opc_eta)) return;
   auto* tile_transform = component_transform(self);
   auto* fleet          = fleet_local_view_fleet(self);
   invalidate_fleet_opc_sample(fleet ? fleet->Index : -1);
-  if (s_highlight_enabled) {
+  if (s_highlight_enabled && Config::Get().highlight_opc_fleets) {
     update_opc_highlight(opc_anchor_from_tile(tile_transform), fleet);
   }
-  if (s_eta_enabled) {
+  if (s_eta_enabled && Config::Get().fleet_hud_opc_eta) {
     update_opc_eta_label(self, fleet, opc_anchor_from_tile(tile_transform));
   }
 }
@@ -1420,8 +1469,8 @@ void FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook(auto original, vo
 
 void InstallOpcIndicatorHooks()
 {
-  const bool use_opc_highlight = Config::Get().highlight_opc_fleets;
-  const bool use_opc_eta       = Config::Get().fleet_hud_opc_eta;
+  constexpr bool use_opc_highlight = true;
+  constexpr bool use_opc_eta       = true;
 #if !defined(_WIN32) && !defined(__APPLE__)
   if (use_opc_highlight || use_opc_eta) {
     spdlog::warn("[OpcIndicators] disabled: unsupported platform");
@@ -1429,9 +1478,6 @@ void InstallOpcIndicatorHooks()
   return;
 #endif
 
-  if (!use_opc_highlight && !use_opc_eta) {
-    return;
-  }
 
   auto fleet_local_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Ships", "FleetLocalViewController");
   const auto* bind_data_context =
@@ -1526,4 +1572,29 @@ void InstallOpcIndicatorHooks()
   s_highlight_enabled = installed && highlight_ready;
   if (!installed)
     spdlog::warn("[OpcIndicators] disabled: native hook installation failed");
+}
+
+bool OpcHighlightAvailable() { return s_highlight_enabled; }
+bool OpcEtaAvailable() { return s_eta_enabled; }
+
+void RefreshOpcIndicatorSettings()
+{
+  for (auto it = s_indicator_objects.begin(); it != s_indicator_objects.end();) {
+    auto* target = il2cpp_gchandle_get_target(it->handle);
+    const bool alive = indicator_alive(target);
+    const bool enabled = it->eta ? Config::Get().fleet_hud_opc_eta : Config::Get().highlight_opc_fleets;
+    if (!alive || !enabled) {
+      if (alive) reinterpret_cast<GameObject*>(target)->SetActive(false);
+      il2cpp_gchandle_free(it->handle);
+      it = s_indicator_objects.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  // Recompute on the next native refresh, even when the fleet did not change.
+  for (int slot = 0; slot < kFleetSlotCount; ++slot) {
+    reset_opc_eta_slot(slot);
+    invalidate_fleet_opc_sample(slot);
+  }
+  s_opc_card_render_state = {};
 }
