@@ -1,4 +1,5 @@
 #include "patches/galaxy_selection_pins.h"
+#include "patches/galaxy_selection_pin_metadata.h"
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
@@ -45,6 +46,29 @@ Reader Fixture()
 }
 int main()
 {
+  Il2CppType integer{}, reference{};
+  integer.type = IL2CPP_TYPE_I4;
+  reference.type = IL2CPP_TYPE_CLASS;
+  MethodInfo count{}, item{};
+  count.return_type = &integer;
+  count.is_inflated = true;
+  item.is_inflated = true;
+  item.return_type = &reference;
+  const Il2CppType* parameters[]{&integer};
+  item.parameters = parameters;
+  item.parameters_count = 1;
+  Check(galaxy_selection::PinCountGetter(&count) && galaxy_selection::PinItemGetter(&item),
+        "Inflated List<POI> accessors must remain usable for retirement");
+  count.is_generic = true;
+  Check(!galaxy_selection::PinCountGetter(&count), "Open generic count getter must be rejected");
+  count.is_generic = false;
+  count.flags = METHOD_ATTRIBUTE_STATIC;
+  Check(!galaxy_selection::PinCountGetter(&count), "Static count getter must be rejected");
+  integer.byref = true;
+  Check(!galaxy_selection::PinItemGetter(&item), "Byref list index must be rejected");
+  integer.byref = false;
+  item.parameters_count = 0;
+  Check(!galaxy_selection::PinItemGetter(&item), "Wrong list accessor arity must be rejected");
   auto valid = Fixture();
   std::vector<int> pins;
   Check(galaxy_selection::CollectOwnerPins(1, pins, valid), "Complete owners must permit retirement checks");

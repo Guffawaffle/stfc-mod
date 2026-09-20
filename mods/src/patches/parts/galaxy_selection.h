@@ -8,6 +8,7 @@
 #include <limits>
 #include <vector>
 #include "patches/galaxy_selection_pins.h"
+#include "patches/galaxy_selection_pin_metadata.h"
 
 namespace galaxy_selection
 {
@@ -122,11 +123,10 @@ struct PinReader {
   bool List(Il2CppObject* items, std::vector<Il2CppObject*>& pins)
   {
     if (!items) return true;
-    const auto* count_method = method_contract::Resolve(items->klass, "get_Count", false, "System.Int32", {});
+    const auto* count_method = il2cpp_class_get_method_from_name(items->klass, "get_Count", 0);
     const auto* item = il2cpp_class_get_method_from_name(items->klass, "get_Item", 1);
     Il2CppObject* boxed = nullptr;
-    if (!item || !Reference(item->return_type)
-        || !method_contract::Type(item->parameters[0].parameter_type, "System.Int32")
+    if (!PinCountGetter(count_method) || !PinItemGetter(item) || !Reference(item->return_type)
         || !Read(items, count_method, nullptr, boxed) || !boxed) return false;
     const int count = *static_cast<int*>(il2cpp_object_unbox(boxed));
     if (count < 0 || count > 4096) return false;
