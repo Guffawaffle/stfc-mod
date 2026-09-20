@@ -41,7 +41,9 @@ void WriteWave(const std::filesystem::path& file, unsigned seconds)
 int main(int argc, char** argv)
 {
   Check(argc == 3);
-  const auto directory = std::filesystem::u8path(argv[1]);
+  // Construct UTF-8 here: Windows main(char**) arguments use the active code
+  // page, whereas TOML paths and File::Config() are UTF-8.
+  const auto directory = std::filesystem::u8path(argv[1]) / std::filesystem::path(u8"r\u00e9pertoire");
   std::filesystem::create_directories(directory);
   const auto name = std::string("arrival \xc3\xa9.WAV");
   const auto wave = directory / std::filesystem::u8path(name);
