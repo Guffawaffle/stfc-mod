@@ -11,6 +11,7 @@ bool      ActionsActive();
 // Valid only during a synchronous action invocation; never retain this pointer.
 Il2CppObject* InvokingActionWidget();
 void      RefreshActions();
+void      RefreshActionPresentations();
 ActionRow ActionFor(Il2CppObject* context);
 void      AddActionRow(Il2CppObject* director, Il2CppObject* context, Il2CppObject* parent, ActionSetting& action,
                        std::size_t index);

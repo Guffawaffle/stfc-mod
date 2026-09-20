@@ -164,6 +164,12 @@ void RefreshActions()
     return;
   RefreshPageRows();
   RefreshPageSummaries();
+  RefreshActionPresentations();
+}
+void RefreshActionPresentations()
+{
+  if (!OnUIThread() || !actionsActive || !PagesActive() || PageRefreshInProgress())
+    return;
   // Binding during a callback may append a deque slot. References stay valid;
   // iterators do not, so visit only the slots that existed at entry.
   for (std::size_t i = 0, count = actionViews.size(); i < count; ++i) {
