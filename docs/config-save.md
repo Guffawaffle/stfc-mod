@@ -82,8 +82,8 @@ The adapter resolves `Internal_ApplicationWantsToQuit()` and `Quit(int)` by thei
 complete managed signatures, without pinning client addresses or instruction bytes.
 On macOS the loaded quit method must also pass native extent/prologue validation.
 Incompatible bindings retain session-only changes with a save-failure notice.
-The adapter is idempotent, allowing native settings and keyboard consumers to
-request the same persistence lifecycle.
+Both hotkey and Mod Settings startup request the same idempotent adapter, so
+turning off hotkey hooks does not disable settings persistence.
 
 An idle normal quit closes admission and passes the original vote through without
 replaying quit. When work is active, normal quit stops admission, flushes pending

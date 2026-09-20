@@ -1,6 +1,5 @@
 #include "patches/runtime_config.h"
 #include "settings/native/page_navigation.h"
-#include "patches/runtime_config.h"
 #include "settings/native/value_widgets.h"
 #include <spdlog/spdlog.h>
 

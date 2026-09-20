@@ -68,8 +68,12 @@ void RegisterModPages()
     catalog.AddChoice("community_mod.labels", FleetLabelDetailSetting(player));
     catalog.AddSlider("community_mod.labels", FleetLabelThresholdSetting(player));
   }
-  if (GalaxyLabelControlsAvailable()) {
+  if (GalaxyLabelControlsAvailable() || GalaxyExtendedSelectionAvailable()) {
     catalog.AddPage("community_mod.galaxy", "Galaxy Labels", "community_mod.settings");
+    if (GalaxyExtendedSelectionAvailable())
+      catalog.AddBoolean("community_mod.galaxy", GalaxyExtendedSelectionSetting());
+  }
+  if (GalaxyLabelControlsAvailable()) {
     catalog.AddBoolean("community_mod.galaxy", GalaxyMultiSelectSetting());
     catalog.AddHeading("community_mod.galaxy", "community_mod.galaxy.overlays", "Overlays", false, [] {
       const auto state = GalaxyMultiSelectSetting().Observe().state;

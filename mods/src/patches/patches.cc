@@ -20,6 +20,7 @@
 
 void InstallUiScaleHooks();
 void InstallZoomHooks();
+void InstallGalaxySelectionHooks();
 void InstallBuffFixHooks();
 #if _WIN32
 void InstallFreeResizeHooks();
@@ -142,6 +143,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   const PatchEntry patches[] = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
+      {"GalaxySelection", {InstallGalaxySelectionHooks, &cfg.installZoomHooks}},
       {"BuffFixHooks", {InstallBuffFixHooks, &cfg.installBuffFixHooks}},
       {"ToastBannerHooks", {InstallToastBannerHooks, &cfg.installToastBannerHooks}},
       {"FleetNotifications", {InstallFleetNotificationHooks, &cfg.installFleetNotificationHooks}},

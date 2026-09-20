@@ -123,7 +123,7 @@ do
         -- Add Objective-C++ source
         add_files("src/*.mm")
         -- Link Cocoa framework
-        add_frameworks("Cocoa")
+        add_frameworks("Cocoa", "UserNotifications", {public = true})
     end
 
     set_policy("build.optimization.lto", true)

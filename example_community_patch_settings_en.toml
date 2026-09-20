@@ -148,6 +148,8 @@ enable_experimental = false
 #  <[===========================================================================================================================]> 
 
 [graphics]
+# Select systems at far galaxy zoom (Windows and macOS). Default off.
+galaxy_extended_selection = false
 # Show the remaining Galactic Anomaly time below Help All / Engage / Claim.
 galactic_anomaly_timer = false
 
@@ -201,7 +203,7 @@ zoom_label_player_threshold = 0.5
 # 0 uses compact detail; 1 always expands; equality expands.
 # Compact retains native Far presentation, including some major names.
 # Combine Default, Hostiles, Mining and Hazards. Defaults preserve native behavior.
-# Windows x64 on validated clients; available in release and debug builds.
+# Windows x64 and macOS on validated clients; available in release and debug builds.
 galaxy_multi_select = false
 galaxy_overlay_default = true
 galaxy_overlay_mining = false
@@ -694,10 +696,10 @@ auto_open_bulk_claim_flyout = false
 # Shift-click a preset's edit-name button to move it up; Ctrl-click to move it down
 # The chosen order is stored locally and does not change Scopely's preset slots
 allow_officer_preset_reordering = false
-# Windows only: highlight deployed fleet-bar portraits in amber when cargo exceeds protected cargo
+# Windows/macOS: highlight deployed fleet-bar portraits in amber when cargo exceeds protected cargo
 highlight_opc_fleets = false
 
-# Windows only: show estimated time to over-protected cargo below mining fleet status
+# Windows/macOS: show estimated time to over-protected cargo below mining fleet status
 fleet_hud_opc_eta = false
 
 # Prevent "escape" from prompting to exit the game
@@ -747,7 +749,7 @@ disabled_banner_types = ""
 # Specifies banner types that should trigger notifications (comma separated)
 notify_banner_types = ""
 
-# Fleet events that should trigger Windows notifications (comma separated, or "All")
+# Fleet events that should trigger desktop notifications (Windows/macOS) (comma separated, or "All")
 # Options: ArrivedInSystem, ArrivedAtDestination, StartedMining, NodeDepleted, Docked, RepairComplete, MinerOPC
 notify_fleet_events = ""
 

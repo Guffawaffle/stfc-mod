@@ -92,6 +92,19 @@ BooleanSetting& GalaxyOverlaySetting(int mode)
       BooleanSetting(definition(3, "hazards", "Hazards"))};
   return settings.at(static_cast<std::size_t>(mode));
 }
+BooleanSetting& GalaxyExtendedSelectionSetting()
+{
+  static BooleanSetting setting({"community_mod.galaxy.extended_selection", "Extended system selection",
+      [] { return GalaxyExtendedSelectionAvailable()
+                      ? ReadResult::Known(Config::Get().galaxy_extended_selection, 1) : ReadResult{}; },
+      [](bool value, std::uint64_t generation) {
+        if (generation != 1 || !GalaxyExtendedSelectionAvailable()) return ApplyResult::Rejected;
+        Config::Get().galaxy_extended_selection = value;
+        runtime_config::SaveSetting("graphics", "galaxy_extended_selection", value);
+        return ApplyResult::Applied;
+      }});
+  return setting;
+}
 BooleanSetting& GalaxyMultiSelectSetting()
 {
   static BooleanSetting setting({"community_mod.galaxy.multi_select", "Select multiple overlays",

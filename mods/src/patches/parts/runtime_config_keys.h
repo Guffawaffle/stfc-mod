@@ -15,6 +15,7 @@ inline constexpr std::pair<const char*, const char*> persisted_settings[]{
     {"graphics", "galaxy_overlay_mining"},
     {"graphics", "galaxy_overlay_hostiles"},
     {"graphics", "galaxy_overlay_hazards"},
+    {"graphics", "galaxy_extended_selection"},
     {"graphics", "galaxy_multi_select"},
     {"graphics", "galaxy_label_major_detail"},
     {"graphics", "galaxy_label_major_threshold"},
