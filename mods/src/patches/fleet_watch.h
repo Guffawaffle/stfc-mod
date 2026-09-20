@@ -28,6 +28,7 @@ struct Subscription {
   TransitionCallback  on_transition   = nullptr;
   FastPollPredicate   needs_fast_poll = nullptr;
   ObservationCallback on_observation  = nullptr;
+  bool (*is_active)() = nullptr; // Null means always active; queried on the game thread.
 };
 
 // Registers a process-lifetime fleet-state observer. The first subscription joins the shared screen-update dispatcher;

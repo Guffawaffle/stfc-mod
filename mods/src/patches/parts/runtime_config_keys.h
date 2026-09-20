@@ -6,6 +6,18 @@ namespace config_edit
 // Settings accepted by the runtime writer. Configure and its contract fixture
 // share this list so new settings cannot silently skip registration.
 inline constexpr std::pair<const char*, const char*> persisted_settings[]{
+    {"audio", "alert_victory"},
+    {"audio", "alert_defeat"},
+    {"audio", "alert_armada_created"},
+    {"audio", "alert_armada_battle_won"},
+    {"audio", "alert_armada_battle_lost"},
+    {"audio", "alert_fleet_arrived_in_system"},
+    {"audio", "alert_fleet_arrived_at_destination"},
+    {"audio", "alert_fleet_started_mining"},
+    {"audio", "alert_fleet_node_depleted"},
+    {"audio", "alert_fleet_docked"},
+    {"audio", "alert_fleet_repair_complete"},
+    {"audio", "alert_fleet_miner_opc"},
     {"graphics", "galactic_anomaly_timer"},
     {"graphics", "zoom_label_player_detail"},
     {"graphics", "zoom_label_non_player_detail"},

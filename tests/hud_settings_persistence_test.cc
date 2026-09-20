@@ -75,6 +75,22 @@ int main(int argc, char** argv)
       Check(loaded["ui"]["unrelated"].value<bool>() == true);
     }
   }
+  for (const auto& [section, key] : config_edit::persisted_settings) {
+    if (std::string_view(section) != "audio") continue;
+    for (const std::string value : {std::string("ping"), std::string("C:\\My Sounds\\clip.mp3"), std::string("none")}) {
+      const auto revision = writer.Submit(section, key, value);
+      Check(revision != 0);
+      const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+      while (writer.LastCompletion().revision != revision || writer.HasWork()) {
+        Check(std::chrono::steady_clock::now() < deadline);
+        std::this_thread::yield();
+      }
+      Check(!writer.HasFailures());
+      const auto loaded = toml::parse_file(path.string());
+      Check(loaded[section][key].value<std::string>() == value);
+      Check(loaded["ui"]["unrelated"].value<bool>() == true);
+    }
+  }
   writer.Stop(false);
   while (!writer.PollStopped()) std::this_thread::yield();
   std::ifstream input(path);

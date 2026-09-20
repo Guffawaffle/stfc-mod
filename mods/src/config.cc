@@ -1449,7 +1449,7 @@ void Config::Load()
   parsed["ui"].as_table()->insert_or_assign("notify_fleet_events", fleet_events_string);
 
 #if _WIN32 || __APPLE__
-  this->installFleetNotificationHooks = (this->notify_fleet_events | this->audio_fleet_events) != 0;
+  this->installFleetNotificationHooks = true; // Audio alerts can be enabled from Mod Settings.
 #else
   this->installFleetNotificationHooks = false;
 #endif

@@ -5,6 +5,7 @@
 #include "galaxy_labels.h"
 #include "galactic_anomaly_timer.h"
 #include "opc_indicators.h"
+#include "audio_alerts.h"
 #include "preview_settings.h"
 #include "shortcut_settings.h"
 #include "warp_mode.h"
@@ -20,6 +21,7 @@ void RegisterModPages()
 {
   auto& catalog = ModPages();
   RegisterShortcutPages(catalog);
+  RegisterAudioAlertPages(catalog);
   // Group by player tasks. Stable identities still map to existing TOML keys;
   // a presentation move does not migrate configuration.
   if (KeyboardZoomControlAvailable() || PanGlideControlAvailable()) {

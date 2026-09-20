@@ -1,4 +1,5 @@
 #include "patches/fleet_notification_types.h"
+#include "patches/fleet_notification_settings.h"
 #include "patches/fleet_arrival_tracker.h"
 
 #include "config.h"
@@ -101,6 +102,7 @@ static_assert(repair_complete(FleetState::Repairing, FleetState::Docked));
 
 FleetNotificationMask s_enabled_notifications = 0;
 FleetNotificationMask s_enabled_events = 0;
+FleetNotificationMask s_available_events = 0;
 
 bool notification_enabled(FleetNotificationKind kind)
 { return (s_enabled_notifications & fleet_notification_bit(kind)) != 0; }
@@ -281,6 +283,7 @@ void ToastFleetObserver_HandleMiningDepleted_Hook(auto original, void* self, int
   } else {
     original(self, fleet_id);
   }
+  if (!event_enabled(FleetNotificationKind::NodeDepleted)) return;
   const auto id = static_cast<uint64_t>(fleet_id);
   if (!allow_node_depletion(id)) {
     return;
@@ -335,13 +338,29 @@ void InstallFleetNotificationHooks()
   // OPC uses the existing round-robin observations (~2.5s per slot); no additional mining poll or detour.
   constexpr auto observed_events =
       kAllFleetNotifications & ~fleet_notification_bit(FleetNotificationKind::NodeDepleted);
-  if ((s_enabled_events & observed_events) != 0
-      && !fleet_watch::Subscribe({emit_transition, needs_enabled_fast_poll,
-                                 event_enabled(FleetNotificationKind::MinerOpc) ? observe_miner_opc : nullptr})) {
+  if (!fleet_watch::Subscribe({emit_transition, needs_enabled_fast_poll, observe_miner_opc,
+                               [] { return (s_enabled_events & ~fleet_notification_bit(FleetNotificationKind::NodeDepleted)) != 0; }})) {
     spdlog::warn("[FleetNotifications] Fleet Watch subscription failed");
-  }
-  if (event_enabled(FleetNotificationKind::NodeDepleted) && !install_node_depletion_hook()) {
+  } else { s_available_events |= observed_events; }
+  if (!install_node_depletion_hook()) {
     spdlog::warn("[FleetNotifications] node-depletion hook installation failed");
-  }
+  } else { s_available_events |= fleet_notification_bit(FleetNotificationKind::NodeDepleted); }
+  RefreshFleetNotificationAudio();
 #endif
+}
+
+bool FleetNotificationAudioAvailable(FleetNotificationKind kind)
+{ return (s_available_events & fleet_notification_bit(kind)) != 0; }
+
+void RefreshFleetNotificationAudio()
+{
+  auto& config = Config::Get();
+  config.audio_fleet_events = 0;
+  for (const auto& entry : kFleetNotificationCatalog)
+    if (config.alert_fleet_events[static_cast<std::size_t>(entry.kind)].enabled())
+      config.audio_fleet_events |= fleet_notification_bit(entry.kind);
+  s_enabled_events = (s_enabled_notifications | config.audio_fleet_events) & s_available_events;
+  // Changes start a fresh alert history; never replay a stale journey/OPC edge.
+  s_arrivals = {};
+  s_miner_opc = {};
 }

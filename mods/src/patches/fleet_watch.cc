@@ -93,6 +93,7 @@ bool needs_fast_poll(FleetState state)
   CallbackScope callback_scope;
 
   for (const auto& subscription : s_subscriptions) {
+    if (subscription.is_active && !subscription.is_active()) continue;
     if (!subscription.needs_fast_poll) {
       continue;
     }
@@ -158,6 +159,7 @@ void dispatch_transition(int slot, FleetPlayerData* fleet, FleetState before, Fl
   };
   CallbackScope callback_scope;
   for (const auto& subscription : s_subscriptions) {
+    if (subscription.is_active && !subscription.is_active()) continue;
     try {
       subscription.on_transition(transition);
     } catch (const std::exception& error) {
@@ -215,6 +217,7 @@ void observe_fleet(FleetPlayerData* fleet, int requested_slot, bool publish)
     CallbackScope               callback_scope;
     const fleet_watch::Snapshot snapshot{slot, fleet_id, state};
     for (const auto& subscription : s_subscriptions) {
+      if (subscription.is_active && !subscription.is_active()) continue;
       if (!subscription.on_observation) {
         continue;
       }
@@ -334,6 +337,12 @@ void Tick()
     return;
   }
 
+  static bool suspended = false;
+  const bool active = std::any_of(s_subscriptions.begin(), s_subscriptions.end(), [](const auto& subscription) {
+    return !subscription.is_active || subscription.is_active();
+  });
+  if (!active) { suspended = true; return; }
+  if (suspended) { reset_observation(); suspended = false; }
   const auto now_ms = now_milliseconds();
   if (s_seed_pending) {
     if (s_seed_started_ms == 0) {
