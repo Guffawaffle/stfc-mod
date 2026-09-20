@@ -9,8 +9,9 @@ in-game validation. Keep the previous working mod available for rollback.
 Open the game's Settings and look for **Mod Settings**. Open and close each
 available page, change a harmless setting such as a fleet label, and verify it
 survives restarting the game. Check the native settings still work. Pages only
-show controls whose backing feature is available; this does not enable the
-Windows keyboard shortcut editor or every other Windows-only feature.
+show controls whose backing feature is available. The shared shortcut editor is
+also enabled: record a Command shortcut, apply it, verify gameplay dispatch, and
+check it again after restart. Current-artifact Mac shortcut smoke remains pending.
 
 The adapter verifies hook entries against the loaded client's Mach-O function
 boundaries and instruction prologues. If a target cannot be verified, the

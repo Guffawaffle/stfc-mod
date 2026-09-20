@@ -7,6 +7,7 @@
 #include <cmath>
 #include <limits>
 #include <vector>
+#include "patches/galaxy_selection_pins.h"
 
 namespace galaxy_selection
 {
@@ -87,42 +88,61 @@ inline void Reset()
 
 // Read known native owners before retiring any immutable POI. Missing owner
 // bindings fail closed. This is click-time work only, with no scene-wide search.
+struct PinReader {
+  bool Reference(const Il2CppType* type)
+  {
+    if (!type || type->byref) return false;
+    if (type->type == IL2CPP_TYPE_CLASS || type->type == IL2CPP_TYPE_OBJECT
+        || type->type == IL2CPP_TYPE_SZARRAY || type->type == IL2CPP_TYPE_ARRAY) return true;
+    auto* cls = type->type == IL2CPP_TYPE_GENERICINST ? il2cpp_class_from_type(type) : nullptr;
+    return cls && !il2cpp_class_is_valuetype(cls);
+  }
+  bool Field(Il2CppObject* object, const char* name, Il2CppObject*& result)
+  {
+    result = nullptr;
+    auto* field = object ? il2cpp_class_get_field_from_name(object->klass, name) : nullptr;
+    if (!field || (field->type->attrs & FIELD_ATTRIBUTE_STATIC)) return false;
+    if (!Reference(field->type)) return false;
+    il2cpp_field_get_value(object, field, &result);
+    return true;
+  }
+  bool Read(Il2CppObject* object, const MethodInfo* method, void** args, Il2CppObject*& result)
+  {
+    result = nullptr;
+    if (!object || !method || (method->flags & METHOD_ATTRIBUTE_STATIC)) return false;
+    Il2CppException* error = nullptr;
+    result = il2cpp_runtime_invoke(method, object, args, &error);
+    return error == nullptr;
+  }
+  bool Property(Il2CppObject* object, const char* name, Il2CppObject*& result)
+  {
+    const auto* method = object ? il2cpp_class_get_method_from_name(object->klass, name, 0) : nullptr;
+    return method && Reference(method->return_type) && Read(object, method, nullptr, result);
+  }
+  bool List(Il2CppObject* items, std::vector<Il2CppObject*>& pins)
+  {
+    if (!items) return true;
+    const auto* count_method = method_contract::Resolve(items->klass, "get_Count", false, "System.Int32", {});
+    const auto* item = il2cpp_class_get_method_from_name(items->klass, "get_Item", 1);
+    Il2CppObject* boxed = nullptr;
+    if (!item || !Reference(item->return_type)
+        || !method_contract::Type(item->parameters[0].parameter_type, "System.Int32")
+        || !Read(items, count_method, nullptr, boxed) || !boxed) return false;
+    const int count = *static_cast<int*>(il2cpp_object_unbox(boxed));
+    if (count < 0 || count > 4096) return false;
+    for (int i = 0; i < count; ++i) {
+      void* args[]{&i};
+      Il2CppObject* poi = nullptr;
+      if (!Read(items, item, args, poi)) return false;
+      if (poi) pins.push_back(poi);
+    }
+    return true;
+  }
+};
 inline bool CollectPins(Il2CppObject* manager, std::vector<Il2CppObject*>& pins)
 {
-  auto pin = [&](Il2CppObject* poi) { if (poi) pins.push_back(poi); };
-  auto list = [&](Il2CppObject* items) {
-    if (!items) return true;
-    auto* boxed = Call(items, "get_Count");
-    auto* item = il2cpp_class_get_method_from_name(items->klass, "get_Item", 1);
-    if (!boxed || !item) return false;
-    int count = *static_cast<int*>(il2cpp_object_unbox(boxed));
-    if (count < 0 || count > 4096) return false;
-    for (int i = 0; i < count; ++i) { void* args[]{&i}; pin(Invoke(items, item, args)); }
-    return true;
-  };
-  auto context = [&](Il2CppObject* value) {
-    if (!value) return true;
-    if (!il2cpp_class_get_field_from_name(value->klass, "Poi")
-        || !il2cpp_class_get_field_from_name(value->klass, "PoiList")) return false;
-    pin(Field(value, "Poi"));
-    return list(Field(value, "PoiList"));
-  };
-  auto* ui = Field(manager, "_navigationInteractionUIViewController");
-  auto* loader = Field(ui, "_objectViewerLoadAndShow");
-  if (!ui || !loader || !il2cpp_class_get_method_from_name(ui->klass, "get_CanvasContext", 0)
-      || !il2cpp_class_get_method_from_name(loader->klass, "get_Context", 0)
-      || !il2cpp_class_get_field_from_name(loader->klass, "_activePOI")) return false;
-  if (!list(Field(manager, "_selectionPoiList"))
-      || !context(Call(ui, "get_CanvasContext")) || !context(Call(loader, "get_Context"))) return false;
-  pin(Field(loader, "_activePOI"));
-  for (const auto* name : {"_activeViewer", "_viewerToResetOnClose"}) {
-    auto* viewer = Field(loader, name);
-    if (!viewer) continue;
-    if (!context(Call(viewer, "get_CanvasContext")) || !context(Call(viewer, "get_Context"))) return false;
-    auto* parent = Call(viewer, "get_Parent");
-    if (parent && (!context(Call(parent, "get_CanvasContext")) || !list(Field(parent, "_queryPoiList")))) return false;
-  }
-  return true;
+  PinReader reader;
+  return CollectOwnerPins(manager, pins, reader);
 }
 inline bool MakeRoom(const std::vector<Il2CppObject*>& pins, bool bindings_ok)
 {
