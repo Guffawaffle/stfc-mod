@@ -37,14 +37,20 @@ Open **Mod Settings > Audio Alerts**, then choose an alert. Select **Off** or a
 built-in sound and use **Preview sound** to hear it. Changes apply immediately
 and save to the existing TOML key; desktop notification preferences are unchanged.
 
-An alert configured with a custom path also offers **Custom file (TOML)**. Its
-already-loaded clip is retained for the session, so you can try a built-in and
-switch back without reloading. Merely opening settings does not change the path.
+Select **Custom...** to choose a local WAV or MP3 using the native file picker.
+The **Choose file...** button also lets you replace or reload a custom sound.
+The selected filename appears on the page. Files load in the background; the
+current sound stays active until the replacement is ready. Canceling or choosing
+an invalid file leaves the current sound and saved path unchanged.
+
+An alert configured with a custom path retains its already-loaded clip for the
+session, so you can try a built-in and select **Custom...** to switch back without
+reloading. Merely opening settings does not change the path.
 Selecting a built-in intentionally saves that built-in name; after restarting,
 the previous custom path is no longer offered unless you restore it in TOML.
 Missing/invalid custom clips remain represented but cannot be previewed.
 
-File selection and reloading files are not part of this page yet. Restart after
-editing a custom path or file. Alerts whose required hooks are unavailable cannot
+Use **Choose file...** again to reload a changed file without restarting.
+Alerts whose required hooks are unavailable cannot
 be changed or previewed. Enabling a fleet alert starts fresh observation history,
 so it does not report past fleet activity.
