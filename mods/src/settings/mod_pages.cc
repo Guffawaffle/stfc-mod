@@ -4,6 +4,7 @@
 #include "fleet_labels.h"
 #include "galaxy_labels.h"
 #include "galactic_anomaly_timer.h"
+#include "opc_indicators.h"
 #include "preview_settings.h"
 #include "shortcut_settings.h"
 #include "warp_mode.h"
@@ -34,6 +35,9 @@ void RegisterModPages()
   catalog.AddHeading("community_mod.navigation", "community_mod.navigation.anomaly", "Galactic Anomalies");
   catalog.AddBoolean("community_mod.navigation", GalacticAnomalyTimerSetting());
   catalog.AddPage("community_mod.previews", "Previews & Cargo", "community_mod.settings");
+  catalog.AddHeading("community_mod.previews", "community_mod.ui.opc", "Protected cargo");
+  catalog.AddBoolean("community_mod.previews", OpcHighlightSetting());
+  catalog.AddBoolean("community_mod.previews", OpcEtaSetting());
   if (PreviewShortcutsAvailable()) {
     for (auto option : {PreviewOption::Locate, PreviewOption::Recall})
       catalog.AddBoolean("community_mod.previews", PreviewSetting(option));
