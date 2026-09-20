@@ -3,6 +3,7 @@
 #include "camera_settings.h"
 #include "fleet_labels.h"
 #include "galaxy_labels.h"
+#include "galactic_anomaly_timer.h"
 #include "preview_settings.h"
 #include "shortcut_settings.h"
 #include "warp_mode.h"
@@ -30,6 +31,8 @@ void RegisterModPages()
   catalog.AddPage("community_mod.navigation", "Map & Travel", "community_mod.settings");
   catalog.AddHeading("community_mod.navigation", "community_mod.navigation.warp", "Instant warp mode");
   catalog.AddChoice("community_mod.navigation", WarpModeSetting());
+  catalog.AddHeading("community_mod.navigation", "community_mod.navigation.anomaly", "Galactic Anomalies");
+  catalog.AddBoolean("community_mod.navigation", GalacticAnomalyTimerSetting());
   catalog.AddPage("community_mod.previews", "Previews & Cargo", "community_mod.settings");
   if (PreviewShortcutsAvailable()) {
     for (auto option : {PreviewOption::Locate, PreviewOption::Recall})

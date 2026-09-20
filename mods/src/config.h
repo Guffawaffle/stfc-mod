@@ -306,6 +306,7 @@ public:
   std::string loader_image;
   float       loader_logo_scale;
   bool        loader_tip_enabled;
+  bool        galactic_anomaly_timer;
 
   bool installLoadingScreenHooks;
   bool installTransitionScreenHooks;
