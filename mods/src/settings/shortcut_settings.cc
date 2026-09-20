@@ -161,17 +161,9 @@ namespace
         const auto isHeld = [&](KeyCode key) { return held[static_cast<int>(key)]; };
         const auto key =
             keyboard_layout::CaptureIdentity(*primary, isHeld(KeyCode::LeftShift) || isHeld(KeyCode::RightShift));
-        // New bindings use generic modifiers, matching ordinary TOML bindings.
+        // Generic modifiers for new bindings, matching ordinary TOML bindings.
         // Existing sided modifiers remain untouched unless that binding is replaced.
-        std::string token;
-        if (isHeld(KeyCode::LeftControl) || isHeld(KeyCode::RightControl))
-          token += "CTRL-";
-        if (isHeld(KeyCode::LeftAlt) || isHeld(KeyCode::RightAlt))
-          token += "ALT-";
-        if (isHeld(KeyCode::LeftShift) || isHeld(KeyCode::RightShift))
-          token += "SHIFT-";
-        if (isHeld(KeyCode::LeftWindows) || isHeld(KeyCode::RightWindows))
-          token += "WIN-";
+        std::string token = CaptureModifierPrefix(isHeld);
         if (key == KeyCode::None || isHeld(KeyCode::AltGr)) {
           editor->status = "This key/layout is unavailable; record another";
         } else {
@@ -180,10 +172,12 @@ namespace
           editor->overlaps.clear();
           if (result == ShortcutStage::Staged) {
             editor->overlaps = Overlaps(*editor, token);
-            editor->status   = editor->replacing.empty() ? "Add " + token : editor->replacing + " -> " + token;
+            editor->status   = editor->replacing.empty() ? "Add " + token
+                                                         : editor->replacing + " -> " + token;
           } else {
-            editor->status = result == ShortcutStage::AlreadyBound ? "Already bound: " + token
-                                                                   : "Binding unavailable; reopen and try again";
+            editor->status = result == ShortcutStage::AlreadyBound
+                                 ? "Already bound: " + token
+                                 : "Binding unavailable; reopen and try again";
           }
         }
         recording = nullptr;
@@ -358,7 +352,10 @@ void RegisterShortcutPages(PageCatalog& catalog)
 {
   if (!editors.empty() || !Config::Get().installHotkeyHooks || Config::Get().use_scopely_hotkeys)
     return;
-#if defined(_WIN32) && defined(_M_X64)
+// macOS ports the shared native settings adapter; capture stays in physical
+// keyboard mode and relies on the same runtime-resolved hooks as Windows.
+// Only Windows x64 resolves layout-dependent printable chords.
+#if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
   // Capture must observe a focused release before returning keys to gameplay.
   // A missing query is not ordinary focus loss: never offer capture without it.
   isFocused = il2cpp_resolve_icall_typed<bool()>("UnityEngine.Application::get_isFocused()");
