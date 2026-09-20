@@ -373,7 +373,7 @@ NotificationAudioCue get_notification_sound(toml::table& config, toml::table& ne
 {
   const auto value = get_config_or_default<std::string>(config, new_config, "audio", item,
                                                        std::string(default_value), false);
-  const auto directory = std::filesystem::path(File::MakePath(File::Config())).parent_path();
+  const auto directory = std::filesystem::u8path(File::MakePath(File::Config())).parent_path();
   const auto result = notification_audio_load(StripAsciiWhitespace(value), directory);
   new_config["audio"].as_table()->insert_or_assign(item, result.source);
   if (write_log)
