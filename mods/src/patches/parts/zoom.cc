@@ -669,7 +669,7 @@ void InstallZoomHooks()
   auto* target_class = galaxy_target ? il2cpp_class_from_type(galaxy_target->type) : nullptr;
   const auto* target_type = target_class && il2cpp_class_is_enum(target_class)
       ? il2cpp_class_enum_basetype(target_class) : nullptr;
-  galaxy_zoom_hooks_validated = GalaxyLabelsRequested() && galaxy_lod_method && galaxy_update
+  galaxy_zoom_hooks_validated = galaxy_lod_method && galaxy_update
       && galaxy_target && !(galaxy_target->type->attrs & FIELD_ATTRIBUTE_STATIC)
       && target_type && target_type->type == IL2CPP_TYPE_I4
       && zoom_level_field && !(zoom_level_field->type->attrs & FIELD_ATTRIBUTE_STATIC)
@@ -813,7 +813,7 @@ void InstallZoomHooks()
   }
 
 #if __APPLE__
-  if (galaxy_zoom_hooks_validated && !galaxy_lod_hook_installed)
+  if (GalaxyLabelsRequested() && galaxy_zoom_hooks_validated && !galaxy_lod_hook_installed)
     galaxy_lod_hook_installed = SPUD_STATIC_DETOUR(method_contract::Pointer(galaxy_lod_method), NavigationLOD_UpdateLOD_Hook);
   if (GalaxyLabelsRequested() && !galaxy_zoom_hooks_validated)
     spdlog::warn("[GalaxyLabels] Mac shared zoom/LOD validation failed; using native galaxy labels");

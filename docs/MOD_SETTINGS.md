@@ -1,6 +1,6 @@
 # Mod settings: current architecture and behavior
 
-This is the current contract for the expanded Windows x64 settings UI. The
+This is the current contract for the expanded Windows x64 and macOS settings UI. The
 [foundation notes](MOD_SETTINGS_FOUNDATION.md) describe the first FC-only slice;
 their prototype counts and proposed budgets are historical, not current limits.
 
@@ -93,6 +93,11 @@ their request/readback scope finishes. Headings and command rows do not persist
 presentation state. Dynamic command rows use the existing 128-child sanity bound;
 the editor presents up to 60 bindings (Change and Remove plus fixed rows).
 Longer player-authored lists remain live and stored in full.
+
+There is no new polling hook, save worker or global localization hook.
+Platform guards and native method extent checks remain part of installation;
+macOS installs the same settings adapter behind its Mach-O extent gates, while
+Windows-only layout resolution keeps shortcut capture physical there.
 
 ## Measurement and validation
 

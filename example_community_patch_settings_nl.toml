@@ -119,6 +119,10 @@ queue_enabled = true
 # Sneller doorgaan met de wachtrij als een doel verdwijnt (alleen Windows x64).
 faster_queue_recovery = false
 
+# Thin Queue Protection: hervat na native opruiming; verwijder bevestigde vernietigde doelen vooraan.
+# Alleen Windows x64. Standaard aan; onafhankelijk van Faster Queue Recovery.
+thin_queue_protection = true
+
 # Als je de Scopely sneltoetsen prefereerd over die van de mod, schakel dit dan aan
 use_scopely_hotkeys = false
 
@@ -721,7 +725,7 @@ auto_confirm_ft_upgrade = false
 #   "none" - Do not choose an action automatically; show the confirmation dialog
 #   "warp" - Automatically choose regular warp
 #   "jump" - Automatically choose instant jump
-# The mode shortcut persists this value on verified Windows clients; otherwise session-only.
+# The mode shortcut persists this value on validated Windows x64 and macOS clients; otherwise session-only.
 # External edits are preserved; conflicts are logged. See docs/config-save.md.
 auto_confirm_instant_warp = "none"
 

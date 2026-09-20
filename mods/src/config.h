@@ -189,6 +189,7 @@ public:
 
   bool  queue_enabled;
   bool  faster_queue_recovery;
+  bool  thin_queue_protection;
   bool  hotkeys_enabled;
   bool  hotkeys_extended;
   bool  use_scopely_hotkeys;

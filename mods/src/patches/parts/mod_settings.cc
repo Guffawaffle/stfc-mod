@@ -9,8 +9,7 @@ void InstallNativeSettings()
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
   using namespace mod_settings::native;
   try {
-    // Settings saving must also work when the optional hotkey patch is off.
-    // Install is idempotent when hotkeys already initialized persistence.
+    // Settings persistence must also work when keyboard hooks are disabled.
     runtime_config::Install();
     if (!InstallCoreValueWidgets())
       return;
