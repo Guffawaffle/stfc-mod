@@ -59,6 +59,7 @@ void InstallGameErrorProbe();
 void InstallNativeSettings();
 void InstallGalaxyLabels();
 void InstallActionQueueRecovery();
+void InstallThinQueueProtection();
 
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
 {
@@ -198,6 +199,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   InstallGameErrorProbe();
 #endif
   InstallActionQueueRecovery();
+  InstallThinQueueProtection();
 
   spdlog::info("");
 
