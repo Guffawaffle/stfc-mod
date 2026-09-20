@@ -1381,7 +1381,7 @@ void FleetStateWidget_SetWidgetData_Hook(auto original, void* self)
 
 void FleetStateWidget_ClearWidgetData_Hook(auto original, void* self)
 {
-  if (!s_eta_enabled) {
+  if (!s_eta_enabled || !Config::Get().fleet_hud_opc_eta) {
     original(self);
     return;
   }
@@ -1410,7 +1410,7 @@ void FleetbarFlagWidget_SetWidgetData_Hook(auto original, void* self)
 
 void FleetbarFlagWidget_ClearWidgetData_Hook(auto original, void* self)
 {
-  if (!s_highlight_enabled) {
+  if (!s_highlight_enabled || !Config::Get().highlight_opc_fleets) {
     original(self);
     return;
   }
