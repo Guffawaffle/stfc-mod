@@ -156,7 +156,7 @@ public:
 
   [[nodiscard]] MissionHudVisibility MissionHudButtonVisibility(std::string_view button_name) const;
   [[nodiscard]] bool                 MissionHudTweaksEnabled() const;
-  [[nodiscard]] NotificationSound    NotificationSoundForToast(int toast_state) const;
+  [[nodiscard]] NotificationAudioCue NotificationSoundForToast(int toast_state) const;
 
   // Disallow copying/moving to enforce singleton
   Config(const Config&)            = delete;
@@ -210,7 +210,7 @@ public:
   std::vector<int> notify_banner_types;
   FleetNotificationMask notify_fleet_events = 0;
   FleetNotificationMask audio_fleet_events = 0;
-  std::array<NotificationSound, kFleetNotificationCatalog.size()> alert_fleet_events{};
+  std::array<NotificationAudioCue, kFleetNotificationCatalog.size()> alert_fleet_events{};
 
   int  extend_chest_purchase_max;
   int  extend_donation_max;
@@ -227,11 +227,11 @@ public:
   bool trace_audio_events;
   bool disable_all_audio_events;
   std::vector<std::string> disabled_audio_events;
-  NotificationSound alert_victory            = NotificationSound::None;
-  NotificationSound alert_defeat             = NotificationSound::None;
-  NotificationSound alert_armada_created     = NotificationSound::None;
-  NotificationSound alert_armada_battle_won  = NotificationSound::None;
-  NotificationSound alert_armada_battle_lost = NotificationSound::None;
+  NotificationAudioCue alert_victory            = NotificationSound::None;
+  NotificationAudioCue alert_defeat             = NotificationSound::None;
+  NotificationAudioCue alert_armada_created     = NotificationSound::None;
+  NotificationAudioCue alert_armada_battle_won  = NotificationSound::None;
+  NotificationAudioCue alert_armada_battle_lost = NotificationSound::None;
   bool auto_open_bulk_claim_flyout;
   bool allow_officer_preset_reordering;
   bool highlight_opc_fleets;

@@ -24,6 +24,8 @@ inline constexpr std::pair<const char*, const char*> persisted_settings[]{
     {"graphics", "keyboard_zoom_speed"},
     {"graphics", "system_pan_momentum_falloff"},
     {"ui", "auto_confirm_ft_upgrade"},
+    {"ui", "highlight_opc_fleets"},
+    {"ui", "fleet_hud_opc_eta"},
     {"ui", "hud_q_trials"},
     {"ui", "hud_field_training"},
     {"ui", "hud_outposts"},

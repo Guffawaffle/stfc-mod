@@ -31,6 +31,12 @@
 #  <[=======================================]> 
 
 [audio]
+# Alert values also accept local .wav/.mp3 files (Windows/macOS), e.g.
+# alert_victory = 'sounds/victory.mp3' or 'C:\Sounds\victory.wav'.
+# Relative paths use the settings file directory. Files are loaded at startup;
+# restart after changing them. Maximum 16 MiB per file and 30 seconds per clip.
+# Missing/invalid files are silent and logged; their configured paths are kept.
+# Web URLs are not supported. Built-in sound names and "none" still work.
 # Comma-separated audio event names to suppress; use "All" as a wildcard for named events handled by this filter
 disabled_events = ""
 
@@ -699,6 +705,7 @@ auto_open_bulk_claim_flyout = false
 # The chosen order is stored locally and does not change Scopely's preset slots
 allow_officer_preset_reordering = false
 # Windows/macOS: highlight deployed fleet-bar portraits in amber when cargo exceeds protected cargo
+# Also available live in Mod Settings > Previews & Cargo.
 highlight_opc_fleets = false
 
 # Windows/macOS: show estimated time to over-protected cargo below mining fleet status
