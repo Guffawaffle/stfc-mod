@@ -25,7 +25,7 @@ public:
 private:
   static ValueDefinition<int> Checked(ValueDefinition<int> definition, std::size_t count)
   {
-    if (count < 2 || count > 8 || definition.id.empty() || definition.label.empty() || !definition.read
+    if (count < 2 || count > 16 || definition.id.empty() || definition.label.empty() || !definition.read
         || !definition.write)
       throw std::invalid_argument("choice setting definition");
     auto read       = std::move(definition.read);

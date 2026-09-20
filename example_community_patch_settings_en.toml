@@ -31,6 +31,7 @@
 #  <[=======================================]> 
 
 [audio]
+# Built-in alert sounds can be changed and previewed live in Mod Settings > Audio Alerts.
 # Alert values also accept local .wav/.mp3 files (Windows/macOS), e.g.
 # alert_victory = 'sounds/victory.mp3' or 'C:\Sounds\victory.wav'.
 # Relative paths use the settings file directory. Files are loaded at startup;

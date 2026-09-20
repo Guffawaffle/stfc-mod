@@ -7,6 +7,9 @@
 
 #include <spud/detour.h>
 
+namespace { bool s_toast_audio_available = false; }
+bool ToastAudioAvailable() { return s_toast_audio_available; }
+
 struct ToastObserver {
 };
 
@@ -37,6 +40,7 @@ void ToastObserver_EnqueueOrCombineToast_Hook(auto original, ToastObserver *_thi
 void InstallToastBannerHooks()
 {
   notification_init();
+  bool enqueue = false, combine = false;
 
   if (auto helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "ToastObserver");
       !helper.isValidHelper()) {
@@ -45,13 +49,14 @@ void InstallToastBannerHooks()
     if (const auto ptr = helper.GetMethod("EnqueueToast"); ptr == nullptr) {
       ErrorMsg::MissingMethod("ToastObserver", "EnqueueToast");
     } else {
-      SPUD_STATIC_DETOUR(ptr, ToastObserver_EnqueueToast_Hook);
+      enqueue = SPUD_STATIC_DETOUR(ptr, ToastObserver_EnqueueToast_Hook) != nullptr;
     }
 
     if (const auto ptr = helper.GetMethod("EnqueueOrCombineToast"); ptr == nullptr) {
       ErrorMsg::MissingMethod("ToastObserver", "EnqueueOrCombineToast");
     } else {
-      SPUD_STATIC_DETOUR(ptr, ToastObserver_EnqueueOrCombineToast_Hook);
+      combine = SPUD_STATIC_DETOUR(ptr, ToastObserver_EnqueueOrCombineToast_Hook) != nullptr;
     }
   }
+  s_toast_audio_available = enqueue && combine;
 }
