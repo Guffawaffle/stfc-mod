@@ -47,6 +47,19 @@ int main(int argc, char** argv)
       Check(loaded["ui"]["unrelated"].value<bool>() == true);
     }
   }
+  for (bool enabled : {true, false, true}) {
+    const auto revision = writer.Submit("graphics", "galactic_anomaly_timer", enabled);
+    Check(revision != 0);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (writer.LastCompletion().revision != revision || writer.HasWork()) {
+      Check(std::chrono::steady_clock::now() < deadline);
+      std::this_thread::yield();
+    }
+    Check(!writer.HasFailures());
+    const auto loaded = toml::parse_file(path.string());
+    Check(loaded["graphics"]["galactic_anomaly_timer"].value<bool>() == enabled);
+    Check(loaded["ui"]["unrelated"].value<bool>() == true);
+  }
   writer.Stop(false);
   while (!writer.PollStopped()) std::this_thread::yield();
   std::ifstream input(path);

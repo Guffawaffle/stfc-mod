@@ -6,6 +6,7 @@ namespace config_edit
 // Settings accepted by the runtime writer. Configure and its contract fixture
 // share this list so new settings cannot silently skip registration.
 inline constexpr std::pair<const char*, const char*> persisted_settings[]{
+    {"graphics", "galactic_anomaly_timer"},
     {"graphics", "zoom_label_player_detail"},
     {"graphics", "zoom_label_non_player_detail"},
     {"graphics", "zoom_label_player_threshold"},

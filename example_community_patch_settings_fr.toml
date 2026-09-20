@@ -31,40 +31,11 @@
 #  <[=======================================]> 
 
 [audio]
-<<<<<<< HEAD
 # Comma-separated audio event names to suppress; leave blank to allow all audio events
-=======
-# Alert values also accept local .wav/.mp3 files (Windows/macOS), e.g.
-# alert_victory = 'sounds/victory.mp3' or 'C:\Sounds\victory.wav'.
-# Relative paths use the settings file directory. Files are loaded at startup;
-# restart after changing them. Maximum 16 MiB per file and 30 seconds per clip.
-# Missing/invalid files are silent and logged; their configured paths are kept.
-# Web URLs are not supported. Built-in sound names and "none" still work.
-# Comma-separated audio event names to suppress; use "All" as a wildcard for named events handled by this filter
->>>>>>> 8f2f68de (Allow local WAV and MP3 files for notification audio cues)
 disabled_events = ""
 
 # Write audio event names to the trace log for troubleshooting
 trace_events = false
-
-# Optional generated notification cues; "none" disables an alert.
-# Available sounds: default, info, success, warning, alarm, arrival, soft, ping, repair
-# Requires patches.toastbannerhooks = true.
-alert_victory = "none"
-alert_defeat = "none"
-alert_armada_created = "none"
-alert_armada_battle_won = "none"
-alert_armada_battle_lost = "none"
-
-# Fleet cues are independent of desktop notifications and toastbannerhooks.
-# Use the sound names above; "none" disables a cue. Windows and macOS.
-alert_fleet_arrived_in_system = "none"
-alert_fleet_arrived_at_destination = "none"
-alert_fleet_started_mining = "none"
-alert_fleet_node_depleted = "none"
-alert_fleet_docked = "none"
-alert_fleet_repair_complete = "none"
-alert_fleet_miner_opc = "none"
 
 #  <[=======================================]> 
 #                                              
@@ -125,11 +96,6 @@ queue_enabled = true
 
 # Si vous préférez utiliser les raccourcis de Scopely mettez ça sur activer
 use_scopely_hotkeys = false
-
-# Windows x64 : "physical" conserve les positions ; "layout" suit la disposition active.
-# Maj nécessaire est ajouté ; les caractères nécessitant Ctrl/AltGr ne sont pas pris en charge.
-# Les changements sont appliqués en direct ; relâchez les touches. Voir docs/keyboard-letter-layout.md.
-keyboard_layout_mode = "physical"
 
 # Subgroup: Options
 # -----------------
@@ -195,22 +161,6 @@ zoom_label_player_detail = "native"
 
 # Normalized zoom crossover used when player fleet label detail is "threshold"; 0 is always compact and 1 is always expanded
 zoom_label_player_threshold = 0.5
-
-# Libellés galactiques : native, always, threshold. Always peut rallonger le chargement.
-# Systèmes majeurs/mineurs selon le jeu. Seuil : proche=0, loin=1.
-# 0 utilise les détails compacts ; 1 affiche toujours les détails ; égalité : détails.
-# Le mode compact conserve la vue lointaine native et certains noms majeurs.
-# Combiner Default, Hostiles, Mining et Hazards. Les valeurs par défaut préservent le comportement natif.
-# Windows x64 et macOS avec client validé ; disponible en versions release et debug.
-galaxy_multi_select = false
-galaxy_overlay_default = true
-galaxy_overlay_mining = false
-galaxy_overlay_hostiles = false
-galaxy_overlay_hazards = false
-galaxy_label_major_detail = "native"
-galaxy_label_major_threshold = 0.5
-galaxy_label_minor_detail = "native"
-galaxy_label_minor_threshold = 0.5
 
 # Subgroup: Keyboard
 # ------------------
@@ -694,12 +644,6 @@ auto_confirm_discovery = true
 # Open the bulk gift claim flyout automatically
 auto_open_bulk_claim_flyout = false
 
-# Windows/macOS: highlight deployed fleet-bar portraits in amber when cargo exceeds protected cargo
-highlight_opc_fleets = false
-
-# Windows/macOS: show estimated time to over-protected cargo below mining fleet status
-fleet_hud_opc_eta = false
-
 # Empêcher "échap" de proposer de quitter le jeu
 disable_escape_exit = true
 
@@ -725,8 +669,6 @@ auto_confirm_ft_upgrade = false
 #   "none" - Do not choose an action automatically; show the confirmation dialog
 #   "warp" - Automatically choose regular warp
 #   "jump" - Automatically choose instant jump
-# The mode shortcut persists this value on validated Windows x64 and macOS clients; otherwise session-only.
-# External edits are preserved; conflicts are logged. See docs/config-save.md.
 auto_confirm_instant_warp = "none"
 
 # Comma-separated ship hull names for which the instant-warp popup is always shown, overriding all automatic actions
@@ -746,10 +688,6 @@ disabled_banner_types = ""
 
 # Specifies banner types that should trigger notifications (comma separated)
 notify_banner_types = ""
-
-# Fleet events that should trigger Windows/macOS notifications (comma separated, or "All")
-# Options: ArrivedInSystem, ArrivedAtDestination, StartedMining, NodeDepleted, Docked, RepairComplete, MinerOPC
-notify_fleet_events = ""
 
 # Subgroup: Chat
 # --------------
@@ -799,29 +737,34 @@ pinned_ships = ""
 # Subgroup: HUD
 # -------------
 
-
-# HUD visibility mode: auto, always, or never
+# HUD visibility mode: auto, show, or hide
 #   "auto" - Use the game's default visibility behaviour
-#   "always" - Always show this HUD item
-#   "never" - Always hide this HUD item
+#   "show" - Always show this HUD item
+#   "hide" - Always hide this HUD item
+hud_daily_goals = "auto"
+
+# HUD visibility mode: auto, show, or hide
+#   "auto" - Use the game's default visibility behaviour
+#   "show" - Always show this HUD item
+#   "hide" - Always hide this HUD item
 hud_field_training = "auto"
 
-# HUD visibility mode: auto, always, or never
+# HUD visibility mode: auto, show, or hide
 #   "auto" - Use the game's default visibility behaviour
-#   "always" - Always show this HUD item
-#   "never" - Always hide this HUD item
+#   "show" - Always show this HUD item
+#   "hide" - Always hide this HUD item
 hud_missions = "auto"
 
-# HUD visibility mode: auto, always, or never
+# HUD visibility mode: auto, show, or hide
 #   "auto" - Use the game's default visibility behaviour
-#   "always" - Always show this HUD item
-#   "never" - Always hide this HUD item
+#   "show" - Always show this HUD item
+#   "hide" - Always hide this HUD item
 hud_outposts = "auto"
 
-# HUD visibility mode: auto, always, or never
+# HUD visibility mode: auto, show, or hide
 #   "auto" - Use the game's default visibility behaviour
-#   "always" - Always show this HUD item
-#   "never" - Always hide this HUD item
+#   "show" - Always show this HUD item
+#   "hide" - Always hide this HUD item
 hud_q_trials = "auto"
 
 # Subgroup: Previews
