@@ -60,3 +60,24 @@ if is_plat("macosx") then
         set_policy("build.optimization.lto", false)
     end
 end
+
+if is_plat("windows", "macosx") then
+    target("notification-audio-file-tests")
+    do
+        set_kind("binary")
+        set_default(false)
+        add_files("notification_audio_files_test.cc", "../mods/src/patches/notification_audio.cc",
+                  "../mods/src/patches/notification_audio_files.cc")
+        add_includedirs("../mods/src")
+        add_packages("spdlog")
+        add_defines("NOMINMAX")
+        set_exceptions("cxx")
+        if is_plat("windows") then
+            add_files("../mods/src/notification_audio_windows.cc")
+            add_syslinks("winmm", "mfuuid", "shlwapi", "ole32")
+        else
+            add_files("../mods/src/notification_audio_mac.mm")
+            add_frameworks("Cocoa")
+        end
+    end
+end

@@ -41,7 +41,7 @@ struct ToastAudioAlertConfig {
   int                       toast_state;
   std::string_view          config_name;
   std::string_view          default_sound;
-  NotificationSound Config::* config_member;
+  NotificationAudioCue Config::* config_member;
 };
 
 constexpr auto kToastAudioAlerts = std::to_array<ToastAudioAlertConfig>({
@@ -160,7 +160,7 @@ Config& Config::Get()
   return config;
 }
 
-NotificationSound Config::NotificationSoundForToast(int toast_state) const
+NotificationAudioCue Config::NotificationSoundForToast(int toast_state) const
 {
   const auto alert = std::ranges::find(kToastAudioAlerts, toast_state, &ToastAudioAlertConfig::toast_state);
   return alert == kToastAudioAlerts.end() ? NotificationSound::None : this->*(alert->config_member);
@@ -368,22 +368,16 @@ T get_config_or_default(toml::table& config, toml::table& new_config, std::strin
   return (T)final_value;
 }
 
-NotificationSound get_notification_sound(toml::table& config, toml::table& new_config, std::string_view item,
-                                         std::string_view default_value, bool write_log)
+NotificationAudioCue get_notification_sound(toml::table& config, toml::table& new_config, std::string_view item,
+                                            std::string_view default_value, bool write_log)
 {
   const auto value = get_config_or_default<std::string>(config, new_config, "audio", item,
-                                                         std::string(default_value), false);
-  auto sound = notification_sound_from_name(StripAsciiWhitespace(value));
-  if (!sound.has_value()) {
-    spdlog::warn("invalid config value audio.{}: '{}'; using {}", item, value, default_value);
-    sound = notification_sound_from_name(default_value);
-  }
-
-  const auto result = sound.value_or(NotificationSound::None);
-  new_config["audio"].as_table()->insert_or_assign(item, notification_sound_name(result));
-  if (write_log) {
-    spdlog::debug("config value audio.{} value: {}", item, notification_sound_name(result));
-  }
+                                                       std::string(default_value), false);
+  const auto directory = std::filesystem::path(File::MakePath(File::Config())).parent_path();
+  const auto result = notification_audio_load(StripAsciiWhitespace(value), directory);
+  new_config["audio"].as_table()->insert_or_assign(item, result.source);
+  if (write_log)
+    spdlog::debug("config value audio.{} value: {}", item, result.source);
   return result;
 }
 
@@ -1155,7 +1149,7 @@ void Config::Load()
   for (const auto& alert : kToastAudioAlerts) {
     const auto sound = get_notification_sound(config, parsed, alert.config_name, alert.default_sound, write_config);
     this->*(alert.config_member) = sound;
-    any_toast_audio_alert_configured |= sound != NotificationSound::None;
+    any_toast_audio_alert_configured |= sound.enabled();
   }
   if (!this->installToastBannerHooks && any_toast_audio_alert_configured) {
     spdlog::warn("audio alerts require patches.toastbannerhooks = true");
@@ -1165,7 +1159,7 @@ void Config::Load()
     const auto sound = get_notification_sound(config, parsed, entry.audio_config_name,
                                                DCA::alert_fleet_default, write_config);
     this->alert_fleet_events[static_cast<std::size_t>(entry.kind)] = sound;
-    if (sound != NotificationSound::None) {
+    if (sound.enabled()) {
       this->audio_fleet_events |= fleet_notification_bit(entry.kind);
     }
   }
