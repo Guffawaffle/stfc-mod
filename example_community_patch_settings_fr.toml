@@ -150,6 +150,8 @@ enable_experimental = false
 [graphics]
 # Selectionner les systemes avec un zoom galactique eloigne (Windows et macOS). Desactive par defaut.
 galaxy_extended_selection = false
+# Afficher le temps restant de l’anomalie galactique sous les boutons Aider / Participer / Récupérer.
+galactic_anomaly_timer = false
 
 
 # Subgroup: Display

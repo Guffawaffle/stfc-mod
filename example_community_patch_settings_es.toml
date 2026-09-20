@@ -144,6 +144,8 @@ enable_experimental = false
 [graphics]
 # Extended system selection at far galaxy zoom (Windows and macOS). Default off.
 galaxy_extended_selection = false
+# Mostrar el tiempo restante de la anomalía galáctica debajo de Ayudar / Participar / Reclamar.
+galactic_anomaly_timer = false
 
 
 # Subgroup: Display

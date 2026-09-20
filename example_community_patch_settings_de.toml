@@ -150,6 +150,8 @@ enable_experimental = false
 [graphics]
 # Systeme bei weiter Galaxieansicht auswaehlen (Windows und macOS). Standard: aus.
 galaxy_extended_selection = false
+# Verbleibende Zeit der galaktischen Anomalie unter Helfen / Starten / Abholen anzeigen.
+galactic_anomaly_timer = false
 
 
 # Subgroup: Anzeige
