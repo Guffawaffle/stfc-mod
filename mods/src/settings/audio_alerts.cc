@@ -4,6 +4,7 @@
 #include "patches/runtime_config.h"
 #include "patches/screen_update_hook.h"
 #include "audio_file_picker.h"
+#include "audio_file_tasks.h"
 #include "native/action_widgets.h"
 #include <memory>
 #include <chrono>
@@ -29,8 +30,8 @@ constexpr int kCustom = static_cast<int>(NotificationSound::Count);
 Alert* s_pending = nullptr;
 bool s_picker_available = false;
 bool s_refresh_requested = false;
-std::future<std::string> s_picker;
-std::future<NotificationAudioCue> s_loading;
+auto& s_picker = FileTasks().picker;
+auto& s_loading = FileTasks().loading;
 
 void RefreshAudioPage()
 {
@@ -73,7 +74,7 @@ void PollFilePicker()
         RefreshAudioPage();
         return;
       }
-      s_loading = std::async(std::launch::async, [path = std::move(path)] {
+      s_loading = RunAudioTask([path = std::move(path)] {
         return notification_audio_load(path, {});
       });
       alert.status = "Loading sound...";

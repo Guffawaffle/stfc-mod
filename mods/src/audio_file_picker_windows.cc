@@ -1,5 +1,6 @@
 #if _WIN32
 #include "settings/audio_file_picker.h"
+#include "settings/audio_file_tasks.h"
 #include <Windows.h>
 #include <shobjidl.h>
 #include <wrl/client.h>
@@ -8,7 +9,7 @@
 
 std::future<std::string> OpenAudioFilePicker()
 {
-  return std::async(std::launch::async, []() -> std::string {
+  return mod_settings::RunAudioTask([]() -> std::string {
     struct Apartment {
       HRESULT result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
       ~Apartment() { if (SUCCEEDED(result)) CoUninitialize(); }
