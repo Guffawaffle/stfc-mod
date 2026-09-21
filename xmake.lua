@@ -27,3 +27,12 @@ includes("xmake/rules/protobuf_sccache.lua")
 includes("xmake/rules/cxx_sccache.lua")
 includes("mods")
 includes("tests")
+
+-- Native regression fixture for the x64 trampoline used by the object tracker.
+if is_arch("x64", "x86_64") then
+    target("spud-relocation-tests")
+        set_kind("binary")
+        set_default(false)
+        add_files("tests/spud_relocation.cc")
+        add_packages("spud")
+end
