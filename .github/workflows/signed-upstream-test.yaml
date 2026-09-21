@@ -43,9 +43,23 @@ jobs:
           $run = $runJson | ConvertFrom-Json
           if ($run.repository.full_name -cne 'netniV/stfc-mod' -or $run.head_sha -cne $env:PR_HEAD -or
               $run.event -ne 'pull_request' -or $run.head_branch -ne 'fix/artifact-gallery-crash' -or
-              $run.conclusion -ne 'success' -or $run.run_attempt -ne 1 -or
+              $run.run_attempt -ne 1 -or
               $run.path -ne '.github/workflows/ci.yaml') {
-            throw 'Run must be the pinned successful upstream PR build.'
+            throw 'Run must be the pinned upstream PR build.'
+          }
+          $jobsJson = gh api "repos/netniV/stfc-mod/actions/runs/$env:UPSTREAM_RUN_ID/attempts/1/jobs?per_page=100"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read pinned build jobs.' }
+          $jobs = $jobsJson | ConvertFrom-Json
+          $windows = @($jobs.jobs | Where-Object { $_.name -ceq 'build-win' })
+          if ($windows.Count -ne 1 -or $windows[0].status -ne 'completed' -or
+              $windows[0].conclusion -ne 'success') {
+            throw 'The pinned Windows build must pass before signing.'
+          }
+          foreach ($requiredStep in @('Test x64 trampoline relocation', 'Verify DLL provenance', 'Upload')) {
+            $step = @($windows[0].steps | Where-Object { $_.name -ceq $requiredStep })
+            if ($step.Count -ne 1 -or $step[0].conclusion -ne 'success') {
+              throw "Required Windows validation step did not pass: $requiredStep"
+            }
           }
           $prJson = gh api repos/netniV/stfc-mod/pulls/303
           if ($LASTEXITCODE -ne 0) { throw 'Could not read upstream PR.' }
@@ -182,6 +196,7 @@ jobs:
 
           Based on upstream main plus PR #303, which fixes the artifact-gallery crash in x64 hook relocation.
           Gallery opening and detail-view arrow navigation were tested on client build 263.
+          The Windows CI build and native relocation regression passed. macOS checks remain tracked on the PR.
           This is a PR test build, not an official upstream release or the combined fork feature stack.
           The CI artifact is pinned by SHA-256 and embedded identity; PR builds have no upstream attestation.
           The release tag identifies the signing workflow, not the upstream source commit.
