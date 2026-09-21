@@ -5,6 +5,7 @@ on:
     tags:
       - "v*" # v0.6.1 or v0.6.1.alpha.9
       - "!v*-sac-test.*" # Dedicated signed-upstream-test workflow owns these releases.
+      - "!v*-pr303.*" # The pinned PR signing workflow owns these test releases.
 
 permissions:
   contents: write

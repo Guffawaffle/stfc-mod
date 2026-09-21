@@ -1,29 +1,22 @@
-name: Signed upstream Smart App Control test
+name: Signed artifact gallery PR test
 
 on:
   push:
-    tags: ["v*-sac-test.*"]
+    tags: ["v*-pr303.*"]
   workflow_dispatch:
-    inputs:
-      upstream_commit:
-        description: Exact upstream main commit to sign
-        required: true
-        default: "4bf238c116ebc6300ee33c792117f06dd7c22199"
-      upstream_run_id:
-        description: Successful upstream main Build run for that commit
-        required: true
-        default: "35215911994"
 
 permissions: {}
 
 concurrency:
-  group: signed-upstream-test-${{ github.ref }}
+  group: signed-pr303-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  # Tag-triggered runs use this reviewed upstream baseline. No fork code is built.
-  UPSTREAM_COMMIT: ${{ inputs.upstream_commit || '4bf238c116ebc6300ee33c792117f06dd7c22199' }}
-  UPSTREAM_RUN_ID: ${{ inputs.upstream_run_id || '35215911994' }}
+  PR_HEAD: eab5a833e571104f83d8efd6db620990590c10da
+  PR_BASE: 4bf238c116ebc6300ee33c792117f06dd7c22199
+  BUILD_COMMIT: 894dd38b37c1ea0ebc7e52dae6faf154163ac90a
+  UPSTREAM_RUN_ID: "35657088968"
+  UNSIGNED_SHA256: PENDING_CI_ARTIFACT
 
 jobs:
   prepare:
@@ -34,7 +27,7 @@ jobs:
       contents: read
       actions: read
     steps:
-      - name: Download and verify exact upstream main artifact
+      - name: Download and verify the pinned PR artifact
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -42,46 +35,56 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
         run: |
           $ErrorActionPreference = 'Stop'
-          if ($env:REF_TYPE -ne 'tag' -or $env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+-sac-test\.[1-9][0-9]*$') {
-            throw 'Run from a vX.Y.Z.W-sac-test.N tag. Branch dispatches cannot publish releases.'
-          }
-          if ($env:UPSTREAM_COMMIT -cnotmatch '^[0-9a-f]{40}$' -or $env:UPSTREAM_RUN_ID -notmatch '^[1-9][0-9]*$') {
-            throw 'An exact upstream commit and numeric workflow run ID are required.'
+          if ($env:REF_TYPE -ne 'tag' -or $env:RELEASE_TAG -cne 'v1.1.8.0-pr303.1') {
+            throw 'This one-off workflow only publishes v1.1.8.0-pr303.1.'
           }
           $runJson = gh api "repos/netniV/stfc-mod/actions/runs/$env:UPSTREAM_RUN_ID"
           if ($LASTEXITCODE -ne 0) { throw 'Could not read upstream run.' }
           $run = $runJson | ConvertFrom-Json
-          if ($run.repository.full_name -cne 'netniV/stfc-mod' -or $run.head_sha -cne $env:UPSTREAM_COMMIT -or
-              $run.event -ne 'push' -or $run.head_branch -ne 'main' -or $run.conclusion -ne 'success' -or
+          if ($run.repository.full_name -cne 'netniV/stfc-mod' -or $run.head_sha -cne $env:PR_HEAD -or
+              $run.event -ne 'pull_request' -or $run.head_branch -ne 'fix/artifact-gallery-crash' -or
+              $run.conclusion -ne 'success' -or $run.run_attempt -ne 1 -or
               $run.path -ne '.github/workflows/ci.yaml') {
-            throw 'Run must be a successful upstream main CI push at the requested commit.'
+            throw 'Run must be the pinned successful upstream PR build.'
+          }
+          $prJson = gh api repos/netniV/stfc-mod/pulls/303
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read upstream PR.' }
+          $pr = $prJson | ConvertFrom-Json
+          if ($pr.head.sha -cne $env:PR_HEAD -or $pr.head.repo.full_name -cne 'Guffawaffle/stfc-mod' -or
+              $pr.base.ref -ne 'main' -or $pr.base.sha -cne $env:PR_BASE) {
+            throw 'PR source/base changed since review.'
           }
           New-Item -ItemType Directory -Path payload | Out-Null
           gh run download $env:UPSTREAM_RUN_ID --repo netniV/stfc-mod --name stfc-community-mod --dir payload
-          if ($LASTEXITCODE -ne 0) { throw 'Upstream artifact download failed.' }
+          if ($LASTEXITCODE -ne 0) { throw 'PR artifact download failed.' }
           $files = @(Get-ChildItem payload -Recurse -Force -File)
           if ($files.Count -ne 1 -or $files[0].FullName -ne (Join-Path $PWD 'payload/version.dll')) {
-            throw 'Expected exactly one version.dll in the upstream artifact.'
-          }
-          # Repository spelling is case-sensitive in attestation certificate identities.
-          gh attestation verify payload/version.dll --repo netniV/stfc-mod `
-            --signer-workflow netniV/stfc-mod/.github/workflows/ci.yaml `
-            --source-digest $env:UPSTREAM_COMMIT --source-ref refs/heads/main --deny-self-hosted-runners
-          if ($LASTEXITCODE -ne 0) { throw 'Upstream provenance verification failed.' }
-          $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path payload/version.dll)).FileVersion
-          if ($env:RELEASE_TAG -cnotmatch ('^v' + [regex]::Escape($version) + '-sac-test\.')) {
-            throw "Tag version does not match upstream DLL version '$version'."
+            throw 'Expected exactly one version.dll in the PR artifact.'
           }
           $hash = (Get-FileHash payload/version.dll -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -cne $env:UNSIGNED_SHA256) { throw 'PR artifact hash mismatch.' }
+          $info = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path payload/version.dll))
+          $expected = "stfc-identity-v1;distribution=netniv.stfc-community-mod;source=git:$env:BUILD_COMMIT;" +
+            "base=$env:BUILD_COMMIT;build=github:$($env:UPSTREAM_RUN_ID):1:windows;mode=release;channel=ci"
+          if ($info.Comments -cne $expected -or $info.FileVersion -cne '1.1.8.0') {
+            throw 'PR DLL embedded build identity/version mismatch.'
+          }
+          # Pull-request builds do not receive upstream main/dev attestations.
+          # Bind this release to the reviewed PR, CI merge commit, run, and independently checked hash.
           [ordered]@{
             upstreamRepository = 'netniV/stfc-mod'
-            upstreamCommit = $env:UPSTREAM_COMMIT
+            pullRequest = 303
+            pullRequestUrl = 'https://github.com/netniV/stfc-mod/pull/303'
+            pullRequestHead = $env:PR_HEAD
+            pullRequestBase = $env:PR_BASE
+            upstreamCommit = $env:BUILD_COMMIT
             upstreamRunId = $env:UPSTREAM_RUN_ID
             upstreamRunUrl = $run.html_url
-            upstreamVersion = $version
+            upstreamVersion = $info.FileVersion
             unsignedSha256 = $hash
+            provenanceVerification = 'pinned PR head/base, CI run, embedded merge identity, and SHA256; no upstream attestation'
           } | ConvertTo-Json | Set-Content payload/provenance.json -Encoding utf8NoBOM
-          "Verified upstream commit: $env:UPSTREAM_COMMIT`nUnsigned DLL SHA-256: $hash" >> $env:GITHUB_STEP_SUMMARY
+          "Verified PR #303 head: $env:PR_HEAD`nUnsigned DLL SHA-256: $hash" >> $env:GITHUB_STEP_SUMMARY
 
       - name: Retain verified unsigned input
         uses: actions/upload-artifact@v7.0.1
@@ -123,7 +126,7 @@ jobs:
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
-          description: STFC Community Mod - signed upstream test
+          description: STFC Community Mod - artifact gallery hotfix PR 303
           description-url: https://github.com/Guffawaffle/stfc-mod
 
       - name: Verify signature and package test release
@@ -169,18 +172,24 @@ jobs:
             '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
           } | Set-Content release/SHA256SUMS.txt -Encoding ascii
           @"
-          Signed upstream Smart App Control test. Windows x64 only.
+          Artifact gallery crash fix — signed Windows x64 test build of upstream PR #303.
 
-          Upstream source: https://github.com/netniV/stfc-mod/commit/$($provenance.upstreamCommit)
+          PR: $($provenance.pullRequestUrl)
+          Reviewed PR head: $($provenance.pullRequestHead)
+          CI merge commit: $($provenance.upstreamCommit)
           Upstream build: $($provenance.upstreamRunUrl)
           Publisher: $publisher (RSA $($provenance.keySize), valid Authenticode signature and timestamp).
 
-          This is the upstream DLL with an added Authenticode signature; it contains no fork code changes.
+          Based on upstream main plus PR #303, which fixes the artifact-gallery crash in x64 hook relocation.
+          Gallery opening and detail-view arrow navigation were tested on client build 263.
+          This is a PR test build, not an official upstream release or the combined fork feature stack.
+          The CI artifact is pinned by SHA-256 and embedded identity; PR builds have no upstream attestation.
           The release tag identifies the signing workflow, not the upstream source commit.
 
           Close the game, back up your existing version.dll, then replace it with version.dll from this release
           (also included in stfc-community-mod-signed-test.zip). Leave Smart App Control enabled and launch normally.
-          Report whether the game starts; if blocked, include the error and the CodeIntegrity event naming the blocked file.
+          Test opening the artifact gallery and navigating artifact details with Left/Right.
+          If Windows blocks loading, include the CodeIntegrity event naming the blocked file.
           Restore the backup to undo the test. Automatic updates may replace this test DLL.
 
           Signed DLL SHA-256: $($provenance.signedSha256)
@@ -212,7 +221,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           gh release create "$RELEASE_TAG" --verify-tag --prerelease --latest=false \
-            --title "Signed upstream SAC test: $RELEASE_TAG" \
+            --title "Artifact gallery crash fix (signed Windows): $RELEASE_TAG" \
             --notes-file release/RELEASE_NOTES.md \
             release/version.dll release/stfc-community-mod-signed-test.zip \
             release/provenance.json release/SHA256SUMS.txt
