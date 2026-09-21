@@ -159,8 +159,14 @@ bool key_pressed(KeyCode key)
 bool shift_pressed()
 { return key_pressed(KeyCode::LeftShift) || key_pressed(KeyCode::RightShift); }
 
-bool control_pressed()
-{ return key_pressed(KeyCode::LeftControl) || key_pressed(KeyCode::RightControl); }
+bool move_down_modifier_pressed()
+{
+#if __APPLE__
+  return key_pressed(KeyCode::LeftCommand) || key_pressed(KeyCode::RightCommand);
+#else
+  return key_pressed(KeyCode::LeftControl) || key_pressed(KeyCode::RightControl);
+#endif
+}
 
 void remember_slots(OfficerPresetItemContext** items, il2cpp_array_size_t size)
 {
@@ -490,7 +496,7 @@ bool OfficerManager_TryGetPresetItemContext_Hook(auto original, void* _this, Il2
 void OfficerPresetItemWidget_OnEditNameButtonClicked_Hook(auto original, void* _this)
 {
   const bool move_up   = shift_pressed();
-  const bool move_down = control_pressed();
+  const bool move_down = move_down_modifier_pressed();
   if (move_up != move_down) {
     auto* context = read_object_field<OfficerPresetItemContext>(_this, widget_context_offset);
     if (move_preset(context, move_up ? -1 : 1)) {
