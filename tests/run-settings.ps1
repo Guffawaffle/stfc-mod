@@ -17,6 +17,20 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Fleet arrival fixture compilation failed' }
     & ./build/settings-test/fleet_arrival_tracker.exe
     if ($LASTEXITCODE -ne 0) { throw 'Fleet arrival fixture failed' }
+    & clang++ --driver-mode=cl /std:c++latest /EHsc /MT /Imods/src `
+        tests/audio_file_shutdown_test.cc /Febuild/settings-test/audio-file-shutdown.exe /Fobuild/settings-test/
+    if ($LASTEXITCODE -ne 0) { throw 'Audio file shutdown fixture compilation failed' }
+    foreach ($mode in @('picker', 'loading')) {
+        $child = Start-Process -FilePath (Join-Path $repoRoot 'build/settings-test/audio-file-shutdown.exe') `
+            -ArgumentList $mode -WindowStyle Hidden -PassThru
+        if (-not $child.WaitForExit(5000)) {
+            $child.Kill()
+            throw "Audio file shutdown waited on a pending $mode task"
+        }
+        $child.Refresh()
+        if ($child.ExitCode -ne 0) { throw "Audio file shutdown fixture failed: $mode" }
+    }
+    Write-Output 'Audio file pending-picker/loading shutdown fixtures passed'
 } finally {
     Pop-Location
 }

@@ -1,5 +1,6 @@
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
 #include "page_navigation.h"
+#include "action_widgets.h"
 #include "patches/parts/fc_confirmation_reset.h"
 #include "settings/forbidden_tech.h"
 #include "settings/native_boolean_callback.h"
@@ -657,6 +658,11 @@ void ChangeValue(auto original, Il2CppObject* widget, auto desired)
         Invoke(WidgetMeta(widget).refresh, widget);
       }
       RefreshConditionalSections(); // The requesting row may now safely be released/rebound.
+      // Commands can depend on a choice (e.g. Preview is disabled for Off).
+      // Refresh only their presentation after consuming the write result;
+      // rebuilding the page here would discard the requesting row's outcome.
+      RefreshActionPresentations();
+      RefreshPageSummaries();
       return;
     }
   } catch (...) {
