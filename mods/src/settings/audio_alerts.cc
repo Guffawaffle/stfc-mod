@@ -83,7 +83,7 @@ void PollFilePicker()
     auto cue = s_loading.get();
     s_pending = nullptr;
     if (!cue.enabled()) {
-      alert.status = "Could not load WAV/MP3 (maximum 16 MiB, 30 seconds)";
+      alert.status = "Could not load sound (see log)";
     } else if (alert.available()) {
       alert.custom = cue;
       alert.cue() = std::move(cue);
@@ -93,10 +93,11 @@ void PollFilePicker()
     }
   } catch (const std::exception& error) {
     spdlog::warn("[NotifyAudio] File selection failed: {}", error.what());
-    alert.status = "Could not load the selected sound";
+    alert.status = "Could not load sound (see log)";
     s_pending = nullptr;
   } catch (...) {
-    alert.status = "Could not load the selected sound";
+    spdlog::warn("[NotifyAudio] File selection failed: unknown error");
+    alert.status = "Could not load sound (see log)";
     s_pending = nullptr;
   }
   RefreshAudioPage();
