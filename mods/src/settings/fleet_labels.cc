@@ -1,6 +1,7 @@
 #include "fleet_labels.h"
 #include "config.h"
 #include "patches/runtime_config.h"
+#include "patches/ship_shortcut_badges.h"
 #include <format>
 namespace mod_settings
 {
@@ -49,6 +50,26 @@ namespace
             }};
   }
 } // namespace
+BooleanSetting& ShipHotkeyBadgesSetting()
+{
+  static BooleanSetting setting({"community_mod.labels.ship_hotkeys", "Show ship hotkeys",
+                                 [] {
+                                   return FleetLabelControlsAvailable() && Config::Get().installHotkeyHooks
+                                                  && ship_shortcut_badges::Available()
+                                              ? ReadResult::Known(Config::Get().ship_hotkey_badges, 1)
+                                              : ReadResult{};
+                                 },
+                                 [](bool enabled, std::uint64_t generation) {
+                                   if (generation != 1 || !FleetLabelControlsAvailable()
+                                       || !Config::Get().installHotkeyHooks || !ship_shortcut_badges::Available())
+                                     return ApplyResult::Rejected;
+                                   Config::Get().ship_hotkey_badges = enabled;
+                                   runtime_config::SaveSetting("graphics", "ship_hotkey_badges", enabled);
+                                   ship_shortcut_badges::Refresh();
+                                   return ApplyResult::Applied;
+                                 }});
+  return setting;
+}
 ChoiceSetting& FleetLabelDetailSetting(bool player)
 {
   static ChoiceSetting players(Detail(true), {"Native", "Expanded", "Compact", "Threshold"});

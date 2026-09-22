@@ -1,8 +1,10 @@
 #pragma once
 #include "choice_setting.h"
+#include "boolean_settings.h"
 #include "slider_setting.h"
 namespace mod_settings
 {
+BooleanSetting& ShipHotkeyBadgesSetting();
 ChoiceSetting& FleetLabelDetailSetting(bool player);
 SliderSetting& FleetLabelThresholdSetting(bool player);
 std::string    FleetLabelSummary(bool player);

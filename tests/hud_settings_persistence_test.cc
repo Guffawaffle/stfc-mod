@@ -47,18 +47,20 @@ int main(int argc, char** argv)
       Check(loaded["ui"]["unrelated"].value<bool>() == true);
     }
   }
-  for (bool enabled : {true, false, true}) {
-    const auto revision = writer.Submit("graphics", "galactic_anomaly_timer", enabled);
-    Check(revision != 0);
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-    while (writer.LastCompletion().revision != revision || writer.HasWork()) {
-      Check(std::chrono::steady_clock::now() < deadline);
-      std::this_thread::yield();
+  for (const char* key : {"galactic_anomaly_timer", "ship_hotkey_badges"}) {
+    for (bool enabled : {true, false, true}) {
+      const auto revision = writer.Submit("graphics", key, enabled);
+      Check(revision != 0);
+      const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+      while (writer.LastCompletion().revision != revision || writer.HasWork()) {
+        Check(std::chrono::steady_clock::now() < deadline);
+        std::this_thread::yield();
+      }
+      Check(!writer.HasFailures());
+      const auto loaded = toml::parse_file(path.string());
+      Check(loaded["graphics"][key].value<bool>() == enabled);
+      Check(loaded["ui"]["unrelated"].value<bool>() == true);
     }
-    Check(!writer.HasFailures());
-    const auto loaded = toml::parse_file(path.string());
-    Check(loaded["graphics"]["galactic_anomaly_timer"].value<bool>() == enabled);
-    Check(loaded["ui"]["unrelated"].value<bool>() == true);
   }
   for (const char* key : {"highlight_opc_fleets", "fleet_hud_opc_eta"}) {
     for (bool enabled : {true, false, true}) {

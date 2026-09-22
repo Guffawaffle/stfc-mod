@@ -75,9 +75,10 @@ namespace
   {
     const auto& methods = GetMethods();
     const auto& config  = Config::Get();
-    const auto  hint    = config.hotkeys_enabled && !config.use_scopely_hotkeys
-                              ? MapKey::GetShortcutHint(kSelectShip[badge.index])
-                              : std::string{};
+    const auto  hint =
+        config.ship_hotkey_badges && config.installHotkeyHooks && config.hotkeys_enabled && !config.use_scopely_hotkeys
+            ? MapKey::GetShortcutHint(kSelectShip[badge.index])
+            : std::string{};
     if (badge.hint == hint)
       return;
     if (auto* label = Label(widget, methods)) {
@@ -94,6 +95,9 @@ namespace
     }
   }
 } // namespace
+
+bool Available()
+{ return static_cast<bool>(GetMethods()); }
 
 void Release(NavigationFleetWidget* widget)
 {
