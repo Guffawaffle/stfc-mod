@@ -191,6 +191,13 @@ jobs:
         shell: pwsh
         run: sccache --zero-stats
 
+      - name: Test IL2CPP runtime helpers
+        run: |
+          xmake build -y il2cpp-runtime-tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          xmake run il2cpp-runtime-tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Build
         run: xmake build -y stfc-community-mod
 
@@ -227,6 +234,11 @@ jobs:
           Move-Item `
             "build/windows/x64/release/stfc-community-mod.dll" `
             "version.dll"
+
+      - name: Test checked IL2CPP helpers
+        run: |
+          xmake build -y il2cpp-checked-tests
+          xmake run il2cpp-checked-tests
 
       - name: Verify DLL provenance
         shell: pwsh
@@ -494,6 +506,11 @@ jobs:
         shell: bash
         run: sccache --zero-stats
 
+      - name: Test IL2CPP runtime helpers
+        run: |
+          xmake build -y il2cpp-runtime-tests
+          xmake run il2cpp-runtime-tests
+
       - name: Build
         # -D keeps the existing XMake compiler-cache diagnostics too.
         run: xmake -y -D
@@ -549,6 +566,11 @@ jobs:
           else
             echo "::warning::Swift module cache directory was not created"
           fi
+
+      - name: Test checked IL2CPP helpers
+        run: |
+          xmake build -y il2cpp-checked-tests
+          xmake run il2cpp-checked-tests
 
       - name: Verify portable macOS linkage
         shell: bash

@@ -1,3 +1,4 @@
+#include <il2cpp/runtime.h>
 #include "patches/action_queue_guard_policy.h"
 #include <config.h>
 
@@ -43,13 +44,7 @@ template <typename T> T Read(const void* object, std::size_t offset)
   return value;
 }
 
-Il2CppClass* Class(const char* assembly, const char* ns, const char* name)
-{
-  auto* domain = il2cpp_domain_get();
-  auto* loaded = domain ? il2cpp_domain_assembly_open(domain, assembly) : nullptr;
-  auto* image  = loaded ? il2cpp_assembly_get_image(loaded) : nullptr;
-  return image ? il2cpp_class_from_name(image, ns, name) : nullptr;
-}
+using Il2CppRuntime::Class;
 
 // Inspect storage without invoking List getters/enumerators. Unknown layouts fail closed.
 Il2CppArraySize* List(Object* list, Il2CppClass* element, int limit, int& count)
