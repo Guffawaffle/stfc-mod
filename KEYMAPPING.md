@@ -33,6 +33,12 @@ These bindings can be changed in the `[shortcuts]` section of `community_patch_s
 
 `show_ships = "N"` continues to manage the selected ship. The shield shortcut opens the selection popup; activating a shield still requires choosing one.
 
+### Ship map badges
+
+With mod hotkeys active, your ships' system-map badges show the first configured ship-selection shortcut instead of the dock letter. For example, dock G shows `7` with the default binding. Edits made in Mod Settings update visible badges without leaving the system.
+
+Badges use the same compact notation as other shortcut hints: `^` for Ctrl, `+` for Shift, `!` for Alt, and `#` for Win/Command. The native dock letter returns when the action is unbound, mod hotkeys are disabled, or Scopely hotkeys are selected. Other players' and NPC ship levels are unchanged.
+
 ### Modifiers
 
 Modifiers are not required, any specified must be used together:
