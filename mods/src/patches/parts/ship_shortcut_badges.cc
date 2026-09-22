@@ -6,6 +6,8 @@
 #include "prime/FleetsManager.h"
 #include "prime/NavigationFleetWidget.h"
 
+#include <spdlog/spdlog.h>
+
 #include <array>
 #include <chrono>
 #include <string>
@@ -35,7 +37,8 @@ namespace
       auto text    = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "TextLocalizer");
       label        = widget.get_cls() ? il2cpp_class_get_field_from_name(widget.get_cls(), "_fleetLevel") : nullptr;
       if (label
-          && ((il2cpp_field_get_flags(label) & FIELD_ATTRIBUTE_STATIC) || label->offset < sizeof(Il2CppObject)
+          && ((il2cpp_field_get_flags(label) & FIELD_ATTRIBUTE_STATIC)
+              || label->offset < static_cast<int32_t>(sizeof(Il2CppObject))
               || !method_contract::Type(label->type, "Digit.Client.UI.TextLocalizer")))
         label = nullptr;
       is_local = method_contract::Resolve(fleet.get_cls(), "get_IsLocalPlayer", false, "System.Boolean", {});
@@ -44,6 +47,10 @@ namespace
       override_text =
           method_contract::Resolve(text.get_cls(), "OverrideLocalizedText", false, "System.Void", {"System.String"});
       clear_override = method_contract::Resolve(text.get_cls(), "ClearTextOverride", false, "System.Void", {});
+      if (*this)
+        MapKey::CacheShortcutHints();
+      else
+        spdlog::warn("[ShipBadges] Native label contract unavailable; retaining dock letters");
     }
 
     explicit operator bool() const

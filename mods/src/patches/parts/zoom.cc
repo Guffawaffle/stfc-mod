@@ -688,6 +688,8 @@ void InstallZoomHooks()
       && native_hooks::MacHookFits(method_contract::Pointer(galaxy_lod_method))
       && native_hooks::MacHookFits(method_contract::Pointer(galaxy_update));
 #endif
+  // Ship shortcut badges share the existing pooled-widget lifecycle, including when label profiles stay Native.
+  enable_labels |= Config::Get().installHotkeyHooks;
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
   // Install once so native settings can switch away from Native during play.
   enable_labels |= Config::Get().installNativeSettings;

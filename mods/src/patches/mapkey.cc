@@ -176,14 +176,8 @@ std::string MapKey::GetShortcuts(GameFunction gameFunction)
 
 std::string MapKey::GetShortcutHint(GameFunction gameFunction)
 {
-  auto& mapKeys = MapKey::mappedKeys[gameFunction];
-  if (mapKeys.empty() || mapKeys.front().Key == KeyCode::None)
-    return "";
-  // Ship badges also need hints when the native hint-toggle shortcut is unbound.
-  auto& first = mapKeys.front();
-  if (first.shortcutHint.empty())
-    first.shortcutHint = CompactShortcutForHint(first.Shortcuts);
-  return first.shortcutHint;
+  const auto& mapKeys = MapKey::mappedKeys[gameFunction];
+  return mapKeys.empty() ? "" : mapKeys.front().shortcutHint;
 }
 
 void MapKey::CacheShortcutHints()
