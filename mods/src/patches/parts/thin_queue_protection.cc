@@ -1,4 +1,3 @@
-#include <il2cpp/runtime.h>
 #include "patches/action_queue_guard_policy.h"
 #include <config.h>
 
@@ -43,8 +42,6 @@ template <typename T> T Read(const void* object, std::size_t offset)
     std::memcpy(&value, static_cast<const char*>(object) + offset, sizeof(value));
   return value;
 }
-
-using Il2CppRuntime::Class;
 
 // Inspect storage without invoking List getters/enumerators. Unknown layouts fail closed.
 Il2CppArraySize* List(Object* list, Il2CppClass* element, int limit, int& count)
@@ -218,11 +215,11 @@ void InstallThinQueueProtection()
 {
   if (!Config::Get().thin_queue_protection)
     return;
-  auto* manager = Class("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager");
-  queueClass    = Class("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueInstance");
-  actionClass   = Class("Assembly-CSharp", "Prime.ActionQueue", "QueueableAction");
-  playerClass   = Class("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "FleetPlayerData");
-  deployedClass = Class("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "FleetDeployedData");
+  auto* manager = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager").get_cls();
+  queueClass    = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueInstance").get_cls();
+  actionClass   = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "QueueableAction").get_cls();
+  playerClass   = il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "FleetPlayerData").get_cls();
+  deployedClass = il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "FleetDeployedData").get_cls();
   using method_contract::Pointer;
   using method_contract::Resolve;
   auto* plan     = Pointer(Resolve(manager, "DoPlanPathAndEngageTarget", false, "System.Boolean",

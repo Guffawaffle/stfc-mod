@@ -73,7 +73,7 @@ private:
   {
     if (!object) return nullptr;
     auto* obj = static_cast<Il2CppObject*>(object);
-    auto* method = Il2CppRuntime::Method(obj->klass, name, count);
+    auto* method = IL2CppClassHelper(obj->klass).GetMethodInfo(name, count);
     Il2CppObject* result = nullptr;
     return Il2CppRuntime::TryInvoke(method, object, args, &result) ? result : nullptr;
   }
