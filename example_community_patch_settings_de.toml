@@ -887,6 +887,9 @@ buffs = true
 # Gebäudedaten synchronisieren?
 buildings = true
 
+# Anfängliche Haven-Daten senden? Nur bei ausdrücklicher Aktivierung; pro Ziel überschreibbar.
+haven = false
+
 # Inventardaten synchronisieren?
 inventory = true
 

@@ -887,6 +887,9 @@ buffs = true
 # Wil je data van gebouwen syncen?
 buildings = true
 
+# Eerste Haven-gegevens verzenden? Alleen na expliciet inschakelen; per doel te overschrijven.
+haven = false
+
 # Wil je data van je inventaris syncen?
 inventory = true
 
