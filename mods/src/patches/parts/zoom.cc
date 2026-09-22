@@ -6,6 +6,7 @@
 #include "patches/native_hook_extent.h"
 #include <il2cpp/method_contract.h>
 #include "galaxy_labels.h"
+#include "patches/ship_shortcut_badges.h"
 
 #include <patches/mapkey.h>
 
@@ -337,6 +338,7 @@ static void ScaleFR(void *fr)
 
 void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
 {
+  ship_shortcut_badges::Refresh();
   static auto GetMousePosition =
       il2cpp_resolve_icall_typed<void(vec3 *)>("UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)");
   static auto GetDeltaTime = il2cpp_resolve_icall_typed<float()>("UnityEngine.Time::get_deltaTime()");
@@ -500,6 +502,8 @@ void NavigationFleetWidget_OnEnable_Hook(auto original, NavigationFleetWidget *_
     return;
   }
 
+  ship_shortcut_badges::Bind(_this);
+
   auto *lod = _this->_lod;
   if (lod) {
     fleet_label_widgets.insert_or_assign(lod, _this);
@@ -512,6 +516,7 @@ void NavigationFleetWidget_OnEnable_Hook(auto original, NavigationFleetWidget *_
 
 void NavigationFleetWidget_OnDisable_Hook(auto original, NavigationFleetWidget *_this)
 {
+  ship_shortcut_badges::Release(_this);
   if (!fleet_label_hooks_installed) {
     original(_this);
     return;
@@ -528,6 +533,7 @@ void NavigationFleetWidget_OnDisable_Hook(auto original, NavigationFleetWidget *
 
 void NavigationFleetWidget_OnDidBindContext_Hook(auto original, NavigationFleetWidget *_this)
 {
+  ship_shortcut_badges::Release(_this);
   if (!fleet_label_hooks_installed) {
     original(_this);
     return;
@@ -536,6 +542,8 @@ void NavigationFleetWidget_OnDidBindContext_Hook(auto original, NavigationFleetW
   if (_this == nullptr) {
     return;
   }
+
+  ship_shortcut_badges::Bind(_this);
 
   auto *lod = _this->_lod;
   if (lod != nullptr) {
@@ -546,6 +554,7 @@ void NavigationFleetWidget_OnDidBindContext_Hook(auto original, NavigationFleetW
 
 void NavigationFleetWidget_OnAboutToReleaseContext_Hook(auto original, NavigationFleetWidget *_this)
 {
+  ship_shortcut_badges::Release(_this);
   if (!fleet_label_hooks_installed) {
     original(_this);
     return;
