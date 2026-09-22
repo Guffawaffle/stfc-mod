@@ -1,4 +1,4 @@
-#include <il2cpp/il2cpp_helper.h>
+#include <il2cpp/runtime.h>
 #include <il2cpp/method_contract.h>
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
@@ -73,18 +73,17 @@ private:
   {
     if (!object) return nullptr;
     auto* obj = static_cast<Il2CppObject*>(object);
-    auto* method = il2cpp_class_get_method_from_name(obj->klass, name, count);
-    if (!method) return nullptr;
-    Il2CppException* error = nullptr;
-    auto* result = il2cpp_runtime_invoke(method, object, args, &error);
-    return error ? nullptr : result;
+    auto* method = Il2CppRuntime::Method(obj->klass, name, count);
+    Il2CppObject* result = nullptr;
+    return Il2CppRuntime::TryInvoke(method, object, args, &result) ? result : nullptr;
   }
   void* Field(void* widget, std::size_t offset)
   { return *reinterpret_cast<void**>(static_cast<char*>(widget) + offset); }
   bool Active(void* object)
   {
     auto* result = Call(object, "get_activeSelf");
-    return result && *static_cast<bool*>(il2cpp_object_unbox(static_cast<Il2CppObject*>(result)));
+    bool active = false;
+    return Il2CppRuntime::TryBoolean(static_cast<Il2CppObject*>(result), active) && active;
   }
   void SetActive(void* object, bool value)
   {
