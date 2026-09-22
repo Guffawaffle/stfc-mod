@@ -202,6 +202,9 @@ zoom_label_non_player_threshold = 0.5
 #   "threshold" - Switch from expanded to compact at the configured zoom threshold
 zoom_label_player_detail = "native"
 
+# Show configured selection hotkeys instead of dock letters on your ships. Also in Mod Settings > Fleet Labels.
+ship_hotkey_badges = true
+
 # Normalized zoom crossover used when player fleet label detail is "threshold"; 0 is always compact and 1 is always expanded
 zoom_label_player_threshold = 0.5
 
