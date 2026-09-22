@@ -37,6 +37,17 @@ if is_arch("x64", "x86_64") then
         add_packages("spud")
 end
 
+target("il2cpp-checked-tests")
+    set_kind("binary")
+    set_default(false)
+    add_files("tests/il2cpp_checked.cc")
+    add_includedirs("mods/src")
+    add_packages("libil2cpp", "eastl")
+    set_exceptions("cxx")
+    if is_plat("windows") then
+        add_linkdirs("mods/src/il2cpp")
+    end
+
 target("il2cpp-runtime-tests")
     set_kind("binary")
     set_default(false)
