@@ -494,10 +494,11 @@ bool MoveDockInManagementView(bool goLeft)
 
 void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
+  const bool shortcutOwnedInput = Key::shortcutCaptureActive || Key::shortcutPopupActive;
   dispatch_screen_manager_update_callbacks();
   // Capture owns the key through release. Do not run the native shortcut path
   // or the console on this frame; UI mouse navigation continues via EventSystem.
-  if (Key::shortcutCaptureActive)
+  if (shortcutOwnedInput || Key::shortcutCaptureActive || Key::shortcutPopupActive)
     return;
 
 #ifdef _MODDBG
