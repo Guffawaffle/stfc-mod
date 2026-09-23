@@ -33,6 +33,7 @@ public:
   static bool        RawPressed(KeyCode key);
   static bool        RawDown(KeyCode key);
   inline static bool shortcutCaptureActive = false; // Game thread only.
+  inline static bool settingsSearchActive = false; // Native search field owns keyboard focus.
   inline static bool shortcutPopupActive = false; // Includes preview, not just capture.
   static std::string Token(KeyCode key);
 

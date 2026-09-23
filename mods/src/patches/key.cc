@@ -230,7 +230,7 @@ void Key::ClaimDirectionalInput(KeyCode key)
 
 bool Key::IsDirectionalInputClaimed()
 {
-  if (shortcutCaptureActive || shortcutPopupActive)
+  if (shortcutCaptureActive || shortcutPopupActive || settingsSearchActive)
     return true;
   EnsureCurrentFrame();
 
@@ -296,7 +296,7 @@ void Key::EnsureCurrentFrame()
 }
 
 bool Key::Down(KeyCode key)
-{ return !shortcutCaptureActive && !shortcutPopupActive && RawDown(key); }
+{ return !shortcutCaptureActive && !shortcutPopupActive && !settingsSearchActive && RawDown(key); }
 
 bool Key::RawDown(KeyCode key)
 {
@@ -313,7 +313,7 @@ bool Key::RawDown(KeyCode key)
 }
 
 bool Key::Pressed(KeyCode key)
-{ return !shortcutCaptureActive && !shortcutPopupActive && RawPressed(key); }
+{ return !shortcutCaptureActive && !shortcutPopupActive && !settingsSearchActive && RawPressed(key); }
 
 bool Key::RawPressed(KeyCode key)
 {

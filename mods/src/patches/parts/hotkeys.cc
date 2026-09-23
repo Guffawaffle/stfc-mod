@@ -543,11 +543,11 @@ bool PressOfficerSwapButton()
 
 void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
-  const bool shortcutOwnedInput = Key::shortcutCaptureActive || Key::shortcutPopupActive;
+  const bool shortcutOwnedInput = Key::shortcutCaptureActive || Key::shortcutPopupActive || Key::settingsSearchActive;
   dispatch_screen_manager_update_callbacks();
-  // Capture owns the key through release, including the native shortcut path.
-  // UI mouse navigation continues through EventSystem.
-  if (shortcutOwnedInput || Key::shortcutCaptureActive || Key::shortcutPopupActive)
+  // Capture owns the key through release. Do not run the native shortcut path
+  // or the console on this frame; UI mouse navigation continues via EventSystem.
+  if (shortcutOwnedInput || Key::shortcutCaptureActive || Key::shortcutPopupActive || Key::settingsSearchActive)
     return;
   if (!Config::Get().installHotkeyHooks) {
     return original(_this);
