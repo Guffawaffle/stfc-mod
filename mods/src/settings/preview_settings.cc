@@ -33,7 +33,9 @@ BooleanSetting& PreviewSetting(PreviewOption option)
       BooleanSetting(PreviewDefinition("show_player_cargo", "Player fleets", &Config::show_player_cargo)),
       BooleanSetting(PreviewDefinition("show_station_cargo", "Stations", &Config::show_station_cargo)),
       BooleanSetting(PreviewDefinition("show_hostile_cargo", "Hostiles", &Config::show_hostile_cargo)),
-      BooleanSetting(PreviewDefinition("show_armada_cargo", "Armada targets", &Config::show_armada_cargo))};
+      BooleanSetting(PreviewDefinition("show_armada_cargo", "Armada targets", &Config::show_armada_cargo)),
+      BooleanSetting(PreviewDefinition("instant_cargo_counter", "Instant ship cargo counter",
+                                       &Config::instant_cargo_counter))};
   static_assert(settings.size() == static_cast<std::size_t>(PreviewOption::Count));
   return settings.at(static_cast<std::size_t>(option));
 }
