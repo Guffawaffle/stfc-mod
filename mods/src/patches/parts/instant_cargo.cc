@@ -5,6 +5,8 @@
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
+void InstallInstantCargoTextHooks();
+
 namespace
 {
 Il2CppClass *      fleetInfoClass{}, *cargoHoldClass{}, *lerperClass{};
@@ -116,4 +118,6 @@ void InstallInstantCargoCounterHooks()
   const bool durationInstalled = SPUD_STATIC_DETOUR(duration->methodPointer, SetupDuration_Hook) != nullptr;
   installed = durationInstalled && SPUD_STATIC_DETOUR(start->methodPointer, StartLerp_Hook) != nullptr;
   spdlog::info("[InstantCargo] cargo counter hooks {}", installed ? "installed" : "unavailable");
+  if (installed)
+    InstallInstantCargoTextHooks();
 }
