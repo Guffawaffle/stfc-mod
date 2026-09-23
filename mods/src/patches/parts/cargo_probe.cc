@@ -11,7 +11,8 @@
 #include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
-#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/rotating_file_sink.h>
+#include <unordered_map>
 namespace
 {
 using Json  = nlohmann::json;
@@ -73,6 +74,8 @@ template <typename T> void Scalar(Json& j, void* obj, const char* name, const ch
 Json Data(void* obj)
 {
   Json j = {{"class", Class(obj)}};
+  if (Class(obj) == "Digit.PrimeServer.Models.CargoProgressData")
+    obj = Ref(obj, "_data");
   for (auto* field : {"_currentValue", "_minValue", "_maxValue", "_normalizedValue"})
     Scalar<double>(j, obj, field, "System.Double");
   return j;
@@ -96,7 +99,7 @@ Json Snapshot(void* bar)
   return j;
 }
 // Bound both output and snapshot work; no game state or retained object references.
-bool Permit() noexcept
+bool Permit(bool display = false) noexcept
 {
   try {
     if (!ready)
@@ -107,7 +110,7 @@ bool Permit() noexcept
       window = now;
       burst  = 0;
     }
-    if (rows >= 1500 || burst >= 12)
+    if (burst >= (display ? 60 : 4))
       return false;
     ++rows;
     ++burst;
@@ -122,6 +125,7 @@ void Observe(const char* event, void* bar) noexcept
     return;
   try {
     auto j                       = Snapshot(bar);
+    j["ms"]                      = GetTickCount64();
     j["event"]                   = event;
     j["simple_calls"]            = simpleCalls.load();
     j["duration_override_calls"] = timingCalls.load();
@@ -134,13 +138,30 @@ void Fleet_Hook(auto original, void* self)
   original(self);
   Observe("fleet_set_after", Ref(self, "_cargoFillBar"));
 }
-void Legacy_Hook(auto original, void* self)
+void Display_Hook(auto original, void* self, void* data)
 {
-  original(self);
-  // Only the selected fleet's exact fill bar, not unrelated legacy progress bars.
-  auto* owner = Ref(self, "m_provider");
-  if (Ref(owner, "_cargoFillBar") == self)
-    Observe("legacy_set_after", self);
+  original(self, data);
+  if (!Permit(true))
+    return;
+  try {
+    auto j            = Snapshot(self);
+    j["display_data"] = Data(data);
+    j["text_class"]   = Class(Ref(self, "_currentDynamicValue"));
+    static std::unordered_map<uintptr_t, std::string> previous;
+    auto                                              key       = reinterpret_cast<uintptr_t>(self);
+    auto                                              signature = j.dump();
+    // Bounded deduplication; only store local pointer values, never managed references.
+    if (previous.size() >= 128 && !previous.contains(key))
+      previous.clear();
+    if (previous[key] == signature)
+      return;
+    previous[key]                = std::move(signature);
+    j["event"]                   = "display_after";
+    j["ms"]                      = GetTickCount64();
+    j["duration_override_calls"] = timingCalls.load();
+    trace->info("{}", j.dump());
+  } catch (...) {
+  }
 }
 template <size_t N> bool Pinned(const MethodInfo* method, uintptr_t rva, const unsigned char (&bytes)[N])
 {
@@ -167,22 +188,25 @@ void InstallCargoProbe()
 {
 #if defined(_WIN32) && defined(_M_X64)
   auto  fleet  = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.FleetManagement", "FleetInfoWidget");
-  auto  legacy = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "LegacyProgressBar");
+  auto  simple = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.UI", "SimpleProgressBarWidget");
   auto* f      = fleet.GetMethodInfo("SetWidgetData");
-  auto* l      = legacy.GetMethodInfo("SetWidgetData");
-  if (!Pinned(f, kProbeRva0, kProbeWindow0) || !Pinned(l, kProbeRva1, kProbeWindow1)) {
+  auto* l      = simple.GetMethodInfo("SetCurrentAndMaxValues", 1);
+  if (!Pinned(f, kProbeRva0, kProbeWindow0) || !Pinned(l, kProbeRva2, kProbeWindow2)) {
     spdlog::warn("[CargoProbe] client fingerprint mismatch; not installed");
     return;
   }
   try {
     auto file = "community_cargo_probe_" + std::to_string(GetCurrentProcessId()) + "_"
                 + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + ".jsonl";
-    trace     = spdlog::basic_logger_mt("cargo_probe", file);
+    trace     = spdlog::rotating_logger_mt("cargo_probe", file, 2 * 1024 * 1024, 2);
     trace->set_pattern("%v");
     trace->flush_on(spdlog::level::info);
-    trace->info("{}", Json({{"event", "session"}, {"client", 263}, {"limit", "1500 rows; 12/sec; read-only"}}).dump());
+    trace->info("{}", Json({{"event", "session"},
+                            {"client", 263},
+                            {"limit", "60 samples/sec; 2MiB plus 2 rotations; read-only; display path"}})
+                          .dump());
     ready = SPUD_STATIC_DETOUR(f->methodPointer, Fleet_Hook) != nullptr;
-    ready = ready && SPUD_STATIC_DETOUR(l->methodPointer, Legacy_Hook) != nullptr;
+    ready = ready && SPUD_STATIC_DETOUR(l->methodPointer, Display_Hook) != nullptr;
     spdlog::info("[CargoProbe] installed={} file={}", ready, file);
   } catch (...) {
     spdlog::warn("[CargoProbe] installation unavailable");
