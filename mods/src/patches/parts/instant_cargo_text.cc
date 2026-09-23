@@ -87,7 +87,7 @@ void SetWidgetData_Hook(auto original, void* self)
 }
 } // namespace
 #endif
-void InstallInstantCargoTextHooks()
+bool InstallInstantCargoTextHooks()
 {
 #if defined(_WIN32) && defined(_M_X64)
   auto bar  = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Stats", "LegacyComparableProgressBar");
@@ -105,9 +105,12 @@ void InstallInstantCargoTextHooks()
       || reinterpret_cast<uintptr_t>(method->methodPointer) != base + 0x118b4b0
       || std::memcmp(reinterpret_cast<const void*>(method->methodPointer), kWindow, sizeof(kWindow)) != 0) {
     spdlog::warn("[InstantCargoText] client/metadata contract unavailable; native text retained");
-    return;
+    return false;
   }
   textReady = SPUD_STATIC_DETOUR(method->methodPointer, SetWidgetData_Hook) != nullptr;
   spdlog::info("[InstantCargoText] native text hook {}", textReady ? "installed" : "unavailable");
+  return textReady;
+#else
+  return false;
 #endif
 }
