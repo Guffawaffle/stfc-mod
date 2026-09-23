@@ -314,6 +314,7 @@ zoom = 5000.0
 # Enable the buff fixes
 bufffixhooks = true
 cargoformathooks = true
+instantcargocounterhooks = true
 chatpatches = true
 
 # Enable per-faction bulk claiming for Daily Goals
@@ -844,6 +845,9 @@ hud_q_trials = "auto"
 
 # Decimal places used for abbreviated cargo values
 cargo_significant_decimals = 2
+
+# Show the selected ship cargo amount immediately, without counting up. Live in Mod Settings > Previews & Cargo.
+instant_cargo_counter = true
 
 # Stop locate working when ship or node previews are displayed
 disable_preview_locate = false
