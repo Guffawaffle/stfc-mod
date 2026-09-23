@@ -7,6 +7,7 @@
 
 void CargoProbeSimple(void*);
 void CargoProbeDuration();
+void InstallInstantCargoTextHooks();
 
 namespace
 {
@@ -123,4 +124,6 @@ void InstallInstantCargoCounterHooks()
   const bool durationInstalled = SPUD_STATIC_DETOUR(duration->methodPointer, SetupDuration_Hook) != nullptr;
   installed = durationInstalled && SPUD_STATIC_DETOUR(start->methodPointer, StartLerp_Hook) != nullptr;
   spdlog::info("[InstantCargo] cargo counter hooks {}", installed ? "installed" : "unavailable");
+  if (installed)
+    InstallInstantCargoTextHooks();
 }
