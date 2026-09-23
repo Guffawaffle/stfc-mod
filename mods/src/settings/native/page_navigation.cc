@@ -51,6 +51,7 @@ const PageCatalog::Page* PageFor(Il2CppObject* context)
 struct SectionPage {
   const PageCatalog::Page*   page       = nullptr;
   Il2CppGCHandle             controller = nullptr, context = nullptr;
+  Il2CppGCHandle             searchReturn = nullptr; // Only this visit came from a search result.
   PageSections              sections;
   std::vector<Il2CppObject*> shown; // Comparison only; native context/panel owns rows.
   bool                       conditional = false;
@@ -63,6 +64,7 @@ void ClearSectionPage()
   const auto* leaving = std::exchange(sectionPage.page, nullptr);
   Free(sectionPage.controller);
   Free(sectionPage.context);
+  Free(sectionPage.searchReturn);
   sectionPage.sections.ExpandAll();
   sectionPage.shown.clear();
   sectionPage.conditional = false;
@@ -257,6 +259,8 @@ void CategoryReleaseHook(auto original, Il2CppObject* widget)
 }
 void PageSelectedHook(auto original, Il2CppObject* controller, Il2CppObject* context)
 {
+  // Keep a redirected context rooted through ClearSectionPage and native bind.
+  Root searchReturn(OnUIThread() ? Target(sectionPage.searchReturn) : nullptr);
   if (OnUIThread() && pagesActive) {
     bool sectionClick = false;
     try {
@@ -295,6 +299,23 @@ void PageSelectedHook(auto original, Il2CppObject* controller, Il2CppObject* con
       Warn("settings section unavailable");
       if (sectionClick)
         return;
+    }
+    try {
+      // Native Back passes SelectedOption.Parent to OnCategorySelected. Redirect
+      // only that transition for this controller's search-opened visit; section
+      // toggles above do not consume it. Do not reparent the native option tree.
+      if (searchReturn.get() && Target(sectionPage.controller) == controller) {
+        Root current(Target(sectionPage.context));
+        Root canvas(Call(controller, "get_CanvasContext"));
+        Root selected(Call(canvas.get(), "get_SelectedOption"));
+        if (current.get() && selected.get() == current.get()) {
+          Root parent(Call(current.get(), "get_Parent"));
+          if (context == parent.get())
+            context = searchReturn.get();
+        }
+      }
+    } catch (...) {
+      Warn("search return unavailable; using normal Back destination");
     }
     ClearSectionPage();
     try {
@@ -442,6 +463,9 @@ void NavigateToSearchResult(std::string_view pageId, std::string_view itemId)
   Root controller(Target(sectionPage.controller));
   if (!controller.get() || !sectionPage.page || sectionPage.page->id != "community_mod.settings")
     return;
+  Root returnToSearch(Target(sectionPage.context));
+  if (!returnToSearch.get())
+    return;
   Root canvas(Call(controller.get(), "get_CanvasContext"));
   Root root(Call(canvas.get(), "get_RootOption"));
   // Follow catalog ancestry, bounding discovery to direct native children.
@@ -463,7 +487,12 @@ void NavigateToSearchResult(std::string_view pageId, std::string_view itemId)
   Root selected(target);
   void* args[]{selected.get()};
   Invoke(PageMeta().selected, controller.get(), args);
-  if (sectionPage.page && sectionPage.page->id == pageId) {
+  Root active(Call(canvas.get(), "get_SelectedOption"));
+  if (sectionPage.page && sectionPage.page->id == pageId && active.get() == selected.get()
+      && Target(sectionPage.controller) == controller.get()) {
+    sectionPage.searchReturn = il2cpp_gchandle_new_weakref(returnToSearch.get(), false);
+    if (!sectionPage.searchReturn)
+      Warn("search return unavailable; using normal Back destination");
     if (const auto* heading = sectionPage.page->SectionFor(itemId); heading && Collapsed(*heading))
       sectionPage.sections.Toggle(*heading);
     RefreshActions();
