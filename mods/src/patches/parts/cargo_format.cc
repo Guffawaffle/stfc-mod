@@ -10,8 +10,6 @@
 // (identifier "shared_x_of_y_x_coloured"). The field is set permanently in
 // SetLocalTextParameters because Localize(), which reads it, runs later.
 
-void CargoProbeText(void*, void*) noexcept;
-
 static constexpr char  kCargoIdentifier[]   = "shared_x_of_y_x_coloured";
 static constexpr size_t kCargoIdentifierLen = sizeof(kCargoIdentifier) - 1;
 
@@ -63,7 +61,6 @@ void ColourTextLocalizer_SetLocalTextParameters_Hook(auto original, void* _this,
   }
 
   original(_this, parseID, args);
-  CargoProbeText(_this, args);
 }
 
 void InstallCargoFormatHooks()
