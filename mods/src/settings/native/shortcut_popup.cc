@@ -1,6 +1,7 @@
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
 #include "settings/shortcut_popup.h"
 #include "action_widgets.h"
+#include "ui_helpers.h"
 #include "patches/key.h"
 #include "patches/screen_update_hook.h"
 #include "row_style.h"
@@ -17,6 +18,7 @@ namespace mod_settings::native
 {
 namespace
 {
+  using namespace ui;
   struct Vec2 {
     float x, y;
   };
@@ -44,54 +46,6 @@ namespace
   bool                 installed = false, invoking = false;
   bool (*focused)() = nullptr;
 
-  Il2CppClass* Class(const char* assembly, const char* ns, const char* name)
-  {
-    auto* cls = il2cpp_get_class_helper(assembly, ns, name).get_cls();
-    if (!cls)
-      throw std::runtime_error(std::string("shortcut popup class unavailable: ") + assembly + ":" + ns + "." + name);
-    return cls;
-  }
-  Il2CppClass* UnityClass(const char* name)
-  { return Class("UnityEngine.CoreModule", "UnityEngine", name); }
-  Il2CppObject* Static(const MethodInfo* method, void** args)
-  {
-    Il2CppObject* result = nullptr;
-    if (!Il2CppRuntime::TryInvoke(method, nullptr, args, &result))
-      throw std::runtime_error("shortcut popup static invocation");
-    return result;
-  }
-  Il2CppObject* UiCall(Il2CppObject* object, const char* name, int count = 0, void** args = nullptr)
-  {
-    try {
-      return Call(object, name, count, args);
-    } catch (const std::exception&) {
-      throw std::runtime_error(std::string("shortcut popup call: ")
-                               + (object ? il2cpp_class_get_name(object->klass) : "null") + "." + name);
-    }
-  }
-  bool Alive(Il2CppObject* object)
-  {
-    if (!object)
-      return false;
-    static const auto* method = IL2CppClassHelper(UnityClass("Object")).GetMethodInfo("op_Implicit", 1);
-    void*              args[] = {object};
-    Root               result(Static(method, args));
-    return Boolean(result.get());
-  }
-  void Retain(Il2CppGCHandle& handle, Il2CppObject* object)
-  {
-    Free(handle);
-    handle = object ? il2cpp_gchandle_new(object, false) : nullptr;
-    if (!handle)
-      throw std::runtime_error("shortcut popup root");
-  }
-  void Set(Il2CppObject* object, const char* method, void* value)
-  {
-    void* args[] = {value};
-    UiCall(object, method, 1, args);
-  }
-  template <class T> void Value(Il2CppObject* object, const char* method, T value)
-  { Set(object, method, &value); }
   void ReleaseNavigation()
   {
     if (Alive(Target(backController))) {
@@ -129,25 +83,6 @@ namespace
     // directly, outside EventSystem and ScreenManager.Update. Suspend only the
     // owning settings controller's poll until the dismissal key is released.
     Value(settingsBack, "set_enabled", false);
-  }
-  Il2CppObject* WithType(Il2CppObject* object, const char* method, Il2CppClass* type, int arity = 1)
-  {
-    auto* target = IL2CppClassHelper(object->klass).GetMethodInfoSpecial(method, [arity](auto count, auto params) {
-      return count == arity && Reference(params[0])
-             && (arity == 1 || (arity == 2 && Type(params[1], IL2CPP_TYPE_BOOLEAN)))
-             && std::strcmp(il2cpp_class_get_name(il2cpp_class_from_type(params[0])), "Type") == 0;
-    });
-    if (!target)
-      throw std::runtime_error(std::string("shortcut popup typed method unavailable: ") + method);
-    Root  reflection(reinterpret_cast<Il2CppObject*>(il2cpp_type_get_object(il2cpp_class_get_type(type))));
-    bool  includeInactive = false;
-    void* args[]          = {reflection.get(), &includeInactive};
-    return Invoke(target, object, args);
-  }
-  void Text(Il2CppObject* text, const std::string& value)
-  {
-    Root string(reinterpret_cast<Il2CppObject*>(il2cpp_string_new(value.c_str())));
-    Set(text, "set_text", string.get());
   }
   void Layout(Il2CppObject* transform, Vec2 size, Vec2 position)
   {

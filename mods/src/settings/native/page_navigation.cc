@@ -1,6 +1,7 @@
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
 #include "page_navigation.h"
 #include "action_widgets.h"
+#include "settings_search.h"
 #include "patches/parts/fc_confirmation_reset.h"
 #include "patches/runtime_config.h"
 #include "row_style.h"
@@ -58,6 +59,7 @@ using SectionRefreshScope = PageSections::RefreshScope;
 void ClearSectionPage()
 {
   timing::Flush();
+  CloseSettingsSearch();
   const auto* leaving = std::exchange(sectionPage.page, nullptr);
   Free(sectionPage.controller);
   Free(sectionPage.context);
@@ -128,7 +130,7 @@ void ShowSections(Il2CppObject* controller, Il2CppObject* context, const PageCat
           id = heading->id;
           break;
         }
-    if (sectionPage.sections.Visible(page, id))
+    if (FilterSettingsSearch(page, id) && sectionPage.sections.Visible(page, id))
       ordered.push_back({row, page.PositionFor(id), index});
   }
   // Repeated rows may have been appended after other native children. Keep the
@@ -328,6 +330,8 @@ void PageSelectedHook(auto original, Il2CppObject* controller, Il2CppObject* con
     if (auto* page = PageFor(context)) {
       Root label(ReadField(controller, PageMeta().title));
       SetRowText(controller, label.get(), page->label);
+      if (page->id == "community_mod.settings")
+        OpenSettingsSearch(controller);
       if (Target(sectionPage.controller) == controller && Target(sectionPage.context) == context
           && !sectionPage.sections.Refreshing()) {
         // Let native navigation establish the page and Back target, then apply
@@ -431,6 +435,38 @@ void RefreshPageRows()
     }
   } catch (...) {
     Warn("settings page list refresh unavailable");
+  }
+}
+void NavigateToSearchResult(std::string_view pageId, std::string_view itemId)
+{
+  Root controller(Target(sectionPage.controller));
+  if (!controller.get() || !sectionPage.page || sectionPage.page->id != "community_mod.settings")
+    return;
+  Root canvas(Call(controller.get(), "get_CanvasContext"));
+  Root root(Call(canvas.get(), "get_RootOption"));
+  // Follow catalog ancestry, bounding discovery to direct native children.
+  std::vector<std::string> path;
+  for (std::string id(pageId); !id.empty();) {
+    const auto page = std::ranges::find(Pages(), id, &PageCatalog::Page::id);
+    if (page == Pages().end() || path.size() >= Pages().size()) return;
+    path.push_back(page->id);
+    id = page->parent;
+  }
+  auto* target = root.get();
+  for (auto it = path.rbegin(); it != path.rend(); ++it) {
+    Root children(Call(target, "get_Children"));
+    target = nullptr;
+    for (int i = 0, count = Count(children.get()); i < count; ++i)
+      if (HasLabel(Item(children.get(), i), it->c_str())) { target = Item(children.get(), i); break; }
+    if (!target) return;
+  }
+  Root selected(target);
+  void* args[]{selected.get()};
+  Invoke(PageMeta().selected, controller.get(), args);
+  if (sectionPage.page && sectionPage.page->id == pageId) {
+    if (const auto* heading = sectionPage.page->SectionFor(itemId); heading && Collapsed(*heading))
+      sectionPage.sections.Toggle(*heading);
+    RefreshActions();
   }
 }
 void RefreshConditionalSections()
@@ -541,6 +577,7 @@ void AddPages(Il2CppObject* director, Il2CppObject* context)
 
 void InstallPages()
 {
+  RegisterSettingsSearch(ModPages());
   RegisterModPages();
 #ifdef _MODDBG
   // Temporary opt-in navigation fixture; no real mod feature placement is chosen.
@@ -656,6 +693,7 @@ void InstallPages()
     headingsActive = true;
   }
   InstallActionWidgets();
+  InstallSettingsSearch();
   if (ActionsActive() && !runtime_config::SetSaveStatusObserver(RefreshActions))
     Warn("settings save notice refresh unavailable");
   for (const auto& page : Pages())
