@@ -158,8 +158,18 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  sign-macos:
+    needs: resolve
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/sign-macos.yaml
+    with:
+      build_run_id: ${{ needs.resolve.outputs.run_id }}
+      source_sha: ${{ github.sha }}
+
   create-release:
-    needs: [resolve, sign-windows]
+    needs: [resolve, sign-windows, sign-macos]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -172,23 +182,11 @@ jobs:
           name: signed-windows-release
           path: stfc-community-mod
 
-      - name: Download macOS universal archive
+      - name: Download signed and notarized macOS artifacts
         uses: actions/download-artifact@v8
         with:
-          name: stfc-community-mod-macos-universal
-          path: stfc-community-mod-macos-universal
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: ${{ needs.resolve.outputs.run_id }}
-
-      - name: Download macOS installer
-        uses: actions/download-artifact@v8
-        with:
-          name: stfc-community-mod-installer
-          path: stfc-community-mod-installer
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: ${{ needs.resolve.outputs.run_id }}
+          name: signed-macos-release
+          path: signed-macos
 
       - name: Validate Build artifacts
         shell: bash
@@ -199,16 +197,17 @@ jobs:
           test -f stfc-community-mod/provenance.json
 
           test -f \
-            stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst
+            signed-macos/stfc-community-mod-macos-universal.tar.zst
 
           test -f \
-            stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst.sha256
+            signed-macos/stfc-community-mod-macos-universal.tar.zst.sha256
 
           test -f \
-            stfc-community-mod-installer/stfc-community-mod-installer.dmg
+            signed-macos/stfc-community-mod-installer.dmg
+          test -f signed-macos/macos-provenance.json
 
-          expected=$(tr -d '\r\n' < stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst.sha256)
-          actual=$(sha256sum stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst | awk '{print $1}')
+          expected=$(tr -d '\r\n' < signed-macos/stfc-community-mod-macos-universal.tar.zst.sha256)
+          actual=$(sha256sum signed-macos/stfc-community-mod-macos-universal.tar.zst | awk '{print $1}')
           [[ "$expected" =~ ^[0-9a-fA-F]{64}$ && "${expected,,}" == "$actual" ]]
 
       # Legacy Windows ZIP.
@@ -259,7 +258,7 @@ jobs:
             Downstream build from Guffawaffle's tested play branch.
             Source: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
             Build: https://github.com/${{ github.repository }}/actions/runs/${{ needs.resolve.outputs.run_id }}
-            Windows DLL: timestamped Azure code signature. macOS: ad-hoc signed, not notarized.
+            Windows DLL: timestamped Azure code signature. macOS: Developer ID signed and Apple notarized, with tickets stapled to the app and installer.
 
           generateReleaseNotes: true
           prerelease: ${{ needs.resolve.outputs.prerelease }}
@@ -273,6 +272,7 @@ jobs:
             stfc-community-mod-${{ github.ref_name }}.zip
             stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst
             stfc-community-mod-windows-x64/stfc-community-mod-windows-x64.tar.zst.sha256
-            stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst
-            stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst.sha256
-            stfc-community-mod-installer/stfc-community-mod-installer.dmg
+            signed-macos/stfc-community-mod-macos-universal.tar.zst
+            signed-macos/stfc-community-mod-macos-universal.tar.zst.sha256
+            signed-macos/stfc-community-mod-installer.dmg
+            signed-macos/macos-provenance.json

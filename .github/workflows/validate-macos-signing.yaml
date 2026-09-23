@@ -1,0 +1,43 @@
+name: Validate macOS signing
+
+# Commission the protected signing pipeline without publishing a release.
+# Only this reviewed branch can request the environment's manual approval.
+on:
+  push:
+    branches: [ci/macos-signing-play]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: validate-macos-signing
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    if: github.repository == 'Guffawaffle/stfc-mod'
+    runs-on: ubuntu-24.04
+    outputs:
+      run_id: ${{ steps.build.outputs.run_id }}
+      source_sha: ${{ steps.build.outputs.source_sha }}
+    steps:
+      - name: Select current play push build
+        id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/play" --jq '.object.sha')
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yaml/runs?head_sha=$sha&branch=play&event=push&status=success" --jq '.workflow_runs[0].id')
+          [[ "$sha" =~ ^[0-9a-f]{40}$ && "$run" =~ ^[1-9][0-9]*$ ]]
+          echo "source_sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "run_id=$run" >> "$GITHUB_OUTPUT"
+
+  validate:
+    needs: resolve
+    uses: ./.github/workflows/sign-macos.yaml
+    with:
+      build_run_id: ${{ needs.resolve.outputs.run_id }}
+      source_sha: ${{ needs.resolve.outputs.source_sha }}

@@ -17,7 +17,11 @@ of the upstream mirror.
 4. Approve the existing `windows-release` environment deployment. Azure signs
    the Windows DLL. Publisher, public-trust certificate and timestamp checks
    must pass before any release is published.
-5. The workflow packages the signed DLL and the same build's macOS artifacts.
+5. Approve the `macos-release` environment deployment. The workflow signs the
+   exact build's macOS library, loader and launcher with Developer ID, notarizes
+   the app and installer, and staples both tickets. Signing, notarization and
+   Gatekeeper verification must succeed before publication.
+6. The workflow packages the signed DLL and the signed macOS artifacts.
    A regular downstream release is explicitly marked Latest; an `-rc.N` tag
    creates a prerelease and leaves Latest unchanged.
 
@@ -31,8 +35,50 @@ Windows signing uses the existing `windows-release` environment variables:
 `AZURE_CERTIFICATE_PROFILE_NAME`, and `WIN_PUBLISHER_NAME`. The environment must
 allow the release tags (`v*`) and retain its approval requirement.
 
-macOS packaging currently has an ad-hoc signature. Apple Developer ID signing
-and notarization are not configured by this workflow.
+## macOS signing setup
+
+Normal Build/PR jobs remain ad-hoc signed and have no signing credentials.
+`sign-macos.yaml` reuses the installer from the exact successful `play` push
+build, without rebuilding. Release publication requires both signing jobs.
+
+Configure `macos-release` with the release reviewer and custom deployment
+policies allowing tags `v*-guffa.*` and the commissioning branch
+`ci/macos-signing-play`. Keep the reviewer approval requirement enabled.
+
+Environment secrets:
+
+- `MACOS_CERTIFICATE_P12_BASE64`: base64 of the password-protected Developer ID
+  Application certificate and private key (PKCS12).
+- `MACOS_CERTIFICATE_PASSWORD`: the PKCS12 password.
+- `APPLE_APP_SPECIFIC_PASSWORD`: a dedicated Apple app-specific password for
+  notarization, not the account login password.
+
+Environment variables:
+
+- `MACOS_SIGNING_IDENTITY`: SHA-1 fingerprint of the Developer ID Application
+  certificate, identifying the exact certificate to use.
+- `APPLE_TEAM_ID`: the certificate's ten-character Team ID.
+- `APPLE_ID`: the Apple account login used for notarization; it can differ from
+  the email address on the original certificate request.
+
+The job imports the identity into a temporary keychain, cleans it on success
+or failure, and retains only signed artifacts and notarization evidence.
+`macos-provenance.json` records the build source, signing workflow source,
+input/output hashes and Apple's submission IDs. The standalone dylib archive
+contains the same signed library accepted with the app; libraries cannot have
+a stapled ticket and rely on Apple's online ticket lookup when needed.
+
+`Validate macOS signing` runs on the commissioning branch or manual dispatch
+and signs the current successful `play` build. It produces downloadable CI
+artifacts only: it does not tag, publish or change Latest. Inspect its evidence
+and test the signed app on macOS before publishing the first notarized release.
+The launcher keeps its existing entitlements and game-launch behavior; a
+notarization success does not prove game loading or runtime hooks work.
+
+If Apple leaves a submission pending beyond the bounded wait, publication
+fails closed. Retrieve the submission ID from `macos-notarization-evidence`
+and check its status before deciding to retry; a retry starts a new submission.
+Existing releases remain unchanged.
 
 ## Stable links
 
