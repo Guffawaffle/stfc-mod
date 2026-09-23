@@ -5,6 +5,9 @@
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
+void CargoProbeSimple(void*);
+void CargoProbeDuration();
+
 namespace
 {
 Il2CppClass *      fleetInfoClass{}, *cargoHoldClass{}, *lerperClass{};
@@ -70,15 +73,19 @@ bool StartLerp_Hook(auto original, void* self)
     reported = true;
     spdlog::info("[InstantCargo] matched owned cargo bar; using native instant timing");
   }
-  return original(self);
+  const bool result = original(self);
+  CargoProbeSimple(self);
+  return result;
 }
 
 float SetupDuration_Hook(auto original, void* self, Il2CppObject* source, Il2CppObject* target)
 {
   // Keep the native interpolation setup/completion sequence, using its supported
   // zero-duration path only inside this particular cargo bar's StartLerp call.
-  if (instantLerper && self == instantLerper)
+  if (instantLerper && self == instantLerper) {
+    CargoProbeDuration();
     return 0.0f;
+  }
   return original(self, source, target);
 }
 } // namespace
