@@ -44,6 +44,8 @@ void RegisterModPages()
     for (auto option : {PreviewOption::Locate, PreviewOption::Recall})
       catalog.AddBoolean("community_mod.previews", PreviewSetting(option));
   }
+  if (InstantCargoCounterAvailable())
+    catalog.AddBoolean("community_mod.previews", PreviewSetting(PreviewOption::InstantCargo));
   if (CargoPreviewsAvailable()) {
     catalog.AddBoolean("community_mod.previews", PreviewSetting(PreviewOption::Cargo));
     // Only presentation depends on the master; target choices remain saved.

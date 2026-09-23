@@ -318,6 +318,8 @@ public:
 
   // Cargo formatting
   bool installCargoFormatHooks;
+  bool installInstantCargoCounterHooks;
+  bool instant_cargo_counter;
   int  cargo_significant_decimals;
 
   // Officer roster/assignment "Below Deck Ability" sort option restore
