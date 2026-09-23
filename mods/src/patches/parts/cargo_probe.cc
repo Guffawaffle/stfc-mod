@@ -80,18 +80,36 @@ Json Data(void* obj)
     Scalar<double>(j, obj, field, "System.Double");
   return j;
 }
+// Copies only numeric model state; never retain managed objects beyond a callback.
+std::unordered_map<uintptr_t, Json> cargoModels;
+void                                CaptureCargoModel(void* owner)
+{
+  if (Class(owner) == "Digit.Prime.FleetManagement.FleetInfoWidget")
+    owner = Ref(owner, "_cargoHoldWidget");
+  if (Class(owner) != "Digit.Prime.FleetManagement.CargoHoldWidget")
+    return;
+  auto* label = Ref(owner, "_colouredAmountLocalizer");
+  if (!label)
+    return;
+  if (cargoModels.size() >= 32 && !cargoModels.contains(reinterpret_cast<uintptr_t>(label)))
+    cargoModels.clear();
+  auto j                                          = Data(Ref(Ref(owner, "m_context"), "_currentCargo"));
+  j["sample_ms"]                                  = GetTickCount64();
+  cargoModels[reinterpret_cast<uintptr_t>(label)] = std::move(j);
+}
 Json Snapshot(void* bar)
 {
   auto* provider = Ref(bar, "m_provider");
-  auto* lerper   = Ref(bar, "_lerper");
-  Json  j        = {{"class", Class(bar)},
-                    {"instance", reinterpret_cast<uintptr_t>(bar)},
-                    {"provider", Class(provider)},
-                    {"fleet_fill", Ref(provider, "_cargoFillBar") == bar && bar},
-                    {"context", Data(Ref(bar, "m_context"))},
-                    {"lerper", Class(lerper)},
-                    {"result", Data(Ref(lerper, "_result"))},
-                    {"target", Data(Ref(lerper, "_target"))}};
+  CaptureCargoModel(provider);
+  auto* lerper = Ref(bar, "_lerper");
+  Json  j      = {{"class", Class(bar)},
+                  {"instance", reinterpret_cast<uintptr_t>(bar)},
+                  {"provider", Class(provider)},
+                  {"fleet_fill", Ref(provider, "_cargoFillBar") == bar && bar},
+                  {"context", Data(Ref(bar, "m_context"))},
+                  {"lerper", Class(lerper)},
+                  {"result", Data(Ref(lerper, "_result"))},
+                  {"target", Data(Ref(lerper, "_target"))}};
   Scalar<float>(j, lerper, "_duration", "System.Single");
   Scalar<float>(j, lerper, "_currentTime", "System.Single");
   Scalar<bool>(j, bar, "_snapToValue", "System.Boolean");
@@ -136,6 +154,10 @@ void Observe(const char* event, void* bar) noexcept
 void Fleet_Hook(auto original, void* self)
 {
   original(self);
+  try {
+    CaptureCargoModel(self);
+  } catch (...) {
+  }
   Observe("fleet_set_after", Ref(self, "_cargoFillBar"));
 }
 void Display_Hook(auto original, void* self, void* data)
@@ -144,6 +166,10 @@ void Display_Hook(auto original, void* self, void* data)
   if (!Permit(true))
     return;
   try {
+    auto ownerClass = Class(Ref(self, "m_provider"));
+    if (ownerClass != "Digit.Prime.FleetManagement.FleetInfoWidget"
+        && ownerClass != "Digit.Prime.FleetManagement.CargoHoldWidget")
+      return;
     auto j            = Snapshot(self);
     j["display_data"] = Data(data);
     j["text_class"]   = Class(Ref(self, "_currentDynamicValue"));
@@ -182,6 +208,61 @@ void CargoProbeDuration()
 {
 #if defined(_WIN32) && defined(_M_X64)
   ++timingCalls;
+#endif
+}
+// Called only from the existing cargo-identifier-filtered formatting hook, after original.
+void CargoProbeText(void* self, void* args) noexcept
+{
+#if defined(_WIN32) && defined(_M_X64)
+  if (!ready || !args)
+    return;
+  try {
+    static std::unordered_map<uintptr_t, ULONGLONG> last;
+    auto                                            key = reinterpret_cast<uintptr_t>(self);
+    auto                                            now = GetTickCount64();
+    if (last.size() >= 32 && !last.contains(key))
+      last.clear();
+    if (now - last[key] < 50)
+      return;
+    last[key]   = now;
+    auto* array = static_cast<Il2CppArray*>(args);
+    if (il2cpp_array_length(array) > 8 || il2cpp_array_element_size(array->klass) != sizeof(void*))
+      return;
+    auto* values  = reinterpret_cast<Il2CppArraySize*>(array);
+    Json  numbers = Json::array();
+    for (uintptr_t i = 0; i < il2cpp_array_length(array); ++i) {
+      auto* value = static_cast<Il2CppObject*>(values->vector[i]);
+      auto  name  = Class(value);
+      Json  item  = {{"class", name}};
+      if (name == "System.Double")
+        item["value"] = *static_cast<double*>(il2cpp_object_unbox(value));
+      else if (name == "System.Single")
+        item["value"] = *static_cast<float*>(il2cpp_object_unbox(value));
+      else if (name == "System.Int32")
+        item["value"] = *static_cast<int32_t*>(il2cpp_object_unbox(value));
+      else if (name == "Digit.Client.UI.BoxedDouble")
+        Scalar<double>(item, value, "DoubleValue", "System.Double");
+      numbers.push_back(std::move(item));
+    }
+    void* stack[24]{};
+    auto  count  = CaptureStackBackTrace(0, 24, stack, nullptr);
+    auto  base   = reinterpret_cast<uintptr_t>(GetModuleHandleA("GameAssembly.dll"));
+    Json  frames = Json::array();
+    for (USHORT i = 0; i < count; ++i) {
+      auto address = reinterpret_cast<uintptr_t>(stack[i]);
+      if (address >= base && address - base < 0x8000000)
+        frames.push_back(address - base);
+    }
+    Json j = {{"event", "cargo_text_parameters"},
+              {"ms", now},
+              {"label", key},
+              {"numbers", numbers},
+              {"game_stack_rvas", frames}};
+    if (auto it = cargoModels.find(key); it != cargoModels.end())
+      j["model"] = it->second;
+    trace->info("{}", j.dump());
+  } catch (...) {
+  }
 #endif
 }
 void InstallCargoProbe()
