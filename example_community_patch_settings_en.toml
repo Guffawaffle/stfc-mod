@@ -847,6 +847,7 @@ hud_q_trials = "auto"
 cargo_significant_decimals = 2
 
 # Show the selected ship cargo amount immediately, without counting up. Live in Mod Settings > Previews & Cargo.
+# Windows client 263 only; other builds keep native behavior.
 instant_cargo_counter = true
 
 # Stop locate working when ship or node previews are displayed

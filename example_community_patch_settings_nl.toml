@@ -847,6 +847,7 @@ hud_q_trials = "auto"
 cargo_significant_decimals = 2
 
 # Toon de scheepslading direct zonder optellen. Live onder Mod Settings > Previews & Cargo.
+# Windows client 263 only; other builds keep native behavior.
 instant_cargo_counter = true
 
 # Zorgt ervoor dat lokaliseren niet werkt als je naar de vracht van een schip of andere nodes bekijkt
