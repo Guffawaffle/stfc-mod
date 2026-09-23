@@ -59,6 +59,7 @@ void InstallDevConsole();
 void InstallGameErrorProbe();
 #endif
 void InstallNativeSettings();
+void InstallClaimTrace();
 void InstallGalaxyLabels();
 void InstallActionQueueRecovery();
 void InstallThinQueueProtection();
@@ -205,6 +206,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #endif
   InstallActionQueueRecovery();
   InstallThinQueueProtection();
+  InstallClaimTrace();
 
   spdlog::info("");
 
