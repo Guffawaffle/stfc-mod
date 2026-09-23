@@ -848,8 +848,7 @@ hud_q_trials = "auto"
 # Decimal places used for abbreviated cargo values
 cargo_significant_decimals = 2
 
-# Show cargo used/capacity immediately instead of counting up. Restart after changing.
-# Windows client 263 only; other builds keep native behavior.
+# Show the selected ship cargo amount immediately, without counting up. Live in Mod Settings > Previews & Cargo.
 instant_cargo_counter = true
 
 # Stop locate working when ship or node previews are displayed

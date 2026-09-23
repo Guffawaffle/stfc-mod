@@ -1,5 +1,6 @@
 // Show actual cargo totals through the native text renderer, without its count-up animation.
 #include "config.h"
+#include "settings/preview_settings.h"
 #include <il2cpp-tabledefs.h>
 #include <il2cpp/il2cpp_helper.h>
 #include <spdlog/spdlog.h>
@@ -94,6 +95,15 @@ void SetWidgetData_Hook(auto original, void* self)
 }
 } // namespace
 #endif
+bool mod_settings::InstantCargoCounterAvailable()
+{
+#if defined(_WIN32) && defined(_M_X64)
+  return textReady;
+#else
+  return false;
+#endif
+}
+
 void InstallInstantCargoCounterHooks()
 {
 #if defined(_WIN32) && defined(_M_X64)
