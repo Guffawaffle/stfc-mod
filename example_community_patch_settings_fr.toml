@@ -844,6 +844,7 @@ hud_q_trials = "auto"
 cargo_significant_decimals = 2
 
 # Afficher immediatement le compteur de cargaison du vaisseau, sans animation. Mod Settings > Previews & Cargo.
+# Windows client 263 only; other builds keep native behavior.
 instant_cargo_counter = true
 
 # Empêcher la localisation de fonctionner quand les aperçus de vaisseaux ou de nœuds sont affichés
