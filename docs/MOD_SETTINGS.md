@@ -42,6 +42,32 @@ mode, with a two-decimal threshold where relevant. Shortcut action rows show the
 first binding and an additional-binding count. The warp page row shows its mode.
 Summaries refresh on binding and existing setting/presentation notifications.
 
+## Search
+
+The Mod Settings landing page has a text field that filters settings and
+shortcuts as you type. Search matches labels, category paths and the actual
+TOML names, with case-insensitive matching and interchangeable spaces,
+underscores and dots. Exact names/keys appear first. Results show their location
+and TOML key; Open visits the existing settings page and expands the matching
+collapsible section. Back returns directly to the preserved search only when
+the visit began from a result. Normal browsing keeps the native parent path.
+Clear restores the category list. Search text is session-local, not saved.
+
+Search covers the registered Mod Settings controls, not every TOML option.
+Dependent controls remain discoverable while their parent option is off; results
+identify that they are currently hidden. Search does not enable them or change
+any configuration. Shortcut and audio editor commands produce one result for
+the setting rather than separate Change/Remove/Preview entries. Queries are
+limited to 128 characters and at most 32 results are displayed at once.
+
+The native adapter uses TMP_InputField for editing and the existing page and
+screen-update hooks. Input focus suppresses game shortcuts; result navigation
+runs after the row's click callback finishes. The input lives outside the pooled
+result rows so filtering preserves its caret and focus. Presentation IDs that
+differ from saved names are explicitly mapped by `SearchTomlKey`; update that
+mapping when adding such a control. `tests/run-settings.ps1` and
+`tests/run-settings.sh` include the pure search fixture.
+
 ## Honest state and persistence
 
 Readback proves the live value, not file or cloud durability. Unknown state never

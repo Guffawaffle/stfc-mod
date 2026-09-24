@@ -45,6 +45,7 @@ inline constexpr std::pair<const char*, const char*> persisted_settings[]{
     {"ui", "hud_missions"},
     {"ui", "disable_preview_locate"},
     {"ui", "disable_preview_recall"},
+    {"ui", "instant_cargo_counter"},
     {"ui", "show_cargo_default"},
     {"ui", "show_player_cargo"},
     {"ui", "show_station_cargo"},
