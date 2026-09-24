@@ -5,14 +5,18 @@ set -euo pipefail
 id="${1:?Usage: check-macos-notarization.sh SUBMISSION_ID}"
 [[ "$id" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]
 profile="${NOTARY_PROFILE:-stfc-notary}"
-evidence="${NOTARY_EVIDENCE_DIR:-macos-notarization-status}"
-mkdir -p "$evidence"
+evidence_root="${NOTARY_EVIDENCE_DIR:-macos-notarization-status}"
+mkdir -p "$evidence_root/$id"
+# Keep every query separate so an older completed log cannot appear beside a
+# newer pending result, even when rechecking the same ID on a local Mac.
+evidence=$(mktemp -d "$evidence_root/$id/check.XXXXXX")
 auth=(--keychain-profile "$profile")
 if [[ -n "${NOTARY_KEYCHAIN:-}" ]]; then
   auth+=(--keychain "$NOTARY_KEYCHAIN")
 fi
 
 echo "Checking Apple submission $id at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+echo "Evidence: $evidence"
 xcrun notarytool history "${auth[@]}" --output-format json > "$evidence/history.json"
 xcrun notarytool info "$id" "${auth[@]}" --output-format json > "$evidence/info.json"
 cat "$evidence/info.json"
