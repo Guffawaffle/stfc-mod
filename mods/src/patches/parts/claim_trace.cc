@@ -42,6 +42,7 @@ const auto                                         started = Clock::now();
 std::mutex                                         stateMutex;
 Il2CppGCHandle                                     latestClaim{}, latestReward{};
 Il2CppGCHandle                                     latestChest{}, latestMessage{};
+Il2CppGCHandle                                     latestSummary{};
 Clock::time_point                                  activeUntil{}, nextPulse{}, rateStart{};
 uint64_t                                           eventSequence{}, suppressed{};
 size_t                                             rateCount{};
@@ -194,7 +195,6 @@ Json Claim(void* object)
   Scalar<bool>(result, object, "_hasDirectGrant", "direct_grant");
   Scalar<bool>(result, object, "_expectedOrderIdsFinalized", "orders_finalized");
   Scalar<bool>(result, object, "_resultPublished", "result_published");
-  Scalar<int32_t>(result, object, "_presentationHint", "presentation_hint");
   void* orders{};
   if (Read(object, "_orderIds", orders))
     result["orders"] = Orders(orders);
@@ -303,7 +303,38 @@ Json MessageContext(void* context)
   return result;
 }
 
-enum class Kind { none, claim, reward, chest, storyboard, orders, error, semaphore, lock, message };
+Json ShopContext(void* context)
+{
+  Json result = {{"present", context != nullptr}};
+  Scalar<bool>(result, context, "_transactionInProgress", "transaction_in_progress");
+  Scalar<bool>(result, context, "_fetchingBundlesInProgress", "fetching_bundles");
+  Scalar<bool>(result, context, "_isInBulkSelectionMode", "bulk_selection");
+  Scalar<bool>(result, context, "SkippingReveal", "skipping_reveal");
+  Scalar<int32_t>(result, context, "<PurchasedChestsNumber>k__BackingField", "purchased_chests");
+  void* orders{};
+  if (Read(context, "<RewardPresentationOrderIds>k__BackingField", orders))
+    result["orders"] = Orders(orders);
+  return result;
+}
+
+Json Summary(void* object)
+{
+  auto result = View(object);
+  Scalar<bool>(result, object, "_ignoreContextUpdate", "ignore_context_update");
+  Scalar<int32_t>(result, object, "_purchasedChests", "purchased_chests");
+  void* value{};
+  if (Read(object, "m_context", value))
+    result["context"] = ShopContext(value);
+  if (Read(object, "_rewardPresentationOrderIds", value))
+    result["orders"] = Orders(value);
+  for (const char* field : {"_leftScreenOpenChestButton", "_middleScreenOpenChestButton",
+                            "_rightScreenOpenChestButton", "_repurchaseButton"})
+    if (Read(object, field, value))
+      result[field] = Button(value);
+  return result;
+}
+
+enum class Kind { none, claim, reward, chest, summary, shop, storyboard, orders, error, semaphore, lock, message };
 Json Snapshot(Kind kind, void* object)
 {
   switch (kind) {
@@ -313,6 +344,10 @@ Json Snapshot(Kind kind, void* object)
       return Reward(object);
     case Kind::chest:
       return Chest(object);
+    case Kind::summary:
+      return Summary(object);
+    case Kind::shop:
+      return ShopContext(object);
     case Kind::storyboard:
       return Storyboard(object);
     case Kind::orders:
@@ -412,6 +447,8 @@ struct Span {
           Remember(latestChest, object);
         if (kind == Kind::message)
           Remember(latestMessage, object);
+        if (kind == Kind::summary)
+          Remember(latestSummary, object);
       }
       id = nextSpan++;
       Event("enter");
@@ -469,6 +506,7 @@ void Pulse()
              {"latest_claim", Claim(latestClaim ? il2cpp_gchandle_get_target(latestClaim) : nullptr)},
              {"latest_reward", Reward(latestReward ? il2cpp_gchandle_get_target(latestReward) : nullptr)},
              {"latest_chest", Chest(latestChest ? il2cpp_gchandle_get_target(latestChest) : nullptr)},
+             {"latest_summary", Summary(latestSummary ? il2cpp_gchandle_get_target(latestSummary) : nullptr)},
              {"latest_message", Snapshot(Kind::message, latestMessage ? il2cpp_gchandle_get_target(latestMessage) : nullptr)},
              {"shortcut_capture", Key::shortcutCaptureActive},
              {"shortcut_popup", Key::shortcutPopupActive}};
@@ -780,6 +818,52 @@ void Hook38(auto original, void* self)
   Span span(38, Kind::message, self, -1);
   original(self);
 }
+
+void Hook39(auto original, void* self)
+{
+  Span span(39, Kind::summary, self, -1);
+  original(self);
+}
+
+void Hook40(auto original, void* self)
+{
+  Span span(40, Kind::summary, self, -1);
+  original(self);
+}
+
+void Hook41(auto original, void* self)
+{
+  Span span(41, Kind::summary, self, -1);
+  original(self);
+}
+
+void Hook42(auto original, void* self)
+{
+  Span span(42, Kind::summary, self, -1);
+  original(self);
+}
+
+void Hook43(auto original, void* self)
+{
+  Span span(43, Kind::summary, self, -1);
+  original(self);
+}
+
+bool Hook44(auto original, void* self)
+{
+  Span span(44, Kind::summary, self, -1);
+  const bool result = original(self);
+  span.result = result;
+  return result;
+}
+
+bool Hook45(auto original, void* self, void* context)
+{
+  Span span(45, Kind::shop, context, -1);
+  const bool result = original(self, context);
+  span.result = result;
+  return result;
+}
 } // namespace
 #endif
 
@@ -880,6 +964,20 @@ void InstallClaimTrace()
     ++installed;
   if (SPUD_STATIC_DETOUR(methods[38]->methodPointer, Hook38))
     ++installed;
+  if (SPUD_STATIC_DETOUR(methods[39]->methodPointer, Hook39))
+    ++installed;
+  if (SPUD_STATIC_DETOUR(methods[40]->methodPointer, Hook40))
+    ++installed;
+  if (SPUD_STATIC_DETOUR(methods[41]->methodPointer, Hook41))
+    ++installed;
+  if (SPUD_STATIC_DETOUR(methods[42]->methodPointer, Hook42))
+    ++installed;
+  if (SPUD_STATIC_DETOUR(methods[43]->methodPointer, Hook43))
+    ++installed;
+  if (SPUD_STATIC_DETOUR(methods[44]->methodPointer, Hook44))
+    ++installed;
+  if (SPUD_STATIC_DETOUR(methods[45]->methodPointer, Hook45))
+    ++installed;
   if (installed != std::size(kTargets) || !register_screen_manager_update_callback(Pulse)) {
     Write({{"event", "install_incomplete"}, {"hooks", installed}});
     spdlog::error("[ClaimTrace] incomplete install ({}/{}); installed wrappers remain pass-through", installed,
@@ -889,7 +987,7 @@ void InstallClaimTrace()
   ready.store(true);
   Write(
       {{"event", "session"},
-       {"schema", 2},
+       {"schema", 3},
        {"client", 263},
        {"hooks", installed},
        {"file", filename},
