@@ -12,10 +12,15 @@ command -v zstd >/dev/null
 
 work=$(mktemp -d "$RUNNER_TEMP/stfc-macos.XXXXXX")
 keychain="$RUNNER_TEMP/stfc-signing.keychain-db"
+original_keychains=()
+while IFS= read -r entry; do
+  original_keychains+=("$entry")
+done < <(security list-keychains -d user | sed 's/^[[:space:]]*"//; s/"[[:space:]]*$//')
 mount="$work/mount"
 mkdir -p "$mount" signed-macos macos-notarization-evidence
 cleanup() {
   hdiutil detach "$mount" -quiet 2>/dev/null || true
+  security list-keychains -d user -s "${original_keychains[@]}" || true
   security delete-keychain "$keychain" 2>/dev/null || true
   # mktemp above owns this directory; it contains no user files.
   rm -rf "$work"
@@ -27,9 +32,12 @@ keychain_password=$(openssl rand -hex 32)
 security create-keychain -p "$keychain_password" "$keychain"
 security set-keychain-settings -lut 3600 "$keychain"
 security unlock-keychain -p "$keychain_password" "$keychain"
+security list-keychains -d user -s "$keychain" "${original_keychains[@]}"
 security import "$work/identity.p12" -k "$keychain" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" >/dev/null
-security find-identity -v -p codesigning "$keychain" | grep -F "$MACOS_SIGNING_IDENTITY" >/dev/null
+security find-identity -v -p codesigning "$keychain" \
+  | tee macos-notarization-evidence/signing-identities.txt \
+  | grep -F "$MACOS_SIGNING_IDENTITY" >/dev/null
 xcrun notarytool store-credentials stfc-notary --keychain "$keychain" \
   --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD"
 rm "$work/identity.p12"
