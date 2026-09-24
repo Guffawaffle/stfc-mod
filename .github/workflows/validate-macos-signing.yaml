@@ -38,6 +38,7 @@ jobs:
   validate:
     needs: resolve
     uses: ./.github/workflows/sign-macos.yaml
+    secrets: inherit
     with:
       build_run_id: ${{ needs.resolve.outputs.run_id }}
       source_sha: ${{ needs.resolve.outputs.source_sha }}

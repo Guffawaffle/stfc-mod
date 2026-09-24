@@ -164,6 +164,7 @@ jobs:
       actions: read
       contents: read
     uses: ./.github/workflows/sign-macos.yaml
+    secrets: inherit
     with:
       build_run_id: ${{ needs.resolve.outputs.run_id }}
       source_sha: ${{ github.sha }}
