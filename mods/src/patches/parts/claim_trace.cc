@@ -20,6 +20,7 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -40,6 +41,7 @@ std::atomic_uint64_t                               nextSpan{1};
 const auto                                         started = Clock::now();
 std::mutex                                         stateMutex;
 Il2CppGCHandle                                     latestClaim{}, latestReward{};
+Il2CppGCHandle                                     latestChest{}, latestMessage{};
 Clock::time_point                                  activeUntil{}, nextPulse{}, rateStart{};
 uint64_t                                           eventSequence{}, suppressed{};
 size_t                                             rateCount{};
@@ -77,13 +79,17 @@ template <typename T> bool Read(void* object, const char* name, T& result)
   bool  compatible = false;
   if constexpr (std::is_same_v<T, bool>)
     compatible = type == IL2CPP_TYPE_BOOLEAN;
+  if constexpr (std::is_same_v<T, int64_t>)
+    compatible = type == IL2CPP_TYPE_I8;
+  if constexpr (std::is_same_v<T, float>)
+    compatible = type == IL2CPP_TYPE_R4;
   if constexpr (std::is_same_v<T, int32_t>) {
     compatible = type == IL2CPP_TYPE_I4;
     if (fieldClass && il2cpp_class_is_enum(fieldClass))
       compatible = il2cpp_type_get_type(il2cpp_class_enum_basetype(fieldClass)) == IL2CPP_TYPE_I4;
   }
   if constexpr (std::is_same_v<T, void*>)
-    compatible = type == IL2CPP_TYPE_CLASS || type == IL2CPP_TYPE_OBJECT
+    compatible = type == IL2CPP_TYPE_CLASS || type == IL2CPP_TYPE_OBJECT || type == IL2CPP_TYPE_SZARRAY
                  || (type == IL2CPP_TYPE_GENERICINST && fieldClass && !il2cpp_class_is_valuetype(fieldClass));
   if (!compatible
       || field->offset + sizeof(T)
@@ -100,6 +106,66 @@ template <typename T> void Scalar(Json& result, void* object, const char* field,
     result[label] = value;
   else
     result[label] = nullptr;
+}
+
+// Session-local aliases: never write raw order IDs, semaphore identifiers or object addresses.
+// Bounded storage; evicted values receive a NEW token if seen again, never a false match.
+std::mutex tokenMutex;
+std::vector<std::pair<std::u16string, uint64_t>> orderTokens;
+std::vector<std::pair<int64_t, uint64_t>> semaphoreTokens;
+uint64_t nextToken = 1;
+template <typename T> uint64_t Token(std::vector<std::pair<T, uint64_t>>& tokens, const T& value)
+{
+  std::lock_guard lock(tokenMutex);
+  for (const auto& entry : tokens)
+    if (entry.first == value)
+      return entry.second;
+  if (tokens.size() >= 512)
+    tokens.erase(tokens.begin());
+  const auto token = nextToken++;
+  tokens.emplace_back(value, token);
+  return token;
+}
+
+Json Orders(void* collection)
+{
+  Json result = {{"present", collection != nullptr}, {"supported", false}};
+  if (!collection)
+    return result;
+  auto* cls = il2cpp_object_get_class(static_cast<Il2CppObject*>(collection));
+  void* array = collection;
+  int32_t count{};
+  if (il2cpp_class_get_rank(cls) != 1) {
+    if (std::strcmp(il2cpp_class_get_namespace(cls), "System.Collections.Generic") != 0
+        || std::strcmp(il2cpp_class_get_name(cls), "List`1") != 0
+        || !Read(collection, "_size", count) || !Read(collection, "_items", array) || !array)
+      return result;
+    cls = il2cpp_object_get_class(static_cast<Il2CppObject*>(array));
+  } else {
+    count = static_cast<int32_t>(il2cpp_array_length(static_cast<Il2CppArray*>(array)));
+  }
+  auto* element = il2cpp_class_get_element_class(cls);
+  if (il2cpp_class_get_rank(cls) != 1 || !element
+      || std::strcmp(il2cpp_class_get_namespace(element), "System") != 0
+      || std::strcmp(il2cpp_class_get_name(element), "String") != 0
+      || il2cpp_array_element_size(cls) != sizeof(void*) || count < 0 || count > 128
+      || static_cast<uint32_t>(count) > il2cpp_array_length(static_cast<Il2CppArray*>(array)))
+    return result;
+  result["supported"] = true;
+  result["count"] = count;
+  result["tokens"] = Json::array();
+  auto* items = reinterpret_cast<Il2CppString**>(static_cast<Il2CppArraySize*>(array)->vector);
+  for (int32_t index = 0; index < count; ++index) {
+    auto* item = items[index];
+    const auto length = item ? il2cpp_string_length(item) : 0;
+    if (length <= 0 || length > 256) {
+      result["tokens"].push_back(nullptr);
+      continue;
+    }
+    const auto* chars = reinterpret_cast<const char16_t*>(il2cpp_string_chars(item));
+    result["tokens"].push_back(Token(orderTokens, std::u16string(chars, length)));
+  }
+  return result;
 }
 
 Json Claim(void* object)
@@ -128,6 +194,10 @@ Json Claim(void* object)
   Scalar<bool>(result, object, "_hasDirectGrant", "direct_grant");
   Scalar<bool>(result, object, "_expectedOrderIdsFinalized", "orders_finalized");
   Scalar<bool>(result, object, "_resultPublished", "result_published");
+  Scalar<int32_t>(result, object, "_presentationHint", "presentation_hint");
+  void* orders{};
+  if (Read(object, "_orderIds", orders))
+    result["orders"] = Orders(orders);
   return result;
 }
 
@@ -149,9 +219,21 @@ Json Button(void* object)
   return result;
 }
 
-Json Reward(void* object)
+Json View(void* object)
 {
   Json result = {{"present", object != nullptr}};
+  if (!object)
+    return result;
+  result["class"] = il2cpp_class_get_name(il2cpp_object_get_class(static_cast<Il2CppObject*>(object)));
+  Scalar<bool>(result, object, "_wasShown", "was_shown");
+  void* context{};
+  result["context_present"] = Read(object, "m_context", context) && context;
+  return result;
+}
+
+Json Reward(void* object)
+{
+  Json result = View(object);
   if (!object)
     return result;
   void* context{};
@@ -184,7 +266,44 @@ Json Error(void* object)
   return result;
 }
 
-enum class Kind { none, claim, reward, error, semaphore, lock, message };
+Json Storyboard(void* object)
+{
+  Json result = {{"present", object != nullptr}};
+  Scalar<int32_t>(result, object, "_currentItemIndex", "item_index");
+  void* items{};
+  if (Read(object, "_filteredItemsForReveal", items))
+    Scalar<int32_t>(result, items, "_size", "item_count");
+  return result;
+}
+
+Json Chest(void* object)
+{
+  auto result = View(object);
+  void* context{};
+  if (Read(object, "m_context", context))
+    result["storyboard"] = Storyboard(context);
+  void* button{};
+  if (Read(object, "_skipButton", button))
+    result["skip_button"] = Button(button);
+  void* routine{};
+  if (Read(object, "_unlockRoutine", routine))
+    result["unlock_routine_present"] = routine != nullptr;
+  return result;
+}
+
+Json MessageContext(void* context)
+{
+  Json result = {{"present", context != nullptr}};
+  Scalar<int32_t>(result, context, "ButtonMode", "button_mode");
+  Scalar<bool>(result, context, "ShowExitButton", "show_exit");
+  Scalar<bool>(result, context, "AutoDismissOnAccept", "auto_dismiss");
+  void* error{};
+  if (Read(context, "ServerError", error))
+    result["server_error"] = Error(error);
+  return result;
+}
+
+enum class Kind { none, claim, reward, chest, storyboard, orders, error, semaphore, lock, message };
 Json Snapshot(Kind kind, void* object)
 {
   switch (kind) {
@@ -192,6 +311,19 @@ Json Snapshot(Kind kind, void* object)
       return Claim(object);
     case Kind::reward:
       return Reward(object);
+    case Kind::chest:
+      return Chest(object);
+    case Kind::storyboard:
+      return Storyboard(object);
+    case Kind::orders:
+      return Orders(object);
+    case Kind::message: {
+      auto result = View(object);
+      void* context{};
+      if (Read(object, "m_context", context))
+        result["context"] = MessageContext(context);
+      return result;
+    }
     case Kind::error:
       return Error(object);
     case Kind::lock: {
@@ -199,6 +331,10 @@ Json Snapshot(Kind kind, void* object)
       Scalar<int32_t>(result, object, "category", "category");
       Scalar<int32_t>(result, object, "state", "state");
       Scalar<int32_t>(result, object, "reason", "reason");
+      Scalar<float>(result, object, "timer", "timer");
+      int64_t identifier{};
+      if (Read(object, "identifier", identifier))
+        result["identifier_token"] = Token(semaphoreTokens, identifier);
       return result;
     }
     default:
@@ -272,11 +408,23 @@ struct Span {
           Remember(latestClaim, object);
         if (kind == Kind::reward)
           Remember(latestReward, object);
+        if (kind == Kind::chest)
+          Remember(latestChest, object);
+        if (kind == Kind::message)
+          Remember(latestMessage, object);
       }
       id = nextSpan++;
       Event("enter");
     } catch (...) {
       id = 0;
+    }
+  }
+  void Details(Json details) noexcept
+  {
+    try {
+      if (id)
+        Write({{"event", "details"}, {"span", id}, {"details", std::move(details)}});
+    } catch (...) {
     }
   }
   void Event(const char* phase) noexcept
@@ -320,6 +468,8 @@ void Pulse()
     event = {{"event", "game_update"},
              {"latest_claim", Claim(latestClaim ? il2cpp_gchandle_get_target(latestClaim) : nullptr)},
              {"latest_reward", Reward(latestReward ? il2cpp_gchandle_get_target(latestReward) : nullptr)},
+             {"latest_chest", Chest(latestChest ? il2cpp_gchandle_get_target(latestChest) : nullptr)},
+             {"latest_message", Snapshot(Kind::message, latestMessage ? il2cpp_gchandle_get_target(latestMessage) : nullptr)},
              {"shortcut_capture", Key::shortcutCaptureActive},
              {"shortcut_popup", Key::shortcutPopupActive}};
   }
@@ -438,7 +588,7 @@ void Hook9(auto original, void* self, void* notifications)
 
 void Hook10(auto original, void* self, void* orders, int32_t state)
 {
-  Span span(10, Kind::none, nullptr, state);
+  Span span(10, Kind::orders, orders, state);
   original(self, orders, state);
 }
 
@@ -512,25 +662,25 @@ void Hook21(auto original, void* self)
 
 void Hook22(auto original, void* self)
 {
-  Span span(22, Kind::none, nullptr, -1);
+  Span span(22, Kind::chest, self, -1);
   original(self);
 }
 
 void Hook23(auto original, void* self)
 {
-  Span span(23, Kind::none, nullptr, -1);
+  Span span(23, Kind::chest, self, -1);
   original(self);
 }
 
 void Hook24(auto original, void* self)
 {
-  Span span(24, Kind::none, nullptr, -1);
+  Span span(24, Kind::chest, self, -1);
   original(self);
 }
 
 void Hook25(auto original, void* self)
 {
-  Span span(25, Kind::none, nullptr, -1);
+  Span span(25, Kind::chest, self, -1);
   original(self);
 }
 
@@ -556,7 +706,7 @@ bool Hook28(auto original, void* self)
 
 bool Hook29(auto original, void* self)
 {
-  Span       span(29, Kind::none, nullptr, -1);
+  Span       span(29, Kind::storyboard, self, -1);
   const bool result = original(self);
   span.result       = result;
   return result;
@@ -564,7 +714,7 @@ bool Hook29(auto original, void* self)
 
 bool Hook30(auto original, void* self, bool all)
 {
-  Span       span(30, Kind::none, nullptr, all);
+  Span       span(30, Kind::storyboard, self, all);
   const bool result = original(self, all);
   span.result       = result;
   return result;
@@ -579,6 +729,12 @@ void Hook31(auto original, void* self, void* error)
 void Hook32(auto original, void* self, int32_t category, int64_t identifier, int32_t timeout)
 {
   Span span(32, Kind::semaphore, self, category);
+  try {
+    if (span.id)
+      span.Details({{"category", category}, {"identifier_token", Token(semaphoreTokens, identifier)},
+                    {"timeout_argument", timeout}});
+  } catch (...) {
+  }
   original(self, category, identifier, timeout);
 }
 
@@ -593,6 +749,11 @@ bool Hook33(auto original, void* self, void* semaphore)
 void Hook34(auto original, void* self, void* visibility, void* context)
 {
   Span span(34, Kind::message, self, -1);
+  try {
+    if (span.id)
+      span.Details({{"incoming_context", MessageContext(context)}});
+  } catch (...) {
+  }
   original(self, visibility, context);
 }
 
@@ -728,6 +889,7 @@ void InstallClaimTrace()
   ready.store(true);
   Write(
       {{"event", "session"},
+       {"schema", 2},
        {"client", 263},
        {"hooks", installed},
        {"file", filename},
@@ -738,7 +900,8 @@ void InstallClaimTrace()
         "0 not required; 1 not started; 2 pending; 3 presenting; 4 up to date; 5 completed; 6 skipped"},
        {"pulse", "5 seconds for 5 minutes after claim/reward/error/message activity; latest weakly held objects only"},
        {"limits",
-        "1200 events/minute; 2 MiB per file plus 2 rotations; no request bodies, order IDs or account data"}});
+        "1200 events/minute; 2 MiB per file plus 2 rotations; no request bodies, raw order IDs or account data"},
+       {"correlation", "session-local tokens; bounded to 512 orders and 512 semaphore identifiers; unsupported collections are explicit"}});
   spdlog::warn("[ClaimTrace] local client263 science probe active: {} ({} hooks)", filename, installed);
 #endif
 }
