@@ -32,11 +32,15 @@ Selecting the current value does not enqueue another save. Invalid choices do
 not alter live state or the file. Existing per-ship overrides retain precedence;
 the picker changes only the global fallback mode.
 
-On supported Windows x64 clients, hold Ctrl and click the travel button to show
+On supported clients, hold Ctrl on Windows or Command on macOS and click the travel button to show
 the native Warp/Jump choice for that trip, including when a ship rule normally
-chooses automatically. The button restores its native localized Set Course label while Ctrl is held.
-Releasing Ctrl after the click does not cancel the override. It does not change
+chooses automatically. The button restores its native localized Set Course label while the modifier is held.
+Releasing the modifier after the click does not cancel the override. It does not change
 the saved mode; an ordinary subsequent click follows the configured behavior.
+
+The click hook validates the managed signature and native entry before installing.
+Current native coverage is Windows x64 client263 and Mac client197 (1.000.52361),
+both Apple Silicon and Intel. An unrecognized client retains ordinary travel behavior.
 
 Reuse the existing single runtime writer, optimistic conflict handling and
 source-preserving TOML edits. UI readback confirms the live value, not durable
