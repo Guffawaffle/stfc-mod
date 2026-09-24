@@ -1,0 +1,101 @@
+name: Sign and notarize macOS
+
+on:
+  workflow_call:
+    inputs:
+      build_run_id:
+        required: true
+        type: string
+      source_sha:
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  sign:
+    if: github.repository == 'Guffawaffle/stfc-mod'
+    runs-on: macos-26
+    timeout-minutes: 60
+    environment: macos-release
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Verify selected successful play build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" > "$RUNNER_TEMP/mac-build.json"
+          jq -e --arg sha "$SOURCE_SHA" --arg repo "$GITHUB_REPOSITORY" '
+            .head_sha == $sha and .head_branch == "play" and .event == "push" and
+            .status == "completed" and .conclusion == "success" and
+            .path == ".github/workflows/ci.yaml" and .repository.full_name == $repo
+          ' "$RUNNER_TEMP/mac-build.json"
+          relation=$(gh api "repos/$GITHUB_REPOSITORY/compare/$SOURCE_SHA...play" --jq '.status')
+          [[ "$relation" == ahead || "$relation" == identical ]]
+
+      - name: Download exact build installer
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: stfc-community-mod-installer
+          path: unsigned-macos
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run_id }}
+
+      - name: Sign, notarize and package
+        shell: bash
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_ID: ${{ vars.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          MACOS_SIGNING_IDENTITY: ${{ vars.MACOS_SIGNING_IDENTITY }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: bash scripts/sign-macos-release.sh
+
+      - name: Remove temporary signing keychain
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/stfc-signing.keychain-db" ]]; then
+            security delete-keychain "$RUNNER_TEMP/stfc-signing.keychain-db"
+          fi
+
+      - name: Upload notarization evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: macos-notarization-evidence
+          path: macos-notarization-evidence/
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Retain exact submitted payloads for delayed notarization
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: macos-notarization-payloads
+          path: macos-notarization-payloads/
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload signed macOS release
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: signed-macos-release
+          path: signed-macos/
+          if-no-files-found: error
+          retention-days: 30
