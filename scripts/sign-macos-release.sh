@@ -47,7 +47,7 @@ library="$app/Contents/libstfc-community-mod.dylib"
 launcher="$app/Contents/MacOS/macOSLauncher"
 for binary in "$library" "$loader" "$launcher"; do
   test -f "$binary"
-  lipo -verify_arch arm64 x86_64 "$binary"
+  lipo "$binary" -verify_arch arm64 x86_64
 done
 unsigned_library_hash=$(shasum -a 256 "$library" | awk '{print $1}')
 

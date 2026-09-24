@@ -53,6 +53,12 @@ Environment secrets:
 - `APPLE_APP_SPECIFIC_PASSWORD`: a dedicated Apple app-specific password for
   notarization, not the account login password.
 
+Use a Keychain-compatible PKCS12 export. The macOS runner rejected the initial
+AES256/PBES2 container; the same identity imports successfully when exported
+with PKCS12 3DES/SHA1 protection. This changes the encrypted container format,
+not the certificate or code-signing algorithm. Retain a strong password and
+the original protected backup.
+
 Environment variables:
 
 - `MACOS_SIGNING_IDENTITY`: SHA-1 fingerprint of the Developer ID Application
