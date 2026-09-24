@@ -46,6 +46,13 @@ Il2CppGCHandle                                     latestSummary{};
 Clock::time_point                                  activeUntil{}, nextPulse{}, rateStart{};
 uint64_t                                           eventSequence{}, suppressed{};
 size_t                                             rateCount{};
+// Only valid during the original dispatch call on this thread; never retained across frames.
+thread_local void*                                 dispatchJob{};
+struct DispatchScope {
+  void* previous;
+  explicit DispatchScope(void* job) : previous(std::exchange(dispatchJob, job)) {}
+  ~DispatchScope() { dispatchJob = previous; }
+};
 
 Il2CppClass* Resolve(const char* assembly, const char* ns, const char* name)
 {
@@ -91,6 +98,7 @@ template <typename T> bool Read(void* object, const char* name, T& result)
   }
   if constexpr (std::is_same_v<T, void*>)
     compatible = type == IL2CPP_TYPE_CLASS || type == IL2CPP_TYPE_OBJECT || type == IL2CPP_TYPE_SZARRAY
+                 || type == IL2CPP_TYPE_STRING
                  || (type == IL2CPP_TYPE_GENERICINST && fieldClass && !il2cpp_class_is_valuetype(fieldClass));
   if (!compatible
       || field->offset + sizeof(T)
@@ -114,6 +122,7 @@ template <typename T> void Scalar(Json& result, void* object, const char* field,
 std::mutex tokenMutex;
 std::vector<std::pair<std::u16string, uint64_t>> orderTokens;
 std::vector<std::pair<int64_t, uint64_t>> semaphoreTokens;
+std::vector<std::pair<std::u16string, uint64_t>> requestTokens;
 uint64_t nextToken = 1;
 template <typename T> uint64_t Token(std::vector<std::pair<T, uint64_t>>& tokens, const T& value)
 {
@@ -126,6 +135,60 @@ template <typename T> uint64_t Token(std::vector<std::pair<T, uint64_t>>& tokens
   const auto token = nextToken++;
   tokens.emplace_back(value, token);
   return token;
+}
+
+bool Text(void* object, const char* field, std::u16string& value)
+{
+  auto* metadata = Field(object, field);
+  void* raw{};
+  if (!metadata || il2cpp_type_get_type(metadata->type) != IL2CPP_TYPE_STRING
+      || !Read(object, field, raw) || !raw)
+    return false;
+  auto* text = static_cast<Il2CppString*>(raw);
+  const auto length = il2cpp_string_length(text);
+  if (length < 0 || length > 512)
+    return false;
+  value.assign(reinterpret_cast<const char16_t*>(il2cpp_string_chars(text)), length);
+  return true;
+}
+
+Json Request(void* job)
+{
+  Json result = {{"dispatch_scope_present", job != nullptr}};
+  void* request{};
+  if (!Read(job, "Request", request) || !request)
+    return result;
+  result["class"] = il2cpp_class_get_name(il2cpp_object_get_class(static_cast<Il2CppObject*>(request)));
+  Scalar<int32_t>(result, request, "<Method>k__BackingField", "method");
+  Scalar<int32_t>(result, request, "_currentRetries", "retries");
+  Scalar<bool>(result, request, "IgnoreCallbackOrdering", "ignore_callback_ordering");
+  std::u16string value;
+  if (Text(request, "<Uid>k__BackingField", value))
+    result["uid_token"] = Token(requestTokens, u"uid:" + value);
+  if (Text(request, "_rawPath", value))
+    result["route_token"] = Token(requestTokens, u"route:" + value);
+  void* response{};
+  if (Read(job, "Response", response) && response) {
+    Scalar<int32_t>(result, response, "<ResponseCode>k__BackingField", "response_code");
+    Scalar<bool>(result, response, "<IsCachedResponse>k__BackingField", "cached_response");
+  }
+  return result;
+}
+
+Json GameCallers()
+{
+  void* frames[48]{};
+  const auto count = CaptureStackBackTrace(0, 48, frames, nullptr);
+  const auto base = GetModuleHandleA("GameAssembly.dll");
+  Json result = Json::array();
+  if (!base)
+    return result;
+  for (USHORT index = 0; index < count; ++index) {
+    MEMORY_BASIC_INFORMATION memory{};
+    if (VirtualQuery(frames[index], &memory, sizeof(memory)) && memory.AllocationBase == base)
+      result.push_back(reinterpret_cast<uintptr_t>(frames[index]) - reinterpret_cast<uintptr_t>(base));
+  }
+  return result;
 }
 
 Json Orders(void* collection)
@@ -262,6 +325,9 @@ Json Error(void* object)
     Scalar<int32_t>(result, object, "<Code>k__BackingField", "code");
     Scalar<int32_t>(result, object, "<HttpResponseCode>k__BackingField", "http_status");
     Scalar<int32_t>(result, object, "<CallbackErrorHandling>k__BackingField", "callback_handling");
+    std::u16string message;
+    if (Text(object, "<Message>k__BackingField", message))
+      result["duplicate_request_message"] = message == u"Duplicate request detected";
   }
   return result;
 }
@@ -761,6 +827,13 @@ bool Hook30(auto original, void* self, bool all)
 void Hook31(auto original, void* self, void* error)
 {
   Span span(31, Kind::error, error, -1);
+  try {
+    std::u16string message;
+    if (span.id && Text(error, "<Message>k__BackingField", message)
+        && message == u"Duplicate request detected")
+      span.Details({{"duplicate_request", Request(dispatchJob)}, {"game_callers_rva", GameCallers()}});
+  } catch (...) {
+  }
   original(self, error);
 }
 
@@ -863,6 +936,19 @@ bool Hook45(auto original, void* self, void* context)
   const bool result = original(self, context);
   span.result = result;
   return result;
+}
+
+// Do not log successful request traffic. Preserve only synchronous context for a duplicate error.
+void Hook46(auto original, void* self, void* job)
+{
+  DispatchScope scope(ready.load() ? job : nullptr);
+  original(self, job);
+}
+
+void Hook47(auto original, void* self, void* job)
+{
+  DispatchScope scope(ready.load() ? job : nullptr);
+  original(self, job);
 }
 } // namespace
 #endif
@@ -978,6 +1064,10 @@ void InstallClaimTrace()
     ++installed;
   if (SPUD_STATIC_DETOUR(methods[45]->methodPointer, Hook45))
     ++installed;
+  if (SPUD_STATIC_DETOUR(methods[46]->methodPointer, Hook46))
+    ++installed;
+  if (SPUD_STATIC_DETOUR(methods[47]->methodPointer, Hook47))
+    ++installed;
   if (installed != std::size(kTargets) || !register_screen_manager_update_callback(Pulse)) {
     Write({{"event", "install_incomplete"}, {"hooks", installed}});
     spdlog::error("[ClaimTrace] incomplete install ({}/{}); installed wrappers remain pass-through", installed,
@@ -987,7 +1077,7 @@ void InstallClaimTrace()
   ready.store(true);
   Write(
       {{"event", "session"},
-       {"schema", 3},
+       {"schema", 4},
        {"client", 263},
        {"hooks", installed},
        {"file", filename},
@@ -999,7 +1089,7 @@ void InstallClaimTrace()
        {"pulse", "5 seconds for 5 minutes after claim/reward/error/message activity; latest weakly held objects only"},
        {"limits",
         "1200 events/minute; 2 MiB per file plus 2 rotations; no request bodies, raw order IDs or account data"},
-       {"correlation", "session-local tokens; bounded to 512 orders and 512 semaphore identifiers; unsupported collections are explicit"}});
+       {"correlation", "session-local tokens; bounded to 512 orders, 512 semaphore identifiers and 512 request labels; unsupported collections are explicit"}});
   spdlog::warn("[ClaimTrace] local client263 science probe active: {} ({} hooks)", filename, installed);
 #endif
 }
