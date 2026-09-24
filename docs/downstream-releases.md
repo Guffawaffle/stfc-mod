@@ -19,7 +19,7 @@ of the upstream mirror.
    must pass before any release is published.
 5. Approve the `macos-release` environment deployment. The workflow signs the
    exact build's macOS library, loader and launcher with Developer ID, notarizes
-   the app and installer, and staples both tickets. Signing, notarization and
+   the final installer DMG in one submission, and staples its ticket. Signing, notarization and
    Gatekeeper verification must succeed before publication.
 6. The workflow packages the signed DLL and the signed macOS artifacts.
    A regular downstream release is explicitly marked Latest; an `-rc.N` tag
@@ -70,9 +70,22 @@ Environment variables:
 The job imports the identity into a temporary keychain, cleans it on success
 or failure, and retains only signed artifacts and notarization evidence.
 `macos-provenance.json` records the build source, signing workflow source,
-input/output hashes and Apple's submission IDs. The standalone dylib archive
-contains the same signed library accepted with the app; libraries cannot have
+input/output hashes and Apple's DMG submission ID. The workflow checks ticket
+coverage for the DMG and both architectures of the app, loader and library,
+then assesses an app copied out of the final image. The DMG is not repacked
+after acceptance. The standalone dylib archive
+contains the same signed library accepted inside the DMG; libraries cannot have
 a stapled ticket and rely on Apple's online ticket lookup when needed.
+
+The DMG's stapled ticket covers the nested code. Gatekeeper ingests that ticket
+when it checks the image, making it available for subsequent app checks; the app
+does not need its own staple inside the image. This follows Apple's
+[outermost-container guidance](https://developer.apple.com/forums/thread/125512).
+For an offline first-open test, use a fresh Mac or VM that has not opened an
+earlier signed build: download the final DMG, disconnect networking before
+mounting it, copy the app out, eject the image and open the launcher. Reconnect
+before testing the online game. The signing runner's Gatekeeper checks do not
+prove this offline behavior because tickets may already be cached.
 
 `Validate macOS signing` checks the existing commissioning submission on branch
 pushes. Manually dispatch with `operation=sign` to sign and submit the current

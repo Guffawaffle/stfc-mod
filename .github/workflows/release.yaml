@@ -259,7 +259,7 @@ jobs:
             Downstream build from Guffawaffle's tested play branch.
             Source: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
             Build: https://github.com/${{ github.repository }}/actions/runs/${{ needs.resolve.outputs.run_id }}
-            Windows DLL: timestamped Azure code signature. macOS: Developer ID signed and Apple notarized, with tickets stapled to the app and installer.
+            Windows DLL: timestamped Azure code signature. macOS: Developer ID signed and Apple notarized, with the ticket covering the app and bundled code stapled to the installer DMG.
 
           generateReleaseNotes: true
           prerelease: ${{ needs.resolve.outputs.prerelease }}

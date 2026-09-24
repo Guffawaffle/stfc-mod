@@ -116,35 +116,70 @@ notarize() {
   fi
 }
 
-ditto -c -k --keepParent "$app" "$work/app.zip"
-notarize "$work/app.zip" app
-xcrun stapler staple "$app"
-xcrun stapler validate "$app"
-spctl --assess --type execute --verbose=2 "$app"
-
+# Submit only the outermost container; Apple's ticket covers its nested code.
+# Do not repack or re-sign it after acceptance. Stapling preserves its signature.
+signed_library_hash=$(shasum -a 256 "$library" | awk '{print $1}')
 output=signed-macos/stfc-community-mod-installer.dmg
 hdiutil create -quiet -volname 'STFC Community Mod Installer' -srcfolder "$work/dmg-root" -format UDZO "$output"
 codesign --timestamp --keychain "$keychain" --sign "$MACOS_SIGNING_IDENTITY" "$output"
 notarize "$output" dmg
+submitted_dmg_hash=$(shasum -a 256 "$output" | awk '{print $1}')
+submission_id=$(jq -r .id macos-notarization-evidence/dmg-submission.json)
+ticket_log=macos-notarization-evidence/dmg-log.json
+jq -e --arg id "$submission_id" --arg hash "$submitted_dmg_hash" \
+  '.jobId == $id and .status == "Accepted" and .sha256 == $hash' "$ticket_log" >/dev/null
+
+# Acceptance must cover the exact signed code we ship, including both slices.
+verify_ticket() {
+  local binary="$1" path="$2" arch="${3:-}" details cdhash
+  if [[ -n "$arch" ]]; then
+    details=$(codesign --display --verbose=4 --arch "$arch" "$binary" 2>&1)
+  else
+    details=$(codesign --display --verbose=4 "$binary" 2>&1)
+  fi
+  cdhash=$(sed -n 's/^CDHash=//p' <<< "$details")
+  [[ "$cdhash" =~ ^[a-f0-9]{40}$ ]]
+  jq -e --arg path "$path" --arg arch "$arch" --arg hash "$cdhash" \
+    'any(.ticketContents[]; .path == $path and (.arch // "") == $arch and .cdhash == $hash)' \
+    "$ticket_log" >/dev/null
+  echo "Apple ticket covers $path ${arch:-container}: $cdhash"
+}
+verify_ticket "$output" "$(basename "$output")"
+for binary in "$app" "$loader" "$library"; do
+  ticket_path="$(basename "$output")/${binary#"$work/dmg-root/"}"
+  for arch in arm64 x86_64; do
+    verify_ticket "$binary" "$ticket_path" "$arch"
+  done
+done
 xcrun stapler staple "$output"
 xcrun stapler validate "$output"
 codesign --verify --strict "$output"
 spctl --assess --type open --context context:primary-signature --verbose=2 "$output"
 
-# The standalone archive contains the exact library accepted in the app
-# submission. Dylibs cannot carry a stapled ticket; Gatekeeper can look it up.
+# Verify the app after copying it out of the actual shipped image. Gatekeeper
+# ingests the stapled container ticket; this online runner isn't an offline test.
+hdiutil attach "$output" -readonly -nobrowse -mountpoint "$mount" -quiet
+installed_app="$work/installed/STFC Community Mod.app"
+ditto "$mount/STFC Community Mod.app" "$installed_app"
+hdiutil detach "$mount" -quiet
+codesign --verify --deep --strict --all-architectures "$installed_app"
+spctl --assess --type execute --verbose=2 "$installed_app"
+[[ "$(shasum -a 256 "$installed_app/Contents/libstfc-community-mod.dylib" | awk '{print $1}')" == "$signed_library_hash" ]]
+
+# The standalone archive contains the exact library accepted in the DMG.
+# Dylibs cannot carry a stapled ticket; separate downloads use online lookup.
 archive=signed-macos/stfc-community-mod-macos-universal.tar.zst
-tar -cf - -C "$app/Contents" libstfc-community-mod.dylib | zstd -15 -T0 -o "$archive"
+tar -cf - -C "$installed_app/Contents" libstfc-community-mod.dylib | zstd -15 -T0 -o "$archive"
 shasum -a 256 "$archive" | awk '{print $1}' > "$archive.sha256"
-signed_library_hash=$(shasum -a 256 "$library" | awk '{print $1}')
 dmg_hash=$(shasum -a 256 "$output" | awk '{print $1}')
 jq -n --arg source "$SOURCE_SHA" --arg build "$BUILD_RUN_ID" --arg team "$APPLE_TEAM_ID" \
   --arg signer "$MACOS_SIGNING_IDENTITY" --arg input "$input_hash" \
   --arg unsigned "$unsigned_library_hash" --arg signed "$signed_library_hash" --arg dmg "$dmg_hash" \
+  --arg submittedDmg "$submitted_dmg_hash" \
   --arg workflow "$GITHUB_SHA" --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-  --slurpfile app macos-notarization-evidence/app-submission.json \
   --slurpfile dmgTicket macos-notarization-evidence/dmg-submission.json \
   '{sourceCommit:$source,buildRunId:$build,teamId:$team,signingIdentity:$signer,
     inputDmgSha256:$input,unsignedLibrarySha256:$unsigned,signedLibrarySha256:$signed,
     dmgSha256:$dmg,signingWorkflowCommit:$workflow,signingRunUrl:$url,
-    appNotarization:$app[0],dmgNotarization:$dmgTicket[0]}' > signed-macos/macos-provenance.json
+    notarizationContainer:"dmg",submittedDmgSha256:$submittedDmg,
+    dmgNotarization:$dmgTicket[0]}' > signed-macos/macos-provenance.json
