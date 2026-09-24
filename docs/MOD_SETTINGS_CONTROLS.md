@@ -34,7 +34,7 @@ the picker changes only the global fallback mode.
 
 On supported Windows x64 clients, hold Ctrl and click the travel button to show
 the native Warp/Jump choice for that trip, including when a ship rule normally
-chooses automatically. The button previews `CHOOSE...` while Ctrl is held.
+chooses automatically. The button restores its native localized Set Course label while Ctrl is held.
 Releasing Ctrl after the click does not cancel the override. It does not change
 the saved mode; an ordinary subsequent click follows the configured behavior.
 
