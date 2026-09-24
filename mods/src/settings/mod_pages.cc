@@ -70,6 +70,7 @@ void RegisterModPages()
     catalog.AddChoice("community_mod.hud", setting);
   }
   catalog.AddPage("community_mod.labels", "Fleet Labels", "community_mod.settings");
+  catalog.AddBoolean("community_mod.labels", ShipHotkeyBadgesSetting());
   for (bool player : {true, false}) {
     catalog.AddHeading("community_mod.labels", player ? "community_mod.labels.player" : "community_mod.labels.other",
                        player ? "Player" : "Non-player", true, {}, [player] { return FleetLabelSummary(player); });

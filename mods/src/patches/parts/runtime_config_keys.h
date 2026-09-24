@@ -19,6 +19,7 @@ inline constexpr std::pair<const char*, const char*> persisted_settings[]{
     {"audio", "alert_fleet_repair_complete"},
     {"audio", "alert_fleet_miner_opc"},
     {"graphics", "galactic_anomaly_timer"},
+    {"graphics", "ship_hotkey_badges"},
     {"graphics", "zoom_label_player_detail"},
     {"graphics", "zoom_label_non_player_detail"},
     {"graphics", "zoom_label_player_threshold"},

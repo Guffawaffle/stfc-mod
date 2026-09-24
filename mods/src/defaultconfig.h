@@ -40,6 +40,7 @@ namespace Control
 
 namespace Graphics
 {
+  constexpr bool ship_hotkey_badges = true;
   constexpr bool galaxy_extended_selection = false;
   constexpr bool        galactic_anomaly_timer       = false;
   constexpr bool        borderless_fullscreen       = true;
