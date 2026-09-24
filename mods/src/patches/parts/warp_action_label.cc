@@ -117,15 +117,18 @@ void Update()
       void* args[]     = {fleet};
       if (fleet && Alive(deployment)
           && Il2CppChecked::Boolean(Il2CppChecked::Invoke(deployment, "HasInstantWarpAbility", 1, args))) {
-        switch (ResolveInstantWarpConfirmation(reinterpret_cast<FleetPlayerData*>(fleet))) {
-          case InstantWarpConfirmation::Warp:
-            desired = "WARP";
-            break;
-          case InstantWarpConfirmation::Jump:
-            desired = "JUMP";
-            break;
-          case InstantWarpConfirmation::None:
-            break;
+        // A requested choice uses the native localized Set Course label.
+        if (!WarpPromptOverrideHeld()) {
+          switch (ResolveInstantWarpConfirmation(reinterpret_cast<FleetPlayerData*>(fleet))) {
+            case InstantWarpConfirmation::Warp:
+              desired = "WARP";
+              break;
+            case InstantWarpConfirmation::Jump:
+              desired = "JUMP";
+              break;
+            case InstantWarpConfirmation::None:
+              break;
+          }
         }
       }
     }

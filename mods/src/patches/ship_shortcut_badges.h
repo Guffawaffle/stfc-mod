@@ -8,4 +8,5 @@ namespace ship_shortcut_badges
 void Bind(NavigationFleetWidget* widget);
 void Release(NavigationFleetWidget* widget);
 void Refresh();
+bool Available();
 } // namespace ship_shortcut_badges

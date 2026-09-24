@@ -1045,6 +1045,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "graphics", "ui_scale_viewer", DCG::ui_scale_viewer, write_config);
   this->zoom               = get_config_or_default(config, parsed, "graphics", "zoom", DCG::zoom, write_config);
   this->fr_scale           = get_config_or_default(config, parsed, "graphics", "fr_scale", DCG::fr_scale, write_config);
+  this->ship_hotkey_badges =
+      get_config_or_default(config, parsed, "graphics", "ship_hotkey_badges", DCG::ship_hotkey_badges, write_config);
   this->zoom_label_player.detail =
       get_fleet_label_detail(config, parsed, "zoom_label_player_detail", DCG::zoom_label_player_detail, write_config);
   this->zoom_label_player.zoom_threshold = get_fleet_label_zoom_threshold(
