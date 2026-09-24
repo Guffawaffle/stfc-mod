@@ -74,8 +74,10 @@ input/output hashes and Apple's submission IDs. The standalone dylib archive
 contains the same signed library accepted with the app; libraries cannot have
 a stapled ticket and rely on Apple's online ticket lookup when needed.
 
-`Validate macOS signing` runs on the commissioning branch or manual dispatch
-and signs the current successful `play` build. It produces downloadable CI
+`Validate macOS signing` checks the existing commissioning submission on branch
+pushes. Manually dispatch with `operation=sign` to sign and submit the current
+successful `play` build. This is an explicit new upload, not a status retry.
+The signing operation produces downloadable CI
 artifacts only: it does not tag, publish or change Latest. Inspect its evidence
 and test the signed app on macOS before publishing the first notarized release.
 The launcher keeps its existing entitlements and game-launch behavior; a
@@ -85,6 +87,28 @@ If Apple leaves a submission pending beyond the bounded wait, publication
 fails closed. Retrieve the submission ID from `macos-notarization-evidence`
 and check its status before deciding to retry; a retry starts a new submission.
 Existing releases remain unchanged.
+
+### Inspecting a pending submission
+
+Use `Validate macOS signing` with `operation=status` and the existing Apple
+`submission_id` to retrieve history, current status and the completed analysis
+log when available. It needs only notarization credentials, retains the
+`macos-release` approval gate, and does not sign or upload another payload.
+A successful status job means the query succeeded; read Apple's status in its
+output or `macos-notarization-status` artifact for the actual verdict.
+
+The same check can run on a Mac with Xcode command-line tools and `jq`:
+
+```sh
+# Follow the interactive prompts, including the app-specific password.
+xcrun notarytool store-credentials stfc-notary
+bash scripts/check-macos-notarization.sh <submission-id>
+```
+
+Set `NOTARY_PROFILE` or `NOTARY_KEYCHAIN` if using a different local Keychain
+profile. This check does not require the signing private key. `notarytool` is
+not available on Windows; Apple's separate Notary REST API supports clients
+on other platforms but requires API-key authentication.
 
 ## Stable links
 

@@ -1,11 +1,21 @@
 name: Validate macOS signing
 
-# Commission the protected signing pipeline without publishing a release.
+# Pushes only inspect the existing submission. New uploads require explicit dispatch.
 # Only this reviewed branch can request the environment's manual approval.
 on:
   push:
     branches: [ci/macos-signing-play]
   workflow_dispatch:
+    inputs:
+      operation:
+        description: Check an existing submission or start a new signing submission
+        type: choice
+        options: [status, sign]
+        default: status
+      submission_id:
+        description: Apple submission ID to inspect (status only)
+        type: string
+        default: 53ec1263-2841-4d27-bfc4-24bf3f8bd785
 
 permissions:
   actions: read
@@ -16,8 +26,52 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  status:
+    if: github.repository == 'Guffawaffle/stfc-mod' && (github.event_name == 'push' || inputs.operation == 'status')
+    runs-on: macos-26
+    timeout-minutes: 10
+    environment: macos-release
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Query existing Apple submission
+        shell: bash
+        env:
+          APPLE_ID: ${{ vars.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          SUBMISSION_ID: ${{ inputs.submission_id || '53ec1263-2841-4d27-bfc4-24bf3f8bd785' }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export NOTARY_KEYCHAIN="$RUNNER_TEMP/stfc-notary-status.keychain-db"
+          trap 'security delete-keychain "$NOTARY_KEYCHAIN" >/dev/null 2>&1 || true' EXIT
+          password=$(openssl rand -hex 32)
+          security create-keychain -p "$password" "$NOTARY_KEYCHAIN"
+          security unlock-keychain -p "$password" "$NOTARY_KEYCHAIN"
+          xcrun notarytool store-credentials stfc-notary --keychain "$NOTARY_KEYCHAIN" \
+            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD"
+          unset APPLE_APP_SPECIFIC_PASSWORD password
+          bash scripts/check-macos-notarization.sh "$SUBMISSION_ID"
+      - name: Remove temporary status keychain
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/stfc-notary-status.keychain-db" ]]; then
+            security delete-keychain "$RUNNER_TEMP/stfc-notary-status.keychain-db"
+          fi
+      - name: Upload status and available Apple log
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: macos-notarization-status
+          path: macos-notarization-status/
+          if-no-files-found: ignore
+          retention-days: 30
+
   resolve:
-    if: github.repository == 'Guffawaffle/stfc-mod'
+    if: github.repository == 'Guffawaffle/stfc-mod' && github.event_name == 'workflow_dispatch' && inputs.operation == 'sign'
     runs-on: ubuntu-24.04
     outputs:
       run_id: ${{ steps.build.outputs.run_id }}
