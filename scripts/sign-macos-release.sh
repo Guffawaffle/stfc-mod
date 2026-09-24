@@ -17,7 +17,7 @@ while IFS= read -r entry; do
   original_keychains+=("$entry")
 done < <(security list-keychains -d user | sed 's/^[[:space:]]*"//; s/"[[:space:]]*$//')
 mount="$work/mount"
-mkdir -p "$mount" signed-macos macos-notarization-evidence
+mkdir -p "$mount" signed-macos macos-notarization-evidence macos-notarization-payloads
 cleanup() {
   hdiutil detach "$mount" -quiet 2>/dev/null || true
   security list-keychains -d user -s "${original_keychains[@]}" || true
@@ -78,20 +78,39 @@ done
 codesign --verify --deep --strict --all-architectures "$app"
 
 notarize() {
-  local file="$1" name="$2" result id status
+  local file="$1" name="$2" result id status payload payload_hash
   result="macos-notarization-evidence/$name-submission.json"
-  # A timeout leaves the submission ID in evidence; it never publishes an
-  # unaccepted artifact or silently submits the same payload again.
-  local submit_exit=0
-  xcrun notarytool submit "$file" --keychain-profile stfc-notary --keychain "$keychain" \
-    --wait --timeout 20m --output-format json > "$result" || submit_exit=$?
+  # Retain the exact signed upload, outside the temporary signing directory.
+  # A delayed verdict must not require rebuilding or re-signing accepted code.
+  payload="macos-notarization-payloads/$(basename "$file")"
+  cp "$file" "$payload"
+  payload_hash=$(shasum -a 256 "$payload" | awk '{print $1}')
+  jq -n --arg source "$SOURCE_SHA" --arg build "$BUILD_RUN_ID" \
+    --arg input "$input_hash" --arg payload "$payload_hash" \
+    --arg workflow "$GITHUB_SHA" --arg filename "$(basename "$file")" \
+    '{sourceCommit:$source,buildRunId:$build,inputDmgSha256:$input,
+      payloadSha256:$payload,filename:$filename,signingWorkflowCommit:$workflow}' \
+    > "macos-notarization-payloads/$name-provenance.json"
+  echo "Submitting $name ($payload_hash) to Apple"
+  # Submit separately so the ID is saved before the potentially long wait.
+  # Never retry submission automatically: inspect history after upload errors.
+  xcrun notarytool submit "$payload" --keychain-profile stfc-notary --keychain "$keychain" \
+    --output-format json > "$result"
   id=$(jq -r '.id // empty' "$result")
-  if [[ -n "$id" ]]; then
-    xcrun notarytool log "$id" --keychain-profile stfc-notary --keychain "$keychain" \
-      "macos-notarization-evidence/$name-log.json" || true
-  fi
+  [[ "$id" =~ ^[[:xdigit:]]{8}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{12}$ ]]
+  cp "$result" "macos-notarization-payloads/$name-submission.json"
+  echo "Apple $name submission: $id; waiting up to 20 minutes"
+  xcrun notarytool wait "$id" --keychain-profile stfc-notary --keychain "$keychain" \
+    --timeout 20m --output-format json > "macos-notarization-evidence/$name-wait.json" || true
+  # Keep the original submission receipt even if this status request fails.
+  xcrun notarytool info "$id" --keychain-profile stfc-notary --keychain "$keychain" \
+    --output-format json > "macos-notarization-evidence/$name-info.json"
+  cp "macos-notarization-evidence/$name-info.json" "$result"
   status=$(jq -r '.status // empty' "$result")
-  if [[ "$submit_exit" != 0 || "$status" != Accepted ]]; then
+  echo "Apple $name status: $status"
+  xcrun notarytool log "$id" --keychain-profile stfc-notary --keychain "$keychain" \
+    "macos-notarization-evidence/$name-log.json" || true
+  if [[ "$status" != Accepted ]]; then
     echo "::error::Notarization $name status: $status; submission: $id. See evidence artifact."
     return 1
   fi

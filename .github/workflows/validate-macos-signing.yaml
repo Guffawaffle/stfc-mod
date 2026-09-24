@@ -1,7 +1,7 @@
 name: Validate macOS signing
 
 # Pushes only inspect the existing submission. New uploads require explicit dispatch.
-# Only this reviewed branch can request the environment's manual approval.
+# Status uses a branch-restricted environment without the signing identity.
 on:
   push:
     branches: [ci/macos-signing-play]
@@ -30,7 +30,7 @@ jobs:
     if: github.repository == 'Guffawaffle/stfc-mod' && (github.event_name == 'push' || inputs.operation == 'status')
     runs-on: macos-26
     timeout-minutes: 10
-    environment: macos-release
+    environment: macos-notary-status
     steps:
       - uses: actions/checkout@v7
         with:

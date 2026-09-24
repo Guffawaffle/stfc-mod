@@ -84,16 +84,27 @@ The launcher keeps its existing entitlements and game-launch behavior; a
 notarization success does not prove game loading or runtime hooks work.
 
 If Apple leaves a submission pending beyond the bounded wait, publication
-fails closed. Retrieve the submission ID from `macos-notarization-evidence`
-and check its status before deciding to retry; a retry starts a new submission.
-Existing releases remain unchanged.
+fails closed. Submission and waiting are separate steps: the ID is saved and
+printed before waiting. Retrieve it from `macos-notarization-evidence` and
+check its status before deciding to retry; a retry starts a new submission.
+The `macos-notarization-payloads` artifact retains the exact signed uploads,
+their SHA-256 hashes, source/build identity and submission receipts for 30 days,
+including on failure. These are recovery inputs, not verified release assets.
+Recover the accepted bytes and verify their provenance before completing
+stapling/packaging; do not substitute a rebuilt or re-signed app. There is no
+automatic resume or resubmission. Existing releases remain unchanged.
 
 ### Inspecting a pending submission
 
 Use `Validate macOS signing` with `operation=status` and the existing Apple
 `submission_id` to retrieve history, current status and the completed analysis
-log when available. It needs only notarization credentials, retains the
-`macos-release` approval gate, and does not sign or upload another payload.
+log when available. It uses a separate `macos-notary-status` environment without
+required reviewers and does not sign or upload another payload. Restrict that
+environment to the `ci/macos-signing-play` branch. Configure only `APPLE_ID`,
+`APPLE_TEAM_ID` and the `APPLE_APP_SPECIFIC_PASSWORD` secret there; never copy
+the Developer ID private key or PKCS12 password. The Apple credential itself
+is not limited to read-only queries, so keep the branch restriction. Actual
+signing remains behind the `macos-release` approval gate.
 A successful status job means the query succeeded; read Apple's status in its
 output or `macos-notarization-status` artifact for the actual verdict.
 
