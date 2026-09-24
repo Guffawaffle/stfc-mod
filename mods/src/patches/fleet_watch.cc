@@ -1,3 +1,4 @@
+#include "patches/fleet_perf_probe.h"
 #include "patches/fleet_watch.h"
 
 #include "errormsg.h"
@@ -333,6 +334,7 @@ bool Subscribe(Subscription subscription)
 
 void Tick()
 {
+  fleet_perf::Scope perf(fleet_perf::Part::Watch);
   if (s_subscriptions.empty()) {
     return;
   }

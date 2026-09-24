@@ -1,3 +1,4 @@
+#include "patches/fleet_perf_probe.h"
 #include "patches/notification_audio.h"
 
 #include "patches/notification_audio_platform.h"
@@ -248,6 +249,7 @@ void notification_audio_play(NotificationSound sound)
 
 void notification_audio_play(const NotificationAudioCue& cue)
 {
+  fleet_perf::Scope perf(fleet_perf::Part::Audio);
   // PlaySound is asynchronous and borrows the buffer. Retain a custom clip
   // until another successful playback has replaced it, including across reload.
   static std::mutex playback_mutex;

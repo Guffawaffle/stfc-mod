@@ -1,3 +1,4 @@
+#include "patches/fleet_perf_probe.h"
 #include "patches.h"
 #include "file.h"
 #include "version.h"
@@ -209,6 +210,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   InstallActionQueueRecovery();
   InstallThinQueueProtection();
   InstallClaimTrace();
+  fleet_perf::Install();
 
   spdlog::info("");
 

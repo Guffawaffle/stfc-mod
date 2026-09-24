@@ -1,3 +1,4 @@
+#include "patches/fleet_perf_probe.h"
 #include "patches/notification_service.h"
 #include "patches/battle_notify_parser.h"
 #include "patches/notification_audio.h"
@@ -105,6 +106,7 @@ static const char* toast_state_title(int state)
 #if _WIN32
 static void show_system_notification(const char* title, const char* body)
 {
+  fleet_perf::Scope perf(fleet_perf::Part::Toast);
   try {
     using namespace winrt::Windows::UI::Notifications;
     using namespace winrt::Windows::Data::Xml::Dom;

@@ -1,3 +1,4 @@
+#include "patches/fleet_perf_probe.h"
 #include "patches/fleet_opc_sample.h"
 
 #include <prime/FleetPlayerData.h>
@@ -15,12 +16,14 @@ void invalidate_fleet_opc_sample(int slot)
 
 FleetOpcCargo read_fleet_opc_sample(FleetPlayerData* fleet, int slot, uint64_t fleet_id, FleetState state)
 {
+  fleet_perf::Scope perf(fleet_perf::Part::SampleRead);
   if (!fleet)
     return {};
   const auto now_ms =
       std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
           .count();
   return s_cache.Read(slot, fleet_id, reinterpret_cast<uintptr_t>(fleet), static_cast<int>(state), now_ms, [fleet] {
+    fleet_perf::Scope miss(fleet_perf::Part::SampleMiss);
     FleetOpcCargo sample;
     auto*         cargo    = fleet->CargoHoldData;
     auto*         progress = cargo ? cargo->UnprotectedCargoProgress : nullptr;
