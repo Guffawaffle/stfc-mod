@@ -106,7 +106,6 @@ Value | Key | Value | Key | Value | Key | Value | Key
 ## Camera movement
 
 In mod-hotkey mode, system and galaxy panning uses `move_up`, `move_down`, `move_left`, and `move_right`.
-Defaults are `W|UP`, `S|DOWN`, `A|LEFT`, and `D|RIGHT`. Existing configured values take precedence;
-for example, `move_left = "LEFT"` keeps left-arrow-only movement until you add `A`.
-Modifiers follow the normal shortcut rules, so `CTRL-S` does not also match plain `S` movement.
-`disable_move_keys` disables keyboard panning; Scopely-hotkey mode retains native pan input.
+Edit them under Mod Settings > Shortcuts > Camera. Defaults are `W|UP`, `S|DOWN`, `A|LEFT`, and `D|RIGHT`.
+Existing configured values take precedence. Modifiers use the normal shortcut rules, so `CTRL-S` does not also
+match plain `S` movement. `disable_move_keys` disables keyboard panning; Scopely-hotkey mode retains native pan input.
