@@ -3,6 +3,7 @@
 // These tests do not exercise Unity lookup, native notifications or legacy input caching.
 #include "patches/keyboard_layout_mapping.h"
 #include "patches/mapkey.h"
+#include "defaultconfig.h"
 #include "settings/shortcut_draft.h"
 #include "settings/shortcut_capture.h"
 
@@ -21,6 +22,9 @@ KeyCode Key::Parse(std::string_view key)
   static constexpr std::pair<std::string_view, KeyCode> tokens[] = {
       {"=", KeyCode::Equals},
       {"Z", KeyCode::Z},
+      {"W", KeyCode::W}, {"A", KeyCode::A}, {"S", KeyCode::S}, {"D", KeyCode::D},
+      {"UP", KeyCode::UpArrow}, {"DOWN", KeyCode::DownArrow},
+      {"LEFT", KeyCode::LeftArrow}, {"RIGHT", KeyCode::RightArrow},
       {"LSHIFT", KeyCode::LeftShift},
       {"F7", KeyCode::F7},
       {"F8", KeyCode::F8},
@@ -375,6 +379,53 @@ int main()
   layout_enabled = true;
   CheckDuplicate("/", "SHIFT-7", false);
   layout_enabled = false;
+  // Exercise the production binding/modifier path used by keyboard camera pan.
+  pressed.fill(false);
+  down.fill(false);
+  for (const auto [action, defaults] : {
+           std::pair{GameFunction::MoveUp, DefaultConfig::Shortcuts::move_up},
+           std::pair{GameFunction::MoveDown, DefaultConfig::Shortcuts::move_down},
+           std::pair{GameFunction::MoveLeft, DefaultConfig::Shortcuts::move_left},
+           std::pair{GameFunction::MoveRight, DefaultConfig::Shortcuts::move_right}}) {
+    std::vector<MapKey> bindings;
+    std::string_view remaining = defaults;
+    while (!remaining.empty()) {
+      auto end = remaining.find('|');
+      bindings.push_back(MapKey::Parse(std::string(remaining.substr(0, end))));
+      if (end == std::string_view::npos) break;
+      remaining.remove_prefix(end + 1);
+    }
+    Check(bindings.size() == 2, "Movement defaults must include a letter and arrow");
+    Check(MapKey::ReplaceBindings(action, bindings), "Install movement defaults");
+    for (const auto& binding : bindings) {
+      Check(binding.Key != KeyCode::None, "Invalid movement binding");
+      pressed[static_cast<int>(binding.Key)] = true;
+      Check(MapKey::IsPressed(action), "Plain movement binding did not move");
+      for (auto modifier : {KeyCode::LeftControl, KeyCode::RightControl, KeyCode::LeftShift,
+                             KeyCode::LeftAlt, KeyCode::LeftCommand}) {
+        pressed[static_cast<int>(modifier)] = true;
+        Check(!MapKey::IsPressed(action), "Modified movement leaked into plain movement");
+        pressed[static_cast<int>(modifier)] = false;
+      }
+      pressed[static_cast<int>(binding.Key)] = false;
+      Check(!MapKey::IsPressed(action), "Released movement key still active");
+    }
+  }
+  Check(MapKey::ReplaceBindings(GameFunction::MoveDown, {MapKey::Parse("F7")}), "Rebind movement");
+  pressed[static_cast<int>(KeyCode::S)] = true;
+  Check(!MapKey::IsPressed(GameFunction::MoveDown), "Rebinding retained default S");
+  pressed[static_cast<int>(KeyCode::S)] = false;
+  pressed[static_cast<int>(KeyCode::F7)] = true;
+  Check(MapKey::IsPressed(GameFunction::MoveDown), "Rebound movement key did not move");
+  pressed.fill(false);
+  Check(MapKey::ReplaceBindings(GameFunction::MoveDown, {MapKey::Parse("CTRL-S")}), "Bind explicit movement chord");
+  pressed[static_cast<int>(KeyCode::S)] = true;
+  pressed[static_cast<int>(KeyCode::LeftControl)] = true;
+  Check(MapKey::IsPressed(GameFunction::MoveDown), "Explicit movement modifier failed");
+  Check(MapKey::IsPressed(GameFunction::MoveDown), "Held explicit movement chord stopped");
+  Check(MapKey::ReplaceBindings(GameFunction::MoveDown, {}), "Unbind movement");
+  Check(!MapKey::IsPressed(GameFunction::MoveDown), "Unbound movement still active");
+  pressed.fill(false);
   CheckCapturedCommand();
   std::cout << "Shortcut hint cache tests passed\n";
 }
