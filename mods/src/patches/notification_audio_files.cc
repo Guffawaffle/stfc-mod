@@ -11,9 +11,15 @@ namespace
 // clips; active cues share an immutable buffer and playback compares pointers.
 std::shared_ptr<const std::vector<uint8_t>> ShareClip(std::vector<uint8_t> bytes)
 {
-  static std::mutex mutex;
-  static std::vector<std::weak_ptr<const std::vector<uint8_t>>> clips;
-  std::scoped_lock lock(mutex);
+  struct Registry {
+    std::mutex mutex;
+    std::vector<std::weak_ptr<const std::vector<uint8_t>>> clips;
+  };
+  // Preparation workers are detached and may finish during process teardown.
+  // Keep their registry alive just like the loaded hooks, without joining them.
+  static auto* registry = new Registry;
+  std::scoped_lock lock(registry->mutex);
+  auto& clips = registry->clips;
   for (auto it = clips.begin(); it != clips.end();) {
     if (auto clip = it->lock()) {
       if (*clip == bytes) return clip;
