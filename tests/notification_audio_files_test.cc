@@ -50,8 +50,12 @@ int main(int argc, char** argv)
   WriteWave(wave, 1);
   const auto cue = notification_audio_load(name, directory);
   Check(cue.enabled() && cue.data && cue.source == name);
+  Check(cue.duration_seconds > 0.99 && cue.duration_seconds < 1.01);
   const auto absolute = wave.u8string();
-  Check(notification_audio_load(std::string(absolute.begin(), absolute.end()), {}).enabled());
+  Check(notification_audio_load(std::string(absolute.begin(), absolute.end()), {}).data == cue.data);
+  const auto copy = directory / "copy.wav";
+  std::filesystem::copy_file(wave, copy, std::filesystem::copy_options::overwrite_existing);
+  Check(notification_audio_load("copy.wav", directory).data == cue.data);
   std::filesystem::remove(wave);
   Check(cue.enabled() && !cue.data->empty()); // prepared clip survives file removal
   const auto missing = notification_audio_load(name, directory);
@@ -76,5 +80,6 @@ int main(int argc, char** argv)
   Check(!notification_audio_load("off", directory).enabled());
   const auto mp3 = notification_audio_load(argv[2], {});
   Check(mp3.enabled() && mp3.data && !mp3.data->empty());
+  Check(mp3.duration_seconds > 0 && mp3.duration_seconds <= kNotificationAudioMaxSeconds);
   // Deliberately do not play sound in this deterministic fixture.
 }

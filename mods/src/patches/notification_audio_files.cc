@@ -2,7 +2,37 @@
 #include "notification_audio_platform.h"
 
 #include <fstream>
+#include <mutex>
 #include <spdlog/spdlog.h>
+
+namespace
+{
+// Compare only during preparation. Weak ownership avoids retaining unused
+// clips; active cues share an immutable buffer and playback compares pointers.
+std::shared_ptr<const std::vector<uint8_t>> ShareClip(std::vector<uint8_t> bytes)
+{
+  struct Registry {
+    std::mutex mutex;
+    std::vector<std::weak_ptr<const std::vector<uint8_t>>> clips;
+  };
+  // Preparation workers are detached and may finish during process teardown.
+  // Keep their registry alive just like the loaded hooks, without joining them.
+  static auto* registry = new Registry;
+  std::scoped_lock lock(registry->mutex);
+  auto& clips = registry->clips;
+  for (auto it = clips.begin(); it != clips.end();) {
+    if (auto clip = it->lock()) {
+      if (*clip == bytes) return clip;
+      ++it;
+    } else {
+      it = clips.erase(it);
+    }
+  }
+  auto clip = std::make_shared<const std::vector<uint8_t>>(std::move(bytes));
+  clips.push_back(clip);
+  return clip;
+}
+}
 
 NotificationAudioCue notification_audio_load(std::string_view value, const std::filesystem::path& directory)
 {
@@ -33,11 +63,11 @@ NotificationAudioCue notification_audio_load(std::string_view value, const std::
     std::vector<uint8_t> bytes(static_cast<size_t>(size));
     if (!input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size())))
       throw std::runtime_error("could not read sound file");
-    auto prepared = notification_audio_platform_prepare(bytes);
+    auto prepared = notification_audio_platform_prepare(bytes, cue.duration_seconds);
     if (prepared.empty())
       throw std::runtime_error(
           "unsupported/corrupt audio, unavailable decoder, or clip exceeds 30 seconds/16 MiB decoded");
-    cue.data = std::make_shared<const std::vector<uint8_t>>(std::move(prepared));
+    cue.data = ShareClip(std::move(prepared));
   } catch (const std::exception& error) {
     spdlog::warn("[NotifyAudio] Cannot load '{}': {}; this alert will be silent", cue.source, error.what());
   }
