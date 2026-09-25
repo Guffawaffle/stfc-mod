@@ -229,6 +229,13 @@ bool MapKey::ReplaceBindings(GameFunction gameFunction, std::vector<MapKey> bind
   return true;
 }
 
+// Movement consumes directions itself; other actions retain ownership until release.
+static bool IsMovementAction(GameFunction action)
+{
+  return action == GameFunction::MoveLeft || action == GameFunction::MoveRight
+         || action == GameFunction::MoveUp || action == GameFunction::MoveDown;
+}
+
 bool MapKey::IsPressed(GameFunction gameFunction)
 {
   const auto &mapKeys = MapKey::mappedKeys[(int)gameFunction];
@@ -238,7 +245,7 @@ bool MapKey::IsPressed(GameFunction gameFunction)
     if (key != KeyCode::None) {
       if (Key::Pressed(key)) {
         if (MapKey::HasCorrectModifiers(mapKey, chord.shift)) {
-          if (mapKey.hasModifiers || chord.shift) {
+          if ((mapKey.hasModifiers || chord.shift) && !IsMovementAction(gameFunction)) {
             Key::ClaimDirectionalInput(mapKey.Key);
           }
           return true;
@@ -259,7 +266,7 @@ bool MapKey::IsDown(GameFunction gameFunction)
     if (key != KeyCode::None) {
       if (Key::Down(key)) {
         if (MapKey::HasCorrectModifiers(mapKey, chord.shift)) {
-          if (mapKey.hasModifiers || chord.shift) {
+          if ((mapKey.hasModifiers || chord.shift) && !IsMovementAction(gameFunction)) {
             Key::ClaimDirectionalInput(mapKey.Key);
           }
           return true;

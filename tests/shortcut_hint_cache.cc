@@ -65,7 +65,8 @@ bool Key::IsModified() {
     if (Key::Pressed(key)) return true;
   return false;
 }
-void Key::ClaimDirectionalInput(KeyCode) {}
+static KeyCode claimedInput = KeyCode::None;
+void Key::ClaimDirectionalInput(KeyCode key) { claimedInput = key; }
 
 namespace keyboard_layout
 {
@@ -421,7 +422,9 @@ int main()
   Check(MapKey::ReplaceBindings(GameFunction::MoveDown, {MapKey::Parse("CTRL-S")}), "Bind explicit movement chord");
   pressed[static_cast<int>(KeyCode::S)] = true;
   pressed[static_cast<int>(KeyCode::LeftControl)] = true;
+  claimedInput = KeyCode::None;
   Check(MapKey::IsPressed(GameFunction::MoveDown), "Explicit movement modifier failed");
+  Check(claimedInput == KeyCode::None, "Movement claimed its own input");
   Check(MapKey::IsPressed(GameFunction::MoveDown), "Held explicit movement chord stopped");
   Check(MapKey::ReplaceBindings(GameFunction::MoveDown, {}), "Unbind movement");
   Check(!MapKey::IsPressed(GameFunction::MoveDown), "Unbound movement still active");
