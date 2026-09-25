@@ -1,4 +1,4 @@
-// Local Windows client263 science instrumentation. Observe only; never change claim/UI state.
+// Local Windows client265 science instrumentation. Observe only; never change claim/UI state.
 #include "patches/claim_trace.h"
 #include "patches/key.h"
 #include "patches/screen_update_hook.h"
@@ -12,6 +12,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -27,6 +28,23 @@ namespace
 {
 using Json  = nlohmann::json;
 using Clock = std::chrono::steady_clock;
+
+// This diagnostic build must not allow an apparently instrumented play session
+// to continue when the required claim capture cannot run.
+[[noreturn]] void FailClaimTrace(const char* reason) noexcept
+{
+  try {
+    spdlog::critical("[ClaimTrace] REQUIRED CAPTURE FAILED: {}; terminating game", reason);
+    if (auto log = spdlog::default_logger())
+      log->flush();
+  } catch (...) {
+  }
+  MessageBoxA(nullptr, reason, "STFC ClaimTrace unavailable - game will terminate",
+              MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
+  TerminateProcess(GetCurrentProcess(), EXIT_FAILURE);
+  std::abort();
+}
+
 struct Target {
   const char *            assembly, *ns, *cls, *method;
   int                     arguments;
@@ -235,6 +253,8 @@ Json Orders(void* collection)
   return result;
 }
 
+Json ClaimBundles(void* object);
+
 Json Claim(void* object)
 {
   Json result = {{"present", object != nullptr}};
@@ -264,6 +284,7 @@ Json Claim(void* object)
   void* orders{};
   if (Read(object, "_orderIds", orders))
     result["orders"] = Orders(orders);
+  result["bundles"] = ClaimBundles(object);
   return result;
 }
 
@@ -307,10 +328,14 @@ std::vector<void*> References(void* list, int limit = 64)
   int32_t count{};
   auto*   cls = il2cpp_object_get_class(static_cast<Il2CppObject*>(list));
   if (!il2cpp_class_get_rank(cls)) {
-    if (std::strcmp(il2cpp_class_get_namespace(cls), "System.Collections.Generic")
-        || std::strcmp(il2cpp_class_get_name(cls), "List`1"))
+    const bool repeated = !std::strcmp(il2cpp_class_get_namespace(cls), "Google.Protobuf.Collections")
+                          && !std::strcmp(il2cpp_class_get_name(cls), "RepeatedField`1");
+    const bool genericList = !std::strcmp(il2cpp_class_get_namespace(cls), "System.Collections.Generic")
+                             && !std::strcmp(il2cpp_class_get_name(cls), "List`1");
+    if (!repeated && !genericList)
       return result;
-    if (!Read(list, "_items", array) || !array || !Read(list, "_size", count))
+    if (!Read(list, repeated ? "array" : "_items", array) || !array
+        || !Read(list, repeated ? "count" : "_size", count))
       return result;
   } else
     count = static_cast<int32_t>(il2cpp_array_length(static_cast<Il2CppArray*>(list)));
@@ -324,6 +349,96 @@ std::vector<void*> References(void* list, int limit = 64)
     result.push_back(reinterpret_cast<void**>(static_cast<Il2CppArraySize*>(array)->vector)[i]);
   return result;
 }
+// Anonymous stable bundle aliases join claims, server responses and UI refreshes.
+std::vector<std::pair<int64_t, uint64_t>> bundleTokens;
+Json BundleState(void* bundle)
+{
+  Json result = {{"present", bundle != nullptr}};
+  if (!bundle)
+    return result;
+  int64_t id{};
+  if (Read(bundle, "bundleId_", id))
+    result["bundle_token"] = Token(bundleTokens, id);
+  Scalar<bool>(result, bundle, "_isWaitingForRefresh", "waiting_for_refresh");
+  Scalar<bool>(result, bundle, "_isLimitedPurchase", "limited_purchase");
+  return result;
+}
+Json BundleList(void* list, const char* member = nullptr)
+{
+  Json result = {{"present", list != nullptr}, {"supported", false}};
+  if (!list)
+    return result;
+  int32_t count{};
+  auto* cls = il2cpp_object_get_class(static_cast<Il2CppObject*>(list));
+  if (il2cpp_class_get_rank(cls) == 1)
+    count = static_cast<int32_t>(il2cpp_array_length(static_cast<Il2CppArray*>(list)));
+  else if (!Read(list, "_size", count) && !Read(list, "count", count))
+    return result;
+  result["count"] = count;
+  result["bounded_out"] = count > 64;
+  if (count < 0 || count > 64)
+    return result;
+  auto items = References(list);
+  if (items.size() != static_cast<size_t>(count))
+    return result;
+  result["supported"] = true;
+  result["items"] = Json::array();
+  for (auto* item : items) {
+    void* bundle = item;
+    if (member) {
+      bundle = nullptr;
+      Read(item, member, bundle);
+    }
+    auto entry = BundleState(bundle);
+    if (member && !bundle) {
+      void* bucket{};
+      void* bundles{};
+      if (Read(item, "BundleBucket", bucket) && Read(bucket, "<Bundles>k__BackingField", bundles))
+        entry["bucket_bundles"] = BundleList(bundles);
+    }
+    result["items"].push_back(std::move(entry));
+  }
+  return result;
+}
+Json ClaimBundles(void* object)
+{
+  void* items{};
+  Read(object, "_claimItems", items);
+  return BundleList(items, "_bundle");
+}
+Json OfferService(void* object)
+{
+  Json result;
+  Scalar<bool>(result, object, "_isOutdated", "outdated");
+  Scalar<bool>(result, object, "_enableDataRefresh", "refresh_enabled");
+  return result;
+}
+Json OfferScroller(void* object)
+{
+  void* list{};
+  Read(object, "_bundleContextList", list);
+  return {{"displayed_bundles", BundleList(list, "Bundle")}};
+}
+Json OfferCard(void* object)
+{
+  void* bundle{};
+  Read(object, "m_context", bundle);
+  Json result = {{"bundle", BundleState(bundle)}};
+  Scalar<int32_t>(result, object, "_buttonType", "button_type");
+  Scalar<bool>(result, object, "_buttonStateDirty", "button_state_dirty");
+  // Field reads only: no refresh/getter calls from these probes.
+  for (const char* field : {"_button", "_priceButton", "_secondaryButton"}) {
+    void* button{};
+    void* selectable{};
+    Read(object, field, button);
+    void* listener{};
+    Read(button, "_semaphoreButtonListener", listener);
+    Read(listener, "_button", selectable);
+    Scalar<bool>(result[field], selectable, "m_Interactable", "interactable");
+  }
+  return result;
+}
+
 Json AncestorGates(void* component)
 {
   Json         result     = Json::array();
@@ -532,10 +647,13 @@ Json Summary(void* object)
   return result;
 }
 
-enum class Kind { none, claim, reward, chest, summary, shop, storyboard, orders, error, semaphore, lock, message };
+enum class Kind { none, claim, reward, chest, summary, shop, storyboard, orders, error, semaphore, lock, message, offer_service, offer_scroller, offer_card };
 Json Snapshot(Kind kind, void* object)
 {
   switch (kind) {
+    case Kind::offer_service: return OfferService(object);
+    case Kind::offer_scroller: return OfferScroller(object);
+    case Kind::offer_card: return OfferCard(object);
     case Kind::claim:
       return Claim(object);
     case Kind::reward:
@@ -663,6 +781,10 @@ void CheckClaims() noexcept
   }
 }
 
+Clock::time_point offerRateStart{};
+size_t offerRateCount{};
+uint64_t offerSuppressed{};
+
 struct Span {
   size_t            index;
   Kind              kind;
@@ -683,6 +805,17 @@ struct Span {
     try {
       {
         std::lock_guard lock(stateMutex);
+        // Reserve a separate budget for refresh probes, leaving room for claim events.
+        if (kind == Kind::offer_service || kind == Kind::offer_scroller || kind == Kind::offer_card) {
+          if (start - offerRateStart >= std::chrono::minutes(1)) {
+            offerRateStart = start;
+            offerRateCount = 0;
+          }
+          if (offerRateCount++ >= 120) {
+            ++offerSuppressed;
+            return;
+          }
+        }
         // Global UI-lock traffic is only useful near claims, rewards or error/confirmation activity.
         if ((kind == Kind::semaphore || kind == Kind::lock) && start > activeUntil)
           return;
@@ -728,6 +861,10 @@ struct Span {
         event["duration_us"] = std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - start).count();
         if (result >= 0)
           event["returned"] = result != 0;
+      }
+      {
+        std::lock_guard lock(stateMutex);
+        event["offer_probe_suppressed"] = std::exchange(offerSuppressed, 0);
       }
       Write(std::move(event));
     } catch (...) {
@@ -1050,6 +1187,14 @@ bool Preflight()
     spdlog::error("[ClaimTrace] ShopClaimKey ABI mismatch; no trace hooks installed");
     return false;
   }
+  for (const auto& type : {std::pair{"CurrencyType", 4}, std::pair{"ShopCategoryMask", 8}}) {
+    auto* cls = Resolve("Digit.Client.PrimeLib.Runtime",
+                        type.second == 4 ? "Digit.PrimePlatform.Content" : "Digit.Prime.Shop", type.first);
+    if (!cls || !il2cpp_class_is_valuetype(cls) || il2cpp_class_value_size(cls, nullptr) != type.second) {
+      spdlog::error("[ClaimTrace] offer value ABI mismatch: {}", type.first);
+      return false;
+    }
+  }
   for (size_t index = 0; index < std::size(kTargets); ++index) {
     const auto&       target   = kTargets[index];
     auto*             cls      = Resolve(target.assembly, target.ns, target.cls);
@@ -1070,7 +1215,7 @@ bool Preflight()
     if (!match
         || std::memcmp(reinterpret_cast<const void*>(match->methodPointer), target.window.data(), target.windowSize)
                != 0) {
-      spdlog::error("[ClaimTrace] client263 identity mismatch: {}.{}; no trace hooks installed", target.cls,
+      spdlog::error("[ClaimTrace] client265 identity mismatch: {}.{}; no trace hooks installed", target.cls,
                     target.method);
       return false;
     }
@@ -1539,7 +1684,7 @@ void Hook55(auto original, void* self, void* pointer)
     PointerEvent("summary_button_click_exit", id, pointer, self, -1);
 }
 
-// ShopClaimsService.Tick inlines the drain in client263. Observe the substantive
+// ShopClaimsService.Tick inlines the drain in client265. Observe the substantive
 // recovery Tick before its caller consumes the timeout list.
 void Hook56(auto original, void* self)
 {
@@ -1561,6 +1706,54 @@ void Hook56(auto original, void* self)
   }
 }
 
+void Hook57(auto original, void* self, void* type, int64_t categories, void* callbacks, int32_t priority)
+{
+  Span span(57, Kind::offer_service, self, categories);
+  original(self, type, categories, callbacks, priority);
+}
+bool Hook58(auto original, void* self, void* bundles, bool clear, int32_t currency,
+            void** results, int64_t* categories, void** events)
+{
+  Span span(58, Kind::offer_service, self, currency);
+  try {
+    if (span.id) span.Details({{"phase", "incoming"}, {"clear_cache", clear}, {"bundles", BundleList(bundles)}});
+  } catch (...) {}
+  auto result = original(self, bundles, clear, currency, results, categories, events);
+  span.result = result;
+  try {
+    if (span.id && result) span.Details({{"phase", "parsed"}, {"bundles", BundleList(results ? *results : nullptr)},
+                               {"updated_categories", categories ? Json(*categories) : Json(nullptr)}});
+  } catch (...) {}
+  return result;
+}
+void Hook59(auto original, void* self, bool instant)
+{
+  Span span(59, Kind::offer_scroller, self, instant);
+  original(self, instant);
+}
+void Hook60(auto original, void* self)
+{
+  Span span(60, Kind::offer_scroller, self, -1);
+  original(self);
+}
+void Hook61(auto original, void* self, void* bundle)
+{
+  Span span(61, Kind::offer_card, self, -1);
+  try { if (span.id) span.Details({{"incoming_bundle", BundleState(bundle)}}); } catch (...) {}
+  original(self, bundle);
+}
+void Hook62(auto original, void* self, void* bundle)
+{
+  Span span(62, Kind::offer_card, self, -1);
+  try { if (span.id) span.Details({{"purchased_bundle", BundleState(bundle)}}); } catch (...) {}
+  original(self, bundle);
+}
+void Hook63(auto original, void* self)
+{
+  Span span(63, Kind::offer_card, self, -1);
+  original(self);
+}
+
 } // namespace
 #endif
 
@@ -1568,7 +1761,9 @@ void InstallClaimTrace()
 {
 #if defined(_WIN32) && defined(_M_X64)
   if (!Preflight())
-    return;
+    FailClaimTrace("Required claim logging failed its client compatibility check.\n"
+                   "The game will close instead of running without claim capture.\n"
+                   "See community_patch.log for details; update the diagnostic build before reproducing.");
   const auto stamp =
       std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
           .count();
@@ -1579,9 +1774,14 @@ void InstallClaimTrace()
     logger->set_level(spdlog::level::info);
     logger->set_pattern("%v");
     logger->flush_on(spdlog::level::info);
+    logger->set_error_handler([](const std::string&) {
+      FailClaimTrace("Required claim logging could not write its trace.\n"
+                     "The game will close instead of continuing without claim capture.");
+    });
   } catch (const std::exception& error) {
     spdlog::error("[ClaimTrace] could not open trace: {}", error.what());
-    return;
+    FailClaimTrace("Required claim logging could not open its trace file.\n"
+                   "The game will close. See community_patch.log for details.");
   }
   size_t installed = 0;
   if (SPUD_STATIC_DETOUR(methods[0]->methodPointer, Hook0))
@@ -1698,17 +1898,32 @@ void InstallClaimTrace()
     ++installed;
   if (SPUD_STATIC_DETOUR(methods[56]->methodPointer, Hook56))
     ++installed;
+  if (SPUD_STATIC_DETOUR(methods[57]->methodPointer, Hook57))
+    ++installed;
+  if (SPUD_STATIC_DETOUR(methods[58]->methodPointer, Hook58))
+    ++installed;
+  if (SPUD_STATIC_DETOUR(methods[59]->methodPointer, Hook59))
+    ++installed;
+  if (SPUD_STATIC_DETOUR(methods[60]->methodPointer, Hook60))
+    ++installed;
+  if (SPUD_STATIC_DETOUR(methods[61]->methodPointer, Hook61))
+    ++installed;
+  if (SPUD_STATIC_DETOUR(methods[62]->methodPointer, Hook62))
+    ++installed;
+  if (SPUD_STATIC_DETOUR(methods[63]->methodPointer, Hook63))
+    ++installed;
   if (installed != std::size(kTargets) || !register_screen_manager_update_callback(Pulse)) {
     Write({{"event", "install_incomplete"}, {"hooks", installed}});
-    spdlog::error("[ClaimTrace] incomplete install ({}/{}); installed wrappers remain pass-through", installed,
+    spdlog::error("[ClaimTrace] incomplete install ({}/{}); required capture unavailable", installed,
                   std::size(kTargets));
-    return;
+    FailClaimTrace("Required claim logging could not install all hooks or its update callback.\n"
+                   "The game will close. See community_patch.log for details.");
   }
   ready.store(true);
   Write(
       {{"event", "session"},
-       {"schema", 6},
-       {"client", 263},
+       {"schema", 7},
+       {"client", 265},
        {"hooks", installed},
        {"file", filename},
        {"request_states",
@@ -1720,8 +1935,9 @@ void InstallClaimTrace()
        {"limits", "1200 events/minute; 2 MiB per file plus 2 rotations; 128 weak requests, 64 weak claims; no bodies, "
                   "raw IDs or UI text"},
        {"correlation", "session-local tokens; bounded to 512 orders, 512 semaphore identifiers and 512 request labels; "
-                       "unsupported collections are explicit"}});
-  spdlog::warn("[ClaimTrace] local client263 science probe active: {} ({} hooks)", filename, installed);
+                       "512 bundle aliases; unsupported collections are explicit"},
+       {"offer_probe_limits", "120 spans/minute; lists up to 64 entries; larger/unsupported lists explicit"}});
+  spdlog::warn("[ClaimTrace] local client265 science probe active: {} ({} hooks)", filename, installed);
 #endif
 }
 
