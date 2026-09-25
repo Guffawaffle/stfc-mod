@@ -21,14 +21,14 @@ std::vector<uint8_t> notification_audio_platform_prepare(std::span<const uint8_t
   }
 }
 
-bool notification_audio_platform_play(const uint8_t* data, size_t size)
+AudioPlaybackResult notification_audio_platform_play(const uint8_t* data, size_t size)
 {
   @autoreleasepool {
     static NSSound* current_sound = nil;
 
     NSData* sound_data = [NSData dataWithBytes:data length:size];
     NSSound* sound      = [[NSSound alloc] initWithData:sound_data];
-    if (!sound) return false;
+    if (!sound) return AudioPlaybackResult::Unchanged;
 
     [current_sound stop];
 #if __has_feature(objc_arc)
@@ -37,7 +37,7 @@ bool notification_audio_platform_play(const uint8_t* data, size_t size)
     [current_sound release];
     current_sound = sound;
 #endif
-    return [current_sound play];
+    return [current_sound play] ? AudioPlaybackResult::Started : AudioPlaybackResult::Stopped;
   }
 }
 
