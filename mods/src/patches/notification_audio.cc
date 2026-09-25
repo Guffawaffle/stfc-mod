@@ -271,14 +271,15 @@ void notification_audio_play(const NotificationAudioCue& cue)
   const auto now = AudioCoalescingWindow::Clock::now();
   if (window.Suppress(mode, false, now)) return;
   if (cue.data && !cue.data->empty()) {
-    // Compare prepared content, not pointer or event identity: separate alert
-    // types and separately loaded copies of the same clip share this window.
-    if (window.Suppress(mode, true, now) && current_clip
-        && (current_clip == cue.data || *current_clip == *cue.data)) return;
-    if (notification_audio_platform_play(cue.data->data(), cue.data->size())) {
+    // Preparation interns equal clips, keeping burst-time identity checks O(1).
+    if (window.Suppress(mode, current_clip == cue.data, now)) return;
+    const auto result = notification_audio_platform_play(cue.data->data(), cue.data->size());
+    if (result == AudioPlaybackResult::Started) {
       current_clip = cue.data;
       current_sound = NotificationSound::None;
       window.Started(AudioCoalescingWindow::Clock::now(), cue.duration_seconds);
+    } else if (result == AudioPlaybackResult::Stopped) {
+      window.Stopped();
     }
     return;
   }
@@ -296,7 +297,9 @@ void notification_audio_play(const NotificationAudioCue& cue)
 
   if (window.Suppress(mode, !current_clip && current_sound == sound, now)) return;
 
-  if (!notification_audio_platform_play(buffer.data(), buffer.size())) {
+  const auto result = notification_audio_platform_play(buffer.data(), buffer.size());
+  if (result != AudioPlaybackResult::Started) {
+    if (result == AudioPlaybackResult::Stopped) window.Stopped();
     spdlog::warn("[NotifyAudio] Failed to play '{}' cue", notification_sound_name(sound));
   } else {
     current_clip.reset();
@@ -307,12 +310,15 @@ void notification_audio_play(const NotificationAudioCue& cue)
   }
 }
 
-#if _WIN32
-bool notification_audio_platform_play(const uint8_t* data, size_t)
-{ return PlaySoundW(reinterpret_cast<LPCWSTR>(data), nullptr, SND_ASYNC | SND_MEMORY | SND_NODEFAULT) != FALSE; }
-#elif !defined(__APPLE__)
-bool notification_audio_platform_play(const uint8_t*, size_t)
-{ return false; }
+#if _WIN32 && !defined(NOTIFICATION_AUDIO_TEST)
+AudioPlaybackResult notification_audio_platform_play(const uint8_t* data, size_t)
+{
+  return PlaySoundW(reinterpret_cast<LPCWSTR>(data), nullptr, SND_ASYNC | SND_MEMORY | SND_NODEFAULT)
+      ? AudioPlaybackResult::Started : AudioPlaybackResult::Stopped;
+}
+#elif !defined(_WIN32) && !defined(__APPLE__) && !defined(NOTIFICATION_AUDIO_TEST)
+AudioPlaybackResult notification_audio_platform_play(const uint8_t*, size_t)
+{ return AudioPlaybackResult::Unchanged; }
 std::vector<uint8_t> notification_audio_platform_prepare(std::span<const uint8_t>, double& duration_seconds)
 { duration_seconds = 0; return {}; }
 #endif

@@ -2,7 +2,31 @@
 #include "notification_audio_platform.h"
 
 #include <fstream>
+#include <mutex>
 #include <spdlog/spdlog.h>
+
+namespace
+{
+// Compare only during preparation. Weak ownership avoids retaining unused
+// clips; active cues share an immutable buffer and playback compares pointers.
+std::shared_ptr<const std::vector<uint8_t>> ShareClip(std::vector<uint8_t> bytes)
+{
+  static std::mutex mutex;
+  static std::vector<std::weak_ptr<const std::vector<uint8_t>>> clips;
+  std::scoped_lock lock(mutex);
+  for (auto it = clips.begin(); it != clips.end();) {
+    if (auto clip = it->lock()) {
+      if (*clip == bytes) return clip;
+      ++it;
+    } else {
+      it = clips.erase(it);
+    }
+  }
+  auto clip = std::make_shared<const std::vector<uint8_t>>(std::move(bytes));
+  clips.push_back(clip);
+  return clip;
+}
+}
 
 NotificationAudioCue notification_audio_load(std::string_view value, const std::filesystem::path& directory)
 {
@@ -37,7 +61,7 @@ NotificationAudioCue notification_audio_load(std::string_view value, const std::
     if (prepared.empty())
       throw std::runtime_error(
           "unsupported/corrupt audio, unavailable decoder, or clip exceeds 30 seconds/16 MiB decoded");
-    cue.data = std::make_shared<const std::vector<uint8_t>>(std::move(prepared));
+    cue.data = ShareClip(std::move(prepared));
   } catch (const std::exception& error) {
     spdlog::warn("[NotifyAudio] Cannot load '{}': {}; this alert will be silent", cue.source, error.what());
   }
