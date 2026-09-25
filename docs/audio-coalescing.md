@@ -13,11 +13,16 @@ Absorbed requests do not queue a replay or extend the suppression window.
 Desktop notification delivery and bucketing are independent. Sound previews use
 the same policy as alerts.
 
+Identical clips share prepared storage, so absorbed requests only compare
+identities instead of scanning audio bytes during alert delivery.
+
 The window uses the prepared clip duration (decoded PCM length on Windows,
 NSSound duration on macOS), measured with a monotonic clock after successful
 playback starts. It is not an audio-device completion callback. Separate alerts
 using identical prepared audio share the same window, even if loaded separately.
 Changing the mode takes effect on the next request without restarting playback.
+If a replacement stops the previous clip but fails to start, its suppression
+window is cleared so subsequent alerts can retry.
 
 ## Playback check (Windows and macOS)
 

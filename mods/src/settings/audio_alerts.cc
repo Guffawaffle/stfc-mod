@@ -177,6 +177,7 @@ void RegisterAudioAlertPages(PageCatalog& catalog)
   if (!s_alerts.empty()) return;
   s_picker_available = install_screen_manager_update_hook() && register_screen_manager_update_callback(PollFilePicker);
   catalog.AddPage("community_mod.audio", "Audio Alerts", "community_mod.settings");
+  catalog.AddHeading("community_mod.audio", "community_mod.audio.coalescing.heading", "Audio coalescing");
   s_coalescing = std::make_unique<ChoiceSetting>(ValueDefinition<int>{
       "community_mod.audio.coalescing", "Audio coalescing",
       [] { return ValueReadResult<int>::Known(static_cast<int>(notification_audio_coalescing()), 1); },
@@ -186,7 +187,8 @@ void RegisterAudioAlertPages(PageCatalog& catalog)
         notification_audio_set_coalescing(mode);
         runtime_config::SaveSetting("audio", "coalescing", std::string(audio_coalescing_name(mode)));
         return ApplyResult::Applied;
-      }}, std::vector<std::string>{"None", "Same", "All"});
+      }}, std::vector<std::string>{"None - play every request", "Same - absorb repeats of the playing sound",
+                                  "All - absorb all requests while a sound plays"});
   catalog.AddChoice("community_mod.audio", *s_coalescing);
   struct ToastEntry { const char* key; const char* label; NotificationAudioCue Config::*member; };
   for (auto entry : {ToastEntry{"alert_victory", "Battle victory", &Config::alert_victory},

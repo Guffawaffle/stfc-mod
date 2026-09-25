@@ -6,6 +6,7 @@ namespace config_edit
 // Settings accepted by the runtime writer. Configure and its contract fixture
 // share this list so new settings cannot silently skip registration.
 inline constexpr std::pair<const char*, const char*> persisted_settings[]{
+    {"audio", "coalescing"},
     {"audio", "alert_victory"},
     {"audio", "alert_defeat"},
     {"audio", "alert_armada_created"},

@@ -36,6 +36,7 @@ public:
   {
     until_ = now + std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(seconds));
   }
+  void Stopped() { until_ = {}; }
 private:
   Clock::time_point until_{};
 };
