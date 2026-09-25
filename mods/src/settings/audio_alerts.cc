@@ -26,6 +26,7 @@ struct Alert {
   std::string status;
 };
 std::vector<std::unique_ptr<Alert>> s_alerts;
+std::unique_ptr<ChoiceSetting> s_coalescing;
 constexpr int kCustom = static_cast<int>(NotificationSound::Count);
 Alert* s_pending = nullptr;
 bool s_picker_available = false;
@@ -176,6 +177,17 @@ void RegisterAudioAlertPages(PageCatalog& catalog)
   if (!s_alerts.empty()) return;
   s_picker_available = install_screen_manager_update_hook() && register_screen_manager_update_callback(PollFilePicker);
   catalog.AddPage("community_mod.audio", "Audio Alerts", "community_mod.settings");
+  s_coalescing = std::make_unique<ChoiceSetting>(ValueDefinition<int>{
+      "community_mod.audio.coalescing", "Audio coalescing",
+      [] { return ValueReadResult<int>::Known(static_cast<int>(notification_audio_coalescing()), 1); },
+      [](int value, std::uint64_t generation) {
+        if (generation != 1 || value < 0 || value > 2) return ApplyResult::Rejected;
+        const auto mode = static_cast<AudioCoalescing>(value);
+        notification_audio_set_coalescing(mode);
+        runtime_config::SaveSetting("audio", "coalescing", std::string(audio_coalescing_name(mode)));
+        return ApplyResult::Applied;
+      }}, std::vector<std::string>{"None", "Same", "All"});
+  catalog.AddChoice("community_mod.audio", *s_coalescing);
   struct ToastEntry { const char* key; const char* label; NotificationAudioCue Config::*member; };
   for (auto entry : {ToastEntry{"alert_victory", "Battle victory", &Config::alert_victory},
                      ToastEntry{"alert_defeat", "Battle defeat", &Config::alert_defeat},

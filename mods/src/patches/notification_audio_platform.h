@@ -10,6 +10,6 @@ inline constexpr double kNotificationAudioMaxSeconds = 30.0;
 
 // Validate and prepare local bytes once at configuration load. Empty means
 // unsupported, malformed, or over the decoded size/duration limit.
-std::vector<uint8_t> notification_audio_platform_prepare(std::span<const uint8_t> bytes);
+std::vector<uint8_t> notification_audio_platform_prepare(std::span<const uint8_t> bytes, double& duration_seconds);
 
 [[nodiscard]] bool notification_audio_platform_play(const uint8_t* data, size_t size);

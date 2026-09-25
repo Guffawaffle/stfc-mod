@@ -50,6 +50,7 @@ int main(int argc, char** argv)
   WriteWave(wave, 1);
   const auto cue = notification_audio_load(name, directory);
   Check(cue.enabled() && cue.data && cue.source == name);
+  Check(cue.duration_seconds > 0.99 && cue.duration_seconds < 1.01);
   const auto absolute = wave.u8string();
   Check(notification_audio_load(std::string(absolute.begin(), absolute.end()), {}).enabled());
   std::filesystem::remove(wave);
@@ -76,5 +77,6 @@ int main(int argc, char** argv)
   Check(!notification_audio_load("off", directory).enabled());
   const auto mp3 = notification_audio_load(argv[2], {});
   Check(mp3.enabled() && mp3.data && !mp3.data->empty());
+  Check(mp3.duration_seconds > 0 && mp3.duration_seconds <= kNotificationAudioMaxSeconds);
   // Deliberately do not play sound in this deterministic fixture.
 }
