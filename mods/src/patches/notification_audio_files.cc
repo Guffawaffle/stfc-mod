@@ -33,7 +33,7 @@ NotificationAudioCue notification_audio_load(std::string_view value, const std::
     std::vector<uint8_t> bytes(static_cast<size_t>(size));
     if (!input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size())))
       throw std::runtime_error("could not read sound file");
-    auto prepared = notification_audio_platform_prepare(bytes);
+    auto prepared = notification_audio_platform_prepare(bytes, cue.duration_seconds);
     if (prepared.empty())
       throw std::runtime_error(
           "unsupported/corrupt audio, unavailable decoder, or clip exceeds 30 seconds/16 MiB decoded");

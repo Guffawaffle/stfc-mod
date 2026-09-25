@@ -65,8 +65,9 @@ void Append32(std::vector<uint8_t>& out, uint32_t value)
 }
 } // namespace
 
-std::vector<uint8_t> notification_audio_platform_prepare(std::span<const uint8_t> bytes)
+std::vector<uint8_t> notification_audio_platform_prepare(std::span<const uint8_t> bytes, double& duration_seconds)
 {
+  duration_seconds = 0;
   if (bytes.empty() || bytes.size() > kNotificationAudioMaxBytes)
     return {};
   MediaSession session;
@@ -155,6 +156,7 @@ std::vector<uint8_t> notification_audio_platform_prepare(std::span<const uint8_t
   tag("data");
   Append32(wav, static_cast<uint32_t>(pcm.size()));
   wav.insert(wav.end(), pcm.begin(), pcm.end());
+  duration_seconds = static_cast<double>(pcm.size()) / (rate * align);
   return wav;
 }
 #endif

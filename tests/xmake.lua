@@ -1,3 +1,12 @@
+target("audio-coalescing-tests")
+do
+    set_kind("binary")
+    set_default(false)
+    add_files("audio_coalescing_test.cc")
+    add_includedirs("../mods/src")
+    set_exceptions("cxx")
+end
+
 target("keyboard-layout-tests")
 do
     set_kind("binary")

@@ -9,6 +9,7 @@ namespace Buffs
 
 namespace Audio
 {
+  constexpr const char* coalescing = "same";
   constexpr const char* disabled_events = "";
   constexpr bool        trace_events    = false;
   constexpr const char* alert_victory = "none";

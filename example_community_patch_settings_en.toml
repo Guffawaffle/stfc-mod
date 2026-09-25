@@ -31,6 +31,9 @@
 #  <[=======================================]> 
 
 [audio]
+# Audio coalescing: none, same (default), all. Absorbed sounds never queue.
+# System notifications are independent. Different sounds still replace playback in same mode.
+coalescing = "same"
 # Change built-in sounds or choose a local WAV/MP3 live in Mod Settings > Audio Alerts.
 # Alert values also accept local .wav/.mp3 files (Windows/macOS), e.g.
 # alert_victory = 'sounds/victory.mp3' or 'C:\Sounds\victory.wav'.
