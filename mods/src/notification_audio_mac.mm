@@ -5,13 +5,15 @@
 #import <AppKit/AppKit.h>
 #include <cmath>
 
-std::vector<uint8_t> notification_audio_platform_prepare(std::span<const uint8_t> bytes)
+std::vector<uint8_t> notification_audio_platform_prepare(std::span<const uint8_t> bytes, double& duration_seconds)
 {
+  duration_seconds = 0;
   @autoreleasepool {
     NSData* data = [NSData dataWithBytes:bytes.data() length:bytes.size()];
     NSSound* sound = [[NSSound alloc] initWithData:data];
     const double duration = sound ? [sound duration] : 0;
     const bool valid = std::isfinite(duration) && duration > 0 && duration <= kNotificationAudioMaxSeconds;
+    if (valid) duration_seconds = duration;
 #if !__has_feature(objc_arc)
     [sound release];
 #endif

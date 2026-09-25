@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <span>
@@ -21,6 +22,7 @@
 
 namespace
 {
+std::atomic<AudioCoalescing> s_coalescing{AudioCoalescing::Same};
 struct ToneSegment {
   double frequency_hz;
   int    duration_ms;
@@ -247,6 +249,16 @@ void notification_audio_play(NotificationSound sound)
   notification_audio_play(NotificationAudioCue(sound));
 }
 
+AudioCoalescing notification_audio_coalescing()
+{
+  return s_coalescing.load(std::memory_order_relaxed);
+}
+
+void notification_audio_set_coalescing(AudioCoalescing mode)
+{
+  s_coalescing.store(mode, std::memory_order_relaxed);
+}
+
 void notification_audio_play(const NotificationAudioCue& cue)
 {
   fleet_perf::Scope perf(fleet_perf::Part::Audio);
@@ -254,10 +266,22 @@ void notification_audio_play(const NotificationAudioCue& cue)
   // until another successful playback has replaced it, including across reload.
   static std::mutex playback_mutex;
   static std::shared_ptr<const std::vector<uint8_t>> current_clip;
+  static NotificationSound current_sound = NotificationSound::None;
+  static AudioCoalescingWindow window;
   std::scoped_lock lock(playback_mutex);
+  const auto mode = notification_audio_coalescing();
+  const auto now = AudioCoalescingWindow::Clock::now();
+  if (window.Suppress(mode, false, now)) return;
   if (cue.data && !cue.data->empty()) {
-    if (notification_audio_platform_play(cue.data->data(), cue.data->size()))
+    // Compare prepared content, not pointer or event identity: separate alert
+    // types and separately loaded copies of the same clip share this window.
+    if (window.Suppress(mode, true, now) && current_clip
+        && (current_clip == cue.data || *current_clip == *cue.data)) return;
+    if (notification_audio_platform_play(cue.data->data(), cue.data->size())) {
       current_clip = cue.data;
+      current_sound = NotificationSound::None;
+      window.Started(AudioCoalescingWindow::Clock::now(), cue.duration_seconds);
+    }
     return;
   }
   const auto sound = cue.sound;
@@ -272,10 +296,16 @@ void notification_audio_play(const NotificationAudioCue& cue)
   if (buffer.empty())
     return;
 
+  if (window.Suppress(mode, !current_clip && current_sound == sound, now)) return;
+
   if (!notification_audio_platform_play(buffer.data(), buffer.size())) {
     spdlog::warn("[NotifyAudio] Failed to play '{}' cue", notification_sound_name(sound));
   } else {
     current_clip.reset();
+    current_sound = sound;
+    // Built-ins use the same fixed PCM format produced by build_wav.
+    window.Started(AudioCoalescingWindow::Clock::now(),
+                   static_cast<double>(buffer.size() - 44) / (kSampleRate * 2));
   }
 }
 
@@ -285,6 +315,6 @@ bool notification_audio_platform_play(const uint8_t* data, size_t)
 #elif !defined(__APPLE__)
 bool notification_audio_platform_play(const uint8_t*, size_t)
 { return false; }
-std::vector<uint8_t> notification_audio_platform_prepare(std::span<const uint8_t>)
-{ return {}; }
+std::vector<uint8_t> notification_audio_platform_prepare(std::span<const uint8_t>, double& duration_seconds)
+{ duration_seconds = 0; return {}; }
 #endif

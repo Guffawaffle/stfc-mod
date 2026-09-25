@@ -1135,6 +1135,13 @@ void Config::Load()
       get_config_or_default(config, parsed, "ui", "disable_toast_banners", DCU::disable_toast_banners, write_config);
   this->trace_audio_events =
       get_config_or_default(config, parsed, "audio", "trace_events", DCA::trace_events, write_config);
+  const auto coalescing = get_config_or_default<std::string>(
+      config, parsed, "audio", "coalescing", DCA::coalescing, write_config);
+  const auto coalescing_mode = audio_coalescing_from_name(StripAsciiWhitespace(coalescing));
+  if (!coalescing_mode)
+    spdlog::warn("[NotifyAudio] Invalid audio.coalescing '{}'; using same", coalescing);
+  notification_audio_set_coalescing(coalescing_mode.value_or(AudioCoalescing::Same));
+  parsed["audio"].as_table()->insert_or_assign("coalescing", audio_coalescing_name(notification_audio_coalescing()));
   auto disabled_audio_events = get_config_or_default<std::string>(
       config, parsed, "audio", "disabled_events", DCA::disabled_events, write_config);
   this->disable_all_audio_events = false;
