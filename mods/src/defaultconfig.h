@@ -9,6 +9,7 @@ namespace Buffs
 
 namespace Audio
 {
+  constexpr const char* coalescing = "same";
   constexpr const char* disabled_events = "";
   constexpr bool        trace_events    = false;
   constexpr const char* alert_victory = "none";
@@ -225,10 +226,10 @@ namespace Shortcuts
   constexpr const char* zoom_preset3          = "F3";
   constexpr const char* zoom_preset4          = "F4";
   constexpr const char* zoom_preset5          = "F5";
-  constexpr const char* move_up               = "W";
-  constexpr const char* move_down             = "S";
-  constexpr const char* move_left             = "LEFT";
-  constexpr const char* move_right            = "RIGHT";
+  constexpr const char* move_up               = "W|UP";
+  constexpr const char* move_down             = "S|DOWN";
+  constexpr const char* move_left             = "A|LEFT";
+  constexpr const char* move_right            = "D|RIGHT";
 } // namespace Shortcuts
 
 namespace Sync

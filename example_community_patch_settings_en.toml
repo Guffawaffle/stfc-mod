@@ -31,6 +31,9 @@
 #  <[=======================================]> 
 
 [audio]
+# Audio coalescing: none, same (default), all. Absorbed sounds never queue.
+# System notifications are independent. Different sounds still replace playback in same mode.
+coalescing = "same"
 # Change built-in sounds or choose a local WAV/MP3 live in Mod Settings > Audio Alerts.
 # Alert values also accept local .wav/.mp3 files (Windows/macOS), e.g.
 # alert_victory = 'sounds/victory.mp3' or 'C:\Sounds\victory.wav'.
@@ -424,16 +427,16 @@ select_ship8 = "8"
 # ----------------------
 
 # ⚠️ EXPERIMENTAL: Moves down the screen
-move_down = "S"
+move_down = "S|DOWN"
 
 # ⚠️ EXPERIMENTAL: Moves left the screen
-move_left = "LEFT"
+move_left = "A|LEFT"
 
 # ⚠️ EXPERIMENTAL: Moves right the screen
-move_right = "RIGHT"
+move_right = "D|RIGHT"
 
 # ⚠️ EXPERIMENTAL: Moves up the screen
-move_up = "W"
+move_up = "W|UP"
 
 # ⚠️ EXPERIMENTAL: Shows the bookmark->lookup screen
 show_lookup = "L"
