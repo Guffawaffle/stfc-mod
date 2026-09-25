@@ -85,6 +85,17 @@ int main()
   Check(HumanizeShortcutKey("__open--panel_2__") == "Open panel 2" && HumanizeShortcutKey("__") == "Shortcut",
         "fallback labels collapse separators, retain numbers and never become blank");
 
+  registered = {};
+  registered[MoveUp] = "move_up";
+  registered[MoveDown] = "move_down";
+  registered[MoveLeft] = "move_left";
+  registered[MoveRight] = "move_right";
+  const auto movement = DiscoverShortcuts(key);
+  Check(movement.size() == 4, "all registered movement actions have in-game editors");
+  for (const auto& entry : movement)
+    Check(entry.group == ShortcutGroup::Camera && !entry.fallback && !ShortcutExplanation(entry.action).empty(),
+          "movement editors have Camera labels and help text");
+
   ShortcutList               live{"LCTRL-G", "F8"};
   int                        writes = 0;
   ValueSetting<ShortcutList> owner({"shortcuts.test", "Test",

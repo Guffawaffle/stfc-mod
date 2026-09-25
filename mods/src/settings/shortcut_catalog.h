@@ -57,6 +57,12 @@ struct ShortcutInfo {
 constexpr std::string_view ShortcutExplanation(GameFunction action)
 {
   switch (action) {
+    case MoveUp:
+    case MoveDown:
+      return "Pan the system or galaxy map. Disabled when keyboard movement is turned off.";
+    case MoveLeft:
+    case MoveRight:
+      return "Pan the map, rotate the station exterior, or change selection in supported screens.";
     case Quit:
       return "Force closes the client; allows up to 0.5s for pending saves.";
     case NativeShortcutGalaxy:
