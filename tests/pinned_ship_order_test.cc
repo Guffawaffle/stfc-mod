@@ -70,10 +70,15 @@ int main()
   assert((migrated_missing.pins == std::vector<int64_t>{101})
          && (migrated_missing.unresolved_names == std::vector<std::string>{"AMALGAM"}));
   auto migrated_ambiguous = MigrateLegacyNames(duplicate_names, {101, std::nullopt}, 101);
-  assert(AmbiguousUnpin(migrated_ambiguous, false));
-  assert(AmbiguousUnpin(migrated_missing, true));
-  assert(!AmbiguousUnpin(migrated_missing, false));
-  assert(!AmbiguousUnpin(migrated_high, false));
+  const auto matches_amalgam = [](const std::string& name) { return name == "AMALGAM"; };
+  const auto matches_sekie = [](const std::string& name) { return name == "SEKIE"; };
+  assert(AmbiguousUnpin(migrated_ambiguous, false, matches_amalgam));
+  assert(AmbiguousUnpin(migrated_missing, true, matches_amalgam));
+  assert(!AmbiguousUnpin(migrated_missing, false, matches_amalgam));
+  assert(!AmbiguousUnpin(migrated_missing, true, matches_sekie));
+  assert(!AmbiguousUnpin(migrated_high, false, matches_amalgam));
+  const auto unrelated_missing = MigrateLegacyNames({"SEKIE"}, {std::nullopt}, 101);
+  assert(!AmbiguousUnpin(unrelated_missing, true, matches_amalgam));
 
   nlohmann::json state = {{"version", 1}};
   assert(!pinned_ship_state::ReadOrder(state));

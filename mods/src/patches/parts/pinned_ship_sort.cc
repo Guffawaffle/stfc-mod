@@ -380,9 +380,18 @@ bool HandleCardAction(FleetPlayerData* ship, Il2CppObject* selection_context)
     return true;
   }
   auto migrated = pinned_ship_order::MigrateLegacyNames(legacy, *assignments, *id);
-  if (pinned_ship_order::AmbiguousUnpin(migrated, pinned_ship_order::Contains(updated, *id))) {
-    spdlog::warn("[PinnedShipSort] unresolved legacy pins could reclaim ship={}; unpin ignored", *id);
-    return true;
+  const bool selected_was_explicit = pinned_ship_order::Contains(updated, *id);
+  if (!migrated.unresolved_names.empty() && (migrated.selected_was_legacy || selected_was_explicit)) {
+    const auto display_words = ShipNameMatch::DisplayWords(ship);
+    if (pinned_ship_order::AmbiguousUnpin(migrated, selected_was_explicit,
+                                         [&](const std::string& name) {
+                                           return display_words.empty()
+                                                  || ShipNameMatch::MatchesDisplay(display_words,
+                                                                                  ShipNameMatch::SplitWords(name));
+                                         })) {
+      spdlog::warn("[PinnedShipSort] unresolved legacy pins could reclaim ship={}; unpin ignored", *id);
+      return true;
+    }
   }
   updated.insert(updated.end(), migrated.pins.begin(), migrated.pins.end());
   if (!migrated.selected_was_legacy)
