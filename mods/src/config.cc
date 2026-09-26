@@ -1005,6 +1005,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "officersorthooks", DCP::officersorthooks, write_config);
   this->installPinnedShipSortHooks =
       get_config_or_default(config, parsed, "patches", "pinnedshiphooks", DCP::pinnedshiphooks, write_config);
+  this->installShipTechIndicatorHooks = get_config_or_default(config, parsed, "patches", "shiptechindicatorhooks",
+                                                              DCP::shiptechindicatorhooks, write_config);
   spdlog::debug("");
   this->faster_queue_recovery = get_config_or_default(config, parsed, "control", "faster_queue_recovery",
                                                      DCC::faster_queue_recovery, write_config);
@@ -1182,6 +1184,8 @@ void Config::Load()
                                                       DCU::highlight_opc_fleets, write_config);
   this->fleet_hud_opc_eta = get_config_or_default(config, parsed, "ui", "fleet_hud_opc_eta",
                                                    DCU::fleet_hud_opc_eta, write_config);
+  this->show_ship_tech_indicators = get_config_or_default(config, parsed, "ui", "show_ship_tech_indicators",
+                                                          DCU::show_ship_tech_indicators, write_config);
   // Install once so Mod Settings can enable either indicator without a restart.
   this->installOpcIndicatorHooks = true;
 

@@ -240,6 +240,7 @@ public:
   bool allow_officer_preset_reordering;
   bool highlight_opc_fleets;
   bool fleet_hud_opc_eta;
+  bool show_ship_tech_indicators;
   bool auto_confirm_ft_upgrade;
 
   std::vector<std::string> daily_bulk_claim_factions;
@@ -328,4 +329,5 @@ public:
 
   // Fleet management dock ship sort: pin configured ships to the front
   bool installPinnedShipSortHooks;
+  bool installShipTechIndicatorHooks;
 };

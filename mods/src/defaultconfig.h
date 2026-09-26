@@ -114,6 +114,7 @@ namespace Patches
   constexpr bool cargoformathooks           = true;  // on by default: cargo number precision override
   constexpr bool officersorthooks           = true;  // restore Below Deck Ability sort option
   constexpr bool pinnedshiphooks            = true;  // pin configured ships to front of fleet dock sort
+  constexpr bool shiptechindicatorhooks     = true;  // show equipped FT/CT art in the Swap Ship bar
 } // namespace Patches
 
 namespace Shortcuts
@@ -266,6 +267,7 @@ namespace UI
   constexpr bool        allow_officer_preset_reordering = false;
   constexpr bool        highlight_opc_fleets        = false;
   constexpr bool        fleet_hud_opc_eta           = false;
+  constexpr bool        show_ship_tech_indicators   = true;
   constexpr const char* daily_bulk_claim_factions   = "";
   constexpr bool        daily_bulk_claim_toggle_default_on = false;
   constexpr bool        disable_escape_exit         = true;

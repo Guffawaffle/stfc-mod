@@ -12,6 +12,7 @@ independent of labels and placement.
 | Location | Control | Existing owner |
 | --- | --- | --- |
 | Mod Settings > Map & Travel | Instant warp mode: Normal (ask), Warp, Jump | `ui.auto_confirm_instant_warp` and the Alt+I action |
+| Mod Settings > Previews & Cargo > Ship selection | Show equipped FT/CT in the Swap Ship bar | `ui.show_ship_tech_indicators` |
 | Mod Settings > Previews & Cargo > Preview shortcuts | Allow Locate / Recall while a preview is open | Inverse of `ui.disable_preview_locate`, `ui.disable_preview_recall` |
 | Mod Settings > Previews & Cargo > Cargo previews | Auto-open cargo, with Player / Station / Hostile / Armada preferences | Existing `ui.show_*_cargo` flags and `ui.show_cargo_default` |
 | Mod Settings > Fleet Labels | Player label detail and zoom threshold | `graphics.zoom_label_player_detail`, `graphics.zoom_label_player_threshold` |
@@ -88,6 +89,11 @@ single writer on supported Windows x64 builds. These shortcuts therefore retain
 their preferences across restarts now; other platforms keep session-only behavior.
 Repeatedly choosing the current value, rendering, and page navigation do not save.
 Conflicts and failures leave live behavior in place and are reported in the log.
+
+The Ship selection switch controls the equipped Forbidden Tech and Chaos Tech art
+on `Manage Ship > Swap Ship` cards. The display hook remains installed for the
+session; changing the preference affects cards when the Swap Ship view next binds
+them and does not add indicators to the Fleet Bar.
 
 ## Camera
 

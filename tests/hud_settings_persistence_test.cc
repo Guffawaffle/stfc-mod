@@ -62,7 +62,7 @@ int main(int argc, char** argv)
       Check(loaded["ui"]["unrelated"].value<bool>() == true);
     }
   }
-  for (const char* key : {"highlight_opc_fleets", "fleet_hud_opc_eta"}) {
+  for (const char* key : {"highlight_opc_fleets", "fleet_hud_opc_eta", "show_ship_tech_indicators"}) {
     for (bool enabled : {true, false, true}) {
       const auto revision = writer.Submit("ui", key, enabled);
       Check(revision != 0);

@@ -30,6 +30,15 @@ do
     set_exceptions("cxx")
 end
 
+target("settings-search-tests")
+do
+    set_kind("binary")
+    set_default(false)
+    add_files("settings_search_test.cc")
+    add_includedirs("../mods/src")
+    set_exceptions("cxx")
+end
+
 target("keyboard-layout-tests")
 do
     set_kind("binary")
