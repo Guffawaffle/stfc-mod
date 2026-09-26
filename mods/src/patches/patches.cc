@@ -55,6 +55,7 @@ void InstallForbiddenTechConfirmationHooks();
 void InstallAudioEventHooks();
 void InstallOfficerPresetReorderHooks();
 void InstallOpcIndicatorHooks();
+void InstallShipTechIndicatorHooks();
 
 #ifdef _MODDBG
 void InstallDevConsole();
@@ -179,6 +180,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"AudioEvents", {InstallAudioEventHooks, &cfg.installAudioEventHooks}},
       {"OfficerPresetReorder", {InstallOfficerPresetReorderHooks, &cfg.allow_officer_preset_reordering}},
       {"OpcIndicators", {InstallOpcIndicatorHooks, &cfg.installOpcIndicatorHooks}},
+      {"ShipTechIndicators", {InstallShipTechIndicatorHooks, &cfg.installShipTechIndicatorHooks}},
       // Galaxy availability must be established before settings pages register.
       {"GalaxyLabels", {InstallGalaxyLabels, &cfg.installZoomHooks}},
       // Retain the existing debug patch key; this installer owns both settings surfaces.

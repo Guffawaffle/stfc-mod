@@ -7,6 +7,7 @@
 #include "opc_indicators.h"
 #include "audio_alerts.h"
 #include "preview_settings.h"
+#include "ship_tech_indicators.h"
 #include "shortcut_settings.h"
 #include "warp_mode.h"
 
@@ -37,6 +38,8 @@ void RegisterModPages()
   catalog.AddHeading("community_mod.navigation", "community_mod.navigation.anomaly", "Galactic Anomalies");
   catalog.AddBoolean("community_mod.navigation", GalacticAnomalyTimerSetting());
   catalog.AddPage("community_mod.previews", "Previews & Cargo", "community_mod.settings");
+  catalog.AddHeading("community_mod.previews", "community_mod.previews.ship_selection", "Ship selection");
+  catalog.AddBoolean("community_mod.previews", ShipTechIndicatorSetting());
   catalog.AddHeading("community_mod.previews", "community_mod.ui.opc", "Protected cargo");
   catalog.AddBoolean("community_mod.previews", OpcHighlightSetting());
   catalog.AddBoolean("community_mod.previews", OpcEtaSetting());

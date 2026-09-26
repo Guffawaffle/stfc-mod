@@ -29,7 +29,7 @@ reference. Moving a page does not rename stored keys or change defaults.
 | Camera | Keyboard zoom speed, pan glide | `[graphics]` |
 | Fleet Labels | Collapsible Player and Non-player profiles | `[graphics]` |
 | Map & Travel | Instant warp mode, shared with its shortcut | `[ui]` |
-| Previews & Cargo | Preview shortcuts and automatic cargo previews | `[ui]` |
+| Previews & Cargo | Ship selection indicators, preview shortcuts and automatic cargo previews | `[ui]` |
 | Shortcuts | Actions grouped by effect | `[shortcuts]` |
 
 Empty groups are omitted. Shortcut categories and actions are alphabetized;
