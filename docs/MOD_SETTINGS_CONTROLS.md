@@ -32,11 +32,15 @@ Selecting the current value does not enqueue another save. Invalid choices do
 not alter live state or the file. Existing per-ship overrides retain precedence;
 the picker changes only the global fallback mode.
 
-On supported Windows x64 clients, hold Ctrl and click the travel button to show
+On supported clients, hold Ctrl on Windows or Command on macOS and click the travel button to show
 the native Warp/Jump choice for that trip, including when a ship rule normally
-chooses automatically. The button restores its native localized Set Course label while Ctrl is held.
-Releasing Ctrl after the click does not cancel the override. It does not change
+chooses automatically. The button restores its native localized Set Course label while the modifier is held.
+Releasing the modifier after the click does not cancel the override. It does not change
 the saved mode; an ordinary subsequent click follows the configured behavior.
+
+The click hook validates the managed signature and native entry before installing.
+Current native coverage is Windows x64 client263 and Mac client197 (1.000.52361),
+both Apple Silicon and Intel. An unrecognized client retains ordinary travel behavior.
 
 Reuse the existing single runtime writer, optimistic conflict handling and
 source-preserving TOML edits. UI readback confirms the live value, not durable
@@ -197,8 +201,8 @@ Exact Windows build261 unwind extents, checked before expanding installation:
 | TextOptionWidget.ClearWidgetData | D0A680 | 271 |
 | Selectable.DoStateTransition | 47A9650 | 805 |
 
-These exceed the bundled x64 SPUD 24-byte overwrite. Runtime also rejects tiny
-or interior entries using unwind metadata. Client SHA256:
+These historical measurements exceed the bundled x64 SPUD 24-byte overwrite.
+Installation resolves current targets through managed metadata. Measured client SHA256:
 `487af4bb9c697c353be9714359a97dddcece5dab872622a6c498a27bbfc44f40`.
 This is Windows evidence, not proof of macOS hook fit or native widget behavior.
 

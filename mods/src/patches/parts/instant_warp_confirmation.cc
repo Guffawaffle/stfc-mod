@@ -16,11 +16,8 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <utility>
-
-#if defined(_WIN32) && defined(_M_X64)
-#include <Windows.h>
-#endif
 
 namespace
 {
@@ -54,20 +51,31 @@ bool ConsumeClickIntent(CourseData* course)
     auto* target = Il2CppChecked::Invoke(object, "get_TargetNode");
     return pending.Consume(ReadId(object, "get_FleetID"), ReadId(target, "get_ID"));
   } catch (const std::exception& error) {
-    spdlog::warn("[InstantWarpConfirmation] Ctrl-click course could not be matched: {}", error.what());
+    spdlog::warn("[InstantWarpConfirmation] Modified-click course could not be matched: {}", error.what());
     // Once the user explicitly requested a choice, a failed read must not auto-select Jump.
     return true;
   }
 }
 
-#if defined(_WIN32) && defined(_M_X64)
+#if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
 bool (*mouse_held)(int)     = nullptr;
 bool (*mouse_released)(int) = nullptr;
 
-// On Windows x64 the native Nullable<Vector3> value is passed indirectly.
+#if defined(__APPLE__)
+// Nullable<Vector3>: INTEGER/SSE on Intel, two integer registers on Apple Silicon.
+// Keep the native value layout; Windows x64 instead passes this value indirectly.
+struct MovePosition {
+  bool  has_value;
+  float x, y, z;
+};
+static_assert(sizeof(MovePosition) == 16 && offsetof(MovePosition, x) == 4);
+#else
+using MovePosition = void*;
+#endif
+
 // This is the manual move request edge, before native confirmation/callback delays.
-void OnMoveFleetAction_Hook(auto original, void* self, void* position, std::int64_t node_id, std::int64_t fleet_id,
-                            bool force_move)
+void OnMoveFleetAction_Hook(auto original, void* self, MovePosition position, std::int64_t node_id,
+                            std::int64_t fleet_id, bool force_move)
 {
   click_intent    = {};
   unmatched_click = false;
@@ -82,7 +90,7 @@ void OnMoveFleetAction_Hook(auto original, void* self, void* position, std::int6
       click_intent.Begin(true, id, node_id);
       unmatched_click = click_intent.fleet == 0;
     } catch (const std::exception& error) {
-      spdlog::warn("[InstantWarpConfirmation] Ctrl-click request could not be captured: {}", error.what());
+      spdlog::warn("[InstantWarpConfirmation] Modified-click request could not be captured: {}", error.what());
     }
   }
   original(self, position, node_id, fleet_id, force_move);
@@ -91,31 +99,19 @@ void OnMoveFleetAction_Hook(auto original, void* self, void* position, std::int6
 
 void InstallClickOverride()
 {
-#if defined(_WIN32) && defined(_M_X64)
+#if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
   auto  helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "NavigationManager");
   auto* method = method_contract::Resolve(
       helper.get_cls(), "OnMoveFleetAction", false, "System.Void",
       {"System.Nullable<UnityEngine.Vector3>", "System.Int64", "System.Int64", "System.Boolean"});
-  // Client263: substantive 761-byte native entry, 26 complete instruction bytes
-  // cover SPUD's 24-byte overwrite. Other clients retain their existing behavior.
-  constexpr unsigned char window[]   = {0x48, 0x89, 0x5c, 0x24, 0x08, 0x48, 0x89, 0x6c, 0x24, 0x10, 0x48, 0x89, 0x74,
-                                        0x24, 0x18, 0x48, 0x89, 0x7c, 0x24, 0x20, 0x41, 0x56, 0x48, 0x83, 0xec, 0x50};
-  const auto              base       = reinterpret_cast<uintptr_t>(GetModuleHandleA("GameAssembly.dll"));
-  const auto*             pointer    = method_contract::Pointer(method);
-  DWORD64                 image_base = 0;
-  const auto*             entry =
-      pointer ? RtlLookupFunctionEntry(reinterpret_cast<DWORD64>(pointer), &image_base, nullptr) : nullptr;
   mouse_held     = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButton(System.Int32)");
   mouse_released = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButtonUp(System.Int32)");
-  if (!base || !pointer || !entry || !mouse_held || !mouse_released
-      || reinterpret_cast<uintptr_t>(pointer) != base + 0x1269b30
-      || image_base + entry->BeginAddress != reinterpret_cast<uintptr_t>(pointer)
-      || entry->EndAddress - entry->BeginAddress != 761 || std::memcmp(pointer, window, sizeof(window)) != 0) {
-    spdlog::warn("[InstantWarpConfirmation] Ctrl-click hook contract unavailable; override disabled");
+  if (!mouse_held || !mouse_released || !method_contract::Pointer(method)) {
+    spdlog::warn("[InstantWarpConfirmation] Modified-click method or input functions unavailable; override disabled");
     return;
   }
   click_override_available = SPUD_STATIC_DETOUR(method->methodPointer, OnMoveFleetAction_Hook) != nullptr;
-  spdlog::info("[InstantWarpConfirmation] Ctrl-click choice override {}",
+  spdlog::info("[InstantWarpConfirmation] Modified-click choice override {}",
                click_override_available ? "installed" : "unavailable");
 #endif
 }
@@ -151,7 +147,13 @@ void CoursePromptPopupViewController_AboutToShow_Hook(auto original, CoursePromp
 } // namespace
 
 bool WarpPromptOverrideHeld()
-{ return click_override_available && Key::HasCtrl(); }
+{
+#if defined(__APPLE__)
+  return click_override_available && (Key::Pressed(KeyCode::LeftCommand) || Key::Pressed(KeyCode::RightCommand));
+#else
+  return click_override_available && Key::HasCtrl();
+#endif
+}
 
 InstantWarpConfirmation ResolveInstantWarpConfirmation(FleetPlayerData* fleet)
 {
