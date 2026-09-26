@@ -251,11 +251,13 @@ void ShipManagementViewContext_Sort_Hook(auto original, void* _this)
   ReorderPinnedShips(list);
 }
 
-std::optional<std::size_t> LegacyPinForShip(Il2CppObject* context, FleetPlayerData* selected,
-                                             const std::vector<std::string>& names)
+std::optional<std::vector<std::optional<int64_t>>> LegacyAssignments(Il2CppObject* context,
+                                                                       const std::vector<std::string>& names)
 {
   auto& state = State();
-  if (!context || !selected || names.empty())
+  if (names.empty())
+    return std::vector<std::optional<int64_t>>{};
+  if (!context)
     return std::nullopt;
   auto* list = *reinterpret_cast<void**>(reinterpret_cast<char*>(context) + state.sortedIdleShipsField->offset());
   if (!list)
@@ -272,7 +274,7 @@ std::optional<std::size_t> LegacyPinForShip(Il2CppObject* context, FleetPlayerDa
   const int count = *static_cast<int32_t*>(il2cpp_object_unbox(boxed_count));
   if (count < 0 || count > 2000)
     return std::nullopt;
-  std::vector<FleetPlayerData*> ships;
+  std::vector<ShipEntry> ships;
   ships.reserve(count);
   for (int index = 0; index < count; ++index) {
     void* args[]{&index};
@@ -280,38 +282,35 @@ std::optional<std::size_t> LegacyPinForShip(Il2CppObject* context, FleetPlayerDa
     auto* item = il2cpp_runtime_invoke(item_method, list, args, &exception);
     if (exception)
       return std::nullopt;
-    ships.push_back(reinterpret_cast<FleetPlayerData*>(item));
+    ships.push_back(BuildShipEntry(item, true));
   }
   std::vector<bool> used(ships.size(), false);
-  const auto selected_id = ship_identity::InstanceId(selected);
-  for (std::size_t name_index = 0; name_index < names.size(); ++name_index) {
-    const auto words = ShipNameMatch::SplitWords(names[name_index]);
-    if (words.empty())
-      continue;
-    FleetPlayerData* best = nullptr;
-    std::optional<int64_t> best_id;
+  std::vector<std::optional<int64_t>> assignments;
+  assignments.reserve(names.size());
+  auto claimed_ids = state.pinned_ids;
+  for (const auto& name : names) {
+    const auto words = ShipNameMatch::SplitWords(name);
     int64_t best_level = -1;
-    std::size_t best_index = 0;
+    std::optional<std::size_t> best_index;
     for (std::size_t index = 0; index < ships.size(); ++index) {
-      auto* ship = ships[index];
-      if (!ship || !ship->HasShip || used[index] || ship->Level <= best_level
-          || !ShipNameMatch::MatchesDisplay(ShipNameMatch::DisplayWords(ship), words))
+      const auto& ship = ships[index];
+      if (ship.non_ship || used[index] || ship.level <= best_level || words.empty()
+          || (ship.id && pinned_ship_order::Contains(claimed_ids, *ship.id))
+          || !ShipNameMatch::MatchesDisplay(ship.match_words, words))
         continue;
-      const auto id = ship_identity::InstanceId(ship);
-      if (id && pinned_ship_order::Contains(state.pinned_ids, *id))
-        continue;
-      best = ship;
-      best_id = id;
-      best_level = ship->Level;
+      best_level = ship.level;
       best_index = index;
     }
-    if (best) {
-      used[best_index] = true;
-      if (best == selected || (best_id && selected_id && *best_id == *selected_id))
-        return name_index;
+    if (best_index) {
+      used[*best_index] = true;
+      assignments.push_back(ships[*best_index].id);
+      if (ships[*best_index].id)
+        claimed_ids.push_back(*ships[*best_index].id);
+    } else {
+      assignments.push_back(std::nullopt);
     }
   }
-  return std::nullopt;
+  return assignments;
 }
 
 bool SaveAndRefresh(std::vector<int64_t> updated, std::vector<std::string> legacy,
@@ -375,15 +374,17 @@ bool HandleCardAction(FleetPlayerData* ship, Il2CppObject* selection_context)
 
   auto updated = state.pinned_ids;
   auto legacy  = state.has_id_order ? state.legacy_names : Config::Get().pinned_ships;
-  const auto legacy_pin = !pinned_ship_order::Contains(updated, *id)
-                              ? LegacyPinForShip(selection_context, ship, legacy)
-                              : std::nullopt;
-  if (!legacy_pin)
+  const auto assignments = LegacyAssignments(selection_context, legacy);
+  if (!assignments) {
+    spdlog::warn("[PinnedShipSort] could not resolve legacy pins; action ignored");
+    return true;
+  }
+  auto migrated = pinned_ship_order::MigrateLegacyNames(legacy, *assignments, *id);
+  updated.insert(updated.end(), migrated.pins.begin(), migrated.pins.end());
+  if (!migrated.selected_was_legacy)
     pinned_ship_order::Toggle(updated, *id);
-  if (legacy_pin)
-    legacy.erase(legacy.begin() + *legacy_pin);
 
-  if (SaveAndRefresh(std::move(updated), std::move(legacy), selection_context))
+  if (SaveAndRefresh(std::move(updated), std::move(migrated.unresolved_names), selection_context))
     spdlog::info("[PinnedShipSort] toggled ship={} ({} pins)", *id, state.pinned_ids.size());
   return true;
 }
@@ -397,16 +398,18 @@ bool PlacePinnedShip(FleetPlayerData* source, std::optional<int64_t> target_id, 
   if (!id)
     return false;
   auto updated = state.pinned_ids;
-  const bool was_pinned = pinned_ship_order::Contains(updated, *id);
+  auto legacy = state.has_id_order ? state.legacy_names : Config::Get().pinned_ships;
+  const auto assignments = LegacyAssignments(selection_context, legacy);
+  if (!assignments) {
+    spdlog::warn("[PinnedShipSort] could not resolve legacy pins; drag ignored");
+    return false;
+  }
+  auto migrated = pinned_ship_order::MigrateLegacyNames(legacy, *assignments, *id);
+  updated.insert(updated.end(), migrated.pins.begin(), migrated.pins.end());
   if (!(target_id ? pinned_ship_order::MoveToTarget(updated, *id, *target_id)
                   : pinned_ship_order::MoveToEnd(updated, *id)))
     return false;
-  auto legacy = state.has_id_order ? state.legacy_names : Config::Get().pinned_ships;
-  if (!was_pinned) {
-    if (const auto legacy_pin = LegacyPinForShip(selection_context, source, legacy))
-      legacy.erase(legacy.begin() + *legacy_pin);
-  }
-  if (!SaveAndRefresh(std::move(updated), std::move(legacy), selection_context))
+  if (!SaveAndRefresh(std::move(updated), std::move(migrated.unresolved_names), selection_context))
     return false;
   if (target_id)
     spdlog::info("[PinnedShipSort] dragged ship={} to ship={} ({} pins)", *id, *target_id,

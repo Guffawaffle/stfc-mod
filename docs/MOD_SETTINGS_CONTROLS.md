@@ -112,14 +112,14 @@ game's active sort still orders unpinned ships.
 The ordered ship IDs are stored as decimal strings in the mod state JSON, not
 in TOML. Its default filename is `community_patch_state.json`; a custom config
 uses `<config-stem>.state.json` beside that config. Existing nonempty
-`ui.pinned_ships` values remain as legacy name-based pins until the card
-currently selected by that legacy pin is clicked to unpin
-it. Clicking a different duplicate pins that specific ship instead. Legacy
-entries move into JSON on the first card action so no name pin is silently discarded.
-The legacy name group follows the explicit ID pins and retains the game's
-active sort. New example TOML files point to the in-game controls instead of
-offering a new name list. An internal patch switch remains available as a
-hook safety override, but there is no player-facing pinning toggle.
+`ui.pinned_ships` values start as legacy name-based pins. On the first pin
+action, identifiable matches migrate in order to ship IDs; unresolved names
+remain in JSON. Clicking a legacy-pinned card unpins only that ship, including
+when another ship has the same name. Any unresolved legacy names follow the
+explicit ID pins and retain the game's active sort. New example TOML files
+point to the in-game controls instead of offering a new name list. An internal
+patch switch remains available as a hook safety override, but there is no
+player-facing pinning toggle.
 
 ## Camera
 

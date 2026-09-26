@@ -56,6 +56,20 @@ int main()
   assert((SortedIndices({std::nullopt, 101, 202}, pins, {true, false, false})
           == std::vector<int>{1, 2, 0}));
 
+  const std::vector<std::string> duplicate_names{"AMALGAM", "AMALGAM"};
+  const std::vector<std::optional<int64_t>> duplicate_ids{101, 202};
+  auto migrated_high = MigrateLegacyNames(duplicate_names, duplicate_ids, 101);
+  assert(migrated_high.selected_was_legacy && (migrated_high.pins == std::vector<int64_t>{202}));
+  assert(migrated_high.unresolved_names.empty());
+  auto migrated_low = MigrateLegacyNames(duplicate_names, duplicate_ids, 202);
+  assert(migrated_low.selected_was_legacy && (migrated_low.pins == std::vector<int64_t>{101}));
+  auto migrated_other = MigrateLegacyNames(duplicate_names, duplicate_ids, 303);
+  assert(!migrated_other.selected_was_legacy
+         && (migrated_other.pins == std::vector<int64_t>{101, 202}));
+  auto migrated_missing = MigrateLegacyNames(duplicate_names, {101, std::nullopt}, 303);
+  assert((migrated_missing.pins == std::vector<int64_t>{101})
+         && (migrated_missing.unresolved_names == std::vector<std::string>{"AMALGAM"}));
+
   nlohmann::json state = {{"version", 1}};
   assert(!pinned_ship_state::ReadOrder(state));
   state[pinned_ship_state::Key] = {"101", "202", "101", "bad", "0", -1};

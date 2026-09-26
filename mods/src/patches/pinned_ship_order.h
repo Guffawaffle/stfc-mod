@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <numeric>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace pinned_ship_order
@@ -50,6 +51,28 @@ inline bool MoveToEnd(std::vector<int64_t>& pins, int64_t id)
   }
   pins.push_back(id);
   return true;
+}
+
+struct LegacyMigration {
+  std::vector<int64_t> pins;
+  std::vector<std::string> unresolved_names;
+  bool selected_was_legacy = false;
+};
+
+inline LegacyMigration MigrateLegacyNames(const std::vector<std::string>& names,
+                                         const std::vector<std::optional<int64_t>>& assignments, int64_t selected_id)
+{
+  LegacyMigration result;
+  for (std::size_t index = 0; index < names.size(); ++index) {
+    if (index >= assignments.size() || !assignments[index]) {
+      result.unresolved_names.push_back(names[index]);
+    } else if (*assignments[index] == selected_id) {
+      result.selected_was_legacy = true;
+    } else {
+      result.pins.push_back(*assignments[index]);
+    }
+  }
+  return result;
 }
 
 inline std::vector<int> SortedIndices(const std::vector<std::optional<int64_t>>& ship_ids,
