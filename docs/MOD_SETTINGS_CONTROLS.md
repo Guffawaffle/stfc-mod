@@ -13,10 +13,12 @@ independent of labels and placement.
 | --- | --- | --- |
 | Mod Settings > Map & Travel | Instant warp mode: Normal (ask), Warp, Jump | `ui.auto_confirm_instant_warp` and the Alt+I action |
 | Mod Settings > Previews & Cargo > Ship selection | Show equipped FT/CT in the Swap Ship bar, with optional backgrounds | `ui.show_ship_tech_indicators`, `ui.show_ship_tech_indicator_backgrounds` |
-| Mod Settings > Previews & Cargo > Preview shortcuts | Allow Locate / Recall while a preview is open | Inverse of `ui.disable_preview_locate`, `ui.disable_preview_recall` |
-| Mod Settings > Previews & Cargo > Cargo previews | Auto-open cargo, with Player / Station / Hostile / Armada preferences | Existing `ui.show_*_cargo` flags and `ui.show_cargo_default` |
-| Mod Settings > Fleet Labels | Player label detail and zoom threshold | `graphics.zoom_label_player_detail`, `graphics.zoom_label_player_threshold` |
-| Mod Settings > Fleet Labels | Non-player label detail and zoom threshold | `graphics.zoom_label_non_player_detail`, `graphics.zoom_label_non_player_threshold` |
+| Mod Settings > Previews & Cargo > Other | Allow Locate / Recall while a preview is open; configure instant cargo and cargo auto-open | Inverse of `ui.disable_preview_locate`, `ui.disable_preview_recall`; existing cargo flags |
+| Mod Settings > Previews & Cargo > Target types | Player / Station / Hostile / Armada cargo preferences | Existing `ui.show_*_cargo` flags |
+| Mod Settings > Fleet Labels > Other | Show ship hotkey badges | `graphics.ship_hotkey_badges` |
+| Mod Settings > Fleet Labels > Player | Player label detail and zoom threshold | `graphics.zoom_label_player_detail`, `graphics.zoom_label_player_threshold` |
+| Mod Settings > Fleet Labels > Non-player | Non-player label detail and zoom threshold | `graphics.zoom_label_non_player_detail`, `graphics.zoom_label_non_player_threshold` |
+| Mod Settings > Galaxy Labels > Other | Extended selection and multi-select | `graphics.galaxy_extended_selection`, `graphics.galaxy_multi_select` |
 | Mod Settings > Camera | Keyboard zoom speed and pan glide | `graphics.keyboard_zoom_speed`, `graphics.system_pan_momentum_falloff` |
 | Mod Settings > Shortcuts | Rebind existing actions | Existing shortcut parser and `MapKey` registrations |
 | General > confirmation page | Confirm Forbidden Tech upgrades | Inverse of `ui.auto_confirm_ft_upgrade` |
@@ -62,7 +64,7 @@ polling, animation replacement, asset loading or setting write in this hook.
 
 ## Preview shortcuts and cargo previews
 
-Both pages use the existing boolean rows and the same live Config members already
+These controls use the existing boolean rows and the same live Config members already
 read by the preview and keyboard paths. No new hook implementation, polling
 callback, config key, or default is introduced. The plain cargo heading uses the
 framework's existing text-row hooks, which are installed when a page needs them.
