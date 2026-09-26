@@ -58,6 +58,7 @@ void InstallOpcIndicatorHooks();
 #ifdef _MODDBG
 void InstallDevConsole();
 void InstallGameErrorProbe();
+void InstallShipTechProbe();
 #endif
 void InstallNativeSettings();
 void InstallGalaxyLabels();
@@ -204,6 +205,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #ifdef _MODDBG
   InstallDevConsole();
   InstallGameErrorProbe();
+  InstallShipTechProbe();
 #endif
   InstallActionQueueRecovery();
   InstallThinQueueProtection();
