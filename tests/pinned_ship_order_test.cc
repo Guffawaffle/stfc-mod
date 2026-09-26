@@ -69,6 +69,11 @@ int main()
   auto migrated_missing = MigrateLegacyNames(duplicate_names, {101, std::nullopt}, 303);
   assert((migrated_missing.pins == std::vector<int64_t>{101})
          && (migrated_missing.unresolved_names == std::vector<std::string>{"AMALGAM"}));
+  auto migrated_ambiguous = MigrateLegacyNames(duplicate_names, {101, std::nullopt}, 101);
+  assert(AmbiguousUnpin(migrated_ambiguous, false));
+  assert(AmbiguousUnpin(migrated_missing, true));
+  assert(!AmbiguousUnpin(migrated_missing, false));
+  assert(!AmbiguousUnpin(migrated_high, false));
 
   nlohmann::json state = {{"version", 1}};
   assert(!pinned_ship_state::ReadOrder(state));

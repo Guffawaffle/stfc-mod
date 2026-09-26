@@ -380,6 +380,10 @@ bool HandleCardAction(FleetPlayerData* ship, Il2CppObject* selection_context)
     return true;
   }
   auto migrated = pinned_ship_order::MigrateLegacyNames(legacy, *assignments, *id);
+  if (pinned_ship_order::AmbiguousUnpin(migrated, pinned_ship_order::Contains(updated, *id))) {
+    spdlog::warn("[PinnedShipSort] unresolved legacy pins could reclaim ship={}; unpin ignored", *id);
+    return true;
+  }
   updated.insert(updated.end(), migrated.pins.begin(), migrated.pins.end());
   if (!migrated.selected_was_legacy)
     pinned_ship_order::Toggle(updated, *id);

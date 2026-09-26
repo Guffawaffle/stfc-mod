@@ -59,6 +59,9 @@ struct LegacyMigration {
   bool selected_was_legacy = false;
 };
 
+inline bool AmbiguousUnpin(const LegacyMigration& migration, bool selected_was_explicit)
+{ return (migration.selected_was_legacy || selected_was_explicit) && !migration.unresolved_names.empty(); }
+
 inline LegacyMigration MigrateLegacyNames(const std::vector<std::string>& names,
                                          const std::vector<std::optional<int64_t>>& assignments, int64_t selected_id)
 {
