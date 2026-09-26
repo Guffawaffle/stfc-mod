@@ -80,7 +80,6 @@ to recreate the user's file from cached content.
 Runtime persistence supports Windows x64 and macOS clients with compatible Unity quit methods.
 The adapter resolves `Internal_ApplicationWantsToQuit()` and `Quit(int)` by their
 complete managed signatures, without pinning client addresses or instruction bytes.
-On macOS the loaded quit method must also pass native extent/prologue validation.
 Incompatible bindings retain session-only changes with a save-failure notice.
 Both hotkey and Mod Settings startup request the same idempotent adapter, so
 turning off hotkey hooks does not disable settings persistence.

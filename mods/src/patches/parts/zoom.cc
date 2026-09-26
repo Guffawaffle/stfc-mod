@@ -2,8 +2,6 @@
 #include "errormsg.h"
 #include "settings/camera_settings.h"
 #include "settings/fleet_labels.h"
-#include "settings/windows_hook_extent.h"
-#include "patches/native_hook_extent.h"
 #include <il2cpp/method_contract.h>
 #include "galaxy_labels.h"
 #include "patches/ship_shortcut_badges.h"
@@ -665,7 +663,7 @@ void InstallZoomHooks()
   bool fleet_widget_hooks_ready = false;
 #if __APPLE__
   // Galaxy composition needs the shared LOD and zoom hooks, not the fleet-only
-  // pooled-widget hooks. Verify their untouched entries before either owner
+  // pooled-widget hooks. Resolve their managed contracts before either owner
   // installs them, and reuse the one LOD detour below.
   enable_labels = FleetLabelProfilesEnabled();
   auto galaxy_lod = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "NavigationLOD");
@@ -684,9 +682,7 @@ void InstallZoomHooks()
       && zoom_level_field && !(zoom_level_field->type->attrs & FIELD_ATTRIBUTE_STATIC)
       && method_contract::Type(zoom_level_field->type, "Digit.Prime.Navigation.ZoomLevels")
       && normalized_zoom_property
-      && method_contract::Resolve(navigation_zoom_class, "get_NormalizedZoom", false, "System.Single", {})
-      && native_hooks::MacHookFits(method_contract::Pointer(galaxy_lod_method))
-      && native_hooks::MacHookFits(method_contract::Pointer(galaxy_update));
+      && method_contract::Resolve(navigation_zoom_class, "get_NormalizedZoom", false, "System.Single", {});
 #endif
   // Ship shortcut badges share the existing pooled-widget lifecycle, including when label profiles stay Native.
   enable_labels |= Config::Get().installHotkeyHooks;
@@ -802,11 +798,7 @@ void InstallZoomHooks()
     const std::array targets{ptr_update_lod, ptr_on_enable, ptr_on_disable, ptr_on_did_bind_context,
                              ptr_on_about_to_release_context};
     for (std::size_t i = 0; i < targets.size(); ++i) {
-#if __APPLE__
-      fleet_label_dependencies_valid &= native_hooks::MacHookFits(targets[i]);
-#else
-      fleet_label_dependencies_valid &= mod_settings::WindowsHookFits(targets[i]);
-#endif
+      fleet_label_dependencies_valid &= targets[i] != nullptr;
       for (std::size_t j = 0; j < i; ++j)
         fleet_label_dependencies_valid &= targets[i] != targets[j];
     }

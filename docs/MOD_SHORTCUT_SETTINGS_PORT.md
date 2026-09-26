@@ -53,9 +53,9 @@ or predict timings for the extracted feature set.
 
 Run seven settings fixtures, the persistence suite, keyboard layout/chord/
 dispatch fixtures, Windows build and `git diff --check`. CI must also build both
-macOS architectures; those builds exercise the shared fixtures and synthetic
-Mach-O extent gates. Native shortcut support is enabled on macOS in code and is
-gated at install by resolved-metadata extent checks, but the in-game macOS ARM
+macOS architectures; those builds exercise the shared fixtures. Native shortcut
+support resolves managed metadata and validates target ownership on macOS, but
+the in-game macOS ARM
 runtime smoke (page rendering, capture ownership, Command capture and dispatch,
 restart persistence) remains unverified evidence.
 Review the extraction and narrow integration changes against the exact PR head,
