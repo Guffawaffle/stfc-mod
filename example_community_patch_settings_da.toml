@@ -789,7 +789,7 @@ double_click_to_assign_ship = false
 
 # Fastgør skibe i Administrer skib > Skift skib.
 # Klik på nålen nederst til højre for at fastgøre eller frigøre; hold og træk en nummereret nål til et andet nummereret kort for at ændre rækkefølgen.
-# Rækkefølgen af skibs-id'er gemmes i community_patch_state.json, ikke i denne TOML-fil.
+# Rækkefølgen af skibs-id'er gemmes i moddens JSON-tilstand, ikke i denne TOML-fil.
 
 # Subgroup: HUD
 # -------------

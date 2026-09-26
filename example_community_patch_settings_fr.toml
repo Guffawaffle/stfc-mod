@@ -816,7 +816,7 @@ double_click_to_assign_ship = false
 
 # Épinglez les vaisseaux dans Gérer le vaisseau > Changer de vaisseau.
 # Cliquez sur l'épingle en bas à droite pour épingler ou détacher ; maintenez et faites glisser une épingle numérotée sur une autre carte numérotée pour réordonner.
-# L'ordre des ID de vaisseaux est enregistré dans community_patch_state.json, pas dans ce fichier TOML.
+# L'ordre des ID de vaisseaux est enregistré dans l'état JSON du mod, pas dans ce fichier TOML.
 
 # Subgroup: HUD
 # -------------

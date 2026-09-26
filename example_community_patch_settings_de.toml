@@ -816,7 +816,7 @@ double_click_to_assign_ship = false
 
 # Schiffe im Spiel anheften: Schiff verwalten > Schiff wechseln.
 # Klicke auf die Stecknadel unten rechts zum Anheften oder Lösen; halte sie gedrückt und ziehe sie auf eine andere nummerierte Karte, um die Reihenfolge zu ändern.
-# Die Reihenfolge der Schiff-IDs wird in community_patch_state.json gespeichert, nicht in dieser TOML-Datei.
+# Die Reihenfolge der Schiff-IDs wird in der JSON-Statusdatei des Mods gespeichert, nicht in dieser TOML-Datei.
 
 # Subgroup: HUD
 # -------------

@@ -110,8 +110,10 @@ row cancels the drag. The rank number shows explicit ship-ID priority. The
 game's active sort still orders unpinned ships.
 
 The ordered ship IDs are stored as decimal strings in the mod state JSON, not
-in TOML. Existing nonempty `ui.pinned_ships` values remain as legacy name-based
-pins until the card currently selected by that legacy pin is clicked to unpin
+in TOML. Its default filename is `community_patch_state.json`; a custom config
+uses `<config-stem>.state.json` beside that config. Existing nonempty
+`ui.pinned_ships` values remain as legacy name-based pins until the card
+currently selected by that legacy pin is clicked to unpin
 it. Clicking a different duplicate pins that specific ship instead. Legacy
 entries move into JSON on the first card action so no name pin is silently discarded.
 The legacy name group follows the explicit ID pins and retains the game's

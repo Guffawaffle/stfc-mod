@@ -64,12 +64,14 @@ inline std::vector<int> SortedIndices(const std::vector<std::optional<int64_t>>&
       ranks[index] = -1;
       continue;
     }
-    if (!ship_ids[index])
-      continue;
-    const auto found = std::find(pins.begin(), pins.end(), *ship_ids[index]);
-    if (found != pins.end())
-      ranks[index] = static_cast<int>(found - pins.begin());
-    else if (index < legacy_pins.size() && legacy_pins[index])
+    if (ship_ids[index]) {
+      const auto found = std::find(pins.begin(), pins.end(), *ship_ids[index]);
+      if (found != pins.end()) {
+        ranks[index] = static_cast<int>(found - pins.begin());
+        continue;
+      }
+    }
+    if (index < legacy_pins.size() && legacy_pins[index])
       ranks[index] = static_cast<int>(pins.size());
   }
   std::stable_sort(indices.begin(), indices.end(), [&](int left, int right) { return ranks[left] < ranks[right]; });

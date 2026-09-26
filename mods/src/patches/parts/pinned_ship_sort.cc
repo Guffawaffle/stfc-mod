@@ -283,11 +283,13 @@ std::optional<std::size_t> LegacyPinForShip(Il2CppObject* context, FleetPlayerDa
     ships.push_back(reinterpret_cast<FleetPlayerData*>(item));
   }
   std::vector<bool> used(ships.size(), false);
+  const auto selected_id = ship_identity::InstanceId(selected);
   for (std::size_t name_index = 0; name_index < names.size(); ++name_index) {
     const auto words = ShipNameMatch::SplitWords(names[name_index]);
     if (words.empty())
       continue;
     FleetPlayerData* best = nullptr;
+    std::optional<int64_t> best_id;
     int64_t best_level = -1;
     std::size_t best_index = 0;
     for (std::size_t index = 0; index < ships.size(); ++index) {
@@ -299,12 +301,13 @@ std::optional<std::size_t> LegacyPinForShip(Il2CppObject* context, FleetPlayerDa
       if (id && pinned_ship_order::Contains(state.pinned_ids, *id))
         continue;
       best = ship;
+      best_id = id;
       best_level = ship->Level;
       best_index = index;
     }
     if (best) {
       used[best_index] = true;
-      if (best == selected)
+      if (best == selected || (best_id && selected_id && *best_id == *selected_id))
         return name_index;
     }
   }

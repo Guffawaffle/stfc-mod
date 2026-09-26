@@ -54,7 +54,7 @@ inline std::vector<std::string> ReadLegacyNames(const nlohmann::json& state)
     if (!value.is_string() || result.size() == 2000)
       continue;
     const auto& name = value.get_ref<const std::string&>();
-    if (!name.empty() && std::find(result.begin(), result.end(), name) == result.end())
+    if (!name.empty())
       result.push_back(name);
   }
   return result;

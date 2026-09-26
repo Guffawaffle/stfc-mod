@@ -816,7 +816,7 @@ double_click_to_assign_ship = false
 
 # Zet schepen vast via Schip beheren > Schip wisselen.
 # Klik op de pin rechtsonder om vast te zetten of los te maken; houd een genummerde pin vast en sleep hem naar een andere genummerde kaart om de volgorde te wijzigen.
-# De volgorde van scheeps-ID's staat in community_patch_state.json, niet in dit TOML-bestand.
+# De volgorde van scheeps-ID's staat in de JSON-status van de mod, niet in dit TOML-bestand.
 
 # Subgroup: HUD
 # -------------

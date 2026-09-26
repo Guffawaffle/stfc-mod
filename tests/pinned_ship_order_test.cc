@@ -53,6 +53,8 @@ int main()
   assert((SortedIndices(ships, {}) == std::vector<int>{0, 1, 2, 3, 4, 5, 6}));
   assert((SortedIndices(ships, pins, {false, false, false, true, false, false, false})
           == std::vector<int>{2, 0, 5, 3, 1, 4, 6}));
+  assert((SortedIndices({std::nullopt, 101, 202}, pins, {true, false, false})
+          == std::vector<int>{1, 2, 0}));
 
   nlohmann::json state = {{"version", 1}};
   assert(!pinned_ship_state::ReadOrder(state));
@@ -67,4 +69,6 @@ int main()
   assert(pinned_ship_state::ReadLegacyNames(state).empty());
   pinned_ship_state::WriteLegacyNames(state, {"AMALGAM", "SEKIE"});
   assert((pinned_ship_state::ReadLegacyNames(state) == std::vector<std::string>{"AMALGAM", "SEKIE"}));
+  pinned_ship_state::WriteLegacyNames(state, {"AMALGAM", "AMALGAM"});
+  assert((pinned_ship_state::ReadLegacyNames(state) == std::vector<std::string>{"AMALGAM", "AMALGAM"}));
 }

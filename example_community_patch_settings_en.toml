@@ -816,7 +816,7 @@ double_click_to_assign_ship = false
 
 # Ship pinning is always available in Manage Ship > Swap Ship.
 # Click the bottom-right pin to toggle it; hold and drag a numbered pin onto another numbered card to reorder.
-# The ordered ship IDs are saved in community_patch_state.json, not this TOML file.
+# The ordered ship IDs are saved in mod state JSON, not this TOML file.
 
 # Subgroup: HUD
 # -------------
