@@ -1,26 +1,30 @@
 # Mod settings controls
 
+See [current settings architecture](MOD_SETTINGS.md) for the common behavior and
+navigation contract. This document retains feature and native-extent details.
+
 Build real controls on the navigation foundation in small slices. Register only
 working controls; omit empty groups. Stable setting keys and storage owners stay
 independent of labels and placement.
 
-See [the current architecture contract](MOD_SETTINGS.md) and
-[native adapter ownership](MOD_SETTINGS_NATIVE_ADAPTER.md).
-
-## Layout
+## Current layout
 
 | Location | Control | Existing owner |
 | --- | --- | --- |
 | Mod Settings > Map & Travel | Instant warp mode: Normal (ask), Warp, Jump | `ui.auto_confirm_instant_warp` and the Alt+I action |
-| Mod Settings > Fleet Labels | Player label detail and zoom threshold | `graphics.zoom_label_player_detail`, `graphics.zoom_label_player_threshold` |
-| Mod Settings > Fleet Labels | Non-player label detail and zoom threshold | `graphics.zoom_label_non_player_detail`, `graphics.zoom_label_non_player_threshold` |
+| Mod Settings > Previews & Cargo > Ship selection | Show equipped FT/CT in the Swap Ship bar, with optional backgrounds | `ui.show_ship_tech_indicators`, `ui.show_ship_tech_indicator_backgrounds` |
+| Mod Settings > Previews & Cargo > Other | Allow Locate / Recall while a preview is open; configure instant cargo and cargo auto-open | Inverse of `ui.disable_preview_locate`, `ui.disable_preview_recall`; existing cargo flags |
+| Mod Settings > Previews & Cargo > Target types | Player / Station / Hostile / Armada cargo preferences | Existing `ui.show_*_cargo` flags |
+| Mod Settings > Fleet Labels > Other | Show ship hotkey badges | `graphics.ship_hotkey_badges` |
+| Mod Settings > Fleet Labels > Player | Player label detail and zoom threshold | `graphics.zoom_label_player_detail`, `graphics.zoom_label_player_threshold` |
+| Mod Settings > Fleet Labels > Non-player | Non-player label detail and zoom threshold | `graphics.zoom_label_non_player_detail`, `graphics.zoom_label_non_player_threshold` |
+| Mod Settings > Galaxy Labels > Other | Extended selection and multi-select | `graphics.galaxy_extended_selection`, `graphics.galaxy_multi_select` |
 | Mod Settings > Camera | Keyboard zoom speed and pan glide | `graphics.keyboard_zoom_speed`, `graphics.system_pan_momentum_falloff` |
-| Mod Settings > Previews & Cargo | Locate/Recall while previewing; automatic cargo and target types | Existing preview/cargo keys in `[ui]` |
-| Future separate branch: Hotkeys | Rebind existing actions | Existing shortcut parser and `MapKey` registrations |
+| Mod Settings > Shortcuts | Rebind existing actions | Existing shortcut parser and `MapKey` registrations |
 | General > confirmation page | Confirm Forbidden Tech upgrades | Inverse of `ui.auto_confirm_ft_upgrade` |
 
-The controls branch implements these controls on Windows x64.
-Hotkey editing remains a separate branch. Native confirmation
+The controls branch implements instant warp, Fleet Labels and Forbidden Tech on
+Windows x64. Hotkey editing was developed on its separate feature branch. Native confirmation
 controls stay on the native page. FC retains its existing owner.
 
 ## Instant warp mode
@@ -31,9 +35,19 @@ Selecting the current value does not enqueue another save. Invalid choices do
 not alter live state or the file. Existing per-ship overrides retain precedence;
 the picker changes only the global fallback mode.
 
+On supported clients, hold Ctrl on Windows or Command on macOS and click the travel button to show
+the native Warp/Jump choice for that trip, including when a ship rule normally
+chooses automatically. The button restores its native localized Set Course label while the modifier is held.
+Releasing the modifier after the click does not cancel the override. It does not change
+the saved mode; an ordinary subsequent click follows the configured behavior.
+
+The click hook resolves the managed signature and required mouse-input functions
+before installing on Windows x64, Apple Silicon and Intel macOS. Missing managed
+bindings leave ordinary travel behavior available.
+
 Reuse the existing single runtime writer, optimistic conflict handling and
 source-preserving TOML edits. UI readback confirms the live value, not durable
-storage; asynchronous failures produce a quiet session-only notice, with details
+storage; asynchronous save failures show a quiet Mod Settings notice with details
 in the log. Reopening must
 read the current owner, and shortcut changes must refresh a visible selector.
 Native selection callbacks need the same rendering, stale-context and reentry
@@ -47,6 +61,114 @@ previous override before pooling. A Windows-only `Selectable.DoStateTransition`
 hook observes input-state changes, calls the original once, then updates only
 owned selection rows. Other controls take the native path; there is no frame
 polling, animation replacement, asset loading or setting write in this hook.
+
+## Preview shortcuts and cargo previews
+
+These controls use the existing boolean rows and the same live Config members already
+read by the preview and keyboard paths. No new hook implementation, polling
+callback, config key, or default is introduced. The plain cargo heading uses the
+framework's existing text-row hooks, which are installed when a page needs them.
+The pages are admitted only after their existing consumer hooks were installed.
+Hotkey enablement and Scopely-hotkey selection still determine
+whether the mod's Locate/Recall actions run.
+
+Locate and Recall use positive UI labels: ON allows the action while a preview is
+open, so the stored `disable_preview_*` value is false. These controls do not
+perform Locate or Recall. They affect the next ordinary shortcut action.
+
+Cargo auto-open is a master preference. The Target types heading and four target
+switches appear only while it is on. Turning it off hides those rows without
+changing their saved choices; turning it on shows the same choices again. UI and
+shortcut changes refresh the section immediately. The native
+cargo viewer reads them when a target preview opens or binds; changing a setting
+does not forcibly close an already-open cargo panel. Re-select a target to see
+the new auto-open behavior.
+
+The existing Ctrl+R / Ctrl+T and Alt+1 through Alt+5 toggle actions now use the same
+setting owners as these pages. An open page refreshes immediately after a shortcut
+change. Both UI and shortcut edits submit the matching existing TOML key to the
+single writer on supported Windows x64 builds. These shortcuts therefore retain
+their preferences across restarts now; other platforms keep session-only behavior.
+Repeatedly choosing the current value, rendering, and page navigation do not save.
+Conflicts and failures leave live behavior in place and are reported in the log.
+
+The Ship selection switch controls the equipped Forbidden Tech and Chaos Tech art
+on `Manage Ship > Swap Ship` cards. While it is enabled, an independently saved
+contrast-background switch appears directly below it and is off by default. The
+display hook remains installed for the session; changing either preference affects
+cards when the Swap Ship view next binds them and does not add indicators to the Fleet Bar.
+
+## Ship pinning
+
+Pinning is available on `Manage Ship > Swap Ship` cards without a user-facing
+enable switch. A filled gold marker shows a pinned ship; a muted hollow marker
+shows an unpinned ship. Rank numbers are not shown. Press and release the marker
+to pin or unpin the ship; clicking elsewhere on the card selects it. A quick
+drag scrolls the ship row without toggling a pin. Hold the marker for about
+125 ms to arm a pin drag; the source card gets an outline as soon as the hold
+engages, before it moves. The marker is the drag handle.
+
+Drop an unpinned ship into the visible pinned group to pin it at the indicated
+position. During a drag, the group gets a gold outer outline that turns teal
+when hovered. When the group is empty, a temporary `Pin here` cue appears at the
+visible leading edge of the ship row during a drag, without shifting the row.
+It covers part of Build Ship when the row is scrolled to the front. While the
+group is empty, the cue is its valid drop target; dropping there creates the
+first pin. Drag a pinned ship within the group to reorder it, or onto the
+unpinned part of the ship row to unpin it. Dropping an unpinned ship there
+leaves it unpinned. Dropping outside the row or on Build Ship outside the cue
+cancels the drag. The game's active sort still orders unpinned ships.
+
+The ordered ship IDs are stored as decimal strings in the mod state JSON, not
+in TOML. Its default filename is `community_patch_state.json`; a custom config
+uses `<config-stem>.state.json` beside that config. Existing nonempty
+`ui.pinned_ships` values start as legacy name-based pins. On the first pin
+action, identifiable matches migrate in order to ship IDs; unresolved names
+remain in JSON. Clicking a legacy-pinned marker or dragging its card out of the
+group unpins only that ship, including when another ship has the same name. If
+another same-name legacy claim has no resolvable ship ID, unpinning is deferred
+so that claim cannot immediately re-pin the selected ship. Any unresolved
+legacy names follow the explicit ID pins and retain the game's active sort.
+New example TOML files point to the in-game controls instead of a new name
+list. An internal patch switch remains available as a hook safety override,
+but there is no player-facing pinning toggle.
+
+## Camera
+
+Keyboard zoom speed edits the existing System View keyboard zoom amount from 0
+to 1000 in steps of 25 (default 350). This is a convenient slider range, roughly
+three times the default at its upper end, not a new limit on player-authored TOML.
+Zero stops incremental keyboard zoom; absolute zoom presets and mouse zoom keep
+their existing behavior. Mod hotkeys must be enabled and Scopely hotkeys disabled
+for the keyboard zoom actions to run.
+The shared slider adapter selects the native Value label mode for this raw speed;
+fractional sliders retain their existing Percentage label mode.
+
+Display precision belongs to each shared `SliderSetting` (`displayDecimals`,
+default 2; keyboard speed uses 0). The native slider label callback receives the
+rounded applied snapshot, including when a later drag listener supplies an
+unsnapped position. This covers all mod sliders, including Fleet Labels, while
+preserving the game's number formatting. It does not change the live value,
+slider step, player-authored TOML, or save timing. Stock slider labels take the
+native path. No label override or extra frame callback is retained.
+
+Pan glide edits the motion retained after mouse release from 0 to 0.99 in steps
+of 0.01 (default 0.8). Lower values stop sooner. The upper end deliberately stays
+below 1, which would preserve momentum indefinitely. It retains the existing
+per-update decay, including its frame-rate dependence; this page does not change
+the camera algorithm. `system_pan_momentum` is not exposed because the active pan
+hook does not read it.
+
+Both sliders read their current Config member and change it on the UI thread.
+The existing camera hooks consume it on their next normal update; there are no
+new camera hooks, refresh callbacks, or frame logging. Each row is admitted only if its
+existing consumer detour installed successfully; the Camera page is omitted if
+neither did. Live changes use the existing 150 ms coalesced TOML writer. Page
+navigation never saves, and existing out-of-range or non-finite values remain
+untouched with `Out of range; edit TOML` or `Invalid value; edit TOML`. Reopening
+cannot fix a loaded value; a manual TOML correction takes effect after restart.
+Defaults, config parsing and
+other-platform behavior are unchanged. Native UI remains Windows x64 only.
 
 ## Fleet Labels and Forbidden Tech
 
@@ -71,6 +193,9 @@ Each user edit updates the existing live profile and refreshes tracked labels.
 The native slider callbacks use the same typed snapshot/reentry guards as choices.
 Unknown values suppress the slider and numeric label; disabled known values remain
 visible. Releasing a pooled widget restores its label, active state and interaction.
+The feature supplies the short disabled instruction (`Select Threshold`) through
+`SliderSetting::disabledReason`; the shared widget has no Fleet Labels-specific
+wording. Native ownership is described in [the adapter map](MOD_SETTINGS_NATIVE_ADAPTER.md).
 
 Windows installs the existing fleet-label and Forbidden Tech hooks when the mod
 settings UI is enabled, so changing their values does not require a restart.
@@ -108,6 +233,7 @@ Exact Windows build261 unwind extents, checked before expanding installation:
 | SliderOptionWidget.SetWidgetData | D09C50 | 592 |
 | SliderOptionWidget.OnSliderValueChanged | D0A1E0 | 117 |
 | SliderOptionWidget.OnAboutToReleaseContext | D09EA0 | 288 |
+| SliderOptionWidget.UpdateValueLabel | D0A260 | 458 |
 | NavigationLOD.UpdateLOD | F8ECF0 | 75 |
 | NavigationFleetWidget.OnDidBindContext | F7C870 | 335 |
 | NavigationFleetWidget.OnAboutToReleaseContext | F7CEA0 | 283 |
@@ -124,25 +250,13 @@ Installation resolves current targets through managed metadata. Measured client 
 `487af4bb9c697c353be9714359a97dddcece5dab872622a6c498a27bbfc44f40`.
 This is Windows evidence, not proof of macOS hook fit or native widget behavior.
 
-## Camera and previews
-
-Keyboard zoom speed offers 0–1000 in steps of 25 with whole-number labels. Pan
-glide offers 0–0.99 in steps of 0.01; it retains the existing pan formula. These
-are UI editing ranges, not new TOML constraints. Out-of-range loaded values are
-preserved and explained rather than clamped. The shared slider path controls
-display precision without writing a loaded value.
-
-Preview toggles and their existing hotkeys call the same owner, so live state,
-readback and saving agree. Locate/Recall labels invert their stored disable
-flags. Cargo targets are visible only while auto-open is ON, with their saved
-preferences retained while hidden. Hook installation success gates each group.
-
 ## Future organization and commands (design notes)
 
-Use player tasks for navigation and TOML sections as storage references.
-Introduce a group only when it gains a working control and explicit apply path.
-Changing placement must not change storage identity. Confirmations continue on
-the native confirmation page; arbitrary TOML keys are not discovered as controls.
+The initial TOML-section grouping has been superseded by player tasks, documented
+in [the current architecture](MOD_SETTINGS.md). Keep TOML sections as a storage
+reference. Introduce groups only when they gain working controls with explicit
+apply paths; do not build a generic editor for every key. Confirmations continue
+to use the native confirmation page.
 
 A future **Restart client** command could support controls that explicitly need
 restart. It would perform an ordinary client restart, settle pending saves using

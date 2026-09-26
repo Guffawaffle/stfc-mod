@@ -50,6 +50,7 @@ void InstallDoubleClickAssignShipHooks();
 void InstallInstantWarpConfirmationHooks();
 void InstallForbiddenTechConfirmationHooks();
 void InstallAudioEventHooks();
+void InstallShipTechIndicatorHooks();
 void InstallNativeSettings();
 void InstallGalaxyLabels();
 void InstallOpcIndicatorHooks();
@@ -163,6 +164,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"InstantWarpConfirm", {InstallInstantWarpConfirmationHooks, &cfg.installInstantWarpConfirmationHooks}},
       {"ForbiddenTechConfirm", {InstallForbiddenTechConfirmationHooks, &install_forbidden_tech}},
       {"AudioEvents", {InstallAudioEventHooks, &cfg.installAudioEventHooks}},
+      {"ShipTechIndicators", {InstallShipTechIndicatorHooks, &cfg.installShipTechIndicatorHooks}},
       // Galaxy availability must be established before settings pages register.
       {"GalaxyLabels", {InstallGalaxyLabels, &cfg.installZoomHooks}},
       // Retain the existing debug patch key; this installer owns both settings surfaces.
