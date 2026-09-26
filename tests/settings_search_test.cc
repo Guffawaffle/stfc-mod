@@ -62,6 +62,7 @@ int main()
   assert(search.Find("Ship selection").empty());
   assert(search.Find("show ship tech indicators").front()->item == tech.id());
   assert(search.Find("FT/CT backgrounds").front()->item == techBackground.id());
+  assert(search.Find("FT/CT backgrounds").front()->location == "Previews & Cargo > Ship selection");
   assert(search.Find("UI.INSTANT_CARGO_COUNTER").size() == 1);
   assert(search.Find("instant cargo").front()->item == cargo.id());
   assert(search.Find("zoom_label_player_detail").front()->item == labels.id());
