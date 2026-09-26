@@ -693,6 +693,8 @@ highlight_opc_fleets = false
 # Windows/macOS: show estimated time to over-protected cargo below mining fleet status
 fleet_hud_opc_eta = false
 show_ship_tech_indicators = true
+# Add rounded contrast backgrounds behind FT/CT art in the Swap Ship bar
+show_ship_tech_indicator_backgrounds = false
 
 # Не показывать запрос выхода из игры при нажатии Escape
 disable_escape_exit = true
