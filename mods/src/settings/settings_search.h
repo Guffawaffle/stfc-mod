@@ -127,7 +127,7 @@ public:
 private:
   void Add(std::string page, std::string item, std::string label, std::string location, std::string key)
   {
-    auto words = SearchWords(label + " " + location + " " + key);
+    auto words = SearchWords(label + " " + key);
     entries_.push_back(
         {std::move(page), std::move(item), std::move(label), std::move(location), std::move(key), std::move(words)});
   }
