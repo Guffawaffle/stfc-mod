@@ -13,10 +13,10 @@ show controls whose backing feature is available. The shared shortcut editor is
 also enabled: record a Command shortcut, apply it, verify gameplay dispatch, and
 check it again after restart. Current-artifact Mac shortcut smoke remains pending.
 
-The adapter verifies hook entries against the loaded client's Mach-O function
-boundaries and instruction prologues. If a target cannot be verified, the
-affected adapter stays disabled. Logs contain `[MacHookExtent]` and
-`[ModSettings]` evidence; successful compilation alone is not hook validation.
+The adapter checks managed signatures and target ownership before installing
+through SPUD. Missing required bindings leave the affected adapter unavailable.
+Capture `[ModSettings]` installation messages; successful compilation alone does
+not establish in-game behavior.
 
 Changes save automatically; the game's Save button is not required. Confirm the
 startup log says `Runtime config persistence ready=true`. Change the galaxy
@@ -42,7 +42,7 @@ single-overlay selection and layout resume. Restart to check persistence.
 Defaults remain Native with multi-select off.
 
 These controls appear only when their hook family validates successfully.
-Capture `[GalaxyLabels]`, `Fleet label detail hooks`, and `[MacHookExtent]`
+Capture `[GalaxyLabels]` and `Fleet label detail hooks`
 startup messages if either family is missing. Fleet and galaxy reuse a single
 LOD hook; failure of a fleet-only binding should not disable galaxy controls.
 
@@ -82,4 +82,4 @@ when desktop notifications are unconfigured.
 
 Before merging, record the tested mod commit, game version, macOS version and
 CPU architecture, plus startup logs and results for these checks. ARM64 and
-x86_64 builds and hook-boundary tests run separately in CI.
+x86_64 builds run separately in CI.

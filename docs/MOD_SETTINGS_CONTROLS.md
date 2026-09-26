@@ -38,9 +38,9 @@ chooses automatically. The button restores its native localized Set Course label
 Releasing the modifier after the click does not cancel the override. It does not change
 the saved mode; an ordinary subsequent click follows the configured behavior.
 
-The click hook validates the managed signature and native entry before installing.
-Current native coverage is Windows x64 client263 and Mac client197 (1.000.52361),
-both Apple Silicon and Intel. An unrecognized client retains ordinary travel behavior.
+The click hook resolves the managed signature and required mouse-input functions
+before installing on Windows x64, Apple Silicon and Intel macOS. Missing managed
+bindings leave ordinary travel behavior available.
 
 Reuse the existing single runtime writer, optimistic conflict handling and
 source-preserving TOML edits. UI readback confirms the live value, not durable
