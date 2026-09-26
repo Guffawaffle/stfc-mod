@@ -18,6 +18,7 @@ int main()
                       }};
   };
   BooleanSetting cargo(definition("community_mod.ui.instant_cargo_counter", "Instant ship cargo counter"));
+  BooleanSetting tech(definition("community_mod.ui.show_ship_tech_indicators", "Show equipped FT/CT"));
   BooleanSetting labels(definition("community_mod.labels.player.detail", "Label visibility"));
   BooleanSetting hidden(definition("community_mod.ui.show_hostile_cargo", "Hostile cargo"));
   ActionSetting  change{"shortcut.change", "Change", [](std::size_t) { return ActionSetting::Presentation{}; },
@@ -26,6 +27,8 @@ int main()
                         [](std::size_t) {}};
   PageCatalog    pages("community_mod.settings", "Mod Settings");
   pages.AddPage("community_mod.previews", "Previews & Cargo", "community_mod.settings");
+  pages.AddHeading("community_mod.previews", "ship.selection", "Ship selection");
+  pages.AddBoolean("community_mod.previews", tech);
   pages.AddBoolean("community_mod.previews", cargo);
   pages.AddHeading("community_mod.previews", "cargo.targets", "Target types", false, [] { return false; });
   pages.AddBoolean("community_mod.previews", hidden);
@@ -47,7 +50,8 @@ int main()
   assert(search.Find("").empty());
   assert(search.Find("   ").empty());
   assert(search.Find("no such thing").empty());
-  assert(search.Find("cargo").size() == 2);
+  assert(search.Find("cargo").size() == 3);
+  assert(search.Find("show ship tech indicators").front()->item == tech.id());
   assert(search.Find("UI.INSTANT_CARGO_COUNTER").size() == 1);
   assert(search.Find("instant cargo").front()->item == cargo.id());
   assert(search.Find("zoom_label_player_detail").front()->item == labels.id());
@@ -65,7 +69,8 @@ int main()
   for (const auto* id : {"community_mod.labels.player.detail", "community_mod.labels.other.threshold",
                          "community_mod.galaxy.minor.detail", "community_mod.galaxy.major.threshold",
                          "community_mod.galaxy.overlays.default", "community_mod.galaxy.multi_select",
-                         "community_mod.hud.field_training", "community_mod.navigation.galactic_anomaly_timer"}) {
+                         "community_mod.hud.field_training", "community_mod.navigation.galactic_anomaly_timer",
+                         "community_mod.ui.show_ship_tech_indicators"}) {
     const auto key = SearchTomlKey(id);
     assert(std::ranges::any_of(config_edit::persisted_settings, [&](const auto& setting) {
       return key == std::string(setting.first) + "." + setting.second;
