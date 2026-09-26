@@ -40,6 +40,10 @@ void RegisterModPages()
   catalog.AddPage("community_mod.previews", "Previews & Cargo", "community_mod.settings");
   catalog.AddHeading("community_mod.previews", "community_mod.previews.ship_selection", "Ship selection");
   catalog.AddBoolean("community_mod.previews", ShipTechIndicatorSetting());
+  catalog.AddBoolean("community_mod.previews", ShipTechIndicatorBackgroundSetting(), [] {
+    const auto state = ShipTechIndicatorSetting().Observe().state;
+    return state.known() && *state.value;
+  });
   catalog.AddHeading("community_mod.previews", "community_mod.ui.opc", "Protected cargo");
   catalog.AddBoolean("community_mod.previews", OpcHighlightSetting());
   catalog.AddBoolean("community_mod.previews", OpcEtaSetting());

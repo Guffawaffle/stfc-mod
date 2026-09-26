@@ -6,6 +6,7 @@
 #include "slider_setting.h"
 #include <algorithm>
 #include <functional>
+#include <map>
 #include <ranges>
 #include <string_view>
 #include <variant>
@@ -32,11 +33,14 @@ public:
   struct Page {
     std::string       id, label, parent;
     std::vector<Item> items; // Registration order is visual order, including headings.
+    std::map<std::string, std::function<bool()>, std::less<>> itemVisibility;
     // Page departure owns draft/capture cancellation, never a pooled row release.
     std::function<void()>        leave;
     std::function<std::string()> summary;
     bool              HasConditionalSections() const
     {
+      if (!itemVisibility.empty())
+        return true;
       return std::any_of(items.begin(), items.end(), [](const Item& item) {
         const auto* heading = std::get_if<Heading>(&item);
         return heading && static_cast<bool>(heading->visible);
@@ -44,6 +48,8 @@ public:
     }
     bool IsVisible(std::string_view id) const
     {
+      if (const auto found = itemVisibility.find(id); found != itemVisibility.end() && !found->second())
+        return false;
       const Heading* section = nullptr;
       for (const auto& item : items) {
         if (const auto* heading = std::get_if<Heading>(&item))
@@ -121,8 +127,8 @@ public:
     pages_.push_back({std::move(id), std::move(label), std::string(parent), {}});
     return Registration::Added;
   }
-  Registration AddBoolean(std::string_view page, BooleanSetting& setting)
-  { return AddControl(page, setting); }
+  Registration AddBoolean(std::string_view page, BooleanSetting& setting, std::function<bool()> visible = {})
+  { return AddControl(page, setting, std::move(visible)); }
   Registration OnLeave(std::string_view id, std::function<void()> callback)
   {
     CheckThread();
@@ -204,7 +210,8 @@ private:
         },
         item);
   }
-  template <typename T> Registration AddControl(std::string_view page_id, T& setting)
+  template <typename T>
+  Registration AddControl(std::string_view page_id, T& setting, std::function<bool()> visible = {})
   {
     CheckThread();
     if (frozen_)
@@ -238,6 +245,8 @@ private:
           return Registration::Duplicate;
       }
     page->items.push_back(candidate);
+    if (visible)
+      page->itemVisibility.emplace(state.id(), std::move(visible));
     return Registration::Added;
   }
   Page* FindPage(std::string_view id)

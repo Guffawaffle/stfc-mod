@@ -17,10 +17,17 @@ constexpr int64_t     kForbiddenSlot      = 3502081615;
 constexpr int64_t     kChaosSlot          = 953301906;
 constexpr const char* kForbiddenIndicator = "CommunityMod_SwapShipFT";
 constexpr const char* kChaosIndicator     = "CommunityMod_SwapShipCT";
+constexpr const char* kForbiddenBacking   = "CommunityMod_SwapShipFTBacking";
+constexpr const char* kChaosBacking       = "CommunityMod_SwapShipCTBacking";
+constexpr float       kBackingMargin       = 4.0f;
 bool                  g_available         = false;
 
 struct Vector2 {
   float x, y;
+};
+
+struct Color {
+  float r, g, b, a;
 };
 
 struct Methods {
@@ -230,6 +237,42 @@ Transform* DirectChild(Transform* parent, const char* name)
   return nullptr;
 }
 
+Transform* SelectedIndicatorTransform(Transform* tile)
+{
+  if (!tile)
+    return nullptr;
+  auto* raw = reinterpret_cast<Il2CppObject*>(tile);
+  void* args[]{il2cpp_string_new("OverlayElements/TickItem")};
+  return reinterpret_cast<Transform*>(Invoke(IL2CppClassHelper(raw->klass).GetMethodInfo("Find", 1), raw, args));
+}
+
+Vector2 SelectedIndicatorSize(Transform* tile, float inset = 0)
+{
+  auto* transform = SelectedIndicatorTransform(tile);
+  auto  size = Value<Vector2>(transform ? IL2CppClassHelper(reinterpret_cast<Il2CppObject*>(transform)->klass)
+                                             .GetMethodInfo("get_sizeDelta", 0)
+                                       : nullptr,
+                              transform, {46, 46});
+  if (size.x < 12 || size.x > 128 || size.y < 12 || size.y > 128)
+    size = {46, 46};
+  size.x -= inset * 2;
+  size.y -= inset * 2;
+  return size;
+}
+
+Il2CppObject* SelectedBackingSprite(Transform* tile)
+{
+  static auto image = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Image");
+  auto*       tick  = SelectedIndicatorTransform(tile);
+  auto*       graphic = tick ? Component(reinterpret_cast<Il2CppObject*>(tick->gameObject), image.get_cls()) : nullptr;
+  if (!graphic)
+    return nullptr;
+  auto* sprite = Get(graphic, "get_overrideSprite");
+  if (!sprite)
+    sprite = Get(graphic, "get_sprite");
+  return sprite;
+}
+
 bool IsSwapShipTile(ShipTileWidget* widget)
 {
   static auto selection =
@@ -300,22 +343,68 @@ GameObject* CreateIndicator(const char* name, Transform* parent, GameObject* sou
   const bool parented =
       transform
       && InvokeVoid(IL2CppClassHelper(transform->klass).GetMethodInfo("SetParent", 2), transform, parent_args);
-  const bool rect     = transform && Rect(transform, anchor, pivot, {46, 46}, position);
+  const bool rect =
+      transform && Rect(transform, anchor, pivot, SelectedIndicatorSize(parent, kBackingMargin), position);
   const bool raycast  = graphic && Set(graphic, "set_raycastTarget", &no);
   const bool preserve = graphic && Set(graphic, "set_preserveAspect", &yes);
-  const bool last =
-      transform && InvokeVoid(IL2CppClassHelper(transform->klass).GetMethodInfo("SetAsLastSibling", 0), transform);
-  const bool ok = transform && selector && graphic && parented && rect && raycast && preserve && last;
+  const bool ok = transform && selector && graphic && parented && rect && raycast && preserve;
   if (!ok) {
     if (LogUiDiagnostic())
       spdlog::warn("[ShipTechIndicators] create={} transform={} selector={} target={} parented={} rect={} raycast={} "
-                   "preserve={} last={}",
+                   "preserve={}",
                    name, transform != nullptr, selector != nullptr, graphic != nullptr, parented, rect, raycast,
-                   preserve, last);
+                   preserve);
     Destroy(object);
     return nullptr;
   }
   return reinterpret_cast<GameObject*>(object);
+}
+
+GameObject* CreateBacking(const char* name, Transform* parent, Vector2 anchor, Vector2 pivot, Vector2 position)
+{
+  static auto game_object    = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "GameObject");
+  static auto rect_transform = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "RectTransform");
+  static auto image           = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Image");
+  static auto constructor     = game_object.GetMethodInfo(".ctor", 1);
+  if (!parent || !game_object.isValidHelper() || !rect_transform.isValidHelper() || !image.isValidHelper()
+      || !constructor)
+    return nullptr;
+
+  auto* object = reinterpret_cast<GameObject*>(il2cpp_object_new(game_object.get_cls()));
+  if (!object)
+    return nullptr;
+  auto*      raw    = reinterpret_cast<Il2CppObject*>(object);
+  const auto handle = il2cpp_gchandle_new(raw, false);
+  if (!handle) {
+    Destroy(raw);
+    return nullptr;
+  }
+
+  void* name_args[]{il2cpp_string_new(name)};
+  bool  active = false;
+  bool  ok     = InvokeVoid(constructor, raw, name_args) && Set(raw, "SetActive", &active);
+  auto* transform = ok ? WithType(TypeMethod(raw->klass, "AddComponent"), raw, rect_transform.get_cls()) : nullptr;
+  auto* graphic   = transform ? WithType(TypeMethod(raw->klass, "AddComponent"), raw, image.get_cls()) : nullptr;
+  bool  world_position_stays = false;
+  void* parent_args[]{parent, &world_position_stays};
+  bool  no = false;
+  Color color{0.01f, 0.02f, 0.03f, 0.46f};
+  position.x += (pivot.x - 0.5f) * kBackingMargin * 2;
+  ok = transform && graphic
+       && InvokeVoid(IL2CppClassHelper(transform->klass).GetMethodInfo("SetParent", 2), transform, parent_args)
+       && Rect(transform, anchor, pivot, SelectedIndicatorSize(parent), position) && Set(graphic, "set_color", &color)
+       && Set(graphic, "set_raycastTarget", &no);
+  auto* sprite = ok ? SelectedBackingSprite(parent) : nullptr;
+  if (ok && (!sprite || !Set(graphic, "set_sprite", sprite)) && LogUiDiagnostic())
+    spdlog::warn("[ShipTechIndicators] selected-indicator sprite unavailable; using square backing");
+  if (!ok) {
+    if (LogUiDiagnostic())
+      spdlog::warn("[ShipTechIndicators] backing={} creation failed", name);
+    Destroy(raw);
+    object = nullptr;
+  }
+  il2cpp_gchandle_free(handle);
+  return object;
 }
 
 int64_t ArtId(int64_t tech_id)
@@ -330,17 +419,20 @@ int64_t ArtId(int64_t tech_id)
   return Value<int64_t>(methods.art_id, refs, 0);
 }
 
-bool UpdateIndicator(Transform* parent, GameObject* source, const char* name, Vector2 anchor, Vector2 pivot,
-                     Vector2 position, int64_t art_id)
+void UpdateIndicator(Transform* parent, GameObject* source, const char* name, const char* backing_name, Vector2 anchor,
+                     Vector2 pivot, Vector2 position, int64_t art_id)
 {
   static auto image_selector = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "ImageSelector");
   auto*       child          = DirectChild(parent, name);
   auto*       object         = child ? child->gameObject : nullptr;
-  if (!art_id) {
-    if (object)
-      object->SetActive(false);
-    return false;
-  }
+  auto*       backing_child  = DirectChild(parent, backing_name);
+  auto*       backing        = backing_child ? backing_child->gameObject : nullptr;
+  if (object)
+    object->SetActive(false);
+  if (backing)
+    backing->SetActive(false);
+  if (!art_id)
+    return;
 
   if (!object) {
     auto* token_source = TokenImageSource();
@@ -352,23 +444,36 @@ bool UpdateIndicator(Transform* parent, GameObject* source, const char* name, Ve
     if (LogUiDiagnostic())
       spdlog::warn("[ShipTechIndicators] update={} object={} selector={} target={}", name, object != nullptr,
                    selector != nullptr, graphic != nullptr);
-    return false;
+    return;
   }
 
   auto* boxed_art_id = il2cpp_value_box(methods.int64_class, &art_id);
-  object->SetActive(false);
   void* identifier_args[]{boxed_art_id};
   if (!boxed_art_id || !InvokeVoid(methods.set_identifier_params, selector, identifier_args)) {
     if (LogUiDiagnostic())
       spdlog::warn("[ShipTechIndicators] update={} identifier assignment failed", name);
-    return false;
+    return;
+  }
+
+  static auto transform = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Transform");
+  const bool  show_backing = Config::Get().show_ship_tech_indicator_backgrounds;
+  if (show_backing && !backing)
+    backing = CreateBacking(backing_name, parent, anchor, pivot, position);
+  if (backing) {
+    backing->SetActive(show_backing);
+    if (show_backing)
+      InvokeVoid(transform.GetMethodInfo("SetAsLastSibling", 0),
+                 ComponentTransform(reinterpret_cast<Il2CppObject*>(backing)));
   }
   object->SetActive(true);
-  if (child) {
-    static auto transform = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Transform");
-    InvokeVoid(transform.GetMethodInfo("SetAsLastSibling", 0), child);
-  }
-  return true;
+  InvokeVoid(transform.GetMethodInfo("SetAsLastSibling", 0),
+             ComponentTransform(reinterpret_cast<Il2CppObject*>(object)));
+}
+
+void UpdateIndicators(Transform* parent, GameObject* source, int64_t ft_art = 0, int64_t ct_art = 0)
+{
+  UpdateIndicator(parent, source, kForbiddenIndicator, kForbiddenBacking, {0, 0.42f}, {0, 0.5f}, {8, 8}, ft_art);
+  UpdateIndicator(parent, source, kChaosIndicator, kChaosBacking, {1, 0.42f}, {1, 0.5f}, {-8, 8}, ct_art);
 }
 
 struct ActiveSlots {
@@ -426,29 +531,17 @@ void SetWidgetData_Hook(auto original, ShipTileWidget* widget)
   auto* tile_parent  = ComponentTransform(reinterpret_cast<Il2CppObject*>(widget));
   auto* image_parent = ComponentTransform(ReferenceField(reinterpret_cast<Il2CppObject*>(widget), methods.ship_image));
   auto* image_source = image_parent ? image_parent->gameObject : nullptr;
-  if (image_parent && image_parent != tile_parent) {
-    UpdateIndicator(image_parent, image_source, kForbiddenIndicator, {0, 1}, {0, 1}, {4, -4}, 0);
-    UpdateIndicator(image_parent, image_source, kChaosIndicator, {1, 1}, {1, 1}, {-4, -4}, 0);
-  }
-  if (!tile_parent || !IsSwapShipTile(widget)) {
-    if (tile_parent) {
-      UpdateIndicator(tile_parent, image_source, kForbiddenIndicator, {0, 1}, {0, 1}, {4, -4}, 0);
-      UpdateIndicator(tile_parent, image_source, kChaosIndicator, {1, 1}, {1, 1}, {-4, -4}, 0);
-    }
+  if (!tile_parent)
     return;
-  }
-
-  if (!Config::Get().show_ship_tech_indicators) {
-    UpdateIndicator(tile_parent, image_source, kForbiddenIndicator, {0, 1}, {0, 1}, {4, -4}, 0);
-    UpdateIndicator(tile_parent, image_source, kChaosIndicator, {1, 1}, {1, 1}, {-4, -4}, 0);
+  if (!IsSwapShipTile(widget) || !Config::Get().show_ship_tech_indicators) {
+    UpdateIndicators(tile_parent, image_source);
     return;
   }
 
   auto*      context = Invoke(methods.context, widget);
   auto*      ship    = Invoke(methods.ship, context);
   const auto active  = ReadActiveSlots(Value<int64_t>(methods.id, ship, 0));
-  UpdateIndicator(tile_parent, image_source, kForbiddenIndicator, {0, 1}, {0, 1}, {4, -4}, ArtId(active.ft));
-  UpdateIndicator(tile_parent, image_source, kChaosIndicator, {1, 1}, {1, 1}, {-4, -4}, ArtId(active.ct));
+  UpdateIndicators(tile_parent, image_source, ArtId(active.ft), ArtId(active.ct));
 }
 } // namespace
 
