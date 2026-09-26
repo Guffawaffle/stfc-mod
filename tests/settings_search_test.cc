@@ -57,19 +57,21 @@ int main()
   assert(search.Find("").empty());
   assert(search.Find("   ").empty());
   assert(search.Find("no such thing").empty());
-  assert(search.Find("cargo").size() == 3);
+  assert(search.Find("cargo").size() == 2);
+  assert(search.Find("Previews").empty());
+  assert(search.Find("Ship selection").empty());
   assert(search.Find("show ship tech indicators").front()->item == tech.id());
   assert(search.Find("FT/CT backgrounds").front()->item == techBackground.id());
   assert(search.Find("UI.INSTANT_CARGO_COUNTER").size() == 1);
   assert(search.Find("instant cargo").front()->item == cargo.id());
   assert(search.Find("zoom_label_player_detail").front()->item == labels.id());
-  assert(search.Find("fleet player visibility").front()->key == "graphics.zoom_label_player_detail");
+  assert(search.Find("fleet player visibility").empty());
   assert(search.Find("hostile cargo").front()->item == hidden.id()); // Discoverable even while its parent is off.
   assert(search.Find("shortcuts pan_left").size() == 1);             // Not one hit per editor command.
   assert(search.Find("shortcuts pan_left").front()->key == "shortcuts.pan_left");
   assert(search.Find("pan left").front()->location == "Shortcuts > Camera > Pan left");
   assert(search.Find("Remove").empty());
-  assert(search.Find("shortcuts.camera").size() == 1); // Category contributes context, never a fake TOML key.
+  assert(search.Find("shortcuts.camera").empty());
   assert(reads == 0 && writes == 0);                   // Search is presentation-only.
   assert(SearchTomlKey("community_mod.hud.q_trials") == "ui.hud_q_trials");
   assert(SearchTomlKey("community_mod.galaxy.overlays.hostiles") == "graphics.galaxy_overlay_hostiles");
