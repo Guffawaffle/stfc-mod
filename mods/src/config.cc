@@ -1003,8 +1003,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "cargoformathooks", DCP::cargoformathooks, write_config);
   this->installOfficerSortHooks =
       get_config_or_default(config, parsed, "patches", "officersorthooks", DCP::officersorthooks, write_config);
-  this->installPinnedShipSortHooks =
-      get_config_or_default(config, parsed, "patches", "pinnedshiphooks", DCP::pinnedshiphooks, write_config);
+  // Retain a hidden diagnostic escape hatch without generating a user-facing toggle.
+  this->installPinnedShipSortHooks = config["patches"]["pinnedshiphooks"].value_or(DCP::pinnedshiphooks);
   this->installShipTechIndicatorHooks = get_config_or_default(config, parsed, "patches", "shiptechindicatorhooks",
                                                               DCP::shiptechindicatorhooks, write_config);
   spdlog::debug("");
@@ -1209,10 +1209,10 @@ void Config::Load()
   read_instant_warp_filter(config, parsed, "instant_warp_always_ask", this->instant_warp_always_ask,
                            this->instant_warp_always_ask_all, DCU::instant_warp_always_ask, write_config);
 
-  {
+  if (const auto legacy = config["ui"]["pinned_ships"].value<std::string>(); legacy && !legacy->empty()) {
     bool unused_match_all = false;
-    read_instant_warp_filter(config, parsed, "pinned_ships", this->pinned_ships, unused_match_all,
-                             DCU::pinned_ships, write_config);
+    parse_ship_filter(*legacy, this->pinned_ships, unused_match_all);
+    spdlog::info("[PinnedShipSort] legacy ui.pinned_ships will be retained until its ships are repinned in game");
   }
 
   this->double_click_to_assign_ship = get_config_or_default(config, parsed, "ui", "double_click_to_assign_ship",

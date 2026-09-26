@@ -334,8 +334,6 @@ objecttracker = true
 officersorthooks = true
 panhooks = true
 
-# Pin configured ships to the front of the fleet management dock
-pinnedshiphooks = true
 syncpatches = true
 tempcrashfixes = true
 testpatches = true
@@ -816,8 +814,9 @@ arrow_keys_to_select_ship = true
 # Double-click a ship in the fleet management dock to assign it instead of selecting it and then clicking Assign
 double_click_to_assign_ship = false
 
-# Comma-separated ship names to always show first in the fleet management dock; pinned ships retain the active sort order
-pinned_ships = ""
+# Ship pinning is always available in Manage Ship > Swap Ship.
+# Click the bottom-right pin to toggle it; hold and drag a numbered pin onto another numbered card to reorder.
+# The ordered ship IDs are saved in community_patch_state.json, not this TOML file.
 
 # Subgroup: HUD
 # -------------

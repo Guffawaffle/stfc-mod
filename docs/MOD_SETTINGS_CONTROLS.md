@@ -98,6 +98,27 @@ contrast-background switch appears directly below it and is off by default. The
 display hook remains installed for the session; changing either preference affects
 cards when the Swap Ship view next binds them and does not add indicators to the Fleet Bar.
 
+## Ship pinning
+
+Pinning is available on `Manage Ship > Swap Ship` cards without a user-facing
+enable switch. Click the bottom-right pin marker to pin or unpin that exact
+ship instance. New pins join the end of the pinned group. Hold and drag any
+ship's pin marker onto a numbered card to insert or reorder it at that rank.
+Drop onto an unnumbered ship or open space in the ship row to place it at the
+end, including when no ships are pinned. Dropping on Build Ship or outside the
+row cancels the drag. The rank number shows explicit ship-ID priority. The
+game's active sort still orders unpinned ships.
+
+The ordered ship IDs are stored as decimal strings in the mod state JSON, not
+in TOML. Existing nonempty `ui.pinned_ships` values remain as legacy name-based
+pins until the card currently selected by that legacy pin is clicked to unpin
+it. Clicking a different duplicate pins that specific ship instead. Legacy
+entries move into JSON on the first card action so no name pin is silently discarded.
+The legacy name group follows the explicit ID pins and retains the game's
+active sort. New example TOML files point to the in-game controls instead of
+offering a new name list. An internal patch switch remains available as a
+hook safety override, but there is no player-facing pinning toggle.
+
 ## Camera
 
 Keyboard zoom speed edits the existing System View keyboard zoom amount from 0

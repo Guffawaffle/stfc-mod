@@ -334,8 +334,6 @@ objecttracker = true
 officersorthooks = true
 panhooks = true
 
-# Zet geconfigureerde schepen vooraan in het vlootbeheerdok
-pinnedshiphooks = true
 syncpatches = true
 tempcrashfixes = true
 testpatches = true
@@ -816,8 +814,9 @@ arrow_keys_to_select_ship = true
 # Dubbelklik op een schip in het vlootbeheerdok om het toe te wijzen, in plaats van het te selecteren en daarna op Toewijzen te klikken
 double_click_to_assign_ship = false
 
-# Door komma's gescheiden scheepsnamen die altijd als eerste in het vlootbeheerdok worden getoond; vastgezette schepen behouden de actieve sorteervolgorde
-pinned_ships = ""
+# Zet schepen vast via Schip beheren > Schip wisselen.
+# Klik op de pin rechtsonder om vast te zetten of los te maken; houd een genummerde pin vast en sleep hem naar een andere genummerde kaart om de volgorde te wijzigen.
+# De volgorde van scheeps-ID's staat in community_patch_state.json, niet in dit TOML-bestand.
 
 # Subgroup: HUD
 # -------------
