@@ -268,6 +268,7 @@ namespace UI
   constexpr bool        highlight_opc_fleets        = false;
   constexpr bool        fleet_hud_opc_eta           = false;
   constexpr bool        show_ship_tech_indicators   = true;
+  constexpr bool        show_ship_tech_indicator_backgrounds = false;
   constexpr const char* daily_bulk_claim_factions   = "";
   constexpr bool        daily_bulk_claim_toggle_default_on = false;
   constexpr bool        disable_escape_exit         = true;

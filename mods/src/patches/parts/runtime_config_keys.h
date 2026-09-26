@@ -41,6 +41,7 @@ inline constexpr std::pair<const char*, const char*> persisted_settings[]{
     {"ui", "highlight_opc_fleets"},
     {"ui", "fleet_hud_opc_eta"},
     {"ui", "show_ship_tech_indicators"},
+    {"ui", "show_ship_tech_indicator_backgrounds"},
     {"ui", "hud_q_trials"},
     {"ui", "hud_field_training"},
     {"ui", "hud_outposts"},

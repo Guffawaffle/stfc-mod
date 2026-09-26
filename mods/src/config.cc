@@ -1186,6 +1186,9 @@ void Config::Load()
                                                    DCU::fleet_hud_opc_eta, write_config);
   this->show_ship_tech_indicators = get_config_or_default(config, parsed, "ui", "show_ship_tech_indicators",
                                                           DCU::show_ship_tech_indicators, write_config);
+  this->show_ship_tech_indicator_backgrounds =
+      get_config_or_default(config, parsed, "ui", "show_ship_tech_indicator_backgrounds",
+                            DCU::show_ship_tech_indicator_backgrounds, write_config);
   // Install once so Mod Settings can enable either indicator without a restart.
   this->installOpcIndicatorHooks = true;
 
