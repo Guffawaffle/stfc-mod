@@ -38,9 +38,9 @@ chooses automatically. The button restores its native localized Set Course label
 Releasing the modifier after the click does not cancel the override. It does not change
 the saved mode; an ordinary subsequent click follows the configured behavior.
 
-The click hook validates the managed signature and native entry before installing.
-Current native coverage is Windows x64 client263 and Mac client197 (1.000.52361),
-both Apple Silicon and Intel. An unrecognized client retains ordinary travel behavior.
+The click hook resolves the managed signature and required mouse-input functions
+before installing on Windows x64, Apple Silicon and Intel macOS. Missing managed
+bindings leave ordinary travel behavior available.
 
 Reuse the existing single runtime writer, optimistic conflict handling and
 source-preserving TOML edits. UI readback confirms the live value, not durable
@@ -201,8 +201,8 @@ Exact Windows build261 unwind extents, checked before expanding installation:
 | TextOptionWidget.ClearWidgetData | D0A680 | 271 |
 | Selectable.DoStateTransition | 47A9650 | 805 |
 
-These exceed the bundled x64 SPUD 24-byte overwrite. Runtime also rejects tiny
-or interior entries using unwind metadata. Client SHA256:
+These historical measurements exceed the bundled x64 SPUD 24-byte overwrite.
+Installation resolves current targets through managed metadata. Measured client SHA256:
 `487af4bb9c697c353be9714359a97dddcece5dab872622a6c498a27bbfc44f40`.
 This is Windows evidence, not proof of macOS hook fit or native widget behavior.
 

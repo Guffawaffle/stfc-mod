@@ -2,10 +2,6 @@
 #include <spdlog/spdlog.h>
 
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
-#if defined(_WIN32)
-#include <Windows.h>
-#endif
-#include "patches/native_hook_extent.h"
 #include <chrono>
 #include <il2cpp/il2cpp_helper.h>
 #include <il2cpp/method_contract.h>
@@ -72,17 +68,11 @@ void InstallGalaxySelectionHooks()
   single_tap = method_contract::Resolve(cls.get_cls(), "OnSingleTap", false, "System.Void",
                                       {"UnityEngine.Vector2", "Digit.Prime.Navigation.POI"});
   auto* target = method_contract::Pointer(recognized);
-#if defined(_WIN32)
-  const auto base = reinterpret_cast<uintptr_t>(GetModuleHandleW(L"GameAssembly.dll"));
-  // Client 262 Win64: inspected body 0x12718e0..0x1271968, ample detour
-  // extent. Other clients/architectures require independent native validation.
-  if (!base || reinterpret_cast<uintptr_t>(target) != base + 0x12718e0
-      || reinterpret_cast<uintptr_t>(method_contract::Pointer(single_tap)) != base + 0x1271e80) {
-    if (Config::Get().galaxy_extended_selection)
-      spdlog::warn("[GalaxySelection] Unsupported client; using native selection");
+  if (!target || !single_tap) {
+    spdlog::error("[GalaxySelection] Required named methods were not found");
     return;
   }
-#elif defined(__APPLE__)
+#if defined(__APPLE__)
   // The only manually represented managed value is GalaxyNode. Validate its
   // layout on the loaded Mac client before passing it by reference.
   auto node = il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "GalaxyNode");
@@ -103,8 +93,8 @@ void InstallGalaxySelectionHooks()
       {"UnityEngine.Vector2", "System.Action<UnityEngine.Vector3>",
        "System.Action<System.Collections.Generic.List<Digit.Prime.Navigation.POI>>", "Digit.Prime.Navigation.POI"});
   auto* process_target = method_contract::Pointer(process);
-  if (!single_tap || !native_hooks::MacHookFits(target) || !native_hooks::MacHookFits(process_target)) {
-    spdlog::warn("[GalaxySelection] Mac method/extent validation failed; using native selection");
+  if (!process_target) {
+    spdlog::warn("[GalaxySelection] Mac method resolution failed; using native selection");
     return;
   }
   if (!SPUD_STATIC_DETOUR(process_target, ProcessTap)) return;
