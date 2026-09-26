@@ -121,9 +121,9 @@ the editor presents up to 60 bindings (Change and Remove plus fixed rows).
 Longer player-authored lists remain live and stored in full.
 
 There is no new polling hook, save worker or global localization hook.
-Platform guards and native method extent checks remain part of installation;
-macOS installs the same settings adapter behind its Mach-O extent gates, while
-Windows-only layout resolution keeps shortcut capture physical there.
+Platform guards, managed signature checks and hook ownership checks remain part
+of installation. Windows and macOS use the same settings adapter, while
+layout-aware capture is Windows-only and macOS uses physical keys.
 
 ## Measurement and validation
 

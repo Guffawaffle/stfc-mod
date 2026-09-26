@@ -45,8 +45,7 @@ selection rows tracked by the mod. It does not run through an Update hook.
 
 Client SHA256:
 `487af4bb9c697c353be9714359a97dddcece5dab872622a6c498a27bbfc44f40`.
-The native UI remains omitted on other platforms; Windows hook evidence is not
-proof of macOS hook fit. Runtime checks must verify release/drag-out behavior,
+These measurements cover Windows only and are not proof of macOS hook fit. Runtime checks must verify release/drag-out behavior,
 shortcut readback, selected checkmarks, and restoration of pooled native widgets.
 
 ## Collapsible section follow-up

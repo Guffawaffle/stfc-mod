@@ -10,11 +10,10 @@ galaxy_extended_selection = false
 
 On builds with the in-game Mod Settings page, use Galaxy Labels > Extended system
 selection. That toggle applies live and persists. Otherwise edit the TOML and
-restart. Availability depends on successful native hook validation.
+restart. Availability depends on resolving required bindings and installing the hooks.
 
-Windows uses the client 262 entry points tested during development. macOS ARM64
-and Intel use managed signature checks, a GalaxyNode value-layout check, and
-loaded Mach-O function extents plus decoded SPUD overwrite windows before hooking.
+Windows and macOS resolve the tap handlers by managed name and signature.
+macOS ARM64 and Intel also verify the GalaxyNode value layout before hooking.
 The Mac adapter preserves the native tap handler and only forwards a far-galaxy
 tap when the native handler did not dispatch it. Unsupported bindings fail closed.
 Mac compilation/CI and player runtime validation are pending for this branch;

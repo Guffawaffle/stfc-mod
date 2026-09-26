@@ -9,7 +9,7 @@ feature adapters continue to own live values and persistence.
 | File under `mods/src/` | Responsibility |
 | --- | --- |
 | `patches/parts/mod_settings.cc` | Entry point: install core value/session hooks, then optional navigation. A navigation failure leaves native confirmation controls available. |
-| `settings/native/interop.*` | Managed invocation, temporary roots, weak-handle helpers, signature and native-extent checks, bounded list access. No feature state or hook installation. |
+| `settings/native/interop.*` | Managed invocation, temporary roots, weak-handle helpers, signature checks, bounded list access. No feature state or hook installation. |
 | `settings/native/value_widgets.*` | Boolean, choice and slider metadata; live view records; readback/render/write guards; native confirmation placement and session invalidation. Installs its value and session hooks. |
 | `settings/native/value_widget_record.h` | Private lifetime record shared only with value-widget styling. Navigation queries whether values are busy without borrowing these records. |
 | `settings/native/page_navigation.*` | Immutable page plan, fresh native page construction, navigation/Back, conditional sections, visit-local folding, headings and their hooks. Coordinates installation of optional widget families in the existing order. |
@@ -33,8 +33,8 @@ existing `src/**.cc` rule.
   page-list rebinding affect only widget ownership and preserve the draft.
 - Value refreshes still defer list rebinding while a value widget is busy. There
   is no new update callback, polling, save worker or persistence path.
-- Startup metadata/extent checks, overlap checks, activation gates and install
-  order are preserved. Native support remains Windows x64; other platforms retain
+- Startup metadata checks, overlap checks, activation gates and install
+  order are preserved. Native support covers Windows x64 and macOS; other platforms retain
   the existing no-op entry point.
 - Feature wording stays with the feature. A slider may provide a short
   `disabledReason`; Fleet Labels supplies `Select Threshold`. Other sliders do
