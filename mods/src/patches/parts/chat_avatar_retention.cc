@@ -1,6 +1,7 @@
 // Retain chat portraits while their widgets are reused across screen transitions.
 #include <atomic>
 #include <cstring>
+#include <exception>
 #include <il2cpp-tabledefs.h>
 #include <il2cpp/il2cpp_helper.h>
 #include <spdlog/spdlog.h>
@@ -76,6 +77,10 @@ void SetWidgetData(auto original, Il2CppObject* self)
 
 void InstallChatAvatarRetention()
 {
+  static std::atomic_flag attempted = ATOMIC_FLAG_INIT;
+  if (attempted.test_and_set(std::memory_order_relaxed))
+    return;
+
   auto chat    = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Chat", "ChatMessageWidget");
   auto profile = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.PlayerProfile", "UserProfileWidget");
   auto avatar  = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.PlayerAvatars", "FrameAndAvatarWidget");
@@ -105,8 +110,16 @@ void InstallChatAvatarRetention()
     ReportFailure("ChatMessageWidget.SetWidgetData contract");
     return;
   }
-  if (!SPUD_STATIC_DETOUR(method->methodPointer, SetWidgetData)) {
-    ReportFailure("detour installation");
+  try {
+    if (!SPUD_STATIC_DETOUR(method->methodPointer, SetWidgetData)) {
+      ReportFailure("detour installation");
+      return;
+    }
+  } catch (const std::exception& error) {
+    spdlog::critical("[ChatAvatarRetention] detour installation failed: {}", error.what());
+    return;
+  } catch (...) {
+    ReportFailure("detour installation threw an unknown exception");
     return;
   }
   spdlog::info("[ChatAvatarRetention] chat portrait retention enabled");
