@@ -1,3 +1,5 @@
+#include "patches/ship_tech_indicators.h"
+#include "config.h"
 #include "il2cpp/method_contract.h"
 #include "prime/GameObject.h"
 #include "prime/ShipTileWidget.h"
@@ -15,6 +17,7 @@ constexpr int64_t     kForbiddenSlot      = 3502081615;
 constexpr int64_t     kChaosSlot          = 953301906;
 constexpr const char* kForbiddenIndicator = "CommunityMod_SwapShipFT";
 constexpr const char* kChaosIndicator     = "CommunityMod_SwapShipCT";
+bool                  g_available         = false;
 
 struct Vector2 {
   float x, y;
@@ -435,6 +438,12 @@ void SetWidgetData_Hook(auto original, ShipTileWidget* widget)
     return;
   }
 
+  if (!Config::Get().show_ship_tech_indicators) {
+    UpdateIndicator(tile_parent, image_source, kForbiddenIndicator, {0, 1}, {0, 1}, {4, -4}, 0);
+    UpdateIndicator(tile_parent, image_source, kChaosIndicator, {1, 1}, {1, 1}, {-4, -4}, 0);
+    return;
+  }
+
   auto*      context = Invoke(methods.context, widget);
   auto*      ship    = Invoke(methods.ship, context);
   const auto active  = ReadActiveSlots(Value<int64_t>(methods.id, ship, 0));
@@ -442,6 +451,12 @@ void SetWidgetData_Hook(auto original, ShipTileWidget* widget)
   UpdateIndicator(tile_parent, image_source, kChaosIndicator, {1, 1}, {1, 1}, {-4, -4}, ArtId(active.ct));
 }
 } // namespace
+
+namespace ship_tech_indicators
+{
+bool Available()
+{ return g_available; }
+} // namespace ship_tech_indicators
 
 void InstallShipTechIndicatorHooks()
 {
@@ -522,5 +537,6 @@ void InstallShipTechIndicatorHooks()
     spdlog::error("[ShipTechIndicators] failed to install ShipTileWidget.SetWidgetData detour");
     return;
   }
+  g_available = true;
   spdlog::info("[ShipTechIndicators] installed FT/CT art indicators for Manage Ship > Swap Ship rows");
 }

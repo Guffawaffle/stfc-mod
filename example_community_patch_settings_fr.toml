@@ -719,6 +719,7 @@ highlight_opc_fleets = false
 
 # Windows/macOS: show estimated time to over-protected cargo below mining fleet status
 fleet_hud_opc_eta = false
+show_ship_tech_indicators = true
 
 # Empêcher "échap" de proposer de quitter le jeu
 disable_escape_exit = true
