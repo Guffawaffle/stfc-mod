@@ -5,4 +5,5 @@
 namespace mod_settings
 {
 BooleanSetting& ShipTechIndicatorSetting();
+BooleanSetting& ShipTechIndicatorBackgroundSetting();
 }

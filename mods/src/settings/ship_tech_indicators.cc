@@ -22,4 +22,23 @@ BooleanSetting& ShipTechIndicatorSetting()
                                  }});
   return setting;
 }
+
+BooleanSetting& ShipTechIndicatorBackgroundSetting()
+{
+  static BooleanSetting setting(
+      {"community_mod.ui.show_ship_tech_indicator_backgrounds", "Show FT/CT backgrounds",
+       [] {
+         return ship_tech_indicators::Available()
+                    ? ReadResult::Known(Config::Get().show_ship_tech_indicator_backgrounds, 1)
+                    : ReadResult{};
+       },
+       [](bool enabled, std::uint64_t generation) {
+         if (generation != 1 || !ship_tech_indicators::Available())
+           return ApplyResult::Rejected;
+         Config::Get().show_ship_tech_indicator_backgrounds = enabled;
+         runtime_config::SaveSetting("ui", "show_ship_tech_indicator_backgrounds", enabled);
+         return ApplyResult::Applied;
+       }});
+  return setting;
+}
 } // namespace mod_settings

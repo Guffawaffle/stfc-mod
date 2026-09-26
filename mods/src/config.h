@@ -241,6 +241,7 @@ public:
   bool highlight_opc_fleets;
   bool fleet_hud_opc_eta;
   bool show_ship_tech_indicators;
+  bool show_ship_tech_indicator_backgrounds;
   bool auto_confirm_ft_upgrade;
 
   std::vector<std::string> daily_bulk_claim_factions;
