@@ -140,8 +140,11 @@ void ChatPreviewController_OnRegionalMessageReceived(auto original, ChatPreviewC
   original(_this, message);
 }
 
+void InstallChatAvatarRetention();
+
 void InstallChatPatches()
 {
+  InstallChatAvatarRetention();
   if (auto fullscreen_controller =
           il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Chat", "FullScreenChatViewController");
       !fullscreen_controller.isValidHelper()) {
