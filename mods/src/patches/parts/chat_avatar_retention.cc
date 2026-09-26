@@ -5,11 +5,6 @@
 #include <il2cpp/il2cpp_helper.h>
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
-#if _WIN32
-#include <Windows.h>
-#elif __APPLE__
-#include <dlfcn.h>
-#endif
 
 namespace
 {
@@ -72,41 +67,6 @@ void SetWidgetData(auto original, Il2CppObject* self)
   original(self);
 }
 
-bool NativeMatches(const void* pointer)
-{
-#if defined(_WIN32) && defined(_M_X64)
-  // Windows265: native extent 2691 bytes; 25-byte relocation window.
-  constexpr uintptr_t     rva      = 0x11cd040;
-  constexpr unsigned char window[] = {0x40, 0x55, 0x48, 0x81, 0xec, 0x80, 0x00, 0x00, 0x00, 0x80, 0x3d, 0x0e, 0xe3,
-                                      0xcd, 0x04, 0x00, 0x48, 0x8b, 0xe9, 0x0f, 0x85, 0xb1, 0x00, 0x00, 0x00};
-#elif defined(__APPLE__) && defined(__aarch64__)
-  // Mac199: native extent 1376 bytes; 32-byte relocation window.
-  constexpr uintptr_t     rva      = 0xfbd748;
-  constexpr unsigned char window[] = {0xff, 0x83, 0x01, 0xd1, 0xf8, 0x5f, 0x02, 0xa9, 0xf6, 0x57, 0x03,
-                                      0xa9, 0xf4, 0x4f, 0x04, 0xa9, 0xfd, 0x7b, 0x05, 0xa9, 0xfd, 0x43,
-                                      0x01, 0x91, 0xf3, 0x03, 0x00, 0xaa, 0x74, 0x67, 0x02, 0xd0};
-#elif defined(__APPLE__) && defined(__x86_64__)
-  // Mac199: native extent 1424 bytes; 27-byte relocation window.
-  constexpr uintptr_t     rva      = 0xf60350;
-  constexpr unsigned char window[] = {0x55, 0x48, 0x89, 0xe5, 0x41, 0x57, 0x41, 0x56, 0x41,
-                                      0x55, 0x41, 0x54, 0x53, 0x48, 0x83, 0xec, 0x28, 0x48,
-                                      0x89, 0xfb, 0x80, 0x3d, 0x07, 0x3e, 0xc8, 0x04, 0x00};
-#else
-  return false;
-#endif
-#if defined(_WIN32) && defined(_M_X64)
-  const auto base = reinterpret_cast<uintptr_t>(GetModuleHandleA("GameAssembly.dll"));
-#elif defined(__APPLE__) && (defined(__aarch64__) || defined(__x86_64__))
-  Dl_info image{};
-  if (!pointer || !dladdr(pointer, &image))
-    return false;
-  const auto base = reinterpret_cast<uintptr_t>(image.dli_fbase);
-#endif
-#if (defined(_WIN32) && defined(_M_X64)) || (defined(__APPLE__) && (defined(__aarch64__) || defined(__x86_64__)))
-  return base && pointer && reinterpret_cast<uintptr_t>(pointer) == base + rva
-         && std::memcmp(pointer, window, sizeof(window)) == 0;
-#endif
-}
 } // namespace
 
 void InstallChatAvatarRetention()
@@ -132,7 +92,7 @@ void InstallChatAvatarRetention()
   const auto* method = chat.GetMethodInfo("SetWidgetData", 0);
   if (!method || method->klass != chat.get_cls() || !method->methodPointer || method->is_generic || method->is_inflated
       || (method->flags & METHOD_ATTRIBUTE_STATIC) || method->parameters_count != 0
-      || !IsType(method->return_type, "System.Void") || !NativeMatches(reinterpret_cast<void*>(method->methodPointer)))
+      || !IsType(method->return_type, "System.Void"))
     Fail("ChatMessageWidget.SetWidgetData");
   if (!SPUD_STATIC_DETOUR(method->methodPointer, SetWidgetData))
     Fail("detour installation");
