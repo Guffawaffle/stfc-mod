@@ -47,6 +47,8 @@ void RegisterModPages()
   catalog.AddHeading("community_mod.previews", "community_mod.ui.opc", "Protected cargo");
   catalog.AddBoolean("community_mod.previews", OpcHighlightSetting());
   catalog.AddBoolean("community_mod.previews", OpcEtaSetting());
+  if (PreviewShortcutsAvailable() || InstantCargoCounterAvailable() || CargoPreviewsAvailable())
+    catalog.AddHeading("community_mod.previews", "community_mod.previews.other", "Other");
   if (PreviewShortcutsAvailable()) {
     for (auto option : {PreviewOption::Locate, PreviewOption::Recall})
       catalog.AddBoolean("community_mod.previews", PreviewSetting(option));
@@ -77,6 +79,7 @@ void RegisterModPages()
     catalog.AddChoice("community_mod.hud", setting);
   }
   catalog.AddPage("community_mod.labels", "Fleet Labels", "community_mod.settings");
+  catalog.AddHeading("community_mod.labels", "community_mod.labels.other_settings", "Other");
   catalog.AddBoolean("community_mod.labels", ShipHotkeyBadgesSetting());
   for (bool player : {true, false}) {
     catalog.AddHeading("community_mod.labels", player ? "community_mod.labels.player" : "community_mod.labels.other",
@@ -84,8 +87,13 @@ void RegisterModPages()
     catalog.AddChoice("community_mod.labels", FleetLabelDetailSetting(player));
     catalog.AddSlider("community_mod.labels", FleetLabelThresholdSetting(player));
   }
-  if (GalaxyLabelControlsAvailable()) {
+  if (GalaxyLabelControlsAvailable() || GalaxyExtendedSelectionAvailable()) {
     catalog.AddPage("community_mod.galaxy", "Galaxy Labels", "community_mod.settings");
+    catalog.AddHeading("community_mod.galaxy", "community_mod.galaxy.other", "Other");
+    if (GalaxyExtendedSelectionAvailable())
+      catalog.AddBoolean("community_mod.galaxy", GalaxyExtendedSelectionSetting());
+  }
+  if (GalaxyLabelControlsAvailable()) {
     catalog.AddBoolean("community_mod.galaxy", GalaxyMultiSelectSetting());
     catalog.AddHeading("community_mod.galaxy", "community_mod.galaxy.overlays", "Overlays", false, [] {
       const auto state = GalaxyMultiSelectSetting().Observe().state;
