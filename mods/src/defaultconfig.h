@@ -114,6 +114,7 @@ namespace Patches
   constexpr bool cargoformathooks           = true;  // on by default: cargo number precision override
   constexpr bool officersorthooks           = true;  // restore Below Deck Ability sort option
   constexpr bool pinnedshiphooks            = true;  // pin configured ships to front of fleet dock sort
+  constexpr bool shiptechindicatorhooks     = true;  // show equipped FT/CT art in the Swap Ship bar
 } // namespace Patches
 
 namespace Shortcuts

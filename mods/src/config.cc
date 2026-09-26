@@ -1005,6 +1005,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "officersorthooks", DCP::officersorthooks, write_config);
   this->installPinnedShipSortHooks =
       get_config_or_default(config, parsed, "patches", "pinnedshiphooks", DCP::pinnedshiphooks, write_config);
+  this->installShipTechIndicatorHooks = get_config_or_default(config, parsed, "patches", "shiptechindicatorhooks",
+                                                              DCP::shiptechindicatorhooks, write_config);
   spdlog::debug("");
   this->faster_queue_recovery = get_config_or_default(config, parsed, "control", "faster_queue_recovery",
                                                      DCC::faster_queue_recovery, write_config);

@@ -318,6 +318,7 @@ zoom = 5000.0
 bufffixhooks = true
 cargoformathooks = true
 instantcargocounterhooks = true
+shiptechindicatorhooks = true
 chatpatches = true
 
 # Active la réclamation groupée par faction pour les objectifs quotidiens
