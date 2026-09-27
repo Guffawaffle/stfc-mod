@@ -9,6 +9,7 @@
 #include <spud/detour.h>
 
 #include <Windows.h>
+#include <ShlObj.h>
 
 #include <array>
 #include <cstdlib>
@@ -40,6 +41,38 @@ std::wstring Environment(const wchar_t* name)
   if (!length || length >= size)
     FailClosed("Could not read profile environment");
   return {buffer.data(), length};
+}
+
+std::wstring KnownFolder(REFKNOWNFOLDERID folder_id)
+{
+  PWSTR path = nullptr;
+  if (FAILED(SHGetKnownFolderPath(folder_id, 0, nullptr, &path)) || !path) {
+    CoTaskMemFree(path);
+    return {};
+  }
+  std::wstring result(path);
+  CoTaskMemFree(path);
+  return result;
+}
+
+bool HasForcedEdgeUserDataDir()
+{
+  for (const auto root : {HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER}) {
+    DWORD size = 0;
+    const auto status = RegGetValueW(root, L"SOFTWARE\\Policies\\Microsoft\\Edge", L"UserDataDir", RRF_RT_ANY,
+                                     nullptr, nullptr, &size);
+    if (status != ERROR_FILE_NOT_FOUND && status != ERROR_PATH_NOT_FOUND)
+      return true;
+  }
+  return false;
+}
+
+bool ReservedWindowsName(std::wstring_view name)
+{
+  if (name == L"con" || name == L"prn" || name == L"aux" || name == L"nul")
+    return true;
+  return name.size() == 4 && name[3] >= L'1' && name[3] <= L'9'
+         && (name.substr(0, 3) == L"com" || name.substr(0, 3) == L"lpt");
 }
 
 Il2CppString* ProfileKey(Il2CppString* key)
@@ -108,12 +141,14 @@ bool LaunchProfileBrowser(Il2CppString* url)
   if (!address.starts_with(L"https://") || address.find_first_of(L"\"\r\n\t ") != std::wstring::npos)
     return false;
 
-  const auto local_app_data = Environment(L"LOCALAPPDATA");
+  if (HasForcedEdgeUserDataDir())
+    return false;
+  const auto local_app_data = KnownFolder(FOLDERID_LocalAppData);
   if (local_app_data.empty())
     return false;
   std::filesystem::path browser;
-  for (const auto* base_name : {L"ProgramFiles(x86)", L"ProgramFiles", L"LOCALAPPDATA"}) {
-    const auto base = Environment(base_name);
+  for (const auto* folder_id : {&FOLDERID_ProgramFilesX86, &FOLDERID_ProgramFiles, &FOLDERID_LocalAppData}) {
+    const auto base = KnownFolder(*folder_id);
     if (base.empty())
       continue;
     const auto candidate = std::filesystem::path(base) / L"Microsoft" / L"Edge" / L"Application" / L"msedge.exe";
@@ -167,6 +202,8 @@ void InstallProfileIsolationProbe()
   for (const wchar_t ch : profile_id)
     if (!((ch >= L'a' && ch <= L'z') || (ch >= L'0' && ch <= L'9') || ch == L'-' || ch == L'_'))
       FailClosed("Invalid profile ID");
+  if (ReservedWindowsName(profile_id))
+    FailClosed("Reserved profile ID");
 
   preference_prefix = u"stfc-mod/profile/";
   for (const wchar_t ch : profile_id)

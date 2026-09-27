@@ -6,6 +6,12 @@
 
 void VersionDllInit();
 
+// Bridge inspects this export without loading the DLL; launch-time hook failure remains fail-closed.
+extern "C" unsigned int STFCModProfileIsolationContractV1()
+{
+  return 1;
+}
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpReserved*/)
 {
   std::filesystem::path game_path;
