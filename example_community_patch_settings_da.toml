@@ -309,8 +309,6 @@ objecttracker = true
 officersorthooks = true
 panhooks = true
 
-# Fastgør konfigurerede skibe forrest i flådestyringsdokken
-pinnedshiphooks = true
 syncpatches = true
 tempcrashfixes = true
 testpatches = true
@@ -789,8 +787,9 @@ arrow_keys_to_select_ship = true
 # Dobbeltklik på et skib i flådestyringsdokken for at tildele det i stedet for at vælge det og derefter klikke på Tildel
 double_click_to_assign_ship = false
 
-# Kommaseparerede skibsnavne, der altid vises først i flådestyringsdokken; fastgjorte skibe bevarer den aktive sorteringsrækkefølge
-pinned_ships = ""
+# Fastgør skibe i Administrer skib > Skift skib.
+# Klik på nålen nederst til højre for at fastgøre eller frigøre; hold og træk en nummereret nål til et andet nummereret kort for at ændre rækkefølgen.
+# Rækkefølgen af skibs-id'er gemmes i moddens JSON-tilstand, ikke i denne TOML-fil.
 
 # Subgroup: HUD
 # -------------

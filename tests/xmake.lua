@@ -70,6 +70,15 @@ do
     end
 end
 
+target("pinned-ship-order-tests")
+do
+    set_kind("binary")
+    set_default(false)
+    add_files("pinned_ship_order_test.cc")
+    add_includedirs("../mods/src")
+    add_packages("nlohmann_json")
+end
+
 target("shortcut-layout-dispatch-tests")
 do
     set_kind("binary")

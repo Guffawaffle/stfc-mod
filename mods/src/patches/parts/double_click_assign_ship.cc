@@ -1,6 +1,7 @@
 #include "config.h"
 #include "errormsg.h"
 #include "patches/key.h"
+#include "patches/swap_ship_pin_input.h"
 
 #include "prime/AssignShipsWidget.h"
 #include "prime/CanvasController.h"
@@ -8,6 +9,7 @@
 #include "prime/ShipTileWidget.h"
 
 #include <il2cpp/il2cpp_helper.h>
+#include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
 #include <chrono>
@@ -42,6 +44,10 @@ void PressAssignButton()
 
 void ShipTileWidget_HandleOnClick_Hook(auto original, ShipTileWidget* _this)
 {
+  if (_this && swap_ship_pin_input::HandleTileClick(_this)) {
+    g_last_clicked_ship = nullptr;
+    return;
+  }
   original(_this);
 
   if (!Config::Get().double_click_to_assign_ship) return;
@@ -86,5 +92,8 @@ void InstallDoubleClickAssignShipHooks()
     return;
   }
 
-  SPUD_STATIC_DETOUR(method, ShipTileWidget_HandleOnClick_Hook);
+  if (!SPUD_STATIC_DETOUR(method, ShipTileWidget_HandleOnClick_Hook))
+    spdlog::error("[PinnedShipSort] failed to install ShipTileWidget.HandleOnClick detour");
+  else
+    spdlog::info("[PinnedShipSort] installed shared ShipTileWidget.HandleOnClick detour");
 }
