@@ -25,7 +25,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpReserved*/)
 
       game_path = szFileName;
 
-      if (!game_path.filename().generic_wstring().starts_with(L"prime")) {
+      if (CompareStringOrdinal(game_path.filename().c_str(), -1, L"prime.exe", -1, TRUE) != CSTR_EQUAL) {
         return TRUE;
       }
 

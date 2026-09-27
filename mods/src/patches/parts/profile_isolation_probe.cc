@@ -192,11 +192,26 @@ void* Resolve(Il2CppClass* cls, const char* name, const char* result, std::initi
 
 } // namespace
 
+bool IsolatedProfileRequested()
+{
+  SetLastError(ERROR_SUCCESS);
+  const DWORD size = GetEnvironmentVariableW(L"STFC_MOD_ISOLATED_PROFILE", nullptr, 0);
+  return size != 0 || GetLastError() != ERROR_ENVVAR_NOT_FOUND;
+}
+
+[[noreturn]] void AbortIsolatedProfileLaunch()
+{
+  TerminateProcess(GetCurrentProcess(), 190);
+  std::abort();
+}
+
 void InstallProfileIsolationProbe()
 {
+  if (!IsolatedProfileRequested())
+    return;
   profile_id = Environment(L"STFC_MOD_ISOLATED_PROFILE");
   if (profile_id.empty())
-    return;
+    FailClosed("Empty profile ID");
   if (profile_id.size() > 32)
     FailClosed("Invalid profile ID");
   for (const wchar_t ch : profile_id)

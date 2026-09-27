@@ -254,6 +254,10 @@ void ApplyPatches()
 
   if (assembly == nullptr) {
     spdlog::error("Failed to load GameAssembly");
+#if _WIN32
+    if (IsolatedProfileRequested())
+      AbortIsolatedProfileLaunch();
+#endif
     return;
   } else {
     try {
@@ -264,9 +268,17 @@ void ApplyPatches()
 #endif
       printf("Got il2cpp_init %p\n", n);
 
-      SPUD_STATIC_DETOUR(n, il2cpp_init_hook);
+      if (!n || !SPUD_STATIC_DETOUR(n, il2cpp_init_hook)) {
+#if _WIN32
+        if (IsolatedProfileRequested())
+          AbortIsolatedProfileLaunch();
+#endif
+      }
     } catch (...) {
-      // Failed to Apply at least some patches
+#if _WIN32
+      if (IsolatedProfileRequested())
+        AbortIsolatedProfileLaunch();
+#endif
     }
   }
 }
