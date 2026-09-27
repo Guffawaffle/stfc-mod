@@ -111,8 +111,18 @@ bool LaunchProfileBrowser(Il2CppString* url)
   const auto local_app_data = Environment(L"LOCALAPPDATA");
   if (local_app_data.empty())
     return false;
-  const std::filesystem::path browser = L"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
-  if (!std::filesystem::is_regular_file(browser))
+  std::filesystem::path browser;
+  for (const auto* base_name : {L"ProgramFiles(x86)", L"ProgramFiles", L"LOCALAPPDATA"}) {
+    const auto base = Environment(base_name);
+    if (base.empty())
+      continue;
+    const auto candidate = std::filesystem::path(base) / L"Microsoft" / L"Edge" / L"Application" / L"msedge.exe";
+    if (std::filesystem::is_regular_file(candidate)) {
+      browser = candidate;
+      break;
+    }
+  }
+  if (browser.empty())
     return false;
   const auto data_dir = std::filesystem::path(local_app_data) / L"STFC Community Mod" / L"BrowserProfiles" / profile_id;
   std::filesystem::create_directories(data_dir);
@@ -155,8 +165,7 @@ void InstallProfileIsolationProbe()
   if (profile_id.size() > 32)
     FailClosed("Invalid profile ID");
   for (const wchar_t ch : profile_id)
-    if (!((ch >= L'a' && ch <= L'z') || (ch >= L'A' && ch <= L'Z') || (ch >= L'0' && ch <= L'9')
-          || ch == L'-' || ch == L'_'))
+    if (!((ch >= L'a' && ch <= L'z') || (ch >= L'0' && ch <= L'9') || ch == L'-' || ch == L'_'))
       FailClosed("Invalid profile ID");
 
   preference_prefix = u"stfc-mod/profile/";
