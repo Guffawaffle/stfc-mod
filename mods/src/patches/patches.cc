@@ -55,6 +55,9 @@ void InstallAudioEventHooks();
 void InstallOfficerPresetReorderHooks();
 void InstallOpcIndicatorHooks();
 void InstallShipTechIndicatorHooks();
+#if _WIN32
+void InstallProfileIsolationProbe();
+#endif
 
 #ifdef _MODDBG
 void InstallDevConsole();
@@ -189,6 +192,10 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   printf("il2cpp_init_hook(%s)\n", domain_name);
 
   auto r = original(domain_name);
+
+#if _WIN32
+  InstallProfileIsolationProbe();
+#endif
 
   auto patch_count = 0;
   auto patch_total = sizeof(patches) / sizeof(patches[0]);
