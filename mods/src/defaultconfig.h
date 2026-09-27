@@ -292,7 +292,6 @@ namespace UI
   constexpr const char* instant_warp_auto_jump     = "";
   constexpr const char* instant_warp_auto_warp     = "";
   constexpr const char* instant_warp_always_ask    = "";
-  constexpr const char* pinned_ships                = "";
   constexpr const char* notify_banner_types         = "";
   constexpr const char* notify_fleet_events         = "";
   constexpr auto        extend_chest_purchase_max   = 160;

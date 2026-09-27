@@ -334,8 +334,6 @@ objecttracker = true
 officersorthooks = true
 panhooks = true
 
-# Konfigurierte Schiffe im Flottenmanagement-Dock an den Anfang stellen
-pinnedshiphooks = true
 syncpatches = true
 tempcrashfixes = true
 testpatches = true
@@ -816,8 +814,9 @@ arrow_keys_to_select_ship = true
 # Ein Schiff im Flottenmanagement-Dock doppelklicken, um es direkt zuzuweisen, statt es auszuwählen und anschließend auf Zuweisen zu klicken
 double_click_to_assign_ship = false
 
-# Kommagetrennte Schiffsnamen, die im Flottenmanagement-Dock immer zuerst angezeigt werden; angeheftete Schiffe behalten die aktive Sortierreihenfolge bei
-pinned_ships = ""
+# Schiffe im Spiel anheften: Schiff verwalten > Schiff wechseln.
+# Klicke auf die Stecknadel unten rechts zum Anheften oder Lösen; halte sie gedrückt und ziehe sie auf eine andere nummerierte Karte, um die Reihenfolge zu ändern.
+# Die Reihenfolge der Schiff-IDs wird in der JSON-Statusdatei des Mods gespeichert, nicht in dieser TOML-Datei.
 
 # Subgroup: HUD
 # -------------

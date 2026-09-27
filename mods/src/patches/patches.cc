@@ -56,6 +56,9 @@ void InstallAudioEventHooks();
 void InstallOfficerPresetReorderHooks();
 void InstallOpcIndicatorHooks();
 void InstallShipTechIndicatorHooks();
+#if _WIN32
+void InstallProfileIsolationProbe();
+#endif
 
 #ifdef _MODDBG
 void InstallDevConsole();
@@ -141,6 +144,8 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("Initializing code hooks:");
   bool install_anomaly_timer = cfg.galactic_anomaly_timer || cfg.installNativeSettings;
   bool install_forbidden_tech = cfg.auto_confirm_ft_upgrade;
+  bool install_ship_tile_click = cfg.installPinnedShipSortHooks || cfg.double_click_to_assign_ship;
+  bool install_ship_tile_bind  = cfg.installPinnedShipSortHooks || cfg.installShipTechIndicatorHooks;
 #if defined(_WIN32) && defined(_M_X64)
   install_forbidden_tech |= cfg.installNativeSettings;
 #endif
@@ -174,13 +179,13 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"CargoFormat", {InstallCargoFormatHooks, &cfg.installCargoFormatHooks}},
       {"OfficerSortHooks", {InstallOfficerSortHooks, &cfg.installOfficerSortHooks}},
       {"PinnedShipSort", {InstallPinnedShipSortHooks, &cfg.installPinnedShipSortHooks}},
-      {"DoubleClickAssignShip", {InstallDoubleClickAssignShipHooks, &cfg.double_click_to_assign_ship}},
+      {"ShipTileClick", {InstallDoubleClickAssignShipHooks, &install_ship_tile_click}},
       {"InstantWarpConfirm", {InstallInstantWarpConfirmationHooks, &cfg.installInstantWarpConfirmationHooks}},
       {"ForbiddenTechConfirm", {InstallForbiddenTechConfirmationHooks, &install_forbidden_tech}},
       {"AudioEvents", {InstallAudioEventHooks, &cfg.installAudioEventHooks}},
       {"OfficerPresetReorder", {InstallOfficerPresetReorderHooks, &cfg.allow_officer_preset_reordering}},
       {"OpcIndicators", {InstallOpcIndicatorHooks, &cfg.installOpcIndicatorHooks}},
-      {"ShipTechIndicators", {InstallShipTechIndicatorHooks, &cfg.installShipTechIndicatorHooks}},
+      {"ShipTechIndicators", {InstallShipTechIndicatorHooks, &install_ship_tile_bind}},
       // Galaxy availability must be established before settings pages register.
       {"GalaxyLabels", {InstallGalaxyLabels, &cfg.installZoomHooks}},
       // Retain the existing debug patch key; this installer owns both settings surfaces.
@@ -189,6 +194,10 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   printf("il2cpp_init_hook(%s)\n", domain_name);
 
   auto r = original(domain_name);
+
+#if _WIN32
+  InstallProfileIsolationProbe();
+#endif
 
   auto patch_count = 0;
   auto patch_total = sizeof(patches) / sizeof(patches[0]);
@@ -249,6 +258,10 @@ void ApplyPatches()
 
   if (assembly == nullptr) {
     spdlog::error("Failed to load GameAssembly");
+#if _WIN32
+    if (IsolatedProfileRequested())
+      AbortIsolatedProfileLaunch();
+#endif
     return;
   } else {
     try {
@@ -259,9 +272,17 @@ void ApplyPatches()
 #endif
       printf("Got il2cpp_init %p\n", n);
 
-      SPUD_STATIC_DETOUR(n, il2cpp_init_hook);
+      if (!n || !SPUD_STATIC_DETOUR(n, il2cpp_init_hook)) {
+#if _WIN32
+        if (IsolatedProfileRequested())
+          AbortIsolatedProfileLaunch();
+#endif
+      }
     } catch (...) {
-      // Failed to Apply at least some patches
+#if _WIN32
+      if (IsolatedProfileRequested())
+        AbortIsolatedProfileLaunch();
+#endif
     }
   }
 }

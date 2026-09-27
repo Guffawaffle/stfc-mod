@@ -334,8 +334,6 @@ objecttracker = true
 officersorthooks = true
 panhooks = true
 
-# Place les vaisseaux configurés en tête du quai de gestion de flotte
-pinnedshiphooks = true
 syncpatches = true
 tempcrashfixes = true
 testpatches = true
@@ -816,8 +814,9 @@ arrow_keys_to_select_ship = true
 # Double-cliquez sur un vaisseau dans le quai de gestion de flotte pour l’affecter au lieu de le sélectionner puis de cliquer sur Affecter
 double_click_to_assign_ship = false
 
-# Noms de vaisseaux séparés par des virgules à toujours afficher en premier dans le quai de gestion de flotte ; les vaisseaux épinglés conservent l’ordre de tri actif
-pinned_ships = ""
+# Épinglez les vaisseaux dans Gérer le vaisseau > Changer de vaisseau.
+# Cliquez sur l'épingle en bas à droite pour épingler ou détacher ; maintenez et faites glisser une épingle numérotée sur une autre carte numérotée pour réordonner.
+# L'ordre des ID de vaisseaux est enregistré dans l'état JSON du mod, pas dans ce fichier TOML.
 
 # Subgroup: HUD
 # -------------
