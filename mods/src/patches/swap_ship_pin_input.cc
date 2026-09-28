@@ -28,6 +28,7 @@ namespace
 {
 using Clock = std::chrono::steady_clock;
 constexpr auto kHoldTime = std::chrono::milliseconds(125);
+constexpr auto kLostEndDragGrace = std::chrono::milliseconds(250);
 constexpr float kDragDistanceSquared = 64.0f;
 constexpr const char* kPinBadge = "CommunityMod_SwapShipPinBadge";
 constexpr const char* kPinGroupBand = "CommunityMod_SwapShipPinGroup";
@@ -52,6 +53,7 @@ struct DragState {
   int64_t ship_id = 0;
   Vector2 origin{};
   Clock::time_point pressed{};
+  Clock::time_point release_observed{};
   bool dragging = false;
   bool armed = false;
   bool highlighted_source = false;
@@ -71,6 +73,7 @@ bool hooks_ready = false;
 
 struct InputMethods {
   bool (*held)(int) = nullptr;
+  bool (*focused)() = nullptr;
   void (*mouse_position)(Vector3*) = nullptr;
   const MethodInfo* contains = nullptr;
   const MethodInfo* canvas_camera = nullptr;
@@ -89,6 +92,7 @@ InputMethods& Methods()
   static InputMethods methods = [] {
     InputMethods value;
     value.held = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButton(System.Int32)");
+    value.focused = il2cpp_resolve_icall_typed<bool()>("UnityEngine.Application::get_isFocused()");
     value.mouse_position = il2cpp_resolve_icall_typed<void(Vector3*)>(
         "UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)");
     auto utility = il2cpp_get_class_helper("UnityEngine.UIModule", "UnityEngine", "RectTransformUtility");
@@ -547,8 +551,14 @@ void ScrollRect_OnInitializePotentialDrag_Hook(auto original, Il2CppObject* scro
   if (!hooks_ready || !LeftButton(event_data))
     return;
   const auto pointer_id = PointerId(event_data);
-  if (!pointer_id || (drag.ship_id && *pointer_id != drag.pointer_id))
+  // Badge release and click completion use mouse input; leave touch and pen scrolling native.
+  if (!pointer_id || *pointer_id != -1) {
+    if (!drag.ship_id) {
+      suppress_click_id = 0;
+      badge_press_id = 0;
+    }
     return;
+  }
   ResetDrag();
   suppress_click_id = 0;
   badge_press_id = 0;
@@ -643,23 +653,35 @@ void UpdateGroupBand()
 {
   if (group_refresh_ticks > 0 && --group_refresh_ticks == 0)
     RefreshGroupBand();
-  if (!drag.ship_id || drag.dragging)
+  if (!drag.ship_id)
     return;
-  // This release check runs only while a badge press is pending. A release outside
-  // the Button below Unity's drag threshold has no ScrollRect or click callback.
-  if (drag.pointer_id == -1 && !Methods().held(0)) {
+  auto* source = DragSource();
+  if (!source || (Methods().focused && !Methods().focused())) {
+    CancelDragClick();
+    return;
+  }
+  if (drag.dragging) {
+    if (Methods().held(0)) {
+      drag.release_observed = {};
+    } else if (drag.release_observed == Clock::time_point{}) {
+      // Let EventSystem deliver OnEndDrag later in this frame before assuming it was lost.
+      drag.release_observed = Clock::now();
+    } else if (Clock::now() - drag.release_observed >= kLostEndDragGrace) {
+      CancelDragClick();
+    }
+    return;
+  }
+  // A release outside the Button below Unity's drag threshold has no ScrollRect
+  // or click callback. Keep badge_press_id for a same-frame click on the badge.
+  if (!Methods().held(0)) {
     ResetDrag();
     return;
   }
   if (!drag.armed && Clock::now() - drag.pressed >= kHoldTime) {
-    if (auto* source = DragSource()) {
-      drag.armed = true;
-      drag.highlighted_source = true;
-      ship_tech_indicators::SetPinBadgeHighlight(source, ship_tech_indicators::PinBadgeHighlight::Source);
-      spdlog::debug("[PinnedShipSort] pin drag armed ship={}", drag.ship_id);
-    } else {
-      ResetDrag();
-    }
+    drag.armed = true;
+    drag.highlighted_source = true;
+    ship_tech_indicators::SetPinBadgeHighlight(source, ship_tech_indicators::PinBadgeHighlight::Source);
+    spdlog::debug("[PinnedShipSort] pin drag armed ship={}", drag.ship_id);
   }
 }
 } // namespace
