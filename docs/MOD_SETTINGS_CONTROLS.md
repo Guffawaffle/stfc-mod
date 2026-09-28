@@ -102,21 +102,21 @@ cards when the Swap Ship view next binds them and does not add indicators to the
 
 Pinning is available on `Manage Ship > Swap Ship` cards without a user-facing
 enable switch. A filled gold marker shows a pinned ship; a muted hollow marker
-shows an unpinned ship. Rank numbers are not shown. Clicking a card, including
-its marker, selects the ship without changing its pin. A quick drag scrolls the
-ship row. Hold the marker for about 250 ms to arm a pin drag; the source card
-gets an outline as soon as the hold engages, before it moves. The marker is the
-drag handle.
+shows an unpinned ship. Rank numbers are not shown. Press and release the marker
+to pin or unpin the ship; clicking elsewhere on the card selects it. A quick
+drag scrolls the ship row without toggling a pin. Hold the marker for about
+125 ms to arm a pin drag; the source card gets an outline as soon as the hold
+engages, before it moves. The marker is the drag handle.
 
 Drop an unpinned ship into the visible pinned group to pin it at the indicated
 position. When the group is empty, a temporary `Pin here` cue appears at the
 visible leading edge of the ship row during a drag, without shifting the row.
-It covers part of Build Ship when the row is scrolled to the front. Drop on the
-cue to create the first pin. Dropping an unpinned ship elsewhere leaves it
-unpinned. Drag a pinned ship within the group to reorder it, or onto the
-unpinned part of the ship row to unpin it. Dropping outside the row or on Build
-Ship outside the cue cancels the drag. The game's active sort still orders
-unpinned ships.
+It covers part of Build Ship when the row is scrolled to the front. While the
+group is empty, the cue is its valid drop target; dropping there creates the
+first pin. Drag a pinned ship within the group to reorder it, or onto the
+unpinned part of the ship row to unpin it. Dropping an unpinned ship there
+leaves it unpinned. Dropping outside the row or on Build Ship outside the cue
+cancels the drag. The game's active sort still orders unpinned ships.
 
 The ordered ship IDs are stored as decimal strings in the mod state JSON, not
 in TOML. Its default filename is `community_patch_state.json`; a custom config

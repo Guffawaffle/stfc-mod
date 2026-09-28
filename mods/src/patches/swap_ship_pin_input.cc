@@ -27,7 +27,7 @@
 namespace
 {
 using Clock = std::chrono::steady_clock;
-constexpr auto kHoldTime = std::chrono::milliseconds(250);
+constexpr auto kHoldTime = std::chrono::milliseconds(125);
 constexpr float kDragDistanceSquared = 64.0f;
 constexpr const char* kPinBadge = "CommunityMod_SwapShipPinBadge";
 constexpr const char* kPinGroupBand = "CommunityMod_SwapShipPinGroup";
@@ -64,12 +64,14 @@ struct DragState {
 
 DragState drag;
 int64_t suppress_click_id = 0;
+int64_t badge_press_id = 0;
 std::vector<Il2CppGCHandle> tiles;
 int group_refresh_ticks = 0;
 bool hooks_ready = false;
 
 struct InputMethods {
   bool (*held)(int) = nullptr;
+  void (*mouse_position)(Vector3*) = nullptr;
   const MethodInfo* contains = nullptr;
   const MethodInfo* canvas_camera = nullptr;
   const MethodInfo* pointer_position = nullptr;
@@ -87,6 +89,8 @@ InputMethods& Methods()
   static InputMethods methods = [] {
     InputMethods value;
     value.held = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButton(System.Int32)");
+    value.mouse_position = il2cpp_resolve_icall_typed<void(Vector3*)>(
+        "UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)");
     auto utility = il2cpp_get_class_helper("UnityEngine.UIModule", "UnityEngine", "RectTransformUtility");
     auto canvas = il2cpp_get_class_helper("UnityEngine.UIModule", "UnityEngine", "Canvas");
     auto scroll = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "ScrollRect");
@@ -99,7 +103,7 @@ InputMethods& Methods()
     value.pointer_id = pointer.GetMethodInfo("get_pointerId", 0);
     value.canvas = canvas.get_cls();
     value.scroll_rect = scroll.get_cls();
-    value.ready = value.contains && value.canvas_camera && value.canvas;
+    value.ready = value.mouse_position && value.contains && value.canvas_camera && value.canvas;
     value.drag_ready = value.ready && value.scroll_rect && value.pointer_position && value.pointer_press_position
                        && value.pointer_button && value.pointer_id && value.held;
     if (!value.ready)
@@ -149,6 +153,14 @@ void ResetDrag()
   drag = {};
 }
 
+void CancelDragClick()
+{
+  if (drag.ship_id)
+    suppress_click_id = drag.ship_id;
+  badge_press_id = 0;
+  ResetDrag();
+}
+
 Transform* DirectChild(Transform* parent, const char* name)
 {
   if (!parent)
@@ -194,6 +206,13 @@ Transform* GroupContent()
   auto* content = scroll ? Invoke(IL2CppClassHelper(scroll->klass).GetMethodInfo("get_content", 0), scroll)
                          : nullptr;
   return reinterpret_cast<Transform*>(content);
+}
+
+Vector2 MousePosition()
+{
+  Vector3 position{};
+  Methods().mouse_position(&position);
+  return {position.x, position.y};
 }
 
 bool BoxedValue(Il2CppObject* boxed, const char* namespaze, const char* name, std::size_t size)
@@ -451,6 +470,7 @@ bool StartPinDrag()
   auto* source = DragSource();
   if (!source)
     return false;
+  badge_press_id = 0;
   drag.dragging = true;
   if (!drag.highlighted_source) {
     drag.highlighted_source = true;
@@ -495,6 +515,7 @@ void UpdatePinDrag(Vector2 position)
 void FinishPinDrag(Vector2 position)
 {
   suppress_click_id = drag.ship_id;
+  badge_press_id = 0;
   auto* target = AnyTileAt(position);
   const auto target_id = Id(target);
   auto* source = DragSource();
@@ -531,6 +552,7 @@ void ScrollRect_OnInitializePotentialDrag_Hook(auto original, Il2CppObject* scro
     return;
   ResetDrag();
   suppress_click_id = 0;
+  badge_press_id = 0;
   const auto position = PointerPosition(event_data, Methods().pointer_press_position);
   auto* tile = position ? TileAt(*position, true) : nullptr;
   const auto id = Id(tile);
@@ -549,6 +571,7 @@ void ScrollRect_OnInitializePotentialDrag_Hook(auto original, Il2CppObject* scro
   drag.scroll_rect = scroll_handle;
   drag.pointer_id = *pointer_id;
   drag.ship_id = *id;
+  badge_press_id = *id;
   drag.origin = *position;
   drag.pressed = Clock::now();
   spdlog::info("[PinnedShipSort] pin drag candidate ship={}", *id);
@@ -562,16 +585,18 @@ void ScrollRect_OnBeginDrag_Hook(auto original, Il2CppObject* scroll, Il2CppObje
   }
   const auto position = PointerPosition(event_data, Methods().pointer_position);
   if (!position || !DragSource()) {
-    ResetDrag();
+    CancelDragClick();
     original(scroll, event_data);
     return;
   }
   if (Clock::now() - drag.pressed < kHoldTime) {
     spdlog::info("[PinnedShipSort] badge movement passed to ship-bar scroll ship={}", drag.ship_id);
-    ResetDrag();
+    CancelDragClick();
     original(scroll, event_data);
     return;
   }
+  suppress_click_id = drag.ship_id;
+  badge_press_id = 0;
   if (DragDistanceSquared(*position) >= kDragDistanceSquared && StartPinDrag())
     UpdatePinDrag(*position);
   // A small move after the hold remains pending until OnDrag reaches eight pixels.
@@ -585,11 +610,11 @@ void ScrollRect_OnDrag_Hook(auto original, Il2CppObject* scroll, Il2CppObject* e
   }
   const auto position = PointerPosition(event_data, Methods().pointer_position);
   if (!position || !DragSource()) {
-    ResetDrag();
+    CancelDragClick();
     return;
   }
   if (!drag.dragging && DragDistanceSquared(*position) >= kDragDistanceSquared && !StartPinDrag()) {
-    ResetDrag();
+    CancelDragClick();
     return;
   }
   if (drag.dragging)
@@ -608,10 +633,10 @@ void ScrollRect_OnEndDrag_Hook(auto original, Il2CppObject* scroll, Il2CppObject
     if (position)
       FinishPinDrag(*position);
     else
-      ResetDrag();
+      CancelDragClick();
   } else {
     spdlog::debug("[PinnedShipSort] pin drag candidate ended without movement ship={}", drag.ship_id);
-    ResetDrag();
+    CancelDragClick();
   }
 }
 
@@ -706,16 +731,24 @@ void RefreshVisibleBadges()
 
 bool HandleTileClick(ShipTileWidget* tile)
 {
+  if (!Methods().ready)
+    return false;
   const auto id = Id(tile);
-  if (!id)
+  auto* badge = Badge(tile);
+  if (!id || !badge)
     return false;
   if (suppress_click_id == *id || drag.dragging) {
     suppress_click_id = 0;
+    badge_press_id = 0;
     ResetDrag();
     return true;
   }
+  if (badge_press_id != *id)
+    return false;
+  const bool on_badge = Contains(badge, MousePosition());
+  badge_press_id = 0;
   if (drag.ship_id == *id)
     ResetDrag();
-  return false;
+  return on_badge && pinned_ship_sort::HandleCardAction(tile->Context, swap_ship_tile::SelectionContext(tile));
 }
 } // namespace swap_ship_pin_input
