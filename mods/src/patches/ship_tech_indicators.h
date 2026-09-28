@@ -17,6 +17,7 @@ bool Available();
 void RefreshPinBadge(ShipTileWidget* widget);
 void SetPinBadgeHighlight(ShipTileWidget* widget, PinBadgeHighlight highlight);
 void SetFirstPinDropCue(Transform* viewport, bool visible, bool hovered);
+void SetPinGroupDragActive(Transform* content, bool active);
 void SetPinGroupHover(Transform* content, bool hovered);
 void UpdatePinGroupBand(Transform* content, std::optional<PinGroupBounds> bounds);
 }

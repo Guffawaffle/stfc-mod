@@ -126,16 +126,12 @@ Il2CppObject* Invoke(const MethodInfo* method, Il2CppObject* object, void** args
 
 void ResetDrag()
 {
+  ship_tech_indicators::SetPinGroupHover(nullptr, false);
+  ship_tech_indicators::SetPinGroupDragActive(nullptr, false);
   if (drag.cue_viewport) {
     auto* viewport = reinterpret_cast<Transform*>(il2cpp_gchandle_get_target(drag.cue_viewport));
     ship_tech_indicators::SetFirstPinDropCue(viewport, false, false);
     il2cpp_gchandle_free(drag.cue_viewport);
-  }
-  if (drag.group_hovered && drag.scroll_rect) {
-    auto* scroll = il2cpp_gchandle_get_target(drag.scroll_rect);
-    auto* content = scroll ? Invoke(IL2CppClassHelper(scroll->klass).GetMethodInfo("get_content", 0), scroll)
-                           : nullptr;
-    ship_tech_indicators::SetPinGroupHover(reinterpret_cast<Transform*>(content), false);
   }
   if (drag.highlighted_target) {
     auto* target = reinterpret_cast<ShipTileWidget*>(il2cpp_gchandle_get_target(drag.highlighted_target));
@@ -477,7 +473,10 @@ bool StartPinDrag()
     ship_tech_indicators::SetPinBadgeHighlight(source, ship_tech_indicators::PinBadgeHighlight::Source);
   }
   RefreshGroupBand();
-  if (!HasVisiblePinGroup()) {
+  const bool has_visible_pin_group = HasVisiblePinGroup();
+  if (has_visible_pin_group)
+    ship_tech_indicators::SetPinGroupDragActive(GroupContent(), true);
+  if (!has_visible_pin_group) {
     if (auto* viewport = ShipBarViewport()) {
       drag.cue_viewport = il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(viewport), false);
       if (drag.cue_viewport) {

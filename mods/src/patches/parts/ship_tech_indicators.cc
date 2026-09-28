@@ -37,6 +37,7 @@ constexpr const char* kPinGroupEdges[]    = {"CommunityMod_PinGroupTop", "Commun
 constexpr float       kBackingMargin       = 4.0f;
 bool                  g_available         = false;
 Il2CppGCHandle        g_hovered_pin_group = nullptr;
+Il2CppGCHandle        g_active_pin_group = nullptr;
 Il2CppGCHandle        g_first_pin_cue_viewport = nullptr;
 
 struct Vector2 {
@@ -754,8 +755,8 @@ void RefreshPinBadge(ShipTileWidget* widget)
     UpdatePinBadge(parent, swap_ship_tile::IsInSelection(widget) ? widget->Context : nullptr);
 }
 
-void SetPinDragEdge(Transform* parent, const char* name, Vector2 anchor_min, Vector2 anchor_max, Vector2 pivot,
-                    Vector2 size, Vector2 position, Color color, bool visible)
+bool SetPinDragEdge(Transform* parent, const char* name, Vector2 anchor_min, Vector2 anchor_max, Vector2 pivot,
+                    Vector2 size, Vector2 position, Color color, bool visible, bool unmasked = false)
 {
   static auto image_helper = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Image");
   auto* child = DirectChild(parent, name);
@@ -763,7 +764,7 @@ void SetPinDragEdge(Transform* parent, const char* name, Vector2 anchor_min, Vec
   if (!visible) {
     if (object)
       object->SetActive(false);
-    return;
+    return true;
   }
   if (!object)
     object = CreateBacking(name, parent, {0.5f, 0.5f}, {0.5f, 0.5f}, {0, 0}, false);
@@ -771,12 +772,14 @@ void SetPinDragEdge(Transform* parent, const char* name, Vector2 anchor_min, Vec
   auto* transform = ComponentTransform(raw);
   auto* rect = reinterpret_cast<Il2CppObject*>(transform);
   auto* image = Component(raw, image_helper.get_cls());
+  bool maskable = false;
   if (!rect || !image || !Set(rect, "set_anchorMin", &anchor_min)
       || !Set(rect, "set_anchorMax", &anchor_max) || !Set(rect, "set_pivot", &pivot)
       || !Set(rect, "set_sizeDelta", &size) || !Set(rect, "set_anchoredPosition", &position)
-      || !Set(image, "set_color", &color))
-    return;
+      || !Set(image, "set_color", &color) || (unmasked && !Set(image, "set_maskable", &maskable)))
+    return false;
   object->SetActive(true);
+  return true;
 }
 
 bool CreateFirstPinDropLabel(Transform* parent)
@@ -820,31 +823,47 @@ bool PinGroupHovered(Transform* content)
          && il2cpp_gchandle_get_target(g_hovered_pin_group) == reinterpret_cast<Il2CppObject*>(content);
 }
 
-Color PinGroupFill(bool hovered)
-{ return hovered ? Color{0.13f, 0.35f, 0.32f, 0.90f} : Color{0.06f, 0.17f, 0.20f, 0.72f}; }
+bool PinGroupDragActive(Transform* content)
+{
+  return content && g_active_pin_group
+         && il2cpp_gchandle_get_target(g_active_pin_group) == reinterpret_cast<Il2CppObject*>(content);
+}
 
-Color PinGroupRim(bool hovered)
-{ return hovered ? Color{0.26f, 0.96f, 0.77f, 0.98f} : Color{0.83f, 0.67f, 0.32f, 0.72f}; }
+struct PinGroupStyle {
+  Color fill;
+  Color rim;
+  float width;
+};
 
-void RecolorPinGroupBand(Transform* content, bool hovered)
+PinGroupStyle GroupStyle(Transform* content)
+{
+  if (PinGroupHovered(content))
+    return {{0.13f, 0.35f, 0.32f, 0.90f}, {0.26f, 0.96f, 0.77f, 1.0f}, 5.0f};
+  if (PinGroupDragActive(content))
+    return {{0.12f, 0.24f, 0.25f, 0.78f}, {1.0f, 0.76f, 0.16f, 1.0f}, 4.5f};
+  return {{0.06f, 0.17f, 0.20f, 0.72f}, {0.83f, 0.67f, 0.32f, 0.82f}, 3.0f};
+}
+
+bool StylePinGroupBand(Transform* content)
 {
   static auto image_helper = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Image");
   auto* band = DirectChild(content, kPinGroupBand);
   if (!band || !band->gameObject)
-    return;
+    return false;
   auto* graphic = Component(reinterpret_cast<Il2CppObject*>(band->gameObject), image_helper.get_cls());
-  auto fill = PinGroupFill(hovered);
-  if (graphic)
-    Set(graphic, "set_color", &fill);
-  auto rim = PinGroupRim(hovered);
-  for (auto* name : kPinGroupEdges) {
-    auto* edge = DirectChild(band, name);
-    auto* image = edge && edge->gameObject
-                      ? Component(reinterpret_cast<Il2CppObject*>(edge->gameObject), image_helper.get_cls())
-                      : nullptr;
-    if (image)
-      Set(image, "set_color", &rim);
-  }
+  const auto style = GroupStyle(content);
+  auto fill = style.fill;
+  if (!graphic || !Set(graphic, "set_color", &fill))
+    return false;
+  const auto width = style.width;
+  const auto rim = style.rim;
+  // The viewport clips below the ship frames; keep the fill clipped but let the outer frame complete below it.
+  return SetPinDragEdge(band, kPinGroupEdges[0], {0, 1}, {1, 1}, {0.5f, 1}, {0, width}, {0, 0}, rim, true, true)
+         && SetPinDragEdge(band, kPinGroupEdges[1], {0, 0}, {1, 0}, {0.5f, 0}, {0, width}, {0, 0}, rim, true, true)
+         && SetPinDragEdge(band, kPinGroupEdges[2], {0, 0}, {0, 1}, {0, 0.5f}, {width, -2 * width}, {0, 0}, rim,
+                           true, true)
+         && SetPinDragEdge(band, kPinGroupEdges[3], {1, 0}, {1, 1}, {1, 0.5f}, {width, -2 * width}, {0, 0}, rim,
+                           true, true);
 }
 
 void UpdatePinGroupBand(Transform* content, std::optional<PinGroupBounds> bounds)
@@ -879,22 +898,36 @@ void UpdatePinGroupBand(Transform* content, std::optional<PinGroupBounds> bounds
   if (!rect || !image)
     return;
 
-  constexpr float margin = 7.0f;
+  constexpr float margin = 10.0f;
   const Vector2 size{bounds->right - bounds->left + margin * 2, bounds->top - bounds->bottom + margin * 2};
   Vector3 position{(bounds->left + bounds->right) * 0.5f, (bounds->bottom + bounds->top) * 0.5f, 0};
-  const bool hovered = PinGroupHovered(content);
-  auto fill = PinGroupFill(hovered);
   if (!Rect(rect, {0.5f, 0.5f}, {0.5f, 0.5f}, size, {0, 0})
-      || !Set(rect, "set_localPosition", &position) || !Set(image, "set_color", &fill)
+      || !Set(rect, "set_localPosition", &position)
       || !InvokeVoid(transform_helper.GetMethodInfo("SetAsFirstSibling", 0), rect))
     return;
+  if (!StylePinGroupBand(content)) {
+    band->SetActive(false);
+    return;
+  }
   band->SetActive(true);
+}
 
-  const auto rim = PinGroupRim(hovered);
-  SetPinDragEdge(transform, kPinGroupEdges[0], {0, 1}, {1, 1}, {0.5f, 1}, {-12, 1.5f}, {0, -1}, rim, true);
-  SetPinDragEdge(transform, kPinGroupEdges[1], {0, 0}, {1, 0}, {0.5f, 0}, {-12, 1.5f}, {0, 1}, rim, true);
-  SetPinDragEdge(transform, kPinGroupEdges[2], {0, 0}, {0, 1}, {0, 0.5f}, {1.5f, -12}, {1, 0}, rim, true);
-  SetPinDragEdge(transform, kPinGroupEdges[3], {1, 0}, {1, 1}, {1, 0.5f}, {1.5f, -12}, {-1, 0}, rim, true);
+void SetPinGroupDragActive(Transform* content, bool active)
+{
+  auto* previous = g_active_pin_group
+                       ? reinterpret_cast<Transform*>(il2cpp_gchandle_get_target(g_active_pin_group))
+                       : nullptr;
+  if (active && content == previous)
+    return;
+  if (g_active_pin_group)
+    il2cpp_gchandle_free(g_active_pin_group);
+  g_active_pin_group = active && content
+                           ? il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(content), false)
+                           : nullptr;
+  if (previous)
+    StylePinGroupBand(previous);
+  if (content && content != previous)
+    StylePinGroupBand(content);
 }
 
 void SetPinGroupHover(Transform* content, bool hovered)
@@ -902,22 +935,17 @@ void SetPinGroupHover(Transform* content, bool hovered)
   auto* previous = g_hovered_pin_group
                        ? reinterpret_cast<Transform*>(il2cpp_gchandle_get_target(g_hovered_pin_group))
                        : nullptr;
-  if (previous && (!hovered || previous != content))
-    RecolorPinGroupBand(previous, false);
-  if (!hovered || !content) {
-    if (content && content != previous)
-      RecolorPinGroupBand(content, false);
-    if (g_hovered_pin_group)
-      il2cpp_gchandle_free(g_hovered_pin_group);
-    g_hovered_pin_group = nullptr;
+  if (hovered && content == previous)
     return;
-  }
-  if (previous != content) {
-    if (g_hovered_pin_group)
-      il2cpp_gchandle_free(g_hovered_pin_group);
-    g_hovered_pin_group = il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(content), false);
-  }
-  RecolorPinGroupBand(content, true);
+  if (g_hovered_pin_group)
+    il2cpp_gchandle_free(g_hovered_pin_group);
+  g_hovered_pin_group = hovered && content
+                            ? il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(content), false)
+                            : nullptr;
+  if (previous)
+    StylePinGroupBand(previous);
+  if (content && content != previous)
+    StylePinGroupBand(content);
 }
 
 void HideFirstPinDropCue(Transform* viewport)

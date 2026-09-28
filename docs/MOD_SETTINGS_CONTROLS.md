@@ -109,7 +109,8 @@ drag scrolls the ship row without toggling a pin. Hold the marker for about
 engages, before it moves. The marker is the drag handle.
 
 Drop an unpinned ship into the visible pinned group to pin it at the indicated
-position. When the group is empty, a temporary `Pin here` cue appears at the
+position. During a drag, the group gets a gold outer outline that turns teal
+when hovered. When the group is empty, a temporary `Pin here` cue appears at the
 visible leading edge of the ship row during a drag, without shifting the row.
 It covers part of Build Ship when the row is scrolled to the front. While the
 group is empty, the cue is its valid drop target; dropping there creates the
