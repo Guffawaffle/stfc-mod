@@ -14,11 +14,13 @@
 #include <il2cpp-tabledefs.h>
 
 #include <spdlog/spdlog.h>
+#include <spud/detour.h>
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <optional>
 #include <vector>
 
@@ -44,7 +46,7 @@ struct Rect {
 struct DragState {
   Il2CppGCHandle tile = nullptr;
   Il2CppGCHandle scroll_rect = nullptr;
-  bool restore_scroll = false;
+  int pointer_id = 0;
   int64_t ship_id = 0;
   Vector2 origin{};
   Clock::time_point pressed{};
@@ -57,16 +59,16 @@ DragState drag;
 int64_t suppress_click_id = 0;
 std::vector<Il2CppGCHandle> tiles;
 int group_refresh_ticks = 0;
+bool hooks_ready = false;
 
 struct InputMethods {
-  bool (*down)(int) = nullptr;
-  bool (*held)(int) = nullptr;
-  bool (*up)(int) = nullptr;
   void (*mouse_position)(Vector3*) = nullptr;
   const MethodInfo* contains = nullptr;
   const MethodInfo* canvas_camera = nullptr;
-  const MethodInfo* get_enabled = nullptr;
-  const MethodInfo* set_enabled = nullptr;
+  const MethodInfo* pointer_position = nullptr;
+  const MethodInfo* pointer_press_position = nullptr;
+  const MethodInfo* pointer_button = nullptr;
+  const MethodInfo* pointer_id = nullptr;
   Il2CppClass* canvas = nullptr;
   Il2CppClass* scroll_rect = nullptr;
   bool ready = false;
@@ -77,28 +79,27 @@ InputMethods& Methods()
 {
   static InputMethods methods = [] {
     InputMethods value;
-    value.down = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButtonDown(System.Int32)");
-    value.held = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButton(System.Int32)");
-    value.up = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButtonUp(System.Int32)");
     value.mouse_position = il2cpp_resolve_icall_typed<void(Vector3*)>(
         "UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)");
     auto utility = il2cpp_get_class_helper("UnityEngine.UIModule", "UnityEngine", "RectTransformUtility");
     auto canvas = il2cpp_get_class_helper("UnityEngine.UIModule", "UnityEngine", "Canvas");
     auto scroll = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "ScrollRect");
-    auto behaviour = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Behaviour");
+    auto pointer = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.EventSystems", "PointerEventData");
     value.contains = utility.GetMethodInfo("RectangleContainsScreenPoint", 3);
     value.canvas_camera = canvas.GetMethodInfo("get_worldCamera", 0);
+    value.pointer_position = pointer.GetMethodInfo("get_position", 0);
+    value.pointer_press_position = pointer.GetMethodInfo("get_pressPosition", 0);
+    value.pointer_button = pointer.GetMethodInfo("get_button", 0);
+    value.pointer_id = pointer.GetMethodInfo("get_pointerId", 0);
     value.canvas = canvas.get_cls();
     value.scroll_rect = scroll.get_cls();
-    value.get_enabled = behaviour.GetMethodInfo("get_enabled", 0);
-    value.set_enabled = behaviour.GetMethodInfo("set_enabled", 1);
-    value.ready = value.down && value.held && value.up && value.mouse_position && value.contains
-                  && value.canvas_camera && value.canvas;
-    value.drag_ready = value.ready && value.scroll_rect && value.get_enabled && value.set_enabled;
+    value.ready = value.mouse_position && value.contains && value.canvas_camera && value.canvas;
+    value.drag_ready = value.ready && value.scroll_rect && value.pointer_position && value.pointer_press_position
+                       && value.pointer_button && value.pointer_id;
     if (!value.ready)
       spdlog::warn("[PinnedShipSort] pin pointer geometry unavailable; badge clicks remain disabled");
     else if (!value.drag_ready)
-      spdlog::warn("[PinnedShipSort] scroll control unavailable; pin drag disabled");
+      spdlog::warn("[PinnedShipSort] pointer event data unavailable; pin drag disabled");
     return value;
   }();
   return methods;
@@ -113,15 +114,6 @@ Il2CppObject* Invoke(const MethodInfo* method, Il2CppObject* object, void** args
   return exception ? nullptr : result;
 }
 
-bool InvokeVoid(const MethodInfo* method, Il2CppObject* object, void** args)
-{
-  if (!method || !object)
-    return false;
-  Il2CppException* exception = nullptr;
-  il2cpp_runtime_invoke(method, object, args, &exception);
-  return !exception;
-}
-
 void ResetDrag()
 {
   if (drag.highlighted_target) {
@@ -133,16 +125,8 @@ void ResetDrag()
     auto* source = reinterpret_cast<ShipTileWidget*>(il2cpp_gchandle_get_target(drag.tile));
     ship_tech_indicators::SetPinBadgeHighlight(source, ship_tech_indicators::PinBadgeHighlight::None);
   }
-  if (drag.scroll_rect) {
-    auto* scroll = il2cpp_gchandle_get_target(drag.scroll_rect);
-    if (scroll && drag.restore_scroll) {
-      bool enabled = true;
-      void* args[]{&enabled};
-      if (!InvokeVoid(Methods().set_enabled, scroll, args))
-        spdlog::warn("[PinnedShipSort] could not restore ship bar scrolling");
-    }
+  if (drag.scroll_rect)
     il2cpp_gchandle_free(drag.scroll_rect);
-  }
   if (drag.tile)
     il2cpp_gchandle_free(drag.tile);
   drag = {};
@@ -192,6 +176,50 @@ Vector2 MousePosition()
   Vector3 position{};
   Methods().mouse_position(&position);
   return {position.x, position.y};
+}
+
+bool BoxedValue(Il2CppObject* boxed, const char* namespaze, const char* name, std::size_t size)
+{
+  auto* cls = boxed ? il2cpp_object_get_class(boxed) : nullptr;
+  return cls && il2cpp_class_is_valuetype(cls) && il2cpp_class_value_size(cls, nullptr) == size
+         && !std::strcmp(il2cpp_class_get_namespace(cls), namespaze)
+         && !std::strcmp(il2cpp_class_get_name(cls), name);
+}
+
+std::optional<Vector2> PointerPosition(Il2CppObject* event_data, const MethodInfo* getter)
+{
+  auto* boxed = event_data ? Invoke(getter, event_data) : nullptr;
+  if (!BoxedValue(boxed, "UnityEngine", "Vector2", sizeof(Vector2)))
+    return std::nullopt;
+  const auto position = *static_cast<Vector2*>(il2cpp_object_unbox(boxed));
+  return std::isfinite(position.x) && std::isfinite(position.y) ? std::optional<Vector2>{position} : std::nullopt;
+}
+
+bool LeftButton(Il2CppObject* event_data)
+{
+  auto* boxed = event_data ? Invoke(Methods().pointer_button, event_data) : nullptr;
+  auto* cls = boxed ? il2cpp_object_get_class(boxed) : nullptr;
+  auto* owner = cls ? il2cpp_class_get_declaring_type(cls) : nullptr;
+  return cls && il2cpp_class_is_valuetype(cls) && il2cpp_class_value_size(cls, nullptr) == sizeof(int32_t)
+         && !std::strcmp(il2cpp_class_get_name(cls), "InputButton") && owner
+         && !std::strcmp(il2cpp_class_get_namespace(owner), "UnityEngine.EventSystems")
+         && !std::strcmp(il2cpp_class_get_name(owner), "PointerEventData")
+         && *static_cast<int32_t*>(il2cpp_object_unbox(boxed)) == 0;
+}
+
+std::optional<int32_t> PointerId(Il2CppObject* event_data)
+{
+  auto* boxed = event_data ? Invoke(Methods().pointer_id, event_data) : nullptr;
+  return BoxedValue(boxed, "System", "Int32", sizeof(int32_t))
+             ? std::optional<int32_t>{*static_cast<int32_t*>(il2cpp_object_unbox(boxed))}
+             : std::nullopt;
+}
+
+bool MatchesDrag(Il2CppObject* scroll, Il2CppObject* event_data)
+{
+  const auto pointer_id = PointerId(event_data);
+  return drag.ship_id && drag.scroll_rect && il2cpp_gchandle_get_target(drag.scroll_rect) == scroll
+         && pointer_id && *pointer_id == drag.pointer_id;
 }
 
 bool Contains(Transform* badge, Vector2 position)
@@ -250,6 +278,12 @@ ShipTileWidget* AnyTileAt(Vector2 position)
 
 std::optional<int64_t> Id(ShipTileWidget* tile)
 { return tile && tile->Context && tile->Context->HasShip ? ship_identity::InstanceId(tile->Context) : std::nullopt; }
+
+ShipTileWidget* DragSource()
+{
+  auto* source = drag.tile ? reinterpret_cast<ShipTileWidget*>(il2cpp_gchandle_get_target(drag.tile)) : nullptr;
+  return Badge(source) && Id(source) == drag.ship_id ? source : nullptr;
+}
 
 std::optional<ship_tech_indicators::PinGroupBounds> BoundsInContent(Transform* tile, Transform* content)
 {
@@ -335,86 +369,151 @@ void HighlightTarget(ShipTileWidget* target)
     ship_tech_indicators::SetPinBadgeHighlight(target, ship_tech_indicators::PinBadgeHighlight::Target);
 }
 
-void Update()
+float DragDistanceSquared(Vector2 position)
+{
+  const auto dx = position.x - drag.origin.x;
+  const auto dy = position.y - drag.origin.y;
+  return dx * dx + dy * dy;
+}
+
+bool StartPinDrag()
+{
+  auto* source = DragSource();
+  if (!source)
+    return false;
+  drag.dragging = true;
+  drag.highlighted_source = true;
+  ship_tech_indicators::SetPinBadgeHighlight(source, ship_tech_indicators::PinBadgeHighlight::Source);
+  spdlog::info("[PinnedShipSort] pin drag started ship={}", drag.ship_id);
+  return true;
+}
+
+void UpdatePinDrag(Vector2 position)
+{
+  auto* source = DragSource();
+  if (!source) {
+    ResetDrag();
+    return;
+  }
+  auto* target = TileAt(position, false);
+  HighlightTarget(target != source ? target : nullptr);
+}
+
+void FinishPinDrag(Vector2 position)
+{
+  suppress_click_id = drag.ship_id;
+  auto* target = AnyTileAt(position);
+  const auto target_id = Id(target);
+  auto* source = DragSource();
+  auto* context = source ? swap_ship_tile::SelectionContext(source) : nullptr;
+  const bool inside_bar = InShipBar(position).value_or(target_id.has_value());
+  const bool valid_drop = context && (!target || target_id) && inside_bar;
+  const auto rank_target = target_id && pinned_ship_sort::Rank(target->Context) ? target_id : std::nullopt;
+  if (valid_drop)
+    pinned_ship_sort::PlacePinnedShip(source->Context, rank_target, context);
+  else
+    spdlog::info("[PinnedShipSort] drag canceled outside ship row");
+  ResetDrag();
+}
+
+void ScrollRect_OnInitializePotentialDrag_Hook(auto original, Il2CppObject* scroll, Il2CppObject* event_data)
+{
+  original(scroll, event_data);
+  if (!hooks_ready)
+    return;
+  ResetDrag();
+  suppress_click_id = 0;
+  if (!LeftButton(event_data))
+    return;
+  const auto position = PointerPosition(event_data, Methods().pointer_press_position);
+  const auto pointer_id = PointerId(event_data);
+  auto* tile = position ? TileAt(*position, true) : nullptr;
+  const auto id = Id(tile);
+  if (!id || !pointer_id || ParentScrollRect(tile) != scroll)
+    return;
+  auto tile_handle = il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(tile), false);
+  auto scroll_handle = il2cpp_gchandle_new_weakref(scroll, false);
+  if (!tile_handle || !scroll_handle) {
+    if (tile_handle)
+      il2cpp_gchandle_free(tile_handle);
+    if (scroll_handle)
+      il2cpp_gchandle_free(scroll_handle);
+    return;
+  }
+  drag.tile = tile_handle;
+  drag.scroll_rect = scroll_handle;
+  drag.pointer_id = *pointer_id;
+  drag.ship_id = *id;
+  drag.origin = *position;
+  drag.pressed = Clock::now();
+  spdlog::info("[PinnedShipSort] pin drag candidate ship={}", *id);
+}
+
+void ScrollRect_OnBeginDrag_Hook(auto original, Il2CppObject* scroll, Il2CppObject* event_data)
+{
+  if (!hooks_ready || !MatchesDrag(scroll, event_data)) {
+    original(scroll, event_data);
+    return;
+  }
+  const auto position = PointerPosition(event_data, Methods().pointer_position);
+  if (!position || !DragSource()) {
+    ResetDrag();
+    original(scroll, event_data);
+    return;
+  }
+  if (Clock::now() - drag.pressed < kHoldTime) {
+    spdlog::info("[PinnedShipSort] badge movement passed to ship-bar scroll ship={}", drag.ship_id);
+    ResetDrag();
+    original(scroll, event_data);
+    return;
+  }
+  if (DragDistanceSquared(*position) >= kDragDistanceSquared && StartPinDrag())
+    UpdatePinDrag(*position);
+  // A small move after the hold remains pending until OnDrag reaches eight pixels.
+}
+
+void ScrollRect_OnDrag_Hook(auto original, Il2CppObject* scroll, Il2CppObject* event_data)
+{
+  if (!hooks_ready || !MatchesDrag(scroll, event_data)) {
+    original(scroll, event_data);
+    return;
+  }
+  const auto position = PointerPosition(event_data, Methods().pointer_position);
+  if (!position || !DragSource()) {
+    ResetDrag();
+    return;
+  }
+  if (!drag.dragging && DragDistanceSquared(*position) >= kDragDistanceSquared && !StartPinDrag()) {
+    ResetDrag();
+    return;
+  }
+  if (drag.dragging)
+    UpdatePinDrag(*position);
+}
+
+void ScrollRect_OnEndDrag_Hook(auto original, Il2CppObject* scroll, Il2CppObject* event_data)
+{
+  if (!hooks_ready || !MatchesDrag(scroll, event_data)) {
+    original(scroll, event_data);
+    return;
+  }
+  if (drag.dragging) {
+    const auto position = PointerPosition(event_data, Methods().pointer_position);
+    spdlog::info("[PinnedShipSort] pin drag ended ship={}", drag.ship_id);
+    if (position)
+      FinishPinDrag(*position);
+    else
+      ResetDrag();
+  } else {
+    spdlog::debug("[PinnedShipSort] pin drag candidate ended without movement ship={}", drag.ship_id);
+    ResetDrag();
+  }
+}
+
+void UpdateGroupBand()
 {
   if (group_refresh_ticks > 0 && --group_refresh_ticks == 0)
     RefreshGroupBand();
-  auto& methods = Methods();
-  if (!methods.ready)
-    return;
-  if (methods.down(0)) {
-    ResetDrag();
-    suppress_click_id = 0;
-    const auto position = MousePosition();
-    auto* tile = TileAt(position, true);
-    const auto id = Id(tile);
-    if (id) {
-      auto* scroll = ParentScrollRect(tile);
-      auto* boxed_enabled = scroll ? Invoke(methods.get_enabled, scroll) : nullptr;
-      if (boxed_enabled) {
-        const bool was_enabled = *static_cast<bool*>(il2cpp_object_unbox(boxed_enabled));
-        bool disabled = false;
-        void* args[]{&disabled};
-        if (!was_enabled || InvokeVoid(methods.set_enabled, scroll, args)) {
-          auto tile_handle = il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(tile), false);
-          auto scroll_handle = il2cpp_gchandle_new_weakref(scroll, false);
-          if (tile_handle && scroll_handle)
-            drag = {tile_handle, scroll_handle, was_enabled, *id, position, Clock::now(), false};
-          else {
-            if (tile_handle)
-              il2cpp_gchandle_free(tile_handle);
-            if (scroll_handle)
-              il2cpp_gchandle_free(scroll_handle);
-            if (was_enabled) {
-              bool enabled = true;
-              void* restore_args[]{&enabled};
-              InvokeVoid(methods.set_enabled, scroll, restore_args);
-            }
-          }
-        }
-      }
-    }
-  }
-  if (drag.ship_id && methods.held(0) && Clock::now() - drag.pressed >= kHoldTime) {
-    const auto position = MousePosition();
-    auto* source = reinterpret_cast<ShipTileWidget*>(il2cpp_gchandle_get_target(drag.tile));
-    if (!drag.highlighted_source && source) {
-      ship_tech_indicators::SetPinBadgeHighlight(source, ship_tech_indicators::PinBadgeHighlight::Source);
-      drag.highlighted_source = true;
-    }
-    const auto dx = position.x - drag.origin.x;
-    const auto dy = position.y - drag.origin.y;
-    if (dx * dx + dy * dy >= kDragDistanceSquared)
-      drag.dragging = true;
-    if (drag.dragging) {
-      auto* target = TileAt(position, false);
-      HighlightTarget(target != source ? target : nullptr);
-    }
-  }
-  if (methods.up(0) && drag.ship_id) {
-    if (drag.dragging) {
-      suppress_click_id = drag.ship_id;
-      const auto position = MousePosition();
-      auto* target = AnyTileAt(position);
-      const auto target_id = Id(target);
-      auto* source = reinterpret_cast<ShipTileWidget*>(il2cpp_gchandle_get_target(drag.tile));
-      auto* context = Badge(source) ? swap_ship_tile::SelectionContext(source) : nullptr;
-      const auto source_id = drag.ship_id;
-      const bool inside_bar = InShipBar(position).value_or(target_id.has_value());
-      const bool valid_drop = context && Id(source) == source_id && (!target || target_id)
-                              && inside_bar;
-      const auto rank_target = target_id && pinned_ship_sort::Rank(target->Context) ? target_id : std::nullopt;
-      if (valid_drop)
-        pinned_ship_sort::PlacePinnedShip(source->Context, rank_target, context);
-      else
-        spdlog::info("[PinnedShipSort] drag canceled outside ship row");
-      ResetDrag();
-    } else {
-      ResetDrag();
-    }
-  } else if (drag.ship_id && !methods.held(0)) {
-    ResetDrag();
-  }
 }
 } // namespace
 
@@ -422,7 +521,31 @@ namespace swap_ship_pin_input
 {
 bool Install()
 {
-  return Methods().ready && install_screen_manager_update_hook() && register_screen_manager_update_callback(Update);
+  if (!Methods().drag_ready)
+    return false;
+  auto scroll = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "ScrollRect");
+  auto* potential_drag = scroll.GetMethod("OnInitializePotentialDrag", 1);
+  auto* begin_drag = scroll.GetMethod("OnBeginDrag", 1);
+  auto* on_drag = scroll.GetMethod("OnDrag", 1);
+  auto* end_drag = scroll.GetMethod("OnEndDrag", 1);
+  if (!potential_drag || !begin_drag || !on_drag || !end_drag) {
+    spdlog::warn("[PinnedShipSort] ScrollRect drag callbacks unavailable; pin input disabled");
+    return false;
+  }
+  const bool potential_hooked = SPUD_STATIC_DETOUR(potential_drag, ScrollRect_OnInitializePotentialDrag_Hook) != nullptr;
+  const bool begin_hooked = SPUD_STATIC_DETOUR(begin_drag, ScrollRect_OnBeginDrag_Hook) != nullptr;
+  const bool drag_hooked = SPUD_STATIC_DETOUR(on_drag, ScrollRect_OnDrag_Hook) != nullptr;
+  const bool end_hooked = SPUD_STATIC_DETOUR(end_drag, ScrollRect_OnEndDrag_Hook) != nullptr;
+  if (!potential_hooked || !begin_hooked || !drag_hooked || !end_hooked) {
+    spdlog::error("[PinnedShipSort] ScrollRect drag detours incomplete ({}, {}, {}, {}); pin input disabled",
+                  potential_hooked, begin_hooked, drag_hooked, end_hooked);
+    return false;
+  }
+  hooks_ready = true;
+  if (!install_screen_manager_update_hook() || !register_screen_manager_update_callback(UpdateGroupBand))
+    spdlog::warn("[PinnedShipSort] delayed pin group outline unavailable");
+  spdlog::info("[PinnedShipSort] ScrollRect pin drag callbacks installed");
+  return true;
 }
 
 void RegisterTile(ShipTileWidget* tile)
@@ -466,10 +589,14 @@ bool HandleTileClick(ShipTileWidget* tile)
   auto* badge = Badge(tile);
   if (!id || !badge)
     return false;
-  if (suppress_click_id == *id || drag.dragging)
+  if (suppress_click_id == *id || drag.dragging) {
+    suppress_click_id = 0;
+    ResetDrag();
     return true;
+  }
   if (!Contains(badge, MousePosition()))
     return false;
+  ResetDrag();
   return pinned_ship_sort::HandleCardAction(tile->Context, swap_ship_tile::SelectionContext(tile));
 }
 } // namespace swap_ship_pin_input

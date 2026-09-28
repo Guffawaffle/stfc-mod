@@ -464,7 +464,7 @@ void InstallPinnedShipSortHooks()
   }
   s.input_available = swap_ship_pin_input::Install();
   if (!s.input_available)
-    spdlog::warn("[PinnedShipSort] pointer polling unavailable; pin badge input disabled");
+    spdlog::warn("[PinnedShipSort] drag callbacks unavailable; pin badge input disabled");
   if (!install_screen_manager_update_hook() || !register_screen_manager_update_callback(FlushPendingRefresh))
     spdlog::warn("[PinnedShipSort] ship-bar redraw polling unavailable");
   spdlog::info("Pinned ship sort: hooks installed");
