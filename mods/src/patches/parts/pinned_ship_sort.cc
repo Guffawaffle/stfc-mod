@@ -19,9 +19,9 @@
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
-#include <algorithm>
 #include <cstdint>
 #include <optional>
+#include <utility>
 #include <vector>
 
 // Sort only the ship-management context. Explicit ship-ID pins lead in saved
@@ -358,17 +358,6 @@ namespace pinned_ship_sort
 bool Available()
 { return State().valid && State().input_available; }
 
-std::optional<std::size_t> Rank(FleetPlayerData* ship)
-{
-  if (!ship || !ship->HasShip)
-    return std::nullopt;
-  const auto id = ship_identity::InstanceId(ship);
-  if (!id)
-    return std::nullopt;
-  const auto& pins = State().pinned_ids;
-  const auto  found = std::find(pins.begin(), pins.end(), *id);
-  return found == pins.end() ? std::nullopt : std::optional<std::size_t>{found - pins.begin() + 1};
-}
 
 bool IsPinnedForDisplay(FleetPlayerData* ship)
 {

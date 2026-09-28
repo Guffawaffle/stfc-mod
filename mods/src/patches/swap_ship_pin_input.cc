@@ -73,6 +73,7 @@ bool hooks_ready = false;
 
 struct InputMethods {
   bool (*held)(int) = nullptr;
+  bool (*up)(int) = nullptr;
   bool (*focused)() = nullptr;
   void (*mouse_position)(Vector3*) = nullptr;
   const MethodInfo* contains = nullptr;
@@ -92,6 +93,7 @@ InputMethods& Methods()
   static InputMethods methods = [] {
     InputMethods value;
     value.held = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButton(System.Int32)");
+    value.up = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButtonUp(System.Int32)");
     value.focused = il2cpp_resolve_icall_typed<bool()>("UnityEngine.Application::get_isFocused()");
     value.mouse_position = il2cpp_resolve_icall_typed<void(Vector3*)>(
         "UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)");
@@ -107,7 +109,7 @@ InputMethods& Methods()
     value.pointer_id = pointer.GetMethodInfo("get_pointerId", 0);
     value.canvas = canvas.get_cls();
     value.scroll_rect = scroll.get_cls();
-    value.ready = value.mouse_position && value.contains && value.canvas_camera && value.canvas;
+    value.ready = value.up && value.mouse_position && value.contains && value.canvas_camera && value.canvas;
     value.drag_ready = value.ready && value.scroll_rect && value.pointer_position && value.pointer_press_position
                        && value.pointer_button && value.pointer_id && value.held;
     if (!value.ready)
@@ -752,7 +754,8 @@ void RefreshVisibleBadges()
 
 bool HandleTileClick(ShipTileWidget* tile)
 {
-  if (!Methods().ready)
+  // HandleOnClick has no PointerEventData; ignore nonmouse activations and stale mouse tokens.
+  if (!Methods().ready || !Methods().up(0))
     return false;
   const auto id = Id(tile);
   auto* badge = Badge(tile);
