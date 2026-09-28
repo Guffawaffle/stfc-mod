@@ -242,10 +242,10 @@ system_pan_momentum_falloff = 0.8
 # Subgroup: Loader
 # ----------------
 
-# Sæt til sand for at bruge loader_image på indlæsningsskærmen
+# Vis mærker og et valgfrit brugerdefineret billede på indlæsningsskærmen
 loader_enabled = true
 
-# Sti til et brugerdefineret billede på indlæsningsskærmen (lad stå tomt for det indlejrede billede)
+# Sti til et brugerdefineret PNG-billede (tom værdi bruger som standard spillets baggrund i denne fork)
 loader_image = ""
 
 # Multiplier applied to the logo size on the loading screen
@@ -254,7 +254,7 @@ loader_logo_scale = 1.0
 # Show the custom tip on the loading screen
 loader_tip_enabled = true
 
-# Sæt til sand for at bruge indlæsningsbilledet på overgangsskærmen
+# Vis mærker og et valgfrit brugerdefineret billede på overgangsskærmen
 loader_transition = true
 
 # Use a black background instead of the custom image during transitions
@@ -813,7 +813,9 @@ arrow_keys_to_select_ship = true
 double_click_to_assign_ship = false
 
 # Fastgør skibe i Administrer skib > Skift skib.
-# Klik på nålen nederst til højre for at fastgøre eller frigøre; hold og træk en nummereret nål til et andet nummereret kort for at ændre rækkefølgen.
+# Nålene har ingen rangnumre: udfyldt = fastgjort, hul = ikke fastgjort.
+# Klik på nålen nederst til højre for at fastgøre eller frigøre. Hold den nede i ca. 125 ms, og træk skibet ind i den fastgjorte gruppe eller over på et andet fastgjort skib for at tilføje eller omarrangere det.
+# Træk et fastgjort skib til den ikke-fastgjorte del af rækken for at frigøre det. Slip det første skib på den midlertidige markering "Pin here".
 # Rækkefølgen af skibs-id'er gemmes i moddens JSON-tilstand, ikke i denne TOML-fil.
 
 # Subgroup: HUD

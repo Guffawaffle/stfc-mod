@@ -19,9 +19,9 @@
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
-#include <algorithm>
 #include <cstdint>
 #include <optional>
+#include <utility>
 #include <vector>
 
 // Sort only the ship-management context. Explicit ship-ID pins lead in saved
@@ -34,6 +34,7 @@ struct PinnedShipSortState {
   IL2CppFieldHelper* sortedIdleShipsField      = nullptr;
   std::vector<int64_t> pinned_ids;
   std::vector<std::string> legacy_names;
+  std::vector<int64_t> legacy_pinned_ids;
   bool               has_id_order              = false;
   bool               valid                     = false;
   bool               input_available           = false;
@@ -139,10 +140,11 @@ ShipEntry BuildShipEntry(void* item, bool legacy_names)
 
 void ReorderPinnedShips(void* list)
 {
+  auto& state = State();
+  state.legacy_pinned_ids.clear();
   if (!list) return;
 
   const auto& cfg = Config::Get();
-  auto&       state = State();
   const auto& legacy_names = state.has_id_order ? state.legacy_names : cfg.pinned_ships;
   if (state.pinned_ids.empty() && legacy_names.empty()) return;
 
@@ -162,7 +164,7 @@ void ReorderPinnedShips(void* list)
   auto* countObj = il2cpp_runtime_invoke(getCount, list, nullptr, &exc);
   if (exc || !countObj) return;
   const auto count = *reinterpret_cast<int32_t*>(il2cpp_object_unbox(countObj));
-  if (count <= 1) return;
+  if (count <= 0) return;
   if (count > 2000) {
     spdlog::warn("[PinnedShipSort] SortedIdleShips reported an implausible count ({}); skipping", count);
     return;
@@ -207,6 +209,10 @@ void ReorderPinnedShips(void* list)
       legacy_pins[best_index] = true;
     else
       spdlog::warn("[PinnedShipSort] legacy pin '{}' matched no idle ship", name);
+  }
+  for (int32_t i = 0; i < count; ++i) {
+    if (legacy_pins[i] && ids[i])
+      state.legacy_pinned_ids.push_back(*ids[i]);
   }
   const auto order = pinned_ship_order::SortedIndices(ids, state.pinned_ids, legacy_pins, non_ships);
 
@@ -326,6 +332,7 @@ bool SaveAndRefresh(std::vector<int64_t> updated, std::vector<std::string> legac
   }
   state.pinned_ids   = std::move(updated);
   state.legacy_names = std::move(legacy);
+  state.legacy_pinned_ids.clear();
   state.has_id_order = true;
 
   Il2CppException* exception = nullptr;
@@ -351,16 +358,17 @@ namespace pinned_ship_sort
 bool Available()
 { return State().valid && State().input_available; }
 
-std::optional<std::size_t> Rank(FleetPlayerData* ship)
+
+bool IsPinnedForDisplay(FleetPlayerData* ship)
 {
   if (!ship || !ship->HasShip)
-    return std::nullopt;
+    return false;
   const auto id = ship_identity::InstanceId(ship);
   if (!id)
-    return std::nullopt;
-  const auto& pins = State().pinned_ids;
-  const auto  found = std::find(pins.begin(), pins.end(), *id);
-  return found == pins.end() ? std::nullopt : std::optional<std::size_t>{found - pins.begin() + 1};
+    return false;
+  const auto& state = State();
+  return pinned_ship_order::Contains(state.pinned_ids, *id)
+         || pinned_ship_order::Contains(state.legacy_pinned_ids, *id);
 }
 
 bool HandleCardAction(FleetPlayerData* ship, Il2CppObject* selection_context)
@@ -464,7 +472,7 @@ void InstallPinnedShipSortHooks()
   }
   s.input_available = swap_ship_pin_input::Install();
   if (!s.input_available)
-    spdlog::warn("[PinnedShipSort] pointer polling unavailable; pin badge input disabled");
+    spdlog::warn("[PinnedShipSort] drag callbacks unavailable; pin badge input disabled");
   if (!install_screen_manager_update_hook() || !register_screen_manager_update_callback(FlushPendingRefresh))
     spdlog::warn("[PinnedShipSort] ship-bar redraw polling unavailable");
   spdlog::info("Pinned ship sort: hooks installed");

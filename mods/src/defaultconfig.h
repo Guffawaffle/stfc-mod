@@ -77,14 +77,10 @@ namespace Graphics
   constexpr bool        use_presets_as_default      = true;
   constexpr auto        zoom                        = 5000;
   constexpr auto        fr_scale                    = 2.0;
-  constexpr bool        loader_enabled              = true; // replace LoginSequence background
-  constexpr bool        loader_transition           = true; // replace TVC/SlideShow backgrounds
-#ifdef _USE_ORIGINAL_BG
-  constexpr bool        loader_transition_black     = true;  // original BG mode: use black transition
-#else
+  constexpr bool        loader_enabled              = true; // customize LoginSequence
+  constexpr bool        loader_transition           = true; // customize TVC/SlideShow
   constexpr bool        loader_transition_black     = false; // transition: use black BG instead of custom image
-#endif
-  constexpr const char* loader_image                = "";   // Empty = use embedded fallback
+  constexpr const char* loader_image                = "";   // Empty = use game background in original BG builds
   constexpr auto        loader_logo_scale           = 1.0;  // multiplier for logo size
   constexpr bool        loader_tip_enabled           = true; // show custom tip on loading screen
 } // namespace Graphics

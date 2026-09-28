@@ -12,9 +12,10 @@
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <string>
 
 namespace
 {
@@ -25,12 +26,19 @@ constexpr const char* kChaosIndicator     = "CommunityMod_SwapShipCT";
 constexpr const char* kForbiddenBacking   = "CommunityMod_SwapShipFTBacking";
 constexpr const char* kChaosBacking       = "CommunityMod_SwapShipCTBacking";
 constexpr const char* kPinBadge           = "CommunityMod_SwapShipPinBadge";
-constexpr const char* kPinLabel           = "CommunityMod_SwapShipPinLabel";
 constexpr const char* kPinGroupBand       = "CommunityMod_SwapShipPinGroup";
+constexpr const char* kFirstPinDropCue    = "CommunityMod_FirstPinDropCue";
+constexpr const char* kFirstPinDropLabel  = "CommunityMod_FirstPinDropLabel";
+constexpr const char* kFirstPinDropEdge   = "CommunityMod_FirstPinDropEdge";
 constexpr const char* kPinDragEdges[]     = {"CommunityMod_PinDragTop", "CommunityMod_PinDragBottom",
                                            "CommunityMod_PinDragLeft", "CommunityMod_PinDragRight"};
+constexpr const char* kPinGroupEdges[]    = {"CommunityMod_PinGroupTop", "CommunityMod_PinGroupBottom",
+                                           "CommunityMod_PinGroupLeft", "CommunityMod_PinGroupRight"};
 constexpr float       kBackingMargin       = 4.0f;
 bool                  g_available         = false;
+Il2CppGCHandle        g_hovered_pin_group = nullptr;
+Il2CppGCHandle        g_active_pin_group = nullptr;
+Il2CppGCHandle        g_first_pin_cue_viewport = nullptr;
 
 struct Vector2 {
   float x, y;
@@ -600,13 +608,23 @@ bool CreatePinPiece(Transform* parent, const char* name, Vector2 size, Vector2 p
   return true;
 }
 
+void SetPinPiece(Transform* parent, const char* name, Color color, bool visible)
+{
+  static auto image_helper = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Image");
+  auto* child = DirectChild(parent, name);
+  auto* object = child ? child->gameObject : nullptr;
+  auto* image = object ? Component(reinterpret_cast<Il2CppObject*>(object), image_helper.get_cls()) : nullptr;
+  if (image)
+    Set(image, "set_color", &color);
+  if (object)
+    object->SetActive(visible);
+}
+
 void UpdatePinBadge(Transform* parent, FleetPlayerData* fleet)
 {
-  static auto text_helper = il2cpp_get_class_helper("Unity.TextMeshPro", "TMPro", "TextMeshProUGUI");
   static auto image_helper = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Image");
   auto*       child = DirectChild(parent, kPinBadge);
   auto*       badge = child ? child->gameObject : nullptr;
-  const auto  rank = pinned_ship_sort::Rank(fleet);
   if (!fleet || !fleet->HasShip || !ship_identity::InstanceId(fleet)) {
     if (badge)
       badge->SetActive(false);
@@ -621,54 +639,32 @@ void UpdatePinBadge(Transform* parent, FleetPlayerData* fleet)
     auto* transform = reinterpret_cast<Il2CppObject*>(ComponentTransform(raw));
     auto* background = Component(raw, image_helper.get_cls());
     auto* badge_transform = ComponentTransform(raw);
-    static auto game_object = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "GameObject");
-    static auto rect_transform = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "RectTransform");
-    auto* label_raw = game_object.isValidHelper() ? il2cpp_object_new(game_object.get_cls()) : nullptr;
-    const auto handle = label_raw ? il2cpp_gchandle_new(label_raw, false) : 0;
-    auto* constructor = game_object.GetMethodInfo(".ctor", 1);
-    void* name_args[]{il2cpp_string_new(kPinLabel)};
-    bool world_position_stays = false;
-    void* parent_args[]{ComponentTransform(raw), &world_position_stays};
-    auto* label_transform = handle && constructor && rect_transform.isValidHelper()
-                                && InvokeVoid(constructor, label_raw, name_args)
-                                ? WithType(TypeMethod(label_raw->klass, "AddComponent"), label_raw,
-                                           rect_transform.get_cls())
-                                : nullptr;
-    auto* label = label_transform && text_helper.isValidHelper()
-                      ? WithType(TypeMethod(label_raw->klass, "AddComponent"), label_raw, text_helper.get_cls())
-                      : nullptr;
     Color backing{0.06f, 0.10f, 0.12f, 0.82f};
     Color foreground{0.97f, 0.84f, 0.48f, 1.0f};
-    float font_size = 13;
-    int alignment = 0x202;
-    bool no = false;
-    const bool ready = transform && background && badge_transform && label && label_transform
-        && InvokeVoid(IL2CppClassHelper(label_transform->klass).GetMethodInfo("SetParent", 2), label_transform,
-                      parent_args)
+    const bool ready = transform && background && badge_transform
         && Rect(transform, {1, 0}, {1, 0}, {34, 24}, {-3, 8})
-        && Rect(label_transform, {0, 0.5f}, {0, 0.5f}, {18, 22}, {15, 0})
-        && Set(background, "set_color", &backing) && Set(label, "set_fontSize", &font_size)
-        && Set(label, "set_alignment", &alignment) && Set(label, "set_color", &foreground)
-        && Set(label, "set_raycastTarget", &no) && Set(label, "set_enableWordWrapping", &no)
-        && CreatePinPiece(badge_transform, "CommunityMod_PinCap", {11, 3}, {9, 17}, foreground)
-        && CreatePinPiece(badge_transform, "CommunityMod_PinHead", {7, 6}, {9, 13}, foreground)
-        && CreatePinPiece(badge_transform, "CommunityMod_PinStem", {2, 9}, {9, 6}, foreground);
-    if (handle)
-      il2cpp_gchandle_free(handle);
+        && Set(background, "set_color", &backing)
+        && CreatePinPiece(badge_transform, "CommunityMod_PinCap", {11, 3}, {17, 17}, foreground)
+        && CreatePinPiece(badge_transform, "CommunityMod_PinHead", {7, 6}, {17, 13}, foreground)
+        && CreatePinPiece(badge_transform, "CommunityMod_PinStem", {2, 9}, {17, 6}, foreground)
+        && CreatePinPiece(badge_transform, "CommunityMod_PinOutlineLeft", {1.5f, 6}, {14.25f, 13}, foreground)
+        && CreatePinPiece(badge_transform, "CommunityMod_PinOutlineRight", {1.5f, 6}, {19.75f, 13}, foreground)
+        && CreatePinPiece(badge_transform, "CommunityMod_PinOutlineBase", {7, 1.5f}, {17, 10.75f}, foreground);
     if (!ready) {
-      if (label_raw)
-        Destroy(label_raw);
       Destroy(raw);
       return;
     }
   }
 
-  auto* label_child = DirectChild(ComponentTransform(reinterpret_cast<Il2CppObject*>(badge)), kPinLabel);
-  auto* label = label_child ? Component(reinterpret_cast<Il2CppObject*>(label_child->gameObject), text_helper.get_cls())
-                            : nullptr;
-  const auto text = rank ? *rank <= 99 ? std::to_string(*rank) : std::string{"+"} : std::string{};
-  if (!label || !Set(label, "set_text", il2cpp_string_new(text.c_str())))
-    return;
+  const bool pinned = pinned_ship_sort::IsPinnedForDisplay(fleet);
+  const Color color = pinned ? Color{0.97f, 0.84f, 0.48f, 1.0f} : Color{0.54f, 0.63f, 0.66f, 0.94f};
+  auto* transform = ComponentTransform(reinterpret_cast<Il2CppObject*>(badge));
+  SetPinPiece(transform, "CommunityMod_PinCap", color, true);
+  SetPinPiece(transform, "CommunityMod_PinHead", color, pinned);
+  SetPinPiece(transform, "CommunityMod_PinStem", color, true);
+  SetPinPiece(transform, "CommunityMod_PinOutlineLeft", color, !pinned);
+  SetPinPiece(transform, "CommunityMod_PinOutlineRight", color, !pinned);
+  SetPinPiece(transform, "CommunityMod_PinOutlineBase", color, !pinned);
   badge->SetActive(true);
 }
 
@@ -759,8 +755,8 @@ void RefreshPinBadge(ShipTileWidget* widget)
     UpdatePinBadge(parent, swap_ship_tile::IsInSelection(widget) ? widget->Context : nullptr);
 }
 
-void SetPinDragEdge(Transform* parent, const char* name, Vector2 anchor_min, Vector2 anchor_max, Vector2 pivot,
-                    Vector2 size, Vector2 position, Color color, bool visible)
+bool SetPinDragEdge(Transform* parent, const char* name, Vector2 anchor_min, Vector2 anchor_max, Vector2 pivot,
+                    Vector2 size, Vector2 position, Color color, bool visible, bool unmasked = false)
 {
   static auto image_helper = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Image");
   auto* child = DirectChild(parent, name);
@@ -768,7 +764,7 @@ void SetPinDragEdge(Transform* parent, const char* name, Vector2 anchor_min, Vec
   if (!visible) {
     if (object)
       object->SetActive(false);
-    return;
+    return true;
   }
   if (!object)
     object = CreateBacking(name, parent, {0.5f, 0.5f}, {0.5f, 0.5f}, {0, 0}, false);
@@ -776,12 +772,98 @@ void SetPinDragEdge(Transform* parent, const char* name, Vector2 anchor_min, Vec
   auto* transform = ComponentTransform(raw);
   auto* rect = reinterpret_cast<Il2CppObject*>(transform);
   auto* image = Component(raw, image_helper.get_cls());
+  bool maskable = false;
   if (!rect || !image || !Set(rect, "set_anchorMin", &anchor_min)
       || !Set(rect, "set_anchorMax", &anchor_max) || !Set(rect, "set_pivot", &pivot)
       || !Set(rect, "set_sizeDelta", &size) || !Set(rect, "set_anchoredPosition", &position)
-      || !Set(image, "set_color", &color))
-    return;
+      || !Set(image, "set_color", &color) || (unmasked && !Set(image, "set_maskable", &maskable)))
+    return false;
   object->SetActive(true);
+  return true;
+}
+
+bool CreateFirstPinDropLabel(Transform* parent)
+{
+  static auto game_object = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "GameObject");
+  static auto rect_transform = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "RectTransform");
+  static auto text_helper = il2cpp_get_class_helper("Unity.TextMeshPro", "TMPro", "TextMeshProUGUI");
+  auto* raw = game_object.isValidHelper() ? il2cpp_object_new(game_object.get_cls()) : nullptr;
+  const auto handle = raw ? il2cpp_gchandle_new(raw, false) : nullptr;
+  auto* constructor = game_object.GetMethodInfo(".ctor", 1);
+  void* name_args[]{il2cpp_string_new(kFirstPinDropLabel)};
+  auto* transform = handle && constructor && rect_transform.isValidHelper()
+                        && InvokeVoid(constructor, raw, name_args)
+                        ? WithType(TypeMethod(raw->klass, "AddComponent"), raw, rect_transform.get_cls())
+                        : nullptr;
+  auto* label = transform && text_helper.isValidHelper()
+                    ? WithType(TypeMethod(raw->klass, "AddComponent"), raw, text_helper.get_cls())
+                    : nullptr;
+  bool world_position_stays = false;
+  void* parent_args[]{parent, &world_position_stays};
+  bool no = false;
+  float font_size = 13;
+  int alignment = 0x202;
+  const bool ready = transform && label
+                     && InvokeVoid(IL2CppClassHelper(transform->klass).GetMethodInfo("SetParent", 2), transform,
+                                   parent_args)
+                     && Rect(transform, {0.5f, 0.5f}, {0.5f, 0.5f}, {80, 24}, {0, 0})
+                     && Set(label, "set_text", il2cpp_string_new("Pin here"))
+                     && Set(label, "set_fontSize", &font_size) && Set(label, "set_alignment", &alignment)
+                     && Set(label, "set_raycastTarget", &no) && Set(label, "set_enableWordWrapping", &no);
+  if (!ready)
+    Destroy(raw);
+  if (handle)
+    il2cpp_gchandle_free(handle);
+  return ready;
+}
+
+bool PinGroupHovered(Transform* content)
+{
+  return content && g_hovered_pin_group
+         && il2cpp_gchandle_get_target(g_hovered_pin_group) == reinterpret_cast<Il2CppObject*>(content);
+}
+
+bool PinGroupDragActive(Transform* content)
+{
+  return content && g_active_pin_group
+         && il2cpp_gchandle_get_target(g_active_pin_group) == reinterpret_cast<Il2CppObject*>(content);
+}
+
+struct PinGroupStyle {
+  Color fill;
+  Color rim;
+  float width;
+};
+
+PinGroupStyle GroupStyle(Transform* content)
+{
+  if (PinGroupHovered(content))
+    return {{0.13f, 0.35f, 0.32f, 0.90f}, {0.26f, 0.96f, 0.77f, 1.0f}, 5.0f};
+  if (PinGroupDragActive(content))
+    return {{0.12f, 0.24f, 0.25f, 0.78f}, {1.0f, 0.76f, 0.16f, 1.0f}, 4.5f};
+  return {{0.06f, 0.17f, 0.20f, 0.72f}, {0.83f, 0.67f, 0.32f, 0.82f}, 3.0f};
+}
+
+bool StylePinGroupBand(Transform* content)
+{
+  static auto image_helper = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Image");
+  auto* band = DirectChild(content, kPinGroupBand);
+  if (!band || !band->gameObject)
+    return false;
+  auto* graphic = Component(reinterpret_cast<Il2CppObject*>(band->gameObject), image_helper.get_cls());
+  const auto style = GroupStyle(content);
+  auto fill = style.fill;
+  if (!graphic || !Set(graphic, "set_color", &fill))
+    return false;
+  const auto width = style.width;
+  const auto rim = style.rim;
+  // The viewport clips below the ship frames; keep the fill clipped but let the outer frame complete below it.
+  return SetPinDragEdge(band, kPinGroupEdges[0], {0, 1}, {1, 1}, {0.5f, 1}, {0, width}, {0, 0}, rim, true, true)
+         && SetPinDragEdge(band, kPinGroupEdges[1], {0, 0}, {1, 0}, {0.5f, 0}, {0, width}, {0, 0}, rim, true, true)
+         && SetPinDragEdge(band, kPinGroupEdges[2], {0, 0}, {0, 1}, {0, 0.5f}, {width, -2 * width}, {0, 0}, rim,
+                           true, true)
+         && SetPinDragEdge(band, kPinGroupEdges[3], {1, 0}, {1, 1}, {1, 0.5f}, {width, -2 * width}, {0, 0}, rim,
+                           true, true);
 }
 
 void UpdatePinGroupBand(Transform* content, std::optional<PinGroupBounds> bounds)
@@ -816,42 +898,171 @@ void UpdatePinGroupBand(Transform* content, std::optional<PinGroupBounds> bounds
   if (!rect || !image)
     return;
 
-  constexpr float margin = 7.0f;
+  constexpr float margin = 10.0f;
   const Vector2 size{bounds->right - bounds->left + margin * 2, bounds->top - bounds->bottom + margin * 2};
   Vector3 position{(bounds->left + bounds->right) * 0.5f, (bounds->bottom + bounds->top) * 0.5f, 0};
-  Color fill{0.06f, 0.17f, 0.20f, 0.72f};
   if (!Rect(rect, {0.5f, 0.5f}, {0.5f, 0.5f}, size, {0, 0})
-      || !Set(rect, "set_localPosition", &position) || !Set(image, "set_color", &fill)
+      || !Set(rect, "set_localPosition", &position)
       || !InvokeVoid(transform_helper.GetMethodInfo("SetAsFirstSibling", 0), rect))
     return;
+  if (!StylePinGroupBand(content)) {
+    band->SetActive(false);
+    return;
+  }
   band->SetActive(true);
+}
 
-  const Color rim{0.83f, 0.67f, 0.32f, 0.72f};
-  SetPinDragEdge(transform, "CommunityMod_PinGroupTop", {0, 1}, {1, 1}, {0.5f, 1}, {-12, 1.5f}, {0, -1}, rim, true);
-  SetPinDragEdge(transform, "CommunityMod_PinGroupBottom", {0, 0}, {1, 0}, {0.5f, 0}, {-12, 1.5f}, {0, 1}, rim, true);
-  SetPinDragEdge(transform, "CommunityMod_PinGroupLeft", {0, 0}, {0, 1}, {0, 0.5f}, {1.5f, -12}, {1, 0}, rim, true);
-  SetPinDragEdge(transform, "CommunityMod_PinGroupRight", {1, 0}, {1, 1}, {1, 0.5f}, {1.5f, -12}, {-1, 0}, rim, true);
+void SetPinGroupDragActive(Transform* content, bool active)
+{
+  auto* previous = g_active_pin_group
+                       ? reinterpret_cast<Transform*>(il2cpp_gchandle_get_target(g_active_pin_group))
+                       : nullptr;
+  if (active && content == previous)
+    return;
+  if (g_active_pin_group)
+    il2cpp_gchandle_free(g_active_pin_group);
+  g_active_pin_group = active && content
+                           ? il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(content), false)
+                           : nullptr;
+  if (previous)
+    StylePinGroupBand(previous);
+  if (content && content != previous)
+    StylePinGroupBand(content);
+}
+
+void SetPinGroupHover(Transform* content, bool hovered)
+{
+  auto* previous = g_hovered_pin_group
+                       ? reinterpret_cast<Transform*>(il2cpp_gchandle_get_target(g_hovered_pin_group))
+                       : nullptr;
+  if (hovered && content == previous)
+    return;
+  if (g_hovered_pin_group)
+    il2cpp_gchandle_free(g_hovered_pin_group);
+  g_hovered_pin_group = hovered && content
+                            ? il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(content), false)
+                            : nullptr;
+  if (previous)
+    StylePinGroupBand(previous);
+  if (content && content != previous)
+    StylePinGroupBand(content);
+}
+
+void HideFirstPinDropCue(Transform* viewport)
+{
+  auto* child = DirectChild(viewport, kFirstPinDropCue);
+  if (child && child->gameObject)
+    child->gameObject->SetActive(false);
+  SetPinDragEdge(viewport, kFirstPinDropEdge, {0, 0}, {0, 1}, {0, 0.5f}, {3, -8}, {1, 0}, {}, false);
+}
+
+Vector2 FirstPinDropCueSize(Transform* viewport)
+{
+  static auto rect_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "RectTransform");
+  auto* boxed = viewport ? Invoke(rect_helper.GetMethodInfo("get_rect", 0), viewport) : nullptr;
+  if (!boxed || !il2cpp_class_is_valuetype(boxed->klass)
+      || il2cpp_class_value_size(boxed->klass, nullptr) != sizeof(float) * 4
+      || std::strcmp(il2cpp_class_get_namespace(boxed->klass), "UnityEngine")
+      || std::strcmp(il2cpp_class_get_name(boxed->klass), "Rect"))
+    return {0, 0};
+  struct RectValue { float x, y, width, height; };
+  const auto rect = *static_cast<RectValue*>(il2cpp_object_unbox(boxed));
+  if (!std::isfinite(rect.width) || !std::isfinite(rect.height) || rect.width < 16 || rect.height < 16)
+    return {0, 0};
+  return {std::min(90.0f, rect.width - 8), std::min(90.0f, rect.height - 8)};
+}
+
+void SetFirstPinDropCue(Transform* viewport, bool visible, bool hovered)
+{
+  static auto image_helper = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Image");
+  static auto layout_helper = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "LayoutElement");
+  static auto text_helper = il2cpp_get_class_helper("Unity.TextMeshPro", "TMPro", "TextMeshProUGUI");
+  static auto transform_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Transform");
+  auto* previous = g_first_pin_cue_viewport
+                       ? reinterpret_cast<Transform*>(il2cpp_gchandle_get_target(g_first_pin_cue_viewport))
+                       : nullptr;
+  if (previous && (!visible || previous != viewport))
+    HideFirstPinDropCue(previous);
+  if (!visible || !viewport) {
+    if (viewport && viewport != previous)
+      HideFirstPinDropCue(viewport);
+    if (g_first_pin_cue_viewport)
+      il2cpp_gchandle_free(g_first_pin_cue_viewport);
+    g_first_pin_cue_viewport = nullptr;
+    return;
+  }
+  if (previous != viewport) {
+    if (g_first_pin_cue_viewport)
+      il2cpp_gchandle_free(g_first_pin_cue_viewport);
+    g_first_pin_cue_viewport = il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(viewport), false);
+  }
+  const auto cue_size = FirstPinDropCueSize(viewport);
+  if (cue_size.x <= 0 || cue_size.y <= 0) {
+    HideFirstPinDropCue(viewport);
+    return;
+  }
+  auto* child = DirectChild(viewport, kFirstPinDropCue);
+  auto* cue = child ? child->gameObject : nullptr;
+
+  if (!cue) {
+    cue = CreateBacking(kFirstPinDropCue, viewport, {0, 0.5f}, {0, 0.5f}, {4, 0}, false, true);
+    auto* raw = reinterpret_cast<Il2CppObject*>(cue);
+    auto* layout = raw ? WithType(TypeMethod(raw->klass, "AddComponent"), raw, layout_helper.get_cls()) : nullptr;
+    bool ignore_layout = true;
+    if (!layout || !Set(layout, "set_ignoreLayout", &ignore_layout)
+        || !CreateFirstPinDropLabel(ComponentTransform(raw))) {
+      Destroy(raw);
+      return;
+    }
+  }
+
+  auto* raw = reinterpret_cast<Il2CppObject*>(cue);
+  auto* transform = ComponentTransform(raw);
+  auto* image = Component(raw, image_helper.get_cls());
+  auto* label_child = DirectChild(transform, kFirstPinDropLabel);
+  auto* label = label_child && label_child->gameObject
+                    ? Component(reinterpret_cast<Il2CppObject*>(label_child->gameObject), text_helper.get_cls())
+                    : nullptr;
+  auto fill = hovered ? Color{0.39f, 0.30f, 0.03f, 0.98f} : Color{0.25f, 0.20f, 0.05f, 0.88f};
+  auto ink = hovered ? Color{1.0f, 0.96f, 0.72f, 1.0f} : Color{0.98f, 0.87f, 0.56f, 0.98f};
+  if (!transform || !image || !label
+      || !Rect(reinterpret_cast<Il2CppObject*>(transform), {0, 0.5f}, {0, 0.5f}, cue_size, {4, 0})
+      || !Rect(reinterpret_cast<Il2CppObject*>(label_child), {0.5f, 0.5f}, {0.5f, 0.5f},
+               {cue_size.x - 8, cue_size.y - 8}, {0, 0})
+      || !Set(image, "set_color", &fill) || !Set(label, "set_color", &ink))
+    return;
+  cue->SetActive(true);
+  InvokeVoid(transform_helper.GetMethodInfo("SetAsLastSibling", 0), transform);
+  const auto edge = hovered ? Color{1.0f, 0.94f, 0.57f, 1.0f} : Color{0.96f, 0.78f, 0.34f, 0.9f};
+  SetPinDragEdge(viewport, kFirstPinDropEdge, {0, 0.5f}, {0, 0.5f}, {0, 0.5f}, {3, cue_size.y}, {1, 0},
+                 edge, true);
+  auto* edge_child = DirectChild(viewport, kFirstPinDropEdge);
+  if (edge_child)
+    InvokeVoid(transform_helper.GetMethodInfo("SetAsLastSibling", 0), edge_child);
 }
 
 void SetPinBadgeHighlight(ShipTileWidget* widget, PinBadgeHighlight highlight)
 {
   static auto image_helper = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.UI", "Image");
   auto* parent = widget ? ComponentTransform(reinterpret_cast<Il2CppObject*>(widget)) : nullptr;
+  if (!parent)
+    return;
   auto* badge = DirectChild(parent, kPinBadge);
   auto* image = badge && badge->gameObject
                     ? Component(reinterpret_cast<Il2CppObject*>(badge->gameObject), image_helper.get_cls())
                     : nullptr;
-  if (!image)
-    return;
   Color color = highlight == PinBadgeHighlight::Source ? Color{0.52f, 0.27f, 0.02f, 0.98f}
                 : highlight == PinBadgeHighlight::Target ? Color{0.03f, 0.40f, 0.34f, 0.95f}
+                : highlight == PinBadgeHighlight::UnpinTarget ? Color{0.42f, 0.14f, 0.07f, 0.95f}
                                                          : Color{0.06f, 0.10f, 0.12f, 0.82f};
-  Set(image, "set_color", &color);
+  if (image)
+    Set(image, "set_color", &color);
   const bool visible = highlight != PinBadgeHighlight::None;
   const bool source = highlight == PinBadgeHighlight::Source;
   const float width = source ? 4.5f : 2.5f;
   const Color edge = source ? Color{1.0f, 0.76f, 0.16f, 1.0f}
-                                                      : Color{0.10f, 0.82f, 0.66f, 0.9f};
+                     : highlight == PinBadgeHighlight::UnpinTarget ? Color{1.0f, 0.43f, 0.25f, 0.95f}
+                                                                    : Color{0.10f, 0.82f, 0.66f, 0.9f};
   SetPinDragEdge(parent, kPinDragEdges[0], {0, 1}, {1, 1}, {0.5f, 1}, {-8, width}, {0, -3}, edge, visible);
   SetPinDragEdge(parent, kPinDragEdges[1], {0, 0}, {1, 0}, {0.5f, 0}, {-8, width}, {0, 3}, edge, visible);
   SetPinDragEdge(parent, kPinDragEdges[2], {0, 0}, {0, 1}, {0, 0.5f}, {width, -8}, {3, 0}, edge, visible);

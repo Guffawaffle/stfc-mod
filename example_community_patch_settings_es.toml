@@ -242,10 +242,10 @@ system_pan_momentum_falloff = 0.8
 # Subgroup: Loader
 # ----------------
 
-# Establece el valor en verdadero para usar loader_image en la pantalla de carga
+# Muestra insignias y una imagen personalizada opcional en la pantalla de carga
 loader_enabled = true
 
-# Ruta de la imagen personalizada de la pantalla de carga (déjala en blanco para usar la imagen integrada)
+# Ruta a una imagen PNG personalizada; en blanco usa por defecto el fondo del juego en este fork
 loader_image = ""
 
 # Multiplier applied to the logo size on the loading screen
@@ -254,7 +254,7 @@ loader_logo_scale = 1.0
 # Show the custom tip on the loading screen
 loader_tip_enabled = true
 
-# Establece el valor en verdadero para usar la imagen de carga en la pantalla de transición
+# Muestra insignias y una imagen personalizada opcional en la pantalla de transición
 loader_transition = true
 
 # Use a black background instead of the custom image during transitions
@@ -813,7 +813,9 @@ arrow_keys_to_select_ship = true
 double_click_to_assign_ship = false
 
 # Fija naves en Gestionar nave > Cambiar nave.
-# Haz clic en el pin inferior derecho para fijar o desfijar; mantén pulsado y arrastra un pin numerado sobre otra carta numerada para reordenar.
+# Los pines no muestran números de orden: lleno = fijado; hueco = no fijado.
+# Haz clic en el pin inferior derecho para fijar o desfijar. Mantenlo pulsado unos 125 ms y arrastra la nave al grupo fijado o sobre otra nave fijada para añadirla o reordenarla.
+# Arrastra una nave fijada a la parte no fijada de la fila para desfijarla. Para la primera, suéltala sobre la indicación temporal « Pin here ».
 # El orden de los ID de nave se guarda en el estado JSON del mod, no en este archivo TOML.
 
 # Subgroup: HUD

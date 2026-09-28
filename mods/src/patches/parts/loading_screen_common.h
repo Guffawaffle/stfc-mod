@@ -383,10 +383,17 @@ inline RootedImageAsset* GetLoadingAsset()
       }
     }
   }
+  if (!path.empty()) {
+    spdlog::warn("[LS] custom loading background unavailable: {}", path);
+  }
 
+#ifndef _USE_ORIGINAL_BG
   return asset.Load(g_embeddedLoadingImage, g_embeddedLoadingImage_SIZE, 1334, 750, "embedded loading background")
              ? &asset
              : nullptr;
+#else
+  return nullptr;
+#endif
 }
 
 inline RootedImageAsset* GetLogoAsset()
