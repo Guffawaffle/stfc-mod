@@ -6,7 +6,6 @@
 #include <memory>
 #include <tuple>
 #include <type_traits>
-#include <utility>
 #include <vector>
 
 #if __cpp_lib_source_location && SPUD_DETOUR_TRACING
@@ -18,20 +17,6 @@
 #include "utils.h"
 
 namespace spud {
-
-enum class detour_install_status : uint8_t {
-  not_installed,
-  installed,
-  already_installed,
-  duplicate_target,
-};
-
-using detour_diagnostic_handler = void (*)(const char *message);
-
-// Installs a process-local diagnostic sink. The handler must have process lifetime; replacement does not wait for
-// concurrent reports. The message is borrowed for the duration of the callback.
-void set_detour_diagnostic_handler(detour_diagnostic_handler handler) noexcept;
-
 namespace detail {
 
 struct detour {
@@ -44,23 +29,27 @@ public:
     return this->trampoline_;
   }
 
-  detour_install_status last_install_status() const {
-    return last_install_status_;
-  }
-
   using Self = detail::detour;
 
 public:
   detour(detour &&other) noexcept {
-    move_from(std::move(other));
+    this->trampoline_ = other.trampoline_;
+    this->address_ = other.address_;
+    this->func_ = other.func_;
+    this->wrapper_ = other.wrapper_;
+    this->context_container_ = std::move(other.context_container_);
+    this->original_func_data_ = other.original_func_data_;
+    other.original_func_data_.clear();
   }
 
   detour &operator=(detour &&other) noexcept {
-    if (this == &other) {
-      return *this;
-    }
-    remove();
-    move_from(std::move(other));
+    this->trampoline_ = other.trampoline_;
+    this->address_ = other.address_;
+    this->func_ = other.func_;
+    this->wrapper_ = other.wrapper_;
+    this->context_container_ = std::move(other.context_container_);
+    this->original_func_data_ = other.original_func_data_;
+    other.original_func_data_.clear();
     return *this;
   }
 
@@ -77,19 +66,24 @@ protected:
 #if __cpp_lib_source_location && SPUD_DETOUR_TRACING
   detour(uintptr_t address, uintptr_t func, uintptr_t wrapper,
          const std::source_location location = std::source_location::current())
-      : requested_address_(address), address_(address), func_(func),
-        wrapper_(wrapper),
+      : address_(address), func_(func), wrapper_(wrapper),
         context_container_(std::make_unique<ContextContainer>()),
         location_(location) {}
 #else
   detour(uintptr_t address, uintptr_t func, uintptr_t wrapper)
-      : requested_address_(address), address_(address), func_(func),
-        wrapper_(wrapper),
+      : address_(address), func_(func), wrapper_(wrapper),
         context_container_(std::make_unique<ContextContainer>()) {}
 #endif
   Self &install(Arch arch = Arch::kHost);
   void remove();
-  Self &detach();
+  Self &detach() {
+    original_func_data_.clear();
+    // We are intentionally ignoring the return value here
+    // TODO(alex): Move this to a global cleanup thing
+    (void)context_container_.release();
+
+    return *this;
+  }
 
   static uintptr_t get_context_value();
 
@@ -97,22 +91,6 @@ private:
   detour(detour const &) = delete;
   detour &operator=(detour const &) = delete;
 
-  void move_from(detour &&other) noexcept {
-    requested_address_ = other.requested_address_;
-    address_ = other.address_;
-    func_ = other.func_;
-    wrapper_ = other.wrapper_;
-    context_container_ = std::move(other.context_container_);
-    trampoline_ = other.trampoline_;
-    original_func_data_ = std::move(other.original_func_data_);
-    installed_ = std::exchange(other.installed_, false);
-    last_install_status_ = other.last_install_status_;
-
-    other.trampoline_ = 0;
-    other.last_install_status_ = detour_install_status::not_installed;
-  }
-
-  uintptr_t requested_address_;
   uintptr_t address_;
   uintptr_t func_;
   uintptr_t wrapper_;
@@ -120,9 +98,6 @@ private:
   std::unique_ptr<struct ContextContainer> context_container_ = nullptr;
   uintptr_t trampoline_ = 0;
   std::vector<uint8_t> original_func_data_ = {};
-  bool installed_ = false;
-  detour_install_status last_install_status_ =
-      detour_install_status::not_installed;
 #if __cpp_lib_source_location && SPUD_DETOUR_TRACING
   const std::source_location location_ = std::source_location::current();
 #endif

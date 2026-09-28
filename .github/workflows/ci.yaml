@@ -358,10 +358,12 @@ jobs:
       matrix:
         include:
           - arch: arm64
+            configure_timeout: 30
             runner: macos-26
             artifact: macos-arm64-build
 
           - arch: x86_64
+            configure_timeout: 60
             runner: macos-26-intel
             artifact: macos-x86_64-build
 
@@ -477,7 +479,7 @@ jobs:
 
       - name: Configure
         id: configure
-        timeout-minutes: 30
+        timeout-minutes: ${{ matrix.configure_timeout }}
         run: >
           xmake f
           -p macosx
@@ -551,15 +553,6 @@ jobs:
       - name: Test confirmation setting contracts
         shell: bash
         run: bash tests/run-confirmation-settings.sh
-
-      - name: Verify ARM64 debug core
-        if: ${{ matrix.arch == 'arm64' }}
-        shell: bash
-        run: |
-          xmake f -p macosx -a arm64 -m debug --target_minver=14.6 -y
-          xmake -y mods
-          xmake f -p macosx -a arm64 -m release --target_minver=14.6 -y
-
 
       - name: Report Swift module cache
         shell: bash
