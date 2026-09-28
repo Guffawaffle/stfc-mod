@@ -11,12 +11,18 @@
 #include <Windows.h>
 #include <ShlObj.h>
 
+#include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
+
+namespace spud::detail::x64 {
+uintptr_t maybe_resolve_jump(uintptr_t);
+}
 
 namespace {
 
@@ -256,6 +262,20 @@ void InstallProfileIsolationProbe()
   for (auto* method : browser_methods)
     if (!method)
       FailClosed("A browser handoff method is unavailable");
+
+  // The pinned SPUD installer resolves x64 jump thunks before patching.
+  static_assert(sizeof(void*) == 8);
+  const auto canonical_target = [](void* method) {
+    return spud::detail::x64::maybe_resolve_jump(reinterpret_cast<uintptr_t>(method));
+  };
+  std::array<uintptr_t, pref_methods.size() + browser_methods.size()> targets{};
+  std::transform(pref_methods.begin(), pref_methods.end(), targets.begin(), canonical_target);
+  std::transform(browser_methods.begin(), browser_methods.end(), targets.begin() + pref_methods.size(),
+                 canonical_target);
+  for (size_t i = 0; i < targets.size(); ++i)
+    for (size_t j = i + 1; j < targets.size(); ++j)
+      if (targets[i] == targets[j])
+        FailClosed("Profile hook methods share a native target");
 
   try {
     if (!SPUD_STATIC_DETOUR(pref_methods[0], TrySetInt_Hook)
