@@ -815,7 +815,9 @@ arrow_keys_to_select_ship = true
 double_click_to_assign_ship = false
 
 # Schiffe im Spiel anheften: Schiff verwalten > Schiff wechseln.
-# Klicke auf die Stecknadel unten rechts zum Anheften oder Lösen; halte sie gedrückt und ziehe sie auf eine andere nummerierte Karte, um die Reihenfolge zu ändern.
+# Die Stecknadeln zeigen keine Rangnummern: ausgefüllt = angeheftet, hohl = nicht angeheftet.
+# Klicke auf die Stecknadel unten rechts, um das Schiff anzuheften oder zu lösen. Halte sie etwa 125 ms gedrückt und ziehe das Schiff in die angeheftete Gruppe oder auf ein anderes angeheftetes Schiff, um es hinzuzufügen oder umzuordnen.
+# Ziehe ein angeheftetes Schiff in den nicht angehefteten Teil der Reihe, um es zu lösen. Lege das erste Schiff auf der vorübergehenden Markierung „Pin here“ ab.
 # Die Reihenfolge der Schiff-IDs wird in der JSON-Statusdatei des Mods gespeichert, nicht in dieser TOML-Datei.
 
 # Subgroup: HUD

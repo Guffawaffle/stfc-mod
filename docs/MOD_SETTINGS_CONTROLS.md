@@ -124,14 +124,14 @@ in TOML. Its default filename is `community_patch_state.json`; a custom config
 uses `<config-stem>.state.json` beside that config. Existing nonempty
 `ui.pinned_ships` values start as legacy name-based pins. On the first pin
 action, identifiable matches migrate in order to ship IDs; unresolved names
-remain in JSON. Dragging a legacy-pinned card out of the group unpins only that
-ship, including when another ship has the same name. If another same-name
-legacy claim has no resolvable ship ID, unpinning is deferred so that claim
-cannot immediately re-pin the selected ship. Any unresolved legacy names
-follow the explicit ID pins and retain the game's active sort. New example TOML
-files point to the in-game controls instead of a new name list. An internal
-patch switch remains available as a hook safety override, but there is no
-player-facing pinning toggle.
+remain in JSON. Clicking a legacy-pinned marker or dragging its card out of the
+group unpins only that ship, including when another ship has the same name. If
+another same-name legacy claim has no resolvable ship ID, unpinning is deferred
+so that claim cannot immediately re-pin the selected ship. Any unresolved
+legacy names follow the explicit ID pins and retain the game's active sort.
+New example TOML files point to the in-game controls instead of a new name
+list. An internal patch switch remains available as a hook safety override,
+but there is no player-facing pinning toggle.
 
 ## Camera
 
