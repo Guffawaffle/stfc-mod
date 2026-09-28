@@ -242,10 +242,10 @@ system_pan_momentum_falloff = 0.8
 # Subgroup: Loader
 # ----------------
 
-# Zet dit aan om loader_image te gebruiken voor het laadscherm
+# Toon badges en een optionele eigen afbeelding op het laadscherm
 loader_enabled = true
 
-# Pad naar eigen gekozen afbeelding voor het laadscherm (laat leeg om laadscherm van de mod te gebruiken)
+# Pad naar een eigen PNG-afbeelding; leeg gebruikt standaard de spelachtergrond in deze fork
 loader_image = ""
 
 # Multiplier applied to the logo size on the loading screen
@@ -254,7 +254,7 @@ loader_logo_scale = 1.0
 # Show the custom tip on the loading screen
 loader_tip_enabled = true
 
-# Zet dit aan om loader_image te gebruiken voor het transitiescherm
+# Toon badges en een optionele eigen afbeelding op het transitiescherm
 loader_transition = true
 
 # Use a black background instead of the custom image during transitions

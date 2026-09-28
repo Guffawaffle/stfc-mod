@@ -217,10 +217,10 @@ system_pan_momentum_falloff = 0.8
 # Subgroup: Loader
 # ----------------
 
-# Включите, чтобы использовать loader_image на экране загрузки
+# Показывать значки и необязательное пользовательское изображение на экране загрузки
 loader_enabled = true
 
-# Путь к пользовательскому изображению экрана загрузки (оставьте пустым для встроенного изображения)
+# Путь к пользовательскому PNG; пустое значение по умолчанию использует фон игры в этом форке
 loader_image = ""
 
 # Multiplier applied to the logo size on the loading screen
@@ -229,7 +229,7 @@ loader_logo_scale = 1.0
 # Show the custom tip on the loading screen
 loader_tip_enabled = true
 
-# Включите, чтобы использовать изображение загрузки на экране перехода
+# Показывать значки и необязательное пользовательское изображение на экране перехода
 loader_transition = true
 
 # Use a black background instead of the custom image during transitions

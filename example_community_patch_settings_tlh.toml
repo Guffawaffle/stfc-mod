@@ -217,10 +217,10 @@ system_pan_momentum_falloff = 0.8
 # Subgroup: Loader
 # ----------------
 
-# cher Daq  teH Daq  lo'  loader_image vaD  loading HaSta
+# Show loading HaSta badges and an optional custom image
 loader_enabled = true
 
-# Path Daq   custom loading HaSta mIllogh (leave blank vaD embedded mIllogh)
+# Path Daq custom loading PNG (blank uses game background by default in this fork)
 loader_image = ""
 
 # Multiplier applied to the logo size on the loading screen
@@ -229,7 +229,7 @@ loader_logo_scale = 1.0
 # Show the custom tip on the loading screen
 loader_tip_enabled = true
 
-# cher Daq  teH Daq  lo'  loader mIllogh vaD  transition HaSta
+# Show transition HaSta badges and an optional custom image
 loader_transition = true
 
 # Use a black background instead of the custom image during transitions

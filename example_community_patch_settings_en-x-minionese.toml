@@ -217,10 +217,10 @@ system_pan_momentum_falloff = 0.8
 # Subgroup: Loader
 # ----------------
 
-# Set to true to use the loader_image for the loading screen
+# Show loading-screen badges and an optional custom image
 loader_enabled = true
 
-# Path to the custom loading screen image (leave blank for embedded image)
+# Path to a custom loading PNG (blank uses game artwork in this fork's default build)
 loader_image = ""
 
 # Multiplier applied to the logo size on the loading screen
@@ -229,7 +229,7 @@ loader_logo_scale = 1.0
 # Show the custom tip on the loading screen
 loader_tip_enabled = true
 
-# Set to true to use the loader image for the transition screen
+# Show transition badges and an optional custom image
 loader_transition = true
 
 # Use a black background instead of the custom image during transitions

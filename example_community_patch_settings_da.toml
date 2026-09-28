@@ -217,10 +217,10 @@ system_pan_momentum_falloff = 0.8
 # Subgroup: Loader
 # ----------------
 
-# Sæt til sand for at bruge loader_image på indlæsningsskærmen
+# Vis mærker og et valgfrit brugerdefineret billede på indlæsningsskærmen
 loader_enabled = true
 
-# Sti til et brugerdefineret billede på indlæsningsskærmen (lad stå tomt for det indlejrede billede)
+# Sti til et brugerdefineret PNG-billede (tom værdi bruger som standard spillets baggrund i denne fork)
 loader_image = ""
 
 # Multiplier applied to the logo size on the loading screen
@@ -229,7 +229,7 @@ loader_logo_scale = 1.0
 # Show the custom tip on the loading screen
 loader_tip_enabled = true
 
-# Sæt til sand for at bruge indlæsningsbilledet på overgangsskærmen
+# Vis mærker og et valgfrit brugerdefineret billede på overgangsskærmen
 loader_transition = true
 
 # Use a black background instead of the custom image during transitions

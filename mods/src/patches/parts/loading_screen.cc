@@ -50,9 +50,6 @@ static void LS_LoginSequence_Awake_Hook(auto original, void* _this)
     ResetLoadingScreenState();
     ls::ResetLoadingAssetsForScene();
 
-    auto* asset = ls::GetLoadingAsset();
-    if (!asset) return;
-
     static auto ls_h = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Login", "LoginSequence");
     if (!ls_h.isValidHelper()) return;
     static auto f_mc = ls_h.GetField("_mainCanvas");
@@ -84,9 +81,8 @@ static void LS_LoginSequence_Awake_Hook(auto original, void* _this)
     if (!bgImg) bgImg = first;
     if (!bgImg) return;
 
-#ifndef _USE_ORIGINAL_BG
-    ls::ApplySpriteToImage(bgImg, *asset);
-#endif
+    if (auto* asset = ls::GetLoadingAsset())
+      ls::ApplySpriteToImage(bgImg, *asset);
 
     void* bgImgTr = reinterpret_cast<void* (*)(void*)>(fn_ct)(bgImg);
     if (bgImgTr) {
