@@ -7,7 +7,7 @@
 #  |    #***     #    #       #***         #   *   #**    #***    | 
 #  |                                                              | 
 #  +--------------------------------------------------------------+ 
-#   Generado el 2026-09-17T11:10:54.267Z
+#   Generado el 2026-09-27T19:44:17.187Z
 #   
 #   Este archivo de configuración fue generado por https://modconfig.pages.dev
 #   y se proporciona tal cual. Si hay algún problema con el Mod Comunitario de STFC
@@ -17,7 +17,7 @@
 #       Discord : https://discord.gg/PrpHgs7Vjs
 #       GitHub  : https://github.com/netniV/stfc-mod
 #   
-#   El archivo de configuración de hoy está patrocinado por la letra I y el número 0
+#   El archivo de configuración de hoy está patrocinado por la letra S y el número 3
 #   
 
 #  <[=======================================]> 
@@ -126,6 +126,12 @@ queue_enabled = true
 
 # Retired off-screen queue completion repair: THIS WAS FIXED BY SCOPELY.
 # The former kirshara_queue_repair setting is no longer used.
+# Faster Queue Recovery: advance after an outstanding target disappears (Windows x64 only).
+faster_queue_recovery = false
+
+# Thin Queue Protection: resume after native pruning; clean up confirmed destroyed heads.
+# Windows x64 only. Enabled by default; independent of Faster Queue Recovery.
+thin_queue_protection = true
 
 # Si prefieres usar los atajos de Scopely, establece este valor en verdadero
 use_scopely_hotkeys = false
@@ -199,8 +205,27 @@ zoom_label_non_player_threshold = 0.5
 #   "threshold" - Switch from expanded to compact at the configured zoom threshold
 zoom_label_player_detail = "native"
 
+# Show configured selection hotkeys instead of dock letters on your ships. Also in Mod Settings > Fleet Labels.
+ship_hotkey_badges = true
+
 # Normalized zoom crossover used when player fleet label detail is "threshold"; 0 is always compact and 1 is always expanded
 zoom_label_player_threshold = 0.5
+
+# Galaxy labels: native, always, threshold. Always may increase loading time.
+# Major/minor use the game classification. Threshold: near=0, far=1.
+# 0 uses compact detail; 1 always expands; equality expands.
+# Compact retains native Far presentation, including some major names.
+# Combine Default, Hostiles, Mining and Hazards. Defaults preserve native behavior.
+# Windows x64 and macOS on validated clients; available in release and debug builds.
+galaxy_multi_select = false
+galaxy_overlay_default = true
+galaxy_overlay_mining = false
+galaxy_overlay_hostiles = false
+galaxy_overlay_hazards = false
+galaxy_label_major_detail = "native"
+galaxy_label_major_threshold = 0.5
+galaxy_label_minor_detail = "native"
+galaxy_label_minor_threshold = 0.5
 
 # Subgroup: Keyboard
 # ------------------
@@ -825,8 +850,8 @@ hud_q_trials = "auto"
 # Decimal places used for abbreviated cargo values
 cargo_significant_decimals = 2
 
-# Show the selected ship cargo amount immediately, without counting up. Live in Mod Settings > Previews & Cargo.
-# Windows client 263 only; other builds keep native behavior.
+# Mostrar carga/capacidad al instante, sin recuento animado. Se aplica al momento en Mod Settings > Previews & Cargo.
+# Solo cliente Windows 263; otras versiones conservan el comportamiento normal.
 instant_cargo_counter = true
 
 # Impide localizar cuando se muestran vistas previas de barcos o nodos
@@ -874,6 +899,9 @@ buffs = true
 # ¿Quieres sincronizar los datos de edificios?
 buildings = true
 
+# Send initial Haven snapshots? Disabled unless explicitly enabled; targets may override this.
+haven = false
+
 # ¿Quieres sincronizar los datos del inventario?
 inventory = true
 
@@ -919,12 +947,6 @@ logging = false
 # La URL del servidor a través del cual se canalizará la conexión
 proxy = ""
 
-# El token que se usa para proporcionar autenticación
-token = ""
-
-# La URL del servidor al que se enviarán los datos
-url = ""
-
 # Subgroup: Network
 # -----------------
 
@@ -944,7 +966,23 @@ verify_ssl = true
 #                                                                                                                                                                                                 
 #  <[==========================================================================================================================================================================================]> 
 
+[sync.targets.stfcdata]
+token = ""
+url = "https://sync.stfcdata.de"
+
+#  <[==========================================================================================================================================================================================]>
+#
+#        ***                   *                                           *                         *                                         *                           *
+#       *   *  ****    ***           ***   ***     ***    ****             *   ***           ****         ***     ***   ***     ***   ***           ****    ***    ***                 ***
+#       *   *  *   *  *        *    *   *  *  *   * **   **             ****  * **          **       *    *  *   *      *   *  *   *  *  *     *      *        *  *        *           *  *
+#       *   *  ****   *        *    *   *  *  *   *        **          *   *  *               **     *    *  *   *      *      *   *  *  *     *     *      ****  *        *           *  *
+#        ***   *       ***     *     ***   *  *    ****  ***            ****   ****         ***      *    *  *    ***   *       ***   *  *     *    ****    ****   ***     *           *  *
+#
+#  <[==========================================================================================================================================================================================]>
+
 [sync.targets.nextspocksclub]
+token = ""
+url = "https://next.spocks.club/sync/ingress/"
 
 #  <[==========================================================================================================================================================================================]> 
 #                                                                                                                                                                                                 
@@ -957,3 +995,5 @@ verify_ssl = true
 #  <[==========================================================================================================================================================================================]> 
 
 [sync.targets.spocksclub]
+token = ""
+url = "https://spocks.club/sync/ingress/"

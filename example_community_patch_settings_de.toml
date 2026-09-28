@@ -7,7 +7,7 @@
 #  |    #***     #    #       #***         #   *   #**    #***    | 
 #  |                                                              | 
 #  +--------------------------------------------------------------+ 
-#   Erstellt am 2026-09-17T11:10:54.237Z
+#   Erstellt am 2026-09-27T19:44:17.162Z
 #   
 #   Diese Konfigurationsdatei wurde von https://modconfig.pages.dev erstellt
 #   und wird ohne Gewähr bereitgestellt. Bei Problemen mit dem STFC Community Mod,
@@ -17,7 +17,7 @@
 #       Discord : https://discord.gg/PrpHgs7Vjs
 #       GitHub  : https://github.com/netniV/stfc-mod
 #   
-#   Die heutige Konfigurationsdatei wird Ihnen präsentiert vom Buchstaben S und der Zahl 9
+#   Die heutige Konfigurationsdatei wird Ihnen präsentiert vom Buchstaben R und der Zahl 0
 #   
 
 #  <[=======================================]> 
@@ -353,8 +353,6 @@ zoomhooks = true
 #  <[=========================================================================================================================================]> 
 
 [shortcuts]
-
-# Mit "" oder "NONE" wird ein Tastenkürzel deaktiviert. Fehlende oder ungültige Werte verwenden die Standardbelegung.
 
 # Subgroup: Fracht und Orten
 # --------------------------
@@ -852,8 +850,8 @@ hud_q_trials = "auto"
 # Decimal places used for abbreviated cargo values
 cargo_significant_decimals = 2
 
-# Schiffsfracht sofort anzeigen, ohne hochzuzaehlen. Live unter Mod Settings > Previews & Cargo.
-# Windows client 263 only; other builds keep native behavior.
+# Frachtmenge/Kapazitaet sofort statt hochzaehlend anzeigen. Live unter Mod Settings > Previews & Cargo.
+# Nur Windows-Client 263; andere Versionen behalten das normale Verhalten.
 instant_cargo_counter = true
 
 # Verhindert das Orten, während Schiffs- oder Knotenvorschauen angezeigt werden
@@ -949,12 +947,6 @@ logging = false
 # URL des Servers, über den die Verbindung weitergeleitet wird
 proxy = ""
 
-# Token zur Authentifizierung
-token = ""
-
-# URL des Servers, an den Daten gesendet werden
-url = ""
-
 # Subgroup: Netzwerk
 # ------------------
 
@@ -974,7 +966,23 @@ verify_ssl = true
 #                                                                                                                                                                                          
 #  <[===================================================================================================================================================================================]> 
 
+[sync.targets.stfcdata]
+token = ""
+url = "https://sync.stfcdata.de"
+
+#  <[===================================================================================================================================================================================]>
+#
+#        ****                       *                             *             *                                                             *       *
+#       *      *   *  ***     ***   *      ***     ***   ***            ****          ***   ***    *   *  ***     ****   ****   ***   ****   ***            ***   ***     ***   ***
+#        ***    ****  *  *   *      ****   *   *  *   *  *  *     *    **       *    * **   *   *  *   *  *  *   *   *  **     *   *  *   *   *       *    *   *  *  *   * **   *  *
+#           *      *  *  *   *      *   *  *      *   *  *  *     *      **     *    *      *      *  **  *  *    ****    **   *   *  ****    *       *    *   *  *  *   *      *  *
+#       ****    ***   *  *    ***   *   *  *       ***   *  *     *    ***      *     ****  *       ****  *  *    ***   ***     ***   *       **      *     ***   *  *    ****  *  *
+#
+#  <[===================================================================================================================================================================================]>
+
 [sync.targets.nextspocksclub]
+token = ""
+url = "https://next.spocks.club/sync/ingress/"
 
 #  <[===================================================================================================================================================================================]> 
 #                                                                                                                                                                                          
@@ -987,3 +995,5 @@ verify_ssl = true
 #  <[===================================================================================================================================================================================]> 
 
 [sync.targets.spocksclub]
+token = ""
+url = "https://spocks.club/sync/ingress/"
