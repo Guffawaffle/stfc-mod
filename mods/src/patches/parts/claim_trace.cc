@@ -1,4 +1,4 @@
-// Local Windows client265 science instrumentation. Observe only; never change claim/UI state.
+// Local Windows client266 science instrumentation. Observe only; never change claim/UI state.
 #include "patches/claim_trace.h"
 #include "patches/key.h"
 #include "patches/screen_update_hook.h"
@@ -1215,7 +1215,7 @@ bool Preflight()
     if (!match
         || std::memcmp(reinterpret_cast<const void*>(match->methodPointer), target.window.data(), target.windowSize)
                != 0) {
-      spdlog::error("[ClaimTrace] client265 identity mismatch: {}.{}; no trace hooks installed", target.cls,
+      spdlog::error("[ClaimTrace] client266 identity mismatch: {}.{}; no trace hooks installed", target.cls,
                     target.method);
       return false;
     }
@@ -1684,8 +1684,7 @@ void Hook55(auto original, void* self, void* pointer)
     PointerEvent("summary_button_click_exit", id, pointer, self, -1);
 }
 
-// ShopClaimsService.Tick inlines the drain in client265. Observe the substantive
-// recovery Tick before its caller consumes the timeout list.
+// Observe the substantive recovery Tick before its caller consumes the timeout list.
 void Hook56(auto original, void* self)
 {
   original(self);
@@ -1923,7 +1922,7 @@ void InstallClaimTrace()
   Write(
       {{"event", "session"},
        {"schema", 7},
-       {"client", 265},
+       {"client", 266},
        {"hooks", installed},
        {"file", filename},
        {"request_states",
@@ -1937,7 +1936,7 @@ void InstallClaimTrace()
        {"correlation", "session-local tokens; bounded to 512 orders, 512 semaphore identifiers and 512 request labels; "
                        "512 bundle aliases; unsupported collections are explicit"},
        {"offer_probe_limits", "120 spans/minute; lists up to 64 entries; larger/unsupported lists explicit"}});
-  spdlog::warn("[ClaimTrace] local client265 science probe active: {} ({} hooks)", filename, installed);
+  spdlog::warn("[ClaimTrace] local client266 science probe active: {} ({} hooks)", filename, installed);
 #endif
 }
 
