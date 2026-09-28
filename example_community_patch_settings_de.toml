@@ -242,10 +242,10 @@ system_pan_momentum_falloff = 0.8
 # Subgroup: Ladebildschirm
 # ------------------------
 
-# Auf true setzen, um das Ladebild für den Ladebildschirm zu verwenden
+# Logos und optionales eigenes Bild auf dem Ladebildschirm anzeigen
 loader_enabled = true
 
-# Pfad zum benutzerdefinierten Ladebild (für das bereits im Mod eingebettete Bild leer lassen)
+# Pfad zu einem eigenen Ladebild (PNG); leer verwendet in diesem Fork standardmäßig den Spielhintergrund
 loader_image = ""
 
 # Multiplier applied to the logo size on the loading screen
@@ -254,7 +254,7 @@ loader_logo_scale = 1.0
 # Show the custom tip on the loading screen
 loader_tip_enabled = true
 
-# Auf true setzen, um das Ladebild für den Übergangsbildschirm zu verwenden
+# Logos und optionales eigenes Bild auf dem Übergangsbildschirm anzeigen
 loader_transition = true
 
 # Use a black background instead of the custom image during transitions

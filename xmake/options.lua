@@ -6,8 +6,8 @@ option_end()
 
 option("use_original_bg")
     set_showmenu(true)
-    set_description("Keep the original in-game loading screen background (no custom BG replacement, logos still shown)")
-    set_default(false)
+    set_description("Use the game's original loading background by default; custom loader_image or bg_image still overrides it")
+    set_default(true)
 option_end()
 
 option("stfc_source_state_id")
