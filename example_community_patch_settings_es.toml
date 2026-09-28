@@ -788,7 +788,9 @@ arrow_keys_to_select_ship = true
 double_click_to_assign_ship = false
 
 # Fija naves en Gestionar nave > Cambiar nave.
-# Haz clic en el pin inferior derecho para fijar o desfijar; mantén pulsado y arrastra un pin numerado sobre otra carta numerada para reordenar.
+# Los pines no muestran números de orden: lleno = fijado; hueco = no fijado.
+# Haz clic en el pin inferior derecho para fijar o desfijar. Mantenlo pulsado unos 125 ms y arrastra la nave al grupo fijado o sobre otra nave fijada para añadirla o reordenarla.
+# Arrastra una nave fijada a la parte no fijada de la fila para desfijarla. Para la primera, suéltala sobre la indicación temporal « Pin here ».
 # El orden de los ID de nave se guarda en el estado JSON del mod, no en este archivo TOML.
 
 # Subgroup: HUD

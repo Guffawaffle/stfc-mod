@@ -7,7 +7,7 @@ struct Transform;
 
 namespace ship_tech_indicators
 {
-enum class PinBadgeHighlight { None, Source, Target };
+enum class PinBadgeHighlight { None, Source, Target, UnpinTarget };
 
 struct PinGroupBounds {
   float left, bottom, right, top;
@@ -16,5 +16,8 @@ struct PinGroupBounds {
 bool Available();
 void RefreshPinBadge(ShipTileWidget* widget);
 void SetPinBadgeHighlight(ShipTileWidget* widget, PinBadgeHighlight highlight);
+void SetFirstPinDropCue(Transform* viewport, bool visible, bool hovered);
+void SetPinGroupDragActive(Transform* content, bool active);
+void SetPinGroupHover(Transform* content, bool hovered);
 void UpdatePinGroupBand(Transform* content, std::optional<PinGroupBounds> bounds);
 }

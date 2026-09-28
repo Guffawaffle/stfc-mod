@@ -815,7 +815,9 @@ arrow_keys_to_select_ship = true
 double_click_to_assign_ship = false
 
 # Épinglez les vaisseaux dans Gérer le vaisseau > Changer de vaisseau.
-# Cliquez sur l'épingle en bas à droite pour épingler ou détacher ; maintenez et faites glisser une épingle numérotée sur une autre carte numérotée pour réordonner.
+# Les épingles n'affichent aucun numéro de rang : pleine = épinglé, creuse = non épinglé.
+# Cliquez sur l'épingle en bas à droite pour épingler ou détacher. Maintenez-la environ 125 ms, puis glissez le vaisseau dans le groupe épinglé ou sur un autre vaisseau épinglé pour l'ajouter ou le réordonner.
+# Glissez un vaisseau épinglé vers la partie non épinglée de la rangée pour le détacher. Pour le premier, déposez-le sur l'indication temporaire « Pin here ».
 # L'ordre des ID de vaisseaux est enregistré dans l'état JSON du mod, pas dans ce fichier TOML.
 
 # Subgroup: HUD

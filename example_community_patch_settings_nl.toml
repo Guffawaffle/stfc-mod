@@ -815,7 +815,9 @@ arrow_keys_to_select_ship = true
 double_click_to_assign_ship = false
 
 # Zet schepen vast via Schip beheren > Schip wisselen.
-# Klik op de pin rechtsonder om vast te zetten of los te maken; houd een genummerde pin vast en sleep hem naar een andere genummerde kaart om de volgorde te wijzigen.
+# De pinnen hebben geen rangnummers: gevuld = vastgezet, hol = niet vastgezet.
+# Klik op de pin rechtsonder om vast te zetten of los te maken. Houd hem ongeveer 125 ms ingedrukt en sleep het schip naar de vastgezette groep of op een ander vastgezet schip om het toe te voegen of te herschikken.
+# Sleep een vastgezet schip naar het niet-vastgezette deel van de rij om het los te maken. Laat het eerste schip los op de tijdelijke aanduiding "Pin here".
 # De volgorde van scheeps-ID's staat in de JSON-status van de mod, niet in dit TOML-bestand.
 
 # Subgroup: HUD
