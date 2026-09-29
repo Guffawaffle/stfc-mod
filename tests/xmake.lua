@@ -50,6 +50,28 @@ do
     end
 end
 
+target("profile-contract-tests")
+do
+    set_kind("binary")
+    set_default(false)
+    add_files("profile_contract_test.cc")
+    add_includedirs("../mods/src")
+    set_exceptions("cxx")
+end
+
+if is_plat("windows") then
+    target("profile-prefs-store-tests")
+    do
+        set_kind("binary")
+        set_default(false)
+        add_files("profile_prefs_store_test.cc", "../mods/src/patches/parts/profile_prefs_store.cc")
+        add_includedirs("../mods/src")
+        add_defines("NOMINMAX")
+        add_syslinks("crypt32")
+        set_exceptions("cxx")
+    end
+end
+
 target("miner-opc-tests")
 do
     set_kind("binary")

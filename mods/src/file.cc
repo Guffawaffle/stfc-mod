@@ -1,5 +1,8 @@
 #include "file.h"
 #include "windowtitle.h"
+#if _WIN32
+#include "patches/profile_selection.h"
+#endif
 
 #if __APPLE__
 #include <crt_externs.h>
@@ -196,6 +199,14 @@ void File::Init()
       File::override = false;
       configPath     = std::filesystem::path(cacheNameDefault);
     }
+
+#if _WIN32
+    const auto& profile = ResolveProfileSelection();
+    if (profile.marked) {
+      File::override = true;
+      configPath     = profile.config_path;
+    }
+#endif
 
     /*******************************
      *

@@ -1,6 +1,7 @@
 #if _WIN32
 
 #include "il2cpp/method_contract.h"
+#include "patches/profile_selection.h"
 #include "profile_prefs_store.h"
 
 #include <il2cpp/il2cpp-functions.h>
@@ -75,14 +76,6 @@ bool HasForcedEdgeUserDataDir()
       return true;
   }
   return false;
-}
-
-bool ReservedWindowsName(std::wstring_view name)
-{
-  if (name == L"con" || name == L"prn" || name == L"aux" || name == L"nul")
-    return true;
-  return name.size() == 4 && name[3] >= L'1' && name[3] <= L'9'
-         && (name.substr(0, 3) == L"com" || name.substr(0, 3) == L"lpt");
 }
 
 std::u16string_view RequiredString(Il2CppString* value)
@@ -247,45 +240,34 @@ void* Resolve(Il2CppClass* cls, const char* name, const char* result, std::initi
 
 } // namespace
 
-bool IsolatedProfileRequested()
+void PrepareProfileIsolationProbe()
 {
-  SetLastError(ERROR_SUCCESS);
-  const DWORD size = GetEnvironmentVariableW(L"STFC_MOD_ISOLATED_PROFILE", nullptr, 0);
-  return size != 0 || GetLastError() != ERROR_ENVVAR_NOT_FOUND;
-}
+  const auto& selection = ResolveProfileSelection();
+  if (!selection.active)
+    return;
 
-[[noreturn]] void AbortIsolatedProfileLaunch()
-{
-  TerminateProcess(GetCurrentProcess(), 190);
-  std::abort();
+  profile_id = selection.id;
+  const auto mode = Environment(L"STFC_MOD_ISOLATED_PROFILE_MODE");
+  if ((!mode.empty() && mode != L"new") || (selection.marked && !mode.empty()))
+    AbortProfileLaunch("Invalid profile creation mode");
+  const auto local_app_data = KnownFolder(FOLDERID_LocalAppData);
+  if (local_app_data.empty())
+    AbortProfileLaunch("Local app data is unavailable");
+  const auto open_mode = selection.marked ? ProfileOpenMode::OpenOrCreate
+                                          : (mode == L"new" ? ProfileOpenMode::New : ProfileOpenMode::Existing);
+  try {
+    profile_store = std::make_unique<ProfilePrefsStore>(local_app_data, profile_id, open_mode);
+  } catch (...) {
+    AbortProfileLaunch("Could not open the isolated preference store");
+  }
 }
 
 void InstallProfileIsolationProbe()
 {
-  if (!IsolatedProfileRequested())
+  if (!ResolveProfileSelection().active)
     return;
-  profile_id = Environment(L"STFC_MOD_ISOLATED_PROFILE");
-  if (profile_id.empty())
-    FailClosed("Empty profile ID");
-  if (profile_id.size() > 32)
-    FailClosed("Invalid profile ID");
-  for (const wchar_t ch : profile_id)
-    if (!((ch >= L'a' && ch <= L'z') || (ch >= L'0' && ch <= L'9') || ch == L'-' || ch == L'_'))
-      FailClosed("Invalid profile ID");
-  if (ReservedWindowsName(profile_id))
-    FailClosed("Reserved profile ID");
-
-  const auto mode = Environment(L"STFC_MOD_ISOLATED_PROFILE_MODE");
-  if (!mode.empty() && mode != L"new")
-    FailClosed("Invalid profile creation mode");
-  const auto local_app_data = KnownFolder(FOLDERID_LocalAppData);
-  if (local_app_data.empty())
-    FailClosed("Local app data is unavailable");
-  try {
-    profile_store = std::make_unique<ProfilePrefsStore>(local_app_data, profile_id, mode == L"new");
-  } catch (...) {
-    FailClosed("Could not open the isolated preference store");
-  }
+  if (!profile_store)
+    FailClosed("Profile preference store was not prepared");
 
   auto prefs = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "PlayerPrefs");
   auto oidc = il2cpp_get_class_helper("Playgami.Sdk.Identity.Runtime", "Playgami.Identity.Api.Internal",
@@ -354,8 +336,9 @@ void InstallProfileIsolationProbe()
   }
   try {
     profile_store->FinishNewProfile();
+    CompleteProfileEnrollment();
   } catch (...) {
-    FailClosed("Could not initialize the new profile store");
+    FailClosed("Could not finish profile enrollment");
   }
   spdlog::info("[ProfileIsolationProbe] Active for a dedicated launch profile");
 }

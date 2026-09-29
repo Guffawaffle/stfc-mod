@@ -1,6 +1,7 @@
 #if _WIN32
 
 #include "profile_prefs_store.h"
+#include "patches/profile_contract.h"
 
 #include <wincrypt.h>
 
@@ -186,16 +187,25 @@ void WriteEncryptedFile(const std::filesystem::path& temporary, std::span<const 
 } // namespace
 
 ProfilePrefsStore::ProfilePrefsStore(const std::filesystem::path& local_app_data, std::wstring_view profile_id,
-                                     bool create_new)
+                                     ProfileOpenMode mode)
 {
   if (local_app_data.empty() || profile_id.empty())
     InvalidStore();
-  for (const wchar_t ch : profile_id)
+  std::string narrow_id;
+  narrow_id.reserve(profile_id.size());
+  for (const wchar_t ch : profile_id) {
+    if (ch > 0x7f)
+      InvalidStore();
+    narrow_id.push_back(static_cast<char>(ch));
     profile_id_.push_back(static_cast<char16_t>(ch));
+  }
+  if (!profile_contract::ValidId(narrow_id))
+    InvalidStore();
 
   const auto directory = local_app_data / L"STFC Community Mod" / L"Profiles" / std::wstring(profile_id);
   std::filesystem::create_directories(directory);
   file_path_ = directory / L"player_prefs.bin";
+  initialized_path_ = directory / L"player_prefs.bin.initialized";
   auto lock_path = file_path_;
   lock_path += L".lock";
   lock_handle_ = CreateFileW(lock_path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_ALWAYS,
@@ -205,8 +215,11 @@ ProfilePrefsStore::ProfilePrefsStore(const std::filesystem::path& local_app_data
 
   try {
     file_exists_ = std::filesystem::exists(file_path_);
-    if (create_new) {
-      if (file_exists_)
+    initialized_ = std::filesystem::exists(initialized_path_);
+    if (mode == ProfileOpenMode::New || (mode == ProfileOpenMode::OpenOrCreate && !file_exists_)) {
+      if (mode == ProfileOpenMode::New && file_exists_)
+        InvalidStore();
+      if (mode == ProfileOpenMode::OpenOrCreate && initialized_)
         InvalidStore();
       // A crash during a previous replacement must not be mistaken for a new profile.
       for (const auto& entry : std::filesystem::directory_iterator(directory)) {
@@ -353,6 +366,31 @@ void ProfilePrefsStore::Persist(const Values& values)
       throw std::runtime_error("could not create isolated preferences");
   }
   file_exists_ = true;
+  MarkInitialized();
+}
+
+void ProfilePrefsStore::MarkInitialized()
+{
+  if (initialized_)
+    return;
+  const HANDLE marker = CreateFileW(initialized_path_.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_NEW,
+                                    FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (marker == INVALID_HANDLE_VALUE) {
+    const DWORD error = GetLastError();
+    if (error == ERROR_FILE_EXISTS || error == ERROR_ALREADY_EXISTS) {
+      initialized_ = true;
+      return;
+    }
+    throw std::runtime_error("could not mark initialized profile preferences");
+  }
+  constexpr char contents[] = "v1\n";
+  DWORD written = 0;
+  const bool ok = WriteFile(marker, contents, sizeof(contents) - 1, &written, nullptr)
+                  && written == sizeof(contents) - 1 && FlushFileBuffers(marker);
+  const bool closed = CloseHandle(marker) != 0;
+  if (!ok || !closed)
+    throw std::runtime_error("could not finish marking initialized profile preferences");
+  initialized_ = true;
 }
 
 void ProfilePrefsStore::Set(std::u16string_view key, Value value)
@@ -442,6 +480,8 @@ void ProfilePrefsStore::FinishNewProfile()
   std::scoped_lock lock(mutex_);
   if (!file_exists_)
     Persist(values_);
+  else
+    MarkInitialized();
 }
 
 #endif

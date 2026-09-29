@@ -16,10 +16,17 @@
 
 // A single isolated game's PlayerPrefs. The lifetime lock allows different
 // profiles to run together but never two writers for the same profile.
+enum class ProfileOpenMode {
+  Existing,
+  New,
+  OpenOrCreate
+};
+
 class ProfilePrefsStore
 {
 public:
-  ProfilePrefsStore(const std::filesystem::path& local_app_data, std::wstring_view profile_id, bool create_new);
+  ProfilePrefsStore(const std::filesystem::path& local_app_data, std::wstring_view profile_id,
+                    ProfileOpenMode mode);
   ~ProfilePrefsStore();
 
   ProfilePrefsStore(const ProfilePrefsStore&)            = delete;
@@ -45,12 +52,15 @@ private:
   Values Deserialize(const BYTE* data, std::size_t size) const;
   std::vector<BYTE> Entropy() const;
   void Persist(const Values& values);
+  void MarkInitialized();
   void Set(std::u16string_view key, Value value);
 
   std::filesystem::path file_path_;
+  std::filesystem::path initialized_path_;
   std::u16string profile_id_;
   HANDLE lock_handle_ = INVALID_HANDLE_VALUE;
   bool file_exists_ = false;
+  bool initialized_ = false;
   mutable std::mutex mutex_;
   Values values_;
 };

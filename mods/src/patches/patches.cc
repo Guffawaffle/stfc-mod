@@ -1,6 +1,9 @@
 #include "patches.h"
 #include "file.h"
 #include "version.h"
+#if _WIN32
+#include "profile_selection.h"
+#endif
 
 #include <il2cpp/il2cpp-functions.h>
 
@@ -12,6 +15,7 @@
 
 #if _WIN32
 #include <Windows.h>
+#include <cstdlib>
 #else
 #include <dlfcn.h>
 #include <libgen.h>
@@ -56,6 +60,7 @@ void InstallOfficerPresetReorderHooks();
 void InstallOpcIndicatorHooks();
 void InstallShipTechIndicatorHooks();
 #if _WIN32
+void PrepareProfileIsolationProbe();
 void InstallProfileIsolationProbe();
 #endif
 
@@ -68,6 +73,17 @@ void InstallGalaxyLabels();
 void InstallActionQueueRecovery();
 void InstallThinQueueProtection();
 
+#if _WIN32
+[[noreturn]] void AbortModBootstrap(const char* reason)
+{
+  // ApplyPatches runs under the loader lock. If this hook fails, the profile
+  // marker cannot be inspected safely and no profiled game may run unguarded.
+  OutputDebugStringA(reason);
+  TerminateProcess(GetCurrentProcess(), 190);
+  std::abort();
+}
+#endif
+
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
 {
   struct PatchEntry {
@@ -76,6 +92,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   };
 
 #if _WIN32
+  PrepareProfileIsolationProbe();
 #ifndef NDEBUG
   AllocConsole();
   FILE* fp;
@@ -252,10 +269,10 @@ void ApplyPatches()
 #endif
 
   if (assembly == nullptr) {
-    spdlog::error("Failed to load GameAssembly");
 #if _WIN32
-    if (IsolatedProfileRequested())
-      AbortIsolatedProfileLaunch();
+    AbortModBootstrap("[STFC Mod] Could not load GameAssembly for profile bootstrap\n");
+#else
+    spdlog::error("Failed to load GameAssembly");
 #endif
     return;
   } else {
@@ -269,14 +286,12 @@ void ApplyPatches()
 
       if (!n || !SPUD_STATIC_DETOUR(n, il2cpp_init_hook)) {
 #if _WIN32
-        if (IsolatedProfileRequested())
-          AbortIsolatedProfileLaunch();
+        AbortModBootstrap("[STFC Mod] Could not install the profile bootstrap hook\n");
 #endif
       }
     } catch (...) {
 #if _WIN32
-      if (IsolatedProfileRequested())
-        AbortIsolatedProfileLaunch();
+      AbortModBootstrap("[STFC Mod] The profile bootstrap hook failed\n");
 #endif
     }
   }
