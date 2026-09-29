@@ -146,8 +146,16 @@ Il2CppString* GetString_Hook(auto, Il2CppString* key, Il2CppString* fallback)
 {
   return WithProfileStore("Could not read a string preference", [&](ProfilePrefsStore& store) -> Il2CppString* {
     const auto value = store.GetString(RequiredString(key));
-    if (!value)
-      return fallback;
+    if (!value) {
+      if (fallback)
+        return fallback;
+      // Unity's Windows PlayerPrefs.GetString(missing, nullptr) returns an empty string.
+      constexpr char16_t empty[] = u"";
+      auto* result = il2cpp_string_new_utf16(reinterpret_cast<const Il2CppChar*>(empty), 0);
+      if (!result)
+        throw std::runtime_error("could not allocate empty preference string");
+      return result;
+    }
     auto* result = il2cpp_string_new_utf16(reinterpret_cast<const Il2CppChar*>(value->data()),
                                            static_cast<std::int32_t>(value->size()));
     if (!result)
