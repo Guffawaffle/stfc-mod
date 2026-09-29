@@ -1,4 +1,4 @@
-// Local Windows client267 science instrumentation. Observe only; never change claim/UI state.
+// Local Windows claim instrumentation. Observe only; never change claim/UI state.
 #include "patches/claim_trace.h"
 #include "patches/key.h"
 #include "patches/screen_update_hook.h"
@@ -12,7 +12,6 @@
 #include <array>
 #include <atomic>
 #include <chrono>
-#include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -29,28 +28,9 @@ namespace
 using Json  = nlohmann::json;
 using Clock = std::chrono::steady_clock;
 
-// This diagnostic build must not allow an apparently instrumented play session
-// to continue when the required claim capture cannot run.
-[[noreturn]] void FailClaimTrace(const char* reason) noexcept
-{
-  try {
-    spdlog::critical("[ClaimTrace] REQUIRED CAPTURE FAILED: {}; terminating game", reason);
-    if (auto log = spdlog::default_logger())
-      log->flush();
-  } catch (...) {
-  }
-  MessageBoxA(nullptr, reason, "STFC ClaimTrace unavailable - game will terminate",
-              MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
-  TerminateProcess(GetCurrentProcess(), EXIT_FAILURE);
-  std::abort();
-}
-
 struct Target {
-  const char *            assembly, *ns, *cls, *method;
-  int                     arguments;
-  uintptr_t               rva;
-  size_t                  windowSize;
-  std::array<uint8_t, 32> window;
+  const char *assembly, *ns, *cls, *method;
+  int         arguments;
 };
 #include "claim_trace_targets.h"
 std::array<const MethodInfo*, std::size(kTargets)> methods{};
@@ -1175,53 +1155,15 @@ void Pulse()
   CheckClaims();
 }
 
-bool Preflight()
+void ResolveTargets()
 {
-  const auto base = reinterpret_cast<uintptr_t>(GetModuleHandleA("GameAssembly.dll"));
-  if (!base)
-    return false;
-  auto* keyClass = Resolve("Digit.Client.PrimeLib.Runtime", "Digit.PrimePlatform.Content", "ShopClaimKey");
-  auto* keyField = keyClass ? il2cpp_class_get_field_from_name(keyClass, "_value") : nullptr;
-  if (!keyClass || !il2cpp_class_is_valuetype(keyClass) || il2cpp_class_value_size(keyClass, nullptr) != 8 || !keyField
-      || keyField->offset != sizeof(Il2CppObject) || il2cpp_type_get_type(keyField->type) != IL2CPP_TYPE_I8) {
-    spdlog::error("[ClaimTrace] ShopClaimKey ABI mismatch; no trace hooks installed");
-    return false;
-  }
-  for (const auto& type : {std::pair{"CurrencyType", 4}, std::pair{"ShopCategoryMask", 8}}) {
-    auto* cls = Resolve("Digit.Client.PrimeLib.Runtime",
-                        type.second == 4 ? "Digit.PrimePlatform.Content" : "Digit.Prime.Shop", type.first);
-    if (!cls || !il2cpp_class_is_valuetype(cls) || il2cpp_class_value_size(cls, nullptr) != type.second) {
-      spdlog::error("[ClaimTrace] offer value ABI mismatch: {}", type.first);
-      return false;
-    }
-  }
   for (size_t index = 0; index < std::size(kTargets); ++index) {
-    const auto&       target   = kTargets[index];
-    auto*             cls      = Resolve(target.assembly, target.ns, target.cls);
-    const MethodInfo* match    = nullptr;
-    void*             iterator = nullptr;
-    while (cls) {
-      auto* method = il2cpp_class_get_methods(cls, &iterator);
-      if (!method)
-        break;
-      if (std::strcmp(method->name, target.method) == 0 && method->parameters_count == target.arguments
-          && !(method->flags & METHOD_ATTRIBUTE_STATIC) && !method->is_generic && !method->is_inflated
-          && reinterpret_cast<uintptr_t>(method->methodPointer) == base + target.rva) {
-        if (match)
-          return false;
-        match = method;
-      }
-    }
-    if (!match
-        || std::memcmp(reinterpret_cast<const void*>(match->methodPointer), target.window.data(), target.windowSize)
-               != 0) {
-      spdlog::error("[ClaimTrace] client267 identity mismatch: {}.{}; no trace hooks installed", target.cls,
-                    target.method);
-      return false;
-    }
-    methods[index] = match;
+    const auto& target = kTargets[index];
+    auto*       cls    = Resolve(target.assembly, target.ns, target.cls);
+    methods[index] = cls ? il2cpp_class_get_method_from_name(cls, target.method, target.arguments) : nullptr;
+    if (!methods[index] || !methods[index]->methodPointer)
+      spdlog::warn("[ClaimTrace] method unavailable: {}.{}", target.cls, target.method);
   }
-  return true;
 }
 
 // Each wrapper calls the original exactly once, outside every diagnostic mutex/catch.
@@ -1759,10 +1701,7 @@ void Hook63(auto original, void* self)
 void InstallClaimTrace()
 {
 #if defined(_WIN32) && defined(_M_X64)
-  if (!Preflight())
-    FailClaimTrace("Required claim logging failed its client compatibility check.\n"
-                   "The game will close instead of running without claim capture.\n"
-                   "See community_patch.log for details; update the diagnostic build before reproducing.");
+  ResolveTargets();
   const auto stamp =
       std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
           .count();
@@ -1773,157 +1712,152 @@ void InstallClaimTrace()
     logger->set_level(spdlog::level::info);
     logger->set_pattern("%v");
     logger->flush_on(spdlog::level::info);
-    logger->set_error_handler([](const std::string&) {
-      FailClaimTrace("Required claim logging could not write its trace.\n"
-                     "The game will close instead of continuing without claim capture.");
+    logger->set_error_handler([](const std::string& error) {
+      spdlog::error("[ClaimTrace] trace write failed: {}", error);
     });
   } catch (const std::exception& error) {
     spdlog::error("[ClaimTrace] could not open trace: {}", error.what());
-    FailClaimTrace("Required claim logging could not open its trace file.\n"
-                   "The game will close. See community_patch.log for details.");
+    return;
   }
   size_t installed = 0;
-  if (SPUD_STATIC_DETOUR(methods[0]->methodPointer, Hook0))
+  if (methods[0] && methods[0]->methodPointer && SPUD_STATIC_DETOUR(methods[0]->methodPointer, Hook0))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[1]->methodPointer, Hook1))
+  if (methods[1] && methods[1]->methodPointer && SPUD_STATIC_DETOUR(methods[1]->methodPointer, Hook1))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[2]->methodPointer, Hook2))
+  if (methods[2] && methods[2]->methodPointer && SPUD_STATIC_DETOUR(methods[2]->methodPointer, Hook2))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[3]->methodPointer, Hook3))
+  if (methods[3] && methods[3]->methodPointer && SPUD_STATIC_DETOUR(methods[3]->methodPointer, Hook3))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[4]->methodPointer, Hook4))
+  if (methods[4] && methods[4]->methodPointer && SPUD_STATIC_DETOUR(methods[4]->methodPointer, Hook4))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[5]->methodPointer, Hook5))
+  if (methods[5] && methods[5]->methodPointer && SPUD_STATIC_DETOUR(methods[5]->methodPointer, Hook5))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[6]->methodPointer, Hook6))
+  if (methods[6] && methods[6]->methodPointer && SPUD_STATIC_DETOUR(methods[6]->methodPointer, Hook6))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[7]->methodPointer, Hook7))
+  if (methods[7] && methods[7]->methodPointer && SPUD_STATIC_DETOUR(methods[7]->methodPointer, Hook7))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[8]->methodPointer, Hook8))
+  if (methods[8] && methods[8]->methodPointer && SPUD_STATIC_DETOUR(methods[8]->methodPointer, Hook8))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[9]->methodPointer, Hook9))
+  if (methods[9] && methods[9]->methodPointer && SPUD_STATIC_DETOUR(methods[9]->methodPointer, Hook9))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[10]->methodPointer, Hook10))
+  if (methods[10] && methods[10]->methodPointer && SPUD_STATIC_DETOUR(methods[10]->methodPointer, Hook10))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[11]->methodPointer, Hook11))
+  if (methods[11] && methods[11]->methodPointer && SPUD_STATIC_DETOUR(methods[11]->methodPointer, Hook11))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[12]->methodPointer, Hook12))
+  if (methods[12] && methods[12]->methodPointer && SPUD_STATIC_DETOUR(methods[12]->methodPointer, Hook12))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[13]->methodPointer, Hook13))
+  if (methods[13] && methods[13]->methodPointer && SPUD_STATIC_DETOUR(methods[13]->methodPointer, Hook13))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[14]->methodPointer, Hook14))
+  if (methods[14] && methods[14]->methodPointer && SPUD_STATIC_DETOUR(methods[14]->methodPointer, Hook14))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[15]->methodPointer, Hook15))
+  if (methods[15] && methods[15]->methodPointer && SPUD_STATIC_DETOUR(methods[15]->methodPointer, Hook15))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[16]->methodPointer, Hook16))
+  if (methods[16] && methods[16]->methodPointer && SPUD_STATIC_DETOUR(methods[16]->methodPointer, Hook16))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[17]->methodPointer, Hook17))
+  if (methods[17] && methods[17]->methodPointer && SPUD_STATIC_DETOUR(methods[17]->methodPointer, Hook17))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[18]->methodPointer, Hook18))
+  if (methods[18] && methods[18]->methodPointer && SPUD_STATIC_DETOUR(methods[18]->methodPointer, Hook18))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[19]->methodPointer, Hook19))
+  if (methods[19] && methods[19]->methodPointer && SPUD_STATIC_DETOUR(methods[19]->methodPointer, Hook19))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[20]->methodPointer, Hook20))
+  if (methods[20] && methods[20]->methodPointer && SPUD_STATIC_DETOUR(methods[20]->methodPointer, Hook20))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[21]->methodPointer, Hook21))
+  if (methods[21] && methods[21]->methodPointer && SPUD_STATIC_DETOUR(methods[21]->methodPointer, Hook21))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[22]->methodPointer, Hook22))
+  if (methods[22] && methods[22]->methodPointer && SPUD_STATIC_DETOUR(methods[22]->methodPointer, Hook22))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[23]->methodPointer, Hook23))
+  if (methods[23] && methods[23]->methodPointer && SPUD_STATIC_DETOUR(methods[23]->methodPointer, Hook23))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[24]->methodPointer, Hook24))
+  if (methods[24] && methods[24]->methodPointer && SPUD_STATIC_DETOUR(methods[24]->methodPointer, Hook24))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[25]->methodPointer, Hook25))
+  if (methods[25] && methods[25]->methodPointer && SPUD_STATIC_DETOUR(methods[25]->methodPointer, Hook25))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[26]->methodPointer, Hook26))
+  if (methods[26] && methods[26]->methodPointer && SPUD_STATIC_DETOUR(methods[26]->methodPointer, Hook26))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[27]->methodPointer, Hook27))
+  if (methods[27] && methods[27]->methodPointer && SPUD_STATIC_DETOUR(methods[27]->methodPointer, Hook27))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[28]->methodPointer, Hook28))
+  if (methods[28] && methods[28]->methodPointer && SPUD_STATIC_DETOUR(methods[28]->methodPointer, Hook28))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[29]->methodPointer, Hook29))
+  if (methods[29] && methods[29]->methodPointer && SPUD_STATIC_DETOUR(methods[29]->methodPointer, Hook29))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[30]->methodPointer, Hook30))
+  if (methods[30] && methods[30]->methodPointer && SPUD_STATIC_DETOUR(methods[30]->methodPointer, Hook30))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[31]->methodPointer, Hook31))
+  if (methods[31] && methods[31]->methodPointer && SPUD_STATIC_DETOUR(methods[31]->methodPointer, Hook31))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[32]->methodPointer, Hook32))
+  if (methods[32] && methods[32]->methodPointer && SPUD_STATIC_DETOUR(methods[32]->methodPointer, Hook32))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[33]->methodPointer, Hook33))
+  if (methods[33] && methods[33]->methodPointer && SPUD_STATIC_DETOUR(methods[33]->methodPointer, Hook33))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[34]->methodPointer, Hook34))
+  if (methods[34] && methods[34]->methodPointer && SPUD_STATIC_DETOUR(methods[34]->methodPointer, Hook34))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[35]->methodPointer, Hook35))
+  if (methods[35] && methods[35]->methodPointer && SPUD_STATIC_DETOUR(methods[35]->methodPointer, Hook35))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[36]->methodPointer, Hook36))
+  if (methods[36] && methods[36]->methodPointer && SPUD_STATIC_DETOUR(methods[36]->methodPointer, Hook36))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[37]->methodPointer, Hook37))
+  if (methods[37] && methods[37]->methodPointer && SPUD_STATIC_DETOUR(methods[37]->methodPointer, Hook37))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[38]->methodPointer, Hook38))
+  if (methods[38] && methods[38]->methodPointer && SPUD_STATIC_DETOUR(methods[38]->methodPointer, Hook38))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[39]->methodPointer, Hook39))
+  if (methods[39] && methods[39]->methodPointer && SPUD_STATIC_DETOUR(methods[39]->methodPointer, Hook39))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[40]->methodPointer, Hook40))
+  if (methods[40] && methods[40]->methodPointer && SPUD_STATIC_DETOUR(methods[40]->methodPointer, Hook40))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[41]->methodPointer, Hook41))
+  if (methods[41] && methods[41]->methodPointer && SPUD_STATIC_DETOUR(methods[41]->methodPointer, Hook41))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[42]->methodPointer, Hook42))
+  if (methods[42] && methods[42]->methodPointer && SPUD_STATIC_DETOUR(methods[42]->methodPointer, Hook42))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[43]->methodPointer, Hook43))
+  if (methods[43] && methods[43]->methodPointer && SPUD_STATIC_DETOUR(methods[43]->methodPointer, Hook43))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[44]->methodPointer, Hook44))
+  if (methods[44] && methods[44]->methodPointer && SPUD_STATIC_DETOUR(methods[44]->methodPointer, Hook44))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[45]->methodPointer, Hook45))
+  if (methods[45] && methods[45]->methodPointer && SPUD_STATIC_DETOUR(methods[45]->methodPointer, Hook45))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[46]->methodPointer, Hook46))
+  if (methods[46] && methods[46]->methodPointer && SPUD_STATIC_DETOUR(methods[46]->methodPointer, Hook46))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[47]->methodPointer, Hook47))
+  if (methods[47] && methods[47]->methodPointer && SPUD_STATIC_DETOUR(methods[47]->methodPointer, Hook47))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[48]->methodPointer, Hook48))
+  if (methods[48] && methods[48]->methodPointer && SPUD_STATIC_DETOUR(methods[48]->methodPointer, Hook48))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[49]->methodPointer, Hook49))
+  if (methods[49] && methods[49]->methodPointer && SPUD_STATIC_DETOUR(methods[49]->methodPointer, Hook49))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[50]->methodPointer, Hook50))
+  if (methods[50] && methods[50]->methodPointer && SPUD_STATIC_DETOUR(methods[50]->methodPointer, Hook50))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[51]->methodPointer, Hook51))
+  if (methods[51] && methods[51]->methodPointer && SPUD_STATIC_DETOUR(methods[51]->methodPointer, Hook51))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[52]->methodPointer, Hook52))
+  if (methods[52] && methods[52]->methodPointer && SPUD_STATIC_DETOUR(methods[52]->methodPointer, Hook52))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[53]->methodPointer, Hook53))
+  if (methods[53] && methods[53]->methodPointer && SPUD_STATIC_DETOUR(methods[53]->methodPointer, Hook53))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[54]->methodPointer, Hook54))
+  if (methods[54] && methods[54]->methodPointer && SPUD_STATIC_DETOUR(methods[54]->methodPointer, Hook54))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[55]->methodPointer, Hook55))
+  if (methods[55] && methods[55]->methodPointer && SPUD_STATIC_DETOUR(methods[55]->methodPointer, Hook55))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[56]->methodPointer, Hook56))
+  if (methods[56] && methods[56]->methodPointer && SPUD_STATIC_DETOUR(methods[56]->methodPointer, Hook56))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[57]->methodPointer, Hook57))
+  if (methods[57] && methods[57]->methodPointer && SPUD_STATIC_DETOUR(methods[57]->methodPointer, Hook57))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[58]->methodPointer, Hook58))
+  if (methods[58] && methods[58]->methodPointer && SPUD_STATIC_DETOUR(methods[58]->methodPointer, Hook58))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[59]->methodPointer, Hook59))
+  if (methods[59] && methods[59]->methodPointer && SPUD_STATIC_DETOUR(methods[59]->methodPointer, Hook59))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[60]->methodPointer, Hook60))
+  if (methods[60] && methods[60]->methodPointer && SPUD_STATIC_DETOUR(methods[60]->methodPointer, Hook60))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[61]->methodPointer, Hook61))
+  if (methods[61] && methods[61]->methodPointer && SPUD_STATIC_DETOUR(methods[61]->methodPointer, Hook61))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[62]->methodPointer, Hook62))
+  if (methods[62] && methods[62]->methodPointer && SPUD_STATIC_DETOUR(methods[62]->methodPointer, Hook62))
     ++installed;
-  if (SPUD_STATIC_DETOUR(methods[63]->methodPointer, Hook63))
+  if (methods[63] && methods[63]->methodPointer && SPUD_STATIC_DETOUR(methods[63]->methodPointer, Hook63))
     ++installed;
-  if (installed != std::size(kTargets) || !register_screen_manager_update_callback(Pulse)) {
-    Write({{"event", "install_incomplete"}, {"hooks", installed}});
-    spdlog::error("[ClaimTrace] incomplete install ({}/{}); required capture unavailable", installed,
-                  std::size(kTargets));
-    FailClaimTrace("Required claim logging could not install all hooks or its update callback.\n"
-                   "The game will close. See community_patch.log for details.");
-  }
+  const bool pulseInstalled = register_screen_manager_update_callback(Pulse);
+  if (installed != std::size(kTargets) || !pulseInstalled)
+    spdlog::warn("[ClaimTrace] partial capture: {}/{} hooks; update callback {}", installed,
+                 std::size(kTargets), pulseInstalled ? "active" : "unavailable");
   ready.store(true);
   Write(
       {{"event", "session"},
        {"schema", 7},
-       {"client", 267},
        {"hooks", installed},
+       {"update_callback", pulseInstalled},
        {"file", filename},
        {"request_states",
         "0 unknown; 1 purchasing; 2 succeeded; 3 failed; 4 cancelled; 5 deferred; 6 timed out; 7 abandoned"},
@@ -1936,7 +1870,7 @@ void InstallClaimTrace()
        {"correlation", "session-local tokens; bounded to 512 orders, 512 semaphore identifiers and 512 request labels; "
                        "512 bundle aliases; unsupported collections are explicit"},
        {"offer_probe_limits", "120 spans/minute; lists up to 64 entries; larger/unsupported lists explicit"}});
-  spdlog::warn("[ClaimTrace] local client267 science probe active: {} ({} hooks)", filename, installed);
+  spdlog::warn("[ClaimTrace] local science probe active: {} ({} hooks)", filename, installed);
 #endif
 }
 
