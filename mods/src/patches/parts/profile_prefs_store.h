@@ -18,7 +18,8 @@
 // profiles to run together but never two writers for the same profile.
 enum class ProfileOpenMode {
   New,
-  OpenOrCreate
+  Resume,
+  Existing
 };
 
 class ProfilePrefsStore
@@ -49,6 +50,7 @@ private:
 
   void Serialize(const Values& values, std::vector<BYTE>& output) const;
   Values Deserialize(const BYTE* data, std::size_t size) const;
+  Values LoadStore(const std::filesystem::path& path) const;
   std::vector<BYTE> Entropy() const;
   void Persist(const Values& values);
   void MarkInitialized();

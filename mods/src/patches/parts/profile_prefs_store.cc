@@ -216,33 +216,30 @@ ProfilePrefsStore::ProfilePrefsStore(const std::filesystem::path& local_app_data
   try {
     file_exists_ = std::filesystem::exists(file_path_);
     initialized_ = std::filesystem::exists(initialized_path_);
-    if (mode == ProfileOpenMode::New || !file_exists_) {
-      if ((mode == ProfileOpenMode::New && file_exists_) || initialized_)
+    auto backup = file_path_;
+    backup += L".bak";
+    if (mode == ProfileOpenMode::New) {
+      if (file_exists_ || initialized_ || std::filesystem::exists(backup))
         InvalidStore();
-      // A crash during a previous replacement must not be mistaken for a new profile.
-      for (const auto& entry : std::filesystem::directory_iterator(directory)) {
-        const auto name = entry.path().filename().wstring();
-        if (name == L"player_prefs.bin.bak" || name.starts_with(L"player_prefs.bin.tmp."))
+      for (const auto& entry : std::filesystem::directory_iterator(directory))
+        if (entry.path().filename().wstring().starts_with(L"player_prefs.bin.tmp."))
           InvalidStore();
-      }
     } else {
-      if (!file_exists_)
+      if (!file_exists_ && std::filesystem::exists(backup)) {
+        // ReplaceFileW can move the committed file to .bak while leaving the
+        // replacement staged. Validate before restoring it under the lock.
+        values_ = LoadStore(backup);
+        if (!MoveFileExW(backup.c_str(), file_path_.c_str(), MOVEFILE_WRITE_THROUGH))
+          throw std::runtime_error("could not restore isolated preferences backup");
+        file_exists_ = true;
+      } else if (file_exists_) {
+        values_ = LoadStore(file_path_);
+      } else if (mode == ProfileOpenMode::Existing || initialized_) {
         InvalidStore();
-      const auto encrypted = ReadEncryptedFile(file_path_);
-      const auto entropy = Entropy();
-      DATA_BLOB source{static_cast<DWORD>(encrypted.size()), const_cast<BYTE*>(encrypted.data())};
-      DATA_BLOB salt{static_cast<DWORD>(entropy.size()), const_cast<BYTE*>(entropy.data())};
-      LocalBlob decrypted;
-      if (!CryptUnprotectData(&source, nullptr, &salt, nullptr, nullptr, CRYPTPROTECT_UI_FORBIDDEN,
-                              &decrypted.data)
-          || decrypted.data.cbData > max_plain_bytes)
-        InvalidStore();
-      values_ = Deserialize(decrypted.data.pbData, decrypted.data.cbData);
+      }
 
-      // A valid committed file wins over a previous interrupted transaction.
-      auto backup = file_path_;
-      backup += L".bak";
-      if (std::filesystem::exists(backup) && !DeleteFileW(backup.c_str()))
+      // A valid committed file wins over a previous interrupted replacement.
+      if (file_exists_ && std::filesystem::exists(backup) && !DeleteFileW(backup.c_str()))
         throw std::runtime_error("could not remove stale profile backup");
       for (const auto& entry : std::filesystem::directory_iterator(directory)) {
         if (entry.path().filename().wstring().starts_with(L"player_prefs.bin.tmp.")
@@ -326,6 +323,19 @@ ProfilePrefsStore::Values ProfilePrefsStore::Deserialize(const BYTE* data, std::
   if (input.Remaining() != 0)
     InvalidStore();
   return result;
+}
+
+ProfilePrefsStore::Values ProfilePrefsStore::LoadStore(const std::filesystem::path& path) const
+{
+  const auto encrypted = ReadEncryptedFile(path);
+  const auto entropy = Entropy();
+  DATA_BLOB source{static_cast<DWORD>(encrypted.size()), const_cast<BYTE*>(encrypted.data())};
+  DATA_BLOB salt{static_cast<DWORD>(entropy.size()), const_cast<BYTE*>(entropy.data())};
+  LocalBlob decrypted;
+  if (!CryptUnprotectData(&source, nullptr, &salt, nullptr, nullptr, CRYPTPROTECT_UI_FORBIDDEN, &decrypted.data)
+      || decrypted.data.cbData > max_plain_bytes)
+    InvalidStore();
+  return Deserialize(decrypted.data.pbData, decrypted.data.cbData);
 }
 
 void ProfilePrefsStore::Persist(const Values& values)

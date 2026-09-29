@@ -35,13 +35,17 @@ int main()
   Check(PathHash("a") == 0xaf63dc4c8601ec8cull, "path hash vector");
 
   using enum SelectionState;
-  Check(Decide({}, {}, path).state == Default, "unmarked default");
-  Check(Decide({}, bound, path).state == MissingMarker, "lost marker");
-  Check(Decide("v1:JOSEP", {}, path).state == InvalidMarker, "bad marker");
-  Check(Decide("v1:josep", {}, path).state == Enroll, "first enrollment");
-  Check(Decide("v1:josep", bound, path).state == Bound, "bound install");
-  Check(Decide("v1:josep", bound, "different path").state == ReceiptConflict, "moved install");
-  Check(Decide("v1:other", bound, path).state == ReceiptConflict, "changed identity");
-  Check(Decide("v1:josep", "v1:josep\nc:\\games\\josep\\game\n", path).state == ReceiptConflict,
+  Check(Decide({}, {}, {}, path).state == Default, "unmarked default");
+  Check(Decide({}, bound, {}, path).state == MissingMarker, "lost marker");
+  Check(Decide({}, {}, bound, path).state == MissingMarker, "lost marker during enrollment");
+  Check(Decide("v1:JOSEP", {}, {}, path).state == InvalidMarker, "bad marker");
+  Check(Decide("v1:josep", {}, {}, path).state == Enroll, "first enrollment");
+  Check(Decide("v1:josep", {}, bound, path).state == Resume, "interrupted enrollment");
+  Check(Decide("v1:josep", bound, {}, path).state == Bound, "bound install");
+  Check(Decide("v1:josep", bound, bound, path).state == Bound, "completed enrollment with pending receipt");
+  Check(Decide("v1:josep", bound, "wrong", path).state == ReceiptConflict, "pending conflict");
+  Check(Decide("v1:josep", bound, {}, "different path").state == ReceiptConflict, "moved install");
+  Check(Decide("v1:other", bound, {}, path).state == ReceiptConflict, "changed identity");
+  Check(Decide("v1:josep", "v1:josep\nc:\\games\\josep\\game\n", {}, path).state == ReceiptConflict,
         "registry-prefix receipt accepted");
 }

@@ -22,6 +22,7 @@ namespace
 struct Resolution {
   ProfileSelection      selection;
   std::filesystem::path receipt_path;
+  std::filesystem::path pending_path;
   std::string           receipt_content;
 };
 
@@ -159,12 +160,16 @@ void CheckCommandLine(const std::filesystem::path& expected)
   LocalFree(argv);
 }
 
-bool ExistingBindingForId(const std::filesystem::path& directory, std::string_view id)
+bool ExistingBindingForId(const std::filesystem::path& directory, std::string_view id,
+                          const std::filesystem::path& ignore = {},
+                          const std::filesystem::path& also_ignore = {})
 {
   if (!std::filesystem::exists(directory))
     return false;
   for (const auto& entry : std::filesystem::directory_iterator(directory)) {
-    if (entry.path().extension() != L".binding")
+    if (entry.path() == ignore || entry.path() == also_ignore)
+      continue;
+    if (entry.path().extension() != L".binding" && entry.path().extension() != L".pending")
       continue;
     const auto receipt = ReadSmallFile(entry.path(), 65536);
     if (receipt && profile_contract::ReceiptClaimsId(*receipt, id))
@@ -184,9 +189,13 @@ Resolution Select()
                 static_cast<unsigned long long>(profile_contract::PathHash(path_id)));
   const auto receipt_path =
       LocalAppData() / L"STFC Community Mod" / L"ProfileBindingsV2" / (std::string(hash.data()) + ".binding");
+  auto pending_path = receipt_path;
+  pending_path += L".pending";
   const auto receipt = ReadSmallFile(receipt_path, 65536);
+  const auto pending = ReadSmallFile(pending_path, 65536);
   const auto decision = profile_contract::Decide(marker ? std::optional<std::string_view>(*marker) : std::nullopt,
                                                  receipt ? std::optional<std::string_view>(*receipt) : std::nullopt,
+                                                 pending ? std::optional<std::string_view>(*pending) : std::nullopt,
                                                  path_id);
 
   using profile_contract::SelectionState;
@@ -200,6 +209,7 @@ Resolution Select()
     case SelectionState::ReceiptConflict:
       AbortProfileLaunch("Profile enrollment conflicts with marker or install path");
     case SelectionState::Enroll:
+    case SelectionState::Resume:
     case SelectionState::Bound:
       break;
   }
@@ -212,9 +222,11 @@ Resolution Select()
   CheckCommandLine(config_path);
   // File::Init uses the corresponding log path before hook installation.
   std::filesystem::create_directories(config_path.parent_path());
-  const bool enroll = decision.state == SelectionState::Enroll;
-  return {{true, enroll, id, config_path},
+  const bool enroll = decision.state == SelectionState::Enroll || decision.state == SelectionState::Resume;
+  const bool resume = decision.state == SelectionState::Resume;
+  return {{true, enroll, resume, id, config_path},
           enroll ? receipt_path : std::filesystem::path{},
+          enroll ? pending_path : std::filesystem::path{},
           enroll ? profile_contract::Receipt(decision.id, path_id) : std::string{}};
 }
 
@@ -260,6 +272,22 @@ const Resolution& Resolved()
 const ProfileSelection& ResolveProfileSelection()
 { return Resolved().selection; }
 
+void StartProfileEnrollment()
+{
+  const auto& result = Resolved();
+  if (!result.selection.enroll)
+    return;
+  try {
+    if (ExistingBindingForId(result.receipt_path.parent_path(),
+                             Utf8(result.selection.id),
+                             result.pending_path, result.receipt_path))
+      AbortProfileLaunch("Profile ID is already enrolled to another install");
+    WriteEnrollment(result.pending_path, result.receipt_content);
+  } catch (...) {
+    AbortProfileLaunch("Could not start game profile enrollment");
+  }
+}
+
 void CompleteProfileEnrollment()
 {
   const auto& result = Resolved();
@@ -269,6 +297,8 @@ void CompleteProfileEnrollment()
     try {
       if (result.selection.enroll)
         WriteEnrollment(result.receipt_path, result.receipt_content);
+      if (result.selection.enroll)
+        DeleteFileW(result.pending_path.c_str());
       return true;
     } catch (...) {
       AbortProfileLaunch("Could not complete game profile enrollment");

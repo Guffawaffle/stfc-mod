@@ -237,12 +237,18 @@ void PrepareProfileIsolationProbe()
   const auto local_app_data = KnownFolder(FOLDERID_LocalAppData);
   if (local_app_data.empty())
     AbortProfileLaunch("Local app data is unavailable");
-  const auto open_mode = selection.enroll ? ProfileOpenMode::New : ProfileOpenMode::OpenOrCreate;
+  const auto open_mode = !selection.enroll ? ProfileOpenMode::Existing
+                         : selection.resume ? ProfileOpenMode::Resume
+                                            : ProfileOpenMode::New;
   try {
     profile_store = std::make_unique<ProfilePrefsStore>(local_app_data, profile_id, open_mode);
   } catch (...) {
     AbortProfileLaunch("Could not open the isolated preference store");
   }
+  // The store lock is held before publishing a pending enrollment. No
+  // PlayerPrefs hook can write a bin until the pending receipt is durable.
+  if (selection.enroll)
+    StartProfileEnrollment();
 }
 
 void InstallProfileIsolationProbe()

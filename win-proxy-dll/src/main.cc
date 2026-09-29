@@ -1,6 +1,7 @@
 #include <Windows.h>
 
 #include <filesystem>
+#include <vector>
 
 #include "patches/patches.h"
 
@@ -17,13 +18,26 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpReserved*/)
   std::filesystem::path game_path;
 
   switch (fdwReason) {
-    case DLL_PROCESS_ATTACH:
+    case DLL_PROCESS_ATTACH: {
       DisableThreadLibraryCalls(hinstDLL);
 
-      TCHAR szFileName[MAX_PATH];
-      GetModuleFileName(NULL, szFileName, MAX_PATH);
-
-      game_path = szFileName;
+      std::vector<wchar_t> module_path(MAX_PATH);
+      for (;;) {
+        const DWORD length = GetModuleFileNameW(nullptr, module_path.data(), static_cast<DWORD>(module_path.size()));
+        if (!length) {
+          TerminateProcess(GetCurrentProcess(), 190);
+          return FALSE;
+        }
+        if (length < module_path.size()) {
+          game_path = std::filesystem::path(std::wstring(module_path.data(), length));
+          break;
+        }
+        if (module_path.size() >= 32768) {
+          TerminateProcess(GetCurrentProcess(), 190);
+          return FALSE;
+        }
+        module_path.resize(module_path.size() * 2);
+      }
 
       if (CompareStringOrdinal(game_path.filename().c_str(), -1, L"prime.exe", -1, TRUE) != CSTR_EQUAL) {
         return TRUE;
@@ -33,6 +47,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpReserved*/)
       VersionDllInit();
       ApplyPatches();
       break;
+    }
     case DLL_THREAD_ATTACH:
       break;
     case DLL_THREAD_DETACH:

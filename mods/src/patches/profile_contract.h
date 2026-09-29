@@ -50,6 +50,7 @@ inline bool ReceiptClaimsId(std::string_view receipt, std::string_view id)
 enum class SelectionState {
   Default,
   Enroll,
+  Resume,
   Bound,
   MissingMarker,
   InvalidMarker,
@@ -62,20 +63,23 @@ struct SelectionDecision {
 };
 
 inline SelectionDecision Decide(std::optional<std::string_view> marker, std::optional<std::string_view> receipt,
-                                std::string_view canonical_path)
+                                std::optional<std::string_view> pending, std::string_view canonical_path)
 {
   if (!marker) {
-    if (receipt)
+    if (receipt || pending)
       return {SelectionState::MissingMarker, {}};
     return {SelectionState::Default, {}};
   }
   const auto id = ParseMarker(*marker);
   if (!id)
     return {SelectionState::InvalidMarker, {}};
-  if (!receipt)
-    return {SelectionState::Enroll, *id};
-  return *receipt == Receipt(*id, canonical_path) ? SelectionDecision{SelectionState::Bound, *id}
-                                                  : SelectionDecision{SelectionState::ReceiptConflict, {}};
+  const auto expected = Receipt(*id, canonical_path);
+  if ((receipt && *receipt != expected) || (pending && *pending != expected))
+    return {SelectionState::ReceiptConflict, {}};
+  if (receipt)
+    return {SelectionState::Bound, *id};
+  return pending ? SelectionDecision{SelectionState::Resume, *id}
+                 : SelectionDecision{SelectionState::Enroll, *id};
 }
 
 inline std::uint64_t PathHash(std::string_view canonical_path)

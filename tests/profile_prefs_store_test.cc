@@ -92,7 +92,7 @@ void NewProfilePersistsAndExistingReopens()
     fresh.SetString(u"synthetic-string", u"test value");
   }
   {
-    ProfilePrefsStore existing(temp.Path(), L"josep", ProfileOpenMode::OpenOrCreate);
+    ProfilePrefsStore existing(temp.Path(), L"josep", ProfileOpenMode::Existing);
     Check(existing.GetInt(u"synthetic-int", -1) == 42, "integer did not survive reopen");
     Check(existing.GetFloat(u"synthetic-float", -1.0f) == 1.25f, "float did not survive reopen");
     Check(existing.GetString(u"synthetic-string") == u"test value", "string did not survive reopen");
@@ -100,7 +100,7 @@ void NewProfilePersistsAndExistingReopens()
   }
 }
 
-void OpenOrCreatePreservesExistingPreferences()
+void ResumePreservesCommittedPreferences()
 {
   TemporaryDirectory temp;
   {
@@ -108,33 +108,41 @@ void OpenOrCreatePreservesExistingPreferences()
     fresh.SetInt(u"synthetic-account", 314);
   }
   {
-    ProfilePrefsStore reopened(temp.Path(), L"second", ProfileOpenMode::OpenOrCreate);
+    ProfilePrefsStore reopened(temp.Path(), L"second", ProfileOpenMode::Resume);
     Check(reopened.GetInt(u"synthetic-account", -1) == 314,
-          "OpenOrCreate replaced an established preference store");
+          "Resume replaced an interrupted enrollment's preference store");
     reopened.FinishNewProfile();
     Check(reopened.GetInt(u"synthetic-account", -1) == 314,
           "FinishNewProfile replaced an established preference store");
   }
 }
 
-void OpenOrCreateInitializesOnlyAnUntouchedProfile()
+void ResumeInitializesOnlyAnUntouchedProfile()
 {
   TemporaryDirectory temp;
   const auto file = temp.PrefsPath(L"fresh");
   {
-    ProfilePrefsStore interrupted(temp.Path(), L"fresh", ProfileOpenMode::OpenOrCreate);
+    ProfilePrefsStore interrupted(temp.Path(), L"fresh", ProfileOpenMode::Resume);
     Check(!fs::exists(file), "pre-install store unexpectedly wrote preferences");
   }
-  // An interrupted first launch may leave its lock file, but no committed
-  // preferences or prior-use marker. Retrying must still be possible.
+  auto temporary = file;
+  temporary += L".tmp.interrupted";
   {
-    ProfilePrefsStore fresh(temp.Path(), L"fresh", ProfileOpenMode::OpenOrCreate);
+    std::ofstream stage(temporary, std::ios::binary);
+    stage << "incomplete first commit";
+  }
+  // An interrupted first launch may leave its lock file, but no committed
+  // preferences or prior-use marker. Its uncommitted staging file can be
+  // discarded without replacing a previously committed value.
+  {
+    ProfilePrefsStore fresh(temp.Path(), L"fresh", ProfileOpenMode::Resume);
     Check(!fs::exists(file), "first use wrote preferences before hook installation");
+    Check(!fs::exists(temporary), "first-use staging debris was not removed");
     fresh.FinishNewProfile();
     Check(fs::is_regular_file(file), "first use did not initialize preferences");
   }
   Check(fs::remove(file), "could not remove synthetic preferences for enrollment test");
-  CheckThrows([&] { ProfilePrefsStore lost(temp.Path(), L"fresh", ProfileOpenMode::OpenOrCreate); },
+  CheckThrows([&] { ProfilePrefsStore lost(temp.Path(), L"fresh", ProfileOpenMode::Resume); },
               "lost preferences were mistaken for first enrollment");
   Check(!fs::exists(file), "failed enrollment silently recreated preferences");
 }
@@ -148,11 +156,61 @@ void MissingEstablishedPreferencesFailWithoutCreatingABin()
     fresh.FinishNewProfile();
   }
   Check(fs::remove(file), "could not remove synthetic preferences for missing-bin test");
-  CheckThrows([&] { ProfilePrefsStore existing(temp.Path(), L"missing", ProfileOpenMode::OpenOrCreate); },
+  CheckThrows([&] { ProfilePrefsStore existing(temp.Path(), L"missing", ProfileOpenMode::Existing); },
               "established profile silently accepted a missing preferences bin");
   CheckThrows([&] { ProfilePrefsStore re_enrolled(temp.Path(), L"missing", ProfileOpenMode::New); },
               "new enrollment silently reused an initialized profile ID");
   Check(!fs::exists(file), "opening an established profile silently recreated its missing bin");
+}
+
+void CompletedBindingCannotCreateAnEmptyStore()
+{
+  TemporaryDirectory temp;
+  const auto file = temp.PrefsPath(L"bound");
+  CheckThrows([&] { ProfilePrefsStore bound(temp.Path(), L"bound", ProfileOpenMode::Existing); },
+              "completed binding accepted an absent preferences directory");
+  Check(!fs::exists(file), "completed binding created an empty preferences bin");
+}
+
+void InterruptedReplacementRestoresValidatedBackup()
+{
+  TemporaryDirectory temp;
+  const auto file = temp.PrefsPath(L"recover");
+  {
+    ProfilePrefsStore fresh(temp.Path(), L"recover", ProfileOpenMode::New);
+    fresh.SetInt(u"durable-value", 42);
+  }
+  auto backup = file;
+  backup += L".bak";
+  auto temporary = file;
+  temporary += L".tmp.interrupted";
+  fs::rename(file, backup);
+  {
+    std::ofstream stage(temporary, std::ios::binary);
+    stage << "incomplete";
+  }
+  {
+    ProfilePrefsStore recovered(temp.Path(), L"recover", ProfileOpenMode::Existing);
+    Check(recovered.GetInt(u"durable-value", -1) == 42, "backup recovery lost committed preferences");
+  }
+  Check(fs::is_regular_file(file), "backup recovery did not restore primary bin");
+  Check(!fs::exists(backup) && !fs::exists(temporary), "backup recovery left transaction debris");
+}
+
+void InvalidBackupRemainsAvailableForManualRecovery()
+{
+  TemporaryDirectory temp;
+  const auto file = temp.PrefsPath(L"bad-backup");
+  fs::create_directories(file.parent_path());
+  auto backup = file;
+  backup += L".bak";
+  {
+    std::ofstream invalid(backup, std::ios::binary);
+    invalid << "not an encrypted profile";
+  }
+  CheckThrows([&] { ProfilePrefsStore recovered(temp.Path(), L"bad-backup", ProfileOpenMode::Existing); },
+              "invalid backup was restored");
+  Check(fs::is_regular_file(backup) && !fs::exists(file), "invalid backup was altered on failed recovery");
 }
 
 void MissingPreferencesFailOnNoOpDeleteKey()
@@ -176,7 +234,7 @@ void CopiedPreferencesCannotOpenUnderAnotherId()
   const auto copied = temp.PrefsPath(L"other");
   fs::create_directories(copied.parent_path());
   fs::copy_file(temp.PrefsPath(L"josep"), copied);
-  CheckThrows([&] { ProfilePrefsStore wrong_id(temp.Path(), L"other", ProfileOpenMode::OpenOrCreate); },
+  CheckThrows([&] { ProfilePrefsStore wrong_id(temp.Path(), L"other", ProfileOpenMode::Existing); },
               "a copied preferences bin opened under a different profile ID");
   Check(fs::is_regular_file(copied), "failed cross-ID open changed the copied bin");
 }
@@ -190,7 +248,7 @@ void NewModeRefusesExistingPreferences()
   }
   CheckThrows([&] { ProfilePrefsStore duplicate(temp.Path(), L"existing", ProfileOpenMode::New); },
               "New mode accepted an existing preferences bin");
-  ProfilePrefsStore still_existing(temp.Path(), L"existing", ProfileOpenMode::OpenOrCreate);
+  ProfilePrefsStore still_existing(temp.Path(), L"existing", ProfileOpenMode::Existing);
   Check(still_existing.GetInt(u"synthetic-value", -1) == 77,
         "failed New open changed existing preferences");
 }
@@ -221,7 +279,7 @@ void UnchangedValuesDoNotRewritePreferences()
     Check(ReadBytes(file) == string_value, "repeated string rewrote preferences");
   }
   {
-    ProfilePrefsStore reopened(temp.Path(), L"repeat", ProfileOpenMode::OpenOrCreate);
+    ProfilePrefsStore reopened(temp.Path(), L"repeat", ProfileOpenMode::Existing);
     Check(reopened.GetInt(u"count", -1) == 8, "changed integer was lost after reopen");
     Check(std::bit_cast<std::uint32_t>(reopened.GetFloat(u"scale", 1.0f))
               == std::bit_cast<std::uint32_t>(-0.0f),
@@ -242,9 +300,12 @@ int main()
 {
   try {
     NewProfilePersistsAndExistingReopens();
-    OpenOrCreatePreservesExistingPreferences();
-    OpenOrCreateInitializesOnlyAnUntouchedProfile();
+    ResumePreservesCommittedPreferences();
+    ResumeInitializesOnlyAnUntouchedProfile();
     MissingEstablishedPreferencesFailWithoutCreatingABin();
+    CompletedBindingCannotCreateAnEmptyStore();
+    InterruptedReplacementRestoresValidatedBackup();
+    InvalidBackupRemainsAvailableForManualRecovery();
     MissingPreferencesFailOnNoOpDeleteKey();
     CopiedPreferencesCannotOpenUnderAnotherId();
     NewModeRefusesExistingPreferences();
