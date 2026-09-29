@@ -23,7 +23,6 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 namespace spud::detail::x64 {
 uintptr_t maybe_resolve_jump(uintptr_t);
@@ -40,18 +39,6 @@ std::unique_ptr<ProfilePrefsStore> profile_store;
   spdlog::default_logger()->flush();
   ExitProcess(190);
   std::abort();
-}
-
-std::wstring Environment(const wchar_t* name)
-{
-  const DWORD size = GetEnvironmentVariableW(name, nullptr, 0);
-  if (!size)
-    return {};
-  std::vector<wchar_t> buffer(size);
-  const DWORD length = GetEnvironmentVariableW(name, buffer.data(), size);
-  if (!length || length >= size)
-    FailClosed("Could not read profile environment");
-  return {buffer.data(), length};
 }
 
 std::wstring KnownFolder(REFKNOWNFOLDERID folder_id)
@@ -243,18 +230,14 @@ void* Resolve(Il2CppClass* cls, const char* name, const char* result, std::initi
 void PrepareProfileIsolationProbe()
 {
   const auto& selection = ResolveProfileSelection();
-  if (!selection.active)
+  if (!selection.marked)
     return;
 
   profile_id = selection.id;
-  const auto mode = Environment(L"STFC_MOD_ISOLATED_PROFILE_MODE");
-  if ((!mode.empty() && mode != L"new") || (selection.marked && !mode.empty()))
-    AbortProfileLaunch("Invalid profile creation mode");
   const auto local_app_data = KnownFolder(FOLDERID_LocalAppData);
   if (local_app_data.empty())
     AbortProfileLaunch("Local app data is unavailable");
-  const auto open_mode = selection.marked ? ProfileOpenMode::OpenOrCreate
-                                          : (mode == L"new" ? ProfileOpenMode::New : ProfileOpenMode::Existing);
+  const auto open_mode = selection.enroll ? ProfileOpenMode::New : ProfileOpenMode::OpenOrCreate;
   try {
     profile_store = std::make_unique<ProfilePrefsStore>(local_app_data, profile_id, open_mode);
   } catch (...) {
@@ -264,7 +247,7 @@ void PrepareProfileIsolationProbe()
 
 void InstallProfileIsolationProbe()
 {
-  if (!ResolveProfileSelection().active)
+  if (!ResolveProfileSelection().marked)
     return;
   if (!profile_store)
     FailClosed("Profile preference store was not prepared");

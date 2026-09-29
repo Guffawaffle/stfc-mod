@@ -6,7 +6,6 @@
 #include <string>
 
 struct ProfileSelection {
-  bool                  active = false;
   bool                  marked = false;
   bool                  enroll = false;
   std::wstring          id;

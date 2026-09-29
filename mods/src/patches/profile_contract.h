@@ -38,15 +38,21 @@ inline std::optional<std::string_view> ParseMarker(std::string_view bytes)
 inline std::string Receipt(std::string_view id, std::string_view canonical_path)
 { return "v2:profile-prefs-v1\n" + std::string(id) + "\n" + std::string(canonical_path) + "\n"; }
 
+inline bool ReceiptClaimsId(std::string_view receipt, std::string_view id)
+{
+  constexpr std::string_view header = "v2:profile-prefs-v1\n";
+  if (!receipt.starts_with(header))
+    return false;
+  receipt.remove_prefix(header.size());
+  return receipt.size() > id.size() && receipt.starts_with(id) && receipt[id.size()] == '\n';
+}
+
 enum class SelectionState {
   Default,
-  Environment,
   Enroll,
   Bound,
-  InvalidEnvironment,
   MissingMarker,
   InvalidMarker,
-  EnvironmentConflict,
   ReceiptConflict
 };
 
@@ -56,21 +62,16 @@ struct SelectionDecision {
 };
 
 inline SelectionDecision Decide(std::optional<std::string_view> marker, std::optional<std::string_view> receipt,
-                                std::optional<std::string_view> environment, std::string_view canonical_path)
+                                std::string_view canonical_path)
 {
-  if (environment && !ValidId(*environment))
-    return {SelectionState::InvalidEnvironment, {}};
   if (!marker) {
     if (receipt)
       return {SelectionState::MissingMarker, {}};
-    return environment ? SelectionDecision{SelectionState::Environment, *environment}
-                       : SelectionDecision{SelectionState::Default, {}};
+    return {SelectionState::Default, {}};
   }
   const auto id = ParseMarker(*marker);
   if (!id)
     return {SelectionState::InvalidMarker, {}};
-  if (environment && *environment != *id)
-    return {SelectionState::EnvironmentConflict, {}};
   if (!receipt)
     return {SelectionState::Enroll, *id};
   return *receipt == Receipt(*id, canonical_path) ? SelectionDecision{SelectionState::Bound, *id}

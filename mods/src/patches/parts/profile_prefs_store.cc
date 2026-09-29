@@ -216,10 +216,8 @@ ProfilePrefsStore::ProfilePrefsStore(const std::filesystem::path& local_app_data
   try {
     file_exists_ = std::filesystem::exists(file_path_);
     initialized_ = std::filesystem::exists(initialized_path_);
-    if (mode == ProfileOpenMode::New || (mode == ProfileOpenMode::OpenOrCreate && !file_exists_)) {
-      if (mode == ProfileOpenMode::New && file_exists_)
-        InvalidStore();
-      if (mode == ProfileOpenMode::OpenOrCreate && initialized_)
+    if (mode == ProfileOpenMode::New || !file_exists_) {
+      if ((mode == ProfileOpenMode::New && file_exists_) || initialized_)
         InvalidStore();
       // A crash during a previous replacement must not be mistaken for a new profile.
       for (const auto& entry : std::filesystem::directory_iterator(directory)) {
@@ -463,8 +461,11 @@ bool ProfilePrefsStore::HasKey(std::u16string_view key) const
 void ProfilePrefsStore::DeleteKey(std::u16string_view key)
 {
   std::scoped_lock lock(mutex_);
-  if (!values_.contains(key))
+  if (!values_.contains(key)) {
+    if (file_exists_ && !std::filesystem::is_regular_file(file_path_))
+      throw std::runtime_error("isolated preferences are unavailable");
     return;
+  }
   auto next = values_;
   next.erase(key);
   Persist(next);

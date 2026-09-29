@@ -92,7 +92,7 @@ void NewProfilePersistsAndExistingReopens()
     fresh.SetString(u"synthetic-string", u"test value");
   }
   {
-    ProfilePrefsStore existing(temp.Path(), L"josep", ProfileOpenMode::Existing);
+    ProfilePrefsStore existing(temp.Path(), L"josep", ProfileOpenMode::OpenOrCreate);
     Check(existing.GetInt(u"synthetic-int", -1) == 42, "integer did not survive reopen");
     Check(existing.GetFloat(u"synthetic-float", -1.0f) == 1.25f, "float did not survive reopen");
     Check(existing.GetString(u"synthetic-string") == u"test value", "string did not survive reopen");
@@ -148,9 +148,22 @@ void MissingEstablishedPreferencesFailWithoutCreatingABin()
     fresh.FinishNewProfile();
   }
   Check(fs::remove(file), "could not remove synthetic preferences for missing-bin test");
-  CheckThrows([&] { ProfilePrefsStore existing(temp.Path(), L"missing", ProfileOpenMode::Existing); },
+  CheckThrows([&] { ProfilePrefsStore existing(temp.Path(), L"missing", ProfileOpenMode::OpenOrCreate); },
               "established profile silently accepted a missing preferences bin");
+  CheckThrows([&] { ProfilePrefsStore re_enrolled(temp.Path(), L"missing", ProfileOpenMode::New); },
+              "new enrollment silently reused an initialized profile ID");
   Check(!fs::exists(file), "opening an established profile silently recreated its missing bin");
+}
+
+void MissingPreferencesFailOnNoOpDeleteKey()
+{
+  TemporaryDirectory temp;
+  const auto file = temp.PrefsPath(L"missing-delete");
+  ProfilePrefsStore store(temp.Path(), L"missing-delete", ProfileOpenMode::New);
+  store.FinishNewProfile();
+  Check(fs::remove(file), "could not remove synthetic preferences for no-op delete test");
+  CheckThrows([&] { store.DeleteKey(u"absent"); }, "no-op DeleteKey accepted a missing preferences bin");
+  Check(!fs::exists(file), "failed no-op DeleteKey silently recreated preferences");
 }
 
 void CopiedPreferencesCannotOpenUnderAnotherId()
@@ -163,7 +176,7 @@ void CopiedPreferencesCannotOpenUnderAnotherId()
   const auto copied = temp.PrefsPath(L"other");
   fs::create_directories(copied.parent_path());
   fs::copy_file(temp.PrefsPath(L"josep"), copied);
-  CheckThrows([&] { ProfilePrefsStore wrong_id(temp.Path(), L"other", ProfileOpenMode::Existing); },
+  CheckThrows([&] { ProfilePrefsStore wrong_id(temp.Path(), L"other", ProfileOpenMode::OpenOrCreate); },
               "a copied preferences bin opened under a different profile ID");
   Check(fs::is_regular_file(copied), "failed cross-ID open changed the copied bin");
 }
@@ -177,7 +190,7 @@ void NewModeRefusesExistingPreferences()
   }
   CheckThrows([&] { ProfilePrefsStore duplicate(temp.Path(), L"existing", ProfileOpenMode::New); },
               "New mode accepted an existing preferences bin");
-  ProfilePrefsStore still_existing(temp.Path(), L"existing", ProfileOpenMode::Existing);
+  ProfilePrefsStore still_existing(temp.Path(), L"existing", ProfileOpenMode::OpenOrCreate);
   Check(still_existing.GetInt(u"synthetic-value", -1) == 77,
         "failed New open changed existing preferences");
 }
@@ -208,7 +221,7 @@ void UnchangedValuesDoNotRewritePreferences()
     Check(ReadBytes(file) == string_value, "repeated string rewrote preferences");
   }
   {
-    ProfilePrefsStore reopened(temp.Path(), L"repeat", ProfileOpenMode::Existing);
+    ProfilePrefsStore reopened(temp.Path(), L"repeat", ProfileOpenMode::OpenOrCreate);
     Check(reopened.GetInt(u"count", -1) == 8, "changed integer was lost after reopen");
     Check(std::bit_cast<std::uint32_t>(reopened.GetFloat(u"scale", 1.0f))
               == std::bit_cast<std::uint32_t>(-0.0f),
@@ -232,6 +245,7 @@ int main()
     OpenOrCreatePreservesExistingPreferences();
     OpenOrCreateInitializesOnlyAnUntouchedProfile();
     MissingEstablishedPreferencesFailWithoutCreatingABin();
+    MissingPreferencesFailOnNoOpDeleteKey();
     CopiedPreferencesCannotOpenUnderAnotherId();
     NewModeRefusesExistingPreferences();
     UnchangedValuesDoNotRewritePreferences();

@@ -28,21 +28,20 @@ int main()
   constexpr std::string_view path{R"(c:\games\josep\game)"};
   const auto                  bound = Receipt("josep", path);
   Check(bound == "v2:profile-prefs-v1\njosep\nc:\\games\\josep\\game\n", "receipt bytes");
+  Check(ReceiptClaimsId(bound, "josep"), "receipt identity");
+  Check(!ReceiptClaimsId(bound, "jos") && !ReceiptClaimsId(bound, "other"), "receipt identity boundary");
+  Check(!ReceiptClaimsId("v1:josep\n", "josep"), "old receipt identity");
   Check(PathHash("") == 0xcbf29ce484222325ull, "empty path hash");
   Check(PathHash("a") == 0xaf63dc4c8601ec8cull, "path hash vector");
 
   using enum SelectionState;
-  Check(Decide({}, {}, {}, path).state == Default, "unmarked default");
-  Check(Decide({}, {}, "josep", path).state == Environment, "environment science launch");
-  Check(Decide({}, {}, "", path).state == InvalidEnvironment, "empty environment profile");
-  Check(Decide({}, {}, "JOSEP", path).state == InvalidEnvironment, "invalid environment profile");
-  Check(Decide({}, bound, {}, path).state == MissingMarker, "lost marker");
-  Check(Decide("v1:JOSEP", {}, {}, path).state == InvalidMarker, "bad marker");
-  Check(Decide("v1:josep", {}, "other", path).state == EnvironmentConflict, "selector conflict");
-  Check(Decide("v1:josep", {}, {}, path).state == Enroll, "first enrollment");
-  Check(Decide("v1:josep", bound, "josep", path).state == Bound, "bound install");
-  Check(Decide("v1:josep", bound, {}, "different path").state == ReceiptConflict, "moved install");
-  Check(Decide("v1:other", bound, {}, path).state == ReceiptConflict, "changed identity");
-  Check(Decide("v1:josep", "v1:josep\nc:\\games\\josep\\game\n", {}, path).state == ReceiptConflict,
+  Check(Decide({}, {}, path).state == Default, "unmarked default");
+  Check(Decide({}, bound, path).state == MissingMarker, "lost marker");
+  Check(Decide("v1:JOSEP", {}, path).state == InvalidMarker, "bad marker");
+  Check(Decide("v1:josep", {}, path).state == Enroll, "first enrollment");
+  Check(Decide("v1:josep", bound, path).state == Bound, "bound install");
+  Check(Decide("v1:josep", bound, "different path").state == ReceiptConflict, "moved install");
+  Check(Decide("v1:other", bound, path).state == ReceiptConflict, "changed identity");
+  Check(Decide("v1:josep", "v1:josep\nc:\\games\\josep\\game\n", path).state == ReceiptConflict,
         "registry-prefix receipt accepted");
 }

@@ -25,24 +25,6 @@ struct Resolution {
   std::string           receipt_content;
 };
 
-std::optional<std::wstring> Environment(const wchar_t* name)
-{
-  SetLastError(ERROR_SUCCESS);
-  const DWORD size = GetEnvironmentVariableW(name, nullptr, 0);
-  if (!size) {
-    if (GetLastError() == ERROR_ENVVAR_NOT_FOUND)
-      return std::nullopt;
-    return std::wstring{};
-  }
-
-  std::vector<wchar_t> buffer(size);
-  SetLastError(ERROR_SUCCESS);
-  const DWORD length = GetEnvironmentVariableW(name, buffer.data(), size);
-  if (length >= size || (!length && GetLastError() != ERROR_SUCCESS))
-    AbortProfileLaunch("Could not read profile environment");
-  return std::wstring(buffer.data(), length);
-}
-
 std::filesystem::path ExecutablePath()
 {
   std::vector<wchar_t> buffer(MAX_PATH);
@@ -91,12 +73,12 @@ std::string Utf8(std::wstring_view value)
   const int length = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value.data(), static_cast<int>(value.size()),
                                          nullptr, 0, nullptr, nullptr);
   if (!length)
-    AbortProfileLaunch("Could not encode game path or profile environment");
+    AbortProfileLaunch("Could not encode game path");
   std::string result(length, '\0');
   if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value.data(), static_cast<int>(value.size()), result.data(),
                           length, nullptr, nullptr)
       != length)
-    AbortProfileLaunch("Could not encode game path or profile environment");
+    AbortProfileLaunch("Could not encode game path");
   return result;
 }
 
@@ -177,6 +159,20 @@ void CheckCommandLine(const std::filesystem::path& expected)
   LocalFree(argv);
 }
 
+bool ExistingBindingForId(const std::filesystem::path& directory, std::string_view id)
+{
+  if (!std::filesystem::exists(directory))
+    return false;
+  for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+    if (entry.path().extension() != L".binding")
+      continue;
+    const auto receipt = ReadSmallFile(entry.path(), 65536);
+    if (receipt && profile_contract::ReceiptClaimsId(*receipt, id))
+      return true;
+  }
+  return false;
+}
+
 Resolution Select()
 {
   const auto game_dir = std::filesystem::canonical(ExecutablePath()).parent_path();
@@ -188,28 +184,19 @@ Resolution Select()
                 static_cast<unsigned long long>(profile_contract::PathHash(path_id)));
   const auto receipt_path =
       LocalAppData() / L"STFC Community Mod" / L"ProfileBindingsV2" / (std::string(hash.data()) + ".binding");
-  const auto receipt        = ReadSmallFile(receipt_path, 65536);
-  const auto environment    = Environment(L"STFC_MOD_ISOLATED_PROFILE");
-  const auto environment_id = environment ? std::optional{Utf8(*environment)} : std::nullopt;
-  const auto decision       = profile_contract::Decide(
-      marker ? std::optional<std::string_view>(*marker) : std::nullopt,
-      receipt ? std::optional<std::string_view>(*receipt) : std::nullopt,
-      environment_id ? std::optional<std::string_view>(*environment_id) : std::nullopt, path_id);
+  const auto receipt = ReadSmallFile(receipt_path, 65536);
+  const auto decision = profile_contract::Decide(marker ? std::optional<std::string_view>(*marker) : std::nullopt,
+                                                 receipt ? std::optional<std::string_view>(*receipt) : std::nullopt,
+                                                 path_id);
 
   using profile_contract::SelectionState;
   switch (decision.state) {
     case SelectionState::Default:
       return {};
-    case SelectionState::Environment:
-      return {{true, false, false, *environment, {}}, {}, {}};
-    case SelectionState::InvalidEnvironment:
-      AbortProfileLaunch("Invalid environment profile ID");
     case SelectionState::MissingMarker:
       AbortProfileLaunch("Enrolled game install is missing its profile marker");
     case SelectionState::InvalidMarker:
       AbortProfileLaunch("Invalid profile marker");
-    case SelectionState::EnvironmentConflict:
-      AbortProfileLaunch("Environment profile conflicts with marker");
     case SelectionState::ReceiptConflict:
       AbortProfileLaunch("Profile enrollment conflicts with marker or install path");
     case SelectionState::Enroll:
@@ -217,13 +204,16 @@ Resolution Select()
       break;
   }
 
+  if (decision.state == SelectionState::Enroll && ExistingBindingForId(receipt_path.parent_path(), decision.id))
+    AbortProfileLaunch("Profile ID is already enrolled to another install");
+
   const auto id          = std::wstring(decision.id.begin(), decision.id.end());
   const auto config_path = game_dir / L"stfc-mod" / id / (id + L".toml");
   CheckCommandLine(config_path);
   // File::Init uses the corresponding log path before hook installation.
   std::filesystem::create_directories(config_path.parent_path());
   const bool enroll = decision.state == SelectionState::Enroll;
-  return {{true, true, enroll, id, config_path},
+  return {{true, enroll, id, config_path},
           enroll ? receipt_path : std::filesystem::path{},
           enroll ? profile_contract::Receipt(decision.id, path_id) : std::string{}};
 }

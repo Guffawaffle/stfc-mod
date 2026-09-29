@@ -17,7 +17,6 @@
 // A single isolated game's PlayerPrefs. The lifetime lock allows different
 // profiles to run together but never two writers for the same profile.
 enum class ProfileOpenMode {
-  Existing,
   New,
   OpenOrCreate
 };
