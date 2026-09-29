@@ -396,6 +396,19 @@ void ProfilePrefsStore::MarkInitialized()
 void ProfilePrefsStore::Set(std::u16string_view key, Value value)
 {
   std::scoped_lock lock(mutex_);
+  bool unchanged = false;
+  if (const auto found = values_.find(key); found != values_.end() && found->second.index() == value.index()) {
+    if (std::holds_alternative<float>(value))
+      unchanged = std::bit_cast<std::uint32_t>(std::get<float>(found->second))
+                  == std::bit_cast<std::uint32_t>(std::get<float>(value));
+    else
+      unchanged = found->second == value;
+  }
+  if (unchanged) {
+    if (!std::filesystem::is_regular_file(file_path_))
+      throw std::runtime_error("isolated preferences are unavailable");
+    return;
+  }
   auto next = values_;
   next.insert_or_assign(std::u16string(key), std::move(value));
   Persist(next);
@@ -461,6 +474,11 @@ void ProfilePrefsStore::DeleteKey(std::u16string_view key)
 void ProfilePrefsStore::DeleteAll()
 {
   std::scoped_lock lock(mutex_);
+  if (values_.empty() && file_exists_) {
+    if (!std::filesystem::is_regular_file(file_path_))
+      throw std::runtime_error("isolated preferences are unavailable");
+    return;
+  }
   Values empty;
   Persist(empty);
   values_.swap(empty);

@@ -2,9 +2,14 @@
 
 #include <Windows.h>
 
+#include <bit>
+#include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <iterator>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <system_error>
 
@@ -27,6 +32,13 @@ void CheckThrows(Action&& action, std::string_view message)
     return;
   }
   throw std::runtime_error(std::string(message));
+}
+
+std::string ReadBytes(const fs::path& path)
+{
+  std::ifstream file(path, std::ios::binary);
+  Check(file.is_open(), "could not read synthetic preferences");
+  return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
 }
 
 class TemporaryDirectory
@@ -170,6 +182,47 @@ void NewModeRefusesExistingPreferences()
         "failed New open changed existing preferences");
 }
 
+void UnchangedValuesDoNotRewritePreferences()
+{
+  TemporaryDirectory temp;
+  const auto file = temp.PrefsPath(L"repeat");
+  {
+    ProfilePrefsStore store(temp.Path(), L"repeat", ProfileOpenMode::New);
+    store.SetInt(u"count", 7);
+    const auto first = ReadBytes(file);
+    store.SetInt(u"count", 7);
+    Check(ReadBytes(file) == first, "repeated integer rewrote preferences");
+    store.SetInt(u"count", 8);
+    Check(ReadBytes(file) != first, "changed integer did not persist");
+
+    store.SetFloat(u"scale", 0.0f);
+    const auto positive_zero = ReadBytes(file);
+    store.SetFloat(u"scale", 0.0f);
+    Check(ReadBytes(file) == positive_zero, "repeated float rewrote preferences");
+    store.SetFloat(u"scale", -0.0f);
+    Check(ReadBytes(file) != positive_zero, "float sign change did not persist");
+
+    store.SetString(u"label", u"ready");
+    const auto string_value = ReadBytes(file);
+    store.SetString(u"label", u"ready");
+    Check(ReadBytes(file) == string_value, "repeated string rewrote preferences");
+  }
+  {
+    ProfilePrefsStore reopened(temp.Path(), L"repeat", ProfileOpenMode::Existing);
+    Check(reopened.GetInt(u"count", -1) == 8, "changed integer was lost after reopen");
+    Check(std::bit_cast<std::uint32_t>(reopened.GetFloat(u"scale", 1.0f))
+              == std::bit_cast<std::uint32_t>(-0.0f),
+          "float sign change was lost after reopen");
+    Check(reopened.GetString(u"label") == u"ready", "string was lost after reopen");
+    reopened.DeleteAll();
+    const auto empty = ReadBytes(file);
+    reopened.DeleteAll();
+    Check(ReadBytes(file) == empty, "repeated DeleteAll rewrote preferences");
+    Check(fs::remove(file), "could not remove synthetic preferences for missing-bin test");
+    CheckThrows([&] { reopened.DeleteAll(); }, "repeated DeleteAll accepted a missing preferences bin");
+  }
+}
+
 } // namespace
 
 int main()
@@ -181,6 +234,7 @@ int main()
     MissingEstablishedPreferencesFailWithoutCreatingABin();
     CopiedPreferencesCannotOpenUnderAnotherId();
     NewModeRefusesExistingPreferences();
+    UnchangedValuesDoNotRewritePreferences();
     std::cout << "profile preference store tests passed\n";
     return 0;
   } catch (const std::exception& error) {
