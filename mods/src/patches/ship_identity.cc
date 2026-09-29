@@ -18,7 +18,7 @@ const Methods& GetMethods()
     auto fleet = il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models",
                                          "FleetPlayerData");
     auto ship = il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "Ship");
-    return Methods{method_contract::Resolve(fleet.get_cls(), "get_Ship", false, "Digit.PrimeServer.Models.Ship", {}),
+    return Methods{method_contract::Resolve(fleet.get_cls(), "get_Ship", false, "Digit.PrimeServer.Models.IShipModel", {}),
                    method_contract::Resolve(ship.GetParent("BaseShip").get_cls(), "get_Id", false, "System.Int64",
                                             {})};
   }();
