@@ -19,6 +19,8 @@
 namespace
 {
 
+HANDLE install_lock = INVALID_HANDLE_VALUE;
+
 struct Resolution {
   ProfileSelection      selection;
   std::filesystem::path receipt_path;
@@ -182,13 +184,21 @@ Resolution Select()
 {
   const auto game_dir = std::filesystem::canonical(ExecutablePath()).parent_path();
   const auto path_id  = Utf8(LowerInvariant(game_dir.wstring()));
-  const auto marker   = ReadSmallFile(game_dir / L"stfc_community_mod.profile", 64);
 
   std::array<char, 17> hash{};
   std::snprintf(hash.data(), hash.size(), "%016llx",
                 static_cast<unsigned long long>(profile_contract::PathHash(path_id)));
   const auto receipt_path =
       LocalAppData() / L"STFC Community Mod" / L"ProfileBindingsV2" / (std::string(hash.data()) + ".binding");
+  std::filesystem::create_directories(receipt_path.parent_path());
+  auto lock_path = receipt_path;
+  lock_path += L".lock";
+  install_lock = CreateFileW(lock_path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_ALWAYS,
+                             FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (install_lock == INVALID_HANDLE_VALUE)
+    AbortProfileLaunch("Another game instance already uses this install");
+
+  const auto marker = ReadSmallFile(game_dir / L"stfc_community_mod.profile", 64);
   auto pending_path = receipt_path;
   pending_path += L".pending";
   const auto receipt = ReadSmallFile(receipt_path, 65536);
