@@ -190,6 +190,16 @@ Resolution Select()
                 static_cast<unsigned long long>(profile_contract::PathHash(path_id)));
   const auto receipt_path =
       LocalAppData() / L"STFC Community Mod" / L"ProfileBindingsV2" / (std::string(hash.data()) + ".binding");
+  auto pending_path = receipt_path;
+  pending_path += L".pending";
+  auto marker = ReadSmallFile(game_dir / L"stfc_community_mod.profile", 64);
+  auto receipt = ReadSmallFile(receipt_path, 65536);
+  auto pending = ReadSmallFile(pending_path, 65536);
+  if (!marker && !receipt && !pending)
+    return {};
+
+  // An ordinary unmarked install keeps its existing launch behavior. Marked
+  // installs re-read all selection state under this lifetime lock.
   std::filesystem::create_directories(receipt_path.parent_path());
   auto lock_path = receipt_path;
   lock_path += L".lock";
@@ -198,11 +208,9 @@ Resolution Select()
   if (install_lock == INVALID_HANDLE_VALUE)
     AbortProfileLaunch("Another game instance already uses this install");
 
-  const auto marker = ReadSmallFile(game_dir / L"stfc_community_mod.profile", 64);
-  auto pending_path = receipt_path;
-  pending_path += L".pending";
-  const auto receipt = ReadSmallFile(receipt_path, 65536);
-  const auto pending = ReadSmallFile(pending_path, 65536);
+  marker = ReadSmallFile(game_dir / L"stfc_community_mod.profile", 64);
+  receipt = ReadSmallFile(receipt_path, 65536);
+  pending = ReadSmallFile(pending_path, 65536);
   const auto decision = profile_contract::Decide(marker ? std::optional<std::string_view>(*marker) : std::nullopt,
                                                  receipt ? std::optional<std::string_view>(*receipt) : std::nullopt,
                                                  pending ? std::optional<std::string_view>(*pending) : std::nullopt,
@@ -211,6 +219,8 @@ Resolution Select()
   using profile_contract::SelectionState;
   switch (decision.state) {
     case SelectionState::Default:
+      CloseHandle(install_lock);
+      install_lock = INVALID_HANDLE_VALUE;
       return {};
     case SelectionState::MissingMarker:
       AbortProfileLaunch("Enrolled game install is missing its profile marker");
