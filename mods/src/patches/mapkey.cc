@@ -229,7 +229,8 @@ bool MapKey::ReplaceBindings(GameFunction gameFunction, std::vector<MapKey> bind
   return true;
 }
 
-// Movement consumes directions itself; other actions retain ownership until release.
+// Movement reads the direction itself; claiming it would suppress its own pan
+// on the next frame. Other modified actions retain ownership until key release.
 static bool IsMovementAction(GameFunction action)
 {
   return action == GameFunction::MoveLeft || action == GameFunction::MoveRight

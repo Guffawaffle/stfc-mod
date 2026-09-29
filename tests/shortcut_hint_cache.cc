@@ -7,6 +7,7 @@
 #include "settings/shortcut_draft.h"
 #include "settings/shortcut_capture.h"
 
+#include <array>
 #include <cstdlib>
 #include <iostream>
 #include <utility>
@@ -428,7 +429,17 @@ int main()
   Check(MapKey::IsPressed(GameFunction::MoveDown), "Held explicit movement chord stopped");
   Check(MapKey::ReplaceBindings(GameFunction::MoveDown, {}), "Unbind movement");
   Check(!MapKey::IsPressed(GameFunction::MoveDown), "Unbound movement still active");
+  // Non-movement shortcuts still claim a directional key after dispatch.
   pressed.fill(false);
+  down.fill(false);
+  Check(MapKey::ReplaceBindings(toggle, {MapKey::Parse("CTRL-DOWN")}), "Bind direction-taking action");
+  pressed[static_cast<int>(KeyCode::LeftControl)] = true;
+  pressed[static_cast<int>(KeyCode::DownArrow)] = down[static_cast<int>(KeyCode::DownArrow)] = true;
+  claimedInput = KeyCode::None;
+  Check(MapKey::IsDown(toggle) && claimedInput == KeyCode::DownArrow,
+        "Non-movement chord lost directional ownership");
+  pressed.fill(false);
+  down.fill(false);
   CheckCapturedCommand();
   std::cout << "Shortcut hint cache tests passed\n";
 }
