@@ -1,6 +1,7 @@
 #if _WIN32
 
 #include "il2cpp/method_contract.h"
+#include "profile_prefs_store.h"
 
 #include <il2cpp/il2cpp-functions.h>
 #include <il2cpp/il2cpp_helper.h>
@@ -16,8 +17,11 @@
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <memory>
+#include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace spud::detail::x64 {
@@ -26,8 +30,8 @@ uintptr_t maybe_resolve_jump(uintptr_t);
 
 namespace {
 
-std::wstring   profile_id;
-std::u16string preference_prefix;
+std::wstring                       profile_id;
+std::unique_ptr<ProfilePrefsStore> profile_store;
 
 [[noreturn]] void FailClosed(const char* reason)
 {
@@ -81,62 +85,99 @@ bool ReservedWindowsName(std::wstring_view name)
          && (name.substr(0, 3) == L"com" || name.substr(0, 3) == L"lpt");
 }
 
-Il2CppString* ProfileKey(Il2CppString* key)
+std::u16string_view RequiredString(Il2CppString* value)
 {
-  if (!key)
-    return nullptr;
-  std::u16string value = preference_prefix;
-  value.append(reinterpret_cast<const char16_t*>(key->chars), key->length);
-  auto* mapped = il2cpp_string_new_utf16(reinterpret_cast<const Il2CppChar*>(value.data()),
-                                         static_cast<int32_t>(value.size()));
-  if (!mapped)
-    FailClosed("Could not allocate a profile preference key");
-  return mapped;
+  if (!value || value->length < 0)
+    FailClosed("The client supplied an invalid profile preference string");
+  return {reinterpret_cast<const char16_t*>(value->chars), static_cast<std::size_t>(value->length)};
 }
 
-bool TrySetInt_Hook(auto original, Il2CppString* key, int value)
+template <typename Action>
+decltype(auto) WithProfileStore(const char* failure, Action&& action)
 {
-  return original(ProfileKey(key), value);
+  try {
+    if (!profile_store)
+      FailClosed("Profile preference store is unavailable");
+    return std::forward<Action>(action)(*profile_store);
+  } catch (...) {
+    FailClosed(failure);
+  }
 }
 
-bool TrySetFloat_Hook(auto original, Il2CppString* key, float value)
+bool TrySetInt_Hook(auto, Il2CppString* key, int value)
 {
-  return original(ProfileKey(key), value);
+  return WithProfileStore("Could not persist an integer preference", [&](ProfilePrefsStore& store) {
+    store.SetInt(RequiredString(key), value);
+    return true;
+  });
 }
 
-bool TrySetString_Hook(auto original, Il2CppString* key, Il2CppString* value)
+bool TrySetFloat_Hook(auto, Il2CppString* key, float value)
 {
-  return original(ProfileKey(key), value);
+  return WithProfileStore("Could not persist a float preference", [&](ProfilePrefsStore& store) {
+    store.SetFloat(RequiredString(key), value);
+    return true;
+  });
 }
 
-int GetInt_Hook(auto original, Il2CppString* key, int fallback)
+bool TrySetString_Hook(auto, Il2CppString* key, Il2CppString* value)
 {
-  return original(ProfileKey(key), fallback);
+  return WithProfileStore("Could not persist a string preference", [&](ProfilePrefsStore& store) {
+    store.SetString(RequiredString(key), RequiredString(value));
+    return true;
+  });
 }
 
-float GetFloat_Hook(auto original, Il2CppString* key, float fallback)
+int GetInt_Hook(auto, Il2CppString* key, int fallback)
 {
-  return original(ProfileKey(key), fallback);
+  return WithProfileStore("Could not read an integer preference", [&](ProfilePrefsStore& store) {
+    return store.GetInt(RequiredString(key), fallback);
+  });
 }
 
-Il2CppString* GetString_Hook(auto original, Il2CppString* key, Il2CppString* fallback)
+float GetFloat_Hook(auto, Il2CppString* key, float fallback)
 {
-  return original(ProfileKey(key), fallback);
+  return WithProfileStore("Could not read a float preference", [&](ProfilePrefsStore& store) {
+    return store.GetFloat(RequiredString(key), fallback);
+  });
 }
 
-bool HasKey_Hook(auto original, Il2CppString* key)
+Il2CppString* GetString_Hook(auto, Il2CppString* key, Il2CppString* fallback)
 {
-  return original(ProfileKey(key));
+  return WithProfileStore("Could not read a string preference", [&](ProfilePrefsStore& store) -> Il2CppString* {
+    const auto value = store.GetString(RequiredString(key));
+    if (!value)
+      return fallback;
+    auto* result = il2cpp_string_new_utf16(reinterpret_cast<const Il2CppChar*>(value->data()),
+                                           static_cast<std::int32_t>(value->size()));
+    if (!result)
+      throw std::runtime_error("could not allocate preference string");
+    return result;
+  });
 }
 
-void DeleteKey_Hook(auto original, Il2CppString* key)
+bool HasKey_Hook(auto, Il2CppString* key)
 {
-  original(ProfileKey(key));
+  return WithProfileStore("Could not inspect a preference", [&](ProfilePrefsStore& store) {
+    return store.HasKey(RequiredString(key));
+  });
+}
+
+void DeleteKey_Hook(auto, Il2CppString* key)
+{
+  WithProfileStore("Could not delete a preference", [&](ProfilePrefsStore& store) {
+    store.DeleteKey(RequiredString(key));
+  });
 }
 
 void DeleteAll_Hook(auto)
 {
-  FailClosed("The client attempted an unscoped preference reset");
+  WithProfileStore("Could not clear profile preferences", [](ProfilePrefsStore& store) { store.DeleteAll(); });
+}
+
+void Save_Hook(auto)
+{
+  WithProfileStore("Could not save profile preferences", [](ProfilePrefsStore& store) { store.Save(); });
 }
 
 bool LaunchProfileBrowser(Il2CppString* url)
@@ -226,10 +267,17 @@ void InstallProfileIsolationProbe()
   if (ReservedWindowsName(profile_id))
     FailClosed("Reserved profile ID");
 
-  preference_prefix = u"stfc-mod/profile/";
-  for (const wchar_t ch : profile_id)
-    preference_prefix.push_back(static_cast<char16_t>(ch));
-  preference_prefix.push_back(u'/');
+  const auto mode = Environment(L"STFC_MOD_ISOLATED_PROFILE_MODE");
+  if (!mode.empty() && mode != L"new")
+    FailClosed("Invalid profile creation mode");
+  const auto local_app_data = KnownFolder(FOLDERID_LocalAppData);
+  if (local_app_data.empty())
+    FailClosed("Local app data is unavailable");
+  try {
+    profile_store = std::make_unique<ProfilePrefsStore>(local_app_data, profile_id, mode == L"new");
+  } catch (...) {
+    FailClosed("Could not open the isolated preference store");
+  }
 
   auto prefs = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "PlayerPrefs");
   auto oidc = il2cpp_get_class_helper("Playgami.Sdk.Identity.Runtime", "Playgami.Identity.Api.Internal",
@@ -237,7 +285,7 @@ void InstallProfileIsolationProbe()
   if (!prefs.get_cls() || !oidc.get_cls())
     FailClosed("Required profile classes are unavailable");
 
-  const std::array<void*, 9> pref_methods = {
+  const std::array<void*, 10> pref_methods = {
       Resolve(prefs.get_cls(), "TrySetInt", "System.Boolean", {"System.String", "System.Int32"}),
       Resolve(prefs.get_cls(), "TrySetFloat", "System.Boolean", {"System.String", "System.Single"}),
       Resolve(prefs.get_cls(), "TrySetSetString", "System.Boolean", {"System.String", "System.String"}),
@@ -247,6 +295,7 @@ void InstallProfileIsolationProbe()
       Resolve(prefs.get_cls(), "HasKey", "System.Boolean", {"System.String"}),
       Resolve(prefs.get_cls(), "DeleteKey", "System.Void", {"System.String"}),
       Resolve(prefs.get_cls(), "DeleteAll", "System.Void", {}),
+      Resolve(prefs.get_cls(), "Save", "System.Void", {}),
   };
   const std::array<void*, 3> browser_methods = {
       method_contract::Pointer(method_contract::Resolve(oidc.get_cls(), "PresentLoginUrlToUser", false,
@@ -287,12 +336,18 @@ void InstallProfileIsolationProbe()
         || !SPUD_STATIC_DETOUR(pref_methods[6], HasKey_Hook)
         || !SPUD_STATIC_DETOUR(pref_methods[7], DeleteKey_Hook)
         || !SPUD_STATIC_DETOUR(pref_methods[8], DeleteAll_Hook)
+        || !SPUD_STATIC_DETOUR(pref_methods[9], Save_Hook)
         || !SPUD_STATIC_DETOUR(browser_methods[0], PresentUrl_Hook)
         || !SPUD_STATIC_DETOUR(browser_methods[1], PresentUrl_Hook)
         || !SPUD_STATIC_DETOUR(browser_methods[2], PresentUrl_Hook))
       FailClosed("A profile hook could not be installed");
   } catch (...) {
     FailClosed("A profile hook failed to install");
+  }
+  try {
+    profile_store->FinishNewProfile();
+  } catch (...) {
+    FailClosed("Could not initialize the new profile store");
   }
   spdlog::info("[ProfileIsolationProbe] Active for a dedicated launch profile");
 }

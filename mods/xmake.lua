@@ -135,7 +135,7 @@ do
     if is_plat("windows") then
         add_cxflags("/bigobj")
         add_linkdirs("src/il2cpp")
-        add_syslinks("winmm", "mfuuid", "shlwapi", "ole32")
+        add_syslinks("winmm", "mfuuid", "shlwapi", "ole32", "crypt32")
     elseif is_plat("macosx") then
         add_cxflags("-fms-extensions")
         -- Add Objective-C++ source
