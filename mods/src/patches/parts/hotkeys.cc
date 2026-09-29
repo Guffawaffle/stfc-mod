@@ -617,15 +617,20 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
         }
       }
 
-      if (foundDisco) {
-        auto towedFleetId = FleetsManager::Instance()->GetFleetPlayerData(ship_select_request)->Id;
-        auto plannedCourse =
-            DeploymentManger::Instance()->PlanCourse(FleetsManager::Instance()->GetFleetPlayerData(ship_select_request),
-                                                     foundDisco->Address, Vector3::zero(), nullptr, nullptr, nullptr);
-        while (plannedCourse->MoveNext()) {
-          ;
-        }
-        DeploymentManger::Instance()->SetTowRequest(towedFleetId, foundDisco->Id);
+      auto* selectedFleet = FleetsManager::Instance()->GetFleetPlayerData(ship_select_request);
+      auto* deployment = DeploymentManger::Instance();
+      if (foundDisco && selectedFleet && deployment) {
+        auto* plannedCourse =
+            deployment->PlanCourse(selectedFleet, foundDisco->Address, Vector3::zero(), nullptr, nullptr, nullptr);
+        bool has_next = false;
+        bool advanced = false;
+        do {
+          advanced = IEnumerator::TryMoveNext(plannedCourse, has_next);
+        } while (advanced && has_next);
+        if (advanced)
+          deployment->SetTowRequest(selectedFleet->Id, foundDisco->Id);
+        else
+          spdlog::warn("Discovery tow: course iterator unavailable or failed; tow request skipped");
       }
     } else {
       auto fleet_bar  = ObjectFinder<FleetBarViewController>::Get();

@@ -17,33 +17,6 @@ public:
   __declspec(property(get = __get_TargetFleetData)) FleetDeployedData* targetFleetData;
 
 public:
-  class IEnumerator_Tow
-  {
-  public:
-    bool MoveNext()
-    {
-      static auto MoveNext = get_class_helper().GetMethodSpecial<bool(IEnumerator_Tow*)>("MoveNext");
-      static auto MoveWarn = true;
-
-      if (MoveNext) {
-        return MoveNext(this);
-      } else if (MoveWarn) {
-        MoveWarn = false;
-        ErrorMsg::MissingMethod("IEnumerator_Tow", "MoveNext");
-      }
-
-      return false;
-    }
-
-  private:
-    static IL2CppClassHelper& get_class_helper()
-    {
-      static auto class_helper =
-          il2cpp_get_class_helper("Assembly-CSharp", "", "FleetsManager.<Tow>d__192");
-      return class_helper;
-    }
-  };
-
   void RequestViewFleet(FleetPlayerData* fleetData, bool showSystemInfo = false)
   {
     static auto RequestViewFleet =
@@ -71,10 +44,10 @@ public:
     }
   }
 
-  IEnumerator_Tow* Tow(long towedFleetId, long towingFleetId, Vector3* targetPosition)
+  IEnumerator* Tow(int64_t towedFleetId, int64_t towingFleetId, Vector3* targetPosition)
   {
     static auto TowMethod =
-        get_class_helper().GetMethod<IEnumerator_Tow*(FleetsManager*, long, long, void*, Vector3*, void*)>("Tow");
+        get_class_helper().GetMethod<IEnumerator*(FleetsManager*, int64_t, int64_t, void*, Vector3*, void*)>("Tow");
     static auto TowWarn = true;
 
     if (TowMethod) {

@@ -5,49 +5,9 @@
 #include "Vector3.h"
 #include "FleetPlayerData.h"
 #include "FleetDeployedData.h"
+#include "IEnumerator.h"
 
 #include <il2cpp/il2cpp_helper.h>
-
-class DeploymentService
-{
-public:
-  class IEnumerator_PlanCourse
-  {
-  public:
-    bool MoveNext()
-    {
-      static auto MoveNext = get_class_helper().GetMethodSpecial<bool(IEnumerator_PlanCourse*)>("MoveNext");
-      static auto MoveWarn = true;
-
-      if (MoveNext) {
-        return MoveNext(this);
-      } else if (MoveWarn) {
-        MoveWarn = false;
-        ErrorMsg::MissingMethod("IEnumerator_PlanCourse", "MoveNext");
-      }
-
-      return false;
-    }
-
-  private:
-    static IL2CppClassHelper& get_class_helper()
-    {
-      static auto class_helper =
-          il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "", "DeploymentService.<PlanCourse>d__119");
-      return class_helper;
-    }
-  };
-
-private:
-  friend class IEnumerator_PlanCourse;
-
-  static IL2CppClassHelper& get_class_helper()
-  {
-    static auto class_helper =
-        il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "DeploymentService");
-    return class_helper;
-  }
-};
 
 struct DeploymentManger : MonoSingleton<DeploymentManger> {
   friend struct MonoSingleton<DeploymentManger>;
@@ -68,25 +28,22 @@ public:
     }
   }
 
-  DeploymentService::IEnumerator_PlanCourse* PlanCourse(FleetPlayerData* selectedFleet, void* targetAddress,
-                                                        Vector3 targetPosition, FleetDeployedData* targetDeployedFleet,
-                                                        void* starbaseData, void* allianceStarbaseData)
+  IEnumerator* PlanCourse(FleetPlayerData* selectedFleet, void* targetAddress, Vector3 targetPosition,
+                          FleetDeployedData* targetDeployedFleet, void* starbaseData, void* allianceStarbaseData,
+                          void* outpost = nullptr)
   {
-    static auto PlanCourseMethod =
-        get_class_helper()
-            .GetMethod<DeploymentService::IEnumerator_PlanCourse*(
-                DeploymentManger*, FleetPlayerData * selectedFleet, void* targetAddress, Vector3* targetPosition,
-                FleetDeployedData* targetDeployedFleet, void* starbaseData, void* allianceStarbaseData)>("PlanCourse");
-    static auto PlanCourseWarn = true;
+    static auto* method = method_contract::Resolve(
+        get_class_helper().get_cls(), "PlanCourse", false, "System.Collections.IEnumerator",
+        {"Digit.PrimeServer.Models.FleetPlayerData", "Digit.PrimeServer.Models.NodeAddress", "UnityEngine.Vector3",
+         "Digit.PrimeServer.Models.FleetDeployedData", "Digit.PrimeServer.Models.StarbaseData",
+         "Digit.PrimeServer.Models.AllianceStarbaseData", "Digit.PrimeServer.Models.Outpost"});
+    void* args[]{selectedFleet, targetAddress, &targetPosition, targetDeployedFleet, starbaseData, allianceStarbaseData,
+                 outpost};
+    Il2CppObject* result = nullptr;
+    if (Il2CppRuntime::TryInvoke(method, this, args, &result))
+      return reinterpret_cast<IEnumerator*>(result);
 
-    if (PlanCourseMethod) {
-      return PlanCourseMethod(this, selectedFleet, targetAddress, &targetPosition, targetDeployedFleet, starbaseData,
-                              allianceStarbaseData);
-    } else if (PlanCourseWarn) {
-      PlanCourseWarn = false;
-      ErrorMsg::MissingMethod("DeploymentService", "PlanCourse");
-    }
-
+    spdlog::warn("DeploymentManager: unable to invoke PlanCourse");
     return nullptr;
   }
 

@@ -5,6 +5,8 @@
 #define IL2CPP_IMPORT
 #endif
 #include "il2cpp/runtime.h"
+#include "prime/IEnumerator.h"
+#include <cstring>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -27,6 +29,26 @@ void**       seen_args   = nullptr;
 #define API(ret, name, params) name##_t name = +[] params->ret
 #define END_API ;
 #endif
+API(const MethodInfo*, il2cpp_class_get_methods, (Il2CppClass* cls, void** iter))
+{
+  auto index = reinterpret_cast<uintptr_t>(*iter);
+  if (index >= cls->method_count)
+    return nullptr;
+  *iter = reinterpret_cast<void*>(index + 1);
+  return cls->methods[index];
+}
+END_API
+API(char*, il2cpp_type_get_name, (const Il2CppType* value))
+{
+  const auto* name = value->type == IL2CPP_TYPE_BOOLEAN ? "System.Boolean" : "System.Int32";
+  auto* copy = static_cast<char*>(std::malloc(std::strlen(name) + 1));
+  std::strcpy(copy, name);
+  return copy;
+}
+END_API
+API(void, il2cpp_free, (void* value))
+{ std::free(value); }
+END_API
 API(const Il2CppType*, il2cpp_class_get_type, (Il2CppClass*))
 { return null_type ? nullptr : &type; }
 END_API
@@ -83,5 +105,56 @@ int main()
   null_unbox = false;
   object.klass = nullptr;
   Require(!Il2CppRuntime::TryBoolean(&object, value) && value);
+  // Resolve each iterator's concrete class; a different compiler-generated
+  // class must never inherit the first iterator's cached MoveNext method.
+  object.klass = &klass;
+  type.type = IL2CPP_TYPE_BOOLEAN;
+  method.name = "MoveNext";
+  method.methodPointer = +[] {};
+  method.return_type = &type;
+  const MethodInfo* methods[]{&method};
+  klass.methods = methods;
+  klass.method_count = 1;
+  fail = false;
+  null_result = false;
+  auto* iterator = reinterpret_cast<IEnumerator*>(&object);
+  value = false;
+  Require(IEnumerator::TryMoveNext(iterator, value) && value);
+  Require(seen_target == &object && seen_args == nullptr);
+  boxed = false;
+  Require(IEnumerator::TryMoveNext(iterator, value) && !value); // normal completion
+  value = true;
+  fail = true;
+  Require(!IEnumerator::TryMoveNext(iterator, value) && value); // not completion
+  fail = false;
+  null_result = true;
+  Require(!IEnumerator::TryMoveNext(iterator, value) && value);
+  null_result = false;
+  auto reject_without_invoking = [&] {
+    const auto previous_calls = calls;
+    Require(!IEnumerator::TryMoveNext(iterator, value) && value && calls == previous_calls);
+  };
+  method.flags = METHOD_ATTRIBUTE_STATIC;
+  reject_without_invoking();
+  method.flags = 0;
+  method.parameters_count = 1;
+  reject_without_invoking();
+  method.parameters_count = 0;
+  type.type = IL2CPP_TYPE_I4;
+  reject_without_invoking();
+  type.type = IL2CPP_TYPE_BOOLEAN;
+  const MethodInfo* ambiguous[]{&method, &method};
+  klass.methods = ambiguous;
+  klass.method_count = 2;
+  reject_without_invoking();
+  klass.methods = methods;
+  klass.method_count = 1;
+  Il2CppClass other_class;
+  std::memset(&other_class, 0, sizeof(other_class));
+  object.klass = &other_class;
+  reject_without_invoking();
+  object.klass = nullptr;
+  reject_without_invoking();
+  Require(!IEnumerator::TryMoveNext(nullptr, value) && value);
   std::cout << "IL2CPP runtime helper regressions passed\n";
 }
