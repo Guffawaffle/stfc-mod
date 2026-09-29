@@ -242,10 +242,10 @@ system_pan_momentum_falloff = 0.8
 # Subgroup: Loader
 # ----------------
 
-# mettez ça sur activer pour utiliser l'image chargée pour l'écran de chargement
+# Afficher les badges et une image personnalisée facultative sur l'écran de chargement
 loader_enabled = true
 
-# chemin d'accès pour l'écran de chargement personnalisé (laisser vide pour l’image incorporée)
+# Chemin vers une image PNG personnalisée ; vide utilise par défaut le fond du jeu dans ce fork
 loader_image = ""
 
 # Multiplier applied to the logo size on the loading screen
@@ -254,7 +254,7 @@ loader_logo_scale = 1.0
 # Show the custom tip on the loading screen
 loader_tip_enabled = true
 
-# mettez ça sur activer pour utiliser l'image chargée pour l'écran de transition
+# Afficher les badges et une image personnalisée facultative sur l'écran de transition
 loader_transition = true
 
 # Use a black background instead of the custom image during transitions
@@ -815,7 +815,9 @@ arrow_keys_to_select_ship = true
 double_click_to_assign_ship = false
 
 # Épinglez les vaisseaux dans Gérer le vaisseau > Changer de vaisseau.
-# Cliquez sur l'épingle en bas à droite pour épingler ou détacher ; maintenez et faites glisser une épingle numérotée sur une autre carte numérotée pour réordonner.
+# Les épingles n'affichent aucun numéro de rang : pleine = épinglé, creuse = non épinglé.
+# Cliquez sur l'épingle en bas à droite pour épingler ou détacher. Maintenez-la environ 125 ms, puis glissez le vaisseau dans le groupe épinglé ou sur un autre vaisseau épinglé pour l'ajouter ou le réordonner.
+# Glissez un vaisseau épinglé vers la partie non épinglée de la rangée pour le détacher. Pour le premier, déposez-le sur l'indication temporaire « Pin here ».
 # L'ordre des ID de vaisseaux est enregistré dans l'état JSON du mod, pas dans ce fichier TOML.
 
 # Subgroup: HUD

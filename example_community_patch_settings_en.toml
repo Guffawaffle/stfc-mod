@@ -242,10 +242,10 @@ system_pan_momentum_falloff = 0.8
 # Subgroup: Loader
 # ----------------
 
-# Set to true to use the loader_image for the loading screen
+# Show loading-screen badges and an optional custom image
 loader_enabled = true
 
-# Path to the custom loading screen image (leave blank for embedded image)
+# Path to a custom loading PNG (blank uses game artwork in this fork's default build)
 loader_image = ""
 
 # Multiplier applied to the logo size on the loading screen
@@ -254,7 +254,7 @@ loader_logo_scale = 1.0
 # Show the custom tip on the loading screen
 loader_tip_enabled = true
 
-# Set to true to use the loader image for the transition screen
+# Show transition badges and an optional custom image
 loader_transition = true
 
 # Use a black background instead of the custom image during transitions
@@ -815,7 +815,9 @@ arrow_keys_to_select_ship = true
 double_click_to_assign_ship = false
 
 # Ship pinning is always available in Manage Ship > Swap Ship.
-# Click the bottom-right pin to toggle it; hold and drag a numbered pin onto another numbered card to reorder.
+# Pins have no rank numbers: filled = pinned, hollow = unpinned.
+# Click the bottom-right pin to toggle. Hold it about 125 ms, then drag into the pinned group or onto another pinned ship to pin or reorder.
+# Drag a pinned ship onto the unpinned part of the row to unpin it. For the first pin, drop on the temporary "Pin here" cue.
 # The ordered ship IDs are saved in mod state JSON, not this TOML file.
 
 # Subgroup: HUD

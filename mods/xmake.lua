@@ -6,13 +6,23 @@ do
 
     -- Regenerate embedded image headers when their source image changes.
     before_build(function(target)
-        local function embed_image(input_file, output_file, symbol)
+        local function embed_image(input_file, output_file, symbol, custom_background)
             if not os.isfile(input_file) then
                 raise("[error] missing file: " .. input_file)
                 return
             end
 
-            if os.isfile(output_file) and os.mtime(output_file) >= os.mtime(input_file) then
+            local previous_custom_background = false
+            if os.isfile(output_file) then
+                local previous = io.open(output_file, "r")
+                if previous then
+                    previous_custom_background = previous:read("*line") == "// custom loading background"
+                    previous:close()
+                end
+            end
+
+            if os.isfile(output_file) and not custom_background and not previous_custom_background
+                and os.mtime(output_file) >= os.mtime(input_file) then
                 return
             end
 
@@ -35,13 +45,18 @@ do
                 return
             end
 
+            if custom_background then out:write("// custom loading background\n") end
             out:write("#pragma once\n\n")
             out:write(string.format("static const unsigned char %s[] = {\n", symbol))
 
             for i = 1, size do
                 out:write(string.format("0x%02X", data:byte(i)))
-                if i < size then out:write(", ") end
-                if i % 16 == 0 then out:write("\n") end
+                if i < size then out:write(",") end
+                if i % 16 == 0 then
+                    out:write("\n")
+                elseif i < size then
+                    out:write(" ")
+                end
             end
 
             out:write("\n};\n\n")
@@ -59,7 +74,8 @@ do
         local assets = path.join(target:scriptdir(), "../assets")
         local outdir  = path.join(target:scriptdir(), "src/patches/parts")
 
-        local loading = get_config("bg_image")
+        local embedded_bg_override = get_config("bg_image")
+        local loading = embedded_bg_override
         if not loading or loading == "" then
             loading = path.join(assets, "loadingscreen.png")
         end
@@ -67,7 +83,8 @@ do
         embed_image(
             loading,
             path.join(outdir, "embedded_loading_image.h"),
-            "g_embeddedLoadingImage"
+            "g_embeddedLoadingImage",
+            embedded_bg_override and embedded_bg_override ~= ""
         )
 
         embed_image(
@@ -77,7 +94,7 @@ do
         )
 
         embed_image(
-            path.join(assets, "official-cc-logo.png"),
+            path.join(assets, "guffawaffle-build-badge.png"),
             path.join(outdir, "embedded_cc_logo_image.h"),
             "g_embeddedCCLogoImage"
         )
@@ -109,7 +126,8 @@ do
         add_defines("_MODDBG")  -- enable your debug flag
     end
 
-    if get_config("use_original_bg") then
+    local embedded_bg_override = get_config("bg_image")
+    if get_config("use_original_bg") and (not embedded_bg_override or embedded_bg_override == "") then
         add_defines("_USE_ORIGINAL_BG")
     end
 

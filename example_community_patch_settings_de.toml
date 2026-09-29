@@ -242,10 +242,10 @@ system_pan_momentum_falloff = 0.8
 # Subgroup: Ladebildschirm
 # ------------------------
 
-# Auf true setzen, um das Ladebild für den Ladebildschirm zu verwenden
+# Logos und optionales eigenes Bild auf dem Ladebildschirm anzeigen
 loader_enabled = true
 
-# Pfad zum benutzerdefinierten Ladebild (für das bereits im Mod eingebettete Bild leer lassen)
+# Pfad zu einem eigenen Ladebild (PNG); leer verwendet in diesem Fork standardmäßig den Spielhintergrund
 loader_image = ""
 
 # Multiplier applied to the logo size on the loading screen
@@ -254,7 +254,7 @@ loader_logo_scale = 1.0
 # Show the custom tip on the loading screen
 loader_tip_enabled = true
 
-# Auf true setzen, um das Ladebild für den Übergangsbildschirm zu verwenden
+# Logos und optionales eigenes Bild auf dem Übergangsbildschirm anzeigen
 loader_transition = true
 
 # Use a black background instead of the custom image during transitions
@@ -815,7 +815,9 @@ arrow_keys_to_select_ship = true
 double_click_to_assign_ship = false
 
 # Schiffe im Spiel anheften: Schiff verwalten > Schiff wechseln.
-# Klicke auf die Stecknadel unten rechts zum Anheften oder Lösen; halte sie gedrückt und ziehe sie auf eine andere nummerierte Karte, um die Reihenfolge zu ändern.
+# Die Stecknadeln zeigen keine Rangnummern: ausgefüllt = angeheftet, hohl = nicht angeheftet.
+# Klicke auf die Stecknadel unten rechts, um das Schiff anzuheften oder zu lösen. Halte sie etwa 125 ms gedrückt und ziehe das Schiff in die angeheftete Gruppe oder auf ein anderes angeheftetes Schiff, um es hinzuzufügen oder umzuordnen.
+# Ziehe ein angeheftetes Schiff in den nicht angehefteten Teil der Reihe, um es zu lösen. Lege das erste Schiff auf der vorübergehenden Markierung „Pin here“ ab.
 # Die Reihenfolge der Schiff-IDs wird in der JSON-Statusdatei des Mods gespeichert, nicht in dieser TOML-Datei.
 
 # Subgroup: HUD

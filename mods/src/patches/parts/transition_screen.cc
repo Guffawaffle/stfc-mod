@@ -96,6 +96,24 @@ static void* FindTVCBGImage(void* _this, void*& outRectTransform)
   return reinterpret_cast<void* (*)(void*, void*)>(fn_gc)(bgg, it);
 }
 
+static void DisableTransitionAnimator(void* tvc)
+{
+  if (g_canvasAnimator) return;
+
+  static auto tv_h         = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.LoadingScreen", "TransitionViewController");
+  static auto fn_animField = tv_h.GetField("_animator");
+  static auto behav_h      = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Behaviour");
+  static auto fn_setEn     = behav_h.GetMethodInfo("set_enabled");
+  if (!fn_animField.isValidHelper() || !fn_setEn) return;
+
+  void* anim = *reinterpret_cast<void**>((char*)tvc + fn_animField.offset());
+  if (!anim) return;
+  bool  off     = false;
+  void* args[1] = {&off};
+  if (ls::InvokeVoid(fn_setEn, anim, args, "canvasAnimator.set_enabled(false)"))
+    g_canvasAnimator = anim;
+}
+
 // Applies custom background and logos to a TransitionViewController.
 // Called from TVC.Awake (as fallback) and TVC.AboutToShow (primary).
 static void ApplyTransitionCustomization(void* _this)
@@ -122,23 +140,18 @@ static void ApplyTransitionCustomization(void* _this)
         logoParent = reinterpret_cast<void* (*)(void*)>(fn_get_tr)(g_bgImageComp);
     }
 
-    if (!g_canvasAnimator) {
-      static auto tv_h = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.LoadingScreen", "TransitionViewController");
-      static auto fn_animField = tv_h.GetField("_animator");
-      static auto behav_h      = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Behaviour");
-      static auto fn_setEn     = behav_h.GetMethodInfo("set_enabled");
-      if (fn_animField.isValidHelper() && fn_setEn) {
-        void* anim = *reinterpret_cast<void**>((char*)_this + fn_animField.offset());
-        if (anim) {
-          bool  off     = false;
-          void* args[1] = {&off};
-          ls::InvokeVoid(fn_setEn, anim, args, "canvasAnimator.set_enabled(false)");
-          g_canvasAnimator = anim;
-        }
+    auto* backgroundAsset = cfg.loader_transition_black ? nullptr : ls::GetLoadingAsset();
+    if (!cfg.loader_transition_black && !backgroundAsset) {
+      if (logoParent) {
+        ls::CreateLogoOverlay(logoParent, g_logoGO);
+        ls::CreateCCLogoOverlay(logoParent, g_ccLogoGO);
+        g_spriteApplied = true;
       }
+      return;
     }
 
     if (cfg.loader_transition_black) {
+      DisableTransitionAnimator(_this);
       if (logoParent) {
         ls::CreateLogoOverlay(logoParent, g_logoGO);
         ls::CreateCCLogoOverlay(logoParent, g_ccLogoGO);
@@ -147,11 +160,9 @@ static void ApplyTransitionCustomization(void* _this)
       return;
     }
 
-#ifndef _USE_ORIGINAL_BG
     {
       if (logoParent && !g_bgOverlayGO) {
-        auto* asset = ls::GetLoadingAsset();
-        if (asset) g_bgOverlayGO = ls::CreateBGOverlay(logoParent, *asset);
+        g_bgOverlayGO = ls::CreateBGOverlay(logoParent, *backgroundAsset);
       }
 
       // Preserve the game's background unless the custom replacement is fully
@@ -160,6 +171,8 @@ static void ApplyTransitionCustomization(void* _this)
         spdlog::warn("[LS] custom transition background unavailable; preserving game background");
         return;
       }
+
+      DisableTransitionAnimator(_this);
 
       ls::HideImage(imageComp);
 
@@ -181,7 +194,6 @@ static void ApplyTransitionCustomization(void* _this)
       }
 
     }
-#endif
 
     if (logoParent) {
       ls::CreateLogoOverlay(logoParent, g_logoGO);
@@ -291,7 +303,7 @@ static void SlideShowViewer_ShowCurrentSlide_Hook(auto original, void* _this)
 
   try {
     const auto& cfg = Config::Get();
-    if (!cfg.loader_transition || cfg.loader_transition_black) return;
+    if (!cfg.loader_transition || cfg.loader_transition_black || !g_bgOverlayGO) return;
 
     static auto h  = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.SlideShow", "SlideShowViewController");
     static auto fi = h.GetField("_image");
