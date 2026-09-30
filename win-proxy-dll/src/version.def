@@ -1,7 +1,6 @@
 LIBRARY "VERSION"
 EXPORTS
 
-STFCModProfileIsolationContractV1
 VerFindFileA
 VerFindFileW
 VerInstallFileA
