@@ -107,6 +107,12 @@ do
         add_rules("stfc.cxx.sccache", {override = true})
     end
     add_files("src/**.cc")
+    add_rules("stfc.profiles.source")
+    if get_config("stfc_profiles_source") and #get_config("stfc_profiles_source") > 0 then
+        add_deps("stfc-profiles-core")
+    else
+        add_packages("stfc-profiles")
+    end
     add_headerfiles("src/**.h")
     add_includedirs("src", { public = true })
 

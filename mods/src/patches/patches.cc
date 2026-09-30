@@ -2,6 +2,7 @@
 #include "patches.h"
 #include "file.h"
 #include "version.h"
+#include "profile_launch.h"
 
 #include <il2cpp/il2cpp-functions.h>
 
@@ -56,9 +57,6 @@ void InstallAudioEventHooks();
 void InstallOfficerPresetReorderHooks();
 void InstallOpcIndicatorHooks();
 void InstallShipTechIndicatorHooks();
-#if _WIN32
-void InstallProfileIsolationProbe();
-#endif
 
 #ifdef _MODDBG
 void InstallDevConsole();
@@ -70,7 +68,7 @@ void InstallGalaxyLabels();
 void InstallActionQueueRecovery();
 void InstallThinQueueProtection();
 
-__int64 il2cpp_init_hook(auto original, const char* domain_name)
+int il2cpp_init_hook(auto original, const char* domain_name)
 {
   struct PatchEntry {
     const char*                  name;
@@ -85,6 +83,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #endif
 #endif
 
+  profile_launch::Prepare();
   File::Init();
 
   auto file_logger = spdlog::basic_logger_mt("default", File::Log(), true);
@@ -107,6 +106,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #else
   spdlog::info("Initializing STFC Community Mod ({})", VER_PRODUCT_VERSION_STR);
 #endif
+  spdlog::info("STFC Profiles component {} ({})", STFC_PROFILES_SOURCE_REVISION, STFC_PROFILES_SOURCE_STATE);
   spdlog::info("");
   if (File::hasCustomNames()) {
     spdlog::info("Using custom names");
@@ -192,11 +192,11 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
 
-  auto r = original(domain_name);
+  const auto r = original(domain_name);
+  if (!r && profile_launch::Requested())
+    profile_launch::Abort("The game runtime did not initialize.");
 
-#if _WIN32
-  InstallProfileIsolationProbe();
-#endif
+  profile_launch::Install();
 
   auto patch_count = 0;
   auto patch_total = sizeof(patches) / sizeof(patches[0]);
@@ -240,6 +240,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 
 void ApplyPatches()
 {
+  profile_launch::Initialize();
 #if _WIN32
   auto assembly = LoadLibraryA("GameAssembly.dll");
 #else
@@ -257,10 +258,8 @@ void ApplyPatches()
 
   if (assembly == nullptr) {
     spdlog::error("Failed to load GameAssembly");
-#if _WIN32
-    if (IsolatedProfileRequested())
-      AbortIsolatedProfileLaunch();
-#endif
+    if (profile_launch::Requested())
+      profile_launch::Abort("GameAssembly could not be loaded.");
     return;
   } else {
     try {
@@ -272,16 +271,12 @@ void ApplyPatches()
       printf("Got il2cpp_init %p\n", n);
 
       if (!n || !SPUD_STATIC_DETOUR(n, il2cpp_init_hook)) {
-#if _WIN32
-        if (IsolatedProfileRequested())
-          AbortIsolatedProfileLaunch();
-#endif
+        if (profile_launch::Requested())
+          profile_launch::Abort("The early game initialization hook is unavailable.");
       }
     } catch (...) {
-#if _WIN32
-      if (IsolatedProfileRequested())
-        AbortIsolatedProfileLaunch();
-#endif
+      if (profile_launch::Requested())
+        profile_launch::Abort("The early game initialization hook could not be installed.");
     }
   }
 }

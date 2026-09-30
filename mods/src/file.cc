@@ -1,5 +1,6 @@
 #include "file.h"
 #include "windowtitle.h"
+#include "profile_launch.h"
 
 #if __APPLE__
 #include <crt_externs.h>
@@ -240,6 +241,22 @@ void File::Init()
       cacheNameConfig = configPath.replace_extension(FILE_EXT_TOML).string();
     } else {
       cacheNameConfig = std::string(FILE_DEF_CONFIG);
+    }
+
+    if (profile_launch::Requested()) {
+      const auto& directory = profile_launch::Directory();
+      const auto logs = directory / "logs";
+      std::filesystem::create_directories(logs);
+      const auto utf8 = [](const std::filesystem::path& path) {
+        const auto value = path.u8string();
+        return std::string(reinterpret_cast<const char*>(value.data()), value.size());
+      };
+      File::override = true;
+      configPath = directory / "config.toml";
+      cacheNameConfig = utf8(configPath);
+      cacheNameVar = utf8(directory / "runtime.toml");
+      cacheNameLog = utf8(logs / "community-mod.log");
+      cacheNameBattles = utf8(logs / "battles.log");
     }
 
     File::initialized = true;
