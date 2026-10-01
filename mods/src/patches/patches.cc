@@ -25,6 +25,7 @@ void InstallBuffFixHooks();
 void InstallFreeResizeHooks();
 #endif
 void InstallToastBannerHooks();
+void InstallFleetNotificationHooks();
 void InstallPanHooks();
 void InstallHotkeyHooks();
 void InstallGiftsBulkClaimHooks();
@@ -51,6 +52,7 @@ void InstallForbiddenTechConfirmationHooks();
 void InstallAudioEventHooks();
 void InstallNativeSettings();
 void InstallGalaxyLabels();
+void InstallOpcIndicatorHooks();
 
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
 {
@@ -132,6 +134,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
       {"BuffFixHooks", {InstallBuffFixHooks, &cfg.installBuffFixHooks}},
       {"ToastBannerHooks", {InstallToastBannerHooks, &cfg.installToastBannerHooks}},
+      {"FleetNotifications", {InstallFleetNotificationHooks, &cfg.installFleetNotificationHooks}},
       {"PanHooks", {InstallPanHooks, &cfg.installPanHooks}},
       {"HotkeyHooks", {InstallHotkeyHooks, &cfg.installHotkeyHooks}},
       {"GiftsBulkClaimHooks", {InstallGiftsBulkClaimHooks, &cfg.installGiftsBulkClaimHooks}},
@@ -163,6 +166,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"GalaxyLabels", {InstallGalaxyLabels, &cfg.installZoomHooks}},
       // Retain the existing debug patch key; this installer owns both settings surfaces.
       {"ModConfirmationSettings", {InstallNativeSettings, &cfg.installNativeSettings}},
+      {"OpcIndicators", {InstallOpcIndicatorHooks, &cfg.installOpcIndicatorHooks}},
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
 

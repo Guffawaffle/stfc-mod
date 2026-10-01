@@ -9,6 +9,8 @@
 #include <toml++/toml.h>
 
 #include "patches/parts/galaxy_policy.h"
+#include "patches/fleet_notification_types.h"
+#include "patches/notification_audio.h"
 
 #if _WIN32
 #include <Windows.h>
@@ -156,6 +158,7 @@ public:
   void        AdjustUiViewerScale(bool scaleUp);
 
   [[nodiscard]] MissionHudVisibility MissionHudButtonVisibility(std::string_view button_name) const;
+  [[nodiscard]] NotificationSound    NotificationSoundForToast(int toast_state) const;
 
   // Disallow copying/moving to enforce singleton
   Config(const Config&)            = delete;
@@ -205,6 +208,9 @@ public:
   bool             borderless_fullscreen;
   std::vector<int> disabled_banner_types;
   std::vector<int> notify_banner_types;
+  FleetNotificationMask notify_fleet_events = 0;
+  FleetNotificationMask audio_fleet_events = 0;
+  std::array<NotificationSound, kFleetNotificationCatalog.size()> alert_fleet_events{};
 
   int                      extend_chest_purchase_max;
   int                      extend_donation_max;
@@ -220,8 +226,15 @@ public:
   bool                     disable_toast_banners;
   bool                     trace_audio_events;
   std::vector<std::string> disabled_audio_events;
-  bool                     auto_open_bulk_claim_flyout;
-  bool                     auto_confirm_ft_upgrade;
+  NotificationSound alert_victory            = NotificationSound::None;
+  NotificationSound alert_defeat             = NotificationSound::None;
+  NotificationSound alert_armada_created     = NotificationSound::None;
+  NotificationSound alert_armada_battle_won  = NotificationSound::None;
+  NotificationSound alert_armada_battle_lost = NotificationSound::None;
+  bool auto_open_bulk_claim_flyout;
+  bool highlight_opc_fleets;
+  bool fleet_hud_opc_eta;
+  bool auto_confirm_ft_upgrade;
 
   std::vector<std::string> daily_bulk_claim_factions;
 
@@ -266,6 +279,7 @@ public:
   bool installZoomHooks;
   bool installBuffFixHooks;
   bool installToastBannerHooks;
+  bool installFleetNotificationHooks;
   bool installPanHooks;
   bool installHotkeyHooks;
   bool installFreeResizeHooks;
@@ -286,6 +300,7 @@ public:
   bool installInstantWarpConfirmationHooks;
   bool installAudioEventHooks;
   bool installNativeSettings;
+  bool installOpcIndicatorHooks;
 
   std::string config_settings_url;
   std::string config_assets_url_override;
