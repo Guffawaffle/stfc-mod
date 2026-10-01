@@ -118,6 +118,12 @@ namespace Patches
   constexpr bool officersorthooks           = true;  // restore Below Deck Ability sort option
   constexpr bool pinnedshiphooks            = true;  // pin configured ships to front of fleet dock sort
   constexpr bool shiptechindicatorhooks     = true;  // show equipped FT/CT art in the Swap Ship bar
+  constexpr bool fleetnotificationhooks     = true;
+  constexpr bool opcindicatorhooks          = true;
+  constexpr bool instantwarpconfirmhooks    = true;
+  constexpr bool modconfirmationsettings    = true;
+  constexpr bool galaxyselectionhooks       = true;
+  constexpr bool galaxylabelhooks           = true;
 } // namespace Patches
 
 namespace Shortcuts

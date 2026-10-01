@@ -119,7 +119,6 @@ int main(int argc, char** argv)
   fixture.finished = true;
   std::thread foreign([] {
     Update();
-    runtime_config::SaveWarpMode("jump");
   });
   foreign.join();
   assert(resumes == 0 && fixture.submissions == 0);
@@ -128,6 +127,14 @@ int main(int argc, char** argv)
     assert(!WantsQuit([] { return false; })); // A genuine resumed veto is final.
   };
   Update();
+  Update();
+  assert(resumes == 1);
+  runtime_config::SaveWarpMode("warp");
+  assert(fixture.submissions == 1 && !fixture.stopped && !draining);
+  assert(!runtime_config::HasSaveFailures());
+  std::thread foreignSave([] { runtime_config::SaveWarpMode("jump"); });
+  foreignSave.join();
+  assert(fixture.submissions == 1 && runtime_config::HasSaveFailures());
   Update();
   assert(resumes == 1);
 
@@ -139,6 +146,21 @@ int main(int argc, char** argv)
   }));
   fixture.finished = true;
   Update();
+  assert(resumes == 0);
+
+  runtime_config::SaveWarpMode("jump");
+  assert(fixture.submissions == 1 && !fixture.stopped && !draining);
+  assert(!runtime_config::HasSaveFailures());
+  Update();
+  assert(resumes == 0);
+
+  Reset();
+  assert(WantsQuit([] { return true; })); // Idle exit can also be vetoed later.
+  assert(!WantsQuit([] { return false; }));
+  fixture.finished = true;
+  Update();
+  runtime_config::SaveWarpMode("warp");
+  assert(fixture.submissions == 1 && !runtime_config::HasSaveFailures());
   assert(resumes == 0);
 
   Reset();

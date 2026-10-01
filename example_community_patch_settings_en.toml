@@ -310,6 +310,12 @@ bufffixhooks = true
 cargoformathooks = true
 instantcargocounterhooks = true
 shiptechindicatorhooks = true
+fleetnotificationhooks = true
+opcindicatorhooks = true
+instantwarpconfirmhooks = true
+modconfirmationsettings = true
+galaxyselectionhooks = true
+galaxylabelhooks = true
 chatpatches = true
 
 # Enable per-faction bulk claiming for Daily Goals

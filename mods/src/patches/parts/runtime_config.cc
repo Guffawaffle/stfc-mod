@@ -79,23 +79,33 @@ bool WantsQuit(auto original)
   }
   const bool      allows = original();
   std::lock_guard lock(lifecycle);
-  if (stopped || !writer)
+  if (!writer)
     return allows;
   // A later/nested game veto must not be overwritten by an older returning vote.
-  if (this_vote == vote)
-    resume = allows;
-  if (allows) {
-    writer->Stop(false);
-    // Close admission before checking: Submit shares lifecycle, so no later
-    // request can race an idle exit. An already-deferred quit still observes
-    // native thread exit through Update before resuming.
-    if (!draining && !writer->HasWork() && resume) {
-      stopped = true;
-      resume  = false;
-      return true;
+  if (this_vote != vote)
+    return false;
+  resume = allows;
+  if (!allows) {
+    if (stopped) {
+      // A resumed (or idle) quit was vetoed. Observe any idle worker's native
+      // exit in Update before reopening; never join from this native callback.
+      stopped  = false;
+      draining = true;
     }
-    draining = true;
+    return false;
   }
+  if (stopped)
+    return true;
+  writer->Stop(false);
+  // Close admission before checking: Submit shares lifecycle, so no later
+  // request can race an idle exit. An already-deferred quit still observes
+  // native thread exit through Update before resuming.
+  if (!draining && !writer->HasWork() && resume) {
+    stopped = true;
+    resume  = false;
+    return true;
+  }
+  draining = true;
   return false; // Resume only after observing native worker exit, even after failure.
 }
 
@@ -120,6 +130,13 @@ void Update()
     std::lock_guard lock(lifecycle);
     if (!draining || stopped || !writer || !writer->PollStopped())
       return;
+    if (!resume) {
+      // A genuine veto keeps the game alive and its settings durable. Resume
+      // the existing writer so external-edit baselines and failures survive.
+      if (writer->Resume())
+        draining = false;
+      return;
+    }
     stopped = true;
     quit    = resume;
     resume  = false; // Consume before Unity callbacks; never retry a genuine veto.

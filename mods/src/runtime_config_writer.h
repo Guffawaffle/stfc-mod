@@ -42,6 +42,9 @@ public:
   // Owner thread only, like Submit. On Windows this observes native thread exit
   // before joining; it never joins a still-running worker on a game callback.
   bool PollStopped();
+  // Owner thread only. Reopen after an orderly quit is vetoed, preserving the
+  // acknowledged values and failures. Never resumes force-close cancellation.
+  bool Resume();
 #if _WIN32
   void* NativeHandle(); // Owner thread only; caller must duplicate before retaining.
 #endif

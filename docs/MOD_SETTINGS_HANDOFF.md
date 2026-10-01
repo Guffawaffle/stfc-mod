@@ -25,6 +25,11 @@ New controls need explicit registration and live read/write behavior; see
 [navigation](MOD_SETTINGS_NAVIGATION.md) and
 [shortcut extension guidance](MOD_SHORTCUT_SETTINGS.md).
 
+Hook families default to installed independently of their live feature settings.
+The `[patches]` switches remain emergency compatibility controls, including
+separate switches for Mod Settings, galaxy selection, galaxy labels, OPC and
+fleet notifications. Galaxy labels also require the shared zoom hooks.
+
 ## Validation and tester handoff
 
 Windows build:
@@ -52,6 +57,9 @@ Smoke page navigation/reopening, search and Back, shortcut Enter/Escape/focus
 loss, live toggles, audio preview/file cancellation, HUD Auto restoration,
 galaxy overlays, and save/restart persistence. Check that unavailable controls
 remain disabled and existing player TOML comments and unrelated values survive.
+After choosing or canceling a custom audio file, verify the sound selection
+refreshes immediately. If the game vetoes a quit, change another setting and
+confirm it still saves without another unsolicited quit attempt.
 
 macOS uses physical shortcut capture; Windows layout-aware capture is a separate
 dependency. The instant cargo consumer retains its existing Windows client

@@ -120,6 +120,16 @@ int main()
       Check(save_thread != std::this_thread::get_id());
       Check(writer.LastCompletion().revision == 3);
       Check(writer.LastCompletion().outcome == Outcome::Saved);
+      // A later native veto must reopen the same writer and its acknowledged
+      // baseline, including after an earlier write failed.
+      Check(writer.Resume());
+      const auto restarted = writer.Submit("jump");
+      Check(restarted == 4);
+      AwaitCompletion(writer, restarted);
+      Check(requests.size() == 3);
+      Check(requests[2].expected == std::optional<Value>{std::string("none")});
+      Check(requests[2].desired == Value{std::string("jump")});
+      Check(!writer.HasFailures());
     }
     Begin(Outcome::Saved);
     {
@@ -141,6 +151,7 @@ int main()
       Check(requests.size() == 1);
       Check(writer.LastCompletion().revision == 2);
       Check(writer.LastCompletion().outcome == Outcome::Cancelled);
+      Check(!writer.Resume()); // Force-close cancellation is permanent.
       writer.Stop(true);
     }
     Begin(Outcome::IoError);
@@ -152,6 +163,13 @@ int main()
       Release();
       AwaitCompletion(writer, failed);
       Check(writer.HasFailures());
+      writer.Stop(false);
+      const auto deadline = std::chrono::steady_clock::now() + 5s;
+      while (!writer.PollStopped()) {
+        Check(std::chrono::steady_clock::now() < deadline);
+        std::this_thread::yield();
+      }
+      Check(writer.Resume() && writer.HasFailures()); // A veto cannot hide an unsaved key.
       AwaitCompletion(writer, writer.Submit("graphics", "threshold", 0.7));
       Check(writer.HasFailures()); // Saving B cannot hide A's failed save.
       AwaitCompletion(writer, writer.Submit("jump"));

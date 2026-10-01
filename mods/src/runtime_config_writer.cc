@@ -185,6 +185,18 @@ bool RuntimeConfigWriter::PollStopped()
   return true;
 }
 
+bool RuntimeConfigWriter::Resume()
+{
+  if (cancel_pending_.load() || !PollStopped())
+    return false;
+  std::lock_guard lock(mutex_);
+  if (cancel_pending_.load() || !stopping_)
+    return false;
+  stopping_ = false;
+  finished_.store(false);
+  return true; // Submit starts the next worker only when another edit arrives.
+}
+
 #if _WIN32
 void* RuntimeConfigWriter::NativeHandle()
 { return worker_.joinable() ? worker_.native_handle() : nullptr; }

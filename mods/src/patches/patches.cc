@@ -127,13 +127,6 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
-  bool install_anomaly_timer = cfg.installGalacticAnomalyTimerHooks
-                               && (cfg.galactic_anomaly_timer || cfg.installNativeSettings);
-  bool install_forbidden_tech = cfg.auto_confirm_ft_upgrade;
-#if defined(_WIN32) && defined(_M_X64)
-  install_forbidden_tech |= cfg.installNativeSettings;
-#endif
-  install_forbidden_tech &= cfg.installForbiddenTechConfirmationHooks;
   const PatchEntry patches[] = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
@@ -156,7 +149,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"ObjectTracker", {InstallObjectTrackers, &cfg.installObjectTracker}},
       {"LoadingScreen", {InstallLoadingScreenHooks, &cfg.installLoadingScreenHooks}},
       {"TransitionScreen", {InstallTransitionScreenHooks, &cfg.installTransitionScreenHooks}},
-      {"GalacticAnomalyTimer", {InstallGalacticAnomalyTimer, &install_anomaly_timer}},
+      {"GalacticAnomalyTimer", {InstallGalacticAnomalyTimer, &cfg.installGalacticAnomalyTimerHooks}},
       {"LoadingTip", {InstallLoadingTipHooks, &cfg.installLoadingTipHooks}},
       {"InstantCargoCounter", {InstallInstantCargoCounterHooks, &cfg.installInstantCargoCounterHooks}},
       {"CargoFormat", {InstallCargoFormatHooks, &cfg.installCargoFormatHooks}},
@@ -164,14 +157,14 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"PinnedShipSort", {InstallPinnedShipSortHooks, &cfg.installPinnedShipSortHooks}},
       {"DoubleClickAssignShip", {InstallDoubleClickAssignShipHooks, &cfg.installDoubleClickAssignShipHooks}},
       {"InstantWarpConfirm", {InstallInstantWarpConfirmationHooks, &cfg.installInstantWarpConfirmationHooks}},
-      {"ForbiddenTechConfirm", {InstallForbiddenTechConfirmationHooks, &install_forbidden_tech}},
+      {"ForbiddenTechConfirm", {InstallForbiddenTechConfirmationHooks, &cfg.installForbiddenTechConfirmationHooks}},
       {"AudioEvents", {InstallAudioEventHooks, &cfg.installAudioEventHooks}},
       {"ShipTechIndicators", {InstallShipTechIndicatorHooks, &cfg.installShipTechIndicatorHooks}},
       {"OpcIndicators", {InstallOpcIndicatorHooks, &cfg.installOpcIndicatorHooks}},
-      {"GalaxySelection", {InstallGalaxySelectionHooks, &cfg.installNativeSettings}},
+      {"GalaxySelection", {InstallGalaxySelectionHooks, &cfg.installGalaxySelectionHooks}},
       // Galaxy availability must be established before settings pages register.
-      {"GalaxyLabels", {InstallGalaxyLabels, &cfg.installZoomHooks}},
-      // Retain the existing debug patch key; this installer owns both settings surfaces.
+      {"GalaxyLabels", {InstallGalaxyLabels, &cfg.installGalaxyLabelHooks}},
+      // Retain the existing patch key; this installer owns both settings surfaces.
       {"ModConfirmationSettings", {InstallNativeSettings, &cfg.installNativeSettings}},
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);

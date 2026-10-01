@@ -905,7 +905,7 @@ bool GalaxyLabelsRequested()
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
   // Shared zoom hooks must be installed even when both profiles start Native,
   // so settings can enable them during play. Native bindings are validated in Install.
-  return Config::Get().installZoomHooks;
+  return Config::Get().installZoomHooks && Config::Get().installGalaxyLabelHooks;
 #else
   return false;
 #endif

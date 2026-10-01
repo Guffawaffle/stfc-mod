@@ -1000,6 +1000,18 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "pinnedshiphooks", DCP::pinnedshiphooks, write_config);
   this->installShipTechIndicatorHooks = get_config_or_default(config, parsed, "patches", "shiptechindicatorhooks",
                                                               DCP::shiptechindicatorhooks, write_config);
+  this->installFleetNotificationHooks = get_config_or_default(
+      config, parsed, "patches", "fleetnotificationhooks", DCP::fleetnotificationhooks, write_config);
+  this->installOpcIndicatorHooks =
+      get_config_or_default(config, parsed, "patches", "opcindicatorhooks", DCP::opcindicatorhooks, write_config);
+  this->installInstantWarpConfirmationHooks = get_config_or_default(
+      config, parsed, "patches", "instantwarpconfirmhooks", DCP::instantwarpconfirmhooks, write_config);
+  this->installNativeSettings = get_config_or_default(
+      config, parsed, "patches", "modconfirmationsettings", DCP::modconfirmationsettings, write_config);
+  this->installGalaxySelectionHooks = get_config_or_default(
+      config, parsed, "patches", "galaxyselectionhooks", DCP::galaxyselectionhooks, write_config);
+  this->installGalaxyLabelHooks =
+      get_config_or_default(config, parsed, "patches", "galaxylabelhooks", DCP::galaxylabelhooks, write_config);
   spdlog::debug("");
   this->queue_enabled =
       get_config_or_default(config, parsed, "control", "queue_enabled", DCC::queue_enabled, write_config);
@@ -1141,7 +1153,6 @@ void Config::Load()
       this->disabled_audio_events.emplace_back(stripped);
     }
   }
-  this->installAudioEventHooks = this->trace_audio_events || !this->disabled_audio_events.empty();
   bool any_toast_audio_alert_configured = false;
   for (const auto& alert : kToastAudioAlerts) {
     const auto sound = get_notification_sound(config, parsed, alert.config_name, alert.default_sound, write_config);
@@ -1171,8 +1182,6 @@ void Config::Load()
   this->show_ship_tech_indicator_backgrounds =
       get_config_or_default(config, parsed, "ui", "show_ship_tech_indicator_backgrounds",
                             DCU::show_ship_tech_indicator_backgrounds, write_config);
-  // Install once so Mod Settings can enable either indicator without a restart.
-  this->installOpcIndicatorHooks = true;
 
   read_daily_bulk_claim_factions(config, parsed, this->daily_bulk_claim_factions, DCU::daily_bulk_claim_factions,
                                  write_config);
@@ -1181,9 +1190,6 @@ void Config::Load()
                             DCU::daily_bulk_claim_toggle_default_on, write_config);
   this->auto_confirm_instant_warp =
       get_auto_confirm_instant_warp(config, parsed, DCU::auto_confirm_instant_warp, write_config);
-  this->installInstantWarpConfirmationHooks = true;
-  // Internal installation switch; UI availability is checked by the native adapter.
-  this->installNativeSettings = true;
   read_instant_warp_filter(config, parsed, "instant_warp_auto_jump", this->instant_warp_auto_jump,
                            this->instant_warp_auto_jump_all, DCU::instant_warp_auto_jump, write_config);
   read_instant_warp_filter(config, parsed, "instant_warp_auto_warp", this->instant_warp_auto_warp,
@@ -1249,15 +1255,6 @@ void Config::Load()
       "outposts", get_mission_hud_visibility(config, parsed, "hud_outposts", DCU::hud_outposts, write_config));
   this->mission_hud_buttons.emplace(
       "missions", get_mission_hud_visibility(config, parsed, "hud_missions", DCU::hud_missions, write_config));
-  // Install before native settings registration; Mac targets are preflighted
-  // as a complete family before any detour is installed.
-#if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
-  this->installMissionHudTweaksHooks = true;
-#else
-  this->installMissionHudTweaksHooks = std::any_of(
-      this->mission_hud_buttons.begin(), this->mission_hud_buttons.end(),
-      [](const auto& entry) { return entry.second != MissionHudVisibility::Auto; });
-#endif
 
   spdlog::debug("");
 
@@ -1429,11 +1426,6 @@ void Config::Load()
   spdlog::debug("Final fleet notification events: {}", fleet_events_string);
   parsed["ui"].as_table()->insert_or_assign("notify_fleet_events", fleet_events_string);
 
-#if _WIN32 || __APPLE__
-  this->installFleetNotificationHooks = true; // Audio alerts can be enabled from Mod Settings.
-#else
-  this->installFleetNotificationHooks = false;
-#endif
 
   spdlog::debug("");
 

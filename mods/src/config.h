@@ -305,6 +305,8 @@ public:
   bool installAudioEventHooks;
   bool installNativeSettings;
   bool installOpcIndicatorHooks;
+  bool installGalaxySelectionHooks;
+  bool installGalaxyLabelHooks;
 
   std::string config_settings_url;
   std::string config_assets_url_override;

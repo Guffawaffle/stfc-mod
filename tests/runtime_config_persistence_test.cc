@@ -24,13 +24,23 @@ int main(int argc, char** argv)
     // Quit immediately with a slider write still debounced: orderly stop must flush it.
     assert(writer.Submit("graphics", "galaxy_label_major_threshold", 0.95, std::chrono::seconds(30)));
     writer.Stop(false);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!writer.PollStopped()) {
+      assert(std::chrono::steady_clock::now() < deadline);
+      std::this_thread::yield();
+    }
+    // The game vetoed the drained quit. The same writer must save against the
+    // value it just acknowledged, rather than its process-start value of 0.5.
+    assert(writer.Resume());
+    assert(writer.Submit("graphics", "galaxy_label_major_threshold", 0.8));
+    writer.Stop(false);
   }
   // Fresh parse models a new process, with no access to live Config or writer state.
   const auto bytes = ReadConfigText(path);
   const auto loaded = toml::parse(bytes);
   assert(loaded["graphics"]["galaxy_multi_select"].value<bool>() == true);
   assert(loaded["graphics"]["galaxy_label_major_detail"].value<std::string>() == "threshold");
-  assert(loaded["graphics"]["galaxy_label_major_threshold"].value<double>() == 0.95);
+  assert(loaded["graphics"]["galaxy_label_major_threshold"].value<double>() == 0.8);
   assert(loaded["unrelated"]["value"].value<int>() == 42);
   assert(bytes.starts_with("# keep this comment"));
   std::cout << "Runtime settings disk/reload regression passed\n";

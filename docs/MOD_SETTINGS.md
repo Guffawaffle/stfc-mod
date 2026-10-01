@@ -45,7 +45,7 @@ Summaries refresh on binding and existing setting/presentation notifications.
 ## Search
 
 The Mod Settings landing page has a text field that filters settings and
-shortcuts as you type. Search matches labels, category paths and the actual
+shortcuts as you type. Search matches labels and the actual
 TOML names, with case-insensitive matching and interchangeable spaces,
 underscores and dots. Exact names/keys appear first. Results show their location
 and TOML key; Open visits the existing settings page and expands the matching

@@ -6,6 +6,7 @@
 #include "audio_file_picker.h"
 #include "audio_file_tasks.h"
 #include "native/action_widgets.h"
+#include "native/value_widgets.h"
 #include <memory>
 #include <chrono>
 #include <spdlog/spdlog.h>
@@ -37,6 +38,7 @@ auto& s_loading = FileTasks().loading;
 void RefreshAudioPage()
 {
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
+  native::RefreshViews();
   native::RefreshActions();
 #endif
 }
