@@ -3,10 +3,13 @@
  * @brief Opt-in science probe for the game's central managed GSError handler.
  */
 #include "dev/diagnostics.h"
+#include "patches/claim_trace.h"
+#include "patches/game_error_probe.h"
 #include "str_utils.h"
 #include "version.h"
 
 #include <il2cpp/il2cpp_helper.h>
+#include <il2cpp-tabledefs.h>
 
 #include <spud/detour.h>
 
@@ -41,13 +44,6 @@ constexpr size_t           kConsoleEventBytes        = 768;
 constexpr size_t           kMaximumEventsPerMinute   = 60;
 constexpr auto             kDuplicateWindow          = std::chrono::seconds(10);
 constexpr auto             kRateWindow               = std::chrono::minutes(1);
-constexpr uintptr_t        kValidatedHandlerRva      = 0x8198C0;
-// SPUD's x64 detour relocates complete instructions until its 24-byte absolute jump fits. For this entry that is
-// the first 29 bytes, so fingerprint the whole relocation window rather than only the common function prologue.
-constexpr std::array<uint8_t, 29> kValidatedHandlerRelocationWindow{
-    0x48, 0x89, 0x5C, 0x24, 0x20, 0x56, 0x48, 0x83, 0xEC, 0x30, 0x80, 0x3D, 0x33, 0xCE, 0x3F,
-    0x05, 0x00, 0x48, 0x8B, 0xDA, 0x48, 0x8B, 0xF1, 0x0F, 0x85, 0x06, 0x01, 0x00, 0x00,
-};
 
 struct ErrorSnapshot {
   int32_t     type               = 0;
@@ -71,6 +67,8 @@ struct ProbeState {
   size_t                                duplicate_events_suppressed = 0;
   size_t                                rate_limited_events         = 0;
   std::string                           session_id;
+  uintptr_t                             handler_rva = 0;
+  const MethodInfo*                     handler_method = nullptr;
 };
 
 ProbeState& probe_state()
@@ -101,16 +99,46 @@ IL2CppClassHelper& gs_error_helper()
 
 bool required_error_fields_available()
 {
+  struct RequiredField {
+    const char* name;
+    int         type;
+  };
   constexpr std::array required_fields{
-      "<Type>k__BackingField",          "<Code>k__BackingField",    "<HttpResponseCode>k__BackingField",
-      "<Category>k__BackingField",      "<Message>k__BackingField", "<RequestUrl>k__BackingField",
-      "<TransactionId>k__BackingField",
+      RequiredField{"<Type>k__BackingField", IL2CPP_TYPE_I4},
+      RequiredField{"<Code>k__BackingField", IL2CPP_TYPE_I4},
+      RequiredField{"<HttpResponseCode>k__BackingField", IL2CPP_TYPE_I4},
+      RequiredField{"<Category>k__BackingField", IL2CPP_TYPE_STRING},
+      RequiredField{"<Message>k__BackingField", IL2CPP_TYPE_STRING},
+      RequiredField{"<RequestUrl>k__BackingField", IL2CPP_TYPE_STRING},
+      RequiredField{"<TransactionId>k__BackingField", IL2CPP_TYPE_STRING},
   };
   auto& helper = gs_error_helper();
-  return std::ranges::all_of(required_fields, [&helper](const char* name) {
-    auto field = helper.GetField(name);
-    return field.isValidHelper();
+  return std::ranges::all_of(required_fields, [&helper](const RequiredField& required) {
+    auto* field = helper.GetField(required.name).get_info();
+    if (!field || !field->type || field->type->byref || (field->type->attrs & FIELD_ATTRIBUTE_STATIC)
+        || field->offset < static_cast<int32_t>(sizeof(Il2CppObject))) {
+      return false;
+    }
+    const auto* type = field->type;
+    auto*       cls  = il2cpp_class_from_type(type);
+    if (cls && il2cpp_class_is_enum(cls)) {
+      type = il2cpp_class_enum_basetype(cls);
+    }
+    return type && il2cpp_type_get_type(type) == required.type;
   });
+}
+
+bool supported_handler_signature(const MethodInfo* method)
+{
+  if (!method || !method->methodPointer || (method->flags & METHOD_ATTRIBUTE_STATIC)
+      || method->parameters_count != 1 || !method->return_type || method->return_type->byref
+      || il2cpp_type_get_type(method->return_type) != IL2CPP_TYPE_VOID) {
+    return false;
+  }
+  const auto* parameter = il2cpp_method_get_param(method, 0);
+  auto*       error_cls = gs_error_helper().get_cls();
+  return parameter && !parameter->byref && error_cls && !il2cpp_class_is_valuetype(error_cls)
+         && il2cpp_class_from_type(parameter) == error_cls;
 }
 
 template <typename T> T read_field(void* object, IL2CppClassHelper& helper, const char* name, T fallback = {})
@@ -316,26 +344,6 @@ std::string error_fingerprint(const ErrorSnapshot& error)
          + '|' + error.category + '|' + error.message + '|' + error.request_route + '|' + error.transaction_id;
 }
 
-bool validated_handler_bytes(const uint8_t* entry)
-{ return std::equal(kValidatedHandlerRelocationWindow.begin(), kValidatedHandlerRelocationWindow.end(), entry); }
-
-bool handler_fingerprint_self_test()
-{
-  auto altered = kValidatedHandlerRelocationWindow;
-  altered[10] ^= 0x01U;
-  return validated_handler_bytes(kValidatedHandlerRelocationWindow.data()) && !validated_handler_bytes(altered.data());
-}
-
-bool validated_handler_entry(const MethodInfo* method)
-{
-  const auto game_assembly = reinterpret_cast<uintptr_t>(GetModuleHandleA("GameAssembly.dll"));
-  const auto entry         = reinterpret_cast<uintptr_t>(method->methodPointer);
-  if (game_assembly == 0 || entry != game_assembly + kValidatedHandlerRva) {
-    return false;
-  }
-  return validated_handler_bytes(reinterpret_cast<const uint8_t*>(entry));
-}
-
 int64_t unix_timestamp_milliseconds()
 {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
@@ -346,12 +354,11 @@ void record_session_start()
 {
   auto&                  state = probe_state();
   nlohmann::ordered_json event{
-      {"schema", "stfc-science-game-error/v2"},
+      {"schema", "stfc-science-game-error/v3"},
       {"event", "session-start"},
       {"session_id", state.session_id},
       {"timestamp_unix_ms", unix_timestamp_milliseconds()},
-      {"client_build", 260},
-      {"expected_game_assembly_sha256", "3B219F2556F677C818C892B06D091C154D7FBDA9DC459A4A0F80F95D35AC1C47"},
+      {"handler_rva", state.handler_rva},
       {"mod_version", VER_FILE_VERSION_STR},
       {"source_state", STFC_SOURCE_STATE_ID},
       {"base_commit", STFC_BASE_COMMIT},
@@ -390,14 +397,13 @@ void record_error(const ErrorSnapshot& error)
   }
 
   nlohmann::ordered_json event{
-      {"schema", "stfc-science-game-error/v2"},
+      {"schema", "stfc-science-game-error/v3"},
       {"event", "game-error"},
       {"session_id", state.session_id},
       {"sequence", state.next_sequence++},
       {"timestamp_unix_ms", unix_timestamp_milliseconds()},
       {"source", "GsErrorHandler.OnGSError"},
-      {"client_build", 260},
-      {"expected_game_assembly_sha256", "3B219F2556F677C818C892B06D091C154D7FBDA9DC459A4A0F80F95D35AC1C47"},
+      {"handler_rva", state.handler_rva},
       {"mod_version", VER_FILE_VERSION_STR},
       {"source_state", STFC_SOURCE_STATE_ID},
       {"base_commit", STFC_BASE_COMMIT},
@@ -434,7 +440,7 @@ void GsErrorHandler_OnGSError_Hook(auto original, void* handler, void* error)
   } catch (...) {
   }
 
-  original(handler, error);
+  TraceClaimGameError(original, handler, error);
 
   if (captured) {
     try {
@@ -445,6 +451,16 @@ void GsErrorHandler_OnGSError_Hook(auto original, void* handler, void* error)
 }
 } // namespace
 #endif
+
+bool GameErrorProbeOwnsHandler(const MethodInfo* method) noexcept
+{
+#if defined(_MODDBG) && defined(_WIN32)
+  const auto* installed = probe_state().handler_method;
+  return installed && method && installed->methodPointer == method->methodPointer;
+#else
+  return false;
+#endif
+}
 
 void InstallGameErrorProbe()
 {
@@ -462,16 +478,8 @@ void InstallGameErrorProbe()
   }
 
   const auto method = handler_helper.GetMethodInfo("OnGSError", 1);
-  if (method == nullptr || method->methodPointer == nullptr) {
-    spdlog::error("[GameErrorProbe] GsErrorHandler.OnGSError(GSError) is unavailable; probe not installed");
-    return;
-  }
-  if (!validated_handler_entry(method)) {
-    spdlog::error("[GameErrorProbe] build-260 handler identity check failed; probe not installed");
-    return;
-  }
-  if (!handler_fingerprint_self_test()) {
-    spdlog::error("[GameErrorProbe] handler fingerprint self-test failed; probe not installed");
+  if (!supported_handler_signature(method)) {
+    spdlog::error("[GameErrorProbe] instance void OnGSError(GSError) signature is unavailable; probe not installed");
     return;
   }
   if (!utf8_boundary_self_test()) {
@@ -484,7 +492,10 @@ void InstallGameErrorProbe()
   }
 
   try {
-    auto& state = probe_state();
+    auto&      state         = probe_state();
+    const auto game_assembly = reinterpret_cast<uintptr_t>(GetModuleHandleA("GameAssembly.dll"));
+    const auto entry         = reinterpret_cast<uintptr_t>(method->methodPointer);
+    state.handler_rva       = game_assembly && entry >= game_assembly ? entry - game_assembly : 0;
     state.logger =
         spdlog::rotating_logger_mt("science-game-errors", std::string{kProbeLogFilename}, 1024 * 1024, 2, false);
     state.logger->set_pattern("%v");
@@ -500,6 +511,8 @@ void InstallGameErrorProbe()
     spdlog::error("[GameErrorProbe] detour installation failed; probe not installed");
     return;
   }
+
+  probe_state().handler_method = method;
 
   try {
     record_session_start();

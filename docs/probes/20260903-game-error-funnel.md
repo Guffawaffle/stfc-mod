@@ -27,10 +27,17 @@ surface is limited to error type, numeric code, HTTP response code, bounded cate
 transaction ID. This is a local science artifact intended to preserve identifiers that may be useful in a Scopely bug
 report. URL queries/fragments, hosts, headers, and request bodies are not recorded.
 
-Installation is pinned to the validated build-260 handler RVA and all 29 bytes in SPUD's instruction-aligned x64
-relocation window. The probe refuses to install after a client drift changes either check, even when the managed class
-and method names still resolve. An install-time negative self-test alters a byte after the common ten-byte prologue and
-confirms that the complete-window fingerprint rejects it.
+The build-260 addresses above describe the original observation only. Installation now resolves the handler
+from current IL2CPP metadata, without a client-version, RVA or native-byte fingerprint gate. It requires an instance
+`void OnGSError(GSError)` method and the expected instance field types (32-bit integers/enums and strings), with
+field offsets obtained from current metadata. Missing or incompatible metadata disables only this probe.
+When enabled in the fork's diagnostic stack, the claim trace shares this exact resolved handler detour and retains
+its original-call span; it does not install a second detour. With the console probe off, claim tracing owns its hook.
+Its session record reports whether the error hook is shared.
+
+The v3 stream records the resolved handler RVA and mod source/build identity. It no longer labels current events
+as client 260 or repeats that historical executable hash. Native hook fit must still be verified for the client
+under test; metadata checks do not establish native instruction relocation safety on every future build.
 
 ## Enable And Disable
 
@@ -51,7 +58,7 @@ if the hook is unstable.
 - Consecutive exact duplicate events inside ten seconds are collapsed
 - At most 60 distinct events are emitted per anchored one-minute window
 - Every enabled process writes a session-start record; subsequent errors carry the same process/timestamp session ID
-- Every error row repeats the client and mod artifact provenance, so it remains attributable if rotation removes the
+- Every error row repeats the resolved handler RVA and mod artifact provenance, so it remains attributable if rotation removes the
   session-start row or that marker cannot be written
 - One bounded core/message line and, when identifiers exist, one bounded transaction-ID/request-path line are also
   published to the sleeping-by-default native dev console when it is awake; normal UUIDs remain complete, every line

@@ -1,5 +1,6 @@
 // Local Windows claim instrumentation. Observe only; never change claim/UI state.
 #include "patches/claim_trace.h"
+#include "patches/game_error_probe.h"
 #include "patches/key.h"
 #include "patches/screen_update_hook.h"
 #include <il2cpp-tabledefs.h>
@@ -1698,6 +1699,15 @@ void Hook63(auto original, void* self)
 } // namespace
 #endif
 
+void TraceClaimGameError(void (*original)(void*, void*), void* handler, void* error)
+{
+#if defined(_WIN32) && defined(_M_X64)
+  Hook31(original, handler, error);
+#else
+  original(handler, error);
+#endif
+}
+
 void InstallClaimTrace()
 {
 #if defined(_WIN32) && defined(_M_X64)
@@ -1782,7 +1792,9 @@ void InstallClaimTrace()
     ++installed;
   if (methods[30] && methods[30]->methodPointer && SPUD_STATIC_DETOUR(methods[30]->methodPointer, Hook30))
     ++installed;
-  if (methods[31] && methods[31]->methodPointer && SPUD_STATIC_DETOUR(methods[31]->methodPointer, Hook31))
+  const bool shared_error_hook = GameErrorProbeOwnsHandler(methods[31]);
+  if (shared_error_hook
+      || (methods[31] && methods[31]->methodPointer && SPUD_STATIC_DETOUR(methods[31]->methodPointer, Hook31)))
     ++installed;
   if (methods[32] && methods[32]->methodPointer && SPUD_STATIC_DETOUR(methods[32]->methodPointer, Hook32))
     ++installed;
@@ -1857,6 +1869,7 @@ void InstallClaimTrace()
       {{"event", "session"},
        {"schema", 7},
        {"hooks", installed},
+       {"shared_error_hook", shared_error_hook},
        {"update_callback", pulseInstalled},
        {"file", filename},
        {"request_states",
