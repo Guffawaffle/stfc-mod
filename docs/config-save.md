@@ -52,12 +52,23 @@ saving. The worker starts only on the first request and does not read game objec
 or call Unity. Opening a settings page does not submit a write.
 
 The worker reads the current file for each attempt. `TomlEditor` caches a parsed
-document only while its source bytes match. It uses toml++ source regions to
-replace the selected value, preserving unrelated bytes, comments and line endings.
-Missing settings are inserted only when reparsing proves the candidate means
-exactly the intended document. Values are typed booleans, strings, integers or
-finite floating-point numbers and encoded by toml++; quotes, backslashes and
-newlines cannot become new TOML instructions.
+document only while its source bytes match and retains the mod's typed admission
+checks. Actual preparation delegates to the shared pure engine in
+`shared/toml/include/stfc_toml/editor.h`, also used by Bridge's offline native
+adapter. The engine uses complete toml++ parsing, decoded literal path segments
+and source spans to preserve unrelated bytes, comments and line endings. Every
+candidate is reparsed and compared with the complete intended semantic document.
+Valid quoted, Unicode, dotted, inline and multiline syntax does not impose a
+document-wide editing block; arrays of tables elsewhere remain valid. The native
+adapter also reads raw source spans separately from normalized values and
+supports removal and table subtree operations. It owns no disk or game access;
+see [the shared contract](SHARED_TOML_EDIT_CONTRACT.md) and
+[component build instructions](../shared/toml/README.md).
+
+Mod runtime values remain typed booleans, strings, integers or finite
+floating-point numbers and are encoded by toml++; quotes, backslashes and
+newlines cannot become new TOML instructions. Runtime scheduling and checked
+replacement remain with their existing owners.
 
 Each request compares the selected value against the last acknowledged disk value,
 including whether it was absent. String quoting/escape spelling is not part of

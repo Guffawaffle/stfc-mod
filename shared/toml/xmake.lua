@@ -1,0 +1,30 @@
+set_project("stfc-toml-native")
+set_version("1.0.0")
+set_languages("c++23")
+set_runtimes("MT")
+if is_plat("windows") then add_cxflags("/utf-8") end
+add_rules("mode.debug", "mode.release", "mode.releasedbg")
+set_policy("package.requires_lock", true)
+add_requires("toml++ v3.4.0", {system = false})
+add_requires("nlohmann_json 3.12.0", {system = false})
+
+target("stfc-toml-native")
+    set_kind("shared")
+    set_exceptions("cxx")
+    add_defines("STFC_TOML_BUILD", "NOMINMAX")
+    add_includedirs("include", {public = true})
+    add_files("src/native.cc")
+    add_packages("toml++", "nlohmann_json")
+    add_headerfiles("include/stfc_toml/*.h")
+    if is_plat("macosx") then
+        add_cxflags("-fvisibility=hidden")
+    end
+
+target("stfc-toml-tests")
+    set_kind("binary")
+    set_default(false)
+    set_exceptions("cxx")
+    add_defines("STFC_TOML_BUILD", "NOMINMAX")
+    add_includedirs("include")
+    add_files("tests/editor_test.cc", "src/native.cc")
+    add_packages("toml++", "nlohmann_json")
