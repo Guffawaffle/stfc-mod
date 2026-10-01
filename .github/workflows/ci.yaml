@@ -5,6 +5,7 @@ on:
     branches:
       - "main"
       - "dev"
+      - "release/artifact-gallery-hotfix-beta"
   pull_request:
     branches: ["main", "dev"]
 
