@@ -1035,6 +1035,8 @@ void Config::Load()
   this->fr_scale           = get_config_or_default(config, parsed, "graphics", "fr_scale", DCG::fr_scale, write_config);
   this->ship_hotkey_badges =
       get_config_or_default(config, parsed, "graphics", "ship_hotkey_badges", DCG::ship_hotkey_badges, write_config);
+  this->galaxy_extended_selection = get_config_or_default(
+      config, parsed, "graphics", "galaxy_extended_selection", DCG::galaxy_extended_selection, write_config);
   this->zoom_label_player.detail =
       get_fleet_label_detail(config, parsed, "zoom_label_player_detail", DCG::zoom_label_player_detail, write_config);
   this->zoom_label_player.zoom_threshold = get_fleet_label_zoom_threshold(
@@ -1252,7 +1254,9 @@ void Config::Load()
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
   this->installMissionHudTweaksHooks = true;
 #else
-  this->installMissionHudTweaksHooks = this->MissionHudTweaksEnabled();
+  this->installMissionHudTweaksHooks = std::any_of(
+      this->mission_hud_buttons.begin(), this->mission_hud_buttons.end(),
+      [](const auto& entry) { return entry.second != MissionHudVisibility::Auto; });
 #endif
 
   spdlog::debug("");

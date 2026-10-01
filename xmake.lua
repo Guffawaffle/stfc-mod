@@ -26,7 +26,6 @@ add_rules("mode.releasedbg")
 includes("xmake/rules/protobuf_sccache.lua")
 includes("xmake/rules/cxx_sccache.lua")
 includes("mods")
-includes("tests")
 
 target("il2cpp-checked-tests")
     set_kind("binary")

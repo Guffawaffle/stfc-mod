@@ -53,6 +53,7 @@ void InstallAudioEventHooks();
 void InstallShipTechIndicatorHooks();
 void InstallNativeSettings();
 void InstallGalaxyLabels();
+void InstallGalaxySelectionHooks();
 void InstallOpcIndicatorHooks();
 
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
@@ -126,11 +127,13 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
-  bool install_anomaly_timer = cfg.galactic_anomaly_timer || cfg.installNativeSettings;
+  bool install_anomaly_timer = cfg.installGalacticAnomalyTimerHooks
+                               && (cfg.galactic_anomaly_timer || cfg.installNativeSettings);
   bool install_forbidden_tech = cfg.auto_confirm_ft_upgrade;
 #if defined(_WIN32) && defined(_M_X64)
   install_forbidden_tech |= cfg.installNativeSettings;
 #endif
+  install_forbidden_tech &= cfg.installForbiddenTechConfirmationHooks;
   const PatchEntry patches[] = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
@@ -155,7 +158,6 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"TransitionScreen", {InstallTransitionScreenHooks, &cfg.installTransitionScreenHooks}},
       {"GalacticAnomalyTimer", {InstallGalacticAnomalyTimer, &install_anomaly_timer}},
       {"LoadingTip", {InstallLoadingTipHooks, &cfg.installLoadingTipHooks}},
-      {"FocusSearch", {InstallFocusSearchHooks, &cfg.installFocusSearchHooks}},
       {"InstantCargoCounter", {InstallInstantCargoCounterHooks, &cfg.installInstantCargoCounterHooks}},
       {"CargoFormat", {InstallCargoFormatHooks, &cfg.installCargoFormatHooks}},
       {"OfficerSortHooks", {InstallOfficerSortHooks, &cfg.installOfficerSortHooks}},
@@ -165,11 +167,12 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"ForbiddenTechConfirm", {InstallForbiddenTechConfirmationHooks, &install_forbidden_tech}},
       {"AudioEvents", {InstallAudioEventHooks, &cfg.installAudioEventHooks}},
       {"ShipTechIndicators", {InstallShipTechIndicatorHooks, &cfg.installShipTechIndicatorHooks}},
+      {"OpcIndicators", {InstallOpcIndicatorHooks, &cfg.installOpcIndicatorHooks}},
+      {"GalaxySelection", {InstallGalaxySelectionHooks, &cfg.installNativeSettings}},
       // Galaxy availability must be established before settings pages register.
       {"GalaxyLabels", {InstallGalaxyLabels, &cfg.installZoomHooks}},
       // Retain the existing debug patch key; this installer owns both settings surfaces.
       {"ModConfirmationSettings", {InstallNativeSettings, &cfg.installNativeSettings}},
-      {"OpcIndicators", {InstallOpcIndicatorHooks, &cfg.installOpcIndicatorHooks}},
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
 

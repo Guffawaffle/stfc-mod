@@ -151,6 +151,9 @@ enable_experimental = false
 # Show the remaining Galactic Anomaly time below Help All / Engage / Claim.
 galactic_anomaly_timer = false
 
+# Select systems while zoomed out. Changes apply live through Mod Settings > Galaxy Labels.
+galaxy_extended_selection = false
+
 
 # Subgroup: Display
 # -----------------

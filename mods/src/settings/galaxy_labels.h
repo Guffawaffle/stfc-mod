@@ -6,6 +6,8 @@
 
 namespace mod_settings
 {
+BooleanSetting& GalaxyExtendedSelectionSetting();
+bool GalaxyExtendedSelectionAvailable();
 BooleanSetting& GalaxyMultiSelectSetting();
 BooleanSetting& GalaxyOverlaySetting(int native_mode);
 void SetGalaxyOverlay(int native_mode, bool enabled);

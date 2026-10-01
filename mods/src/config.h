@@ -176,6 +176,7 @@ public:
   FleetLabelProfile zoom_label_non_player;
   bool ship_hotkey_badges;
   bool galaxy_multi_select;
+  bool galaxy_extended_selection;
   std::array<bool, 4> galaxy_overlays; // Default, Mining, Hostiles, Hazards
   galaxy_controls::ZoomProfile galaxy_label_major;
   galaxy_controls::ZoomProfile galaxy_label_minor;
