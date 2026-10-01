@@ -1166,10 +1166,15 @@ void Config::Load()
   this->mission_hud_buttons.emplace(
       "outposts", get_mission_hud_visibility(config, parsed, "hud_outposts", DCU::hud_outposts, write_config));
   this->mission_hud_buttons.emplace(
-      "daily_goals",
-      get_mission_hud_visibility(config, parsed, "hud_daily_goals", DCU::hud_daily_goals, write_config));
-  this->mission_hud_buttons.emplace(
       "missions", get_mission_hud_visibility(config, parsed, "hud_missions", DCU::hud_missions, write_config));
+  // Install before native settings registration; Mac targets are preflighted
+  // as a complete family before any detour is installed.
+#if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
+  this->installMissionHudTweaksHooks = true;
+#else
+  this->installMissionHudTweaksHooks = this->MissionHudTweaksEnabled();
+#endif
+
   spdlog::debug("");
 
   this->sync_debug   = get_config_or_default(config, parsed, "sync", "debug", DCS::debug, write_config);
