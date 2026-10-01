@@ -49,6 +49,7 @@ void InstallDoubleClickAssignShipHooks();
 void InstallInstantWarpConfirmationHooks();
 void InstallForbiddenTechConfirmationHooks();
 void InstallAudioEventHooks();
+void InstallNativeSettings();
 
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
 {
@@ -121,6 +122,10 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
+  bool install_forbidden_tech = cfg.auto_confirm_ft_upgrade;
+#if defined(_WIN32) && defined(_M_X64)
+  install_forbidden_tech |= cfg.installNativeSettings;
+#endif
   const PatchEntry patches[] = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
@@ -144,14 +149,17 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"TransitionScreen", {InstallTransitionScreenHooks, &cfg.installTransitionScreenHooks}},
       {"GalacticAnomalyTimer", {InstallGalacticAnomalyTimer, &cfg.installGalacticAnomalyTimerHooks}},
       {"LoadingTip", {InstallLoadingTipHooks, &cfg.installLoadingTipHooks}},
+      {"FocusSearch", {InstallFocusSearchHooks, &cfg.installFocusSearchHooks}},
       {"InstantCargoCounter", {InstallInstantCargoCounterHooks, &cfg.installInstantCargoCounterHooks}},
       {"CargoFormat", {InstallCargoFormatHooks, &cfg.installCargoFormatHooks}},
       {"OfficerSortHooks", {InstallOfficerSortHooks, &cfg.installOfficerSortHooks}},
       {"PinnedShipSort", {InstallPinnedShipSortHooks, &cfg.installPinnedShipSortHooks}},
       {"DoubleClickAssignShip", {InstallDoubleClickAssignShipHooks, &cfg.installDoubleClickAssignShipHooks}},
       {"InstantWarpConfirm", {InstallInstantWarpConfirmationHooks, &cfg.installInstantWarpConfirmationHooks}},
-      {"ForbiddenTechConfirm", {InstallForbiddenTechConfirmationHooks, &cfg.installForbiddenTechConfirmationHooks}},
+      {"ForbiddenTechConfirm", {InstallForbiddenTechConfirmationHooks, &install_forbidden_tech}},
       {"AudioEvents", {InstallAudioEventHooks, &cfg.installAudioEventHooks}},
+      // Retain the existing debug patch key; this installer owns both settings surfaces.
+      {"ModConfirmationSettings", {InstallNativeSettings, &cfg.installNativeSettings}},
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
 
