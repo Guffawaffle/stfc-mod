@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
@@ -167,6 +168,13 @@ namespace detail
 
   class Document
   {
+    struct Utf8Adjustment {
+      std::size_t   line_start;
+      std::uint32_t column_after;
+      std::size_t   extra_bytes;
+    };
+    std::vector<Utf8Adjustment> utf8_adjustments_;
+
   public:
     std::string                        text;
     toml::table                        tree;
@@ -180,10 +188,8 @@ namespace detail
         : text(source)
         , tree(Parse(source))
     {
-      lines.push_back(Bom());
-      for (std::size_t i = Bom(); i < text.size(); ++i)
-        if (text[i] == '\n')
-          lines.push_back(i + 1);
+      IndexCoordinates();
+
       CollectRegions(tree);
       Scan();
     }
@@ -193,16 +199,21 @@ namespace detail
     {
       if (!position.line || position.line > lines.size() || !position.column)
         throw Failure("UnsupportedTarget");
-      auto          offset = lines[position.line - 1];
-      std::uint32_t column = 1;
-      while (column < position.column) {
-        if (offset >= text.size() || text[offset] == '\n')
-          throw Failure("UnsupportedTarget");
-        ++offset;
-        while (offset < text.size() && (static_cast<unsigned char>(text[offset]) & 0xc0) == 0x80)
-          ++offset;
-        ++column;
-      }
+      const auto line_start = lines[position.line - 1];
+      const auto coordinate = std::pair{line_start, static_cast<std::uint32_t>(position.column)};
+      const auto next       = std::upper_bound(utf8_adjustments_.begin(), utf8_adjustments_.end(), coordinate,
+                                               [](const auto& requested, const Utf8Adjustment& adjustment) {
+                                           return requested.first < adjustment.line_start
+                                                  || (requested.first == adjustment.line_start
+                                                      && requested.second < adjustment.column_after);
+                                               });
+      const auto extra      = next != utf8_adjustments_.begin() && std::prev(next)->line_start == line_start
+                                  ? std::prev(next)->extra_bytes
+                                  : 0;
+      const auto offset     = line_start + static_cast<std::size_t>(position.column) - 1 + extra;
+      const auto line_end   = position.line < lines.size() ? lines[position.line] - 1 : text.size();
+      if (offset > line_end)
+        throw Failure("UnsupportedTarget");
       return offset;
     }
     std::uint32_t Line(std::size_t offset) const
@@ -274,6 +285,30 @@ namespace detail
     }
 
   private:
+    void IndexCoordinates()
+    {
+      auto line_start = Bom();
+      lines.push_back(line_start);
+      std::uint32_t column      = 1;
+      std::size_t   extra_bytes = 0;
+      for (auto offset = line_start; offset < text.size();) {
+        if (text[offset] == '\n') {
+          lines.push_back(++offset);
+          line_start  = offset;
+          column      = 1;
+          extra_bytes = 0;
+          continue;
+        }
+        const auto begin = offset++;
+        while (offset < text.size() && (static_cast<unsigned char>(text[offset]) & 0xc0) == 0x80)
+          ++offset;
+        ++column;
+        if (offset - begin > 1) {
+          extra_bytes += offset - begin - 1;
+          utf8_adjustments_.push_back({line_start, column, extra_bytes});
+        }
+      }
+    }
     void CollectRegions(const toml::node& node)
     {
       if (node.is_value() || node.is_array() || PhysicalInline(node)) {
@@ -286,7 +321,7 @@ namespace detail
           (void)key;
           CollectRegions(child);
         }
-      else if (auto array = node.as_array())
+      else if (auto array = node.as_array(); array && ArrayOfTables(node))
         for (const auto& child : *array)
           CollectRegions(child);
     }

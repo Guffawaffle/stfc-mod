@@ -11,6 +11,13 @@ namespace
 {
   std::string Encode(const Value& value)
   {
+    if (const auto* text = std::get_if<std::string>(&value)) {
+      try {
+        stfc::toml_edit::ValidateUtf8(*text);
+      } catch (const stfc::toml_edit::Failure&) {
+        throw std::invalid_argument("invalid desired UTF-8 string");
+      }
+    }
     return std::visit([](const auto& item) { return stfc::toml_edit::Render(toml::value(item)); }, value);
   }
   std::optional<Value> ReadValue(const toml::node* node)

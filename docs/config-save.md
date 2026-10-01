@@ -66,7 +66,8 @@ see [the shared contract](SHARED_TOML_EDIT_CONTRACT.md) and
 [component build instructions](../shared/toml/README.md).
 
 Mod runtime values remain typed booleans, strings, integers or finite
-floating-point numbers and are encoded by toml++; quotes, backslashes and
+floating-point numbers. Strings must be valid UTF-8 before toml++ encoding;
+quotes, backslashes and
 newlines cannot become new TOML instructions. Runtime scheduling and checked
 replacement remain with their existing owners.
 

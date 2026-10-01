@@ -1,5 +1,6 @@
 #include "stfc_toml/c_api.h"
 #include "stfc_toml/editor.h"
+#include <chrono>
 #include <iostream>
 #include <limits>
 #include <nlohmann/json.hpp>
@@ -37,6 +38,17 @@ int main()
 {
   try {
     Check(stfc_toml_abi_version() == 1);
+    // A long unrelated array must not make source coordinate lookup quadratic.
+    std::string long_array = "unknown=[";
+    for (int i = 0; i < 65536; ++i)
+      long_array += i ? ",1" : "1";
+    long_array += "]\n[ui]\nenabled=false # preserved\n";
+    const auto started    = std::chrono::steady_clock::now();
+    auto       array_edit = Prepare(long_array, "set", {"ui", "enabled"}, "true");
+    Check(std::chrono::steady_clock::now() - started < std::chrono::seconds(2));
+    auto expected_array = long_array;
+    expected_array.replace(expected_array.find("false"), 5, "true");
+    Check(array_edit == expected_array);
     const std::string unusual =
         "\xef\xbb\xbf# preserve\r\n[\"ui.é\"] # keep\r\n\"é.mode\" = '''none\nmode''' # tail\r\n"
         "[elsewhere]\r\nx=nan\r\n[[unknown.items]]\r\nname='one'\r\n[[unknown.items]]\r\nname='two'\r\n";
