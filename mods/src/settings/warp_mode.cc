@@ -1,6 +1,7 @@
 #include "warp_mode.h"
 #include "config.h"
 #include "patches/runtime_config.h"
+#include "patches/instant_warp_policy.h"
 #include <spdlog/spdlog.h>
 
 namespace mod_settings
@@ -9,7 +10,11 @@ ChoiceSetting& WarpModeSetting()
 {
   static ChoiceSetting setting(
       {"community_mod.warp_mode", "Instant warp mode",
-       [] { return ValueReadResult<int>::Known(static_cast<int>(Config::Get().auto_confirm_instant_warp), 1); },
+       [] {
+         return InstantWarpConfirmationAvailable()
+                    ? ValueReadResult<int>::Known(static_cast<int>(Config::Get().auto_confirm_instant_warp), 1)
+                    : ValueReadResult<int>{};
+       },
        [](int value, std::uint64_t generation) {
          if (generation != 1)
            return ApplyResult::Rejected;
@@ -20,6 +25,8 @@ ChoiceSetting& WarpModeSetting()
 }
 bool SetWarpMode(InstantWarpConfirmation desired)
 {
+  if (!InstantWarpConfirmationAvailable())
+    return false;
   const char* value = nullptr;
   switch (desired) {
     case InstantWarpConfirmation::None:

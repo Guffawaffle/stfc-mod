@@ -18,6 +18,17 @@ do
     set_exceptions("cxx")
 end
 
+target("warp-mode-tests")
+do
+    set_kind("binary")
+    set_default(false)
+    add_files("warp_mode_test.cc", "../mods/src/settings/warp_mode.cc")
+    add_includedirs("../mods/src")
+    add_packages("toml++", "spdlog")
+    add_defines("NOMINMAX")
+    set_exceptions("cxx")
+end
+
 target("settings-persistence-tests")
 do
     set_kind("binary")

@@ -29,7 +29,7 @@ namespace
 bool keyboard_zoom_hook_installed = false;
 bool galaxy_lod_hook_installed = false;
 #if __APPLE__
-bool galaxy_zoom_hooks_validated = false;
+bool label_zoom_hooks_validated = false;
 #endif
 std::unordered_map<NavigationLOD *, NavigationFleetWidget *> fleet_label_widgets;
 bool                                                         fleet_label_hooks_installed         = false;
@@ -643,7 +643,7 @@ bool mod_settings::KeyboardZoomControlAvailable()
 bool GalaxyLabelZoomHooksReady()
 {
 #if __APPLE__
-  if (!galaxy_zoom_hooks_validated) return false;
+  if (!label_zoom_hooks_validated) return false;
 #endif
   return galaxy_lod_hook_installed && keyboard_zoom_hook_installed;
 }
@@ -676,7 +676,9 @@ void InstallZoomHooks()
   auto* target_class = galaxy_target ? il2cpp_class_from_type(galaxy_target->type) : nullptr;
   const auto* target_type = target_class && il2cpp_class_is_enum(target_class)
       ? il2cpp_class_enum_basetype(target_class) : nullptr;
-  galaxy_zoom_hooks_validated = GalaxyLabelsRequested() && galaxy_lod_method && galaxy_update
+  // Fleet and galaxy labels share these contracts. A galaxy-only emergency
+  // switch must not invalidate the fleet consumer's metadata.
+  label_zoom_hooks_validated = galaxy_lod_method && galaxy_update
       && galaxy_target && !(galaxy_target->type->attrs & FIELD_ATTRIBUTE_STATIC)
       && target_type && target_type->type == IL2CPP_TYPE_I4
       && zoom_level_field && !(zoom_level_field->type->attrs & FIELD_ATTRIBUTE_STATIC)
@@ -784,7 +786,7 @@ void InstallZoomHooks()
         && fleet_type_getter != nullptr && navigation_zoom_helper.isValidHelper() && ptr_update != nullptr
         && zoom_level_field != nullptr && normalized_zoom_property != nullptr;
 #if __APPLE__
-    fleet_label_dependencies_valid = fleet_label_dependencies_valid && galaxy_zoom_hooks_validated
+    fleet_label_dependencies_valid = fleet_label_dependencies_valid && label_zoom_hooks_validated
         && !(lod_field->type->attrs & FIELD_ATTRIBUTE_STATIC)
         && il2cpp_class_from_type(lod_field->type) == lod_class
         && !(context_field->type->attrs & FIELD_ATTRIBUTE_STATIC)
@@ -814,9 +816,9 @@ void InstallZoomHooks()
   }
 
 #if __APPLE__
-  if (galaxy_zoom_hooks_validated && !galaxy_lod_hook_installed)
+  if (GalaxyLabelsRequested() && label_zoom_hooks_validated && !galaxy_lod_hook_installed)
     galaxy_lod_hook_installed = SPUD_STATIC_DETOUR(method_contract::Pointer(galaxy_lod_method), NavigationLOD_UpdateLOD_Hook);
-  if (GalaxyLabelsRequested() && !galaxy_zoom_hooks_validated)
+  if (GalaxyLabelsRequested() && !label_zoom_hooks_validated)
     spdlog::warn("[GalaxyLabels] Mac shared zoom/LOD validation failed; using native galaxy labels");
 #endif
 

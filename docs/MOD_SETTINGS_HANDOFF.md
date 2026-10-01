@@ -60,6 +60,10 @@ remain disabled and existing player TOML comments and unrelated values survive.
 After choosing or canceling a custom audio file, verify the sound selection
 refreshes immediately. If the game vetoes a quit, change another setting and
 confirm it still saves without another unsolicited quit attempt.
+With Mod Settings and zoom hooks enabled, set `galaxylabelhooks = false` and
+verify Fleet Labels and ship badges still work on macOS. With
+`instantwarpconfirmhooks = false`, verify the warp-mode control is unavailable
+and its shortcut does not change the mode.
 
 macOS uses physical shortcut capture; Windows layout-aware capture is a separate
 dependency. The instant cargo consumer retains its existing Windows client

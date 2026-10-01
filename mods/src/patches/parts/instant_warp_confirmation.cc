@@ -17,6 +17,7 @@ namespace
 using PopupAction                         = void(CoursePromptPopupWidget*);
 PopupAction* initiate_regular_warp        = nullptr;
 PopupAction* on_instant_warp_button_click = nullptr;
+bool confirmation_installed = false;
 
 void CoursePromptPopupViewController_AboutToShow_Hook(auto original, CoursePromptPopupViewController* _this)
 {
@@ -45,6 +46,9 @@ void CoursePromptPopupViewController_AboutToShow_Hook(auto original, CoursePromp
   }
 }
 } // namespace
+
+bool InstantWarpConfirmationAvailable()
+{ return confirmation_installed; }
 
 InstantWarpConfirmation ResolveInstantWarpConfirmation(FleetPlayerData* fleet)
 {
@@ -96,6 +100,7 @@ void InstallInstantWarpConfirmationHooks()
     return;
   }
 
-  if (SPUD_STATIC_DETOUR(about_to_show, CoursePromptPopupViewController_AboutToShow_Hook))
+  confirmation_installed = SPUD_STATIC_DETOUR(about_to_show, CoursePromptPopupViewController_AboutToShow_Hook);
+  if (confirmation_installed)
     InstallWarpActionLabel();
 }
