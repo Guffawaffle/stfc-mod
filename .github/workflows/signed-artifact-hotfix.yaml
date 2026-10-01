@@ -2,7 +2,7 @@ name: Signed artifact gallery hotfix
 
 on:
   push:
-    tags: ["v*-artifact-hotfix.*"]
+    tags: ["v1.1.8.0-artifact-hotfix.1"]
   workflow_dispatch:
 
 permissions: {}
@@ -184,7 +184,7 @@ jobs:
             '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
           } | Set-Content release/SHA256SUMS.txt -Encoding ascii
           @"
-          Artifact gallery crash hotfix — signed Windows x64 DLL.
+          Artifact gallery crash hotfix â€” signed Windows x64 DLL.
 
           Upstream source: https://github.com/netniV/stfc-mod/commit/$($provenance.upstreamCommit)
           Upstream build: $($provenance.upstreamRunUrl)

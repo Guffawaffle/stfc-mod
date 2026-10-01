@@ -1,0 +1,139 @@
+name: Add signed Mac artifact hotfix
+
+on:
+  push:
+    tags: ["v1.1.8.0-artifact-hotfix.1-guffa.mac.1"]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: signed-mac-artifact-hotfix-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SOURCE_REPOSITORY: netniV/stfc-mod
+  SOURCE_SHA: e0b8552bc2e8922423c6cdf3ba00ba0a81bf23c0
+  BUILD_RUN_ID: "35696999748"
+  SOURCE_BRANCH: main
+  INPUT_DMG_SHA256: 7cf19d21c11996536e01aef7fe49aba1de590f6da6b381bb7a64ff77ee777b1e
+  RELEASE_TAG: v1.1.8.0-artifact-hotfix.1
+
+jobs:
+  sign:
+    if: github.repository == 'Guffawaffle/stfc-mod'
+    runs-on: macos-26
+    timeout-minutes: 60
+    environment: macos-release
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Verify pinned successful source build and destination release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/tags/v1.1.8.0-artifact-hotfix.1-guffa.mac.1 ]]
+          gh api "repos/$SOURCE_REPOSITORY/actions/runs/$BUILD_RUN_ID" > "$RUNNER_TEMP/mac-build.json"
+          jq -e --arg sha "$SOURCE_SHA" --arg repo "$SOURCE_REPOSITORY" --arg branch "$SOURCE_BRANCH" '
+            .head_sha == $sha and .head_branch == $branch and .event == "push" and
+            .status == "completed" and .conclusion == "success" and .run_attempt == 1 and
+            .path == ".github/workflows/ci.yaml" and .repository.full_name == $repo
+          ' "$RUNNER_TEMP/mac-build.json"
+          gh api "repos/$SOURCE_REPOSITORY/actions/runs/$BUILD_RUN_ID/attempts/1/jobs?per_page=100" > "$RUNNER_TEMP/mac-jobs.json"
+          for job in 'build-mac (arm64)' 'build-mac (x86_64)' package-mac; do
+            jq -e --arg job "$job" '[.jobs[] | select(.name == $job and .conclusion == "success")] | length == 1' "$RUNNER_TEMP/mac-jobs.json"
+          done
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,tagName > "$RUNNER_TEMP/mac-release.json"
+          jq -e --arg tag "$RELEASE_TAG" '.tagName == $tag and .isDraft == false and .isPrerelease == true' "$RUNNER_TEMP/mac-release.json"
+
+      - name: Download pinned source installer
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: stfc-community-mod-installer
+          path: unsigned-macos
+          github-token: ${{ github.token }}
+          repository: netniV/stfc-mod
+          run-id: "35696999748"
+
+      - name: Check exact installer hash before accessing signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(find unsigned-macos -type f | wc -l | tr -d ' ')" == 1 ]]
+          [[ "$(shasum -a 256 unsigned-macos/stfc-community-mod-installer.dmg | awk '{print $1}')" == "$INPUT_DMG_SHA256" ]]
+
+      - name: Install archive tool
+        shell: bash
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: command -v zstd >/dev/null || brew install zstd
+
+      - name: Sign and notarize exact universal installer
+        shell: bash
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_ID: ${{ vars.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          MACOS_SIGNING_IDENTITY: ${{ vars.MACOS_SIGNING_IDENTITY }}
+        run: bash scripts/sign-artifact-hotfix-macos.sh
+
+      - name: Remove temporary signing keychain
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/stfc-signing.keychain-db" ]]; then
+            security delete-keychain "$RUNNER_TEMP/stfc-signing.keychain-db"
+          fi
+
+      - name: Retain notarization evidence and exact submitted payload
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: macos-artifact-hotfix-notarization
+          path: |
+            macos-notarization-evidence/
+            macos-notarization-payloads/
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Retain verified signed Mac downloads
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: signed-macos-artifact-hotfix
+          path: signed-macos/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: sign
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: signed-macos-artifact-hotfix
+          path: signed-macos
+
+      - name: Attach Mac downloads to the existing hotfix prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,tagName > release.json
+          jq -e --arg tag "$RELEASE_TAG" '.tagName == $tag and .isDraft == false and .isPrerelease == true' release.json
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            signed-macos/stfc-community-mod-installer.dmg \
+            signed-macos/stfc-community-mod-macos-universal.tar.zst \
+            signed-macos/stfc-community-mod-macos-universal.tar.zst.sha256 \
+            signed-macos/macos-provenance.json
