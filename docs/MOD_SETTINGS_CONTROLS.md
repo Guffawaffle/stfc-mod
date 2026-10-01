@@ -24,7 +24,7 @@ independent of labels and placement.
 | General > confirmation page | Confirm Forbidden Tech upgrades | Inverse of `ui.auto_confirm_ft_upgrade` |
 
 The controls branch implements instant warp, Fleet Labels and Forbidden Tech on
-Windows x64. Hotkey editing was developed on its separate feature branch. Native confirmation
+Windows x64 and macOS through the shared native adapter. Native confirmation
 controls stay on the native page. FC retains its existing owner.
 
 ## Instant warp mode
@@ -87,8 +87,8 @@ the new auto-open behavior.
 The existing Ctrl+R / Ctrl+T and Alt+1 through Alt+5 toggle actions now use the same
 setting owners as these pages. An open page refreshes immediately after a shortcut
 change. Both UI and shortcut edits submit the matching existing TOML key to the
-single writer on supported Windows x64 builds. These shortcuts therefore retain
-their preferences across restarts now; other platforms keep session-only behavior.
+single writer on supported Windows x64 and macOS builds. These shortcuts retain
+their preferences across restarts when persistence is available.
 Repeatedly choosing the current value, rendering, and page navigation do not save.
 Conflicts and failures leave live behavior in place and are reported in the log.
 
@@ -97,41 +97,6 @@ on `Manage Ship > Swap Ship` cards. While it is enabled, an independently saved
 contrast-background switch appears directly below it and is off by default. The
 display hook remains installed for the session; changing either preference affects
 cards when the Swap Ship view next binds them and does not add indicators to the Fleet Bar.
-
-## Ship pinning
-
-Pinning is available on `Manage Ship > Swap Ship` cards without a user-facing
-enable switch. A filled gold marker shows a pinned ship; a muted hollow marker
-shows an unpinned ship. Rank numbers are not shown. Press and release the marker
-to pin or unpin the ship; clicking elsewhere on the card selects it. A quick
-drag scrolls the ship row without toggling a pin. Hold the marker for about
-125 ms to arm a pin drag; the source card gets an outline as soon as the hold
-engages, before it moves. The marker is the drag handle.
-
-Drop an unpinned ship into the visible pinned group to pin it at the indicated
-position. During a drag, the group gets a gold outer outline that turns teal
-when hovered. When the group is empty, a temporary `Pin here` cue appears at the
-visible leading edge of the ship row during a drag, without shifting the row.
-It covers part of Build Ship when the row is scrolled to the front. While the
-group is empty, the cue is its valid drop target; dropping there creates the
-first pin. Drag a pinned ship within the group to reorder it, or onto the
-unpinned part of the ship row to unpin it. Dropping an unpinned ship there
-leaves it unpinned. Dropping outside the row or on Build Ship outside the cue
-cancels the drag. The game's active sort still orders unpinned ships.
-
-The ordered ship IDs are stored as decimal strings in the mod state JSON, not
-in TOML. Its default filename is `community_patch_state.json`; a custom config
-uses `<config-stem>.state.json` beside that config. Existing nonempty
-`ui.pinned_ships` values start as legacy name-based pins. On the first pin
-action, identifiable matches migrate in order to ship IDs; unresolved names
-remain in JSON. Clicking a legacy-pinned marker or dragging its card out of the
-group unpins only that ship, including when another ship has the same name. If
-another same-name legacy claim has no resolvable ship ID, unpinning is deferred
-so that claim cannot immediately re-pin the selected ship. Any unresolved
-legacy names follow the explicit ID pins and retain the game's active sort.
-New example TOML files point to the in-game controls instead of a new name
-list. An internal patch switch remains available as a hook safety override,
-but there is no player-facing pinning toggle.
 
 ## Camera
 

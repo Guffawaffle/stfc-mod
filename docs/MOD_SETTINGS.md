@@ -99,10 +99,10 @@ close and the ordinary quit/drain path are unchanged.
 
 ## Editor and view lifetime
 
-Shortcut changes, additions, removals and defaults are drafts until Apply.
-Restore reads the canonical default definition already registered by config;
-`NONE` means no bindings. Stale drafts cannot replace a newer action list.
-Overlap warnings allow keeping both; Next cycles through every affected action.
+Add and Change open a capture popup. Confirm applies the binding; overlap warnings
+offer Use anyway. Remove and Restore save immediately, with Undo restoring the
+exact prior list unless a newer edit has superseded it. Restore reads the
+canonical defaults registered by config; `NONE` means no bindings.
 Force close and the game's native shortcut variants explain their behavior.
 
 The page owns cancellation through `Page::leave`. Actual navigation, controller
@@ -126,19 +126,6 @@ of installation. Windows and macOS use the same settings adapter, while
 layout-aware capture is Windows-only and macOS uses physical keys.
 
 ## Measurement and validation
-
-In `_MODDBG` builds, set `STFC_MOD_SETTINGS_TIMING=1` for the launched process to
-measure existing tree construction, page filtering/binding and action refresh
-boundaries. Counts, mean and maximum elapsed milliseconds are aggregated until
-page departure, then logged as `[SettingsTiming]`. There are no timing logs during
-slider dragging, no additional hook or update callback, and no setting values or
-bindings in the output. Timers compile out of ordinary release builds. Timings
-include nested native work and are not additive across operations or whole-frame
-measurements. A small sample cannot establish p95 or a universal frame budget.
-
-Measure real opening/refreshing before adding caches. Repeated shortcut binding
-copies currently remain straightforward authoritative reads; optimize only if
-measurements show a material cost. No snapshot cache has been introduced here.
 
 Run `tests/run-settings.ps1`, `tests/run-config-save.ps1` and the Windows build.
 Pure fixtures cover readback/range preservation, stale/default drafts, duplicate
