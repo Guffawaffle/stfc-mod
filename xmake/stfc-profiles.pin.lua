@@ -2,7 +2,7 @@
 function stfc_profiles_pin()
     return {
         repository = "https://github.com/Guffawaffle/stfc-profiles.git",
-        revision = "07ca529f5a31b20d93648166d7451fd926a741b0",
-        archive_sha256 = "377642c37a79d4429aa8b504e8db7ec2850abb4829cb0927e20dae29778b727d"
+        revision = "c5c4ba911f16f3376e828761714d72a26ebe2a96",
+        archive_sha256 = "f120590499bb51844c1a2cd274f5bd58dbae0626b72c2d9f800041fabd08fd63"
     }
 end
