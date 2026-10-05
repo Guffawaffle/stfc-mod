@@ -97,7 +97,9 @@ Installation of the Community Mod is a manual process for Windows (or Wine).
 
 - `~/Library/Application Support/Star Trek Fleet Command/Games/Star Trek Fleet Command/Star Trek Fleet Command/default/game`
 
-You should only need to access this folder if you need to view the `community_patch.log` file while troubleshooting a problem.
+The mod settings and `community_patch.log` are located in
+`~/Library/Preferences/com.stfcmod.startrekpatch`. Use **View > View Mod Folder** in the
+Community Mod launcher to open this folder in Finder, or **Open TOML** to open the settings file.
 
 1. Download the `stfc-community-mod-installer.dmg` file from your chosen [GitHub release](https://github.com/netniv/stfc-mod/releases/).
 

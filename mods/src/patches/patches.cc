@@ -86,7 +86,39 @@ int il2cpp_init_hook(auto original, const char* domain_name)
   profile_launch::Prepare();
   File::Init();
 
-  auto file_logger = spdlog::basic_logger_mt("default", File::Log(), true);
+  std::string log_path = File::Log();
+#if __APPLE__
+  if (!File::hasCustomNames()) {
+    // Creating the log directory first would suppress legacy config migration.
+    migrate_mac_config_if_needed(File::Config());
+    const auto resolved_path = File::MakePath(File::Log(), true);
+    log_path.assign(resolved_path.begin(), resolved_path.end());
+  }
+#endif
+  std::string log_error;
+  bool console_only = false;
+  auto file_logger = [&] {
+#if __APPLE__
+    try {
+      return spdlog::basic_logger_mt("default", log_path, true);
+    } catch (const spdlog::spdlog_ex& error) {
+      if (File::hasCustomNames())
+        throw;
+      log_error = error.what();
+      log_path = File::Log();
+      try {
+        return spdlog::basic_logger_mt("default", log_path, true);
+      } catch (const spdlog::spdlog_ex& fallback_error) {
+        log_error += "; previous location also failed: ";
+        log_error += fallback_error.what();
+        console_only = true;
+        return std::make_shared<spdlog::logger>("default");
+      }
+    }
+#else
+    return spdlog::basic_logger_mt("default", log_path, true);
+#endif
+  }();
   auto sink        = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
   file_logger->sinks().push_back(sink);
   spdlog::set_default_logger(file_logger);
@@ -96,6 +128,14 @@ int il2cpp_init_hook(auto original, const char* domain_name)
 
   spdlog::set_level(log_level);
   spdlog::flush_on(log_level);
+
+  if (!log_error.empty()) {
+    if (console_only) {
+      spdlog::warn("Could not open mod log at either location: {}. Continuing with console logging.", log_error);
+    } else {
+      spdlog::warn("Could not open mod log in the config folder: {}. Using previous location '{}'.", log_error, log_path);
+    }
+  }
 
 #if VERSION_PATCH
   if constexpr (sizeof(VERSION_COMMIT_HASH) > 1) {
@@ -114,7 +154,7 @@ int il2cpp_init_hook(auto original, const char* domain_name)
     spdlog::info("Using standard names");
   }
 
-  spdlog::info("  Log: {}", File::Log());
+  spdlog::info("  Log: {}", console_only ? "console only" : log_path);
   spdlog::info("  Cfg: {}", File::Config());
   spdlog::info("  Var: {}", File::Vars());
   spdlog::info("   BL: {}", File::Battles());
