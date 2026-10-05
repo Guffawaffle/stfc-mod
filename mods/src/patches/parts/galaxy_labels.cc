@@ -4,6 +4,7 @@
 #include <spud/detour.h>
 #include "galaxy_labels.h"
 #include "galaxy_policy.h"
+#include "galaxy_housing.h"
 #include "config.h"
 #include "settings/galaxy_labels.h"
 
@@ -343,6 +344,7 @@ private:
 
   void Bind(auto original, void* widget)
   {
+    galaxy_housing::Remove(widget);
     if (!ready || restoring_layout) { original(widget); return; }
 
 
@@ -355,6 +357,7 @@ private:
 
   void Release(auto original, void* widget)
   {
+    galaxy_housing::Remove(widget);
     if (!ready || restoring_layout) { original(widget); return; }
 
 
@@ -518,6 +521,7 @@ private:
   void Data(auto original, void* widget, int level)
   {
     if (!ready || restoring_layout || releasing == widget) { original(widget, level); return; }
+    if (!batching) galaxy_housing::Hide(widget);
     if (!batching && !RestoreLayout(widget)) {
       // Preserve failed snapshots and avoid layering more edits onto this widget.
       original(widget, level);
@@ -529,10 +533,11 @@ private:
     if (!multi || !selection.Multiple() || batching) {
       original(widget, effective);
       if (multi && !batching && selection.Contains(2)) TextLayout(widget, false, false);
-      if (multi && !batching) {
+      if ((multi || galaxy_housing::Enabled()) && !batching) {
         IconLayout(widget, 0x1d0);
         if (selection.Contains(3)) IconLayout(widget, 0x110);
       }
+      if (!batching) galaxy_housing::Update(widget, effective);
       return;
     }
     // Ask each native overlay to apply its own visited/level/hazard gates, then
@@ -603,6 +608,7 @@ private:
     TextLayout(widget, selection.Contains(0), combined[2]);
     IconLayout(widget, 0x1d0);
     if (selection.Contains(3)) IconLayout(widget, 0x110);
+    galaxy_housing::Update(widget, effective);
   }
   void Name(auto original, void* widget, bool resources, bool hostiles, bool level, bool hazards)
   {
@@ -673,6 +679,7 @@ public:
   void ApplySettings()
   {
     const auto& cfg = Config::Get();
+    galaxy_housing::Refresh();
     const std::array next_profiles{cfg.galaxy_label_major, cfg.galaxy_label_minor};
     refresh_profiles = true; // Includes overlay-only edits from either UI surface.
     if (multi && !cfg.galaxy_multi_select) cleanup_layouts = true;
@@ -734,6 +741,7 @@ public:
     }
     Prune(filters); Prune(lods); Prune(handlers); Prune(stars);
     PruneLayouts();
+    galaxy_housing::Refresh();
     // Rebuild the filtered set on threshold changes within a native zoom tier.
     for (auto [object, handle] : filters)
       if (auto* filter = il2cpp_gchandle_get_target(handle))
@@ -891,6 +899,7 @@ public:
     const bool f = SPUD_STATIC_DETOUR(should_filter, FilterHook);
     const bool g = SPUD_STATIC_DETOUR(bind, BindHook), h = SPUD_STATIC_DETOUR(release, ReleaseHook);
     ready = a && b && c && d && e && f && g && h;
+    if (ready) galaxy_housing::Install(star.get_cls());
     if (ready) ApplySettings();
     spdlog::info("[GalaxyLabels] hooks ready={} data={} name={} select={} animation={} zoom={} filter={} bind={} release={}",
                  ready, a, b, c, d, e, f, g, h);
@@ -934,6 +943,7 @@ void InstallGalaxyLabels()
 
 namespace mod_settings
 {
+bool GalaxyHousingAvailable() { return GalaxyLabelControlsAvailable() && galaxy_housing::Available(); }
 bool GalaxyLabelControlsAvailable()
 {
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)

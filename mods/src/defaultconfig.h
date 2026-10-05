@@ -51,6 +51,7 @@ namespace Graphics
   constexpr const char* zoom_label_non_player_detail    = "native";
   constexpr auto        zoom_label_non_player_threshold = 0.5;
   constexpr bool        galaxy_multi_select = false;
+  constexpr bool        galaxy_station_housing = false;
   constexpr bool galaxy_overlay_default = true;
   constexpr bool galaxy_overlay_mining = false;
   constexpr bool galaxy_overlay_hostiles = false;

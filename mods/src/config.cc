@@ -1079,6 +1079,8 @@ void Config::Load()
       config, parsed, "zoom_label_non_player_threshold", DCG::zoom_label_non_player_threshold, write_config);
   this->galaxy_multi_select = get_config_or_default(
       config, parsed, "graphics", "galaxy_multi_select", DCG::galaxy_multi_select, write_config);
+  this->galaxy_station_housing = get_config_or_default(
+      config, parsed, "graphics", "galaxy_station_housing", DCG::galaxy_station_housing, write_config);
   this->galaxy_overlays[0] = get_config_or_default(
       config, parsed, "graphics", "galaxy_overlay_default", DCG::galaxy_overlay_default, write_config);
   this->galaxy_overlays[1] = get_config_or_default(
