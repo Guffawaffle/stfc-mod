@@ -72,27 +72,25 @@ struct ActionView: View, XSollaUpdaterDelegate {
 
   var body: some View {
     GeometryReader { geo in
-      Grid {
-        GridRow(alignment: .top) {
-          VStack(spacing: 8) {
-            Button {
-              withAnimation {
-                openConfigSite()
-              }
-            } label: {
-              commonButton(text: "Configure Mod")
-                .foregroundColor(.lcarViolet)
-            }.buttonStyle(PlainButtonStyle())
-
-            Button {
-              openConfigFile()
-            } label: {
-              commonButton(text: "Open TOML")
-                .foregroundColor(.lcarViolet)
+      Grid(horizontalSpacing: 8) {
+        GridRow {
+          Button {
+            withAnimation {
+              openConfigSite()
             }
-            .buttonStyle(PlainButtonStyle())
-            .help("Open community_patch_settings.toml in your associated app or TextEdit")
+          } label: {
+            commonButton(text: "Configure Mod")
+              .foregroundColor(.lcarViolet)
+          }.buttonStyle(PlainButtonStyle())
+
+          Button {
+            openConfigFile()
+          } label: {
+            commonButton(text: "Open TOML")
+              .foregroundColor(.lcarViolet)
           }
+          .buttonStyle(PlainButtonStyle())
+          .help("Open community_patch_settings.toml in your associated app or TextEdit")
 
           if gameInstalled {
             Group {
@@ -142,14 +140,16 @@ struct ActionView: View, XSollaUpdaterDelegate {
             .allowsHitTesting(!updating && !gameRunning)
           } else {
             Text("Game not installed")
-              .font(.custom("HelveticaNeue-CondensedBold", size: 40))
+              .font(.custom("HelveticaNeue-CondensedBold", size: 24))
               .foregroundColor(.lcarTan)
-              .offset(x: -45)
+              .lineLimit(1)
+              .minimumScaleFactor(0.7)
+              .frame(width: 192, height: 50)
           }
 
         }
       }
-      .frame(width: geo.size.width, height: 150, alignment: .top)
+      .frame(width: geo.size.width, height: 150)
       .offset(x: 85, y: 20)
       .task {
         repeat {
@@ -188,18 +188,21 @@ struct ActionView: View, XSollaUpdaterDelegate {
   }
 
   private func commonButton(text: String = "") -> some View {
+    // Keep the four-button row to 392 points, including three 8-point gaps.
     RoundedRectangle(cornerRadius: 20)
-      .frame(width: 125, height: 50)
+      .frame(width: 92, height: 50)
       .overlay(alignment: .bottomTrailing) {
         HStack {
           Spacer()
           Text(text.count > 0 ? text : "\(randomDigits(4))-\(randomDigits(3))")
             .font(.custom("HelveticaNeue-CondensedBold", size: 17))
             .foregroundColor(.black)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
         }
-        .scaleEffect(x: 0.7, anchor: .trailing)
         .padding(.bottom, 5)
-        .padding(.trailing, 20)
+        .padding(.leading, 8)
+        .padding(.trailing, 12)
       }
   }
 
