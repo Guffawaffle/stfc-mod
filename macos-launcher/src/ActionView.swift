@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 import os
@@ -72,15 +73,26 @@ struct ActionView: View, XSollaUpdaterDelegate {
   var body: some View {
     GeometryReader { geo in
       Grid {
-        GridRow {
-          Button {
-            withAnimation {
-              openConfigSite()
+        GridRow(alignment: .top) {
+          VStack(spacing: 8) {
+            Button {
+              withAnimation {
+                openConfigSite()
+              }
+            } label: {
+              commonButton(text: "Configure Mod")
+                .foregroundColor(.lcarViolet)
+            }.buttonStyle(PlainButtonStyle())
+
+            Button {
+              openConfigFile()
+            } label: {
+              commonButton(text: "Open TOML")
+                .foregroundColor(.lcarViolet)
             }
-          } label: {
-            commonButton(text: "Configure Mod")
-              .foregroundColor(.lcarViolet)
-          }.buttonStyle(PlainButtonStyle())
+            .buttonStyle(PlainButtonStyle())
+            .help("Open community_patch_settings.toml in your associated app or TextEdit")
+          }
 
           if gameInstalled {
             Group {
@@ -137,7 +149,7 @@ struct ActionView: View, XSollaUpdaterDelegate {
 
         }
       }
-      .frame(width: geo.size.width, height: 150)
+      .frame(width: geo.size.width, height: 150, alignment: .top)
       .offset(x: 85, y: 20)
       .task {
         repeat {
@@ -200,6 +212,48 @@ struct ActionView: View, XSollaUpdaterDelegate {
   private func openConfigSite() {
     guard let configSiteURL = URL(string: "https://modconfig.pages.dev") else { return }
     NSWorkspace.shared.open(configSiteURL)
+  }
+
+  private func openConfigFile() {
+    guard let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
+      errorMessage = "Could not locate your Library folder."
+      showErrorAlert = true
+      return
+    }
+    // Keep this path aligned with File::MakePath in mods/src/file.cc.
+    let configURL = library
+      .appendingPathComponent("Preferences", isDirectory: true)
+      .appendingPathComponent("com.stfcmod.startrekpatch", isDirectory: true)
+      .appendingPathComponent("community_patch_settings.toml")
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: configURL.path, isDirectory: &isDirectory),
+      !isDirectory.boolValue
+    else {
+      errorMessage = """
+        The mod config file is not available at \(configURL.path).
+        Launch the game with the mod once to create it.
+        """
+      showErrorAlert = true
+      return
+    }
+
+    guard let applicationURL = NSWorkspace.shared.urlForApplication(toOpen: configURL)
+      ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.TextEdit")
+    else {
+      errorMessage = "No app is available to open the mod config file. Install a text editor and try again."
+      showErrorAlert = true
+      return
+    }
+
+    Task { @MainActor in
+      do {
+        try await NSWorkspace.shared.open(
+          [configURL], withApplicationAt: applicationURL, configuration: NSWorkspace.OpenConfiguration())
+      } catch {
+        errorMessage = "Could not open the mod config file: \(error.localizedDescription)"
+        showErrorAlert = true
+      }
+    }
   }
 
   private func launchGame() {
