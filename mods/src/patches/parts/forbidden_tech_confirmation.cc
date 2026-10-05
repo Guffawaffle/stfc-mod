@@ -1,6 +1,7 @@
 #include "config.h"
 #include "errormsg.h"
 #include "settings/forbidden_tech.h"
+#include "config.h"
 
 #include <il2cpp/il2cpp_helper.h>
 #include <il2cpp-tabledefs.h>

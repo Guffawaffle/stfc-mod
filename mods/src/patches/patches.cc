@@ -37,6 +37,7 @@ void InstallDailyFactionBulkClaimHooks();
 void InstallTestPatches();
 void InstallMiscPatches();
 void InstallMissionHudTweaksHooks();
+void InstallArtifactExchangeHooks();
 void InstallChatPatches();
 void InstallTempCrashFixes();
 void InstallSyncPatches();
@@ -45,7 +46,6 @@ void InstallLoadingScreenHooks();
 void InstallTransitionScreenHooks();
 void InstallGalacticAnomalyTimer();
 void InstallLoadingTipHooks();
-void InstallFocusSearchHooks();
 void InstallCargoFormatHooks();
 void InstallInstantCargoCounterHooks();
 void InstallOfficerSortHooks();
@@ -141,13 +141,8 @@ int il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::info("");
 
   spdlog::info("Initializing code hooks:");
-  bool install_anomaly_timer = cfg.galactic_anomaly_timer || cfg.installNativeSettings;
-  bool install_forbidden_tech = cfg.auto_confirm_ft_upgrade;
-  bool install_ship_tile_click = cfg.installPinnedShipSortHooks || cfg.double_click_to_assign_ship;
+  bool install_ship_tile_click = cfg.installPinnedShipSortHooks || cfg.installDoubleClickAssignShipHooks;
   bool install_ship_tile_bind  = cfg.installPinnedShipSortHooks || cfg.installShipTechIndicatorHooks;
-#if defined(_WIN32) && defined(_M_X64)
-  install_forbidden_tech |= cfg.installNativeSettings;
-#endif
   const PatchEntry patches[] = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
@@ -166,23 +161,23 @@ int il2cpp_init_hook(auto original, const char* domain_name)
       {"TestPatches", {InstallTestPatches, &cfg.installTestPatches}},
       {"MiscPatches", {InstallMiscPatches, &cfg.installMiscPatches}},
       {"MissionHudTweaksHooks", {InstallMissionHudTweaksHooks, &cfg.installMissionHudTweaksHooks}},
+      {"ArtifactExchangeHooks", {InstallArtifactExchangeHooks, &cfg.installArtifactExchangeHooks}},
       {"ChatPatches", {InstallChatPatches, &cfg.installChatPatches}},
       {"SyncPatches", {InstallSyncPatches, &cfg.installSyncPatches}},
       {"ObjectTracker", {InstallObjectTrackers, &cfg.installObjectTracker}},
       {"LoadingScreen", {InstallLoadingScreenHooks, &cfg.installLoadingScreenHooks}},
       {"TransitionScreen", {InstallTransitionScreenHooks, &cfg.installTransitionScreenHooks}},
-      {"GalacticAnomalyTimer", {InstallGalacticAnomalyTimer, &install_anomaly_timer}},
-      {"LoadingTip", {InstallLoadingTipHooks, &cfg.loader_tip_enabled}},
-      {"FocusSearch", {InstallFocusSearchHooks, &cfg.installFocusSearchHooks}},
+      {"GalacticAnomalyTimer", {InstallGalacticAnomalyTimer, &cfg.installGalacticAnomalyTimerHooks}},
+      {"LoadingTip", {InstallLoadingTipHooks, &cfg.installLoadingTipHooks}},
       {"InstantCargoCounter", {InstallInstantCargoCounterHooks, &cfg.installInstantCargoCounterHooks}},
       {"CargoFormat", {InstallCargoFormatHooks, &cfg.installCargoFormatHooks}},
       {"OfficerSortHooks", {InstallOfficerSortHooks, &cfg.installOfficerSortHooks}},
       {"PinnedShipSort", {InstallPinnedShipSortHooks, &cfg.installPinnedShipSortHooks}},
       {"ShipTileClick", {InstallDoubleClickAssignShipHooks, &install_ship_tile_click}},
       {"InstantWarpConfirm", {InstallInstantWarpConfirmationHooks, &cfg.installInstantWarpConfirmationHooks}},
-      {"ForbiddenTechConfirm", {InstallForbiddenTechConfirmationHooks, &install_forbidden_tech}},
+      {"ForbiddenTechConfirm", {InstallForbiddenTechConfirmationHooks, &cfg.installForbiddenTechConfirmationHooks}},
       {"AudioEvents", {InstallAudioEventHooks, &cfg.installAudioEventHooks}},
-      {"OfficerPresetReorder", {InstallOfficerPresetReorderHooks, &cfg.allow_officer_preset_reordering}},
+      {"OfficerPresetReorder", {InstallOfficerPresetReorderHooks, &cfg.installOfficerPresetReorderHooks}},
       {"OpcIndicators", {InstallOpcIndicatorHooks, &cfg.installOpcIndicatorHooks}},
       {"ShipTechIndicators", {InstallShipTechIndicatorHooks, &install_ship_tile_bind}},
       // Galaxy availability must be established before settings pages register.

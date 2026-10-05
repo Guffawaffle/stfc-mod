@@ -1,4 +1,6 @@
 #include "errormsg.h"
+#include "config.h"
+#include "settings/upstream_features.h"
 #include "mod_state.h"
 #include "prime/KeyCode.h"
 #include "str_utils.h"
@@ -36,6 +38,8 @@ struct OfficerPresetItemContext {
 using ClearAndGenerateContentsFn = void(void*, Il2CppObject*, Il2CppObject*);
 using GetScrollPositionFn        = float(void*);
 using RestoreScrollPositionFn    = void(void*, float);
+
+bool reorder_installed = false;
 
 std::vector<int64_t>        session_order;
 std::vector<int32_t>        active_presentations;
@@ -414,6 +418,10 @@ bool move_preset(OfficerPresetItemContext* context, int direction)
 void OfficerPresetsViewController_OnSaveSlotsSuccess_Hook(auto original, Il2CppObject* _this,
                                                           bool increase_occupied_slots_count)
 {
+  if (!reorder_installed || !Config::Get().allow_officer_preset_reordering) {
+    original(_this, increase_occupied_slots_count);
+    return;
+  }
   auto* view_context = read_object_field<void>(_this, controller_context_offset);
   auto* scroller     = read_object_field<void>(_this, controller_scroller_offset);
 
@@ -475,6 +483,7 @@ bool OfficerManager_TryGetPresetItemContext_Hook(auto original, void* _this, Il2
                                                  void* view_context)
 {
   const bool result = original(_this, preset_contexts, view_context);
+  if (!reorder_installed || !Config::Get().allow_officer_preset_reordering) return result;
   if (!result || preset_contexts == nullptr || *preset_contexts == nullptr) {
     spdlog::info("[OfficerPresetReorder] preset context load returned result={} array={}", result,
                  preset_contexts != nullptr ? static_cast<void*>(*preset_contexts) : nullptr);
@@ -495,6 +504,7 @@ bool OfficerManager_TryGetPresetItemContext_Hook(auto original, void* _this, Il2
 
 void OfficerPresetItemWidget_OnEditNameButtonClicked_Hook(auto original, void* _this)
 {
+  if (!reorder_installed || !Config::Get().allow_officer_preset_reordering) { original(_this); return; }
   const bool move_up   = shift_pressed();
   const bool move_down = move_down_modifier_pressed();
   if (move_up != move_down) {
@@ -508,6 +518,7 @@ void OfficerPresetItemWidget_OnEditNameButtonClicked_Hook(auto original, void* _
 
 void OfficerPresetsViewController_OnDidBindCanvasContext_Hook(auto original, Il2CppObject* _this)
 {
+  if (!reorder_installed || !Config::Get().allow_officer_preset_reordering) { original(_this); return; }
   original(_this);
   active_controller = _this;
 
@@ -551,6 +562,8 @@ void OfficerPresetsViewController_OnAboutToReleaseCanvasContext_Hook(auto origin
   original(_this);
 }
 } // namespace
+
+bool mod_settings::OfficerPresetReorderAvailable() { return reorder_installed; }
 
 void InstallOfficerPresetReorderHooks()
 {
@@ -621,9 +634,10 @@ void InstallOfficerPresetReorderHooks()
 
   load_session_order();
 
-  SPUD_STATIC_DETOUR(method->methodPointer, OfficerManager_TryGetPresetItemContext_Hook);
-  SPUD_STATIC_DETOUR(edit_method->methodPointer, OfficerPresetItemWidget_OnEditNameButtonClicked_Hook);
-  SPUD_STATIC_DETOUR(bind_method->methodPointer, OfficerPresetsViewController_OnDidBindCanvasContext_Hook);
-  SPUD_STATIC_DETOUR(release_method->methodPointer, OfficerPresetsViewController_OnAboutToReleaseCanvasContext_Hook);
-  SPUD_STATIC_DETOUR(save_success_method->methodPointer, OfficerPresetsViewController_OnSaveSlotsSuccess_Hook);
+  const bool context = SPUD_STATIC_DETOUR(method->methodPointer, OfficerManager_TryGetPresetItemContext_Hook);
+  const bool edit = SPUD_STATIC_DETOUR(edit_method->methodPointer, OfficerPresetItemWidget_OnEditNameButtonClicked_Hook);
+  const bool bind = SPUD_STATIC_DETOUR(bind_method->methodPointer, OfficerPresetsViewController_OnDidBindCanvasContext_Hook);
+  const bool release = SPUD_STATIC_DETOUR(release_method->methodPointer, OfficerPresetsViewController_OnAboutToReleaseCanvasContext_Hook);
+  const bool save = SPUD_STATIC_DETOUR(save_success_method->methodPointer, OfficerPresetsViewController_OnSaveSlotsSuccess_Hook);
+  reorder_installed = context && edit && bind && release && save;
 }
