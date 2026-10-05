@@ -47,7 +47,7 @@ int main(int argc, char** argv)
       Check(loaded["ui"]["unrelated"].value<bool>() == true);
     }
   }
-  for (const char* key : {"galactic_anomaly_timer", "ship_hotkey_badges"}) {
+  for (const char* key : {"galactic_anomaly_timer", "ship_hotkey_badges", "galaxy_station_housing"}) {
     for (bool enabled : {true, false, true}) {
       const auto revision = writer.Submit("graphics", key, enabled);
       Check(revision != 0);
