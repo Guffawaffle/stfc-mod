@@ -384,6 +384,8 @@ static std::string build_armada_created_body(Il2CppObject* data)
         auto owner_name  = owner_value ? to_string(owner_value) : std::string{};
         auto target_name = target_value ? to_string(target_value) : std::string{};
         auto target_level = read_instance_field<int32_t>(attack, "<TargetLevel>k__BackingField");
+        // Client 270 has no attack TargetLevel; older profiles still carry level_.
+        if (target_level <= 0) target_level = read_instance_field<int32_t>(target, "level_");
 
         if (target_name.empty()) {
           auto loca_id = read_instance_field<int64_t>(target, "_locaId");

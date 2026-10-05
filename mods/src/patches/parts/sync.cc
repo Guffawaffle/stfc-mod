@@ -2434,18 +2434,32 @@ static void HandleEntityGroup(EntityGroup* entity_group)
     }
   };
 
+  // List snapshots and instance updates share one state map. Process these
+  // synchronously through dispatch so a later update cannot overtake a snapshot.
+  // HTTP delivery remains on the existing target workers.
+  static std::mutex ordered_dispatch;
+  auto submit_away = [bytesPtr, byteCount](auto process) {
+    std::scoped_lock lock(ordered_dispatch);
+    try {
+      process(std::make_unique<std::string>(bytesPtr, byteCount));
+    } catch (const std::exception& e) {
+      spdlog::error("Exception processing away assignment: {}", e.what());
+    } catch (...) {
+      spdlog::error("Unknown exception processing away assignment");
+    }
+  };
   const auto& sync_options = Config::Get().sync_options;
 
   switch (entity_group->Type_) {
     // away assignments
     case EntityGroup::Type::AwayAssignmentsList:
       if (sync_options.away_assignments) {
-        submit_async(processors::away_assignments_list);
+        submit_away(processors::away_assignments_list);
       }
       break;
     case EntityGroup::Type::AwayAssignmentsInstance:
       if (sync_options.away_assignments) {
-        submit_async(processors::away_assignment_instance);
+        submit_away(processors::away_assignment_instance);
       }
       break;
 

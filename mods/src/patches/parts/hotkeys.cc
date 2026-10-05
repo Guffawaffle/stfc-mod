@@ -579,8 +579,11 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
   dispatch_screen_manager_update_callbacks();
   // Capture owns the key through release. Do not run the native shortcut path
   // or the console on this frame; UI mouse navigation continues via EventSystem.
-  if (shortcutOwnedInput || Key::shortcutCaptureActive || Key::shortcutPopupActive || Key::settingsSearchActive)
+  if (shortcutOwnedInput || Key::shortcutCaptureActive || Key::shortcutPopupActive || Key::settingsSearchActive) {
+    show_officer_presets_pending = show_officer_swap_pending = show_ship_swap_pending = 0;
+    officer_presets_assignment_opened = false;
     return;
+  }
 
 #ifdef _MODDBG
   Key::ResetCache();
@@ -626,6 +629,12 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
   // early-returns below (it must also run in Scopely-hotkey mode and
   // while hotkeys are toggled off).
   AssignShipEnterKeyUpdate();
+
+  // Deferred mod actions must not outlive their input mode.
+  if (!Config::Get().hotkeys_enabled || Config::Get().use_scopely_hotkeys) {
+    show_officer_presets_pending = show_officer_swap_pending = show_ship_swap_pending = 0;
+    officer_presets_assignment_opened = false;
+  }
 
   if (show_officer_presets_pending > 0) {
     if (PressOfficerPresetsButton()) {

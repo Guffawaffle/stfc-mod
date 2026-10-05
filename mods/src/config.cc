@@ -1,4 +1,5 @@
 #include "config.h"
+#include "config_alias.h"
 #include "config_save.h"
 #include "patches/runtime_config.h"
 #include "file.h"
@@ -379,11 +380,8 @@ template <typename T>
 T get_config_or_default_with_alias(toml::table& config, toml::table& new_config, std::string_view section,
                                    std::string_view item, std::string_view alias, T default_value, bool write_log)
 {
-  if (!config[section][item] && config[section][alias]) {
-    config[section].as_table()->insert_or_assign(item, config[section][alias]);
-  }
-
-  return get_config_or_default(config, new_config, section, item, default_value, write_log);
+  return get_config_or_default(config, new_config, section, item,
+                               ConfigAliasDefault(config, section, item, section, alias, default_value), write_log);
 }
 
 std::string_view to_string(MissionHudVisibility visibility)
@@ -1237,7 +1235,9 @@ void Config::Load()
 
   this->double_click_to_assign_ship = get_config_or_default(config, parsed, "ui", "double_click_to_assign_ship",
                                                             DCU::double_click_to_assign_ship, write_config);
-  this->focus_search = get_config_or_default(config, parsed, "ui", "focus_search", DCU::focus_search, write_config);
+  this->focus_search = get_config_or_default(
+      config, parsed, "ui", "focus_search",
+      ConfigAliasDefault(config, "ui", "focus_search", "patches", "focussearch", DCU::focus_search), write_config);
   this->format_cargo_values = get_config_or_default_with_alias(
       config, parsed, "ui", "format_cargo_values", "cargo_format", DCU::format_cargo_values, write_config);
   this->officer_sort = get_config_or_default(config, parsed, "ui", "officer_sort", DCU::officer_sort, write_config);

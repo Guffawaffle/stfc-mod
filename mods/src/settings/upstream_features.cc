@@ -51,8 +51,10 @@ void RegisterUpstreamFeaturePages(PageCatalog& catalog)
     catalog.AddPage("community_mod.artifacts", "Artifacts", "community_mod.settings");
     catalog.AddBoolean("community_mod.artifacts", exchange);
   }
-  if (CargoFormatAvailable())
+  if (CargoFormatAvailable()) {
+    catalog.AddHeading("community_mod.previews", "community_mod.previews.formatting", "Cargo formatting");
     catalog.AddBoolean("community_mod.previews", cargo);
+  }
   if (OfficerSortAvailable() || OfficerPresetReorderAvailable() || DoubleClickAssignShipAvailable()) {
     catalog.AddPage("community_mod.officers_ships", "Officers & Ships", "community_mod.settings");
     if (OfficerSortAvailable())
