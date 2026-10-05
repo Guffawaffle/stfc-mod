@@ -92,6 +92,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   }
 #endif
   std::string log_error;
+  bool console_only = false;
   auto file_logger = [&] {
 #if __APPLE__
     try {
@@ -100,7 +101,15 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       if (File::hasCustomNames())
         throw;
       log_error = error.what();
-      return std::make_shared<spdlog::logger>("default");
+      log_path = File::Log();
+      try {
+        return spdlog::basic_logger_mt("default", log_path, true);
+      } catch (const spdlog::spdlog_ex& fallback_error) {
+        log_error += "; previous location also failed: ";
+        log_error += fallback_error.what();
+        console_only = true;
+        return std::make_shared<spdlog::logger>("default");
+      }
     }
 #else
     return spdlog::basic_logger_mt("default", log_path, true);
@@ -117,7 +126,11 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   spdlog::flush_on(log_level);
 
   if (!log_error.empty()) {
-    spdlog::warn("Could not open mod log '{}': {}. Continuing with console logging.", log_path, log_error);
+    if (console_only) {
+      spdlog::warn("Could not open mod log at either location: {}. Continuing with console logging.", log_error);
+    } else {
+      spdlog::warn("Could not open mod log in the config folder: {}. Using previous location '{}'.", log_error, log_path);
+    }
   }
 
 #if VERSION_PATCH
@@ -136,7 +149,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
     spdlog::info("Using standard names");
   }
 
-  spdlog::info("  Log: {}", log_path);
+  spdlog::info("  Log: {}", console_only ? "console only" : log_path);
   spdlog::info("  Cfg: {}", File::Config());
   spdlog::info("  Var: {}", File::Vars());
   spdlog::info("   BL: {}", File::Battles());
