@@ -72,7 +72,7 @@ namespace Graphics
   constexpr auto        system_zoom_preset_5        = 5000;
   constexpr auto        transition_time             = 0.01;
   constexpr auto        ui_scale                    = 0.6;
-  constexpr auto        ui_scale_adjust             = 0.05;
+  constexpr auto        ui_scale_step             = 0.05;
   constexpr auto        ui_scale_ship               = 1.0;
   constexpr auto        ui_scale_viewer             = 1.2;
   constexpr bool        use_presets_as_default      = true;
@@ -93,8 +93,8 @@ namespace Patches
   constexpr bool freeresizehooks            = true;
   constexpr bool game_version               = true;
   constexpr bool hotkeyhooks                = true;
-  constexpr bool loadingscreenhooks           = true;
-  constexpr bool transitionscreenhooks          = true;
+  constexpr bool loadingscreenhooks         = true;
+  constexpr bool transitionscreenhooks      = true;
   constexpr bool objecttracker              = true;
   constexpr bool panhooks                   = true;
   constexpr bool syncpatches                = true;
@@ -112,6 +112,14 @@ namespace Patches
   constexpr bool officersorthooks           = true;  // restore Below Deck Ability sort option
   constexpr bool pinnedshiphooks            = true;  // pin configured ships to front of fleet dock sort
   constexpr bool shiptechindicatorhooks     = true;  // show equipped FT/CT art in the Swap Ship bar
+  constexpr bool missionhudtweakshooks      = true;
+  constexpr bool galacticanomalytimerhooks  = true;
+  constexpr bool loadingtiphooks            = true;
+  constexpr bool doubleclickassignshiphooks = true;
+  constexpr bool forbiddentechconfirmhooks  = true;
+  constexpr bool audioeventhooks            = true;
+  constexpr bool artifactexchangehooks      = true;
+  constexpr bool officerpresetreorderhooks   = true;
 } // namespace Patches
 
 namespace Shortcuts
@@ -186,6 +194,8 @@ namespace Shortcuts
   constexpr const char* show_lookup           = "L";
   constexpr const char* show_missions         = "M";
   constexpr const char* show_officers         = "SHIFT-O";
+  constexpr const char* show_officerpresets   = "CTRL-O";
+  constexpr const char* show_officerswap      = "ALT-O";
   constexpr const char* show_qtrials          = "SHIFT-Q";
   constexpr const char* show_refinery         = "SHIFT-F";
   constexpr const char* show_research         = "U";
@@ -193,6 +203,7 @@ namespace Shortcuts
   constexpr const char* show_settings         = "SHIFT-S";
   constexpr const char* show_ships            = "N";
   constexpr const char* show_shipconstruction = "SHIFT-N";
+  constexpr const char* show_shipswap         = "ALT-N";
   constexpr const char* show_shields          = "CTRL-S";
   constexpr const char* show_battlelogs       = "SHIFT-B";
   constexpr const char* show_stationexterior  = "SHIFT-G";
@@ -232,13 +243,18 @@ namespace Shortcuts
 
 namespace Sync
 {
+  constexpr const char* stfcdata_url       = "https://sync.stfcdata.de";
+  constexpr const char* spocksclub_url     = "https://spocks.club/sync/ingress/";
+  constexpr const char* nextspocksclub_url = "https://next.spocks.club/sync/ingress/";
+
+  constexpr bool        away_assignments   = true;
   constexpr bool        battlelogs         = true;
   constexpr bool        buffs              = true;
   constexpr bool        buildings          = true;
   constexpr bool        inventory          = true;
   constexpr bool        jobs               = true;
   constexpr bool        missions           = true;
-  constexpr bool        officer            = true;
+  constexpr bool        officers           = true;
   constexpr const char* proxy              = "";
   constexpr bool        research           = true;
   constexpr bool        resources          = true;
@@ -268,10 +284,10 @@ namespace UI
   constexpr bool        show_ship_tech_indicator_backgrounds = false;
   constexpr const char* daily_bulk_claim_factions   = "";
   constexpr bool        daily_bulk_claim_toggle_default_on = false;
-  constexpr bool        disable_escape_exit         = true;
+  constexpr bool        disable_escape_exit                = true;
   // Maximum gap between Escape presses that opens the exit prompt.
   // 0 disables double-tap and preserves the existing blocked behavior.
-  constexpr auto        disable_escape_exit_timer           = 0;
+  constexpr auto        disable_escape_exit_timer   = 0;
   constexpr bool        disable_first_popup         = false;
   constexpr bool        disable_galaxy_chat         = false;
   constexpr bool        disable_move_keys           = false;
@@ -279,7 +295,11 @@ namespace UI
   constexpr bool        disable_preview_recall      = false;
   constexpr bool        disable_toast_banners       = false;
   constexpr bool        disable_veil_chat           = false;
+  constexpr bool        disable_exchange_all        = false;
   constexpr bool        double_click_to_assign_ship = false;
+  constexpr bool        focus_search                = true;
+  constexpr bool        format_cargo_values         = true;
+  constexpr bool        officer_sort                = true;
   constexpr const char* disabled_banner_types       = "";
   constexpr const char* hud_field_training          = "auto";
   constexpr const char* hud_missions                = "auto";

@@ -7,7 +7,7 @@
 #  |    #***     #    #       #***         #   *   #**    #***    | 
 #  |                                                              | 
 #  +--------------------------------------------------------------+ 
-#   Généré le 2026-09-17T11:10:54.258Z
+#   Généré le 2026-10-04T20:00:48.794Z
 #   
 #   Ce fichier de configuration a été généré par https://modconfig.pages.dev
 #   et est fourni tel quel. En cas de problème avec le STFC Community Mod,
@@ -17,7 +17,7 @@
 #       Discord : https://discord.gg/PrpHgs7Vjs
 #       GitHub  : https://github.com/netniV/stfc-mod
 #   
-#   Le fichier de configuration du jour vous est présenté par la lettre A et le nombre 7
+#   Le fichier de configuration du jour vous est présenté par la lettre X et le nombre 6
 #   
 
 #  <[=======================================]> 
@@ -176,11 +176,11 @@ transition_time = 0.01
 # Ceci spécifie le montant à mettre à l’échelle de l’interface utilisateur, 1.0 étant la valeur par défaut
 ui_scale = 0.6
 
-# Cela spécifie le montant à ajuster dans l’échelle, 0,05 étant la valeur par défaut
-ui_scale_adjust = 0.05
-
 # Cela spécifie le facteur de mise à l’échelle des modèles de vaisseaux dans la vue système, 1,0 étant la valeur par défaut
 ui_scale_ship = 1.0
+
+# This specifies the amount to adjust the scale by, 0.05 being default
+ui_scale_step = 0.05
 
 # Ceci spécifie le montant à mettre à l’échelle des visualiseurs d’objets de l’interface utilisateur, 1.0 étant la valeur par défaut
 ui_scale_viewer = 1.2
@@ -272,6 +272,7 @@ borderless_fullscreen = true
 # Autorise le redimensionnement libre, mettez désactiver pour désactiver
 free_resize = true
 
+
 # Après avoir utilisé un préréglage de zoom, il sera défini comme zoom par défaut
 use_presets_as_default = true
 
@@ -314,6 +315,9 @@ zoom = 5000.0
 # Subgroup: Leave Well Alone
 # --------------------------
 
+artifactexchangehooks = true
+audioeventhooks = true
+
 # Activez les corrections de buffs
 bufffixhooks = true
 cargoformathooks = true
@@ -323,13 +327,18 @@ chatpatches = true
 
 # Active la réclamation groupée par faction pour les objectifs quotidiens
 dailyfactionbulkclaimhooks = true
-focussearch = true
+doubleclickassignshiphooks = true
+forbiddentechconfirmhooks = true
 freeresizehooks = true
+galacticanomalytimerhooks = true
 game_version = true
 giftsbulkclaimhooks = true
 hotkeyhooks = true
+
 loadingscreenhooks = true
+loadingtiphooks = true
 miscpatches = true
+missionhudtweakshooks = true
 objecttracker = true
 officersorthooks = true
 panhooks = true
@@ -353,8 +362,6 @@ zoomhooks = true
 #  <[==================================================================================================================================]> 
 
 [shortcuts]
-
-# Utilisez "" ou "NONE" pour désactiver un raccourci. Les valeurs absentes ou invalides utilisent la touche par défaut.
 
 # Subgroup: Cargo & Locate
 # ------------------------
@@ -581,8 +588,14 @@ show_inventory = "I"
 # Aller aux missions
 show_missions = "M"
 
+# Go directly to Officer Presets
+show_officerpresets = "CTRL-O"
+
 # Aller aux officiers
 show_officers = "SHIFT-O"
+
+# Go directly to Officer Swap
+show_officerswap = "ALT-O"
 
 # Aller aux épreuves de Q
 show_qtrials = "SHIFT-Q"
@@ -607,6 +620,9 @@ show_shipconstruction = "SHIFT-N"
 
 # Aller aux vaisseaux
 show_ships = "N"
+
+# Go directly to Ship Swap
+show_shipswap = "ALT-N"
 
 # Extérieur de la station
 show_stationexterior = "SHIFT-G"
@@ -848,6 +864,21 @@ hud_outposts = "auto"
 #   "never" - Always hide this HUD item
 hud_q_trials = "auto"
 
+# Subgroup: Options
+# -----------------
+
+# Hide the Exchange All button in the Artifact Gallery
+disable_exchange_all = false
+
+# Enable the shortcut that focuses the search box on supported screens
+focus_search = true
+
+# Format abbreviated cargo values using Cargo Significant Decimals
+format_cargo_values = true
+
+# Restore the Below Deck Ability officer sort option
+officer_sort = true
+
 # Subgroup: Previews
 # ------------------
 
@@ -863,6 +894,7 @@ disable_preview_locate = false
 
 # Empêcher le rappel de fonctionner quand les aperçus de vaisseaux ou de nœuds sont affichés
 disable_preview_recall = false
+
 
 # Mettre sur true pour toujours afficher les récompenses des vaisseaux/stations sélectionnés
 show_armada_cargo = true
@@ -894,6 +926,9 @@ show_station_cargo = true
 # Subgroup: Data
 # --------------
 
+# Do you want to sync away team assignment data?
+away_assignments = true
+
 # Voulez-vous synchroniser les journaux de combat ?
 battlelogs = true
 
@@ -915,8 +950,8 @@ jobs = true
 # Voulez-vous synchroniser les données des missions ?
 missions = true
 
-# Voulez-vous synchroniser les données des officiers possédés ?
-officer = true
+# Do you want to sync owned officer data?
+officers = true
 
 # Voulez-vous synchroniser les données de recherche ?
 research = true
@@ -951,12 +986,6 @@ logging = false
 # L'url du serveur à travers lequel faire passer la connexion
 proxy = ""
 
-# Le jeton utilisé pour l'authentification
-token = ""
-
-# L'url du serveur vers lequel envoyer les données
-url = ""
-
 # Subgroup: Network
 # -----------------
 
@@ -976,7 +1005,23 @@ verify_ssl = true
 #                                                                                                                                                                                                 
 #  <[==========================================================================================================================================================================================]> 
 
+[sync.targets.stfcdata]
+token = ""
+url = "https://sync.stfcdata.de"
+
+#  <[==========================================================================================================================================================================================]>
+#
+#        ***           *       *                                    *                                            *                             *                   *       *
+#       *   *  ****   ***            ***   ***     ****             *   ***           ****  *   *  ***     ***   *      ***     ***   ***            ****   ***   ***            ***   ***
+#       *   *  *   *   *       *    *   *  *  *   **             ****  * **          **      ****  *  *   *      ****   *   *  *   *  *  *     *    **         *   *       *    *   *  *  *
+#       *   *  ****    *       *    *   *  *  *     **          *   *  *               **       *  *  *   *      *   *  *      *   *  *  *     *      **    ****   *       *    *   *  *  *
+#        ***   *       **      *     ***   *  *   ***            ****   ****         ***     ***   *  *    ***   *   *  *       ***   *  *     *    ***     ****   **      *     ***   *  *
+#
+#  <[==========================================================================================================================================================================================]>
+
 [sync.targets.nextspocksclub]
+token = ""
+url = "https://next.spocks.club/sync/ingress/"
 
 #  <[==========================================================================================================================================================================================]> 
 #                                                                                                                                                                                                 
@@ -989,3 +1034,5 @@ verify_ssl = true
 #  <[==========================================================================================================================================================================================]> 
 
 [sync.targets.spocksclub]
+token = ""
+url = "https://spocks.club/sync/ingress/"

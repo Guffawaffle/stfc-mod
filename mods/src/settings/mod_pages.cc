@@ -10,6 +10,7 @@
 #include "ship_tech_indicators.h"
 #include "shortcut_settings.h"
 #include "warp_mode.h"
+#include "upstream_features.h"
 
 namespace mod_settings
 {
@@ -112,5 +113,6 @@ void RegisterModPages()
     }
   }
 
+  RegisterUpstreamFeaturePages(catalog);
 }
 } // namespace mod_settings
