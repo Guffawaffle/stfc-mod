@@ -91,7 +91,21 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
     log_path.assign(resolved_path.begin(), resolved_path.end());
   }
 #endif
-  auto file_logger = spdlog::basic_logger_mt("default", log_path, true);
+  std::string log_error;
+  auto file_logger = [&] {
+#if __APPLE__
+    try {
+      return spdlog::basic_logger_mt("default", log_path, true);
+    } catch (const spdlog::spdlog_ex& error) {
+      if (File::hasCustomNames())
+        throw;
+      log_error = error.what();
+      return std::make_shared<spdlog::logger>("default");
+    }
+#else
+    return spdlog::basic_logger_mt("default", log_path, true);
+#endif
+  }();
   auto sink        = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
   file_logger->sinks().push_back(sink);
   spdlog::set_default_logger(file_logger);
@@ -101,6 +115,10 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 
   spdlog::set_level(log_level);
   spdlog::flush_on(log_level);
+
+  if (!log_error.empty()) {
+    spdlog::warn("Could not open mod log '{}': {}. Continuing with console logging.", log_path, log_error);
+  }
 
 #if VERSION_PATCH
   if constexpr (sizeof(VERSION_COMMIT_HASH) > 1) {
