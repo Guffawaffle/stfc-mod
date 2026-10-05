@@ -16,6 +16,9 @@
 #include <Windows.h>
 #endif
 
+// Also used before opening the macOS log in the config directory.
+void migrate_mac_config_if_needed(const char* filename);
+
 class SyncConfig
 {
 public:
