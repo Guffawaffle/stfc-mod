@@ -74,6 +74,13 @@ do
         local assets = path.join(target:scriptdir(), "../assets")
         local outdir  = path.join(target:scriptdir(), "src/patches/parts")
 
+        -- Offline housing snapshot; generated header is a build artifact.
+        embed_image(
+            path.join(assets, "data/station_housing.json"),
+            path.join(outdir, "embedded_station_housing.h"),
+            "g_embeddedStationHousing"
+        )
+
         local embedded_bg_override = get_config("bg_image")
         local loading = embedded_bg_override
         if not loading or loading == "" then

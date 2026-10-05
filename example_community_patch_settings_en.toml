@@ -218,6 +218,8 @@ zoom_label_player_threshold = 0.5
 # Combine Default, Hostiles, Mining and Hazards. Defaults preserve native behavior.
 # Windows x64 and macOS on validated clients; available in release and debug builds.
 galaxy_multi_select = false
+# Show a housing marker before expanded system names, using the bundled STFC.space snapshot.
+galaxy_station_housing = false
 galaxy_overlay_default = true
 galaxy_overlay_mining = false
 galaxy_overlay_hostiles = false
