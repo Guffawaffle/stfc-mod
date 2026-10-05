@@ -1,10 +1,15 @@
 #include "config.h"
+#include "settings/upstream_features.h"
+
 #include "errormsg.h"
 
 #include <il2cpp/il2cpp_helper.h>
 
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
+
+namespace { bool installed = false; }
+bool mod_settings::CargoFormatAvailable() { return installed; }
 
 // Overrides m_significantDecimals on cargo ColourTextLocalizer instances
 // (identifier "shared_x_of_y_x_coloured"). The field is set permanently in
@@ -15,7 +20,7 @@ static constexpr size_t kCargoIdentifierLen = sizeof(kCargoIdentifier) - 1;
 
 void ColourTextLocalizer_SetLocalTextParameters_Hook(auto original, void* _this, bool parseID, void* args)
 {
-  if (!_this) {
+  if (!_this || !Config::Get().format_cargo_values) {
     original(_this, parseID, args);
     return;
   }
@@ -78,7 +83,7 @@ void InstallCargoFormatHooks()
     return;
   }
 
-  SPUD_STATIC_DETOUR(ptr, ColourTextLocalizer_SetLocalTextParameters_Hook);
+  installed = SPUD_STATIC_DETOUR(ptr, ColourTextLocalizer_SetLocalTextParameters_Hook);
   int applied = Config::Get().cargo_significant_decimals;
   if (applied < 0) applied = 0;
   if (applied > 6) applied = 6;

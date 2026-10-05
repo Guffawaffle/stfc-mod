@@ -63,7 +63,8 @@ int main(int argc, char** argv)
     }
   }
   for (const char* key : {"highlight_opc_fleets", "fleet_hud_opc_eta", "show_ship_tech_indicators",
-                          "show_ship_tech_indicator_backgrounds"}) {
+                          "show_ship_tech_indicator_backgrounds", "disable_exchange_all", "format_cargo_values",
+                          "officer_sort", "allow_officer_preset_reordering", "double_click_to_assign_ship", "focus_search"}) {
     for (bool enabled : {true, false, true}) {
       const auto revision = writer.Submit("ui", key, enabled);
       Check(revision != 0);
