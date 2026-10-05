@@ -119,6 +119,20 @@ BooleanSetting& GalaxyMultiSelectSetting()
       }});
   return setting;
 }
+BooleanSetting& GalaxyStationHousingSetting()
+{
+  static BooleanSetting setting({"community_mod.galaxy.station_housing", "Station housing",
+      [] { return GalaxyHousingAvailable()
+                      ? ReadResult::Known(Config::Get().galaxy_station_housing, 1) : ReadResult{}; },
+      [](bool value, std::uint64_t generation) {
+        if (generation != 1 || !GalaxyHousingAvailable()) return ApplyResult::Rejected;
+        Config::Get().galaxy_station_housing = value;
+        runtime_config::SaveSetting("graphics", "galaxy_station_housing", value);
+        RefreshGalaxyLabelControls();
+        return ApplyResult::Applied;
+      }});
+  return setting;
+}
 ChoiceSetting& GalaxyLabelDetailSetting(bool minor)
 {
   static ChoiceSetting minor_systems(Detail(true), {"Native", "Always (I wouldn’t)", "Threshold"});

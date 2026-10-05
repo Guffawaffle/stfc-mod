@@ -94,6 +94,8 @@ void RegisterModPages()
       catalog.AddBoolean("community_mod.galaxy", GalaxyExtendedSelectionSetting());
   }
   if (GalaxyLabelControlsAvailable()) {
+    if (GalaxyHousingAvailable())
+      catalog.AddBoolean("community_mod.galaxy", GalaxyStationHousingSetting());
     catalog.AddBoolean("community_mod.galaxy", GalaxyMultiSelectSetting());
     catalog.AddHeading("community_mod.galaxy", "community_mod.galaxy.overlays", "Overlays", false, [] {
       const auto state = GalaxyMultiSelectSetting().Observe().state;

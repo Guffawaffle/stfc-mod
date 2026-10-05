@@ -23,6 +23,7 @@ inline std::string SearchTomlKey(std::string_view id)
       {"community_mod.galaxy.minor.threshold", "graphics.galaxy_label_minor_threshold"},
       {"community_mod.galaxy.extended_selection", "graphics.galaxy_extended_selection"},
       {"community_mod.galaxy.multi_select", "graphics.galaxy_multi_select"},
+      {"community_mod.galaxy.station_housing", "graphics.galaxy_station_housing"},
   };
   for (const auto& [identity, key] : aliases)
     if (id == identity)
