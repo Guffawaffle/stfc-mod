@@ -79,7 +79,7 @@ struct ActionView: View, XSollaUpdaterDelegate {
               openConfigSite()
             }
           } label: {
-            commonButton(text: "Configure Mod")
+            commonButton(text: "Configure\nMod")
               .foregroundColor(.lcarViolet)
           }.buttonStyle(PlainButtonStyle())
 
@@ -197,7 +197,8 @@ struct ActionView: View, XSollaUpdaterDelegate {
           Text(text.count > 0 ? text : "\(randomDigits(4))-\(randomDigits(3))")
             .font(.custom("HelveticaNeue-CondensedBold", size: 17))
             .foregroundColor(.black)
-            .lineLimit(1)
+            .lineLimit(text.contains("\n") ? 2 : 1)
+            .multilineTextAlignment(.trailing)
             .minimumScaleFactor(0.7)
         }
         .padding(.bottom, 5)
@@ -218,16 +219,11 @@ struct ActionView: View, XSollaUpdaterDelegate {
   }
 
   private func openConfigFile() {
-    guard let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
+    guard let configURL = ModFiles.configURL else {
       errorMessage = "Could not locate your Library folder."
       showErrorAlert = true
       return
     }
-    // Keep this path aligned with File::MakePath in mods/src/file.cc.
-    let configURL = library
-      .appendingPathComponent("Preferences", isDirectory: true)
-      .appendingPathComponent("com.stfcmod.startrekpatch", isDirectory: true)
-      .appendingPathComponent("community_patch_settings.toml")
     var isDirectory: ObjCBool = false
     guard FileManager.default.fileExists(atPath: configURL.path, isDirectory: &isDirectory),
       !isDirectory.boolValue

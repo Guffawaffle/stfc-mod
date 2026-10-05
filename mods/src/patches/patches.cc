@@ -82,7 +82,16 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 
   File::Init();
 
-  auto file_logger = spdlog::basic_logger_mt("default", File::Log(), true);
+  std::string log_path = File::Log();
+#if __APPLE__
+  if (!File::hasCustomNames()) {
+    // Creating the log directory first would suppress legacy config migration.
+    migrate_mac_config_if_needed(File::Config());
+    const auto resolved_path = File::MakePath(File::Log(), true);
+    log_path.assign(resolved_path.begin(), resolved_path.end());
+  }
+#endif
+  auto file_logger = spdlog::basic_logger_mt("default", log_path, true);
   auto sink        = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
   file_logger->sinks().push_back(sink);
   spdlog::set_default_logger(file_logger);
@@ -109,7 +118,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
     spdlog::info("Using standard names");
   }
 
-  spdlog::info("  Log: {}", File::Log());
+  spdlog::info("  Log: {}", log_path);
   spdlog::info("  Cfg: {}", File::Config());
   spdlog::info("  Var: {}", File::Vars());
   spdlog::info("   BL: {}", File::Battles());
