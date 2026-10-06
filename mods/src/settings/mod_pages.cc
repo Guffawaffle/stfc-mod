@@ -11,6 +11,7 @@
 #include "shortcut_settings.h"
 #include "warp_mode.h"
 #include "upstream_features.h"
+#include "queue_recovery.h"
 
 namespace mod_settings
 {
@@ -40,6 +41,10 @@ void RegisterModPages()
     }
   }
   catalog.AddPage("community_mod.navigation", "Map & Travel", "community_mod.settings");
+  if (QueueRecoveryAvailable()) {
+    catalog.AddHeading("community_mod.navigation", "community_mod.navigation.kirshara", "Kirshara action queue");
+    catalog.AddBoolean("community_mod.navigation", QueueRecoverySetting());
+  }
   catalog.AddHeading("community_mod.navigation", "community_mod.navigation.warp", "Instant warp mode");
   catalog.AddChoice("community_mod.navigation", WarpModeSetting());
   catalog.AddHeading("community_mod.navigation", "community_mod.navigation.anomaly", "Galactic Anomalies");

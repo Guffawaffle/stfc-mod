@@ -128,6 +128,8 @@ queue_enabled = true
 # The former kirshara_queue_repair setting is no longer used.
 # Faster Queue Recovery: advance after an outstanding target disappears (Windows x64 only).
 faster_queue_recovery = false
+# Also available live under Mod Settings > Map & Travel > Kirshara action queue
+# when the recovery hooks are supported. Requires queue_enabled; currently Windows x64.
 
 # Thin Queue Protection: resume after native pruning; clean up confirmed destroyed heads.
 # Windows x64 only. Enabled by default; independent of Faster Queue Recovery.
@@ -365,6 +367,8 @@ toastbannerhooks = true
 transitionscreenhooks = true
 uiscalehooks = true
 zoomhooks = true
+# Install recovery hooks independently of the Faster Kirshara feature setting.
+actionqueuerecoveryhooks = true
 
 # Compatibility switch for Haven zoom hooks. Use graphics.haven_zoom = 0.0 for native behavior.
 havenzoomhooks = true
