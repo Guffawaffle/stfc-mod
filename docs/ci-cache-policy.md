@@ -1,0 +1,33 @@
+# CI cache retention
+
+GitHub's default cache allowance is 10 GB per repository. Compiler snapshots use
+commit keys so new builds can refresh their contents, but retaining every snapshot
+can evict dependencies that take much longer to rebuild.
+
+Windows sccache is capped at 512 MiB. Its v2 schema avoids restoring the previous
+2 GiB snapshots. macOS protobuf sccache is capped at 256 MiB per architecture;
+the existing snapshots were below that size. Dependency and tool cache keys are
+unchanged, including SPUD's package inputs.
+
+PR builds restore available compiler snapshots but do not upload new ones. They
+can still populate missing dependency and tool caches within their own PR scope.
+GitHub does not let `play` restore PR-scoped or sibling `play-dev` caches.
+
+After successful Windows and macOS builds on a fork branch push, a separate job
+keeps the newest snapshot in each of five compiler-cache families on that branch.
+It never selects dependency, tool, Swift module, another branch, PR or tag caches.
+Only this maintenance job receives `actions: write`; build and PR jobs keep their
+existing permissions. A maintenance failure does not invalidate build artifacts.
+
+Inspect the plan locally with an authenticated GitHub CLI:
+
+```powershell
+python scripts/prune-compiler-caches.py --repo Guffawaffle/stfc-mod --ref refs/heads/play
+```
+
+Add `--apply` to remove the listed obsolete compiler snapshots. Cleanup requires
+Actions write access. An initial small compiler cache may cause compilation misses;
+it does not require changing or rebuilding the dependency cache deliberately.
+
+This policy reduces storage pressure but does not guarantee cache hits. GitHub
+may still evict caches, and package or toolchain changes can require new entries.
