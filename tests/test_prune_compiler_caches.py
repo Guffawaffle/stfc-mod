@@ -72,6 +72,20 @@ class CachePolicyTests(unittest.TestCase):
             self.assertIn("ref=refs%2Fheads%2Fplay", run.call_args_list[0].args[0][-1])
             self.assertIn("page=2", run.call_args_list[1].args[0][-1])
 
+    def test_overlapping_pages_never_select_duplicate_keeper(self):
+        old = snapshot(499, "macos-arm64-release-v4-" + "a" * 40)
+        keeper = snapshot(500, "macos-arm64-release-v4-" + "b" * 40,
+                          created="2026-10-06T02:00:00Z")
+        first = [snapshot(index, "unrelated") for index in range(99)] + [keeper]
+        responses = [subprocess.CompletedProcess([], 0, json.dumps({"actions_caches": page}))
+                     for page in (first, [keeper, old])]
+        with patch.object(policy.subprocess, "run", side_effect=responses) as run:
+            caches = policy.list_caches(policy.REPOSITORY, "refs/heads/play")
+            self.assertIn("sort=created_at&direction=desc", run.call_args_list[0].args[0][-1])
+        self.assertEqual(sum(cache["id"] == keeper["id"] for cache in caches), 1)
+        self.assertEqual(policy.select_obsolete(caches, "refs/heads/play"), [old])
+        self.assertEqual(policy.select_obsolete([keeper, keeper, old], "refs/heads/play"), [old])
+
     def test_default_is_dry_run_and_api_failure_does_not_delete(self):
         old = snapshot(1, "macos-arm64-release-v4-" + "a" * 40)
         new = snapshot(2, "macos-arm64-release-v4-" + "b" * 40, created="2026-10-06T02:00:00Z")

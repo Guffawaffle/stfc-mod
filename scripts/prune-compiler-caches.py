@@ -28,9 +28,11 @@ def select_obsolete(caches, ref):
     if ref not in BRANCH_REFS:
         raise ValueError("Expected a supported fork branch ref, never a PR or tag ref")
     families = defaultdict(list)
+    seen = set()
     for cache in caches:
-        if cache["ref"] != ref:
+        if cache["ref"] != ref or cache["id"] in seen:
             continue
+        seen.add(cache["id"])
         for family, pattern in FAMILIES:
             if pattern.fullmatch(cache["key"]):
                 families[family].append(cache)
@@ -44,18 +46,19 @@ def select_obsolete(caches, ref):
 
 
 def list_caches(repo, ref):
-    caches = []
+    caches = {}
     page = 1
     while True:
-        query = urlencode({"ref": ref, "per_page": 100, "page": page})
+        query = urlencode({"ref": ref, "sort": "created_at", "direction": "desc", "per_page": 100, "page": page})
         result = subprocess.run(
             ["gh", "api", f"repos/{repo}/actions/caches?{query}"],
             check=True, capture_output=True, text=True,
         )
         entries = json.loads(result.stdout)["actions_caches"]
-        caches.extend(entries)
+        # Pagination may overlap if another run saves a cache during listing.
+        caches.update((cache["id"], cache) for cache in entries)
         if len(entries) < 100:
-            return caches
+            return list(caches.values())
         page += 1
 
 
