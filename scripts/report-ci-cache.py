@@ -37,11 +37,19 @@ def render_report(job, caches, restores, sizes):
             lines.append(f"| {cell(step['name'])} | {seconds} | {cell(step.get('conclusion') or step['status'])} |")
     lines += ["", "| Cache | Restore | Requested key | Restored key | Matching requested key currently stored under |",
               "| --- | --- | --- | --- | --- |"]
-    for name, outputs in restores.items():
+    for name, state in restores.items():
+        state = state or {}
+        outputs = state.get("outputs", {})
+        outcome = state.get("outcome")
         requested = outputs.get("cache-primary-key", "")
         matched = outputs.get("cache-matched-key", "")
-        result = ("exact hit" if outputs.get("cache-hit") == "true" else
-                  "fallback hit" if matched else "miss" if requested else "unavailable / skipped")
+        if outcome in ("failure", "cancelled", "skipped"):
+            result = outcome
+        elif outcome != "success":
+            result = "unavailable"
+        else:
+            result = ("exact hit" if outputs.get("cache-hit") == "true" else
+                      "fallback hit" if matched else "no restore")
         refs = sorted({cache["ref"] for cache in caches if cache["key"] == requested})
         lines.append(f"| {cell(name)} | {result} | {cell(requested or '—')} | {cell(matched or '—')} | {cell(', '.join(refs) or 'none observed')} |")
     totals = defaultdict(int)
@@ -54,7 +62,7 @@ def render_report(job, caches, restores, sizes):
     lines += [f"| {cell(name)} | {'unavailable' if size is None else f'{size / 1024**2:.1f}'} |" for name, size in sizes.items()]
     lines += ["", "Inventory is observed after the build; other jobs may be saving or evicting entries. "
               "A matching key in another scope is diagnostic evidence, not proof of restore access or matching cache version. "
-              "A miss alone does not prove eviction.", ""]
+              "No restore alone does not prove eviction; check restore logs for missing entries, download errors or access restrictions.", ""]
     return "\n".join(lines)
 
 
