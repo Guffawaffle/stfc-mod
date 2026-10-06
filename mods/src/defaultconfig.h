@@ -78,6 +78,7 @@ namespace Graphics
   constexpr bool        use_presets_as_default      = true;
   constexpr auto        zoom                        = 5000;
   constexpr auto        haven_zoom                  = 4000.0;
+  constexpr bool        hide_haven_water            = false;
   constexpr auto        fr_scale                    = 2.0;
   constexpr bool        loader_enabled              = true; // customize LoginSequence
   constexpr bool        loader_transition           = true; // customize TVC/SlideShow

@@ -37,6 +37,8 @@ inline constexpr std::pair<const char*, const char*> persisted_settings[]{
     {"graphics", "galaxy_label_minor_detail"},
     {"graphics", "galaxy_label_minor_threshold"},
     {"graphics", "keyboard_zoom_speed"},
+    {"graphics", "haven_zoom"},
+    {"graphics", "hide_haven_water"},
     {"graphics", "system_pan_momentum_falloff"},
     {"ui", "auto_confirm_ft_upgrade"},
     {"ui", "disable_exchange_all"},

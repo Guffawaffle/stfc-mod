@@ -1069,6 +1069,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "graphics", "ui_scale_viewer", DCG::ui_scale_viewer, write_config);
   this->zoom               = get_config_or_default(config, parsed, "graphics", "zoom", DCG::zoom, write_config);
   this->haven_zoom = get_config_or_default(config, parsed, "graphics", "haven_zoom", DCG::haven_zoom, write_config);
+  this->hide_haven_water =
+      get_config_or_default(config, parsed, "graphics", "hide_haven_water", DCG::hide_haven_water, write_config);
   if (!std::isfinite(this->haven_zoom) || this->haven_zoom < 0.0f) {
     spdlog::warn("Invalid haven_zoom {}; using {}", this->haven_zoom, DCG::haven_zoom);
     this->haven_zoom = DCG::haven_zoom;

@@ -309,6 +309,10 @@ zoom = 5000.0
 # Requires [patches].havenzoomhooks; independent of the System View zoomhooks switch.
 haven_zoom = 4000.0
 
+# Optional downstream-only water visibility control. Works even with native Haven zoom.
+# Turning this off restores the water renderer's original visibility.
+hide_haven_water = false
+
 #  <[=====================================================]> 
 #                                                            
 #       ****           *            *                        

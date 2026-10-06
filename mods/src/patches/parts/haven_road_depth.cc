@@ -8,6 +8,8 @@
 #include <chrono>
 #include <cmath>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace
 {
@@ -15,6 +17,7 @@ struct RoadDepthApi {
   Il2CppClass      *renderer = nullptr;
   const MethodInfo *find = nullptr, *children = nullptr, *materials = nullptr;
   const MethodInfo *name = nullptr, *shader = nullptr, *has = nullptr, *get = nullptr, *set = nullptr;
+  const MethodInfo *instance_id = nullptr;
 
   RoadDepthApi()
   {
@@ -32,10 +35,11 @@ struct RoadDepthApi {
     has       = method_contract::Resolve(material, "HasProperty", false, "System.Boolean", {"System.String"});
     get       = method_contract::Resolve(material, "GetFloat", false, "System.Single", {"System.String"});
     set = method_contract::Resolve(material, "SetFloat", false, "System.Void", {"System.String", "System.Single"});
+    instance_id = method_contract::Resolve(cls("Object"), "GetInstanceID", false, "System.Int32", {});
   }
 
   bool Valid() const
-  { return renderer && find && children && materials && name && shader && has && get && set; }
+  { return renderer && find && children && materials && name && shader && has && get && set && instance_id; }
 };
 
 Il2CppObject *Invoke(const MethodInfo *method, Il2CppObject *object, void **args = nullptr)
@@ -47,7 +51,7 @@ Il2CppObject *Invoke(const MethodInfo *method, Il2CppObject *object, void **args
 std::string Name(RoadDepthApi &api, Il2CppObject *object)
 {
   auto *value = object ? reinterpret_cast<Il2CppString *>(Invoke(api.name, object)) : nullptr;
-  return value && value->length <= 256 ? to_string(value) : std::string{};
+  return value && value->length >= 0 && value->length <= 256 ? to_string(value) : std::string{};
 }
 
 bool IsRoad(const std::string &name)
@@ -75,11 +79,14 @@ bool ReadDepth(RoadDepthApi &api, Il2CppObject *material, Il2CppString *property
 }
 } // namespace
 
-// Called only by the qualified, enabled Haven camera path. The small bias stays
-// on at every zoom level, keeping nearly coplanar road surfaces above the ground.
+// Called only by the qualified Haven camera path. The small bias stays on at
+// every zoom level while expansion is enabled, and is restored when disabled.
 // All scene objects are resolved afresh; no Unity pointers or GC handles are retained.
-void ApplyHavenRoadDepthBias()
+void ApplyHavenRoadDepthBias(bool enabled)
 {
+  static std::unordered_map<int, std::array<float, 2>> originals;
+  if (!enabled && originals.empty())
+    return;
   using Clock      = std::chrono::steady_clock;
   static auto next = Clock::time_point{};
   if (Clock::now() < next)
@@ -103,6 +110,7 @@ void ApplyHavenRoadDepthBias()
   auto *renderers        = reinterpret_cast<Il2CppArraySize *>(Invoke(api.children, root, child_args));
   if (!renderers || renderers->max_length > 4096)
     return;
+  std::unordered_set<int> seen;
   for (uintptr_t i = 0; i < renderers->max_length; ++i) {
     auto *renderer = reinterpret_cast<Il2CppObject *>(renderers->vector[i]);
     if (!renderer)
@@ -115,15 +123,34 @@ void ApplyHavenRoadDepthBias()
       const auto name     = Name(api, material);
       if (!material || !IsRoad(name) || Name(api, Invoke(api.shader, material)) != "Custom/LitMSAE")
         continue;
+      auto *boxed_id = Invoke(api.instance_id, material);
+      if (!boxed_id || !method_contract::Type(il2cpp_class_get_type(boxed_id->klass), "System.Int32"))
+        continue;
+      const auto id = *static_cast<int *>(il2cpp_object_unbox(boxed_id));
+      seen.insert(id);
       const std::array<Il2CppString *, 2> properties = {il2cpp_string_new("_OffsetFactor"),
                                                         il2cpp_string_new("_OffsetUnits")};
       std::array<float, 2>                before{};
       if (!ReadDepth(api, material, properties[0], before[0]) || !ReadDepth(api, material, properties[1], before[1]))
         continue;
+      if (enabled && (before[0] > -1.0f || before[1] > -1.0f) && !originals.contains(id)) {
+        if (originals.size() >= 256)
+          continue;
+        originals.emplace(id, before);
+      }
+      const auto native = originals.find(id);
+      if (!enabled && native == originals.end())
+        continue;
       bool changed = false, verified = true;
       for (unsigned k = 0; k < 2; ++k) {
         // Preserve an already stronger native bias.
         float target = std::min(before[k], -1.0f);
+        if (!enabled) {
+          // Restore only a value still equal to our bias; preserve another owner's later edits.
+          if (before[k] != std::min(native->second[k], -1.0f))
+            continue;
+          target = native->second[k];
+        }
         if (target == before[k])
           continue;
         void *args[] = {properties[k], &target};
@@ -138,11 +165,14 @@ void ApplyHavenRoadDepthBias()
       if (changed) {
         spdlog::debug("[HavenZoom] road depth bias {}: verified={}", name, verified);
         static bool reported = false;
-        if (verified && !reported) {
+        if (enabled && verified && !reported) {
           spdlog::info("[HavenZoom] corrected road surface depth for expanded Haven zoom");
           reported = true;
         }
       }
+      if (!enabled && verified)
+        originals.erase(id);
     }
   }
+  std::erase_if(originals, [&seen](const auto &entry) { return !seen.contains(entry.first); });
 }

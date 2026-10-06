@@ -1,4 +1,5 @@
 #include "config.h"
+#include "settings/camera_settings.h"
 
 #include <il2cpp/il2cpp_helper.h>
 #include <il2cpp/method_contract.h>
@@ -11,10 +12,13 @@
 #include <cmath>
 #include <cstring>
 
-void ApplyHavenRoadDepthBias();
+void ApplyHavenRoadDepthBias(bool enabled);
+void ApplyHavenWaterVisibility(bool hidden);
+bool HavenWaterVisibilityAvailable();
 
 namespace
 {
+bool installed = false;
 Il2CppClass      *planetary_provider_class = nullptr;
 FieldInfo        *blend_source = nullptr, *blend_target = nullptr, *blend_curve = nullptr;
 FieldInfo        *blend_minimum = nullptr, *blend_maximum = nullptr, *blend_ratio = nullptr;
@@ -76,15 +80,14 @@ void HavenCamera_UpdateCameraFrame_Hook(auto original, Il2CppObject *provider, C
   // Native input, constraints and endpoint updates run first. Only this blend's
   // newly generated output is extended; endpoint assets and normalized LOD stay native.
   original(provider, camera);
-  const auto max_zoom = Config::Get().haven_zoom;
-  if (provider == nullptr || !std::isfinite(max_zoom) || max_zoom <= 0.0f)
+  if (provider == nullptr)
     return;
 
   auto *source        = ReadHavenField<Il2CppObject *>(provider, blend_source);
   auto *target        = ReadHavenField<Il2CppObject *>(provider, blend_target);
   float source_radius = 0.0f, target_radius = 0.0f;
   if (!ReadHavenRadius(source, source_radius) || !ReadHavenRadius(target, target_radius)
-      || source_radius == target_radius || max_zoom <= std::max(source_radius, target_radius))
+      || source_radius == target_radius)
     return;
 
   auto *pivot = ReadHavenField<Il2CppObject *>(source, provider_pivot);
@@ -120,6 +123,13 @@ void HavenCamera_UpdateCameraFrame_Hook(auto original, Il2CppObject *provider, C
       || ReadHavenField<bool>(target_frame, frame_orthographic) || ReadHavenField<bool>(result, frame_orthographic))
     return;
 
+  ApplyHavenWaterVisibility(Config::Get().hide_haven_water);
+  const auto max_zoom = Config::Get().haven_zoom;
+  const bool expanded = std::isfinite(max_zoom) && max_zoom > std::max(source_radius, target_radius);
+  ApplyHavenRoadDepthBias(expanded);
+  if (!expanded)
+    return;
+
   const auto evaluate =
       reinterpret_cast<float (*)(Il2CppObject *, float, const MethodInfo *)>(curve_evaluate->methodPointer);
   const auto at_ratio   = evaluate(curve, ratio, curve_evaluate);
@@ -142,7 +152,6 @@ void HavenCamera_UpdateCameraFrame_Hook(auto original, Il2CppObject *provider, C
   const auto extra           = std::min(max_zoom - native_distance, (max_zoom - native_outer) * progress);
   if (!std::isfinite(extra))
     return;
-  ApplyHavenRoadDepthBias();
   if (extra <= 0.0)
     return;
 
@@ -167,6 +176,14 @@ void HavenCamera_UpdateCameraFrame_Hook(auto original, Il2CppObject *provider, C
   }
 }
 } // namespace
+
+namespace mod_settings
+{
+bool HavenCameraControlAvailable()
+{ return installed && Config::Get().installHavenZoomHooks; }
+bool HavenWaterControlAvailable()
+{ return HavenCameraControlAvailable() && HavenWaterVisibilityAvailable(); }
+} // namespace mod_settings
 
 void InstallHavenZoomHooks()
 {
@@ -238,6 +255,7 @@ void InstallHavenZoomHooks()
   }
   // [patches].havenzoomhooks controls installation independently of haven_zoom.
   if (SPUD_STATIC_DETOUR(update->methodPointer, HavenCamera_UpdateCameraFrame_Hook)) {
+    installed = true;
     spdlog::info("[HavenZoom] installed planetary blend camera hook (maximum distance {})", Config::Get().haven_zoom);
   } else {
     spdlog::warn("[HavenZoom] camera hook was not installed; keeping native zoom range");
