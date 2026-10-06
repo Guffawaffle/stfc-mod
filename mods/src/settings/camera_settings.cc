@@ -4,6 +4,44 @@
 
 namespace mod_settings
 {
+SliderSetting& HavenZoomSetting()
+{
+  static SliderSetting setting({"community_mod.graphics.haven_zoom", "Haven zoom-out distance (0 = native)",
+                                [] {
+                                  return HavenCameraControlAvailable()
+                                             ? ValueReadResult<float>::Known(Config::Get().haven_zoom, 1)
+                                             : ValueReadResult<float>{};
+                                },
+                                [](float value, std::uint64_t generation) {
+                                  if (generation != 1 || !HavenCameraControlAvailable())
+                                    return ApplyResult::Rejected;
+                                  Config::Get().haven_zoom = value;
+                                  runtime_config::SaveSetting("graphics", "haven_zoom", static_cast<double>(value),
+                                                              std::chrono::milliseconds(150));
+                                  return ApplyResult::Applied;
+                                }},
+                               0, 6000, 250, HavenCameraControlAvailable, SliderLabel::Value, 0);
+  return setting;
+}
+
+BooleanSetting& HavenWaterSetting()
+{
+  static BooleanSetting setting({"community_mod.graphics.hide_haven_water", "Hide Haven water",
+                                 [] {
+                                   return HavenWaterControlAvailable()
+                                              ? ReadResult::Known(Config::Get().hide_haven_water, 1)
+                                              : ReadResult{};
+                                 },
+                                 [](bool value, std::uint64_t generation) {
+                                   if (generation != 1 || !HavenWaterControlAvailable())
+                                     return ApplyResult::Rejected;
+                                   Config::Get().hide_haven_water = value;
+                                   runtime_config::SaveSetting("graphics", "hide_haven_water", value);
+                                   return ApplyResult::Applied;
+                                 }});
+  return setting;
+}
+
 SliderSetting& KeyboardZoomSpeedSetting()
 {
   // A convenient editing range, not a new TOML constraint. The slider's checked
