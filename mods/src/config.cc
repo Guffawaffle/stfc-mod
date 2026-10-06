@@ -1191,6 +1191,10 @@ void Config::Load()
     }
   }
   bool any_toast_audio_alert_configured = false;
+  // This cue is filtered by the incoming PvP ship payload, never by ToastState alone.
+  this->alert_incoming_player_attack = get_notification_sound(
+      config, parsed, "alert_incoming_player_attack", DCA::alert_incoming_player_attack, write_config);
+  any_toast_audio_alert_configured |= this->alert_incoming_player_attack.enabled();
   for (const auto& alert : kToastAudioAlerts) {
     const auto sound = get_notification_sound(config, parsed, alert.config_name, alert.default_sound, write_config);
     this->*(alert.config_member) = sound;
@@ -1449,6 +1453,8 @@ void Config::Load()
   parsed["ui"].as_table()->insert_or_assign("disabled_banner_types", bannerString);
 
   // Parse notify_banner_types using the same bannerTypes lookup table
+  this->notify_incoming_player_attack = get_config_or_default(
+      config, parsed, "ui", "notify_incoming_player_attack", DCU::notify_incoming_player_attack, write_config);
   auto notify_banner_types_str = get_config_or_default<std::string>(config, parsed, "ui", "notify_banner_types",
                                                                     DCU::notify_banner_types, write_log);
 

@@ -1,5 +1,6 @@
 #include "patches/fleet_perf_probe.h"
 #include "patches/notification_service.h"
+#include "patches/incoming_player_attack.h"
 #include "patches/battle_notify_parser.h"
 #include "patches/notification_audio.h"
 #if __APPLE__
@@ -531,7 +532,8 @@ void notification_init()
     spdlog::warn("[Notify] Windows notification service failed (unknown error)");
   }
 #elif __APPLE__
-  if (!Config::Get().notify_banner_types.empty() || Config::Get().notify_fleet_events != 0)
+  if (!Config::Get().notify_banner_types.empty() || Config::Get().notify_fleet_events != 0
+      || Config::Get().notify_incoming_player_attack)
     notification_desktop_mac_init();
   spdlog::info("[Notify] macOS notification service ready");
 #else
@@ -559,6 +561,27 @@ void notification_handle_toast(Toast* toast)
 
   const auto& config = Config::Get();
   const auto  state  = toast->get_State();
+#if _WIN32 || __APPLE__
+  if (state == IncomingAttack && (config.notify_incoming_player_attack || config.alert_incoming_player_attack.enabled())) {
+    if (const auto attack = ParseIncomingPlayerAttack(toast)) {
+      if (!FirstIncomingPlayerAttack(*attack)) return;
+      spdlog::info("[IncomingPlayerAttack] own ship slot={} desktop={} sound={}", attack->slot,
+                   config.notify_incoming_player_attack, config.alert_incoming_player_attack.enabled());
+      notification_audio_play(config.alert_incoming_player_attack);
+      if (s_toast_notification_suppression_depth == 0
+          && (config.notify_incoming_player_attack
+              || std::ranges::find(config.notify_banner_types, state) != config.notify_banner_types.end())) {
+        auto body = strip_unity_rich_text(resolve_toast_text(toast));
+        if (body.empty()) {
+          body = attack->attacker.empty() ? "A player is approaching your ship." : attack->attacker + " is approaching your ship.";
+          if (attack->slot >= 0 && attack->slot < 100) body += " Ship slot " + std::to_string(attack->slot + 1) + ".";
+        }
+        notification_emit("Incoming Player Attack", body);
+      }
+      return;
+    }
+  }
+#endif
   notification_audio_play(config.NotificationSoundForToast(state));
 
 #if _WIN32 || __APPLE__
