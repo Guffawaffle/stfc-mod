@@ -31,3 +31,18 @@ it does not require changing or rebuilding the dependency cache deliberately.
 
 This policy reduces storage pressure but does not guarantee cache hits. GitHub
 may still evict caches, and package or toolchain changes can require new entries.
+
+## Measuring effectiveness
+
+Each platform job writes a **Cache effectiveness** section to the Actions summary:
+Setup XMake, Configure, Build and individual test timings; exact/fallback/missed
+restores with requested and matched keys; repository inventory by ref; and local
+compiler cache sizes after building. These read-only reports are best effort and
+cannot fail the build.
+
+Compare Configure time and dependency restores across equivalent warm runs before
+judging the policy by compiler hits alone. Check requested keys against past runs
+for dependency/key changes, and look at the inventory scopes for inaccessible
+sibling or PR caches. To establish eviction, compare a prior cache inventory with
+a later one; a single miss does not identify its cause. Cache versions and scopes
+also restrict access even when an identical text key exists.

@@ -294,6 +294,19 @@ jobs:
           path: ${{ runner.tool_cache }}/xmake
           key: ${{ steps.restore_xmake.outputs.cache-primary-key }}
 
+      - name: Report cache effectiveness
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CACHE_RESTORES_JSON: >-
+            {"Tool": ${{ toJSON(steps.restore_xmake.outputs) }},
+             "Dependencies": ${{ toJSON(steps.restore_packages.outputs) }},
+             "Local packages": ${{ toJSON(steps.restore_local_packages.outputs) }},
+             "Compiler": ${{ toJSON(steps.restore_windows_sccache.outputs) }}}
+          CACHE_PATHS_JSON: '{"Windows compiler": "build/.windows-sccache"}'
+        run: python scripts/report-ci-cache.py --repo "$env:GITHUB_REPOSITORY" --run-id "$env:GITHUB_RUN_ID" --attempt "$env:GITHUB_RUN_ATTEMPT" --job-name build-win
+
   attest-win:
     name: attest-win
     needs: build-win
@@ -700,6 +713,21 @@ jobs:
         with:
           path: ${{ runner.tool_cache }}/xmake
           key: ${{ steps.restore_xmake.outputs.cache-primary-key }}
+
+      - name: Report cache effectiveness
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CACHE_RESTORES_JSON: >-
+            {"Tool": ${{ toJSON(steps.restore_xmake.outputs) }},
+             "Dependencies": ${{ toJSON(steps.restore_packages.outputs) }},
+             "Local packages": ${{ toJSON(steps.restore_local_packages.outputs) }},
+             "Swift modules": ${{ toJSON(steps.restore_swift_modules.outputs) }},
+             "XMake compiler": ${{ toJSON(steps.restore_build.outputs) }},
+             "Protobuf compiler": ${{ toJSON(steps.restore_protobuf_sccache.outputs) }}}
+          CACHE_PATHS_JSON: '{"Protobuf compiler": "build/.protobuf-sccache", "XMake compiler": "build/.build_cache"}'
+        run: python3 scripts/report-ci-cache.py --repo "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" --job-name "build-mac (${{ matrix.arch }})"
 
   # Keep commit-keyed compiler snapshots from evicting expensive dependencies.
   # Only trusted fork pushes can delete caches; PR jobs retain read permissions.
