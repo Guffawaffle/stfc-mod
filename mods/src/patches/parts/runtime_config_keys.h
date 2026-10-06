@@ -9,6 +9,8 @@ inline constexpr std::pair<const char*, const char*> persisted_settings[]{
     {"audio", "coalescing"},
     {"audio", "alert_victory"},
     {"audio", "alert_defeat"},
+    {"audio", "alert_incoming_player_attack"},
+    {"ui", "notify_incoming_player_attack"},
     {"audio", "alert_armada_created"},
     {"audio", "alert_armada_battle_won"},
     {"audio", "alert_armada_battle_lost"},

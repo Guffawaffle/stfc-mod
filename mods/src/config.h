@@ -220,6 +220,7 @@ public:
   bool             borderless_fullscreen;
   std::vector<int> disabled_banner_types;
   std::vector<int> notify_banner_types;
+  bool notify_incoming_player_attack;
   FleetNotificationMask notify_fleet_events = 0;
   FleetNotificationMask audio_fleet_events = 0;
   std::array<NotificationAudioCue, kFleetNotificationCatalog.size()> alert_fleet_events{};
@@ -241,6 +242,7 @@ public:
   std::vector<std::string> disabled_audio_events;
   NotificationAudioCue alert_victory            = NotificationSound::None;
   NotificationAudioCue alert_defeat             = NotificationSound::None;
+  NotificationAudioCue alert_incoming_player_attack = NotificationSound::None;
   NotificationAudioCue alert_armada_created     = NotificationSound::None;
   NotificationAudioCue alert_armada_battle_won  = NotificationSound::None;
   NotificationAudioCue alert_armada_battle_lost = NotificationSound::None;
