@@ -1,6 +1,10 @@
 #include "audio_alerts.h"
 #include "config.h"
 #include "patches/fleet_notification_settings.h"
+#include "patches/incoming_player_attack.h"
+#if __APPLE__
+#include "patches/notification_desktop_mac.h"
+#endif
 #include "patches/runtime_config.h"
 #include "patches/screen_update_hook.h"
 #include "audio_file_picker.h"
@@ -190,6 +194,24 @@ void RegisterAudioAlertPages(PageCatalog& catalog)
       }}, std::vector<std::string>{"None - play every request", "Same - absorb repeats of the playing sound",
                                   "All - absorb all requests while a sound plays"});
   catalog.AddChoice("community_mod.audio", *s_coalescing);
+  Add(catalog, "alert_incoming_player_attack", "Incoming player attack (ships)",
+      []() -> NotificationAudioCue& { return Config::Get().alert_incoming_player_attack; },
+      IncomingPlayerAttackAvailable, false);
+  static BooleanSetting incoming_notification({"community_mod.ui.notify_incoming_player_attack", "Desktop notification",
+      [] {
+        return IncomingPlayerAttackAvailable() ? ReadResult::Known(Config::Get().notify_incoming_player_attack, 1)
+                                              : ReadResult{};
+      },
+      [](bool value, std::uint64_t generation) {
+        if (generation != 1 || !IncomingPlayerAttackAvailable()) return ApplyResult::Rejected;
+        Config::Get().notify_incoming_player_attack = value;
+#if __APPLE__
+        if (value) notification_desktop_mac_init();
+#endif
+        runtime_config::SaveSetting("ui", "notify_incoming_player_attack", value);
+        return ApplyResult::Applied;
+      }});
+  catalog.AddBoolean("community_mod.audio.alert_incoming_player_attack", incoming_notification);
   struct ToastEntry { const char* key; const char* label; NotificationAudioCue Config::*member; };
   for (auto entry : {ToastEntry{"alert_victory", "Battle victory", &Config::alert_victory},
                      ToastEntry{"alert_defeat", "Battle defeat", &Config::alert_defeat},

@@ -14,6 +14,7 @@ namespace Audio
   constexpr bool        trace_events    = false;
   constexpr const char* alert_victory = "none";
   constexpr const char* alert_defeat = "none";
+  constexpr const char* alert_incoming_player_attack = "none";
   constexpr const char* alert_armada_created = "none";
   constexpr const char* alert_armada_battle_won = "none";
   constexpr const char* alert_armada_battle_lost = "none";
@@ -314,6 +315,7 @@ namespace UI
   constexpr const char* instant_warp_auto_warp     = "";
   constexpr const char* instant_warp_always_ask    = "";
   constexpr const char* notify_banner_types         = "";
+  constexpr bool notify_incoming_player_attack = false;
   constexpr const char* notify_fleet_events         = "";
   constexpr auto        extend_chest_purchase_max   = 160;
   constexpr auto        extend_donation_max         = 80;
