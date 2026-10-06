@@ -101,6 +101,7 @@ namespace Patches
   constexpr bool tempcrashfixes             = true;
   constexpr bool testpatches                = true;
   constexpr bool toastbannerhooks           = true;
+  constexpr bool actionqueuerecoveryhooks   = true;
   constexpr bool uiscalehooks               = true;
   constexpr bool zoomhooks                  = true;
   constexpr bool miscpatches                = true;
