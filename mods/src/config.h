@@ -299,6 +299,7 @@ public:
   bool installHavenZoomHooks;
   bool installBuffFixHooks;
   bool installToastBannerHooks;
+  bool installActionQueueRecoveryHooks;
   bool installFleetNotificationHooks;
   bool installPanHooks;
   bool installHotkeyHooks;
