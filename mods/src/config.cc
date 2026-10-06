@@ -970,10 +970,14 @@ void Config::Load()
   this->installUiScaleHooks =
       get_config_or_default(config, parsed, "patches", "uiscalehooks", DCP::uiscalehooks, write_config);
   this->installZoomHooks = get_config_or_default(config, parsed, "patches", "zoomhooks", DCP::zoomhooks, write_config);
+  this->installHavenZoomHooks =
+      get_config_or_default(config, parsed, "patches", "havenzoomhooks", DCP::havenzoomhooks, write_config);
   this->installBuffFixHooks =
       get_config_or_default(config, parsed, "patches", "bufffixhooks", DCP::bufffixhooks, write_config);
   this->installToastBannerHooks =
       get_config_or_default(config, parsed, "patches", "toastbannerhooks", DCP::toastbannerhooks, write_config);
+  this->installActionQueueRecoveryHooks = get_config_or_default(
+      config, parsed, "patches", "actionqueuerecoveryhooks", DCP::actionqueuerecoveryhooks, write_config);
   this->installPanHooks = get_config_or_default(config, parsed, "patches", "panhooks", DCP::panhooks, write_config);
   this->installHotkeyHooks =
       get_config_or_default(config, parsed, "patches", "hotkeyhooks", DCP::hotkeyhooks, write_config);
@@ -1066,6 +1070,14 @@ void Config::Load()
   this->ui_scale_viewer =
       get_config_or_default(config, parsed, "graphics", "ui_scale_viewer", DCG::ui_scale_viewer, write_config);
   this->zoom               = get_config_or_default(config, parsed, "graphics", "zoom", DCG::zoom, write_config);
+  this->haven_zoom = get_config_or_default(config, parsed, "graphics", "haven_zoom", DCG::haven_zoom, write_config);
+  this->hide_haven_water =
+      get_config_or_default(config, parsed, "graphics", "hide_haven_water", DCG::hide_haven_water, write_config);
+  if (!std::isfinite(this->haven_zoom) || this->haven_zoom < 0.0f) {
+    spdlog::warn("Invalid haven_zoom {}; using {}", this->haven_zoom, DCG::haven_zoom);
+    this->haven_zoom = DCG::haven_zoom;
+    parsed["graphics"].as_table()->insert_or_assign("haven_zoom", this->haven_zoom);
+  }
   this->fr_scale           = get_config_or_default(config, parsed, "graphics", "fr_scale", DCG::fr_scale, write_config);
   this->ship_hotkey_badges =
       get_config_or_default(config, parsed, "graphics", "ship_hotkey_badges", DCG::ship_hotkey_badges, write_config);
@@ -1179,6 +1191,10 @@ void Config::Load()
     }
   }
   bool any_toast_audio_alert_configured = false;
+  // This cue is filtered by the incoming PvP ship payload, never by ToastState alone.
+  this->alert_incoming_player_attack = get_notification_sound(
+      config, parsed, "alert_incoming_player_attack", DCA::alert_incoming_player_attack, write_config);
+  any_toast_audio_alert_configured |= this->alert_incoming_player_attack.enabled();
   for (const auto& alert : kToastAudioAlerts) {
     const auto sound = get_notification_sound(config, parsed, alert.config_name, alert.default_sound, write_config);
     this->*(alert.config_member) = sound;
@@ -1437,6 +1453,8 @@ void Config::Load()
   parsed["ui"].as_table()->insert_or_assign("disabled_banner_types", bannerString);
 
   // Parse notify_banner_types using the same bannerTypes lookup table
+  this->notify_incoming_player_attack = get_config_or_default(
+      config, parsed, "ui", "notify_incoming_player_attack", DCU::notify_incoming_player_attack, write_config);
   auto notify_banner_types_str = get_config_or_default<std::string>(config, parsed, "ui", "notify_banner_types",
                                                                     DCU::notify_banner_types, write_log);
 

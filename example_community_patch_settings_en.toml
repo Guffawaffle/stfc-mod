@@ -52,6 +52,9 @@ trace_events = false
 # Requires patches.toastbannerhooks = true.
 alert_victory = "none"
 alert_defeat = "none"
+# Incoming PvP attacks targeting your own ships only (not stations or faction attacks).
+# Built-in sound or custom sound file; configure live under Mod Settings > Audio Alerts.
+alert_incoming_player_attack = "none"
 alert_armada_created = "none"
 alert_armada_battle_won = "none"
 alert_armada_battle_lost = "none"
@@ -128,6 +131,8 @@ queue_enabled = true
 # The former kirshara_queue_repair setting is no longer used.
 # Faster Queue Recovery: advance after an outstanding target disappears (Windows x64 only).
 faster_queue_recovery = false
+# Also available live under Mod Settings > Map & Travel > Kirshara action queue
+# when the recovery hooks are supported. Requires queue_enabled; currently Windows x64.
 
 # Thin Queue Protection: resume after native pruning; clean up confirmed destroyed heads.
 # Windows x64 only. Enabled by default; independent of Faster Queue Recovery.
@@ -299,8 +304,19 @@ system_zoom_preset_4 = 2750.0
 # Zoom preset F5 for system view
 system_zoom_preset_5 = 5000.0
 
-# This controls the maximum zoom distance in System View. Default is 2500. Higher values increase label distance
+# Maximum zoom-out distance in System View. Mod default is 5000. Higher values increase label distance.
 zoom = 5000.0
+
+# Maximum zoom-out distance in The Haven, in camera distance units (like zoom above).
+# Higher values extend the native range; 0.0 keeps the native range. Default is 4000.0.
+# Uses the normal scroll/pinch controls; this sets the range, not the current zoom.
+# Expanded Haven zoom also keeps road surfaces separated from the ground at every zoom level.
+# Requires [patches].havenzoomhooks; independent of the System View zoomhooks switch.
+haven_zoom = 4000.0
+
+# Optional downstream-only water visibility control. Works even with native Haven zoom.
+# Turning this off restores the water renderer's original visibility.
+hide_haven_water = false
 
 #  <[=====================================================]> 
 #                                                            
@@ -354,6 +370,11 @@ toastbannerhooks = true
 transitionscreenhooks = true
 uiscalehooks = true
 zoomhooks = true
+# Install recovery hooks independently of the Faster Kirshara feature setting.
+actionqueuerecoveryhooks = true
+
+# Compatibility switch for Haven zoom hooks. Use graphics.haven_zoom = 0.0 for native behavior.
+havenzoomhooks = true
 
 #  <[==================================================================================================================================]> 
 #                                                                                                                                         
@@ -787,6 +808,9 @@ disabled_banner_types = ""
 
 # Specifies banner types that should trigger notifications (comma separated)
 notify_banner_types = ""
+# Desktop notification for incoming player attacks on your own ships only (Windows/macOS).
+# Independent of notify_banner_types and the sound selection.
+notify_incoming_player_attack = false
 
 # Fleet events that should trigger desktop notifications (Windows/macOS) (comma separated, or "All")
 # Options: ArrivedInSystem, ArrivedAtDestination, StartedMining, NodeDepleted, Docked, RepairComplete, MinerOPC

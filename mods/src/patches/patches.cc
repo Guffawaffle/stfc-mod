@@ -20,6 +20,7 @@
 
 void InstallUiScaleHooks();
 void InstallZoomHooks();
+void InstallHavenZoomHooks();
 void InstallGalaxySelectionHooks();
 void InstallBuffFixHooks();
 #if _WIN32
@@ -181,6 +182,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   const PatchEntry patches[] = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
+      {"HavenZoomHooks", {InstallHavenZoomHooks, &cfg.installHavenZoomHooks}},
       {"GalaxySelection", {InstallGalaxySelectionHooks, &cfg.installZoomHooks}},
       {"BuffFixHooks", {InstallBuffFixHooks, &cfg.installBuffFixHooks}},
       {"ToastBannerHooks", {InstallToastBannerHooks, &cfg.installToastBannerHooks}},
@@ -218,6 +220,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       // Galaxy availability must be established before settings pages register.
       {"GalaxyLabels", {InstallGalaxyLabels, &cfg.installZoomHooks}},
       // Retain the existing debug patch key; this installer owns both settings surfaces.
+      {"ActionQueueRecovery", {InstallActionQueueRecovery, &cfg.installActionQueueRecoveryHooks}},
       {"ModConfirmationSettings", {InstallNativeSettings, &cfg.installNativeSettings}},
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
@@ -243,7 +246,6 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   InstallDevConsole();
   InstallGameErrorProbe();
 #endif
-  InstallActionQueueRecovery();
   InstallThinQueueProtection();
 
   spdlog::info("");

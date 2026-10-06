@@ -14,6 +14,7 @@ namespace Audio
   constexpr bool        trace_events    = false;
   constexpr const char* alert_victory = "none";
   constexpr const char* alert_defeat = "none";
+  constexpr const char* alert_incoming_player_attack = "none";
   constexpr const char* alert_armada_created = "none";
   constexpr const char* alert_armada_battle_won = "none";
   constexpr const char* alert_armada_battle_lost = "none";
@@ -77,6 +78,8 @@ namespace Graphics
   constexpr auto        ui_scale_viewer             = 1.2;
   constexpr bool        use_presets_as_default      = true;
   constexpr auto        zoom                        = 5000;
+  constexpr auto        haven_zoom                  = 4000.0;
+  constexpr bool        hide_haven_water            = false;
   constexpr auto        fr_scale                    = 2.0;
   constexpr bool        loader_enabled              = true; // customize LoginSequence
   constexpr bool        loader_transition           = true; // customize TVC/SlideShow
@@ -101,8 +104,10 @@ namespace Patches
   constexpr bool tempcrashfixes             = true;
   constexpr bool testpatches                = true;
   constexpr bool toastbannerhooks           = true;
+  constexpr bool actionqueuerecoveryhooks   = true;
   constexpr bool uiscalehooks               = true;
   constexpr bool zoomhooks                  = true;
+  constexpr bool havenzoomhooks             = true;
   constexpr bool miscpatches                = true;
   constexpr bool giftsbulkclaimhooks        = true;
   constexpr bool dailyfactionbulkclaimhooks = true;
@@ -310,6 +315,7 @@ namespace UI
   constexpr const char* instant_warp_auto_warp     = "";
   constexpr const char* instant_warp_always_ask    = "";
   constexpr const char* notify_banner_types         = "";
+  constexpr bool notify_incoming_player_attack = false;
   constexpr const char* notify_fleet_events         = "";
   constexpr auto        extend_chest_purchase_max   = 160;
   constexpr auto        extend_donation_max         = 80;

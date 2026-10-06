@@ -11,6 +11,7 @@
 #include "shortcut_settings.h"
 #include "warp_mode.h"
 #include "upstream_features.h"
+#include "queue_recovery.h"
 
 namespace mod_settings
 {
@@ -26,14 +27,24 @@ void RegisterModPages()
   RegisterAudioAlertPages(catalog);
   // Group by player tasks. Stable identities still map to existing TOML keys;
   // a presentation move does not migrate configuration.
-  if (KeyboardZoomControlAvailable() || PanGlideControlAvailable()) {
+  if (KeyboardZoomControlAvailable() || PanGlideControlAvailable() || HavenCameraControlAvailable()) {
     catalog.AddPage("community_mod.graphics.camera", "Camera", "community_mod.settings");
     if (KeyboardZoomControlAvailable())
       catalog.AddSlider("community_mod.graphics.camera", KeyboardZoomSpeedSetting());
     if (PanGlideControlAvailable())
       catalog.AddSlider("community_mod.graphics.camera", PanGlideSetting());
+    if (HavenCameraControlAvailable()) {
+      catalog.AddHeading("community_mod.graphics.camera", "community_mod.graphics.haven", "Haven");
+      catalog.AddSlider("community_mod.graphics.camera", HavenZoomSetting());
+      if (HavenWaterControlAvailable())
+        catalog.AddBoolean("community_mod.graphics.camera", HavenWaterSetting());
+    }
   }
   catalog.AddPage("community_mod.navigation", "Map & Travel", "community_mod.settings");
+  if (QueueRecoveryAvailable()) {
+    catalog.AddHeading("community_mod.navigation", "community_mod.navigation.kirshara", "Kirshara action queue");
+    catalog.AddBoolean("community_mod.navigation", QueueRecoverySetting());
+  }
   catalog.AddHeading("community_mod.navigation", "community_mod.navigation.warp", "Instant warp mode");
   catalog.AddChoice("community_mod.navigation", WarpModeSetting());
   catalog.AddHeading("community_mod.navigation", "community_mod.navigation.anomaly", "Galactic Anomalies");

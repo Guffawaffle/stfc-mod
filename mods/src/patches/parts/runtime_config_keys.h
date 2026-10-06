@@ -6,9 +6,12 @@ namespace config_edit
 // Settings accepted by the runtime writer. Configure and its contract fixture
 // share this list so new settings cannot silently skip registration.
 inline constexpr std::pair<const char*, const char*> persisted_settings[]{
+    {"control", "faster_queue_recovery"},
     {"audio", "coalescing"},
     {"audio", "alert_victory"},
     {"audio", "alert_defeat"},
+    {"audio", "alert_incoming_player_attack"},
+    {"ui", "notify_incoming_player_attack"},
     {"audio", "alert_armada_created"},
     {"audio", "alert_armada_battle_won"},
     {"audio", "alert_armada_battle_lost"},
@@ -37,6 +40,8 @@ inline constexpr std::pair<const char*, const char*> persisted_settings[]{
     {"graphics", "galaxy_label_minor_detail"},
     {"graphics", "galaxy_label_minor_threshold"},
     {"graphics", "keyboard_zoom_speed"},
+    {"graphics", "haven_zoom"},
+    {"graphics", "hide_haven_water"},
     {"graphics", "system_pan_momentum_falloff"},
     {"ui", "auto_confirm_ft_upgrade"},
     {"ui", "disable_exchange_all"},
