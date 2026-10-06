@@ -1,5 +1,6 @@
 #include "action_queue.h"
 #include <config.h>
+#include "settings/queue_recovery.h"
 
 // The callback ABI below is Windows x64. Validate its contract against the running client.
 #if defined(_WIN32) && defined(_M_X64)
@@ -227,8 +228,6 @@ bool Field(Il2CppClass* cls, const char* name, std::ptrdiff_t offset, Il2CppType
 
 void InstallActionQueueRecovery()
 {
-  if (!Config::Get().faster_queue_recovery)
-    return;
   auto* cls   = Resolve("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager");
   queueClass  = Resolve("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueInstance");
   actionClass = Resolve("Assembly-CSharp", "Prime.ActionQueue", "QueueableAction");
@@ -278,6 +277,18 @@ void InstallActionQueueRecovery()
   ready.store(a && b && c && d);
   spdlog::info("[FasterQueueRecovery] ready={}", ready.load());
 }
+namespace mod_settings
+{
+bool QueueRecoveryAvailable()
+{ return ready.load() && Config::Get().installActionQueueRecoveryHooks; }
+void ResetQueueRecovery()
+{ ClearRequests(); }
+} // namespace mod_settings
 #else
 void InstallActionQueueRecovery() {}
+namespace mod_settings
+{
+bool QueueRecoveryAvailable() { return false; }
+void ResetQueueRecovery() {}
+} // namespace mod_settings
 #endif

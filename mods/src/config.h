@@ -16,10 +16,14 @@
 #include <Windows.h>
 #endif
 
+// Also used before opening the macOS log in the config directory.
+void migrate_mac_config_if_needed(const char* filename);
+
 class SyncConfig
 {
 public:
   enum class Type {
+    AwayAssignments,
     Battles,
     Buffs,
     Buildings,
@@ -46,26 +50,29 @@ public:
 
   std::string proxy;
 
-  bool verify_ssl = true;
-  bool battlelogs = false;
-  bool buffs      = false;
-  bool buildings  = true;
-  bool haven      = true;
-  bool inventory  = false;
-  bool jobs       = false;
-  bool missions   = false;
-  bool officer    = false;
-  bool research   = true;
-  bool resources  = false;
-  bool ships      = false;
-  bool slots      = false;
-  bool tech       = false;
-  bool traits     = false;
+  bool verify_ssl       = true;
+  bool away_assignments = false;
+  bool battlelogs       = false;
+  bool buffs            = false;
+  bool buildings        = true;
+  bool haven            = true;
+  bool inventory        = false;
+  bool jobs             = false;
+  bool missions         = false;
+  bool officers         = false;
+  bool research         = true;
+  bool resources        = false;
+  bool ships            = false;
+  bool slots            = false;
+  bool tech             = false;
+  bool traits           = false;
 
   [[nodiscard]] bool enabled(Type type) const;
 };
 
 constexpr std::array SyncOptions{
+    SyncConfig::Option{SyncConfig::Type::AwayAssignments, "away_assignment", "away_assignments",
+                       &SyncConfig::away_assignments},
     SyncConfig::Option{SyncConfig::Type::Battles, "battlelog", "battlelogs", &SyncConfig::battlelogs},
     SyncConfig::Option{SyncConfig::Type::Buffs, "buff", "buffs", &SyncConfig::buffs},
     SyncConfig::Option{SyncConfig::Type::Buildings, "module", "buildings", &SyncConfig::buildings},
@@ -74,7 +81,7 @@ constexpr std::array SyncOptions{
     SyncConfig::Option{SyncConfig::Type::Inventory, "inventory", "inventory", &SyncConfig::inventory},
     SyncConfig::Option{SyncConfig::Type::Jobs, "job", "jobs", &SyncConfig::jobs},
     SyncConfig::Option{SyncConfig::Type::Missions, "mission", "missions", &SyncConfig::missions},
-    SyncConfig::Option{SyncConfig::Type::Officer, "officer", "officer", &SyncConfig::officer},
+    SyncConfig::Option{SyncConfig::Type::Officer, "officer", "officers", &SyncConfig::officers},
     SyncConfig::Option{SyncConfig::Type::Research, "research", "research", &SyncConfig::research},
     SyncConfig::Option{SyncConfig::Type::Resources, "resource", "resources", &SyncConfig::resources},
     SyncConfig::Option{SyncConfig::Type::Ships, "ship", "ships", &SyncConfig::ships},
@@ -167,16 +174,19 @@ public:
   Config(Config&&)                 = delete;
   Config& operator=(Config&&)      = delete;
 
-  float ui_scale;
-  float ui_scale_adjust;
-  float ui_scale_ship;
-  float ui_scale_viewer;
-  float zoom;
-  float fr_scale;
+  float             ui_scale;
+  float             ui_scale_step;
+  float             ui_scale_ship;
+  float             ui_scale_viewer;
+  float             zoom;
+  float             haven_zoom;
+  bool              hide_haven_water;
+  float             fr_scale;
   FleetLabelProfile zoom_label_player;
   FleetLabelProfile zoom_label_non_player;
   bool ship_hotkey_badges;
   bool galaxy_multi_select;
+  bool galaxy_station_housing;
   std::array<bool, 4> galaxy_overlays; // Default, Mining, Hostiles, Hazards
   galaxy_controls::ZoomProfile galaxy_label_major;
   galaxy_controls::ZoomProfile galaxy_label_minor;
@@ -212,6 +222,7 @@ public:
   bool             borderless_fullscreen;
   std::vector<int> disabled_banner_types;
   std::vector<int> notify_banner_types;
+  bool notify_incoming_player_attack;
   FleetNotificationMask notify_fleet_events = 0;
   FleetNotificationMask audio_fleet_events = 0;
   std::array<NotificationAudioCue, kFleetNotificationCatalog.size()> alert_fleet_events{};
@@ -233,6 +244,7 @@ public:
   std::vector<std::string> disabled_audio_events;
   NotificationAudioCue alert_victory            = NotificationSound::None;
   NotificationAudioCue alert_defeat             = NotificationSound::None;
+  NotificationAudioCue alert_incoming_player_attack = NotificationSound::None;
   NotificationAudioCue alert_armada_created     = NotificationSound::None;
   NotificationAudioCue alert_armada_battle_won  = NotificationSound::None;
   NotificationAudioCue alert_armada_battle_lost = NotificationSound::None;
@@ -261,6 +273,9 @@ public:
   std::vector<std::string> pinned_ships;
 
   bool double_click_to_assign_ship;
+  bool focus_search;
+  bool format_cargo_values;
+  bool officer_sort;
   bool arrow_keys_to_select_ship;
 
   bool galaxy_extended_selection = false;
@@ -269,6 +284,7 @@ public:
   bool show_station_cargo;
   bool show_hostile_cargo;
   bool show_armada_cargo;
+  bool instant_cargo_counter;
 
   bool                                        always_skip_reveal_sequence;
   std::map<std::string, MissionHudVisibility> mission_hud_buttons;
@@ -282,8 +298,10 @@ public:
 
   bool installUiScaleHooks;
   bool installZoomHooks;
+  bool installHavenZoomHooks;
   bool installBuffFixHooks;
   bool installToastBannerHooks;
+  bool installActionQueueRecoveryHooks;
   bool installFleetNotificationHooks;
   bool installPanHooks;
   bool installHotkeyHooks;
@@ -292,16 +310,23 @@ public:
   bool installTestPatches;
   bool installMiscPatches;
   bool installMissionHudTweaksHooks;
+  bool disable_exchange_all;
   bool installChatPatches;
   bool installSyncPatches;
   bool installGameVersionHook;
   bool installObjectTracker;
   bool installGiftsBulkClaimHooks;
   bool installDailyFactionBulkClaimHooks;
+  bool installGalacticAnomalyTimerHooks;
+  bool installLoadingTipHooks;
+  bool installDoubleClickAssignShipHooks;
+  bool installForbiddenTechConfirmationHooks;
   bool installInstantWarpConfirmationHooks;
   bool installAudioEventHooks;
   bool installOpcIndicatorHooks;
   bool installNativeSettings;
+  bool installArtifactExchangeHooks;
+  bool installOfficerPresetReorderHooks;
 
   std::string config_settings_url;
   std::string config_assets_url_override;
@@ -317,12 +342,10 @@ public:
 
   bool installLoadingScreenHooks;
   bool installTransitionScreenHooks;
-  bool installFocusSearchHooks;
 
   // Cargo formatting
   bool installCargoFormatHooks;
   bool installInstantCargoCounterHooks;
-  bool instant_cargo_counter;
   int  cargo_significant_decimals;
 
   // Officer roster/assignment "Below Deck Ability" sort option restore

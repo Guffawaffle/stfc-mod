@@ -23,3 +23,5 @@ debug.log
 mods/.xmake
 Analyse-GameAssembly.ps1
 assets/LoadingScreens/*.psd
+# Generated from assets/data/station_housing.json by mods/xmake.lua.
+mods/src/patches/parts/embedded_station_housing.h

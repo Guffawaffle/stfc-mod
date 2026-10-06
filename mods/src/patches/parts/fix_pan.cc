@@ -14,6 +14,7 @@
 
 #include <cmath>
 #include <spud/detour.h>
+#include <cmath>
 
 namespace
 {
