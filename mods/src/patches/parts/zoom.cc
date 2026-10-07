@@ -26,6 +26,173 @@
 
 namespace
 {
+const MethodInfo *scroll_event_system = nullptr, *scroll_raycast = nullptr, *scroll_count = nullptr;
+const MethodInfo *scroll_item = nullptr, *scroll_parents = nullptr, *scroll_active = nullptr;
+Il2CppClass *scroll_handler_class = nullptr;
+Il2CppClass *scroll_behaviour_class = nullptr;
+FieldInfo *scroll_game_object = nullptr;
+FieldInfo *scroll_pinch_started = nullptr;
+NavigationZoom *native_navigation_update = nullptr;
+bool scroll_guard_ready = false;
+
+Il2CppObject *ScrollInvoke(const MethodInfo *method, void *object, void **args = nullptr)
+{
+  Il2CppException *exception = nullptr;
+  auto *result = il2cpp_runtime_invoke(method, object, args, &exception);
+  if (exception != nullptr) {
+    // A changed client API must not break scrolling or navigation.
+    scroll_guard_ready = false;
+    spdlog::warn("[ScrollZoomGuard] UI query failed; keeping native camera input");
+    return nullptr;
+  }
+  return result;
+}
+
+bool PointerOwnsScroll()
+{
+  if (!scroll_guard_ready)
+    return false;
+  static auto get_mouse_position =
+      il2cpp_resolve_icall_typed<void(vec3 *)>("UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)");
+  if (get_mouse_position == nullptr)
+    return false;
+  auto *system = ScrollInvoke(scroll_event_system, nullptr);
+  if (system == nullptr)
+    return false;
+  vec3 mouse{};
+  get_mouse_position(&mouse);
+  vec2 position{mouse.x, mouse.y};
+  void *raycast_args[]{system, &position};
+  auto *results = ScrollInvoke(scroll_raycast, nullptr, raycast_args);
+  if (results == nullptr)
+    return false;
+  auto *count = ScrollInvoke(scroll_count, results);
+  if (count == nullptr || *static_cast<int *>(il2cpp_object_unbox(count)) <= 0)
+    return false;
+  // Use the first sorted hit, just as Unity dispatches a scroll event. An
+  // occluded scroller behind another window must not claim this wheel input.
+  int index = 0;
+  void *item_args[]{&index};
+  auto *hit = ScrollInvoke(scroll_item, results, item_args);
+  Il2CppObject *target = nullptr;
+  if (hit != nullptr)
+    il2cpp_field_get_value(hit, scroll_game_object, &target);
+  if (target == nullptr)
+    return false;
+  auto *handler_type = il2cpp_type_get_object(il2cpp_class_get_type(scroll_handler_class));
+  // This is GetComponentsInParent(Type, false)'s native implementation; the
+  // public non-generic wrapper is stripped in the client. Inspect every handler
+  // so a disabled inner scroller cannot conceal an enabled ancestor or sibling.
+  bool typed_array = false, recursive = true, include_inactive = false, reverse = true;
+  void *parent_args[]{handler_type, &typed_array, &recursive, &include_inactive, &reverse, nullptr};
+  auto *handlers = reinterpret_cast<Il2CppArray *>(ScrollInvoke(scroll_parents, target, parent_args));
+  if (handlers == nullptr)
+    return false;
+  for (size_t i = 0; i < il2cpp_array_length(handlers); ++i) {
+    auto *handler = il2cpp_get_array_element<Il2CppObject>(handlers, i);
+    if (handler == nullptr)
+      continue;
+    // Unity accepts non-Behaviour handlers; Behaviours must be enabled and active.
+    if (!il2cpp_class_is_assignable_from(scroll_behaviour_class, handler->klass))
+      return true;
+    auto *active = ScrollInvoke(scroll_active, handler);
+    if (!scroll_guard_ready)
+      return false;
+    if (active != nullptr && *static_cast<bool *>(il2cpp_object_unbox(active)))
+      return true;
+  }
+  return false;
+}
+
+void NavigationZoom_WheelAtWorldPoint_Hook(auto original, NavigationZoom *zoom)
+{
+  // Mod keyboard zoom calls this before entering the native Update scope.
+  // Block only the native camera consumer; leave the UI's input action intact.
+  bool pinch_started = false;
+  if (scroll_guard_ready && zoom == native_navigation_update)
+    il2cpp_field_get_value(reinterpret_cast<Il2CppObject *>(zoom), scroll_pinch_started, &pinch_started);
+  // Native touch pinch shares this consumer but is unrelated to mouse position.
+  if (zoom == native_navigation_update && !pinch_started && PointerOwnsScroll()) {
+    zoom->_zoomDelta = 0.0f;
+    zoom->_lastZoomDelta = 0.0f;
+    return;
+  }
+  original(zoom);
+}
+
+float MouseScrollAsPinchRecognizer_ReadInput_Hook(auto original, Il2CppObject *recognizer)
+{
+  const auto delta = original(recognizer);
+  return delta != 0.0f && PointerOwnsScroll() ? 0.0f : delta;
+}
+
+void InstallScrollZoomGuard(Il2CppClass *navigation_zoom_class)
+{
+  auto event_system = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.EventSystems", "EventSystem");
+  auto raycasts = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "RaycastExtensions");
+  auto game_object = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "GameObject");
+  auto behaviour = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Behaviour");
+  auto handler = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.EventSystems", "IScrollHandler");
+  auto recognizer =
+      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.CameraController", "MouseScrollAsPinchRecognizer");
+  scroll_event_system = method_contract::Resolve(
+      event_system.get_cls(), "get_current", true, "UnityEngine.EventSystems.EventSystem", {});
+  scroll_raycast = method_contract::Resolve(
+      raycasts.get_cls(), "CachedRaycast", true,
+      "System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>",
+      {"UnityEngine.EventSystems.EventSystem", "UnityEngine.Vector2"});
+  scroll_parents = method_contract::Resolve(game_object.get_cls(), "GetComponentsInternal", false, "System.Array",
+      {"System.Type", "System.Boolean", "System.Boolean", "System.Boolean", "System.Boolean", "System.Object"});
+  scroll_active = method_contract::Resolve(behaviour.get_cls(), "get_isActiveAndEnabled", false, "System.Boolean", {});
+  scroll_handler_class = handler.get_cls();
+  scroll_behaviour_class = behaviour.get_cls();
+  scroll_pinch_started = navigation_zoom_class != nullptr
+      ? il2cpp_class_get_field_from_name(navigation_zoom_class, "_pinchStarted") : nullptr;
+  const auto valid_pinch_field = scroll_pinch_started != nullptr
+      && !(il2cpp_field_get_flags(scroll_pinch_started) & FIELD_ATTRIBUTE_STATIC)
+      && method_contract::Type(scroll_pinch_started->type, "System.Boolean");
+  auto *list_class = scroll_raycast != nullptr ? il2cpp_class_from_type(scroll_raycast->return_type) : nullptr;
+  // These are methods on a closed generic List; runtime_invoke handles its
+  // value-type result without depending on Windows/macOS struct return ABI.
+  scroll_count = list_class != nullptr ? il2cpp_class_get_method_from_name(list_class, "get_Count", 0) : nullptr;
+  scroll_item = list_class != nullptr ? il2cpp_class_get_method_from_name(list_class, "get_Item", 1) : nullptr;
+  auto *hit_class = scroll_item != nullptr ? il2cpp_class_from_type(scroll_item->return_type) : nullptr;
+  scroll_game_object = hit_class != nullptr ? il2cpp_class_get_field_from_name(hit_class, "m_GameObject") : nullptr;
+  const auto *navigation_wheel =
+      method_contract::Resolve(navigation_zoom_class, "ZoomCameraAtWorldPoint", false, "System.Void", {});
+  const auto *station_wheel = method_contract::Resolve(recognizer.get_cls(), "ReadInput", false, "System.Single", {});
+  const auto valid_count = scroll_count != nullptr && scroll_count->methodPointer
+      && !(scroll_count->flags & METHOD_ATTRIBUTE_STATIC) && method_contract::Type(scroll_count->return_type, "System.Int32");
+  const auto valid_item = scroll_item != nullptr && scroll_item->methodPointer
+      && !(scroll_item->flags & METHOD_ATTRIBUTE_STATIC)
+      && scroll_item->parameters_count == 1
+      && method_contract::Type(scroll_item->parameters[0], "System.Int32")
+      && method_contract::Type(scroll_item->return_type, "UnityEngine.EventSystems.RaycastResult");
+  const auto valid_zoom_field = [navigation_zoom_class](const char *name) {
+    auto *field = navigation_zoom_class != nullptr ? il2cpp_class_get_field_from_name(navigation_zoom_class, name) : nullptr;
+    return field != nullptr && !(il2cpp_field_get_flags(field) & FIELD_ATTRIBUTE_STATIC)
+        && method_contract::Type(field->type, "System.Single");
+  };
+  if (scroll_event_system == nullptr || scroll_raycast == nullptr || scroll_parents == nullptr
+      || scroll_active == nullptr || scroll_handler_class == nullptr || !valid_count || !valid_item
+      || scroll_game_object == nullptr || !method_contract::Type(scroll_game_object->type, "UnityEngine.GameObject")
+      || (il2cpp_field_get_flags(scroll_game_object) & FIELD_ATTRIBUTE_STATIC)
+      || !valid_zoom_field("_zoomDelta") || !valid_zoom_field("_lastZoomDelta")
+      || !valid_pinch_field
+      || navigation_wheel == nullptr || station_wheel == nullptr) {
+    spdlog::warn("[ScrollZoomGuard] UI/camera API unavailable; keeping native camera input "
+                 "(event={} raycast={} count={} item={} parents={} active={} handler={} hit={} pinch={} navigation={} station={})",
+                 scroll_event_system != nullptr, scroll_raycast != nullptr, valid_count, valid_item,
+                 scroll_parents != nullptr, scroll_active != nullptr, scroll_handler_class != nullptr,
+                 scroll_game_object != nullptr, valid_pinch_field, navigation_wheel != nullptr, station_wheel != nullptr);
+    return;
+  }
+  scroll_guard_ready = true;
+  const bool navigation = SPUD_STATIC_DETOUR(navigation_wheel->methodPointer, NavigationZoom_WheelAtWorldPoint_Hook);
+  const bool station = SPUD_STATIC_DETOUR(station_wheel->methodPointer, MouseScrollAsPinchRecognizer_ReadInput_Hook);
+  spdlog::info("[ScrollZoomGuard] navigation={} station/Haven={}", navigation, station);
+}
+
 bool keyboard_zoom_hook_installed = false;
 bool galaxy_lod_hook_installed = false;
 #if __APPLE__
@@ -448,7 +615,10 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
 
   do_default_zoom = false;
 
+  const auto previous_native_update = native_navigation_update;
+  native_navigation_update = _this;
   original(_this);
+  native_navigation_update = previous_native_update;
 
   EnsureSystemZoomRange(_this);
   GalaxyLabelFrame(_this);
@@ -653,6 +823,7 @@ void InstallZoomHooks()
   auto  navigation_zoom_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "NavigationZoom");
   auto  ptr_update = navigation_zoom_helper.isValidHelper() ? navigation_zoom_helper.GetMethod("Update") : nullptr;
   auto *navigation_zoom_class    = navigation_zoom_helper.get_cls();
+  InstallScrollZoomGuard(navigation_zoom_class);
   auto *zoom_level_field         = navigation_zoom_class != nullptr
                                        ? il2cpp_class_get_field_from_name(navigation_zoom_class, "_zoomLevel")
                                        : nullptr;
