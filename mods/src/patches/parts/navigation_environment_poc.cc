@@ -37,7 +37,8 @@ namespace
   };
   // Scene cleanup is explicit. Avoid calling into IL2CPP from static destructors
   // after Unity has already torn down its runtime during process exit.
-  Root              shell{false}, mesh{false}, material{false}, source{false};
+  Root              shell{false}, mesh{false}, material{false}, source{false}, shell_renderer{false};
+  bool              reported_bounds = false;
   bool              attempted = false, ready = false, failed = false;
   int               next_scan = 0;
   const MethodInfo *destroy, *alive, *find_all, *active, *background, *shared_material, *main_texture;
@@ -46,10 +47,11 @@ namespace
   const MethodInfo *set_parent, *set_angles;
   const MethodInfo *far_clip, *near_clip, *culling_mask, *game_ctor, *add_component, *mesh_ctor, *material_ctor;
   const MethodInfo *set_vertices, *set_uv, *set_triangles, *set_mesh, *set_material, *shader_find, *set_texture;
-  const MethodInfo *set_colors, *set_queue, *set_int;
+  const MethodInfo *set_queue, *shader_supported, *renderer_visible, *get_bounds, *recalculate_bounds;
+  const MethodInfo *set_shadows, *receive_shadows, *allow_occlusion;
   const MethodInfo *texture_width, *texture_height, *object_name, *renderer_enabled;
   Il2CppClass      *game_class, *mesh_class, *material_class, *vector3_class, *vector2_class, *int_class;
-  Il2CppClass      *loader_class, *object_class, *color_class, *flat_class;
+  Il2CppClass      *loader_class, *object_class, *flat_class;
   void             *loader_type, *filter_type, *renderer_type;
   FieldInfo        *renderer_field, *pool_field;
   int (*frame_count)() = nullptr;
@@ -100,14 +102,19 @@ namespace
     set_material  = Method("Renderer", "set_sharedMaterial", false, "System.Void", {"UnityEngine.Material"});
     shader_find   = Method("Shader", "Find", true, "UnityEngine.Shader", {"System.String"});
     set_texture   = Method("Material", "set_mainTexture", false, "System.Void", {"UnityEngine.Texture"});
-    set_colors    = Method("Mesh", "set_colors", false, "System.Void", {"UnityEngine.Color[]"});
     set_queue     = Method("Material", "set_renderQueue", false, "System.Void", {"System.Int32"});
-    set_int       = Method("Material", "SetInt", false, "System.Void", {"System.String", "System.Int32"});
-    color_class   = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Color").get_cls();
-    auto loader   = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Rendering", "FlatRenderableLoader");
-    auto flat     = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Rendering", "FlatRenderable");
-    flat_class    = flat.get_cls();
-    pool_field    = loader.get_cls() ? il2cpp_class_get_field_from_name(loader.get_cls(), "_pool") : nullptr;
+    shader_supported   = Method("Shader", "get_isSupported", false, "System.Boolean");
+    renderer_visible   = Method("Renderer", "get_isVisible", false, "System.Boolean");
+    get_bounds         = Method("Renderer", "get_bounds", false, "UnityEngine.Bounds");
+    recalculate_bounds = Method("Mesh", "RecalculateBounds", false, "System.Void");
+    set_shadows =
+        Method("Renderer", "set_shadowCastingMode", false, "System.Void", {"UnityEngine.Rendering.ShadowCastingMode"});
+    receive_shadows = Method("Renderer", "set_receiveShadows", false, "System.Void", {"System.Boolean"});
+    allow_occlusion = Method("Renderer", "set_allowOcclusionWhenDynamic", false, "System.Void", {"System.Boolean"});
+    auto loader     = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Rendering", "FlatRenderableLoader");
+    auto flat       = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Rendering", "FlatRenderable");
+    flat_class      = flat.get_cls();
+    pool_field      = loader.get_cls() ? il2cpp_class_get_field_from_name(loader.get_cls(), "_pool") : nullptr;
     if (pool_field
         && ((il2cpp_field_get_flags(pool_field) & FIELD_ATTRIBUTE_STATIC)
             || !method_contract::Type(pool_field->type, "Digit.Client.Rendering.FlatRenderable[]")))
@@ -139,8 +146,9 @@ namespace
             && add_component && mesh_ctor && material_ctor && set_vertices && set_uv && set_triangles && set_mesh
             && set_material && shader_find && set_texture && loader_type && filter_type && renderer_type
             && renderer_field && game_class && mesh_class && material_class && vector3_class && vector2_class
-            && int_class && frame_count && texture_width && texture_height && renderer_enabled && set_colors
-            && set_queue && set_int && color_class && flat_class;
+            && int_class && frame_count && texture_width && texture_height && renderer_enabled && set_queue
+            && shader_supported && flat_class && recalculate_bounds && set_shadows && receive_shadows
+            && allow_occlusion;
     spdlog::info("[SystemEnvironmentPoc] runtime API ready={}", ready);
     return ready;
   }
@@ -202,12 +210,20 @@ namespace
     return Il2CppRuntime::TryInvoke(setter, mesh.Get(), args);
   }
 
+  float MirrorTile(float coordinate)
+  {
+    const float repeat = std::fmod(coordinate, 2.0f);
+    return repeat <= 1.0f ? repeat : 2.0f - repeat;
+  }
+
   bool Create(Il2CppObject *texture, int layer)
   {
-    // Use an unlit, two-sided material that does not write depth. Build an
-    // outward-wound closed sphere so its interior renders behind world objects.
-    // No collider, no gameplay components, no changes to native materials.
-    constexpr int    longitude = 48, latitude = 24;
+    // Stitch four mirrored azimuth tiles and two vertical tiles into a closed
+    // inward-facing sphere. Adjacent patches sample exactly the same texture
+    // edge; texture wrap mode and native UV authoring cannot open a gap.
+    // Only the distant scenery is repeated, never gameplay objects.
+    constexpr int    longitude = 64, latitude = 32;
+    constexpr int    horizontal_tiles = 4, vertical_tiles = 2;
     constexpr double pi = 3.14159265358979323846;
     struct UV {
       float x, y;
@@ -221,16 +237,17 @@ namespace
         const double phi = 2.0 * pi * x / longitude;
         vertices.push_back(
             {float(std::sin(theta) * std::cos(phi)), float(std::cos(theta)), float(std::sin(theta) * std::sin(phi))});
-        uv.push_back({float(x) / longitude, 1.0f - float(y) / latitude});
+        uv.push_back(
+            {MirrorTile(float(x) * horizontal_tiles / longitude), MirrorTile(float(y) * vertical_tiles / latitude)});
       }
     }
     for (int y = 0; y < latitude; ++y) {
       for (int x = 0; x < longitude; ++x) {
         const int a = y * (longitude + 1) + x, b = a + longitude + 1;
         if (y != 0)
-          indices.insert(indices.end(), {a, a + 1, b});
+          indices.insert(indices.end(), {a, b, a + 1});
         if (y != latitude - 1)
-          indices.insert(indices.end(), {a + 1, b + 1, b});
+          indices.insert(indices.end(), {a + 1, b, b + 1});
       }
     }
     shell.Reset(il2cpp_object_new(game_class));
@@ -239,7 +256,7 @@ namespace
     if (!shell.Get() || !mesh.Get() || !material.Get())
       return false;
     void         *name_args[]{il2cpp_string_new("CommunitySystemEnvironmentPoc")};
-    void         *shader_args[]{il2cpp_string_new("UI/Default")};
+    void         *shader_args[]{il2cpp_string_new("Unlit/Texture")};
     Il2CppObject *shader = nullptr, *filter = nullptr, *renderer = nullptr;
     if (!Il2CppRuntime::TryInvoke(game_ctor, shell.Get(), name_args)
         || !Il2CppRuntime::TryInvoke(mesh_ctor, mesh.Get(), nullptr)) {
@@ -247,7 +264,8 @@ namespace
       return false;
     }
     Il2CppRuntime::TryInvoke(shader_find, nullptr, shader_args, &shader);
-    if (!Live(shader)) {
+    bool supported = false;
+    if (!Live(shader) || !Value(shader_supported, shader, "System.Boolean", supported) || !supported) {
       spdlog::warn("[SystemEnvironmentPoc] object/mesh/shader setup failed (shader-present={})", Live(shader));
       return false;
     }
@@ -261,27 +279,34 @@ namespace
         || !Il2CppRuntime::TryInvoke(add_component, shell.Get(), filter_args, &filter) || !Live(filter)
         || !Il2CppRuntime::TryInvoke(add_component, shell.Get(), renderer_args, &renderer) || !Live(renderer))
       return false;
-    {
-      // The existing UI shader is also unlit, CullOff and ZWriteOff. Its owned
-      // material is rendered before world geometry, with ordinary depth testing.
-      // Avoid the native backdrop shader's unrelated lighting/stencil globals.
-      struct Color {
-        float r, g, b, a;
-      };
-      std::vector<Color> colors(vertices.size(), {1, 1, 1, 1});
-      int                queue = 1000, depth = 4;
-      void              *queue_args[]{&queue}, *depth_args[]{il2cpp_string_new("unity_GUIZTestMode"), &depth};
-      if (!Array(colors, color_class, set_colors) || !Il2CppRuntime::TryInvoke(set_queue, material.Get(), queue_args)
-          || !Il2CppRuntime::TryInvoke(set_int, material.Get(), depth_args))
-        return false;
-    }
+    // This shader ignores source alpha and has no UI clipping/stencil state.
+    // It writes depth: draw the enclosure first, near the far plane, so closer
+    // native scenery and gameplay geometry still pass their normal depth tests.
+    int   queue = 1000;
+    void *queue_args[]{&queue};
+    if (!Il2CppRuntime::TryInvoke(set_queue, material.Get(), queue_args))
+      return false;
     void *mesh_args[]{mesh.Get()}, *render_args[]{material.Get()};
     if (!Il2CppRuntime::TryInvoke(set_mesh, filter, mesh_args)
         || !Il2CppRuntime::TryInvoke(set_material, renderer, render_args))
       return false;
+    int   shadows = 0;
+    bool  off     = false;
+    void *shadows_args[]{&shadows}, *off_args[]{&off};
+    if (!Il2CppRuntime::TryInvoke(recalculate_bounds, mesh.Get(), nullptr)
+        || !Il2CppRuntime::TryInvoke(set_shadows, renderer, shadows_args)
+        || !Il2CppRuntime::TryInvoke(receive_shadows, renderer, off_args)
+        || !Il2CppRuntime::TryInvoke(allow_occlusion, renderer, off_args))
+      return false;
+    shell_renderer.Reset(renderer);
     source.Reset(texture);
-    spdlog::info("[SystemEnvironmentPoc] created closed shell layer={} vertices={} triangles={} shader={}", layer,
-                 vertices.size(), indices.size() / 3, "UI/Default");
+    bool visible = false, enabled = false;
+    Value(renderer_enabled, renderer, "System.Boolean", enabled);
+    Value(renderer_visible, renderer, "System.Boolean", visible);
+    spdlog::info("[SystemEnvironmentPoc] stitched enclosure layer={} vertices={} triangles={} tiles={}x{} "
+                 "shader=Unlit/Texture supported={} renderer-enabled={} initial-visible={}",
+                 layer, vertices.size(), indices.size() / 3, horizontal_tiles, vertical_tiles, supported, enabled,
+                 visible);
     return source.Get() != nullptr;
   }
 
@@ -401,6 +426,8 @@ void Clear()
   Destroy(mesh);
   Destroy(material);
   source.Reset();
+  shell_renderer.Reset();
+  reported_bounds = false;
 }
 
 void Update(Il2CppObject *camera)
@@ -427,7 +454,7 @@ void Update(Il2CppObject *camera)
     return;
   }
   // Follow translation only: keep the sky's orientation independent of camera rotation.
-  Vector3 scale{far_plane * 0.6f, far_plane * 0.6f, far_plane * 0.6f};
+  Vector3 scale{far_plane * 0.95f, far_plane * 0.95f, far_plane * 0.95f};
   Vector3 angles{};
   bool    world_stays = true;
   void   *parent_args[]{camera_transform, &world_stays}, *angle_args[]{&angles};
@@ -439,5 +466,19 @@ void Update(Il2CppObject *camera)
       || !Il2CppRuntime::TryInvoke(set_position, shell_transform, position_args)
       || !Il2CppRuntime::TryInvoke(set_scale, shell_transform, scale_args))
     Fail("camera-follow-write");
+  if (!failed && !reported_bounds && Live(shell_renderer.Get())) {
+    struct Bounds {
+      Vector3 center, extents;
+    } bounds{};
+    bool visible = false;
+    if (Value(get_bounds, shell_renderer.Get(), "UnityEngine.Bounds", bounds)) {
+      Value(renderer_visible, shell_renderer.Get(), "System.Boolean", visible);
+      spdlog::info("[SystemEnvironmentPoc] enclosure world center=({},{},{}) extents=({},{},{}) camera=({},{},{}) "
+                   "near={} far={} visible={}",
+                   bounds.center.x, bounds.center.y, bounds.center.z, bounds.extents.x, bounds.extents.y,
+                   bounds.extents.z, position.x, position.y, position.z, near_plane, far_plane, visible);
+      reported_bounds = true;
+    }
+  }
 }
 } // namespace navigation_environment_poc
