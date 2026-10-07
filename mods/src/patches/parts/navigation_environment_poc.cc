@@ -325,8 +325,13 @@ namespace
       return false;
     }
     Il2CppRuntime::TryInvoke(shader_find, nullptr, shader_args, &shader);
+    // Texture upload allocates a sizeable managed pixel array. Keep the shader
+    // wrapper rooted across that allocation and the following component calls.
+    Root shader_root;
+    shader_root.Reset(shader);
     bool supported = false;
-    if (!Live(shader) || !Value(shader_supported, shader, "System.Boolean", supported) || !supported) {
+    if (!shader_root.Get() || !Live(shader_root.Get())
+        || !Value(shader_supported, shader_root.Get(), "System.Boolean", supported) || !supported) {
       spdlog::warn("[SystemEnvironmentPoc] object/mesh/shader setup failed (shader-present={})", Live(shader));
       return false;
     }
@@ -340,15 +345,23 @@ namespace
     }
     if (!CreateSkyTexture(name))
       return false;
-    void *material_args[]{shader}, *texture_args[]{sky_texture.Get()}, *layer_args[]{&layer};
+    void *material_args[]{shader_root.Get()}, *texture_args[]{sky_texture.Get()}, *layer_args[]{&layer};
     void *filter_args[]{filter_type}, *renderer_args[]{renderer_type};
     if (!Il2CppRuntime::TryInvoke(material_ctor, material.Get(), material_args)
         || !Il2CppRuntime::TryInvoke(set_texture, material.Get(), texture_args)
         || !Il2CppRuntime::TryInvoke(set_layer, shell.Get(), layer_args)
         || !Array(vertices, vector3_class, set_vertices) || !Array(uv, vector2_class, set_uv)
         || !Array(indices, int_class, set_triangles)
-        || !Il2CppRuntime::TryInvoke(add_component, shell.Get(), filter_args, &filter) || !Live(filter)
-        || !Il2CppRuntime::TryInvoke(add_component, shell.Get(), renderer_args, &renderer) || !Live(renderer))
+        || !Il2CppRuntime::TryInvoke(add_component, shell.Get(), filter_args, &filter))
+      return false;
+    Root filter_root;
+    filter_root.Reset(filter);
+    if (!filter_root.Get() || !Live(filter_root.Get())
+        || !Il2CppRuntime::TryInvoke(add_component, shell.Get(), renderer_args, &renderer))
+      return false;
+    Root renderer_root;
+    renderer_root.Reset(renderer);
+    if (!renderer_root.Get() || !Live(renderer_root.Get()))
       return false;
     // This shader ignores source alpha and has no UI clipping/stencil state.
     // It writes depth: draw the enclosure first, near the far plane, so closer
@@ -596,10 +609,10 @@ void ValidateRuntime()
 #if defined(_MODDBG)
   // Session-only upload smoke, run on the first main-thread screen update.
   // It does not show an enclosure, touch native renderers or activate orbit.
-  static bool done   = false;
+  static bool done = false;
   if (done)
     return;
-  done = true;
+  done               = true;
   const char *opt_in = std::getenv("STFC_MOD_SYSTEM_SKY_SMOKE");
   if (!opt_in || std::strcmp(opt_in, "1") != 0 || Live(shell.Get()))
     return;
@@ -607,7 +620,7 @@ void ValidateRuntime()
     spdlog::warn("[SystemEnvironmentPoc] upload smoke unavailable: runtime API");
     return;
   }
-  const bool uploaded = CreateSkyTexture("SystemAmbientSmoke", 16, 8);
+  const bool uploaded = CreateSkyTexture("SystemAmbientSmoke");
   Destroy(sky_texture);
   spdlog::info("[SystemEnvironmentPoc] upload smoke passed={}; native scene unchanged", uploaded);
 #endif
