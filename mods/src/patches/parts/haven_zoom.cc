@@ -1,6 +1,7 @@
 #include "config.h"
 #include "errormsg.h"
 #include "settings/camera_settings.h"
+#include "patches/key.h"
 #include "patches/mapkey.h"
 #include "patches/screen_update_hook.h"
 
@@ -218,8 +219,9 @@ void PrepareHavenOrbit(Il2CppObject *blend, Il2CppObject *source, Il2CppObject *
   }
   if (frame != orbit_state.frame) {
     orbit_state.frame = frame;
-    const bool held = focused() && MapKey::IsPressed(GameFunction::HavenOrbitDrag);
-    const bool reset = focused() && MapKey::IsDown(GameFunction::HavenOrbitReset);
+    const bool input_allowed = focused() && !Key::IsInputFocused();
+    const bool held = input_allowed && MapKey::IsPressed(GameFunction::HavenOrbitDrag);
+    const bool reset = input_allowed && MapKey::IsDown(GameFunction::HavenOrbitReset);
     if (!held && !reset) {
       orbit_state.dragging = false;
     } else if (!HavenOrbitPointerAvailable(orbit_state.dragging && held && !reset)) {
