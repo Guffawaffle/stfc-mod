@@ -132,9 +132,9 @@ struct ProfilesPreviewView: View {
         let reply = try await ProfileCoordinator.call(["create", name])
         selectedID = reply.profile?.id ?? ""
         status = "Created \(reply.profile?.name ?? name)."
-      } catch { self.error = error.localizedDescription }
-      busy = false
-      await refresh()
+        busy = false
+        await refresh()
+      } catch { busy = false; self.error = error.localizedDescription }
     }
   }
 

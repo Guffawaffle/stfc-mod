@@ -13,6 +13,8 @@ or later. The parked system-background experiments are excluded.
 2. Install the ordinary STFC Mac client. Install Google Chrome or Microsoft Edge
    in `/Applications`; the preview uses a separate browser store for each profile's
    Scopely sign-in.
+   A managed browser storage override is refused; use a browser that can honor
+   the private profile directory.
 3. Open the preview app and click **Profiles Preview…**. Create **Quasel Test**.
    This creates a fresh profile; it does not copy your ordinary game login or
    Spocks configuration.
@@ -40,6 +42,8 @@ profile's mod configuration; `logs/Player.log` and `logs/community-mod.log` hold
 its game/mod logs. Quit that profile's game before editing its configuration, then
 launch the same profile again. Changes made through ordinary **Open TOML** belong
 to ordinary play.
+The preview updater refuses to modify an installation used by a modded game;
+named launches are likewise refused while the preview holds update access.
 
 Named profiles live under
 `~/Library/Application Support/STFC Profiles/profiles/<immutable ID>/`. Their
