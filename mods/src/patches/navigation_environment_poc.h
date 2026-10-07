@@ -7,4 +7,6 @@ namespace navigation_environment_poc
 {
 void Update(Il2CppObject *camera);
 void Clear();
+void ApplyDrawDistance(Il2CppObject *camera);
+void ValidateRuntime();
 } // namespace navigation_environment_poc

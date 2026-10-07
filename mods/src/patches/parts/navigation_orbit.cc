@@ -179,6 +179,9 @@ bool Reanchor(Il2CppObject *zoom)
 
 void Tick()
 {
+#if defined(_MODDBG)
+  navigation_environment_poc::ValidateRuntime();
+#endif
   if (!state.zoom)
     return;
   auto *zoom = il2cpp_gchandle_get_target(state.zoom);
@@ -370,6 +373,7 @@ void ApplyDrawDistance(Il2CppObject *zoom)
     void *args[]{&expanded};
     Il2CppRuntime::TryInvoke(set_far_clip, camera, args);
   }
+  navigation_environment_poc::ApplyDrawDistance(camera);
 }
 
 void UpdateCameraPosition_Hook(auto original, Il2CppObject *zoom)
