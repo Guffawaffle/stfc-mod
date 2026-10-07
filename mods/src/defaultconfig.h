@@ -235,6 +235,8 @@ namespace Shortcuts
   constexpr const char* zoom_min              = "BACKSPACE";
   constexpr const char* zoom_out              = "E";
   constexpr const char* zoom_reset            = "=";
+  constexpr const char* haven_orbit_drag      = "MOUSE2";
+  constexpr const char* haven_orbit_reset     = "ALT-MOUSE2";
   constexpr const char* zoom_preset1          = "F1";
   constexpr const char* zoom_preset2          = "F2";
   constexpr const char* zoom_preset3          = "F3";
