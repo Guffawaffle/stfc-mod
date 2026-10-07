@@ -247,7 +247,7 @@ bool FreePan(Il2CppObject *pan)
          && Read<NodeDepth>(zoom, depth_field) == state.depth
          && Read<NodeDepth>(pan, pan_depth) == NodeDepth::SolarSystem
          && Read<Il2CppObject *>(pan, pan_camera) == Read<Il2CppObject *>(zoom, scene_camera)
-         && !Read<Il2CppObject *>(pan, pan_tracking) && !Read<Il2CppObject *>(pan, pan_tracking_fleet);
+         && !Read<Il2CppObject *>(pan, pan_tracking);
 }
 
 Vector3 ClampPositionInside_Hook(auto original, Il2CppObject *pan, Vector3 position)

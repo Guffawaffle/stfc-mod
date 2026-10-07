@@ -49,6 +49,7 @@ namespace
         logger              = std::make_shared<spdlog::async_logger>("navigation-orbit-science", sink, pool,
                                                                      spdlog::async_overflow_policy::overrun_oldest);
         logger->set_pattern("%v");
+        logger->set_level(spdlog::level::info);
         logger->flush_on(spdlog::level::info); // Worker thread only; never flush the game thread.
         logger->info("{}", Json{{"event", "start"},
                                 {"source", STFC_SOURCE_STATE_ID},

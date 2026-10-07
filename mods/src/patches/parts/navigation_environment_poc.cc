@@ -45,7 +45,9 @@ namespace
   const MethodInfo *set_parent, *set_angles;
   const MethodInfo *far_clip, *near_clip, *culling_mask, *game_ctor, *add_component, *mesh_ctor, *material_ctor;
   const MethodInfo *set_vertices, *set_uv, *set_triangles, *set_mesh, *set_material, *shader_find, *set_texture;
+  const MethodInfo *set_colors, *set_queue, *set_int;
   Il2CppClass      *game_class, *mesh_class, *material_class, *vector3_class, *vector2_class, *int_class;
+  Il2CppClass      *loader_class, *object_class, *color_class;
   void             *loader_type, *filter_type, *renderer_type;
   FieldInfo        *renderer_field;
   int (*frame_count)() = nullptr;
@@ -92,6 +94,10 @@ namespace
     set_material  = Method("Renderer", "set_sharedMaterial", false, "System.Void", {"UnityEngine.Material"});
     shader_find   = Method("Shader", "Find", true, "UnityEngine.Shader", {"System.String"});
     set_texture   = Method("Material", "set_mainTexture", false, "System.Void", {"UnityEngine.Texture"});
+    set_colors    = Method("Mesh", "set_colors", false, "System.Void", {"UnityEngine.Color[]"});
+    set_queue     = Method("Material", "set_renderQueue", false, "System.Void", {"System.Int32"});
+    set_int       = Method("Material", "SetInt", false, "System.Void", {"System.String", "System.Int32"});
+    color_class   = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Color").get_cls();
     auto loader   = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Rendering", "FlatRenderableLoader");
     auto flat     = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Rendering", "FlatRenderable");
     background    = method_contract::Resolve(loader.get_cls(), "get_Background", false,
@@ -102,6 +108,8 @@ namespace
             || !method_contract::Type(renderer_field->type, "UnityEngine.MeshRenderer")))
       renderer_field = nullptr;
     loader_type    = loader.isValidHelper() ? loader.GetType() : nullptr;
+    loader_class   = loader.get_cls();
+    object_class   = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Object").get_cls();
     auto filter    = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "MeshFilter");
     auto renderer  = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "MeshRenderer");
     filter_type    = filter.isValidHelper() ? filter.GetType() : nullptr;
@@ -157,11 +165,11 @@ namespace
     object.Reset();
   }
 
-  void Fail()
+  void Fail(const char *stage)
   {
     Clear();
     failed = true;
-    spdlog::warn("[SystemEnvironmentPoc] unavailable; leaving native scenery and free camera intact");
+    spdlog::warn("[SystemEnvironmentPoc] unavailable at {}; leaving native scenery and free camera intact", stage);
   }
 
   template <typename T> bool Array(const std::vector<T> &values, Il2CppClass *cls, const MethodInfo *setter)
@@ -221,9 +229,20 @@ namespace
     void         *shader_args[]{il2cpp_string_new("Hidden/Universe/Backdrop")};
     Il2CppObject *shader = nullptr, *filter = nullptr, *renderer = nullptr;
     if (!Il2CppRuntime::TryInvoke(game_ctor, shell.Get(), name_args)
-        || !Il2CppRuntime::TryInvoke(mesh_ctor, mesh.Get(), nullptr)
-        || !Il2CppRuntime::TryInvoke(shader_find, nullptr, shader_args, &shader) || !Live(shader))
+        || !Il2CppRuntime::TryInvoke(mesh_ctor, mesh.Get(), nullptr)) {
+      spdlog::warn("[SystemEnvironmentPoc] GameObject/Mesh construction failed");
       return false;
+    }
+    Il2CppRuntime::TryInvoke(shader_find, nullptr, shader_args, &shader);
+    bool ui_fallback = !Live(shader);
+    if (ui_fallback && set_colors && set_queue && set_int && color_class) {
+      void *fallback_args[]{il2cpp_string_new("UI/Default")};
+      Il2CppRuntime::TryInvoke(shader_find, nullptr, fallback_args, &shader);
+    }
+    if (!Live(shader)) {
+      spdlog::warn("[SystemEnvironmentPoc] object/mesh/shader setup failed (shader-present={})", Live(shader));
+      return false;
+    }
     void *material_args[]{shader}, *texture_args[]{texture}, *layer_args[]{&layer};
     void *filter_args[]{filter_type}, *renderer_args[]{renderer_type};
     if (!Il2CppRuntime::TryInvoke(material_ctor, material.Get(), material_args)
@@ -234,13 +253,27 @@ namespace
         || !Il2CppRuntime::TryInvoke(add_component, shell.Get(), filter_args, &filter) || !Live(filter)
         || !Il2CppRuntime::TryInvoke(add_component, shell.Get(), renderer_args, &renderer) || !Live(renderer))
       return false;
+    if (ui_fallback) {
+      // The existing UI shader is also unlit, CullOff and ZWriteOff. Its owned
+      // material is rendered before world geometry, with ordinary depth testing.
+      // This fallback avoids depending on an unused shader being loaded already.
+      struct Color {
+        float r, g, b, a;
+      };
+      std::vector<Color> colors(vertices.size(), {1, 1, 1, 1});
+      int                queue = 1000, depth = 4;
+      void              *queue_args[]{&queue}, *depth_args[]{il2cpp_string_new("unity_GUIZTestMode"), &depth};
+      if (!Array(colors, color_class, set_colors) || !Il2CppRuntime::TryInvoke(set_queue, material.Get(), queue_args)
+          || !Il2CppRuntime::TryInvoke(set_int, material.Get(), depth_args))
+        return false;
+    }
     void *mesh_args[]{mesh.Get()}, *render_args[]{material.Get()};
     if (!Il2CppRuntime::TryInvoke(set_mesh, filter, mesh_args)
         || !Il2CppRuntime::TryInvoke(set_material, renderer, render_args))
       return false;
     source.Reset(texture);
-    spdlog::info("[SystemEnvironmentPoc] created closed shell layer={} vertices={} triangles={}", layer,
-                 vertices.size(), indices.size() / 3);
+    spdlog::info("[SystemEnvironmentPoc] created closed shell layer={} vertices={} triangles={} shader={}", layer,
+                 vertices.size(), indices.size() / 3, ui_fallback ? "UI/Default" : "Hidden/Universe/Backdrop");
     return source.Get() != nullptr;
   }
 
@@ -248,21 +281,22 @@ namespace
   {
     void         *args[]{loader_type};
     Il2CppObject *result = nullptr;
-    if (!Il2CppRuntime::TryInvoke(find_all, nullptr, args, &result) || !result
-        || !method_contract::Type(il2cpp_class_get_type(result->klass), "UnityEngine.Object[]")) {
-      Fail();
+    if (!Il2CppRuntime::TryInvoke(find_all, nullptr, args, &result) || !result || !result->klass
+        || result->klass->rank != 1 || !result->klass->element_class || !object_class
+        || !il2cpp_class_is_assignable_from(object_class, result->klass->element_class)) {
+      Fail("loader-discovery");
       return;
     }
     Root array_root;
     array_root.Reset(result);
     auto *array = reinterpret_cast<Il2CppArray *>(result);
     if (!array_root.Get() || array->max_length > 64) {
-      Fail();
+      Fail("loader-count");
       return;
     }
     int mask = 0;
     if (!Value(culling_mask, camera, "System.Int32", mask)) {
-      Fail();
+      Fail("camera-mask");
       return;
     }
     unsigned active_loaders = 0, textured_backgrounds = 0;
@@ -271,9 +305,9 @@ namespace
       Il2CppObject *boxed = nullptr, *flat = nullptr, *renderer = nullptr, *native_material = nullptr,
                    *texture = nullptr;
       bool enabled          = false;
-      if (!Live(loader) || !Il2CppRuntime::TryInvoke(active, loader, nullptr, &boxed)
-          || !Il2CppRuntime::TryBoolean(boxed, enabled) || !enabled
-          || !Il2CppRuntime::TryInvoke(background, loader, nullptr, &flat) || !Live(flat))
+      if (!Live(loader) || !loader_class || !il2cpp_class_is_assignable_from(loader_class, loader->klass)
+          || !Il2CppRuntime::TryInvoke(active, loader, nullptr, &boxed) || !Il2CppRuntime::TryBoolean(boxed, enabled)
+          || !enabled || !Il2CppRuntime::TryInvoke(background, loader, nullptr, &flat) || !Live(flat))
         continue;
       ++active_loaders;
       il2cpp_field_get_value(flat, renderer_field, &renderer);
@@ -294,7 +328,7 @@ namespace
       texture_root.Reset(texture);
       Clear();
       if (!texture_root.Get() || !Create(texture_root.Get(), layer))
-        Fail();
+        Fail("shell-create");
       return;
     }
     // Loading transitions must not retain another system's artwork.
@@ -335,7 +369,7 @@ void Update(Il2CppObject *camera)
       || !Il2CppRuntime::TryInvoke(game_transform, shell.Get(), nullptr, &shell_transform) || !Live(shell_transform)
       || !Value(get_position, camera_transform, "UnityEngine.Vector3", position) || !std::isfinite(position.x)
       || !std::isfinite(position.y) || !std::isfinite(position.z)) {
-    Fail();
+    Fail("camera-follow-query");
     return;
   }
   // Follow translation only: keep the sky's orientation independent of camera rotation.
@@ -350,6 +384,6 @@ void Update(Il2CppObject *camera)
       || !Il2CppRuntime::TryInvoke(set_angles, shell_transform, angle_args)
       || !Il2CppRuntime::TryInvoke(set_position, shell_transform, position_args)
       || !Il2CppRuntime::TryInvoke(set_scale, shell_transform, scale_args))
-    Fail();
+    Fail("camera-follow-write");
 }
 } // namespace navigation_environment_poc
