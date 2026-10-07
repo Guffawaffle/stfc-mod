@@ -61,6 +61,8 @@ enum GameFunction {
   ZoomMin,
   ZoomMax,
   ZoomReset,
+  HavenOrbitDrag,
+  HavenOrbitReset,
   UiScaleUp,
   UiScaleDown,
   UiShipScaleUp,
