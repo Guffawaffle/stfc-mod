@@ -27,10 +27,11 @@
 namespace
 {
 const MethodInfo *scroll_event_system = nullptr, *scroll_raycast = nullptr, *scroll_count = nullptr;
-const MethodInfo *scroll_item = nullptr, *scroll_parent = nullptr, *scroll_active = nullptr;
+const MethodInfo *scroll_item = nullptr, *scroll_parents = nullptr, *scroll_active = nullptr;
 Il2CppClass *scroll_handler_class = nullptr;
 Il2CppClass *scroll_behaviour_class = nullptr;
 FieldInfo *scroll_game_object = nullptr;
+FieldInfo *scroll_pinch_started = nullptr;
 NavigationZoom *native_navigation_update = nullptr;
 bool scroll_guard_ready = false;
 
@@ -79,20 +80,39 @@ bool PointerOwnsScroll()
   if (target == nullptr)
     return false;
   auto *handler_type = il2cpp_type_get_object(il2cpp_class_get_type(scroll_handler_class));
-  bool include_inactive = false;
-  void *parent_args[]{handler_type, &include_inactive};
-  auto *handler = ScrollInvoke(scroll_parent, target, parent_args);
-  if (handler == nullptr || !il2cpp_class_is_assignable_from(scroll_behaviour_class, handler->klass))
+  // This is GetComponentsInParent(Type, false)'s native implementation; the
+  // public non-generic wrapper is stripped in the client. Inspect every handler
+  // so a disabled inner scroller cannot conceal an enabled ancestor or sibling.
+  bool typed_array = false, recursive = true, include_inactive = false, reverse = true;
+  void *parent_args[]{handler_type, &typed_array, &recursive, &include_inactive, &reverse, nullptr};
+  auto *handlers = reinterpret_cast<Il2CppArray *>(ScrollInvoke(scroll_parents, target, parent_args));
+  if (handlers == nullptr)
     return false;
-  auto *active = ScrollInvoke(scroll_active, handler);
-  return active != nullptr && *static_cast<bool *>(il2cpp_object_unbox(active));
+  for (size_t i = 0; i < il2cpp_array_length(handlers); ++i) {
+    auto *handler = il2cpp_get_array_element<Il2CppObject>(handlers, i);
+    if (handler == nullptr)
+      continue;
+    // Unity accepts non-Behaviour handlers; Behaviours must be enabled and active.
+    if (!il2cpp_class_is_assignable_from(scroll_behaviour_class, handler->klass))
+      return true;
+    auto *active = ScrollInvoke(scroll_active, handler);
+    if (!scroll_guard_ready)
+      return false;
+    if (active != nullptr && *static_cast<bool *>(il2cpp_object_unbox(active)))
+      return true;
+  }
+  return false;
 }
 
 void NavigationZoom_WheelAtWorldPoint_Hook(auto original, NavigationZoom *zoom)
 {
   // Mod keyboard zoom calls this before entering the native Update scope.
   // Block only the native camera consumer; leave the UI's input action intact.
-  if (zoom == native_navigation_update && PointerOwnsScroll()) {
+  bool pinch_started = false;
+  if (scroll_guard_ready && zoom == native_navigation_update)
+    il2cpp_field_get_value(reinterpret_cast<Il2CppObject *>(zoom), scroll_pinch_started, &pinch_started);
+  // Native touch pinch shares this consumer but is unrelated to mouse position.
+  if (zoom == native_navigation_update && !pinch_started && PointerOwnsScroll()) {
     zoom->_zoomDelta = 0.0f;
     zoom->_lastZoomDelta = 0.0f;
     return;
@@ -121,11 +141,16 @@ void InstallScrollZoomGuard(Il2CppClass *navigation_zoom_class)
       raycasts.get_cls(), "CachedRaycast", true,
       "System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>",
       {"UnityEngine.EventSystems.EventSystem", "UnityEngine.Vector2"});
-  scroll_parent = method_contract::Resolve(game_object.get_cls(), "GetComponentInParent", false,
-                                           "UnityEngine.Component", {"System.Type", "System.Boolean"});
+  scroll_parents = method_contract::Resolve(game_object.get_cls(), "GetComponentsInternal", false, "System.Array",
+      {"System.Type", "System.Boolean", "System.Boolean", "System.Boolean", "System.Boolean", "System.Object"});
   scroll_active = method_contract::Resolve(behaviour.get_cls(), "get_isActiveAndEnabled", false, "System.Boolean", {});
   scroll_handler_class = handler.get_cls();
   scroll_behaviour_class = behaviour.get_cls();
+  scroll_pinch_started = navigation_zoom_class != nullptr
+      ? il2cpp_class_get_field_from_name(navigation_zoom_class, "_pinchStarted") : nullptr;
+  const auto valid_pinch_field = scroll_pinch_started != nullptr
+      && !(il2cpp_field_get_flags(scroll_pinch_started) & FIELD_ATTRIBUTE_STATIC)
+      && method_contract::Type(scroll_pinch_started->type, "System.Boolean");
   auto *list_class = scroll_raycast != nullptr ? il2cpp_class_from_type(scroll_raycast->return_type) : nullptr;
   // These are methods on a closed generic List; runtime_invoke handles its
   // value-type result without depending on Windows/macOS struct return ABI.
@@ -148,17 +173,18 @@ void InstallScrollZoomGuard(Il2CppClass *navigation_zoom_class)
     return field != nullptr && !(il2cpp_field_get_flags(field) & FIELD_ATTRIBUTE_STATIC)
         && method_contract::Type(field->type, "System.Single");
   };
-  if (scroll_event_system == nullptr || scroll_raycast == nullptr || scroll_parent == nullptr
+  if (scroll_event_system == nullptr || scroll_raycast == nullptr || scroll_parents == nullptr
       || scroll_active == nullptr || scroll_handler_class == nullptr || !valid_count || !valid_item
       || scroll_game_object == nullptr || !method_contract::Type(scroll_game_object->type, "UnityEngine.GameObject")
       || (il2cpp_field_get_flags(scroll_game_object) & FIELD_ATTRIBUTE_STATIC)
       || !valid_zoom_field("_zoomDelta") || !valid_zoom_field("_lastZoomDelta")
+      || !valid_pinch_field
       || navigation_wheel == nullptr || station_wheel == nullptr) {
     spdlog::warn("[ScrollZoomGuard] UI/camera API unavailable; keeping native camera input "
-                 "(event={} raycast={} count={} item={} parent={} active={} handler={} hit={} navigation={} station={})",
+                 "(event={} raycast={} count={} item={} parents={} active={} handler={} hit={} pinch={} navigation={} station={})",
                  scroll_event_system != nullptr, scroll_raycast != nullptr, valid_count, valid_item,
-                 scroll_parent != nullptr, scroll_active != nullptr, scroll_handler_class != nullptr,
-                 scroll_game_object != nullptr, navigation_wheel != nullptr, station_wheel != nullptr);
+                 scroll_parents != nullptr, scroll_active != nullptr, scroll_handler_class != nullptr,
+                 scroll_game_object != nullptr, valid_pinch_field, navigation_wheel != nullptr, station_wheel != nullptr);
     return;
   }
   scroll_guard_ready = true;
