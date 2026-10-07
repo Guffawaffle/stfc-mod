@@ -48,6 +48,8 @@ includes("xmake/library.lua")
             os.mkdir(source)
             os.cp("adapters", source)
             os.cp("cli", source)
+            os.mkdir(path.join(source, "src"))
+            os.cp("src/c_api.cc", path.join(source, "src"))
         end)
         on_fetch(function(package)
             return {includedirs = path.join(package:installdir(), "include"),
@@ -85,6 +87,29 @@ rule("stfc.profiles.source")
         target:add("files", path.join(source, "adapters/community_mod/profile_isolation.cc"))
         target:add("files", path.join(source, "adapters/community_mod/process_admission.cc"))
         target:add("files", path.join(source, "adapters/community_mod/browser_guardian.cc"))
+    end)
+rule_end()
+
+-- The updater owns its lease in the writer process. Compile the published ABI
+-- and expose its exact public header to Swift rather than replicating declarations.
+rule("stfc.profiles.launcher")
+    on_load(function(target)
+        local source = get_config("stfc_profiles_source")
+        local header
+        if source and #source > 0 then
+            source = path.absolute(source)
+            header = path.join(source, "include/stfc_profiles/c_api.h")
+        else
+            local package = target:pkg("stfc-profiles")
+            source = path.join(package:installdir(), "share/stfc-profiles")
+            header = path.join(package:installdir(), "include/stfc_profiles/c_api.h")
+        end
+        target:add("files", path.join(source, "src/c_api.cc"))
+        local modulemap = path.join(os.projectdir(), "build", target:plat(), target:arch(),
+            target:mode(), "profiles-module/module.modulemap")
+        os.mkdir(path.directory(modulemap))
+        io.writefile(modulemap, 'module STFCProfiles { header "' .. header:gsub("\\", "/") .. '" export * }\n')
+        target:add("scflags", "-Xcc -fmodule-map-file=" .. modulemap, {force = true})
     end)
 rule_end()
 
