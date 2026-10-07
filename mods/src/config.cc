@@ -1591,6 +1591,8 @@ void Config::Load()
   parse_config_shortcut(config, parsed, "zoom_max", GameFunction::ZoomMax, DCSH::zoom_max);
   parse_config_shortcut(config, parsed, "zoom_min", GameFunction::ZoomMin, DCSH::zoom_min);
   parse_config_shortcut(config, parsed, "zoom_reset", GameFunction::ZoomReset, DCSH::zoom_reset);
+  parse_config_shortcut(config, parsed, "haven_orbit_drag", GameFunction::HavenOrbitDrag, DCSH::haven_orbit_drag);
+  parse_config_shortcut(config, parsed, "haven_orbit_reset", GameFunction::HavenOrbitReset, DCSH::haven_orbit_reset);
   parse_config_shortcut(config, parsed, "ui_scaleup", GameFunction::UiScaleUp, DCSH::ui_scaleup);
   parse_config_shortcut(config, parsed, "ui_scaledown", GameFunction::UiScaleDown, DCSH::ui_scaledown);
   parse_config_shortcut(config, parsed, "ui_scaleshipup", GameFunction::UiShipScaleUp, DCSH::ui_scaleshipup);
