@@ -134,7 +134,7 @@ Il2CppObject *InvokeHavenOrbit(const MethodInfo *method, void *object, void **ar
   return result;
 }
 
-bool HavenOrbitPointerAvailable()
+bool HavenOrbitPointerAvailable(bool continuing_drag)
 {
   auto *system = InvokeHavenOrbit(orbit_event_system, nullptr);
   if (system == nullptr)
@@ -143,7 +143,9 @@ bool HavenOrbitPointerAvailable()
   void *args[]{&pointer};
   auto *over_ui = InvokeHavenOrbit(orbit_pointer_over_ui, system, args);
   bool blocked = true;
-  if (!Il2CppRuntime::TryBoolean(over_ui, blocked) || blocked)
+  // Once a drag begins over the map, retain it across building badges and
+  // collection icons until release. UI still owns any press that starts there.
+  if (!Il2CppRuntime::TryBoolean(over_ui, blocked) || (blocked && !continuing_drag))
     return false;
   auto *manager = InvokeHavenOrbit(orbit_manager_instance, nullptr);
   auto *placement = manager != nullptr ? InvokeHavenOrbit(orbit_placement, manager) : nullptr;
@@ -220,10 +222,10 @@ void PrepareHavenOrbit(Il2CppObject *blend, Il2CppObject *source, Il2CppObject *
     const bool reset = focused() && MapKey::IsDown(GameFunction::HavenOrbitReset);
     if (!held && !reset) {
       orbit_state.dragging = false;
-    } else if (!HavenOrbitPointerAvailable()) {
+    } else if (!HavenOrbitPointerAvailable(orbit_state.dragging && held && !reset)) {
       if (reset || MapKey::IsDown(GameFunction::HavenOrbitDrag))
         spdlog::debug("[HavenOrbit] gesture blocked by UI or active placement");
-      // Require a fresh press after crossing UI or entering placement mode.
+      // Require a fresh press after a blocked UI start or entering placement mode.
       orbit_state.dragging = false;
     } else if (reset) {
       spdlog::debug("[HavenOrbit] reset to native orientation");
