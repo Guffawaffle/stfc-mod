@@ -48,7 +48,7 @@ namespace
   const MethodInfo *far_clip, *near_clip, *culling_mask, *game_ctor, *add_component, *mesh_ctor, *material_ctor;
   const MethodInfo *set_vertices, *set_uv, *set_triangles, *set_mesh, *set_material, *shader_find, *set_texture;
   const MethodInfo *set_queue, *shader_supported, *renderer_visible, *get_bounds, *recalculate_bounds;
-  const MethodInfo *set_shadows, *receive_shadows, *allow_occlusion;
+  const MethodInfo *set_shadows, *receive_shadows;
   const MethodInfo *texture_width, *texture_height, *object_name, *renderer_enabled;
   Il2CppClass      *game_class, *mesh_class, *material_class, *vector3_class, *vector2_class, *int_class;
   Il2CppClass      *loader_class, *object_class, *flat_class;
@@ -110,7 +110,6 @@ namespace
     set_shadows =
         Method("Renderer", "set_shadowCastingMode", false, "System.Void", {"UnityEngine.Rendering.ShadowCastingMode"});
     receive_shadows = Method("Renderer", "set_receiveShadows", false, "System.Void", {"System.Boolean"});
-    allow_occlusion = Method("Renderer", "set_allowOcclusionWhenDynamic", false, "System.Void", {"System.Boolean"});
     auto loader     = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Rendering", "FlatRenderableLoader");
     auto flat       = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Rendering", "FlatRenderable");
     flat_class      = flat.get_cls();
@@ -147,9 +146,11 @@ namespace
             && set_material && shader_find && set_texture && loader_type && filter_type && renderer_type
             && renderer_field && game_class && mesh_class && material_class && vector3_class && vector2_class
             && int_class && frame_count && texture_width && texture_height && renderer_enabled && set_queue
-            && shader_supported && flat_class && recalculate_bounds && set_shadows && receive_shadows
-            && allow_occlusion;
-    spdlog::info("[SystemEnvironmentPoc] runtime API ready={}", ready);
+            && shader_supported && flat_class && recalculate_bounds && set_shadows && receive_shadows;
+    spdlog::info(
+        "[SystemEnvironmentPoc] runtime API ready={} recalc={} shader-support={} cast-shadows={} receive-shadows={}",
+        ready, recalculate_bounds != nullptr, shader_supported != nullptr, set_shadows != nullptr,
+        receive_shadows != nullptr);
     return ready;
   }
 
@@ -295,8 +296,7 @@ namespace
     void *shadows_args[]{&shadows}, *off_args[]{&off};
     if (!Il2CppRuntime::TryInvoke(recalculate_bounds, mesh.Get(), nullptr)
         || !Il2CppRuntime::TryInvoke(set_shadows, renderer, shadows_args)
-        || !Il2CppRuntime::TryInvoke(receive_shadows, renderer, off_args)
-        || !Il2CppRuntime::TryInvoke(allow_occlusion, renderer, off_args))
+        || !Il2CppRuntime::TryInvoke(receive_shadows, renderer, off_args))
       return false;
     shell_renderer.Reset(renderer);
     source.Reset(texture);
