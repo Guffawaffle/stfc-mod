@@ -214,7 +214,7 @@ void PrepareHavenOrbit(Il2CppObject *blend, Il2CppObject *source, Il2CppObject *
     orbit_state.target = il2cpp_gchandle_new(target, false);
     orbit_state.native_yaw = rotation;
     orbit_state.native_elevation = elevation;
-    spdlog::debug("[HavenOrbit] native pitch={} yaw={}; tilt limited to +/-15 degrees", elevation, rotation);
+    spdlog::debug("[HavenOrbit] native pitch={} yaw={}; pitch range 5 to 179 degrees", elevation, rotation);
   }
   if (frame != orbit_state.frame) {
     orbit_state.frame = frame;
@@ -238,9 +238,9 @@ void PrepareHavenOrbit(Il2CppObject *blend, Il2CppObject *source, Il2CppObject *
         if (orbit_state.dragging) {
           constexpr float degrees_per_pixel = 0.15f;
           orbit_state.yaw = std::remainder(orbit_state.yaw + (position.x - orbit_state.x) * degrees_per_pixel, 360.0f);
-          // Keep a conservative tilt range around the game's measured native view.
+          // Keep above the map plane while allowing orbit through the overhead view.
           orbit_state.tilt = std::clamp(orbit_state.tilt - (position.y - orbit_state.y) * degrees_per_pixel,
-                                       std::max(-15.0f, 15.0f - elevation), std::min(15.0f, 80.0f - elevation));
+                                       5.0f - elevation, 179.0f - elevation);
         }
         orbit_state.x = position.x;
         orbit_state.y = position.y;

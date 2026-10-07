@@ -732,6 +732,7 @@ zoom_preset5 = "F5"
 zoom_reset = "="
 
 # Hold and drag on the Haven map: sideways rotates; up/down changes tilt.
+# Pitch ranges from 5 to 179 degrees; reset restores the native view.
 # MOUSE2 is the middle mouse button. Rebind in Mod Settings > Shortcuts > Camera.
 # An empty binding disables this control. Requires [patches].havenzoomhooks.
 haven_orbit_drag = "MOUSE2"
