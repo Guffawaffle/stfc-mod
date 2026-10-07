@@ -265,6 +265,7 @@ namespace
       Fail();
       return;
     }
+    unsigned active_loaders = 0, textured_backgrounds = 0;
     for (size_t i = 0; i < array->max_length; ++i) {
       auto         *loader = *reinterpret_cast<Il2CppObject **>(il2cpp_array_addr_with_size(array, i, sizeof(void *)));
       Il2CppObject *boxed = nullptr, *flat = nullptr, *renderer = nullptr, *native_material = nullptr,
@@ -274,11 +275,13 @@ namespace
           || !Il2CppRuntime::TryBoolean(boxed, enabled) || !enabled
           || !Il2CppRuntime::TryInvoke(background, loader, nullptr, &flat) || !Live(flat))
         continue;
+      ++active_loaders;
       il2cpp_field_get_value(flat, renderer_field, &renderer);
       if (!Live(renderer) || !Il2CppRuntime::TryInvoke(shared_material, renderer, nullptr, &native_material)
           || !Live(native_material) || !Il2CppRuntime::TryInvoke(main_texture, native_material, nullptr, &texture)
           || !Live(texture))
         continue;
+      ++textured_backgrounds;
       if (texture == source.Get() && Live(shell.Get()))
         return;
       Il2CppObject *object = nullptr;
@@ -295,6 +298,11 @@ namespace
       return;
     }
     // Loading transitions must not retain another system's artwork.
+    static unsigned reports = 0;
+    if (reports++ < 5)
+      spdlog::debug(
+          "[SystemEnvironmentPoc] awaiting compatible artwork loaders={} active={} textured={} camera-mask={}",
+          array->max_length, active_loaders, textured_backgrounds, mask);
     Clear();
   }
 } // namespace

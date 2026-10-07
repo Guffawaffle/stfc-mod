@@ -283,14 +283,27 @@ void MoveCamera_Hook(auto original, Il2CppObject *pan, vec2 delta, bool momentum
     const auto    pixels     = Read<vec2>(pan, pan_drag_delta);
     const float   normalized = Read<float>(zoom, normalized_zoom), min_speed = Read<float>(pan, pan_min_speed);
     if (!Il2CppRuntime::TryInvoke(camera_fov, camera, nullptr, &fov_result) || !fov_result
-        || !method_contract::Type(il2cpp_class_get_type(fov_result->klass), "System.Single")
-        || !Il2CppRuntime::TryInvoke(camera_height, camera, nullptr, &height_result) || !height_result
+        || !method_contract::Type(il2cpp_class_get_type(fov_result->klass), "System.Single")) {
+      original(pan, vec2{}, momentum);
+      return;
+    }
+    auto *fov_data = static_cast<float *>(il2cpp_object_unbox(fov_result));
+    if (!fov_data) {
+      original(pan, vec2{}, momentum);
+      return;
+    }
+    const float fov = *fov_data;
+    if (!Il2CppRuntime::TryInvoke(camera_height, camera, nullptr, &height_result) || !height_result
         || !method_contract::Type(il2cpp_class_get_type(height_result->klass), "System.Int32")) {
       original(pan, vec2{}, momentum);
       return;
     }
-    const float fov    = *static_cast<float *>(il2cpp_object_unbox(fov_result));
-    const int   height = *static_cast<int *>(il2cpp_object_unbox(height_result));
+    auto *height_data = static_cast<int *>(il2cpp_object_unbox(height_result));
+    if (!height_data) {
+      original(pan, vec2{}, momentum);
+      return;
+    }
+    const int height = *height_data;
     if (!std::isfinite(fov) || fov <= 0 || fov >= 179 || height <= 0 || !std::isfinite(normalized)
         || !std::isfinite(min_speed)) {
       original(pan, vec2{}, momentum);
