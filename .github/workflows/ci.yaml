@@ -42,9 +42,10 @@ jobs:
       contents: read
     env:
       STFC_MSVC_SCCACHE: "1"
-      WINDOWS_SCCACHE_SCHEMA: "v1"
+      # Start a smaller cache without restoring the old 2 GiB snapshots.
+      WINDOWS_SCCACHE_SCHEMA: "v2"
       SCCACHE_DIR: ${{ github.workspace }}/build/.windows-sccache
-      SCCACHE_CACHE_SIZE: "2G"
+      SCCACHE_CACHE_SIZE: "512M"
 
     steps:
       - name: Capture build identity
@@ -280,7 +281,7 @@ jobs:
           key: ${{ steps.restore_local_packages.outputs.cache-primary-key }}
 
       - name: Save Windows compiler cache
-        if: ${{ success() && !cancelled() && steps.restore_windows_sccache.outputs.cache-hit != 'true' }}
+        if: ${{ success() && !cancelled() && github.event_name == 'push' && steps.restore_windows_sccache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
           path: build/.windows-sccache
@@ -292,6 +293,19 @@ jobs:
         with:
           path: ${{ runner.tool_cache }}/xmake
           key: ${{ steps.restore_xmake.outputs.cache-primary-key }}
+
+      - name: Report cache effectiveness
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CACHE_RESTORES_JSON: >-
+            {"Tool": ${{ toJSON(steps.restore_xmake) }},
+             "Dependencies": ${{ toJSON(steps.restore_packages) }},
+             "Local packages": ${{ toJSON(steps.restore_local_packages) }},
+             "Compiler": ${{ toJSON(steps.restore_windows_sccache) }}}
+          CACHE_PATHS_JSON: '{"Windows compiler": "build/.windows-sccache"}'
+        run: python scripts/report-ci-cache.py --repo "$env:GITHUB_REPOSITORY" --run-id "$env:GITHUB_RUN_ID" --attempt "$env:GITHUB_RUN_ATTEMPT" --job-name build-win
 
   attest-win:
     name: attest-win
@@ -374,7 +388,7 @@ jobs:
       # cache when the repository checkout path changes (for example, on rename).
       SWIFT_MODULE_CACHE_SCHEMA: "v2"
       SCCACHE_DIR: ${{ github.workspace }}/build/.protobuf-sccache
-      SCCACHE_CACHE_SIZE: "1G"
+      SCCACHE_CACHE_SIZE: "256M"
 
     steps:
       - name: Checkout
@@ -680,14 +694,14 @@ jobs:
           key: ${{ steps.restore_swift_modules.outputs.cache-primary-key }}
 
       - name: Save protobuf compiler cache
-        if: ${{ success() && !cancelled() && steps.restore_protobuf_sccache.outputs.cache-hit != 'true' }}
+        if: ${{ success() && !cancelled() && github.event_name == 'push' && steps.restore_protobuf_sccache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
           path: build/.protobuf-sccache
           key: ${{ steps.restore_protobuf_sccache.outputs.cache-primary-key }}
 
       - name: Save XMake compiler cache
-        if: ${{ success() && !cancelled() && steps.restore_build.outputs.cache-hit != 'true' }}
+        if: ${{ success() && !cancelled() && github.event_name == 'push' && steps.restore_build.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
           path: build/.build_cache
@@ -699,6 +713,40 @@ jobs:
         with:
           path: ${{ runner.tool_cache }}/xmake
           key: ${{ steps.restore_xmake.outputs.cache-primary-key }}
+
+      - name: Report cache effectiveness
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CACHE_RESTORES_JSON: >-
+            {"Tool": ${{ toJSON(steps.restore_xmake) }},
+             "Dependencies": ${{ toJSON(steps.restore_packages) }},
+             "Local packages": ${{ toJSON(steps.restore_local_packages) }},
+             "Swift modules": ${{ toJSON(steps.restore_swift_modules) }},
+             "XMake compiler": ${{ toJSON(steps.restore_build) }},
+             "Protobuf compiler": ${{ toJSON(steps.restore_protobuf_sccache) }}}
+          CACHE_PATHS_JSON: '{"Protobuf compiler": "build/.protobuf-sccache", "XMake compiler": "build/.build_cache"}'
+        run: python3 scripts/report-ci-cache.py --repo "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" --job-name "build-mac (${{ matrix.arch }})"
+
+  # Keep commit-keyed compiler snapshots from evicting expensive dependencies.
+  # Only trusted fork pushes can delete caches; PR jobs retain read permissions.
+  prune-compiler-caches:
+    needs: [build-win, build-mac]
+    if: github.repository == 'Guffawaffle/stfc-mod' && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Retain newest compiler snapshots for this branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/prune-compiler-caches.py --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --apply
 
   # Preserve the fork's required check while requiring both architecture builds.
   fork-mac-required-check:
