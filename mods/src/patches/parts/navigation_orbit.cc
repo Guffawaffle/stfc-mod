@@ -2,6 +2,7 @@
 #include "errormsg.h"
 #include "patches/key.h"
 #include "patches/mapkey.h"
+#include "patches/navigation_orbit_science.h"
 #include "patches/screen_update_hook.h"
 #include <algorithm>
 #include <cmath>
@@ -86,8 +87,11 @@ bool SetView(Il2CppObject *transform, Vector3 angles, float distance)
   return Il2CppRuntime::TryInvoke(set_position, transform, position_args);
 }
 
-void Clear()
+void Clear(const char *reason = "unspecified")
 {
+  if (state.zoom)
+    navigation_orbit_science::Orbit(il2cpp_gchandle_get_target(state.zoom), reason, state.yaw, state.pitch,
+                                    state.overridden, state.dragging, true);
   if (state.overridden && state.transform)
     SetView(il2cpp_gchandle_get_target(state.transform), state.native_angles, state.distance);
   if (state.zoom)
@@ -99,7 +103,7 @@ void Clear()
 
 void Fail()
 {
-  Clear();
+  Clear("api-failure");
   ready = false;
   spdlog::warn("[NavigationOrbit] camera/input API changed; keeping native orientation");
 }
@@ -167,7 +171,7 @@ void Tick()
     return;
   auto *zoom = il2cpp_gchandle_get_target(state.zoom);
   if (!Enabled() || !zoom || !SectionMatches(state.depth) || Read<NodeDepth>(zoom, depth_field) != state.depth) {
-    Clear();
+    Clear("tick-scope-change");
     return;
   }
   if (state.frame == frame_count())
@@ -194,6 +198,8 @@ void Tick()
     changed          = state.overridden;
     state.overridden = state.dragging = false;
     state.yaw                         = 0.0f;
+    navigation_orbit_science::Orbit(zoom, "reset-binding", state.yaw, state.pitch, state.overridden,
+                                    state.dragging, true);
     spdlog::debug("[NavigationOrbit] reset native view");
   } else {
     Vector3 position{};
@@ -228,11 +234,13 @@ void Tick()
 
 void UpdateCameraPosition_Hook(auto original, Il2CppObject *zoom)
 {
+  navigation_orbit_science::Orbit(zoom, "before-native-camera", state.yaw, state.pitch, state.overridden, state.dragging);
   if (state.zoom
       && (!Enabled() || !zoom || il2cpp_gchandle_get_target(state.zoom) != zoom
           || Read<NodeDepth>(zoom, depth_field) != state.depth || !SectionMatches(state.depth)))
-    Clear();
+    Clear("camera-or-scope-change");
   original(zoom);
+  navigation_orbit_science::Orbit(zoom, "after-native-camera", state.yaw, state.pitch, state.overridden, state.dragging);
   if (!zoom || !Enabled() || !SectionMatches(Read<NodeDepth>(zoom, depth_field)))
     return;
   const auto    depth     = Read<NodeDepth>(zoom, depth_field);
@@ -255,7 +263,7 @@ void UpdateCameraPosition_Hook(auto original, Il2CppObject *zoom)
                    transform == camera_transform, angles.x, angles.y, angles.z);
       warned = true;
     }
-    Clear();
+    Clear("native-rig-unqualified");
     return;
   }
   if (!state.zoom) {
@@ -276,6 +284,7 @@ void UpdateCameraPosition_Hook(auto original, Il2CppObject *zoom)
     return;
   }
   Tick();
+  navigation_orbit_science::Orbit(zoom, "after-orbit-camera", state.yaw, state.pitch, state.overridden, state.dragging);
 }
 } // namespace
 
