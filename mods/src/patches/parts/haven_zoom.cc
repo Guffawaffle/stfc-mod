@@ -35,7 +35,7 @@ FieldInfo        *frame_position = nullptr, *frame_rotation = nullptr, *frame_fo
 FieldInfo        *frame_far_clip = nullptr, *frame_orthographic = nullptr;
 const MethodInfo *curve_evaluate = nullptr;
 FieldInfo *orbit_elevation = nullptr, *orbit_rotation = nullptr;
-FieldInfo *constraint_elevation = nullptr, *constraint_rotation = nullptr;
+FieldInfo *constraint_elevation = nullptr;
 const MethodInfo *orbit_event_system = nullptr, *orbit_pointer_over_ui = nullptr;
 const MethodInfo *orbit_manager_instance = nullptr, *orbit_placement = nullptr;
 bool orbit_ready = false;
@@ -43,8 +43,10 @@ Il2CppObject *orbit_source = nullptr, *orbit_target = nullptr;
 
 struct HavenOrbitState {
   Il2CppGCHandle blend = nullptr;
+  Il2CppGCHandle source = nullptr, target = nullptr;
   int frame = -1;
   float yaw = 0.0f, tilt = 0.0f;
+  float native_yaw = 0.0f, native_elevation = 0.0f;
   float x = 0.0f, y = 0.0f;
   bool dragging = false;
 };
@@ -52,6 +54,15 @@ HavenOrbitState orbit_state;
 
 void ClearHavenOrbit()
 {
+  for (auto handle : {orbit_state.source, orbit_state.target}) {
+    if (handle != nullptr) {
+      if (auto *provider = il2cpp_gchandle_get_target(handle); provider != nullptr) {
+        il2cpp_field_set_value(provider, orbit_rotation, &orbit_state.native_yaw);
+        il2cpp_field_set_value(provider, orbit_elevation, &orbit_state.native_elevation);
+      }
+      il2cpp_gchandle_free(handle);
+    }
+  }
   if (orbit_state.blend != nullptr)
     il2cpp_gchandle_free(orbit_state.blend);
   orbit_state = {};
@@ -174,9 +185,7 @@ void PrepareHavenOrbit(Il2CppObject *blend, Il2CppObject *source, Il2CppObject *
       || ReadHavenField<Il2CppObject *>(target, provider_look_target) != pivot
       || !ReadHavenFixedAngle(source, constraint_elevation, elevation)
       || !ReadHavenFixedAngle(target, constraint_elevation, target_elevation)
-      || !ReadHavenFixedAngle(source, constraint_rotation, rotation)
-      || !ReadHavenFixedAngle(target, constraint_rotation, target_rotation)
-      || std::abs(elevation - target_elevation) > 0.001f || std::abs(rotation - target_rotation) > 0.001f
+      || std::abs(elevation - target_elevation) > 0.001f
       || elevation < 15.0f || elevation > 80.0f) {
     static bool warned = false;
     if (!warned) {
@@ -189,9 +198,20 @@ void PrepareHavenOrbit(Il2CppObject *blend, Il2CppObject *source, Il2CppObject *
   }
   const auto frame = frame_count();
   if (orbit_state.blend == nullptr || il2cpp_gchandle_get_target(orbit_state.blend) != blend
+      || il2cpp_gchandle_get_target(orbit_state.source) != source
+      || il2cpp_gchandle_get_target(orbit_state.target) != target
       || frame > orbit_state.frame + 1) {
     ClearHavenOrbit();
+    rotation = ReadHavenField<float>(source, orbit_rotation);
+    target_rotation = ReadHavenField<float>(target, orbit_rotation);
+    if (!std::isfinite(rotation) || !std::isfinite(target_rotation)
+        || std::abs(std::remainder(rotation - target_rotation, 360.0f)) > 0.001f)
+      return;
     orbit_state.blend = il2cpp_gchandle_new(blend, false);
+    orbit_state.source = il2cpp_gchandle_new(source, false);
+    orbit_state.target = il2cpp_gchandle_new(target, false);
+    orbit_state.native_yaw = rotation;
+    orbit_state.native_elevation = elevation;
     spdlog::debug("[HavenOrbit] native pitch={} yaw={}; tilt limited to +/-15 degrees", elevation, rotation);
   }
   if (frame != orbit_state.frame) {
@@ -235,15 +255,13 @@ void PrepareHavenOrbit(Il2CppObject *blend, Il2CppObject *source, Il2CppObject *
 void HavenOrbit_UpdateConstraints_Hook(auto original, Il2CppObject *provider, Camera *camera)
 {
   original(provider, camera);
-  if (!orbit_ready || (provider != orbit_source && provider != orbit_target)
-      || (orbit_state.yaw == 0.0f && orbit_state.tilt == 0.0f))
+  if (!orbit_ready || (provider != orbit_source && provider != orbit_target))
     return;
-  float elevation = 0.0f, rotation = 0.0f;
-  if (!ReadHavenFixedAngle(provider, constraint_elevation, elevation)
-      || !ReadHavenFixedAngle(provider, constraint_rotation, rotation))
+  float elevation = 0.0f;
+  if (!ReadHavenFixedAngle(provider, constraint_elevation, elevation))
     return;
   elevation += orbit_state.tilt;
-  rotation += orbit_state.yaw;
+  auto rotation = orbit_state.native_yaw + orbit_state.yaw;
   // Modify this update's runtime angles after native constraints, never the
   // shared constraint assets. Native frame generation then also uses the new
   // orientation when converting pan input into world movement.
@@ -459,12 +477,11 @@ void InstallHavenZoomHooks()
     orbit_elevation = HavenField(orbit.get_cls(), "_elevationAngle", "System.Single");
     orbit_rotation = HavenField(orbit.get_cls(), "_rotationAngle", "System.Single");
     constraint_elevation = HavenReferenceField(orbit_constraint.get_cls(), "_elevation", radius_class);
-    constraint_rotation = HavenReferenceField(orbit_constraint.get_cls(), "_rotation", radius_class);
     const auto *constrain = method_contract::Resolve(orbital.get_cls(), "UpdateConstrains", false,
                                                    "System.Void", {"UnityEngine.Camera"});
     if (singleton_valid && orbit_placement != nullptr && orbit_event_system != nullptr && orbit_pointer_over_ui != nullptr
         && orbit_elevation != nullptr && orbit_rotation != nullptr && constraint_elevation != nullptr
-        && constraint_rotation != nullptr && constrain != nullptr
+        && constrain != nullptr
         && install_screen_manager_update_hook() && register_screen_manager_update_callback(UpdateHavenOrbitLifetime)) {
       orbit_ready = SPUD_STATIC_DETOUR(constrain->methodPointer, HavenOrbit_UpdateConstraints_Hook);
       spdlog::info("[HavenOrbit] installed={} drag={} reset={}", orbit_ready,
@@ -474,7 +491,7 @@ void InstallHavenZoomHooks()
                    "(singleton={} placement={} event={} pointer={} elevation={} rotation={} constraints={} update={})",
                    singleton_valid, orbit_placement != nullptr, orbit_event_system != nullptr,
                    orbit_pointer_over_ui != nullptr, orbit_elevation != nullptr, orbit_rotation != nullptr,
-                   constraint_elevation != nullptr && constraint_rotation != nullptr, constrain != nullptr);
+                   constraint_elevation != nullptr, constrain != nullptr);
     }
   } else {
     spdlog::warn("[HavenZoom] camera hook was not installed; keeping native zoom range");
