@@ -221,9 +221,12 @@ void PrepareHavenOrbit(Il2CppObject *blend, Il2CppObject *source, Il2CppObject *
     if (!held && !reset) {
       orbit_state.dragging = false;
     } else if (!HavenOrbitPointerAvailable()) {
+      if (reset || MapKey::IsDown(GameFunction::HavenOrbitDrag))
+        spdlog::debug("[HavenOrbit] gesture blocked by UI or active placement");
       // Require a fresh press after crossing UI or entering placement mode.
       orbit_state.dragging = false;
     } else if (reset) {
+      spdlog::debug("[HavenOrbit] reset to native orientation");
       orbit_state.yaw = orbit_state.tilt = 0.0f;
       orbit_state.dragging = false;
     } else {
@@ -240,7 +243,10 @@ void PrepareHavenOrbit(Il2CppObject *blend, Il2CppObject *source, Il2CppObject *
         orbit_state.x = position.x;
         orbit_state.y = position.y;
         // A hold already in progress when entering Haven must not start a drag.
-        orbit_state.dragging = orbit_state.dragging || MapKey::IsDown(GameFunction::HavenOrbitDrag);
+        const bool pressed = MapKey::IsDown(GameFunction::HavenOrbitDrag);
+        if (pressed)
+          spdlog::debug("[HavenOrbit] drag started at ({}, {})", position.x, position.y);
+        orbit_state.dragging = orbit_state.dragging || pressed;
       } else {
         orbit_state.dragging = false;
       }
@@ -269,7 +275,7 @@ void HavenOrbit_UpdateConstraints_Hook(auto original, Il2CppObject *provider, Ca
   il2cpp_field_set_value(provider, orbit_rotation, &rotation);
 }
 
-void HavenCamera_UpdateCameraFrame_Hook(auto original, Il2CppObject *provider, Camera *camera)
+void HavenOrbit_UpdateInputData_Hook(auto original, Il2CppObject *provider, Camera *camera)
 {
   struct OrbitScope {
     Il2CppObject *source = orbit_source, *target = orbit_target;
@@ -279,6 +285,13 @@ void HavenCamera_UpdateCameraFrame_Hook(auto original, Il2CppObject *provider, C
   if (provider != nullptr)
     PrepareHavenOrbit(provider, ReadHavenField<Il2CppObject *>(provider, blend_source),
                       ReadHavenField<Il2CppObject *>(provider, blend_target));
+  // Blend input updates both endpoints through UpdateProvider. Keep the scope
+  // active through their constraints and frame generation, before interpolation.
+  original(provider, camera);
+}
+
+void HavenCamera_UpdateCameraFrame_Hook(auto original, Il2CppObject *provider, Camera *camera)
+{
   // Native input, constraints and endpoint updates run first. Only this blend's
   // newly generated output is extended; endpoint assets and normalized LOD stay native.
   original(provider, camera);
@@ -479,19 +492,23 @@ void InstallHavenZoomHooks()
     constraint_elevation = HavenReferenceField(orbit_constraint.get_cls(), "_elevation", radius_class);
     const auto *constrain = method_contract::Resolve(orbital.get_cls(), "UpdateConstrains", false,
                                                    "System.Void", {"UnityEngine.Camera"});
+    const auto *input = method_contract::Resolve(blend.get_cls(), "UpdateInputData", false,
+                                               "System.Void", {"UnityEngine.Camera"});
     if (singleton_valid && orbit_placement != nullptr && orbit_event_system != nullptr && orbit_pointer_over_ui != nullptr
         && orbit_elevation != nullptr && orbit_rotation != nullptr && constraint_elevation != nullptr
-        && constrain != nullptr
+        && constrain != nullptr && !constrain->has_full_generic_sharing_signature
+        && input != nullptr && !input->has_full_generic_sharing_signature
         && install_screen_manager_update_hook() && register_screen_manager_update_callback(UpdateHavenOrbitLifetime)) {
-      orbit_ready = SPUD_STATIC_DETOUR(constrain->methodPointer, HavenOrbit_UpdateConstraints_Hook);
+      orbit_ready = SPUD_STATIC_DETOUR(constrain->methodPointer, HavenOrbit_UpdateConstraints_Hook)
+                    && SPUD_STATIC_DETOUR(input->methodPointer, HavenOrbit_UpdateInputData_Hook);
       spdlog::info("[HavenOrbit] installed={} drag={} reset={}", orbit_ready,
                    MapKey::GetShortcuts(GameFunction::HavenOrbitDrag), MapKey::GetShortcuts(GameFunction::HavenOrbitReset));
     } else {
       spdlog::warn("[HavenOrbit] camera/input API unavailable; keeping native orientation "
-                   "(singleton={} placement={} event={} pointer={} elevation={} rotation={} constraints={} update={})",
+                   "(singleton={} placement={} event={} pointer={} elevation={} rotation={} constraints={} update={} input={})",
                    singleton_valid, orbit_placement != nullptr, orbit_event_system != nullptr,
                    orbit_pointer_over_ui != nullptr, orbit_elevation != nullptr, orbit_rotation != nullptr,
-                   constraint_elevation != nullptr, constrain != nullptr);
+                   constraint_elevation != nullptr, constrain != nullptr, input != nullptr);
     }
   } else {
     spdlog::warn("[HavenZoom] camera hook was not installed; keeping native zoom range");
