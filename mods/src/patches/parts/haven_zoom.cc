@@ -1,9 +1,14 @@
 #include "config.h"
+#include "errormsg.h"
 #include "settings/camera_settings.h"
+#include "patches/mapkey.h"
+#include "patches/screen_update_hook.h"
 
 #include <il2cpp/il2cpp_helper.h>
 #include <il2cpp/method_contract.h>
+#include <il2cpp/runtime.h>
 #include <prime/Camera.h>
+#include <prime/Hub.h>
 #include <prime/Vector3.h>
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
@@ -29,6 +34,37 @@ FieldInfo        *radius_enabled = nullptr, *radius_minimum = nullptr, *radius_m
 FieldInfo        *frame_position = nullptr, *frame_rotation = nullptr, *frame_fov = nullptr;
 FieldInfo        *frame_far_clip = nullptr, *frame_orthographic = nullptr;
 const MethodInfo *curve_evaluate = nullptr;
+FieldInfo *orbit_elevation = nullptr, *orbit_rotation = nullptr;
+FieldInfo *constraint_elevation = nullptr, *constraint_rotation = nullptr;
+const MethodInfo *orbit_event_system = nullptr, *orbit_pointer_over_ui = nullptr;
+const MethodInfo *orbit_manager_instance = nullptr, *orbit_placement = nullptr;
+bool orbit_ready = false;
+Il2CppObject *orbit_source = nullptr, *orbit_target = nullptr;
+
+struct HavenOrbitState {
+  Il2CppGCHandle blend = nullptr;
+  int frame = -1;
+  float yaw = 0.0f, tilt = 0.0f;
+  float x = 0.0f, y = 0.0f;
+  bool dragging = false;
+};
+HavenOrbitState orbit_state;
+
+void ClearHavenOrbit()
+{
+  if (orbit_state.blend != nullptr)
+    il2cpp_gchandle_free(orbit_state.blend);
+  orbit_state = {};
+}
+
+void UpdateHavenOrbitLifetime()
+{
+  if (orbit_state.blend == nullptr)
+    return;
+  auto *sections = Hub::get_SectionManager();
+  if (!orbit_ready || sections == nullptr || sections->CurrentSection != SectionID::Starbase_Planetary)
+    ClearHavenOrbit();
+}
 
 struct HavenRotation {
   float x, y, z, w;
@@ -75,8 +111,156 @@ bool ReadHavenRadius(Il2CppObject *provider, float &radius)
          && std::abs(radius - maximum) < 0.01f;
 }
 
+Il2CppObject *InvokeHavenOrbit(const MethodInfo *method, void *object, void **args = nullptr)
+{
+  Il2CppObject *result = nullptr;
+  if (!Il2CppRuntime::TryInvoke(method, object, args, &result)) {
+    orbit_ready = false;
+    ClearHavenOrbit();
+    spdlog::warn("[HavenOrbit] input API changed; keeping native orientation");
+    return nullptr;
+  }
+  return result;
+}
+
+bool HavenOrbitPointerAvailable()
+{
+  auto *system = InvokeHavenOrbit(orbit_event_system, nullptr);
+  if (system == nullptr)
+    return false;
+  int pointer = -1;
+  void *args[]{&pointer};
+  auto *over_ui = InvokeHavenOrbit(orbit_pointer_over_ui, system, args);
+  bool blocked = true;
+  if (!Il2CppRuntime::TryBoolean(over_ui, blocked) || blocked)
+    return false;
+  auto *manager = InvokeHavenOrbit(orbit_manager_instance, nullptr);
+  auto *placement = manager != nullptr ? InvokeHavenOrbit(orbit_placement, manager) : nullptr;
+  return Il2CppRuntime::TryBoolean(placement, blocked) && !blocked;
+}
+
+bool ReadHavenFixedAngle(Il2CppObject *provider, FieldInfo *axis, float &angle)
+{
+  auto *constraint = ReadHavenField<Il2CppObject *>(provider, provider_constraint);
+  auto *data = constraint != nullptr ? ReadHavenField<Il2CppObject *>(constraint, axis) : nullptr;
+  if (data == nullptr || !ReadHavenField<bool>(data, radius_enabled))
+    return false;
+  angle = ReadHavenField<float>(data, radius_minimum);
+  const auto maximum = ReadHavenField<float>(data, radius_maximum);
+  return std::isfinite(angle) && std::isfinite(maximum) && std::abs(angle - maximum) < 0.0001f;
+}
+
+void PrepareHavenOrbit(Il2CppObject *blend, Il2CppObject *source, Il2CppObject *target)
+{
+  const auto &config = Config::Get();
+  auto *sections = Hub::get_SectionManager();
+  float source_radius = 0.0f, target_radius = 0.0f;
+  static auto frame_count = il2cpp_resolve_icall_typed<int()>("UnityEngine.Time::get_frameCount()");
+  static auto focused = il2cpp_resolve_icall_typed<bool()>("UnityEngine.Application::get_isFocused()");
+  static auto mouse = il2cpp_resolve_icall_typed<void(Vector3 *)>(
+      "UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)");
+  if (!orbit_ready || !config.hotkeys_enabled || config.use_scopely_hotkeys
+      || !MapKey::HasBinding(GameFunction::HavenOrbitDrag) || sections == nullptr
+      || sections->CurrentSection != SectionID::Starbase_Planetary || frame_count == nullptr
+      || focused == nullptr || mouse == nullptr || !ReadHavenRadius(source, source_radius)
+      || !ReadHavenRadius(target, target_radius) || source_radius == target_radius) {
+    ClearHavenOrbit();
+    return;
+  }
+  auto *pivot = ReadHavenField<Il2CppObject *>(source, provider_pivot);
+  float elevation = 0.0f, target_elevation = 0.0f, rotation = 0.0f, target_rotation = 0.0f;
+  if (pivot == nullptr || ReadHavenField<Il2CppObject *>(target, provider_pivot) != pivot
+      || ReadHavenField<Il2CppObject *>(source, provider_look_target) != pivot
+      || ReadHavenField<Il2CppObject *>(target, provider_look_target) != pivot
+      || !ReadHavenFixedAngle(source, constraint_elevation, elevation)
+      || !ReadHavenFixedAngle(target, constraint_elevation, target_elevation)
+      || !ReadHavenFixedAngle(source, constraint_rotation, rotation)
+      || !ReadHavenFixedAngle(target, constraint_rotation, target_rotation)
+      || std::abs(elevation - target_elevation) > 0.001f || std::abs(rotation - target_rotation) > 0.001f
+      || elevation < 15.0f || elevation > 80.0f) {
+    static bool warned = false;
+    if (!warned) {
+      spdlog::warn("[HavenOrbit] native view not qualified; keeping native orientation "
+                   "(pitch={}/{} yaw={}/{})", elevation, target_elevation, rotation, target_rotation);
+      warned = true;
+    }
+    ClearHavenOrbit();
+    return;
+  }
+  const auto frame = frame_count();
+  if (orbit_state.blend == nullptr || il2cpp_gchandle_get_target(orbit_state.blend) != blend
+      || frame > orbit_state.frame + 1) {
+    ClearHavenOrbit();
+    orbit_state.blend = il2cpp_gchandle_new(blend, false);
+    spdlog::debug("[HavenOrbit] native pitch={} yaw={}; tilt limited to +/-15 degrees", elevation, rotation);
+  }
+  if (frame != orbit_state.frame) {
+    orbit_state.frame = frame;
+    const bool held = focused() && MapKey::IsPressed(GameFunction::HavenOrbitDrag);
+    const bool reset = focused() && MapKey::IsDown(GameFunction::HavenOrbitReset);
+    if (!held && !reset) {
+      orbit_state.dragging = false;
+    } else if (!HavenOrbitPointerAvailable()) {
+      // Require a fresh press after crossing UI or entering placement mode.
+      orbit_state.dragging = false;
+    } else if (reset) {
+      orbit_state.yaw = orbit_state.tilt = 0.0f;
+      orbit_state.dragging = false;
+    } else {
+      Vector3 position{};
+      mouse(&position);
+      if (std::isfinite(position.x) && std::isfinite(position.y)) {
+        if (orbit_state.dragging) {
+          constexpr float degrees_per_pixel = 0.15f;
+          orbit_state.yaw = std::remainder(orbit_state.yaw + (position.x - orbit_state.x) * degrees_per_pixel, 360.0f);
+          // Keep a conservative tilt range around the game's measured native view.
+          orbit_state.tilt = std::clamp(orbit_state.tilt - (position.y - orbit_state.y) * degrees_per_pixel,
+                                       std::max(-15.0f, 15.0f - elevation), std::min(15.0f, 80.0f - elevation));
+        }
+        orbit_state.x = position.x;
+        orbit_state.y = position.y;
+        // A hold already in progress when entering Haven must not start a drag.
+        orbit_state.dragging = orbit_state.dragging || MapKey::IsDown(GameFunction::HavenOrbitDrag);
+      } else {
+        orbit_state.dragging = false;
+      }
+    }
+  }
+  if (orbit_ready) {
+    orbit_source = source;
+    orbit_target = target;
+  }
+}
+
+void HavenOrbit_UpdateConstraints_Hook(auto original, Il2CppObject *provider, Camera *camera)
+{
+  original(provider, camera);
+  if (!orbit_ready || (provider != orbit_source && provider != orbit_target)
+      || (orbit_state.yaw == 0.0f && orbit_state.tilt == 0.0f))
+    return;
+  float elevation = 0.0f, rotation = 0.0f;
+  if (!ReadHavenFixedAngle(provider, constraint_elevation, elevation)
+      || !ReadHavenFixedAngle(provider, constraint_rotation, rotation))
+    return;
+  elevation += orbit_state.tilt;
+  rotation += orbit_state.yaw;
+  // Modify this update's runtime angles after native constraints, never the
+  // shared constraint assets. Native frame generation then also uses the new
+  // orientation when converting pan input into world movement.
+  il2cpp_field_set_value(provider, orbit_elevation, &elevation);
+  il2cpp_field_set_value(provider, orbit_rotation, &rotation);
+}
+
 void HavenCamera_UpdateCameraFrame_Hook(auto original, Il2CppObject *provider, Camera *camera)
 {
+  struct OrbitScope {
+    Il2CppObject *source = orbit_source, *target = orbit_target;
+    ~OrbitScope() { orbit_source = source; orbit_target = target; }
+  } scope;
+  orbit_source = orbit_target = nullptr;
+  if (provider != nullptr)
+    PrepareHavenOrbit(provider, ReadHavenField<Il2CppObject *>(provider, blend_source),
+                      ReadHavenField<Il2CppObject *>(provider, blend_target));
   // Native input, constraints and endpoint updates run first. Only this blend's
   // newly generated output is extended; endpoint assets and normalized LOD stay native.
   original(provider, camera);
@@ -257,6 +441,41 @@ void InstallHavenZoomHooks()
   if (SPUD_STATIC_DETOUR(update->methodPointer, HavenCamera_UpdateCameraFrame_Hook)) {
     installed = true;
     spdlog::info("[HavenZoom] installed planetary blend camera hook (maximum distance {})", Config::Get().haven_zoom);
+    auto orbital = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.CameraController", "OrbitFrameProvider");
+    auto events = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.EventSystems", "EventSystem");
+    auto starbase = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.PlanetaryBase.PlanetaryStarbase",
+                                         "PlanetaryStarbaseManager");
+    auto *parent = starbase.get_cls() != nullptr ? il2cpp_class_get_parent(starbase.get_cls()) : nullptr;
+    orbit_manager_instance = parent != nullptr ? il2cpp_class_get_method_from_name(parent, "get_Instance", 0) : nullptr;
+    const auto singleton_valid = orbit_manager_instance != nullptr && orbit_manager_instance->methodPointer
+        && (orbit_manager_instance->flags & METHOD_ATTRIBUTE_STATIC) && orbit_manager_instance->parameters_count == 0
+        && method_contract::Type(orbit_manager_instance->return_type,
+                                 "Digit.Prime.PlanetaryBase.PlanetaryStarbase.PlanetaryStarbaseManager");
+    orbit_placement = method_contract::Resolve(starbase.get_cls(), "get_HasActivePlacement", false, "System.Boolean", {});
+    orbit_event_system = method_contract::Resolve(events.get_cls(), "get_current", true,
+                                                 "UnityEngine.EventSystems.EventSystem", {});
+    orbit_pointer_over_ui = method_contract::Resolve(events.get_cls(), "IsPointerOverGameObject", false,
+                                                    "System.Boolean", {"System.Int32"});
+    orbit_elevation = HavenField(orbit.get_cls(), "_elevationAngle", "System.Single");
+    orbit_rotation = HavenField(orbit.get_cls(), "_rotationAngle", "System.Single");
+    constraint_elevation = HavenReferenceField(orbit_constraint.get_cls(), "_elevation", radius_class);
+    constraint_rotation = HavenReferenceField(orbit_constraint.get_cls(), "_rotation", radius_class);
+    const auto *constrain = method_contract::Resolve(orbital.get_cls(), "UpdateConstrains", false,
+                                                   "System.Void", {"UnityEngine.Camera"});
+    if (singleton_valid && orbit_placement != nullptr && orbit_event_system != nullptr && orbit_pointer_over_ui != nullptr
+        && orbit_elevation != nullptr && orbit_rotation != nullptr && constraint_elevation != nullptr
+        && constraint_rotation != nullptr && constrain != nullptr
+        && install_screen_manager_update_hook() && register_screen_manager_update_callback(UpdateHavenOrbitLifetime)) {
+      orbit_ready = SPUD_STATIC_DETOUR(constrain->methodPointer, HavenOrbit_UpdateConstraints_Hook);
+      spdlog::info("[HavenOrbit] installed={} drag={} reset={}", orbit_ready,
+                   MapKey::GetShortcuts(GameFunction::HavenOrbitDrag), MapKey::GetShortcuts(GameFunction::HavenOrbitReset));
+    } else {
+      spdlog::warn("[HavenOrbit] camera/input API unavailable; keeping native orientation "
+                   "(singleton={} placement={} event={} pointer={} elevation={} rotation={} constraints={} update={})",
+                   singleton_valid, orbit_placement != nullptr, orbit_event_system != nullptr,
+                   orbit_pointer_over_ui != nullptr, orbit_elevation != nullptr, orbit_rotation != nullptr,
+                   constraint_elevation != nullptr && constraint_rotation != nullptr, constrain != nullptr);
+    }
   } else {
     spdlog::warn("[HavenZoom] camera hook was not installed; keeping native zoom range");
   }
