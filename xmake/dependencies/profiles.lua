@@ -106,7 +106,7 @@ rule("stfc.profiles.launcher")
         end
         target:add("files", path.join(source, "src/c_api.cc"))
         local modulemap = path.join(os.projectdir(), "build", target:plat(), target:arch(),
-            target:mode(), "profiles-module/module.modulemap")
+            get_config("mode"), "profiles-module/module.modulemap")
         os.mkdir(path.directory(modulemap))
         io.writefile(modulemap, 'module STFCProfiles { header "' .. header:gsub("\\", "/") .. '" export * }\n')
         target:add("scflags", "-Xcc -fmodule-map-file=" .. modulemap, {force = true})
