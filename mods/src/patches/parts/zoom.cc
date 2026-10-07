@@ -24,6 +24,8 @@
 #include <cstdint>
 #include <unordered_map>
 
+void ApplyNavigationOrbitDrawDistance(NavigationZoom *zoom);
+
 namespace
 {
 const MethodInfo *scroll_event_system = nullptr, *scroll_raycast = nullptr, *scroll_count = nullptr;
@@ -439,6 +441,7 @@ static void SetSceneCameraFarClip(NavigationZoom *_this)
   cam->farClipPlane    = Config::Get().zoom * 3.75f;
   cam->clearFlags      = 2;
   cam->backgroundColor = {0, 0, 0, 0};
+  ApplyNavigationOrbitDrawDistance(_this);
 }
 
 static void EnsureSystemZoomRange(NavigationZoom *_this)

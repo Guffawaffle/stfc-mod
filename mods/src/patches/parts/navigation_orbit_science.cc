@@ -178,7 +178,22 @@ namespace
     Il2CppObject *camera = nullptr;
     if (field)
       il2cpp_field_get_value(component, field, &camera);
-    return Transform(camera);
+    auto result = Transform(camera);
+    if (!camera || result.is_null())
+      return result;
+    static auto cls = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Camera");
+    for (const auto &[key, method_name] :
+         {std::pair{"far_clip", "get_farClipPlane"}, std::pair{"near_clip", "get_nearClipPlane"},
+          std::pair{"fov", "get_fieldOfView"}}) {
+      const auto   *method = method_contract::Resolve(cls.get_cls(), method_name, false, "System.Single", {});
+      Il2CppObject *boxed  = nullptr;
+      if (Il2CppRuntime::TryInvoke(method, camera, nullptr, &boxed) && boxed
+          && method_contract::Type(il2cpp_class_get_type(boxed->klass), "System.Single")) {
+        const auto *value = static_cast<float *>(il2cpp_object_unbox(boxed));
+        result[key]       = value && std::isfinite(*value) ? Json(*value) : Json(nullptr);
+      }
+    }
+    return result;
   }
 
   void Emit(Json data, const char *phase, Il2CppObject *object)
