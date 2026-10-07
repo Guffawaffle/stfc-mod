@@ -10,6 +10,7 @@ import SwiftUI
 
 struct ContentView: View, XSollaUpdaterDelegate {
   @State private var updateAction: String = ""
+  @State private var showProfiles = false
 
   var body: some View {
     GeometryReader { geo in
@@ -21,9 +22,18 @@ struct ContentView: View, XSollaUpdaterDelegate {
             .frame(height: geo.size.height * (2 / 2) - 10)
         }
         ActionView().offset(y: geo.size.height - 150)
+        VStack {
+          Spacer()
+          HStack {
+            Spacer()
+            Button("Profiles Preview…") { showProfiles = true }
+              .padding(.trailing, 18).padding(.bottom, 12)
+          }
+        }
       }
     }
     .edgesIgnoringSafeArea(.all)
+    .sheet(isPresented: $showProfiles) { ProfilesPreviewView() }
   }
 
   private var topContent: some View {
