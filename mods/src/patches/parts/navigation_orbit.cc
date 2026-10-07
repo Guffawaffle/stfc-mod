@@ -89,9 +89,11 @@ bool SetView(Il2CppObject *transform, Vector3 angles, float distance)
 
 void Clear(const char *reason = "unspecified")
 {
+#ifdef _MODDBG
   if (state.zoom)
     navigation_orbit_science::Orbit(il2cpp_gchandle_get_target(state.zoom), reason, state.yaw, state.pitch,
                                     state.overridden, state.dragging, true);
+#endif
   if (state.overridden && state.transform)
     SetView(il2cpp_gchandle_get_target(state.transform), state.native_angles, state.distance);
   if (state.zoom)

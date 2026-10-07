@@ -1,6 +1,7 @@
 #include "patches/navigation_orbit_science.h"
 
 #ifdef _MODDBG
+#include "errormsg.h"
 #include "version.h"
 #include <chrono>
 #include <cstdlib>
