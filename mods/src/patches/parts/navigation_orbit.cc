@@ -303,7 +303,7 @@ void InstallNavigationOrbitHooks()
                                             {"UnityEngine.Camera", "UnityEngine.Vector3"});
   scene_camera   = Field(zoom.get_cls(), "_sceneCamera", "UnityEngine.Camera");
   distance_field = Field(zoom.get_cls(), "_actualDistance", "System.Single");
-  depth_field    = Field(zoom.get_cls(), "_depth", "Digit.Prime.Navigation.NodeDepth");
+  depth_field    = Field(zoom.get_cls(), "_depth", "Digit.PrimeServer.Models.NodeDepth");
   zoom_location  = Field(zoom.get_cls(), "_zoomLocation", "UnityEngine.Vector2");
   world_point    = Field(zoom.get_cls(), "_worldPoint", "UnityEngine.Vector3");
   frame_count    = il2cpp_resolve_icall_typed<int()>("UnityEngine.Time::get_frameCount()");
