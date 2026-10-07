@@ -741,6 +741,7 @@ haven_orbit_drag = "MOUSE2"
 # Restore the native Haven orientation without changing zoom or pan.
 haven_orbit_reset = "ALT-MOUSE2"
 # Hold and drag on the system map: sideways rotates, up/down tilts (5 to 90 degrees).
+# While rotated, user panning is bounded by the system's native outer radius and soft allowance.
 # Separate from Haven controls. Clear this binding to disable; requires navigationorbithooks.
 navigation_orbit_drag = "MOUSE2"
 # Restore native system orientation at the current zoom distance.
