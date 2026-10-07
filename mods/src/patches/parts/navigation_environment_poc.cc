@@ -318,11 +318,11 @@ void Update(Il2CppObject *camera)
   }
   if (!Live(shell.Get()))
     return;
-  float         far = 0.0f, near = 0.0f;
+  float         far_plane = 0.0f, near_plane = 0.0f;
   Vector3       position{};
   Il2CppObject *camera_transform = nullptr, *shell_transform = nullptr;
-  if (!Value(far_clip, camera, "System.Single", far) || !Value(near_clip, camera, "System.Single", near)
-      || !std::isfinite(far) || !std::isfinite(near) || near <= 0 || far <= 4.0f * near
+  if (!Value(far_clip, camera, "System.Single", far_plane) || !Value(near_clip, camera, "System.Single", near_plane)
+      || !std::isfinite(far_plane) || !std::isfinite(near_plane) || near_plane <= 0 || far_plane <= 4.0f * near_plane
       || !Il2CppRuntime::TryInvoke(get_transform, camera, nullptr, &camera_transform) || !Live(camera_transform)
       || !Il2CppRuntime::TryInvoke(game_transform, shell.Get(), nullptr, &shell_transform) || !Live(shell_transform)
       || !Value(get_position, camera_transform, "UnityEngine.Vector3", position) || !std::isfinite(position.x)
@@ -331,7 +331,7 @@ void Update(Il2CppObject *camera)
     return;
   }
   // Follow translation only: keep the sky's orientation independent of camera rotation.
-  Vector3 scale{far * 0.6f, far * 0.6f, far * 0.6f};
+  Vector3 scale{far_plane * 0.6f, far_plane * 0.6f, far_plane * 0.6f};
   Vector3 angles{};
   bool    world_stays = true;
   void   *parent_args[]{camera_transform, &world_stays}, *angle_args[]{&angles};
