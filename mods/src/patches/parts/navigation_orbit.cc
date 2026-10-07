@@ -2,6 +2,7 @@
 #include "errormsg.h"
 #include "patches/key.h"
 #include "patches/mapkey.h"
+#include "patches/navigation_environment_poc.h"
 #include "patches/navigation_orbit_science.h"
 #include "patches/screen_update_hook.h"
 #include <algorithm>
@@ -22,12 +23,11 @@ FieldInfo        *scene_camera = nullptr, *distance_field = nullptr, *depth_fiel
 FieldInfo        *zoom_location = nullptr, *world_point = nullptr;
 const MethodInfo *get_transform = nullptr, *get_angles = nullptr, *set_angles = nullptr;
 const MethodInfo *get_forward = nullptr, *set_position = nullptr, *mouse_world = nullptr;
-const MethodInfo *get_local_position = nullptr;
 const MethodInfo *clamp_pan_position = nullptr;
+const MethodInfo *camera_fov = nullptr, *camera_height = nullptr;
 const MethodInfo *event_system = nullptr, *pointer_over_ui = nullptr, *can_move = nullptr;
-FieldInfo *pan_camera = nullptr, *pan_depth = nullptr, *pan_radius = nullptr, *pan_soft_range = nullptr;
-FieldInfo *pan_far_normal = nullptr, *pan_far_extended = nullptr, *pan_near_normal = nullptr, *pan_near_extended = nullptr;
-FieldInfo *pan_return_coeff = nullptr;
+FieldInfo        *pan_camera = nullptr, *pan_depth = nullptr, *pan_drag_delta = nullptr;
+FieldInfo *pan_tracking = nullptr, *pan_tracking_fleet = nullptr, *pan_min_speed = nullptr, *normalized_zoom = nullptr;
 int (*frame_count)()              = nullptr;
 bool (*focused)()                 = nullptr;
 void (*mouse_position)(Vector3 *) = nullptr;
@@ -94,6 +94,7 @@ bool SetView(Il2CppObject *transform, Vector3 angles, float distance)
 
 void Clear(const char *reason = "unspecified")
 {
+  navigation_environment_poc::Clear();
 #ifdef _MODDBG
   if (state.zoom)
     navigation_orbit_science::Orbit(il2cpp_gchandle_get_target(state.zoom), reason, state.yaw, state.pitch,
@@ -120,8 +121,7 @@ bool SectionMatches(NodeDepth depth)
   auto *sections = Hub::get_SectionManager();
   // Galaxy rendering assumes the native view; rotating it exposes layers that
   // are not intended to be visible. Keep its camera entirely native.
-  return sections && depth == NodeDepth::SolarSystem
-         && sections->CurrentSection == SectionID::Navigation_System;
+  return sections && depth == NodeDepth::SolarSystem && sections->CurrentSection == SectionID::Navigation_System;
 }
 
 bool Enabled()
@@ -204,9 +204,10 @@ void Tick()
     }
     changed          = state.overridden;
     state.overridden = state.dragging = false;
-    state.yaw                         = 0.0f;
-    navigation_orbit_science::Orbit(zoom, "reset-binding", state.yaw, state.pitch, state.overridden,
-                                    state.dragging, true);
+    navigation_environment_poc::Clear();
+    state.yaw = 0.0f;
+    navigation_orbit_science::Orbit(zoom, "reset-binding", state.yaw, state.pitch, state.overridden, state.dragging,
+                                    true);
     spdlog::debug("[NavigationOrbit] reset native view");
   } else {
     Vector3 position{};
@@ -239,91 +240,81 @@ void Tick()
     Fail();
 }
 
-vec2 LimitPanDelta(Vector3 position, vec2 delta, double radius)
+bool FreePan(Il2CppObject *pan)
 {
-  if (!std::isfinite(delta.x) || !std::isfinite(delta.y))
-    return {};
-  // Native MoveCamera subtracts (delta.x, delta.y) from local (x, z).
-  // Use doubles so a finite but enormous ray intersection cannot overflow.
-  const double x = static_cast<double>(position.x) - delta.x;
-  const double z = static_cast<double>(position.z) - delta.y;
-  const double distance = std::hypot(x, z);
-  // A target may have positioned the native camera outside our user-pan limit.
-  // Permit its existing smooth return; do not snap it back on a zero/inward move.
-  const double limit = std::max(radius, std::hypot(static_cast<double>(position.x), static_cast<double>(position.z)));
-  if (distance <= limit)
-    return delta;
-  const double scale = limit / distance;
-  vec2 bounded{static_cast<float>(position.x - x * scale), static_cast<float>(position.z - z * scale)};
-  return std::isfinite(bounded.x) && std::isfinite(bounded.y) ? bounded : vec2{};
+  auto *zoom = state.zoom ? il2cpp_gchandle_get_target(state.zoom) : nullptr;
+  return pan && zoom && state.overridden && Enabled() && SectionMatches(state.depth)
+         && Read<NodeDepth>(zoom, depth_field) == state.depth
+         && Read<NodeDepth>(pan, pan_depth) == NodeDepth::SolarSystem
+         && Read<Il2CppObject *>(pan, pan_camera) == Read<Il2CppObject *>(zoom, scene_camera)
+         && !Read<Il2CppObject *>(pan, pan_tracking) && !Read<Il2CppObject *>(pan, pan_tracking_fleet);
+}
+
+Vector3 ClampPositionInside_Hook(auto original, Il2CppObject *pan, Vector3 position)
+{
+  // Native MoveCamera uses the clamp's overlap for BOTH outward damping and
+  // automatic spring return. Zoom's Move path also consults it. Keep target
+  // tracking and other map scopes native, but free user movement has no wall.
+  return FreePan(pan) && Finite(position) ? position : original(pan, position);
+}
+
+vec2 ScreenPanDelta(vec2 pixels, float distance, float fov, int height, float pitch, float yaw, float speed)
+{
+  constexpr double radians = 3.14159265358979323846 / 180.0;
+  const double     scale   = 2.0 * distance * std::tan(fov * radians * 0.5) * speed / height;
+  const double     x = pixels.x * scale, z = pixels.y * scale / std::sin(pitch * radians);
+  const double     c = std::cos(yaw * radians), s = std::sin(yaw * radians);
+  return {static_cast<float>(x * c + z * s), static_cast<float>(-x * s + z * c)};
 }
 
 void MoveCamera_Hook(auto original, Il2CppObject *pan, vec2 delta, bool momentum)
 {
-  auto *zoom = state.zoom ? il2cpp_gchandle_get_target(state.zoom) : nullptr;
-  if (!pan || !zoom || !state.overridden || !Enabled() || !SectionMatches(state.depth)
-      || Read<NodeDepth>(zoom, depth_field) != state.depth
-      || Read<NodeDepth>(pan, pan_depth) != NodeDepth::SolarSystem
-      || Read<Il2CppObject *>(pan, pan_camera) != Read<Il2CppObject *>(zoom, scene_camera)) {
+  if (!FreePan(pan)) {
     original(pan, delta, momentum);
     return;
   }
-  const double radius = Read<float>(pan, pan_radius);
-  const double soft = Read<float>(pan, pan_soft_range);
-  const double far_normal = Read<float>(pan, pan_far_normal), far_extended = Read<float>(pan, pan_far_extended);
-  const double near_normal = Read<float>(pan, pan_near_normal), near_extended = Read<float>(pan, pan_near_extended);
-  // Conservative outer bound for either native zoom mode. The native near
-  // contribution shrinks with normalized zoom; retain its full maximum here.
-  const double limit = radius * (std::max(far_normal, far_extended) + std::max(near_normal, near_extended)) + soft;
-  Il2CppObject *transform = nullptr;
-  Vector3 position{};
-  if (!std::isfinite(radius) || radius <= 0.0 || !std::isfinite(soft) || soft < 0.0
-      || !std::isfinite(far_normal) || far_normal < 0.0 || !std::isfinite(far_extended) || far_extended < 0.0
-      || !std::isfinite(near_normal) || near_normal < 0.0 || !std::isfinite(near_extended) || near_extended < 0.0
-      || !std::isfinite(limit) || limit <= 0.0
-      || !Il2CppRuntime::TryInvoke(get_transform, pan, nullptr, &transform)
-      || !transform || !ReadVector(get_local_position, transform, position)) {
-    Fail();
-    original(pan, vec2{}, false);
-    return;
-  }
-  const double outer = std::max(limit, std::hypot(static_cast<double>(position.x), static_cast<double>(position.z)));
-  if (momentum) {
-    // Native MoveCamera adds its inward boundary return AFTER damping delta.
-    // Project from the position after that return, keeping native bookkeeping.
-    const double coefficient = Read<float>(pan, pan_return_coeff);
-    Vector3 clamped{};
-    void *args[]{&position};
-    if (!std::isfinite(coefficient) || coefficient < 0.0 || coefficient > 1.0
-        || !ReadVector(clamp_pan_position, pan, clamped, args)) {
-      Fail();
-      original(pan, vec2{}, false);
+  if (!momentum) {
+    // Near the horizon, successive ground-ray intersections can be millions
+    // of units apart. Use the actual gesture's pixel displacement at camera
+    // focus distance instead. This changes sensitivity, never position bounds.
+    auto         *camera     = Read<Il2CppObject *>(pan, pan_camera);
+    auto         *zoom       = il2cpp_gchandle_get_target(state.zoom);
+    Il2CppObject *fov_result = nullptr, *height_result = nullptr;
+    const auto    pixels     = Read<vec2>(pan, pan_drag_delta);
+    const float   normalized = Read<float>(zoom, normalized_zoom), min_speed = Read<float>(pan, pan_min_speed);
+    if (!Il2CppRuntime::TryInvoke(camera_fov, camera, nullptr, &fov_result) || !fov_result
+        || !method_contract::Type(il2cpp_class_get_type(fov_result->klass), "System.Single")
+        || !Il2CppRuntime::TryInvoke(camera_height, camera, nullptr, &height_result) || !height_result
+        || !method_contract::Type(il2cpp_class_get_type(height_result->klass), "System.Int32")) {
+      original(pan, vec2{}, momentum);
       return;
     }
-    position.x = static_cast<float>(position.x - (static_cast<double>(position.x) - clamped.x) * coefficient);
-    position.z = static_cast<float>(position.z - (static_cast<double>(position.z) - clamped.z) * coefficient);
+    const float fov    = *static_cast<float *>(il2cpp_object_unbox(fov_result));
+    const int   height = *static_cast<int *>(il2cpp_object_unbox(height_result));
+    if (!std::isfinite(fov) || fov <= 0 || fov >= 179 || height <= 0 || !std::isfinite(normalized)
+        || !std::isfinite(min_speed)) {
+      original(pan, vec2{}, momentum);
+      return;
+    }
+    delta = ScreenPanDelta(pixels, state.distance, fov, height, state.pitch, state.yaw,
+                           1.0f - (1.0f - min_speed) * normalized);
   }
-  const auto bounded = LimitPanDelta(position, delta, outer);
-#ifdef _MODDBG
-  static unsigned reports = 0;
-  if ((bounded.x != delta.x || bounded.y != delta.y) && reports < 10) {
-    ++reports;
-    spdlog::debug("[NavigationOrbit] pan limited delta=({}, {}) bounded=({}, {}) radius={}",
-                  delta.x, delta.y, bounded.x, bounded.y, limit);
-  }
-#endif
-  original(pan, bounded, momentum);
+  // Preserve native movement events and momentum bookkeeping. Invalid input
+  // is dropped, without relocating an already valid camera position.
+  original(pan, std::isfinite(delta.x) && std::isfinite(delta.y) ? delta : vec2{}, momentum);
 }
 
 void UpdateCameraPosition_Hook(auto original, Il2CppObject *zoom)
 {
-  navigation_orbit_science::Orbit(zoom, "before-native-camera", state.yaw, state.pitch, state.overridden, state.dragging);
+  navigation_orbit_science::Orbit(zoom, "before-native-camera", state.yaw, state.pitch, state.overridden,
+                                  state.dragging);
   if (state.zoom
       && (!Enabled() || !zoom || il2cpp_gchandle_get_target(state.zoom) != zoom
           || Read<NodeDepth>(zoom, depth_field) != state.depth || !SectionMatches(state.depth)))
     Clear("camera-or-scope-change");
   original(zoom);
-  navigation_orbit_science::Orbit(zoom, "after-native-camera", state.yaw, state.pitch, state.overridden, state.dragging);
+  navigation_orbit_science::Orbit(zoom, "after-native-camera", state.yaw, state.pitch, state.overridden,
+                                  state.dragging);
   if (!zoom || !Enabled() || !SectionMatches(Read<NodeDepth>(zoom, depth_field)))
     return;
   const auto    depth     = Read<NodeDepth>(zoom, depth_field);
@@ -367,6 +358,8 @@ void UpdateCameraPosition_Hook(auto original, Il2CppObject *zoom)
     return;
   }
   Tick();
+  if (state.overridden && Enabled())
+    navigation_environment_poc::Update(camera);
   navigation_orbit_science::Orbit(zoom, "after-orbit-camera", state.yaw, state.pitch, state.overridden, state.dragging);
 }
 } // namespace
@@ -378,57 +371,59 @@ void InstallNavigationOrbitHooks()
   auto        pan        = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "NavigationPan");
   auto        component  = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Component");
   auto        transform  = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Transform");
+  auto        camera_cls = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Camera");
   auto        events     = il2cpp_get_class_helper("UnityEngine.UI", "UnityEngine.EventSystems", "EventSystem");
   auto        math       = il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.Client.Core", "MathUtils");
   const auto *update     = method_contract::Resolve(zoom.get_cls(), "UpdateCameraPosition", false, "System.Void", {});
-  const auto *move = method_contract::Resolve(pan.get_cls(), "MoveCamera", false, "System.Void",
-                                              {"UnityEngine.Vector2", "System.Boolean"});
+  const auto *move       = method_contract::Resolve(pan.get_cls(), "MoveCamera", false, "System.Void",
+                                                    {"UnityEngine.Vector2", "System.Boolean"});
   get_transform = method_contract::Resolve(component.get_cls(), "get_transform", false, "UnityEngine.Transform", {});
-  get_angles  = method_contract::Resolve(transform.get_cls(), "get_localEulerAngles", false, "UnityEngine.Vector3", {});
-  get_local_position = method_contract::Resolve(transform.get_cls(), "get_localPosition", false, "UnityEngine.Vector3", {});
+  get_angles = method_contract::Resolve(transform.get_cls(), "get_localEulerAngles", false, "UnityEngine.Vector3", {});
   clamp_pan_position = method_contract::Resolve(pan.get_cls(), "ClampPositionInside", false, "UnityEngine.Vector3",
                                                 {"UnityEngine.Vector3"});
-  set_angles  = method_contract::Resolve(transform.get_cls(), "set_localEulerAngles", false, "System.Void",
-                                         {"UnityEngine.Vector3"});
-  get_forward = method_contract::Resolve(transform.get_cls(), "get_forward", false, "UnityEngine.Vector3", {});
+  camera_fov         = method_contract::Resolve(camera_cls.get_cls(), "get_fieldOfView", false, "System.Single", {});
+  camera_height      = method_contract::Resolve(camera_cls.get_cls(), "get_pixelHeight", false, "System.Int32", {});
+  set_angles         = method_contract::Resolve(transform.get_cls(), "set_localEulerAngles", false, "System.Void",
+                                                {"UnityEngine.Vector3"});
+  get_forward        = method_contract::Resolve(transform.get_cls(), "get_forward", false, "UnityEngine.Vector3", {});
   set_position =
       method_contract::Resolve(transform.get_cls(), "set_localPosition", false, "System.Void", {"UnityEngine.Vector3"});
   event_system =
       method_contract::Resolve(events.get_cls(), "get_current", true, "UnityEngine.EventSystems.EventSystem", {});
   pointer_over_ui =
       method_contract::Resolve(events.get_cls(), "IsPointerOverGameObject", false, "System.Boolean", {"System.Int32"});
-  can_move       = method_contract::Resolve(navigation.get_cls(), "CanMoveCamera", true, "System.Boolean", {});
-  mouse_world    = method_contract::Resolve(math.get_cls(), "GetMouseWorldPos", true, "UnityEngine.Vector3",
-                                            {"UnityEngine.Camera", "UnityEngine.Vector3"});
-  scene_camera   = Field(zoom.get_cls(), "_sceneCamera", "UnityEngine.Camera");
-  distance_field = Field(zoom.get_cls(), "_actualDistance", "System.Single");
-  depth_field    = Field(zoom.get_cls(), "_depth", "Digit.PrimeServer.Models.NodeDepth");
-  zoom_location  = Field(zoom.get_cls(), "_zoomLocation", "UnityEngine.Vector2");
-  world_point    = Field(zoom.get_cls(), "_worldPoint", "UnityEngine.Vector3");
-  pan_camera = Field(pan.get_cls(), "_sceneCamera", "UnityEngine.Camera");
-  pan_depth = Field(pan.get_cls(), "_nodeDepth", "Digit.PrimeServer.Models.NodeDepth");
-  pan_radius = Field(pan.get_cls(), "_viewRadius", "System.Single");
-  pan_soft_range = Field(pan.get_cls(), "_softClampRange", "System.Single");
-  pan_far_normal = Field(pan.get_cls(), "_farMagRadiusRatioSystemNormal", "System.Single");
-  pan_far_extended = Field(pan.get_cls(), "_farMagRadiusRatioSystemExtended", "System.Single");
-  pan_near_normal = Field(pan.get_cls(), "_nearMagRadiusRatioSystemNormal", "System.Single");
-  pan_near_extended = Field(pan.get_cls(), "_nearMagRadiusRatioSystemExtended", "System.Single");
-  pan_return_coeff = Field(pan.get_cls(), "_outOfBoundsReturnCoeff", "System.Single");
-  frame_count    = il2cpp_resolve_icall_typed<int()>("UnityEngine.Time::get_frameCount()");
-  focused        = il2cpp_resolve_icall_typed<bool()>("UnityEngine.Application::get_isFocused()");
-  mouse_position = il2cpp_resolve_icall_typed<void(Vector3 *)>(
+  can_move           = method_contract::Resolve(navigation.get_cls(), "CanMoveCamera", true, "System.Boolean", {});
+  mouse_world        = method_contract::Resolve(math.get_cls(), "GetMouseWorldPos", true, "UnityEngine.Vector3",
+                                                {"UnityEngine.Camera", "UnityEngine.Vector3"});
+  scene_camera       = Field(zoom.get_cls(), "_sceneCamera", "UnityEngine.Camera");
+  distance_field     = Field(zoom.get_cls(), "_actualDistance", "System.Single");
+  depth_field        = Field(zoom.get_cls(), "_depth", "Digit.PrimeServer.Models.NodeDepth");
+  zoom_location      = Field(zoom.get_cls(), "_zoomLocation", "UnityEngine.Vector2");
+  world_point        = Field(zoom.get_cls(), "_worldPoint", "UnityEngine.Vector3");
+  pan_camera         = Field(pan.get_cls(), "_sceneCamera", "UnityEngine.Camera");
+  pan_depth          = Field(pan.get_cls(), "_nodeDepth", "Digit.PrimeServer.Models.NodeDepth");
+  pan_drag_delta     = Field(pan.get_cls(), "_dragDelta", "UnityEngine.Vector2");
+  pan_tracking       = Field(pan.get_cls(), "_trackingPOI", "Digit.Prime.Navigation.POI");
+  pan_tracking_fleet = Field(pan.get_cls(), "_trackingFleetTransform", "UnityEngine.Transform");
+  pan_min_speed      = Field(pan.get_cls(), "_minPanSpeed", "System.Single");
+  normalized_zoom    = Field(zoom.get_cls(), "<NormalizedZoom>k__BackingField", "System.Single");
+  frame_count        = il2cpp_resolve_icall_typed<int()>("UnityEngine.Time::get_frameCount()");
+  focused            = il2cpp_resolve_icall_typed<bool()>("UnityEngine.Application::get_isFocused()");
+  mouse_position     = il2cpp_resolve_icall_typed<void(Vector3 *)>(
       "UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)");
   if (!method_contract::Pointer(update) || update->has_full_generic_sharing_signature || !method_contract::Pointer(move)
-      || move->has_full_generic_sharing_signature || !get_transform || !get_angles || !get_local_position || !clamp_pan_position
-      || !set_angles || !get_forward || !set_position || !event_system || !pointer_over_ui || !can_move || !mouse_world
-      || !scene_camera || !distance_field || !depth_field || !zoom_location || !world_point || !frame_count || !focused
-      || !pan_camera || !pan_depth || !pan_radius || !pan_soft_range || !pan_far_normal || !pan_far_extended
-      || !pan_near_normal || !pan_near_extended || !pan_return_coeff
-      || !mouse_position || !install_screen_manager_update_hook() || !register_screen_manager_update_callback(Tick)) {
+      || move->has_full_generic_sharing_signature || !get_transform || !get_angles
+      || !method_contract::Pointer(clamp_pan_position) || clamp_pan_position->has_full_generic_sharing_signature
+      || !camera_fov || !camera_height || !set_angles || !get_forward || !set_position || !event_system
+      || !pointer_over_ui || !can_move || !mouse_world || !scene_camera || !distance_field || !depth_field
+      || !zoom_location || !world_point || !frame_count || !focused || !pan_camera || !pan_depth || !pan_drag_delta
+      || !pan_tracking || !pan_tracking_fleet || !pan_min_speed || !normalized_zoom || !mouse_position
+      || !install_screen_manager_update_hook() || !register_screen_manager_update_callback(Tick)) {
     spdlog::warn("[NavigationOrbit] camera/input API unavailable; keeping native orientation");
     return;
   }
-  if (SPUD_STATIC_DETOUR(move->methodPointer, MoveCamera_Hook))
+  if (SPUD_STATIC_DETOUR(clamp_pan_position->methodPointer, ClampPositionInside_Hook)
+      && SPUD_STATIC_DETOUR(move->methodPointer, MoveCamera_Hook))
     ready = SPUD_STATIC_DETOUR(update->methodPointer, UpdateCameraPosition_Hook) != nullptr;
   spdlog::info("[NavigationOrbit] installed={} drag={} reset={}", ready,
                MapKey::GetShortcuts(GameFunction::NavigationOrbitDrag),
