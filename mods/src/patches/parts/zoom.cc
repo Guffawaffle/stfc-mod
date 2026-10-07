@@ -79,7 +79,8 @@ bool PointerOwnsScroll()
   if (target == nullptr)
     return false;
   auto *handler_type = il2cpp_type_get_object(il2cpp_class_get_type(scroll_handler_class));
-  void *parent_args[]{handler_type};
+  bool include_inactive = false;
+  void *parent_args[]{handler_type, &include_inactive};
   auto *handler = ScrollInvoke(scroll_parent, target, parent_args);
   if (handler == nullptr || !il2cpp_class_is_assignable_from(scroll_behaviour_class, handler->klass))
     return false;
@@ -121,7 +122,7 @@ void InstallScrollZoomGuard(Il2CppClass *navigation_zoom_class)
       "System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>",
       {"UnityEngine.EventSystems.EventSystem", "UnityEngine.Vector2"});
   scroll_parent = method_contract::Resolve(game_object.get_cls(), "GetComponentInParent", false,
-                                           "UnityEngine.Component", {"System.Type"});
+                                           "UnityEngine.Component", {"System.Type", "System.Boolean"});
   scroll_active = method_contract::Resolve(behaviour.get_cls(), "get_isActiveAndEnabled", false, "System.Boolean", {});
   scroll_handler_class = handler.get_cls();
   scroll_behaviour_class = behaviour.get_cls();
@@ -153,7 +154,11 @@ void InstallScrollZoomGuard(Il2CppClass *navigation_zoom_class)
       || (il2cpp_field_get_flags(scroll_game_object) & FIELD_ATTRIBUTE_STATIC)
       || !valid_zoom_field("_zoomDelta") || !valid_zoom_field("_lastZoomDelta")
       || navigation_wheel == nullptr || station_wheel == nullptr) {
-    spdlog::warn("[ScrollZoomGuard] UI/camera API unavailable; keeping native camera input");
+    spdlog::warn("[ScrollZoomGuard] UI/camera API unavailable; keeping native camera input "
+                 "(event={} raycast={} count={} item={} parent={} active={} handler={} hit={} navigation={} station={})",
+                 scroll_event_system != nullptr, scroll_raycast != nullptr, valid_count, valid_item,
+                 scroll_parent != nullptr, scroll_active != nullptr, scroll_handler_class != nullptr,
+                 scroll_game_object != nullptr, navigation_wheel != nullptr, station_wheel != nullptr);
     return;
   }
   scroll_guard_ready = true;
