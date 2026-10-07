@@ -107,9 +107,10 @@ void Fail()
 bool SectionMatches(NodeDepth depth)
 {
   auto *sections = Hub::get_SectionManager();
-  return sections
-         && ((depth == NodeDepth::Galaxy && sections->CurrentSection == SectionID::Navigation_Galaxy)
-             || (depth == NodeDepth::SolarSystem && sections->CurrentSection == SectionID::Navigation_System));
+  // Galaxy rendering assumes the native view; rotating it exposes layers that
+  // are not intended to be visible. Keep its camera entirely native.
+  return sections && depth == NodeDepth::SolarSystem
+         && sections->CurrentSection == SectionID::Navigation_System;
 }
 
 bool Enabled()

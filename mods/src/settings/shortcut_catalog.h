@@ -73,9 +73,9 @@ constexpr std::string_view ShortcutExplanation(GameFunction action)
     case HavenOrbitReset:
       return "Restore Haven's native rotation and tilt.";
     case NavigationOrbitDrag:
-      return "Hold and drag on the system or galaxy map: sideways rotates, up/down adjusts tilt (5 to 90 degrees).";
+      return "Hold and drag on the system map: sideways rotates, up/down adjusts tilt (5 to 90 degrees).";
     case NavigationOrbitReset:
-      return "Restore the system or galaxy map's native rotation and tilt.";
+      return "Restore the system map's native rotation and tilt.";
     default:
       return {};
   }
@@ -147,8 +147,8 @@ inline constexpr auto ShortcutCatalog = std::to_array<ShortcutInfo>({
     {ZoomMax, ShortcutGroup::Camera, "Zoom to maximum"},
     {HavenOrbitDrag, ShortcutGroup::Camera, "Rotate and tilt Haven (hold)"},
     {HavenOrbitReset, ShortcutGroup::Camera, "Reset Haven rotation and tilt"},
-    {NavigationOrbitDrag, ShortcutGroup::Camera, "Rotate and tilt system/galaxy (hold)"},
-    {NavigationOrbitReset, ShortcutGroup::Camera, "Reset system/galaxy rotation and tilt"},
+    {NavigationOrbitDrag, ShortcutGroup::Camera, "Rotate and tilt system (hold)"},
+    {NavigationOrbitReset, ShortcutGroup::Camera, "Reset system rotation and tilt"},
     {ZoomReset, ShortcutGroup::Camera, "Reset zoom"},
     {UiScaleUp, ShortcutGroup::Interface, "Increase interface size"},
     {UiScaleDown, ShortcutGroup::Interface, "Decrease interface size"},
