@@ -38,6 +38,8 @@ namespace
   // Scene cleanup is explicit. Avoid calling into IL2CPP from static destructors
   // after Unity has already torn down its runtime during process exit.
   Root              shell{false}, mesh{false}, material{false}, source{false}, shell_renderer{false};
+  Root              native_background{false};
+  bool              background_hidden = false, native_background_enabled = true;
   bool              reported_bounds = false;
   bool              attempted = false, ready = false, failed = false;
   int               next_scan = 0;
@@ -49,7 +51,7 @@ namespace
   const MethodInfo *set_vertices, *set_uv, *set_triangles, *set_mesh, *set_material, *shader_find, *set_texture;
   const MethodInfo *set_queue, *shader_supported, *renderer_visible, *get_bounds, *recalculate_bounds;
   const MethodInfo *set_shadows, *receive_shadows;
-  const MethodInfo *texture_width, *texture_height, *object_name, *renderer_enabled;
+  const MethodInfo *texture_width, *texture_height, *object_name, *renderer_enabled, *set_renderer_enabled;
   Il2CppClass      *game_class, *mesh_class, *material_class, *vector3_class, *vector2_class, *int_class;
   Il2CppClass      *loader_class, *object_class, *flat_class;
   void             *loader_type, *filter_type, *renderer_type;
@@ -67,25 +69,26 @@ namespace
   {
     if (attempted)
       return ready;
-    attempted        = true;
-    destroy          = Method("Object", "Destroy", true, "System.Void", {"UnityEngine.Object"});
-    alive            = Method("Object", "op_Implicit", true, "System.Boolean", {"UnityEngine.Object"});
-    find_all         = Method("Object", "FindObjectsOfType", true, "UnityEngine.Object[]", {"System.Type"});
-    active           = Method("Behaviour", "get_isActiveAndEnabled", false, "System.Boolean");
-    shared_material  = Method("Renderer", "get_sharedMaterial", false, "UnityEngine.Material");
-    texture_width    = Method("Texture", "get_width", false, "System.Int32");
-    texture_height   = Method("Texture", "get_height", false, "System.Int32");
-    object_name      = Method("Object", "get_name", false, "System.String");
-    renderer_enabled = Method("Renderer", "get_enabled", false, "System.Boolean");
-    main_texture     = Method("Material", "get_mainTexture", false, "UnityEngine.Texture");
-    get_transform    = Method("Component", "get_transform", false, "UnityEngine.Transform");
-    game_transform   = Method("GameObject", "get_transform", false, "UnityEngine.Transform");
-    get_game_object  = Method("Component", "get_gameObject", false, "UnityEngine.GameObject");
-    get_layer        = Method("GameObject", "get_layer", false, "System.Int32");
-    set_layer        = Method("GameObject", "set_layer", false, "System.Void", {"System.Int32"});
-    get_position     = Method("Transform", "get_position", false, "UnityEngine.Vector3");
-    set_position     = Method("Transform", "set_position", false, "System.Void", {"UnityEngine.Vector3"});
-    set_scale        = Method("Transform", "set_localScale", false, "System.Void", {"UnityEngine.Vector3"});
+    attempted            = true;
+    destroy              = Method("Object", "Destroy", true, "System.Void", {"UnityEngine.Object"});
+    alive                = Method("Object", "op_Implicit", true, "System.Boolean", {"UnityEngine.Object"});
+    find_all             = Method("Object", "FindObjectsOfType", true, "UnityEngine.Object[]", {"System.Type"});
+    active               = Method("Behaviour", "get_isActiveAndEnabled", false, "System.Boolean");
+    shared_material      = Method("Renderer", "get_sharedMaterial", false, "UnityEngine.Material");
+    texture_width        = Method("Texture", "get_width", false, "System.Int32");
+    texture_height       = Method("Texture", "get_height", false, "System.Int32");
+    object_name          = Method("Object", "get_name", false, "System.String");
+    set_renderer_enabled = Method("Renderer", "set_enabled", false, "System.Void", {"System.Boolean"});
+    renderer_enabled     = Method("Renderer", "get_enabled", false, "System.Boolean");
+    main_texture         = Method("Material", "get_mainTexture", false, "UnityEngine.Texture");
+    get_transform        = Method("Component", "get_transform", false, "UnityEngine.Transform");
+    game_transform       = Method("GameObject", "get_transform", false, "UnityEngine.Transform");
+    get_game_object      = Method("Component", "get_gameObject", false, "UnityEngine.GameObject");
+    get_layer            = Method("GameObject", "get_layer", false, "System.Int32");
+    set_layer            = Method("GameObject", "set_layer", false, "System.Void", {"System.Int32"});
+    get_position         = Method("Transform", "get_position", false, "UnityEngine.Vector3");
+    set_position         = Method("Transform", "set_position", false, "System.Void", {"UnityEngine.Vector3"});
+    set_scale            = Method("Transform", "set_localScale", false, "System.Void", {"UnityEngine.Vector3"});
     set_parent    = Method("Transform", "SetParent", false, "System.Void", {"UnityEngine.Transform", "System.Boolean"});
     set_angles    = Method("Transform", "set_eulerAngles", false, "System.Void", {"UnityEngine.Vector3"});
     far_clip      = Method("Camera", "get_farClipPlane", false, "System.Single");
@@ -146,7 +149,8 @@ namespace
             && set_material && shader_find && set_texture && loader_type && filter_type && renderer_type
             && renderer_field && game_class && mesh_class && material_class && vector3_class && vector2_class
             && int_class && frame_count && texture_width && texture_height && renderer_enabled && set_queue
-            && shader_supported && flat_class && recalculate_bounds && set_shadows && receive_shadows;
+            && shader_supported && flat_class && recalculate_bounds && set_shadows && receive_shadows
+            && set_renderer_enabled;
     spdlog::info(
         "[SystemEnvironmentPoc] runtime API ready={} recalc={} shader-support={} cast-shadows={} receive-shadows={}",
         ready, recalculate_bounds != nullptr, shader_supported != nullptr, set_shadows != nullptr,
@@ -217,7 +221,7 @@ namespace
     return repeat <= 1.0f ? repeat : 2.0f - repeat;
   }
 
-  bool Create(Il2CppObject *texture, int layer)
+  bool Create(Il2CppObject *texture, int layer, Il2CppObject *native_renderer)
   {
     // Stitch four mirrored azimuth tiles and two vertical tiles into a closed
     // inward-facing sphere. Adjacent patches sample exactly the same texture
@@ -298,6 +302,11 @@ namespace
         || !Il2CppRuntime::TryInvoke(set_shadows, renderer, shadows_args)
         || !Il2CppRuntime::TryInvoke(receive_shadows, renderer, off_args))
       return false;
+    bool original_enabled = false;
+    if (!Value(renderer_enabled, native_renderer, "System.Boolean", original_enabled) || !original_enabled)
+      return false;
+    native_background.Reset(native_renderer);
+    native_background_enabled = original_enabled;
     shell_renderer.Reset(renderer);
     source.Reset(texture);
     bool visible = false, enabled = false;
@@ -307,7 +316,7 @@ namespace
                  "shader=Unlit/Texture supported={} renderer-enabled={} initial-visible={}",
                  layer, vertices.size(), indices.size() / 3, horizontal_tiles, vertical_tiles, supported, enabled,
                  visible);
-    return source.Get() != nullptr;
+    return source.Get() != nullptr && native_background.Get() != nullptr;
   }
 
   std::string Name(Il2CppObject *object)
@@ -320,15 +329,17 @@ namespace
     return name->length >= 0 && name->length <= 256 ? to_string(name) : "unknown";
   }
 
-  bool Artwork(Il2CppObject *flat, int mask, int required_layer, Il2CppObject *&texture, int &layer)
+  bool Artwork(Il2CppObject *flat, int mask, int required_layer, Il2CppObject *&texture, int &layer,
+               Il2CppObject *&renderer)
   {
     if (!Live(flat) || !il2cpp_class_is_assignable_from(flat_class, flat->klass))
       return false;
-    Il2CppObject *renderer = nullptr, *native_material = nullptr, *object = nullptr;
+    Il2CppObject *native_material = nullptr, *object = nullptr;
     il2cpp_field_get_value(flat, renderer_field, &renderer);
     bool enabled = false;
     int  width = 0, height = 0;
-    if (!Live(renderer) || !Value(renderer_enabled, renderer, "System.Boolean", enabled) || !enabled
+    if (!Live(renderer) || !Value(renderer_enabled, renderer, "System.Boolean", enabled)
+        || (!enabled && !(background_hidden && renderer == native_background.Get()))
         || !Il2CppRuntime::TryInvoke(get_game_object, renderer, nullptr, &object) || !Live(object)
         || !Value(get_layer, object, "System.Int32", layer) || layer < 0 || layer > 31
         || !(static_cast<unsigned>(mask) & (1u << layer)) || (required_layer >= 0 && layer != required_layer)
@@ -369,7 +380,7 @@ namespace
     unsigned active_loaders = 0, textured_backgrounds = 0;
     for (size_t i = 0; i < array->max_length; ++i) {
       auto         *loader = *reinterpret_cast<Il2CppObject **>(il2cpp_array_addr_with_size(array, i, sizeof(void *)));
-      Il2CppObject *boxed = nullptr, *flat = nullptr, *texture = nullptr;
+      Il2CppObject *boxed = nullptr, *flat = nullptr, *texture = nullptr, *native_renderer = nullptr;
       bool          enabled = false;
       if (!Live(loader) || !loader_class || !il2cpp_class_is_assignable_from(loader_class, loader->klass)
           || !Il2CppRuntime::TryInvoke(active, loader, nullptr, &boxed) || !Il2CppRuntime::TryBoolean(boxed, enabled)
@@ -377,7 +388,7 @@ namespace
         continue;
       ++active_loaders;
       int layer = -1;
-      if (!Artwork(flat, mask, -1, texture, layer)) {
+      if (!Artwork(flat, mask, -1, texture, layer, native_renderer)) {
         // Some loaders expose procedural stars as Background; their actual
         // nebula image is another active flat renderer on the same backdrop layer.
         int          background_layer = layer;
@@ -392,7 +403,7 @@ namespace
         bool found = false;
         for (size_t j = 0; pool_root.Get() && j < pool->max_length; ++j) {
           auto *candidate = *reinterpret_cast<Il2CppObject **>(il2cpp_array_addr_with_size(pool, j, sizeof(void *)));
-          if (Artwork(candidate, mask, background_layer, texture, layer)) {
+          if (Artwork(candidate, mask, background_layer, texture, layer, native_renderer)) {
             found = true;
             break;
           }
@@ -401,12 +412,14 @@ namespace
           continue;
       }
       ++textured_backgrounds;
-      if (texture == source.Get() && Live(shell.Get()))
+      if (texture == source.Get() && native_renderer == native_background.Get() && Live(shell.Get()))
         return;
       Root texture_root;
       texture_root.Reset(texture);
+      Root renderer_root;
+      renderer_root.Reset(native_renderer);
       Clear();
-      if (!texture_root.Get() || !Create(texture_root.Get(), layer))
+      if (!texture_root.Get() || !renderer_root.Get() || !Create(texture_root.Get(), layer, renderer_root.Get()))
         Fail("shell-create");
       return;
     }
@@ -422,6 +435,14 @@ namespace
 
 void Clear()
 {
+  // Return ownership of the exact distant backdrop on reset, scene changes,
+  // rebind or failure. Never alter the loader or any gameplay object's activity.
+  if (background_hidden && Live(native_background.Get())) {
+    void *args[]{&native_background_enabled};
+    Il2CppRuntime::TryInvoke(set_renderer_enabled, native_background.Get(), args);
+  }
+  background_hidden = false;
+  native_background.Reset();
   Destroy(shell);
   Destroy(mesh);
   Destroy(material);
@@ -466,6 +487,18 @@ void Update(Il2CppObject *camera)
       || !Il2CppRuntime::TryInvoke(set_position, shell_transform, position_args)
       || !Il2CppRuntime::TryInvoke(set_scale, shell_transform, scale_args))
     Fail("camera-follow-write");
+  if (!failed && Live(native_background.Get())) {
+    bool  off = false;
+    void *args[]{&off};
+    if (!Il2CppRuntime::TryInvoke(set_renderer_enabled, native_background.Get(), args)) {
+      Fail("background-handoff");
+      return;
+    }
+    if (!background_hidden)
+      spdlog::info(
+          "[SystemEnvironmentPoc] enclosure replaces finite distant backdrop; native renderer saved for restore");
+    background_hidden = true;
+  }
   if (!failed && !reported_bounds && Live(shell_renderer.Get())) {
     struct Bounds {
       Vector3 center, extents;
