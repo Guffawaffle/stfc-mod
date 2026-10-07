@@ -1,4 +1,5 @@
 #include "config.h"
+#include "errormsg.h"
 #include "patches/key.h"
 #include "patches/mapkey.h"
 #include "patches/screen_update_hook.h"
