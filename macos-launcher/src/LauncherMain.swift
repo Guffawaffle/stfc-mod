@@ -29,11 +29,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct STFC_Community_Patch_LauncherApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-  @State private var showProfiles = false
+  @FocusedValue(\.profilesPresentation) private var profilesPresentation
 
   var body: some Scene {
     WindowGroup {
-      ContentView(showProfiles: $showProfiles)
+      ContentView()
         .frame(width: 600, height: 400)
         .fixedSize()
     }
@@ -42,9 +42,10 @@ struct STFC_Community_Patch_LauncherApp: App {
       CommandGroup(after: .sidebar) {
         Divider()
         Button("Profiles Preview…") {
-          showProfiles = true
+          profilesPresentation?.wrappedValue = true
         }
         .keyboardShortcut("p", modifiers: [.command, .shift])
+        .disabled(profilesPresentation == nil)
         Button("View Mod Folder") {
           openModFolder()
         }
@@ -76,5 +77,16 @@ struct STFC_Community_Patch_LauncherApp: App {
     alert.informativeText = message
     alert.addButton(withTitle: "OK")
     alert.runModal()
+  }
+}
+
+private struct ProfilesPresentationKey: FocusedValueKey {
+  typealias Value = Binding<Bool>
+}
+
+extension FocusedValues {
+  var profilesPresentation: Binding<Bool>? {
+    get { self[ProfilesPresentationKey.self] }
+    set { self[ProfilesPresentationKey.self] = newValue }
   }
 }

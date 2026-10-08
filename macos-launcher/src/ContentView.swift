@@ -10,7 +10,7 @@ import SwiftUI
 
 struct ContentView: View, XSollaUpdaterDelegate {
   @State private var updateAction: String = ""
-  @Binding var showProfiles: Bool
+  @State private var showProfiles = false
 
   var body: some View {
     GeometryReader { geo in
@@ -38,6 +38,7 @@ struct ContentView: View, XSollaUpdaterDelegate {
       .padding(.top, 12)
     }
     .sheet(isPresented: $showProfiles) { ProfilesPreviewView() }
+    .focusedSceneValue(\.profilesPresentation, $showProfiles)
   }
 
   private var topContent: some View {
