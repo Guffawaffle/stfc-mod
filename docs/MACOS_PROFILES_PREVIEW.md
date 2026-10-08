@@ -15,9 +15,14 @@ or later. The parked system-background experiments are excluded.
    Scopely sign-in.
    A managed browser storage override is refused; use a browser that can honor
    the private profile directory.
-3. Open the preview app and click **Profiles Preview…**. Create **Quasel Test**.
+3. Open the preview app and click **Profiles Preview…** at the top of the window,
+   beside **TEST BUILD**. You can also use **View → Profiles Preview…** or
+   **Command-Shift-P**. Create **Quasel Test**.
    This creates a fresh profile; it does not copy your ordinary game login or
    Spocks configuration.
+   **Open TOML** also exists in ordinary downstream releases and does not identify
+   this preview; check the preview header and bundled `Contents/stfc-profiles`
+   helper if you have several launcher copies installed.
 4. Check the selected game path. **Choose Game…** selects
    **Star Trek Fleet Command.app** if the automatic launcher path is unavailable
    or you want to use another installed game copy.

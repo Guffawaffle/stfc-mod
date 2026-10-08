@@ -29,10 +29,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct STFC_Community_Patch_LauncherApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+  @State private var showProfiles = false
 
   var body: some Scene {
     WindowGroup {
-      ContentView()
+      ContentView(showProfiles: $showProfiles)
         .frame(width: 600, height: 400)
         .fixedSize()
     }
@@ -40,6 +41,10 @@ struct STFC_Community_Patch_LauncherApp: App {
     .commands {
       CommandGroup(after: .sidebar) {
         Divider()
+        Button("Profiles Preview…") {
+          showProfiles = true
+        }
+        .keyboardShortcut("p", modifiers: [.command, .shift])
         Button("View Mod Folder") {
           openModFolder()
         }
