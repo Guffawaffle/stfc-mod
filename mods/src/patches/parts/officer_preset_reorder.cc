@@ -12,10 +12,12 @@
 #include <spud/detour.h>
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -588,10 +590,16 @@ void InstallOfficerPresetReorderHooks()
   auto item_context_helper =
       il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.OfficerPresets", "OfficerPresetItemContext");
   auto scroller_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "SmartScrollerBase");
-  if (!widget_helper.isValidHelper() || !controller_helper.isValidHelper() || !view_context_helper.isValidHelper()
-      || !item_context_helper.isValidHelper() || !scroller_helper.isValidHelper()) {
-    ErrorMsg::MissingHelper("Digit.Prime.OfficerPresets", "reorder UI surface");
-    return;
+  for (const auto& [valid, name] : std::array{
+           std::pair{widget_helper.isValidHelper(), "Digit.Prime.OfficerPresets.OfficerPresetItemWidget"},
+           std::pair{controller_helper.isValidHelper(), "Digit.Prime.OfficerPresets.OfficerPresetsViewController"},
+           std::pair{view_context_helper.isValidHelper(), "Digit.Prime.OfficerPresets.OfficerPresetsViewContext"},
+           std::pair{item_context_helper.isValidHelper(), "Digit.Prime.OfficerPresets.OfficerPresetItemContext"},
+           std::pair{scroller_helper.isValidHelper(), "Digit.Client.UI.SmartScrollerBase"}}) {
+    if (!valid) {
+      spdlog::warn("[OfficerPresetReorder] unavailable: missing class {}", name);
+      return;
+    }
   }
   if (!validate_context_layout(item_context_helper.get_cls())) {
     return;
@@ -602,10 +610,15 @@ void InstallOfficerPresetReorderHooks()
   auto controller_context_field = controller_helper.GetField("m_context");
   auto scroller_field           = controller_helper.GetField("_smartScroller");
   auto presets_field            = view_context_helper.GetField("PresetsItemsContext");
-  if (!context_field.isValidHelper() || !controller_context_field.isValidHelper() || !scroller_field.isValidHelper()
-      || !presets_field.isValidHelper()) {
-    ErrorMsg::MissingMethod("OfficerPresetReorder", "required field");
-    return;
+  for (const auto& [valid, name] : std::array{
+           std::pair{context_field.isValidHelper(), "OfficerPresetItemWidget.m_context"},
+           std::pair{controller_context_field.isValidHelper(), "OfficerPresetsViewController.m_context"},
+           std::pair{scroller_field.isValidHelper(), "OfficerPresetsViewController._smartScroller"},
+           std::pair{presets_field.isValidHelper(), "OfficerPresetsViewContext.PresetsItemsContext"}}) {
+    if (!valid) {
+      spdlog::warn("[OfficerPresetReorder] unavailable: missing field {}", name);
+      return;
+    }
   }
   widget_context_offset      = context_field.offset();
   controller_context_offset  = controller_context_field.offset();
@@ -619,14 +632,18 @@ void InstallOfficerPresetReorderHooks()
   const auto bind_method           = controller_helper.GetMethodInfo("OnDidBindCanvasContext", 0);
   const auto release_method        = controller_helper.GetMethodInfo("OnAboutToReleaseCanvasContext", 0);
   const auto save_success_method   = controller_helper.GetMethodInfo("OnSaveSlotsSuccess", 1);
-  if (clear_method == nullptr || clear_method->methodPointer == nullptr || get_scroll_method == nullptr
-      || get_scroll_method->methodPointer == nullptr || restore_scroll_method == nullptr
-      || restore_scroll_method->methodPointer == nullptr || edit_method == nullptr
-      || edit_method->methodPointer == nullptr || bind_method == nullptr || bind_method->methodPointer == nullptr
-      || release_method == nullptr || release_method->methodPointer == nullptr || save_success_method == nullptr
-      || save_success_method->methodPointer == nullptr) {
-    ErrorMsg::MissingMethod("OfficerPresetReorder", "required UI method");
-    return;
+  for (const auto& [target, name] : std::array{
+           std::pair{clear_method, "SmartScrollerBase.ClearAndGenerateContents(2 arguments)"},
+           std::pair{get_scroll_method, "SmartScrollerBase.get_ScrollPosition()"},
+           std::pair{restore_scroll_method, "SmartScrollerBase.RestoreScrollPosition(1 argument)"},
+           std::pair{edit_method, "OfficerPresetItemWidget.OnEditNameButtonClicked()"},
+           std::pair{bind_method, "OfficerPresetsViewController.OnDidBindCanvasContext()"},
+           std::pair{release_method, "OfficerPresetsViewController.OnAboutToReleaseCanvasContext()"},
+           std::pair{save_success_method, "OfficerPresetsViewController.OnSaveSlotsSuccess(1 argument)"}}) {
+    if (!target || !target->methodPointer) {
+      spdlog::warn("[OfficerPresetReorder] unavailable: missing method/native pointer {}", name);
+      return;
+    }
   }
   clear_and_generate      = reinterpret_cast<ClearAndGenerateContentsFn*>(clear_method->methodPointer);
   get_scroll_position     = reinterpret_cast<GetScrollPositionFn*>(get_scroll_method->methodPointer);
@@ -639,5 +656,13 @@ void InstallOfficerPresetReorderHooks()
   const bool bind = SPUD_STATIC_DETOUR(bind_method->methodPointer, OfficerPresetsViewController_OnDidBindCanvasContext_Hook);
   const bool release = SPUD_STATIC_DETOUR(release_method->methodPointer, OfficerPresetsViewController_OnAboutToReleaseCanvasContext_Hook);
   const bool save = SPUD_STATIC_DETOUR(save_success_method->methodPointer, OfficerPresetsViewController_OnSaveSlotsSuccess_Hook);
+  const std::array installed{context, edit, bind, release, save};
+  const std::array names{"OfficerManager.TryGetPresetItemContext", "OfficerPresetItemWidget.OnEditNameButtonClicked",
+                         "OfficerPresetsViewController.OnDidBindCanvasContext",
+                         "OfficerPresetsViewController.OnAboutToReleaseCanvasContext",
+                         "OfficerPresetsViewController.OnSaveSlotsSuccess"};
+  for (std::size_t i = 0; i < installed.size(); ++i)
+    if (!installed[i])
+      spdlog::warn("[OfficerPresetReorder] failed to install {}; feature retains native behavior", names[i]);
   reorder_installed = context && edit && bind && release && save;
 }
