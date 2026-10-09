@@ -94,26 +94,28 @@ namespace
         method_contract::Resolve(unity_object.get_cls(), "op_Implicit", true, "System.Boolean", {"UnityEngine.Object"});
     find_all = method_contract::Resolve(unity_object.get_cls(), "FindObjectsOfType", true, "UnityEngine.Object[]",
                                         {"System.Type"});
-    active   = method_contract::Resolve(unity_behaviour.get_cls(), "get_isActiveAndEnabled", false, "System.Boolean");
+    active = method_contract::Resolve(unity_behaviour.get_cls(), "get_isActiveAndEnabled", false, "System.Boolean", {});
     shared_material =
-        method_contract::Resolve(unity_renderer.get_cls(), "get_sharedMaterial", false, "UnityEngine.Material");
-    texture_width    = method_contract::Resolve(unity_texture.get_cls(), "get_width", false, "System.Int32");
-    texture_height   = method_contract::Resolve(unity_texture.get_cls(), "get_height", false, "System.Int32");
-    object_name      = method_contract::Resolve(unity_object.get_cls(), "get_name", false, "System.String");
-    renderer_enabled = method_contract::Resolve(unity_renderer.get_cls(), "get_enabled", false, "System.Boolean");
+        method_contract::Resolve(unity_renderer.get_cls(), "get_sharedMaterial", false, "UnityEngine.Material", {});
+    texture_width    = method_contract::Resolve(unity_texture.get_cls(), "get_width", false, "System.Int32", {});
+    texture_height   = method_contract::Resolve(unity_texture.get_cls(), "get_height", false, "System.Int32", {});
+    object_name      = method_contract::Resolve(unity_object.get_cls(), "get_name", false, "System.String", {});
+    renderer_enabled = method_contract::Resolve(unity_renderer.get_cls(), "get_enabled", false, "System.Boolean", {});
     active_in_hierarchy =
-        method_contract::Resolve(unity_game_object.get_cls(), "get_activeInHierarchy", false, "System.Boolean");
-    main_texture = method_contract::Resolve(unity_material.get_cls(), "get_mainTexture", false, "UnityEngine.Texture");
+        method_contract::Resolve(unity_game_object.get_cls(), "get_activeInHierarchy", false, "System.Boolean", {});
+    main_texture =
+        method_contract::Resolve(unity_material.get_cls(), "get_mainTexture", false, "UnityEngine.Texture", {});
     get_transform =
-        method_contract::Resolve(unity_component.get_cls(), "get_transform", false, "UnityEngine.Transform");
+        method_contract::Resolve(unity_component.get_cls(), "get_transform", false, "UnityEngine.Transform", {});
     game_transform =
-        method_contract::Resolve(unity_game_object.get_cls(), "get_transform", false, "UnityEngine.Transform");
+        method_contract::Resolve(unity_game_object.get_cls(), "get_transform", false, "UnityEngine.Transform", {});
     get_game_object =
-        method_contract::Resolve(unity_component.get_cls(), "get_gameObject", false, "UnityEngine.GameObject");
-    get_layer = method_contract::Resolve(unity_game_object.get_cls(), "get_layer", false, "System.Int32");
+        method_contract::Resolve(unity_component.get_cls(), "get_gameObject", false, "UnityEngine.GameObject", {});
+    get_layer = method_contract::Resolve(unity_game_object.get_cls(), "get_layer", false, "System.Int32", {});
     set_layer =
         method_contract::Resolve(unity_game_object.get_cls(), "set_layer", false, "System.Void", {"System.Int32"});
-    get_position = method_contract::Resolve(unity_transform.get_cls(), "get_position", false, "UnityEngine.Vector3");
+    get_position =
+        method_contract::Resolve(unity_transform.get_cls(), "get_position", false, "UnityEngine.Vector3", {});
     set_position = method_contract::Resolve(unity_transform.get_cls(), "set_position", false, "System.Void",
                                             {"UnityEngine.Vector3"});
     set_scale    = method_contract::Resolve(unity_transform.get_cls(), "set_localScale", false, "System.Void",
@@ -122,15 +124,15 @@ namespace
                                             {"UnityEngine.Transform", "System.Boolean"});
     set_angles   = method_contract::Resolve(unity_transform.get_cls(), "set_eulerAngles", false, "System.Void",
                                             {"UnityEngine.Vector3"});
-    far_clip     = method_contract::Resolve(unity_camera.get_cls(), "get_farClipPlane", false, "System.Single");
+    far_clip     = method_contract::Resolve(unity_camera.get_cls(), "get_farClipPlane", false, "System.Single", {});
     set_far_clip =
         method_contract::Resolve(unity_camera.get_cls(), "set_farClipPlane", false, "System.Void", {"System.Single"});
-    near_clip    = method_contract::Resolve(unity_camera.get_cls(), "get_nearClipPlane", false, "System.Single");
-    culling_mask = method_contract::Resolve(unity_camera.get_cls(), "get_cullingMask", false, "System.Int32");
+    near_clip    = method_contract::Resolve(unity_camera.get_cls(), "get_nearClipPlane", false, "System.Single", {});
+    culling_mask = method_contract::Resolve(unity_camera.get_cls(), "get_cullingMask", false, "System.Int32", {});
     game_ctor = method_contract::Resolve(unity_game_object.get_cls(), ".ctor", false, "System.Void", {"System.String"});
     add_component = method_contract::Resolve(unity_game_object.get_cls(), "AddComponent", false,
                                              "UnityEngine.Component", {"System.Type"});
-    mesh_ctor     = method_contract::Resolve(unity_mesh.get_cls(), ".ctor", false, "System.Void");
+    mesh_ctor     = method_contract::Resolve(unity_mesh.get_cls(), ".ctor", false, "System.Void", {});
     material_ctor =
         method_contract::Resolve(unity_material.get_cls(), ".ctor", false, "System.Void", {"UnityEngine.Shader"});
     set_vertices =
@@ -148,10 +150,10 @@ namespace
                                            {"UnityEngine.Texture"});
     set_queue =
         method_contract::Resolve(unity_material.get_cls(), "set_renderQueue", false, "System.Void", {"System.Int32"});
-    shader_supported   = method_contract::Resolve(unity_shader.get_cls(), "get_isSupported", false, "System.Boolean");
-    renderer_visible   = method_contract::Resolve(unity_renderer.get_cls(), "get_isVisible", false, "System.Boolean");
-    get_bounds         = method_contract::Resolve(unity_renderer.get_cls(), "get_bounds", false, "UnityEngine.Bounds");
-    recalculate_bounds = method_contract::Resolve(unity_mesh.get_cls(), "RecalculateBounds", false, "System.Void");
+    shader_supported = method_contract::Resolve(unity_shader.get_cls(), "get_isSupported", false, "System.Boolean", {});
+    renderer_visible = method_contract::Resolve(unity_renderer.get_cls(), "get_isVisible", false, "System.Boolean", {});
+    get_bounds = method_contract::Resolve(unity_renderer.get_cls(), "get_bounds", false, "UnityEngine.Bounds", {});
+    recalculate_bounds = method_contract::Resolve(unity_mesh.get_cls(), "RecalculateBounds", false, "System.Void", {});
     set_shadows     = method_contract::Resolve(unity_renderer.get_cls(), "set_shadowCastingMode", false, "System.Void",
                                                {"UnityEngine.Rendering.ShadowCastingMode"});
     receive_shadows = method_contract::Resolve(unity_renderer.get_cls(), "set_receiveShadows", false, "System.Void",
