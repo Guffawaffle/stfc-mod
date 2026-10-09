@@ -279,7 +279,9 @@ void InstallMissionHudTweaksHooks()
   auto behaviour_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Behaviour");
   g_enabled = reinterpret_cast<ActiveSelfFn>(behaviour_helper.GetMethod("get_isActiveAndEnabled", 0));
   if (!g_alive || !g_active_self || !g_enabled) {
-    spdlog::error("MissionHudTweaks: Unity object lifetime/visibility methods missing");
+    if (!g_alive) ErrorMsg::MissingMethod("UnityEngine.Object", "op_Implicit");
+    if (!g_active_self) ErrorMsg::MissingMethod("UnityEngine.GameObject", "get_activeSelf");
+    if (!g_enabled) ErrorMsg::MissingMethod("UnityEngine.Behaviour", "get_isActiveAndEnabled");
     return;
   }
 
@@ -290,9 +292,14 @@ void InstallMissionHudTweaksHooks()
   auto challenges = controller_helper.GetMethod("SetupChallengesButton", 1);
   auto outposts = controller_helper.GetMethod("SetupOutpostsButton", 1);
   auto combined = controller_helper.GetMethod("HandleOutpostsAndChallengesHUD", 0);
-  if (!on_enable || !achievements || !challenges || !outposts || !combined) {
-    spdlog::error("MissionHudTweaks: current HUD lifecycle/setup methods are missing; overrides disabled");
-    return;
+  const std::array targets{on_enable, achievements, challenges, outposts, combined};
+  const std::array names{"OnEnable()", "SetupAchievementsButton()", "SetupChallengesButton(1 argument)",
+                         "SetupOutpostsButton(1 argument)", "HandleOutpostsAndChallengesHUD()"};
+  for (std::size_t i = 0; i < targets.size(); ++i) {
+    if (!targets[i]) {
+      ErrorMsg::MissingMethod("MissionsHudViewController", names[i]);
+      return;
+    }
   }
 
   g_refresh_achievements = reinterpret_cast<RefreshFn>(achievements);
@@ -303,6 +310,10 @@ void InstallMissionHudTweaksHooks()
   const bool challenge_hook = SPUD_STATIC_DETOUR(challenges, MissionsHudViewController_SetupChallengesButton_Hook);
   const bool outpost_hook = SPUD_STATIC_DETOUR(outposts, MissionsHudViewController_SetupOutpostsButton_Hook);
   const bool combined_hook = SPUD_STATIC_DETOUR(combined, MissionsHudViewController_HandleOutpostsAndChallengesHUD_Hook);
+  const std::array installed{enabled, achievement_hook, challenge_hook, outpost_hook, combined_hook};
+  for (std::size_t i = 0; i < installed.size(); ++i)
+    if (!installed[i])
+      spdlog::error("MissionHudTweaks: failed to install MissionsHudViewController.{}; overrides disabled", names[i]);
   if (enabled && achievement_hook && challenge_hook && outpost_hook && combined_hook) {
     g_available = true;
     spdlog::info("MissionHudTweaks: installed live HUD lifecycle/setup hooks");

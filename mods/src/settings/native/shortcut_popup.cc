@@ -12,6 +12,7 @@
 #include <array>
 #include <cstring>
 #include <optional>
+#include "prime/Vector3.h"
 #include <spdlog/spdlog.h>
 
 namespace mod_settings::native
@@ -21,9 +22,6 @@ namespace
   using namespace ui;
   struct Vec2 {
     float x, y;
-  };
-  struct Vec3 {
-    float x, y, z;
   };
   struct Color {
     float r, g, b, a;
@@ -344,7 +342,7 @@ bool OpenShortcutPopup(ShortcutPopupCommands commands)
       const auto scale = std::min({1.f, value.width / 650.f, value.height / 570.f});
       if (scale <= 0)
         throw std::runtime_error("shortcut popup canvas size");
-      Value(panelTransform.get(), "set_localScale", Vec3{scale, scale, 1});
+      Value(panelTransform.get(), "set_localScale", Vector3{scale, scale, 1});
     }
     Retain(popup.title, Label(panelTransform.get(), font.get(), "Title", {560, 58}, {0, 214}, 29, ""));
     Retain(popup.current, Label(panelTransform.get(), font.get(), "Current", {560, 45}, {0, 157}, 21, ""));
