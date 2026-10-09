@@ -108,6 +108,7 @@ namespace Patches
   constexpr bool uiscalehooks               = true;
   constexpr bool zoomhooks                  = true;
   constexpr bool havenzoomhooks             = true;
+  constexpr bool navigationorbithooks       = true;
   constexpr bool miscpatches                = true;
   constexpr bool giftsbulkclaimhooks        = true;
   constexpr bool dailyfactionbulkclaimhooks = true;
@@ -237,6 +238,8 @@ namespace Shortcuts
   constexpr const char* zoom_reset            = "=";
   constexpr const char* haven_orbit_drag      = "MOUSE2";
   constexpr const char* haven_orbit_reset     = "ALT-MOUSE2";
+  constexpr const char* navigation_orbit_drag  = "MOUSE2";
+  constexpr const char* navigation_orbit_reset = "ALT-MOUSE2";
   constexpr const char* zoom_preset1          = "F1";
   constexpr const char* zoom_preset2          = "F2";
   constexpr const char* zoom_preset3          = "F3";

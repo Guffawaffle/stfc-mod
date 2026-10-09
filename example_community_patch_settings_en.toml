@@ -376,6 +376,8 @@ actionqueuerecoveryhooks = true
 # Compatibility switch for Haven camera hooks. Use graphics.haven_zoom = 0.0 for native zoom range;
 # clear shortcuts.haven_orbit_drag to disable rotation and tilt.
 havenzoomhooks = true
+# Compatibility switch for system orbit hooks; empty navigation_orbit_drag disables the feature.
+navigationorbithooks = true
 
 #  <[==================================================================================================================================]> 
 #                                                                                                                                         
@@ -738,6 +740,12 @@ zoom_reset = "="
 haven_orbit_drag = "MOUSE2"
 # Restore the native Haven orientation without changing zoom or pan.
 haven_orbit_reset = "ALT-MOUSE2"
+# Hold and drag on the system map: sideways rotates, up/down tilts (5 to 90 degrees).
+# While rotated, user panning is free; a surrounding ambient sky preserves the native system scenery.
+# Separate from Haven controls. Clear this binding to disable; requires navigationorbithooks.
+navigation_orbit_drag = "MOUSE2"
+# Restore native system orientation at the current zoom distance.
+navigation_orbit_reset = "ALT-MOUSE2"
 
 #  <[===================================================================]> 
 #                                                                          

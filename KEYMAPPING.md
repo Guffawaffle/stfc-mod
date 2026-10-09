@@ -110,3 +110,9 @@ In mod-hotkey mode, system and galaxy panning uses `move_up`, `move_down`, `move
 Edit them under Mod Settings > Shortcuts > Camera. Defaults are `W|UP`, `S|DOWN`, `A|LEFT`, and `D|RIGHT`.
 Existing configured values take precedence. Modifiers use the normal shortcut rules, so `CTRL-S` does not also
 match plain `S` movement. `disable_move_keys` disables keyboard panning; Scopely-hotkey mode retains native pan input.
+
+### System map rotation and tilt
+
+In mod-hotkey mode, hold `navigation_orbit_drag` (default middle mouse) and drag horizontally to rotate or vertically to tilt from 5 to 90 degrees. Release to keep the view. `navigation_orbit_reset` (default Alt+middle mouse) restores native orientation at the current zoom. Edit these bindings under Mod Settings > Shortcuts > Camera; an empty drag binding disables the feature.
+
+While rotated, panning is free and an ambient sky surrounds the original system scenery. Native scenery uses finite meshes, so some edges or gaps can remain at unusual angles. Target tracking and the galaxy map retain native behavior.

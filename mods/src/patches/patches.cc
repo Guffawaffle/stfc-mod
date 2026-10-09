@@ -21,6 +21,7 @@
 void InstallUiScaleHooks();
 void InstallZoomHooks();
 void InstallHavenZoomHooks();
+void InstallNavigationOrbitHooks();
 void InstallGalaxySelectionHooks();
 void InstallBuffFixHooks();
 #if _WIN32
@@ -183,6 +184,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
       {"HavenZoomHooks", {InstallHavenZoomHooks, &cfg.installHavenZoomHooks}},
+      {"NavigationOrbitHooks", {InstallNavigationOrbitHooks, &cfg.installNavigationOrbitHooks}},
       {"GalaxySelection", {InstallGalaxySelectionHooks, &cfg.installZoomHooks}},
       {"BuffFixHooks", {InstallBuffFixHooks, &cfg.installBuffFixHooks}},
       {"ToastBannerHooks", {InstallToastBannerHooks, &cfg.installToastBannerHooks}},
