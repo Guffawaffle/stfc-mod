@@ -6,6 +6,8 @@
 #if defined(_WIN32) && defined(_M_X64)
 #include <algorithm>
 #include <atomic>
+#include <array>
+#include <utility>
 #include <cstring>
 #include <il2cpp/il2cpp_helper.h>
 #include <il2cpp/method_contract.h>
@@ -193,8 +195,13 @@ void Disposed(auto original, Object* manager, Object* fleets)
 
 bool Field(Il2CppClass* cls, const char* name, std::ptrdiff_t offset, Il2CppTypeEnum type)
 {
-  auto* f = cls ? il2cpp_class_get_field_from_name(cls, name) : nullptr;
-  return f && f->offset == offset && f->type && f->type->type == type;
+  auto* field = cls ? il2cpp_class_get_field_from_name(cls, name) : nullptr;
+  const bool valid = field && field->offset == offset && field->type && field->type->type == type;
+  if (!valid)
+    spdlog::warn("[ThinQueueProtection] {}.{}: expected field offset=0x{:X} type={}; actual offset={} type={}",
+                   cls ? cls->name : "<missing class>", name, offset, static_cast<int>(type),
+                   field ? field->offset : -1, field && field->type ? static_cast<int>(field->type->type) : -1);
+  return valid;
 }
 
 template <typename T> bool Getter(T& out, Il2CppClass* cls, const char* name, const char* result)
@@ -207,6 +214,11 @@ template <typename T> bool Getter(T& out, Il2CppClass* cls, const char* name, co
     if (!underlying || underlying->type != IL2CPP_TYPE_I4)
       out = nullptr;
   }
+  if (!out)
+    spdlog::warn("[ThinQueueProtection] {}.{}: expected instance {}(); {}", cls ? cls->name : "<missing class>",
+                   name, result, !method ? "method unavailable"
+                                 : method->has_full_generic_sharing_signature ? "unsupported generic sharing"
+                                 : !method->methodPointer ? "native pointer unavailable" : "expected Int32 enum result");
   return out != nullptr;
 }
 } // namespace
@@ -222,18 +234,21 @@ void InstallThinQueueProtection()
   deployedClass = il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "FleetDeployedData").get_cls();
   using method_contract::Pointer;
   using method_contract::Resolve;
-  auto* plan     = Pointer(Resolve(manager, "DoPlanPathAndEngageTarget", false, "System.Boolean",
-                                   {"Digit.PrimeServer.Models.FleetPlayerData"}));
-  auto* stall    = Pointer(Resolve(manager, "HandleStall", false, "System.Void",
+  const auto* plan_info = Resolve(manager, "DoPlanPathAndEngageTarget", false, "System.Boolean",
+                                   {"Digit.PrimeServer.Models.FleetPlayerData"});
+  auto* plan = Pointer(plan_info);
+  const auto* stall_info = Resolve(manager, "HandleStall", false, "System.Void",
                                    {"Prime.ActionQueue.ActionQueueInstance", "Digit.PrimeServer.Models.FleetPlayerData",
-                                    "Digit.PrimeServer.Models.FleetDeployedData"}));
-  auto* disposed = Pointer(Resolve(manager, "OnFleetsDisposedEventHandler", false, "System.Void",
-                                   {"System.Collections.Generic.List<Digit.PrimeServer.Models.FleetDeployedData>"}));
+                                    "Digit.PrimeServer.Models.FleetDeployedData"});
+  auto* stall = Pointer(stall_info);
+  const auto* disposed_info = Resolve(manager, "OnFleetsDisposedEventHandler", false, "System.Void",
+                                   {"System.Collections.Generic.List<Digit.PrimeServer.Models.FleetDeployedData>"});
+  auto* disposed = Pointer(disposed_info);
   const auto* engage = Resolve(manager, "TryPlanPathAndEngageTarget", false, "Digit.Prime.Combat.EngageResult",
                                {"Digit.PrimeServer.Models.FleetPlayerData", "Prime.ActionQueue.ActionQueueInstance"});
-  tryEngage          = reinterpret_cast<decltype(tryEngage)>(Pointer(engage));
-  processTarget      = reinterpret_cast<decltype(processTarget)>(
-      Pointer(Resolve(manager, "ProcessQueue", false, "System.Void", {"System.Int64", "System.Boolean"})));
+  tryEngage = reinterpret_cast<decltype(tryEngage)>(Pointer(engage));
+  const auto* process_info = Resolve(manager, "ProcessQueue", false, "System.Void", {"System.Int64", "System.Boolean"});
+  processTarget = reinterpret_cast<decltype(processTarget)>(Pointer(process_info));
   auto*       result     = engage ? il2cpp_class_from_type(engage->return_type) : nullptr;
   const auto* underlying = result && il2cpp_class_is_enum(result) ? il2cpp_class_enum_basetype(result) : nullptr;
   const bool  valid =
@@ -254,12 +269,35 @@ void InstallThinQueueProtection()
       && Getter(destroyed, deployedClass, "get_IsDestroyed", "System.Boolean")
       && Getter(battling, deployedClass, "get_CurrentlyBattling", "System.Boolean");
   if (!valid) {
-    spdlog::warn("[ThinQueueProtection] unavailable: incompatible methods or queue layout");
+    for (const auto& [type, name] : std::array{
+             std::pair{manager, "Prime.ActionQueue.ActionQueueManager"},
+             std::pair{queueClass, "Prime.ActionQueue.ActionQueueInstance"},
+             std::pair{actionClass, "Prime.ActionQueue.QueueableAction"},
+             std::pair{playerClass, "Digit.PrimeServer.Models.FleetPlayerData"},
+             std::pair{deployedClass, "Digit.PrimeServer.Models.FleetDeployedData"}})
+      if (!type) spdlog::warn("[ThinQueueProtection] unavailable: missing class {}", name);
+    const std::array methods{
+        std::pair{plan_info, "ActionQueueManager.DoPlanPathAndEngageTarget(FleetPlayerData) -> Boolean"},
+        std::pair{stall_info, "ActionQueueManager.HandleStall(ActionQueueInstance, FleetPlayerData, FleetDeployedData) -> Void"},
+        std::pair{disposed_info, "ActionQueueManager.OnFleetsDisposedEventHandler(List<FleetDeployedData>) -> Void"},
+        std::pair{engage, "ActionQueueManager.TryPlanPathAndEngageTarget(FleetPlayerData, ActionQueueInstance) -> EngageResult"},
+        std::pair{process_info, "ActionQueueManager.ProcessQueue(Int64, Boolean) -> Void"}};
+    for (const auto& [method, name] : methods)
+      if (!method || !method->methodPointer || method->has_full_generic_sharing_signature)
+        spdlog::warn("[ThinQueueProtection] unavailable: {}: {}", name,
+                       method && method->has_full_generic_sharing_signature ? "unsupported generic sharing"
+                                                                           : "instance method unavailable");
+    if (!underlying || underlying->type != IL2CPP_TYPE_I4)
+      spdlog::warn("[ThinQueueProtection] unavailable: EngageResult must be an Int32 enum");
     return;
   }
   const bool a = SPUD_STATIC_DETOUR(plan, Plan) != nullptr;
   const bool b = SPUD_STATIC_DETOUR(stall, Stall) != nullptr;
   const bool c = SPUD_STATIC_DETOUR(disposed, Disposed) != nullptr;
+  for (const auto& [installed, name] : std::array{
+           std::pair{a, "ActionQueueManager.DoPlanPathAndEngageTarget"},
+           std::pair{b, "ActionQueueManager.HandleStall"}, std::pair{c, "ActionQueueManager.OnFleetsDisposedEventHandler"}})
+    if (!installed) spdlog::warn("[ThinQueueProtection] hook installation failed: {}; feature unavailable", name);
   ready.store(a && b && c);
   spdlog::info("[ThinQueueProtection] ready={}", ready.load());
 }

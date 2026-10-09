@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <array>
+#include <utility>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -278,10 +279,14 @@ const MethodInfo* resolve_instance_void(IL2CppClassHelper& helper, const char* n
 {
   auto* method = helper.GetMethodInfoSpecial(
       name, [parameter_count](int count, const Il2CppType**) { return count == parameter_count; });
-  return method && !(method->flags & METHOD_ATTRIBUTE_STATIC) && method->methodPointer && method->return_type
-                 && method->return_type->type == IL2CPP_TYPE_VOID
-             ? method
-             : nullptr;
+  const bool valid = method && !(method->flags & METHOD_ATTRIBUTE_STATIC) && method->methodPointer
+                     && method->return_type && method->return_type->type == IL2CPP_TYPE_VOID;
+  if (!valid) {
+    auto* cls = helper.get_cls();
+    spdlog::warn("[OpcIndicators] {}.{}.{}: expected instance Void with {} arguments; method/native pointer or signature unavailable",
+                   cls ? cls->namespaze : "", cls ? cls->name : "<missing class>", name, parameter_count);
+  }
+  return valid ? method : nullptr;
 }
 
 void destroy_game_object(GameObject* game_object)
@@ -1483,7 +1488,7 @@ void InstallOpcIndicatorHooks()
                                   ? resolve_instance_void(fleet_local_helper, "OnCurrentCargoReactiveEvent", 1)
                                   : nullptr;
   if (!fleet_local_helper.isValidHelper()) {
-    ErrorMsg::MissingHelper("Ships", "FleetLocalViewController");
+    ErrorMsg::MissingHelper("Digit.Prime.Ships", "FleetLocalViewController");
   } else {
     if (!bind_data_context) {
       ErrorMsg::MissingMethod("FleetLocalViewController", "BindDataContext");
@@ -1499,7 +1504,7 @@ void InstallOpcIndicatorHooks()
   if (use_opc_eta) {
     auto state_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "FleetStateWidget");
     if (!state_helper.isValidHelper()) {
-      ErrorMsg::MissingHelper("HUD", "FleetStateWidget");
+      ErrorMsg::MissingHelper("Digit.Prime.HUD", "FleetStateWidget");
     } else {
       state_set   = resolve_instance_void(state_helper, "SetWidgetData", 0);
       state_clear = resolve_instance_void(state_helper, "ClearWidgetData", 0);
@@ -1517,7 +1522,7 @@ void InstallOpcIndicatorHooks()
   if (use_opc_highlight) {
     auto flag_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "FleetbarFlagWidget");
     if (!flag_helper.isValidHelper()) {
-      ErrorMsg::MissingHelper("HUD", "FleetbarFlagWidget");
+      ErrorMsg::MissingHelper("Digit.Prime.HUD", "FleetbarFlagWidget");
     } else {
       flag_set   = resolve_instance_void(flag_helper, "SetWidgetData", 0);
       flag_clear = resolve_instance_void(flag_helper, "ClearWidgetData", 0);
@@ -1535,14 +1540,17 @@ void InstallOpcIndicatorHooks()
   std::vector<const MethodInfo*> targets{bind_data_context, cargo_updated};
   if (use_opc_eta) { targets.push_back(state_set); targets.push_back(state_clear); }
   if (use_opc_highlight) { targets.push_back(flag_set); targets.push_back(flag_clear); }
+  const std::array names{"FleetLocalViewController.BindDataContext", "FleetLocalViewController.OnCurrentCargoReactiveEvent",
+                         "FleetStateWidget.SetWidgetData", "FleetStateWidget.ClearWidgetData",
+                         "FleetbarFlagWidget.SetWidgetData", "FleetbarFlagWidget.ClearWidgetData"};
   for (size_t i = 0; i < targets.size(); ++i) {
     if (!targets[i] || !targets[i]->methodPointer) {
-      spdlog::warn("[OpcIndicators] disabled: missing Mac hook target");
+      spdlog::warn("[OpcIndicators] disabled on Mac: missing native hook target {}", names[i]);
       return;
     }
     for (size_t j = 0; j < i; ++j)
       if (targets[i]->methodPointer == targets[j]->methodPointer) {
-        spdlog::warn("[OpcIndicators] disabled: shared native hook target");
+        spdlog::warn("[OpcIndicators] disabled on Mac: {} and {} share a native hook target", names[i], names[j]);
         return;
       }
   }
@@ -1550,18 +1558,40 @@ void InstallOpcIndicatorHooks()
 
   const bool eta_ready = use_opc_eta && local_ready && state_set && state_clear;
   const bool highlight_ready = use_opc_highlight && local_ready && flag_set && flag_clear;
+  if (!eta_ready)
+    spdlog::warn("[OpcIndicators] ETA unavailable: {} binding family incomplete", local_ready ? "FleetStateWidget" : "FleetLocalViewController");
+  if (!highlight_ready)
+    spdlog::warn("[OpcIndicators] highlight unavailable: {} binding family incomplete", local_ready ? "FleetbarFlagWidget" : "FleetLocalViewController");
   bool installed = true;
   if (eta_ready) {
-    installed = SPUD_STATIC_DETOUR(state_clear->methodPointer, FleetStateWidget_ClearWidgetData_Hook)
-                && SPUD_STATIC_DETOUR(state_set->methodPointer, FleetStateWidget_SetWidgetData_Hook);
+    installed = SPUD_STATIC_DETOUR(state_clear->methodPointer, FleetStateWidget_ClearWidgetData_Hook) != nullptr;
+    if (!installed)
+      spdlog::warn("[OpcIndicators] failed to install FleetStateWidget.ClearWidgetData; indicators unavailable");
+    if (installed) {
+      installed = SPUD_STATIC_DETOUR(state_set->methodPointer, FleetStateWidget_SetWidgetData_Hook) != nullptr;
+      if (!installed)
+        spdlog::warn("[OpcIndicators] failed to install FleetStateWidget.SetWidgetData; indicators unavailable");
+    }
   }
   if (installed && highlight_ready) {
-    installed = SPUD_STATIC_DETOUR(flag_clear->methodPointer, FleetbarFlagWidget_ClearWidgetData_Hook)
-                && SPUD_STATIC_DETOUR(flag_set->methodPointer, FleetbarFlagWidget_SetWidgetData_Hook);
+    installed = SPUD_STATIC_DETOUR(flag_clear->methodPointer, FleetbarFlagWidget_ClearWidgetData_Hook) != nullptr;
+    if (!installed)
+      spdlog::warn("[OpcIndicators] failed to install FleetbarFlagWidget.ClearWidgetData; indicators unavailable");
+    if (installed) {
+      installed = SPUD_STATIC_DETOUR(flag_set->methodPointer, FleetbarFlagWidget_SetWidgetData_Hook) != nullptr;
+      if (!installed)
+        spdlog::warn("[OpcIndicators] failed to install FleetbarFlagWidget.SetWidgetData; indicators unavailable");
+    }
   }
   if (installed && (eta_ready || highlight_ready)) {
-    installed = SPUD_STATIC_DETOUR(bind_data_context->methodPointer, FleetLocalViewController_BindDataContext_Hook)
-                && SPUD_STATIC_DETOUR(cargo_updated->methodPointer, FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook);
+    installed = SPUD_STATIC_DETOUR(bind_data_context->methodPointer, FleetLocalViewController_BindDataContext_Hook) != nullptr;
+    if (!installed)
+      spdlog::warn("[OpcIndicators] failed to install FleetLocalViewController.BindDataContext; indicators unavailable");
+    if (installed) {
+      installed = SPUD_STATIC_DETOUR(cargo_updated->methodPointer, FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook) != nullptr;
+      if (!installed)
+        spdlog::warn("[OpcIndicators] failed to install FleetLocalViewController.OnCurrentCargoReactiveEvent; indicators unavailable");
+    }
   }
   // Partial installations stay on the original path; never retry them on macOS.
   s_eta_enabled = installed && eta_ready;
