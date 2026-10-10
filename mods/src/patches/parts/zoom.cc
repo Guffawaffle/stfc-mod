@@ -626,7 +626,7 @@ void Install()
   frame_count = il2cpp_resolve_icall_typed<int()>("UnityEngine.Time::get_frameCount()");
   ready = get_enabled && set_enabled && find_views && get_flat && active && view_type && frame_count
           && install_screen_manager_update_hook() && register_screen_manager_update_callback(Tick);
-  spdlog::info("[BackgroundLayers] step=1 hide-fr ready={} initial-discovery=true ambient-sky=unchanged", ready);
+  spdlog::info("[BackgroundLayers] step=2 hide-fr ready={} initial-discovery=true ambient-sky=disabled", ready);
 }
 } // namespace background_layer_science
 

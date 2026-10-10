@@ -421,8 +421,9 @@ void UpdateCameraPosition_Hook(auto original, Il2CppObject *zoom)
   }
   Tick();
   ApplyDrawDistance(zoom);
-  if (state.overridden && Enabled())
-    navigation_environment::Update(camera);
+  // Background science step 2: omit the mod-created ambient sky as well as
+  // the fr_scale renderer. Keep orbit controls and native decorative layers.
+  navigation_environment::Clear();
 }
 } // namespace
 
