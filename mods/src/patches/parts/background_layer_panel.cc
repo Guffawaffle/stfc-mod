@@ -17,7 +17,7 @@ namespace
     float r, g, b, a;
   };
   Il2CppGCHandle                     panel = nullptr, status_text = nullptr;
-  Il2CppGCHandle                     next_token = nullptr, reset_token = nullptr;
+  Il2CppGCHandle                     next_token = nullptr, reset_token = nullptr, clear_token = nullptr;
   mod_settings::NativeCallback<void> callback;
   bool                               initialized = false, failed = false;
   std::string                        rendered;
@@ -32,6 +32,7 @@ namespace
     Free(status_text);
     Free(next_token);
     Free(reset_token);
+    Free(clear_token);
     rendered.clear();
   }
 
@@ -85,6 +86,8 @@ namespace
         Next();
       else if (token == Target(reset_token))
         Reset();
+      else if (token == Target(clear_token))
+        NextClearMode();
     } catch (const std::exception &error) {
       spdlog::warn("[BackgroundLayers] button failed: {}", error.what());
     }
@@ -122,7 +125,7 @@ namespace
     Root  font(Static(IL2CppClassHelper(settings).GetMethodInfo("get_defaultFontAsset", 0), nullptr));
     if (!font.get())
       throw std::runtime_error("background science font");
-    Root object(Object("BackgroundLayerScience", nullptr, {660, 186}, {0, -172}));
+    Root object(Object("BackgroundLayerScience", nullptr, {940, 186}, {0, -172}));
     Root canvas(WithType(object.get(), "AddComponent", Class("UnityEngine.UIModule", "UnityEngine", "Canvas")));
     Value(canvas.get(), "set_renderMode", 0); // Screen-space overlay.
     Value(canvas.get(), "set_sortingOrder", 30000);
@@ -133,17 +136,18 @@ namespace
     WithType(object.get(), "AddComponent", Class("UnityEngine.UI", "UnityEngine.UI", "GraphicRaycaster"));
     // The Canvas root fills the screen; only this child occupies/raycasts the panel area.
     Root transform(UiCall(object.get(), "get_transform"));
-    Root body(Object("LayerControls", transform.get(), {660, 186}, {0, 0}));
+    Root body(Object("LayerControls", transform.get(), {940, 186}, {0, 0}));
     Root body_transform(UiCall(body.get(), "get_transform"));
     Value(body_transform.get(), "set_anchorMin", Vec2{.5f, 1.f});
     Value(body_transform.get(), "set_anchorMax", Vec2{.5f, 1.f});
     Value(body_transform.get(), "set_anchoredPosition", Vec2{0, -172});
     Root image(WithType(body.get(), "AddComponent", Class("UnityEngine.UI", "UnityEngine.UI", "Image")));
     Value(image.get(), "set_color", Color{.015f, .025f, .04f, .9f});
-    Root label(Label(body_transform.get(), font.get(), "LayerIdentity", {648, 132}, {0, 22}, "Background science"));
+    Root label(Label(body_transform.get(), font.get(), "LayerIdentity", {928, 132}, {0, 22}, "Background science"));
     Retain(status_text, label.get());
-    Button(body_transform.get(), font.get(), "Next hidden layer (Alt-F8)", {-145, -68}, next_token);
-    Button(body_transform.get(), font.get(), "Restore all layers (Alt-F9)", {145, -68}, reset_token);
+    Button(body_transform.get(), font.get(), "Next hidden layer (Alt-F8)", {-305, -68}, next_token);
+    Button(body_transform.get(), font.get(), "Restore all layers (Alt-F9)", {0, -68}, reset_token);
+    Button(body_transform.get(), font.get(), "Camera clear mode (Alt-F10)", {305, -68}, clear_token);
     spdlog::info("[BackgroundLayers] panel-created=true");
   }
 } // namespace
