@@ -555,6 +555,7 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
   original(_this);
   native_navigation_update = previous_native_update;
 
+  background_layer_science::ObserveCamera(reinterpret_cast<Il2CppObject *>(_this->_sceneCamera), _this->_depth);
   EnsureSystemZoomRange(_this);
   GalaxyLabelFrame(_this);
   if (fleet_label_hooks_installed && _this->_depth == NodeDepth::SolarSystem) {
@@ -676,6 +677,7 @@ void NavigationFleetWidget_OnAboutToReleaseContext_Hook(auto original, Navigatio
 
 void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom *_this, float radius, NodeDepth depth)
 {
+  background_layer_science::RestoreCamera();
   if (fleet_label_hooks_installed && depth != NodeDepth::SolarSystem) {
     if (active_system_zoom_id == reinterpret_cast<uintptr_t>(_this)) {
       ResetFleetLabelSystemState();
@@ -692,6 +694,7 @@ void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom *_this,
 
 void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom *_this, NodeDepth depth)
 {
+  background_layer_science::RestoreCamera();
   if (fleet_label_hooks_installed && depth != NodeDepth::SolarSystem) {
     if (active_system_zoom_id == reinterpret_cast<uintptr_t>(_this)) {
       ResetFleetLabelSystemState();

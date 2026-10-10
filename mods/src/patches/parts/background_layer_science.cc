@@ -9,12 +9,13 @@
 #include <il2cpp/runtime.h>
 #include <prime/Color.h>
 #include <prime/Hub.h>
+#include <prime/NavigationZoom.h>
 #include <spdlog/spdlog.h>
 #include <str_utils.h>
 #include <vector>
 
 // Temporary science: compare native scenery renderers from the game baseline.
-// Only renderer visibility changes; no scene transforms or native objects are destroyed.
+// Renderer visibility and camera clearing/clip comparisons; no scene transforms or native objects are destroyed.
 namespace background_layer_science
 {
 bool              ready = false, prior_enabled = false;
@@ -41,6 +42,7 @@ void              *loader_type     = nullptr;
 const MethodInfo  *get_game_object = nullptr, *active_object = nullptr, *alive = nullptr;
 
 Il2CppGCHandle    observed_camera        = nullptr;
+NodeDepth         observed_depth         = NodeDepth::Starbase;
 int               native_flags           = 0;
 bool              extended_draw_distance = false;
 color             native_color{};
@@ -77,12 +79,17 @@ void RestoreCamera()
   extended_draw_distance = false;
 }
 
-void ObserveCamera(Il2CppObject *camera)
+void ObserveCamera(Il2CppObject *camera, NodeDepth depth)
 {
-  if (!ready || !InSystem() || !Live(camera) || !camera_flags || !camera_color || !camera_far || !set_camera_flags
+  auto *sections = Hub::get_SectionManager();
+  const bool matching_view = sections
+                            && ((depth == NodeDepth::SolarSystem && InSystem())
+                                || (depth == NodeDepth::Galaxy
+                                    && sections->CurrentSection == SectionID::Navigation_Galaxy));
+  if (!ready || !matching_view || !Live(camera) || !camera_flags || !camera_color || !camera_far || !set_camera_flags
       || !set_camera_color)
     return;
-  if (!observed_camera || il2cpp_gchandle_get_target(observed_camera) != camera) {
+  if (!observed_camera || il2cpp_gchandle_get_target(observed_camera) != camera || observed_depth != depth) {
     RestoreCamera();
     Il2CppObject *flags = nullptr, *background = nullptr, *far_result = nullptr;
     if (!Il2CppRuntime::TryInvoke(camera_flags, camera, nullptr, &flags) || !flags
@@ -101,15 +108,16 @@ void ObserveCamera(Il2CppObject *camera)
     std::memcpy(&native_color, color_value, sizeof(native_color));
     std::memcpy(&native_far_clip, far_value, sizeof(native_far_clip));
     observed_camera = il2cpp_gchandle_new(camera, false);
-    spdlog::info("[BackgroundLayers] native-camera clearFlags={} background=({},{},{},{}) farClip={}", native_flags,
-                 native_color.r, native_color.g, native_color.b, native_color.a, native_far_clip);
+    observed_depth  = depth;
+    spdlog::info("[BackgroundLayers] native-camera depth={} clearFlags={} background=({},{},{},{}) farClip={}",
+                 int(depth), native_flags, native_color.r, native_color.g, native_color.b, native_color.a, native_far_clip);
   }
   // Accepted science baseline: clear the colour buffer using the game's own colour.
   int   flags = 2; // Unity CameraClearFlags.SolidColor.
   void *flag_args[]{&flags}, *color_args[]{&native_color};
   Il2CppRuntime::TryInvoke(set_camera_flags, camera, flag_args);
   Il2CppRuntime::TryInvoke(set_camera_color, camera, color_args);
-  if (extended_draw_distance && set_camera_far) {
+  if (depth == NodeDepth::SolarSystem && extended_draw_distance && set_camera_far) {
     float clip = std::max(native_far_clip, Config::Get().zoom * 3.75f);
     void *clip_args[]{&clip};
     Il2CppRuntime::TryInvoke(set_camera_far, camera, clip_args);
@@ -372,7 +380,9 @@ void Tick()
   if (!InSystem()) {
     Restore();
     ReleaseLayers();
-    RestoreCamera();
+    auto *sections = Hub::get_SectionManager();
+    if (!sections || sections->CurrentSection != SectionID::Navigation_Galaxy)
+      RestoreCamera();
     selection = -1;
     UpdatePanel("", false);
     next_scan = 0;
@@ -471,8 +481,8 @@ void Install()
                  && get_enabled && set_enabled && find_views && get_flat && active && view_type && frame_count
                  && install_screen_manager_update_hook() && register_screen_manager_update_callback(Tick);
   spdlog::info(
-      "[BackgroundLayers] step=7 layer-cycle ready={} initial-mode=native extended-zoom=true border-fix=removed "
-      "orbit-sky=removed clear=solid-native-colour draw-distance-comparison=available keys=ALT-F8/ALT-F9/ALT-F10",
+      "[BackgroundLayers] step=8 layer-cycle ready={} initial-mode=native extended-zoom=true border-fix=removed "
+      "orbit-sky=removed clear=solid-native-colour-system-and-galaxy draw-distance-comparison=system-only keys=ALT-F8/ALT-F9/ALT-F10",
       ready);
 }
 } // namespace background_layer_science

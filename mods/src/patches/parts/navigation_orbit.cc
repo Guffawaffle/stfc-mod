@@ -1,4 +1,3 @@
-#include "patches/background_layer_science.h"
 #include "config.h"
 #include "errormsg.h"
 #include "patches/key.h"
@@ -327,7 +326,6 @@ void UpdateCameraPosition_Hook(auto original, Il2CppObject *zoom)
     return;
   const auto    depth     = reinterpret_cast<NavigationZoom *>(zoom)->_depth;
   auto         *camera    = reinterpret_cast<Il2CppObject *>(reinterpret_cast<NavigationZoom *>(zoom)->_sceneCamera);
-  background_layer_science::ObserveCamera(camera);
   Il2CppObject *transform = nullptr, *camera_transform = nullptr;
   Vector3       angles{};
   const auto    distance = reinterpret_cast<NavigationZoom *>(zoom)->_actualDistance;
