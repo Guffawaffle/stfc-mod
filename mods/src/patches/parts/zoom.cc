@@ -17,7 +17,6 @@
 #include <prime/NavigationZoom.h>
 #include <prime/Hub.h>
 #include <prime/PlanetViewUtils.h>
-#include <prime/Transform.h>
 
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
@@ -25,8 +24,6 @@
 #include <array>
 #include <cstdint>
 #include <unordered_map>
-
-void ApplyNavigationOrbitDrawDistance(NavigationZoom *zoom);
 
 namespace
 {
@@ -416,98 +413,6 @@ inline void StoreZoom(std::string label, float &zoom, NavigationZoom *_this)
   spdlog::info("Changing {} from {} to {}", label, old_zoom, zoom);
 }
 
-static float s_expectedScale = 0;
-
-static void ApplySystemZoomRange(NavigationZoom *_this, float radius)
-{
-  if (!_this || radius <= 0.0f) {
-    return;
-  }
-
-  auto ratio                     = (Config::Get().zoom / radius);
-  _this->_farRatioSystemNormal   = 0.55f * ratio;
-  _this->_farRatioSystemExtended = ratio;
-}
-
-static void SetSceneCameraFarClip(NavigationZoom *_this)
-{
-  if (!_this) {
-    return;
-  }
-
-  auto *cam = _this->_sceneCamera;
-  if (!cam) {
-    return;
-  }
-
-  cam->farClipPlane    = Config::Get().zoom * 3.75f;
-  cam->clearFlags      = 2;
-  cam->backgroundColor = {0, 0, 0, 0};
-  ApplyNavigationOrbitDrawDistance(_this);
-}
-
-static void EnsureSystemZoomRange(NavigationZoom *_this)
-{
-  if (!_this || _this->_depth != NodeDepth::SolarSystem) {
-    return;
-  }
-
-  const auto max_zoom = Config::Get().zoom;
-  if (max_zoom <= 0.0f) {
-    return;
-  }
-
-  ApplySystemZoomRange(_this, _this->_viewRadius);
-  if (_this->_maximum < max_zoom) {
-    _this->_maximum = max_zoom;
-  }
-
-  const auto zoom_total = _this->_maximum - _this->_minimum;
-  if (zoom_total > 0.0f) {
-    _this->_zoomtotal = zoom_total;
-  }
-
-  SetSceneCameraFarClip(_this);
-}
-
-static void ScaleFR(void *fr)
-{
-  if (!fr) {
-    return;
-  }
-  if (background_layer_science::Hide(reinterpret_cast<Il2CppObject *>(fr)))
-    return;
-
-  float factor = Config::Get().fr_scale;
-  if (factor <= 0.0f || factor == 1.0f) {
-    return;
-  }
-
-  static auto comp_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Component");
-  if (!comp_helper.isValidHelper()) {
-    return;
-  }
-
-  static auto get_transform = comp_helper.GetProperty("transform");
-  if (!get_transform.isValidHelper()) {
-    return;
-  }
-
-  auto *t = reinterpret_cast<Transform *>(get_transform.GetRaw<Il2CppObject>(fr));
-  if (t == nullptr) {
-    return;
-  }
-
-  auto *scale = t->localScale;
-  if (scale == nullptr || (s_expectedScale > 0 && fabsf(scale->x - s_expectedScale) < 0.1f)) {
-    return;
-  }
-
-  Vector3 newScale = {scale->x * factor, scale->y * factor, scale->z * factor};
-  t->localScale    = &newScale;
-  s_expectedScale  = newScale.x;
-}
-
 void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
 {
   ship_shortcut_badges::Refresh();
@@ -530,11 +435,11 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
   bool       do_store_zoom    = false;
   auto       config           = &Config::Get();
 
-  EnsureSystemZoomRange(_this);
 
   const auto camera_shortcuts_enabled = config->hotkeys_enabled && !config->use_scopely_hotkeys;
 
-  if (!Key::IsInputFocused()) {
+  // Science baseline: native system zoom input/range, with orbit handled separately.
+  if (_this->_depth != NodeDepth::SolarSystem && !Key::IsInputFocused()) {
     if (camera_shortcuts_enabled) {
       if (MapKey::IsDown(GameFunction::SetZoomPreset1)) {
         return StoreZoom("System Preset 1", config->system_zoom_preset_1, _this);
@@ -627,7 +532,6 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
   original(_this);
   native_navigation_update = previous_native_update;
 
-  EnsureSystemZoomRange(_this);
   GalaxyLabelFrame(_this);
   if (fleet_label_hooks_installed && _this->_depth == NodeDepth::SolarSystem) {
     BeginFleetLabelSystemState(_this);
@@ -746,17 +650,6 @@ void NavigationFleetWidget_OnAboutToReleaseContext_Hook(auto original, Navigatio
   original(_this);
 }
 
-void PlanetViewUtils_CameraZoomedEventHandler_Hook(auto original, PlanetViewUtils *_this, float zoomDistance,
-                                                   float normalizedZoom)
-{
-  original(_this, zoomDistance, normalizedZoom);
-
-  if (_this != nullptr) {
-    _this->GetFlatRenderable(); // probe: triggers get_FlatRenderable_Hook, which scales the FR; game often reads the
-                                // field directly so our detour needs this call-path
-  }
-}
-
 void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom *_this, float radius, NodeDepth depth)
 {
   if (fleet_label_hooks_installed && depth != NodeDepth::SolarSystem) {
@@ -767,17 +660,8 @@ void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom *_this,
     BeginFleetLabelSystemState(_this);
   }
 
-  if (depth == NodeDepth::SolarSystem) {
-    ApplySystemZoomRange(_this, radius);
-    SetSceneCameraFarClip(_this);
-
-    original(_this, radius, depth);
-
-    SetSceneCameraFarClip(_this);
-    do_default_zoom = true;
-  } else {
-    original(_this, radius, depth);
-  }
+  // Leave native system ranges, camera clear flags, background and clip planes untouched.
+  original(_this, radius, depth);
 }
 
 void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom *_this, NodeDepth depth)
@@ -790,17 +674,7 @@ void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom *_this, NodeDept
     BeginFleetLabelSystemState(_this);
   }
 
-  if (depth == NodeDepth::SolarSystem) {
-    ApplySystemZoomRange(_this, _this->_viewRadius);
-    SetSceneCameraFarClip(_this);
-
-    original(_this, depth);
-
-    SetSceneCameraFarClip(_this);
-    do_default_zoom = true;
-  } else {
-    original(_this, depth);
-  }
+  original(_this, depth);
 }
 
 void *PlanetViewUtils_get_FlatRenderable_Hook(auto original, PlanetViewUtils *_this)
@@ -810,7 +684,7 @@ void *PlanetViewUtils_get_FlatRenderable_Hook(auto original, PlanetViewUtils *_t
     return fr;
   }
 
-  ScaleFR(fr);
+  background_layer_science::Hide(reinterpret_cast<Il2CppObject *>(fr));
   return fr;
 }
 
@@ -1003,13 +877,6 @@ void InstallZoomHooks()
   {
     auto pv_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "PlanetViewUtils");
     if (pv_helper.isValidHelper()) {
-      auto ptr_zoom = pv_helper.GetMethod("CameraZoomedEventHandler");
-      if (ptr_zoom != nullptr) {
-        SPUD_STATIC_DETOUR(ptr_zoom, PlanetViewUtils_CameraZoomedEventHandler_Hook);
-      } else {
-        ErrorMsg::MissingMethod("PlanetViewUtils", "CameraZoomedEventHandler");
-      }
-
       auto ptr_get_fr = pv_helper.GetMethod("get_FlatRenderable");
       if (ptr_get_fr != nullptr) {
         SPUD_STATIC_DETOUR(ptr_get_fr, PlanetViewUtils_get_FlatRenderable_Hook);

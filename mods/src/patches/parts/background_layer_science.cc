@@ -11,7 +11,7 @@
 #include <str_utils.h>
 #include <vector>
 
-// Temporary science: compare native scenery renderers and the added orbit sky.
+// Temporary science: compare native scenery renderers from the game baseline.
 // Only renderer visibility changes; no scene transforms or native objects are destroyed.
 namespace background_layer_science
 {
@@ -25,9 +25,8 @@ const MethodInfo *get_material = nullptr, *get_texture = nullptr;
 void             *view_type = nullptr;
 int (*frame_count)()        = nullptr;
 int next_scan               = 0;
-// -2 preserves the stripped step-2 view; -1 shows native scenery; >=0 hides one pool renderer.
-int  selection       = -2;
-bool ambient_enabled = false;
+// -1 shows all native scenery; >=0 hides one pool renderer.
+int selection = -1;
 struct Layer {
   Il2CppGCHandle renderer;
   std::string    label;
@@ -102,9 +101,7 @@ std::string Describe(Il2CppObject *renderer)
 void Apply()
 {
   Il2CppObject *target = nullptr;
-  if (selection == -2)
-    target = native_fr ? il2cpp_gchandle_get_target(native_fr) : nullptr;
-  else if (selection >= 0 && size_t(selection) < layers.size())
+  if (selection >= 0 && size_t(selection) < layers.size())
     target = il2cpp_gchandle_get_target(layers[selection].renderer);
   if (!Live(target)) {
     Restore();
@@ -128,20 +125,14 @@ void Apply()
 
 void Report()
 {
-  std::string status = selection == -2 ? "Stripped view: fr_scale renderer hidden"
-                       : selection == -1
-                           ? "Native scenery visible (unscaled)"
+  std::string status = selection == -1
+                           ? "Native scenery: all layers visible"
                            : "Hide layer " + std::to_string(selection + 1) + "/" + std::to_string(layers.size());
   if (selection >= 0 && size_t(selection) < layers.size())
     status += "\n" + layers[selection].label;
-  else if (selection == -2 && native_fr)
-    status += "\n" + Describe(il2cpp_gchandle_get_target(native_fr));
-  status += ambient_enabled ? "\nOrbit sky: ON" : "\nOrbit sky: OFF";
+  status += "\nNative sky / native zoom / border fix removed";
   UpdatePanel(status, true);
 }
-
-bool AmbientEnabled()
-{ return ambient_enabled; }
 
 void Next()
 {
@@ -150,19 +141,20 @@ void Next()
   Restore();
   ++selection;
   if (selection >= int(layers.size()))
-    selection = -2;
+    selection = -1;
   Apply();
   Report();
-  spdlog::info("[BackgroundLayers] cycle selection={} count={} ambient={}", selection, layers.size(), ambient_enabled);
+  spdlog::info("[BackgroundLayers] cycle selection={} count={}", selection, layers.size());
 }
 
-void ToggleAmbient()
+void Reset()
 {
   if (!ready || !InSystem())
     return;
-  ambient_enabled = !ambient_enabled;
+  Restore();
+  selection = -1;
   Report();
-  spdlog::info("[BackgroundLayers] ambient={}", ambient_enabled);
+  spdlog::info("[BackgroundLayers] restore-all=true");
 }
 
 bool Hide(Il2CppObject *flat)
@@ -177,14 +169,14 @@ bool Hide(Il2CppObject *flat)
   if (!native_fr || il2cpp_gchandle_get_target(native_fr) != renderer || identity != native_identity) {
     Restore();
     ReleaseLayers();
-    selection       = -2;
+    selection       = -1;
     native_fr       = il2cpp_gchandle_new(renderer, false);
     native_identity = identity;
     next_scan       = 0;
     spdlog::info("[BackgroundLayers] fr_scale target {} scale={} bypassed", Describe(renderer), Config::Get().fr_scale);
   }
   Apply();
-  return native_fr != nullptr; // Keep all comparisons unscaled, including the visible native mode.
+  return native_fr != nullptr;
 }
 
 void ScanLayers()
@@ -259,7 +251,7 @@ void ScanLayers()
     il2cpp_gchandle_free(layer.renderer);
   layers = std::move(found);
   if (selection >= 0) {
-    selection = -2;
+    selection = -1;
     for (size_t i = 0; i < layers.size(); ++i)
       if (il2cpp_gchandle_get_target(layers[i].renderer) == selected)
         selection = int(i);
@@ -280,7 +272,7 @@ void Tick()
   if (!InSystem()) {
     Restore();
     ReleaseLayers();
-    selection = -2;
+    selection = -1;
     UpdatePanel("", false);
     next_scan = 0;
     return;
@@ -290,7 +282,7 @@ void Tick()
     if (Key::Down(KeyCode::F8))
       Next();
     if (Key::Down(KeyCode::F9))
-      ToggleAmbient();
+      Reset();
   }
   int frame = frame_count();
   if (frame < next_scan)
@@ -364,7 +356,8 @@ void Install()
   ready        = alive && loader_type && get_game_object && active_object && object_name && get_material && get_texture
                  && get_enabled && set_enabled && find_views && get_flat && active && view_type && frame_count
                  && install_screen_manager_update_hook() && register_screen_manager_update_callback(Tick);
-  spdlog::info(
-      "[BackgroundLayers] step=3 layer-cycle ready={} initial-mode=stripped ambient-sky=off keys=ALT-F8/ALT-F9", ready);
+  spdlog::info("[BackgroundLayers] step=4 layer-cycle ready={} initial-mode=native native-zoom=true border-fix=removed "
+               "orbit-sky=removed keys=ALT-F8/ALT-F9",
+               ready);
 }
 } // namespace background_layer_science

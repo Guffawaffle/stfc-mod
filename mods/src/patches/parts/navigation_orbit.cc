@@ -1,15 +1,12 @@
-#include "patches/background_layer_science.h"
 #include "config.h"
 #include "errormsg.h"
 #include "patches/key.h"
 #include "patches/mapkey.h"
-#include "patches/navigation_environment.h"
 #include "patches/screen_update_hook.h"
 #include <algorithm>
 #include <cmath>
 #include <il2cpp/method_contract.h>
 #include <il2cpp/runtime.h>
-#include <limits>
 #include <prime/Hub.h>
 #include <prime/NavigationZoom.h>
 #include <spdlog/spdlog.h>
@@ -27,8 +24,6 @@ const MethodInfo *get_transform = nullptr, *get_angles = nullptr, *set_angles = 
 const MethodInfo *get_forward = nullptr, *set_position = nullptr, *mouse_world = nullptr;
 const MethodInfo *clamp_pan_position = nullptr;
 const MethodInfo *camera_fov = nullptr, *camera_height = nullptr;
-const MethodInfo *get_world_position = nullptr, *get_far_clip = nullptr, *set_far_clip = nullptr;
-FieldInfo        *pan_system_position = nullptr, *pan_view_radius = nullptr;
 const MethodInfo *event_system = nullptr, *pointer_over_ui = nullptr, *can_move = nullptr;
 FieldInfo        *pan_camera = nullptr, *pan_depth = nullptr, *pan_drag_delta = nullptr;
 FieldInfo        *pan_tracking = nullptr, *pan_min_speed = nullptr, *normalized_zoom = nullptr;
@@ -82,7 +77,6 @@ bool SetView(Il2CppObject *transform, Vector3 angles, float distance)
 
 void Clear()
 {
-  navigation_environment::Clear();
   if (state.overridden && state.transform)
     SetView(il2cpp_gchandle_get_target(state.transform), state.native_angles, state.distance);
   if (state.zoom)
@@ -190,7 +184,6 @@ void Tick()
     }
     changed          = state.overridden;
     state.overridden = state.dragging = false;
-    navigation_environment::Clear();
     state.yaw = 0.0f;
     spdlog::debug("[NavigationOrbit] reset native view");
   } else {
@@ -322,55 +315,6 @@ void MoveCamera_Hook(auto original, Il2CppObject *pan, vec2 delta, bool momentum
   original(pan, std::isfinite(delta.x) && std::isfinite(delta.y) ? delta : vec2{}, momentum);
 }
 
-float FreeViewFarClip(float baseline, Vector3 camera, Vector3 center, float radius)
-{
-  if (!std::isfinite(baseline) || baseline <= 0 || !Finite(camera) || !Finite(center) || !std::isfinite(radius)
-      || radius <= 0)
-    return baseline;
-  const double distance =
-      std::hypot(double(camera.x) - center.x, double(camera.y) - center.y, double(camera.z) - center.z);
-  const double required = distance + 4.0 * radius;
-  return required <= std::numeric_limits<float>::max() ? std::max(baseline, float(required)) : baseline;
-}
-
-void ApplyDrawDistance(Il2CppObject *zoom)
-{
-  if (!zoom || !state.zoom || il2cpp_gchandle_get_target(state.zoom) != zoom || !state.pan || !state.overridden
-      || !Enabled() || !SectionMatches(state.depth) || reinterpret_cast<NavigationZoom *>(zoom)->_depth != state.depth)
-    return;
-  auto *pan    = il2cpp_gchandle_get_target(state.pan);
-  auto *camera = reinterpret_cast<Il2CppObject *>(reinterpret_cast<NavigationZoom *>(zoom)->_sceneCamera);
-  if (!pan || !camera)
-    return;
-  NodeDepth     depth{};
-  Il2CppObject *pan_scene_camera = nullptr;
-  il2cpp_field_get_value(pan, pan_depth, &depth);
-  il2cpp_field_get_value(pan, pan_camera, &pan_scene_camera);
-  if (depth != state.depth || pan_scene_camera != camera)
-    return;
-  Il2CppObject *transform = nullptr, *boxed = nullptr;
-  Vector3       position{};
-  if (!Il2CppRuntime::TryInvoke(get_transform, camera, nullptr, &transform) || !transform
-      || !ReadVector(get_world_position, transform, position)
-      || !Il2CppRuntime::TryInvoke(get_far_clip, camera, nullptr, &boxed) || !boxed
-      || !method_contract::Type(il2cpp_class_get_type(boxed->klass), "System.Single"))
-    return;
-  auto *value = static_cast<float *>(il2cpp_object_unbox(boxed));
-  if (!value)
-    return;
-  const float baseline = *value;
-  Vector3     center{};
-  float       radius = 0.0f;
-  il2cpp_field_get_value(pan, pan_system_position, &center);
-  il2cpp_field_get_value(pan, pan_view_radius, &radius);
-  float expanded = FreeViewFarClip(baseline, position, center, radius);
-  if (expanded > baseline) {
-    void *args[]{&expanded};
-    Il2CppRuntime::TryInvoke(set_far_clip, camera, args);
-  }
-  navigation_environment::ApplyDrawDistance(camera);
-}
-
 void UpdateCameraPosition_Hook(auto original, Il2CppObject *zoom)
 {
   if (state.zoom
@@ -421,18 +365,8 @@ void UpdateCameraPosition_Hook(auto original, Il2CppObject *zoom)
     return;
   }
   Tick();
-  ApplyDrawDistance(zoom);
-  if (state.overridden && Enabled() && background_layer_science::AmbientEnabled())
-    navigation_environment::Update(camera);
-  else
-    navigation_environment::Clear();
 }
 } // namespace
-
-// The zoom patch owns the ordinary clip distance. Reapply after its writes so
-// both Update and LateUpdate cover a freely translated system camera.
-void ApplyNavigationOrbitDrawDistance(NavigationZoom *zoom)
-{ ApplyDrawDistance(reinterpret_cast<Il2CppObject *>(zoom)); }
 
 void InstallNavigationOrbitHooks()
 {
@@ -451,10 +385,6 @@ void InstallNavigationOrbitHooks()
   get_angles = method_contract::Resolve(transform.get_cls(), "get_localEulerAngles", false, "UnityEngine.Vector3", {});
   clamp_pan_position = method_contract::Resolve(pan.get_cls(), "ClampPositionInside", false, "UnityEngine.Vector3",
                                                 {"UnityEngine.Vector3"});
-  get_world_position = method_contract::Resolve(transform.get_cls(), "get_position", false, "UnityEngine.Vector3", {});
-  get_far_clip       = method_contract::Resolve(camera_cls.get_cls(), "get_farClipPlane", false, "System.Single", {});
-  set_far_clip =
-      method_contract::Resolve(camera_cls.get_cls(), "set_farClipPlane", false, "System.Void", {"System.Single"});
   camera_fov    = method_contract::Resolve(camera_cls.get_cls(), "get_fieldOfView", false, "System.Single", {});
   camera_height = method_contract::Resolve(camera_cls.get_cls(), "get_pixelHeight", false, "System.Int32", {});
   set_angles    = method_contract::Resolve(transform.get_cls(), "set_localEulerAngles", false, "System.Void",
@@ -475,8 +405,6 @@ void InstallNavigationOrbitHooks()
     const char        *name, *type;
   };
   const FieldBinding fields[] = {
-      {&pan_system_position, &pan, "_systemPosition", "UnityEngine.Vector3"},
-      {&pan_view_radius, &pan, "_viewRadius", "System.Single"},
       {&scene_camera, &zoom, "_sceneCamera", "UnityEngine.Camera"},
       {&distance_field, &zoom, "_actualDistance", "System.Single"},
       {&depth_field, &zoom, "_depth", "Digit.PrimeServer.Models.NodeDepth"},
@@ -512,9 +440,6 @@ void InstallNavigationOrbitHooks()
       {clamp_pan_position, "NavigationPan.ClampPositionInside"},
       {get_transform, "Component.get_transform"},
       {get_angles, "Transform.get_localEulerAngles"},
-      {get_world_position, "Transform.get_position"},
-      {get_far_clip, "Camera.get_farClipPlane"},
-      {set_far_clip, "Camera.set_farClipPlane"},
       {camera_fov, "Camera.get_fieldOfView"},
       {camera_height, "Camera.get_pixelHeight"},
       {set_angles, "Transform.set_localEulerAngles"},

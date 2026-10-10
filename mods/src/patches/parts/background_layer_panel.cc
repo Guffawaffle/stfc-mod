@@ -17,7 +17,7 @@ namespace
     float r, g, b, a;
   };
   Il2CppGCHandle                     panel = nullptr, status_text = nullptr;
-  Il2CppGCHandle                     next_token = nullptr, sky_token = nullptr;
+  Il2CppGCHandle                     next_token = nullptr, reset_token = nullptr;
   mod_settings::NativeCallback<void> callback;
   bool                               initialized = false, failed = false;
   std::string                        rendered;
@@ -31,7 +31,7 @@ namespace
     Free(panel);
     Free(status_text);
     Free(next_token);
-    Free(sky_token);
+    Free(reset_token);
     rendered.clear();
   }
 
@@ -83,8 +83,8 @@ namespace
     try {
       if (token == Target(next_token))
         Next();
-      else if (token == Target(sky_token))
-        ToggleAmbient();
+      else if (token == Target(reset_token))
+        Reset();
     } catch (const std::exception &error) {
       spdlog::warn("[BackgroundLayers] button failed: {}", error.what());
     }
@@ -143,7 +143,7 @@ namespace
     Root label(Label(body_transform.get(), font.get(), "LayerIdentity", {648, 132}, {0, 22}, "Background science"));
     Retain(status_text, label.get());
     Button(body_transform.get(), font.get(), "Next hidden layer (Alt-F8)", {-145, -68}, next_token);
-    Button(body_transform.get(), font.get(), "Toggle orbit sky (Alt-F9)", {145, -68}, sky_token);
+    Button(body_transform.get(), font.get(), "Restore all layers (Alt-F9)", {145, -68}, reset_token);
     spdlog::info("[BackgroundLayers] panel-created=true");
   }
 } // namespace

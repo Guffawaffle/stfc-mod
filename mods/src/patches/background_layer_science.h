@@ -5,12 +5,11 @@
 
 namespace background_layer_science
 {
-// Keep ambient source discovery stable when a science comparison hides a renderer.
+// Temporary native scenery visibility controls.
 void Install();
-bool Hide(Il2CppObject *flat); // Handles visibility and bypasses fr_scale for science comparisons.
-bool AmbientEnabled();
+bool Hide(Il2CppObject *flat); // Observe the native backdrop; apply the current renderer selection.
 void Next();
-void ToggleAmbient();
+void Reset();
 void UpdatePanel(const std::string &status, bool visible);
 bool IsHiddenRenderer(Il2CppObject *renderer);
 } // namespace background_layer_science
