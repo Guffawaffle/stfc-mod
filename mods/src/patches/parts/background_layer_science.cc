@@ -130,7 +130,7 @@ void Report()
                            : "Hide layer " + std::to_string(selection + 1) + "/" + std::to_string(layers.size());
   if (selection >= 0 && size_t(selection) < layers.size())
     status += "\n" + layers[selection].label;
-  status += "\nNative sky / native zoom / border fix removed";
+  status += "\nNative sky / extended zoom / border fix removed";
   UpdatePanel(status, true);
 }
 
@@ -356,8 +356,9 @@ void Install()
   ready        = alive && loader_type && get_game_object && active_object && object_name && get_material && get_texture
                  && get_enabled && set_enabled && find_views && get_flat && active && view_type && frame_count
                  && install_screen_manager_update_hook() && register_screen_manager_update_callback(Tick);
-  spdlog::info("[BackgroundLayers] step=4 layer-cycle ready={} initial-mode=native native-zoom=true border-fix=removed "
-               "orbit-sky=removed keys=ALT-F8/ALT-F9",
-               ready);
+  spdlog::info(
+      "[BackgroundLayers] step=5 layer-cycle ready={} initial-mode=native extended-zoom=true border-fix=removed "
+      "orbit-sky=removed keys=ALT-F8/ALT-F9",
+      ready);
 }
 } // namespace background_layer_science

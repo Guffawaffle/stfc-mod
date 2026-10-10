@@ -413,6 +413,29 @@ inline void StoreZoom(std::string label, float &zoom, NavigationZoom *_this)
   spdlog::info("Changing {} from {} to {}", label, old_zoom, zoom);
 }
 
+// Retain extended zoom for layer inspection, without altering scenery transforms
+// or the native camera's clear flags, background color, or clipping planes.
+static void ApplySystemZoomRange(NavigationZoom *_this, float radius)
+{
+  if (!_this || radius <= 0.0f || Config::Get().zoom <= 0.0f)
+    return;
+  const auto ratio = Config::Get().zoom / radius;
+  _this->_farRatioSystemNormal = 0.55f * ratio;
+  _this->_farRatioSystemExtended = ratio;
+}
+
+static void EnsureSystemZoomRange(NavigationZoom *_this)
+{
+  if (!_this || _this->_depth != NodeDepth::SolarSystem || Config::Get().zoom <= 0.0f)
+    return;
+  ApplySystemZoomRange(_this, _this->_viewRadius);
+  if (_this->_maximum < Config::Get().zoom)
+    _this->_maximum = Config::Get().zoom;
+  const auto zoom_total = _this->_maximum - _this->_minimum;
+  if (zoom_total > 0.0f)
+    _this->_zoomtotal = zoom_total;
+}
+
 void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
 {
   ship_shortcut_badges::Refresh();
@@ -435,11 +458,11 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
   bool       do_store_zoom    = false;
   auto       config           = &Config::Get();
 
+  EnsureSystemZoomRange(_this);
 
   const auto camera_shortcuts_enabled = config->hotkeys_enabled && !config->use_scopely_hotkeys;
 
-  // Science baseline: native system zoom input/range, with orbit handled separately.
-  if (_this->_depth != NodeDepth::SolarSystem && !Key::IsInputFocused()) {
+  if (!Key::IsInputFocused()) {
     if (camera_shortcuts_enabled) {
       if (MapKey::IsDown(GameFunction::SetZoomPreset1)) {
         return StoreZoom("System Preset 1", config->system_zoom_preset_1, _this);
@@ -532,6 +555,7 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom *_this)
   original(_this);
   native_navigation_update = previous_native_update;
 
+  EnsureSystemZoomRange(_this);
   GalaxyLabelFrame(_this);
   if (fleet_label_hooks_installed && _this->_depth == NodeDepth::SolarSystem) {
     BeginFleetLabelSystemState(_this);
@@ -660,8 +684,10 @@ void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom *_this,
     BeginFleetLabelSystemState(_this);
   }
 
-  // Leave native system ranges, camera clear flags, background and clip planes untouched.
+  if (depth == NodeDepth::SolarSystem)
+    ApplySystemZoomRange(_this, radius);
   original(_this, radius, depth);
+  EnsureSystemZoomRange(_this);
 }
 
 void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom *_this, NodeDepth depth)
@@ -674,7 +700,10 @@ void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom *_this, NodeDept
     BeginFleetLabelSystemState(_this);
   }
 
+  if (depth == NodeDepth::SolarSystem)
+    ApplySystemZoomRange(_this, _this->_viewRadius);
   original(_this, depth);
+  EnsureSystemZoomRange(_this);
 }
 
 void *PlanetViewUtils_get_FlatRenderable_Hook(auto original, PlanetViewUtils *_this)
