@@ -1,4 +1,3 @@
-#include "patches/claim_trace.h"
 #include "patches/fleet_perf_probe.h"
 #include "config.h"
 #include "patches/runtime_config.h"
@@ -885,7 +884,6 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
       } else if (MapKey::IsDown(GameFunction::ShowFactions)) {
         return GotoSection(SectionID::Shop_MainFactions);
       } else if (MapKey::IsDown(GameFunction::ShoWStationExterior)) {
-        TraceClaimNavigation("ShoWStationExterior");
         return GotoSection(SectionID::Starbase_Exterior);
       } else if (MapKey::IsDown(GameFunction::NativeShortcutGalaxy)) {
         InvokeNativeShortcut(on_galaxy_action, "Galaxy");
@@ -893,7 +891,6 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
       } else if (MapKey::IsDown(GameFunction::ShowGalaxy)) {
         return ChangeNavigationSection(SectionID::Navigation_Galaxy);
       } else if (MapKey::IsDown(GameFunction::ShowStationInterior)) {
-        TraceClaimNavigation("ShowStationInterior");
         return GotoSection(SectionID::Starbase_Interior);
       } else if (MapKey::IsDown(GameFunction::ShowHaven)) {
         return PlanetaryBaseManager::ViewOwnHaven();

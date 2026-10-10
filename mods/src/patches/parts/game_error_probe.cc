@@ -3,8 +3,6 @@
  * @brief Opt-in science probe for the game's central managed GSError handler.
  */
 #include "dev/diagnostics.h"
-#include "patches/claim_trace.h"
-#include "patches/game_error_probe.h"
 #include "str_utils.h"
 #include "version.h"
 
@@ -68,7 +66,6 @@ struct ProbeState {
   size_t                                rate_limited_events         = 0;
   std::string                           session_id;
   uintptr_t                             handler_rva = 0;
-  const MethodInfo*                     handler_method = nullptr;
 };
 
 ProbeState& probe_state()
@@ -440,7 +437,7 @@ void GsErrorHandler_OnGSError_Hook(auto original, void* handler, void* error)
   } catch (...) {
   }
 
-  TraceClaimGameError(original, handler, error);
+  original(handler, error);
 
   if (captured) {
     try {
@@ -451,16 +448,6 @@ void GsErrorHandler_OnGSError_Hook(auto original, void* handler, void* error)
 }
 } // namespace
 #endif
-
-bool GameErrorProbeOwnsHandler(const MethodInfo* method) noexcept
-{
-#if defined(_MODDBG) && defined(_WIN32)
-  const auto* installed = probe_state().handler_method;
-  return installed && method && installed->methodPointer == method->methodPointer;
-#else
-  return false;
-#endif
-}
 
 void InstallGameErrorProbe()
 {
@@ -512,7 +499,6 @@ void InstallGameErrorProbe()
     return;
   }
 
-  probe_state().handler_method = method;
 
   try {
     record_session_start();
