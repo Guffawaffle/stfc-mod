@@ -3,6 +3,7 @@
 #include "patches/key.h"
 #include "patches/mapkey.h"
 #include "patches/navigation_environment_poc.h"
+#include "patches/navigation_orbit_science.h"
 #include "patches/screen_update_hook.h"
 #include <algorithm>
 #include <cmath>
@@ -97,6 +98,11 @@ bool SetView(Il2CppObject *transform, Vector3 angles, float distance)
 void Clear(const char *reason = "unspecified")
 {
   navigation_environment_poc::Clear();
+#ifdef _MODDBG
+  if (state.zoom)
+    navigation_orbit_science::Orbit(il2cpp_gchandle_get_target(state.zoom), reason, state.yaw, state.pitch,
+                                    state.overridden, state.dragging, true);
+#endif
   if (state.overridden && state.transform)
     SetView(il2cpp_gchandle_get_target(state.transform), state.native_angles, state.distance);
   if (state.zoom)
@@ -208,6 +214,8 @@ void Tick()
     state.overridden = state.dragging = false;
     navigation_environment_poc::Clear();
     state.yaw = 0.0f;
+    navigation_orbit_science::Orbit(zoom, "reset-binding", state.yaw, state.pitch, state.overridden, state.dragging,
+                                    true);
     spdlog::debug("[NavigationOrbit] reset native view");
   } else {
     Vector3 position{};
@@ -370,11 +378,15 @@ void ApplyDrawDistance(Il2CppObject *zoom)
 
 void UpdateCameraPosition_Hook(auto original, Il2CppObject *zoom)
 {
+  navigation_orbit_science::Orbit(zoom, "before-native-camera", state.yaw, state.pitch, state.overridden,
+                                  state.dragging);
   if (state.zoom
       && (!Enabled() || !zoom || il2cpp_gchandle_get_target(state.zoom) != zoom
           || Read<NodeDepth>(zoom, depth_field) != state.depth || !SectionMatches(state.depth)))
     Clear("camera-or-scope-change");
   original(zoom);
+  navigation_orbit_science::Orbit(zoom, "after-native-camera", state.yaw, state.pitch, state.overridden,
+                                  state.dragging);
   if (!zoom || !Enabled() || !SectionMatches(Read<NodeDepth>(zoom, depth_field)))
     return;
   const auto    depth     = Read<NodeDepth>(zoom, depth_field);
@@ -421,6 +433,7 @@ void UpdateCameraPosition_Hook(auto original, Il2CppObject *zoom)
   ApplyDrawDistance(zoom);
   if (state.overridden && Enabled())
     navigation_environment_poc::Update(camera);
+  navigation_orbit_science::Orbit(zoom, "after-orbit-camera", state.yaw, state.pitch, state.overridden, state.dragging);
 }
 } // namespace
 
