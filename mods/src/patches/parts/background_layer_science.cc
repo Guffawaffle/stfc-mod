@@ -79,17 +79,17 @@ void ObserveCamera(Il2CppObject *camera)
     return;
   if (!observed_camera || il2cpp_gchandle_get_target(observed_camera) != camera) {
     RestoreCamera();
-    Il2CppObject *flags = nullptr, *background = nullptr, *far = nullptr;
+    Il2CppObject *flags = nullptr, *background = nullptr, *far_result = nullptr;
     if (!Il2CppRuntime::TryInvoke(camera_flags, camera, nullptr, &flags) || !flags
         || !method_contract::Type(il2cpp_class_get_type(flags->klass), "UnityEngine.CameraClearFlags")
         || !Il2CppRuntime::TryInvoke(camera_color, camera, nullptr, &background) || !background
         || !method_contract::Type(il2cpp_class_get_type(background->klass), "UnityEngine.Color")
-        || !Il2CppRuntime::TryInvoke(camera_far, camera, nullptr, &far) || !far
-        || !method_contract::Type(il2cpp_class_get_type(far->klass), "System.Single"))
+        || !Il2CppRuntime::TryInvoke(camera_far, camera, nullptr, &far_result) || !far_result
+        || !method_contract::Type(il2cpp_class_get_type(far_result->klass), "System.Single"))
       return;
     auto *flag_value  = il2cpp_object_unbox(flags);
     auto *color_value = il2cpp_object_unbox(background);
-    auto *far_value   = il2cpp_object_unbox(far);
+    auto *far_value   = il2cpp_object_unbox(far_result);
     if (!flag_value || !color_value || !far_value)
       return;
     std::memcpy(&native_flags, flag_value, sizeof(native_flags));
