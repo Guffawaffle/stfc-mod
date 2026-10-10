@@ -1,3 +1,4 @@
+#include "patches/queue_science.h"
 #include "action_queue.h"
 #include <config.h>
 #include "settings/queue_recovery.h"
@@ -140,6 +141,7 @@ thread_local CourseContext* currentCourse{};
 
 int Engage(auto original, Il2CppObject* manager, Il2CppObject* player, Il2CppObject* queue)
 {
+  queue_science::Scope trace(manager, "recovery.engage");
   std::uint64_t serial{};
   if (Enabled()) {
     try {
@@ -153,6 +155,7 @@ int Engage(auto original, Il2CppObject* manager, Il2CppObject* player, Il2CppObj
     ClearRequests();
   }
   const auto result = original(manager, player, queue);
+  trace.Note("native_result", result);
   // Result zero means native dispatch succeeded. Do not cancel a newer reentrant request.
   if (serial && result != 0) {
     std::lock_guard lock(requestsMutex);
@@ -162,7 +165,9 @@ int Engage(auto original, Il2CppObject* manager, Il2CppObject* player, Il2CppObj
 }
 bool Retry(auto original, Il2CppObject* manager, std::int64_t target, Il2CppObject* queue)
 {
+  queue_science::Scope trace(manager, "recovery.retry", target, true);
   const bool retry = original(manager, target, queue);
+  trace.Note("native_retry", retry);
   if (retry || !Enabled() || !currentCourse)
     return retry;
   try {
@@ -180,6 +185,7 @@ bool Retry(auto original, Il2CppObject* manager, std::int64_t target, Il2CppObje
       return retry;
     // The enclosing Course handler's true branch calls its normal planner for this same fleet.
     // That planner retains all eligibility checks. No flags, targets or retry counters are changed here.
+    trace.Note("mod_advanced", 1);
     return true;
   } catch (...) {
     return retry;
@@ -194,6 +200,10 @@ struct CourseResponse {
 static_assert(sizeof(CourseResponse) == 24 && offsetof(CourseResponse, target) == 16);
 void Course(auto original, Il2CppObject* manager, CourseResponse args)
 {
+  queue_science::Scope trace(manager, "recovery.course-response", 0, true);
+  trace.Note("fleet", args.fleet);
+  trace.Note("success", args.success);
+  trace.Note("recall", args.recall);
   CourseContext context{args.fleet};
   if (Enabled() && !args.success && !args.recall) {
     try {
@@ -217,6 +227,7 @@ void Course(auto original, Il2CppObject* manager, CourseResponse args)
 }
 void ClearAll(auto original, Il2CppObject* manager)
 {
+  queue_science::Scope trace(manager, "recovery.clear-all", 0, true);
   // Native session end/invalidation/quit share this seam; release weak handles while IL2CPP is alive.
   ClearRequests();
   original(manager);
@@ -309,6 +320,10 @@ void InstallActionQueueRecovery()
            std::pair{c, "ActionQueueManager.OnSetCourseResponseEventHandler"},
            std::pair{d, "ActionQueueManager.StopWatchdogAndClearAllQueues"}})
     if (!installed) spdlog::warn("[FasterQueueRecovery] hook installation failed: {}; feature unavailable", name);
+  queue_science::Own("TryPlanPathAndEngageTarget", a);
+  queue_science::Own("ShouldRetryFailedSetCourse", b);
+  queue_science::Own("OnSetCourseResponseEventHandler", c);
+  queue_science::Own("StopWatchdogAndClearAllQueues", d);
   ready.store(a && b && c && d);
   spdlog::info("[FasterQueueRecovery] ready={}", ready.load());
 }

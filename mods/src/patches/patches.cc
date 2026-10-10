@@ -1,3 +1,4 @@
+#include "patches/queue_science.h"
 #include "patches.h"
 #include "file.h"
 #include "version.h"
@@ -254,6 +255,7 @@ int il2cpp_init_hook(auto original, const char* domain_name)
   InstallDevConsole();
 #endif
   InstallThinQueueProtection();
+  queue_science::Install();
 
   spdlog::info("");
 

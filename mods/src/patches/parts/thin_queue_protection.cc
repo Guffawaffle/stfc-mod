@@ -1,3 +1,4 @@
+#include "patches/queue_science.h"
 #include "patches/action_queue_guard_policy.h"
 #include <config.h>
 
@@ -119,7 +120,9 @@ bool Resume(Object* manager, Object* queue, Object* player, bool idle, const Que
     return false;
   // Call the existing native engage entry, including the Faster Queue Recovery detour.
   // Never edit queue contents, engagement flags, retry counts or the native watchdog.
+  queue_science::Scope trace(manager, "protection.resume", confirmed.head_target_id, true);
   const auto result = tryEngage(manager, player, queue);
+  trace.Note("result", result);
   spdlog::info("[ThinQueueProtection] resume source={} fleet={} old_head={} head={} count={} result={}", source,
                confirmed.player_fleet_id, before.head_target_id, confirmed.head_target_id, confirmed.count, result);
   return result == action_queue_guard::kEngageResultSuccess;
@@ -127,12 +130,19 @@ bool Resume(Object* manager, Object* queue, Object* player, bool idle, const Que
 
 bool Plan(auto original, Object* manager, Object* player)
 {
+  queue_science::Scope trace(manager, "protection.planner");
+  trace.Object("player", player);
   if (!Enabled() || !Is(player, playerClass))
     return original(manager, player);
   const auto id     = playerId(player);
   auto*      queue  = FindQueue(manager, id);
   const auto before = Snapshot(queue);
-  const bool result = original(manager, player);
+  bool result;
+  {
+    queue_science::Scope native(manager, "native.planner");
+    result = original(manager, player);
+  }
+  trace.Note("native_result", result);
   // Session/queue replacement is not evidence that native pruning removed a prefix.
   if (FindQueue(manager, id) != queue)
     return result;
@@ -143,12 +153,18 @@ bool Plan(auto original, Object* manager, Object* player)
 
 void Stall(auto original, Object* manager, Object* queue, Object* player, Object* deployed)
 {
+  queue_science::Scope trace(manager, "protection.watchdog");
+  trace.Object("player", player);
+  trace.Object("deployed", deployed);
   if (!Enabled() || !Is(player, playerClass) || !Is(deployed, deployedClass)) {
     original(manager, queue, player, deployed);
     return;
   }
   const auto before = Snapshot(queue);
-  original(manager, queue, player, deployed);
+  {
+    queue_science::Scope native(manager, "native.watchdog");
+    original(manager, queue, player, deployed);
+  }
   if (FindQueue(manager, before.player_fleet_id) != queue)
     return;
   const auto after = Snapshot(queue);
@@ -160,6 +176,8 @@ void Stall(auto original, Object* manager, Object* queue, Object* player, Object
 
 void Disposed(auto original, Object* manager, Object* fleets)
 {
+  queue_science::Scope trace(manager, "protection.disposed");
+  trace.Object("fleets", fleets, true);
   std::array<Id, 64> targets{};
   unsigned           captured{};
   if (Enabled()) {
@@ -175,7 +193,10 @@ void Disposed(auto original, Object* manager, Object* fleets)
       }
     }
   }
-  original(manager, fleets);
+  {
+    queue_science::Scope native(manager, "native.disposed");
+    original(manager, fleets);
+  }
   for (unsigned i = 0; i < captured && Enabled(); ++i) {
     const auto target = targets[i];
     auto*      queue  = FindQueue(manager, 0, target);
@@ -188,6 +209,7 @@ void Disposed(auto original, Object* manager, Object* fleets)
     if (!action_queue_guard::ShouldProcessDestroyedHead(true, true, target, confirmed)
         || confirmed.player_fleet_id != before.player_fleet_id || confirmed.count != before.count)
       continue;
+    queue_science::Scope process(manager, "protection.process-destroyed-head", target, true);
     processTarget(manager, target, false);
     spdlog::info("[ThinQueueProtection] process-destroyed-head fleet={} target={}", before.player_fleet_id, target);
   }
@@ -298,6 +320,9 @@ void InstallThinQueueProtection()
            std::pair{a, "ActionQueueManager.DoPlanPathAndEngageTarget"},
            std::pair{b, "ActionQueueManager.HandleStall"}, std::pair{c, "ActionQueueManager.OnFleetsDisposedEventHandler"}})
     if (!installed) spdlog::warn("[ThinQueueProtection] hook installation failed: {}; feature unavailable", name);
+  queue_science::Own("DoPlanPathAndEngageTarget", a);
+  queue_science::Own("HandleStall", b);
+  queue_science::Own("OnFleetsDisposedEventHandler", c);
   ready.store(a && b && c);
   spdlog::info("[ThinQueueProtection] ready={}", ready.load());
 }

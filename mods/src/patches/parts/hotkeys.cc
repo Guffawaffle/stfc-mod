@@ -1,3 +1,4 @@
+#include "patches/queue_science.h"
 #include "config.h"
 #include "patches/runtime_config.h"
 #include "settings/preview_settings.h"
@@ -1344,6 +1345,7 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
       MapKey::IsDown(GameFunction::ActionRecall) && (!Config::Get().disable_preview_recall || !CanHideViewers());
 
   if (has_queue_clear) {
+    queue_science::Scope trace(action_queue, "mod.hotkey-clear", 0, true);
     action_queue->ClearQueue(fleet);
   } else if (has_recall_cancel
              && (fleet->CurrentState == FleetState::WarpCharging || fleet->CurrentState == FleetState::Warping)) {
