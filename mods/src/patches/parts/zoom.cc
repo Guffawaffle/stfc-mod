@@ -716,7 +716,7 @@ void *PlanetViewUtils_get_FlatRenderable_Hook(auto original, PlanetViewUtils *_t
     return fr;
   }
 
-  background_layer_science::Hide(reinterpret_cast<Il2CppObject *>(fr));
+  background_layer_science::Hide(reinterpret_cast<Il2CppObject *>(fr), reinterpret_cast<Il2CppObject *>(_this));
   return fr;
 }
 

@@ -1,7 +1,9 @@
 #include "patches/background_layer_science.h"
 #include "config.h"
 #include "errormsg.h"
+#include "patches/backdrop_catalog.h"
 #include "patches/key.h"
+#include "patches/navigation_environment.h"
 #include "patches/screen_update_hook.h"
 #include <algorithm>
 #include <cstring>
@@ -15,7 +17,7 @@
 #include <vector>
 
 // Temporary science: compare native scenery renderers from the game baseline.
-// Renderer visibility with accepted camera clearing/draw distance; no scene transforms or native objects are destroyed.
+// Native renderer visibility plus a separate owned enclosure; native transforms/materials remain unchanged.
 namespace background_layer_science
 {
 bool              ready = false, prior_enabled = false;
@@ -29,7 +31,9 @@ void             *view_type = nullptr;
 int (*frame_count)()        = nullptr;
 int next_scan               = 0;
 // -1 shows all native scenery; >=0 hides one pool renderer.
-int selection = -1;
+int  selection     = -1;
+bool boundary_mode = false, boundary_ready = false;
+void Apply();
 struct Layer {
   Il2CppGCHandle renderer;
   std::string    label;
@@ -41,10 +45,10 @@ FieldInfo         *pool_field      = nullptr;
 void              *loader_type     = nullptr;
 const MethodInfo  *get_game_object = nullptr, *active_object = nullptr, *alive = nullptr;
 
-Il2CppGCHandle    observed_camera        = nullptr;
-NodeDepth         observed_depth         = NodeDepth::Starbase;
-int               native_flags           = 0;
-bool              far_clip_overridden    = false;
+Il2CppGCHandle    observed_camera     = nullptr;
+NodeDepth         observed_depth      = NodeDepth::Starbase;
+int               native_flags        = 0;
+bool              far_clip_overridden = false;
 color             native_color{};
 float             native_far_clip = 0;
 const MethodInfo *camera_flags = nullptr, *camera_color = nullptr, *camera_far = nullptr;
@@ -63,7 +67,9 @@ bool Live(Il2CppObject *object)
 
 void RestoreCamera()
 {
-  auto *camera = observed_camera ? il2cpp_gchandle_get_target(observed_camera) : nullptr;
+  navigation_environment::Clear();
+  boundary_ready = false;
+  auto *camera   = observed_camera ? il2cpp_gchandle_get_target(observed_camera) : nullptr;
   if (Live(camera)) {
     void *flags[]{&native_flags}, *background[]{&native_color};
     Il2CppRuntime::TryInvoke(set_camera_flags, camera, flags);
@@ -75,17 +81,17 @@ void RestoreCamera()
   }
   if (observed_camera)
     il2cpp_gchandle_free(observed_camera);
-  observed_camera        = nullptr;
+  observed_camera     = nullptr;
   far_clip_overridden = false;
 }
 
 void ObserveCamera(Il2CppObject *camera, NodeDepth depth)
 {
-  auto *sections = Hub::get_SectionManager();
-  const bool matching_view = sections
-                            && ((depth == NodeDepth::SolarSystem && InSystem())
-                                || (depth == NodeDepth::Galaxy
-                                    && sections->CurrentSection == SectionID::Navigation_Galaxy));
+  auto      *sections = Hub::get_SectionManager();
+  const bool matching_view =
+      sections
+      && ((depth == NodeDepth::SolarSystem && InSystem())
+          || (depth == NodeDepth::Galaxy && sections->CurrentSection == SectionID::Navigation_Galaxy));
   if (!ready || !matching_view || !Live(camera) || !camera_flags || !camera_color || !camera_far || !set_camera_flags
       || !set_camera_color)
     return;
@@ -110,7 +116,8 @@ void ObserveCamera(Il2CppObject *camera, NodeDepth depth)
     observed_camera = il2cpp_gchandle_new(camera, false);
     observed_depth  = depth;
     spdlog::info("[BackgroundLayers] native-camera depth={} clearFlags={} background=({},{},{},{}) farClip={}",
-                 int(depth), native_flags, native_color.r, native_color.g, native_color.b, native_color.a, native_far_clip);
+                 int(depth), native_flags, native_color.r, native_color.g, native_color.b, native_color.a,
+                 native_far_clip);
   }
   // Accepted science baseline: clear the colour buffer using the game's own colour.
   int   flags = 2; // Unity CameraClearFlags.SolidColor.
@@ -127,10 +134,14 @@ void ObserveCamera(Il2CppObject *camera, NodeDepth depth)
       far_clip_overridden = true;
     }
   }
+  if (depth == NodeDepth::SolarSystem)
+    RefreshBoundary(camera);
 }
 
 void ReleaseLayers()
 {
+  navigation_environment::Clear();
+  boundary_ready = false;
   for (auto &layer : layers)
     il2cpp_gchandle_free(layer.renderer);
   layers.clear();
@@ -183,7 +194,9 @@ std::string Describe(Il2CppObject *renderer)
 void Apply()
 {
   Il2CppObject *target = nullptr;
-  if (selection >= 0 && size_t(selection) < layers.size())
+  if (boundary_mode && boundary_ready && native_fr)
+    target = il2cpp_gchandle_get_target(native_fr);
+  else if (selection >= 0 && size_t(selection) < layers.size())
     target = il2cpp_gchandle_get_target(layers[selection].renderer);
   if (!Live(target)) {
     Restore();
@@ -207,12 +220,16 @@ void Apply()
 
 void Report()
 {
-  std::string status = selection == -1
+  std::string status = boundary_mode && boundary_ready ? "Native scenery: getter-selected layer replaced"
+                       : selection == -1
                            ? "Native scenery: all layers visible"
                            : "Hide layer " + std::to_string(selection + 1) + "/" + std::to_string(layers.size());
   if (selection >= 0 && size_t(selection) < layers.size())
     status += "\n" + layers[selection].label;
-  status += "\nClear: Solid native colour / Draw distance: Extended (automatic)";
+  status += boundary_mode
+                ? (boundary_ready ? "\nBoundary: closed native texture" : "\nBoundary: waiting / native retained")
+                : "\nBoundary: native";
+  status += " / Solid native colour / Draw distance: automatic";
   if (observed_camera)
     status += " (native " + std::to_string(int(native_far_clip)) + ")";
   UpdatePanel(status, true);
@@ -222,6 +239,11 @@ void Next()
 {
   if (!ready || !InSystem())
     return;
+  if (boundary_mode) {
+    boundary_mode = false;
+    navigation_environment::Clear();
+    boundary_ready = false;
+  }
   Restore();
   ++selection;
   if (selection >= int(layers.size()))
@@ -235,13 +257,43 @@ void Reset()
 {
   if (!ready || !InSystem())
     return;
+  boundary_mode  = false;
+  boundary_ready = false;
+  navigation_environment::Clear();
   Restore();
   selection = -1;
   Report();
   spdlog::info("[BackgroundLayers] restore-all=true");
 }
 
-bool Hide(Il2CppObject *flat)
+void RefreshBoundary(Il2CppObject *camera)
+{
+  if (!ready || !InSystem() || !boundary_mode)
+    return;
+  auto      *renderer  = native_fr ? il2cpp_gchandle_get_target(native_fr) : nullptr;
+  const bool was_ready = boundary_ready;
+  boundary_ready       = navigation_environment::UpdateBackdrop(camera, renderer);
+  if (was_ready && !boundary_ready)
+    navigation_environment::Clear();
+  Apply();
+}
+
+void ToggleBoundary()
+{
+  if (!ready || !InSystem())
+    return;
+  Restore();
+  navigation_environment::Clear();
+  boundary_ready = false;
+  selection      = -1;
+  boundary_mode  = !boundary_mode;
+  if (boundary_mode && observed_camera)
+    RefreshBoundary(il2cpp_gchandle_get_target(observed_camera));
+  Report();
+  spdlog::info("[BackdropBoundary] enabled={} ready={}", boundary_mode, boundary_ready);
+}
+
+bool Hide(Il2CppObject *flat, Il2CppObject *view)
 {
   if (!ready || !InSystem() || !Live(flat) || flat->klass != flat_class)
     return false;
@@ -249,6 +301,7 @@ bool Hide(Il2CppObject *flat)
   il2cpp_field_get_value(flat, mesh_renderer, &renderer);
   if (!Live(renderer))
     return false;
+  backdrop_catalog::Observe(view, flat);
   const auto identity = Describe(renderer);
   if (!native_fr || il2cpp_gchandle_get_target(native_fr) != renderer || identity != native_identity) {
     Restore();
@@ -357,6 +410,7 @@ void Tick()
   if (!InSystem()) {
     Restore();
     ReleaseLayers();
+    backdrop_catalog::Leave();
     auto *sections = Hub::get_SectionManager();
     if (!sections || sections->CurrentSection != SectionID::Navigation_Galaxy)
       RestoreCamera();
@@ -371,6 +425,8 @@ void Tick()
       Next();
     if (Key::Down(KeyCode::F9))
       Reset();
+    if (Key::Down(KeyCode::F10))
+      ToggleBoundary();
   }
   int frame = frame_count();
   if (frame < next_scan)
@@ -395,7 +451,7 @@ void Tick()
     Il2CppObject *boxed = nullptr, *flat = nullptr;
     bool          enabled = false;
     if (view && Il2CppRuntime::TryInvoke(active, view, nullptr, &boxed) && Il2CppRuntime::TryBoolean(boxed, enabled)
-        && enabled && Il2CppRuntime::TryInvoke(get_flat, view, nullptr, &flat) && Hide(flat))
+        && enabled && Il2CppRuntime::TryInvoke(get_flat, view, nullptr, &flat) && Hide(flat, view))
       break;
   }
   il2cpp_gchandle_free(root);
@@ -456,8 +512,9 @@ void Install()
                  && get_enabled && set_enabled && find_views && get_flat && active && view_type && frame_count
                  && install_screen_manager_update_hook() && register_screen_manager_update_callback(Tick);
   spdlog::info(
-      "[BackgroundLayers] step=9 layer-cycle ready={} initial-mode=native extended-zoom=true border-fix=removed "
-      "orbit-sky=removed clear=solid-native-colour-system-and-galaxy draw-distance=automatic-system-only keys=ALT-F8/ALT-F9",
+      "[BackgroundLayers] step=10 layer-cycle ready={} initial-mode=native extended-zoom=true border-fix=removed "
+      "orbit-sky=removed clear=solid-native-colour-system-and-galaxy draw-distance=automatic-system-only "
+      "catalog=exact-getter boundary=native-texture-toggle keys=ALT-F8/ALT-F9/ALT-F10",
       ready);
 }
 } // namespace background_layer_science

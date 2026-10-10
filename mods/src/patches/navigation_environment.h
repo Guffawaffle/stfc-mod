@@ -6,6 +6,7 @@
 namespace navigation_environment
 {
 void Update(Il2CppObject *camera);
+bool UpdateBackdrop(Il2CppObject *camera, Il2CppObject *native_renderer);
 void Clear();
 void ApplyDrawDistance(Il2CppObject *camera);
 } // namespace navigation_environment

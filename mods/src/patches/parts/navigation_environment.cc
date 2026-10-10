@@ -54,7 +54,8 @@ namespace
   bool              bounds_valid    = false;
   bool              reported_bounds = false;
   bool              attempted = false, ready = false, failed = false;
-  int               next_scan = 0;
+  int               next_scan  = 0;
+  bool              exact_mode = false;
   const MethodInfo *destroy, *alive, *find_all, *active, *background, *shared_material, *main_texture;
   const MethodInfo *get_transform, *game_transform, *get_game_object, *get_layer, *set_layer, *get_position,
       *set_position, *set_scale;
@@ -378,10 +379,10 @@ namespace
     return true;
   }
 
-  bool Create(Il2CppObject *texture, int layer, Il2CppObject *native_renderer)
+  bool Create(Il2CppObject *texture, int layer, Il2CppObject *native_renderer, bool native_art = false)
   {
-    // A full panorama is authored by direction, not stitched from a finite
-    // system painting. Keep the original ship/portal/nebula meshes visible.
+    // Native-art science uses a continuous projection on a closed surface.
+    // Opposite hemispheres mirror the painting; there is no longitude UV seam.
     constexpr int        longitude = 64, latitude = 32;
     constexpr double     pi = 3.14159265358979323846;
     std::vector<Vector3> vertices;
@@ -393,7 +394,9 @@ namespace
         const double phi = 2.0 * pi * x / longitude;
         vertices.push_back(
             {float(std::sin(theta) * std::cos(phi)), float(std::cos(theta)), float(std::sin(theta) * std::sin(phi))});
-        uv.push_back({float(x) / longitude, float(y) / latitude});
+        const auto &n = vertices.back();
+        uv.push_back(native_art ? vec2{0.5f + 0.5f * n.x, 0.5f + 0.5f * n.y}
+                                : vec2{float(x) / longitude, float(y) / latitude});
       }
     }
     for (int y = 0; y < latitude; ++y) {
@@ -410,7 +413,8 @@ namespace
     material.Reset(il2cpp_object_new(material_class));
     if (!shell.Get() || !mesh.Get() || !material.Get())
       return false;
-    void         *name_args[]{il2cpp_string_new("CommunitySystemEnvironment")};
+    void *name_args[]{
+        il2cpp_string_new(native_art ? "CommunityNativeBackdropEnclosure" : "CommunitySystemEnvironment")};
     void         *shader_args[]{il2cpp_string_new("Unlit/Texture")};
     Il2CppObject *shader = nullptr, *filter = nullptr, *renderer = nullptr;
     if (!Il2CppRuntime::TryInvoke(game_ctor, shell.Get(), name_args)
@@ -437,9 +441,10 @@ namespace
       if (text->length >= 0 && text->length <= 256)
         name = to_string(text);
     }
-    if (!CreateSkyTexture(name))
+    if (!native_art && !CreateSkyTexture(name))
       return false;
-    void *material_args[]{shader_root.Get()}, *texture_args[]{sky_texture.Get()}, *layer_args[]{&layer};
+    void *material_args[]{shader_root.Get()}, *texture_args[]{native_art ? texture : sky_texture.Get()},
+        *layer_args[]{&layer};
     void *filter_args[]{filter_type}, *renderer_args[]{renderer_type};
     if (!Il2CppRuntime::TryInvoke(material_ctor, material.Get(), material_args)
         || !Il2CppRuntime::TryInvoke(set_texture, material.Get(), texture_args)
@@ -484,6 +489,10 @@ namespace
     spdlog::debug("[SystemEnvironment] ambient enclosure layer={} vertices={} triangles={} "
                   "shader=Unlit/Texture supported={} renderer-enabled={} initial-visible={}",
                   layer, vertices.size(), indices.size() / 3, supported, enabled, visible);
+    if (native_art)
+      spdlog::info("[BackdropBoundary] created texture={} mapping=continuous-XY vertices={} triangles={} layer={} "
+                   "shader=Unlit/Texture native-alpha-and-shader-effects=not-copied",
+                   name, vertices.size(), indices.size() / 3, layer);
     return source.Get() != nullptr && native_background.Get() != nullptr;
   }
 
@@ -664,6 +673,8 @@ void Clear()
 {
   // Only mod-created objects are destroyed. Native artwork, visibility,
   // transforms and materials stay under the game's ownership throughout.
+  exact_mode = false;
+  failed     = false;
   native_background.Reset();
   Destroy(shell);
   Destroy(mesh);
@@ -699,12 +710,47 @@ void ApplyDrawDistance(Il2CppObject *camera)
   }
 }
 
+bool UpdateBackdrop(Il2CppObject *camera, Il2CppObject *renderer)
+{
+  if (failed || !Init() || !Live(camera) || !Live(renderer))
+    return false;
+  Root renderer_root, texture_root, material_root, object_root;
+  renderer_root.Reset(renderer);
+  Il2CppObject *native_material = nullptr, *texture = nullptr, *object = nullptr;
+  int           layer = -1, mask = 0, width = 0, height = 0;
+  if (!Il2CppRuntime::TryInvoke(shared_material, renderer, nullptr, &native_material))
+    return false;
+  material_root.Reset(native_material);
+  if (!Live(native_material) || !Il2CppRuntime::TryInvoke(main_texture, native_material, nullptr, &texture))
+    return false;
+  texture_root.Reset(texture);
+  if (!Live(texture) || !Value(texture_width, texture, "System.Int32", width)
+      || !Value(texture_height, texture, "System.Int32", height) || width <= 0 || height <= 0
+      || !Il2CppRuntime::TryInvoke(get_game_object, renderer, nullptr, &object))
+    return false;
+  object_root.Reset(object);
+  if (!Live(object) || !Value(get_layer, object, "System.Int32", layer) || layer < 0 || layer > 31
+      || !Value(culling_mask, camera, "System.Int32", mask) || !(static_cast<unsigned>(mask) & (1u << layer)))
+    return false;
+  if (!exact_mode || native_background.Get() != renderer || source.Get() != texture || owning_camera.Get() != camera
+      || !Live(shell.Get())) {
+    Clear();
+    if (!renderer_root.Get() || !texture_root.Get() || !Create(texture, layer, renderer, true)) {
+      Fail("native-backdrop-create");
+      return false;
+    }
+    exact_mode = true;
+  }
+  Update(camera); // Follow only; the pool-based ambient sky scan is bypassed.
+  return !failed && Live(shell.Get()) && Live(shell_renderer.Get());
+}
+
 void Update(Il2CppObject *camera)
 {
   if (failed || !Init() || !Live(camera))
     return;
   const int frame = frame_count();
-  if (frame >= next_scan) {
+  if (!exact_mode && frame >= next_scan) {
     next_scan = frame + 30;
     Scan(camera);
   }
@@ -716,7 +762,8 @@ void Update(Il2CppObject *camera)
     Fail("camera-root");
     return;
   }
-  ApplyDrawDistance(camera);
+  if (!exact_mode)
+    ApplyDrawDistance(camera);
   if (failed)
     return;
   float         far_plane = 0.0f, near_plane = 0.0f;

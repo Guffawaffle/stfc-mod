@@ -1,4 +1,5 @@
 #include "config.h"
+#include "patches/background_layer_science.h"
 #include "errormsg.h"
 #include "patches/key.h"
 #include "patches/mapkey.h"
@@ -365,6 +366,7 @@ void UpdateCameraPosition_Hook(auto original, Il2CppObject *zoom)
     return;
   }
   Tick();
+  background_layer_science::RefreshBoundary(camera);
 }
 } // namespace
 
