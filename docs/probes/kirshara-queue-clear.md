@@ -23,7 +23,9 @@ state inputs are sampled where metadata permits, without invoking game getters.
 2. After it clears, preserve the current JSONL and both rotations. Run
    `python scripts/analyze-kirshara-queue.py <session.jsonl> <session.1.jsonl> --output report.json`
    using only files that exist from that session. The report shows verified removed
-   target IDs, emptying versus partial pruning, nested callers, and evidence gaps.
+   target IDs, emptying versus partial pruning, entire queues detached from the
+   manager, nested callers, and evidence gaps. A detached queue's former targets
+   are recorded without claiming its inaccessible list storage was emptied.
 3. Repeat with Faster Queue Recovery disabled in Mod Settings, then with Thin Queue
    Protection also disabled (`[control] thin_queue_protection = false`, restart
    required by its existing installer). These are mod-feature controls, not proof

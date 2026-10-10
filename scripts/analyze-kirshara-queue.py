@@ -11,7 +11,7 @@ from pathlib import Path
 
 def analyze(events):
     spans = {e['span']: e for e in events if e.get('event') == 'span'}
-    losses, gaps = [], []
+    losses, detachments, gaps = [], [], []
     for event in sorted(spans.values(), key=lambda e: e['span']):
         before, after = event.get('before'), event.get('after')
         if not isinstance(before, list) or not isinstance(after, list):
@@ -29,7 +29,17 @@ def analyze(events):
             parent = enclosing.get('parent', 0)
         for old in before:
             new = current.get(old.get('fleet'))
-            if not old.get('valid') or not new or not new.get('valid'):
+            if old.get('valid') and old.get('count', 0) > 0 and new is None:
+                # The entire validated manager array was observed after the call. This
+                # fleet's queue was detached; the detached object's contents are unknown.
+                detachments.append({'span': event['span'], 'wall_ms': event.get('wall_ms'),
+                                    'source': event['source'], 'fleet': old['fleet'],
+                                    'before_count': old['count'],
+                                    'previous_targets': [t['id'] for t in old['targets']],
+                                    'context': chain, 'notes': event.get('notes', {}),
+                                    'stack': event.get('stack', {})})
+                continue
+            if not old.get('valid') or new is None or not new.get('valid'):
                 gaps.append({'span': event['span'], 'fleet': old.get('fleet'), 'reason': 'queue_missing_or_unknown'})
                 continue
             previous = collections.Counter(t['id'] for t in old['targets'])
@@ -45,7 +55,7 @@ def analyze(events):
                                'protection_enabled': event.get('protection_enabled'),
                                'stack': event.get('stack', {})})
     return {'sessions': [e for e in events if e.get('event') == 'session'],
-            'spans': len(spans), 'removals': losses, 'unknown_snapshots': gaps,
+            'spans': len(spans), 'removals': losses, 'queue_detachments': detachments, 'unknown_snapshots': gaps,
             'capture_limited': any(e.get('event') == 'capture_limit' for e in events),
             'async_overruns': max((e.get('async_overruns', 0) for e in events), default=0),
             'interpretation': 'Nested spans can report the same removal; this identifies execution paths, not whether a removal was justified.'}
