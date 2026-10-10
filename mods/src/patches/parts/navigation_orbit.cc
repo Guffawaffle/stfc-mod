@@ -1,3 +1,4 @@
+#include "patches/background_layer_science.h"
 #include "config.h"
 #include "errormsg.h"
 #include "patches/key.h"
@@ -421,9 +422,10 @@ void UpdateCameraPosition_Hook(auto original, Il2CppObject *zoom)
   }
   Tick();
   ApplyDrawDistance(zoom);
-  // Background science step 2: omit the mod-created ambient sky as well as
-  // the fr_scale renderer. Keep orbit controls and native decorative layers.
-  navigation_environment::Clear();
+  if (state.overridden && Enabled() && background_layer_science::AmbientEnabled())
+    navigation_environment::Update(camera);
+  else
+    navigation_environment::Clear();
 }
 } // namespace
 
