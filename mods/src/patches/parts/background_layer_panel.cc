@@ -17,7 +17,7 @@ namespace
     float r, g, b, a;
   };
   Il2CppGCHandle                     panel = nullptr, status_text = nullptr;
-  Il2CppGCHandle                     next_token = nullptr, reset_token = nullptr, clear_token = nullptr;
+  Il2CppGCHandle                     next_token = nullptr, reset_token = nullptr, distance_token = nullptr;
   mod_settings::NativeCallback<void> callback;
   bool                               initialized = false, failed = false;
   std::string                        rendered;
@@ -32,7 +32,7 @@ namespace
     Free(status_text);
     Free(next_token);
     Free(reset_token);
-    Free(clear_token);
+    Free(distance_token);
     rendered.clear();
   }
 
@@ -86,8 +86,8 @@ namespace
         Next();
       else if (token == Target(reset_token))
         Reset();
-      else if (token == Target(clear_token))
-        NextClearMode();
+      else if (token == Target(distance_token))
+        ToggleDrawDistance();
     } catch (const std::exception &error) {
       spdlog::warn("[BackgroundLayers] button failed: {}", error.what());
     }
@@ -147,7 +147,7 @@ namespace
     Retain(status_text, label.get());
     Button(body_transform.get(), font.get(), "Next hidden layer (Alt-F8)", {-305, -68}, next_token);
     Button(body_transform.get(), font.get(), "Restore all layers (Alt-F9)", {0, -68}, reset_token);
-    Button(body_transform.get(), font.get(), "Camera clear mode (Alt-F10)", {305, -68}, clear_token);
+    Button(body_transform.get(), font.get(), "Draw distance (Alt-F10)", {305, -68}, distance_token);
     spdlog::info("[BackgroundLayers] panel-created=true");
   }
 } // namespace

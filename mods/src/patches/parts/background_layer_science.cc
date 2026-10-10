@@ -40,12 +40,13 @@ FieldInfo         *pool_field      = nullptr;
 void              *loader_type     = nullptr;
 const MethodInfo  *get_game_object = nullptr, *active_object = nullptr, *alive = nullptr;
 
-Il2CppGCHandle    observed_camera = nullptr;
-int               clear_mode = 0, native_flags = 0;
+Il2CppGCHandle    observed_camera        = nullptr;
+int               native_flags           = 0;
+bool              extended_draw_distance = false;
 color             native_color{};
 float             native_far_clip = 0;
 const MethodInfo *camera_flags = nullptr, *camera_color = nullptr, *camera_far = nullptr;
-const MethodInfo *set_camera_flags = nullptr, *set_camera_color = nullptr;
+const MethodInfo *set_camera_flags = nullptr, *set_camera_color = nullptr, *set_camera_far = nullptr;
 void              Report();
 bool              InSystem();
 
@@ -61,15 +62,19 @@ bool Live(Il2CppObject *object)
 void RestoreCamera()
 {
   auto *camera = observed_camera ? il2cpp_gchandle_get_target(observed_camera) : nullptr;
-  if (clear_mode && Live(camera)) {
+  if (Live(camera)) {
     void *flags[]{&native_flags}, *background[]{&native_color};
     Il2CppRuntime::TryInvoke(set_camera_flags, camera, flags);
     Il2CppRuntime::TryInvoke(set_camera_color, camera, background);
+    if (extended_draw_distance) {
+      void *clip[]{&native_far_clip};
+      Il2CppRuntime::TryInvoke(set_camera_far, camera, clip);
+    }
   }
   if (observed_camera)
     il2cpp_gchandle_free(observed_camera);
-  observed_camera = nullptr;
-  clear_mode      = 0;
+  observed_camera        = nullptr;
+  extended_draw_distance = false;
 }
 
 void ObserveCamera(Il2CppObject *camera)
@@ -99,30 +104,42 @@ void ObserveCamera(Il2CppObject *camera)
     spdlog::info("[BackgroundLayers] native-camera clearFlags={} background=({},{},{},{}) farClip={}", native_flags,
                  native_color.r, native_color.g, native_color.b, native_color.a, native_far_clip);
   }
-  if (clear_mode) {
-    int   flags      = 2; // Unity CameraClearFlags.SolidColor.
-    color background = clear_mode == 1 ? native_color : color{0, 0, 0, 0};
-    void *flag_args[]{&flags}, *color_args[]{&background};
-    Il2CppRuntime::TryInvoke(set_camera_flags, camera, flag_args);
-    Il2CppRuntime::TryInvoke(set_camera_color, camera, color_args);
+  // Accepted science baseline: clear the colour buffer using the game's own colour.
+  int   flags = 2; // Unity CameraClearFlags.SolidColor.
+  void *flag_args[]{&flags}, *color_args[]{&native_color};
+  Il2CppRuntime::TryInvoke(set_camera_flags, camera, flag_args);
+  Il2CppRuntime::TryInvoke(set_camera_color, camera, color_args);
+  if (extended_draw_distance && set_camera_far) {
+    float clip = std::max(native_far_clip, Config::Get().zoom * 3.75f);
+    void *clip_args[]{&clip};
+    Il2CppRuntime::TryInvoke(set_camera_far, camera, clip_args);
   }
 }
 
-void NextClearMode()
+void ToggleDrawDistance()
 {
-  if (!ready || !InSystem() || !observed_camera)
+  if (!ready || !InSystem() || !observed_camera || !set_camera_far)
     return;
-  clear_mode   = (clear_mode + 1) % 3;
   auto *camera = il2cpp_gchandle_get_target(observed_camera);
-  if (!clear_mode && Live(camera)) {
-    void *flags[]{&native_flags}, *background[]{&native_color};
-    Il2CppRuntime::TryInvoke(set_camera_flags, camera, flags);
-    Il2CppRuntime::TryInvoke(set_camera_color, camera, background);
-  } else {
-    ObserveCamera(camera);
+  if (!Live(camera))
+    return;
+  if (!extended_draw_distance) {
+    // Capture the actual current native clip plane immediately before changing it.
+    Il2CppObject *boxed = nullptr;
+    if (!Il2CppRuntime::TryInvoke(camera_far, camera, nullptr, &boxed) || !boxed
+        || !method_contract::Type(il2cpp_class_get_type(boxed->klass), "System.Single"))
+      return;
+    auto *value = il2cpp_object_unbox(boxed);
+    if (!value)
+      return;
+    std::memcpy(&native_far_clip, value, sizeof(native_far_clip));
   }
-  spdlog::info("[BackgroundLayers] camera-clear comparison={} nativeFlags={} farClip-unchanged={}", clear_mode,
-               native_flags, native_far_clip);
+  extended_draw_distance = !extended_draw_distance;
+  float clip = extended_draw_distance ? std::max(native_far_clip, Config::Get().zoom * 3.75f) : native_far_clip;
+  void *args[]{&clip};
+  Il2CppRuntime::TryInvoke(set_camera_far, camera, args);
+  spdlog::info("[BackgroundLayers] draw-distance extended={} nativeFarClip={} comparisonFarClip={} scale=unchanged",
+               extended_draw_distance, native_far_clip, clip);
   Report();
 }
 
@@ -209,12 +226,10 @@ void Report()
                            : "Hide layer " + std::to_string(selection + 1) + "/" + std::to_string(layers.size());
   if (selection >= 0 && size_t(selection) < layers.size())
     status += "\n" + layers[selection].label;
-  status += "\nClear: "
-            + std::string(clear_mode == 0   ? "Native"
-                          : clear_mode == 1 ? "Solid native colour"
-                                            : "Solid black");
+  status += "\nClear: Solid native colour / Draw distance: ";
+  status += extended_draw_distance ? "Extended" : "Native";
   if (observed_camera)
-    status += " (native flag " + std::to_string(native_flags) + ")";
+    status += " (native " + std::to_string(int(native_far_clip)) + ")";
   UpdatePanel(status, true);
 }
 
@@ -370,7 +385,7 @@ void Tick()
     if (Key::Down(KeyCode::F9))
       Reset();
     if (Key::Down(KeyCode::F10))
-      NextClearMode();
+      ToggleDrawDistance();
   }
   int frame = frame_count();
   if (frame < next_scan)
@@ -431,6 +446,8 @@ void Install()
                                               {"UnityEngine.CameraClearFlags"});
   set_camera_color =
       method_contract::Resolve(camera.get_cls(), "set_backgroundColor", false, "System.Void", {"UnityEngine.Color"});
+  set_camera_far =
+      method_contract::Resolve(camera.get_cls(), "set_farClipPlane", false, "System.Void", {"System.Single"});
   flat_class    = flat.get_cls();
   mesh_renderer = flat_class ? flat.GetField("MeshRenderer").get_info() : nullptr;
   if (!mesh_renderer || (il2cpp_field_get_flags(mesh_renderer) & FIELD_ATTRIBUTE_STATIC)
@@ -454,8 +471,8 @@ void Install()
                  && get_enabled && set_enabled && find_views && get_flat && active && view_type && frame_count
                  && install_screen_manager_update_hook() && register_screen_manager_update_callback(Tick);
   spdlog::info(
-      "[BackgroundLayers] step=6 layer-cycle ready={} initial-mode=native extended-zoom=true border-fix=removed "
-      "orbit-sky=removed clear-comparison=available keys=ALT-F8/ALT-F9/ALT-F10",
+      "[BackgroundLayers] step=7 layer-cycle ready={} initial-mode=native extended-zoom=true border-fix=removed "
+      "orbit-sky=removed clear=solid-native-colour draw-distance-comparison=available keys=ALT-F8/ALT-F9/ALT-F10",
       ready);
 }
 } // namespace background_layer_science

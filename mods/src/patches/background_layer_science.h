@@ -11,7 +11,7 @@ bool Hide(Il2CppObject *flat); // Observe the native backdrop; apply the current
 void Next();
 void Reset();
 void ObserveCamera(Il2CppObject *camera);
-void NextClearMode();
+void ToggleDrawDistance();
 void UpdatePanel(const std::string &status, bool visible);
 bool IsHiddenRenderer(Il2CppObject *renderer);
 } // namespace background_layer_science
