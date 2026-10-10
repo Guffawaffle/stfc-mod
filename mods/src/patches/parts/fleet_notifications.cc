@@ -188,11 +188,6 @@ void emit_transition(const fleet_watch::Transition& transition)
     if (!event_enabled(rule.kind) || !rule.matches(transition.before.state, transition.after.state)) {
       continue;
     }
-#ifdef _MODDBG
-    spdlog::info("[FleetNotificationsProbe] event={} fleet={} oldState={} newState={}",
-                 fleet_notification_name(rule.kind), transition.after.fleet_id,
-                 static_cast<int>(transition.before.state), static_cast<int>(transition.after.state));
-#endif
     play_event_audio(rule.kind, slot);
     if (notification_enabled(rule.kind)) {
       notification_emit(rule.title, "Your " + fleet_subject(transition.fleet) + " " + std::string{rule.message});
@@ -291,10 +286,6 @@ void ToastFleetObserver_HandleMiningDepleted_Hook(auto original, void* self, int
   if (!allow_node_depletion(id)) {
     return;
   }
-#ifdef _MODDBG
-  spdlog::info("[FleetNotificationsProbe] event={} fleet={}",
-               fleet_notification_name(FleetNotificationKind::NodeDepleted), id);
-#endif
   play_event_audio(FleetNotificationKind::NodeDepleted);
   if (notification_enabled(FleetNotificationKind::NodeDepleted)) {
     auto* fleet = find_fleet(id);

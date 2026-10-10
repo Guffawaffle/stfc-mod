@@ -1792,9 +1792,6 @@ void InstallHotkeyHooks()
 
   preview_shortcuts_ready = install_screen_manager_update_hook();
   runtime_config::Install();
-#ifdef _MODDBG
-  fleet_watch::InstallRuntimeProbe();
-#endif
 
   static auto rewards_button_widget =
       il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Combat", "RewardsButtonWidget");
