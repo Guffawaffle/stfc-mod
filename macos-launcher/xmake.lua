@@ -21,6 +21,13 @@ end
 
 target("macOSLauncher")
     add_rules("xcode.application")
+    add_rules("stfc.profiles.launcher")
+    if get_config("stfc_profiles_source") and #get_config("stfc_profiles_source") > 0 then
+        add_deps("stfc-profiles-core")
+    else
+        add_packages("stfc-profiles")
+    end
+    set_exceptions("cxx")
     set_kind("binary")
     set_basename("macOSLauncher")
 

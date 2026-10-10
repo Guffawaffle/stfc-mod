@@ -51,9 +51,10 @@ ditto "$mount" "$work/dmg-root"
 hdiutil detach "$mount" -quiet
 app="$work/dmg-root/STFC Community Mod.app"
 loader="$app/Contents/stfc-community-mod-loader"
+profiles="$app/Contents/stfc-profiles"
 library="$app/Contents/libstfc-community-mod.dylib"
 launcher="$app/Contents/MacOS/macOSLauncher"
-for binary in "$library" "$loader" "$launcher"; do
+for binary in "$library" "$loader" "$profiles" "$launcher"; do
   test -f "$binary"
   lipo "$binary" -verify_arch arm64 x86_64
 done
@@ -63,9 +64,10 @@ unsigned_library_hash=$(shasum -a 256 "$library" | awk '{print $1}')
 # inside the game's process and uses the host's entitlements, not the launcher's.
 codesign --force --timestamp --options runtime --keychain "$keychain" --sign "$MACOS_SIGNING_IDENTITY" "$library"
 codesign --force --timestamp --options runtime --keychain "$keychain" --sign "$MACOS_SIGNING_IDENTITY" "$loader"
+codesign --force --timestamp --options runtime --keychain "$keychain" --sign "$MACOS_SIGNING_IDENTITY" "$profiles"
 codesign --force --timestamp --options runtime --keychain "$keychain" --sign "$MACOS_SIGNING_IDENTITY" \
   --entitlements macos-launcher/src/macOSLauncher.entitlements "$app"
-for binary in "$library" "$loader" "$app"; do
+for binary in "$library" "$loader" "$profiles" "$app"; do
   codesign --verify --strict --all-architectures --verbose=2 "$binary"
   for arch in arm64 x86_64; do
     details=$(codesign --display --verbose=4 --arch "$arch" "$binary" 2>&1)
@@ -145,7 +147,7 @@ verify_ticket() {
   echo "Apple ticket covers $path ${arch:-container}: $cdhash"
 }
 verify_ticket "$output" "$(basename "$output")"
-for binary in "$app" "$loader" "$library"; do
+for binary in "$app" "$loader" "$library" "$profiles"; do
   ticket_path="$(basename "$output")/${binary#"$work/dmg-root/"}"
   for arch in arm64 x86_64; do
     verify_ticket "$binary" "$ticket_path" "$arch"
@@ -169,7 +171,7 @@ spctl --assess --type execute --verbose=2 "$installed_app"
 # The standalone archive contains the exact library accepted in the DMG.
 # Dylibs cannot carry a stapled ticket; separate downloads use online lookup.
 archive=signed-macos/stfc-community-mod-macos-universal.tar.zst
-tar -cf - -C "$installed_app/Contents" libstfc-community-mod.dylib | zstd -15 -T0 -o "$archive"
+tar -cf - -C "$installed_app/Contents" libstfc-community-mod.dylib stfc-profiles | zstd -15 -T0 -o "$archive"
 shasum -a 256 "$archive" | awk '{print $1}' > "$archive.sha256"
 dmg_hash=$(shasum -a 256 "$output" | awk '{print $1}')
 jq -n --arg source "$SOURCE_SHA" --arg build "$BUILD_RUN_ID" --arg team "$APPLE_TEAM_ID" \

@@ -1,6 +1,7 @@
 #include "patches.h"
 #include "file.h"
 #include "version.h"
+#include "profile_launch.h"
 
 #include <il2cpp/il2cpp-functions.h>
 
@@ -67,7 +68,7 @@ void InstallActionQueueRecovery();
 void InstallThinQueueProtection();
 void InstallQueueAddressGuard();
 
-__int64 il2cpp_init_hook(auto original, const char* domain_name)
+int il2cpp_init_hook(auto original, const char* domain_name)
 {
   struct PatchEntry {
     const char*                  name;
@@ -82,6 +83,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #endif
 #endif
 
+  profile_launch::Prepare();
   File::Init();
 
   std::string log_path = File::Log();
@@ -144,6 +146,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 #else
   spdlog::info("Initializing STFC Community Mod ({})", VER_PRODUCT_VERSION_STR);
 #endif
+  spdlog::info("STFC Profiles component {} ({})", STFC_PROFILES_SOURCE_REVISION, STFC_PROFILES_SOURCE_STATE);
   spdlog::info("");
   if (File::hasCustomNames()) {
     spdlog::info("Using custom names");
@@ -227,7 +230,10 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);
 
-  auto r = original(domain_name);
+  const auto r = original(domain_name);
+  if (!r && profile_launch::Requested())
+    profile_launch::Abort("The game runtime did not initialize.");
+  profile_launch::Install();
 
   auto patch_count = 0;
   auto patch_total = sizeof(patches) / sizeof(patches[0]);
@@ -268,6 +274,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 
 void ApplyPatches()
 {
+  profile_launch::Initialize();
 #if _WIN32
   auto assembly = LoadLibraryA("GameAssembly.dll");
 #else
@@ -285,6 +292,8 @@ void ApplyPatches()
 
   if (assembly == nullptr) {
     spdlog::error("Failed to load GameAssembly");
+    if (profile_launch::Requested())
+      profile_launch::Abort("GameAssembly could not be loaded.");
     return;
   } else {
     try {
@@ -295,9 +304,11 @@ void ApplyPatches()
 #endif
       printf("Got il2cpp_init %p\n", n);
 
-      SPUD_STATIC_DETOUR(n, il2cpp_init_hook);
+      if ((!n || !SPUD_STATIC_DETOUR(n, il2cpp_init_hook)) && profile_launch::Requested())
+        profile_launch::Abort("The early game initialization hook is unavailable.");
     } catch (...) {
-      // Failed to Apply at least some patches
+      if (profile_launch::Requested())
+        profile_launch::Abort("The early game initialization hook could not be installed.");
     }
   }
 }

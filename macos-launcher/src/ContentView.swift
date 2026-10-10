@@ -10,6 +10,7 @@ import SwiftUI
 
 struct ContentView: View, XSollaUpdaterDelegate {
   @State private var updateAction: String = ""
+  @State private var showProfiles = false
 
   var body: some View {
     GeometryReader { geo in
@@ -24,6 +25,20 @@ struct ContentView: View, XSollaUpdaterDelegate {
       }
     }
     .edgesIgnoringSafeArea(.all)
+    // Attach to the window-sized reader, not the oversized LCARS decoration.
+    .overlay(alignment: .topLeading) {
+      HStack(spacing: 12) {
+        Button("Profiles Preview…") { showProfiles = true }
+          .help("Create and launch isolated game profiles")
+        Text("TEST BUILD")
+          .font(.caption)
+          .foregroundColor(.lcarTan)
+      }
+      .padding(.leading, 115)
+      .padding(.top, 12)
+    }
+    .sheet(isPresented: $showProfiles) { ProfilesPreviewView() }
+    .focusedSceneValue(\.profilesPresentation, $showProfiles)
   }
 
   private var topContent: some View {
