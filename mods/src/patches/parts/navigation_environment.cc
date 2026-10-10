@@ -1,4 +1,5 @@
 #include "patches/navigation_environment.h"
+#include "patches/background_layer_science.h"
 #include "patches/navigation_environment_art.h"
 #include <chrono>
 #include <cmath>
@@ -505,7 +506,8 @@ namespace
     il2cpp_field_get_value(flat, renderer_field, &renderer);
     bool enabled = false;
     int  width = 0, height = 0;
-    if (!Live(renderer) || !Value(renderer_enabled, renderer, "System.Boolean", enabled) || !enabled
+    if (!Live(renderer) || !Value(renderer_enabled, renderer, "System.Boolean", enabled)
+        || (!enabled && !background_layer_science::IsHiddenRenderer(renderer))
         || !Il2CppRuntime::TryInvoke(get_game_object, renderer, nullptr, &object) || !Live(object)
         || !Value(get_layer, object, "System.Int32", layer) || layer < 0 || layer > 31
         || !(static_cast<unsigned>(mask) & (1u << layer)) || (required_layer >= 0 && layer != required_layer)
@@ -527,7 +529,8 @@ namespace
     Il2CppObject *object  = nullptr;
     bool          enabled = false, visible_object = false;
     int           layer = -1;
-    if (!Live(renderer) || !Value(renderer_enabled, renderer, "System.Boolean", enabled) || !enabled
+    if (!Live(renderer) || !Value(renderer_enabled, renderer, "System.Boolean", enabled)
+        || (!enabled && !background_layer_science::IsHiddenRenderer(renderer))
         || !Il2CppRuntime::TryInvoke(get_game_object, renderer, nullptr, &object) || !Live(object)
         || !Value(active_in_hierarchy, object, "System.Boolean", visible_object) || !visible_object
         || !Value(get_layer, object, "System.Int32", layer) || layer < 0 || layer > 31

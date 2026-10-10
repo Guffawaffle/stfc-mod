@@ -3,6 +3,10 @@
 #include "settings/camera_settings.h"
 #include "settings/fleet_labels.h"
 #include <il2cpp/method_contract.h>
+#include <il2cpp/runtime.h>
+#include "patches/screen_update_hook.h"
+#include "patches/background_layer_science.h"
+#include "str_utils.h"
 #include "galaxy_labels.h"
 #include "patches/ship_shortcut_badges.h"
 
@@ -14,6 +18,7 @@
 #include <prime/NavigationLOD.h>
 #include <prime/NavigationPan.h>
 #include <prime/NavigationZoom.h>
+#include <prime/Hub.h>
 #include <prime/PlanetViewUtils.h>
 #include <prime/Transform.h>
 
@@ -468,11 +473,170 @@ static void EnsureSystemZoomRange(NavigationZoom *_this)
   SetSceneCameraFarClip(_this);
 }
 
+// Science step 1: hide only the renderer on the object that fr_scale modifies.
+// No new detours, transform changes, object destruction, or ancestor deactivation.
+namespace background_layer_science
+{
+bool ready = false, prior_enabled = false;
+Il2CppGCHandle hidden = nullptr;
+Il2CppClass *flat_class = nullptr;
+FieldInfo *mesh_renderer = nullptr;
+const MethodInfo *get_enabled = nullptr, *set_enabled = nullptr, *find_views = nullptr;
+const MethodInfo *get_flat = nullptr, *active = nullptr, *object_name = nullptr;
+const MethodInfo *get_material = nullptr, *get_texture = nullptr;
+void *view_type = nullptr;
+int (*frame_count)() = nullptr;
+int next_scan = 0;
+
+bool IsHiddenRenderer(Il2CppObject *renderer)
+{ return renderer && hidden && il2cpp_gchandle_get_target(hidden) == renderer; }
+
+bool InSystem()
+{
+  auto *sections = Hub::get_SectionManager();
+  return sections && sections->CurrentSection == SectionID::Navigation_System;
+}
+
+std::string Name(Il2CppObject *object)
+{
+  Il2CppObject *result = nullptr;
+  if (!object || !Il2CppRuntime::TryInvoke(object_name, object, nullptr, &result) || !result
+      || !method_contract::Type(il2cpp_class_get_type(result->klass), "System.String"))
+    return "unknown";
+  auto *name = reinterpret_cast<Il2CppString *>(result);
+  return name->length >= 0 && name->length <= 256 ? to_string(name) : "unknown";
+}
+
+void Restore()
+{
+  if (!hidden)
+    return;
+  auto *renderer = il2cpp_gchandle_get_target(hidden);
+  void *args[]{&prior_enabled};
+  if (renderer)
+    Il2CppRuntime::TryInvoke(set_enabled, renderer, args);
+  il2cpp_gchandle_free(hidden);
+  hidden = nullptr;
+}
+
+bool Hide(Il2CppObject *flat)
+{
+  if (!ready || !InSystem() || !flat || flat->klass != flat_class)
+    return false;
+  Il2CppObject *renderer = nullptr, *boxed = nullptr;
+  bool enabled = false;
+  il2cpp_field_get_value(flat, mesh_renderer, &renderer);
+  if (!renderer || !Il2CppRuntime::TryInvoke(get_enabled, renderer, nullptr, &boxed)
+      || !Il2CppRuntime::TryBoolean(boxed, enabled))
+    return false;
+  if (!hidden || il2cpp_gchandle_get_target(hidden) != renderer) {
+    Restore();
+    hidden = il2cpp_gchandle_new(renderer, false);
+    if (!hidden)
+      return false;
+    prior_enabled = enabled;
+    Il2CppObject *material = nullptr, *texture = nullptr;
+    Il2CppRuntime::TryInvoke(get_material, renderer, nullptr, &material);
+    if (material)
+      Il2CppRuntime::TryInvoke(get_texture, material, nullptr, &texture);
+    spdlog::info("[BackgroundLayers] step=1 hide-fr flat={} renderer={} material={} texture={} original-enabled={} "
+                 "fr_scale={} (bypassed)", Name(flat), Name(renderer), Name(material), Name(texture), enabled,
+                 Config::Get().fr_scale);
+  }
+  bool off = false;
+  void *args[]{&off};
+  return !enabled || Il2CppRuntime::TryInvoke(set_enabled, renderer, args);
+}
+
+void Tick()
+{
+  if (!ready)
+    return;
+  if (!InSystem()) {
+    Restore();
+    next_scan = 0;
+    return;
+  }
+  // Reapply if native code reenables this exact renderer; no repeated scene search.
+  if (auto *renderer = hidden ? il2cpp_gchandle_get_target(hidden) : nullptr) {
+    Il2CppObject *boxed = nullptr;
+    bool enabled = false, off = false;
+    if (Il2CppRuntime::TryInvoke(get_enabled, renderer, nullptr, &boxed)
+        && Il2CppRuntime::TryBoolean(boxed, enabled) && enabled) {
+      void *args[]{&off};
+      Il2CppRuntime::TryInvoke(set_enabled, renderer, args);
+    }
+  }
+  int frame = frame_count();
+  if (frame < next_scan)
+    return;
+  next_scan = frame + 15;
+  // Find the view before the first scroll. The existing getter supplies exactly
+  // the same FlatRenderable as the fr_scale path, rather than guessing a layer.
+  bool include_inactive = false;
+  void *args[]{view_type, &include_inactive};
+  Il2CppObject *result = nullptr;
+  if (!Il2CppRuntime::TryInvoke(find_views, nullptr, args, &result) || !result || !result->klass
+      || result->klass->rank != 1 || !result->klass->element_class)
+    return;
+  auto *array = reinterpret_cast<Il2CppArray *>(result);
+  if (array->max_length > 8)
+    return;
+  auto root = il2cpp_gchandle_new(result, false);
+  if (!root)
+    return;
+  for (size_t i = 0; i < array->max_length; ++i) {
+    auto *view = *reinterpret_cast<Il2CppObject **>(il2cpp_array_addr_with_size(array, i, sizeof(void *)));
+    Il2CppObject *boxed = nullptr, *flat = nullptr;
+    bool enabled = false;
+    if (view && Il2CppRuntime::TryInvoke(active, view, nullptr, &boxed)
+        && Il2CppRuntime::TryBoolean(boxed, enabled) && enabled
+        && Il2CppRuntime::TryInvoke(get_flat, view, nullptr, &flat) && Hide(flat))
+      break;
+  }
+  il2cpp_gchandle_free(root);
+}
+
+void Install()
+{
+  auto flat = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Rendering", "FlatRenderable");
+  auto view = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "PlanetViewUtils");
+  auto object = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Object");
+  auto renderer = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Renderer");
+  auto material = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Material");
+  auto behaviour = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Behaviour");
+  flat_class = flat.get_cls();
+  mesh_renderer = flat_class ? flat.GetField("MeshRenderer").get_info() : nullptr;
+  if (!mesh_renderer || (il2cpp_field_get_flags(mesh_renderer) & FIELD_ATTRIBUTE_STATIC)
+      || !method_contract::Type(mesh_renderer->type, "UnityEngine.MeshRenderer")) {
+    spdlog::warn("[BackgroundLayers] FlatRenderable.MeshRenderer unavailable; experiment skipped");
+    return;
+  }
+  get_enabled = method_contract::Resolve(renderer.get_cls(), "get_enabled", false, "System.Boolean", {});
+  set_enabled = method_contract::Resolve(renderer.get_cls(), "set_enabled", false, "System.Void", {"System.Boolean"});
+  get_material = method_contract::Resolve(renderer.get_cls(), "get_sharedMaterial", false, "UnityEngine.Material", {});
+  get_texture = method_contract::Resolve(material.get_cls(), "get_mainTexture", false, "UnityEngine.Texture", {});
+  object_name = method_contract::Resolve(object.get_cls(), "get_name", false, "System.String", {});
+  find_views = method_contract::Resolve(object.get_cls(), "FindObjectsOfType", true, "UnityEngine.Object[]",
+                                        {"System.Type", "System.Boolean"});
+  get_flat = method_contract::Resolve(view.get_cls(), "get_FlatRenderable", false,
+                                      "Digit.Client.Rendering.FlatRenderable", {});
+  active = method_contract::Resolve(behaviour.get_cls(), "get_isActiveAndEnabled", false, "System.Boolean", {});
+  view_type = view.get_cls() ? il2cpp_type_get_object(il2cpp_class_get_type(view.get_cls())) : nullptr;
+  frame_count = il2cpp_resolve_icall_typed<int()>("UnityEngine.Time::get_frameCount()");
+  ready = get_enabled && set_enabled && find_views && get_flat && active && view_type && frame_count
+          && install_screen_manager_update_hook() && register_screen_manager_update_callback(Tick);
+  spdlog::info("[BackgroundLayers] step=1 hide-fr ready={} initial-discovery=true ambient-sky=unchanged", ready);
+}
+} // namespace background_layer_science
+
 static void ScaleFR(void *fr)
 {
   if (!fr) {
     return;
   }
+  if (background_layer_science::Hide(reinterpret_cast<Il2CppObject *>(fr)))
+    return;
 
   float factor = Config::Get().fr_scale;
   if (factor <= 0.0f || factor == 1.0f) {
@@ -1046,5 +1210,7 @@ void InstallZoomHooks()
   fleet_label_hooks_installed = fleet_widget_hooks_ready && keyboard_zoom_hook_installed;
   if (enable_labels)
     spdlog::info("Fleet label detail hooks ready={}", fleet_label_hooks_installed);
+
+  background_layer_science::Install();
 
 }
