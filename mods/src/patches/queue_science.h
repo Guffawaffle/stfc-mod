@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <memory>
 
-// Read-only science capture. Existing feature detours register ownership to avoid double hooking.
+// Science capture and scoped address guard. Feature owners avoid double hooking.
 namespace queue_science
 {
 void Own(const char* method, bool installed);

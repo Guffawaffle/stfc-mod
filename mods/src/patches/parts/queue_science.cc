@@ -1,5 +1,6 @@
 #include "patches/queue_science.h"
 #include "config.h"
+#include "patches/queue_address_guard_policy.h"
 #include "version.h"
 #include <array>
 #include <atomic>
@@ -36,9 +37,18 @@ namespace
   thread_local const char*                      parentSource = "native";
   thread_local Scope*                           addressScope{};
   thread_local Object*                          addressPlayer{};
-  const auto                                    started = Clock::now();
-  constexpr uint64_t                            limit   = 50000;
-  Il2CppClass *                                 managerClass{}, *queueClass{}, *actionClass{};
+  struct AddressContext {
+    bool    playerEvent{}, ownedQueue{}, ownResolved{};
+    int64_t fleet{};
+    Object* ownDeployment{};
+    Object* target{};
+  };
+  thread_local AddressContext* addressContext{};
+  thread_local bool            playerStateEvent{};
+  bool                         addressGuard{};
+  const auto                   started = Clock::now();
+  constexpr uint64_t           limit   = 50000;
+  Il2CppClass *                managerClass{}, *queueClass{}, *actionClass{};
   FieldInfo *queuesField{}, *fleetField{}, *engagingField{}, *attemptField{}, *lastField{}, *pendingField{},
       *actionsField{}, *targetField{}, *retriesField{};
 
@@ -52,6 +62,55 @@ namespace
     T value{};
     if (object && field)
       il2cpp_field_get_value(object, field, &value);
+    return value;
+  }
+
+  Object* Reference(Object* object, const char* name)
+  {
+    auto* cls   = object ? il2cpp_object_get_class(object) : nullptr;
+    auto* field = cls ? il2cpp_class_get_field_from_name(cls, name) : nullptr;
+    auto* type  = field && field->type ? il2cpp_class_from_type(field->type) : nullptr;
+    return type && !il2cpp_class_is_valuetype(type) && field->offset >= 0x10 ? Read<Object*>(object, field) : nullptr;
+  }
+  int Enum(Object* object, const char* name)
+  {
+    auto* cls   = object ? il2cpp_object_get_class(object) : nullptr;
+    auto* field = cls ? il2cpp_class_get_field_from_name(cls, name) : nullptr;
+    auto* type  = field && field->type ? il2cpp_class_from_type(field->type) : nullptr;
+    auto* base  = type && il2cpp_class_is_enum(type) ? il2cpp_class_enum_basetype(type) : nullptr;
+    return base && base->type == IL2CPP_TYPE_I4 && field->offset >= 0x10 ? Read<int>(object, field) : -1;
+  }
+  int State(Object* object, const char* name)
+  {
+    auto* cls       = object ? il2cpp_object_get_class(object) : nullptr;
+    auto* field     = cls ? il2cpp_class_get_field_from_name(cls, name) : nullptr;
+    auto* container = field && field->type ? il2cpp_class_from_type(field->type) : nullptr;
+    if (!container || !il2cpp_class_is_valuetype(container) || field->offset < 0x10)
+      return -1;
+    uint32_t  alignment{};
+    const int size   = il2cpp_class_value_size(container, &alignment);
+    auto*     inner  = il2cpp_class_get_field_from_name(container, "_currentState");
+    auto*     type   = inner && inner->type ? il2cpp_class_from_type(inner->type) : nullptr;
+    auto*     base   = type && il2cpp_class_is_enum(type) ? il2cpp_class_enum_basetype(type) : nullptr;
+    const int offset = inner ? inner->offset - static_cast<int>(sizeof(Il2CppObject)) : -1;
+    if (!base || base->type != IL2CPP_TYPE_I4 || offset < 0 || offset + 4 > size)
+      return -1;
+    int value{};
+    std::memcpy(&value, reinterpret_cast<const char*>(object) + field->offset + offset, sizeof(value));
+    return value;
+  }
+  queue_address_guard::Address Address(Object* object)
+  {
+    auto* cls      = object ? il2cpp_object_get_class(object) : nullptr;
+    auto* galaxy   = Field(cls, "galaxy_", IL2CPP_TYPE_I8);
+    auto* system   = Field(cls, "system_", IL2CPP_TYPE_I8);
+    auto* planet   = Field(cls, "planet_", IL2CPP_TYPE_I8);
+    auto* instance = Field(cls, "instance_", IL2CPP_TYPE_I4);
+    if (!galaxy || !system || !planet || !instance)
+      return {};
+    queue_address_guard::Address value{true, Read<int64_t>(object, galaxy), Read<int64_t>(object, system),
+                                       Read<int64_t>(object, planet), Read<int>(object, instance)};
+    value.valid = value.galaxy >= 0 && value.system > 0 && value.planet >= 0 && value.instance >= 0;
     return value;
   }
 
@@ -193,6 +252,13 @@ namespace
   }
   void PlayerStateChange(auto original, Object* manager, Object* fleets)
   {
+    struct EventContext {
+      bool previous{playerStateEvent};
+      EventContext()
+      { playerStateEvent = true; }
+      ~EventContext()
+      { playerStateEvent = previous; }
+    } context;
     Scope scope(manager, "native.player-state-change");
     scope.Object("fleets", fleets, true);
     original(manager, fleets);
@@ -235,22 +301,44 @@ namespace
 
   bool AddressMismatch(auto original, Object* manager, Object* player)
   {
+    // UI availability polling calls this frequently. Observe
+    // actual queue operations, and keep the experimental guard out of UI polling.
+    if (!parentSpan && !playerStateEvent)
+      return original(manager, player);
+    AddressContext evidence;
+    evidence.playerEvent = playerStateEvent;
+    auto* id    = player ? Field(il2cpp_object_get_class(player), "<ID>k__BackingField", IL2CPP_TYPE_I8) : nullptr;
+    auto* index = player ? Field(il2cpp_object_get_class(player), "<Index>k__BackingField", IL2CPP_TYPE_I4) : nullptr;
+    evidence.fleet = Read<int64_t>(player, id);
+    try {
+      const auto queues = Snapshot(manager);
+      if (queues.is_array()) {
+        for (const auto& q : queues)
+          if (q.value("valid", false) && q.value("fleet", int64_t{}) == evidence.fleet && q.value("count", 0) > 0
+              && index && q.value("slot", -1) == Read<int>(player, index))
+            evidence.ownedQueue = evidence.fleet != 0;
+      }
+    } catch (...) {
+    }
     Scope scope(manager, "native.address-mismatch-check", 0, true);
     scope.Object("player", player);
     struct Context {
-      Scope*  previousScope{addressScope};
-      Object* previousPlayer{addressPlayer};
-      Context(Scope& scope, Object* player)
+      Scope*          previousScope{addressScope};
+      Object*         previousPlayer{addressPlayer};
+      AddressContext* previousContext{addressContext};
+      Context(Scope& scope, Object* player, AddressContext& evidence)
       {
-        addressScope  = &scope;
-        addressPlayer = player;
+        addressScope   = &scope;
+        addressPlayer  = player;
+        addressContext = &evidence;
       }
       ~Context()
       {
-        addressScope  = previousScope;
-        addressPlayer = previousPlayer;
+        addressScope   = previousScope;
+        addressPlayer  = previousPlayer;
+        addressContext = previousContext;
       }
-    } context(scope, player);
+    } context(scope, player, evidence);
     const bool result = original(manager, player);
     scope.Note("native_mismatch", result);
     return result;
@@ -261,6 +349,36 @@ namespace
     if (addressScope && player == addressPlayer) {
       addressScope->Note("player_address_found", result != nullptr);
       addressScope->Object("player_address", result);
+      addressScope->Object("player_location", Reference(player, "LocationData"));
+      auto* e = addressContext;
+      if (e && e->ownDeployment) {
+        auto* own    = e->ownDeployment;
+        auto* cls    = il2cpp_object_get_class(own);
+        auto* local  = Field(cls, "_localPlayerFleet", IL2CPP_TYPE_BOOLEAN);
+        auto* recall = Field(cls, "<IsPlanningRecallCourse>k__BackingField", IL2CPP_TYPE_BOOLEAN);
+        auto* model  = Reference(own, "_deploymentFleet");
+        auto* id     = model ? Field(il2cpp_object_get_class(model), "fleetId_", IL2CPP_TYPE_I8) : nullptr;
+        if (model && !id)
+          id = Field(il2cpp_object_get_class(model), "<FleetId>k__BackingField", IL2CPP_TYPE_I8);
+        auto*                               correct = Reference(own, "_address");
+        const queue_address_guard::Evidence proof{addressGuard,
+                                                  e->playerEvent,
+                                                  e->ownedQueue,
+                                                  local && Read<bool>(own, local) && id
+                                                      && Read<int64_t>(model, id) == e->fleet,
+                                                  !recall || Read<bool>(own, recall),
+                                                  State(player, "_fleetStateContainer"),
+                                                  State(own, "_stateContainer"),
+                                                  Enum(own, "<RemovalReason>k__BackingField"),
+                                                  Address(result),
+                                                  Address(correct),
+                                                  Address(Reference(e->target, "_address"))};
+        if (queue_address_guard::UseDeployedAddress(proof)) {
+          addressScope->Note("address_guard_applied", 1);
+          addressScope->Object("effective_player_address", correct);
+          return correct;
+        }
+      }
     }
     return result;
   }
@@ -272,6 +390,17 @@ namespace
         const std::string key = "target_" + std::to_string(target);
         addressScope->Note((key + "_found").c_str(), result != nullptr);
         addressScope->Object(key.c_str(), result);
+        if (auto* e = addressContext; e && e->playerEvent && e->ownedQueue) {
+          e->target = result;
+          if (!e->ownResolved) {
+            e->ownResolved = true;
+            // Independent current deployment lookup for A, never the selected ship
+            // and never an address remembered from a previous frame/system.
+            e->ownDeployment = original(service, e->fleet);
+            addressScope->Note("own_deployment_found", e->ownDeployment != nullptr);
+            addressScope->Object("own_deployment", e->ownDeployment);
+          }
+        }
         auto* activeSystem = Field(il2cpp_object_get_class(service), "_activeSystem", IL2CPP_TYPE_I8);
         if (activeSystem)
           addressScope->Note("deployment_active_system", Read<int64_t>(service, activeSystem));
@@ -403,6 +532,8 @@ void Scope::Object(const char* key, void* value, bool list) noexcept
       if (deploymentType && deploymentField->offset >= 0x10 && !il2cpp_class_is_valuetype(deploymentType)) {
         auto* model = Read<Il2CppObject*>(object, deploymentField);
         auto* id    = model ? Field(il2cpp_object_get_class(model), "fleetId_", IL2CPP_TYPE_I8) : nullptr;
+        if (model && !id)
+          id = Field(il2cpp_object_get_class(model), "<FleetId>k__BackingField", IL2CPP_TYPE_I8);
         if (id)
           result["deployed_id"] = Read<int64_t>(model, id);
       }
@@ -461,18 +592,20 @@ void Install()
     spdlog::info("[QueueScience] observer disabled by environment");
     return;
   }
-  managerClass  = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager").get_cls();
-  queueClass    = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueInstance").get_cls();
-  actionClass   = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "QueueableAction").get_cls();
-  queuesField   = Field(managerClass, "_battleQueue", IL2CPP_TYPE_SZARRAY);
-  fleetField    = Field(queueClass, "<PlayerFleetId>k__BackingField", IL2CPP_TYPE_I8);
-  engagingField = Field(queueClass, "IsEngaging", IL2CPP_TYPE_BOOLEAN);
-  attemptField  = Field(queueClass, "LastEngageAttemptTime", IL2CPP_TYPE_R4);
-  lastField     = Field(queueClass, "LastEngagedTargetId", IL2CPP_TYPE_I8);
-  pendingField  = Field(queueClass, "PendingEngageTargetId", IL2CPP_TYPE_I8);
-  actionsField  = Field(queueClass, "_actionQueue", IL2CPP_TYPE_GENERICINST);
-  targetField   = Field(actionClass, "<FleetId>k__BackingField", IL2CPP_TYPE_I8);
-  retriesField  = Field(actionClass, "SetCourseFailRetryCount", IL2CPP_TYPE_I4);
+  const char* guard = std::getenv("STFC_MOD_KIRSHARA_ADDRESS_GUARD");
+  addressGuard      = !guard || std::strcmp(guard, "0") != 0;
+  managerClass      = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager").get_cls();
+  queueClass        = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueInstance").get_cls();
+  actionClass       = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "QueueableAction").get_cls();
+  queuesField       = Field(managerClass, "_battleQueue", IL2CPP_TYPE_SZARRAY);
+  fleetField        = Field(queueClass, "<PlayerFleetId>k__BackingField", IL2CPP_TYPE_I8);
+  engagingField     = Field(queueClass, "IsEngaging", IL2CPP_TYPE_BOOLEAN);
+  attemptField      = Field(queueClass, "LastEngageAttemptTime", IL2CPP_TYPE_R4);
+  lastField         = Field(queueClass, "LastEngagedTargetId", IL2CPP_TYPE_I8);
+  pendingField      = Field(queueClass, "PendingEngageTargetId", IL2CPP_TYPE_I8);
+  actionsField      = Field(queueClass, "_actionQueue", IL2CPP_TYPE_GENERICINST);
+  targetField       = Field(actionClass, "<FleetId>k__BackingField", IL2CPP_TYPE_I8);
+  retriesField      = Field(actionClass, "SetCourseFailRetryCount", IL2CPP_TYPE_I4);
   if (!queuesField || !fleetField || !engagingField || !attemptField || !lastField || !pendingField || !actionsField
       || !targetField || !retriesField) {
     spdlog::warn("[QueueScience] queue field contract unavailable; capture not installed");
@@ -540,6 +673,7 @@ void Install()
              "System.Int64");
 #undef QUEUE_HOOK
   Write({{"event", "session"},
+         {"address_guard_enabled", addressGuard},
          {"identity", STFC_IDENTITY_COMMENT_STR},
          {"hooks", hooks},
          {"max_spans", limit},
@@ -547,6 +681,6 @@ void Install()
          {"max_queues", 64},
          {"limits",
           "read-only field snapshots; invalid is unknown, not empty; rotated history and async overruns possible"}});
-  spdlog::warn("[QueueScience] read-only Kirshara capture active: {}", filename);
+  spdlog::warn("[QueueScience] Kirshara capture active; experimental address guard={}: {}", addressGuard, filename);
 }
 } // namespace queue_science
