@@ -15,7 +15,7 @@
 #include <vector>
 
 // Temporary science: compare native scenery renderers from the game baseline.
-// Renderer visibility and camera clearing/clip comparisons; no scene transforms or native objects are destroyed.
+// Renderer visibility with accepted camera clearing/draw distance; no scene transforms or native objects are destroyed.
 namespace background_layer_science
 {
 bool              ready = false, prior_enabled = false;
@@ -44,7 +44,7 @@ const MethodInfo  *get_game_object = nullptr, *active_object = nullptr, *alive =
 Il2CppGCHandle    observed_camera        = nullptr;
 NodeDepth         observed_depth         = NodeDepth::Starbase;
 int               native_flags           = 0;
-bool              extended_draw_distance = false;
+bool              far_clip_overridden    = false;
 color             native_color{};
 float             native_far_clip = 0;
 const MethodInfo *camera_flags = nullptr, *camera_color = nullptr, *camera_far = nullptr;
@@ -68,7 +68,7 @@ void RestoreCamera()
     void *flags[]{&native_flags}, *background[]{&native_color};
     Il2CppRuntime::TryInvoke(set_camera_flags, camera, flags);
     Il2CppRuntime::TryInvoke(set_camera_color, camera, background);
-    if (extended_draw_distance) {
+    if (far_clip_overridden) {
       void *clip[]{&native_far_clip};
       Il2CppRuntime::TryInvoke(set_camera_far, camera, clip);
     }
@@ -76,7 +76,7 @@ void RestoreCamera()
   if (observed_camera)
     il2cpp_gchandle_free(observed_camera);
   observed_camera        = nullptr;
-  extended_draw_distance = false;
+  far_clip_overridden = false;
 }
 
 void ObserveCamera(Il2CppObject *camera, NodeDepth depth)
@@ -117,38 +117,16 @@ void ObserveCamera(Il2CppObject *camera, NodeDepth depth)
   void *flag_args[]{&flags}, *color_args[]{&native_color};
   Il2CppRuntime::TryInvoke(set_camera_flags, camera, flag_args);
   Il2CppRuntime::TryInvoke(set_camera_color, camera, color_args);
-  if (depth == NodeDepth::SolarSystem && extended_draw_distance && set_camera_far) {
+  if (depth == NodeDepth::SolarSystem && set_camera_far) {
     float clip = std::max(native_far_clip, Config::Get().zoom * 3.75f);
     void *clip_args[]{&clip};
-    Il2CppRuntime::TryInvoke(set_camera_far, camera, clip_args);
+    if (Il2CppRuntime::TryInvoke(set_camera_far, camera, clip_args)) {
+      if (!far_clip_overridden)
+        spdlog::info("[BackgroundLayers] draw-distance automatic=true nativeFarClip={} farClip={} scale=unchanged",
+                     native_far_clip, clip);
+      far_clip_overridden = true;
+    }
   }
-}
-
-void ToggleDrawDistance()
-{
-  if (!ready || !InSystem() || !observed_camera || !set_camera_far)
-    return;
-  auto *camera = il2cpp_gchandle_get_target(observed_camera);
-  if (!Live(camera))
-    return;
-  if (!extended_draw_distance) {
-    // Capture the actual current native clip plane immediately before changing it.
-    Il2CppObject *boxed = nullptr;
-    if (!Il2CppRuntime::TryInvoke(camera_far, camera, nullptr, &boxed) || !boxed
-        || !method_contract::Type(il2cpp_class_get_type(boxed->klass), "System.Single"))
-      return;
-    auto *value = il2cpp_object_unbox(boxed);
-    if (!value)
-      return;
-    std::memcpy(&native_far_clip, value, sizeof(native_far_clip));
-  }
-  extended_draw_distance = !extended_draw_distance;
-  float clip = extended_draw_distance ? std::max(native_far_clip, Config::Get().zoom * 3.75f) : native_far_clip;
-  void *args[]{&clip};
-  Il2CppRuntime::TryInvoke(set_camera_far, camera, args);
-  spdlog::info("[BackgroundLayers] draw-distance extended={} nativeFarClip={} comparisonFarClip={} scale=unchanged",
-               extended_draw_distance, native_far_clip, clip);
-  Report();
 }
 
 void ReleaseLayers()
@@ -234,8 +212,7 @@ void Report()
                            : "Hide layer " + std::to_string(selection + 1) + "/" + std::to_string(layers.size());
   if (selection >= 0 && size_t(selection) < layers.size())
     status += "\n" + layers[selection].label;
-  status += "\nClear: Solid native colour / Draw distance: ";
-  status += extended_draw_distance ? "Extended" : "Native";
+  status += "\nClear: Solid native colour / Draw distance: Extended (automatic)";
   if (observed_camera)
     status += " (native " + std::to_string(int(native_far_clip)) + ")";
   UpdatePanel(status, true);
@@ -394,8 +371,6 @@ void Tick()
       Next();
     if (Key::Down(KeyCode::F9))
       Reset();
-    if (Key::Down(KeyCode::F10))
-      ToggleDrawDistance();
   }
   int frame = frame_count();
   if (frame < next_scan)
@@ -481,8 +456,8 @@ void Install()
                  && get_enabled && set_enabled && find_views && get_flat && active && view_type && frame_count
                  && install_screen_manager_update_hook() && register_screen_manager_update_callback(Tick);
   spdlog::info(
-      "[BackgroundLayers] step=8 layer-cycle ready={} initial-mode=native extended-zoom=true border-fix=removed "
-      "orbit-sky=removed clear=solid-native-colour-system-and-galaxy draw-distance-comparison=system-only keys=ALT-F8/ALT-F9/ALT-F10",
+      "[BackgroundLayers] step=9 layer-cycle ready={} initial-mode=native extended-zoom=true border-fix=removed "
+      "orbit-sky=removed clear=solid-native-colour-system-and-galaxy draw-distance=automatic-system-only keys=ALT-F8/ALT-F9",
       ready);
 }
 } // namespace background_layer_science
