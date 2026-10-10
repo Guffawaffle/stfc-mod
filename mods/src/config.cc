@@ -976,6 +976,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "bufffixhooks", DCP::bufffixhooks, write_config);
   this->installToastBannerHooks =
       get_config_or_default(config, parsed, "patches", "toastbannerhooks", DCP::toastbannerhooks, write_config);
+  this->installQueueAddressGuardHooks = get_config_or_default(
+      config, parsed, "patches", "queueaddressguardhooks", DCP::queueaddressguardhooks, write_config);
   this->installActionQueueRecoveryHooks = get_config_or_default(
       config, parsed, "patches", "actionqueuerecoveryhooks", DCP::actionqueuerecoveryhooks, write_config);
   this->installPanHooks = get_config_or_default(config, parsed, "patches", "panhooks", DCP::panhooks, write_config);
@@ -1034,6 +1036,8 @@ void Config::Load()
   spdlog::debug("");
   this->faster_queue_recovery = get_config_or_default(config, parsed, "control", "faster_queue_recovery",
                                                      DCC::faster_queue_recovery, write_config);
+  this->queue_address_guard = get_config_or_default(
+      config, parsed, "control", "queue_address_guard", DCC::queue_address_guard, write_config);
   // Preserve an explicit 2.1.0 setting; the current control key takes precedence.
   this->thin_queue_protection = get_config_or_default(config, parsed, "control", "thin_queue_protection",
       config["advanced"]["queue"]["thin_queue_protection"].value_or(DCC::thin_queue_protection), write_config);
