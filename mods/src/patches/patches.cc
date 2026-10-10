@@ -66,6 +66,7 @@ void InstallNativeSettings();
 void InstallGalaxyLabels();
 void InstallActionQueueRecovery();
 void InstallThinQueueProtection();
+void InstallQueueAddressGuard();
 
 __int64 il2cpp_init_hook(auto original, const char* domain_name)
 {
@@ -223,6 +224,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"GalaxyLabels", {InstallGalaxyLabels, &cfg.installZoomHooks}},
       // Retain the existing debug patch key; this installer owns both settings surfaces.
       {"ActionQueueRecovery", {InstallActionQueueRecovery, &cfg.installActionQueueRecoveryHooks}},
+      {"QueueAddressGuard", {InstallQueueAddressGuard, &cfg.installQueueAddressGuardHooks}},
       {"ModConfirmationSettings", {InstallNativeSettings, &cfg.installNativeSettings}},
   };
   printf("il2cpp_init_hook(%s)\n", domain_name);

@@ -138,6 +138,10 @@ faster_queue_recovery = false
 # Windows x64 only. Enabled by default; independent of Faster Queue Recovery.
 thin_queue_protection = true
 
+# Keep a deployed ship's queue when another ship causes a temporary starbase address.
+# Independent of recovery settings; legitimate recall/warp/manual clearing stays native.
+queue_address_guard = true
+
 # If you prefer to use Scopely's hotkeys set this to true
 use_scopely_hotkeys = false
 
@@ -372,6 +376,7 @@ uiscalehooks = true
 zoomhooks = true
 # Install recovery hooks independently of the Faster Kirshara feature setting.
 actionqueuerecoveryhooks = true
+queueaddressguardhooks = true
 
 # Compatibility switch for Haven camera hooks. Use graphics.haven_zoom = 0.0 for native zoom range;
 # clear shortcuts.haven_orbit_drag to disable rotation and tilt.
