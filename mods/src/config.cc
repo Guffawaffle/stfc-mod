@@ -972,6 +972,8 @@ void Config::Load()
   this->installZoomHooks = get_config_or_default(config, parsed, "patches", "zoomhooks", DCP::zoomhooks, write_config);
   this->installHavenZoomHooks =
       get_config_or_default(config, parsed, "patches", "havenzoomhooks", DCP::havenzoomhooks, write_config);
+  this->installNavigationOrbitHooks =
+      get_config_or_default(config, parsed, "patches", "navigationorbithooks", DCP::navigationorbithooks, write_config);
   this->installBuffFixHooks =
       get_config_or_default(config, parsed, "patches", "bufffixhooks", DCP::bufffixhooks, write_config);
   this->installToastBannerHooks =
@@ -1597,6 +1599,10 @@ void Config::Load()
   parse_config_shortcut(config, parsed, "zoom_reset", GameFunction::ZoomReset, DCSH::zoom_reset);
   parse_config_shortcut(config, parsed, "haven_orbit_drag", GameFunction::HavenOrbitDrag, DCSH::haven_orbit_drag);
   parse_config_shortcut(config, parsed, "haven_orbit_reset", GameFunction::HavenOrbitReset, DCSH::haven_orbit_reset);
+  parse_config_shortcut(config, parsed, "navigation_orbit_drag", GameFunction::NavigationOrbitDrag,
+                       DCSH::navigation_orbit_drag);
+  parse_config_shortcut(config, parsed, "navigation_orbit_reset", GameFunction::NavigationOrbitReset,
+                       DCSH::navigation_orbit_reset);
   parse_config_shortcut(config, parsed, "ui_scaleup", GameFunction::UiScaleUp, DCSH::ui_scaleup);
   parse_config_shortcut(config, parsed, "ui_scaledown", GameFunction::UiScaleDown, DCSH::ui_scaledown);
   parse_config_shortcut(config, parsed, "ui_scaleshipup", GameFunction::UiShipScaleUp, DCSH::ui_scaleshipup);

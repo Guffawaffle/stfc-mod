@@ -300,6 +300,7 @@ public:
   bool installUiScaleHooks;
   bool installZoomHooks;
   bool installHavenZoomHooks;
+  bool installNavigationOrbitHooks;
   bool installBuffFixHooks;
   bool installToastBannerHooks;
   bool installActionQueueRecoveryHooks;
