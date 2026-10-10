@@ -16,6 +16,11 @@ engagement state, last attempt time, pending target, and last engaged target are
 sampled before/after calls. Nested span IDs, native stack addresses, feature settings,
 and explicit mod interventions distinguish native pruning from mod actions. Fleet
 state inputs are sampled where metadata permits, without invoking game getters.
+The address-mismatch check also records its native result, the player's exact
+galaxy/system/planet/instance address, and the target lookups the native check actually
+performs. The address getter and deployment lookup observers are gated to that check;
+they call the original once and do not perform additional game lookups. A different
+ship being moved or recalled in another system is the current reproduction trigger.
 
 1. Build a queue with several targets. Note fleet, expected remaining targets, time,
    and what happened immediately before the early clear (combat, travel, recall,

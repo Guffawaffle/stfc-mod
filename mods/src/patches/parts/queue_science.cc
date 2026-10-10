@@ -34,8 +34,10 @@ namespace
   std::atomic_uint64_t                          sequence{};
   thread_local uint64_t                         parentSpan{};
   thread_local const char*                      parentSource = "native";
-  const auto                                    started      = Clock::now();
-  constexpr uint64_t                            limit        = 50000;
+  thread_local Scope*                           addressScope{};
+  thread_local Object*                          addressPlayer{};
+  const auto                                    started = Clock::now();
+  constexpr uint64_t                            limit   = 50000;
   Il2CppClass *                                 managerClass{}, *queueClass{}, *actionClass{};
   FieldInfo *queuesField{}, *fleetField{}, *engagingField{}, *attemptField{}, *lastField{}, *pendingField{},
       *actionsField{}, *targetField{}, *retriesField{};
@@ -230,6 +232,54 @@ namespace
     Scope scope(manager, "native.clear-all", 0, true);
     original(manager);
   }
+
+  bool AddressMismatch(auto original, Object* manager, Object* player)
+  {
+    Scope scope(manager, "native.address-mismatch-check", 0, true);
+    scope.Object("player", player);
+    struct Context {
+      Scope*  previousScope{addressScope};
+      Object* previousPlayer{addressPlayer};
+      Context(Scope& scope, Object* player)
+      {
+        addressScope  = &scope;
+        addressPlayer = player;
+      }
+      ~Context()
+      {
+        addressScope  = previousScope;
+        addressPlayer = previousPlayer;
+      }
+    } context(scope, player);
+    const bool result = original(manager, player);
+    scope.Note("native_mismatch", result);
+    return result;
+  }
+  Object* PlayerAddress(auto original, Object* player)
+  {
+    auto* result = original(player);
+    if (addressScope && player == addressPlayer) {
+      addressScope->Note("player_address_found", result != nullptr);
+      addressScope->Object("player_address", result);
+    }
+    return result;
+  }
+  Object* LookupTarget(auto original, Object* service, int64_t target)
+  {
+    auto* result = original(service, target);
+    if (addressScope) {
+      try {
+        const std::string key = "target_" + std::to_string(target);
+        addressScope->Note((key + "_found").c_str(), result != nullptr);
+        addressScope->Object(key.c_str(), result);
+        auto* activeSystem = Field(il2cpp_object_get_class(service), "_activeSystem", IL2CPP_TYPE_I8);
+        if (activeSystem)
+          addressScope->Note("deployment_active_system", Read<int64_t>(service, activeSystem));
+      } catch (...) {
+      }
+    }
+    return result;
+  }
 } // namespace
 
 struct Scope::State {
@@ -314,8 +364,9 @@ void Scope::Object(const char* key, void* value, bool list) noexcept
         return Json{{"valid", false}};
       auto* cls = il2cpp_object_get_class(object);
       Json  result{{"class", cls->name}};
-      for (const char* name : {"<ID>k__BackingField", "<Index>k__BackingField", "_currentlyBattling",
-                               "<RemovalReason>k__BackingField", "<IsPlanningRecallCourse>k__BackingField"}) {
+      for (const char* name :
+           {"fleetId_", "galaxy_", "system_", "planet_", "instance_", "<ID>k__BackingField", "<Index>k__BackingField",
+            "_currentlyBattling", "<RemovalReason>k__BackingField", "<IsPlanningRecallCourse>k__BackingField"}) {
         auto* field = il2cpp_class_get_field_from_name(cls, name);
         if (!field || !field->type || field->offset < 0x10)
           continue;
@@ -330,6 +381,30 @@ void Scope::Object(const char* key, void* value, bool list) noexcept
           if (base && base->type == IL2CPP_TYPE_I4)
             result[name] = Read<int>(object, field);
         }
+      }
+
+      auto* address = Read<Il2CppObject*>(object, Field(cls, "_address", IL2CPP_TYPE_CLASS));
+      if (address) {
+        auto* addressClass = il2cpp_object_get_class(address);
+        Json  values       = Json::object();
+        for (const char* name : {"galaxy_", "system_", "planet_"}) {
+          auto* field = Field(addressClass, name, IL2CPP_TYPE_I8);
+          if (field)
+            values[name] = Read<int64_t>(address, field);
+        }
+        auto* instance = Field(addressClass, "instance_", IL2CPP_TYPE_I4);
+        if (instance)
+          values["instance_"] = Read<int>(address, instance);
+        result["address"] = std::move(values);
+      }
+      auto* deploymentField = il2cpp_class_get_field_from_name(cls, "_deploymentFleet");
+      auto* deploymentType =
+          deploymentField && deploymentField->type ? il2cpp_class_from_type(deploymentField->type) : nullptr;
+      if (deploymentType && deploymentField->offset >= 0x10 && !il2cpp_class_is_valuetype(deploymentType)) {
+        auto* model = Read<Il2CppObject*>(object, deploymentField);
+        auto* id    = model ? Field(il2cpp_object_get_class(model), "fleetId_", IL2CPP_TYPE_I8) : nullptr;
+        if (id)
+          result["deployed_id"] = Read<int64_t>(model, id);
       }
       for (const char* name : {"_fleetStateContainer", "_stateContainer"}) {
         auto* field     = il2cpp_class_get_field_from_name(cls, name);
@@ -453,6 +528,16 @@ void Install()
   QUEUE_HOOK(managerClass, "TryPlanPathAndEngageTarget", "Digit.Prime.Combat.EngageResult", Engage,
              "Digit.PrimeServer.Models.FleetPlayerData", "Prime.ActionQueue.ActionQueueInstance");
   QUEUE_HOOK(managerClass, "StopWatchdogAndClearAllQueues", "System.Void", ClearAll);
+  QUEUE_HOOK(managerClass, "DoesFleetQueueContainMismatchedAddressTargets", "System.Boolean", AddressMismatch,
+             "Digit.PrimeServer.Models.FleetPlayerData");
+  auto* playerClass =
+      il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "FleetPlayerData").get_cls();
+  auto* serviceClass =
+      il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "DeploymentService")
+          .get_cls();
+  QUEUE_HOOK(playerClass, "get_Address", "Digit.PrimeServer.Models.NodeAddress", PlayerAddress);
+  QUEUE_HOOK(serviceClass, "GetDeployedFleet", "Digit.PrimeServer.Models.FleetDeployedData", LookupTarget,
+             "System.Int64");
 #undef QUEUE_HOOK
   Write({{"event", "session"},
          {"identity", STFC_IDENTITY_COMMENT_STR},
