@@ -61,6 +61,7 @@ void InstallShipTechIndicatorHooks();
 
 #ifdef _MODDBG
 void InstallDevConsole();
+void InstallGameErrorProbe();
 #endif
 void InstallNativeSettings();
 void InstallGalaxyLabels();
@@ -252,6 +253,7 @@ int il2cpp_init_hook(auto original, const char* domain_name)
 
 #ifdef _MODDBG
   InstallDevConsole();
+  InstallGameErrorProbe();
 #endif
   InstallThinQueueProtection();
 

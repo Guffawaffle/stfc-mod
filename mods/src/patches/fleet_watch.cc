@@ -59,6 +59,9 @@ int                                        s_manager_probe_slot        = 0;
 int                                        s_fast_poll_count           = 0;
 int                                        s_dispatch_depth            = 0;
 bool                                       s_evaluating_fast_poll      = false;
+#ifdef _MODDBG
+bool s_runtime_probe_enabled = false;
+#endif
 
 class CallbackScope
 {
@@ -380,6 +383,11 @@ void Tick()
           s_last_manager_probe_ms   = now_ms;
           s_last_fast_poll_ms       = s_fast_poll_count > 0 ? now_ms : 0;
           spdlog::debug("[FleetWatch] established stable baseline for {} fleet slots", baseline_count);
+#ifdef _MODDBG
+          if (s_runtime_probe_enabled) {
+            spdlog::info("[FleetWatchProbe] established stable baseline for {} fleet slots", baseline_count);
+          }
+#endif
         }
       }
     } else if (lifetime >= kSeedLifetimeMs) {
@@ -446,4 +454,33 @@ void Tick()
   }
 }
 
+#ifdef _MODDBG
+namespace
+{
+  void runtime_probe_transition(const Transition& transition)
+  {
+    spdlog::info("[FleetWatchProbe] slot={} fleet={} oldState={} newState={}", transition.after.slot,
+                 transition.after.fleet_id, static_cast<int>(transition.before.state),
+                 static_cast<int>(transition.after.state));
+  }
+
+  bool runtime_probe_fast_poll(FleetState state)
+  { return state != FleetState::Unknown; }
+} // namespace
+
+void InstallRuntimeProbe()
+{
+  const auto* enabled = std::getenv("STFC_MOD_FLEET_WATCH_PROBE");
+  if (!enabled || std::string_view{enabled} != "1") {
+    return;
+  }
+  s_runtime_probe_enabled = true;
+  if (Subscribe({runtime_probe_transition, runtime_probe_fast_poll})) {
+    spdlog::info("[FleetWatchProbe] runtime subscriber installed");
+  } else {
+    s_runtime_probe_enabled = false;
+    spdlog::warn("[FleetWatchProbe] runtime subscriber installation failed");
+  }
+}
+#endif
 } // namespace fleet_watch
