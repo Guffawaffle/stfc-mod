@@ -1,6 +1,5 @@
 #include "config.h"
 #include "errormsg.h"
-#include "patches/navigation_orbit_science.h"
 #include "settings/camera_settings.h"
 
 #include <il2cpp/il2cpp_helper.h>
@@ -51,7 +50,6 @@ bool KeyboardPanAllowed()
 
 bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
 {
-  navigation_orbit_science::Pan(_this, "before-pan-late-update");
   auto d = _this->_lastDelta;
 
   static auto GetMouseButton = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButton(System.Int32)");
@@ -86,7 +84,6 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
     _this->MoveCamera(vec2{d->x, d->y}, true);
   }
   _this->_farMagRadiusRatioSystemExtended = _this->_farMagRadiusRatioSystemNormal;
-  navigation_orbit_science::Pan(_this, "after-pan-late-update");
   return true;
 }
 
