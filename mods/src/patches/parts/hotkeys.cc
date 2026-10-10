@@ -1,4 +1,3 @@
-#include "patches/fleet_perf_probe.h"
 #include "config.h"
 #include "patches/runtime_config.h"
 #include "settings/preview_settings.h"
@@ -576,7 +575,6 @@ bool PressOfficerPresetsButton()
 
 void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
-  fleet_perf::Frame();
   const bool shortcutOwnedInput = Key::shortcutCaptureActive || Key::shortcutPopupActive || Key::settingsSearchActive;
   dispatch_screen_manager_update_callbacks();
   // Capture owns the key through release. Do not run the native shortcut path

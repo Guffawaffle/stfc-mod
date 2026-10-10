@@ -1,4 +1,3 @@
-#include "patches/fleet_perf_probe.h"
 #include "patches.h"
 #include "file.h"
 #include "version.h"
@@ -257,7 +256,6 @@ int il2cpp_init_hook(auto original, const char* domain_name)
   InstallGameErrorProbe();
 #endif
   InstallThinQueueProtection();
-  fleet_perf::Install();
 
   spdlog::info("");
 

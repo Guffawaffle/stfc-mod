@@ -1,4 +1,3 @@
-#include "patches/fleet_perf_probe.h"
 #include <il2cpp/runtime.h>
 #include "config.h"
 #include "errormsg.h"
@@ -316,7 +315,6 @@ Transform* component_transform(void* component)
 
 Transform* direct_child_named(Transform* parent, const char* name)
 {
-  fleet_perf::Scope perf(fleet_perf::Part::ChildLookup);
   if (!parent) {
     return nullptr;
   }
@@ -638,7 +636,6 @@ void show_indicator(GameObject* object, bool eta)
 
 void update_opc_highlight(Transform* body_transform, FleetPlayerData* fleet)
 {
-  fleet_perf::Scope perf(fleet_perf::Part::Highlight);
   if (!body_transform) {
     return;
   }
@@ -1200,7 +1197,6 @@ bool opc_eta_refresh_due(FleetPlayerData* fleet, bool force)
 
 void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform* known_label_anchor = nullptr)
 {
-  fleet_perf::Scope perf(fleet_perf::Part::Eta);
   auto*      label_anchor    = known_label_anchor ? known_label_anchor : fleet_state_widget_label_anchor(ui_component);
   const bool panel_component = ui_component && fleet_panel_controller(ui_component) == ui_component;
   if (!ui_component || !fleet) {
@@ -1381,7 +1377,6 @@ FleetPlayerData* fleet_local_view_fleet(void* self)
 void FleetStateWidget_SetWidgetData_Hook(auto original, void* self)
 {
   original(self);
-  fleet_perf::Scope perf(fleet_perf::Part::StateSet);
   if (s_eta_enabled && Config::Get().fleet_hud_opc_eta)
     update_opc_eta_label(self, fleet_state_widget_context(self));
 }
@@ -1396,13 +1391,11 @@ void FleetStateWidget_ClearWidgetData_Hook(auto original, void* self)
   Transform* label_anchor;
   int slot;
   {
-    fleet_perf::Scope prepare(fleet_perf::Part::StateClear);
     fleet = fleet_state_widget_context(self);
     label_anchor = fleet_state_widget_label_anchor(self);
     slot = fleet ? fleet->Index : -1;
   }
   original(self);
-  fleet_perf::Scope finish(fleet_perf::Part::StateClear);
   if (label_anchor) {
     hide_opc_eta(label_anchor);
     reset_opc_eta_slot(slot);
@@ -1418,7 +1411,6 @@ void FleetStateWidget_ClearWidgetData_Hook(auto original, void* self)
 void FleetbarFlagWidget_SetWidgetData_Hook(auto original, void* self)
 {
   original(self);
-  fleet_perf::Scope perf(fleet_perf::Part::FlagSet);
   if (s_highlight_enabled && Config::Get().highlight_opc_fleets)
     update_opc_highlight(opc_anchor_from_fleetbar_flag(self), fleetbar_flag_widget_context(self));
 }
@@ -1433,13 +1425,11 @@ void FleetbarFlagWidget_ClearWidgetData_Hook(auto original, void* self)
   Transform* anchor;
   int slot;
   {
-    fleet_perf::Scope prepare(fleet_perf::Part::FlagClear);
     fleet = fleetbar_flag_widget_context(self);
     anchor = opc_anchor_from_fleetbar_flag(self);
     slot = fleet ? fleet->Index : -1;
   }
   original(self);
-  fleet_perf::Scope finish(fleet_perf::Part::FlagClear);
   if (anchor) {
     if (auto* highlight = find_opc_highlight(anchor); highlight) {
       highlight->SetActive(false);
@@ -1455,7 +1445,6 @@ void FleetbarFlagWidget_ClearWidgetData_Hook(auto original, void* self)
 void FleetLocalViewController_BindDataContext_Hook(auto original, void* self, void* provider, void* data_context)
 {
   original(self, provider, data_context);
-  fleet_perf::Scope perf(fleet_perf::Part::Bind);
   if (!(s_highlight_enabled && Config::Get().highlight_opc_fleets)
       && !(s_eta_enabled && Config::Get().fleet_hud_opc_eta)) return;
 
@@ -1475,7 +1464,6 @@ void FleetLocalViewController_BindDataContext_Hook(auto original, void* self, vo
 void FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook(auto original, void* self, int32_t dirty_flags)
 {
   original(self, dirty_flags);
-  fleet_perf::Scope perf(fleet_perf::Part::CargoEvent);
   if (!(s_highlight_enabled && Config::Get().highlight_opc_fleets)
       && !(s_eta_enabled && Config::Get().fleet_hud_opc_eta)) return;
   auto* tile_transform = component_transform(self);
