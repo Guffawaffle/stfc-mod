@@ -360,6 +360,7 @@ galacticanomalytimerhooks = true
 game_version = true
 giftsbulkclaimhooks = true
 hotkeyhooks = true
+havenhistoryhooks = true
 
 loadingscreenhooks = true
 loadingtiphooks = true
@@ -765,6 +766,9 @@ navigation_orbit_reset = "ALT-MOUSE2"
 #  <[===================================================================]> 
 
 [ui]
+# Show the newest Haven help-history entries first
+reverse_haven_history = true
+
 # Skip the reveal box animation, and just open the boxes
 always_skip_reveal_sequence = true
 auto_confirm_discovery = true
@@ -788,6 +792,9 @@ show_ship_tech_indicator_backgrounds = false
 
 # Prevent "escape" from prompting to exit the game
 disable_escape_exit = true
+
+# ⚠️ EXPERIMENTAL: Show only the first ad/interstitial popup after the game starts, then suppress the rest
+only_show_first_popup = false
 
 # Maximum gap in milliseconds between Escape presses that opens the exit prompt; 0 disables double-tap exit
 disable_escape_exit_timer = 0
@@ -982,7 +989,7 @@ show_station_cargo = true
 away_assignments = true
 
 # Do you want to sync battlelogs?
-battlelogs = true
+battlelogs = false
 
 # Do you want to sync buff data?
 buffs = true

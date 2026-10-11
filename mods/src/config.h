@@ -277,6 +277,8 @@ public:
   bool focus_search;
   bool format_cargo_values;
   bool officer_sort;
+  bool reverse_haven_history;
+  bool only_show_first_popup;
   bool arrow_keys_to_select_ship;
 
   bool galaxy_extended_selection = false;
@@ -358,4 +360,5 @@ public:
   // Fleet management dock ship sort: pin configured ships to the front
   bool installPinnedShipSortHooks;
   bool installShipTechIndicatorHooks;
+  bool installHavenHistoryHooks;
 };
