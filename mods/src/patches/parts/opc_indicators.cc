@@ -40,7 +40,6 @@ constexpr int64_t     kUiRetryMaximumMs     = 30'000;
 struct OpcEtaLogState {
   uint64_t    fleet_id = 0;
   std::string display;
-  uint8_t     availability = 0;
 };
 
 struct OpcEtaRenderState {
@@ -1108,21 +1107,17 @@ void log_opc_eta(FleetPlayerData* fleet, const FleetOpcStatus& status, const std
   }
 
   const auto fleet_id = fleet ? fleet->Id : 0;
-  const uint8_t availability = static_cast<uint8_t>((status.mining ? 1 : 0) | (status.cargo_known ? 2 : 0)
-                                                   | (status.rate_known ? 4 : 0) | (status.node_known ? 8 : 0));
   auto&      previous = s_last_opc_eta_log_states[slot];
-  if (previous.fleet_id == fleet_id && previous.display == display && previous.availability == availability) {
+  if (previous.fleet_id == fleet_id && previous.display == display) {
     return;
   }
 
-  previous = {fleet_id, display, availability};
+  const bool previously_visible = !previous.display.empty();
+  previous                      = {fleet_id, display};
   if (display.empty()) {
-    auto* mining = fleet->MiningData;
-    auto* mining_class = mining ? il2cpp_object_get_class(reinterpret_cast<Il2CppObject*>(mining)) : nullptr;
-    spdlog::debug("[OpcIndicators] slot={} fleet={} opcEta=hidden mining={} cargoKnown={} rateKnown={} "
-                  "nodeKnown={} ratePerSecond={:.3f} miningClass={}",
-                  slot, fleet_id, status.mining, status.cargo_known, status.rate_known, status.node_known,
-                  status.rate_per_second, mining_class ? il2cpp_class_get_name(mining_class) : "none");
+    if (previously_visible) {
+      spdlog::debug("[OpcIndicators] slot={} fleet={} opcEta=hidden", slot, fleet_id);
+    }
     return;
   }
 
@@ -1604,13 +1599,8 @@ void InstallOpcIndicatorHooks()
     const bool overlaps = lifecycle_tick && std::any_of(existing.begin(), existing.end(), [lifecycle_tick](auto* method) {
       return method && method->methodPointer == lifecycle_tick->methodPointer;
     });
-    if (!lifecycle_tick || overlaps) {
-      spdlog::warn("[OpcIndicators] lifecycle refresh unavailable: native target missing or already owned");
-    } else if (SPUD_STATIC_DETOUR(lifecycle_tick->methodPointer, FleetLocalViewController_LifecycleTick_Hook)) {
-      spdlog::info("[OpcIndicators] native lifecycle refresh installed");
-    } else {
-      spdlog::warn("[OpcIndicators] lifecycle refresh installation failed; native event refreshes remain available");
-    }
+    if (lifecycle_tick && !overlaps)
+      SPUD_STATIC_DETOUR(lifecycle_tick->methodPointer, FleetLocalViewController_LifecycleTick_Hook);
   }
 }
 

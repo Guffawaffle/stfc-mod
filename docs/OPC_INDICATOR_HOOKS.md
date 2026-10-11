@@ -69,8 +69,6 @@ Mining data is read through its declared `IMiningSlot` interface, using the
 existing property helper's virtual dispatch. Both `MiningSlot` and
 `FleetMiningSlot` implement that contract. Node progress uses `AmountMined` and
 `Amount`; `CurrentValue` and `MaxValue` belong to a different progress-data class.
-Debug logs record changes in missing-data reasons, including the runtime mining
-class, so a hidden ETA can be distinguished from a UI setup failure.
 
 ## Responsibility boundaries
 
