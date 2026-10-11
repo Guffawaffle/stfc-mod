@@ -1419,9 +1419,30 @@ void FleetbarFlagWidget_ClearWidgetData_Hook(auto original, void* self)
   }
 }
 
-void FleetLocalViewController_BindDataContext_Hook(auto original, void* self, void* provider, void* data_context)
+// Native lifecycle ticks can arrive more frequently than our one-second cargo
+// sample. Cache only address tokens, never managed objects, to limit UI work.
+struct OpcLifecycleRefreshState { uintptr_t component_id = 0; int64_t refreshed_ms = 0; };
+std::array<OpcLifecycleRefreshState, kFleetSlotCount * 2> s_lifecycle_refresh_states{};
+
+bool opc_lifecycle_refresh_due(void* self, int64_t now_ms)
 {
-  original(self, provider, data_context);
+  const auto component_id = reinterpret_cast<uintptr_t>(self);
+  if (!component_id) return false;
+  for (auto& entry : s_lifecycle_refresh_states) {
+    if (entry.component_id != component_id) continue;
+    if (now_ms >= entry.refreshed_ms && now_ms - entry.refreshed_ms < kOpcEtaRefreshMs) return false;
+    entry.refreshed_ms = now_ms;
+    return true;
+  }
+  // More views than cache slots still refresh; eviction only loses throttling.
+  auto oldest = std::min_element(s_lifecycle_refresh_states.begin(), s_lifecycle_refresh_states.end(),
+                                [](const auto& a, const auto& b) { return a.refreshed_ms < b.refreshed_ms; });
+  *oldest = {component_id, now_ms};
+  return true;
+}
+
+void refresh_fleet_local_indicators(void* self, bool reset_eta)
+{
   if (!(s_highlight_enabled && Config::Get().highlight_opc_fleets)
       && !(s_eta_enabled && Config::Get().fleet_hud_opc_eta)) return;
 
@@ -1433,9 +1454,27 @@ void FleetLocalViewController_BindDataContext_Hook(auto original, void* self, vo
   }
   const bool panel_component = fleet_panel_controller(self) == self;
   if (s_eta_enabled && Config::Get().fleet_hud_opc_eta && (label_anchor || panel_component)) {
-    reset_opc_eta_slot(fleet ? fleet->Index : -1);
+    if (reset_eta) reset_opc_eta_slot(fleet ? fleet->Index : -1);
     update_opc_eta_label(self, fleet, label_anchor);
   }
+}
+
+void FleetLocalViewController_BindDataContext_Hook(auto original, void* self, void* provider, void* data_context)
+{
+  original(self, provider, data_context);
+  // A recycled view may bind again within the lifecycle refresh interval.
+  for (auto& entry : s_lifecycle_refresh_states)
+    if (entry.component_id == reinterpret_cast<uintptr_t>(self)) entry = {};
+  refresh_fleet_local_indicators(self, true);
+}
+
+void FleetLocalViewController_LifecycleTick_Hook(auto original, void* self)
+{
+  original(self);
+  if (!(s_highlight_enabled && Config::Get().highlight_opc_fleets)
+      && !(s_eta_enabled && Config::Get().fleet_hud_opc_eta)) return;
+  if (opc_lifecycle_refresh_due(self, steady_now_milliseconds()))
+    refresh_fleet_local_indicators(self, false);
 }
 
 void FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook(auto original, void* self, int32_t dirty_flags)
@@ -1476,6 +1515,8 @@ void InstallOpcIndicatorHooks()
       {"Digit.Client.UI.IDataContextProvider", "System.Object"});
   const auto* cargo_updated = method_contract::Resolve(
       fleet_local_helper.get_cls(), "OnCurrentCargoReactiveEvent", false, "System.Void", {"System.Int32"});
+  const auto* lifecycle_tick = method_contract::Resolve(
+      fleet_local_helper.get_cls(), "LifecycleTick", false, "System.Void", {});
   if (!fleet_local_helper.isValidHelper()) {
     ErrorMsg::MissingHelper("Digit.Prime.Ships", "FleetLocalViewController");
   } else {
@@ -1587,6 +1628,22 @@ void InstallOpcIndicatorHooks()
   s_highlight_enabled = installed && highlight_ready;
   if (!installed)
     spdlog::warn("[OpcIndicators] disabled: native hook installation failed");
+
+  // The lifecycle refresh supplements the original event hooks. Its absence or
+  // installation failure must not disable those existing feature paths.
+  if (s_eta_enabled || s_highlight_enabled) {
+    const std::array existing{bind_data_context, cargo_updated, state_set, state_clear, flag_set, flag_clear};
+    const bool overlaps = lifecycle_tick && std::any_of(existing.begin(), existing.end(), [lifecycle_tick](auto* method) {
+      return method && method->methodPointer == lifecycle_tick->methodPointer;
+    });
+    if (!lifecycle_tick || overlaps) {
+      spdlog::warn("[OpcIndicators] lifecycle refresh unavailable: native target missing or already owned");
+    } else if (SPUD_STATIC_DETOUR(lifecycle_tick->methodPointer, FleetLocalViewController_LifecycleTick_Hook)) {
+      spdlog::info("[OpcIndicators] native lifecycle refresh installed");
+    } else {
+      spdlog::warn("[OpcIndicators] lifecycle refresh installation failed; native event refreshes remain available");
+    }
+  }
 }
 
 bool OpcHighlightAvailable() { return s_highlight_enabled; }

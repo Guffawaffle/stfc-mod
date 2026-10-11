@@ -1,6 +1,7 @@
 # OPC indicator hook ownership
 
-`InstallOpcIndicatorHooks` owns six detours in `Assembly-CSharp`. All six are
+`InstallOpcIndicatorHooks` owns six event detours and one supplemental lifecycle
+detour in `Assembly-CSharp`. All seven are
 instance methods returning `System.Void`; the installer declares their managed
 signatures through the shared `method_contract::Resolve` helper.
 
@@ -10,6 +11,7 @@ signatures through the shared `method_contract::Resolve` helper.
 | `Digit.Prime.HUD.FleetbarFlagWidget` | `SetWidgetData()`, `ClearWidgetData()` | OPC highlight |
 | `Digit.Prime.Ships.FleetLocalViewController` | `BindDataContext(Digit.Client.UI.IDataContextProvider, System.Object)` | Both |
 | `Digit.Prime.Ships.FleetLocalViewController` | `OnCurrentCargoReactiveEvent(System.Int32)` | Both |
+| `Digit.Prime.Ships.FleetLocalViewController` | `LifecycleTick()` | Both; delayed initialization and live refresh |
 
 The resolver discovers the current native pointers from metadata. Moving native
 addresses between client builds does not invalidate these contracts. An absent
@@ -34,6 +36,22 @@ policy or add platform restrictions.
 
 A failed detour installation disables both features. Any detours already installed
 retain their native path; the installer does not retry partial installations.
+This applies to the original six event detours. The supplemental lifecycle detour
+is attempted afterward; a missing, overlapping or failed lifecycle target leaves
+the original feature paths available on both platforms.
+
+## Data arriving after binding
+
+A ship already mining at startup can bind its widget before cargo, mining data or
+the UI anchor is available. Event-only rendering then waits for another bind or
+cargo event, which might require recalling and redeploying the ship.
+
+After the game's own `FleetLocalViewController.LifecycleTick`, the mod refreshes
+that controller's indicators using its current fleet and UI. This adds no fleet
+scan, retained managed pointer, worker thread or independent polling dispatcher.
+UI work is limited to once per second per controller; existing cargo caching and
+render change detection remain in use. Rebinding clears the controller's cadence
+entry, and disabled runtime features preserve the native tick without extra UI work.
 
 ## Responsibility boundaries
 
