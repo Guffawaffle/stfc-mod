@@ -2,8 +2,8 @@
 #include <config.h>
 
 // Port of the active v2.1.0-guffa.10 guard, not the dormant completion repair.
-// Native extents/ABI have been checked for Windows x64 client 262 only.
-#if defined(_WIN32) && defined(_M_X64)
+// Shared 64-bit managed layout; incompatible runtime contracts leave the feature unavailable.
+#if (defined(_WIN32) && defined(_M_X64)) || (defined(__APPLE__) && (defined(__arm64__) || defined(__x86_64__)))
 #include <algorithm>
 #include <atomic>
 #include <array>
@@ -225,8 +225,6 @@ template <typename T> bool Getter(T& out, Il2CppClass* cls, const char* name, co
 
 void InstallThinQueueProtection()
 {
-  if (!Config::Get().thin_queue_protection)
-    return;
   auto* manager = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager").get_cls();
   queueClass    = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueInstance").get_cls();
   actionClass   = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "QueueableAction").get_cls();

@@ -35,7 +35,7 @@ namespace Control
   constexpr bool use_scopely_hotkeys = false;
   constexpr const char* keyboard_layout_mode = "physical";
   constexpr bool queue_enabled       = true;
-  constexpr bool faster_queue_recovery = false;
+  constexpr bool faster_queue_recovery = true;
   constexpr bool thin_queue_protection = true;
   constexpr bool queue_address_guard = true;
   constexpr auto select_timer        = 500;
@@ -106,6 +106,7 @@ namespace Patches
   constexpr bool testpatches                = true;
   constexpr bool toastbannerhooks           = true;
   constexpr bool actionqueuerecoveryhooks   = true;
+  constexpr bool thinqueueprotectionhooks   = true;
   constexpr bool queueaddressguardhooks     = true;
   constexpr bool uiscalehooks               = true;
   constexpr bool zoomhooks                  = true;

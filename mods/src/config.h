@@ -304,6 +304,7 @@ public:
   bool installBuffFixHooks;
   bool installToastBannerHooks;
   bool installActionQueueRecoveryHooks;
+  bool installThinQueueProtectionHooks;
   bool installQueueAddressGuardHooks;
   bool installFleetNotificationHooks;
   bool installPanHooks;
