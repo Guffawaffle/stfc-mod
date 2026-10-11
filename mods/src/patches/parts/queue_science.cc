@@ -630,7 +630,9 @@ void Install()
                    std::initializer_list<const char*> parameters, auto installer) {
     const auto* info      = method_contract::Resolve(cls, method, false, result, parameters);
     auto*       pointer   = method_contract::Pointer(info);
-    const bool  shared    = cls == managerClass && owners.contains(method);
+    // Legacy manager owners use bare names; other owners can qualify the class.
+    const bool shared = (cls == managerClass && owners.contains(method))
+                        || (cls && owners.contains(std::string(cls->name) + "." + method));
     const bool  installed = shared || (pointer && !info->has_full_generic_sharing_signature && installer(pointer));
     hooks.push_back(
         {{"class", cls ? cls->name : "missing"}, {"method", method}, {"installed", installed}, {"shared", shared}});
