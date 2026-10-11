@@ -65,6 +65,13 @@ bind and widget callbacks refresh after native layout changes, and clear callbac
 remove indicators from recycled views. These responsibilities remain useful with
 the supplemental lifecycle tick.
 
+Mining data is read through its declared `IMiningSlot` interface, using the
+existing property helper's virtual dispatch. Both `MiningSlot` and
+`FleetMiningSlot` implement that contract. Node progress uses `AmountMined` and
+`Amount`; `CurrentValue` and `MaxValue` belong to a different progress-data class.
+Debug logs record changes in missing-data reasons, including the runtime mining
+class, so a hidden ETA can be distinguished from a UI setup failure.
+
 ## Responsibility boundaries
 
 Settings adapters own user choices, persistence and availability reporting.

@@ -40,6 +40,7 @@ constexpr int64_t     kUiRetryMaximumMs     = 30'000;
 struct OpcEtaLogState {
   uint64_t    fleet_id = 0;
   std::string display;
+  uint8_t     availability = 0;
 };
 
 struct OpcEtaRenderState {
@@ -159,8 +160,8 @@ FleetOpcStatus read_opc_status(FleetPlayerData* fleet, int slot, uint64_t fleet_
   status.rate_known      = std::isfinite(status.rate_per_second) && status.rate_per_second > 0.0;
 
   if (mining_data) {
-    const auto node_current = mining_data->CurrentValue;
-    const auto node_max     = mining_data->MaxValue;
+    const auto node_current = mining_data->AmountMined;
+    const auto node_max     = mining_data->Amount;
     status.node_known =
         std::isfinite(node_current) && std::isfinite(node_max) && node_current >= 0.0 && node_max >= node_current;
     if (status.node_known) {
@@ -1107,17 +1108,21 @@ void log_opc_eta(FleetPlayerData* fleet, const FleetOpcStatus& status, const std
   }
 
   const auto fleet_id = fleet ? fleet->Id : 0;
+  const uint8_t availability = static_cast<uint8_t>((status.mining ? 1 : 0) | (status.cargo_known ? 2 : 0)
+                                                   | (status.rate_known ? 4 : 0) | (status.node_known ? 8 : 0));
   auto&      previous = s_last_opc_eta_log_states[slot];
-  if (previous.fleet_id == fleet_id && previous.display == display) {
+  if (previous.fleet_id == fleet_id && previous.display == display && previous.availability == availability) {
     return;
   }
 
-  const bool previously_visible = !previous.display.empty();
-  previous                      = {fleet_id, display};
+  previous = {fleet_id, display, availability};
   if (display.empty()) {
-    if (previously_visible) {
-      spdlog::debug("[OpcIndicators] slot={} fleet={} opcEta=hidden", slot, fleet_id);
-    }
+    auto* mining = fleet->MiningData;
+    auto* mining_class = mining ? il2cpp_object_get_class(reinterpret_cast<Il2CppObject*>(mining)) : nullptr;
+    spdlog::debug("[OpcIndicators] slot={} fleet={} opcEta=hidden mining={} cargoKnown={} rateKnown={} "
+                  "nodeKnown={} ratePerSecond={:.3f} miningClass={}",
+                  slot, fleet_id, status.mining, status.cargo_known, status.rate_known, status.node_known,
+                  status.rate_per_second, mining_class ? il2cpp_class_get_name(mining_class) : "none");
     return;
   }
 
