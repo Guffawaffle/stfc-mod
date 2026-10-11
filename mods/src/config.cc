@@ -982,6 +982,8 @@ void Config::Load()
       config, parsed, "patches", "queueaddressguardhooks", DCP::queueaddressguardhooks, write_config);
   this->installActionQueueRecoveryHooks = get_config_or_default(
       config, parsed, "patches", "actionqueuerecoveryhooks", DCP::actionqueuerecoveryhooks, write_config);
+  this->installThinQueueProtectionHooks = get_config_or_default(
+      config, parsed, "patches", "thinqueueprotectionhooks", DCP::thinqueueprotectionhooks, write_config);
   this->installPanHooks = get_config_or_default(config, parsed, "patches", "panhooks", DCP::panhooks, write_config);
   this->installHotkeyHooks =
       get_config_or_default(config, parsed, "patches", "hotkeyhooks", DCP::hotkeyhooks, write_config);
