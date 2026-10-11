@@ -129,13 +129,15 @@ queue_enabled = true
 
 # Retired off-screen queue completion repair: THIS WAS FIXED BY SCOPELY.
 # The former kirshara_queue_repair setting is no longer used.
-# Faster Queue Recovery: advance after an outstanding target disappears (Windows x64 only).
-faster_queue_recovery = false
+# Faster Queue Recovery: advance after an outstanding target disappears (Windows x64/macOS 64-bit).
+faster_queue_recovery = true
 # Also available live under Mod Settings > Map & Travel > Kirshara action queue
-# when the recovery hooks are supported. Requires queue_enabled; currently Windows x64.
+# when the recovery hooks are supported. Requires queue_enabled; macOS is pending player validation.
 
 # Thin Queue Protection: resume after native pruning; clean up confirmed destroyed heads.
-# Windows x64 only. Enabled by default; independent of Faster Queue Recovery.
+# Windows x64/macOS 64-bit. Enabled by default; independent of Faster Queue Recovery.
+# macOS is pending player validation. Emergency hook switches (restart required):
+# [patches] actionqueuerecoveryhooks / thinqueueprotectionhooks = false
 thin_queue_protection = true
 
 # Keep a deployed ship's queue when another ship causes a temporary starbase address.

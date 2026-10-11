@@ -224,6 +224,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"GalaxyLabels", {InstallGalaxyLabels, &cfg.installZoomHooks}},
       // Retain the existing debug patch key; this installer owns both settings surfaces.
       {"ActionQueueRecovery", {InstallActionQueueRecovery, &cfg.installActionQueueRecoveryHooks}},
+      {"ThinQueueProtection", {InstallThinQueueProtection, &cfg.installThinQueueProtectionHooks}},
       {"QueueAddressGuard", {InstallQueueAddressGuard, &cfg.installQueueAddressGuardHooks}},
       {"ModConfirmationSettings", {InstallNativeSettings, &cfg.installNativeSettings}},
   };
@@ -250,7 +251,6 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   InstallDevConsole();
   InstallGameErrorProbe();
 #endif
-  InstallThinQueueProtection();
 
   spdlog::info("");
 
