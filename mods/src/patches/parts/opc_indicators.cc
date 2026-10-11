@@ -7,6 +7,7 @@
 #include <il2cpp-tabledefs.h>
 #include <il2cpp/il2cpp-functions.h>
 #include <il2cpp/il2cpp_helper.h>
+#include <il2cpp/method_contract.h>
 #include <prime/FleetPlayerData.h>
 #include <prime/GameObject.h>
 #include <prime/Transform.h>
@@ -273,20 +274,6 @@ bool invoke_void(const MethodInfo* method, void* target, void** args, const char
     return false;
   }
   return true;
-}
-
-const MethodInfo* resolve_instance_void(IL2CppClassHelper& helper, const char* name, int parameter_count)
-{
-  auto* method = helper.GetMethodInfoSpecial(
-      name, [parameter_count](int count, const Il2CppType**) { return count == parameter_count; });
-  const bool valid = method && !(method->flags & METHOD_ATTRIBUTE_STATIC) && method->methodPointer
-                     && method->return_type && method->return_type->type == IL2CPP_TYPE_VOID;
-  if (!valid) {
-    auto* cls = helper.get_cls();
-    spdlog::warn("[OpcIndicators] {}.{}.{}: expected instance Void with {} arguments; method/native pointer or signature unavailable",
-                   cls ? cls->namespaze : "", cls ? cls->name : "<missing class>", name, parameter_count);
-  }
-  return valid ? method : nullptr;
 }
 
 void destroy_game_object(GameObject* game_object)
@@ -1482,11 +1469,13 @@ void InstallOpcIndicatorHooks()
 
 
   auto fleet_local_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Ships", "FleetLocalViewController");
-  const auto* bind_data_context =
-      fleet_local_helper.isValidHelper() ? resolve_instance_void(fleet_local_helper, "BindDataContext", 2) : nullptr;
-  const auto* cargo_updated = fleet_local_helper.isValidHelper()
-                                  ? resolve_instance_void(fleet_local_helper, "OnCurrentCargoReactiveEvent", 1)
-                                  : nullptr;
+  // Both features consume these callbacks. Resolve their managed contracts at
+  // startup; native addresses may move between client builds.
+  const auto* bind_data_context = method_contract::Resolve(
+      fleet_local_helper.get_cls(), "BindDataContext", false, "System.Void",
+      {"Digit.Client.UI.IDataContextProvider", "System.Object"});
+  const auto* cargo_updated = method_contract::Resolve(
+      fleet_local_helper.get_cls(), "OnCurrentCargoReactiveEvent", false, "System.Void", {"System.Int32"});
   if (!fleet_local_helper.isValidHelper()) {
     ErrorMsg::MissingHelper("Digit.Prime.Ships", "FleetLocalViewController");
   } else {
@@ -1506,8 +1495,8 @@ void InstallOpcIndicatorHooks()
     if (!state_helper.isValidHelper()) {
       ErrorMsg::MissingHelper("Digit.Prime.HUD", "FleetStateWidget");
     } else {
-      state_set   = resolve_instance_void(state_helper, "SetWidgetData", 0);
-      state_clear = resolve_instance_void(state_helper, "ClearWidgetData", 0);
+      state_set   = method_contract::Resolve(state_helper.get_cls(), "SetWidgetData", false, "System.Void", {});
+      state_clear = method_contract::Resolve(state_helper.get_cls(), "ClearWidgetData", false, "System.Void", {});
       if (!state_set) {
         ErrorMsg::MissingMethod("FleetStateWidget", "SetWidgetData");
       }
@@ -1524,8 +1513,8 @@ void InstallOpcIndicatorHooks()
     if (!flag_helper.isValidHelper()) {
       ErrorMsg::MissingHelper("Digit.Prime.HUD", "FleetbarFlagWidget");
     } else {
-      flag_set   = resolve_instance_void(flag_helper, "SetWidgetData", 0);
-      flag_clear = resolve_instance_void(flag_helper, "ClearWidgetData", 0);
+      flag_set   = method_contract::Resolve(flag_helper.get_cls(), "SetWidgetData", false, "System.Void", {});
+      flag_clear = method_contract::Resolve(flag_helper.get_cls(), "ClearWidgetData", false, "System.Void", {});
       if (!flag_set) {
         ErrorMsg::MissingMethod("FleetbarFlagWidget", "SetWidgetData");
       }
