@@ -37,8 +37,9 @@ policy or add platform restrictions.
 A failed detour installation disables both features. Any detours already installed
 retain their native path; the installer does not retry partial installations.
 This applies to the original six event detours. The supplemental lifecycle detour
-is attempted afterward; a missing, overlapping or failed lifecycle target leaves
-the original feature paths available on both platforms.
+is attempted afterward; missing or overlapping targets are skipped while the
+original feature paths remain available on both platforms. Native detour-library
+faults are subject to the library's existing failure behavior.
 
 ## Data arriving after binding
 
