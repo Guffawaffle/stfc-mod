@@ -1,5 +1,6 @@
 #include "patches.h"
 #include "file.h"
+#include "log_history.h"
 #include "version.h"
 
 #include <il2cpp/il2cpp-functions.h>
@@ -21,6 +22,7 @@
 void InstallUiScaleHooks();
 void InstallZoomHooks();
 void InstallHavenZoomHooks();
+void InstallHavenHistoryHooks();
 void InstallNavigationOrbitHooks();
 void InstallGalaxySelectionHooks();
 void InstallBuffFixHooks();
@@ -95,18 +97,29 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   }
 #endif
   std::string log_error;
+  std::string rotation_error;
+  auto open_log = [&] {
+    try {
+      RotateLogHistory(std::filesystem::u8path(log_path));
+    } catch (const std::filesystem::filesystem_error& error) {
+      if (!rotation_error.empty()) rotation_error += "; ";
+      rotation_error += error.what();
+    }
+    // Append on rotation failure so the previous session is preserved.
+    return spdlog::basic_logger_mt("default", log_path, false);
+  };
   bool console_only = false;
   auto file_logger = [&] {
 #if __APPLE__
     try {
-      return spdlog::basic_logger_mt("default", log_path, true);
+      return open_log();
     } catch (const spdlog::spdlog_ex& error) {
       if (File::hasCustomNames())
         throw;
       log_error = error.what();
       log_path = File::Log();
       try {
-        return spdlog::basic_logger_mt("default", log_path, true);
+        return open_log();
       } catch (const spdlog::spdlog_ex& fallback_error) {
         log_error += "; previous location also failed: ";
         log_error += fallback_error.what();
@@ -115,7 +128,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       }
     }
 #else
-    return spdlog::basic_logger_mt("default", log_path, true);
+    return open_log();
 #endif
   }();
   auto sink        = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -127,6 +140,9 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
 
   spdlog::set_level(log_level);
   spdlog::flush_on(log_level);
+  if (!rotation_error.empty()) {
+    spdlog::warn("Failed to rotate log history; preserving existing log: {}", rotation_error);
+  }
 
   if (!log_error.empty()) {
     if (console_only) {
@@ -185,6 +201,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
       {"HavenZoomHooks", {InstallHavenZoomHooks, &cfg.installHavenZoomHooks}},
+      {"HavenHistoryHooks", {InstallHavenHistoryHooks, &cfg.installHavenHistoryHooks}},
       {"NavigationOrbitHooks", {InstallNavigationOrbitHooks, &cfg.installNavigationOrbitHooks}},
       {"GalaxySelection", {InstallGalaxySelectionHooks, &cfg.installZoomHooks}},
       {"BuffFixHooks", {InstallBuffFixHooks, &cfg.installBuffFixHooks}},
@@ -224,6 +241,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"GalaxyLabels", {InstallGalaxyLabels, &cfg.installZoomHooks}},
       // Retain the existing debug patch key; this installer owns both settings surfaces.
       {"ActionQueueRecovery", {InstallActionQueueRecovery, &cfg.installActionQueueRecoveryHooks}},
+      {"ThinQueueProtection", {InstallThinQueueProtection, &cfg.installThinQueueProtectionHooks}},
       {"QueueAddressGuard", {InstallQueueAddressGuard, &cfg.installQueueAddressGuardHooks}},
       {"ModConfirmationSettings", {InstallNativeSettings, &cfg.installNativeSettings}},
   };
@@ -250,7 +268,6 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   InstallDevConsole();
   InstallGameErrorProbe();
 #endif
-  InstallThinQueueProtection();
 
   spdlog::info("");
 

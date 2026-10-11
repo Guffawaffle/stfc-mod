@@ -35,7 +35,7 @@ namespace Control
   constexpr bool use_scopely_hotkeys = false;
   constexpr const char* keyboard_layout_mode = "physical";
   constexpr bool queue_enabled       = true;
-  constexpr bool faster_queue_recovery = false;
+  constexpr bool faster_queue_recovery = true;
   constexpr bool thin_queue_protection = true;
   constexpr bool queue_address_guard = true;
   constexpr auto select_timer        = 500;
@@ -106,6 +106,7 @@ namespace Patches
   constexpr bool testpatches                = true;
   constexpr bool toastbannerhooks           = true;
   constexpr bool actionqueuerecoveryhooks   = true;
+  constexpr bool thinqueueprotectionhooks   = true;
   constexpr bool queueaddressguardhooks     = true;
   constexpr bool uiscalehooks               = true;
   constexpr bool zoomhooks                  = true;
@@ -120,6 +121,7 @@ namespace Patches
   constexpr bool officersorthooks           = true;  // restore Below Deck Ability sort option
   constexpr bool pinnedshiphooks            = true;  // pin configured ships to front of fleet dock sort
   constexpr bool shiptechindicatorhooks     = true;  // show equipped FT/CT art in the Swap Ship bar
+  constexpr bool havenhistoryhooks          = true;
   constexpr bool missionhudtweakshooks      = true;
   constexpr bool galacticanomalytimerhooks  = true;
   constexpr bool loadingtiphooks            = true;
@@ -260,9 +262,10 @@ namespace Sync
   constexpr const char* nextspocksclub_url = "https://next.spocks.club/sync/ingress/";
 
   constexpr bool        away_assignments   = true;
-  constexpr bool        battlelogs         = true;
+  constexpr bool        battlelogs         = false;
   constexpr bool        buffs              = true;
   constexpr bool        buildings          = true;
+  constexpr bool        haven              = true;
   constexpr bool        inventory          = true;
   constexpr bool        jobs               = true;
   constexpr bool        missions           = true;
@@ -296,6 +299,7 @@ namespace UI
   constexpr bool        show_ship_tech_indicator_backgrounds = false;
   constexpr const char* daily_bulk_claim_factions   = "";
   constexpr bool        daily_bulk_claim_toggle_default_on = false;
+  constexpr bool        only_show_first_popup              = false;
   constexpr bool        disable_escape_exit                = true;
   // Maximum gap between Escape presses that opens the exit prompt.
   // 0 disables double-tap and preserves the existing blocked behavior.
@@ -312,6 +316,7 @@ namespace UI
   constexpr bool        focus_search                = true;
   constexpr bool        format_cargo_values         = true;
   constexpr bool        officer_sort                = true;
+  constexpr bool        reverse_haven_history       = true;
   constexpr const char* disabled_banner_types       = "";
   constexpr const char* hud_field_training          = "auto";
   constexpr const char* hud_missions                = "auto";
