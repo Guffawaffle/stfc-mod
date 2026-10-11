@@ -379,6 +379,7 @@ uiscalehooks = true
 zoomhooks = true
 # Install recovery hooks independently of the Faster Kirshara feature setting.
 actionqueuerecoveryhooks = true
+thinqueueprotectionhooks = true
 queueaddressguardhooks = true
 
 # Compatibility switch for Haven camera hooks. Use graphics.haven_zoom = 0.0 for native zoom range;

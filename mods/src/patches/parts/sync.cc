@@ -2574,9 +2574,15 @@ static void HandleEntityGroup(EntityGroup* entity_group)
         // workers receive only an owned string, never Unity/IL2CPP objects.
         std::string local_user_id;
         static auto manager_parent = UserProfileManager::get_class_helper().GetParent("MonoSingleton`1");
-        static const auto* manager_instance = method_contract::Resolve(
-            manager_parent.get_cls(), "get_Instance", true,
-            "Digit.Prime.PlayerProfile.UserProfileManager", {});
+        // Closed generic singleton getters are inflated; the detour resolver
+        // intentionally rejects them. Managed invocation supports this getter.
+        static const auto* manager_instance = []() -> const MethodInfo* {
+          const auto* method = manager_parent.GetMethodInfo("get_Instance", 0);
+          return method && !method->is_generic && (method->flags & METHOD_ATTRIBUTE_STATIC)
+                         && method->parameters_count == 0
+                         && method_contract::Type(method->return_type, "Digit.Prime.PlayerProfile.UserProfileManager")
+                     ? method : nullptr;
+        }();
         static const auto* local_profile = method_contract::Resolve(
             UserProfileManager::get_class_helper().get_cls(), "GetLocalUserProfile", false,
             "Digit.PrimeServer.Models.UserProfile", {});
