@@ -7,6 +7,7 @@
 #include <il2cpp-tabledefs.h>
 #include <il2cpp/il2cpp-functions.h>
 #include <il2cpp/il2cpp_helper.h>
+#include <il2cpp/method_contract.h>
 #include <prime/FleetPlayerData.h>
 #include <prime/GameObject.h>
 #include <prime/Transform.h>
@@ -42,7 +43,8 @@ struct OpcEtaLogState {
 };
 
 struct OpcEtaRenderState {
-  uint64_t    fleet_id = 0;
+  uint64_t    fleet_id       = 0;
+  int64_t     computed_at_ms = 0;
   std::string computed_display;
   std::string computed_card_display;
   std::string rendered_display;
@@ -72,8 +74,6 @@ struct UiVector2 {
 
 std::array<OpcEtaLogState, kFleetSlotCount>    s_last_opc_eta_log_states{};
 std::array<OpcEtaRenderState, kFleetSlotCount> s_opc_eta_render_states{};
-std::array<uint64_t, kFleetSlotCount>          s_last_opc_eta_refresh_fleet_ids{};
-std::array<int64_t, kFleetSlotCount>           s_last_opc_eta_refresh_ms{};
 std::array<uint8_t, kFleetSlotCount>           s_opc_highlight_setup_failures{};
 std::array<int64_t, kFleetSlotCount>           s_opc_highlight_retry_at_ms{};
 std::array<uint64_t, kFleetSlotCount>          s_opc_highlight_retry_fleet_ids{};
@@ -159,8 +159,8 @@ FleetOpcStatus read_opc_status(FleetPlayerData* fleet, int slot, uint64_t fleet_
   status.rate_known      = std::isfinite(status.rate_per_second) && status.rate_per_second > 0.0;
 
   if (mining_data) {
-    const auto node_current = mining_data->CurrentValue;
-    const auto node_max     = mining_data->MaxValue;
+    const auto node_current = mining_data->AmountMined;
+    const auto node_max     = mining_data->Amount;
     status.node_known =
         std::isfinite(node_current) && std::isfinite(node_max) && node_current >= 0.0 && node_max >= node_current;
     if (status.node_known) {
@@ -273,20 +273,6 @@ bool invoke_void(const MethodInfo* method, void* target, void** args, const char
     return false;
   }
   return true;
-}
-
-const MethodInfo* resolve_instance_void(IL2CppClassHelper& helper, const char* name, int parameter_count)
-{
-  auto* method = helper.GetMethodInfoSpecial(
-      name, [parameter_count](int count, const Il2CppType**) { return count == parameter_count; });
-  const bool valid = method && !(method->flags & METHOD_ATTRIBUTE_STATIC) && method->methodPointer
-                     && method->return_type && method->return_type->type == IL2CPP_TYPE_VOID;
-  if (!valid) {
-    auto* cls = helper.get_cls();
-    spdlog::warn("[OpcIndicators] {}.{}.{}: expected instance Void with {} arguments; method/native pointer or signature unavailable",
-                   cls ? cls->namespaze : "", cls ? cls->name : "<missing class>", name, parameter_count);
-  }
-  return valid ? method : nullptr;
 }
 
 void destroy_game_object(GameObject* game_object)
@@ -1170,29 +1156,8 @@ void reset_opc_eta_slot(int slot)
   if (slot < 0 || slot >= kFleetSlotCount) {
     return;
   }
-  s_opc_eta_render_states[slot]          = {};
-  s_last_opc_eta_log_states[slot]        = {};
-  s_last_opc_eta_refresh_fleet_ids[slot] = 0;
-  s_last_opc_eta_refresh_ms[slot]        = 0;
-}
-
-bool opc_eta_refresh_due(FleetPlayerData* fleet, bool force)
-{
-  const auto slot = fleet ? fleet->Index : -1;
-  if (slot < 0 || slot >= kFleetSlotCount) {
-    return true;
-  }
-
-  const auto fleet_id = fleet->Id;
-  const auto now_ms   = steady_now_milliseconds();
-  if (!force && s_last_opc_eta_refresh_fleet_ids[slot] == fleet_id && s_last_opc_eta_refresh_ms[slot] != 0
-      && now_ms - s_last_opc_eta_refresh_ms[slot] < kOpcEtaRefreshMs) {
-    return false;
-  }
-
-  s_last_opc_eta_refresh_fleet_ids[slot] = fleet_id;
-  s_last_opc_eta_refresh_ms[slot]        = now_ms;
-  return true;
+  s_opc_eta_render_states[slot]   = {};
+  s_last_opc_eta_log_states[slot] = {};
 }
 
 void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform* known_label_anchor = nullptr)
@@ -1227,17 +1192,20 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
   render.fleet_state       = fleet_state;
   render.fleet_state_known = true;
 
-  const bool refresh_due  = opc_eta_refresh_due(fleet, fleet_changed || state_changed);
-  auto       display      = render.computed_display;
-  auto       card_display = render.computed_card_display;
-  auto       safe_on_node = render.computed_safe;
-  if (refresh_due) {
+  const auto now_ms = steady_now_milliseconds();
+  if (fleet_changed || state_changed || render.computed_at_ms == 0
+      || now_ms - render.computed_at_ms >= kOpcEtaRefreshMs) {
     const auto status = read_opc_status(fleet, slot, render.fleet_id, fleet_state);
-    display           = Config::Get().fleet_hud_opc_eta ? format_opc_eta(status) : std::string{};
-    card_display      = display.empty() ? std::string{} : format_opc_card_display(status);
-    safe_on_node      = status.safe_on_node;
-    log_opc_eta(fleet, status, display);
+    // Computation belongs to the fleet cache even when its UI is not ready yet.
+    render.computed_display      = Config::Get().fleet_hud_opc_eta ? format_opc_eta(status) : std::string{};
+    render.computed_card_display = render.computed_display.empty() ? std::string{} : format_opc_card_display(status);
+    render.computed_safe         = status.safe_on_node;
+    render.computed_at_ms        = now_ms;
+    log_opc_eta(fleet, status, render.computed_display);
   }
+  const auto& display      = render.computed_display;
+  const auto& card_display = render.computed_card_display;
+  const bool  safe_on_node = render.computed_safe;
 
   if (display.empty()) {
     hide_opc_eta(label_anchor);
@@ -1258,16 +1226,10 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     update_opc_card_label(ui_component, fleet, card_display);
   }
   if (!label_anchor) {
-    render.computed_display      = display;
-    render.computed_card_display = card_display;
-    render.computed_safe         = safe_on_node;
     return;
   }
 
   if (render.setup_retry_at_ms > steady_now_milliseconds()) {
-    render.computed_display      = display;
-    render.computed_card_display = card_display;
-    render.computed_safe         = safe_on_node;
     return;
   }
 
@@ -1292,9 +1254,6 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
   auto* background_transform = component_transform(background_image);
   if (!background || !background_image || !background_transform || !label || !label_transform || !label_object) {
     destroy_opc_eta(label_anchor);
-    render.computed_display      = display;
-    render.computed_card_display = card_display;
-    render.computed_safe         = safe_on_node;
     render.layout_initialized    = false;
     schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
     return;
@@ -1307,9 +1266,6 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     render.selected                  = selected;
     if (!render.layout_initialized) {
       destroy_opc_eta(label_anchor);
-      render.computed_display      = display;
-      render.computed_card_display = card_display;
-      render.computed_safe         = safe_on_node;
       schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
       return;
     }
@@ -1322,18 +1278,12 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     void*       args[1]    = {il2cpp_string_new(desired.c_str())};
     if (!set_text || !invoke_void(set_text, label, args, "TMP_Text.set_text")) {
       destroy_opc_eta(label_anchor);
-      render.computed_display      = display;
-      render.computed_card_display = card_display;
-      render.computed_safe         = safe_on_node;
       render.layout_initialized    = false;
       schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
       return;
     }
   }
 
-  render.computed_display      = display;
-  render.computed_card_display = card_display;
-  render.computed_safe         = safe_on_node;
   render.rendered_display      = display;
   render.rendered_safe_on_node = safe_on_node;
   clear_ui_retry(render.setup_failures, render.setup_retry_at_ms);
@@ -1432,9 +1382,30 @@ void FleetbarFlagWidget_ClearWidgetData_Hook(auto original, void* self)
   }
 }
 
-void FleetLocalViewController_BindDataContext_Hook(auto original, void* self, void* provider, void* data_context)
+// Native lifecycle ticks can arrive more frequently than our one-second cargo
+// sample. Cache only address tokens, never managed objects, to limit UI work.
+struct OpcLifecycleRefreshState { uintptr_t component_id = 0; int64_t refreshed_ms = 0; };
+std::array<OpcLifecycleRefreshState, kFleetSlotCount * 2> s_lifecycle_refresh_states{};
+
+bool opc_lifecycle_refresh_due(void* self, int64_t now_ms)
 {
-  original(self, provider, data_context);
+  const auto component_id = reinterpret_cast<uintptr_t>(self);
+  if (!component_id) return false;
+  for (auto& entry : s_lifecycle_refresh_states) {
+    if (entry.component_id != component_id) continue;
+    if (now_ms >= entry.refreshed_ms && now_ms - entry.refreshed_ms < kOpcEtaRefreshMs) return false;
+    entry.refreshed_ms = now_ms;
+    return true;
+  }
+  // More views than cache slots still refresh; eviction only loses throttling.
+  auto oldest = std::min_element(s_lifecycle_refresh_states.begin(), s_lifecycle_refresh_states.end(),
+                                [](const auto& a, const auto& b) { return a.refreshed_ms < b.refreshed_ms; });
+  *oldest = {component_id, now_ms};
+  return true;
+}
+
+void refresh_fleet_local_indicators(void* self, bool reset_eta)
+{
   if (!(s_highlight_enabled && Config::Get().highlight_opc_fleets)
       && !(s_eta_enabled && Config::Get().fleet_hud_opc_eta)) return;
 
@@ -1446,9 +1417,27 @@ void FleetLocalViewController_BindDataContext_Hook(auto original, void* self, vo
   }
   const bool panel_component = fleet_panel_controller(self) == self;
   if (s_eta_enabled && Config::Get().fleet_hud_opc_eta && (label_anchor || panel_component)) {
-    reset_opc_eta_slot(fleet ? fleet->Index : -1);
+    if (reset_eta) reset_opc_eta_slot(fleet ? fleet->Index : -1);
     update_opc_eta_label(self, fleet, label_anchor);
   }
+}
+
+void FleetLocalViewController_BindDataContext_Hook(auto original, void* self, void* provider, void* data_context)
+{
+  original(self, provider, data_context);
+  // A recycled view may bind again within the lifecycle refresh interval.
+  for (auto& entry : s_lifecycle_refresh_states)
+    if (entry.component_id == reinterpret_cast<uintptr_t>(self)) entry = {};
+  refresh_fleet_local_indicators(self, true);
+}
+
+void FleetLocalViewController_LifecycleTick_Hook(auto original, void* self)
+{
+  original(self);
+  if (!(s_highlight_enabled && Config::Get().highlight_opc_fleets)
+      && !(s_eta_enabled && Config::Get().fleet_hud_opc_eta)) return;
+  if (opc_lifecycle_refresh_due(self, steady_now_milliseconds()))
+    refresh_fleet_local_indicators(self, false);
 }
 
 void FleetLocalViewController_OnCurrentCargoReactiveEvent_Hook(auto original, void* self, int32_t dirty_flags)
@@ -1482,11 +1471,15 @@ void InstallOpcIndicatorHooks()
 
 
   auto fleet_local_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Ships", "FleetLocalViewController");
-  const auto* bind_data_context =
-      fleet_local_helper.isValidHelper() ? resolve_instance_void(fleet_local_helper, "BindDataContext", 2) : nullptr;
-  const auto* cargo_updated = fleet_local_helper.isValidHelper()
-                                  ? resolve_instance_void(fleet_local_helper, "OnCurrentCargoReactiveEvent", 1)
-                                  : nullptr;
+  // Both features consume these callbacks. Resolve their managed contracts at
+  // startup; native addresses may move between client builds.
+  const auto* bind_data_context = method_contract::Resolve(
+      fleet_local_helper.get_cls(), "BindDataContext", false, "System.Void",
+      {"Digit.Client.UI.IDataContextProvider", "System.Object"});
+  const auto* cargo_updated = method_contract::Resolve(
+      fleet_local_helper.get_cls(), "OnCurrentCargoReactiveEvent", false, "System.Void", {"System.Int32"});
+  const auto* lifecycle_tick = method_contract::Resolve(
+      fleet_local_helper.get_cls(), "LifecycleTick", false, "System.Void", {});
   if (!fleet_local_helper.isValidHelper()) {
     ErrorMsg::MissingHelper("Digit.Prime.Ships", "FleetLocalViewController");
   } else {
@@ -1506,8 +1499,8 @@ void InstallOpcIndicatorHooks()
     if (!state_helper.isValidHelper()) {
       ErrorMsg::MissingHelper("Digit.Prime.HUD", "FleetStateWidget");
     } else {
-      state_set   = resolve_instance_void(state_helper, "SetWidgetData", 0);
-      state_clear = resolve_instance_void(state_helper, "ClearWidgetData", 0);
+      state_set   = method_contract::Resolve(state_helper.get_cls(), "SetWidgetData", false, "System.Void", {});
+      state_clear = method_contract::Resolve(state_helper.get_cls(), "ClearWidgetData", false, "System.Void", {});
       if (!state_set) {
         ErrorMsg::MissingMethod("FleetStateWidget", "SetWidgetData");
       }
@@ -1524,8 +1517,8 @@ void InstallOpcIndicatorHooks()
     if (!flag_helper.isValidHelper()) {
       ErrorMsg::MissingHelper("Digit.Prime.HUD", "FleetbarFlagWidget");
     } else {
-      flag_set   = resolve_instance_void(flag_helper, "SetWidgetData", 0);
-      flag_clear = resolve_instance_void(flag_helper, "ClearWidgetData", 0);
+      flag_set   = method_contract::Resolve(flag_helper.get_cls(), "SetWidgetData", false, "System.Void", {});
+      flag_clear = method_contract::Resolve(flag_helper.get_cls(), "ClearWidgetData", false, "System.Void", {});
       if (!flag_set) {
         ErrorMsg::MissingMethod("FleetbarFlagWidget", "SetWidgetData");
       }
@@ -1598,6 +1591,17 @@ void InstallOpcIndicatorHooks()
   s_highlight_enabled = installed && highlight_ready;
   if (!installed)
     spdlog::warn("[OpcIndicators] disabled: native hook installation failed");
+
+  // The lifecycle refresh supplements the original event hooks. Its absence or
+  // installation failure must not disable those existing feature paths.
+  if (s_eta_enabled || s_highlight_enabled) {
+    const std::array existing{bind_data_context, cargo_updated, state_set, state_clear, flag_set, flag_clear};
+    const bool overlaps = lifecycle_tick && std::any_of(existing.begin(), existing.end(), [lifecycle_tick](auto* method) {
+      return method && method->methodPointer == lifecycle_tick->methodPointer;
+    });
+    if (lifecycle_tick && !overlaps)
+      SPUD_STATIC_DETOUR(lifecycle_tick->methodPointer, FleetLocalViewController_LifecycleTick_Hook);
+  }
 }
 
 bool OpcHighlightAvailable() { return s_highlight_enabled; }

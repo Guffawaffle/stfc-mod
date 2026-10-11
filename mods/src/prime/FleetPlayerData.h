@@ -5,7 +5,7 @@
 #include "BattleTargetData.h"
 #include "CargoHoldData.h"
 #include "HullSpec.h"
-#include "MiningSlot.h"
+#include "IMiningSlot.h"
 #include "RecallRequirement.h"
 #include "CanRepairRequirement.h"
 
@@ -47,7 +47,7 @@ public:
   __declspec(property(get = __get_Id)) uint64_t Id;
   __declspec(property(get = __get_Hull)) HullSpec* Hull;
   __declspec(property(get = __get_Index)) int Index;
-  __declspec(property(get = __get_MiningData)) MiningSlot* MiningData;
+  __declspec(property(get = __get_MiningData)) IMiningSlot* MiningData;
   __declspec(property(get = __get_CargoHoldData)) ::CargoHoldData* CargoHoldData;
   __declspec(property(get = __get_Address)) void* Address;
   __declspec(property(get = __get_Level)) int64_t Level;
@@ -73,10 +73,10 @@ public:
     auto*       value    = property.Get<int>(this);
     return value ? *value : -1;
   }
-  MiningSlot* __get_MiningData()
+  IMiningSlot* __get_MiningData()
   {
     static auto property = get_class_helper().GetProperty("MiningData");
-    return property.GetRaw<MiningSlot>(this);
+    return property.GetRaw<IMiningSlot>(this);
   }
   ::CargoHoldData* __get_CargoHoldData()
   {
