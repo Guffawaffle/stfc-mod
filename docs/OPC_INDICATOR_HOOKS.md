@@ -53,6 +53,18 @@ UI work is limited to once per second per controller; existing cargo caching and
 render change detection remain in use. Rebinding clears the controller's cadence
 entry, and disabled runtime features preserve the native tick without extra UI work.
 
+The ETA render cache owns both the computed values and their refresh timestamp.
+Computation is saved before UI setup, so missing anchors and failed setup do not
+discard the latest result. The per-controller tick cadence limits UI traversal;
+the per-fleet computation cadence shares results between views of the same fleet.
+
+UI setup backoff remains separate: it limits repeated allocation and configuration
+attempts after failures, up to 30 seconds. It does not schedule callbacks or solve
+late model delivery. Cargo events still invalidate shared samples immediately;
+bind and widget callbacks refresh after native layout changes, and clear callbacks
+remove indicators from recycled views. These responsibilities remain useful with
+the supplemental lifecycle tick.
+
 ## Responsibility boundaries
 
 Settings adapters own user choices, persistence and availability reporting.

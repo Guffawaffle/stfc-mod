@@ -43,7 +43,8 @@ struct OpcEtaLogState {
 };
 
 struct OpcEtaRenderState {
-  uint64_t    fleet_id = 0;
+  uint64_t    fleet_id       = 0;
+  int64_t     computed_at_ms = 0;
   std::string computed_display;
   std::string computed_card_display;
   std::string rendered_display;
@@ -73,8 +74,6 @@ struct UiVector2 {
 
 std::array<OpcEtaLogState, kFleetSlotCount>    s_last_opc_eta_log_states{};
 std::array<OpcEtaRenderState, kFleetSlotCount> s_opc_eta_render_states{};
-std::array<uint64_t, kFleetSlotCount>          s_last_opc_eta_refresh_fleet_ids{};
-std::array<int64_t, kFleetSlotCount>           s_last_opc_eta_refresh_ms{};
 std::array<uint8_t, kFleetSlotCount>           s_opc_highlight_setup_failures{};
 std::array<int64_t, kFleetSlotCount>           s_opc_highlight_retry_at_ms{};
 std::array<uint64_t, kFleetSlotCount>          s_opc_highlight_retry_fleet_ids{};
@@ -1157,29 +1156,8 @@ void reset_opc_eta_slot(int slot)
   if (slot < 0 || slot >= kFleetSlotCount) {
     return;
   }
-  s_opc_eta_render_states[slot]          = {};
-  s_last_opc_eta_log_states[slot]        = {};
-  s_last_opc_eta_refresh_fleet_ids[slot] = 0;
-  s_last_opc_eta_refresh_ms[slot]        = 0;
-}
-
-bool opc_eta_refresh_due(FleetPlayerData* fleet, bool force)
-{
-  const auto slot = fleet ? fleet->Index : -1;
-  if (slot < 0 || slot >= kFleetSlotCount) {
-    return true;
-  }
-
-  const auto fleet_id = fleet->Id;
-  const auto now_ms   = steady_now_milliseconds();
-  if (!force && s_last_opc_eta_refresh_fleet_ids[slot] == fleet_id && s_last_opc_eta_refresh_ms[slot] != 0
-      && now_ms - s_last_opc_eta_refresh_ms[slot] < kOpcEtaRefreshMs) {
-    return false;
-  }
-
-  s_last_opc_eta_refresh_fleet_ids[slot] = fleet_id;
-  s_last_opc_eta_refresh_ms[slot]        = now_ms;
-  return true;
+  s_opc_eta_render_states[slot]   = {};
+  s_last_opc_eta_log_states[slot] = {};
 }
 
 void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform* known_label_anchor = nullptr)
@@ -1214,17 +1192,20 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
   render.fleet_state       = fleet_state;
   render.fleet_state_known = true;
 
-  const bool refresh_due  = opc_eta_refresh_due(fleet, fleet_changed || state_changed);
-  auto       display      = render.computed_display;
-  auto       card_display = render.computed_card_display;
-  auto       safe_on_node = render.computed_safe;
-  if (refresh_due) {
+  const auto now_ms = steady_now_milliseconds();
+  if (fleet_changed || state_changed || render.computed_at_ms == 0
+      || now_ms - render.computed_at_ms >= kOpcEtaRefreshMs) {
     const auto status = read_opc_status(fleet, slot, render.fleet_id, fleet_state);
-    display           = Config::Get().fleet_hud_opc_eta ? format_opc_eta(status) : std::string{};
-    card_display      = display.empty() ? std::string{} : format_opc_card_display(status);
-    safe_on_node      = status.safe_on_node;
-    log_opc_eta(fleet, status, display);
+    // Computation belongs to the fleet cache even when its UI is not ready yet.
+    render.computed_display      = Config::Get().fleet_hud_opc_eta ? format_opc_eta(status) : std::string{};
+    render.computed_card_display = render.computed_display.empty() ? std::string{} : format_opc_card_display(status);
+    render.computed_safe         = status.safe_on_node;
+    render.computed_at_ms        = now_ms;
+    log_opc_eta(fleet, status, render.computed_display);
   }
+  const auto& display      = render.computed_display;
+  const auto& card_display = render.computed_card_display;
+  const bool  safe_on_node = render.computed_safe;
 
   if (display.empty()) {
     hide_opc_eta(label_anchor);
@@ -1245,16 +1226,10 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     update_opc_card_label(ui_component, fleet, card_display);
   }
   if (!label_anchor) {
-    render.computed_display      = display;
-    render.computed_card_display = card_display;
-    render.computed_safe         = safe_on_node;
     return;
   }
 
   if (render.setup_retry_at_ms > steady_now_milliseconds()) {
-    render.computed_display      = display;
-    render.computed_card_display = card_display;
-    render.computed_safe         = safe_on_node;
     return;
   }
 
@@ -1279,9 +1254,6 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
   auto* background_transform = component_transform(background_image);
   if (!background || !background_image || !background_transform || !label || !label_transform || !label_object) {
     destroy_opc_eta(label_anchor);
-    render.computed_display      = display;
-    render.computed_card_display = card_display;
-    render.computed_safe         = safe_on_node;
     render.layout_initialized    = false;
     schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
     return;
@@ -1294,9 +1266,6 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     render.selected                  = selected;
     if (!render.layout_initialized) {
       destroy_opc_eta(label_anchor);
-      render.computed_display      = display;
-      render.computed_card_display = card_display;
-      render.computed_safe         = safe_on_node;
       schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
       return;
     }
@@ -1309,18 +1278,12 @@ void update_opc_eta_label(void* ui_component, FleetPlayerData* fleet, Transform*
     void*       args[1]    = {il2cpp_string_new(desired.c_str())};
     if (!set_text || !invoke_void(set_text, label, args, "TMP_Text.set_text")) {
       destroy_opc_eta(label_anchor);
-      render.computed_display      = display;
-      render.computed_card_display = card_display;
-      render.computed_safe         = safe_on_node;
       render.layout_initialized    = false;
       schedule_ui_retry(render.setup_failures, render.setup_retry_at_ms);
       return;
     }
   }
 
-  render.computed_display      = display;
-  render.computed_card_display = card_display;
-  render.computed_safe         = safe_on_node;
   render.rendered_display      = display;
   render.rendered_safe_on_node = safe_on_node;
   clear_ui_retry(render.setup_failures, render.setup_retry_at_ms);
