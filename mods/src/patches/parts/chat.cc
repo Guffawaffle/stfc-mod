@@ -24,8 +24,8 @@ auto GetChatTabIndices()
 
 void DisableButtons(FullScreenChatViewController* _this)
 {
-  const auto disableGalaxyChat = Config::Get().disable_galaxy_chat;
-  const auto disableVeilChat = Config::Get().disable_veil_chat;
+  const auto disableGalaxyChat = Config::Get().ui.disable_galaxy_chat;
+  const auto disableVeilChat = Config::Get().ui.disable_veil_chat;
 
   if (!(disableGalaxyChat || disableVeilChat))
     return;
@@ -69,7 +69,7 @@ void FullScreenChatViewController_AboutToShow(auto original, FullScreenChatViewC
 void FullScreenChatViewController_OnDidChangeSelectedTab(auto original, FullScreenChatViewController* _this, int32_t tabIdx, void* tab)
 {
   const auto [cadetChatIdx, galaxyChatIdx, veilChatIdx, allianceChatIdx] = GetChatTabIndices();
-  if ((tabIdx == galaxyChatIdx && Config::Get().disable_galaxy_chat) || (tabIdx == veilChatIdx && Config::Get().disable_veil_chat)) {
+  if ((tabIdx == galaxyChatIdx && Config::Get().ui.disable_galaxy_chat) || (tabIdx == veilChatIdx && Config::Get().ui.disable_veil_chat)) {
     // don't show disabled chats if the associated tab was selected
     return;
   }
@@ -81,7 +81,7 @@ void ChatPreviewController_AboutToShow(auto original, ChatPreviewController* _th
 {
   original(_this);
 
-  if (Config::Get().disable_galaxy_chat || Config::Get().disable_veil_chat) {
+  if (Config::Get().ui.disable_galaxy_chat || Config::Get().ui.disable_veil_chat) {
     const auto allianceChatIdx = std::get<3>(GetChatTabIndices());
     _this->SetFocusedPanel(ChatChannelCategory::Alliance);
 
@@ -93,8 +93,8 @@ void ChatPreviewController_AboutToShow(auto original, ChatPreviewController* _th
 
 void ChatPreviewController_OnPanelFocused(auto original, ChatPreviewController* _this, int32_t index)
 {
-  static const auto disableGalaxyChat = Config::Get().disable_galaxy_chat;
-  static const auto disableVeilChat   = Config::Get().disable_veil_chat;
+  static const auto disableGalaxyChat = Config::Get().ui.disable_galaxy_chat;
+  static const auto disableVeilChat   = Config::Get().ui.disable_veil_chat;
 
   if (!(disableGalaxyChat || disableVeilChat)) {
     original(_this, index);
@@ -118,7 +118,7 @@ void ChatPreviewController_OnPanelFocused(auto original, ChatPreviewController* 
 
 void ChatPreviewController_OnGlobalMessageReceived(auto original, ChatPreviewController* _this, void* message)
 {
-  if (Config::Get().disable_galaxy_chat)
+  if (Config::Get().ui.disable_galaxy_chat)
     return;
 
   original(_this, message);
@@ -126,7 +126,7 @@ void ChatPreviewController_OnGlobalMessageReceived(auto original, ChatPreviewCon
 
 void ChatPreviewController_OnRegionalMessageReceived(auto original, ChatPreviewController* _this, void* message)
 {
-  if (Config::Get().disable_veil_chat)
+  if (Config::Get().ui.disable_veil_chat)
     return;
 
   original(_this, message);
