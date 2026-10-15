@@ -235,7 +235,9 @@ namespace
     if (!Native().ready)
       return false;
     for (auto* widget : ObjectFinder<MiningObjectViewerWidget>::GetAll()) {
-      if (!Visible(widget) || widget->_occupiedState == NotOccupied || !Settled(widget))
+      // Own miners use the native fleet controls rather than a prescan/cargo popup.
+      // Do not start a cycle or its load-recovery timer for them.
+      if (!Visible(widget) || widget->_occupiedState != OtherPlayerOccupied || !Settled(widget))
         continue;
       auto*      context = Object(widget, Native().viewerContext);
       auto*      node    = Object(context, Native().contextPoi);

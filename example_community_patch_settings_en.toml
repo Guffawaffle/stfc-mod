@@ -537,7 +537,7 @@ action_queue_clear = "CTRL-C"
 action_secondary = "TAB|MOUSE4"
 
 # V or Mouse2
-# On occupied mining-node popups, cycle node > ship > cargo > node.
+# On mining nodes occupied by another player, cycle node > ship > cargo > node.
 # Other ship popups retain the ship/cargo toggle.
 action_view = "V|MOUSE2"
 
@@ -964,7 +964,7 @@ disable_preview_recall = false
 # Live in Mod Settings > Previews & Cargo.
 keep_base_card_open = false
 
-# On occupied mining nodes, initially open the occupying ship instead of the node.
+# On mining nodes occupied by another player, initially open the ship instead of the node.
 # Uses your automatic cargo and player-cargo preferences for that initial view.
 # View still cycles node > ship > cargo > node; empty nodes keep their normal preview.
 # Live in Mod Settings > Previews & Cargo: Show occupying ship first.
