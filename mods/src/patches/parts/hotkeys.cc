@@ -1,5 +1,6 @@
 #include "config.h"
 #include "patches/runtime_config.h"
+#include "patches/mining_preview.h"
 #include "settings/preview_settings.h"
 #include "settings/shortcut_settings.h"
 #include "settings/warp_mode.h"
@@ -577,6 +578,7 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
   const bool shortcutOwnedInput = Key::shortcutCaptureActive || Key::shortcutPopupActive || Key::settingsSearchActive;
   dispatch_screen_manager_update_callbacks();
+  mining_preview::Update();
   // Capture owns the key through release. Do not run the native shortcut path
   // or the console on this frame; UI mouse navigation continues via EventSystem.
   if (shortcutOwnedInput || Key::shortcutCaptureActive || Key::shortcutPopupActive || Key::settingsSearchActive) {
@@ -1101,7 +1103,9 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 
     DailyFactionBulkClaimUpdate();
 
-    if (MapKey::IsDown(GameFunction::ActionView)) {
+    if (MapKey::IsDown(GameFunction::ActionView) && mining_preview::Cycle()) {
+      show_info_pending = 0;
+    } else if (MapKey::IsDown(GameFunction::ActionView)) {
       auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAll();
 
       for (auto& pre_scan_widget : all_pre_scan_widgets) {
@@ -1560,7 +1564,7 @@ void InitializeActions_Hook(auto original, void* _this)
 
 bool CheckShowCargo(RewardsButtonWidget* widget)
 {
-  if (!widget || !Config::Get().show_cargo_default) {
+  if (!widget || !Config::Get().show_cargo_default || mining_preview::SuppressAutomaticCargo(widget)) {
     return false;
   }
 

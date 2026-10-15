@@ -537,6 +537,8 @@ action_queue_clear = "CTRL-C"
 action_secondary = "TAB|MOUSE4"
 
 # V or Mouse2
+# On occupied mining-node popups, cycle node > ship > cargo > node.
+# Other ship popups retain the ship/cargo toggle.
 action_view = "V|MOUSE2"
 
 # Requires Kir'Shara artifact
