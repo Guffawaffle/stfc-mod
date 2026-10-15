@@ -1,13 +1,15 @@
-// disable_galaxy_chat and disable_veil_chat: greys out those tabs in full-screen chat, keeps the chat preview off
-// them, and drops their messages from the preview.
+// Chat: the shortcuts that open it and switch channel, and disable_galaxy_chat and disable_veil_chat, which grey
+// out those tabs in full-screen chat, keep the chat preview off them, and drop their messages from the preview.
 
 #include "config.h"
 #include "patches/patches.h"
+#include "patches/shortcuts.h"
 
-#include <prime/chat.h>
-#include <prime/ui.h>
+#include "prime/chat.h"
+#include "prime/ui.h"
 
-#include <spud/detour.h>
+#include <il2cpp/hook.h>
+#include <unity/tracker.h>
 
 namespace
 {
@@ -111,20 +113,57 @@ void ChatPreviewController_OnRegionalMessageReceived_Hook(auto original, ChatPre
   if (!Config::Get().ui.disable_veil_chat)
     original(_this, message);
 }
+
+void InstallChat()
+{
+  IL2CPP_HOOK(FullScreenChatViewController::Class::Method("AboutToShow"),
+              FullScreenChatViewController_AboutToShow_Hook);
+  IL2CPP_HOOK(FullScreenChatViewController::Class::Method("OnDidChangeSelectedTab"),
+              FullScreenChatViewController_OnDidChangeSelectedTab_Hook);
+  IL2CPP_HOOK(ChatPreviewController::Class::Method("AboutToShow"), ChatPreviewController_AboutToShow_Hook);
+  IL2CPP_HOOK(ChatPreviewController::Class::Method("OnPanelFocused"), ChatPreviewController_OnPanelFocused_Hook);
+  IL2CPP_HOOK(ChatPreviewController::Class::Method("OnGlobalMessageReceived"),
+              ChatPreviewController_OnGlobalMessageReceived_Hook);
+  IL2CPP_HOOK(ChatPreviewController::Class::Method("OnRegionalMessageReceived"),
+              ChatPreviewController_OnRegionalMessageReceived_Hook);
+}
 } // namespace
 
-void InstallChatPatches()
+void OpenChatShortcut()
 {
-  if (auto m = FullScreenChatViewController::Class::Method("AboutToShow"))
-    SPUD_STATIC_DETOUR(m.Pointer(), FullScreenChatViewController_AboutToShow_Hook);
-  if (auto m = FullScreenChatViewController::Class::Method("OnDidChangeSelectedTab"))
-    SPUD_STATIC_DETOUR(m.Pointer(), FullScreenChatViewController_OnDidChangeSelectedTab_Hook);
-  if (auto m = ChatPreviewController::Class::Method("AboutToShow"))
-    SPUD_STATIC_DETOUR(m.Pointer(), ChatPreviewController_AboutToShow_Hook);
-  if (auto m = ChatPreviewController::Class::Method("OnPanelFocused"))
-    SPUD_STATIC_DETOUR(m.Pointer(), ChatPreviewController_OnPanelFocused_Hook);
-  if (auto m = ChatPreviewController::Class::Method("OnGlobalMessageReceived"))
-    SPUD_STATIC_DETOUR(m.Pointer(), ChatPreviewController_OnGlobalMessageReceived_Hook);
-  if (auto m = ChatPreviewController::Class::Method("OnRegionalMessageReceived"))
-    SPUD_STATIC_DETOUR(m.Pointer(), ChatPreviewController_OnRegionalMessageReceived_Hook);
+  const bool side = Shortcut::IsDown(Action::kShowChatSide1) || Shortcut::IsDown(Action::kShowChatSide2);
+  if (!side && !Shortcut::IsDown(Action::kShowChat))
+    return;
+  auto* chat = ChatManager::Instance();
+  if (!chat)
+    return;
+
+  // With side chat already open, the shortcut focuses its input instead.
+  if (chat->IsSideChatOpen()) {
+    auto* view  = unity::Newest<FullScreenChatViewController>();
+    auto* list  = view ? view->messageList() : nullptr;
+    auto* input = list ? list->inputField() : nullptr;
+    if (input)
+      input->ActivateInputField();
+  } else {
+    chat->OpenChannel(ChatChannelCategory::Alliance, side ? ChatViewMode::Side : ChatViewMode::Fullscreen);
+  }
 }
+
+bool ChatChannelShortcuts()
+{
+  auto* chat = ChatManager::Instance();
+  if (!chat)
+    return false;
+  for (auto [shortcut, channel] : {std::pair{Action::kSelectChatGlobal, ChatChannelCategory::Global},
+                                   std::pair{Action::kSelectChatAlliance, ChatChannelCategory::Alliance},
+                                   std::pair{Action::kSelectChatPrivate, ChatChannelCategory::Private}}) {
+    if (Shortcut::IsDown(shortcut)) {
+      chat->OpenChannel(channel);
+      return true;
+    }
+  }
+  return false;
+}
+
+const Feature kChat{"Chat", &Config::Patches::chatpatches, InstallChat};

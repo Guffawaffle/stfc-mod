@@ -8,6 +8,7 @@
 // destroyed: static destructors at exit must not free state another thread is still using.
 
 #include "config.h"
+
 #include "prime/server.h"
 
 #include <nlohmann/json.hpp>
@@ -20,8 +21,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
-struct UserProfile;
 
 NLOHMANN_JSON_NAMESPACE_BEGIN
 template <> struct adl_serializer<SyncConfig::Type> {
@@ -119,9 +118,9 @@ void Queue(SyncConfig::Type type, const nlohmann::json& records, bool first_sync
 // Turns one server response into records. Its bytes are an entity group's payload.
 using Processor = void (*)(const std::string& bytes);
 // The processor for an entity group kind, or null when the mod does not sync it or no target wants it.
-Processor ProcessorFor(EntityGroup::Type kind);
+Processor ProcessorFor(EntityGroup::Kind kind);
 void      ProcessRealtimeSlot(const std::string& bytes);
-// Platform responses only, so not routed by EntityGroup::Type.
+// Platform responses only, so not routed by EntityGroup::Kind.
 void ProcessStoreOffers(const std::string& bytes);
 // The local player's own record from a UserProfiles response. `self` and `level` are read on the game thread when
 // the response arrives, since only the game thread may call into the game.

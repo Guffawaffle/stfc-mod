@@ -1,7 +1,6 @@
 // Uploads to sync targets: one worker thread, HTTP session and bounded queue per target.
 
 #include "patches/parts/sync/sync.h"
-
 #include "version.h"
 
 #include <cpr/cpr.h>

@@ -1,14 +1,15 @@
 #pragma once
 
-// Inventory, officer roster, and shop widgets.
+// The inventory, its use and purchase popups, and the shop and gift screens.
 
-#include "Hub.h"
-#include "ui.h"
+#include "prime/server.h"
+#include "prime/ui.h"
 
 #include <il2cpp/il2cpp.h>
 
 #include <cstdint>
 
+// The context of a use, purchase or donation popup.
 struct InventoryForPopup : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Inventories", "InventoryForPopup">;
 
@@ -28,6 +29,16 @@ struct InventoryUseRowWidget : Widget<InventoryForPopup> {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Inventories", "InventoryUseRowWidget">;
 };
 
+// The use popup, which also exchanges artifact shards.
+struct InventoryUsePopupViewController : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Inventories", "InventoryUsePopupViewController">;
+
+  // Only artifact bulk conversion uses this button, not the inventory entry button or single exchanges.
+  unity::Component* convertAllButton()
+  { return Field<"_convertAllButton", unity::Component*>(); }
+};
+
+// Also the base of the officer roster and the other inventory-style lists.
 struct InventoryListViewController : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Inventories", "InventoryListViewController">;
 
@@ -35,53 +46,70 @@ struct InventoryListViewController : il2cpp::Object {
   { return Field<"_inputField", InputFieldWidget*>(); }
   bool isActiveAndEnabled()
   { return Get<"isActiveAndEnabled", bool>(); }
-  CanvasController* canvasController()
-  { return GetCanvasControllerFromComponent(this); }
-};
-
-struct OfficerAssignmentViewController : il2cpp::Object {
-  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.OfficerAssignment", "OfficerAssignmentViewController">;
-
-  InputFieldWidget* inputField()
-  { return Field<"_inputField", InputFieldWidget*>(); }
-  GenericButtonWidget* officerPresetsButton()
-  { return Field<"_officerPresetsButton", GenericButtonWidget*>(); }
-  bool isActiveAndEnabled()
-  { return Get<"isActiveAndEnabled", bool>(); }
-  CanvasController* canvasController()
-  { return GetCanvasControllerFromComponent(this); }
 };
 
 struct Bundle : il2cpp::Object {
   using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimePlatform.Content", "Bundle">;
 };
 
+// A shop offer.
 struct BundleDataWidget : Widget<Bundle> {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Shop", "BundleDataWidget">;
 
-  enum ItemState : int32_t {
-    None               = 0,
-    Package            = 1,
-    Highlighted        = 2,
-    LegendOn           = 4,
-    ExpiryTimerOn      = 8,
-    DiscountOn         = 16,     // 0x00000010
-    RemoteImage        = 32,     // 0x00000020
-    Showcase           = 256,    // 0x00000100
-    HasBanner          = 512,    // 0x00000200
-    ShowViewButton     = 1024,   // 0x00000400
-    ShowMaxPurchases   = 2048,   // 0x00000800
-    ShowItemRarity     = 4096,   // 0x00001000
-    ShowItemType       = 8192,   // 0x00002000
-    CooldownTimerOn    = 16384,  // 0x00004000
-    ShowSynthetic      = 32768,  // 0x00008000
-    ShowPurchaseLimits = 65536,  // 0x00010000
-    ShowFreeTag        = 131072, // 0x00020000
-  };
+  // ItemState flags; only the one the mod reads is named.
+  static constexpr int32_t kCooldownTimerOn = 16384;
 
-  ItemState CurrentState()
-  { return Field<"_currentState", ItemState>(); }
-
+  int32_t CurrentState()
+  { return Field<"_currentState", int32_t>(); }
   void AuxViewButtonPressedHandler()
   { Call<"AuxViewButtonPressedHandler">(); }
+};
+
+struct DrawerContext : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Prime.SharedFeatures.Scripts.UI.Widgets", "DrawerContext">;
+
+  bool Enabled()
+  { return Field<"Enabled", bool>(); }
+};
+
+struct DrawerWidget : Widget<DrawerContext> {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Prime.SharedFeatures.Scripts.UI.Widgets", "DrawerWidget">;
+
+  void OnOpenButtonClicked()
+  { Call<"OnOpenButtonClicked">(); }
+};
+
+// The gifts screen; its selection drawer holds bulk claim.
+struct ShopListScrollerViewController : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Shop", "ShopListScrollerViewController">;
+
+  DrawerWidget* selectionDrawerWidget()
+  { return Field<"_selectionDrawerWidget", DrawerWidget*>(); }
+};
+
+using ShopSceneManager = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Shop", "ShopSceneManager">;
+
+struct InterstitialViewController : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Interstitial", "InterstitialViewController">;
+  void CloseWhenReady()
+  { Call<"CloseWhenReady">(); }
+};
+
+// The forbidden tech inventory tiles and the large selected-item panel.
+struct ForbiddenTechInventoryItemWidget : Widget<InventoryItem> {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ForbiddenTechs", "ForbiddenTechInventoryItemWidget">;
+
+  // ForbiddenTechInventoryItemWidget.WidgetType.
+  enum class Type : int32_t {
+    ScrollerEntry = 0,
+    LargeShowcase = 1,
+  };
+
+  Type widgetType()
+  { return Field<"_widgetType", Type>(); }
+  // SmartScroller
+  unity::Component* buffListScroller()
+  { return Field<"_buffListScroller", unity::Component*>(); }
+  TextLocalizer* name()
+  { return Field<"_name", TextLocalizer*>(); }
 };
