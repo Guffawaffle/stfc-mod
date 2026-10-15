@@ -234,6 +234,7 @@ public:
   bool disable_move_keys;
   bool disable_preview_locate;
   bool disable_preview_recall;
+  bool keep_base_card_open;
   bool disable_escape_exit;
   int  disable_escape_exit_timer;
   bool disable_galaxy_chat;
@@ -277,6 +278,8 @@ public:
   bool focus_search;
   bool format_cargo_values;
   bool officer_sort;
+  bool reverse_haven_history;
+  bool only_show_first_popup;
   bool arrow_keys_to_select_ship;
 
   bool galaxy_extended_selection = false;
@@ -304,6 +307,7 @@ public:
   bool installBuffFixHooks;
   bool installToastBannerHooks;
   bool installActionQueueRecoveryHooks;
+  bool installThinQueueProtectionHooks;
   bool installQueueAddressGuardHooks;
   bool installFleetNotificationHooks;
   bool installPanHooks;
@@ -330,6 +334,7 @@ public:
   bool installNativeSettings;
   bool installArtifactExchangeHooks;
   bool installOfficerPresetReorderHooks;
+  bool installBaseCardHooks;
 
   std::string config_settings_url;
   std::string config_assets_url_override;
@@ -357,4 +362,5 @@ public:
   // Fleet management dock ship sort: pin configured ships to the front
   bool installPinnedShipSortHooks;
   bool installShipTechIndicatorHooks;
+  bool installHavenHistoryHooks;
 };

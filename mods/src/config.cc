@@ -982,6 +982,8 @@ void Config::Load()
       config, parsed, "patches", "queueaddressguardhooks", DCP::queueaddressguardhooks, write_config);
   this->installActionQueueRecoveryHooks = get_config_or_default(
       config, parsed, "patches", "actionqueuerecoveryhooks", DCP::actionqueuerecoveryhooks, write_config);
+  this->installThinQueueProtectionHooks = get_config_or_default(
+      config, parsed, "patches", "thinqueueprotectionhooks", DCP::thinqueueprotectionhooks, write_config);
   this->installPanHooks = get_config_or_default(config, parsed, "patches", "panhooks", DCP::panhooks, write_config);
   this->installHotkeyHooks =
       get_config_or_default(config, parsed, "patches", "hotkeyhooks", DCP::hotkeyhooks, write_config);
@@ -1023,6 +1025,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "artifactexchangehooks", DCP::artifactexchangehooks, write_config);
   this->installOfficerPresetReorderHooks = get_config_or_default(
       config, parsed, "patches", "officerpresetreorderhooks", DCP::officerpresetreorderhooks, write_config);
+  this->installBaseCardHooks =
+      get_config_or_default(config, parsed, "patches", "basecardhooks", DCP::basecardhooks, write_config);
   this->installAudioEventHooks =
       get_config_or_default(config, parsed, "patches", "audioeventhooks", DCP::audioeventhooks, write_config);
   this->installInstantCargoCounterHooks =
@@ -1035,6 +1039,8 @@ void Config::Load()
   this->installPinnedShipSortHooks = config["patches"]["pinnedshiphooks"].value_or(DCP::pinnedshiphooks);
   this->installShipTechIndicatorHooks = get_config_or_default(config, parsed, "patches", "shiptechindicatorhooks",
                                                               DCP::shiptechindicatorhooks, write_config);
+  this->installHavenHistoryHooks =
+      get_config_or_default(config, parsed, "patches", "havenhistoryhooks", DCP::havenhistoryhooks, write_config);
   spdlog::debug("");
   this->faster_queue_recovery = get_config_or_default(config, parsed, "control", "faster_queue_recovery",
                                                      DCC::faster_queue_recovery, write_config);
@@ -1169,8 +1175,10 @@ void Config::Load()
       get_config_or_default(config, parsed, "ui", "disable_preview_locate", DCU::disable_preview_locate, write_config);
   this->disable_preview_recall =
       get_config_or_default(config, parsed, "ui", "disable_preview_recall", DCU::disable_preview_recall, write_config);
-  this->disable_first_popup =
-      get_config_or_default(config, parsed, "ui", "disable_first_popup", DCU::disable_first_popup, write_config);
+  this->keep_base_card_open =
+      get_config_or_default(config, parsed, "ui", "keep_base_card_open", DCU::keep_base_card_open, write_config);
+  this->only_show_first_popup = get_config_or_default(config, parsed, "ui", "only_show_first_popup",
+                                                      DCU::only_show_first_popup, write_config);
   this->disable_move_keys =
       get_config_or_default(config, parsed, "ui", "disable_move_keys", DCU::disable_move_keys, write_config);
   this->disable_toast_banners =
@@ -1265,6 +1273,8 @@ void Config::Load()
   this->format_cargo_values = get_config_or_default_with_alias(
       config, parsed, "ui", "format_cargo_values", "cargo_format", DCU::format_cargo_values, write_config);
   this->officer_sort = get_config_or_default(config, parsed, "ui", "officer_sort", DCU::officer_sort, write_config);
+  this->reverse_haven_history = get_config_or_default(config, parsed, "ui", "reverse_haven_history",
+                                                       DCU::reverse_haven_history, write_config);
 
   this->arrow_keys_to_select_ship = get_config_or_default(config, parsed, "ui", "arrow_keys_to_select_ship",
                                                           DCU::arrow_keys_to_select_ship, write_config);

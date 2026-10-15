@@ -147,10 +147,28 @@ bool validate_context_layout(Il2CppClass* context_class)
                                    offsetof(OfficerPresetItemContext, officer_presets_view_context), IL2CPP_TYPE_CLASS);
 }
 
+bool has_assigned_officers(const OfficerPresetItemContext* context)
+{
+  if (context == nullptr || context->officers == nullptr) {
+    return false;
+  }
+  const auto*  array    = reinterpret_cast<const Il2CppArraySize*>(context->officers);
+  auto* const* officers = reinterpret_cast<void* const*>(array->vector);
+  return std::any_of(officers, officers + array->max_length, [](const auto* officer) { return officer != nullptr; });
+}
+
 bool is_reorderable_preset(const OfficerPresetItemContext* context)
 {
   return context != nullptr && context->slot_id >= 0 && context->order_id >= 0 && context->preset_name != nullptr
-         && context->officers != nullptr && reinterpret_cast<Il2CppArraySize*>(context->officers)->max_length > 0;
+         && has_assigned_officers(context);
+}
+
+bool is_empty_preset_slot(const OfficerPresetItemContext* context)
+{
+  // Native empty slots have allocated, all-null crew arrays and can share a pending SlotId. IsOccupied is not a
+  // reliable discriminator here: it can still be false for filled crews immediately after native construction.
+  return context != nullptr && context->preset_name != nullptr && context->preset_name->length == 0
+         && context->officers != nullptr && !has_assigned_officers(context);
 }
 
 template <typename T> T* read_object_field(void* object, ptrdiff_t offset)
@@ -192,23 +210,35 @@ bool has_native_identity(const OfficerPresetItemContext* context)
 
 bool validate_unique_preset_identity(OfficerPresetItemContext** items, int32_t size)
 {
-  std::vector<int64_t> slot_ids;
-  std::vector<int32_t> order_ids;
+  std::vector<int64_t>                         slot_ids;
+  std::vector<int32_t>                         order_ids;
+  std::vector<const OfficerPresetItemContext*> slot_contexts;
   slot_ids.reserve(size);
   order_ids.reserve(size);
+  slot_contexts.reserve(size);
   for (int32_t index = 0; index < size; ++index) {
     const auto* context = items[index];
     if (!has_native_identity(context)) {
       continue;
     }
-    if (std::find(slot_ids.begin(), slot_ids.end(), context->slot_id) != slot_ids.end()
+    const auto slot_match        = std::find(slot_ids.begin(), slot_ids.end(), context->slot_id);
+    const bool shared_empty_slot = slot_match != slot_ids.end() && is_empty_preset_slot(context)
+                                   && is_empty_preset_slot(slot_contexts[slot_match - slot_ids.begin()]);
+    // Empty rows remain fixed in make_view_order. All OrderIds must remain unique for native save callbacks;
+    // duplicate SlotIds involving any filled or otherwise unrecognized row still fail closed.
+    if ((slot_match != slot_ids.end() && !shared_empty_slot)
         || std::find(order_ids.begin(), order_ids.end(), context->order_id) != order_ids.end()) {
       spdlog::error("[OfficerPresetReorder] duplicate preset identity detected at index {}: slot={} order={}", index,
                     context->slot_id, context->order_id);
       return false;
     }
+    if (shared_empty_slot) {
+      spdlog::info("[OfficerPresetReorder] preserving empty preset row {} in native order (shared slot={})", index,
+                   context->slot_id);
+    }
     slot_ids.push_back(context->slot_id);
     order_ids.push_back(context->order_id);
+    slot_contexts.push_back(context);
   }
   return true;
 }
