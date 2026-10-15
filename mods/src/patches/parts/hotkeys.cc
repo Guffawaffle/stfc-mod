@@ -1,4 +1,5 @@
 #include "config.h"
+#include "patches/base_card.h"
 #include "patches/runtime_config.h"
 #include "settings/preview_settings.h"
 #include "settings/shortcut_settings.h"
@@ -1277,7 +1278,8 @@ inline bool DidExecuteFleetAction(std::string_view actionText, ActionType action
                 canAction, (int)canState, "[start]");
 
   if (canState != FleetState::Unknown && canAction) {
-    if (NavigationSectionManager::Instance() && NavigationSectionManager::Instance()->SNavigationManager) {
+    if (!(actionType == ActionType::Recall && base_card::KeepOpenForRecall(fleet_id))
+        && NavigationSectionManager::Instance() && NavigationSectionManager::Instance()->SNavigationManager) {
       NavigationSectionManager::Instance()->SNavigationManager->HideInteraction();
     }
 
