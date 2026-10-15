@@ -915,6 +915,11 @@ show_station_cargo = true
 
 [sync]
 
+# Target changes apply on settings reload and receive the latest observed state.
+# Failed uploads retry; pending changes to an entity use its latest value.
+# Up to 300 recent battle journals are retained per session. Journals may replay
+# after restarting or logging in again; the old sent-ID file is no longer used.
+
 # Subgroup: Data
 # --------------
 
