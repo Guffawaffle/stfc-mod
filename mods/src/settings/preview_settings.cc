@@ -36,7 +36,7 @@ BooleanSetting& PreviewSetting(PreviewOption option)
       BooleanSetting(PreviewDefinition("show_armada_cargo", "Armada targets", &Config::show_armada_cargo)),
       BooleanSetting(PreviewDefinition("instant_cargo_counter", "Instant ship cargo counter",
                                        &Config::instant_cargo_counter)),
-      BooleanSetting(PreviewDefinition("keep_base_card_open", "Keep base card open after attacking",
+      BooleanSetting(PreviewDefinition("keep_base_card_open", "Keep base card open",
                                        &Config::keep_base_card_open))};
   static_assert(settings.size() == static_cast<std::size_t>(PreviewOption::Count));
   return settings.at(static_cast<std::size_t>(option));

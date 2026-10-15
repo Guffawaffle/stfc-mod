@@ -74,11 +74,11 @@ bool SameUser(Il2CppObject* left, Il2CppObject* right)
 
 bool Enabled(const CourseResponse& response)
 {
-  return ready.load() && Config::Get().keep_base_card_open && response.success && !response.recall
-         && response.fleet != 0 && response.target;
+  return ready.load() && Config::Get().keep_base_card_open && response.success && response.fleet != 0
+         && (response.recall || response.target);
 }
 
-bool MatchesAttack(Il2CppObject* data, const CourseResponse& response)
+bool MatchesBaseCourse(Il2CppObject* data, const CourseResponse& response)
 {
   if (!data || il2cpp_object_get_class(data) != battleClass || !Boolean(isStarbase, data, true)
       || !Boolean(isOwnStation, data, false) || !Boolean(isValid, data, true))
@@ -86,8 +86,12 @@ bool MatchesAttack(Il2CppObject* data, const CourseResponse& response)
   std::int64_t fleet{};
   if (!Integer(playerId, data, fleet) || fleet != response.fleet)
     return false;
+  // Recall targets home, not the viewed station, and may have no target payload.
+  // The active preview/context checks still identify the base whose card we retain.
+  if (response.recall)
+    return true;
   // Station courses can identify their target by its hashed ID or by its player UID. Never retain
-  // a card for a different target, a recall, an empty-space course, or an unrecognized response.
+  // a card for a different attack target, an empty-space course, or an unrecognized response.
   if (il2cpp_object_get_class(response.target) == int64Class) {
     std::int64_t actual{}, expected{};
     std::memcpy(&actual, il2cpp_object_unbox(response.target), sizeof(actual));
@@ -106,7 +110,7 @@ void PreviewResponse(auto original, Il2CppObject* widget, CourseResponse respons
 {
   if (Enabled(response)) {
     auto* data = ReadObject(widget, previewBattle);
-    if (MatchesAttack(data, response) && MatchesPreview(Invoke(previewContext, widget), data))
+    if (MatchesBaseCourse(data, response) && MatchesPreview(Invoke(previewContext, widget), data))
       return;
   }
   original(widget, response);
@@ -121,7 +125,7 @@ void NavigationResponse(auto original, Il2CppObject* controller, CourseResponse 
       auto* data    = manager ? Invoke(targetCache, manager) : nullptr;
       // This native handler only resets interaction data or schedules that reset after a semaphore
       // release. Do not schedule a delayed close either; fleet commands/semaphores run independently.
-      if (MatchesAttack(data, response) && MatchesPreview(context, data))
+      if (MatchesBaseCourse(data, response) && MatchesPreview(context, data))
         return;
     }
   }
