@@ -1,5 +1,5 @@
 #include "config.h"
-#include "patches/screen_update_hook.h"
+#include "patches/patches.h"
 
 #include <prime/unity.h>
 
@@ -12,7 +12,8 @@
 
 namespace
 {
-// All Unity work runs on ScreenManager's main-thread dispatcher. No additional detours.
+// All Unity work runs on the ScreenManager.Update tick. No detours of its own.
+bool installed = false;
 
 using UnityObject = il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Object">;
 
@@ -319,10 +320,15 @@ void Update()
 }
 } // namespace
 
+void GalacticAnomalyTimerUpdate()
+{
+  if (installed)
+    Update();
+}
+
 void InstallGalacticAnomalyTimer()
 {
-  if (install_screen_manager_update_hook()) {
-    register_screen_manager_update_callback(Update);
+  installed = InstallScreenManagerUpdateHook();
+  if (installed)
     spdlog::info("Galactic anomaly countdown enabled (below Help All / Engage / Claim)");
-  }
 }
