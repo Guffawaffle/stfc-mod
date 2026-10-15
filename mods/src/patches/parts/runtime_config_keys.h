@@ -61,7 +61,6 @@ inline constexpr std::pair<const char*, const char*> persisted_settings[]{
     {"ui", "disable_preview_locate"},
     {"ui", "disable_preview_recall"},
     {"ui", "keep_base_card_open"},
-    {"ui", "mining_node_ship_default"},
     {"ui", "instant_cargo_counter"},
     {"ui", "show_cargo_default"},
     {"ui", "show_player_cargo"},

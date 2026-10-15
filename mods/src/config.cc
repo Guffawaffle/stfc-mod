@@ -1177,8 +1177,6 @@ void Config::Load()
       get_config_or_default(config, parsed, "ui", "disable_preview_recall", DCU::disable_preview_recall, write_config);
   this->keep_base_card_open =
       get_config_or_default(config, parsed, "ui", "keep_base_card_open", DCU::keep_base_card_open, write_config);
-  this->mining_node_ship_default =
-      get_config_or_default(config, parsed, "ui", "mining_node_ship_default", DCU::mining_node_ship_default, write_config);
   this->only_show_first_popup = get_config_or_default(config, parsed, "ui", "only_show_first_popup",
                                                       DCU::only_show_first_popup, write_config);
   this->disable_move_keys =

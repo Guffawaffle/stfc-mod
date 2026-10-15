@@ -537,8 +537,9 @@ action_queue_clear = "CTRL-C"
 action_secondary = "TAB|MOUSE4"
 
 # V or Mouse2
-# On mining nodes occupied by another player, cycle node > ship > cargo > node.
-# Other ship popups retain the ship/cargo toggle.
+# Mining nodes occupied by another player cycle node > ship > cargo > node.
+# With automatic player cargo enabled, the order is node > cargo > ship > node.
+# Own miners and empty nodes retain native behavior.
 action_view = "V|MOUSE2"
 
 # Requires Kir'Shara artifact
@@ -963,12 +964,6 @@ disable_preview_recall = false
 # Click-away, Escape, Back, target changes, and other dismissals keep their normal behavior.
 # Live in Mod Settings > Previews & Cargo.
 keep_base_card_open = false
-
-# On mining nodes occupied by another player, initially open the ship instead of the node.
-# Uses your automatic cargo and player-cargo preferences for that initial view.
-# View still cycles node > ship > cargo > node; empty nodes keep their normal preview.
-# Live in Mod Settings > Previews & Cargo: Show occupying ship first.
-mining_node_ship_default = false
 
 
 # Set to true to always show the rewards for selected ships/stations

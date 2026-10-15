@@ -235,7 +235,6 @@ public:
   bool disable_preview_locate;
   bool disable_preview_recall;
   bool keep_base_card_open;
-  bool mining_node_ship_default;
   bool disable_escape_exit;
   int  disable_escape_exit_timer;
   bool disable_galaxy_chat;

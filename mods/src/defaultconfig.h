@@ -311,7 +311,6 @@ namespace UI
   constexpr bool        disable_preview_locate      = false;
   constexpr bool        disable_preview_recall      = false;
   constexpr bool        keep_base_card_open         = false;
-  constexpr bool        mining_node_ship_default    = false;
   constexpr bool        disable_toast_banners       = false;
   constexpr bool        disable_veil_chat           = false;
   constexpr bool        disable_exchange_all        = false;

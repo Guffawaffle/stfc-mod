@@ -20,7 +20,7 @@ namespace
   using Clock = std::chrono::steady_clock;
   struct Api {
     FieldInfo *viewerContext{}, *contextPoi{}, *nodeSlot{}, *slotFleet{}, *poiId{}, *poiType{}, *viewerParent{},
-        *parentLoaded{}, *parentVisibility{}, *navLoader{}, *loaderViewer{}, *loaderPoi{}, *contextState{};
+        *parentLoaded{}, *parentVisibility{}, *navLoader{}, *loaderViewer{}, *loaderPoi{}, *contextState{}, *localFleet{};
     const MethodInfo *getPoi{}, *selectPoi{}, *canSelect{}, *fleetId{}, *rewardsClick{};
     bool              ready{};
 
@@ -52,6 +52,7 @@ namespace
       contextPoi   = field(context, "Poi", "Digit.Prime.Navigation.POI");
       nodeSlot     = field(mining, "_nodeSlot", "Digit.PrimeServer.Models.MiningSlotData");
       slotFleet    = field(slot, "_fleetData", "Digit.PrimeServer.Models.FleetDeployedData");
+      localFleet   = field(fleet, "_localPlayerFleet", "System.Boolean");
       poiId        = field(poi, "<ID>k__BackingField", "System.Int64");
       poiType      = field(poi, "_interactableType", "Digit.Prime.Navigation.InteractableType");
       viewerParent =
@@ -70,7 +71,7 @@ namespace
       rewardsClick = Resolve(rewards, "RewardsClicked", false, "System.Void", {});
       ready = viewerContext && contextPoi && nodeSlot && slotFleet && poiId && poiType && getPoi && selectPoi
               && canSelect && fleetId && rewardsClick && viewerParent && parentLoaded && parentVisibility && navLoader
-              && loaderViewer && loaderPoi && contextState;
+              && loaderViewer && loaderPoi && contextState && localFleet;
       spdlog::info("[MiningPreview] shortcut cycle ready={}", ready);
     }
   };
@@ -176,7 +177,7 @@ namespace
     Il2CppGCHandle    context{};
     std::int64_t      node{}, fleet{};
     int               nodeType{};
-    bool              cargoRequested{}, sawShip{}, atNode{}, sawNode{};
+    bool              cargoFirst{}, cargoRequested{}, sawShip{};
     Clock::time_point deadline{};
   } session;
 
@@ -221,16 +222,7 @@ namespace
     }
     return nullptr;
   }
-  MiningObjectViewerWidget* Node()
-  {
-    for (auto* widget : ObjectFinder<MiningObjectViewerWidget>::GetAll()) {
-      if (Visible(widget) && Object(widget, Native().viewerContext) == Context())
-        return widget;
-    }
-    return nullptr;
-  }
-
-  bool Begin(bool automatic)
+  bool Begin()
   {
     if (!Native().ready)
       return false;
@@ -241,7 +233,10 @@ namespace
         continue;
       auto*      context = Object(widget, Native().viewerContext);
       auto*      node    = Object(context, Native().contextPoi);
-      const auto fleet   = FleetId(Object(Object(widget, Native().nodeSlot), Native().slotFleet));
+      auto*      target  = Object(Object(widget, Native().nodeSlot), Native().slotFleet);
+      if (Value<bool>(target, Native().localFleet))
+        continue;
+      const auto fleet   = FleetId(target);
       if (!node || !fleet)
         continue;
       const auto nodeId   = Value<std::int64_t>(node, Native().poiId);
@@ -249,20 +244,15 @@ namespace
       if (nodeId == 0 || nodeId == -1)
         continue;
       Reset();
-      session = {il2cpp_gchandle_new_weakref(context, false), nodeId, *fleet, nodeType, automatic, false, false, false,
+      const bool cargoFirst = Config::Get().show_cargo_default && Config::Get().show_player_cargo;
+      session = {il2cpp_gchandle_new_weakref(context, false), nodeId, *fleet, nodeType, cargoFirst, cargoFirst, false,
                  Clock::now() + std::chrono::seconds(5)};
       if (!session.context)
         return false;
-      spdlog::info("[MiningPreview] select ship source={} node={} fleet={}", automatic ? "default" : "view", nodeId,
-                   *fleet);
-      // An initial open honors normal cargo defaults. Explicit View cycling visits ship first.
+      spdlog::info("[MiningPreview] View node={} fleet={} cargoFirst={}", nodeId, *fleet, cargoFirst);
       if (Select(FindPoi(*fleet, 5)))
         return true;
-      // One automatic attempt per selection. A denied/missing ship leaves the native node visible.
-      if (automatic)
-        session.atNode = true;
-      else
-        Reset();
+      Reset();
       return false;
     }
     return false;
@@ -271,69 +261,24 @@ namespace
 
 void Update()
 {
+  if (!session.context)
+    return;
   const auto& config = Config::Get();
-  if (!session.context && !config.mining_node_ship_default)
-    return;
-  if ((!config.hotkeys_enabled || config.use_scopely_hotkeys) && !config.mining_node_ship_default) {
-    Reset();
-    return;
-  }
-  if (!SystemMap()) {
-    Reset();
-    return;
-  }
-  if (!session.context) {
-    if (config.mining_node_ship_default)
-      Begin(true);
-    return;
-  }
   auto*      context = Context();
   auto*      poi     = Object(context, Native().contextPoi);
   const auto id      = Value<std::int64_t>(poi, Native().poiId);
-  if (!poi || (id != session.node && id != session.fleet)) {
+  if (!config.hotkeys_enabled || config.use_scopely_hotkeys || !SystemMap() || !poi || id != session.fleet) {
     Reset();
     return;
   }
-  if (session.atNode) {
-    if (id != session.node) {
-      Reset();
-    } else if (auto* node = Node(); node && Settled(node)) {
-      if (!session.sawNode)
-        spdlog::info("[MiningPreview] node ready node={} fleet={}", session.node, session.fleet);
-      session.sawNode = true;
-    } else if (session.sawNode && !Node()) {
-      Reset();
-    } else if (Clock::now() > session.deadline) {
-      // Keep the handled-selection marker even if native loading remains incomplete.
-      // Clearing it here could automatically select the same failing ship again.
-      spdlog::warn("[MiningPreview] node return still pending node={} fleet={}; no automatic retry", session.node,
-                   session.fleet);
-      session.deadline = Clock::time_point::max();
-    }
-  } else if (auto* ship = Ship(); ship && Settled(ship)) {
+  if (auto* ship = Ship(); ship && Settled(ship)) {
     if (!session.sawShip)
       spdlog::info("[MiningPreview] ship ready node={} fleet={}", session.node, session.fleet);
     session.sawShip = true;
-  } else if (session.sawShip && !Ship()) {
+  } else if ((session.sawShip && !Ship()) || (!session.sawShip && Clock::now() > session.deadline)) {
     spdlog::info("[MiningPreview] ship wait ended node={} fleet={} appeared={}", session.node, session.fleet,
                  session.sawShip);
     Reset();
-  } else if (!session.sawShip && Clock::now() > session.deadline) {
-    spdlog::warn("[MiningPreview] ship load timed out node={} fleet={} selected={} dataState={}; returning to node once",
-                 session.node, session.fleet, id, Value<int>(context, Native().contextState));
-    // Update already verified that the original context still owns this selection.
-    // Never retry the ship automatically or reselect an already selected node (native toggle-dismiss).
-    session.atNode         = true;
-    session.sawNode        = false;
-    session.cargoRequested = true;
-    session.deadline       = Clock::now() + std::chrono::seconds(5);
-    if (id == session.node || Select(FindPoi(session.node, session.nodeType))) {
-      spdlog::info("[MiningPreview] node recovery requested node={} fleet={}", session.node, session.fleet);
-    } else {
-      spdlog::warn("[MiningPreview] node recovery unavailable node={} fleet={}; leaving native selection untouched",
-                   session.node, session.fleet);
-      Reset();
-    }
   }
 }
 
@@ -342,14 +287,8 @@ bool Cycle()
   if (!SystemMap() || !Native().ready)
     return false;
   Update();
-  if (session.context && session.atNode) {
-    if (auto* node = Node(); !node || !Settled(node))
-      return true; // Keep the handled selection through the native node-show transition.
-    Reset();
-    return Begin(false);
-  }
   if (!session.context)
-    return Begin(false);
+    return Begin();
   auto* ship = Ship();
   if (!ship || !Settled(ship))
     return true; // Wait for the selected ship's native popup to finish loading.
@@ -357,28 +296,21 @@ bool Cycle()
   auto* rewards = button ? button->_rewardsController : nullptr;
   if (!rewards)
     return true;
-  if (rewards->_state == VisibilityState::Visible || rewards->_state == VisibilityState::Show) {
+  const bool cargoVisible = rewards->_state == VisibilityState::Visible || rewards->_state == VisibilityState::Show;
+  if (cargoVisible != session.cargoFirst) {
     spdlog::info("[MiningPreview] select node node={} fleet={}", session.node, session.fleet);
-    if (Select(FindPoi(session.node, session.nodeType))) {
-      // Keep this selection marked as handled: returning to node must not auto-open ship again.
-      session.atNode         = true;
-      session.sawShip        = false;
-      session.sawNode        = false;
-      session.deadline       = Clock::now() + std::chrono::seconds(5);
-      session.cargoRequested = true;
-      return true;
-    }
+    const bool selected = Select(FindPoi(session.node, session.nodeType));
     Reset();
-    return false;
+    return selected;
   }
-  session.cargoRequested = true;
+  session.cargoRequested = !cargoVisible;
   Il2CppRuntime::TryInvoke(Native().rewardsClick, button, nullptr);
   return true;
 }
 
 bool SuppressAutomaticCargo(RewardsButtonWidget* widget)
 {
-  if (!session.context || session.atNode || !Context() || !SystemMap() || session.cargoRequested || !widget)
+  if (!session.context || !Context() || !SystemMap() || session.cargoRequested || !widget)
     return false;
   auto* data   = widget->Context;
   auto* target = data ? data->TargetFleetDeployedData : nullptr;
