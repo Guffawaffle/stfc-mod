@@ -833,7 +833,6 @@ pinned_ships = ""
 #   "auto" - Use the game's default visibility behaviour
 #   "show" - Always show this HUD item
 #   "hide" - Always hide this HUD item
-hud_daily_goals = "auto"
 
 # HUD visibility mode: auto, show, or hide
 #   "auto" - Use the game's default visibility behaviour
