@@ -228,7 +228,7 @@ namespace
       return false;
     for (auto* widget : ObjectFinder<MiningObjectViewerWidget>::GetAll()) {
       // Own miners use the native fleet controls rather than a prescan/cargo popup.
-      // Do not start a cycle or its load-recovery timer for them.
+      // Do not start a preview cycle for them.
       if (!Visible(widget) || widget->_occupiedState != OtherPlayerOccupied || !Settled(widget))
         continue;
       auto*      context = Object(widget, Native().viewerContext);
@@ -304,7 +304,10 @@ bool Cycle()
     return selected;
   }
   session.cargoRequested = !cargoVisible;
-  Il2CppRuntime::TryInvoke(Native().rewardsClick, button, nullptr);
+  if (cargoVisible)
+    rewards->Hide();
+  else
+    Il2CppRuntime::TryInvoke(Native().rewardsClick, button, nullptr);
   return true;
 }
 
