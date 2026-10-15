@@ -8,6 +8,7 @@
 // by value on the Mac Intel stack. Unsupported architectures keep native behavior.
 #if (defined(_WIN32) && defined(_M_X64)) || (defined(__APPLE__) && (defined(__arm64__) || defined(__x86_64__)))
 #include "prime/ObjectViewerBaseWidget.h"
+#include "prime/ScanEngageButtonsWidget.h"
 #include "prime/PreScanTargetWidget.h"
 #include <cstddef>
 #include <cstdint>
