@@ -1,17 +1,15 @@
 #pragma once
 
-#include "errormsg.h"
-
 #include "BattleTargetData.h"
 #include "HullSpec.h"
 #include "RecallRequirement.h"
 #include "CanRepairRequirement.h"
 
+#include <il2cpp/il2cpp.h>
+
 #include <cstdint>
 
-struct Ship;
-
-enum class FleetState {
+enum class FleetState : int32_t {
   Unknown                = 0,
   IdleInSpace            = 1,
   Docked                 = 2,
@@ -39,103 +37,69 @@ enum class FleetState {
   Deployed               = 8133,
   CanLocate              = 8135
 };
-    
-struct FleetPlayerData {
-public:
-  __declspec(property(get = __get_CurrentState)) FleetState CurrentState;
-  __declspec(property(get = __get_PreviousState)) FleetState PreviousState;
-  __declspec(property(get = __get_Id)) uint64_t Id;
-  __declspec(property(get = __get_Index)) int Index;
-  __declspec(property(get = __get_Hull)) HullSpec* Hull;
-  __declspec(property(get = __get_Address)) void* Address;
-  __declspec(property(get = __get_Level)) int64_t Level;
-  __declspec(property(get = __get_HasShip)) bool HasShip;
-  __declspec(property(get = __get_HullId)) int64_t           HullId;
-  __declspec(property(get = __get_Ship)) ::Ship*             Ship;
 
-private:
-  static IL2CppClassHelper& get_class_helper()
-  {
-    static auto class_helper =
-        il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "FleetPlayerData");
-    return class_helper;
-  }
+struct FleetPlayerData : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "FleetPlayerData">;
 
-public:
-  int __get_Index()
+  int32_t Index()
+  { return Get<"Index", int32_t>(); }
+  HullSpec* Hull()
+  { return Get<"Hull", HullSpec*>(); }
+  void* Address()
+  { return Get<"Address", void*>(); }
+  FleetState CurrentState()
+  { return Get<"CurrentState", FleetState>(); }
+  FleetState PreviousState()
+  { return Get<"PreviousState", FleetState>(); }
+  uint64_t Id()
+  { return Get<"Id", uint64_t>(); }
+  int64_t Level()
+  { return Get<"Level", int64_t>(); }
+  bool HasShip()
+  { return Get<"HasShip", bool>(); }
+  int64_t HullId()
+  { return Get<"HullId", int64_t>(); }
+  bool HasAppliedTech()
   {
-    static auto property = get_class_helper().GetProperty("Index");
-    auto* value = property.Get<int>(this);
-    return value ? *value : -1;
-  }
-
-  HullSpec* __get_Hull()
-  {
-    static auto field = get_class_helper().GetProperty("Hull");
-    return field.GetRaw<HullSpec>(this);
-  }
-  void* __get_Address()
-  {
-    static auto field = get_class_helper().GetProperty("Address");
-    return field.GetRaw<void>(this);
-  }
-  FleetState __get_CurrentState()
-  {
-    static auto field = get_class_helper().GetProperty("CurrentState");
-    auto*      value  = field.Get<FleetState>(this);
-    return value ? *value : FleetState::Unknown;
-  }
-  FleetState __get_PreviousState()
-  {
-    static auto field = get_class_helper().GetProperty("PreviousState");
-    auto*      value  = field.Get<FleetState>(this);
-    return value ? *value : FleetState::Unknown;
-  }
-  
-  uint64_t __get_Id()
-  {
-    static auto field = get_class_helper().GetProperty("Id");
-    auto*      value  = field.Get<uint64_t>(this);
-    return value ? *value : 0;
-  }
-  int64_t __get_Level()
-  {
-    static auto field = get_class_helper().GetProperty("Level");
-    auto*      value  = field.Get<int64_t>(this);
-    return value ? *value : 0;
-  }
-
-  bool __get_HasShip()
-  {
-    static auto field = get_class_helper().GetProperty("HasShip");
-    auto*      value  = field.Get<bool>(this);
-    return value ? *value : false;
-  }
-  int64_t __get_HullId()
-  {
-    static auto property = get_class_helper().GetProperty("HullId");
-    auto*       value    = property.Get<int64_t>(this);
-    return value ? *value : 0;
-  }
-  ::Ship* __get_Ship()
-  {
-    static auto property = get_class_helper().GetProperty("Ship");
-    return property.GetRaw<struct Ship>(this);
+    struct BaseShip : il2cpp::Object {
+      using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "BaseShip">;
+      int64_t Id()
+      { return Get<"Id", int64_t>(); }
+    };
+    struct Slot : il2cpp::Object {
+      using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "EntitySlot">;
+      int64_t SpecId()
+      { return Get<"SlotSpecId", int64_t>(); }
+      bool HasItem()
+      {
+        static const auto* getter = Class::Method("get_SlotItemId", 0).Info();
+        if (!getter || (getter->flags & METHOD_ATTRIBUTE_STATIC)
+            || getter->return_type->type != IL2CPP_TYPE_GENERICINST)
+          return false;
+        // Runtime invocation boxes Nullable<Int64> as null or its value, without assuming its native layout.
+        return il2cpp::detail::InvokeBoxed(getter, this, nullptr) != nullptr;
+      }
+    };
+    struct Manager : il2cpp::Object {
+      using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ForbiddenTechs", "ForbiddenTechManager">;
+      bool ActiveSlots(int64_t ship_id, il2cpp::List<Slot*>*& slots)
+      { return Call<"TryGetActiveForbiddenTechSlot", bool>(ship_id, std::ref(slots)); }
+    };
+    auto*                ship    = Get<"Ship", BaseShip*>();
+    auto*                manager = Manager::Class::Get<"Instance", Manager*>();
+    il2cpp::List<Slot*>* slots   = nullptr;
+    if (!ship || !manager || !manager->ActiveSlots(ship->Id(), slots) || !slots)
+      return false;
+    for (auto* slot : *slots) {
+      if (!slot)
+        continue;
+      const auto spec = slot->SpecId();
+      if ((spec == 3502081615 || spec == 953301906) && slot->HasItem())
+        return true;
+    }
+    return false;
   }
 
   int64_t GetLocaId()
-  {
-    static auto GetLocaIdWarn = true;
-    static auto GetLocaIdMethod = get_class_helper().GetMethod<int64_t(FleetPlayerData*)>("GetLocaId");
-
-    if (GetLocaIdMethod) {
-      return GetLocaIdMethod(this);
-    }
-    if (GetLocaIdWarn) {
-      GetLocaIdWarn = false;
-      ErrorMsg::MissingMethod("FleetPlayerData", "GetLocaId");
-    }
-
-    return 0;
-  }
+  { return Call<"GetLocaId", int64_t>(); }
 };

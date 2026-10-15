@@ -256,6 +256,35 @@ namespace detail
     return R();
   }
 
+  // Call<"Name", F>: F is either the result type, with parameters taken from the argument types,
+  // or a full signature R(P...). A signature converts arguments to P without narrowing, and a P of
+  // T& is a ref/out parameter that binds the caller's lvalue (std::ref in the deduced form).
+  template <typename T> struct Param {
+    using Type = T;
+    template <typename A> static T From(A&& value)
+    { return T{std::forward<A>(value)}; }
+  };
+  template <typename T> struct Param<T&> {
+    using Type = std::reference_wrapper<T>;
+    static Type From(T& value)
+    { return std::ref(value); }
+  };
+
+  template <typename Fn> struct MethodCall;
+  template <typename R, typename... P> struct MethodCall<R(P...)> {
+    static const MethodInfo* Resolve(Il2CppClass* klass, std::string_view name, bool is_static)
+    { return ResolveMethod(klass, name, SignatureOf<R, typename Param<P>::Type...>(), is_static); }
+    template <typename... A> static R Run(const MethodInfo* method, Il2CppObject* target, A&&... args)
+    {
+      static_assert(sizeof...(A) == sizeof...(P), "argument count does not match the signature");
+      return Invoke<R, typename Param<P>::Type...>(method, target, Param<P>::From(std::forward<A>(args))...);
+    }
+  };
+  template <typename F, typename... A> struct CallOf : MethodCall<F(A...)> {
+  };
+  template <typename R, typename... P, typename... A> struct CallOf<R(P...), A...> : MethodCall<R(P...)> {
+  };
+
   template <typename T> T ReadField(FieldInfo* field, const Il2CppObject* object)
   {
     T value{};
@@ -306,10 +335,11 @@ template <Name Assembly, Name Namespace, Name TypeName> struct Class {
   static il2cpp::Method Method(std::string_view name, std::initializer_list<std::string_view> params)
   { return detail::FindMethod(Raw(), name, params); }
 
-  template <Name N, typename R = void, typename... A> static R Call(A... args)
+  template <Name N, typename F = void, typename... A> static auto Call(A&&... args)
   {
-    static const auto* method = detail::ResolveMethod(Raw(), N.View(), detail::SignatureOf<R, A...>(), true);
-    return detail::Invoke<R>(method, nullptr, args...);
+    using Sig                 = detail::CallOf<F, std::decay_t<A>...>;
+    static const auto* method = Sig::Resolve(Raw(), N.View(), true);
+    return Sig::Run(method, nullptr, std::forward<A>(args)...);
   }
   template <Name N, typename T> static T Get()
   {
@@ -364,13 +394,13 @@ struct Object : Il2CppObject {
     });
     detail::WriteField(field, &self, value);
   }
-  // Overloads are selected by the C++ argument types. std::ref marks ref/out parameters.
-  template <Name N, typename R = void, typename Self, typename... A> R Call(this Self& self, A... args)
+  // Call<"Name", R>(args) selects the overload by the C++ argument types; std::ref marks ref/out
+  // parameters. Call<"Name", R(P...)>(args) names the signature and converts the arguments to it.
+  template <Name N, typename F = void, typename Self, typename... A> auto Call(this Self& self, A&&... args)
   {
-    auto* method = detail::Lookup<Self>(self, [](Il2CppClass* klass) {
-      return detail::ResolveMethod(klass, N.View(), detail::SignatureOf<R, A...>(), false);
-    });
-    return detail::Invoke<R>(method, &self, args...);
+    using Sig    = detail::CallOf<F, std::decay_t<A>...>;
+    auto* method = detail::Lookup<Self>(self, [](Il2CppClass* klass) { return Sig::Resolve(klass, N.View(), false); });
+    return Sig::Run(method, &self, std::forward<A>(args)...);
   }
 
   template <typename T> bool Is() const

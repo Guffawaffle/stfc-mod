@@ -3,7 +3,6 @@
 #include "prime/GenericButtonContext.h"
 
 #include "config.h"
-#include "errormsg.h"
 
 #include <spud/detour.h>
 #include <tuple>
@@ -34,36 +33,30 @@ void DisableButtons(FullScreenChatViewController* _this)
 
   const auto [cadetChatIdx, galaxyChatIdx, veilChatIdx, allianceChatIdx] = GetChatTabIndices();
 
-  const auto viewController = _this->_categoriesTabBarViewController;
+  const auto viewController = _this->categoriesTabBarViewController();
   if (!viewController) {
     return;
   }
 
-  const auto tabBar = viewController->_tabBar;
+  const auto tabBar = viewController->tabBar();
   if (!tabBar) {
     return;
   }
 
-  if (const auto list = tabBar->_listContainer; !list) {
-    return;
-  }
-
-  const auto listData = tabBar->_data;
+  const auto listData = tabBar->data();
   if (!listData) {
     return;
   }
 
   if (disableGalaxyChat) {
-    if (const auto elm = listData->Get(galaxyChatIdx)) {
-      const auto button = reinterpret_cast<GenericButtonContext*>(elm);
-      button->Interactable = false;
+    if (const auto elm = (*listData)[galaxyChatIdx]) {
+      static_cast<GenericButtonContext*>(elm)->SetInteractable(false);
     }
   }
 
   if (disableVeilChat && veilChatIdx != -1) {
-    if (const auto elm = listData->Get(veilChatIdx)) {
-      const auto button = reinterpret_cast<GenericButtonContext*>(elm);
-      button->Interactable = false;
+    if (const auto elm = (*listData)[veilChatIdx]) {
+      static_cast<GenericButtonContext*>(elm)->SetInteractable(false);
     }
   }
 }
@@ -91,10 +84,10 @@ void ChatPreviewController_AboutToShow(auto original, ChatPreviewController* _th
 
   if (Config::Get().disable_galaxy_chat || Config::Get().disable_veil_chat) {
     const auto allianceChatIdx = std::get<3>(GetChatTabIndices());
-    _this->_focusedPanel       = ChatChannelCategory::Alliance;
+    _this->SetFocusedPanel(ChatChannelCategory::Alliance);
 
-    if (_this->_swipeScroller->_currentContentIndex != allianceChatIdx) {
-      _this->_swipeScroller->FocusOnInstantly(allianceChatIdx);
+    if (_this->swipeScroller()->currentContentIndex() != allianceChatIdx) {
+      _this->swipeScroller()->FocusOnInstantly(allianceChatIdx);
     }
   }
 }
@@ -111,11 +104,11 @@ void ChatPreviewController_OnPanelFocused(auto original, ChatPreviewController* 
 
   const auto [cadetChatIdx, galaxyChatIdx, veilChatIdx, allianceChatIdx] = GetChatTabIndices();
   if (disableGalaxyChat || (veilChatIdx != -1 && disableVeilChat)) {
-    _this->_focusedPanel = ChatChannelCategory::Alliance;
+    _this->SetFocusedPanel(ChatChannelCategory::Alliance);
     original(_this, allianceChatIdx);
 
-    if (_this->_swipeScroller->_currentContentIndex != allianceChatIdx) {
-      _this->_swipeScroller->FocusOnInstantly(allianceChatIdx);
+    if (_this->swipeScroller()->currentContentIndex() != allianceChatIdx) {
+      _this->swipeScroller()->FocusOnInstantly(allianceChatIdx);
     }
 
     return;
@@ -142,50 +135,17 @@ void ChatPreviewController_OnRegionalMessageReceived(auto original, ChatPreviewC
 
 void InstallChatPatches()
 {
-  if (auto fullscreen_controller =
-          il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Chat", "FullScreenChatViewController");
-      !fullscreen_controller.isValidHelper()) {
-    ErrorMsg::MissingHelper("Chat", "FullScreenChatViewController");
-  } else {
-    if (const auto ptr = fullscreen_controller.GetMethod("AboutToShow"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("FullScreenChatViewController", "AboutToShow");
-    } else {
-      SPUD_STATIC_DETOUR(ptr, FullScreenChatViewController_AboutToShow);
-    }
+  if (auto m = FullScreenChatViewController::Class::Method("AboutToShow"))
+    SPUD_STATIC_DETOUR(m.Pointer(), FullScreenChatViewController_AboutToShow);
+  if (auto m = FullScreenChatViewController::Class::Method("OnDidChangeSelectedTab"))
+    SPUD_STATIC_DETOUR(m.Pointer(), FullScreenChatViewController_OnDidChangeSelectedTab);
 
-    if (const auto ptr = fullscreen_controller.GetMethod("OnDidChangeSelectedTab"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("FullScreenChatViewController", "OnDidChangeSelectedTab");
-    } else {
-      SPUD_STATIC_DETOUR(ptr, FullScreenChatViewController_OnDidChangeSelectedTab);
-    }
-  }
-
-  if (auto preview_controller = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Chat", "ChatPreviewController");
-      !preview_controller.isValidHelper()) {
-    ErrorMsg::MissingHelper("Chat", "ChatPreviewController");
-  } else {
-    if (const auto ptr = preview_controller.GetMethod("AboutToShow"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("ChatPreviewController", "AboutToShow");
-    } else {
-      SPUD_STATIC_DETOUR(ptr, ChatPreviewController_AboutToShow);
-    }
-
-    if (const auto ptr = preview_controller.GetMethod("OnPanelFocused"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("ChatPreviewController", "OnPanelFocused");
-    } else {
-      SPUD_STATIC_DETOUR(ptr, ChatPreviewController_OnPanelFocused);
-    }
-
-    if (const auto ptr = preview_controller.GetMethod("OnGlobalMessageReceived"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("ChatPreviewController", "OnGlobalMessageReceived");
-    } else {
-      SPUD_STATIC_DETOUR(ptr, ChatPreviewController_OnGlobalMessageReceived);
-    }
-
-    if (const auto ptr = preview_controller.GetMethod("OnRegionalMessageReceived"); ptr == nullptr) {
-      ErrorMsg::MissingMethod("ChatPreviewController", "OnRegionalMessageReceived");
-    } else {
-      SPUD_STATIC_DETOUR(ptr, ChatPreviewController_OnRegionalMessageReceived);
-    }
-  }
+  if (auto m = ChatPreviewController::Class::Method("AboutToShow"))
+    SPUD_STATIC_DETOUR(m.Pointer(), ChatPreviewController_AboutToShow);
+  if (auto m = ChatPreviewController::Class::Method("OnPanelFocused"))
+    SPUD_STATIC_DETOUR(m.Pointer(), ChatPreviewController_OnPanelFocused);
+  if (auto m = ChatPreviewController::Class::Method("OnGlobalMessageReceived"))
+    SPUD_STATIC_DETOUR(m.Pointer(), ChatPreviewController_OnGlobalMessageReceived);
+  if (auto m = ChatPreviewController::Class::Method("OnRegionalMessageReceived"))
+    SPUD_STATIC_DETOUR(m.Pointer(), ChatPreviewController_OnRegionalMessageReceived);
 }
