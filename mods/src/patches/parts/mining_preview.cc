@@ -19,7 +19,8 @@ namespace
 {
   using Clock = std::chrono::steady_clock;
   struct Api {
-    FieldInfo *       viewerContext{}, *contextPoi{}, *nodeSlot{}, *slotFleet{}, *poiId{}, *poiType{};
+    FieldInfo *viewerContext{}, *contextPoi{}, *nodeSlot{}, *slotFleet{}, *poiId{}, *poiType{}, *viewerParent{},
+        *parentLoaded{}, *parentVisibility{}, *navLoader{}, *loaderViewer{}, *loaderPoi{}, *contextState{};
     const MethodInfo *getPoi{}, *selectPoi{}, *canSelect{}, *fleetId{}, *rewardsClick{};
     bool              ready{};
 
@@ -42,14 +43,24 @@ namespace
       auto* nav     = NavigationInteractionUIViewController::get_class_helper().get_cls();
       auto* slot    = cls("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "MiningSlotData");
       auto* fleet   = cls("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "FleetDeployedData");
+      auto* parent  = cls("Assembly-CSharp", "Digit.Prime.ObjectViewer", "ParentObjectViewerViewController");
+      auto* loader  = cls("Assembly-CSharp", "Digit.Prime.ObjectViewer", "ParentObjectViewerLoadAndShow");
       auto* rewards = cls("Assembly-CSharp", "Digit.Prime.Combat", "RewardsButtonWidget");
       viewerContext =
           field(viewer, "<CanvasContext>k__BackingField", "Digit.Prime.Navigation.NavigationInteractionUIContext");
-      contextPoi = field(context, "Poi", "Digit.Prime.Navigation.POI");
-      nodeSlot   = field(mining, "_nodeSlot", "Digit.PrimeServer.Models.MiningSlotData");
-      slotFleet  = field(slot, "_fleetData", "Digit.PrimeServer.Models.FleetDeployedData");
-      poiId      = field(poi, "<ID>k__BackingField", "System.Int64");
-      poiType    = field(poi, "_interactableType", "Digit.Prime.Navigation.InteractableType");
+      contextState = field(context, "_dataState", "Digit.Prime.Navigation.NavigationInteractionUIContext.DataState");
+      contextPoi   = field(context, "Poi", "Digit.Prime.Navigation.POI");
+      nodeSlot     = field(mining, "_nodeSlot", "Digit.PrimeServer.Models.MiningSlotData");
+      slotFleet    = field(slot, "_fleetData", "Digit.PrimeServer.Models.FleetDeployedData");
+      poiId        = field(poi, "<ID>k__BackingField", "System.Int64");
+      poiType      = field(poi, "_interactableType", "Digit.Prime.Navigation.InteractableType");
+      viewerParent =
+          field(viewer, "<Parent>k__BackingField", "Digit.Prime.ObjectViewer.ParentObjectViewerViewController");
+      parentLoaded     = field(parent, "_objectViewerLoadComplete", "System.Boolean");
+      parentVisibility = field(parent, "_visibilityController", "Digit.Client.UI.VisibilityController");
+      navLoader    = field(nav, "_objectViewerLoadAndShow", "Digit.Prime.ObjectViewer.ParentObjectViewerLoadAndShow");
+      loaderViewer = field(loader, "_activeViewer", "Digit.Prime.ObjectViewer.ObjectViewerBaseWidget");
+      loaderPoi    = field(loader, "_activePOI", "Digit.Prime.Navigation.POI");
       using method_contract::Resolve;
       getPoi       = Resolve(poi, "GetOfType", true, "Digit.Prime.Navigation.POI",
                              {"System.Int64", "Digit.Prime.Navigation.InteractableType"});
@@ -57,8 +68,9 @@ namespace
       canSelect    = Resolve(nav, "CanSelectPOI", false, "System.Boolean", {});
       fleetId      = Resolve(fleet, "get_ID", false, "System.Int64", {});
       rewardsClick = Resolve(rewards, "RewardsClicked", false, "System.Void", {});
-      ready        = viewerContext && contextPoi && nodeSlot && slotFleet && poiId && poiType && getPoi && selectPoi
-                     && canSelect && fleetId && rewardsClick;
+      ready = viewerContext && contextPoi && nodeSlot && slotFleet && poiId && poiType && getPoi && selectPoi
+              && canSelect && fleetId && rewardsClick && viewerParent && parentLoaded && parentVisibility && navLoader
+              && loaderViewer && loaderPoi && contextState;
       spdlog::info("[MiningPreview] shortcut cycle ready={}", ready);
     }
   };
@@ -112,6 +124,52 @@ namespace
     // The existing wrappers read live metadata rather than fixed offsets.
     return visibility
            && (visibility->_state == VisibilityState::Visible || visibility->_state == VisibilityState::Show);
+  }
+
+  template <typename T> bool Settled(T* widget)
+  {
+    // Show begins before DisplayAsset completes. Read current ownership and completion state
+    // rather than interrupting that load with another selection.
+    if (!widget)
+      return false;
+    auto*    context    = Object(widget, Native().viewerContext);
+    auto*    poi        = Object(context, Native().contextPoi);
+    auto*    parent     = Object(widget, Native().viewerParent);
+    auto*    visibility = reinterpret_cast<VisibilityController*>(Object(parent, Native().parentVisibility));
+    unsigned reasons    = 0;
+    if (!widget->_visibilityController || widget->_visibilityController->_state != VisibilityState::Visible)
+      reasons |= 1;
+    if (!context || !poi || Value<int>(context, Native().contextState) != 0)
+      reasons |= 2;
+    if (!parent || !Value<bool>(parent, Native().parentLoaded))
+      reasons |= 4;
+    if (!visibility || visibility->_state != VisibilityState::Visible)
+      reasons |= 8;
+    bool owner = false, selection = false;
+    for (auto* nav : ObjectFinder<NavigationInteractionUIViewController>::GetAll()) {
+      if (!nav || reinterpret_cast<Il2CppObject*>(nav->CanvasContext) != context)
+        continue;
+      auto* loader = Object(nav, Native().navLoader);
+      owner        = loader && Object(loader, Native().loaderViewer) == reinterpret_cast<Il2CppObject*>(widget);
+      selection    = loader && poi && Object(loader, Native().loaderPoi) == poi;
+      break;
+    }
+    if (!owner)
+      reasons |= 16;
+    if (!selection)
+      reasons |= 32;
+    // Report only changes per widget type/target, never every update tick.
+    static std::int64_t previousTarget{};
+    static unsigned     previousReasons = ~0u;
+    const auto          target          = Value<std::int64_t>(poi, Native().poiId);
+    if (target != previousTarget || reasons != previousReasons) {
+      spdlog::info(
+          "[MiningPreview] readiness target={} reasons={} (widget=1 context=2 asset=4 parent=8 owner=16 selection=32)",
+          target, reasons);
+      previousTarget  = target;
+      previousReasons = reasons;
+    }
+    return reasons == 0;
   }
 
   struct Session {
@@ -177,7 +235,7 @@ namespace
     if (!Native().ready)
       return false;
     for (auto* widget : ObjectFinder<MiningObjectViewerWidget>::GetAll()) {
-      if (!Visible(widget) || widget->_occupiedState == NotOccupied)
+      if (!Visible(widget) || widget->_occupiedState == NotOccupied || !Settled(widget))
         continue;
       auto*      context = Object(widget, Native().viewerContext);
       auto*      node    = Object(context, Native().contextPoi);
@@ -193,6 +251,8 @@ namespace
                  Clock::now() + std::chrono::seconds(5)};
       if (!session.context)
         return false;
+      spdlog::info("[MiningPreview] select ship source={} node={} fleet={}", automatic ? "default" : "view", nodeId,
+                   *fleet);
       // An initial open honors normal cargo defaults. Explicit View cycling visits ship first.
       if (Select(FindPoi(*fleet, 5)))
         return true;
@@ -235,14 +295,20 @@ void Update()
   if (session.atNode) {
     if (id != session.node) {
       Reset();
-    } else if (Node()) {
+    } else if (auto* node = Node(); node && Settled(node)) {
+      if (!session.sawNode)
+        spdlog::info("[MiningPreview] node ready node={} fleet={}", session.node, session.fleet);
       session.sawNode = true;
-    } else if (session.sawNode || Clock::now() > session.deadline) {
+    } else if ((session.sawNode && !Node()) || Clock::now() > session.deadline) {
       Reset();
     }
-  } else if (Ship()) {
+  } else if (auto* ship = Ship(); ship && Settled(ship)) {
+    if (!session.sawShip)
+      spdlog::info("[MiningPreview] ship ready node={} fleet={}", session.node, session.fleet);
     session.sawShip = true;
-  } else if (session.sawShip || Clock::now() > session.deadline) {
+  } else if ((session.sawShip && !Ship()) || Clock::now() > session.deadline) {
+    spdlog::info("[MiningPreview] ship wait ended node={} fleet={} appeared={}", session.node, session.fleet,
+                 session.sawShip);
     Reset();
   }
 }
@@ -253,7 +319,7 @@ bool Cycle()
     return false;
   Update();
   if (session.context && session.atNode) {
-    if (!Node())
+    if (auto* node = Node(); !node || !Settled(node))
       return true; // Keep the handled selection through the native node-show transition.
     Reset();
     return Begin(false);
@@ -261,13 +327,14 @@ bool Cycle()
   if (!session.context)
     return Begin(false);
   auto* ship = Ship();
-  if (!ship)
+  if (!ship || !Settled(ship))
     return true; // Wait for the selected ship's native popup to finish loading.
   auto* button  = ship->_rewardsButtonWidget;
   auto* rewards = button ? button->_rewardsController : nullptr;
   if (!rewards)
     return true;
   if (rewards->_state == VisibilityState::Visible || rewards->_state == VisibilityState::Show) {
+    spdlog::info("[MiningPreview] select node node={} fleet={}", session.node, session.fleet);
     if (Select(FindPoi(session.node, session.nodeType))) {
       // Keep this selection marked as handled: returning to node must not auto-open ship again.
       session.atNode         = true;
