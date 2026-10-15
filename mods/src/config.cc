@@ -1025,6 +1025,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "artifactexchangehooks", DCP::artifactexchangehooks, write_config);
   this->installOfficerPresetReorderHooks = get_config_or_default(
       config, parsed, "patches", "officerpresetreorderhooks", DCP::officerpresetreorderhooks, write_config);
+  this->installBaseCardHooks =
+      get_config_or_default(config, parsed, "patches", "basecardhooks", DCP::basecardhooks, write_config);
   this->installAudioEventHooks =
       get_config_or_default(config, parsed, "patches", "audioeventhooks", DCP::audioeventhooks, write_config);
   this->installInstantCargoCounterHooks =
@@ -1173,6 +1175,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "ui", "disable_preview_locate", DCU::disable_preview_locate, write_config);
   this->disable_preview_recall =
       get_config_or_default(config, parsed, "ui", "disable_preview_recall", DCU::disable_preview_recall, write_config);
+  this->keep_base_card_open =
+      get_config_or_default(config, parsed, "ui", "keep_base_card_open", DCU::keep_base_card_open, write_config);
   this->only_show_first_popup = get_config_or_default(config, parsed, "ui", "only_show_first_popup",
                                                       DCU::only_show_first_popup, write_config);
   this->disable_move_keys =

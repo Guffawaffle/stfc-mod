@@ -57,6 +57,7 @@ void InstallInstantWarpConfirmationHooks();
 void InstallForbiddenTechConfirmationHooks();
 void InstallAudioEventHooks();
 void InstallOfficerPresetReorderHooks();
+void InstallBaseCardHooks();
 void InstallOpcIndicatorHooks();
 void InstallShipTechIndicatorHooks();
 
@@ -235,6 +236,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
       {"ForbiddenTechConfirm", {InstallForbiddenTechConfirmationHooks, &cfg.installForbiddenTechConfirmationHooks}},
       {"AudioEvents", {InstallAudioEventHooks, &cfg.installAudioEventHooks}},
       {"OfficerPresetReorder", {InstallOfficerPresetReorderHooks, &cfg.installOfficerPresetReorderHooks}},
+      {"BaseCard", {InstallBaseCardHooks, &cfg.installBaseCardHooks}},
       {"OpcIndicators", {InstallOpcIndicatorHooks, &cfg.installOpcIndicatorHooks}},
       {"ShipTechIndicators", {InstallShipTechIndicatorHooks, &install_ship_tile_bind}},
       // Galaxy availability must be established before settings pages register.

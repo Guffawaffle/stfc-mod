@@ -234,6 +234,7 @@ public:
   bool disable_move_keys;
   bool disable_preview_locate;
   bool disable_preview_recall;
+  bool keep_base_card_open;
   bool disable_escape_exit;
   int  disable_escape_exit_timer;
   bool disable_galaxy_chat;
@@ -333,6 +334,7 @@ public:
   bool installNativeSettings;
   bool installArtifactExchangeHooks;
   bool installOfficerPresetReorderHooks;
+  bool installBaseCardHooks;
 
   std::string config_settings_url;
   std::string config_assets_url_override;

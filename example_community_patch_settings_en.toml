@@ -342,6 +342,7 @@ hide_haven_water = false
 artifactexchangehooks = true
 # Emergency hook switch; feature preference remains under [ui].
 officerpresetreorderhooks = true
+basecardhooks = true
 audioeventhooks = true
 
 # Enable the buff fixes
@@ -954,6 +955,11 @@ disable_preview_locate = false
 
 # Stop recall working when ship or node previews are displayed
 disable_preview_recall = false
+
+# Keep player-base popups and scanned-base screens open after initiating an attack.
+# Click-away, Escape, Back, target changes, and other dismissals keep their normal behavior.
+# Live in Mod Settings > Previews & Cargo.
+keep_base_card_open = false
 
 
 # Set to true to always show the rewards for selected ships/stations

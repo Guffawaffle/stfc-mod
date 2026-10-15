@@ -59,7 +59,7 @@ void RegisterModPages()
   catalog.AddHeading("community_mod.previews", "community_mod.ui.opc", "Protected cargo");
   catalog.AddBoolean("community_mod.previews", OpcHighlightSetting());
   catalog.AddBoolean("community_mod.previews", OpcEtaSetting());
-  if (PreviewShortcutsAvailable() || InstantCargoCounterAvailable() || CargoPreviewsAvailable())
+  if (PreviewShortcutsAvailable() || InstantCargoCounterAvailable() || CargoPreviewsAvailable() || KeepBaseCardAvailable())
     catalog.AddHeading("community_mod.previews", "community_mod.previews.other", "Other");
   if (PreviewShortcutsAvailable()) {
     for (auto option : {PreviewOption::Locate, PreviewOption::Recall})
@@ -67,6 +67,8 @@ void RegisterModPages()
   }
   if (InstantCargoCounterAvailable())
     catalog.AddBoolean("community_mod.previews", PreviewSetting(PreviewOption::InstantCargo));
+  if (KeepBaseCardAvailable())
+    catalog.AddBoolean("community_mod.previews", PreviewSetting(PreviewOption::KeepBaseCard));
   if (CargoPreviewsAvailable()) {
     catalog.AddBoolean("community_mod.previews", PreviewSetting(PreviewOption::Cargo));
     // Only presentation depends on the master; target choices remain saved.
