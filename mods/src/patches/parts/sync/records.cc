@@ -432,7 +432,8 @@ namespace
 
   void ProcessJson(const Input& input)
   {
-    const auto& options = Config::Get().sync.options;
+    const auto  config  = Config::Sync::Get();
+    const auto& options = config->options;
     const auto  result  = json::parse(input.bytes, nullptr, false);
     if (!result.is_object()) {
       spdlog::error("Failed to parse sync JSON");
@@ -675,7 +676,8 @@ void ProcessOwnProfile(const Input& input)
 
 Processor ProcessorFor(EntityGroup::Kind kind)
 {
-  const auto& options = Config::Get().sync.options;
+  const auto  config  = Config::Sync::Get();
+  const auto& options = config->options;
   for (const auto& route : kRoutes)
     if (route.type == kind)
       return !route.battle || options.battlelogs ? route.process : nullptr;
