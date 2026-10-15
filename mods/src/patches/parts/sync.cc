@@ -1,6 +1,7 @@
 #include "config.h"
 #include "errormsg.h"
 #include "file.h"
+#include "version.h"
 #include "str_utils.h"
 
 #include <Digit.PrimePlatform.Content.pb.h>
@@ -836,7 +837,7 @@ static void load_previously_sent_logs()
   previously_sent_battlelogs.set_capacity(300);
 
   try {
-    const std::filesystem::path path(File::MakePath(File::Battles()));
+    const auto path = File::Path(File::Battles());
     std::ifstream              file(path, std::ios::in | std::ios::binary);
     if (!file.is_open()) {
       spdlog::warn("Failed to open battles file (not found or not readable); starting with empty cache");
@@ -869,7 +870,7 @@ static void save_previously_sent_logs()
   }
 
   try {
-    const std::filesystem::path path(File::MakePath(File::Battles(), true));
+    const auto path = File::Path(File::Battles(), true);
     std::ofstream               file(path, std::ios::out | std::ios::binary | std::ios::trunc);
     if (!file.is_open()) {
       spdlog::error("Failed to open battles file for writing");
