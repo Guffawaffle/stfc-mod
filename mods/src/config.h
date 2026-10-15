@@ -277,14 +277,12 @@ public:
     int  disable_escape_exit_timer = 0;
     bool disable_preview_locate    = false;
     bool disable_preview_recall    = false;
-    // TODO: both are read but have no effect; disable_first_popup was switched off in misc.cc.
-    bool disable_first_popup   = false;
-    bool only_show_first_popup = false;
-    bool reverse_haven_history = true;
-    bool disable_toast_banners = false;
-    bool disable_move_keys     = false;
-    bool disable_galaxy_chat   = false;
-    bool disable_veil_chat     = false;
+    bool only_show_first_popup     = false;
+    bool reverse_haven_history     = true;
+    bool disable_toast_banners     = false;
+    bool disable_move_keys         = false;
+    bool disable_galaxy_chat       = false;
+    bool disable_veil_chat         = false;
 
     bool                     auto_open_bulk_claim_flyout = false;
     std::vector<std::string> daily_bulk_claim_factions{"federation", "klingon", "romulan"};
