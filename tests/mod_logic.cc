@@ -1,9 +1,9 @@
 // Settings parsing and shortcut matching, run against production code with Unity input replaced by a fake.
 #include "config.h"
-#include "patches/parts/toast_text.h"
-#include "patches/ship_shortcut_hint.h"
-#include "patches/shortcuts.h"
-#include "str_utils.h"
+#include "features/ship_shortcut_hint.h"
+#include "features/toast_text.h"
+#include "shortcuts.h"
+#include "text.h"
 
 #include <spdlog/sinks/callback_sink.h>
 #include <spdlog/spdlog.h>
