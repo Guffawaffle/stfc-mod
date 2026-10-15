@@ -25,10 +25,10 @@ int main(int argc, char** argv)
       }
     }
     assert(base_card_registered);
-    assert(writer.Submit("ui", "keep_base_card_open", true));
     assert(writer.Register("graphics", "galaxy_multi_select", false));
     assert(writer.Register("graphics", "galaxy_label_major_detail", std::string("native")));
     assert(writer.Register("graphics", "galaxy_label_major_threshold", 0.5));
+    assert(writer.Submit("ui", "keep_base_card_open", true));
     assert(writer.Submit("graphics", "galaxy_multi_select", true));
     assert(writer.Submit("graphics", "galaxy_label_major_detail", std::string("threshold")));
     // Quit immediately with a slider write still debounced: orderly stop must flush it.
