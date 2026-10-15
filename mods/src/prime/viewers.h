@@ -38,8 +38,6 @@ struct ObjectViewerBaseWidget : Widget<NavigationInteractionUIContext> {
   { return Get<"Parent", ParentObjectViewerViewController*>(); }
   bool IsInfoShown()
   { return Get<"IsInfoShown", bool>(); }
-  void SetIsInfoShown(bool value)
-  { Set<"IsInfoShown">(value); }
 };
 
 struct RewardsButtonWidget : Widget<BattleTargetData> {
@@ -61,9 +59,6 @@ struct ScanEngageButtonsWidget : Widget<BattleTargetData> {
   { Call<"OnEngageButtonClicked">(); }
   void OnScanButtonClicked()
   { Call<"OnScanButtonClicked">(); }
-
-  GenericButtonWidget* armadaButton()
-  { return Field<"_armadaButton", GenericButtonWidget*>(); }
 };
 
 struct PreScanTargetWidget : ObjectViewerBaseWidget {
@@ -77,8 +72,6 @@ struct PreScanTargetWidget : ObjectViewerBaseWidget {
   void OnInfoClick()
   { Call<"OnInfoClick">(); }
 
-  BattleTargetData* battleTargetData()
-  { return Field<"_battleTargetData", BattleTargetData*>(); }
   ScanEngageButtonsWidget* scanEngageButtonsWidget()
   { return Field<"_scanEngageButtonsWidget", ScanEngageButtonsWidget*>(); }
   RewardsButtonWidget* rewardsButtonWidget()
@@ -122,11 +115,7 @@ struct HousingObjectViewerWidget : ObjectViewerBaseWidget {
 };
 
 // MiningObjectViewerWidget.OccupiedState, a private nested enum.
-enum class OccupiedState : int32_t {
-  NotOccupied         = 0,
-  LocalPlayerOccupied = 1,
-  OtherPlayerOccupied = 2
-};
+enum class OccupiedState : int32_t { NotOccupied = 0, LocalPlayerOccupied = 1, OtherPlayerOccupied = 2 };
 
 struct MiningObjectViewerWidget : ObjectViewerBaseWidget {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ObjectViewer", "MiningObjectViewerWidget">;
@@ -134,8 +123,6 @@ struct MiningObjectViewerWidget : ObjectViewerBaseWidget {
   void MineClicked()
   { Call<"MineClicked">(); }
 
-  OccupiedState occupiedState()
-  { return Field<"_occupiedState", OccupiedState>(); }
   ScanEngageButtonsWidget* scanEngageButtonsWidget()
   { return Field<"_scanEngageButtonsWidget", ScanEngageButtonsWidget*>(); }
 };
