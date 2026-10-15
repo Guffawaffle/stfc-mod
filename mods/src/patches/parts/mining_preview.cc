@@ -118,7 +118,7 @@ namespace
     Il2CppGCHandle    context{};
     std::int64_t      node{}, fleet{};
     int               nodeType{};
-    bool              cargoRequested{}, sawShip{};
+    bool              cargoRequested{}, sawShip{}, atNode{};
     Clock::time_point deadline{};
   } session;
 
@@ -163,21 +163,79 @@ namespace
     }
     return nullptr;
   }
+  MiningObjectViewerWidget* Node()
+  {
+    for (auto* widget : ObjectFinder<MiningObjectViewerWidget>::GetAll()) {
+      if (Visible(widget) && Object(widget, Native().viewerContext) == Context())
+        return widget;
+    }
+    return nullptr;
+  }
+
+  bool Begin(bool automatic)
+  {
+    if (!Native().ready)
+      return false;
+    for (auto* widget : ObjectFinder<MiningObjectViewerWidget>::GetAll()) {
+      if (!Visible(widget) || widget->_occupiedState == NotOccupied)
+        continue;
+      auto*      context = Object(widget, Native().viewerContext);
+      auto*      node    = Object(context, Native().contextPoi);
+      const auto fleet   = FleetId(Object(Object(widget, Native().nodeSlot), Native().slotFleet));
+      if (!node || !fleet)
+        continue;
+      const auto nodeId   = Value<std::int64_t>(node, Native().poiId);
+      const auto nodeType = Value<int>(node, Native().poiType);
+      if (nodeId == 0 || nodeId == -1)
+        continue;
+      Reset();
+      session = {il2cpp_gchandle_new_weakref(context, false), nodeId, *fleet, nodeType, automatic, false, false,
+                 Clock::now() + std::chrono::seconds(5)};
+      if (!session.context)
+        return false;
+      // An initial open honors normal cargo defaults. Explicit View cycling visits ship first.
+      if (Select(FindPoi(*fleet, 5)))
+        return true;
+      // One automatic attempt per selection. A denied/missing ship leaves the native node visible.
+      if (automatic)
+        session.atNode = true;
+      else
+        Reset();
+      return false;
+    }
+    return false;
+  }
 } // namespace
 
 void Update()
 {
-  if (!session.context)
+  const auto& config = Config::Get();
+  if (!session.context && !config.mining_node_ship_default)
     return;
-  auto*      context = Context();
-  auto*      poi     = Object(context, Native().contextPoi);
-  const auto id      = Value<std::int64_t>(poi, Native().poiId);
-  if (!Config::Get().hotkeys_enabled || Config::Get().use_scopely_hotkeys || !SystemMap() || !poi
-      || (id != session.node && id != session.fleet)) {
+  if ((!config.hotkeys_enabled || config.use_scopely_hotkeys) && !config.mining_node_ship_default) {
     Reset();
     return;
   }
-  if (Ship()) {
+  if (!SystemMap()) {
+    Reset();
+    return;
+  }
+  if (!session.context) {
+    if (config.mining_node_ship_default)
+      Begin(true);
+    return;
+  }
+  auto*      context = Context();
+  auto*      poi     = Object(context, Native().contextPoi);
+  const auto id      = Value<std::int64_t>(poi, Native().poiId);
+  if (!poi || (id != session.node && id != session.fleet)) {
+    Reset();
+    return;
+  }
+  if (session.atNode) {
+    if (id != session.node || !Node())
+      Reset();
+  } else if (Ship()) {
     session.sawShip = true;
   } else if (session.sawShip || Clock::now() > session.deadline) {
     Reset();
@@ -189,49 +247,38 @@ bool Cycle()
   if (!SystemMap() || !Native().ready)
     return false;
   Update();
-  if (session.context) {
-    auto* ship = Ship();
-    if (!ship)
-      return true; // Wait for the selected ship's native popup to finish loading.
-    auto* button  = ship->_rewardsButtonWidget;
-    auto* rewards = button ? button->_rewardsController : nullptr;
-    if (!rewards)
-      return true;
-    if (rewards->_state == VisibilityState::Visible || rewards->_state == VisibilityState::Show) {
-      auto*      node     = FindPoi(session.node, session.nodeType);
-      const bool selected = Select(node);
-      Reset();
-      return selected;
-    }
-    session.cargoRequested = true;
-    Il2CppRuntime::TryInvoke(Native().rewardsClick, button, nullptr);
-    return true;
-  }
-  for (auto* widget : ObjectFinder<MiningObjectViewerWidget>::GetAll()) {
-    if (!Visible(widget) || widget->_occupiedState == NotOccupied)
-      continue;
-    auto*      context = Object(widget, Native().viewerContext);
-    auto*      node    = Object(context, Native().contextPoi);
-    const auto fleet   = FleetId(Object(Object(widget, Native().nodeSlot), Native().slotFleet));
-    if (!node || !fleet)
-      continue;
-    const auto nodeId   = Value<std::int64_t>(node, Native().poiId);
-    const auto nodeType = Value<int>(node, Native().poiType);
-    auto*      poi      = FindPoi(*fleet, 5); // InteractableType.Fleet; never manufacture a POI.
-    if (!poi || nodeId == 0 || nodeId == -1)
-      continue;
-    session = {il2cpp_gchandle_new_weakref(context, false), nodeId, *fleet, nodeType, false, false,
-               Clock::now() + std::chrono::seconds(5)};
-    if (session.context && Select(poi))
-      return true;
+  if (session.context && session.atNode) {
     Reset();
+    return Begin(false);
   }
-  return false;
+  if (!session.context)
+    return Begin(false);
+  auto* ship = Ship();
+  if (!ship)
+    return true; // Wait for the selected ship's native popup to finish loading.
+  auto* button  = ship->_rewardsButtonWidget;
+  auto* rewards = button ? button->_rewardsController : nullptr;
+  if (!rewards)
+    return true;
+  if (rewards->_state == VisibilityState::Visible || rewards->_state == VisibilityState::Show) {
+    if (Select(FindPoi(session.node, session.nodeType))) {
+      // Keep this selection marked as handled: returning to node must not auto-open ship again.
+      session.atNode         = true;
+      session.sawShip        = false;
+      session.cargoRequested = true;
+      return true;
+    }
+    Reset();
+    return false;
+  }
+  session.cargoRequested = true;
+  Il2CppRuntime::TryInvoke(Native().rewardsClick, button, nullptr);
+  return true;
 }
 
 bool SuppressAutomaticCargo(RewardsButtonWidget* widget)
 {
-  if (!session.context || !Context() || !SystemMap() || session.cargoRequested || !widget)
+  if (!session.context || session.atNode || !Context() || !SystemMap() || session.cargoRequested || !widget)
     return false;
   auto* data   = widget->Context;
   auto* target = data ? data->TargetFleetDeployedData : nullptr;

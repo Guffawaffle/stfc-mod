@@ -964,6 +964,12 @@ disable_preview_recall = false
 # Live in Mod Settings > Previews & Cargo.
 keep_base_card_open = false
 
+# On occupied mining nodes, initially open the occupying ship instead of the node.
+# Uses your automatic cargo and player-cargo preferences for that initial view.
+# View still cycles node > ship > cargo > node; empty nodes keep their normal preview.
+# Live in Mod Settings > Previews & Cargo: Show occupying ship first.
+mining_node_ship_default = false
+
 
 # Set to true to always show the rewards for selected ships/stations
 show_armada_cargo = true

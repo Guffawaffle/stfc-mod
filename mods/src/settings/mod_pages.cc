@@ -62,7 +62,7 @@ void RegisterModPages()
   if (PreviewShortcutsAvailable() || InstantCargoCounterAvailable() || CargoPreviewsAvailable() || KeepBaseCardAvailable())
     catalog.AddHeading("community_mod.previews", "community_mod.previews.other", "Other");
   if (PreviewShortcutsAvailable()) {
-    for (auto option : {PreviewOption::Locate, PreviewOption::Recall})
+    for (auto option : {PreviewOption::Locate, PreviewOption::Recall, PreviewOption::MiningNodeShipDefault})
       catalog.AddBoolean("community_mod.previews", PreviewSetting(option));
   }
   if (InstantCargoCounterAvailable())

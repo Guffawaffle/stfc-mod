@@ -18,17 +18,21 @@ int main(int argc, char** argv)
   ReplaceConfigText(path, original);
   {
     config_edit::RuntimeConfigWriter writer(path, std::nullopt);
-    bool base_card_registered = false;
+    bool base_card_registered = false, mining_view_registered = false;
     for (const auto& [section, key] : config_edit::persisted_settings) {
       if (std::string_view(section) == "ui" && std::string_view(key) == "keep_base_card_open") {
         base_card_registered = writer.Register(section, key, std::nullopt);
       }
+      if (std::string_view(section) == "ui" && std::string_view(key) == "mining_node_ship_default") {
+        mining_view_registered = writer.Register(section, key, std::nullopt);
+      }
     }
-    assert(base_card_registered);
+    assert(base_card_registered && mining_view_registered);
     assert(writer.Register("graphics", "galaxy_multi_select", false));
     assert(writer.Register("graphics", "galaxy_label_major_detail", std::string("native")));
     assert(writer.Register("graphics", "galaxy_label_major_threshold", 0.5));
     assert(writer.Submit("ui", "keep_base_card_open", true));
+    assert(writer.Submit("ui", "mining_node_ship_default", true));
     assert(writer.Submit("graphics", "galaxy_multi_select", true));
     assert(writer.Submit("graphics", "galaxy_label_major_detail", std::string("threshold")));
     // Quit immediately with a slider write still debounced: orderly stop must flush it.
@@ -42,7 +46,18 @@ int main(int argc, char** argv)
   assert(loaded["graphics"]["galaxy_label_major_detail"].value<std::string>() == "threshold");
   assert(loaded["graphics"]["galaxy_label_major_threshold"].value<double>() == 0.95);
   assert(loaded["ui"]["keep_base_card_open"].value<bool>() == true);
+  assert(loaded["ui"]["mining_node_ship_default"].value<bool>() == true);
   assert(loaded["unrelated"]["value"].value<int>() == 42);
   assert(bytes.starts_with("# keep this comment"));
+  {
+    config_edit::RuntimeConfigWriter writer(path, std::nullopt);
+    assert(writer.Register("ui", "mining_node_ship_default", true));
+    assert(writer.Submit("ui", "mining_node_ship_default", false));
+    writer.Stop(false);
+  }
+  const auto reloaded = toml::parse(ReadConfigText(path));
+  assert(reloaded["ui"]["mining_node_ship_default"].value<bool>() == false);
+  assert(reloaded["ui"]["keep_base_card_open"].value<bool>() == true);
+  assert(reloaded["unrelated"]["value"].value<int>() == 42);
   std::cout << "Runtime settings disk/reload regression passed\n";
 }

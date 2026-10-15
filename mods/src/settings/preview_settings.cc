@@ -37,7 +37,9 @@ BooleanSetting& PreviewSetting(PreviewOption option)
       BooleanSetting(PreviewDefinition("instant_cargo_counter", "Instant ship cargo counter",
                                        &Config::instant_cargo_counter)),
       BooleanSetting(PreviewDefinition("keep_base_card_open", "Keep base card open after attacking",
-                                       &Config::keep_base_card_open))};
+                                       &Config::keep_base_card_open)),
+      BooleanSetting(PreviewDefinition("mining_node_ship_default", "Show occupying ship first",
+                                       &Config::mining_node_ship_default))};
   static_assert(settings.size() == static_cast<std::size_t>(PreviewOption::Count));
   return settings.at(static_cast<std::size_t>(option));
 }

@@ -13,6 +13,7 @@ enum class PreviewOption {
   ArmadaCargo,
   InstantCargo,
   KeepBaseCard,
+  MiningNodeShipDefault,
   Count
 };
 
