@@ -299,17 +299,39 @@ void Update()
       if (!session.sawNode)
         spdlog::info("[MiningPreview] node ready node={} fleet={}", session.node, session.fleet);
       session.sawNode = true;
-    } else if ((session.sawNode && !Node()) || Clock::now() > session.deadline) {
+    } else if (session.sawNode && !Node()) {
       Reset();
+    } else if (Clock::now() > session.deadline) {
+      // Keep the handled-selection marker even if native loading remains incomplete.
+      // Clearing it here could automatically select the same failing ship again.
+      spdlog::warn("[MiningPreview] node return still pending node={} fleet={}; no automatic retry", session.node,
+                   session.fleet);
+      session.deadline = Clock::time_point::max();
     }
   } else if (auto* ship = Ship(); ship && Settled(ship)) {
     if (!session.sawShip)
       spdlog::info("[MiningPreview] ship ready node={} fleet={}", session.node, session.fleet);
     session.sawShip = true;
-  } else if ((session.sawShip && !Ship()) || Clock::now() > session.deadline) {
+  } else if (session.sawShip && !Ship()) {
     spdlog::info("[MiningPreview] ship wait ended node={} fleet={} appeared={}", session.node, session.fleet,
                  session.sawShip);
     Reset();
+  } else if (!session.sawShip && Clock::now() > session.deadline) {
+    spdlog::warn("[MiningPreview] ship load timed out node={} fleet={} selected={} dataState={}; returning to node once",
+                 session.node, session.fleet, id, Value<int>(context, Native().contextState));
+    // Update already verified that the original context still owns this selection.
+    // Never retry the ship automatically or reselect an already selected node (native toggle-dismiss).
+    session.atNode         = true;
+    session.sawNode        = false;
+    session.cargoRequested = true;
+    session.deadline       = Clock::now() + std::chrono::seconds(5);
+    if (id == session.node || Select(FindPoi(session.node, session.nodeType))) {
+      spdlog::info("[MiningPreview] node recovery requested node={} fleet={}", session.node, session.fleet);
+    } else {
+      spdlog::warn("[MiningPreview] node recovery unavailable node={} fleet={}; leaving native selection untouched",
+                   session.node, session.fleet);
+      Reset();
+    }
   }
 }
 
