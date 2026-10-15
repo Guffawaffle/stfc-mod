@@ -1,4 +1,6 @@
 #include "runtime_config_writer.h"
+#include "patches/parts/runtime_config_keys.h"
+#include <string_view>
 #include "config_save.h"
 #include <cassert>
 #include <chrono>
@@ -16,9 +18,17 @@ int main(int argc, char** argv)
   ReplaceConfigText(path, original);
   {
     config_edit::RuntimeConfigWriter writer(path, std::nullopt);
+    bool base_card_registered = false;
+    for (const auto& [section, key] : config_edit::persisted_settings) {
+      if (std::string_view(section) == "ui" && std::string_view(key) == "keep_base_card_open") {
+        base_card_registered = writer.Register(section, key, std::nullopt);
+      }
+    }
+    assert(base_card_registered);
     assert(writer.Register("graphics", "galaxy_multi_select", false));
     assert(writer.Register("graphics", "galaxy_label_major_detail", std::string("native")));
     assert(writer.Register("graphics", "galaxy_label_major_threshold", 0.5));
+    assert(writer.Submit("ui", "keep_base_card_open", true));
     assert(writer.Submit("graphics", "galaxy_multi_select", true));
     assert(writer.Submit("graphics", "galaxy_label_major_detail", std::string("threshold")));
     // Quit immediately with a slider write still debounced: orderly stop must flush it.
@@ -31,6 +41,7 @@ int main(int argc, char** argv)
   assert(loaded["graphics"]["galaxy_multi_select"].value<bool>() == true);
   assert(loaded["graphics"]["galaxy_label_major_detail"].value<std::string>() == "threshold");
   assert(loaded["graphics"]["galaxy_label_major_threshold"].value<double>() == 0.95);
+  assert(loaded["ui"]["keep_base_card_open"].value<bool>() == true);
   assert(loaded["unrelated"]["value"].value<int>() == 42);
   assert(bytes.starts_with("# keep this comment"));
   std::cout << "Runtime settings disk/reload regression passed\n";

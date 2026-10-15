@@ -130,6 +130,7 @@ namespace Patches
   constexpr bool audioeventhooks            = true;
   constexpr bool artifactexchangehooks      = true;
   constexpr bool officerpresetreorderhooks   = true;
+  constexpr bool basecardhooks               = true;
 } // namespace Patches
 
 namespace Shortcuts
@@ -309,6 +310,7 @@ namespace UI
   constexpr bool        disable_move_keys           = false;
   constexpr bool        disable_preview_locate      = false;
   constexpr bool        disable_preview_recall      = false;
+  constexpr bool        keep_base_card_open         = false;
   constexpr bool        disable_toast_banners       = false;
   constexpr bool        disable_veil_chat           = false;
   constexpr bool        disable_exchange_all        = false;
