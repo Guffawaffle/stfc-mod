@@ -118,7 +118,7 @@ namespace
     Il2CppGCHandle    context{};
     std::int64_t      node{}, fleet{};
     int               nodeType{};
-    bool              cargoRequested{}, sawShip{}, atNode{};
+    bool              cargoRequested{}, sawShip{}, atNode{}, sawNode{};
     Clock::time_point deadline{};
   } session;
 
@@ -189,7 +189,7 @@ namespace
       if (nodeId == 0 || nodeId == -1)
         continue;
       Reset();
-      session = {il2cpp_gchandle_new_weakref(context, false), nodeId, *fleet, nodeType, automatic, false, false,
+      session = {il2cpp_gchandle_new_weakref(context, false), nodeId, *fleet, nodeType, automatic, false, false, false,
                  Clock::now() + std::chrono::seconds(5)};
       if (!session.context)
         return false;
@@ -233,8 +233,13 @@ void Update()
     return;
   }
   if (session.atNode) {
-    if (id != session.node || !Node())
+    if (id != session.node) {
       Reset();
+    } else if (Node()) {
+      session.sawNode = true;
+    } else if (session.sawNode || Clock::now() > session.deadline) {
+      Reset();
+    }
   } else if (Ship()) {
     session.sawShip = true;
   } else if (session.sawShip || Clock::now() > session.deadline) {
@@ -248,6 +253,8 @@ bool Cycle()
     return false;
   Update();
   if (session.context && session.atNode) {
+    if (!Node())
+      return true; // Keep the handled selection through the native node-show transition.
     Reset();
     return Begin(false);
   }
@@ -265,6 +272,8 @@ bool Cycle()
       // Keep this selection marked as handled: returning to node must not auto-open ship again.
       session.atNode         = true;
       session.sawShip        = false;
+      session.sawNode        = false;
+      session.deadline       = Clock::now() + std::chrono::seconds(5);
       session.cargoRequested = true;
       return true;
     }
