@@ -137,14 +137,18 @@ namespace
 
   bool Select(Il2CppObject* poi)
   {
-    auto*         nav = ObjectFinder<NavigationInteractionUIViewController>::Get();
-    bool          allowed{};
-    Il2CppObject* boxed{};
-    if (!poi || !nav || !Il2CppRuntime::TryInvoke(Native().canSelect, nav, nullptr, &boxed)
-        || !Il2CppRuntime::TryBoolean(boxed, allowed) || !allowed)
-      return false;
-    void* args[]{poi};
-    return Il2CppRuntime::TryInvoke(Native().selectPoi, nav, args);
+    for (auto* nav : ObjectFinder<NavigationInteractionUIViewController>::GetAll()) {
+      if (!nav || reinterpret_cast<Il2CppObject*>(nav->CanvasContext) != Context())
+        continue;
+      bool          allowed{};
+      Il2CppObject* boxed{};
+      if (!poi || !Il2CppRuntime::TryInvoke(Native().canSelect, nav, nullptr, &boxed)
+          || !Il2CppRuntime::TryBoolean(boxed, allowed) || !allowed)
+        return false;
+      void* args[]{poi};
+      return Il2CppRuntime::TryInvoke(Native().selectPoi, nav, args);
+    }
+    return false;
   }
 
   PreScanTargetWidget* Ship()
@@ -194,9 +198,10 @@ bool Cycle()
     if (!rewards)
       return true;
     if (rewards->_state == VisibilityState::Visible || rewards->_state == VisibilityState::Show) {
-      auto* node = FindPoi(session.node, session.nodeType);
+      auto*      node     = FindPoi(session.node, session.nodeType);
+      const bool selected = Select(node);
       Reset();
-      return Select(node);
+      return selected;
     }
     session.cargoRequested = true;
     Il2CppRuntime::TryInvoke(Native().rewardsClick, button, nullptr);
