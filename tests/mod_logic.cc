@@ -1,6 +1,7 @@
 // Settings parsing and shortcut matching, run against production code with Unity input replaced by a fake.
 #include "defaultconfig.h"
 #include "patches/input.h"
+#include "patches/parts/toast_text.h"
 #include "patches/ship_shortcut_hint.h"
 #include "patches/shortcuts.h"
 #include "str_utils.h"
@@ -100,6 +101,23 @@ void Timestamps()
   Check(ParseUtcTimestamp("2024-02-30T00:00:00") == std::nullopt, "invalid date");
   Check(ParseUtcTimestamp("2024-05-01 12:34:56") == std::nullopt, "wrong separator");
   Check(ParseUtcTimestamp("") == std::nullopt, "empty");
+}
+
+void ToastText()
+{
+  using namespace toast_text;
+  const std::vector<std::string> values{"Kirk", "7", ""};
+  Check(FormatPlaceholders("{0} scored {1}", values) == "Kirk scored 7", "plain placeholders");
+  Check(FormatPlaceholders("Lv.{1:000}", values) == "Lv.007", "zero-padded placeholder");
+  Check(FormatPlaceholders("{0}{0}", values) == "KirkKirk", "repeated placeholder");
+  Check(FormatPlaceholders("{10} and {1}", values) == "{10} and 7", "{1} does not match {10}");
+  Check(FormatPlaceholders("{2} stays", values) == "{2} stays", "empty values are left alone");
+  Check(FormatPlaceholders("{1:x2}", values) == "7", "other formats are filled unpadded");
+  Check(StripRichText("<color=#FF0000>Red</color> <b>bold</b>") == "Red bold", "rich text tags removed");
+  Check(StripRichText("a < b") == "a < b", "an unclosed '<' is text");
+  Check(TitleCase("USS ENTERPRISE-D") == "Uss Enterprise-D", "title case");
+  Check(HullKeyName("Hull_L30_Destroyer_Klingon_LIVE") == "Lv.30 Destroyer Klingon", "hull key with level");
+  Check(HullKeyName("Hull_BORG_CUBE") == "Borg Cube", "hull key without level");
 }
 
 void Chords()
@@ -203,6 +221,7 @@ int main()
   ShipHints();
   StringHelpers();
   Timestamps();
+  ToastText();
   Chords();
   Loading();
   Matching();
