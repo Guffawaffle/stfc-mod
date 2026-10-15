@@ -254,6 +254,9 @@ void CycleAutoConfirmInstantWarp()
   spdlog::info("Auto-confirm instant warp set to {}", kNames[static_cast<int>(setting)]);
 }
 
+void ReloadSettings()
+{ Config::Reload(); }
+
 struct Action {
   GameFunction shortcut;
   void (*run)();
@@ -320,6 +323,7 @@ constexpr Action kActions[] = {
     {GameFunction::LogLevelInfo, SetLogLevel<spdlog::level::info>, false, false},
     {GameFunction::LogLevelDebug, SetLogLevel<spdlog::level::debug>, false, false},
     {GameFunction::LogLevelTrace, SetLogLevel<spdlog::level::trace>, false, false},
+    {GameFunction::ReloadSettings, ReloadSettings, false, false},
     {GameFunction::ShowShips, OpenManageShips, false, false},
 };
 
@@ -566,8 +570,8 @@ void RunFrameUpdates()
 {
   // Each returns at once when its feature is off. They run in every hotkey mode, including Scopely's and while
   // hotkeys are toggled off. An exception must not unwind into the game's native frame.
-  for (auto update :
-       {AssignShipEnterKeyUpdate, DailyFactionBulkClaimUpdate, GalacticAnomalyTimerUpdate, WarpActionLabelUpdate}) {
+  for (auto update : {Config::ReloadIfChanged, AssignShipEnterKeyUpdate, DailyFactionBulkClaimUpdate,
+                      GalacticAnomalyTimerUpdate, WarpActionLabelUpdate}) {
     try {
       update();
     } catch (const std::exception& error) {
@@ -745,6 +749,10 @@ void ShortcutsManager_InitializeActions_Hook(auto original, ShortcutsManager* _t
     original(_this);
 }
 } // namespace
+
+// Watching the settings file needs only the frame tick.
+void InstallSettingsReload()
+{ InstallScreenManagerUpdateHook(); }
 
 bool InstallScreenManagerUpdateHook()
 {
