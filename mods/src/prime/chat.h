@@ -83,8 +83,6 @@ struct ChatMessageListLocalViewController : ViewController<ChatSectionContext> {
 
   TMP_InputField* inputField()
   { return Field<"_inputField", TMP_InputField*>(); }
-  bool inputFieldSelected()
-  { return Field<"_inputFieldSelected", bool>(); }
 };
 
 struct FullScreenChatViewController : il2cpp::Object {

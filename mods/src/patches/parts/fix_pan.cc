@@ -42,17 +42,21 @@ bool KeyboardPanAllowed()
 
 bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
 {
-  auto d = _this->lastDelta();
+  static auto GetMouseButton = il2cpp::ResolveICall<bool(int)>("UnityEngine.Input::GetMouseButton(System.Int32)");
+  static auto GetTouchCount = il2cpp::ResolveICall<int()>("UnityEngine.Input::get_touchCount()");
+  Key::Poll();
   const auto& config = Config::Get();
-  const bool disable_target_camera_lock = config.graphics.disable_target_camera_lock;
+  auto        d      = _this->lastDelta();
+  const bool  disable_target_camera_lock = config.graphics.disable_target_camera_lock;
 
   if (disable_target_camera_lock && _this->trackingPOI()) {
     _this->SetTrackingPOI(nullptr);
   }
-  static auto GetMouseButton = il2cpp::ResolveICall<bool(int)>("UnityEngine.Input::GetMouseButton(System.Int32)");
-  static auto GetTouchCount  = il2cpp::ResolveICall<int()>("UnityEngine.Input::get_touchCount()");
+  // An arrow held for a CTRL-arrow style shortcut must not pan as well, natively or through the mod.
+  const bool arrow_owned = Shortcut::Owns(KeyCode::LeftArrow) || Shortcut::Owns(KeyCode::RightArrow)
+                           || Shortcut::Owns(KeyCode::UpArrow) || Shortcut::Owns(KeyCode::DownArrow);
 
-  if (!config.ui.disable_move_keys && config.control.hotkeys_enabled && !Key::IsDirectionalInputClaimed()) {
+  if (config.control.hotkeys_enabled && !config.ui.disable_move_keys && !arrow_owned) {
     if (config.control.use_scopely_hotkeys || !config.patches.hotkeyhooks) {
       original(_this);
       d = _this->lastDelta();
@@ -90,6 +94,7 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
 void OrbitFrameProvider_UpdateInputData_Hook(auto original, OrbitFrameProvider* _this, Camera* primary_camera)
 {
   original(_this, primary_camera);
+  Key::Poll();
 
   auto section_manager = Hub::get_SectionManager();
   if (!Config::Get().control.hotkeys_enabled || Config::Get().control.use_scopely_hotkeys || Config::Get().ui.disable_move_keys
