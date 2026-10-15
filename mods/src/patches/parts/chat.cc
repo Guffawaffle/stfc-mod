@@ -1,6 +1,5 @@
-#include "prime/ChatPreviewController.h"
-#include "prime/FullScreenChatViewController.h"
-#include "prime/GenericButtonContext.h"
+#include "prime/chat.h"
+#include "prime/ui.h"
 
 #include "config.h"
 

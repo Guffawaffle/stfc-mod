@@ -1,15 +1,7 @@
 #include "config.h"
 #include "patches/screen_update_hook.h"
 
-#include <prime/Color.h>
-#include <prime/Component.h>
-#include <prime/GameObject.h>
-#include <prime/Hub.h>
-#include <prime/Image.h>
-#include <prime/RectTransform.h>
-#include <prime/ScreenManager.h>
-#include <prime/Transform.h>
-#include <prime/Vector2.h>
+#include <prime/unity.h>
 
 #include <il2cpp/il2cpp.h>
 #include <spdlog/spdlog.h>
@@ -88,10 +80,6 @@ struct GalacticAnomaliesManager : il2cpp::Object {
   // Digit.PrimeServer.Models.GalacticAnomaly, or null.
   il2cpp::Object* GetSystemGalacticAnomalies(int64_t system)
   { return Call<"GetSystemGalacticAnomalies", il2cpp::Object*>(system); }
-
-  // The singleton MonoSingleton`1 already holds, or null. Instance can search the scene or create a replacement.
-  static GalacticAnomaliesManager* Existing()
-  { return Class::Field<"s_instance", GalacticAnomaliesManager*>(); }
 };
 
 bool Alive(Il2CppObject* object)
@@ -100,19 +88,10 @@ bool Alive(Il2CppObject* object)
 void Destroy(Il2CppObject* object)
 { UnityObject::Call<"Destroy">(object); }
 
-// The first active T on `root`'s GameObject or below it. Scoped to one hierarchy, unlike FindObjectOfType, which
-// scans every loaded object.
-template <typename T> T* FindInChildren(il2cpp::Object* root)
+template <typename T> T* Find()
 {
   auto* type = T::Class::TypeObject();
-  return root && type ? root->Call<"GetComponentInChildren", T*>(type, false) : nullptr;
-}
-
-// The navigation HUD on the top visible canvas.
-HudNavigationViewController* NavigationHud()
-{
-  auto* canvas = ScreenManager::GetTopCanvas(true);
-  return Alive(canvas) ? FindInChildren<HudNavigationViewController>(canvas) : nullptr;
+  return type ? static_cast<T*>(UnityObject::Call<"FindObjectOfType", Il2CppObject*>(type)) : nullptr;
 }
 
 il2cpp::GcHandle navigation, panel, label, anomalyManager;
@@ -216,8 +195,7 @@ bool Create(HudNavigationViewController* nav)
   auto* name = (*names)[0];
   if (!Alive(name))
     return false;
-  auto* hud        = nav->transform();
-  auto* drawer     = FindInChildren<HudAllianceAndNewsViewController>(hud ? hud->Get<"root", Transform*>() : nullptr);
+  auto* drawer     = Find<HudAllianceAndNewsViewController>();
   auto* promotion  = drawer ? drawer->chestPromotion() : nullptr;
   auto* chest      = promotion ? promotion->transform() : nullptr;
   auto* parent     = chest ? chest->parent() : nullptr;
@@ -282,9 +260,9 @@ int64_t RemainingTicks(HudNavigationViewController* nav)
   // Cache the Unity object, not its timer data. Unity's liveness check detects
   // destruction even while the managed wrapper is retained by our GC handle.
   if (!Alive(anomalyManager.Get()))
-    anomalyManager = il2cpp::GcHandle::Strong(GalacticAnomaliesManager::Existing());
+    anomalyManager = il2cpp::GcHandle::Strong(Find<GalacticAnomaliesManager>());
   auto* manager = anomalyManager.Get<GalacticAnomaliesManager>();
-  auto* anomaly = Alive(manager) ? manager->GetSystemGalacticAnomalies(system) : nullptr;
+  auto* anomaly = manager ? manager->GetSystemGalacticAnomalies(system) : nullptr;
   if (!anomaly || !anomaly->Get<"IsActive", bool>())
     return 0;
   auto* timer = anomaly->Get<"EndTimeTimerDataContext", il2cpp::Object*>();
@@ -303,16 +281,9 @@ void Update()
     Clear();
     return;
   }
-  // The anomaly button only exists in system view.
-  auto* sections = Hub::get_SectionManager();
-  if (!sections || sections->CurrentSection() != SectionID::Navigation_System) {
+  if (!Alive(navigation.Get())) {
     Clear();
-    return;
-  }
-  auto* cached = navigation.Get<HudNavigationViewController>();
-  if (!Alive(cached) || !cached->isActiveAndEnabled()) {
-    Clear();
-    navigation = il2cpp::GcHandle::Strong(NavigationHud());
+    navigation = il2cpp::GcHandle::Strong(Find<HudNavigationViewController>());
   }
   auto*   nav   = navigation.Get<HudNavigationViewController>();
   int64_t ticks = 0;
