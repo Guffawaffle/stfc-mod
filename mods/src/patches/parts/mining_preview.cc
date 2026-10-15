@@ -231,7 +231,7 @@ bool Cycle()
 
 bool SuppressAutomaticCargo(RewardsButtonWidget* widget)
 {
-  if (!session.context || session.cargoRequested || !widget)
+  if (!session.context || !Context() || !SystemMap() || session.cargoRequested || !widget)
     return false;
   auto* data   = widget->Context;
   auto* target = data ? data->TargetFleetDeployedData : nullptr;
