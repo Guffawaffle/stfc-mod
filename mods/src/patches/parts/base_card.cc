@@ -1,4 +1,5 @@
 #include "config.h"
+#include "patches/base_card.h"
 #include "settings/preview_settings.h"
 
 #include <atomic>
@@ -6,6 +7,8 @@
 // As in action_queue.cc, the 24-byte managed value uses the host ABI: indirect on Windows/ARM64,
 // by value on the Mac Intel stack. Unsupported architectures keep native behavior.
 #if (defined(_WIN32) && defined(_M_X64)) || (defined(__APPLE__) && (defined(__arm64__) || defined(__x86_64__)))
+#include "prime/ObjectViewerBaseWidget.h"
+#include "prime/PreScanTargetWidget.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -181,6 +184,23 @@ bool ResponseLayout(const MethodInfo* method)
 }
 } // namespace
 
+bool base_card::KeepOpenForRecall(std::int64_t fleet)
+{
+  const CourseResponse response{fleet, true, true, {}, nullptr};
+  if (!Enabled(response))
+    return false;
+  for (auto* widget : ObjectFinder<PreScanTargetWidget>::GetAll()) {
+    auto* visibility = widget ? widget->_visibilityController : nullptr;
+    if (!visibility || (visibility->_state != VisibilityState::Show && visibility->_state != VisibilityState::Visible))
+      continue;
+    auto* object = reinterpret_cast<Il2CppObject*>(widget);
+    auto* data   = ReadObject(object, previewBattle);
+    if (MatchesBaseCourse(data, response) && MatchesPreview(Invoke(previewContext, object), data))
+      return true;
+  }
+  return false;
+}
+
 void InstallBaseCardHooks()
 {
   auto* preview = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Combat", "PreScanTargetWidget").get_cls();
@@ -231,6 +251,8 @@ namespace
 std::atomic_bool ready{false};
 }
 void InstallBaseCardHooks() {}
+bool base_card::KeepOpenForRecall(std::int64_t)
+{ return false; }
 #endif
 
 namespace mod_settings
