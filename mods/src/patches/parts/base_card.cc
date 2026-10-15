@@ -30,7 +30,7 @@ static_assert(sizeof(CourseResponse) == 24 && offsetof(CourseResponse, target) =
 
 Il2CppClass *     battleClass{}, *navigationClass{}, *int64Class{}, *stringClass{};
 FieldInfo *       previewBattle{}, *navigationPoi{}, *navigationUser{};
-const MethodInfo *previewContext{}, *scanContext{}, *navigationContext{}, *scanningInstance{}, *targetCache{};
+const MethodInfo *previewContext{}, *navigationContext{}, *scanningInstance{}, *targetCache{};
 const MethodInfo *isStarbase{}, *isOwnStation{}, *isValid{}, *playerId{}, *targetId{}, *targetUser{};
 
 Il2CppObject* Invoke(const MethodInfo* method, Il2CppObject* object)
@@ -112,13 +112,6 @@ void PreviewResponse(auto original, Il2CppObject* widget, CourseResponse respons
   original(widget, response);
 }
 
-void ScanResponse(auto original, Il2CppObject* controller, CourseResponse response)
-{
-  if (Enabled(response) && MatchesAttack(Invoke(scanContext, controller), response))
-    return;
-  original(controller, response);
-}
-
 void NavigationResponse(auto original, Il2CppObject* controller, CourseResponse response)
 {
   if (Enabled(response)) {
@@ -187,7 +180,6 @@ bool ResponseLayout(const MethodInfo* method)
 void InstallBaseCardHooks()
 {
   auto* preview = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Combat", "PreScanTargetWidget").get_cls();
-  auto* scan = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Combat", "ScanTargetViewController").get_cls();
   auto* nav =
       il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation", "NavigationInteractionUIViewController")
           .get_cls();
@@ -201,15 +193,12 @@ void InstallBaseCardHooks()
   using method_contract::Resolve;
   const auto* pre        = Resolve(preview, "OnSetCourseResponse", false, "System.Void",
                                    {"Digit.PrimeServer.Events.SetCourseResponseEventArgs"});
-  const auto* full       = Resolve(scan, "OnSetCourseResponseEventHandler", false, "System.Void",
-                                   {"Digit.PrimeServer.Events.SetCourseResponseEventArgs"});
   const auto* navigation = Resolve(nav, "OnSetCourseResponse", false, "System.Void",
                                    {"Digit.PrimeServer.Events.SetCourseResponseEventArgs"});
   previewBattle          = ReferenceField(preview, "_battleTargetData", "Digit.PrimeServer.Models.BattleTargetData");
   navigationPoi          = ReferenceField(navigationClass, "Poi", "Digit.Prime.Navigation.POI");
   navigationUser         = ReferenceField(navigationClass, "UserId", "System.String");
   previewContext         = ContextGetter(preview, "Context");
-  scanContext            = ContextGetter(scan, "CanvasContext");
   navigationContext      = ContextGetter(nav, "CanvasContext");
   scanningInstance       = SingletonGetter(scanning);
   targetCache  = Resolve(scanning, "get_TargetDataCache", false, "Digit.PrimeServer.Models.BattleTargetData", {});
@@ -221,18 +210,16 @@ void InstallBaseCardHooks()
   targetUser   = Resolve(battleClass, "get_TargetUserID", false, "System.String", {});
   int64Class   = playerId ? il2cpp_class_from_type(playerId->return_type) : nullptr;
   stringClass  = targetUser ? il2cpp_class_from_type(targetUser->return_type) : nullptr;
-  if (!ResponseLayout(pre) || !ResponseLayout(full) || !ResponseLayout(navigation) || !previewBattle || !navigationPoi
-      || !navigationUser || !previewContext || !scanContext || !navigationContext || !scanningInstance || !targetCache
-      || !isStarbase || !isOwnStation || !isValid || !playerId || !targetId || !targetUser || !int64Class
-      || !stringClass) {
+  if (!ResponseLayout(pre) || !ResponseLayout(navigation) || !previewBattle || !navigationPoi || !navigationUser
+      || !previewContext || !navigationContext || !scanningInstance || !targetCache || !isStarbase || !isOwnStation
+      || !isValid || !playerId || !targetId || !targetUser || !int64Class || !stringClass) {
     spdlog::warn("[BaseCard] native card API unavailable; preserving native dismissal");
     return;
   }
   const bool a = SPUD_STATIC_DETOUR(pre->methodPointer, PreviewResponse) != nullptr;
-  const bool b = SPUD_STATIC_DETOUR(full->methodPointer, ScanResponse) != nullptr;
-  const bool c = SPUD_STATIC_DETOUR(navigation->methodPointer, NavigationResponse) != nullptr;
-  ready        = a && b && c;
-  spdlog::info("[BaseCard] ready={} preview={} scan={} navigation={}", ready.load(), a, b, c);
+  const bool b = SPUD_STATIC_DETOUR(navigation->methodPointer, NavigationResponse) != nullptr;
+  ready        = a && b;
+  spdlog::info("[BaseCard] ready={} preview={} navigation={}", ready.load(), a, b);
 }
 #else
 namespace
