@@ -959,7 +959,7 @@ disable_preview_locate = false
 # Stop recall working when ship or node previews are displayed
 disable_preview_recall = false
 
-# Keep the small system-map player-base popup open after initiating an attack.
+# Keep the small system-map player-base popup open after Attack or Recall.
 # The full scanned-base screen keeps its normal behavior.
 # Click-away, Escape, Back, target changes, and other dismissals keep their normal behavior.
 # Live in Mod Settings > Previews & Cargo.

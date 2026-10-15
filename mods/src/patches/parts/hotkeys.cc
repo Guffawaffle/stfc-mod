@@ -1,4 +1,5 @@
 #include "config.h"
+#include "patches/base_card.h"
 #include "patches/runtime_config.h"
 #include "patches/mining_preview.h"
 #include "settings/preview_settings.h"
@@ -1072,8 +1073,11 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 
   if (!Key::IsInputFocused()) {
     // Lets try to remove the pre-scan because we hit escape and it's visible
-    if (Key::Pressed(KeyCode::Escape) && DidHideViewers()) {
-      return;
+    if (Key::Pressed(KeyCode::Escape)) {
+      force_space_action_next_frame = false;
+      if (DidHideViewers()) {
+        return;
+      }
     }
 
     // Dismiss the golden rewards screen when escape or space is pressed.
@@ -1281,7 +1285,8 @@ inline bool DidExecuteFleetAction(std::string_view actionText, ActionType action
                 canAction, (int)canState, "[start]");
 
   if (canState != FleetState::Unknown && canAction) {
-    if (NavigationSectionManager::Instance() && NavigationSectionManager::Instance()->SNavigationManager) {
+    if (!(actionType == ActionType::Recall && base_card::KeepOpenForRecall(fleet_id))
+        && NavigationSectionManager::Instance() && NavigationSectionManager::Instance()->SNavigationManager) {
       NavigationSectionManager::Instance()->SNavigationManager->HideInteraction();
     }
 
@@ -1316,6 +1321,14 @@ bool DidExecuteRepair(FleetBarViewController* fleet_bar)
                                                      FleetState::Repairing);
 }
 
+template <typename T> bool IsObjectViewerShowing(T* widget)
+{
+  auto* visibility = widget ? widget->_visibilityController : nullptr;
+  auto* parent     = widget ? widget->Parent : nullptr;
+  return visibility && (visibility->_state == VisibilityState::Visible || visibility->_state == VisibilityState::Show)
+         && parent && parent->IsShowing;
+}
+
 void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
 {
   if (!fleet_bar) {
@@ -1332,6 +1345,7 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
   if (!action_queue) {
     return;
   }
+  auto* sections = Hub::get_SectionManager();
 
   auto has_primary       = MapKey::IsDown(GameFunction::ActionPrimary) || force_space_action_next_frame;
   auto has_repair        = MapKey::IsDown(GameFunction::ActionRepair);
@@ -1350,15 +1364,10 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
   } else {
     auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAll();
     for (auto pre_scan_widget : all_pre_scan_widgets) {
-      auto visibility_controller = pre_scan_widget ? pre_scan_widget->_visibilityController : nullptr;
-      if (visibility_controller
-          && (visibility_controller->_state == VisibilityState::Visible
-              || visibility_controller->_state == VisibilityState::Show)) {
+      if (IsObjectViewerShowing(pre_scan_widget)) {
 
         if (auto mine_object_viewer_widget = ObjectFinder<MiningObjectViewerWidget>::Get();
-            mine_object_viewer_widget && mine_object_viewer_widget->_visibilityController
-            && (mine_object_viewer_widget->_visibilityController->_state == VisibilityState::Visible
-                || mine_object_viewer_widget->_visibilityController->_state == VisibilityState::Show)) {
+            IsObjectViewerShowing(mine_object_viewer_widget)) {
           if (has_secondary && pre_scan_widget->_scanEngageButtonsWidget) {
             return pre_scan_widget->_scanEngageButtonsWidget->OnScanButtonClicked();
           } else if (has_primary) {
@@ -1450,9 +1459,7 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
     }
 
     if (auto mine_object_viewer_widget = ObjectFinder<MiningObjectViewerWidget>::Get();
-        mine_object_viewer_widget && mine_object_viewer_widget->_visibilityController
-        && (mine_object_viewer_widget->_visibilityController->_state == VisibilityState::Visible
-            || mine_object_viewer_widget->_visibilityController->_state == VisibilityState::Show)) {
+        IsObjectViewerShowing(mine_object_viewer_widget)) {
       if (has_secondary && mine_object_viewer_widget->_scanEngageButtonsWidget) {
         if (mine_object_viewer_widget->_scanEngageButtonsWidget->Context) {
           return mine_object_viewer_widget->_scanEngageButtonsWidget->OnScanButtonClicked();
@@ -1461,12 +1468,13 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
         return mine_object_viewer_widget->MineClicked();
       }
     } else if (auto star_node_object_viewer_widget = ObjectFinder<StarNodeObjectViewerWidget>::Get();
-               star_node_object_viewer_widget && star_node_object_viewer_widget->Context) {
+               star_node_object_viewer_widget && star_node_object_viewer_widget->Context
+               && (IsObjectViewerShowing(star_node_object_viewer_widget)
+                   || (sections && sections->CurrentSection == SectionID::Navigation_Galaxy))) {
       if (has_secondary) {
         star_node_object_viewer_widget->OnViewButtonActivation();
         return;
       }
-      auto* sections = Hub::get_SectionManager();
       if (has_primary && sections && sections->CurrentSection == SectionID::Navigation_Galaxy) {
         // A hidden galaxy popup can lose its destination. Use a matching planned course instead;
         // never fall through to a hidden handler that substitutes the currently viewed galaxy.
@@ -1498,21 +1506,23 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
       }
 
       spdlog::info("have armada? {}, State {}", (armada_widget ? "Yes" : "No"), (int)armada_state);
-      if (armada_widget && (armada_state == VisibilityState::Visible || armada_state == VisibilityState::Show)) {
+      if (IsObjectViewerShowing(armada_widget)) {
         auto button = armada_widget->__get__joinContext();
         if (button && button->Interactable) {
           armada_widget->ValidateThenJoinArmada();
           return;
         }
       } else {
-        // Limit destination recovery to galaxy warps; retain the existing in-system action path.
-        auto* sections = Hub::get_SectionManager();
+        // The native navigation context retains its last position/path after dismissal.
+        // Only call its movement handler while the movement control is actually shown.
         if (sections && sections->CurrentSection == SectionID::Navigation_Galaxy
             && !navigation_ui_controller->IsSetCourseVisible()) {
           TryRequestPlannedSystemWarp(fleet, navigation_ui_controller->CanvasContext);
           return;
         }
-        navigation_ui_controller->OnSetCourseButtonClick();
+        if (navigation_ui_controller->IsSetCourseVisible()) {
+          navigation_ui_controller->OnSetCourseButtonClick();
+        }
         return;
       }
     }
