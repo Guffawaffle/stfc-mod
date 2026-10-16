@@ -2,15 +2,15 @@
 
 This downstream candidate enables Faster Queue Recovery and Thin Queue Protection
 on Apple Silicon and Intel. Queue Address Guard already uses shared Mac code.
-Faster Queue Recovery is enabled by default downstream. Existing explicit `false`
-settings are preserved; add these keys to the existing TOML sections for testing:
+The supported protections are enabled together by default through
+`control.kirshara_fixes`. The former separate feature keys (including explicit
+`false` values) are ignored; legacy-only configurations log a replacement warning.
+Add these keys to the existing TOML sections for testing:
 
 ```toml
 [control]
 queue_enabled = true
-faster_queue_recovery = true
-thin_queue_protection = true
-queue_address_guard = true
+kirshara_fixes = true
 
 [patches]
 actionqueuerecoveryhooks = true
@@ -19,7 +19,8 @@ queueaddressguardhooks = true
 ```
 
 Restart after changing hook switches. Confirm the startup log contains
-`[FasterQueueRecovery] ready=true` and `[ThinQueueProtection] ready=true`.
+`[FasterQueueRecovery] ready=true`, `[ThinQueueProtection] ready=true` and
+`[QueueAddressGuard] ready=true`.
 Settings alone do not establish that hooks installed. Preserve any `unavailable`
 or hook-install failure messages.
 
@@ -32,8 +33,11 @@ Test with the Kirshara artifact:
    Check whether A advances to the next eligible target without a long stall.
 4. Repeat through hostile respawns and with queues on two ships. Check for
    duplicate engagements, repeated failed courses, unexpected clearing or crashes.
-5. Compare Faster Queue Recovery off/on through its live Mod Settings control.
-   Thin Queue Protection is independent; restart to compare its TOML setting.
+5. Compare the combined fixes off/on through Mod Settings > Map & Travel >
+   Kirshara action queue > Kirshara queue fixes. This controls all supported
+   protections together and saves `control.kirshara_fixes`. Both transitions
+   forget pending mod recovery tracking without clearing native targets. Verify
+   the saved off/on value survives a restart when convenient.
 
 Report the mod commit/artifact, Mac architecture, game version, steps and log.
 Disable the affected hook switch and restart if necessary.
@@ -51,5 +55,6 @@ architectures. These historical binaries do not qualify a newer tester client.
 Runtime metadata checks still reject incompatible method/field layouts. They do
 not prove native hook fit or callback behavior on every client update. Current
 Mac builds and exact-artifact player smoke remain separate qualification steps.
-Queue policy is unchanged. Faster Queue Recovery now defaults to enabled downstream;
-upstream code and defaults are unchanged.
+Native queue policy and hook platform support are unchanged by this consolidation.
+Use `kirshara_fixes = false` to disable the combined behavior; hook-install
+compatibility switches remain independent.
