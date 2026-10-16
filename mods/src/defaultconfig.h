@@ -32,6 +32,7 @@ namespace Control
   constexpr bool enable_experimental = false;
   constexpr bool hotkeys_enabled     = true;
   constexpr bool hotkeys_extended    = true;
+  constexpr bool primary_requires_visible_target = false;
   constexpr bool use_scopely_hotkeys = false;
   constexpr const char* keyboard_layout_mode = "physical";
   constexpr bool queue_enabled       = true;
