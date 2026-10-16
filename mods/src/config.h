@@ -207,6 +207,7 @@ public:
   bool  queue_address_guard;
   bool  hotkeys_enabled;
   bool  hotkeys_extended;
+  bool  primary_requires_visible_target;
   bool  use_scopely_hotkeys;
   std::string keyboard_layout_mode;
   bool  use_presets_as_default;
