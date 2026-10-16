@@ -1,5 +1,4 @@
 #include "patches/queue_address_guard_policy.h"
-#include "patches/queue_science.h"
 #include <array>
 #include <atomic>
 #include <config.h>
@@ -256,11 +255,6 @@ void InstallQueueAddressGuard()
   const bool b = SPUD_STATIC_DETOUR(Pointer(methods[1]), AddressMismatch) != nullptr;
   const bool c = SPUD_STATIC_DETOUR(Pointer(methods[2]), PlayerAddress) != nullptr;
   const bool d = SPUD_STATIC_DETOUR(Pointer(methods[3]), LookupTarget) != nullptr;
-  // Production owns these targets; the optional science installer must not detour them again.
-  queue_science::Own("ActionQueueManager.OnPlayerFleetStateChangedEventHandler", a);
-  queue_science::Own("ActionQueueManager.DoesFleetQueueContainMismatchedAddressTargets", b);
-  queue_science::Own("FleetPlayerData.get_Address", c);
-  queue_science::Own("DeploymentService.GetDeployedFleet", d);
   ready.store(a && b && c && d);
   spdlog::info("[QueueAddressGuard] ready={}", ready.load());
 }

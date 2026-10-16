@@ -1,4 +1,3 @@
-#include "patches/queue_science.h"
 #include "patches.h"
 #include "file.h"
 #include "log_history.h"
@@ -278,7 +277,6 @@ int il2cpp_init_hook(auto original, const char* domain_name)
 #ifdef _MODDBG
   InstallDevConsole();
 #endif
-  queue_science::Install();
 
   spdlog::info("");
 

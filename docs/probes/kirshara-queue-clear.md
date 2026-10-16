@@ -1,5 +1,12 @@
 # Kir'Shara early queue clearing science
 
+This capture is parked on `science/kirshara-capture`; ordinary `play-dev` does
+not install it. Merge that branch when this evidence is needed again. The
+production address guard, Faster Queue Recovery and Thin Queue Protection remain
+independent features. This document and the analyzer remain available for old logs.
+Before restoring capture on a newer client, recheck signatures and native hook fit
+for that exact client and supported architecture.
+
 This science branch enables capture and an experimental address guard by default,
 in release and debug builds.
 Logs are `science/kirshara/community_kirshara_queue_<session>.jsonl` beneath the
