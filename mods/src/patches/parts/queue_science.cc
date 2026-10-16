@@ -1,6 +1,7 @@
 #include "patches/queue_science.h"
 #include "config.h"
 #include "patches/queue_address_guard_policy.h"
+#include "science_trace_path.h"
 #include "version.h"
 #include <array>
 #include <atomic>
@@ -612,8 +613,10 @@ void Install()
     return;
   }
   const auto        stamp    = std::chrono::system_clock::now().time_since_epoch().count();
-  const std::string filename = "community_kirshara_queue_" + std::to_string(stamp) + ".jsonl";
+  const std::string basename = "community_kirshara_queue_" + std::to_string(stamp) + ".jsonl";
+  std::string filename;
   try {
+    filename  = ScienceTracePath("kirshara", basename).string();
     pool      = std::make_shared<spdlog::details::thread_pool>(4096, 1);
     auto sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(filename, 3 * 1024 * 1024, 2);
     logger    = std::make_shared<spdlog::async_logger>("kirshara-science", sink, pool,

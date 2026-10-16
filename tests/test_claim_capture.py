@@ -38,6 +38,28 @@ class CaptureTests(unittest.TestCase):
             capture.request(self.root, "status", "")
         self.assertFalse((self.root / "community_claims_control.json").exists())
 
+    def test_new_layout_selects_newest_even_if_unhealthy(self):
+        nested = self.root / "science/claims"
+        nested.mkdir(parents=True)
+        status = dict(self.status, utc_ms=self.status["utc_ms"] + 1, healthy=False)
+        (nested / "community_claims_status.json").write_text(json.dumps(status))
+        self.assertEqual(capture.capture_root(self.root), nested)
+        self.assertEqual(capture.capture_root(nested), nested)
+
+    def test_stale_new_layout_does_not_hide_live_legacy_build(self):
+        nested = self.root / "science/claims"
+        nested.mkdir(parents=True)
+        status = dict(self.status, utc_ms=self.status["utc_ms"] - 90000)
+        (nested / "community_claims_status.json").write_text(json.dumps(status))
+        self.assertEqual(capture.capture_root(self.root), self.root)
+
+    def test_snapshot_layout_without_status(self):
+        (self.root / "community_claims_status.json").unlink()
+        nested = self.root / "science/claims"
+        nested.mkdir(parents=True)
+        (nested / "community_claims.jsonl").write_text('{}\n')
+        self.assertEqual(capture.capture_root(self.root), nested)
+
     def test_injection_requires_healthy_bound_summary(self):
         for field in ("healthy", "summary_bound"):
             self.status[field] = False

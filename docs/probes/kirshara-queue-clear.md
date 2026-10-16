@@ -2,7 +2,9 @@
 
 This science branch enables capture and an experimental address guard by default,
 in release and debug builds.
-Logs are `community_kirshara_queue_<session>.jsonl` in the game's working directory.
+Logs are `science/kirshara/community_kirshara_queue_<session>.jsonl` beneath the
+normal mod data directory (the game directory on Windows). Rotations remain
+beside their session file. Pass those files explicitly to the analyzer.
 Three rotating files of 3 MiB each, a 4096-event asynchronous buffer, and a 50,000-span
 session limit bound capture. Preserve all rotations promptly after a reproduction.
 Unknown storage/layout is recorded as unknown. The log reports dropped asynchronous

@@ -6,6 +6,7 @@
 #include "patches/claim_ui_fault.h"
 #include "patches/key.h"
 #include "patches/screen_update_hook.h"
+#include "science_trace_path.h"
 #include "version.h"
 #include <il2cpp-tabledefs.h>
 #include <il2cpp/il2cpp_helper.h>
@@ -2384,12 +2385,13 @@ void InstallClaimTrace()
       std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
           .count();
   sessionId           = std::to_string(stamp) + "_" + std::to_string(ProcessId());
-  tracePath           = std::filesystem::path(File::MakePath("community_claims.jsonl", true));
-  statusPath          = tracePath.parent_path() / "community_claims_status.json";
-  commandPath         = tracePath.parent_path() / "community_claims_control.json";
-  replyPath           = tracePath.parent_path() / "community_claims_reply.json";
-  const auto filename = tracePath.string();
+  std::string filename;
   try {
+    tracePath   = ScienceTracePath("claims", "community_claims.jsonl");
+    statusPath  = tracePath.parent_path() / "community_claims_status.json";
+    commandPath = tracePath.parent_path() / "community_claims_control.json";
+    replyPath   = tracePath.parent_path() / "community_claims_reply.json";
+    filename    = tracePath.string();
     // Fixed bounded retention across restarts; prior evidence is appended/rotated, never truncated at startup.
     logger = spdlog::rotating_logger_mt("claim-science", filename, 8 * 1024 * 1024, 2, false);
     logger->set_level(spdlog::level::info);

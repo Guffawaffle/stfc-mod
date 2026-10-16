@@ -16,6 +16,23 @@ def read_json(path):
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
+def capture_root(root):
+    """Accept the game directory or an explicit trace directory, including old builds."""
+    nested = root / "science/claims"
+    candidates = []
+    for directory in (nested, root):
+        try:
+            stamp = read_json(directory / "community_claims_status.json")["utc_ms"]
+            candidates.append((int(stamp), directory))
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+    if candidates:
+        # Select the newest heartbeat, including unhealthy captures. A stale new
+        # directory must not shadow a live legacy build after a rollback.
+        return max(candidates, key=lambda item: item[0])[1]
+    return nested if (nested / "community_claims.jsonl").is_file() else root
+
+
 def request(root, command, label):
     status = read_json(root / "community_claims_status.json")
     age = time.time() - status["utc_ms"] / 1000
@@ -82,12 +99,12 @@ def snapshot(root, destination, reply=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("status", "mark", "snapshot", "arm-ui-failure", "cancel"))
-    parser.add_argument("--game-dir", type=Path, required=True, help="Directory containing the runtime capture files")
+    parser.add_argument("--game-dir", type=Path, required=True, help="Game/mod data directory or explicit claims trace directory")
     parser.add_argument("--label", default="")
     parser.add_argument("--output", type=Path, help="Private snapshot destination; default is the checkout's ignored .codex tree")
     args = parser.parse_args()
     try:
-        root = args.game_dir.resolve(strict=True)
+        root = capture_root(args.game_dir.resolve(strict=True))
         command = {"arm-ui-failure": "reject-summary-transition-once"}.get(args.action, args.action)
         reply = None if args.action == "snapshot" else request(root, command, args.label)
         result = dict(ok=True, action=args.action, reply=reply)

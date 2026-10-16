@@ -13,7 +13,9 @@ Raw incident data and account-specific findings must remain outside Git.
 
 ## Recording and health
 
-The runtime appends to `community_claims.jsonl` beside the mod log. There are two
+The runtime appends to `science/claims/community_claims.jsonl` beneath the normal
+mod data directory (the game directory on Windows). Status, reply and control
+files live in that same `science/claims/` folder. There are two
 8 MiB rotations: total retention is approximately24 MiB across sessions. Every
 record has a session ID; startup identifies the source build and installed hooks.
 Claim/request lifecycle records bypass the input-snapshot rate limit. Existing
@@ -23,6 +25,10 @@ bounded token/weak-object/list limits remain explicit in the trace.
 claim is active. A live acknowledgement distinguishes a running recorder from
 an old file left by another session. Partial hook installation or sink failures
 make health false. Do not report capture as ready merely because a file exists.
+
+The helper accepts the game/mod data directory or the explicit claims folder.
+It finds the newest status across the new layout and legacy flat builds, so a
+rollback's live capture remains reachable. It does not search archived traces.
 
 ```powershell
 python scripts/claim-capture.py status --game-dir <runtime-log-directory>
