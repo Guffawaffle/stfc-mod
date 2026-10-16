@@ -36,9 +36,7 @@ namespace Control
   constexpr bool use_scopely_hotkeys = false;
   constexpr const char* keyboard_layout_mode = "physical";
   constexpr bool queue_enabled       = true;
-  constexpr bool faster_queue_recovery = true;
-  constexpr bool thin_queue_protection = true;
-  constexpr bool queue_address_guard = true;
+  constexpr bool kirshara_fixes       = true;
   constexpr auto select_timer        = 500;
 } // namespace Control
 

@@ -131,22 +131,16 @@ primary_requires_visible_target = true
 # If you have the Kir'Shara artifact, should the queue be enabled by default?
 queue_enabled = true
 
-# Retired off-screen queue completion repair: THIS WAS FIXED BY SCOPELY.
-# The former kirshara_queue_repair setting is no longer used.
-# Faster Queue Recovery: advance after an outstanding target disappears (Windows x64/macOS 64-bit).
-faster_queue_recovery = true
+# Enable the Kir'Shara queue fixes together: recover from removed targets, resume after
+# native pruning, and protect against temporary starbase-address mismatches.
+# Windows x64 and macOS 64-bit; macOS native fit/gameplay remain unverified.
 # Also available live under Mod Settings > Map & Travel > Kirshara action queue
-# when the recovery hooks are supported. Requires queue_enabled; macOS is pending player validation.
-
-# Thin Queue Protection: resume after native pruning; clean up confirmed destroyed heads.
-# Windows x64/macOS 64-bit. Enabled by default; independent of Faster Queue Recovery.
-# macOS is pending player validation. Emergency hook switches (restart required):
-# [patches] actionqueuerecoveryhooks / thinqueueprotectionhooks = false
-thin_queue_protection = true
-
-# Keep a deployed ship's queue when another ship causes a temporary starbase address.
-# Independent of recovery settings; legitimate recall/warp/manual clearing stays native.
-queue_address_guard = true
+# when at least one protection is supported. Requires queue_enabled.
+# Replaces faster_queue_recovery, thin_queue_protection, queue_address_guard and the
+# old advanced.queue.thin_queue_protection setting; those feature keys are ignored.
+# Disabling this preserves native queues and navigation. Hook compatibility switches
+# under [patches] remain separate and default on.
+kirshara_fixes = true
 
 # If you prefer to use Scopely's hotkeys set this to true
 use_scopely_hotkeys = false
