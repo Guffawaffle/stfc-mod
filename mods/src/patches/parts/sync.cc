@@ -2475,18 +2475,18 @@ static void HandleEntityGroup(EntityGroup* entity_group)
     }
   };
 
-  // List snapshots and instance updates share one state map. Process these
-  // synchronously through dispatch so a later update cannot overtake a snapshot.
+  // Away-assignment snapshots and updates, and job timing snapshots, share cached state.
+  // Process them synchronously so a later update cannot overtake an earlier emission.
   // HTTP delivery remains on the existing target workers.
   static std::mutex ordered_dispatch;
-  auto submit_away = [bytesPtr, byteCount](auto process) {
+  auto submit_ordered = [bytesPtr, byteCount](auto process) {
     std::scoped_lock lock(ordered_dispatch);
     try {
       process(std::make_unique<std::string>(bytesPtr, byteCount));
     } catch (const std::exception& e) {
-      spdlog::error("Exception processing away assignment: {}", e.what());
+      spdlog::error("Exception processing ordered sync entity: {}", e.what());
     } catch (...) {
-      spdlog::error("Unknown exception processing away assignment");
+      spdlog::error("Unknown exception processing ordered sync entity");
     }
   };
   const auto& sync_options = Config::Get().sync_options;
@@ -2495,12 +2495,12 @@ static void HandleEntityGroup(EntityGroup* entity_group)
     // away assignments
     case EntityGroup::Type::AwayAssignmentsList:
       if (sync_options.away_assignments) {
-        submit_away(processors::away_assignments_list);
+        submit_ordered(processors::away_assignments_list);
       }
       break;
     case EntityGroup::Type::AwayAssignmentsInstance:
       if (sync_options.away_assignments) {
-        submit_away(processors::away_assignment_instance);
+        submit_ordered(processors::away_assignment_instance);
       }
       break;
 
@@ -2619,7 +2619,7 @@ static void HandleEntityGroup(EntityGroup* entity_group)
     // jobs
     case EntityGroup::Type::Jobs:
       if (sync_options.jobs) {
-        submit_async(processors::jobs);
+        submit_ordered(processors::jobs);
       }
       break;
 
