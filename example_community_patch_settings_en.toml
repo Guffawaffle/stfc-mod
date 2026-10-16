@@ -126,7 +126,7 @@ hotkeys_extended = true
 
 # Require a visible target popup or Set Course control for the primary-action shortcut.
 # false preserves sending commands to the last target after its popup is dismissed.
-primary_requires_visible_target = false
+primary_requires_visible_target = true
 
 # If you have the Kir'Shara artifact, should the queue be enabled by default?
 queue_enabled = true
