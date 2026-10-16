@@ -1359,6 +1359,36 @@ void Pulse()
   CheckClaims();
 }
 
+bool IntegerValueAbi(const Il2CppType* type, int width)
+{
+  auto* cls     = il2cpp_class_from_type(type);
+  auto  storage = il2cpp_type_get_type(type);
+  if (cls && il2cpp_class_is_enum(cls))
+    storage = il2cpp_type_get_type(il2cpp_class_enum_basetype(cls));
+  if (width == 4 && (storage == IL2CPP_TYPE_I4 || storage == IL2CPP_TYPE_U4))
+    return true;
+  if (width == 8 && (storage == IL2CPP_TYPE_I8 || storage == IL2CPP_TYPE_U8))
+    return true;
+  // CurrencyType, ShopClaimKey and ShopCategoryMask are single-integer wrappers.
+  // Size alone would also accept floating-point or reference-containing structs.
+  if (!cls || !il2cpp_class_is_valuetype(cls) || il2cpp_class_is_enum(cls)
+      || il2cpp_class_value_size(cls, nullptr) != width)
+    return false;
+  void* iterator{};
+  int   fields{};
+  while (auto* field = il2cpp_class_get_fields(cls, &iterator)) {
+    if (il2cpp_field_get_flags(field) & FIELD_ATTRIBUTE_STATIC)
+      continue;
+    const auto member = il2cpp_type_get_type(field->type);
+    if (field->offset != sizeof(Il2CppObject)
+        || (width == 4 ? member != IL2CPP_TYPE_I4 && member != IL2CPP_TYPE_U4
+                       : member != IL2CPP_TYPE_I8 && member != IL2CPP_TYPE_U8))
+      return false;
+    ++fields;
+  }
+  return fields == 1;
+}
+
 bool CompatibleParameter(const Il2CppType* type, char abi)
 {
   if (!type || bool(type->byref) != (abi == 'P' || abi == 'Q'))
@@ -1369,13 +1399,10 @@ bool CompatibleParameter(const Il2CppType* type, char abi)
     return cls && !il2cpp_class_is_valuetype(cls);
   if (abi == 'b')
     return storage == IL2CPP_TYPE_BOOLEAN;
-  if (cls && il2cpp_class_is_enum(cls))
-    storage = il2cpp_type_get_type(il2cpp_class_enum_basetype(cls));
   if (abi == 'i')
-    return storage == IL2CPP_TYPE_I4;
+    return IntegerValueAbi(type, 4);
   if (abi == 'q' || abi == 'Q')
-    return storage == IL2CPP_TYPE_I8
-           || (cls && il2cpp_class_is_valuetype(cls) && il2cpp_class_value_size(cls, nullptr) == sizeof(int64_t));
+    return IntegerValueAbi(type, 8);
   return false;
 }
 
