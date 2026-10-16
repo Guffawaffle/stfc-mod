@@ -1,3 +1,4 @@
+#include "patches/queue_science.h"
 #include "patches/claim_trace.h"
 #include "config.h"
 #include "patches/base_card.h"
@@ -1359,6 +1360,7 @@ void ExecuteSpaceAction(FleetBarViewController* fleet_bar)
   const bool require_visible_target = has_primary && Config::Get().primary_requires_visible_target;
 
   if (has_queue_clear) {
+    queue_science::Scope trace(action_queue, "mod.hotkey-clear", 0, true);
     action_queue->ClearQueue(fleet);
   } else if (has_recall_cancel
              && (fleet->CurrentState == FleetState::WarpCharging || fleet->CurrentState == FleetState::Warping)) {
