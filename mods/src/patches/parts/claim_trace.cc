@@ -1,6 +1,8 @@
-// Play-dev claim instrumentation. Passive unless a current-session UI-only test is explicitly armed.
+// Play-dev claim capture, with an opt-in, bounded UI navigation recovery.
 #include "patches/claim_trace.h"
+#include "config.h"
 #include "file.h"
+#include "patches/claim_navigation_recovery.h"
 #include "patches/claim_ui_fault.h"
 #include "patches/key.h"
 #include "patches/screen_update_hook.h"
@@ -59,6 +61,42 @@ std::filesystem::path                              tracePath, statusPath, comman
 claim_trace::UiRejectOnce                          uiReject;
 Il2CppGCHandle                                     armedSummary{};
 thread_local void*                                 continuingSummary{};
+
+struct NavigationState {
+  bool    known{}, busy{};
+  int32_t current{}, next{}, previous{};
+};
+struct NavigationFrame {
+  uint64_t        id{}, generation{};
+  void *          summary{}, *manager{}, *shop{}, *context{};
+  NavigationState before{};
+  int32_t         destination{};
+  unsigned        attempts{}, accepted{}, returns{};
+  bool            forced{}, back{}, same{}, injected{}, inReturn{}, parentReturned{}, recovering{};
+};
+thread_local NavigationFrame* navigationFrame{};
+struct NavigationScope {
+  NavigationFrame* previous;
+  void*            previousSummary;
+  NavigationScope(NavigationFrame& frame, void* summary)
+      : previous(std::exchange(navigationFrame, &frame))
+      , previousSummary(std::exchange(continuingSummary, summary))
+  {
+  }
+  ~NavigationScope()
+  {
+    navigationFrame   = previous;
+    continuingSummary = previousSummary;
+  }
+};
+struct RecoveryCandidate {
+  claim_trace::NavigationRecovery policy;
+  Il2CppGCHandle                  summary{}, manager{}, shop{}, context{};
+  uint64_t                        id{}, generation{}, watchGeneration{}, watchId{};
+  int32_t                         origin{}, destination{}, next{};
+  bool                            forced{}, back{}, same{};
+  int64_t                         nextObservation{};
+} recovery;
 
 uint64_t ProcessId()
 {
@@ -1101,6 +1139,202 @@ void* BoundSummary()
   return object && Read(object, "m_context", context) && context ? object : nullptr;
 }
 
+NavigationState ReadNavigation(void* manager)
+{
+  NavigationState result;
+  void*           status{};
+  result.known = Read(manager, "_sectionChangeInProgress", result.busy) && Read(manager, "_activationState", status)
+                 && status && Read(status, "_currentSection", result.current)
+                 && Read(status, "_nextSection", result.next) && Read(status, "_previousSection", result.previous);
+  return result;
+}
+
+Json NavigationSnapshot(void* manager)
+{
+  auto result = UiIdentity(manager);
+  Scalar<bool>(result, manager, "_sectionChangeInProgress", "busy");
+  Scalar<float>(result, manager, "_lastSectionChangeTime", "last_change_time");
+  void* status{};
+  if (Read(manager, "_activationState", status)) {
+    Scalar<int32_t>(result, status, "_currentSection", "current");
+    Scalar<int32_t>(result, status, "_nextSection", "next");
+    Scalar<int32_t>(result, status, "_previousSection", "previous");
+    Scalar<bool>(result, status, "isGoBackStep", "back_step");
+  }
+  void* coroutine{};
+  if (Read(manager, "_currentlyActiveCoroutine", coroutine))
+    result["coroutine"] = UiIdentity(coroutine);
+  return result;
+}
+
+void ReleaseRecoveryHandles()
+{
+  for (auto* handle : {&recovery.summary, &recovery.manager, &recovery.shop, &recovery.context})
+    if (*handle)
+      il2cpp_gchandle_free(std::exchange(*handle, Il2CppGCHandle{}));
+}
+
+void CancelRecovery(const char* reason) noexcept
+{
+  try {
+    if (recovery.policy.Pending())
+      Write({{"event", "navigation_recovery_cancelled"},
+             {"navigation", recovery.id},
+             {"generation", recovery.generation},
+             {"reason", reason}});
+    recovery.policy.Cancel();
+    ReleaseRecoveryHandles();
+  } catch (...) {
+  }
+}
+
+void FinishNavigation(NavigationFrame& frame) noexcept
+{
+  try {
+    const bool masked = frame.returns == 1 && frame.parentReturned && frame.attempts == 1 && !frame.accepted;
+    Write({{"event", "summary_navigation_result"},
+           {"navigation", frame.id},
+           {"generation", frame.generation},
+           {"recovery", frame.recovering},
+           {"attempts", frame.attempts},
+           {"accepted", frame.accepted},
+           {"return_calls", frame.returns},
+           {"parent_returned", frame.parentReturned},
+           {"rejection_masked", masked},
+           {"injected", frame.injected},
+           {"section", NavigationSnapshot(frame.manager)},
+           {"summary", Summary(frame.summary)}});
+    if (!masked || frame.recovering)
+      return;
+    const char* skip{};
+    void*       context{};
+    const auto  after = ReadNavigation(frame.manager);
+    if (!Config::Get().claim_navigation_recovery)
+      skip = "disabled";
+    else if (!captureHealthy || !sinkHealthy.load())
+      skip = "capture-unhealthy";
+    else if (frame.generation != summaryGeneration || BoundSummary() != frame.summary)
+      skip = "summary-changed";
+    else if (!frame.before.known || !after.known)
+      skip = "unknown-section-state";
+    else if (!Read(frame.summary, "m_context", context) || context != frame.context)
+      skip = "context-changed";
+    else if (!frame.shop || !frame.context || frame.forced)
+      skip = "unsupported-return";
+    else if (after.current != frame.before.current)
+      skip = "origin-changed";
+    else if (after.current == frame.destination)
+      skip = "already-at-destination";
+    else if (!recovery.policy.Schedule(frame.generation, NowMs()))
+      skip = "summary-budget-used";
+    if (skip) {
+      Write({{"event", "navigation_recovery_skipped"}, {"navigation", frame.id}, {"reason", skip}});
+      return;
+    }
+    recovery.id              = frame.id;
+    recovery.generation      = frame.generation;
+    recovery.origin          = after.current;
+    recovery.next            = after.next;
+    recovery.destination     = frame.destination;
+    recovery.forced          = frame.forced;
+    recovery.back            = frame.back;
+    recovery.same            = frame.same;
+    recovery.nextObservation = 0;
+    recovery.summary         = il2cpp_gchandle_new_weakref(static_cast<Il2CppObject*>(frame.summary), false);
+    recovery.manager         = il2cpp_gchandle_new_weakref(static_cast<Il2CppObject*>(frame.manager), false);
+    recovery.shop            = il2cpp_gchandle_new_weakref(static_cast<Il2CppObject*>(frame.shop), false);
+    recovery.context         = il2cpp_gchandle_new_weakref(static_cast<Il2CppObject*>(frame.context), false);
+    if (!recovery.summary || !recovery.manager || !recovery.shop || !recovery.context) {
+      CancelRecovery("weak-tracking-unavailable");
+      return;
+    }
+    Write({{"event", "navigation_recovery_scheduled"},
+           {"navigation", frame.id},
+           {"generation", frame.generation},
+           {"destination", frame.destination},
+           {"deadline_ms", 5000},
+           {"minimum_delay_ms", 250},
+           {"injected", frame.injected}});
+  } catch (...) {
+    CancelRecovery("diagnostic-exception");
+  }
+}
+
+void RecoveryTick() noexcept
+{
+  if (!recovery.policy.Pending())
+    return;
+  try {
+    auto*                                  summary = il2cpp_gchandle_get_target(recovery.summary);
+    auto*                                  manager = il2cpp_gchandle_get_target(recovery.manager);
+    auto*                                  shop    = il2cpp_gchandle_get_target(recovery.shop);
+    auto*                                  context = il2cpp_gchandle_get_target(recovery.context);
+    void*                                  boundContext{};
+    auto                                   state = ReadNavigation(manager);
+    const auto                             now   = NowMs();
+    claim_trace::NavigationRecovery::Gates gates{
+        Config::Get().claim_navigation_recovery,
+        captureHealthy && sinkHealthy.load(),
+        summary && BoundSummary() == summary && recovery.generation == summaryGeneration,
+        context && shop && Read(summary, "m_context", boundContext) && context == boundContext,
+        state.known,
+        state.current == recovery.origin && state.next == recovery.next,
+        state.current == recovery.destination,
+        state.busy,
+        Key::shortcutCaptureActive || Key::shortcutPopupActive || Key::RawDown(KeyCode::Escape)
+            || Key::RawPressed(KeyCode::Mouse0)};
+    const auto            decision = recovery.policy.Poll(gates, now);
+    constexpr const char* decisions[]{"none",      "wait",         "retry",   "disabled",
+                                      "unhealthy", "changed",      "unknown", "already-at-destination",
+                                      "expired",   "input-blocked"};
+    if (now >= recovery.nextObservation || decision != claim_trace::NavigationRecovery::Decision::wait) {
+      recovery.nextObservation = now + 250;
+      Write({{"event", "navigation_recovery_observation"},
+             {"navigation", recovery.id},
+             {"decision", decisions[static_cast<int>(decision)]},
+             {"section", NavigationSnapshot(manager)}});
+    }
+    if (decision == claim_trace::NavigationRecovery::Decision::wait)
+      return;
+    if (decision != claim_trace::NavigationRecovery::Decision::retry) {
+      Write({{"event", "navigation_recovery_cancelled"},
+             {"navigation", recovery.id},
+             {"reason", "guard-rejected"},
+             {"decision", decisions[static_cast<int>(decision)]}});
+      ReleaseRecoveryHandles();
+      return;
+    }
+    NavigationFrame frame;
+    frame.id                 = nextSpan.fetch_add(1);
+    frame.generation         = recovery.generation;
+    frame.summary            = summary;
+    frame.recovering         = true;
+    recovery.watchGeneration = recovery.generation;
+    recovery.watchId         = frame.id;
+    NavigationScope scope(frame, summary);
+    Write({{"event", "navigation_recovery_attempt"},
+           {"navigation", frame.id},
+           {"caused_by", recovery.id},
+           {"section", NavigationSnapshot(manager)},
+           {"claim_requests_modified", false}});
+    void*            parameters[]{context};
+    Il2CppException* error{};
+    // Re-enter only the game's existing return routine. Its own back-navigation
+    // gates still run; Hook64 additionally requires the original destination.
+    il2cpp_runtime_invoke(methods[45], shop, parameters, &error);
+    Write({{"event", "navigation_recovery_returned"},
+           {"navigation", frame.id},
+           {"managed_exception", error != nullptr},
+           {"inner_accepted", frame.accepted != 0},
+           {"summary_still_bound", BoundSummary() == summary},
+           {"section", NavigationSnapshot(manager)}});
+    FinishNavigation(frame);
+    ReleaseRecoveryHandles();
+  } catch (...) {
+    CancelRecovery("recovery-exception");
+  }
+}
+
 void CancelUiTest()
 {
   uiReject.Cancel();
@@ -1173,7 +1407,7 @@ Json CaptureStatus()
     sequence = eventSequence;
     dropped  = suppressed;
   }
-  return {{"schema", 8},
+  return {{"schema", 9},
           {"session", sessionId},
           {"pid", ProcessId()},
           {"source", STFC_IDENTITY_COMMENT_STR},
@@ -1187,6 +1421,8 @@ Json CaptureStatus()
           {"summary_bound", BoundSummary() != nullptr},
           {"summary_generation", summaryGeneration},
           {"ui_reject_armed", uiReject.Armed(NowMs())},
+          {"navigation_recovery_enabled", Config::Get().claim_navigation_recovery},
+          {"navigation_recovery_pending", recovery.policy.Pending()},
           {"utc_ms",
            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
                .count()}};
@@ -1240,6 +1476,7 @@ void ControlTick() noexcept
                    {"state", SummaryInput(BoundSummary())}});
         } else if (command == "cancel") {
           CancelUiTest();
+          CancelRecovery("control-cancel");
           reply["ok"] = true;
         } else if (command == "reject-summary-transition-once") {
           auto* summary = BoundSummary();
@@ -1266,6 +1503,7 @@ void ControlTick() noexcept
     SaveControlJson(statusPath, CaptureStatus());
   } catch (...) {
     CancelUiTest();
+    CancelRecovery("control-error");
     std::error_code ignored;
     std::filesystem::remove(commandPath, ignored);
     spdlog::warn("[ClaimTrace] control/status update failed; UI test cancelled");
@@ -1318,6 +1556,8 @@ void InputPulse() noexcept
     const bool released  = previousMouse && !mouse;
     previousMouse        = mouse;
     if (mouseDown || released || escape) {
+      if (mouseDown || escape)
+        CancelRecovery("player-input");
       auto data                = SummaryInput(summary);
       data["event"]            = "summary_raw_input";
       data["mouse_down"]       = mouseDown;
@@ -1335,6 +1575,7 @@ void Pulse()
     return;
   ControlTick();
   InputPulse();
+  RecoveryTick();
   Json event;
   {
     std::lock_guard lock(stateMutex);
@@ -1693,6 +1934,7 @@ bool Hook33(auto original, void* self, void* semaphore)
 void Hook34(auto original, void* self, void* visibility, void* context)
 {
   Span span(34, Kind::message, self, -1);
+  CancelRecovery("message-box-opening");
   try {
     if (span.id)
       span.Details({{"incoming_context", MessageContext(context)}});
@@ -1728,6 +1970,7 @@ void Hook38(auto original, void* self)
 void Hook39(auto original, void* self)
 {
   CancelUiTest();
+  CancelRecovery("summary-rebound");
   ++summaryGeneration;
   summaryVisible = true;
   Span span(39, Kind::summary, self, -1);
@@ -1737,8 +1980,16 @@ void Hook39(auto original, void* self)
 void Hook40(auto original, void* self)
 {
   Span span(40, Kind::summary, self, -1);
+  try {
+    Write({{"event", "navigation_summary_hidden"},
+           {"generation", summaryGeneration},
+           {"recovery_navigation", recovery.watchGeneration == summaryGeneration ? recovery.watchId : 0}});
+  } catch (...) {
+  }
   summaryVisible = false;
   CancelUiTest();
+  if (!navigationFrame || !navigationFrame->recovering)
+    CancelRecovery("summary-hidden");
   original(self);
 }
 
@@ -1757,16 +2008,14 @@ void Hook42(auto original, void* self)
 void Hook43(auto original, void* self)
 {
   Span span(43, Kind::summary, self, -1);
-  struct ContinueScope {
-    void* previous;
-    explicit ContinueScope(void* summary)
-        : previous(std::exchange(continuingSummary, summary))
-    {
-    }
-    ~ContinueScope()
-    { continuingSummary = previous; }
-  } scope(self);
+  CancelRecovery("new-continue-action");
+  NavigationFrame frame;
+  frame.id         = nextSpan.fetch_add(1);
+  frame.generation = summaryGeneration;
+  frame.summary    = self;
+  NavigationScope scope(frame, self);
   original(self);
+  FinishNavigation(frame);
 }
 
 bool Hook44(auto original, void* self)
@@ -1779,9 +2028,42 @@ bool Hook44(auto original, void* self)
 
 bool Hook45(auto original, void* self, void* context)
 {
-  Span       span(45, Kind::shop, context, -1);
+  Span  span(45, Kind::shop, context, -1);
+  auto* frame = navigationFrame;
+  struct ReturnScope {
+    NavigationFrame* frame;
+    bool             previous{};
+    explicit ReturnScope(NavigationFrame* current)
+        : frame(current)
+    {
+      if (frame)
+        previous = std::exchange(frame->inReturn, true);
+    }
+    ~ReturnScope()
+    {
+      if (frame)
+        frame->inReturn = previous;
+    }
+  } scope(frame);
+  if (frame) {
+    ++frame->returns;
+    frame->shop    = self;
+    frame->context = context;
+  }
   const bool result = original(self, context);
   span.result       = result;
+  if (frame) {
+    frame->parentReturned = result;
+    try {
+      Write({{"event", "reward_return_result"},
+             {"navigation", frame->id},
+             {"returned", result},
+             {"inner_attempts", frame->attempts},
+             {"inner_accepted", frame->accepted},
+             {"rejection_masked", result && frame->attempts > 0 && !frame->accepted}});
+    } catch (...) {
+    }
+  }
   return result;
 }
 
@@ -2002,23 +2284,92 @@ void Hook63(auto original, void* self)
 
 bool Hook64(auto original, void* self, int32_t next, void* args, bool forced, bool back, bool same)
 {
-  if (!ready.load() || !continuingSummary)
+  auto* summary = continuingSummary ? continuingSummary : BoundSummary();
+  if (!ready.load() || !summary)
     return original(self, next, args, forced, back, same);
-  Span       span(64, Kind::summary, continuingSummary, next);
+  auto* frame = navigationFrame;
+  if (!frame)
+    CancelRecovery("other-navigation-action");
+  Span span(64, Kind::summary, summary, next);
+  auto before = ReadNavigation(self);
+  if (frame) {
+    ++frame->attempts;
+    if (frame->attempts == 1) {
+      frame->manager     = self;
+      frame->before      = before;
+      frame->destination = next;
+      frame->forced      = forced;
+      frame->back        = back;
+      frame->same        = same;
+    }
+  }
+  try {
+    span.Details({{"navigation", frame ? frame->id : 0},
+                  {"phase", "before"},
+                  {"inside_return", frame && frame->inReturn},
+                  {"generation", summaryGeneration},
+                  {"section", NavigationSnapshot(self)},
+                  {"destination", next},
+                  {"forced", forced},
+                  {"back", back},
+                  {"allow_same", same},
+                  {"args", UiIdentity(args)}});
+  } catch (...) {
+  }
+  bool injected{}, blocked{};
+  if (frame && frame->recovering) {
+    // The native routine may recompute history, but may not redirect this retry
+    // or bypass a changed/busy context. Unknown metadata is never permission.
+    void* context{};
+    blocked = frame->attempts != 1 || !frame->inReturn || !captureHealthy || !sinkHealthy.load()
+              || !Config::Get().claim_navigation_recovery || !before.known || before.busy
+              || self != il2cpp_gchandle_get_target(recovery.manager) || frame->generation != summaryGeneration
+              || BoundSummary() != summary || !Read(summary, "m_context", context)
+              || context != il2cpp_gchandle_get_target(recovery.context) || before.current != recovery.origin
+              || before.next != recovery.next || next != recovery.destination || forced != recovery.forced
+              || back != recovery.back || same != recovery.same || next == before.current;
+  }
   const bool tracked = armedSummary && il2cpp_gchandle_get_target(armedSummary) == continuingSummary;
-  if (captureHealthy && sinkHealthy.load() && tracked && BoundSummary() == continuingSummary
+  if ((!frame || !frame->recovering) && captureHealthy && sinkHealthy.load() && tracked
+      && BoundSummary() == continuingSummary
       && uiReject.Consume(reinterpret_cast<uintptr_t>(continuingSummary), true, NowMs())) {
     CancelUiTest();
-    span.result = false;
+    injected = true;
+    if (frame)
+      frame->injected = true;
     Write({{"event", "ui_test_transition_rejected"},
            {"injected", true},
            {"next_section", next},
            {"claim_requests_modified", false},
            {"reward_state_modified", false}});
-    return false;
   }
-  const bool result = original(self, next, args, forced, back, same);
+  const bool result = injected || blocked ? false : original(self, next, args, forced, back, same);
   span.result       = result;
+  if (frame && result)
+    ++frame->accepted;
+  try {
+    span.Details({{"navigation", frame ? frame->id : 0},
+                  {"phase", "after"},
+                  {"returned", result},
+                  {"injected", injected},
+                  {"recovery_guard_blocked", blocked},
+                  {"rejection_clue", result                            ? "accepted"
+                                     : injected                        ? "injected"
+                                     : blocked                         ? "retry-context-changed"
+                                     : !before.known                   ? "unknown"
+                                     : before.busy                     ? "section-change-in-progress"
+                                     : !same && before.current == next ? "same-section"
+                                                                       : "native-rejection"},
+                  {"section", NavigationSnapshot(self)}});
+    if (!result)
+      Write({{"event", "summary_navigation_rejected"},
+             {"navigation", frame ? frame->id : 0},
+             {"injected", injected},
+             {"recovery_guard_blocked", blocked},
+             {"game_callers_rva", GameCallers()},
+             {"summary", Summary(summary)}});
+  } catch (...) {
+  }
   return result;
 }
 
@@ -2194,7 +2545,7 @@ void InstallClaimTrace()
   ready.store(true);
   Write(
       {{"event", "session"},
-       {"schema", 8},
+       {"schema", 9},
        {"source", STFC_IDENTITY_COMMENT_STR},
        {"pid", ProcessId()},
        {"healthy", captureHealthy},
@@ -2228,6 +2579,7 @@ void TraceClaimNavigation(const char* action) noexcept
     auto* summary = BoundSummary();
     if (!summary)
       return;
+    CancelRecovery("player-navigation-shortcut");
     auto data      = SummaryInput(summary);
     data["event"]  = "summary_navigation_action";
     data["action"] = action;

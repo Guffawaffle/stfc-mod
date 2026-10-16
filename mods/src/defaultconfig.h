@@ -291,6 +291,7 @@ namespace Sync
 namespace UI
 {
   constexpr bool        always_skip_reveal_sequence = true;
+  constexpr bool        claim_navigation_recovery   = false;
   constexpr bool        arrow_keys_to_select_ship   = true;
   constexpr bool        auto_confirm_discovery      = true;
   constexpr bool        auto_confirm_ft_upgrade     = false;

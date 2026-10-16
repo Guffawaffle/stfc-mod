@@ -1316,6 +1316,8 @@ void Config::Load()
 
   this->always_skip_reveal_sequence = get_config_or_default(config, parsed, "ui", "always_skip_reveal_sequence",
                                                             DCU::always_skip_reveal_sequence, write_config);
+  this->claim_navigation_recovery = get_config_or_default(config, parsed, "ui", "claim_navigation_recovery",
+                                                         DCU::claim_navigation_recovery, write_config);
   this->mission_hud_buttons.clear();
   this->mission_hud_buttons.emplace(
       "q_trials", get_mission_hud_visibility(config, parsed, "hud_q_trials", DCU::hud_q_trials, write_config));

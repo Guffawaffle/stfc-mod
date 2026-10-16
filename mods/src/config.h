@@ -292,6 +292,7 @@ public:
   bool instant_cargo_counter;
 
   bool                                        always_skip_reveal_sequence;
+  bool                                        claim_navigation_recovery;
   std::map<std::string, MissionHudVisibility> mission_hud_buttons;
 
   bool       sync_logging;

@@ -4,6 +4,7 @@ This science capture is for ongoing claims investigation while other features ar
 tested. Keep it out of clean `play` promotions. It observes claim, request, reward,
 input, semaphore and offer-refresh lifecycles using anonymous session-local tokens.
 It does not retry claims, purchases, reconciliation requests, or reward grants.
+The separate, opt-in UI recovery below may retry one native navigation request.
 The `[patches].claimtracehooks` emergency compatibility switch defaults to true.
 Disabling the hook group makes capture unavailable; it is not a claim feature.
 
@@ -54,6 +55,41 @@ automatically presses a claim or navigation button. The next human action runs
 normally. This tests evidence collection; it does not reproduce server-side
 delays, stale offers, or prove the cause of naturally stuck input.
 
+## Rejected navigation and experimental recovery
+
+Capture records the section manager's current/next/previous sections, transition
+busy flag and coroutine identity before and after summary navigation. Rejections
+include bounded native caller locations. A shared navigation ID joins the inner
+transition result to the outer reward-return result, explicitly marking cases
+where the inner call rejects but its parent returns success.
+
+The feature defaults off and does not control hook installation:
+
+```toml
+[ui]
+claim_navigation_recovery = false
+```
+
+When enabled, exactly one rejected transition inside one successful native reward
+return can schedule a retry for that summary generation. The recorder must be
+healthy, the same summary/context and origin must remain bound, and native section
+state must be known. It waits at least 250 ms and observes 100 ms of idle navigation,
+with a 5-second deadline. Changed context, new input/navigation, a message box,
+disabled configuration or a changed section cancels it. A consumed/cancelled
+budget cannot be replenished by another click on the same summary.
+
+The retry calls the game's existing return-from-rewards routine, retaining its
+own back-navigation gates. The transition hook also rejects any recomputed
+destination or flags differing from the initial request. No forced transition,
+lock clearing, claim submission, reward mutation or retry loop is added.
+
+`navigation_recovery_*` events record scheduling, observations, cancellation and
+the one attempt. An accepted transition is distinguished from eventual summary
+hide, which records the recovery's navigation ID. `cancel` cancels both a pending
+recovery and the artificial rejection arm. Status includes feature/pending state.
+The UI fault test is suitable for checking this path: with recovery enabled, one
+human DONE press should reject once, then close through the guarded retry.
+
 ## Qualification
 
 The65 current Windows x64 client272 entries have inspected native space for the
@@ -66,3 +102,5 @@ or successful Windows test does not establish Mac hook fit.
 Local policy test: compile `tests/claim_ui_fault.cc` with `mods/src` on the include
 path. It covers one-shot consumption, unrelated contexts, expiry and cancellation.
 Run the Python helper tests locally; these tests are not added to CI.
+`tests/claim_navigation_recovery.cc` exercises delayed one-shot retry, idle waiting,
+expiry, changed/unknown context and cancellation without a game client.

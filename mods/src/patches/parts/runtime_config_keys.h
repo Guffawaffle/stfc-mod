@@ -45,6 +45,7 @@ inline constexpr std::pair<const char*, const char*> persisted_settings[]{
     {"graphics", "hide_haven_water"},
     {"graphics", "system_pan_momentum_falloff"},
     {"ui", "auto_confirm_ft_upgrade"},
+    {"ui", "claim_navigation_recovery"},
     {"ui", "disable_exchange_all"},
     {"ui", "format_cargo_values"},
     {"ui", "officer_sort"},
