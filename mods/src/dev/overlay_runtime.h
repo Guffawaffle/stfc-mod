@@ -43,10 +43,12 @@ struct NativeElement {
 using ReservedRegionProvider = Insets (*)(float canvas_width, float canvas_height);
 using PanelTick              = void (*)(Transform* host, const LayoutContext& context);
 using PanelReset             = void (*)();
+using PanelVisible           = bool (*)();
 
-#ifdef _MODDBG
 bool RegisterReservedRegionProvider(std::string_view owner, ReservedRegionProvider provider);
-bool RegisterPanel(std::string_view owner, PanelTick tick, PanelReset reset);
+// Without a visibility callback, panels follow the debug-console switch.
+// Capture notices can opt in independently without waking debug producers.
+bool RegisterPanel(std::string_view owner, PanelTick tick, PanelReset reset, PanelVisible visible = nullptr);
 void SetEnabled(bool enabled);
 bool IsEnabled();
 void Tick(ScreenManager* screen_manager);
@@ -69,15 +71,4 @@ bool          SetGraphicColor(const NativeElement& element, Color color);
 bool          SetText(const NativeElement& element, std::string_view text);
 bool          ConfigureText(const NativeElement& element, float font_size, int32_t alignment, Color color);
 void          BringToFront(const NativeElement& element);
-#else
-inline bool RegisterReservedRegionProvider(std::string_view, ReservedRegionProvider)
-{ return false; }
-inline bool RegisterPanel(std::string_view, PanelTick, PanelReset)
-{ return false; }
-inline void SetEnabled(bool) {}
-inline bool IsEnabled()
-{ return false; }
-inline void Tick(ScreenManager*) {}
-inline void Reset() {}
-#endif
 } // namespace dev::overlay

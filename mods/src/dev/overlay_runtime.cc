@@ -1,7 +1,5 @@
 #include "dev/overlay_runtime.h"
 
-#ifdef _MODDBG
-
 #include "errormsg.h"
 
 #include <il2cpp-tabledefs.h>
@@ -40,6 +38,8 @@ namespace
     std::string owner;
     PanelTick   tick  = nullptr;
     PanelReset  reset = nullptr;
+    PanelVisible visible = nullptr;
+    bool mounted = false;
   };
 
   std::vector<ProviderRegistration>     s_providers;
@@ -88,10 +88,11 @@ namespace
 
   void reset_panels()
   {
-    for (const auto& panel : s_panels) {
+    for (auto& panel : s_panels) {
       if (panel.reset) {
         panel.reset();
       }
+      panel.mounted = false;
     }
   }
 
@@ -248,7 +249,7 @@ bool RegisterReservedRegionProvider(std::string_view owner, ReservedRegionProvid
   return true;
 }
 
-bool RegisterPanel(std::string_view owner, PanelTick tick, PanelReset reset)
+bool RegisterPanel(std::string_view owner, PanelTick tick, PanelReset reset, PanelVisible visible)
 {
   if (owner.empty() || !tick || !reset) {
     return false;
@@ -256,7 +257,7 @@ bool RegisterPanel(std::string_view owner, PanelTick tick, PanelReset reset)
   if (std::ranges::any_of(s_panels, [owner](const auto& item) { return item.owner == owner; })) {
     return false;
   }
-  s_panels.push_back({std::string{owner}, tick, reset});
+  s_panels.push_back({std::string{owner}, tick, reset, visible});
   return true;
 }
 
@@ -274,7 +275,10 @@ bool IsEnabled()
 
 void Tick(ScreenManager* screen_manager)
 {
-  if (!s_enabled) {
+  const auto active = [](const auto& panel) { return panel.visible ? panel.visible() : s_enabled; };
+  if (!std::ranges::any_of(s_panels, active)) {
+    if (s_host.game_object_handle)
+      Reset();
     return;
   }
 
@@ -299,8 +303,14 @@ void Tick(ScreenManager* screen_manager)
   }
 
   auto* host = GetTransform(s_host);
-  for (const auto& panel : s_panels) {
-    panel.tick(host, context);
+  for (auto& panel : s_panels) {
+    if (active(panel)) {
+      panel.tick(host, context);
+      panel.mounted = true;
+    } else if (panel.mounted) {
+      panel.reset();
+      panel.mounted = false;
+    }
   }
 }
 
@@ -546,5 +556,3 @@ void BringToFront(const NativeElement& element)
   invoke_void(method, GetTransform(element), nullptr, "Transform.SetAsLastSibling");
 }
 } // namespace dev::overlay
-
-#endif

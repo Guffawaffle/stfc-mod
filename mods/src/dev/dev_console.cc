@@ -673,7 +673,6 @@ bool dev_console_update(ScreenManager* screen_manager)
     handled        = true;
   }
 
-  dev::overlay::Tick(screen_manager);
   return handled;
 }
 

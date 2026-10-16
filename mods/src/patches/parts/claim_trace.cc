@@ -1,5 +1,6 @@
 // Play-dev claim capture, with an opt-in, bounded UI navigation recovery.
 #include "patches/claim_trace.h"
+#include "patches/claim_notice.h"
 #include "config.h"
 #include "file.h"
 #include "patches/claim_navigation_recovery.h"
@@ -775,7 +776,7 @@ Json Snapshot(Kind kind, void* object)
   }
 }
 
-void Write(Json event) noexcept
+bool Write(Json event) noexcept
 {
   try {
     std::lock_guard lock(stateMutex);
@@ -791,7 +792,7 @@ void Write(Json event) noexcept
     // periodic snapshots retain a separate ceiling; disk retention is bounded.
     if (sampled && rateCount++ >= 1200) {
       ++suppressed;
-      return;
+      return false;
     }
     event["seq"]        = ++eventSequence;
     event["session"]    = sessionId;
@@ -801,8 +802,12 @@ void Write(Json event) noexcept
             .count();
     event["thread"]     = std::hash<std::thread::id>{}(std::this_thread::get_id());
     event["suppressed"] = std::exchange(suppressed, 0);
+    if (!logger)
+      return false;
     logger->info("{}", event.dump());
+    return sinkHealthy.load();
   } catch (...) { /* Diagnostics must not throw into the game. */
+    return false;
   }
 }
 
@@ -1193,7 +1198,7 @@ void FinishNavigation(NavigationFrame& frame) noexcept
 {
   try {
     const bool masked = frame.returns == 1 && frame.parentReturned && frame.attempts == 1 && !frame.accepted;
-    Write({{"event", "summary_navigation_result"},
+    const bool recorded = Write({{"event", "summary_navigation_result"},
            {"navigation", frame.id},
            {"generation", frame.generation},
            {"recovery", frame.recovering},
@@ -1205,6 +1210,8 @@ void FinishNavigation(NavigationFrame& frame) noexcept
            {"injected", frame.injected},
            {"section", NavigationSnapshot(frame.manager)},
            {"summary", Summary(frame.summary)}});
+    if (masked && !frame.recovering && recorded)
+      claim_trace::ShowClaimNotice(claim_trace::NoticeKind::rejected, frame.generation, frame.injected);
     if (!masked || frame.recovering)
       return;
     const char* skip{};
@@ -1312,6 +1319,7 @@ void RecoveryTick() noexcept
     frame.recovering         = true;
     recovery.watchGeneration = recovery.generation;
     recovery.watchId         = frame.id;
+    claim_trace::BeginClaimNoticeRecovery(frame.generation, frame.id, now);
     NavigationScope scope(frame, summary);
     Write({{"event", "navigation_recovery_attempt"},
            {"navigation", frame.id},
@@ -1329,6 +1337,7 @@ void RecoveryTick() noexcept
            {"inner_accepted", frame.accepted != 0},
            {"summary_still_bound", BoundSummary() == summary},
            {"section", NavigationSnapshot(manager)}});
+    claim_trace::ClaimNoticeRecoveryReturned(frame.generation, frame.id, !error && frame.accepted != 0, NowMs());
     FinishNavigation(frame);
     ReleaseRecoveryHandles();
   } catch (...) {
@@ -1471,10 +1480,18 @@ void ControlTick() noexcept
           reply["error"] = "session-mismatch";
         else if (command == "status" || command == "mark") {
           reply["ok"] = true;
-          if (command == "mark")
-            Write({{"event", "incident_marker"},
-                   {"marker", request.value("label", std::string{}).substr(0, 64)},
-                   {"state", SummaryInput(BoundSummary())}});
+          if (command == "mark"
+              && Write({{"event", "incident_marker"},
+                        {"marker", request.value("label", std::string{}).substr(0, 64)},
+                        {"state", SummaryInput(BoundSummary())}}))
+            claim_trace::ShowClaimNotice(claim_trace::NoticeKind::marked);
+        } else if (command == "preview-notice" || command == "clear-notice") {
+          if (command == "preview-notice")
+            claim_trace::ShowClaimNotice(claim_trace::NoticeKind::preview);
+          else
+            claim_trace::ClearClaimNotice();
+          Write({{"event", "claim_notice_control"}, {"command", command}, {"display_only", true}});
+          reply["ok"] = true;
         } else if (command == "cancel") {
           CancelUiTest();
           CancelRecovery("control-cancel");
@@ -1970,6 +1987,7 @@ void Hook38(auto original, void* self)
 
 void Hook39(auto original, void* self)
 {
+  claim_trace::CancelClaimNoticeConfirmation();
   CancelUiTest();
   CancelRecovery("summary-rebound");
   ++summaryGeneration;
@@ -1981,10 +1999,12 @@ void Hook39(auto original, void* self)
 void Hook40(auto original, void* self)
 {
   Span span(40, Kind::summary, self, -1);
+  bool recorded{};
+  const auto generation = summaryGeneration;
   try {
-    Write({{"event", "navigation_summary_hidden"},
-           {"generation", summaryGeneration},
-           {"recovery_navigation", recovery.watchGeneration == summaryGeneration ? recovery.watchId : 0}});
+    recorded = Write({{"event", "navigation_summary_hidden"},
+                      {"generation", generation},
+                      {"recovery_navigation", recovery.watchGeneration == generation ? recovery.watchId : 0}});
   } catch (...) {
   }
   summaryVisible = false;
@@ -1992,6 +2012,8 @@ void Hook40(auto original, void* self)
   if (!navigationFrame || !navigationFrame->recovering)
     CancelRecovery("summary-hidden");
   original(self);
+  if (recorded)
+    claim_trace::ClaimNoticeSummaryHidden(generation, NowMs());
 }
 
 void Hook41(auto original, void* self)
@@ -2008,6 +2030,7 @@ void Hook42(auto original, void* self)
 
 void Hook43(auto original, void* self)
 {
+  claim_trace::CancelClaimNoticeConfirmation();
   Span span(43, Kind::summary, self, -1);
   CancelRecovery("new-continue-action");
   NavigationFrame frame;
@@ -2217,7 +2240,8 @@ void Hook56(auto original, void* self)
     auto* config = Invoke(self, "GetFeatureConfig");
     Scalar<float>(event, config, "SyncRetryIntervalSeconds", "configured_sync_retry_seconds");
     Scalar<float>(event, config, "RecoveryTimeoutSeconds", "configured_recovery_timeout_seconds");
-    Write(std::move(event));
+    if (Write(std::move(event)))
+      claim_trace::ShowClaimNotice(claim_trace::NoticeKind::timeout);
   } catch (...) {
   }
 }
@@ -2289,8 +2313,10 @@ bool Hook64(auto original, void* self, int32_t next, void* args, bool forced, bo
   if (!ready.load() || !summary)
     return original(self, next, args, forced, back, same);
   auto* frame = navigationFrame;
-  if (!frame)
+  if (!frame) {
+    claim_trace::CancelClaimNoticeConfirmation();
     CancelRecovery("other-navigation-action");
+  }
   Span span(64, Kind::summary, summary, next);
   auto before = ReadNavigation(self);
   if (frame) {
@@ -2362,13 +2388,15 @@ bool Hook64(auto original, void* self, int32_t next, void* args, bool forced, bo
                                      : !same && before.current == next ? "same-section"
                                                                        : "native-rejection"},
                   {"section", NavigationSnapshot(self)}});
-    if (!result)
-      Write({{"event", "summary_navigation_rejected"},
-             {"navigation", frame ? frame->id : 0},
-             {"injected", injected},
-             {"recovery_guard_blocked", blocked},
-             {"game_callers_rva", GameCallers()},
-             {"summary", Summary(summary)}});
+    if (!result
+        && Write({{"event", "summary_navigation_rejected"},
+                  {"navigation", frame ? frame->id : 0},
+                  {"injected", injected},
+                  {"recovery_guard_blocked", blocked},
+                  {"game_callers_rva", GameCallers()},
+                  {"summary", Summary(summary)}})
+        && frame && !frame->recovering)
+      claim_trace::ShowClaimNotice(claim_trace::NoticeKind::rejected, frame->generation, injected);
   } catch (...) {
   }
   return result;
@@ -2544,6 +2572,7 @@ void InstallClaimTrace()
   if (installed != std::size(kTargets) || !pulseInstalled)
     spdlog::warn("[ClaimTrace] partial capture: {}/{} hooks; update callback {}", installed, std::size(kTargets),
                  pulseInstalled ? "active" : "unavailable");
+  claim_trace::InstallClaimNotice();
   ready.store(true);
   Write(
       {{"event", "session"},
@@ -2581,6 +2610,7 @@ void TraceClaimNavigation(const char* action) noexcept
     auto* summary = BoundSummary();
     if (!summary)
       return;
+    claim_trace::CancelClaimNoticeConfirmation();
     CancelRecovery("player-navigation-shortcut");
     auto data      = SummaryInput(summary);
     data["event"]  = "summary_navigation_action";

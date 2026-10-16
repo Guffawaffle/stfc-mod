@@ -1,5 +1,6 @@
 #include "patches/claim_trace.h"
 #include "config.h"
+#include "dev/overlay_runtime.h"
 #include "patches/parts/action_queue.h"
 #include "patches/base_card.h"
 #include "patches/runtime_config.h"
@@ -581,6 +582,7 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
   const bool shortcutOwnedInput = Key::shortcutCaptureActive || Key::shortcutPopupActive || Key::settingsSearchActive;
   dispatch_screen_manager_update_callbacks();
+  dev::overlay::Tick(_this);
   mining_preview::Update();
   // Capture owns the key through release. Do not run the native shortcut path
   // or the console on this frame; UI mouse navigation continues via EventSystem.

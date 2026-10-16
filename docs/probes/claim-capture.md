@@ -110,3 +110,29 @@ path. It covers one-shot consumption, unrelated contexts, expiry and cancellatio
 Run the Python helper tests locally; these tests are not added to CI.
 `tests/claim_navigation_recovery.cc` exercises delayed one-shot retry, idle waiting,
 expiry, changed/unknown context and cancellation without a game client.
+
+## On-screen incident notice
+
+The play-dev capture displays a persistent, click-through box below the console
+area after a recorded summary-navigation rejection, native claim timeout, or
+manual incident marker. It stays visible across screen changes until cleared or
+restarted. Rejections are amber. A green "Claim recovered" notice requires the
+same summary to hide after an accepted automatic retry within five seconds;
+manual navigation and new summaries cancel that attribution. It reports UI
+recovery, not server-side reward ownership. Artificial rejections show `(TEST)`.
+
+The notice uses the existing native overlay without waking the debug console or
+its diagnostic producers, including in release builds. No new game hooks or
+claim requests are added. `preview-notice` tests only the box and explicitly
+labels it as a display preview; `clear-notice` removes it. Both commands use the
+same current-session control protocol as `status`, for example:
+
+```powershell
+python scripts/claim-capture.py preview-notice --game-dir "C:/Games/Star Trek Fleet Command/default/game"
+python scripts/claim-capture.py clear-notice --game-dir "C:/Games/Star Trek Fleet Command/default/game"
+```
+
+Compile/run `tests/claim_notice.cc` with `mods/src` on the include path to check
+accepted-vs-hidden attribution, synchronous/asynchronous hide order, generation,
+manual cancellation, rejection, expiry and test labeling. Visual placement still
+needs an exact-artifact check after a cycle.

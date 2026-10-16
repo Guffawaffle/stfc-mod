@@ -98,7 +98,7 @@ def snapshot(root, destination, reply=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("status", "mark", "snapshot", "arm-ui-failure", "cancel"))
+    parser.add_argument("action", choices=("status", "mark", "snapshot", "arm-ui-failure", "cancel", "preview-notice", "clear-notice"))
     parser.add_argument("--game-dir", type=Path, required=True, help="Game/mod data directory or explicit claims trace directory")
     parser.add_argument("--label", default="")
     parser.add_argument("--output", type=Path, help="Private snapshot destination; default is the checkout's ignored .codex tree")
