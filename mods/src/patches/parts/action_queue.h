@@ -4,6 +4,10 @@
 #include <chrono>
 #include <cstdint>
 
+// Forget the mod's pending response correlations at both queue toggle transitions.
+// Releases weak tracking handles; never clears or modifies native target queues.
+void ResetQueueRecoveryTracking();
+
 namespace action_queue
 {
 using Clock = std::chrono::steady_clock;

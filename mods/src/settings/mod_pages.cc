@@ -41,9 +41,9 @@ void RegisterModPages()
     }
   }
   catalog.AddPage("community_mod.navigation", "Map & Travel", "community_mod.settings");
-  if (QueueRecoveryAvailable()) {
+  if (KirsharaFixesAvailable()) {
     catalog.AddHeading("community_mod.navigation", "community_mod.navigation.kirshara", "Kirshara action queue");
-    catalog.AddBoolean("community_mod.navigation", QueueRecoverySetting());
+    catalog.AddBoolean("community_mod.navigation", KirsharaFixesSetting());
   }
   catalog.AddHeading("community_mod.navigation", "community_mod.navigation.warp", "Instant warp mode");
   catalog.AddChoice("community_mod.navigation", WarpModeSetting());

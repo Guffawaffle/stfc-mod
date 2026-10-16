@@ -35,7 +35,7 @@ std::atomic_bool                   ready{false};
 Il2CppClass *                      queueClass{}, *actionClass{}, *int64Class{};
 
 bool Enabled()
-{ return ready.load() && Config::Get().faster_queue_recovery && Config::Get().queue_enabled; }
+{ return ready.load() && Config::Get().kirshara_fixes && Config::Get().queue_enabled; }
 void ClearRequests()
 {
   std::lock_guard lock(requestsMutex);
@@ -233,6 +233,9 @@ bool Field(Il2CppClass* cls, const char* name, std::ptrdiff_t offset, Il2CppType
 }
 } // namespace
 
+void ResetQueueRecoveryTracking()
+{ ClearRequests(); }
+
 void InstallActionQueueRecovery()
 {
   auto* cls   = Resolve("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager");
@@ -316,14 +319,12 @@ namespace mod_settings
 {
 bool QueueRecoveryAvailable()
 { return ready.load() && Config::Get().installActionQueueRecoveryHooks; }
-void ResetQueueRecovery()
-{ ClearRequests(); }
 } // namespace mod_settings
 #else
 void InstallActionQueueRecovery() {}
+void ResetQueueRecoveryTracking() {}
 namespace mod_settings
 {
 bool QueueRecoveryAvailable() { return false; }
-void ResetQueueRecovery() {}
 } // namespace mod_settings
 #endif

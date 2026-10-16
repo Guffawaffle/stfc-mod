@@ -5,13 +5,16 @@ This is separate from the retired Kir'shara combat-completion repair.
 
 ```toml
 [control]
-thin_queue_protection = true
+kirshara_fixes = true
 ```
 
-Enabled by default on Windows x64. Also respects `control.queue_enabled`. The old
-`advanced.queue.thin_queue_protection` value is used when the new control key is
-absent, preserving an explicit opt-out. Hook installation requires a restart;
-enabling a setting later does not install missing hooks.
+Enabled by default on Windows x64 and macOS ARM64/x86_64 as part of `control.kirshara_fixes`. Also respects
+`control.queue_enabled`. The old separate feature settings, including
+`advanced.queue.thin_queue_protection`, are retired; use `kirshara_fixes = false`
+to disable the combined fixes. Default-enabled `[patches].thinqueueprotectionhooks`
+controls installation independently. Installed callbacks check the current feature and queue
+preferences. Changing the installation switch requires restart; TOML changes require
+reload/restart.
 
 The native planner (`DoPlanPathAndEngageTarget`) and watchdog (`HandleStall`) run
 first. If they removed an exact prefix of targets, left a nonempty unchanged
@@ -34,8 +37,9 @@ guard sees the resulting active engagement. Queue identity is checked again afte
 native calls. All three guard hooks must install before any guard action is enabled.
 
 Methods, field offsets/types and enum return representations are checked before
-installation; incompatible layouts keep native behavior. This port currently
-installs only on Windows x64. macOS runtime/ABI validation is not claimed.
+installation; incompatible layouts keep native behavior. This port compiles for
+Windows x64 and macOS ARM64/x86_64. macOS native hook fit and runtime validation
+remain unverified; compilation alone does not establish those properties.
 
 Successful actions log `[ThinQueueProtection] resume` or
 `[ThinQueueProtection] process-destroyed-head`; startup logs `ready=true` or an

@@ -1,5 +1,6 @@
 #include "patches/action_queue_guard_policy.h"
 #include <config.h>
+#include "settings/queue_recovery.h"
 
 // Port of the active v2.1.0-guffa.10 guard, not the dormant completion repair.
 // Shared 64-bit managed layout; incompatible runtime contracts leave the feature unavailable.
@@ -32,7 +33,7 @@ int (*tryEngage)(Object*, Object*, Object*);
 void (*processTarget)(Object*, Id, bool);
 
 bool Enabled()
-{ return ready.load() && Config::Get().thin_queue_protection && Config::Get().queue_enabled; }
+{ return ready.load() && Config::Get().kirshara_fixes && Config::Get().queue_enabled; }
 
 bool Is(Object* object, Il2CppClass* cls)
 { return object && il2cpp_object_get_class(object) == cls; }
@@ -299,6 +300,15 @@ void InstallThinQueueProtection()
   ready.store(a && b && c);
   spdlog::info("[ThinQueueProtection] ready={}", ready.load());
 }
+namespace mod_settings
+{
+bool ThinQueueProtectionAvailable()
+{ return ready.load() && Config::Get().installThinQueueProtectionHooks; }
+} // namespace mod_settings
 #else
 void InstallThinQueueProtection() {}
+namespace mod_settings
+{
+bool ThinQueueProtectionAvailable() { return false; }
+} // namespace mod_settings
 #endif
