@@ -364,6 +364,9 @@ freeresizehooks = true
 galacticanomalytimerhooks = true
 game_version = true
 giftsbulkclaimhooks = true
+# Play-dev science only: passive claim diagnostics and explicitly armed UI tests.
+# Emergency compatibility switch; see docs/probes/claim-capture.md.
+claimtracehooks = true
 hotkeyhooks = true
 havenhistoryhooks = true
 

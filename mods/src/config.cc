@@ -1011,6 +1011,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "transitionscreenhooks", DCP::transitionscreenhooks, write_config);
   this->installGiftsBulkClaimHooks =
       get_config_or_default(config, parsed, "patches", "giftsbulkclaimhooks", DCP::giftsbulkclaimhooks, write_config);
+  this->installClaimTraceHooks =
+      get_config_or_default(config, parsed, "patches", "claimtracehooks", DCP::claimtracehooks, write_config);
   this->installDailyFactionBulkClaimHooks = get_config_or_default(
       config, parsed, "patches", "dailyfactionbulkclaimhooks", DCP::dailyfactionbulkclaimhooks, write_config);
   this->installGalacticAnomalyTimerHooks =

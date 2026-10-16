@@ -324,6 +324,7 @@ public:
   bool installGameVersionHook;
   bool installObjectTracker;
   bool installGiftsBulkClaimHooks;
+  bool installClaimTraceHooks;
   bool installDailyFactionBulkClaimHooks;
   bool installGalacticAnomalyTimerHooks;
   bool installLoadingTipHooks;

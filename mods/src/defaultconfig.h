@@ -115,6 +115,7 @@ namespace Patches
   constexpr bool navigationorbithooks       = true;
   constexpr bool miscpatches                = true;
   constexpr bool giftsbulkclaimhooks        = true;
+  constexpr bool claimtracehooks            = true;
   constexpr bool dailyfactionbulkclaimhooks = true;
   constexpr bool focussearch                = true;
   constexpr bool instantcargocounterhooks   = true;
