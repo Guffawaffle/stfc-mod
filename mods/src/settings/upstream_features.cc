@@ -47,6 +47,9 @@ void RegisterUpstreamFeaturePages(PageCatalog& catalog)
                                        &Config::double_click_to_assign_ship, DoubleClickAssignShipAvailable));
   static BooleanSetting focus(
       Feature("ui", "focus_search", "Enable focus search shortcut", &Config::focus_search, HotkeysAvailable));
+  static BooleanSetting primary(
+      Feature("control", "primary_requires_visible_target", "Require visible primary target",
+              &Config::primary_requires_visible_target, HotkeysAvailable));
   if (ArtifactExchangeAvailable()) {
     catalog.AddPage("community_mod.artifacts", "Artifacts", "community_mod.settings");
     catalog.AddBoolean("community_mod.artifacts", exchange);
@@ -64,7 +67,9 @@ void RegisterUpstreamFeaturePages(PageCatalog& catalog)
     if (DoubleClickAssignShipAvailable())
       catalog.AddBoolean("community_mod.officers_ships", assign);
   }
-  if (HotkeysAvailable())
+  if (HotkeysAvailable()) {
     catalog.AddBoolean("community_mod.shortcuts.interface", focus);
+    catalog.AddBoolean("community_mod.previews", primary);
+  }
 }
 } // namespace mod_settings

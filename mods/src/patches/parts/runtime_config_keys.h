@@ -7,6 +7,7 @@ namespace config_edit
 // share this list so new settings cannot silently skip registration.
 inline constexpr std::pair<const char*, const char*> persisted_settings[]{
     {"control", "faster_queue_recovery"},
+    {"control", "primary_requires_visible_target"},
     {"audio", "coalescing"},
     {"audio", "alert_victory"},
     {"audio", "alert_defeat"},
