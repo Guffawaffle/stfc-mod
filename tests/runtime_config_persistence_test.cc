@@ -64,8 +64,8 @@ int main(int argc, char** argv)
   {
     config_edit::RuntimeConfigWriter writer(path, std::nullopt);
     assert(writer.Register("control", "kirshara_fixes", config_edit::Value{*kirshara}));
-    assert(writer.Submit("control", "kirshara_fixes", true));
     assert(writer.Register("control", "primary_requires_visible_target", config_edit::Value{*primary}));
+    assert(writer.Submit("control", "kirshara_fixes", true));
     assert(writer.Submit("control", "primary_requires_visible_target", true));
     writer.Stop(false);
   }
