@@ -537,6 +537,9 @@ action_queue_clear = "CTRL-C"
 action_secondary = "TAB|MOUSE4"
 
 # V or Mouse2
+# Mining nodes occupied by another player cycle node > ship > cargo > node.
+# With automatic player cargo enabled, the order is node > cargo > ship > node.
+# Own miners and empty nodes retain native behavior.
 action_view = "V|MOUSE2"
 
 # Requires Kir'Shara artifact
