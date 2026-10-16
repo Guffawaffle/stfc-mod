@@ -1,4 +1,5 @@
 #include "config.h"
+#include "patches/parts/action_queue.h"
 #include "patches/base_card.h"
 #include "patches/runtime_config.h"
 #include "patches/mining_preview.h"
@@ -814,6 +815,8 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 
       if ((MapKey::IsDown(GameFunction::ToggleQueue))) {
         config->queue_enabled = !config->queue_enabled;
+        // Forget stale recovery authorizations; existing native target queues keep processing.
+        ResetQueueRecoveryTracking();
         return;
       }
 

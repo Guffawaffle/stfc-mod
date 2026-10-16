@@ -4,6 +4,8 @@
 namespace mod_settings
 {
 bool            QueueRecoveryAvailable();
-void            ResetQueueRecovery();
-BooleanSetting& QueueRecoverySetting();
+bool            ThinQueueProtectionAvailable();
+bool            QueueAddressGuardAvailable();
+bool            KirsharaFixesAvailable();
+BooleanSetting& KirsharaFixesSetting();
 } // namespace mod_settings
