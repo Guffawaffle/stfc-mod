@@ -58,7 +58,7 @@ def analyze(events):
     counts = Counter()
     sessions = {}
     last_write = {}
-    changes, readbacks, edits, coverage = [], [], [], []
+    changes, readbacks, edits, coverage, checkpoint_changes = [], [], [], [], []
     transport = Counter()
     for event in events:
         method = event.get("event", "unknown")
@@ -73,6 +73,11 @@ def analyze(events):
         detail = event.get("details") or {}
         if method == "edit":
             edits.append(dict(reference, **detail, unwind=event.get("unwind", False)))
+        for delta in event.get("selection_changes", []):
+            changes.append(dict(reference, method=method, scope=delta["scope"], changes=delta["changes"],
+                                unwind=event.get("unwind", False)))
+        for scope in event.get("selection_unknown", []):
+            coverage.append(dict(reference, method=method, scope=scope, reason="unsupported snapshot"))
         before, after = state_maps(event.get("before")), state_maps(event.get("after"))
         for scope in before.keys() | after.keys():
             first, second = before.get(scope), after.get(scope)
@@ -98,6 +103,13 @@ def analyze(events):
                 coverage.append(dict(reference, method=method, reason="write result unknown"))
         if method == "preferences_get":
             read = quantities(detail.get("read"), "bundle")
+            checkpoint = event.get("checkpoint") or {}
+            baseline = quantities(checkpoint.get("values"), "bundle")
+            if read is not None and baseline is not None and not event.get("unwind"):
+                changed = differences(baseline, read)
+                if changed:
+                    checkpoint_changes.append(dict(reference, key=key, basis=checkpoint.get("basis"),
+                                                   baseline_session=checkpoint.get("session"), changes=changed))
             if read is None or event.get("unwind"):
                 coverage.append(dict(reference, method=method, reason="read result unknown"))
             elif key in last_write:
@@ -109,6 +121,7 @@ def analyze(events):
                                           same_session=origin["session"] == event.get("session")))
     return dict(event_counts=dict(counts), sessions=list(sessions.values()), edits=edits,
                 state_changes=changes, reads_differing_from_last_observed_write=readbacks,
+                reads_differing_from_checkpoint=checkpoint_changes,
                 unknown_observations=coverage, transport_counts=dict(transport),
                 limits="Changes describe observed native calls. Nested calls can report the same transition. "
                        "Cloud attempts or successful transport do not prove durable persistence. "
@@ -151,7 +164,8 @@ def main():
         if not 1 <= args.limit <= 1000:
             raise ValueError("--limit must be between 1 and 1000")
         report = analyze(journal_events(args.game_dir.resolve(strict=True)))
-        for key in ("edits", "state_changes", "reads_differing_from_last_observed_write", "unknown_observations"):
+        for key in ("edits", "state_changes", "reads_differing_from_last_observed_write",
+                    "reads_differing_from_checkpoint", "unknown_observations"):
             values = report[key]
             report[key + "_total"] = len(values)
             report[key] = values[-args.limit:]

@@ -75,6 +75,17 @@ deselected. It does not infer durable cloud persistence from a successful reques
 nor assume two different sessions used the same account. Nested calls can report
 the same transition, and rotated-out history cannot be reconstructed.
 
+The journal stores compact per-call dictionary changes instead of repeated full
+snapshots during tab browsing. Native preference reads/writes retain their bounded
+selection lists as comparison baselines. The edit observer uses the underlying
+`BulkSelectionContainer` setter because UI callers can bypass the context wrapper.
+A separate atomic `bulk_selection_baseline.json` retains each lane's last observed
+write, or its first observed read until a write occurs. It survives log rotation
+and restart and is attached to later native read records for comparison. This
+diagnostic checkpoint never restores or modifies the game's preferences. Its
+account scope is unverified, so confirm the same account before attributing a
+cross-session difference to a reset. Incident snapshots include the checkpoint.
+
 Cloud-load observation shares the existing native Mod Settings detour; it never
 installs another hook on that method. This observation is available when that
 native-settings hook group is installed. The additional 13 Windows x64 client272

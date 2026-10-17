@@ -73,5 +73,20 @@ class SelectionHistoryTests(unittest.TestCase):
         self.assertTrue(unknown["unknown_observations"])
 
 
+    def test_compact_native_deltas_and_unknowns(self):
+        delta = dict(scope="categories/1/selected", changes=[dict(bundle="charts", before=1, after=0)])
+        result = history.analyze([dict(event="prune", selection_changes=[delta], selection_unknown=["pending"])])
+        self.assertEqual(result["state_changes"][0]["changes"], delta["changes"])
+        self.assertEqual(result["unknown_observations"][0]["scope"], "pending")
+
+    def test_checkpoint_survives_rotation_of_original_write(self):
+        event = preference("get", selection(reliant=1), session="two")
+        event["checkpoint"] = dict(basis="write", session="one", values=selection())
+        result = history.analyze([event])
+        self.assertEqual(result["reads_differing_from_last_observed_write"], [])
+        self.assertEqual(result["reads_differing_from_checkpoint"][0]["changes"],
+                         [dict(bundle="reliant", before=0, after=1)])
+
+
 if __name__ == "__main__":
     unittest.main()

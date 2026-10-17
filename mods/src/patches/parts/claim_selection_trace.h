@@ -10,6 +10,57 @@ size_t                              installed{};
 std::array<Il2CppMethodPointer, 13> installedPointers{};
 std::atomic_bool                    sharedCloudLoadSeen{false};
 
+std::mutex            checkpointMutex;
+std::filesystem::path checkpointPath;
+Json                  checkpoint = Json::object();
+
+bool ValidList(const Json& list)
+{
+  if (!list.is_object() || !list.value("supported", false) || !list.contains("entries") || !list["entries"].is_array()
+      || list["entries"].size() > 2048 || list.value("count", size_t(-1)) != list["entries"].size())
+    return false;
+  for (const auto& row : list["entries"]) {
+    if (!row.is_object() || !row.contains("bundle") || !row["bundle"].is_string() || !row.contains("quantity")
+        || !row["quantity"].is_number_unsigned())
+      return false;
+    const auto alias = row["bundle"].get<std::string>();
+    if (alias.size() != 33 || alias[0] != 'b' || row["quantity"].get<uint64_t>() > UINT32_MAX)
+      return false;
+    for (auto c : alias.substr(1))
+      if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')))
+        return false;
+  }
+  return true;
+}
+
+void Checkpoint(Json& event)
+{
+  const auto method = event.value("event", std::string{});
+  if (method != "preferences_get" && method != "preferences_set")
+    return;
+  const auto& detail = event.at("details");
+  const auto  key    = detail.value("key", std::string{});
+  if (key != "StoreSelection" && key != "RefineSelection" && key != "FactionSelection")
+    return;
+  std::lock_guard lock(checkpointMutex);
+  if (method == "preferences_get" && checkpoint.contains(key))
+    event["checkpoint"] = checkpoint[key];
+  const auto& list    = detail.at(method == "preferences_get" ? "read" : "written");
+  bool        changed = false;
+  if (event.value("unwind", false) || !ValidList(list)) {
+    if (method == "preferences_set")
+      changed = checkpoint.erase(key) != 0;
+  } else if (method == "preferences_set" || !checkpoint.contains(key)) {
+    checkpoint[key] = {{"basis", method == "preferences_set" ? "write" : "initial_read"},
+                       {"session", sessionId},
+                       {"utc_ms", event.at("utc_ms")},
+                       {"values", list}};
+    changed         = true;
+  }
+  if (changed)
+    SaveControlJson(checkpointPath, {{"schema", 1}, {"values", checkpoint}});
+}
+
 // Stable catalog aliases join sessions without writing catalog/account/order IDs.
 // These are correlation labels, not a cryptographic privacy boundary.
 std::string Alias(int64_t value)
@@ -272,10 +323,99 @@ void WriteEvent(Json event) noexcept
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
             .count();
     event["seq"] = sequence++;
+    Checkpoint(event);
     journal->info("{}", event.dump());
   } catch (...) {
     healthy.store(false);
   }
+}
+
+Json QuantityMap(const Json& source)
+{
+  if (!source.is_object() || !source.value("supported", false) || !source.contains("entries"))
+    return nullptr;
+  Json result = Json::object();
+  for (const auto& entry : source["entries"]) {
+    const auto& key                                               = entry.at("key");
+    result[key.is_string() ? key.get<std::string>() : key.dump()] = entry.at("quantity");
+  }
+  return result;
+}
+
+Json SelectionMaps(const Json& state)
+{
+  Json result = Json::object();
+  if (!state.is_object())
+    return result;
+  const auto& container = state.contains("selection") ? state["selection"] : state;
+  if (!container.is_object())
+    return result;
+  if (container.contains("pending"))
+    result["pending"] = QuantityMap(container["pending"]);
+  for (auto name : {"categories", "groups"}) {
+    if (!container.contains(name))
+      continue;
+    const auto&       groups   = container[name];
+    const std::string coverage = std::string(name) + "/$coverage";
+    if (!groups.is_object() || !groups.value("supported", false) || !groups.contains("entries")) {
+      result[coverage] = nullptr;
+      continue;
+    }
+    result[coverage] = Json::object();
+    for (const auto& group : groups["entries"]) {
+      const auto& key    = group.at("key");
+      const auto  prefix = std::string(name) + "/" + (key.is_string() ? key.get<std::string>() : key.dump()) + "/";
+      for (auto phase : {"selected", "editing"})
+        result[prefix + phase] = QuantityMap(group.at(phase));
+    }
+  }
+  return result;
+}
+
+void CompactObservation(Json& event)
+{
+  auto before = SelectionMaps(event["before"]);
+  auto after  = SelectionMaps(event["after"]);
+  auto scopes = before;
+  scopes.update(after);
+  event["selection_changes"] = Json::array();
+  event["selection_unknown"] = Json::array();
+  for (const auto& [scope, unused] : scopes.items()) {
+    Json       first = before.value(scope, Json{}), second = after.value(scope, Json{});
+    const auto separator = scope.find('/');
+    if (separator != std::string::npos && scope.find('/', separator + 1) != std::string::npos) {
+      const auto coverage = scope.substr(0, separator) + "/$coverage";
+      if (before.contains(coverage) && after.contains(coverage) && before[coverage].is_object()
+          && after[coverage].is_object()) {
+        if (!before.contains(scope))
+          first = Json::object();
+        if (!after.contains(scope))
+          second = Json::object();
+      }
+    }
+    if (!first.is_object() || !second.is_object()) {
+      event["selection_unknown"].push_back(scope);
+      continue;
+    }
+    if (scope.ends_with("/$coverage"))
+      continue;
+    auto keys = first;
+    keys.update(second);
+    Json changes = Json::array();
+    for (const auto& [key, value] : keys.items()) {
+      const auto oldQuantity = first.value(key, uint32_t{}), newQuantity = second.value(key, uint32_t{});
+      if (oldQuantity != newQuantity)
+        changes.push_back({{"bundle", key}, {"before", oldQuantity}, {"after", newQuantity}});
+    }
+    if (!changes.empty())
+      event["selection_changes"].push_back({{"scope", scope}, {"changes", std::move(changes)}});
+  }
+  // Tab browsing must not consume retention with repeated full dictionaries.
+  // Keep per-call deltas, flags, saved lists and bounded offer identities.
+  for (auto phase : {"before", "after"})
+    if (event[phase].is_object())
+      for (auto key : {"selection", "categories", "groups", "pending"})
+        event[phase].erase(key);
 }
 
 struct Observation {
@@ -312,7 +452,8 @@ struct Observation {
   {
     try {
       if (!event.is_null()) {
-        event["after"]  = State(object, kind);
+        event["after"] = State(object, kind);
+        CompactObservation(event);
         event["unwind"] = std::uncaught_exceptions() > exceptions;
         WriteEvent(std::move(event));
       }
@@ -324,7 +465,7 @@ struct Observation {
 
 void Edit(auto original, void* self, void* bundle, uint32_t quantity)
 {
-  Observation observation("edit", self, "context");
+  Observation observation("edit", self, "container");
   observation.Details([&] { return Json{{"bundle", Bundle(bundle)}, {"quantity", quantity}}; });
   original(self, bundle, quantity);
 }
@@ -415,7 +556,7 @@ void CloudSave(auto original, void* self, void* success, void* failure)
   original(self, success, failure);
 }
 const Target targets[] = {
-    {"Assembly-CSharp", "Digit.Prime.Shop", "ShopSectionContext", "SetBundleQuantityForBulkSelection", 2, false, "pi"},
+    {"Assembly-CSharp", "Digit.Prime.Shop", "BulkSelectionContainer", "SetBundleToBulkSelection", 2, false, "pi"},
     {"Assembly-CSharp", "Digit.Prime.Shop", "BulkSelectionContainer", "OverrideSelection", 2, false, "qp"},
     {"Assembly-CSharp", "Digit.Prime.Shop", "BulkSelectionContainer", "ParseBulkSelectionList", 1, false, "p"},
     {"Assembly-CSharp", "Digit.Prime.Shop", "BulkSelectionContainer", "ApplyChanges", 0, false, ""},
@@ -501,12 +642,37 @@ void InstallSelectionTrace()
 {
   using namespace selection_trace;
   try {
-    auto path = ScienceTracePath("claims", "bulk_selection.jsonl");
-    journal   = spdlog::rotating_logger_mt("bulk-selection-science", path.string(), 4 * 1024 * 1024, 4, false);
+    auto path      = ScienceTracePath("claims", "bulk_selection.jsonl");
+    checkpointPath = path.parent_path() / "bulk_selection_baseline.json";
+    journal        = spdlog::rotating_logger_mt("bulk-selection-science", path.string(), 4 * 1024 * 1024, 4, false);
     journal->set_pattern("%v");
     journal->set_level(spdlog::level::info);
     journal->flush_on(spdlog::level::info);
     journal->set_error_handler([](const std::string&) { healthy.store(false); });
+    if (std::filesystem::exists(checkpointPath)) {
+      if (std::filesystem::file_size(checkpointPath) > 2 * 1024 * 1024)
+        throw std::runtime_error("selection checkpoint exceeds its size limit");
+      std::ifstream input(checkpointPath, std::ios::binary);
+      Json          saved;
+      input >> saved;
+      if (saved.value("schema", 0) != 1 || !saved.contains("values") || !saved["values"].is_object())
+        throw std::runtime_error("unsupported selection checkpoint");
+      for (auto key : {"StoreSelection", "RefineSelection", "FactionSelection"}) {
+        if (!saved["values"].contains(key))
+          continue;
+        const auto& entry   = saved["values"][key];
+        const auto  session = entry.value("session", std::string{});
+        bool        valid   = !session.empty() && session.size() <= 64;
+        for (auto c : session)
+          valid = valid && ((c >= '0' && c <= '9') || c == '_');
+        const auto basis = entry.value("basis", std::string{});
+        if (!valid || (basis != "write" && basis != "initial_read") || !entry.contains("values")
+            || !ValidList(entry["values"]) || !entry.contains("utc_ms") || !entry["utc_ms"].is_number_integer())
+          throw std::runtime_error("invalid selection checkpoint entry");
+        checkpoint[key] = {
+            {"basis", basis}, {"session", session}, {"utc_ms", entry["utc_ms"]}, {"values", entry["values"]}};
+      }
+    }
   } catch (const std::exception& error) {
     spdlog::warn("[BulkSelectionTrace] journal unavailable: {}", error.what());
     return;
@@ -535,6 +701,7 @@ void InstallSelectionTrace()
        {"source", STFC_IDENTITY_COMMENT_STR},
        {"hooks", installed},
        {"expected_hooks", std::size(targets)},
+       {"state_format", "per-call selection deltas; unchanged dictionaries omitted"},
        {"healthy", healthy.load() && installed == std::size(targets)},
        {"limits", "4 MiB plus 4 rotations; 2048 rows per snapshot/list; 4096 dictionary slots; unknown is explicit"},
        {"cloud", "attempt/transport observation is not durable cloud persistence; compare a later native read"}});
