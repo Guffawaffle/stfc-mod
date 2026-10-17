@@ -2,9 +2,11 @@
 """Read the private bulk-selection journal without changing game state."""
 
 import argparse
+import gzip
 import json
 import sys
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -132,14 +134,21 @@ def journal_events(root):
     nested = root / "science/claims"
     if (nested / "bulk_selection.jsonl").is_file():
         root = nested
-    files = [root / (f"bulk_selection.{number}.jsonl" if number else "bulk_selection.jsonl")
-             for number in (4, 3, 2, 1, 0)]
+    if (root / "archive_state.json").is_file():
+        state = json.loads((root / "archive_state.json").read_text(encoding="utf-8"))
+        if state.get("schema") != 1 or state.get("kind") != "stfc-bulk-selection-archive":
+            raise ValueError("Unsupported selection archive")
+        files = sorted(root.glob("batch-*.jsonl.gz"))
+    else:
+        files = [root / (f"bulk_selection.{number}.jsonl" if number else "bulk_selection.jsonl")
+                 for number in (4, 3, 2, 1, 0)]
     found = False
     for path in files:
         if not path.is_file():
             continue
         found = True
-        with path.open(encoding="utf-8") as stream:
+        opener = gzip.open if path.suffix == ".gz" else open
+        with opener(path, "rt", encoding="utf-8") as stream:
             for number, line in enumerate(stream, 1):
                 if not line.strip():
                     continue
@@ -159,11 +168,20 @@ def main():
     parser.add_argument("--game-dir", type=Path, required=True,
                         help="Game/mod data directory or explicit claims trace/snapshot directory")
     parser.add_argument("--limit", type=int, default=30, help="Maximum recent observations per section")
+    parser.add_argument("--since", help="Only analyze events since this ISO date/time (UTC if no timezone)")
+    parser.add_argument("--session", help="Only analyze this runtime session")
     args = parser.parse_args()
     try:
         if not 1 <= args.limit <= 1000:
             raise ValueError("--limit must be between 1 and 1000")
-        report = analyze(journal_events(args.game_dir.resolve(strict=True)))
+        since = None
+        if args.since:
+            stamp = datetime.fromisoformat(args.since.replace("Z", "+00:00"))
+            since = int((stamp if stamp.tzinfo else stamp.replace(tzinfo=timezone.utc)).timestamp() * 1000)
+        events = (event for event in journal_events(args.game_dir.resolve(strict=True))
+                  if (since is None or event.get("utc_ms", 0) >= since)
+                  and (args.session is None or event.get("session") == args.session))
+        report = analyze(events)
         for key in ("edits", "state_changes", "reads_differing_from_last_observed_write",
                     "reads_differing_from_checkpoint", "unknown_observations"):
             values = report[key]

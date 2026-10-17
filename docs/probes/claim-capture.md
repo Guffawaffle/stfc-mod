@@ -94,6 +94,53 @@ Mac native fit/runtime remains unverified.
 Run `python -m unittest discover -s tests -p 'test_claim_selection_history.py'`
 locally to exercise deselection/reappearance, lane separation and unknown evidence.
 
+### Long-term archive on another disk
+
+The optional external collector copies complete selection-journal records into
+immutable compressed batches outside the game. It adds a client label, resumes
+after restart, follows file identities across rotation, and records missing
+sequence ranges explicitly. Atomic batches and checkpoints recover a collector
+crash without duplicating a published batch. This does not increase game RAM use
+or change native hooks. Collection is independent of game starts and exits.
+
+```powershell
+python scripts/claim-selection-archive.py --game-dir <runtime-log-directory> --archive-dir <private-archive-directory> --client home
+python scripts/claim-selection-history.py --game-dir <private-archive-directory> --since 2026-10-17
+```
+
+Defaults are a 50 GiB compressed archive budget, a 10 GiB free-space reserve and
+30-second collection intervals. `--max-gib`, `--reserve-gib` and `--interval` change
+these limits; `--once` performs one collection pass. At either capacity limit the
+collector pauses, preserving existing evidence. It never deletes old logs. Its
+`collector_status.json` heartbeat reports progress, capacity and known gaps.
+If collection is unavailable long enough for the local ring to expire, that
+history cannot be recovered. A client label identifies a recording installation,
+not an account. Use separate destinations for different clients. Archive reader
+`--session` and `--since` filters bound the analyzed timeline; `--limit` only limits
+displayed findings. Register an external collector with the host's user startup
+facility if it should resume automatically after login.
+
+### Cross-client selection differences
+
+A choice can differ between two clients using the same account. Keep this
+separate from a choice reverting within one client: compare the same item and
+quantity, client versions, the last confirmed edit, native saved-list write,
+cloud-load state, save attempt and later native read on each client. Local
+fallback or migration, an older in-memory snapshot and competing cloud saves
+are hypotheses until that timeline distinguishes them. The existing probe sees
+the manager's native read/write result and cloud flags, not an independent
+authoritative server snapshot. Do not force a cloud save, reset local preferences
+or resolve the conflict automatically while collecting evidence.
+
+Static inspection of Windows client272 confirms that `GetStringList` tests
+`_isCloudFileLoaded`: the loaded path calls `MigrateStringListFromPlayerPrefs`
+before returning the in-memory saved data; the other path uses local `UserPrefs`
+when available. The migration checks a legacy bare key, then an account-prefixed
+key, reads a nonempty local list, and calls `SetStringListData` even when the
+destination preference already exists. That is a concrete way local state can
+replace the loaded in-memory list. It does not prove this path caused any reported
+reset or that the resulting value was subsequently stored on the server.
+
 ## One-shot UI failure test
 
 While a chest summary is open, refresh health, then arm explicitly:
