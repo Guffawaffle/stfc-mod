@@ -2610,6 +2610,21 @@ void InstallClaimTrace()
 #endif
 }
 
+void TraceBulkSelectionCloudLoad(void* preferences, bool before) noexcept
+{
+#if defined(_WIN32) || defined(__APPLE__)
+  try {
+    if (!ready.load() || !selection_trace::journal)
+      return;
+    selection_trace::sharedCloudLoadSeen.store(true);
+    selection_trace::WriteEvent({{"event", "cloud_load_attempt"}, {"shared_hook", true},
+                                 {"phase", before ? "before" : "after"},
+                                 {"state", selection_trace::State(preferences, "preferences")}});
+  } catch (...) {
+  }
+#endif
+}
+
 void TraceClaimNavigation(const char* action) noexcept
 {
 #if defined(_WIN32) || defined(__APPLE__)

@@ -75,8 +75,11 @@ deselected. It does not infer durable cloud persistence from a successful reques
 nor assume two different sessions used the same account. Nested calls can report
 the same transition, and rotated-out history cannot be reconstructed.
 
-The additional 14 Windows x64 client272 entry fragments were checked for the
-24-byte maximum SPUD overwrite; matching Mac native fit/runtime remains unverified.
+Cloud-load observation shares the existing native Mod Settings detour; it never
+installs another hook on that method. This observation is available when that
+native-settings hook group is installed. The additional 13 Windows x64 client272
+entry fragments were checked for the 24-byte maximum SPUD overwrite; matching
+Mac native fit/runtime remains unverified.
 Run `python -m unittest discover -s tests -p 'test_claim_selection_history.py'`
 locally to exercise deselection/reappearance, lane separation and unknown evidence.
 

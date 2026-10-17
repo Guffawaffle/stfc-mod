@@ -7,7 +7,8 @@ std::shared_ptr<spdlog::logger>     journal;
 std::atomic_bool                    healthy{true};
 std::atomic_uint64_t                sequence{1};
 size_t                              installed{};
-std::array<Il2CppMethodPointer, 14> installedPointers{};
+std::array<Il2CppMethodPointer, 13> installedPointers{};
+std::atomic_bool                    sharedCloudLoadSeen{false};
 
 // Stable catalog aliases join sessions without writing catalog/account/order IDs.
 // These are correlation labels, not a cryptographic privacy boundary.
@@ -413,13 +414,6 @@ void CloudSave(auto original, void* self, void* success, void* failure)
   ClaimRequestScope scope(nullptr, "persistent-preferences-save");
   original(self, success, failure);
 }
-void CloudLoad(auto original, void* self)
-{
-  Observation       observation("cloud_load_attempt", self, "preferences");
-  ClaimRequestScope scope(nullptr, "persistent-preferences-load");
-  original(self);
-}
-
 const Target targets[] = {
     {"Assembly-CSharp", "Digit.Prime.Shop", "ShopSectionContext", "SetBundleQuantityForBulkSelection", 2, false, "pi"},
     {"Assembly-CSharp", "Digit.Prime.Shop", "BulkSelectionContainer", "OverrideSelection", 2, false, "qp"},
@@ -435,8 +429,6 @@ const Target targets[] = {
     {"Assembly-CSharp", "Digit.Prime.PersistentPrefs", "PersistentPrefsManager", "GetStringList", 2, false, "pb"},
     {"Assembly-CSharp", "Digit.Prime.PersistentPrefs", "PersistentPrefsManager", "SavePersistentPrefsToCloud", 2, false,
      "pp"},
-    {"Assembly-CSharp", "Digit.Prime.PersistentPrefs", "PersistentPrefsManager", "LoadPersistentPrefsFromCloud", 0,
-     false, ""},
 };
 
 const MethodInfo* Method(size_t index)
@@ -486,6 +478,7 @@ Json SelectionTraceStatus()
           {"expected_hooks", std::size(selection_trace::targets)},
           {"healthy", selection_trace::journal && selection_trace::healthy.load()
                           && selection_trace::installed == std::size(selection_trace::targets)},
+          {"shared_cloud_load_seen", selection_trace::sharedCloudLoadSeen.load()},
           {"journal", "bulk_selection.jsonl"}};
 }
 
@@ -511,6 +504,7 @@ void InstallSelectionTrace()
     auto path = ScienceTracePath("claims", "bulk_selection.jsonl");
     journal   = spdlog::rotating_logger_mt("bulk-selection-science", path.string(), 4 * 1024 * 1024, 4, false);
     journal->set_pattern("%v");
+    journal->set_level(spdlog::level::info);
     journal->flush_on(spdlog::level::info);
     journal->set_error_handler([](const std::string&) { healthy.store(false); });
   } catch (const std::exception& error) {
@@ -535,7 +529,6 @@ void InstallSelectionTrace()
   SELECTION_HOOK(10, Set);
   SELECTION_HOOK(11, Get);
   SELECTION_HOOK(12, CloudSave);
-  SELECTION_HOOK(13, CloudLoad);
 #undef SELECTION_HOOK
   WriteEvent(
       {{"event", "session"},

@@ -2,6 +2,7 @@
 #include "page_navigation.h"
 #include "action_widgets.h"
 #include "patches/parts/fc_confirmation_reset.h"
+#include "patches/claim_trace.h"
 #include "settings/forbidden_tech.h"
 #include "settings/native_boolean_callback.h"
 #include "value_widget_record.h"
@@ -781,7 +782,14 @@ void ReloadHook(auto original, Il2CppObject* owner)
 void SessionHook(auto original, Il2CppObject* owner)
 { SessionBoundary(original, owner); }
 void LoadHook(auto original, Il2CppObject* owner)
-{ SessionBoundary(original, owner); }
+{
+  TraceBulkSelectionCloudLoad(owner, true);
+  struct Observation {
+    Il2CppObject* owner;
+    ~Observation() { TraceBulkSelectionCloudLoad(owner, false); }
+  } observation{owner};
+  SessionBoundary(original, owner);
+}
 #ifdef _MODDBG
 ValueWidget* writeProbeOuter = nullptr;
 bool         ReentryProbeEnabled()
