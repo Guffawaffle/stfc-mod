@@ -24,6 +24,7 @@
 #endif
 #include <array>
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <cstring>
 #include <exception>
@@ -35,6 +36,7 @@
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -43,6 +45,8 @@ namespace
 {
 using Json  = nlohmann::json;
 using Clock = std::chrono::steady_clock;
+Json SelectionTraceStatus();
+void TraceSelectionTransport(const Json& event) noexcept;
 
 struct Target {
   const char *assembly, *ns, *cls, *method;
@@ -805,6 +809,7 @@ bool Write(Json event) noexcept
     if (!logger)
       return false;
     logger->info("{}", event.dump());
+    TraceSelectionTransport(event);
     return sinkHealthy.load();
   } catch (...) { /* Diagnostics must not throw into the game. */
     return false;
@@ -1016,7 +1021,7 @@ void ObserveDispatch(void* job) noexcept
     if (!ready.load() || !job)
       return;
     auto context = RequestContext(job);
-    if (context.is_null() && requestClaim) {
+    if (context.is_null() && requestPurpose) {
       context     = {{"request_trace", nextRequest++}, {"purpose", requestPurpose}, {"claim", Claim(requestClaim)}};
       auto handle = il2cpp_gchandle_new_weakref(static_cast<Il2CppObject*>(job), false);
       if (!handle) {
@@ -1425,6 +1430,7 @@ Json CaptureStatus()
           {"healthy", captureHealthy && sinkHealthy.load()},
           {"hooks", installedHooks},
           {"expected_hooks", std::size(kTargets)},
+          {"bulk_selection", SelectionTraceStatus()},
           {"trace", tracePath.filename().string()},
           {"sequence", sequence},
           {"sampled_events_suppressed", dropped},
@@ -1701,6 +1707,8 @@ void ResolveTargets()
       spdlog::warn("[ClaimTrace] method unavailable: {}.{}", target.cls, target.method);
   }
 }
+
+#include "claim_selection_trace.h"
 
 // Passive wrappers call the original exactly once, outside diagnostic mutexes/catches.
 // Hook64 alone may reject an explicitly armed, one-shot UI navigation test.
@@ -2574,6 +2582,7 @@ void InstallClaimTrace()
                  pulseInstalled ? "active" : "unavailable");
   claim_trace::InstallClaimNotice();
   ready.store(true);
+  InstallSelectionTrace();
   Write(
       {{"event", "session"},
        {"schema", 9},

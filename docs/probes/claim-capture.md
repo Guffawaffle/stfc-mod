@@ -42,6 +42,44 @@ detected source changes. The marker is evidence of the report time, not proof of
 the onset or root cause. `snapshot` can preserve existing files without claiming
 a successful live acknowledgement.
 
+## Bulk-selection persistence journal
+
+The capture also observes all native store, refinery and faction bulk selections;
+it is not restricted to a list of reported problem items. The separate
+`science/claims/bulk_selection.jsonl` journal appends across restarts, retaining
+4 MiB plus four rotations (approximately 20 MiB total). Incident snapshots include
+these rotations. Its health is reported separately as `bulk_selection` in status;
+partial selection coverage does not disable the existing claims recovery.
+
+Records include quantity edits (including explicit zero/deselection), temporary
+and committed dictionaries, pending restored selections, confirmation/discard,
+reset, native pruning, claims, and the native preference reads/writes for
+`StoreSelection`, `RefineSelection` and `FactionSelection`. Cloud load/save attempts
+and correlated transport observations are recorded without request bodies.
+The probe never invokes extra preference getters, writes selections, submits
+claims, or retries cloud saves. Each intercepted original executes once.
+
+Catalog IDs use stable opaque aliases across sessions; localization aliases help
+investigate a replacement catalog ID, but do not establish that two offers are
+equivalent. Account/order/session credentials, raw IDs and arbitrary UI text are
+not written. This is private account-specific evidence; do not publish traces.
+Dictionary/list limits and unsupported layouts are explicit, not empty selections.
+
+```powershell
+python scripts/claim-selection-history.py --game-dir <runtime-log-directory>
+```
+
+The read-only helper lists edits, changes within observed native calls and saved
+lists that differ on a later native read. Zero and omitted entries both mean
+deselected. It does not infer durable cloud persistence from a successful request,
+nor assume two different sessions used the same account. Nested calls can report
+the same transition, and rotated-out history cannot be reconstructed.
+
+The additional 14 Windows x64 client272 entry fragments were checked for the
+24-byte maximum SPUD overwrite; matching Mac native fit/runtime remains unverified.
+Run `python -m unittest discover -s tests -p 'test_claim_selection_history.py'`
+locally to exercise deselection/reappearance, lane separation and unknown evidence.
+
 ## One-shot UI failure test
 
 While a chest summary is open, refresh health, then arm explicitly:

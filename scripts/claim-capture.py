@@ -75,7 +75,9 @@ def request(root, command, label):
 def snapshot(root, destination, reply=None):
     destination.mkdir(parents=True, exist_ok=False)
     files = []
-    for name in ("community_claims.2.jsonl", "community_claims.1.jsonl", "community_claims.jsonl",
+    for name in ("bulk_selection.4.jsonl", "bulk_selection.3.jsonl", "bulk_selection.2.jsonl",
+                 "bulk_selection.1.jsonl", "bulk_selection.jsonl",
+                 "community_claims.2.jsonl", "community_claims.1.jsonl", "community_claims.jsonl",
                  "community_claims_status.json", "community_claims_reply.json"):
         source = root / name
         if not source.is_file():
