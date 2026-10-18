@@ -33,8 +33,8 @@ Test with the Kirshara artifact:
    Check whether A advances to the next eligible target without a long stall.
 4. Repeat through hostile respawns and with queues on two ships. Check for
    duplicate engagements, repeated failed courses, unexpected clearing or crashes.
-5. Compare the combined fixes off/on through Mod Settings > Map & Travel >
-   Kirshara action queue > Kirshara queue fixes. This controls all supported
+5. Compare the combined fixes off/on through Mod Settings > Controls >
+   Kirshara queue protections. This controls all supported
    protections together and saves `control.kirshara_fixes`. Both transitions
    forget pending mod recovery tracking without clearing native targets. Verify
    the saved off/on value survives a restart when convenient.

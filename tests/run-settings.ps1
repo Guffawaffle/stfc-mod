@@ -68,7 +68,8 @@ try {
     }
     Invoke-SettingsFixture -Name 'upstream_settings' -Sources @('tests/upstream_settings_test.cc',
         'mods/src/settings/upstream_settings.cc', 'mods/src/settings/warp_mode.cc',
-        'mods/src/settings/forbidden_tech.cc', 'mods/src/settings/galaxy_labels.cc', 'mods/src/config_filters.cc') `
+        'mods/src/settings/forbidden_tech.cc', 'mods/src/settings/galaxy_labels.cc', 'mods/src/settings/queue_recovery.cc',
+        'mods/src/config_filters.cc') `
         -IncludeDirectories (@('tests/upstream_settings_fixture', $JsonInclude) + $packageIncludes) `
         -LinkArguments @('/link', '/NODEFAULTLIB:GameAssembly.lib') `
         -TestArguments @('docs/settings-coverage.json', (Join-Path $fixtureRoot 'catalog'))
