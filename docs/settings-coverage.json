@@ -604,6 +604,13 @@
       "policy": "patches"
     },
     {
+      "key": "patches.claimtracehooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
       "key": "patches.dailyfactionbulkclaimhooks",
       "treatment": "toml_only",
       "page": "advanced",
@@ -1050,6 +1057,13 @@
       "page": "previews",
       "application": "reopen_view",
       "treatment": "in_game"
+    },
+    {
+      "key": "ui.claim_navigation_recovery",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "diagnostics"
     },
     {
       "key": "ui.daily_bulk_claim_factions",
@@ -1516,14 +1530,14 @@
   ],
   "compatibility_alias_policy": "Read existing aliases at startup, but show and persist only canonical keys. Do not add controls for obsolete queue flags or ignored defaults.",
   "excluded_downstream_features": [
-    "claim and selection diagnostics",
     "parked Kirshara science traces"
   ],
   "notes": [
     "Page reset/retry is deduplicated by canonical TOML key.",
     "Convenience slider ranges do not constrain existing TOML values; exact editors show custom values.",
     "Read-only browsing neither persists nor normalizes settings.",
-    "Restart controls retain requested values separately from active process values."
+    "Restart controls retain requested values separately from active process values.",
+    "play-dev retains selected claim and selection diagnostics; their configuration is TOML-only."
   ],
   "toml_only_policies": {
     "audio": "Advanced event tracing or arbitrary event-name mute filter; documented in the English TOML example.",
@@ -1534,7 +1548,8 @@
     "experimental_shortcuts": "Controls startup availability of experimental shortcut actions. Edit control.enable_experimental in TOML and restart; disabled actions remain visible with a reason.",
     "keyboard_layout": "Physical/layout keyboard mode is configured in TOML and applied at startup.",
     "fleet_notifications": "Fleet desktop-event selection remains TOML-only; each event sound is editable in Audio Alerts.",
-    "legacy_pins": "Legacy name-based pins are imported at startup. Downstream pins are ship IDs stored by native modifier-click actions in state.json."
+    "legacy_pins": "Legacy name-based pins are imported at startup. Downstream pins are ship IDs stored by native modifier-click actions in state.json.",
+    "diagnostics": "Selected play-dev claim recovery/capture controls remain in TOML; they are not promoted to play."
   },
   "shortcuts_policy": {
     "treatment": "in_game",
