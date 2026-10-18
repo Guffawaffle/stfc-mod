@@ -1,5 +1,6 @@
 #include "action_queue.h"
 #include <config.h>
+#include "settings/queue_recovery.h"
 
 // Use the host ABI for the 24-byte value-type callback on Windows and both Mac architectures.
 // Validate the managed layout before installing.
@@ -326,7 +327,16 @@ void InstallActionQueueRecovery()
   ready.store(a && b && c && d);
   spdlog::info("[FasterQueueRecovery] ready={}", ready.load());
 }
+namespace mod_settings
+{
+bool QueueRecoveryAvailable()
+{ return ready.load() && Config::Get().installActionQueueRecoveryHooks; }
+} // namespace mod_settings
 #else
 void InstallActionQueueRecovery() {}
 void ResetQueueRecoveryTracking() {}
+namespace mod_settings
+{
+bool QueueRecoveryAvailable() { return false; }
+} // namespace mod_settings
 #endif
