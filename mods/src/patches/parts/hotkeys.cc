@@ -4,6 +4,7 @@
 #include "patches/parts/action_queue.h"
 #include "patches/base_card.h"
 #include "patches/runtime_config.h"
+#include "patches/native_hook_extent.h"
 #include "patches/mining_preview.h"
 #include "settings/preview_settings.h"
 #include "settings/shortcut_settings.h"
