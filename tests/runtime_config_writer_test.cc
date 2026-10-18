@@ -10,16 +10,16 @@ using namespace config_edit;
 using namespace std::chrono_literals;
 namespace
 {
-std::mutex                            gate;
-std::condition_variable               changed;
-bool                                  entered = false, released = false;
-Outcome                               first_result = Outcome::Saved;
-std::vector<Request>                  requests;
-std::thread::id                       save_thread;
+std::mutex                                         gate;
+std::condition_variable                            changed;
+bool                                               entered = false, released = false;
+Outcome                                            first_result = Outcome::Saved;
+std::vector<Request>                               requests;
+std::thread::id                                    save_thread;
 std::vector<std::chrono::steady_clock::time_point> save_times;
-int                                   reports      = 0;
-bool                                  block_report = false, release_report = false;
-bool                                  fail_thread_start = false;
+int                                                reports      = 0;
+bool                                               block_report = false, release_report = false;
+bool                                               fail_thread_start = false;
 
 void Check(bool value, std::source_location location = std::source_location::current())
 {
@@ -95,16 +95,23 @@ int main()
   try {
     for (auto outcome : {Outcome::Saved, Outcome::AlreadySaved, Outcome::Conflict, Outcome::IoError}) {
       Begin(outcome);
-      RuntimeConfigWriter writer("unused", Value{std::string("none")}, Report);
-      Check(writer.Submit("invalid") == 0);
-      Check(writer.Submit("warp") == 1);
+      RuntimeConfigWriter writer("unused", Report);
+      Check(writer.Register("ui", "auto_confirm_instant_warp", Value{std::string("none")}));
+      Check(writer.Submit("ui", "unregistered", std::string("invalid")) == 0);
+      Check(writer.Submit("ui", "auto_confirm_instant_warp", std::string("warp")) == 1);
       AwaitSave();
       Check(writer.HasWork());
-      Check(writer.Submit("jump") == 2);
-      Check(writer.Submit("none") == 3);
+      Check(writer.GetStatus("ui", "auto_confirm_instant_warp").pending);
+      Check(writer.GetStatus("ui", "auto_confirm_instant_warp").subject == Value{std::string("warp")});
+      const auto status_sequence = writer.StatusSequence();
+      // A duplicated definition never replaces the acknowledged comparison base.
+      Check(writer.Register("ui", "auto_confirm_instant_warp", std::string("external")));
+      Check(writer.Submit("ui", "auto_confirm_instant_warp", std::string("jump")) == 2);
+      Check(writer.Submit("ui", "auto_confirm_instant_warp", std::string("none")) == 3);
+      Check(writer.GetStatus("ui", "auto_confirm_instant_warp").subject == Value{std::string("none")});
       writer.Stop(false);
       Check(!writer.PollStopped());
-      Check(writer.Submit("warp") == 0);
+      Check(writer.Submit("ui", "auto_confirm_instant_warp", std::string("warp")) == 0);
       Release();
       auto deadline = std::chrono::steady_clock::now() + 5s;
       while (!writer.PollStopped()) {
@@ -120,16 +127,21 @@ int main()
       Check(save_thread != std::this_thread::get_id());
       Check(writer.LastCompletion().revision == 3);
       Check(writer.LastCompletion().outcome == Outcome::Saved);
+      const auto status = writer.GetStatus("ui", "auto_confirm_instant_warp");
+      Check(status.revision == 3 && !status.pending && status.outcome == Outcome::Saved);
+      Check(status.subject == Value{std::string("none")}); // Older in-flight warp cannot label the latest value.
+      Check(writer.StatusSequence() > status_sequence);
     }
     Begin(Outcome::Saved);
     {
-      RuntimeConfigWriter writer("unused", Value{std::string("none")});
-      writer.Submit("warp");
+      RuntimeConfigWriter writer("unused");
+      Check(writer.Register("ui", "auto_confirm_instant_warp", Value{std::string("none")}));
+      writer.Submit("ui", "auto_confirm_instant_warp", std::string("warp"));
       AwaitSave();
-      writer.Submit("jump");
+      writer.Submit("ui", "auto_confirm_instant_warp", std::string("jump"));
       writer.Stop(false); // Force-close may arrive during an orderly drain.
       writer.RequestCancelPending();
-      Check(writer.Submit("none") == 0);
+      Check(writer.Submit("ui", "auto_confirm_instant_warp", std::string("none")) == 0);
       // Hold the force-close caller before Stop(true), while the active save
       // completes. Publication alone must prevent the queued save from starting.
       Release();
@@ -141,31 +153,38 @@ int main()
       Check(requests.size() == 1);
       Check(writer.LastCompletion().revision == 2);
       Check(writer.LastCompletion().outcome == Outcome::Cancelled);
+      Check(writer.GetStatus("ui", "auto_confirm_instant_warp").subject == Value{std::string("jump")});
       writer.Stop(true);
     }
     Begin(Outcome::IoError);
     {
-      RuntimeConfigWriter writer("unused", Value{std::string("none")}, Report);
+      RuntimeConfigWriter writer("unused", Report);
+      Check(writer.Register("ui", "auto_confirm_instant_warp", Value{std::string("none")}));
       Check(writer.Register("graphics", "threshold", Value{0.5}));
-      const auto failed = writer.Submit("warp");
+      const auto failed = writer.Submit("ui", "auto_confirm_instant_warp", std::string("warp"));
       AwaitSave();
       Release();
       AwaitCompletion(writer, failed);
       Check(writer.HasFailures());
+      Check(writer.GetStatus("ui", "auto_confirm_instant_warp").outcome == Outcome::IoError);
       AwaitCompletion(writer, writer.Submit("graphics", "threshold", 0.7));
       Check(writer.HasFailures()); // Saving B cannot hide A's failed save.
-      AwaitCompletion(writer, writer.Submit("jump"));
+      Check(writer.GetStatus("graphics", "threshold").outcome == Outcome::Saved);
+      Check(writer.GetStatus("ui", "auto_confirm_instant_warp").outcome == Outcome::IoError);
+      AwaitCompletion(writer, writer.Submit("ui", "auto_confirm_instant_warp", std::string("jump")));
       Check(!writer.HasFailures()); // A later successful save of A clears it.
       Check(reports == 1);
     }
     Begin(Outcome::Saved);
     {
-      RuntimeConfigWriter writer("unused", Value{std::string("none")});
+      RuntimeConfigWriter writer("unused");
+      Check(writer.Register("ui", "auto_confirm_instant_warp", Value{std::string("none")}));
       fail_thread_start = true;
-      Check(!writer.Submit("warp"));
+      Check(!writer.Submit("ui", "auto_confirm_instant_warp", std::string("warp")));
       Check(writer.HasFailure("ui", "auto_confirm_instant_warp") && writer.HasFailures() && !writer.HasWork());
+      Check(writer.GetStatus("ui", "auto_confirm_instant_warp").subject == Value{std::string("warp")});
       Check(!writer.HasFailure("other", "unregistered"));
-      const auto retry = writer.Submit("jump");
+      const auto retry = writer.Submit("ui", "auto_confirm_instant_warp", std::string("jump"));
       AwaitSave();
       Release();
       AwaitCompletion(writer, retry);
@@ -174,8 +193,9 @@ int main()
     Begin(Outcome::IoError);
     {
       block_report = true;
-      RuntimeConfigWriter writer("unused", Value{std::string("none")}, Report);
-      writer.Submit("warp");
+      RuntimeConfigWriter writer("unused", Report);
+      Check(writer.Register("ui", "auto_confirm_instant_warp", Value{std::string("none")}));
+      writer.Submit("ui", "auto_confirm_instant_warp", std::string("warp"));
       AwaitSave();
       Release();
       {
@@ -190,14 +210,15 @@ int main()
     }
     Begin(Outcome::Saved);
     {
-      RuntimeConfigWriter writer("unused", Value{std::string("none")});
+      RuntimeConfigWriter writer("unused");
+      Check(writer.Register("ui", "auto_confirm_instant_warp", Value{std::string("none")}));
       Check(writer.Register("graphics", "threshold", Value{0.5}));
       Check(!writer.Submit("other", "unregistered", true));
-      writer.Submit("warp");
+      writer.Submit("ui", "auto_confirm_instant_warp", std::string("warp"));
       AwaitSave();
-      Check(!writer.Register("graphics", "late", Value{true}));
+      Check(writer.Register("graphics", "late", Value{true})); // Lazy controls register after first use.
       writer.Submit("graphics", "threshold", 0.6, 150ms);
-      writer.Submit("jump");
+      writer.Submit("ui", "auto_confirm_instant_warp", std::string("jump"));
       writer.Submit("graphics", "threshold", 0.7, 150ms);
       writer.Stop(false); // Drain also flushes a slider whose delay has not expired.
       Release();
@@ -215,7 +236,7 @@ int main()
     Begin(Outcome::Saved);
     std::chrono::steady_clock::time_point initial_submitted, replacement_submitted;
     {
-      RuntimeConfigWriter writer("unused", std::nullopt);
+      RuntimeConfigWriter writer("unused");
       Check(writer.Register("graphics", "threshold", Value{0.5}));
       initial_submitted = std::chrono::steady_clock::now();
       writer.Submit("graphics", "threshold", 0.6, 300ms);
@@ -242,7 +263,7 @@ int main()
     }
     Begin(Outcome::Saved);
     {
-      RuntimeConfigWriter writer("unused", std::nullopt);
+      RuntimeConfigWriter writer("unused");
       Check(writer.Register("graphics", "threshold", Value{0.5}));
       writer.Submit("graphics", "threshold", 0.9, 10s);
       writer.Stop(true); // Cancellation must wake a delayed writer promptly.
@@ -253,7 +274,32 @@ int main()
       }
       Check(requests.empty());
     }
-    RuntimeConfigWriter idle("unused", std::nullopt);
+    Begin(Outcome::Saved);
+    {
+      RuntimeConfigWriter writer("unused");
+      Check(writer.Register("ui", "mode", Value{std::string("none")}));
+      const auto first = writer.Submit("ui", "mode", std::string("warp"));
+      AwaitSave();
+      Release();
+      AwaitCompletion(writer, first);
+      writer.Stop(false);
+      const auto deadline = std::chrono::steady_clock::now() + 5s;
+      while (!writer.PollStopped()) {
+        Check(std::chrono::steady_clock::now() < deadline);
+        std::this_thread::yield();
+      }
+      Check(writer.Resume() && !writer.Resume());
+      const auto second = writer.Submit("ui", "mode", std::string("jump"));
+      AwaitCompletion(writer, second);
+      Check(second > first && writer.GetStatus("ui", "mode").outcome == Outcome::Saved);
+      Check(requests.size() == 2 && requests.back().expected == std::optional<Value>{std::string("warp")});
+      writer.Stop(false);
+      while (!writer.PollStopped()) {
+        Check(std::chrono::steady_clock::now() < deadline);
+        std::this_thread::yield();
+      }
+    }
+    RuntimeConfigWriter idle("unused");
     idle.Stop(false);
     Check(idle.PollStopped());
     std::cout << "Runtime writer coalescing/drain/cancel fixtures passed\n";

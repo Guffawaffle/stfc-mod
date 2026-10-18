@@ -1,17 +1,18 @@
 #include "config.h"
 #include "config_alias.h"
 #include "config_save.h"
-#include "patches/runtime_config.h"
 #include "file.h"
 #include "patches/mapkey.h"
 #include "patches/keyboard_layout.h"
+#include "patches/optional_shortcuts.h"
+#include "patches/runtime_config.h"
 #include "prime/KeyCode.h"
-#include "ship_name_match.h"
+#include "settings/upstream_settings.h"
 #include "str_utils.h"
+#include "ship_name_match.h"
 #include "version.h"
 #include <prime/Toast.h>
 
-#include <EASTL/tuple.h>
 #include <spdlog/spdlog.h>
 
 #include "defaultconfig.h"
@@ -22,6 +23,7 @@
 #include <initializer_list>
 #include <iostream>
 #include <ranges>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -66,49 +68,6 @@ static_assert(!is_all_audio_wildcard(std::string_view{"All\0suffix", 10}));
 static_assert(!is_all_audio_wildcard(std::string_view{"\xffll", 3}));
 } // namespace
 
-static const eastl::tuple<const char*, int> bannerTypes[] = {
-    {"All", ToastState::All},
-    {"Standard", ToastState::Standard},
-    {"FactionWarning", ToastState::FactionWarning},
-    {"FactionLevelUp", ToastState::FactionLevelUp},
-    {"FactionLevelDown", ToastState::FactionLevelDown},
-    {"FactionDiscovered", ToastState::FactionDiscovered},
-    {"IncomingAttackFaction", ToastState::IncomingAttackFaction},
-    {"FleetBattle", ToastState::FleetBattle},
-    {"Victory", ToastState::Victory},
-    {"Defeat", ToastState::Defeat},
-    {"Event", ToastState::Tournament},
-    {"ArmadaCreated", ToastState::ArmadaCreated},
-    {"ArmadaCanceled", ToastState::ArmadaCanceled},
-    {"ArmadaIncomingAttack", ToastState::ArmadaIncomingAttack},
-    {"ArmadaBattleWon", ToastState::ArmadaBattleWon},
-    {"ArmadaBattleLost", ToastState::ArmadaBattleLost},
-    {"DiplomacyUpdated", ToastState::DiplomacyUpdated},
-    {"JoinedTakeover", ToastState::JoinedTakeover},
-    {"CompetitorJoinedTakeover", ToastState::CompetitorJoinedTakeover},
-    {"AbandonedTerritory", ToastState::AbandonedTerritory},
-    {"TakeoverVictory", ToastState::TakeoverVictory},
-    {"TakeoverDefeat", ToastState::TakeoverDefeat},
-    {"TreasuryProgress", ToastState::TreasuryProgress},
-    {"TreasuryFull", ToastState::TreasuryFull},
-    {"Achievement", ToastState::Achievement},
-    {"AssaultVictory", ToastState::AssaultVictory},
-    {"AssaultDefeat", ToastState::AssaultDefeat},
-    {"ChallengeComplete", ToastState::ChallengeComplete},
-    {"ChallengeFailed", ToastState::ChallengeFailed},
-    {"StrikeHit", ToastState::StrikeHit},
-    {"StrikeDefeat", ToastState::StrikeDefeat},
-    {"WarchestProgress", ToastState::WarchestProgress},
-    {"WarchestFull", ToastState::WarchestFull},
-    {"PartialVictory", ToastState::PartialVictory},
-    {"ArenaTimeLeft", ToastState::ArenaTimeLeft},
-    {"ChainedEventScored", ToastState::ChainedEventScored},
-    {"FleetPresetApplied", ToastState::FleetPresetApplied},
-    {"SurgeWarmUpEnded", ToastState::SurgeWarmUpEnded},
-    {"SurgeHostileGroupDefeated", ToastState::SurgeHostileGroupDefeated},
-    {"SurgeTimeLeft", ToastState::SurgeTimeLeft},
-};
-
 bool SyncConfig::enabled(SyncConfig::Type type) const
 {
   for (const auto& opt : SyncOptions) {
@@ -125,7 +84,7 @@ Config::Config()
   Load();
 }
 
-void Config::Save(const toml::table& config, const std::string_view filename, bool apply_warning)
+bool Config::Save(const toml::table& config, const std::string_view filename, bool apply_warning)
 {
   std::ostringstream config_file;
 
@@ -152,7 +111,12 @@ void Config::Save(const toml::table& config, const std::string_view filename, bo
     config_file << "#######################################################################\n\n";
   }
 
-  SaveConfigDocument(config, std::filesystem::path(config_path), config_file.str());
+  std::string error;
+  const bool  saved = SaveStartupConfigDocument(config, config_path, config_file.str(), error);
+  if (!saved)
+    spdlog::warn("Could not write startup configuration output '{}': {}; loaded settings remain available", filename,
+                 error);
+  return saved;
 }
 
 Config& Config::Get()
@@ -262,6 +226,7 @@ void Config::AdjustUiScale(bool scaleUp)
     auto new_scale    = this->ui_scale + scale_factor;
     this->ui_scale    = std::clamp(new_scale, 0.1f, 2.0f);
 
+    mod_settings::PersistCurrentSetting("graphics", "ui_scale");
     auto dpi = Config::RefreshDPI();
     spdlog::info("UI has been scaled {}, was {}, now {} (unclamped {}) @ {} DPI Scaling", (scaleUp ? "UP" : "DOWN"),
                  old_scale, this->ui_scale, new_scale, dpi);
@@ -276,6 +241,7 @@ void Config::AdjustUiViewerScale(bool scaleUp)
     auto new_scale        = this->ui_scale_viewer + (scale_factor * 0.25f);
     this->ui_scale_viewer = std::clamp(new_scale, 0.1f, 2.0f);
 
+    mod_settings::PersistCurrentSetting("graphics", "ui_scale_viewer");
     spdlog::info("UI Viewer has been scaled {}, was {}, now {} (unclamped {})", (scaleUp ? "UP" : "DOWN"), old_scale,
                  this->ui_scale_viewer, new_scale);
   }
@@ -291,6 +257,7 @@ void Config::AdjustUiShipScale(bool scaleUp)
   spdlog::info("System ship models have been scaled {}, was {}, now {} (unclamped {})", (scaleUp ? "UP" : "DOWN"),
                old_scale, this->ui_scale_ship, new_scale);
   ApplyUiShipScaleToLoadedShips(old_scale, this->ui_scale_ship);
+  mod_settings::PersistCurrentSetting("graphics", "ui_scale_ship");
 }
 
 inline std::string mask_token(const std::string& token)
@@ -596,7 +563,7 @@ void read_instant_warp_filter(toml::table& config, toml::table& new_config, std:
                               std::string_view default_value, bool write_log)
 {
   const auto value = config["ui"][key].value<std::string>().value_or(std::string(default_value));
-  parse_ship_filter(value, names, match_all);
+  ParseShipFilter(value, names, match_all);
 
   new_config.emplace<toml::table>("ui", toml::table());
   new_config["ui"].as_table()->insert_or_assign(std::string(key), std::string(value));
@@ -606,36 +573,14 @@ void read_instant_warp_filter(toml::table& config, toml::table& new_config, std:
   }
 }
 
-void parse_faction_filter(std::string_view value, std::vector<std::string>& factions)
-{
-  static constexpr std::array kKnownFactions{"federation", "klingon", "romulan"};
-
-  factions.clear();
-  for (const auto& token : StrSplit(std::string(value), ',')) {
-    const auto stripped = StripAsciiWhitespace(token);
-    if (stripped.empty()) continue;
-
-    auto lowered = AsciiStrToLower(stripped);
-
-    if (std::ranges::find(kKnownFactions, lowered) == kKnownFactions.end()) {
-      spdlog::warn("Unrecognised faction '{}' in daily_bulk_claim_factions; expected one of: federation, klingon, "
-                   "romulan. Ignoring.",
-                   stripped);
-      continue;
-    }
-
-    if (std::ranges::find(factions, lowered) == factions.end()) {
-      factions.emplace_back(std::move(lowered));
-    }
-  }
-}
-
 void read_daily_bulk_claim_factions(toml::table& config, toml::table& new_config, std::vector<std::string>& factions,
                                     std::string_view default_value, bool write_log)
 {
   const auto value =
       config["ui"]["daily_bulk_claim_factions"].value<std::string>().value_or(std::string(default_value));
-  parse_faction_filter(value, factions);
+  if (!ParseFactionFilter(value, factions))
+    spdlog::warn("Unrecognised faction in daily_bulk_claim_factions; expected federation, klingon or romulan. Ignoring "
+                 "unknown names.");
 
   new_config.emplace<toml::table>("ui", toml::table());
   new_config["ui"].as_table()->insert_or_assign("daily_bulk_claim_factions", std::string(value));
@@ -974,6 +919,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "havenzoomhooks", DCP::havenzoomhooks, write_config);
   this->installNavigationOrbitHooks =
       get_config_or_default(config, parsed, "patches", "navigationorbithooks", DCP::navigationorbithooks, write_config);
+  this->installInteriorZoomHooks =
+      get_config_or_default(config, parsed, "patches", "interiorzoomhooks", DCP::interiorzoomhooks, write_config);
   this->installBuffFixHooks =
       get_config_or_default(config, parsed, "patches", "bufffixhooks", DCP::bufffixhooks, write_config);
   this->installToastBannerHooks =
@@ -987,6 +934,10 @@ void Config::Load()
   this->installPanHooks = get_config_or_default(config, parsed, "patches", "panhooks", DCP::panhooks, write_config);
   this->installHotkeyHooks =
       get_config_or_default(config, parsed, "patches", "hotkeyhooks", DCP::hotkeyhooks, write_config);
+  this->installNativeSettings =
+      get_config_or_default(config, parsed, "patches", "nativesettingshooks", DCP::nativesettingshooks, write_config);
+  this->installRuntimeConfigHooks =
+      get_config_or_default(config, parsed, "patches", "runtimeconfighooks", DCP::runtimeconfighooks, write_config);
   this->installFreeResizeHooks =
       get_config_or_default(config, parsed, "patches", "freeresizehooks", DCP::freeresizehooks, write_config);
   this->installTempCrashFixes =
@@ -999,6 +950,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "missionhudtweakshooks", DCP::missionhudtweakshooks, write_config);
   this->installChatPatches =
       get_config_or_default(config, parsed, "patches", "chatpatches", DCP::chatpatches, write_config);
+  this->installPlayerTitleDisplayHooks = get_config_or_default(config, parsed, "patches", "chattitledisplayhooks",
+                                                               DCP::chattitledisplayhooks, write_config);
   this->installSyncPatches =
       get_config_or_default(config, parsed, "patches", "syncpatches", DCP::syncpatches, write_config);
   this->installGameVersionHook =
@@ -1021,6 +974,14 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "doubleclickassignshiphooks", DCP::doubleclickassignshiphooks, write_config);
   this->installForbiddenTechConfirmationHooks =
       get_config_or_default(config, parsed, "patches", "forbiddentechconfirmhooks", DCP::forbiddentechconfirmhooks, write_config);
+  this->installRevealConfirmationHooks =
+      get_config_or_default(config, parsed, "patches", "revealconfirmhooks", DCP::revealconfirmhooks, write_config);
+  this->installQueueAddressGuardHooks = get_config_or_default(
+      config, parsed, "patches", "queueaddressguardhooks", DCP::queueaddressguardhooks, write_config);
+  this->installActionQueueRecoveryHooks =
+      get_config_or_default(config, parsed, "patches", "actionqueuerecoveryhooks", DCP::actionqueuerecoveryhooks, write_config);
+  this->installThinQueueProtectionHooks =
+      get_config_or_default(config, parsed, "patches", "thinqueueprotectionhooks", DCP::thinqueueprotectionhooks, write_config);
   this->installArtifactExchangeHooks =
       get_config_or_default(config, parsed, "patches", "artifactexchangehooks", DCP::artifactexchangehooks, write_config);
   this->installOfficerPresetReorderHooks = get_config_or_default(
@@ -1035,20 +996,21 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "cargoformathooks", DCP::cargoformathooks, write_config);
   this->installOfficerSortHooks =
       get_config_or_default(config, parsed, "patches", "officersorthooks", DCP::officersorthooks, write_config);
-  // Retain a hidden diagnostic escape hatch without generating a user-facing toggle.
-  this->installPinnedShipSortHooks = config["patches"]["pinnedshiphooks"].value_or(DCP::pinnedshiphooks);
-  this->installShipTechIndicatorHooks = get_config_or_default(config, parsed, "patches", "shiptechindicatorhooks",
-                                                              DCP::shiptechindicatorhooks, write_config);
+  this->installShipTechIndicatorHooks = get_config_or_default(config, parsed, "patches", "shiptechindicatorhooks", DCP::shiptechindicatorhooks, write_config);
+  this->installPinnedShipSortHooks =
+      get_config_or_default(config, parsed, "patches", "pinnedshiphooks", DCP::pinnedshiphooks, write_config);
+  this->installPinnedShipClickToggle = get_config_or_default(config, parsed, "patches", "pinnedshipclicktoggle",
+                                                             DCP::pinnedshipclicktoggle, write_config);
   this->installHavenHistoryHooks =
       get_config_or_default(config, parsed, "patches", "havenhistoryhooks", DCP::havenhistoryhooks, write_config);
   spdlog::debug("");
-  this->faster_queue_recovery = get_config_or_default(config, parsed, "control", "faster_queue_recovery",
-                                                     DCC::faster_queue_recovery, write_config);
-  this->queue_address_guard = get_config_or_default(
-      config, parsed, "control", "queue_address_guard", DCC::queue_address_guard, write_config);
-  // Preserve an explicit 2.1.0 setting; the current control key takes precedence.
-  this->thin_queue_protection = get_config_or_default(config, parsed, "control", "thin_queue_protection",
-      config["advanced"]["queue"]["thin_queue_protection"].value_or(DCC::thin_queue_protection), write_config);
+  this->kirshara_fixes = get_config_or_default(config, parsed, "control", "kirshara_fixes",
+                                             DCC::kirshara_fixes, write_config);
+  if (!config["control"]["kirshara_fixes"]
+      && (config["control"]["faster_queue_recovery"] || config["control"]["thin_queue_protection"]
+          || config["control"]["queue_address_guard"] || config["advanced"]["queue"]["thin_queue_protection"]))
+    spdlog::warn("The separate queue feature settings have been replaced by [control] kirshara_fixes (default=true). "
+                 "Set kirshara_fixes=false to disable the combined fixes; old feature settings are ignored.");
   this->queue_enabled =
       get_config_or_default(config, parsed, "control", "queue_enabled", DCC::queue_enabled, write_config);
   this->hotkeys_enabled =
@@ -1092,7 +1054,14 @@ void Config::Load()
     this->haven_zoom = DCG::haven_zoom;
     parsed["graphics"].as_table()->insert_or_assign("haven_zoom", this->haven_zoom);
   }
-  this->fr_scale           = get_config_or_default(config, parsed, "graphics", "fr_scale", DCG::fr_scale, write_config);
+  this->interior_zoom_scale =
+      get_config_or_default(config, parsed, "graphics", "interior_zoom_scale", DCG::interior_zoom_scale, write_config);
+  if (!std::isfinite(this->interior_zoom_scale) || this->interior_zoom_scale < 1.0f) {
+    spdlog::warn("Invalid interior_zoom_scale {}; using {}", this->interior_zoom_scale, DCG::interior_zoom_scale);
+    this->interior_zoom_scale = DCG::interior_zoom_scale;
+    parsed["graphics"].as_table()->insert_or_assign("interior_zoom_scale", this->interior_zoom_scale);
+  }
+  this->fr_scale = get_config_or_default(config, parsed, "graphics", "fr_scale", DCG::fr_scale, write_config);
   this->ship_hotkey_badges =
       get_config_or_default(config, parsed, "graphics", "ship_hotkey_badges", DCG::ship_hotkey_badges, write_config);
   this->zoom_label_player.detail =
@@ -1252,8 +1221,6 @@ void Config::Load()
   this->auto_confirm_instant_warp =
       get_auto_confirm_instant_warp(config, parsed, DCU::auto_confirm_instant_warp, write_config);
   this->installInstantWarpConfirmationHooks = true;
-  // Internal installation switch; UI availability is checked by the native adapter.
-  this->installNativeSettings = true;
   read_instant_warp_filter(config, parsed, "instant_warp_auto_jump", this->instant_warp_auto_jump,
                            this->instant_warp_auto_jump_all, DCU::instant_warp_auto_jump, write_config);
   read_instant_warp_filter(config, parsed, "instant_warp_auto_warp", this->instant_warp_auto_warp,
@@ -1278,12 +1245,18 @@ void Config::Load()
   this->reverse_haven_history = get_config_or_default(config, parsed, "ui", "reverse_haven_history",
                                                        DCU::reverse_haven_history, write_config);
 
+  this->dock_syncmanagement =
+      get_config_or_default(config, parsed, "ui", "dock_syncmanagement",
+                            DCU::dock_syncmanagement, write_config);
   this->arrow_keys_to_select_ship = get_config_or_default(config, parsed, "ui", "arrow_keys_to_select_ship",
                                                           DCU::arrow_keys_to_select_ship, write_config);
 
   this->auto_confirm_ft_upgrade =
       get_config_or_default(config, parsed, "ui", "auto_confirm_ft_upgrade",
                                                         DCU::auto_confirm_ft_upgrade, write_config);
+  this->auto_confirm_reveal_ability =
+      get_config_or_default(config, parsed, "ui", "auto_confirm_reveal_ability",
+                                                        DCU::auto_confirm_reveal_ability, write_config);
 
   this->extend_chest_purchase_max = get_config_or_default(config, parsed, "ui", "extend_chest_purchase_max",
                                                           DCU::extend_chest_purchase_max, write_config);
@@ -1296,6 +1269,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "ui", "disable_galaxy_chat", DCU::disable_galaxy_chat, write_config);
   this->disable_veil_chat =
       get_config_or_default(config, parsed, "ui", "disable_veil_chat", DCU::disable_veil_chat, write_config);
+  this->show_player_title =
+      get_config_or_default(config, parsed, "ui", "show_player_title", DCU::show_player_title, write_config);
   this->show_cargo_default =
       get_config_or_default(config, parsed, "ui", "show_cargo_default", DCU::show_cargo_default, write_config);
   this->show_player_cargo =
@@ -1437,66 +1412,19 @@ void Config::Load()
   this->loader_tip_enabled =
       get_config_or_default(config, parsed, "graphics", "loader_tip_enabled", DCG::loader_tip_enabled, write_log);
 
-  std::vector<std::string> types = StrSplit(disabled_banner_types_str, ',');
+  if (!ParseBannerFilter(disabled_banner_types_str, this->disabled_banner_types))
+    spdlog::warn("Unknown disabled_banner_types ignored");
+  parsed["ui"].as_table()->insert_or_assign("disabled_banner_types", FormatBannerFilter(this->disabled_banner_types));
 
-  spdlog::debug("");
+  const auto notify_banner_types_str = get_config_or_default<std::string>(config, parsed, "ui", "notify_banner_types",
+                                                                          DCU::notify_banner_types, write_log);
+  if (!ParseBannerFilter(notify_banner_types_str, this->notify_banner_types))
+    spdlog::warn("Unknown notify_banner_types ignored");
+  parsed["ui"].as_table()->insert_or_assign("notify_banner_types", FormatBannerFilter(this->notify_banner_types));
 
-  std::string       bannerString;
   std::stringstream message;
-  message << "Parsing banner strings";
-
-  spdlog::debug(message.str());
-
-  for (const auto& [key, value] : bannerTypes) {
-    auto upper_key = AsciiStrToUpper(key);
-
-    for (const std::string_view _type : types) {
-      auto stripped_type = StripLeadingAsciiWhitespace(_type);
-      auto upper_type    = AsciiStrToUpper(stripped_type);
-
-      if ("ALL" == upper_type || upper_key == upper_type) {
-        this->disabled_banner_types.emplace_back(value);
-        if (!bannerString.empty()) {
-          bannerString.append(", ");
-        }
-        bannerString.append(key);
-      }
-    }
-  }
-
-  message.str("");
-  message << "Final disabledbanner types: " << bannerString;
-  spdlog::debug(message.str());
-
-  parsed["ui"].as_table()->insert_or_assign("disabled_banner_types", bannerString);
-
-  // Parse notify_banner_types using the same bannerTypes lookup table
   this->notify_incoming_player_attack = get_config_or_default(
       config, parsed, "ui", "notify_incoming_player_attack", DCU::notify_incoming_player_attack, write_config);
-  auto notify_banner_types_str = get_config_or_default<std::string>(config, parsed, "ui", "notify_banner_types",
-                                                                    DCU::notify_banner_types, write_log);
-
-  std::vector<std::string> notify_types = StrSplit(notify_banner_types_str, ',');
-  std::string              notifyString;
-
-  for (const auto& [key, value] : bannerTypes) {
-    auto upper_key = AsciiStrToUpper(key);
-    for (const std::string_view _type : notify_types) {
-      auto stripped_type = StripLeadingAsciiWhitespace(_type);
-      auto upper_type    = AsciiStrToUpper(stripped_type);
-      spdlog::warn("TEMP: Notify {} == {}", upper_type, upper_key);
-      if ("ALL" == upper_type || upper_key == upper_type) {
-        this->notify_banner_types.emplace_back(value);
-        if (!notifyString.empty())
-          notifyString.append(", ");
-        notifyString.append(key);
-      }
-    }
-  }
-
-  spdlog::debug("Final notify banner types: {}", notifyString);
-  parsed["ui"].as_table()->insert_or_assign("notify_banner_types", notifyString);
-
   auto notify_fleet_events_str = get_config_or_default<std::string>(config, parsed, "ui", "notify_fleet_events",
                                                                     DCU::notify_fleet_events, write_log);
   this->notify_fleet_events = 0;
@@ -1669,60 +1597,25 @@ void Config::Load()
   parse_config_shortcut(config, parsed, "toggle_instant_warp", GameFunction::ToggleAutoConfirmInstantWarp,
                         DCSH::toggle_instant_warp);
 
-  if (this->hotkeys_extended) {
-    parse_config_shortcut(config, parsed, "show_alliance", GameFunction::ShowAlliance, DCSH::show_alliance);
-
-    if (this->enable_experimental) {
-      parse_config_shortcut(config, parsed, "show_alliance_help", GameFunction::ShowAllianceHelp,
-                            DCSH::show_alliance_help);
-      parse_config_shortcut(config, parsed, "show_alliance_armada", GameFunction::ShowAllianceArmada,
-                            DCSH::show_alliance_armada);
-    }
-
-    parse_config_shortcut(config, parsed, "show_bookmarks", GameFunction::ShowBookmarks, DCSH::show_bookmarks);
-
-    if (this->enable_experimental) {
-      parse_config_shortcut(config, parsed, "show_lookup", GameFunction::ShowLookup, DCSH::show_lookup);
-    }
-
-    parse_config_shortcut(config, parsed, "set_zoom_preset1", GameFunction::SetZoomPreset1, DCSH::set_zoom_preset1);
-    parse_config_shortcut(config, parsed, "set_zoom_preset2", GameFunction::SetZoomPreset2, DCSH::set_zoom_preset2);
-    parse_config_shortcut(config, parsed, "set_zoom_preset3", GameFunction::SetZoomPreset3, DCSH::set_zoom_preset3);
-    parse_config_shortcut(config, parsed, "set_zoom_preset4", GameFunction::SetZoomPreset4, DCSH::set_zoom_preset4);
-    parse_config_shortcut(config, parsed, "set_zoom_preset5", GameFunction::SetZoomPreset5, DCSH::set_zoom_preset5);
-    parse_config_shortcut(config, parsed, "set_zoom_default", GameFunction::SetZoomDefault, DCSH::set_zoom_default);
-    parse_config_shortcut(config, parsed, "toggle_preview_locate", GameFunction::TogglePreviewLocate,
-                          DCSH::toggle_preview_locate);
-    parse_config_shortcut(config, parsed, "toggle_preview_recall", GameFunction::TogglePreviewRecall,
-                          DCSH::toggle_preview_recall);
-    parse_config_shortcut(config, parsed, "toggle_cargo_default", GameFunction::ToggleCargoDefault,
-                          DCSH::toggle_cargo_default);
-    parse_config_shortcut(config, parsed, "toggle_cargo_player", GameFunction::ToggleCargoPlayer,
-                          DCSH::toggle_cargo_player);
-    parse_config_shortcut(config, parsed, "toggle_cargo_station", GameFunction::ToggleCargoStation,
-                          DCSH::toggle_cargo_station);
-    parse_config_shortcut(config, parsed, "toggle_cargo_hostile", GameFunction::ToggleCargoHostile,
-                          DCSH::toggle_cargo_hostile);
-    parse_config_shortcut(config, parsed, "toggle_cargo_armada", GameFunction::ToggleCargoArmada,
-                          DCSH::toggle_cargo_armada);
-  }
+  shortcut_options::LoadAll(this->hotkeys_extended, this->enable_experimental,
+                            [&](const shortcut_options::Definition& definition, bool enabled) {
+                              parse_config_shortcut(config, parsed, definition.key, definition.action,
+                                                    definition.default_binding);
+                              MapKey::SetActionEnabled(definition.action, enabled);
+                            });
 
   spdlog::debug("");
 
-  if (!std::filesystem::exists(File::MakePath(File::Config()))) {
+  const bool created_config = !std::filesystem::exists(File::MakePath(File::Config()));
+  bool       created_config_saved = false;
+  if (created_config) {
     message.str("");
     message << "Creating " << File::Config() << " (default config file)";
     spdlog::warn(message.str());
 
-    try {
-      Config::Save(parsed, File::Config(), false);
-      config = parsed; // First runtime comparison must match the file just created.
-    } catch (const std::exception& error) {
-      spdlog::error("Could not save default config: {}", error.what());
-    }
+    created_config_saved = Config::Save(parsed, File::Config(), false);
   }
 
-  runtime_config::Configure(config);
 
   message.str("");
   message << "Creating " << File::Vars() << " (final config file)";
@@ -1737,11 +1630,8 @@ void Config::Load()
   }
 
   keyboard_layout::InitializeDiagnostics(parsed);
-  try {
-    Config::Save(parsed, File::Vars());
-  } catch (const std::exception& error) {
-    spdlog::error("Could not save runtime config: {}", error.what());
-  }
+  Config::Save(parsed, File::Vars());
+  runtime_config::Configure(created_config_saved ? parsed : config);
 
   std::cout << "\n\n-----------------------------\n\n"
             << parsed << "\n\n-----------------------------\nVersion "

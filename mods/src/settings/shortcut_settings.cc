@@ -6,6 +6,7 @@
 #include "patches/mapkey.h"
 #include "patches/runtime_config.h"
 #include "patches/screen_update_hook.h"
+#include "persisted_setting.h"
 #include "shortcut_capture.h"
 #include "shortcut_catalog.h"
 #include "shortcut_draft.h"
@@ -37,6 +38,37 @@ namespace
     }
     return result.empty() ? "NONE" : result;
   }
+  ShortcutList DefaultBindings(GameFunction action)
+  {
+    ShortcutList values;
+    const auto&  text = MapKey::Definition(action).defaultBinding;
+    if (AsciiStrToUpper(StripAsciiWhitespace(text)) != "NONE") {
+      for (const auto& token : StrSplit(text, '|')) {
+        const auto parsed = MapKey::Parse(StripAsciiWhitespace(token));
+        if (parsed.Key == KeyCode::None)
+          throw std::invalid_argument("invalid default shortcut");
+        values.push_back(parsed.GetParsedValues());
+      }
+    }
+    return values;
+  }
+  bool        captureReady = false;
+  std::string ShortcutUnavailableReason(GameFunction action)
+  {
+    if (!Config::Get().installHotkeyHooks)
+      return "Mod shortcut hooks are disabled in TOML.";
+    if (Config::Get().use_scopely_hotkeys)
+      return "Native shortcut mode is active. Disable it and restart to edit mod shortcuts.";
+    if (!MapKey::Definition(action).enabled)
+      return !Config::Get().hotkeys_extended
+                 ? "Extended shortcuts are disabled. Enable them and restart."
+                 : "Experimental shortcuts are disabled. Enable control.enable_experimental in TOML and restart.";
+    if (!captureReady)
+      return "Shortcut recording is unavailable for this client.";
+    if (action == GameFunction::ToggleShortcutHints && !ShortcutHintControlAvailable())
+      return "Shortcut hint controls are unavailable for this client.";
+    return {};
+  }
   struct Editor {
     GameFunction                                function;
     ValueSetting<ShortcutList>                  state;
@@ -47,40 +79,44 @@ namespace
     std::vector<std::unique_ptr<ActionSetting>> rows;
     Editor(GameFunction action, const std::string& label)
         : function(action)
-        , state({"community_mod.shortcuts." + MapKey::Definition(action).key, label,
-                 [action] {
-                   ShortcutList list;
-                   for (const auto& binding : MapKey::Bindings(action))
-                     list.push_back(binding.GetParsedValues());
-                   return ValueReadResult<ShortcutList>::Known(std::move(list), 1);
-                 },
-                 [this, action](ShortcutList list, std::uint64_t generation) {
-                   if (generation != 1)
+        , state(PersistedDefinition<ShortcutList>(
+              {"community_mod.shortcuts." + MapKey::Definition(action).key, label,
+               [action] {
+                 ShortcutList list;
+                 for (const auto& binding : MapKey::Bindings(action))
+                   list.push_back(binding.GetParsedValues());
+                 return ValueReadResult<ShortcutList>::Known(std::move(list), 1);
+               },
+               [this, action](ShortcutList list, std::uint64_t generation) {
+                 if (generation != 1 || !ShortcutUnavailableReason(action).empty())
+                   return ApplyResult::Rejected;
+                 // Existing oversized lists may be reduced/rebound, but a UI
+                 // addition must fit before either publication or persistence.
+                 if (!ShortcutCountFitsEdit(MapKey::Bindings(action).size(), list.size()) && !undo.Restoring(list))
+                   return ApplyResult::Rejected;
+                 std::vector<MapKey> bindings;
+                 for (const auto& text : list) {
+                   auto parsed = MapKey::Parse(text);
+                   if (parsed.Key == KeyCode::None)
                      return ApplyResult::Rejected;
-                   // Existing oversized lists may be reduced/rebound, but a UI
-                   // addition must fit before either publication or persistence.
-                   if (!ShortcutCountFitsEdit(MapKey::Bindings(action).size(), list.size())
-                       && !undo.Restoring(list))
-                     return ApplyResult::Rejected;
-                   std::vector<MapKey> bindings;
-                   for (const auto& text : list) {
-                     auto parsed = MapKey::Parse(text);
-                     if (parsed.Key == KeyCode::None)
-                       return ApplyResult::Rejected;
-                     bindings.push_back(std::move(parsed));
-                   }
-                   const auto serialized = Join(list); // Allocate before publishing live bindings.
-                   if (!MapKey::ReplaceBindings(action, std::move(bindings)))
-                     return ApplyResult::Rejected;
-                   runtime_config::SaveSetting("shortcuts", MapKey::Definition(action).key.c_str(), serialized);
-                   return ApplyResult::Applied;
-                 }})
-        , draft(state, [](const auto& first, const auto& second) {
-          return MapKey::SameBinding(MapKey::Parse(first), MapKey::Parse(second));
-        })
+                   bindings.push_back(std::move(parsed));
+                 }
+                 if (!MapKey::ReplaceBindings(action, std::move(bindings)))
+                   return ApplyResult::Rejected;
+                 return ApplyResult::Applied;
+               }},
+              {"shortcuts", MapKey::Definition(action).key, std::string(ShortcutExplanation(action)), "",
+               ApplyTiming::Live},
+              DefaultBindings(action), [](const ShortcutList& list) -> config_edit::Value { return Join(list); }))
+        , draft(state,
+                [](const auto& first, const auto& second) {
+                  return MapKey::SameBinding(MapKey::Parse(first), MapKey::Parse(second));
+                })
         , undo(state)
     {
     }
+    bool Available() const
+    { return ShortcutUnavailableReason(function).empty(); }
     ShortcutList Current()
     {
       auto snapshot = state.Observe();
@@ -144,7 +180,7 @@ namespace
   }
   void Begin(Editor& editor, std::size_t index, bool keepPopup = false)
   {
-    if (capture.active())
+    if (!editor.Available() || capture.active())
       return;
     Cancel(editor, !keepPopup);
     editor.draft.Begin();
@@ -153,7 +189,7 @@ namespace
       return;
     recordingIndex   = index;
     editor.replacing = index < list.size() ? list[index] : "";
-    recording      = &editor;
+    recording        = &editor;
     capture.Begin();
     Key::shortcutCaptureActive = true;
     editor.status              = "Release keys, then press a shortcut. Esc cancels.";
@@ -164,41 +200,44 @@ namespace
     if (recording != &editor)
       return;
     popupEditor = &editor;
-    const bool opened = native::OpenShortcutPopup({
-        [&editor, index] {
-          ShortcutPopupPresentation view;
-          view.title = editor.state.label();
-          view.current = editor.replacing.empty() ? "Unbound" : editor.replacing;
-          if (editor.draft.desired() && index < editor.draft.desired()->size())
-            view.proposed = editor.draft.desired()->at(index);
-          view.status = editor.status;
-          for (const auto& warning : editor.overlaps)
-            view.status += "\n<color=#FFC66D>" + warning + "</color>";
-          view.confirmLabel = editor.overlaps.empty() ? "Confirm" : "Use anyway";
-          view.canConfirm = editor.draft.pending() && !capture.active();
-          view.canRecord = !capture.active();
-          return view;
-        },
-        [&editor, index] {
-          if (!editor.draft.pending() || capture.active())
-            return;
-          auto overlaps = Overlaps(editor, editor.draft.desired()->at(index));
-          if (overlaps != editor.overlaps) {
-            editor.overlaps = std::move(overlaps);
-            editor.status = "Shortcut usage changed. Check the warnings and confirm again.";
-            return;
-          }
-          const auto outcome = editor.draft.Apply();
-          if (outcome == Outcome::AppliedVerified || outcome == Outcome::Unchanged) {
-            Cancel(editor);
-            spdlog::info("[Shortcuts] Popup binding applied: {}", editor.state.id());
-          } else {
-            editor.status = "Binding changed; cancel and reopen to try again.";
-          }
-          Notify();
-        },
-        [&editor, index] { Begin(editor, index, true); },
-        [&editor] { Cancel(editor); Notify(); }});
+    const bool opened =
+        native::OpenShortcutPopup({[&editor, index] {
+                                     ShortcutPopupPresentation view;
+                                     view.title   = editor.state.label();
+                                     view.current = editor.replacing.empty() ? "Unbound" : editor.replacing;
+                                     if (editor.draft.desired() && index < editor.draft.desired()->size())
+                                       view.proposed = editor.draft.desired()->at(index);
+                                     view.status = editor.status;
+                                     for (const auto& warning : editor.overlaps)
+                                       view.status += "\n<color=#FFC66D>" + warning + "</color>";
+                                     view.confirmLabel = editor.overlaps.empty() ? "Confirm" : "Use anyway";
+                                     view.canConfirm   = editor.draft.pending() && !capture.active();
+                                     view.canRecord    = !capture.active();
+                                     return view;
+                                   },
+                                   [&editor, index] {
+                                     if (!editor.draft.pending() || capture.active())
+                                       return;
+                                     auto overlaps = Overlaps(editor, editor.draft.desired()->at(index));
+                                     if (overlaps != editor.overlaps) {
+                                       editor.overlaps = std::move(overlaps);
+                                       editor.status = "Shortcut usage changed. Check the warnings and confirm again.";
+                                       return;
+                                     }
+                                     const auto outcome = editor.draft.Apply();
+                                     if (outcome == Outcome::AppliedVerified || outcome == Outcome::Unchanged) {
+                                       Cancel(editor);
+                                       spdlog::info("[Shortcuts] Popup binding applied: {}", editor.state.id());
+                                     } else {
+                                       editor.status = "Binding changed; cancel and reopen to try again.";
+                                     }
+                                     Notify();
+                                   },
+                                   [&editor, index] { Begin(editor, index, true); },
+                                   [&editor] {
+                                     Cancel(editor);
+                                     Notify();
+                                   }});
     if (!opened) {
       popupEditor = nullptr;
       Cancel(editor);
@@ -208,7 +247,7 @@ namespace
   void UpdateCapture()
   {
     if (!capture.active())
-      return; // No input scan, layout query or logging while idle.
+      return; // No input scan or logging while idle.
     try {
       ShortcutCapture::Keys held{}, down{};
       for (auto key : sampledKeys) {
@@ -224,25 +263,22 @@ namespace
         Notify();
       } else if (editor && primary) {
         const auto isHeld = [&](KeyCode key) { return held[static_cast<int>(key)]; };
-        const auto key =
-            keyboard_layout::CaptureIdentity(*primary, isHeld(KeyCode::LeftShift) || isHeld(KeyCode::RightShift));
+        const auto key = keyboard_layout::CaptureIdentity(*primary, isHeld(KeyCode::LeftShift) || isHeld(KeyCode::RightShift));
         // Generic modifiers for new bindings, matching ordinary TOML bindings.
         // Existing sided modifiers remain untouched unless that binding is replaced.
         std::string token = CaptureModifierPrefix(isHeld);
         if (key == KeyCode::None || isHeld(KeyCode::AltGr)) {
-          editor->status = "This key/layout is unavailable; record another";
+          editor->status = "This key is unavailable; record another";
         } else {
           token += Key::Token(key);
           const auto result = editor->draft.Stage(recordingIndex, token);
           editor->overlaps.clear();
           if (result == ShortcutStage::Staged) {
             editor->overlaps = Overlaps(*editor, token);
-            editor->status   = editor->replacing.empty() ? "Add " + token
-                                                         : editor->replacing + " -> " + token;
+            editor->status   = editor->replacing.empty() ? "Add " + token : editor->replacing + " -> " + token;
           } else {
-            editor->status = result == ShortcutStage::AlreadyBound
-                                 ? "Already bound: " + token
-                                 : "Binding unavailable; reopen and try again";
+            editor->status = result == ShortcutStage::AlreadyBound ? "Already bound: " + token
+                                                                   : "Binding unavailable; reopen and try again";
           }
         }
         recording = nullptr;
@@ -275,6 +311,8 @@ namespace
   {
     catalog.OnLeave(editor.state.id(), [&editor] { Cancel(editor); });
     catalog.SetSummary(editor.state.id(), [&editor] {
+      if (!editor.Available())
+        return std::string{"Unavailable this session"};
       const auto& bindings = MapKey::Bindings(editor.function);
       if (bindings.empty())
         return std::string{"Unbound"};
@@ -285,8 +323,15 @@ namespace
       auto row      = std::make_unique<ActionSetting>();
       row->identity = editor.state.id() + "." + id;
       row->label    = label;
-      row->read     = read;
-      row->invoke   = [invoke](std::size_t index) {
+      row->read     = [&editor, read](std::size_t index) {
+        auto presentation = read(index);
+        if (!editor.Available())
+          presentation.enabled = false;
+        return presentation;
+      };
+      row->invoke = [&editor, invoke](std::size_t index) {
+        if (!editor.Available())
+          return;
         invoke(index);
         Notify();
       };
@@ -300,16 +345,25 @@ namespace
         [&editor](std::size_t) {
           if (popupEditor == &editor)
             return P{"", "", "", false, false};
-          if (editor.undo.available())
-            return P{"<color=#FFC66D>" + editor.undo.message() + "</color>", "Undo", "", !capture.active()};
-          return P{editor.status, "", "", false, !editor.status.empty()};
+          std::string label       = editor.undo.available() ? editor.undo.message() : editor.status;
+          const auto  unavailable = ShortcutUnavailableReason(editor.function);
+          if (!unavailable.empty())
+            label = unavailable;
+          const auto saved = SaveStatusText(editor.state.save_status());
+          if (*saved) {
+            if (!label.empty())
+              label += "\n";
+            label += saved;
+          }
+          return P{label, editor.undo.available() ? "Undo" : "", "", editor.undo.available() && !capture.active(),
+                   !label.empty()};
         },
         [&editor](std::size_t) {
           if (editor.undo.available()) {
             const auto result = editor.undo.Undo();
-            editor.status = result == Outcome::AppliedVerified ? ""
-                            : result == Outcome::Conflict ? "Bindings changed; undo cancelled."
-                                                          : "Could not verify undo; check current bindings.";
+            editor.status     = result == Outcome::AppliedVerified ? ""
+                                : result == Outcome::Conflict      ? "Bindings changed; undo cancelled."
+                                                                   : "Could not verify undo; check current bindings.";
           }
         });
     const auto help = ShortcutExplanation(editor.function);
@@ -351,25 +405,12 @@ namespace
             return;
           Cancel(editor);
           const auto result = editor.undo.Remove(index);
-          editor.status = result == Outcome::AppliedVerified ? "Removed " + list[index]
-                                                             : "Could not verify removal; check current bindings.";
+          editor.status     = result == Outcome::AppliedVerified ? "Removed " + list[index]
+                                                                 : "Could not verify removal; check current bindings.";
         },
         count);
-    // Parse the same canonical defaults for visibility and restoration. An extra
-    // alternative still makes Restore useful, even if the default is present.
-    const auto defaults = [&editor]() -> std::optional<ShortcutList> {
-      const auto& definition = MapKey::Definition(editor.function).defaultBinding;
-      ShortcutList result;
-      if (AsciiStrToUpper(StripAsciiWhitespace(definition)) != "NONE") {
-        for (const auto& token : StrSplit(definition, '|')) {
-          const auto parsed = MapKey::Parse(token);
-          if (parsed.Key == KeyCode::None)
-            return std::nullopt;
-          result.push_back(parsed.GetParsedValues());
-        }
-      }
-      return result;
-    }();
+    // Rendering and restore consume the same defaults declared on the model.
+    const auto defaults = editor.state.default_value();
     add(
         "default", "Restore default",
         [&editor, defaults](std::size_t) {
@@ -382,9 +423,9 @@ namespace
             return;
           Cancel(editor);
           const auto result = editor.undo.Restore(*defaults);
-          editor.status = result == Outcome::AppliedVerified ? "Restored defaults"
-                          : result == Outcome::Unchanged ? "Already using defaults"
-                                                         : "Could not verify restore; check current bindings.";
+          editor.status     = result == Outcome::AppliedVerified ? "Restored defaults"
+                              : result == Outcome::Unchanged     ? "Already using defaults"
+                                                                 : "Could not verify restore; check current bindings.";
         });
   }
 } // namespace
@@ -393,21 +434,17 @@ void SetShortcutPresentationObserver(void (*observer)())
 { changed = observer; }
 void RegisterShortcutPages(PageCatalog& catalog)
 {
-  if (!editors.empty() || !Config::Get().installHotkeyHooks || Config::Get().use_scopely_hotkeys)
+  if (!editors.empty())
     return;
-// macOS ports the shared native settings adapter; capture stays in physical
-// keyboard mode and relies on the same runtime-resolved hooks as Windows.
-// Only Windows x64 resolves layout-dependent printable chords.
+// Capture uses the same configured key identity as the dispatcher.
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
   // Capture must observe a focused release before returning keys to gameplay.
   // A missing query is not ordinary focus loss: never offer capture without it.
   isFocused = il2cpp_resolve_icall_typed<bool()>("UnityEngine.Application::get_isFocused()");
-  if (!isFocused) {
-    spdlog::warn("[Shortcuts] Editor unavailable: focus query not resolved");
-    return;
-  }
-  if (!install_screen_manager_update_hook() || !register_screen_manager_update_callback(UpdateCapture))
-    return;
+  captureReady =
+      isFocused && install_screen_manager_update_hook() && register_screen_manager_update_callback(UpdateCapture);
+  if (!captureReady)
+    spdlog::warn("[Shortcuts] Recording unavailable; registered actions remain visible");
   for (int i = 1; i < static_cast<int>(KeyCode::Max); ++i) {
     const auto key = static_cast<KeyCode>(i);
     if (!Key::Token(key).empty())
@@ -417,24 +454,20 @@ void RegisterShortcutPages(PageCatalog& catalog)
   for (const auto& group : ShortcutGroups)
     catalog.AddPage(std::string("community_mod.shortcuts.") + std::string(group.id), std::string(group.label),
                     "community_mod.shortcuts");
-  const auto ordered = DiscoverShortcuts([](GameFunction action) -> std::string_view {
-    // A startup NONE binding opts out of installing the hints adapter. Do not
-    // present a live editor for an action that cannot dispatch in this session.
-    if (action == GameFunction::ToggleShortcutHints && !ShortcutHintControlAvailable())
-      return {};
-    return MapKey::Definition(action).key;
-  });
+  const auto ordered =
+      DiscoverShortcuts([](GameFunction action) -> std::string_view { return MapKey::Definition(action).key; });
   for (const auto& info : ordered) {
 #ifdef _MODDBG
     if (info.fallback)
       spdlog::warn("[Shortcuts] {} has no presentation override; listed in Uncategorized",
                    MapKey::Definition(info.action).key);
 #endif
-    auto        editor = std::make_unique<Editor>(info.action, info.label);
-    const auto  group  = std::find_if(ShortcutGroups.begin(), ShortcutGroups.end(),
-                                      [&](const auto& group) { return group.group == info.group; });
+    auto       editor = std::make_unique<Editor>(info.action, info.label);
+    const auto group  = std::find_if(ShortcutGroups.begin(), ShortcutGroups.end(),
+                                     [&](const auto& group) { return group.group == info.group; });
     catalog.AddPage(editor->state.id(), editor->state.label(),
                     std::string("community_mod.shortcuts.") + std::string(group->id));
+    catalog.SetMetadata(editor->state.id(), editor->state.metadata());
     AddRows(catalog, *editor);
     editors.push_back(std::move(editor));
   }

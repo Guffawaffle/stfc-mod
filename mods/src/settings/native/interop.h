@@ -2,8 +2,8 @@
 
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
 #include <il2cpp-tabledefs.h>
-#include <il2cpp/runtime.h>
 #include <il2cpp/il2cpp_checked.h>
+#include <il2cpp/runtime.h>
 #include <stdexcept>
 
 namespace mod_settings::native
@@ -31,6 +31,7 @@ struct Root {
 void          Warn(const char* operation);
 bool          Type(const Il2CppType* type, int expected);
 bool          Instance(const MethodInfo* method, int count, int result);
+void          ValidateHookFit(const MethodInfo* method);
 bool          Reference(const Il2CppType* type);
 FieldInfo*    Field(Il2CppClass* cls, const char* name);
 Il2CppObject* ReadField(Il2CppObject* object, FieldInfo* field);

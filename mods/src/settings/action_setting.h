@@ -1,4 +1,5 @@
 #pragma once
+#include "setting_metadata.h"
 #include <charconv>
 #include <functional>
 #include <optional>
@@ -16,13 +17,20 @@ struct ActionSetting {
     bool        actionable() const
     { return visible && enabled && !button.empty(); }
   };
-  std::string                   identity, label;
+  std::string                              identity, label;
   std::function<Presentation(std::size_t)> read;
   std::function<void(std::size_t)>         invoke;
   // Optional repeated rows, evaluated only when building/refreshing settings.
   // Definitions stay stable while their list grows or shrinks.
   std::function<std::size_t()> count;
-  std::size_t                  Count() const
+  // Optional model operations for exact-entry rows. These refer to the same
+  // definition as sliders/toggles; commands without a setting leave them empty.
+  const SettingMetadata*                 metadata = nullptr;
+  std::function<void()>                  reset, retry;
+  std::function<std::string()>           status, default_label;
+  std::function<SaveStatus()>            save_status;
+  std::function<PreparedSettingAction()> prepare_reset;
+  std::size_t                            Count() const
   { return count ? count() : 1; }
   Presentation Read(std::size_t index) const
   { return index < Count() ? read(index) : Presentation{"", "", "", false, false}; }
@@ -40,7 +48,7 @@ struct ActionSetting {
       return {};
     return index;
   }
-  const std::string&            id() const
+  const std::string& id() const
   { return identity; }
 };
 } // namespace mod_settings

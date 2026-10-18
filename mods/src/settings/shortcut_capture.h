@@ -1,16 +1,15 @@
 #pragma once
 #include <array>
 #include <optional>
-#include <string>
 #include <prime/KeyCode.h>
+#include <string>
 
 namespace mod_settings
 {
 // Preserve the modifier families understood by MapKey. Command and Windows
 // have distinct Unity keycodes; if a Command press is also reported as Windows,
 // prefer Command so the binding does not require the duplicate event later.
-template <typename Held>
-std::string CaptureModifierPrefix(Held held)
+template <typename Held> std::string CaptureModifierPrefix(Held held)
 {
   std::string token;
   if (held(KeyCode::LeftControl) || held(KeyCode::RightControl))

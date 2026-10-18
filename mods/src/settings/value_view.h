@@ -48,6 +48,18 @@ public:
     unresolved_ = !snapshot_.state.known() || result.outcome == Outcome::Unverified;
     return result;
   }
+  WriteResult Reset()
+  {
+    if (!editable())
+      return {Outcome::Rejected, snapshot_};
+    return Accept(setting_.Reset(snapshot_));
+  }
+  WriteResult RetrySave()
+  {
+    if (!editable())
+      return {Outcome::Rejected, snapshot_};
+    return Accept(setting_.RetrySave(snapshot_));
+  }
   bool editable() const
   { return bound_ && !unresolved_ && snapshot_.state.known(); }
   bool failed() const
@@ -60,6 +72,15 @@ public:
   { return setting_; }
 
 private:
+  WriteResult Accept(WriteResult result)
+  {
+    if (result.outcome != Outcome::Suppressed && result.outcome != Outcome::Busy) {
+      snapshot_   = result.snapshot;
+      failed_     = result.outcome != Outcome::AppliedVerified && result.outcome != Outcome::Unchanged;
+      unresolved_ = !snapshot_.state.known() || result.outcome == Outcome::Unverified;
+    }
+    return result;
+  }
   ValueSetting<T>& setting_;
   Snapshot         snapshot_;
   bool             bound_      = false;

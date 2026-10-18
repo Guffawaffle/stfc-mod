@@ -1,14 +1,15 @@
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
 #include "page_navigation.h"
 #include "action_widgets.h"
-#include "settings_search.h"
 #include "patches/parts/fc_confirmation_reset.h"
 #include "patches/runtime_config.h"
 #include "row_style.h"
+#include "settings/maintenance.h"
 #include "settings/mod_pages.h"
-#include "settings/page_sections.h"
 #include "settings/native_boolean_callback.h"
-#include "timing.h"
+#include "settings/page_sections.h"
+#include "settings/text_entry.h"
+#include "settings_search.h"
 #include <cstdlib>
 #include <cstring>
 #include <spdlog/spdlog.h>
@@ -52,15 +53,16 @@ struct SectionPage {
   const PageCatalog::Page*   page       = nullptr;
   Il2CppGCHandle             controller = nullptr, context = nullptr;
   Il2CppGCHandle             searchReturn = nullptr; // Only this visit came from a search result.
-  PageSections              sections;
+  PageSections               sections;
   std::vector<Il2CppObject*> shown; // Comparison only; native context/panel owns rows.
   bool                       conditional = false;
 } sectionPage;
 using SectionRefreshScope = PageSections::RefreshScope;
 void ClearSectionPage()
 {
-  timing::Flush();
+
   CloseSettingsSearch();
+  CloseTextEntry();
   const auto* leaving = std::exchange(sectionPage.page, nullptr);
   Free(sectionPage.controller);
   Free(sectionPage.context);
@@ -91,12 +93,10 @@ const PageCatalog::Heading* CollapsibleHeadingFor(Il2CppObject* context)
   return nullptr;
 }
 bool Collapsed(const PageCatalog::Heading& heading)
-{
-  return sectionPage.sections.Collapsed(heading);
-}
+{ return sectionPage.sections.Collapsed(heading); }
 void ShowSections(Il2CppObject* controller, Il2CppObject* context, const PageCatalog::Page& page, bool force = false)
 {
-  timing::Scope measurement(timing::Operation::ShowPage);
+
   SyncActionRows(controller, context, page);
   Root children(Call(context, "get_Children"));
   struct OrderedRow {
@@ -105,25 +105,25 @@ void ShowSections(Il2CppObject* controller, Il2CppObject* context, const PageCat
   };
   std::vector<OrderedRow> ordered;
   for (int i = 0, count = Count(children.get()); i < count; ++i) {
-    auto*                       row     = Item(children.get(), i); // Rooted by the unchanged native children.
-    std::string                 id;
-    std::size_t                 index = 0;
+    auto*       row = Item(children.get(), i); // Rooted by the unchanged native children.
+    std::string id;
+    std::size_t index = 0;
     if (OwnsValueContext(row)) {
       if (const auto choice = ChoiceFor(row); choice.first) {
-        id      = choice.first->state().id();
-        index   = choice.second;
+        id    = choice.first->state().id();
+        index = choice.second;
       } else if (auto* slider = SliderFor(row)) {
-        id      = slider->state().id();
+        id = slider->state().id();
       } else if (auto* setting = SettingFor(row)) {
-        id      = setting->id();
+        id = setting->id();
       }
     }
     if (ActionsActive())
       if (auto action = ActionFor(row); action.first) {
         if (!action.first->Read(action.second).visible)
           continue;
-        id      = action.first->id();
-        index   = action.second;
+        id    = action.first->id();
+        index = action.second;
       }
     if (id.empty())
       for (const auto& item : page.items)
@@ -190,11 +190,11 @@ void RenderCategory(Il2CppObject* widget)
       } catch (...) {
         Warn("settings background unavailable");
       }
-      Root label(ReadField(widget, PageMeta().label));
+      Root       label(ReadField(widget, PageMeta().label));
       const auto summary = page->summary ? page->summary() : std::string{};
       SetRowText(widget, label.get(), page->label + (summary.empty() ? "" : " — " + summary));
     } else if (const auto* heading = CollapsibleHeadingFor(context.get())) {
-      Root label(ReadField(widget, PageMeta().label));
+      Root       label(ReadField(widget, PageMeta().label));
       const auto summary = Collapsed(*heading) && heading->summary ? heading->summary() : std::string{};
       SetRowText(widget, label.get(),
                  "<b><size=115%><color=#9ADBE7>" + heading->label + "</color></size></b>"
@@ -274,7 +274,7 @@ void PageSelectedHook(auto original, Il2CppObject* controller, Il2CppObject* con
         if (!parent.get() || parent.get() != Target(sectionPage.context) || selected.get() != parent.get())
           return; // An old pooled heading cannot navigate or change this page.
         SectionRefreshScope scope(sectionPage.sections);
-        const auto before = sectionPage.sections.Snapshot();
+        const auto          before = sectionPage.sections.Snapshot();
         sectionPage.sections.Toggle(*heading);
         try {
           ShowSections(controller, parent.get(), *PageFor(parent.get()), true);
@@ -472,7 +472,8 @@ void NavigateToSearchResult(std::string_view pageId, std::string_view itemId)
   std::vector<std::string> path;
   for (std::string id(pageId); !id.empty();) {
     const auto page = std::ranges::find(Pages(), id, &PageCatalog::Page::id);
-    if (page == Pages().end() || path.size() >= Pages().size()) return;
+    if (page == Pages().end() || path.size() >= Pages().size())
+      return;
     path.push_back(page->id);
     id = page->parent;
   }
@@ -481,10 +482,14 @@ void NavigateToSearchResult(std::string_view pageId, std::string_view itemId)
     Root children(Call(target, "get_Children"));
     target = nullptr;
     for (int i = 0, count = Count(children.get()); i < count; ++i)
-      if (HasLabel(Item(children.get(), i), it->c_str())) { target = Item(children.get(), i); break; }
-    if (!target) return;
+      if (HasLabel(Item(children.get(), i), it->c_str())) {
+        target = Item(children.get(), i);
+        break;
+      }
+    if (!target)
+      return;
   }
-  Root selected(target);
+  Root  selected(target);
   void* args[]{selected.get()};
   Invoke(PageMeta().selected, controller.get(), args);
   Root active(Call(canvas.get(), "get_SelectedOption"));
@@ -538,7 +543,7 @@ void AddPages(Il2CppObject* director, Il2CppObject* context)
 {
   if (!pagesActive || Pages().empty())
     return;
-  timing::Scope measurement(timing::Operation::BuildTree);
+
   Root root(Call(context, "get_RootOption"));
   Root children(Call(root.get(), "get_Children"));
   for (int i = 0, count = Count(children.get()); i < count; ++i)
@@ -583,8 +588,8 @@ void AddPages(Il2CppObject* director, Il2CppObject* context)
     }
     // Unsupported leaf adapters can leave empty groups; remove them bottom-up.
     for (auto it = Pages().rbegin(); it != Pages().rend(); ++it) {
-      auto* category = parents.at(it->id);
-      Root  items(Call(category, "get_Children"));
+      auto*      category = parents.at(it->id);
+      Root       items(Call(category, "get_Children"));
       const auto count  = Count(items.get());
       const auto action = count == 1 && ActionsActive() ? ActionFor(Item(items.get(), 0)).first : nullptr;
       // A failure-only notice is not supported content. If a widget family was
@@ -604,53 +609,23 @@ void AddPages(Il2CppObject* director, Il2CppObject* context)
   }
 }
 
+void RefreshSavePresentations()
+{
+  RefreshViews();
+  RefreshActions();
+}
+
 void InstallPages()
 {
   RegisterSettingsSearch(ModPages());
   RegisterModPages();
-#ifdef _MODDBG
-  // Temporary opt-in navigation fixture; no real mod feature placement is chosen.
-  // It mirrors the existing FC owner so rebuilds never introduce a second value.
-  if (const auto* probe = std::getenv("STFC_MOD_SETTINGS_NAV_TEST"); probe && std::strcmp(probe, "1") == 0) {
-    auto& catalog = ModPages();
-    catalog.AddPage("community_mod.test", "Infrastructure Test", "community_mod.settings");
-    catalog.AddPage("community_mod.test.nested", "Nested Group", "community_mod.test");
-    catalog.AddBoolean("community_mod.test.nested", FleetCommanderConfirmationSetting());
-    static bool           value = false;
-    static BooleanSetting fixture({"community_mod.test.enabled", "[MOD] Infrastructure test toggle",
-                                   [] {
-                                     ExerciseReadReentry();
-                                     return ReadResult::Known(value, 1);
-                                   },
-                                   [](bool desired, std::uint64_t generation) {
-                                     if (generation != 1)
-                                       return ApplyResult::Rejected;
-                                     ExerciseNestedWrite();
-                                     value = desired;
-                                     return ApplyResult::Applied;
-                                   }});
-    catalog.AddBoolean("community_mod.test.nested", fixture);
-    if (ReentryProbeEnabled()) {
-      static bool           nestedValue = false;
-      static BooleanSetting nestedFixture({"community_mod.test.nested_write", "[MOD] Nested write test toggle",
-                                           [] { return ReadResult::Known(nestedValue, 1); },
-                                           [](bool desired, std::uint64_t generation) {
-                                             if (generation != 1)
-                                               return ApplyResult::Rejected;
-                                             RebindOuterWrite();
-                                             nestedValue = desired;
-                                             return ApplyResult::Applied;
-                                           }});
-      catalog.AddBoolean("community_mod.test.nested", nestedFixture);
-    }
-  }
-#endif
+  RegisterMaintenancePages(ModPages());
   pagePlan = ModPages().Build();
   // Add after empty-page pruning so a notice never creates an otherwise empty group.
   static ActionSetting saveNotice{saveNoticeId, "Save notice",
                                   [](std::size_t) {
                                     return ActionSetting::Presentation{
-                                        "<color=#FFC66D>Active this session; couldn't save. See mod log.</color>", "",
+                                        "<color=#FFC66D>Some changes weren't saved. See Defaults & Help.</color>", "",
                                         "", false, runtime_config::HasSaveFailures()};
                                   },
                                   [](std::size_t) {}};
@@ -676,12 +651,14 @@ void InstallPages()
     for (auto* owned :
          {core.addGeneral, core.refresh, core.changed, core.release, core.reload, core.session, core.load})
       if (hooks[i]->methodPointer == owned->methodPointer)
-        throw std::runtime_error(std::string(hookNames[i]) + " shares target with " + owned->klass->name + "." + owned->name);
+        throw std::runtime_error(std::string(hookNames[i]) + " shares target with " + owned->klass->name + "."
+                                 + owned->name);
   }
   if (!Instance(m.add, 4, IL2CPP_TYPE_CLASS) || !Reference(m.add->parameters[0])
       || !Type(m.add->parameters[1], IL2CPP_TYPE_STRING) || !Type(m.add->parameters[2], IL2CPP_TYPE_STRING)
       || !Reference(m.add->parameters[3]))
-    throw std::runtime_error("SettingsContext.AddCategory: expected instance reference result and (reference, String, String, reference)");
+    throw std::runtime_error(
+        "SettingsContext.AddCategory: expected instance reference result and (reference, String, String, reference)");
   if (!Reference(m.selected->parameters[0]))
     throw std::runtime_error("GameSettingsViewController.OnCategorySelected: expected reference parameter");
   InstallChoiceAndSliderWidgets();
@@ -698,7 +675,8 @@ void InstallPages()
     if (!Instance(heading.add, 4, IL2CPP_TYPE_VOID) || !Reference(heading.add->parameters[0])
         || !Type(heading.add->parameters[1], IL2CPP_TYPE_STRING) || !Reference(heading.add->parameters[2])
         || !Reference(heading.add->parameters[3]))
-      throw std::runtime_error("SettingsContext.AddText: expected instance Void(reference, String, reference, reference)");
+      throw std::runtime_error(
+          "SettingsContext.AddText: expected instance Void(reference, String, reference, reference)");
     if (!heading.getContext || !Reference(heading.getContext->return_type)
         || !Instance(heading.getContext, 0, heading.getContext->return_type->type))
       throw std::runtime_error("TextOptionWidget.get_Context: expected instance reference result");
@@ -716,26 +694,31 @@ void InstallPages()
       for (auto* existing : {core.refresh, core.changed, core.release, core.addGeneral, core.reload, core.session,
                              core.load, m.bind, m.release, m.selected, m.destroyed})
         if (target->methodPointer == existing->methodPointer)
-          throw std::runtime_error(std::string("TextOptionWidget.") + target->name + " shares target with " + existing->klass->name + "." + existing->name);
+          throw std::runtime_error(std::string("TextOptionWidget.") + target->name + " shares target with "
+                                   + existing->klass->name + "." + existing->name);
       if (SelectionActive())
         for (auto* existing : {SelectionMeta().refresh, SelectionMeta().changed, SelectionMeta().release})
           if (target->methodPointer == existing->methodPointer)
-            throw std::runtime_error(std::string("TextOptionWidget.") + target->name + " shares target with " + existing->klass->name + "." + existing->name);
+            throw std::runtime_error(std::string("TextOptionWidget.") + target->name + " shares target with "
+                                     + existing->klass->name + "." + existing->name);
       if (SliderActive())
         for (auto* existing :
              {SliderMeta().refresh, SliderMeta().changed, SliderMeta().release, SliderMeta().valueLabel})
           if (target->methodPointer == existing->methodPointer)
-            throw std::runtime_error(std::string("TextOptionWidget.") + target->name + " shares target with " + existing->klass->name + "." + existing->name);
+            throw std::runtime_error(std::string("TextOptionWidget.") + target->name + " shares target with "
+                                     + existing->klass->name + "." + existing->name);
     }
+    ValidateHookFit(heading.refresh);
     if (!SPUD_STATIC_DETOUR(heading.refresh->methodPointer, HeadingRefreshHook))
       throw std::runtime_error("TextOptionWidget.SetWidgetData: hook installation failed");
+    ValidateHookFit(heading.clear);
     if (!SPUD_STATIC_DETOUR(heading.clear->methodPointer, HeadingClearHook))
       throw std::runtime_error("TextOptionWidget.ClearWidgetData: hook installation failed");
     headingsActive = true;
   }
   InstallActionWidgets();
   InstallSettingsSearch();
-  if (ActionsActive() && !runtime_config::SetSaveStatusObserver(RefreshActions))
+  if (ActionsActive() && !runtime_config::SetSaveStatusObserver(RefreshSavePresentations))
     Warn("settings save notice refresh unavailable");
   for (const auto& page : Pages())
     for (auto* setting : page.Controls<BooleanSetting>()) {
@@ -744,12 +727,16 @@ void InstallPages()
       if (!setting->SetChangeObserver(RefreshViews))
         throw std::runtime_error("settings observer ownership");
     }
+  ValidateHookFit(m.bind);
   if (!SPUD_STATIC_DETOUR(m.bind->methodPointer, CategoryBindHook))
     throw std::runtime_error("CategoryOptionWidget.OnDidBindContext: hook installation failed");
+  ValidateHookFit(m.release);
   if (!SPUD_STATIC_DETOUR(m.release->methodPointer, CategoryReleaseHook))
     throw std::runtime_error("CategoryOptionWidget.OnAboutToReleaseContext: hook installation failed");
+  ValidateHookFit(m.selected);
   if (!SPUD_STATIC_DETOUR(m.selected->methodPointer, PageSelectedHook))
     throw std::runtime_error("GameSettingsViewController.OnCategorySelected: hook installation failed");
+  ValidateHookFit(m.destroyed);
   if (!SPUD_STATIC_DETOUR(m.destroyed->methodPointer, PageDestroyedHook))
     throw std::runtime_error("GameSettingsViewController.OnDestroy: hook installation failed");
   pagesActive = true;

@@ -1,153 +1,84 @@
-# Mod settings: current architecture and behavior
+# In-game Mod Settings
 
-This is the current contract for the expanded Windows x64 and macOS settings UI. The
-[foundation notes](MOD_SETTINGS_FOUNDATION.md) describe the first FC-only slice;
-their prototype counts and proposed budgets are historical, not current limits.
+Open the game's Settings and choose **Mod Settings** to change Community Mod preferences. Pages group controls by task: camera, interface scale, travel, cargo, claims, officers, chat, notifications, HUD buttons, and fleet labels. Search accepts labels and canonical TOML names such as `ui.show_player_title`.
 
-## Ownership
+The editor uses the same configuration values and defaults as the mod's TOML configuration. Opening a page or reading a value does not save, normalize, or reset it. TOML remains available for every setting; **Advanced & Configuration** shows the active file's location.
 
-Feature adapters own live values, availability, defaults and persistence. A
-`ValueSetting<T>` owns snapshot validation, guarded application and readback.
-`PageCatalog` owns placement and presentation callbacks, without Unity objects
-or a second copy of configuration. Registration freezes before native creation.
-Each game settings context gets a fresh tree from that immutable plan.
+## Applying and saving
 
-The [native adapter map](MOD_SETTINGS_NATIVE_ADAPTER.md) identifies the owner of
-each hook and its managed metadata. Interop, value widgets, action widgets,
-navigation and styling are separate concerns. Existing XMake source discovery
-builds them. No additional copies of shared game-method detours are installed.
-The historical `ModConfirmationSettings` debug patch key remains compatible;
-its C++ name is `installNativeSettings`.
+Ordinary controls apply to the current session and save automatically. Each control reports its own save state. A failed save or an external edit conflict remains visible; another successful save does not clear it. Resolve a conflicting external edit before retrying. Unrelated TOML values and comments are preserved.
 
-## Placement and summaries
+Save feedback describes the current value. A later session-only change cannot retain an older Saved badge. Explicit save-preset/default shortcuts persist their zoom values; automatically using the last preset as the session default remains session-only. After a save attempt in the current session, Defaults & Help offers Save current value for a later session-only change.
 
-Player tasks determine labels and navigation; TOML sections remain the storage
-reference. Moving a page does not rename stored keys or change defaults.
+Slider and scale-shortcut changes apply immediately and save after 250 ms without another change to that value. Orderly exit flushes pending changes. If the game vetoes a quit request, saving resumes for the continuing session. A failure to write the generated runtime-vars diagnostic does not prevent startup with a readable configuration.
 
-| Mod Settings page | Contents | Storage reference |
-| --- | --- | --- |
-| Camera | Keyboard zoom speed, pan glide | `[graphics]` |
-| Fleet Labels | Collapsible Player and Non-player profiles | `[graphics]` |
-| Map & Travel | Instant warp mode, shared with its shortcut | `[ui]` |
-| Previews & Cargo | Ship selection indicators, preview shortcuts and automatic cargo previews | `[ui]` |
-| Shortcuts | Actions grouped by effect | `[shortcuts]` |
+Some controls take effect when their screen is reopened. Restart controls retain the requested preference separately from the active value, so a saved restart change is not presented as already active. Examples include native-game shortcut mode, window setup, loading assets, cargo formatting, officer sort initialization, and chat channel suppression.
 
-Empty groups are omitted. Shortcut categories and actions are alphabetized;
-Diagnostics stays last. Registered shortcuts without presentation overrides get
-a generated label in Uncategorized, immediately above Diagnostics when populated.
-Discovery runs once at startup and retains existing availability gates; it does
-not discover arbitrary TOML keys or infer numeric controls. FC and Forbidden Tech
-remain in the game's native confirmation page. Fleet headings start collapsed and summarize their current
-mode, with a two-decimal threshold where relevant. Shortcut action rows show the
-first binding and an additional-binding count. The warp page row shows its mode.
-Summaries refresh on binding and existing setting/presentation notifications.
+Open a page's **Defaults & Help** to read setting details, restore one default, retry a failed save, or review a page reset. Reset uses the default declared by the setting. A page reset applies each available setting once, including a number shown both as an exact entry and a convenience slider. The confirmation reports unavailable settings it will skip. If an included setting changes while confirmation is open, confirm again from a fresh dialog. Changes save individually; the page reset is not a transactional file batch. It leaves unrelated settings and other pages alone.
 
-## Search
+## Numbers and lists
 
-The Mod Settings landing page has a text field that filters settings and
-shortcuts as you type. Search matches labels, category paths and the actual
-TOML names, with case-insensitive matching and interchangeable spaces,
-underscores and dots. Exact names/keys appear first. Results show their location
-and TOML key; Open visits the existing settings page and expands the matching
-collapsible section. Back returns directly to the preserved search only when
-the visit began from a result. Normal browsing keeps the native parent path.
-Clear restores the category list. Search text is session-local, not saved.
+Use **Edit** for an exact numeric value. Convenience sliders have useful ranges; an existing custom value outside that range remains visible in the exact editor and is preserved until explicitly changed. Numeric entries reject invalid syntax, non-finite numbers, and values outside a setting's valid domain. Integer controls require whole numbers. Units and setting-specific limits appear with the control.
 
-Search covers the registered Mod Settings controls, not every TOML option.
-Dependent controls remain discoverable while their parent option is off; results
-identify that they are currently hidden. Search does not enable them or change
-any configuration. Shortcut and audio editor commands produce one result for
-the setting rather than separate Change/Remove/Preview entries. Queries are
-limited to 128 characters and at most 32 results are displayed at once.
+Ship filter lists accept comma-separated names using the same matching rules as TOML. Instant warp filters accept `*`. Downstream ship pins use ship IDs and the existing modifier-click actions; the legacy TOML name list is retained only for migration. Faction and banner lists validate names against the startup parser rather than silently discarding unknown entries. Clear a list explicitly to remove its entries.
 
-The native adapter uses TMP_InputField for editing and the existing page and
-screen-update hooks. Input focus suppresses game shortcuts; result navigation
-runs after the row's click callback finishes. The input lives outside the pooled
-result rows so filtering preserves its caret and focus. Presentation IDs that
-differ from saved names are explicitly mapped by `SearchTomlKey`; update that
-mapping when adding such a control. `tests/run-settings.ps1` and
-`tests/run-settings.sh` include the pure search fixture.
+The loading image control accepts a local file path. Empty selects the embedded fallback. Selecting a path does not copy, move, or modify the image file, and the loading asset changes require restart.
 
-## Honest state and persistence
+## Shortcuts
 
-Readback proves the live value, not file or cloud durability. Unknown state never
-looks OFF. Failed application preserves authoritative readback and never issues
-an automatic reverse write. Native indicators are suppressed when unknown.
+The shortcut editor covers the mod's registered actions, including actions currently bound to `NONE`. Each action supports multiple alternatives, recording a replacement or additional binding, removing a binding, restoring defaults, and undoing the most recent removal/default restoration.
 
-A finite loaded value outside a slider's UI range shows `Out of range; edit TOML`.
-A non-finite value shows `Invalid value; edit TOML`. Neither is clamped, saved or
-fixed by reopening. TOML is loaded at startup: a manual correction takes effect
-after restarting. Ordinary unavailable readers retain `Reopen to retry`.
-Disabled sliders receive a feature-owned reason; only Fleet Labels says
-`Select Threshold`. Keep suffixes short: the native row truncates long labels.
+Recording waits for keys to be released. Confirm the proposed binding to apply it, or cancel with Escape. Losing application focus cancels recording. Gameplay shortcuts remain suppressed while an editor owns keyboard input and until held keys have been released.
 
-The existing single writer serializes TOML edits and coalesces pending changes
-per key. It preserves unrelated source and detects conflicting external edits.
-Runtime failure/conflict leaves the live edit active. A failure-only notice at
-the top of Mod Settings pages says `Active this session; couldn't save. See mod log.`
-It concerns mod TOML saves, not the native FC cloud preference. Detailed key and
-failure information stays in the log. No success notices or modal dialogs appear.
+Overlap warnings help identify shared keys. Some actions intentionally share bindings in different contexts, so warnings do not remove another binding automatically. Unsupported native adapters leave the relevant action unavailable for that session. Changing extended shortcut availability or the game's own shortcut mode requires restart. Experimental actions remain visible when disabled and require their TOML option and restart.
 
-Failure state belongs to the writer's existing per-key records. A successful
-save of one key cannot hide another key's failure. A later successful save of
-the failed key clears that failure. Rejected submissions outside the writer
-leave a conservative session warning, because they have no tracked completion.
-The existing runtime callback observes aggregate status without taking the
-writer lock; native UI work happens only when it changes, on the game thread.
-Opening settings never retries or writes anything. F10's 500 ms best effort force
-close and the ordinary quit/drain path are unchanged.
+## Advanced settings kept in TOML
 
-## Editor and view lifetime
+These categories are explained in the Advanced page rather than exposed as ordinary live controls:
 
-Shortcut changes, additions, removals and defaults are drafts until Apply.
-Restore reads the canonical default definition already registered by config;
-`NONE` means no bindings. Stale drafts cannot replace a newer action list.
-Overlap warnings allow keeping both; Next cycles through every affected action.
-Force close and the game's native shortcut variants explain their behavior.
+| Category | Reason |
+| --- | --- |
+| `[patches]` | Emergency hook-install compatibility switches require restart. They are separate from feature preferences. |
+| `[sync]` and `[sync.targets.<name>]` | Dynamic service targets, credentials, connection options, and worker configuration require a separate secret-safe editor. Token values are never shown in the settings UI. Restart after editing. |
+| `audio.trace_events`, `audio.disabled_events` | Diagnostic event tracing and arbitrary internal event-name filters remain advanced configuration. |
+| `[config]` endpoint overrides | Configuration/distribution infrastructure is configured before the in-game editor starts. Restart after editing. |
+| `control.enable_experimental` | Enables experimental shortcuts at startup. Configure it in TOML and restart. Disabled actions remain visible with a reason. |
+| `graphics.system_pan_momentum`, `graphics.transition_time`, `ui.disable_toast_banners` | Legacy parser inputs with no current gameplay consumer. Pan glide uses `graphics.system_pan_momentum_falloff`; banner suppression uses `ui.disabled_banner_types`. |
 
-The page owns cancellation through `Page::leave`. Actual navigation, controller
-destruction and session invalidation end the visit. Releasing or recycling an
-individual command row does not. Conditional filtering and section folding keep
-the page and draft. Recording cancels on Escape or focus loss and retains input
-ownership until a **focused** sample observes all keys released. There is no
-idle recording scan or global keyboard hook.
+`graphics.free_resize`, `graphics.borderless_fullscreen`, `graphics.allow_cursor`, `ui.instant_cargo_counter` and `ui.notify_banner_types` have Windows-only consumers. The macOS editor explains their platform scope instead of offering controls that cannot affect that client.
 
-Native widgets keep weak ownership records and restore text, tint, sprites,
-button visibility and interactability before reuse. Callback identity and the
-currently bound context gate commands. Value rows defer list rebinding until
-their request/readback scope finishes. Headings and command rows do not persist
-presentation state. Dynamic command rows use the existing 128-child sanity bound;
-the editor presents up to 60 bindings (Change and Remove plus fixed rows).
-Longer player-authored lists remain live and stored in full.
+See the English example configuration for accepted advanced values. Deprecated aliases remain startup compatibility inputs; the editor writes canonical keys. Old queue feature switches and constants that the parser no longer reads are not extra controls.
 
-There is no new polling hook, save worker or global localization hook.
-Platform guards, managed signature checks and hook ownership checks remain part
-of installation. Windows and macOS use the same settings adapter, while
-layout-aware capture is Windows-only and macOS uses physical keys.
+## Coverage and maintenance
 
-## Measurement and validation
+[settings-coverage.json](settings-coverage.json) inventories all 156 canonical configuration keys and 105 canonical shortcut actions. The feature includes 88 player-setting controls on Windows and 83 on macOS. The remaining 28 named non-hook options and 40 hook-install switches have explicit TOML-only treatment. Dynamic sync target fields follow the same sync policy. The emergency switches `patches.nativesettingshooks` and `patches.runtimeconfighooks` independently control native settings and the shared persistence runtime.
 
-In `_MODDBG` builds, set `STFC_MOD_SETTINGS_TIMING=1` for the launched process to
-measure existing tree construction, page filtering/binding and action refresh
-boundaries. Counts, mean and maximum elapsed milliseconds are aggregated until
-page departure, then logged as `[SettingsTiming]`. There are no timing logs during
-slider dragging, no additional hook or update callback, and no setting values or
-bindings in the output. Timers compile out of ordinary release builds. Timings
-include nested native work and are not additive across operations or whole-frame
-measurements. A small sample cannot establish p95 or a universal frame budget.
+`settings/upstream_settings.cc` defines controls with their canonical key, default, help, unit, application timing, availability, validation, and persistence serializer together. Shared instant-warp and Forbidden Tech models retain their own definitions so native settings and the mod page use the same state. Live shortcut and pin actions reuse the same field serializer through `PersistCurrentSetting`; they do not maintain a second save whitelist. A new option should receive either an in-game definition or an explicit inventory exclusion. A new shortcut should appear through the registered action catalog.
 
-Measure real opening/refreshing before adding caches. Repeated shortcut binding
-copies currently remain straightforward authoritative reads; optimize only if
-measurements show a material cost. No snapshot cache has been introduced here.
+Both Windows and macOS use the shared models, persistence, and page definitions. Platform-specific code handles native UI and input. A successful build does not establish native hook compatibility or player smoke coverage for another client build or architecture.
 
-Run `tests/run-settings.ps1`, `tests/run-config-save.ps1` and the Windows build.
-Pure fixtures cover readback/range preservation, stale/default drafts, duplicate
-bindings, focused key draining, writer failures and shutdown. Native checks must
-separately cover scrolling, Back, conditional rows, held-key focus transitions,
-failure notice layout and pooled stock-row restoration on the identified build.
-Record observations in [the delivery checklist](MOD_SETTINGS_POLISH.md).
-Windows fixtures/builds do not establish macOS native hook compatibility.
+## Local validation and player checks
 
-Future work includes a real client restart command and additional settings with
-proven live consumers. The existing cache-clear/reload shortcut is not a regular
-restart. Neither generic TOML editing nor exposing every config key is implied.
+Run `pwsh -NoProfile -File tests/run-settings.ps1` for the standalone models, save/reload, conflicts, shutdown and file-permission fixtures on Windows. Run `python -m unittest discover -s tests -p test_settings_coverage.py` to check the catalog inventory. These are local development checks and are not added to CI.
+
+For each candidate artifact, record its source commit, client build, platform and architecture. macOS ARM64 and x86_64 require separate build and native-fit evidence; results on one architecture do not qualify the other. The native adapter checks loaded Mac method boundaries before installing detours and leaves unsupported controls unavailable.
+
+Use reversible preferences for these player checks; no claim or purchase is required:
+
+1. Open Mod Settings, visit each category, search a label and a TOML key, follow a result, and use Back. Type a query, Alt-Tab away and back, then edit and clear the query on the same page. Close and reopen Settings; verify the game's own pages still work.
+2. Toggle a live option, reopen its page, then restart the client and check the saved value. Confirm native Fleet Commander preferences still use their existing game storage.
+3. Enter an exact number, an invalid number, and a valid value outside its convenience slider range. Cancel an edit and verify no change or save occurred. Check interface scale at the smallest supported window size.
+4. Change a restart preference and verify it shows pending restart while the active behavior stays unchanged. Restore it afterward.
+5. Review a single default and a page reset. Cancel each once, then confirm with reversible preferences. Check a conditional slider and its exact editor reset only once.
+6. Edit a ship list, faction list, banner list, and optional loading-image path. Check empty values, invalid entries, and a path containing spaces or non-ASCII characters.
+7. Record, cancel, replace and remove a shortcut; restore its default and undo. Include an initially `NONE` action and a modifier combination. Verify no gameplay hotkey fires while typing, recording, or releasing held keys. Use Command combinations on Mac.
+8. Switch HUD buttons through Auto, Always and Never and restore Auto. Switch fleet labels through Native and overrides, change thresholds, then change system/scene and reopen Settings.
+9. With a copy of the config, exercise a read-only file and an external edit to the same key. Check the failure stays visible after saving another key. Resolve the conflict, retry that key, and verify unrelated comments and values survive. Quit immediately after an edit and check it survives the next launch.
+
+## Downstream controls
+
+The downstream catalog retains custom audio files and coalescing, galaxy label modes and overlays, Haven water visibility, OPC indicators, ship technology indicators, ship shortcut badges, officer preset reordering, and the keep-base-card preference. These controls use the shared defaults, metadata and save-status system. Galaxy overlay changes persist the entire effective selection, including the Default fallback.
+
+Audio Alerts keeps file picking and decoding off the game thread. File completion updates the saved source and invalidates older reset confirmations. Each event can use a built-in sound or its prepared custom file. Fleet desktop-event selection and physical/layout keyboard mode remain in TOML. Shortcut recording follows the configured keyboard mode.
+
+This alignment includes upstream settings source `66e9b045` and the substantive chat-title hook fix. Claim/selection science remains outside the play promotion candidate; parked Kirshara science is not restored. Windows and macOS share the controls; platform qualification is recorded per artifact.

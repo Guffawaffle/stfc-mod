@@ -14,10 +14,11 @@
 
 namespace config_edit
 {
-RuntimeConfigWriter::RuntimeConfigWriter(std::filesystem::path path, std::optional<Value> initial, Reporter report)
+RuntimeConfigWriter::RuntimeConfigWriter(std::filesystem::path path, Reporter report)
     : path_(std::move(path))
     , report_(report)
-{ saved_.emplace(Key{"ui", "auto_confirm_instant_warp"}, Saved{std::move(initial)}); }
+{
+}
 
 RuntimeConfigWriter::~RuntimeConfigWriter()
 {
@@ -26,19 +27,14 @@ RuntimeConfigWriter::~RuntimeConfigWriter()
     worker_.join();
 }
 
-std::uint64_t RuntimeConfigWriter::Submit(std::string mode)
-{
-  if (mode != "none" && mode != "warp" && mode != "jump")
-    return 0;
-  return Submit("ui", "auto_confirm_instant_warp", std::move(mode));
-}
-
 bool RuntimeConfigWriter::Register(std::string section, std::string key, std::optional<Value> initial)
 {
   std::lock_guard lock(mutex_);
-  if (worker_.joinable() || stopping_ || section.empty() || key.empty())
+  if (stopping_ || cancel_pending_.load() || section.empty() || key.empty())
     return false;
-  return saved_.emplace(Key{std::move(section), std::move(key)}, Saved{std::move(initial)}).second;
+  saved_.try_emplace(Key{std::move(section), std::move(key)},
+                     Saved{std::move(initial), false, {0, Outcome::AlreadySaved, false, true}});
+  return true;
 }
 
 std::uint64_t RuntimeConfigWriter::Submit(std::string section, std::string key, Value desired,
@@ -53,6 +49,8 @@ std::uint64_t RuntimeConfigWriter::Submit(std::string section, std::string key, 
                             Pending{++revision_,
                                     {std::move(section), std::move(key), saved->second.value, std::move(desired)},
                                     std::chrono::steady_clock::now() + delay});
+  saved->second.status = {revision_, saved->second.status.outcome, true, true, pending_.at(identity).edit.desired};
+  ++status_sequence_;
   has_work_.store(true);
   if (!worker_.joinable()) {
     try {
@@ -60,8 +58,10 @@ std::uint64_t RuntimeConfigWriter::Submit(std::string section, std::string key, 
     } catch (...) {
       pending_.clear();
       has_work_.store(false);
-      completion_ = {revision_, Outcome::IoError};
+      completion_          = {revision_, Outcome::IoError};
       saved->second.failed = true;
+      saved->second.status = {revision_, Outcome::IoError, false, true, saved->second.status.subject};
+      ++status_sequence_;
       has_failures_.store(true);
       return 0;
     }
@@ -78,6 +78,15 @@ void RuntimeConfigWriter::Stop(bool cancel_pending)
   stopping_ = true;
   if (cancel_pending && !pending_.empty()) {
     completion_ = {revision_, Outcome::Cancelled};
+    for (const auto& [identity, pending] : pending_) {
+      auto& saved = saved_.at(identity);
+      if (saved.status.revision == pending.revision) {
+        saved.status = {pending.revision, Outcome::Cancelled, false, true, pending.edit.desired};
+        saved.failed = true;
+      }
+    }
+    has_failures_.store(true);
+    ++status_sequence_;
     pending_.clear();
   }
   wake_.notify_one();
@@ -100,6 +109,12 @@ bool RuntimeConfigWriter::HasFailure(std::string_view section, std::string_view 
   const auto      found = saved_.find(Key{std::string(section), std::string(key)});
   return found != saved_.end() && found->second.failed;
 }
+RuntimeConfigWriter::Status RuntimeConfigWriter::GetStatus(std::string_view section, std::string_view key)
+{
+  std::lock_guard lock(mutex_);
+  const auto      found = saved_.find(Key{std::string(section), std::string(key)});
+  return found == saved_.end() ? Status{} : found->second.status;
+}
 
 void RuntimeConfigWriter::Run()
 {
@@ -110,8 +125,18 @@ void RuntimeConfigWriter::Run()
       wake_.wait(lock, [&] { return stopping_ || cancel_pending_.load() || !pending_.empty(); });
       if (cancel_pending_.load()) {
         stopping_ = true;
-        if (!pending_.empty())
+        if (!pending_.empty()) {
           completion_ = {revision_, Outcome::Cancelled};
+          for (const auto& [identity, pending] : pending_) {
+            auto& saved = saved_.at(identity);
+            if (saved.status.revision == pending.revision) {
+              saved.status = {pending.revision, Outcome::Cancelled, false, true, pending.edit.desired};
+              saved.failed = true;
+            }
+          }
+          has_failures_.store(true);
+          ++status_sequence_;
+        }
         pending_.clear();
       }
       if (pending_.empty())
@@ -144,8 +169,15 @@ void RuntimeConfigWriter::Run()
         saved = work.edit.desired;
       }
       // A successful B save must not hide an unsaved A change.
-      saved_.at(Key{work.edit.section, work.edit.key}).failed =
-          outcome != Outcome::Saved && outcome != Outcome::AlreadySaved;
+      auto& saved_state = saved_.at(Key{work.edit.section, work.edit.key});
+      auto& status      = saved_state.status;
+      // A queued newer cancellation owns the final failure state; an older
+      // in-flight success must not make its unsaved value appear acknowledged.
+      if (status.revision == work.revision || status.pending)
+        saved_state.failed = outcome != Outcome::Saved && outcome != Outcome::AlreadySaved;
+      if (status.revision == work.revision)
+        status = {work.revision, outcome, false, true, work.edit.desired};
+      ++status_sequence_;
       has_failures_.store(
           std::any_of(saved_.begin(), saved_.end(), [](const auto& entry) { return entry.second.failed; }));
       if (work.revision >= completion_.revision)
@@ -182,6 +214,16 @@ bool RuntimeConfigWriter::PollStopped()
     return false;
 #endif
   worker_.join();
+  return true;
+}
+
+bool RuntimeConfigWriter::Resume()
+{
+  std::lock_guard lock(mutex_);
+  if (worker_.joinable() || !stopping_ || cancel_pending_.load() || !pending_.empty())
+    return false;
+  stopping_ = false;
+  finished_.store(false);
   return true;
 }
 

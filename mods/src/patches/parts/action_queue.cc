@@ -1,10 +1,9 @@
 #include "action_queue.h"
 #include <config.h>
-#include "settings/queue_recovery.h"
 
-// Use the host C++ ABI for the 24-byte value-type callback: indirect on Windows x64/Apple
-// Silicon, stack by value on Mac Intel. Validate the managed layout before installing.
-#if (defined(_WIN32) && defined(_M_X64)) || (defined(__APPLE__) && (defined(__arm64__) || defined(__x86_64__)))
+// The callback ABI below is Windows x64. Validate its contract against the running client.
+#if defined(_WIN32) && defined(_M_X64)
+#include <Windows.h>
 #include <atomic>
 #include <array>
 #include <utility>
@@ -35,7 +34,7 @@ std::atomic_bool                   ready{false};
 Il2CppClass *                      queueClass{}, *actionClass{}, *int64Class{};
 
 bool Enabled()
-{ return ready.load() && Config::Get().faster_queue_recovery && Config::Get().queue_enabled; }
+{ return ready.load() && Config::Get().kirshara_fixes && Config::Get().queue_enabled; }
 void ClearRequests()
 {
   std::lock_guard lock(requestsMutex);
@@ -48,14 +47,6 @@ template <typename T> T Read(const void* object, std::size_t offset)
     std::memcpy(&value, static_cast<const char*>(object) + offset, sizeof(value));
   return value;
 }
-Il2CppClass* Resolve(const char* assembly, const char* ns, const char* name)
-{
-  auto* domain = il2cpp_domain_get();
-  auto* loaded = domain ? il2cpp_domain_assembly_open(domain, assembly) : nullptr;
-  auto* image  = loaded ? il2cpp_assembly_get_image(loaded) : nullptr;
-  return image ? il2cpp_class_from_name(image, ns, name) : nullptr;
-}
-
 // Inspect actual List<QueueableAction> storage without invoking game properties or enumerators.
 // Unknown storage/layout is ineligible, never equivalent to an empty queue or absent target.
 QueueState Inspect(Il2CppObject* queue, std::int64_t target = 0)
@@ -73,7 +64,9 @@ QueueState Inspect(Il2CppObject* queue, std::int64_t target = 0)
   auto* size    = il2cpp_class_get_field_from_name(cls, "_size");
   auto* storage = il2cpp_class_get_field_from_name(cls, "_items");
   if (!size || !storage || !size->type || !storage->type || size->type->type != IL2CPP_TYPE_I4
-      || storage->type->type != IL2CPP_TYPE_SZARRAY)
+      || storage->type->type != IL2CPP_TYPE_SZARRAY || size->type->byref || storage->type->byref
+      || (il2cpp_field_get_flags(size) & FIELD_ATTRIBUTE_STATIC)
+      || (il2cpp_field_get_flags(storage) & FIELD_ATTRIBUTE_STATIC))
     return s;
   Il2CppArray* items{};
   il2cpp_field_get_value(list, size, &s.count);
@@ -162,6 +155,8 @@ int Engage(auto original, Il2CppObject* manager, Il2CppObject* player, Il2CppObj
 }
 bool Retry(auto original, Il2CppObject* manager, std::int64_t target, Il2CppObject* queue)
 {
+  if (!Enabled())
+    ClearRequests();
   const bool retry = original(manager, target, queue);
   if (retry || !Enabled() || !currentCourse)
     return retry;
@@ -194,6 +189,8 @@ struct CourseResponse {
 static_assert(sizeof(CourseResponse) == 24 && offsetof(CourseResponse, target) == 16);
 void Course(auto original, Il2CppObject* manager, CourseResponse args)
 {
+  if (!Enabled())
+    ClearRequests();
   CourseContext context{args.fleet};
   if (Enabled() && !args.success && !args.recall) {
     try {
@@ -224,21 +221,28 @@ void ClearAll(auto original, Il2CppObject* manager)
 bool Field(Il2CppClass* cls, const char* name, std::ptrdiff_t offset, Il2CppTypeEnum type)
 {
   auto* field = cls ? il2cpp_class_get_field_from_name(cls, name) : nullptr;
-  const bool valid = field && field->offset == offset && field->type && field->type->type == type;
+  const bool valid = field && field->offset == offset && field->type && !field->type->byref
+                     && !(il2cpp_field_get_flags(field) & FIELD_ATTRIBUTE_STATIC) && field->type->type == type;
   if (!valid)
-    spdlog::warn("[FasterQueueRecovery] {}.{}: expected field offset=0x{:X} type={}; actual offset={} type={}",
+    spdlog::warn("[FasterQueueRecovery] {}.{}: expected instance field offset=0x{:X} type={}; "
+                   "actual offset={} type={} static={} byref={}",
                    cls ? cls->name : "<missing class>", name, offset, static_cast<int>(type),
-                   field ? field->offset : -1, field && field->type ? static_cast<int>(field->type->type) : -1);
+                   field ? field->offset : -1, field && field->type ? static_cast<int>(field->type->type) : -1,
+                   field && field->type && bool(il2cpp_field_get_flags(field) & FIELD_ATTRIBUTE_STATIC),
+                   field && field->type && bool(field->type->byref));
   return valid;
 }
 } // namespace
 
+void ResetQueueRecoveryTracking()
+{ ClearRequests(); }
+
 void InstallActionQueueRecovery()
 {
-  auto* cls   = Resolve("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager");
-  queueClass  = Resolve("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueInstance");
-  actionClass = Resolve("Assembly-CSharp", "Prime.ActionQueue", "QueueableAction");
-  int64Class  = Resolve("mscorlib", "System", "Int64");
+  auto* cls   = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueManager").get_cls();
+  queueClass  = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "ActionQueueInstance").get_cls();
+  actionClass = il2cpp_get_class_helper("Assembly-CSharp", "Prime.ActionQueue", "QueueableAction").get_cls();
+  int64Class  = il2cpp_get_class_helper("mscorlib", "System", "Int64").get_cls();
   if (!cls || !queueClass || !actionClass || !int64Class) {
     for (const auto& [type, name] : std::array{
              std::pair{cls, "Prime.ActionQueue.ActionQueueManager"},
@@ -278,7 +282,11 @@ void InstallActionQueueRecovery()
       && Field(queueClass, "<PlayerFleetId>k__BackingField", 0x30, IL2CPP_TYPE_I8)
       && Field(queueClass, "_actionQueue", 0x28, IL2CPP_TYPE_GENERICINST)
       && Field(actionClass, "<FleetId>k__BackingField", 0x10, IL2CPP_TYPE_I8)
-      && engage && retry && course && clear;
+      && engage && retry && course && clear
+      && !engage_info->has_full_generic_sharing_signature && !retry_info->has_full_generic_sharing_signature
+      && !info->has_full_generic_sharing_signature && !clear_info->has_full_generic_sharing_signature
+      && engage != retry && engage != course && engage != clear
+      && retry != course && retry != clear && course != clear;
   if (!valid) {
     const std::array methods{
         std::pair{engage_info, "ActionQueueManager.TryPlanPathAndEngageTarget(FleetPlayerData, ActionQueueInstance) -> EngageResult"},
@@ -297,6 +305,12 @@ void InstallActionQueueRecovery()
     if (event_size != sizeof(CourseResponse))
       spdlog::warn("[FasterQueueRecovery] unavailable: SetCourseResponseEventArgs expected value type size={}; actual={}",
                      sizeof(CourseResponse), event_size);
+    for (size_t i = 0; i < methods.size(); ++i)
+      for (size_t j = 0; j < i; ++j)
+        if (methods[i].first && methods[j].first && methods[i].first->methodPointer
+            && methods[i].first->methodPointer == methods[j].first->methodPointer)
+          spdlog::warn("[FasterQueueRecovery] unavailable: {} and {} share a native hook target",
+                         methods[i].second, methods[j].second);
     return;
   }
   const bool a = SPUD_STATIC_DETOUR(engage, Engage) != nullptr;
@@ -312,18 +326,7 @@ void InstallActionQueueRecovery()
   ready.store(a && b && c && d);
   spdlog::info("[FasterQueueRecovery] ready={}", ready.load());
 }
-namespace mod_settings
-{
-bool QueueRecoveryAvailable()
-{ return ready.load() && Config::Get().installActionQueueRecoveryHooks; }
-void ResetQueueRecovery()
-{ ClearRequests(); }
-} // namespace mod_settings
 #else
 void InstallActionQueueRecovery() {}
-namespace mod_settings
-{
-bool QueueRecoveryAvailable() { return false; }
-void ResetQueueRecovery() {}
-} // namespace mod_settings
+void ResetQueueRecoveryTracking() {}
 #endif
