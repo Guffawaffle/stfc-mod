@@ -1027,7 +1027,7 @@ buffs = true
 # Do you want to sync building data?
 buildings = true
 
-# Send initial Haven snapshots? Disabled unless explicitly enabled; targets may override this.
+# Send initial Haven snapshots? Enabled by default; targets may override this.
 haven = true
 
 # Do you want to sync inventory data?
