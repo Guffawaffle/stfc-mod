@@ -325,6 +325,10 @@ struct XsollaUpdater {
       if gamePath.hasSuffix("/") || gamePath.hasSuffix("\\") {
         gamePath = String(gamePath.dropLast())
       }
+      let executable = (gamePath as NSString).appendingPathComponent(
+        "Star Trek Fleet Command.app/Contents/MacOS/Star Trek Fleet Command")
+      let reservation = try await InstallationUpdateReservation.acquire(gameExecutable: executable)
+      defer { reservation.release() }
       let tempPath = TemporaryFolderURL()
 
       if FileManager.default.fileExists(atPath: tempGamePath) {
