@@ -135,7 +135,7 @@ bool InstallOrbitConstraintHook()
   if (!method || method->has_full_generic_sharing_signature || !method->methodPointer)
     return false;
 #if __APPLE__
-  if (!native_hooks::MacHookFits(method->methodPointer))
+  if (!native_hooks::MacHookFits(method_contract::Pointer(method)))
     return false;
 #endif
   installed = SPUD_STATIC_DETOUR(method->methodPointer, SharedOrbitConstraints) != nullptr;
