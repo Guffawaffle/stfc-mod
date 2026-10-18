@@ -458,7 +458,7 @@ void RegisterUpstreamSettings(PageCatalog& catalog)
   const Available protections = [] {
     const auto& config  = Config::Get();
     bool        enabled = config.installQueueAddressGuardHooks;
-#if defined(_WIN32) && defined(_M_X64)
+#if (defined(_WIN32) && defined(_M_X64)) || (defined(__APPLE__) && (defined(__arm64__) || defined(__x86_64__)))
     enabled = enabled || config.installActionQueueRecoveryHooks || config.installThinQueueProtectionHooks;
 #endif
     return enabled;

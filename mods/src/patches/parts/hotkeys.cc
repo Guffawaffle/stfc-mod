@@ -693,12 +693,12 @@ bool PressOfficerPresetsButton()
 
 void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
-  const bool shortcutOwnedInput = Key::shortcutCaptureActive || Key::shortcutPopupActive || Key::settingsSearchActive;
+  const bool shortcutOwnedInput = Key::SettingsOwnInput();
   dispatch_screen_manager_update_callbacks();
   mining_preview::Update();
   // Capture owns the key through release. Do not run the native shortcut path
   // or the console on this frame; UI mouse navigation continues via EventSystem.
-  if (shortcutOwnedInput || Key::shortcutCaptureActive || Key::shortcutPopupActive || Key::settingsSearchActive) {
+  if (shortcutOwnedInput || Key::SettingsOwnInput()) {
     show_officer_presets_pending = show_officer_swap_pending = show_ship_swap_pending = 0;
     officer_presets_assignment_opened = false;
     return;
@@ -721,6 +721,9 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
     return;
   }
 #endif
+
+  UpdateManageShipDockSelection();
+  UpdateExpiredAbilityButtons();
 
   // This function is called every frame to update the screen manager.
   // Create a global clock to detect time elapsed
