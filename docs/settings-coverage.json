@@ -1053,7 +1053,7 @@
     },
     {
       "key": "ui.daily_bulk_claim_factions",
-      "control": "list",
+      "control": "multi_select",
       "page": "claims",
       "application": "reopen_view",
       "treatment": "in_game"

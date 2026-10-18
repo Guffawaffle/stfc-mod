@@ -4,6 +4,7 @@
 #include "patches/parts/fc_confirmation_reset.h"
 #include "settings/forbidden_tech.h"
 #include "settings/native_boolean_callback.h"
+#include "ui_helpers.h"
 #include "value_widget_record.h"
 #include <cstdlib>
 #include <cstring>
@@ -23,6 +24,7 @@ namespace
   NativeCallback<void, bool>  setter;
   NativeCallback<int>         query, selectionGetter;
   NativeCallback<void, int>   selectionSetter;
+  NativeCallback<void>        inlineEditCallback;
   NativeCallback<float>       sliderGetter;
   NativeCallback<void, float> sliderSetter;
   bool                        selectionActive = false, sliderActive = false;
@@ -94,7 +96,235 @@ std::deque<ValueWidget>& ValueViews()
 }
 ValueWidget* renderingView = nullptr;
 ValueWidget* bindingView   = nullptr;
-void         Restore(ValueWidget& view)
+bool ChildOf(Il2CppObject* transform, Il2CppObject* parent);
+// Keep only weak component identities across native pooling. An unbound button
+// is disabled and has no listeners; rebind can reuse it in the same Unity frame.
+std::vector<Il2CppGCHandle> inlineButtons;
+void                        ClearInlineEditor(ValueWidget& view)
+{
+  using namespace ui;
+  try {
+    if (auto* button = Target(view.editButton); Alive(button)) {
+      Value(button, "set_enabled", false);
+      Root event(Call(button, "get_onClick"));
+      Call(event.get(), "RemoveAllListeners");
+    }
+    if (auto* object = Target(view.editObject); Alive(object))
+      SetActive(object, false);
+    if (auto* slider = Target(view.editRects[0]); Alive(slider)) {
+      Value(slider, "set_offsetMin", view.editOffsets[0]);
+      Value(slider, "set_offsetMax", view.editOffsets[1]);
+    }
+    if (auto* label = Target(view.editRects[1]); Alive(label)) {
+      Value(label, "set_offsetMin", view.editOffsets[2]);
+      Value(label, "set_offsetMax", view.editOffsets[3]);
+    }
+  } catch (...) {
+    Warn("inline editor restoration unavailable");
+  }
+  Free(view.editButton);
+  Free(view.editObject);
+  for (auto& rect : view.editRects)
+    Free(rect);
+  Free(view.editToken);
+}
+bool InlineSliderEditorActive(Il2CppObject* context)
+{
+  for (auto& view : ValueViews())
+    if (Target(view.context) == context && Target(view.editButton) && Target(view.editToken))
+      return true;
+  return false;
+}
+void InlineEditClick(Il2CppObject* token, const MethodInfo*)
+{
+  if (!OnUIThread())
+    return;
+  for (auto& view : ValueViews()) {
+    if (Target(view.editToken) != token || view.rendering || view.binding || view.requesting || view.clearing
+        || view.editInvoking)
+      continue;
+    try {
+      Root widget(Target(view.widget)), context(Target(view.context));
+      if (!widget.get() || Invoke(SliderMeta().getContext, widget.get()) != context.get())
+        return;
+      auto* setting = SliderFor(context.get());
+      if (!setting)
+        return;
+      struct Guard {
+        bool& flag;
+        Guard(bool& value)
+            : flag(value)
+        { flag = true; }
+        ~Guard()
+        { flag = false; }
+      } guard(view.editInvoking);
+      InvokeSliderEditor(widget.get(), context.get(), *setting);
+    } catch (...) {
+      Warn("inline editor unavailable");
+    }
+    return;
+  }
+}
+vec2 InlineOffset(Il2CppObject* rect, const char* property)
+{
+  Root  value(Call(rect, property));
+  auto* vectors = ui::UnityClass("Vector2");
+  if (!value.get() || value.get()->klass != vectors)
+    throw std::runtime_error("inline editor rect offset");
+  return *static_cast<vec2*>(il2cpp_object_unbox(value.get()));
+}
+Il2CppObject* InlineChild(const char* name, Il2CppObject* parent)
+{
+  using namespace ui;
+  Root        object(il2cpp_object_new(UnityClass("GameObject")));
+  Root        text(reinterpret_cast<Il2CppObject*>(il2cpp_string_new(name)));
+  const auto* ctor = IL2CppClassHelper(UnityClass("GameObject")).GetMethodInfoSpecial(".ctor", [](auto n, auto p) {
+    return n == 1 && Type(p[0], IL2CPP_TYPE_STRING);
+  });
+  void*       args[]{text.get()};
+  Invoke(ctor, object.get(), args);
+  SetActive(object.get(), false);
+  WithType(object.get(), "AddComponent", UnityClass("RectTransform"));
+  Root  transform(Call(object.get(), "get_transform"));
+  bool  world = false;
+  void* parentArgs[]{parent, &world};
+  Call(transform.get(), "SetParent", 2, parentArgs);
+  Value(object.get(), "set_layer", 5);
+  return object.get();
+}
+void BindInlineEditor(ValueWidget& view, SliderSetting& setting)
+{
+  using namespace ui;
+  bool provisional = false;
+  if (!setting.exact_editor)
+    return;
+  try {
+    if (!inlineEditCallback.method()) {
+      const auto* schema =
+          IL2CppClassHelper(il2cpp_class_from_name(il2cpp_get_corlib(), "System", "Object")).GetMethodInfo(".ctor", 0);
+      if (!inlineEditCallback.Initialize(schema, InlineEditClick))
+        return;
+    }
+    Root       parent(Call(Target(view.widget), "get_transform"));
+    Root       slider(Call(ReadField(Target(view.widget), SliderMeta().toggleField), "get_transform"));
+    Root       valueLabel(Call(ReadField(Target(view.widget), SliderMeta().stateField), "get_transform"));
+    const bool nestedValue = ChildOf(valueLabel.get(), slider.get());
+    // Move the existing control block intact; its value label may be nested.
+    view.editOffsets  = {InlineOffset(slider.get(), "get_offsetMin"), InlineOffset(slider.get(), "get_offsetMax"),
+                         InlineOffset(valueLabel.get(), "get_offsetMin"),
+                         InlineOffset(valueLabel.get(), "get_offsetMax")};
+    view.editRects[0] = il2cpp_gchandle_new_weakref(slider.get(), false);
+    if (!nestedValue)
+      view.editRects[1] = il2cpp_gchandle_new_weakref(valueLabel.get(), false);
+    if (!view.editRects[0] || (!nestedValue && !view.editRects[1]))
+      throw std::runtime_error("inline editor layout roots");
+    Root  name(reinterpret_cast<Il2CppObject*>(il2cpp_string_new("CommunityMod_InlineEdit")));
+    void* find[]{name.get()};
+    Root  existing(Call(parent.get(), "Find", 1, find));
+    Root  object(existing.get() ? Call(existing.get(), "get_gameObject")
+                                : InlineChild("CommunityMod_InlineEdit", parent.get()));
+    provisional     = !existing.get();
+    view.editObject = il2cpp_gchandle_new_weakref(object.get(), false);
+    if (!view.editObject)
+      throw std::runtime_error("inline editor object root");
+    auto* buttons = Class("UnityEngine.UI", "UnityEngine.UI", "Button");
+    for (auto it = inlineButtons.begin(); it != inlineButtons.end();) {
+      if (!Target(*it)) {
+        Free(*it);
+        it = inlineButtons.erase(it);
+      } else
+        ++it;
+    }
+    Root button(existing.get() ? WithType(object.get(), "GetComponent", buttons)
+                               : WithType(object.get(), "AddComponent", buttons));
+    if (existing.get() && std::none_of(inlineButtons.begin(), inlineButtons.end(), [&](auto handle) {
+          return Target(handle) == button.get();
+        }))
+      throw std::runtime_error("inline editor ownership");
+    view.editButton = il2cpp_gchandle_new_weakref(button.get(), false);
+    if (!view.editButton)
+      throw std::runtime_error("inline editor button root");
+    if (!existing.get()) {
+      Root image(WithType(object.get(), "AddComponent", Class("UnityEngine.UI", "UnityEngine.UI", "Image")));
+      Value(image.get(), "set_color", color{.18f, .34f, .43f, 1});
+      Set(button.get(), "set_targetGraphic", image.get());
+      Root caption(InlineChild("Label", Call(object.get(), "get_transform")));
+      Root captionRect(Call(caption.get(), "get_transform"));
+      Value(captionRect.get(), "set_anchorMin", vec2{0, 0});
+      Value(captionRect.get(), "set_anchorMax", vec2{1, 1});
+      Value(captionRect.get(), "set_offsetMin", vec2{0, 0});
+      Value(captionRect.get(), "set_offsetMax", vec2{0, 0});
+      Root label(WithType(caption.get(), "AddComponent", Class("Unity.TextMeshPro", "TMPro", "TextMeshProUGUI")));
+      Root labelObject(Call(Target(view.label), "get_gameObject"));
+      Root source(WithType(labelObject.get(), "GetComponent", Class("Unity.TextMeshPro", "TMPro", "TMP_Text")));
+      Root font(Call(source.get(), "get_font"));
+      if (!font.get())
+        throw std::runtime_error("inline editor font unavailable");
+      Set(label.get(), "set_font", font.get());
+      Value(label.get(), "set_fontSize", 22.f);
+      Value(label.get(), "set_alignment", 0x202);
+      Value(label.get(), "set_color", color{.88f, .95f, .97f, 1});
+      Value(label.get(), "set_raycastTarget", false);
+      Text(label.get(), "Edit");
+      SetActive(caption.get(), true);
+      const auto handle = il2cpp_gchandle_new_weakref(button.get(), false);
+      if (!handle)
+        throw std::runtime_error("inline editor component root");
+      inlineButtons.push_back(handle);
+      provisional = false;
+    }
+    Root rect(Call(object.get(), "get_transform"));
+    Value(rect.get(), "set_anchorMin", vec2{1, .5f});
+    Value(rect.get(), "set_anchorMax", vec2{1, .5f});
+    Value(rect.get(), "set_pivot", vec2{1, .5f});
+    Value(rect.get(), "set_sizeDelta", vec2{104, 44});
+    Value(rect.get(), "set_anchoredPosition", vec2{-12, 0});
+    Root token(il2cpp_object_new(il2cpp_class_from_name(il2cpp_get_corlib(), "System", "Object")));
+    view.editToken = il2cpp_gchandle_new_weakref(token.get(), false);
+    if (!view.editToken)
+      throw std::runtime_error("inline editor callback root");
+    Root        event(Call(button.get(), "get_onClick"));
+    const auto* add = IL2CppClassHelper(event.get()->klass).GetMethodInfo("AddListener", 1);
+    if (!Instance(add, 1, IL2CPP_TYPE_VOID) || !Reference(add->parameters[0]))
+      throw std::runtime_error("inline editor callback");
+    Root  callback(MakeDelegate(il2cpp_class_from_type(add->parameters[0]), token.get(), inlineEditCallback.method()));
+    void* args[]{callback.get()};
+    Invoke(add, event.get(), args);
+    auto sliderMin = view.editOffsets[0], sliderMax = view.editOffsets[1];
+    sliderMin.x -= 124;
+    sliderMax.x -= 124;
+    Value(slider.get(), "set_offsetMin", sliderMin);
+    Value(slider.get(), "set_offsetMax", sliderMax);
+    if (!nestedValue) {
+      auto valueMin = view.editOffsets[2], valueMax = view.editOffsets[3];
+      valueMin.x -= 124;
+      valueMax.x -= 124;
+      Value(valueLabel.get(), "set_offsetMin", valueMin);
+      Value(valueLabel.get(), "set_offsetMax", valueMax);
+    }
+    Value(button.get(), "set_enabled", true);
+    SetActive(object.get(), true);
+  } catch (...) {
+    // Publish only complete controls; a same-frame rebind must not find a partial child.
+    Root incomplete(provisional ? Target(view.editObject) : nullptr);
+    ClearInlineEditor(view);
+    if (incomplete.get()) {
+      try {
+        Root  transform(Call(incomplete.get(), "get_transform"));
+        bool  world = false;
+        void* parentArgs[]{nullptr, &world};
+        Call(transform.get(), "SetParent", 2, parentArgs);
+        static const auto* destroy = IL2CppClassHelper(UnityClass("Object")).GetMethodInfo("Destroy", 1);
+        void*              args[]{incomplete.get()};
+        Static(destroy, args);
+      } catch (...) {
+        Warn("incomplete inline editor disposal unavailable");
+      }
+    }
+    Warn("inline editor binding unavailable; using separate Edit row");
+  }
+}
+void Restore(ValueWidget& view)
 {
   RestoreTint(view.tint);
   if (view.disabled) {
@@ -136,6 +366,19 @@ void Clear(ValueWidget& view)
   // Restoring interactability synchronously calls DoStateTransition. Suppress
   // presentation reentry until every override is restored and the slot detached.
   ClearChoiceStyle(view);
+  try {
+    if (view.selectionGroupDetached && view.state)
+      if (auto* control = Target(view.selectionControl)) {
+        NativeViewState::RenderScope suppress(*view.state);
+        void*                        args[]{Target(view.selectionGroup)};
+        Call(control, "set_group", 1, args);
+      }
+  } catch (...) {
+    Warn("settings selection group restoration unavailable");
+  }
+  Free(view.selectionGroup);
+  view.selectionGroupDetached = false;
+  ClearInlineEditor(view);
   Free(view.widget);
   Free(view.context);
   Free(view.label);
@@ -178,9 +421,17 @@ bool ChildOf(Il2CppObject* transform, Il2CppObject* parent)
 ValueWidget& Track(Il2CppObject* widget, Il2CppObject* context)
 {
   for (auto& view : ValueViews()) {
-    if (Target(view.widget) || view.rendering || view.binding || view.requesting || view.clearing)
+    if (Target(view.widget) || view.rendering || view.binding || view.requesting || view.clearing || view.editInvoking)
       continue;
     Clear(view);
+    struct BindingScope {
+      bool& binding;
+      explicit BindingScope(bool& flag)
+          : binding(flag)
+      { binding = true; }
+      ~BindingScope()
+      { binding = false; }
+    } binding(view.binding);
     auto&                        metadata = WidgetMeta(widget);
     Root                         label(ReadField(widget, metadata.labelField));
     Root                         widgetTransform(Call(widget, "get_transform"));
@@ -233,8 +484,22 @@ ValueWidget& Track(Il2CppObject* widget, Il2CppObject* context)
         view.state.emplace(*setting);
       }
       view.label = weak(label.get());
+      if (metadata.slider)
+        BindInlineEditor(view, *SliderFor(context));
       if (metadata.selection || metadata.slider)
         view.selectionControl = weak(selectionControl.get());
+      if (metadata.selection && ChoiceFor(context).first->multiple()) {
+        // A pooled native prefab may belong to an exclusive ToggleGroup.
+        // Detach only our multi-select and restore its group when released.
+        Root group(Call(selectionControl.get(), "get_group"));
+        if (group.get()) {
+          view.selectionGroup         = weak(group.get());
+          view.selectionGroupDetached = true;
+          NativeViewState::RenderScope suppress(*view.state);
+          void*                        args[]{nullptr};
+          Call(selectionControl.get(), "set_group", 1, args);
+        }
+      }
       if (!metadata.selection)
         for (std::size_t i = 0; i < indicators.size(); ++i)
           view.indicators[i] = weak(indicators[i]);
@@ -348,6 +613,17 @@ void Render(ValueWidget& view, auto original, Il2CppObject* widget)
     }
   } scope(view);
   Restore(view);
+  if (WidgetMeta(widget).selection && !PageRefreshInProgress()) {
+    const auto [setting, index] = ChoiceFor(boundContext.get());
+    if (setting && setting->multiple()) {
+      // Native SetWidgetData updates only the animator, leaving Toggle.isOn
+      // stale. Synchronize it without callbacks so the first click toggles the
+      // displayed state rather than repeating it.
+      bool checked = view.state->value().value_or(false);
+      void* args[]{&checked};
+      Call(Target(view.selectionControl), "SetIsOnWithoutNotify", 1, args);
+    }
+  }
   original(widget);
   if (Target(view.widget) != widget || Target(view.context) != boundContext.get())
     return;
@@ -402,10 +678,12 @@ void AddChoiceRows(Il2CppObject* director, Il2CppObject* context, Il2CppObject* 
   auto&       m   = SelectionMeta();
   const auto* add = m.context.GetMethodInfo("AddSelection", 6);
   Root        children(Call(parent, "get_Children"));
-  const int   before = Count(children.get());
+  const int   before = Count(children.get()) + 1;
   const auto  count  = setting.labels().size();
   if (before + count > PageCatalog::NativeChildLimit)
     throw std::runtime_error("selection category capacity");
+  // A display-only title belongs to the choice, not a new collapsible section.
+  AddHeadingRow(director, context, parent, {setting.title_id(), setting.state().label()});
   Root values(reinterpret_cast<Il2CppObject*>(
       il2cpp_array_new(il2cpp_class_from_name(il2cpp_get_corlib(), "System", "String"), count)));
   for (std::size_t i = 0; i < count; ++i) {
@@ -593,12 +871,41 @@ void SelectionTransitionHook(auto original, Il2CppObject* control, int state, bo
     return;
   }
 }
+void SynchronizeMultiSelectToggles()
+{
+  if (!OnUIThread() || !selectionActive)
+    return;
+  for (auto& view : ValueViews()) {
+    if (!view.state || !view.state->known() || view.rendering || view.binding || view.requesting || view.clearing)
+      continue;
+    try {
+      Root widget(Target(view.widget)), context(Target(view.context)), control(Target(view.selectionControl));
+      if (!widget.get() || !context.get() || !control.get() || widget.get()->klass != SelectionMeta().widget.get_cls()
+          || Invoke(SelectionMeta().getContext, widget.get()) != context.get() || !OwnsValueContext(context.get()))
+        continue;
+      const auto [setting, index] = ChoiceFor(context.get());
+      if (!setting || !setting->multiple())
+        continue;
+      struct Scope {
+        bool& rendering;
+        NativeViewState::RenderScope suppress;
+        explicit Scope(ValueWidget& view) : rendering(view.rendering), suppress(*view.state) { rendering = true; }
+        ~Scope() { rendering = false; }
+      } scope(view);
+      bool checked = view.state->value().value_or(false);
+      void* args[]{&checked};
+      Call(control.get(), "SetIsOnWithoutNotify", 1, args);
+    } catch (...) {
+      Warn("multi-select toggle reconciliation unavailable");
+    }
+  }
+}
 void RefreshViews()
 {
   if (!OnUIThread())
     return;
   for (auto& view : ValueViews()) {
-    if (view.requesting || view.rendering || view.binding || view.clearing)
+    if (view.requesting || view.rendering || view.binding || view.clearing || view.editInvoking)
       continue;
     Root widget(Target(view.widget));
     if (!widget.get())
@@ -626,6 +933,11 @@ void ChangeValue(auto original, Il2CppObject* widget, auto desired)
     Root context(Invoke(WidgetMeta(widget).getContext, widget));
     owned = OwnsValueContext(context.get());
     if (owned) {
+      if (PageRefreshInProgress() && WidgetMeta(widget).selection) {
+        const auto [setting, index] = ChoiceFor(context.get());
+        if (setting && setting->multiple())
+          return; // Native panel binding cannot authorize a checkbox edit.
+      }
       auto* view = FindValueWidget(widget);
       if (!view || view->rendering || view->binding || view->requesting || view->clearing
           || Target(view->context) != context.get())
@@ -779,7 +1091,7 @@ void PrepareValueViews(std::size_t count)
 bool ValueWidgetsBusy()
 {
   for (const auto& view : ValueViews())
-    if (view.requesting || view.rendering || view.binding || view.clearing)
+    if (view.requesting || view.rendering || view.binding || view.clearing || view.editInvoking)
       return true;
   return false;
 }

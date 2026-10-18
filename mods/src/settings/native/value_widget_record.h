@@ -5,6 +5,7 @@
 #include "settings/native_view_state.h"
 #include "value_widgets.h"
 #include <array>
+#include "prime/Vector2.h"
 
 namespace mod_settings::native
 {
@@ -19,8 +20,14 @@ struct ValueWidget {
   bool                           choiceStyled = false, pressed = false;
   Il2CppGCHandle                 widget = nullptr, context = nullptr, label = nullptr;
   Il2CppGCHandle                 selectionControl = nullptr;
+  Il2CppGCHandle                 selectionGroup         = nullptr;
+  bool                           selectionGroupDetached = false;
   std::array<Il2CppGCHandle, 2>  indicators{};
   std::array<bool, 2>            activeBefore{};
+  Il2CppGCHandle                 editButton = nullptr, editObject = nullptr, editToken = nullptr;
+  std::array<Il2CppGCHandle, 2>  editRects{};
+  std::array<vec2, 4>            editOffsets{};
+  bool                           editInvoking        = false;
   bool                           overridden          = false;
   bool                           hidden              = false;
   bool                           disabled            = false;

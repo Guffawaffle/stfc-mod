@@ -1,8 +1,12 @@
 #include "upstream_settings.h"
+#include "queue_recovery.h"
 
 #include "config.h"
 #include "defaultconfig.h"
 #include "file.h"
+#include "image_file_setting.h"
+#include "patches/screen_update_hook.h"
+#include "native/action_widgets.h"
 #include "forbidden_tech.h"
 #include "mod_pages.h"
 #include "patches/mission_hud.h"
@@ -19,6 +23,8 @@
 #include "patches/ship_tech_indicators.h"
 #include "patches/ship_shortcut_badges.h"
 
+#include <algorithm>
+#include <array>
 #include <charconv>
 #include <cmath>
 #include <filesystem>
@@ -40,6 +46,15 @@ namespace
   constexpr auto root = "community_mod.settings";
   using Timing        = ApplyTiming;
   using Available     = std::function<bool()>;
+  std::shared_ptr<ImageFileSetting> loadingImagePicker;
+  void                              PollLoadingImagePicker()
+  {
+    if (loadingImagePicker && loadingImagePicker->Poll()) {
+#if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
+      native::RefreshActions();
+#endif
+    }
+  }
   std::vector<std::shared_ptr<void>>                        adapters;
   std::map<std::string, std::function<bool()>, std::less<>> currentSavers;
 
@@ -63,8 +78,18 @@ namespace
     if constexpr (std::is_same_v<T, std::string>)
       return value;
     else {
-      char       text[128];
-      const auto result = std::to_chars(text, text + sizeof(text), value);
+      char text[128];
+      auto displayed = value;
+      if constexpr (std::is_floating_point_v<T>) {
+        // Match the slider's two-decimal presentation only for floating-point
+        // residue. Keep meaningful custom precision, including tiny values.
+        const auto rounded = static_cast<T>(std::round(static_cast<double>(value) * 100.0) / 100.0);
+        if (std::isfinite(rounded) && rounded != 0
+            && std::abs(rounded - value)
+                   <= 4 * std::numeric_limits<T>::epsilon() * std::max(std::abs(value), std::abs(rounded)))
+          displayed = rounded;
+      }
+      const auto result = std::to_chars(text, text + sizeof(text), displayed);
       return result.ec == std::errc{} ? std::string(text, result.ptr) : std::string{};
     }
   }
@@ -182,7 +207,8 @@ namespace
   // slider's range-limited reader. Existing custom values remain readable and can
   // be edited without first moving a slider or normalizing the TOML file.
   template <typename T, typename Parse>
-  void ExactEntry(PageCatalog& catalog, const char* page, const std::shared_ptr<ValueSetting<T>>& setting, Parse parse)
+  std::shared_ptr<ActionSetting> ExactEntry(PageCatalog& catalog, const char* page,
+                                            const std::shared_ptr<ValueSetting<T>>& setting, Parse parse)
   {
     auto action           = Keep<ActionSetting>();
     action->identity      = setting->id() + ".exact";
@@ -218,23 +244,28 @@ namespace
         const auto text = Format(*value);
         help += "\nDefault: " + (text.empty() ? std::string("(empty)") : text);
       }
+      const auto initial = Format(*observed.state.value);
       OpenTextEntry({.title = setting->label(),
-                     .value = Format(*observed.state.value),
+                     .value = initial,
                      .help  = std::move(help),
                      .validate =
                          [parse](std::string_view text) {
                            return parse(text) ? std::string{} : std::string("Enter a valid value.");
                          },
                      .commit =
-                         [setting, observed, parse](std::string_view text) {
+                         [setting, observed, parse, initial](std::string_view text) {
                            const auto value = parse(text);
                            if (!value)
                              return false;
-                           const auto result = setting->SetFromUser(*value, observed).outcome;
+                           // Accepting unchanged presentation must not round the
+                           // canonical value, and must still reject stale edits.
+                           const auto result =
+                               setting->SetFromUser(text == initial ? *observed.state.value : *value, observed).outcome;
                            return result == Outcome::AppliedVerified || result == Outcome::Unchanged;
                          }});
     };
     catalog.AddAction(page, *action);
+    return action;
   }
 
   template <typename T>
@@ -271,12 +302,14 @@ namespace
     if (sliderMaximum > static_cast<float>(minimum))
       definition.metadata.description += "\nThe slider is a convenience range; Edit also accepts valid custom values.";
     auto exact = Keep<ValueSetting<T>>(definition);
-    ExactEntry(catalog, page, exact,
-               [minimum, maximum](std::string_view text) { return ParseNumber<T>(text, minimum, maximum); });
+    auto editor = ExactEntry(catalog, page, exact, [minimum, maximum](std::string_view text) {
+      return ParseNumber<T>(text, minimum, maximum);
+    });
     if constexpr (std::is_same_v<T, float>) {
       if (sliderMaximum > static_cast<float>(minimum)) {
         auto slider = Keep<SliderSetting>(std::move(definition), static_cast<float>(minimum), sliderMaximum, step,
                                           std::move(available), SliderLabel::Value, 2);
+        slider->exact_editor = editor.get();
         catalog.AddSlider(page, *slider);
       }
     }
@@ -379,22 +412,46 @@ namespace
           "Comma-separated ship names. Warp filters accept * for every ship. Reopen fleet management after changing them."));
       ExactEntry(catalog, page, setting, parse);
     }
-    auto factions = Keep<ValueSetting<std::string>>(MakeDefinition<std::string>(
-        "ui", "daily_bulk_claim_factions", "Daily bulk-claim factions", DefaultConfig::UI::daily_bulk_claim_factions,
-        [] { return Join(Config::Get().daily_bulk_claim_factions); },
-        [](const std::string& text) {
-          std::vector<std::string> values;
-          if (!ParseFactionFilter(text, values))
-            return false;
-          Config::Get().daily_bulk_claim_factions = std::move(values);
-          return true;
-        },
-        Hook(&Config::installDailyFactionBulkClaimHooks), Timing::ReopenView,
-        "Comma-separated faction names; reopen the daily faction claim screen after changing the list."));
-    ExactEntry(catalog, "community_mod.claims", factions, [](std::string_view text) -> std::optional<std::string> {
+    static constexpr std::array factionNames{"federation", "klingon", "romulan"};
+    const auto                  factionMask = [](const std::vector<std::string>& values) {
+      if (values.empty())
+        return 7; // Existing blank configs preserve all factions.
+      int mask = 0;
+      for (int i = 0; i < 3; ++i)
+        if (std::ranges::find(values, factionNames[i]) != values.end())
+          mask |= 1 << i;
+      return mask;
+    };
+    const auto factionText = [](int mask) {
+      if (mask == 0)
+        return std::string("none");
+      if (mask == 7)
+        return std::string{};
       std::vector<std::string> values;
-      return ParseFactionFilter(text, values) ? std::optional{Join(values)} : std::nullopt;
-    });
+      for (int i = 0; i < 3; ++i)
+        if (mask & (1 << i))
+          values.emplace_back(factionNames[i]);
+      return Join(values);
+    };
+    std::vector<std::string> defaultFactions;
+    ParseFactionFilter(DefaultConfig::UI::daily_bulk_claim_factions, defaultFactions);
+    auto factions = Keep<ChoiceSetting>(
+        MakeDefinition<int>(
+            "ui", "daily_bulk_claim_factions", "Daily bulk-claim factions", factionMask(defaultFactions),
+            [factionMask] { return factionMask(Config::Get().daily_bulk_claim_factions); },
+            [factionText](int mask) {
+              std::vector<std::string> values;
+              if (!ParseFactionFilter(factionText(mask), values))
+                return false;
+              Config::Get().daily_bulk_claim_factions = std::move(values);
+              return true;
+            },
+            Hook(&Config::installDailyFactionBulkClaimHooks), Timing::ReopenView,
+            "Select any combination of factions. Uncheck all to skip faction dailies; other dailies remain eligible. "
+            "Defaults select all factions. Reopen the daily claim screen after changing selections.",
+            "", [factionText](int mask) -> config_edit::Value { return factionText(mask); }),
+        std::vector<std::string>{"Federation", "Klingon", "Romulan"}, ChoiceMode::Multiple);
+    catalog.AddChoice("community_mod.claims", *factions);
     for (const bool notify : {false, true}) {
 #if !_WIN32
       if (notify)
@@ -455,14 +512,7 @@ void RegisterUpstreamSettings(PageCatalog& catalog)
   const auto      pan         = Hook(&Config::installPanHooks);
   const Available controls    = [hotkeys, zoom, pan] { return hotkeys() || zoom() || pan(); };
   const Available extended    = [hotkeys, zoom] { return hotkeys() || zoom(); };
-  const Available protections = [] {
-    const auto& config  = Config::Get();
-    bool        enabled = config.installQueueAddressGuardHooks;
-#if (defined(_WIN32) && defined(_M_X64)) || (defined(__APPLE__) && (defined(__arm64__) || defined(__x86_64__)))
-    enabled = enabled || config.installActionQueueRecoveryHooks || config.installThinQueueProtectionHooks;
-#endif
-    return enabled;
-  };
+  const Available protections = KirsharaFixesAvailable;
   const Available queue = [hotkeys, protections] {
     return hotkeys() || protections() || Config::Get().installTestPatches;
   };
@@ -818,15 +868,18 @@ void RegisterUpstreamSettings(PageCatalog& catalog)
       [loading, transition] { return loading() || transition(); }, Timing::Restart,
       "Path to an image readable by the game. Empty uses the embedded fallback. This does not move or copy the "
       "image."));
-  ExactEntry(catalog, "community_mod.loading", image, [](std::string_view value) -> std::optional<std::string> {
-    value = Trim(value);
-    if (value.empty())
-      return std::string{};
-    std::error_code error;
-    return std::filesystem::is_regular_file(std::filesystem::u8path(value), error) && !error
-               ? std::optional{std::string(value)}
-               : std::nullopt;
-  });
+  auto imageAction =
+      ExactEntry(catalog, "community_mod.loading", image, [](std::string_view value) -> std::optional<std::string> {
+        value = Trim(value);
+        if (value.empty())
+          return std::string{};
+        std::error_code error;
+        return std::filesystem::is_regular_file(std::filesystem::u8path(value), error) && !error
+                   ? std::optional{std::string(value)}
+                   : std::nullopt;
+      });
+  if (install_screen_manager_update_hook() && register_screen_manager_update_callback(PollLoadingImagePicker))
+    loadingImagePicker = Keep<ImageFileSetting>(image, *imageAction);
   Lists(catalog);
   Information(catalog, "community_mod.advanced", "community_mod.configuration.path", "Configuration file", [] {
     const auto path = File::MakePath(File::Config());

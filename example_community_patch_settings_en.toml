@@ -128,7 +128,7 @@ hotkeys_extended = true
 
 # Require a visible target popup or Set Course control for the primary-action shortcut.
 # false preserves sending commands to the last target after its popup is dismissed.
-primary_requires_visible_target = true
+primary_requires_visible_target = false
 
 # If you have the Kir'Shara artifact, should the queue be enabled by default?
 queue_enabled = true
@@ -889,7 +889,7 @@ extend_chest_purchase_max = 160
 # Subgroup: Daily Goals
 # ---------------------
 
-# Comma-separated factions (federation, klingon, romulan) for which the Daily Goals bulk-claim toggle applies; leave blank to preserve the game's default behaviour
+# Comma-separated factions (federation, klingon, romulan) for Daily Goals bulk claim. Blank includes all factions; "none" skips all three. Non-faction dailies remain eligible.
 daily_bulk_claim_factions = ""
 
 # Force the Daily Goals Claim All toggle back on the first time the screen is shown each session
@@ -1027,8 +1027,8 @@ buffs = true
 # Do you want to sync building data?
 buildings = true
 
-# Send initial Haven snapshots? Disabled unless explicitly enabled; targets may override this.
-haven = false
+# Send initial Haven snapshots? Enabled by default; targets may override this.
+haven = true
 
 # Do you want to sync inventory data?
 inventory = true
