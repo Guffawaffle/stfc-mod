@@ -194,7 +194,6 @@ void RegisterAudioAlertPages(PageCatalog& catalog)
   if (!s_alerts.empty()) return;
   s_picker_available = install_screen_manager_update_hook() && register_screen_manager_update_callback(PollFilePicker);
   catalog.AddPage("community_mod.audio", "Audio Alerts", "community_mod.settings");
-  catalog.AddHeading("community_mod.audio", "community_mod.audio.coalescing.heading", "Audio coalescing");
   s_coalescing = std::make_unique<ChoiceSetting>(PersistedDefinition<int>(ValueDefinition<int>{
       "community_mod.audio.coalescing", "Audio coalescing",
       [] { return ValueReadResult<int>::Known(static_cast<int>(notification_audio_coalescing()), 1); },

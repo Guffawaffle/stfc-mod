@@ -21,6 +21,8 @@ struct ValueWidget {
   Il2CppGCHandle                 selectionControl = nullptr;
   std::array<Il2CppGCHandle, 2>  indicators{};
   std::array<bool, 2>            activeBefore{};
+  Il2CppGCHandle                 editButton = nullptr, editGraphic = nullptr, editToken = nullptr;
+  bool                           editRaycastBefore = false, editInvoking = false;
   bool                           overridden          = false;
   bool                           hidden              = false;
   bool                           disabled            = false;
