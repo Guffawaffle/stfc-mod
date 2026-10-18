@@ -128,7 +128,7 @@ hotkeys_extended = true
 
 # Require a visible target popup or Set Course control for the primary-action shortcut.
 # false preserves sending commands to the last target after its popup is dismissed.
-primary_requires_visible_target = true
+primary_requires_visible_target = false
 
 # If you have the Kir'Shara artifact, should the queue be enabled by default?
 queue_enabled = true
@@ -1028,7 +1028,7 @@ buffs = true
 buildings = true
 
 # Send initial Haven snapshots? Disabled unless explicitly enabled; targets may override this.
-haven = false
+haven = true
 
 # Do you want to sync inventory data?
 inventory = true
