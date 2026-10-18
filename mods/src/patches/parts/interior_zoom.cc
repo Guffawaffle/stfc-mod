@@ -1,5 +1,8 @@
 #include "config.h"
 #include "errormsg.h"
+#include "patches/orbit_constraints.h"
+#include "patches/native_hook_extent.h"
+#include <il2cpp/method_contract.h>
 
 #include <il2cpp/il2cpp_helper.h>
 
@@ -112,7 +115,33 @@ void OrbitFrameProvider_UpdateConstrains_Hook(auto original, Il2CppObject *provi
 
   original(provider, camera); // native clamp now runs against the (widened or restored) range
 }
+// Interior radius changes precede native clamping; Haven angles follow it.
+void SharedOrbitConstraints(auto original, Il2CppObject* provider, void* camera)
+{
+  OrbitFrameProvider_UpdateConstrains_Hook(original, provider, camera);
+  ApplyHavenOrbitConstraints(provider);
+}
 } // namespace
+
+bool InstallOrbitConstraintHook()
+{
+  static bool attempted = false, installed = false;
+  if (attempted)
+    return installed;
+  attempted = true;
+  auto orbit = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.CameraController", "OrbitFrameProvider");
+  const auto* method = method_contract::Resolve(orbit.get_cls(), "UpdateConstrains", false,
+                                                 "System.Void", {"UnityEngine.Camera"});
+  if (!method || method->has_full_generic_sharing_signature || !method->methodPointer)
+    return false;
+#if __APPLE__
+  if (!native_hooks::MacHookFits(method_contract::Pointer(method)))
+    return false;
+#endif
+  installed = SPUD_STATIC_DETOUR(method->methodPointer, SharedOrbitConstraints) != nullptr;
+  spdlog::info("[OrbitConstraints] shared Haven/interior hook installed={}", installed);
+  return installed;
+}
 
 void InstallInteriorZoomHooks()
 {
@@ -163,7 +192,7 @@ void InstallInteriorZoomHooks()
     ErrorMsg::MissingMethod("OrbitFrameProvider", "UpdateConstrains");
     return;
   }
-  if (SPUD_STATIC_DETOUR(ptr_update_constrains, OrbitFrameProvider_UpdateConstrains_Hook)) {
+  if (InstallOrbitConstraintHook()) {
     spdlog::info("[InteriorZoom] installed interior orbit-endpoint hook (scale={})", InteriorScale());
   } else {
     spdlog::warn("[InteriorZoom] OrbitFrameProvider.UpdateConstrains detour failed; native behavior kept");

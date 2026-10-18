@@ -82,3 +82,5 @@ The downstream catalog retains custom audio files and coalescing, galaxy label m
 Audio Alerts keeps file picking and decoding off the game thread. File completion updates the saved source and invalidates older reset confirmations. Each event can use a built-in sound or its prepared custom file. Fleet desktop-event selection and physical/layout keyboard mode remain in TOML. Shortcut recording follows the configured keyboard mode.
 
 This alignment includes upstream settings source `66e9b045` and the substantive chat-title hook fix. Claim/selection science remains outside the play promotion candidate; parked Kirshara science is not restored. Windows and macOS share the controls; platform qualification is recorded per artifact.
+
+Station-interior zoom and Haven orbit share one `OrbitFrameProvider.UpdateConstrains` detour: interior radius changes run before native clamping, and Haven orientation changes run afterward. Their emergency installation switches remain independent.
