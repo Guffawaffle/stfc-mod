@@ -42,7 +42,7 @@ int main(int argc, char** argv)
   Check(explicit_focus["ui"]["focus_search"].value_or(
       ConfigAliasDefault(explicit_focus, "ui", "focus_search", "patches", "focussearch", true)));
   Check(ConfigAliasDefault(toml::table{}, "ui", "focus_search", "patches", "focussearch", true));
-  config_edit::RuntimeConfigWriter writer(path, std::nullopt);
+  config_edit::RuntimeConfigWriter writer(path);
   for (const auto& [section, key] : config_edit::persisted_settings) {
     const auto value = initial[section][key].value<std::string>();
     Check(writer.Register(section, key, value ? std::optional<config_edit::Value>(*value) : std::nullopt));

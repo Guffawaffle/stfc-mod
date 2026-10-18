@@ -1,13 +1,14 @@
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
 #include "interop.h"
-#include <il2cpp/runtime.h>
+#include "patches/native_hook_extent.h"
 #include "settings/page_catalog.h"
 #include <cstring>
 #include <exception>
+#include <il2cpp/runtime.h>
 #include <mutex>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <unordered_set>
-#include <spdlog/spdlog.h>
 
 namespace mod_settings::native
 {
@@ -50,16 +51,29 @@ bool Instance(const MethodInfo* method, int count, int result)
          && !method->has_full_generic_sharing_signature;
 }
 
+void ValidateHookFit(const MethodInfo* method)
+{
+  if (!method || !method->methodPointer)
+    throw std::runtime_error("settings hook target missing");
+#if __APPLE__
+  // Validate the actual loaded ARM64/x86_64 method boundary before SPUD writes
+  // its prologue. A successful build does not establish native hook fit.
+  if (!native_hooks::MacHookFits(reinterpret_cast<const void*>(method->methodPointer)))
+    throw std::runtime_error(std::string(method->klass->name) + "." + method->name
+                             + ": native hook extent unavailable");
+#endif
+}
+
 FieldInfo* Field(Il2CppClass* cls, const char* name)
 {
   auto* field = cls ? il2cpp_class_get_field_from_name(cls, name) : nullptr;
   if (!field || !field->type || !Reference(field->type) || (field->type->attrs & FIELD_ATTRIBUTE_STATIC)) {
-    const std::string member = std::string(cls ? cls->namespaze : "") + "."
-                               + (cls ? cls->name : "<missing class>") + "." + name;
+    const std::string member =
+        std::string(cls ? cls->namespaze : "") + "." + (cls ? cls->name : "<missing class>") + "." + name;
     throw std::runtime_error(member + ": expected instance reference field; "
-                             + (!field ? "field missing" : !field->type ? "type missing"
-                                               : "actual type=" + std::to_string(field->type->type)
-                                                     + ", static="
+                             + (!field         ? "field missing"
+                                : !field->type ? "type missing"
+                                               : "actual type=" + std::to_string(field->type->type) + ", static="
                                                      + std::to_string(bool(field->type->attrs & FIELD_ATTRIBUTE_STATIC))
                                                      + ", byref=" + std::to_string(field->type->byref)));
   }
@@ -75,9 +89,8 @@ Il2CppObject* ReadField(Il2CppObject* object, FieldInfo* field)
 Il2CppObject* Invoke(const MethodInfo* method, Il2CppObject* object, void** args)
 {
   if (!method || !object)
-    throw std::runtime_error(std::string("settings invocation: ")
-                             + (method ? method->klass->name : "<missing method>") + "."
-                             + (method ? method->name : "?") + (object ? "" : ": missing receiver"));
+    throw std::runtime_error(std::string("settings invocation: ") + (method ? method->klass->name : "<missing method>")
+                             + "." + (method ? method->name : "?") + (object ? "" : ": missing receiver"));
   Il2CppObject* result = nullptr;
   if (!Il2CppRuntime::TryInvoke(method, object, args, &result))
     throw std::runtime_error(std::string(method->klass->name) + "." + method->name + ": managed invocation failed");

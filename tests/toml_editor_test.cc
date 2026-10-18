@@ -39,6 +39,11 @@ int main(int argc, char** argv)
     assert(toml::parse(edit.text)["ui"]["auto_confirm_instant_warp"].value<std::string>() == "jump");
   }
   const std::string special = "quotes \"'\\\n[ui]\nauto_confirm_instant_warp = 'jump'\n\xc3\xa9";
+  for (const std::string malformed : {std::string("\xff", 1), std::string("\xc0\xaf", 2), std::string("\xe2\x82", 2),
+                                      std::string("\xed\xa0\x80", 3), std::string("\xf4\x90\x80\x80", 4)}) {
+    const auto refused = editor.Prepare("[ui]\nauto_confirm_instant_warp='none'\n", Mode(request.expected, malformed));
+    assert(refused.outcome == Outcome::Unsupported && refused.text.empty());
+  }
   const auto escaped = editor.Prepare("ui = {auto_confirm_instant_warp='none'}", Mode(request.expected, special));
   assert(escaped.outcome == Outcome::Prepared);
   assert(toml::parse(escaped.text)["ui"]["auto_confirm_instant_warp"].value<std::string>() == special);

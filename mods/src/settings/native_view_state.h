@@ -68,7 +68,7 @@ public:
                                   : slider_->unavailableReason();
     switch (reason) {
       case UnavailableReason::OutsideRange:
-        return "Out of range; edit TOML";
+        return "Outside slider range; use Edit";
       case UnavailableReason::InvalidValue:
         return "Invalid value; edit TOML";
       default:
@@ -108,6 +108,26 @@ public:
   std::string label() const
   {
     return boolean_ ? boolean_->setting().label() : choice_ ? group_->labels().at(index_) : slider_->setting().label();
+  }
+  std::string status_text() const
+  {
+    return boolean_  ? boolean_->setting().status_text()
+           : choice_ ? choice_->setting().status_text()
+                     : slider_->setting().status_text();
+  }
+  std::string presentation_label() const
+  {
+    auto text = label();
+    if (!known())
+      text += " — " + std::string(unavailableReason());
+    else if (failed())
+      text += " — Retry";
+    else if (!enabled() && !disabledReason().empty())
+      text += " — " + std::string(disabledReason());
+    const auto status = status_text();
+    if (!status.empty())
+      text += "\n<size=75%>" + status + "</size>";
+    return text;
   }
   class RenderScope
   {

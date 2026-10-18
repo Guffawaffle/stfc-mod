@@ -127,7 +127,7 @@ int main()
   assert(!presentation.actionable());
   assert(commandPlan[0].PositionFor(command.id()) == 0);
   assert(commandPlan[0].PositionFor("unknown") == commandPlan[0].items.size());
-  PageCatalog   combined("labels", "Fleet Labels");
+  PageCatalog combined("labels", "Fleet Labels");
   assert(combined.AddHeading("labels", "player.heading", "Player", true) == Registration::Added);
   assert(combined.AddChoice("labels", player) == Registration::Added);
   assert(combined.AddSlider("labels", playerSlider) == Registration::Added);

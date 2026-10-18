@@ -1,4 +1,5 @@
 #include "config.h"
+#include "patches/orbit_constraints.h"
 #include "errormsg.h"
 #include "settings/camera_settings.h"
 #include "patches/key.h"
@@ -257,9 +258,8 @@ void PrepareHavenOrbit(Il2CppObject *blend, Il2CppObject *source, Il2CppObject *
   }
 }
 
-void HavenOrbit_UpdateConstraints_Hook(auto original, Il2CppObject *provider, Camera *camera)
+void UpdateHavenOrbitConstraints(Il2CppObject *provider)
 {
-  original(provider, camera);
   if (!orbit_ready || (provider != orbit_source && provider != orbit_target))
     return;
   float elevation = 0.0f;
@@ -413,6 +413,9 @@ bool HavenCameraControlAvailable()
 bool HavenWaterControlAvailable()
 { return HavenCameraControlAvailable() && HavenWaterVisibilityAvailable(); }
 } // namespace mod_settings
+
+void ApplyHavenOrbitConstraints(Il2CppObject* provider)
+{ UpdateHavenOrbitConstraints(provider); }
 
 void InstallHavenZoomHooks()
 {
@@ -576,7 +579,7 @@ void InstallHavenZoomHooks()
         && constrain != nullptr && !constrain->has_full_generic_sharing_signature
         && input != nullptr && !input->has_full_generic_sharing_signature
         && install_screen_manager_update_hook() && register_screen_manager_update_callback(UpdateHavenOrbitLifetime)) {
-      orbit_ready = SPUD_STATIC_DETOUR(constrain->methodPointer, HavenOrbit_UpdateConstraints_Hook)
+      orbit_ready = InstallOrbitConstraintHook()
                     && SPUD_STATIC_DETOUR(input->methodPointer, HavenOrbit_UpdateInputData_Hook);
       spdlog::info("[HavenOrbit] installed={} drag={} reset={}", orbit_ready,
                    MapKey::GetShortcuts(GameFunction::HavenOrbitDrag), MapKey::GetShortcuts(GameFunction::HavenOrbitReset));

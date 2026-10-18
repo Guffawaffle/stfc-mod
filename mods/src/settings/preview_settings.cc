@@ -1,5 +1,6 @@
 #include "preview_settings.h"
 #include "config.h"
+#include "upstream_settings.h"
 #include "patches/runtime_config.h"
 #include <array>
 
@@ -16,7 +17,7 @@ namespace
                 return ApplyResult::Rejected;
               const bool stored     = desired != inverted;
               Config::Get().*member = stored;
-              runtime_config::SaveSetting("ui", key, stored);
+              PersistCurrentSetting("ui", key);
               return ApplyResult::Applied;
             }};
   }

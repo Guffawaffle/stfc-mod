@@ -69,8 +69,8 @@ int main()
   invokedTarget = nullptr;
   reinterpret_cast<decltype(&Command)>(command.method()->methodPointer)(&token, command.method());
   assert(invokedTarget == &token && donorCalls == 0);
-  schema.return_type      = &boolType;
-  schema.flags            = METHOD_ATTRIBUTE_VIRTUAL;
+  schema.return_type = &boolType;
+  schema.flags       = METHOD_ATTRIBUTE_VIRTUAL;
   assert(!invalid.Initialize(&schema, Getter));
   schema.flags       = 0;
   schema.is_inflated = true;

@@ -82,6 +82,6 @@ private:
   SliderLabel           label_;
   std::uint8_t          displayDecimals_;
   // Feature-owned wording; the shared native widget does not know the dependency.
-  std::string           disabledReason_;
+  std::string disabledReason_;
 };
 } // namespace mod_settings

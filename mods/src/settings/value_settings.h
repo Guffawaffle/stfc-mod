@@ -1,5 +1,7 @@
 #pragma once
 
+#include "setting_metadata.h"
+
 #include <atomic>
 #include <cstdint>
 #include <functional>
@@ -31,6 +33,14 @@ template <typename T> struct ValueDefinition {
   std::function<ValueReadResult<T>()> read;
   // Adapter must revalidate its own generation immediately before mutation.
   std::function<ApplyResult(T, std::uint64_t)> write;
+  SettingMetadata                              metadata;
+  std::optional<T>                             default_value;
+  // Called only for an explicit, verified user intent, never by Observe/render.
+  std::function<void(const T&)> persist;
+  std::function<SaveStatus(const T&)> save_status;
+  // Restart-only adapters expose their still-active value independently from
+  // the requested value returned by read.
+  std::function<std::optional<T>()> active_value;
 };
 template <typename T> struct ValueSnapshot {
   ValueReadResult<T> state;
@@ -62,6 +72,76 @@ public:
   { return definition_.id; }
   const std::string& label() const
   { return definition_.label; }
+  const SettingMetadata& metadata() const
+  { return definition_.metadata; }
+  const std::optional<T>& default_value() const
+  { return definition_.default_value; }
+  SaveStatus save_status()
+  {
+    CheckThread();
+    try {
+      const auto current = Observe();
+      if (!current.state.known())
+        return {};
+      if (persistence_failed_ && *persistence_failed_ == *current.state.value)
+        return {SaveState::Unavailable};
+      return definition_.save_status ? definition_.save_status(*current.state.value) : SaveStatus{};
+    } catch (...) {
+      return {SaveState::Unavailable};
+    }
+  }
+  bool restart_pending()
+  {
+    CheckThread();
+    if (metadata().timing != ApplyTiming::Restart || !definition_.active_value)
+      return false;
+    try {
+      const auto requested = Observe();
+      const auto active    = definition_.active_value();
+      return requested.state.known() && active && requested.state.value != active;
+    } catch (...) {
+      return false;
+    }
+  }
+  std::string status_text()
+  {
+    CheckThread();
+    // A historical save completion must never imply that an unavailable live
+    // setting was just applied. Observation remains read-only.
+    if (!Observe().state.known())
+      return {};
+    const auto  status          = save_status();
+    const bool  restart         = metadata().timing == ApplyTiming::Restart;
+    const bool  pending_restart = restart_pending();
+    std::string text;
+    switch (status.state) {
+      case SaveState::SessionOnly:
+        text = "Applied for this session; not saved";
+        break;
+      case SaveState::Pending:
+        text = restart ? "Saving..." : "Applied; saving...";
+        break;
+      case SaveState::Saved:
+        text = restart ? "Saved" : "Applied and saved";
+        break;
+      case SaveState::Conflict:
+        text = restart ? "Not saved; file changed externally" : "Applied; file changed externally";
+        break;
+      case SaveState::Failed:
+        text = restart ? "Saving failed" : "Applied; saving failed";
+        break;
+      case SaveState::Unavailable:
+        text = restart ? "Saving unavailable" : "Applied for this session; saving unavailable";
+        break;
+      default:
+        break;
+    }
+    if (pending_restart)
+      text += text.empty() ? "Restart required" : "; restart required";
+    else if (metadata().timing == ApplyTiming::ReopenView && status.state != SaveState::None)
+      text += "; reopen the affected view";
+    return text;
+  }
 
   // One process-lifetime presentation adapter. Notifications are synchronous,
   // bounded and run under the write reentry guard; rendering cannot write back.
@@ -128,6 +208,13 @@ public:
     current_.owner = identity_;
     return current_;
   }
+  bool IsCurrent(const Snapshot& observed)
+  {
+    CheckThread();
+    if (render_depth_ || applying_)
+      return false;
+    return Matches(observed, Observe());
+  }
 
   void InvalidateSession()
   {
@@ -155,11 +242,10 @@ public:
     const auto before = Observe();
     if (!before.state.known())
       return {Outcome::Rejected, before};
-    if (observed.owner != identity_ || !observed.state.known() || observed.epoch != before.epoch
-        || observed.revision != before.revision || observed.state.generation != before.state.generation
-        || observed.state.value != before.state.value)
+    if (!Matches(observed, before))
       return {Outcome::Conflict, before};
     if (*before.state.value == desired) {
+      Persist(desired);
       NotifyChanged();
       if (epoch_ != before.epoch)
         return {Outcome::Unverified, current_};
@@ -176,6 +262,7 @@ public:
     if (!after.state.known() || after.state.generation != before.state.generation)
       return {Outcome::Unverified, after};
     if (applied == ApplyResult::Applied && *after.state.value == desired) {
+      Persist(*after.state.value);
       NotifyChanged();
       if (epoch_ != before.epoch)
         return {Outcome::Unverified, current_};
@@ -185,7 +272,37 @@ public:
     return {applied == ApplyResult::Rejected ? Outcome::Rejected : Outcome::Unverified, after};
   }
 
+  WriteResult Reset(const Snapshot& observed)
+  {
+    CheckThread();
+    return definition_.default_value ? SetFromUser(*definition_.default_value, observed)
+                                     : WriteResult{Outcome::Rejected, current_};
+  }
+  WriteResult RetrySave(const Snapshot& observed)
+  {
+    CheckThread();
+    if (!definition_.persist || !observed.state.known())
+      return {Outcome::Rejected, current_};
+    return SetFromUser(*observed.state.value, observed);
+  }
+
 private:
+  bool Matches(const Snapshot& observed, const Snapshot& before) const
+  {
+    return observed.owner == identity_ && observed.state.known() && before.state.known()
+           && observed.epoch == before.epoch && observed.revision == before.revision
+           && observed.state.generation == before.state.generation && observed.state.value == before.state.value;
+  }
+  void Persist(const T& value)
+  {
+    try {
+      if (definition_.persist)
+        definition_.persist(value);
+      persistence_failed_.reset();
+    } catch (...) {
+      persistence_failed_ = value;
+    }
+  }
   void NotifyChanged()
   {
     // Presentation failure does not undo or misreport an authoritative write.
@@ -205,11 +322,22 @@ private:
   const std::uint64_t                      identity_ = next_identity_.fetch_add(1);
   const std::thread::id                    thread_   = std::this_thread::get_id();
   Snapshot                                 current_;
-  std::uint64_t                            epoch_        = 1;
-  unsigned                                 render_depth_ = 0;
-  bool                                     applying_     = false;
-  bool                                     observing_    = false;
-  void (*change_observer_)()                             = nullptr;
+  std::uint64_t                            epoch_              = 1;
+  unsigned                                 render_depth_       = 0;
+  bool                                     applying_           = false;
+  bool                                     observing_          = false;
+  std::optional<T>                         persistence_failed_;
+  void (*change_observer_)()                                   = nullptr;
 };
+
+template <typename T> PreparedSettingAction PrepareReset(ValueSetting<T>& setting)
+{
+  const auto snapshot = setting.Observe();
+  return {[&setting, snapshot] { return setting.default_value().has_value() && setting.IsCurrent(snapshot); },
+          [&setting, snapshot] {
+            const auto result = setting.Reset(snapshot).outcome;
+            return result == Outcome::AppliedVerified || result == Outcome::Unchanged;
+          }};
+}
 
 } // namespace mod_settings

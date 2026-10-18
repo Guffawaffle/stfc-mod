@@ -26,7 +26,7 @@ public:
     bool        collapsible = false;
     // Optional presentation dependency, including the heading and all following
     // controls up to the next heading. It never changes their saved values.
-    std::function<bool()> visible;
+    std::function<bool()>        visible;
     std::function<std::string()> summary;
   };
   using Item = std::variant<Heading, BooleanSetting*, ChoiceSetting*, SliderSetting*, ActionSetting*>;
@@ -37,7 +37,8 @@ public:
     // Page departure owns draft/capture cancellation, never a pooled row release.
     std::function<void()>        leave;
     std::function<std::string()> summary;
-    bool              HasConditionalSections() const
+    const SettingMetadata*       metadata = nullptr;
+    bool                         HasConditionalSections() const
     {
       if (!itemVisibility.empty())
         return true;
@@ -59,7 +60,7 @@ public:
       }
       return true;
     }
-    std::size_t       PositionFor(std::string_view id) const
+    std::size_t PositionFor(std::string_view id) const
     {
       for (std::size_t i = 0; i < items.size(); ++i)
         if (Id(items[i]) == id)
@@ -107,8 +108,13 @@ public:
       throw std::invalid_argument("settings root identity");
     pages_.push_back({std::move(root_id), std::move(root_label), {}, {}});
   }
-  PageCatalog(const PageCatalog&)            = delete;
-  PageCatalog& operator=(const PageCatalog&) = delete;
+  PageCatalog(const PageCatalog&)                        = delete;
+  PageCatalog&             operator=(const PageCatalog&) = delete;
+  const std::vector<Page>& RegisteredPages() const
+  {
+    CheckThread();
+    return pages_;
+  }
 
   Registration AddPage(std::string id, std::string label, std::string_view parent)
   {
@@ -149,6 +155,17 @@ public:
     if (!page)
       return Registration::Invalid;
     page->summary = std::move(callback);
+    return Registration::Added;
+  }
+  Registration SetMetadata(std::string_view id, const SettingMetadata& metadata)
+  {
+    CheckThread();
+    if (frozen_)
+      return Registration::Frozen;
+    auto* page = FindPage(id);
+    if (!page)
+      return Registration::Invalid;
+    page->metadata = &metadata;
     return Registration::Added;
   }
   Registration AddChoice(std::string_view page, ChoiceSetting& setting)
