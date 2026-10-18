@@ -77,7 +77,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'HUD persistence test compilation failed.' }
     & ./build/config-save-test/hud-test.exe (Join-Path $fixtureRoot 'hud')
     if ($LASTEXITCODE -ne 0) { throw 'HUD persistence regression failed.' }
-    & clang++ --driver-mode=cl /std:c++latest /EHsc /MT /Itests `
+    & clang++ --driver-mode=cl /std:c++latest /EHsc /MT /Imods/src /Itests `
         tests/runtime_config_test.cc /Febuild/config-save-test/adapter-test.exe /Fobuild/config-save-test/
     if ($LASTEXITCODE -ne 0) { throw 'Native adapter test compilation failed.' }
     & ./build/config-save-test/adapter-test.exe
