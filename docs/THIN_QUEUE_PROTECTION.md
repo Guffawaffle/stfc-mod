@@ -8,7 +8,7 @@ This is separate from the retired Kir'shara combat-completion repair.
 kirshara_fixes = true
 ```
 
-Enabled by default on Windows x64 as part of `control.kirshara_fixes`. Also respects
+Enabled by default on Windows x64 and macOS ARM64/x86_64 as part of `control.kirshara_fixes`. Also respects
 `control.queue_enabled`. The old separate feature settings, including
 `advanced.queue.thin_queue_protection`, are retired; use `kirshara_fixes = false`
 to disable the combined fixes. Default-enabled `[patches].thinqueueprotectionhooks`

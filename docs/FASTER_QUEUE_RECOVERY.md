@@ -11,7 +11,7 @@ kirshara_fixes = true
 
 Following #313, default-enabled `[patches].actionqueuerecoveryhooks` independently controls installation. Changing that installation switch requires a restart. Installed callbacks check the current `control.kirshara_fixes` and `control.queue_enabled` preferences; changing TOML still requires reload/restart.
 
-The feature also respects `control.queue_enabled`. Hooks are supported on Windows x64 when the required method signatures and queue layout are compatible. Other platforms do not install these hooks; incompatible Windows layouts log an unavailable message and retain native behavior.
+The feature also respects `control.queue_enabled`. Hooks are compiled for Windows x64 and macOS ARM64/x86_64 when the required method signatures and queue layout are compatible. Other platforms do not install these hooks; incompatible layouts log an unavailable message and retain native behavior. macOS native fit and gameplay remain unverified.
 
 The previous `faster_queue_recovery`, `thin_queue_protection`, `queue_address_guard`
 and `advanced.queue.thin_queue_protection` settings no longer control these features.
