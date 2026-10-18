@@ -1,4 +1,5 @@
 #include "upstream_settings.h"
+#include "queue_recovery.h"
 
 #include "config.h"
 #include "defaultconfig.h"
@@ -511,14 +512,7 @@ void RegisterUpstreamSettings(PageCatalog& catalog)
   const auto      pan         = Hook(&Config::installPanHooks);
   const Available controls    = [hotkeys, zoom, pan] { return hotkeys() || zoom() || pan(); };
   const Available extended    = [hotkeys, zoom] { return hotkeys() || zoom(); };
-  const Available protections = [] {
-    const auto& config  = Config::Get();
-    bool        enabled = config.installQueueAddressGuardHooks;
-#if (defined(_WIN32) && defined(_M_X64)) || (defined(__APPLE__) && (defined(__arm64__) || defined(__x86_64__)))
-    enabled = enabled || config.installActionQueueRecoveryHooks || config.installThinQueueProtectionHooks;
-#endif
-    return enabled;
-  };
+  const Available protections = KirsharaFixesAvailable;
   const Available queue = [hotkeys, protections] {
     return hotkeys() || protections() || Config::Get().installTestPatches;
   };
