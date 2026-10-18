@@ -1,6 +1,6 @@
 #pragma once
 #include "action_setting.h"
-#include "audio_file_picker.h"
+#include "image_file_picker.h"
 #include "value_settings.h"
 #include <chrono>
 #include <filesystem>

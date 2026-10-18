@@ -18,7 +18,7 @@ Open a page's **Defaults & Help** to read setting details, restore one default, 
 
 ## Numbers and lists
 
-Single-choice checkbox groups show their setting title above the options. Use **Edit** beside a slider title for an exact numeric value; numeric controls without a slider retain an Edit button. Convenience sliders have useful ranges; an existing custom value outside that range remains visible in the exact editor and is preserved until explicitly changed. Numeric entries reject invalid syntax, non-finite numbers, and values outside a setting's valid domain. Integer controls require whole numbers. Units and setting-specific limits appear with the control.
+Single-choice checkbox groups show their setting title above the options. Use **Edit** to the right of a slider for an exact numeric value; numeric controls without a slider retain an Edit button. Convenience sliders have useful ranges; an existing custom value outside that range remains visible in the exact editor and is preserved until explicitly changed. Numeric entries reject invalid syntax, non-finite numbers, and values outside a setting's valid domain. Integer controls require whole numbers. Units and setting-specific limits appear with the control.
 
 Ship filter lists accept comma-separated names using the same matching rules as TOML. Instant warp filters accept `*`. Downstream ship pins use ship IDs and the existing modifier-click actions; the legacy TOML name list is retained only for migration. Faction and banner lists validate names against the startup parser rather than silently discarding unknown entries. Clear a list explicitly to remove its entries.
 

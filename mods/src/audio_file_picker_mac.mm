@@ -1,5 +1,6 @@
 #ifdef __APPLE__
 #include "settings/audio_file_picker.h"
+#include "settings/image_file_picker.h"
 #import <AppKit/AppKit.h>
 #import <dispatch/dispatch.h>
 #include <memory>
