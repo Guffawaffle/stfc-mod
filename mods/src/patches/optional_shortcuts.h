@@ -12,6 +12,9 @@ struct Definition {
   bool             experimental;
 };
 inline constexpr auto definitions = std::to_array<Definition>({
+    {GameFunction::ZoomMax, "zoom_max", DefaultConfig::Shortcuts::zoom_max, false},
+    {GameFunction::ZoomMin, "zoom_min", DefaultConfig::Shortcuts::zoom_min, false},
+    {GameFunction::ZoomReset, "zoom_reset", DefaultConfig::Shortcuts::zoom_reset, false},
     {GameFunction::ShowAlliance, "show_alliance", DefaultConfig::Shortcuts::show_alliance, false},
     {GameFunction::ShowAllianceHelp, "show_alliance_help", DefaultConfig::Shortcuts::show_alliance_help, true},
     {GameFunction::ShowAllianceArmada, "show_alliance_armada", DefaultConfig::Shortcuts::show_alliance_armada, true},
