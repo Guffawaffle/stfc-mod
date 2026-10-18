@@ -78,7 +78,6 @@ const std::unordered_map<std::string, KeyCode> Key::mappedKeys = {
     {"SPACE", KeyCode::Space},
     {"MINUS", KeyCode::Minus},
     {"EQUAL", KeyCode::Equals},
-    // '-' separates modifiers and '|' separates alternative bindings in config.
     {"PIPE", KeyCode::Pipe},
     {"_", KeyCode::Underscore},
     {",", KeyCode::Comma},
@@ -282,7 +281,7 @@ void Key::ResetCache()
   // Prune them here as well as at the consumer so claims cannot survive a scene without NavigationPan.
   for (const auto key : directionalKeys) {
     auto& directionClaimed = claimedDirectionalInput[(int)key];
-    if (directionClaimed && !Pressed(key)) {
+    if (directionClaimed && !RawPressed(key)) {
       directionClaimed = false;
     }
   }
@@ -296,7 +295,7 @@ void Key::EnsureCurrentFrame()
 }
 
 bool Key::Down(KeyCode key)
-{ return !shortcutCaptureActive && !shortcutPopupActive && !settingsSearchActive && RawDown(key); }
+{ return !SettingsOwnInput() && RawDown(key); }
 
 bool Key::RawDown(KeyCode key)
 {
@@ -313,7 +312,7 @@ bool Key::RawDown(KeyCode key)
 }
 
 bool Key::Pressed(KeyCode key)
-{ return !shortcutCaptureActive && !shortcutPopupActive && !settingsSearchActive && RawPressed(key); }
+{ return !SettingsOwnInput() && RawPressed(key); }
 
 bool Key::RawPressed(KeyCode key)
 {
@@ -344,6 +343,14 @@ std::string Key::Token(KeyCode key)
     if (value == key && (result.empty() || token < result))
       result = token;
   return result;
+}
+
+bool Key::AnyRawPressed()
+{
+  for (const auto& [token, key] : mappedKeys)
+    if (key != KeyCode::None && RawPressed(key))
+      return true;
+  return false;
 }
 
 bool Key::IsInputFocused()

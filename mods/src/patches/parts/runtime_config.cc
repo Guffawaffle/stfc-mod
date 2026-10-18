@@ -1,15 +1,18 @@
-#include "runtime_config_keys.h"
+#include "settings/setting_metadata.h"
 #ifdef CONFIG_RUNTIME_TEST
 #include CONFIG_RUNTIME_TEST // Isolated fixture substitutes Unity/worker boundaries only.
 #else
-#include "patches/runtime_config.h"
+#include "config.h"
 #include "file.h"
-#include "patches/mapkey.h"
+#include "patches/runtime_config.h"
 #include "runtime_config_writer.h"
 #include <spdlog/spdlog.h>
 
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
 #include "patches/screen_update_hook.h"
+#if __APPLE__
+#include "patches/native_hook_extent.h"
+#endif
 #if _WIN32
 #include <Windows.h>
 #endif
@@ -35,8 +38,15 @@ std::uint64_t                     vote       = 0;
 thread_local unsigned             quit_depth = 0;
 void (*request_quit)(int)                    = nullptr;
 void (*save_status_changed)()                = nullptr;
-std::atomic_bool persistence_unavailable{false};
-bool             reported_save_failure = false;
+std::atomic_bool           persistence_unavailable{false};
+bool                       reported_save_failure    = false;
+std::uint64_t              reported_status_sequence = 0;
+std::atomic<std::uint64_t> adapter_status_sequence{0};
+using SettingKey = std::pair<std::string, std::string>;
+std::map<SettingKey, config_edit::Value> unavailable_settings;
+#ifndef CONFIG_RUNTIME_TEST
+std::optional<toml::table> startup_values;
+#endif
 
 // Stable identity for the lifetime of the Unity owner thread on either platform.
 std::uintptr_t CurrentThreadToken()
@@ -79,8 +89,18 @@ bool WantsQuit(auto original)
   }
   const bool      allows = original();
   std::lock_guard lock(lifecycle);
-  if (stopped || !writer)
+  if (!writer)
     return allows;
+  if (stopped) {
+    if (!allows) {
+      // Unity may veto the resumed request. The surviving session must regain
+      // saving after the old worker has fully terminated.
+      stopped  = false;
+      draining = true;
+      resume   = false;
+    }
+    return allows;
+  }
   // A later/nested game veto must not be overwritten by an older returning vote.
   if (this_vote == vote)
     resume = allows;
@@ -105,9 +125,11 @@ void Update()
   owner.compare_exchange_strong(unset, CurrentThreadToken());
   if (forcing || owner != CurrentThreadToken() || quit_depth)
     return;
-  const bool failed = persistence_unavailable.load() || (writer && writer->HasFailures());
-  if (failed != reported_save_failure) {
-    reported_save_failure = failed;
+  const bool failed   = persistence_unavailable.load() || (writer && writer->HasFailures());
+  const auto sequence = adapter_status_sequence.load() + (writer ? writer->StatusSequence() : 0);
+  if (failed != reported_save_failure || sequence != reported_status_sequence) {
+    reported_save_failure    = failed;
+    reported_status_sequence = sequence;
     if (save_status_changed) {
       try {
         save_status_changed();
@@ -120,14 +142,23 @@ void Update()
     std::lock_guard lock(lifecycle);
     if (!draining || stopped || !writer || !writer->PollStopped())
       return;
-    stopped = true;
     quit    = resume;
     resume  = false; // Consume before Unity callbacks; never retry a genuine veto.
+    if (!quit) {
+      draining = false;
+      stopped  = false;
+      if (!writer->Resume()) {
+        available = false;
+        persistence_unavailable.store(true);
+        ++adapter_status_sequence;
+      }
+      return;
+    }
+    stopped = true;
   }
   if (quit)
     request_quit(0);
 }
-
 
 #if _WIN32
 DWORD WINAPI FinishForceClose(void* handle)
@@ -169,39 +200,88 @@ bool HasSaveFailures() noexcept
   return false;
 #endif
 }
+std::uint64_t StatusSequence() noexcept
+{
+#if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
+  return adapter_status_sequence.load() + (writer ? writer->StatusSequence() : 0);
+#else
+  return 0;
+#endif
+}
+bool RegisterSetting(const char* section, const char* key) noexcept
+{
+  try {
+#if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
+    if (!section || !key || !*section || !*key)
+      return false;
+    std::lock_guard lock(lifecycle);
+    if (!writer || draining)
+      return false;
+    std::optional<config_edit::Value> initial;
+#ifndef CONFIG_RUNTIME_TEST
+    if (!startup_values)
+      return false;
+    const auto node = (*startup_values)[section][key];
+    if (node.is_boolean())
+      initial = *node.value<bool>();
+    else if (node.is_string())
+      initial = *node.value<std::string>();
+    else if (node.is_integer())
+      initial = *node.value<std::int64_t>();
+    else if (node.is_floating_point())
+      initial = *node.value<double>();
+#endif
+    return writer->Register(section, key, std::move(initial));
+#else
+    (void)section;
+    (void)key;
+#endif
+  } catch (...) {
+  }
+  return false;
+}
+mod_settings::SaveStatus GetSaveStatus(const char* section, const char* key, const config_edit::Value& current) noexcept
+{
+  using namespace mod_settings;
+  try {
+#if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
+    if (!section || !key)
+      return {SaveState::Unavailable};
+    std::lock_guard lock(lifecycle);
+    if (const auto found = unavailable_settings.find(SettingKey{section, key}); found != unavailable_settings.end())
+      return {current != found->second ? SaveState::SessionOnly : SaveState::Unavailable};
+    if (!writer)
+      return {};
+    const auto status = writer->GetStatus(section, key);
+    if (!status.revision)
+      return {};
+    if (status.subject != current)
+      return {SaveState::SessionOnly, status.revision};
+    if (status.pending)
+      return {SaveState::Pending, status.revision};
+    if (status.outcome == config_edit::Outcome::Saved || status.outcome == config_edit::Outcome::AlreadySaved)
+      return {SaveState::Saved, status.revision};
+    if (status.outcome == config_edit::Outcome::Conflict)
+      return {SaveState::Conflict, status.revision};
+    return {SaveState::Failed, status.revision};
+#else
+    (void)section;
+    (void)key;
+#endif
+  } catch (...) {
+    return {SaveState::Unavailable};
+  }
+  return {};
+}
 #ifndef CONFIG_RUNTIME_TEST
 void Configure(const toml::table& loaded)
 {
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
   if (writer)
     return;
-  std::optional<config_edit::Value> initial;
-  if (auto value = loaded["ui"]["auto_confirm_instant_warp"].value<std::string>())
-    initial = *value;
   try {
-    writer = new config_edit::RuntimeConfigWriter(File::MakePath(File::Config()), initial, Report);
-    for (const auto& [section, key] : config_edit::persisted_settings) {
-      std::optional<config_edit::Value> value;
-      auto                              node = loaded[section][key];
-      if (node.is_boolean())
-        value = node.value<bool>().value();
-      else if (node.is_string())
-        value = node.value<std::string>().value();
-      else if (node.is_integer())
-        value = node.value<std::int64_t>().value();
-      else if (node.is_floating_point())
-        value = node.value<double>().value();
-      writer->Register(section, key, std::move(value));
-    }
-    for (int i = 0; i < GameFunction::Max; ++i) {
-      const auto& definition = MapKey::Definition(static_cast<GameFunction>(i));
-      if (definition.key.empty())
-        continue;
-      std::optional<config_edit::Value> value;
-      if (auto text = loaded["shortcuts"][definition.key].value<std::string>())
-        value = *text;
-      writer->Register("shortcuts", definition.key, std::move(value));
-    }
+    startup_values = loaded;
+    writer         = new config_edit::RuntimeConfigWriter(File::MakePath(File::Config()), Report);
   } catch (...) {
     spdlog::warn("Runtime config persistence unavailable");
   }
@@ -214,18 +294,24 @@ void Install()
 {
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
   static bool attempted = false;
-  if (attempted || !writer)
+  if (attempted || !writer || !Config::Get().installRuntimeConfigHooks)
     return;
   attempted = true;
   try {
     auto        helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Application");
-    const auto* wants = method_contract::Resolve(helper.get_cls(), "Internal_ApplicationWantsToQuit", true,
-                                                  "System.Boolean", {});
+    const auto* wants =
+        method_contract::Resolve(helper.get_cls(), "Internal_ApplicationWantsToQuit", true, "System.Boolean", {});
     const auto* quit = method_contract::Resolve(helper.get_cls(), "Quit", true, "System.Void", {"System.Int32"});
     if (!wants || !quit) {
       spdlog::warn("Runtime config persistence unavailable: incompatible Unity quit methods");
       return;
     }
+#if __APPLE__
+    if (!native_hooks::MacHookFits(reinterpret_cast<const void*>(wants->methodPointer))) {
+      spdlog::warn("Runtime config persistence unavailable: Unity quit hook has insufficient native extent");
+      return;
+    }
+#endif
     request_quit = reinterpret_cast<void (*)(int)>(quit->methodPointer);
     available    = install_screen_manager_update_hook() && register_screen_manager_update_callback(Update)
                    && SPUD_STATIC_DETOUR(wants->methodPointer, WantsQuit);
@@ -242,16 +328,30 @@ void SaveSetting(const char* section, const char* key, config_edit::Value value,
 {
   try {
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
-    if (available && !forcing && owner == CurrentThreadToken() && !quit_depth) {
+    if (section && key && available && !forcing && owner == CurrentThreadToken() && !quit_depth) {
       std::lock_guard lock(lifecycle);
       if (!draining) {
-        if (writer->Submit(section, key, std::move(value), delay))
+        if (writer->Submit(section, key, value, delay)) {
+          if (unavailable_settings.erase(SettingKey{section, key})) {
+            persistence_unavailable.store(!unavailable_settings.empty());
+            ++adapter_status_sequence;
+          }
           return;
+        }
         if (writer->HasFailure(section, key)) {
+          if (unavailable_settings.erase(SettingKey{section, key})) {
+            persistence_unavailable.store(!unavailable_settings.empty());
+            ++adapter_status_sequence;
+          }
           spdlog::warn("{}.{} changed for this session; runtime save submission failed", section, key);
           return; // The writer owns this failure and its eventual same-key recovery.
         }
       }
+    }
+    {
+      std::lock_guard lock(lifecycle);
+      unavailable_settings.insert_or_assign(SettingKey{section ? section : "", key ? key : ""}, std::move(value));
+      ++adapter_status_sequence;
     }
     persistence_unavailable.store(true);
 #else
@@ -263,20 +363,6 @@ void SaveSetting(const char* section, const char* key, config_edit::Value value,
       spdlog::warn("{}.{} changed for this session; runtime persistence unavailable", section, key);
     }
   } catch (...) { /* Persistence must not interrupt the shortcut's live effect. */
-#if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
-    persistence_unavailable.store(true);
-#endif
-  }
-}
-
-void SaveWarpMode(const char* mode) noexcept
-{
-  try {
-    const std::string value(mode);
-    if (value != "none" && value != "warp" && value != "jump")
-      return;
-    SaveSetting("ui", "auto_confirm_instant_warp", value, {});
-  } catch (...) { // Keep value construction inside the shortcut's failure boundary.
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
     persistence_unavailable.store(true);
 #endif

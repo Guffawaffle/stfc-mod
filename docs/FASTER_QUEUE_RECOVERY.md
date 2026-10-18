@@ -23,6 +23,16 @@ does not clear native target queues or stop their native processing. Forgetting 
 tracking prevents an old course response from authorizing a later recovery after
 the queue is toggled back on.
 
+The previous `faster_queue_recovery`, `thin_queue_protection`, `queue_address_guard`
+and `advanced.queue.thin_queue_protection` settings no longer control these features.
+Use the single `kirshara_fixes` switch; its default is true. A legacy-only configuration
+logs this replacement at startup. No existing config file is rewritten automatically.
+
+Toggling queue entry off invalidates only the mod's pending recovery tracking. It
+does not clear native target queues or stop their native processing. Forgetting the
+tracking prevents an old course response from authorizing a later recovery after
+the queue is toggled back on.
+
 ## Behavior
 
 The adapter records the latest engagement attempt for up to eight fleets, using weak queue identities and full 64-bit target IDs. A failed, non-recall course response may request native planning only when:
@@ -34,7 +44,7 @@ The adapter records the latest engagement attempt for up to eight fleets, using 
 
 The request record is consumed once. The native planner selects and validates the next target. The mod does not force ship state, clear engagement flags, change retry counts, or remove targets. If another fleet still queues the target, the native cross-fleet removal path remains responsible.
 
-Queue storage is bounded and validated. Unknown layouts/content are ineligible. Expired/replaced requests release their weak handles; native session cleanup clears all records. A native attempt returning skip/stop cancels only its own record, preserving newer reentrant attempts.
+Queue storage is bounded and validated. Unknown layouts/content are ineligible. Expired/replaced requests release their weak handles; native session cleanup clears all records. Engage, Retry and Course discard pending recovery records when they observe disabled behavior. Both Toggle Queue transitions also clear them, so an off/on toggle cannot reuse authorization from before the toggle. A native attempt returning skip/stop cancels only its own record, preserving newer reentrant attempts.
 
 There is no watchdog hook, frame scan, timer, background worker, or per-engagement logging. Queue inspection occurs in existing callbacks; all-queue inspection runs only for a potentially eligible failed response. Response matching is not a server-issued request ID, so delayed same-target responses remain an interoperability limitation.
 
@@ -46,7 +56,7 @@ The hooked methods are `TryPlanPathAndEngageTarget`, `ShouldRetryFailedSetCourse
 
 The course event is a 24-byte value type, with fleet ID at 0, success/recall at 8/9 and boxed target at 16. Metadata field offsets include the boxed object header. The native retry handler is called synchronously inside the course handler; returning true selects its existing planner branch.
 
-**THIS WAS FIXED BY SCOPELY:** the older off-screen Kir'Shara combat-completion repair is obsolete. Remove that workaround and its `kirshara_queue_repair` setting; it is not a prerequisite for Faster Queue Recovery. This feature addresses only the separate unavailable-target/course-response race described above.
+The older off-screen Kir'Shara combat-completion repair was fixed by Scopely. That workaround and its `kirshara_queue_repair` setting have already been removed; neither is a prerequisite for Faster Queue Recovery. This feature addresses only the separate unavailable-target/course-response race described above.
 
 ## Validation
 

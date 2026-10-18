@@ -4,6 +4,7 @@
 #include "ViewController.h"
 #include "VisibilityController.h"
 #include <il2cpp/il2cpp_helper.h>
+#include "VisibilityController.h"
 
 struct NavigationInteractionUIViewController
     : ViewController<NavigationInteractionUIContext, NavigationInteractionUIViewController> {

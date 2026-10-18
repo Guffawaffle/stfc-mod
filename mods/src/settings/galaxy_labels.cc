@@ -1,5 +1,6 @@
 #include "galaxy_labels.h"
 #include "config.h"
+#include "upstream_settings.h"
 #include "patches/runtime_config.h"
 #include <format>
 namespace mod_settings
@@ -56,7 +57,7 @@ galaxy_controls::OverlaySelection GalaxyOverlaySelection()
 }
 void SetGalaxyOverlay(int mode, bool enabled)
 {
-  if (mode < 0 || mode > 3 || !GalaxyLabelControlsAvailable() || !Config::Get().galaxy_multi_select) return;
+  if (mode < 0 || mode > 3 || !GalaxyLabelControlsAvailable()) return;
   const auto before = GalaxyOverlaySelection();
   if (before.Contains(mode) == enabled) return;
   const auto after = before.Toggle(mode);
@@ -66,7 +67,7 @@ void SetGalaxyOverlay(int mode, bool enabled)
     Config::Get().galaxy_overlays[i] = after.Contains(i);
     // Save the entire effective selection, including Default fallback, so the
     // map buttons and settings restart with the same choices.
-    runtime_config::SaveSetting("graphics", keys[i], after.Contains(i));
+    PersistCurrentSetting("graphics", keys[i]);
   }
   RefreshGalaxyLabelControls();
 }

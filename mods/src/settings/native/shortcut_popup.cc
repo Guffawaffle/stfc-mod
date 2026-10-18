@@ -1,18 +1,19 @@
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
 #include "settings/shortcut_popup.h"
 #include "action_widgets.h"
-#include "ui_helpers.h"
 #include "patches/key.h"
 #include "patches/screen_update_hook.h"
+#include "prime/Vector3.h"
 #include "row_style.h"
+#include "settings_search.h"
 #include "settings/native_boolean_callback.h"
 #include "settings/shortcut_popup_keys.h"
+#include "ui_helpers.h"
 #include "value_widgets.h"
 #include <algorithm>
 #include <array>
 #include <cstring>
 #include <optional>
-#include "prime/Vector3.h"
 #include <spdlog/spdlog.h>
 
 namespace mod_settings::native
@@ -296,6 +297,7 @@ bool OpenShortcutPopup(ShortcutPopupCommands commands)
   if (!installed || !OnUIThread() || popup.commands.read || !InvokingActionWidget())
     return false;
   try {
+    CloseSettingsSearch(true);
     Root host(InvokingActionWidget());
     Root hostObject(UiCall(host.get(), "get_gameObject"));
     Root settings(WithType(hostObject.get(), "GetComponentInParent",

@@ -28,14 +28,15 @@ public:
 
   static bool Pressed(KeyCode key);
   static bool Down(KeyCode key);
-  // Capture alone uses raw cached input. Every ordinary Key consumer observes
-  // the same suppression, including continuous zoom/pan and console shortcuts.
+  // Editors alone sample raw input; every ordinary consumer respects ownership.
   static bool        RawPressed(KeyCode key);
+  static bool        AnyRawPressed();
   static bool        RawDown(KeyCode key);
-  inline static bool shortcutCaptureActive = false; // Game thread only.
-  inline static bool settingsSearchActive = false; // Native search field owns keyboard focus.
-  inline static bool shortcutPopupActive = false; // Includes preview, not just capture.
   static std::string Token(KeyCode key);
+  inline static bool shortcutCaptureActive = false, shortcutPopupActive = false;
+  inline static bool settingsSearchActive = false, textEntryActive = false;
+  static bool        SettingsOwnInput()
+  { return shortcutCaptureActive || shortcutPopupActive || settingsSearchActive || textEntryActive; }
 
   static void ClaimDirectionalInput(KeyCode key);
   static bool IsDirectionalInputClaimed();

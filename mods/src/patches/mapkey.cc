@@ -176,6 +176,8 @@ std::string MapKey::GetShortcuts(GameFunction gameFunction)
 
 std::string MapKey::GetShortcutHint(GameFunction gameFunction)
 {
+  if (!Definition(gameFunction).enabled)
+    return {};
   const auto& mapKeys = MapKey::mappedKeys[gameFunction];
   return mapKeys.empty() ? "" : mapKeys.front().shortcutHint;
 }
@@ -192,6 +194,8 @@ void MapKey::CacheShortcutHints()
 
 bool MapKey::HasBinding(GameFunction gameFunction)
 {
+  if (!Definition(gameFunction).enabled)
+    return false;
   for (const auto& mapKey : mappedKeys[gameFunction]) {
     if (mapKey.Key != KeyCode::None) {
       return true;
@@ -211,12 +215,15 @@ void MapKey::RegisterAction(GameFunction gameFunction, std::string_view key, std
 const MapKey::ActionDefinition& MapKey::Definition(GameFunction gameFunction)
 { return definitions.at(static_cast<std::size_t>(gameFunction)); }
 
+void MapKey::SetActionEnabled(GameFunction action, bool enabled)
+{ definitions.at(static_cast<std::size_t>(action)).enabled = enabled; }
+
 const std::vector<MapKey>& MapKey::Bindings(GameFunction gameFunction)
 { return mappedKeys.at(static_cast<std::size_t>(gameFunction)); }
 
 bool MapKey::ReplaceBindings(GameFunction gameFunction, std::vector<MapKey> bindings)
 {
-  if (gameFunction < 0 || gameFunction >= GameFunction::Max)
+  if (gameFunction < 0 || gameFunction >= GameFunction::Max || !Definition(gameFunction).enabled)
     return false;
   for (const auto& binding : bindings)
     if (binding.Key == KeyCode::None)
@@ -229,7 +236,8 @@ bool MapKey::ReplaceBindings(GameFunction gameFunction, std::vector<MapKey> bind
   return true;
 }
 
-// Movement consumes directions itself; other actions retain ownership until release.
+// Movement reads the direction itself; claiming it would suppress its own pan
+// on the next frame. Other modified actions retain ownership until key release.
 static bool IsMovementAction(GameFunction action)
 {
   return action == GameFunction::MoveLeft || action == GameFunction::MoveRight
@@ -238,6 +246,8 @@ static bool IsMovementAction(GameFunction action)
 
 bool MapKey::IsPressed(GameFunction gameFunction)
 {
+  if (!Definition(gameFunction).enabled)
+    return false;
   const auto &mapKeys = MapKey::mappedKeys[(int)gameFunction];
   for (const MapKey &mapKey : mapKeys) {
     const auto chord = keyboard_layout::ResolveChord(mapKey.Key);
@@ -259,6 +269,8 @@ bool MapKey::IsPressed(GameFunction gameFunction)
 
 bool MapKey::IsDown(GameFunction gameFunction)
 {
+  if (!Definition(gameFunction).enabled)
+    return false;
   const auto &mapKeys = MapKey::mappedKeys[(int)gameFunction];
   for (const MapKey &mapKey : mapKeys) {
     const auto chord = keyboard_layout::ResolveChord(mapKey.Key);
@@ -371,4 +383,5 @@ std::string MapKey::GetParsedValues() const
 }
 
 std::array<std::vector<MapKey>, (int)GameFunction::Max> MapKey::mappedKeys = {};
+
 std::array<MapKey::ActionDefinition, (int)GameFunction::Max> MapKey::definitions = {};

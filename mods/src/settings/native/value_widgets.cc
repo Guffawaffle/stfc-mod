@@ -1,6 +1,6 @@
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
-#include "page_navigation.h"
 #include "action_widgets.h"
+#include "page_navigation.h"
 #include "patches/parts/fc_confirmation_reset.h"
 #include "patches/claim_trace.h"
 #include "settings/forbidden_tech.h"
@@ -353,16 +353,7 @@ void Render(ValueWidget& view, auto original, Il2CppObject* widget)
   if (Target(view.widget) != widget || Target(view.context) != boundContext.get())
     return;
   Root        label(Target(view.label));
-  std::string text = view.state->label();
-  // The native row has limited label width: "Change not applied; try again" was
-  // visibly truncated after "; tr" alongside the FC label. Keep these suffixes
-  // short; recheck the full label at supported UI scales when changing wording.
-  if (!view.state->known())
-    text += " — " + std::string(view.state->unavailableReason());
-  else if (view.state->failed())
-    text += " — Retry";
-  else if (!view.state->enabled() && !view.state->disabledReason().empty())
-    text += " — " + std::string(view.state->disabledReason());
+  std::string text = view.state->presentation_label();
   // An enabled slider belongs to the selected mode above it. Use a quiet cyan
   // accent, not the native white selection fill (the slider is not a choice).
   if (WidgetMeta(widget).slider && view.state->enabled()) {
@@ -790,70 +781,6 @@ void LoadHook(auto original, Il2CppObject* owner)
   } observation{owner};
   SessionBoundary(original, owner);
 }
-#ifdef _MODDBG
-ValueWidget* writeProbeOuter = nullptr;
-bool         ReentryProbeEnabled()
-{
-  const auto* enabled = std::getenv("STFC_MOD_SETTINGS_NAV_REENTRY_TEST");
-  return enabled && std::strcmp(enabled, "1") == 0;
-}
-void ExerciseReadReentry()
-{
-  static bool exercised = false;
-  if (exercised || !bindingView || !ReentryProbeEnabled())
-    return;
-  exercised      = true;
-  auto* previous = bindingView;
-  Root  widget(Target(previous->widget));
-  // Exercise the actual release bookkeeping and refresh path inside a reader.
-  // Keep the native context bound so this is independent of game navigation.
-  Clear(*previous);
-  Invoke(WidgetMeta(widget.get()).refresh, widget.get());
-  auto* rebound = FindValueWidget(widget.get());
-  spdlog::info("[ModSettings] Read reentry fixture: {}",
-               rebound && rebound != previous && previous->binding ? "PASS" : "FAIL");
-}
-void ExerciseNestedWrite()
-{
-  static bool exercised = false;
-  if (exercised || !ReentryProbeEnabled())
-    return;
-  ValueWidget* outer  = nullptr;
-  ValueWidget* nested = nullptr;
-  for (auto& view : ValueViews()) {
-    if (!Target(view.widget) || !view.state)
-      continue;
-    if (view.requesting && view.state->id() == "community_mod.test.enabled")
-      outer = &view;
-    if (view.state->id() == "community_mod.test.nested_write")
-      nested = &view;
-  }
-  if (!outer || !nested)
-    return;
-  exercised = true;
-  struct Scope {
-    explicit Scope(ValueWidget* outer)
-    { writeProbeOuter = outer; }
-    ~Scope()
-    { writeProbeOuter = nullptr; }
-  } scope(outer);
-  Root  widget(Target(nested->widget));
-  bool  desired = !nested->state->value().value_or(false);
-  void* args[]  = {&desired};
-  Invoke(ToggleMeta().changed, widget.get(), args);
-}
-void RebindOuterWrite()
-{
-  if (!writeProbeOuter)
-    return;
-  Root widget(Target(writeProbeOuter->widget));
-  Clear(*writeProbeOuter);
-  Invoke(WidgetMeta(widget.get()).refresh, widget.get());
-  auto* rebound = FindValueWidget(widget.get());
-  spdlog::info("[ModSettings] Nested write reentry fixture: {}",
-               rebound && rebound != writeProbeOuter && writeProbeOuter->requesting ? "PASS" : "FAIL");
-}
-#endif
 
 void PrepareValueViews(std::size_t count)
 { ValueViews().resize(std::max(ValueViews().size(), count)); }
@@ -877,11 +804,12 @@ void InstallChoiceAndSliderWidgets()
       throw std::runtime_error("SettingsSectionDirector.GetQualityOptionSelectedIndex: expected instance Int32()");
     if (!Instance(set, 1, IL2CPP_TYPE_VOID) || !Type(set->parameters[0], IL2CPP_TYPE_I4))
       throw std::runtime_error("SettingsSectionDirector.OnQualityOptionSelected: expected instance Void(Int32)");
-    if (!Instance(add, 6, IL2CPP_TYPE_VOID)
-        || !Reference(add->parameters[0]) || !Type(add->parameters[1], IL2CPP_TYPE_STRING)
-        || !Type(add->parameters[2], IL2CPP_TYPE_SZARRAY) || !Reference(add->parameters[3])
-        || !Reference(add->parameters[4]) || !Type(add->parameters[5], IL2CPP_TYPE_STRING))
-      throw std::runtime_error("SettingsContext.AddSelection: expected instance Void(reference, String, array, reference, reference, String)");
+    if (!Instance(add, 6, IL2CPP_TYPE_VOID) || !Reference(add->parameters[0])
+        || !Type(add->parameters[1], IL2CPP_TYPE_STRING) || !Type(add->parameters[2], IL2CPP_TYPE_SZARRAY)
+        || !Reference(add->parameters[3]) || !Reference(add->parameters[4])
+        || !Type(add->parameters[5], IL2CPP_TYPE_STRING))
+      throw std::runtime_error("SettingsContext.AddSelection: expected instance Void(reference, String, array, "
+                               "reference, reference, String)");
     if (!Instance(selection.querySetter, 1, IL2CPP_TYPE_VOID) || !Reference(selection.querySetter->parameters[0]))
       throw std::runtime_error("SelectionItemOptionContext.set_QueryOptionState: expected instance Void(reference)");
     if (!selection.getContext || !Reference(selection.getContext->return_type)
@@ -913,18 +841,23 @@ void InstallChoiceAndSliderWidgets()
       for (auto* existing : {core.refresh, core.changed, core.release, core.addGeneral, core.reload, core.session,
                              core.load, m.bind, m.release, m.selected, m.destroyed})
         if (targets[i]->methodPointer == existing->methodPointer)
-          throw std::runtime_error(std::string(names[i]) + " shares target with " + existing->klass->name + "." + existing->name);
+          throw std::runtime_error(std::string(names[i]) + " shares target with " + existing->klass->name + "."
+                                   + existing->name);
     }
     for (const auto& page : Pages())
       for (auto* choice : page.Controls<ChoiceSetting>())
         if (!choice->state().SetChangeObserver(RefreshViews))
           throw std::runtime_error("selection observer ownership");
+    ValidateHookFit(selection.refresh);
     if (!SPUD_STATIC_DETOUR(selection.refresh->methodPointer, SelectionRefreshHook))
       throw std::runtime_error("SelectionItemOptionWidget.SetWidgetData: hook installation failed");
+    ValidateHookFit(selection.changed);
     if (!SPUD_STATIC_DETOUR(selection.changed->methodPointer, SelectionChangedHook))
       throw std::runtime_error("SelectionItemOptionWidget.OnToggleValueChanged: hook installation failed");
+    ValidateHookFit(selection.release);
     if (!SPUD_STATIC_DETOUR(selection.release->methodPointer, ReleaseHook))
       throw std::runtime_error("SelectionItemOptionWidget.OnAboutToReleaseContext: hook installation failed");
+    ValidateHookFit(transition);
     if (!SPUD_STATIC_DETOUR(transition->methodPointer, SelectionTransitionHook))
       throw std::runtime_error("Selectable.DoStateTransition: hook installation failed");
     selectionActive = true;
@@ -940,12 +873,13 @@ void InstallChoiceAndSliderWidgets()
       throw std::runtime_error("SettingsSectionDirector.GetCurrentShadowsIndex: expected instance Single()");
     if (!Instance(set, 1, IL2CPP_TYPE_VOID) || !Type(set->parameters[0], IL2CPP_TYPE_R4))
       throw std::runtime_error("SettingsSectionDirector.OnShadowsSettingChanged: expected instance Void(Single)");
-    if (!Instance(add, 9, IL2CPP_TYPE_VOID)
-        || !Reference(add->parameters[0]) || !Type(add->parameters[1], IL2CPP_TYPE_STRING)
-        || !Reference(add->parameters[2]) || !Reference(add->parameters[3]) || !Reference(add->parameters[4])
+    if (!Instance(add, 9, IL2CPP_TYPE_VOID) || !Reference(add->parameters[0])
+        || !Type(add->parameters[1], IL2CPP_TYPE_STRING) || !Reference(add->parameters[2])
+        || !Reference(add->parameters[3]) || !Reference(add->parameters[4])
         || !Type(add->parameters[5], IL2CPP_TYPE_SZARRAY) || !Type(add->parameters[6], IL2CPP_TYPE_BOOLEAN)
         || !Type(add->parameters[7], IL2CPP_TYPE_R4) || !Type(add->parameters[8], IL2CPP_TYPE_R4))
-      throw std::runtime_error("SettingsContext.AddSlider: expected instance Void(reference, String, reference, reference, reference, array, Boolean, Single, Single)");
+      throw std::runtime_error("SettingsContext.AddSlider: expected instance Void(reference, String, reference, "
+                               "reference, reference, array, Boolean, Single, Single)");
     if (!Instance(labelType, 1, IL2CPP_TYPE_VOID) || !Type(labelType->parameters[0], IL2CPP_TYPE_VALUETYPE)
         || !il2cpp_class_is_enum(il2cpp_class_from_type(labelType->parameters[0]))
         || !Type(il2cpp_class_enum_basetype(il2cpp_class_from_type(labelType->parameters[0])), IL2CPP_TYPE_I4))
@@ -973,22 +907,28 @@ void InstallChoiceAndSliderWidgets()
       for (auto* existing : {core.refresh, core.changed, core.release, core.addGeneral, core.reload, core.session,
                              core.load, m.bind, m.release, m.selected, m.destroyed})
         if (targets[i]->methodPointer == existing->methodPointer)
-          throw std::runtime_error(std::string(names[i]) + " shares target with " + existing->klass->name + "." + existing->name);
+          throw std::runtime_error(std::string(names[i]) + " shares target with " + existing->klass->name + "."
+                                   + existing->name);
       if (selectionActive)
         for (auto* existing : {SelectionMeta().refresh, SelectionMeta().changed, SelectionMeta().release})
           if (targets[i]->methodPointer == existing->methodPointer)
-            throw std::runtime_error(std::string(names[i]) + " shares target with " + existing->klass->name + "." + existing->name);
+            throw std::runtime_error(std::string(names[i]) + " shares target with " + existing->klass->name + "."
+                                     + existing->name);
     }
     for (const auto& page : Pages())
       for (auto* setting : page.Controls<SliderSetting>())
         if (!setting->state().SetChangeObserver(RefreshViews))
           throw std::runtime_error("slider observer ownership");
+    ValidateHookFit(slider.refresh);
     if (!SPUD_STATIC_DETOUR(slider.refresh->methodPointer, SliderRefreshHook))
       throw std::runtime_error("SliderOptionWidget.SetWidgetData: hook installation failed");
+    ValidateHookFit(slider.changed);
     if (!SPUD_STATIC_DETOUR(slider.changed->methodPointer, SliderChangedHook))
       throw std::runtime_error("SliderOptionWidget.OnSliderValueChanged: hook installation failed");
+    ValidateHookFit(slider.release);
     if (!SPUD_STATIC_DETOUR(slider.release->methodPointer, ReleaseHook))
       throw std::runtime_error("SliderOptionWidget.OnAboutToReleaseContext: hook installation failed");
+    ValidateHookFit(slider.valueLabel);
     if (!SPUD_STATIC_DETOUR(slider.valueLabel->methodPointer, SliderValueLabelHook))
       throw std::runtime_error("SliderOptionWidget.UpdateValueLabel: hook installation failed");
     sliderActive = true;
@@ -1002,9 +942,12 @@ bool InstallCoreValueWidgets()
   try {
     auto&            m = ToggleMeta();
     const std::array hooks{m.addGeneral, m.refresh, m.changed, m.release, m.reload, m.session, m.load};
-    const std::array names{"SettingsSectionDirector.AddGeneralSettings", "ToggleOptionWidget.SetWidgetData",
-                           "ToggleOptionWidget.OnToggleValueChanged", "ToggleOptionWidget.OnAboutToReleaseContext",
-                           "PersistentPrefsManager.RegisterEvents", "PersistentPrefsManager.GameSessionStartedEventHandler",
+    const std::array names{"SettingsSectionDirector.AddGeneralSettings",
+                           "ToggleOptionWidget.SetWidgetData",
+                           "ToggleOptionWidget.OnToggleValueChanged",
+                           "ToggleOptionWidget.OnAboutToReleaseContext",
+                           "PersistentPrefsManager.RegisterEvents",
+                           "PersistentPrefsManager.GameSessionStartedEventHandler",
                            "PersistentPrefsManager.LoadPersistentPrefsFromCloud"};
     for (std::size_t i = 0; i < hooks.size(); ++i) {
       if (!Instance(hooks[i], i == 0 || i == 2 ? 1 : 0, IL2CPP_TYPE_VOID))
@@ -1018,17 +961,19 @@ bool InstallCoreValueWidgets()
     const auto* setSchema   = m.director.GetMethodInfo("ToggleBorgCubeCuttingBeamConfirmation", 1);
     const auto* querySchema = m.director.GetMethodInfo("QueryShouldShowGenericPcSetting", 0);
     if (!Instance(getSchema, 0, IL2CPP_TYPE_BOOLEAN))
-      throw std::runtime_error("SettingsSectionDirector.IsBorgCubeCuttingBeamConfirmationOn: expected instance Boolean()");
+      throw std::runtime_error(
+          "SettingsSectionDirector.IsBorgCubeCuttingBeamConfirmationOn: expected instance Boolean()");
     if (!Instance(setSchema, 1, IL2CPP_TYPE_VOID) || !Type(setSchema->parameters[0], IL2CPP_TYPE_BOOLEAN))
-      throw std::runtime_error("SettingsSectionDirector.ToggleBorgCubeCuttingBeamConfirmation: expected instance Void(Boolean)");
-    if (!querySchema
-        || !il2cpp_class_is_enum(il2cpp_class_from_type(querySchema->return_type))
+      throw std::runtime_error(
+          "SettingsSectionDirector.ToggleBorgCubeCuttingBeamConfirmation: expected instance Void(Boolean)");
+    if (!querySchema || !il2cpp_class_is_enum(il2cpp_class_from_type(querySchema->return_type))
         || !Type(il2cpp_class_enum_basetype(il2cpp_class_from_type(querySchema->return_type)), IL2CPP_TYPE_I4)
         || !Instance(querySchema, 0, IL2CPP_TYPE_VALUETYPE))
-      throw std::runtime_error("SettingsSectionDirector.QueryShouldShowGenericPcSetting: expected instance Int32 enum()");
-    if (!Instance(m.addToggle, 4, IL2CPP_TYPE_VOID)
-        || !Type(m.addToggle->parameters[1], IL2CPP_TYPE_STRING) || !Reference(m.addToggle->parameters[0])
-        || !Reference(m.addToggle->parameters[2]) || !Reference(m.addToggle->parameters[3]))
+      throw std::runtime_error(
+          "SettingsSectionDirector.QueryShouldShowGenericPcSetting: expected instance Int32 enum()");
+    if (!Instance(m.addToggle, 4, IL2CPP_TYPE_VOID) || !Type(m.addToggle->parameters[1], IL2CPP_TYPE_STRING)
+        || !Reference(m.addToggle->parameters[0]) || !Reference(m.addToggle->parameters[2])
+        || !Reference(m.addToggle->parameters[3]))
       throw std::runtime_error("SettingsContext.AddToggle: expected Void(reference, String, reference, reference)");
     if (!Type(m.changed->parameters[0], IL2CPP_TYPE_BOOLEAN))
       throw std::runtime_error("ToggleOptionWidget.OnToggleValueChanged: expected Boolean parameter");
@@ -1051,18 +996,25 @@ bool InstallCoreValueWidgets()
       throw std::runtime_error("ForbiddenTechConfirmationSetting: observer ownership unavailable");
     // A rejected target need not throw. Keep any installed hooks on their native
     // path until the complete adapter is ready; do not retry a partial install.
+    ValidateHookFit(m.refresh);
     if (!SPUD_STATIC_DETOUR(m.refresh->methodPointer, RefreshHook))
       throw std::runtime_error("ToggleOptionWidget.SetWidgetData: hook installation failed");
+    ValidateHookFit(m.changed);
     if (!SPUD_STATIC_DETOUR(m.changed->methodPointer, ChangedHook))
       throw std::runtime_error("ToggleOptionWidget.OnToggleValueChanged: hook installation failed");
+    ValidateHookFit(m.release);
     if (!SPUD_STATIC_DETOUR(m.release->methodPointer, ReleaseHook))
       throw std::runtime_error("ToggleOptionWidget.OnAboutToReleaseContext: hook installation failed");
+    ValidateHookFit(m.reload);
     if (!SPUD_STATIC_DETOUR(m.reload->methodPointer, ReloadHook))
       throw std::runtime_error("PersistentPrefsManager.RegisterEvents: hook installation failed");
+    ValidateHookFit(m.session);
     if (!SPUD_STATIC_DETOUR(m.session->methodPointer, SessionHook))
       throw std::runtime_error("PersistentPrefsManager.GameSessionStartedEventHandler: hook installation failed");
+    ValidateHookFit(m.load);
     if (!SPUD_STATIC_DETOUR(m.load->methodPointer, LoadHook))
       throw std::runtime_error("PersistentPrefsManager.LoadPersistentPrefsFromCloud: hook installation failed");
+    ValidateHookFit(m.addGeneral);
     if (!SPUD_STATIC_DETOUR(m.addGeneral->methodPointer, AddGeneralHook))
       throw std::runtime_error("SettingsSectionDirector.AddGeneralSettings: hook installation failed");
     active = true;

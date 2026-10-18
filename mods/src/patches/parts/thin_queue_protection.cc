@@ -56,7 +56,9 @@ Il2CppArraySize* List(Object* list, Il2CppClass* element, int limit, int& count)
   auto* size    = il2cpp_class_get_field_from_name(cls, "_size");
   auto* storage = il2cpp_class_get_field_from_name(cls, "_items");
   if (!size || !storage || !size->type || size->type->type != IL2CPP_TYPE_I4 || !storage->type
-      || storage->type->type != IL2CPP_TYPE_SZARRAY)
+      || storage->type->type != IL2CPP_TYPE_SZARRAY || size->type->byref || storage->type->byref
+      || (il2cpp_field_get_flags(size) & FIELD_ATTRIBUTE_STATIC)
+      || (il2cpp_field_get_flags(storage) & FIELD_ATTRIBUTE_STATIC))
     return nullptr;
   Il2CppArray* items{};
   il2cpp_field_get_value(list, size, &count);
@@ -196,19 +198,24 @@ void Disposed(auto original, Object* manager, Object* fleets)
 
 bool Field(Il2CppClass* cls, const char* name, std::ptrdiff_t offset, Il2CppTypeEnum type)
 {
-  auto* field = cls ? il2cpp_class_get_field_from_name(cls, name) : nullptr;
-  const bool valid = field && field->offset == offset && field->type && field->type->type == type;
+  auto* f = cls ? il2cpp_class_get_field_from_name(cls, name) : nullptr;
+  const bool valid = f && f->offset == offset && f->type && !f->type->byref
+                     && !(il2cpp_field_get_flags(f) & FIELD_ATTRIBUTE_STATIC) && f->type->type == type;
   if (!valid)
-    spdlog::warn("[ThinQueueProtection] {}.{}: expected field offset=0x{:X} type={}; actual offset={} type={}",
+    spdlog::warn("[ThinQueueProtection] {}.{}: expected instance field offset=0x{:X} type={}; "
+                   "actual offset={} type={} static={} byref={}",
                    cls ? cls->name : "<missing class>", name, offset, static_cast<int>(type),
-                   field ? field->offset : -1, field && field->type ? static_cast<int>(field->type->type) : -1);
+                   f ? f->offset : -1, f && f->type ? static_cast<int>(f->type->type) : -1,
+                   f && f->type && bool(il2cpp_field_get_flags(f) & FIELD_ATTRIBUTE_STATIC),
+                   f && f->type && bool(f->type->byref));
   return valid;
 }
 
 template <typename T> bool Getter(T& out, Il2CppClass* cls, const char* name, const char* result)
 {
   const auto* method = method_contract::Resolve(cls, name, false, result, {});
-  out                = reinterpret_cast<T>(method_contract::Pointer(method));
+  out                = method && !method->has_full_generic_sharing_signature
+                           ? reinterpret_cast<T>(method_contract::Pointer(method)) : nullptr;
   if (method && method->return_type->type == IL2CPP_TYPE_VALUETYPE) {
     auto*       type       = il2cpp_class_from_type(method->return_type);
     const auto* underlying = type && il2cpp_class_is_enum(type) ? il2cpp_class_enum_basetype(type) : nullptr;
@@ -245,7 +252,7 @@ void InstallThinQueueProtection()
   auto* disposed = Pointer(disposed_info);
   const auto* engage = Resolve(manager, "TryPlanPathAndEngageTarget", false, "Digit.Prime.Combat.EngageResult",
                                {"Digit.PrimeServer.Models.FleetPlayerData", "Prime.ActionQueue.ActionQueueInstance"});
-  tryEngage = reinterpret_cast<decltype(tryEngage)>(Pointer(engage));
+  tryEngage          = reinterpret_cast<decltype(tryEngage)>(Pointer(engage));
   const auto* process_info = Resolve(manager, "ProcessQueue", false, "System.Void", {"System.Int64", "System.Boolean"});
   processTarget = reinterpret_cast<decltype(processTarget)>(Pointer(process_info));
   auto*       result     = engage ? il2cpp_class_from_type(engage->return_type) : nullptr;
@@ -253,6 +260,10 @@ void InstallThinQueueProtection()
   const bool  valid =
       manager && queueClass && actionClass && playerClass && deployedClass && plan && stall && disposed && tryEngage
       && processTarget && underlying && underlying->type == IL2CPP_TYPE_I4
+      && !plan_info->has_full_generic_sharing_signature && !stall_info->has_full_generic_sharing_signature
+      && !disposed_info->has_full_generic_sharing_signature && !engage->has_full_generic_sharing_signature
+      && !process_info->has_full_generic_sharing_signature
+      && plan != stall && plan != disposed && stall != disposed
       && Field(manager, "_battleQueue", 0x48, IL2CPP_TYPE_SZARRAY)
       && Field(queueClass, "IsEngaging", 0x10, IL2CPP_TYPE_BOOLEAN)
       && Field(queueClass, "LastEngagedTargetId", 0x18, IL2CPP_TYPE_I8)
@@ -288,6 +299,13 @@ void InstallThinQueueProtection()
                                                                            : "instance method unavailable");
     if (!underlying || underlying->type != IL2CPP_TYPE_I4)
       spdlog::warn("[ThinQueueProtection] unavailable: EngageResult must be an Int32 enum");
+    // Only these three methods are detoured; the other two are native calls.
+    for (size_t i = 0; i < 3; ++i)
+      for (size_t j = 0; j < i; ++j)
+        if (methods[i].first && methods[j].first && methods[i].first->methodPointer
+            && methods[i].first->methodPointer == methods[j].first->methodPointer)
+          spdlog::warn("[ThinQueueProtection] unavailable: {} and {} share a native hook target",
+                         methods[i].second, methods[j].second);
     return;
   }
   const bool a = SPUD_STATIC_DETOUR(plan, Plan) != nullptr;

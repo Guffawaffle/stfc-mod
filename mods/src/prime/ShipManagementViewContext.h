@@ -3,9 +3,16 @@
 #include <il2cpp/il2cpp_helper.h>
 
 #include "errormsg.h"
+#include "FleetPlayerData.h"
 
 struct ShipManagementViewContext {
 public:
+  FleetPlayerData* CurrentFleet()
+  {
+    static auto method = get_class_helper().GetMethod<FleetPlayerData*(ShipManagementViewContext*)>("get_CurrentFleet");
+    return method ? method(this) : nullptr;
+  }
+
   int32_t CurrentIndex()
   {
     static auto CurrentIndexWarn = true;
@@ -64,6 +71,19 @@ public:
     }
 
     return -1;
+  }
+
+  void Sort()
+  {
+    static auto SortWarn   = true;
+    static auto SortMethod = get_class_helper().GetMethod<void(ShipManagementViewContext*)>("Sort");
+
+    if (SortMethod) {
+      SortMethod(this);
+    } else if (SortWarn) {
+      SortWarn = false;
+      ErrorMsg::MissingMethod("ShipManagementViewContext", "Sort");
+    }
   }
 
 private:

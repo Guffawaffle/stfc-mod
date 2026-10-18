@@ -38,54 +38,60 @@ std::array<MissionHudButtonDefinition, 4> g_button_definitions{{
 std::vector<MissionHudButtonDefinition*> g_configured_buttons;
 ComponentGetGameObjectFn                 g_get_game_object = nullptr;
 GameObjectSetActiveFn                    g_set_active      = nullptr;
-bool g_ready = false;
 
-using ObjectAliveFn = bool (*)(void*);
-using ActiveSelfFn = bool (*)(void*);
-using RefreshFn = void (*)(void*);
-ObjectAliveFn g_alive = nullptr;
-ActiveSelfFn g_active_self = nullptr;
-ActiveSelfFn g_enabled = nullptr;
-RefreshFn g_refresh_achievements = nullptr;
-RefreshFn g_refresh_outposts = nullptr;
-bool g_available = false;
-bool g_refreshing = false;
+using ObjectAliveFn                  = bool (*)(void*);
+using ActiveSelfFn                   = bool (*)(void*);
+using RefreshFn                      = void (*)(void*);
+ObjectAliveFn g_alive                = nullptr;
+ActiveSelfFn  g_active_self          = nullptr;
+ActiveSelfFn  g_enabled              = nullptr;
+RefreshFn     g_refresh_achievements = nullptr;
+RefreshFn     g_refresh_outposts     = nullptr;
+bool          g_available            = false;
+bool          g_refreshing           = false;
 struct HudInstance {
-  Il2CppGCHandle controller = nullptr;
-  Il2CppGCHandle missions = nullptr;
-  bool missions_default = true;
-  bool missions_overridden = false;
+  Il2CppGCHandle controller          = nullptr;
+  Il2CppGCHandle missions            = nullptr;
+  bool           missions_default    = true;
+  bool           missions_overridden = false;
 };
 std::vector<HudInstance> g_instances;
 
-bool Alive(void* object) { return object && g_alive && g_alive(object); }
+bool Alive(void* object)
+{ return object && g_alive && g_alive(object); }
 void* ButtonObject(void* controller, const MissionHudButtonDefinition& button)
 {
-  if (!Alive(controller) || !button.field_valid) return nullptr;
+  if (!Alive(controller) || !button.field_valid)
+    return nullptr;
   auto* component = *reinterpret_cast<void**>(reinterpret_cast<char*>(controller) + button.field_offset);
   return Alive(component) ? g_get_game_object(component) : nullptr;
 }
 bool Track(void* controller)
 {
-  if (!Alive(controller)) return false;
-  if (g_refreshing) return true;
+  if (!Alive(controller))
+    return false;
+  if (g_refreshing)
+    return true;
   for (auto it = g_instances.begin(); it != g_instances.end();) {
     auto* target = il2cpp_gchandle_get_target(it->controller);
     if (!Alive(target)) {
       il2cpp_gchandle_free(it->controller);
-      if (it->missions) il2cpp_gchandle_free(it->missions);
+      if (it->missions)
+        il2cpp_gchandle_free(it->missions);
       it = g_instances.erase(it);
     } else {
       if (target == controller) {
         auto* missions = ButtonObject(controller, g_button_definitions[3]);
-        if (!Alive(missions)) return false;
+        if (!Alive(missions))
+          return false;
         if (il2cpp_gchandle_get_target(it->missions) != missions) {
           const auto replacement = il2cpp_gchandle_new_weakref(static_cast<Il2CppObject*>(missions), false);
-          if (!replacement) return false;
+          if (!replacement)
+            return false;
           il2cpp_gchandle_free(it->missions);
-          it->missions = replacement;
+          it->missions            = replacement;
           it->missions_overridden = false;
-          it->missions_default = g_active_self(missions);
+          it->missions_default    = g_active_self(missions);
         } else if (!it->missions_overridden) {
           it->missions_default = g_active_self(missions);
         }
@@ -95,15 +101,18 @@ bool Track(void* controller)
     }
   }
   auto* missions = ButtonObject(controller, g_button_definitions[3]);
-  if (!Alive(missions)) return false;
-  const auto owner = il2cpp_gchandle_new_weakref(static_cast<Il2CppObject*>(controller), false);
+  if (!Alive(missions))
+    return false;
+  const auto owner  = il2cpp_gchandle_new_weakref(static_cast<Il2CppObject*>(controller), false);
   const auto button = il2cpp_gchandle_new_weakref(static_cast<Il2CppObject*>(missions), false);
   if (owner && button) {
     g_instances.push_back({owner, button, g_active_self(missions)});
     return true;
   } else {
-    if (owner) il2cpp_gchandle_free(owner);
-    if (button) il2cpp_gchandle_free(button);
+    if (owner)
+      il2cpp_gchandle_free(owner);
+    if (button)
+      il2cpp_gchandle_free(button);
   }
   return false;
 }
@@ -153,7 +162,7 @@ bool ResolveButtonFields(IL2CppClassHelper& controller_helper, Il2CppClass* comp
 {
   auto valid_count = 0;
   for (auto& definition : g_button_definitions) {
-    auto* button = &definition;
+    auto*       button      = &definition;
     auto field = controller_helper.GetField(button->field_name);
     auto* info = field.get_info();
     const auto* type = info ? info->type : nullptr;
@@ -178,10 +187,12 @@ bool ResolveButtonFields(IL2CppClassHelper& controller_helper, Il2CppClass* comp
 
 void ApplyButtonVisibility(void* controller, const MissionHudButtonDefinition& button)
 {
-  if (!g_available || button.visibility == MissionHudVisibility::Auto) return;
+  if (!g_available || button.visibility == MissionHudVisibility::Auto)
+    return;
   if (auto* game_object = ButtonObject(controller, button); Alive(game_object)) {
     const bool desired = button.visibility == MissionHudVisibility::Always;
-    if (g_active_self(game_object) != desired) g_set_active(game_object, desired);
+    if (g_active_self(game_object) != desired)
+      g_set_active(game_object, desired);
   }
 }
 } // namespace
@@ -190,17 +201,21 @@ void ApplyButtonVisibility(void* controller, const MissionHudButtonDefinition& b
 // setup/notification work, then apply only explicitly configured overrides.
 void ApplyConfiguredButtonVisibility(void* controller)
 {
-  if (!g_available) return;
-  if (!Track(controller)) return;
+  if (!g_available)
+    return;
+  if (!Track(controller))
+    return;
   for (auto& instance : g_instances) {
-    if (il2cpp_gchandle_get_target(instance.controller) != controller) continue;
+    if (il2cpp_gchandle_get_target(instance.controller) != controller)
+      continue;
     if (g_button_definitions[3].visibility == MissionHudVisibility::Auto) {
       if (instance.missions_overridden) {
-        auto* missions = il2cpp_gchandle_get_target(instance.missions);
-        const bool baseline = instance.missions_default;
+        auto*      missions          = il2cpp_gchandle_get_target(instance.missions);
+        const bool baseline          = instance.missions_default;
         instance.missions_overridden = false;
         if (Alive(missions) && ButtonObject(controller, g_button_definitions[3]) == missions
-            && g_active_self(missions) != baseline) g_set_active(missions, baseline);
+            && g_active_self(missions) != baseline)
+          g_set_active(missions, baseline);
       }
     } else {
       instance.missions_overridden = true;
@@ -284,15 +299,24 @@ void InstallMissionHudTweaksHooks()
     return;
   }
 
-  auto object_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Object");
-  g_alive = reinterpret_cast<ObjectAliveFn>(object_helper.GetMethod("op_Implicit", 1));
-  g_active_self = reinterpret_cast<ActiveSelfFn>(game_object_helper.GetMethod("get_activeSelf", 0));
-  auto behaviour_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Behaviour");
-  g_enabled = reinterpret_cast<ActiveSelfFn>(behaviour_helper.GetMethod("get_isActiveAndEnabled", 0));
+  auto        object_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Object");
+  const auto* alive =
+      method_contract::Resolve(object_helper.get_cls(), "op_Implicit", true, "System.Boolean", {"UnityEngine.Object"});
+  const auto* active_self =
+      method_contract::Resolve(game_object_helper.get_cls(), "get_activeSelf", false, "System.Boolean", {});
+  auto        behaviour_helper = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Behaviour");
+  const auto* enabled_method =
+      method_contract::Resolve(behaviour_helper.get_cls(), "get_isActiveAndEnabled", false, "System.Boolean", {});
+  g_alive       = reinterpret_cast<ObjectAliveFn>(method_contract::Pointer(alive));
+  g_active_self = reinterpret_cast<ActiveSelfFn>(method_contract::Pointer(active_self));
+  g_enabled     = reinterpret_cast<ActiveSelfFn>(method_contract::Pointer(enabled_method));
   if (!g_alive || !g_active_self || !g_enabled) {
-    if (!g_alive) ErrorMsg::MissingMethod("UnityEngine.Object", "op_Implicit");
-    if (!g_active_self) ErrorMsg::MissingMethod("UnityEngine.GameObject", "get_activeSelf");
-    if (!g_enabled) ErrorMsg::MissingMethod("UnityEngine.Behaviour", "get_isActiveAndEnabled");
+    if (!g_alive)
+      ErrorMsg::MissingMethod("UnityEngine.Object", "op_Implicit");
+    if (!g_active_self)
+      ErrorMsg::MissingMethod("UnityEngine.GameObject", "get_activeSelf");
+    if (!g_enabled)
+      ErrorMsg::MissingMethod("UnityEngine.Behaviour", "get_isActiveAndEnabled");
     return;
   }
 
@@ -330,14 +354,14 @@ void InstallMissionHudTweaksHooks()
         return;
       }
   }
-  if (get_game_object->has_full_generic_sharing_signature || set_active->has_full_generic_sharing_signature) {
-    spdlog::error("MissionHudTweaks: {} uses unsupported generic sharing; overrides disabled",
-                   get_game_object->has_full_generic_sharing_signature ? "Component.get_gameObject()"
-                                                                       : "GameObject.SetActive(Boolean)");
-    return;
-  }
+  for (const auto* method : {get_game_object, set_active, alive, active_self, enabled_method})
+    if (method->has_full_generic_sharing_signature) {
+      spdlog::error("MissionHudTweaks: {}.{} uses unsupported generic sharing; overrides disabled", method->klass->name,
+                    method->name);
+      return;
+    }
   g_refresh_achievements = reinterpret_cast<RefreshFn>(achievements->methodPointer);
-  g_refresh_outposts = reinterpret_cast<RefreshFn>(combined->methodPointer);
+  g_refresh_outposts     = reinterpret_cast<RefreshFn>(combined->methodPointer);
   const auto modes = ConfiguredButtonModes();
   if (!modes.empty())
     spdlog::info("MissionHudTweaks: applying {}", modes);
@@ -363,29 +387,48 @@ void InstallMissionHudTweaksHooks()
 
 namespace mission_hud
 {
-bool Available() { return g_available; }
-bool CanChange() { return g_available && !g_refreshing; }
+bool Available()
+{ return g_available; }
+bool CanChange()
+{ return g_available && !g_refreshing; }
 void Refresh()
 {
-  if (!g_available || g_refreshing) return;
+  if (!g_available || g_refreshing)
+    return;
   g_configured_buttons = LoadConfiguredButtons();
   struct Guard {
-    Guard() { g_refreshing = true; }
-    ~Guard() { g_refreshing = false; }
+    Guard()
+    { g_refreshing = true; }
+    ~Guard()
+    { g_refreshing = false; }
   } guard;
   // Weak handles are not ownership. Recheck Unity's native lifetime after every
   // managed call; refresh callbacks cannot modify the tracking collection.
   for (const auto& instance : g_instances) {
+    auto* target = il2cpp_gchandle_get_target(instance.controller);
+    if (!Alive(target))
+      continue;
+    const auto handle = il2cpp_gchandle_new(target, false);
+    if (!handle)
+      continue;
+    struct Root {
+      Il2CppGCHandle handle;
+      ~Root()
+      { il2cpp_gchandle_free(handle); }
+    } root{handle};
     auto current = [&]() -> void* {
-      auto* target = il2cpp_gchandle_get_target(instance.controller);
+      auto* target = il2cpp_gchandle_get_target(root.handle);
       return Alive(target) && g_enabled(target) ? target : nullptr;
     };
     auto* controller = current();
-    if (!controller) continue;
+    if (!controller)
+      continue;
     g_refresh_achievements(controller);
-    if (!(controller = current())) continue;
+    if (!(controller = current()))
+      continue;
     g_refresh_outposts(controller);
-    if (!(controller = current())) continue;
+    if (!(controller = current()))
+      continue;
     ApplyConfiguredButtonVisibility(controller);
   }
 }

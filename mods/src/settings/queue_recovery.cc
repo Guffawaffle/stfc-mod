@@ -6,7 +6,8 @@
 namespace mod_settings
 {
 bool KirsharaFixesAvailable()
-{ return QueueRecoveryAvailable() || ThinQueueProtectionAvailable() || QueueAddressGuardAvailable(); }
+{ return Config::Get().installActionQueueRecoveryHooks || Config::Get().installThinQueueProtectionHooks
+         || Config::Get().installQueueAddressGuardHooks; }
 
 BooleanSetting& KirsharaFixesSetting()
 {

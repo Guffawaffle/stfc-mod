@@ -51,16 +51,21 @@ int main()
   assert(!normal.value() && normal.Request(true) == Outcome::Rejected && writes == 2);
 
   // Audio has ten built-ins (including Off) plus a retained custom-file slot.
-  int audio_value = 10;
-  ChoiceSetting audio({"audio", "Sound", [&] { return ValueReadResult<int>::Known(audio_value, 1); },
-      [&](int value, std::uint64_t) { audio_value = value; return ApplyResult::Applied; }},
+  int           audio_value = 10;
+  ChoiceSetting audio(
+      {"audio", "Sound", [&] { return ValueReadResult<int>::Known(audio_value, 1); },
+       [&](int value, std::uint64_t) {
+         audio_value = value;
+         return ApplyResult::Applied;
+       }},
       {"Off", "Default", "Info", "Success", "Warning", "Alarm", "Arrival", "Soft", "Ping", "Repair", "Custom"});
   PageCatalog audio_pages("audio_root", "Audio");
   assert(audio_pages.AddPage("alert", "Alert", "audio_root") == Registration::Added);
   assert(audio_pages.AddChoice("alert", audio) == Registration::Added);
   assert(audio_pages.Build().at(1).ControlRows() == 11);
   NativeViewState custom(audio, 10), off(audio, 0);
-  custom.Bind(); off.Bind();
+  custom.Bind();
+  off.Bind();
   assert(custom.value() == true && off.value() == false);
   assert(off.Request(true) == Outcome::AppliedVerified && audio_value == 0);
   custom.Bind();

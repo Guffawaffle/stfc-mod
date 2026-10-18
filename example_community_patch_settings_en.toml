@@ -112,6 +112,8 @@ settings_url = ""
 #  <[===============================================================================================]> 
 
 [control]
+# Additional upstream settings (see docs/MOD_SETTINGS.md).
+kirshara_fixes = true
 # Double-tap window in ms for 1-8 ship select/locate. Lower = faster, higher = slower. Default 500
 select_timer = 500
 
@@ -140,7 +142,6 @@ queue_enabled = true
 # old advanced.queue.thin_queue_protection setting; those feature keys are ignored.
 # Disabling this preserves native queues and navigation. Hook compatibility switches
 # under [patches] remain separate and default on.
-kirshara_fixes = true
 
 # If you prefer to use Scopely's hotkeys set this to true
 use_scopely_hotkeys = false
@@ -167,6 +168,8 @@ enable_experimental = false
 #  <[===========================================================================================================================]> 
 
 [graphics]
+# Additional upstream settings (see docs/MOD_SETTINGS.md).
+interior_zoom_scale = 2.0
 # Select systems at far galaxy zoom (Windows and macOS). Default off.
 galaxy_extended_selection = false
 # Show the remaining Galactic Anomaly time below Help All / Engage / Claim.
@@ -333,6 +336,14 @@ hide_haven_water = false
 #  <[=====================================================]> 
 
 [patches]
+# Additional upstream settings (see docs/MOD_SETTINGS.md).
+nativesettingshooks = true
+runtimeconfighooks = true
+chattitledisplayhooks = true
+interiorzoomhooks = true
+pinnedshipclicktoggle = true
+pinnedshiphooks = true
+revealconfirmhooks = true
 
 # Subgroup: Leave Well Alone
 # --------------------------
@@ -772,6 +783,12 @@ navigation_orbit_reset = "ALT-MOUSE2"
 #  <[===================================================================]> 
 
 [ui]
+# Additional upstream settings (see docs/MOD_SETTINGS.md).
+auto_confirm_reveal_ability = false
+show_player_title = true
+dock_syncmanagement = true
+pinned_ships = ""
+hud_daily_goals = "auto"
 # Show the newest Haven help-history entries first
 reverse_haven_history = true
 

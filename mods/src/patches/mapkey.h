@@ -14,6 +14,7 @@ class MapKey
 public:
   struct ActionDefinition {
     std::string key, defaultBinding;
+    bool        enabled = true;
   };
   MapKey();
 
@@ -26,6 +27,7 @@ public:
   // UI-thread replacement of one complete action. Prepare before publishing so
   // a failed allocation cannot leave a partially edited binding list.
   static bool ReplaceBindings(GameFunction gameFunction, std::vector<MapKey> bindings);
+  static void SetActionEnabled(GameFunction action, bool enabled);
   static bool HasBinding(GameFunction gameFunction);
   static bool IsPressed(GameFunction gameFunction);
   static bool IsDown(GameFunction gameFunction);
@@ -52,6 +54,7 @@ public:
 private:
   static std::array<std::vector<MapKey>, (int)GameFunction::Max> mappedKeys;
   static std::array<ActionDefinition, (int)GameFunction::Max>    definitions;
+
 
   bool        hasModifiers;
   std::string shortcutHint;

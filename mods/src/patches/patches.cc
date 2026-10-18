@@ -1,6 +1,7 @@
 #include "patches.h"
 #include "file.h"
 #include "log_history.h"
+#include "patches/runtime_config.h"
 #include "version.h"
 #include "profile_launch.h"
 
@@ -26,6 +27,7 @@ void InstallHavenZoomHooks();
 void InstallHavenHistoryHooks();
 void InstallNavigationOrbitHooks();
 void InstallGalaxySelectionHooks();
+void InstallInteriorZoomHooks();
 void InstallBuffFixHooks();
 #if _WIN32
 void InstallFreeResizeHooks();
@@ -42,6 +44,7 @@ void InstallMiscPatches();
 void InstallMissionHudTweaksHooks();
 void InstallArtifactExchangeHooks();
 void InstallChatPatches();
+void InstallChatTitleDisplayHooks();
 void InstallTempCrashFixes();
 void InstallSyncPatches();
 void InstallObjectTrackers();
@@ -56,6 +59,7 @@ void InstallPinnedShipSortHooks();
 void InstallDoubleClickAssignShipHooks();
 void InstallInstantWarpConfirmationHooks();
 void InstallForbiddenTechConfirmationHooks();
+void InstallRevealConfirmationHooks();
 void InstallAudioEventHooks();
 void InstallOfficerPresetReorderHooks();
 void InstallBaseCardHooks();
@@ -203,11 +207,13 @@ int il2cpp_init_hook(auto original, const char* domain_name)
   bool install_ship_tile_bind  = cfg.installPinnedShipSortHooks || cfg.installShipTechIndicatorHooks;
   const PatchEntry patches[] = {
       {"UiScaleHooks", {InstallUiScaleHooks, &cfg.installUiScaleHooks}},
+      {"RuntimeConfig", {runtime_config::Install, &cfg.installRuntimeConfigHooks}},
       {"ZoomHooks", {InstallZoomHooks, &cfg.installZoomHooks}},
       {"HavenZoomHooks", {InstallHavenZoomHooks, &cfg.installHavenZoomHooks}},
       {"HavenHistoryHooks", {InstallHavenHistoryHooks, &cfg.installHavenHistoryHooks}},
       {"NavigationOrbitHooks", {InstallNavigationOrbitHooks, &cfg.installNavigationOrbitHooks}},
       {"GalaxySelection", {InstallGalaxySelectionHooks, &cfg.installZoomHooks}},
+      {"InteriorZoomHooks", {InstallInteriorZoomHooks, &cfg.installInteriorZoomHooks}},
       {"BuffFixHooks", {InstallBuffFixHooks, &cfg.installBuffFixHooks}},
       {"ToastBannerHooks", {InstallToastBannerHooks, &cfg.installToastBannerHooks}},
       {"FleetNotifications", {InstallFleetNotificationHooks, &cfg.installFleetNotificationHooks}},
@@ -225,6 +231,7 @@ int il2cpp_init_hook(auto original, const char* domain_name)
       {"MissionHudTweaksHooks", {InstallMissionHudTweaksHooks, &cfg.installMissionHudTweaksHooks}},
       {"ArtifactExchangeHooks", {InstallArtifactExchangeHooks, &cfg.installArtifactExchangeHooks}},
       {"ChatPatches", {InstallChatPatches, &cfg.installChatPatches}},
+      {"ChatTitleDisplay", {InstallChatTitleDisplayHooks, &cfg.installPlayerTitleDisplayHooks}},
       {"SyncPatches", {InstallSyncPatches, &cfg.installSyncPatches}},
       {"ObjectTracker", {InstallObjectTrackers, &cfg.installObjectTracker}},
       {"LoadingScreen", {InstallLoadingScreenHooks, &cfg.installLoadingScreenHooks}},
@@ -238,6 +245,7 @@ int il2cpp_init_hook(auto original, const char* domain_name)
       {"ShipTileClick", {InstallDoubleClickAssignShipHooks, &install_ship_tile_click}},
       {"InstantWarpConfirm", {InstallInstantWarpConfirmationHooks, &cfg.installInstantWarpConfirmationHooks}},
       {"ForbiddenTechConfirm", {InstallForbiddenTechConfirmationHooks, &cfg.installForbiddenTechConfirmationHooks}},
+      {"RevealConfirm", {InstallRevealConfirmationHooks, &cfg.installRevealConfirmationHooks}},
       {"AudioEvents", {InstallAudioEventHooks, &cfg.installAudioEventHooks}},
       {"OfficerPresetReorder", {InstallOfficerPresetReorderHooks, &cfg.installOfficerPresetReorderHooks}},
       {"BaseCard", {InstallBaseCardHooks, &cfg.installBaseCardHooks}},

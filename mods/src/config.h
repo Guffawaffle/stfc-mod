@@ -144,6 +144,12 @@ struct FleetLabelProfile {
 
 // Part of UI Scale
 void ApplyUiShipScaleToLoadedShips(float old_multiplier, float new_multiplier);
+// Shared startup/editor parsers. False reports invalid tokens; known tokens are
+// still returned so startup preserves its existing permissive interpretation.
+bool        ParseShipFilter(std::string_view value, std::vector<std::string>& names, bool& match_all);
+bool        ParseFactionFilter(std::string_view value, std::vector<std::string>& factions);
+bool        ParseBannerFilter(std::string_view value, std::vector<int>& types);
+std::string FormatBannerFilter(const std::vector<int>& types);
 
 class Config final
 {
@@ -158,7 +164,7 @@ public:
   [[nodiscard]] static HWND WindowHandle();
 #endif
 
-  static void Save(const toml::table& config, std::string_view filename, bool apply_warning = true);
+  static bool Save(const toml::table& config, std::string_view filename, bool apply_warning = true);
   void        Load();
   void        AdjustUiScale(bool scaleUp);
   void        AdjustUiShipScale(bool scaleUp);
@@ -181,6 +187,7 @@ public:
   float             zoom;
   float             haven_zoom;
   bool              hide_haven_water;
+  float             interior_zoom_scale;
   float             fr_scale;
   FleetLabelProfile zoom_label_player;
   FleetLabelProfile zoom_label_non_player;
@@ -256,6 +263,8 @@ public:
   bool show_ship_tech_indicators;
   bool show_ship_tech_indicator_backgrounds;
   bool auto_confirm_ft_upgrade;
+  bool                     show_player_title;
+  bool                     auto_confirm_reveal_ability;
 
   std::vector<std::string> daily_bulk_claim_factions;
 
@@ -280,6 +289,7 @@ public:
   bool reverse_haven_history;
   bool only_show_first_popup;
   bool arrow_keys_to_select_ship;
+  bool dock_syncmanagement;
 
   bool galaxy_extended_selection = false;
   bool show_cargo_default;
@@ -304,6 +314,7 @@ public:
   bool installZoomHooks;
   bool installHavenZoomHooks;
   bool installNavigationOrbitHooks;
+  bool installInteriorZoomHooks;
   bool installBuffFixHooks;
   bool installToastBannerHooks;
   bool installActionQueueRecoveryHooks;
@@ -312,6 +323,8 @@ public:
   bool installFleetNotificationHooks;
   bool installPanHooks;
   bool installHotkeyHooks;
+  bool installNativeSettings;
+  bool installRuntimeConfigHooks;
   bool installFreeResizeHooks;
   bool installTempCrashFixes;
   bool installTestPatches;
@@ -319,6 +332,7 @@ public:
   bool installMissionHudTweaksHooks;
   bool disable_exchange_all;
   bool installChatPatches;
+  bool installPlayerTitleDisplayHooks;
   bool installSyncPatches;
   bool installGameVersionHook;
   bool installObjectTracker;
@@ -329,10 +343,10 @@ public:
   bool installLoadingTipHooks;
   bool installDoubleClickAssignShipHooks;
   bool installForbiddenTechConfirmationHooks;
+  bool installRevealConfirmationHooks;
   bool installInstantWarpConfirmationHooks;
   bool installAudioEventHooks;
   bool installOpcIndicatorHooks;
-  bool installNativeSettings;
   bool installArtifactExchangeHooks;
   bool installOfficerPresetReorderHooks;
   bool installBaseCardHooks;
@@ -363,5 +377,6 @@ public:
   // Fleet management dock ship sort: pin configured ships to the front
   bool installPinnedShipSortHooks;
   bool installShipTechIndicatorHooks;
+  bool installPinnedShipClickToggle;
   bool installHavenHistoryHooks;
 };

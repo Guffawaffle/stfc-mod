@@ -3,9 +3,8 @@
 #include "page_navigation.h"
 #include "row_style.h"
 #include "settings/native_boolean_callback.h"
-#include "settings/shortcut_settings.h"
 #include "settings/shortcut_popup.h"
-#include "timing.h"
+#include "settings/shortcut_settings.h"
 #include <deque>
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
@@ -16,7 +15,7 @@ namespace
 {
   NativeCallback<void>          actionCallback;
   NativeCallback<Il2CppString*> actionGetter;
-  bool                          actionsActive = false;
+  bool                          actionsActive  = false;
   Il2CppObject*                 invokingWidget = nullptr;
 } // namespace
 Il2CppObject* InvokingActionWidget()
@@ -163,7 +162,7 @@ void RefreshActions()
 {
   if (!OnUIThread() || !actionsActive || !PagesActive() || PageRefreshInProgress())
     return;
-  timing::Scope measurement(timing::Operation::RefreshActions);
+
   RefreshPageRows();
   RefreshPageSummaries();
   RefreshActionPresentations();
@@ -212,12 +211,14 @@ void InvokeAction(Il2CppObject* token, const MethodInfo*)
       // A feature-owned reader may release/rebind its row. Keep that callback
       // from authorizing a different command or recursively invoking itself.
       if (enabled && view.action == action && view.index == index && Target(view.context) == context.get()
-          && Target(view.token) == token && Invoke(ActionMeta().getContext, widget.get()) == context.get())
-      {
+          && Target(view.token) == token && Invoke(ActionMeta().getContext, widget.get()) == context.get()) {
         struct Invocation {
           Il2CppObject* previous;
-          explicit Invocation(Il2CppObject* widget) : previous(invokingWidget) { invokingWidget = widget; }
-          ~Invocation() { invokingWidget = previous; }
+          explicit Invocation(Il2CppObject* widget)
+              : previous(invokingWidget)
+          { invokingWidget = widget; }
+          ~Invocation()
+          { invokingWidget = previous; }
         } invocation(widget.get());
         action->invoke(index);
       }
@@ -370,7 +371,8 @@ void InstallActionWidgets()
           || !Type(action.add->parameters[1], IL2CPP_TYPE_STRING)
           || !Type(action.add->parameters[2], IL2CPP_TYPE_STRING) || !Reference(action.add->parameters[3])
           || !Reference(action.add->parameters[4]) || !Type(action.add->parameters[5], IL2CPP_TYPE_STRING))
-        throw std::runtime_error("SettingsContext.AddButtonAndText: expected instance Void(reference, String, String, reference, reference, String)");
+        throw std::runtime_error("SettingsContext.AddButtonAndText: expected instance Void(reference, String, String, "
+                                 "reference, reference, String)");
       if (!action.getContext || !Reference(action.getContext->return_type)
           || !Instance(action.getContext, 0, action.getContext->return_type->type))
         throw std::runtime_error("ButtonAndTextOptionWidget.get_Context: expected instance reference result");
@@ -392,29 +394,36 @@ void InstallActionWidgets()
         if (!Instance(targets[i], 0, IL2CPP_TYPE_VOID))
           throw std::runtime_error(std::string(names[i]) + ": expected instance Void()");
       if (targets[0]->methodPointer == targets[1]->methodPointer)
-        throw std::runtime_error("ButtonAndTextOptionWidget.SetWidgetData and OnAboutToReleaseContext share a native hook target");
+        throw std::runtime_error(
+            "ButtonAndTextOptionWidget.SetWidgetData and OnAboutToReleaseContext share a native hook target");
       for (auto* target : targets) {
         for (auto* existing :
              {ToggleMeta().refresh, ToggleMeta().changed, ToggleMeta().release, ToggleMeta().addGeneral,
               ToggleMeta().reload, ToggleMeta().session, ToggleMeta().load, m.bind, m.release, m.selected, m.destroyed})
           if (target->methodPointer == existing->methodPointer)
-            throw std::runtime_error(std::string("ButtonAndTextOptionWidget.") + target->name + " shares target with " + existing->klass->name + "." + existing->name);
+            throw std::runtime_error(std::string("ButtonAndTextOptionWidget.") + target->name + " shares target with "
+                                     + existing->klass->name + "." + existing->name);
         if (SelectionActive())
           for (auto* existing : {SelectionMeta().refresh, SelectionMeta().changed, SelectionMeta().release})
             if (target->methodPointer == existing->methodPointer)
-              throw std::runtime_error(std::string("ButtonAndTextOptionWidget.") + target->name + " shares target with " + existing->klass->name + "." + existing->name);
+              throw std::runtime_error(std::string("ButtonAndTextOptionWidget.") + target->name + " shares target with "
+                                       + existing->klass->name + "." + existing->name);
         if (SliderActive())
           for (auto* existing :
                {SliderMeta().refresh, SliderMeta().changed, SliderMeta().release, SliderMeta().valueLabel})
             if (target->methodPointer == existing->methodPointer)
-              throw std::runtime_error(std::string("ButtonAndTextOptionWidget.") + target->name + " shares target with " + existing->klass->name + "." + existing->name);
+              throw std::runtime_error(std::string("ButtonAndTextOptionWidget.") + target->name + " shares target with "
+                                       + existing->klass->name + "." + existing->name);
         if (HeadingsActive())
           for (auto* existing : {HeadingMeta().refresh, HeadingMeta().clear})
             if (target->methodPointer == existing->methodPointer)
-              throw std::runtime_error(std::string("ButtonAndTextOptionWidget.") + target->name + " shares target with " + existing->klass->name + "." + existing->name);
+              throw std::runtime_error(std::string("ButtonAndTextOptionWidget.") + target->name + " shares target with "
+                                       + existing->klass->name + "." + existing->name);
       }
+      ValidateHookFit(action.refresh);
       if (!SPUD_STATIC_DETOUR(action.refresh->methodPointer, ActionRefreshHook))
         throw std::runtime_error("ButtonAndTextOptionWidget.SetWidgetData: hook installation failed");
+      ValidateHookFit(action.release);
       if (!SPUD_STATIC_DETOUR(action.release->methodPointer, ActionReleaseHook))
         throw std::runtime_error("ButtonAndTextOptionWidget.OnAboutToReleaseContext: hook installation failed");
       actionsActive = true;

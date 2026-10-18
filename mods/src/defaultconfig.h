@@ -36,8 +36,8 @@ namespace Control
   constexpr bool use_scopely_hotkeys = false;
   constexpr const char* keyboard_layout_mode = "physical";
   constexpr bool queue_enabled       = true;
-  constexpr bool kirshara_fixes       = true;
   constexpr auto select_timer        = 500;
+  constexpr bool kirshara_fixes = true;
 } // namespace Control
 
 namespace Graphics
@@ -87,15 +87,19 @@ namespace Graphics
   constexpr const char* loader_image                = "";   // Empty = use game background in original BG builds
   constexpr auto        loader_logo_scale           = 1.0;  // multiplier for logo size
   constexpr bool        loader_tip_enabled           = true; // show custom tip on loading screen
+  constexpr auto        interior_zoom_scale             = 2.0; // station-interior zoom-out multiplier; 1.0 = native
 } // namespace Graphics
 
 namespace Patches
 {
   constexpr bool bufffixhooks               = true;
   constexpr bool chatpatches                = true;
+  constexpr bool chattitledisplayhooks      = true;
   constexpr bool freeresizehooks            = true;
   constexpr bool game_version               = true;
   constexpr bool hotkeyhooks                = true;
+  constexpr bool nativesettingshooks        = true;
+  constexpr bool runtimeconfighooks         = true;
   constexpr bool loadingscreenhooks         = true;
   constexpr bool transitionscreenhooks      = true;
   constexpr bool objecttracker              = true;
@@ -111,6 +115,7 @@ namespace Patches
   constexpr bool zoomhooks                  = true;
   constexpr bool havenzoomhooks             = true;
   constexpr bool navigationorbithooks       = true;
+  constexpr bool interiorzoomhooks          = true;
   constexpr bool miscpatches                = true;
   constexpr bool giftsbulkclaimhooks        = true;
   constexpr bool claimtracehooks            = true;
@@ -131,6 +136,8 @@ namespace Patches
   constexpr bool artifactexchangehooks      = true;
   constexpr bool officerpresetreorderhooks   = true;
   constexpr bool basecardhooks               = true;
+  constexpr bool pinnedshipclicktoggle      = true; // SHIFT+click a fleet dock ship tile to pin/unpin it
+  constexpr bool revealconfirmhooks         = true; // auto-confirm the Excelsior Decloaking Deflector popup when enabled in [ui]
 } // namespace Patches
 
 namespace Shortcuts
@@ -300,6 +307,8 @@ namespace UI
   constexpr bool        show_ship_tech_indicators   = true;
   constexpr bool        show_ship_tech_indicator_backgrounds = false;
   constexpr const char* daily_bulk_claim_factions   = "";
+  constexpr bool        dock_syncmanagement                = true;
+  constexpr bool        auto_confirm_reveal_ability        = false;
   constexpr bool        daily_bulk_claim_toggle_default_on = false;
   constexpr bool        only_show_first_popup              = false;
   constexpr bool        disable_escape_exit                = true;
@@ -314,6 +323,7 @@ namespace UI
   constexpr bool        keep_base_card_open         = false;
   constexpr bool        disable_toast_banners       = false;
   constexpr bool        disable_veil_chat           = false;
+  constexpr bool        show_player_title           = true;
   constexpr bool        disable_exchange_all        = false;
   constexpr bool        double_click_to_assign_ship = false;
   constexpr bool        focus_search                = true;
