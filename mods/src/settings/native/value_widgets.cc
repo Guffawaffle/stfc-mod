@@ -97,6 +97,7 @@ std::deque<ValueWidget>& ValueViews()
 }
 ValueWidget* renderingView = nullptr;
 ValueWidget* bindingView   = nullptr;
+bool ChildOf(Il2CppObject* transform, Il2CppObject* parent);
 // Keep only weak component identities across native pooling. An unbound button
 // is disabled and has no listeners; rebind can reuse it in the same Unity frame.
 std::vector<Il2CppGCHandle> inlineButtons;
@@ -109,13 +110,21 @@ void                        ClearInlineEditor(ValueWidget& view)
       Root event(Call(button, "get_onClick"));
       Call(event.get(), "RemoveAllListeners");
     }
-    if (auto* graphic = Target(view.editGraphic); Alive(graphic))
-      Value(graphic, "set_raycastTarget", view.editRaycastBefore);
+    if (auto* object = Target(view.editObject); Alive(object))
+      SetActive(object, false);
+    if (auto* slider = Target(view.editRects[0]); Alive(slider))
+      Value(slider, "set_offsetMax", view.editOffsets[0]);
+    if (auto* label = Target(view.editRects[1]); Alive(label)) {
+      Value(label, "set_offsetMin", view.editOffsets[1]);
+      Value(label, "set_offsetMax", view.editOffsets[2]);
+    }
   } catch (...) {
     Warn("inline editor restoration unavailable");
   }
   Free(view.editButton);
-  Free(view.editGraphic);
+  Free(view.editObject);
+  for (auto& rect : view.editRects)
+    Free(rect);
   Free(view.editToken);
 }
 bool InlineSliderEditorActive(Il2CppObject* context)
@@ -155,6 +164,33 @@ void InlineEditClick(Il2CppObject* token, const MethodInfo*)
     return;
   }
 }
+vec2 InlineOffset(Il2CppObject* rect, const char* property)
+{
+  Root  value(Call(rect, property));
+  auto* vectors = ui::UnityClass("Vector2");
+  if (!value.get() || value.get()->klass != vectors)
+    throw std::runtime_error("inline editor rect offset");
+  return *static_cast<vec2*>(il2cpp_object_unbox(value.get()));
+}
+Il2CppObject* InlineChild(const char* name, Il2CppObject* parent)
+{
+  using namespace ui;
+  Root        object(il2cpp_object_new(UnityClass("GameObject")));
+  Root        text(reinterpret_cast<Il2CppObject*>(il2cpp_string_new(name)));
+  const auto* ctor = IL2CppClassHelper(UnityClass("GameObject")).GetMethodInfoSpecial(".ctor", [](auto n, auto p) {
+    return n == 1 && Type(p[0], IL2CPP_TYPE_STRING);
+  });
+  void*       args[]{text.get()};
+  Invoke(ctor, object.get(), args);
+  SetActive(object.get(), false);
+  WithType(object.get(), "AddComponent", UnityClass("RectTransform"));
+  Root  transform(Call(object.get(), "get_transform"));
+  bool  world = false;
+  void* parentArgs[]{parent, &world};
+  Call(transform.get(), "SetParent", 2, parentArgs);
+  Value(object.get(), "set_layer", 5);
+  return object.get();
+}
 void BindInlineEditor(ValueWidget& view, SliderSetting& setting)
 {
   using namespace ui;
@@ -167,9 +203,30 @@ void BindInlineEditor(ValueWidget& view, SliderSetting& setting)
       if (!inlineEditCallback.Initialize(schema, InlineEditClick))
         return;
     }
-    Root  object(Call(Target(view.label), "get_gameObject"));
+    Root parent(Call(Target(view.widget), "get_transform"));
+    Root slider(Call(ReadField(Target(view.widget), SliderMeta().toggleField), "get_transform"));
+    Root valueLabel(Call(ReadField(Target(view.widget), SliderMeta().stateField), "get_transform"));
+    if (ChildOf(valueLabel.get(), slider.get()))
+      throw std::runtime_error("inline editor value label hierarchy");
+    Root bounds(Call(slider.get(), "get_rect"));
+    if (!bounds.get() || bounds.get()->klass != UnityClass("Rect")
+        || static_cast<float*>(il2cpp_object_unbox(bounds.get()))[2] < 230)
+      return; // Preserve the separate editor when the native layout is too narrow.
+    view.editOffsets  = {InlineOffset(slider.get(), "get_offsetMax"), InlineOffset(valueLabel.get(), "get_offsetMin"),
+                         InlineOffset(valueLabel.get(), "get_offsetMax")};
+    view.editRects[0] = il2cpp_gchandle_new_weakref(slider.get(), false);
+    view.editRects[1] = il2cpp_gchandle_new_weakref(valueLabel.get(), false);
+    if (!view.editRects[0] || !view.editRects[1])
+      throw std::runtime_error("inline editor layout roots");
+    Root  name(reinterpret_cast<Il2CppObject*>(il2cpp_string_new("CommunityMod_InlineEdit")));
+    void* find[]{name.get()};
+    Root  existing(Call(parent.get(), "Find", 1, find));
+    Root  object(existing.get() ? Call(existing.get(), "get_gameObject")
+                                : InlineChild("CommunityMod_InlineEdit", parent.get()));
+    view.editObject = il2cpp_gchandle_new_weakref(object.get(), false);
+    if (!view.editObject)
+      throw std::runtime_error("inline editor object root");
     auto* buttons = Class("UnityEngine.UI", "UnityEngine.UI", "Button");
-    // Never borrow a native button's listeners. Only our disabled component is reusable.
     for (auto it = inlineButtons.begin(); it != inlineButtons.end();) {
       if (!Target(*it)) {
         Free(*it);
@@ -177,31 +234,46 @@ void BindInlineEditor(ValueWidget& view, SliderSetting& setting)
       } else
         ++it;
     }
-    Root existing(WithType(object.get(), "GetComponent", buttons));
+    Root button(existing.get() ? WithType(object.get(), "GetComponent", buttons)
+                               : WithType(object.get(), "AddComponent", buttons));
     if (existing.get() && std::none_of(inlineButtons.begin(), inlineButtons.end(), [&](auto handle) {
-          return Target(handle) == existing.get();
+          return Target(handle) == button.get();
         }))
-      return;
-    Root graphic(WithType(object.get(), "GetComponent", Class("Unity.TextMeshPro", "TMPro", "TMP_Text")));
-    if (!graphic.get())
-      return;
-    view.editRaycastBefore = Boolean(Call(graphic.get(), "get_raycastTarget"));
-    view.editGraphic       = il2cpp_gchandle_new_weakref(graphic.get(), false);
-    if (!view.editGraphic)
-      throw std::runtime_error("inline editor graphic root");
-    Root button(existing.get() ? existing.get() : WithType(object.get(), "AddComponent", buttons));
-    if (!existing.get()) {
-      const auto handle = il2cpp_gchandle_new_weakref(button.get(), false);
-      if (!handle)
-        throw std::runtime_error("inline editor component root");
-      inlineButtons.push_back(handle);
-    }
+      throw std::runtime_error("inline editor ownership");
     view.editButton = il2cpp_gchandle_new_weakref(button.get(), false);
     if (!view.editButton)
       throw std::runtime_error("inline editor button root");
-    Set(button.get(), "set_targetGraphic", graphic.get());
-    Value(button.get(), "set_transition", 0); // Keep native label colors.
-    Value(graphic.get(), "set_raycastTarget", true);
+    if (!existing.get()) {
+      const auto handle = il2cpp_gchandle_new_weakref(button.get(), false);
+      if (!handle) throw std::runtime_error("inline editor component root");
+      inlineButtons.push_back(handle);
+      Root image(WithType(object.get(), "AddComponent", Class("UnityEngine.UI", "UnityEngine.UI", "Image")));
+      Value(image.get(), "set_color", color{.18f, .34f, .43f, 1});
+      Set(button.get(), "set_targetGraphic", image.get());
+      Root caption(InlineChild("Label", Call(object.get(), "get_transform")));
+      Root captionRect(Call(caption.get(), "get_transform"));
+      Value(captionRect.get(), "set_anchorMin", vec2{0, 0});
+      Value(captionRect.get(), "set_anchorMax", vec2{1, 1});
+      Value(captionRect.get(), "set_offsetMin", vec2{0, 0});
+      Value(captionRect.get(), "set_offsetMax", vec2{0, 0});
+      Root label(WithType(caption.get(), "AddComponent", Class("Unity.TextMeshPro", "TMPro", "TextMeshProUGUI")));
+      Root labelObject(Call(Target(view.label), "get_gameObject"));
+      Root source(WithType(labelObject.get(), "GetComponent", Class("Unity.TextMeshPro", "TMPro", "TMP_Text")));
+      Root font(Call(source.get(), "get_font"));
+      Set(label.get(), "set_font", font.get());
+      Value(label.get(), "set_fontSize", 22.f);
+      Value(label.get(), "set_alignment", 0x202);
+      Value(label.get(), "set_color", color{.88f, .95f, .97f, 1});
+      Value(label.get(), "set_raycastTarget", false);
+      Text(label.get(), "Edit");
+      SetActive(caption.get(), true);
+    }
+    Root rect(Call(object.get(), "get_transform"));
+    Value(rect.get(), "set_anchorMin", vec2{1, .5f});
+    Value(rect.get(), "set_anchorMax", vec2{1, .5f});
+    Value(rect.get(), "set_pivot", vec2{1, .5f});
+    Value(rect.get(), "set_sizeDelta", vec2{104, 44});
+    Value(rect.get(), "set_anchoredPosition", vec2{-12, 0});
     Root token(il2cpp_object_new(il2cpp_class_from_name(il2cpp_get_corlib(), "System", "Object")));
     view.editToken = il2cpp_gchandle_new_weakref(token.get(), false);
     if (!view.editToken)
@@ -209,17 +281,25 @@ void BindInlineEditor(ValueWidget& view, SliderSetting& setting)
     Root        event(Call(button.get(), "get_onClick"));
     const auto* add = IL2CppClassHelper(event.get()->klass).GetMethodInfo("AddListener", 1);
     if (!Instance(add, 1, IL2CPP_TYPE_VOID) || !Reference(add->parameters[0]))
-      throw std::runtime_error("inline editor button callback");
+      throw std::runtime_error("inline editor callback");
     Root  callback(MakeDelegate(il2cpp_class_from_type(add->parameters[0]), token.get(), inlineEditCallback.method()));
     void* args[]{callback.get()};
     Invoke(add, event.get(), args);
+    auto sliderMax = view.editOffsets[0], valueMin = view.editOffsets[1], valueMax = view.editOffsets[2];
+    sliderMax.x -= 124;
+    valueMin.x -= 124;
+    valueMax.x -= 124;
+    Value(slider.get(), "set_offsetMax", sliderMax);
+    Value(valueLabel.get(), "set_offsetMin", valueMin);
+    Value(valueLabel.get(), "set_offsetMax", valueMax);
     Value(button.get(), "set_enabled", true);
+    SetActive(object.get(), true);
   } catch (...) {
     ClearInlineEditor(view);
     Warn("inline editor binding unavailable; using separate Edit row");
   }
 }
-void         Restore(ValueWidget& view)
+void Restore(ValueWidget& view)
 {
   RestoreTint(view.tint);
   if (view.disabled) {
@@ -481,8 +561,6 @@ void Render(ValueWidget& view, auto original, Il2CppObject* widget)
     return;
   Root        label(Target(view.label));
   std::string text = view.state->presentation_label();
-  if (Target(view.editButton))
-    text += "  <u><color=#9ADBE7>Edit</color></u>";
   // An enabled slider belongs to the selected mode above it. Use a quiet cyan
   // accent, not the native white selection fill (the slider is not a choice).
   if (WidgetMeta(widget).slider && view.state->enabled()) {

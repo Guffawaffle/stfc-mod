@@ -1,5 +1,6 @@
 #if _WIN32
 #include "settings/audio_file_picker.h"
+#include "settings/image_file_picker.h"
 #include "settings/audio_file_tasks.h"
 #include <Windows.h>
 #include <shobjidl.h>
