@@ -37,8 +37,9 @@ guard sees the resulting active engagement. Queue identity is checked again afte
 native calls. All three guard hooks must install before any guard action is enabled.
 
 Methods, field offsets/types and enum return representations are checked before
-installation; incompatible layouts keep native behavior. This port currently
-installs only on Windows x64. macOS runtime/ABI validation is not claimed.
+installation; incompatible layouts keep native behavior. This port compiles for
+Windows x64 and macOS ARM64/x86_64. macOS native hook fit and runtime validation
+remain unverified; compilation alone does not establish those properties.
 
 Successful actions log `[ThinQueueProtection] resume` or
 `[ThinQueueProtection] process-destroyed-head`; startup logs `ready=true` or an
