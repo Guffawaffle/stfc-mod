@@ -4,6 +4,9 @@
 #include "config.h"
 #include "file.h"
 #include "patches/claim_navigation_recovery.h"
+#include "patches/claim_presentation_watch.h"
+#include "errormsg.h"
+#include "prime/Hub.h"
 #include "patches/claim_ui_fault.h"
 #include "patches/key.h"
 #include "patches/screen_update_hook.h"
@@ -22,6 +25,7 @@
 #include <execinfo.h>
 #include <unistd.h>
 #endif
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <charconv>
@@ -715,6 +719,8 @@ Json Summary(void* object)
   return result;
 }
 
+#include "claim_receipt_trace.h"
+
 enum class Kind {
   none,
   claim,
@@ -828,9 +834,34 @@ void Remember(Il2CppGCHandle& handle, void* object)
   handle = next;
 }
 
+void* BoundSummary();
+NavigationState ReadNavigation(void* manager);
+Json NavigationSnapshot(void* manager);
+Json CinematicSnapshot();
+
+bool WaitingForPresentation(const Json& claim)
+{
+  const auto is = [&](const char* key, const Json& expected) {
+    auto it = claim.find(key);
+    return it != claim.end() && *it == expected;
+  };
+  return is("request", 2) && is("acquisition", 4) && is("presentation", 3) && is("result_published", true);
+}
+bool HasNoRewardContext()
+{
+  for (auto handle : {latestReward, latestChest}) {
+    auto* object = handle ? il2cpp_gchandle_get_target(handle) : nullptr;
+    void* context{};
+    if (object && (!Read(object, "m_context", context) || context))
+      return false;
+  }
+  return true;
+}
+
 struct ObservedClaim {
   Il2CppGCHandle handle;
   Json           last;
+  claim_trace::PresentationWatch presentation;
 };
 std::mutex                 observedClaimMutex;
 std::vector<ObservedClaim> observedClaims; // Weak handles never keep a claim alive.
@@ -865,6 +896,23 @@ void CheckClaims() noexcept
         continue;
       }
       auto current = Claim(object);
+      auto* latest = latestClaim ? il2cpp_gchandle_get_target(latestClaim) : nullptr;
+      auto* manager = Hub::get_SectionManager();
+      auto section = ReadNavigation(manager);
+      const bool eligible = object == latest && WaitingForPresentation(current) && !BoundSummary()
+                            && HasNoRewardContext() && section.known;
+      const bool hadLeft = it->presentation.LeftSection();
+      if (it->presentation.Observe(eligible, section.current, section.next, NowMs())) {
+        if (Write({{"event", "presentation_stall_observed"}, {"claim", current},
+                   {"section", NavigationSnapshot(manager)}, {"cinematic", CinematicSnapshot()},
+                   {"minimum_wait_ms", 15000}, {"exception_proven", false},
+                   {"automatic_escape", false}}))
+          claim_trace::ShowClaimNotice(claim_trace::NoticeKind::presentation);
+      }
+      if (!hadLeft && it->presentation.LeftSection())
+        Write({{"event", "presentation_stalled_section_left"}, {"claim", current},
+               {"section", NavigationSnapshot(manager)},
+               {"presentation_terminal", current.contains("presentation") && (current["presentation"] == 5 || current["presentation"] == 6)}});
       if (current != it->last) {
         Write({{"event", "claim_state_observed"}, {"before", it->last}, {"after", current}});
         it->last = current;
@@ -1178,6 +1226,146 @@ Json NavigationSnapshot(void* manager)
   return result;
 }
 
+Json CinematicBundle(void* bundle)
+{
+  auto result = BundleState(bundle);
+  void* metadata{};
+  result["metadata_known"] = Read(bundle, "metadata_", metadata);
+  result["metadata_present"] = metadata != nullptr;
+  for (const char* field : {"assetId_", "assetFilename_"}) {
+    std::u16string value;
+    result[field] = Text(metadata, field, value) ? Json(!value.empty()) : Json(nullptr);
+  }
+  Scalar<int32_t>(result, metadata, "animationOnClaimType_", "animation_type");
+  return result;
+}
+Json CinematicSnapshot()
+{
+  Json result = {{"supported", false}, {"directors", Json::array()}};
+  auto* objectClass = Resolve("UnityEngine.CoreModule", "UnityEngine", "Object");
+  auto* directorClass = Resolve("Assembly-CSharp", "Digit.Prime.Shop", "ShopCinematicDirector");
+  if (!objectClass || !directorClass)
+    return result;
+  const MethodInfo* find{};
+  void* iterator{};
+  while (auto* method = il2cpp_class_get_methods(objectClass, &iterator)) {
+    if (std::strcmp(method->name, "FindObjectsOfType") || method->parameters_count != 1 || method->is_generic)
+      continue;
+    auto* parameter = il2cpp_class_from_type(il2cpp_method_get_param(method, 0));
+    if (parameter && !std::strcmp(parameter->namespaze, "System") && !std::strcmp(parameter->name, "Type")) {
+      if (find) return result;
+      find = method;
+    }
+  }
+  if (!find)
+    return result;
+  auto* type = il2cpp_type_get_object(il2cpp_class_get_type(directorClass));
+  void* arguments[]{type};
+  Il2CppException* error{};
+  auto* objects = il2cpp_runtime_invoke(find, nullptr, arguments, &error);
+  if (error || !objects)
+    return result;
+  if (il2cpp_class_get_rank(il2cpp_object_get_class(objects)) != 1)
+    return result;
+  auto directors = References(objects, 16);
+  if (directors.size() != il2cpp_array_length(reinterpret_cast<Il2CppArray*>(objects)))
+    return result;
+  result["supported"] = true;
+  for (auto* director : directors) {
+    auto* context = Invoke(director, "get__shopSectionContext");
+    void* component{};
+    Read(director, "_cinematicComponent", component);
+    void* transaction{};
+    Read(context, "CurTransactionBundle", transaction);
+    result["directors"].push_back({{"director", UiIdentity(director)},
+      {"active_enabled", BoolProperty(director, "get_isActiveAndEnabled")},
+      {"component", UiIdentity(component)}, {"context", ShopContext(context)},
+      {"selected_bundle", CinematicBundle(Invoke(context, "get_SelectedBundle"))},
+      {"transaction_bundle", CinematicBundle(transaction)}});
+  }
+  return result;
+}
+
+Json PresentationStatus()
+{
+  std::lock_guard lock(observedClaimMutex);
+  auto* latest = latestClaim ? il2cpp_gchandle_get_target(latestClaim) : nullptr;
+  for (const auto& entry : observedClaims)
+    if (latest && il2cpp_gchandle_get_target(entry.handle) == latest) {
+      auto claim = Claim(latest);
+      return {{"stalled", entry.presentation.Stalled()}, {"escape_attempted", entry.presentation.Attempted()},
+              {"left_stalled_section", entry.presentation.LeftSection()},
+              {"local_claim_key", claim.value("local_claim_key", int64_t{})}};
+    }
+  return {{"stalled", false}, {"escape_attempted", false}, {"local_claim_key", 0}};
+}
+
+bool PresentationNavigationAccepted(void* claim)
+{
+  std::lock_guard lock(observedClaimMutex);
+  for (auto& entry : observedClaims)
+    if (il2cpp_gchandle_get_target(entry.handle) == claim) {
+      const bool stalled = entry.presentation.Stalled();
+      entry.presentation.NavigationAccepted();
+      return stalled;
+    }
+  return false;
+}
+
+Json EscapePresentation(int64_t expectedKey)
+{
+  Json reply = {{"ok", false}};
+  auto* manager = Hub::get_SectionManager();
+  auto before = ReadNavigation(manager);
+  // Match the existing Q / ShowStationInterior route exactly. No forced navigation or lock writes.
+  int32_t destination = static_cast<int32_t>(SectionID::Starbase_Interior);
+  auto* latest = latestClaim ? il2cpp_gchandle_get_target(latestClaim) : nullptr;
+  {
+    std::lock_guard lock(observedClaimMutex);
+    auto found = std::find_if(observedClaims.begin(), observedClaims.end(), [&](const auto& entry) {
+      return latest && il2cpp_gchandle_get_target(entry.handle) == latest;
+    });
+    if (found == observedClaims.end() || expectedKey <= 0 || Claim(latest).value("local_claim_key", int64_t{}) != expectedKey)
+      return {{"ok", false}, {"error", "claim-changed-refresh-status"}};
+    const bool eligible = WaitingForPresentation(Claim(latest)) && !BoundSummary() && HasNoRewardContext() && before.known;
+    found->presentation.Observe(eligible, before.current, before.next, NowMs());
+    const bool gates = Config::Get().claim_navigation_recovery && captureHealthy && sinkHealthy.load()
+                       && eligible && !before.busy && before.current != destination && methods[64]
+                       && !Key::shortcutCaptureActive && !Key::shortcutPopupActive && !Key::IsInputFocused()
+                       && !Key::RawDown(KeyCode::Escape) && !Key::RawPressed(KeyCode::Mouse0);
+    if (!found->presentation.ConsumeEscape(gates))
+      return {{"ok", false}, {"error", "presentation-escape-guard-rejected"},
+              {"section", NavigationSnapshot(manager)}, {"attempted", found->presentation.Attempted()}};
+  }
+  struct Hold {
+    Il2CppGCHandle claim{}, manager{};
+    ~Hold() { if (claim) il2cpp_gchandle_free(claim); if (manager) il2cpp_gchandle_free(manager); }
+  } hold{il2cpp_gchandle_new(static_cast<Il2CppObject*>(latest), false),
+         il2cpp_gchandle_new(static_cast<Il2CppObject*>(static_cast<void*>(manager)), false)};
+  if (!hold.claim || !hold.manager)
+    return {{"ok", false}, {"error", "object-tracking-failed-budget-consumed"}};
+  if (!Write({{"event", "presentation_escape_attempt"}, {"local_claim_key", expectedKey},
+              {"section", NavigationSnapshot(manager)}, {"destination", destination},
+              {"claim_requests_modified", false}, {"reward_state_modified", false}}))
+    return {{"ok", false}, {"error", "capture-write-failed-budget-consumed"}};
+  bool forced = false, back = false, same = true;
+  void* arguments[]{&destination, nullptr, &forced, &back, &same};
+  Il2CppException* error{};
+  auto* result = il2cpp_runtime_invoke(methods[64], manager, arguments, &error);
+  const bool accepted = !error && result && il2cpp_class_get_type(result->klass)->type == IL2CPP_TYPE_BOOLEAN
+                        && *static_cast<bool*>(il2cpp_object_unbox(result));
+  auto claim = Claim(latest);
+  auto after = ReadNavigation(manager);
+  reply = {{"ok", true}, {"attempted", true}, {"accepted", accepted}, {"managed_exception", error != nullptr},
+           {"escaped_now", after.known && !after.busy && after.current == destination},
+           {"presentation_terminal", claim.contains("presentation") && (claim["presentation"] == 5 || claim["presentation"] == 6)},
+           {"claim", claim}, {"section", NavigationSnapshot(manager)}};
+  auto event = reply;
+  event["event"] = "presentation_escape_returned";
+  Write(std::move(event));
+  return reply;
+}
+
 void ReleaseRecoveryHandles()
 {
   for (auto* handle : {&recovery.summary, &recovery.manager, &recovery.shop, &recovery.context})
@@ -1422,7 +1610,7 @@ Json CaptureStatus()
     sequence = eventSequence;
     dropped  = suppressed;
   }
-  return {{"schema", 9},
+  return {{"schema", 11},
           {"session", sessionId},
           {"pid", ProcessId()},
           {"source", STFC_IDENTITY_COMMENT_STR},
@@ -1431,6 +1619,7 @@ Json CaptureStatus()
           {"hooks", installedHooks},
           {"expected_hooks", std::size(kTargets)},
           {"bulk_selection", SelectionTraceStatus()},
+          {"item_receipts", receipt_trace::Status()},
           {"trace", tracePath.filename().string()},
           {"sequence", sequence},
           {"sampled_events_suppressed", dropped},
@@ -1439,6 +1628,7 @@ Json CaptureStatus()
           {"ui_reject_armed", uiReject.Armed(NowMs())},
           {"navigation_recovery_enabled", Config::Get().claim_navigation_recovery},
           {"navigation_recovery_pending", recovery.policy.Pending()},
+          {"presentation_watch", PresentationStatus()},
           {"utc_ms",
            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
                .count()}};
@@ -1491,6 +1681,8 @@ void ControlTick() noexcept
                         {"marker", request.value("label", std::string{}).substr(0, 64)},
                         {"state", SummaryInput(BoundSummary())}}))
             claim_trace::ShowClaimNotice(claim_trace::NoticeKind::marked);
+        } else if (command == "escape-presentation") {
+          reply.update(EscapePresentation(request.value("claim_key", int64_t{})));
         } else if (command == "preview-notice" || command == "clear-notice") {
           if (command == "preview-notice")
             claim_trace::ShowClaimNotice(claim_trace::NoticeKind::preview);
@@ -1733,12 +1925,21 @@ bool Hook1(auto original, void* self, void* bundles, void* quantities, void* cal
 void Hook2(auto original, void* self, void* claim, void* orders)
 {
   Span span(2, Kind::claim, claim, -1);
+  receipt_trace::Write("purchase_orders", span.id, [&] {
+    return Json{{"claim", Claim(claim)}, {"orders", receipt_trace::PurchaseOrders(orders)}};
+  });
   original(self, claim, orders);
 }
 
 void Hook3(auto original, void* self, void* claim)
 {
   Span span(3, Kind::claim, claim, -1);
+  receipt_trace::Write("bulk_purchase_orders", span.id, [&] {
+    void* orders{};
+    return Json{{"claim", Claim(claim)},
+                {"orders_read", Read(claim, "_orders", orders)},
+                {"orders", receipt_trace::PurchaseOrders(orders)}};
+  });
   original(self, claim);
 }
 
@@ -1814,6 +2015,7 @@ void Hook13(auto original, void* self)
 {
   Span span(13, Kind::reward, self, -1);
   original(self);
+  receipt_trace::ViewReceipt("generic_rewards_shown", span.id, self);
 }
 
 void Hook14(auto original, void* self)
@@ -1868,6 +2070,11 @@ void Hook22(auto original, void* self)
 {
   Span span(22, Kind::chest, self, -1);
   original(self);
+  receipt_trace::Write("chest_reveal_shown", span.id, [&] {
+    void* storyboard{};
+    Read(self, "m_context", storyboard);
+    return receipt_trace::StoryboardReceipt(storyboard);
+  });
 }
 
 void Hook23(auto original, void* self)
@@ -1910,7 +2117,8 @@ bool Hook28(auto original, void* self)
 
 bool Hook29(auto original, void* self)
 {
-  Span       span(29, Kind::storyboard, self, -1);
+  Span span(29, Kind::storyboard, self, -1);
+  receipt_trace::Write("reveal_before_next", span.id, [&] { return receipt_trace::StoryboardReceipt(self); });
   const bool result = original(self);
   span.result       = result;
   return result;
@@ -1918,7 +2126,8 @@ bool Hook29(auto original, void* self)
 
 bool Hook30(auto original, void* self, bool all)
 {
-  Span       span(30, Kind::storyboard, self, all);
+  Span span(30, Kind::storyboard, self, all);
+  receipt_trace::Write("reveal_before_skip", span.id, [&] { return receipt_trace::StoryboardReceipt(self); });
   const bool result = original(self, all);
   span.result       = result;
   return result;
@@ -2002,6 +2211,7 @@ void Hook39(auto original, void* self)
   summaryVisible = true;
   Span span(39, Kind::summary, self, -1);
   original(self);
+  receipt_trace::ViewReceipt("summary_shown", span.id, self);
 }
 
 void Hook40(auto original, void* self)
@@ -2027,19 +2237,23 @@ void Hook40(auto original, void* self)
 void Hook41(auto original, void* self)
 {
   Span span(41, Kind::summary, self, -1);
+  receipt_trace::ViewReceipt("summary_before_complete", span.id, self);
   original(self);
 }
 
 void Hook42(auto original, void* self)
 {
   Span span(42, Kind::summary, self, -1);
+  receipt_trace::ViewReceipt("summary_before_next", span.id, self);
   original(self);
+  receipt_trace::ViewReceipt("summary_after_next", span.id, self);
 }
 
 void Hook43(auto original, void* self)
 {
   claim_trace::CancelClaimNoticeConfirmation();
   Span span(43, Kind::summary, self, -1);
+  receipt_trace::ViewReceipt("summary_before_continue", span.id, self);
   CancelRecovery("new-continue-action");
   NavigationFrame frame;
   frame.id         = nextSpan.fetch_add(1);
@@ -2318,8 +2532,40 @@ void Hook63(auto original, void* self)
 bool Hook64(auto original, void* self, int32_t next, void* args, bool forced, bool back, bool same)
 {
   auto* summary = continuingSummary ? continuingSummary : BoundSummary();
-  if (!ready.load() || !summary)
+  if (!ready.load())
     return original(self, next, args, forced, back, same);
+  if (!summary) {
+    struct HoldClaim {
+      Il2CppGCHandle handle{};
+      ~HoldClaim() { if (handle) il2cpp_gchandle_free(handle); }
+    } held;
+    void* claim{};
+    bool observe{};
+    try {
+      claim = latestClaim ? il2cpp_gchandle_get_target(latestClaim) : nullptr;
+      if (WaitingForPresentation(Claim(claim)))
+        held.handle = il2cpp_gchandle_new(static_cast<Il2CppObject*>(claim), false);
+      observe = held.handle != 0;
+      if (observe)
+        Write({{"event", "presentation_navigation"}, {"phase", "before"}, {"claim", Claim(claim)},
+               {"destination", next}, {"section", NavigationSnapshot(self)},
+               {"forced", forced}, {"back", back}, {"allow_same", same}});
+    } catch (...) {
+      observe = false;
+    }
+    const bool result = original(self, next, args, forced, back, same);
+    try {
+      if (observe) {
+        if (result && PresentationNavigationAccepted(claim))
+          Write({{"event", "presentation_escape_navigation_accepted"}, {"destination", next},
+                 {"claim", Claim(claim)}, {"screen_escape_confirmed", false}});
+        Write({{"event", "presentation_navigation"}, {"phase", "after"}, {"returned", result},
+               {"claim", Claim(claim)}, {"destination", next}, {"section", NavigationSnapshot(self)}});
+      }
+    } catch (...) {
+    }
+    return result;
+  }
   auto* frame = navigationFrame;
   if (!frame) {
     claim_trace::CancelClaimNoticeConfirmation();
@@ -2582,10 +2828,11 @@ void InstallClaimTrace()
                  pulseInstalled ? "active" : "unavailable");
   claim_trace::InstallClaimNotice();
   ready.store(true);
+  receipt_trace::Install();
   InstallSelectionTrace();
   Write(
       {{"event", "session"},
-       {"schema", 9},
+       {"schema", 11},
        {"source", STFC_IDENTITY_COMMENT_STR},
        {"pid", ProcessId()},
        {"healthy", captureHealthy},
@@ -2601,7 +2848,8 @@ void InstallClaimTrace()
        {"pulse", "5 seconds for 5 minutes after claim/reward/error/message activity; latest weakly held objects only"},
        {"limits", "input/pulse snapshots 1200/minute; 8 MiB plus 2 rotations across sessions; 128 weak requests, 64 "
                   "weak claims; no bodies, "
-                  "raw IDs or UI text"},
+                  "raw account/order IDs or UI text; catalog references and quantities in claim_receipts.jsonl"},
+       {"item_receipts", receipt_trace::Status()},
        {"correlation", "session-local tokens; bounded to 512 orders, 512 semaphore identifiers and 512 request labels; "
                        "512 bundle aliases; unsupported collections are explicit"},
        {"offer_probe_limits", "120 spans/minute; lists up to 64 entries; larger/unsupported lists explicit"}});
@@ -2632,8 +2880,13 @@ void TraceClaimNavigation(const char* action) noexcept
     if (!ready.load())
       return;
     auto* summary = BoundSummary();
-    if (!summary)
+    if (!summary) {
+      auto* claim = latestClaim ? il2cpp_gchandle_get_target(latestClaim) : nullptr;
+      if (WaitingForPresentation(Claim(claim)))
+        Write({{"event", "presentation_navigation_action"}, {"action", action}, {"claim", Claim(claim)},
+               {"section", NavigationSnapshot(Hub::get_SectionManager())}});
       return;
+    }
     claim_trace::CancelClaimNoticeConfirmation();
     CancelRecovery("player-navigation-shortcut");
     auto data      = SummaryInput(summary);

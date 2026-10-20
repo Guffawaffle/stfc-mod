@@ -235,3 +235,60 @@ Compile/run `tests/claim_notice.cc` with `mods/src` on the include path to check
 accepted-vs-hidden attribution, synchronous/asynchronous hide order, generation,
 manual cancellation, rejection, expiry and test labeling. Visual placement still
 needs an exact-artifact check after a cycle.
+
+## Pre-summary presentation stalls
+
+The 2026-10-19 Transporter Patterns/Kang incident reached Succeeded/Granted with
+52 shards in the purchase-order receipt, then remained Presenting without a
+summary. Unity logged a null reference in
+`ShopCinematicDirector.OnSectionEnterPrepareActivate`. The player escaped with
+Q (ShowStationInterior), but the last observed claim was still Presenting.
+Screen navigation therefore does not prove claim completion or inventory balance.
+
+The existing 65 hooks now also observe navigation while the latest claim is
+Succeeded/Granted/Presenting without a summary. After 15 seconds in the same
+known section state, with no bound reward/chest context, capture records one
+`presentation_stall_observed` event and an amber notice. This is a possible stall,
+not proof of an exception: slow cinematic loading may also meet the conditions.
+The snapshot reads available cinematic directors, component/context presence,
+selected/transaction bundle aliases and metadata/asset presence. Missing data is
+explicit. These are observation-time snapshots, not the throwing stack's locals.
+No new detours or hook-fit claims are introduced.
+
+Status exposes `presentation_watch` with the current local claim key, stall and
+one-shot escape state. An explicit operator command can try the same ordinary
+non-forced station-interior navigation as Q:
+
+```powershell
+python scripts/claim-capture.py status --game-dir <game-directory>
+python scripts/claim-capture.py escape-presentation --game-dir <game-directory>
+```
+
+This requires enabled `ui.claim_navigation_recovery`, healthy capture, the same
+claim from fresh status, unchanged section state, no summary/reward context,
+idle native navigation and no capture/popup/focused text/mouse/Escape input ownership. The
+budget is consumed before the native call, even on rejection or exception.
+It never runs automatically, forces navigation, clears locks, submits claims or
+changes reward state. Acknowledgement `ok` means the attempt ran; `accepted`,
+`escaped_now` and `presentation_terminal` are separate observations. Asynchronous
+navigation may not have completed when the acknowledgement is written.
+`presentation_stalled_section_left` records leaving the stalled section,
+including manual escape. An accepted navigation retires eligibility immediately,
+even before the next sampled section observation. Presentation terminal state is
+distinct from active-claim removal and inventory balance. Leaving the stalled
+section permanently retires this incident's escape eligibility even if its claim remains Presenting, so later gameplay is not a
+recovery target. No green recovered notice is produced for this path.
+
+Preserve the Unity exception stack alongside claim journals when capturing:
+
+```powershell
+python scripts/claim-capture.py snapshot --game-dir <game-directory> --player-log <Unity-Player.log>
+```
+
+Local tests: `tests/claim_presentation_watch.cc` covers timed observation,
+navigation changes, single-attempt consumption and retirement after escape;
+`tests/test_claim_capture.py` covers command preflight and item/Unity log snapshots.
+Windows build/fixtures do not qualify macOS builds or runtime behavior. The
+shared implementation is enabled on Windows and macOS; Mac builds and runtime
+remain unverified. Exact-artifact escape smoke remains
+required before claiming that the new command recovers this failure.

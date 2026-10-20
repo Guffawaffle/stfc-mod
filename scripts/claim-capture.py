@@ -40,6 +40,12 @@ def request(root, command, label):
         raise RuntimeError("Capture heartbeat is stale; current-session recording is unverified")
     if command == "reject-summary-transition-once" and not (status.get("healthy") and status.get("summary_bound")):
         raise RuntimeError("UI test requires a healthy capture and an open chest summary")
+    watch = status.get("presentation_watch", {})
+    if command == "escape-presentation" and not (
+        status.get("healthy") and status.get("navigation_recovery_enabled")
+        and watch.get("stalled") and not watch.get("escape_attempted") and watch.get("local_claim_key", 0) > 0
+    ):
+        raise RuntimeError("Presentation escape requires a healthy stalled claim and enabled recovery")
     identifier = str(uuid.uuid4())
     if len(label) > 64:
         raise ValueError("Marker must contain at most 64 characters")
@@ -49,7 +55,8 @@ def request(root, command, label):
     temporary = path.with_suffix("." + identifier + ".tmp")
     try:
         temporary.write_text(json.dumps(dict(id=identifier, session=status["session"], command=command,
-                                            label=label, summary_generation=status.get("summary_generation"))), encoding="utf-8")
+                                            label=label, summary_generation=status.get("summary_generation"),
+                                            claim_key=watch.get("local_claim_key"))), encoding="utf-8")
         # Atomic create-without-replacement: a concurrent caller cannot replace
         # a command that the runtime has not yet acknowledged.
         path.hardlink_to(temporary)
@@ -72,11 +79,13 @@ def request(root, command, label):
     raise RuntimeError("No current-session acknowledgement; command outcome is unknown")
 
 
-def snapshot(root, destination, reply=None):
+def snapshot(root, destination, reply=None, player_log=None):
     destination.mkdir(parents=True, exist_ok=False)
     files = []
     for name in ("bulk_selection.4.jsonl", "bulk_selection.3.jsonl", "bulk_selection.2.jsonl",
                  "bulk_selection.1.jsonl", "bulk_selection.jsonl", "bulk_selection_baseline.json",
+                 "claim_receipts.4.jsonl", "claim_receipts.3.jsonl", "claim_receipts.2.jsonl",
+                 "claim_receipts.1.jsonl", "claim_receipts.jsonl",
                  "community_claims.2.jsonl", "community_claims.1.jsonl", "community_claims.jsonl",
                  "community_claims_status.json", "community_claims_reply.json"):
         source = root / name
@@ -91,6 +100,16 @@ def snapshot(root, destination, reply=None):
                           source_changed_during_copy=(before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns)))
     if not any(item["name"] == "community_claims.jsonl" for item in files):
         raise RuntimeError("No claim trace found; snapshot is not a current-session capture")
+    if player_log is not None:
+        source = player_log.resolve(strict=True)
+        before = source.stat()
+        target = destination / "Player.log"
+        # Read to EOF: directory metadata for an open Windows log may report a stale size.
+        target.write_bytes(source.read_bytes())
+        after = source.stat()
+        files.append(dict(name="Player.log", bytes=target.stat().st_size,
+                          sha256=hashlib.sha256(target.read_bytes()).hexdigest(),
+                          source_changed_during_copy=(before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns)))
     receipt = dict(captured_at_utc=datetime.now(timezone.utc).isoformat(),
                    live_acknowledgement=reply, files=files,
                    limits="Live copies may include open spans or rotation races; preserve every listed rotation.")
@@ -100,10 +119,11 @@ def snapshot(root, destination, reply=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("status", "mark", "snapshot", "arm-ui-failure", "cancel", "preview-notice", "clear-notice"))
+    parser.add_argument("action", choices=("status", "mark", "snapshot", "arm-ui-failure", "cancel", "preview-notice", "clear-notice", "escape-presentation"))
     parser.add_argument("--game-dir", type=Path, required=True, help="Game/mod data directory or explicit claims trace directory")
     parser.add_argument("--label", default="")
     parser.add_argument("--output", type=Path, help="Private snapshot destination; default is the checkout's ignored .codex tree")
+    parser.add_argument("--player-log", type=Path, help="Optional Unity Player.log to preserve activation exception stacks")
     args = parser.parse_args()
     try:
         root = capture_root(args.game_dir.resolve(strict=True))
@@ -113,7 +133,7 @@ def main():
         if args.action in ("mark", "snapshot"):
             stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
             destination = args.output or Path(__file__).resolve().parents[1] / ".codex/claims/incidents" / stamp
-            receipt = snapshot(root, destination, reply)
+            receipt = snapshot(root, destination, reply, args.player_log)
             result.update(snapshot=str(destination), files=len(receipt["files"]))
         if args.action == "status" and not reply["status"].get("healthy"):
             result["ok"] = False

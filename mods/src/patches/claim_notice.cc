@@ -76,6 +76,7 @@ void Tick(Transform* host, const dev::overlay::LayoutContext& layout)
     case NoticeKind::recovered: text = "Claim recovered\nSummary closed; trace recorded"; break;
     case NoticeKind::timeout: text = "Claim timeout captured\nTrace recorded"; break;
     case NoticeKind::marked: text = "Claim repro captured\nIncident marked; trace recorded"; break;
+    case NoticeKind::presentation: text = "Claim presentation waiting\nNo summary after 15s; trace recorded"; break;
     case NoticeKind::preview: text = "Claim indicator test\nDisplay preview only"; break;
     default: return;
   }

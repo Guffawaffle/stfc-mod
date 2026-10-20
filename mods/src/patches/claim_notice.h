@@ -3,7 +3,7 @@
 
 namespace claim_trace
 {
-enum class NoticeKind { none, rejected, recovered, timeout, marked, preview };
+enum class NoticeKind { none, rejected, recovered, timeout, marked, preview, presentation };
 
 // UI-only evidence state. A successful return alone never proves recovery.
 struct NoticeState {

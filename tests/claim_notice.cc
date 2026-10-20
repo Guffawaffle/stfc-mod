@@ -38,6 +38,11 @@ int main()
   state.Returned(9, 12, true, 150);
   state.Hidden(9, 200);
   assert(state.kind == NoticeKind::preview);
+  state.Capture(NoticeKind::presentation);
+  state.BeginRecovery(9, 12, 100);
+  state.Returned(9, 12, true, 150);
+  state.Hidden(9, 200);
+  assert(state.kind == NoticeKind::presentation); // A screen escape is not confirmed claim recovery.
   state = {};
   assert(state.kind == NoticeKind::none);
   std::cout << "Claim notice attribution tests passed\n";

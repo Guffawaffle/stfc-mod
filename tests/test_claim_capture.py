@@ -69,6 +69,58 @@ class CaptureTests(unittest.TestCase):
             self.assertFalse((self.root / "community_claims_control.json").exists())
             self.status[field] = True
 
+    def test_presentation_escape_requires_healthy_current_stall(self):
+        self.status.update(navigation_recovery_enabled=True,
+                           presentation_watch=dict(stalled=True, escape_attempted=False, local_claim_key=25))
+        for field in ("healthy", "navigation_recovery_enabled"):
+            self.status[field] = False
+            self.write_status()
+            with self.assertRaisesRegex(RuntimeError, "healthy stalled claim"):
+                capture.request(self.root, "escape-presentation", "")
+            self.status[field] = True
+        for field, value in (("stalled", False), ("escape_attempted", True), ("local_claim_key", 0)):
+            original = self.status["presentation_watch"][field]
+            self.status["presentation_watch"][field] = value
+            self.write_status()
+            with self.assertRaisesRegex(RuntimeError, "healthy stalled claim"):
+                capture.request(self.root, "escape-presentation", "")
+            self.status["presentation_watch"][field] = original
+        self.assertFalse((self.root / "community_claims_control.json").exists())
+
+    def test_snapshot_preserves_item_receipts_and_unity_exception_log(self):
+        (self.root / "community_claims.jsonl").write_text('{}\n')
+        (self.root / "claim_receipts.jsonl").write_text('{"phase":"purchase_orders"}\n')
+        unity = self.root / "Unity-original.log"
+        unity.write_text("NullReferenceException: ShopCinematicDirector\n")
+        receipt = capture.snapshot(self.root, self.root / "incident", player_log=unity)
+        names = {item["name"] for item in receipt["files"]}
+        self.assertIn("claim_receipts.jsonl", names)
+        self.assertIn("Player.log", names)
+        self.assertEqual((self.root / "incident/Player.log").read_text(), unity.read_text())
+
+    def test_escape_command_binds_the_observed_claim_key(self):
+        self.status.update(navigation_recovery_enabled=True,
+                           presentation_watch=dict(stalled=True, escape_attempted=False, local_claim_key=25))
+        self.write_status()
+        observed = []
+
+        def runtime():
+            command = self.root / "community_claims_control.json"
+            deadline = time.monotonic() + 2
+            while not command.exists() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            request = json.loads(command.read_text())
+            observed.append(request)
+            reply = dict(id=request["id"], session=request["session"], ok=True, status=self.status)
+            (self.root / "community_claims_reply.json").write_text(json.dumps(reply))
+
+        worker = threading.Thread(target=runtime)
+        worker.start()
+        capture.request(self.root, "escape-presentation", "")
+        worker.join(timeout=3)
+        self.assertEqual(observed[0]["claim_key"], 25)
+        self.assertEqual(observed[0]["session"], "current")
+
     def test_pending_command_is_preserved(self):
         path = self.root / "community_claims_control.json"
         path.write_text('{"id":"another-controller"}')
