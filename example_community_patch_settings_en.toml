@@ -791,6 +791,9 @@ pinned_ships = ""
 hud_daily_goals = "auto"
 # Show the newest Haven help-history entries first
 reverse_haven_history = true
+# Show a placeholder summary block above the detailed Battle Log's round-by-round entries.
+# Experimental layout preview; does not calculate battle statistics.
+battle_log_summary_preview = false
 
 # Skip the reveal box animation, and just open the boxes
 always_skip_reveal_sequence = true

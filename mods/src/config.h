@@ -291,6 +291,8 @@ public:
   bool officer_sort;
   bool reverse_haven_history;
   bool only_show_first_popup;
+  bool battle_log_summary_preview;
+  bool installBattleLogSummaryHooks;
   bool arrow_keys_to_select_ship;
   bool dock_syncmanagement;
 

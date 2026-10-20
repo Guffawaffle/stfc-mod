@@ -51,6 +51,7 @@ void InstallObjectTrackers();
 void InstallLoadingScreenHooks();
 void InstallTransitionScreenHooks();
 void InstallGalacticAnomalyTimer();
+void InstallBattleLogSummary();
 void InstallLoadingTipHooks();
 void InstallCargoFormatHooks();
 void InstallInstantCargoCounterHooks();
@@ -237,6 +238,7 @@ int il2cpp_init_hook(auto original, const char* domain_name)
       {"LoadingScreen", {InstallLoadingScreenHooks, &cfg.installLoadingScreenHooks}},
       {"TransitionScreen", {InstallTransitionScreenHooks, &cfg.installTransitionScreenHooks}},
       {"GalacticAnomalyTimer", {InstallGalacticAnomalyTimer, &cfg.installGalacticAnomalyTimerHooks}},
+      {"BattleLogSummary", {InstallBattleLogSummary, &cfg.installBattleLogSummaryHooks}},
       {"LoadingTip", {InstallLoadingTipHooks, &cfg.installLoadingTipHooks}},
       {"InstantCargoCounter", {InstallInstantCargoCounterHooks, &cfg.installInstantCargoCounterHooks}},
       {"CargoFormat", {InstallCargoFormatHooks, &cfg.installCargoFormatHooks}},

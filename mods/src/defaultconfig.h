@@ -129,6 +129,7 @@ namespace Patches
   constexpr bool havenhistoryhooks          = true;
   constexpr bool missionhudtweakshooks      = true;
   constexpr bool galacticanomalytimerhooks  = true;
+  constexpr bool battlelogsummaryhooks      = true;
   constexpr bool loadingtiphooks            = true;
   constexpr bool doubleclickassignshiphooks = true;
   constexpr bool forbiddentechconfirmhooks  = true;
@@ -295,6 +296,7 @@ namespace Sync
 
 namespace UI
 {
+  constexpr bool        battle_log_summary_preview = false;
   constexpr bool        always_skip_reveal_sequence = true;
   constexpr bool        claim_navigation_recovery   = false;
   constexpr bool        arrow_keys_to_select_ship   = true;

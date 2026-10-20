@@ -971,6 +971,8 @@ void Config::Load()
       config, parsed, "patches", "dailyfactionbulkclaimhooks", DCP::dailyfactionbulkclaimhooks, write_config);
   this->installGalacticAnomalyTimerHooks =
       get_config_or_default(config, parsed, "patches", "galacticanomalytimerhooks", DCP::galacticanomalytimerhooks, write_config);
+  this->installBattleLogSummaryHooks =
+      get_config_or_default(config, parsed, "patches", "battlelogsummaryhooks", DCP::battlelogsummaryhooks, write_config);
   this->installLoadingTipHooks =
       get_config_or_default(config, parsed, "patches", "loadingtiphooks", DCP::loadingtiphooks, write_config);
   this->installDoubleClickAssignShipHooks =
@@ -1247,6 +1249,8 @@ void Config::Load()
   this->officer_sort = get_config_or_default(config, parsed, "ui", "officer_sort", DCU::officer_sort, write_config);
   this->reverse_haven_history = get_config_or_default(config, parsed, "ui", "reverse_haven_history",
                                                        DCU::reverse_haven_history, write_config);
+  this->battle_log_summary_preview = get_config_or_default(
+      config, parsed, "ui", "battle_log_summary_preview", DCU::battle_log_summary_preview, write_config);
 
   this->dock_syncmanagement =
       get_config_or_default(config, parsed, "ui", "dock_syncmanagement",
