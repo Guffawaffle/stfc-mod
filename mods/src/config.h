@@ -25,6 +25,7 @@ public:
   enum class Type {
     AwayAssignments,
     Battles,
+    Diagnostics,
     Buffs,
     Buildings,
     EmeraldChain,
@@ -53,6 +54,7 @@ public:
   bool verify_ssl       = true;
   bool away_assignments = false;
   bool battlelogs       = false;
+  bool diagnostics      = false;
   bool buffs            = false;
   bool buildings        = true;
   bool haven            = true;
@@ -71,6 +73,7 @@ public:
 };
 
 constexpr std::array SyncOptions{
+    SyncConfig::Option{SyncConfig::Type::Diagnostics, "diagnostic", "diagnostics", &SyncConfig::diagnostics},
     SyncConfig::Option{SyncConfig::Type::AwayAssignments, "away_assignment", "away_assignments",
                        &SyncConfig::away_assignments},
     SyncConfig::Option{SyncConfig::Type::Battles, "battlelog", "battlelogs", &SyncConfig::battlelogs},
