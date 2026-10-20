@@ -8,6 +8,7 @@
 #include <spdlog/spdlog.h>
 
 #include <chrono>
+#include <cmath>
 #include <cstring>
 
 namespace
@@ -201,8 +202,8 @@ void Clear()
 {
   // Restore only geometry we still own; native layout may have replaced it.
   vec2 current{};
-  if (reserved && Alive(viewport.get()) && Value(viewport.get(), "get_offsetMax", current) && current.x == reservedMax.x
-      && current.y == reservedMax.y)
+  if (reserved && Alive(viewport.get()) && Value(viewport.get(), "get_offsetMax", current)
+      && std::abs(current.x - reservedMax.x) < 0.1f && std::abs(current.y - reservedMax.y) < 0.1f)
     Set(viewport.get(), "set_offsetMax", &originalMax);
   reserved = false;
   if (Alive(panel.get())) {
