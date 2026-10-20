@@ -511,11 +511,16 @@ void HandleClick()
     return;
   position(&mouse);
   vec2          point{mouse.x, mouse.y};
-  auto*         ownerCanvas = WithType(TypeMethod(panel.get()->klass, "GetComponentInParent"), panel.get(), canvas);
-  auto*         rootCanvas  = Get(ownerCanvas, "get_rootCanvas");
-  auto*         camera      = Get(rootCanvas ? rootCanvas : ownerCanvas, "get_worldCamera");
-  void*         args[]      = {Get(panel.get(), "get_transform"), &point, camera};
-  Il2CppObject* inside      = nullptr;
+  bool          includeInactive = false;
+  void*         canvasArgs[]    = {il2cpp_type_get_object(il2cpp_class_get_type(canvas)), &includeInactive};
+  Il2CppObject* ownerCanvas     = nullptr;
+  if (!TryInvoke(IL2CppClassHelper(panel.get()->klass).GetMethodInfo("GetComponentInParent", 2), panel.get(),
+                 canvasArgs, &ownerCanvas)
+      || !ownerCanvas)
+    return;
+  auto*         camera = Get(ownerCanvas, "get_worldCamera");
+  void*         args[] = {Get(panel.get(), "get_transform"), &point, camera};
+  Il2CppObject* inside = nullptr;
   if (TryInvoke(IL2CppClassHelper(utility).GetMethodInfo("RectangleContainsScreenPoint", 3), nullptr, args, &inside)
       && inside && *static_cast<bool*>(il2cpp_object_unbox(inside))) {
     expanded = !expanded;
