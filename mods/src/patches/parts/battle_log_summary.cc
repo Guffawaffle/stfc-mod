@@ -488,26 +488,28 @@ void HandleClick()
 {
   if (!Alive(panel.get()))
     return;
-  static auto*  input        = Class("UnityEngine.InputLegacyModule", "UnityEngine", "Input");
-  static auto*  utility      = Class("UnityEngine.UIModule", "UnityEngine", "RectTransformUtility");
-  static auto*  canvas       = Class("UnityEngine.UIModule", "UnityEngine", "Canvas");
-  int           button       = 0;
-  void*         buttonArgs[] = {&button};
-  Il2CppObject* pressed      = nullptr;
-  if (!TryInvoke(IL2CppClassHelper(input).GetMethodInfo("GetMouseButtonDown", 1), nullptr, buttonArgs, &pressed)
-      || !pressed || !*static_cast<bool*>(il2cpp_object_unbox(pressed)))
-    return;
-  Il2CppObject* position = nullptr;
-  if (!TryInvoke(IL2CppClassHelper(input).GetMethodInfo("get_mousePosition", 0), nullptr, nullptr, &position)
-      || !position)
-    return;
+  // Use the same legacy-input icalls as the existing pointer controls. Some
+  // stripped Unity builds expose no managed invoker for the Input wrappers.
+  static auto released = il2cpp_resolve_icall_typed<bool(int)>("UnityEngine.Input::GetMouseButtonUp(System.Int32)");
+  static auto focused  = il2cpp_resolve_icall_typed<bool()>("UnityEngine.Application::get_isFocused()");
   struct Vec3 {
     float x, y, z;
   } mouse{};
-  uint32_t alignment = 0;
-  if (il2cpp_class_value_size(position->klass, &alignment) != sizeof(mouse))
+  static auto position =
+      il2cpp_resolve_icall_typed<void(Vec3*)>("UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)");
+  static auto* utility = Class("UnityEngine.UIModule", "UnityEngine", "RectTransformUtility");
+  static auto* canvas  = Class("UnityEngine.UIModule", "UnityEngine", "Canvas");
+  if (!released || !position || !focused || !utility || !canvas) {
+    static bool warned = false;
+    if (!warned) {
+      spdlog::warn("Battle summary: collapse input unavailable in this client");
+      warned = true;
+    }
     return;
-  std::memcpy(&mouse, il2cpp_object_unbox(position), sizeof(mouse));
+  }
+  if (!focused() || !released(0))
+    return;
+  position(&mouse);
   vec2          point{mouse.x, mouse.y};
   auto*         ownerCanvas = WithType(TypeMethod(panel.get()->klass, "GetComponentInParent"), panel.get(), canvas);
   auto*         rootCanvas  = Get(ownerCanvas, "get_rootCanvas");
@@ -522,6 +524,7 @@ void HandleClick()
       return;
     }
     Draw();
+    spdlog::info("Battle summary: {}", expanded ? "expanded" : "collapsed");
   }
 }
 
