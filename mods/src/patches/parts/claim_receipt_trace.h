@@ -319,6 +319,7 @@ template <typename F> void Write(const char* phase, uint64_t span, F capture) no
                                  std::chrono::system_clock::now().time_since_epoch())
                                  .count()}};
     journal->info("{}", event.dump());
+    PublishDiagnosticEvent("claims/receipts", event);
   } catch (...) {
     healthy.store(false);
   }

@@ -2,6 +2,7 @@
 #include "patches/claim_trace.h"
 #include "patches/claim_notice.h"
 #include "config.h"
+#include "sync_diagnostics.h"
 #include "file.h"
 #include "patches/claim_navigation_recovery.h"
 #include "patches/claim_presentation_watch.h"
@@ -815,6 +816,7 @@ bool Write(Json event) noexcept
     if (!logger)
       return false;
     logger->info("{}", event.dump());
+    PublishDiagnosticEvent("claims/main", event);
     TraceSelectionTransport(event);
     return sinkHealthy.load();
   } catch (...) { /* Diagnostics must not throw into the game. */

@@ -325,6 +325,7 @@ void WriteEvent(Json event) noexcept
     event["seq"] = sequence++;
     Checkpoint(event);
     journal->info("{}", event.dump());
+    PublishDiagnosticEvent("claims/selections", event);
   } catch (...) {
     healthy.store(false);
   }
