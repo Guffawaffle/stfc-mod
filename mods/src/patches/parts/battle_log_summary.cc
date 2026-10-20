@@ -1,3 +1,4 @@
+#include "battle_log_summary_data.h"
 #include "config.h"
 #include "patches/screen_update_hook.h"
 #include "prime/Color.h"
@@ -7,9 +8,13 @@
 #include <il2cpp/il2cpp_helper.h>
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
+#include <string>
+#include <unordered_map>
 
 namespace
 {
@@ -179,28 +184,161 @@ Il2CppObject* NewObject(const char* name, Il2CppObject* parent, Root& root)
   return transform;
 }
 
-// This is deliberately outside the virtualized content: SmartScroller owns and
-// recycles all of its rows. Reserve a band above its viewport instead.
-constexpr float kHeight = 104;
-constexpr float kGap    = 12;
-Root            report, viewport, panel;
-vec2            originalMax{}, reservedMax{};
-bool            reserved = false;
+// SmartScroller owns/recycles its content. Keep the summary in a separate,
+// resizable band above the viewport. All UI and data reads use the dispatcher.
+constexpr float                         kExpandedHeight = 180, kCollapsedHeight = 44, kGap = 10;
+Root                                    report, viewport, panel, label, sourceResult, sourceEntries;
+vec2                                    originalMax{}, reservedMax{};
+bool                                    reserved = false, expanded = true, complete = false, failed = false;
+std::int64_t                            battleId   = 0;
+int                                     entryCount = 0, nextEntry = 0;
+battle_summary::Summary                 summary;
+std::unordered_map<Il2CppObject*, bool> identities;
+
+template <typename T> bool FieldValue(Il2CppObject* object, const char* name, Il2CppTypeEnum expected, T& value)
+{
+  auto* field = object ? il2cpp_class_get_field_from_name(object->klass, name) : nullptr;
+  auto* type  = field ? il2cpp_field_get_type(field) : nullptr;
+  if (!type || type->byref || (il2cpp_field_get_flags(field) & 0x10)) // static field
+    return false;
+  auto* cls = il2cpp_class_from_type(type);
+  if (cls && il2cpp_class_is_enum(cls))
+    type = il2cpp_class_enum_basetype(cls);
+  if (!type || type->type != expected)
+    return false;
+  // The API accepts boxed structs and applies their runtime field offsets.
+  il2cpp_field_get_value(object, field, &value);
+  return true;
+}
 
 bool ReadLogShowing(Il2CppObject* view)
 {
-  auto* field = view ? il2cpp_class_get_field_from_name(view->klass, "_logShowing") : nullptr;
-  auto* type  = field ? il2cpp_field_get_type(field) : nullptr;
-  if (!type || type->byref || type->type != IL2CPP_TYPE_BOOLEAN)
-    return false;
   bool showing = false;
-  il2cpp_field_get_value(view, field, &showing);
-  return showing;
+  return FieldValue(view, "_logShowing", IL2CPP_TYPE_BOOLEAN, showing) && showing;
+}
+
+bool Local(Il2CppObject* profile)
+{
+  if (!profile)
+    return false; // NPCs may not have a profile.
+  if (auto found = identities.find(profile); found != identities.end())
+    return found->second;
+  bool local = false;
+  if (!Value(profile, "get_IsLocalPlayer", local))
+    failed = true;
+  identities.emplace(profile, local);
+  return local;
+}
+
+bool Named(Il2CppObject* object, const char* name)
+{
+  return object && !std::strcmp(il2cpp_class_get_name(object->klass), name)
+         && !std::strcmp(il2cpp_class_get_namespace(object->klass), "Digit.PrimeServer.Models");
+}
+
+void ReadEntry(Il2CppObject* entry)
+{
+  std::int32_t type = 0;
+  if (!Named(entry, "BattleAction") || !FieldValue(entry, "ActionType", IL2CPP_TYPE_I4, type)) {
+    failed = true;
+    return;
+  }
+  auto* data = Field(entry, "ActionData");
+  if (type == 6) { // RoundTitle
+    std::int32_t rounds = 0;
+    if (!Named(data, "BattleRoundDivider") || !FieldValue(data, "MaxRounds", IL2CPP_TYPE_I4, rounds) || rounds < 1
+        || rounds > 100000) {
+      failed = true;
+      return;
+    }
+    summary.rounds = std::max(summary.rounds, rounds);
+  } else if (type == 1) { // Attack. IsPlayerAction means a SIDE, not an Armada participant.
+    if (!Named(data, "BattleActionAttackData")) {
+      failed = true;
+      return;
+    }
+    bool outgoing = Local(Field(data, "<AttackerUserProfile>k__BackingField"));
+    bool incoming = Local(Field(data, "<TargetUserProfile>k__BackingField"));
+    if (!outgoing && !incoming)
+      return;
+    std::int64_t hull = 0, shield = 0;
+    bool         critical = false;
+    if (!FieldValue(data, "HullDamageTaken", IL2CPP_TYPE_I8, hull)
+        || !FieldValue(data, "ShieldDamageTaken", IL2CPP_TYPE_I8, shield)
+        || !FieldValue(data, "CriticalHit", IL2CPP_TYPE_BOOLEAN, critical)
+        || !summary.attack(outgoing, incoming, critical, hull, shield))
+      failed = true;
+  } else if (type == 8) { // HullRepair; reported magnitude, not inferred effective healing.
+    bool  local  = Local(Field(data, "<AttackerUserProfile>k__BackingField"))
+                   || Local(Field(data, "<TargetUserProfile>k__BackingField"));
+    float amount = 0;
+    if (local
+        && (!FieldValue(data, "<AbilityValue>k__BackingField", IL2CPP_TYPE_R4, amount)
+            || !summary.repair(true, amount)))
+      failed = true;
+  }
+}
+
+std::string Number(long double value)
+{
+  if (value >= 1e12L)
+    return fmt::format("{:.2f}T", value / 1e12L);
+  if (value >= 1e9L)
+    return fmt::format("{:.2f}B", value / 1e9L);
+  if (value >= 1e6L)
+    return fmt::format("{:.2f}M", value / 1e6L);
+  if (value >= 1e3L)
+    return fmt::format("{:.2f}K", value / 1e3L);
+  return fmt::format("{:.0f}", value);
+}
+
+void Draw()
+{
+  if (!Alive(panel.get()) || !Alive(label.get()))
+    return;
+  std::string title =
+      fmt::format("<b>YOUR BATTLE</b>  <size=80%>LOCAL PLAYER ONLY  [{}]</size>", expanded ? "- Collapse" : "+ Expand");
+  std::string text;
+  if (!complete)
+    text = title + fmt::format("\nReading battle entries: {} / {}", nextEntry, entryCount);
+  else if (failed)
+    text = title + "\nSummary unavailable: this report's data could not be read completely.";
+  else if (!summary.local_identity_seen)
+    text = title + "\nNo identifiable local-player combat data in this report.";
+  else {
+    const auto& out = summary.outgoing;
+    const auto& in  = summary.incoming;
+    if (!expanded) {
+      text = title + fmt::format("   Landed {}   |   Taken {}", Number(out.landed()), Number(in.landed()));
+    } else {
+      text =
+          title
+          + fmt::format("  {} rounds\n"
+                        "<b>LANDED {}</b>  (Hull {} | Shields {})     <b>TAKEN {}</b>\n"
+                        "Shots {}   |   Crit {:.1f}% ({}/{})   |   Avg/shot {}   |   Landed/round {}\n"
+                        "Incoming shots {}   |   Hull {}   |   Shields {}   |   Repairs {} <size=80%>(reported)</size>",
+                        summary.rounds, Number(out.landed()), Number(out.hull), Number(out.shield), Number(in.landed()),
+                        out.shots, out.critical_percent(), out.critical, out.shots, Number(out.average()),
+                        summary.rounds ? Number(summary.per_round()) : "n/a", in.shots, Number(in.hull),
+                        Number(in.shield), Number(summary.repairs));
+    }
+  }
+  Set(label.get(), "set_text", il2cpp_string_new(text.c_str()));
+}
+
+void ResetSummary()
+{
+  sourceResult.reset();
+  sourceEntries.reset();
+  identities.clear();
+  summary    = {};
+  battleId   = 0;
+  entryCount = nextEntry = 0;
+  complete = failed = false;
 }
 
 void Clear()
 {
-  // Restore only geometry we still own; native layout may have replaced it.
   vec2 current{};
   if (reserved && Alive(viewport.get()) && Value(viewport.get(), "get_offsetMax", current)
       && std::abs(current.x - reservedMax.x) < 0.1f && std::abs(current.y - reservedMax.y) < 0.1f)
@@ -212,8 +350,33 @@ void Clear()
     void* args[] = {panel.get()};
     TryInvoke(IL2CppClassHelper(UnityObject()).GetMethodInfo("Destroy", 1), nullptr, args);
   }
+  label.reset();
   panel.reset();
   viewport.reset();
+  ResetSummary();
+}
+
+bool Resize()
+{
+  float height = expanded ? kExpandedHeight : kCollapsedHeight;
+  vec2  min    = originalMax;
+  vec2  max    = originalMax;
+  vec2  originalMin{}, anchorMin{}, anchorMax{};
+  auto* port      = viewport.get();
+  auto* transform = Get(panel.get(), "get_transform");
+  if (!Value(port, "get_offsetMin", originalMin) || !Value(port, "get_anchorMin", anchorMin)
+      || !Value(port, "get_anchorMax", anchorMax))
+    return false;
+  anchorMin.y = anchorMax.y;
+  min         = {originalMin.x + 8, originalMax.y - height};
+  max.x -= 8;
+  vec2 requestedMax{originalMax.x, originalMax.y - height - kGap};
+  if (!Set(transform, "set_anchorMin", &anchorMin) || !Set(transform, "set_anchorMax", &anchorMax)
+      || !Set(transform, "set_offsetMin", &min) || !Set(transform, "set_offsetMax", &max)
+      || !Set(port, "set_offsetMax", &requestedMax))
+    return false;
+  reservedMax = requestedMax;
+  return true;
 }
 
 bool Create(Il2CppObject* view, Il2CppObject* port)
@@ -221,55 +384,40 @@ bool Create(Il2CppObject* view, Il2CppObject* port)
   static auto* tmp    = Class("Unity.TextMeshPro", "TMPro", "TextMeshProUGUI");
   static auto* image  = Class("UnityEngine.UI", "UnityEngine.UI", "Image");
   auto*        parent = Get(port, "get_parent");
-  // Borrow the game's font asset without cloning a localized widget/controller.
-  auto* result     = Field(view, "_battleResultWidget");
-  auto* victory    = Field(result, "_victoryText");
-  auto* nativeText = Component(victory, tmp);
-  auto* font       = Get(nativeText, "get_font");
-  if (!font) {
-    auto* text = WithType(TypeMethod(view->klass, "GetComponentInChildren"), view, tmp);
-    font       = Get(text, "get_font");
-  }
-  vec2 anchorMin{}, anchorMax{}, offsetMin{}, offsetMax{};
+  auto*        font   = Get(Component(Field(Field(view, "_battleResultWidget"), "_victoryText"), tmp), "get_font");
+  if (!font)
+    font = Get(WithType(TypeMethod(view->klass, "GetComponentInChildren"), view, tmp), "get_font");
   struct RectValue {
     float x, y, width, height;
   } rect{};
-  if (!parent || !font || !Value(port, "get_anchorMin", anchorMin) || !Value(port, "get_anchorMax", anchorMax)
-      || !Value(port, "get_offsetMin", offsetMin) || !Value(port, "get_offsetMax", offsetMax)
-      || !Value(port, "get_rect", rect) || rect.height < kHeight + kGap + 150 || rect.width < 300)
+  if (!parent || !font || !Value(port, "get_offsetMax", originalMax) || !Value(port, "get_rect", rect)
+      || rect.height < kExpandedHeight + kGap + 150 || rect.width < 300)
     return false;
 
   auto* transform = NewObject("CommunityMod_BattleLogSummaryPreview", parent, panel);
-  anchorMin.y     = anchorMax.y;
-  vec2  min{offsetMin.x + 8, offsetMax.y - kHeight};
-  vec2  max{offsetMax.x - 8, offsetMax.y};
   auto* background =
       WithType(TypeMethod(panel.get() ? panel.get()->klass : nullptr, "AddComponent"), panel.get(), image);
   color backgroundColor{0.035f, 0.10f, 0.16f, 0.98f};
   bool  no = false, yes = true;
-  if (!transform || !background || !Set(transform, "set_anchorMin", &anchorMin)
-      || !Set(transform, "set_anchorMax", &anchorMax) || !Set(transform, "set_offsetMin", &min)
-      || !Set(transform, "set_offsetMax", &max) || !Set(background, "set_color", &backgroundColor)
-      || !Set(background, "set_raycastTarget", &no))
+  if (!transform || !background || !Set(background, "set_color", &backgroundColor)
+      || !Set(background, "set_raycastTarget", &yes))
     return false;
 
   Root  textObject;
-  auto* textTransform = NewObject("SummaryPlaceholder", transform, textObject);
-  auto* label =
+  auto* textTransform = NewObject("PlayerSummary", transform, textObject);
+  auto* text =
       WithType(TypeMethod(textObject.get() ? textObject.get()->klass : nullptr, "AddComponent"), textObject.get(), tmp);
-  vec2  zero{0, 0}, one{1, 1}, textMin{20, 10}, textMax{-20, -10};
+  label.reset(text);
+  vec2  zero{0, 0}, one{1, 1}, textMin{20, 8}, textMax{-20, -8};
   float fontSize  = 22;
-  int   alignment = 0x201; // TMP: midline, left.
+  int   alignment = 0x101; // TMP: top left.
   color textColor{0.78f, 0.91f, 1, 1};
-  bool  ok = textTransform && label && Set(textTransform, "set_anchorMin", &zero)
+  bool  ok = textTransform && text && Set(textTransform, "set_anchorMin", &zero)
              && Set(textTransform, "set_anchorMax", &one) && Set(textTransform, "set_offsetMin", &textMin)
-             && Set(textTransform, "set_offsetMax", &textMax) && Set(label, "set_font", font)
-             && Set(label, "set_fontSize", &fontSize) && Set(label, "set_alignment", &alignment)
-             && Set(label, "set_color", &textColor) && Set(label, "set_raycastTarget", &no)
-             && Set(label, "set_text",
-                    il2cpp_string_new("<b>BATTLE SUMMARY</b>  <size=75%>PREVIEW</size>\n"
-                                      "Summary space reserved. Battle statistics will appear here."))
-             && Set(textObject.get(), "SetActive", &yes);
+             && Set(textTransform, "set_offsetMax", &textMax) && Set(text, "set_font", font)
+             && Set(text, "set_fontSize", &fontSize) && Set(text, "set_alignment", &alignment)
+             && Set(text, "set_color", &textColor) && Set(text, "set_raycastTarget", &no)
+             && Set(text, "set_enableWordWrapping", &no) && Set(textObject.get(), "SetActive", &yes);
   if (!ok && Alive(textObject.get())) {
     void* args[] = {textObject.get()};
     TryInvoke(IL2CppClassHelper(UnityObject()).GetMethodInfo("Destroy", 1), nullptr, args);
@@ -277,67 +425,159 @@ bool Create(Il2CppObject* view, Il2CppObject* port)
   textObject.reset();
   if (!ok)
     return false;
-
-  // Do this last so a failed construction cannot leave a blank band in the log.
   viewport.reset(port);
-  originalMax = offsetMax;
-  reservedMax = {offsetMax.x, offsetMax.y - kHeight - kGap};
-  reserved    = Set(port, "set_offsetMax", &reservedMax);
-  if (!reserved || !Set(panel.get(), "SetActive", &yes))
+  // Track the geometry before changing it so failures can restore the native viewport.
+  reservedMax = originalMax;
+  reserved    = true;
+  if (!Resize() || !Set(panel.get(), "SetActive", &yes))
     return false;
-  spdlog::info("Battle log summary preview: inserted {}-unit block above {}x{} detailed viewport", kHeight, rect.width,
-               rect.height);
+  Draw();
   return true;
+}
+
+void RefreshSource(Il2CppObject* view)
+{
+  auto*        context = Get(view, "get_CanvasContext");
+  auto*        result  = Field(context, "BattleResultData");
+  auto*        entries = Get(context, "get_BattleLog");
+  int          count   = 0;
+  std::int64_t id      = 0;
+  if (!result || !Value(result, "get_ID", id) || !entries || !Value(entries, "get_Count", count) || count < 1)
+    return; // The game's async report request may still be loading.
+  if (result == sourceResult.get() && entries == sourceEntries.get() && count == entryCount && id == battleId)
+    return;
+  ResetSummary();
+  sourceResult.reset(result);
+  sourceEntries.reset(entries);
+  entryCount = count;
+  battleId   = id;
+  if (count > 200000) {
+    complete = failed = true; // Do not present a truncated battle as complete.
+  }
+  Draw();
+}
+
+void AdvanceSummary()
+{
+  if (complete || !sourceEntries.get())
+    return;
+  auto*      list       = sourceEntries.get();
+  auto*      itemMethod = IL2CppClassHelper(list->klass).GetMethodInfo("get_Item", 1);
+  const auto deadline   = std::chrono::steady_clock::now() + std::chrono::milliseconds(3);
+  // Bound both managed calls and time per frame; large Armada logs stay responsive.
+  for (int batch = 0; nextEntry < entryCount && batch < 128; ++batch) {
+    int           index  = nextEntry++;
+    void*         args[] = {&index};
+    Il2CppObject* entry  = nullptr;
+    if (!TryInvoke(itemMethod, list, args, &entry))
+      failed = true;
+    else
+      ReadEntry(entry);
+    if ((batch & 15) == 15 && std::chrono::steady_clock::now() >= deadline)
+      break;
+  }
+  complete = nextEntry == entryCount;
+  if (complete) {
+    spdlog::info("Battle summary: {} entries, {} rounds, local shots {}/{}, read_complete={}", entryCount,
+                 summary.rounds, summary.outgoing.shots, summary.incoming.shots, !failed);
+    Draw();
+  }
+}
+
+void HandleClick()
+{
+  if (!Alive(panel.get()))
+    return;
+  static auto*  input        = Class("UnityEngine.InputLegacyModule", "UnityEngine", "Input");
+  static auto*  utility      = Class("UnityEngine.UIModule", "UnityEngine", "RectTransformUtility");
+  static auto*  canvas       = Class("UnityEngine.UIModule", "UnityEngine", "Canvas");
+  int           button       = 0;
+  void*         buttonArgs[] = {&button};
+  Il2CppObject* pressed      = nullptr;
+  if (!TryInvoke(IL2CppClassHelper(input).GetMethodInfo("GetMouseButtonDown", 1), nullptr, buttonArgs, &pressed)
+      || !pressed || !*static_cast<bool*>(il2cpp_object_unbox(pressed)))
+    return;
+  Il2CppObject* position = nullptr;
+  if (!TryInvoke(IL2CppClassHelper(input).GetMethodInfo("get_mousePosition", 0), nullptr, nullptr, &position)
+      || !position)
+    return;
+  struct Vec3 {
+    float x, y, z;
+  } mouse{};
+  uint32_t alignment = 0;
+  if (il2cpp_class_value_size(position->klass, &alignment) != sizeof(mouse))
+    return;
+  std::memcpy(&mouse, il2cpp_object_unbox(position), sizeof(mouse));
+  vec2          point{mouse.x, mouse.y};
+  auto*         ownerCanvas = WithType(TypeMethod(panel.get()->klass, "GetComponentInParent"), panel.get(), canvas);
+  auto*         rootCanvas  = Get(ownerCanvas, "get_rootCanvas");
+  auto*         camera      = Get(rootCanvas ? rootCanvas : ownerCanvas, "get_worldCamera");
+  void*         args[]      = {Get(panel.get(), "get_transform"), &point, camera};
+  Il2CppObject* inside      = nullptr;
+  if (TryInvoke(IL2CppClassHelper(utility).GetMethodInfo("RectangleContainsScreenPoint", 3), nullptr, args, &inside)
+      && inside && *static_cast<bool*>(il2cpp_object_unbox(inside))) {
+    expanded = !expanded;
+    if (!Resize()) {
+      Clear();
+      return;
+    }
+    Draw();
+  }
 }
 
 void Update()
 {
   static auto next = std::chrono::steady_clock::time_point{};
   auto        now  = std::chrono::steady_clock::now();
-  if (now < next)
-    return;
-  next = now + std::chrono::milliseconds(250);
   if (!Config::Get().battle_log_summary_preview) {
     if (panel.handle || viewport.handle)
       Clear();
     report.reset();
     return;
   }
+  // Input must be checked every frame, rather than at the discovery interval.
+  if (ReadLogShowing(report.get())) {
+    HandleClick();
+    AdvanceSummary();
+  }
+  if (now < next)
+    return;
+  next = now + std::chrono::milliseconds(250);
   if (!Alive(report.get())) {
     Clear();
     static auto* cls = Class("Assembly-CSharp", "Digit.Prime.Combat", "BattleReportViewController");
     report.reset(Find(cls));
   }
-  bool  active   = false;
-  auto* view     = report.get();
-  auto* scroller = Field(view, "_logEntryScroller");
-  auto* port     = Field(scroller, "_viewport");
+  bool  active = false;
+  auto* view   = report.get();
+  auto* port   = Field(Field(view, "_logEntryScroller"), "_viewport");
   if (!Alive(view) || !Value(view, "get_isActiveAndEnabled", active) || !active || !ReadLogShowing(view) || !Alive(port)
       || !Value(Get(port, "get_gameObject"), "get_activeInHierarchy", active) || !active) {
     Clear();
     report.reset();
     return;
   }
-  if (Alive(panel.get()) && port == viewport.get())
-    return;
-  Clear();
-  if (!Create(view, port)) {
+  if (!Alive(panel.get()) || port != viewport.get()) {
     Clear();
-    static bool warned = false;
-    if (!warned) {
-      spdlog::warn("Battle log summary preview: layout unavailable; retaining the native log");
-      warned = true;
+    if (!Create(view, port)) {
+      Clear();
+      static bool warned = false;
+      if (!warned) {
+        spdlog::warn("Battle summary: layout unavailable; retaining the native log");
+        warned = true;
+      }
+      next = now + std::chrono::seconds(3);
+      return;
     }
-    next = now + std::chrono::seconds(3);
   }
+  RefreshSource(view);
 }
 } // namespace
 
 void InstallBattleLogSummary()
 {
-  // Shares the existing, single-owner ScreenManager.Update detour on both platforms.
   if (install_screen_manager_update_hook()) {
     register_screen_manager_update_callback(Update);
-    spdlog::info("Battle log summary preview registered (opt-in: ui.battle_log_summary_preview)");
+    spdlog::info("Local-player battle summary registered (opt-in: ui.battle_log_summary_preview)");
   }
 }

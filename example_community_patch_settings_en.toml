@@ -791,8 +791,9 @@ pinned_ships = ""
 hud_daily_goals = "auto"
 # Show the newest Haven help-history entries first
 reverse_haven_history = true
-# Show a placeholder summary block above the detailed Battle Log's round-by-round entries.
-# Experimental layout preview; does not calculate battle statistics.
+# Show a local-player summary above the detailed Battle Log; click the panel to collapse/expand.
+# Experimental POC: logged hull/shield damage, shots, crit rate and reported repairs.
+# Other Armada participants are excluded; raw damage and mitigation charts are not included.
 battle_log_summary_preview = false
 
 # Skip the reveal box animation, and just open the boxes
