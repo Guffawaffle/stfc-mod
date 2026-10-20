@@ -1014,6 +1014,11 @@ show_station_cargo = true
 #  <[========================================================================================]> 
 
 [sync]
+# Forward diagnostic observations from separately enabled producers to targets
+# with diagnostics=true. Opt-in; does not enable probes or add retries. Use the
+# Astrometrics URL/token shown in Bridge, and disable other categories for it.
+diagnostics = false
+
 
 # Subgroup: Data
 # --------------
