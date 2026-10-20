@@ -1,4 +1,5 @@
 #include "config.h"
+#include "sync_diagnostics.h"
 #include "errormsg.h"
 #include "file.h"
 #include "str_utils.h"
@@ -437,6 +438,14 @@ static void send_data(SyncConfig::Type type, const std::string& post_data, bool 
       // Enqueue the request for this target's worker
       {
         std::scoped_lock lk(worker->queue_mtx);
+        // Diagnostic bursts must not grow an unavailable target's queue forever.
+        // Existing sync categories keep their established delivery behavior.
+        if (type == SyncConfig::Type::Diagnostics && worker->request_queue.size() >= 256) {
+          static std::atomic<uint64_t> dropped{0};
+          if (dropped.fetch_add(1) % 64 == 0)
+            spdlog::warn("Diagnostic sync queue full; dropping observations (fire-and-forget)");
+          continue;
+        }
         worker->request_queue.emplace(target_identifier, post_data, is_first_sync);
         logging::trace(logging::CURL_TYPE_UPLOAD, target_identifier,
                        STR_FORMAT("Queued request (queue size: {})", worker->request_queue.size()));
@@ -1117,6 +1126,40 @@ static void ship_combat_log_data()
 }
 
 } // namespace workers
+
+void PublishDiagnosticEvent(std::string_view stream, const nlohmann::json& event) noexcept
+{
+  try {
+    if (!Config::Get().sync_options.diagnostics || !event.is_object())
+      return;
+    const auto sequence = event.find("seq");
+    if (sequence == event.end() || !sequence->is_number_unsigned())
+      return;
+    static const std::string sourceId = http::newUUID();
+    nlohmann::json envelope = {{"type", "diagnostic"}, {"schema", 1}, {"source_id", sourceId},
+      {"producer_version", VER_FILE_VERSION_STR}, {"session", event.value("session", std::string{})},
+      {"stream", stream}, {"sequence", sequence->dump()},
+      {"event", event.value("event", event.value("phase", std::string{"observation"}))}, {"payload", event}};
+    const auto utc = event.find("utc_ms");
+    envelope["utc_ms"] = utc != event.end() && utc->is_number_integer() ? nlohmann::json(utc->dump()) : nlohmann::json(nullptr);
+    auto body = nlohmann::json::array({std::move(envelope)}).dump();
+    if (body.size() > 256 * 1024) {
+      spdlog::warn("Diagnostic sync observation exceeds 256 KiB; dropped");
+      return;
+    }
+    {
+      std::scoped_lock lock(workers::sync_data_mtx);
+      if (workers::sync_data_queue.size() >= 256) {
+        static std::atomic<uint64_t> dropped{0};
+        if (dropped.fetch_add(1) % 64 == 0)
+          spdlog::warn("Diagnostic sync dispatch queue full; dropping observations");
+        return;
+      }
+      workers::sync_data_queue.emplace(SyncConfig::Type::Diagnostics, std::move(body), false);
+    }
+    workers::sync_data_cv.notify_all();
+  } catch (...) { /* Diagnostics must never throw into game code. */ }
+}
 
 namespace processors
 {
