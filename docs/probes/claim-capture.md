@@ -120,6 +120,53 @@ not an account. Use separate destinations for different clients. Archive reader
 displayed findings. Register an external collector with the host's user startup
 facility if it should resume automatically after login.
 
+### Named Augment offer tracking
+
+`claim-offer-watch.py` preserves a separate, private name catalogue for **Priority 1
+Mega Claim**, **Forbidden Tech Mega Claim**, and **Planetary Charts**. It matches
+complete English names after removing rich-text markup and normalizing whitespace;
+Planetary Charts' numeric cap may vary. Descriptions mentioning those names do not
+match. Different IDs remain separate variants, including ambiguous name matches.
+This tool observes data only; it never restores selections or invokes purchases.
+
+The existing selection archive already records offer encounters, pending/selected
+changes, edits and native preference writes/reads. The new watcher preserves each
+changed English localization catalogue's matching IDs, names and associated text
+(including available cost/reward/tier descriptions). Historical locale payloads can
+seed IDs no longer present in the current catalogue. Immutable snapshots retain old
+variants; an atomic index recovers an interrupted update. Repeated bytes add no new
+snapshot. A corrupt/partial live locale leaves the last good catalogue intact and
+reports an error for retry. The catalogue budget is100 MiB with a10 GiB free-space
+reserve; reaching either limit preserves evidence and reports an error.
+
+Use a Python environment with `protobuf` and the matching generated
+`Digit.Client.Localization_pb2` modules. The narrow decoder reads the structured
+bundle localization category; it does not scrape arbitrary strings or depend on
+the generic research-corpus index. No new native hooks or game restart are needed.
+
+```powershell
+python scripts/claim-offer-watch.py watch --locale <locale_en.bin> --proto-dir <generated-proto-directory> --output <private-catalogue-directory> --seed-locale <optional-historical-locale>
+python scripts/claim-offer-watch.py report --output <private-catalogue-directory> --archive-dir <selection-archive-directory> --limit 30
+```
+
+`watch` polls every30 seconds (`--once` captures once).
+`offer_watch_status.json` reports its heartbeat, process, catalogue version count
+and variant count. This is separate from the selection collector's heartbeat; both
+must be running for future name/encounter evidence. The report joins catalogue
+aliases to archived native bundle/localization identities and summarizes actual
+availability, edits, selection changes and faction preference read/write quantities.
+It streams the archive twice to correlate differing bundle/localization IDs without
+loading the archive into memory. Recent detail is bounded by `--limit`; counts and
+first/last availability cover the retained archive. Known archive gaps are included.
+
+Catalogue membership is not proof that an offer was available to the player.
+Localized descriptions are not live prices, eligibility or authoritative reward
+values. Same-title variants are candidates for investigation, not interchangeable
+purchases. Recording on one client does not cover another Windows login or establish
+account identity. The source archive is never modified by the watcher or report.
+
+Run `python -m unittest discover -s tests -p 'test_claim_offer_watch.py'` locally.
+
 ### Cross-client selection differences
 
 A choice can differ between two clients using the same account. Keep this
