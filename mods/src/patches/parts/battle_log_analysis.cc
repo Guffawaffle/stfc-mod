@@ -836,9 +836,10 @@ void ScrollList(ScrollRegion& region, Rect rect, std::vector<std::size_t> indice
   vec2  position = horizontal ? vec2{-region.offset * overlay.sx, 0} : vec2{0, region.offset * overlay.sy};
   auto* scroll   = root ? WithType(TypeMethod(root->klass, "AddComponent"), root, scrollClass) : nullptr;
   region.scroll.reset(scroll);
-  bool  vertical = !horizontal, no = false;
-  int   clamped     = 2;
-  float sensitivity = 38 * (horizontal ? overlay.sx : overlay.sy);
+  bool vertical = !horizontal, no = false;
+  int  clamped = 2;
+  // Native wheel/trackpad deltas stay fractional; sensitivity uses scaled UI pixels.
+  float sensitivity = 12 * (horizontal ? overlay.sx : overlay.sy);
   if (!mask || !contentObject || !scroll || !Set(region.content.get(), "set_pivot", &pivot)
       || !Place(region.content.get(), {0, 0, region.width, region.height}, overlay.sx, overlay.sy)
       || !Set(scroll, "set_content", region.content.get()) || !Set(scroll, "set_viewport", viewport)
