@@ -766,8 +766,8 @@ void Rule(float x, float y, float w)
 void Ledger(float x, float y, float width, std::string_view label, const std::string& value)
 {
   Label({x, y, width * .64f, 24}, std::string(label), 14, kMuted);
-  Label(overlay, Get(overlay.object.get(), "get_transform"), {x + width * .64f, y, width * .36f, 24}, value, 15, kText,
-        0x104);
+  Label(*drawing, Get(drawing->object.get(), "get_transform"), {x + width * .64f, y, width * .36f, 24}, value, 15,
+        kText, 0x104);
   Rule(x, y + 27, width);
 }
 
@@ -961,16 +961,19 @@ void Overview(const data::Participant& p)
   long double maximum = 1;
   for (const auto& [r, value] : totals)
     maximum = std::max(maximum, value);
-  int row = 0;
-  for (const auto& [r, value] : totals) {
-    if (row >= 4)
-      break;
-    const float y = 362 + row++ * 38.f;
-    Label({726, y, 44, 24}, fmt::format("R{}", r), 14, kMuted);
-    Box({774, y + 7, 250, 9}, kRaised);
-    Box({774, y + 7, 250 * static_cast<float>(value / maximum), 9}, raw ? kGold : kCyan);
-    Label({1032, y, 112, 26}, Number(value), 14);
-  }
+  std::vector<std::pair<int, long double>> rounds(totals.begin(), totals.end());
+  std::vector<std::size_t>                 order(rounds.size());
+  std::iota(order.begin(), order.end(), 0);
+  ScrollList(mainScroll, {726, 356, 418, 152}, std::move(order), 38, false,
+             [rounds = std::move(rounds), maximum](std::size_t i, float y) {
+               const auto& [r, value] = rounds[i];
+               Label({0, y, 44, 24}, fmt::format("R{}", r), 14, kMuted);
+               Box({48, y + 7, 250, 9}, kRaised);
+               Box({48, y + 7, 250 * static_cast<float>(value / maximum), 9}, raw ? kGold : kCyan);
+               Label({306, y, 112, 26}, Number(value), 14);
+             });
+  if (totals.empty())
+    Label({726, 362, 418, 30}, "No outgoing attacks recorded.", 14, kMuted);
   Label({726, 517, 418, 26}, fmt::format("{} active rounds / {} battle rounds", p.active_rounds.size(), battle.rounds),
         13, kMuted);
   Ledger(254, 574, 434, "Raw / shot", Number(p.outgoing.average(true)));
@@ -1108,13 +1111,17 @@ void Defense(const data::Participant& p)
   for (const auto& e : battle.events)
     if (e.kind == data::Kind::Attack && e.target == selected)
       data::add(sources[e.actor], e.damage, e.critical);
-  int row = 0;
-  for (const auto& [actor, damage] : sources) {
-    if (row >= 3)
-      break;
-    Ledger(254, 638 + row++ * 34, 906, Escape(battle.participants[actor].name),
-           Number(damage.landed()) + fmt::format(" / {} hits", damage.shots));
-  }
+  std::vector<std::pair<std::size_t, data::Damage>> incoming(sources.begin(), sources.end());
+  std::vector<std::size_t>                          order(incoming.size());
+  std::iota(order.begin(), order.end(), 0);
+  ScrollList(mainScroll, {254, 634, 906, 108}, std::move(order), 34, false,
+             [incoming = std::move(incoming)](std::size_t i, float y) {
+               const auto& [actor, damage] = incoming[i];
+               Ledger(0, y, 906, Escape(battle.participants[actor].name),
+                      Number(damage.landed()) + fmt::format(" / {} hits", damage.shots));
+             });
+  if (sources.empty())
+    Label({254, 638, 906, 30}, "No incoming attacks recorded.", 14, kMuted);
 }
 
 const char* KindName(data::Kind kind)
