@@ -791,9 +791,11 @@ pinned_ships = ""
 hud_daily_goals = "auto"
 # Show the newest Haven help-history entries first
 reverse_haven_history = true
-# Show a local-player summary above the detailed Battle Log; click the panel to collapse/expand.
-# Experimental POC: logged hull/shield damage, shots, crit rate and reported repairs.
-# Other Armada participants are excluded; raw damage and mitigation charts are not included.
+# Experimental battle analysis: local-player summary above the detailed Battle Log,
+# plus a BATTLE ANALYSIS button on the report. Click the summary to collapse/expand.
+# The Command Overlay has participant selection, native round/sub-round shot history,
+# raw/landed damage, reported mitigation, observed abilities, timeline and comparison.
+# Crew recommendations, simulations and derived mitigation efficiency are not included.
 battle_log_summary_preview = false
 
 # Skip the reveal box animation, and just open the boxes
