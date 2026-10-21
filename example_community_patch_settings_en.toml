@@ -791,10 +791,10 @@ pinned_ships = ""
 hud_daily_goals = "auto"
 # Show the newest Haven help-history entries first
 reverse_haven_history = true
-# Experimental battle analysis: local-player summary above the detailed Battle Log,
-# plus a BATTLE ANALYSIS button on the report. Click the summary to collapse/expand.
+# Experimental After-Action Intelligence: BATTLE ANALYSIS beneath the report header.
+# Opens directly from the summary screen; Esc/Back closes the overlay first.
 # The Command Overlay has participant selection, native round/sub-round shot history,
-# raw/landed damage, reported mitigation, observed abilities, timeline and comparison.
+# raw/landed damage, reported mitigation, observed abilities, scrolling and comparison.
 # Crew recommendations, simulations and derived mitigation efficiency are not included.
 battle_log_summary_preview = false
 

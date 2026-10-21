@@ -9,7 +9,7 @@
 
 namespace battle_log_ui
 {
-// All Unity work runs on ScreenManager's main-thread dispatcher. No additional detours.
+// All Unity layout work runs on ScreenManager's main-thread dispatcher.
 // The shared class lookup dereferences missing assemblies. These optional UI
 // classes can be absent after a client update, so check each lookup step.
 inline Il2CppClass* Class(const char* assembly, const char* ns, const char* name)

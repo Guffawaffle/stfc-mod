@@ -1,5 +1,6 @@
 #include "battle_log_analysis.h"
 #include "battle_log_analysis_data.h"
+#include "battle_log_analysis_scroll.h"
 #include "battle_log_ui.h"
 #include "config.h"
 #include "prime/Vector3.h"
@@ -7,8 +8,10 @@
 
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
+#include <spud/detour.h>
 
 #include <chrono>
+#include <functional>
 #include <map>
 #include <numeric>
 #include <string_view>
@@ -33,22 +36,7 @@ struct Rect {
   float x, y, w, h;
 };
 enum class Tab { Overview, Offense, Defense, Crew, Timeline, Compare };
-enum class Op {
-  Open,
-  Close,
-  Retry,
-  Tab,
-  Participant,
-  Raw,
-  Round,
-  Page,
-  Inspect,
-  Pin,
-  AllEvents,
-  Roster,
-  Compare,
-  PairView
-};
+enum class Op { Open, Close, Retry, Tab, Participant, Raw, Round, Inspect, Pin, AllEvents, Compare, PairView };
 struct Action {
   Op          op;
   std::size_t value = 0;
@@ -95,8 +83,29 @@ struct Surface {
   }
 };
 
+struct ScrollRegion {
+  Root                                    scroll, content;
+  Surface                                 rows;
+  std::vector<std::size_t>                indices;
+  std::function<void(std::size_t, float)> draw;
+  float                                   offset = 0, row = 0, visible = 0, width = 0, height = 0;
+  bool                                    horizontal = false;
+  std::size_t                             begin = data::none, end = data::none;
+  void                                    reset()
+  {
+    rows.clear();
+    scroll.reset();
+    content.reset();
+    indices.clear();
+    draw  = {};
+    begin = end = data::none;
+  }
+};
+
 Root         view, result, font, nativeLog, rounds, subRounds, events, nested;
 Surface      entry, overlay;
+Surface*     drawing = &overlay;
+ScrollRegion mainScroll, rosterScroll;
 data::Battle battle;
 std::int64_t reportId   = 0;
 int          roundIndex = 0, subIndex = 0, eventIndex = 0, nestedIndex = 0;
@@ -108,7 +117,7 @@ bool         waitingForLog = false;
 std::string  readFailure;
 Tab          tab      = Tab::Overview;
 std::size_t  selected = data::none, inspected = data::none, pinned = data::none, comparison = data::none;
-int          roundFilter = 0, page = 0, rosterPage = 0;
+int          roundFilter = 0;
 std::unordered_map<std::int64_t, std::size_t> ships;
 std::unordered_map<std::int64_t, std::string> hullNames, officerNames, technologyNames;
 Clock::time_point                             nextDiscovery{}, nextProgress{};
@@ -117,6 +126,8 @@ int                                           uiGeneration = 0, pendingGeneratio
 bool                                          pendingClick = false;
 vec2                                          pendingPoint{};
 Root                                          pressedObject;
+vec2                                          pressPoint{};
+bool                                          pointerDragged = false;
 
 void FailRead(std::string reason)
 {
@@ -427,6 +438,9 @@ void ReadEvent(Il2CppObject* object)
 
 void ResetData()
 {
+  mainScroll.reset();
+  rosterScroll.reset();
+  mainScroll.offset = rosterScroll.offset = 0;
   nativeLog.reset();
   rounds.reset();
   subRounds.reset();
@@ -445,7 +459,7 @@ void ResetData()
   reading = ready = false;
   waitingForLog   = false;
   readFailure.clear();
-  page = rosterPage = roundFilter = 0;
+  roundFilter = 0;
   raw = allEvents = pairView = false;
   tab                        = Tab::Overview;
   reportId                   = 0;
@@ -589,6 +603,10 @@ bool Place(Il2CppObject* transform, Rect r, float sx, float sy)
 
 Il2CppObject* Make(Surface& surface, Il2CppObject* parent, Rect r, const color* fill, bool intercept = false)
 {
+  if (!parent) {
+    surface.failed = true;
+    return nullptr;
+  }
   Root  go;
   auto* transform = NewObject("CommunityMod_BattleAnalysisElement", parent, go);
   if (!transform || !Place(transform, r, surface.sx, surface.sy)) {
@@ -634,10 +652,10 @@ void Label(Surface& surface, Il2CppObject* parent, Rect r, const std::string& te
 }
 
 void Label(Rect r, const std::string& text, float size = 16, color ink = kText, bool wrap = false)
-{ Label(overlay, Get(overlay.object.get(), "get_transform"), r, text, size, ink, 0x101, wrap); }
+{ Label(*drawing, Get(drawing->object.get(), "get_transform"), r, text, size, ink, 0x101, wrap); }
 
 void Box(Rect r, color fill = kBackground)
-{ Make(overlay, Get(overlay.object.get(), "get_transform"), r, &fill); }
+{ Make(*drawing, Get(drawing->object.get(), "get_transform"), r, &fill); }
 
 void Button(Surface& surface, Il2CppObject* parent, Rect r, const std::string& text, Action action, bool active = false,
             float size = 15)
@@ -651,7 +669,7 @@ void Button(Surface& surface, Il2CppObject* parent, Rect r, const std::string& t
 }
 
 void Button(Rect r, const std::string& text, Action action, bool active = false, float size = 15)
-{ Button(overlay, Get(overlay.object.get(), "get_transform"), r, text, action, active, size); }
+{ Button(*drawing, Get(drawing->object.get(), "get_transform"), r, text, action, active, size); }
 
 void Rule(float x, float y, float w)
 { Box({x, y, w, 1}, kLine); }
@@ -671,15 +689,108 @@ void Metric(float x, std::string_view label, const std::string& value, const std
   Label({x, 256, 278, 24}, context, 13, kMuted);
 }
 
-void Pager(int count, int perPage, float y = 708)
+void DrawScrollRows(ScrollRegion& region)
 {
-  const int pages = std::max(1, (count + perPage - 1) / perPage);
-  page            = std::clamp(page, 0, pages - 1);
-  Label({254, y + 4, 380, 28}, fmt::format("Page {} / {}  |  {} entries", page + 1, pages, count), 14, kMuted);
-  if (page > 0)
-    Button({956, y, 98, 32}, "Previous", {Op::Page, 0});
-  if (page + 1 < pages)
-    Button({1062, y, 98, 32}, "Next", {Op::Page, 1});
+  if (!region.content.get() || !region.draw)
+    return;
+  const auto window = data::scroll_window(region.indices.size(), region.row, region.visible, region.offset);
+  region.offset     = window.offset;
+  if (window.begin == region.begin && window.end == region.end)
+    return;
+  region.rows.clear();
+  ++uiGeneration; // Never activate a row recycled between press and release.
+  region.rows.sx  = overlay.sx;
+  region.rows.sy  = overlay.sy;
+  auto* transform = NewObject("CommunityMod_BattleAnalysisRows", region.content.get(), region.rows.object);
+  if (!transform || !Place(transform, {0, 0, region.width, region.height}, overlay.sx, overlay.sy)) {
+    overlay.failed = true;
+    return;
+  }
+  bool yes = true;
+  if (!Set(region.rows.object.get(), "SetActive", &yes)) {
+    overlay.failed = true;
+    return;
+  }
+  struct DrawScope {
+    Surface* previous;
+    DrawScope(Surface* target)
+        : previous(drawing)
+    { drawing = target; }
+    ~DrawScope()
+    { drawing = previous; }
+  } scope(&region.rows);
+  for (auto i = window.begin; i < window.end; ++i)
+    region.draw(region.indices[i], static_cast<float>(i) * region.row);
+  region.begin = window.begin;
+  region.end   = window.end;
+  overlay.failed |= region.rows.failed;
+}
+
+void TickScroll(ScrollRegion& region)
+{
+  vec2 position{};
+  if (region.content.get() && Value(region.content.get(), "get_anchoredPosition", position)) {
+    region.offset = region.horizontal ? -position.x / overlay.sx : position.y / overlay.sy;
+    DrawScrollRows(region);
+  }
+}
+
+void ScrollList(ScrollRegion& region, Rect rect, std::vector<std::size_t> indices, float row, bool horizontal,
+                std::function<void(std::size_t, float)> draw)
+{
+  region.indices    = std::move(indices);
+  region.draw       = std::move(draw);
+  region.row        = row;
+  region.horizontal = horizontal;
+  region.visible    = horizontal ? rect.w : rect.h;
+  const auto window = data::scroll_window(region.indices.size(), row, region.visible, region.offset);
+  region.offset     = window.offset;
+  region.width      = horizontal ? window.extent : rect.w - 14;
+  region.height     = horizontal ? rect.h - 14 : window.extent;
+  auto* root        = Make(overlay, Get(overlay.object.get(), "get_transform"), rect, &kBackground, true);
+  auto* transform   = Get(root, "get_transform");
+  auto* viewportObject =
+      Make(overlay, transform, {0, 0, horizontal ? rect.w : rect.w - 14, horizontal ? rect.h - 14 : rect.h}, nullptr);
+  auto*        viewport       = Get(viewportObject, "get_transform");
+  static auto* maskClass      = Class("UnityEngine.UI", "UnityEngine.UI", "RectMask2D");
+  static auto* scrollClass    = Class("UnityEngine.UI", "UnityEngine.UI", "ScrollRect");
+  static auto* scrollbarClass = Class("UnityEngine.UI", "UnityEngine.UI", "Scrollbar");
+  static auto* imageClass     = Class("UnityEngine.UI", "UnityEngine.UI", "Image");
+  auto*        mask =
+      viewportObject ? WithType(TypeMethod(viewportObject->klass, "AddComponent"), viewportObject, maskClass) : nullptr;
+  auto* contentObject = Make(overlay, viewport, {0, 0, region.width, region.height}, nullptr);
+  region.content.reset(Get(contentObject, "get_transform"));
+  vec2  pivot{0, 1};
+  vec2  position = horizontal ? vec2{-region.offset * overlay.sx, 0} : vec2{0, region.offset * overlay.sy};
+  auto* scroll   = root ? WithType(TypeMethod(root->klass, "AddComponent"), root, scrollClass) : nullptr;
+  region.scroll.reset(scroll);
+  bool  vertical = !horizontal, no = false;
+  int   clamped     = 2;
+  float sensitivity = 38 * (horizontal ? overlay.sx : overlay.sy);
+  if (!mask || !contentObject || !scroll || !Set(region.content.get(), "set_pivot", &pivot)
+      || !Place(region.content.get(), {0, 0, region.width, region.height}, overlay.sx, overlay.sy)
+      || !Set(scroll, "set_content", region.content.get()) || !Set(scroll, "set_viewport", viewport)
+      || !Set(scroll, "set_horizontal", &horizontal) || !Set(scroll, "set_vertical", &vertical)
+      || !Set(scroll, "set_movementType", &clamped) || !Set(scroll, "set_inertia", &no)
+      || !Set(scroll, "set_scrollSensitivity", &sensitivity)
+      || !Set(region.content.get(), "set_anchoredPosition", &position)) {
+    overlay.failed = true;
+    return;
+  }
+  if (window.extent > region.visible) {
+    const Rect trackRect  = horizontal ? Rect{0, rect.h - 10, rect.w, 10} : Rect{rect.w - 10, 0, 10, rect.h};
+    auto*      track      = Make(overlay, transform, trackRect, &kRaised, true);
+    auto*      thumb      = Make(overlay, Get(track, "get_transform"), {0, 0, trackRect.w, trackRect.h}, &kCyan, true);
+    auto*      bar        = track ? WithType(TypeMethod(track->klass, "AddComponent"), track, scrollbarClass) : nullptr;
+    int        direction  = horizontal ? 0 : 2; // LeftToRight / BottomToTop.
+    int        transition = 0;
+    if (!bar || !thumb || !Set(bar, "set_handleRect", Get(thumb, "get_transform"))
+        || !Set(bar, "set_targetGraphic", Component(thumb, imageClass)) || !Set(bar, "set_direction", &direction)
+        || !Set(bar, "set_transition", &transition)
+        || !Set(scroll, horizontal ? "set_horizontalScrollbar" : "set_verticalScrollbar", bar))
+      overlay.failed = true;
+  }
+  DrawScrollRows(region);
 }
 
 void RoundControls(float y)
@@ -787,35 +898,28 @@ void Offense(const data::Participant& p)
          fmt::format("{} critical / {} normal", p.outgoing.critical, p.outgoing.shots - p.outgoing.critical));
   Rule(254, 288, 906);
   RoundControls(302);
-  auto          indices = battle.attacks(selected, roundFilter);
-  constexpr int perPage = 8;
-  const int     pages   = std::max(1, (static_cast<int>(indices.size()) + perPage - 1) / perPage);
-  page                  = std::clamp(page, 0, pages - 1);
+  auto indices = battle.attacks(selected, roundFilter);
   if (std::find(indices.begin(), indices.end(), inspected) == indices.end())
-    inspected =
-        indices.empty() ? data::none : indices[std::min(indices.size() - 1, static_cast<std::size_t>(page * perPage))];
+    inspected = indices.empty() ? data::none : indices.front();
   long double maximum = 1;
   for (auto i : indices)
     maximum = std::max(maximum, Amount(battle.events[i].damage));
-  const auto  start = static_cast<std::size_t>(page * perPage);
-  const auto  end   = std::min(indices.size(), start + perPage);
-  const float slot  = 906.f / perPage;
-  for (auto j = start; j < end; ++j) {
-    const auto  i = indices[j];
-    const auto& e = battle.events[i];
-    const float x = 254 + (j - start) * slot;
-    Button({x, 348, slot - 8, 132}, "", {Op::Inspect, i}, i == inspected);
+  const auto count = indices.size();
+  ScrollList(mainScroll, {254, 342, 906, 148}, std::move(indices), 906.f / 8, true, [maximum](std::size_t i, float x) {
+    const auto&     e    = battle.events[i];
+    constexpr float slot = 906.f / 8;
+    Button({x, 0, slot - 8, 132}, "", {Op::Inspect, i}, i == inspected);
     if (e.critical)
-      Label({x + 7, 351, slot - 22, 22}, "CRIT", 12, kGold);
+      Label({x + 7, 3, slot - 22, 22}, "CRIT", 12, kGold);
     const float height = std::max(2.f, static_cast<float>(Amount(e.damage) / maximum) * 59);
-    Box({x + slot * .31f, 428 - height, slot * .32f, height}, e.critical ? kGold : kCyan);
-    Label({x + 7, 435, slot - 22, 22}, Position(e), 12);
-    Label({x + 7, 458, slot - 22, 20}, fmt::format("#{}", i + 1), 11, kMuted);
-  }
-  if (indices.empty())
+    Box({x + slot * .31f, 80 - height, slot * .32f, height}, e.critical ? kGold : kCyan);
+    Label({x + 7, 87, slot - 22, 22}, Position(e), 12);
+    Label({x + 7, 110, slot - 22, 20}, fmt::format("#{}", i + 1), 11, kMuted);
+  });
+  if (!count)
     Label({254, 362, 906, 60}, "No shots fired in this round.", 18, kMuted);
   AttackDetail(inspected, 494);
-  Pager(static_cast<int>(indices.size()), perPage, 731);
+  Label({254, 731, 906, 26}, fmt::format("{} shots  |  Scroll or drag the shot history to browse", count), 14, kMuted);
 }
 
 void Defense(const data::Participant& p)
@@ -911,65 +1015,60 @@ void Crew(const data::Participant& p)
       ++a.count;
     }
   }
-  const int perPage = 7;
-  int       row = 0, index = 0;
-  const int count = static_cast<int>(abilities.size());
-  page            = std::clamp(page, 0, std::max(0, (count - 1) / perPage));
-  for (const auto& [key, a] : abilities) {
-    if (index++ < page * perPage || row >= perPage)
-      continue;
-    const float y = 292 + row++ * 53.f;
-    Label({254, y, 610, 25}, Escape(a.source), 16);
-    Label({254, y + 25, 610, 24}, Escape(a.description), 13, kMuted);
-    Button({894, y + 3, 266, 34}, fmt::format("{} events  |  {}", a.count, Position(battle.events[a.first])),
-           {Op::Inspect, a.first}, false, 13);
-    Rule(254, y + 51, 906);
-  }
+  std::vector<Ability> groups;
+  for (const auto& [key, a] : abilities)
+    groups.push_back(a);
+  std::vector<std::size_t> order(groups.size());
+  std::iota(order.begin(), order.end(), 0);
+  ScrollList(mainScroll, {254, 292, 906, 375}, std::move(order), 53, false,
+             [groups = std::move(groups)](std::size_t i, float y) {
+               const auto& a = groups[i];
+               Label({0, y, 600, 25}, Escape(a.source), 16);
+               Label({0, y + 25, 600, 24}, Escape(a.description), 13, kMuted);
+               Button({626, y + 3, 266, 34}, fmt::format("{} events  |  {}", a.count, Position(battle.events[a.first])),
+                      {Op::Inspect, a.first}, false, 13);
+               Rule(0, y + 51, 892);
+             });
   if (abilities.empty())
     Label({254, 302, 906, 60}, "No officer or technology activations recorded for this ship.", 17, kMuted);
   Label({254, 682, 906, 26}, "These are observed activations, not inferred crew slots or predicted effects.", 13,
         kMuted);
-  Pager(count, perPage, 731);
 }
 
 void Timeline(const data::Participant& p)
 {
   RoundControls(190);
   Button({856, 190, 304, 30}, allEvents ? "Whole battle" : "Selected ship", {Op::AllEvents}, allEvents, 14);
-  const auto    indices = battle.timeline(selected, roundFilter, allEvents);
-  constexpr int perPage = 8;
-  page                  = std::clamp(page, 0, std::max(0, (static_cast<int>(indices.size()) - 1) / perPage));
-  for (std::size_t j = page * perPage; j < std::min(indices.size(), static_cast<std::size_t>((page + 1) * perPage));
-       ++j) {
-    const auto  i = indices[j];
+  auto       indices = battle.timeline(selected, roundFilter, allEvents);
+  const auto count   = indices.size();
+  ScrollList(mainScroll, {254, 241, 906, 432}, std::move(indices), 54, false, [](std::size_t i, float y) {
     const auto& e = battle.events[i];
-    const float y = 241 + (j - page * perPage) * 54.f;
-    Label({254, y, 140, 26}, Position(e), 14, kMuted);
-    Label({254, y + 25, 140, 22}, fmt::format("Event #{}", i + 1), 12, kMuted);
+    Label({0, y, 140, 26}, Position(e), 14, kMuted);
+    Label({0, y + 25, 140, 22}, fmt::format("Event #{}", i + 1), 12, kMuted);
     std::string label = KindName(e.kind);
     if (e.actor < battle.participants.size())
       label = Escape(battle.participants[e.actor].name) + " | " + label;
     if (e.kind == data::Kind::Attack) {
-      Button({402, y, 588, 27}, label + (e.critical ? " / CRITICAL" : ""), {Op::Inspect, i}, i == inspected, 13);
-      Label({402, y + 28, 588, 22},
+      Button({148, y, 574, 27}, label + (e.critical ? " / CRITICAL" : ""), {Op::Inspect, i}, i == inspected, 13);
+      Label({148, y + 28, 574, 22},
             Escape(battle.participants[e.target].name) + (e.destroyed ? " / destroyed" : "")
                 + (e.shield_depleted ? " / shields depleted" : ""),
             12, e.destroyed ? kRed : kMuted);
-      Label({1004, y, 156, 30}, Number(Amount(e.damage)), 18);
+      Label({736, y, 156, 30}, Number(Amount(e.damage)), 18);
     } else {
-      Label({402, y, 600, 26}, label, 14);
-      Label({402, y + 26, 600, 24}, Escape(e.source.empty() ? e.description : e.source + " / " + e.description), 12,
+      Label({148, y, 574, 26}, label, 14);
+      Label({148, y + 26, 574, 24}, Escape(e.source.empty() ? e.description : e.source + " / " + e.description), 12,
             kMuted);
       if (e.kind == data::Kind::Repair)
-        Label({1004, y, 156, 30}, Number(e.value), 18, kCyan);
+        Label({736, y, 156, 30}, Number(e.value), 18, kCyan);
     }
-    Rule(254, y + 52, 906);
-  }
-  if (indices.empty())
+    Rule(0, y + 52, 892);
+  });
+  if (!count)
     Label({254, 260, 906, 60}, "No events in this selection.", 18, kMuted);
   Label({254, 693, 906, 26}, "Native round / sub-round order. Select an attack to inspect its complete breakdown.", 13,
         kMuted);
-  Pager(static_cast<int>(indices.size()), perPage, 731);
+  Label({254, 731, 906, 26}, fmt::format("{} events  |  Scroll or drag to browse", count), 14, kMuted);
 }
 
 void Compare(const data::Participant& p)
@@ -1023,32 +1122,28 @@ void Compare(const data::Participant& p)
   std::stable_sort(order.begin(), order.end(), [](auto a, auto b) {
     return Amount(battle.participants[a].outgoing) > Amount(battle.participants[b].outgoing);
   });
-  const int perPage = 8;
-  page              = std::clamp(page, 0, std::max(0, (static_cast<int>(order.size()) - 1) / perPage));
   Label({254, 235, 360, 25}, "PARTICIPANT", 12, kMuted);
   Label({642, 235, 180, 25}, raw ? "RAW DAMAGE" : "LANDED", 12, kMuted);
   Label({840, 235, 108, 25}, "SHOTS", 12, kMuted);
   Label({962, 235, 94, 25}, "CRIT", 12, kMuted);
   Label({1060, 235, 100, 25}, "ACTIVE R", 12, kMuted);
-  for (std::size_t j = page * perPage; j < std::min(order.size(), static_cast<std::size_t>((page + 1) * perPage));
-       ++j) {
-    const auto  index = order[j];
-    const auto& a     = battle.participants[index];
-    const float y     = 274 + (j - page * perPage) * 48.f;
-    Button({254, y, 370, 39}, Escape(a.name) + (a.local ? " / YOU" : ""), {Op::Participant, index}, index == selected,
+  ScrollList(mainScroll, {254, 274, 906, 384}, std::move(order), 48, false, [](std::size_t index, float y) {
+    const auto& a = battle.participants[index];
+    Button({0, y, 370, 39}, Escape(a.name) + (a.local ? " / YOU" : ""), {Op::Participant, index}, index == selected,
            14);
-    Label({642, y + 6, 180, 30}, Number(Amount(a.outgoing)), 18);
-    Label({840, y + 6, 108, 30}, fmt::format("{}", a.outgoing.shots), 17);
-    Label({962, y + 6, 94, 30}, fmt::format("{:.0f}%", a.outgoing.critical_percent()), 17);
-    Label({1060, y + 6, 100, 30}, fmt::format("{} / {}", a.active_rounds.size(), battle.rounds), 16, kMuted);
-  }
+    Label({388, y + 6, 180, 30}, Number(Amount(a.outgoing)), 18);
+    Label({586, y + 6, 108, 30}, fmt::format("{}", a.outgoing.shots), 17);
+    Label({708, y + 6, 94, 30}, fmt::format("{:.0f}%", a.outgoing.critical_percent()), 17);
+    Label({806, y + 6, 86, 30}, fmt::format("{} / {}", a.active_rounds.size(), battle.rounds), 16, kMuted);
+  });
   Label({254, 681, 906, 36}, "Each row represents one ship; allies and opponents remain separate combatants.", 13,
         kMuted);
-  Pager(static_cast<int>(order.size()), perPage, 731);
 }
 
 bool CreateOverlay()
 {
+  mainScroll.reset();
+  rosterScroll.reset();
   overlay.clear();
   ++uiGeneration;
   auto* parent    = Get(view.get(), "get_transform");
@@ -1082,21 +1177,12 @@ bool CreateOverlay()
   std::iota(roster.begin(), roster.end(), 0);
   std::stable_sort(roster.begin(), roster.end(),
                    [](auto a, auto b) { return battle.participants[a].local > battle.participants[b].local; });
-  constexpr int rosterSize = 8;
-  rosterPage               = std::clamp(rosterPage, 0, std::max(0, (static_cast<int>(roster.size()) - 1) / rosterSize));
-  for (std::size_t j = rosterPage * rosterSize;
-       j < std::min(roster.size(), static_cast<std::size_t>((rosterPage + 1) * rosterSize)); ++j) {
-    const auto  i = roster[j];
+  ScrollList(rosterScroll, {12, 148, 204, 548}, std::move(roster), 65, false, [](std::size_t i, float y) {
     const auto& p = battle.participants[i];
-    const float y = 148 + (j - rosterPage * rosterSize) * 65.f;
-    Button({12, y, 204, 55}, "", {Op::Participant, i}, selected == i);
-    Label({23, y + 5, 182, 25}, Escape(p.name) + (p.local ? " / YOU" : ""), 14, selected == i ? kCyan : kText);
-    Label({23, y + 30, 182, 22}, Escape(p.ship_name), 12, kMuted);
-  }
-  if (rosterPage > 0)
-    Button({12, 701, 94, 30}, "Previous", {Op::Roster, 0}, false, 12);
-  if ((rosterPage + 1) * rosterSize < static_cast<int>(roster.size()))
-    Button({118, 701, 98, 30}, "Next", {Op::Roster, 1}, false, 12);
+    Button({0, y, 190, 55}, "", {Op::Participant, i}, selected == i);
+    Label({11, y + 5, 168, 25}, Escape(p.name) + (p.local ? " / YOU" : ""), 14, selected == i ? kCyan : kText);
+    Label({11, y + 30, 168, 22}, Escape(p.ship_name), 12, kMuted);
+  });
   const char* names[] = {"Overview", "Offense", "Defense", "Crew & effects", "Timeline", "Compare"};
   for (int i = 0; i < 6; ++i)
     Button({254 + i * 151.f, 108, 141, 32}, names[i], {Op::Tab, static_cast<std::size_t>(i)},
@@ -1265,6 +1351,27 @@ bool Inside(Il2CppObject* object, vec2 point)
          && inside && *static_cast<bool*>(il2cpp_object_unbox(inside));
 }
 
+void CloseOverlay()
+{
+  overlayOpen = false;
+  mainScroll.reset();
+  rosterScroll.reset();
+  overlay.clear();
+  pendingClick = false;
+  pressedObject.reset();
+  ++uiGeneration;
+}
+
+void BattleAnalysisBack_Hook(auto original, Il2CppObject* self)
+{
+  if (Config::Get().battle_log_summary_preview && overlayOpen && Alive(view.get())
+      && self == Field(view.get(), "_backButtonViewController")) {
+    CloseOverlay();
+    return; // The report stays open; the next Back press resumes native navigation.
+  }
+  return original(self);
+}
+
 void Apply(Action action)
 {
   switch (action.op) {
@@ -1274,9 +1381,7 @@ void Apply(Action action)
         BeginRead();
       break;
     case Op::Close:
-      overlayOpen = false;
-      overlay.clear();
-      ++uiGeneration;
+      CloseOverlay();
       break;
     case Op::Retry: {
       Root binding;
@@ -1290,43 +1395,35 @@ void Apply(Action action)
       break;
     }
     case Op::Tab:
-      tab  = static_cast<Tab>(action.value);
-      page = 0;
+      tab               = static_cast<Tab>(action.value);
+      mainScroll.offset = 0;
       break;
     case Op::Participant:
-      selected    = action.value;
-      page        = 0;
-      roundFilter = 0;
-      inspected   = data::none;
+      selected          = action.value;
+      mainScroll.offset = 0;
+      roundFilter       = 0;
+      inspected         = data::none;
       break;
     case Op::Raw:
       raw = action.value != 0;
       break;
     case Op::Round:
-      roundFilter = static_cast<int>(action.value);
-      page        = 0;
-      break;
-    case Op::Page:
-      page = std::max(0, page + (action.value ? 1 : -1));
-      if (tab == Tab::Offense)
-        inspected = data::none;
+      roundFilter       = static_cast<int>(action.value);
+      mainScroll.offset = 0;
       break;
     case Op::Pin:
       pinned = pinned == action.value ? data::none : action.value;
       break;
     case Op::AllEvents:
-      allEvents = !allEvents;
-      page      = 0;
-      break;
-    case Op::Roster:
-      rosterPage = std::max(0, rosterPage + (action.value ? 1 : -1));
+      allEvents         = !allEvents;
+      mainScroll.offset = 0;
       break;
     case Op::Compare:
       comparison = action.value;
       break;
     case Op::PairView:
-      pairView = action.value != 0;
-      page     = 0;
+      pairView          = action.value != 0;
+      mainScroll.offset = 0;
       break;
     case Op::Inspect:
       if (action.value < battle.events.size()) {
@@ -1338,14 +1435,15 @@ void Apply(Action action)
           roundFilter        = e.round;
           const auto indices = battle.attacks(selected, roundFilter);
           const auto i       = std::find(indices.begin(), indices.end(), inspected);
-          page               = i == indices.end() ? 0 : static_cast<int>(i - indices.begin()) / 8;
+          mainScroll.offset =
+              i == indices.end() ? 0 : std::max(0.f, static_cast<float>(i - indices.begin()) * (906.f / 8) - 339);
         } else {
           tab                = Tab::Timeline;
           roundFilter        = e.round;
           allEvents          = false;
           const auto indices = battle.timeline(selected, roundFilter, false);
           const auto i       = std::find(indices.begin(), indices.end(), inspected);
-          page               = i == indices.end() ? 0 : static_cast<int>(i - indices.begin()) / 8;
+          mainScroll.offset  = i == indices.end() ? 0 : static_cast<float>(i - indices.begin()) * 54;
         }
       }
       break;
@@ -1368,21 +1466,33 @@ void Input()
     pressedObject.reset();
     return;
   }
+  Vec3 mouse{};
+  position(&mouse);
+  if (pressedObject.get() && (std::abs(mouse.x - pressPoint.x) > 5 || std::abs(mouse.y - pressPoint.y) > 5))
+    pointerDragged = true;
   // Both press and release must raycast to our Image, so another modal or a
   // drag cannot activate a geometrically overlapping control behind it.
   if (pendingClick) {
     pendingClick = false;
-    if (pendingGeneration == uiGeneration) {
-      auto* target  = RaycastAt(pendingPoint);
-      auto* origin  = pressedObject.get();
-      auto& surface = overlayOpen ? overlay : entry;
-      for (const auto& hit : surface.hits) {
-        auto* object = il2cpp_gchandle_get_target(hit.object);
-        if (object && object == target && object == origin && Alive(object) && Inside(object, pendingPoint)) {
-          const auto action = hit.action;
-          Apply(action);
-          break;
+    if (!pointerDragged && pendingGeneration == uiGeneration) {
+      auto*                       target   = RaycastAt(pendingPoint);
+      auto*                       origin   = pressedObject.get();
+      const std::vector<Surface*> surfaces = overlayOpen
+                                                 ? std::vector<Surface*>{&overlay, &mainScroll.rows, &rosterScroll.rows}
+                                                 : std::vector<Surface*>{&entry};
+      bool                        handled  = false;
+      for (auto* surface : surfaces) {
+        for (const auto& hit : surface->hits) {
+          auto* object = il2cpp_gchandle_get_target(hit.object);
+          if (object && object == target && object == origin && Alive(object) && Inside(object, pendingPoint)) {
+            const auto action = hit.action;
+            Apply(action);
+            handled = true;
+            break;
+          }
         }
+        if (handled)
+          break;
       }
     }
     pressedObject.reset();
@@ -1390,6 +1500,8 @@ void Input()
   if (pressed(0)) {
     Vec3 point{};
     position(&point);
+    pressPoint     = {point.x, point.y};
+    pointerDragged = false;
     pressedObject.reset(RaycastAt({point.x, point.y}));
   }
   if (released(0)) {
@@ -1403,6 +1515,8 @@ void Input()
 
 void Clear()
 {
+  mainScroll.reset();
+  rosterScroll.reset();
   overlay.clear();
   entry.clear();
   font.reset();
@@ -1418,6 +1532,19 @@ void Clear()
 bool BattleAnalysisIsOpen()
 { return overlayOpen; }
 
+bool InstallBattleAnalysisBackHook()
+{
+  auto* cls    = Class("Assembly-CSharp", "Digit.Client.UI", "BackButtonViewController");
+  auto* method = IL2CppClassHelper(cls).GetMethodInfo("BackButtonClick", 0);
+  if (!method || !method->methodPointer) {
+    spdlog::warn("Battle analysis: native Back handler unavailable");
+    return false;
+  }
+  auto handler = reinterpret_cast<void (*)(Il2CppObject*)>(method->methodPointer);
+  SPUD_STATIC_DETOUR(handler, BattleAnalysisBack_Hook);
+  return true;
+}
+
 void UpdateBattleAnalysis()
 {
   if (!Config::Get().battle_log_summary_preview) {
@@ -1430,6 +1557,12 @@ void UpdateBattleAnalysis()
     if (!Value(view.get(), "get_isActiveAndEnabled", active) || !active) {
       Clear();
       return;
+    }
+    TickScroll(mainScroll);
+    TickScroll(rosterScroll);
+    if (overlay.failed) {
+      CloseOverlay();
+      spdlog::warn("Battle analysis: scroll rows unavailable; retaining native report controls");
     }
     Input();
     AdvanceRead();
@@ -1452,6 +1585,8 @@ void UpdateBattleAnalysis()
     if (!source || !Value(source, "get_ID", id))
       return;
     if (source != result.get() || id != reportId) {
+      mainScroll.reset();
+      rosterScroll.reset();
       overlay.clear();
       entry.clear();
       ResetData();
@@ -1488,6 +1623,8 @@ void UpdateBattleAnalysis()
   }
   if (overlayOpen && font.get() && (dirty || !Alive(overlay.object.get()))) {
     if (!CreateOverlay()) {
+      mainScroll.reset();
+      rosterScroll.reset();
       overlay.clear();
       overlayOpen = false;
       spdlog::warn("Battle analysis: native overlay layout unavailable; retaining report controls");
