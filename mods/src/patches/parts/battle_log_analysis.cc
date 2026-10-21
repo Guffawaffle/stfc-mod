@@ -36,7 +36,22 @@ struct Rect {
   float x, y, w, h;
 };
 enum class Tab { Overview, Offense, Defense, Crew, Timeline, Compare };
-enum class Op { Open, Close, Retry, Tab, Participant, Raw, Round, Inspect, Pin, AllEvents, Compare, PairView };
+enum class Op {
+  Open,
+  Close,
+  Retry,
+  Tab,
+  Participant,
+  Raw,
+  Round,
+  Inspect,
+  Pin,
+  AllEvents,
+  Compare,
+  PairView,
+  ScrollMain,
+  ScrollRoster
+};
 struct Action {
   Op          op;
   std::size_t value = 0;
@@ -83,6 +98,17 @@ struct Surface {
   }
 };
 
+struct ScrollCue {
+  Root image, text;
+  int  enabled = -1;
+  void reset()
+  {
+    image.reset();
+    text.reset();
+    enabled = -1;
+  }
+};
+
 struct ScrollRegion {
   Root                                    scroll, content;
   Surface                                 rows;
@@ -91,11 +117,14 @@ struct ScrollRegion {
   float                                   offset = 0, row = 0, visible = 0, width = 0, height = 0;
   bool                                    horizontal = false;
   std::size_t                             begin = data::none, end = data::none;
+  ScrollCue                               before, after;
   void                                    reset()
   {
     rows.clear();
     scroll.reset();
     content.reset();
+    before.reset();
+    after.reset();
     indices.clear();
     draw  = {};
     begin = end = data::none;
@@ -635,8 +664,8 @@ Il2CppObject* Make(Surface& surface, Il2CppObject* parent, Rect r, const color* 
   return object;
 }
 
-void Label(Surface& surface, Il2CppObject* parent, Rect r, const std::string& text, float size = 16, color ink = kText,
-           int alignment = 0x101, bool wrap = false)
+Il2CppObject* Label(Surface& surface, Il2CppObject* parent, Rect r, const std::string& text, float size = 16,
+                    color ink = kText, int alignment = 0x101, bool wrap = false)
 {
   auto*        object   = Make(surface, parent, r, nullptr);
   static auto* tmp      = Class("Unity.TextMeshPro", "TMPro", "TextMeshProUGUI");
@@ -649,6 +678,7 @@ void Label(Surface& surface, Il2CppObject* parent, Rect r, const std::string& te
       || !Set(label, "set_raycastTarget", &no) || !Set(label, "set_enableWordWrapping", &wrap)
       || !Set(label, "set_overflowMode", &overflow) || !Set(label, "set_text", il2cpp_string_new(text.c_str())))
     surface.failed = true;
+  return label;
 }
 
 void Label(Rect r, const std::string& text, float size = 16, color ink = kText, bool wrap = false)
@@ -689,12 +719,39 @@ void Metric(float x, std::string_view label, const std::string& value, const std
   Label({x, 256, 278, 24}, context, 13, kMuted);
 }
 
+void UpdateCue(ScrollCue& cue, bool enabled)
+{
+  if (!cue.image.get() || !cue.text.get() || cue.enabled == static_cast<int>(enabled))
+    return;
+  color background = enabled ? kRaised : kPanel;
+  color ink        = enabled ? kCyan : kLine;
+  if (!Set(cue.image.get(), "set_color", &background) || !Set(cue.text.get(), "set_color", &ink))
+    overlay.failed = true;
+  cue.enabled = enabled;
+}
+
+void CreateCue(ScrollCue& cue, Il2CppObject* parent, Rect rect, const char* glyph, Action action)
+{
+  auto* object = Make(overlay, parent, rect, &kPanel, true);
+  if (!object)
+    return;
+  static auto* imageClass = Class("UnityEngine.UI", "UnityEngine.UI", "Image");
+  cue.image.reset(Component(object, imageClass));
+  cue.text.reset(Label(overlay, Get(object, "get_transform"), {0, 0, rect.w, rect.h}, glyph,
+                       std::min(20.f, rect.h * .75f), kLine, 0x202));
+  overlay.hits.push_back({overlay.keep(object), action});
+  if (!cue.image.get() || !cue.text.get())
+    overlay.failed = true;
+}
+
 void DrawScrollRows(ScrollRegion& region)
 {
   if (!region.content.get() || !region.draw)
     return;
   const auto window = data::scroll_window(region.indices.size(), region.row, region.visible, region.offset);
   region.offset     = window.offset;
+  UpdateCue(region.before, window.before);
+  UpdateCue(region.after, window.after);
   if (window.begin == region.begin && window.end == region.end)
     return;
   region.rows.clear();
@@ -735,6 +792,17 @@ void TickScroll(ScrollRegion& region)
   }
 }
 
+void StepScroll(ScrollRegion& region, bool forward)
+{
+  if (!region.content.get())
+    return;
+  region.offset = data::scroll_step(region.indices.size(), region.row, region.visible, region.offset, forward);
+  vec2 position = region.horizontal ? vec2{-region.offset * overlay.sx, 0} : vec2{0, region.offset * overlay.sy};
+  if (!Set(region.content.get(), "set_anchoredPosition", &position))
+    overlay.failed = true;
+  DrawScrollRows(region);
+}
+
 void ScrollList(ScrollRegion& region, Rect rect, std::vector<std::size_t> indices, float row, bool horizontal,
                 std::function<void(std::size_t, float)> draw)
 {
@@ -742,20 +810,22 @@ void ScrollList(ScrollRegion& region, Rect rect, std::vector<std::size_t> indice
   region.draw       = std::move(draw);
   region.row        = row;
   region.horizontal = horizontal;
-  region.visible    = horizontal ? rect.w : rect.h;
-  const auto window = data::scroll_window(region.indices.size(), row, region.visible, region.offset);
-  region.offset     = window.offset;
-  region.width      = horizontal ? window.extent : rect.w - 14;
-  region.height     = horizontal ? rect.h - 14 : window.extent;
-  auto* root        = Make(overlay, Get(overlay.object.get(), "get_transform"), rect, &kBackground, true);
-  auto* transform   = Get(root, "get_transform");
-  auto* viewportObject =
-      Make(overlay, transform, {0, 0, horizontal ? rect.w : rect.w - 14, horizontal ? rect.h - 14 : rect.h}, nullptr);
+  const auto layout =
+      data::scroll_layout(region.indices.size(), row, horizontal ? rect.w : rect.h, horizontal ? 28 : 20);
+  region.visible              = layout.visible;
+  const auto window           = data::scroll_window(region.indices.size(), row, region.visible, region.offset);
+  region.offset               = window.offset;
+  region.width                = horizontal ? window.extent : rect.w;
+  region.height               = horizontal ? rect.h : window.extent;
+  auto*        root           = Make(overlay, Get(overlay.object.get(), "get_transform"), rect, &kBackground, true);
+  auto*        transform      = Get(root, "get_transform");
+  auto*        viewportObject = Make(overlay, transform,
+                                     {horizontal ? layout.leading : 0, horizontal ? 0 : layout.leading,
+                                      horizontal ? layout.visible : rect.w, horizontal ? rect.h : layout.visible},
+                                     nullptr);
   auto*        viewport       = Get(viewportObject, "get_transform");
   static auto* maskClass      = Class("UnityEngine.UI", "UnityEngine.UI", "RectMask2D");
   static auto* scrollClass    = Class("UnityEngine.UI", "UnityEngine.UI", "ScrollRect");
-  static auto* scrollbarClass = Class("UnityEngine.UI", "UnityEngine.UI", "Scrollbar");
-  static auto* imageClass     = Class("UnityEngine.UI", "UnityEngine.UI", "Image");
   auto*        mask =
       viewportObject ? WithType(TypeMethod(viewportObject->klass, "AddComponent"), viewportObject, maskClass) : nullptr;
   auto* contentObject = Make(overlay, viewport, {0, 0, region.width, region.height}, nullptr);
@@ -777,18 +847,13 @@ void ScrollList(ScrollRegion& region, Rect rect, std::vector<std::size_t> indice
     overlay.failed = true;
     return;
   }
-  if (window.extent > region.visible) {
-    const Rect trackRect  = horizontal ? Rect{0, rect.h - 10, rect.w, 10} : Rect{rect.w - 10, 0, 10, rect.h};
-    auto*      track      = Make(overlay, transform, trackRect, &kRaised, true);
-    auto*      thumb      = Make(overlay, Get(track, "get_transform"), {0, 0, trackRect.w, trackRect.h}, &kCyan, true);
-    auto*      bar        = track ? WithType(TypeMethod(track->klass, "AddComponent"), track, scrollbarClass) : nullptr;
-    int        direction  = horizontal ? 0 : 2; // LeftToRight / BottomToTop.
-    int        transition = 0;
-    if (!bar || !thumb || !Set(bar, "set_handleRect", Get(thumb, "get_transform"))
-        || !Set(bar, "set_targetGraphic", Component(thumb, imageClass)) || !Set(bar, "set_direction", &direction)
-        || !Set(bar, "set_transition", &transition)
-        || !Set(scroll, horizontal ? "set_horizontalScrollbar" : "set_verticalScrollbar", bar))
-      overlay.failed = true;
+  if (layout.cues) {
+    const Op   action = &region == &rosterScroll ? Op::ScrollRoster : Op::ScrollMain;
+    const Rect before = horizontal ? Rect{0, (rect.h - 36) * .5f, 24, 36} : Rect{(rect.w - 32) * .5f, 0, 32, 18};
+    const Rect after =
+        horizontal ? Rect{rect.w - 24, (rect.h - 36) * .5f, 24, 36} : Rect{(rect.w - 32) * .5f, rect.h - 18, 32, 18};
+    CreateCue(region.before, transform, before, horizontal ? "<" : "^", {action, 0});
+    CreateCue(region.after, transform, after, horizontal ? ">" : "v", {action, 1});
   }
   DrawScrollRows(region);
 }
@@ -905,7 +970,7 @@ void Offense(const data::Participant& p)
   for (auto i : indices)
     maximum = std::max(maximum, Amount(battle.events[i].damage));
   const auto count = indices.size();
-  ScrollList(mainScroll, {254, 342, 906, 148}, std::move(indices), 906.f / 8, true, [maximum](std::size_t i, float x) {
+  ScrollList(mainScroll, {254, 342, 906, 132}, std::move(indices), 906.f / 8, true, [maximum](std::size_t i, float x) {
     const auto&     e    = battle.events[i];
     constexpr float slot = 906.f / 8;
     Button({x, 0, slot - 8, 132}, "", {Op::Inspect, i}, i == inspected);
@@ -918,7 +983,8 @@ void Offense(const data::Participant& p)
   });
   if (!count)
     Label({254, 362, 906, 60}, "No shots fired in this round.", 18, kMuted);
-  AttackDetail(inspected, 494);
+  Rule(254, 491, 906);
+  AttackDetail(inspected, 506);
   Label({254, 731, 906, 26}, fmt::format("{} shots  |  Scroll or drag the shot history to browse", count), 14, kMuted);
 }
 
@@ -1425,25 +1491,38 @@ void Apply(Action action)
       pairView          = action.value != 0;
       mainScroll.offset = 0;
       break;
+    case Op::ScrollMain:
+      StepScroll(mainScroll, action.value != 0);
+      return;
+    case Op::ScrollRoster:
+      StepScroll(rosterScroll, action.value != 0);
+      return;
     case Op::Inspect:
       if (action.value < battle.events.size()) {
         inspected     = action.value;
         const auto& e = battle.events[inspected];
         if (e.kind == data::Kind::Attack) {
+          if (tab == Tab::Offense && selected == e.actor)
+            break; // Keep the current round filter and drag position when selecting a shot.
           selected           = e.actor;
           tab                = Tab::Offense;
           roundFilter        = e.round;
           const auto indices = battle.attacks(selected, roundFilter);
           const auto i       = std::find(indices.begin(), indices.end(), inspected);
-          mainScroll.offset =
-              i == indices.end() ? 0 : std::max(0.f, static_cast<float>(i - indices.begin()) * (906.f / 8) - 339);
+          const auto layout  = data::scroll_layout(indices.size(), 906.f / 8, 906, 28);
+          mainScroll.offset  = i == indices.end() ? 0
+                                                  : data::scroll_reveal(indices.size(), 906.f / 8, layout.visible, 0,
+                                                                        static_cast<std::size_t>(i - indices.begin()));
         } else {
           tab                = Tab::Timeline;
           roundFilter        = e.round;
           allEvents          = false;
           const auto indices = battle.timeline(selected, roundFilter, false);
           const auto i       = std::find(indices.begin(), indices.end(), inspected);
-          mainScroll.offset  = i == indices.end() ? 0 : static_cast<float>(i - indices.begin()) * 54;
+          const auto layout  = data::scroll_layout(indices.size(), 54, 432, 20);
+          mainScroll.offset  = i == indices.end() ? 0
+                                                  : data::scroll_reveal(indices.size(), 54, layout.visible, 0,
+                                                                        static_cast<std::size_t>(i - indices.begin()));
         }
       }
       break;
