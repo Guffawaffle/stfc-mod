@@ -3,6 +3,7 @@ set_project("stfc-community-mod")
 includes("xmake/options.lua")
 includes("xmake/dependencies/common.lua")
 includes("xmake/dependencies/profiles.lua")
+includes("xmake/dependencies/aai.lua")
 
 set_languages("c++23")
 set_runtimes("MT")

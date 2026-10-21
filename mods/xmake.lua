@@ -114,6 +114,9 @@ do
         add_rules("stfc.cxx.sccache", {override = true})
     end
     add_files("src/**.cc")
+    if get_config("stfc_aai") then
+        add_rules("stfc.aai.source", "stfc.aai.identity")
+    end
     add_rules("stfc.profiles.source")
     if get_config("stfc_profiles_source") and #get_config("stfc_profiles_source") > 0 then
         add_deps("stfc-profiles-core")
