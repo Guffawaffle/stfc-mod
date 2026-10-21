@@ -2,6 +2,7 @@
 #include "battle_log_analysis_data.h"
 #include "battle_log_ui.h"
 #include "config.h"
+#include "prime/Vector3.h"
 #include "str_utils.h"
 
 #include <spdlog/fmt/fmt.h>
@@ -102,17 +103,30 @@ int          roundIndex = 0, subIndex = 0, eventIndex = 0, nestedIndex = 0;
 int          roundCount = 0, subCount = 0, eventCount = 0, nestedCount = 0;
 std::size_t  readSteps   = 0;
 bool         overlayOpen = false, ready = false, reading = false, raw = false, allEvents = false, dirty = true;
-bool         pairView = false;
+bool         pairView      = false;
+bool         waitingForLog = false;
+std::string  readFailure;
 Tab          tab      = Tab::Overview;
 std::size_t  selected = data::none, inspected = data::none, pinned = data::none, comparison = data::none;
 int          roundFilter = 0, page = 0, rosterPage = 0;
 std::unordered_map<std::int64_t, std::size_t> ships;
 std::unordered_map<std::int64_t, std::string> hullNames, officerNames, technologyNames;
 Clock::time_point                             nextDiscovery{}, nextProgress{};
+Clock::time_point                             readDeadline{}, nextLogAttempt{};
 int                                           uiGeneration = 0, pendingGeneration = 0;
 bool                                          pendingClick = false;
 vec2                                          pendingPoint{};
 Root                                          pressedObject;
+
+void FailRead(std::string reason)
+{
+  if (readFailure.empty()) {
+    readFailure = std::move(reason);
+    spdlog::warn("Battle analysis: report {} read failed at R{} / SR{} / event {}: {}", reportId, roundIndex + 1,
+                 subIndex + 1, eventIndex, readFailure);
+  }
+  battle.failed = true;
+}
 
 std::string Text(Il2CppObject* value)
 {
@@ -248,7 +262,7 @@ std::size_t Participant(std::int64_t ship, std::int64_t hull)
     return found->second;
   }
   if (battle.participants.size() >= data::max_participants) {
-    battle.failed = true;
+    FailRead("participant limit exceeded");
     return data::none;
   }
   data::Participant p;
@@ -258,13 +272,13 @@ std::size_t Participant(std::int64_t ship, std::int64_t hull)
   Il2CppObject* fleet  = nullptr;
   if (!TryInvoke(IL2CppClassHelper(result.get()->klass).GetMethodInfo("GetFleetForShip", 1), result.get(), args, &fleet)
       || !fleet) {
-    battle.failed = true;
+    FailRead("ship token could not be resolved through BattleResultData.GetFleetForShip");
     return data::none;
   }
   auto* profile = Get(fleet, "get_UserData");
   if (profile) {
     if (!Value(profile, "get_IsLocalPlayer", p.local)) {
-      battle.failed = true;
+      FailRead("local-player identity could not be read");
       return data::none;
     }
     p.name = Text(Get(profile, "get_Name"));
@@ -293,13 +307,17 @@ std::size_t Participant(std::int64_t ship, std::int64_t hull)
 template <typename T> bool Backing(Il2CppObject* object, const char* property, Il2CppTypeEnum type, T& value)
 {
   const auto name = fmt::format("<{}>k__BackingField", property);
-  return FieldValue(object, name.c_str(), type, value);
+  if (FieldValue(object, name.c_str(), type, value))
+    return true;
+  FailRead(fmt::format("{}.{} missing or has an unsupported type",
+                       object ? il2cpp_class_get_name(object->klass) : "null", property));
+  return false;
 }
 
 void ReadEvent(Il2CppObject* object)
 {
   if (!object) {
-    battle.failed = true;
+    FailRead("native event missing");
     return;
   }
   data::Event e;
@@ -315,7 +333,7 @@ void ReadEvent(Il2CppObject* object)
         || !Backing(object, "TargetShip", IL2CPP_TYPE_I8, target)
         || !Backing(object, "AttackingHullId", IL2CPP_TYPE_I8, hull)
         || !Backing(object, "TargetHullId", IL2CPP_TYPE_I8, targetHull) || !Value(object, "get_IsCharging", charging)) {
-      battle.failed = true;
+      FailRead("attack identity or charging state unavailable");
       return;
     }
     e.actor  = Participant(actor, hull);
@@ -333,7 +351,7 @@ void ReadEvent(Il2CppObject* object)
           || !Backing(object, "WeaponID", IL2CPP_TYPE_I8, e.weapon)
           || !Backing(object, "RemainingHP", IL2CPP_TYPE_I8, remaining)
           || !Backing(object, "RemainingShield", IL2CPP_TYPE_I8, remainingShield)) {
-        battle.failed = true;
+        FailRead("attack damage fields unavailable");
         return;
       }
       e.damage          = data::reported_damage(hp, shield, iso, mit, isoMit, barrier, crit, isoCrit);
@@ -344,7 +362,7 @@ void ReadEvent(Il2CppObject* object)
     nestedCount = nested.get() ? Count(nested.get()) : 0;
     nestedIndex = 0;
     if (nestedCount < 0)
-      battle.failed = true;
+      FailRead("nested officer-event list unavailable or too large");
   } else {
     std::int64_t ship = 0, hull = 0;
     if (type == "OfficerEvent" || type == "ForbiddenTechEvent" || type == "HullRepairEvent") {
@@ -404,7 +422,7 @@ void ReadEvent(Il2CppObject* object)
     }
   }
   if (!battle.append(std::move(e)))
-    battle.failed = true;
+    FailRead("event aggregation rejected incomplete or invalid data");
 }
 
 void ResetData()
@@ -425,6 +443,8 @@ void ResetData()
   roundCount = subCount = eventCount = nestedCount = 0;
   selected = inspected = pinned = comparison = data::none;
   reading = ready = false;
+  waitingForLog   = false;
+  readFailure.clear();
   page = rosterPage = roundFilter = 0;
   raw = allEvents = pairView = false;
   tab                        = Tab::Overview;
@@ -432,34 +452,77 @@ void ResetData()
   dirty                      = true;
 }
 
-void BeginRead()
+void TryStartRead()
 {
-  auto*         report = Get(result.get(), "get_BattleResult");
-  Il2CppObject* log    = nullptr;
-  if (report && TryInvoke(IL2CppClassHelper(report->klass).GetMethodInfo("GetBattleLog", 0), report, nullptr, &log))
-    nativeLog.reset(log);
+  nextLogAttempt = Clock::now() + std::chrono::milliseconds(250);
+  auto* report   = Get(result.get(), "get_BattleResult");
+  if (!report)
+    return; // Report requests can still be in flight when the header appears.
+  static auto* contract    = Class("Assembly-CSharp", "Digit.PrimeServer.Models", "IBattleReport");
+  auto*        declaration = IL2CppClassHelper(contract).GetMethodInfo("GetBattleLog", 0);
+  if (!declaration || !il2cpp_class_is_assignable_from(contract, report->klass)) {
+    waitingForLog = false;
+    FailRead("IBattleReport.GetBattleLog contract unavailable");
+    return;
+  }
+  // JournalResponse implements this explicitly; looking up "GetBattleLog" on
+  // its concrete class misses the method. Dispatch the same interface as the
+  // client's detailed log so archived and live BattleResult reports both work.
+  auto*         implementation = il2cpp_object_get_virtual_method(report, declaration);
+  Il2CppObject* log            = nullptr;
+  if (!implementation || !implementation->methodPointer || !TryInvoke(implementation, report, nullptr, &log)) {
+    waitingForLog = false;
+    FailRead(fmt::format("{}.GetBattleLog interface invocation failed", il2cpp_class_get_name(report->klass)));
+    return;
+  }
+  nativeLog.reset(log);
+  if (!log)
+    return;
   rounds.reset(Get(nativeLog.get(), "get_BattleRounds"));
   roundCount = Count(rounds.get());
+  if (roundCount == 0)
+    return;
+  waitingForLog = false;
+  if (roundCount < 0 || roundCount > 100000) {
+    FailRead("native battle-round list unavailable or too large");
+    return;
+  }
   // Resolve the fleets once through the client's existing lazy getters.
   Get(result.get(), "get_PlayerFleets");
   Get(result.get(), "get_TargetFleets");
-  if (roundCount < 1 || roundCount > 100000)
-    battle.failed = true;
   battle.rounds = std::max(0, roundCount);
-  reading       = !battle.failed;
-  ready         = battle.failed;
-  dirty         = true;
+  spdlog::info("Battle analysis: report {} source {} via IBattleReport, {} native rounds", reportId,
+               il2cpp_class_get_name(report->klass), roundCount);
+  dirty = true;
+}
+
+void BeginRead()
+{
+  waitingForLog = reading = true;
+  ready                   = false;
+  readDeadline            = Clock::now() + std::chrono::seconds(10);
+  TryStartRead();
+  dirty = true;
 }
 
 void AdvanceRead()
 {
   if (!reading || !overlayOpen)
     return;
+  if (waitingForLog) {
+    if (Clock::now() >= readDeadline) {
+      waitingForLog = false;
+      FailRead("battle log not populated within ten seconds");
+    } else if (Clock::now() >= nextLogAttempt)
+      TryStartRead();
+    if (waitingForLog)
+      return;
+  }
   const auto deadline = Clock::now() + std::chrono::milliseconds(3);
   for (int batch = 0; batch < 128 && roundIndex < roundCount && !battle.failed; ++batch) {
     // Bound empty hierarchy traversal too, rather than just retained events.
     if (++readSteps > data::max_events * 8) {
-      battle.failed = true;
+      FailRead("native hierarchy traversal limit exceeded");
       break;
     }
     if (nestedIndex < nestedCount) {
@@ -469,7 +532,7 @@ void AdvanceRead()
       subRounds.reset(Get(round, "get_SubRounds"));
       subCount = Count(subRounds.get());
       if (subCount < 0)
-        battle.failed = true;
+        FailRead("native sub-round list unavailable or too large");
     } else if (subIndex >= subCount) {
       subRounds.reset();
       events.reset();
@@ -481,7 +544,7 @@ void AdvanceRead()
       eventCount = Count(events.get());
       eventIndex = 0;
       if (eventCount < 0)
-        battle.failed = true;
+        FailRead("native event list unavailable or too large");
     } else if (eventIndex >= eventCount) {
       events.reset();
       nested.reset();
@@ -1040,8 +1103,10 @@ bool CreateOverlay()
            tab == static_cast<Tab>(i), 14);
   Rule(254, 150, 906);
   if (!ready) {
-    Label({254, 186, 906, 60}, fmt::format("Reading native battle data... {} events", battle.events.size()), 24,
-          kMuted);
+    Label({254, 186, 906, 60},
+          waitingForLog ? "Waiting for battle log data..."
+                        : fmt::format("Reading native battle data... {} events", battle.events.size()),
+          24, kMuted);
   } else if (battle.failed) {
     Label({254, 186, 906, 100},
           "Analysis unavailable: this report could not be read completely. The native Battle Log remains available.",
@@ -1085,24 +1150,60 @@ bool CreateOverlay()
   return true;
 }
 
+bool PlaceEntry()
+{
+  auto*        root = Get(view.get(), "get_transform");
+  Rect         rect{};
+  static auto* utility = Class("UnityEngine.UIModule", "UnityEngine", "RectTransformUtility");
+  auto*        method  = IL2CppClassHelper(utility).GetMethodInfo("CalculateRelativeRectTransformBounds", 2);
+  if (!method || !Value(root, "get_rect", rect) || rect.w < 320 || rect.h < 220)
+    return false;
+  struct BoundsValue {
+    Vector3 center, extents;
+  };
+  const float top         = rect.y + rect.h;
+  float       bottom      = top;
+  bool        headerFound = false;
+  const auto  include     = [&](Il2CppObject* widget) {
+    bool active = false;
+    if (!Value(Get(widget, "get_gameObject"), "get_activeInHierarchy", active) || !active)
+      return false;
+    void*         args[]    = {root, Get(widget, "get_transform")};
+    Il2CppObject* boxed     = nullptr;
+    uint32_t      alignment = 0;
+    if (!args[1] || !TryInvoke(method, nullptr, args, &boxed) || !boxed || !il2cpp_class_is_valuetype(boxed->klass)
+        || il2cpp_class_value_size(boxed->klass, &alignment) != sizeof(BoundsValue))
+      return false;
+    BoundsValue bounds{};
+    std::memcpy(&bounds, il2cpp_object_unbox(boxed), sizeof(bounds));
+    const float edge = bounds.center.y - bounds.extents.y;
+    // Ignore ship-card stats farther down the report. Only the result heading
+    // and visible strength strip determine this header action's position.
+    if (!std::isfinite(edge) || edge > top || top - edge > rect.h * .3f)
+      return false;
+    bottom = std::min(bottom, edge);
+    return true;
+  };
+  auto* resultWidget = Field(view.get(), "_battleResultWidget");
+  for (auto field : {"_victoryText", "_defeatText", "_partialVictoryText"})
+    headerFound |= include(Field(resultWidget, field));
+  if (!headerFound)
+    return false;
+  for (auto field :
+       {"_playerInfoWidget", "_singleTargetInfoWidget", "_multiPlayerInfoWidget", "_multiTargetInfoWidget"}) {
+    auto* widget = Field(view.get(), field);
+    include(Field(widget, "_strengthWidget"));
+    include(Field(widget, "_singleStrengthWidget"));
+  }
+  return Place(Get(entry.object.get(), "get_transform"), {(rect.w - 280) * .5f, top - bottom + 12, 280, 38}, 1, 1);
+}
+
 bool CreateEntry()
 {
   entry.clear();
-  auto* native    = Field(view.get(), "_showDetailedLogButton");
-  auto* transform = Get(native, "get_transform");
-  auto* parent    = Get(transform, "get_parent");
-  vec2  anchorMin{}, anchorMax{}, offsetMin{}, offsetMax{};
-  Rect  bounds{};
-  if (!Alive(native) || !parent || !Value(transform, "get_anchorMin", anchorMin)
-      || !Value(transform, "get_anchorMax", anchorMax) || !Value(transform, "get_offsetMin", offsetMin)
-      || !Value(transform, "get_offsetMax", offsetMax) || !Value(transform, "get_rect", bounds) || bounds.w < 50
-      || bounds.h < 15)
-    return false;
-  auto* own = NewObject("CommunityMod_BattleAnalysisButton", parent, entry.object);
-  offsetMin.x -= bounds.w + 12;
-  offsetMax.x -= bounds.w + 12;
-  if (!own || !Set(own, "set_anchorMin", &anchorMin) || !Set(own, "set_anchorMax", &anchorMax)
-      || !Set(own, "set_offsetMin", &offsetMin) || !Set(own, "set_offsetMax", &offsetMax))
+  auto* parent = Get(view.get(), "get_transform");
+  auto* own    = NewObject("CommunityMod_BattleAnalysisButton", parent, entry.object);
+  if (!own || !PlaceEntry())
     return false;
   static auto* imageClass = Class("UnityEngine.UI", "UnityEngine.UI", "Image");
   auto*        image = WithType(TypeMethod(entry.object.get()->klass, "AddComponent"), entry.object.get(), imageClass);
@@ -1110,8 +1211,7 @@ bool CreateEntry()
   if (!image || !Set(image, "set_color", const_cast<color*>(&kSelected)) || !Set(image, "set_raycastTarget", &yes))
     return false;
   entry.sx = entry.sy = 1;
-  Label(entry, own, {4, 2, bounds.w - 8, bounds.h - 4}, "BATTLE ANALYSIS", std::min(25.f, bounds.h * .43f), kCyan,
-        0x202);
+  Label(entry, own, {4, 2, 272, 34}, "BATTLE ANALYSIS", 19, kCyan, 0x202);
   entry.hits.push_back({entry.keep(entry.object.get()), {Op::Open}});
   return !entry.failed && Set(entry.object.get(), "SetActive", &yes);
 }
@@ -1377,6 +1477,8 @@ void UpdateBattleAnalysis()
         warned = true;
       }
     }
+    if (Alive(entry.object.get()))
+      PlaceEntry(); // Follow header animations and window resizing without rebuilding the button.
     if (overlayOpen && Alive(overlay.object.get())) {
       Rect rect{};
       if (Value(Get(overlay.object.get(), "get_transform"), "get_rect", rect)
