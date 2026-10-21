@@ -32,9 +32,10 @@ struct Damage {
 };
 
 struct Event {
-  Kind          kind           = Kind::Other;
-  AbilityOrigin ability_origin = AbilityOrigin::Unknown;
-  bool          ability_named  = false;
+  Kind          kind               = Kind::Other;
+  AbilityOrigin ability_origin     = AbilityOrigin::Unknown;
+  bool          ability_named      = false;
+  bool          ability_ship_title = false; // Presentation only; ability_origin retains the native event tag.
   int           round = 0, sub_round = 0;
   std::size_t   actor = none, target = none;
   std::int64_t  weapon = 0, ability = 0, owner = 0;

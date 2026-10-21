@@ -2,7 +2,10 @@
 
 #include "game_strings_data.h"
 #include "str_utils.h"
+#include <array>
+#include <cmath>
 #include <cstring>
+#include <span>
 #include <utility>
 
 namespace game_strings
@@ -66,10 +69,14 @@ namespace detail
 // Call on the game's main thread after localization is ready. No managed
 // pointers or translated strings are retained, so each call uses the current
 // game language. Empty means unavailable; callers choose their visible fallback.
-inline std::string Localize(const char* identifier, const char* category, std::int64_t id)
+inline std::string Localize(const char* identifier, const char* category, std::int64_t id,
+                            std::span<const float> textParameters = {})
 {
-  if (!identifier || !category || !id)
+  if (!identifier || !category || !id || textParameters.size() > 8)
     return {};
+  for (float value : textParameters)
+    if (!std::isfinite(value))
+      return {};
   static auto* contextClass = detail::Class("Assembly-CSharp", "Digit.Client.UI", "LocaleTextContext");
   static auto* utility      = detail::Class("Assembly-CSharp", "Digit.Client.Localization", "LocaleUtilities");
   static auto* objectClass  = detail::Class("mscorlib", "System", "Object");
@@ -92,8 +99,33 @@ inline std::string Localize(const char* identifier, const char* category, std::i
   Il2CppObject* answer     = nullptr;
   if (!detail::Invoke(IL2CppClassHelper(contextClass).GetMethodInfo(".ctor", 2), context.get(), ctor)
       || !detail::Invoke(IL2CppClassHelper(contextClass).GetMethodInfo("ApplyIdentifierParameters", 1), context.get(),
-                         apply)
-      || !detail::Invoke(IL2CppClassHelper(utility).GetMethodInfo("Localize", 3), nullptr, localize, &answer))
+                         apply))
+    return {};
+  if (!textParameters.empty()) {
+    static auto* singleClass = detail::Class("mscorlib", "System", "Single");
+    if (!singleClass)
+      return {};
+    detail::Root parameters(reinterpret_cast<Il2CppObject*>(il2cpp_array_new(objectClass, textParameters.size())));
+    if (!parameters.get())
+      return {};
+    for (std::size_t i = 0; i < textParameters.size(); ++i) {
+      float        value = textParameters[i];
+      detail::Root boxed(il2cpp_value_box(singleClass, &value));
+      if (!boxed.get())
+        return {};
+      auto* slots = reinterpret_cast<Il2CppObject**>(reinterpret_cast<Il2CppArraySize*>(parameters.get())->vector);
+      il2cpp_gc_wbarrier_set_field(parameters.get(), reinterpret_cast<void**>(slots + i), boxed.get());
+    }
+    bool  yes     = true;
+    void* force[] = {&yes};
+    void* text[]  = {parameters.get()};
+    if (!detail::Invoke(IL2CppClassHelper(contextClass).GetMethodInfo("set_ForceLocalizeParams", 1), context.get(),
+                        force)
+        || !detail::Invoke(IL2CppClassHelper(contextClass).GetMethodInfo("ApplyTextParameters", 1), context.get(),
+                           text))
+      return {};
+  }
+  if (!detail::Invoke(IL2CppClassHelper(utility).GetMethodInfo("Localize", 3), nullptr, localize, &answer))
     return {};
   auto text = detail::Text(answer);
   return IsResolvedName(text, identifier, id) ? text : std::string{};
@@ -101,10 +133,11 @@ inline std::string Localize(const char* identifier, const char* category, std::i
 
 // Example: Name(specService, NameKind::OfficerAbility, eventAbilityId).
 // The ability's BuffSpec.IdRefs.LocaId supplies the title identifier parameter.
-inline NameLookup InspectName(Il2CppObject* specService, NameKind kind, std::int64_t specId)
+inline NameLookup InspectName(Il2CppObject* specService, NameKind kind, std::int64_t specId,
+                              std::span<const float> textParameters = {})
 {
   const auto key = Key(kind);
-  if (!specService || !specId || !key.method)
+  if (!specService || !specId || !key.method || (kind == NameKind::TechnologyEffect && textParameters.size() != 2))
     return {};
   bool          ignoreWarning = true;
   void*         args[]        = {&specId, &ignoreWarning};
@@ -123,11 +156,21 @@ inline NameLookup InspectName(Il2CppObject* specService, NameKind kind, std::int
   const auto loca = *static_cast<std::int64_t*>(il2cpp_object_unbox(boxed.get()));
   if (!loca)
     return {{}, 0, NameStatus::LocalizationIdMissing};
-  auto       text   = Localize(key.identifier, key.category, loca);
+  auto text = Localize(key.identifier, key.category, loca, textParameters);
+  if (kind == NameKind::TechnologyEffect)
+    text = PlainDescription(text);
   const auto status = text.empty() ? NameStatus::TranslationMissing : NameStatus::Resolved;
   return {std::move(text), loca, status};
 }
 
 inline std::string Name(Il2CppObject* specService, NameKind kind, std::int64_t specId)
 { return InspectName(specService, kind, specId).text; }
+
+// Native ForbiddenTechEvent uses its AbilityValue in both float text slots.
+// The localized template controls percent/number formatting and scaling.
+inline NameLookup InspectTechnologyEffect(Il2CppObject* specService, std::int64_t abilityId, float value)
+{
+  const std::array values{value, value};
+  return InspectName(specService, NameKind::TechnologyEffect, abilityId, values);
+}
 } // namespace game_strings

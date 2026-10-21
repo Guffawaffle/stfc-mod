@@ -155,6 +155,7 @@ int          roundFilter = 0;
 std::unordered_map<std::int64_t, std::size_t>            ships;
 std::map<std::pair<NameKind, std::int64_t>, std::string> names;
 std::size_t          abilityNamesResolved = 0, abilityNamesMissing = 0, abilityNameSamples = 0;
+constexpr float      kTimelineRow = 92;
 Clock::time_point    nextDiscovery{}, nextProgress{};
 Clock::time_point    readDeadline{}, nextLogAttempt{};
 Root                 pressedObject;
@@ -401,9 +402,21 @@ void ReadEvent(Il2CppObject* object)
           int origin = -1;
           FieldValue(object, "AbilityType", IL2CPP_TYPE_I4, origin);
           if (origin == 0 || origin == 1) {
-            e.ability_origin = origin == 1 ? data::AbilityOrigin::Ship : data::AbilityOrigin::Officer;
-            e.source         = Name(origin == 1 ? NameKind::Hull : NameKind::Officer, e.owner);
-            e.description    = Name(origin == 1 ? NameKind::ShipAbility : NameKind::OfficerAbility, e.ability);
+            e.ability_origin     = origin == 1 ? data::AbilityOrigin::Ship : data::AbilityOrigin::Officer;
+            e.source             = Name(origin == 1 ? NameKind::Hull : NameKind::Officer, e.owner);
+            e.description        = Name(origin == 1 ? NameKind::ShipAbility : NameKind::OfficerAbility, e.ability);
+            e.ability_ship_title = origin == 1;
+            if (origin == 0 && e.description.empty()) {
+              auto*      service = Field(result.get(), "_specService");
+              const auto officer = game_strings::InspectName(service, NameKind::OfficerAbility, e.ability);
+              const auto hull    = game_strings::InspectName(service, NameKind::Hull, e.owner);
+              const auto ship    = game_strings::InspectName(service, NameKind::ShipAbility, e.ability);
+              if (game_strings::CanUseShipAbility(officer, hull, ship)) {
+                e.source             = hull.text;
+                e.description        = ship.text;
+                e.ability_ship_title = true;
+              }
+            }
             if (e.source.empty())
               e.source = fmt::format("{} #{}", origin == 1 ? "Hull" : "Officer", e.owner);
           } else {
@@ -412,6 +425,8 @@ void ReadEvent(Il2CppObject* object)
         } else {
           e.ability_origin = data::AbilityOrigin::Technology;
           e.source         = Name(NameKind::ForbiddenTech, e.owner);
+          e.description =
+              game_strings::InspectTechnologyEffect(Field(result.get(), "_specService"), e.ability, value).text;
           if (e.source.empty())
             e.source = fmt::format("Forbidden tech #{}", e.owner);
         }
@@ -525,13 +540,26 @@ void LogAbilityNames()
   };
   std::map<std::tuple<data::AbilityOrigin, std::int64_t, std::int64_t>, Group> missing;
   std::size_t                                                                  omittedEvents = 0;
+  std::size_t                                                                  effectSamples = 0, shipSamples = 0;
   for (std::size_t i = 0; i < battle.events.size(); ++i) {
     const auto& e = battle.events[i];
     if (e.kind != data::Kind::Officer && e.kind != data::Kind::Technology)
       continue;
     ++totals[static_cast<std::size_t>(e.ability_origin)][e.ability_named ? 0 : 1];
-    if (e.ability_named)
+    if (e.ability_named) {
+      if (e.kind == data::Kind::Technology && effectSamples < 12) {
+        ++effectSamples;
+        spdlog::info("Battle analysis: technology effect ability={} owner={} first={} value={} text=\"{}\"", e.ability,
+                     e.owner, Position(e), static_cast<double>(e.value), e.description);
+      }
+      if (e.ability_ship_title && e.ability_origin == data::AbilityOrigin::Officer && shipSamples < 8) {
+        ++shipSamples;
+        spdlog::info("Battle analysis: hull-verified ship title ability={} owner={} native_origin=officer "
+                     "source=\"{}\" title=\"{}\"",
+                     e.ability, e.owner, e.source, e.description);
+      }
       continue;
+    }
     const auto key   = std::tuple{e.ability_origin, e.owner, e.ability};
     auto       found = missing.find(key);
     if (found == missing.end()) {
@@ -544,18 +572,20 @@ void LogAbilityNames()
     ++found->second.count;
   }
   for (std::size_t i = 0; i < totals.size(); ++i)
-    spdlog::info("Battle analysis: name coverage origin={} named={} fallback={}", origins[i], totals[i][0],
+    spdlog::info("Battle analysis: ability text coverage origin={} readable={} fallback={}", origins[i], totals[i][0],
                  totals[i][1]);
   auto* service = Field(result.get(), "_specService");
   for (const auto& [key, group] : missing) {
     const auto& e      = battle.events[group.first];
     const auto  origin = static_cast<std::size_t>(e.ability_origin);
     if (e.ability_origin == data::AbilityOrigin::Technology) {
-      const auto owner = game_strings::InspectName(service, NameKind::ForbiddenTech, e.owner);
+      const auto owner  = game_strings::InspectName(service, NameKind::ForbiddenTech, e.owner);
+      const auto effect = game_strings::InspectTechnologyEffect(service, e.ability, static_cast<float>(e.value));
       spdlog::info("Battle analysis: name fallback origin={} ability={} owner={} source=\"{}\" events={} first={} "
-                   "reason=technology-title-not-mapped owner_status={} owner_loca={}",
+                   "reason={} effect_loca={} owner_status={} owner_loca={}",
                    origins[origin], e.ability, e.owner, e.source, group.count, Position(e),
-                   game_strings::StatusName(owner.status), owner.loca_id);
+                   game_strings::StatusName(effect.status), effect.loca_id, game_strings::StatusName(owner.status),
+                   owner.loca_id);
     } else if (e.ability_origin == data::AbilityOrigin::Officer || e.ability_origin == data::AbilityOrigin::Ship) {
       const auto lookup = game_strings::InspectName(
           service, e.ability_origin == data::AbilityOrigin::Ship ? NameKind::ShipAbility : NameKind::OfficerAbility,
@@ -642,7 +672,7 @@ void AdvanceRead()
       }
     spdlog::info("Battle analysis: report {}, {} native rounds, {} events, {} participants, complete={}", reportId,
                  battle.rounds, battle.events.size(), battle.participants.size(), !battle.failed);
-    spdlog::info("Battle analysis: ability titles resolved for {} events; {} events retain an ability ID",
+    spdlog::info("Battle analysis: ability text resolved for {} events; {} events retain an ability ID",
                  abilityNamesResolved, abilityNamesMissing);
     LogAbilityNames();
     dirty = true;
@@ -1137,14 +1167,15 @@ void Crew(const data::Participant& p)
     groups.push_back(a);
   std::vector<std::size_t> order(groups.size());
   std::iota(order.begin(), order.end(), 0);
-  ScrollList(mainScroll, {254, 292, 906, 375}, std::move(order), 53, false,
+  ScrollList(mainScroll, {254, 292, 906, 375}, std::move(order), 104, false,
              [groups = std::move(groups)](std::size_t i, float y) {
                const auto& a = groups[i];
                Label({0, y, 600, 25}, Escape(a.source), 16);
-               Label({0, y + 25, 600, 24}, Escape(a.description), 13, kMuted);
+               Label({0, y + 27, 600, 70}, Escape(a.description), 13, kMuted, true);
                Button({626, y + 3, 266, 34}, fmt::format("{} events  |  {}", a.count, Position(battle.events[a.first])),
                       {Op::Inspect, a.first}, false, 13);
-               Rule(0, y + 51, 892);
+               Label({626, y + 43, 266, 44}, "First activation shown; select for timeline.", 12, kMuted, true);
+               Rule(0, y + 102, 892);
              });
   if (abilities.empty())
     Label({254, 302, 906, 60}, "No officer or technology activations recorded for this ship.", 17, kMuted);
@@ -1158,11 +1189,11 @@ void Timeline(const data::Participant& p)
   Button({856, 190, 304, 30}, allEvents ? "Whole battle" : "Selected ship", {Op::AllEvents}, allEvents, 14);
   auto       indices = battle.timeline(selected, roundFilter, allEvents);
   const auto count   = indices.size();
-  ScrollList(mainScroll, {254, 241, 906, 432}, std::move(indices), 54, false, [](std::size_t i, float y) {
+  ScrollList(mainScroll, {254, 241, 906, 432}, std::move(indices), kTimelineRow, false, [](std::size_t i, float y) {
     const auto& e = battle.events[i];
     Label({0, y, 140, 26}, Position(e), 14, kMuted);
     Label({0, y + 25, 140, 22}, fmt::format("Event #{}", i + 1), 12, kMuted);
-    std::string label = e.ability_origin == data::AbilityOrigin::Ship ? "Ship ability" : KindName(e.kind);
+    std::string label = e.ability_ship_title ? "Ship ability" : KindName(e.kind);
     if (e.actor < battle.participants.size())
       label = Escape(battle.participants[e.actor].name) + " | " + label;
     if (e.kind == data::Kind::Attack) {
@@ -1174,12 +1205,12 @@ void Timeline(const data::Participant& p)
       Label({736, y, 156, 30}, Number(Amount(e.damage)), 18);
     } else {
       Label({148, y, 574, 26}, label, 14);
-      Label({148, y + 26, 574, 24}, Escape(e.source.empty() ? e.description : e.source + " / " + e.description), 12,
-            kMuted);
+      Label({148, y + 26, 574, 62}, Escape(e.source.empty() ? e.description : e.source + " / " + e.description), 12,
+            kMuted, true);
       if (e.kind == data::Kind::Repair)
         Label({736, y, 156, 30}, Number(e.value), 18, kCyan);
     }
-    Rule(0, y + 52, 892);
+    Rule(0, y + kTimelineRow - 2, 892);
   });
   if (!count)
     Label({254, 260, 906, 60}, "No events in this selection.", 18, kMuted);
@@ -1593,9 +1624,9 @@ void Apply(Action action)
           allEvents          = false;
           const auto indices = battle.timeline(selected, roundFilter, false);
           const auto i       = std::find(indices.begin(), indices.end(), inspected);
-          const auto layout  = data::scroll_layout(indices.size(), 54, 432, 20);
+          const auto layout  = data::scroll_layout(indices.size(), kTimelineRow, 432, 20);
           mainScroll.offset  = i == indices.end() ? 0
-                                                  : data::scroll_reveal(indices.size(), 54, layout.visible, 0,
+                                                  : data::scroll_reveal(indices.size(), kTimelineRow, layout.visible, 0,
                                                                         static_cast<std::size_t>(i - indices.begin()));
         }
       }
