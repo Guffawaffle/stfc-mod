@@ -206,8 +206,11 @@ std::string Number(long double n)
   return fmt::format("{:.0f}", n);
 }
 
+std::string Position(int round, int subRound)
+{ return fmt::format("R{} / S{}", round, subRound); }
+
 std::string Position(const data::Event& e)
-{ return fmt::format("R{} / SR{}", e.round, e.sub_round); }
+{ return Position(e.round, e.sub_round); }
 
 long double Amount(const data::Damage& d)
 { return raw ? d.raw() : d.landed(); }
@@ -574,8 +577,8 @@ void AdvanceRead()
       auto* round = Item(rounds.get(), roundIndex);
       subRounds.reset(Get(round, "get_SubRounds"));
       subCount = Count(subRounds.get());
-      if (subCount < 0)
-        FailRead("native sub-round list unavailable or too large");
+      if (subCount < 0 || !battle.record_sub_rounds(roundIndex + 1, subCount))
+        FailRead("native sub-round list unavailable or phase limit exceeded");
     } else if (subIndex >= subCount) {
       subRounds.reset();
       events.reset();
@@ -962,29 +965,51 @@ void Offense(const data::Participant& p)
          fmt::format("{} critical / {} normal", p.outgoing.critical, p.outgoing.shots - p.outgoing.critical));
   Rule(254, 288, 906);
   RoundControls(302);
-  auto indices = battle.attacks(selected, roundFilter);
-  if (std::find(indices.begin(), indices.end(), inspected) == indices.end())
-    inspected = indices.empty() ? data::none : indices.front();
+  auto history = battle.firing_history(selected, roundFilter);
+  if (std::none_of(history.begin(), history.end(),
+                   [](const auto& slot) { return slot.attack != data::none && slot.attack == inspected; })) {
+    const auto first =
+        std::find_if(history.begin(), history.end(), [](const auto& slot) { return slot.attack != data::none; });
+    inspected = first == history.end() ? data::none : first->attack;
+  }
   long double maximum = 1;
-  for (auto i : indices)
-    maximum = std::max(maximum, Amount(battle.events[i].damage));
-  const auto count = indices.size();
-  ScrollList(mainScroll, {254, 342, 906, 132}, std::move(indices), 906.f / 8, true, [maximum](std::size_t i, float x) {
-    const auto&     e    = battle.events[i];
-    constexpr float slot = 906.f / 8;
-    Button({x, 0, slot - 8, 132}, "", {Op::Inspect, i}, i == inspected);
-    if (e.critical)
-      Label({x + 7, 3, slot - 22, 22}, "CRIT", 12, kGold);
-    const float height = std::max(2.f, static_cast<float>(Amount(e.damage) / maximum) * 59);
-    Box({x + slot * .31f, 80 - height, slot * .32f, height}, e.critical ? kGold : kCyan);
-    Label({x + 7, 87, slot - 22, 22}, Position(e), 12);
-    Label({x + 7, 110, slot - 22, 20}, fmt::format("#{}", i + 1), 11, kMuted);
-  });
-  if (!count)
-    Label({254, 362, 906, 60}, "No shots fired in this round.", 18, kMuted);
+  std::size_t count   = 0;
+  for (const auto& slot : history)
+    if (slot.attack != data::none) {
+      maximum = std::max(maximum, Amount(battle.events[slot.attack].damage));
+      ++count;
+    }
+  const auto               quiet = history.size() - count;
+  std::vector<std::size_t> indices(history.size());
+  std::iota(indices.begin(), indices.end(), 0);
+  ScrollList(mainScroll, {254, 342, 906, 132}, std::move(indices), 906.f / 8, true,
+             [maximum, history = std::move(history)](std::size_t i, float x) {
+               const auto&     phase = history[i];
+               constexpr float slot  = 906.f / 8;
+               if (phase.attack == data::none) {
+                 // Keep quiet cards raycastable for native drag, but give them no click action.
+                 Make(*drawing, Get(drawing->object.get(), "get_transform"), {x, 0, slot - 8, 132}, &kBackground, true);
+                 Label({x + 7, 30, slot - 22, 28}, "No shot", 13, kMuted);
+                 Box({x + slot * .32f, 78, slot * .30f, 2}, kMuted);
+                 Label({x + 7, 87, slot - 22, 22}, Position(phase.round, phase.sub_round), 12, kMuted);
+                 return;
+               }
+               const auto& e = battle.events[phase.attack];
+               Button({x, 0, slot - 8, 132}, "", {Op::Inspect, phase.attack}, phase.attack == inspected);
+               Label({x + 7, 3, slot - 22, 22}, Number(Amount(e.damage)), 12, e.critical ? kGold : kCyan);
+               const float height = std::max(2.f, static_cast<float>(Amount(e.damage) / maximum) * 59);
+               Box({x + slot * .31f, 80 - height, slot * .32f, height}, e.critical ? kGold : kCyan);
+               Label({x + 7, 87, slot - 22, 22}, Position(e), 12);
+               Label({x + 7, 110, slot - 22, 20}, fmt::format("#{}", phase.attack + 1), 11, kMuted);
+             });
+  if (mainScroll.indices.empty())
+    Label({254, 362, 906, 60}, "No recorded sub-rounds in this selection.", 18, kMuted);
   Rule(254, 491, 906);
   AttackDetail(inspected, 506);
-  Label({254, 731, 906, 26}, fmt::format("{} shots  |  Scroll or drag the shot history to browse", count), 14, kMuted);
+  Label({254, 731, 906, 26},
+        fmt::format("{} shots / {} no-shot phases  |  Cyan: normal / Gold: critical  |  Scroll or drag to browse",
+                    count, quiet),
+        13, kMuted);
 }
 
 void Defense(const data::Participant& p)
@@ -1528,12 +1553,13 @@ void Apply(Action action)
           selected           = e.actor;
           tab                = Tab::Offense;
           roundFilter        = e.round;
-          const auto indices = battle.attacks(selected, roundFilter);
-          const auto i       = std::find(indices.begin(), indices.end(), inspected);
-          const auto layout  = data::scroll_layout(indices.size(), 906.f / 8, 906, 28);
-          mainScroll.offset  = i == indices.end() ? 0
-                                                  : data::scroll_reveal(indices.size(), 906.f / 8, layout.visible, 0,
-                                                                        static_cast<std::size_t>(i - indices.begin()));
+          const auto indices = battle.firing_history(selected, roundFilter);
+          const auto i =
+              std::find_if(indices.begin(), indices.end(), [](const auto& slot) { return slot.attack == inspected; });
+          const auto layout = data::scroll_layout(indices.size(), 906.f / 8, 906, 28);
+          mainScroll.offset = i == indices.end() ? 0
+                                                 : data::scroll_reveal(indices.size(), 906.f / 8, layout.visible, 0,
+                                                                       static_cast<std::size_t>(i - indices.begin()));
         } else {
           tab                = Tab::Timeline;
           roundFilter        = e.round;

@@ -41,6 +41,11 @@ struct Event {
   std::string  description, source;
 };
 
+struct FiringSlot {
+  int         round = 0, sub_round = 0;
+  std::size_t attack = none;
+};
+
 struct Participant {
   std::int64_t     ship = 0, hull_id = 0;
   std::string      name, ship_name;
@@ -109,8 +114,29 @@ inline Damage reported_damage(std::int64_t hull, std::int64_t shield, std::int64
 struct Battle {
   std::vector<Participant> participants;
   std::vector<Event>       events;
-  int                      rounds = 0;
-  bool                     failed = false;
+  std::vector<int>         sub_rounds;
+  std::size_t              sub_round_count = 0;
+  int                      rounds          = 0;
+  bool                     failed          = false;
+
+  bool record_sub_rounds(int round, int count)
+  {
+    if (round < 1 || round > 100000 || count < 0 || static_cast<std::size_t>(count) > max_events) {
+      failed = true;
+      return false;
+    }
+    const auto previous = static_cast<std::size_t>(round) <= sub_rounds.size() ? sub_rounds[round - 1] : 0;
+    const auto total    = sub_round_count - previous + count;
+    if (total > max_events) {
+      failed = true;
+      return false;
+    }
+    sub_rounds.resize(std::max(sub_rounds.size(), static_cast<std::size_t>(round)));
+    sub_rounds[round - 1] = count;
+    sub_round_count       = total;
+    rounds                = std::max(rounds, round);
+    return true;
+  }
 
   std::size_t participant(Participant p)
   {
@@ -164,6 +190,49 @@ struct Battle {
       if (events[i].kind == Kind::Attack && events[i].actor == actor && (!round || events[i].round == round))
         indices.push_back(i);
     return indices;
+  }
+
+  std::vector<FiringSlot> firing_history(std::size_t actor, int round = 0) const
+  {
+    if (actor >= participants.size())
+      return {};
+    auto       shots    = attacks(actor, round);
+    const auto position = [&](std::size_t i) { return std::pair{events[i].round, events[i].sub_round}; };
+    const auto earlier  = [&](std::size_t a, std::size_t b) { return position(a) < position(b); };
+    if (!std::is_sorted(shots.begin(), shots.end(), earlier))
+      std::stable_sort(shots.begin(), shots.end(), earlier);
+    std::vector<FiringSlot> history;
+    const auto              phases = round > 0 && static_cast<std::size_t>(round) <= sub_rounds.size()
+                                         ? static_cast<std::size_t>(sub_rounds[round - 1])
+                                     : round ? 0
+                                             : sub_round_count;
+    history.reserve(shots.size() + phases);
+    std::size_t next = 0;
+    const auto  emit = [&] {
+      const auto index = shots[next++];
+      history.push_back({events[index].round, events[index].sub_round, index});
+    };
+    for (std::size_t r = 0; r < sub_rounds.size(); ++r) {
+      if (round && static_cast<int>(r + 1) != round)
+        continue;
+      for (int s = 1; s <= sub_rounds[r]; ++s) {
+        const auto phase = std::pair{static_cast<int>(r + 1), s};
+        while (next < shots.size() && position(shots[next]) < phase)
+          emit();
+        if (next < shots.size() && position(shots[next]) == phase) {
+          do {
+            emit();
+          } while (next < shots.size() && position(shots[next]) == phase);
+        } else {
+          // Empty means no recorded shot by this ship, not a miss or zero damage.
+          history.push_back({phase.first, phase.second, none});
+        }
+      }
+    }
+    // Preserve real attacks even if phase metadata is absent; never invent gaps.
+    while (next < shots.size())
+      emit();
+    return history;
   }
 
   std::vector<std::size_t> timeline(std::size_t participant, int round, bool all) const

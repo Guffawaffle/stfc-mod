@@ -156,6 +156,61 @@ int main()
   assert(ranked[0].participant == 0 && ranked[1].participant == 1); // Stable ties.
   for (const auto& row : ranked)
     assert(row.share == 0 && std::isfinite(row.share));
+
+  a::Battle  pattern;
+  const auto shooter = pattern.participant(local), opponent = pattern.participant(target);
+  assert(pattern.record_sub_rounds(1, 3) && pattern.record_sub_rounds(2, 2));
+  assert(pattern.sub_round_count == 5 && pattern.rounds == 2);
+  a::Event shot;
+  shot.kind        = a::Kind::Attack;
+  shot.actor       = shooter;
+  shot.target      = opponent;
+  shot.round       = 1;
+  shot.sub_round   = 2;
+  shot.damage.hull = shot.damage.standard = 10;
+  assert(pattern.append(shot));
+  shot.critical = true;
+  assert(pattern.append(shot)); // Multiple shots remain individually inspectable.
+  shot.actor     = opponent;
+  shot.target    = shooter;
+  shot.sub_round = 3;
+  assert(pattern.append(shot)); // Other ship firing is still a gap for the selected ship.
+  shot.actor     = shooter;
+  shot.target    = opponent;
+  shot.round     = 2;
+  shot.sub_round = 1; // Sub-round numbering restarts with the new round.
+  assert(pattern.append(shot));
+  auto history = pattern.firing_history(shooter);
+  assert(history.size() == 6);
+  assert(history[0].round == 1 && history[0].sub_round == 1 && history[0].attack == a::none);
+  assert(history[1].attack == 0 && history[2].attack == 1);
+  assert(history[3].round == 1 && history[3].sub_round == 3 && history[3].attack == a::none);
+  assert(history[4].round == 2 && history[4].sub_round == 1 && history[4].attack == 3);
+  assert(history[5].round == 2 && history[5].sub_round == 2 && history[5].attack == a::none);
+  const auto round_two = pattern.firing_history(shooter, 2);
+  assert(round_two.size() == 2 && round_two[0].attack == 3 && round_two[0].sub_round == 1);
+  assert(pattern.firing_history(a::none).empty() && pattern.firing_history(shooter, 3).empty());
+  assert(pattern.participants[shooter].outgoing.shots == 3);
+  assert(pattern.participants[shooter].outgoing.critical == 2); // Gaps do not change rates or averages.
+  assert(pattern.participants[shooter].outgoing.average() == 10);
+  assert(pattern.record_sub_rounds(3, 2));
+  const auto no_shots = pattern.firing_history(shooter, 3);
+  assert(no_shots.size() == 2 && no_shots[0].attack == a::none && no_shots[1].attack == a::none);
+  assert(pattern.record_sub_rounds(3, 1) && pattern.sub_round_count == 6); // Count replacement, not double counting.
+  assert(pattern.record_sub_rounds(4, 0) && pattern.firing_history(shooter, 4).empty());
+  auto missing_metadata = pattern;
+  missing_metadata.sub_rounds.clear();
+  missing_metadata.sub_round_count = 0;
+  assert(missing_metadata.firing_history(shooter).size() == 3); // No fabricated gaps without phase evidence.
+  std::swap(missing_metadata.events[0], missing_metadata.events[3]);
+  const auto reordered = missing_metadata.firing_history(shooter);
+  assert(reordered[0].round == 1 && reordered.back().round == 2);
+  a::Battle phase_limit;
+  phase_limit.participant(local);
+  assert(phase_limit.record_sub_rounds(1, static_cast<int>(a::max_events)));
+  const auto full_quiet_round = phase_limit.firing_history(0);
+  assert(full_quiet_round.size() == a::max_events && full_quiet_round.back().sub_round == a::max_events);
+  assert(!phase_limit.record_sub_rounds(2, 1) && phase_limit.failed);
   std::cout << "PASS: actual Armada totals, raw/landed columns, six allies, native positions, filters, pins, distinct "
-               "ships, repairs, bounds, per-side contribution/ranking and reset\n";
+               "ships, repairs, bounds, per-side contribution/ranking, round-local firing gaps and reset\n";
 }
