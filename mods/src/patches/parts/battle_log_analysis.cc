@@ -1,5 +1,6 @@
 #include "battle_log_analysis.h"
 #include "battle_log_analysis_data.h"
+#include "battle_log_analysis_input.h"
 #include "battle_log_analysis_scroll.h"
 #include "battle_log_ui.h"
 #include "config.h"
@@ -151,12 +152,8 @@ std::unordered_map<std::int64_t, std::size_t> ships;
 std::unordered_map<std::int64_t, std::string> hullNames, officerNames, technologyNames;
 Clock::time_point                             nextDiscovery{}, nextProgress{};
 Clock::time_point                             readDeadline{}, nextLogAttempt{};
-int                                           uiGeneration = 0, pendingGeneration = 0;
-bool                                          pendingClick = false;
-vec2                                          pendingPoint{};
 Root                                          pressedObject;
-vec2                                          pressPoint{};
-bool                                          pointerDragged = false;
+data::PointerGesture                          pointer;
 
 void FailRead(std::string reason)
 {
@@ -755,7 +752,6 @@ void DrawScrollRows(ScrollRegion& region)
   if (window.begin == region.begin && window.end == region.end)
     return;
   region.rows.clear();
-  ++uiGeneration; // Never activate a row recycled between press and release.
   region.rows.sx  = overlay.sx;
   region.rows.sy  = overlay.sy;
   auto* transform = NewObject("CommunityMod_BattleAnalysisRows", region.content.get(), region.rows.object);
@@ -1211,7 +1207,6 @@ bool CreateOverlay()
   mainScroll.reset();
   rosterScroll.reset();
   overlay.clear();
-  ++uiGeneration;
   auto* parent    = Get(view.get(), "get_transform");
   auto* transform = NewObject("CommunityMod_BattleAnalysis", parent, overlay.object);
   vec2  zero{0, 0}, one{1, 1}, min{12, 12}, max{-12, -12};
@@ -1423,9 +1418,8 @@ void CloseOverlay()
   mainScroll.reset();
   rosterScroll.reset();
   overlay.clear();
-  pendingClick = false;
+  pointer.cancel();
   pressedObject.reset();
-  ++uiGeneration;
 }
 
 void BattleAnalysisBack_Hook(auto original, Il2CppObject* self)
@@ -1541,55 +1535,53 @@ void Input()
   static auto position =
       il2cpp_resolve_icall_typed<void(Vec3*)>("UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)");
   if (!pressed || !released || !focused || !position || !focused()) {
-    pendingClick = false;
+    pointer.cancel();
     pressedObject.reset();
     return;
   }
   Vec3 mouse{};
   position(&mouse);
-  if (pressedObject.get() && (std::abs(mouse.x - pressPoint.x) > 5 || std::abs(mouse.y - pressPoint.y) > 5))
-    pointerDragged = true;
-  // Both press and release must raycast to our Image, so another modal or a
-  // drag cannot activate a geometrically overlapping control behind it.
-  if (pendingClick) {
-    pendingClick = false;
-    if (!pointerDragged && pendingGeneration == uiGeneration) {
-      auto*                       target   = RaycastAt(pendingPoint);
-      auto*                       origin   = pressedObject.get();
-      const std::vector<Surface*> surfaces = overlayOpen
-                                                 ? std::vector<Surface*>{&overlay, &mainScroll.rows, &rosterScroll.rows}
-                                                 : std::vector<Surface*>{&entry};
-      bool                        handled  = false;
-      for (auto* surface : surfaces) {
-        for (const auto& hit : surface->hits) {
-          auto* object = il2cpp_gchandle_get_target(hit.object);
-          if (object && object == target && object == origin && Alive(object) && Inside(object, pendingPoint)) {
-            const auto action = hit.action;
-            Apply(action);
-            handled = true;
-            break;
-          }
+  if (pressed(0)) {
+    pressedObject.reset(RaycastAt({mouse.x, mouse.y}));
+    auto*        origin      = pressedObject.get();
+    static auto* scrollClass = Class("UnityEngine.UI", "UnityEngine.UI", "ScrollRect");
+    auto* scroll = origin ? WithType(TypeMethod(origin->klass, "GetComponentInParent"), origin, scrollClass) : nullptr;
+    const bool    scrollable = scroll && (scroll == mainScroll.scroll.get() || scroll == rosterScroll.scroll.get());
+    static auto*  eventClass = Class("UnityEngine.UI", "UnityEngine.EventSystems", "EventSystem");
+    Il2CppObject* current    = nullptr;
+    int           threshold  = 5;
+    TryInvoke(IL2CppClassHelper(eventClass).GetMethodInfo("get_current", 0), nullptr, nullptr, &current);
+    Value(current, "get_pixelDragThreshold", threshold);
+    pointer.press(mouse.x, mouse.y, scrollable, static_cast<float>(threshold));
+  }
+  pointer.move(mouse.x, mouse.y);
+  if (!released(0))
+    return;
+  const bool click = pointer.release(mouse.x, mouse.y);
+  // Resolve the release immediately. Only the identical, still-owned Image
+  // may activate, so recycled rows and controls covered by a modal stay inert.
+  // Independent row updates cannot invalidate a fixed header/tab control.
+  if (click) {
+    const vec2 point{mouse.x, mouse.y};
+    auto*      target     = RaycastAt(point);
+    auto*      origin     = pressedObject.get();
+    Surface*   surfaces[] = {overlayOpen ? &overlay : &entry, overlayOpen ? &mainScroll.rows : nullptr,
+                             overlayOpen ? &rosterScroll.rows : nullptr};
+    for (auto* surface : surfaces) {
+      if (!surface)
+        continue;
+      for (const auto& hit : surface->hits) {
+        auto* object = il2cpp_gchandle_get_target(hit.object);
+        if (object && object == target && object == origin && Alive(object) && Inside(object, point)) {
+          const auto action = hit.action;
+          pressedObject.reset();
+          Apply(action);
+          return;
         }
-        if (handled)
-          break;
       }
     }
-    pressedObject.reset();
   }
-  if (pressed(0)) {
-    Vec3 point{};
-    position(&point);
-    pressPoint     = {point.x, point.y};
-    pointerDragged = false;
-    pressedObject.reset(RaycastAt({point.x, point.y}));
-  }
-  if (released(0)) {
-    Vec3 point{};
-    position(&point);
-    pendingPoint      = {point.x, point.y};
-    pendingGeneration = uiGeneration;
-    pendingClick      = true;
-  }
+  pressedObject.reset();
 }
 
 void Clear()
@@ -1601,10 +1593,9 @@ void Clear()
   font.reset();
   view.reset();
   ResetData();
-  overlayOpen  = false;
-  pendingClick = false;
+  overlayOpen = false;
+  pointer.cancel();
   pressedObject.reset();
-  ++uiGeneration;
 }
 } // namespace
 
@@ -1669,10 +1660,9 @@ void UpdateBattleAnalysis()
       overlay.clear();
       entry.clear();
       ResetData();
-      overlayOpen  = false;
-      pendingClick = false;
+      overlayOpen = false;
+      pointer.cancel();
       pressedObject.reset();
-      ++uiGeneration;
       result.reset(source);
       reportId = id;
     }
