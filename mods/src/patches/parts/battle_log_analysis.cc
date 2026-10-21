@@ -211,7 +211,7 @@ std::string Number(long double n)
 }
 
 std::string Position(int round, int subRound)
-{ return fmt::format("R{} / S{}", round, subRound); }
+{ return fmt::format("Round {}.{}", round, subRound); }
 
 std::string Position(const data::Event& e)
 { return Position(e.round, e.sub_round); }
