@@ -458,7 +458,7 @@ void TryStartRead()
   auto* report   = Get(result.get(), "get_BattleResult");
   if (!report)
     return; // Report requests can still be in flight when the header appears.
-  static auto* contract    = Class("Assembly-CSharp", "Digit.PrimeServer.Models", "IBattleReport");
+  static auto* contract    = Class("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "IBattleReport");
   auto*        declaration = IL2CppClassHelper(contract).GetMethodInfo("GetBattleLog", 0);
   if (!declaration || !il2cpp_class_is_assignable_from(contract, report->klass)) {
     waitingForLog = false;
