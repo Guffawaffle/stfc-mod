@@ -7,6 +7,39 @@
 namespace game_strings
 {
 enum class NameKind { Hull, Officer, ForbiddenTech, OfficerAbility, ShipAbility };
+enum class NameStatus {
+  Resolved,
+  InvalidRequest,
+  SpecLookupFailed,
+  SpecMissing,
+  LocalizationIdMissing,
+  TranslationMissing
+};
+
+struct NameLookup {
+  std::string  text;
+  std::int64_t loca_id = 0;
+  NameStatus   status  = NameStatus::InvalidRequest;
+};
+
+inline const char* StatusName(NameStatus status)
+{
+  switch (status) {
+    case NameStatus::Resolved:
+      return "resolved";
+    case NameStatus::InvalidRequest:
+      return "invalid-request";
+    case NameStatus::SpecLookupFailed:
+      return "spec-lookup-failed";
+    case NameStatus::SpecMissing:
+      return "spec-missing";
+    case NameStatus::LocalizationIdMissing:
+      return "localization-id-missing";
+    case NameStatus::TranslationMissing:
+      return "translation-missing";
+  }
+  return "unknown-status";
+}
 
 struct NameKey {
   const char* method;

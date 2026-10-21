@@ -3,6 +3,7 @@
 #include "game_strings_data.h"
 #include "str_utils.h"
 #include <cstring>
+#include <utility>
 
 namespace game_strings
 {
@@ -100,7 +101,7 @@ inline std::string Localize(const char* identifier, const char* category, std::i
 
 // Example: Name(specService, NameKind::OfficerAbility, eventAbilityId).
 // The ability's BuffSpec.IdRefs.LocaId supplies the title identifier parameter.
-inline std::string Name(Il2CppObject* specService, NameKind kind, std::int64_t specId)
+inline NameLookup InspectName(Il2CppObject* specService, NameKind kind, std::int64_t specId)
 {
   const auto key = Key(kind);
   if (!specService || !specId || !key.method)
@@ -110,14 +111,23 @@ inline std::string Name(Il2CppObject* specService, NameKind kind, std::int64_t s
   Il2CppObject* object        = nullptr;
   if (!detail::Invoke(IL2CppClassHelper(specService->klass).GetMethodInfo(key.method, key.arguments), specService, args,
                       &object))
-    return {};
+    return {{}, 0, NameStatus::SpecLookupFailed};
   detail::Root spec(object);
+  if (!spec.get())
+    return {{}, 0, NameStatus::SpecMissing};
   detail::Root refs(detail::Property(spec.get(), "IdRefs"));
   detail::Root boxed(detail::Property(refs.get(), "LocaId"));
   auto*        type = boxed.get() ? il2cpp_class_get_type(boxed.get()->klass) : nullptr;
   if (!type || type->byref || type->type != IL2CPP_TYPE_I8)
-    return {};
+    return {{}, 0, NameStatus::LocalizationIdMissing};
   const auto loca = *static_cast<std::int64_t*>(il2cpp_object_unbox(boxed.get()));
-  return Localize(key.identifier, key.category, loca);
+  if (!loca)
+    return {{}, 0, NameStatus::LocalizationIdMissing};
+  auto       text   = Localize(key.identifier, key.category, loca);
+  const auto status = text.empty() ? NameStatus::TranslationMissing : NameStatus::Resolved;
+  return {std::move(text), loca, status};
 }
+
+inline std::string Name(Il2CppObject* specService, NameKind kind, std::int64_t specId)
+{ return InspectName(specService, kind, specId).text; }
 } // namespace game_strings

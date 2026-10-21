@@ -12,6 +12,7 @@
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
+#include <array>
 #include <chrono>
 #include <functional>
 #include <map>
@@ -414,7 +415,8 @@ void ReadEvent(Il2CppObject* object)
           if (e.source.empty())
             e.source = fmt::format("Forbidden tech #{}", e.owner);
         }
-        if (e.description.empty()) {
+        e.ability_named = !e.description.empty();
+        if (!e.ability_named) {
           ++abilityNamesMissing;
           e.description = fmt::format("Ability #{}", e.ability);
         } else {
@@ -514,6 +516,64 @@ void BeginRead()
   dirty = true;
 }
 
+void LogAbilityNames()
+{
+  constexpr const char*                     origins[] = {"unknown", "officer", "ship", "technology"};
+  std::array<std::array<std::size_t, 2>, 4> totals{};
+  struct Group {
+    std::size_t count = 0, first = 0;
+  };
+  std::map<std::tuple<data::AbilityOrigin, std::int64_t, std::int64_t>, Group> missing;
+  std::size_t                                                                  omittedEvents = 0;
+  for (std::size_t i = 0; i < battle.events.size(); ++i) {
+    const auto& e = battle.events[i];
+    if (e.kind != data::Kind::Officer && e.kind != data::Kind::Technology)
+      continue;
+    ++totals[static_cast<std::size_t>(e.ability_origin)][e.ability_named ? 0 : 1];
+    if (e.ability_named)
+      continue;
+    const auto key   = std::tuple{e.ability_origin, e.owner, e.ability};
+    auto       found = missing.find(key);
+    if (found == missing.end()) {
+      if (missing.size() >= 32) {
+        ++omittedEvents;
+        continue;
+      }
+      found = missing.emplace(key, Group{0, i}).first;
+    }
+    ++found->second.count;
+  }
+  for (std::size_t i = 0; i < totals.size(); ++i)
+    spdlog::info("Battle analysis: name coverage origin={} named={} fallback={}", origins[i], totals[i][0],
+                 totals[i][1]);
+  auto* service = Field(result.get(), "_specService");
+  for (const auto& [key, group] : missing) {
+    const auto& e      = battle.events[group.first];
+    const auto  origin = static_cast<std::size_t>(e.ability_origin);
+    if (e.ability_origin == data::AbilityOrigin::Technology) {
+      const auto owner = game_strings::InspectName(service, NameKind::ForbiddenTech, e.owner);
+      spdlog::info("Battle analysis: name fallback origin={} ability={} owner={} source=\"{}\" events={} first={} "
+                   "reason=technology-title-not-mapped owner_status={} owner_loca={}",
+                   origins[origin], e.ability, e.owner, e.source, group.count, Position(e),
+                   game_strings::StatusName(owner.status), owner.loca_id);
+    } else if (e.ability_origin == data::AbilityOrigin::Officer || e.ability_origin == data::AbilityOrigin::Ship) {
+      const auto lookup = game_strings::InspectName(
+          service, e.ability_origin == data::AbilityOrigin::Ship ? NameKind::ShipAbility : NameKind::OfficerAbility,
+          e.ability);
+      spdlog::info("Battle analysis: name fallback origin={} ability={} owner={} source=\"{}\" events={} first={} "
+                   "reason={} loca={} recheck_title=\"{}\"",
+                   origins[origin], e.ability, e.owner, e.source, group.count, Position(e),
+                   game_strings::StatusName(lookup.status), lookup.loca_id, lookup.text);
+    } else {
+      spdlog::info("Battle analysis: name fallback origin=unknown ability={} owner={} events={} first={} "
+                   "reason=unknown-native-ability-type",
+                   e.ability, e.owner, group.count, Position(e));
+    }
+  }
+  if (omittedEvents)
+    spdlog::info("Battle analysis: {} fallback events omitted beyond 32 distinct diagnostic groups", omittedEvents);
+}
+
 void AdvanceRead()
 {
   if (!reading || !overlayOpen)
@@ -584,6 +644,7 @@ void AdvanceRead()
                  battle.rounds, battle.events.size(), battle.participants.size(), !battle.failed);
     spdlog::info("Battle analysis: ability titles resolved for {} events; {} events retain an ability ID",
                  abilityNamesResolved, abilityNamesMissing);
+    LogAbilityNames();
     dirty = true;
   } else if (Clock::now() >= nextProgress) {
     nextProgress = Clock::now() + std::chrono::milliseconds(250);

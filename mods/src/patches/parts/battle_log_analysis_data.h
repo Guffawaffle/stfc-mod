@@ -34,6 +34,7 @@ struct Damage {
 struct Event {
   Kind          kind           = Kind::Other;
   AbilityOrigin ability_origin = AbilityOrigin::Unknown;
+  bool          ability_named  = false;
   int           round = 0, sub_round = 0;
   std::size_t   actor = none, target = none;
   std::int64_t  weapon = 0, ability = 0, owner = 0;
