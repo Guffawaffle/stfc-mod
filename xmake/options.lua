@@ -63,3 +63,11 @@ option("stfc_aai_allow_dirty")
     set_showmenu(true)
     set_description("Allow a recorded AAI development revision or dirty tree differing from the pin")
 option_end()
+
+-- AAI's optional source include consumes this flag. Declare it here so XMake
+-- recognizes it before resolving a private/development source checkout.
+option("stfc_aai_ui_lab")
+    set_default(false)
+    set_showmenu(true)
+    set_description("Include development-only native AAI visual studies")
+option_end()
