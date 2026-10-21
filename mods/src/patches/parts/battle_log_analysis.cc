@@ -1543,9 +1543,14 @@ void Input()
   position(&mouse);
   if (pressed(0)) {
     pressedObject.reset(RaycastAt({mouse.x, mouse.y}));
-    auto*        origin      = pressedObject.get();
-    static auto* scrollClass = Class("UnityEngine.UI", "UnityEngine.UI", "ScrollRect");
-    auto* scroll = origin ? WithType(TypeMethod(origin->klass, "GetComponentInParent"), origin, scrollClass) : nullptr;
+    auto*         origin      = pressedObject.get();
+    static auto*  scrollClass = Class("UnityEngine.UI", "UnityEngine.UI", "ScrollRect");
+    Il2CppObject* scroll      = nullptr;
+    if (origin && scrollClass) {
+      bool  no     = false;
+      void* args[] = {il2cpp_type_get_object(il2cpp_class_get_type(scrollClass)), &no};
+      TryInvoke(IL2CppClassHelper(origin->klass).GetMethodInfo("GetComponentInParent", 2), origin, args, &scroll);
+    }
     const bool    scrollable = scroll && (scroll == mainScroll.scroll.get() || scroll == rosterScroll.scroll.get());
     static auto*  eventClass = Class("UnityEngine.UI", "UnityEngine.EventSystems", "EventSystem");
     Il2CppObject* current    = nullptr;
