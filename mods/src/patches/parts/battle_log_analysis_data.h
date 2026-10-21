@@ -15,6 +15,7 @@ constexpr std::size_t none       = std::numeric_limits<std::size_t>::max();
 constexpr std::size_t max_events = 200000, max_participants = 128;
 
 enum class Kind { Attack, Charging, Officer, Technology, Repair, Taunt, HullMelt, Other };
+enum class AbilityOrigin { Unknown, Officer, Ship, Technology };
 
 struct Damage {
   long double   hull = 0, shield = 0, standard = 0, isolytic = 0;
@@ -31,14 +32,15 @@ struct Damage {
 };
 
 struct Event {
-  Kind         kind  = Kind::Other;
-  int          round = 0, sub_round = 0;
-  std::size_t  actor = none, target = none;
-  std::int64_t weapon = 0, ability = 0, owner = 0;
-  bool         critical = false, destroyed = false, shield_depleted = false;
-  Damage       damage;
-  long double  value = 0;
-  std::string  description, source;
+  Kind          kind           = Kind::Other;
+  AbilityOrigin ability_origin = AbilityOrigin::Unknown;
+  int           round = 0, sub_round = 0;
+  std::size_t   actor = none, target = none;
+  std::int64_t  weapon = 0, ability = 0, owner = 0;
+  bool          critical = false, destroyed = false, shield_depleted = false;
+  Damage        damage;
+  long double   value = 0;
+  std::string   description, source;
 };
 
 struct FiringSlot {

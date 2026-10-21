@@ -4,6 +4,7 @@
 #include "battle_log_analysis_scroll.h"
 #include "battle_log_ui.h"
 #include "config.h"
+#include "game_strings.h"
 #include "prime/Vector3.h"
 #include "str_utils.h"
 
@@ -23,7 +24,9 @@ namespace
 {
 using namespace battle_log_ui;
 namespace data = battle_analysis;
-using Clock    = std::chrono::steady_clock;
+using game_strings::Localize;
+using game_strings::NameKind;
+using Clock = std::chrono::steady_clock;
 
 constexpr float kWidth = 1200, kHeight = 780;
 constexpr color kBackground{0.025f, 0.075f, 0.115f, 1}, kPanel{0.045f, 0.12f, 0.18f, 1};
@@ -148,12 +151,13 @@ std::string  readFailure;
 Tab          tab      = Tab::Overview;
 std::size_t  selected = data::none, inspected = data::none, pinned = data::none, comparison = data::none;
 int          roundFilter = 0;
-std::unordered_map<std::int64_t, std::size_t> ships;
-std::unordered_map<std::int64_t, std::string> hullNames, officerNames, technologyNames;
-Clock::time_point                             nextDiscovery{}, nextProgress{};
-Clock::time_point                             readDeadline{}, nextLogAttempt{};
-Root                                          pressedObject;
-data::PointerGesture                          pointer;
+std::unordered_map<std::int64_t, std::size_t>            ships;
+std::map<std::pair<NameKind, std::int64_t>, std::string> names;
+std::size_t          abilityNamesResolved = 0, abilityNamesMissing = 0, abilityNameSamples = 0;
+Clock::time_point    nextDiscovery{}, nextProgress{};
+Clock::time_point    readDeadline{}, nextLogAttempt{};
+Root                 pressedObject;
+data::PointerGesture pointer;
 
 void FailRead(std::string reason)
 {
@@ -232,62 +236,23 @@ Il2CppObject* Item(Il2CppObject* list, int index)
   return item;
 }
 
-std::string Localize(const char* identifier, const char* category, std::int64_t id)
+std::string Name(NameKind kind, std::int64_t id)
 {
-  static auto* contextClass = Class("Assembly-CSharp", "Digit.Client.UI", "LocaleTextContext");
-  static auto* utility      = Class("Assembly-CSharp", "Digit.Client.Localization", "LocaleUtilities");
-  static auto* objectClass  = Class("mscorlib", "System", "Object");
-  static auto* int64Class   = Class("mscorlib", "System", "Int64");
-  if (!contextClass || !utility || !objectClass || !int64Class || !id)
-    return {};
-  Root context, array, number;
-  context.reset(il2cpp_object_new(contextClass));
-  array.reset(reinterpret_cast<Il2CppObject*>(il2cpp_array_new(objectClass, 1)));
-  number.reset(il2cpp_value_box(int64Class, &id));
-  std::string translated;
-  if (context.get() && array.get() && number.get()) {
-    void* ctor[] = {il2cpp_string_new(identifier), il2cpp_string_new(category)};
-    auto* values = reinterpret_cast<Il2CppObject**>(reinterpret_cast<Il2CppArraySize*>(array.get())->vector);
-    il2cpp_gc_wbarrier_set_field(array.get(), reinterpret_cast<void**>(values), number.get());
-    void*         apply[]    = {array.get()};
-    bool          no         = false;
-    void*         localize[] = {context.get(), &no, &no};
-    Il2CppObject* answer     = nullptr;
-    if (TryInvoke(IL2CppClassHelper(contextClass).GetMethodInfo(".ctor", 2), context.get(), ctor)
-        && TryInvoke(IL2CppClassHelper(contextClass).GetMethodInfo("ApplyIdentifierParameters", 1), context.get(),
-                     apply)
-        && TryInvoke(IL2CppClassHelper(utility).GetMethodInfo("Localize", 3), nullptr, localize, &answer))
-      translated = Text(answer);
+  const auto key = std::pair{kind, id};
+  if (const auto found = names.find(key); found != names.end())
+    return found->second;
+  auto text = game_strings::Name(Field(result.get(), "_specService"), kind, id);
+  if (!text.empty()) {
+    // Report-scoped, bounded cache: no pointers or prior report/language survive reset.
+    if (names.size() < 4096)
+      names.emplace(key, text);
+    if ((kind == NameKind::OfficerAbility || kind == NameKind::ShipAbility) && abilityNameSamples < 8) {
+      ++abilityNameSamples;
+      spdlog::info("Battle analysis: {} ability {} localized as {}", kind == NameKind::ShipAbility ? "ship" : "officer",
+                   id, text);
+    }
   }
-  number.reset();
-  array.reset();
-  context.reset();
-  if (translated.find('{') != std::string::npos || translated.find("_name_") != std::string::npos)
-    translated.clear();
-  return translated;
-}
-
-Il2CppObject* Spec(const char* method, std::int64_t id)
-{
-  auto* service = Field(result.get(), "_specService");
-  if (!service)
-    return nullptr;
-  void*         args[] = {&id};
-  Il2CppObject* spec   = nullptr;
-  TryInvoke(IL2CppClassHelper(service->klass).GetMethodInfo(method, 1), service, args, &spec);
-  return spec;
-}
-
-std::string SpecName(const char* method, const char* key, const char* category, std::int64_t id)
-{
-  auto*        spec = Spec(method, id);
-  std::int64_t loca = 0;
-  if (spec && Value(Get(spec, "get_IdRefs"), "get_LocaId", loca)) {
-    auto name = Localize(key, category, loca);
-    if (!name.empty())
-      return name;
-  }
-  return spec ? Text(Get(spec, "get_Name")) : std::string{};
+  return text;
 }
 
 std::size_t Participant(std::int64_t ship, std::int64_t hull)
@@ -296,7 +261,7 @@ std::size_t Participant(std::int64_t ship, std::int64_t hull)
     auto& p = battle.participants[found->second];
     if (!p.hull_id && hull) {
       p.hull_id   = hull;
-      auto name   = SpecName("GetHull", "ship_name_{0}", "ships", hull);
+      auto name   = Name(NameKind::Hull, hull);
       p.ship_name = name.empty() ? fmt::format("Hull #{}", hull) : name;
     }
     return found->second;
@@ -332,14 +297,9 @@ std::size_t Participant(std::int64_t ship, std::int64_t hull)
     FailRead("battle-side identity could not be read");
     return data::none;
   }
-  if (auto found = hullNames.find(hull); found != hullNames.end())
-    p.ship_name = found->second;
-  else {
-    p.ship_name = SpecName("GetHull", "ship_name_{0}", "ships", hull);
-    if (p.ship_name.empty())
-      p.ship_name = fmt::format("Hull #{}", hull);
-    hullNames.emplace(hull, p.ship_name);
-  }
+  p.ship_name = Name(NameKind::Hull, hull);
+  if (p.ship_name.empty())
+    p.ship_name = fmt::format("Hull #{}", hull);
   if (p.name.empty())
     p.name = p.ship_name;
   auto index = battle.participant(std::move(p));
@@ -437,25 +397,29 @@ void ReadEvent(Il2CppObject* object)
           return;
         }
         if (e.kind == data::Kind::Officer) {
-          if (auto found = officerNames.find(e.owner); found != officerNames.end())
-            e.source = found->second;
-          else {
-            e.source = SpecName("GetOfficerSpec", "officer_name_{0}", "officer_names", e.owner);
+          int origin = -1;
+          FieldValue(object, "AbilityType", IL2CPP_TYPE_I4, origin);
+          if (origin == 0 || origin == 1) {
+            e.ability_origin = origin == 1 ? data::AbilityOrigin::Ship : data::AbilityOrigin::Officer;
+            e.source         = Name(origin == 1 ? NameKind::Hull : NameKind::Officer, e.owner);
+            e.description    = Name(origin == 1 ? NameKind::ShipAbility : NameKind::OfficerAbility, e.ability);
             if (e.source.empty())
-              e.source = fmt::format("Officer #{}", e.owner);
-            officerNames.emplace(e.owner, e.source);
+              e.source = fmt::format("{} #{}", origin == 1 ? "Hull" : "Officer", e.owner);
+          } else {
+            e.source = fmt::format("Ability source #{}", e.owner);
           }
         } else {
-          if (auto found = technologyNames.find(e.owner); found != technologyNames.end())
-            e.source = found->second;
-          else {
-            e.source = SpecName("GetForbiddenTechSpecById", "forbidden_tech_name_{0}", "forbidden_tech", e.owner);
-            if (e.source.empty())
-              e.source = fmt::format("Forbidden tech #{}", e.owner);
-            technologyNames.emplace(e.owner, e.source);
-          }
+          e.ability_origin = data::AbilityOrigin::Technology;
+          e.source         = Name(NameKind::ForbiddenTech, e.owner);
+          if (e.source.empty())
+            e.source = fmt::format("Forbidden tech #{}", e.owner);
         }
-        e.description = fmt::format("Ability #{}", e.ability);
+        if (e.description.empty()) {
+          ++abilityNamesMissing;
+          e.description = fmt::format("Ability #{}", e.ability);
+        } else {
+          ++abilityNamesResolved;
+        }
       }
     } else {
       e.kind        = type == "BattleTauntEvent"      ? data::Kind::Taunt
@@ -481,10 +445,9 @@ void ResetData()
   result.reset();
   battle = {};
   ships.clear();
-  hullNames.clear();
-  officerNames.clear();
-  technologyNames.clear();
-  readSteps  = 0;
+  names.clear();
+  abilityNamesResolved = abilityNamesMissing = abilityNameSamples = 0;
+  readSteps                                                       = 0;
   roundIndex = subIndex = eventIndex = nestedIndex = 0;
   roundCount = subCount = eventCount = nestedCount = 0;
   selected = inspected = pinned = comparison = data::none;
@@ -619,6 +582,8 @@ void AdvanceRead()
       }
     spdlog::info("Battle analysis: report {}, {} native rounds, {} events, {} participants, complete={}", reportId,
                  battle.rounds, battle.events.size(), battle.participants.size(), !battle.failed);
+    spdlog::info("Battle analysis: ability titles resolved for {} events; {} events retain an ability ID",
+                 abilityNamesResolved, abilityNamesMissing);
     dirty = true;
   } else if (Clock::now() >= nextProgress) {
     nextProgress = Clock::now() + std::chrono::milliseconds(250);
@@ -1084,7 +1049,7 @@ const char* KindName(data::Kind kind)
 
 void Crew(const data::Participant& p)
 {
-  Label({254, 190, 906, 34}, "OBSERVED OFFICER & TECHNOLOGY ACTIVATIONS", 20);
+  Label({254, 190, 906, 34}, "OBSERVED ABILITY & TECHNOLOGY ACTIVATIONS", 20);
   Label({254, 232, 906, 45},
         "Activations retain their native event positions, including triggers between individual shots.", 15, kMuted,
         true);
@@ -1093,11 +1058,11 @@ void Crew(const data::Participant& p)
     int         count = 0;
     std::size_t first = 0;
   };
-  std::map<std::tuple<data::Kind, std::int64_t, std::int64_t>, Ability> abilities;
+  std::map<std::tuple<data::AbilityOrigin, std::int64_t, std::int64_t>, Ability> abilities;
   for (std::size_t i = 0; i < battle.events.size(); ++i) {
     const auto& e = battle.events[i];
     if (e.actor == selected && (e.kind == data::Kind::Officer || e.kind == data::Kind::Technology)) {
-      auto& a = abilities[{e.kind, e.owner, e.ability}];
+      auto& a = abilities[{e.ability_origin, e.owner, e.ability}];
       if (!a.count) {
         a.source      = e.source;
         a.description = e.description;
@@ -1136,7 +1101,7 @@ void Timeline(const data::Participant& p)
     const auto& e = battle.events[i];
     Label({0, y, 140, 26}, Position(e), 14, kMuted);
     Label({0, y + 25, 140, 22}, fmt::format("Event #{}", i + 1), 12, kMuted);
-    std::string label = KindName(e.kind);
+    std::string label = e.ability_origin == data::AbilityOrigin::Ship ? "Ship ability" : KindName(e.kind);
     if (e.actor < battle.participants.size())
       label = Escape(battle.participants[e.actor].name) + " | " + label;
     if (e.kind == data::Kind::Attack) {
