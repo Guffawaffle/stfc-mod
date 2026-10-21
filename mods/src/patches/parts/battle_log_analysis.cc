@@ -325,7 +325,10 @@ std::size_t Participant(std::int64_t ship, std::int64_t hull)
         p.name = Localize("marauder_name_only_{0}", "navigation", loca);
     }
   }
-  Value(fleet, "get_IsAlliedToPlayer", p.allied);
+  if (!Value(fleet, "get_IsAlliedToPlayer", p.allied)) {
+    FailRead("battle-side identity could not be read");
+    return data::none;
+  }
   if (auto found = hullNames.find(hull); found != hullNames.end())
     p.ship_name = found->second;
   else {
@@ -1135,7 +1138,7 @@ void Timeline(const data::Participant& p)
 
 void Compare(const data::Participant& p)
 {
-  Button({254, 190, 190, 32}, "Armada table", {Op::PairView, 0}, !pairView, 14);
+  Button({254, 190, 190, 32}, "Fleet table", {Op::PairView, 0}, !pairView, 14);
   Button({454, 190, 190, 32}, "Two ships", {Op::PairView, 1}, pairView, 14);
   if (pairView) {
     std::vector<std::size_t> alternatives;
@@ -1179,27 +1182,40 @@ void Compare(const data::Participant& p)
           15, kMuted, true);
     return;
   }
-  std::vector<std::size_t> order(battle.participants.size());
+  const auto               contributions = battle.contributions(raw);
+  std::vector<std::size_t> order(contributions.size());
   std::iota(order.begin(), order.end(), 0);
-  std::stable_sort(order.begin(), order.end(), [](auto a, auto b) {
-    return Amount(battle.participants[a].outgoing) > Amount(battle.participants[b].outgoing);
+  Label({254, 235, 292, 25}, "SHIP / SIDE RANK", 12, kMuted);
+  Label({554, 235, 160, 25}, raw ? "RAW DAMAGE" : "LANDED", 12, kMuted);
+  Label({720, 235, 94, 25}, "SIDE SHARE", 12, kMuted);
+  Label({818, 235, 66, 25}, "SHOTS", 12, kMuted);
+  Label({888, 235, 72, 25}, "CRIT", 12, kMuted);
+  Label({964, 235, 102, 25}, "ROUNDS FIRED", 11, kMuted);
+  ScrollList(mainScroll, {254, 274, 906, 384}, std::move(order), 48, false, [contributions](std::size_t row, float y) {
+    const auto& contribution = contributions[row];
+    const auto  index        = contribution.participant;
+    const auto& a            = battle.participants[index];
+    const auto  ink          = contribution.allied ? kCyan : kGold;
+    Button({0, y, 906, 44}, "", {Op::Participant, index});
+    Label({8, y + 3, 28, 26}, fmt::format("{}", contribution.rank), 14, ink);
+    Label({40, y + 3, 252, 24}, Escape(a.name) + (a.local ? " / YOU" : ""), 14);
+    Label({40, y + 25, 252, 18}, (contribution.allied ? "Allied / " : "Opponent / ") + Escape(a.ship_name), 10, kMuted);
+    Label({300, y + 6, 156, 30}, Number(Amount(a.outgoing)), 18);
+    Label({466, y + 1, 90, 26},
+          contribution.share > 0 && contribution.share < .1L ? "<0.1%" : fmt::format("{:.1f}%", contribution.share), 15,
+          ink);
+    Box({466, y + 33, 80, 3}, kLine);
+    if (contribution.share > 0)
+      Box({466, y + 33, static_cast<float>(.8L * contribution.share), 3}, ink);
+    Label({564, y + 6, 66, 30}, fmt::format("{}", a.outgoing.shots), 16);
+    Label({634, y + 6, 72, 30}, fmt::format("{:.0f}%", a.outgoing.critical_percent()), 16);
+    Label({710, y + 6, 98, 30}, fmt::format("{} / {}", a.active_rounds.size(), battle.rounds), 15, kMuted);
+    Label({814, y + 6, 84, 30}, "Inspect >", 13, kCyan);
   });
-  Label({254, 235, 360, 25}, "PARTICIPANT", 12, kMuted);
-  Label({642, 235, 180, 25}, raw ? "RAW DAMAGE" : "LANDED", 12, kMuted);
-  Label({840, 235, 108, 25}, "SHOTS", 12, kMuted);
-  Label({962, 235, 94, 25}, "CRIT", 12, kMuted);
-  Label({1060, 235, 100, 25}, "ACTIVE R", 12, kMuted);
-  ScrollList(mainScroll, {254, 274, 906, 384}, std::move(order), 48, false, [](std::size_t index, float y) {
-    const auto& a = battle.participants[index];
-    Button({0, y, 370, 39}, Escape(a.name) + (a.local ? " / YOU" : ""), {Op::Participant, index}, index == selected,
-           14);
-    Label({388, y + 6, 180, 30}, Number(Amount(a.outgoing)), 18);
-    Label({586, y + 6, 108, 30}, fmt::format("{}", a.outgoing.shots), 17);
-    Label({708, y + 6, 94, 30}, fmt::format("{:.0f}%", a.outgoing.critical_percent()), 17);
-    Label({806, y + 6, 86, 30}, fmt::format("{} / {}", a.active_rounds.size(), battle.rounds), 16, kMuted);
-  });
-  Label({254, 681, 906, 36}, "Each row represents one ship; allies and opponents remain separate combatants.", 13,
-        kMuted);
+  Label({254, 678, 906, 54},
+        "Whole-battle totals. Rank and damage share are calculated within each side.\nSelect any row to open that "
+        "ship's Overview; rounds fired counts rounds with at least one shot.",
+        13, kMuted, true);
 }
 
 bool CreateOverlay()
@@ -1233,14 +1249,14 @@ bool CreateOverlay()
   Rule(0, 97, kWidth);
   Box({0, 98, 228, kHeight - 98}, kBackground);
   Rule(228, 98, 1);
-  Label({16, 112, 196, 24}, "COMBATANTS", 13, kMuted);
+  Label({16, 112, 196, 24}, "SELECT SHIP", 13, kMuted);
   std::vector<std::size_t> roster(battle.participants.size());
   std::iota(roster.begin(), roster.end(), 0);
   std::stable_sort(roster.begin(), roster.end(),
                    [](auto a, auto b) { return battle.participants[a].local > battle.participants[b].local; });
   ScrollList(rosterScroll, {12, 148, 204, 548}, std::move(roster), 65, false, [](std::size_t i, float y) {
     const auto& p = battle.participants[i];
-    Button({0, y, 190, 55}, "", {Op::Participant, i}, selected == i);
+    Button({0, y, 204, 55}, "", {Op::Participant, i}, selected == i);
     Label({11, y + 5, 168, 25}, Escape(p.name) + (p.local ? " / YOU" : ""), 14, selected == i ? kCyan : kText);
     Label({11, y + 30, 168, 22}, Escape(p.ship_name), 12, kMuted);
   });
@@ -1264,10 +1280,13 @@ bool CreateOverlay()
           kMuted, true);
   } else {
     const auto& p = battle.participants[selected];
-    Label({254, 155, 906, 28},
-          Escape(p.name) + "  /  " + Escape(p.ship_name)
-              + (p.destroyed_round ? fmt::format("  /  Destroyed R{}", p.destroyed_round) : ""),
-          17, p.destroyed_round ? kRed : kText);
+    if (tab == Tab::Compare && !pairView)
+      Label({254, 155, 906, 28}, "FLEET CONTRIBUTION  /  Allies and opponents ranked separately", 17, kText);
+    else
+      Label({254, 155, 906, 28},
+            Escape(p.name) + "  /  " + Escape(p.ship_name)
+                + (p.destroyed_round ? fmt::format("  /  Destroyed R{}", p.destroyed_round) : ""),
+            17, p.destroyed_round ? kRed : kText);
     switch (tab) {
       case Tab::Overview:
         Overview(p);
@@ -1455,10 +1474,18 @@ void Apply(Action action)
       break;
     }
     case Op::Tab:
+      if (tab == static_cast<Tab>(action.value))
+        return;
       tab               = static_cast<Tab>(action.value);
       mainScroll.offset = 0;
       break;
     case Op::Participant:
+      if (action.value >= battle.participants.size())
+        return;
+      if (tab == Tab::Compare && !pairView)
+        tab = Tab::Overview;
+      else if (selected == action.value)
+        return;
       selected          = action.value;
       mainScroll.offset = 0;
       roundFilter       = 0;

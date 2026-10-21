@@ -56,6 +56,7 @@ int main()
     a::Participant ally;
     ally.ship        = 300 + i;
     ally.name        = "Same display name";
+    ally.allied      = true;
     const auto index = battle.participant(ally);
     a::Event   e     = incoming;
     e.actor          = index;
@@ -112,6 +113,49 @@ int main()
 
   a::Battle fresh;
   assert(fresh.events.empty() && fresh.local() == a::none && fresh.rounds == 0);
+  assert(fresh.contributions(false).empty());
+
+  // Contribution excludes the opposing side, follows raw/landed mode, and
+  // keeps individual ship identities even with identical names or zero damage.
+  a::Battle  ranking;
+  const auto friendly = ranking.participant(local);
+  auto       ally     = target;
+  ally.ship           = 201;
+  ally.allied         = true;
+  const auto allied   = ranking.participant(ally);
+  const auto enemy    = ranking.participant(target);
+  const auto idle     = ranking.participant(second); // Local is friendly even without the allied flag.
+  const auto attack   = [&](std::size_t actor, std::size_t target, long double landed, long double raw) {
+    a::Event e;
+    e.kind   = a::Kind::Attack;
+    e.actor  = actor;
+    e.target = target;
+    e.round = e.sub_round = 1;
+    e.damage.hull         = landed;
+    e.damage.standard     = raw;
+    assert(ranking.append(e));
+  };
+  attack(friendly, enemy, 75, 75);
+  attack(allied, enemy, 25, 125);
+  attack(enemy, friendly, 1000, 2000);
+  auto ranked = ranking.contributions(false);
+  assert(ranked.size() == 4);
+  assert(ranked[0].participant == friendly && ranked[0].rank == 1 && ranked[0].share == 75);
+  assert(ranked[1].participant == allied && ranked[1].rank == 2 && ranked[1].share == 25);
+  assert(ranked[2].participant == idle && ranked[2].allied && ranked[2].share == 0);
+  assert(ranked[3].participant == enemy && !ranked[3].allied && ranked[3].rank == 1 && ranked[3].share == 100);
+  ranked = ranking.contributions(true);
+  assert(ranked[0].participant == allied && ranked[0].share == 62.5L);
+  assert(ranked[1].participant == friendly && ranked[1].share == 37.5L);
+  assert(ranking.local() == friendly); // Query never changes selected/local identity.
+  a::Battle zero;
+  zero.participant(local);
+  zero.participant(second);
+  zero.participant(target);
+  ranked = zero.contributions(false);
+  assert(ranked[0].participant == 0 && ranked[1].participant == 1); // Stable ties.
+  for (const auto& row : ranked)
+    assert(row.share == 0 && std::isfinite(row.share));
   std::cout << "PASS: actual Armada totals, raw/landed columns, six allies, native positions, filters, pins, distinct "
-               "ships, repairs, bounds and reset\n";
+               "ships, repairs, bounds, per-side contribution/ranking and reset\n";
 }

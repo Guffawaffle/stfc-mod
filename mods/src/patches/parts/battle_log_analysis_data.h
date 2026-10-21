@@ -52,6 +52,13 @@ struct Participant {
   std::vector<int> active_rounds;
 };
 
+struct Contribution {
+  std::size_t participant = none;
+  bool        allied      = false;
+  std::size_t rank        = 0;
+  long double share       = 0;
+};
+
 inline bool valid(const Damage& d)
 {
   for (auto x : {d.hull, d.shield, d.standard, d.isolytic, d.mitigated_standard, d.mitigated_isolytic, d.barrier,
@@ -176,6 +183,31 @@ struct Battle {
       if (participants[i].local)
         return i;
     return none;
+  }
+
+  // Rank each side independently: enemy damage is never part of allied share.
+  // This query uses only recorded totals and does not depend on UI selection.
+  std::vector<Contribution> contributions(bool raw) const
+  {
+    std::vector<Contribution> rows;
+    long double               totals[2]{};
+    const auto amount = [raw](const Participant& p) { return raw ? p.outgoing.raw() : p.outgoing.landed(); };
+    for (std::size_t i = 0; i < participants.size(); ++i) {
+      const bool allied = participants[i].local || participants[i].allied;
+      rows.push_back({i, allied});
+      totals[allied] += amount(participants[i]);
+    }
+    std::stable_sort(rows.begin(), rows.end(), [&](const auto& a, const auto& b) {
+      if (a.allied != b.allied)
+        return a.allied > b.allied;
+      return amount(participants[a.participant]) > amount(participants[b.participant]);
+    });
+    std::size_t ranks[2]{};
+    for (auto& row : rows) {
+      row.rank  = ++ranks[row.allied];
+      row.share = totals[row.allied] > 0 ? 100 * amount(participants[row.participant]) / totals[row.allied] : 0;
+    }
+    return rows;
   }
 
   std::size_t peak_attack(std::size_t actor, bool raw) const
