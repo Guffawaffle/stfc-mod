@@ -15,12 +15,14 @@ struct WaterApi {
   const MethodInfo *find = nullptr, *children = nullptr, *materials = nullptr;
   const MethodInfo *name = nullptr, *shader = nullptr, *instance_id = nullptr;
   const MethodInfo *get_enabled = nullptr, *set_enabled = nullptr;
+  const MethodInfo *alive = nullptr;
   WaterApi()
   {
     auto cls = [](const char *name) {
       return il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", name).get_cls();
     };
     renderer  = cls("Renderer");
+    alive = method_contract::Resolve(cls("Object"), "op_Implicit", true, "System.Boolean", {"UnityEngine.Object"});
     find      = method_contract::Resolve(cls("GameObject"), "Find", true, "UnityEngine.GameObject", {"System.String"});
     children  = method_contract::Resolve(cls("GameObject"), "GetComponentsInChildren", false, "UnityEngine.Component[]",
                                          {"System.Type", "System.Boolean"});
@@ -32,7 +34,7 @@ struct WaterApi {
     set_enabled = method_contract::Resolve(renderer, "set_enabled", false, "System.Void", {"System.Boolean"});
   }
   bool Valid() const
-  { return renderer && find && children && materials && name && shader && instance_id && get_enabled && set_enabled; }
+  { return renderer && find && children && materials && name && shader && instance_id && get_enabled && set_enabled && alive; }
 };
 WaterApi &Api()
 {
@@ -55,7 +57,8 @@ bool HavenWaterVisibilityAvailable()
 { return Api().Valid(); }
 
 // Shares the qualified Haven camera hook, including when Haven zoom is native.
-// Retain scalar identities/original values only; rediscover Unity objects on each pass.
+// Retain original scalar values and a weak root reference. Native destruction
+// invalidates the reference; normal passes only traverse this Haven hierarchy.
 void ApplyHavenWaterVisibility(bool hidden)
 {
   static std::unordered_map<int, bool> originals;
@@ -69,8 +72,23 @@ void ApplyHavenWaterVisibility(bool hidden)
   auto &api = Api();
   if (!api.Valid())
     return;
-  void *root_args[]  = {il2cpp_string_new("StarbaseRoot/StarbaseManager/StarbasePlanetaryVisualsHolder")};
-  auto *root         = Invoke(api.find, nullptr, root_args);
+  static Il2CppGCHandle cached_root = nullptr;
+  static auto next_discovery = Clock::time_point{};
+  auto *root = cached_root ? il2cpp_gchandle_get_target(cached_root) : nullptr;
+  void *alive_args[]{root};
+  bool root_alive = false;
+  if (!root || !Il2CppRuntime::TryBoolean(Invoke(api.alive, nullptr, alive_args), root_alive) || !root_alive) {
+    if (cached_root)
+      il2cpp_gchandle_free(cached_root);
+    cached_root = nullptr;
+    if (Clock::now() < next_discovery)
+      return;
+    next_discovery = Clock::now() + std::chrono::seconds(5);
+    void *root_args[]{il2cpp_string_new("StarbaseRoot/StarbaseManager/StarbasePlanetaryVisualsHolder")};
+    root = Invoke(api.find, nullptr, root_args);
+    if (root)
+      cached_root = il2cpp_gchandle_new_weakref(root, false);
+  }
   bool  inactive     = true;
   void *child_args[] = {il2cpp_type_get_object(il2cpp_class_get_type(api.renderer)), &inactive};
   auto *renderers    = root ? reinterpret_cast<Il2CppArraySize *>(Invoke(api.children, root, child_args)) : nullptr;

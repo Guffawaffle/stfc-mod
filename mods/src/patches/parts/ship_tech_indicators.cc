@@ -5,6 +5,7 @@
 #include "patches/swap_ship_pin_input.h"
 #include "config.h"
 #include "il2cpp/method_contract.h"
+#include "il2cpp/runtime.h"
 #include "prime/GameObject.h"
 #include "prime/ShipTileWidget.h"
 #include "prime/Transform.h"
@@ -13,6 +14,7 @@
 #include <spud/detour.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -225,6 +227,26 @@ Transform* ComponentTransform(Il2CppObject* component)
 
 GameObject* TokenImageSource()
 {
+  // Tile binding can call this twice per ship. Retain only a weak handle to
+  // the native template, and do not repeat a missing-template scan per tile.
+  static Il2CppGCHandle cached       = nullptr;
+  static auto           next_attempt = std::chrono::steady_clock::time_point{};
+  static auto           object       = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Object");
+  static auto*          alive =
+      method_contract::Resolve(object.get_cls(), "op_Implicit", true, "System.Boolean", {"UnityEngine.Object"});
+  if (cached) {
+    auto* source = il2cpp_gchandle_get_target(cached);
+    void* args[]{source};
+    bool  valid = false;
+    if (source && Il2CppRuntime::TryBoolean(Invoke(alive, nullptr, args), valid) && valid)
+      return reinterpret_cast<GameObject*>(source);
+    il2cpp_gchandle_free(cached);
+    cached = nullptr;
+  }
+  const auto now = std::chrono::steady_clock::now();
+  if (now < next_attempt)
+    return nullptr;
+  next_attempt           = now + std::chrono::seconds(5);
   static auto  resources = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Resources");
   static auto* find_all  = method_contract::Resolve(resources.get_cls(), "FindObjectsOfTypeAll", true,
                                                     "UnityEngine.Object[]", {"System.Type"});
@@ -238,8 +260,11 @@ GameObject* TokenImageSource()
     auto* widget    = static_cast<Il2CppObject*>(array->vector[index]);
     auto* selector  = ReferenceField(widget, methods.token_image);
     auto* transform = ComponentTransform(selector);
-    if (transform && transform->gameObject)
-      return transform->gameObject;
+    if (transform && transform->gameObject) {
+      auto* source = transform->gameObject;
+      cached       = il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(source), false);
+      return source;
+    }
   }
   return nullptr;
 }

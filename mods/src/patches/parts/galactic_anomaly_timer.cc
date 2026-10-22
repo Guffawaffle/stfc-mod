@@ -135,10 +135,45 @@ void Clear()
   anomalyManager.reset();
 }
 
-Il2CppObject* Find(Il2CppClass* type)
+Il2CppObject* NavigationHud()
 {
-  static auto* method = TypeMethod(UnityObject(), "FindObjectOfType");
-  return WithType(method, nullptr, type);
+  static auto* hub = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.Core", "Hub").get_cls();
+  static auto* sectionsGetter = IL2CppClassHelper(hub).GetMethodInfo("get_SectionManager", 0);
+  Il2CppObject* sections = nullptr;
+  std::int32_t section = 0;
+  constexpr std::int32_t navigationSystem = -934817094; // Native SectionID.Navigation_System.
+  if (!TryInvoke(sectionsGetter, nullptr, nullptr, &sections)
+      || !Value(sections, "get_CurrentSection", section) || section != navigationSystem)
+    return nullptr;
+  static auto*  screen      = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "ScreenManager").get_cls();
+  static auto*  top         = IL2CppClassHelper(screen).GetMethodInfo("GetTopCanvas", 1);
+  bool          visibleOnly = true;
+  void*         args[]{&visibleOnly};
+  Il2CppObject* canvas = nullptr;
+  if (!TryInvoke(top, nullptr, args, &canvas) || !Alive(canvas))
+    return nullptr;
+  static auto* hud =
+      il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation.UI", "HudNavigationViewController").get_cls();
+  return WithType(TypeMethod(canvas->klass, "GetComponentInChildren"), canvas, hud);
+}
+
+Il2CppObject* ExistingAnomalyManager(Il2CppClass* managerClass)
+{
+  // Read the native owner's existing singleton; get_Instance may itself search
+  // the scene or create a replacement when initialization is incomplete.
+  static auto* parent   = managerClass ? il2cpp_class_get_parent(managerClass) : nullptr;
+  if (!parent || std::strcmp(il2cpp_class_get_name(parent), "MonoSingleton`1"))
+    return nullptr;
+  static auto* instance = parent ? il2cpp_class_get_field_from_name(parent, "s_instance") : nullptr;
+  if (!instance || !(il2cpp_field_get_flags(instance) & FIELD_ATTRIBUTE_STATIC) || !instance->type
+      || il2cpp_type_is_byref(instance->type))
+    return nullptr;
+  const auto kind = il2cpp_type_get_type(instance->type);
+  if (kind != IL2CPP_TYPE_CLASS && kind != IL2CPP_TYPE_GENERICINST && kind != IL2CPP_TYPE_VAR)
+    return nullptr;
+  Il2CppObject* value = nullptr;
+  il2cpp_field_static_get_value(instance, &value);
+  return value && il2cpp_class_is_assignable_from(managerClass, value->klass) ? value : nullptr;
 }
 
 Il2CppObject* Component(Il2CppObject* object, Il2CppClass* type)
@@ -242,7 +277,8 @@ bool Create(Il2CppObject* nav)
   if (!TryInvoke(IL2CppClassHelper(names->klass).GetMethodInfo("get_Item", 1), names, args, &name) || !Alive(name))
     return false;
   static auto* drawerClass = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "HudAllianceAndNewsViewController").get_cls();
-  auto*        drawer      = Find(drawerClass);
+  auto*        uiRoot      = Get(Get(nav, "get_transform"), "get_root");
+  auto*        drawer      = uiRoot ? WithType(TypeMethod(uiRoot->klass, "GetComponentInChildren"), uiRoot, drawerClass) : nullptr;
   auto*        chest       = Get(Field(drawer, "_chestPromotion"), "get_transform");
   auto*        parent      = Get(chest, "get_parent");
   static auto* tmp         = il2cpp_get_class_helper("Unity.TextMeshPro", "TMPro", "TextMeshProUGUI").get_cls();
@@ -308,8 +344,7 @@ void Update()
   }
   if (!Alive(navigation.get())) {
     Clear();
-    static auto* cls = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation.UI", "HudNavigationViewController").get_cls();
-    navigation.reset(Find(cls));
+    navigation.reset(NavigationHud());
   }
   auto*        nav   = navigation.get();
   bool         show  = false;
@@ -322,7 +357,7 @@ void Update()
     // Cache the Unity object, not its timer data. Unity's liveness check detects
     // destruction even while the managed wrapper is retained by our GC handle.
     if (!Alive(anomalyManager.get()))
-      anomalyManager.reset(Find(managerClass));
+      anomalyManager.reset(ExistingAnomalyManager(managerClass));
     auto*         manager = anomalyManager.get();
     Il2CppObject* anomaly = nullptr;
     void*         args[]  = {&system};

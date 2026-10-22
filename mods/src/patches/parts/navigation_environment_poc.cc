@@ -43,6 +43,8 @@ namespace
   Root shell{false}, mesh{false}, material{false}, source{false}, shell_renderer{false};
   Root native_background{false};
   Root sky_texture{false}, owning_camera{false};
+  Root source_loader{false};
+  std::chrono::steady_clock::time_point next_discovery{};
   struct Bounds {
     Vector3 center, extents;
   };
@@ -485,29 +487,43 @@ namespace
 
   void Scan(Il2CppObject *camera)
   {
-    void         *args[]{loader_type};
-    Il2CppObject *result = nullptr;
-    if (!Il2CppRuntime::TryInvoke(find_all, nullptr, args, &result) || !result || !result->klass
-        || result->klass->rank != 1 || !result->klass->element_class || !object_class
-        || !il2cpp_class_is_assignable_from(object_class, result->klass->element_class)) {
-      Fail("loader-discovery");
-      return;
-    }
-    Root array_root;
-    array_root.Reset(result);
-    auto *array = reinterpret_cast<Il2CppArray *>(result);
-    if (!array_root.Get() || array->max_length > 64) {
-      Fail("loader-count");
-      return;
+    auto        *cached = Live(source_loader.Get()) ? source_loader.Get() : nullptr;
+    Root         array_root;
+    Il2CppArray *array = nullptr;
+    if (!cached) {
+      if (source_loader.Get())
+        Clear(); // A destroyed loader must not leave the previous system's shell visible.
+      // Steady camera updates use the owning loader. Missing scene objects must
+      // not turn a loading transition into a full-scene search every 30 frames.
+      const auto now = std::chrono::steady_clock::now();
+      if (now < next_discovery)
+        return;
+      next_discovery = now + std::chrono::seconds(5);
+      void         *args[]{loader_type};
+      Il2CppObject *result = nullptr;
+      if (!Il2CppRuntime::TryInvoke(find_all, nullptr, args, &result) || !result || !result->klass
+          || result->klass->rank != 1 || !result->klass->element_class || !object_class
+          || !il2cpp_class_is_assignable_from(object_class, result->klass->element_class)) {
+        Fail("loader-discovery");
+        return;
+      }
+      array_root.Reset(result);
+      array = reinterpret_cast<Il2CppArray *>(result);
+      if (!array_root.Get() || array->max_length > 64) {
+        Fail("loader-count");
+        return;
+      }
     }
     int mask = 0;
     if (!Value(culling_mask, camera, "System.Int32", mask)) {
       Fail("camera-mask");
       return;
     }
-    unsigned active_loaders = 0, textured_backgrounds = 0;
-    for (size_t i = 0; i < array->max_length; ++i) {
-      auto         *loader = *reinterpret_cast<Il2CppObject **>(il2cpp_array_addr_with_size(array, i, sizeof(void *)));
+    unsigned     active_loaders = 0, textured_backgrounds = 0;
+    const size_t count = cached ? 1 : array->max_length;
+    for (size_t i = 0; i < count; ++i) {
+      auto *loader =
+          cached ? cached : *reinterpret_cast<Il2CppObject **>(il2cpp_array_addr_with_size(array, i, sizeof(void *)));
       Il2CppObject *boxed = nullptr, *flat = nullptr, *texture = nullptr, *native_renderer = nullptr;
       bool          enabled = false;
       if (!Live(loader) || !loader_class || !il2cpp_class_is_assignable_from(loader_class, loader->klass)
@@ -541,6 +557,8 @@ namespace
       }
       ++textured_backgrounds;
       if (texture == source.Get() && native_renderer == native_background.Get() && Live(shell.Get())) {
+        if (source_loader.Get() != loader)
+          source_loader.Reset(loader);
         CaptureSceneryBounds(loader, mask);
         return;
       }
@@ -548,7 +566,10 @@ namespace
       texture_root.Reset(texture);
       Root renderer_root;
       renderer_root.Reset(native_renderer);
+      Root loader_root;
+      loader_root.Reset(loader);
       Clear();
+      source_loader.Reset(loader_root.Get());
       if (!texture_root.Get() || !renderer_root.Get() || !Create(texture_root.Get(), layer, renderer_root.Get()))
         Fail("shell-create");
       else
@@ -559,8 +580,8 @@ namespace
     static unsigned reports = 0;
     if (reports++ < 5)
       spdlog::debug(
-          "[SystemEnvironmentPoc] awaiting compatible artwork loaders={} active={} textured={} camera-mask={}",
-          array->max_length, active_loaders, textured_backgrounds, mask);
+          "[SystemEnvironmentPoc] awaiting compatible artwork loaders={} active={} textured={} camera-mask={}", count,
+          active_loaders, textured_backgrounds, mask);
     Clear();
   }
 } // namespace
@@ -577,6 +598,7 @@ void Clear()
   source.Reset();
   shell_renderer.Reset();
   owning_camera.Reset();
+  source_loader.Reset();
   bounds_valid    = false;
   reported_bounds = false;
 }
