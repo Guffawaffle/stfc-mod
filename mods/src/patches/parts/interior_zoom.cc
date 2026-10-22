@@ -11,9 +11,12 @@
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
+#include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <unordered_map>
+#include <utility>
 
 // Station-interior zoom-out.
 //
@@ -40,12 +43,85 @@ bool       fields_ok           = false;
 
 struct NativeRange {
   float min, max;
+  bool  operator==(const NativeRange&) const = default;
 };
-// Native (pre-widen) radius range per live interior OrbitFrameProvider. The pointer is ONLY a map key,
-// never dereferenced from the stored entry, so a retired scene instance cannot cause a stale-object
-// access. Keyed by provider; the interior has a single orbit endpoint so this stays tiny.
-std::unordered_map<Il2CppObject *, NativeRange> g_native;
+struct WeakOwner {
+  Il2CppGCHandle handle = nullptr;
+  explicit WeakOwner(Il2CppObject* object)
+      : handle(object ? il2cpp_gchandle_new_weakref(object, false) : nullptr)
+  {
+  }
+  WeakOwner(const WeakOwner&) = delete;
+  WeakOwner(WeakOwner&& other) noexcept
+      : handle(std::exchange(other.handle, nullptr))
+  {
+  }
+  ~WeakOwner()
+  {
+    if (handle)
+      il2cpp_gchandle_free(handle);
+  }
+  Il2CppObject* Get() const
+  { return handle ? il2cpp_gchandle_get_target(handle) : nullptr; }
+};
+struct NativeEntry {
+  WeakOwner   provider, constraint, radius;
+  NativeRange native, applied;
+  bool        owns_write = false;
+};
+// Weak identities distinguish a reused address or replaced constraint. Keep a
+// hard bound even if a retired managed provider remains referenced elsewhere.
+// The owner is process-lifetime so its weak handles never run a shutdown dtor.
+auto&                                           g_native       = *new std::unordered_map<Il2CppObject*, NativeEntry>;
+constexpr size_t                                kProviderLimit = 16;
 bool                                            g_reported = false;
+
+NativeRange ReadRange(Il2CppObject* radius)
+{
+  NativeRange value{};
+  il2cpp_field_get_value(radius, radius_min, &value.min);
+  il2cpp_field_get_value(radius, radius_max, &value.max);
+  return value;
+}
+
+void WriteRange(Il2CppObject* radius, NativeRange value)
+{
+  il2cpp_field_set_value(radius, radius_min, &value.min);
+  il2cpp_field_set_value(radius, radius_max, &value.max);
+}
+
+void Restore(NativeEntry& entry)
+{
+  auto* radius = entry.radius.Get();
+  if (!radius || !entry.owns_write)
+    return;
+  // Do not overwrite a range subsequently changed by native code or a feature.
+  // Root the managed FloatData while touching the retired owner's fields.
+  const auto root = il2cpp_gchandle_new(radius, false);
+  if (!root)
+    return;
+  if (ReadRange(il2cpp_gchandle_get_target(root)) == entry.applied)
+    WriteRange(il2cpp_gchandle_get_target(root), entry.native);
+  il2cpp_gchandle_free(root);
+}
+
+void PruneRetired()
+{
+  static auto next = std::chrono::steady_clock::time_point{};
+  const auto  now  = std::chrono::steady_clock::now();
+  if (now < next)
+    return;
+  next = now + std::chrono::seconds(1);
+  for (auto it = g_native.begin(); it != g_native.end();) {
+    auto& entry = it->second;
+    if (!entry.provider.Get() || !entry.constraint.Get() || !entry.radius.Get()) {
+      Restore(entry);
+      it = g_native.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
 
 float InteriorScale()
 {
@@ -59,30 +135,59 @@ void OrbitFrameProvider_UpdateConstrains_Hook(auto original, Il2CppObject *provi
     original(provider, camera);
     return;
   }
+  PruneRetired();
+  auto*      section_manager = Hub::get_SectionManager();
+  const bool in_interior =
+      section_manager != nullptr && section_manager->CurrentSection == SectionID::Starbase_Interior;
+  const float scale = InteriorScale();
+  if (!in_interior || scale <= 1.0f) {
+    // Scene exit must also retire providers which stop receiving callbacks.
+    for (auto& [_, entry] : g_native)
+      Restore(entry);
+    g_native.clear();
+    original(provider, camera);
+    return;
+  }
 
   Il2CppObject *constraint = nullptr, *radius = nullptr;
   il2cpp_field_get_value(provider, provider_constraint, &constraint);
   if (constraint != nullptr) {
     il2cpp_field_get_value(constraint, constraint_radius, &radius);
   }
+  auto cached = g_native.find(provider);
+  if (cached != g_native.end()
+      && (cached->second.provider.Get() != provider || cached->second.constraint.Get() != constraint
+          || cached->second.radius.Get() != radius)) {
+    Restore(cached->second);
+    g_native.erase(cached);
+    cached = g_native.end();
+  }
   if (radius == nullptr) {
     original(provider, camera);
     return;
   }
 
-  auto      *section_manager = Hub::get_SectionManager();
-  const bool in_interior =
-      section_manager != nullptr && section_manager->CurrentSection == SectionID::Starbase_Interior;
-  const float scale = InteriorScale();
-
-  if (in_interior && scale > 1.0f) {
+  {
     // Capture the native range once (before any widening), keyed by this provider.
-    auto it = g_native.find(provider);
+    auto it = cached;
     if (it == g_native.end()) {
-      NativeRange nr{0.0f, 0.0f};
-      il2cpp_field_get_value(radius, radius_min, &nr.min);
-      il2cpp_field_get_value(radius, radius_max, &nr.max);
-      it = g_native.emplace(provider, nr).first;
+      // Multiple providers may reference the same FloatData. Reuse its one
+      // native baseline instead of treating an already widened range as stock.
+      it = std::find_if(g_native.begin(), g_native.end(),
+                        [radius](const auto& value) { return value.second.radius.Get() == radius; });
+    }
+    if (it == g_native.end()) {
+      if (g_native.size() >= kProviderLimit) {
+        original(provider, camera);
+        return; // Keep the native range if all bounded slots still have owners.
+      }
+      const auto  nr = ReadRange(radius);
+      NativeEntry entry{WeakOwner(provider), WeakOwner(constraint), WeakOwner(radius), nr, nr};
+      if (!entry.provider.Get() || !entry.constraint.Get() || !entry.radius.Get()) {
+        original(provider, camera);
+        return;
+      }
+      it = g_native.emplace(provider, std::move(entry)).first;
       if (!g_reported) {
         bool enabled = false;
         if (radius_enabled) {
@@ -97,19 +202,19 @@ void OrbitFrameProvider_UpdateConstrains_Hook(auto original, Il2CppObject *provi
     // Widen relative to the captured native range. Idempotent: always derived from the stored native,
     // so reasserting each frame cannot compound. Both ends scale together so a pinned endpoint
     // (min==max) simply relocates farther out; a real range stretches outward.
-    float new_min = it->second.min * scale;
-    float new_max = it->second.max * scale;
-    il2cpp_field_set_value(radius, radius_min, &new_min);
-    il2cpp_field_set_value(radius, radius_max, &new_max);
-  } else {
-    // Not the interior (or feature off): the far endpoint is SHARED with the exterior station view, so
-    // restore the native radius on any provider we previously widened. Without this the exterior stays
-    // zoomed out and its component-level labels drop out of LOD range.
-    auto it = g_native.find(provider);
-    if (it != g_native.end()) {
-      float native_min = it->second.min, native_max = it->second.max;
-      il2cpp_field_set_value(radius, radius_min, &native_min);
-      il2cpp_field_set_value(radius, radius_max, &native_max);
+    auto&      entry    = it->second;
+    const auto observed = ReadRange(radius);
+    if (observed != entry.applied)
+      entry.native = observed;
+    const NativeRange widened{entry.native.min * scale, entry.native.max * scale};
+    if (std::isfinite(widened.min) && std::isfinite(widened.max)) {
+      if (observed != widened)
+        WriteRange(radius, widened);
+      entry.applied    = widened;
+      entry.owns_write = widened != entry.native;
+    } else {
+      Restore(entry);
+      g_native.erase(it);
     }
   }
 

@@ -210,9 +210,9 @@ namespace
     return false;
   }
 
-  PreScanTargetWidget* Ship()
+  PreScanTargetWidget* Ship(const TrackedObjectSnapshot<PreScanTargetWidget>& widgets)
   {
-    for (auto* widget : ObjectFinder<PreScanTargetWidget>::GetAll()) {
+    for (auto* widget : widgets) {
       if (Visible(widget) && Object(widget, Native().viewerContext) == Context()) {
         auto* data   = widget->_battleTargetData;
         auto* target = data ? data->TargetFleetDeployedData : nullptr;
@@ -271,11 +271,14 @@ void Update()
     Reset();
     return;
   }
-  if (auto* ship = Ship(); ship && Settled(ship)) {
+  // Keep the owning snapshot in this scope through every native widget call.
+  auto  widgets = ObjectFinder<PreScanTargetWidget>::GetAll();
+  auto* ship    = Ship(widgets);
+  if (ship && Settled(ship)) {
     if (!session.sawShip)
       spdlog::info("[MiningPreview] ship ready node={} fleet={}", session.node, session.fleet);
     session.sawShip = true;
-  } else if ((session.sawShip && !Ship()) || (!session.sawShip && Clock::now() > session.deadline)) {
+  } else if ((session.sawShip && !ship) || (!session.sawShip && Clock::now() > session.deadline)) {
     spdlog::info("[MiningPreview] ship wait ended node={} fleet={} appeared={}", session.node, session.fleet,
                  session.sawShip);
     Reset();
@@ -289,7 +292,8 @@ bool Cycle()
   Update();
   if (!session.context)
     return Begin();
-  auto* ship = Ship();
+  auto  widgets = ObjectFinder<PreScanTargetWidget>::GetAll();
+  auto* ship    = Ship(widgets);
   if (!ship || !Settled(ship))
     return true; // Wait for the selected ship's native popup to finish loading.
   auto* button  = ship->_rewardsButtonWidget;

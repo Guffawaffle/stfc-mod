@@ -1,5 +1,6 @@
 #if _WIN32
 #include <Windows.h>
+#include <chrono>
 
 #include "config.h"
 #include "errormsg.h"
@@ -130,7 +131,13 @@ void AspectRatioConstraintHandler_Update(auto original, void* _this)
   }
 
 #if _WIN32
-  if (set_title) {
+  if (set_title && !File::hasCustomNames())
+    set_title = false;
+  static auto next_title_attempt = std::chrono::steady_clock::time_point{};
+  if (set_title && std::chrono::steady_clock::now() >= next_title_attempt) {
+    // Custom names may launch before their window exists. Retry at a bounded
+    // cadence; ordinary launches never read/allocate an unchanged window title.
+    next_title_attempt = std::chrono::steady_clock::now() + std::chrono::seconds(1);
     auto title = File::Title();
     if (!title.empty()) {
       if (WindowTitle::Set(title)) {

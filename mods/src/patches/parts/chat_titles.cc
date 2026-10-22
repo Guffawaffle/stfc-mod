@@ -8,12 +8,54 @@
 
 #include <il2cpp/il2cpp-functions.h>
 #include <il2cpp/il2cpp_helper.h>
+#include <il2cpp/method_contract.h>
+#include <il2cpp/runtime.h>
+
+#include <optional>
 
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
 namespace
 {
+struct ProfileRoot {
+  Il2CppGCHandle handle;
+  explicit ProfileRoot(Il2CppObject* object)
+      : handle(object ? il2cpp_gchandle_new(object, false) : nullptr)
+  {
+  }
+  ~ProfileRoot()
+  {
+    if (handle)
+      il2cpp_gchandle_free(handle);
+  }
+  ProfileRoot(const ProfileRoot&) = delete;
+  Il2CppObject* Get() const
+  { return handle ? il2cpp_gchandle_get_target(handle) : nullptr; }
+};
+
+// Use Unity's scoped native parent lookup when the client's non-generic API
+// matches. No row/owner cache survives pooling or reparenting. A missing API
+// retains the existing bounded walk rather than adding a scene-wide search.
+std::optional<Il2CppObject*> ParentComponent(Il2CppObject* object, Il2CppClass* type)
+{
+  static const auto* method = method_contract::Resolve(
+      il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Component").get_cls(), "GetComponentInParent",
+      false, "UnityEngine.Component", {"System.Type", "System.Boolean"});
+  if (!method || !object || !type)
+    return std::nullopt;
+  ProfileRoot owner(object);
+  if (!owner.Get())
+    return std::nullopt;
+  auto*         reflection_type  = il2cpp_type_get_object(il2cpp_class_get_type(type));
+  bool          include_inactive = true;
+  void*         args[]{reflection_type, &include_inactive};
+  Il2CppObject* result = nullptr;
+  if (!reflection_type || !Il2CppRuntime::TryInvoke(method, owner.Get(), args, &result))
+    return std::nullopt;
+  return result;
+}
+
 Il2CppObject* InvokeSelf(Il2CppObject* object, const char* method_name)
 {
   auto* method = il2cpp_class_get_method_from_name(object ? il2cpp_object_get_class(object) : nullptr, method_name, 0);
@@ -29,6 +71,8 @@ bool IsChatRow(void* profile_widget)
   if (!mb) {
     return false;
   }
+  if (const auto chat = ParentComponent(mb, ChatMessageWidget::get_class_helper().get_cls()))
+    return *chat != nullptr;
 
   auto* transform = InvokeSelf(mb, "get_transform");
   if (!transform) {
@@ -90,6 +134,13 @@ void PlayerTitleWidget_SetIdentifiers_Hook(auto original, void* _this)
   original(_this);
   try {
     if (Config::Get().show_player_title) {
+      return;
+    }
+    if (const auto owner =
+            ParentComponent(static_cast<Il2CppObject*>(_this), UserProfileWidget::get_class_helper().get_cls())) {
+      ProfileRoot root(*owner);
+      if (root.Get())
+        ApplyTitleDisplay(root.Get());
       return;
     }
     UserProfileWidget* owner     = nullptr;

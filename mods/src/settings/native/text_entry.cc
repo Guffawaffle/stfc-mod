@@ -262,7 +262,7 @@ namespace
         Cancel();
         return;
       }
-      if (ReadText() != editor.value)
+      if (ReadText() != editor.value || (editor.request->validation_changed && editor.request->validation_changed()))
         Validate();
       // Enter explicitly applies; multiline TOML arrays are entered as a single
       // TOML expression, so keyboard Submit never adds an invisible newline.

@@ -39,6 +39,22 @@ eastl::unordered_map<Il2CppClass*, eastl::vector<uintptr_t>> tracked_objects;
 // object; this does not keep a managed wrapper or native Unity object alive.
 static eastl::unordered_map<uintptr_t, Il2CppClass*> tracked_memberships;
 
+void ReportTrackedObjectSnapshotIssue(Il2CppClass* klass, size_t total, size_t limit, bool root_failed)
+{
+  // Snapshot collection has released the registry lock before reporting. Warn
+  // once per tracked class, rather than turning an oversized registry into I/O
+  // on every UI update. The snapshot's complete()/tracked_count() remain queryable.
+  static std::mutex                         warning_mutex;
+  static eastl::unordered_set<Il2CppClass*> warned;
+  {
+    std::scoped_lock lock{warning_mutex};
+    if (!warned.insert(klass).second)
+      return;
+  }
+  spdlog::warn("Object tracker: bounded snapshot for {} retained at most {} of {} entries (root/layout failure={})",
+               klass ? klass->name : "<unavailable>", limit, total, root_failed);
+}
+
 static Il2CppClass* tracked_parent(Il2CppClass* klass)
 { return klass->parent; }
 

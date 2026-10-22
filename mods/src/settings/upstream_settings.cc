@@ -871,15 +871,53 @@ void RegisterUpstreamSettings(PageCatalog& catalog)
   auto imageAction =
       ExactEntry(catalog, "community_mod.loading", image, [](std::string_view value) -> std::optional<std::string> {
         value = Trim(value);
-        if (value.empty())
-          return std::string{};
-        std::error_code error;
-        return std::filesystem::is_regular_file(std::filesystem::u8path(value), error) && !error
-                   ? std::optional{std::string(value)}
-                   : std::nullopt;
+        return std::string(value);
       });
   if (install_screen_manager_update_hook() && register_screen_manager_update_callback(PollLoadingImagePicker))
     loadingImagePicker = Keep<ImageFileSetting>(image, *imageAction);
+  else {
+    // The exact editor is a fallback when the native picker service cannot be
+    // installed. Its validation uses the same bounded owned-path worker.
+    imageAction->invoke = [image](std::size_t) {
+      const auto observed = image->Observe();
+      if (!observed.state.known())
+        return;
+      auto& validator = LoadingImagePathValidator();
+      validator.Cancel();
+      TextEntryRequest request{.title = image->label(),
+                               .value = *observed.state.value,
+                               .help  = image->metadata().description,
+                               .validate =
+                                   [&validator](std::string_view text) {
+                                     switch (validator.Check(Trim(text)).state) {
+                                       case ImagePathValidator::State::Valid:
+                                         return std::string{};
+                                       case ImagePathValidator::State::Pending:
+                                         return std::string{"Checking the image path..."};
+                                       default:
+                                         return std::string{"Enter a path to an available image, or leave it empty."};
+                                     }
+                                   },
+                               .commit =
+                                   [image, observed, &validator](std::string_view text) {
+                                     const auto path = Trim(text);
+                                     if (validator.Check(path).state != ImagePathValidator::State::Valid)
+                                       return false;
+                                     const auto outcome = image->SetFromUser(std::string(path), observed).outcome;
+                                     const bool applied =
+                                         outcome == Outcome::AppliedVerified || outcome == Outcome::Unchanged;
+                                     if (applied)
+                                       validator.Cancel();
+                                     return applied;
+                                   },
+                               .cancel = [&validator] { validator.Cancel(); }};
+      request.validation_changed = [&validator, sequence = validator.Sequence()]() mutable {
+        const auto current = validator.Sequence();
+        return std::exchange(sequence, current) != current;
+      };
+      OpenTextEntry(std::move(request));
+    };
+  }
   Lists(catalog);
   Information(catalog, "community_mod.advanced", "community_mod.configuration.path", "Configuration file", [] {
     const auto path = File::MakePath(File::Config());

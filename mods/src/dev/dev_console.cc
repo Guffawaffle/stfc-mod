@@ -45,8 +45,7 @@ constexpr auto                             kMaximumRetryDelay   = std::chrono::m
 
 dev::overlay::NativeElement           s_background;
 dev::overlay::NativeElement           s_label;
-uint64_t                              s_last_sequence    = 0;
-uint64_t                              s_last_dropped     = 0;
+uint64_t                              s_last_revision    = 0;
 size_t                                s_visible_lines    = 1;
 size_t                                s_wrap_columns     = 80;
 size_t                                s_opacity_index    = kBackgroundOpacities.size() - 1;
@@ -112,14 +111,11 @@ void load_console_opacity()
 void save_console_opacity()
 {
   const auto percent = kBackgroundOpacities[s_opacity_index].percent;
-  mod_state::TryUpdate([percent](nlohmann::json& state) {
-    auto& console = state["dev_console"];
-    if (!console.is_object()) {
-      console = nlohmann::json::object();
-    }
-    console.erase("background_opacity");
-    console["background_opacity_percent"] = percent;
-  });
+  const auto revision = mod_state::QueueConsoleOpacity(percent);
+  if (!revision)
+    spdlog::warn("[DevConsole] opacity applied for this session; saving was not queued");
+  else
+    spdlog::debug("[DevConsole] opacity save pending (revision {})", revision);
 }
 
 std::string severity_label(dev::diagnostics::Severity severity)
@@ -442,8 +438,7 @@ void release_panel()
 {
   dev::overlay::ReleaseElement(s_label);
   dev::overlay::ReleaseElement(s_background);
-  s_last_sequence    = 0;
-  s_last_dropped     = 0;
+  s_last_revision    = 0;
   s_last_right       = -1.0f;
   s_last_top         = -1.0f;
   s_last_width       = -1.0f;
@@ -552,12 +547,12 @@ void tick_panel(Transform* host, const dev::overlay::LayoutContext& context)
     s_force_render    = true;
   }
 
-  const auto snapshot  = dev::diagnostics::ReadSnapshot();
-  const auto sequence  = snapshot.entries.empty() ? 0 : snapshot.entries.back().sequence;
+  const auto changed   = dev::diagnostics::ReadSnapshotIfChanged(s_last_revision, s_force_render);
   const auto max_lines = std::max<size_t>(1, static_cast<size_t>((height - 48.0f) / 22.0f));
   const auto wrap_columns =
       std::clamp(static_cast<size_t>((width - 28.0f) / kEstimatedGlyphWidth), size_t{48}, size_t{112});
-  if (s_force_render || sequence != s_last_sequence || snapshot.dropped != s_last_dropped) {
+  if (changed) {
+    const auto& snapshot    = *changed;
     const auto rows        = display_rows(snapshot, wrap_columns);
     const auto minimum_end = std::min(entry_line_budget(snapshot, max_lines), rows.size());
     const auto history     = resolve_history(rows, minimum_end, s_history_anchor);
@@ -566,8 +561,7 @@ void tick_panel(Transform* host, const dev::overlay::LayoutContext& context)
       return;
     }
     s_history_anchor = history.anchor;
-    s_last_sequence  = sequence;
-    s_last_dropped   = snapshot.dropped;
+    s_last_revision  = snapshot.revision;
     s_force_render   = false;
   }
   s_visible_lines = max_lines;
@@ -607,6 +601,7 @@ void InstallDevConsole()
     spdlog::error("[DevConsole] display formatter self-test failed; console not installed");
     return;
   }
+  mod_state::PrepareAsync();
   load_console_opacity();
   s_initialized = true;
   dev::overlay::RegisterReservedRegionProvider("stfc-persistent-hud", persistent_hud_reserved_region);

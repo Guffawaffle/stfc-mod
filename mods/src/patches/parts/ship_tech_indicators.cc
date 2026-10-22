@@ -20,9 +20,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <mutex>
-
-extern std::mutex tracked_objects_mutex;
 
 namespace
 {
@@ -296,36 +293,11 @@ GameObject* TokenImageSource(Il2CppObject* selection_context)
   // Ship Management already owns the exact serialized FT/CT token selectors,
   // including while its details panel is hidden by Ship Selection. This
   // registry is populated by the existing object tracker, with no new hook.
-  constexpr size_t owner_limit = 32;
-  struct OwnerSnapshot {
-    std::array<Il2CppGCHandle, owner_limit> handles{};
-    ~OwnerSnapshot()
-    {
-      for (auto handle : handles)
-        if (handle)
-          il2cpp_gchandle_free(handle);
-    }
-  } owners;
-  auto* owner_class = ShipManagementViewController::get_class_helper().get_cls();
-  {
-    std::scoped_lock lock{tracked_objects_mutex};
-    const auto entry = tracked_objects.find(owner_class);
-    if (entry != tracked_objects.end()) {
-      const auto& objects = entry->second;
-      const size_t count = std::min<size_t>(objects.size(), owner_limit);
-      // Create weak roots while finalizer removal is excluded. No managed
-      // invocation or Unity query runs while holding the registry mutex.
-      for (size_t offset = 0; offset < count; ++offset)
-        owners.handles[offset] = il2cpp_gchandle_new_weakref(
-            reinterpret_cast<Il2CppObject*>(objects[objects.size() - 1 - offset]), false);
-    }
-  }
-  for (auto handle : owners.handles) {
-    auto* owner = handle ? il2cpp_gchandle_get_target(handle) : nullptr;
-    if (!UnityAlive(owner) || il2cpp_gchandle_get_target(handle) != owner)
-      continue;
-    TemporaryRoot owner_root(owner);
-    if (!owner_root.Get())
+  auto owners = ObjectFinder<ShipManagementViewController>::GetAll(32);
+  for (size_t remaining = owners.size(); remaining > 0; --remaining) {
+    auto* tracked_owner = owners.At(remaining - 1);
+    auto* owner         = reinterpret_cast<Il2CppObject*>(tracked_owner);
+    if (!UnityAlive(owner))
       continue;
     for (auto* field : methods.owned_token_slots) {
       if (auto* source = TokenWidgetImage(ReferenceField(owner, field))) {
@@ -536,6 +508,22 @@ GameObject* CreateIndicator(const char* name, Transform* parent, GameObject* sou
 
   void*      clone_args[]{source};
   auto*      object = Invoke(instantiate, nullptr, clone_args);
+  TemporaryRoot object_root(object);
+  struct ProvisionalClone {
+    Il2CppObject* object;
+    bool          published = false;
+    ~ProvisionalClone()
+    {
+      if (!published) {
+        try {
+          Destroy(object);
+        } catch (...) {
+        }
+      }
+    }
+  } provisional{object};
+  if (object && !object_root.Get())
+    return nullptr;
   const bool named  = object && Set(object, "set_name", il2cpp_string_new(name));
   if (!object || !named) {
     if (LogUiDiagnostic())
@@ -547,7 +535,6 @@ GameObject* CreateIndicator(const char* name, Transform* parent, GameObject* sou
   if (!Set(object, "SetActive", &active)) {
     if (LogUiDiagnostic())
       spdlog::warn("[ShipTechIndicators] create={} deactivate failed", name);
-    Destroy(object);
     return nullptr;
   }
 
@@ -572,9 +559,9 @@ GameObject* CreateIndicator(const char* name, Transform* parent, GameObject* sou
                    "preserve={}",
                    name, transform != nullptr, selector != nullptr, graphic != nullptr, parented, rect, raycast,
                    preserve);
-    Destroy(object);
     return nullptr;
   }
+  provisional.published = true;
   return reinterpret_cast<GameObject*>(object);
 }
 

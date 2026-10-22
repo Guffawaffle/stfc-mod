@@ -9,6 +9,8 @@ std::atomic_uint64_t                sequence{1};
 size_t                              installed{};
 std::array<Il2CppMethodPointer, 13> installedPointers{};
 std::atomic_bool                    sharedCloudLoadSeen{false};
+selection_capture::Admission        captureAdmission;
+std::atomic_uint64_t                captureSkipped{0}, captureLimited{0};
 
 std::mutex            checkpointMutex;
 std::filesystem::path checkpointPath;
@@ -93,18 +95,25 @@ std::string PreferenceKey(void* value)
   return {};
 }
 
-Json SerializedSelection(void* list)
+Json SerializedSelection(void* list, selection_capture::Allowance& budget)
 {
   Json    result = {{"present", list != nullptr}, {"supported", false}};
   int32_t count{};
-  if (!list || !Read(list, "_size", count) || count < 0 || count > 2048)
+  if (!list || !Read(list, "_size", count) || count < 0)
     return result;
+  result["count"]          = count;
+  result["captured_count"] = 0;
+  if (!budget.Take(count, count) || count > 2048) {
+    result["bounded_out"] = true;
+    return result;
+  }
   auto items = References(list, 2048);
   if (items.size() != static_cast<size_t>(count))
     return result;
   result["supported"] = true;
   result["count"]     = count;
   result["entries"]   = Json::array();
+  result["captured_count"] = items.size();
   for (auto* item : items) {
     auto* object = static_cast<Il2CppObject*>(item);
     if (!object || il2cpp_type_get_type(il2cpp_class_get_type(object->klass)) != IL2CPP_TYPE_STRING) {
@@ -145,15 +154,23 @@ Json SerializedSelection(void* list)
 
 // Dictionary layouts are checked through metadata, including the unboxed entry
 // offsets/stride. Missing, changed or oversized layouts remain explicitly unknown.
-Json Map(void* dictionary, bool groups, bool categories, int& budget)
+Json Map(void* dictionary, bool groups, bool categories, selection_capture::Allowance& budget)
 {
   Json    result = {{"present", dictionary != nullptr}, {"supported", false}};
   int32_t count{}, free{};
   void*   entries{};
   if (!dictionary || !Read(dictionary, "_count", count) || !Read(dictionary, "_freeCount", free)
-      || !Read(dictionary, "_entries", entries) || count < 0 || free < 0 || free > count || count > 4096)
+      || !Read(dictionary, "_entries", entries) || count < 0 || free < 0 || free > count)
     return result;
   result["count"] = count - free;
+  result["slots"]          = count;
+  result["captured_count"] = 0;
+  // Native counts are cheap even when traversal is withheld. Check both live
+  // rows and occupied/free slots before reading any dictionary entry metadata.
+  if (!budget.Take(count - free, count) || count > 4096) {
+    result["bounded_out"] = true;
+    return result;
+  }
   if (!entries) {
     if (count == 0) {
       result["supported"] = true;
@@ -210,10 +227,6 @@ Json Map(void* dictionary, bool groups, bool categories, int& budget)
     read(next, nextValue);
     if ((hashType == IL2CPP_TYPE_I4 && hashValue < 0) || nextValue < -1)
       continue;
-    if (--budget < 0) {
-      result["bounded_out"] = true;
-      return result;
-    }
     int64_t id{};
     int32_t category{};
     if (categories)
@@ -238,14 +251,14 @@ Json Map(void* dictionary, bool groups, bool categories, int& budget)
   if (rows.size() != static_cast<size_t>(count - free))
     return result;
   result["supported"] = true;
+  result["captured_count"] = rows.size();
   result["entries"]   = std::move(rows);
   return result;
 }
 
-Json Container(void* object)
+Json Container(void* object, selection_capture::Allowance& budget)
 {
   Json result = {{"present", object != nullptr}};
-  int  budget = 2048;
   for (auto [field, label, groups, categories] :
        {std::tuple{"_bundleQuantitySelectionByCategory", "categories", true, true},
         std::tuple{"_bundleQuantitySelectionById", "groups", true, false},
@@ -256,10 +269,12 @@ Json Container(void* object)
   return result;
 }
 
-Json State(void* object, const char* kind)
+Json State(void* object, const char* kind, selection_capture::Allowance* allowance = nullptr)
 {
+  selection_capture::Allowance standalone(selection_capture::Reason::none);
+  auto&                        budget = allowance ? *allowance : standalone;
   if (!std::strcmp(kind, "container"))
-    return Container(object);
+    return Container(object, budget);
   Json result = {{"present", object != nullptr}};
   if (!std::strcmp(kind, "preferences")) {
     Scalar<bool>(result, object, "_isCloudFileLoaded", "cloud_loaded");
@@ -279,7 +294,7 @@ Json State(void* object, const char* kind)
   void* container{};
   Scalar<bool>(result, context, "_isInBulkSelectionMode", "editing");
   if (Read(context, "_bulkSelectionContainer", container))
-    result["selection"] = Container(container);
+    result["selection"] = Container(container, budget);
   return result;
 }
 
@@ -296,16 +311,23 @@ Json Bundle(void* object)
   return result;
 }
 
-Json Bundles(void* list)
+Json Bundles(void* list, selection_capture::Allowance& budget)
 {
   int32_t count{};
   Json    result = {{"supported", false}};
-  if (!Read(list, "_size", count) || count < 0 || count > 2048)
+  if (!Read(list, "_size", count) || count < 0)
     return result;
+  result["count"]          = count;
+  result["captured_count"] = 0;
+  if (!budget.Take(count, count) || count > 2048) {
+    result["bounded_out"] = true;
+    return result;
+  }
   auto items = References(list, 2048);
   if (items.size() != static_cast<size_t>(count))
     return result;
   result["supported"] = true;
+  result["captured_count"] = items.size();
   result["items"]     = Json::array();
   for (auto* item : items)
     result["items"].push_back(Bundle(item));
@@ -371,8 +393,41 @@ Json SelectionMaps(const Json& state)
   return result;
 }
 
+Json MapCoverage(const Json& source, bool groups)
+{
+  if (!source.is_object())
+    return nullptr;
+  Json result = Json::object();
+  for (auto key : {"present", "supported", "count", "slots", "captured_count", "bounded_out"})
+    if (source.contains(key))
+      result[key] = source[key];
+  if (groups && source.contains("entries") && source["entries"].is_array()) {
+    result["groups"] = Json::array();
+    for (const auto& row : source["entries"])
+      result["groups"].push_back({{"key", row.at("key")},
+                                  {"selected", MapCoverage(row.at("selected"), false)},
+                                  {"editing", MapCoverage(row.at("editing"), false)}});
+  }
+  return result;
+}
+
+Json Coverage(const Json& state)
+{
+  if (!state.is_object())
+    return nullptr;
+  const auto& container = state.contains("selection") ? state["selection"] : state;
+  Json        result    = Json::object();
+  for (auto name : {"categories", "groups", "pending"})
+    if (container.contains(name))
+      result[name] = MapCoverage(container[name], std::strcmp(name, "pending") != 0);
+  return result;
+}
+
 void CompactObservation(Json& event)
 {
+  // Preserve known totals/coverage after removing full dictionaries. Unsupported
+  // or budget-limited maps stay unknown, never an invented empty selection.
+  event["capture_coverage"] = {{"before", Coverage(event["before"])}, {"after", Coverage(event["after"])}};
   auto before = SelectionMaps(event["before"]);
   auto after  = SelectionMaps(event["after"]);
   auto scopes = before;
@@ -421,6 +476,7 @@ struct Observation {
   void*       object;
   const char* kind;
   Json        event;
+  selection_capture::Allowance capture;
   int         exceptions = std::uncaught_exceptions();
   Observation(const char* method, void* object, const char* kind, bool enabled = true) noexcept
       : object(object)
@@ -428,7 +484,13 @@ struct Observation {
   {
     try {
       if (enabled && ready.load() && journal) {
-        event = {{"event", method}, {"span", nextSpan++}, {"before", State(object, kind)}};
+        capture = captureAdmission.Try(
+            NowMs(), diagnosticWorker && diagnosticWorker->Healthy() && sinkHealthy.load() && healthy.load(),
+            diagnosticWorker ? diagnosticWorker->Pending() : 128,
+            diagnosticWorker ? diagnosticWorker->Charge() : 16 * 1024 * 1024);
+        if (!capture.admitted)
+          ++captureSkipped;
+        event = {{"event", method}, {"span", nextSpan++}, {"before", State(object, kind, &capture)}};
         WriteEvent({{"event", "begin"}, {"method", method}, {"span", event["span"]}});
       }
     } catch (...) {
@@ -451,7 +513,17 @@ struct Observation {
   {
     try {
       if (!event.is_null()) {
-        event["after"] = State(object, kind);
+        event["after"]   = State(object, kind, &capture);
+        event["capture"] = {
+            {"admitted", capture.admitted},
+            {"reason", selection_capture::Name(capture.reason)},
+            {"row_limit", selection_capture::kRows},
+            {"slot_limit", selection_capture::kSlots},
+            {"rows_reserved", capture.admitted ? selection_capture::kRows - capture.rows : 0},
+            {"slots_reserved", capture.admitted ? selection_capture::kSlots - capture.slots : 0},
+            {"coverage", "counts are native when known; unsupported maps/lists are unknown, not empty"}};
+        if (capture.reason == selection_capture::Reason::extent)
+          ++captureLimited;
         event["unwind"] = std::uncaught_exceptions() > exceptions;
         WriteEvent(std::move(event));
       }
@@ -471,15 +543,14 @@ void Override(auto original, void* self, int64_t key, void* replacement)
 {
   Observation observation("override", self, "container");
   observation.Details([&] {
-    int budget = 2048;
-    return Json{{"group", Alias(key)}, {"replacement", Map(replacement, false, false, budget)}};
+    return Json{{"group", Alias(key)}, {"replacement", Map(replacement, false, false, observation.capture)}};
   });
   original(self, key, replacement);
 }
 void Parse(auto original, void* self, void* list)
 {
   Observation observation("parse", self, "container");
-  observation.Details([&] { return Json{{"incoming", SerializedSelection(list)}}; });
+  observation.Details([&] { return Json{{"incoming", SerializedSelection(list, observation.capture)}}; });
   original(self, list);
 }
 void Apply(auto original, void* self)
@@ -507,7 +578,8 @@ void Save(auto original, void* self, bool force)
 void Purge(auto original, void* self, int32_t category, void* bundles)
 {
   Observation observation("prune", self, "shop");
-  observation.Details([&] { return Json{{"category", category}, {"available", Bundles(bundles)}}; });
+  observation.Details(
+      [&] { return Json{{"category", category}, {"available", Bundles(bundles, observation.capture)}}; });
   original(self, category, bundles);
 }
 void Load(auto original, void* self, int32_t section)
@@ -530,8 +602,9 @@ void Set(auto original, void* self, void* key, void* list, bool userKey)
   } catch (...) {
   }
   Observation observation("preferences_set", self, "preferences", !name.empty());
-  observation.Details(
-      [&] { return Json{{"key", name}, {"user_key", userKey}, {"written", SerializedSelection(list)}}; });
+  observation.Details([&] {
+    return Json{{"key", name}, {"user_key", userKey}, {"written", SerializedSelection(list, observation.capture)}};
+  });
   original(self, key, list, userKey);
 }
 void* Get(auto original, void* self, void* key, bool userKey)
@@ -543,8 +616,9 @@ void* Get(auto original, void* self, void* key, bool userKey)
   }
   Observation observation("preferences_get", self, "preferences", !name.empty());
   auto*       result = original(self, key, userKey);
-  observation.Details(
-      [&] { return Json{{"key", name}, {"user_key", userKey}, {"read", SerializedSelection(result)}}; });
+  observation.Details([&] {
+    return Json{{"key", name}, {"user_key", userKey}, {"read", SerializedSelection(result, observation.capture)}};
+  });
   return result;
 }
 void CloudSave(auto original, void* self, void* success, void* failure)
@@ -634,6 +708,13 @@ Json SelectionTraceStatus()
           {"healthy", selection_trace::journal && selection_trace::healthy.load() && sinkHealthy.load()
                           && selection_trace::installed == std::size(selection_trace::targets)},
           {"shared_cloud_load_seen", selection_trace::sharedCloudLoadSeen.load()},
+          {"capture_skipped", selection_trace::captureSkipped.load()},
+          {"capture_limited", selection_trace::captureLimited.load()},
+          {"capture_row_limit", selection_capture::kRows},
+          {"capture_slot_limit", selection_capture::kSlots},
+          {"capture_rolling_ms", selection_capture::kWindowMs},
+          {"capture_observations", selection_capture::kObservations},
+          {"capture_completeness", "budgeted; consult per-event coverage, not healthy alone"},
           {"journal", "bulk_selection.jsonl"}};
 }
 
@@ -727,6 +808,7 @@ void WriteSelectionSession()
        {"expected_hooks", std::size(targets)},
        {"state_format", "per-call selection deltas; unchanged dictionaries omitted"},
        {"healthy", healthy.load() && installed == std::size(targets)},
-       {"limits", "4 MiB plus 4 rotations; 2048 rows per snapshot/list; 4096 dictionary slots; unknown is explicit"},
+       {"limits", "4 MiB plus 4 rotations; shared 256 rows/512 slots per before+after+details; "
+                  "8 observations per rolling 100 ms; known native counts and omissions are explicit"},
        {"cloud", "attempt/transport observation is not durable cloud persistence; compare a later native read"}});
 }

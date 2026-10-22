@@ -42,6 +42,7 @@ namespace
     std::deque<Entry>                     entries;
     uint64_t                              next_sequence = 1;
     uint64_t                              dropped       = 0;
+    uint64_t                              revision      = 1;
     std::chrono::steady_clock::time_point started_at    = std::chrono::steady_clock::now();
   };
 
@@ -104,6 +105,7 @@ void Clear()
   std::scoped_lock lock{current.mutex};
   current.entries.clear();
   current.dropped = 0;
+  ++current.revision;
 }
 
 void Publish(SourceId source, Severity severity, std::string message)
@@ -130,6 +132,7 @@ void Publish(SourceId source, Severity severity, std::string message)
           .count();
   current.entries.push_back(
       {current.next_sequence++, elapsed, source, severity, current.sources[source].owner, std::move(message)});
+  ++current.revision;
 }
 
 Snapshot ReadSnapshot()
@@ -140,7 +143,18 @@ Snapshot ReadSnapshot()
   }
 
   std::scoped_lock lock{current.mutex};
-  return {{current.entries.begin(), current.entries.end()}, current.dropped};
+  return {{current.entries.begin(), current.entries.end()}, current.dropped, current.revision};
+}
+
+std::optional<Snapshot> ReadSnapshotIfChanged(uint64_t revision, bool force)
+{
+  auto& current = state();
+  if (!current.awake.load(std::memory_order_acquire))
+    return std::nullopt;
+  std::scoped_lock lock{current.mutex};
+  if (!force && current.revision == revision)
+    return std::nullopt;
+  return Snapshot{{current.entries.begin(), current.entries.end()}, current.dropped, current.revision};
 }
 } // namespace dev::diagnostics
 

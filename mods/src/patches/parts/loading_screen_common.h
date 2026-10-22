@@ -441,23 +441,33 @@ inline void* CreateImageOverlay(const char* name, RootedImageAsset& asset, void*
   if (!go) return nullptr;
   Il2CppGCHandle go_handle = il2cpp_gchandle_new(go, false);
   if (!go_handle) return nullptr;
+  struct ProvisionalOverlay {
+    Il2CppGCHandle handle;
+    bool           constructed = false, published = false;
+    ~ProvisionalOverlay()
+    {
+      // Freeing a GC handle alone does not destroy a constructed Unity object,
+      // including an overlay already parented into the loading canvas.
+      if (constructed && !published)
+        SafeDestroy(il2cpp_gchandle_get_target(handle));
+      il2cpp_gchandle_free(handle);
+    }
+  } provisional{go_handle};
 
   void* nameStr   = il2cpp_string_new(name);
   void* goArgs[1] = {nameStr};
   if (!InvokeVoid(fn_go_ctor, go, goArgs, "GameObject.ctor")) {
-    il2cpp_gchandle_free(go_handle);
     return nullptr;
   }
+  provisional.constructed = true;
 
   void* tr = InvokeObject(fn_get_tr, go, nullptr, "get_transform");
   if (!tr) {
-    il2cpp_gchandle_free(go_handle);
     return nullptr;
   }
   bool  worldStays = false;
   void* parArgs[2] = {FindRootCanvas(parentTransform), &worldStays};
   if (!parArgs[0] || !InvokeVoid(fn_setpar, tr, parArgs, "Transform.SetParent")) {
-    il2cpp_gchandle_free(go_handle);
     return nullptr;
   }
   if (placeAsFirstSibling && fn_setfst)
@@ -465,37 +475,32 @@ inline void* CreateImageOverlay(const char* name, RootedImageAsset& asset, void*
 
   void* imgType   = img_h.GetType();
   if (!imgType) {
-    il2cpp_gchandle_free(go_handle);
     return nullptr;
   }
   void* acArgs[1] = {imgType};
   void* imgComp   = InvokeObject(fn_addcomp, go, acArgs, "AddComponent<Image>");
   if (!imgComp) {
-    il2cpp_gchandle_free(go_handle);
     return nullptr;
   }
 
   void* rtType    = rt_h.GetType();
   if (!rtType) {
-    il2cpp_gchandle_free(go_handle);
     return nullptr;
   }
   void* rtArgs[1] = {rtType};
   void* rt        = InvokeObject(fn_gc, go, rtArgs, "GetComponent<RectTransform>");
   if (!rt) {
-    il2cpp_gchandle_free(go_handle);
     return nullptr;
   }
   SetFullRect(rt, aMin, aMax, pivot, sd, ap);
 
   if (!ConfigureImageSprite(imgComp, spr, preserveAspect)) {
-    il2cpp_gchandle_free(go_handle);
     return nullptr;
   }
 
   void* result = il2cpp_gchandle_get_target(go_handle);
-  il2cpp_gchandle_free(go_handle);
   spdlog::debug("[LS] created {} overlay", name);
+  provisional.published = result != nullptr;
   return result;
 }
 

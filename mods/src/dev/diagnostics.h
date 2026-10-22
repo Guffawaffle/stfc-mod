@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -32,6 +33,7 @@ struct Entry {
 struct Snapshot {
   std::vector<Entry> entries;
   uint64_t           dropped = 0;
+  uint64_t           revision = 0;
 };
 
 #ifdef _MODDBG
@@ -42,6 +44,7 @@ void     SetAwake(bool awake);
 void     Clear();
 void     Publish(SourceId source, Severity severity, std::string message);
 Snapshot ReadSnapshot();
+std::optional<Snapshot> ReadSnapshotIfChanged(uint64_t revision, bool force = false);
 
 template <typename Builder> void PublishLazy(SourceId source, Severity severity, Builder&& builder)
 {
@@ -63,5 +66,7 @@ inline void                      Publish(SourceId, Severity, std::string) {}
 template <typename Builder> void PublishLazy(SourceId, Severity, Builder&&) {}
 inline Snapshot                  ReadSnapshot()
 { return {}; }
+inline std::optional<Snapshot> ReadSnapshotIfChanged(uint64_t, bool = false)
+{ return std::nullopt; }
 #endif
 } // namespace dev::diagnostics

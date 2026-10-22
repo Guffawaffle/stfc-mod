@@ -1,16 +1,17 @@
-#include "patches/claim_trace.h"
 #include "config.h"
 #include "dev/overlay_runtime.h"
-#include "patches/parts/action_queue.h"
 #include "patches/base_card.h"
-#include "patches/runtime_config.h"
-#include "patches/native_hook_extent.h"
+#include "patches/claim_trace.h"
+#include "patches/discovery_tow.h"
 #include "patches/mining_preview.h"
+#include "patches/native_hook_extent.h"
+#include "patches/parts/action_queue.h"
+#include "patches/runtime_config.h"
+#include "patches/ship_shortcut_hint.h"
 #include "settings/preview_settings.h"
 #include "settings/shortcut_settings.h"
-#include "settings/warp_mode.h"
 #include "settings/upstream_settings.h"
-#include "patches/ship_shortcut_hint.h"
+#include "settings/warp_mode.h"
 
 #include <spud/detour.h>
 #include <il2cpp/method_contract.h>
@@ -716,6 +717,7 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
   // Capture owns the key through release. Do not run the native shortcut path
   // or the console on this frame; UI mouse navigation continues via EventSystem.
   if (shortcutOwnedInput || Key::SettingsOwnInput()) {
+    discovery_tow::Cancel();
     show_officer_presets_pending = show_officer_swap_pending = show_ship_swap_pending = 0;
     officer_presets_assignment_opened = false;
     return;
@@ -727,11 +729,13 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 #endif
 
   if (!Config::Get().installHotkeyHooks) {
+    discovery_tow::Cancel();
     return original(_this);
   }
 
 #ifdef _MODDBG
   if (dev_console_handled) {
+    discovery_tow::Cancel();
     if (Config::Get().hotkeys_enabled) {
       original(_this);
     }
@@ -756,6 +760,7 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
       SetNativeShortcutHintsVisible(false);
     }
     Config::Get().hotkeys_enabled = false;
+    discovery_tow::Cancel();
     mod_settings::PersistCurrentSetting("control", "hotkeys_enabled");
     spdlog::warn("Setting hotkeys to DISABLED");
     return;
@@ -769,6 +774,7 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
   // Per-frame driver - must run every frame, before the hotkey-mode
   // early-returns below (it must also run in Scopely-hotkey mode and
   // while hotkeys are toggled off).
+  discovery_tow::Update();
   AssignShipEnterKeyUpdate();
 
   // Deferred mod actions must not outlive their input mode.
@@ -874,31 +880,26 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 
   if (ship_select_request != -1 && !Key::IsInputFocused()) {
 
+    discovery_tow::Cancel();
+
     if (Key::HasShift()) {
       FleetPlayerData* foundDisco = nullptr;
+      int              foundDiscoIndex = -1;
+      auto*            fleets          = FleetsManager::Instance();
+      if (!fleets)
+        return;
       for (int discoIdx = 0; discoIdx < 10; ++discoIdx) {
-        auto fleetPlayerData = FleetsManager::Instance()->GetFleetPlayerData(discoIdx);
+        auto fleetPlayerData = fleets->GetFleetPlayerData(discoIdx);
         if (fleetPlayerData && fleetPlayerData->Hull && fleetPlayerData->Hull->Id == 1307832955) {
           foundDisco = fleetPlayerData;
+          foundDiscoIndex = discoIdx;
           break;
         }
       }
 
-      auto* selectedFleet = FleetsManager::Instance()->GetFleetPlayerData(ship_select_request);
-      auto* deployment = DeploymentManger::Instance();
-      if (foundDisco && selectedFleet && deployment) {
-        auto* plannedCourse =
-            deployment->PlanCourse(selectedFleet, foundDisco->Address, Vector3::zero(), nullptr, nullptr, nullptr);
-        bool has_next = false;
-        bool advanced = false;
-        do {
-          advanced = IEnumerator::TryMoveNext(plannedCourse, has_next);
-        } while (advanced && has_next);
-        if (advanced)
-          deployment->SetTowRequest(selectedFleet->Id, foundDisco->Id);
-        else
-          spdlog::warn("Discovery tow: course iterator unavailable or failed; tow request skipped");
-      }
+      auto* selectedFleet = fleets->GetFleetPlayerData(ship_select_request);
+      if (foundDisco && selectedFleet)
+        discovery_tow::Begin(selectedFleet, foundDisco, ship_select_request, foundDiscoIndex);
     } else {
       auto fleet_bar  = ObjectFinder<FleetBarViewController>::Get();
       auto can_locate = !config->disable_preview_locate || !CanHideViewers();
@@ -1262,7 +1263,7 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
     } else if (MapKey::IsDown(GameFunction::ActionView)) {
       auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAll();
 
-      for (auto& pre_scan_widget : all_pre_scan_widgets) {
+      for (auto* pre_scan_widget : all_pre_scan_widgets) {
         auto visibility_controller = pre_scan_widget ? pre_scan_widget->_visibilityController : nullptr;
         auto rewardsWidget         = pre_scan_widget ? pre_scan_widget->_rewardsButtonWidget : nullptr;
         auto rewards_controller    = rewardsWidget ? rewardsWidget->_rewardsController : nullptr;
@@ -1284,7 +1285,7 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
     if (show_info_pending > 0) {
       auto all_pre_scan_widgets = ObjectFinder<PreScanTargetWidget>::GetAll();
 
-      for (auto& pre_scan_widget : all_pre_scan_widgets) {
+      for (auto* pre_scan_widget : all_pre_scan_widgets) {
         auto       visibility_controller = pre_scan_widget ? pre_scan_widget->_visibilityController : nullptr;
         auto       rewardsWidget         = pre_scan_widget ? pre_scan_widget->_rewardsButtonWidget : nullptr;
         auto       rewards_controller    = rewardsWidget ? rewardsWidget->_rewardsController : nullptr;

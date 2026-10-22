@@ -1,18 +1,21 @@
-#include <il2cpp/runtime.h>
+#include "galaxy_labels.h"
+#include "config.h"
+#include "galaxy_housing.h"
+#include "galaxy_policy.h"
+#include "patches/galaxy_label_tracking.h"
+#include "settings/galaxy_labels.h"
 #include <il2cpp/method_contract.h>
+#include <il2cpp/runtime.h>
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
-#include "galaxy_labels.h"
-#include "galaxy_policy.h"
-#include "galaxy_housing.h"
-#include "config.h"
-#include "settings/galaxy_labels.h"
 
 // Galaxy label composition and zoom profiles. Native layout and visibility
 // bindings are validated before installation.
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
 #include <array>
 #include <cstring>
+#include <iterator>
+#include <limits>
 #include <optional>
 
 #include <vector>
@@ -57,7 +60,7 @@ private:
   void* galaxy_camera = nullptr;
   const MethodInfo* world_instance = nullptr;
   const MethodInfo* is_minor = nullptr;
-  using Tracked = std::unordered_map<void*, Il2CppGCHandle>;
+  using Tracked                             = LabelTracking<void*, Il2CppGCHandle>;
   Tracked stars, lods, handlers, filters;
   int Mode()
   {
@@ -105,6 +108,7 @@ private:
     bool restoration_warned = false;
   };
   std::unordered_map<void*, Layout> layouts;
+  void*                             next_layout = nullptr;
   void ReleaseShift(const Shift& shift)
   {
     for (auto handle : {shift.transform, shift.parent, shift.layout, shift.element})
@@ -192,18 +196,21 @@ private:
       il2cpp_gchandle_free(it->second);
       objects.erase(it);
     }
-    if (auto handle = il2cpp_gchandle_new_weakref(static_cast<Il2CppObject*>(object), false))
-      objects.emplace(object, handle);
+    if (auto handle = il2cpp_gchandle_new_weakref(static_cast<Il2CppObject*>(object), false)) {
+      try {
+        if (!objects.emplace(object, handle))
+          il2cpp_gchandle_free(handle);
+      } catch (...) {
+        il2cpp_gchandle_free(handle);
+      }
+    }
   }
 
   void Prune(Tracked& objects)
   {
-    for (auto it = objects.begin(); it != objects.end();) {
-      if (!il2cpp_gchandle_get_target(it->second)) {
-        il2cpp_gchandle_free(it->second);
-        it = objects.erase(it);
-      } else ++it;
-    }
+    objects.Prune(
+        32, [](auto handle) { return il2cpp_gchandle_get_target(handle) != nullptr; },
+        [](auto handle) { il2cpp_gchandle_free(handle); });
   }
 
   void* StarFor(void* component)
@@ -315,15 +322,21 @@ private:
     layouts.erase(it);
     return true;
   }
-  void PruneLayouts()
+  void PruneLayouts(std::size_t limit = std::numeric_limits<std::size_t>::max())
   {
-    // Sweep only at profile refreshes, not once per widget. Restore any surviving
-    // children before discarding a collected owner's record.
-    for (auto it = layouts.begin(); it != layouts.end();) {
+    // Restore surviving children before discarding a collected owner's record.
+    // Remember identities, not iterators that a later insertion could invalidate.
+    const auto count = std::min(limit, layouts.size());
+    for (std::size_t visited = 0; visited < count && !layouts.empty(); ++visited) {
+      auto it = next_layout ? layouts.find(next_layout) : layouts.begin();
+      if (it == layouts.end())
+        it = layouts.begin();
+      const auto next = std::next(it);
+      next_layout     = next == layouts.end() ? nullptr : next->first;
       if (!il2cpp_gchandle_get_target(it->second.owner) && RestoreShifts(it->second)) {
         il2cpp_gchandle_free(it->second.owner);
-        it = layouts.erase(it);
-      } else ++it;
+        layouts.erase(it);
+      }
     }
   }
 
@@ -706,6 +719,24 @@ public:
   void Frame(void* source)
   {
     if (!ready || refreshing) return;
+    // Retirement is independent of zoom/redraw eligibility, including after
+    // leaving the galaxy. At most 128 weak targets are checked per callback;
+    // this performs no Unity traversal, reflection or redraw.
+    Prune(filters);
+    Prune(lods);
+    Prune(handlers);
+    Prune(stars);
+    // Layout retirement can restore surviving children, so prevent reentrant
+    // refresh/registration while advancing one restoration record per callback.
+    {
+      refreshing = true;
+      struct FinishMaintenance {
+        bool& flag;
+        ~FinishMaintenance()
+        { flag = false; }
+      } finish{refreshing};
+      PruneLayouts(1);
+    }
     auto* zoom = static_cast<NavigationZoom*>(source);
     if (zoom->_depth != NodeDepth::Galaxy) {
       if (galaxy_camera == source) { galaxy_zoom_valid = false; galaxy_camera = nullptr; }
@@ -739,7 +770,6 @@ public:
       cleanup_layouts = false;
       RestoreAllLayouts();
     }
-    Prune(filters); Prune(lods); Prune(handlers); Prune(stars);
     PruneLayouts();
     galaxy_housing::Refresh();
     // Rebuild the filtered set on threshold changes within a native zoom tier.

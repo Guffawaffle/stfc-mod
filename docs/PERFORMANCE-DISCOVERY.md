@@ -118,3 +118,20 @@ does not invoke native game callbacks or a real HTTP endpoint. Actual gameplay,
 HTTP timeouts and session transitions require artifact-specific runtime testing.
 The [sweep tracker](PERFORMANCE-SWEEP-TRACKER.md) records upstream attribution and
 the other findings separately.
+
+
+## Remaining sweep cleanup
+
+The next batch bounds typed preference saves and selection capture, retires stale
+galaxy weak entries independently of zoom, and replaces borrowed tracker spans
+with rooted bounded snapshots. Provisional native objects have failure cleanup;
+interior range ownership is weak, bounded and restorable. Discovery tow uses
+Unity coroutine scheduling rather than draining yields in one update. Image
+checks and pure sky generation use fixed bounded workers; native allocation/upload
+stays on the owner. Artwork qualification uses ordered five-candidate frame
+budgets; unchanged debug history is not recopied.
+
+The tracker preserves all 24 IDs and upstream extraction boundaries: 20 source
+fixes and four bounded P3 candidates needing profiling. Builds/fixtures do not
+replace gameplay, Mac architecture builds or measured frame-time evidence.
+No AAI changes or runtime deployment are part of this cleanup integration.

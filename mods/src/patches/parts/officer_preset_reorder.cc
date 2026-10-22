@@ -96,14 +96,8 @@ void load_session_order()
   }
 }
 
-bool save_session_order()
-{
-  auto order = nlohmann::json::array();
-  for (const auto slot_id : session_order) {
-    order.push_back(std::to_string(slot_id));
-  }
-  return mod_state::Update([&order](nlohmann::json& state) { state["officer_preset_order"] = std::move(order); });
-}
+uint64_t queue_session_order()
+{ return mod_state::QueueOfficerOrder(session_order); }
 
 static_assert(offsetof(OfficerPresetItemContext, presentation) == 0x18);
 static_assert(offsetof(OfficerPresetItemContext, is_occupied) == 0x1D);
@@ -432,15 +426,15 @@ bool move_preset(OfficerPresetItemContext* context, int direction)
   auto*      target        = view_items[target_index];
   const auto current_order = std::find(session_order.begin(), session_order.end(), context->slot_id);
   const auto target_order  = std::find(session_order.begin(), session_order.end(), target->slot_id);
-  bool       persisted     = false;
+  uint64_t   save_revision = 0;
   if (current_order != session_order.end() && target_order != session_order.end()) {
     std::iter_swap(current_order, target_order);
-    persisted = save_session_order();
+    save_revision = queue_session_order();
   }
 
   spdlog::info("[OfficerPresetReorder] moved slot={} {} across slot={} ({})", context->slot_id,
                direction < 0 ? "up" : "down", target->slot_id,
-               persisted ? "persisted locally" : "local persistence failed");
+               save_revision ? "saving local order" : "local order only; save not queued");
   if (!render_local_order(active_controller, true)) {
     spdlog::warn("[OfficerPresetReorder] local order changed but the scroller could not be refreshed");
   }
@@ -679,6 +673,7 @@ void InstallOfficerPresetReorderHooks()
   get_scroll_position     = reinterpret_cast<GetScrollPositionFn*>(get_scroll_method->methodPointer);
   restore_scroll_position = reinterpret_cast<RestoreScrollPositionFn*>(restore_scroll_method->methodPointer);
 
+  mod_state::PrepareAsync();
   load_session_order();
 
   const bool context = SPUD_STATIC_DETOUR(method->methodPointer, OfficerManager_TryGetPresetItemContext_Hook);

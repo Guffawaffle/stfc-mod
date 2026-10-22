@@ -1,8 +1,9 @@
+#include "patches/pinned_ship_sort.h"
 #include "config.h"
 #include "errormsg.h"
 #include "mod_state.h"
+#include "patches/pending_pin_order.h"
 #include "patches/pinned_ship_order.h"
-#include "patches/pinned_ship_sort.h"
 #include "patches/pinned_ship_state.h"
 #include "patches/screen_update_hook.h"
 #include "patches/ship_identity.h"
@@ -48,9 +49,58 @@ PinnedShipSortState& State()
 
 Il2CppGCHandle pending_refresh = nullptr;
 int pending_refresh_ticks = 0;
+Il2CppGCHandle                     pending_save_context  = nullptr;
+pinned_ship_state::PendingPinOrder pending_pins;
+bool                               save_poll_available = false;
+struct ScopedHandle {
+  Il2CppGCHandle value;
+  ~ScopedHandle()
+  {
+    if (value)
+      il2cpp_gchandle_free(value);
+  }
+};
+
+const std::vector<int64_t>& DesiredPins()
+{ return pending_pins.Desired() ? pending_pins.Desired()->ids : State().pinned_ids; }
+
+const std::vector<std::string>& DesiredLegacyNames()
+{
+  if (const auto* desired = pending_pins.Desired())
+    return desired->legacy_names;
+  return State().has_id_order ? State().legacy_names : Config::Get().pinned_ships;
+}
+
+void PollPinSave()
+{
+  if (!pending_pins.Desired())
+    return;
+  const auto completion = pending_pins.Observe(mod_state::Status(mod_state::Group::ShipPins));
+  if (completion == pinned_ship_state::PendingPinOrder::Completion::Waiting)
+    return;
+  auto desired = pending_pins.Take();
+  auto context = std::exchange(pending_save_context, nullptr);
+  if (completion != pinned_ship_state::PendingPinOrder::Completion::Saved) {
+    if (context)
+      il2cpp_gchandle_free(context);
+    spdlog::warn("[PinnedShipSort] pin changes were not saved; the applied pin order was kept");
+    return;
+  }
+  auto& state        = State();
+  state.pinned_ids   = std::move(desired.ids);
+  state.legacy_names = std::move(desired.legacy_names);
+  state.legacy_pinned_ids.clear();
+  state.has_id_order = true;
+  if (pending_refresh)
+    il2cpp_gchandle_free(pending_refresh);
+  pending_refresh       = context; // Keep only the latest weak selection context.
+  pending_refresh_ticks = 0;
+  spdlog::debug("[PinnedShipSort] latest pin order saved ({} pins)", state.pinned_ids.size());
+}
 
 void FlushPendingRefresh()
 {
+  PollPinSave();
   if (!pending_refresh)
     return;
   if (++pending_refresh_ticks < 2)
@@ -58,7 +108,10 @@ void FlushPendingRefresh()
   auto handle = pending_refresh;
   pending_refresh = nullptr;
   pending_refresh_ticks = 0;
+  ScopedHandle weak_context{handle};
   auto* context = il2cpp_gchandle_get_target(handle);
+  ScopedHandle live_context{context ? il2cpp_gchandle_new(context, false) : nullptr};
+  context                    = live_context.value ? il2cpp_gchandle_get_target(live_context.value) : nullptr;
   static auto widget = AssignShipsWidget::get_class_helper();
   static auto parent = widget.GetParent("Widget`1");
   static auto* bound_context = parent.GetMethodInfo("get_Context", 0);
@@ -73,6 +126,16 @@ void FlushPendingRefresh()
       auto* bound = il2cpp_runtime_invoke(bound_context, item, nullptr, &exception);
       if (exception || bound != context)
         continue;
+      auto* sort = State().shipManagementViewContext->GetMethodInfo("Sort", 0);
+      if (!sort)
+        break;
+      exception = nullptr;
+      il2cpp_runtime_invoke(sort, context, nullptr, &exception);
+      if (exception || !item->isActiveAndEnabled)
+        break;
+      bound = il2cpp_runtime_invoke(bound_context, item, nullptr, &exception);
+      if (exception || bound != context)
+        break;
       int dirty = 0;
       void* args[]{&dirty};
       exception = nullptr;
@@ -80,6 +143,8 @@ void FlushPendingRefresh()
       refreshed = !exception;
       if (!refreshed)
         spdlog::warn("[PinnedShipSort] Assign Ships list redraw failed");
+      else
+        swap_ship_pin_input::RefreshVisibleBadges();
       break;
     }
   }
@@ -87,7 +152,6 @@ void FlushPendingRefresh()
     spdlog::debug("[PinnedShipSort] refreshed active Assign Ships list");
   else
     spdlog::warn("[PinnedShipSort] saved pins but no active Assign Ships list was refreshed");
-  il2cpp_gchandle_free(handle);
 }
 
 bool InitializeState()
@@ -293,7 +357,7 @@ std::optional<std::vector<std::optional<int64_t>>> LegacyAssignments(Il2CppObjec
   std::vector<bool> used(ships.size(), false);
   std::vector<std::optional<int64_t>> assignments;
   assignments.reserve(names.size());
-  auto claimed_ids = state.pinned_ids;
+  auto claimed_ids = DesiredPins();
   for (const auto& name : names) {
     const auto words = ShipNameMatch::SplitWords(name);
     int64_t best_level = -1;
@@ -322,32 +386,20 @@ std::optional<std::vector<std::optional<int64_t>>> LegacyAssignments(Il2CppObjec
 bool SaveAndRefresh(std::vector<int64_t> updated, std::vector<std::string> legacy,
                     Il2CppObject* selection_context)
 {
-  auto& state = State();
-  if (!mod_state::TryUpdate([&](nlohmann::json& data) {
-        pinned_ship_state::WriteOrder(data, updated);
-        pinned_ship_state::WriteLegacyNames(data, legacy);
-      })) {
-    spdlog::warn("[PinnedShipSort] could not save ship-ID pin order; action ignored");
+  if (!save_poll_available)
+    return false;
+  const auto revision = mod_state::QueueShipPins(updated, legacy);
+  if (!revision) {
+    spdlog::warn("[PinnedShipSort] could not queue ship-ID pin order; action ignored");
     return false;
   }
-  state.pinned_ids   = std::move(updated);
-  state.legacy_names = std::move(legacy);
-  state.legacy_pinned_ids.clear();
-  state.has_id_order = true;
-
-  Il2CppException* exception = nullptr;
-  auto* sort = state.shipManagementViewContext->GetMethodInfo("Sort", 0);
-  if (sort)
-    il2cpp_runtime_invoke(sort, selection_context, nullptr, &exception);
-  if (exception)
-    spdlog::warn("[PinnedShipSort] saved pins but could not refresh the current ship sort");
-  if (pending_refresh)
-    il2cpp_gchandle_free(pending_refresh);
-  pending_refresh = il2cpp_gchandle_new(selection_context, false);
-  pending_refresh_ticks = 0;
-  if (!pending_refresh)
-    spdlog::warn("[PinnedShipSort] saved pins but could not queue a ship-bar redraw");
-  swap_ship_pin_input::RefreshVisibleBadges();
+  pending_pins.Queue({std::move(updated), std::move(legacy)}, revision);
+  if (pending_save_context)
+    il2cpp_gchandle_free(pending_save_context);
+  pending_save_context = il2cpp_gchandle_new_weakref(selection_context, false);
+  if (!pending_save_context)
+    spdlog::warn("[PinnedShipSort] pin save queued without a live redraw context");
+  spdlog::debug("[PinnedShipSort] pin order save pending (revision {})", revision);
   return true;
 }
 
@@ -380,8 +432,8 @@ bool HandleCardAction(FleetPlayerData* ship, Il2CppObject* selection_context)
   if (!id)
     return false;
 
-  auto updated = state.pinned_ids;
-  auto legacy  = state.has_id_order ? state.legacy_names : Config::Get().pinned_ships;
+  auto       updated     = DesiredPins();
+  auto       legacy      = DesiredLegacyNames();
   const auto assignments = LegacyAssignments(selection_context, legacy);
   if (!assignments) {
     spdlog::warn("[PinnedShipSort] could not resolve legacy pins; action ignored");
@@ -406,7 +458,7 @@ bool HandleCardAction(FleetPlayerData* ship, Il2CppObject* selection_context)
     pinned_ship_order::Toggle(updated, *id);
 
   if (SaveAndRefresh(std::move(updated), std::move(migrated.unresolved_names), selection_context))
-    spdlog::info("[PinnedShipSort] toggled ship={} ({} pins)", *id, state.pinned_ids.size());
+    spdlog::info("[PinnedShipSort] queued pin toggle for ship={} ({} desired pins)", *id, DesiredPins().size());
   return true;
 }
 
@@ -418,8 +470,8 @@ bool PlacePinnedShip(FleetPlayerData* source, std::optional<int64_t> target_id, 
   const auto id = ship_identity::InstanceId(source);
   if (!id)
     return false;
-  auto updated = state.pinned_ids;
-  auto legacy = state.has_id_order ? state.legacy_names : Config::Get().pinned_ships;
+  auto       updated     = DesiredPins();
+  auto       legacy      = DesiredLegacyNames();
   const auto assignments = LegacyAssignments(selection_context, legacy);
   if (!assignments) {
     spdlog::warn("[PinnedShipSort] could not resolve legacy pins; drag ignored");
@@ -433,16 +485,17 @@ bool PlacePinnedShip(FleetPlayerData* source, std::optional<int64_t> target_id, 
   if (!SaveAndRefresh(std::move(updated), std::move(migrated.unresolved_names), selection_context))
     return false;
   if (target_id)
-    spdlog::info("[PinnedShipSort] dragged ship={} to ship={} ({} pins)", *id, *target_id,
-                 state.pinned_ids.size());
+    spdlog::info("[PinnedShipSort] queued move of ship={} to ship={} ({} desired pins)", *id, *target_id,
+                 DesiredPins().size());
   else
-    spdlog::info("[PinnedShipSort] dragged ship={} to end ({} pins)", *id, state.pinned_ids.size());
+    spdlog::info("[PinnedShipSort] queued move of ship={} to end ({} desired pins)", *id, DesiredPins().size());
   return true;
 }
 } // namespace pinned_ship_sort
 
 void InstallPinnedShipSortHooks()
 {
+  mod_state::PrepareAsync();
   if (const auto persisted = mod_state::Read()) {
     if (const auto order = pinned_ship_state::ReadOrder(*persisted)) {
       State().pinned_ids   = *order;
@@ -473,7 +526,11 @@ void InstallPinnedShipSortHooks()
   s.input_available = swap_ship_pin_input::Install();
   if (!s.input_available)
     spdlog::warn("[PinnedShipSort] drag callbacks unavailable; pin badge input disabled");
-  if (!install_screen_manager_update_hook() || !register_screen_manager_update_callback(FlushPendingRefresh))
-    spdlog::warn("[PinnedShipSort] ship-bar redraw polling unavailable");
+  save_poll_available =
+      install_screen_manager_update_hook() && register_screen_manager_update_callback(FlushPendingRefresh);
+  if (!save_poll_available) {
+    s.input_available = false;
+    spdlog::warn("[PinnedShipSort] save receipt polling unavailable; pin editing disabled");
+  }
   spdlog::info("Pinned ship sort: hooks installed");
 }

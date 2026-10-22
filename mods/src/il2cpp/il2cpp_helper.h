@@ -12,6 +12,11 @@
 #include <EASTL/unordered_map.h>
 #include <EASTL/vector.h>
 
+#include <algorithm>
+#include <array>
+#include <mutex>
+#include <utility>
+
 #if !_WIN32
 #include <syslog.h>
 #include <unistd.h>
@@ -357,28 +362,162 @@ template <typename T> inline T* il2cpp_get_array_element(Il2CppArray* array, siz
 }
 
 extern eastl::unordered_map<Il2CppClass*, eastl::vector<uintptr_t>> tracked_objects;
+extern std::mutex                                                   tracked_objects_mutex;
+void ReportTrackedObjectSnapshotIssue(Il2CppClass* klass, size_t total, size_t limit, bool root_failed);
+
+// A registry view must own its managed wrappers: callbacks can destroy views,
+// run liveness collection, or grow the registry while a caller iterates it.
+// This stack snapshot never lends the mutable registry's vector storage.
+template <typename T, size_t Capacity = 128> class TrackedObjectSnapshot
+{
+public:
+  TrackedObjectSnapshot()                                        = default;
+  TrackedObjectSnapshot(const TrackedObjectSnapshot&)            = delete;
+  TrackedObjectSnapshot& operator=(const TrackedObjectSnapshot&) = delete;
+  TrackedObjectSnapshot(TrackedObjectSnapshot&& other) noexcept
+      : handles_(std::exchange(other.handles_, {}))
+      , count_(std::exchange(other.count_, 0))
+      , total_(other.total_)
+      , cached_pointer_offset_(other.cached_pointer_offset_)
+      , root_failed_(other.root_failed_)
+  {
+  }
+  ~TrackedObjectSnapshot()
+  {
+    for (auto handle : handles_)
+      if (handle)
+        il2cpp_gchandle_free(handle);
+  }
+
+  static TrackedObjectSnapshot Capture(Il2CppClass* klass, size_t requested_limit = Capacity)
+  {
+    TrackedObjectSnapshot result;
+    if (!klass) {
+      result.root_failed_ = true;
+      return result;
+    }
+    // Resolve metadata outside the tracker lock. GC handle creation below is a
+    // native root operation; no Unity query or managed invocation runs locked.
+    result.cached_pointer_offset_ = LayoutOffset(klass);
+    const auto limit              = std::min(requested_limit, Capacity);
+    if (result.cached_pointer_offset_ == -2) {
+      result.root_failed_ = true;
+      ReportTrackedObjectSnapshotIssue(klass, 0, limit, true);
+      return result;
+    }
+    {
+      std::scoped_lock lock{tracked_objects_mutex};
+      const auto       entry = tracked_objects.find(klass);
+      if (entry == tracked_objects.end())
+        return result;
+      const auto& objects = entry->second;
+      result.total_       = objects.size();
+      const auto count    = std::min<size_t>(objects.size(), limit);
+      // Prefer the latest bounded cohort, retaining its original iteration order.
+      for (size_t index = objects.size() - count; index < objects.size(); ++index) {
+        auto* object = reinterpret_cast<Il2CppObject*>(objects[index]);
+        if (!object)
+          continue;
+        if (auto handle = il2cpp_gchandle_new(object, false))
+          result.handles_[result.count_++] = handle;
+        else
+          result.root_failed_ = true;
+      }
+    }
+    if (result.total_ > limit || result.root_failed_)
+      ReportTrackedObjectSnapshotIssue(klass, result.total_, limit, result.root_failed_);
+    return result;
+  }
+
+  bool empty() const
+  { return count_ == 0; }
+  size_t size() const
+  { return count_; }
+  size_t tracked_count() const
+  { return total_; }
+  bool complete() const
+  { return !root_failed_ && count_ == total_; }
+
+  T* At(size_t index) const
+  {
+    auto* object = index < count_ ? il2cpp_gchandle_get_target(handles_[index]) : nullptr;
+    return Alive(object, cached_pointer_offset_) ? reinterpret_cast<T*>(object) : nullptr;
+  }
+
+  // Metadata-only resolution, before taking the tracker lock. Plain managed
+  // tracked objects have no Unity native pointer and must not be read as one.
+  static ptrdiff_t LayoutOffset(Il2CppClass* klass)
+  {
+    static auto object = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Object");
+    if (!object.isValidHelper())
+      return -2;
+    for (auto* current = klass; current; current = current->parent) {
+      if (current != object.get_cls())
+        continue;
+      static auto field  = object.GetField("m_CachedPtr");
+      auto*       info   = field.get_info();
+      const auto  offset = info ? field.offset() : -1;
+      return info && info->type && !info->type->byref && info->type->type == IL2CPP_TYPE_I
+                     && offset >= sizeof(Il2CppObject) && offset + sizeof(void*) <= object.get_cls()->instance_size
+                 ? offset
+                 : -2;
+    }
+    return -1;
+  }
+
+  static bool Alive(Il2CppObject* object, ptrdiff_t native_pointer_offset)
+  {
+    if (!object || !object->klass || (reinterpret_cast<uintptr_t>(object->klass) & 1) || native_pointer_offset == -2)
+      return false;
+    return native_pointer_offset < 0
+           || *reinterpret_cast<void**>(reinterpret_cast<char*>(object) + native_pointer_offset) != nullptr;
+  }
+
+  struct Iterator {
+    const TrackedObjectSnapshot* snapshot;
+    size_t                       index;
+    T*                           operator*() const
+    { return snapshot->At(index); }
+    Iterator& operator++()
+    {
+      ++index;
+      return *this;
+    }
+    bool operator==(const Iterator&) const = default;
+  };
+  Iterator begin() const
+  { return {this, 0}; }
+  Iterator end() const
+  { return {this, count_}; }
+
+private:
+  std::array<Il2CppGCHandle, Capacity> handles_{};
+  size_t                               count_                 = 0;
+  size_t                               total_                 = 0;
+  ptrdiff_t                            cached_pointer_offset_ = -1;
+  bool                                 root_failed_           = false;
+};
 
 template <typename T> class ObjectFinder
 {
 public:
   static T* Get()
   {
-    auto& objects = tracked_objects[T::get_class_helper().get_cls()];
-    if (objects.empty()) {
+    auto*            klass                 = T::get_class_helper().get_cls();
+    const auto       native_pointer_offset = TrackedObjectSnapshot<T>::LayoutOffset(klass);
+    std::scoped_lock lock{tracked_objects_mutex};
+    const auto       entry = tracked_objects.find(klass);
+    if (entry == tracked_objects.end() || entry->second.empty()) {
       // TODO: assert?
       return nullptr;
     }
-    return reinterpret_cast<T*>(objects.back());
+    auto* object = reinterpret_cast<Il2CppObject*>(entry->second.back());
+    return TrackedObjectSnapshot<T>::Alive(object, native_pointer_offset) ? reinterpret_cast<T*>(object) : nullptr;
   }
 
-  static eastl::span<T*> GetAll()
-  {
-    auto& objects = tracked_objects[T::get_class_helper().get_cls()];
-    return {reinterpret_cast<T**>(objects.data()), reinterpret_cast<T**>(objects.data()) + objects.size()};
-  }
+  static TrackedObjectSnapshot<T> GetAll(size_t limit = 128)
+  { return TrackedObjectSnapshot<T>::Capture(T::get_class_helper().get_cls(), limit); }
 };
 
 template <typename T> T* il2cpp_resolve_icall_typed(const char* name)
-{
-  return (T*)il2cpp_resolve_icall(name);
-}
+{ return (T*)il2cpp_resolve_icall(name); }

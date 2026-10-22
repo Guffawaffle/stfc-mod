@@ -15,6 +15,9 @@ struct TextEntryRequest {
   std::function<void()>                        cancel;
   bool                                         read_only   = false;
   std::string                                  apply_label = "Apply";
+  // Optional cheap owner-thread poll for deferred validation completion. A
+  // matching completion reruns validate and updates Apply without typing.
+  std::function<bool()> validation_changed;
 };
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
 bool OpenTextEntry(TextEntryRequest request);

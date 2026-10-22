@@ -1,6 +1,9 @@
 #include "mod_state.h"
 
+#ifndef MOD_STATE_FIXTURE_PATH
 #include "file.h"
+#endif
+#include "patches/pinned_ship_state.h"
 
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -26,6 +29,9 @@ namespace
 {
 std::filesystem::path state_path()
 {
+#ifdef MOD_STATE_FIXTURE_PATH
+  return MOD_STATE_FIXTURE_PATH;
+#else
   if (File::hasCustomNames()) {
     std::filesystem::path config_path{File::Config()};
     auto                  state_name = config_path.stem();
@@ -33,6 +39,7 @@ std::filesystem::path state_path()
     return config_path.parent_path() / state_name;
   }
   return std::filesystem::path{File::MakePath("community_patch_state.json", true)};
+#endif
 }
 
 class StateFileLock
@@ -178,9 +185,9 @@ std::optional<nlohmann::json> Read()
   }
 }
 
-static bool update_state(const std::function<void(nlohmann::json&)>& update, int lock_attempts)
+static bool update_state(const std::filesystem::path& path, const std::function<void(nlohmann::json&)>& update,
+                         int lock_attempts)
 {
-  const auto    path = state_path();
   StateFileLock lock(path, lock_attempts);
   if (!lock.acquired()) {
     spdlog::warn("[ModState] unable to lock state file '{}'", path.string());
@@ -248,8 +255,96 @@ static bool update_state(const std::function<void(nlohmann::json&)>& update, int
 }
 
 bool Update(const std::function<void(nlohmann::json&)>& update)
-{ return update_state(update, 50); }
+{ return update_state(state_path(), update, 50); }
 
 bool TryUpdate(const std::function<void(nlohmann::json&)>& update)
-{ return update_state(update, 1); }
+{ return update_state(state_path(), update, 1); }
+
+static std::atomic<StateWriter*> async_writer{nullptr};
+
+bool PrepareAsync()
+{
+  static std::mutex prepare_mutex;
+  std::lock_guard   lock(prepare_mutex);
+  if (async_writer.load(std::memory_order_acquire))
+    return true;
+  try {
+    const auto path   = state_path();
+    auto*      writer = new StateWriter([path](const StateEdit& edit) {
+      const bool saved = update_state(
+          path,
+          [&edit](nlohmann::json& state) {
+            if (edit.group == Group::OfficerOrder) {
+              auto order = nlohmann::json::array();
+              for (const auto id : edit.ids)
+                order.push_back(std::to_string(id));
+              state["officer_preset_order"] = std::move(order);
+            } else if (edit.group == Group::ShipPins) {
+              pinned_ship_state::WriteOrder(state, edit.ids);
+              pinned_ship_state::WriteLegacyNames(state, edit.legacy_names);
+            } else {
+              auto& console = state["dev_console"];
+              if (!console.is_object())
+                console = nlohmann::json::object();
+              console.erase("background_opacity");
+              console["background_opacity_percent"] = edit.opacity_percent;
+            }
+          },
+          50);
+      if (!saved)
+        spdlog::warn("[ModState] {} could not be saved; the failed receipt remains visible",
+                     edit.group == Group::OfficerOrder ? "Officer preset order"
+                     : edit.group == Group::ShipPins   ? "Ship pin order"
+                                                       : "Debug console opacity");
+      return saved;
+    });
+    async_writer.store(writer, std::memory_order_release);
+    return true;
+  } catch (...) {
+    spdlog::warn("[ModState] background state saving is unavailable");
+    return false;
+  }
+}
+
+uint64_t QueueOfficerOrder(const std::vector<int64_t>& order)
+{
+  auto* writer = async_writer.load(std::memory_order_acquire);
+  if (!writer || !StateWriter::Charge(order))
+    return 0;
+  try {
+    return writer->Submit({Group::OfficerOrder, order, {}});
+  } catch (...) {
+    return 0;
+  }
+}
+
+uint64_t QueueShipPins(const std::vector<int64_t>& ids, const std::vector<std::string>& names)
+{
+  auto* writer = async_writer.load(std::memory_order_acquire);
+  if (!writer || !StateWriter::Charge(ids, names))
+    return 0;
+  try {
+    return writer->Submit({Group::ShipPins, ids, names});
+  } catch (...) {
+    return 0;
+  }
+}
+
+SaveStatus Status(Group group)
+{
+  auto* writer = async_writer.load(std::memory_order_acquire);
+  return writer ? writer->Status(group) : SaveStatus{};
+}
+
+uint64_t QueueConsoleOpacity(int percent)
+{
+  auto* writer = async_writer.load(std::memory_order_acquire);
+  if (!writer || percent < 0 || percent > 100)
+    return 0;
+  try {
+    return writer->Submit({Group::ConsoleOpacity, {}, {}, percent});
+  } catch (...) {
+    return 0;
+  }
+}
 } // namespace mod_state
