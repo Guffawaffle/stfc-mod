@@ -44,12 +44,18 @@ namespace
   Root native_background{false};
   Root sky_texture{false}, owning_camera{false};
   Root source_loader{false};
+  Root scenery_pool{false};
   std::chrono::steady_clock::time_point next_discovery{};
   struct Bounds {
     Vector3 center, extents;
   };
   Bounds            scenery_bounds{};
+  Bounds            pending_bounds{};
   bool              bounds_valid    = false;
+  bool              pending_bounds_valid = false;
+  Il2CppObject     *scenery_owner = nullptr;
+  size_t            scenery_cursor = 0, scenery_count = 0;
+  int               scenery_mask = 0, pending_mask = 0, next_bounds_scan = 0, last_bounds_frame = -1;
   bool              reported_bounds = false;
   bool              attempted = false, ready = false, failed = false;
   int               next_scan = 0;
@@ -430,7 +436,7 @@ namespace
     return true;
   }
 
-  void IncludeScenery(Il2CppObject *renderer, int mask)
+  void IncludeScenery(Il2CppObject *renderer, int mask, Bounds &combined, bool &valid)
   {
     Bounds        bounds{};
     Il2CppObject *object  = nullptr;
@@ -447,9 +453,9 @@ namespace
     if (!std::isfinite(c.x) || !std::isfinite(c.y) || !std::isfinite(c.z) || !std::isfinite(e.x) || !std::isfinite(e.y)
         || !std::isfinite(e.z) || e.x < 0 || e.y < 0 || e.z < 0)
       return;
-    if (!bounds_valid) {
-      scenery_bounds = bounds;
-      bounds_valid   = true;
+    if (!valid) {
+      combined = bounds;
+      valid    = true;
       return;
     }
     const auto merge = [](float &center, float &extent, float next_center, float next_extent) {
@@ -458,30 +464,64 @@ namespace
       center            = float((low + high) * 0.5);
       extent            = float((high - low) * 0.5);
     };
-    merge(scenery_bounds.center.x, scenery_bounds.extents.x, c.x, e.x);
-    merge(scenery_bounds.center.y, scenery_bounds.extents.y, c.y, e.y);
-    merge(scenery_bounds.center.z, scenery_bounds.extents.z, c.z, e.z);
+    merge(combined.center.x, combined.extents.x, c.x, e.x);
+    merge(combined.center.y, combined.extents.y, c.y, e.y);
+    merge(combined.center.z, combined.extents.z, c.z, e.z);
   }
 
-  void CaptureSceneryBounds(Il2CppObject *loader, int mask)
+  void CaptureSceneryBounds(int frame)
   {
-    bounds_valid = false;
-    IncludeScenery(native_background.Get(), mask);
+    auto *loader = source_loader.Get();
+    if (!loader || frame == last_bounds_frame)
+      return;
+    last_bounds_frame = frame;
     Il2CppArray *pool = nullptr;
     if (pool_field)
       il2cpp_field_get_value(loader, pool_field, &pool);
     if (!pool || !pool->klass || pool->klass->rank != 1 || !pool->klass->element_class
         || !il2cpp_class_is_assignable_from(flat_class, pool->klass->element_class) || pool->max_length > 128)
+      pool = nullptr;
+    const size_t count = pool ? pool->max_length : 0;
+    // Pool replacement and camera-layer changes start a fresh pass immediately.
+    // Re-read each slot during the pass: streaming can mutate a pool in place.
+    if (scenery_owner != loader || scenery_pool.Get() != reinterpret_cast<Il2CppObject *>(pool)
+        || scenery_count != count || pending_mask != scenery_mask) {
+      scenery_pool.Reset(reinterpret_cast<Il2CppObject *>(pool));
+      scenery_owner     = loader;
+      scenery_count     = count;
+      scenery_cursor    = 0;
+      pending_mask      = scenery_mask;
+      next_bounds_scan  = frame;
+    }
+    if (pool && !scenery_pool.Get())
       return;
-    Root pool_root;
-    pool_root.Reset(reinterpret_cast<Il2CppObject *>(pool));
-    for (size_t i = 0; pool_root.Get() && i < pool->max_length; ++i) {
-      auto         *flat     = *reinterpret_cast<Il2CppObject **>(il2cpp_array_addr_with_size(pool, i, sizeof(void *)));
+    if (!scenery_cursor) {
+      if (frame < next_bounds_scan)
+        return;
+      next_bounds_scan     = frame + 30;
+      pending_bounds_valid = false;
+      IncludeScenery(native_background.Get(), pending_mask, pending_bounds, pending_bounds_valid);
+    }
+    // A large backdrop previously queried up to 128 renderers on one frame.
+    // Five entries per frame finish the same maximum pool within 26 frames,
+    // while still observing moving bounds, visibility and streamed renderers.
+    constexpr size_t budget = 5;
+    const size_t end = std::min(scenery_count, scenery_cursor + budget);
+    for (; scenery_cursor < end; ++scenery_cursor) {
+      auto         *flat = *reinterpret_cast<Il2CppObject **>(
+          il2cpp_array_addr_with_size(pool, scenery_cursor, sizeof(void *)));
       Il2CppObject *renderer = nullptr;
       if (Live(flat) && il2cpp_class_is_assignable_from(flat_class, flat->klass)) {
         il2cpp_field_get_value(flat, renderer_field, &renderer);
-        IncludeScenery(renderer, mask);
+        IncludeScenery(renderer, pending_mask, pending_bounds, pending_bounds_valid);
       }
+    }
+    if (scenery_cursor == scenery_count) {
+      // Keep the last complete bounds throughout a refresh. A partial union
+      // would temporarily shrink draw distance and clip unsampled scenery.
+      scenery_bounds = pending_bounds;
+      bounds_valid   = pending_bounds_valid;
+      scenery_cursor = 0;
     }
   }
 
@@ -519,6 +559,7 @@ namespace
       Fail("camera-mask");
       return;
     }
+    scenery_mask = mask;
     unsigned     active_loaders = 0, textured_backgrounds = 0;
     const size_t count = cached ? 1 : array->max_length;
     for (size_t i = 0; i < count; ++i) {
@@ -559,7 +600,6 @@ namespace
       if (texture == source.Get() && native_renderer == native_background.Get() && Live(shell.Get())) {
         if (source_loader.Get() != loader)
           source_loader.Reset(loader);
-        CaptureSceneryBounds(loader, mask);
         return;
       }
       Root texture_root;
@@ -572,8 +612,6 @@ namespace
       source_loader.Reset(loader_root.Get());
       if (!texture_root.Get() || !renderer_root.Get() || !Create(texture_root.Get(), layer, renderer_root.Get()))
         Fail("shell-create");
-      else
-        CaptureSceneryBounds(loader, mask);
       return;
     }
     // Loading transitions must not retain another system's artwork.
@@ -599,6 +637,13 @@ void Clear()
   shell_renderer.Reset();
   owning_camera.Reset();
   source_loader.Reset();
+  scenery_pool.Reset();
+  scenery_owner        = nullptr;
+  scenery_cursor       = 0;
+  scenery_count        = 0;
+  pending_bounds_valid = false;
+  next_bounds_scan     = 0;
+  last_bounds_frame    = -1;
   bounds_valid    = false;
   reported_bounds = false;
 }
@@ -665,6 +710,7 @@ void Update(Il2CppObject *camera)
     Fail("camera-root");
     return;
   }
+  CaptureSceneryBounds(frame);
   ApplyDrawDistance(camera);
   if (failed)
     return;

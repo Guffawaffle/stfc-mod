@@ -315,17 +315,15 @@ Json Bundles(void* list)
 void WriteEvent(Json event) noexcept
 {
   try {
-    if (!journal)
+    if (!ready.load() || !journal)
       return;
     event["schema"]  = 1;
     event["session"] = sessionId;
     event["utc_ms"] =
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
             .count();
-    event["seq"] = sequence++;
-    Checkpoint(event);
-    journal->info("{}", event.dump());
-    PublishDiagnosticEvent("claims/selections", event);
+    if (!QueueDiagnostic(DiagnosticKind::selection, std::move(event)))
+      healthy.store(false);
   } catch (...) {
     healthy.store(false);
   }
@@ -454,7 +452,6 @@ struct Observation {
     try {
       if (!event.is_null()) {
         event["after"] = State(object, kind);
-        CompactObservation(event);
         event["unwind"] = std::uncaught_exceptions() > exceptions;
         WriteEvent(std::move(event));
       }
@@ -614,11 +611,27 @@ const MethodInfo* UniqueMethod(size_t index)
 }
 } // namespace selection_trace
 
+void ProcessSelectionEvent(Json event)
+{
+  if (!selection_trace::journal) {
+    selection_trace::healthy.store(false);
+    return;
+  }
+  // Selection compaction/checkpoint persistence use owned snapshots and share
+  // the journal's FIFO order. No preference getter is invoked on this worker.
+  event["seq"] = selection_trace::sequence++;
+  if (event.contains("before") && event.contains("after"))
+    selection_trace::CompactObservation(event);
+  selection_trace::Checkpoint(event);
+  selection_trace::journal->info("{}", event.dump());
+  PublishDiagnosticEvent("claims/selections", event);
+}
+
 Json SelectionTraceStatus()
 {
   return {{"hooks", selection_trace::installed},
           {"expected_hooks", std::size(selection_trace::targets)},
-          {"healthy", selection_trace::journal && selection_trace::healthy.load()
+          {"healthy", selection_trace::journal && selection_trace::healthy.load() && sinkHealthy.load()
                           && selection_trace::installed == std::size(selection_trace::targets)},
           {"shared_cloud_load_seen", selection_trace::sharedCloudLoadSeen.load()},
           {"journal", "bulk_selection.jsonl"}};
@@ -633,9 +646,12 @@ void TraceSelectionTransport(const Json& event) noexcept
       auto copy     = event;
       copy["event"] = "transport";
       copy["phase"] = event.value("event", std::string{});
-      selection_trace::WriteEvent(std::move(copy));
+      copy["schema"] = 1;
+      ProcessSelectionEvent(std::move(copy)); // Already on the same journal worker.
     }
   } catch (...) {
+    selection_trace::healthy.store(false);
+    sinkHealthy.store(false);
   }
 }
 
@@ -697,6 +713,13 @@ void InstallSelectionTrace()
   SELECTION_HOOK(11, Get);
   SELECTION_HOOK(12, CloudSave);
 #undef SELECTION_HOOK
+  spdlog::info("[BulkSelectionTrace] passive journal: {}/{} hooks; science/claims/bulk_selection.jsonl", installed,
+               std::size(targets));
+}
+
+void WriteSelectionSession()
+{
+  using namespace selection_trace;
   WriteEvent(
       {{"event", "session"},
        {"source", STFC_IDENTITY_COMMENT_STR},
@@ -706,6 +729,4 @@ void InstallSelectionTrace()
        {"healthy", healthy.load() && installed == std::size(targets)},
        {"limits", "4 MiB plus 4 rotations; 2048 rows per snapshot/list; 4096 dictionary slots; unknown is explicit"},
        {"cloud", "attempt/transport observation is not durable cloud persistence; compare a later native read"}});
-  spdlog::info("[BulkSelectionTrace] passive journal: {}/{} hooks; science/claims/bulk_selection.jsonl", installed,
-               std::size(targets));
 }

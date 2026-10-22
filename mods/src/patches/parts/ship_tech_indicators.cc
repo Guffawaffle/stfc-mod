@@ -8,16 +8,21 @@
 #include "il2cpp/runtime.h"
 #include "prime/GameObject.h"
 #include "prime/ShipTileWidget.h"
+#include "prime/ShipManagementViewController.h"
 #include "prime/Transform.h"
 
 #include <spdlog/spdlog.h>
 #include <spud/detour.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <mutex>
+
+extern std::mutex tracked_objects_mutex;
 
 namespace
 {
@@ -69,6 +74,7 @@ struct Methods {
   FieldInfo*        selector_target_field = nullptr;
   FieldInfo*        ship_image            = nullptr;
   FieldInfo*        token_image           = nullptr;
+  FieldInfo*        owned_token_slots[4]  = {};
   Il2CppClass*      token_widget_class    = nullptr;
   Il2CppClass*      int64_class           = nullptr;
 } methods;
@@ -225,20 +231,56 @@ Il2CppObject* SelectorTarget(Il2CppObject* selector)
 Transform* ComponentTransform(Il2CppObject* component)
 { return reinterpret_cast<Transform*>(Get(component, "get_transform")); }
 
-GameObject* TokenImageSource()
+bool UnityAlive(Il2CppObject* value)
+{
+  static auto object = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Object");
+  static auto* alive =
+      method_contract::Resolve(object.get_cls(), "op_Implicit", true, "System.Boolean", {"UnityEngine.Object"});
+  void* args[]{value};
+  bool valid = false;
+  return value && Il2CppRuntime::TryBoolean(Invoke(alive, nullptr, args), valid) && valid;
+}
+
+struct TemporaryRoot {
+  Il2CppGCHandle handle = nullptr;
+  explicit TemporaryRoot(Il2CppObject* object)
+      : handle(object ? il2cpp_gchandle_new(object, false) : nullptr)
+  {
+  }
+  TemporaryRoot(const TemporaryRoot&) = delete;
+  TemporaryRoot& operator=(const TemporaryRoot&) = delete;
+  ~TemporaryRoot()
+  {
+    if (handle)
+      il2cpp_gchandle_free(handle);
+  }
+  Il2CppObject* Get() const { return handle ? il2cpp_gchandle_get_target(handle) : nullptr; }
+};
+
+GameObject* TokenWidgetImage(Il2CppObject* widget)
+{
+  TemporaryRoot widget_root(widget);
+  if (!widget_root.Get())
+    return nullptr;
+  if (!UnityAlive(widget) || !methods.token_widget_class
+      || !il2cpp_class_is_assignable_from(methods.token_widget_class, widget->klass))
+    return nullptr;
+  auto* selector = ReferenceField(widget, methods.token_image);
+  auto* transform = UnityAlive(selector) ? ComponentTransform(selector) : nullptr;
+  auto* source = transform && UnityAlive(reinterpret_cast<Il2CppObject*>(transform)) ? transform->gameObject : nullptr;
+  return UnityAlive(reinterpret_cast<Il2CppObject*>(source)) ? source : nullptr;
+}
+
+GameObject* TokenImageSource(Il2CppObject* selection_context)
 {
   // Tile binding can call this twice per ship. Retain only a weak handle to
-  // the native template, and do not repeat a missing-template scan per tile.
+  // the native template, and poll its existing owner when late-loaded slots
+  // are unavailable. Missing art must not become a periodic resource scan.
   static Il2CppGCHandle cached       = nullptr;
   static auto           next_attempt = std::chrono::steady_clock::time_point{};
-  static auto           object       = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Object");
-  static auto*          alive =
-      method_contract::Resolve(object.get_cls(), "op_Implicit", true, "System.Boolean", {"UnityEngine.Object"});
   if (cached) {
     auto* source = il2cpp_gchandle_get_target(cached);
-    void* args[]{source};
-    bool  valid = false;
-    if (source && Il2CppRuntime::TryBoolean(Invoke(alive, nullptr, args), valid) && valid)
+    if (UnityAlive(source))
       return reinterpret_cast<GameObject*>(source);
     il2cpp_gchandle_free(cached);
     cached = nullptr;
@@ -246,7 +288,70 @@ GameObject* TokenImageSource()
   const auto now = std::chrono::steady_clock::now();
   if (now < next_attempt)
     return nullptr;
-  next_attempt           = now + std::chrono::seconds(5);
+  next_attempt = now + std::chrono::seconds(5);
+  TemporaryRoot context_root(selection_context);
+  if (selection_context && !context_root.Get())
+    return nullptr;
+
+  // Ship Management already owns the exact serialized FT/CT token selectors,
+  // including while its details panel is hidden by Ship Selection. This
+  // registry is populated by the existing object tracker, with no new hook.
+  constexpr size_t owner_limit = 32;
+  struct OwnerSnapshot {
+    std::array<Il2CppGCHandle, owner_limit> handles{};
+    ~OwnerSnapshot()
+    {
+      for (auto handle : handles)
+        if (handle)
+          il2cpp_gchandle_free(handle);
+    }
+  } owners;
+  auto* owner_class = ShipManagementViewController::get_class_helper().get_cls();
+  {
+    std::scoped_lock lock{tracked_objects_mutex};
+    const auto entry = tracked_objects.find(owner_class);
+    if (entry != tracked_objects.end()) {
+      const auto& objects = entry->second;
+      const size_t count = std::min<size_t>(objects.size(), owner_limit);
+      // Create weak roots while finalizer removal is excluded. No managed
+      // invocation or Unity query runs while holding the registry mutex.
+      for (size_t offset = 0; offset < count; ++offset)
+        owners.handles[offset] = il2cpp_gchandle_new_weakref(
+            reinterpret_cast<Il2CppObject*>(objects[objects.size() - 1 - offset]), false);
+    }
+  }
+  for (auto handle : owners.handles) {
+    auto* owner = handle ? il2cpp_gchandle_get_target(handle) : nullptr;
+    if (!UnityAlive(owner) || il2cpp_gchandle_get_target(handle) != owner)
+      continue;
+    TemporaryRoot owner_root(owner);
+    if (!owner_root.Get())
+      continue;
+    for (auto* field : methods.owned_token_slots) {
+      if (auto* source = TokenWidgetImage(ReferenceField(owner, field))) {
+        cached = il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(source), false);
+        return source;
+      }
+    }
+  }
+
+  // Preserve the original prefab fallback for unbound/older native layouts,
+  // but attempt it only once per selection context. The cheap owner checks
+  // above keep retrying so streamed native slots can still become available.
+  static Il2CppGCHandle fallback_context = nullptr;
+  static bool context_initialized = false, fallback_attempted = false;
+  if (!context_initialized
+      || (fallback_context && il2cpp_gchandle_get_target(fallback_context) != selection_context)) {
+    if (fallback_context)
+      il2cpp_gchandle_free(fallback_context);
+    fallback_context = selection_context ? il2cpp_gchandle_new_weakref(selection_context, false) : nullptr;
+    context_initialized = true;
+    fallback_attempted = false;
+  }
+  if (fallback_attempted)
+    return nullptr;
+  fallback_attempted = true;
+
   static auto  resources = il2cpp_get_class_helper("UnityEngine.CoreModule", "UnityEngine", "Resources");
   static auto* find_all  = method_contract::Resolve(resources.get_cls(), "FindObjectsOfTypeAll", true,
                                                     "UnityEngine.Object[]", {"System.Type"});
@@ -254,14 +359,13 @@ GameObject* TokenImageSource()
     return nullptr;
   void* args[]{il2cpp_type_get_object(il2cpp_class_get_type(methods.token_widget_class))};
   auto* array = reinterpret_cast<Il2CppArraySize*>(Invoke(find_all, nullptr, args));
-  if (!array)
+  TemporaryRoot array_root(reinterpret_cast<Il2CppObject*>(array));
+  if (!array_root.Get())
     return nullptr;
-  for (il2cpp_array_size_t index = 0; index < array->max_length; ++index) {
-    auto* widget    = static_cast<Il2CppObject*>(array->vector[index]);
-    auto* selector  = ReferenceField(widget, methods.token_image);
-    auto* transform = ComponentTransform(selector);
-    if (transform && transform->gameObject) {
-      auto* source = transform->gameObject;
+  const auto count = std::min<il2cpp_array_size_t>(array->max_length, 4096);
+  for (il2cpp_array_size_t index = 0; index < count; ++index) {
+    auto* widget = static_cast<Il2CppObject*>(array->vector[index]);
+    if (auto* source = TokenWidgetImage(widget)) {
       cached       = il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(source), false);
       return source;
     }
@@ -544,7 +648,7 @@ int64_t ArtId(int64_t tech_id)
 }
 
 void UpdateIndicator(Transform* parent, GameObject* source, const char* name, const char* backing_name, Vector2 anchor,
-                     Vector2 pivot, Vector2 position, int64_t art_id)
+                     Vector2 pivot, Vector2 position, int64_t art_id, Il2CppObject* selection_context)
 {
   static auto image_selector = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "ImageSelector");
   auto*       child          = DirectChild(parent, name);
@@ -559,7 +663,7 @@ void UpdateIndicator(Transform* parent, GameObject* source, const char* name, co
     return;
 
   if (!object) {
-    auto* token_source = TokenImageSource();
+    auto* token_source = TokenImageSource(selection_context);
     object             = CreateIndicator(name, parent, token_source ? token_source : source, anchor, pivot, position);
   }
   auto* selector = Component(reinterpret_cast<Il2CppObject*>(object), image_selector.get_cls());
@@ -606,13 +710,14 @@ void UpdateIndicator(Transform* parent, GameObject* source, const char* name, co
              ComponentTransform(reinterpret_cast<Il2CppObject*>(object)));
 }
 
-void UpdateIndicators(Transform* parent, GameObject* source, int64_t ft_art = 0, int64_t ct_art = 0)
+void UpdateIndicators(Transform* parent, GameObject* source, int64_t ft_art = 0, int64_t ct_art = 0,
+                      Il2CppObject* selection_context = nullptr)
 {
   const bool selected = SelectedCard(parent);
   UpdateIndicator(parent, source, kForbiddenIndicator, kForbiddenBacking, {0, 1}, {0, 1},
-                  selected ? Vector2{16, -3} : Vector2{8, -3}, ft_art);
+                  selected ? Vector2{16, -3} : Vector2{8, -3}, ft_art, selection_context);
   UpdateIndicator(parent, source, kChaosIndicator, kChaosBacking, {1, 1}, {1, 1},
-                  selected ? Vector2{-56, -3} : Vector2{-8, -3}, ct_art);
+                  selected ? Vector2{-56, -3} : Vector2{-8, -3}, ct_art, selection_context);
 }
 
 bool CreatePinPiece(Transform* parent, const char* name, Vector2 size, Vector2 position, Color color)
@@ -750,7 +855,8 @@ void SetWidgetData_Hook(auto original, ShipTileWidget* widget)
   auto* image_source = image_parent ? image_parent->gameObject : nullptr;
   if (!tile_parent)
     return;
-  const bool in_selection = swap_ship_tile::IsInSelection(widget);
+  auto* selection_context = swap_ship_tile::SelectionContext(widget);
+  const bool in_selection = selection_context != nullptr;
   const bool pinning_enabled = in_selection && Config::Get().installPinnedShipSortHooks
                                && pinned_ship_sort::Available();
   if (pinning_enabled)
@@ -764,7 +870,7 @@ void SetWidgetData_Hook(auto original, ShipTileWidget* widget)
 
   const auto ship_id = ship_identity::InstanceId(reinterpret_cast<FleetPlayerData*>(context));
   const auto active  = ship_id ? ReadActiveSlots(*ship_id) : ActiveSlots{};
-  UpdateIndicators(tile_parent, image_source, ArtId(active.ft), ArtId(active.ct));
+  UpdateIndicators(tile_parent, image_source, ArtId(active.ft), ArtId(active.ct), selection_context);
 }
 } // namespace
 
@@ -1131,6 +1237,13 @@ void InstallShipTechIndicatorHooks()
       token_widget.get_cls() ? il2cpp_class_get_field_from_name(token_widget.get_cls(), "_tokenImage") : nullptr;
   methods.token_widget_class = token_widget.get_cls();
   methods.int64_class        = int64_type.get_cls();
+  const char* slot_fields[]{"_forbiddenTechSlot", "_forbiddenTechStatus", "_chaosTechSlot", "_chaosTechStatus"};
+  auto* owner_class = ShipManagementViewController::get_class_helper().get_cls();
+  for (size_t index = 0; index < std::size(slot_fields); ++index) {
+    auto* field = owner_class ? il2cpp_class_get_field_from_name(owner_class, slot_fields[index]) : nullptr;
+    if (InstanceClassField(field, "Digit.Prime.ForbiddenTechs", "ForbiddenTechSlotWidget"))
+      methods.owned_token_slots[index] = field;
+  }
 
   const bool manager_valid      = methods.manager_instance && methods.manager_instance->methodPointer
                                   && (methods.manager_instance->flags & METHOD_ATTRIBUTE_STATIC)

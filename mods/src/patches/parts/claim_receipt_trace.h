@@ -311,15 +311,14 @@ template <typename F> void Write(const char* phase, uint64_t span, F capture) no
   try {
     Json event = {{"schema", 1},
                   {"session", sessionId},
-                  {"seq", sequence.fetch_add(1)},
                   {"span", span},
                   {"phase", phase},
                   {"data", capture()},
                   {"utc_ms", std::chrono::duration_cast<std::chrono::milliseconds>(
                                  std::chrono::system_clock::now().time_since_epoch())
                                  .count()}};
-    journal->info("{}", event.dump());
-    PublishDiagnosticEvent("claims/receipts", event);
+    if (!QueueDiagnostic(DiagnosticKind::receipt, std::move(event)))
+      healthy.store(false);
   } catch (...) {
     healthy.store(false);
   }
@@ -377,3 +376,11 @@ Json Status()
       {"scope", "purchase order content, grant chest notifications, presentation lists; no absolute inventory map"}};
 }
 } // namespace receipt_trace
+
+// Owned JSON only: no native object or IL2CPP access on the journal worker.
+void ProcessReceiptEvent(Json event)
+{
+  event["seq"] = receipt_trace::sequence.fetch_add(1);
+  receipt_trace::journal->info("{}", event.dump());
+  PublishDiagnosticEvent("claims/receipts", event);
+}

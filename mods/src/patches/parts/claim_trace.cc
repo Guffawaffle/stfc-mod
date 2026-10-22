@@ -12,6 +12,7 @@
 #include "patches/key.h"
 #include "patches/screen_update_hook.h"
 #include "science_trace_path.h"
+#include "claim_diagnostic_worker.h"
 #include "version.h"
 #include <il2cpp-tabledefs.h>
 #include <il2cpp/il2cpp_helper.h>
@@ -52,6 +53,49 @@ using Json  = nlohmann::json;
 using Clock = std::chrono::steady_clock;
 Json SelectionTraceStatus();
 void TraceSelectionTransport(const Json& event) noexcept;
+void ProcessSelectionEvent(Json event);
+void ProcessReceiptEvent(Json event);
+void PollDiagnosticControl();
+enum class DiagnosticKind { main, selection, receipt, status, reply };
+struct DiagnosticTask { DiagnosticKind kind{}; Json event; };
+using DiagnosticWorker = claim_trace::DiagnosticWorker<DiagnosticTask>;
+DiagnosticWorker* diagnosticWorker{}; // Process lifetime: no join from DLL detach.
+std::atomic_uint64_t flushedSequence{0};
+std::atomic_uint64_t diagnosticRejected{0};
+std::atomic_bool controlInFlight{false};
+std::mutex controlInboxMutex;
+Json controlInbox;
+
+// Conservative charge for JSON's owned allocations, with a fixed walk/depth
+// budget. No serialization or logger/file operations run during admission.
+bool ChargeJson(const Json& value, size_t& remaining, unsigned depth = 0)
+{
+  if (depth > 24 || remaining < 128)
+    return false;
+  remaining -= 128;
+  const auto charge = [&](size_t bytes) {
+    if (bytes > remaining)
+      return false;
+    remaining -= bytes;
+    return true;
+  };
+  if (value.is_string())
+    return charge(value.get_ref<const Json::string_t&>().capacity());
+  if (value.is_array()) {
+    if (!charge(value.get_ref<const Json::array_t&>().capacity() * sizeof(Json)))
+      return false;
+    for (const auto& child : value)
+      if (!ChargeJson(child, remaining, depth + 1))
+        return false;
+  } else if (value.is_object()) {
+    for (const auto& [key, child] : value.items())
+      if (!charge(128 + key.capacity()) || !ChargeJson(child, remaining, depth + 1))
+        return false;
+  } else if (value.is_binary())
+    return charge(value.get_binary().capacity());
+  return true;
+}
+bool QueueDiagnostic(DiagnosticKind kind, Json event) noexcept;
 
 struct Target {
   const char *assembly, *ns, *cls, *method;
@@ -77,6 +121,12 @@ struct NavigationState {
   bool    known{}, busy{};
   int32_t current{}, next{}, previous{};
 };
+struct PendingPresentationEscape {
+  uint64_t sequence{};
+  int64_t key{}, deadline{};
+  Il2CppGCHandle claim{}, manager{};
+  NavigationState before{};
+} pendingEscape;
 struct NavigationFrame {
   uint64_t        id{}, generation{};
   void *          summary{}, *manager{}, *shop{}, *context{};
@@ -107,6 +157,8 @@ struct RecoveryCandidate {
   int32_t                         origin{}, destination{}, next{};
   bool                            forced{}, back{}, same{};
   int64_t                         nextObservation{};
+  uint64_t                        recordSequence{};
+  int64_t                         recordDeadline{};
 } recovery;
 
 uint64_t ProcessId()
@@ -787,8 +839,10 @@ Json Snapshot(Kind kind, void* object)
   }
 }
 
-bool Write(Json event) noexcept
+uint64_t WriteSequence(Json event) noexcept
 {
+  if (!ready.load())
+    return 0;
   try {
     std::lock_guard lock(stateMutex);
     const auto      now = Clock::now();
@@ -803,7 +857,7 @@ bool Write(Json event) noexcept
     // periodic snapshots retain a separate ceiling; disk retention is bounded.
     if (sampled && rateCount++ >= 1200) {
       ++suppressed;
-      return false;
+      return 0;
     }
     event["seq"]        = ++eventSequence;
     event["session"]    = sessionId;
@@ -814,14 +868,31 @@ bool Write(Json event) noexcept
     event["thread"]     = std::hash<std::thread::id>{}(std::this_thread::get_id());
     event["suppressed"] = std::exchange(suppressed, 0);
     if (!logger)
-      return false;
-    logger->info("{}", event.dump());
-    PublishDiagnosticEvent("claims/main", event);
-    TraceSelectionTransport(event);
-    return sinkHealthy.load();
+      return 0;
+    const auto sequence = eventSequence;
+    return QueueDiagnostic(DiagnosticKind::main, std::move(event)) ? sequence : 0;
   } catch (...) { /* Diagnostics must not throw into the game. */
-    return false;
+    sinkHealthy.store(false);
+    return 0;
   }
+}
+// Passive callers learn admission, never durable persistence. Recovery paths
+// retain WriteSequence's receipt and recheck it on a later owner-thread tick.
+bool Write(Json event) noexcept { return WriteSequence(std::move(event)) != 0; }
+
+bool QueueDiagnostic(DiagnosticKind kind, Json event) noexcept
+{
+  constexpr size_t limit = 2 * 1024 * 1024;
+  size_t remaining = limit;
+  try {
+    if (diagnosticWorker && ChargeJson(event, remaining)
+        && diagnosticWorker->TrySubmit({kind, std::move(event)}, limit - remaining))
+      return true;
+  } catch (...) {
+  }
+  ++diagnosticRejected;
+  sinkHealthy.store(false); // Queue loss also closes diagnostic-dependent action gates.
+  return false;
 }
 
 void Remember(Il2CppGCHandle& handle, void* object)
@@ -1314,6 +1385,14 @@ bool PresentationNavigationAccepted(void* claim)
   return false;
 }
 
+void ClearPendingEscape()
+{
+  for (auto handle : {pendingEscape.claim, pendingEscape.manager})
+    if (handle)
+      il2cpp_gchandle_free(handle);
+  pendingEscape = {};
+}
+
 Json EscapePresentation(int64_t expectedKey)
 {
   Json reply = {{"ok", false}};
@@ -1322,7 +1401,31 @@ Json EscapePresentation(int64_t expectedKey)
   // Match the existing Q / ShowStationInterior route exactly. No forced navigation or lock writes.
   int32_t destination = static_cast<int32_t>(SectionID::Starbase_Interior);
   auto* latest = latestClaim ? il2cpp_gchandle_get_target(latestClaim) : nullptr;
-  {
+  const bool awaiting = pendingEscape.sequence != 0;
+  if (awaiting) {
+    const auto receipt = claim_trace::PollDiagnosticReceipt(pendingEscape.sequence, pendingEscape.deadline,
+                                                            flushedSequence.load(), sinkHealthy.load(), NowMs());
+    if (pendingEscape.key != expectedKey || receipt == claim_trace::DiagnosticReceipt::failed) {
+      ClearPendingEscape();
+      return {{"ok", false}, {"error", "capture-ack-failed-budget-consumed"}};
+    }
+    if (receipt == claim_trace::DiagnosticReceipt::pending)
+      return nullptr;
+    // Never retain a raw native object across frames. Receipt completion does
+    // not authorize an action against a changed claim, section or input state.
+    const bool same = latest && latest == il2cpp_gchandle_get_target(pendingEscape.claim)
+                      && reinterpret_cast<Il2CppObject*>(manager) == il2cpp_gchandle_get_target(pendingEscape.manager)
+                      && Claim(latest).value("local_claim_key", int64_t{}) == expectedKey
+                      && before.known && !before.busy && before.current == pendingEscape.before.current
+                      && before.next == pendingEscape.before.next && before.current != destination;
+    const bool gates = same && Config::Get().claim_navigation_recovery && captureHealthy && sinkHealthy.load()
+                       && WaitingForPresentation(Claim(latest)) && !BoundSummary() && HasNoRewardContext()
+                       && methods[64] && !Key::shortcutCaptureActive && !Key::shortcutPopupActive
+                       && !Key::IsInputFocused() && !Key::RawDown(KeyCode::Escape) && !Key::RawPressed(KeyCode::Mouse0);
+    ClearPendingEscape();
+    if (!gates)
+      return {{"ok", false}, {"error", "presentation-escape-changed-budget-consumed"}};
+  } else {
     std::lock_guard lock(observedClaimMutex);
     auto found = std::find_if(observedClaims.begin(), observedClaims.end(), [&](const auto& entry) {
       return latest && il2cpp_gchandle_get_target(entry.handle) == latest;
@@ -1346,10 +1449,21 @@ Json EscapePresentation(int64_t expectedKey)
          il2cpp_gchandle_new(static_cast<Il2CppObject*>(static_cast<void*>(manager)), false)};
   if (!hold.claim || !hold.manager)
     return {{"ok", false}, {"error", "object-tracking-failed-budget-consumed"}};
-  if (!Write({{"event", "presentation_escape_attempt"}, {"local_claim_key", expectedKey},
-              {"section", NavigationSnapshot(manager)}, {"destination", destination},
-              {"claim_requests_modified", false}, {"reward_state_modified", false}}))
-    return {{"ok", false}, {"error", "capture-write-failed-budget-consumed"}};
+  if (!awaiting) {
+    const auto sequence = WriteSequence({{"event", "presentation_escape_attempt"}, {"local_claim_key", expectedKey},
+                                         {"section", NavigationSnapshot(manager)}, {"destination", destination},
+                                         {"claim_requests_modified", false}, {"reward_state_modified", false}});
+    if (!sequence)
+      return {{"ok", false}, {"error", "capture-write-failed-budget-consumed"}};
+    pendingEscape = {sequence, expectedKey, NowMs() + 5000,
+                     il2cpp_gchandle_new_weakref(static_cast<Il2CppObject*>(latest), false),
+                     il2cpp_gchandle_new_weakref(static_cast<Il2CppObject*>(static_cast<void*>(manager)), false), before};
+    if (!pendingEscape.claim || !pendingEscape.manager) {
+      ClearPendingEscape();
+      return {{"ok", false}, {"error", "object-tracking-failed-budget-consumed"}};
+    }
+    return nullptr;
+  }
   bool forced = false, back = false, same = true;
   void* arguments[]{&destination, nullptr, &forced, &back, &same};
   Il2CppException* error{};
@@ -1393,7 +1507,7 @@ void FinishNavigation(NavigationFrame& frame) noexcept
 {
   try {
     const bool masked = frame.returns == 1 && frame.parentReturned && frame.attempts == 1 && !frame.accepted;
-    const bool recorded = Write({{"event", "summary_navigation_result"},
+    const auto recorded = WriteSequence({{"event", "summary_navigation_result"},
            {"navigation", frame.id},
            {"generation", frame.generation},
            {"recovery", frame.recovering},
@@ -1416,6 +1530,8 @@ void FinishNavigation(NavigationFrame& frame) noexcept
       skip = "disabled";
     else if (!captureHealthy || !sinkHealthy.load())
       skip = "capture-unhealthy";
+    else if (!recorded)
+      skip = "capture-not-admitted";
     else if (frame.generation != summaryGeneration || BoundSummary() != frame.summary)
       skip = "summary-changed";
     else if (!frame.before.known || !after.known)
@@ -1435,6 +1551,8 @@ void FinishNavigation(NavigationFrame& frame) noexcept
       return;
     }
     recovery.id              = frame.id;
+    recovery.recordSequence  = recorded;
+    recovery.recordDeadline  = NowMs() + 5000;
     recovery.generation      = frame.generation;
     recovery.origin          = after.current;
     recovery.next            = after.next;
@@ -1468,6 +1586,15 @@ void RecoveryTick() noexcept
   if (!recovery.policy.Pending())
     return;
   try {
+    const auto receipt = claim_trace::PollDiagnosticReceipt(recovery.recordSequence, recovery.recordDeadline,
+                                                            flushedSequence.load(), sinkHealthy.load(), NowMs());
+    if (receipt == claim_trace::DiagnosticReceipt::failed) {
+      CancelRecovery("capture-ack-failed");
+      return;
+    }
+    if (receipt == claim_trace::DiagnosticReceipt::pending) {
+      return;
+    }
     auto*                                  summary = il2cpp_gchandle_get_target(recovery.summary);
     auto*                                  manager = il2cpp_gchandle_get_target(recovery.manager);
     auto*                                  shop    = il2cpp_gchandle_get_target(recovery.shop);
@@ -1624,6 +1751,15 @@ Json CaptureStatus()
           {"item_receipts", receipt_trace::Status()},
           {"trace", tracePath.filename().string()},
           {"sequence", sequence},
+          {"flushed_sequence", flushedSequence.load()},
+          {"journal_worker", {{"pending", diagnosticWorker ? diagnosticWorker->Pending() : 0},
+                              {"charged_bytes", diagnosticWorker ? diagnosticWorker->Charge() : 0},
+                              {"rejected", diagnosticRejected.load()},
+                              {"failures", diagnosticWorker ? diagnosticWorker->Failures() : 0},
+                              {"max_items", 128}, {"max_charged_bytes", 16 * 1024 * 1024},
+                              {"max_item_charge", 2 * 1024 * 1024},
+                              {"acceptance", "queued; flushed_sequence acknowledges the main journal flush, not "
+                                             "fsync or sync delivery"}}},
           {"sampled_events_suppressed", dropped},
           {"summary_bound", BoundSummary() != nullptr},
           {"summary_generation", summaryGeneration},
@@ -1638,7 +1774,19 @@ Json CaptureStatus()
 
 void ControlTick() noexcept
 {
+  static Json pending;
+  static bool warned = false;
   try {
+    if (diagnosticWorker && !diagnosticWorker->Healthy())
+      sinkHealthy.store(false);
+    if (!sinkHealthy.load() && !warned) {
+      warned = true;
+      CancelUiTest();
+      CancelRecovery("capture-unhealthy");
+      spdlog::warn("[ClaimTrace] journal capture is unhealthy; diagnostic-dependent recovery/tests are disabled "
+                   "for this session (rejected {}, worker failures {})", diagnosticRejected.load(),
+                   diagnosticWorker ? diagnosticWorker->Failures() : 0);
+    }
     static auto nextCheck  = Clock::time_point{};
     static auto nextHealth = Clock::time_point{};
     const auto  now        = Clock::now();
@@ -1652,22 +1800,24 @@ void ControlTick() noexcept
     if (now >= nextHealth) {
       nextHealth  = now + std::chrono::seconds(30);
       auto health = CaptureStatus();
-      SaveControlJson(statusPath, health);
+      QueueDiagnostic(DiagnosticKind::status, health);
       health["event"] = "capture_heartbeat";
       Write(std::move(health));
     }
-    std::error_code error;
-    if (!std::filesystem::exists(commandPath, error))
-      return;
-    const auto bytes = std::filesystem::file_size(commandPath, error);
-    if (error || bytes == 0)
-      return;
+    // The worker owns filesystem polling and a single command inbox. Keep a
+    // deferred escape request here until its intent is acknowledged or expires.
+    if (pending.is_null()) {
+      std::unique_lock lock(controlInboxMutex, std::try_to_lock);
+      if (!lock.owns_lock() || controlInbox.is_null())
+        return;
+      pending = std::move(controlInbox);
+      controlInbox = nullptr;
+    }
     Json reply = {{"session", sessionId}, {"ok", false}};
-    if (bytes > 4096) {
-      reply["error"] = "command-too-large";
+    if (pending.contains("error")) {
+      reply["error"] = pending["error"];
     } else {
-      std::ifstream input(commandPath, std::ios::binary);
-      auto          request = Json::parse(input, nullptr, false);
+      const auto& request = pending.at("request");
       if (!request.is_object())
         reply["error"] = "invalid-command";
       else {
@@ -1684,7 +1834,10 @@ void ControlTick() noexcept
                         {"state", SummaryInput(BoundSummary())}}))
             claim_trace::ShowClaimNotice(claim_trace::NoticeKind::marked);
         } else if (command == "escape-presentation") {
-          reply.update(EscapePresentation(request.value("claim_key", int64_t{})));
+          auto result = EscapePresentation(request.value("claim_key", int64_t{}));
+          if (result.is_null())
+            return; // Await flushed intent; all native gates are rechecked later.
+          reply.update(result);
         } else if (command == "preview-notice" || command == "clear-notice") {
           if (command == "preview-notice")
             claim_trace::ShowClaimNotice(claim_trace::NoticeKind::preview);
@@ -1715,16 +1868,17 @@ void ControlTick() noexcept
           reply["error"] = "unknown-command";
       }
     }
-    std::filesystem::remove(commandPath, error);
     reply["status"] = CaptureStatus();
-    SaveControlJson(replyPath, reply);
-    SaveControlJson(statusPath, CaptureStatus());
+    pending = nullptr;
+    if (!QueueDiagnostic(DiagnosticKind::reply, std::move(reply)))
+      controlInFlight.store(false);
   } catch (...) {
+    pending = nullptr;
+    ClearPendingEscape();
     CancelUiTest();
     CancelRecovery("control-error");
-    std::error_code ignored;
-    std::filesystem::remove(commandPath, ignored);
-    spdlog::warn("[ClaimTrace] control/status update failed; UI test cancelled");
+    sinkHealthy.store(false);
+    controlInFlight.store(false);
   }
 }
 void* RaycastObject(void* pointer, const char* name)
@@ -1903,6 +2057,87 @@ void ResolveTargets()
 }
 
 #include "claim_selection_trace.h"
+
+void ProcessDiagnostic(DiagnosticTask task)
+{
+  try {
+    switch (task.kind) {
+      case DiagnosticKind::main: {
+        const auto sequence = task.event.at("seq").get<uint64_t>();
+        logger->info("{}", task.event.dump());
+        if (sinkHealthy.load())
+          flushedSequence.store(sequence);
+        PublishDiagnosticEvent("claims/main", task.event);
+        TraceSelectionTransport(task.event);
+        break;
+      }
+      case DiagnosticKind::selection:
+        ProcessSelectionEvent(std::move(task.event));
+        break;
+      case DiagnosticKind::receipt:
+        ProcessReceiptEvent(std::move(task.event));
+        break;
+      case DiagnosticKind::status:
+        SaveControlJson(statusPath, task.event);
+        break;
+      case DiagnosticKind::reply:
+        SaveControlJson(replyPath, task.event);
+        SaveControlJson(statusPath, task.event.at("status"));
+        controlInFlight.store(false);
+        break;
+    }
+  } catch (...) {
+    sinkHealthy.store(false);
+    if (task.kind == DiagnosticKind::selection)
+      selection_trace::healthy.store(false);
+    if (task.kind == DiagnosticKind::receipt)
+      receipt_trace::healthy.store(false);
+    if (task.kind == DiagnosticKind::reply)
+      controlInFlight.store(false);
+    throw; // Worker records failure, remains alive and continues draining.
+  }
+}
+
+void PollDiagnosticControl()
+{
+  if (!ready.load() || controlInFlight.load())
+    return;
+  try {
+    std::error_code error;
+    if (!std::filesystem::exists(commandPath, error)) {
+      if (error)
+        throw std::filesystem::filesystem_error("claim control poll", commandPath, error);
+      return;
+    }
+    // Read at most 4097 bytes even if the file grows after file_size. Native
+    // request validation and execution remain exclusively on ControlTick.
+    std::ifstream input(commandPath, std::ios::binary);
+    input.exceptions(std::ios::badbit);
+    if (!input)
+      throw std::runtime_error("claim control open failed");
+    std::array<char, 4097> bytes{};
+    input.read(bytes.data(), bytes.size());
+    const auto size = static_cast<size_t>(input.gcount());
+    if (!size)
+      return;
+    Json command;
+    if (size > 4096)
+      command = {{"error", "command-too-large"}};
+    else {
+      auto request = Json::parse(bytes.data(), bytes.data() + size, nullptr, false);
+      command = request.is_object() ? Json{{"request", std::move(request)}} : Json{{"error", "invalid-command"}};
+    }
+    input.close();
+    if (!std::filesystem::remove(commandPath))
+      throw std::runtime_error("claim control removal failed");
+    std::lock_guard lock(controlInboxMutex);
+    controlInFlight.store(true);
+    controlInbox = std::move(command);
+  } catch (...) {
+    sinkHealthy.store(false);
+    throw;
+  }
+}
 
 // Passive wrappers call the original exactly once, outside diagnostic mutexes/catches.
 // Hook64 alone may reject an explicitly armed, one-shot UI navigation test.
@@ -2829,9 +3064,17 @@ void InstallClaimTrace()
     spdlog::warn("[ClaimTrace] partial capture: {}/{} hooks; update callback {}", installed, std::size(kTargets),
                  pulseInstalled ? "active" : "unavailable");
   claim_trace::InstallClaimNotice();
-  ready.store(true);
   receipt_trace::Install();
   InstallSelectionTrace();
+  try {
+    diagnosticWorker = new DiagnosticWorker(ProcessDiagnostic, PollDiagnosticControl, 128, 16 * 1024 * 1024);
+  } catch (const std::exception& error) {
+    sinkHealthy.store(false);
+    spdlog::error("[ClaimTrace] could not start journal worker: {}", error.what());
+    return;
+  }
+  ready.store(true);
+  WriteSelectionSession();
   Write(
       {{"event", "session"},
        {"schema", 11},
