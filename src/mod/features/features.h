@@ -34,7 +34,7 @@ public:
       : interval_(interval)
   {
   }
-  // True at most once per interval.
+  // True on the first call, then at most once per interval.
   bool Due()
   {
     const auto now = std::chrono::steady_clock::now();
@@ -112,9 +112,10 @@ bool FleetShortcuts();
 // The actions on the selected fleet and the open viewer. True when the key must not reach the game.
 bool FleetActionShortcuts();
 
-// fleet_labels.cc, fed by camera.cc's zoom hooks.
+// fleet_labels.cc
 extern const Feature kFleetLabels;
-
+// Fed by camera.cc's zoom hooks: the camera's depth on each update and system entry, then its zoom after the
+// game's own update.
 void FleetLabelsFollowDepth(NavigationZoom* zoom, NodeDepth depth);
 void FleetLabelsAfterZoom(NavigationZoom* zoom);
 
@@ -136,7 +137,7 @@ bool HandleShortcuts();
 
 // instant_warp.cc
 extern const Feature kInstantWarp;
-
+// Steps auto_confirm_instant_warp through none, warp and jump, until the next settings reload.
 void CycleInstantWarpConfirmation();
 
 // keybind_badges.cc, installed with the hotkeys.
@@ -157,7 +158,7 @@ extern const Feature kDailyClaimFilter;
 // officers.cc
 extern const Feature kOfficerSort;
 
-// screens.cc
+// screens.cc: shortcut helpers only, so no descriptor.
 // Presses a button a screen shortcut opened a screen for, once the screen is up. True when one was pressed.
 bool PressAwaitedButton();
 // The shortcuts that open, step through, or search game screens. True when the key must not reach the game.
@@ -177,7 +178,8 @@ extern const Feature kObjectTracker;
 
 // ui_scale.cc
 extern const Feature kUiScale;
-
+// Steps the interface, ship or viewer scale by ui_scale_step (the viewer by a quarter of it), until the next
+// settings reload.
 void AdjustUiScale(bool up);
 void AdjustUiShipScale(bool up);
 void AdjustUiViewerScale(bool up);
