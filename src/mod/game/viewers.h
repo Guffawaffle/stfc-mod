@@ -1,6 +1,6 @@
 #pragma once
 
-// Object viewer cards shown for targets in space, and their scan/engage buttons.
+// The object viewer cards shown for targets in space, and their scan, engage and armada buttons.
 
 #include "fleet.h"
 #include "navigation.h"
@@ -12,6 +12,7 @@
 
 struct ParentObjectViewerViewController : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ObjectViewer", "ParentObjectViewerViewController">;
+
   bool IsShowing()
   { return Get<"IsShowing", bool>(); }
 };
@@ -19,13 +20,12 @@ struct ParentObjectViewerViewController : il2cpp::Object {
 struct ObjectViewerBaseWidget : Widget<NavigationInteractionUIContext> {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ObjectViewer", "ObjectViewerBaseWidget">;
 
+  VisibilityController* visibilityController()
+  { return Field<"_visibilityController", VisibilityController*>(); }
   ParentObjectViewerViewController* Parent()
   { return Get<"Parent", ParentObjectViewerViewController*>(); }
   void HideAllViewers()
   { Call<"HideAllViewers">(); }
-
-  VisibilityController* visibilityController()
-  { return Field<"_visibilityController", VisibilityController*>(); }
 };
 
 struct RewardsButtonWidget : Widget<BattleTargetData> {
@@ -66,11 +66,10 @@ struct AllianceStarbaseObjectViewerWidget : ObjectViewerBaseWidget {
 struct ArmadaObjectViewerWidget : ObjectViewerBaseWidget {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ObjectViewer", "ArmadaObjectViewerWidget">;
 
-  void ValidateThenJoinArmada()
-  { Call<"ValidateThenJoinArmada">(); }
-
   GenericButtonContext* joinContext()
   { return Field<"_joinContext", GenericButtonContext*>(); }
+  void ValidateThenJoinArmada()
+  { Call<"ValidateThenJoinArmada">(); }
 };
 
 struct CelestialObjectViewerWidget : ObjectViewerBaseWidget {
@@ -86,16 +85,19 @@ struct HousingObjectViewerWidget : ObjectViewerBaseWidget {
 };
 
 // MiningObjectViewerWidget.OccupiedState, a private nested enum.
-enum class OccupiedState : int32_t { NotOccupied = 0, LocalPlayerOccupied = 1, OtherPlayerOccupied = 2 };
+enum class OccupiedState : int32_t {
+  NotOccupied         = 0,
+  LocalPlayerOccupied = 1,
+  OtherPlayerOccupied = 2,
+};
 
 struct MiningObjectViewerWidget : ObjectViewerBaseWidget {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ObjectViewer", "MiningObjectViewerWidget">;
 
-  void MineClicked()
-  { Call<"MineClicked">(); }
-
   ScanEngageButtonsWidget* scanEngageButtonsWidget()
   { return Field<"_scanEngageButtonsWidget", ScanEngageButtonsWidget*>(); }
+  void MineClicked()
+  { Call<"MineClicked">(); }
 };
 
 struct MissionsObjectViewerWidget : ObjectViewerBaseWidget {
@@ -105,10 +107,10 @@ struct MissionsObjectViewerWidget : ObjectViewerBaseWidget {
 struct StarNodeObjectViewerWidget : ObjectViewerBaseWidget {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ObjectViewer", "StarNodeObjectViewerWidget">;
 
+  GenericButtonWidget* visitButton()
+  { return Field<"_visitButton", GenericButtonWidget*>(); }
   void OnViewButtonActivation()
   { Call<"OnViewButtonActivation">(); }
   void InitiateWarp()
   { Call<"InitiateWarp">(); }
-  GenericButtonWidget* visitButton()
-  { return Field<"_visitButton", GenericButtonWidget*>(); }
 };

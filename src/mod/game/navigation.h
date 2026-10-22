@@ -20,22 +20,15 @@ enum class ZoomLevels : int32_t {
 struct NavigationLOD : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationLOD">;
 
-  void UpdateLOD(ZoomLevels level)
-  { Call<"UpdateLOD">(level); }
-
   // Writes the backing field directly; the managed setter is private.
   void SetTargetLevel(ZoomLevels level)
   { SetField<"<TargetLevel>k__BackingField">(level); }
+  void UpdateLOD(ZoomLevels level)
+  { Call<"UpdateLOD">(level); }
 };
 
 struct NavigationPan : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationPan">;
-
-  void MoveCamera(unity::Vector2 delta, bool isMomentum = false)
-  { Call<"MoveCamera">(delta, isMomentum); }
-
-  static bool BlockPan()
-  { return Class::Field<"BlockPan", bool>(); }
 
   unity::Vector2 lastDelta()
   { return Field<"_lastDelta", unity::Vector2>(); }
@@ -55,6 +48,12 @@ struct NavigationPan : il2cpp::Object {
   { return Field<"_farMagRadiusRatioSystemNormal", float>(); }
   void SetFarMagRadiusRatioSystemExtended(float value)
   { SetField<"_farMagRadiusRatioSystemExtended">(value); }
+
+  void MoveCamera(unity::Vector2 delta, bool isMomentum = false)
+  { Call<"MoveCamera">(delta, isMomentum); }
+
+  static bool BlockPan()
+  { return Class::Field<"BlockPan", bool>(); }
 };
 
 enum class NodeDepth : int32_t {
@@ -74,9 +73,6 @@ struct MathUtils {
 
 struct NavigationZoom : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationZoom">;
-
-  void ZoomCameraAtWorldPoint()
-  { Call<"ZoomCameraAtWorldPoint">(); }
 
   float Distance()
   { return Get<"Distance", float>(); }
@@ -114,6 +110,9 @@ struct NavigationZoom : il2cpp::Object {
   { SetField<"_farRatioSystemNormal">(value); }
   void SetFarRatioSystemExtended(float value)
   { SetField<"_farRatioSystemExtended">(value); }
+
+  void ZoomCameraAtWorldPoint()
+  { Call<"ZoomCameraAtWorldPoint">(); }
 };
 
 struct NavigationFleetWidget : Widget<FleetDeployedData> {
@@ -134,15 +133,14 @@ struct NavigationManager : il2cpp::Object {
 struct NavigationSectionManager : unity::Behaviour {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationSectionManager">;
 
-  static void ChangeNavigationSection(SectionID sectionId, int64_t systemId = -1)
-  { Class::Call<"ChangeNavigationSection">(sectionId, systemId); }
-
-  static NavigationSectionManager* Instance()
-  { return Class::Get<"Instance", NavigationSectionManager*>(); }
-
   // Named after the property, so the type needs `::` here.
   ::NavigationManager* NavigationManager()
   { return Get<"NavigationManager", ::NavigationManager*>(); }
+
+  static NavigationSectionManager* Instance()
+  { return Class::Get<"Instance", NavigationSectionManager*>(); }
+  static void ChangeNavigationSection(SectionID sectionId, int64_t systemId = -1)
+  { Class::Call<"ChangeNavigationSection">(sectionId, systemId); }
 
   // Closes whatever interaction menu is open in space before the mod acts on a fleet.
   static void HideInteraction()
@@ -179,6 +177,7 @@ struct NavigationInteractionUIViewController : il2cpp::Object {
 
 struct PopulatedSystemData : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "PopulatedSystemData">;
+
   Il2CppObject* VariationCollection()
   { return Field<"<VariationCollection>k__BackingField", Il2CppObject*>(); }
 };
@@ -224,7 +223,7 @@ struct BookmarksManager : MonoSingleton<BookmarksManager> {
     context->SetDefaultXCoordinate(zero);
     context->SetDefaultYCoordinate(zero);
     context->SetDefaultSystemInput(il2cpp::NewString(""));
-    Hub::Sections()->TriggerSectionChange(SectionID::Bookmarks_Search_Coordinates, context, false, false, true);
+    Hub::GotoSection(SectionID::Bookmarks_Search_Coordinates, context);
   }
 };
 

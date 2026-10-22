@@ -15,8 +15,8 @@ struct MissionsHudViewController : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.HUD", "MissionsHudViewController">;
 
   // The buttons are a mix of Button and GenericButtonWidget fields; only their GameObject matters to the mod.
-  template <il2cpp::Name Field> unity::Component* ButtonField()
-  { return this->template Field<Field, unity::Component*>(); }
+  template <il2cpp::Name N> unity::Component* ButtonField()
+  { return Field<N, unity::Component*>(); }
 };
 
 struct FactionInformation : il2cpp::Object {
@@ -67,6 +67,9 @@ struct HudAllianceAndNewsViewController : il2cpp::Object {
 struct GalacticAnomaliesManager : MonoSingleton<GalacticAnomaliesManager> {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.GalacticAnomalies", "GalacticAnomaliesManager">;
 
+  GalacticAnomaly* GetSystemGalacticAnomalies(int64_t system)
+  { return Call<"GetSystemGalacticAnomalies", GalacticAnomaly*>(system); }
+
   // The singleton MonoSingleton`1 already holds, or null when there is none or it was destroyed. Instance would
   // search the scene, or create a replacement, when there is none.
   static GalacticAnomaliesManager* Current()
@@ -74,7 +77,4 @@ struct GalacticAnomaliesManager : MonoSingleton<GalacticAnomaliesManager> {
     auto* manager = Class::Field<"s_instance", GalacticAnomaliesManager*>();
     return unity::Alive(manager) ? manager : nullptr;
   }
-
-  GalacticAnomaly* GetSystemGalacticAnomalies(int64_t system)
-  { return Call<"GetSystemGalacticAnomalies", GalacticAnomaly*>(system); }
 };
