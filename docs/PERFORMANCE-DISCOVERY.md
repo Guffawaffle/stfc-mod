@@ -53,3 +53,68 @@ The isolated development build selects the sibling AAI cleanup worktree using
 the existing `stfc_aai_source` option. This host branch does not change the
 published AAI pin or include another agent's uncommitted evidence work.
 The second cleanup and feature sweep exclude AAI implementation work.
+
+## Bounded sync work after the sweep
+
+The follow-up sync cleanup replaces a detached parser thread per entity/RTC
+payload with one ordered owned-payload worker. Jobs and away-assignment parsing
+join that FIFO, so their ordering no longer requires parsing on the native
+response callback. Disabled categories bypass payload copies. Native profile
+reads remain on their original callback; worker tasks retain owned bytes only.
+
+| Stage | Retention budget, including copying reservations and in-flight work |
+| --- | --- |
+| Owned payload parsing | 128 entries / 32 MiB, maximum 16 MiB charged per entry |
+| Ordinary delivery dispatch | 256 entries / 32 MiB, maximum 16 MiB charged per entry |
+| Each configured upload target | 256 entries / 32 MiB, maximum 16 MiB charged per entry |
+| Combat downloads | 4,096 fixed-size ID/generation jobs |
+| Diagnostic dispatch | At most 64 observations / 4 MiB within the dispatch budget; observations also retain their existing 256 KiB size guard |
+
+These are retained-payload budgets, not a total process RSS cap. Parsing,
+serialization, HTTP response storage and transport copies use temporary memory.
+Upload bodies are shared between targets and each target conservatively charges
+the full body. CPR's retained upload body is cleared before its in-flight charge
+is released. Both upload and game-server download sessions use a three-second
+connection timeout and ten-second overall request timeout, including debug builds.
+
+Admission reserves a FIFO position and memory before copying bytes. Copies occur
+outside the queue metadata lock; the consumer waits for earlier reservations
+even if a later copy completes first. A slow HTTP target cannot hold this lock
+or block the game callback. The number of parser/download/dispatch workers is
+fixed, plus one upload worker per configured target. Workers and their queues
+have process lifetime; this introduces no live-DLL-unload or loader-lock join.
+
+Ordinary state includes incremental updates and producers' de-duplication state,
+so arbitrary coalescing or dropping an old snapshot would corrupt the stream.
+An admission failure visibly latches ordinary input closed, while already
+admitted work drains. A target backlog failure closes only that target. A fresh
+game process is required to resume the affected stream; it is not resumed merely
+because the queue shrinks. Diagnostic overflow drops observations and leaves
+ordinary admission intact. Warnings include the affected stage or target;
+target warnings report retained/high-water counts, bytes and oldest age.
+
+Resolver caches opportunistically prune expired identities during background
+activity and retain at most 4,096 player/alliance records per cache. Retained
+IDs/names/tags are limited to 256 bytes per field; oversized values may still
+appear in the current response but are not retained in the cache. LRU eviction
+keeps identity churn bounded even when records have not reached their TTL.
+
+Game-server metadata is copied under a short publication lock, released before
+HTTP. Queued payloads, combat jobs and upload bodies carry a login generation;
+stale work is rejected before it can use the next login's headers. A login change
+after ordinary sync begins explicitly quarantines ordinary sync until restart,
+because its process-lifetime de-duplication/first-sync state has no full replay
+reset. Diagnostics remain best effort. An HTTP request already in progress cannot
+be recalled; an obsolete game-server response is discarded after completion.
+
+Transport delivery remains best effort. This is not a durable outbox, an HTTP
+acknowledgement/retry protocol, or a guarantee that restarting replays historical
+battles. Battle IDs are marked seen only after combat-queue admission, but their
+existing persisted seen history still precedes successful fetch/upload.
+
+The queue fixture covers reservation order, active-work accounting, failed
+copies, handler exceptions, stalled independent consumers and stop/drain. It
+does not invoke native game callbacks or a real HTTP endpoint. Actual gameplay,
+HTTP timeouts and session transitions require artifact-specific runtime testing.
+The [sweep tracker](PERFORMANCE-SWEEP-TRACKER.md) records upstream attribution and
+the other findings separately.

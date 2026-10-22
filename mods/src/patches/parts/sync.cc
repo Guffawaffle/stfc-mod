@@ -1,8 +1,11 @@
 #include "config.h"
-#include "sync_diagnostics.h"
 #include "errormsg.h"
 #include "file.h"
 #include "str_utils.h"
+#include "sync_bounded_queue.h"
+#include "sync_diagnostics.h"
+#include "sync_resolver_cache.h"
+#include "sync_session_headers.h"
 
 #include <Digit.PrimeServer.Models.pb.h>
 #include <il2cpp-api-types.h>
@@ -125,12 +128,16 @@ namespace http
 
 namespace headers
 {
-  static std::string    gameServerUrl;
-  static std::string    instanceSessionId;
-  static int32_t        instanceId;
-  static std::string    unityVersion{"6000.0.59f2-deadlock-fix-test"};
-  static std::string    primeVersion{"1.000.51336"};
-  static std::string    poweredBy{"stfc community mod/" VER_FILE_VERSION_STR};
+  // The owned workers are process-lifetime; their metadata must outlive static
+  // teardown too. These bounded owners perform no shutdown-time runtime calls.
+  static auto&       state        = *new sync_session::Headers;
+  static const auto& unityVersion = *new std::string{"6000.0.59f2-deadlock-fix-test"};
+  static const auto& poweredBy    = *new std::string{"stfc community mod/" VER_FILE_VERSION_STR};
+
+  static uint64_t CurrentSessionGeneration() noexcept
+  { return state.Generation(); }
+  static bool IsCurrentSessionGeneration(uint64_t generation) noexcept
+  { return state.IsCurrent(generation); }
 } // namespace headers
 
 namespace logging
@@ -272,87 +279,94 @@ struct TargetWorker {
   TargetWorker(const TargetWorker&) = delete;
   TargetWorker& operator=(const TargetWorker&) = delete;
 
-  using request_t = std::tuple<std::string, std::string, bool>;
+  struct request_t {
+    std::string                        identifier;
+    std::shared_ptr<const std::string> post_data;
+    bool                               is_first_sync;
+    uint64_t                           generation;
+  };
 
   std::shared_ptr<cpr::Session> session;
   std::thread                   worker_thread;
-  std::atomic_bool              stop_requested{false};
-  std::queue<request_t>         request_queue;
-  std::mutex                    queue_mtx;
-  std::condition_variable       queue_cv;
+  sync_queue::BoundedQueue<request_t> requests{{256, 32 * 1024 * 1024, 16 * 1024 * 1024}};
+  std::mutex                          admission_mtx;
+  bool                                accepting        = false;
+  uint64_t                            diagnostic_drops = 0;
 };
 
-static std::unordered_map<std::string, std::shared_ptr<TargetWorker>> target_workers;
-static std::mutex target_workers_mtx;
+// Hook workers have process lifetime. No join or live DLL teardown is supported
+// under the loader lock; their queues and sessions must live as long as they do.
+static auto&            target_workers         = *new std::unordered_map<std::string, std::shared_ptr<TargetWorker>>;
+static auto&            target_workers_mtx     = *new std::mutex;
+static bool             target_registry_failed = false; // Protected by target_workers_mtx.
+static std::atomic_bool http_uploads_accepting{true};
 
 static void target_worker_thread(std::shared_ptr<TargetWorker> worker)
 {
+  try {
 #if _WIN32
-  WinRtApartmentGuard apartmentGuard;
+    WinRtApartmentGuard apartmentGuard;
 #endif
 
-  while (!worker->stop_requested.load(std::memory_order_acquire)) {
-    std::string identifier;
-    std::string post_data;
-    bool is_first_sync = false;
+    while (auto item = worker->requests.WaitPop()) {
+      const auto& [identifier, post_data, is_first_sync, generation] = item->value;
 
-    {
-      std::unique_lock lk(worker->queue_mtx);
-      worker->queue_cv.wait(lk, [&worker] {
-        return worker->stop_requested.load(std::memory_order_acquire) || !worker->request_queue.empty();
-      });
+      if (post_data->empty() || generation != headers::CurrentSessionGeneration())
+        continue;
 
-      if (worker->stop_requested.load(std::memory_order_acquire) && worker->request_queue.empty()) {
-        break;
-      }
+      // Process the request
+      try {
+        const auto httpClient = worker->session;
+        auto&      headers    = httpClient->GetHeader();
 
-      if (!worker->request_queue.empty()) {
-        auto item = std::move(worker->request_queue.front());
-        worker->request_queue.pop();
-        identifier = std::move(std::get<0>(item));
-        post_data = std::move(std::get<1>(item));
-        is_first_sync = std::get<2>(item);
-      }
-    }
-
-    if (post_data.empty()) {
-      continue;
-    }
-
-    // Process the request
-    try {
-      const auto httpClient = worker->session;
-      auto& headers = httpClient->GetHeader();
-
-      if (is_first_sync) {
-        headers.insert_or_assign("X-PRIME-SYNC", "2");
-        logging::trace(logging::CURL_TYPE_UPLOAD, identifier, "Adding X-Prime-Sync header for initial sync");
-      } else {
-        headers.erase("X-PRIME-SYNC");
-      }
-
-      httpClient->SetBody(cpr::Body{post_data});
-
-      logging::debug(logging::CURL_TYPE_UPLOAD, identifier, "Sending data to " + httpClient->GetFullRequestUrl());
-
-      // Synchronously wait for response
-      const auto response = httpClient->Post();
-
-      if (response.status_code == 0) {
-        logging::error(logging::CURL_TYPE_UPLOAD, identifier, "Failed to send request: " + response.error.message);
-      } else if (response.status_code >= 400) {
-        if (response.status_code == 501) {
-          logging::error(logging::CURL_TYPE_UPLOAD, identifier, STR_FORMAT("Sync target does not support this operation ({}, after {:.0f} ms). Consider turning off this upload category for the target.", response.status_line, response.elapsed * 1'000));
+        if (is_first_sync) {
+          headers.insert_or_assign("X-PRIME-SYNC", "2");
+          logging::trace(logging::CURL_TYPE_UPLOAD, identifier, "Adding X-Prime-Sync header for initial sync");
         } else {
-          logging::error(logging::CURL_TYPE_UPLOAD, identifier, STR_FORMAT("Failed to communicate with server: {} (after {:.0f} ms)", response.status_line, response.elapsed * 1'000));
+          headers.erase("X-PRIME-SYNC");
         }
-      } else {
-        logging::debug(logging::CURL_TYPE_UPLOAD, identifier, STR_FORMAT("Response: {} ({:.0f} ms elapsed)", response.status_line, response.elapsed * 1'000));
-      }
-    } catch (const std::runtime_error& e) {
-      ErrorMsg::SyncRuntime(identifier.c_str(), e);
-    } catch (const std::exception& e) {
-      ErrorMsg::SyncException(identifier.c_str(), e);
+
+        // CPR retains its request body after Post. Clear it before releasing the
+        // queue's in-flight charge, including when the transport throws.
+        struct ClearBody {
+          cpr::Session& session;
+          ~ClearBody()
+          {
+            try {
+              session.SetBody(cpr::Body{});
+            } catch (...) {
+            }
+          }
+        } clear_body{*httpClient};
+        httpClient->SetBody(cpr::Body{*post_data});
+
+        logging::debug(logging::CURL_TYPE_UPLOAD, identifier, "Sending data to " + httpClient->GetFullRequestUrl());
+
+        // Synchronously wait for response
+        const auto response = httpClient->Post();
+
+        if (response.status_code == 0) {
+          logging::error(logging::CURL_TYPE_UPLOAD, identifier, "Failed to send request: " + response.error.message);
+        } else if (response.status_code >= 400) {
+          if (response.status_code == 501) {
+            logging::error(logging::CURL_TYPE_UPLOAD, identifier,
+                           STR_FORMAT("Sync target does not support this operation ({}, after {:.0f} ms). Consider "
+                                      "turning off this upload category for the target.",
+                                      response.status_line, response.elapsed * 1'000));
+          } else {
+            logging::error(logging::CURL_TYPE_UPLOAD, identifier,
+                           STR_FORMAT("Failed to communicate with server: {} (after {:.0f} ms)", response.status_line,
+                                      response.elapsed * 1'000));
+          }
+        } else {
+          logging::debug(
+              logging::CURL_TYPE_UPLOAD, identifier,
+              STR_FORMAT("Response: {} ({:.0f} ms elapsed)", response.status_line, response.elapsed * 1'000));
+        }
+      } catch (const std::runtime_error& e) {
+        ErrorMsg::SyncRuntime(identifier.c_str(), e);
+      } catch (const std::exception& e) {
+        ErrorMsg::SyncException(identifier.c_str(), e);
 #if _WIN32
     } catch (winrt::hresult_error const& ex) {
       ErrorMsg::SyncWinRT(identifier.c_str(), ex);
@@ -360,118 +374,199 @@ static void target_worker_thread(std::shared_ptr<TargetWorker> worker)
     } catch (...) {
       ErrorMsg::SyncMsg(identifier.c_str(), "Unknown error occurred");
     }
+    }
+  } catch (const std::exception& e) {
+    std::scoped_lock lock(worker->admission_mtx);
+    worker->accepting = false;
+    worker->requests.Close();
+    spdlog::error("Sync target worker stopped: {}. Restart the game to resume this target.", e.what());
+  } catch (...) {
+    std::scoped_lock lock(worker->admission_mtx);
+    worker->accepting = false;
+    worker->requests.Close();
+    spdlog::error("Sync target worker stopped. Restart the game to resume this target.");
   }
 }
 
 static std::shared_ptr<TargetWorker> get_curl_client_sync(const std::string& target)
 {
   std::scoped_lock lk(target_workers_mtx);
+  if (target_registry_failed)
+    return nullptr;
 
   // Check if a worker already exists
   if (const auto it = target_workers.find(target); it != target_workers.end()) {
     return it->second;
   }
 
-  // Create a new worker for this target
-  auto worker = std::make_shared<TargetWorker>();
-
-  // Initialize session
-  worker->session = std::make_shared<cpr::Session>();
-  const auto& target_config = Config::Get().sync_targets[target];
-
-  worker->session->SetUrl(target_config.url);
-  worker->session->SetUserAgent("stfc community mod " VER_FILE_VERSION_STR " (libcurl/" LIBCURL_VERSION ")");
-  worker->session->SetAcceptEncoding(cpr::AcceptEncoding{});
-  worker->session->SetHttpVersion(cpr::HttpVersion{cpr::HttpVersionCode::VERSION_1_1});
-  worker->session->SetRedirect(cpr::Redirect{3, true, false, cpr::PostRedirectFlags::POST_ALL});
-
-#ifndef _MODDBG
-  worker->session->SetConnectTimeout(cpr::ConnectTimeout{3'000});
-  worker->session->SetTimeout(cpr::Timeout{10'000});
-#endif
-
-  spdlog::debug("sync target '{}': proxy='{}', verify_ssl={}", target, target_config.proxy, target_config.verify_ssl);
-
-  if (!target_config.proxy.empty()) {
-    worker->session->SetProxies({{"http", target_config.proxy}, {"https", target_config.proxy}});
+  std::shared_ptr<TargetWorker> worker;
+  // Publish ownership before launching. If initialization fails, retain a
+  // disabled tombstone rather than spawning a replacement for each payload.
+  try {
+    worker = std::make_shared<TargetWorker>();
+    target_workers.emplace(target, worker);
+  } catch (...) {
+    target_registry_failed = true;
+    spdlog::error("Sync target registry allocation failed; uploads are disabled until the game restarts.");
+    throw;
   }
 
-  if (!target_config.verify_ssl) {
-    worker->session->SetSslOptions(
-      cpr::Ssl(cpr::ssl::VerifyHost{false}, cpr::ssl::VerifyPeer{false}, cpr::ssl::NoRevoke{true})
-    );
+  try {
+    // Initialize session
+    worker->session           = std::make_shared<cpr::Session>();
+    const auto& target_config = Config::Get().sync_targets[target];
+
+    worker->session->SetUrl(target_config.url);
+    worker->session->SetUserAgent("stfc community mod " VER_FILE_VERSION_STR " (libcurl/" LIBCURL_VERSION ")");
+    worker->session->SetAcceptEncoding(cpr::AcceptEncoding{});
+    worker->session->SetHttpVersion(cpr::HttpVersion{cpr::HttpVersionCode::VERSION_1_1});
+    worker->session->SetRedirect(cpr::Redirect{3, true, false, cpr::PostRedirectFlags::POST_ALL});
+
+    // Debug builds must not pin an in-flight body forever either.
+    worker->session->SetConnectTimeout(cpr::ConnectTimeout{3'000});
+    worker->session->SetTimeout(cpr::Timeout{10'000});
+
+    spdlog::debug("sync target '{}': proxy='{}', verify_ssl={}", target, target_config.proxy, target_config.verify_ssl);
+
+    if (!target_config.proxy.empty()) {
+      worker->session->SetProxies({{"http", target_config.proxy}, {"https", target_config.proxy}});
+    }
+
+    if (!target_config.verify_ssl) {
+      worker->session->SetSslOptions(
+          cpr::Ssl(cpr::ssl::VerifyHost{false}, cpr::ssl::VerifyPeer{false}, cpr::ssl::NoRevoke{true}));
+    }
+
+    worker->session->SetHeader({
+        {"Content-Type", "application/json"},
+        {"X-Powered-By", headers::poweredBy},
+        {"stfc-sync-token", target_config.token},
+    });
+
+    // Start the worker thread
+    worker->accepting     = true;
+    worker->worker_thread = std::thread(target_worker_thread, worker);
+  } catch (...) {
+    worker->accepting = false;
+    worker->requests.Close();
+    spdlog::error("Sync target '{}' could not start; uploads to this target are disabled until the game restarts.",
+                  target);
   }
-
-  worker->session->SetHeader({
-    {"Content-Type", "application/json"},
-    {"X-Powered-By", headers::poweredBy},
-    {"stfc-sync-token", target_config.token},
-  });
-
-  // Start the worker thread
-  worker->worker_thread = std::thread(target_worker_thread, worker);
-  target_workers[target] = worker;
 
   return worker;
 }
 
-static void send_data(SyncConfig::Type type, const std::string& post_data, bool is_first_sync)
+static void send_data(SyncConfig::Type type, const std::string& post_data, bool is_first_sync, uint64_t generation)
 {
+  if (!http_uploads_accepting.load(std::memory_order_acquire) || generation != headers::CurrentSessionGeneration())
+    return;
   static std::once_flag emit_warning;
   const auto& targets = Config::Get().sync_targets;
 
-  std::call_once(emit_warning, [targets] {
+  std::call_once(emit_warning, [&targets] {
     if (targets.empty()) {
       logging::warn(logging::CURL_TYPE_UPLOAD, "GLOBAL", "No target found, will not attempt to send");
     }
   });
 
+  std::shared_ptr<const std::string> owned_body;
   for (const auto& target : targets
        | std::views::filter([type](const auto& t) { return t.second.enabled(type); })
        | std::views::keys) {
 
-    const auto target_identifier = STR_FORMAT("{} ({})", target, to_string(type));
-
     try {
+      const auto target_identifier = STR_FORMAT("{} ({})", target, to_string(type));
       const auto worker = get_curl_client_sync(target);
+      if (!worker)
+        continue;
 
-      // Enqueue the request for this target's worker
+      sync_queue::Admission admission          = sync_queue::Admission::accepted;
+      bool                  diagnostic_dropped = false;
       {
-        std::scoped_lock lk(worker->queue_mtx);
-        // Diagnostic bursts must not grow an unavailable target's queue forever.
-        // Existing sync categories keep their established delivery behavior.
-        if (type == SyncConfig::Type::Diagnostics && worker->request_queue.size() >= 256) {
-          static std::atomic<uint64_t> dropped{0};
-          if (dropped.fetch_add(1) % 64 == 0)
-            spdlog::warn("Diagnostic sync queue full; dropping observations (fire-and-forget)");
+        std::scoped_lock lk(worker->admission_mtx);
+        if (!worker->accepting)
           continue;
+        const auto charge = post_data.size() + target_identifier.size();
+        if (type == SyncConfig::Type::Diagnostics) {
+          const auto stats = worker->requests.Stats();
+          // Observations use only a small portion of the ordinary FIFO budget.
+          // They must never evict a first-sync snapshot or ordinary delta.
+          if (stats.count >= 64 || charge > 4 * 1024 * 1024 || stats.bytes > 4 * 1024 * 1024 - charge) {
+            diagnostic_dropped = (++worker->diagnostic_drops % 64 == 1);
+            admission          = sync_queue::Admission::full;
+          }
         }
-        worker->request_queue.emplace(target_identifier, post_data, is_first_sync);
-        logging::trace(logging::CURL_TYPE_UPLOAD, target_identifier,
-                       STR_FORMAT("Queued request (queue size: {})", worker->request_queue.size()));
+        if (admission == sync_queue::Admission::accepted) {
+          admission = worker->requests.TryEmplace(charge, [&] {
+            if (!owned_body)
+              owned_body = std::make_shared<const std::string>(post_data);
+            return TargetWorker::request_t{target_identifier, owned_body, is_first_sync, generation};
+          });
+          if (admission != sync_queue::Admission::accepted) {
+            if (type == SyncConfig::Type::Diagnostics)
+              diagnostic_dropped = (++worker->diagnostic_drops % 64 == 1);
+            else
+              worker->accepting = false;
+          }
+        }
       }
-      worker->queue_cv.notify_all();
+      if (admission != sync_queue::Admission::accepted) {
+        if (type != SyncConfig::Type::Diagnostics) {
+          const auto stats = worker->requests.Stats();
+          spdlog::error(
+              "Sync target '{}' backlog limit reached ({} items, {} bytes, high-water {} / {}, oldest {} ms). "
+              "Queued requests will drain; further uploads to this target are disabled. "
+              "Restart the game to begin a fresh sync; other targets continue.",
+              target, stats.count, stats.bytes, stats.highWaterCount, stats.highWaterBytes, stats.oldestAgeMs);
+        } else if (diagnostic_dropped) {
+          spdlog::warn("Diagnostic sync queue budget exhausted for '{}'; dropping observations", target);
+        }
+      }
 
     } catch (const std::runtime_error& e) {
-      spdlog::error("Failed to send sync data to target '{}' - Runtime error: {}", target_identifier, e.what());
+      if (type == SyncConfig::Type::Diagnostics) {
+        spdlog::warn("Diagnostic sync admission failed for '{}'; observation dropped: {}", target, e.what());
+        continue;
+      }
+      http_uploads_accepting.store(false, std::memory_order_release);
+      spdlog::error("Sync upload admission failed for '{}': {}. Uploads are disabled until the game restarts.", target,
+                    e.what());
+      return;
     } catch (const std::exception& e) {
-      spdlog::error("Failed to send sync data to target '{}' - Exception: {}", target_identifier, e.what());
+      if (type == SyncConfig::Type::Diagnostics) {
+        spdlog::warn("Diagnostic sync admission failed for '{}'; observation dropped: {}", target, e.what());
+        continue;
+      }
+      http_uploads_accepting.store(false, std::memory_order_release);
+      spdlog::error("Sync upload admission failed for '{}': {}. Uploads are disabled until the game restarts.", target,
+                    e.what());
+      return;
     } catch (...) {
-      spdlog::error("Failed to send sync data to target '{}' - Unknown error occurred", target_identifier);
+      if (type == SyncConfig::Type::Diagnostics) {
+        spdlog::warn("Diagnostic sync admission failed for '{}'; observation dropped", target);
+        continue;
+      }
+      http_uploads_accepting.store(false, std::memory_order_release);
+      spdlog::error("Sync upload admission failed for '{}'. Uploads are disabled until the game restarts.", target);
+      return;
     }
   }
 }
 
 static std::shared_ptr<cpr::Session> get_curl_client_scopely()
 {
-  static std::shared_ptr<cpr::Session> session{nullptr};
-  static std::once_flag init_flag;
+  // Match process-lifetime workers rather than destroying their HTTP session
+  // or synchronization objects while a request can still be draining.
+  static auto& session   = *new std::shared_ptr<cpr::Session>;
+  static auto& init_flag = *new std::once_flag;
 
   // thread-safe initialization
   std::call_once(init_flag, [] {
     session = std::make_shared<cpr::Session>();
     session->SetAcceptEncoding(cpr::AcceptEncoding{});
     session->SetHttpVersion(cpr::HttpVersion{cpr::HttpVersionCode::VERSION_1_1});
+    session->SetConnectTimeout(cpr::ConnectTimeout{3'000});
+    session->SetTimeout(cpr::Timeout{10'000});
 
     spdlog::debug("scopely session: proxy='{}', verify_ssl={}", Config::Get().sync_options.proxy, Config::Get().sync_options.verify_ssl);
 
@@ -486,23 +581,13 @@ static std::shared_ptr<cpr::Session> get_curl_client_scopely()
     }
 
     session->SetUserAgent("UnityPlayer/" + headers::unityVersion + " (UnityWebRequest/1.0, libcurl/8.10.1-DEV)");
-    session->SetHeader({
-        {"Accept", "application/json"},
-        {"Content-Type", "application/json"},
-        {"X-TRANSACTION-ID", newUUID()},
-        {"X-AUTH-SESSION-ID", headers::instanceSessionId},
-        {"X-PRIME-VERSION", headers::primeVersion},
-        {"X-Instance-ID", STR_FORMAT("{:03}", headers::instanceId)},
-        {"X-PRIME-SYNC", "0"},
-        {"X-Unity-Version", headers::unityVersion},
-        {"X-Powered-By", headers::poweredBy},
-    });
   });
 
   return session;
 }
 
-static std::string get_scopely_data(const std::string& path, const std::string& post_data)
+static std::string get_scopely_data(const std::string& path, const std::string& post_data,
+                                    uint64_t expectedGeneration = 0)
 {
   static std::once_flag emit_warning;
 
@@ -514,25 +599,40 @@ static std::string get_scopely_data(const std::string& path, const std::string& 
     return {};
   }
 
-  Url url(headers::gameServerUrl);
-  url.set_path(path);
-
   const auto        httpClient = get_curl_client_scopely();
-  static std::mutex client_mutex;
+  static auto&      client_mutex = *new std::mutex;
 
   std::string response_text;
 
   {
     std::scoped_lock lk(client_mutex);
+    // Snapshot only after waiting for the HTTP session. Never hold the metadata
+    // mutex through URL setup or network I/O, and never mix fields from logins.
+    const auto snapshot = headers::state.Read();
+    if ((expectedGeneration && snapshot.generation != expectedGeneration) || snapshot.gameServerUrl.empty()
+        || snapshot.instanceSessionId.empty())
+      return {};
+    Url url(snapshot.gameServerUrl);
+    url.set_path(path);
     httpClient->SetUrl(url.c_str());
-
-    auto& headers = httpClient->GetHeader();
-    headers.insert_or_assign("X-TRANSACTION-ID", newUUID());
-    headers.insert_or_assign("X-AUTH-SESSION-ID", headers::instanceSessionId);
-    headers.insert_or_assign("X-Instance-ID", STR_FORMAT("{:03}", headers::instanceId));
+    httpClient->SetHeader({
+        {"Accept", "application/json"},
+        {"Content-Type", "application/json"},
+        {"X-TRANSACTION-ID", newUUID()},
+        {"X-AUTH-SESSION-ID", snapshot.instanceSessionId},
+        {"X-PRIME-VERSION", snapshot.primeVersion},
+        {"X-Instance-ID", STR_FORMAT("{:03}", snapshot.instanceId)},
+        {"X-PRIME-SYNC", "0"},
+        {"X-Unity-Version", headers::unityVersion},
+        {"X-Powered-By", headers::poweredBy},
+    });
 
     httpClient->SetBody(post_data);
+    if (!headers::IsCurrentSessionGeneration(snapshot.generation))
+      return {};
     const auto response = httpClient->Post();
+    if (!headers::IsCurrentSessionGeneration(snapshot.generation))
+      return {}; // A completed old-login response must not populate current state.
 
     if (response.status_code == 0) {
       logging::error(logging::CURL_TYPE_DOWNLOAD, path, "Failed to send request: " + response.error.message);
@@ -663,29 +763,29 @@ namespace names
 {
   using namespace types;
 
-  static std::unordered_map<std::string, CachedPlayerData> player_data_cache;
-  static std::mutex                                        player_data_cache_mtx;
+  // Match the worker lifetime; no cache/mutex destructor races a draining worker.
+  static auto& player_data_cache     = *new sync_resolver::Cache<std::string, CachedPlayerData>;
+  static auto& player_data_cache_mtx = *new std::mutex;
 
-  static std::unordered_map<int64_t, CachedAllianceData> alliance_data_cache;
-  static std::mutex                                      alliance_data_cache_mtx;
+  static auto& alliance_data_cache     = *new sync_resolver::Cache<int64_t, CachedAllianceData>;
+  static auto& alliance_data_cache_mtx = *new std::mutex;
 
   static void cache_player_names(std::unique_ptr<std::string>&& bytes)
   {
     if (auto response = Digit::PrimeServer::Models::UserProfilesResponse(); response.ParseFromString(*bytes)) {
 
-      std::unordered_map<std::string, CachedPlayerData> names;
-      const auto                                        expires_at =
-          std::chrono::steady_clock::now() + std::chrono::seconds(Config::Get().sync_resolver_cache_ttl);
-
+      const auto       now        = std::chrono::steady_clock::now();
+      const auto       expires_at = now + std::chrono::seconds(Config::Get().sync_resolver_cache_ttl);
+      std::scoped_lock lk(player_data_cache_mtx);
+      player_data_cache.Prune(now);
       for (const auto& profile : response.userprofiles()) {
-        names.insert_or_assign(
-            profile.userid(),
-            CachedPlayerData{.name = profile.name(), .alliance = profile.allianceid(), .expires_at = expires_at});
-      }
-
-      {
-        std::scoped_lock lk(player_data_cache_mtx);
-        player_data_cache.insert(names.begin(), names.end());
+        if (!profile.userid().empty() && sync_resolver::BoundedField(profile.userid())
+            && sync_resolver::BoundedField(profile.name())) {
+          player_data_cache.Put(
+              profile.userid(),
+              CachedPlayerData{.name = profile.name(), .alliance = profile.allianceid(), .expires_at = expires_at},
+              now);
+        }
       }
     } else {
       spdlog::error("Failed to parse user profile");
@@ -696,21 +796,17 @@ namespace names
   {
     if (auto response = Digit::PrimeServer::Models::GetAllianceProfilesResponse(); response.ParseFromString(*bytes)) {
 
-      std::unordered_map<int64_t, CachedAllianceData> names;
-      const auto                                      expires_at =
-          std::chrono::steady_clock::now() + std::chrono::seconds(Config::Get().sync_resolver_cache_ttl);
-
+      const auto       now        = std::chrono::steady_clock::now();
+      const auto       expires_at = now + std::chrono::seconds(Config::Get().sync_resolver_cache_ttl);
+      std::scoped_lock lk(alliance_data_cache_mtx);
+      alliance_data_cache.Prune(now);
       for (const auto& alliance : response.allianceprofiles()) {
-        if (alliance.id() > 0) {
-          names.insert_or_assign(
+        if (alliance.id() > 0 && sync_resolver::BoundedField(alliance.name())
+            && sync_resolver::BoundedField(alliance.tag())) {
+          alliance_data_cache.Put(
               alliance.id(),
-              CachedAllianceData{.name = alliance.name(), .tag = alliance.tag(), .expires_at = expires_at});
+              CachedAllianceData{.name = alliance.name(), .tag = alliance.tag(), .expires_at = expires_at}, now);
         }
-      }
-
-      {
-        std::scoped_lock lk(alliance_data_cache_mtx);
-        alliance_data_cache.insert(names.begin(), names.end());
       }
 
     } else {
@@ -762,20 +858,14 @@ namespace names
                                    const std::chrono::time_point<std::chrono::steady_clock> now)
   {
     std::scoped_lock lk(player_data_cache_mtx);
+    player_data_cache.Prune(now);
 
     for (const auto& user_id : user_ids) {
-      const auto it = player_data_cache.find(user_id);
-      if (it != player_data_cache.end()) {
-        if (it->second.expires_at > now) {
-          out_names[user_id] = {{"name", it->second.name},
-                                {"alliance_id", it->second.alliance},
-                                {"alliance_name", nullptr},
-                                {"alliance_tag", nullptr}};
-        } else {
-          // expired entry: erase and queue for fetch
-          player_data_cache.erase(it);
-          out_request_ids.push_back(user_id);
-        }
+      if (const auto* cached = player_data_cache.Find(user_id, now)) {
+        out_names[user_id] = {{"name", cached->name},
+                              {"alliance_id", cached->alliance},
+                              {"alliance_name", nullptr},
+                              {"alliance_tag", nullptr}};
       } else {
         // cache miss: queue for fetch
         out_request_ids.push_back(user_id);
@@ -788,26 +878,22 @@ namespace names
                                      const std::chrono::time_point<std::chrono::steady_clock> now)
   {
     std::scoped_lock lk(alliance_data_cache_mtx);
+    alliance_data_cache.Prune(now);
 
     for (const auto& alliance_id : alliance_ids) {
-      const auto it = alliance_data_cache.find(alliance_id);
-      if (it != alliance_data_cache.end()) {
-        if (it->second.expires_at > now) {
-          for (const auto& [player_id, entry] : out_names.items()) {
-            try {
-              if (entry["alliance_id"].get<int64_t>() == alliance_id) {
-                entry["alliance_name"] = it->second.name;
-                entry["alliance_tag"]  = it->second.tag;
-                entry.erase("alliance_id");
-              }
-            } catch (const nlohmann::json::exception&) {
+      if (const auto* cached = alliance_data_cache.Find(alliance_id, now)) {
+        for (const auto& [player_id, entry] : out_names.items()) {
+          try {
+            if (entry["alliance_id"].get<int64_t>() == alliance_id) {
+              entry["alliance_name"] = cached->name;
+              entry["alliance_tag"]  = cached->tag;
+              entry.erase("alliance_id");
             }
+          } catch (const nlohmann::json::exception&) {
           }
-        } else {
-          // expired entry: erase and queue for fetch
-          alliance_data_cache.erase(it);
-          out_request_ids.push_back(alliance_id);
         }
+      } else {
+        out_request_ids.push_back(alliance_id);
       }
     }
   }
@@ -899,56 +985,155 @@ static void save_previously_sent_logs()
 namespace workers
 {
 
-static std::mutex                                                  sync_data_mtx;
-static std::condition_variable                                     sync_data_cv;
-static std::queue<std::tuple<SyncConfig::Type, std::string, bool>> sync_data_queue;
+// A missed delta cannot be repaired by blindly resuming: processors already
+// advanced their de-dup and first-sync state. Preserve each admitted FIFO prefix,
+// stop new ordinary payloads for this process, and make the gap visible once.
+static std::atomic_bool                     ordinary_sync_accepting{true};
+static std::atomic_bool                     workers_ready{false};
+static thread_local uint64_t                processing_generation = 0;
+static sync_session::OrdinarySessionBinding ordinary_session;
+static std::atomic<const char*>             overload_reason{nullptr};
+static std::atomic_bool                     overload_reported{false};
+static void                                 quarantine_ordinary_session() noexcept;
 
-static std::mutex              combat_log_data_mtx;
-static std::condition_variable combat_log_data_cv;
-static std::queue<uint64_t>    combat_log_data_queue;
-
-static void queue_data(SyncConfig::Type type, const std::string& data, bool is_first_sync = false)
+static void stop_ordinary_sync(const char* reason) noexcept
 {
-  {
-    std::scoped_lock lk(sync_data_mtx);
-    sync_data_queue.emplace(type, data, is_first_sync);
-    http::logging::debug("QUEUE", to_string(type), "Added data to sync queue");
-  }
-
-  sync_data_cv.notify_all();
+  ordinary_sync_accepting.store(false, std::memory_order_release);
+  const char* empty = nullptr;
+  overload_reason.compare_exchange_strong(empty, reason);
 }
 
-static void queue_data(SyncConfig::Type type, const nlohmann::json& data, bool is_first_sync = false)
+static void report_overload()
 {
-  {
-    std::scoped_lock lk(sync_data_mtx);
-    sync_data_queue.emplace(type, data.dump(), is_first_sync);
-    http::logging::debug("QUEUE", to_string(type), STR_FORMAT("Added {} entries to sync queue", data.size()));
+  const auto* reason = overload_reason.load(std::memory_order_acquire);
+  if (reason && !overload_reported.exchange(true)) {
+    spdlog::warn("Sync stopped accepting ordinary updates: {}. Sync may be incomplete. "
+                 "Restart the game to establish a fresh sync snapshot.",
+                 reason);
   }
-
-  sync_data_cv.notify_all();
 }
 
-static void ship_sync_data()
+static constexpr size_t   queue_mib = 1024 * 1024;
+static std::atomic_size_t diagnostic_count{0}, diagnostic_bytes{0};
+
+struct DiagnosticCharge {
+  size_t bytes       = 0;
+  DiagnosticCharge() = default;
+  explicit DiagnosticCharge(size_t charge)
+      : bytes(charge)
+  {
+  }
+  DiagnosticCharge(const DiagnosticCharge&)            = delete;
+  DiagnosticCharge& operator=(const DiagnosticCharge&) = delete;
+  DiagnosticCharge(DiagnosticCharge&& other) noexcept
+      : bytes(std::exchange(other.bytes, 0))
+  {
+  }
+  ~DiagnosticCharge()
+  {
+    if (bytes) {
+      diagnostic_bytes.fetch_sub(bytes);
+      diagnostic_count.fetch_sub(1);
+    }
+  }
+};
+
+struct SyncData {
+  // Destroy the string before releasing diagnostic admission, even on failure.
+  DiagnosticCharge diagnostic;
+  SyncConfig::Type type;
+  bool             is_first_sync;
+  uint64_t         generation;
+  std::string      data;
+};
+
+struct DispatchWorker {
+  sync_queue::BoundedQueue<SyncData> queue{{256, 32 * queue_mib, 16 * queue_mib}};
+  std::atomic_bool                   ordinary_open{true};
+  std::thread                        thread;
+  DispatchWorker();
+};
+
+struct CombatTask {
+  uint64_t id, generation;
+};
+
+struct CombatWorker {
+  sync_queue::BoundedQueue<CombatTask> queue{{4096, 4096 * sizeof(CombatTask), sizeof(CombatTask)}};
+  std::atomic_bool                     ordinary_open{true};
+  std::thread                          thread;
+  CombatWorker();
+};
+
+// Deliberately process lifetime, with joinable threads: no detach, static
+// destructor, or worker join can run under the game DLL's loader lock.
+static DispatchWorker* dispatch_worker = nullptr;
+static CombatWorker*   combat_worker   = nullptr;
+
+static bool queue_data(SyncConfig::Type type, std::string&& data, bool is_first_sync = false)
+{
+  const bool diagnostic = type == SyncConfig::Type::Diagnostics;
+  if (!workers_ready.load(std::memory_order_acquire) || (!diagnostic && !dispatch_worker->ordinary_open.load()))
+    return false;
+  if (!diagnostic && !http::headers::IsCurrentSessionGeneration(processing_generation)) {
+    quarantine_ordinary_session();
+    return false;
+  }
+  const auto generation = diagnostic ? http::headers::CurrentSessionGeneration() : processing_generation;
+
+  const auto       charge = sizeof(SyncData) + data.size() + 1;
+  DiagnosticCharge diagnostic_charge;
+  if (diagnostic) {
+    // Best-effort diagnostics cannot consume the ordinary stream's full budget.
+    if (charge > 256 * 1024 || diagnostic_count.fetch_add(1) >= 64) {
+      if (charge <= 256 * 1024)
+        diagnostic_count.fetch_sub(1);
+      return false;
+    }
+    if (diagnostic_bytes.fetch_add(charge) > 4 * queue_mib - charge) {
+      diagnostic_bytes.fetch_sub(charge);
+      diagnostic_count.fetch_sub(1);
+      return false;
+    }
+    diagnostic_charge.bytes = charge;
+  }
+  const auto admission = dispatch_worker->queue.TryEmplace(
+      charge, [&] { return SyncData{std::move(diagnostic_charge), type, is_first_sync, generation, std::move(data)}; });
+  if (admission == sync_queue::Admission::accepted)
+    return true;
+  if (!diagnostic) {
+    dispatch_worker->ordinary_open.store(false);
+    stop_ordinary_sync("ordinary delivery dispatch queue exceeded its bounds or failed admission");
+    report_overload(); // This path runs only on owned-payload/background producers.
+  }
+  return false;
+}
+
+static bool queue_data(SyncConfig::Type type, const nlohmann::json& data, bool is_first_sync = false)
+{
+  // Parsing and serialization run on the fixed owned-payload worker, never under
+  // the dispatch queue mutex or on the native response callback.
+  if (type != SyncConfig::Type::Diagnostics && !http::headers::IsCurrentSessionGeneration(processing_generation)) {
+    quarantine_ordinary_session();
+    return false;
+  }
+  return queue_data(type, data.dump(), is_first_sync);
+}
+
+static void ship_sync_data(DispatchWorker& worker)
 {
 #if _WIN32
   WinRtApartmentGuard apartmentGuard;
 #endif
 
   try {
-    for (;;) {
-      std::tuple<SyncConfig::Type, std::string, bool> sync_data;
-      {
-        std::unique_lock lock(sync_data_mtx);
-        sync_data_cv.wait(lock, []() { return !sync_data_queue.empty(); });
-        // Move the item out while holding the lock to avoid races/UB
-        sync_data = std::move(sync_data_queue.front());
-        sync_data_queue.pop();
-      }
-
+    while (auto sync_data = worker.queue.WaitPop()) {
       try {
-        auto& [type, data, is_first_sync] = sync_data;
-        http::send_data(type, data, is_first_sync);
+        auto& value = sync_data->value;
+        if (http::headers::IsCurrentSessionGeneration(value.generation))
+          http::send_data(value.type, value.data, value.is_first_sync, value.generation);
+        else if (value.type != SyncConfig::Type::Diagnostics)
+          quarantine_ordinary_session();
       } catch (const std::runtime_error& e) {
         ErrorMsg::SyncRuntime("ship", e);
       } catch (const std::exception& e) {
@@ -962,15 +1147,34 @@ static void ship_sync_data()
       } catch (...) {
         ErrorMsg::SyncMsg("ship", "Unknown error during sending of sync data");
       }
+      report_overload();
     }
   } catch (const std::exception& e) {
     spdlog::critical("ship_sync_data thread terminated: {}", e.what());
   } catch (...) {
     spdlog::critical("ship_sync_data thread terminated: unknown exception");
   }
+  worker.ordinary_open.store(false);
+  worker.queue.Close();
+  stop_ordinary_sync("delivery dispatch worker terminated");
+  report_overload();
 }
 
-static void ship_combat_log_data()
+DispatchWorker::DispatchWorker()
+    : thread([this] {
+      try {
+        ship_sync_data(*this);
+      } catch (...) {
+        ordinary_open.store(false);
+        queue.Close();
+        stop_ordinary_sync("delivery dispatch worker initialization failed");
+        report_overload();
+      }
+    })
+{
+}
+
+static void ship_combat_log_data(CombatWorker& worker)
 {
   using json = nlohmann::json;
   using namespace trackers::names;
@@ -979,23 +1183,26 @@ static void ship_combat_log_data()
   WinRtApartmentGuard apartmentGuard;
 #endif
 
-  for (;;) {
-    uint64_t journal_id;
-    {
-      std::unique_lock lock(combat_log_data_mtx);
-      combat_log_data_cv.wait(lock, [] { return !combat_log_data_queue.empty(); });
-      // Move the item out while holding the lock to avoid races/UB
-      journal_id = combat_log_data_queue.front();
-      combat_log_data_queue.pop();
+  while (auto queued_id = worker.queue.WaitPop()) {
+    const auto journal_id = queued_id->value.id;
+    const auto generation = queued_id->value.generation;
+    if (!http::headers::IsCurrentSessionGeneration(generation)) {
+      quarantine_ordinary_session();
+      report_overload();
+      continue;
     }
-
     try {
       http::logging::trace("PROCESS", "combat log", STR_FORMAT("Fetching combat log for battle {}", journal_id));
 
       const json journals_body{{"journal_id", journal_id}};
-      auto       battle_log = http::get_scopely_data("/journals/get", journals_body.dump());
+      auto       battle_log = http::get_scopely_data("/journals/get", journals_body.dump(), generation);
       json       battle_json;
 
+      if (!http::headers::IsCurrentSessionGeneration(generation)) {
+        quarantine_ordinary_session();
+        report_overload();
+        continue;
+      }
       if (battle_log.empty()) {
         continue;
       }
@@ -1013,8 +1220,6 @@ static void ship_combat_log_data()
 
       auto       names      = json::object();
       const auto now        = std::chrono::steady_clock::now();
-      const auto expires_at = now + std::chrono::seconds(Config::Get().sync_resolver_cache_ttl);
-
       {
         std::unordered_set<std::string> user_ids;
         collect_user_ids_from_fleet(target_fleet_data, user_ids);
@@ -1028,10 +1233,17 @@ static void ship_combat_log_data()
         if (fetch_count > 0) {
           http::logging::trace("PROCESS", "combat log", STR_FORMAT("Fetching {} player profiles", fetch_count));
 
-          auto profiles      = http::get_scopely_data("/user_profile/profiles", profiles_request.dump());
+          auto profiles = http::get_scopely_data("/user_profile/profiles", profiles_request.dump(), generation);
+          if (profiles.empty() || !http::headers::IsCurrentSessionGeneration(generation))
+            continue;
           auto profiles_json = json::parse(profiles);
 
           std::scoped_lock lk(player_data_cache_mtx);
+          if (!http::headers::IsCurrentSessionGeneration(generation))
+            continue;
+          const auto cache_now  = std::chrono::steady_clock::now();
+          const auto expires_at = cache_now + std::chrono::seconds(Config::Get().sync_resolver_cache_ttl);
+          player_data_cache.Prune(cache_now);
 
           try {
             for (const auto& [player_id, profile] : profiles_json["user_profiles"].get<json::object_t>()) {
@@ -1040,7 +1252,12 @@ static void ship_combat_log_data()
 
               names[player_id] = {
                   {"name", name}, {"alliance_id", alliance_id}, {"alliance_name", nullptr}, {"alliance_tag", nullptr}};
-              player_data_cache[player_id] = {.name=name, .alliance=alliance_id, .expires_at=expires_at};
+              if (!player_id.empty() && sync_resolver::BoundedField(player_id) && sync_resolver::BoundedField(name)
+                  && http::headers::IsCurrentSessionGeneration(generation)) {
+                player_data_cache.Put(player_id,
+                                      CachedPlayerData{.name = name, .alliance = alliance_id, .expires_at = expires_at},
+                                      cache_now);
+              }
             }
           } catch (const json::exception& e) {
             spdlog::error("Failed to parse user profiles: {}", e.what());
@@ -1059,10 +1276,18 @@ static void ship_combat_log_data()
         if (fetch_count > 0) {
           http::logging::trace("PROCESS", "combat log", STR_FORMAT("Fetching {} alliance profiles", fetch_count));
 
-          auto profiles      = http::get_scopely_data("/alliance/get_alliances_public_info", alliances_request.dump());
+          auto profiles =
+              http::get_scopely_data("/alliance/get_alliances_public_info", alliances_request.dump(), generation);
+          if (profiles.empty() || !http::headers::IsCurrentSessionGeneration(generation))
+            continue;
           auto profiles_json = json::parse(profiles);
 
           std::scoped_lock lk(alliance_data_cache_mtx);
+          if (!http::headers::IsCurrentSessionGeneration(generation))
+            continue;
+          const auto cache_now  = std::chrono::steady_clock::now();
+          const auto expires_at = cache_now + std::chrono::seconds(Config::Get().sync_resolver_cache_ttl);
+          alliance_data_cache.Prune(cache_now);
 
           try {
             for (const auto& [alliance_id_str, profile] : profiles_json["alliances_info"].get<json::object_t>()) {
@@ -1070,7 +1295,11 @@ static void ship_combat_log_data()
               const auto& name = profile["name"].get<std::string>();
               const auto& tag  = profile["tag"].get<std::string>();
 
-              alliance_data_cache[id] = {.name=name, .tag=tag, .expires_at=expires_at};
+              if (id > 0 && sync_resolver::BoundedField(name) && sync_resolver::BoundedField(tag)
+                  && http::headers::IsCurrentSessionGeneration(generation)) {
+                alliance_data_cache.Put(id, CachedAllianceData{.name = name, .tag = tag, .expires_at = expires_at},
+                                        cache_now);
+              }
             }
           } catch (json::exception& e) {
             spdlog::error("Failed to parse alliance profiles: {}", e.what());
@@ -1080,10 +1309,9 @@ static void ship_combat_log_data()
             try {
               if (entry.contains("alliance_id")) {
                 const auto alliance_id = entry["alliance_id"].get<int64_t>();
-                const auto it          = alliance_data_cache.find(alliance_id);
-                if (it != alliance_data_cache.end()) {
-                  entry["alliance_name"] = it->second.name;
-                  entry["alliance_tag"]  = it->second.tag;
+                if (const auto* cached = alliance_data_cache.Find(alliance_id, cache_now)) {
+                  entry["alliance_name"] = cached->name;
+                  entry["alliance_tag"]  = cached->tag;
                   entry.erase("alliance_id");
                 }
               }
@@ -1100,7 +1328,8 @@ static void ship_combat_log_data()
 
       try {
         auto ship_data = battle_array.dump();
-        http::send_data(SyncConfig::Type::Battles, ship_data, false);
+        if (http::headers::IsCurrentSessionGeneration(generation))
+          http::send_data(SyncConfig::Type::Battles, ship_data, false, generation);
       } catch (const std::runtime_error& e) {
         ErrorMsg::SyncRuntime("combat", e);
       } catch (const std::exception& e) {
@@ -1125,12 +1354,27 @@ static void ship_combat_log_data()
   }
 }
 
+CombatWorker::CombatWorker()
+    : thread([this] {
+      try {
+        ship_combat_log_data(*this);
+      } catch (...) {
+        ordinary_open.store(false);
+        queue.Close();
+        stop_ordinary_sync("combat download worker terminated");
+        report_overload();
+      }
+    })
+{
+}
+
 } // namespace workers
 
 void PublishDiagnosticEvent(std::string_view stream, const nlohmann::json& event) noexcept
 {
   try {
-    if (!Config::Get().sync_options.diagnostics || !event.is_object())
+    if (!workers::workers_ready.load(std::memory_order_acquire) || !Config::Get().sync_options.diagnostics
+        || !event.is_object())
       return;
     const auto sequence = event.find("seq");
     if (sequence == event.end() || !sequence->is_number_unsigned())
@@ -1147,17 +1391,11 @@ void PublishDiagnosticEvent(std::string_view stream, const nlohmann::json& event
       spdlog::warn("Diagnostic sync observation exceeds 256 KiB; dropped");
       return;
     }
-    {
-      std::scoped_lock lock(workers::sync_data_mtx);
-      if (workers::sync_data_queue.size() >= 256) {
-        static std::atomic<uint64_t> dropped{0};
-        if (dropped.fetch_add(1) % 64 == 0)
-          spdlog::warn("Diagnostic sync dispatch queue full; dropping observations");
-        return;
-      }
-      workers::sync_data_queue.emplace(SyncConfig::Type::Diagnostics, std::move(body), false);
+    if (!workers::queue_data(SyncConfig::Type::Diagnostics, std::move(body))) {
+      static std::atomic<uint64_t> dropped{0};
+      if (dropped.fetch_add(1) % 64 == 0)
+        spdlog::warn("Diagnostic sync dispatch bounds reached; dropping observations");
     }
-    workers::sync_data_cv.notify_all();
   } catch (...) { /* Diagnostics must never throw into game code. */ }
 }
 
@@ -1295,7 +1533,14 @@ static void away_assignment_instance(std::unique_ptr<std::string>&& bytes)
 
 static void queue_battle_ids(const std::vector<uint64_t>& battle_ids)
 {
-  std::vector<uint64_t> to_enqueue;
+  if (!workers::combat_worker || !workers::combat_worker->ordinary_open.load())
+    return;
+  const auto generation = workers::processing_generation;
+  if (!http::headers::IsCurrentSessionGeneration(generation)) {
+    workers::quarantine_ordinary_session();
+    return;
+  }
+  size_t admitted = 0;
   {
     using trackers::previously_sent_battlelogs;
     using trackers::previously_sent_battlelogs_mtx;
@@ -1305,25 +1550,28 @@ static void queue_battle_ids(const std::vector<uint64_t>& battle_ids)
     for (const auto id : battle_ids | std::views::reverse) {
       if (eastl::find(previously_sent_battlelogs.begin(), previously_sent_battlelogs.end(), id)
           == previously_sent_battlelogs.end()) {
+        const auto result = workers::combat_worker->queue.TryEmplace(
+            sizeof(workers::CombatTask), [id, generation] { return workers::CombatTask{id, generation}; });
+        if (result != sync_queue::Admission::accepted) {
+          workers::combat_worker->ordinary_open.store(false);
+          workers::stop_ordinary_sync("combat download queue exceeded its bounds or failed admission");
+          workers::combat_worker->queue.Close();
+          break;
+        }
+        // Do not persist a rejected ID as already sent. A later fresh session
+        // must still be able to discover and retrieve it.
         previously_sent_battlelogs.push_back(id);
-        to_enqueue.push_back(id);
+        ++admitted;
       }
     }
   }
 
-  if (!to_enqueue.empty()) {
+  workers::report_overload();
+  if (admitted) {
     http::logging::debug("QUEUE", "battle headers",
-                         STR_FORMAT("Queuing {} battles for background processing", to_enqueue.size()));
-
-    {
-      std::scoped_lock lk(workers::combat_log_data_mtx);
-      for (const auto id : to_enqueue) {
-        workers::combat_log_data_queue.push(id);
-      }
-    }
+                         STR_FORMAT("Queuing {} battles for background processing", admitted));
 
     trackers::save_previously_sent_logs();
-    workers::combat_log_data_cv.notify_all();
   }
 }
 
@@ -1780,14 +2028,14 @@ static void active_missions(std::unique_ptr<std::string>&& bytes)
       std::scoped_lock lk(active_mission_states_mtx);
       if (active_mission_states != active_missions) {
         changed               = true;
-        active_mission_states = std::move(active_missions);
+        active_mission_states = active_missions;
       }
     }
 
-    if (changed && !active_mission_states.empty()) {
+    if (changed && !active_missions.empty()) {
       auto mission_array = json::array();
 
-      for (const auto mission : active_mission_states) {
+      for (const auto mission : active_missions) {
         mission_array.push_back({{"type", "active_" + SyncConfig::Type::Missions}, {"mid", mission}});
       }
 
@@ -2487,50 +2735,141 @@ namespace rtc
 
 } // namespace processors
 
+namespace workers
+{
+using PayloadProcessor = void (*)(std::unique_ptr<std::string>&&);
+struct PayloadTask {
+  PayloadProcessor             process = nullptr;
+  std::unique_ptr<std::string> bytes;
+  std::string                  local_user_id;
+  uint64_t                     generation = 0;
+};
+
+struct PayloadWorker {
+  sync_queue::BoundedQueue<PayloadTask> queue{{128, 32 * queue_mib, 16 * queue_mib}};
+  std::thread                           thread;
+  PayloadWorker()
+      : thread([this] { Run(); })
+  {
+  }
+
+  void Run() noexcept
+  {
+    try {
+      while (auto item = queue.WaitPop()) {
+        report_overload();
+        auto& task = item->value;
+        if (task.bytes && !http::headers::IsCurrentSessionGeneration(task.generation)) {
+          quarantine_ordinary_session();
+          continue;
+        }
+        processing_generation = task.generation;
+        try {
+          if (task.bytes) {
+            if (task.process)
+              task.process(std::move(task.bytes));
+            else
+              processors::planetary_map(std::move(task.bytes), task.local_user_id);
+          }
+        } catch (...) {
+          stop_ordinary_sync("owned payload processing failed; the stream may be incomplete");
+        }
+        processing_generation = 0;
+        report_overload();
+      }
+      report_overload();
+    } catch (...) {
+      queue.Close();
+      stop_ordinary_sync("owned payload worker terminated");
+      report_overload();
+    }
+  }
+
+  template <class Factory> bool Submit(uint64_t generation, size_t charge, Factory&& factory)
+  {
+    if (!ordinary_sync_accepting.load(std::memory_order_acquire))
+      return false;
+    if (!ordinary_session.Admit(generation, http::headers::CurrentSessionGeneration())) {
+      quarantine_ordinary_session();
+      return false;
+    }
+    if (queue.TryEmplace(charge, std::forward<Factory>(factory)) == sync_queue::Admission::accepted)
+      return true;
+    stop_ordinary_sync("owned payload queue exceeded its bounds or failed admission");
+    // Close wakes an idle consumer without allocating a notice or logging on
+    // the game caller. Existing leases and the admitted FIFO prefix still drain.
+    queue.Close();
+    return false;
+  }
+};
+
+static PayloadWorker* payload_worker = nullptr;
+
+static void quarantine_ordinary_session() noexcept
+{
+  stop_ordinary_sync("the login session changed after ordinary sync began; cached deltas require a fresh process");
+  if (payload_worker)
+    payload_worker->queue.Close();
+}
+
+// Called after the native login snapshot changes. Never log, serialize, wait
+// for a worker or touch disk from the native callback; Close wakes its reporter.
+static void on_session_change() noexcept
+{
+  if (ordinary_session.SessionChanged(http::headers::CurrentSessionGeneration()))
+    quarantine_ordinary_session();
+}
+
+static bool start_workers()
+{
+  const auto& options  = Config::Get().sync_options;
+  const bool  ordinary = std::ranges::any_of(SyncOptions, [&options](const auto& option) {
+    return option.type != SyncConfig::Type::Diagnostics && options.*option.option;
+  });
+  if (!ordinary && !options.diagnostics)
+    return true;
+  try {
+    dispatch_worker = new DispatchWorker;
+    if (options.battlelogs)
+      combat_worker = new CombatWorker;
+    if (ordinary)
+      payload_worker = new PayloadWorker;
+    workers_ready.store(true, std::memory_order_release);
+    return true;
+  } catch (...) {
+    stop_ordinary_sync("sync worker startup failed");
+    report_overload();
+    return false;
+  }
+}
+
+static bool submit_payload(const char* bytes, size_t count, PayloadProcessor process, std::string local_user_id = {})
+{
+  if (!workers_ready.load(std::memory_order_acquire) || !payload_worker)
+    return false;
+  const auto generation = http::headers::CurrentSessionGeneration();
+  const auto charge     = sizeof(PayloadTask) + sizeof(std::string) + count + local_user_id.size() + 2;
+  return payload_worker->Submit(generation, charge, [&] {
+    return PayloadTask{process, std::make_unique<std::string>(bytes, count), std::move(local_user_id), generation};
+  });
+}
+} // namespace workers
+
 static void HandleEntityGroup(EntityGroup* entity_group)
 {
-  if (entity_group == nullptr || entity_group->Group == nullptr || entity_group->Group->bytes == nullptr
-      || entity_group->Group->Length <= 0) {
+  if (!workers::workers_ready.load(std::memory_order_acquire) || !workers::payload_worker
+      || !workers::ordinary_sync_accepting.load(std::memory_order_acquire) || entity_group == nullptr
+      || entity_group->Group == nullptr || entity_group->Group->bytes == nullptr || entity_group->Group->Length <= 0) {
     return;
   }
 
-  const auto byteCount = static_cast<size_t>(entity_group->Group->Length);
-  const auto *bytesPtr = reinterpret_cast<const char*>(entity_group->Group->bytes->m_Items);
+  const auto  byteCount = static_cast<size_t>(entity_group->Group->Length);
+  const auto* bytesPtr  = reinterpret_cast<const char*>(entity_group->Group->bytes->m_Items);
 
-  // Helper to run processing asynchronously with exception handling
-  auto submit_async = [bytesPtr, byteCount]<typename T>(T&& func) {
-    auto payload = std::make_unique<std::string>(bytesPtr, byteCount);
-
-    try {
-      std::thread([f = std::forward<T>(func), p = std::move(payload)]() mutable {
-        try {
-          f(std::move(p));
-        } catch (const std::exception& e) {
-          spdlog::error("Exception in HandleEntityGroup: {}", e.what());
-        } catch (...) {
-          spdlog::error("Unknown exception in HandleEntityGroup");
-        }
-      }).detach();
-    } catch (const std::exception& e) {
-      spdlog::error("Failed to spawn async task: {}", e.what());
-    } catch (...) {
-      spdlog::error("Failed to spawn async task: unknown exception");
-    }
-  };
-
-  // Away-assignment snapshots and updates, and job timing snapshots, share cached state.
-  // Process them synchronously so a later update cannot overtake an earlier emission.
-  // HTTP delivery remains on the existing target workers.
-  static std::mutex ordered_dispatch;
-  auto submit_ordered = [bytesPtr, byteCount](auto process) {
-    std::scoped_lock lock(ordered_dispatch);
-    try {
-      process(std::make_unique<std::string>(bytesPtr, byteCount));
-    } catch (const std::exception& e) {
-      spdlog::error("Exception processing ordered sync entity: {}", e.what());
-    } catch (...) {
-      spdlog::error("Unknown exception processing ordered sync entity");
-    }
+  // Admission precedes the native byte copy. One consumer preserves the order
+  // of full snapshots, deltas, removals and first-sync markers across categories.
+  auto submit = [bytesPtr, byteCount](workers::PayloadProcessor process) {
+    return workers::submit_payload(bytesPtr, byteCount, process);
   };
   const auto& sync_options = Config::Get().sync_options;
 
@@ -2538,53 +2877,53 @@ static void HandleEntityGroup(EntityGroup* entity_group)
     // away assignments
     case EntityGroup::Type::AwayAssignmentsList:
       if (sync_options.away_assignments) {
-        submit_ordered(processors::away_assignments_list);
+        submit(processors::away_assignments_list);
       }
       break;
     case EntityGroup::Type::AwayAssignmentsInstance:
       if (sync_options.away_assignments) {
-        submit_ordered(processors::away_assignment_instance);
+        submit(processors::away_assignment_instance);
       }
       break;
 
     // battlelogs
     case EntityGroup::Type::BattleResultHeaders:
       if (sync_options.battlelogs) {
-        submit_async(processors::battle_result_headers);
+        submit(processors::battle_result_headers);
       }
       break;
     case EntityGroup::Type::BattleReport:
       if (sync_options.battlelogs) {
-        submit_async(processors::battle_report);
+        submit(processors::battle_report);
       }
       break;
     case EntityGroup::Type::UserProfiles:
       if (sync_options.battlelogs) {
-        submit_async(trackers::names::cache_player_names);
+        submit(trackers::names::cache_player_names);
       }
       break;
     case EntityGroup::Type::AllianceProfiles:
       if (sync_options.battlelogs) {
-        submit_async(trackers::names::cache_alliance_names);
+        submit(trackers::names::cache_alliance_names);
       }
       break;
 
     // buffs
     case EntityGroup::Type::GlobalActiveBuffs:
       if (sync_options.buffs) {
-        submit_async(processors::global_active_buffs);
+        submit(processors::global_active_buffs);
       }
       break;
     case EntityGroup::Type::AllianceGetGameProperties:
       if (sync_options.buffs) {
-        submit_async(processors::alliance_games_props);
+        submit(processors::alliance_games_props);
       }
       break;
 
     // buildings
     case EntityGroup::Type::StarbaseModules:
       if (sync_options.buildings) {
-        submit_async(processors::starbase_modules);
+        submit(processors::starbase_modules);
       }
       break;
 
@@ -2592,34 +2931,28 @@ static void HandleEntityGroup(EntityGroup* entity_group)
     case EntityGroup::Type::PlanetaryBaseData:
       if (sync_options.haven) {
         static std::once_flag haven_init_base_flag;
-        std::call_once(haven_init_base_flag, [&] {
-          submit_async(processors::planetary_base_data);
-        });
+        std::call_once(haven_init_base_flag, [&] { submit(processors::planetary_base_data); });
       }
       break;
 
     case EntityGroup::Type::PlanetaryMapData:
       if (sync_options.haven) {
         static std::once_flag haven_init_map_flag;
-        std::call_once(haven_init_map_flag, [&] {
-          submit_async(processors::planetary_map_data);
-        });
+        std::call_once(haven_init_map_flag, [&] { submit(processors::planetary_map_data); });
       }
       break;
 
     case EntityGroup::Type::PlanetaryMapProsperity:
       if (sync_options.haven) {
         static std::once_flag haven_init_prosperity_flag;
-        std::call_once(haven_init_prosperity_flag, [&] {
-          submit_async(processors::planetary_map_prosperity);
-        });
+        std::call_once(haven_init_prosperity_flag, [&] { submit(processors::planetary_map_prosperity); });
       }
       break;
 
     case EntityGroup::Type::PlanetaryMapResponse:
       if (sync_options.haven) {
-        // Read managed state on the native callback thread. Detached payload
-        // workers receive only an owned string, never Unity/IL2CPP objects.
+        // Read managed state on the native callback thread. The fixed payload
+        // worker receives only owned strings, never Unity/IL2CPP objects.
         std::string local_user_id;
         static auto manager_parent = UserProfileManager::get_class_helper().GetParent("MonoSingleton`1");
         // Closed generic singleton getters are inflated; the detour resolver
@@ -2646,110 +2979,109 @@ static void HandleEntityGroup(EntityGroup* entity_group)
             && Il2CppRuntime::TryInvoke(user_id, profile, nullptr, &id) && id) {
           local_user_id = to_string(reinterpret_cast<Il2CppString*>(id));
         }
-        submit_async([local_user_id = std::move(local_user_id)](std::unique_ptr<std::string>&& payload) {
-          processors::planetary_map(std::move(payload), local_user_id);
-        });
+        workers::submit_payload(bytesPtr, byteCount, nullptr, std::move(local_user_id));
       }
       break;
 
     // inventory
     case EntityGroup::Type::PlayerInventories:
       if (sync_options.inventory) {
-        submit_async(processors::player_inventories);
+        submit(processors::player_inventories);
       }
       break;
 
     // jobs
     case EntityGroup::Type::Jobs:
       if (sync_options.jobs) {
-        submit_ordered(processors::jobs);
+        submit(processors::jobs);
       }
       break;
 
     // missions
     case EntityGroup::Type::ActiveMissions:
       if (sync_options.missions) {
-        submit_async(processors::active_missions);
+        submit(processors::active_missions);
       }
       break;
     case EntityGroup::Type::CompletedMissions:
       if (sync_options.missions) {
-        submit_async(processors::completed_missions);
+        submit(processors::completed_missions);
       }
       break;
 
     // officer
     case EntityGroup::Type::Officers:
       if (sync_options.officers) {
-        submit_async(processors::officers);
+        submit(processors::officers);
       }
       break;
 
     // research
     case EntityGroup::Type::ResearchTreesState:
       if (sync_options.research) {
-        submit_async(processors::research_trees_state);
+        submit(processors::research_trees_state);
       }
       break;
 
     // resources
     case EntityGroup::Type::Resources:
       if (sync_options.resources) {
-        submit_async(processors::resources);
+        submit(processors::resources);
       }
       break;
     case EntityGroup::Type::ResourcesDelta:
       if (sync_options.resources) {
-        submit_async(processors::resources_delta);
+        submit(processors::resources_delta);
       }
       break;
     case EntityGroup::Type::AllianceGetBankResources:
       if (sync_options.resources) {
-        submit_async(processors::alliance_resources);
+        submit(processors::alliance_resources);
       }
       break;
     case EntityGroup::Type::ResourcesDeltaAlliance:
       if (sync_options.resources) {
-        submit_async(processors::alliance_resources_delta);
+        submit(processors::alliance_resources_delta);
       }
       break;
 
     // ships
     case EntityGroup::Type::Ships:
       if (sync_options.ships) {
-        submit_async(processors::player_ships);
+        submit(processors::player_ships);
       }
       break;
 
     // slots
     case EntityGroup::Type::EntitySlots:
       if (sync_options.slots) {
-        submit_async(processors::entity_slots);
+        submit(processors::entity_slots);
       }
       break;
     case EntityGroup::Type::EntitySlotsData:
       if (sync_options.slots) {
-        submit_async(processors::entity_slots_data);
+        submit(processors::entity_slots_data);
       }
       break;
 
     // tech
     case EntityGroup::Type::ForbiddenTechs:
-    if (sync_options.tech) {
-      submit_async(processors::forbidden_tech);
-    }
-    break;
+      if (sync_options.tech) {
+        submit(processors::forbidden_tech);
+      }
+      break;
 
     // traits
     case EntityGroup::Type::ActiveOfficerTraits:
       if (sync_options.traits) {
-        submit_async(processors::active_officer_traits);
+        submit(processors::active_officer_traits);
       }
       break;
 
     // misc
     case EntityGroup::Type::Json:
-      submit_async(processors::json::parse);
+      if (sync_options.battlelogs || sync_options.resources || sync_options.buildings || sync_options.ships)
+        submit(processors::json::parse);
       break;
 
     default:
@@ -2770,24 +3102,24 @@ static_assert(sizeof(CentrifugoInfo) == 16);
 static void* RtcParser_ParseFinalPayload(auto original, void* _this, CentrifugoInfo centrifugoInfo,
                                          RealtimeDataPayload* realtimeDataPayload, void* finalPayload)
 {
-  if (realtimeDataPayload != nullptr && realtimeDataPayload->Target != nullptr
-      && realtimeDataPayload->DataType != nullptr && realtimeDataPayload->Data != nullptr) {
-    if (const auto type_string = to_string(realtimeDataPayload->DataType); std::stoi(type_string) == DataType::JSON) {
-      const auto target   = to_string(realtimeDataPayload->Target);
-      const auto rtc_data = to_string(realtimeDataPayload->Data);
-
-      // spdlog::debug("Received RTC payload for target '{}': {}", target, rtc_data);
-      auto payload = std::make_unique<std::string>(rtc_data);
-
-      std::thread([p = std::move(payload)]() mutable {
-        try {
-          processors::rtc::entity_slots(std::move(p));
-        } catch (const std::exception& e) {
-          spdlog::error("Exception in RtcParser_ParseFinalPayload: {}", e.what());
-        } catch (...) {
-          spdlog::error("Unknown exception in RtcParser_ParseFinalPayload");
-        }
-      }).detach();
+  if (workers::workers_ready.load(std::memory_order_acquire) && workers::payload_worker
+      && workers::ordinary_sync_accepting.load(std::memory_order_acquire) && Config::Get().sync_options.slots
+      && realtimeDataPayload) {
+    // Read getters once on their native caller. Admission uses a conservative
+    // UTF-8 bound before conversion; the factory copies only these borrowed
+    // characters and never calls a native getter or retains a managed pointer.
+    const auto* type = realtimeDataPayload->DataType;
+    if (!type || type->length != 1 || type->chars[0] != u'0')
+      return original(_this, centrifugoInfo, realtimeDataPayload, finalPayload);
+    const auto* data = realtimeDataPayload->Data;
+    if (data && data->length > 0) {
+      const auto charge =
+          sizeof(workers::PayloadTask) + sizeof(std::string) + static_cast<size_t>(data->length) * 3 + 1;
+      const auto generation = http::headers::CurrentSessionGeneration();
+      workers::payload_worker->Submit(generation, charge, [data, generation] {
+        return workers::PayloadTask{
+            processors::rtc::entity_slots, std::make_unique<std::string>(to_string(data)), {}, generation};
+      });
     }
   }
 
@@ -2797,6 +3129,9 @@ static void* RtcParser_ParseFinalPayload(auto original, void* _this, CentrifugoI
 static void GameServerModelRegistry_ProcessResultInternal(auto original, void* _this, void* parsing_context,
                                                           ServiceResponse* service_response, MethodInfo* method)
 {
+  if (!workers::workers_ready.load(std::memory_order_acquire) || !workers::payload_worker
+      || !workers::ordinary_sync_accepting.load(std::memory_order_acquire))
+    return original(_this, parsing_context, service_response, method);
   auto* const entity_groups = service_response->EntityGroups;
   for (int i = 0; i < entity_groups->Count; ++i) {
     auto* const entity_group = entity_groups->get_Item(i);
@@ -2811,28 +3146,31 @@ static void PrimeApp_InitPrimeServer(auto original, void* _this, Il2CppString* g
                                      Il2CppString* serverRegion)
 {
   original(_this, gameServerUrl, gatewayServerUrl, sessionId, serverRegion);
-  http::headers::instanceSessionId = to_string(sessionId);
-  http::headers::gameServerUrl     = to_string(gameServerUrl);
+  http::headers::state.SetServer(to_string(gameServerUrl), to_string(sessionId));
+  workers::on_session_change();
 }
 
 static void GameServer_Initialise(auto original, void* _this, Il2CppString* sessionId, Il2CppString* gameVersion,
                                   bool encryptRequests, Il2CppString* serverRegion)
 {
   original(_this, sessionId, gameVersion, encryptRequests, serverRegion);
-  http::headers::primeVersion = to_string(gameVersion);
+  http::headers::state.SetVersion(to_string(gameVersion));
 }
 
 static void GameServer_SetInstanceIdHeader(auto original, void* _this, int32_t instanceId)
 {
   original(_this, instanceId);
-  http::headers::instanceId = instanceId;
+  http::headers::state.SetInstance(instanceId);
 }
 
 } // namespace hooks
 
 void InstallSyncPatches()
 {
-  trackers::load_previously_sent_logs();
+  if (!workers::start_workers())
+    return;
+  if (Config::Get().sync_options.battlelogs)
+    trackers::load_previously_sent_logs();
 
   if (auto game_server_model_registry =
           il2cpp_get_class_helper("Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Core", "GameServerModelRegistry");
@@ -2863,7 +3201,7 @@ void InstallSyncPatches()
     ErrorMsg::MissingHelper("Core", "GameServer");
   } else {
     // This hook only captures the game version for the X-PRIME-VERSION sync header
-    // (headers::primeVersion has a static fallback). It is optional so users can turn
+    // (the session snapshot has a version fallback). It is optional so users can turn
     // it off when another mod detours the same method — a native and a managed detour
     // on one prologue corrupt each other and crash at login.
     if (!Config::Get().installGameVersionHook) {
@@ -2903,6 +3241,4 @@ void InstallSyncPatches()
       }
     }
 
-  std::thread(workers::ship_sync_data).detach();
-  std::thread(workers::ship_combat_log_data).detach();
 }
