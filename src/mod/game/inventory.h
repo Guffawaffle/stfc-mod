@@ -43,13 +43,11 @@ struct InventoryUsePopupViewController : il2cpp::Object {
 };
 
 // Also the base of the officer roster and the other inventory-style lists.
-struct InventoryListViewController : il2cpp::Object {
+struct InventoryListViewController : unity::Behaviour {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Inventories", "InventoryListViewController">;
 
   InputFieldWidget* inputField()
   { return Field<"_inputField", InputFieldWidget*>(); }
-  bool isActiveAndEnabled()
-  { return Get<"isActiveAndEnabled", bool>(); }
 };
 
 struct Bundle : il2cpp::Object {
@@ -63,7 +61,7 @@ struct BundleDataWidget : Widget<Bundle> {
   // ItemState flags; only the one the mod reads is named.
   static constexpr int32_t kCooldownTimerOn = 16384;
 
-  int32_t CurrentState()
+  int32_t currentState()
   { return Field<"_currentState", int32_t>(); }
   void AuxViewButtonPressedHandler()
   { Call<"AuxViewButtonPressedHandler">(); }
@@ -91,6 +89,7 @@ struct ShopListScrollerViewController : il2cpp::Object {
   { return Field<"_selectionDrawerWidget", DrawerWidget*>(); }
 };
 
+// Shows the shop's reveal sequences and offer popups. Only hooked.
 using ShopSceneManager = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Shop", "ShopSceneManager">;
 
 // The forbidden tech inventory tiles and the large selected-item panel.

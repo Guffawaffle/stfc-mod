@@ -171,6 +171,15 @@ struct SectionManager : il2cpp::Object {
   }
 };
 
+// Unity singletons expose a static Instance on their MonoSingleton`1<T> base.
+template <typename T> struct MonoSingleton : il2cpp::Object {
+  static T* Instance()
+  { return T::Class::template Get<"Instance", T*>(); }
+};
+
+// The non-generic MonoSingleton base; its static PrepareAllForReload runs before the game reloads.
+using MonoSingletonBase = il2cpp::Class<"Assembly-CSharp", "", "MonoSingleton">;
+
 // Digit.Client.Core.CustomReloadArgs and Nullable<CustomReloadArgs>, laid out as the runtime does.
 struct CustomReloadArgs {
   Il2CppObject* SectionArgs;
