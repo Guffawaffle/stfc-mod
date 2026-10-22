@@ -19,6 +19,8 @@ This cleanup changes these active paths:
 
 Native destruction is checked even when a managed wrapper remains. Unity work
 remains on the main thread; moving Unity APIs to workers is not a safe remedy.
+Temporary Haven discovery arrays and mutation inputs are strongly rooted across
+native calls; persistent scene cohorts retain only weak handles.
 No new native hooks are installed. Haven discovery retains no more than 256 road
 materials and eight water renderers. Object-tracker membership contains only
 identity/metadata pointers and leaves with the object. The claim worker charges

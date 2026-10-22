@@ -52,18 +52,23 @@ void ApplyHavenWaterVisibility(bool hidden)
 
   auto                                   &cache = HavenVisuals::Cache();
   std::unordered_map<int, Il2CppObject *> active;
+  std::vector<HavenVisuals::StrongObject> active_roots;
   if (hidden) {
     cache.Refresh(Clock::now());
     for (const auto &weak : cache.Water()) {
-      auto *renderer = weak.Get();
-      int   id       = 0;
-      if (renderer && HavenVisuals::InstanceId(renderer, id))
+      HavenVisuals::StrongObject root(weak.Get());
+      auto                      *renderer = root.Get();
+      int                        id       = 0;
+      if (renderer && HavenVisuals::InstanceId(renderer, id)) {
         active.emplace(id, renderer);
+        active_roots.push_back(std::move(root));
+      }
     }
   }
   for (auto it = originals.begin(); it != originals.end();) {
-    auto      *renderer = it->second.renderer.Get();
-    const auto found    = active.find(it->first);
+    HavenVisuals::StrongObject root(it->second.renderer.Get());
+    auto                      *renderer = root.Get();
+    const auto                 found    = active.find(it->first);
     if (!renderer || (found != active.end() && renderer != found->second)) {
       it = originals.erase(it);
       continue;

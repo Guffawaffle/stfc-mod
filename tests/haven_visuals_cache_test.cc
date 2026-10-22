@@ -59,11 +59,15 @@ struct Backend {
     ++finds;
     return active ? Get(owner) : 0;
   }
-  static bool ScanOwner(int, std::vector<int> &out_roads, std::vector<int> &out_water)
+  static bool ScanOwner(int, std::vector<Weak> &out_roads, std::vector<Weak> &out_water)
   {
     ++scans;
-    out_roads = roads;
-    out_water = water;
+    for (int object : roads)
+      if (auto weak = Retain(object); weak)
+        out_roads.push_back(std::move(weak));
+    for (int object : water)
+      if (auto weak = Retain(object); weak)
+        out_water.push_back(std::move(weak));
     return scan_ok;
   }
 };

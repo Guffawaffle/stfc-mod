@@ -38,7 +38,7 @@ public:
     if (now < next_refresh_)
       return;
     next_refresh_ = now + std::chrono::seconds(5);
-    std::vector<typename Backend::Object> roads, water;
+    std::vector<Weak> roads, water;
     if (!Backend::ScanOwner(owner, roads, water)) {
       // A failed/oversized read cannot establish that the previous cohort is
       // still owned here. Let callers restore it and retry after the backoff.
@@ -46,21 +46,12 @@ public:
       water_.clear();
       return;
     }
-    std::vector<Weak> next_roads, next_water;
-    for (auto object : roads) {
-      if (next_roads.size() == 256)
-        break;
-      if (auto weak = Backend::Retain(object); weak)
-        next_roads.push_back(std::move(weak));
-    }
-    for (auto object : water) {
-      if (next_water.size() == 8)
-        break;
-      if (auto weak = Backend::Retain(object); weak)
-        next_water.push_back(std::move(weak));
-    }
-    roads_ = std::move(next_roads);
-    water_ = std::move(next_water);
+    if (roads.size() > 256)
+      roads.resize(256);
+    if (water.size() > 8)
+      water.resize(8);
+    roads_ = std::move(roads);
+    water_ = std::move(water);
   }
 
   const std::vector<Weak> &Roads() const
@@ -123,6 +114,35 @@ inline DiscoveryApi &Api()
   return api;
 }
 
+// Stack-only roots protect managed return arrays/objects across later allocating
+// invokes. Persistent caches use weak handles; static destruction owns no roots.
+class StrongObject
+{
+public:
+  explicit StrongObject(Il2CppObject *object)
+      : handle_(object ? il2cpp_gchandle_new(object, false) : nullptr)
+  {
+  }
+  StrongObject(const StrongObject &)            = delete;
+  StrongObject &operator=(const StrongObject &) = delete;
+  StrongObject(StrongObject &&other) noexcept
+      : handle_(std::exchange(other.handle_, nullptr))
+  {
+  }
+  ~StrongObject()
+  {
+    if (handle_)
+      il2cpp_gchandle_free(handle_);
+  }
+  explicit operator bool() const
+  { return handle_ != nullptr; }
+  Il2CppObject *Get() const
+  { return handle_ ? il2cpp_gchandle_get_target(handle_) : nullptr; }
+
+private:
+  Il2CppGCHandle handle_ = nullptr;
+};
+
 class WeakObject
 {
 public:
@@ -155,9 +175,10 @@ public:
   { return handle_ != nullptr; }
   Il2CppObject *Get() const
   {
-    auto *object = handle_ ? il2cpp_gchandle_get_target(handle_) : nullptr;
-    bool  alive  = false;
-    void *args[]{object};
+    StrongObject root(handle_ ? il2cpp_gchandle_get_target(handle_) : nullptr);
+    auto        *object = root.Get();
+    bool         alive  = false;
+    void        *args[]{object};
     return object && Il2CppRuntime::TryBoolean(Invoke(Api().alive, nullptr, args), alive) && alive ? object : nullptr;
   }
 
@@ -167,7 +188,8 @@ private:
 
 inline std::string Name(Il2CppObject *object)
 {
-  auto *value = object ? reinterpret_cast<Il2CppString *>(Invoke(Api().name, object)) : nullptr;
+  StrongObject root(object);
+  auto        *value = root ? reinterpret_cast<Il2CppString *>(Invoke(Api().name, root.Get())) : nullptr;
   return value && value->length >= 0 && value->length <= 256 ? to_string(value) : std::string{};
 }
 
@@ -196,29 +218,38 @@ struct NativeBackend {
   using Weak   = WeakObject;
   static Object GetOwner(const Weak &weak)
   {
-    auto *object = weak.Get();
-    bool  active = false;
+    StrongObject root(weak.Get());
+    auto        *object = root.Get();
+    bool         active = false;
     return object && Il2CppRuntime::TryBoolean(Invoke(Api().active, object), active) && active ? object : nullptr;
   }
   static Weak Retain(Object object)
-  { return Weak(object); }
+  {
+    StrongObject root(object);
+    return root ? Weak(root.Get()) : Weak{};
+  }
   static Object FindOwner()
   {
     void *args[]{il2cpp_string_new("StarbaseRoot/StarbaseManager/StarbasePlanetaryVisualsHolder")};
     return Invoke(Api().find, nullptr, args);
   }
-  static bool ScanOwner(Object owner, std::vector<Object> &roads, std::vector<Object> &water)
+  static bool ScanOwner(Object owner, std::vector<Weak> &roads, std::vector<Weak> &water)
   {
-    auto &api      = Api();
-    bool  inactive = true;
-    void *args[]{il2cpp_type_get_object(il2cpp_class_get_type(api.renderer)), &inactive};
-    auto *renderers = reinterpret_cast<Il2CppArraySize *>(Invoke(api.children, owner, args));
+    StrongObject owner_root(owner);
+    if (!owner_root)
+      return false;
+    auto        &api      = Api();
+    bool         inactive = true;
+    void        *args[]{il2cpp_type_get_object(il2cpp_class_get_type(api.renderer)), &inactive};
+    StrongObject renderer_root(Invoke(api.children, owner_root.Get(), args));
+    auto        *renderers = reinterpret_cast<Il2CppArraySize *>(renderer_root.Get());
     if (!renderers || renderers->max_length > 4096)
       return false;
     std::unordered_set<int> road_ids, water_ids;
     for (uintptr_t i = 0; i < renderers->max_length; ++i) {
-      auto *renderer  = reinterpret_cast<Object>(renderers->vector[i]);
-      auto *materials = renderer ? reinterpret_cast<Il2CppArraySize *>(Invoke(api.materials, renderer)) : nullptr;
+      auto        *renderer = reinterpret_cast<Object>(renderers->vector[i]);
+      StrongObject material_root(renderer ? Invoke(api.materials, renderer) : nullptr);
+      auto        *materials = reinterpret_cast<Il2CppArraySize *>(material_root.Get());
       if (!materials || materials->max_length > 16)
         continue;
       for (uintptr_t j = 0; j < materials->max_length; ++j) {
@@ -227,11 +258,13 @@ struct NativeBackend {
         int        id       = 0;
         if (material && IsRoad(name) && roads.size() < 256 && Name(Invoke(api.shader, material)) == "Custom/LitMSAE"
             && InstanceId(material, id) && road_ids.insert(id).second)
-          roads.push_back(material);
+          if (auto weak = Retain(material); weak)
+            roads.push_back(std::move(weak));
         if (material && name == "mat_PB_water" && water.size() < 8
             && Name(Invoke(api.shader, material)) == "Custom/WaterLite" && InstanceId(renderer, id)
             && water_ids.insert(id).second)
-          water.push_back(renderer);
+          if (auto weak = Retain(renderer); weak)
+            water.push_back(std::move(weak));
       }
     }
     return true;

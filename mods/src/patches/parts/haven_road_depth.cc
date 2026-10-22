@@ -91,22 +91,32 @@ void ApplyHavenRoadDepthBias(bool enabled)
   auto &cache = HavenVisuals::Cache();
   if (enabled)
     cache.Refresh(Clock::now());
-  const std::array<Il2CppString *, 2> properties = {il2cpp_string_new("_OffsetFactor"),
-                                                    il2cpp_string_new("_OffsetUnits")};
+  const std::array<HavenVisuals::StrongObject, 2> property_roots{
+      HavenVisuals::StrongObject(reinterpret_cast<Il2CppObject *>(il2cpp_string_new("_OffsetFactor"))),
+      HavenVisuals::StrongObject(reinterpret_cast<Il2CppObject *>(il2cpp_string_new("_OffsetUnits")))};
+  if (!property_roots[0] || !property_roots[1])
+    return;
+  const std::array<Il2CppString *, 2> properties{reinterpret_cast<Il2CppString *>(property_roots[0].Get()),
+                                                 reinterpret_cast<Il2CppString *>(property_roots[1].Get())};
   // Keep originals with their actual object, not just an instance ID. A streamed
   // material can disappear from discovery while its shared asset remains alive.
   std::unordered_map<int, Il2CppObject *> active;
+  std::vector<HavenVisuals::StrongObject> active_roots;
   if (enabled) {
     for (const auto &weak : cache.Roads()) {
-      auto *material = weak.Get();
-      int   id       = 0;
-      if (material && HavenVisuals::InstanceId(material, id))
+      HavenVisuals::StrongObject root(weak.Get());
+      auto                      *material = root.Get();
+      int                        id       = 0;
+      if (material && HavenVisuals::InstanceId(material, id)) {
         active.emplace(id, material);
+        active_roots.push_back(std::move(root));
+      }
     }
   }
   for (auto it = originals.begin(); it != originals.end();) {
-    auto      *material = it->second.material.Get();
-    const auto found    = active.find(it->first);
+    HavenVisuals::StrongObject root(it->second.material.Get());
+    auto                      *material = root.Get();
+    const auto                 found    = active.find(it->first);
     if (!material || (found != active.end() && material != found->second)) {
       it = originals.erase(it);
       continue;
