@@ -1,6 +1,9 @@
 #pragma once
 
 #include <il2cpp/il2cpp_helper.h>
+#include <il2cpp/method_contract.h>
+
+#include <spdlog/spdlog.h>
 
 enum class VisibilityState // TypeDefIndex: 13743
 {
@@ -14,33 +17,36 @@ enum class VisibilityState // TypeDefIndex: 13743
 struct VisibilityController {
 public:
   __declspec(property(get = __get__state)) VisibilityState _state;
-  __declspec(property(get = __get_State)) VisibilityState State;
-  
+  __declspec(property(get = __get_State)) VisibilityState  State;
+
   void Show(bool instant = false)
   {
-    auto Show = get_class_helper().GetMethodSpecial<void(VisibilityController*, bool)>(
-        "Show", [](int param_count, const Il2CppType** param) -> bool {
-          if (param_count != 1) {
-            return false;
-          }
-          return param[0]->type == IL2CPP_TYPE_BOOLEAN;
-        });
-    return Show(this, instant);
+    static const auto show = ResolveVisibilityMethod("Show");
+    if (show)
+      show(this, instant);
   }
 
   void Hide(bool instant = false)
   {
-    auto Hide = get_class_helper().GetMethodSpecial<void(VisibilityController*, bool)>(
-        "Hide", [](int param_count, const Il2CppType** param) -> bool {
-          if (param_count != 1) {
-            return false;
-          }
-          return param[0]->type == IL2CPP_TYPE_BOOLEAN;
-        });
-    return Hide(this, instant);
+    static const auto hide = ResolveVisibilityMethod("Hide");
+    if (hide)
+      hide(this, instant);
   }
 
 private:
+  using VisibilityMethod = void (*)(VisibilityController*, bool);
+
+  // The checked native entry points live for the IL2CPP process lifetime. Cache
+  // only method metadata, so pooling or replacing a controller needs no reset.
+  static VisibilityMethod ResolveVisibilityMethod(const char* name)
+  {
+    const auto* method =
+        method_contract::Resolve(get_class_helper().get_cls(), name, false, "System.Void", {"System.Boolean"});
+    if (!method)
+      spdlog::warn("VisibilityController: compatible instance void {}(bool) method unavailable", name);
+    return reinterpret_cast<VisibilityMethod>(method_contract::Pointer(method));
+  }
+
   static IL2CppClassHelper& get_class_helper()
   {
     static auto class_helper = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "VisibilityController");

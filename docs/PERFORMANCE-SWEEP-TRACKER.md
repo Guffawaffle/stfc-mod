@@ -258,3 +258,26 @@ Representative U blobs for reproducibility:
 The comparison used committed source and read-only Git/status/AXF context checks.
 It performed no source builds, gameplay experiments, runtime/config changes,
 AAI implementation review, upstream source writes, fetches or commits.
+
+
+## Target-selection follow-up, 2026-10-22
+
+The read-only target-selection sweep is recorded separately in the shared
+workspace's `artifacts/target-selection-20261022/selection-sweep.json`. It does
+not change the original 24 finding IDs or imply measured frame-time causality.
+
+| ID | Status | Upstream applicability | Cleanup |
+| --- | --- | --- | --- |
+| `selection-mining-ready-session-per-frame-poll` | Implemented | Downstream-only mining-preview feature | Initial readiness polling is capped at 10 Hz; a ready session checks current widget presence/identity at 4 Hz without repeating full navigation readiness checks. Mode, section, context and target guards remain per-frame. View input bypasses the timer and takes one fresh rooted prescan snapshot/full readiness check. Initial five-second timeout retains a final readiness observation; no catch-up burst after a long frame. |
+| `selection-visibility-method-enumeration` | Implemented | Upstream/shared at U above | Show/Hide each cache one checked instance `void(bool)` native entry point for process lifetime. Missing/ambiguous contracts warn once and safely skip the call. No cached UI instances, new hooks or signature/ABI changes. |
+| `selection-auto-cargo-overlapping-open-requests` | Profile first | Shared auto-cargo callbacks, fork-only mining suppression | Left unchanged: native Show already rejects many duplicate requests. Establish callback order and cost before coalescing lifecycle intent. |
+
+The focused optimized `mining_preview_poll_test` fixture covers cadence,
+expiration's final observation, immediate ready observation on user input,
+reset and no catch-up. Independent source review covered the actual native
+adapter and cargo cycle. Same-context/same-fleet close-and-reopen entirely within
+250 ms can retain session intent until the next presence check; an explicit
+View action still validates current visibility/ownership immediately. Actual
+pooled native UI transitions and Mac builds require separate qualification.
+Windows build/cycle identities are retained in the same shared artifact folder.
+AAI source and its published pin are unchanged.

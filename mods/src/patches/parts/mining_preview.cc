@@ -1,4 +1,5 @@
 #include "patches/mining_preview.h"
+#include "patches/mining_preview_poll.h"
 
 #include "config.h"
 #include "errormsg.h"
@@ -177,8 +178,8 @@ namespace
     Il2CppGCHandle    context{};
     std::int64_t      node{}, fleet{};
     int               nodeType{};
-    bool              cargoFirst{}, cargoRequested{}, sawShip{};
-    Clock::time_point deadline{};
+    bool              cargoFirst{}, cargoRequested{};
+    PreviewPoll       polling;
   } session;
 
   void Reset()
@@ -189,10 +190,35 @@ namespace
   }
 
   bool SystemMap()
-  { return Hub::get_SectionManager()->CurrentSection == SectionID::Navigation_System; }
+  {
+    auto* sections = Hub::get_SectionManager();
+    return sections && sections->CurrentSection == SectionID::Navigation_System;
+  }
 
   Il2CppObject* Context()
   { return session.context ? il2cpp_gchandle_get_target(session.context) : nullptr; }
+
+  bool ValidateSession()
+  {
+    if (!session.context)
+      return false;
+    const auto& config = Config::Get();
+    auto*       poi    = Object(Context(), Native().contextPoi);
+    if (!config.hotkeys_enabled || config.use_scopely_hotkeys || !SystemMap() || !poi
+        || Value<std::int64_t>(poi, Native().poiId) != session.fleet) {
+      Reset();
+      return false;
+    }
+    return true;
+  }
+
+  void ObserveReady(Clock::time_point now)
+  {
+    if (!session.polling.Ready()) {
+      spdlog::info("[MiningPreview] ship ready node={} fleet={}", session.node, session.fleet);
+      session.polling.ObserveReady(now);
+    }
+  }
 
   bool Select(Il2CppObject* poi)
   {
@@ -245,8 +271,8 @@ namespace
         continue;
       Reset();
       const bool cargoFirst = Config::Get().show_cargo_default && Config::Get().show_player_cargo;
-      session = {il2cpp_gchandle_new_weakref(context, false), nodeId, *fleet, nodeType, cargoFirst, cargoFirst, false,
-                 Clock::now() + std::chrono::seconds(5)};
+      session = {il2cpp_gchandle_new_weakref(context, false), nodeId, *fleet, nodeType, cargoFirst, cargoFirst, {}};
+      session.polling.Start(Clock::now());
       if (!session.context)
         return false;
       spdlog::info("[MiningPreview] View node={} fleet={} cargoFirst={}", nodeId, *fleet, cargoFirst);
@@ -261,41 +287,46 @@ namespace
 
 void Update()
 {
-  if (!session.context)
+  if (!ValidateSession())
     return;
-  const auto& config = Config::Get();
-  auto*      context = Context();
-  auto*      poi     = Object(context, Native().contextPoi);
-  const auto id      = Value<std::int64_t>(poi, Native().poiId);
-  if (!config.hotkeys_enabled || config.use_scopely_hotkeys || !SystemMap() || !poi || id != session.fleet) {
-    Reset();
+  const auto now = Clock::now();
+  if (!session.polling.Due(now))
     return;
-  }
   // Keep the owning snapshot in this scope through every native widget call.
+  // Once ready, only verify presence/identity at the slower cadence. Full
+  // readiness (including navigation ownership) is checked again on user input.
   auto  widgets = ObjectFinder<PreScanTargetWidget>::GetAll();
   auto* ship    = Ship(widgets);
-  if (ship && Settled(ship)) {
-    if (!session.sawShip)
-      spdlog::info("[MiningPreview] ship ready node={} fleet={}", session.node, session.fleet);
-    session.sawShip = true;
-  } else if ((session.sawShip && !ship) || (!session.sawShip && Clock::now() > session.deadline)) {
-    spdlog::info("[MiningPreview] ship wait ended node={} fleet={} appeared={}", session.node, session.fleet,
-                 session.sawShip);
+  const bool seen    = session.polling.Ready();
+  if (ship && (seen || Settled(ship))) {
+    ObserveReady(now);
+  } else if ((seen && !ship) || session.polling.Expired(now)) {
+    spdlog::info("[MiningPreview] ship wait ended node={} fleet={} appeared={}", session.node, session.fleet, seen);
     Reset();
   }
 }
 
 bool Cycle()
 {
-  if (!SystemMap() || !Native().ready)
+  if (!SystemMap() || !Native().ready) {
+    Reset();
     return false;
-  Update();
-  if (!session.context)
+  }
+  if (!ValidateSession())
     return Begin();
+  // Input never waits for polling, and takes one prescan snapshot instead of
+  // calling Update() and then taking another snapshot of the same registry.
   auto  widgets = ObjectFinder<PreScanTargetWidget>::GetAll();
   auto* ship    = Ship(widgets);
-  if (!ship || !Settled(ship))
+  const auto now     = Clock::now();
+  if (!ship || !Settled(ship)) {
+    if ((session.polling.Ready() && !ship) || session.polling.Expired(now)) {
+      Reset();
+      return Begin();
+    }
     return true; // Wait for the selected ship's native popup to finish loading.
+  }
+  ObserveReady(now);
   auto* button  = ship->_rewardsButtonWidget;
   auto* rewards = button ? button->_rewardsController : nullptr;
   if (!rewards)
