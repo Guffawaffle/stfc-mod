@@ -5,12 +5,12 @@
 // startup and again whenever the file changes; a few are also toggled at runtime by hotkeys. Everything runs on
 // the game thread except sync, whose workers retain immutable snapshots.
 
-#include "features/notification_audio.h"
 #include "shortcuts.h"
 
 #include <toml++/impl/forward_declarations.hpp>
 
 #include <array>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
@@ -20,9 +20,10 @@
 // Which categories of game data are uploaded, globally ([sync]) or for one target ([sync.targets.<name>]).
 struct SyncConfig {
   struct Option {
-    std::string_view option_str; // used in TOML file
+    std::string_view key;
     bool SyncConfig::* option;
-    std::string_view   old_name = {};
+    // The key's name in older releases, still read when the new one is missing.
+    std::string_view old_name = {};
   };
 
   std::string proxy;
@@ -48,31 +49,50 @@ struct SyncConfig {
   bool operator==(const SyncConfig&) const = default;
 };
 
-constexpr std::array SyncOptions{
-    SyncConfig::Option{"away_assignments", &SyncConfig::away_assignments},
-    SyncConfig::Option{"battlelogs", &SyncConfig::battlelogs},
-    SyncConfig::Option{"buffs", &SyncConfig::buffs},
-    SyncConfig::Option{"buildings", &SyncConfig::buildings},
-    SyncConfig::Option{"haven", &SyncConfig::haven},
-    SyncConfig::Option{"inventory", &SyncConfig::inventory},
-    SyncConfig::Option{"jobs", &SyncConfig::jobs},
-    SyncConfig::Option{"missions", &SyncConfig::missions},
-    SyncConfig::Option{"officers", &SyncConfig::officers, "officer"},
-    SyncConfig::Option{"profile", &SyncConfig::profile},
-    SyncConfig::Option{"research", &SyncConfig::research},
-    SyncConfig::Option{"resources", &SyncConfig::resources},
-    SyncConfig::Option{"ships", &SyncConfig::ships},
-    SyncConfig::Option{"slots", &SyncConfig::slots},
-    SyncConfig::Option{"store_offers", &SyncConfig::store_offers},
-    SyncConfig::Option{"tech", &SyncConfig::tech},
-    SyncConfig::Option{"traits", &SyncConfig::traits},
-};
+// Every category, as [sync] and [sync.targets.<name>] spell it.
+constexpr auto SyncOptions = std::to_array<SyncConfig::Option>({
+    {"away_assignments", &SyncConfig::away_assignments},
+    {"battlelogs", &SyncConfig::battlelogs},
+    {"buffs", &SyncConfig::buffs},
+    {"buildings", &SyncConfig::buildings},
+    {"haven", &SyncConfig::haven},
+    {"inventory", &SyncConfig::inventory},
+    {"jobs", &SyncConfig::jobs},
+    {"missions", &SyncConfig::missions},
+    {"officers", &SyncConfig::officers, "officer"},
+    {"profile", &SyncConfig::profile},
+    {"research", &SyncConfig::research},
+    {"resources", &SyncConfig::resources},
+    {"ships", &SyncConfig::ships},
+    {"slots", &SyncConfig::slots},
+    {"store_offers", &SyncConfig::store_offers},
+    {"tech", &SyncConfig::tech},
+    {"traits", &SyncConfig::traits},
+});
 
 struct SyncTargetConfig : SyncConfig {
   std::string url;
   std::string token;
   bool        operator==(const SyncTargetConfig&) const = default;
 };
+
+// The cues [audio] alert_* can play; notification_audio.cc generates them.
+enum class NotificationSound : uint8_t {
+  kNone,
+  kDefault,
+  kInfo,
+  kSuccess,
+  kWarning,
+  kAlarm,
+  kArrival,
+  kSoft,
+  kPing,
+  kRepair,
+  kCount,
+};
+
+// The cue's name as the settings file writes it: "success".
+std::string_view NotificationSoundName(NotificationSound sound);
 
 enum class MissionHudVisibility {
   kAuto,
@@ -118,47 +138,48 @@ public:
   Config(const Config&)            = delete;
   Config& operator=(const Config&) = delete;
 
-  // Hook groups. Users switch these off when another mod (such as a BepInEx plugin) hooks the same methods.
+  // Hook groups, one per [patches] key in alphabetical order. Users switch one off when another mod (such as a
+  // BepInEx plugin) hooks the same methods, or a game update breaks it. Read once: hooks install at startup.
   struct Patches {
-    bool pinnedshipclicktoggle      = true;
-    bool thinqueueprotectionhooks   = true;
-    bool queueaddressguardhooks     = true;
     bool actionqueuerecoveryhooks   = true;
-    bool revealconfirmhooks         = true;
-    bool chattitledisplayhooks      = true;
-    bool interiorzoomhooks          = true;
-    bool uiscalehooks               = true;
-    bool zoomhooks                  = true;
-    bool havenzoomhooks             = true;
-    bool havenhistoryhooks          = true;
+    bool artifactexchangehooks      = true;
+    bool audioeventhooks            = true;
     bool bufffixhooks               = true;
-    bool toastbannerhooks           = true;
-    bool panhooks                   = true;
-    bool hotkeyhooks                = true;
-    bool freeresizehooks            = true;
-    bool tempcrashfixes             = true;
-    bool testpatches                = true;
-    bool miscpatches                = true;
-    bool missionhudtweakshooks      = true;
+    bool cargoformathooks           = true;
     bool chatpatches                = true;
-    bool syncpatches                = true;
-    bool game_version               = true;
-    bool objecttracker              = true;
-    bool loadingscreenhooks         = true;
-    bool transitionscreenhooks      = true;
-    bool giftsbulkclaimhooks        = true;
+    bool chattitledisplayhooks      = true;
     bool dailyfactionbulkclaimhooks = true;
-    bool galacticanomalytimerhooks  = true;
-    bool loadingtiphooks            = true;
     bool doubleclickassignshiphooks = true;
     bool forbiddentechconfirmhooks  = true;
     bool forbiddentechshipnamehooks = true;
-    bool audioeventhooks            = true;
+    bool freeresizehooks            = true;
+    bool galacticanomalytimerhooks  = true;
+    bool game_version               = true;
+    bool giftsbulkclaimhooks        = true;
+    bool havenhistoryhooks          = true;
+    bool havenzoomhooks             = true;
+    bool hotkeyhooks                = true;
     bool instantcargocounterhooks   = true;
-    bool cargoformathooks           = true;
+    bool interiorzoomhooks          = true;
+    bool loadingscreenhooks         = true;
+    bool loadingtiphooks            = true;
+    bool miscpatches                = true;
+    bool missionhudtweakshooks      = true;
+    bool objecttracker              = true;
     bool officersorthooks           = true;
+    bool panhooks                   = true;
+    bool pinnedshipclicktoggle      = true;
     bool pinnedshiphooks            = true;
-    bool artifactexchangehooks      = true;
+    bool queueaddressguardhooks     = true;
+    bool revealconfirmhooks         = true;
+    bool syncpatches                = true;
+    bool tempcrashfixes             = true;
+    bool testpatches                = true;
+    bool thinqueueprotectionhooks   = true;
+    bool toastbannerhooks           = true;
+    bool transitionscreenhooks      = true;
+    bool uiscalehooks               = true;
+    bool zoomhooks                  = true;
 
     bool operator==(const Patches&) const = default;
   } patches;
@@ -176,28 +197,30 @@ public:
   } control;
 
   struct Graphics {
-    float interior_zoom_scale = 2.0f;
-    float ui_scale            = 0.6f;
-    float ui_scale_step       = 0.05f;
-    float ui_scale_ship       = 1.0f;
-    float ui_scale_viewer     = 1.2f;
+    float ui_scale        = 0.6f;
+    float ui_scale_step   = 0.05f;
+    float ui_scale_ship   = 1.0f;
+    float ui_scale_viewer = 1.2f;
     // The farthest system zoom; presets and zoom shortcuts are in the same unit.
-    float             zoom       = 5000.0f;
-    float             haven_zoom = 4000.0f;
-    float             fr_scale   = 2.0f;
+    float zoom       = 5000.0f;
+    float haven_zoom = 4000.0f;
+    // A multiple of the station interior's own zoom-out distance, at least 1.
+    float             interior_zoom_scale = 2.0f;
+    float             fr_scale            = 2.0f;
     FleetLabelProfile zoom_label_player;
     FleetLabelProfile zoom_label_non_player;
     bool              free_resize         = true;
     bool              allow_cursor        = true;
     float             keyboard_zoom_speed = 350.0f;
-    // TODO: read (with enable_experimental) but nothing applies it.
+    // TODO(tashcan): read (with enable_experimental) but nothing applies it.
     float system_pan_momentum = 0.4f;
     // How much of the pan speed is kept each frame after a drag or key is released.
     float system_pan_momentum_falloff = 0.8f;
     bool  disable_target_camera_lock  = false;
-    // TODO: the F11 borderless toggle needs a SetWindowLongW detour that was never installed, so this does nothing.
+    // TODO(tashcan): the F11 borderless toggle needs a SetWindowLongW detour that was never installed, so this does
+    // nothing.
     bool borderless_fullscreen = true;
-    // TODO: read but nothing applies it.
+    // TODO(tashcan): read but nothing applies it.
     float transition_time        = 0.01f;
     float default_system_zoom    = 1750.0f;
     float system_zoom_preset_1   = 50.0f;
@@ -234,10 +257,7 @@ public:
   } audio;
 
   struct Ui {
-    bool dock_syncmanagement         = true;
-    bool auto_confirm_reveal_ability = false;
-    bool show_player_title           = true;
-    bool disable_escape_exit         = true;
+    bool disable_escape_exit = true;
     // Maximum gap in milliseconds between two Escape presses that opens the exit prompt; 0 never opens it.
     int  disable_escape_exit_timer = 0;
     bool disable_preview_locate    = false;
@@ -248,6 +268,7 @@ public:
     bool disable_move_keys         = false;
     bool disable_galaxy_chat       = false;
     bool disable_veil_chat         = false;
+    bool show_player_title         = true;
 
     bool                     auto_open_bulk_claim_flyout = false;
     std::vector<std::string> daily_bulk_claim_factions{"federation", "klingon", "romulan"};
@@ -260,16 +281,19 @@ public:
     std::vector<std::vector<std::string>> pinned_ships;
 
     bool double_click_to_assign_ship = false;
-    bool focus_search                = true;
+    // On the ship management screen, select the managed ship's dock slot as well.
+    bool dock_syncmanagement = true;
+    bool focus_search        = true;
     // Abbreviated cargo values use cargo_significant_decimals.
     bool format_cargo_values = true;
     // Restores the Below Deck Ability officer sort option.
-    bool officer_sort              = true;
-    bool arrow_keys_to_select_ship = true;
-    bool auto_confirm_ft_upgrade   = false;
+    bool officer_sort                       = true;
+    bool arrow_keys_to_select_ship          = true;
+    bool auto_confirm_ft_upgrade            = false;
     // Shows the equipped ship below the Forbidden Tech header, including ships without a dock.
-    bool forbidden_tech_ship_name  = true;
+    bool forbidden_tech_ship_name           = true;
     bool auto_confirm_alliance_contribution = false;
+    bool auto_confirm_reveal_ability        = false;
 
     int  extend_chest_purchase_max = 160;
     bool extend_donation_slider    = true;
@@ -305,12 +329,13 @@ public:
     bool logging = false;
     // Seconds that resolved player and alliance names stay cached.
     int resolver_cache_ttl = 300;
-    // The categories any target wants, so the game hooks can skip the rest.
+    // The categories any target wants. Only battle logs are skipped when no target wants them; the rest are stored
+    // regardless, so a target switched on later gets them at once.
     SyncConfig                              options;
     std::map<std::string, SyncTargetConfig> targets;
   };
 
-  // [config]: overrides for the game's own server settings.
+  // [config], named Game because Config is taken: overrides for the game's own server settings.
   struct Game {
     std::string settings_url;
     std::string assets_url_override;
@@ -322,8 +347,12 @@ public:
   static std::unique_ptr<Config> Parse(const toml::table& file, toml::table& effective, bool log_values);
 
 private:
+  // Held until Activate, so Parse can build a candidate without changing the live bindings or the workers' snapshot.
   Shortcut::Bindings          shortcuts_;
   std::shared_ptr<const Sync> sync_;
+
   Config() = default;
   void Read(const toml::table& file, toml::table& effective, bool log_values);
+  // Makes `next` current: binds its shortcuts and publishes its sync snapshot to the workers.
+  static void Activate(std::unique_ptr<Config> next);
 };
