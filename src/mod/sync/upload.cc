@@ -22,10 +22,8 @@ namespace
     http->SetAcceptEncoding(cpr::AcceptEncoding{});
     http->SetHttpVersion(cpr::HttpVersion{cpr::HttpVersionCode::VERSION_1_1});
     http->SetRedirect(cpr::Redirect{3, true, false, cpr::PostRedirectFlags::POST_ALL});
-#ifndef _MODDBG
     http->SetConnectTimeout(cpr::ConnectTimeout{3'000});
     http->SetTimeout(cpr::Timeout{10'000});
-#endif
     if (!config.proxy.empty())
       http->SetProxies({{"http", config.proxy}, {"https", config.proxy}});
     if (!config.verify_ssl)
@@ -39,57 +37,125 @@ namespace
 
 // The registry owns the target; this thread only borrows it per upload, so a removed target finishes its request
 // and then the thread ends, without the game thread joining it.
-void UploadTarget(std::weak_ptr<Delivery> target, std::string name)
+void UploadTarget(std::weak_ptr<Destination> target, std::string name)
 {
   auto&                         state = State();
   std::unique_ptr<cpr::Session> http;
-  uint64_t                      configured = 0;
-  for (;;) {
-    std::unique_lock lock(state.mutex);
-    const auto       delivery = target.lock();
-    if (!delivery)
-      return;
-    auto upload = delivery->Next(state.records, Clock::now());
-    if (!upload) {
-      // New records notify; a retry coming due does not, so this also wakes every second to look again.
-      state.ready.wait_for(lock, std::chrono::seconds(1));
-      continue;
-    }
-    // Copied, because a reload can reconfigure the target while the request runs. Complete then sees the newer
-    // revision and drops this upload's result.
-    const auto config   = delivery->Config();
-    const auto revision = delivery->Revision();
-    lock.unlock();
-
-    const auto label   = fmt::format("{} ({})", name, upload->Type());
-    bool       success = false;
-    try {
-      if (!http || configured != revision) {
-        http       = NewTargetSession(config);
-        configured = revision;
+  uint64_t                      configured        = 0;
+  bool                          prefer_diagnostic = false;
+  try {
+    for (;;) {
+      std::unique_lock lock(state.mutex);
+      const auto       destination = target.lock();
+      if (!destination || destination->unavailable)
+        return;
+      auto& delivery             = destination->delivery;
+      using DiagnosticLease      = sync_queue::BoundedQueue<DiagnosticObservation>::Lease;
+      const auto take_diagnostic = [&]() -> std::optional<DiagnosticLease> {
+        while (auto observation = destination->diagnostics.TryPop()) {
+          if (DiagnosticCurrent(observation->value, state.generation.load(), *destination,
+                                state.diagnostics_ready.load()))
+            return observation;
+          // Retired/configuration/session-stale observations release their own
+          // charge without a POST, retry, coalescing or ordinary acknowledgement.
+          state.diagnostic_drops.fetch_add(1);
+        }
+        return std::nullopt;
+      };
+      std::optional<DiagnosticLease> diagnostic;
+      if (prefer_diagnostic)
+        if (auto next = take_diagnostic())
+          diagnostic.emplace(std::move(*next));
+      std::optional<Upload> upload;
+      if (!diagnostic && OrdinarySessionOpen(state.records.Generation()))
+        upload = delivery.Next(state.records, Clock::now());
+      if (!diagnostic && !upload)
+        if (auto next = take_diagnostic())
+          diagnostic.emplace(std::move(*next));
+      if (!diagnostic && !upload) {
+        state.ready.wait_for(lock, std::chrono::seconds(1));
+        continue;
       }
-      auto& headers = http->GetHeader();
-      if (upload->first_sync)
-        headers.insert_or_assign("X-PRIME-SYNC", "2");
-      else
-        headers.erase("X-PRIME-SYNC");
-      const auto records = upload->Records();
-      // Game strings can hold invalid UTF-8 (a lone surrogate from a player name). Throwing on it would fail this
-      // upload on every retry and block the stream for good, so it is replaced instead.
-      http->SetBody(cpr::Body{records.dump(-1, ' ', false, json::error_handler_t::replace)});
-      const auto response = http->Post();
-      success             = response.status_code >= 200 && response.status_code < 300;
-      if (success)
-        logging::Debug("upload", label, "sent {} records in {:.0f} ms", records.size(), response.elapsed * 1'000);
-      else
-        logging::Error("upload", label, "failed ({}): {}; kept for retry", response.status_code,
-                       response.error.message);
-    } catch (const std::exception& e) {
-      // Not behind [sync] logging: an exception here is a fault in the mod, not a target being unreachable.
-      spdlog::error("[Sync] upload {} failed: {}; kept for retry", label, e.what());
+      // Alternate when both lanes have work. Neither a diagnostic burst nor a
+      // busy ordinary stream can starve the other, and diagnostics never wait
+      // for an unfinished producer while holding the uploader.
+      prefer_diagnostic   = !diagnostic.has_value();
+      const auto config   = delivery.Config();
+      const auto revision = delivery.Revision();
+      lock.unlock();
+
+      const auto label   = fmt::format("{} ({})", name, diagnostic ? "diagnostic" : upload->Type());
+      bool       success = false;
+      try {
+        if (!http || configured != revision) {
+          http       = NewTargetSession(config);
+          configured = revision;
+        }
+        auto& headers = http->GetHeader();
+        if (upload && upload->first_sync)
+          headers.insert_or_assign("X-PRIME-SYNC", "2");
+        else
+          headers.erase("X-PRIME-SYNC");
+        struct ClearBody {
+          cpr::Session& session;
+          ~ClearBody()
+          {
+            try {
+              session.SetBody(cpr::Body{});
+            } catch (...) {
+            }
+          }
+        } clear_body{*http};
+        size_t count = 1;
+        if (diagnostic) {
+          http->SetBody(cpr::Body{diagnostic->value.payload->body});
+          std::scoped_lock current_lock(state.mutex);
+          if (!DiagnosticCurrent(diagnostic->value, state.generation.load(), *destination,
+                                 state.diagnostics_ready.load()))
+            continue;
+        } else {
+          const auto records = upload->Records();
+          count              = records.size();
+          http->SetBody(cpr::Body{records.dump(-1, ' ', false, json::error_handler_t::replace)});
+          if (!OrdinarySessionOpen(upload->generation))
+            continue;
+        }
+        // Authorizing an attempt cannot retract HTTP already issued if its
+        // generation/revision changes immediately afterward.
+        const auto response = http->Post();
+        success             = response.status_code >= 200 && response.status_code < 300;
+        if (success)
+          logging::Debug("upload", label, "sent {} records in {:.0f} ms", count, response.elapsed * 1'000);
+        else
+          logging::Error("upload", label, "failed ({}): {}; {}", response.status_code, response.error.message,
+                         diagnostic ? "best-effort observation dropped" : "kept for retry");
+      } catch (const std::exception& e) {
+        spdlog::error("[Sync] upload {} failed: {}; {}", label, e.what(),
+                      diagnostic ? "best-effort observation dropped" : "kept for retry");
+      }
+      lock.lock();
+      if (upload && OrdinarySessionOpen(upload->generation))
+        delivery.Complete(std::move(*upload), success, state.records.Generation(), Clock::now());
+      if (diagnostic && !success)
+        state.diagnostic_drops.fetch_add(1);
     }
-    lock.lock();
-    delivery->Complete(std::move(*upload), success, state.records.Generation(), Clock::now());
+  } catch (...) {
+    // A dead destination is an explicit tombstone, never a process-terminating
+    // detached-thread exception or a silent replacement worker on each update.
+    try {
+      std::scoped_lock lock(state.mutex);
+      if (const auto destination = target.lock()) {
+        destination->unavailable = true;
+        destination->delivery.Retire();
+        destination->diagnostics.Close();
+        while (destination->diagnostics.TryPop()) {}
+      }
+    } catch (...) {
+    }
+    try {
+      spdlog::error("[Sync] destination '{}' uploader stopped; restart the game to resume it.", name);
+    } catch (...) {
+    }
   }
 }
 } // namespace data_sync

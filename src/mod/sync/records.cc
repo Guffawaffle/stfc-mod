@@ -13,6 +13,7 @@
 #include <map>
 #include <ranges>
 #include <set>
+#include <stdexcept>
 
 NLOHMANN_JSON_NAMESPACE_BEGIN
 template <typename T> struct adl_serializer<google::protobuf::RepeatedField<T>> {
@@ -434,6 +435,7 @@ namespace
     const bool battle_logs = Config::Sync::Get()->options.battlelogs;
     const auto result      = json::parse(input.bytes, nullptr, false);
     if (!result.is_object()) {
+      SealOrdinarySession(input.generation);
       logging::Error("process", "JSON response", "the response does not parse");
       return;
     }
@@ -456,12 +458,20 @@ namespace
       if (known == std::end(kSections))
         continue;
       const auto stream = known->second;
-      RecordSet  records;
+      if (!section.is_object() && !section.is_array()) {
+        SealOrdinarySession(input.generation);
+        logging::Error("process", name, "the known section is not a record container");
+        return;
+      }
+      RecordSet records;
       for (const auto& [key, record] : section.items()) {
         try {
           if (stream == Stream::kResources) {
-            const auto id = std::stoll(key);
-            records[id]   = {{"rid", id}, {"amount", record.at("current_amount").get<int64_t>()}};
+            size_t     consumed = 0;
+            const auto id       = std::stoll(key, &consumed);
+            if (consumed != key.size())
+              throw std::invalid_argument("resource key has an unconsumed suffix");
+            records[id] = {{"rid", id}, {"amount", record.at("current_amount").get<int64_t>()}};
           } else if (stream == Stream::kBuildings) {
             const auto id = record.at("id").get<int64_t>();
             records[id]   = {{"bid", id}, {"level", record.at("level").get<int32_t>()}};
@@ -472,10 +482,12 @@ namespace
                                  record.at("components").get<std::vector<int64_t>>());
           }
         } catch (const std::exception& e) {
-          logging::Error("process", name, "skipping malformed record {}: {}", key, e.what());
+          SealOrdinarySession(input.generation);
+          logging::Error("process", name, "malformed record {} seals this generation: {}", key, e.what());
+          return;
         }
       }
-      // Skipped records are logged above; the rest still count as the full list.
+      // Every supported record must be valid before claiming a full list.
       Publish(stream, std::move(records), input.generation, Update::kFull);
     }
   }
@@ -595,6 +607,7 @@ void ProcessRealtimeSlot(const Input& input)
                              item.is_null() ? json(nullptr) : json(item.get<int64_t>()), std::move(params));
     Publish(Stream::kSlots, {{id, std::move(record)}}, input.generation);
   } catch (const json::exception& e) {
+    SealOrdinarySession(input.generation);
     logging::Error("process", "realtime slot", "the payload does not parse: {}", e.what());
   }
 }

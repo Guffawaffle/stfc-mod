@@ -25,6 +25,21 @@
 
 namespace il2cpp
 {
+// A successful call may legitimately return zero/null. Consumers that make
+// decisions from an observation can distinguish it from unavailable metadata or
+// a contained managed exception without changing Call's default-value contract.
+template <typename R> struct CallResult {
+  bool     succeeded = false;
+  R        value{};
+  explicit operator bool() const noexcept
+  { return succeeded; }
+};
+template <> struct CallResult<void> {
+  bool     succeeded = false;
+  explicit operator bool() const noexcept
+  { return succeeded; }
+};
+
 // --- Diagnostics ---
 
 // Missing classes and members, and signatures that no longer match the binding, are reported
@@ -225,8 +240,9 @@ namespace detail
 
   // Runs `method` through the runtime's invoker, which boxes value results. A managed exception is reported and
   // returns null.
-  Il2CppObject* InvokeBoxed(const MethodInfo* method, void* target, void** args);
-  void          ReportException(const MethodInfo* method, Il2CppException* exception);
+  Il2CppObject*             InvokeBoxed(const MethodInfo* method, void* target, void** args);
+  CallResult<Il2CppObject*> TryInvokeBoxed(const MethodInfo* method, void* target, void** args);
+  void                      ReportException(const MethodInfo* method, Il2CppException* exception);
 
   // An InvokeBoxed result as R: a reference is the object itself, a value is unboxed. R() for a null result.
   template <typename R> R FromBoxed(Il2CppObject* result)
@@ -265,24 +281,55 @@ namespace detail
   // reported) returns a value-initialized R; receivers must not be null. Managed exceptions stop here:
   // they are reported once per method and the call returns R(), so a throwing getter cannot unwind
   // through a hook and skip the game's own code.
-  template <typename R, typename... A> R Invoke(const MethodInfo* method, Il2CppObject* target, A... args)
+  template <typename R, typename... A>
+  CallResult<R> TryInvoke(const MethodInfo* method, Il2CppObject* target, A... args)
   {
     const bool is_static = method && (method->flags & METHOD_ATTRIBUTE_STATIC);
     if (!method || (!is_static && !target))
-      return R();
+      return {};
     if (!is_static && (method->flags & METHOD_ATTRIBUTE_VIRTUAL)) {
       method = il2cpp_object_get_virtual_method(target, method);
       if (!method)
-        return R();
+        return {};
     }
     try {
-      return InvokeNative<R>(method, target, args...);
+      if (method->has_full_generic_sharing_signature) {
+        void*      argv[]   = {ToBoxedArgument(args)..., nullptr};
+        void*      receiver = target && il2cpp_class_is_valuetype(method->klass) ? il2cpp_object_unbox(target) : target;
+        const auto boxed    = TryInvokeBoxed(method, receiver, argv);
+        if (!boxed)
+          return {};
+        if constexpr (std::is_void_v<R>)
+          return {true};
+        else {
+          // Void and reference results may be null. An absent value-type box
+          // is not an observed numeric zero, even without an exception slot.
+          if constexpr (!std::is_pointer_v<R>)
+            if (!boxed.value)
+              return {};
+          return {true, FromBoxed<R>(boxed.value)};
+        }
+      }
+      if constexpr (std::is_void_v<R>) {
+        InvokeNative<R>(method, target, args...);
+        return {true};
+      } else {
+        return {true, InvokeNative<R>(method, target, args...)};
+      }
     } catch (const Il2CppExceptionWrapper& error) {
       ReportException(method, error.ex);
     } catch (...) {
       ReportException(method, nullptr);
     }
-    return R();
+    return {};
+  }
+
+  template <typename R, typename... A> R Invoke(const MethodInfo* method, Il2CppObject* target, A... args)
+  {
+    if constexpr (std::is_void_v<R>)
+      (void)TryInvoke<R>(method, target, args...);
+    else
+      return TryInvoke<R>(method, target, args...).value;
   }
 
   // Call<"Name", F>: F is either the result type, with parameters taken from the argument types (CallOf<R, A...>),
@@ -307,6 +354,11 @@ namespace detail
     {
       static_assert(sizeof...(A) == sizeof...(P), "argument count does not match the signature");
       return Invoke<R, typename Param<P>::Type...>(method, target, Param<P>::From(std::forward<A>(args))...);
+    }
+    template <typename... A> static CallResult<R> TryRun(const MethodInfo* method, Il2CppObject* target, A&&... args)
+    {
+      static_assert(sizeof...(A) == sizeof...(P), "argument count does not match the signature");
+      return TryInvoke<R, typename Param<P>::Type...>(method, target, Param<P>::From(std::forward<A>(args))...);
     }
   };
   template <typename F, typename... A> struct CallOf : MethodCall<F(A...)> {
@@ -390,6 +442,12 @@ template <Name Assembly, Name Namespace, Name TypeName> struct Class {
     using Sig                 = detail::CallOf<F, std::decay_t<A>...>;
     static const auto* method = Sig::Resolve(Raw(), N.View(), true);
     return Sig::Run(method, nullptr, std::forward<A>(args)...);
+  }
+  template <Name N, typename F = void, typename... A> static auto TryCall(A&&... args)
+  {
+    using Sig                 = detail::CallOf<F, std::decay_t<A>...>;
+    static const auto* method = Sig::Resolve(Raw(), N.View(), true);
+    return Sig::TryRun(method, nullptr, std::forward<A>(args)...);
   }
   template <Name N, typename T> static T Get()
   {
@@ -479,6 +537,12 @@ struct Object : Il2CppObject {
     using Sig    = detail::CallOf<F, std::decay_t<A>...>;
     auto* method = detail::Lookup<Self>(self, [](Il2CppClass* klass) { return Sig::Resolve(klass, N.View(), false); });
     return Sig::Run(method, &self, std::forward<A>(args)...);
+  }
+  template <Name N, typename F = void, typename Self, typename... A> auto TryCall(this Self& self, A&&... args)
+  {
+    using Sig    = detail::CallOf<F, std::decay_t<A>...>;
+    auto* method = detail::Lookup<Self>(self, [](Il2CppClass* klass) { return Sig::Resolve(klass, N.View(), false); });
+    return Sig::TryRun(method, &self, std::forward<A>(args)...);
   }
 
   template <typename T> bool Is() const

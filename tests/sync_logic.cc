@@ -26,7 +26,9 @@ namespace
 {
 using namespace data_sync;
 RecordStore       store;
-auto              settings = std::make_shared<Config::Sync>();
+InputHealth       input_health;
+bool              throw_optional_names = false;
+auto              settings             = std::make_shared<Config::Sync>();
 Clock::time_point now{};
 SyncTargetConfig  Options()
 {
@@ -305,11 +307,13 @@ void HavenRecovery()
   const auto process = ProcessorFor(EntityGroup::Kind::PlanetaryBaseData);
   process({store.Generation(), "\xff"});
   Check(!target.Next(store, now), "invalid protobuf publishes nothing");
+  Check(!OrdinarySessionOpen(store.Generation()), "invalid required protobuf seals its generation");
+  store.Reset();
   game::PlanetaryBase haven;
   (*haven.mutable_pieces())[8] = 2;
   Process(EntityGroup::Kind::PlanetaryBaseData, haven);
   Check(Send(target) == json::parse(R"([{"type":"haven_pieces","sid":8,"count":2}])"),
-        "valid Haven pieces after parse failure are delivered");
+        "valid Haven pieces after a fresh session reset are delivered");
   (*haven.mutable_pieces())[8] = 3;
   Process(EntityGroup::Kind::PlanetaryBaseData, haven);
   Check(Send(target)[0]["count"] == 3, "Haven piece updates are delivered");
@@ -651,10 +655,133 @@ void NameCaches()
   for (size_t i = 0; i <= NameCache<std::string, int>::kCapacity; ++i)
     names.Store(std::to_string(i), static_cast<int>(i), 3);
   Check(names.Size() <= NameCache<std::string, int>::kCapacity, "the cache stays within its bound");
+  Check(names.Find("1", 3) == 1, "capacity evicts an LRU entry without clearing the entire resolver cache");
+  names.Store("newest", 99, 3);
+  Check(names.Find("1", 3) == 1 && !names.Find("2", 3), "a lookup refreshes its entry's eviction priority");
+  const auto bounded_size = names.Size();
+  names.Store(std::string(sync_resolver::kFieldBytes + 1, 'x'), 1, 3);
+  Check(names.Size() == bounded_size, "oversized resolver identifiers are not retained");
+  Check(sync_resolver::BoundedField(std::string(256, 'x')) && !sync_resolver::BoundedField(std::string(257, 'x')),
+        "resolver text limit is measured in bytes with an inclusive boundary");
   settings->resolver_cache_ttl = 0;
+  Check(!names.Find("1", 3) && names.Size() == 0, "disabling TTL immediately forgets previously retained names");
   names.Store("c", 3, 3);
   Check(!names.Find("c", 3), "a zero TTL expires names at once");
+  settings->resolver_cache_ttl = -1;
+  names.Store("negative", 3, 3);
+  Check(names.Size() == 0, "a negative TTL cannot retain expired entries");
   settings->resolver_cache_ttl = previous_ttl;
+
+  struct TimedValue {
+    int               value;
+    Clock::time_point expires_at;
+  };
+  const auto                            now = Clock::now();
+  sync_resolver::Cache<int, TimedValue> timed{2};
+  timed.Put(1, {11, now + std::chrono::seconds(1)}, now);
+  timed.Put(2, {22, now + std::chrono::seconds(3)}, now);
+  Check(timed.Find(1, now)->value == 11, "the preserved LRU helper observes a live value");
+  timed.Prune(now + std::chrono::seconds(1));
+  Check(!timed.Find(1, now) && timed.Size() == 1, "expiry uses the supplied monotonic observation boundary");
+  timed.Put(2, {23, now + std::chrono::seconds(4)}, now);
+  Check(timed.Find(2, now)->value == 23 && timed.Size() == 1, "updating an identity does not grow retained entries");
+  timed.Clear();
+  Check(timed.Size() == 0, "session reset clears both identity storage and eviction order");
+}
+
+void ProcessingLossAndDeliberateFilters()
+{
+  const auto fresh = [] {
+    store.Reset();
+    Check(OrdinarySessionOpen(store.Generation()), "new generation is open");
+  };
+  const auto json_process = ProcessorFor(EntityGroup::Kind::Json);
+  Check(json_process != nullptr, "JSON response processor exists");
+  for (const char* section : {"resources", "starbase_modules", "ships"}) {
+    for (const auto& invalid : {json(nullptr), json(17), json("not a container")}) {
+      json_process({store.Generation(), json{{section, invalid}}.dump()});
+      Check(!OrdinarySessionOpen(store.Generation()), "known null/scalar section cannot claim an empty full list");
+      fresh();
+    }
+    for (const auto& empty : {json::object(), json::array()}) {
+      json_process({store.Generation(), json{{section, empty}}.dump()});
+      Check(OrdinarySessionOpen(store.Generation()), "existing empty structured containers remain accepted");
+      fresh();
+    }
+  }
+  json_process({store.Generation(), R"({"resources":{"7":{"current_amount":10},"7junk":{"current_amount":20}}})"});
+  Check(!OrdinarySessionOpen(store.Generation()) && !store.Contains(Stream::kResources, 7),
+        "partially numeric key cannot alias a genuine key or publish a false baseline");
+  fresh();
+  json_process({store.Generation(), R"({"resources":{" 7":{"current_amount":10},"-8":{"current_amount":20}}})"});
+  Check(OrdinarySessionOpen(store.Generation()) && store.Contains(Stream::kResources, 7)
+            && store.Contains(Stream::kResources, -8),
+        "whole signed and leading-space resource keys preserve existing accepted parsing");
+  fresh();
+  json_process({store.Generation(), "[]"});
+  Check(!OrdinarySessionOpen(store.Generation()), "invalid supported JSON root seals the generation");
+  fresh();
+  json_process({store.Generation(), R"({"resources":{"7":{"current_amount":"bad"}}})"});
+  Check(!OrdinarySessionOpen(store.Generation()) && !store.Contains(Stream::kResources, 7),
+        "malformed supported full-list record cannot claim a valid partial baseline");
+  fresh();
+  ProcessRealtimeSlot({store.Generation(), R"({"slot_type":0})"});
+  Check(!OrdinarySessionOpen(store.Generation()), "structurally invalid supported realtime slot seals");
+  fresh();
+  ProcessStoreOffers({store.Generation(), "\xff"});
+  Check(!OrdinarySessionOpen(store.Generation()), "malformed store-offer protobuf seals");
+  fresh();
+  ProcessOwnProfile({store.Generation(), "\xff", "local", 55});
+  Check(!OrdinarySessionOpen(store.Generation()), "malformed required own-profile protobuf seals");
+  const auto old = store.Generation();
+  fresh();
+  Check(!Parse<game::UserProfilesResponse>({old, "\xff"}, "stale required fixture"), "old source is malformed");
+  Check(OrdinarySessionOpen(store.Generation()), "a late old failure cannot poison the replacement session");
+  Check(!Parse<game::UserProfilesResponse>({store.Generation(), "\xff"}, "optional names fixture", false),
+        "optional enrichment parse failure remains inspectable");
+  Check(OrdinarySessionOpen(store.Generation()), "optional names do not invalidate ordinary observations");
+  ProcessRealtimeSlot({store.Generation(), R"({"slot_type":999})"});
+  json_process({store.Generation(), R"({"unrelated_cosmetics":{"item":"unknown"}})"});
+  ProcessStoreOffers({store.Generation(), ""}); // Valid empty protobuf, no faction category.
+  Check(!ProcessorFor(static_cast<EntityGroup::Kind>(-1)), "unsupported category has no processor");
+  Check(OrdinarySessionOpen(store.Generation()), "unsupported/no-content records are deliberate filters");
+}
+
+void RestartDoesNotInferAcknowledgement()
+{
+  const auto legacy_ids = json::parse("[42]"); // Synthetic; no legacy/user file is opened or modified.
+  Check(legacy_ids.at(0).get<uint64_t>() == 42, "legacy attempted-ID observation is retained exactly");
+  auto first = Target();
+  store.Apply(Stream::kBattles, {{42, {{"journal", {{"id", 42}}}, {"names", json::object()}}}});
+  Check(Send(first).at(0)["journal"]["id"] == 42, "first target acknowledges the journal");
+  Check(!first.Next(store, now), "first process has no pending delivery after ACK");
+  store.Reset();
+  auto cold_target = Target();
+  store.Apply(Stream::kBattles, {{42, {{"journal", {{"id", 42}}}, {"names", json::object()}}}});
+  Check(Send(cold_target).at(0)["journal"]["id"] == 42,
+        "cold store still delivers the journal despite the same legacy attempted ID");
+}
+
+void OwnedInputDispatch()
+{
+  const auto throw_ordinary = +[](const Input&) { throw std::runtime_error("owned response failed"); };
+  ProcessOwnedInput(throw_ordinary, false, {store.Generation(), "owned"});
+  Check(!OrdinarySessionOpen(store.Generation()), "actual owned dispatch seals ordinary processor exceptions");
+  const auto old = store.Generation();
+  store.Reset();
+  ProcessOwnedInput(throw_ordinary, false, {old, "stale"});
+  Check(OrdinarySessionOpen(store.Generation()), "actual dispatch ignores stale work before invoking its processor");
+
+  game::UserProfilesResponse response;
+  response.add_userprofiles()->set_userid("local");
+  throw_optional_names = true;
+  ProcessOwnedInput(CachePlayerNames, true, {store.Generation(), response.SerializeAsString(), "local", 55});
+  throw_optional_names = false;
+  Check(OrdinarySessionOpen(store.Generation()) && store.Contains(Stream::kProfile, "local"),
+        "optional enrichment failure cannot hide the same response's valid own profile");
+  ProcessOwnedInput(CacheAllianceNames, false, {store.Generation(), ""});
+  ProcessOwnedInput(nullptr, false, {store.Generation(), ""});
+  Check(OrdinarySessionOpen(store.Generation()), "name-only/no-handler dispatch remains best effort");
 }
 } // namespace
 
@@ -664,13 +791,21 @@ std::shared_ptr<const Config::Sync> Config::Sync::Get()
 
 namespace data_sync
 {
+bool OrdinarySessionOpen(uint64_t generation) noexcept
+{ return generation == store.Generation() && input_health.Allows(generation); }
+void SealOrdinarySession(uint64_t generation) noexcept
+{ input_health.Seal(generation); }
 void Publish(Stream stream, RecordSet records, uint64_t generation, Update mode)
 {
-  if (generation == store.Generation())
+  if (OrdinarySessionOpen(generation))
     store.Apply(stream, std::move(records), mode);
 }
 void QueueNewBattles(const std::vector<uint64_t>&, uint64_t) {}
-void CachePlayerNames(const Input&) {}
+void CachePlayerNames(const Input&)
+{
+  if (throw_optional_names)
+    throw std::runtime_error("optional names unavailable");
+}
 void CacheAllianceNames(const Input&) {}
 } // namespace data_sync
 int main()
@@ -713,6 +848,9 @@ int main()
   run("queues", Queues);
   run("name caches", NameCaches);
   run("logging", SyncLogging);
+  run("ordinary processing loss", ProcessingLossAndDeliberateFilters);
+  run("restart does not infer ACK", RestartDoesNotInferAcknowledgement);
+  run("owned worker dispatch", OwnedInputDispatch);
   if (!failures)
     std::cout << "Sync wire and delivery tests passed\n";
   return failures ? 1 : 0;

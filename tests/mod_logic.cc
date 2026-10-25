@@ -461,6 +461,58 @@ void ParseDoesNotActivateSettings()
   Check(Value(effective, "shortcuts", "quit") == "F2", "the candidate records its own bindings");
 }
 
+void LegacySyncTargets()
+{
+  const auto  before = Config::Sync::Get();
+  toml::table effective;
+  auto        source   = toml::parse(R"(
+    [sync]
+    url = "https://legacy.example.invalid/ingress"
+    token = "fixture-token-never-used"
+    proxy = "http://proxy.example.invalid"
+    verify_ssl = false
+    officer = true
+    diagnostics = true
+  )");
+  const auto  original = source;
+  (void)Config::Parse(source, effective, false);
+  Check(source == original, "legacy sync conversion does not mutate the primary input");
+  const auto target = effective["sync"]["targets"]["default"];
+  Check(target["url"].value_or(std::string{}) == "https://legacy.example.invalid/ingress"
+            && target["token"].value_or(std::string{}) == "fixture-token-never-used",
+        "a legacy-only pair becomes an effective default target");
+  Check(target["officers"].value_or(false) && target["diagnostics"].value_or(false)
+            && !target["verify_ssl"].value_or(true)
+            && target["proxy"].value_or(std::string{}) == "http://proxy.example.invalid",
+        "legacy targets inherit category, diagnostic and transport defaults");
+  source["sync"].as_table()->insert_or_assign(
+      "targets",
+      toml::table{{"default", toml::table{{"url", "https://explicit.example.invalid"},
+                                          {"token", "explicit-fixture"},
+                                          {"diagnostics", false},
+                                          {"officers", false}}},
+                  {"second", toml::table{{"url", "https://second.example.invalid"}, {"token", "second-fixture"}}}});
+  (void)Config::Parse(source, effective, false);
+  Check(effective["sync"]["targets"]["default"]["url"].value_or(std::string{}) == "https://explicit.example.invalid"
+            && !effective["sync"]["targets"]["default"]["diagnostics"].value_or(true)
+            && !effective["sync"]["targets"]["default"]["officers"].value_or(true),
+        "valid explicit default wins without losing its per-target false overrides");
+  Check(effective["sync"]["targets"]["second"]["diagnostics"].value_or(false),
+        "a different target independently inherits the diagnostic default");
+  source["sync"]["targets"]["default"].as_table()->insert_or_assign("token", "");
+  (void)Config::Parse(source, effective, false);
+  Check(effective["sync"]["targets"]["default"]["url"].value_or(std::string{})
+            == "https://legacy.example.invalid/ingress",
+        "an inactive explicit placeholder does not suppress the legacy pair");
+  for (const auto input : {"[sync]\nurl='https://unused.example.invalid'", "[sync]\ntoken='unused'",
+                           "[sync]\nurl=''\ntoken='unused'", "[sync]\nurl=12\ntoken='unused'"}) {
+    (void)Config::Parse(toml::parse(input), effective, false);
+    Check(!effective["sync"]["targets"]["default"], "an incomplete legacy pair cannot activate a target");
+    Check(!effective["sync"]["diagnostics"].value_or(true), "diagnostics remain explicitly opt-in");
+  }
+  Check(Config::Sync::Get() == before, "pure sync parsing does not publish a worker configuration");
+}
+
 void Matching()
 {
   Load(""); // defaults: move_down = "S|DOWN", toggle_shortcut_hints = "HOME"
@@ -531,6 +583,7 @@ int main()
   UpstreamSettings();
   RenamedSettings();
   ParseDoesNotActivateSettings();
+  LegacySyncTargets();
   Matching();
   if (failures)
     return EXIT_FAILURE;

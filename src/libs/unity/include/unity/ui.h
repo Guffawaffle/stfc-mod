@@ -73,8 +73,52 @@ struct EventSystem : Behaviour {
   { return Class::Get<"current", EventSystem*>(); }
 };
 
+struct LayoutElement : Behaviour {
+  using Class = il2cpp::Class<"UnityEngine.UI", "UnityEngine.UI", "LayoutElement">;
+
+  bool ExcludeFromLayout()
+  {
+    if (!TryCall<"set_ignoreLayout", void(bool)>(true))
+      return false;
+    const auto ignored = TryCall<"get_ignoreLayout", bool>();
+    return ignored && ignored.value;
+  }
+};
+
 struct PointerEventData : il2cpp::Object {
   using Class = il2cpp::Class<"UnityEngine.UI", "UnityEngine.EventSystems", "PointerEventData">;
+
+  il2cpp::CallResult<Vector2> Position()
+  { return TryCall<"get_position", Vector2>(); }
+  il2cpp::CallResult<Vector2> PressPosition()
+  { return TryCall<"get_pressPosition", Vector2>(); }
+  il2cpp::CallResult<int32_t> PointerId()
+  { return TryCall<"get_pointerId", int32_t>(); }
+  il2cpp::CallResult<int32_t> Button()
+  { return TryCall<"get_button", int32_t>(); }
+};
+
+struct ScrollRect : Behaviour {
+  using Class = il2cpp::Class<"UnityEngine.UI", "UnityEngine.UI", "ScrollRect">;
+
+  RectTransform* content()
+  { return Get<"content", RectTransform*>(); }
+  RectTransform* viewport()
+  { return Get<"viewport", RectTransform*>(); }
+};
+
+struct Bounds {
+  Vector3 center, extents;
+};
+struct RectTransformUtility {
+  using Class = il2cpp::Class<"UnityEngine.UIModule", "UnityEngine", "RectTransformUtility">;
+
+  static il2cpp::CallResult<bool> Contains(RectTransform* rect, Vector2 point, Camera* camera)
+  {
+    return Class::TryCall<"RectangleContainsScreenPoint", bool(RectTransform*, Vector2, Camera*)>(rect, point, camera);
+  }
+  static il2cpp::CallResult<Bounds> RelativeBounds(Transform* root, Transform* child)
+  { return Class::TryCall<"CalculateRelativeRectTransformBounds", Bounds(Transform*, Transform*)>(root, child); }
 };
 
 struct Toggle : Behaviour {

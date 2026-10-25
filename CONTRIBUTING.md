@@ -89,7 +89,7 @@ Zig does not support Mach-O LTO, so macOS builds use ordinary optimized compilat
 
 | Option | Effect |
 | --- | --- |
-| `-Dmoddbg=true` | Define `_MODDBG`: enable debug logging by default, disable sync request timeouts, and add diagnostics. |
+| `-Dmoddbg=true` | Define `_MODDBG`: enable debug logging by default and add diagnostics. Sync requests keep finite timeouts. |
 | `-Dbg_image=<file>` | Replace the embedded loading image. |
 | `-Duse_original_bg=true` | Keep the game's loading background. |
 | `-Dmacos-sdk=<path>` | Use an explicit macOS SDK. |

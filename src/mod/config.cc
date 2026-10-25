@@ -375,42 +375,58 @@ void ReadSyncTargets(Reader& reader, std::map<std::string, SyncTargetConfig>& sy
            .first->second.as_table();
 
   const auto* targets = reader.Node("sync", "targets").as_table();
-  if (!targets)
-    return;
+  if (targets)
+    for (const auto& [name, node] : *targets) {
+      const auto* values = node.as_table();
+      if (!values)
+        continue;
 
-  for (const auto& [name, node] : *targets) {
-    const auto* values = node.as_table();
-    if (!values)
-      continue;
+      const auto section = "sync.targets." + std::string(name.str());
+      const auto url     = (*values)["url"].value<std::string>();
+      const auto token   = (*values)["token"].value<std::string>();
+      if (!url || !token) {
+        spdlog::warn("invalid config value {}: url and token are required; skipping the target", section);
+        continue;
+      }
+      // Blank values are the example file's placeholders for a target the user has not set up.
+      if (url->empty() || token->empty())
+        continue;
 
-    const auto section = "sync.targets." + std::string(name.str());
-    const auto url     = (*values)["url"].value<std::string>();
-    const auto token   = (*values)["token"].value<std::string>();
-    if (!url || !token) {
-      spdlog::warn("invalid config value {}: url and token are required; skipping the target", section);
-      continue;
+      SyncTargetConfig target{defaults, *url, *token};
+      target.proxy      = (*values)["proxy"].value<std::string>().value_or(target.proxy);
+      target.verify_ssl = (*values)["verify_ssl"].value<bool>().value_or(target.verify_ssl);
+
+      toml::table effective{
+          {"url", target.url}, {"token", target.token}, {"proxy", target.proxy}, {"verify_ssl", target.verify_ssl}};
+      for (const auto& [key, member, old_name] : SyncOptions) {
+        const auto read_as = values->contains(key) || old_name.empty() ? key : old_name;
+        target.*member     = (*values)[read_as].value<bool>().value_or(target.*member);
+        effective.insert(key, target.*member);
+      }
+
+      // TOML table keys are unique, so every target is new here.
+      effective_targets.insert_or_assign(name.str(), std::move(effective));
+      spdlog::debug("config {} = url {}, token {}, proxy '{}', verify_ssl {}", section, target.url,
+                    MaskToken(target.token), target.proxy, target.verify_ssl);
+      sync_targets.emplace(name.str(), std::move(target));
     }
-    // Blank values are the example file's placeholders for a target the user has not set up.
-    if (url->empty() || token->empty())
-      continue;
 
-    SyncTargetConfig target{defaults, *url, *token};
-    target.proxy      = (*values)["proxy"].value<std::string>().value_or(target.proxy);
-    target.verify_ssl = (*values)["verify_ssl"].value<bool>().value_or(target.verify_ssl);
-
-    toml::table effective{
-        {"url", target.url}, {"token", target.token}, {"proxy", target.proxy}, {"verify_ssl", target.verify_ssl}};
-    for (const auto& [key, member, old_name] : SyncOptions) {
-      const auto read_as = values->contains(key) || old_name.empty() ? key : old_name;
-      target.*member     = (*values)[read_as].value<bool>().value_or(target.*member);
-      effective.insert(key, target.*member);
+  // Preserve downstream's legacy pair without rewriting the user's primary
+  // TOML. A valid explicit default target wins; examples/invalid targets do not.
+  const auto legacy_url   = reader.Node("sync", "url").value<std::string>();
+  const auto legacy_token = reader.Node("sync", "token").value<std::string>();
+  if (legacy_url && legacy_token && !legacy_url->empty() && !legacy_token->empty()) {
+    SyncTargetConfig target{defaults, *legacy_url, *legacy_token};
+    if (sync_targets.emplace("default", target).second) {
+      toml::table effective{
+          {"url", target.url}, {"token", target.token}, {"proxy", target.proxy}, {"verify_ssl", target.verify_ssl}};
+      for (const auto& [key, member, old_name] : SyncOptions)
+        effective.insert(key, target.*member);
+      effective_targets.insert_or_assign("default", std::move(effective));
+      spdlog::info("[Sync] legacy sync.url/token interpreted as sync.targets.default");
+    } else {
+      spdlog::warn("[Sync] explicit sync.targets.default takes precedence over legacy sync.url/token");
     }
-
-    // TOML table keys are unique, so every target is new here.
-    effective_targets.insert_or_assign(name.str(), std::move(effective));
-    spdlog::debug("config {} = url {}, token {}, proxy '{}', verify_ssl {}", section, target.url,
-                  MaskToken(target.token), target.proxy, target.verify_ssl);
-    sync_targets.emplace(name.str(), std::move(target));
   }
 }
 

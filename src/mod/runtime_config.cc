@@ -7,6 +7,7 @@
 #include "file.h"
 #include "runtime_config.h"
 #include "runtime_config_writer.h"
+#include "settings/basic_gameplay_settings.h"
 #include <spdlog/spdlog.h>
 
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__) || defined(CONFIG_RUNTIME_TEST)
@@ -47,7 +48,8 @@ std::map<SettingKey, config_edit::Value> unavailable_settings;
 // Owner-thread intents are owned values, not pointers into the replaceable Config.
 struct RequestedSetting {
   config_edit::Value value;
-  std::uint64_t      revision = 0;
+  std::uint64_t      revision     = 0;
+  bool               session_only = false;
 };
 std::map<SettingKey, RequestedSetting> requested_settings;
 #ifndef CONFIG_RUNTIME_TEST
@@ -300,6 +302,9 @@ mod_settings::SaveStatus GetSaveStatus(const char* section, const char* key, con
     if (!section || !key)
       return {SaveState::Unavailable};
     std::lock_guard lock(lifecycle);
+    if (const auto found = requested_settings.find(SettingKey{section, key});
+        found != requested_settings.end() && found->second.session_only)
+      return {SaveState::SessionOnly};
     if (const auto found = unavailable_settings.find(SettingKey{section, key}); found != unavailable_settings.end())
       return {current != found->second ? SaveState::SessionOnly : SaveState::Unavailable};
     if (!writer)
@@ -334,6 +339,11 @@ void Configure(const toml::table& loaded)
   try {
     startup_values = loaded;
     writer         = new config_edit::RuntimeConfigWriter(File::Path(File::Config()), Report);
+    // Startup registration is independent of which optional feature hooks are
+    // enabled. Never learn a comparison value when the first shortcut saves.
+    if (!gameplay_settings::RegisterKeys(
+            [](const gameplay_settings::Key& key) { return RegisterSetting(key.section, key.name); }))
+      spdlog::warn("Some gameplay setting keys could not register for persistence");
   } catch (...) {
     persistence_unavailable.store(true);
     try {
@@ -369,6 +379,27 @@ bool Install()
 #endif
 }
 #endif
+
+void RetainSessionIntent(const char* section, const char* key, config_edit::Value value) noexcept
+{
+#if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__) || defined(CONFIG_RUNTIME_TEST)
+  if (owner != CurrentThreadToken() || quit_depth || forcing || !section || !key || !*section || !*key)
+    return;
+  try {
+    std::lock_guard lock(lifecycle);
+    requested_settings.insert_or_assign(SettingKey{section, key}, RequestedSetting{std::move(value), 0, true});
+    ++adapter_status_sequence;
+  } catch (...) {
+    // Losing the latest live intent makes a subsequent reload unsafe. This is
+    // not a failed disk write: no persistence was requested by this operation.
+    protection_incomplete.store(true);
+  }
+#else
+  (void)section;
+  (void)key;
+  (void)value;
+#endif
+}
 
 void SaveSetting(const char* section, const char* key, config_edit::Value value,
                  std::chrono::milliseconds delay) noexcept

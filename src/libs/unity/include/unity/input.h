@@ -374,6 +374,35 @@ struct Input {
     static const il2cpp::ICall<bool(int32_t)> call{"UnityEngine.Input::GetMouseButton(System.Int32)"};
     return call(button);
   }
+  static bool GetMouseButtonUp(int32_t button)
+  {
+    static const il2cpp::ICall<bool(int32_t)> call{"UnityEngine.Input::GetMouseButtonUp(System.Int32)"};
+    return call(button);
+  }
+  static bool PointerAvailable()
+  {
+    static const il2cpp::ICall<bool(int32_t)>  held{"UnityEngine.Input::GetMouseButton(System.Int32)"};
+    static const il2cpp::ICall<bool(int32_t)>  up{"UnityEngine.Input::GetMouseButtonUp(System.Int32)"};
+    static const il2cpp::ICall<bool(int32_t)>  down{"UnityEngine.Input::GetMouseButtonDown(System.Int32)"};
+    static const il2cpp::ICall<void(Vector3*)> position{
+        "UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)"};
+    return held && up && down && position;
+  }
+  static bool GetMouseButtonDown(int32_t button)
+  {
+    static const il2cpp::ICall<bool(int32_t)> call{"UnityEngine.Input::GetMouseButtonDown(System.Int32)"};
+    return call(button);
+  }
+  static il2cpp::CallResult<Vector3> TryMousePosition()
+  {
+    static const il2cpp::ICall<void(Vector3*)> call{
+        "UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)"};
+    if (!call)
+      return {};
+    Vector3 position{};
+    call(&position);
+    return {true, position};
+  }
   static int32_t touchCount()
   {
     static const il2cpp::ICall<int32_t()> call{"UnityEngine.Input::get_touchCount()"};

@@ -4,6 +4,8 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "runtime_config.h"
+#include "settings/basic_gameplay_settings.h"
 
 #include "game/fleet.h"
 #include "game/ui.h"
@@ -96,36 +98,41 @@ bool InstallUiScale()
 
 void AdjustUiScale(bool up)
 {
-  auto& graphics = Config::Get().graphics;
-  if (graphics.ui_scale == 0.0f)
+  auto&      graphics = Config::Get().graphics;
+  const auto change =
+      gameplay_settings::AdjustScale(graphics.ui_scale, graphics.ui_scale_step, up, gameplay_settings::Scale::Interface,
+                                     [](const gameplay_settings::Key& key, double value) {
+                                       runtime_config::SaveSetting(key.section, key.name, value, key.delay);
+                                     });
+  if (!change.applied)
     return;
-  const auto old_scale = graphics.ui_scale;
-  const auto new_scale = old_scale + (up ? 1.0f : -1.0f) * graphics.ui_scale_step;
-  graphics.ui_scale    = std::clamp(new_scale, 0.1f, 2.0f);
-  spdlog::info("[UiScale] interface scale {} -> {} (asked {}), DPI scale {}", old_scale, graphics.ui_scale, new_scale,
-               WindowDpiScale(true));
+  spdlog::info("[UiScale] interface scale {} -> {} (asked {}), DPI scale {}", change.previous, change.value,
+               change.requested, WindowDpiScale(true));
 }
 
 void AdjustUiViewerScale(bool up)
 {
-  auto& graphics = Config::Get().graphics;
-  if (graphics.ui_scale_viewer == 0.0f)
+  auto&      graphics = Config::Get().graphics;
+  const auto change   = gameplay_settings::AdjustScale(
+      graphics.ui_scale_viewer, graphics.ui_scale_step, up, gameplay_settings::Scale::Viewer,
+      [](const gameplay_settings::Key& key, double value) {
+        runtime_config::SaveSetting(key.section, key.name, value, key.delay);
+      });
+  if (!change.applied)
     return;
-  // Viewers change in quarter steps; a full step is too coarse at their size.
-  const auto old_scale     = graphics.ui_scale_viewer;
-  const auto new_scale     = old_scale + (up ? 1.0f : -1.0f) * graphics.ui_scale_step * 0.25f;
-  graphics.ui_scale_viewer = std::clamp(new_scale, 0.1f, 2.0f);
-  spdlog::info("[UiScale] viewer scale {} -> {} (asked {})", old_scale, graphics.ui_scale_viewer, new_scale);
+  spdlog::info("[UiScale] viewer scale {} -> {} (asked {})", change.previous, change.value, change.requested);
 }
 
 void AdjustUiShipScale(bool up)
 {
-  auto&      graphics    = Config::Get().graphics;
-  const auto old_scale   = graphics.ui_scale_ship;
-  const auto new_scale   = old_scale + (up ? 1.0f : -1.0f) * graphics.ui_scale_step;
-  graphics.ui_scale_ship = std::clamp(new_scale, 0.1f, 20.0f);
-  spdlog::info("[UiScale] ship scale {} -> {} (asked {})", old_scale, graphics.ui_scale_ship, new_scale);
-  RescaleLoadedShips(old_scale, graphics.ui_scale_ship);
+  auto&      graphics = Config::Get().graphics;
+  const auto change =
+      gameplay_settings::AdjustScale(graphics.ui_scale_ship, graphics.ui_scale_step, up, gameplay_settings::Scale::Ship,
+                                     [](const gameplay_settings::Key& key, double value) {
+                                       runtime_config::SaveSetting(key.section, key.name, value, key.delay);
+                                     });
+  spdlog::info("[UiScale] ship scale {} -> {} (asked {})", change.previous, change.value, change.requested);
+  RescaleLoadedShips(change.previous, change.value);
 }
 
 const Feature kUiScale{"UiScale", &Config::Patches::uiscalehooks, InstallUiScale};

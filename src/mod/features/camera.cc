@@ -5,6 +5,8 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "runtime_config.h"
+#include "settings/basic_gameplay_settings.h"
 #include "shortcuts.h"
 
 #include "game/app.h"
@@ -34,12 +36,18 @@ bool zoom_to_default = false;
 // Presets and default_system_zoom are in zoom units: the camera distance's place in [minimum, maximum] mapped onto
 // [0, graphics.zoom], so they keep their meaning when the game moves the range. ZoomAtMouse(absolute) is the inverse.
 float CurrentZoom(NavigationZoom* zoom)
-{ return (zoom->Distance() - zoom->minimum()) / (zoom->maximum() - zoom->minimum()) * Config::Get().graphics.zoom; }
+{
+  return gameplay_settings::CurrentZoom(zoom->Distance(), zoom->minimum(), zoom->maximum(),
+                                        Config::Get().graphics.zoom);
+}
 
-void StorePreset(const char* label, float& preset, NavigationZoom* zoom)
+void StorePreset(const char* label, float& preset, NavigationZoom* zoom, gameplay_settings::Zoom identity)
 {
   const auto old = preset;
-  preset         = CurrentZoom(zoom);
+  gameplay_settings::StoreZoom(preset, CurrentZoom(zoom), identity,
+                               [](const gameplay_settings::Key& key, double value) {
+                                 runtime_config::SaveSetting(key.section, key.name, value, key.delay);
+                               });
   spdlog::info("[Zoom] {} set from {} to {}", label, old, preset);
 }
 
@@ -48,14 +56,20 @@ struct ZoomPreset {
   Action go;
   float Config::Graphics::* value;
   const char*               label;
+  gameplay_settings::Zoom   identity;
 };
 
 constexpr ZoomPreset kZoomPresets[] = {
-    {Action::kSetZoomPreset1, Action::kZoomPreset1, &Config::Graphics::system_zoom_preset_1, "System Preset 1"},
-    {Action::kSetZoomPreset2, Action::kZoomPreset2, &Config::Graphics::system_zoom_preset_2, "System Preset 2"},
-    {Action::kSetZoomPreset3, Action::kZoomPreset3, &Config::Graphics::system_zoom_preset_3, "System Preset 3"},
-    {Action::kSetZoomPreset4, Action::kZoomPreset4, &Config::Graphics::system_zoom_preset_4, "System Preset 4"},
-    {Action::kSetZoomPreset5, Action::kZoomPreset5, &Config::Graphics::system_zoom_preset_5, "System Preset 5"},
+    {Action::kSetZoomPreset1, Action::kZoomPreset1, &Config::Graphics::system_zoom_preset_1, "System Preset 1",
+     gameplay_settings::Zoom::Preset1},
+    {Action::kSetZoomPreset2, Action::kZoomPreset2, &Config::Graphics::system_zoom_preset_2, "System Preset 2",
+     gameplay_settings::Zoom::Preset2},
+    {Action::kSetZoomPreset3, Action::kZoomPreset3, &Config::Graphics::system_zoom_preset_3, "System Preset 3",
+     gameplay_settings::Zoom::Preset3},
+    {Action::kSetZoomPreset4, Action::kZoomPreset4, &Config::Graphics::system_zoom_preset_4, "System Preset 4",
+     gameplay_settings::Zoom::Preset4},
+    {Action::kSetZoomPreset5, Action::kZoomPreset5, &Config::Graphics::system_zoom_preset_5, "System Preset 5",
+     gameplay_settings::Zoom::Preset5},
 };
 
 // Widens the system view's zoom range to the configured maximum and pushes the far clip plane out with it. A radius of
@@ -119,11 +133,11 @@ bool KeyboardZoom(NavigationZoom* zoom)
 
   for (const auto& preset : kZoomPresets)
     if (Shortcut::IsDown(preset.store)) {
-      StorePreset(preset.label, config.graphics.*preset.value, zoom);
+      StorePreset(preset.label, config.graphics.*preset.value, zoom, preset.identity);
       return false;
     }
   if (Shortcut::IsDown(Action::kSetZoomDefault)) {
-    StorePreset("System Default", config.graphics.default_system_zoom, zoom);
+    StorePreset("System Default", config.graphics.default_system_zoom, zoom, gameplay_settings::Zoom::Default);
     return false;
   }
 
@@ -149,8 +163,15 @@ bool KeyboardZoom(NavigationZoom* zoom)
     ZoomAtMouse(zoom, -step, false);
 
   // With use_presets_as_default, jumping to a preset also makes it the zoom used on entering a system.
-  if (from_preset && target > 0.0f && config.graphics.use_presets_as_default)
-    StorePreset("System Preset Default from Preset", config.graphics.default_system_zoom, zoom);
+  if (from_preset && target > 0.0f && config.graphics.use_presets_as_default) {
+    const auto previous = config.graphics.default_system_zoom;
+    gameplay_settings::UsePresetAsDefault(config.graphics.default_system_zoom, CurrentZoom(zoom),
+                                          [](const gameplay_settings::Key& key, double value) {
+                                            runtime_config::RetainSessionIntent(key.section, key.name, value);
+                                          });
+    spdlog::info("[Zoom] System Preset Default from Preset set from {} to {}", previous,
+                 config.graphics.default_system_zoom);
+  }
   return true;
 }
 

@@ -15,6 +15,7 @@
 #include <optional>
 #include <ranges>
 #include <set>
+#include <stdexcept>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -27,6 +28,34 @@
 
 namespace data_sync
 {
+std::string NewUuid()
+{
+#if _WIN32
+  UUID       uuid;
+  const auto status = UuidCreate(&uuid);
+  if (status != RPC_S_OK && status != RPC_S_UUID_LOCAL_ONLY)
+    throw std::runtime_error("UUID creation failed");
+  unsigned char* text = nullptr;
+  struct FreeText {
+    unsigned char*& text;
+    ~FreeText()
+    {
+      if (text)
+        RpcStringFreeA(&text);
+    }
+  } free_text{text};
+  if (UuidToStringA(&uuid, &text) != RPC_S_OK || !text)
+    throw std::runtime_error("UUID formatting failed");
+  return std::string(reinterpret_cast<char*>(text));
+#else
+  uuid_t uuid;
+  uuid_generate_random(uuid);
+  char text[37];
+  uuid_unparse(uuid, text);
+  return text;
+#endif
+}
+
 namespace
 {
   struct Player {
@@ -68,25 +97,6 @@ namespace
   const std::string kUnityVersion = "6000.0.59f2-deadlock-fix-test";
   const std::string kClientCurl   = "libcurl/8.10.1-DEV";
 
-  std::string NewUuid()
-  {
-#if _WIN32
-    UUID uuid;
-    UuidCreate(&uuid);
-    unsigned char* text = nullptr;
-    UuidToStringA(&uuid, &text);
-    std::string result(reinterpret_cast<char*>(text));
-    RpcStringFreeA(&text);
-    return result;
-#else
-    uuid_t uuid;
-    uuid_generate_random(uuid);
-    char text[37];
-    uuid_unparse(uuid, text);
-    return text;
-#endif
-  }
-
   // `base` with its path replaced, through libcurl's URL parser so ports and IDN hosts survive.
   std::string WithPath(const std::string& base, const std::string& path)
   {
@@ -123,10 +133,8 @@ namespace
     cached.verify_ssl = options.verify_ssl;
     cached.http       = std::make_unique<cpr::Session>();
     auto& http        = *cached.http;
-#ifndef _MODDBG
     http.SetConnectTimeout(cpr::ConnectTimeout{3'000});
     http.SetTimeout(cpr::Timeout{10'000});
-#endif
     http.SetAcceptEncoding(cpr::AcceptEncoding{});
     http.SetHttpVersion(cpr::HttpVersion{cpr::HttpVersionCode::VERSION_1_1});
     logging::Debug("download", "game server", "new session, proxy '{}', verify_ssl {}", options.proxy,
@@ -153,7 +161,7 @@ namespace
     // The URL and credentials are the captured session's; the version and instance headers are the latest, since
     // the game reports them after login.
     const auto current = Session();
-    if (session.generation != current.generation)
+    if (session.generation != current.generation || !OrdinarySessionOpen(session.generation))
       return {};
     auto& http    = GameServerHttp();
     auto& headers = http.GetHeader();
@@ -162,10 +170,21 @@ namespace
     headers.insert_or_assign("X-PRIME-VERSION", current.version);
     headers.insert_or_assign("X-Instance-ID", fmt::format("{:03}", current.instance_id));
     headers.insert_or_assign("X-TRANSACTION-ID", NewUuid());
+    struct ClearBody {
+      cpr::Session& session;
+      ~ClearBody()
+      {
+        try {
+          session.SetBody(cpr::Body{});
+        } catch (...) {
+        }
+      }
+    } clear_body{http};
     http.SetBody(body);
-
+    if (!OrdinarySessionOpen(session.generation))
+      return {};
     const auto response = http.Post();
-    if (session.generation != SessionGeneration())
+    if (!OrdinarySessionOpen(session.generation))
       return {};
     if (response.status_code == 0) {
       logging::Error("download", path, "the request was not sent: {}", response.error.message);
@@ -222,6 +241,8 @@ namespace
       try {
         Player player{.name     = profile.at("name").get<std::string>(),
                       .alliance = profile.at("alliance_id").get<int64_t>()};
+        if (!sync_resolver::BoundedField(id) || !sync_resolver::BoundedField(player.name))
+          continue;
         players.Store(id, player, session.generation);
         fetched.emplace(id, std::move(player));
       } catch (const json::exception& e) {
@@ -245,6 +266,8 @@ namespace
       try {
         const auto id = info.at("id").get<int64_t>();
         Alliance   alliance{.name = info.at("name").get<std::string>(), .tag = info.at("tag").get<std::string>()};
+        if (!sync_resolver::BoundedField(alliance.name) || !sync_resolver::BoundedField(alliance.tag))
+          continue;
         alliances.Store(id, alliance, session.generation);
         fetched.emplace(id, std::move(alliance));
       } catch (const json::exception& e) {
@@ -316,46 +339,64 @@ namespace
   }
 } // namespace
 
-void RunBattleLogs()
+void RunBattleLogs() noexcept
 {
-  for (;;) {
-    auto battle = battles.Pop();
-    // A battle from an older session, or one queued before battle logs were switched off, is only forgotten.
-    if (battle.session.generation == SessionGeneration() && Config::Sync::Get()->options.battlelogs) {
-      // A retried journal goes to the back of the queue, so everything queued before it has been fetched; only
-      // what arrived later waits for it.
-      if (const auto now = Clock::now(); battle.retry_at > now)
-        std::this_thread::sleep_for(battle.retry_at - now);
-      bool fetched = false;
-      try {
-        fetched = FetchBattle(battle);
-      } catch (const std::exception& e) {
-        logging::Error("process", "battle log", "battle {} failed: {}", battle.id, e.what());
-      }
-      if (!fetched) {
-        if (++battle.attempts >= kJournalAttempts) {
-          logging::Error("download", "battle log", "giving up on battle {} after {} attempts", battle.id,
-                         kJournalAttempts);
-        } else if (battle.session.generation == SessionGeneration()) {
-          battle.retry_at =
-              Clock::now() + std::chrono::seconds(std::min(1 << (battle.attempts - 1), kJournalMaxBackoff));
-          // Under the lock, like QueueNewBattles, so a battle the full queue drops leaves `pending` in the same step.
-          std::scoped_lock lock(battle_mutex);
-          if (auto dropped = battles.Push(battle))
-            pending.erase({dropped->session.generation, dropped->id});
-          continue;
+  auto& state = State();
+  ContainWorkerExit(state.health, [&] {
+    for (;;) {
+      auto battle = battles.Pop();
+      // A battle from an older session, or one queued before battle logs were switched off, is only forgotten.
+      if (OrdinarySessionOpen(battle.session.generation) && Config::Sync::Get()->options.battlelogs) {
+        // A retried journal goes to the back of the queue, so everything queued before it has been fetched; only
+        // what arrived later waits for it.
+        if (const auto now = Clock::now(); battle.retry_at > now) {
+          auto&            state = State();
+          std::unique_lock lock(state.mutex);
+          state.ready.wait_until(lock, battle.retry_at,
+                                 [&] { return !OrdinarySessionOpen(battle.session.generation); });
+        }
+        bool fetched = false;
+        try {
+          fetched = FetchBattle(battle);
+        } catch (const std::exception& e) {
+          logging::Error("process", "battle log", "battle {} failed: {}", battle.id, e.what());
+        }
+        if (!fetched) {
+          if (++battle.attempts >= kJournalAttempts) {
+            logging::Error("download", "battle log", "giving up on battle {} after {} attempts", battle.id,
+                           kJournalAttempts);
+          } else if (OrdinarySessionOpen(battle.session.generation)) {
+            battle.retry_at =
+                Clock::now() + std::chrono::seconds(std::min(1 << (battle.attempts - 1), kJournalMaxBackoff));
+            // Under the lock, like QueueNewBattles, so a battle the full queue drops leaves `pending` in the same step.
+            std::scoped_lock lock(battle_mutex);
+            if (auto dropped = battles.Push(battle))
+              pending.erase({dropped->session.generation, dropped->id});
+            continue;
+          }
         }
       }
+      std::scoped_lock lock(battle_mutex);
+      pending.erase({battle.session.generation, battle.id});
     }
-    std::scoped_lock lock(battle_mutex);
-    pending.erase({battle.session.generation, battle.id});
+  });
+  state.ready.notify_all();
+  try {
+    spdlog::error("[Sync] battle journal worker stopped; restart the game to establish a fresh sync.");
+  } catch (...) {
   }
+}
+
+void ForgetOldBattleRequests(uint64_t generation)
+{
+  std::scoped_lock lock(battle_mutex);
+  std::erase_if(pending, [&](const auto& entry) { return entry.first != generation; });
 }
 
 void QueueNewBattles(const std::vector<uint64_t>& ids, uint64_t generation)
 {
   const auto session = Session();
-  if (session.generation != generation)
+  if (session.generation != generation || !OrdinarySessionOpen(generation))
     return;
   std::scoped_lock lock(battle_mutex);
   // Older sessions' entries can never match again; the run loop drops their battles without fetching.
@@ -370,20 +411,23 @@ void QueueNewBattles(const std::vector<uint64_t>& ids, uint64_t generation)
 
 void CachePlayerNames(const Input& input)
 {
-  const auto response = Parse<Digit::PrimeServer::Models::UserProfilesResponse>(input, "player profiles");
+  const auto response = Parse<Digit::PrimeServer::Models::UserProfilesResponse>(input, "player profiles", false);
   if (!response)
     return;
   for (const auto& profile : response->userprofiles())
-    players.Store(profile.userid(), {profile.name(), profile.allianceid()}, input.generation);
+    if (sync_resolver::BoundedField(profile.userid()) && sync_resolver::BoundedField(profile.name()))
+      players.Store(profile.userid(), {profile.name(), profile.allianceid()}, input.generation);
 }
 
 void CacheAllianceNames(const Input& input)
 {
-  const auto response = Parse<Digit::PrimeServer::Models::GetAllianceProfilesResponse>(input, "alliance profiles");
+  const auto response =
+      Parse<Digit::PrimeServer::Models::GetAllianceProfilesResponse>(input, "alliance profiles", false);
   if (!response)
     return;
   for (const auto& alliance : response->allianceprofiles())
-    if (alliance.id() > 0)
+    if (alliance.id() > 0 && sync_resolver::BoundedField(alliance.name())
+        && sync_resolver::BoundedField(alliance.tag()))
       alliances.Store(alliance.id(), {alliance.name(), alliance.tag()}, input.generation);
 }
 } // namespace data_sync

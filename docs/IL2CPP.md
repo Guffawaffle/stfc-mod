@@ -90,6 +90,14 @@ Calls then do nothing and return a value-initialized result.
 A managed exception is contained at the binding call, reported once per method, and produces the same default result.
 It cannot unwind through the hook and skip the game's code.
 
+When a decision needs to distinguish a real zero/null from an unavailable observation, use
+`TryCall<"Method", R(P...)>(args...)` on an Object or Class. Its `CallResult<R>` has `succeeded` and `value`
+(void has only `succeeded`). Resolution, virtual dispatch and exception reporting are shared with Call; no
+exception and a valid zero, false, null reference or void result means success. Missing/drifted members, null
+receivers, contained exceptions and an absent numeric box mean failure. Fully shared generic calls preserve the
+runtime exception slot too. This reports whether invocation succeeded, not whether game-specific values are valid;
+an individual ship ID must still be a positive BaseShip instance ID, never a fleet/hull ID or a guessed zero.
+
 Receivers must be non-null. Check pointers returned by the game before calling methods through them.
 
 ### Runtime classes and collections

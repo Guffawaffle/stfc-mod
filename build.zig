@@ -55,7 +55,7 @@ pub fn build(b: *std.Build) void {
     const proto_runtime = protobuf.protobufLite(ctx, protobuf.abseil(ctx));
     // A null result means Zig still has to fetch a lazy dependency; it reruns build() once it has.
     const proto = protobuf.generate(ctx, proto_runtime) orelse return;
-    tests.add(ctx, .{
+    var fixture_libs: tests.Libs = .{
         .il2cpp = il2cpp,
         .spdlog = spdlog,
         .spud = spud,
@@ -63,7 +63,8 @@ pub fn build(b: *std.Build) void {
         .proto_runtime = proto_runtime,
         .toml = toml,
         .toml_editor = toml_editor,
-    });
+    };
+    const test_steps = tests.add(ctx, fixture_libs);
 
     // Standalone producers stay outside the mod closure. Profiles enters that
     // closure only through its explicit host option; defaults inspect no private roots.
@@ -101,6 +102,9 @@ pub fn build(b: *std.Build) void {
         if (curl.artifact) |artifact| artifact.step.dependOn(verify);
         if (cpr.artifact) |artifact| artifact.step.dependOn(verify);
     }
+    fixture_libs.cpr = cpr;
+    fixture_libs.curl = curl;
+    tests.addSyncUpload(ctx, fixture_libs, test_steps);
     const unity = mod.unity(ctx, il2cpp, spud);
     var mod_libs: std.ArrayList(@import("zig/ctx.zig").Lib) = .empty;
     mod_libs.appendSlice(b.allocator, &.{ il2cpp, unity, spdlog, spud, proto, proto_runtime, cpr, curl, toml, toml_editor, deps.nlohmannJson(ctx) }) catch @panic("OOM");

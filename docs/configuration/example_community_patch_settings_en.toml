@@ -322,10 +322,12 @@ objecttracker = true
 officersorthooks = true
 panhooks = true
 
-# SHIFT+click a fleet dock ship tile to pin or unpin it; updates pinned ships.
+# Legacy compatibility key; accepted but has no independent consumer.
+# Pin badge input is installed with pinnedshiphooks below.
 pinnedshipclicktoggle = true
 
-# Pin configured ships to the front of the fleet management dock
+# Saved individual ship pins lead in their acknowledged order. Double-click a
+# pin badge to toggle it; hold the badge before dragging to change pin order.
 pinnedshiphooks = true
 
 # Enable queue protection after address changes.
@@ -826,7 +828,8 @@ dock_syncmanagement = true
 # Double-click a ship in the fleet management dock to assign it instead of selecting it and then clicking Assign
 double_click_to_assign_ship = false
 
-# Comma-separated ship names to always show first in the fleet management dock; pinned ships retain the active sort order
+# Legacy comma-separated names used when no saved individual ship order exists.
+# Unresolved names remain available when explicit pins are saved to mod state.
 pinned_ships = ""
 
 # Subgroup: HUD
@@ -986,6 +989,10 @@ debug = false
 
 # Do you want to enable sync logging?
 logging = false
+
+# Forward explicitly published, best-effort diagnostic observations to opted-in
+# targets. This does not enable diagnostic probes or ordinary account syncing.
+diagnostics = false
 
 # Subgroup: Host
 # --------------

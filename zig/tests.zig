@@ -15,17 +15,28 @@ pub const Libs = struct {
     proto_runtime: Lib,
     toml: Lib,
     toml_editor: Lib,
+    cpr: ?Lib = null,
+    curl: ?Lib = null,
+};
+
+pub const Steps = struct {
+    build_tests: *std.Build.Step,
+    test_sync: *std.Build.Step,
+    test_sync_upload: *std.Build.Step,
 };
 
 /// Register the fixture steps. Fixture code compiles at -Dtest-optimize, so a Debug fixture keeps its assertions
 /// while sharing release libraries with the shipped build.
-pub fn add(build_ctx: *const Ctx, libs: Libs) void {
+pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
     const ctx = build_ctx.withOptimize(build_ctx.options.test_optimize orelse build_ctx.optimize);
     const b = ctx.b;
     const build_tests = b.step("build-tests", "Compile the tests without running them");
     const test_il2cpp = b.step("test-il2cpp", "Build and run the IL2CPP boundary tests (native targets only)");
     const test_mod = b.step("test-mod", "Build and run the settings and shortcut tests (native targets only)");
     const test_sync = b.step("test-sync", "Run sync record and delivery regression tests without the game");
+    const test_sync_upload = b.step("test-sync-upload", "Run the production uploader against a synthetic loopback listener");
+    if (!ctx.isWindows() and !ctx.isMacos())
+        test_sync_upload.dependOn(&b.addFail("The production CPR uploader fixture requires the Windows/macOS product dependency closure; pure sync fixtures remain portable").step);
     const test_launcher = b.step("test-launcher", "Run launcher delta and archive tests (Linux/macOS targets)");
     const test_spud = b.step("test-spud", "Run the x64 trampoline relocation test (native x86_64 targets only)");
     const flags = ctx.cxxFlags("c++23", &.{});
@@ -35,6 +46,37 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) void {
     const test_runtime_config = b.step("test-runtime-config", "Run pure runtime-setting writer and host lifecycle fixtures");
     const test_runtime_reload = b.step("test-runtime-reload", "Run pure pending-setting reload overlay fixtures");
     const test_mod_state = b.step("test-mod-state", "Run isolated mod-state transaction and writer fixtures");
+    const test_basic_gameplay = b.step("test-basic-gameplay", "Run actual gameplay mutation helpers through the preserving file worker");
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        libs.toml_editor.linkInto(module);
+        module.addCSourceFiles(.{
+            .files = &.{ "tests/basic_gameplay_settings_test.cc", "src/mod/runtime_config_writer.cc", "src/mod/toml_editor.cc", "src/mod/config_save.cc" },
+            .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}),
+        });
+        const exe = ctx.executable("basic-gameplay-settings-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_basic_gameplay.dependOn(&run.step);
+        test_runtime_config.dependOn(&run.step);
+        test_mod.dependOn(&run.step);
+    }
+    const test_ship_pins = b.step("test-ship-pins", "Run stable ship identity/order, pointer policy and receipt fixtures");
+    const test_checked_ship_order = b.step("test-checked-ship-order", "Run checked native-order reconciliation policy fixtures");
+    inline for (.{ "pinned_ship_order", "pin_receipt_flow", "pin_pointer_policy", "checked_ship_order" }) |fixture| {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        if (comptime std.mem.eql(u8, fixture, "pinned_ship_order") or std.mem.eql(u8, fixture, "pin_receipt_flow"))
+            deps.nlohmannJson(ctx).linkInto(module);
+        module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}_test.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        const exe = ctx.executable(b.fmt("{s}-tests", .{fixture}), module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_ship_pins.dependOn(&run.step);
+        test_mod.dependOn(&run.step);
+        if (comptime std.mem.eql(u8, fixture, "checked_ship_order")) test_checked_ship_order.dependOn(&run.step);
+    }
     {
         // The unchanged full fixture combines engine and C ABI checks. Its C ABI
         // implementation/export macro is test-only, never a product dependency.
@@ -224,6 +266,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) void {
         libs.il2cpp.linkInto(module);
         // The fake API must precede consumers so the linker does not pull in production API storage.
         module.addCSourceFile(.{ .file = b.path("tests/il2cpp_bindings.cc"), .flags = flags });
+        module.addIncludePath(b.path("src/mod"));
         module.addIncludePath(b.path("src/libs/unity/include"));
         module.addCSourceFile(.{ .file = b.path("src/libs/unity/src/input.cc"), .flags = flags });
         addFixture(ctx, build_tests, test_il2cpp, "il2cpp-bindings-tests", module);
@@ -316,14 +359,46 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) void {
         }
     }
 
-    // Sync records and delivery state over the generated protobuf messages.
+    const test_sync_input = b.step("test-sync-input", "Run pure reservation queue and processor-health fixtures");
+    const test_sync_diagnostic = b.step("test-sync-diagnostic", "Run pure diagnostic envelope and admission fixtures");
     {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
-        module.addIncludePath(b.path("src/libs/unity/include"));
-        libs.il2cpp.includeInto(module);
-        inline for (.{ libs.proto, libs.proto_runtime, libs.spdlog, libs.toml, deps.nlohmannJson(ctx) }) |lib|
-            lib.linkInto(module);
+        deps.nlohmannJson(ctx).linkInto(module);
+        module.addCSourceFile(.{ .file = b.path("tests/sync_diagnostic.cc"), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        const exe = ctx.executable("sync-diagnostic-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_sync_diagnostic.dependOn(&run.step);
+        test_sync.dependOn(&run.step);
+    }
+    inline for (.{ "queue", "health" }) |fixture| {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        module.addCSourceFile(.{ .file = b.path(b.fmt("tests/sync_input_{s}.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        const exe = ctx.executable(b.fmt("sync-input-{s}-tests", .{fixture}), module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_sync_input.dependOn(&run.step);
+        test_sync.dependOn(&run.step);
+    }
+
+    {
+        const module = syncModule(ctx, libs);
+        module.addCSourceFiles(.{
+            .files = &.{ "tests/sync_diagnostic_state.cc", "src/mod/sync/diagnostics.cc", "src/mod/sync/state.cc" },
+            .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}),
+        });
+        const exe = ctx.executable("sync-diagnostic-state-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        b.step("test-sync-diagnostic-state", "Run the actual diagnostic publisher and session/target state fixtures").dependOn(&run.step);
+        test_sync.dependOn(&run.step);
+    }
+
+    // Sync records and delivery state over the generated protobuf messages.
+    {
+        const module = syncModule(ctx, libs);
         module.addCSourceFiles(.{
             .files = &.{ "tests/sync_logic.cc", "src/mod/sync/records.cc", "src/mod/sync/state.cc" },
             .flags = mod_flags,
@@ -364,6 +439,40 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) void {
     } else {
         test_spud.dependOn(&b.addFail("The SPUD relocation test requires an x86_64 target").step);
     }
+    return .{ .build_tests = build_tests, .test_sync = test_sync, .test_sync_upload = test_sync_upload };
+}
+
+/// Attach the platform transport fixture only after the actual product CPR
+/// library exists. Linux never constructs a second platform/network stack.
+pub fn addSyncUpload(build_ctx: *const Ctx, libs: Libs, steps: Steps) void {
+    const ctx = build_ctx.withOptimize(build_ctx.options.test_optimize orelse build_ctx.optimize);
+    const b = ctx.b;
+    const module = syncModule(ctx, libs);
+    (libs.cpr orelse @panic("The uploader fixture must reuse the existing product CPR library")).linkInto(module);
+    (libs.curl orelse @panic("The uploader fixture must reuse the existing product CURL library")).linkInto(module);
+    module.addCSourceFiles(.{
+        .files = &.{ "tests/sync_upload.cc", "src/mod/sync/upload.cc", "src/mod/sync/state.cc", "src/mod/sync/diagnostics.cc" },
+        .flags = ctx.cxxFlags("c++23", &.{ "-Wno-invalid-offsetof", "-UNDEBUG" }),
+    });
+    const exe = ctx.executable("sync-upload-tests", module);
+    steps.build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+    const run = b.addSystemCommand(&.{ if (ctx.isWindows()) "python" else "python3", "-B" });
+    run.addFileArg(b.path("scripts/test-sync-loopback.py"));
+    run.addArtifactArg(exe);
+    run.has_side_effects = true;
+    steps.test_sync_upload.dependOn(&run.step);
+    steps.test_sync.dependOn(&run.step);
+}
+
+fn syncModule(ctx: *const Ctx, libs: Libs) *std.Build.Module {
+    const b = ctx.b;
+    const module = ctx.createModule(true);
+    module.addIncludePath(b.path("src/mod"));
+    module.addIncludePath(b.path("src/libs/unity/include"));
+    libs.il2cpp.includeInto(module);
+    inline for (.{ libs.proto, libs.proto_runtime, libs.spdlog, libs.toml, deps.nlohmannJson(ctx) }) |lib|
+        lib.linkInto(module);
+    return module;
 }
 
 /// `test-deps` and `build-dependency-test`: exercise protobuf, zlib and the HTTPS backend as the platform links

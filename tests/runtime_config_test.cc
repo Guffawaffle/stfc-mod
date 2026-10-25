@@ -186,6 +186,38 @@ int main(int argc, char** argv)
   fixture.work = false;
   assert(runtime_config::CaptureReload().empty());
   assert(captured[0].value == config_edit::Value{false});
+  // An automatic preset->default update is intentional session state, not a
+  // failed save. Older completed or pending receipts cannot erase its intent.
+  Reset();
+  runtime_config::SaveSetting("graphics", "default_system_zoom", 20.0, {});
+  const auto disk_submissions = fixture.submissions;
+  runtime_config::RetainSessionIntent("graphics", "default_system_zoom", 30.0);
+  assert(fixture.submissions == disk_submissions && !runtime_config::HasSaveFailures());
+  assert(runtime_config::GetSaveStatus("graphics", "default_system_zoom", 30.0).state
+         == mod_settings::SaveState::SessionOnly);
+  assert(runtime_config::CaptureReload().size() == 1);
+  assert(runtime_config::CaptureReload()[0].value == config_edit::Value{30.0});
+  fixture.work = true;
+  runtime_config::RetainSessionIntent("graphics", "default_system_zoom", 40.0);
+  fixture.work = false;
+  assert(runtime_config::CaptureReload()[0].value == config_edit::Value{40.0});
+  std::thread rejected_session([] { runtime_config::RetainSessionIntent("graphics", "default_system_zoom", 99.0); });
+  rejected_session.join();
+  assert(runtime_config::CaptureReload()[0].value == config_edit::Value{40.0});
+  runtime_config::SaveSetting("graphics", "default_system_zoom", 50.0, {});
+  assert(fixture.submissions == disk_submissions + 1 && runtime_config::CaptureReload().empty());
+  assert(runtime_config::GetSaveStatus("graphics", "default_system_zoom", 50.0).state
+         == mod_settings::SaveState::Saved);
+  Reset();
+  writer    = nullptr;
+  available = false;
+  runtime_config::RetainSessionIntent("graphics", "default_system_zoom", 0.0);
+  assert(runtime_config::CaptureReload()[0].value == config_edit::Value{0.0});
+  assert(!runtime_config::HasSaveFailures());
+  assert(runtime_config::GetSaveStatus("graphics", "default_system_zoom", 0.0).state
+         == mod_settings::SaveState::SessionOnly);
+  runtime_config::RetainSessionIntent("", "invalid", 1.0);
+  assert(runtime_config::CaptureReload().size() == 1);
   Reset();
   available = false;
   runtime_config::SaveSetting("ui", "toggle", false, {});

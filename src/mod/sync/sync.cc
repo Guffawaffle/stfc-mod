@@ -6,6 +6,7 @@
 // HTTP request mid-flight. The shared state is leaked so they never see it destroyed.
 
 #include "sync/sync.h"
+#include "sync/input_queue.h"
 
 #include "features/features.h"
 
@@ -24,81 +25,103 @@ namespace
 {
   // --- Processing thread ---
 
-  // Responses waiting for the processing thread. A login delivers a few dozen at once; 256 leaves room for a
-  // slow backlog without holding unbounded copies of large inventory payloads.
-  constexpr size_t kJobQueueCapacity = 256;
-
   struct Job {
     Processor process;
+    bool      own_profile;
     Input     input;
   };
 
-  // Leaked, like the shared state: the processing thread may still pop from it during exit.
-  auto& pending_jobs = *new BoundedQueue<Job>{"processing", kJobQueueCapacity};
+  // Budget includes the handler's in-flight lease. Rejection never copies the
+  // managed payload, and an earlier slow copy retains its FIFO position.
+  auto& pending_jobs = *new sync_queue::BoundedQueue<Job>{{kInputQueueCount, kInputQueueBytes, kInputItemBytes}};
 
-  // One thread processes every response in arrival order, so a delta is never applied before the full state it
-  // updates. A processor that throws loses its one response, not the thread.
-  void RunJobs()
+  template <typename Factory>
+  void Submit(uint64_t generation, size_t bytes, size_t user_units, bool required, Factory&& factory) noexcept
   {
-    for (;;) {
-      auto job = pending_jobs.Pop();
-      try {
-        // Queued before a new login: its records would land in the wrong session.
-        if (job.input.generation == SessionGeneration())
-          job.process(job.input);
-      } catch (const std::exception& e) {
-        spdlog::error("[Sync] processing a response failed: {}", e.what());
-      } catch (...) {
-        spdlog::error("[Sync] processing a response failed with an unknown exception");
-      }
+    if (!OrdinarySessionOpen(generation))
+      return;
+    const auto charge = InputCharge(bytes, user_units, sizeof(Job) + 2);
+    if (!charge
+        || pending_jobs.TryEmplace(*charge, std::forward<Factory>(factory)) != sync_queue::Admission::accepted) {
+      if (required)
+        SealOrdinarySession(generation);
     }
   }
 
-  // Runs on the game thread: copies the bytes out and leaves the work to the processing thread.
-  void HandleEntityGroup(EntityGroup* entity_group)
+  void RunJobs() noexcept
   {
-    auto* group = entity_group ? entity_group->Group() : nullptr;
-    if (!group)
-      return;
-    const auto type    = entity_group->Type();
-    const auto process = ProcessorFor(type);
-    // UserProfiles also carries the local player's own record, stored like every category for the targets that
-    // sync the profile.
-    const bool own_profile = type == EntityGroup::Kind::UserProfiles;
-    if (!process && !own_profile)
-      return;
-    const auto bytes = group->Span();
-    Input      input{.generation = SessionGeneration(), .bytes = {bytes.begin(), bytes.end()}};
-    // A map response can be another player's Haven, and a profiles response lists other players; the processors keep
-    // only the local player's.
-    if (type == EntityGroup::Kind::PlanetaryMapResponse || own_profile) {
-      auto* manager = UserProfileManager::Instance();
-      if (auto* profile = manager ? manager->GetLocalUserProfile() : nullptr) {
-        input.user_id = il2cpp::ToUtf8(profile->UserId());
-        input.level   = profile->Level();
+    auto& state = State();
+    ContainWorkerExit(state.health, [&] {
+      while (auto lease = pending_jobs.WaitPop()) {
+        const auto& job = lease->value;
+        ProcessOwnedInput(job.process, job.own_profile, job.input);
       }
-    }
-    if (process)
-      pending_jobs.Push({process, input});
-    // Skipped if the local profile is not ready; a later response retries.
-    if (own_profile && !input.user_id.empty())
-      pending_jobs.Push({ProcessOwnProfile, std::move(input)});
+    });
+    state.ready.notify_all();
   }
 
-  // Platform responses (store offers among them) pass through the same registry code as game server responses. Only
-  // store offers are read from them, and only while a target wants them: unlike the categories above, a target that
-  // turns them on waits for the next store refresh.
-  void HandlePlatformResponse(PlatformServiceResponse* response)
+  void HandleEntityGroup(EntityGroup* entity_group) noexcept
   {
-    for (auto* entity_group : il2cpp::Items(response->EntityGroups())) {
-      auto* group = entity_group && entity_group->Type() == PlatformEntityGroup::Kind::StoreOffers
-                        ? entity_group->Group()
-                        : nullptr;
+    const auto generation = SessionGeneration();
+    bool       required   = true;
+    if (!OrdinarySessionOpen(generation))
+      return;
+    try {
+      auto* group = entity_group ? entity_group->Group() : nullptr;
       if (!group)
-        continue;
-      const auto bytes = group->Span();
-      pending_jobs.Push(
-          {ProcessStoreOffers, {.generation = SessionGeneration(), .bytes = {bytes.begin(), bytes.end()}}});
+        return;
+      const auto type        = entity_group->Type();
+      const auto process     = ProcessorFor(type);
+      const bool own_profile = type == EntityGroup::Kind::UserProfiles;
+      if (!process && !own_profile)
+        return;
+      required              = (process != CachePlayerNames && process != CacheAllianceNames) || own_profile;
+      const auto    bytes   = group->Span();
+      Il2CppString* user_id = nullptr;
+      int32_t       level   = 0;
+      if (type == EntityGroup::Kind::PlanetaryMapResponse || own_profile) {
+        auto* manager = UserProfileManager::Instance();
+        if (auto* profile = manager ? manager->GetLocalUserProfile() : nullptr) {
+          user_id = profile->UserId();
+          level   = profile->Level();
+        }
+      }
+      if (user_id && user_id->length < 0) {
+        SealOrdinarySession(generation);
+        return;
+      }
+      const auto user_units = user_id ? static_cast<size_t>(user_id->length) : 0;
+      required = (process != CachePlayerNames && process != CacheAllianceNames) || (own_profile && user_units);
+      // A missing local identity deliberately supplies no owner-qualified map.
+      if (type == EntityGroup::Kind::PlanetaryMapResponse && !user_units)
+        return;
+      Submit(generation, bytes.size(), user_units, required, [&] {
+        return Job{process, own_profile, {generation, {bytes.begin(), bytes.end()}, il2cpp::ToUtf8(user_id), level}};
+      });
+    } catch (...) {
+      if (required)
+        SealOrdinarySession(generation);
+    }
+  }
+
+  void HandlePlatformResponse(PlatformServiceResponse* response) noexcept
+  {
+    const auto generation = SessionGeneration();
+    if (!OrdinarySessionOpen(generation))
+      return;
+    try {
+      for (auto* entity_group : il2cpp::Items(response->EntityGroups())) {
+        auto* group = entity_group && entity_group->Type() == PlatformEntityGroup::Kind::StoreOffers
+                          ? entity_group->Group()
+                          : nullptr;
+        if (!group)
+          continue;
+        const auto bytes = group->Span();
+        Submit(generation, bytes.size(), 0, true,
+               [&] { return Job{ProcessStoreOffers, false, {generation, {bytes.begin(), bytes.end()}}}; });
+      }
+    } catch (...) {
+      SealOrdinarySession(generation);
     }
   }
 
@@ -111,9 +134,19 @@ namespace
   {
     // DataType arrives as a number in a string; JSON is "0". This runs inside the game's parser, so it only copies
     // the payload out.
-    if (payload && payload->Target() && il2cpp::Equals(payload->DataType(), "0"))
-      if (auto* data = payload->Data())
-        pending_jobs.Push({ProcessRealtimeSlot, {SessionGeneration(), il2cpp::ToUtf8(data)}});
+    const auto generation = SessionGeneration();
+    try {
+      if (OrdinarySessionOpen(generation) && payload && payload->Target() && il2cpp::Equals(payload->DataType(), "0"))
+        if (auto* data = payload->Data()) {
+          if (data->length < 0)
+            SealOrdinarySession(generation);
+          else
+            Submit(generation, 0, static_cast<size_t>(data->length), true,
+                   [&] { return Job{ProcessRealtimeSlot, false, {generation, il2cpp::ToUtf8(data)}}; });
+        }
+    } catch (...) {
+      SealOrdinarySession(generation);
+    }
     return original(_this, centrifugo_info, payload, final_payload);
   }
 
@@ -121,12 +154,17 @@ namespace
                                                           ServiceResponse* service_response, MethodInfo* method)
   {
     // The hooked method is shared generic code; PlatformModelRegistry passes its own response type.
-    if (service_response && service_response->Is<ServiceResponse>()) {
-      for (auto* group : il2cpp::Items(service_response->EntityGroups()))
-        HandleEntityGroup(group);
-    } else if (service_response && Config::Sync::Get()->options.store_offers) {
-      if (auto* platform = service_response->As<PlatformServiceResponse>())
-        HandlePlatformResponse(platform);
+    const auto generation = SessionGeneration();
+    try {
+      if (service_response && service_response->Is<ServiceResponse>()) {
+        for (auto* group : il2cpp::Items(service_response->EntityGroups()))
+          HandleEntityGroup(group);
+      } else if (service_response && Config::Sync::Get()->options.store_offers) {
+        if (auto* platform = service_response->As<PlatformServiceResponse>())
+          HandlePlatformResponse(platform);
+      }
+    } catch (...) {
+      SealOrdinarySession(generation);
     }
     return original(_this, parsing_context, service_response, method);
   }
@@ -137,17 +175,21 @@ namespace
   {
     // A new session drops every record; targets start over from the next responses. The generation changes
     // before original can deliver responses from the new session.
-    auto  url   = il2cpp::ToUtf8(game_server_url);
-    auto  id    = il2cpp::ToUtf8(session_id);
     auto& state = State();
-    {
-      std::scoped_lock lock(state.mutex);
-      state.records.Reset();
-      state.session.generation = state.records.Generation();
-      state.session.server_url = std::move(url);
-      state.session.session_id = std::move(id);
-      state.generation         = state.records.Generation();
-    }
+    if (!TrySessionUpdate(state.health, [&] {
+          auto url = il2cpp::ToUtf8(game_server_url);
+          auto id  = il2cpp::ToUtf8(session_id);
+          {
+            std::scoped_lock lock(state.mutex);
+            state.records.Reset();
+            state.session.generation = state.records.Generation();
+            state.session.server_url = std::move(url);
+            state.session.session_id = std::move(id);
+            state.generation         = state.records.Generation();
+          }
+          ForgetOldBattleRequests(state.generation.load());
+        }))
+      state.diagnostics_ready.store(false, std::memory_order_release);
     state.ready.notify_all();
     original(_this, game_server_url, gateway_server_url, session_id, server_region);
   }
@@ -156,22 +198,34 @@ namespace
                                   bool encrypt_requests, Il2CppString* server_region)
   {
     original(_this, session_id, game_version, encrypt_requests, server_region);
-    auto             version = il2cpp::ToUtf8(game_version);
-    auto&            state   = State();
-    std::scoped_lock lock(state.mutex);
-    state.session.version = std::move(version);
+    auto& state = State();
+    if (!TrySessionUpdate(state.health, [&] {
+          auto             version = il2cpp::ToUtf8(game_version);
+          std::scoped_lock lock(state.mutex);
+          state.session.version = std::move(version);
+        })) {
+      state.diagnostics_ready.store(false, std::memory_order_release);
+      state.ready.notify_all();
+    }
   }
 
   void GameServer_SetInstanceIdHeader_Hook(auto original, void* _this, int32_t instance_id)
   {
     original(_this, instance_id);
-    auto&            state = State();
-    std::scoped_lock lock(state.mutex);
-    state.session.instance_id = instance_id;
+    auto& state = State();
+    if (!TrySessionUpdate(state.health, [&] {
+          std::scoped_lock lock(state.mutex);
+          state.session.instance_id = instance_id;
+        })) {
+      state.diagnostics_ready.store(false, std::memory_order_release);
+      state.ready.notify_all();
+    }
   }
 
   bool InstallSync()
   {
+    // Complete lazy shared-state allocation before callbacks can call noexcept gates.
+    (void)State();
     il2cpp::HookSet hooks("Sync");
     IL2CPP_STAGE(hooks, GameServerModelRegistry::Method("ProcessResultInternal"),
                  GameServerModelRegistry_ProcessResultInternal_Hook);
@@ -195,10 +249,19 @@ namespace
     if (!hooks.Commit())
       return false;
 
-    std::thread(RunJobs).detach();
-    std::thread(RunBattleLogs).detach();
-    FollowSettings();
-    return true;
+    try {
+      std::thread(RunJobs).detach();
+      std::thread(RunBattleLogs).detach();
+      FollowSettings();
+      State().diagnostics_ready.store(true, std::memory_order_release);
+      return true;
+    } catch (...) {
+      // Installed hooks cannot imply that an unavailable consumer is ready.
+      State().health.Stop();
+      State().diagnostics_ready.store(false, std::memory_order_release);
+      State().ready.notify_all();
+      return false;
+    }
   }
 } // namespace
 
@@ -210,12 +273,25 @@ SharedState& State()
   return state;
 }
 
+bool OrdinarySessionOpen(uint64_t generation) noexcept
+{
+  const auto& state = State();
+  return generation == state.generation.load() && state.health.Allows(generation);
+}
+
+void SealOrdinarySession(uint64_t generation) noexcept
+{
+  auto& state = State();
+  if (state.health.Seal(generation))
+    state.ready.notify_all();
+}
+
 void Publish(Stream stream, RecordSet records, uint64_t generation, Update mode)
 {
   auto& state = State();
   {
     std::scoped_lock lock(state.mutex);
-    if (generation != state.records.Generation() || !state.records.Apply(stream, std::move(records), mode))
+    if (!OrdinarySessionOpen(generation) || !state.records.Apply(stream, std::move(records), mode))
       return;
   }
   // Wakes the upload threads only when a stream actually changed.
@@ -226,13 +302,32 @@ bool HasBattle(uint64_t id, uint64_t generation)
 {
   auto&            state = State();
   std::scoped_lock lock(state.mutex);
-  return generation == state.records.Generation() && state.records.Contains(Stream::kBattles, id);
+  return OrdinarySessionOpen(generation) && state.records.Contains(Stream::kBattles, id);
 }
 
 // Starts, reconfigures and retires target threads to match [sync] after a settings reload. Runs every frame, so
 // it returns at once while the settings object is unchanged. Game thread only.
 void FollowSettings()
 {
+  // Once-only reporting here keeps logging/allocation off native response callbacks.
+  static uint64_t reported      = 0;
+  static bool     reported_stop = false;
+  auto&           health        = State().health;
+  const auto      sealed        = health.SealedThrough();
+  try {
+    if (sealed > reported) {
+      reported = sealed;
+      spdlog::error("[Sync] ordinary input was lost in generation {}; publication, uploads and acknowledgements "
+                    "for that generation are sealed. A new native login must establish a fresh baseline.",
+                    sealed);
+    }
+    if (health.Stopped() && !reported_stop) {
+      reported_stop = true;
+      spdlog::error("[Sync] ordinary processing cannot safely continue; restart the game to establish a fresh sync.");
+    }
+  } catch (...) {
+    // Reporting must not escape the feature's frame callback.
+  }
   static std::shared_ptr<const Config::Sync> applied;
   const auto                                 config = Config::Sync::Get();
   if (applied == config)
@@ -244,16 +339,17 @@ void FollowSettings()
     std::erase_if(state.targets, [&](const auto& entry) {
       if (config->targets.contains(entry.first))
         return false;
-      entry.second->Retire();
+      entry.second->delivery.Retire();
       return true;
     });
     for (const auto& [name, options] : config->targets) {
       if (const auto found = state.targets.find(name); found != state.targets.end()) {
-        found->second->Configure(options);
+        if (!found->second->unavailable)
+          found->second->delivery.Configure(options);
         continue;
       }
-      auto target = std::make_shared<Delivery>();
-      target->Configure(options);
+      auto target = std::make_shared<Destination>();
+      target->delivery.Configure(options);
       std::thread(UploadTarget, std::weak_ptr(target), name).detach();
       state.targets.emplace(name, std::move(target));
     }

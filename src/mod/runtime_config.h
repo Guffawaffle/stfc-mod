@@ -30,6 +30,9 @@ mod_settings::SaveStatus GetSaveStatus(const char* section, const char* key,
 std::uint64_t            StatusSequence() noexcept;
 void                     SaveSetting(const char* section, const char* key, config_edit::Value value,
                                      std::chrono::milliseconds delay = {}) noexcept;
+// Deliberately temporary live changes still survive unrelated file reloads. This
+// does not submit a write, alter a disk comparison base or claim save failure.
+void RetainSessionIntent(const char* section, const char* key, config_edit::Value value) noexcept;
 #if _WIN32
 void ForceClose() noexcept;
 #endif

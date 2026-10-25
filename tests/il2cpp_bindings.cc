@@ -2,6 +2,9 @@
 // failure reporting, hook sets and strings, plus the Unity keyboard and focus snapshots built on them.
 
 #include "il2cpp_test_api.h"
+
+// The test API must suppress imported declarations before any binding header.
+#include "game/fleet.h"
 #include <il2cpp/hook.h>
 #include <unity/input.h>
 #include <unity/ui.h>
@@ -156,25 +159,42 @@ struct Vec3 {
 };
 
 // Runtime classes.
-FakeClass& void_class    = Define("System", "Void", IL2CPP_TYPE_VOID);
-FakeClass& object_class  = Define("System", "Object", IL2CPP_TYPE_OBJECT);
-FakeClass& int_class     = Define("System", "Int32", IL2CPP_TYPE_I4, nullptr, 4);
-FakeClass& bool_class    = Define("System", "Boolean", IL2CPP_TYPE_BOOLEAN, nullptr, 1);
-FakeClass& float_class   = Define("System", "Single", IL2CPP_TYPE_R4, nullptr, 4);
-FakeClass& string_class  = Define("System", "String", IL2CPP_TYPE_STRING, &object_class);
-FakeClass& type_class    = Define("System", "Type", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& vec3_class    = Define("UnityEngine", "Vector3", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(Vec3));
-FakeClass& state_class   = Define("Game", "State", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
-FakeClass& base_class    = Define("Game", "Base", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& derived_class = Define("Game", "Derived", IL2CPP_TYPE_CLASS, &base_class);
-FakeClass& other_class   = Define("Game", "Other", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& outer_class   = Define("Game", "Outer", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& inner_class   = Define("", "Inner", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& list_a_class  = Define("Game", "ListA", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& list_b_class  = Define("Game", "ListB", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& delegate_base = Define("System", "Delegate", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& action_class  = Define("System", "Action", IL2CPP_TYPE_CLASS, &delegate_base);
-FakeClass& intptr_class  = Define("System", "IntPtr", IL2CPP_TYPE_I, nullptr, sizeof(void*));
+FakeClass& void_class          = Define("System", "Void", IL2CPP_TYPE_VOID);
+FakeClass& object_class        = Define("System", "Object", IL2CPP_TYPE_OBJECT);
+FakeClass& int_class           = Define("System", "Int32", IL2CPP_TYPE_I4, nullptr, 4);
+FakeClass& bool_class          = Define("System", "Boolean", IL2CPP_TYPE_BOOLEAN, nullptr, 1);
+FakeClass& float_class         = Define("System", "Single", IL2CPP_TYPE_R4, nullptr, 4);
+FakeClass& string_class        = Define("System", "String", IL2CPP_TYPE_STRING, &object_class);
+FakeClass& type_class          = Define("System", "Type", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& vec3_class          = Define("UnityEngine", "Vector3", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(Vec3));
+FakeClass& state_class         = Define("Game", "State", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
+FakeClass& base_class          = Define("Game", "Base", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& derived_class       = Define("Game", "Derived", IL2CPP_TYPE_CLASS, &base_class);
+FakeClass& other_class         = Define("Game", "Other", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& outer_class         = Define("Game", "Outer", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& inner_class         = Define("", "Inner", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& list_a_class        = Define("Game", "ListA", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& list_b_class        = Define("Game", "ListB", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& delegate_base       = Define("System", "Delegate", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& action_class        = Define("System", "Action", IL2CPP_TYPE_CLASS, &delegate_base);
+FakeClass& intptr_class        = Define("System", "IntPtr", IL2CPP_TYPE_I, nullptr, sizeof(void*));
+FakeClass& long_class          = Define("System", "Int64", IL2CPP_TYPE_I8, nullptr, 8);
+FakeClass& ship_model_class    = Define("Digit.PrimeServer.Models", "IShipModel", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& base_ship_class     = Define("Digit.PrimeServer.Models", "BaseShip", IL2CPP_TYPE_CLASS, &ship_model_class);
+FakeClass& concrete_ship_class = Define("Digit.PrimeServer.Models", "Ship", IL2CPP_TYPE_CLASS, &base_ship_class);
+FakeClass& other_ship_class =
+    Define("Digit.PrimeServer.Models", "OtherShipModel", IL2CPP_TYPE_CLASS, &ship_model_class);
+FakeClass& fleet_data_class = Define("Digit.PrimeServer.Models", "FleetPlayerData", IL2CPP_TYPE_CLASS, &object_class);
+struct ShipIdentityObject {
+  Il2CppObject header;
+  int64_t      id;
+} identity_ship{};
+struct FleetIdentityObject {
+  Il2CppObject  header;
+  Il2CppObject* ship;
+} identity_fleet{};
+bool ship_read_throws = false, ship_id_throws = false;
+int  fleet_identity_reads = 0;
 
 FakeClass& event_system_class = Define("UnityEngine.EventSystems", "EventSystem", IL2CPP_TYPE_CLASS, &object_class);
 FakeClass& game_object_class  = Define("UnityEngine", "GameObject", IL2CPP_TYPE_CLASS, &object_class);
@@ -308,7 +328,26 @@ void List_set_Item(Il2CppObject* self, int32_t index, Il2CppObject* value, const
   reinterpret_cast<TestObject*>(self)->target = value;
 }
 Il2CppException thrown{};
-int32_t         Base_Explode(Il2CppObject*, const MethodInfo*)
+Il2CppObject*   FleetIdentity_get_Ship(Il2CppObject* self, const MethodInfo*)
+{
+  if (ship_read_throws)
+    throw Il2CppExceptionWrapper(&thrown);
+  return reinterpret_cast<FleetIdentityObject*>(self)->ship;
+}
+int64_t ShipIdentity_get_Id(Il2CppObject* self, const MethodInfo*)
+{
+  if (ship_id_throws)
+    throw Il2CppExceptionWrapper(&thrown);
+  return reinterpret_cast<ShipIdentityObject*>(self)->id;
+}
+int64_t FleetIdentity_get_Id(Il2CppObject*, const MethodInfo*)
+{
+  ++fleet_identity_reads;
+  return 999;
+}
+int32_t Base_Explode(Il2CppObject*, const MethodInfo*)
+{ throw Il2CppExceptionWrapper(&thrown); }
+void Base_ExplodeVoid(Il2CppObject*, const MethodInfo*)
 { throw Il2CppExceptionWrapper(&thrown); }
 void Never(Il2CppObject*, const MethodInfo*)
 { throw std::runtime_error("shared generic method was called natively"); }
@@ -327,9 +366,23 @@ MethodInfo* base_describe     = nullptr;
 MethodInfo* shared_method     = nullptr;
 int32_t     shared_result     = 41;
 int         boxed_invocations = 0;
+bool        boxed_failure = false, boxed_null = false;
 
 void BuildRuntime()
 {
+  const auto& ship_getter = AddMethod(fleet_data_class, "get_Ship", reinterpret_cast<void*>(&FleetIdentity_get_Ship),
+                                      T(ship_model_class), {});
+  AddProperty(fleet_data_class, "Ship", &ship_getter);
+  const auto& ship_id =
+      AddMethod(base_ship_class, "get_Id", reinterpret_cast<void*>(&ShipIdentity_get_Id), T(long_class), {});
+  AddProperty(base_ship_class, "Id", &ship_id);
+  const auto& fleet_id =
+      AddMethod(fleet_data_class, "get_Id", reinterpret_cast<void*>(&FleetIdentity_get_Id), T(long_class), {});
+  AddProperty(fleet_data_class, "Id", &fleet_id);
+  identity_ship.header.klass  = &concrete_ship_class.klass;
+  identity_ship.id            = 9007199254740993LL;
+  identity_fleet.header.klass = &fleet_data_class.klass;
+  identity_fleet.ship         = &identity_ship.header;
   auto& get_count = AddMethod(base_class, "get_Count", reinterpret_cast<void*>(&Base_get_Count), T(int_class), {});
   auto& set_count =
       AddMethod(base_class, "set_Count", reinterpret_cast<void*>(&Base_set_Count), T(void_class), {T(int_class)});
@@ -356,6 +409,7 @@ void BuildRuntime()
   AddProperty(base_class, "Instance", &get_instance);
   AddMethod(base_class, ".ctor", reinterpret_cast<void*>(&Base_ctor), T(void_class), {T(int_class)});
   AddMethod(base_class, "Explode", reinterpret_cast<void*>(&Base_Explode), T(int_class), {});
+  AddMethod(base_class, "ExplodeVoid", reinterpret_cast<void*>(&Base_ExplodeVoid), T(void_class), {});
   shared_method = &AddMethod(base_class, "Shared", reinterpret_cast<void*>(&Never), T(int_class), {});
   shared_method->has_full_generic_sharing_signature = 1;
   AddField(base_class, "_count", int_class, offsetof(TestObject, count));
@@ -568,7 +622,9 @@ API(Il2CppObject*, il2cpp_runtime_invoke, (const MethodInfo* method, void*, void
     std::abort();
   }
   ++boxed_invocations;
-  return &string_object;
+  if (boxed_failure)
+    *exception = &thrown;
+  return boxed_failure || boxed_null ? nullptr : &string_object;
 }
 END_API
 API(void, il2cpp_format_exception, (const Il2CppException*, char* message, int size))
@@ -661,12 +717,38 @@ size_t ErrorsMentioning(std::string_view text)
 {
   return std::ranges::count_if(errors, [text](const std::string& error) { return error.contains(text); });
 }
+void ShipIdentityObservations()
+{
+  auto* fleet = reinterpret_cast<FleetPlayerData*>(&identity_fleet);
+  Require(FleetPlayerData::ShipIdentityAvailable(), "typed ship identity capability");
+  Require(fleet->ShipInstanceId() == 9007199254740993LL, "ship instance identity preserves exact large int64");
+  identity_ship.id = 0;
+  Require(!fleet->ShipInstanceId(), "zero ship ID is unavailable rather than fleet identity");
+  identity_ship.id = -1;
+  Require(!fleet->ShipInstanceId(), "negative ship ID is unavailable");
+  identity_ship.id           = 42;
+  identity_ship.header.klass = &other_ship_class.klass;
+  Require(!fleet->ShipInstanceId(), "another IShipModel implementation is not assumed to be BaseShip");
+  identity_ship.header.klass = &concrete_ship_class.klass;
+  ship_id_throws             = true;
+  Require(!fleet->ShipInstanceId(), "failed ship-ID getter does not become a usable zero");
+  ship_id_throws   = false;
+  ship_read_throws = true;
+  Require(!fleet->ShipInstanceId(), "failed Ship getter remains unavailable");
+  ship_read_throws    = false;
+  identity_fleet.ship = nullptr;
+  Require(!fleet->ShipInstanceId(), "null Ship has no fabricated identity");
+  identity_fleet.ship = &identity_ship.header;
+  Require(fleet->ShipInstanceId() == 42 && fleet_identity_reads == 0,
+          "ship identity never substitutes FleetPlayerData.Id, hull or display name");
+}
 } // namespace
 
 int main()
 {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  ShipIdentityObservations();
   auto* base = reinterpret_cast<Base*>(&base_object);
 
   // Properties call the generated getter with the receiver and its MethodInfo.
@@ -754,6 +836,31 @@ int main()
   Require(base->Call<"Explode", int32_t>() == 0 && base->Call<"Explode", int32_t>() == 0, "exception contained");
   Require(ErrorsMentioning("Game.Base.Explode threw: NullReferenceException") == 1, "exception reported once");
 
+  // Checked calls preserve the same invocation/dispatch path, while separating
+  // unavailable observations from real zero, false, null and void results.
+  const auto old_count  = base->Count();
+  const auto wrote_zero = base->TryCall<"set_Count", void(int32_t)>(0);
+  const auto read_zero  = base->TryCall<"get_Count", int32_t>();
+  Require(wrote_zero && read_zero && read_zero.value == 0, "checked zero and void remain successful observations");
+  base->SetCount(old_count);
+  const auto missing_checked = base->TryCall<"CheckedMissing", int32_t>();
+  Require(!missing_checked && missing_checked.value == 0,
+          "checked missing method is unavailable, not an observed zero");
+  Require(!base->TryCall<"Select", void(float)>(1.5f), "checked signature drift does not call native code");
+  Require(!base->TryCall<"Explode", int32_t>() && !base->TryCall<"ExplodeVoid", void>(),
+          "checked numeric and void calls preserve exception failure status");
+  found                    = &other_object.header;
+  const auto checked_false = base->TryCall<"TryGet", bool(int32_t, Il2CppObject*&)>(0, found);
+  Require(checked_false && !checked_false.value && found == nullptr,
+          "checked false result and null out parameter are valid observations");
+  const auto checked_virtual = static_cast<Base*>(derived)->TryCall<"Describe", const char*>();
+  Require(checked_virtual && std::string_view(checked_virtual.value) == "derived", "checked virtual dispatch");
+  const auto checked_static = Base::Class::TryCall<"Twice", int32_t(int32_t)>(0);
+  Require(checked_static && checked_static.value == 0, "checked static zero result");
+  Require(!il2cpp::detail::TryInvoke<int32_t>(nullptr, base), "checked null metadata is unavailable");
+  Require(!il2cpp::detail::TryInvoke<int32_t>(Base::Class::Method("get_Count", 0).Info(), nullptr),
+          "checked null receiver is unavailable");
+
   // Internal calls run when present; a missing one is reported once and returns the default.
   static const auto answer  = il2cpp::ICall<int32_t()>("Test::Answer()");
   static const auto renamed = il2cpp::ICall<int32_t()>("Test::Renamed()");
@@ -795,6 +902,21 @@ int main()
 
   // Fully shared generic code is marshalled by the runtime.
   Require(base->Call<"Shared", int32_t>() == 41 && boxed_invocations == 1, "shared generic fallback");
+  const auto checked_shared = base->TryCall<"Shared", int32_t>();
+  Require(checked_shared && checked_shared.value == 41 && boxed_invocations == 2,
+          "checked shared generic value uses runtime marshalling");
+  boxed_failure            = true;
+  const auto failed_shared = base->TryCall<"Shared", int32_t>();
+  Require(!failed_shared && failed_shared.value == 0 && base->Call<"Shared", int32_t>() == 0,
+          "boxed runtime exception remains unavailable while legacy Call still returns its default");
+  boxed_failure = false;
+  boxed_null    = true;
+  Require(!base->TryCall<"Shared", int32_t>(), "an absent numeric box is not observed zero");
+  const auto null_box = il2cpp::detail::TryInvokeBoxed(shared_method, base, nullptr);
+  Require(null_box && null_box.value == nullptr, "a null raw boxed/reference result without exception is successful");
+  boxed_failure = true;
+  Require(!il2cpp::detail::TryInvokeBoxed(shared_method, base, nullptr), "raw boxed exception preserves failure");
+  boxed_failure = boxed_null = false;
 
   // Delegates bind static methods and can jump to native code.
   auto  target   = Base::Class::Method("OnEvent");

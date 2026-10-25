@@ -14,6 +14,7 @@
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 
 enum class DeployedFleetType : int32_t {
@@ -141,6 +142,12 @@ inline std::string LocalizedShipName(int64_t loca_id)
   return context ? il2cpp::ToUtf8(Localizer::Localise(context)) : std::string();
 }
 
+// The declared interface of FleetPlayerData.Ship. A fleet ID or hull ID is not
+// the identity of the individual ship model held here.
+struct IShipModel : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "IShipModel">;
+};
+
 // The hull a fleet flies.
 struct BaseShip : il2cpp::Object {
   using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "BaseShip">;
@@ -208,6 +215,24 @@ struct FleetPlayerData : il2cpp::Object {
   { return Get<"HullId", int64_t>(); }
   int64_t GetLocaId()
   { return Call<"GetLocaId", int64_t>(); }
+
+  static bool ShipIdentityAvailable()
+  {
+    static const bool available =
+        Class::HasProperty<"Ship", IShipModel*>() && BaseShip::Class::HasProperty<"Id", int64_t>();
+    return available;
+  }
+  std::optional<int64_t> ShipInstanceId()
+  {
+    if (!ShipIdentityAvailable())
+      return std::nullopt;
+    const auto observed = TryCall<"get_Ship", IShipModel*>();
+    auto*      ship     = observed && observed.value ? observed.value->As<BaseShip>() : nullptr;
+    if (!ship)
+      return std::nullopt;
+    const auto id = ship->TryCall<"get_Id", int64_t>();
+    return id && id.value > 0 ? std::optional{id.value} : std::nullopt;
+  }
 
   // A forbidden tech or chaos tech item is fitted to the ship.
   bool HasAppliedTech()
@@ -417,10 +442,34 @@ struct AssignShipsWidget : unity::Behaviour {
   { return Field<"_assignButton", ButtonAndContextWrapper*>(); }
   SelectableList* selectableList()
   { return Field<"_selectableList", SelectableList*>(); }
+  ShipManagementViewContext* Context()
+  { return Get<"Context", ShipManagementViewContext*>(); }
+  bool SortingChanged()
+  { return TryCall<"HandleSortingChanged", void(int32_t)>(0).succeeded; }
+};
+
+struct ShipSelectionViewController : unity::Behaviour {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Ships", "ShipSelectionViewController">;
+
+  ShipManagementViewContext* Context()
+  { return Field<"m_context", ShipManagementViewContext*>(); }
 };
 
 struct ShipTileWidget : Widget<FleetPlayerData> {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Ships", "ShipTileWidget">;
+
+  unity::Transform* Transform()
+  {
+    auto* component = As<unity::Component>();
+    return component ? component->transform() : nullptr;
+  }
+  ShipManagementViewContext* PinContext()
+  {
+    auto* transform = Transform();
+    auto* owner     = transform ? transform->FindInParents<ShipSelectionViewController>() : nullptr;
+    auto* context   = owner ? owner->Context() : nullptr;
+    return context && context->Is<ShipManagementViewContext>() ? context : nullptr;
+  }
 };
 
 // Older clients lack this class; there the binding logs it once and ViewOwnHaven does nothing.

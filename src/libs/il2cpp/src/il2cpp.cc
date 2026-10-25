@@ -442,17 +442,20 @@ namespace detail
                        ClassName(method->klass), method->name, exception ? ": " : "", text));
   }
 
-  Il2CppObject* InvokeBoxed(const MethodInfo* method, void* target, void** args)
+  CallResult<Il2CppObject*> TryInvokeBoxed(const MethodInfo* method, void* target, void** args)
   {
     // The runtime catches managed exceptions here and only hands them back through the slot.
     Il2CppException* exception = nullptr;
     auto*            result    = il2cpp_runtime_invoke(method, target, args, &exception);
     if (exception) {
       ReportException(method, exception);
-      return nullptr;
+      return {};
     }
-    return result;
+    return {true, result};
   }
+
+  Il2CppObject* InvokeBoxed(const MethodInfo* method, void* target, void** args)
+  { return TryInvokeBoxed(method, target, args).value; }
 } // namespace detail
 
 Il2CppObject* NewDelegate(Il2CppClass* delegate_class, Method target, Il2CppMethodPointer native)

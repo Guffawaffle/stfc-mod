@@ -5,6 +5,10 @@
 // its session and target settings before leaving that state's lock.
 
 #include "config.h"
+#include "sync/diagnostic.h"
+#include "sync/input_health.h"
+#include "sync/input_queue.h"
+#include "sync/resolver_cache.h"
 
 #include "game/server.h"
 
@@ -23,6 +27,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -128,43 +133,43 @@ private:
 template <typename Key, typename Value> class NameCache
 {
 public:
-  // A busy server shows a few thousand players a day; past this size, expired entries are dropped first.
-  static constexpr size_t kCapacity = 10'000;
+  static constexpr size_t kCapacity = sync_resolver::kEntryLimit;
 
   std::optional<Value> Find(const Key& key, uint64_t generation)
   {
     std::scoped_lock lock(mutex_);
     if (!Follow(generation))
       return std::nullopt;
-    const auto it = entries_.find(key);
-    if (it == entries_.end())
-      return std::nullopt;
-    if (it->second.expires_at <= Clock::now()) {
-      entries_.erase(it);
+    if (Config::Sync::Get()->resolver_cache_ttl <= 0) {
+      entries_.Clear();
       return std::nullopt;
     }
-    return it->second.value;
+    if (const auto* entry = entries_.Find(key, Clock::now()))
+      return entry->value;
+    return std::nullopt;
   }
 
   void Store(const Key& key, Value value, uint64_t generation)
   {
-    const auto       expires_at = Clock::now() + std::chrono::seconds(Config::Sync::Get()->resolver_cache_ttl);
+    const auto       ttl = Config::Sync::Get()->resolver_cache_ttl;
+    const auto       now = Clock::now();
     std::scoped_lock lock(mutex_);
     if (!Follow(generation))
       return;
-    if (entries_.size() >= kCapacity) {
-      std::erase_if(entries_, [now = Clock::now()](const auto& entry) { return entry.second.expires_at <= now; });
-      // Everything still valid (a long TTL and a lot of browsing): start over rather than grow past the bound.
-      if (entries_.size() >= kCapacity)
-        entries_.clear();
+    if (ttl <= 0) {
+      entries_.Clear();
+      return; // Fresh names remain usable by the requesting fetch without retention.
     }
-    entries_.insert_or_assign(key, Entry{.value = std::move(value), .expires_at = expires_at});
+    if constexpr (std::is_same_v<Key, std::string>)
+      if (!sync_resolver::BoundedField(key))
+        return;
+    entries_.Put(key, Entry{std::move(value), now + std::chrono::seconds(ttl)}, now);
   }
 
   size_t Size()
   {
     std::scoped_lock lock(mutex_);
-    return entries_.size();
+    return entries_.Size();
   }
 
 private:
@@ -179,15 +184,15 @@ private:
     if (generation < generation_)
       return false;
     if (generation != generation_) {
-      entries_.clear();
+      entries_.Clear();
       generation_ = generation;
     }
     return true;
   }
 
-  uint64_t                       generation_ = 0;
-  std::mutex                     mutex_;
-  std::unordered_map<Key, Entry> entries_;
+  uint64_t                         generation_ = 0;
+  std::mutex                       mutex_;
+  sync_resolver::Cache<Key, Entry> entries_{kCapacity};
 };
 
 // --- Records ---
@@ -304,6 +309,26 @@ private:
   std::array<Cursor, static_cast<size_t>(Stream::kCount)> cursors_;
 };
 
+struct DiagnosticObservation {
+  std::shared_ptr<const DiagnosticPayload> payload;
+  uint64_t                                 generation, revision;
+};
+
+// Application-owned delivery lanes. Diagnostic observations are append-only,
+// independently bounded, and never coalesced into canonical account entities.
+struct Destination {
+  Delivery                                        delivery;
+  sync_queue::BoundedQueue<DiagnosticObservation> diagnostics{{kDiagnosticCount, kDiagnosticBytes, kDiagnosticBytes}};
+  bool unavailable = false; // Protected by SharedState::mutex; no silent worker respawn.
+};
+
+inline bool DiagnosticCurrent(const DiagnosticObservation& observation, uint64_t generation,
+                              const Destination& destination, bool context_ready) noexcept
+{
+  return context_ready && !destination.unavailable && destination.delivery.Config().diagnostics
+         && observation.generation == generation && observation.revision == destination.delivery.Revision();
+}
+
 // --- Session and shared state ---
 
 // What the battle-log thread needs to ask the game server for data as the game client would.
@@ -319,14 +344,18 @@ struct GameSession {
 // Shared by the game thread, the processing thread and the network workers. Leaked on purpose: the detached
 // workers may still run during process exit, after static destructors.
 struct SharedState {
-  std::mutex                                       mutex;
-  std::condition_variable                          ready;
-  RecordStore                                      records;
-  GameSession                                      session;
-  std::map<std::string, std::shared_ptr<Delivery>> targets;
+  std::mutex                                          mutex;
+  std::condition_variable                             ready;
+  RecordStore                                         records;
+  GameSession                                         session;
+  std::map<std::string, std::shared_ptr<Destination>> targets;
   // records.Generation(), readable without the lock: the game thread reads it for every response, while workers
   // can hold the lock to copy whole snapshots.
   std::atomic<uint64_t> generation = 0;
+  InputHealth           health;
+  DiagnosticBudget      diagnostic_budget;
+  std::atomic_bool      diagnostics_ready{false};
+  std::atomic_uint64_t  diagnostic_drops{0};
 };
 SharedState& State();
 
@@ -342,12 +371,19 @@ struct Input {
 };
 using Processor = void (*)(const Input&);
 
-// The protobuf `Message` a response holds, or nullopt after logging that `about` does not parse.
-template <typename Message> std::optional<Message> Parse(const Input& input, std::string_view about)
+// Ordinary loss seals the captured generation; optional name enrichment is best effort.
+bool OrdinarySessionOpen(uint64_t generation) noexcept;
+void SealOrdinarySession(uint64_t generation) noexcept;
+
+// Unsupported/no-content records remain deliberate filters, not processing failures.
+template <typename Message>
+std::optional<Message> Parse(const Input& input, std::string_view about, bool required = true)
 {
   Message message;
   if (message.ParseFromString(input.bytes))
     return message;
+  if (required)
+    SealOrdinarySession(input.generation);
   logging::Error("process", about, "the response does not parse");
   return std::nullopt;
 }
@@ -368,12 +404,36 @@ uint64_t SessionGeneration();
 GameSession Session();
 
 // upload.cc: one thread per target, until the target leaves the settings.
-void UploadTarget(std::weak_ptr<Delivery> target, std::string name);
+void        UploadTarget(std::weak_ptr<Destination> target, std::string name);
+std::string NewUuid();
 
 // battlelogs.cc. Journals are cached per session, so every target can receive them without a global sent-ID filter.
 // RunBattleLogs is the battle-log thread and never returns.
-void RunBattleLogs();
+void RunBattleLogs() noexcept;
 void QueueNewBattles(const std::vector<uint64_t>& ids, uint64_t generation);
+void ForgetOldBattleRequests(uint64_t generation);
 void CachePlayerNames(const Input& input);
 void CacheAllianceNames(const Input& input);
+
+// The owned worker's dispatch policy is also exercised without threads/game
+// bindings by sync-logic-tests. Optional names never hide a valid own profile.
+inline void ProcessOwnedInput(Processor process, bool own_profile, const Input& input) noexcept
+{
+  if (!OrdinarySessionOpen(input.generation))
+    return;
+  try {
+    if (process)
+      process(input);
+  } catch (...) {
+    if (process != CachePlayerNames && process != CacheAllianceNames)
+      SealOrdinarySession(input.generation);
+  }
+  if (own_profile && !input.user_id.empty() && OrdinarySessionOpen(input.generation)) {
+    try {
+      ProcessOwnProfile(input);
+    } catch (...) {
+      SealOrdinarySession(input.generation);
+    }
+  }
+}
 } // namespace data_sync

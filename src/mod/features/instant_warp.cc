@@ -3,6 +3,8 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "runtime_config.h"
+#include "settings/basic_gameplay_settings.h"
 #include "text.h"
 
 #include "game/fleet.h"
@@ -25,7 +27,7 @@
 namespace
 {
 // Indexed by InstantWarpConfirmation, for the log.
-constexpr std::array kInstantWarpNames{"none", "warp", "jump"};
+constexpr auto& kInstantWarpNames = gameplay_settings::warp_names;
 
 // --- Course prompt ---
 
@@ -179,17 +181,13 @@ bool InstallInstantWarp()
 void CycleInstantWarpConfirmation()
 {
   auto& setting = Config::Get().ui.auto_confirm_instant_warp;
-  switch (setting) {
-    case InstantWarpConfirmation::kNone:
-      setting = InstantWarpConfirmation::kWarp;
-      break;
-    case InstantWarpConfirmation::kWarp:
-      setting = InstantWarpConfirmation::kJump;
-      break;
-    case InstantWarpConfirmation::kJump:
-      setting = InstantWarpConfirmation::kNone;
-      break;
-  }
+  static_assert(std::to_underlying(InstantWarpConfirmation::kNone) == 0
+                && std::to_underlying(InstantWarpConfirmation::kWarp) == 1
+                && std::to_underlying(InstantWarpConfirmation::kJump) == 2);
+  if (!gameplay_settings::CycleWarp(setting, [](const gameplay_settings::Key& key, std::string value) {
+        runtime_config::SaveSetting(key.section, key.name, std::move(value), key.delay);
+      }))
+    return;
   spdlog::info("[InstantWarp] answering prompts with {}", kInstantWarpNames[std::to_underlying(setting)]);
 }
 

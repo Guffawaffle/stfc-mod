@@ -5,6 +5,7 @@
 #include "config.h"
 #include "features/features.h"
 #include "runtime_config.h"
+#include "settings/basic_gameplay_settings.h"
 #include "shortcuts.h"
 
 #include "game/app.h"
@@ -28,10 +29,12 @@ bool hotkeys_installed = false;
 
 // --- Setting shortcuts ---
 
-template <auto Section, auto Setting> void ToggleSetting()
+template <auto Section, auto Setting, gameplay_settings::Boolean Option> void ToggleSetting()
 {
-  auto& section    = Config::Get().*Section;
-  section.*Setting = !(section.*Setting);
+  auto& section = Config::Get().*Section;
+  gameplay_settings::ToggleBoolean(section.*Setting, Option, [](const gameplay_settings::Key& key, bool value) {
+    runtime_config::SaveSetting(key.section, key.name, value, key.delay);
+  });
 }
 
 template <spdlog::level::level_enum Level> void SetLogLevel()
@@ -56,13 +59,20 @@ constexpr SettingShortcut kSettingShortcuts[] = {
     {Action::kUiViewerScaleUp, [] { AdjustUiViewerScale(true); }, true},
     {Action::kUiViewerScaleDown, [] { AdjustUiViewerScale(false); }, true},
     {Action::kToggleAutoConfirmInstantWarp, CycleInstantWarpConfirmation},
-    {Action::kTogglePreviewLocate, ToggleSetting<&Config::ui, &Config::Ui::disable_preview_locate>},
-    {Action::kTogglePreviewRecall, ToggleSetting<&Config::ui, &Config::Ui::disable_preview_recall>},
-    {Action::kToggleCargoDefault, ToggleSetting<&Config::ui, &Config::Ui::show_cargo_default>},
-    {Action::kToggleCargoPlayer, ToggleSetting<&Config::ui, &Config::Ui::show_player_cargo>},
-    {Action::kToggleCargoStation, ToggleSetting<&Config::ui, &Config::Ui::show_station_cargo>},
-    {Action::kToggleCargoHostile, ToggleSetting<&Config::ui, &Config::Ui::show_hostile_cargo>},
-    {Action::kToggleCargoArmada, ToggleSetting<&Config::ui, &Config::Ui::show_armada_cargo>},
+    {Action::kTogglePreviewLocate,
+     ToggleSetting<&Config::ui, &Config::Ui::disable_preview_locate, gameplay_settings::Boolean::PreviewLocate>},
+    {Action::kTogglePreviewRecall,
+     ToggleSetting<&Config::ui, &Config::Ui::disable_preview_recall, gameplay_settings::Boolean::PreviewRecall>},
+    {Action::kToggleCargoDefault,
+     ToggleSetting<&Config::ui, &Config::Ui::show_cargo_default, gameplay_settings::Boolean::CargoDefault>},
+    {Action::kToggleCargoPlayer,
+     ToggleSetting<&Config::ui, &Config::Ui::show_player_cargo, gameplay_settings::Boolean::CargoPlayer>},
+    {Action::kToggleCargoStation,
+     ToggleSetting<&Config::ui, &Config::Ui::show_station_cargo, gameplay_settings::Boolean::CargoStation>},
+    {Action::kToggleCargoHostile,
+     ToggleSetting<&Config::ui, &Config::Ui::show_hostile_cargo, gameplay_settings::Boolean::CargoHostile>},
+    {Action::kToggleCargoArmada,
+     ToggleSetting<&Config::ui, &Config::Ui::show_armada_cargo, gameplay_settings::Boolean::CargoArmada>},
     {Action::kLogLevelOff, SetLogLevel<spdlog::level::off>},
     {Action::kLogLevelError, SetLogLevel<spdlog::level::err>},
     {Action::kLogLevelWarn, SetLogLevel<spdlog::level::warn>},
@@ -138,12 +148,18 @@ bool HandleShortcuts()
 
   if (Shortcut::IsDown(Action::kDisableHotKeys)) {
     HideKeybindBadges();
-    config.control.hotkeys_enabled = false;
+    gameplay_settings::SetBoolean(config.control.hotkeys_enabled, false, gameplay_settings::Boolean::Hotkeys,
+                                  [](const gameplay_settings::Key& key, bool value) {
+                                    runtime_config::SaveSetting(key.section, key.name, value, key.delay);
+                                  });
     spdlog::warn("[Hotkeys] mod hotkeys off");
     return true;
   }
   if (Shortcut::IsDown(Action::kEnableHotKeys)) {
-    config.control.hotkeys_enabled = true;
+    gameplay_settings::SetBoolean(config.control.hotkeys_enabled, true, gameplay_settings::Boolean::Hotkeys,
+                                  [](const gameplay_settings::Key& key, bool value) {
+                                    runtime_config::SaveSetting(key.section, key.name, value, key.delay);
+                                  });
     spdlog::warn("[Hotkeys] mod hotkeys on");
     return true;
   }

@@ -1,15 +1,21 @@
 // The ship management dock:
-// - [ui] pinned_ships moves the named ships to the front of the idle ship list after the game sorts it, and
-//   Shift+click on a ship tile pins or unpins that ship;
+// - saved ship-instance pins lead in their acknowledged order; ui.pinned_ships remains a legacy fallback;
+//   double-clicking a pin badge toggles it, and a held badge drag changes the saved order;
 // - [ui] double_click_to_assign_ship presses Assign on a double click on a ship tile, or on Enter;
 // - [ui] dock_syncmanagement selects the fleet bar slot of the ship open in ship management.
 //
 // Only ShipManagementViewContext.Sort is hooked, not ISortedFleetsContext, so the hailing frequencies inventory keeps
 // the game's order.
 
+#include "checked_ship_order.h"
 #include "config.h"
 #include "features/features.h"
-#include "file.h"
+#include "features/ship_pin_input.h"
+#include "frame.h"
+#include "mod_state.h"
+#include "pending_pin_order.h"
+#include "pinned_ship_order.h"
+#include "pinned_ship_state.h"
 #include "text.h"
 
 #include "game/app.h"
@@ -20,16 +26,11 @@
 #include <il2cpp/il2cpp.h>
 #include <spdlog/fmt/ranges.h>
 #include <spdlog/spdlog.h>
-#include <toml++/toml.h>
 #include <unity/input.h>
 #include <unity/tracker.h>
 
 #include <algorithm>
 #include <chrono>
-#include <fstream>
-#include <iterator>
-#include <set>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -50,214 +51,285 @@ ShipManagementViewController* VisibleShipManagement()
 std::string ShipNameText(const std::vector<std::string>& words)
 { return fmt::format("{}", fmt::join(words, " ")); }
 
-// --- Pinned ships ---
+// --- Stable ship-instance pins ---
 
-// Unmatched entries are warned about once, not on every sort.
-std::set<std::string> warned_patterns;
-
-// Within the pinned group and the rest, the game's active sort order is kept.
-void PinShips(il2cpp::List<FleetPlayerData*>* list)
+struct PinStateData {
+  std::vector<int64_t>               ids, legacy_ids;
+  std::vector<std::string>           legacy_names;
+  pinned_ship_state::PendingPinOrder pending;
+  il2cpp::GcHandle                   save_context, refresh_context;
+  int                                refresh_frames = 0;
+  bool                               has_id_order = false, loaded = false, worker_ready = false;
+  bool                               sort_installed = false, input_installed = false, receipt_registered = false;
+  bool                               receipt_healthy = true;
+  bool                               writes_safe = true, snapshot_warned = false;
+};
+PinStateData& PinState()
 {
-  const auto& pinned = Config::Get().ui.pinned_ships;
-  if (pinned.empty() || !list || list->Count() <= 1)
-    return;
-
-  struct Ship {
-    FleetPlayerData*         data = nullptr;
-    std::vector<std::string> words;
-    int64_t                  level        = 0;
-    bool                     pinned       = false;
-    int8_t                   tech_applied = -1;
-
-    // Read lazily: only ties between equal hulls need it.
-    bool TechApplied()
-    {
-      if (tech_applied < 0)
-        tech_applied = data && data->HasAppliedTech() ? 1 : 0;
-      return tech_applied == 1;
-    }
-
-    // Higher level first, then, within one hull and level, the ship with tech applied.
-    bool BetterThan(Ship& other)
-    {
-      if (level != other.level)
-        return level > other.level;
-      return data && other.data && data->HullId() == other.data->HullId() && TechApplied() && !other.TechApplied();
-    }
-  };
-  std::vector<Ship> ships;
-  for (auto* ship : *list)
-    ships.push_back(ship ? Ship{.data = ship, .words = ShipNameWords(ship->DisplayName()), .level = ship->Level()}
-                         : Ship{});
-
-  // Each entry pins one ship: the best idle ship it matches that an earlier entry has not taken.
-  for (const auto& pattern : pinned) {
-    Ship* best = nullptr;
-    for (auto& ship : ships)
-      if (!ship.pinned && ShipNameMatches(ship.words, pattern) && (!best || ship.BetterThan(*best)))
-        best = &ship;
-    if (best)
-      best->pinned = true;
-    else if (const auto name = ShipNameText(pattern); warned_patterns.insert(name).second)
-      spdlog::warn("[PinnedShips] '{}' matches no idle ship; entries match the end of the game's ship name", name);
-  }
-  if (std::ranges::none_of(ships, [](const Ship& ship) { return ship.pinned; }))
-    return;
-
-  // Read from the original snapshot in two passes to preserve both groups' order. Only changed slots cross the
-  // managed boundary; the list keeps its count and needs no partition buffer or second read of its items.
-  int32_t index = 0;
-  for (const bool pinned_group : {true, false})
-    for (const auto& ship : ships)
-      if (ship.pinned == pinned_group) {
-        if (ship.data != ships[index].data)
-          list->Set(index, ship.data);
-        ++index;
-      }
+  // Explicit process lifetime: no native roots are released after IL2CPP teardown.
+  static auto* state = new PinStateData;
+  return *state;
 }
-
-void ShipManagementViewContext_Sort_Hook(auto original, ShipManagementViewContext* _this)
+std::vector<std::string> PinConfiguredLegacyNames()
 {
-  original(_this);
-  PinShips(_this->SortedIdleShips());
+  std::vector<std::string> names;
+  for (const auto& words : Config::Get().ui.pinned_ships)
+    names.push_back(ShipNameText(words));
+  return names;
 }
+std::vector<std::string> PinAppliedLegacyNames()
+{ return PinState().has_id_order ? PinState().legacy_names : PinConfiguredLegacyNames(); }
+const std::vector<int64_t>& PinDesiredIds()
+{ return PinState().pending.Desired() ? PinState().pending.Desired()->ids : PinState().ids; }
+std::vector<std::string> PinDesiredLegacyNames()
+{ return PinState().pending.Desired() ? PinState().pending.Desired()->legacy_names : PinAppliedLegacyNames(); }
 
-// --- Shift+click pinning ---
-
-// The tile click hook is shared with double-click assignment, so it runs even when this feature did not install.
-bool pin_click_installed = false;
-
-// The settings file with only the pinned_ships line of [ui] replaced, or added, so the rest keeps its comments and
-// layout. A layout this line edit cannot handle, such as an inline [ui] table or a multi-line value, is caught by
-// SavePinnedShips checking the result.
-std::string WithPinnedShipsLine(const std::string& settings, const std::string& line)
+struct PinRow {
+  FleetPlayerData*         ship = nullptr;
+  std::optional<int64_t>   id;
+  std::vector<std::string> words;
+  int64_t                  level    = 0;
+  bool                     non_ship = true;
+};
+using PinList = il2cpp::List<FleetPlayerData*>;
+struct PinSnapshot {
+  il2cpp::GcHandle              context, list;
+  std::vector<il2cpp::GcHandle> rows_owned;
+  std::vector<PinRow>           rows;
+};
+std::optional<PinSnapshot> PinReadSnapshot(ShipManagementViewContext* context, bool names)
 {
-  std::vector<std::string> lines;
-  std::istringstream       in(settings);
-  for (std::string text; std::getline(in, text);)
-    lines.push_back(text);
-  const auto trimmed = [](std::string_view text) {
-    text.remove_prefix(std::min(text.find_first_not_of(" \t"), text.size()));
-    return text;
-  };
-  constexpr std::string_view kKey = "pinned_ships";
-  // Where [ui] ends, and its pinned_ships line, if any.
-  size_t ui_end = lines.size(), pinned = lines.size();
-  bool   has_ui = false, in_ui = false;
-  for (size_t i = 0; i < lines.size(); ++i) {
-    const auto text = trimmed(lines[i]);
-    if (text.starts_with('[')) {
-      if (in_ui) {
-        ui_end = i;
-        break;
+  if (!context)
+    return std::nullopt;
+  PinSnapshot result;
+  result.context = il2cpp::GcHandle::Strong(context);
+  auto* list     = result.context ? context->SortedIdleShips() : nullptr;
+  result.list    = il2cpp::GcHandle::Strong(list);
+  if (!result.list || !list->HasMethod<int32_t()>("get_Count")
+      || !list->HasMethod<FleetPlayerData*(int32_t)>("get_Item")
+      || !list->HasMethod<void(int32_t, FleetPlayerData*)>("set_Item"))
+    return std::nullopt;
+  const auto count = list->TryCall<"get_Count", int32_t>();
+  if (!count || count.value < 0)
+    return std::nullopt;
+  result.rows.reserve(static_cast<size_t>(count.value));
+  result.rows_owned.reserve(static_cast<size_t>(count.value));
+  for (int32_t index = 0; index < count.value; ++index) {
+    const auto item = list->TryCall<"get_Item", FleetPlayerData*(int32_t)>(index);
+    if (!item)
+      return std::nullopt;
+    PinRow row{.ship = item.value};
+    if (row.ship) {
+      if (!row.ship->Is<FleetPlayerData>())
+        return std::nullopt;
+      auto root = il2cpp::GcHandle::Strong(row.ship);
+      if (!root)
+        return std::nullopt;
+      result.rows_owned.push_back(std::move(root));
+      const auto has_ship = row.ship->TryCall<"get_HasShip", bool>();
+      if (!has_ship)
+        return std::nullopt;
+      row.non_ship = !has_ship.value;
+      if (!row.non_ship) {
+        row.id = row.ship->ShipInstanceId();
+        if (names) {
+          const auto level = row.ship->TryCall<"get_Level", int64_t>();
+          if (!level)
+            return std::nullopt;
+          row.level = level.value;
+          row.words = ShipNameWords(row.ship->DisplayName());
+        }
       }
-      in_ui = has_ui = text.starts_with("[ui]");
-    } else if (in_ui && text.starts_with(kKey) && trimmed(text.substr(kKey.size())).starts_with('=')) {
-      pinned = i;
     }
+    result.rows.push_back(std::move(row));
   }
-  if (pinned < lines.size())
-    lines[pinned] = line;
-  else if (has_ui)
-    lines.insert(lines.begin() + ui_end, line);
-  else
-    lines.insert(lines.end(), {"", "[ui]", line});
-  std::string result;
-  for (const auto& text : lines)
-    result += text + '\n';
   return result;
 }
 
-// Saves the pins to [ui] pinned_ships so they survive a restart. The line edit is used when the result parses back
-// to the same value; otherwise the whole file is rewritten from its parsed table, which keeps every setting but
-// loses comments. A file that does not parse at all is left alone.
-// TODO(tashcan): route this through a settings writer once there is a second setting the mod saves.
-void SavePinnedShips(const std::vector<std::vector<std::string>>& names)
+// This is the old45d legacy rule: highest level, native order on ties, one row
+// per name occurrence. Explicit IDs and placeholders are never claimed by names.
+std::vector<bool> PinLegacyMask(const std::vector<PinRow>& rows, const std::vector<std::string>& names,
+                                const std::vector<int64_t>& explicit_ids)
 {
-  std::string joined;
-  for (const auto& words : names)
-    joined += (joined.empty() ? "" : ", ") + ShipNameText(words);
-  const auto text_of = [](const auto& value) {
-    std::ostringstream text;
-    text << value;
-    return text.str();
-  };
-  const auto saves = [&](const std::string& text) {
-    try {
-      return toml::parse(text)["ui"]["pinned_ships"].value<std::string>() == joined;
-    } catch (const toml::parse_error&) {
-      return false;
+  std::vector<bool> matched(rows.size(), false);
+  for (const auto& name : names) {
+    const auto            words = StrSplit(name, ' ');
+    std::optional<size_t> best;
+    for (size_t i = 0; i < rows.size(); ++i) {
+      const auto& row = rows[i];
+      if (row.non_ship || matched[i] || (row.id && pinned_ship_order::Contains(explicit_ids, *row.id))
+          || !ShipNameMatches(row.words, words))
+        continue;
+      if (!best || row.level > rows[*best].level)
+        best = i;
     }
-  };
-
-  const auto path     = File::Path(File::Config(), true);
-  const auto settings = [&] {
-    std::ifstream in(path, std::ios::binary);
-    return std::string(std::istreambuf_iterator<char>(in), {});
-  }();
-  auto updated = WithPinnedShipsLine(settings, "pinned_ships = " + text_of(toml::value<std::string>(joined)));
-  if (!saves(updated)) {
-    try {
-      auto table = toml::parse(settings);
-      if (!table["ui"].is_table())
-        table.insert_or_assign("ui", toml::table{});
-      table["ui"].as_table()->insert_or_assign("pinned_ships", joined);
-      updated = text_of(table);
-    } catch (const toml::parse_error& error) {
-      spdlog::warn("[PinnedShipClick] not saving pinned ships: {} does not parse: {}", File::Config(),
-                   error.description());
-      return;
-    }
+    if (best)
+      matched[*best] = true;
   }
-
-  std::ofstream out(path, std::ios::binary | std::ios::trunc);
-  out << updated;
-  if (!out)
-    spdlog::warn("[PinnedShipClick] could not save pinned ships to {}", File::Config());
+  return matched;
+}
+void PinShips(ShipManagementViewContext* context)
+{
+  auto&      state = PinState();
+  const auto names = PinAppliedLegacyNames();
+  state.legacy_ids.clear();
+  if (!state.writes_safe || (state.ids.empty() && names.empty()))
+    return;
+  auto snapshot = PinReadSnapshot(context, !names.empty());
+  if (!snapshot) {
+    if (!std::exchange(state.snapshot_warned, true))
+      spdlog::warn("[PinnedShips] ship list is unavailable; keeping the native order");
+    return;
+  }
+  auto*                               list   = snapshot->list.Get<PinList>();
+  const auto                          legacy = PinLegacyMask(snapshot->rows, names, state.ids);
+  std::vector<std::optional<int64_t>> ids;
+  std::vector<bool>                   non_ships;
+  std::vector<FleetPlayerData*>       original;
+  for (size_t i = 0; i < snapshot->rows.size(); ++i) {
+    const auto& row = snapshot->rows[i];
+    ids.push_back(row.id);
+    non_ships.push_back(row.non_ship);
+    original.push_back(row.ship);
+    if (legacy[i] && row.id)
+      state.legacy_ids.push_back(*row.id);
+  }
+  const auto order  = pinned_ship_order::SortedIndices(ids, state.ids, legacy, non_ships);
+  const auto result = ship_order::Apply<FleetPlayerData*>(
+      original, order,
+      [list]() -> std::optional<int32_t> {
+        const auto result = list->TryCall<"get_Count", int32_t>();
+        return result ? std::optional{result.value} : std::nullopt;
+      },
+      [list](int32_t index) -> std::optional<FleetPlayerData*> {
+        const auto result = list->TryCall<"get_Item", FleetPlayerData*(int32_t)>(index);
+        return result ? std::optional{result.value} : std::nullopt;
+      },
+      [list](int32_t index, FleetPlayerData* ship) {
+        return list->TryCall<"set_Item", void(int32_t, FleetPlayerData*)>(index, ship).succeeded;
+      });
+  if (result == ship_order::Result::Restored || result == ship_order::Result::Unrestored) {
+    state.writes_safe = false;
+    spdlog::error("[PinnedShips] managed reorder failed; original order {}. Further pin edits are disabled",
+                  result == ship_order::Result::Restored ? "restored and verified" : "could not be verified");
+    ship_pin_input::RefreshVisible();
+  }
+}
+void ShipManagementViewContext_Sort_Hook(auto original, ShipManagementViewContext* _this)
+{
+  original(_this);
+  try {
+    PinShips(_this);
+  } catch (const std::exception& error) {
+    spdlog::warn("[PinnedShips] could not prepare ship order: {}", error.what());
+  }
 }
 
-// Re-runs the pinned sort and rebuilds the dock's tile list through the game's own
-// SelectableListBase.ClearAndGenerateContents: the controller is the list's IDataContextProvider, and the list binds
-// the reordered SortedIdleShips directly.
-void RefreshDock(ShipManagementViewController* controller)
+std::vector<std::optional<int64_t>> PinLegacyAssignments(const PinSnapshot&              snapshot,
+                                                         const std::vector<std::string>& names,
+                                                         const std::vector<int64_t>&     explicit_ids)
 {
-  auto* context = controller->Context();
-  if (!context)
-    return;
-  context->Sort();
-  for (auto* widget : unity::Instances<AssignShipsWidget>())
-    if (auto* list = widget->isActiveAndEnabled() ? widget->selectableList() : nullptr)
-      list->Rebuild(controller);
-}
-
-void TogglePinOnShiftClick(FleetPlayerData* ship)
-{
-  const bool shift = unity::Key::Pressed(unity::KeyCode::LeftShift) || unity::Key::Pressed(unity::KeyCode::RightShift);
-  if (!pin_click_installed || !shift)
-    return;
-  auto* controller = VisibleShipManagement();
-  auto  key        = ShipNameWords(ship->DisplayName());
-  // Placeholder tiles, such as "build ship", have no name.
-  if (!controller || key.empty())
-    return;
-
-  auto& names = Config::Get().ui.pinned_ships;
-  if (const auto found = std::ranges::find(names, key); found != names.end()) {
-    spdlog::info("[PinnedShipClick] unpinned '{}'", ShipNameText(key));
-    names.erase(found);
-  } else {
-    spdlog::info("[PinnedShipClick] pinned '{}'", ShipNameText(key));
-    names.push_back(std::move(key));
+  std::vector<std::optional<int64_t>> assignments;
+  std::vector<bool>                   used(snapshot.rows.size(), false);
+  auto                                claimed = explicit_ids;
+  for (const auto& name : names) {
+    const auto            words = StrSplit(name, ' ');
+    std::optional<size_t> best;
+    for (size_t i = 0; i < snapshot.rows.size(); ++i) {
+      const auto& row = snapshot.rows[i];
+      if (row.non_ship || used[i] || (row.id && pinned_ship_order::Contains(claimed, *row.id))
+          || !ShipNameMatches(row.words, words))
+        continue;
+      if (!best || row.level > snapshot.rows[*best].level)
+        best = i;
+    }
+    assignments.push_back(best ? snapshot.rows[*best].id : std::nullopt);
+    if (best) {
+      used[*best] = true;
+      if (snapshot.rows[*best].id)
+        claimed.push_back(*snapshot.rows[*best].id);
+    }
   }
-  SavePinnedShips(names);
-  RefreshDock(controller);
+  return assignments;
+}
+bool PinQueue(pinned_ship_state::PinOrder desired, ShipManagementViewContext* context)
+{
+  auto&      state    = PinState();
+  auto       weak     = il2cpp::GcHandle::Weak(context);
+  const auto revision = mod_state::QueueShipPins(desired.ids, desired.legacy_names);
+  if (!revision) {
+    spdlog::warn("[PinnedShips] pin edit was not admitted; the applied order is unchanged");
+    return false;
+  }
+  state.pending.Queue(std::move(desired), revision);
+  state.save_context = std::move(weak);
+  return true;
+}
+void PinReceiptWork()
+{
+  auto& state = PinState();
+  if (state.pending.Desired()) {
+    const auto completion = state.pending.Observe(mod_state::Status(mod_state::Group::ShipPins));
+    if (completion != pinned_ship_state::PendingPinOrder::Completion::Waiting) {
+      auto desired = state.pending.Take();
+      auto context = std::move(state.save_context);
+      if (completion == pinned_ship_state::PendingPinOrder::Completion::Saved) {
+        state.ids          = std::move(desired.ids);
+        state.legacy_names = std::move(desired.legacy_names);
+        state.legacy_ids.clear();
+        state.has_id_order    = true;
+        state.refresh_context = std::move(context);
+        state.refresh_frames  = 0;
+      } else {
+        spdlog::warn("[PinnedShips] pin edit was not saved; the previously applied order is retained");
+      }
+    }
+  }
+  if (state.refresh_context && ++state.refresh_frames >= 2) {
+    auto  weak    = std::move(state.refresh_context);
+    auto  strong  = il2cpp::GcHandle::Strong(weak.Get());
+    auto* context = strong.Get<ShipManagementViewContext>();
+    if (context) {
+      for (auto* widget : unity::Instances<AssignShipsWidget>()) {
+        if (!widget->isActiveAndEnabled() || widget->Context() != context)
+          continue;
+        const auto sorted = context->TryCall<"Sort", void()>();
+        if (sorted && widget->isActiveAndEnabled() && widget->Context() == context)
+          (void)widget->SortingChanged();
+        break;
+      }
+    }
+    ship_pin_input::RefreshVisible();
+  }
+  ship_pin_input::Tick();
+}
+void PinReceiptFrame()
+{
+  auto& state = PinState();
+  if (!state.receipt_healthy)
+    return;
+  try {
+    PinReceiptWork();
+  } catch (...) {
+    // Durable admission is independent of native publication. An unavailable
+    // receipt cannot be claimed as failed/saved or applied to another view.
+    state.receipt_healthy = false;
+    try {
+      ship_pin_input::RefreshVisible();
+    } catch (...) {
+    }
+    try {
+      spdlog::warn("[PinnedShips] receipt processing unavailable; local pin edits disabled");
+    } catch (...) {
+    }
+  }
 }
 
 // --- Double click and Enter to assign ---
 
 constexpr auto kDoubleClickWindow = std::chrono::milliseconds(400);
 
-// See pin_click_installed.
+// Shared tile callback installation is terminal for the process.
 bool double_click_installed = false;
 // Compared only, never dereferenced.
 FleetPlayerData*                      last_clicked_ship = nullptr;
@@ -303,14 +375,17 @@ void AssignOnEnterFrame()
 
 // --- Ship tile click ---
 
-// Shift+click and double click share the tile's click handler: one detour, two features.
+// Pin badges and ordinary double click share one tile callback owner.
 void ShipTileWidget_HandleOnClick_Hook(auto original, ShipTileWidget* _this)
 {
+  if (ship_pin_input::ConsumeTileClick(_this)) {
+    last_clicked_ship = nullptr;
+    return;
+  }
   original(_this);
   // The click arrives through the UI event system, which can run before the frame tick has polled this frame.
   unity::Key::Poll();
   if (auto* ship = _this->Context()) {
-    TogglePinOnShiftClick(ship);
     AssignOnDoubleClick(ship);
   }
 }
@@ -367,12 +442,28 @@ void DockSelectionFrame()
 
 bool InstallPinnedShips()
 {
+  auto& state = PinState();
+  if (!state.loaded) {
+    state.loaded       = true;
+    state.worker_ready = mod_state::PrepareAsync();
+    if (const auto stored = mod_state::Read()) {
+      if (const auto order = pinned_ship_state::ReadOrder(*stored)) {
+        state.ids          = *order;
+        state.legacy_names = pinned_ship_state::ReadLegacyNames(*stored);
+        state.has_id_order = true;
+      }
+    }
+  }
+  if (!ShipManagementViewContext::Class::HasField<"SortedIdleShips", PinList*>()
+      || !FleetPlayerData::Class::HasProperty<"HasShip", bool>())
+    return false;
   il2cpp::HookSet hooks("PinnedShips");
   IL2CPP_STAGE(hooks, ShipManagementViewContext::Class::Method("Sort", 0), ShipManagementViewContext_Sort_Hook);
-  return hooks.Commit();
+  state.sort_installed = hooks.Commit();
+  return state.sort_installed;
 }
 
-// Shared by Shift+click pinning and double-click assignment, whichever of them install, so it is its own set,
+// Shared by pin-badge input and double-click assignment, whichever of them install, so it is its own set,
 // installed on the first call.
 bool InstallShipTileClick()
 {
@@ -386,8 +477,13 @@ bool InstallShipTileClick()
 
 bool InstallPinnedShipClick()
 {
-  pin_click_installed = InstallShipTileClick();
-  return pin_click_installed;
+  auto& state = PinState();
+  if (!state.sort_installed || !state.worker_ready || !FleetPlayerData::ShipIdentityAvailable())
+    return false;
+  const auto frame         = EnsureFrameTick();
+  state.receipt_registered = frame.Installed() && RegisterFrameCallback(PinReceiptFrame, "ShipPinReceipts");
+  state.input_installed    = state.receipt_registered && InstallShipTileClick() && ship_pin_input::Install();
+  return state.input_installed;
 }
 
 bool InstallDoubleClickAssign()
@@ -397,8 +493,76 @@ bool InstallDoubleClickAssign()
 }
 } // namespace
 
+namespace ship_pins
+{
+bool InputReady()
+{
+  const auto& state = PinState();
+  return state.input_installed && state.receipt_registered && state.receipt_healthy && state.writes_safe
+         && ship_pin_input::Available() && FrameDeliveryAvailable();
+}
+bool IsPinned(FleetPlayerData* ship)
+{
+  const auto id = ship ? ship->ShipInstanceId() : std::nullopt;
+  return id
+         && (pinned_ship_order::Contains(PinState().ids, *id)
+             || pinned_ship_order::Contains(PinState().legacy_ids, *id));
+}
+bool Edit(FleetPlayerData* ship, ShipManagementViewContext* context, bool move, std::optional<int64_t> target)
+{
+  if (!InputReady() || !ship || !context)
+    return false;
+  const auto id = ship->ShipInstanceId();
+  if (!id)
+    return false;
+  auto snapshot = PinReadSnapshot(context, true);
+  if (!snapshot || std::ranges::none_of(snapshot->rows, [&](const PinRow& row) { return row.id == id; }))
+    return false;
+  auto       ids          = PinDesiredIds();
+  auto       names        = PinDesiredLegacyNames();
+  const auto assignments  = PinLegacyAssignments(*snapshot, names, ids);
+  auto       migration    = pinned_ship_order::MigrateLegacyNames(names, assignments, *id);
+  const bool explicit_pin = pinned_ship_order::Contains(ids, *id);
+  if (!move && pinned_ship_order::AmbiguousUnpin(migration, explicit_pin, [&](const std::string& name) {
+        const auto words = ShipNameWords(ship->DisplayName());
+        return words.empty() || ShipNameMatches(words, StrSplit(name, ' '));
+      })) {
+    spdlog::warn("[PinnedShips] unresolved legacy pins could reclaim the selected ship; edit ignored");
+    return false;
+  }
+  ids.insert(ids.end(), migration.pins.begin(), migration.pins.end());
+  if (move) {
+    if (!(target ? pinned_ship_order::MoveToTarget(ids, *id, *target) : pinned_ship_order::MoveToEnd(ids, *id)))
+      return false;
+  } else if (!migration.selected_was_legacy) {
+    pinned_ship_order::Toggle(ids, *id);
+  }
+  return PinQueue({std::move(ids), std::move(migration.unresolved_names)}, context);
+}
+bool Toggle(FleetPlayerData* ship, ShipManagementViewContext* context)
+{
+  try {
+    return Edit(ship, context, false, {});
+  } catch (const std::exception& error) {
+    spdlog::warn("[PinnedShips] pin edit unavailable: {}", error.what());
+    return false;
+  }
+}
+bool Place(FleetPlayerData* ship, std::optional<int64_t> target, ShipManagementViewContext* context)
+{
+  try {
+    return Edit(ship, context, true, target);
+  } catch (const std::exception& error) {
+    spdlog::warn("[PinnedShips] pin move unavailable: {}", error.what());
+    return false;
+  }
+}
+} // namespace ship_pins
+
 const Feature kPinnedShips{"PinnedShips", &Config::Patches::pinnedshiphooks, InstallPinnedShips};
-const Feature kPinnedShipClick{"PinnedShipClick", &Config::Patches::pinnedshipclicktoggle, InstallPinnedShipClick};
+// The old downstream parsed pinnedshipclicktoggle but did not consume it. Pin
+// badge input follows the actual pinnedshiphooks owner; Shift-click is not a substitute.
+const Feature kPinnedShipClick{"PinnedShipClick", &Config::Patches::pinnedshiphooks, InstallPinnedShipClick};
 const Feature kDoubleClickAssign{"DoubleClickAssign", &Config::Patches::doubleclickassignshiphooks,
                                  InstallDoubleClickAssign};
 // Frame work only. Enter needs no hook, so it follows the setting alone.
