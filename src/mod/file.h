@@ -22,6 +22,8 @@ const std::string& DefaultConfig();
 
 // The admitted profile ID, otherwise -ccm stem ("alt" for alt.toml), otherwise empty. Not authenticated account ID.
 const std::string& Profile();
+// Explicit custom routing, independent of the human-readable stem (which can be empty).
+bool HasCustomNames();
 // -debug and -trace set the starting log level; _MODDBG builds start at debug.
 bool Debug();
 bool Trace();

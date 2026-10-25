@@ -5,6 +5,7 @@
 
 #include "config_save.h"
 #include "file.h"
+#include "runtime_config.h"
 #include "shortcuts.h"
 #include "text.h"
 
@@ -27,6 +28,49 @@
 namespace
 {
 // --- Catalogs ---
+
+constexpr std::pair<std::string_view, bool Config::Patches::*> kPatches[] = {
+    {"actionqueuerecoveryhooks", &Config::Patches::actionqueuerecoveryhooks},
+    {"artifactexchangehooks", &Config::Patches::artifactexchangehooks},
+    {"audioeventhooks", &Config::Patches::audioeventhooks},
+    {"bufffixhooks", &Config::Patches::bufffixhooks},
+    {"cargoformathooks", &Config::Patches::cargoformathooks},
+    {"chatpatches", &Config::Patches::chatpatches},
+    {"chattitledisplayhooks", &Config::Patches::chattitledisplayhooks},
+    {"dailyfactionbulkclaimhooks", &Config::Patches::dailyfactionbulkclaimhooks},
+    {"doubleclickassignshiphooks", &Config::Patches::doubleclickassignshiphooks},
+    {"forbiddentechconfirmhooks", &Config::Patches::forbiddentechconfirmhooks},
+    {"forbiddentechshipnamehooks", &Config::Patches::forbiddentechshipnamehooks},
+    {"freeresizehooks", &Config::Patches::freeresizehooks},
+    {"galacticanomalytimerhooks", &Config::Patches::galacticanomalytimerhooks},
+    {"game_version", &Config::Patches::game_version},
+    {"giftsbulkclaimhooks", &Config::Patches::giftsbulkclaimhooks},
+    {"havenhistoryhooks", &Config::Patches::havenhistoryhooks},
+    {"havenzoomhooks", &Config::Patches::havenzoomhooks},
+    {"hotkeyhooks", &Config::Patches::hotkeyhooks},
+    {"instantcargocounterhooks", &Config::Patches::instantcargocounterhooks},
+    {"interiorzoomhooks", &Config::Patches::interiorzoomhooks},
+    {"loadingscreenhooks", &Config::Patches::loadingscreenhooks},
+    {"loadingtiphooks", &Config::Patches::loadingtiphooks},
+    {"miscpatches", &Config::Patches::miscpatches},
+    {"missionhudtweakshooks", &Config::Patches::missionhudtweakshooks},
+    {"objecttracker", &Config::Patches::objecttracker},
+    {"officersorthooks", &Config::Patches::officersorthooks},
+    {"panhooks", &Config::Patches::panhooks},
+    {"pinnedshipclicktoggle", &Config::Patches::pinnedshipclicktoggle},
+    {"pinnedshiphooks", &Config::Patches::pinnedshiphooks},
+    {"queueaddressguardhooks", &Config::Patches::queueaddressguardhooks},
+    {"revealconfirmhooks", &Config::Patches::revealconfirmhooks},
+    {"runtimeconfighooks", &Config::Patches::runtimeconfighooks},
+    {"syncpatches", &Config::Patches::syncpatches},
+    {"tempcrashfixes", &Config::Patches::tempcrashfixes},
+    {"testpatches", &Config::Patches::testpatches},
+    {"thinqueueprotectionhooks", &Config::Patches::thinqueueprotectionhooks},
+    {"toastbannerhooks", &Config::Patches::toastbannerhooks},
+    {"transitionscreenhooks", &Config::Patches::transitionscreenhooks},
+    {"uiscalehooks", &Config::Patches::uiscalehooks},
+    {"zoomhooks", &Config::Patches::zoomhooks},
+};
 
 template <typename E> struct Choice {
   std::string_view name;
@@ -419,7 +463,7 @@ void ReportStartupSaveFailure(std::string_view name, std::string_view error) noe
   }
 }
 
-void Save(const toml::table& table, const std::string& name, bool warning_header, bool startup)
+bool Save(const toml::table& table, const std::string& name, bool warning_header, bool startup)
 {
   try {
     const auto header =
@@ -427,13 +471,16 @@ void Save(const toml::table& table, const std::string& name, bool warning_header
     const auto path = File::Path(name, true);
     if (startup) {
       std::string error;
-      if (!SaveStartupConfigDocument(table, path, header, error))
+      if (!SaveStartupConfigDocument(table, path, header, error)) {
         ReportStartupSaveFailure(name, error);
+        return false;
+      }
     } else {
       // Preserve Reload's existing transactional activation behavior: an output
       // failure rejects the candidate without changing live settings/bindings.
       SaveConfigDocument(table, path, header);
     }
+    return true;
   } catch (const std::exception& error) {
     if (!startup)
       throw;
@@ -443,18 +490,20 @@ void Save(const toml::table& table, const std::string& name, bool warning_header
       throw;
     ReportStartupSaveFailure(name, "unknown output preparation failure");
   }
+  return false;
 }
 
 // Writes `effective` as the runtime vars file. At startup it also becomes the
 // settings file when there is none, so a new user starts from a complete list
 // of settings.
-void SaveEffective(const toml::table& effective, bool startup)
+bool SaveEffective(const toml::table& effective, bool startup)
 {
+  bool created_primary = false;
   if (startup) {
     try {
       if (!std::filesystem::exists(File::Path(File::Config()))) {
         spdlog::info("creating {} with the default settings", File::Config());
-        Save(effective, File::Config(), false, true);
+        created_primary = Save(effective, File::Config(), false, true);
       }
     } catch (const std::exception& error) {
       // An existence/path failure is not permission to replace the primary
@@ -466,6 +515,7 @@ void SaveEffective(const toml::table& effective, bool startup)
   }
   spdlog::info("writing the settings in effect to {}", File::Vars());
   Save(effective, File::Vars(), true, startup);
+  return created_primary;
 }
 } // namespace
 
@@ -501,8 +551,11 @@ Config& Config::Get()
     auto        file   = ReadSettingsFile("using the default settings");
     const bool  loaded = file.has_value();
     toml::table effective;
-    auto        config = Parse(std::move(file).value_or(toml::table{}), effective, loaded);
-    SaveEffective(effective, true);
+    auto        config  = Parse(file.value_or(toml::table{}), effective, loaded);
+    const bool  created = SaveEffective(effective, true);
+    // Preserve original semantic disk values. A missing key is not its default;
+    // only a successfully created complete primary supplies effective defaults.
+    runtime_config::Configure(file ? *file : created ? effective : toml::table{});
     Activate(std::move(config));
   }
   return *current_config;
@@ -510,24 +563,30 @@ Config& Config::Get()
 
 bool Config::Reload()
 {
-  const auto file = ReadSettingsFile("keeping the current settings");
-  if (!file)
-    return false;
-
-  spdlog::info("reloading settings from {}", File::Config());
   std::unique_ptr<Config> next;
   toml::table             effective;
   try {
+    // Capture before opening/parsing: acknowledgement crossing the read must
+    // not let older file bytes replace a pending/session-only live intent.
+    const auto snapshot = runtime_config::CaptureReload();
+    auto       file     = ReadSettingsFile("keeping the current settings");
+    if (!file)
+      return false;
+    runtime_config::ApplyReloadSnapshot(*file, snapshot);
+    spdlog::info("reloading settings from {}", File::Config());
     next = Parse(*file, effective, true);
+    if (next->patches != Get().patches)
+      spdlog::warn("changes to [patches] take effect after a restart");
+    next->patches = Get().patches;
+    // Runtime vars describe installed hook groups, not a future launch's request.
+    auto* active_patches = effective["patches"].as_table();
+    for (const auto& [key, member] : kPatches)
+      active_patches->insert_or_assign(key, next->patches.*member);
     SaveEffective(effective, false);
   } catch (const std::exception& e) {
     spdlog::error("could not apply {}: {}; keeping the current settings", File::Config(), e.what());
     return false;
   }
-  // Hooks are installed once, so the startup hook groups stay in force.
-  if (next->patches != Get().patches)
-    spdlog::warn("changes to [patches] take effect after a restart");
-  next->patches = Get().patches;
   Activate(std::move(next));
   return true;
 }
@@ -569,47 +628,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   Reader r(file, effective, log_values);
 
   // [patches]. Reload keeps the startup values, since hooks are only installed once.
-  constexpr std::pair<std::string_view, bool Patches::*> kPatches[] = {
-      {"actionqueuerecoveryhooks", &Patches::actionqueuerecoveryhooks},
-      {"artifactexchangehooks", &Patches::artifactexchangehooks},
-      {"audioeventhooks", &Patches::audioeventhooks},
-      {"bufffixhooks", &Patches::bufffixhooks},
-      {"cargoformathooks", &Patches::cargoformathooks},
-      {"chatpatches", &Patches::chatpatches},
-      {"chattitledisplayhooks", &Patches::chattitledisplayhooks},
-      {"dailyfactionbulkclaimhooks", &Patches::dailyfactionbulkclaimhooks},
-      {"doubleclickassignshiphooks", &Patches::doubleclickassignshiphooks},
-      {"forbiddentechconfirmhooks", &Patches::forbiddentechconfirmhooks},
-      {"forbiddentechshipnamehooks", &Patches::forbiddentechshipnamehooks},
-      {"freeresizehooks", &Patches::freeresizehooks},
-      {"galacticanomalytimerhooks", &Patches::galacticanomalytimerhooks},
-      {"game_version", &Patches::game_version},
-      {"giftsbulkclaimhooks", &Patches::giftsbulkclaimhooks},
-      {"havenhistoryhooks", &Patches::havenhistoryhooks},
-      {"havenzoomhooks", &Patches::havenzoomhooks},
-      {"hotkeyhooks", &Patches::hotkeyhooks},
-      {"instantcargocounterhooks", &Patches::instantcargocounterhooks},
-      {"interiorzoomhooks", &Patches::interiorzoomhooks},
-      {"loadingscreenhooks", &Patches::loadingscreenhooks},
-      {"loadingtiphooks", &Patches::loadingtiphooks},
-      {"miscpatches", &Patches::miscpatches},
-      {"missionhudtweakshooks", &Patches::missionhudtweakshooks},
-      {"objecttracker", &Patches::objecttracker},
-      {"officersorthooks", &Patches::officersorthooks},
-      {"panhooks", &Patches::panhooks},
-      {"pinnedshipclicktoggle", &Patches::pinnedshipclicktoggle},
-      {"pinnedshiphooks", &Patches::pinnedshiphooks},
-      {"queueaddressguardhooks", &Patches::queueaddressguardhooks},
-      {"revealconfirmhooks", &Patches::revealconfirmhooks},
-      {"syncpatches", &Patches::syncpatches},
-      {"tempcrashfixes", &Patches::tempcrashfixes},
-      {"testpatches", &Patches::testpatches},
-      {"thinqueueprotectionhooks", &Patches::thinqueueprotectionhooks},
-      {"toastbannerhooks", &Patches::toastbannerhooks},
-      {"transitionscreenhooks", &Patches::transitionscreenhooks},
-      {"uiscalehooks", &Patches::uiscalehooks},
-      {"zoomhooks", &Patches::zoomhooks},
-  };
+
   for (const auto& [key, member] : kPatches)
     r.Read("patches", key, patches.*member);
 

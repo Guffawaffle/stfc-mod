@@ -306,6 +306,9 @@ havenhistoryhooks = true
 havenzoomhooks = true
 hotkeyhooks = true
 
+# Persist registered runtime settings; drain the writer before normal quit.
+runtimeconfighooks = true
+
 # Show cargo totals immediately instead of counting up
 instantcargocounterhooks = true
 

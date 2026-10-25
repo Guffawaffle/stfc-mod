@@ -4,6 +4,7 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "runtime_config.h"
 #include "shortcuts.h"
 
 #include "game/app.h"
@@ -171,7 +172,7 @@ bool HandleShortcuts()
   if (!typing && Shortcut::IsDown(Action::kQuit)) {
     // On Windows the process ends here: TerminateProcess does not return.
 #if _WIN32
-    TerminateProcess(GetCurrentProcess(), 1);
+    runtime_config::ForceClose();
 #else
     if (auto* app = Hub::App())
       app->Quit();

@@ -14,6 +14,7 @@ pub const Libs = struct {
     proto: Lib,
     proto_runtime: Lib,
     toml: Lib,
+    toml_editor: Lib,
 };
 
 /// Register the fixture steps. Fixture code compiles at -Dtest-optimize, so a Debug fixture keeps its assertions
@@ -29,6 +30,106 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) void {
     const test_spud = b.step("test-spud", "Run the x64 trampoline relocation test (native x86_64 targets only)");
     const flags = ctx.cxxFlags("c++23", &.{});
     const mod_flags = ctx.cxxFlags("c++23", &.{"-Wno-deprecated-literal-operator"});
+
+    const test_toml_editor = b.step("test-toml-editor", "Run the pinned preparation engine and preserving editor fixtures");
+    const test_runtime_config = b.step("test-runtime-config", "Run pure runtime-setting writer and host lifecycle fixtures");
+    const test_runtime_reload = b.step("test-runtime-reload", "Run pure pending-setting reload overlay fixtures");
+    const test_mod_state = b.step("test-mod-state", "Run isolated mod-state transaction and writer fixtures");
+    {
+        // The unchanged full fixture combines engine and C ABI checks. Its C ABI
+        // implementation/export macro is test-only, never a product dependency.
+        const module = ctx.createModule(true);
+        libs.toml_editor.linkInto(module);
+        deps.nlohmannJson(ctx).linkInto(module);
+        module.addIncludePath(b.path("third_party/stfc_toml/test_support/include"));
+        module.addCMacro("STFC_TOML_BUILD", "1");
+        module.addCSourceFiles(.{
+            .files = &.{ "third_party/stfc_toml/test_support/editor_test.cc", "third_party/stfc_toml/test_support/native.cc" },
+            .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}),
+        });
+        const exe = ctx.executable("shared-toml-core-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_toml_editor.dependOn(&run.step);
+        test_mod.dependOn(&run.step);
+    }
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        libs.toml_editor.linkInto(module);
+        module.addCSourceFiles(.{
+            .files = &.{ "tests/toml_editor_test.cc", "src/mod/toml_editor.cc", "src/mod/config_save.cc" },
+            .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}),
+        });
+        const exe = ctx.executable("toml-editor-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_toml_editor.dependOn(&run.step);
+        test_mod.dependOn(&run.step);
+    }
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        libs.toml_editor.linkInto(module);
+        // This fixture includes the writer TU under compile-time save/thread
+        // seams. Do not link another writer or editor implementation into it.
+        module.addCSourceFile(.{ .file = b.path("tests/runtime_config_writer_test.cc"), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        const exe = ctx.executable("runtime-config-writer-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_runtime_config.dependOn(&run.step);
+        test_mod.dependOn(&run.step);
+    }
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        module.addIncludePath(b.path("tests"));
+        libs.toml_editor.linkInto(module);
+        // Includes the production adapter with fake hook/worker boundaries.
+        // No native game binding, real settings path or worker owner is linked.
+        module.addCSourceFile(.{ .file = b.path("tests/runtime_config_test.cc"), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        const exe = ctx.executable("runtime-config-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_runtime_config.dependOn(&run.step);
+        test_mod.dependOn(&run.step);
+        if (ctx.isWindows()) {
+            // The strict harness spawns only this disposable fixture executable;
+            // its four force-close cases must self-exit within bounded deadlines.
+            const force_close = b.addSystemCommand(&.{ "python", "-B" });
+            force_close.addFileArg(b.path("scripts/test-runtime-force-close.py"));
+            force_close.addArtifactArg(exe);
+            force_close.has_side_effects = true;
+            test_runtime_config.dependOn(&force_close.step);
+            test_mod.dependOn(&force_close.step);
+        }
+    }
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        libs.toml.linkInto(module);
+        module.addCSourceFile(.{ .file = b.path("tests/runtime_reload_test.cc"), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        const exe = ctx.executable("runtime-reload-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_runtime_reload.dependOn(&run.step);
+        test_runtime_config.dependOn(&run.step);
+        test_mod.dependOn(&run.step);
+    }
+    inline for (.{ "transaction", "writer" }) |kind| {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        libs.spdlog.linkInto(module);
+        deps.nlohmannJson(ctx).linkInto(module);
+        // Transaction includes its real owner TU with a private fixture path;
+        // writer is header-only. Neither target links a second state owner.
+        module.addCSourceFile(.{ .file = b.path(b.fmt("tests/mod_state_{s}_test.cc", .{kind})), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        const exe = ctx.executable(b.fmt("mod-state-{s}-tests", .{kind}), module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_mod_state.dependOn(&run.step);
+        test_mod.dependOn(&run.step);
+    }
 
     // Checked startup document replacement, with test-only failure controls in
     // the failure TU and exclusively owned temporary filesystem state.
@@ -67,7 +168,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) void {
         module.addCSourceFiles(.{ .files = &.{ "tests/profile_paths.cc", "src/mod/file.cc" }, .flags = flags });
         const exe = ctx.executable("profile-paths-tests", module);
         build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
-        inline for (.{ "ordinary", "custom-relative", "custom-absolute", "named", "unprepared" }) |mode| {
+        inline for (.{ "ordinary", "custom-relative", "custom-absolute", "custom-directory", "custom-directory-absolute", "named", "unprepared" }) |mode| {
             const run = b.addRunArtifact(exe);
             run.addArg(mode);
             test_mod.dependOn(&run.step);
@@ -162,6 +263,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) void {
                 "src/mod/config.cc",
                 "src/mod/config_save.cc",
                 "src/mod/file.cc",
+                "tests/runtime_config_no_host.cc",
                 "src/mod/arguments.cc",
                 "src/mod/features/notification_audio.cc",
             },
@@ -190,6 +292,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) void {
                 "src/mod/config.cc",
                 "src/mod/config_save.cc",
                 "src/mod/features/notification_audio.cc",
+                "tests/runtime_config_no_host.cc",
             },
             .flags = ctx.cxxFlags("c++23", &.{ "-Wno-deprecated-literal-operator", "-UNDEBUG" }),
         });

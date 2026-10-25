@@ -42,6 +42,10 @@ struct FeatureInstallation {
 // feature's hooks installed but the one shared FrameTick did not. No initialization is triggered by this query.
 std::span<const FeatureInstallation> FeatureInstallations();
 
+// runtime_config.cc: registered-key saves and native quit/drain lifecycle.
+extern const Feature kRuntimeConfig;
+extern const Feature kModState;
+
 // Frame work that only needs to run every so often, such as a scan of the UI. Game thread only.
 class Throttle
 {

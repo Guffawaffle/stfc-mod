@@ -51,6 +51,7 @@ distributing them.
 | `third_party/spud` | SPUD at `e4d0c78be89ef2587af33dd634ae5e8071935be7`. Unmodified `include/`, `src/`, and MIT `LICENSE`. |
 | `third_party/libil2cpp` | Unity IL2CPP SDK headers. Two sparsehash includes use its public include path. Individual Unity notices are retained. |
 | `third_party/sparsehash/include/sparsehash` | Header snapshot with BSD-3-Clause notices. |
+| `third_party/stfc_toml` | GPL-3.0 shared TOML preparation engine from downstream `45d1deaffddc3706e5c8232cf746ca46ef67be91`, unchanged. `SOURCE.json` records each original path, blob and SHA-256. Only the inline engine header enters the mod and uses its existing compiled toml++ provider. Original C ABI source/header and the complete fixture are isolated under `test_support`; they do not add native C exports or another parser to the product. Original MIT dependency notices are retained. |
 
 SPUD uses its C++ sources only. Clang reads the hook context register inline, so the MSVC-only MASM helper is not assembled.
 The build consumes IL2CPP headers only.

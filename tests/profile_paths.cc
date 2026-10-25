@@ -154,6 +154,10 @@ int main(int count, char** values)
     arguments = {"fixture", "-ccm", "custom/choice.cfg", "-debug", "-trace"};
   else if (mode == "custom-absolute")
     arguments = {"fixture", "-ccm", Utf8(absolute / "choice.toml")};
+  else if (mode == "custom-directory")
+    arguments = {"fixture", "-ccm", "custom/directory/"};
+  else if (mode == "custom-directory-absolute")
+    arguments = {"fixture", "-ccm", Utf8(absolute / "")};
   else if (mode == "named" || mode == "unprepared") {
     named     = true;
     directory = mode == "named" ? absolute : std::filesystem::path{};
@@ -173,24 +177,32 @@ int main(int count, char** values)
     if (mode == "ordinary") {
       Require(File::Config() == "community_patch_settings.toml" && File::Vars() == "community_patch_runtime.vars"
                   && File::Log() == "community_patch.log" && File::Battles() == "patch_battlelogs_sent.json"
-                  && File::Profile().empty(),
+                  && File::Profile().empty() && !File::HasCustomNames(),
               "ordinary file namespace changed");
     } else if (mode == "custom-relative") {
       Require(File::Config() == "custom/choice.toml" && File::Vars() == "custom/choice.vars"
                   && File::Log() == "custom/choice.log" && File::Battles() == "custom/choice.json"
-                  && File::Profile() == "choice" && File::Debug() && File::Trace(),
+                  && File::Profile() == "choice" && File::HasCustomNames() && File::Debug() && File::Trace(),
               "custom namespace changed");
       Require(File::Path(File::Config()) == std::filesystem::path("custom/choice.toml"),
               "custom path duplicated directory");
     } else if (mode == "custom-absolute") {
       Require(File::Path(File::Config()) == absolute / "choice.toml"
-                  && File::Path(File::Log()) == absolute / "choice.log",
+                  && File::Path(File::Log()) == absolute / "choice.log" && File::HasCustomNames(),
               "absolute custom directory was dropped");
+    } else if (mode == "custom-directory" || mode == "custom-directory-absolute") {
+      const auto parent = mode == "custom-directory" ? std::filesystem::path("custom/directory") : absolute;
+      Require(File::HasCustomNames() && File::Profile().empty(),
+              "an empty display stem discarded explicit custom routing");
+      Require(File::Path(File::Config()) == parent / ".toml" && File::Path(File::Log()) == parent / ".log"
+                  && File::Path(File::Vars()) == parent / ".vars" && File::Path(File::Battles()) == parent / ".json",
+              "directory-only custom routing changed file names");
     } else {
       Require(File::Path(File::Config()) == directory / "config.toml"
                   && File::Path(File::Vars()) == directory / "runtime.toml"
                   && File::Path(File::Log()) == directory / "logs" / "community-mod.log"
-                  && File::Path(File::Battles()) == directory / "logs" / "battles.log" && File::Profile() == id,
+                  && File::Path(File::Battles()) == directory / "logs" / "battles.log" && File::Profile() == id
+                  && File::HasCustomNames(),
               "named namespace, precedence or logs directory changed");
       auto state = File::Path(File::Config());
       state.replace_extension(".state.json");

@@ -96,29 +96,82 @@ remain unqualified. M3's non-game DLL-loading result belongs to its exact older
 artifacts; these M4A DLLs were built and PE-checked, not loaded or deployed.
 The Windows load-time GameAssembly ordering limitation is documented in M3.
 
-## Remaining M4 dependencies
+## M4B/C: registered-key writer, reload protection and state owner
 
-M4A alone is not complete gameplay persistence parity. In particular, the
+The next source slice restores `TomlEditor` and `RuntimeConfigWriter` from the
+same immutable downstream revision. Its source-only editor engine is vendored
+at `third_party/stfc_toml` with original notices and per-file provenance. The
+product uses the existing compiled toml++ provider, without the optional C ABI
+object or three extra exports. The original full engine/ABI fixture retains
+test-only support sources outside the product closure.
+
+The native adapter retains one process-lifetime configuration writer and its
+original semantic disk table. Definitions must register keys before submission;
+registration does not rebase an existing key. Missing primary values remain
+missing unless complete defaults were successfully written at startup.
+The worker starts lazily on submission and owns only path/text/value data.
+
+`RuntimeConfig` joins the one M2 frame anchor and installs the exact static Unity
+quit signature through one guarded HookSet. Physical anchor installation,
+callback registration and later dispatch readiness remain separate. Clean
+unavailability leaves edits session-only; unsafe native state propagates to the
+host fatal boundary. Normal quit drains admitted configuration edits and resumes
+through Unity only after observed worker termination, preserving later/nested
+vetoes. Forced Windows quit retains the existing independent 500-ms best-effort
+deadline; it is not a disk-durability guarantee.
+
+Reload captures owned outstanding intents **before** opening the file. Only a
+matching revision/subject with `!pending` and Saved/AlreadySaved is acknowledged.
+Pending, failed, conflicted, cancelled and unavailable values overlay an owned
+temporary TOML input before the existing parser. Acknowledgement crossing the
+read cannot activate stale file bytes. Unrelated external changes still flow;
+an acknowledgement observed before the next read permits external values again.
+This never rewrites primary text or silently rebases the worker's comparison
+baseline. Incomplete protection rejects reload. Rejected foreign/reentrant
+callers cannot populate the intent maps. Runtime vars describe startup-active
+hook groups while the primary may request different groups for the next launch.
+
+The pinned `mod_state` transactions, two-process exclusion, fixed-group worker,
+bounded active/latest pending ownership and acknowledged receipts are restored.
+`ModState` prepares one retained worker/path before consumers. Its v1 JSON keys,
+string IDs, malformed-data policy and future-version refusal are unchanged.
+Explicit `File::HasCustomNames` distinguishes custom directories with an empty
+display stem; named profiles still use `config.state.json`. This state worker
+preserves the existing process-lifetime contract and does **not** participate in
+the configuration quit drain. Queued state admission is not durable success.
+
+Initial development feedback passed Windows 0.16 fixtures (54/54 steps) and the
+real Profiles-enabled DLL link (40/40). The native lifecycle fixture covers
+idle/drain/veto/reentry/foreign-thread behavior and owned reload intents. A
+Windows parent runs four disposable forced-quit children; the stalled caller
+case reached its marker and self-terminated after about 0.55 seconds. It never
+targets STFC. Pure worker tests retain deterministic save/thread-start seams;
+state tests use real temporary filesystem locks and two processes.
+
+These initial runs precede the correction for rejected-call intent contamination
+and are development feedback, not the final candidate qualification. The
+correction adds an owner check before intent/status mutation and an explicit
+foreign same-key assertion. The protection-failure fixture sets a fault flag;
+it is not an allocator-failure injection. Actual Unity hook resolution/extent,
+live quit, profile/store behavior and macOS remain unqualified.
+
+## Remaining integration dependencies
+
+The core alone is not complete gameplay persistence parity. In particular, the
 foundation dock save path has not acquired the downstream preserving per-key
 writer simply because generated startup files are now checked.
 
-1. Port the existing preserving `TomlEditor` and registered-key
-   `RuntimeConfigWriter`, using the pinned shared TOML implementation. Keep one
-   owner, original startup **disk** values (absence differs from defaults),
-   per-key revisions, coalescing, conflicts, failures and completion receipts.
-2. Adapt native quit/frame integration to M2 transaction/registration APIs.
-   Preserve cancellation, drain, quit veto/resume and failure reporting. Do not
-   join a running worker from Unity or DLL teardown. During installation, check
-   registration and anchor installation separately from delivery readiness:
-   M2 intentionally withholds dispatch until host initialization completes.
-3. Reconcile automatic reload with pending/failed session edits. Restore gameplay
-   settings definitions and consumers in verified cohorts; no key is advertised
-   as durably saved until its real worker/quit contract exists.
-4. Restore `mod_state` and its existing async receipts, adapting only File access.
-   Preserve v1 JSON keys, string IDs, lock/retry/RMW behavior and future-version
-   refusal. Existing policy is precise: Read ignores malformed/non-object data;
-   Update may replace it with a new v1 object, but refuses future schemas. Do not
-   claim all malformed files are immutable or introduce a new migration policy.
+1. Qualify the exact M4B/C source candidate, including the real product build,
+   worker/reload/native-boundary fixtures, state transactions and dependency
+   closure. The fake native fixture does not prove real quit-hook installation.
+2. Restore actual gameplay settings definitions and consumers in verified
+   cohorts. Existing shortcuts are not automatically persisted just because the
+   service exists. Register only real consumers and keep save receipts honest.
+3. Integrate stable ship-instance pin state and officer presentation order with
+   their original input and native-save contracts. Fleet ID, hull ID and display
+   name cannot substitute for the ship instance ID.
+4. Reconcile gameplay, navigation, claims and sync independently. Do not activate
+   held science probes or import legacy download-admission IDs as target ACKs.
 
 Settings UI, AAI/Kit integration and sync journal/session compatibility remain
 separate dependencies. No live trial, deployment, game cycle, signing, release

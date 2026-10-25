@@ -154,6 +154,9 @@ const std::string& DefaultConfig()
 const std::string& Profile()
 { return profile; }
 
+bool HasCustomNames()
+{ return !profile_path.empty() || !admitted_directory.empty(); }
+
 bool Debug()
 { return debug; }
 

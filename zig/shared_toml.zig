@@ -1,5 +1,5 @@
-//! Optional standalone TOML producers and fixtures. No mod linkage,
-//! settings activation, file I/O authority, profile selection or product loading.
+//! The repo-owned pure TOML preparation header and optional standalone producers.
+//! Only the header enters the mod; optional C ABI products remain separate.
 const std = @import("std");
 const Ctx = @import("ctx.zig").Ctx;
 const Lib = @import("ctx.zig").Lib;
@@ -27,6 +27,15 @@ pub const Options = struct {
 pub const Dependencies = struct { toml: Lib, json: Lib };
 pub const Outputs = struct { core: Lib, native: Lib };
 const Source = struct { root: std.Build.LazyPath, revision: []const u8, state: []const u8 };
+
+/// Exact downstream inline preparation engine. Its host owns I/O and conflicts;
+/// reuse the single compiled toml++ provider, with no native C ABI or exports.
+pub fn editor(ctx: *const Ctx, toml: Lib) Lib {
+    return .{
+        .include_dirs = ctx.dirs(&.{ctx.b.path("third_party/stfc_toml/include")}),
+        .dependencies = ctx.libs(&.{toml}),
+    };
+}
 
 pub fn add(ctx: *const Ctx, options: Options, deps: Dependencies) ?Outputs {
     const b = ctx.b;

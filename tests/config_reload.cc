@@ -2,6 +2,7 @@
 #include "config.h"
 #include "config_save_fixture.h"
 #include "file.h"
+#include "runtime_config_no_host.h"
 
 #include <spdlog/spdlog.h>
 #include <toml++/toml.h>
@@ -23,7 +24,10 @@ namespace
 const ConfigSaveFixtureDirectory fixture_directory;
 const auto                       directory   = fixture_directory.Root();
 const std::string                config_name = "settings.toml", vars_name = "runtime.vars";
-bool                             fail_vars = false;
+bool                             fail_vars                 = false;
+bool                             check_capture_before_read = false;
+std::size_t                      expected_capture_count    = 0;
+bool                             clear_snapshot_at_read    = false;
 
 void Check(bool ok, const char* message)
 {
@@ -48,6 +52,17 @@ const std::string& Vars()
 { return vars_name; }
 std::filesystem::path Path(std::string_view name, bool)
 {
+  if (name == config_name && check_capture_before_read) {
+    Check(runtime_config_fixture::CaptureCount() == expected_capture_count,
+          "reload must capture protected values before resolving the primary file");
+    check_capture_before_read = false;
+    if (clear_snapshot_at_read) {
+      // Simulate an acknowledgement arriving after CaptureReload. The current
+      // reload must retain its independently owned pre-read protection.
+      runtime_config_fixture::SetReloadSnapshot({});
+      clear_snapshot_at_read = false;
+    }
+  }
   if (fail_vars && name == vars_name)
     throw std::runtime_error("runtime vars directory is unavailable");
   return directory / name;
@@ -196,6 +211,48 @@ int main(int argc, char** argv)
     Write("[broken");
     Check(!Config::Reload() && Config::Sync::Get() == current && Shortcut::Describe(Action::kQuit) == "F2",
           "invalid TOML preserves the current settings");
+
+    // The native owner decides which intents are unacknowledged. This fixture
+    // supplies that boundary deterministically and exercises the real reload
+    // consumer without starting a writer, frame hook or game runtime.
+    Write("# SYNTHETIC external edit; reload must not rewrite primary bytes\n"
+          "[graphics]\nui_scale = 0.5\n[ui]\nshow_player_cargo = false\n"
+          "[shortcuts]\nquit = \"F3\"\n[sync]\nresolver_cache_ttl = 777\n");
+    const auto protected_primary = read_primary();
+    runtime_config_fixture::SetReloadSnapshot({{"graphics", "ui_scale", 1.5}, {"ui", "show_player_cargo", true}});
+    expected_capture_count    = runtime_config_fixture::CaptureCount() + 1;
+    check_capture_before_read = true;
+    clear_snapshot_at_read    = true;
+    Check(Config::Reload(), "protected session values must allow an otherwise valid reload");
+    Check(!check_capture_before_read && !clear_snapshot_at_read,
+          "reload did not reach the expected primary read boundary");
+    Check(Config::Get().graphics.ui_scale == 1.5f && Config::Get().ui.show_player_cargo,
+          "completion during the read must not discard the pre-read protected values");
+    Check(Config::Sync::Get()->resolver_cache_ttl == 777 && Shortcut::Describe(Action::kQuit) == "F3",
+          "unrelated external keys must still activate alongside protected values");
+    Check(read_primary() == protected_primary, "session overlay must not rewrite the primary file");
+
+    // The next snapshot is empty: an acknowledgement observed before this read
+    // allows an external value to flow. It does not alter a writer baseline.
+    Check(Config::Reload(), "acknowledged values must allow the following reload");
+    Check(Config::Get().graphics.ui_scale == 0.5f && !Config::Get().ui.show_player_cargo,
+          "an empty protection snapshot must preserve false and external values");
+
+    const auto acknowledged = Config::Sync::Get();
+    Write("[graphics]\nui_scale = 2.5\n[shortcuts]\nquit = \"F4\"\n[sync]\nresolver_cache_ttl = 888\n");
+    runtime_config_fixture::SetCaptureFailure(true);
+    Check(!Config::Reload(), "protection acquisition failure must reject rather than erase session values");
+    runtime_config_fixture::SetCaptureFailure(false);
+    Check(Config::Sync::Get() == acknowledged && Config::Get().graphics.ui_scale == 0.5f
+              && Shortcut::Describe(Action::kQuit) == "F3",
+          "capture failure must leave all activated state and bindings unchanged");
+
+    runtime_config_fixture::SetReloadSnapshot({{"ui", "show_player_cargo", true}});
+    Write("ui = false\n[graphics]\nui_scale = 3.0\n[sync]\nresolver_cache_ttl = 999\n");
+    Check(!Config::Reload() && Config::Sync::Get() == acknowledged && Config::Get().graphics.ui_scale == 0.5f
+              && Shortcut::Describe(Action::kQuit) == "F3",
+          "an incompatible section must reject the reload without overwriting or dropping protection");
+    runtime_config_fixture::Reset();
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';
     result = 1;

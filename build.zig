@@ -51,6 +51,7 @@ pub fn build(b: *std.Build) void {
     const il2cpp = mod.il2cpp(ctx, spud);
     const spdlog = deps.spdlog(ctx);
     const toml = deps.tomlplusplus(ctx);
+    const toml_editor = shared_toml.editor(ctx, toml);
     const proto_runtime = protobuf.protobufLite(ctx, protobuf.abseil(ctx));
     // A null result means Zig still has to fetch a lazy dependency; it reruns build() once it has.
     const proto = protobuf.generate(ctx, proto_runtime) orelse return;
@@ -61,6 +62,7 @@ pub fn build(b: *std.Build) void {
         .proto = proto,
         .proto_runtime = proto_runtime,
         .toml = toml,
+        .toml_editor = toml_editor,
     });
 
     // Standalone producers stay outside the mod closure. Profiles enters that
@@ -101,7 +103,7 @@ pub fn build(b: *std.Build) void {
     }
     const unity = mod.unity(ctx, il2cpp, spud);
     var mod_libs: std.ArrayList(@import("zig/ctx.zig").Lib) = .empty;
-    mod_libs.appendSlice(b.allocator, &.{ il2cpp, unity, spdlog, spud, proto, proto_runtime, cpr, curl, toml, deps.nlohmannJson(ctx) }) catch @panic("OOM");
+    mod_libs.appendSlice(b.allocator, &.{ il2cpp, unity, spdlog, spud, proto, proto_runtime, cpr, curl, toml, toml_editor, deps.nlohmannJson(ctx) }) catch @panic("OOM");
     // The original optional adapter remains a separate producer/fixture. Only
     // the reviewed host adapter may enter this product's source/link closure.
     if (profiles_options.host) mod_libs.append(b.allocator, profiles_outputs.?.host.?) catch @panic("OOM");
