@@ -155,9 +155,9 @@ once promise is introduced. Live remote-target behavior remains unqualified.
 
 ## Verification and remaining gates
 
-Development checks already establish the new pure pin policies, checked
-permutation, registered worker behavior and sync processor/cache policies.
-They do not substitute for a clean final source/binary-bound candidate gate.
+Development checks establish the new pure pin policies, checked permutation,
+registered worker behavior and sync processor/cache policies. The final gates
+below supersede the evolving-input development runs for their exact candidate.
 The initial legacy-config assertions incorrectly used `value_or("")` followed by
 string-literal comparison; toml++ returned `const char*`. Their string fallback
 types were corrected while retaining all behavior assertions. This was a test
@@ -169,6 +169,84 @@ verify exports/dependency closure/artifact identity, and retain the results.
 Actual native method/field resolution, hook extent, pin geometry/input, save-
 and-reopen behavior, profile/store behavior, macOS, signing and external sync
 remain distinct qualification claims.
+
+### Qualified source checkpoint
+
+Implementation: **`dbc1950e0ea74e384070cec05387a98f6cf58072`**.
+Final qualified candidate: **`f0f9c2db172d33e5cce18b115455b4f5091fd54a`**.
+The latter changes only the test snapshot holder to use the same portable
+acquire/release shared-pointer functions as production. The first Windows build
+passed, but the first Linux run rejected the mock's atomic shared-pointer
+specialization; that superseded failure remains preserved.
+
+| Exact final candidate lane | Result |
+| --- | --- |
+| Windows x64 Zig 0.16, Profiles host | 196/196 steps; 8/8 reported Zig tests |
+| Windows x64 Zig 0.17, Profiles host | 196/196 steps |
+| Windows x64 Zig 0.16, default off | 174/174 steps; 8/8 reported Zig tests |
+| WSL/Linux x64 Zig 0.16 | 158/158 steps; 8/8 reported Zig tests; 33 retained artifacts |
+
+Every lane began/ended at the exact clean source candidate. Three inert Profiles
+controls ran per host; four negative option controls ran on 0.16 only. The
+original Profiles account/preferences/catalog lifecycle cases were not run in
+the developer execution environment. The earlier M1c ordinary-desktop results
+remain separate evidence, not a runtime claim for this DLL.
+
+Windows sync tests used the actual production uploader and CPR/CURL libraries
+against an owned temporary `127.0.0.1:0` listener with generated synthetic data.
+They verified ordinary HTTP 500→retry→2xx acknowledgement, initial-sync header
+clearing, best-effort diagnostic loss without retry, and a held response that
+cannot acknowledge after its generation is sealed. A diagnostic tail still
+delivers independently. Test planning explicitly bypasses retry deadlines when
+checking pending state, so waiting for backoff cannot masquerade as an ACK.
+The listener/child are cleaned up, and proxy environment is disabled for that
+child. No live game data, real destination, game server or user configuration
+was used. Linux qualified portable logic/publisher/ownership, not this HTTP lane.
+
+Independent readback verified **408 unique recorded file facts with zero
+mismatches**, source/tool/archive/log/artifact identities, every required marker,
+and additional queue/wire markers. Static PE inspection verified exact identity,
+static CRT and 18/18/16 exports. Each DLL has one unique compiled TOML provider;
+host DLLs contain only the qualified derived Profiles adapter/core, and default
+off has no Profiles libraries. The installed uploader fixtures have no static
+GameAssembly/UnityPlayer imports. These checks do not load the product DLL.
+
+Evidence root:
+`D:/dev/stfc-workspace/.ax/ripper-gameplay-sync-20261025/candidates/f0f9c2db172d33e5cce18b115455b4f5091fd54a`.
+Independent proof `independent-sync-readback-final.json`, SHA-256
+`d24962ccbc0a345442a955caa324864907d3a573d76ac50549816c1efec97060`.
+
+| Product DLL | SHA-256 |
+| --- | --- |
+| Host 0.16 | `961be5837ead1b794c347c937388dd519a8ef9d1bbde8261680297ef94c4cd33` |
+| Host 0.17 | `c6a8a9dd7bdd85caf4f78435955e5dad67c395a86bf34c722fe762e44b09e28a` |
+| Default off 0.16 | `be5af5d7cb88969d12455c6653e78cb5bb04c38a1778430348d8b0a5c611066b` |
+
+No product DLL was loaded, signed, deployed, pushed or promoted; no game cycle
+occurred. Later source changes need their own appropriate checks. A later
+documentation commit does not change which source identity these binaries carry.
+
+### Next preservation deltas
+
+The follow-on source review found `control.queue_enabled` still lacks a save
+call/registration in FleetShortcuts, unlike old downstream. This is a separate
+one-key extension to the initial 18-key cohort. Officer preset ordering needs
+its own canonical-source/presentation separation: SlotId zero is valid, empty
+rows stay fixed, and its immediate session order differs from pin publication
+on Saved. Old controls are Shift/Ctrl (Command on macOS) plus rename, not drag.
+
+Gift drawer/daily filtering/chest/cooldown/reveal/artifact suppression already
+have concrete foundation equivalents; do not port duplicate owners. Remaining
+differences need their own boundary work: donation maxima and owned-value
+semantics; interstitial original/close lifecycle; HUD Auto restoration/live
+refresh; chat avatar cache retention; typed toast-context fallback. Exact-client
+Windows ChatTitles target extent also needs review: old source rejected short
+shared wrappers while the foundation uses different wrapper targets. This is
+a native qualification concern, not proof of a crash from a successful build.
+
+Claim recovery remains held separately. Its old default-false recovery setting
+does not make the old default-true science hook TU safe to activate wholesale.
+Preserve policies/receipts without enabling probes incidentally.
 
 Further preservation cohorts still include officer presentation ordering,
 galaxy/orbit/Haven extensions, OPC/ETA/tech artwork, guarded recovery and custom

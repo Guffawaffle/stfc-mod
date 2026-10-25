@@ -12,7 +12,14 @@ No storage-engine/schema/settings-location migration is part of this cut.
 
 ## Current state
 
-`493f669c` is an independently qualified foundation, not a gameplay-parity build.
+The qualified first gameplay/sync source checkpoint is
+[`f0f9c2db`](M8-GAMEPLAY-AND-SYNC.md#qualified-source-checkpoint). It restores
+registered gameplay persistence, stable ship pins and sync boundaries with
+source-bound Windows/portable checks. It is not full gameplay parity or a
+deployed runtime qualification. The next preservation deltas are listed there.
+
+At the earlier M2 baseline, `493f669c` was an independently qualified foundation,
+not a gameplay-parity build.
 Relative to Ripper's pinned final stack, M2 changes hook/startup/frame ownership,
 not the gameplay-domain implementations. Many analogous features exist, but
 matching names, fixture success or successful compilation do not establish parity
