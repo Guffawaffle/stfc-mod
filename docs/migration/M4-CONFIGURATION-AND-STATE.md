@@ -120,6 +120,12 @@ through Unity only after observed worker termination, preserving later/nested
 vetoes. Forced Windows quit retains the existing independent 500-ms best-effort
 deadline; it is not a disk-durability guarantee.
 
+Shared frame observation is prepared inside the guarded feature-initialization
+phase independently of `patches.runtimeconfighooks`. Disabling the optional quit
+detour still leaves owner establishment and session-only reload protection
+available; the hook descriptor remains truthfully Skipped. A dedicated fixture
+exercises this without a status observer or writer submission.
+
 Reload captures owned outstanding intents **before** opening the file. Only a
 matching revision/subject with `!pending` and Saved/AlreadySaved is acknowledged.
 Pending, failed, conflicted, cancelled and unavailable values overlay an owned

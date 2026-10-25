@@ -168,6 +168,14 @@ int main(int argc, char** argv)
   // Outcome may still say Saved while a newer receipt is pending. Capture must
   // protect that live intent before disk I/O and own the value across completion.
   Reset();
+  owner     = 0;
+  available = false;
+  assert(runtime_config::PrepareFrame() && fixture_update_callback && !save_status_changed);
+  fixture_update_callback();
+  runtime_config::SaveSetting("ui", "toggle", false, {});
+  assert(fixture.submissions == 0 && runtime_config::CaptureReload().size() == 1);
+  assert(runtime_config::CaptureReload()[0].value == config_edit::Value{false});
+  Reset();
   fixture.work = true;
   runtime_config::SaveSetting("ui", "toggle", false, {});
   const auto captured = runtime_config::CaptureReload();

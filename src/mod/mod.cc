@@ -10,6 +10,7 @@
 #include "frame_callbacks.h"
 #include "installation.h"
 #include "profile_launch.h"
+#include "runtime_config.h"
 #include "version.h"
 
 #include "game/ui.h"
@@ -303,6 +304,10 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 bool InstallFeatures(const Config& config)
 {
   features_owner.Run(true, [&] {
+    // Observation/owner binding must survive a disabled optional quit detour,
+    // so session-only edits remain protected from unrelated automatic reloads.
+    if (!runtime_config::PrepareFrame())
+      spdlog::warn("[RuntimeConfig] session reload protection has no frame callback");
     constexpr auto total = std::size(kFeatures);
     spdlog::info("Initializing code hooks:");
     for (size_t i = 0; i < total; ++i) {

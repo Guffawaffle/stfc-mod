@@ -193,6 +193,15 @@ DWORD WINAPI FinishForceClose(void* handle)
 
 namespace runtime_config
 {
+bool PrepareFrame()
+{
+#if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__) || defined(CONFIG_RUNTIME_TEST)
+  return EnsureDelivery();
+#else
+  return false;
+#endif
+}
+
 bool SetSaveStatusObserver(void (*observer)())
 {
 #if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__) || defined(CONFIG_RUNTIME_TEST)

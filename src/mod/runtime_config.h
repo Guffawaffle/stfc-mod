@@ -12,6 +12,9 @@ void Configure(const toml::table& loaded);
 // Capture before opening the file. Only unacknowledged/session-only owner-thread
 // intents are protected; the returned values survive completion during the read.
 ReloadSnapshot CaptureReload();
+// Session-only values also need owner establishment/reload protection when
+// the optional native quit/persistence hooks are disabled.
+bool PrepareFrame();
 // Game/bootstrap thread after runtime initialization. Required frame delivery
 // and quit hooks are distinct from the worker's lazy thread lifetime.
 bool Install();
