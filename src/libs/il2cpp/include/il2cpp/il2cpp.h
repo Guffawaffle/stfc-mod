@@ -201,6 +201,14 @@ namespace detail
   FieldInfo*        ResolveField(Il2CppClass* klass, std::string_view name, const Slot& value, bool is_static);
   // Actual zero-based reference-vector storage, with one-way element assignability.
   bool ReferenceArrayMatches(const Il2CppObject* object, const Slot& element);
+  // Narrow value-layout qualifiers for consumers that hand owned values to the runtime invoker.
+  // Slot matching alone establishes size/kind, not a particular value class or Nullable payload.
+  bool              ValueClassMatches(const Il2CppType* type, Il2CppClass* expected, uint32_t size);
+  bool              ExactScalarMatches(const Il2CppType* type, Il2CppTypeEnum expected);
+  const MethodInfo* ExactScalarGetter(const MethodInfo* method, Il2CppObject* object, Il2CppTypeEnum expected);
+  const MethodInfo* ReferenceGetter(const MethodInfo* method, Il2CppObject* object, const Slot& expected);
+  bool NullableLayoutMatches(const Il2CppType* type, Il2CppClass* payload, uint32_t total_size, uint32_t alignment,
+                             uint32_t flag_offset, uint32_t value_offset);
   // Fully shared generic and abstract methods have no code of their own to detour: null, after a report.
   Method Hookable(const MethodInfo* method);
 

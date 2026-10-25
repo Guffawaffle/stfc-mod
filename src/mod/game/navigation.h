@@ -122,11 +122,92 @@ struct NavigationFleetWidget : Widget<FleetDeployedData> {
   { return Field<"_lod", NavigationLOD*>(); }
 };
 
+struct NavigationTransitionAnimator : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationTransitionAnimator">;
+  il2cpp::CallResult<unity::Vector3> TryWorldToDepth(unity::Vector3 position, int32_t depth)
+  {
+    static const auto* method = [] {
+      const auto* candidate = il2cpp::detail::MethodCall<unity::Vector3(unity::Vector3, int32_t)>::Resolve(
+          Class::Raw(), "WorldToDepth", false);
+      if (candidate
+          && (!il2cpp::detail::ValueClassMatches(candidate->parameters[0], unity::Vector3Class(),
+                                                 sizeof(unity::Vector3))
+              || !il2cpp::detail::ExactScalarMatches(candidate->parameters[1], IL2CPP_TYPE_I4))) {
+        il2cpp::Report("[IL2CPP] NavigationTransitionAnimator.WorldToDepth requires an exact Vector3 input");
+        return static_cast<const MethodInfo*>(nullptr);
+      }
+      return candidate;
+    }();
+    void* args[] = {&position, &depth};
+    return unity::TryReadVector3(method, this, args);
+  }
+};
+struct FleetNavigationHelper : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "FleetNavigationHelper">;
+  il2cpp::CallResult<bool> TryValidateInput(int64_t fleet_id, LocaleTextContext*& message)
+  {
+    static const auto* method = [] {
+      const auto* candidate = il2cpp::detail::MethodCall<bool(int64_t, LocaleTextContext*&)>::Resolve(
+          Class::Raw(), "NavigationValidateInput", false);
+      if (candidate
+          && (!candidate->methodPointer
+              || (candidate->has_full_generic_sharing_signature ? !candidate->invoker_method
+                                                                : !candidate->virtualMethodPointer)
+              || (candidate->flags & METHOD_ATTRIBUTE_VIRTUAL)
+              || !il2cpp::detail::ExactScalarMatches(candidate->return_type, IL2CPP_TYPE_BOOLEAN)
+              || !il2cpp::detail::ExactScalarMatches(candidate->parameters[0], IL2CPP_TYPE_I8)
+              || !candidate->parameters[1]->byref
+              || il2cpp_class_from_type(candidate->parameters[1]) != LocaleTextContext::Class::Raw())) {
+        il2cpp::Report("[IL2CPP] FleetNavigationHelper.NavigationValidateInput signature is unavailable");
+        return static_cast<const MethodInfo*>(nullptr);
+      }
+      return candidate;
+    }();
+    return il2cpp::detail::TryInvoke<bool>(method, this, fleet_id, std::ref(message));
+  }
+};
+struct NavigationInteractionUIViewController;
 struct NavigationManager : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationManager">;
 
   void HideInteraction()
   { Call<"HideInteraction">(); }
+  il2cpp::CallResult<NavigationInteractionUIViewController*> TryInteractionController();
+  il2cpp::CallResult<NavigationTransitionAnimator*>          TryTransitionAnimator()
+  {
+    static const bool available = Class::HasField<"_transitionAnimator", NavigationTransitionAnimator*>();
+    return available ? il2cpp::CallResult<NavigationTransitionAnimator*>{true, Field<"_transitionAnimator",
+                                                                                     NavigationTransitionAnimator*>()}
+                     : il2cpp::CallResult<NavigationTransitionAnimator*>{};
+  }
+  il2cpp::CallResult<void> TryMovePlanned(unity::Vector3 position, int64_t node_id, int64_t fleet_id)
+  {
+    using Position            = il2cpp::Nullable<unity::Vector3>;
+    static const auto* method = [] {
+      const auto* candidate = il2cpp::detail::MethodCall<void(Position, int64_t, int64_t, bool)>::Resolve(
+          Class::Raw(), "OnMoveFleetAction", false);
+      if (candidate
+          && (!candidate->methodPointer || !candidate->invoker_method || candidate->return_type->byref
+              || (candidate->flags & METHOD_ATTRIBUTE_VIRTUAL)
+              || !il2cpp::detail::ExactScalarMatches(candidate->parameters[1], IL2CPP_TYPE_I8)
+              || !il2cpp::detail::ExactScalarMatches(candidate->parameters[2], IL2CPP_TYPE_I8)
+              || !il2cpp::detail::ExactScalarMatches(candidate->parameters[3], IL2CPP_TYPE_BOOLEAN)
+              || !il2cpp::detail::NullableLayoutMatches(candidate->parameters[0], unity::Vector3Class(),
+                                                        sizeof(Position), alignof(Position),
+                                                        offsetof(Position, has_value), offsetof(Position, value)))) {
+        il2cpp::Report("[IL2CPP] NavigationManager.OnMoveFleetAction nullable layout or dispatch is unavailable");
+        return static_cast<const MethodInfo*>(nullptr);
+      }
+      return candidate;
+    }();
+    if (!method)
+      return {};
+    Position   destination{true, position};
+    bool       force_move = false;
+    void*      args[]     = {&destination, &node_id, &fleet_id, &force_move};
+    const auto observed   = il2cpp::detail::TryInvokeBoxed(method, this, args);
+    return {observed.succeeded};
+  }
 };
 
 // A plain MonoBehaviour with its own static Instance, not a MonoSingleton.
@@ -153,6 +234,30 @@ struct NavigationSectionManager : unity::Behaviour {
 
 struct NavigationInteractionUIContext : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationInteractionUIContext">;
+  il2cpp::CallResult<ITreeNode*> TryTreeNode()
+  { return planned_warp_binding::Reference<"get_TreeNode", ITreeNode>(this); }
+  il2cpp::CallResult<PathFinderResultData*> TryPath()
+  {
+    static const bool available = Class::HasField<"PathFindResult", PathFinderResultData*>();
+    return available ? il2cpp::CallResult<PathFinderResultData*>{true, Field<"PathFindResult", PathFinderResultData*>()}
+                     : il2cpp::CallResult<PathFinderResultData*>{};
+  }
+  il2cpp::CallResult<unity::Vector3> TryPosition()
+  {
+    static auto* field = [] {
+      auto* candidate =
+          il2cpp::detail::ResolveField(Class::Raw(), "Position", il2cpp::detail::SlotOf<unity::Vector3>(), false);
+      if (candidate
+          && ((candidate->type->attrs & FIELD_ATTRIBUTE_LITERAL)
+              || !il2cpp::detail::ValueClassMatches(candidate->type, unity::Vector3Class(), sizeof(unity::Vector3)))) {
+        il2cpp::Report("[IL2CPP] NavigationInteractionUIContext.Position requires an exact Vector3 field");
+        return static_cast<FieldInfo*>(nullptr);
+      }
+      return candidate;
+    }();
+    return field ? il2cpp::CallResult<unity::Vector3>{true, il2cpp::detail::ReadField<unity::Vector3>(field, this)}
+                 : il2cpp::CallResult<unity::Vector3>{};
+  }
 };
 
 struct SetCourseWidget : unity::Behaviour {
@@ -173,7 +278,21 @@ struct NavigationInteractionUIViewController : il2cpp::Object {
   }
   void OnSetCourseButtonClick()
   { Call<"OnSetCourseButtonClick">(); }
+  il2cpp::CallResult<NavigationInteractionUIContext*> TryContext()
+  { return planned_warp_binding::Reference<"get_CanvasContext", NavigationInteractionUIContext>(this); }
+  il2cpp::CallResult<FleetNavigationHelper*> TryFleetHelper()
+  {
+    static const bool available = Class::HasField<"_fleetNavHelper", FleetNavigationHelper*>();
+    return available
+               ? il2cpp::CallResult<FleetNavigationHelper*>{true, Field<"_fleetNavHelper", FleetNavigationHelper*>()}
+               : il2cpp::CallResult<FleetNavigationHelper*>{};
+  }
 };
+inline il2cpp::CallResult<NavigationInteractionUIViewController*> NavigationManager::TryInteractionController()
+{
+  return planned_warp_binding::Reference<"get_NavigationInteractionUIViewController",
+                                         NavigationInteractionUIViewController>(this);
+}
 
 struct PopulatedSystemData : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "PopulatedSystemData">;

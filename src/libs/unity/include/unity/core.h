@@ -22,6 +22,28 @@ struct Vector3 {
   float x, y, z;
 };
 
+inline Il2CppClass* Vector3Class()
+{ return il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Vector3">::Raw(); }
+
+// The retained coordinate getters and WorldToDepth are nonvirtual instance methods. The runtime invoker owns
+// aggregate ABI marshaling; a missing/null/wrong box is unavailable, never an observed zero vector.
+inline il2cpp::CallResult<Vector3> TryReadVector3(const MethodInfo* method, Il2CppObject* object, void** args = nullptr)
+{
+  auto* expected = Vector3Class();
+  if (!method || !object || !method->methodPointer || !method->invoker_method
+      || (method->flags & (METHOD_ATTRIBUTE_STATIC | METHOD_ATTRIBUTE_VIRTUAL))
+      || !il2cpp::detail::ValueClassMatches(method->return_type, expected, sizeof(Vector3)))
+    return {};
+  const auto observed = il2cpp::detail::TryInvokeBoxed(method, object, args);
+  if (!observed || !observed.value)
+    return {};
+  auto box = il2cpp::GcHandle::Strong(observed.value);
+  if (!box || !box.Get() || !box.Get()->klass
+      || !il2cpp::detail::ValueClassMatches(&box.Get()->klass->byval_arg, expected, sizeof(Vector3)))
+    return {};
+  return {true, il2cpp::detail::FromBoxed<Vector3>(box.Get())};
+}
+
 // Each component times `scale`: the same float multiplies as writing them out.
 constexpr Vector2 operator*(Vector2 vector, float scale)
 { return {vector.x * scale, vector.y * scale}; }

@@ -52,6 +52,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
     const test_hud_visibility = b.step("test-hud-visibility", "Run HUD baseline restoration and native refresh sequence policies");
     const test_toast_parameters = b.step("test-toast-parameters", "Run toast parameter source selection and formatting fixtures");
     const test_haven_visuals = b.step("test-haven-visuals", "Run Haven shared discovery, ownership and restoration fixtures");
+    const test_planned_system_warp = b.step("test-planned-system-warp", "Run retained ordinary system warp qualification and action routing fixtures");
     {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
@@ -63,7 +64,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         test_gameplay_presentation.dependOn(&run.step);
         test_mod.dependOn(&run.step);
     }
-    inline for (.{ "officer_preset_order", "hud_visibility", "toast_parameters" }) |fixture| {
+    inline for (.{ "officer_preset_order", "hud_visibility", "toast_parameters", "planned_system_warp" }) |fixture| {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
         module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}_test.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
@@ -75,6 +76,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         if (comptime std.mem.eql(u8, fixture, "officer_preset_order")) test_officer_preset_order.dependOn(&run.step);
         if (comptime std.mem.eql(u8, fixture, "hud_visibility")) test_hud_visibility.dependOn(&run.step);
         if (comptime std.mem.eql(u8, fixture, "toast_parameters")) test_toast_parameters.dependOn(&run.step);
+        if (comptime std.mem.eql(u8, fixture, "planned_system_warp")) test_planned_system_warp.dependOn(&run.step);
     }
     {
         const module = ctx.createModule(true);
@@ -307,6 +309,21 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             const missing_class = b.addRunArtifact(exe);
             missing_class.addArg(mode);
             test_il2cpp.dependOn(&missing_class.step);
+        }
+        // The movement binding also caches its qualified signature. Each
+        // incompatible layout must be presented before its first resolution.
+        inline for (.{
+            "warp-reject-static",              "warp-reject-virtual",             "warp-reject-missing",
+            "warp-reject-byref-void",          "warp-reject-payload",             "warp-reject-nullable-class",
+            "warp-reject-vector-class",        "warp-reject-u4-result",           "warp-reject-u8-course",
+            "warp-reject-u8-move",             "warp-reject-u8-validator",        "warp-reject-u4-depth",
+            "warp-reject-null-move-code",      "warp-reject-null-invoker",        "warp-reject-null-getter-code",
+            "warp-reject-null-course-code",    "warp-reject-null-validator-code", "warp-reject-null-vector-invoker",
+            "warp-reject-null-shared-invoker", "warp-reject-null-reference-code",
+        }) |mode| {
+            const invalid_warp = b.addRunArtifact(exe);
+            invalid_warp.addArg(mode);
+            test_il2cpp.dependOn(&invalid_warp.step);
         }
     }
     {

@@ -5,6 +5,7 @@
 
 // The test API must suppress imported declarations before any binding header.
 #include "game/fleet.h"
+#include "game/navigation.h"
 #include <il2cpp/hook.h>
 #include <unity/input.h>
 #include <unity/ui.h>
@@ -78,8 +79,9 @@ struct FakeClass {
   std::vector<FieldInfo>         fields;
   std::vector<PropertyInfo>      properties;
   std::vector<Il2CppClass*>      nested;
-  int32_t                        value_size = 0;
-  bool                           is_enum    = false;
+  int32_t                        value_size      = 0;
+  uint32_t                       value_alignment = 4;
+  bool                           is_enum         = false;
 };
 
 std::deque<FakeClass>                              classes;
@@ -159,31 +161,75 @@ struct Vec3 {
 };
 
 // Runtime classes.
-FakeClass& void_class          = Define("System", "Void", IL2CPP_TYPE_VOID);
-FakeClass& object_class        = Define("System", "Object", IL2CPP_TYPE_OBJECT);
-FakeClass& int_class           = Define("System", "Int32", IL2CPP_TYPE_I4, nullptr, 4);
-FakeClass& bool_class          = Define("System", "Boolean", IL2CPP_TYPE_BOOLEAN, nullptr, 1);
-FakeClass& float_class         = Define("System", "Single", IL2CPP_TYPE_R4, nullptr, 4);
-FakeClass& string_class        = Define("System", "String", IL2CPP_TYPE_STRING, &object_class);
-FakeClass& type_class          = Define("System", "Type", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& array_class         = Define("System", "Array", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& object_array_class  = Define("System", "Object[]", IL2CPP_TYPE_SZARRAY, &array_class);
-FakeClass& string_array_class  = Define("System", "String[]", IL2CPP_TYPE_SZARRAY, &array_class);
-FakeClass& vec3_class          = Define("UnityEngine", "Vector3", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(Vec3));
-FakeClass& state_class         = Define("Game", "State", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
-FakeClass& base_class          = Define("Game", "Base", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& derived_class       = Define("Game", "Derived", IL2CPP_TYPE_CLASS, &base_class);
-FakeClass& other_class         = Define("Game", "Other", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& outer_class         = Define("Game", "Outer", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& inner_class         = Define("", "Inner", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& list_a_class        = Define("Game", "ListA", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& list_b_class        = Define("Game", "ListB", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& delegate_base       = Define("System", "Delegate", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& action_class        = Define("System", "Action", IL2CPP_TYPE_CLASS, &delegate_base);
-FakeClass& intptr_class        = Define("System", "IntPtr", IL2CPP_TYPE_I, nullptr, sizeof(void*));
-FakeClass& uintptr_class       = Define("System", "UIntPtr", IL2CPP_TYPE_U, nullptr, sizeof(void*));
-FakeClass& pointer_class       = Define("Game", "UnmanagedPointer", IL2CPP_TYPE_PTR);
-FakeClass& long_class          = Define("System", "Int64", IL2CPP_TYPE_I8, nullptr, 8);
+FakeClass& void_class                  = Define("System", "Void", IL2CPP_TYPE_VOID);
+FakeClass& object_class                = Define("System", "Object", IL2CPP_TYPE_OBJECT);
+FakeClass& int_class                   = Define("System", "Int32", IL2CPP_TYPE_I4, nullptr, 4);
+FakeClass& unsigned_int_class          = Define("System", "UInt32", IL2CPP_TYPE_U4, nullptr, 4);
+FakeClass& unsigned_long_class         = Define("System", "UInt64", IL2CPP_TYPE_U8, nullptr, 8);
+FakeClass& bool_class                  = Define("System", "Boolean", IL2CPP_TYPE_BOOLEAN, nullptr, 1);
+FakeClass& float_class                 = Define("System", "Single", IL2CPP_TYPE_R4, nullptr, 4);
+FakeClass& string_class                = Define("System", "String", IL2CPP_TYPE_STRING, &object_class);
+FakeClass& type_class                  = Define("System", "Type", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& array_class                 = Define("System", "Array", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& object_array_class          = Define("System", "Object[]", IL2CPP_TYPE_SZARRAY, &array_class);
+FakeClass& string_array_class          = Define("System", "String[]", IL2CPP_TYPE_SZARRAY, &array_class);
+FakeClass& vec3_class                  = Define("UnityEngine", "Vector3", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(Vec3));
+FakeClass& state_class                 = Define("Game", "State", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
+FakeClass& base_class                  = Define("Game", "Base", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& derived_class               = Define("Game", "Derived", IL2CPP_TYPE_CLASS, &base_class);
+FakeClass& other_class                 = Define("Game", "Other", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& outer_class                 = Define("Game", "Outer", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& inner_class                 = Define("", "Inner", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& list_a_class                = Define("Game", "ListA", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& list_b_class                = Define("Game", "ListB", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& delegate_base               = Define("System", "Delegate", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& action_class                = Define("System", "Action", IL2CPP_TYPE_CLASS, &delegate_base);
+FakeClass& intptr_class                = Define("System", "IntPtr", IL2CPP_TYPE_I, nullptr, sizeof(void*));
+FakeClass& uintptr_class               = Define("System", "UIntPtr", IL2CPP_TYPE_U, nullptr, sizeof(void*));
+FakeClass& pointer_class               = Define("Game", "UnmanagedPointer", IL2CPP_TYPE_PTR);
+FakeClass& nullable_definition         = Define("System", "Nullable`1", IL2CPP_TYPE_VALUETYPE, nullptr, 16);
+FakeClass& foreign_nullable_definition = Define("System", "Nullable`1", IL2CPP_TYPE_VALUETYPE, nullptr, 16);
+FakeClass& nullable_vector_class       = Define("System", "Nullable`1", IL2CPP_TYPE_GENERICINST, nullptr, 16);
+FakeClass& foreign_vector_class        = Define("Other", "Vector3", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(Vec3));
+FakeClass& warp_navigation_class =
+    Define("Digit.Prime.Navigation", "NavigationManager", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& warp_animator_class =
+    Define("Digit.Prime.Navigation", "NavigationTransitionAnimator", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& warp_helper_class =
+    Define("Digit.Prime.Navigation", "FleetNavigationHelper", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& warp_context_class =
+    Define("Digit.Prime.Navigation", "NavigationInteractionUIContext", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& warp_locale_class     = Define("Digit.Client.UI", "LocaleTextContext", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& warp_deployment_class = Define("", "DeploymentManager", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& warp_course_class     = Define("Digit.PrimeServer.Models", "CourseData", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& warp_node_class       = Define("Digit.PrimeServer.Models", "CourseNode", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& warp_result_enum = Define("Digit.PrimeServer.Services", "PathFindResult", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
+std::array<const Il2CppType*, 1> nullable_arguments{};
+Il2CppGenericInst                nullable_inst{};
+Il2CppGenericClass               nullable_generic{};
+Il2CppObject warp_navigation{}, warp_animator{}, warp_helper{}, warp_locale{}, warp_deployment{}, warp_course{},
+    warp_node{};
+struct WarpContextObject {
+  Il2CppObject   header;
+  unity::Vector3 position;
+} warp_context{};
+struct WarpVectorBox {
+  Il2CppObject   header;
+  unity::Vector3 value;
+} warp_vector_box{};
+const MethodInfo* warp_move_method            = nullptr;
+const MethodInfo* warp_world_method           = nullptr;
+const MethodInfo* warp_system_method          = nullptr;
+const MethodInfo* warp_galaxy_method          = nullptr;
+bool              nullable_definition_missing = false, vector_class_missing = false;
+bool    warp_validator_value = true, warp_move_failure = false, warp_vector_failure = false, warp_vector_null = false;
+bool    warp_vector_wrong_type = false, warp_root_failure = false;
+int     warp_move_calls = 0, warp_vector_calls = 0, warp_validator_calls = 0;
+int64_t warp_seen_fleet = 0, warp_seen_node = 0;
+unity::Vector3                                    warp_seen_position{};
+std::unordered_map<Il2CppGCHandle, Il2CppObject*> warp_roots;
+uintptr_t                                         warp_next_root = 1;
+FakeClass&                                        long_class = Define("System", "Int64", IL2CPP_TYPE_I8, nullptr, 8);
 FakeClass& ship_model_class    = Define("Digit.PrimeServer.Models", "IShipModel", IL2CPP_TYPE_CLASS, &object_class);
 FakeClass& base_ship_class     = Define("Digit.PrimeServer.Models", "BaseShip", IL2CPP_TYPE_CLASS, &ship_model_class);
 FakeClass& concrete_ship_class = Define("Digit.PrimeServer.Models", "Ship", IL2CPP_TYPE_CLASS, &base_ship_class);
@@ -384,8 +430,41 @@ void List_set_Item(Il2CppObject* self, int32_t index, Il2CppObject* value, const
   seen_method                                 = method;
   reinterpret_cast<TestObject*>(self)->target = value;
 }
-Il2CppException thrown{};
-Il2CppObject*   FleetIdentity_get_Ship(Il2CppObject* self, const MethodInfo*)
+Il2CppException   thrown{};
+int               warp_course_calls = 0, warp_scalar_calls = 0;
+const MethodInfo* warp_validator_method = nullptr;
+const MethodInfo* warp_course_method    = nullptr;
+const MethodInfo* warp_action_method    = nullptr;
+const MethodInfo* warp_reference_method = nullptr;
+int               warp_reference_calls  = 0;
+bool              WarpValidate(Il2CppObject*, int64_t fleet, LocaleTextContext** message, const MethodInfo*)
+{
+  ++warp_validator_calls;
+  warp_seen_fleet = fleet;
+  *message        = reinterpret_cast<LocaleTextContext*>(&warp_locale);
+  return warp_validator_value;
+}
+Il2CppObject* WarpGetCourse(Il2CppObject*, int64_t fleet, const MethodInfo*)
+{
+  ++warp_course_calls;
+  warp_seen_fleet = fleet;
+  return &warp_course;
+}
+int32_t WarpTargetAction(Il2CppObject*, const MethodInfo*)
+{
+  ++warp_scalar_calls;
+  return -1;
+}
+int64_t WarpFleetId(Il2CppObject*, const MethodInfo*)
+{ return 9007199254740993LL; }
+Il2CppObject* WarpGetTarget(Il2CppObject*, const MethodInfo*)
+{
+  ++warp_reference_calls;
+  return &warp_node;
+}
+Il2CppObject* WarpGetInstance(const MethodInfo*)
+{ return &warp_deployment; }
+Il2CppObject* FleetIdentity_get_Ship(Il2CppObject* self, const MethodInfo*)
 {
   if (ship_read_throws)
     throw Il2CppExceptionWrapper(&thrown);
@@ -418,6 +497,8 @@ void              DelegateInvoker(Il2CppMethodPointer, const MethodInfo*, void* 
   delegate->method = delegate_target;
 }
 void NativeTarget() {}
+void WarpInvokerSentinel(Il2CppMethodPointer, const MethodInfo*, void*, void**, void*)
+{ Require(false, "the fake runtime must own invocation instead of calling a metadata sentinel directly"); }
 
 MethodInfo*   base_describe     = nullptr;
 MethodInfo*   shared_method     = nullptr;
@@ -436,6 +517,54 @@ Il2CppObject* ArrayGetter(Il2CppObject*, const MethodInfo*)
 
 void BuildRuntime()
 {
+  nullable_arguments[0]                                    = T(vec3_class);
+  nullable_inst.type_argc                                  = 1;
+  nullable_inst.type_argv                                  = nullable_arguments.data();
+  nullable_generic.type                                    = T(nullable_definition);
+  nullable_generic.context.class_inst                      = &nullable_inst;
+  nullable_vector_class.klass.byval_arg.data.generic_class = &nullable_generic;
+  nullable_vector_class.klass.generic_class                = &nullable_generic;
+  warp_result_enum.is_enum                                 = true;
+  AddField(warp_result_enum, "value__", int_class, sizeof(Il2CppObject));
+  AddField(nullable_vector_class, "hasValue", bool_class, sizeof(Il2CppObject));
+  AddField(nullable_vector_class, "value", vec3_class, sizeof(Il2CppObject) + offsetof(il2cpp::Nullable<Vec3>, value));
+  warp_navigation.klass        = &warp_navigation_class.klass;
+  warp_animator.klass          = &warp_animator_class.klass;
+  warp_helper.klass            = &warp_helper_class.klass;
+  warp_locale.klass            = &warp_locale_class.klass;
+  warp_deployment.klass        = &warp_deployment_class.klass;
+  warp_course.klass            = &warp_course_class.klass;
+  warp_node.klass              = &warp_node_class.klass;
+  warp_context.header.klass    = &warp_context_class.klass;
+  warp_context.position        = {};
+  warp_vector_box.header.klass = &vec3_class.klass;
+  warp_move_method = &AddMethod(warp_navigation_class, "OnMoveFleetAction", reinterpret_cast<void*>(&Never),
+                                T(void_class), {T(nullable_vector_class), T(long_class), T(long_class), T(bool_class)});
+  warp_world_method = &AddMethod(warp_animator_class, "WorldToDepth", reinterpret_cast<void*>(&Never), T(vec3_class),
+                                 {T(vec3_class), T(int_class)});
+  warp_system_method =
+      &AddMethod(warp_node_class, "get_SystemPosition", reinterpret_cast<void*>(&Never), T(vec3_class), {});
+  warp_galaxy_method =
+      &AddMethod(warp_node_class, "get_GalaxyPosition", reinterpret_cast<void*>(&Never), T(vec3_class), {});
+  for (const auto* method : {warp_move_method, warp_world_method, warp_system_method, warp_galaxy_method})
+    const_cast<MethodInfo*>(method)->invoker_method = &WarpInvokerSentinel;
+  warp_validator_method =
+      &AddMethod(warp_helper_class, "NavigationValidateInput", reinterpret_cast<void*>(&WarpValidate), T(bool_class),
+                 {T(long_class), Ref(warp_locale_class)});
+  warp_course_method = &AddMethod(warp_deployment_class, "GetPlannedCourse", reinterpret_cast<void*>(&WarpGetCourse),
+                                  T(warp_course_class), {T(long_class)});
+  warp_action_method = &AddMethod(warp_course_class, "get_TargetAction", reinterpret_cast<void*>(&WarpTargetAction),
+                                  T(warp_result_enum), {});
+  AddMethod(warp_course_class, "get_FleetID", reinterpret_cast<void*>(&WarpFleetId), T(long_class), {});
+  warp_reference_method =
+      &AddMethod(warp_course_class, "get_TargetNode", reinterpret_cast<void*>(&WarpGetTarget), T(warp_node_class), {});
+  AddMethod(warp_deployment_class, "get_Instance", reinterpret_cast<void*>(&WarpGetInstance), T(warp_deployment_class),
+            {}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+  AddMethod(base_class, "get_CanonicalSigned", reinterpret_cast<void*>(&WarpTargetAction), T(int_class), {},
+            METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_VIRTUAL);
+  AddMethod(derived_class, "get_CanonicalSigned", reinterpret_cast<void*>(&WarpTargetAction), T(unsigned_int_class), {},
+            METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_VIRTUAL);
+  AddField(warp_context_class, "Position", vec3_class, offsetof(WarpContextObject, position));
   component_array_class.klass.byval_arg.data.type = T(component_class);
   material_array_class.klass.byval_arg.data.type  = T(material_class);
   visual_renderer.klass                           = &renderer_class.klass;
@@ -577,6 +706,10 @@ API(Il2CppClass*, il2cpp_class_from_name, (const Il2CppImage*, const char* names
     return nullptr;
   if (string_class_missing && std::string_view(namespaze) == "System" && std::string_view(name) == "String")
     return nullptr;
+  if (nullable_definition_missing && std::string_view(namespaze) == "System" && std::string_view(name) == "Nullable`1")
+    return nullptr;
+  if (vector_class_missing && std::string_view(namespaze) == "UnityEngine" && std::string_view(name) == "Vector3")
+    return nullptr;
   const auto fake = std::ranges::find_if(classes, [&](const FakeClass& fake) {
     return std::string_view(fake.klass.namespaze) == namespaze && std::string_view(fake.klass.name) == name;
   });
@@ -694,10 +827,14 @@ API(bool, il2cpp_class_is_valuetype, (const Il2CppClass* klass))
 { return klass->byval_arg.valuetype; }
 END_API
 API(bool, il2cpp_class_is_enum, (const Il2CppClass* klass))
-{ return klass == &state_class.klass; }
+{ return klass == &state_class.klass || Fake(klass).is_enum; }
 END_API
-API(int32_t, il2cpp_class_value_size, (Il2CppClass * klass, uint32_t*))
-{ return Fake(klass).value_size; }
+API(int32_t, il2cpp_class_value_size, (Il2CppClass * klass, uint32_t* alignment))
+{
+  if (alignment)
+    *alignment = Fake(klass).value_alignment;
+  return Fake(klass).value_size;
+}
 END_API
 API(bool, il2cpp_class_is_assignable_from, (Il2CppClass * klass, Il2CppClass* other))
 {
@@ -724,11 +861,35 @@ API(const MethodInfo*, il2cpp_object_get_virtual_method, (Il2CppObject * object,
   return nullptr;
 }
 END_API
-API(void*, il2cpp_object_unbox, (Il2CppObject*))
-{ return &shared_result; }
+API(void*, il2cpp_object_unbox, (Il2CppObject * object))
+{ return object == &warp_vector_box.header ? static_cast<void*>(&warp_vector_box.value) : &shared_result; }
 END_API
-API(Il2CppObject*, il2cpp_runtime_invoke, (const MethodInfo* method, void*, void**, Il2CppException** exception))
+API(Il2CppObject*, il2cpp_runtime_invoke, (const MethodInfo* method, void*, void** args, Il2CppException** exception))
 {
+  if (method == warp_move_method) {
+    ++warp_move_calls;
+    const auto* position = static_cast<const il2cpp::Nullable<unity::Vector3>*>(args[0]);
+    Require(position->has_value && !*static_cast<const bool*>(args[3]),
+            "runtime receives present destination and force=false");
+    warp_seen_position = position->value;
+    warp_seen_node     = *static_cast<const int64_t*>(args[1]);
+    warp_seen_fleet    = *static_cast<const int64_t*>(args[2]);
+    if (warp_move_failure)
+      *exception = &thrown;
+    return nullptr;
+  }
+  if (method == warp_world_method || method == warp_system_method || method == warp_galaxy_method) {
+    ++warp_vector_calls;
+    if (method == warp_world_method) {
+      Require(*static_cast<const int32_t*>(args[1]) == 1, "world projection receives galaxy depth");
+      warp_vector_box.value = *static_cast<const unity::Vector3*>(args[0]);
+    }
+    if (warp_vector_failure)
+      *exception = &thrown;
+    return warp_vector_failure || warp_vector_null ? nullptr
+           : warp_vector_wrong_type                ? &string_object
+                                                   : &warp_vector_box.header;
+  }
   if (method != shared_method || !exception) {
     std::fputs("unexpected boxed invocation\n", stderr);
     std::abort();
@@ -738,6 +899,21 @@ API(Il2CppObject*, il2cpp_runtime_invoke, (const MethodInfo* method, void*, void
     *exception = &thrown;
   return boxed_failure || boxed_null ? nullptr : &string_object;
 }
+END_API
+API(Il2CppGCHandle, il2cpp_gchandle_new, (Il2CppObject * object, bool))
+{
+  if (warp_root_failure)
+    return nullptr;
+  auto handle = reinterpret_cast<Il2CppGCHandle>(warp_next_root++);
+  warp_roots.emplace(handle, object);
+  return handle;
+}
+END_API
+API(Il2CppObject*, il2cpp_gchandle_get_target, (Il2CppGCHandle handle))
+{ return warp_roots.contains(handle) ? warp_roots.at(handle) : nullptr; }
+END_API
+API(void, il2cpp_gchandle_free, (Il2CppGCHandle handle))
+{ warp_roots.erase(handle); }
 END_API
 API(void, il2cpp_format_exception, (const Il2CppException*, char* message, int size))
 { std::snprintf(message, size, "NullReferenceException"); }
@@ -1020,12 +1196,219 @@ void CheckedUnityVisualObservations()
           "inactive owner observation remains qualified false");
   visual_active = true;
 }
+
+void PlannedWarpBindingObservations()
+{
+  using Position    = il2cpp::Nullable<unity::Vector3>;
+  const auto layout = [&] {
+    return il2cpp::detail::NullableLayoutMatches(T(nullable_vector_class), &vec3_class.klass, sizeof(Position),
+                                                 alignof(Position), offsetof(Position, has_value),
+                                                 offsetof(Position, value));
+  };
+  Require(layout(), "constructed corlib Nullable<Vector3> has the qualified payload layout");
+  Require(!il2cpp::detail::NullableLayoutMatches(T(nullable_vector_class), nullptr, sizeof(Position), alignof(Position),
+                                                 offsetof(Position, has_value), offsetof(Position, value)),
+          "missing expected Vector3 metadata does not establish a nullable payload");
+  Require(!il2cpp::detail::ValueClassMatches(T(foreign_vector_class), &vec3_class.klass, sizeof(Vec3)),
+          "same-sized foreign value classes are not Unity Vector3");
+  nullable_generic.type = T(foreign_nullable_definition);
+  Require(!layout(), "same-named foreign Nullable definition is not corlib Nullable");
+  nullable_generic.type = T(nullable_definition);
+  nullable_arguments[0] = T(foreign_vector_class);
+  Require(!layout(), "different same-size generic payload is refused");
+  nullable_arguments[0]   = T(vec3_class);
+  nullable_inst.type_argc = 0;
+  Require(!layout(), "missing generic argument is refused");
+  nullable_inst.type_argc          = 1;
+  auto*       flag                 = &nullable_vector_class.fields[0];
+  auto*       value                = &nullable_vector_class.fields[1];
+  const auto  original_flag        = *flag->type;
+  const auto  original_value       = *value->type;
+  const auto  original_flag_offset = flag->offset, original_value_offset = value->offset;
+  const auto* original_flag_name = flag->name;
+  flag->name                     = "MissingFlag";
+  Require(!layout(), "missing nullable storage field is refused");
+  flag->name                                = original_flag_name;
+  const_cast<Il2CppType*>(flag->type)->type = IL2CPP_TYPE_I1;
+  Require(!layout(), "same-size byte is not the nullable Boolean flag");
+  *const_cast<Il2CppType*>(flag->type) = original_flag;
+  for (auto attrs : {FIELD_ATTRIBUTE_STATIC, FIELD_ATTRIBUTE_LITERAL}) {
+    const_cast<Il2CppType*>(value->type)->attrs |= attrs;
+    Require(!layout(), "static or literal payload field is not instance storage");
+    *const_cast<Il2CppType*>(value->type) = original_value;
+  }
+  const_cast<Il2CppType*>(value->type)->byref = 1;
+  Require(!layout(), "byref nullable payload storage is refused");
+  *const_cast<Il2CppType*>(value->type) = original_value;
+  ++flag->offset;
+  Require(!layout(), "wrong nullable flag offset is refused");
+  flag->offset = original_flag_offset;
+  ++value->offset;
+  Require(!layout(), "wrong nullable payload offset is refused");
+  value->offset                         = original_value_offset;
+  nullable_vector_class.value_alignment = 8;
+  Require(!layout(), "different native nullable alignment is refused");
+  nullable_vector_class.value_alignment       = alignof(Position);
+  nullable_vector_class.klass.byval_arg.byref = 1;
+  Require(!layout(), "byref nullable parameter is refused");
+  nullable_vector_class.klass.byval_arg.byref = 0;
+  nullable_vector_class.value_size            = sizeof(Position) + 4;
+  Require(!layout(), "wrong overall nullable allocation size is refused");
+  nullable_vector_class.value_size = sizeof(Position);
+  Require(layout(), "all malformed metadata cases restore the qualified canonical candidate");
+
+  Require(il2cpp::detail::ExactScalarMatches(T(warp_result_enum), IL2CPP_TYPE_I4)
+              && !il2cpp::detail::ExactScalarMatches(T(unsigned_int_class), IL2CPP_TYPE_I4)
+              && !il2cpp::detail::ExactScalarMatches(T(unsigned_long_class), IL2CPP_TYPE_I8),
+          "signed enum storage is qualified while equally sized unsigned scalars are refused");
+  auto*      observed_course = reinterpret_cast<CourseData*>(&warp_course);
+  const auto action          = observed_course->TryTargetAction();
+  const auto exact_fleet     = observed_course->TryFleetId();
+  Require(action && action.value == -1 && exact_fleet && exact_fleet.value == 9007199254740993LL,
+          "actual course getters preserve signed enum and exact signed fleet observations");
+  const auto reference = observed_course->TryTarget();
+  const auto singleton = planned_warp_binding::StaticReference<"get_Instance", DeploymentManager, DeploymentManager>();
+  Require(reference && reference.value == reinterpret_cast<CourseNode*>(&warp_node) && singleton
+              && singleton.value == reinterpret_cast<DeploymentManager*>(&warp_deployment),
+          "checked instance and static reference acquisition preserve their native targets");
+  const auto base_signed =
+      planned_warp_binding::Scalar<"get_CanonicalSigned", int32_t>(reinterpret_cast<Base*>(&base_object));
+  const auto scalar_calls = warp_scalar_calls;
+  const auto changed_signed =
+      planned_warp_binding::Scalar<"get_CanonicalSigned", int32_t>(reinterpret_cast<Base*>(&derived_object));
+  Require(base_signed && base_signed.value == -1 && !changed_signed && warp_scalar_calls == scalar_calls,
+          "virtual getter signedness drift is refused before invoking the changed target");
+
+  auto*                manager = reinterpret_cast<NavigationManager*>(&warp_navigation);
+  const unity::Vector3 destination{0.0f, 7.5f, -3.0f};
+  Require(manager->TryMovePlanned(destination, 9007199254740993LL, 9007199254740995LL).succeeded,
+          "actual named movement binding dispatches through the runtime invoker");
+  Require(warp_move_calls == 1 && warp_seen_node == 9007199254740993LL && warp_seen_fleet == 9007199254740995LL
+              && warp_seen_position.x == 0 && warp_seen_position.y == 7.5f && warp_seen_position.z == -3,
+          "runtime arguments preserve exact IDs, position, present flag and force=false without a second dispatch");
+  warp_move_failure = true;
+  Require(!manager->TryMovePlanned(destination, 5, 7) && warp_move_calls == 2,
+          "managed movement exception remains a failed observation without retry");
+  warp_move_failure          = false;
+  LocaleTextContext* message = nullptr;
+  auto*              helper  = reinterpret_cast<FleetNavigationHelper*>(&warp_helper);
+  const auto         valid   = helper->TryValidateInput(9007199254740993LL, message);
+  Require(valid && valid.value && message == reinterpret_cast<LocaleTextContext*>(&warp_locale)
+              && warp_seen_fleet == 9007199254740993LL && warp_validator_calls == 1,
+          "actual validator binding preserves the long ID and byref LocaleTextContext output");
+  warp_validator_value = false;
+  const auto invalid   = helper->TryValidateInput(7, message);
+  Require(invalid && !invalid.value, "native validator false is available, not a missing result");
+  auto*      deployment = reinterpret_cast<DeploymentManager*>(&warp_deployment);
+  const auto course     = deployment->TryPlannedCourse(9007199254740993LL);
+  Require(course && course.value == reinterpret_cast<CourseData*>(&warp_course),
+          "planned course retrieval does not depend on PlayerFleet being populated");
+  warp_vector_box.value = {};
+  auto*      node       = reinterpret_cast<CourseNode*>(&warp_node);
+  const auto zero       = node->TrySystemPosition();
+  Require(zero && zero.value.x == 0 && zero.value.y == 0 && zero.value.z == 0,
+          "actual typed coordinate getter preserves an observed zero vector");
+  auto* system_method        = const_cast<MethodInfo*>(warp_system_method);
+  system_method->return_type = T(foreign_vector_class);
+  const auto vector_calls    = warp_vector_calls;
+  Require(!node->TrySystemPosition() && warp_vector_calls == vector_calls,
+          "same-size foreign declared coordinate return is rejected before runtime invocation");
+  system_method->return_type = T(vec3_class);
+  warp_vector_wrong_type     = true;
+  Require(!node->TryGalaxyPosition(), "wrong returned box cannot become an observed coordinate");
+  warp_vector_wrong_type = false;
+  warp_vector_null       = true;
+  Require(!node->TrySystemPosition(), "successful null value box remains unavailable");
+  warp_vector_null  = false;
+  warp_root_failure = true;
+  Require(!node->TrySystemPosition(), "failed local box custody prevents coordinate traversal");
+  warp_root_failure = false;
+  const auto projected =
+      reinterpret_cast<NavigationTransitionAnimator*>(&warp_animator)->TryWorldToDepth(destination, 1);
+  Require(projected && projected.value.y == destination.y && projected.value.z == destination.z,
+          "actual projection binding passes owned Vector3 arguments through runtime marshaling");
+  const auto position = reinterpret_cast<NavigationInteractionUIContext*>(&warp_context)->TryPosition();
+  Require(position && position.value.x == 0 && position.value.y == 0 && position.value.z == 0,
+          "strict context field schema preserves zero as an observed position");
+  Require(warp_roots.empty(), "coordinate observations release every temporary managed root");
+  std::cout << "IL2CPP planned warp value layouts and runtime dispatch passed\n";
+}
 } // namespace
 
 int main(int argc, char** argv)
 {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]).starts_with("warp-reject-")) {
+    const std::string_view mode(argv[1]);
+    auto*                  move = const_cast<MethodInfo*>(warp_move_method);
+    if (mode == "warp-reject-null-move-code")
+      move->methodPointer = nullptr;
+    else if (mode == "warp-reject-null-invoker")
+      move->invoker_method = nullptr;
+    else if (mode == "warp-reject-null-getter-code")
+      const_cast<MethodInfo*>(warp_action_method)->methodPointer = nullptr;
+    else if (mode == "warp-reject-null-course-code")
+      const_cast<MethodInfo*>(warp_course_method)->virtualMethodPointer = nullptr;
+    else if (mode == "warp-reject-null-validator-code")
+      const_cast<MethodInfo*>(warp_validator_method)->methodPointer = nullptr;
+    else if (mode == "warp-reject-null-vector-invoker")
+      const_cast<MethodInfo*>(warp_world_method)->invoker_method = nullptr;
+    else if (mode == "warp-reject-null-shared-invoker") {
+      auto* getter                               = const_cast<MethodInfo*>(warp_action_method);
+      getter->has_full_generic_sharing_signature = 1;
+      getter->invoker_method                     = nullptr;
+    } else if (mode == "warp-reject-null-reference-code")
+      const_cast<MethodInfo*>(warp_reference_method)->virtualMethodPointer = nullptr;
+    else if (mode == "warp-reject-u4-result")
+      const_cast<MethodInfo*>(warp_action_method)->return_type = T(unsigned_int_class);
+    else if (mode == "warp-reject-u8-course")
+      const_cast<const Il2CppType**>(warp_course_method->parameters)[0] = T(unsigned_long_class);
+    else if (mode == "warp-reject-u8-move")
+      const_cast<const Il2CppType**>(move->parameters)[1] = T(unsigned_long_class);
+    else if (mode == "warp-reject-u8-validator")
+      const_cast<const Il2CppType**>(warp_validator_method->parameters)[0] = T(unsigned_long_class);
+    else if (mode == "warp-reject-u4-depth")
+      const_cast<const Il2CppType**>(warp_world_method->parameters)[1] = T(unsigned_int_class);
+    else if (mode == "warp-reject-static")
+      move->flags |= METHOD_ATTRIBUTE_STATIC;
+    else if (mode == "warp-reject-virtual")
+      move->flags |= METHOD_ATTRIBUTE_VIRTUAL;
+    else if (mode == "warp-reject-missing")
+      move->name = "UnavailableMovement";
+    else if (mode == "warp-reject-byref-void") {
+      auto& type        = field_types.emplace_back(*move->return_type);
+      type.byref        = 1;
+      move->return_type = &type;
+    } else if (mode == "warp-reject-payload")
+      nullable_arguments[0] = T(foreign_vector_class);
+    else if (mode == "warp-reject-nullable-class")
+      nullable_definition_missing = true;
+    else if (mode == "warp-reject-vector-class")
+      vector_class_missing = true;
+    else
+      Require(false, "unknown planned warp fixture mode");
+    bool refused = false;
+    if (mode == "warp-reject-u4-result" || mode == "warp-reject-null-getter-code"
+        || mode == "warp-reject-null-shared-invoker")
+      refused = !reinterpret_cast<CourseData*>(&warp_course)->TryTargetAction() && warp_scalar_calls == 0;
+    else if (mode == "warp-reject-u8-course" || mode == "warp-reject-null-course-code")
+      refused = !reinterpret_cast<DeploymentManager*>(&warp_deployment)->TryPlannedCourse(7) && warp_course_calls == 0;
+    else if (mode == "warp-reject-u8-validator" || mode == "warp-reject-null-validator-code") {
+      LocaleTextContext* message = nullptr;
+      refused                    = !reinterpret_cast<FleetNavigationHelper*>(&warp_helper)->TryValidateInput(7, message)
+                                   && warp_validator_calls == 0;
+    } else if (mode == "warp-reject-u4-depth" || mode == "warp-reject-null-vector-invoker")
+      refused = !reinterpret_cast<NavigationTransitionAnimator*>(&warp_animator)->TryWorldToDepth({}, 1)
+                && warp_vector_calls == 0;
+    else if (mode == "warp-reject-null-reference-code")
+      refused = !reinterpret_cast<CourseData*>(&warp_course)->TryTarget() && warp_reference_calls == 0;
+    else
+      refused = !reinterpret_cast<NavigationManager*>(&warp_navigation)->TryMovePlanned({}, 5, 7);
+    Require(refused && warp_move_calls == 0, "unqualified movement metadata must refuse before native invocation");
+    std::cout << "IL2CPP planned warp invalid binding refused: " << mode << '\n';
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]) == "string-class-missing") {
     string_class_missing = true;
     Require(!reinterpret_cast<il2cpp::Object*>(&string_object)->Is<Il2CppString>(),
@@ -1049,6 +1432,7 @@ int main(int argc, char** argv)
   ReferenceArrayObservations();
   ReferenceArrayGetterObservations();
   CheckedUnityVisualObservations();
+  PlannedWarpBindingObservations();
   auto* base = reinterpret_cast<Base*>(&base_object);
 
   // Properties call the generated getter with the receiver and its MethodInfo.

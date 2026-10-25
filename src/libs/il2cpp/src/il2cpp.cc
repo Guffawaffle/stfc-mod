@@ -415,6 +415,116 @@ namespace detail
     return field;
   }
 
+  bool ValueClassMatches(const Il2CppType* type, Il2CppClass* expected, uint32_t size)
+  {
+    if (!type || type->byref || !expected || size == 0
+        || (type->type != IL2CPP_TYPE_VALUETYPE && type->type != IL2CPP_TYPE_GENERICINST))
+      return false;
+    auto* actual = il2cpp_class_from_type(type);
+    if (actual != expected || !il2cpp_class_is_valuetype(actual))
+      return false;
+    uint32_t alignment = 0;
+    return il2cpp_class_value_size(actual, &alignment) == size;
+  }
+
+  bool ExactScalarMatches(const Il2CppType* type, Il2CppTypeEnum expected)
+  {
+    const uint32_t size = expected == IL2CPP_TYPE_BOOLEAN ? 1
+                          : expected == IL2CPP_TYPE_I4    ? 4
+                          : expected == IL2CPP_TYPE_I8    ? 8
+                                                          : 0;
+    if (!type || type->byref || size == 0)
+      return false;
+    auto*    klass     = il2cpp_class_from_type(type);
+    uint32_t alignment = 0;
+    if (!klass || !il2cpp_class_is_valuetype(klass) || il2cpp_class_value_size(klass, &alignment) != size)
+      return false;
+    if (il2cpp_class_is_enum(klass)) {
+      // The SDK's enum value__ field declares its storage. No new runtime export is required.
+      const auto* field = il2cpp_class_get_field_from_name(klass, "value__");
+      return field && field->type && !field->type->byref
+             && !(field->type->attrs & (FIELD_ATTRIBUTE_STATIC | FIELD_ATTRIBUTE_LITERAL))
+             && field->type->type == expected;
+    }
+    return type->type == expected;
+  }
+
+  static const MethodInfo* QualifiedGetter(const MethodInfo* method, Il2CppObject* object, bool allow_static)
+  {
+    if (!method || method->parameters_count != 0 || !method->return_type || method->return_type->byref)
+      return nullptr;
+    const bool is_static = (method->flags & METHOD_ATTRIBUTE_STATIC) != 0;
+    if ((is_static && (!allow_static || object)) || (!is_static && !object))
+      return nullptr;
+    if (!is_static && (method->flags & METHOD_ATTRIBUTE_VIRTUAL))
+      method = il2cpp_object_get_virtual_method(object, method);
+    if (!method || ((method->flags & METHOD_ATTRIBUTE_STATIC) != 0) != is_static || method->parameters_count != 0
+        || !method->return_type || method->return_type->byref || !method->methodPointer
+        || (method->has_full_generic_sharing_signature ? !method->invoker_method
+                                                       : !is_static && !method->virtualMethodPointer))
+      return nullptr;
+    return method;
+  }
+
+  const MethodInfo* ExactScalarGetter(const MethodInfo* method, Il2CppObject* object, Il2CppTypeEnum expected)
+  {
+    method = QualifiedGetter(method, object, false);
+    return method && ExactScalarMatches(method->return_type, expected) ? method : nullptr;
+  }
+
+  const MethodInfo* ReferenceGetter(const MethodInfo* method, Il2CppObject* object, const Slot& expected)
+  {
+    method = QualifiedGetter(method, object, true);
+    if (!method || expected.kind != Slot::Kind::kReference || expected.byref || !expected.klass)
+      return nullptr;
+    switch (method->return_type->type) {
+      case IL2CPP_TYPE_CLASS:
+      case IL2CPP_TYPE_OBJECT:
+      case IL2CPP_TYPE_STRING:
+      case IL2CPP_TYPE_SZARRAY:
+      case IL2CPP_TYPE_ARRAY:
+      case IL2CPP_TYPE_GENERICINST:
+        return Matches(method->return_type, expected) ? method : nullptr;
+      default:
+        return nullptr;
+    }
+  }
+
+  bool NullableLayoutMatches(const Il2CppType* type, Il2CppClass* payload, uint32_t total_size, uint32_t alignment,
+                             uint32_t flag_offset, uint32_t value_offset)
+  {
+    if (!type || type->byref || type->type != IL2CPP_TYPE_GENERICINST || !payload || !il2cpp_class_is_valuetype(payload)
+        || total_size == 0 || alignment == 0 || value_offset >= total_size || flag_offset >= value_offset)
+      return false;
+    // The pinned SDK records a constructed type's definition and argument types in this metadata.
+    // Compare the definition to corlib's actual Nullable, not a foreign class with the same display name.
+    const auto*  generic    = type->data.generic_class;
+    const auto*  arguments  = generic ? generic->context.class_inst : nullptr;
+    static auto* definition = il2cpp_class_from_name(il2cpp_get_corlib(), "System", "Nullable`1");
+    if (!definition || !generic || !generic->type || il2cpp_class_from_type(generic->type) != definition || !arguments
+        || arguments->type_argc != 1 || !arguments->type_argv || !arguments->type_argv[0])
+      return false;
+    auto* actual = il2cpp_class_from_type(type);
+    if (!actual || !il2cpp_class_is_valuetype(actual))
+      return false;
+    uint32_t   observed_alignment = 0, payload_alignment = 0;
+    const auto payload_size = il2cpp_class_value_size(payload, &payload_alignment);
+    if (payload_size <= 0 || !ValueClassMatches(arguments->type_argv[0], payload, static_cast<uint32_t>(payload_size))
+        || static_cast<uint64_t>(value_offset) + payload_size != total_size
+        || il2cpp_class_value_size(actual, &observed_alignment) != total_size || observed_alignment != alignment)
+      return false;
+    const auto* flag           = il2cpp_class_get_field_from_name(actual, "hasValue");
+    const auto* value          = il2cpp_class_get_field_from_name(actual, "value");
+    const auto  instance_field = [](const FieldInfo* field) {
+      return field && field->type && !field->type->byref && field->offset >= 0
+             && !(field->type->attrs & (FIELD_ATTRIBUTE_STATIC | FIELD_ATTRIBUTE_LITERAL));
+    };
+    return instance_field(flag) && instance_field(value) && flag->type->type == IL2CPP_TYPE_BOOLEAN
+           && static_cast<uint64_t>(flag->offset) == sizeof(Il2CppObject) + flag_offset
+           && static_cast<uint64_t>(value->offset) == sizeof(Il2CppObject) + value_offset
+           && ValueClassMatches(value->type, payload, static_cast<uint32_t>(payload_size));
+  }
+
   bool ReferenceArrayMatches(const Il2CppObject* object, const Slot& element)
   {
     if (element.kind != Slot::Kind::kReference || element.byref || !object || !object->klass)

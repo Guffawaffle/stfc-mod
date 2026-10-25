@@ -17,6 +17,30 @@
 #include <optional>
 #include <string>
 
+// These retained-course action guards preserve signed scalar identity without changing existing bindings'
+// usual size-compatible integer contract. Lookup and invocation remain the shared IL2CPP implementation.
+namespace planned_warp_binding
+{
+template <il2cpp::Name Name, class Value, class Binding> il2cpp::CallResult<Value> Scalar(Binding* object)
+{
+  static const auto* method = il2cpp::detail::MethodCall<Value()>::Resolve(Binding::Class::Raw(), Name.View(), false);
+  const auto*        actual = il2cpp::detail::ExactScalarGetter(method, object, il2cpp::detail::Primitive<Value>());
+  return actual ? il2cpp::detail::TryInvoke<Value>(actual, object) : il2cpp::CallResult<Value>{};
+}
+template <il2cpp::Name Name, class Value, class Binding> il2cpp::CallResult<Value*> Reference(Binding* object)
+{
+  static const auto* method = il2cpp::detail::MethodCall<Value*()>::Resolve(Binding::Class::Raw(), Name.View(), false);
+  const auto*        actual = il2cpp::detail::ReferenceGetter(method, object, il2cpp::detail::SlotOf<Value*>());
+  return actual ? il2cpp::detail::TryInvoke<Value*>(actual, object) : il2cpp::CallResult<Value*>{};
+}
+template <il2cpp::Name Name, class Value, class Binding> il2cpp::CallResult<Value*> StaticReference()
+{
+  static const auto* method = il2cpp::detail::MethodCall<Value*()>::Resolve(Binding::Class::Raw(), Name.View(), true);
+  const auto*        actual = il2cpp::detail::ReferenceGetter(method, nullptr, il2cpp::detail::SlotOf<Value*>());
+  return actual ? il2cpp::detail::TryInvoke<Value*>(actual, nullptr) : il2cpp::CallResult<Value*>{};
+}
+} // namespace planned_warp_binding
+
 enum class DeployedFleetType : int32_t {
   Nonexistent     = 0,
   Player          = 1,
@@ -58,6 +82,12 @@ struct NodeAddress : il2cpp::Object {
   { return Get<"Planet", int64_t>(); }
   int32_t Instance()
   { return Get<"Instance", int32_t>(); }
+  il2cpp::CallResult<int64_t> TrySystem()
+  { return planned_warp_binding::Scalar<"get_System", int64_t>(this); }
+  il2cpp::CallResult<int32_t> TryInstance()
+  { return planned_warp_binding::Scalar<"get_Instance", int32_t>(this); }
+  il2cpp::CallResult<int32_t> TryNodeDepth()
+  { return planned_warp_binding::Scalar<"get_NodeDepth", int32_t>(this); }
 };
 
 // IDeployedFleet: the server's model behind a deployed fleet. Its class varies (DeployedFleet, DeployedFleetJSON),
@@ -207,6 +237,10 @@ struct FleetPlayerData : il2cpp::Object {
   { return Get<"CurrentState", FleetState>(); }
   int64_t Id()
   { return Get<"Id", int64_t>(); }
+  il2cpp::CallResult<int64_t> TryId()
+  { return planned_warp_binding::Scalar<"get_Id", int64_t>(this); }
+  il2cpp::CallResult<NodeAddress*> TryAddress()
+  { return planned_warp_binding::Reference<"get_Address", NodeAddress>(this); }
   int64_t Level()
   { return Get<"Level", int64_t>(); }
   bool HasShip()
@@ -373,11 +407,88 @@ struct FleetsManager : MonoSingleton<FleetsManager> {
   { Call<"RequestViewFleet">(fleetData, showSystemInfo); }
 };
 
+// Native planned courses also represent deployed fleets without PlayerFleet. FleetID is the identity observation.
+struct PathFinderResultData : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "PathFinderResultData">;
+  il2cpp::CallResult<int32_t> TryResult()
+  { return planned_warp_binding::Scalar<"get_Result", int32_t>(this); }
+};
+struct CourseNode : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "CourseNode">;
+  il2cpp::CallResult<NodeAddress*> TryAddress()
+  { return planned_warp_binding::Reference<"get_Address", NodeAddress>(this); }
+  il2cpp::CallResult<int64_t> TryId()
+  { return planned_warp_binding::Scalar<"get_ID", int64_t>(this); }
+  il2cpp::CallResult<unity::Vector3> TrySystemPosition()
+  { return TryPosition<"get_SystemPosition">(); }
+  il2cpp::CallResult<unity::Vector3> TryGalaxyPosition()
+  { return TryPosition<"get_GalaxyPosition">(); }
+
+private:
+  template <il2cpp::Name Name> il2cpp::CallResult<unity::Vector3> TryPosition()
+  {
+    static const auto* method = il2cpp::detail::MethodCall<unity::Vector3()>::Resolve(Class::Raw(), Name.View(), false);
+    return unity::TryReadVector3(method, this);
+  }
+};
+struct ITreeNode : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "ITreeNode">;
+  il2cpp::CallResult<int64_t> TryId()
+  { return planned_warp_binding::Scalar<"get_ID", int64_t>(this); }
+  il2cpp::CallResult<int32_t> TryType()
+  { return planned_warp_binding::Scalar<"get_Type", int32_t>(this); }
+};
+struct CourseData : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "CourseData">;
+  FleetPlayerData* PlayerFleet()
+  { return Get<"PlayerFleet", FleetPlayerData*>(); }
+  il2cpp::CallResult<int64_t> TryFleetId()
+  { return planned_warp_binding::Scalar<"get_FleetID", int64_t>(this); }
+  il2cpp::CallResult<int32_t> TryType()
+  { return planned_warp_binding::Scalar<"get_Type", int32_t>(this); }
+  il2cpp::CallResult<int32_t> TryTargetAction()
+  { return planned_warp_binding::Scalar<"get_TargetAction", int32_t>(this); }
+  il2cpp::CallResult<bool> TryInUse()
+  { return planned_warp_binding::Scalar<"get_IsInUse", bool>(this); }
+  il2cpp::CallResult<bool> TryWarp()
+  { return planned_warp_binding::Scalar<"get_IsWarpCourse", bool>(this); }
+  il2cpp::CallResult<bool> TryRecall()
+  { return planned_warp_binding::Scalar<"get_IsRecallCourse", bool>(this); }
+  il2cpp::CallResult<bool> TryWormhole()
+  { return planned_warp_binding::Scalar<"get_IsWormholeCourse", bool>(this); }
+  il2cpp::CallResult<bool> TryToll()
+  { return planned_warp_binding::Scalar<"get_HasToll", bool>(this); }
+  il2cpp::CallResult<PathFinderResultData*> TryPath()
+  { return planned_warp_binding::Reference<"get_PathFinderResult", PathFinderResultData>(this); }
+  il2cpp::CallResult<CourseNode*> TryTarget()
+  { return planned_warp_binding::Reference<"get_TargetNode", CourseNode>(this); }
+  il2cpp::CallResult<CourseNode*> TryStart()
+  { return planned_warp_binding::Reference<"get_StartNode", CourseNode>(this); }
+};
+
 struct DeploymentManager : MonoSingleton<DeploymentManager> {
   using Class = il2cpp::Class<"Assembly-CSharp", "", "DeploymentManager">;
 
   bool HasInstantWarpAbility(FleetPlayerData* selectedFleet)
   { return Call<"HasInstantWarpAbility", bool>(selectedFleet); }
+  il2cpp::CallResult<CourseData*> TryPlannedCourse(int64_t fleet_id)
+  {
+    static const auto* method = [] {
+      const auto* candidate =
+          il2cpp::detail::MethodCall<CourseData*(int64_t)>::Resolve(Class::Raw(), "GetPlannedCourse", false);
+      if (candidate
+          && (!candidate->methodPointer
+              || (candidate->has_full_generic_sharing_signature ? !candidate->invoker_method
+                                                                : !candidate->virtualMethodPointer)
+              || (candidate->flags & METHOD_ATTRIBUTE_VIRTUAL)
+              || !il2cpp::detail::ExactScalarMatches(candidate->parameters[0], IL2CPP_TYPE_I8))) {
+        il2cpp::Report("[IL2CPP] DeploymentManager.GetPlannedCourse requires a signed fleet identity");
+        return static_cast<const MethodInfo*>(nullptr);
+      }
+      return candidate;
+    }();
+    return il2cpp::detail::TryInvoke<CourseData*>(method, this, fleet_id);
+  }
 };
 
 struct FleetMeshSelector : il2cpp::Object {
@@ -385,13 +496,6 @@ struct FleetMeshSelector : il2cpp::Object {
 
   unity::GameObject* LoadedObject()
   { return Get<"LoadedObject", unity::GameObject*>(); }
-};
-
-struct CourseData : il2cpp::Object {
-  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "CourseData">;
-
-  FleetPlayerData* PlayerFleet()
-  { return Get<"PlayerFleet", FleetPlayerData*>(); }
 };
 
 // Places a ship model in system view; the hook scales it by ui_scale_ship.

@@ -4,6 +4,7 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "planned_system_warp_policy.h"
 #include "runtime_config.h"
 #include "settings/basic_gameplay_settings.h"
 #include "shortcuts.h"
@@ -200,9 +201,173 @@ bool ActOnPreScan(PreScanTargetWidget* pre_scan, const FleetPress& pressed, Flee
   return false;
 }
 
+template <class T> std::optional<T> WarpObservation(const il2cpp::CallResult<T>& value)
+{ return value ? std::optional{value.value} : std::nullopt; }
+template <class T> il2cpp::GcHandle WarpRoot(const il2cpp::CallResult<T*>& value)
+{
+  if (!value || !value.value)
+    return {};
+  auto root = il2cpp::GcHandle::Strong(value.value);
+  if (!root || !root.Get() || !root.Get<il2cpp::Object>()->Is<T>())
+    return {};
+  return root;
+}
+template <class T> il2cpp::GcHandle WarpRoot(T* value)
+{ return WarpRoot(il2cpp::CallResult<T*>{true, value}); }
+planned_system_warp::Vec3 WarpPosition(unity::Vector3 position)
+{ return {position.x, position.y, position.z}; }
+std::uintptr_t WarpIdentity(const il2cpp::GcHandle& root)
+{ return reinterpret_cast<std::uintptr_t>(root.Get()); }
+planned_system_warp::Visibility WarpViewerVisibility(StarNodeObjectViewerWidget* node)
+{
+  auto source = WarpRoot(node);
+  if (!source)
+    return planned_system_warp::Visibility::Unavailable;
+  auto visibility = WarpRoot(source.Get<StarNodeObjectViewerWidget>()->visibilityController());
+  if (!visibility || !VisibilityController::Class::HasField<"_state", VisibilityState>())
+    return planned_system_warp::Visibility::Unavailable;
+  const auto state = visibility.Get<VisibilityController>()->state();
+  if (state != VisibilityState::Visible && state != VisibilityState::Show)
+    return state == VisibilityState::Hide || state == VisibilityState::Hidden
+               ? planned_system_warp::Visibility::Hidden
+               : planned_system_warp::Visibility::Unavailable;
+  auto       parent = WarpRoot(planned_warp_binding::Reference<"get_Parent", ParentObjectViewerViewController>(
+      source.Get<StarNodeObjectViewerWidget>()));
+  const auto showing =
+      parent ? planned_warp_binding::Scalar<"get_IsShowing", bool>(parent.Get<ParentObjectViewerViewController>())
+             : il2cpp::CallResult<bool>{};
+  return !showing        ? planned_system_warp::Visibility::Unavailable
+         : showing.value ? planned_system_warp::Visibility::Visible
+                         : planned_system_warp::Visibility::Hidden;
+}
+
+// Resume only an unused ordinary course that still describes this fleet and the retained galaxy selection.
+// Every managed source is operation-local and rooted; all policy observations are copied values.
+template <class ReadContext> bool TryPlannedSystemWarp(FleetPlayerData* fleet, ReadContext&& read_context)
+{
+  try {
+    auto fleet_root = WarpRoot(fleet);
+    auto context    = WarpRoot(read_context());
+    if (!fleet_root || !context || Hub::CurrentSection() != SectionID::Navigation_Galaxy)
+      return false;
+    const auto fleet_id = fleet_root.Get<FleetPlayerData>()->TryId();
+    if (!fleet_id)
+      return false;
+    auto deployment =
+        WarpRoot(planned_warp_binding::StaticReference<"get_Instance", DeploymentManager, DeploymentManager>());
+    auto section = WarpRoot(
+        planned_warp_binding::StaticReference<"get_Instance", NavigationSectionManager, NavigationSectionManager>());
+    if (!deployment || !section)
+      return false;
+    auto navigation = WarpRoot(planned_warp_binding::Reference<"get_NavigationManager", NavigationManager>(
+        section.Get<NavigationSectionManager>()));
+    if (!navigation)
+      return false;
+    auto controller = WarpRoot(navigation.Get<NavigationManager>()->TryInteractionController());
+    if (!controller)
+      return false;
+    auto helper = WarpRoot(controller.Get<NavigationInteractionUIViewController>()->TryFleetHelper());
+    if (!helper)
+      return false;
+    LocaleTextContext* message      = nullptr;
+    const auto         can_navigate = helper.Get<FleetNavigationHelper>()->TryValidateInput(fleet_id.value, message);
+    auto               message_root = WarpRoot(message);
+    if (!can_navigate || !can_navigate.value || (message && !message_root))
+      return false;
+    auto course = WarpRoot(deployment.Get<DeploymentManager>()->TryPlannedCourse(fleet_id.value));
+    if (!course)
+      return false;
+    auto path          = WarpRoot(course.Get<CourseData>()->TryPath());
+    auto target        = WarpRoot(course.Get<CourseData>()->TryTarget());
+    auto start         = WarpRoot(course.Get<CourseData>()->TryStart());
+    auto fleet_address = WarpRoot(fleet_root.Get<FleetPlayerData>()->TryAddress());
+    if (!path || !target || !start || !fleet_address)
+      return false;
+    auto target_address = WarpRoot(target.Get<CourseNode>()->TryAddress());
+    auto start_address  = WarpRoot(start.Get<CourseNode>()->TryAddress());
+    auto context_path   = WarpRoot(context.Get<NavigationInteractionUIContext>()->TryPath());
+    auto animator       = WarpRoot(navigation.Get<NavigationManager>()->TryTransitionAnimator());
+    if (!target_address || !start_address || !context_path || !animator)
+      return false;
+
+    planned_system_warp::Evidence evidence{.primary = true, .galaxy = true};
+    evidence.selected_fleet_id   = fleet_id.value;
+    evidence.course_fleet_id     = WarpObservation(course.Get<CourseData>()->TryFleetId());
+    evidence.native_can_navigate = can_navigate.value;
+    evidence.course_type         = WarpObservation(course.Get<CourseData>()->TryType());
+    evidence.target_action       = WarpObservation(course.Get<CourseData>()->TryTargetAction());
+    evidence.in_use              = WarpObservation(course.Get<CourseData>()->TryInUse());
+    evidence.is_warp             = WarpObservation(course.Get<CourseData>()->TryWarp());
+    evidence.is_recall           = WarpObservation(course.Get<CourseData>()->TryRecall());
+    evidence.is_wormhole         = WarpObservation(course.Get<CourseData>()->TryWormhole());
+    evidence.has_toll            = WarpObservation(course.Get<CourseData>()->TryToll());
+    evidence.path_result         = WarpObservation(path.Get<PathFinderResultData>()->TryResult());
+    evidence.target_depth        = WarpObservation(target_address.Get<NodeAddress>()->TryNodeDepth());
+    evidence.start_system        = WarpObservation(start_address.Get<NodeAddress>()->TrySystem());
+    evidence.start_instance      = WarpObservation(start_address.Get<NodeAddress>()->TryInstance());
+    evidence.fleet_system        = WarpObservation(fleet_address.Get<NodeAddress>()->TrySystem());
+    evidence.fleet_instance      = WarpObservation(fleet_address.Get<NodeAddress>()->TryInstance());
+    evidence.target_node_id      = WarpObservation(target.Get<CourseNode>()->TryId());
+    const auto destination       = target.Get<CourseNode>()->TrySystemPosition();
+    const auto galaxy_position   = target.Get<CourseNode>()->TryGalaxyPosition();
+    const auto retained_position = context.Get<NavigationInteractionUIContext>()->TryPosition();
+    if (destination)
+      evidence.system_position = WarpPosition(destination.value);
+    if (galaxy_position)
+      evidence.target_galaxy_position = WarpPosition(galaxy_position.value);
+    if (retained_position) {
+      const auto projected = animator.Get<NavigationTransitionAnimator>()->TryWorldToDepth(retained_position.value, 1);
+      if (projected)
+        evidence.projected_context_position = WarpPosition(projected.value);
+    }
+    const auto observed_tree = context.Get<NavigationInteractionUIContext>()->TryTreeNode();
+    auto       tree          = WarpRoot(observed_tree);
+    if (observed_tree && !observed_tree.value)
+      evidence.tree_node = 0;
+    else if (tree) {
+      evidence.tree_node = WarpIdentity(tree);
+      evidence.tree_id   = WarpObservation(tree.Get<ITreeNode>()->TryId());
+      evidence.tree_type = WarpObservation(tree.Get<ITreeNode>()->TryType());
+    }
+    evidence.path_identity = {WarpIdentity(path), WarpIdentity(context_path)};
+
+    // Getter/validator calls can reenter game code. Recheck the selected source before dispatch, without keeping
+    // any previous result across actions or using a different fleet/context's destination.
+    auto current_context = WarpRoot(read_context());
+    auto panel           = WarpRoot(FleetBarViewController::NewestPanel());
+    auto current_fleet   = panel ? WarpRoot(planned_warp_binding::Reference<"get_fleet", FleetPlayerData>(
+                                       panel.Get<FleetLocalViewController>()))
+                                 : il2cpp::GcHandle{};
+    auto current_course  = WarpRoot(deployment.Get<DeploymentManager>()->TryPlannedCourse(fleet_id.value));
+    if (!current_context || !current_fleet || !current_course || WarpIdentity(course) != WarpIdentity(current_course)
+        || Hub::CurrentSection() != SectionID::Navigation_Galaxy)
+      return false;
+    const auto current_fleet_id = current_fleet.Get<FleetPlayerData>()->TryId();
+    if (!current_fleet_id || current_fleet_id.value != fleet_id.value)
+      return false;
+    auto       current_path     = WarpRoot(current_course.Get<CourseData>()->TryPath());
+    auto       retained_path    = WarpRoot(current_context.Get<NavigationInteractionUIContext>()->TryPath());
+    const auto current_position = current_context.Get<NavigationInteractionUIContext>()->TryPosition();
+    if (!current_path || !retained_path || WarpIdentity(current_path) != WarpIdentity(path)
+        || WarpIdentity(retained_path) != WarpIdentity(context_path) || !current_position || !retained_position
+        || WarpPosition(current_position.value) != WarpPosition(retained_position.value))
+      return false;
+    evidence.fleet_identity   = {WarpIdentity(fleet_root), WarpIdentity(current_fleet)};
+    evidence.context_identity = {WarpIdentity(context), WarpIdentity(current_context)};
+    const auto request        = planned_system_warp::Prepare(evidence);
+    return request
+           && navigation.Get<NavigationManager>()
+                  ->TryMovePlanned({request->system_position.x, request->system_position.y, request->system_position.z},
+                                   request->node_id, request->fleet_id)
+                  .succeeded;
+  } catch (...) {
+    return false; // Optional recovery failed; the consumed hidden action is never retried or sent elsewhere.
+  }
+}
+
 // Acts on whatever other viewer is open: a mining node, a system node, or an empty spot in space. Returns true
 // when the press was used.
-bool ActOnViewer(const FleetPress& pressed)
+bool ActOnViewer(const FleetPress& pressed, FleetPlayerData* fleet)
 {
   if (auto* mine = unity::Newest<MiningObjectViewerWidget>(); TargetShown(mine, pressed)) {
     if (auto* buttons = mine->scanEngageButtonsWidget(); pressed.secondary && buttons) {
@@ -218,18 +383,38 @@ bool ActOnViewer(const FleetPress& pressed)
     return false;
   }
 
-  if (auto* node = unity::Newest<StarNodeObjectViewerWidget>();
-      node && node->Context()
-      && (!pressed.primary || !Config::Get().control.primary_requires_visible_target || TargetShown(node, pressed))) {
-    if (pressed.secondary) {
-      node->OnViewButtonActivation();
-      return true;
+  if (auto* node = unity::Newest<StarNodeObjectViewerWidget>(); node && node->Context()) {
+    const bool galaxy     = Hub::CurrentSection() == SectionID::Navigation_Galaxy;
+    const auto visibility = pressed.primary ? WarpViewerVisibility(node) : planned_system_warp::Visibility::Unavailable;
+    if (planned_system_warp::ViewerEligible(pressed.primary, galaxy, visibility,
+                                            Config::Get().control.primary_requires_visible_target)) {
+      if (pressed.secondary) {
+        node->OnViewButtonActivation();
+        return true;
+      }
+      const auto route = planned_system_warp::RoutePrimary(pressed.primary, pressed.secondary, galaxy, visibility,
+                                                           Config::Get().control.primary_requires_visible_target);
+      if (route == planned_system_warp::PrimaryRoute::Retained) {
+        auto source = WarpRoot(node);
+        if (source)
+          (void)TryPlannedSystemWarp(fleet, [&] {
+            auto* current = source.Get<StarNodeObjectViewerWidget>();
+            if (!current || current != unity::Newest<StarNodeObjectViewerWidget>()
+                || !current->Is<unity::UnityObject>())
+              return il2cpp::CallResult<NavigationInteractionUIContext*>{};
+            const auto alive = unity::TryAlive(current);
+            if (!alive || !alive.value)
+              return il2cpp::CallResult<NavigationInteractionUIContext*>{};
+            return planned_warp_binding::Reference<"get_Context", NavigationInteractionUIContext>(
+                source.Get<StarNodeObjectViewerWidget>());
+          });
+        return true;
+      }
+      if (route == planned_system_warp::PrimaryRoute::Native) {
+        node->InitiateWarp();
+        return true;
+      }
     }
-    if (pressed.primary) {
-      node->InitiateWarp();
-      return true;
-    }
-    return false;
   }
 
   auto* navigation = unity::Newest<NavigationInteractionUIViewController>();
@@ -238,6 +423,19 @@ bool ActOnViewer(const FleetPress& pressed)
 
   auto* armada = unity::Newest<ArmadaObjectViewerWidget>();
   if (!ArmadaViewerShown(armada)) {
+    if (Hub::CurrentSection() == SectionID::Navigation_Galaxy && !navigation->IsSetCourseVisible()) {
+      auto source = WarpRoot(navigation);
+      if (source)
+        (void)TryPlannedSystemWarp(fleet, [&] {
+          auto* current = source.Get<NavigationInteractionUIViewController>();
+          if (!current || current != unity::Newest<NavigationInteractionUIViewController>()
+              || !current->Is<unity::UnityObject>())
+            return il2cpp::CallResult<NavigationInteractionUIContext*>{};
+          const auto alive = unity::TryAlive(current);
+          return alive && alive.value ? current->TryContext() : il2cpp::CallResult<NavigationInteractionUIContext*>{};
+        });
+      return true;
+    }
     if (Config::Get().control.primary_requires_visible_target && !navigation->IsSetCourseVisible())
       return false;
     navigation->OnSetCourseButtonClick();
@@ -274,7 +472,7 @@ void ActOnSelectedFleet(const FleetPress& pressed)
     if (TargetShown(pre_scan, pressed) && ActOnPreScan(pre_scan, pressed, fleet, queue))
       return;
 
-  if (ActOnViewer(pressed))
+  if (ActOnViewer(pressed, fleet))
     return;
 
   static constexpr std::array kRecallable{FleetState::IdleInSpace, FleetState::Impulsing, FleetState::Mining,
