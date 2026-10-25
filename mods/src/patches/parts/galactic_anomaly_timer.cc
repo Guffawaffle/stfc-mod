@@ -41,15 +41,20 @@ bool TryInvoke(const MethodInfo* method, void* target, void** args, Il2CppObject
 }
 
 // Unity has Type/string and generic overloads with the same argument count.
-const MethodInfo* TypeMethod(Il2CppClass* cls, const char* name)
+const MethodInfo* TypeMethod(Il2CppClass* cls, const char* name, int argumentCount = 1)
 {
   // The shared filtered lookup cannot inspect is_generic and only searches
   // one class. Keep the overload check here so a generic overload cannot win.
   void* iter = nullptr;
   while (cls) {
     while (auto* method = il2cpp_class_get_methods(cls, &iter)) {
-      if (method->is_generic || std::strcmp(method->name, name) || method->parameters_count != 1)
+      if (method->is_generic || std::strcmp(method->name, name) || method->parameters_count != argumentCount)
         continue;
+      if (argumentCount == 2) {
+        auto* second = il2cpp_method_get_param(method, 1);
+        if (!second || il2cpp_type_is_byref(second) || il2cpp_type_get_type(second) != IL2CPP_TYPE_BOOLEAN)
+          continue;
+      }
       auto* param = il2cpp_class_from_type(il2cpp_method_get_param(method, 0));
       if (param && !std::strcmp(il2cpp_class_get_namespace(param), "System")
           && !std::strcmp(il2cpp_class_get_name(param), "Type"))
@@ -221,7 +226,12 @@ Il2CppObject* RegisteredController(Il2CppClass* controllerClass, Il2CppClass* co
       continue;
     // Search only the registered canvas that owns this context. The top
     // interaction canvas and its root can belong to unrelated overlays.
-    auto* controller = WithType(TypeMethod(canvas->klass, "GetComponentInChildren"), canvas, controllerClass);
+    // Component exposes the non-generic (Type, bool) overload. The one-argument
+    // overload is generic and cannot be invoked with a runtime Type object.
+    bool          includeInactive = false;
+    void*         controllerArgs[] = {il2cpp_type_get_object(il2cpp_class_get_type(controllerClass)), &includeInactive};
+    Il2CppObject* controller = nullptr;
+    TryInvoke(TypeMethod(canvas->klass, "GetComponentInChildren", 2), canvas, controllerArgs, &controller);
     if (Alive(controller))
       return controller;
   }
