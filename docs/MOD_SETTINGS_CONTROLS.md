@@ -102,8 +102,9 @@ cards when the Swap Ship view next binds them and does not add indicators to the
 
 Pinning is available on `Manage Ship > Swap Ship` cards without a user-facing
 enable switch. A filled gold marker shows a pinned ship; a muted hollow marker
-shows an unpinned ship. Rank numbers are not shown. Press and release the marker
-to pin or unpin the ship; clicking elsewhere on the card selects it. A quick
+shows an unpinned ship. Rank numbers are not shown. Double-click the same marker
+within 400 ms to pin or unpin the ship. A single marker click makes no change;
+clicking elsewhere on the card selects it. A quick
 drag scrolls the ship row without toggling a pin. Hold the marker for about
 125 ms to arm a pin drag; the source card gets an outline as soon as the hold
 engages, before it moves. The marker is the drag handle.
