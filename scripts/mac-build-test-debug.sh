@@ -234,6 +234,7 @@ package_app_bundle() {
 
     mkdir -p "${PACKAGED_APP_PATH}/Contents/Resources"
     cp "$LOADER_PATH" "${PACKAGED_APP_PATH}/Contents/stfc-community-mod-loader"
+    cp "${BUILD_DIR}/stfc-profiles" "${PACKAGED_APP_PATH}/Contents/stfc-profiles"
     cp "$dylib_path" "${PACKAGED_APP_PATH}/Contents/libstfc-community-mod.dylib"
     cp "$icon_path" "${PACKAGED_APP_PATH}/Contents/Resources/"
     cp "$info_plist_path" "${PACKAGED_APP_PATH}/Contents/"

@@ -5,6 +5,11 @@
 
 #include "patches/patches.h"
 
+// Inspected as Mach-O data before starting a named profile; never dlopen this
+// runtime into the coordinator, because its constructor owns game hooks.
+extern "C" __attribute__((visibility("default"), used, section("__DATA,__stfc_profile")))
+const unsigned int STFCProfilesExplicitLaunchContractV1 = 1;
+
 __attribute__((constructor))
 void myconstructor(int argc, const char **argv)
 {
