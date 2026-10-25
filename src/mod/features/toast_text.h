@@ -4,9 +4,11 @@
 
 #include <algorithm>
 #include <charconv>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace toast_text
 {
@@ -39,6 +41,43 @@ inline std::string FormatPlaceholders(std::string_view text, std::span<const std
     text.remove_prefix(close + 1);
   }
   result += text;
+  return result;
+}
+
+// The reader distinguishes missing/failed metadata from a successfully observed null or empty array.
+enum class ParameterState { kUnavailable, kInvalid, kNull, kEmpty, kValues };
+enum class ParameterSource { kNone, kToast, kContext };
+struct ParameterRead {
+  ParameterState           state = ParameterState::kUnavailable;
+  std::vector<std::string> values;
+};
+struct ParameterFormat {
+  std::string                   text;
+  ParameterSource               source = ParameterSource::kNone;
+  std::optional<ParameterState> toast;
+  std::optional<ParameterState> context;
+};
+
+// A supplied nonempty toast array has precedence, even if some slots cannot be converted. Only absent, empty,
+// unavailable or invalid toast arrays fall back to the context; the two sources are never merged or rescanned.
+template <typename Read> ParameterFormat FormatParameters(std::string_view text, Read&& read)
+{
+  ParameterFormat result{std::string(text)};
+  if (!text.contains('{'))
+    return result;
+  auto primary = read(ParameterSource::kToast);
+  result.toast = primary.state;
+  if (primary.state == ParameterState::kValues && !primary.values.empty()) {
+    result.text   = FormatPlaceholders(text, primary.values);
+    result.source = ParameterSource::kToast;
+    return result;
+  }
+  auto fallback  = read(ParameterSource::kContext);
+  result.context = fallback.state;
+  if (fallback.state == ParameterState::kValues && !fallback.values.empty()) {
+    result.text   = FormatPlaceholders(text, fallback.values);
+    result.source = ParameterSource::kContext;
+  }
   return result;
 }
 

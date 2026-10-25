@@ -174,6 +174,14 @@ extern const Feature kLoadingTips;
 // missions.cc
 extern const Feature kMissionHud;
 extern const Feature kDailyClaimFilter;
+namespace mission_hud
+{
+bool Available() noexcept;
+// Native refresh/application rejects reentrant preference changes.
+bool CanChange() noexcept;
+// Re-run the native setup paths on weakly tracked, currently enabled HUDs.
+void Refresh() noexcept;
+} // namespace mission_hud
 
 // officers.cc
 extern const Feature kOfficerSort;

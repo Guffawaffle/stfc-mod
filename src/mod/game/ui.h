@@ -118,6 +118,9 @@ struct ColourTextLocalizer : TextLocalizer {
 struct LocaleTextContext : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "LocaleTextContext">;
 
+  il2cpp::CallResult<il2cpp::ArrayObject*> TryTextParameters()
+  { return TryCall<"get_TextParameters", il2cpp::ArrayObject*>(); }
+
   // Fills the {N} slots of the identifier itself, e.g. "ship_name_{0}".
   void ApplyIdentifierParameters(il2cpp::Array<Il2CppObject*>* parameters)
   { Call<"ApplyIdentifierParameters">(parameters); }
@@ -394,10 +397,10 @@ struct Toast : il2cpp::Object {
 
   ToastState State()
   { return Get<"State", ToastState>(); }
-  il2cpp::Array<Il2CppObject*>* TextParameters()
-  { return Get<"TextParameters", il2cpp::Array<Il2CppObject*>*>(); }
+  il2cpp::CallResult<il2cpp::ArrayObject*> TryTextParameters()
+  { return TryCall<"get_TextParameters", il2cpp::ArrayObject*>(); }
   LocaleTextContext* TextLocaleTextContext()
-  { return static_cast<LocaleTextContext*>(Get<"TextLocaleTextContext", Il2CppObject*>()); }
+  { return Get<"TextLocaleTextContext", LocaleTextContext*>(); }
   // A different type per toast state: BattleResultHeader, EventModel, ArmadaCreatedData, ...
   il2cpp::Object* Data()
   { return Get<"Data", il2cpp::Object*>(); }

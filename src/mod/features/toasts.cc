@@ -233,51 +233,100 @@ std::string ArmadaCreatedBody(ArmadaCreatedData* data)
 }
 
 // The string form of each element: strings as they are, everything else through its ToString override.
-std::vector<std::string> ParameterValues(il2cpp::Array<Il2CppObject*>* parameters)
+toast_text::ParameterRead ParameterValues(const il2cpp::GcHandle& array_root)
 {
+  auto* array = array_root.Get<il2cpp::Array<Il2CppObject*>>();
+  if (!array)
+    return {};
+  const auto count = array->size();
+  if (!count)
+    return {.state = toast_text::ParameterState::kEmpty};
   std::vector<std::string> values;
-  for (auto* element : il2cpp::Items(parameters)) {
+  values.reserve(count);
+  for (size_t i = 0; i < count; ++i) {
+    // A managed ToString may allocate. Keep the array and current element rooted, and do not retain a span
+    // into managed storage across it. Reacquire the array target for each observation.
+    array = array_root.Get<il2cpp::Array<Il2CppObject*>>();
+    if (!array)
+      return {};
+    auto* element      = (*array)[i];
+    auto  element_root = il2cpp::GcHandle::Strong(element);
+    if (element && !element_root)
+      return {};
     Il2CppString* text = nullptr;
     if (element)
-      Guarded("a text parameter", [&] { text = il2cpp::ToString(static_cast<il2cpp::Object*>(element)); });
-    values.push_back(il2cpp::ToUtf8(text));
+      Guarded("a text parameter", [&] { text = il2cpp::ToString(element_root.Get<il2cpp::Object>()); });
+    auto text_root = il2cpp::GcHandle::Strong(text ? &text->object : nullptr);
+    if (text && !text_root)
+      return {};
+    values.push_back(il2cpp::ToUtf8(reinterpret_cast<Il2CppString*>(text_root.Get())));
   }
-  return values;
+  return {.state = toast_text::ParameterState::kValues, .values = std::move(values)};
 }
 
-// Fills `text` from the toast's TextParameters, its object[] field. Other array fields may hold unboxed values
-// rather than object pointers, so they are not read as parameters.
-std::string FormatToastText(const std::string& text, Toast* toast)
+template <typename Source> toast_text::ParameterRead ReadToastParameters(Source* source)
 {
-  if (auto* parameters = toast->TextParameters(); parameters && parameters->size() > 0)
-    return toast_text::FormatPlaceholders(text, ParameterValues(parameters));
-  if (text.contains('{'))
-    spdlog::warn("[Toasts] TextParameters unavailable; placeholders unresolved in template: \"{}\"", text);
-  return text;
+  if (!source)
+    return {};
+  const auto observed = source->TryTextParameters();
+  if (!observed)
+    return {};
+  if (!observed.value)
+    return {.state = toast_text::ParameterState::kNull};
+  // A getter may return a temporary array. Retain it before metadata resolution, not only before ToString.
+  auto array_root = il2cpp::GcHandle::Strong(observed.value);
+  if (!array_root || !array_root.Get())
+    return {};
+  const auto checked = il2cpp::TryReferenceArray<Il2CppObject*>(array_root.Get());
+  if (!checked)
+    return {.state = toast_text::ParameterState::kInvalid};
+  return ParameterValues(array_root);
+}
+
+// Both named getters are object[] in the retained client metadata. Never scan unrelated array fields.
+std::string FormatToastText(const std::string& text, const il2cpp::GcHandle& toast_root,
+                            const il2cpp::GcHandle& context_root)
+{
+  auto result = toast_text::FormatParameters(text, [&](toast_text::ParameterSource source) {
+    return source == toast_text::ParameterSource::kToast ? ReadToastParameters(toast_root.Get<Toast>())
+                                                         : ReadToastParameters(context_root.Get<LocaleTextContext>());
+  });
+  if (result.source == toast_text::ParameterSource::kNone && text.contains('{'))
+    spdlog::warn("[Toasts] No usable text parameters; placeholders unresolved in template: \"{}\"", text);
+  return std::move(result.text);
 }
 
 // The toast's own localized text with its parameters filled in, for toasts without a body of their own.
 std::string ToastText(Toast* toast)
 {
-  auto* context = toast->TextLocaleTextContext();
+  auto toast_root = il2cpp::GcHandle::Strong(toast);
+  if (!toast_root || !toast_root.Get<Toast>())
+    return {};
+  auto* context = toast_root.Get<Toast>()->TextLocaleTextContext();
   if (!context) {
-    spdlog::debug("[Toasts] No TextLocaleTextContext for toast state {}", std::to_underlying(toast->State()));
+    spdlog::debug("[Toasts] No TextLocaleTextContext for toast state {}",
+                  std::to_underlying(toast_root.Get<Toast>()->State()));
     return {};
   }
+  auto context_root = il2cpp::GcHandle::Strong(context);
+  if (!context_root || !context_root.Get<il2cpp::Object>()
+      || !context_root.Get<il2cpp::Object>()->As<LocaleTextContext>())
+    return {};
 
   // LocaleUtilities.Localize fills the context's own parameters; the toast may carry them instead.
-  if (auto* text = LocaleUtilities::Localize(context, true, false)) {
+  if (auto* text = LocaleUtilities::Localize(context_root.Get<LocaleTextContext>(), true, false)) {
     auto result = il2cpp::ToUtf8(text);
-    return result.contains('{') ? FormatToastText(result, toast) : result;
+    return result.contains('{') ? FormatToastText(result, toast_root, context_root) : result;
   }
 
   Il2CppString* text    = nullptr;
   auto*         manager = LanguageManager::Instance();
-  if (!manager || !manager->Localize(text, context) || !text) {
-    spdlog::debug("[Toasts] toast state {} could not be localized", std::to_underlying(toast->State()));
+  if (!manager || !manager->Localize(text, context_root.Get<LocaleTextContext>()) || !text) {
+    spdlog::debug("[Toasts] toast state {} could not be localized",
+                  std::to_underlying(toast_root.Get<Toast>()->State()));
     return {};
   }
-  return FormatToastText(il2cpp::ToUtf8(text), toast);
+  return FormatToastText(il2cpp::ToUtf8(text), toast_root, context_root);
 }
 
 // Empty for a category this table does not name.

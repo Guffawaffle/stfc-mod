@@ -112,6 +112,13 @@ namespace detail
   template <typename T>
   concept Bound = requires { T::Class::Raw(); };
 
+  template <typename E>
+  concept ManagedReference = std::is_pointer_v<E>
+                             && (Bound<std::remove_cv_t<std::remove_pointer_t<E>>>
+                                 || std::is_same_v<std::remove_cv_t<std::remove_pointer_t<E>>, Il2CppString>
+                                 || std::is_same_v<std::remove_cv_t<std::remove_pointer_t<E>>, Il2CppReflectionType>
+                                 || std::is_base_of_v<Il2CppObject, std::remove_cv_t<std::remove_pointer_t<E>>>);
+
   template <typename T> constexpr auto ClassOf()
   {
     if constexpr (Bound<T>)
@@ -192,6 +199,8 @@ namespace detail
   const MethodInfo* ResolveProperty(Il2CppClass* klass, std::string_view name, const Slot& value, bool setter,
                                     bool is_static);
   FieldInfo*        ResolveField(Il2CppClass* klass, std::string_view name, const Slot& value, bool is_static);
+  // Actual zero-based reference-vector storage, with one-way element assignability.
+  bool ReferenceArrayMatches(const Il2CppObject* object, const Slot& element);
   // Fully shared generic and abstract methods have no code of their own to detour: null, after a report.
   Method Hookable(const MethodInfo* method);
 
@@ -639,6 +648,13 @@ inline Il2CppString* ToString(Object* object)
 
 // --- Collections ---
 
+// A bound managed-array reference for getters that must not accept IntPtr or
+// unmanaged-pointer return metadata. Keep separate from Array<T>: changing its
+// base would alter the established signature checks of every generic array.
+struct ArrayObject : Object {
+  using Class = il2cpp::Class<"mscorlib", "System", "Array">;
+};
+
 // Managed T[]. Element references are borrowed; use Set to store references with a GC barrier.
 // Set supports references and primitives only.
 template <typename T> struct Array : Il2CppObject {
@@ -668,6 +684,20 @@ template <typename T> struct Array : Il2CppObject {
       data()[index] = value;
   }
 };
+
+// Checks an already acquired object before treating its storage as reference
+// elements. A null INPUT is successful/null; this does not establish that a
+// getter/field read succeeded. The returned array and elements remain borrowed.
+template <typename E>
+  requires detail::ManagedReference<E>
+CallResult<Array<E>*> TryReferenceArray(Il2CppObject* value)
+{
+  if (!value)
+    return {true, nullptr};
+  if (!detail::ReferenceArrayMatches(value, detail::SlotOf<E>()))
+    return {};
+  return {true, reinterpret_cast<Array<E>*>(value)};
+}
 
 // System.Collections.Generic.List`1, or any class with the same indexer and Count members.
 // Members resolve on the runtime class, so this works for inflated generics and IList implementers.

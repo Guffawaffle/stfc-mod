@@ -110,6 +110,24 @@ They still belong in `src/mod/game/`.
 `Object::HasMethod<F>(name)` checks a method on such a runtime class without calling it.
 `CallOnField<"field", T, "Method", R>()` calls a parameterless method on a value-type field in place.
 
+`TryReferenceArray<E>(object)` checks an acquired object before reading reference-vector elements. `E` must be a
+managed reference pointer, such as `Il2CppObject*`, `Il2CppString*` or a bound object type. It rejects inline values,
+unmanaged pointers, unresolved element types, by-reference descriptors and non-vector array shapes. Typed elements
+are assignable toward `E`; a base-type array cannot become a derived-type array. The existing SDK's SZARRAY element
+metadata and already-required runtime APIs supply these checks; no additional platform export is required.
+
+Acquire candidate arrays with a qualified managed-reference result, for example
+`TryCall<"get_TextParameters", il2cpp::ArrayObject*>()`, before passing the value to the shape check. This separate
+bound System.Array facade rejects pointer/numerical getter return metadata before invocation. Generic `Array<T>*`
+keeps its existing unbound signature semantics and cannot alone establish that acquisition guarantee.
+
+The result uses `CallResult<Array<E>*>`. Null input succeeds with null output, which qualifies only the input's
+shape: callers must establish whether the original field/getter read succeeded separately. Arrays and elements
+remain borrowed; retain GC custody when their lifetime extends beyond the current native call.
+This qualifies reference storage for reading, not covariant writes through `Array::Set`. An unbound wrapper has no
+expected managed class, so the check does not establish that wrapper's subclass identity. The current consumers
+keep rooted custody while inspecting the arrays and do not mutate their contents.
+
 `il2cpp::List<T>` supports indexed reads and `Set`, `Add`, `RemoveAt`, and `Clear`.
 Its iterator reads `Count` once. Do not mutate the list during iteration.
 `il2cpp::Array<T>` views a managed array; its `Set` applies reference write barriers.

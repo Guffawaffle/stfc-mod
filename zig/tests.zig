@@ -47,6 +47,23 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
     const test_runtime_reload = b.step("test-runtime-reload", "Run pure pending-setting reload overlay fixtures");
     const test_mod_state = b.step("test-mod-state", "Run isolated mod-state transaction and writer fixtures");
     const test_basic_gameplay = b.step("test-basic-gameplay", "Run actual gameplay mutation helpers through the preserving file worker");
+    const test_gameplay_presentation = b.step("test-gameplay-presentation", "Run pure gameplay presentation and lifecycle policies");
+    const test_officer_preset_order = b.step("test-officer-preset-order", "Run canonical and presentation officer preset order policies");
+    const test_hud_visibility = b.step("test-hud-visibility", "Run HUD baseline restoration and native refresh sequence policies");
+    const test_toast_parameters = b.step("test-toast-parameters", "Run toast parameter source selection and formatting fixtures");
+    inline for (.{ "officer_preset_order", "hud_visibility", "toast_parameters" }) |fixture| {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}_test.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        const exe = ctx.executable(b.fmt("{s}-tests", .{fixture}), module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_gameplay_presentation.dependOn(&run.step);
+        test_mod.dependOn(&run.step);
+        if (comptime std.mem.eql(u8, fixture, "officer_preset_order")) test_officer_preset_order.dependOn(&run.step);
+        if (comptime std.mem.eql(u8, fixture, "hud_visibility")) test_hud_visibility.dependOn(&run.step);
+        if (comptime std.mem.eql(u8, fixture, "toast_parameters")) test_toast_parameters.dependOn(&run.step);
+    }
     {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
@@ -269,7 +286,14 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         module.addIncludePath(b.path("src/mod"));
         module.addIncludePath(b.path("src/libs/unity/include"));
         module.addCSourceFile(.{ .file = b.path("src/libs/unity/src/input.cc"), .flags = flags });
-        addFixture(ctx, build_tests, test_il2cpp, "il2cpp-bindings-tests", module);
+        const exe = ctx.executable("il2cpp-bindings-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        test_il2cpp.dependOn(&b.addRunArtifact(exe).step);
+        // Metadata resolution is process-cached. Missing required array-class
+        // metadata must be observed before any successful lookup in this process.
+        const missing_array_class = b.addRunArtifact(exe);
+        missing_array_class.addArg("array-class-missing");
+        test_il2cpp.dependOn(&missing_array_class.step);
     }
     {
         const module = ctx.createModule(true);

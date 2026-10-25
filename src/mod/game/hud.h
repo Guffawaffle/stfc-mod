@@ -17,6 +17,16 @@ struct MissionsHudViewController : il2cpp::Object {
   // The buttons are a mix of Button and GenericButtonWidget fields; only their GameObject matters to the mod.
   template <il2cpp::Name N> unity::Component* ButtonField()
   { return Field<N, unity::Component*>(); }
+
+  bool TryRefreshAchievements()
+  { return TryCall<"SetupAchievementsButton", void()>().succeeded; }
+  bool TryRefreshOutposts()
+  { return TryCall<"HandleOutpostsAndChallengesHUD", void()>().succeeded; }
+  bool ActiveForRefresh()
+  {
+    const auto observed = TryCall<"get_isActiveAndEnabled", bool>();
+    return observed && observed.value;
+  }
 };
 
 struct FactionInformation : il2cpp::Object {

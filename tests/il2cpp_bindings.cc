@@ -166,6 +166,9 @@ FakeClass& bool_class          = Define("System", "Boolean", IL2CPP_TYPE_BOOLEAN
 FakeClass& float_class         = Define("System", "Single", IL2CPP_TYPE_R4, nullptr, 4);
 FakeClass& string_class        = Define("System", "String", IL2CPP_TYPE_STRING, &object_class);
 FakeClass& type_class          = Define("System", "Type", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& array_class         = Define("System", "Array", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& object_array_class  = Define("System", "Object[]", IL2CPP_TYPE_SZARRAY, &array_class);
+FakeClass& string_array_class  = Define("System", "String[]", IL2CPP_TYPE_SZARRAY, &array_class);
 FakeClass& vec3_class          = Define("UnityEngine", "Vector3", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(Vec3));
 FakeClass& state_class         = Define("Game", "State", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
 FakeClass& base_class          = Define("Game", "Base", IL2CPP_TYPE_CLASS, &object_class);
@@ -178,6 +181,8 @@ FakeClass& list_b_class        = Define("Game", "ListB", IL2CPP_TYPE_CLASS, &obj
 FakeClass& delegate_base       = Define("System", "Delegate", IL2CPP_TYPE_CLASS, &object_class);
 FakeClass& action_class        = Define("System", "Action", IL2CPP_TYPE_CLASS, &delegate_base);
 FakeClass& intptr_class        = Define("System", "IntPtr", IL2CPP_TYPE_I, nullptr, sizeof(void*));
+FakeClass& uintptr_class       = Define("System", "UIntPtr", IL2CPP_TYPE_U, nullptr, sizeof(void*));
+FakeClass& pointer_class       = Define("Game", "UnmanagedPointer", IL2CPP_TYPE_PTR);
 FakeClass& long_class          = Define("System", "Int64", IL2CPP_TYPE_I8, nullptr, 8);
 FakeClass& ship_model_class    = Define("Digit.PrimeServer.Models", "IShipModel", IL2CPP_TYPE_CLASS, &object_class);
 FakeClass& base_ship_class     = Define("Digit.PrimeServer.Models", "BaseShip", IL2CPP_TYPE_CLASS, &ship_model_class);
@@ -362,14 +367,30 @@ void              DelegateInvoker(Il2CppMethodPointer, const MethodInfo*, void* 
 }
 void NativeTarget() {}
 
-MethodInfo* base_describe     = nullptr;
-MethodInfo* shared_method     = nullptr;
-int32_t     shared_result     = 41;
-int         boxed_invocations = 0;
-bool        boxed_failure = false, boxed_null = false;
+MethodInfo*   base_describe     = nullptr;
+MethodInfo*   shared_method     = nullptr;
+int32_t       shared_result     = 41;
+int           boxed_invocations = 0;
+bool          boxed_failure = false, boxed_null = false;
+bool          array_class_missing = false;
+int           array_getter_calls  = 0;
+Il2CppObject* array_getter_value  = nullptr;
+Il2CppObject* ArrayGetter(Il2CppObject*, const MethodInfo*)
+{
+  ++array_getter_calls;
+  return array_getter_value;
+}
 
 void BuildRuntime()
 {
+  object_array_class.klass.byval_arg.data.type = T(object_class);
+  string_array_class.klass.byval_arg.data.type = T(string_class);
+  AddMethod(base_class, "get_ReferenceParameters", reinterpret_cast<void*>(&ArrayGetter), T(object_array_class), {});
+  AddMethod(base_class, "get_StringParameters", reinterpret_cast<void*>(&ArrayGetter), T(string_array_class), {});
+  AddMethod(base_class, "get_PointerParameters", reinterpret_cast<void*>(&ArrayGetter), T(pointer_class), {});
+  AddMethod(base_class, "get_IntPtrParameters", reinterpret_cast<void*>(&ArrayGetter), T(intptr_class), {});
+  AddMethod(base_class, "get_UIntPtrParameters", reinterpret_cast<void*>(&ArrayGetter), T(uintptr_class), {});
+  AddMethod(base_class, "get_ValueParameters", reinterpret_cast<void*>(&ArrayGetter), T(int_class), {});
   const auto& ship_getter = AddMethod(fleet_data_class, "get_Ship", reinterpret_cast<void*>(&FleetIdentity_get_Ship),
                                       T(ship_model_class), {});
   AddProperty(fleet_data_class, "Ship", &ship_getter);
@@ -475,6 +496,8 @@ API(const Il2CppImage*, il2cpp_get_corlib, ())
 END_API
 API(Il2CppClass*, il2cpp_class_from_name, (const Il2CppImage*, const char* namespaze, const char* name))
 {
+  if (array_class_missing && std::string_view(namespaze) == "System" && std::string_view(name) == "Array")
+    return nullptr;
   const auto fake = std::ranges::find_if(classes, [&](const FakeClass& fake) {
     return std::string_view(fake.klass.namespaze) == namespaze && std::string_view(fake.klass.name) == name;
   });
@@ -538,7 +561,14 @@ API(FieldInfo*, il2cpp_class_get_field_from_name, (Il2CppClass * klass, const ch
 }
 END_API
 API(Il2CppClass*, il2cpp_class_from_type, (const Il2CppType* type))
-{ return static_cast<Il2CppClass*>(type->data.dummy); }
+{
+  // A vector's type union points to its element type rather than its own class.
+  // Preserve that actual SDK relationship in the controlled runtime too.
+  for (auto& owner : classes)
+    if (type == &owner.klass.byval_arg || type == &owner.byref)
+      return &owner.klass;
+  return static_cast<Il2CppClass*>(type->data.dummy);
+}
 END_API
 API(const Il2CppType*, il2cpp_class_get_type, (Il2CppClass * klass))
 { return &klass->byval_arg; }
@@ -691,6 +721,12 @@ struct Other : il2cpp::Object {
 struct Gone : il2cpp::Object {
   using Class = il2cpp::Class<"Game", "Game", "Gone">;
 };
+template <typename E>
+concept SupportsReferenceArray = requires { il2cpp::TryReferenceArray<E>(nullptr); };
+static_assert(SupportsReferenceArray<Base*> && SupportsReferenceArray<Il2CppObject*>
+              && SupportsReferenceArray<Il2CppString*> && SupportsReferenceArray<Il2CppReflectionType*>);
+static_assert(!SupportsReferenceArray<int*> && !SupportsReferenceArray<void*> && !SupportsReferenceArray<void (*)()>
+              && !SupportsReferenceArray<int>);
 enum class State : int32_t { kIdle = 0, kBusy = 2 };
 
 // Detour targets for the hook set test, long enough for SPUD's patch.
@@ -742,13 +778,130 @@ void ShipIdentityObservations()
   Require(fleet->ShipInstanceId() == 42 && fleet_identity_reads == 0,
           "ship identity never substitutes FleetPlayerData.Id, hull or display name");
 }
+
+void ReferenceArrayObservations()
+{
+  struct Vector {
+    Il2CppObject                 header{};
+    Il2CppArrayBounds*           bounds = nullptr;
+    il2cpp_array_size_t          size   = 1;
+    std::array<Il2CppObject*, 1> elements{};
+  } vector;
+  auto& array         = Define("Game", "ReferenceVector", IL2CPP_TYPE_SZARRAY, &object_class);
+  vector.header.klass = &array.klass;
+  const auto input    = [&] { return &vector.header; };
+  const auto element  = [&](FakeClass& type) { array.klass.byval_arg.data.type = T(type); };
+
+  const auto null = il2cpp::TryReferenceArray<Il2CppObject*>(nullptr);
+  Require(null && null.value == nullptr, "a null array input is distinguishable from invalid storage");
+  element(object_class);
+  Require(!il2cpp::detail::ReferenceArrayMatches(input(), il2cpp::detail::SlotOf<int32_t>()),
+          "the internal predicate also refuses a non-reference request");
+  vector.elements[0] = &base_object.header;
+  auto objects       = il2cpp::TryReferenceArray<Il2CppObject*>(input());
+  Require(objects && objects.value->size() == 1 && (*objects.value)[0] == &base_object.header,
+          "object vector exposes borrowed reference elements after shape validation");
+  Il2CppObject boxed_number{};
+  boxed_number.klass = &int_class.klass;
+  vector.elements[0] = &boxed_number;
+  Require(il2cpp::TryReferenceArray<Il2CppObject*>(input()).succeeded,
+          "boxed numerical objects are valid reference-vector contents");
+  element(string_class);
+  Require(il2cpp::TryReferenceArray<Il2CppString*>(input()).succeeded
+              && il2cpp::TryReferenceArray<Il2CppObject*>(input()).succeeded,
+          "string vectors support typed and untyped reference consumers");
+  element(derived_class);
+  Require(il2cpp::TryReferenceArray<Base*>(input()).succeeded && il2cpp::TryReferenceArray<Derived*>(input()).succeeded,
+          "a derived vector is assignable toward its requested base element");
+  element(base_class);
+  Require(!il2cpp::TryReferenceArray<Derived*>(input()), "a base vector is not safely a derived vector");
+  Require(!il2cpp::TryReferenceArray<Other*>(input()), "unrelated requested element classes are rejected");
+  Require(!il2cpp::TryReferenceArray<Gone*>(input()), "missing requested element metadata is not untyped success");
+
+  for (auto* value : {&int_class, &vec3_class, &intptr_class}) {
+    element(*value);
+    Require(!il2cpp::TryReferenceArray<Il2CppObject*>(input()), "inline value storage is not reference storage");
+  }
+  for (const auto kind : {IL2CPP_TYPE_PTR, IL2CPP_TYPE_FNPTR, IL2CPP_TYPE_VAR, IL2CPP_TYPE_MVAR, IL2CPP_TYPE_BYREF,
+                          IL2CPP_TYPE_I, IL2CPP_TYPE_U}) {
+    auto& unsupported = Define("Game", "NonReferenceElement", kind, &object_class);
+    element(unsupported);
+    Require(!il2cpp::TryReferenceArray<Il2CppObject*>(input()), "unmanaged and unresolved element kinds are rejected");
+  }
+  auto& generic_value = Define("Game", "GenericValue", IL2CPP_TYPE_GENERICINST, &object_class, 16);
+  element(generic_value);
+  Require(!il2cpp::TryReferenceArray<Il2CppObject*>(input()), "generic value arrays remain inline storage");
+  auto& generic_reference = Define("Game", "GenericReference", IL2CPP_TYPE_GENERICINST, &object_class);
+  element(generic_reference);
+  Require(il2cpp::TryReferenceArray<Il2CppObject*>(input()).succeeded, "closed generic reference vectors are accepted");
+
+  element(object_class);
+  array.klass.byval_arg.type = IL2CPP_TYPE_ARRAY;
+  Require(!il2cpp::TryReferenceArray<Il2CppObject*>(input()), "bounded/multidimensional array kinds are rejected");
+  array.klass.byval_arg.type = IL2CPP_TYPE_CLASS;
+  Require(!il2cpp::TryReferenceArray<Il2CppObject*>(input()), "ordinary reference objects are not vectors");
+  array.klass.byval_arg.type  = IL2CPP_TYPE_SZARRAY;
+  array.klass.byval_arg.byref = 1;
+  Require(!il2cpp::TryReferenceArray<Il2CppObject*>(input()), "a by-reference vector descriptor is rejected");
+  array.klass.byval_arg.byref     = 0;
+  array.klass.byval_arg.data.type = Ref(object_class);
+  Require(!il2cpp::TryReferenceArray<Il2CppObject*>(input()), "by-reference elements are rejected");
+  array.klass.byval_arg.data.type = nullptr;
+  Require(!il2cpp::TryReferenceArray<Il2CppObject*>(input()), "absent element metadata is unavailable");
+  Il2CppType unresolved{};
+  unresolved.type                 = IL2CPP_TYPE_CLASS;
+  array.klass.byval_arg.data.type = &unresolved;
+  Require(!il2cpp::TryReferenceArray<Il2CppObject*>(input()), "unresolved element class is unavailable");
+  vector.header.klass = nullptr;
+  Require(!il2cpp::TryReferenceArray<Il2CppObject*>(input()), "absent runtime class is unavailable");
+}
+
+void ReferenceArrayGetterObservations()
+{
+  auto*        source = reinterpret_cast<Base*>(&base_object);
+  Il2CppObject observed_array{};
+  observed_array.klass = &object_array_class.klass;
+  array_getter_value   = &observed_array;
+  const auto objects   = source->TryCall<"get_ReferenceParameters", il2cpp::ArrayObject*>();
+  Require(objects && objects.value == reinterpret_cast<il2cpp::ArrayObject*>(&observed_array)
+              && il2cpp::TryReferenceArray<Il2CppObject*>(objects.value).succeeded,
+          "a bound array result qualifies acquisition before vector storage is inspected");
+  observed_array.klass = &string_array_class.klass;
+  Require(source->TryCall<"get_StringParameters", il2cpp::ArrayObject*>().succeeded,
+          "covariant declared string-array metadata remains a managed array result");
+  const auto before = array_getter_calls;
+  Require(!source->TryCall<"get_PointerParameters", il2cpp::ArrayObject*>()
+              && !source->TryCall<"get_IntPtrParameters", il2cpp::ArrayObject*>()
+              && !source->TryCall<"get_UIntPtrParameters", il2cpp::ArrayObject*>()
+              && !source->TryCall<"get_ValueParameters", il2cpp::ArrayObject*>(),
+          "pointer and numerical return metadata cannot provide candidate object bits");
+  Require(array_getter_calls == before, "invalid declared return kinds are rejected before native invocation");
+  array_getter_value = nullptr;
+  const auto null    = source->TryCall<"get_ReferenceParameters", il2cpp::ArrayObject*>();
+  Require(null && null.value == nullptr && array_getter_calls == before + 1,
+          "a successful null array getter is distinct from an unavailable getter");
+}
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc != 1) {
+    Require(argc == 2 && std::string_view(argv[1]) == "array-class-missing", "unknown binding fixture mode");
+    array_class_missing = true;
+    const auto result =
+        reinterpret_cast<Base*>(&base_object)->TryCall<"get_ReferenceParameters", il2cpp::ArrayObject*>();
+    Require(!result && result.value == nullptr && array_getter_calls == 0,
+            "missing System.Array prevents acquisition rather than inventing an observed null");
+    Require(il2cpp::TryReferenceArray<Il2CppObject*>(nullptr).succeeded,
+            "null shape qualification remains independent of source acquisition failure");
+    std::cout << "IL2CPP missing array-class acquisition guard passed\n";
+    return 0;
+  }
   ShipIdentityObservations();
+  ReferenceArrayObservations();
+  ReferenceArrayGetterObservations();
   auto* base = reinterpret_cast<Base*>(&base_object);
 
   // Properties call the generated getter with the receiver and its MethodInfo.

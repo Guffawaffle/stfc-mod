@@ -415,6 +415,41 @@ namespace detail
     return field;
   }
 
+  bool ReferenceArrayMatches(const Il2CppObject* object, const Slot& element)
+  {
+    if (element.kind != Slot::Kind::kReference || element.byref || !object || !object->klass)
+      return false;
+    const auto* vector = il2cpp_class_get_type(object->klass);
+    if (!vector || vector->byref || vector->type != IL2CPP_TYPE_SZARRAY)
+      return false;
+    // The pinned SDK's Il2CppType union defines data.type as the element type
+    // for SZARRAY; vm/Class.cpp resolves it this same way. No new runtime export
+    // or optional-platform loading policy is needed for these two consumers.
+    const auto* type = vector->data.type;
+    if (!type || type->byref)
+      return false;
+    switch (type->type) {
+      case IL2CPP_TYPE_CLASS:
+      case IL2CPP_TYPE_OBJECT:
+      case IL2CPP_TYPE_STRING:
+      case IL2CPP_TYPE_SZARRAY:
+      case IL2CPP_TYPE_ARRAY:
+      case IL2CPP_TYPE_GENERICINST:
+        break;
+      default:
+        return false;
+    }
+    auto* actual = il2cpp_class_from_type(type);
+    if (!actual || il2cpp_class_is_valuetype(actual))
+      return false;
+    if (!element.klass)
+      return true;
+    auto* expected = element.klass();
+    // Unlike method signature compatibility, object[] cannot be treated as a
+    // derived-type array. Every stored element must be assignable toward E.
+    return expected && il2cpp_class_is_assignable_from(expected, actual);
+  }
+
   Method Hookable(const MethodInfo* method)
   {
     if (method && (method->has_full_generic_sharing_signature || (method->flags & METHOD_ATTRIBUTE_ABSTRACT))) {
