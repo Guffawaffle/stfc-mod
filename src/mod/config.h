@@ -205,8 +205,9 @@ public:
     float ui_scale_ship   = 1.0f;
     float ui_scale_viewer = 1.2f;
     // The farthest system zoom; presets and zoom shortcuts are in the same unit.
-    float zoom       = 5000.0f;
-    float haven_zoom = 4000.0f;
+    float zoom             = 5000.0f;
+    float haven_zoom       = 4000.0f;
+    bool  hide_haven_water = false;
     // A multiple of the station interior's own zoom-out distance, at least 1.
     float             interior_zoom_scale = 2.0f;
     float             fr_scale            = 2.0f;

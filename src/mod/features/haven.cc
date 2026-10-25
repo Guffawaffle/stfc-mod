@@ -1,8 +1,9 @@
-// Haven, the planetary base: [graphics] haven_zoom, which extends the camera's zoom-out and keeps the roads drawn
-// above the ground at that distance, and [ui] reverse_haven_history, which lists help history newest first.
+// Haven, the planetary base: [graphics] haven_zoom extends camera zoom-out with reversible road depth bias;
+// hide_haven_water controls water independently. [ui] reverse_haven_history lists help history newest first.
 
 #include "config.h"
 #include "features/features.h"
+#include "haven_visuals_policy.h"
 
 #include "game/camera.h"
 #include "game/haven.h"
@@ -17,6 +18,7 @@
 #include <chrono>
 #include <cmath>
 #include <concepts>
+#include <new>
 #include <optional>
 #include <string_view>
 #include <unordered_set>
@@ -27,79 +29,306 @@ namespace
 {
 // --- Haven zoom ---
 
-// From further out the roads sink into the ground mesh. A depth bias on the road materials keeps them drawn on top.
-// Finding the materials (GetComponentsInChildren and every material's name) is the costly part, so it runs every 5 s
-// while the bias is checked every second. The handles are weak, so a cached material never keeps an unloaded scene or
-// asset alive.
-class HavenRoads
+// Discovery is shared by road bias and water. Persistent records hold weak references; every native operation
+// reacquires local strong custody and a checked identity. Unavailable observations never become false or zero.
+class HavenVisualBackend;
+class HavenVisualAccess
 {
 public:
-  void Apply()
+  HavenVisualAccess(const il2cpp::GcHandle& weak, const HavenVisualBackend& backend);
+  haven_visuals::AccessState State() const
+  { return state_; }
+  const void* Token() const
+  { return root_.Get(); }
+  std::optional<int32_t> Id();
+  std::optional<bool>    ReadEnabled();
+  bool                   WriteEnabled(bool value);
+  std::optional<float>   ReadDepth(size_t property);
+  bool                   WriteDepth(size_t property, float value);
+
+private:
+  il2cpp::Object*            Live() const;
+  il2cpp::GcHandle           root_;
+  const HavenVisualBackend&  backend_;
+  haven_visuals::AccessState state_ = haven_visuals::AccessState::Unavailable;
+};
+
+class HavenVisualBackend
+{
+public:
+  using Weak   = il2cpp::GcHandle;
+  using Object = unity::GameObject*;
+
+  HavenVisualBackend()
   {
-    if (!apply_.Due())
-      return;
-    if (auto* owner = owner_.Get<unity::GameObject>(); !unity::Alive(owner) || !owner->activeInHierarchy()) {
-      owner_.Reset();
-      materials_.clear();
+    for (size_t i = 0; i < properties_.size(); ++i)
+      properties_[i] = HoldString(il2cpp::NewString(i == 0 ? "_OffsetFactor" : "_OffsetUnits"));
+  }
+  HavenVisualAccess Acquire(const Weak& weak)
+  { return {weak, *this}; }
+  Weak Retain(const HavenVisualAccess& access)
+  { return Weak::Weak(reinterpret_cast<Il2CppObject*>(const_cast<void*>(access.Token()))); }
+  Weak Retain(Object object)
+  { return Weak::Weak(object); }
+
+  Object GetOwner(const Weak& weak)
+  {
+    // Keep both the previous and newly found owners rooted through the complete cache refresh.
+    current_owner_ = Weak::Strong(weak.Get());
+    auto* object   = current_owner_.Get<unity::GameObject>();
+    return IsActiveOwner(object) ? object : nullptr;
+  }
+  Object FindOwner()
+  {
+    auto path = HoldString(il2cpp::NewString("StarbaseRoot/StarbaseManager/StarbasePlanetaryVisualsHolder"));
+    if (!path)
+      return nullptr;
+    const auto found = unity::GameObject::TryFind(reinterpret_cast<Il2CppString*>(path.Get()));
+    if (!found || !found.value)
+      return nullptr;
+    found_owner_ = Weak::Strong(found.value);
+    auto* object = found_owner_.Get<unity::GameObject>();
+    return IsActiveOwner(object) ? object : nullptr;
+  }
+
+  bool ScanOwner(Object object, std::vector<Weak>& roads, std::vector<Weak>& water)
+  {
+    auto owner = Weak::Strong(object);
+    if (!owner || !IsActiveOwner(owner.Get<unity::GameObject>()))
+      return false;
+    auto* type      = unity::Renderer::Class::TypeObject();
+    auto  type_root = Weak::Strong(type ? &type->object : nullptr);
+    if (!type_root)
+      return false;
+    const auto observed = owner.Get<unity::GameObject>()->TryComponentsInChildren(
+        reinterpret_cast<Il2CppReflectionType*>(type_root.Get()), true);
+    if (!observed || !observed.value)
+      return false;
+    auto components = Weak::Strong(observed.value);
+    if (!components)
+      return false;
+    auto checked = il2cpp::TryReferenceArray<unity::Component*>(components.Get());
+    if (!checked || !checked.value || checked.value->size() > 4096)
+      return false; // Admission failure, never a silently truncated scene snapshot.
+    const auto                      count = checked.value->size();
+    std::unordered_set<const void*> road_seen, water_seen;
+    for (size_t i = 0; i < count; ++i) {
+      auto* candidate = (*reinterpret_cast<il2cpp::Array<unity::Component*>*>(components.Get()))[i];
+      if (!candidate)
+        continue;
+      auto component = Weak::Strong(candidate);
+      if (!component)
+        return false;
+      auto* renderer = component.Get<il2cpp::Object>()->As<unity::Renderer>();
+      if (!renderer)
+        continue; // The actual non-generic result is Component[], not Renderer[].
+      const auto materials_observed = renderer->TrySharedMaterials();
+      if (!materials_observed || !materials_observed.value)
+        return false;
+      auto materials = Weak::Strong(materials_observed.value);
+      if (!materials)
+        return false;
+      const auto material_array = il2cpp::TryReferenceArray<unity::Material*>(materials.Get());
+      if (!material_array || !material_array.value || material_array.value->size() > 16)
+        return false;
+      bool       has_water      = false;
+      const auto material_count = material_array.value->size();
+      for (size_t j = 0; j < material_count; ++j) {
+        auto* item = (*reinterpret_cast<il2cpp::Array<unity::Material*>*>(materials.Get()))[j];
+        if (!item)
+          continue;
+        auto material = Weak::Strong(item);
+        if (!material)
+          return false;
+        const auto name = Name(material.Get<il2cpp::Object>());
+        if (!name)
+          return false;
+        const bool road_candidate = IsRoadName(*name), water_candidate = *name == "mat_PB_water";
+        if (!road_candidate && !water_candidate)
+          continue;
+        const auto shader_observed = material.Get<unity::Material>()->TryShader();
+        if (!shader_observed || !shader_observed.value)
+          return false;
+        auto shader = Weak::Strong(shader_observed.value);
+        if (!shader || !shader.Get<il2cpp::Object>()->Is<unity::Shader>())
+          return false;
+        const auto shader_name = Name(shader.Get<il2cpp::Object>());
+        if (!shader_name)
+          return false;
+        if (road_candidate && *shader_name == "Custom/LitMSAE" && road_seen.insert(material.Get()).second) {
+          if (roads.size() == haven_visuals::kRoadLimit)
+            return false;
+          auto weak = Weak::Weak(material.Get());
+          if (!weak)
+            return false;
+          roads.push_back(std::move(weak));
+        }
+        has_water |= water_candidate && *shader_name == "Custom/WaterLite";
+      }
+      if (has_water && water_seen.insert(component.Get()).second) {
+        if (water.size() == haven_visuals::kWaterLimit)
+          return false;
+        auto weak = Weak::Weak(component.Get());
+        if (!weak)
+          return false;
+        water.push_back(std::move(weak));
+      }
     }
-    // A replacement can take the visuals' path while the old object is still alive and active, so the owner is
-    // looked up again at every search, not only once it is gone.
-    if (search_.Due())
-      Search();
-    for (const auto& handle : materials_)
-      if (auto* material = handle.Get<unity::Material>(); unity::Alive(material))
-        Bias(material);
+    return IsActiveOwner(owner.Get<unity::GameObject>());
+  }
+  Il2CppString* Property(size_t index) const
+  { return index < properties_.size() ? reinterpret_cast<Il2CppString*>(properties_[index].Get()) : nullptr; }
+
+private:
+  static Weak HoldString(Il2CppString* value)
+  { return Weak::Strong(value ? &value->object : nullptr); }
+  static bool IsActiveOwner(Object object)
+  {
+    if (!object || !object->Is<unity::GameObject>())
+      return false;
+    const auto alive  = unity::TryAlive(object);
+    const auto active = alive && alive.value ? object->TryActiveInHierarchy() : il2cpp::CallResult<bool>{};
+    return active && active.value;
+  }
+  static std::optional<std::string> Name(il2cpp::Object* object)
+  {
+    const auto observed = unity::TryName(object);
+    if (!observed || !observed.value)
+      return std::nullopt;
+    auto text = HoldString(observed.value);
+    return text && text.Get<il2cpp::Object>()->Is<Il2CppString>()
+               ? std::optional{il2cpp::ToUtf8(reinterpret_cast<Il2CppString*>(text.Get()))}
+               : std::nullopt;
+  }
+  static bool IsRoadName(std::string_view name)
+  {
+    static constexpr std::string_view prefixes[] = {
+        "mat_PB_3101101_asphalt_", "mat_PB_3101201_asphalt_", "mat_PB_3101301_asphalt_", "mat_PB_3101401_asphalt_",
+        "mat_PB_3101501_asphalt_", "mat_PB_3101601_asphalt_", "mat_PB_3101701_asphalt_"};
+    return std::ranges::any_of(prefixes, [&](auto prefix) { return name.starts_with(prefix); });
+  }
+  std::array<Weak, 2> properties_;
+  Weak                current_owner_, found_owner_;
+};
+
+HavenVisualAccess::HavenVisualAccess(const il2cpp::GcHandle& weak, const HavenVisualBackend& backend)
+    : backend_(backend)
+{
+  if (!weak.Get()) {
+    state_ = haven_visuals::AccessState::Gone;
+    return;
+  }
+  root_ = il2cpp::GcHandle::Strong(weak.Get());
+  if (!root_)
+    return;
+  auto* object = root_.Get<il2cpp::Object>();
+  if (!object || !object->Is<unity::UnityObject>())
+    return;
+  const auto alive = unity::TryAlive(object);
+  if (alive)
+    state_ = alive.value ? haven_visuals::AccessState::Ready : haven_visuals::AccessState::Gone;
+}
+il2cpp::Object* HavenVisualAccess::Live() const
+{
+  auto*      object = root_.Get<il2cpp::Object>();
+  const auto alive  = object ? unity::TryAlive(object) : il2cpp::CallResult<bool>{};
+  return alive && alive.value ? object : nullptr;
+}
+std::optional<int32_t> HavenVisualAccess::Id()
+{
+  const auto observed = unity::TryInstanceId(Live());
+  return observed ? std::optional{observed.value} : std::nullopt;
+}
+std::optional<bool> HavenVisualAccess::ReadEnabled()
+{
+  auto*      object   = Live();
+  auto*      renderer = object ? object->As<unity::Renderer>() : nullptr;
+  const auto observed = renderer ? renderer->TryEnabled() : il2cpp::CallResult<bool>{};
+  return observed ? std::optional{observed.value} : std::nullopt;
+}
+bool HavenVisualAccess::WriteEnabled(bool value)
+{
+  auto* object   = Live();
+  auto* renderer = object ? object->As<unity::Renderer>() : nullptr;
+  return renderer && renderer->TrySetEnabled(value).succeeded;
+}
+std::optional<float> HavenVisualAccess::ReadDepth(size_t property)
+{
+  auto*      object   = Live();
+  auto*      material = object ? object->As<unity::Material>() : nullptr;
+  auto*      name     = backend_.Property(property);
+  const auto has      = material && name ? material->TryHasProperty(name) : il2cpp::CallResult<bool>{};
+  const auto observed = has && has.value ? material->TryGetFloat(name) : il2cpp::CallResult<float>{};
+  return observed ? std::optional{observed.value} : std::nullopt;
+}
+bool HavenVisualAccess::WriteDepth(size_t property, float value)
+{
+  auto*      object   = Live();
+  auto*      material = object ? object->As<unity::Material>() : nullptr;
+  auto*      name     = backend_.Property(property);
+  const auto has      = material && name ? material->TryHasProperty(name) : il2cpp::CallResult<bool>{};
+  return has && has.value && material->TrySetFloat(name, value).succeeded;
+}
+
+class HavenVisualOwner
+{
+public:
+  void Apply(bool expanded, bool hidden)
+  {
+    Attempt([&] {
+      qualified_since_frame_ = true;
+      if (!expanded && !hidden && !owned_.Pending())
+        return;
+      if (!due_.Due())
+        return;
+      HavenVisualBackend backend;
+      if (!expanded && !hidden) {
+        owned_.Apply(backend, {}, {}, false, false);
+        return;
+      }
+      cache_.Refresh(backend, std::chrono::steady_clock::now());
+      owned_.Apply(backend, cache_.Roads(), cache_.Water(), expanded, hidden);
+    });
+  }
+  void Frame()
+  {
+    Attempt([&] {
+      if (std::exchange(qualified_since_frame_, false) || !owned_.Pending() || !due_.Due())
+        return;
+      HavenVisualBackend backend;
+      owned_.Apply(backend, {}, {}, false, false);
+    }); // No scene discovery outside a qualified Haven camera callback.
   }
 
 private:
-  void Search()
+  template <class F> void Attempt(F&& action)
   {
-    materials_.clear();
-    auto* root = unity::GameObject::Find("StarbaseRoot/StarbaseManager/StarbasePlanetaryVisualsHolder");
-    owner_     = il2cpp::GcHandle::Weak(root);
-    std::unordered_set<unity::Material*> seen;
-    for (auto* renderer : il2cpp::Items(root ? root->GetComponentsInChildren<unity::Renderer>(true) : nullptr))
-      for (auto* material : il2cpp::Items(renderer ? renderer->sharedMaterials() : nullptr))
-        if (material && IsRoad(material) && seen.insert(material).second)
-          materials_.push_back(il2cpp::GcHandle::Weak(material));
+    try {
+      (void)haven_visuals::RunExclusive(busy_, std::forward<F>(action));
+    } catch (...) {
+      if (!std::exchange(reported_, true)) {
+        try {
+          spdlog::warn("[HavenZoom] Visual observations unavailable; retained changes await checked restoration");
+        } catch (...) {
+        }
+      }
+    }
   }
-
-  static bool IsRoad(unity::Material* material)
-  {
-    static constexpr std::string_view kRoadMaterials[] = {
-        "mat_PB_3101101_asphalt_", "mat_PB_3101201_asphalt_", "mat_PB_3101301_asphalt_", "mat_PB_3101401_asphalt_",
-        "mat_PB_3101501_asphalt_", "mat_PB_3101601_asphalt_", "mat_PB_3101701_asphalt_"};
-    const auto name = material->Name();
-    if (!std::ranges::any_of(kRoadMaterials, [&](std::string_view prefix) { return name.starts_with(prefix); }))
-      return false;
-    auto* shader = material->shader();
-    return shader && shader->Name() == "Custom/LitMSAE";
-  }
-
-  static void Bias(unity::Material* material)
-  {
-    const std::array properties{il2cpp::NewString("_OffsetFactor"), il2cpp::NewString("_OffsetUnits")};
-    if (!material->HasProperty(properties[0]) || !material->HasProperty(properties[1]))
-      return;
-    const std::array before{material->GetFloat(properties[0]), material->GetFloat(properties[1])};
-    if (!std::isfinite(before[0]) || !std::isfinite(before[1]))
-      return;
-    // Negative offsets pull the roads toward the camera. Keep an already stronger native bias.
-    for (size_t i = 0; i < properties.size(); ++i)
-      if (before[i] > -1.0f)
-        material->SetFloat(properties[i], -1.0f);
-  }
-
-  Throttle                      apply_{std::chrono::seconds(1)}, search_{std::chrono::seconds(5)};
-  il2cpp::GcHandle              owner_;
-  std::vector<il2cpp::GcHandle> materials_;
+  Throttle                                         due_{std::chrono::seconds(1)};
+  haven_visuals::SnapshotCache<HavenVisualBackend> cache_;
+  haven_visuals::OwnedVisuals<HavenVisualBackend>  owned_;
+  bool                                             qualified_since_frame_ = false, reported_ = false, busy_ = false;
 };
-
-void ApplyHavenRoadDepthBias()
+HavenVisualOwner* HavenVisuals()
 {
-  // Leaked: its handles must not be freed by static destructors after the runtime is gone.
-  static auto* roads = new HavenRoads;
-  roads->Apply();
+  // Runtime-owned weak handles must not be destroyed after Unity shuts down.
+  static auto* visuals = new (std::nothrow) HavenVisualOwner;
+  return visuals;
+}
+void HavenVisualsFrame()
+{
+  if (auto* visuals = HavenVisuals())
+    visuals->Frame();
 }
 
 // Haven's zoom blends between two planetary orbits, each pinned to one radius (min == max) and sitting on it. Reads
@@ -131,8 +360,9 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
   // endpoint assets and normalized LOD stay native.
   original(_this, camera);
   const auto max_zoom = Config::Get().graphics.haven_zoom;
-  if (!std::isfinite(max_zoom) || max_zoom <= 0.0f)
-    return;
+  const bool hidden   = Config::Get().graphics.hide_haven_water;
+  if ((!std::isfinite(max_zoom) || max_zoom <= 0.0f) && !hidden)
+    return; // Pending interventions still drain through this feature's existing frame callback.
 
   auto*      source        = _this->sourceFrameProvider();
   auto*      target        = _this->targetFrameProvider();
@@ -141,7 +371,7 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
   if (!target_pinned)
     return;
   const float source_radius = *source_pinned, target_radius = *target_pinned;
-  if (source_radius == target_radius || max_zoom <= std::max(source_radius, target_radius))
+  if (source_radius == target_radius)
     return;
 
   auto* source_orbit = source->As<AbstractOrbitFrameProvider>();
@@ -174,6 +404,13 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
       || source_frame->orthographic() || target_frame->orthographic() || result->orthographic())
     return;
 
+  // Water belongs to the qualified Haven scene, independently of curve shape or requested zoom expansion.
+  const bool expanded = std::isfinite(max_zoom) && max_zoom > std::max(source_radius, target_radius);
+  if (auto* visuals = HavenVisuals())
+    visuals->Apply(expanded, hidden);
+  if (!expanded)
+    return;
+
   const auto at_ratio   = curve->Evaluate(ratio);
   const auto at_minimum = curve->Evaluate(minimum);
   const auto at_maximum = curve->Evaluate(maximum);
@@ -198,7 +435,6 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
   const auto extra           = std::min(max_zoom - native_distance, (max_zoom - native_outer) * progress);
   if (!std::isfinite(extra))
     return;
-  ApplyHavenRoadDepthBias();
   if (extra <= 0.0)
     return;
 
@@ -255,5 +491,5 @@ bool InstallHavenHistory()
 }
 } // namespace
 
-const Feature kHavenZoom{"HavenZoom", &Config::Patches::havenzoomhooks, InstallHavenZoom};
+const Feature kHavenZoom{"HavenZoom", &Config::Patches::havenzoomhooks, InstallHavenZoom, HavenVisualsFrame};
 const Feature kHavenHistory{"HavenHistory", &Config::Patches::havenhistoryhooks, InstallHavenHistory};

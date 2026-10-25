@@ -201,9 +201,59 @@ struct FleetIdentityObject {
 bool ship_read_throws = false, ship_id_throws = false;
 int  fleet_identity_reads = 0;
 
-FakeClass& event_system_class = Define("UnityEngine.EventSystems", "EventSystem", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& game_object_class  = Define("UnityEngine", "GameObject", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& input_field_class  = Define("TMPro", "TMP_InputField", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& event_system_class    = Define("UnityEngine.EventSystems", "EventSystem", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& unity_object_class    = Define("UnityEngine", "Object", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& game_object_class     = Define("UnityEngine", "GameObject", IL2CPP_TYPE_CLASS, &unity_object_class);
+FakeClass& component_class       = Define("UnityEngine", "Component", IL2CPP_TYPE_CLASS, &unity_object_class);
+FakeClass& renderer_class        = Define("UnityEngine", "Renderer", IL2CPP_TYPE_CLASS, &component_class);
+FakeClass& material_class        = Define("UnityEngine", "Material", IL2CPP_TYPE_CLASS, &unity_object_class);
+FakeClass& shader_class          = Define("UnityEngine", "Shader", IL2CPP_TYPE_CLASS, &unity_object_class);
+FakeClass& component_array_class = Define("UnityEngine", "Component[]", IL2CPP_TYPE_SZARRAY, &array_class);
+FakeClass& material_array_class  = Define("UnityEngine", "Material[]", IL2CPP_TYPE_SZARRAY, &array_class);
+FakeClass& input_field_class     = Define("TMPro", "TMP_InputField", IL2CPP_TYPE_CLASS, &object_class);
+
+Il2CppObject visual_renderer{}, visual_material{}, visual_shader{}, visual_components{}, visual_materials{};
+bool         visual_alive = true, visual_active = true, visual_enabled = true, visual_throws = false;
+bool         visual_property = true, visual_set_throws = false;
+int32_t      visual_id    = -17;
+float        visual_depth = 0.0f;
+int          visual_calls = 0;
+bool         VisualAlive(Il2CppObject*, const MethodInfo*)
+{
+  ++visual_calls;
+  if (visual_throws)
+    throw std::runtime_error("unavailable Unity observation");
+  return visual_alive;
+}
+int32_t VisualId(Il2CppObject*, const MethodInfo*)
+{
+  if (visual_throws)
+    throw std::runtime_error("unavailable Unity identity");
+  return visual_id;
+}
+Il2CppString* VisualName(Il2CppObject*, const MethodInfo*);
+bool          VisualActive(Il2CppObject*, const MethodInfo*)
+{ return visual_active; }
+Il2CppObject* VisualComponents(Il2CppObject*, Il2CppReflectionType*, bool, const MethodInfo*)
+{ return &visual_components; }
+Il2CppObject* VisualMaterials(Il2CppObject*, const MethodInfo*)
+{ return &visual_materials; }
+Il2CppObject* VisualShader(Il2CppObject*, const MethodInfo*)
+{ return &visual_shader; }
+bool VisualEnabled(Il2CppObject*, const MethodInfo*)
+{ return visual_enabled; }
+void VisualSetEnabled(Il2CppObject*, bool value, const MethodInfo*)
+{
+  visual_enabled = value;
+  if (visual_set_throws)
+    throw std::runtime_error("setter mutated before failing");
+}
+bool VisualHasProperty(Il2CppObject*, Il2CppString*, const MethodInfo*)
+{ return visual_property; }
+float VisualGetDepth(Il2CppObject*, Il2CppString*, const MethodInfo*)
+{ return visual_depth; }
+void VisualSetDepth(Il2CppObject*, Il2CppString*, float value, const MethodInfo*)
+{ visual_depth = value; }
 
 unity::EventSystem    event_system{};
 unity::GameObject     selected_object{};
@@ -258,8 +308,10 @@ void InputFocus()
   Key::ClearInputFocus();
 }
 
-TestObject     base_object{}, derived_object{}, other_object{}, list_a{}, list_b{}, allocated{};
-Il2CppObject   string_object{}, type_object{};
+TestObject    base_object{}, derived_object{}, other_object{}, list_a{}, list_b{}, allocated{};
+Il2CppObject  string_object{}, type_object{};
+Il2CppString* VisualName(Il2CppObject*, const MethodInfo*)
+{ return reinterpret_cast<Il2CppString*>(&string_object); }
 Il2CppDelegate delegate_object{};
 
 // Generated code stand-ins. Each records what the binding passed.
@@ -372,9 +424,10 @@ MethodInfo*   shared_method     = nullptr;
 int32_t       shared_result     = 41;
 int           boxed_invocations = 0;
 bool          boxed_failure = false, boxed_null = false;
-bool          array_class_missing = false;
-int           array_getter_calls  = 0;
-Il2CppObject* array_getter_value  = nullptr;
+bool          array_class_missing  = false;
+bool          string_class_missing = false;
+int           array_getter_calls   = 0;
+Il2CppObject* array_getter_value   = nullptr;
 Il2CppObject* ArrayGetter(Il2CppObject*, const MethodInfo*)
 {
   ++array_getter_calls;
@@ -383,6 +436,30 @@ Il2CppObject* ArrayGetter(Il2CppObject*, const MethodInfo*)
 
 void BuildRuntime()
 {
+  component_array_class.klass.byval_arg.data.type = T(component_class);
+  material_array_class.klass.byval_arg.data.type  = T(material_class);
+  visual_renderer.klass                           = &renderer_class.klass;
+  visual_material.klass                           = &material_class.klass;
+  visual_shader.klass                             = &shader_class.klass;
+  visual_components.klass                         = &component_array_class.klass;
+  visual_materials.klass                          = &material_array_class.klass;
+  AddMethod(unity_object_class, "op_Implicit", reinterpret_cast<void*>(&VisualAlive), T(bool_class),
+            {T(unity_object_class)}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+  AddMethod(unity_object_class, "GetInstanceID", reinterpret_cast<void*>(&VisualId), T(int_class), {});
+  AddMethod(unity_object_class, "get_name", reinterpret_cast<void*>(&VisualName), T(string_class), {});
+  AddMethod(game_object_class, "get_activeInHierarchy", reinterpret_cast<void*>(&VisualActive), T(bool_class), {});
+  AddMethod(game_object_class, "GetComponentsInChildren", reinterpret_cast<void*>(&VisualComponents),
+            T(component_array_class), {T(type_class), T(bool_class)});
+  AddMethod(renderer_class, "get_sharedMaterials", reinterpret_cast<void*>(&VisualMaterials), T(material_array_class),
+            {});
+  AddMethod(renderer_class, "get_enabled", reinterpret_cast<void*>(&VisualEnabled), T(bool_class), {});
+  AddMethod(renderer_class, "set_enabled", reinterpret_cast<void*>(&VisualSetEnabled), T(void_class), {T(bool_class)});
+  AddMethod(material_class, "get_shader", reinterpret_cast<void*>(&VisualShader), T(shader_class), {});
+  AddMethod(material_class, "HasProperty", reinterpret_cast<void*>(&VisualHasProperty), T(bool_class),
+            {T(string_class)});
+  AddMethod(material_class, "GetFloat", reinterpret_cast<void*>(&VisualGetDepth), T(float_class), {T(string_class)});
+  AddMethod(material_class, "SetFloat", reinterpret_cast<void*>(&VisualSetDepth), T(void_class),
+            {T(string_class), T(float_class)});
   object_array_class.klass.byval_arg.data.type = T(object_class);
   string_array_class.klass.byval_arg.data.type = T(string_class);
   AddMethod(base_class, "get_ReferenceParameters", reinterpret_cast<void*>(&ArrayGetter), T(object_array_class), {});
@@ -497,6 +574,8 @@ END_API
 API(Il2CppClass*, il2cpp_class_from_name, (const Il2CppImage*, const char* namespaze, const char* name))
 {
   if (array_class_missing && std::string_view(namespaze) == "System" && std::string_view(name) == "Array")
+    return nullptr;
+  if (string_class_missing && std::string_view(namespaze) == "System" && std::string_view(name) == "String")
     return nullptr;
   const auto fake = std::ranges::find_if(classes, [&](const FakeClass& fake) {
     return std::string_view(fake.klass.namespaze) == namespaze && std::string_view(fake.klass.name) == name;
@@ -884,12 +963,76 @@ void ReferenceArrayGetterObservations()
   Require(null && null.value == nullptr && array_getter_calls == before + 1,
           "a successful null array getter is distinct from an unavailable getter");
 }
+
+void CheckedUnityVisualObservations()
+{
+  Require(reinterpret_cast<il2cpp::Object*>(&string_object)->Is<Il2CppString>()
+              && !reinterpret_cast<il2cpp::Object*>(&visual_renderer)->Is<Il2CppString>()
+              && !reinterpret_cast<il2cpp::Object*>(&string_object)->Is<Gone>(),
+          "runtime string qualification accepts strings and rejects unrelated or missing expected classes");
+  const auto before = visual_calls;
+  Require(unity::TryAlive(nullptr).succeeded && !unity::TryAlive(nullptr).value && visual_calls == before,
+          "null Unity input is confirmed absent without invoking native code");
+  visual_alive    = false;
+  const auto gone = unity::TryAlive(&visual_renderer);
+  Require(gone && !gone.value, "a false Unity liveness observation is available");
+  visual_throws = true;
+  Require(!unity::TryAlive(&visual_renderer), "a failed Unity liveness observation remains unavailable");
+  Require(!unity::TryInstanceId(reinterpret_cast<il2cpp::Object*>(&visual_renderer)),
+          "failed identity is not reported as observed zero");
+  visual_throws  = false;
+  visual_alive   = true;
+  auto* renderer = reinterpret_cast<unity::Renderer*>(&visual_renderer);
+  Require(unity::TryInstanceId(renderer).value == -17, "signed negative Unity identity is preserved");
+  visual_id       = 0;
+  const auto zero = unity::TryInstanceId(renderer);
+  Require(zero && zero.value == 0, "observed Unity identity zero remains distinct from unavailable");
+  visual_enabled      = false;
+  const auto disabled = renderer->TryEnabled();
+  Require(disabled && !disabled.value, "disabled renderer is not an unavailable getter");
+  visual_set_throws = true;
+  Require(!renderer->TrySetEnabled(true) && renderer->TryEnabled().value,
+          "a failing setter can mutate before reporting failure");
+  visual_set_throws = false;
+  Require(renderer->TrySetEnabled(false).succeeded && !renderer->TryEnabled().value,
+          "checked renderer setter and independent readback agree");
+  auto*      material = reinterpret_cast<unity::Material*>(&visual_material);
+  auto*      name     = reinterpret_cast<Il2CppString*>(&string_object);
+  const auto depth    = material->TryGetFloat(name);
+  Require(depth && depth.value == 0.0f, "finite zero material depth is an available observation");
+  Require(material->TrySetFloat(name, -1.0f).succeeded && material->TryGetFloat(name).value == -1.0f,
+          "checked material write can be confirmed separately");
+  visual_property   = false;
+  const auto absent = material->TryHasProperty(name);
+  Require(absent && !absent.value, "absent material property is an available false observation");
+  Require(material->TryShader().value == reinterpret_cast<unity::Shader*>(&visual_shader), "typed shader getter");
+  Require(unity::TryName(material).value == name, "managed name observation is preserved before UTF8 conversion");
+  const auto materials = renderer->TrySharedMaterials();
+  Require(materials && il2cpp::TryReferenceArray<unity::Material*>(materials.value),
+          "shared materials acquire a managed array before storage qualification");
+  const auto components =
+      selected_object.TryComponentsInChildren(reinterpret_cast<Il2CppReflectionType*>(&type_object), true);
+  Require(components && il2cpp::TryReferenceArray<unity::Component*>(components.value)
+              && !il2cpp::TryReferenceArray<unity::Renderer*>(components.value),
+          "non-generic child lookup preserves Component[] storage instead of assuming Renderer[]");
+  visual_active = false;
+  Require(selected_object.TryActiveInHierarchy().succeeded && !selected_object.TryActiveInHierarchy().value,
+          "inactive owner observation remains qualified false");
+  visual_active = true;
+}
 } // namespace
 
 int main(int argc, char** argv)
 {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]) == "string-class-missing") {
+    string_class_missing = true;
+    Require(!reinterpret_cast<il2cpp::Object*>(&string_object)->Is<Il2CppString>(),
+            "missing String metadata cannot qualify a candidate string for UTF8 traversal");
+    std::cout << "IL2CPP missing string-class observation guard passed\n";
+    return 0;
+  }
   if (argc != 1) {
     Require(argc == 2 && std::string_view(argv[1]) == "array-class-missing", "unknown binding fixture mode");
     array_class_missing = true;
@@ -905,6 +1048,7 @@ int main(int argc, char** argv)
   ShipIdentityObservations();
   ReferenceArrayObservations();
   ReferenceArrayGetterObservations();
+  CheckedUnityVisualObservations();
   auto* base = reinterpret_cast<Base*>(&base_object);
 
   // Properties call the generated getter with the receiver and its MethodInfo.

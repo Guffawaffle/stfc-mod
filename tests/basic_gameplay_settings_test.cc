@@ -62,7 +62,7 @@ int main()
     assert(registered.emplace(key.section, key.name).second);
     return writer.Register(key.section, key.name, Initial(startup, key));
   }));
-  assert(registered.size() == 19);
+  assert(registered.size() == 20);
   assert(writer.Submit("graphics", "not_registered", 1.0) == 0);
   std::map<std::pair<std::string, std::string>, Value> desired;
   std::size_t                                          submissions = 0;
@@ -139,6 +139,23 @@ int main()
   text  = ReadConfigText(path);
   saved = toml::parse(text);
 
+  // The water preference uses the same preserving Boolean writer. A saved
+  // choice is not confirmation that any native renderer has changed.
+  bool hide_water = true; // The registration loop above saved the absent key as true.
+  assert(saved["graphics"]["hide_haven_water"].value<bool>() == true);
+  for (const bool desired_water : {false, true}) {
+    assert(writer.Resume());
+    gameplay_settings::SetBoolean(hide_water, desired_water, gameplay_settings::Boolean::HideHavenWater, submit);
+    Drain(writer);
+    const auto outcome = writer.GetStatus("graphics", "hide_haven_water").outcome;
+    assert(hide_water == desired_water && outcome == config_edit::Outcome::Saved);
+    text  = ReadConfigText(path);
+    saved = toml::parse(text);
+    assert(saved["graphics"]["hide_haven_water"].value<bool>() == desired_water);
+    assert(text.find("# switch") != text.npos
+           && saved["unrelated"]["plugin"]["unknown"].value<std::string>() == "keep me");
+  }
+
   // Automatic preset selection remains a nonpersistent live intent. The real
   // native RetainSessionIntent boundary is independently covered by its fixture.
   runtime_config::ReloadSnapshot session;
@@ -183,6 +200,23 @@ int main()
   assert(!reloaded["control"]["queue_enabled"]);
   runtime_config::ApplyReloadSnapshot(reloaded, {{"control", "queue_enabled", queue_enabled}});
   assert(reloaded["control"]["queue_enabled"].value<bool>() == false);
+
+  // External removal of the new key is unavailable, not a false baseline.
+  auto       water_removed = removed;
+  const auto water_line    = water_removed.find("hide_haven_water = true");
+  assert(water_line != std::string::npos);
+  const auto water_end = water_removed.find('\n', water_line);
+  water_removed.erase(water_line, water_end == std::string::npos ? std::string::npos : water_end - water_line + 1);
+  assert(ReplaceConfigText(path, water_removed, removed));
+  assert(writer.Resume());
+  gameplay_settings::SetBoolean(hide_water, false, gameplay_settings::Boolean::HideHavenWater, submit);
+  Drain(writer);
+  assert(!hide_water && writer.GetStatus("graphics", "hide_haven_water").outcome == config_edit::Outcome::Conflict);
+  assert(ReadConfigText(path) == water_removed);
+  reloaded = toml::parse(water_removed);
+  assert(!reloaded["graphics"]["hide_haven_water"]);
+  runtime_config::ApplyReloadSnapshot(reloaded, {{"graphics", "hide_haven_water", hide_water}});
+  assert(reloaded["graphics"]["hide_haven_water"].value<bool>() == false);
   std::cout << "Gameplay settings: registered native mutations, exact values, session-only zoom and preserving writer "
                "passed\n";
 }

@@ -240,6 +240,9 @@ default_system_zoom = 1750.0
 # Maximum zoom-out distance in Haven; 0 preserves native behavior.
 haven_zoom = 4000.0
 
+# Hide Haven's water surface. Live; false keeps native visibility.
+hide_haven_water = false
+
 # Station-interior zoom-out multiplier; 1 preserves native behavior. Default 2.
 interior_zoom_scale = 2.0
 

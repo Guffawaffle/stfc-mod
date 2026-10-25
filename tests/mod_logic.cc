@@ -372,6 +372,16 @@ void UpstreamSettings()
   const auto  defaults = Config::Parse(toml::table{}, effective, false);
   Check(defaults->graphics.haven_zoom == 4000.0f && defaults->ui.reverse_haven_history,
         "Haven defaults match upstream");
+  Check(!defaults->graphics.hide_haven_water && effective["graphics"]["hide_haven_water"].value<bool>() == false,
+        "Haven water visibility defaults to native behavior");
+  for (const auto value : {"true", "false", "[]", "'true'"}) {
+    const auto water =
+        Config::Parse(toml::parse(std::string("[graphics]\nhide_haven_water = ") + value), effective, false);
+    const bool expected = std::string_view(value) == "true";
+    Check(water->graphics.hide_haven_water == expected
+              && effective["graphics"]["hide_haven_water"].value<bool>() == expected,
+          "Haven water accepts Boolean values and retains its safe default on unconvertible types");
+  }
   Check(!defaults->ui.only_show_first_popup && defaults->audio.alert_victory == NotificationSound::kNone,
         "popup suppression and audio cues stay opt-in");
   for (const auto value : {"0.5", "inf", "nan"}) {

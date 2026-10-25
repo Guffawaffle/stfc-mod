@@ -25,6 +25,7 @@ enum class Boolean : std::size_t {
   CargoHostile,
   CargoArmada,
   Queue,
+  HideHavenWater,
   Count
 };
 inline constexpr std::array<Key, static_cast<std::size_t>(Boolean::Count)> booleans{{
@@ -37,6 +38,7 @@ inline constexpr std::array<Key, static_cast<std::size_t>(Boolean::Count)> boole
     {"ui", "show_hostile_cargo"},
     {"ui", "show_armada_cargo"},
     {"control", "queue_enabled"},
+    {"graphics", "hide_haven_water"},
 }};
 inline constexpr const Key&                                                Identity(Boolean option)
 { return booleans.at(static_cast<std::size_t>(option)); }

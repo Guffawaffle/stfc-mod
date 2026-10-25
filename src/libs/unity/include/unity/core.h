@@ -55,6 +55,18 @@ struct UnityObject {
 inline bool Alive(Il2CppObject* object)
 { return object && UnityObject::Class::Call<"op_Implicit", bool>(object); }
 
+// Unlike Alive, a missing/failed native observation is not reported as confirmed destruction.
+inline il2cpp::CallResult<bool> TryAlive(Il2CppObject* object)
+{
+  if (!object)
+    return {true, false};
+  return UnityObject::Class::TryCall<"op_Implicit", bool(UnityObject*)>(reinterpret_cast<UnityObject*>(object));
+}
+inline il2cpp::CallResult<int32_t> TryInstanceId(il2cpp::Object* object)
+{ return object ? object->TryCall<"GetInstanceID", int32_t>() : il2cpp::CallResult<int32_t>{}; }
+inline il2cpp::CallResult<Il2CppString*> TryName(il2cpp::Object* object)
+{ return object ? object->TryCall<"get_name", Il2CppString*>() : il2cpp::CallResult<Il2CppString*>{}; }
+
 inline void Destroy(Il2CppObject* object)
 { UnityObject::Class::Call<"Destroy">(object); }
 
@@ -93,6 +105,8 @@ struct GameObject : il2cpp::Object {
   // Whether it and every parent are active.
   bool activeInHierarchy()
   { return Get<"activeInHierarchy", bool>(); }
+  il2cpp::CallResult<bool> TryActiveInHierarchy()
+  { return TryCall<"get_activeInHierarchy", bool>(); }
 
   // Passing System.Type selects the (Type) overloads over the string and generic ones. A null Type would throw in
   // managed code, so a missing class yields null instead.
@@ -118,12 +132,20 @@ struct GameObject : il2cpp::Object {
     auto* type = T::Class::TypeObject();
     return type ? Call<"GetComponentsInChildren", il2cpp::Array<T*>*>(type, include_inactive) : nullptr;
   }
+  // This non-generic Unity overload declares Component[], even when the supplied Type is Renderer.
+  il2cpp::CallResult<il2cpp::ArrayObject*> TryComponentsInChildren(Il2CppReflectionType* type, bool include_inactive)
+  {
+    return type ? TryCall<"GetComponentsInChildren", il2cpp::ArrayObject*>(type, include_inactive)
+                : il2cpp::CallResult<il2cpp::ArrayObject*>{};
+  }
 
   // A new, active GameObject with only a Transform, at the scene root.
   static GameObject* Create(std::string_view name)
   { return il2cpp::New<GameObject>(il2cpp::NewString(name)); }
   static GameObject* Find(std::string_view path)
   { return Class::Call<"Find", GameObject*>(il2cpp::NewString(path)); }
+  static il2cpp::CallResult<GameObject*> TryFind(Il2CppString* path)
+  { return path ? Class::TryCall<"Find", GameObject*>(path) : il2cpp::CallResult<GameObject*>{}; }
 };
 
 struct Transform : il2cpp::Object {
@@ -303,6 +325,14 @@ struct Material : il2cpp::Object {
   { return Call<"GetFloat", float>(name); }
   void SetFloat(Il2CppString* name, float value)
   { Call<"SetFloat">(name, value); }
+  il2cpp::CallResult<Shader*> TryShader()
+  { return TryCall<"get_shader", Shader*>(); }
+  il2cpp::CallResult<bool> TryHasProperty(Il2CppString* name)
+  { return TryCall<"HasProperty", bool>(name); }
+  il2cpp::CallResult<float> TryGetFloat(Il2CppString* name)
+  { return TryCall<"GetFloat", float>(name); }
+  il2cpp::CallResult<void> TrySetFloat(Il2CppString* name, float value)
+  { return TryCall<"SetFloat">(name, value); }
 };
 
 struct Renderer : Component {
@@ -310,6 +340,12 @@ struct Renderer : Component {
 
   il2cpp::Array<Material*>* sharedMaterials()
   { return Get<"sharedMaterials", il2cpp::Array<Material*>*>(); }
+  il2cpp::CallResult<il2cpp::ArrayObject*> TrySharedMaterials()
+  { return TryCall<"get_sharedMaterials", il2cpp::ArrayObject*>(); }
+  il2cpp::CallResult<bool> TryEnabled()
+  { return TryCall<"get_enabled", bool>(); }
+  il2cpp::CallResult<void> TrySetEnabled(bool value)
+  { return TryCall<"set_enabled">(value); }
 };
 
 struct Canvas : Behaviour {

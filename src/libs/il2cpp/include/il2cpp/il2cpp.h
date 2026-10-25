@@ -556,7 +556,8 @@ struct Object : Il2CppObject {
 
   template <typename T> bool Is() const
   {
-    auto* klass = T::Class::Raw();
+    const auto resolve = detail::ClassOf<std::remove_cv_t<T>>();
+    auto*      klass   = resolve ? resolve() : nullptr;
     return klass && il2cpp_class_is_assignable_from(klass, this->klass);
   }
   template <typename T> T* As()

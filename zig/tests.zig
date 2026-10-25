@@ -51,6 +51,18 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
     const test_officer_preset_order = b.step("test-officer-preset-order", "Run canonical and presentation officer preset order policies");
     const test_hud_visibility = b.step("test-hud-visibility", "Run HUD baseline restoration and native refresh sequence policies");
     const test_toast_parameters = b.step("test-toast-parameters", "Run toast parameter source selection and formatting fixtures");
+    const test_haven_visuals = b.step("test-haven-visuals", "Run Haven shared discovery, ownership and restoration fixtures");
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        module.addCSourceFile(.{ .file = b.path("tests/haven_visuals_test.cc"), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        const exe = ctx.executable("haven-visuals-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_haven_visuals.dependOn(&run.step);
+        test_gameplay_presentation.dependOn(&run.step);
+        test_mod.dependOn(&run.step);
+    }
     inline for (.{ "officer_preset_order", "hud_visibility", "toast_parameters" }) |fixture| {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
@@ -291,9 +303,11 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         test_il2cpp.dependOn(&b.addRunArtifact(exe).step);
         // Metadata resolution is process-cached. Missing required array-class
         // metadata must be observed before any successful lookup in this process.
-        const missing_array_class = b.addRunArtifact(exe);
-        missing_array_class.addArg("array-class-missing");
-        test_il2cpp.dependOn(&missing_array_class.step);
+        inline for (.{ "array-class-missing", "string-class-missing" }) |mode| {
+            const missing_class = b.addRunArtifact(exe);
+            missing_class.addArg(mode);
+            test_il2cpp.dependOn(&missing_class.step);
+        }
     }
     {
         const module = ctx.createModule(true);
