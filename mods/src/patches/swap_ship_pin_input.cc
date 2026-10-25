@@ -28,6 +28,7 @@ namespace
 {
 using Clock = std::chrono::steady_clock;
 constexpr auto kHoldTime = std::chrono::milliseconds(125);
+constexpr auto kPinDoubleClickWindow = std::chrono::milliseconds(400);
 constexpr auto kLostEndDragGrace = std::chrono::milliseconds(250);
 constexpr float kDragDistanceSquared = 64.0f;
 constexpr const char* kPinBadge = "CommunityMod_SwapShipPinBadge";
@@ -67,6 +68,9 @@ struct DragState {
 DragState drag;
 int64_t suppress_click_id = 0;
 int64_t badge_press_id = 0;
+Il2CppGCHandle last_badge_click_tile = nullptr;
+int64_t last_badge_click_id = 0;
+Clock::time_point last_badge_click_time{};
 std::vector<Il2CppGCHandle> tiles;
 int group_refresh_ticks = 0;
 bool hooks_ready = false;
@@ -130,6 +134,15 @@ Il2CppObject* Invoke(const MethodInfo* method, Il2CppObject* object, void** args
   return exception ? nullptr : result;
 }
 
+void ResetBadgeClick()
+{
+  if (last_badge_click_tile)
+    il2cpp_gchandle_free(last_badge_click_tile);
+  last_badge_click_tile = nullptr;
+  last_badge_click_id = 0;
+  last_badge_click_time = {};
+}
+
 void ResetDrag()
 {
   ship_tech_indicators::SetPinGroupHover(nullptr, false);
@@ -157,6 +170,7 @@ void ResetDrag()
 
 void CancelDragClick()
 {
+  ResetBadgeClick();
   if (drag.ship_id)
     suppress_click_id = drag.ship_id;
   badge_press_id = 0;
@@ -550,11 +564,14 @@ void FinishPinDrag(Vector2 position)
 void ScrollRect_OnInitializePotentialDrag_Hook(auto original, Il2CppObject* scroll, Il2CppObject* event_data)
 {
   original(scroll, event_data);
-  if (!hooks_ready || !LeftButton(event_data))
+  if (!hooks_ready || !LeftButton(event_data)) {
+    ResetBadgeClick();
     return;
+  }
   const auto pointer_id = PointerId(event_data);
   // Badge release and click completion use mouse input; leave touch and pen scrolling native.
   if (!pointer_id || *pointer_id != -1) {
+    ResetBadgeClick();
     if (!drag.ship_id) {
       suppress_click_id = 0;
       badge_press_id = 0;
@@ -567,8 +584,14 @@ void ScrollRect_OnInitializePotentialDrag_Hook(auto original, Il2CppObject* scro
   const auto position = PointerPosition(event_data, Methods().pointer_press_position);
   auto* tile = position ? TileAt(*position, true) : nullptr;
   const auto id = Id(tile);
-  if (!id || !pointer_id || ParentScrollRect(tile) != scroll)
+  if (!id || !pointer_id || ParentScrollRect(tile) != scroll) {
+    ResetBadgeClick();
     return;
+  }
+  if (last_badge_click_tile
+      && (last_badge_click_id != *id
+          || il2cpp_gchandle_get_target(last_badge_click_tile) != reinterpret_cast<Il2CppObject*>(tile)))
+    ResetBadgeClick();
   auto tile_handle = il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(tile), false);
   auto scroll_handle = il2cpp_gchandle_new_weakref(scroll, false);
   if (!tile_handle || !scroll_handle) {
@@ -576,6 +599,7 @@ void ScrollRect_OnInitializePotentialDrag_Hook(auto original, Il2CppObject* scro
       il2cpp_gchandle_free(tile_handle);
     if (scroll_handle)
       il2cpp_gchandle_free(scroll_handle);
+    ResetBadgeClick();
     return;
   }
   drag.tile = tile_handle;
@@ -594,6 +618,7 @@ void ScrollRect_OnBeginDrag_Hook(auto original, Il2CppObject* scroll, Il2CppObje
     original(scroll, event_data);
     return;
   }
+  ResetBadgeClick();
   const auto position = PointerPosition(event_data, Methods().pointer_position);
   if (!position || !DragSource()) {
     CancelDragClick();
@@ -653,6 +678,11 @@ void ScrollRect_OnEndDrag_Hook(auto original, Il2CppObject* scroll, Il2CppObject
 
 void UpdateGroupBand()
 {
+  if (last_badge_click_tile
+      && (Clock::now() - last_badge_click_time > kPinDoubleClickWindow
+          || !Badge(reinterpret_cast<ShipTileWidget*>(il2cpp_gchandle_get_target(last_badge_click_tile)))
+          || (Methods().focused && !Methods().focused())))
+    ResetBadgeClick();
   if (group_refresh_ticks > 0 && --group_refresh_ticks == 0)
     RefreshGroupBand();
   if (!drag.ship_id)
@@ -755,24 +785,50 @@ void RefreshVisibleBadges()
 bool HandleTileClick(ShipTileWidget* tile)
 {
   // HandleOnClick has no PointerEventData; ignore nonmouse activations and stale mouse tokens.
-  if (!Methods().ready || !Methods().up(0))
+  if (!Methods().ready || !Methods().up(0)) {
+    ResetBadgeClick();
     return false;
+  }
   const auto id = Id(tile);
   auto* badge = Badge(tile);
-  if (!id || !badge)
+  if (!id || !badge) {
+    ResetBadgeClick();
     return false;
+  }
   if (suppress_click_id == *id || drag.dragging) {
     suppress_click_id = 0;
     badge_press_id = 0;
+    ResetBadgeClick();
     ResetDrag();
     return true;
   }
-  if (badge_press_id != *id)
+  if (badge_press_id != *id) {
+    ResetBadgeClick();
     return false;
+  }
   const bool on_badge = Contains(badge, MousePosition());
   badge_press_id = 0;
   if (drag.ship_id == *id)
     ResetDrag();
-  return on_badge && pinned_ship_sort::HandleCardAction(tile->Context, swap_ship_tile::SelectionContext(tile));
+  if (!on_badge) {
+    ResetBadgeClick();
+    return false;
+  }
+  const auto now = Clock::now();
+  const bool double_click = last_badge_click_tile && last_badge_click_id == *id
+                            && il2cpp_gchandle_get_target(last_badge_click_tile)
+                                   == reinterpret_cast<Il2CppObject*>(tile)
+                            && now - last_badge_click_time <= kPinDoubleClickWindow;
+  ResetBadgeClick(); // Consume the pair before pinning can refresh/rebind the row.
+  if (double_click) {
+    pinned_ship_sort::HandleCardAction(tile->Context, swap_ship_tile::SelectionContext(tile));
+  } else {
+    last_badge_click_tile = il2cpp_gchandle_new_weakref(reinterpret_cast<Il2CppObject*>(tile), false);
+    last_badge_click_id = *id;
+    last_badge_click_time = now;
+  }
+  // Single badge clicks are consumed too, keeping selection/assignment separate.
+  return true;
 }
+
 } // namespace swap_ship_pin_input
