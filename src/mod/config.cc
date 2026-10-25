@@ -33,6 +33,7 @@ constexpr std::pair<std::string_view, bool Config::Patches::*> kPatches[] = {
     {"actionqueuerecoveryhooks", &Config::Patches::actionqueuerecoveryhooks},
     {"artifactexchangehooks", &Config::Patches::artifactexchangehooks},
     {"audioeventhooks", &Config::Patches::audioeventhooks},
+    {"basecardhooks", &Config::Patches::basecardhooks},
     {"bufffixhooks", &Config::Patches::bufffixhooks},
     {"cargoformathooks", &Config::Patches::cargoformathooks},
     {"chatpatches", &Config::Patches::chatpatches},
@@ -62,6 +63,7 @@ constexpr std::pair<std::string_view, bool Config::Patches::*> kPatches[] = {
     {"queueaddressguardhooks", &Config::Patches::queueaddressguardhooks},
     {"revealconfirmhooks", &Config::Patches::revealconfirmhooks},
     {"runtimeconfighooks", &Config::Patches::runtimeconfighooks},
+    {"shiptechindicatorhooks", &Config::Patches::shiptechindicatorhooks},
     {"syncpatches", &Config::Patches::syncpatches},
     {"tempcrashfixes", &Config::Patches::tempcrashfixes},
     {"testpatches", &Config::Patches::testpatches},
@@ -669,6 +671,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.ReadRenamed("graphics", "ui_scale_step", "ui_scale_adjust", g.ui_scale_step);
   r.Read("graphics", "ui_scale_ship", g.ui_scale_ship);
   r.Read("graphics", "ui_scale_viewer", g.ui_scale_viewer);
+  r.Read("graphics", "ship_hotkey_badges", g.ship_hotkey_badges);
   r.Read("graphics", "zoom", g.zoom);
   r.ReadValid("graphics", "haven_zoom", g.haven_zoom, [](float v) { return std::isfinite(v) && v >= 0.0f; });
   r.Read("graphics", "hide_haven_water", g.hide_haven_water);
@@ -750,6 +753,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("ui", "disable_escape_exit_timer", u.disable_escape_exit_timer);
   r.Read("ui", "disable_preview_locate", u.disable_preview_locate);
   r.Read("ui", "disable_preview_recall", u.disable_preview_recall);
+  r.Read("ui", "keep_base_card_open", u.keep_base_card_open);
   r.Read("ui", "only_show_first_popup", u.only_show_first_popup);
   r.Read("ui", "reverse_haven_history", u.reverse_haven_history);
   r.Read("ui", "disable_move_keys", u.disable_move_keys);
@@ -771,6 +775,8 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("ui", "focus_search", u.focus_search);
   r.ReadRenamed("ui", "format_cargo_values", "cargo_format", u.format_cargo_values);
   r.Read("ui", "officer_sort", u.officer_sort);
+  r.Read("ui", "show_ship_tech_indicators", u.show_ship_tech_indicators);
+  r.Read("ui", "show_ship_tech_indicator_backgrounds", u.show_ship_tech_indicator_backgrounds);
   r.Read("ui", "arrow_keys_to_select_ship", u.arrow_keys_to_select_ship);
   r.Read("ui", "auto_confirm_ft_upgrade", u.auto_confirm_ft_upgrade);
   r.Read("ui", "forbidden_tech_ship_name", u.forbidden_tech_ship_name);

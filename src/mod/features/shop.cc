@@ -67,6 +67,24 @@ void ShopListScrollerViewController_UpdateDrawer_Hook(auto original, ShopListScr
 // The most the game's chest purchase popup handles; extend_chest_purchase_max is clamped to it.
 constexpr int64_t kMaximumChestPurchaseMax = 160;
 
+#if _WIN32
+// The native donation setup writes its ordinary cap of 50 after establishing
+// the initial limit. Nonpositive configured limits preserve that initial value.
+void InventoryForPopup_set_MaxItemsToUse_Hook(auto original, InventoryForPopup* _this, int64_t value)
+{
+  if (value == 50 && Config::Get().ui.extend_donation_slider) {
+    const auto donation = _this->TryCall<"get_IsDonationUse", bool>();
+    if (donation && donation.value) {
+      const auto cap = Config::Get().ui.extend_donation_max;
+      if (cap <= 0)
+        return;
+      value = cap;
+    }
+  }
+  original(_this, value);
+}
+#endif
+
 // The popup's limits are adjusted where its row is rendered. IsChestPurchase is set too late for the MaxItemsToUse
 // setter, and adjusting the context rather than the slider leaves every other slider alone.
 void InventoryUseRowWidget_SetWidgetData_Hook(auto original, InventoryUseRowWidget* _this)
@@ -78,7 +96,9 @@ void InventoryUseRowWidget_SetWidgetData_Hook(auto original, InventoryUseRowWidg
     const auto extended   = std::min(int64_t{ui.extend_chest_purchase_max}, kMaximumChestPurchaseMax);
     if (native_max > 0 && extended > native_max)
       context->SetMaxItemsToUse(extended);
-  } else if (context && ui.extend_donation_slider && context->IsDonationUse()) {
+  }
+#if !_WIN32
+  else if (context && ui.extend_donation_slider && context->IsDonationUse()) {
     // extend_donation_max replaces the game's donation cap; 0 or less means no cap. Either way the slider stops at
     // what the player owns.
     const auto owned  = context->AmountOwned();
@@ -87,6 +107,7 @@ void InventoryUseRowWidget_SetWidgetData_Hook(auto original, InventoryUseRowWidg
     if (target > 0 && target != context->MaxItemsToUse())
       context->SetMaxItemsToUse(target);
   }
+#endif
   original(_this);
 }
 
@@ -119,8 +140,11 @@ bool SuppressPopup()
 
 void InterstitialViewController_AboutToShow_Hook(auto original, InterstitialViewController* _this)
 {
-  if (!SuppressPopup())
-    original(_this);
+  // Native show establishes the popup lifecycle. Close subsequent popups through
+  // that lifecycle instead of skipping initialization and leaving a pending owner.
+  original(_this);
+  if (SuppressPopup())
+    _this->CloseWhenReady();
 }
 
 void ShopSceneManager_ShowPlcOfferPopup_Hook(auto original, il2cpp::Object* _this)
@@ -162,6 +186,16 @@ bool InstallShopLimits()
   return hooks.Commit();
 }
 
+#if _WIN32
+bool InstallDonationLimit()
+{
+  il2cpp::HookSet hooks("DonationLimit");
+  IL2CPP_STAGE(hooks, InventoryForPopup::Class::Method<void(int64_t)>("set_MaxItemsToUse"),
+               InventoryForPopup_set_MaxItemsToUse_Hook);
+  return hooks.Commit();
+}
+#endif
+
 // The reveal sequence and the first-popup limit share the crash-fix group they were introduced with.
 bool InstallSkipRevealSequence()
 {
@@ -185,5 +219,8 @@ bool InstallArtifactExchange()
 
 const Feature kGiftsAutoOpen{"GiftsAutoOpen", &Config::Patches::giftsbulkclaimhooks, InstallGiftsAutoOpen};
 const Feature kShopLimits{"ShopLimits", &Config::Patches::miscpatches, InstallShopLimits};
+#if _WIN32
+const Feature kDonationLimit{"DonationLimit", &Config::Patches::miscpatches, InstallDonationLimit};
+#endif
 const Feature kSkipRevealSequence{"SkipRevealSequence", &Config::Patches::tempcrashfixes, InstallSkipRevealSequence};
 const Feature kArtifactExchange{"ArtifactExchange", &Config::Patches::artifactexchangehooks, InstallArtifactExchange};

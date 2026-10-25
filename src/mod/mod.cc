@@ -127,10 +127,12 @@ constexpr const Feature* kFeatures[] = {
     // audio.cc
     &kAudio,
     // buffs.cc
+    &kBaseCard,
     &kOutOfDockPower,
     &kBuffCrashGuard,
     // camera.cc
     &kZoom,
+    &kScrollZoomGuard,
     &kPan,
     &kInteriorZoom,
     // cargo.cc
@@ -148,6 +150,7 @@ constexpr const Feature* kFeatures[] = {
     // dock.cc
     &kPinnedShips,
     &kPinnedShipClick,
+    &kShipTechIndicators,
     &kDoubleClickAssign,
     &kAssignOnEnter,
     &kDockSelection,
@@ -156,6 +159,7 @@ constexpr const Feature* kFeatures[] = {
     &kAbilityButtons,
     // fleet_labels.cc
     &kFleetLabels,
+    &kShipShortcutBadges,
     // forbidden_tech_ship_name.cc
     &kForbiddenTechShipName,
     // game_config.cc
@@ -179,6 +183,9 @@ constexpr const Feature* kFeatures[] = {
     // shop.cc
     &kGiftsAutoOpen,
     &kShopLimits,
+#if _WIN32
+    &kDonationLimit,
+#endif
     &kSkipRevealSequence,
     &kArtifactExchange,
     // toasts.cc

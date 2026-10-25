@@ -12,6 +12,7 @@
 #include "game/app.h"
 #include "game/camera.h"
 #include "game/navigation.h"
+#include "game/scroll_input.h"
 #include "game/ui.h"
 
 #include <il2cpp/hook.h>
@@ -32,6 +33,57 @@ namespace
 
 // Entering a system jumps to default_system_zoom on the next camera update.
 bool zoom_to_default = false;
+
+// Native camera wheel consumption is scoped separately from mod keyboard zoom.
+// UI ownership leaves the UI's wheel action intact and never blocks a touch pinch.
+NavigationZoom* scroll_native_update     = nullptr;
+bool            scroll_queries_available = false;
+struct NativeZoomUpdateScope {
+  NavigationZoom* previous;
+  explicit NativeZoomUpdateScope(NavigationZoom* zoom)
+      : previous(std::exchange(scroll_native_update, zoom))
+  {
+  }
+  ~NativeZoomUpdateScope()
+  { scroll_native_update = previous; }
+};
+
+bool ScrollPointerOwned()
+{
+  if (!scroll_queries_available)
+    return false;
+  try {
+    const auto observed = scroll_input::PointerOwnsScroll();
+    if (observed)
+      return observed.value;
+  } catch (...) {
+  }
+  scroll_queries_available = false;
+  try {
+    spdlog::warn("[ScrollZoomGuard] UI scroll ownership unavailable; native wheel input retained");
+  } catch (...) {
+  }
+  return false;
+}
+
+void NavigationZoom_ZoomCameraAtWorldPoint_Hook(auto original, NavigationZoom* _this)
+{
+  if (_this == scroll_native_update) {
+    const auto pinch = scroll_input::PinchStarted(_this);
+    if (pinch && !pinch.value && ScrollPointerOwned()) {
+      _this->SetZoomDelta(0.0f);
+      _this->SetLastZoomDelta(0.0f);
+      return;
+    }
+  }
+  original(_this);
+}
+
+float MouseScrollAsPinchRecognizer_ReadInput_Hook(auto original, il2cpp::Object* _this)
+{
+  const auto delta = original(_this);
+  return delta != 0.0f && ScrollPointerOwned() ? 0.0f : delta;
+}
 
 // Presets and default_system_zoom are in zoom units: the camera distance's place in [minimum, maximum] mapped onto
 // [0, graphics.zoom], so they keep their meaning when the game moves the range. ZoomAtMouse(absolute) is the inverse.
@@ -190,7 +242,10 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
   if (!run_game_update)
     return;
 
-  original(_this);
+  {
+    NativeZoomUpdateScope native_update(_this);
+    original(_this);
+  }
   KeepZoomRange(_this);
   FleetLabelsAfterZoom(_this);
 }
@@ -461,6 +516,21 @@ bool InstallPan()
   return hooks.Commit();
 }
 
+bool InstallScrollZoomGuard()
+{
+  if (!scroll_input::Available()) {
+    spdlog::warn("[ScrollZoomGuard] native UI scroll contract unavailable; camera input retained");
+    return false;
+  }
+  il2cpp::HookSet hooks("ScrollZoomGuard");
+  IL2CPP_STAGE(hooks, NavigationZoom::Class::Method<void()>("ZoomCameraAtWorldPoint"),
+               NavigationZoom_ZoomCameraAtWorldPoint_Hook);
+  IL2CPP_STAGE(hooks, scroll_input::WheelRecognizer::Method<float()>("ReadInput"),
+               MouseScrollAsPinchRecognizer_ReadInput_Hook);
+  scroll_queries_available = hooks.Commit();
+  return scroll_queries_available;
+}
+
 bool InstallInteriorZoom()
 {
   il2cpp::HookSet hooks("InteriorZoom");
@@ -471,5 +541,6 @@ bool InstallInteriorZoom()
 } // namespace
 
 const Feature kZoom{"Zoom", &Config::Patches::zoomhooks, InstallZoom};
+const Feature kScrollZoomGuard{"ScrollZoomGuard", &Config::Patches::zoomhooks, InstallScrollZoomGuard};
 const Feature kPan{"Pan", &Config::Patches::panhooks, InstallPan};
 const Feature kInteriorZoom{"InteriorZoom", &Config::Patches::interiorzoomhooks, InstallInteriorZoom};

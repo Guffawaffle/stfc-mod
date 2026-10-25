@@ -85,11 +85,13 @@ extern const Feature kAnomalyTimer;
 extern const Feature kAudio;
 
 // buffs.cc
+extern const Feature kBaseCard;
 extern const Feature kOutOfDockPower;
 extern const Feature kBuffCrashGuard;
 
 // camera.cc
 extern const Feature kZoom;
+extern const Feature kScrollZoomGuard;
 extern const Feature kPan;
 extern const Feature kInteriorZoom;
 
@@ -115,6 +117,8 @@ extern const Feature kRevealConfirm;
 // dock.cc
 extern const Feature kPinnedShips;
 extern const Feature kPinnedShipClick;
+extern const Feature kShipTechIndicators;
+bool                 EnsureShipTileBinding();
 extern const Feature kDoubleClickAssign;
 extern const Feature kAssignOnEnter;
 extern const Feature kDockSelection;
@@ -134,7 +138,9 @@ bool FleetShortcuts();
 bool FleetActionShortcuts();
 
 // fleet_labels.cc
+bool                 EnsureNavigationFleetLifecycle();
 extern const Feature kFleetLabels;
+extern const Feature kShipShortcutBadges;
 // Fed by camera.cc's zoom hooks: the camera's depth on each update and system entry, then its zoom after the
 // game's own update.
 void FleetLabelsFollowDepth(NavigationZoom* zoom, NodeDepth depth);
@@ -196,6 +202,9 @@ bool ScreenShortcuts();
 // shop.cc
 extern const Feature kGiftsAutoOpen;
 extern const Feature kShopLimits;
+#if _WIN32
+extern const Feature kDonationLimit;
+#endif
 extern const Feature kSkipRevealSequence;
 extern const Feature kArtifactExchange;
 

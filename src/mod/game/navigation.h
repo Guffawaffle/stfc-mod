@@ -120,6 +120,12 @@ struct NavigationFleetWidget : Widget<FleetDeployedData> {
 
   NavigationLOD* lod()
   { return Field<"_lod", NavigationLOD*>(); }
+  il2cpp::CallResult<TextLocalizer*> TryFleetLevel()
+  {
+    static const bool available = Class::HasField<"_fleetLevel", TextLocalizer*>();
+    return available ? il2cpp::CallResult<TextLocalizer*>{true, Field<"_fleetLevel", TextLocalizer*>()}
+                     : il2cpp::CallResult<TextLocalizer*>{};
+  }
 };
 
 struct NavigationTransitionAnimator : il2cpp::Object {

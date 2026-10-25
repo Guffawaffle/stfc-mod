@@ -370,6 +370,12 @@ void UpstreamSettings()
 {
   toml::table effective;
   const auto  defaults = Config::Parse(toml::table{}, effective, false);
+  Check(defaults->graphics.ship_hotkey_badges && effective["graphics"]["ship_hotkey_badges"].value<bool>() == true,
+        "downstream ship shortcut badges retain their enabled default");
+  const auto hidden_badges = Config::Parse(toml::parse("[graphics]\nship_hotkey_badges = false"), effective, false);
+  Check(!hidden_badges->graphics.ship_hotkey_badges
+            && effective["graphics"]["ship_hotkey_badges"].value<bool>() == false,
+        "ship shortcut badges can be disabled independently of native keybind hints");
   Check(defaults->graphics.haven_zoom == 4000.0f && defaults->ui.reverse_haven_history,
         "Haven defaults match upstream");
   Check(!defaults->graphics.hide_haven_water && effective["graphics"]["hide_haven_water"].value<bool>() == false,

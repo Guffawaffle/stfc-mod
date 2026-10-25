@@ -1,6 +1,7 @@
 // Pin badges and held badge dragging in Swap Ship. Identity, sorting and durable
 // publication belong to dock.cc; this adapter owns only weak native UI custody.
 #include "features/ship_pin_input.h"
+#include "features/ship_tech_indicators.h"
 #include "pin_pointer_policy.h"
 
 #include "game/fleet.h"
@@ -436,10 +437,22 @@ void PinDrop(ShipTileWidget* source, unity::ScrollRect* scroll, unity::Vector2 p
     (void)ship_pins::Toggle(fleet.value, context);
   }
 }
-void ShipTileWidget_SetWidgetData_PinHook(auto original, ShipTileWidget* _this)
+void ShipTileWidget_SetWidgetData_SharedHook(auto original, ShipTileWidget* _this)
 {
   original(_this);
-  (void)PinUiAttempt([&] { PinBind(_this); });
+  if (PinInput().installed)
+    (void)PinUiAttempt([&] { PinBind(_this); });
+  try {
+    ship_tech_indicators::Bind(_this);
+  } catch (...) {
+    static bool reported = false;
+    if (!std::exchange(reported, true)) {
+      try {
+        spdlog::warn("[ShipTechIndicators] native tile decoration unavailable; original binding retained");
+      } catch (...) {
+      }
+    }
+  }
 }
 void ScrollRect_OnInitializePotentialDrag_PinHook(auto original, unity::ScrollRect* scroll,
                                                   unity::PointerEventData* data)
@@ -533,6 +546,21 @@ void ScrollRect_OnEndDrag_PinHook(auto original, unity::ScrollRect* scroll, unit
 }
 } // namespace
 
+bool EnsureShipTileBinding()
+{
+  static const bool installed = [] {
+    const auto bind = ShipTileWidget::Class::Method<void()>("SetWidgetData");
+    if (bind && bind.Info()->klass != ShipTileWidget::Class::Raw()) {
+      spdlog::warn("[ShipTileBinding] tile has no own SetWidgetData override; shared widget binding is left native");
+      return false;
+    }
+    il2cpp::HookSet hooks("ShipTileBinding");
+    IL2CPP_STAGE(hooks, bind, ShipTileWidget_SetWidgetData_SharedHook);
+    return hooks.Commit();
+  }();
+  return installed;
+}
+
 namespace ship_pin_input
 {
 bool Install()
@@ -556,13 +584,9 @@ bool Install()
       || !unity::RectTransformUtility::Class::StaticMethod<unity::Bounds(unity::Transform*, unity::Transform*)>(
           "CalculateRelativeRectTransformBounds"))
     return false;
-  const auto bind = ShipTileWidget::Class::Method<void()>("SetWidgetData");
-  if (bind && bind.Info()->klass != ShipTileWidget::Class::Raw()) {
-    spdlog::warn("[ShipPinInput] tile has no own SetWidgetData override; shared widget binding is left native");
+  if (!EnsureShipTileBinding())
     return false;
-  }
   il2cpp::HookSet hooks("ShipPinInput");
-  IL2CPP_STAGE(hooks, bind, ShipTileWidget_SetWidgetData_PinHook);
   IL2CPP_STAGE(hooks, unity::ScrollRect::Class::Method<void(unity::PointerEventData*)>("OnInitializePotentialDrag"),
                ScrollRect_OnInitializePotentialDrag_PinHook);
   IL2CPP_STAGE(hooks, unity::ScrollRect::Class::Method<void(unity::PointerEventData*)>("OnBeginDrag"),

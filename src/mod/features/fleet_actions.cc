@@ -3,6 +3,7 @@
 // target's cargo when it is scanned, the action queue switch, and re-enabling ability buttons whose cooldown ended.
 
 #include "config.h"
+#include "features/base_card.h"
 #include "features/features.h"
 #include "planned_system_warp_policy.h"
 #include "runtime_config.h"
@@ -123,7 +124,8 @@ bool RequestFleetAction(FleetLocalViewController* panel, FleetPlayerData* fleet,
 {
   bool requested = false;
   if (std::ranges::contains(states, fleet->CurrentState())) {
-    NavigationSectionManager::HideInteraction();
+    if (type != ActionType::Recall || !base_card::KeepOpenForRecall(fleet->Id()))
+      NavigationSectionManager::HideInteraction();
     requested = panel->RequestAction(fleet, type, 0, ActionBehaviour::Default);
   }
   if (help_state != FleetState::Unknown && (requested || fleet->CurrentState() == help_state))

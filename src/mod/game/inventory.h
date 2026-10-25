@@ -11,6 +11,9 @@
 
 struct InterstitialViewController : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Interstitial", "InterstitialViewController">;
+
+  void CloseWhenReady()
+  { Call<"CloseWhenReady", void()>(); }
 };
 
 // The context of a use, purchase or donation popup.

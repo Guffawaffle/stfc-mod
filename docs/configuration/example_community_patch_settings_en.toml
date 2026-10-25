@@ -157,6 +157,10 @@ ui_scale_step = 0.05
 # This specifies the amount to scale the UI Object Viewers by, 1.0 being default
 ui_scale_viewer = 1.2
 
+# Replace local-player system fleet letters with their current mod ship shortcuts.
+# Native hotkey mode and disabling this option restore the game's labels.
+ship_hotkey_badges = true
+
 # Subgroup: Fleet Labels
 # ----------------------
 
@@ -286,6 +290,7 @@ audioeventhooks = true
 
 # Enable the buff fixes
 bufffixhooks = true
+basecardhooks = true
 cargoformathooks = true
 chatpatches = true
 
@@ -323,6 +328,7 @@ miscpatches = true
 missionhudtweakshooks = true
 objecttracker = true
 officersorthooks = true
+shiptechindicatorhooks = true
 panhooks = true
 
 # Legacy compatibility key; accepted but has no independent consumer.
@@ -882,6 +888,10 @@ format_cargo_values = true
 # Restore the Below Deck Ability officer sort option
 officer_sort = true
 
+# Native Forbidden Tech and Chaos Tech icons in Swap Ship.
+show_ship_tech_indicators = true
+show_ship_tech_indicator_backgrounds = false
+
 # Subgroup: Previews
 # ------------------
 
@@ -893,6 +903,9 @@ disable_preview_locate = false
 
 # Stop recall working when ship or node previews are displayed
 disable_preview_recall = false
+
+# Keep the matching enemy station card open while issuing course/recall actions.
+keep_base_card_open = false
 
 # Show cargo used and capacity immediately instead of counting up. Restart after changing. Windows client 263 only; other builds keep native behavior
 instant_cargo_counter = true

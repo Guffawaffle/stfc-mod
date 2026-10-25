@@ -146,6 +146,7 @@ public:
     bool actionqueuerecoveryhooks   = true;
     bool artifactexchangehooks      = true;
     bool audioeventhooks            = true;
+    bool basecardhooks              = true;
     bool bufffixhooks               = true;
     bool cargoformathooks           = true;
     bool chatpatches                = true;
@@ -175,6 +176,7 @@ public:
     bool queueaddressguardhooks     = true;
     bool revealconfirmhooks         = true;
     bool runtimeconfighooks         = true;
+    bool shiptechindicatorhooks     = true;
     bool syncpatches                = true;
     bool tempcrashfixes             = true;
     bool testpatches                = true;
@@ -204,6 +206,8 @@ public:
     float ui_scale_step   = 0.05f;
     float ui_scale_ship   = 1.0f;
     float ui_scale_viewer = 1.2f;
+    // Show the active mod ship shortcut on local-player fleet labels in system view.
+    bool ship_hotkey_badges = true;
     // The farthest system zoom; presets and zoom shortcuts are in the same unit.
     float zoom             = 5000.0f;
     float haven_zoom       = 4000.0f;
@@ -266,6 +270,7 @@ public:
     int  disable_escape_exit_timer = 0;
     bool disable_preview_locate    = false;
     bool disable_preview_recall    = false;
+    bool keep_base_card_open       = false;
     bool only_show_first_popup     = false;
     bool reverse_haven_history     = true;
     bool disable_toast_banners     = false;
@@ -291,9 +296,11 @@ public:
     // Abbreviated cargo values use cargo_significant_decimals.
     bool format_cargo_values = true;
     // Restores the Below Deck Ability officer sort option.
-    bool officer_sort              = true;
-    bool arrow_keys_to_select_ship = true;
-    bool auto_confirm_ft_upgrade   = false;
+    bool officer_sort                         = true;
+    bool show_ship_tech_indicators            = true;
+    bool show_ship_tech_indicator_backgrounds = false;
+    bool arrow_keys_to_select_ship            = true;
+    bool auto_confirm_ft_upgrade              = false;
     // Shows the equipped ship below the Forbidden Tech header, including ships without a dock.
     bool forbidden_tech_ship_name           = true;
     bool auto_confirm_alliance_contribution = false;

@@ -107,6 +107,10 @@ struct FleetDeployedData : il2cpp::Object {
   { return Get<"FleetType", DeployedFleetType>(); }
   int64_t Id()
   { return Get<"ID", int64_t>(); }
+  il2cpp::CallResult<int64_t> TryId()
+  { return TryCall<"get_ID", int64_t>(); }
+  il2cpp::CallResult<bool> TryIsLocalPlayer()
+  { return TryCall<"get_IsLocalPlayer", bool>(); }
   DeployedFleetState CurrentState()
   { return Get<"CurrentState", DeployedFleetState>(); }
   FleetRemovalReason RemovalReason()
@@ -401,6 +405,8 @@ struct FleetsManager : MonoSingleton<FleetsManager> {
   }
   FleetPlayerData* GetFleetPlayerData(int32_t index)
   { return Call<"GetFleetPlayerData", FleetPlayerData*>(index); }
+  il2cpp::CallResult<int32_t> TryPlayerFleetIndex(int64_t fleet_id)
+  { return TryCall<"GetPlayerFleetIndex", int32_t(int64_t)>(fleet_id); }
   FleetPlayerData* GetSelectedFleetData()
   { return Call<"GetSelectedFleetData", FleetPlayerData*>(); }
   void RequestViewFleet(FleetPlayerData* fleetData, bool showSystemInfo = false)

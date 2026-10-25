@@ -1,0 +1,458 @@
+{
+  "schema": "stfc-play-parity-work/v1",
+  "primaryPlay": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+  "migrationStart": "606025e439c84e1512ce33227473246e69febeec",
+  "repoRoot": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+  "policy": {
+    "speed": "small native builds and boot checks before broad offline qualification",
+    "uiOrder": "feature owners before Settings UI",
+    "cycles": "authorized unless explicit user hold",
+    "stores": "preserve existing formats, account/profile identity, unknown values and source ownership",
+    "runner": "dependency ordering and durable gates; no governed Attempt claimed under path_roots_overlap",
+    "outOfScope": [
+      "later play-dev expansion",
+      "AAI",
+      "STFCKitUI expansion",
+      "SQLite",
+      "launcher migration",
+      "new repositories",
+      "release promotion"
+    ],
+    "activeTrialPlatform": "Windows x64, client273; macOS source/build/runtime claims tracked separately"
+  },
+  "tasks": [
+    {
+      "id": "P00",
+      "title": "Baseline and source ownership",
+      "deps": [],
+      "status": "checkpointed",
+      "steps": [
+        "Pin play cad98ef7990dd66167eb64ea5dda525c1fe2c296 and current migration606025e4.",
+        "Keep active canonical checkout and parked tooling untouched.",
+        "Retain current DLL/hash/startup observation and original working DLL; no store migration."
+      ],
+      "trial": "Existing ordinary session:49 hook groups, portraits user-confirmed. Subsequent batches get their own identities."
+    },
+    {
+      "id": "P01",
+      "title": "Complete behavioral inventory",
+      "deps": [
+        "P00"
+      ],
+      "status": "inventory-complete",
+      "steps": [
+        "Account for every play hook owner, actual config reader, shortcut action, native UI workflow and platform behavior.",
+        "Label present, partial, missing, accepted replacement and obsolete example-only keys.",
+        "Keep play-dev/AAI/Kit/probes outside primary acceptance."
+      ],
+      "trial": "Review three source inventories; map each genuine gap to a task below."
+    },
+    {
+      "id": "P02",
+      "title": "Popup and donation compatibility",
+      "deps": [
+        "P01"
+      ],
+      "status": "windows-boot-qualified-interaction-pending",
+      "steps": [
+        "Restore interstitial original-first then CloseWhenReady; preserve shared first-popup counter with PLC offers.",
+        "Restore Windows donation50-cap interception and zero/negative unlimited semantics; keep chest160 behavior separate.",
+        "Preserve macOS donation behavior and qualify it separately."
+      ],
+      "trial": "Boot, first/later offer lifecycle; donation positive/zero caps and ordinary chest/other sliders."
+    },
+    {
+      "id": "P03",
+      "title": "Ship shortcut badges",
+      "deps": [
+        "P01"
+      ],
+      "status": "user-confirmed",
+      "steps": [
+        "Restore graphics.ship_hotkey_badges defaulttrue.",
+        "Bind/release fleet-state and fleetbar badges with actual configured action hints and gapped docks.",
+        "Reuse shared owners; no change to pins or native action-hint relabeling."
+      ],
+      "trial": "Boot; fleetbar/ship selection, custom bindings, on/off/rebind."
+    },
+    {
+      "id": "P04",
+      "title": "Mouse-wheel ownership over UI",
+      "deps": [
+        "P01"
+      ],
+      "status": "user-confirmed",
+      "steps": [
+        "Restore sorted raycast and enabled scroll-handler ancestor ownership.",
+        "Suppress native background wheel zoom only within matching native update/read-input scope.",
+        "Keep keyboard zoom, touch pinch, system/station/Haven behavior and native fallback."
+      ],
+      "trial": "Scroll native panels over system/station/Haven; background stays still and Q/E still zoom."
+    },
+    {
+      "id": "P05",
+      "title": "Base-card retention",
+      "deps": [
+        "P01"
+      ],
+      "status": "windows-boot-qualified-interaction-pending",
+      "steps": [
+        "Restore keep_base_card_open false-default and response/context qualification.",
+        "Retain only matching viewed enemy station across attack/recall.",
+        "Handle qualifying recall before unconditional HideInteraction without skipping fleet command/semaphore."
+      ],
+      "trial": "Attack and recall from enemy base card; switch fleet/base and verify stale card not retained."
+    },
+    {
+      "id": "P06",
+      "title": "Mining ActionView cycle",
+      "deps": [
+        "P05"
+      ],
+      "status": "queued",
+      "steps": [
+        "Restore V/MOUSE2 node→occupant→cargo→node cycle.",
+        "Preserve own-miner exclusion, cargo-first preferences, context ownership and5s timeout.",
+        "Route ActionView before generic cargo toggle; preserve primary Mine action."
+      ],
+      "trial": "Occupied enemy node cycle, own miner, rapid node changes and unavailable occupant."
+    },
+    {
+      "id": "P07",
+      "title": "Keyboard layout and input compatibility",
+      "deps": [
+        "P01"
+      ],
+      "status": "queued",
+      "steps": [
+        "Restore physical/layout mode reader and OS layout-change notification using current chord dispatcher.",
+        "Reconcile native/mod/extended mode arbitration, fallthrough and text focus.",
+        "Check held-modifier release, quit/restart, doubletap and shortcut badges against actual play actions."
+      ],
+      "trial": "Switch Windows keyboard layout, native/mod hotkeys and chat focus; no stuck or duplicate actions."
+    },
+    {
+      "id": "P08",
+      "title": "Window, scale and existing camera parity",
+      "deps": [
+        "P01"
+      ],
+      "status": "queued",
+      "steps": [
+        "Restore actual play borderless/fullscreen behavior where current TODO is inert.",
+        "Verify resize/cursor/interface/viewer/ship/backdrop scale rather than porting duplicate owners.",
+        "Exercise system/interior zoom, pan/glide, presets/defaults and original restoration."
+      ],
+      "trial": "Boot; window toggle/resize, section transitions, preset save/reload and zoom extremes."
+    },
+    {
+      "id": "P09",
+      "title": "Ship OPC/ETA display",
+      "deps": [
+        "P03"
+      ],
+      "status": "queued",
+      "steps": [
+        "Restore highlight_opc_fleets and fleet_hud_opc_eta false-default keys and actual owned fleet/cargo/ETA bindings.",
+        "Preserve player/nonplayer distinctions, unavailable data and cleared/recycled labels.",
+        "Separate display from notification threshold/event semantics."
+      ],
+      "trial": "Owned and other fleets, over/under protection, travel/mining/idle and row reuse."
+    },
+    {
+      "id": "P10",
+      "title": "Swap Ship technology indicators",
+      "deps": [
+        "P03"
+      ],
+      "status": "source-built-runtime-preflight-unavailable-investigating",
+      "steps": [
+        "Restore FT/CT icons, artwork ownership and optional backgrounds with original defaults.",
+        "Share existing ship-tile binding/release path with pin UI; do not port a second pin owner.",
+        "Clear missing/rebound art, maintain space and click/drag behavior."
+      ],
+      "trial": "Open Swap Ship, scroll/reuse tiles, assigned/missing tech and backgrounds on/off."
+    },
+    {
+      "id": "P11",
+      "title": "Orbit input and Haven orbit",
+      "deps": [
+        "P04",
+        "P07"
+      ],
+      "status": "queued",
+      "steps": [
+        "Add actual play pointer-chord drag/reset actions.",
+        "Restore Haven source/blend/constraint identity and placement/UI/focus gates.",
+        "Reset and release ownership on section/source changes; preserve qualified Haven zoom/visuals."
+      ],
+      "trial": "Right-drag/Alt-right-reset Haven; placement/modal UI and leave/reenter."
+    },
+    {
+      "id": "P12",
+      "title": "System orbit and environment",
+      "deps": [
+        "P11"
+      ],
+      "status": "queued",
+      "steps": [
+        "Restore navigationorbithooks and system camera-rig drag/reset/free-pan/zoom-anchor behavior.",
+        "Port original environment shell/embedded art with material/texture cleanup; no new artwork initiative.",
+        "Preserve farclip/backdrop, section cleanup and native Galaxy behavior."
+      ],
+      "trial": "Orbit/pan/zoom system, expose scene edges, reset and travel."
+    },
+    {
+      "id": "P13",
+      "title": "Galaxy labels and overlay owner",
+      "deps": [
+        "P01"
+      ],
+      "status": "queued",
+      "steps": [
+        "Restore major/minor detail and thresholds with bind/release/LOD semantics.",
+        "Restore four overlay flags and multi-select, native mode mapping and disable cleanup.",
+        "Use one cohesive Galaxy owner and existing pure policy/dataset validation where available."
+      ],
+      "trial": "Near/far major/minor labels; multiple overlays, last-active toggle and native mode."
+    },
+    {
+      "id": "P14",
+      "title": "Galaxy selection and station housing",
+      "deps": [
+        "P13"
+      ],
+      "status": "queued",
+      "steps": [
+        "Restore qualified Far-tier extended selection and label proxies.",
+        "Restore station-housing key/data and star/name-row lifecycle using checked metadata.",
+        "Preserve platform dispatch differences and disabled native behavior."
+      ],
+      "trial": "Far Galaxy select, known housing/nonhousing systems, zoom/recycled labels and disable."
+    },
+    {
+      "id": "P15",
+      "title": "Officer preset native integration",
+      "deps": [
+        "P01"
+      ],
+      "status": "queued",
+      "steps": [
+        "Reuse existing pure order policy and state owner; SlotId0 valid, fixed empties preserved.",
+        "Restore Shift-up/Ctrl-or-Command-down rename gestures and immediate session order.",
+        "Implement qualified canonical save and renderer-index handoff; do not use disproven data-only swap.",
+        "Keep native save exactly once; restoration/unavailable paths explicit."
+      ],
+      "trial": "Move, rename, save crew into intended slot, empty slots and reopen; macOS modifier separate."
+    },
+    {
+      "id": "P16",
+      "title": "Shared notifications and incoming attack",
+      "deps": [
+        "P18"
+      ],
+      "status": "queued",
+      "steps": [
+        "Restore play notification_emit capabilities on the existing toast/desktop foundation.",
+        "Restore incoming-player-attack validation, focused/background policy and repeat suppression.",
+        "Preserve filtering, named context formatting and account/session reset."
+      ],
+      "trial": "Synthetic/offline event checks then real incoming attack when available; focused/background suppression."
+    },
+    {
+      "id": "P17",
+      "title": "Owned fleet event notifications",
+      "deps": [
+        "P09",
+        "P16",
+        "P18"
+      ],
+      "status": "queued",
+      "steps": [
+        "Restore system/destination arrival, mining start, depletion, dock, repair and OPC event routes.",
+        "Preserve startup arming, owned-fleet/session identity, transition dedupe and thresholds.",
+        "Keep existing provider integration and no duplicate native/desktop notifications."
+      ],
+      "trial": "Travel, mine/deplete, recall/dock/repair and OPC transitions; reopening/restart must not replay startup events."
+    },
+    {
+      "id": "P18",
+      "title": "Custom audio and coalescing",
+      "deps": [
+        "P01"
+      ],
+      "status": "queued",
+      "steps": [
+        "Restore the existing immutable builtin-or-preloaded-WAV cue type; config loading owns file I/O, playback must not read files.",
+        "Restore builtin/file cue representation, custom file paths and native async playback.",
+        "Restore coalescing/preview backend, mute policy and alert mapping for battle/fleet/incoming events.",
+        "Keep platform playback, error/fallback and task ownership distinct."
+      ],
+      "trial": "Builtin/custom file cue, missing file, overlapping alerts, mute and shutdown."
+    },
+    {
+      "id": "P19",
+      "title": "Claims, HUD, cargo and confirmations sweep",
+      "deps": [
+        "P02",
+        "P05"
+      ],
+      "status": "queued",
+      "steps": [
+        "Verify existing claim drawer/filter/toggle, four HUD Auto/Always/Never and restoration.",
+        "Check cargo formatting/instant counters/defaults and FT/Excelsior/reveal/warp confirmations.",
+        "Fix observed/source-proven deltas in existing owners; do not port obsolete example-only hud_daily_goals or disable_first_popup."
+      ],
+      "trial": "Representative native screens and on/off/reload; no background auto-claim or wrong-target actions."
+    },
+    {
+      "id": "P20",
+      "title": "Loading, anomaly, labels and chat sweep",
+      "deps": [
+        "P03",
+        "P08"
+      ],
+      "status": "queued",
+      "steps": [
+        "Qualify actual anomaly HUD, loading image/logo/transition/tip and file fallback.",
+        "Exercise system fleet-label four modes, chat channels/titles/portrait retention.",
+        "Retain current stronger ownership and restoration; no play-dev science activation."
+      ],
+      "trial": "Ordinary boot, loading/section transitions, anomaly system and chat scroll/reopen."
+    },
+    {
+      "id": "P21",
+      "title": "Persistence, Profiles and sync closure",
+      "deps": [
+        "P07",
+        "P17",
+        "P18"
+      ],
+      "status": "queued",
+      "steps": [
+        "Check every restored feature's save/reload/default semantics through existing writer/state owners.",
+        "Preserve comments/unknown keys/external conflicts and current profile/bootstrap boundaries.",
+        "Qualify sync category/config compatibility and accepted per-target ACK/restart resend behavior; no new database/history.",
+        "Use synthetic loopback before any explicitly configured live sync; explicit-profile runtime needs its own identified trial."
+      ],
+      "trial": "Settings-file edits/reload/save/restart, ordinary and named-profile trials separately, synthetic sync ACK/retry."
+    },
+    {
+      "id": "P22",
+      "title": "Interactive shortcut editing domain",
+      "deps": [
+        "P07"
+      ],
+      "status": "queued",
+      "steps": [
+        "Adapt existing play capture/draft/replace/remove/overlap/undo/default contracts to current shortcut owner.",
+        "Reuse current parser/dispatcher; no parallel binding engine.",
+        "Preserve cancel/focus/release gating and exact stored chords."
+      ],
+      "trial": "Fixture capture/undo/conflict checks; UI test afterP25."
+    },
+    {
+      "id": "P23",
+      "title": "Full Settings native adapter",
+      "deps": [
+        "P06",
+        "P10",
+        "P12",
+        "P14",
+        "P15",
+        "P19",
+        "P20",
+        "P21",
+        "P22",
+        "P28"
+      ],
+      "status": "queued",
+      "steps": [
+        "Reuse preserved model/callback code and actual game category/toggle/selection/slider/text/action assets.",
+        "Adapt closed instance-delegate construction, virtual BindDataContext, roots and pooled-row ownership.",
+        "Restore preference/session/cloud invalidation before originals; shared frame/input lifecycle.",
+        "No engine-state execution during hook installation and no new rendering stack."
+      ],
+      "trial": "Boot first; open native Mod Settings, bind/release/reopen, Back/Escape and stale callback checks."
+    },
+    {
+      "id": "P24",
+      "title": "Full Settings catalog and tools",
+      "deps": [
+        "P23",
+        "P10",
+        "P14",
+        "P15",
+        "P18"
+      ],
+      "status": "queued",
+      "steps": [
+        "Connect all original play pages/controls with actual feature owners and preserving registered-key writer.",
+        "Restore search, conditional sections, exact numeric/text entry, defaults/help/retry and timing/status.",
+        "Restore full shortcut editor and audio/image file pickers with supported-platform fallbacks.",
+        "No reduced starter catalog presented as full parity."
+      ],
+      "trial": "Exercise every control family, full page catalog, search/default/retry and requested-vs-active restart settings."
+    },
+    {
+      "id": "P25",
+      "title": "Whole-play acceptance and platform closure",
+      "deps": [
+        "P24",
+        "P26",
+        "P27"
+      ],
+      "status": "queued",
+      "steps": [
+        "Audit every actual play hook/setting/action/workflow against final source and trial evidence.",
+        "Run full appropriate regression and supported Windows Zig0.16/0.17 builds; broaden only for actual failures.",
+        "Keep macOS build/signing/notarization/runtime qualification separately pending until real environment available.",
+        "Checkpoint full preserved play result before any play-dev/AAI/Kit expansion; no push or promotion by implication."
+      ],
+      "trial": "Boot final candidate and repeat high-use gameplay/settings smoke; identify any remaining blocker by exact feature."
+    },
+    {
+      "id": "P26",
+      "title": "macOS notification parity",
+      "deps": [
+        "P16",
+        "P18"
+      ],
+      "status": "queued-platform",
+      "steps": [
+        "Restore real play macOS desktop notification delivery where current source is a no-op/TODO.",
+        "Keep native framework/lifetime and custom audio platform boundaries; compile both architectures where SDK permits.",
+        "Require actual macOS trial before declaring that platform restored; do not hold each Windows development cycle for unavailable macOS runtime."
+      ],
+      "trial": "macOS focused/background desktop alerts, audio and application shutdown with an exact signed/test artifact."
+    },
+    {
+      "id": "P27",
+      "title": "Diagnostic and product surface audit",
+      "deps": [
+        "P01"
+      ],
+      "status": "queued",
+      "steps": [
+        "Account for actual play dev-console/error-probe/tracing controls and user-facing version/branding, including disabled-by-default behavior.",
+        "Preserve implemented diagnostics needed for normal troubleshooting without enabling play-dev science/capture probes.",
+        "Map compatibility aliases and documented settings to actual readers; omit truly obsolete unconsumed examples only with an explicit record."
+      ],
+      "trial": "Ordinary boot stays free of opt-in probes; supported diagnostic controls and identity report the correct artifact."
+    },
+    {
+      "id": "P28",
+      "title": "Discovery ship towing",
+      "deps": [
+        "P07"
+      ],
+      "status": "queued",
+      "steps": [
+        "Restore the Shift+ship-number Discovery tow action present in pinned play.",
+        "Use current fleet/deployment/coroutine bindings with truthful readiness, fleet identity and rejected-path handling.",
+        "Do not copy the old synchronous coroutine-draining busy loop or make newer play-dev standalone towing a prerequisite."
+      ],
+      "trial": "Available/unavailable Discovery, invalid fleet, denied tow and successful tow; ordinary ship selection unchanged."
+    }
+  ]
+}

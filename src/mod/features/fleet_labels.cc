@@ -4,6 +4,7 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "features/ship_shortcut_badges.h"
 
 #include "game/navigation.h"
 
@@ -55,6 +56,8 @@ public:
 
   void Track(NavigationFleetWidget* widget)
   {
+    if (!installed_)
+      return;
     // Fresh pooled widgets are enabled before BindDataContext assigns their context; forcing an LOD before then
     // fires OnLODChanged callbacks that dereference the unbound fleet data.
     auto* lod = widget->Context() ? widget->lod() : nullptr;
@@ -67,6 +70,8 @@ public:
 
   void Untrack(NavigationFleetWidget* widget)
   {
+    if (!installed_)
+      return;
     auto* lod = widget->lod();
     if (!lod)
       return;
@@ -199,22 +204,26 @@ void NavigationFleetWidget_OnEnable_Hook(auto original, NavigationFleetWidget* _
 {
   original(_this);
   fleet_labels.Track(_this);
+  ship_shortcut_badges::Bind(_this);
 }
 
 void NavigationFleetWidget_OnDidBindContext_Hook(auto original, NavigationFleetWidget* _this)
 {
   original(_this);
   fleet_labels.Track(_this);
+  ship_shortcut_badges::Bind(_this);
 }
 
 void NavigationFleetWidget_OnDisable_Hook(auto original, NavigationFleetWidget* _this)
 {
+  ship_shortcut_badges::Release(_this);
   fleet_labels.Untrack(_this);
   original(_this);
 }
 
 void NavigationFleetWidget_OnAboutToReleaseContext_Hook(auto original, NavigationFleetWidget* _this)
 {
+  ship_shortcut_badges::Release(_this);
   fleet_labels.Untrack(_this);
   original(_this);
 }
@@ -224,16 +233,10 @@ bool InstallFleetLabels()
   // Installed whether or not zoom_label_* is set, so labels can be switched at runtime. Missing fields and
   // properties (_lod, Context, FleetType) read as null or zero, which the hooks treat as native labels. The zoom
   // reports come from camera.cc's NavigationZoom.Update hook, so that method has to exist too.
-  if (!NavigationZoom::Class::Method("Update"))
+  if (!NavigationZoom::Class::Method("Update") || !EnsureNavigationFleetLifecycle())
     return false;
   il2cpp::HookSet hooks("FleetLabels");
   IL2CPP_STAGE(hooks, NavigationLOD::Class::Method("UpdateLOD"), NavigationLOD_UpdateLOD_Hook);
-  IL2CPP_STAGE(hooks, NavigationFleetWidget::Class::Method("OnEnable"), NavigationFleetWidget_OnEnable_Hook);
-  IL2CPP_STAGE(hooks, NavigationFleetWidget::Class::Method("OnDisable"), NavigationFleetWidget_OnDisable_Hook);
-  IL2CPP_STAGE(hooks, NavigationFleetWidget::Class::Method("OnDidBindContext"),
-               NavigationFleetWidget_OnDidBindContext_Hook);
-  IL2CPP_STAGE(hooks, NavigationFleetWidget::Class::Method("OnAboutToReleaseContext"),
-               NavigationFleetWidget_OnAboutToReleaseContext_Hook);
   // camera.cc's zoom hooks report here whether or not this installed; they only count once it has.
   if (!hooks.Commit())
     return false;
@@ -241,6 +244,23 @@ bool InstallFleetLabels()
   return true;
 }
 } // namespace
+
+bool EnsureNavigationFleetLifecycle()
+{
+  // The label and shortcut-badge features share the same pooled widget lifecycle.
+  // One terminal owner serves both, independently of either feature's display setting.
+  static const bool installed = [] {
+    il2cpp::HookSet hooks("NavigationFleetLifecycle");
+    IL2CPP_STAGE(hooks, NavigationFleetWidget::Class::Method("OnEnable"), NavigationFleetWidget_OnEnable_Hook);
+    IL2CPP_STAGE(hooks, NavigationFleetWidget::Class::Method("OnDisable"), NavigationFleetWidget_OnDisable_Hook);
+    IL2CPP_STAGE(hooks, NavigationFleetWidget::Class::Method("OnDidBindContext"),
+                 NavigationFleetWidget_OnDidBindContext_Hook);
+    IL2CPP_STAGE(hooks, NavigationFleetWidget::Class::Method("OnAboutToReleaseContext"),
+                 NavigationFleetWidget_OnAboutToReleaseContext_Hook);
+    return hooks.Commit();
+  }();
+  return installed;
+}
 
 void FleetLabelsFollowDepth(NavigationZoom* zoom, NodeDepth depth)
 { fleet_labels.OnDepth(zoom, depth); }
