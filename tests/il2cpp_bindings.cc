@@ -853,6 +853,27 @@ int main()
     IL2CPP_STAGE_AT(complete, &Offset, Offset_Hook);
     Require(complete.Commit() && Scaled(2) == scaled_before + 100 && Offset(2) == offset_before + 1000,
             "a complete set installs every hook");
+
+    // Bypass Missing() so SPUD must undo the first native chain addition after
+    // the second handle rejects its zero target, preserving the earlier set.
+    il2cpp::HookSet rollback("NativeRollback");
+    IL2CPP_STAGE_AT(rollback, &Scaled, Scaled_Hook);
+    rollback.Stage(SPUD_AUTO_HOOK(static_cast<void*>(nullptr), Scaled_Hook));
+    const auto refused = rollback.CommitDetailed();
+    Require(refused.state == il2cpp::HookInstallState::kRejected && refused.error == spud::detour_error::kNotFound
+                && !refused.Unsafe() && !il2cpp::HookStateIndeterminate(),
+            "a real native transaction safely rejects a zero target");
+    Require(Scaled(2) == scaled_before + 100 && Offset(2) == offset_before + 1000,
+            "native rollback preserves existing hooks without retaining the added chain member");
+
+    // Named sets own installation attempts, not exclusive target addresses.
+    il2cpp::HookSet chained("IntentionalChain");
+    IL2CPP_STAGE_AT(chained, &Scaled, Scaled_Hook);
+    Require(chained.Commit() && Scaled(2) == scaled_before + 200 && Offset(2) == offset_before + 1000,
+            "an intentional second set chains on an already-hooked native target");
+    Require(chained.Commit() && complete.Commit() && Scaled(2) == scaled_before + 200
+                && Offset(2) == offset_before + 1000,
+            "cached commits neither add a third hook nor disturb the existing set");
 #endif
   }
 

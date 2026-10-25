@@ -12,10 +12,11 @@
 
 #include <spud/detour.h>
 
-#include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -27,11 +28,45 @@ namespace il2cpp
 // Other platforms return the entry unchecked.
 void* CheckedEntry(const Method& method);
 
-// The hooks one installer puts in, through one SPUD transaction: every one of them, or none. Stage each hook with
-// IL2CPP_STAGE or IL2CPP_STAGE_AT, then Commit(). A missing method, already reported by its lookup, or a null address
-// makes Commit install nothing. The transaction applies the set under one suspend window and undoes it if any step
-// fails, so a hook never runs without the rest of its set. Every set that does not go in is reported as
-// "[IL2CPP] <set> not installed: <why>", so features never log hook failures themselves.
+enum class HookInstallState { kNotAttempted, kInstalled, kMissingTarget, kEmpty, kRejected, kIndeterminate };
+
+struct HookInstallResult {
+  HookInstallState state = HookInstallState::kNotAttempted;
+  // kOk means no SPUD error was observed, including missing/empty sets and C++ exceptions.
+  // It does not imply success; use Installed() and Unsafe().
+  spud::detour_error error = spud::detour_error::kOk;
+
+  bool Installed() const noexcept
+  { return state == HookInstallState::kInstalled; }
+  bool Unsafe() const noexcept
+  { return state == HookInstallState::kIndeterminate; }
+};
+
+// Process-monotonic safety latch. No later set may apply hooks after an indeterminate outcome.
+bool HookStateIndeterminate() noexcept;
+
+class HookInstallError : public std::runtime_error
+{
+public:
+  explicit HookInstallError(HookInstallResult result)
+      : std::runtime_error("Hook installation state is indeterminate")
+      , result_(result)
+  {
+  }
+  const HookInstallResult& Result() const noexcept
+  { return result_; }
+
+private:
+  HookInstallResult result_;
+};
+
+// One attempt to install one SPUD transaction. Missing/empty sets apply nothing; a rejected transaction must have
+// restored each owned handle's prior installed state. Rollback/protection/suspension failures or exceptions are
+// indeterminate, not evidence that no native patch remains. Such outcomes latch the process unsafe and retain every
+// handle intact. CommitDetailed records the outcome; bool Commit throws HookInstallError for unsafe state so startup
+// must stop. Reporting cannot turn an unsafe outcome into an optional feature skip.
+// This does not repair backend cleanup or thread redirection performed before SPUD returns the failure; retaining
+// wrapper-owned handles and stopping the host is not a guarantee that an unsafe native patch was contained.
 //
 // SPUD stages only removable hooks, which count calls in and out. After a successful commit they are detached and
 // stay for the process. A set is committed once; a hook several features share goes in its own set, installed once.
@@ -44,28 +79,94 @@ public:
   // Names the set in reports; the feature's descriptor name reads best.
   explicit HookSet(std::string_view name)
       : name_(name)
+      , owners_(std::make_unique<Owners>())
   {
   }
 
-  template <typename Detour> void Stage(Detour detour)
+  template <typename Detour> void Stage(Detour&& detour)
   {
-    // The transaction holds a reference, so the handle lives on the heap until the commit detaches it.
-    auto handle = std::make_shared<Detour>(std::move(detour));
-    transaction_.install(*handle);
-    detach_.push_back([handle] { handle->detach(); });
+    RequireOpen();
+    using Handle = std::remove_cvref_t<Detour>;
+    static_assert(std::is_nothrow_constructible_v<Handle, Detour&&>,
+                  "Staging must not lose hook custody in a throwing constructor");
+    auto& hooks     = owners_->hooks;
+    bool  published = false;
+    try {
+      // Allocate owner capacity before taking custody. A failed growth must
+      // leave the caller's handle untouched; earlier staged custody still needs
+      // preservation if this allocation or make_shared throws.
+      if (hooks.size() == hooks.capacity()) {
+        const auto maximum = hooks.max_size();
+        if (hooks.size() == maximum)
+          throw std::length_error("Too many staged hooks");
+        const auto grown = hooks.capacity() > maximum / 2 ? maximum : hooks.capacity() * 2;
+        hooks.reserve(grown ? grown : 1);
+      }
+      // Construction cannot throw after taking custody, and this insertion has
+      // reserved storage and noexcept members. Retain before publishing a raw
+      // reference into the transaction, whose vector insertion can allocate.
+      auto handle = std::make_shared<Handle>(std::forward<Detour>(detour));
+      hooks.push_back({handle, [](void* value) { static_cast<Handle*>(value)->detach(); },
+                       [](void* value) { return static_cast<Handle*>(value)->is_installed(); }});
+      published = true;
+      transaction_.install(*handle);
+    } catch (...) {
+      // Preserve every installed/unknown owner before stack unwinding. Checking
+      // only the newest owner would miss earlier preinstalled handles in the set.
+      bool installed_or_unknown = false;
+      try {
+        for (auto& owner : hooks)
+          if (owner.installed(owner.handle.get())) {
+            installed_or_unknown = true;
+            break;
+          }
+      } catch (...) {
+        installed_or_unknown = true;
+      }
+      if (installed_or_unknown) {
+        Indeterminate(spud::detour_error::kOk);
+        ReportOutcome("staging failed while installed hook custody could not be safely released");
+      } else if (published) {
+        hooks.pop_back();
+      }
+      throw;
+    }
   }
   // Marks a member of the set whose method or address is missing.
   void Missing()
-  { missing_ = true; }
+  {
+    RequireOpen();
+    missing_ = true;
+  }
 
-  // True when every staged hook went in. A set with nothing staged installs nothing and is false.
-  bool Commit();
+  // Terminal results are cached, including success. There is no implicit retry.
+  HookInstallResult CommitDetailed();
+  bool              Commit();
 
 private:
-  std::string                        name_;
-  bool                               missing_ = false;
-  spud::transaction                  transaction_;
-  std::vector<std::function<void()>> detach_;
+  struct Owner {
+    std::shared_ptr<void> handle;
+    void (*detach)(void*);
+    bool (*installed)(void*);
+    bool before = false;
+  };
+  struct Owners {
+    std::vector<Owner> hooks;
+  };
+
+  void              RequireOpen() const;
+  HookInstallResult Indeterminate(spud::detour_error error) noexcept;
+  HookInstallResult Refused(HookInstallState state, spud::detour_error error, std::string_view why);
+  void              ReportOutcome(std::string_view why) const noexcept;
+
+  std::string       name_;
+  bool              missing_    = false;
+  bool              committing_ = false;
+  HookInstallResult result_;
+  spud::transaction transaction_;
+  // Allocated before any patch can run. Releasing this pointer quarantines all
+  // owners on an unsafe path without allocation, destruction or detach calls.
+  std::unique_ptr<Owners> owners_;
 };
 } // namespace il2cpp
 

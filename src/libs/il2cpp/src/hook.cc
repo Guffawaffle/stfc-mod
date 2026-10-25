@@ -4,6 +4,7 @@
 
 #include <spud/diagnostics.h>
 
+#include <atomic>
 #include <format>
 #include <string>
 
@@ -19,6 +20,8 @@ namespace il2cpp
 {
 namespace
 {
+  std::atomic<bool> hook_state_indeterminate = false;
+
   constexpr const char* DetourErrorName(spud::detour_error error)
   {
     using E = spud::detour_error;
@@ -51,6 +54,30 @@ namespace
         return "rollback failed";
     }
     return "unknown error";
+  }
+
+  bool UnsafeDetourError(spud::detour_error error) noexcept
+  {
+    using E = spud::detour_error;
+    switch (error) {
+      case E::kOk:
+      case E::kUnsupportedArch:
+      case E::kDecodeFailed:
+      case E::kInsufficientBytes:
+      case E::kTargetChanged:
+      case E::kBusy:
+      case E::kChainFull:
+      case E::kControlFlowEnforced:
+      case E::kNotFound:
+      case E::kUnwindFailed:
+        return false;
+      case E::kProtectionFailed:
+      case E::kSuspensionUnavailable:
+      case E::kRollbackFailed:
+      default:
+        // A new vendor error needs qualification before it can be a clean refusal.
+        return true;
+    }
   }
 
   void ReportNotInstalled(std::string_view set, std::string_view why)
@@ -167,27 +194,151 @@ namespace
 #endif
 } // namespace
 
+bool HookStateIndeterminate() noexcept
+{ return hook_state_indeterminate.load(std::memory_order_acquire); }
+
+void HookSet::RequireOpen() const
+{
+  if (committing_ || result_.state != HookInstallState::kNotAttempted)
+    throw std::logic_error("A hook set is sealed after its first commit attempt");
+}
+
+HookInstallResult HookSet::Indeterminate(spud::detour_error error) noexcept
+{
+  // Publish the unsafe process state before reporting, ownership release or any
+  // operation that might allocate. A returning caller may not install more sets.
+  hook_state_indeterminate.store(true, std::memory_order_release);
+  result_     = {HookInstallState::kIndeterminate, error};
+  committing_ = false;
+  // Even the destructor must not attempt another uninstall or free a callable
+  // still reachable from a partial patch. The container was allocated at create.
+  (void)owners_.release();
+  return result_;
+}
+
+void HookSet::ReportOutcome(std::string_view why) const noexcept
+{
+  try {
+    // SPUD's rollback operations can overwrite thread-local diagnostics. This is
+    // a post-transaction detail, not an asserted original failing-step identity.
+    const auto  detail = spud::last_failure_detail();
+    std::string description(why);
+    if (result_.error != spud::detour_error::kOk)
+      description += std::format("; {}", DetourErrorName(result_.error));
+    if (result_.error != spud::detour_error::kOk && detail.reason)
+      description += std::format("; post-transaction detail: {}", detail.reason);
+    if (result_.Unsafe())
+      Report(std::format("[IL2CPP] {} hook state indeterminate: {}", name_, description));
+    else
+      ReportNotInstalled(name_, description);
+  } catch (...) {
+    // A throwing logger or allocation failure cannot change the cached outcome
+    // or clear the safety latch. Startup reads the structured result/latch.
+  }
+}
+
+HookInstallResult HookSet::Refused(HookInstallState state, spud::detour_error error, std::string_view why)
+{
+  try {
+    // A transaction deliberately leaves handles that were installed beforehand
+    // installed. Since this set took their custody, preserve them for the process
+    // rather than letting ordinary owner destruction uninstall them now.
+    for (auto& owner : owners_->hooks)
+      if (owner.before)
+        owner.detach(owner.handle.get());
+  } catch (...) {
+    const auto outcome = Indeterminate(error);
+    ReportOutcome("pre-existing hook ownership could not be preserved");
+    return outcome;
+  }
+  result_     = {state, error};
+  committing_ = false;
+  ReportOutcome(why);
+  owners_->hooks.clear();
+  return result_;
+}
+
+HookInstallResult HookSet::CommitDetailed()
+{
+  if (result_.state != HookInstallState::kNotAttempted)
+    return result_;
+  RequireOpen();
+  committing_ = true;
+  if (HookStateIndeterminate()) {
+    const auto outcome = Indeterminate(spud::detour_error::kOk);
+    ReportOutcome("an earlier hook set left the process unsafe; no transaction attempted");
+    return outcome;
+  }
+  try {
+    for (auto& owner : owners_->hooks)
+      owner.before = owner.installed(owner.handle.get());
+  } catch (...) {
+    const auto outcome = Indeterminate(spud::detour_error::kOk);
+    ReportOutcome("pre-commit hook state could not be established; no transaction attempted");
+    return outcome;
+  }
+  if (missing_) {
+    return Refused(HookInstallState::kMissingTarget, spud::detour_error::kOk, "a method it hooks is missing");
+  }
+  if (owners_->hooks.empty())
+    return Refused(HookInstallState::kEmpty, spud::detour_error::kOk, "no hooks were staged");
+
+  spud::detour_error error = spud::detour_error::kOk;
+  try {
+    error = transaction_.commit();
+  } catch (...) {
+    const auto outcome = Indeterminate(spud::detour_error::kOk);
+    ReportOutcome("the transaction threw; no clean rollback is established");
+    return outcome;
+  }
+  if (error != spud::detour_error::kOk) {
+    // Protection failure can follow a target memcpy and failed cache flush.
+    // Suspension failure can follow partial thread-IP redirection. Neither error
+    // alone proves that native state survived, even if handle flags match.
+    if (UnsafeDetourError(error)) {
+      const auto outcome = Indeterminate(error);
+      ReportOutcome("the transaction did not establish a safe native postcondition");
+      return outcome;
+    }
+    try {
+      for (auto& owner : owners_->hooks) {
+        if (owner.installed(owner.handle.get()) != owner.before) {
+          const auto outcome = Indeterminate(error);
+          ReportOutcome("a failed transaction left a staged handle in a different installed state");
+          return outcome;
+        }
+      }
+    } catch (...) {
+      const auto outcome = Indeterminate(error);
+      ReportOutcome("post-transaction hook state could not be established");
+      return outcome;
+    }
+    return Refused(HookInstallState::kRejected, error, "the transaction was refused and handle states were preserved");
+  }
+  try {
+    for (auto& owner : owners_->hooks)
+      owner.detach(owner.handle.get());
+  } catch (...) {
+    const auto outcome = Indeterminate(spud::detour_error::kOk);
+    ReportOutcome("the transaction applied but process-lifetime ownership was not established");
+    return outcome;
+  }
+  result_     = {HookInstallState::kInstalled, spud::detour_error::kOk};
+  committing_ = false;
+  owners_->hooks.clear();
+  return result_;
+}
+
 bool HookSet::Commit()
 {
-  if (missing_) {
-    // The lookup has named the method; this names what it costs.
-    ReportNotInstalled(name_, "a method it hooks is missing");
-    return false;
-  }
-  if (detach_.empty())
-    return false;
-  if (const auto error = transaction_.commit(); error != spud::detour_error::kOk) {
-    // SPUD records per thread why the failing step was refused, as a short token.
-    const auto detail = spud::last_failure_detail();
-    ReportNotInstalled(name_, detail.reason ? std::format("{}: {}", DetourErrorName(error), detail.reason)
-                                            : DetourErrorName(error));
-    detach_.clear();
-    return false;
-  }
-  for (const auto& detach : detach_)
-    detach();
-  detach_.clear();
-  return true;
+  const auto outcome = CommitDetailed();
+  if (outcome.Unsafe())
+    throw HookInstallError(outcome);
+  // Detailed results preserve this set's historical outcome. A successful old
+  // set must not authorize continued startup after another set latches unsafe.
+  if (HookStateIndeterminate())
+    throw HookInstallError({HookInstallState::kIndeterminate, spud::detour_error::kOk});
+  return outcome.Installed();
 }
 
 void* CheckedEntry(const Method& method)

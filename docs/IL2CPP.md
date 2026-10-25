@@ -135,14 +135,26 @@ bool InstallShipView()
 }
 ```
 
-A set installs through one SPUD transaction: every hook goes in, or none does. A missing method or a null address
-makes `Commit()` install nothing, and a failing step undoes the steps before it, so a hook never runs without the rest
-of its set. `Commit()` returns whether the set went in; an installer returns it so the mod can report the feature.
-SPUD stages only removable hooks, which count calls in and out. Committed hooks are detached and stay for the process.
+A set installs through one SPUD transaction. A missing method or null address marks it incomplete and installs
+nothing. SPUD attempts reverse rollback after an installation failure, but rollback/protection/suspension failures
+and exceptions can leave native state indeterminate. Do not interpret every failure as proof that no hook remains.
 
-Every failure is reported by the library as `[IL2CPP] <set> not installed: <why>`, after the lookup that found a method
-missing names it. Features do not log hook failures or success.
-A hook that several features share goes in its own set, committed once from a function-local static.
+`CommitDetailed()` returns a cached `HookInstallResult`: installed, missing target, empty, rejected or indeterminate.
+The SPUD error is retained separately; `kOk` can mean no SPUD code was observed, so inspect the state. Repeated commits
+return the historical outcome without retrying; further staging is an error. The compatible bool `Commit()` returns
+success/refusal, and throws `HookInstallError` when native state is unsafe, including a later unsafe process latch.
+
+Indeterminate state latches the process unsafe before reporting or cleanup. Owned handles are quarantined intact;
+no subsequent set may apply hooks. Startup must terminate rather than continue into the game. This avoids further
+cleanup and deliberate continuation; it cannot repair vendor-side corruption or undo threads already resumed.
+SPUD itself can release failed-install resources before returning an error. These guards are not a native rollback
+guarantee. Unknown future vendor errors remain indeterminate until qualified.
+
+Ordinary refusal is reported as `[IL2CPP] <set> not installed: <why>`; unsafe state is reported as
+`[IL2CPP] <set> hook state indeterminate: <why>`. Thread-local detail is labeled post-transaction because rollback can
+overwrite the original failure detail. Features do not duplicate hook reports. Committed removable hooks are
+detached and remain for the process. A shared capability has one terminal installer owner, not a display-name map;
+intentional chains on one target remain supported.
 
 SPUD chains detours on one function safely, so two hooks may target the same native code. Identical methods can share
 generated code, though, and a hook on one of them then also runs for the others, with their receiver. Where a feature
@@ -170,6 +182,21 @@ to detour, or null after a report. Stage it with `IL2CPP_STAGE_AT`.
 A successful build does not prove the hook fits. Prefer a substantive downstream method when exact extents are unavailable.
 During drift repair, match the game-visible signature in `dump.cs`.
 Change hidden `MethodInfo*` handling only when runtime evidence points to it.
+
+### Shared frame and capability readiness
+
+`src/mod/frame.h` exposes the one `ScreenManager.Update` owner. `EnsureFrameTick()` is a bootstrap/game-thread-only,
+terminal install request; `FrameTickInstallation()` reads its result without retrying. `RegisterFrameCallback()`
+accepts process-lifetime callbacks and owns their diagnostic names. Registration is not proof that the native anchor
+installed. Duplicate callbacks are harmless; null and during-dispatch registrations are rejected. Recursive dispatch
+is suppressed, and callback/reporting exceptions do not skip later callbacks or unwind into the host frame.
+
+`FeatureInstallations()` reports capability installation, callback registration and frame readiness separately.
+Only successfully installed features register their frame work; reload/input/shortcut ordering remains at the
+single host anchor. `InstallGuard` prevents repeated/reentrant initialization, including side effects outside a SPUD
+transaction. Optional refusal can leave independent features available; required failure or any indeterminate
+native state stops startup. Profiles' required three-phase bootstrap is a later integration, outside the optional
+feature table. No profile isolation capability is enabled or claimed by these interfaces.
 
 ## Objects and lifetimes
 

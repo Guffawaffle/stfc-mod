@@ -103,8 +103,9 @@ name (`recovery_installed`, `InstallPinnedShips`), never a generic one like `ins
 - Keep the single `ScreenManager.Update` hook in `mod.cc`. Other hooks that read keys must call `unity::Key::Poll()` first.
 
 The library reports missing members, signature drift and failed detours. Features do not log hook failures or
-success. A set is one SPUD transaction: every hook or none, so a feature installs whole or not at all, and a hook
-that runs can rely on the rest of its set. Do not pre-check fields or properties by default: a missing one is
+success. A set is one SPUD transaction, with reverse rollback on failure. An indeterminate result is not proof that
+no hook remains: preserve its handles and stop startup. See `docs/IL2CPP.md` for detailed outcomes and the process
+safety latch. Do not pre-check fields or properties by default: a missing one is
 reported and reads as zero, and the dump checker catches drift before a release. `HasField` and `HasProperty` are for
 the rare hook that would take an in-game action on a value read as zero.
 

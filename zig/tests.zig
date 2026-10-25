@@ -30,6 +30,36 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) void {
     const flags = ctx.cxxFlags("c++23", &.{});
     const mod_flags = ctx.cxxFlags("c++23", &.{"-Wno-deprecated-literal-operator"});
 
+    // HookSet policy over SPUD's public generic installable-hook seam. Unsafe modes each need a fresh process:
+    // the production native-state latch is monotonic and intentionally has no test reset API.
+    {
+        const module = ctx.createModule(true);
+        libs.il2cpp.linkInto(module);
+        module.addIncludePath(b.path("src/mod"));
+        module.addCSourceFile(.{ .file = b.path("tests/hook_installation.cc"), .flags = flags });
+        const exe = ctx.executable("hook-installation-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        test_il2cpp.dependOn(&b.addRunArtifact(exe).step);
+        inline for (.{ "rollback-failed", "install-throws", "mutation-then-error", "protection-failed", "detach-throws", "suspension-unavailable", "unknown-error" }) |mode| {
+            const run = b.addRunArtifact(exe);
+            run.addArg(mode);
+            test_il2cpp.dependOn(&run.step);
+        }
+    }
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        module.addCSourceFile(.{ .file = b.path("tests/frame_callbacks.cc"), .flags = flags });
+        addFixture(ctx, build_tests, test_mod, "frame-callbacks-tests", module);
+    }
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        libs.il2cpp.includeInto(module);
+        module.addCSourceFile(.{ .file = b.path("tests/installation.cc"), .flags = flags });
+        addFixture(ctx, build_tests, test_mod, "installation-tests", module);
+    }
+
     // The action queue decisions in src/mod, header-only.
     {
         const module = ctx.createModule(true);

@@ -6,6 +6,9 @@
 #include "config.h"
 #include "features/features.h"
 #include "file.h"
+#include "frame.h"
+#include "frame_callbacks.h"
+#include "installation.h"
 #include "version.h"
 
 #include "game/ui.h"
@@ -17,6 +20,9 @@
 #include <spdlog/spdlog.h>
 #include <unity/input.h>
 
+#include <array>
+#include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <format>
 #include <iterator>
@@ -182,18 +188,74 @@ constexpr const Feature* kFeatures[] = {
     &kSync,
 };
 
-// The installed features with frame work, in install order.
-std::vector<const Feature*> frame_features;
+std::array<InstallGuard, std::size(kFeatures)>        feature_owners;
+std::array<FeatureInstallation, std::size(kFeatures)> feature_reports;
+InstallGuard                                          features_owner, setup_owner, bootstrap_owner, frame_owner;
+il2cpp::HookInstallResult                             frame_result;
+
+// Reporting must not let an allocation/logging failure turn uncertain native patches into an ordinary optional
+// failure. This is deliberately process-fatal; the M3 profile bootstrap must also stop before login on refusal.
+[[noreturn]] void AbortInstallation(const char* phase) noexcept
+{
+  try {
+    spdlog::critical("[{}] required initialization failed or native hooks are indeterminate; stopping", phase);
+  } catch (...) {
+  }
+  try {
+    ReportStartupFailure("required initialization failed or native hooks are indeterminate; stopping");
+  } catch (...) {
+  }
+  std::abort();
+}
+
+void ReportFrameFailure(const char* name, std::exception_ptr error)
+{
+  try {
+    if (error)
+      std::rethrow_exception(error);
+  } catch (const std::exception& failure) {
+    spdlog::warn("[{}] frame callback failed: {}", name, failure.what());
+    return;
+  } catch (...) {
+    spdlog::warn("[{}] frame callback failed with an unknown exception", name);
+    return;
+  }
+  spdlog::warn("[{}] rejected callback registration or recursive dispatch", name);
+}
+
+FrameCallbacks& FrameServices()
+{
+  static FrameCallbacks callbacks(ReportFrameFailure);
+  return callbacks;
+}
+
+bool RequiredFeaturesReady() noexcept
+{
+  for (size_t i = 0; i < std::size(kFeatures); ++i) {
+    const auto& feature = *kFeatures[i];
+    const auto& report  = feature_reports[i];
+    if (MustAbortInstallation(report.state, feature.requirement)
+        || (feature.requirement == InstallRequirement::kRequired && feature.frame && !report.frame_ready))
+      return false;
+  }
+  return true;
+}
 
 // Runs one piece of frame work for `name`. An exception must not unwind into the game's native frame.
-template <typename Work> void RunGuarded(const char* name, Work&& work)
+template <typename Work> void RunGuarded(const char* name, Work&& work) noexcept
 {
   try {
     work();
   } catch (const std::exception& error) {
-    spdlog::warn("[{}] frame update failed: {}", name, error.what());
+    try {
+      spdlog::warn("[{}] frame update failed: {}", name, error.what());
+    } catch (...) {
+    }
   } catch (...) {
-    spdlog::warn("[{}] frame update failed with an unknown exception", name);
+    try {
+      spdlog::warn("[{}] frame update failed with an unknown exception", name);
+    } catch (...) {
+    }
   }
 }
 
@@ -202,10 +264,22 @@ template <typename Work> void RunGuarded(const char* name, Work&& work)
 // shortcut used, so the game does not handle it as well.
 void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
-  unity::Key::Poll();
+  // A callback may cause nested native UI work. Do not recursively poll/reload/dispatch; each invocation still
+  // reaches the game's original Update unless the outer shortcut dispatch deliberately consumes its input.
+  static thread_local bool dispatching = false;
+  if (dispatching) {
+    original(_this);
+    return;
+  }
+  struct DispatchScope {
+    bool& active;
+    ~DispatchScope()
+    { active = false; }
+  } scope{dispatching};
+  dispatching = true;
+  RunGuarded("Input", unity::Key::Poll);
   RunGuarded("Settings", Config::ReloadIfChanged);
-  for (const auto* feature : frame_features)
-    RunGuarded(feature->name, feature->frame);
+  FrameServices().Dispatch();
   bool handled = false;
   RunGuarded("Shortcuts", [&] { handled = HandleShortcuts(); });
   if (!handled)
@@ -213,37 +287,62 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 }
 
 // Installs every feature whose [patches] group is on, then the frame tick that runs them.
-void InstallFeatures(const Config& config)
+bool InstallFeatures(const Config& config)
 {
-  constexpr auto total = std::size(kFeatures);
-  spdlog::info("Initializing code hooks:");
-  for (size_t i = 0; i < total; ++i) {
-    const auto& feature = *kFeatures[i];
-    if (feature.group && !(config.patches.*feature.group)) {
-      spdlog::info(" x Skipping {:>2} of {} ({})", i + 1, total, feature.name);
-      continue;
+  features_owner.Run(true, [&] {
+    constexpr auto total = std::size(kFeatures);
+    spdlog::info("Initializing code hooks:");
+    for (size_t i = 0; i < total; ++i) {
+      const auto& feature = *kFeatures[i];
+      auto&       report  = feature_reports[i];
+      report.name         = feature.name;
+      const bool enabled  = !feature.group || config.patches.*feature.group;
+      try {
+        feature_owners[i].Run(enabled, [&] { return !feature.install || feature.install(); });
+      } catch (const std::exception& error) {
+        if (MustAbortInstallation(feature_owners[i].State(), feature.requirement))
+          AbortInstallation(feature.name);
+        spdlog::error("[{}] failed to install: {}", feature.name, error.what());
+      } catch (...) {
+        if (MustAbortInstallation(feature_owners[i].State(), feature.requirement))
+          AbortInstallation(feature.name);
+        spdlog::error("[{}] failed to install with an unknown exception", feature.name);
+      }
+      report.state = feature_owners[i].State();
+      if (MustAbortInstallation(report.state, feature.requirement))
+        AbortInstallation(feature.name);
+      if (report.state == InstallState::kSkipped) {
+        spdlog::info(" x Skipping {:>2} of {} ({})", i + 1, total, feature.name);
+        continue;
+      }
+      // Logged after installing, so the line says what happened; the reasons for a failure come just before it.
+      if (report.state != InstallState::kInstalled) {
+        spdlog::warn(" ! Unavailable {:>2} of {} ({})", i + 1, total, feature.name);
+        continue;
+      }
+      spdlog::info(" + Patching {:>2} of {} ({})", i + 1, total, feature.name);
+      if (feature.frame) {
+        report.frame_registered = RegisterFrameCallback(feature.frame, feature.name);
+        if (!report.frame_registered)
+          spdlog::warn("[{}] hooks installed but frame callback registration failed", feature.name);
+      }
     }
-    bool installed = false;
-    try {
-      installed = !feature.install || feature.install();
-    } catch (const std::exception& error) {
-      spdlog::error("[{}] failed to install: {}", feature.name, error.what());
+    // Last, so a feature never sees a frame before it is installed. Without the tick nothing polls, and the settings
+    // file is only read at startup.
+    const auto frame = EnsureFrameTick();
+    if (!frame.Installed())
+      spdlog::error("the frame tick is not installed: shortcuts, settings reload and frame updates will not run");
+    for (size_t i = 0; i < total; ++i) {
+      auto& report       = feature_reports[i];
+      report.frame_ready = FrameDeliveryReady(report.state, report.frame_registered, frame.Installed());
+      if (kFeatures[i]->frame && kFeatures[i]->requirement == InstallRequirement::kRequired && !report.frame_ready)
+        AbortInstallation(kFeatures[i]->name);
     }
-    // Logged after installing, so the line says what happened; the reasons for a failure come just before it.
-    if (!installed) {
-      spdlog::warn(" ! Not installed {:>2} of {} ({})", i + 1, total, feature.name);
-      continue;
-    }
-    spdlog::info(" + Patching {:>2} of {} ({})", i + 1, total, feature.name);
-    if (feature.frame)
-      frame_features.push_back(&feature);
-  }
-  // Last, so a feature never sees a frame before it is installed. Without the tick nothing polls, and the settings
-  // file is only read at startup.
-  il2cpp::HookSet hooks("FrameTick");
-  IL2CPP_STAGE(hooks, ScreenManager::Class::Method("Update"), ScreenManager_Update_Hook);
-  if (!hooks.Commit())
-    spdlog::error("the frame tick is not installed: shortcuts, settings reload and frame updates will not run");
+    return true;
+  });
+  if (MustAbortInstallation(features_owner.State(), InstallRequirement::kOptional))
+    AbortInstallation("Features");
+  return features_owner.State() == InstallState::kInstalled;
 }
 
 // --- Startup ---
@@ -260,70 +359,176 @@ int il2cpp_init_Hook(auto original, const char* domain_name)
   // Keeping the settings pointer is safe here because only the frame tick reloads, and it is not installed yet.
   const Config* config = nullptr;
   try {
-    File::Init();
-    StartLogging();
-    LogBanner();
+    setup_owner.Run(true, [&] {
+      File::Init();
+      StartLogging();
+      LogBanner();
 
-    spdlog::info("Loading Configuration...");
-    spdlog::info("");
-    config = &Config::Get();
-    LogSeparator();
+      spdlog::info("Loading Configuration...");
+      spdlog::info("");
+      config = &Config::Get();
+      LogSeparator();
+      return true;
+    });
+    if (setup_owner.State() == InstallState::kInstalled)
+      config = &Config::Get();
   } catch (const std::exception& error) {
+    config = nullptr;
+    if (il2cpp::HookStateIndeterminate())
+      AbortInstallation("Setup");
     // The file logger may not exist; spdlog falls back to its console logger.
-    spdlog::error("setup failed, so no features are installed: {}", error.what());
+    try {
+      spdlog::error("setup failed, so no features are installed: {}", error.what());
+    } catch (...) {
+    }
+  } catch (...) {
+    config = nullptr;
+    if (il2cpp::HookStateIndeterminate())
+      AbortInstallation("Setup");
+    try {
+      spdlog::error("setup failed, so no features are installed");
+    } catch (...) {
+    }
   }
+
+  if (il2cpp::HookStateIndeterminate() || (!config && !RequiredFeaturesReady()))
+    AbortInstallation("Setup");
 
   // Bindings resolve against the runtime's metadata, so nothing is installed before the domain exists.
   const auto result = original(domain_name);
   if (!config)
     return result;
 
-  InstallFeatures(*config);
+  try {
+    if (!InstallFeatures(*config)) {
+      if (!RequiredFeaturesReady())
+        AbortInstallation("Features");
+      return result;
+    }
+  } catch (...) {
+    // Even an exception from reporting must not bypass a required phase/frame check. Not-yet-attempted required
+    // features remain incomplete; previously installed optional hooks are not advertised as rolled back.
+    if (il2cpp::HookStateIndeterminate() || !RequiredFeaturesReady())
+      AbortInstallation("Features");
+    try {
+      spdlog::error("feature initialization did not complete; no further feature installation is attempted");
+    } catch (...) {
+    }
+    return result;
+  }
 
-  spdlog::info("");
-  if constexpr (VERSION_PATCH)
-    spdlog::info("Installed beta version {}.{}.{} (Patch {})", VERSION_MAJOR, VERSION_MINOR, VERSION_REVISION,
-                 VERSION_PATCH);
-  else
-    spdlog::info("Installed release version {}.{}.{}", VERSION_MAJOR, VERSION_MINOR, VERSION_REVISION);
-  LogSeparator();
+  RunGuarded("Initialization reporting", [&] {
+    spdlog::info("");
+    if constexpr (VERSION_PATCH)
+      spdlog::info("Initialized beta version {}.{}.{} (Patch {})", VERSION_MAJOR, VERSION_MINOR, VERSION_REVISION,
+                   VERSION_PATCH);
+    else
+      spdlog::info("Initialized release version {}.{}.{}", VERSION_MAJOR, VERSION_MINOR, VERSION_REVISION);
+    spdlog::info("FrameTick delivery: {}", frame_result.Installed() ? "ready" : "unavailable");
+    LogSeparator();
+  });
 
   return result;
 }
 } // namespace
 
+bool RegisterFrameCallback(ScreenManagerUpdateCallback callback, const char* name) noexcept
+{
+  try {
+    return !il2cpp::HookStateIndeterminate() && FrameServices().Register(callback, name);
+  } catch (...) {
+    return false;
+  }
+}
+
+il2cpp::HookInstallResult FrameTickInstallation()
+{ return frame_result; }
+
+il2cpp::HookInstallResult EnsureFrameTick()
+{
+  try {
+    frame_owner.Run(true, [&] {
+      il2cpp::HookSet hooks("FrameTick");
+      IL2CPP_STAGE(hooks, ScreenManager::Class::Method("Update"), ScreenManager_Update_Hook);
+      frame_result = hooks.CommitDetailed();
+      return frame_result.Installed();
+    });
+  } catch (const std::exception& error) {
+    if (il2cpp::HookStateIndeterminate())
+      AbortInstallation("FrameTick");
+    frame_result = {il2cpp::HookInstallState::kRejected};
+    try {
+      spdlog::error("[FrameTick] initialization failed: {}", error.what());
+    } catch (...) {
+    }
+  } catch (...) {
+    if (il2cpp::HookStateIndeterminate())
+      AbortInstallation("FrameTick");
+    frame_result = {il2cpp::HookInstallState::kRejected};
+    try {
+      spdlog::error("[FrameTick] initialization failed with an unknown exception");
+    } catch (...) {
+    }
+  }
+  if (MustAbortInstallation(frame_owner.State(), InstallRequirement::kOptional))
+    AbortInstallation("FrameTick");
+  return frame_result;
+}
+
+std::span<const FeatureInstallation> FeatureInstallations()
+{ return feature_reports; }
+
 void StartMod()
 {
+  try {
+    bootstrap_owner.Run(true, [&] {
 #if _WIN32
-  auto assembly = LoadLibraryA("GameAssembly.dll");
+      auto assembly = LoadLibraryA("GameAssembly.dll");
 #else
   char     executable[PATH_MAX];
   uint32_t size = sizeof(executable);
   if (_NSGetExecutablePath(executable, &size) != 0) {
     ReportStartupFailure("the executable path does not fit");
-    return;
+    return false;
   }
   const auto assembly_path = std::filesystem::path(executable).parent_path() / "../Frameworks/GameAssembly.dylib";
   auto       assembly      = dlopen(assembly_path.c_str(), RTLD_LAZY | RTLD_GLOBAL);
 #endif
 
-  if (!assembly) {
-    ReportStartupFailure("failed to load GameAssembly");
-    return;
-  }
+      if (!assembly) {
+        ReportStartupFailure("failed to load GameAssembly");
+        return false;
+      }
 
-  try {
-    il2cpp::Initialize(assembly);
+      try {
+        il2cpp::Initialize(assembly);
 #if _WIN32
-    auto il2cpp_init = reinterpret_cast<void*>(GetProcAddress(assembly, "il2cpp_init"));
+        auto il2cpp_init = reinterpret_cast<void*>(GetProcAddress(assembly, "il2cpp_init"));
 #else
     auto il2cpp_init = dlsym(assembly, "il2cpp_init");
 #endif
-    il2cpp::HookSet hooks("il2cpp_init");
-    IL2CPP_STAGE_AT(hooks, il2cpp_init, il2cpp_init_Hook);
-    if (!hooks.Commit())
-      ReportStartupFailure("failed to hook il2cpp_init");
-  } catch (const std::exception& error) {
-    ReportStartupFailure(std::format("failed to hook il2cpp_init: {}", error.what()).c_str());
+        il2cpp::HookSet hooks("il2cpp_init");
+        IL2CPP_STAGE_AT(hooks, il2cpp_init, il2cpp_init_Hook);
+        if (!hooks.Commit()) {
+          ReportStartupFailure("failed to hook il2cpp_init");
+          return false;
+        }
+      } catch (const std::exception& error) {
+        if (il2cpp::HookStateIndeterminate())
+          AbortInstallation("il2cpp_init");
+        ReportStartupFailure(std::format("failed to hook il2cpp_init: {}", error.what()).c_str());
+        return false;
+      }
+      return true;
+    });
+  } catch (...) {
+    if (il2cpp::HookStateIndeterminate())
+      AbortInstallation("Bootstrap");
+    try {
+      ReportStartupFailure("mod bootstrap failed; no further initialization is attempted");
+    } catch (...) {
+    }
   }
+  if (MustAbortInstallation(bootstrap_owner.State(), InstallRequirement::kOptional))
+    AbortInstallation("Bootstrap");
 }

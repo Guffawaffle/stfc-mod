@@ -4,9 +4,11 @@
 // from the shortcut dispatch in hotkeys.cc. Grouped by the file that defines them.
 
 #include "config.h"
+#include "installation.h"
 
 #include <chrono>
 #include <cstdint>
+#include <span>
 
 struct NavigationZoom;
 enum class NodeDepth : int32_t;
@@ -24,7 +26,21 @@ struct Feature {
   // Runs every frame from the frame tick once installed, in every hotkey mode, before the shortcuts. Never runs for a
   // feature that failed to install. Returns at once when its feature is off.
   void (*frame)() = nullptr;
+  // Required bootstrap phases fail closed. Existing gameplay features are optional; Profiles' three-phase
+  // bootstrap remains outside this table and must use the same required-failure policy when integrated.
+  InstallRequirement requirement = InstallRequirement::kOptional;
 };
+
+struct FeatureInstallation {
+  const char*  name             = nullptr;
+  InstallState state            = InstallState::kNotAttempted;
+  bool         frame_registered = false;
+  bool         frame_ready      = false;
+};
+
+// Bootstrap/game thread only. Installation and frame delivery are separate observations, including when a
+// feature's hooks installed but the one shared FrameTick did not. No initialization is triggered by this query.
+std::span<const FeatureInstallation> FeatureInstallations();
 
 // Frame work that only needs to run every so often, such as a scan of the UI. Game thread only.
 class Throttle
