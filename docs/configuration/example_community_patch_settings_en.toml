@@ -117,6 +117,7 @@ queue_enabled = true
 
 # If you prefer to use Scopely's hotkeys set this to true
 use_scopely_hotkeys = false
+keyboard_layout_mode = "physical" # "layout" follows supported printable characters on the active Windows layout.
 
 # Subgroup: Options
 # -----------------
@@ -328,6 +329,7 @@ miscpatches = true
 missionhudtweakshooks = true
 objecttracker = true
 officersorthooks = true
+opcindicatorhooks = true
 shiptechindicatorhooks = true
 panhooks = true
 
@@ -884,6 +886,8 @@ focus_search = true
 
 # Format abbreviated cargo values using Cargo Significant Decimals
 format_cargo_values = true
+highlight_opc_fleets = false
+fleet_hud_opc_eta = false
 
 # Restore the Below Deck Ability officer sort option
 officer_sort = true

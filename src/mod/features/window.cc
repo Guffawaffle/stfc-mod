@@ -12,6 +12,7 @@
 #include <il2cpp/hook.h>
 #include <il2cpp/il2cpp.h>
 #include <unity/core.h>
+#include <unity/input.h>
 
 #include <string>
 
@@ -23,8 +24,9 @@ namespace
 HWND GameWindow()
 {
   static HWND window = nullptr;
-  if (window)
+  if (window && IsWindow(window))
     return window;
+  window = nullptr;
 
   const auto process = GetCurrentProcessId();
   for (auto hwnd = GetTopWindow(nullptr); hwnd; hwnd = GetNextWindow(hwnd, GW_HWNDNEXT)) {
@@ -36,6 +38,84 @@ HWND GameWindow()
     }
   }
   return window;
+}
+
+// Keep one reversible window-owned change. No system-wide WndProc detour is
+// needed: the shared game-thread frame delivery already observes keyboard input.
+struct BorderlessWindow {
+  HWND            window = nullptr;
+  LONG_PTR        style = 0, extended = 0;
+  WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
+};
+BorderlessWindow borderless_window;
+
+bool SetWindowStyle(HWND window, int field, LONG_PTR value)
+{
+  SetLastError(0);
+  return SetWindowLongPtrW(window, field, value) != 0 || GetLastError() == 0;
+}
+
+bool RestoreBorderlessWindow()
+{
+  auto& saved = borderless_window;
+  if (!saved.window)
+    return true;
+  if (!IsWindow(saved.window)) {
+    saved = {};
+    return true;
+  }
+  const bool style    = SetWindowStyle(saved.window, GWL_STYLE, saved.style);
+  const bool extended = SetWindowStyle(saved.window, GWL_EXSTYLE, saved.extended);
+  const bool placed   = SetWindowPlacement(saved.window, &saved.placement) != 0;
+  const bool framed   = SetWindowPos(saved.window, nullptr, 0, 0, 0, 0,
+                                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED)
+                        != 0;
+  if (style && extended && placed && framed)
+    saved = {};
+  return style && extended && placed && framed;
+}
+
+void BorderlessWindowFrame()
+{
+  if (!Config::Get().graphics.borderless_fullscreen) {
+    RestoreBorderlessWindow();
+    return;
+  }
+  unity::Key::Poll();
+  if (!unity::Key::Down(unity::KeyCode::F11) || unity::Key::IsModified() || unity::Key::IsInputFocused())
+    return;
+  auto window = GameWindow();
+  if (!window || GetForegroundWindow() != window)
+    return;
+  if (borderless_window.window) {
+    RestoreBorderlessWindow();
+    return;
+  }
+  // A natively borderless window has no owned windowed placement to restore.
+  // Leave it native instead of inventing a previous size or style.
+  const auto style = GetWindowLongPtrW(window, GWL_STYLE);
+  if (!(style & WS_OVERLAPPEDWINDOW))
+    return;
+  BorderlessWindow saved;
+  saved.window   = window;
+  saved.style    = style;
+  saved.extended = GetWindowLongPtrW(window, GWL_EXSTYLE);
+  MONITORINFO monitor{sizeof(MONITORINFO)};
+  if (!GetWindowPlacement(window, &saved.placement)
+      || !GetMonitorInfoW(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST), &monitor))
+    return;
+  borderless_window   = saved;
+  const bool styled   = SetWindowStyle(window, GWL_STYLE, style & ~static_cast<LONG_PTR>(WS_OVERLAPPEDWINDOW));
+  const bool extended = SetWindowStyle(
+      window, GWL_EXSTYLE,
+      saved.extended
+          & ~static_cast<LONG_PTR>(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
+  if (!styled || !extended
+      || !SetWindowPos(window, nullptr, monitor.rcMonitor.left, monitor.rcMonitor.top,
+                       monitor.rcMonitor.right - monitor.rcMonitor.left,
+                       monitor.rcMonitor.bottom - monitor.rcMonitor.top,
+                       SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED))
+    RestoreBorderlessWindow();
 }
 
 // With several clients running, "-ccm alt.toml" shows up as "[alt] Star Trek Fleet Command".
@@ -141,7 +221,7 @@ float WindowDpiScale(bool refresh)
   return scale;
 }
 
-const Feature kFreeResize{"FreeResize", &Config::Patches::freeresizehooks, InstallFreeResize};
+const Feature kFreeResize{"FreeResize", &Config::Patches::freeresizehooks, InstallFreeResize, BorderlessWindowFrame};
 // TODO: allow_cursor is not a test patch; it sits in testpatches only because it always has.
 const Feature kCursor{"Cursor", &Config::Patches::testpatches, InstallCursor};
 #else

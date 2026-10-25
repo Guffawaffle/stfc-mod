@@ -5,6 +5,7 @@
 #include "config.h"
 #include "features/base_card.h"
 #include "features/features.h"
+#include "features/mining_preview.h"
 #include "planned_system_warp_policy.h"
 #include "runtime_config.h"
 #include "settings/basic_gameplay_settings.h"
@@ -530,6 +531,8 @@ void ShowPendingTargetCargo()
 // Whether the target's cargo opens by itself, per the show_*_cargo settings for its kind.
 bool ShowsCargoByDefault(RewardsButtonWidget* widget)
 {
+  if (mining_preview::SuppressAutomaticCargo(widget))
+    return false;
   const auto& config = Config::Get();
   auto*       target = widget && config.ui.show_cargo_default ? widget->Context() : nullptr;
   if (!target)
@@ -714,8 +717,12 @@ bool FleetActionShortcuts()
   if (pressed.Any() && Hub::IsInSystemOrGalaxyOrStarbase() && !Hub::IsInChat())
     ActOnSelectedFleet(pressed);
 
-  if (Shortcut::IsDown(Action::kActionView))
-    ToggleTargetCargo();
+  if (Shortcut::IsDown(Action::kActionView)) {
+    if (mining_preview::Cycle())
+      show_cargo_frames = 0;
+    else
+      ToggleTargetCargo();
+  }
   if (show_cargo_frames > 0)
     ShowPendingTargetCargo();
   return false;

@@ -5,6 +5,7 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "features/haven_orbit.h"
 #include "runtime_config.h"
 #include "settings/basic_gameplay_settings.h"
 #include "shortcuts.h"
@@ -458,10 +459,11 @@ TKTouch* TKTouch_populateWithPosition_Hook(auto original, TKTouch* _this, uintpt
 // Each orbit's own radius range, as found before widening. The interior has one orbit, so this stays tiny; keys are
 // compared only, never dereferenced.
 std::unordered_map<OrbitFrameProvider*, std::pair<float, float>> native_interior_radius;
+bool                                                             interior_zoom_installed = false;
 
 void OrbitFrameProvider_UpdateConstrains_Hook(auto original, OrbitFrameProvider* _this, unity::Camera* primary_camera)
 {
-  auto* constraint = _this->constraint();
+  auto* constraint = interior_zoom_installed ? _this->constraint() : nullptr;
   if (auto* radius = constraint ? constraint->radius() : nullptr) {
     auto*       sections = Hub::Sections();
     const bool  interior = sections && sections->CurrentSection() == SectionID::Starbase_Interior;
@@ -480,6 +482,7 @@ void OrbitFrameProvider_UpdateConstrains_Hook(auto original, OrbitFrameProvider*
   }
   // The game clamps the camera against the widened or restored range.
   original(_this, primary_camera);
+  haven_orbit::ApplyConstraints(_this);
 }
 
 bool InstallZoom()
@@ -533,12 +536,21 @@ bool InstallScrollZoomGuard()
 
 bool InstallInteriorZoom()
 {
-  il2cpp::HookSet hooks("InteriorZoom");
-  IL2CPP_STAGE(hooks, OrbitFrameProvider::Class::Method<void(unity::Camera*)>("UpdateConstrains"),
-               OrbitFrameProvider_UpdateConstrains_Hook);
-  return hooks.Commit();
+  interior_zoom_installed = EnsureOrbitConstraints();
+  return interior_zoom_installed;
 }
 } // namespace
+
+bool EnsureOrbitConstraints()
+{
+  static const bool installed = [] {
+    il2cpp::HookSet hooks("OrbitConstraints");
+    IL2CPP_STAGE(hooks, OrbitFrameProvider::Class::Method<void(unity::Camera*)>("UpdateConstrains"),
+                 OrbitFrameProvider_UpdateConstrains_Hook);
+    return hooks.Commit();
+  }();
+  return installed;
+}
 
 const Feature kZoom{"Zoom", &Config::Patches::zoomhooks, InstallZoom};
 const Feature kScrollZoomGuard{"ScrollZoomGuard", &Config::Patches::zoomhooks, InstallScrollZoomGuard};

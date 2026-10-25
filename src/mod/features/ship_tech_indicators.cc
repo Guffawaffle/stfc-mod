@@ -7,6 +7,7 @@
 #include "game/ship_tech.h"
 
 #include <il2cpp/il2cpp.h>
+#include <spdlog/spdlog.h>
 #include <unity/ui.h>
 
 #include <algorithm>
@@ -208,8 +209,17 @@ void ShipTechFrame()
 
 bool InstallShipTechIndicators()
 {
-  if (!FleetPlayerData::ShipIdentityAvailable() || !ship_tech_binding::Available())
+  if (!FleetPlayerData::ShipIdentityAvailable()) {
+    spdlog::warn("[ShipTechIndicators] native ship-instance identity unavailable; tile artwork unchanged");
     return false;
+  }
+  if (!ship_tech_binding::Available()) {
+    spdlog::warn("[ShipTechIndicators] native equipment/art preflight unavailable (nullable-int64-slot={} "
+                 "scalar-art-setter={}); tile artwork unchanged",
+                 ship_tech_binding::SlotItemGetter() != nullptr,
+                 static_cast<bool>(ship_tech_binding::ImageSelector::ArtSetter()));
+    return false;
+  }
   ShipTech().installed = EnsureShipTileBinding();
   return ShipTech().installed;
 }

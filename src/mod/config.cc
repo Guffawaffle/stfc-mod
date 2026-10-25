@@ -5,6 +5,7 @@
 
 #include "config_save.h"
 #include "file.h"
+#include "keyboard_layout.h"
 #include "runtime_config.h"
 #include "shortcuts.h"
 #include "text.h"
@@ -57,6 +58,7 @@ constexpr std::pair<std::string_view, bool Config::Patches::*> kPatches[] = {
     {"missionhudtweakshooks", &Config::Patches::missionhudtweakshooks},
     {"objecttracker", &Config::Patches::objecttracker},
     {"officersorthooks", &Config::Patches::officersorthooks},
+    {"opcindicatorhooks", &Config::Patches::opcindicatorhooks},
     {"panhooks", &Config::Patches::panhooks},
     {"pinnedshipclicktoggle", &Config::Patches::pinnedshipclicktoggle},
     {"pinnedshiphooks", &Config::Patches::pinnedshiphooks},
@@ -555,6 +557,7 @@ std::shared_ptr<const Config::Sync> Config::Sync::Get()
 
 void Config::Activate(std::unique_ptr<Config> next)
 {
+  keyboard_layout::Configure(next->control.keyboard_layout_mode);
   Shortcut::Set(std::move(next->shortcuts_));
   std::atomic_store_explicit(&sync_config, next->sync_, std::memory_order_release);
   current_config = std::move(next);
@@ -662,6 +665,8 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("control", "hotkeys_enabled", control.hotkeys_enabled);
   r.Read("control", "hotkeys_extended", control.hotkeys_extended);
   r.Read("control", "use_scopely_hotkeys", control.use_scopely_hotkeys);
+  r.ReadValid("control", "keyboard_layout_mode", control.keyboard_layout_mode,
+              [](const std::string& mode) { return mode == "physical" || mode == "layout"; });
   r.Read("control", "select_timer", control.select_timer);
   r.Read("control", "enable_experimental", control.enable_experimental);
 
@@ -774,6 +779,8 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("ui", "dock_syncmanagement", u.dock_syncmanagement);
   r.Read("ui", "focus_search", u.focus_search);
   r.ReadRenamed("ui", "format_cargo_values", "cargo_format", u.format_cargo_values);
+  r.Read("ui", "highlight_opc_fleets", u.highlight_opc_fleets);
+  r.Read("ui", "fleet_hud_opc_eta", u.fleet_hud_opc_eta);
   r.Read("ui", "officer_sort", u.officer_sort);
   r.Read("ui", "show_ship_tech_indicators", u.show_ship_tech_indicators);
   r.Read("ui", "show_ship_tech_indicator_backgrounds", u.show_ship_tech_indicator_backgrounds);

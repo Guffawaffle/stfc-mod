@@ -135,3 +135,42 @@ User is away for a nap and authorized successful launches as the initial barrier
 Continue small batches without requiring manual interaction acceptance. Boot-only
 qualification must remain distinct from feature acceptance. No stores/configs
 were reset or migrated. The parked dev-install tooling is unrelated and untouched.
+
+### Batch04: input, mining, Haven and ship indicators
+
+Candidate: HEAD967f4c7a plus worktree digest
+`sha256:4697a10b61e6f8aabc35f55f246f72466d99feac910515393004f5ca32eeb352`.
+DLL: `35fb63277600add5b4ccfa3cee065c15057b391c17f83c4c53b515c8c7f4bfd4`
+(11,269,632 bytes, `zig-out/play-parity-04/bin/version.dll`).
+Runner operation: `batch04c-gates/gate-operation-417c711b8eafb81c101df2aea3f4d38d337b5a74a37b973c70bd49fb775ca38e/operation.json`,
+descriptor digest `sha256:69758364e746e873485f10420f13f1ef763ce6e0f83f32cc842b8afc08c2b578`.
+All129 build/test steps and static PE checks passed; six artifact references
+verified with zero issues. Earlier04/04b failed receipts remain intact: fixture
+import-library search path and two managed-string GC-handle conversions were
+corrected. No test assertion or product guard was weakened.
+
+The authorized launch started PID62564 at the ordinary C-game installation.
+All57 feature groups installed and FrameTick became ready. In particular,
+ShipTechIndicators, MiningPreview, OpcIndicators and HavenOrbit all installed;
+there were no fresh mod startup errors. The existing configured keyboard-layout
+mode resolved `00000409` through the native Input System after startup. That
+qualifies the subscription/lookup on this session, not layout switching or every
+shortcut. No game TOML changes were made to get this result.
+
+Added fixtures cover physical/layout chord identity, inferred Shift, modifier
+ownership/release, unavailable mappings, cache identity/invalidation, strict OPC
+thresholds, unknown rates, SAFE and rounded-up ETA. Complete source semantics are
+preserved; boot alone does not prove node/cargo cycling, Haven dragging, ship art,
+ETA row recycling or F11 visual behavior. Those await player interaction.
+
+F11 now uses the existing FreeResize frame owner and one saved window placement;
+there is no global SetWindowLong detour. Modified F11 and focused text are left
+alone. A natively borderless window with no owned earlier placement stays native.
+Existing resize, cursor, UI scale and camera owners remain; their full visual
+qualification is still open. Haven and interior orbit constraints share one
+terminal HookSet and call the native constraint method once.
+
+Next: P12 system orbit plus its existing procedural scene enclosure, P18 custom
+prepared audio/coalescing, then native notifications and Galaxy/preset cohorts.
+P15's disproven pointer-only preset approach remains excluded. Settings UI remains
+last, after its feature owners. Stores and unrelated checkouts are unchanged.

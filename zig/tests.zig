@@ -43,6 +43,37 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
     const flags = ctx.cxxFlags("c++23", &.{});
     const mod_flags = ctx.cxxFlags("c++23", &.{"-Wno-deprecated-literal-operator"});
 
+    inline for (.{ "keyboard_layout", "keyboard_chord" }) |fixture| {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        module.addIncludePath(b.path("src/libs/unity/include"));
+        module.addIncludePath(b.path("src/libs/il2cpp/include"));
+        module.addIncludePath(b.path("third_party/libil2cpp"));
+        libs.il2cpp.includeInto(module);
+        module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}_tests.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        if (ctx.isWindows()) module.linkSystemLibrary("user32", .{});
+        const exe = ctx.executable(b.fmt("{s}-tests", .{fixture}), module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        test_mod.dependOn(&b.addRunArtifact(exe).step);
+    }
+    {
+        const module = settingsModule(ctx, libs);
+        module.addCSourceFiles(.{
+            .files = &.{ "tests/keyboard_shortcut_test.cc", "tests/keyboard_layout_no_host.cc", "src/mod/shortcuts.cc" },
+            .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}),
+        });
+        addFixture(ctx, build_tests, test_mod, "keyboard-shortcut-tests", module);
+    }
+
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        module.addCSourceFile(.{ .file = b.path("tests/fleet_opc_sample_test.cc"), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        const exe = ctx.executable("fleet-opc-sample-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        test_mod.dependOn(&b.addRunArtifact(exe).step);
+    }
+
     inline for (.{ "boolean_settings", "choice_setting", "slider_setting", "settings_maintenance", "settings_search", "settings_metadata", "page_catalog", "native_boolean_callback" }) |fixture| {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
@@ -395,6 +426,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
                 "src/mod/config_save.cc",
                 "src/mod/file.cc",
                 "tests/runtime_config_no_host.cc",
+                "tests/keyboard_layout_no_host.cc",
                 "src/mod/arguments.cc",
                 "src/mod/features/notification_audio.cc",
             },
@@ -424,6 +456,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
                 "src/mod/config_save.cc",
                 "src/mod/features/notification_audio.cc",
                 "tests/runtime_config_no_host.cc",
+                "tests/keyboard_layout_no_host.cc",
             },
             .flags = ctx.cxxFlags("c++23", &.{ "-Wno-deprecated-literal-operator", "-UNDEBUG" }),
         });

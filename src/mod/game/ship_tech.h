@@ -60,13 +60,20 @@ inline ImageSelector* ShipImage(ShipTileWidget* tile)
 
 inline const MethodInfo* SlotItemGetter()
 {
-  using Value               = il2cpp::Nullable<int64_t>;
   static const auto* method = [] {
-    const auto* value = il2cpp::detail::MethodCall<Value()>::Resolve(EntitySlot::Class::Raw(), "get_SlotItemId", false);
-    return value
-                   && il2cpp::detail::NullableLayoutMatches(value->return_type, il2cpp::PrimitiveClass<int64_t>(),
-                                                            sizeof(Value), alignof(Value), offsetof(Value, has_value),
-                                                            offsetof(Value, value))
+    const auto* value = EntitySlot::Class::Method("get_SlotItemId", 0).Info();
+    if (!value || !value->methodPointer || !value->invoker_method || (value->flags & METHOD_ATTRIBUTE_STATIC)
+        || !value->return_type || value->return_type->byref || value->return_type->type != IL2CPP_TYPE_GENERICINST)
+      return static_cast<const MethodInfo*>(nullptr);
+    // The managed invoker boxes Nullable<Int64> as Int64 or null. No native
+    // Nullable aggregate is copied or returned through a guessed C++ ABI.
+    const auto* generic    = value->return_type->data.generic_class;
+    const auto* arguments  = generic ? generic->context.class_inst : nullptr;
+    auto*       definition = il2cpp_class_from_name(il2cpp_get_corlib(), "System", "Nullable`1");
+    return definition && generic && generic->type && il2cpp_class_from_type(generic->type) == definition && arguments
+                   && arguments->type_argc == 1 && arguments->type_argv
+                   && il2cpp::detail::ExactScalarMatches(arguments->type_argv[0], IL2CPP_TYPE_I8)
+                   && il2cpp_class_from_type(arguments->type_argv[0]) == il2cpp::PrimitiveClass<int64_t>()
                ? value
                : nullptr;
   }();
@@ -83,8 +90,9 @@ inline il2cpp::CallResult<int64_t> SlotItem(EntitySlot* slot)
     return {};
   if (!boxed.value)
     return {true, 0}; // An observed empty Nullable has no equipped item.
-  int64_t id = 0;
-  return il2cpp::Unbox(boxed.value, id) ? il2cpp::CallResult<int64_t>{true, id} : il2cpp::CallResult<int64_t>{};
+  auto    root = il2cpp::GcHandle::Strong(boxed.value);
+  int64_t id   = 0;
+  return root && il2cpp::Unbox(root.Get(), id) ? il2cpp::CallResult<int64_t>{true, id} : il2cpp::CallResult<int64_t>{};
 }
 
 inline il2cpp::CallResult<int64_t> Art(ForbiddenTechManager* manager, int64_t id)

@@ -126,8 +126,9 @@ constexpr const Feature* kFeatures[] = {
     &kAnomalyTimer,
     // audio.cc
     &kAudio,
-    // buffs.cc
+    // base_card.cc
     &kBaseCard,
+    // buffs.cc
     &kOutOfDockPower,
     &kBuffCrashGuard,
     // camera.cc
@@ -157,9 +158,13 @@ constexpr const Feature* kFeatures[] = {
     // fleet_actions.cc
     &kQueueSwitch,
     &kAbilityButtons,
+    // mining_preview.cc
+    &kMiningPreview,
     // fleet_labels.cc
     &kFleetLabels,
     &kShipShortcutBadges,
+    // opc_indicators.cc
+    &kOpcIndicators,
     // forbidden_tech_ship_name.cc
     &kForbiddenTechShipName,
     // game_config.cc
@@ -167,6 +172,7 @@ constexpr const Feature* kFeatures[] = {
     // haven.cc
     &kHavenZoom,
     &kHavenHistory,
+    &kHavenOrbit,
     // hotkeys.cc
     &kHotkeys,
     // instant_warp.cc

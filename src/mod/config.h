@@ -170,6 +170,7 @@ public:
     bool missionhudtweakshooks      = true;
     bool objecttracker              = true;
     bool officersorthooks           = true;
+    bool opcindicatorhooks          = true;
     bool panhooks                   = true;
     bool pinnedshipclicktoggle      = true;
     bool pinnedshiphooks            = true;
@@ -190,12 +191,13 @@ public:
   } patches;
 
   struct Control {
-    bool primary_requires_visible_target = false;
-    bool kirshara_fixes                  = true;
-    bool queue_enabled                   = true;
-    bool hotkeys_enabled                 = true;
-    bool hotkeys_extended                = true;
-    bool use_scopely_hotkeys             = false;
+    bool        primary_requires_visible_target = false;
+    bool        kirshara_fixes                  = true;
+    bool        queue_enabled                   = true;
+    bool        hotkeys_enabled                 = true;
+    bool        hotkeys_extended                = true;
+    bool        use_scopely_hotkeys             = false;
+    std::string keyboard_layout_mode            = "physical";
     // Milliseconds within which pressing a ship's number again flies the camera to it.
     int  select_timer        = 500;
     bool enable_experimental = false;
@@ -225,8 +227,7 @@ public:
     // How much of the pan speed is kept each frame after a drag or key is released.
     float system_pan_momentum_falloff = 0.8f;
     bool  disable_target_camera_lock  = false;
-    // TODO(tashcan): the F11 borderless toggle needs a SetWindowLongW detour that was never installed, so this does
-    // nothing.
+    // Unmodified F11 switches between ordinary and borderless fullscreen on Windows.
     bool borderless_fullscreen = true;
     // TODO(tashcan): read but nothing applies it.
     float transition_time        = 0.01f;
@@ -294,7 +295,9 @@ public:
     bool dock_syncmanagement = true;
     bool focus_search        = true;
     // Abbreviated cargo values use cargo_significant_decimals.
-    bool format_cargo_values = true;
+    bool format_cargo_values  = true;
+    bool highlight_opc_fleets = false;
+    bool fleet_hud_opc_eta    = false;
     // Restores the Below Deck Ability officer sort option.
     bool officer_sort                         = true;
     bool show_ship_tech_indicators            = true;

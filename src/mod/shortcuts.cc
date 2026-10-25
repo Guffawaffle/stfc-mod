@@ -2,6 +2,7 @@
 // matching them against this frame's input.
 
 #include "shortcuts.h"
+#include "keyboard_layout.h"
 
 #include "text.h"
 
@@ -190,17 +191,33 @@ bool ModifiersHeld(const KeyChord& chord)
 template <bool (*KeyState)(unity::KeyCode)> bool Matches(Action action)
 {
   for (const auto& chord : ChordsOf(action)) {
-    if (chord.key == unity::KeyCode::None || !KeyState(chord.key))
+    const auto resolved = keyboard_layout::ResolveChord(chord.key);
+    if (resolved.key == unity::KeyCode::None || !KeyState(resolved.key))
+      continue;
+    if (resolved.shift && !unity::Key::Pressed(unity::KeyCode::LeftShift)
+        && !unity::Key::Pressed(unity::KeyCode::RightShift))
       continue;
     if (chord.modifiers.empty()) {
-      if (unity::Key::IsModified() || IsUsed(chord.key))
+      bool modified = unity::Key::IsModified();
+      if (resolved.shift) {
+        // Inferred Shift types the configured character; other modifiers still
+        // prevent a bare action from stealing a Ctrl/Alt/Command shortcut.
+        constexpr auto other_modifiers =
+            std::array{unity::KeyCode::LeftControl,  unity::KeyCode::RightControl, unity::KeyCode::LeftAlt,
+                       unity::KeyCode::RightAlt,     unity::KeyCode::AltGr,        unity::KeyCode::LeftCommand,
+                       unity::KeyCode::RightCommand, unity::KeyCode::LeftWindows,  unity::KeyCode::RightWindows};
+        modified = std::ranges::any_of(other_modifiers, unity::Key::Pressed);
+      }
+      if (modified || (!resolved.shift && IsUsed(resolved.key)))
         continue;
     } else {
       if (!ModifiersHeld(chord))
         continue;
-      if (!std::ranges::contains(used_keys, chord.key))
-        used_keys.push_back(chord.key);
     }
+    const bool movement = action == Action::kMoveLeft || action == Action::kMoveRight || action == Action::kMoveUp
+                          || action == Action::kMoveDown;
+    if ((!chord.modifiers.empty() || resolved.shift) && !movement && !std::ranges::contains(used_keys, resolved.key))
+      used_keys.push_back(resolved.key);
     return true;
   }
   return false;
@@ -357,6 +374,9 @@ void Set(Bindings next) noexcept
 {
   bindings = std::move(next);
   used_keys.clear();
+  for (const auto& chords : bindings)
+    for (const auto& chord : chords)
+      keyboard_layout::RegisterShortcut(chord.key);
 }
 
 bool Owns(unity::KeyCode key)

@@ -56,6 +56,8 @@ Bindings Parse(const toml::table& config, toml::table& parsed, bool extended, bo
 void Set(Bindings bindings) noexcept;
 
 bool HasBinding(Action action);
+// Printable chord identities follow keyboard_layout_mode; the input snapshot
+// and ownership remain physical. Displayed/configured chord text is unchanged.
 // Any binding of `action` is held with its modifiers. A binding without modifiers needs none held; one with
 // modifiers still fires when extra modifiers are held (CTRL-F1 fires under CTRL+SHIFT).
 bool IsPressed(Action action);

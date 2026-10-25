@@ -84,8 +84,10 @@ extern const Feature kAnomalyTimer;
 // audio.cc
 extern const Feature kAudio;
 
-// buffs.cc
+// base_card.cc
 extern const Feature kBaseCard;
+
+// buffs.cc
 extern const Feature kOutOfDockPower;
 extern const Feature kBuffCrashGuard;
 
@@ -146,6 +148,12 @@ extern const Feature kShipShortcutBadges;
 void FleetLabelsFollowDepth(NavigationZoom* zoom, NodeDepth depth);
 void FleetLabelsAfterZoom(NavigationZoom* zoom);
 
+// opc_indicators.cc
+extern const Feature kOpcIndicators;
+
+// mining_preview.cc
+extern const Feature kMiningPreview;
+
 // forbidden_tech_ship_name.cc
 extern const Feature kForbiddenTechShipName;
 
@@ -155,6 +163,10 @@ extern const Feature kGameConfigOverrides;
 // haven.cc
 extern const Feature kHavenZoom;
 extern const Feature kHavenHistory;
+
+// haven_orbit.cc shares camera.cc's single native constraint owner.
+extern const Feature kHavenOrbit;
+bool                 EnsureOrbitConstraints();
 
 // hotkeys.cc
 extern const Feature kHotkeys;

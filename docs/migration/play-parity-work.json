@@ -109,7 +109,7 @@
       "deps": [
         "P05"
       ],
-      "status": "queued",
+      "status": "windows-boot-qualified-interaction-pending",
       "steps": [
         "Restore V/MOUSE2 node→occupant→cargo→node cycle.",
         "Preserve own-miner exclusion, cargo-first preferences, context ownership and5s timeout.",
@@ -123,7 +123,7 @@
       "deps": [
         "P01"
       ],
-      "status": "queued",
+      "status": "windows-boot-and-us-layout-resolution-qualified-switching-pending",
       "steps": [
         "Restore physical/layout mode reader and OS layout-change notification using current chord dispatcher.",
         "Reconcile native/mod/extended mode arbitration, fallthrough and text focus.",
@@ -137,7 +137,7 @@
       "deps": [
         "P01"
       ],
-      "status": "queued",
+      "status": "windows-boot-qualified-interaction-pending",
       "steps": [
         "Restore actual play borderless/fullscreen behavior where current TODO is inert.",
         "Verify resize/cursor/interface/viewer/ship/backdrop scale rather than porting duplicate owners.",
@@ -151,7 +151,7 @@
       "deps": [
         "P03"
       ],
-      "status": "queued",
+      "status": "windows-boot-qualified-interaction-pending",
       "steps": [
         "Restore highlight_opc_fleets and fleet_hud_opc_eta false-default keys and actual owned fleet/cargo/ETA bindings.",
         "Preserve player/nonplayer distinctions, unavailable data and cleared/recycled labels.",
@@ -165,7 +165,7 @@
       "deps": [
         "P03"
       ],
-      "status": "source-built-runtime-preflight-unavailable-investigating",
+      "status": "windows-boot-qualified-interaction-pending",
       "steps": [
         "Restore FT/CT icons, artwork ownership and optional backgrounds with original defaults.",
         "Share existing ship-tile binding/release path with pin UI; do not port a second pin owner.",
@@ -180,7 +180,7 @@
         "P04",
         "P07"
       ],
-      "status": "queued",
+      "status": "windows-boot-qualified-interaction-pending",
       "steps": [
         "Add actual play pointer-chord drag/reset actions.",
         "Restore Haven source/blend/constraint identity and placement/UI/focus gates.",
