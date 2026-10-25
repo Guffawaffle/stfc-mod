@@ -109,7 +109,7 @@
       "deps": [
         "P05"
       ],
-      "status": "windows-boot-qualified-interaction-pending",
+      "status": "user-confirmed",
       "steps": [
         "Restore V/MOUSE2 node→occupant→cargo→node cycle.",
         "Preserve own-miner exclusion, cargo-first preferences, context ownership and5s timeout.",
@@ -165,7 +165,7 @@
       "deps": [
         "P03"
       ],
-      "status": "windows-boot-qualified-interaction-pending",
+      "status": "user-confirmed",
       "steps": [
         "Restore FT/CT icons, artwork ownership and optional backgrounds with original defaults.",
         "Share existing ship-tile binding/release path with pin UI; do not port a second pin owner.",
@@ -180,7 +180,7 @@
         "P04",
         "P07"
       ],
-      "status": "windows-boot-qualified-interaction-pending",
+      "status": "user-confirmed",
       "steps": [
         "Add actual play pointer-chord drag/reset actions.",
         "Restore Haven source/blend/constraint identity and placement/UI/focus gates.",
@@ -194,7 +194,7 @@
       "deps": [
         "P11"
       ],
-      "status": "queued",
+      "status": "parked-by-user-not-registered",
       "steps": [
         "Restore navigationorbithooks and system camera-rig drag/reset/free-pan/zoom-anchor behavior.",
         "Port original environment shell/embedded art with material/texture cleanup; no new artwork initiative.",
@@ -281,7 +281,7 @@
       "deps": [
         "P01"
       ],
-      "status": "queued",
+      "status": "windows-native-wav-and-lifetime-fixtures-qualified-booted-playback-trial-pending",
       "steps": [
         "Restore the existing immutable builtin-or-preloaded-WAV cue type; config loading owns file I/O, playback must not read files.",
         "Restore builtin/file cue representation, custom file paths and native async playback.",

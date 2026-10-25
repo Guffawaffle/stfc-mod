@@ -4,6 +4,7 @@
 #include "config.h"
 
 #include "config_save.h"
+#include "features/notification_audio.h"
 #include "file.h"
 #include "keyboard_layout.h"
 #include "runtime_config.h"
@@ -56,7 +57,9 @@ constexpr std::pair<std::string_view, bool Config::Patches::*> kPatches[] = {
     {"loadingtiphooks", &Config::Patches::loadingtiphooks},
     {"miscpatches", &Config::Patches::miscpatches},
     {"missionhudtweakshooks", &Config::Patches::missionhudtweakshooks},
+    {"navigationorbithooks", &Config::Patches::navigationorbithooks},
     {"objecttracker", &Config::Patches::objecttracker},
+    {"officerpresetreorderhooks", &Config::Patches::officerpresetreorderhooks},
     {"officersorthooks", &Config::Patches::officersorthooks},
     {"opcindicatorhooks", &Config::Patches::opcindicatorhooks},
     {"panhooks", &Config::Patches::panhooks},
@@ -148,17 +151,25 @@ constexpr Choice<FleetLabelDetail> kFleetLabelDetail[] = {
     {"", FleetLabelDetail::kNative},
 };
 
-// In NotificationSound order, so the canonical names come first.
-constexpr Choice<NotificationSound> kNotificationSounds[] = {
-    {"none", NotificationSound::kNone},       {"default", NotificationSound::kDefault},
-    {"info", NotificationSound::kInfo},       {"success", NotificationSound::kSuccess},
-    {"warning", NotificationSound::kWarning}, {"alarm", NotificationSound::kAlarm},
-    {"arrival", NotificationSound::kArrival}, {"soft", NotificationSound::kSoft},
-    {"ping", NotificationSound::kPing},       {"repair", NotificationSound::kRepair},
-    {"off", NotificationSound::kNone},        {"silent", NotificationSound::kNone},
-    {"victory", NotificationSound::kSuccess}, {"warn", NotificationSound::kWarning},
-    {"attack", NotificationSound::kAlarm},    {"arrive", NotificationSound::kArrival},
-    {"quiet", NotificationSound::kSoft},      {"repaired", NotificationSound::kRepair},
+constexpr Choice<AudioCoalescing> kAudioCoalescing[] = {
+    {"none", AudioCoalescing::None},
+    {"same", AudioCoalescing::Same},
+    {"all", AudioCoalescing::All},
+};
+constexpr std::pair<std::string_view, NotificationAudioCue Config::Audio::*> kAudioAlerts[] = {
+    {"alert_victory", &Config::Audio::alert_victory},
+    {"alert_defeat", &Config::Audio::alert_defeat},
+    {"alert_incoming_player_attack", &Config::Audio::alert_incoming_player_attack},
+    {"alert_armada_created", &Config::Audio::alert_armada_created},
+    {"alert_armada_battle_won", &Config::Audio::alert_armada_battle_won},
+    {"alert_armada_battle_lost", &Config::Audio::alert_armada_battle_lost},
+    {"alert_fleet_arrived_in_system", &Config::Audio::alert_fleet_arrived_in_system},
+    {"alert_fleet_arrived_at_destination", &Config::Audio::alert_fleet_arrived_at_destination},
+    {"alert_fleet_started_mining", &Config::Audio::alert_fleet_started_mining},
+    {"alert_fleet_node_depleted", &Config::Audio::alert_fleet_node_depleted},
+    {"alert_fleet_docked", &Config::Audio::alert_fleet_docked},
+    {"alert_fleet_repair_complete", &Config::Audio::alert_fleet_repair_complete},
+    {"alert_fleet_miner_opc", &Config::Audio::alert_fleet_miner_opc},
 };
 
 constexpr std::string_view kKnownFactions[] = {"federation", "klingon", "romulan"};
@@ -539,12 +550,6 @@ bool SaveEffective(const toml::table& effective, bool startup)
 }
 } // namespace
 
-std::string_view NotificationSoundName(NotificationSound sound)
-{
-  const auto found = std::ranges::find(kNotificationSounds, sound, &Choice<NotificationSound>::value);
-  return found == std::end(kNotificationSounds) ? "none" : found->name;
-}
-
 std::unique_ptr<Config> Config::Parse(const toml::table& file, toml::table& effective, bool log_values)
 {
   std::unique_ptr<Config> config(new Config);
@@ -557,6 +562,15 @@ std::shared_ptr<const Config::Sync> Config::Sync::Get()
 
 void Config::Activate(std::unique_ptr<Config> next)
 {
+  // Prepare only an accepted candidate. Parsing, effective-vars inspection and settings inventories perform no I/O.
+  // Relative custom clips follow the admitted settings location, never an independently inferred account path.
+  const auto directory = File::Path(File::Config()).parent_path();
+  for (const auto& [key, member] : kAudioAlerts) {
+    auto& cue = next->audio.*member;
+    if (!NotificationSoundFromName(cue.source))
+      cue = LoadNotificationAudio(cue.source, directory);
+  }
+  SetNotificationAudioCoalescing(next->audio.coalescing);
   keyboard_layout::Configure(next->control.keyboard_layout_mode);
   Shortcut::Set(std::move(next->shortcuts_));
   std::atomic_store_explicit(&sync_config, next->sync_, std::memory_order_release);
@@ -736,18 +750,16 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
     else
       audio.disabled_events.push_back(std::move(event));
   }
-  constexpr std::pair<std::string_view, NotificationSound Audio::*> kAlerts[] = {
-      {"alert_victory", &Audio::alert_victory},
-      {"alert_defeat", &Audio::alert_defeat},
-      {"alert_armada_created", &Audio::alert_armada_created},
-      {"alert_armada_battle_won", &Audio::alert_armada_battle_won},
-      {"alert_armada_battle_lost", &Audio::alert_armada_battle_lost},
-  };
-  bool has_audio_alert = false;
-  for (const auto& [key, alert] : kAlerts) {
-    r.Choose("audio", key, audio.*alert, kNotificationSounds);
-    has_audio_alert |= audio.*alert != NotificationSound::kNone;
+  r.Choose("audio", "coalescing", audio.coalescing, kAudioCoalescing);
+  for (const auto& [key, member] : kAudioAlerts) {
+    auto& cue = audio.*member;
+    cue       = NotificationAudioCueFromSource(r.Get<std::string>("audio", key, cue.source));
+    r.Record("audio", key, cue.source);
   }
+  const bool has_audio_alert = audio.alert_victory.source != "none" || audio.alert_defeat.source != "none"
+                               || audio.alert_armada_created.source != "none"
+                               || audio.alert_armada_battle_won.source != "none"
+                               || audio.alert_armada_battle_lost.source != "none";
   // The alerts play from the toast hooks.
   if (has_audio_alert && !patches.toastbannerhooks)
     spdlog::warn("audio alerts need patches.toastbannerhooks = true; they stay silent");
@@ -766,6 +778,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("ui", "disable_galaxy_chat", u.disable_galaxy_chat);
   r.Read("ui", "disable_veil_chat", u.disable_veil_chat);
   r.Read("ui", "show_player_title", u.show_player_title);
+  r.Read("ui", "allow_officer_preset_reordering", u.allow_officer_preset_reordering);
   r.Read("ui", "auto_open_bulk_claim_flyout", u.auto_open_bulk_claim_flyout);
   u.daily_bulk_claim_factions = ReadFactions(r);
   r.Read("ui", "daily_bulk_claim_toggle_default_on", u.daily_bulk_claim_toggle_default_on);

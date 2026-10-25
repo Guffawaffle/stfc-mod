@@ -1,11 +1,13 @@
 // Notification cues: their tone patterns, the WAV data generated from them, and Windows playback.
 
 #include "features/notification_audio.h"
+#include "features/notification_audio_platform.h"
 
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <mutex>
 #include <numbers>
@@ -121,17 +123,74 @@ std::span<const uint8_t> NotificationSoundBytes(NotificationSound sound)
   return buffers[index];
 }
 
-void PlayNotificationSound(NotificationSound sound)
+namespace
 {
-  const auto buffer = NotificationSoundBytes(sound);
-  if (!buffer.empty() && !PlayNotificationBuffer(buffer.data(), buffer.size()))
-    spdlog::warn("[Toasts] could not play the {} cue", NotificationSoundName(sound));
+std::atomic<AudioCoalescing> audio_coalescing{AudioCoalescing::Same};
 }
 
-#if _WIN32
-bool PlayNotificationBuffer(const uint8_t* data, size_t)
-{ return PlaySoundW(reinterpret_cast<LPCWSTR>(data), nullptr, SND_ASYNC | SND_MEMORY | SND_NODEFAULT) != FALSE; }
-#elif !defined(__APPLE__)
-bool PlayNotificationBuffer(const uint8_t*, size_t)
-{ return false; }
+AudioCoalescing NotificationAudioCoalescing()
+{ return audio_coalescing.load(std::memory_order_relaxed); }
+
+void SetNotificationAudioCoalescing(AudioCoalescing mode)
+{ audio_coalescing.store(mode, std::memory_order_relaxed); }
+
+void PlayNotificationSound(NotificationSound sound)
+{ PlayNotificationSound(NotificationAudioCue(sound)); }
+
+void PlayNotificationSound(const NotificationAudioCue& cue)
+{
+  // The native asynchronous player can borrow these bytes beyond this call and a settings reload.
+  static std::mutex                                  playback_mutex;
+  static std::shared_ptr<const std::vector<uint8_t>> current_clip;
+  static NotificationSound                           current_sound = NotificationSound::kNone;
+  static AudioCoalescingWindow                       window;
+  std::scoped_lock                                   lock(playback_mutex);
+  const auto                                         mode = NotificationAudioCoalescing();
+  const auto                                         now  = AudioCoalescingWindow::Clock::now();
+  if (window.Suppress(mode, false, now))
+    return;
+  if (cue.data && !cue.data->empty()) {
+    if (window.Suppress(mode, current_clip == cue.data, now))
+      return;
+    const auto result = PlayNotificationAudioBytes(cue.data->data(), cue.data->size());
+    if (result == AudioPlaybackResult::Started) {
+      current_clip  = cue.data;
+      current_sound = NotificationSound::kNone;
+      window.Started(AudioCoalescingWindow::Clock::now(), cue.duration_seconds);
+    } else if (result == AudioPlaybackResult::Stopped) {
+      window.Stopped();
+    }
+    return;
+  }
+  const auto buffer = NotificationSoundBytes(cue.sound);
+  if (buffer.empty() || window.Suppress(mode, !current_clip && current_sound == cue.sound, now))
+    return;
+  const auto result = PlayNotificationAudioBytes(buffer.data(), buffer.size());
+  if (result == AudioPlaybackResult::Started) {
+    current_clip.reset();
+    current_sound = cue.sound;
+    window.Started(AudioCoalescingWindow::Clock::now(), static_cast<double>(buffer.size() - 44) / (kSampleRate * 2));
+  } else {
+    if (result == AudioPlaybackResult::Stopped)
+      window.Stopped();
+    spdlog::warn("[NotifyAudio] could not play the {} cue", NotificationSoundName(cue.sound));
+  }
+}
+
+#if _WIN32 && !defined(NOTIFICATION_AUDIO_TEST)
+AudioPlaybackResult PlayNotificationAudioBytes(const uint8_t* data, size_t)
+{
+  return PlaySoundW(reinterpret_cast<LPCWSTR>(data), nullptr, SND_ASYNC | SND_MEMORY | SND_NODEFAULT)
+             ? AudioPlaybackResult::Started
+             : AudioPlaybackResult::Stopped;
+}
+#elif !defined(_WIN32) && !defined(__APPLE__) && !defined(NOTIFICATION_AUDIO_TEST)
+AudioPlaybackResult PlayNotificationAudioBytes(const uint8_t*, size_t)
+{ return AudioPlaybackResult::Unchanged; }
+
+std::vector<uint8_t> PrepareNotificationAudioBytes(std::span<const uint8_t>, double& duration_seconds)
+{
+  duration_seconds = 0;
+  return {};
+}
 #endif

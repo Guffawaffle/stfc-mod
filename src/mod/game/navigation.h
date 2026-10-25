@@ -186,7 +186,9 @@ struct NavigationManager : il2cpp::Object {
                                                                                      NavigationTransitionAnimator*>()}
                      : il2cpp::CallResult<NavigationTransitionAnimator*>{};
   }
-  il2cpp::CallResult<void> TryMovePlanned(unity::Vector3 position, int64_t node_id, int64_t fleet_id)
+  // Shared qualification for invocation and the manual-move intent hook.
+  // Resolve metadata only: no game/engine call during hook installation.
+  static il2cpp::Method MoveFleetActionMethod()
   {
     using Position            = il2cpp::Nullable<unity::Vector3>;
     static const auto* method = [] {
@@ -206,6 +208,12 @@ struct NavigationManager : il2cpp::Object {
       }
       return candidate;
     }();
+    return il2cpp::Method(method);
+  }
+  il2cpp::CallResult<void> TryMovePlanned(unity::Vector3 position, int64_t node_id, int64_t fleet_id)
+  {
+    using Position     = il2cpp::Nullable<unity::Vector3>;
+    const auto* method = MoveFleetActionMethod().Info();
     if (!method)
       return {};
     Position   destination{true, position};

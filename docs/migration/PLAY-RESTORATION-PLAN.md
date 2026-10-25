@@ -174,3 +174,90 @@ Next: P12 system orbit plus its existing procedural scene enclosure, P18 custom
 prepared audio/coalescing, then native notifications and Galaxy/preset cohorts.
 P15's disproven pointer-only preset approach remains excluded. Settings UI remains
 last, after its feature owners. Stores and unrelated checkouts are unchanged.
+
+### Batch04 player acceptance and batch05 native checkpoint
+
+Guff explicitly reported all pass for Swap Ship technology icons, Haven
+right-drag/Alt-right reset, and V cycling node → foreign occupant → cargo → node.
+These are player interaction observations beyond the original boot check.
+F11/OPC display and different-layout switching remain separate pending trials.
+
+Batch05 candidate: HEAD9a2018af plus worktree digest
+`sha256:4ec977538d8e75a3d3eb0d4041a2e023a377d3b3b8faa4a3a784ca3a816799ac`.
+DLL `1c288a1c611cc6d606ddc8331c0b7494461e32cc1291ba6fb8e2b139fd59cc0e`,
+11,890,688 bytes at `zig-out/play-parity-05/bin/version.dll`.
+Runner operation `batch05-gates/gate-operation-3ef6b8e1fd71ea389eeddd69df28876cfd2d903cf666af4736eb4e1abf0c45ce/operation.json`,
+descriptor digest `sha256:f5d90848093d96790ecb7cd321881cc8f9e3bcfedd6dd1fdc5350ee87782bf08`.
+All135 build/test steps and PE checks passed; six artifact references verified.
+Includes real UTF-8 WAV decode, malformed/missing/size/duration boundaries,
+shared clip/lifetime checks, mocked playback and pure coalescing. No MP3 sample
+was supplied to the optional decoder test; MP3 and macOS runtime remain unqualified.
+
+Authorized cycle used the built artifact: stop exact PID62564/creation
+134374359626808884, copy verified DLL, start PID57636. All58 groups installed,
+including NavigationOrbit; FrameTick and native US layout resolution are ready,
+without fresh mod startup errors. No game TOML/store migration occurred.
+
+P12 ports the existing system orbit/free-pan/anchor/clip behavior and deterministic
+scene enclosure. Its scene assets are mod-owned and disposed on reset/source exit;
+native backdrop artwork/material/visibility ownership is preserved. The native
+camera/sky trial remains pending.
+
+P18 retains one game-independent prepared cue model, original bounds and local
+WAV/MP3 decoders, immutable shared buffers and monotonic coalescing. Parsing is
+pure; accepted configuration activation prepares custom clips against its admitted
+settings location. Existing built-in PCM and lazy cache remain compatible.
+Windows Media Foundation is dynamically loaded; Windows N absence disables file
+preparation without preventing DLL/built-in startup. Incoming/fleet source settings
+are restored; their actual consumers are the next cohort. The P15 settings alone
+are not an activated or qualified preset owner.
+
+Operational rule reconfirmed by Guff: build and verify while the game remains up;
+only then stop → copy → launch. Compose the existing lifecycle calls closely to
+minimize downtime; do not introduce another deployment-tooling project.
+
+### Published review checkpoint: batch06 and scope reset
+
+This branch is an incomplete migration checkpoint for separate review, not a claim
+of full PLAY parity. Hook installation, implemented source, offline fixtures and
+player behavior remain separate evidence levels. Guff requested publishing the
+checkpoint directly without running another review in this session.
+
+Batch06 restores PLAY's Ctrl-click (Command-click on macOS) per-trip choice
+intent and the modifier-sensitive native Set Course label. It captures exact
+fleet/destination IDs at the manual move edge, survives modifier release during
+planning, consumes once, and retains native choice when identity observation is
+unavailable. The move hook and popup hook install atomically. Invocation and
+hook installation reuse one qualified Nullable<Vector3> move-method binding.
+Regression coverage includes replacement/mismatch/unknown/large-ID intent and
+the shared checked native binding. This is not yet a player-confirmed Ctrl-click
+trial.
+
+The user's existing TOML was always retained. Its blank navigation_orbit_drag
+and navigation_orbit_reset were honored as NONE; installed orbit hooks did not
+mean enabled orbit behavior. The earlier report conflated those states.
+System orbit is now explicitly parked: its source remains for recovery, but its
+descriptor is absent from the product registry and its default patch flag is false.
+Haven orbit remains enabled and player-confirmed separately.
+
+Tested candidate: HEAD9a2018af plus worktree digest
+sha256:dec091a5db50ca44a394be5e165735b6847e529b99aad670af878c4655a18c99.
+Runner batch06-gates operation a42feee879153823f070234d51dc0767e3d96564aaf58601b8d6ef63e0a155f4,
+descriptor sha256:fc3ba4a9dc7d398d005a68be266a57bbb105375dda8393f385bc5f66e83e22c0.
+Windows install + test-mod + test-il2cpp:195/195 build/run steps succeeded;
+static PE check passed; six artifact references verified. Step count is not a
+count of independent test cases. Built DLL:
+da186fd6825433e892fface2211155e5d26b5aefd7b98e04114d304cc8a9f569.
+The already-built DLL was deployed and launched as PID14444. All57 registered
+groups installed, including InstantWarp, and FrameTick was ready with no fresh
+mod startup errors. No game settings or stores were reset. macOS runtime,
+code signing/notarization and complete PLAY parity remain unqualified.
+
+Known open cohorts: full native Mod Settings/catalog/editing; Galaxy enhancements;
+incoming/fleet notification consumers; native officer-preset reordering. The
+private P15 candidate is not imported: a reentrant-save transition gap remains
+unresolved. Discovery towing and other legacy limitations are not silently
+called complete. AAI/STFCKitUI expansion remains outside this checkpoint.
+
+Unrelated dev-install tooling/build.zig changes remain local and excluded from
+this checkpoint. No new tooling system, release promotion or merge is implied.

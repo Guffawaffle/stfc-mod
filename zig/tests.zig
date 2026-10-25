@@ -43,6 +43,42 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
     const flags = ctx.cxxFlags("c++23", &.{});
     const mod_flags = ctx.cxxFlags("c++23", &.{"-Wno-deprecated-literal-operator"});
 
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        module.addCSourceFile(.{ .file = b.path("tests/warp_click_intent_test.cc"), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        addFixture(ctx, build_tests, test_mod, "warp-click-intent-tests", module);
+    }
+
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        module.addCSourceFile(.{ .file = b.path("tests/audio_coalescing_test.cc"), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        addFixture(ctx, build_tests, test_mod, "audio-coalescing-tests", module);
+    }
+    {
+        const module = settingsModule(ctx, libs);
+        module.addCMacro("NOTIFICATION_AUDIO_TEST", "1");
+        module.addCSourceFiles(.{
+            .files = &.{ "tests/audio_dispatch_test.cc", "src/mod/features/notification_audio.cc" },
+            .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}),
+        });
+        addFixture(ctx, build_tests, test_mod, "audio-dispatch-tests", module);
+    }
+    if (ctx.isWindows() or ctx.isMacos()) {
+        const module = settingsModule(ctx, libs);
+        module.addCSourceFiles(.{
+            .files = &.{ "tests/notification_audio_files_test.cc", "src/mod/features/notification_audio.cc", "src/mod/features/notification_audio_files.cc", "src/mod/notification_audio_windows.cc" },
+            .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}),
+        });
+        if (ctx.isWindows()) inline for (.{ "winmm", "mfuuid", "shlwapi", "ole32" }) |lib| module.linkSystemLibrary(lib, .{});
+        if (ctx.isMacos()) {
+            module.addCSourceFile(.{ .file = b.path("src/mod/features/notification_audio_mac.mm"), .flags = flags });
+            module.linkFramework("Cocoa", .{});
+        }
+        addFixture(ctx, build_tests, test_mod, "notification-audio-files-tests", module);
+    }
+
     inline for (.{ "keyboard_layout", "keyboard_chord" }) |fixture| {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
@@ -429,13 +465,15 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
                 "tests/keyboard_layout_no_host.cc",
                 "src/mod/arguments.cc",
                 "src/mod/features/notification_audio.cc",
+                "src/mod/features/notification_audio_files.cc",
+                "src/mod/notification_audio_windows.cc",
             },
             .flags = mod_flags,
         });
         if (ctx.isWindows()) {
             // file.cc reads the command line through CommandLineToArgvW.
             module.linkSystemLibrary("shell32", .{});
-            module.linkSystemLibrary("winmm", .{});
+            inline for (.{ "winmm", "mfuuid", "shlwapi", "ole32" }) |lib| module.linkSystemLibrary(lib, .{});
         }
         if (ctx.isMacos()) {
             module.addCSourceFiles(.{
@@ -455,12 +493,14 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
                 "src/mod/config.cc",
                 "src/mod/config_save.cc",
                 "src/mod/features/notification_audio.cc",
+                "src/mod/features/notification_audio_files.cc",
+                "src/mod/notification_audio_windows.cc",
                 "tests/runtime_config_no_host.cc",
                 "tests/keyboard_layout_no_host.cc",
             },
             .flags = ctx.cxxFlags("c++23", &.{ "-Wno-deprecated-literal-operator", "-UNDEBUG" }),
         });
-        if (ctx.isWindows()) module.linkSystemLibrary("winmm", .{});
+        if (ctx.isWindows()) inline for (.{ "winmm", "mfuuid", "shlwapi", "ole32" }) |lib| module.linkSystemLibrary(lib, .{});
         if (ctx.isMacos()) {
             module.addCSourceFile(.{ .file = b.path("src/mod/features/notification_audio_mac.mm"), .flags = flags });
             module.linkFramework("Cocoa", .{});

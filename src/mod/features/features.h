@@ -154,6 +154,9 @@ extern const Feature kOpcIndicators;
 // mining_preview.cc
 extern const Feature kMiningPreview;
 
+// navigation_orbit.cc
+extern const Feature kNavigationOrbit;
+
 // forbidden_tech_ship_name.cc
 extern const Feature kForbiddenTechShipName;
 

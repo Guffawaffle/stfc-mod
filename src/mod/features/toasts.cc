@@ -428,28 +428,29 @@ bool ShowBanner(Toast* toast)
 {
   if (!toast)
     return true;
-  const auto&       audio = Config::Get().audio;
-  NotificationSound sound = NotificationSound::kNone;
+  const auto&                 audio = Config::Get().audio;
+  const NotificationAudioCue* sound = nullptr;
   switch (toast->State()) {
     case ToastState::Victory:
-      sound = audio.alert_victory;
+      sound = &audio.alert_victory;
       break;
     case ToastState::Defeat:
-      sound = audio.alert_defeat;
+      sound = &audio.alert_defeat;
       break;
     case ToastState::ArmadaCreated:
-      sound = audio.alert_armada_created;
+      sound = &audio.alert_armada_created;
       break;
     case ToastState::ArmadaBattleWon:
-      sound = audio.alert_armada_battle_won;
+      sound = &audio.alert_armada_battle_won;
       break;
     case ToastState::ArmadaBattleLost:
-      sound = audio.alert_armada_battle_lost;
+      sound = &audio.alert_armada_battle_lost;
       break;
     default:
       break;
   }
-  PlayNotificationSound(sound);
+  if (sound)
+    PlayNotificationSound(*sound);
   Notify(toast);
   return !std::ranges::contains(Config::Get().ui.disabled_banner_types, std::to_underlying(toast->State()));
 }

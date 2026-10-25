@@ -31,6 +31,12 @@
 #  <[=======================================]>
 
 [audio]
+# Suppress replacement while a cue plays: none, same (default), or all. Suppressed cues never queue.
+coalescing = "same"
+# Alert values accept built-ins (none/default/info/success/warning/alarm/arrival/soft/ping/repair)
+# or a local WAV/MP3 path. Relative paths follow this settings file; no network URLs are accepted.
+# Clips must be at most 30 seconds and 16 MiB, including decoded audio. Missing/invalid files stay silent.
+
 # Optional notification sound; none disables the alert. Requires Toast Banner Hooks.
 alert_armada_battle_lost = "none"
 
@@ -45,6 +51,18 @@ alert_defeat = "none"
 
 # Optional notification sound; none disables the alert. Requires Toast Banner Hooks.
 alert_victory = "none"
+
+# Incoming player-vs-player attacks against your own fleets.
+alert_incoming_player_attack = "none"
+
+# Fleet cues are independent of desktop notifications and toastbannerhooks.
+alert_fleet_arrived_in_system = "none"
+alert_fleet_arrived_at_destination = "none"
+alert_fleet_started_mining = "none"
+alert_fleet_node_depleted = "none"
+alert_fleet_docked = "none"
+alert_fleet_repair_complete = "none"
+alert_fleet_miner_opc = "none"
 
 # Comma-separated audio event names to suppress; leave blank to allow all audio events
 disabled_events = ""
@@ -328,8 +346,11 @@ loadingtiphooks = true
 miscpatches = true
 missionhudtweakshooks = true
 objecttracker = true
+officerpresetreorderhooks = true
 officersorthooks = true
 opcindicatorhooks = true
+# Parked: system mouse orbit is not installed in the current product.
+navigationorbithooks = false
 shiptechindicatorhooks = true
 panhooks = true
 
@@ -726,6 +747,8 @@ zoom_reset = "="
 #  <[===================================================================]>
 
 [ui]
+# Allow moving officer presets into occupied slots.
+allow_officer_preset_reordering = false
 # Skip the reveal box animation, and just open the boxes
 always_skip_reveal_sequence = true
 auto_confirm_discovery = true

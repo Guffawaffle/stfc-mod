@@ -379,6 +379,12 @@ struct Input {
     static const il2cpp::ICall<bool(int32_t)> call{"UnityEngine.Input::GetMouseButtonUp(System.Int32)"};
     return call(button);
   }
+  static bool MouseButtonStateAvailable()
+  {
+    static const il2cpp::ICall<bool(int32_t)> held{"UnityEngine.Input::GetMouseButton(System.Int32)"};
+    static const il2cpp::ICall<bool(int32_t)> up{"UnityEngine.Input::GetMouseButtonUp(System.Int32)"};
+    return held && up;
+  }
   static bool PointerAvailable()
   {
     static const il2cpp::ICall<bool(int32_t)>  held{"UnityEngine.Input::GetMouseButton(System.Int32)"};

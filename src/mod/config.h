@@ -5,6 +5,7 @@
 // startup and again whenever the file changes; a few are also toggled at runtime by hotkeys. Everything runs on
 // the game thread except sync, whose workers retain immutable snapshots.
 
+#include "features/notification_audio_types.h"
 #include "shortcuts.h"
 
 #include <toml++/impl/forward_declarations.hpp>
@@ -78,24 +79,6 @@ struct SyncTargetConfig : SyncConfig {
   bool        operator==(const SyncTargetConfig&) const = default;
 };
 
-// The cues [audio] alert_* can play; notification_audio.cc generates them.
-enum class NotificationSound : uint8_t {
-  kNone,
-  kDefault,
-  kInfo,
-  kSuccess,
-  kWarning,
-  kAlarm,
-  kArrival,
-  kSoft,
-  kPing,
-  kRepair,
-  kCount,
-};
-
-// The cue's name as the settings file writes it: "success".
-std::string_view NotificationSoundName(NotificationSound sound);
-
 enum class MissionHudVisibility {
   kAuto,
   kAlways,
@@ -168,7 +151,9 @@ public:
     bool loadingtiphooks            = true;
     bool miscpatches                = true;
     bool missionhudtweakshooks      = true;
+    bool navigationorbithooks       = false; // Parked; not registered in the current product.
     bool objecttracker              = true;
+    bool officerpresetreorderhooks  = true;
     bool officersorthooks           = true;
     bool opcindicatorhooks          = true;
     bool panhooks                   = true;
@@ -257,28 +242,38 @@ public:
   struct Audio {
     bool                     trace_events = false;
     std::vector<std::string> disabled_events;
-    bool                     disable_all_events       = false;
-    NotificationSound        alert_victory            = NotificationSound::kNone;
-    NotificationSound        alert_defeat             = NotificationSound::kNone;
-    NotificationSound        alert_armada_created     = NotificationSound::kNone;
-    NotificationSound        alert_armada_battle_won  = NotificationSound::kNone;
-    NotificationSound        alert_armada_battle_lost = NotificationSound::kNone;
+    bool                     disable_all_events = false;
+    AudioCoalescing          coalescing         = AudioCoalescing::Same;
+    NotificationAudioCue     alert_victory;
+    NotificationAudioCue     alert_defeat;
+    NotificationAudioCue     alert_incoming_player_attack;
+    NotificationAudioCue     alert_armada_created;
+    NotificationAudioCue     alert_armada_battle_won;
+    NotificationAudioCue     alert_armada_battle_lost;
+    NotificationAudioCue     alert_fleet_arrived_in_system;
+    NotificationAudioCue     alert_fleet_arrived_at_destination;
+    NotificationAudioCue     alert_fleet_started_mining;
+    NotificationAudioCue     alert_fleet_node_depleted;
+    NotificationAudioCue     alert_fleet_docked;
+    NotificationAudioCue     alert_fleet_repair_complete;
+    NotificationAudioCue     alert_fleet_miner_opc;
   } audio;
 
   struct Ui {
     bool disable_escape_exit = true;
     // Maximum gap in milliseconds between two Escape presses that opens the exit prompt; 0 never opens it.
-    int  disable_escape_exit_timer = 0;
-    bool disable_preview_locate    = false;
-    bool disable_preview_recall    = false;
-    bool keep_base_card_open       = false;
-    bool only_show_first_popup     = false;
-    bool reverse_haven_history     = true;
-    bool disable_toast_banners     = false;
-    bool disable_move_keys         = false;
-    bool disable_galaxy_chat       = false;
-    bool disable_veil_chat         = false;
-    bool show_player_title         = true;
+    int  disable_escape_exit_timer       = 0;
+    bool disable_preview_locate          = false;
+    bool disable_preview_recall          = false;
+    bool keep_base_card_open             = false;
+    bool only_show_first_popup           = false;
+    bool reverse_haven_history           = true;
+    bool disable_toast_banners           = false;
+    bool disable_move_keys               = false;
+    bool disable_galaxy_chat             = false;
+    bool disable_veil_chat               = false;
+    bool show_player_title               = true;
+    bool allow_officer_preset_reordering = false;
 
     bool                     auto_open_bulk_claim_flyout = false;
     std::vector<std::string> daily_bulk_claim_factions{"federation", "klingon", "romulan"};

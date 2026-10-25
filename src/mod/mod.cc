@@ -160,6 +160,7 @@ constexpr const Feature* kFeatures[] = {
     &kAbilityButtons,
     // mining_preview.cc
     &kMiningPreview,
+    // System orbit is parked by product decision; its code is retained but not installed.
     // fleet_labels.cc
     &kFleetLabels,
     &kShipShortcutBadges,

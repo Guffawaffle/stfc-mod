@@ -6,6 +6,7 @@
 #include "config.h"
 #include "features/features.h"
 #include "features/haven_orbit.h"
+#include "features/navigation_orbit.h"
 #include "runtime_config.h"
 #include "settings/basic_gameplay_settings.h"
 #include "shortcuts.h"
@@ -143,6 +144,7 @@ void ApplyZoomRange(NavigationZoom* zoom, float radius)
     camera->SetClearFlags(unity::Camera::ClearFlags::SolidColor);
     camera->SetBackgroundColor({0, 0, 0, 0});
   }
+  navigation_orbit::ApplyDrawDistance(zoom);
 }
 
 // The game resets the range now and then; reapply it around every update. _zoomtotal caches maximum - minimum and

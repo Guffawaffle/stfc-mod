@@ -302,7 +302,7 @@ void NotificationAudio()
     const auto  config =
         Config::Parse(toml::parse(std::string("[audio]\nalert_victory = \"") + AsciiStrToUpper(fixture.name) + "\""),
                       effective, false);
-    Check(NotificationSoundName(fixture.sound) == fixture.name && config->audio.alert_victory == fixture.sound,
+    Check(NotificationSoundName(fixture.sound) == fixture.name && config->audio.alert_victory.sound == fixture.sound,
           "cue names round-trip");
     const auto data = NotificationSoundBytes(fixture.sound);
     Check(data.size() == fixture.bytes, "cue length matches the independent pre-refactor fixture");
@@ -334,7 +334,8 @@ void NotificationAudio()
     toml::table effective;
     const auto config = Config::Parse(toml::parse(std::string("[audio]\nalert_defeat = \"") + std::string(name) + "\""),
                                       effective, false);
-    Check(config->audio.alert_defeat == expected, "legacy cue aliases remain valid, unknown names fall back to none");
+    Check(config->audio.alert_defeat.sound == expected,
+          "legacy cue aliases remain valid; unknown sources remain inactive until preparation");
   }
   Check(NotificationSoundBytes(NotificationSound::kCount).empty()
             && NotificationSoundBytes(static_cast<NotificationSound>(255)).empty(),
@@ -388,7 +389,7 @@ void UpstreamSettings()
               && effective["graphics"]["hide_haven_water"].value<bool>() == expected,
           "Haven water accepts Boolean values and retains its safe default on unconvertible types");
   }
-  Check(!defaults->ui.only_show_first_popup && defaults->audio.alert_victory == NotificationSound::kNone,
+  Check(!defaults->ui.only_show_first_popup && defaults->audio.alert_victory.sound == NotificationSound::kNone,
         "popup suppression and audio cues stay opt-in");
   for (const auto value : {"0.5", "inf", "nan"}) {
     const auto invalid_zoom =
@@ -420,20 +421,20 @@ void UpstreamSettings()
   Check(configured->audio.disable_all_events
             && configured->audio.disabled_events == std::vector<std::string>{"engine", "music"},
         "All is a case-insensitive wildcard, other event names retain their spelling");
-  Check(configured->audio.alert_victory == NotificationSound::kSuccess
-            && configured->audio.alert_defeat == NotificationSound::kAlarm
-            && configured->audio.alert_armada_created == NotificationSound::kPing
-            && configured->audio.alert_armada_battle_won == NotificationSound::kSuccess
-            && configured->audio.alert_armada_battle_lost == NotificationSound::kNone,
-        "notification sound names, aliases and invalid fallback");
+  Check(configured->audio.alert_victory.sound == NotificationSound::kSuccess
+            && configured->audio.alert_defeat.sound == NotificationSound::kAlarm
+            && configured->audio.alert_armada_created.sound == NotificationSound::kPing
+            && configured->audio.alert_armada_battle_won.sound == NotificationSound::kSuccess
+            && configured->audio.alert_armada_battle_lost.sound == NotificationSound::kNone,
+        "notification sound names, aliases and unresolved source descriptors");
   Check(configured->ui.hud_q_trials == MissionHudVisibility::kAlways
             && configured->ui.hud_field_training == MissionHudVisibility::kNever
             && configured->ui.hud_outposts == MissionHudVisibility::kAlways
             && configured->ui.hud_missions == MissionHudVisibility::kAuto,
         "each HUD setting binds its own visibility");
   Check(Value(effective, "audio", "alert_victory") == "success"
-            && Value(effective, "audio", "alert_armada_battle_lost") == "none",
-        "effective sound settings use canonical names");
+            && Value(effective, "audio", "alert_armada_battle_lost") == "not-a-sound",
+        "effective built-ins use canonical names and unresolved sources retain their original spelling");
   Check(configured->graphics.haven_zoom == 4000.0f && !configured->ui.reverse_haven_history
             && configured->ui.only_show_first_popup,
         "Haven validation and new UI settings");
@@ -471,10 +472,29 @@ void RenamedSettings()
 void ParseDoesNotActivateSettings()
 {
   Load("[shortcuts]\nquit = \"F1\"");
+  const auto previous_coalescing = NotificationAudioCoalescing();
+  SetNotificationAudioCoalescing(AudioCoalescing::All);
   toml::table effective;
-  const auto  candidate = Config::Parse(toml::parse("[shortcuts]\nquit = \"F2\""), effective, false);
+  const auto  candidate = Config::Parse(toml::parse(R"(
+    [shortcuts]
+    quit = "F2"
+    [audio]
+    coalescing = "none"
+    alert_defeat = "missing-source.wav"
+    alert_incoming_player_attack = "alarm"
+    alert_fleet_docked = "arrival"
+  )"),
+                                        effective, false);
   Check(Shortcut::Describe(Action::kQuit) == "F1", "parsing settings leaves the live bindings alone");
   Check(Value(effective, "shortcuts", "quit") == "F2", "the candidate records its own bindings");
+  Check(NotificationAudioCoalescing() == AudioCoalescing::All,
+        "parsing a candidate does not activate its coalescing mode");
+  Check(candidate->audio.coalescing == AudioCoalescing::None
+            && candidate->audio.alert_defeat.source == "missing-source.wav" && !candidate->audio.alert_defeat.data
+            && candidate->audio.alert_incoming_player_attack.sound == NotificationSound::kAlarm
+            && candidate->audio.alert_fleet_docked.sound == NotificationSound::kArrival,
+        "parsing preserves custom sources without preparing data and reads incoming/fleet cues");
+  SetNotificationAudioCoalescing(previous_coalescing);
 }
 
 void LegacySyncTargets()

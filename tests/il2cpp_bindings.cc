@@ -1496,6 +1496,8 @@ void PlannedWarpBindingObservations()
 
   auto*                manager = reinterpret_cast<NavigationManager*>(&warp_navigation);
   const unity::Vector3 destination{0.0f, 7.5f, -3.0f};
+  Require(NavigationManager::MoveFleetActionMethod().Info() == warp_move_method,
+          "manual click hook and planned invocation share the same qualified move entry");
   Require(manager->TryMovePlanned(destination, 9007199254740993LL, 9007199254740995LL).succeeded,
           "actual named movement binding dispatches through the runtime invoker");
   Require(warp_move_calls == 1 && warp_seen_node == 9007199254740993LL && warp_seen_fleet == 9007199254740995LL
