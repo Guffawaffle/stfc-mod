@@ -17,6 +17,8 @@ The qualified first gameplay/sync source checkpoint is
 registered gameplay persistence, stable ship pins and sync boundaries with
 source-bound Windows/portable checks. It is not full gameplay parity or a
 deployed runtime qualification. The next preservation deltas are listed there.
+The separately qualified `5fbb1ec9` follow-on also restores queue-toggle saving;
+its narrower gates and remaining qualification are recorded in the same report.
 
 At the earlier M2 baseline, `493f669c` was an independently qualified foundation,
 not a gameplay-parity build.

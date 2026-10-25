@@ -13,12 +13,14 @@ establish full gameplay parity. The running game has not been cycled.
 ## Registered gameplay settings
 
 [The existing shortcut definitions](../../src/mod/settings/basic_gameplay_settings.h)
-now provide one set of 18 registered identities to both startup registration and
+now provide one set of 19 registered identities to both startup registration and
 the actual callbacks in hotkeys, UI scale, camera and instant warp:
 
 - Hotkeys enabled; preview locate/recall; the five cargo visibility switches.
 - UI, viewer and ship scale; the five zoom presets and explicit default zoom.
 - Instant-warp prompt choice (`none`, `warp`, `jump`).
+- The fleet queue toggle (`control.queue_enabled`), added in the separately
+  qualified follow-on below.
 
 Booleans and warp choice submit immediately. Graphics scalar values retain the
 exact float converted to double, with the existing 250 ms save coalescing. The
@@ -226,11 +228,44 @@ No product DLL was loaded, signed, deployed, pushed or promoted; no game cycle
 occurred. Later source changes need their own appropriate checks. A later
 documentation commit does not change which source identity these binaries carry.
 
+### Qualified queue-saving follow-on
+
+Source **`5fbb1ec915acad9e242af3eb2cfe948a2e8c78b9`** adds the nineteenth
+registered identity. FleetShortcuts uses the same immediate Boolean save helper
+as the initial cohort and still resets queue-recovery tracking immediately after
+the toggle. It restores old downstream's Ctrl-Q persistence without changing
+the queue's decision policy or restart semantics.
+
+The real-worker fixture covers both saved values, external deletion conflicts
+and an explicitly supplied protected reload value. Generic owner/reload/receipt
+tests separately cover the native adapter; the fixture does not synthesize live
+key dispatch or claim to drive automatic Unity reload.
+
+| Exact queue candidate lane | Result |
+| --- | --- |
+| Windows x64 Zig 0.16, Profiles host | 162/162 steps |
+| Windows x64 Zig 0.17, default off | 140/140 steps |
+| WSL/Linux x64 Zig 0.16 | 158/158 steps; 8/8 reported Zig tests |
+
+These are separate, narrower Windows gates: native product/fixture compilation,
+mod/configuration and gameplay-save tests, exact PE identity/export/static-CRT
+checks, one compiled TOML provider and the expected Profiles dependency closure.
+They did not rerun the synthetic HTTP listener, inert Profiles controls or
+negative build-option controls. The full earlier sync proof remains attached to
+`f0f9c2db`; it is not silently relabeled as a later full-suite run.
+
+All three gates began and ended at the clean queue candidate. Independent
+readback verified **318 file facts with zero mismatches**. Evidence is under
+`D:/dev/stfc-workspace/.ax/ripper-gameplay-sync-20261025/candidates/5fbb1ec915acad9e242af3eb2cfe948a2e8c78b9`;
+`independent-queue-readback.json` has SHA-256
+`a63d657aaa569e529f9c2d47dcf9f60de05438742c8e6b68894b2d91b8b670f5`.
+The Linux compiler digest is a captured shell observation, not an independent
+binary rehash by the readback auditor. No native gameplay, macOS, deployment,
+signing or store-lifecycle qualification is added.
+
 ### Next preservation deltas
 
-The follow-on source review found `control.queue_enabled` still lacks a save
-call/registration in FleetShortcuts, unlike old downstream. This is a separate
-one-key extension to the initial 18-key cohort. Officer preset ordering needs
+Officer preset ordering needs
 its own canonical-source/presentation separation: SlotId zero is valid, empty
 rows stay fixed, and its immediate session order differs from pin publication
 on Saved. Old controls are Shift/Ctrl (Command on macOS) plus rename, not drag.
@@ -240,9 +275,14 @@ have concrete foundation equivalents; do not port duplicate owners. Remaining
 differences need their own boundary work: donation maxima and owned-value
 semantics; interstitial original/close lifecycle; HUD Auto restoration/live
 refresh; chat avatar cache retention; typed toast-context fallback. Exact-client
-Windows ChatTitles target extent also needs review: old source rejected short
-shared wrappers while the foundation uses different wrapper targets. This is
-a native qualification concern, not proof of a crash from a successful build.
+Windows ChatTitles target extent has an offline SPUD planning qualification on
+two hash-verified retained client images: ten plans passed, with short and far
+landings fitting before the adjacent callback. The historical 24-byte warning
+does not describe the new landing sizes; no source correction was earned.
+The images remained private and nonexecutable, with unchanged digests and no
+hook application or client execution. Live attachment, unwind publication and
+gameplay behavior remain unqualified. Private receipts are in
+`D:/dev/stfc-workspace/.ax/ripper-gameplay-sync-20261025/chat-hook-study`.
 
 Claim recovery remains held separately. Its old default-false recovery setting
 does not make the old default-true science hook TU safe to activate wholesale.
