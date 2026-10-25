@@ -189,3 +189,7 @@ candidate-bound receipts and explicitly scoped AXF continuity are distinct recor
 **Next boundary: M3 Profiles bootstrap integration**, retaining the embedded pin,
 physical installation exclusion, three-phase ordering and fail-closed contract.
 Its runtime activation/qualification is a separate step; M2 does not authorize it.
+
+Subsequent priority decision: [gameplay-first migration cut](GAMEPLAY-FIRST-CUT.md).
+The Settings UI, AAI and Kit can follow later, while profile/configuration/state
+compatibility and gameplay persistence remain prerequisites for a normal trial.
