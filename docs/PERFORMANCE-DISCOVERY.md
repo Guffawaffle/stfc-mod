@@ -10,7 +10,7 @@ This cleanup changes these active paths:
 | Path | Discovery boundary |
 | --- | --- |
 | AAI report entry, in its owning repository | Native report section and visible-canvas component lookup; no scene-wide fallback. |
-| Galactic Anomaly timer | System-section HUD lookup below the visible canvas; drawer lookup within the existing UI root; read the existing native singleton rather than search for it. |
+| Galactic Anomaly timer | Discover the HUD only in system navigation and retain the live Unity object; retry missing-owner discovery at most once per second. Find the drawer only when creating the panel. Native HUD canvases can live outside the top interaction canvas and its transform root. Read the existing anomaly singleton rather than searching for it. |
 | Swap-ship technology indicator template | Prefer the already tracked Ship Management owner's serialized token selectors. Reuse a weak, liveness-checked template; cold global fallback is limited to once per selection context. Preserve the tile-source fallback and cheap late-owner retries. |
 | Active navigation-background experiment | Reuse the selected loader while valid. Scenery bounds refresh is spread across frames rather than reading the whole pool in one frame. Rediscovery after loader loss is limited to once per five seconds; clear artwork owned by a destroyed loader. |
 | Haven road depth and water | Share a weak owner and bounded relevant material/renderer cohorts. Steady passes avoid hierarchy discovery. A shared scoped refresh every five seconds catches streaming and material replacement; missing-owner global lookup uses the same backoff. |

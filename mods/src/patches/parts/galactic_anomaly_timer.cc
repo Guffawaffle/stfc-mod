@@ -145,16 +145,12 @@ Il2CppObject* NavigationHud()
   if (!TryInvoke(sectionsGetter, nullptr, nullptr, &sections)
       || !Value(sections, "get_CurrentSection", section) || section != navigationSystem)
     return nullptr;
-  static auto*  screen      = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Client.UI", "ScreenManager").get_cls();
-  static auto*  top         = IL2CppClassHelper(screen).GetMethodInfo("GetTopCanvas", 1);
-  bool          visibleOnly = true;
-  void*         args[]{&visibleOnly};
-  Il2CppObject* canvas = nullptr;
-  if (!TryInvoke(top, nullptr, args, &canvas) || !Alive(canvas))
-    return nullptr;
   static auto* hud =
       il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.Navigation.UI", "HudNavigationViewController").get_cls();
-  return WithType(TypeMethod(canvas->klass, "GetComponentInChildren"), canvas, hud);
+  // HUD canvases need not descend from the top interaction canvas or its
+  // transform root. Discover in system navigation, then retain the live object.
+  static auto* find = TypeMethod(UnityObject(), "FindObjectOfType");
+  return WithType(find, nullptr, hud);
 }
 
 Il2CppObject* ExistingAnomalyManager(Il2CppClass* managerClass)
@@ -277,8 +273,9 @@ bool Create(Il2CppObject* nav)
   if (!TryInvoke(IL2CppClassHelper(names->klass).GetMethodInfo("get_Item", 1), names, args, &name) || !Alive(name))
     return false;
   static auto* drawerClass = il2cpp_get_class_helper("Assembly-CSharp", "Digit.Prime.HUD", "HudAllianceAndNewsViewController").get_cls();
-  auto*        uiRoot      = Get(Get(nav, "get_transform"), "get_root");
-  auto*        drawer      = uiRoot ? WithType(TypeMethod(uiRoot->klass, "GetComponentInChildren"), uiRoot, drawerClass) : nullptr;
+  // Resolve the separate drawer only when creating the panel, not on timer ticks.
+  static auto* find        = TypeMethod(UnityObject(), "FindObjectOfType");
+  auto*        drawer      = WithType(find, nullptr, drawerClass);
   auto*        chest       = Get(Field(drawer, "_chestPromotion"), "get_transform");
   auto*        parent      = Get(chest, "get_parent");
   static auto* tmp         = il2cpp_get_class_helper("Unity.TextMeshPro", "TMPro", "TextMeshProUGUI").get_cls();
@@ -342,7 +339,9 @@ void Update()
     Clear();
     return;
   }
-  if (!Alive(navigation.get())) {
+  static auto nextDiscovery = std::chrono::steady_clock::time_point{};
+  if (!Alive(navigation.get()) && now >= nextDiscovery) {
+    nextDiscovery = now + std::chrono::seconds(1);
     Clear();
     navigation.reset(NavigationHud());
   }
