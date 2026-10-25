@@ -2,18 +2,13 @@
 // older releases.
 
 #include "file.h"
+#include "arguments.h"
+#include "profile_launch.h"
 
 #include <spdlog/spdlog.h>
 
 #include <fstream>
-#include <vector>
-
-#if _WIN32
-#include <Windows.h>
-#include <shellapi.h>
-#elif __APPLE__
-#include <crt_externs.h>
-#endif
+#include <stdexcept>
 
 #if __APPLE__
 std::filesystem::path MacLibraryDirectory(); // file_macos.mm
@@ -21,17 +16,19 @@ std::filesystem::path MacLibraryDirectory(); // file_macos.mm
 
 namespace
 {
-constexpr std::string_view kDefaultConfig = "community_patch_settings.toml";
-constexpr std::string_view kDefaultVars   = "community_patch_runtime.vars";
-constexpr std::string_view kDefaultLog    = "community_patch.log";
+constexpr std::string_view kDefaultConfig  = "community_patch_settings.toml";
+constexpr std::string_view kDefaultVars    = "community_patch_runtime.vars";
+constexpr std::string_view kDefaultLog     = "community_patch.log";
+constexpr std::string_view kDefaultBattles = "patch_battlelogs_sent.json";
 
 // Names used by older releases; "path" is their typo.
 constexpr std::string_view kLegacyVars   = "community_path_runtime.vars";
 constexpr std::string_view kLegacyParsed = "community_patch_settings_parsed.toml";
 
-std::string           config_name, vars_name, log_name, profile;
+std::string           config_name, vars_name, log_name, battles_name, profile;
 const std::string     default_config{kDefaultConfig};
 std::filesystem::path profile_path;
+std::filesystem::path admitted_directory;
 #ifdef _MODDBG
 bool debug = true;
 #else
@@ -45,33 +42,11 @@ std::string ToUtf8(const std::filesystem::path& path)
   return {text.begin(), text.end()};
 }
 
-// The process's arguments as UTF-8, program name first.
-std::vector<std::string> Arguments()
-{
-  std::vector<std::string> args;
-#if _WIN32
-  int  argc = 0;
-  auto argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-  if (!argv)
-    return args;
-  for (int i = 0; i < argc; ++i) {
-    const auto  size = WideCharToMultiByte(CP_UTF8, 0, argv[i], -1, nullptr, 0, nullptr, nullptr);
-    std::string arg(size > 0 ? size - 1 : 0, '\0');
-    WideCharToMultiByte(CP_UTF8, 0, argv[i], -1, arg.data(), size, nullptr, nullptr);
-    args.push_back(std::move(arg));
-  }
-  LocalFree(argv);
-#elif __APPLE__
-  const int argc = *_NSGetArgc();
-  char**    argv = *_NSGetArgv();
-  args.assign(argv, argv + argc);
-#endif
-  return args;
-}
-
 // Where the mod's files live: beside the -ccm profile, the macOS preferences folder, or the working directory.
 std::filesystem::path Directory([[maybe_unused]] bool legacy = false)
 {
+  if (!admitted_directory.empty())
+    return admitted_directory;
   if (!profile_path.empty())
     return profile_path.parent_path();
 #if __APPLE__
@@ -119,7 +94,7 @@ namespace File
 {
 void Init()
 {
-  const auto args = Arguments();
+  const auto& args = ProcessArguments();
   for (size_t i = 1; i < args.size(); ++i) {
     if (args[i] == "-debug")
       debug = true;
@@ -129,10 +104,25 @@ void Init()
       profile_path = FromUtf8(args[++i]);
   }
 
+#if STFC_PROFILES_HOST
+  if (profile_launch::Requested()) {
+    admitted_directory = profile_launch::Directory();
+    if (admitted_directory.empty() || !admitted_directory.is_absolute())
+      throw std::runtime_error("The admitted profile directory is unavailable or not absolute.");
+    config_name  = ToUtf8(admitted_directory / "config.toml");
+    vars_name    = ToUtf8(admitted_directory / "runtime.toml");
+    log_name     = ToUtf8(admitted_directory / "logs" / "community-mod.log");
+    battles_name = ToUtf8(admitted_directory / "logs" / "battles.log");
+    profile      = profile_launch::Id();
+    return;
+  }
+#endif
+
   if (profile_path.empty()) {
-    config_name = kDefaultConfig;
-    vars_name   = kDefaultVars;
-    log_name    = kDefaultLog;
+    config_name  = kDefaultConfig;
+    vars_name    = kDefaultVars;
+    log_name     = kDefaultLog;
+    battles_name = kDefaultBattles;
     return;
   }
 
@@ -140,9 +130,10 @@ void Init()
   auto with_extension = [](const char* extension) {
     return ToUtf8(std::filesystem::path(profile_path).replace_extension(extension));
   };
-  config_name = with_extension(".toml");
-  vars_name   = with_extension(".vars");
-  log_name    = with_extension(".log");
+  config_name  = with_extension(".toml");
+  vars_name    = with_extension(".vars");
+  log_name     = with_extension(".log");
+  battles_name = with_extension(".json");
 }
 
 const std::string& Config()
@@ -153,6 +144,9 @@ const std::string& Vars()
 
 const std::string& Log()
 { return log_name; }
+
+const std::string& Battles()
+{ return battles_name; }
 
 const std::string& DefaultConfig()
 { return default_config; }
@@ -168,13 +162,19 @@ bool Trace()
 
 std::filesystem::path Path(std::string_view name, bool create_dir)
 {
-  const auto dir = Directory();
-  if (create_dir && !dir.empty()) {
+  // A log may be the first file opened. Migrate the existing macOS preferences
+  // before creating the destination directory, otherwise migration sees that
+  // new directory and deliberately leaves the legacy settings behind.
+  if (create_dir)
+    MigrateMacPreferences();
+  const auto input = FromUtf8(name);
+  const auto path  = input.is_absolute() ? input : Directory() / input.filename();
+  if (create_dir && !path.parent_path().empty()) {
     std::error_code ignored;
-    std::filesystem::create_directories(dir, ignored);
+    std::filesystem::create_directories(path.parent_path(), ignored);
   }
   // A -ccm profile path is already complete; joining an absolute path replaces the directory.
-  return dir / FromUtf8(name).filename();
+  return path;
 }
 
 std::filesystem::path FromUtf8(std::string_view text)

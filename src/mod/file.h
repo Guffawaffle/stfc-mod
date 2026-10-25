@@ -1,7 +1,7 @@
 #pragma once
 
-// Where the mod's settings, runtime vars, log, and battle-log cache live, and the command-line flags that change
-// them. `-ccm <path>` selects a profile: every file is named after it instead of the defaults.
+// Where the mod's settings, runtime vars, log, and battle-log cache live. `-ccm <path>` selects custom file names,
+// not account isolation. An admitted immutable Profiles context takes precedence and supplies its existing paths.
 
 #include <filesystem>
 #include <string>
@@ -12,14 +12,15 @@ namespace File
 // Parses the command line. Call once, before anything else here.
 void Init();
 
-// File names as configured, relative to Path().
+// File names as configured; named Profiles return complete admitted paths. Resolve all through Path().
 const std::string& Config();
 const std::string& Vars();
 const std::string& Log();
+const std::string& Battles();
 // The settings file name used without -ccm, for messages that point users at it.
 const std::string& DefaultConfig();
 
-// The -ccm profile name ("alt" for -ccm alt.toml), or empty without -ccm.
+// The admitted profile ID, otherwise -ccm stem ("alt" for alt.toml), otherwise empty. Not authenticated account ID.
 const std::string& Profile();
 // -debug and -trace set the starting log level; _MODDBG builds start at debug.
 bool Debug();

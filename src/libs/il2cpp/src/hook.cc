@@ -341,9 +341,8 @@ bool HookSet::Commit()
   return outcome.Installed();
 }
 
-void* CheckedEntry(const Method& method)
+void* CheckedNativeEntry(void* entry)
 {
-  void* entry = method.Pointer();
 #if __APPLE__
   if (!entry || DetourFits(entry))
     return entry;
@@ -351,10 +350,18 @@ void* CheckedEntry(const Method& method)
   if (const auto* body = BranchTarget(entry); body && DetourFits(body))
     return const_cast<void*>(body);
 #endif
-  Report(std::format("[IL2CPP] {} is too small for a detour; not detoured", method.Name()));
   return nullptr;
 #else
   return entry;
 #endif
+}
+
+void* CheckedEntry(const Method& method)
+{
+  void* entry   = method.Pointer();
+  void* checked = CheckedNativeEntry(entry);
+  if (entry && !checked)
+    Report(std::format("[IL2CPP] {} is too small for a detour; not detoured", method.Name()));
+  return checked;
 }
 } // namespace il2cpp

@@ -30,6 +30,33 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) void {
     const flags = ctx.cxxFlags("c++23", &.{});
     const mod_flags = ctx.cxxFlags("c++23", &.{"-Wno-deprecated-literal-operator"});
 
+    inline for (.{ "profile_bootstrap", "profile_hook_targets" }) |fixture| {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        module.addIncludePath(b.path("src/profiles"));
+        module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}.cc", .{fixture})), .flags = flags });
+        addFixture(ctx, build_tests, test_mod, b.fmt("{s}-tests", .{fixture}), module);
+    }
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        libs.spdlog.linkInto(module);
+        module.addCMacro("STFC_PROFILES_HOST", "1");
+        module.addCSourceFiles(.{ .files = &.{ "tests/profile_paths.cc", "src/mod/file.cc" }, .flags = flags });
+        const exe = ctx.executable("profile-paths-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        inline for (.{ "ordinary", "custom-relative", "custom-absolute", "named", "unprepared" }) |mode| {
+            const run = b.addRunArtifact(exe);
+            run.addArg(mode);
+            test_mod.dependOn(&run.step);
+        }
+        if (ctx.isMacos()) {
+            const run = b.addRunArtifact(exe);
+            run.addArg("mac-legacy-migration");
+            test_mod.dependOn(&run.step);
+        }
+    }
+
     // HookSet policy over SPUD's public generic installable-hook seam. Unsafe modes each need a fresh process:
     // the production native-state latch is monotonic and intentionally has no test reset API.
     {
@@ -112,6 +139,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) void {
                 "src/mod/shortcuts.cc",
                 "src/mod/config.cc",
                 "src/mod/file.cc",
+                "src/mod/arguments.cc",
                 "src/mod/features/notification_audio.cc",
             },
             .flags = mod_flags,

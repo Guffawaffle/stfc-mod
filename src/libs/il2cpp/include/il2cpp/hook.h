@@ -27,6 +27,9 @@ namespace il2cpp
 // arm64 an entry that is only a branch yields the branch target instead. Null, after a report, when nothing fits.
 // Other platforms return the entry unchecked.
 void* CheckedEntry(const Method& method);
+// The same platform entry/extent checks for an already signature-qualified native pointer. Returns null when
+// unsafe; the named caller owns its diagnostic. Does not resolve or initialize a managed class.
+void* CheckedNativeEntry(void* entry);
 
 enum class HookInstallState { kNotAttempted, kInstalled, kMissingTarget, kEmpty, kRejected, kIndeterminate };
 

@@ -9,6 +9,7 @@
 #include "frame.h"
 #include "frame_callbacks.h"
 #include "installation.h"
+#include "profile_launch.h"
 #include "version.h"
 
 #include "game/ui.h"
@@ -46,10 +47,10 @@ void StartLogging()
 {
   // File::Log() is UTF-8, and Windows reads a narrow file name in the ANSI code page, so every name here goes
   // through File::FromUtf8.
-  const auto  log = File::FromUtf8(File::Log());
+  const auto  log = File::Path(File::Log(), true);
   std::string rotation_error;
   try {
-    const auto backup = [](int index) { return File::FromUtf8(std::format("{}.{}", File::Log(), index)); };
+    const auto backup = [](int index) { return File::Path(std::format("{}.{}", File::Log(), index)); };
     std::filesystem::remove(backup(5));
     for (int index = 4; index >= 1; --index)
       if (std::filesystem::exists(backup(index)))
@@ -197,6 +198,9 @@ il2cpp::HookInstallResult                             frame_result;
 // failure. This is deliberately process-fatal; the M3 profile bootstrap must also stop before login on refusal.
 [[noreturn]] void AbortInstallation(const char* phase) noexcept
 {
+  if (profile_launch::Requested())
+    profile_launch::Abort(
+        "Required initialization failed or native hooks are indeterminate; the profile launch is stopped.");
   try {
     spdlog::critical("[{}] required initialization failed or native hooks are indeterminate; stopping", phase);
   } catch (...) {
@@ -361,9 +365,11 @@ int il2cpp_init_Hook(auto original, const char* domain_name)
   freopen_s(&console, "CONOUT$", "w", stdout);
 #endif
 
-  // Nothing here may throw into the game: a mod that cannot set itself up leaves the game running without it.
+  // Mod setup failures leave an ordinary game running without optional features.
+  // Required isolation failures always terminate a named launch before login.
   // Keeping the settings pointer is safe here because only the frame tick reloads, and it is not installed yet.
   const Config* config = nullptr;
+  profile_launch::Prepare();
   try {
     setup_owner.Run(true, [&] {
       File::Init();
@@ -399,9 +405,21 @@ int il2cpp_init_Hook(auto original, const char* domain_name)
 
   if (il2cpp::HookStateIndeterminate() || (!config && !RequiredFeaturesReady()))
     AbortInstallation("Setup");
+  if (!config && profile_launch::Requested())
+    profile_launch::Abort("The requested profile's configuration/bootstrap could not be initialized.");
 
   // Bindings resolve against the runtime's metadata, so nothing is installed before the domain exists.
-  const auto result = original(domain_name);
+  int result;
+  try {
+    result = original(domain_name);
+  } catch (...) {
+    if (profile_launch::Requested())
+      profile_launch::Abort("The game runtime threw before profile isolation could be installed.");
+    throw; // Preserve the game's own ordinary-launch exception behavior.
+  }
+  if (!profile_launch::RuntimeInitialized(result != 0))
+    return result;
+  profile_launch::Install();
   if (!config)
     return result;
 
@@ -491,6 +509,7 @@ void StartMod()
 {
   try {
     bootstrap_owner.Run(true, [&] {
+      profile_launch::Initialize();
 #if _WIN32
       auto assembly = LoadLibraryA("GameAssembly.dll");
 #else
@@ -531,6 +550,8 @@ void StartMod()
       return true;
     });
   } catch (...) {
+    if (profile_launch::Requested())
+      profile_launch::Abort("The required profile runtime bootstrap failed before isolation was ready.");
     if (il2cpp::HookStateIndeterminate())
       AbortInstallation("Bootstrap");
     try {
@@ -540,4 +561,6 @@ void StartMod()
   }
   if (MustAbortInstallation(bootstrap_owner.State(), InstallRequirement::kOptional))
     AbortInstallation("Bootstrap");
+  if (profile_launch::Requested() && MustAbortInstallation(bootstrap_owner.State(), InstallRequirement::kRequired))
+    profile_launch::Abort("The required profile runtime bootstrap could not be installed.");
 }

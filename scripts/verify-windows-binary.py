@@ -7,12 +7,31 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MARKER = "stfc-identity-v1;distribution=netniv.stfc-community-mod;"
 CRT_PREFIXES = ("msvcp", "vcruntime", "ucrtbase", "api-ms-win-crt-")
+PROFILES_EXPORTS = {"STFCProfilesBrowserLaunchW", "STFCProfilesExplicitLaunchContractV1"}
+
+
+def definition_exports(path: Path) -> set[str]:
+    names = set()
+    for line in path.read_text().split("EXPORTS", 1)[1].splitlines():
+        fields = line.split(";", 1)[0].split()
+        if not fields:
+            continue
+        if fields[1:] not in ([], ["DATA"]):
+            raise SystemExit(f"Unexpected export declaration: {line}")
+        if fields[0] in names:
+            raise SystemExit(f"Duplicate export declaration: {fields[0]}")
+        names.add(fields[0])
+    return names
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", nargs="?", default="zig-out/bin/version.dll")
     parser.add_argument("--identity", help="Expected complete stfc-identity-v1 version-resource marker")
+    parser.add_argument(
+        "--profiles-host", action="store_true",
+        help="Expect the explicitly enabled Profiles host's two additional exports",
+    )
     args = parser.parse_args()
     data = Path(args.binary).read_bytes()
 
@@ -60,18 +79,34 @@ def main() -> None:
 
     # The export directory holds NumberOfNames at +24 and AddressOfNames, a table of name RVAs, at +32.
     export_directory = offset(u32(optional + 112))
+    function_count = u32(export_directory + 20)
     name_count = u32(export_directory + 24)
+    address_table = offset(u32(export_directory + 28))
     name_table = offset(u32(export_directory + 32))
     exports = {string(u32(name_table + i * 4)) for i in range(name_count)}
-    definition = (ROOT / "src/platform/windows/version.def").read_text()
-    expected = set(definition.split("EXPORTS", 1)[1].split())
+    expected = definition_exports(ROOT / "src/platform/windows/version.def")
+    if len(expected) != 16:
+        raise SystemExit("The base Windows proxy must declare exactly 16 exports")
+    if args.profiles_host:
+        expected |= PROFILES_EXPORTS
+        host_definition = definition_exports(ROOT / "src/platform/windows/profiles-version.def")
+        if host_definition != expected:
+            raise SystemExit(
+                "Profiles host export declaration must contain the base 16 and exactly its two contract exports"
+            )
     if exports != expected:
         raise SystemExit(f"Export mismatch: missing={expected - exports}, extra={exports - expected}")
+    # Count actual nonempty address slots too, so unnamed ordinal exports cannot
+    # hide outside the expected named surface. A DATA marker is an export slot.
+    live_exports = sum(u32(address_table + i * 4) != 0 for i in range(function_count))
+    if live_exports != len(expected) or name_count != len(expected):
+        raise SystemExit(f"Export count mismatch: live={live_exports}, named={name_count}, expected={len(expected)}")
 
     marker = args.identity or DEFAULT_MARKER
     if marker.encode("utf-16le") not in data:
         raise SystemExit("Missing or incorrect UTF-16 version-resource provenance marker")
-    print(f"Verified x86_64 proxy: {len(exports)} exports, static CRT, provenance marker")
+    mode = ", Profiles host" if args.profiles_host else ""
+    print(f"Verified x86_64 proxy: {len(exports)} exports{mode}, static CRT, provenance marker")
 
 
 if __name__ == "__main__":

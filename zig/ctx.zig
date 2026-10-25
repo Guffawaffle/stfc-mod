@@ -273,6 +273,9 @@ pub const Lib = struct {
     /// independent static libraries compile in parallel.
     dependencies: []const Lib = &.{},
     system_libs: []const []const u8 = &.{},
+    /// Verified prebuilt archives selected by exact path, rather than platform search order.
+    static_files: []const Build.LazyPath = &.{},
+    frameworks: []const []const u8 = &.{},
     include_dirs: []const Build.LazyPath = &.{},
     /// Preprocessor defines consumers must match, such as SPDLOG_COMPILED_LIB.
     defines: []const [2][]const u8 = &.{},
@@ -291,8 +294,10 @@ pub const Lib = struct {
     pub fn linkInto(lib: Lib, module: *Build.Module) void {
         lib.includeInto(module);
         if (lib.artifact) |artifact| module.linkLibrary(artifact);
+        for (lib.static_files) |file| module.addObjectFile(file);
         for (lib.dependencies) |dependency| dependency.linkInto(module);
         for (lib.system_libs) |name| module.linkSystemLibrary(name, .{});
+        for (lib.frameworks) |name| module.linkFramework(name, .{});
     }
 
     /// Make `step` build this library and its whole dependency closure.
