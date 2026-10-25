@@ -47,8 +47,11 @@ inline std::string FormatPlaceholders(std::string_view text, std::span<const std
 // The reader distinguishes missing/failed metadata from a successfully observed null or empty array.
 enum class ParameterState { kUnavailable, kInvalid, kNull, kEmpty, kValues };
 enum class ParameterSource { kNone, kToast, kContext };
+enum class ParameterAccess { kPresence, kValues };
+enum class TextStage { kRaw, kContextFormatted };
 struct ParameterRead {
-  ParameterState           state = ParameterState::kUnavailable;
+  ParameterState state = ParameterState::kUnavailable;
+  // Presence-only reads can establish a nonempty array without converting any of its elements.
   std::vector<std::string> values;
 };
 struct ParameterFormat {
@@ -58,21 +61,31 @@ struct ParameterFormat {
   std::optional<ParameterState> context;
 };
 
-// A supplied nonempty toast array has precedence, even if some slots cannot be converted. Only absent, empty,
-// unavailable or invalid toast arrays fall back to the context; the two sources are never merged or rescanned.
-template <typename Read> ParameterFormat FormatParameters(std::string_view text, Read&& read)
+// Raw translations use a supplied nonempty toast array first, even if some slots cannot be converted. The game's
+// context formatter has already inserted values, whose literal braces must not be scanned a second time. Only a
+// qualified null/empty context permits the separate toast array to fill that still-raw result.
+template <typename Read>
+ParameterFormat FormatParameters(std::string_view text, Read&& read, TextStage stage = TextStage::kRaw)
 {
   ParameterFormat result{std::string(text)};
   if (!text.contains('{'))
     return result;
-  auto primary = read(ParameterSource::kToast);
+  if (stage == TextStage::kContextFormatted) {
+    const auto context = read(ParameterSource::kContext, ParameterAccess::kPresence);
+    result.context     = context.state;
+    if (context.state != ParameterState::kNull && context.state != ParameterState::kEmpty)
+      return result;
+  }
+  auto primary = read(ParameterSource::kToast, ParameterAccess::kValues);
   result.toast = primary.state;
   if (primary.state == ParameterState::kValues && !primary.values.empty()) {
     result.text   = FormatPlaceholders(text, primary.values);
     result.source = ParameterSource::kToast;
     return result;
   }
-  auto fallback  = read(ParameterSource::kContext);
+  if (stage == TextStage::kContextFormatted)
+    return result;
+  auto fallback  = read(ParameterSource::kContext, ParameterAccess::kValues);
   result.context = fallback.state;
   if (fallback.state == ParameterState::kValues && !fallback.values.empty()) {
     result.text   = FormatPlaceholders(text, fallback.values);

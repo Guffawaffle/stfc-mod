@@ -8,15 +8,18 @@
 
 namespace
 {
+using toast_text::ParameterAccess;
 using toast_text::ParameterFormat;
 using toast_text::ParameterRead;
 using toast_text::ParameterSource;
 using toast_text::ParameterState;
+using toast_text::TextStage;
 
 ParameterFormat Resolve(std::string_view text, ParameterRead primary, ParameterRead context,
                         std::vector<ParameterSource>& reads)
 {
-  return toast_text::FormatParameters(text, [&](ParameterSource source) {
+  return toast_text::FormatParameters(text, [&](ParameterSource source, ParameterAccess access) {
+    assert(access == ParameterAccess::kValues);
     reads.push_back(source);
     return source == ParameterSource::kToast ? primary : context;
   });
@@ -66,5 +69,47 @@ int main()
                    reads);
   assert(result.text == "Already localized" && result.source == ParameterSource::kNone);
   assert(reads.empty() && !result.toast && !result.context);
+
+  // The actual caller uses this stage after LocaleUtilities already substituted context values. A value which
+  // contains "{1}" is literal output, not a second template; unknown context custody also cannot authorize a pass.
+  for (const auto state : std::array{ParameterState::kValues, ParameterState::kUnavailable, ParameterState::kInvalid}) {
+    reads.clear();
+    result = toast_text::FormatParameters(
+        "{1} vs Enterprise",
+        [&](ParameterSource source, ParameterAccess access) {
+          reads.push_back(source);
+          assert(source == ParameterSource::kContext && access == ParameterAccess::kPresence);
+          return ParameterRead{state, {}};
+        },
+        TextStage::kContextFormatted);
+    assert(result.text == "{1} vs Enterprise" && result.source == ParameterSource::kNone);
+    assert(!result.toast && result.context == state && reads.size() == 1);
+  }
+  for (const auto state : std::array{ParameterState::kNull, ParameterState::kEmpty}) {
+    reads.clear();
+    result = toast_text::FormatParameters(
+        "{0} vs {1}",
+        [&](ParameterSource source, ParameterAccess access) {
+          reads.push_back(source);
+          if (source == ParameterSource::kContext) {
+            assert(access == ParameterAccess::kPresence);
+            return ParameterRead{state, {}};
+          }
+          assert(source == ParameterSource::kToast && access == ParameterAccess::kValues);
+          return ParameterRead{ParameterState::kValues, {"{1}", "Enterprise"}};
+        },
+        TextStage::kContextFormatted);
+    assert(result.text == "{1} vs Enterprise" && result.source == ParameterSource::kToast);
+    assert(result.context == state && result.toast == ParameterState::kValues);
+    assert((reads == std::vector{ParameterSource::kContext, ParameterSource::kToast}));
+  }
+  result = toast_text::FormatParameters(
+      "Already localized",
+      [&](ParameterSource, ParameterAccess) -> ParameterRead {
+        assert(false && "a fully formatted result must not acquire parameters");
+        return {};
+      },
+      TextStage::kContextFormatted);
+  assert(result.text == "Already localized" && !result.toast && !result.context);
   std::cout << "Toast named-parameter precedence, fallback, availability and literal-brace fixtures passed\n";
 }

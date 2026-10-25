@@ -233,7 +233,7 @@ std::string ArmadaCreatedBody(ArmadaCreatedData* data)
 }
 
 // The string form of each element: strings as they are, everything else through its ToString override.
-toast_text::ParameterRead ParameterValues(const il2cpp::GcHandle& array_root)
+toast_text::ParameterRead ParameterValues(const il2cpp::GcHandle& array_root, toast_text::ParameterAccess access)
 {
   auto* array = array_root.Get<il2cpp::Array<Il2CppObject*>>();
   if (!array)
@@ -241,6 +241,8 @@ toast_text::ParameterRead ParameterValues(const il2cpp::GcHandle& array_root)
   const auto count = array->size();
   if (!count)
     return {.state = toast_text::ParameterState::kEmpty};
+  if (access == toast_text::ParameterAccess::kPresence)
+    return {.state = toast_text::ParameterState::kValues};
   std::vector<std::string> values;
   values.reserve(count);
   for (size_t i = 0; i < count; ++i) {
@@ -264,7 +266,8 @@ toast_text::ParameterRead ParameterValues(const il2cpp::GcHandle& array_root)
   return {.state = toast_text::ParameterState::kValues, .values = std::move(values)};
 }
 
-template <typename Source> toast_text::ParameterRead ReadToastParameters(Source* source)
+template <typename Source>
+toast_text::ParameterRead ReadToastParameters(Source* source, toast_text::ParameterAccess access)
 {
   if (!source)
     return {};
@@ -280,18 +283,22 @@ template <typename Source> toast_text::ParameterRead ReadToastParameters(Source*
   const auto checked = il2cpp::TryReferenceArray<Il2CppObject*>(array_root.Get());
   if (!checked)
     return {.state = toast_text::ParameterState::kInvalid};
-  return ParameterValues(array_root);
+  return ParameterValues(array_root, access);
 }
 
 // Both named getters are object[] in the retained client metadata. Never scan unrelated array fields.
 std::string FormatToastText(const std::string& text, const il2cpp::GcHandle& toast_root,
-                            const il2cpp::GcHandle& context_root)
+                            const il2cpp::GcHandle& context_root, toast_text::TextStage stage)
 {
-  auto result = toast_text::FormatParameters(text, [&](toast_text::ParameterSource source) {
-    return source == toast_text::ParameterSource::kToast ? ReadToastParameters(toast_root.Get<Toast>())
-                                                         : ReadToastParameters(context_root.Get<LocaleTextContext>());
-  });
-  if (result.source == toast_text::ParameterSource::kNone && text.contains('{'))
+  auto result = toast_text::FormatParameters(
+      text,
+      [&](toast_text::ParameterSource source, toast_text::ParameterAccess access) {
+        return source == toast_text::ParameterSource::kToast
+                   ? ReadToastParameters(toast_root.Get<Toast>(), access)
+                   : ReadToastParameters(context_root.Get<LocaleTextContext>(), access);
+      },
+      stage);
+  if (result.source == toast_text::ParameterSource::kNone && result.toast && text.contains('{'))
     spdlog::warn("[Toasts] No usable text parameters; placeholders unresolved in template: \"{}\"", text);
   return std::move(result.text);
 }
@@ -316,7 +323,9 @@ std::string ToastText(Toast* toast)
   // LocaleUtilities.Localize fills the context's own parameters; the toast may carry them instead.
   if (auto* text = LocaleUtilities::Localize(context_root.Get<LocaleTextContext>(), true, false)) {
     auto result = il2cpp::ToUtf8(text);
-    return result.contains('{') ? FormatToastText(result, toast_root, context_root) : result;
+    return result.contains('{')
+               ? FormatToastText(result, toast_root, context_root, toast_text::TextStage::kContextFormatted)
+               : result;
   }
 
   Il2CppString* text    = nullptr;
@@ -326,7 +335,8 @@ std::string ToastText(Toast* toast)
                   std::to_underlying(toast_root.Get<Toast>()->State()));
     return {};
   }
-  return FormatToastText(il2cpp::ToUtf8(text), toast_root, context_root);
+  // The retained LanguageManager body looks up the identifier hash/category without formatting text parameters.
+  return FormatToastText(il2cpp::ToUtf8(text), toast_root, context_root, toast_text::TextStage::kRaw);
 }
 
 // Empty for a category this table does not name.

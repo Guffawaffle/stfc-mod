@@ -65,15 +65,20 @@ Toast and LocaleTextContext, both present in retained client metadata. The
 [existing toast owner](../../src/mod/features/toasts.cc) remains the only hook
 owner; there is no arbitrary field scan or value-array reinterpretation.
 
-The toast's supplied nonempty array wins. Null, empty, unavailable or invalid
-primary observations may fall back to the context; sources are not merged.
+On a raw translation, the toast's supplied nonempty array wins. Null, empty,
+unavailable or invalid primary observations may fall back to the context;
+sources are not merged. Retained native-body inspection distinguishes that raw
+LanguageManager path from LocaleUtilities output, which already formats context
+parameters. Already formatted text must not undergo a second context pass.
+Manual toast substitution on that path is allowed only when context parameters
+are positively null or empty; unavailable/invalid/nonempty context preserves the
+native result verbatim. Surviving braces alone do not prove an unresolved slot.
 Unavailable, invalid, null, empty and values remain distinct in the shared
 [selection policy](../../src/mod/features/toast_text.h). Unresolved placeholders
 stay visible. The shared formatter scans its input template once, so braces
-introduced by its supplied values remain literal. Earlier native localization
-may already have substituted text before that input reaches the fallback; the
-fixture does not establish that earlier text's provenance. Managed source,
-context, array, current element and
+introduced by its supplied values remain literal. The caller policy preserves
+the distinction between raw and already formatted text instead of inferring it
+from the rendered string. Managed source, context, array, current element and
 conversion-string custody is local to the operation, with no permanent roots.
 
 [Pure selection tests](../../tests/toast_parameters_test.cc) reuse that actual
