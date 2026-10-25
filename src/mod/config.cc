@@ -3,6 +3,7 @@
 
 #include "config.h"
 
+#include "config_save.h"
 #include "file.h"
 #include "shortcuts.h"
 #include "text.h"
@@ -18,7 +19,6 @@
 #include <cmath>
 #include <filesystem>
 #include <format>
-#include <fstream>
 #include <optional>
 #include <ranges>
 #include <sstream>
@@ -408,24 +408,64 @@ constexpr std::string_view kVarsHeader = R"(####################################
 
 )";
 
-void Save(const toml::table& table, const std::string& name, bool warning_header)
+void ReportStartupSaveFailure(std::string_view name, std::string_view error) noexcept
 {
-  std::ofstream file(File::Path(name, true));
-  if (warning_header)
-    file << std::format(kVarsHeader, File::DefaultConfig(), File::Config());
-  file << table;
+  try {
+    spdlog::warn("could not write startup configuration output '{}': {}; "
+                 "loaded settings remain available",
+                 name, error);
+  } catch (...) {
+    // Reporting an optional generated-file failure cannot prevent activation.
+  }
 }
 
-// Writes `effective` as the runtime vars file. At startup it also becomes the settings file when there is none, so
-// a new user starts from a complete list of settings.
+void Save(const toml::table& table, const std::string& name, bool warning_header, bool startup)
+{
+  try {
+    const auto header =
+        warning_header ? std::format(kVarsHeader, File::DefaultConfig(), File::Config()) : std::string{};
+    const auto path = File::Path(name, true);
+    if (startup) {
+      std::string error;
+      if (!SaveStartupConfigDocument(table, path, header, error))
+        ReportStartupSaveFailure(name, error);
+    } else {
+      // Preserve Reload's existing transactional activation behavior: an output
+      // failure rejects the candidate without changing live settings/bindings.
+      SaveConfigDocument(table, path, header);
+    }
+  } catch (const std::exception& error) {
+    if (!startup)
+      throw;
+    ReportStartupSaveFailure(name, error.what());
+  } catch (...) {
+    if (!startup)
+      throw;
+    ReportStartupSaveFailure(name, "unknown output preparation failure");
+  }
+}
+
+// Writes `effective` as the runtime vars file. At startup it also becomes the
+// settings file when there is none, so a new user starts from a complete list
+// of settings.
 void SaveEffective(const toml::table& effective, bool startup)
 {
-  if (startup && !std::filesystem::exists(File::Path(File::Config()))) {
-    spdlog::info("creating {} with the default settings", File::Config());
-    Save(effective, File::Config(), false);
+  if (startup) {
+    try {
+      if (!std::filesystem::exists(File::Path(File::Config()))) {
+        spdlog::info("creating {} with the default settings", File::Config());
+        Save(effective, File::Config(), false, true);
+      }
+    } catch (const std::exception& error) {
+      // An existence/path failure is not permission to replace the primary
+      // file.
+      ReportStartupSaveFailure(File::Config(), error.what());
+    } catch (...) {
+      ReportStartupSaveFailure(File::Config(), "could not establish whether primary settings exist");
+    }
   }
   spdlog::info("writing the settings in effect to {}", File::Vars());
-  Save(effective, File::Vars(), true);
+  Save(effective, File::Vars(), true, startup);
 }
 } // namespace
 

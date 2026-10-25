@@ -30,6 +30,28 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) void {
     const flags = ctx.cxxFlags("c++23", &.{});
     const mod_flags = ctx.cxxFlags("c++23", &.{"-Wno-deprecated-literal-operator"});
 
+    // Checked startup document replacement, with test-only failure controls in
+    // the failure TU and exclusively owned temporary filesystem state.
+    const test_config_save = b.step("test-config-save", "Run isolated checked configuration-output fixtures");
+    inline for (.{ false, true }) |failure| {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        libs.toml.linkInto(module);
+        const save_flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"});
+        module.addCSourceFile(.{
+            .file = b.path(if (failure) "tests/config_save_failure_test.cc" else "tests/config_save_test.cc"),
+            .flags = save_flags,
+        });
+        // The failure fixture includes the production TU under compile-time
+        // write/close substitutions; do not compile a duplicate owner there.
+        if (!failure) module.addCSourceFile(.{ .file = b.path("src/mod/config_save.cc"), .flags = save_flags });
+        const exe = ctx.executable(if (failure) "config-save-failure-tests" else "config-save-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_config_save.dependOn(&run.step);
+        test_mod.dependOn(&run.step);
+    }
+
     inline for (.{ "profile_bootstrap", "profile_hook_targets" }) |fixture| {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
@@ -138,6 +160,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) void {
             .files = &.{
                 "src/mod/shortcuts.cc",
                 "src/mod/config.cc",
+                "src/mod/config_save.cc",
                 "src/mod/file.cc",
                 "src/mod/arguments.cc",
                 "src/mod/features/notification_audio.cc",
@@ -165,16 +188,29 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) void {
                 "tests/config_reload.cc",
                 "src/mod/shortcuts.cc",
                 "src/mod/config.cc",
+                "src/mod/config_save.cc",
                 "src/mod/features/notification_audio.cc",
             },
-            .flags = mod_flags,
+            .flags = ctx.cxxFlags("c++23", &.{ "-Wno-deprecated-literal-operator", "-UNDEBUG" }),
         });
         if (ctx.isWindows()) module.linkSystemLibrary("winmm", .{});
         if (ctx.isMacos()) {
             module.addCSourceFile(.{ .file = b.path("src/mod/features/notification_audio_mac.mm"), .flags = flags });
             module.linkFramework("Cocoa", .{});
         }
-        addFixture(ctx, build_tests, test_mod, "config-reload-tests", module);
+        const exe = ctx.executable("config-reload-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        test_mod.dependOn(&b.addRunArtifact(exe).step);
+        const startup_failure = b.addRunArtifact(exe);
+        startup_failure.addArg("startup-output-failure");
+        test_mod.dependOn(&startup_failure.step);
+        test_config_save.dependOn(&startup_failure.step);
+        inline for (.{ "startup-invalid-primary", "startup-missing-primary" }) |mode| {
+            const primary = b.addRunArtifact(exe);
+            primary.addArg(mode);
+            test_mod.dependOn(&primary.step);
+            test_config_save.dependOn(&primary.step);
+        }
     }
 
     // Sync records and delivery state over the generated protobuf messages.
