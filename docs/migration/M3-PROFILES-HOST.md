@@ -31,8 +31,8 @@ exact-client dependent, not proven by the signature inventory.
 phase policy; [profile_launch](../../src/mod/profile_launch.cc) owns the real
 process-lifetime leases and delegates store semantics to the pinned library.
 
-1. Before loading GameAssembly, resolve the explicit immutable ID, acquire the
-   installation lease and check installation readiness. Ordinary host-enabled
+1. Before the host's explicit GameAssembly load/binding request, resolve the
+   immutable ID, acquire the installation lease and check readiness. Ordinary host-enabled
    launches also acquire this installation exclusion. Named launches additionally
    install process admission.
 2. Before file/configuration access and original runtime initialization, prepare
@@ -47,6 +47,18 @@ The lifetime is the existing injected-mod process lifetime. Dynamic unload,
 concurrent bootstrap and worker-thread hook installation are not supported.
 No hook owner or store is moved across that boundary. The existing M2 unsafe
 latch and quarantine rules still apply; they do not repair a vendor rollback.
+
+**Windows loader qualification:** the full mod still has load-time GameAssembly
+imports, as did downstream `45d1deaf`. Dependencies can be mapped/initialized
+before `version.dll` enters DllMain. The ordering above preserves the pinned
+consumer's before-original-`il2cpp_init` contract; it does not establish absence
+of earlier DLL initialization, Unity mutex calls or native account I/O.
+The pinned managed launch coordinator additionally retains an installation lease
+before `CreateProcess`; ordinary/direct launches also rely on updater-side exact
+process inspection and replacement gates. Neither defense is a claim about all
+arbitrary launchers or renamed executable images. Exact-client startup access
+ordering remains a first-playable qualification item, not an offline proof or
+a migration-introduced regression. No new delay-loader/binding model was added.
 
 ## File and platform compatibility
 

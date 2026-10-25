@@ -58,6 +58,44 @@ File boundary. These are disposable filesystem tests, not real profile/store or
 game trials. `test-config-save` selects the focused cases; `test-mod` and
 `build-tests` also include them.
 
+### Source-bound results
+
+Implementation/test candidate: **`154b598e160acc3267925a24eb7a87b9c2afd617`**,
+tree `81abec05717d53b048841919591dbab947f36f6c`.
+
+| Lane | Result |
+| --- | --- |
+| Windows x64 Zig 0.16, Profiles host | 138/138 steps; 8/8 reported Zig tests; native and checked-writer fixtures pass; exact 18-export/static-CRT/identity verification |
+| Windows x64 Zig 0.17, Profiles host | 138/138 steps; same native and checked-writer fixtures; exact PE/identity verification |
+| Windows x64 Zig 0.16, default off | 116/116 steps; 8/8 reported Zig tests; missing optional inputs remain inert; exact 16-export/static-CRT/identity verification |
+| WSL/Linux x64 Zig 0.16 | 104/104 steps; 8/8 reported Zig tests; real writer's POSIX mode/symlink checks and all independent Config startup modes pass |
+
+Independent Windows read-back verified source/tool/prefix/artifact/log hashes,
+actual fixture success markers and actual DLL link commands. Both host lanes
+ran three inert Profiles checks; four host-option negative controls ran on
+0.16, not repeated on 0.17. Opposite-export-mode rejection ran on all three
+Windows outputs. The derived host adapter and one verified zlib provider remain
+the enabled closure; the default-off closure contains no Profiles/prefix inputs.
+
+Host DLL SHA-256:
+
+- 0.16: `34be04db47ae659c5829d93617f1f3ddee24afc319f0ffb78d3769cc0ea2accb`.
+- 0.17: `5fcc6cd52c9398de6aa9812495e8aeb93e2799a493beb758ec1c2c84f6a115fc`.
+
+The first Windows malformed-primary fixture compared LF source text with bytes
+written in Windows text mode. It was corrected to capture actual preexisting
+bytes and compare them after startup, preserving the assertion for CRLF and LF.
+The first Linux harness used Windows-only resource-identity options, which the
+portable build does not register. That setup refusal and its exact inputs are
+retained under `attempts/linux-setup1`; the corrected gate uses candidate/hash
+receipts without inventing PE resources for Linux fixtures.
+
+No live configuration, preferences, browser or account store was used. Windows
+uses the same installed MSVC/SDK fallback as M3. macOS and real client behavior
+remain unqualified. M3's non-game DLL-loading result belongs to its exact older
+artifacts; these M4A DLLs were built and PE-checked, not loaded or deployed.
+The Windows load-time GameAssembly ordering limitation is documented in M3.
+
 ## Remaining M4 dependencies
 
 M4A alone is not complete gameplay persistence parity. In particular, the
