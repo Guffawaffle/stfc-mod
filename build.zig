@@ -21,6 +21,9 @@ const mod = @import("zig/mod.zig");
 const protobuf = @import("zig/protobuf.zig");
 const tests = @import("zig/tests.zig");
 const toolchains = @import("zig/toolchains.zig");
+const aai = @import("zig/aai.zig");
+const shared_toml = @import("zig/shared_toml.zig");
+const profiles = @import("zig/profiles.zig");
 
 comptime {
     const version = builtin.zig_version;
@@ -57,6 +60,31 @@ pub fn build(b: *std.Build) void {
         .proto = proto,
         .proto_runtime = proto_runtime,
         .toml = toml,
+    });
+
+    // M1b products are explicit build targets only. None joins the mod's
+    // install/link/feature closure; ordinary builds never inspect private roots.
+    const aai_options = aai.Options.parse(b);
+    var unicode: ?@import("zig/ctx.zig").Lib = null;
+    if (aai_options.enabled and aai_options.native) {
+        const package = b.lazyDependency("simdutf", .{}) orelse return;
+        unicode = aai.simdutf(ctx, package.path(""));
+    }
+    _ = aai.add(ctx, aai_options, .{
+        .json = deps.nlohmannJson(ctx),
+        .il2cpp = il2cpp,
+        .spud = spud,
+        .spdlog = spdlog,
+        .simdutf = unicode,
+    });
+    _ = shared_toml.add(ctx, shared_toml.Options.parse(b), .{
+        .toml = toml,
+        .json = deps.nlohmannJson(ctx),
+    });
+    _ = profiles.add(ctx, profiles.Options.parse(b), .{
+        .json = deps.nlohmannJson(ctx),
+        .spud = spud,
+        .spdlog = spdlog,
     });
     if (!ctx.isWindows() and !ctx.isMacos()) return;
 

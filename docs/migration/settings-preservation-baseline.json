@@ -1,0 +1,1781 @@
+{
+  "schema": "stfc-settings-preservation-baseline/v1",
+  "sourceRevision": "45d1deaffddc3706e5c8232cf746ca46ef67be91",
+  "countingUnit": "canonical persisted keys, not physical UI rows",
+  "genericCatalog": {
+    "windows": 102,
+    "nonWindows": 97
+  },
+  "audioCatalog": 15,
+  "combinedInGame": {
+    "windows": 117,
+    "nonWindows": 112
+  },
+  "namedRequired": 196,
+  "tomlOnlyRequired": 79,
+  "dynamicRequired": 20,
+  "shortcutCount": 115,
+  "currentInventoryNamed": 195,
+  "currentInventoryDynamic": 19,
+  "knownBaselineFailures": [
+    "named inventory omits sync.diagnostics",
+    "dynamic inventory omits sync.targets.<target>.diagnostics"
+  ],
+  "baselineGate": {
+    "tests": 6,
+    "passed": 4,
+    "failed": 2,
+    "log": "settings-coverage-python.log"
+  },
+  "requiredNamedKeys": [
+    "audio.alert_armada_battle_lost",
+    "audio.alert_armada_battle_won",
+    "audio.alert_armada_created",
+    "audio.alert_defeat",
+    "audio.alert_fleet_arrived_at_destination",
+    "audio.alert_fleet_arrived_in_system",
+    "audio.alert_fleet_docked",
+    "audio.alert_fleet_miner_opc",
+    "audio.alert_fleet_node_depleted",
+    "audio.alert_fleet_repair_complete",
+    "audio.alert_fleet_started_mining",
+    "audio.alert_incoming_player_attack",
+    "audio.alert_victory",
+    "audio.coalescing",
+    "audio.disabled_events",
+    "audio.trace_events",
+    "buffs.use_out_of_dock_power",
+    "config.assets_url_override",
+    "config.settings_url",
+    "control.enable_experimental",
+    "control.hotkeys_enabled",
+    "control.hotkeys_extended",
+    "control.keyboard_layout_mode",
+    "control.kirshara_fixes",
+    "control.primary_requires_visible_target",
+    "control.queue_enabled",
+    "control.select_timer",
+    "control.use_scopely_hotkeys",
+    "graphics.allow_cursor",
+    "graphics.borderless_fullscreen",
+    "graphics.default_system_zoom",
+    "graphics.fr_scale",
+    "graphics.free_resize",
+    "graphics.galactic_anomaly_timer",
+    "graphics.galaxy_extended_selection",
+    "graphics.galaxy_label_major_detail",
+    "graphics.galaxy_label_major_threshold",
+    "graphics.galaxy_label_minor_detail",
+    "graphics.galaxy_label_minor_threshold",
+    "graphics.galaxy_multi_select",
+    "graphics.galaxy_overlay_default",
+    "graphics.galaxy_overlay_hazards",
+    "graphics.galaxy_overlay_hostiles",
+    "graphics.galaxy_overlay_mining",
+    "graphics.galaxy_station_housing",
+    "graphics.haven_zoom",
+    "graphics.hide_haven_water",
+    "graphics.interior_zoom_scale",
+    "graphics.keyboard_zoom_speed",
+    "graphics.loader_enabled",
+    "graphics.loader_image",
+    "graphics.loader_logo_scale",
+    "graphics.loader_tip_enabled",
+    "graphics.loader_transition",
+    "graphics.loader_transition_black",
+    "graphics.ship_hotkey_badges",
+    "graphics.system_pan_momentum",
+    "graphics.system_pan_momentum_falloff",
+    "graphics.system_zoom_preset_1",
+    "graphics.system_zoom_preset_2",
+    "graphics.system_zoom_preset_3",
+    "graphics.system_zoom_preset_4",
+    "graphics.system_zoom_preset_5",
+    "graphics.transition_time",
+    "graphics.ui_scale",
+    "graphics.ui_scale_ship",
+    "graphics.ui_scale_step",
+    "graphics.ui_scale_viewer",
+    "graphics.use_presets_as_default",
+    "graphics.zoom",
+    "graphics.zoom_label_non_player_detail",
+    "graphics.zoom_label_non_player_threshold",
+    "graphics.zoom_label_player_detail",
+    "graphics.zoom_label_player_threshold",
+    "patches.actionqueuerecoveryhooks",
+    "patches.artifactexchangehooks",
+    "patches.audioeventhooks",
+    "patches.basecardhooks",
+    "patches.battlelogsummaryhooks",
+    "patches.bufffixhooks",
+    "patches.cargoformathooks",
+    "patches.chatpatches",
+    "patches.chattitledisplayhooks",
+    "patches.claimtracehooks",
+    "patches.dailyfactionbulkclaimhooks",
+    "patches.doubleclickassignshiphooks",
+    "patches.forbiddentechconfirmhooks",
+    "patches.freeresizehooks",
+    "patches.galacticanomalytimerhooks",
+    "patches.game_version",
+    "patches.giftsbulkclaimhooks",
+    "patches.havenhistoryhooks",
+    "patches.havenzoomhooks",
+    "patches.hotkeyhooks",
+    "patches.instantcargocounterhooks",
+    "patches.interiorzoomhooks",
+    "patches.loadingscreenhooks",
+    "patches.loadingtiphooks",
+    "patches.miscpatches",
+    "patches.missionhudtweakshooks",
+    "patches.nativesettingshooks",
+    "patches.navigationorbithooks",
+    "patches.objecttracker",
+    "patches.officerpresetreorderhooks",
+    "patches.officersorthooks",
+    "patches.panhooks",
+    "patches.pinnedshipclicktoggle",
+    "patches.pinnedshiphooks",
+    "patches.queueaddressguardhooks",
+    "patches.revealconfirmhooks",
+    "patches.runtimeconfighooks",
+    "patches.shiptechindicatorhooks",
+    "patches.syncpatches",
+    "patches.tempcrashfixes",
+    "patches.testpatches",
+    "patches.thinqueueprotectionhooks",
+    "patches.toastbannerhooks",
+    "patches.transitionscreenhooks",
+    "patches.uiscalehooks",
+    "patches.zoomhooks",
+    "sync.away_assignments",
+    "sync.battlelogs",
+    "sync.buffs",
+    "sync.buildings",
+    "sync.debug",
+    "sync.diagnostics",
+    "sync.haven",
+    "sync.inventory",
+    "sync.jobs",
+    "sync.logging",
+    "sync.missions",
+    "sync.officers",
+    "sync.proxy",
+    "sync.research",
+    "sync.resolver_cache_ttl",
+    "sync.resources",
+    "sync.ships",
+    "sync.slots",
+    "sync.tech",
+    "sync.traits",
+    "sync.verify_ssl",
+    "ui.allow_officer_preset_reordering",
+    "ui.always_skip_reveal_sequence",
+    "ui.arrow_keys_to_select_ship",
+    "ui.auto_confirm_ft_upgrade",
+    "ui.auto_confirm_instant_warp",
+    "ui.auto_confirm_reveal_ability",
+    "ui.auto_open_bulk_claim_flyout",
+    "ui.battle_log_summary_preview",
+    "ui.cargo_significant_decimals",
+    "ui.claim_navigation_recovery",
+    "ui.daily_bulk_claim_factions",
+    "ui.daily_bulk_claim_toggle_default_on",
+    "ui.disable_escape_exit",
+    "ui.disable_escape_exit_timer",
+    "ui.disable_exchange_all",
+    "ui.disable_galaxy_chat",
+    "ui.disable_move_keys",
+    "ui.disable_preview_locate",
+    "ui.disable_preview_recall",
+    "ui.disable_toast_banners",
+    "ui.disable_veil_chat",
+    "ui.disabled_banner_types",
+    "ui.dock_syncmanagement",
+    "ui.double_click_to_assign_ship",
+    "ui.extend_chest_purchase_max",
+    "ui.extend_donation_max",
+    "ui.extend_donation_slider",
+    "ui.fleet_hud_opc_eta",
+    "ui.focus_search",
+    "ui.format_cargo_values",
+    "ui.highlight_opc_fleets",
+    "ui.hud_field_training",
+    "ui.hud_missions",
+    "ui.hud_outposts",
+    "ui.hud_q_trials",
+    "ui.instant_cargo_counter",
+    "ui.instant_warp_always_ask",
+    "ui.instant_warp_auto_jump",
+    "ui.instant_warp_auto_warp",
+    "ui.keep_base_card_open",
+    "ui.notify_banner_types",
+    "ui.notify_fleet_events",
+    "ui.notify_incoming_player_attack",
+    "ui.officer_sort",
+    "ui.only_show_first_popup",
+    "ui.pinned_ships",
+    "ui.reverse_haven_history",
+    "ui.show_armada_cargo",
+    "ui.show_cargo_default",
+    "ui.show_hostile_cargo",
+    "ui.show_player_cargo",
+    "ui.show_player_title",
+    "ui.show_ship_tech_indicator_backgrounds",
+    "ui.show_ship_tech_indicators",
+    "ui.show_station_cargo"
+  ],
+  "requiredDynamicTemplates": [
+    "sync.targets.<target>.away_assignments",
+    "sync.targets.<target>.battlelogs",
+    "sync.targets.<target>.buffs",
+    "sync.targets.<target>.buildings",
+    "sync.targets.<target>.diagnostics",
+    "sync.targets.<target>.haven",
+    "sync.targets.<target>.inventory",
+    "sync.targets.<target>.jobs",
+    "sync.targets.<target>.missions",
+    "sync.targets.<target>.officers",
+    "sync.targets.<target>.proxy",
+    "sync.targets.<target>.research",
+    "sync.targets.<target>.resources",
+    "sync.targets.<target>.ships",
+    "sync.targets.<target>.slots",
+    "sync.targets.<target>.tech",
+    "sync.targets.<target>.token",
+    "sync.targets.<target>.traits",
+    "sync.targets.<target>.url",
+    "sync.targets.<target>.verify_ssl"
+  ],
+  "shortcuts": [
+    "shortcuts.action_primary",
+    "shortcuts.action_queue",
+    "shortcuts.action_queue_clear",
+    "shortcuts.action_recall",
+    "shortcuts.action_recall_cancel",
+    "shortcuts.action_repair",
+    "shortcuts.action_secondary",
+    "shortcuts.action_view",
+    "shortcuts.dev_console_clear",
+    "shortcuts.dev_console_cycle_opacity",
+    "shortcuts.dev_console_scroll_down",
+    "shortcuts.dev_console_scroll_live",
+    "shortcuts.dev_console_scroll_up",
+    "shortcuts.dev_console_toggle",
+    "shortcuts.focus_search",
+    "shortcuts.haven_orbit_drag",
+    "shortcuts.haven_orbit_reset",
+    "shortcuts.log_debug",
+    "shortcuts.log_error",
+    "shortcuts.log_info",
+    "shortcuts.log_off",
+    "shortcuts.log_trace",
+    "shortcuts.log_warn",
+    "shortcuts.move_down",
+    "shortcuts.move_left",
+    "shortcuts.move_right",
+    "shortcuts.move_up",
+    "shortcuts.navigation_orbit_drag",
+    "shortcuts.navigation_orbit_reset",
+    "shortcuts.quit",
+    "shortcuts.restart",
+    "shortcuts.select_chatalliance",
+    "shortcuts.select_chatglobal",
+    "shortcuts.select_chatprivate",
+    "shortcuts.select_current",
+    "shortcuts.select_ship1",
+    "shortcuts.select_ship2",
+    "shortcuts.select_ship3",
+    "shortcuts.select_ship4",
+    "shortcuts.select_ship5",
+    "shortcuts.select_ship6",
+    "shortcuts.select_ship7",
+    "shortcuts.select_ship8",
+    "shortcuts.set_hotkeys_disabled",
+    "shortcuts.set_hotkeys_enabled",
+    "shortcuts.set_zoom_default",
+    "shortcuts.set_zoom_preset1",
+    "shortcuts.set_zoom_preset2",
+    "shortcuts.set_zoom_preset3",
+    "shortcuts.set_zoom_preset4",
+    "shortcuts.set_zoom_preset5",
+    "shortcuts.show_alliance",
+    "shortcuts.show_alliance_armada",
+    "shortcuts.show_alliance_help",
+    "shortcuts.show_artifacts",
+    "shortcuts.show_awayteam",
+    "shortcuts.show_battlelogs",
+    "shortcuts.show_bookmarks",
+    "shortcuts.show_chat",
+    "shortcuts.show_chatside1",
+    "shortcuts.show_chatside2",
+    "shortcuts.show_commander",
+    "shortcuts.show_daily",
+    "shortcuts.show_events",
+    "shortcuts.show_events_native",
+    "shortcuts.show_exocomp",
+    "shortcuts.show_factions",
+    "shortcuts.show_galaxy",
+    "shortcuts.show_galaxy_native",
+    "shortcuts.show_gifts",
+    "shortcuts.show_haven",
+    "shortcuts.show_inventory",
+    "shortcuts.show_lookup",
+    "shortcuts.show_missions",
+    "shortcuts.show_officerpresets",
+    "shortcuts.show_officers",
+    "shortcuts.show_officerswap",
+    "shortcuts.show_qtrials",
+    "shortcuts.show_refinery",
+    "shortcuts.show_research",
+    "shortcuts.show_scrapyard",
+    "shortcuts.show_settings",
+    "shortcuts.show_shields",
+    "shortcuts.show_shipconstruction",
+    "shortcuts.show_ships",
+    "shortcuts.show_shipswap",
+    "shortcuts.show_stationexterior",
+    "shortcuts.show_stationinterior",
+    "shortcuts.show_system",
+    "shortcuts.toggle_cargo_armada",
+    "shortcuts.toggle_cargo_default",
+    "shortcuts.toggle_cargo_hostile",
+    "shortcuts.toggle_cargo_player",
+    "shortcuts.toggle_cargo_station",
+    "shortcuts.toggle_instant_warp",
+    "shortcuts.toggle_preview_locate",
+    "shortcuts.toggle_preview_recall",
+    "shortcuts.toggle_queue",
+    "shortcuts.toggle_shortcut_hints",
+    "shortcuts.ui_scaledown",
+    "shortcuts.ui_scaleshipdown",
+    "shortcuts.ui_scaleshipup",
+    "shortcuts.ui_scaleup",
+    "shortcuts.ui_scaleviewerdown",
+    "shortcuts.ui_scaleviewerup",
+    "shortcuts.zoom_in",
+    "shortcuts.zoom_max",
+    "shortcuts.zoom_min",
+    "shortcuts.zoom_out",
+    "shortcuts.zoom_preset1",
+    "shortcuts.zoom_preset2",
+    "shortcuts.zoom_preset3",
+    "shortcuts.zoom_preset4",
+    "shortcuts.zoom_preset5",
+    "shortcuts.zoom_reset"
+  ],
+  "existingMetadata": [
+    {
+      "key": "audio.alert_armada_battle_lost",
+      "control": "choice",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "audio.alert_armada_battle_won",
+      "control": "choice",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "audio.alert_armada_created",
+      "control": "choice",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "audio.alert_defeat",
+      "control": "choice",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "audio.alert_fleet_arrived_at_destination",
+      "control": "choice",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "audio.alert_fleet_arrived_in_system",
+      "control": "choice",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "audio.alert_fleet_docked",
+      "control": "choice",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "audio.alert_fleet_miner_opc",
+      "control": "choice",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "audio.alert_fleet_node_depleted",
+      "control": "choice",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "audio.alert_fleet_repair_complete",
+      "control": "choice",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "audio.alert_fleet_started_mining",
+      "control": "choice",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "audio.alert_incoming_player_attack",
+      "control": "choice",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "audio.alert_victory",
+      "control": "choice",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "audio.coalescing",
+      "control": "choice",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "audio.disabled_events",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "audio"
+    },
+    {
+      "key": "audio.trace_events",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "audio"
+    },
+    {
+      "key": "buffs.use_out_of_dock_power",
+      "control": "boolean",
+      "page": "officers",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "config.assets_url_override",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "config"
+    },
+    {
+      "key": "config.settings_url",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "config"
+    },
+    {
+      "key": "control.enable_experimental",
+      "treatment": "toml_only",
+      "application": "restart",
+      "page": "advanced",
+      "policy": "experimental_shortcuts"
+    },
+    {
+      "key": "control.hotkeys_enabled",
+      "control": "boolean",
+      "page": "controls",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "control.hotkeys_extended",
+      "control": "boolean",
+      "page": "controls",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "control.keyboard_layout_mode",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "keyboard_layout"
+    },
+    {
+      "key": "control.kirshara_fixes",
+      "control": "boolean",
+      "page": "controls",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "control.primary_requires_visible_target",
+      "control": "boolean",
+      "page": "controls",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "control.queue_enabled",
+      "control": "boolean",
+      "page": "controls",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "control.select_timer",
+      "control": "number",
+      "page": "controls",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "control.use_scopely_hotkeys",
+      "control": "boolean",
+      "page": "controls",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.allow_cursor",
+      "control": "boolean",
+      "page": "interface",
+      "application": "live",
+      "treatment": "in_game",
+      "platforms": [
+        "windows"
+      ],
+      "other_platforms": "Explanatory advanced row; this setting has no macOS consumer."
+    },
+    {
+      "key": "graphics.borderless_fullscreen",
+      "control": "boolean",
+      "page": "interface",
+      "application": "restart",
+      "treatment": "in_game",
+      "platforms": [
+        "windows"
+      ],
+      "other_platforms": "Explanatory advanced row; native Windows-only functionality is not offered on macOS."
+    },
+    {
+      "key": "graphics.default_system_zoom",
+      "control": "number",
+      "page": "camera",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.fr_scale",
+      "control": "number",
+      "page": "interface",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.free_resize",
+      "control": "boolean",
+      "page": "interface",
+      "application": "restart",
+      "treatment": "in_game",
+      "platforms": [
+        "windows"
+      ],
+      "other_platforms": "Explanatory advanced row; native Windows-only functionality is not offered on macOS."
+    },
+    {
+      "key": "graphics.galactic_anomaly_timer",
+      "control": "boolean",
+      "page": "travel",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.galaxy_extended_selection",
+      "control": "boolean",
+      "page": "galaxy",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.galaxy_label_major_detail",
+      "control": "choice",
+      "page": "galaxy",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.galaxy_label_major_threshold",
+      "control": "number",
+      "page": "galaxy",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.galaxy_label_minor_detail",
+      "control": "choice",
+      "page": "galaxy",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.galaxy_label_minor_threshold",
+      "control": "number",
+      "page": "galaxy",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.galaxy_multi_select",
+      "control": "boolean",
+      "page": "galaxy",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.galaxy_overlay_default",
+      "control": "boolean",
+      "page": "galaxy",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.galaxy_overlay_hazards",
+      "control": "boolean",
+      "page": "galaxy",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.galaxy_overlay_hostiles",
+      "control": "boolean",
+      "page": "galaxy",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.galaxy_overlay_mining",
+      "control": "boolean",
+      "page": "galaxy",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.galaxy_station_housing",
+      "control": "boolean",
+      "page": "galaxy",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.haven_zoom",
+      "control": "number",
+      "page": "camera",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.hide_haven_water",
+      "control": "boolean",
+      "page": "camera",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.interior_zoom_scale",
+      "control": "number",
+      "page": "camera",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.keyboard_zoom_speed",
+      "control": "number",
+      "page": "camera",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.loader_enabled",
+      "control": "boolean",
+      "page": "loading",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.loader_image",
+      "control": "path",
+      "page": "loading",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.loader_logo_scale",
+      "control": "number",
+      "page": "loading",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.loader_tip_enabled",
+      "control": "boolean",
+      "page": "loading",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.loader_transition",
+      "control": "boolean",
+      "page": "loading",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.loader_transition_black",
+      "control": "boolean",
+      "page": "loading",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.ship_hotkey_badges",
+      "control": "boolean",
+      "page": "labels",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.system_pan_momentum",
+      "treatment": "toml_only",
+      "application": "restart",
+      "page": "advanced",
+      "policy": "legacy_experimental"
+    },
+    {
+      "key": "graphics.system_pan_momentum_falloff",
+      "control": "number",
+      "page": "camera",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.system_zoom_preset_1",
+      "control": "number",
+      "page": "camera",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.system_zoom_preset_2",
+      "control": "number",
+      "page": "camera",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.system_zoom_preset_3",
+      "control": "number",
+      "page": "camera",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.system_zoom_preset_4",
+      "control": "number",
+      "page": "camera",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.system_zoom_preset_5",
+      "control": "number",
+      "page": "camera",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.transition_time",
+      "treatment": "toml_only",
+      "application": "restart",
+      "page": "advanced",
+      "policy": "legacy_experimental"
+    },
+    {
+      "key": "graphics.ui_scale",
+      "control": "number",
+      "page": "interface",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.ui_scale_ship",
+      "control": "number",
+      "page": "interface",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.ui_scale_step",
+      "control": "number",
+      "page": "interface",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.ui_scale_viewer",
+      "control": "number",
+      "page": "interface",
+      "application": "reopen_view",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.use_presets_as_default",
+      "control": "boolean",
+      "page": "camera",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.zoom",
+      "control": "number",
+      "page": "camera",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.zoom_label_non_player_detail",
+      "control": "choice",
+      "page": "labels",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.zoom_label_non_player_threshold",
+      "control": "number",
+      "page": "labels",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.zoom_label_player_detail",
+      "control": "choice",
+      "page": "labels",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "graphics.zoom_label_player_threshold",
+      "control": "number",
+      "page": "labels",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "patches.actionqueuerecoveryhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.artifactexchangehooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.audioeventhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.basecardhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.battlelogsummaryhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.bufffixhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.cargoformathooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.chatpatches",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.chattitledisplayhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.claimtracehooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.dailyfactionbulkclaimhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.doubleclickassignshiphooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.forbiddentechconfirmhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.freeresizehooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.galacticanomalytimerhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.game_version",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.giftsbulkclaimhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.havenhistoryhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.havenzoomhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.hotkeyhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.instantcargocounterhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.interiorzoomhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.loadingscreenhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.loadingtiphooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.miscpatches",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.missionhudtweakshooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.nativesettingshooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.navigationorbithooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.objecttracker",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.officerpresetreorderhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.officersorthooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.panhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.pinnedshipclicktoggle",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.pinnedshiphooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.queueaddressguardhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.revealconfirmhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.runtimeconfighooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.shiptechindicatorhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.syncpatches",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.tempcrashfixes",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.testpatches",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.thinqueueprotectionhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.toastbannerhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.transitionscreenhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.uiscalehooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "patches.zoomhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
+      "key": "sync.away_assignments",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.battlelogs",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.buffs",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.buildings",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.debug",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.haven",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.inventory",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.jobs",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.logging",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.missions",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.officers",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.proxy",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.research",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.resolver_cache_ttl",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.resources",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.ships",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.slots",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.tech",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.traits",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "sync.verify_ssl",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "sync"
+    },
+    {
+      "key": "ui.allow_officer_preset_reordering",
+      "control": "boolean",
+      "page": "officers",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.always_skip_reveal_sequence",
+      "control": "boolean",
+      "page": "claims",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.arrow_keys_to_select_ship",
+      "control": "boolean",
+      "page": "officers",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.auto_confirm_ft_upgrade",
+      "control": "boolean",
+      "page": "claims",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.auto_confirm_instant_warp",
+      "control": "choice",
+      "page": "travel",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.auto_confirm_reveal_ability",
+      "control": "boolean",
+      "page": "claims",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.auto_open_bulk_claim_flyout",
+      "control": "boolean",
+      "page": "claims",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.battle_log_summary_preview",
+      "control": "boolean",
+      "page": "interface",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.cargo_significant_decimals",
+      "control": "number",
+      "page": "previews",
+      "application": "reopen_view",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.claim_navigation_recovery",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "diagnostics"
+    },
+    {
+      "key": "ui.daily_bulk_claim_factions",
+      "control": "multi_select",
+      "page": "claims",
+      "application": "reopen_view",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.daily_bulk_claim_toggle_default_on",
+      "control": "boolean",
+      "page": "claims",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.disable_escape_exit",
+      "control": "boolean",
+      "page": "interface",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.disable_escape_exit_timer",
+      "control": "number",
+      "page": "interface",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.disable_exchange_all",
+      "control": "boolean",
+      "page": "claims",
+      "application": "reopen_view",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.disable_galaxy_chat",
+      "control": "boolean",
+      "page": "chat",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.disable_move_keys",
+      "control": "boolean",
+      "page": "interface",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.disable_preview_locate",
+      "control": "boolean",
+      "page": "previews",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.disable_preview_recall",
+      "control": "boolean",
+      "page": "previews",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.disable_toast_banners",
+      "treatment": "toml_only",
+      "application": "restart",
+      "page": "advanced",
+      "policy": "legacy_experimental"
+    },
+    {
+      "key": "ui.disable_veil_chat",
+      "control": "boolean",
+      "page": "chat",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.disabled_banner_types",
+      "control": "list",
+      "page": "notifications",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.dock_syncmanagement",
+      "control": "boolean",
+      "page": "officers",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.double_click_to_assign_ship",
+      "control": "boolean",
+      "page": "officers",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.extend_chest_purchase_max",
+      "control": "number",
+      "page": "claims",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.extend_donation_max",
+      "control": "number",
+      "page": "claims",
+      "application": "reopen_view",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.extend_donation_slider",
+      "control": "boolean",
+      "page": "claims",
+      "application": "reopen_view",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.fleet_hud_opc_eta",
+      "control": "boolean",
+      "page": "previews",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.focus_search",
+      "control": "boolean",
+      "page": "interface",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.format_cargo_values",
+      "control": "boolean",
+      "page": "previews",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.highlight_opc_fleets",
+      "control": "boolean",
+      "page": "previews",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.hud_field_training",
+      "control": "choice",
+      "page": "hud",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.hud_missions",
+      "control": "choice",
+      "page": "hud",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.hud_outposts",
+      "control": "choice",
+      "page": "hud",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.hud_q_trials",
+      "control": "choice",
+      "page": "hud",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.instant_cargo_counter",
+      "control": "boolean",
+      "page": "previews",
+      "application": "live",
+      "treatment": "in_game",
+      "platforms": [
+        "windows"
+      ],
+      "other_platforms": "Explanatory advanced row; this setting has no macOS consumer."
+    },
+    {
+      "key": "ui.instant_warp_always_ask",
+      "control": "list",
+      "page": "travel.filters",
+      "application": "reopen_view",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.instant_warp_auto_jump",
+      "control": "list",
+      "page": "travel.filters",
+      "application": "reopen_view",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.instant_warp_auto_warp",
+      "control": "list",
+      "page": "travel.filters",
+      "application": "reopen_view",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.keep_base_card_open",
+      "control": "boolean",
+      "page": "previews",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.notify_banner_types",
+      "control": "list",
+      "page": "notifications",
+      "application": "live",
+      "treatment": "in_game",
+      "platforms": [
+        "windows"
+      ],
+      "other_platforms": "Explanatory advanced row; this setting has no macOS consumer."
+    },
+    {
+      "key": "ui.notify_fleet_events",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "fleet_notifications"
+    },
+    {
+      "key": "ui.notify_incoming_player_attack",
+      "control": "boolean",
+      "page": "audio",
+      "application": "live",
+      "treatment": "in_game",
+      "catalog": "audio_alerts"
+    },
+    {
+      "key": "ui.officer_sort",
+      "control": "boolean",
+      "page": "officers",
+      "application": "restart",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.only_show_first_popup",
+      "control": "boolean",
+      "page": "interface",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.pinned_ships",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "legacy_pins"
+    },
+    {
+      "key": "ui.reverse_haven_history",
+      "control": "boolean",
+      "page": "officers",
+      "application": "reopen_view",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.show_armada_cargo",
+      "control": "boolean",
+      "page": "previews",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.show_cargo_default",
+      "control": "boolean",
+      "page": "previews",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.show_hostile_cargo",
+      "control": "boolean",
+      "page": "previews",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.show_player_cargo",
+      "control": "boolean",
+      "page": "previews",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.show_player_title",
+      "control": "boolean",
+      "page": "chat",
+      "application": "reopen_view",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.show_ship_tech_indicator_backgrounds",
+      "control": "boolean",
+      "page": "previews",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.show_ship_tech_indicators",
+      "control": "boolean",
+      "page": "previews",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.show_station_cargo",
+      "control": "boolean",
+      "page": "previews",
+      "application": "live",
+      "treatment": "in_game"
+    }
+  ],
+  "platformExclusions": [
+    "graphics.allow_cursor",
+    "graphics.borderless_fullscreen",
+    "graphics.free_resize",
+    "ui.instant_cargo_counter",
+    "ui.notify_banner_types"
+  ],
+  "notes": [
+    "The old 116/111 documentation predates the AAI toggle; the apparent 14-key difference combines 15 excluded audio keys with one stale increment.",
+    "Missing sync diagnostics entries are baseline maintenance failures; no source/inventory changes are made by this report.",
+    "Visibility, defaults, application timing, availability and interaction semantics also require preservation; counts alone are not acceptance."
+  ]
+}

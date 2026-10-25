@@ -4,6 +4,11 @@
     .fingerprint = 0x3332afbd34425758,
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
+        .simdutf = .{
+            .lazy = true,
+            .url = "https://github.com/simdutf/simdutf/archive/refs/tags/v8.2.0.tar.gz",
+            .hash = "N-V-__8AAN_EgwBTATlTZVYHBYswtieVeGHxUIKn_Zz_RlUR",
+        },
         .spdlog = .{
             .url = "https://github.com/gabime/spdlog/archive/refs/tags/v1.17.0.tar.gz",
             .hash = "N-V-__8AALV4EgBbl10jtpTgXbAMeWyE5t24VkpFyu6JKaWR",
@@ -83,5 +88,5 @@
             .lazy = true,
         },
     },
-    .paths = .{ "build.zig", "build.zig.zon", "zig", "src", "third_party", "assets", "tests", "LICENSE" },
+    .paths = .{ "build.zig", "build.zig.zon", "zig", "src", "third_party", "assets", "tests", "scripts/prepare-profiles-deps.py", "LICENSE" },
 }

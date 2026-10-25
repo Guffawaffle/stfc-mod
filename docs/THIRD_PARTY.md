@@ -4,6 +4,27 @@
 Zig fetches a `protoc` executable only for the build host.
 Preserve upstream licenses and notices when distributing source or binaries.
 
+## Optional downstream build products
+
+The explicitly enabled build-only targets in `zig/aai.zig`,
+`zig/shared_toml.zig` and `zig/profiles.zig` do not enter the normal mod's
+link, install or feature graph. Their inputs and qualification limits are in
+[the M1 checkpoint](migration/M1-FOUNDATION.md).
+
+AAI source is GPL-3.0 at `4bece2e5f1afa7c7343f009e83398742a0f86114`.
+Its native archive additionally uses lazy, content-pinned simdutf 8.2.0
+(Apache-2.0 or MIT; retain `LICENSE-APACHE` and `LICENSE-MIT`). No simdutf
+vendor source is modified. The standalone TOML producer retains the owning
+repository's license and its component third-party notices.
+
+Profiles source is GPL-3.0 at `c5c4ba911f16f3376e828761714d72a26ebe2a96`.
+Its separately provisioned static C prefix preserves libarchive 3.8.9,
+xz/liblzma 5.8.3 and zlib 1.3.2 from the existing Profiles recipe. The
+producer copies their upstream license files and records complete source,
+configuration, tool and installed-file hashes. Those development outputs are
+not a qualified release package; preserve all applicable notices when later
+distributing them.
+
 ## Fetched libraries
 
 | Dependency | Pin | License or notices | Purpose |
