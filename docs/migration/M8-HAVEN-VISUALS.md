@@ -100,8 +100,48 @@ extended zoom, idle Haven without flicker, scene/streaming replacement, disable
 and reload, leaving/reentering Haven, pending release and observable callback
 cost on the exact tested client/artifact. macOS and signing remain separate.
 
-Final candidate-bound build and artifact results are recorded below when the
-cohort is frozen. No game cycle or deployment has occurred in this slice.
+### Qualified source checkpoint
+
+Final source: **`c2fb9b5a81244ca9388c737d8f6b7edd7eda32a0`**.
+
+| Exact clean candidate lane | Result |
+| --- | --- |
+| Windows x64 Zig 0.16, Profiles host | 211/211 steps; 8/8 reported Zig tests; 91 artifacts |
+| Windows x64 Zig 0.17, default off | 189/189 steps; 77 artifacts |
+| WSL/Linux x64 Zig 0.16 | 172/172 steps; 8/8 reported Zig tests; 37 artifacts |
+
+Both Windows gates ran the actual production uploader against owned temporary
+loopback listeners with synthetic data. The host lane also ran three inert
+Profiles controls; no account/preferences/catalog lifecycle cases were run in
+the developer execution environment. Negative build-option controls were not
+repeated. Linux qualifies portable fixtures, not the Windows HTTP or mod runtime.
+
+Independent readback verified **498 unique file facts with zero mismatches**,
+including exact clean source/tool/archive/log/artifact identities, the new Haven
+and missing-String markers, executed uploader bytes, static CRT, 18 host versus
+16 default-off PE exports, one compiled TOML provider and the expected Profiles
+host dependency closure. Default off contains no Profiles libraries. Static
+inspection did not load either product DLL.
+
+| Product DLL | SHA-256 |
+| --- | --- |
+| Host 0.16 | `0d2f6d8db1855691ecae7ba53b7da1943e47d0f93618bbe585f33d1faddd2372` |
+| Default off 0.17 | `ca62b16db7fb92b42110babbb5d6109c7a9ee1b240cf1cca9933e9d9a17a91a0` |
+
+Evidence root:
+`D:/dev/stfc-workspace/.ax/ripper-haven-20261025/candidates/c2fb9b5a81244ca9388c737d8f6b7edd7eda32a0`.
+Independent proof `independent-haven-readback.json`, SHA-256
+`ee84f412ee5e7c994327b6b622f296b33040dbb2af2abeea6401df7debe77d9e`.
+
+The raw Windows logs contain intermediate command/failure-looking diagnostics,
+but both completed gates returned zero and reported every step successful.
+Retain those raw logs alongside the final receipts; do not infer a failed final
+gate from an unfinished log excerpt or invent a cause for that output. A serial
+retry script was prepared but not executed once the completed runs passed.
+
+No game cycle, deployment, signing, macOS runtime or native visual qualification
+has occurred in this slice. Direct collaboration and scoped continuity are not
+Runner-governed execution. Later source changes need their own checks.
 
 ## Runtime routing
 

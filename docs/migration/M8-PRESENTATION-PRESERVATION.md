@@ -177,3 +177,6 @@ restoration, retaining the foundation's existing zoom/history geometry and
 stronger replacement discovery. Private read-only source study:
 `D:/dev/stfc-workspace/.ax/ripper-gameplay-sync-20261025/navigation-haven-study/NEXT-COHORT.md`.
 Neither those findings nor this checkpoint establish full gameplay parity.
+The later [Haven implementation checkpoint](M8-HAVEN-VISUALS.md) completes that
+bounded visual port with independent source/binary readback; broader galaxy,
+orbit and native officer integration remain separate.
