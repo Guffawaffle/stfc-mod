@@ -13,7 +13,6 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
-#include <utility>
 
 namespace
 {
@@ -154,7 +153,7 @@ struct Root {
 };
 
 Root navigation, panel, label, anomalyManager;
-std::string renderedText;
+std::int64_t renderedSeconds = -1;
 
 void Clear()
 {
@@ -168,7 +167,7 @@ void Clear()
   panel.reset();
   navigation.reset();
   anomalyManager.reset();
-  renderedText.clear();
+  renderedSeconds = -1;
 }
 
 bool InSystemNavigation()
@@ -408,10 +407,15 @@ void Update()
     return;
   }
   static auto nextDiscovery = std::chrono::steady_clock::time_point{};
-  if (!Alive(navigation.get()) && now >= nextDiscovery) {
+  bool active = false;
+  if ((!Alive(navigation.get()) || !Value(navigation.get(), "get_isActiveAndEnabled", active) || !active)
+      && now >= nextDiscovery) {
     nextDiscovery = now + std::chrono::seconds(1);
-    Clear();
-    navigation.reset(NavigationHud());
+    auto* replacement = NavigationHud();
+    if ((replacement && replacement != navigation.get()) || !Alive(navigation.get())) {
+      Clear();
+      navigation.reset(replacement);
+    }
   }
   auto*        nav   = navigation.get();
   bool         show  = false;
@@ -456,12 +460,12 @@ void Update()
     return;
   if (show) {
     auto seconds = ticks / 10000000 + (ticks % 10000000 != 0);
-    auto text    = seconds >= 3600 ? fmt::format("{}h {:02}m {:02}s", seconds / 3600, seconds / 60 % 60, seconds % 60)
-                                   : fmt::format("{:02}m {:02}s", seconds / 60, seconds % 60);
-    if (text != renderedText) {
+    if (seconds != renderedSeconds) {
+      auto text = seconds >= 3600 ? fmt::format("{}h {:02}m {:02}s", seconds / 3600, seconds / 60 % 60, seconds % 60)
+                                  : fmt::format("{:02}m {:02}s", seconds / 60, seconds % 60);
       show = Set(label.get(), "set_text", il2cpp_string_new(text.c_str()));
       if (show)
-        renderedText = std::move(text);
+        renderedSeconds = seconds;
     }
   }
   Set(panel.get(), "SetActive", &show);
