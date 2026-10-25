@@ -264,6 +264,12 @@ template <typename Work> void RunGuarded(const char* name, Work&& work) noexcept
 // shortcut used, so the game does not handle it as well.
 void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
+  // An early demand for the shared anchor must not reload/replace Config while InstallFeatures still holds its
+  // startup reference, or dispatch partially initialized services. The native game keeps its own Update.
+  if (!FrameDeliveryAvailable()) {
+    original(_this);
+    return;
+  }
   // A callback may cause nested native UI work. Do not recursively poll/reload/dispatch; each invocation still
   // reaches the game's original Update unless the outer shortcut dispatch deliberately consumes its input.
   static thread_local bool dispatching = false;
@@ -443,6 +449,9 @@ bool RegisterFrameCallback(ScreenManagerUpdateCallback callback, const char* nam
 
 il2cpp::HookInstallResult FrameTickInstallation()
 { return frame_result; }
+
+bool FrameDeliveryAvailable() noexcept
+{ return !il2cpp::HookStateIndeterminate() && FrameDispatchReady(features_owner.State(), frame_result.Installed()); }
 
 il2cpp::HookInstallResult EnsureFrameTick()
 {

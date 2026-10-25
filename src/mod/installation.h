@@ -45,6 +45,9 @@ constexpr bool MustAbortInstallation(InstallState state, InstallRequirement requ
 constexpr bool FrameDeliveryReady(InstallState feature, bool registered, bool anchor_ready)
 { return feature == InstallState::kInstalled && registered && anchor_ready; }
 
+constexpr bool FrameDispatchReady(InstallState host, bool anchor_ready)
+{ return host == InstallState::kInstalled && anchor_ready; }
+
 class InstallGuard
 {
 public:

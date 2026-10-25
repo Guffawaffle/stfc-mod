@@ -10,3 +10,6 @@ using ScreenManagerUpdateCallback = void (*)();
 bool                      RegisterFrameCallback(ScreenManagerUpdateCallback callback, const char* name) noexcept;
 il2cpp::HookInstallResult EnsureFrameTick();
 il2cpp::HookInstallResult FrameTickInstallation();
+// Physical anchor installation may precede completion of host initialization. No host callbacks, reload or
+// shortcuts run until both are ready. Querying this does not trigger installation.
+bool FrameDeliveryAvailable() noexcept;

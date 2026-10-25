@@ -190,6 +190,8 @@ terminal install request; `FrameTickInstallation()` reads its result without ret
 accepts process-lifetime callbacks and owns their diagnostic names. Registration is not proof that the native anchor
 installed. Duplicate callbacks are harmless; null and during-dispatch registrations are rejected. Recursive dispatch
 is suppressed, and callback/reporting exceptions do not skip later callbacks or unwind into the host frame.
+`FrameDeliveryAvailable()` also requires host initialization to be complete. An early anchor request during feature
+installation leaves input polling, reload, subscribers and shortcuts dormant; the game's original Update continues.
 
 `FeatureInstallations()` reports capability installation, callback registration and frame readiness separately.
 Only successfully installed features register their frame work; reload/input/shortcut ordering remains at the

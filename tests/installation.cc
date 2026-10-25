@@ -1,5 +1,6 @@
 // Installer ownership and critical-versus-optional policy, without a game or real code patch.
 #include "installation.h"
+#include "frame_callbacks.h"
 
 #include <iostream>
 #include <stdexcept>
@@ -14,6 +15,9 @@ bool HookStateIndeterminate() noexcept
 
 namespace
 {
+unsigned frame_calls = 0;
+void     FrameWork()
+{ ++frame_calls; }
 void Require(bool ok, const char* what)
 {
   if (!ok)
@@ -123,11 +127,34 @@ void Ownership()
     Require(continuation == (requirement == InstallRequirement::kOptional ? 1 : 0), "critical continuation gate");
   }
 }
+
+void EarlyFrameRequest()
+{
+  FrameCallbacks callbacks;
+  Require(callbacks.Register(FrameWork, "fixture"), "frame callback registration failed");
+  InstallGuard host;
+  const bool   native_anchor_ready = true;
+  for (const auto state : {InstallState::kNotAttempted, InstallState::kInstalling, InstallState::kSkipped,
+                           InstallState::kUnavailable, InstallState::kIndeterminate})
+    Require(!FrameDispatchReady(state, native_anchor_ready), "incomplete host allowed frame dispatch");
+  host.Run(true, [&] {
+    // Simulate a callback arriving after the native anchor commits but before the feature initialization returns.
+    if (FrameDispatchReady(host.State(), native_anchor_ready))
+      callbacks.Dispatch();
+    Require(frame_calls == 0, "early anchor ran work while startup references remain borrowed");
+    return true;
+  });
+  Require(!FrameDispatchReady(host.State(), false), "missing anchor allowed host frame work");
+  if (FrameDispatchReady(host.State(), native_anchor_ready))
+    callbacks.Dispatch();
+  Require(frame_calls == 1, "completed host did not enable registered work");
+}
 } // namespace
 
 int main()
 {
   Policy();
   Ownership();
+  EarlyFrameRequest();
   std::cout << "Installer ownership and failure-policy tests passed\n";
 }
