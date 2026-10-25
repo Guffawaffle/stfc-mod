@@ -4,6 +4,21 @@ Open the game's Settings and choose **Mod Settings** to change Community Mod pre
 
 The editor uses the same configuration values and defaults as the mod's TOML configuration. Opening a page or reading a value does not save, normalize, or reset it. TOML remains available for every setting; **Advanced & Configuration** shows the active file's location.
 
+### Battle Analysis (AAI)
+
+**Interface & Scale -> Battle Analysis (AAI)** controls the native analysis entry
+on battle reports. It uses the existing `[ui] battle_log_summary_preview` key,
+now defaulting to `true`. An explicitly saved `false` stays off. Changes apply
+without restarting when AAI and its startup hooks are available; builds without
+AAI or with its hooks disabled show the control as unavailable.
+
+The play-dev build includes AAI by default through its immutable source pin.
+`xmake f --stfc_aai=n` remains available for builds without the private dependency.
+UI Lab is a separate development build option and remains default-off. Compiling
+AAI does not automatically request deep crew analysis, capture fixtures or run
+workshop probes. AAI retains lightweight update/discovery checks outside reports;
+default-on is not a claim of zero runtime work there.
+
 ## Applying and saving
 
 Ordinary controls apply to the current session and save automatically. Each control reports its own save state. A failed save or an external edit conflict remains visible; another successful save does not clear it. Resolve a conflicting external edit before retrying. Unrelated TOML values and comments are preserved.

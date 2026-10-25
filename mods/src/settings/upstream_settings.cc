@@ -519,6 +519,13 @@ void RegisterUpstreamSettings(PageCatalog& catalog)
   const Available fleetLabels = [zoom] { return zoom() && FleetLabelControlsAvailable(); };
   const auto      scale       = Hook(&Config::installUiScaleHooks);
   const auto      misc        = Hook(&Config::installMiscPatches);
+  const Available battleAnalysis = [] {
+#ifdef STFC_AAI_ENABLED
+    return Config::Get().installBattleLogSummaryHooks;
+#else
+    return false;
+#endif
+  };
   const auto      toast       = Hook(&Config::installToastBannerHooks);
   for (const auto& page :
        std::initializer_list<std::pair<const char*, const char*>>{{"controls", "Controls"},
@@ -617,6 +624,10 @@ void RegisterUpstreamSettings(PageCatalog& catalog)
        G::borderless_fullscreen, Hook(&Config::installFreeResizeHooks), Restart,
        "Use a borderless fullscreen window on Windows.");
 #endif
+  BOOL("interface", "ui", "battle_log_summary_preview", "Battle Analysis (AAI)", battle_log_summary_preview,
+       U::battle_log_summary_preview, battleAnalysis, Live,
+       "Show Battle Analysis on combat reports. Turning this off closes analysis on the next update. "
+       "Requires an AAI-enabled build and battle-log hooks; reopen the report after enabling it.");
   BOOL("interface", "ui", "disable_escape_exit", "Block Escape exit prompt", disable_escape_exit,
        U::disable_escape_exit, hotkeys, Live,
        "Prevent Escape from opening the game's exit prompt except for an enabled double-tap.");

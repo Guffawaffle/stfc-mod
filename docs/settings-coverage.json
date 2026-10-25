@@ -576,6 +576,13 @@
       "policy": "patches"
     },
     {
+      "key": "patches.battlelogsummaryhooks",
+      "treatment": "toml_only",
+      "page": "advanced",
+      "application": "restart",
+      "policy": "patches"
+    },
+    {
       "key": "patches.bufffixhooks",
       "treatment": "toml_only",
       "page": "advanced",
@@ -1048,6 +1055,13 @@
       "key": "ui.auto_open_bulk_claim_flyout",
       "control": "boolean",
       "page": "claims",
+      "application": "live",
+      "treatment": "in_game"
+    },
+    {
+      "key": "ui.battle_log_summary_preview",
+      "control": "boolean",
+      "page": "interface",
       "application": "live",
       "treatment": "in_game"
     },

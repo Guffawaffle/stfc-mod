@@ -791,13 +791,14 @@ pinned_ships = ""
 hud_daily_goals = "auto"
 # Show the newest Haven help-history entries first
 reverse_haven_history = true
-# Requires a downstream build with the private stfc-aai source dependency enabled.
-# Experimental After-Action Intelligence: BATTLE ANALYSIS beneath the report header.
-# Opens directly from the summary screen; Esc/Back closes the overlay first.
-# The Command Overlay has participant selection, native round/sub-round shot history,
-# raw/landed damage, reported mitigation, observed abilities, scrolling and comparison.
-# Crew recommendations, simulations and derived mitigation efficiency are not included.
-battle_log_summary_preview = false
+# After-Action Intelligence: BATTLE ANALYSIS on combat reports (default on).
+# Also available in Mod Settings > Interface & Scale as "Battle Analysis (AAI)".
+# Requires an AAI-enabled build and patches.battlelogsummaryhooks; this setting
+# cannot add the feature to a build without it. Explicit false remains respected.
+# Turning off closes analysis on the next update; reopen the report after enabling.
+# Crew & Effects stays on-demand. Recorded observations do not establish uptime,
+# stack behavior or causal damage contribution. Esc/Back closes analysis first.
+battle_log_summary_preview = true
 
 # Skip the reveal box animation, and just open the boxes
 always_skip_reveal_sequence = true

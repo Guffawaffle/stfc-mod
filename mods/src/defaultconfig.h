@@ -296,7 +296,7 @@ namespace Sync
 
 namespace UI
 {
-  constexpr bool        battle_log_summary_preview = false;
+  constexpr bool        battle_log_summary_preview = true;
   constexpr bool        always_skip_reveal_sequence = true;
   constexpr bool        claim_navigation_recovery   = false;
   constexpr bool        arrow_keys_to_select_ship   = true;

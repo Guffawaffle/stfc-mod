@@ -26,6 +26,7 @@
 #include <optional>
 #include <set>
 #include <sstream>
+#include <thread>
 #include <stdexcept>
 
 namespace fixture
@@ -41,6 +42,11 @@ std::vector<Write>                            writes;
 std::set<std::string>                         registered;
 std::optional<mod_settings::TextEntryRequest> modal;
 bool                                          labelsAvailable = true;
+#ifdef STFC_AAI_ENABLED
+constexpr bool                                aaiCompiled = true;
+#else
+constexpr bool                                aaiCompiled = false;
+#endif
 int                                           labelRefreshes = 0, hudRefreshes = 0, shipRefreshes = 0;
 int                                           queueTrackingResets = 0;
 bool                                          queueRecoveryReady = true, thinQueueReady = true, queueAddressReady = true;
@@ -230,6 +236,7 @@ std::map<std::string, std::function<Value()>> NativeReads()
       {"ui.officer_sort", [&cfg] { return V(cfg.officer_sort); }},
       {"ui.only_show_first_popup", [&cfg] { return V(cfg.only_show_first_popup); }},
       {"ui.reverse_haven_history", [&cfg] { return V(cfg.reverse_haven_history); }},
+      {"ui.battle_log_summary_preview", [&cfg] { return V(cfg.battle_log_summary_preview); }},
       {"ui.show_armada_cargo", [&cfg] { return V(cfg.show_armada_cargo); }},
       {"ui.show_cargo_default", [&cfg] { return V(cfg.show_cargo_default); }},
       {"ui.show_hostile_cargo", [&cfg] { return V(cfg.show_hostile_cargo); }},
@@ -302,7 +309,17 @@ Model Exact(mod_settings::ActionSetting& action)
               value = "Victory";
             else
               value = "enterprise";
-            Require(modal->validate(value).empty(), "valid input rejected: " + key + " = " + value);
+            auto validation = modal->validate(value);
+            if (key == "graphics.loader_image") {
+              // The production fallback now validates its owned path off-thread.
+              // Wait only in this fixture, bounded; UI validation remains nonblocking.
+              const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+              while (validation == "Checking the image path..." && std::chrono::steady_clock::now() < deadline) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                validation = modal->validate(value);
+              }
+            }
+            Require(validation.empty(), "valid input rejected: " + key + " = " + value);
             Require(modal->commit(value), "exact commit rejected: " + key);
             modal.reset();
           },
@@ -387,6 +404,7 @@ Config::Config()
   installPinnedShipClickToggle =
       static_cast<decltype(installPinnedShipClickToggle)>(DefaultConfig::Patches::pinnedshipclicktoggle);
   installHavenHistoryHooks = static_cast<decltype(installHavenHistoryHooks)>(DefaultConfig::Patches::havenhistoryhooks);
+  installBattleLogSummaryHooks = DefaultConfig::Patches::battlelogsummaryhooks;
   kirshara_fixes           = static_cast<decltype(kirshara_fixes)>(DefaultConfig::Control::kirshara_fixes);
   queue_enabled            = static_cast<decltype(queue_enabled)>(DefaultConfig::Control::queue_enabled);
   hotkeys_enabled          = static_cast<decltype(hotkeys_enabled)>(DefaultConfig::Control::hotkeys_enabled);
@@ -440,6 +458,7 @@ Config::Config()
   format_cargo_values   = static_cast<decltype(format_cargo_values)>(DefaultConfig::UI::format_cargo_values);
   officer_sort          = static_cast<decltype(officer_sort)>(DefaultConfig::UI::officer_sort);
   reverse_haven_history = static_cast<decltype(reverse_haven_history)>(DefaultConfig::UI::reverse_haven_history);
+  battle_log_summary_preview = DefaultConfig::UI::battle_log_summary_preview;
   dock_syncmanagement   = static_cast<decltype(dock_syncmanagement)>(DefaultConfig::UI::dock_syncmanagement);
   arrow_keys_to_select_ship =
       static_cast<decltype(arrow_keys_to_select_ship)>(DefaultConfig::UI::arrow_keys_to_select_ship);
@@ -653,9 +672,9 @@ int main(int argc, char** argv)
       Require(expected.emplace(row.at("key").get<std::string>(), row).second, "duplicate inventory key");
     }
 #if _WIN32
-    Require(expected.size() == 101, "Windows catalog count changed without a coverage decision");
+    Require(expected.size() == 102, "Windows catalog count changed without a coverage decision");
 #else
-    Require(expected.size() == 96, "macOS catalog count changed without a coverage decision");
+    Require(expected.size() == 97, "macOS catalog count changed without a coverage decision");
 #endif
     const auto reads = NativeReads();
     Require(reads.size() == expected.size(), "native field map missing an inventory key");
@@ -671,12 +690,15 @@ int main(int argc, char** argv)
     search.Build(pages);
     Require(!search.Find("ui.show_player_title").empty(), "actual catalog key missing from search");
     std::map<std::string, Model> models;
+    BooleanSetting* aaiSetting = nullptr;
     for (const auto& page : pages)
       for (const auto& item : page.items) {
         std::visit(
             [&](const auto& value) {
               using P = std::decay_t<decltype(value)>;
               if constexpr (std::is_same_v<P, BooleanSetting*>) {
+                if (value->metadata().TomlKey() == "ui.battle_log_summary_preview")
+                  aaiSetting = value;
                 value->Observe();
                 models.try_emplace(value->metadata().TomlKey(), Typed(*value));
               } else if constexpr (std::is_same_v<P, ChoiceSetting*>) {
@@ -701,7 +723,9 @@ int main(int argc, char** argv)
     for (const auto& [key, model] : models) {
       Require(expected.contains(key), "unexpected model key: " + key);
       Require(!model.metadata->description.empty(), "missing model help: " + key);
-      if (key.find("graphics.galaxy_overlay_") != 0)
+      if (key == "ui.battle_log_summary_preview")
+        Require(model.available() == aaiCompiled, "AAI availability differs from compiled capability");
+      else if (key.find("graphics.galaxy_overlay_") != 0)
         Require(model.available(), "startup default unavailable: " + key);
       const char* timing = model.metadata->timing == ApplyTiming::Restart      ? "restart"
                            : model.metadata->timing == ApplyTiming::ReopenView ? "reopen_view"
@@ -718,6 +742,7 @@ int main(int argc, char** argv)
     }
     for (const auto& [key, model] : models) {
       if (key.find("graphics.galaxy_overlay_") == 0) continue;
+      if (key == "ui.battle_log_summary_preview" && !aaiCompiled) continue;
       writes.clear();
       model.change(expected.at(key), image);
       Require(writes.size() == 1 && writes.back().key == key, "edit did not queue exactly its own field: " + key);
@@ -734,6 +759,32 @@ int main(int argc, char** argv)
         Require(writes.back().delay == std::chrono::milliseconds(250), "float edits lost save debounce: " + key);
       Require(ReadAll(reads) == defaults, "reset did not restore native baseline: " + key);
     }
+    Require(aaiSetting && DefaultConfig::UI::battle_log_summary_preview && Config::Get().battle_log_summary_preview,
+            "AAI must default on without registration mutating its configured value");
+    writes.clear();
+    if (aaiCompiled) {
+      Require(aaiSetting->SetFromUser(false, aaiSetting->Observe()).outcome == Outcome::AppliedVerified,
+              "AAI live disable rejected");
+      Require(!Config::Get().battle_log_summary_preview && writes.size() == 1
+                  && writes.back().key == "ui.battle_log_summary_preview"
+                  && std::get<bool>(writes.back().value) == false,
+              "AAI disable did not persist its existing canonical TOML key");
+      Require(aaiSetting->Observe().state.value == false, "AAI explicit off value was replaced by its default");
+      Require(aaiSetting->Reset(aaiSetting->Observe()).outcome == Outcome::AppliedVerified
+                  && Config::Get().battle_log_summary_preview && std::get<bool>(writes.back().value),
+              "AAI Defaults did not restore on");
+    }
+    Config::Get().installBattleLogSummaryHooks = false;
+    const auto beforeUnavailableAai            = writes.size();
+    Require(!aaiSetting->Observe().state.known(), "AAI appeared available without its startup hooks");
+    Require(aaiSetting->SetFromUser(false, aaiSetting->Observe()).outcome != Outcome::AppliedVerified,
+            "AAI accepted a live change without its startup hooks");
+    aaiSetting->Reset(aaiSetting->Observe());
+    Require(writes.size() == beforeUnavailableAai && Config::Get().battle_log_summary_preview,
+            "unavailable AAI controls changed or persisted configuration");
+    Config::Get().installBattleLogSummaryHooks = true;
+    Require(aaiSetting->Observe().state.known() == aaiCompiled,
+            "AAI compiled capability was bypassed by an enabled hook preference");
     Config::Get().galaxy_multi_select = true;
     writes.clear();
     SetGalaxyOverlay(1, true);

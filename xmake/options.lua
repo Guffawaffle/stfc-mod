@@ -47,7 +47,9 @@ option("stfc_profiles_allow_dirty")
 option_end()
 
 option("stfc_aai")
-    set_default(false)
+    -- play-dev includes AAI by default. Its live TOML toggle controls use;
+    -- --stfc_aai=n still builds without inspecting private AAI sources.
+    set_default(true)
     set_showmenu(true)
     set_description("Include private After-Action Intelligence source (requires authenticated submodule checkout)")
 option_end()
