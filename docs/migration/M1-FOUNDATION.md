@@ -5,6 +5,11 @@ migration, active-branch promotion or release-infrastructure change is authorize
 by this checkpoint. Existing play-dev, AAI, Profiles and Bridge checkouts remain
 the working products and reference inputs.
 
+Follow-up: [M1c execution-environment investigation](M1C-PROFILES-ENVIRONMENT.md)
+qualifies all three previously blocked Profiles suites in an ordinary Windows
+terminal, for both original and migrated binaries. The historical tool-context
+failures below remain valid; no fixture assertion or safety guard was weakened.
+
 ## Sources and isolation
 
 | Input | Exact source |
