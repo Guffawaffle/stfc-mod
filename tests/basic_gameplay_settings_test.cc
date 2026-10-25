@@ -62,7 +62,7 @@ int main()
     assert(registered.emplace(key.section, key.name).second);
     return writer.Register(key.section, key.name, Initial(startup, key));
   }));
-  assert(registered.size() == 18);
+  assert(registered.size() == 19);
   assert(writer.Submit("graphics", "not_registered", 1.0) == 0);
   std::map<std::pair<std::string, std::string>, Value> desired;
   std::size_t                                          submissions = 0;
@@ -124,6 +124,21 @@ int main()
         value);
   }
 
+  // Ctrl-Q uses this same registered boolean path in both directions, without
+  // changing its native recovery-reset action. Wait for real save receipts.
+  assert(writer.Resume());
+  bool queue_enabled = true;
+  gameplay_settings::ToggleBoolean(queue_enabled, gameplay_settings::Boolean::Queue, submit);
+  Drain(writer);
+  assert(!queue_enabled && toml::parse(ReadConfigText(path))["control"]["queue_enabled"].value<bool>() == false);
+  assert(writer.GetStatus("control", "queue_enabled").outcome == config_edit::Outcome::Saved);
+  assert(writer.Resume());
+  gameplay_settings::ToggleBoolean(queue_enabled, gameplay_settings::Boolean::Queue, submit);
+  Drain(writer);
+  assert(queue_enabled && toml::parse(ReadConfigText(path))["control"]["queue_enabled"].value<bool>() == true);
+  text  = ReadConfigText(path);
+  saved = toml::parse(text);
+
   // Automatic preset selection remains a nonpersistent live intent. The real
   // native RetainSessionIntent boundary is independently covered by its fixture.
   runtime_config::ReloadSnapshot session;
@@ -151,6 +166,23 @@ int main()
   Drain(writer);
   assert(writer.GetStatus("graphics", "ui_scale").outcome == config_edit::Outcome::Conflict);
   assert(ReadConfigText(path) == external);
+  // A missing key is not an observed false. External deletion conflicts with
+  // the acknowledged true value, while the live false can survive a reload.
+  auto       removed    = external;
+  const auto queue_line = removed.find("queue_enabled = true");
+  assert(queue_line != std::string::npos);
+  const auto queue_end = removed.find('\n', queue_line);
+  removed.erase(queue_line, queue_end == std::string::npos ? std::string::npos : queue_end - queue_line + 1);
+  assert(ReplaceConfigText(path, removed, external));
+  assert(writer.Resume());
+  gameplay_settings::ToggleBoolean(queue_enabled, gameplay_settings::Boolean::Queue, submit);
+  Drain(writer);
+  assert(!queue_enabled && writer.GetStatus("control", "queue_enabled").outcome == config_edit::Outcome::Conflict);
+  assert(ReadConfigText(path) == removed);
+  auto reloaded = toml::parse(removed);
+  assert(!reloaded["control"]["queue_enabled"]);
+  runtime_config::ApplyReloadSnapshot(reloaded, {{"control", "queue_enabled", queue_enabled}});
+  assert(reloaded["control"]["queue_enabled"].value<bool>() == false);
   std::cout << "Gameplay settings: registered native mutations, exact values, session-only zoom and preserving writer "
                "passed\n";
 }

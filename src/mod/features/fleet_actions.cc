@@ -4,6 +4,8 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "runtime_config.h"
+#include "settings/basic_gameplay_settings.h"
 #include "shortcuts.h"
 
 #include "game/app.h"
@@ -465,7 +467,10 @@ bool FleetShortcuts()
   }
   if (Shortcut::IsDown(Action::kToggleQueue)) {
     auto& queue_enabled = Config::Get().control.queue_enabled;
-    queue_enabled       = !queue_enabled;
+    gameplay_settings::ToggleBoolean(queue_enabled, gameplay_settings::Boolean::Queue,
+                                     [](const gameplay_settings::Key& key, bool value) {
+                                       runtime_config::SaveSetting(key.section, key.name, value, key.delay);
+                                     });
     ResetQueueRecoveryTracking();
     return true;
   }
