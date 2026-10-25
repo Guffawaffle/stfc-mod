@@ -161,6 +161,49 @@ foreign same-key assertion. The protection-failure fixture sets a fault flag;
 it is not an allocator-failure injection. Actual Unity hook resolution/extent,
 live quit, profile/store behavior and macOS remain unqualified.
 
+### Qualified M4B/C checkpoint
+
+Final source **`7d5ebf35d660cec92f78c2e3ba580166cebaddf4`**, implementation
+`ddb034f07887283e38dc4a6129cb97f31d1d29b1`, includes both reviewed corrections:
+reject invalid caller intents before mutation, and keep shared observation
+independent of the optional quit hook. Earlier `ddb034f0` results are retained
+separately and do not substitute for the corrected candidate.
+
+| Corrected candidate lane | Result |
+| --- | --- |
+| Windows x64 Zig 0.16, Profiles host | 166/166 steps; 8/8 reported Zig tests; all persistence and inherited fixtures |
+| Windows x64 Zig 0.17, Profiles host | 166/166 steps; all persistence and inherited fixtures |
+| Windows x64 Zig 0.16, default off | 144/144 steps; 8/8 reported Zig tests; missing private optional inputs inert |
+| WSL/Linux x64 Zig 0.16 | 131/131 steps; 8/8 reported Zig tests; 24 retained native fixture artifacts |
+
+Independent read-back checked all four clean pre/post source receipts, exact
+source/vendor/tool/artifact/log identities and fixture markers. Read-only PE
+inspection verified 18/18/16 exports with no dynamic CRT or leaked TOML C ABI.
+Each product links one compiled TOML parser. Profiles host closure retains the
+derived adapter and exact verified zlib provider; default-off excludes them.
+Three inert Profiles controls run per host; four option-negative controls run
+on 0.16, not repeated on 0.17. Windows ForceClose passed all four child cases per
+lane, bound to each installed fixture hash; the longest recorded child was
+0.531 seconds. Those children do not load STFC or qualify real game quit.
+
+Exact evidence root:
+`D:/dev/stfc-workspace/.ax/ripper-foundation-m4bc-20261025/candidates/7d5ebf35d660cec92f78c2e3ba580166cebaddf4`.
+Independent receipt SHA-256:
+`e0d6cc925a723d900f1f690825403054a9f45868a19d7abd9903dab5b785e24b`.
+No DLL from this checkpoint was loaded, signed, deployed or promoted.
+
+### Sync restart decision during this slice
+
+Guff delegated the compatibility choice after the source study established that
+the old bare sent-ID file records download-queue admission, not delivery.
+Keep its paths/bytes untouched, retain the new in-process per-target 2xx ACK and
+revision rules, and never seed delivery cursors or suppress acquisition from
+those IDs. Restart may re-fetch/re-send; this is explicit, not exactly-once
+delivery. No new persistence format, account inference or schema migration is
+introduced. Actual external-target behavior still needs qualification before a
+live sync trial. Queue safety, completeness and legacy config compatibility can
+proceed independently of durable target/account history.
+
 ## Remaining integration dependencies
 
 The core alone is not complete gameplay persistence parity. In particular, the
