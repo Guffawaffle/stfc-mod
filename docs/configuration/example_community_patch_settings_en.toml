@@ -298,6 +298,7 @@ zoom = 5000.0
 #  <[=====================================================]>
 
 [patches]
+fleetnotificationhooks = true
 
 # Subgroup: Leave Well Alone
 # --------------------------
@@ -747,6 +748,11 @@ zoom_reset = "="
 #  <[===================================================================]>
 
 [ui]
+## Dedicated own-ship incoming-player desktop alerts (station and NPC attacks are excluded).
+notify_incoming_player_attack = false
+## Fleet desktop events, comma-separated; All enables every event. Audio cues are configured separately.
+## ArrivedInSystem, ArrivedAtDestination, StartedMining, NodeDepleted, Docked, RepairComplete, MinerOPC
+notify_fleet_events = ""
 # Allow moving officer presets into occupied slots.
 allow_officer_preset_reordering = false
 # Skip the reveal box animation, and just open the boxes

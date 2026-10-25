@@ -18,7 +18,9 @@
       "new repositories",
       "release promotion"
     ],
-    "activeTrialPlatform": "Windows x64, client273; macOS source/build/runtime claims tracked separately"
+    "activeTrialPlatform": "Windows x64, client273; macOS source/build/runtime claims tracked separately",
+    "ci": "Parked by explicit user direction: no workflow edits, PR conflict resolution, merge or rebase during functional restoration.",
+    "promotion": "Wholesale replacement of play is the eventual destination, not authorized as part of this functional phase."
   },
   "tasks": [
     {
@@ -39,13 +41,13 @@
       "deps": [
         "P00"
       ],
-      "status": "inventory-complete",
+      "status": "source-reconciliation-in-progress",
       "steps": [
         "Account for every play hook owner, actual config reader, shortcut action, native UI workflow and platform behavior.",
         "Label present, partial, missing, accepted replacement and obsolete example-only keys.",
         "Keep play-dev/AAI/Kit/probes outside primary acceptance."
       ],
-      "trial": "Review three source inventories; map each genuine gap to a task below."
+      "trial": "Prior inventory-complete label was too strong. Independent workflow inspection found additional Settings, notification, Galaxy, preset, diagnostic and degraded-binding contracts; see PLAY-PARITY.md and play-functional-parity.json."
     },
     {
       "id": "P02",
@@ -111,7 +113,7 @@
       ],
       "status": "user-confirmed",
       "steps": [
-        "Restore V/MOUSE2 node→occupant→cargo→node cycle.",
+        "Restore V/MOUSE2 node\u2192occupant\u2192cargo\u2192node cycle.",
         "Preserve own-miner exclusion, cargo-first preferences, context ownership and5s timeout.",
         "Route ActionView before generic cargo toggle; preserve primary Mine action."
       ],

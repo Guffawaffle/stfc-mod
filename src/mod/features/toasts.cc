@@ -3,9 +3,12 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "features/incoming_player_attack_tracker.h"
 #include "features/notification_audio.h"
+#include "features/notifications.h"
 #include "features/toast_text.h"
 
+#include "game/notifications.h"
 #include "game/server.h"
 #include "game/ui.h"
 
@@ -15,6 +18,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -402,10 +406,12 @@ void ShowWindowsNotification(const char* title, const std::string& body)
 }
 #endif
 
-// TODO: macOS has no notification delivery yet, so notify_banner_types does nothing there.
+thread_local unsigned toast_notification_suppression_depth = 0;
+
 void Notify(Toast* toast)
 {
-#if _WIN32
+  if (toast_notification_suppression_depth)
+    return;
   const auto  state = toast->State();
   const auto& types = Config::Get().ui.notify_banner_types;
   if (!std::ranges::contains(types, std::to_underlying(state)))
@@ -415,19 +421,55 @@ void Notify(Toast* toast)
     spdlog::debug("[Toasts] No title mapping for toast state {}, skipping", std::to_underlying(state));
     return;
   }
-  ShowWindowsNotification(title->second, NotificationBody(toast));
-#else
-  (void)toast;
-#endif
+  EmitDesktopNotification(title->second, NotificationBody(toast));
 }
 
 // --- Banners ---
+
+// True means the dedicated alert path handled side effects; native banner visibility remains independent.
+bool HandleIncomingPlayerAlert(Toast* toast)
+{
+  const auto& config = Config::Get();
+  if (toast->State() != ToastState::IncomingAttack
+      || (!config.ui.notify_incoming_player_attack && !config.audio.alert_incoming_player_attack.enabled()))
+    return false;
+  const auto attack = ReadIncomingPlayerAttack(toast);
+  if (!attack)
+    return false;
+  static IncomingPlayerAttackTracker tracker;
+  static std::mutex                  mutex;
+  bool                               first;
+  {
+    std::lock_guard lock(mutex);
+    first =
+        tracker.Accept(attack->event_id, attack->fleet_id, attack->attacker, IncomingPlayerAttackTracker::Clock::now());
+  }
+  if (!first)
+    return true;
+  PlayNotificationSound(config.audio.alert_incoming_player_attack);
+  if (!toast_notification_suppression_depth
+      && (config.ui.notify_incoming_player_attack
+          || std::ranges::contains(config.ui.notify_banner_types, std::to_underlying(ToastState::IncomingAttack)))) {
+    auto body = toast_text::StripRichText(ToastText(toast));
+    if (body.empty()) {
+      body = attack->attacker.empty() ? "A player is approaching your ship."
+                                      : attack->attacker + " is approaching your ship.";
+      if (attack->slot >= 0 && attack->slot < 100)
+        body += " Ship slot " + std::to_string(attack->slot + 1) + ".";
+    }
+    EmitDesktopNotification("Incoming Player Attack", body);
+  }
+  return true;
+}
 
 // Plays the toast's alert and sends its notification, then says whether the game should show its banner.
 bool ShowBanner(Toast* toast)
 {
   if (!toast)
     return true;
+  auto toast_root = il2cpp::GcHandle::Strong(toast);
+  if (HandleIncomingPlayerAlert(toast))
+    return !std::ranges::contains(Config::Get().ui.disabled_banner_types, std::to_underlying(toast->State()));
   const auto&                 audio = Config::Get().audio;
   const NotificationAudioCue* sound = nullptr;
   switch (toast->State()) {
@@ -474,6 +516,37 @@ bool InstallToasts()
   IL2CPP_STAGE(hooks, ToastObserver::Class::Method("EnqueueOrCombineToast"), ToastObserver_EnqueueOrCombineToast_Hook);
   return hooks.Commit();
 }
+
+void ToastNotificationFrame()
+{
+  const auto& ui = Config::Get().ui;
+  if (!ui.notify_banner_types.empty() || ui.notify_incoming_player_attack || ui.notify_fleet_events)
+    InitializeDesktopNotifications();
+}
 } // namespace
 
-const Feature kToasts{"Toasts", &Config::Patches::toastbannerhooks, InstallToasts};
+const Feature kToasts{"Toasts", &Config::Patches::toastbannerhooks, InstallToasts, ToastNotificationFrame};
+
+void InitializeDesktopNotifications()
+{
+#if __APPLE__
+  static bool requested = false;
+  if (!std::exchange(requested, true))
+    NotificationDesktopMacInit();
+#endif
+}
+
+void EmitDesktopNotification(std::string_view title, std::string_view body)
+{
+  InitializeDesktopNotifications();
+#if _WIN32
+  ShowWindowsNotification(std::string(title).c_str(), std::string(body));
+#elif __APPLE__
+  NotificationDesktopMacEmit(title, body);
+#endif
+}
+
+ScopedToastNotificationSuppression::ScopedToastNotificationSuppression()
+{ ++toast_notification_suppression_depth; }
+ScopedToastNotificationSuppression::~ScopedToastNotificationSuppression()
+{ --toast_notification_suppression_depth; }

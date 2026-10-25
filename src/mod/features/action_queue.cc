@@ -64,12 +64,15 @@ ActionQueueInstance* FindQueue(ActionQueueManager* manager, int64_t fleet_id)
 // Empty, which reads as no queue, when the queue or any captured action cannot be read.
 action_queue::QueueSnapshot SnapshotOf(ActionQueueInstance* queue)
 {
-  auto* actions = queue ? queue->actionQueue() : nullptr;
+  auto* actions = queue && ActionQueueInstance::SafetyFieldsAvailable() ? queue->actionQueue() : nullptr;
   if (!actions)
+    return {};
+  const auto count = actions->TryCall<"get_Count", int32_t>();
+  if (!count || count.value < 0)
     return {};
   action_queue::QueueSnapshot snapshot{
       .player_fleet_id        = queue->PlayerFleetId(),
-      .count                  = actions->Count(),
+      .count                  = count.value,
       .is_engaging            = queue->IsEngaging(),
       .last_engaged_target_id = queue->LastEngagedTargetId(),
       .pending_target_id      = queue->PendingEngageTargetId(),
@@ -110,7 +113,7 @@ void ClearRequests()
 // `target`, when given, is checked against every queued action; otherwise only the head is read.
 action_queue::RetryState RetryStateOf(ActionQueueInstance* queue, int64_t target = 0)
 {
-  if (!queue)
+  if (!queue || !ActionQueueInstance::SafetyFieldsAvailable())
     return {};
   action_queue::RetryState state{
       .fleet    = queue->PlayerFleetId(),
@@ -120,16 +123,21 @@ action_queue::RetryState RetryStateOf(ActionQueueInstance* queue, int64_t target
   auto* actions = queue->actionQueue();
   if (!actions)
     return state;
-  state.count = actions->Count();
+  const auto count = actions->TryCall<"get_Count", int32_t>();
+  if (!count || count.value < 0)
+    return state;
+  state.count = count.value;
   if (state.count > 0) {
     auto* head = (*actions)[0];
     if (!head)
       return state;
     state.front = head->FleetId();
+    if (!state.front)
+      return state;
   }
   if (target) {
     for (auto* action : *actions) {
-      if (!action)
+      if (!action || !action->FleetId())
         return state;
       state.contains_target |= action->FleetId() == target;
     }
@@ -240,14 +248,16 @@ bool ResumeAfterPrune(ActionQueueManager* manager, ActionQueueInstance* queue, F
   const auto confirmed = SnapshotOf(queue);
   if (!action_queue::IsStableResumePostcondition(after, confirmed))
     return false;
-  // The game's own engage entry, so faster recovery sees this attempt like any other. If it throws, the binding
-  // contains the exception and reports it, but the result reads as Success.
-  // TODO(tashcan): let the binding tell a contained exception apart, so a throw is not taken for an engage.
-  const auto result = manager->TryPlanPathAndEngageTarget(fleet, queue);
+  // A contained native exception is unavailable evidence, never EngageResult::Success (whose value is zero).
+  const auto result =
+      manager->TryCall<"TryPlanPathAndEngageTarget", EngageResult(FleetPlayerData*, ActionQueueInstance*)>(fleet,
+                                                                                                           queue);
+  if (!result)
+    return false;
   spdlog::info("[ThinQueueProtection] resumed fleet {} after the {} pruned it: head {} -> {} of {}, {}",
                confirmed.player_fleet_id, source, before.head_target_id, confirmed.head_target_id, confirmed.count,
-               action_queue::EngageResultName(static_cast<int>(result)));
-  return result == EngageResult::Success;
+               action_queue::EngageResultName(static_cast<int>(result.value)));
+  return result.value == EngageResult::Success;
 }
 
 bool ActionQueueManager_DoPlanPathAndEngageTarget_Hook(auto original, ActionQueueManager* _this, FleetPlayerData* fleet)
@@ -262,7 +272,8 @@ bool ActionQueueManager_DoPlanPathAndEngageTarget_Hook(auto original, ActionQueu
   if (FindQueue(_this, id) != queue)
     return result;
   const auto after = SnapshotOf(queue);
-  const bool idle  = !result && before.player_fleet_id == id && fleet->CurrentState() == FleetState::IdleInSpace;
+  const auto state = fleet->TryCall<"get_CurrentState", FleetState>();
+  const bool idle  = !result && before.player_fleet_id == id && state && state.value == FleetState::IdleInSpace;
   return ResumeAfterPrune(_this, queue, fleet, idle, before, after, "planner") || result;
 }
 
@@ -275,11 +286,15 @@ void ActionQueueManager_HandleStall_Hook(auto original, ActionQueueManager* _thi
   original(_this, queue, fleet, deployed);
   if (FindQueue(_this, before.player_fleet_id) != queue)
     return;
-  const auto after = SnapshotOf(queue);
-  const bool idle  = before.player_fleet_id == fleet->Id() && before.player_fleet_id == deployed->Id()
-                     && fleet->CurrentState() == FleetState::IdleInSpace
-                     && deployed->CurrentState() == DeployedFleetState::Idle && !deployed->IsDestroyed()
-                     && !deployed->CurrentlyBattling();
+  const auto after          = SnapshotOf(queue);
+  const auto player_state   = fleet->TryCall<"get_CurrentState", FleetState>();
+  const auto deployed_state = deployed->TryCall<"get_CurrentState", DeployedFleetState>();
+  const auto destroyed      = deployed->TryCall<"get_IsDestroyed", bool>();
+  const auto battling       = deployed->TryCall<"get_CurrentlyBattling", bool>();
+  const bool idle = before.player_fleet_id == fleet->Id() && before.player_fleet_id == deployed->Id() && player_state
+                    && player_state.value == FleetState::IdleInSpace && deployed_state
+                    && deployed_state.value == DeployedFleetState::Idle && destroyed && !destroyed.value && battling
+                    && !battling.value;
   ResumeAfterPrune(_this, queue, fleet, idle, before, after, "watchdog");
 }
 
@@ -326,7 +341,13 @@ action_queue::Address AddressOf(NodeAddress* address)
 {
   if (!address)
     return {};
-  action_queue::Address value{true, address->Galaxy(), address->System(), address->Planet(), address->Instance()};
+  const auto galaxy   = address->TryCall<"get_Galaxy", int64_t>();
+  const auto system   = address->TryCall<"get_System", int64_t>();
+  const auto planet   = address->TryCall<"get_Planet", int64_t>();
+  const auto instance = address->TryCall<"get_Instance", int32_t>();
+  if (!galaxy || !system || !planet || !instance)
+    return {};
+  action_queue::Address value{true, galaxy.value, system.value, planet.value, instance.value};
   value.valid = value.galaxy >= 0 && value.system > 0 && value.planet >= 0 && value.instance >= 0;
   return value;
 }
@@ -376,17 +397,23 @@ NodeAddress* FleetPlayerData_get_Address_Hook(auto original, FleetPlayerData* _t
   auto* check    = current_address_check;
   if (!check || _this != check->fleet || !check->own_deployment || !check->target)
     return reported;
-  auto*                               own      = check->own_deployment;
-  auto*                               deployed = own->address();
+  auto*      own            = check->own_deployment;
+  auto*      deployed       = own->address();
+  const auto recall         = own->TryCall<"get_IsPlanningRecallCourse", bool>();
+  const auto player_state   = _this->TryCall<"get_CurrentState", FleetState>();
+  const auto deployed_state = own->TryCall<"get_CurrentState", DeployedFleetState>();
+  const auto removal        = own->TryCall<"get_RemovalReason", FleetRemovalReason>();
+  if (!recall || !player_state || !deployed_state || !removal)
+    return reported;
   const action_queue::AddressEvidence evidence{
       .enabled            = true,
       .player_state_event = in_player_state_event,
       .owned_queue        = true,
       .owned_deployment   = IsOwnDeployment(own, check->fleet_id),
-      .planning_recall    = own->IsPlanningRecallCourse(),
-      .player_state       = static_cast<int>(_this->CurrentState()),
-      .deployed_state     = static_cast<int>(own->CurrentState()),
-      .removal_reason     = static_cast<int>(own->RemovalReason()),
+      .planning_recall    = recall.value,
+      .player_state       = static_cast<int>(player_state.value),
+      .deployed_state     = static_cast<int>(deployed_state.value),
+      .removal_reason     = static_cast<int>(removal.value),
       .reported           = AddressOf(reported),
       .deployed           = AddressOf(deployed),
       .target             = AddressOf(check->target->address()),
@@ -415,6 +442,8 @@ FleetDeployedData* DeploymentService_GetDeployedFleet_Hook(auto original, Deploy
 #if _WIN32
 bool InstallActionQueueRecovery()
 {
+  if (!ActionQueueInstance::SafetyFieldsAvailable())
+    return false;
   using Manager = ActionQueueManager::Class;
   il2cpp::HookSet hooks("ActionQueueRecovery");
   IL2CPP_STAGE(hooks,
@@ -431,6 +460,8 @@ bool InstallActionQueueRecovery()
 
 bool InstallThinQueueProtection()
 {
+  if (!ActionQueueInstance::SafetyFieldsAvailable())
+    return false;
   using Manager = ActionQueueManager::Class;
   // Called rather than hooked: a missing one would read as a successful engage.
   if (!Manager::Method<EngageResult(FleetPlayerData*, ActionQueueInstance*)>("TryPlanPathAndEngageTarget"))

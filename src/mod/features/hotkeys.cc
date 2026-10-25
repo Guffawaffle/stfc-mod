@@ -4,6 +4,7 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "features/fleet_watch.h"
 #include "runtime_config.h"
 #include "settings/basic_gameplay_settings.h"
 #include "shortcuts.h"
@@ -133,6 +134,9 @@ bool InstallHotkeys()
   if (hooks.Commit())
     InstallKeybindBadges();
   InstallFleetActions();
+#ifdef _MODDBG
+  fleet_watch::InstallRuntimeProbe();
+#endif
   // The dispatch itself needs no hook: the frame tick runs it. The hint badges and pre-scan cargo are extras whose
   // own sets report themselves.
   hotkeys_installed = true;

@@ -1,0 +1,2604 @@
+{
+  "schema": "stfc-play-functional-parity/v1",
+  "baseline": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+  "migrationDiscoveryHead": "5c921b65e2b35d0d1ba008f7b6dcbb25f93e3430",
+  "scope": "Player workflows and supporting contracts; later play-dev, AAI/Kit expansion excluded",
+  "state": "discovery-and-restoration-in-progress",
+  "authority": "PLAY-PARITY.md",
+  "ci": "Explicitly parked; local builds and targeted tests only",
+  "overallFunctionalParity": false,
+  "capabilities": [
+    {
+      "id": "PLAY-FLEET-SELECT",
+      "name": "Fleet shortcut selection and repeated locate",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/hotkeys.cc",
+        "symbolOrWorkflow": "SelectShip"
+      },
+      "migration": {
+        "path": "src/mod/features/fleet_actions.cc",
+        "symbolOrWorkflow": "SelectShipShortcuts"
+      },
+      "expectedBehavior": "Fleet shortcut selection and repeated locate",
+      "verificationProcedure": "Choose occupied/empty slots, repeat inside/outside timer, replace bar, focus text.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Choose occupied/empty slots, repeat inside/outside timer, replace bar, focus text.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-FLEET-TOW",
+      "name": "Discovery shift-ship towing",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/hotkeys.cc",
+        "symbolOrWorkflow": "SelectShip"
+      },
+      "migration": {
+        "path": "src/mod/features/fleet_actions.cc",
+        "symbolOrWorkflow": "SelectShipShortcuts"
+      },
+      "expectedBehavior": "Discovery shift-ship towing",
+      "verificationProcedure": "Current-client seven-argument PlanCourse, native coroutine scheduling and completion ownership must be established. Do not drain MoveNext in a busy loop.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Current-client seven-argument PlanCourse, native coroutine scheduling and completion ownership must be established. Do not drain MoveNext in a busy loop.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-FLEET-ACTIONS",
+      "name": "Contextual movement, attack, repair, recall and queue actions",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/hotkeys.cc",
+        "symbolOrWorkflow": "ExecuteSpaceAction"
+      },
+      "migration": {
+        "path": "src/mod/features/fleet_actions.cc",
+        "symbolOrWorkflow": "FleetActionShortcuts"
+      },
+      "expectedBehavior": "Contextual movement, attack, repair, recall and queue actions",
+      "verificationProcedure": "Exercise every viewer and fleet state; replace fleet/target during deferred retry; scene exit cancels.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Exercise every viewer and fleet state; replace fleet/target during deferred retry; scene exit cancels.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-FLEET-PREVIEW-GATES",
+      "name": "Preview, locate, recall and Escape precedence",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/hotkeys.cc",
+        "symbolOrWorkflow": "CanHideViewers"
+      },
+      "migration": {
+        "path": "src/mod/features/fleet_actions.cc",
+        "symbolOrWorkflow": "FleetActionShortcuts"
+      },
+      "expectedBehavior": "Preview, locate, recall and Escape precedence",
+      "verificationProcedure": "Nested target cards, rewards, held Escape, text focus and both hotkey modes.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Nested target cards, rewards, held Escape, text focus and both hotkey modes.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-FLEET-ABILITY-RECOVERY",
+      "name": "Expired ability button recovery",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/hotkeys.cc",
+        "symbolOrWorkflow": "UpdateExpiredAbilityButtons"
+      },
+      "migration": {
+        "path": "src/mod/features/fleet_actions.cc",
+        "symbolOrWorkflow": "AbilityButtonsFrame"
+      },
+      "expectedBehavior": "Expired ability button recovery",
+      "verificationProcedure": "Cooldown expires with panel open; switch fleet; unavailable timers/CanUseAbility; mismatched arrays.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Cooldown expires with panel open; switch fleet; unavailable timers/CanUseAbility; mismatched arrays.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-QUEUE-SWITCH",
+      "name": "Queue enable and persisted toggle",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/testing.cc",
+        "symbolOrWorkflow": "IsQueueEnabled"
+      },
+      "migration": {
+        "path": "src/mod/features/fleet_actions.cc",
+        "symbolOrWorkflow": "ActionQueueManager_IsQueueUnlocked_Hook"
+      },
+      "expectedBehavior": "Queue enable and persisted toggle",
+      "verificationProcedure": "Toggle with outstanding responses and queued targets; reload and restart; preserve native locked result.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Toggle with outstanding responses and queued targets; reload and restart; preserve native locked result.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-QUEUE-RECOVERY",
+      "name": "Vanished-target course recovery",
+      "classification": "Partial",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/action_queue.cc",
+        "symbolOrWorkflow": "InstallActionQueueRecovery"
+      },
+      "migration": {
+        "path": "src/mod/features/action_queue.cc",
+        "symbolOrWorkflow": "InstallActionQueueRecovery"
+      },
+      "expectedBehavior": "Vanished-target course recovery",
+      "verificationProcedure": "Out-of-order and old responses, replaced queues, disabled fixes, teardown and unavailable secondary queue count. macOS adapter remains absent.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Out-of-order and old responses, replaced queues, disabled fixes, teardown and unavailable secondary queue count. macOS adapter remains absent.",
+      "restorationCommits": [
+        "working candidate after 5c921b65; not yet committed or deployed"
+      ],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-QUEUE-THIN",
+      "name": "Native prefix-prune recovery",
+      "classification": "Partial",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/thin_queue_protection.cc",
+        "symbolOrWorkflow": "InstallThinQueueProtection"
+      },
+      "migration": {
+        "path": "src/mod/features/action_queue.cc",
+        "symbolOrWorkflow": "InstallThinQueueProtection"
+      },
+      "expectedBehavior": "Native prefix-prune recovery",
+      "verificationProcedure": "Unknown latches/count/state decline; engage exception preserves original false; disposal/watchdog/replacement; macOS target qualification pending.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Unknown latches/count/state decline; engage exception preserves original false; disposal/watchdog/replacement; macOS target qualification pending.",
+      "restorationCommits": [
+        "working candidate after 5c921b65; not yet committed or deployed"
+      ],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-QUEUE-ADDRESS",
+      "name": "Conservative deployed-address substitution",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/queue_address_guard.cc",
+        "symbolOrWorkflow": "PlayerAddress"
+      },
+      "migration": {
+        "path": "src/mod/features/action_queue.cc",
+        "symbolOrWorkflow": "FleetPlayerData_get_Address_Hook"
+      },
+      "expectedBehavior": "Conservative deployed-address substitution",
+      "verificationProcedure": "Fault every recall/state/removal/address read; legitimate zero/false still allowed only with complete matching evidence.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Fault every recall/state/removal/address read; legitimate zero/false still allowed only with complete matching evidence.",
+      "restorationCommits": [
+        "working candidate after 5c921b65; not yet committed or deployed"
+      ],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CARGO-PREVIEW",
+      "name": "Category defaults and delayed cargo opening",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/hotkeys.cc",
+        "symbolOrWorkflow": "HandleCargo"
+      },
+      "migration": {
+        "path": "src/mod/features/fleet_actions.cc",
+        "symbolOrWorkflow": "Cargo"
+      },
+      "expectedBehavior": "Category defaults and delayed cargo opening",
+      "verificationProcedure": "All target categories, delayed widgets, replacement/expiry, native/mod hotkey changes.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "All target categories, delayed widgets, replacement/expiry, native/mod hotkey changes.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-MINING-CYCLE",
+      "name": "Mining node, occupant and cargo cycle",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/mining_preview.cc",
+        "symbolOrWorkflow": "Cycle"
+      },
+      "migration": {
+        "path": "src/mod/features/mining_preview.cc",
+        "symbolOrWorkflow": "Cycle"
+      },
+      "expectedBehavior": "Mining node, occupant and cargo cycle",
+      "verificationProcedure": "Occupied/vacant/change occupant, cargo options, node reuse, scene change and timeout.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Occupied/vacant/change occupant, cargo options, node reuse, scene change and timeout.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CARGO-FORMAT",
+      "name": "Cargo abbreviation precision",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/cargo_format.cc",
+        "symbolOrWorkflow": "InstallCargoFormat"
+      },
+      "migration": {
+        "path": "src/mod/features/cargo.cc",
+        "symbolOrWorkflow": "CargoFormat"
+      },
+      "expectedBehavior": "Cargo abbreviation precision",
+      "verificationProcedure": "Cargo vs unrelated labels, precision below/above range and reload.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Cargo vs unrelated labels, precision below/above range and reload.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CARGO-INSTANT",
+      "name": "Instant cargo counter with native flag restoration",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/instant_cargo.cc",
+        "symbolOrWorkflow": "InstallInstantCargo"
+      },
+      "migration": {
+        "path": "src/mod/features/cargo.cc",
+        "symbolOrWorkflow": "InstantCargo"
+      },
+      "expectedBehavior": "Instant cargo counter with native flag restoration",
+      "verificationProcedure": "Reused/noncargo context and original snap true/false; Windows only in both sources.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Reused/noncargo context and original snap true/false; Windows only in both sources.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-OFFICER-SORT",
+      "name": "Below Deck Ability sort",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/officer_sort.cc",
+        "symbolOrWorkflow": "InstallOfficerSort"
+      },
+      "migration": {
+        "path": "src/mod/features/officers.cc",
+        "symbolOrWorkflow": "InstallOfficerSort"
+      },
+      "expectedBehavior": "Below Deck Ability sort",
+      "verificationProcedure": "Both screens/directions, locked/tied officers, repeated initialization and failed optional comparers.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Both screens/directions, locked/tied officers, repeated initialization and failed optional comparers.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-OFFICER-PRESETS",
+      "name": "Preset ordering and canonical native save",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/officer_preset_reorder.cc",
+        "symbolOrWorkflow": "OnSaveSlotsSuccess"
+      },
+      "migration": {
+        "path": "src/mod/features/officers.cc",
+        "symbolOrWorkflow": "No native adapter"
+      },
+      "expectedBehavior": "Preset ordering and canonical native save",
+      "verificationProcedure": "Modifier move, quiet/fixed empty rows, large SlotId, nested save during old/new projection adoption, disable/release, restart. Parked draft is unsafe and inactive.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Modifier move, quiet/fixed empty rows, large SlotId, nested save during old/new projection adoption, disable/release, restart. Parked draft is unsafe and inactive.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-PINS-ORDER",
+      "name": "Stable-ID ship pins and legacy-name fallback",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/pinned_ship_sort.cc",
+        "symbolOrWorkflow": "Sort"
+      },
+      "migration": {
+        "path": "src/mod/features/dock.cc",
+        "symbolOrWorkflow": "PinnedShips"
+      },
+      "expectedBehavior": "Stable-ID ship pins and legacy-name fallback",
+      "verificationProcedure": "Same hull/level ties, large IDs, ambiguous legacy names, failed write/rollback, receipt publication and restart.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Same hull/level ties, large IDs, ambiguous legacy names, failed write/rollback, receipt publication and restart.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-PINS-INPUT",
+      "name": "Badge double-click and hold-drag pin gestures",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/swap_ship_pin_input.cc",
+        "symbolOrWorkflow": "Input"
+      },
+      "migration": {
+        "path": "src/mod/features/ship_pin_input.cc",
+        "symbolOrWorkflow": "Input"
+      },
+      "expectedBehavior": "Badge double-click and hold-drag pin gestures",
+      "verificationProcedure": "Drop inside/outside group/viewport, recycled tile, focus loss, missing end-drag, native scrolling, failed persistence and rapid edits.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Drop inside/outside group/viewport, recycled tile, focus loss, missing end-drag, native scrolling, failed persistence and rapid edits.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-DOCK-ASSIGN",
+      "name": "Double-click and Enter assignment",
+      "classification": "Partial",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/double_click_assign_ship.cc",
+        "symbolOrWorkflow": "AssignShipEnterKeyUpdate"
+      },
+      "migration": {
+        "path": "src/mod/features/dock.cc",
+        "symbolOrWorkflow": "AssignOnEnterFrame"
+      },
+      "expectedBehavior": "Double-click and Enter assignment",
+      "verificationProcedure": "Double/triple clicks, badge clicks, recycled tiles, held Enter, focus and patch disabled. Migration intentionally uses one assignment per key press; acceptance pending.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Double/triple clicks, badge clicks, recycled tiles, held Enter, focus and patch disabled. Migration intentionally uses one assignment per key press; acceptance pending.",
+      "restorationCommits": [
+        "working candidate after 5c921b65; not yet committed or deployed"
+      ],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-DOCK-SYNC",
+      "name": "Management ship selects actual dock slot",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/hotkeys.cc",
+        "symbolOrWorkflow": "UpdateManageShipDockSelection"
+      },
+      "migration": {
+        "path": "src/mod/features/dock.cc",
+        "symbolOrWorkflow": "DockSelection"
+      },
+      "expectedBehavior": "Management ship selects actual dock slot",
+      "verificationProcedure": "Unassigned/synthetic fleet, different dock sort, blocked selection, bar replacement and sections.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Unassigned/synthetic fleet, different dock sort, blocked selection, bar replacement and sections.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-SCREEN-ACTIONS",
+      "name": "Ship/officer/preset navigation and deferred buttons",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/hotkeys.cc",
+        "symbolOrWorkflow": "ScreenHotkeys"
+      },
+      "migration": {
+        "path": "src/mod/features/screens.cc",
+        "symbolOrWorkflow": "ScreenShortcuts"
+      },
+      "expectedBehavior": "Ship/officer/preset navigation and deferred buttons",
+      "verificationProcedure": "Slow screen creation, cancellation/timeout, hidden pooled screen and text focus.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Slow screen creation, cancellation/timeout, hidden pooled screen and text focus.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-FOCUS-SEARCH",
+      "name": "Search focus and legacy cross-section setting alias",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/focus_search.cc",
+        "symbolOrWorkflow": "FocusSearch"
+      },
+      "migration": {
+        "path": "src/mod/features/screens.cc",
+        "symbolOrWorkflow": "FocusSearch"
+      },
+      "expectedBehavior": "Search focus and legacy cross-section setting alias",
+      "verificationProcedure": "Alias-only false; canonical precedence including malformed canonical; focus native screen search and release keys.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Alias-only false; canonical precedence including malformed canonical; focus native screen search and release keys.",
+      "restorationCommits": [
+        "working candidate after 5c921b65; not yet committed or deployed"
+      ],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-WARP-AUTO",
+      "name": "Per-ship jump/warp/ask precedence",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/instant_warp_confirmation.cc",
+        "symbolOrWorkflow": "ResolveInstantWarpConfirmation"
+      },
+      "migration": {
+        "path": "src/mod/features/instant_warp.cc",
+        "symbolOrWorkflow": "Popup"
+      },
+      "expectedBehavior": "Per-ship jump/warp/ask precedence",
+      "verificationProcedure": "Overlapping filters, default, localized hull keys, no valid fleet/course and failed native action.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Overlapping filters, default, localized hull keys, no valid fleet/course and failed native action.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-WARP-MODIFIER",
+      "name": "Ctrl/Command-click manual warp/jump choice",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/instant_warp_confirmation.cc",
+        "symbolOrWorkflow": "OnMoveFleetAction_Hook"
+      },
+      "migration": {
+        "path": "src/mod/features/instant_warp.cc",
+        "symbolOrWorkflow": "OnMoveFleetAction"
+      },
+      "expectedBehavior": "Ctrl/Command-click manual warp/jump choice",
+      "verificationProcedure": "Wrong fleet/node/popup, delayed popup, one-use intent, invalid identity, held/released mouse and both platforms.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Wrong fleet/node/popup, delayed popup, one-use intent, invalid identity, held/released mouse and both platforms.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-WARP-LABEL",
+      "name": "WARP/JUMP visit-label preview",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/warp_action_label.cc",
+        "symbolOrWorkflow": "Label"
+      },
+      "migration": {
+        "path": "src/mod/features/instant_warp.cc",
+        "symbolOrWorkflow": "Label"
+      },
+      "expectedBehavior": "WARP/JUMP visit-label preview",
+      "verificationProcedure": "Fleet/filter/modifier changes, external text owner, toll/wormhole, recycled label; no action/cost mutation.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Fleet/filter/modifier changes, external text owner, toll/wormhole, recycled label; no action/cost mutation.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-WARP-COURSE",
+      "name": "Retained hidden Galaxy course action",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/planned_system_warp.cc",
+        "symbolOrWorkflow": "TryRequestPlannedSystemWarp"
+      },
+      "migration": {
+        "path": "src/mod/features/fleet_actions.cc",
+        "symbolOrWorkflow": "TryPlannedSystemWarp"
+      },
+      "expectedBehavior": "Retained hidden Galaxy course action",
+      "verificationProcedure": "Replace selected fleet/course/path during getter; reject toll/recall/used/wormhole/action course.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Replace selected fleet/course/path during getter; reject toll/recall/used/wormhole/action course.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-SHIP-TECH-ART",
+      "name": "Exact-ship FT/CT indicators",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/ship_tech_indicators.cc",
+        "symbolOrWorkflow": "Bind"
+      },
+      "migration": {
+        "path": "src/mod/features/ship_tech_indicators.cc",
+        "symbolOrWorkflow": "Bind"
+      },
+      "expectedBehavior": "Exact-ship FT/CT indicators",
+      "verificationProcedure": "Neither/each/both techs, same-hull distinct ships, missing donors, pooling and pin coexistence.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Neither/each/both techs, same-hull distinct ships, missing donors, pooling and pin coexistence.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-FLEET-BADGES",
+      "name": "Configured shortcut on own system fleet labels",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/ship_shortcut_badges.cc",
+        "symbolOrWorkflow": "Bind"
+      },
+      "migration": {
+        "path": "src/mod/features/ship_shortcut_badges.cc",
+        "symbolOrWorkflow": "Bind"
+      },
+      "expectedBehavior": "Configured shortcut on own system fleet labels",
+      "verificationProcedure": "User confirmed own vs foreign labels in prior build; still exercise pooled rebind, dock reorder, remap and native mode on final artifact.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "User confirmed own vs foreign labels in prior build; still exercise pooled rebind, dock reorder, remap and native mode on final artifact.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-FLEET-LABELS",
+      "name": "Player/nonplayer label detail and thresholds",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/zoom.cc",
+        "symbolOrWorkflow": "FleetLabel"
+      },
+      "migration": {
+        "path": "src/mod/features/fleet_labels.cc",
+        "symbolOrWorkflow": "FleetLabels"
+      },
+      "expectedBehavior": "Player/nonplayer label detail and thresholds",
+      "verificationProcedure": "All profiles/kinds, live threshold and native restoration; release/rebind from native LOD callbacks; exact-generation custody.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "All profiles/kinds, live threshold and native restoration; release/rebind from native LOD callbacks; exact-generation custody.",
+      "restorationCommits": [
+        "working candidate after 5c921b65; not yet committed or deployed"
+      ],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-FLEET-OPC",
+      "name": "OPC highlighting and mining ETA",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/opc_indicators.cc",
+        "symbolOrWorkflow": "OPC"
+      },
+      "migration": {
+        "path": "src/mod/features/opc_indicators.cc",
+        "symbolOrWorkflow": "OPC"
+      },
+      "expectedBehavior": "OPC highlighting and mining ETA",
+      "verificationProcedure": "Known/unknown cargo/rate, protected threshold crossing, depletion, fleet replacement, independent toggles and pooling.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Known/unknown cargo/rate, protected threshold crossing, depletion, fleet replacement, independent toggles and pooling.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CAMERA-ZOOM",
+      "name": "Extended system zoom and clipping",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/zoom.cc",
+        "symbolOrWorkflow": "Zoom"
+      },
+      "migration": {
+        "path": "src/mod/features/camera.cc",
+        "symbolOrWorkflow": "Zoom"
+      },
+      "expectedBehavior": "Extended system zoom and clipping",
+      "verificationProcedure": "Multiple systems, maximum range, native tier crossings and reset.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Multiple systems, maximum range, native tier crossings and reset.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CAMERA-PRESETS",
+      "name": "Stored/jumped zoom presets and defaults",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/zoom.cc",
+        "symbolOrWorkflow": "Preset"
+      },
+      "migration": {
+        "path": "src/mod/features/camera.cc",
+        "symbolOrWorkflow": "Zoom"
+      },
+      "expectedBehavior": "Stored/jumped zoom presets and defaults",
+      "verificationProcedure": "Store and invoke five presets/default; reload/relaunch; overlapping bindings and session vs durable values.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Store and invoke five presets/default; reload/relaunch; overlapping bindings and session vs durable values.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CAMERA-KEYBOARD",
+      "name": "Keyboard zoom at pointer",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/zoom.cc",
+        "symbolOrWorkflow": "Zoom"
+      },
+      "migration": {
+        "path": "src/mod/features/camera.cc",
+        "symbolOrWorkflow": "Zoom"
+      },
+      "expectedBehavior": "Keyboard zoom at pointer",
+      "verificationProcedure": "Held directions over world/UI, text focus, Scopely mode, pointer position.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Held directions over world/UI, text focus, Scopely mode, pointer position.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CAMERA-WHEEL",
+      "name": "UI wheel ownership with native pinch intact",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/zoom.cc",
+        "symbolOrWorkflow": "Scroll"
+      },
+      "migration": {
+        "path": "src/mod/features/camera.cc",
+        "symbolOrWorkflow": "ScrollZoomGuard"
+      },
+      "expectedBehavior": "UI wheel ownership with native pinch intact",
+      "verificationProcedure": "Prior user confirmed sidechat wheel and keyboard zoom; final-artifact nested/occluded scrollers, world and touch pinch pending.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Prior user confirmed sidechat wheel and keyboard zoom; final-artifact nested/occluded scrollers, world and touch pinch pending.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CAMERA-BACKDROP",
+      "name": "Planet/backdrop scale without compounding",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/zoom.cc",
+        "symbolOrWorkflow": "FlatRenderable"
+      },
+      "migration": {
+        "path": "src/mod/features/camera.cc",
+        "symbolOrWorkflow": "FlatRenderable"
+      },
+      "expectedBehavior": "Planet/backdrop scale without compounding",
+      "verificationProcedure": "Cached revisits, both loaders, live scale change and original authored transforms.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Cached revisits, both loaders, live scale change and original authored transforms.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CAMERA-PAN",
+      "name": "System pan and glide with modal gates",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/fix_pan.cc",
+        "symbolOrWorkflow": "Pan"
+      },
+      "migration": {
+        "path": "src/mod/features/camera.cc",
+        "symbolOrWorkflow": "Pan"
+      },
+      "expectedBehavior": "System pan and glide with modal gates",
+      "verificationProcedure": "Diagonal/opposed keys, drag/release, tracking/tutorial/modal focus and arrow-chord ownership.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Diagonal/opposed keys, drag/release, tracking/tutorial/modal focus and arrow-chord ownership.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CAMERA-STATION",
+      "name": "Exterior rotation and interior zoom restoration",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/interior_zoom.cc",
+        "symbolOrWorkflow": "InteriorZoom"
+      },
+      "migration": {
+        "path": "src/mod/features/camera.cc",
+        "symbolOrWorkflow": "InteriorZoom"
+      },
+      "expectedBehavior": "Exterior rotation and interior zoom restoration",
+      "verificationProcedure": "Repeated interior/exterior/Haven transitions and live disable; no compounded saved ranges.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Repeated interior/exterior/Haven transitions and live disable; no compounded saved ranges.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-SYSTEM-ORBIT",
+      "name": "System orbit/free pan/environment artwork",
+      "classification": "Intentionally excluded",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/navigation_orbit.cc",
+        "symbolOrWorkflow": "Orbit"
+      },
+      "migration": {
+        "path": "src/mod/features/navigation_orbit.cc",
+        "symbolOrWorkflow": "Not registered"
+      },
+      "expectedBehavior": "System orbit/free pan/environment artwork",
+      "verificationProcedure": "Explicit user exclusion. Retained dead implementation is not an installed feature.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Explicit user exclusion. Retained dead implementation is not an installed feature.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-GALAXY-SELECTION",
+      "name": "Far-tier system tapping",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/galaxy_selection.cc",
+        "symbolOrWorkflow": "OnTapRecognised"
+      },
+      "migration": {
+        "path": "src/mod/features/camera.cc",
+        "symbolOrWorkflow": "No Galaxy adapter"
+      },
+      "expectedBehavior": "Far-tier system tapping",
+      "verificationProcedure": "Far/native taps, pinned systems, overlapping hit candidates, temporary proxy disposal.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Far/native taps, pinned systems, overlapping hit candidates, temporary proxy disposal.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-GALAXY-DETAIL",
+      "name": "Independent major/minor label and culling profiles",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/galaxy_labels.cc",
+        "symbolOrWorkflow": "LOD"
+      },
+      "migration": {
+        "path": "src/mod/features/fleet_labels.cc",
+        "symbolOrWorkflow": "No Galaxy adapter"
+      },
+      "expectedBehavior": "Independent major/minor label and culling profiles",
+      "verificationProcedure": "Within-tier thresholds, camera replacement, hidden minor nodes, return to native.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Within-tier thresholds, camera replacement, hidden minor nodes, return to native.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-GALAXY-OVERLAYS",
+      "name": "Multiple simultaneous overlays and native selection state",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/galaxy_labels.cc",
+        "symbolOrWorkflow": "Overlay"
+      },
+      "migration": {
+        "path": "src/mod/features/camera.cc",
+        "symbolOrWorkflow": "No Galaxy adapter"
+      },
+      "expectedBehavior": "Multiple simultaneous overlays and native selection state",
+      "verificationProcedure": "Every overlay combination, toggle/reload/restart, representative native animation and reversible layout.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Every overlay combination, toggle/reload/restart, representative native animation and reversible layout.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-GALAXY-HOUSING",
+      "name": "Data-backed station housing marker",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/galaxy_housing.cc",
+        "symbolOrWorkflow": "Housing"
+      },
+      "migration": {
+        "path": "src/mod/features/camera.cc",
+        "symbolOrWorkflow": "No Galaxy adapter"
+      },
+      "expectedBehavior": "Data-backed station housing marker",
+      "verificationProcedure": "Known housing/nonhousing nodes, name visibility, settings disable, pooled rebind/release.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Known housing/nonhousing nodes, name visibility, settings disable, pooled rebind/release.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-HAVEN-ZOOM",
+      "name": "Qualified planetary zoom",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/haven_zoom.cc",
+        "symbolOrWorkflow": "Zoom"
+      },
+      "migration": {
+        "path": "src/mod/features/haven.cc",
+        "symbolOrWorkflow": "HavenZoom"
+      },
+      "expectedBehavior": "Qualified planetary zoom",
+      "verificationProcedure": "Both blend directions, inconsistent endpoints, limits, pan and invalid-geometry native fallback.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Both blend directions, inconsistent endpoints, limits, pan and invalid-geometry native fallback.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-HAVEN-VISUALS",
+      "name": "Reversible road depth and water visibility",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/haven_road_depth.cc",
+        "symbolOrWorkflow": "RoadDepth"
+      },
+      "migration": {
+        "path": "src/mod/features/haven.cc",
+        "symbolOrWorkflow": "HavenVisuals"
+      },
+      "expectedBehavior": "Reversible road depth and water visibility",
+      "verificationProcedure": "Toggle independently, leave/reenter scene, external material edits and observation/write failures.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Toggle independently, leave/reenter scene, external material edits and observation/write failures.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-HAVEN-ORBIT",
+      "name": "Haven right-drag and modifier reset",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/haven_zoom.cc",
+        "symbolOrWorkflow": "Orbit"
+      },
+      "migration": {
+        "path": "src/mod/features/haven_orbit.cc",
+        "symbolOrWorkflow": "HavenOrbit"
+      },
+      "expectedBehavior": "Haven right-drag and modifier reset",
+      "verificationProcedure": "Prior user confirmed actions; final artifact UI/text/placement gates, owner replacement and restoration pending.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Prior user confirmed actions; final artifact UI/text/placement gates, owner replacement and restoration pending.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-HAVEN-HISTORY",
+      "name": "Reverse help history with managed custody",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/haven_history.cc",
+        "symbolOrWorkflow": "ApplyRecords"
+      },
+      "migration": {
+        "path": "src/mod/features/haven.cc",
+        "symbolOrWorkflow": "PlanetaryHelpHistoryContext_ApplyRecords_Hook"
+      },
+      "expectedBehavior": "Reverse help history with managed custody",
+      "verificationProcedure": "Empty/single/many rows, collection between managed setter calls, native original exactly once.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Empty/single/many rows, collection between managed setter calls, native original exactly once.",
+      "restorationCommits": [
+        "working candidate after 5c921b65; not yet committed or deployed"
+      ],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CHAT-CHANNELS",
+      "name": "Galaxy/Veil tabs and preview filtering",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/chat.cc",
+        "symbolOrWorkflow": "Chat"
+      },
+      "migration": {
+        "path": "src/mod/features/chat.cc",
+        "symbolOrWorkflow": "Chat"
+      },
+      "expectedBehavior": "Galaxy/Veil tabs and preview filtering",
+      "verificationProcedure": "Cadet/Veil availability combinations, swipe, messages and live disable. Preview redirection difference needs final disposition.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Cadet/Veil availability combinations, swipe, messages and live disable. Preview redirection difference needs final disposition.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CHAT-AVATARS",
+      "name": "Portrait retention during pooled chat binding",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/chat_avatar_retention.cc",
+        "symbolOrWorkflow": "SetWidgetData"
+      },
+      "migration": {
+        "path": "src/mod/features/chat.cc",
+        "symbolOrWorkflow": "ChatAvatarRetention"
+      },
+      "expectedBehavior": "Portrait retention during pooled chat binding",
+      "verificationProcedure": "Prior user confirmed scroll/reopen portraits; final artifact admin/regular, absent switch and async reload pending.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Prior user confirmed scroll/reopen portraits; final artifact admin/regular, absent switch and async reload pending.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CHAT-TITLES",
+      "name": "Hide titles only in chat",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/chat_titles.cc",
+        "symbolOrWorkflow": "SetIdentifiers"
+      },
+      "migration": {
+        "path": "src/mod/features/chat.cc",
+        "symbolOrWorkflow": "InstallChatTitles"
+      },
+      "expectedBehavior": "Hide titles only in chat",
+      "verificationProcedure": "Substantive bind/update/clear and nonchat profiles; exact native extent remains platform/client qualification.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Substantive bind/update/clear and nonchat profiles; exact native extent remains platform/client qualification.",
+      "restorationCommits": [
+        "working candidate after 5c921b65; not yet committed or deployed"
+      ],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CHAT-NAVIGATION",
+      "name": "Full/side chat, focus and channel shortcuts",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/hotkeys.cc",
+        "symbolOrWorkflow": "Chat"
+      },
+      "migration": {
+        "path": "src/mod/features/chat.cc",
+        "symbolOrWorkflow": "OpenChatShortcut"
+      },
+      "expectedBehavior": "Full/side chat, focus and channel shortcuts",
+      "verificationProcedure": "Closed/open side/full states, existing-input focus, channel shortcuts and disabled-tab interplay.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Closed/open side/full states, existing-input focus, channel shortcuts and disabled-tab interplay.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-ART-LOGIN",
+      "name": "Custom/fallback login image and logos",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/loading_screen.cc",
+        "symbolOrWorkflow": "Awake"
+      },
+      "migration": {
+        "path": "src/mod/features/loading_screens.cc",
+        "symbolOrWorkflow": "Login"
+      },
+      "expectedBehavior": "Custom/fallback login image and logos",
+      "verificationProcedure": "Valid/invalid/Unicode file, resize, repeated login and file change across scene reload.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Valid/invalid/Unicode file, resize, repeated login and file change across scene reload.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-ART-TRANSITION",
+      "name": "Transition artwork, black mode and tips",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/transition_screen.cc",
+        "symbolOrWorkflow": "Transition"
+      },
+      "migration": {
+        "path": "src/mod/features/loading_screens.cc",
+        "symbolOrWorkflow": "Transition"
+      },
+      "expectedBehavior": "Transition artwork, black mode and tips",
+      "verificationProcedure": "Both variants, show/hide, failed discovery retry, welcome/reset/nonrepeat tips and reload.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Both variants, show/hide, failed discovery retry, welcome/reset/nonrepeat tips and reload.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-AUDIO-EVENTS",
+      "name": "Fabric named/all audio filters and tracing",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/audio_events.cc",
+        "symbolOrWorkflow": "PostEvent"
+      },
+      "migration": {
+        "path": "src/mod/features/audio.cc",
+        "symbolOrWorkflow": "PostEvent"
+      },
+      "expectedBehavior": "Fabric named/all audio filters and tracing",
+      "verificationProcedure": "Start/pause/advance vs cleanup Stop/Unload semantics, original return values.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Start/pause/advance vs cleanup Stop/Unload semantics, original return values.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-AUDIO-CUES",
+      "name": "Built-in/custom audio and coalescing",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/notification_audio.cc",
+        "symbolOrWorkflow": "Play"
+      },
+      "migration": {
+        "path": "src/mod/features/notification_audio.cc",
+        "symbolOrWorkflow": "PlayNotificationSound"
+      },
+      "expectedBehavior": "Built-in/custom audio and coalescing",
+      "verificationProcedure": "WAV/MP3, invalid paths, held shared buffer across reload, Same/All/None and failures on each platform.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "WAV/MP3, invalid paths, held shared buffer across reload, Same/All/None and failures on each platform.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-NOTIFY-BANNERS",
+      "name": "Independent banner suppression and readable desktop forwarding",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/notification_service.cc",
+        "symbolOrWorkflow": "notification_handle_toast"
+      },
+      "migration": {
+        "path": "src/mod/features/toasts.cc",
+        "symbolOrWorkflow": "ShowBanner"
+      },
+      "expectedBehavior": "Independent banner suppression and readable desktop forwarding",
+      "verificationProcedure": "Both enqueue paths, hidden native banner with alerts enabled, rich text and localization payload failures.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Both enqueue paths, hidden native banner with alerts enabled, rich text and localization payload failures.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-NOTIFY-MAC",
+      "name": "Permission-aware macOS desktop alerts",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/notification_desktop_mac.mm",
+        "symbolOrWorkflow": "notification_desktop_mac_emit"
+      },
+      "migration": {
+        "path": "src/mod/features/notification_desktop_mac.mm",
+        "symbolOrWorkflow": "NotificationDesktopMacEmit"
+      },
+      "expectedBehavior": "Permission-aware macOS desktop alerts",
+      "verificationProcedure": "Permission granted/denied/not requested, game bundle, foreground preferences, no delegate replacement or extra sound. Runtime not available here.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Permission granted/denied/not requested, game bundle, foreground preferences, no delegate replacement or extra sound. Runtime not available here.",
+      "restorationCommits": [
+        "working candidate after 5c921b65; not yet committed or deployed"
+      ],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-NOTIFY-FLEET",
+      "name": "Seven fleet-event producers and alerts",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/fleet_notifications.cc",
+        "symbolOrWorkflow": "InstallFleetNotificationHooks"
+      },
+      "migration": {
+        "path": "src/mod/features/fleet_notifications.cc",
+        "symbolOrWorkflow": "InstallFleetNotifications"
+      },
+      "expectedBehavior": "Seven fleet-event producers and alerts",
+      "verificationProcedure": "Quiet seed, enable while active, journey epochs, OPC continuity, depletion debounce, polling unavailable and desktop/audio independence.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [
+          "notification-fixtures-build.log:189/189 local Windows build/run steps at initial notification-policy candidate; later source edits require rerun",
+          "tests/fleet_alert_arrival.cc",
+          "tests/fleet_alert_opc.cc",
+          "tests/incoming_attack_dedup.cc"
+        ],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Quiet seed, enable while active, journey epochs, OPC continuity, depletion debounce, polling unavailable and desktop/audio independence.",
+      "restorationCommits": [
+        "working candidate after 5c921b65; not yet committed or deployed"
+      ],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-NOTIFY-INCOMING",
+      "name": "Own-ship incoming player alert",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/incoming_player_attack.cc",
+        "symbolOrWorkflow": "ParseIncomingPlayerAttack"
+      },
+      "migration": {
+        "path": "src/mod/game/notifications.cc",
+        "symbolOrWorkflow": "ReadIncomingPlayerAttack"
+      },
+      "expectedBehavior": "Own-ship incoming player alert",
+      "verificationProcedure": "Player vs NPC/faction, ship vs station, own vs foreign/self, malformed namespace/type, duplicate through both enqueues; preserve native banner.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [
+          "notification-fixtures-build.log:189/189 local Windows build/run steps at initial notification-policy candidate; later source edits require rerun",
+          "tests/fleet_alert_arrival.cc",
+          "tests/fleet_alert_opc.cc",
+          "tests/incoming_attack_dedup.cc"
+        ],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Player vs NPC/faction, ship vs station, own vs foreign/self, malformed namespace/type, duplicate through both enqueues; preserve native banner.",
+      "restorationCommits": [
+        "working candidate after 5c921b65; not yet committed or deployed"
+      ],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-SHORTCUT-HINTS",
+      "name": "Native hint replacement and visibility toggle",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/hotkeys.cc",
+        "symbolOrWorkflow": "Keybind"
+      },
+      "migration": {
+        "path": "src/mod/features/keybind_badges.cc",
+        "symbolOrWorkflow": "Keybind"
+      },
+      "expectedBehavior": "Native hint replacement and visibility toggle",
+      "verificationProcedure": "Remap, primary/fallback side-chat binding, hide/show, hotkey mode change and native context replacement.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Remap, primary/fallback side-chat binding, hide/show, hotkey mode change and native context replacement.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-WINDOW",
+      "name": "Windows free resize and borderless F11",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/free_resize.cc",
+        "symbolOrWorkflow": "ToggleFullscreen"
+      },
+      "migration": {
+        "path": "src/mod/features/window.cc",
+        "symbolOrWorkflow": "Window"
+      },
+      "expectedBehavior": "Windows free resize and borderless F11",
+      "verificationProcedure": "Resize, F11 enter/exit, previous placement/styles, text focus, multiple windows and cursor clipping.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Resize, F11 enter/exit, previous placement/styles, text focus, multiple windows and cursor clipping.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CURSOR",
+      "name": "Plain cursor and clipping release",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/testing.cc",
+        "symbolOrWorkflow": "Cursor_SetCursor"
+      },
+      "migration": {
+        "path": "src/mod/features/window.cc",
+        "symbolOrWorkflow": "Cursor_SetCursor_Injected_Hook"
+      },
+      "expectedBehavior": "Plain cursor and clipping release",
+      "verificationProcedure": "Disable custom cursor, UI rescale, leave/reenter game; Windows-specific.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Disable custom cursor, UI rescale, leave/reenter game; Windows-specific.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-GAME-CONFIG",
+      "name": "Settings/assets endpoint overrides",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/testing.cc",
+        "symbolOrWorkflow": "Model_LoadConfigs"
+      },
+      "migration": {
+        "path": "src/mod/features/game_config.cc",
+        "symbolOrWorkflow": "Model_LoadConfigs_Hook"
+      },
+      "expectedBehavior": "Settings/assets endpoint overrides",
+      "verificationProcedure": "Empty preserves native; each/both override, repeated loads and unavailable app config. Never expose credentials.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Empty preserves native; each/both override, repeated loads and unavailable app config. Never expose credentials.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-DONATION",
+      "name": "Donation slider extension",
+      "classification": "Partial",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/misc.cc",
+        "symbolOrWorkflow": "MaxItemsToUse"
+      },
+      "migration": {
+        "path": "src/mod/features/shop.cc",
+        "symbolOrWorkflow": "Donation"
+      },
+      "expectedBehavior": "Donation slider extension",
+      "verificationProcedure": "Tagged donation vs unrelated sliders, positive/zero/negative; mac migration intentionally narrows old global slider behavior; acceptance remains explicit.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Tagged donation vs unrelated sliders, positive/zero/negative; mac migration intentionally narrows old global slider behavior; acceptance remains explicit.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CHEST-LIMIT",
+      "name": "Chest purchase cap bounded at 160",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/misc.cc",
+        "symbolOrWorkflow": "InventoryUseRowWidget_SetWidgetData"
+      },
+      "migration": {
+        "path": "src/mod/features/shop.cc",
+        "symbolOrWorkflow": "Chest"
+      },
+      "expectedBehavior": "Chest purchase cap bounded at 160",
+      "verificationProcedure": "Native cap smaller/equal/larger, invalid request and late tagging. Migration permits live enabling rather than startup-only install.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Native cap smaller/equal/larger, invalid request and late tagging. Migration permits live enabling rather than startup-only install.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-OFFER-DETAILS",
+      "name": "Cooldown offer opens auxiliary view",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/misc.cc",
+        "symbolOrWorkflow": "BundleDataWidget_OnActionButtonPressedCallback"
+      },
+      "migration": {
+        "path": "src/mod/features/shop.cc",
+        "symbolOrWorkflow": "BundleDataWidget"
+      },
+      "expectedBehavior": "Cooldown offer opens auxiliary view",
+      "verificationProcedure": "Cooldown bit combinations, expiry, missing state and ordinary purchase path.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Cooldown bit combinations, expiry, missing state and ordinary purchase path.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-POPUPS",
+      "name": "Shared first-popup-only session and reveal skip",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/misc.cc",
+        "symbolOrWorkflow": "ShouldSuppressAdditionalPopup"
+      },
+      "migration": {
+        "path": "src/mod/features/shop.cc",
+        "symbolOrWorkflow": "Popup"
+      },
+      "expectedBehavior": "Shared first-popup-only session and reveal skip",
+      "verificationProcedure": "Both PLC/interstitial orderings, process restart, scene reload, reentry and setting toggles; original call count.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Both PLC/interstitial orderings, process restart, scene reload, reentry and setting toggles; original call count.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-BUFF-GUARD",
+      "name": "Null buff-list crash guard",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/misc.cc",
+        "symbolOrWorkflow": "ExtractBuffsOfType_Hook"
+      },
+      "migration": {
+        "path": "src/mod/features/buffs.cc",
+        "symbolOrWorkflow": "BuffCrashGuard"
+      },
+      "expectedBehavior": "Null buff-list crash guard",
+      "verificationProcedure": "Null/empty/full and null entry at every position; no inferred valid collection on failure.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Null/empty/full and null entry at every position; no inferred valid collection on failure.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CLAIM",
+      "name": "Bulk gift flyout and daily faction claiming",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/daily_faction_bulk_claim.cc",
+        "symbolOrWorkflow": "Claim"
+      },
+      "migration": {
+        "path": "src/mod/features/shop.cc",
+        "symbolOrWorkflow": "Claims"
+      },
+      "expectedBehavior": "Bulk gift flyout and daily faction claiming",
+      "verificationProcedure": "Filter/toggle, repeated binds, claimed/available states, popup opening and native callback ownership.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Filter/toggle, repeated binds, claimed/available states, popup opening and native callback ownership.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-BASE-CARD",
+      "name": "Starbase level/name card presentation",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/base_card.cc",
+        "symbolOrWorkflow": "BaseCard"
+      },
+      "migration": {
+        "path": "src/mod/features/base_card.cc",
+        "symbolOrWorkflow": "BaseCard"
+      },
+      "expectedBehavior": "Starbase level/name card presentation",
+      "verificationProcedure": "Own/foreign station, absent level/name, pooled card rebind and default/disabled behavior.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Own/foreign station, absent level/name, pooled card rebind and default/disabled behavior.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-HUD",
+      "name": "Four mission HUD visibility choices",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/mission_hud_tweaks.cc",
+        "symbolOrWorkflow": "Refresh"
+      },
+      "migration": {
+        "path": "src/mod/features/missions.cc",
+        "symbolOrWorkflow": "HUD"
+      },
+      "expectedBehavior": "Four mission HUD visibility choices",
+      "verificationProcedure": "Auto/Always/Never independently; native baseline restoration, replacements and reload.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Auto/Always/Never independently; native baseline restoration, replacements and reload.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-FT-SHIP-NAME",
+      "name": "Equipped ship under Forbidden Tech header",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/ship_tech_indicators.cc",
+        "symbolOrWorkflow": "ShipName"
+      },
+      "migration": {
+        "path": "src/mod/features/forbidden_tech_ship_name.cc",
+        "symbolOrWorkflow": "ShipName"
+      },
+      "expectedBehavior": "Equipped ship under Forbidden Tech header",
+      "verificationProcedure": "Docked/unassigned/same-hull ships and missing art/equipment; verify exact instance.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Docked/unassigned/same-hull ships and missing art/equipment; verify exact instance.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-CONFIRMATIONS",
+      "name": "FT, alliance and reveal confirmation choices",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/forbidden_tech_confirmation.cc",
+        "symbolOrWorkflow": "Confirm"
+      },
+      "migration": {
+        "path": "src/mod/features/confirmations.cc",
+        "symbolOrWorkflow": "Confirm"
+      },
+      "expectedBehavior": "FT, alliance and reveal confirmation choices",
+      "verificationProcedure": "Enabled/disabled/inversion, relevant popup only, native callback original paths.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Enabled/disabled/inversion, relevant popup only, native callback original paths.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-ANOMALY",
+      "name": "Galactic anomaly timer",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/galactic_anomaly_timer.cc",
+        "symbolOrWorkflow": "Timer"
+      },
+      "migration": {
+        "path": "src/mod/features/anomaly_timer.cc",
+        "symbolOrWorkflow": "AnomalyTimer"
+      },
+      "expectedBehavior": "Galactic anomaly timer",
+      "verificationProcedure": "Available/missing native clocks and content; system transitions and disabled setting. Do not revive unrelated prototype.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Available/missing native clocks and content; system transitions and disabled setting. Do not revive unrelated prototype.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "SET-NAV",
+      "name": "Mod pages and native back/navigation",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/settings/native/page_navigation.cc",
+        "symbolOrWorkflow": "InstallPages"
+      },
+      "migration": {
+        "path": "src/mod/settings/page_catalog.h",
+        "symbolOrWorkflow": "Model only"
+      },
+      "expectedBehavior": "Mod pages and native back/navigation",
+      "verificationProcedure": "Open normally/Shift-S, categories, Back, page teardown, session replacement; actual production adapter absent.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Open normally/Shift-S, categories, Back, page teardown, session replacement; actual production adapter absent.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "SET-VALUES",
+      "name": "Boolean, exact numeric, choices and slider controls",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/settings/native/value_widgets.cc",
+        "symbolOrWorkflow": "InstallCoreValueWidgets"
+      },
+      "migration": {
+        "path": "src/mod/settings/value_settings.h",
+        "symbolOrWorkflow": "Models only"
+      },
+      "expectedBehavior": "Boolean, exact numeric, choices and slider controls",
+      "verificationProcedure": "Readiness/disabled backends, exact custom values, verify/save/refresh, pooled release and stale modal commits.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Readiness/disabled backends, exact custom values, verify/save/refresh, pooled release and stale modal commits.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "SET-FC-CONFIRM",
+      "name": "Restore FC confirmation after do-not-show",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/fc_confirmation_reset.cc",
+        "symbolOrWorkflow": "HideFleetCommander"
+      },
+      "migration": {
+        "path": "src/mod/features/confirmations.cc",
+        "symbolOrWorkflow": "No FC preference adapter"
+      },
+      "expectedBehavior": "Restore FC confirmation after do-not-show",
+      "verificationProcedure": "Observe existing cloud prefs without constructing singleton; toggle via native manager; invalidate old generations before session changes.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Observe existing cloud prefs without constructing singleton; toggle via native manager; invalidate old generations before session changes.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "SET-SEARCH",
+      "name": "Settings search with contextual return",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/settings/native/settings_search.cc",
+        "symbolOrWorkflow": "Search"
+      },
+      "migration": {
+        "path": "src/mod/settings/settings_search.h",
+        "symbolOrWorkflow": "Model only"
+      },
+      "expectedBehavior": "Settings search with contextual return",
+      "verificationProcedure": "Labels/TOML/shortcuts, hidden conditional results, Back-to-search, typing and held-key release ownership.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Labels/TOML/shortcuts, hidden conditional results, Back-to-search, typing and held-key release ownership.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "SET-RESET-SAVE",
+      "name": "Defaults, reset, conflicts and retry UI",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/settings/maintenance.h",
+        "symbolOrWorkflow": "Maintenance"
+      },
+      "migration": {
+        "path": "src/mod/settings/maintenance.h",
+        "symbolOrWorkflow": "No native consumer"
+      },
+      "expectedBehavior": "Defaults, reset, conflicts and retry UI",
+      "verificationProcedure": "Confirm page/individual reset, external-file conflict, retry, failed-save notice and refresh observer.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Confirm page/individual reset, external-file conflict, retry, failed-save notice and refresh observer.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "SET-SHORTCUT-EDITOR",
+      "name": "Interactive binding capture, conflict, undo/defaults",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/settings/shortcut_settings.cc",
+        "symbolOrWorkflow": "Shortcut"
+      },
+      "migration": {
+        "path": "src/mod/shortcuts.cc",
+        "symbolOrWorkflow": "Parser/dispatch only"
+      },
+      "expectedBehavior": "Interactive binding capture, conflict, undo/defaults",
+      "verificationProcedure": "Add/change/remove/unbind, capture/confirm/cancel, conflict, undo, restore, focus loss and held-key release.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Add/change/remove/unbind, capture/confirm/cancel, conflict, undo, restore, focus loss and held-key release.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "SET-AUDIO-PICKER",
+      "name": "Audio pages, custom file picker and preview",
+      "classification": "Partial",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/settings/audio_alerts.cc",
+        "symbolOrWorkflow": "AudioAlerts"
+      },
+      "migration": {
+        "path": "src/mod/features/notification_audio.cc",
+        "symbolOrWorkflow": "Playback only"
+      },
+      "expectedBehavior": "Audio pages, custom file picker and preview",
+      "verificationProcedure": "Asynchronous picker ownership, cancel/invalid file/reload during playback, page release and persisted custom choice.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Asynchronous picker ownership, cancel/invalid file/reload during playback, page release and persisted custom choice.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "SET-IMAGE-PICKER",
+      "name": "Loading-image picker and exact entry",
+      "classification": "Partial",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/settings/upstream_settings.cc",
+        "symbolOrWorkflow": "LoadingImage"
+      },
+      "migration": {
+        "path": "src/mod/features/loading_screens.cc",
+        "symbolOrWorkflow": "Image consumer only"
+      },
+      "expectedBehavior": "Loading-image picker and exact entry",
+      "verificationProcedure": "Valid/invalid/Unicode selection, cancel retains prior image, asynchronous completion and truthful restart status.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Valid/invalid/Unicode selection, cancel retains prior image, asynchronous completion and truthful restart status.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "CFG-LOAD-RELOAD",
+      "name": "Existing config defaults, aliases and activation",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/config.cc",
+        "symbolOrWorkflow": "Config"
+      },
+      "migration": {
+        "path": "src/mod/config.cc",
+        "symbolOrWorkflow": "Config::Parse"
+      },
+      "expectedBehavior": "Existing config defaults, aliases and activation",
+      "verificationProcedure": "Malformed primary stays byte-identical, missing file creation, alias precedence, pending intents and atomic reload.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Malformed primary stays byte-identical, missing file creation, alias precedence, pending intents and atomic reload.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "CFG-WRITER",
+      "name": "Registered-key preserving saves and quit",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/runtime_config.cc",
+        "symbolOrWorkflow": "WantsQuit"
+      },
+      "migration": {
+        "path": "src/mod/runtime_config.cc",
+        "symbolOrWorkflow": "WantsQuit"
+      },
+      "expectedBehavior": "Registered-key preserving saves and quit",
+      "verificationProcedure": "Comments/unknowns, external conflicts, retry, nested/vetoed quit, force deadline and worker exit before resume.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Comments/unknowns, external conflicts, retry, nested/vetoed quit, force deadline and worker exit before resume.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "STATE-STORE",
+      "name": "Versioned state merge and atomic replacement",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/mod_state.cc",
+        "symbolOrWorkflow": "TryUpdate"
+      },
+      "migration": {
+        "path": "src/mod/mod_state.cc",
+        "symbolOrWorkflow": "PrepareAsync"
+      },
+      "expectedBehavior": "Versioned state merge and atomic replacement",
+      "verificationProcedure": "Absent/v1/version2/malformed, unknown nested keys, two writers and group receipts; no format migration.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Absent/v1/version2/malformed, unknown nested keys, two writers and group receipts; no format migration.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "STATE-QUIT",
+      "name": "Pending state writer on normal quit",
+      "classification": "Unresolved",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/mod_state.cc",
+        "symbolOrWorkflow": "TryUpdate"
+      },
+      "migration": {
+        "path": "src/mod/mod_state.cc",
+        "symbolOrWorkflow": "StateWriter"
+      },
+      "expectedBehavior": "Pending state writer on normal quit",
+      "verificationProcedure": "Normal quit currently drains TOML only; pending pin changes apply only after Saved. Define/test pending request drain without claiming acknowledged state lost.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Normal quit currently drains TOML only; pending pin changes apply only after Saved. Define/test pending request drain without claiming acknowledged state lost.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "SYNC-RECORDS",
+      "name": "Owned per-target sync and session lifecycle",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/sync.cc",
+        "symbolOrWorkflow": "InstallSyncPatches"
+      },
+      "migration": {
+        "path": "src/mod/sync/sync.cc",
+        "symbolOrWorkflow": "Sync"
+      },
+      "expectedBehavior": "Owned per-target sync and session lifecycle",
+      "verificationProcedure": "Replay matching native payloads, headers, two-target failure/retry, target retirement, session seal and diagnostics guard.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Replay matching native payloads, headers, two-target failure/retry, target retirement, session seal and diagnostics guard.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "SYNC-BATTLES",
+      "name": "Battle fetch, journals and participant resolution",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/sync.cc",
+        "symbolOrWorkflow": "queue_battle_ids"
+      },
+      "migration": {
+        "path": "src/mod/sync/battlelogs.cc",
+        "symbolOrWorkflow": "QueueNewBattles"
+      },
+      "expectedBehavior": "Battle fetch, journals and participant resolution",
+      "verificationProcedure": "Fetch failures/retry, participant/alliance names, target delivery and cache budgets on exact native hooks.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Fetch failures/retry, participant/alliance names, target delivery and cache budgets on exact native hooks.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "SYNC-RESTART",
+      "name": "Legacy attempted-ID suppression is not delivery ACK",
+      "classification": "Intentionally excluded",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/sync.cc",
+        "symbolOrWorkflow": "load_previously_sent_logs"
+      },
+      "migration": {
+        "path": "src/mod/sync/battlelogs.cc",
+        "symbolOrWorkflow": "QueueNewBattles"
+      },
+      "expectedBehavior": "Legacy attempted-ID suppression is not delivery ACK",
+      "verificationProcedure": "Accepted earlier decision: retain legacy file unchanged; never infer account/target successful delivery from queue admission. Restart duplicate delivery remains a documented limitation.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Accepted earlier decision: retain legacy file unchanged; never infer account/target successful delivery from queue admission. Restart duplicate delivery remains a documented limitation.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAT-PATHS",
+      "name": "Ordinary/custom/profile scoped file routing",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/file.cc",
+        "symbolOrWorkflow": "File"
+      },
+      "migration": {
+        "path": "src/mod/file.cc",
+        "symbolOrWorkflow": "File::Path"
+      },
+      "expectedBehavior": "Ordinary/custom/profile scoped file routing",
+      "verificationProcedure": "Ordinary/custom launch, admitted immutable profile, legacy Mac preferences migration; no guessed account identities.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Ordinary/custom launch, admitted immutable profile, legacy Mac preferences migration; no guessed account identities.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAT-MAC-LOG",
+      "name": "Ordinary macOS log fallback",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/patches.cc",
+        "symbolOrWorkflow": "open_log"
+      },
+      "migration": {
+        "path": "src/mod/mod.cc",
+        "symbolOrWorkflow": "StartLogging"
+      },
+      "expectedBehavior": "Ordinary macOS log fallback",
+      "verificationProcedure": "Unwritable preferred log: legacy file then console. Custom/admitted profile must not escape their owned route. Windows build cannot qualify this branch.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Unwritable preferred log: legacy file then console. Custom/admitted profile must not escape their owned route. Windows build cannot qualify this branch.",
+      "restorationCommits": [
+        "working candidate after 5c921b65; not yet committed or deployed"
+      ],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAT-MAC-LAUNCH",
+      "name": "macOS loader, launcher and update lifecycle",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "macos-loader/src/main.cc",
+        "symbolOrWorkflow": "main"
+      },
+      "migration": {
+        "path": "src/platform/macos/loader/main.cc",
+        "symbolOrWorkflow": "main"
+      },
+      "expectedBehavior": "macOS loader, launcher and update lifecycle",
+      "verificationProcedure": "Install/update/cancel/repair/launch, entitlements, failed updater rollback on actual macOS; separate from source/build presence.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Install/update/cancel/repair/launch, entitlements, failed updater rollback on actual macOS; separate from source/build presence.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "DIAG-OVERLAY",
+      "name": "Debug console and six history/opacity controls",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/dev/dev_console.cc",
+        "symbolOrWorkflow": "InstallDevConsole"
+      },
+      "migration": {
+        "path": "src/mod/shortcuts.def",
+        "symbolOrWorkflow": "No native overlay"
+      },
+      "expectedBehavior": "Debug console and six history/opacity controls",
+      "verificationProcedure": "Debug scope only: toggle/clear/scroll/live anchoring, opacity restart, chat coexistence, panel disposal/recreation.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Debug scope only: toggle/clear/scroll/live anchoring, opacity restart, chat coexistence, panel disposal/recreation.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "DIAG-BUS",
+      "name": "Awake/source-gated lazy diagnostic history",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/dev/diagnostics.cc",
+        "symbolOrWorkflow": "Publish"
+      },
+      "migration": {
+        "path": "src/mod/mod.cc",
+        "symbolOrWorkflow": "No diagnostic bus"
+      },
+      "expectedBehavior": "Awake/source-gated lazy diagnostic history",
+      "verificationProcedure": "Duplicate registration, asleep builder never runs, per-source switch, bounded UTF-8 history, dropped count and clear.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Duplicate registration, asleep builder never runs, per-source switch, bounded UTF-8 history, dropped count and clear.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "DIAG-SCIENCE-ERROR",
+      "name": "Opt-in debug game-error JSONL recorder",
+      "classification": "Missing",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/game_error_probe.cc",
+        "symbolOrWorkflow": "InstallGameErrorProbe"
+      },
+      "migration": {
+        "path": "src/mod/mod.cc",
+        "symbolOrWorkflow": "No game-error adapter"
+      },
+      "expectedBehavior": "Opt-in debug game-error JSONL recorder",
+      "verificationProcedure": "Environment unset/0/1, original once, query stripping, Unicode bounds, duplicate/rate limits, rotation and source/build provenance.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Environment unset/0/1, original once, query stripping, Unicode bounds, duplicate/rate limits, rotation and source/build provenance.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "DIAG-FLEET-PROBE",
+      "name": "Environment-gated debug fleet transitions",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/fleet_watch.cc",
+        "symbolOrWorkflow": "InstallRuntimeProbe"
+      },
+      "migration": {
+        "path": "src/mod/features/fleet_watch.cc",
+        "symbolOrWorkflow": "InstallRuntimeProbe"
+      },
+      "expectedBehavior": "Environment-gated debug fleet transitions",
+      "verificationProcedure": "Unset vs 1 in debug hotkey install, no duplicate subscription, topology resets and no invented replacement transition.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Unset vs 1 in debug hotkey install, no duplicate subscription, topology resets and no invented replacement transition.",
+      "restorationCommits": [
+        "working candidate after 5c921b65; not yet committed or deployed"
+      ],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "DIAG-KEYBOARD-VARS",
+      "name": "Layout diagnostics in runtime vars",
+      "classification": "Partial",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/keyboard_layout.cc",
+        "symbolOrWorkflow": "WriteDiagnostics"
+      },
+      "migration": {
+        "path": "src/mod/keyboard_layout.cc",
+        "symbolOrWorkflow": "Publish logs only"
+      },
+      "expectedBehavior": "Layout diagnostics in runtime vars",
+      "verificationProcedure": "Startup and layout/status/reason/generation changes must reach vars without overwriting accepted effective configuration.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Startup and layout/status/reason/generation changes must reach vars without overwriting accepted effective configuration.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    }
+  ],
+  "sourceCoverage": {
+    "meaning": "Direct file references are discovery coverage, not proof that every function in a referenced translation unit is reconciled.",
+    "baselineTranslationUnits": [
+      "mods/src/audio_file_picker_mac.mm",
+      "mods/src/audio_file_picker_windows.cc",
+      "mods/src/config.cc",
+      "mods/src/config_filters.cc",
+      "mods/src/config_save.cc",
+      "mods/src/dev/dev_console.cc",
+      "mods/src/dev/diagnostics.cc",
+      "mods/src/dev/overlay_runtime.cc",
+      "mods/src/file.cc",
+      "mods/src/folder_manager.mm",
+      "mods/src/il2cpp/il2cpp-functions.cc",
+      "mods/src/il2cpp/il2cpp_helper.cc",
+      "mods/src/mod_state.cc",
+      "mods/src/notification_audio_mac.mm",
+      "mods/src/notification_audio_windows.cc",
+      "mods/src/notification_desktop_mac.mm",
+      "mods/src/patches/battle_notify_parser.cc",
+      "mods/src/patches/fleet_opc_sample.cc",
+      "mods/src/patches/fleet_watch.cc",
+      "mods/src/patches/incoming_player_attack.cc",
+      "mods/src/patches/key.cc",
+      "mods/src/patches/keyboard_layout.cc",
+      "mods/src/patches/keyboard_layout_notifications.cc",
+      "mods/src/patches/mapkey.cc",
+      "mods/src/patches/modifierkey.cc",
+      "mods/src/patches/native_hook_extent.cc",
+      "mods/src/patches/notification_audio.cc",
+      "mods/src/patches/notification_audio_files.cc",
+      "mods/src/patches/notification_service.cc",
+      "mods/src/patches/parts/action_queue.cc",
+      "mods/src/patches/parts/artifact_exchange.cc",
+      "mods/src/patches/parts/audio_events.cc",
+      "mods/src/patches/parts/base_card.cc",
+      "mods/src/patches/parts/buff_fixes.cc",
+      "mods/src/patches/parts/cargo_format.cc",
+      "mods/src/patches/parts/chat.cc",
+      "mods/src/patches/parts/chat_avatar_retention.cc",
+      "mods/src/patches/parts/chat_titles.cc",
+      "mods/src/patches/parts/daily_faction_bulk_claim.cc",
+      "mods/src/patches/parts/disable_banners.cc",
+      "mods/src/patches/parts/double_click_assign_ship.cc",
+      "mods/src/patches/parts/fc_confirmation_reset.cc",
+      "mods/src/patches/parts/fix_pan.cc",
+      "mods/src/patches/parts/fleet_notifications.cc",
+      "mods/src/patches/parts/focus_search.cc",
+      "mods/src/patches/parts/forbidden_tech_confirmation.cc",
+      "mods/src/patches/parts/free_resize.cc",
+      "mods/src/patches/parts/galactic_anomaly_timer.cc",
+      "mods/src/patches/parts/galaxy_housing.cc",
+      "mods/src/patches/parts/galaxy_labels.cc",
+      "mods/src/patches/parts/galaxy_policy_checks.cc",
+      "mods/src/patches/parts/galaxy_selection.cc",
+      "mods/src/patches/parts/game_error_probe.cc",
+      "mods/src/patches/parts/haven_history.cc",
+      "mods/src/patches/parts/haven_road_depth.cc",
+      "mods/src/patches/parts/haven_water.cc",
+      "mods/src/patches/parts/haven_zoom.cc",
+      "mods/src/patches/parts/hotkeys.cc",
+      "mods/src/patches/parts/instant_cargo.cc",
+      "mods/src/patches/parts/instant_warp_confirmation.cc",
+      "mods/src/patches/parts/interior_zoom.cc",
+      "mods/src/patches/parts/loading_screen.cc",
+      "mods/src/patches/parts/loading_tip.cc",
+      "mods/src/patches/parts/mining_preview.cc",
+      "mods/src/patches/parts/misc.cc",
+      "mods/src/patches/parts/mission_hud_tweaks.cc",
+      "mods/src/patches/parts/mod_settings.cc",
+      "mods/src/patches/parts/navigation_environment.cc",
+      "mods/src/patches/parts/navigation_orbit.cc",
+      "mods/src/patches/parts/object_tracker.cc",
+      "mods/src/patches/parts/officer_preset_reorder.cc",
+      "mods/src/patches/parts/officer_sort.cc",
+      "mods/src/patches/parts/opc_indicators.cc",
+      "mods/src/patches/parts/open_bulk_claim_gifts.cc",
+      "mods/src/patches/parts/pinned_ship_sort.cc",
+      "mods/src/patches/parts/queue_address_guard.cc",
+      "mods/src/patches/parts/reveal_confirmation.cc",
+      "mods/src/patches/parts/runtime_config.cc",
+      "mods/src/patches/parts/ship_shortcut_badges.cc",
+      "mods/src/patches/parts/ship_tech_indicators.cc",
+      "mods/src/patches/parts/sync.cc",
+      "mods/src/patches/parts/testing.cc",
+      "mods/src/patches/parts/thin_queue_protection.cc",
+      "mods/src/patches/parts/transition_screen.cc",
+      "mods/src/patches/parts/ui_scale.cc",
+      "mods/src/patches/parts/warp_action_label.cc",
+      "mods/src/patches/parts/zoom.cc",
+      "mods/src/patches/patches.cc",
+      "mods/src/patches/planned_system_warp.cc",
+      "mods/src/patches/screen_update_hook.cc",
+      "mods/src/patches/ship_identity.cc",
+      "mods/src/patches/swap_ship_pin_input.cc",
+      "mods/src/patches/swap_ship_tile.cc",
+      "mods/src/runtime_config_writer.cc",
+      "mods/src/settings/audio_alerts.cc",
+      "mods/src/settings/camera_settings.cc",
+      "mods/src/settings/fleet_labels.cc",
+      "mods/src/settings/forbidden_tech.cc",
+      "mods/src/settings/galactic_anomaly_timer.cc",
+      "mods/src/settings/galaxy_labels.cc",
+      "mods/src/settings/mission_hud.cc",
+      "mods/src/settings/mod_pages.cc",
+      "mods/src/settings/native/action_widgets.cc",
+      "mods/src/settings/native/interop.cc",
+      "mods/src/settings/native/page_navigation.cc",
+      "mods/src/settings/native/row_style.cc",
+      "mods/src/settings/native/settings_search.cc",
+      "mods/src/settings/native/shortcut_popup.cc",
+      "mods/src/settings/native/text_entry.cc",
+      "mods/src/settings/native/value_widgets.cc",
+      "mods/src/settings/opc_indicators.cc",
+      "mods/src/settings/preview_settings.cc",
+      "mods/src/settings/queue_recovery.cc",
+      "mods/src/settings/ship_tech_indicators.cc",
+      "mods/src/settings/shortcut_settings.cc",
+      "mods/src/settings/upstream_features.cc",
+      "mods/src/settings/upstream_settings.cc",
+      "mods/src/settings/warp_mode.cc",
+      "mods/src/titlemac.mm",
+      "mods/src/toml_editor.cc"
+    ],
+    "translationUnitsWithoutDirectCapabilityReference": [
+      "mods/src/audio_file_picker_mac.mm",
+      "mods/src/audio_file_picker_windows.cc",
+      "mods/src/config_filters.cc",
+      "mods/src/config_save.cc",
+      "mods/src/dev/overlay_runtime.cc",
+      "mods/src/folder_manager.mm",
+      "mods/src/il2cpp/il2cpp-functions.cc",
+      "mods/src/il2cpp/il2cpp_helper.cc",
+      "mods/src/notification_audio_mac.mm",
+      "mods/src/notification_audio_windows.cc",
+      "mods/src/patches/battle_notify_parser.cc",
+      "mods/src/patches/fleet_opc_sample.cc",
+      "mods/src/patches/key.cc",
+      "mods/src/patches/keyboard_layout_notifications.cc",
+      "mods/src/patches/mapkey.cc",
+      "mods/src/patches/modifierkey.cc",
+      "mods/src/patches/native_hook_extent.cc",
+      "mods/src/patches/notification_audio_files.cc",
+      "mods/src/patches/parts/artifact_exchange.cc",
+      "mods/src/patches/parts/buff_fixes.cc",
+      "mods/src/patches/parts/disable_banners.cc",
+      "mods/src/patches/parts/galaxy_policy_checks.cc",
+      "mods/src/patches/parts/haven_water.cc",
+      "mods/src/patches/parts/loading_tip.cc",
+      "mods/src/patches/parts/mod_settings.cc",
+      "mods/src/patches/parts/navigation_environment.cc",
+      "mods/src/patches/parts/object_tracker.cc",
+      "mods/src/patches/parts/open_bulk_claim_gifts.cc",
+      "mods/src/patches/parts/reveal_confirmation.cc",
+      "mods/src/patches/parts/ui_scale.cc",
+      "mods/src/patches/screen_update_hook.cc",
+      "mods/src/patches/ship_identity.cc",
+      "mods/src/patches/swap_ship_tile.cc",
+      "mods/src/runtime_config_writer.cc",
+      "mods/src/settings/camera_settings.cc",
+      "mods/src/settings/fleet_labels.cc",
+      "mods/src/settings/forbidden_tech.cc",
+      "mods/src/settings/galactic_anomaly_timer.cc",
+      "mods/src/settings/galaxy_labels.cc",
+      "mods/src/settings/mission_hud.cc",
+      "mods/src/settings/mod_pages.cc",
+      "mods/src/settings/native/action_widgets.cc",
+      "mods/src/settings/native/interop.cc",
+      "mods/src/settings/native/row_style.cc",
+      "mods/src/settings/native/shortcut_popup.cc",
+      "mods/src/settings/native/text_entry.cc",
+      "mods/src/settings/opc_indicators.cc",
+      "mods/src/settings/preview_settings.cc",
+      "mods/src/settings/queue_recovery.cc",
+      "mods/src/settings/ship_tech_indicators.cc",
+      "mods/src/settings/upstream_features.cc",
+      "mods/src/settings/warp_mode.cc",
+      "mods/src/titlemac.mm",
+      "mods/src/toml_editor.cc"
+    ]
+  }
+}

@@ -465,10 +465,10 @@ void PlanetaryHelpHistoryContext_ApplyRecords_Hook(auto original, PlanetaryHelpH
   if (records && Config::Get().ui.reverse_haven_history) {
     // Swap through the managed setter so reference writes keep their GC barriers.
     for (int32_t i = 0, j = records->Count() - 1; i < j; ++i, --j) {
-      auto* first = (*records)[i];
-      auto* last  = (*records)[j];
-      records->Set(i, last);
-      records->Set(j, first);
+      auto first = il2cpp::GcHandle::Strong((*records)[i]);
+      auto last  = il2cpp::GcHandle::Strong((*records)[j]);
+      records->Set(i, last.Get());
+      records->Set(j, first.Get());
     }
   }
   original(_this, records);

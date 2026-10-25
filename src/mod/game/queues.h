@@ -27,6 +27,18 @@ struct QueueableAction : il2cpp::Object {
 struct ActionQueueInstance : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Prime.ActionQueue", "ActionQueueInstance">;
 
+  // Unknown latches cannot be interpreted as an idle queue. Resolve these contracts before any queue fix acts.
+  static bool SafetyFieldsAvailable()
+  {
+    static const bool qualified =
+        Class::HasField<"IsEngaging", bool>() && Class::HasField<"LastEngageAttemptTime", float>()
+        && Class::HasField<"LastEngagedTargetId", int64_t>() && Class::HasField<"PendingEngageTargetId", int64_t>()
+        && Class::HasField<"<PlayerFleetId>k__BackingField", int64_t>()
+        && Class::HasField<"_actionQueue", il2cpp::List<QueueableAction*>*>()
+        && QueueableAction::Class::HasField<"<FleetId>k__BackingField", int64_t>();
+    return qualified;
+  }
+
   bool IsEngaging()
   { return Field<"IsEngaging", bool>(); }
   float LastEngageAttemptTime()

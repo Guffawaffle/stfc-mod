@@ -467,6 +467,22 @@ void RenamedSettings()
   )"),
                                   effective, false);
   Check(both->graphics.ui_scale_step == 0.2f, "the new name wins over the old one");
+  const auto old_focus = Config::Parse(toml::parse("[patches]\nfocussearch=false"), effective, false);
+  Check(!old_focus->ui.focus_search, "cross-section focussearch=false remains effective");
+  const auto canonical_focus =
+      Config::Parse(toml::parse("[patches]\nfocussearch=false\n[ui]\nfocus_search=true"), effective, false);
+  Check(canonical_focus->ui.focus_search, "canonical focus_search overrides its old alias");
+  const auto malformed_focus =
+      Config::Parse(toml::parse("[patches]\nfocussearch=false\n[ui]\nfocus_search='invalid'"), effective, false);
+  Check(malformed_focus->ui.focus_search, "present malformed canonical key retains canonical default precedence");
+  const auto alerts = Config::Parse(
+      toml::parse("[ui]\nnotify_incoming_player_attack=true\nnotify_fleet_events='Docked,repaircomplete,Unknown'"),
+      effective, false);
+  Check(alerts->ui.notify_incoming_player_attack
+            && alerts->ui.notify_fleet_events
+                   == (fleet_notification_bit(FleetNotificationKind::Docked)
+                       | fleet_notification_bit(FleetNotificationKind::RepairComplete)),
+        "dedicated incoming and fleet desktop selectors survive native config parsing");
 }
 
 void ParseDoesNotActivateSettings()

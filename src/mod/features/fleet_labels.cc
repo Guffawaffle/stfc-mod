@@ -13,6 +13,7 @@
 
 #include <optional>
 #include <unordered_map>
+#include <vector>
 
 namespace
 {
@@ -24,6 +25,12 @@ public:
   // Set once every hook is in: an untracked OnDisable would leave a freed widget in the map.
   void MarkInstalled()
   { installed_ = true; }
+
+  uint64_t Revision(NavigationLOD* lod) const
+  {
+    const auto found = widgets_.find(lod);
+    return found == widgets_.end() ? 0 : found->second.generation;
+  }
 
   static bool Enabled()
   {
@@ -63,7 +70,11 @@ public:
     auto* lod = widget->Context() ? widget->lod() : nullptr;
     if (!lod)
       return;
-    widgets_.insert_or_assign(lod, widget);
+    auto widget_ref = il2cpp::GcHandle::Weak(widget);
+    auto lod_ref    = il2cpp::GcHandle::Weak(lod);
+    if (!widget_ref || !lod_ref)
+      return;
+    widgets_.insert_or_assign(lod, Binding{std::move(widget_ref), std::move(lod_ref), ++generation_});
     if (camera_.zoom_known && Enabled())
       lod->UpdateLOD(camera_.zoom_level);
   }
@@ -75,12 +86,19 @@ public:
     auto* lod = widget->lod();
     if (!lod)
       return;
-    widgets_.erase(lod);
+    const auto found = widgets_.find(lod);
+    if (found == widgets_.end() || found->second.widget.Get() != widget)
+      return;
+    auto widget_root = il2cpp::GcHandle::Strong(widget);
+    auto lod_root    = il2cpp::GcHandle::Strong(lod);
+    widgets_.erase(found);
     // Give a reused widget back to the game at the game's own level.
     if (widget->Context() && camera_.zoom_known && Enabled()) {
       lod->SetTargetLevel(camera_.zoom_level);
       lod->UpdateLOD(camera_.zoom_level);
-      lod->SetTargetLevel(camera_.zoom_level);
+      // UpdateLOD can bind a replacement owner; do not overwrite its bookkeeping.
+      if (!widgets_.contains(lod))
+        lod->SetTargetLevel(camera_.zoom_level);
     }
   }
 
@@ -113,16 +131,34 @@ public:
   }
 
 private:
+  struct Binding {
+    il2cpp::GcHandle widget, lod;
+    uint64_t         generation{};
+  };
+
   const FleetLabelProfile* Profile(NavigationLOD* lod) const
   {
-    const auto it    = widgets_.find(lod);
-    auto*      fleet = it == widgets_.end() ? nullptr : it->second->Context();
+    const auto it = widgets_.find(lod);
+    if (it == widgets_.end())
+      return nullptr;
+    const auto generation  = it->second.generation;
+    auto       widget_root = il2cpp::GcHandle::Strong(it->second.widget.Get());
+    auto*      widget      = widget_root.Get<NavigationFleetWidget>();
+    if (!widget || !unity::Alive(widget))
+      return nullptr;
+    auto       fleet_root = il2cpp::GcHandle::Strong(widget->Context());
+    auto*      fleet      = fleet_root.Get<FleetDeployedData>();
+    const auto current    = widgets_.find(lod);
+    if (current == widgets_.end() || current->second.generation != generation)
+      return nullptr;
     if (!fleet)
       return nullptr;
-    // A missing FleetType property reads as Nonexistent, which counts as non-player.
+    const auto kind = fleet->TryCall<"get_FleetType", DeployedFleetType>();
+    if (!kind || Revision(lod) != generation)
+      return nullptr;
     const auto& config = Config::Get();
-    return fleet->FleetType() == DeployedFleetType::Player ? &config.graphics.zoom_label_player
-                                                           : &config.graphics.zoom_label_non_player;
+    return kind.value == DeployedFleetType::Player ? &config.graphics.zoom_label_player
+                                                   : &config.graphics.zoom_label_non_player;
   }
 
   static bool UsesThreshold()
@@ -147,9 +183,28 @@ private:
   {
     if (!Enabled())
       return;
-    for (const auto& [lod, widget] : widgets_)
-      if (widget->Context())
+    // Native updates can release/rebind any widget, invalidating map iterators and old receiver identities.
+    std::vector<std::pair<NavigationLOD*, uint64_t>> pending;
+    pending.reserve(widgets_.size());
+    for (const auto& [key, binding] : widgets_)
+      pending.emplace_back(key, binding.generation);
+    for (const auto& [key, generation] : pending) {
+      auto found = widgets_.find(key);
+      if (found == widgets_.end() || found->second.generation != generation)
+        continue;
+      auto  widget_root = il2cpp::GcHandle::Strong(found->second.widget.Get());
+      auto  lod_root    = il2cpp::GcHandle::Strong(found->second.lod.Get());
+      auto* widget      = widget_root.Get<NavigationFleetWidget>();
+      auto* lod         = lod_root.Get<NavigationLOD>();
+      if (!widget || !lod || !unity::Alive(widget) || !unity::Alive(lod)) {
+        widgets_.erase(key);
+        continue;
+      }
+      auto* context = widget->Context();
+      found         = widgets_.find(key);
+      if (context && found != widgets_.end() && found->second.generation == generation)
         lod->UpdateLOD(camera_.zoom_level);
+    }
   }
 
   // Re-applies labels only when a threshold profile crosses its threshold, not on every zoom step.
@@ -182,22 +237,27 @@ private:
     bool non_player_expanded = false;
   };
 
-  bool                                                       installed_ = false;
-  std::unordered_map<NavigationLOD*, NavigationFleetWidget*> widgets_;
-  Camera                                                     camera_;
-} fleet_labels;
+  bool                                        installed_ = false;
+  uint64_t                                    generation_{};
+  std::unordered_map<NavigationLOD*, Binding> widgets_;
+  Camera                                      camera_;
+};
+// Weak handles must be released while IL2CPP is alive, never by static destruction after its teardown.
+auto& fleet_labels = *new FleetLabels;
 
 // --- Hooks ---
 
 void NavigationLOD_UpdateLOD_Hook(auto original, NavigationLOD* _this, ZoomLevels level)
 {
+  const auto revision  = fleet_labels.Revision(_this);
   const auto effective = fleet_labels.LevelFor(_this, level);
-  if (!effective)
+  if (!effective || fleet_labels.Revision(_this) != revision)
     return original(_this, level);
   // The target level is set on both sides of the update so the game's own bookkeeping agrees with ours.
   _this->SetTargetLevel(*effective);
   original(_this, *effective);
-  _this->SetTargetLevel(*effective);
+  if (revision && fleet_labels.Revision(_this) == revision)
+    _this->SetTargetLevel(*effective);
 }
 
 void NavigationFleetWidget_OnEnable_Hook(auto original, NavigationFleetWidget* _this)

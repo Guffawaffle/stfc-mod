@@ -45,6 +45,8 @@ std::span<const FeatureInstallation> FeatureInstallations();
 // runtime_config.cc: registered-key saves and native quit/drain lifecycle.
 extern const Feature kRuntimeConfig;
 extern const Feature kModState;
+extern const Feature kFleetNotifications;
+extern const Feature kFleetNodeDepletion;
 
 // Frame work that only needs to run every so often, such as a scan of the UI. Game thread only.
 class Throttle

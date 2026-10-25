@@ -366,6 +366,12 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
     }
 
     // The action queue decisions in src/mod, header-only.
+    inline for (.{ "fleet_alert_arrival", "fleet_alert_opc", "incoming_attack_dedup" }) |fixture| {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        addFixture(ctx, build_tests, test_mod, b.fmt("{s}-tests", .{fixture}), module);
+    }
     {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));

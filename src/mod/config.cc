@@ -74,6 +74,7 @@ constexpr std::pair<std::string_view, bool Config::Patches::*> kPatches[] = {
     {"testpatches", &Config::Patches::testpatches},
     {"thinqueueprotectionhooks", &Config::Patches::thinqueueprotectionhooks},
     {"toastbannerhooks", &Config::Patches::toastbannerhooks},
+    {"fleetnotificationhooks", &Config::Patches::fleetnotificationhooks},
     {"transitionscreenhooks", &Config::Patches::transitionscreenhooks},
     {"uiscalehooks", &Config::Patches::uiscalehooks},
     {"zoomhooks", &Config::Patches::zoomhooks},
@@ -790,6 +791,9 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   u.pinned_ships = ReadShipFilter(r, "pinned_ships").names;
   r.Read("ui", "double_click_to_assign_ship", u.double_click_to_assign_ship);
   r.Read("ui", "dock_syncmanagement", u.dock_syncmanagement);
+  // PLAY accepted the older cross-section key. A present canonical key wins even when malformed.
+  if (!r.Node("ui", "focus_search"))
+    u.focus_search = r.Get<bool>("patches", "focussearch", u.focus_search);
   r.Read("ui", "focus_search", u.focus_search);
   r.ReadRenamed("ui", "format_cargo_values", "cargo_format", u.format_cargo_values);
   r.Read("ui", "highlight_opc_fleets", u.highlight_opc_fleets);
@@ -820,6 +824,9 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Choose("ui", "hud_missions", u.hud_missions, kHudVisibility);
   u.disabled_banner_types = ReadBannerTypes(r, "disabled_banner_types");
   u.notify_banner_types   = ReadBannerTypes(r, "notify_banner_types");
+  r.Read("ui", "notify_incoming_player_attack", u.notify_incoming_player_attack);
+  u.notify_fleet_events = ParseFleetNotifications(r.Get<std::string>("ui", "notify_fleet_events", ""));
+  r.Record("ui", "notify_fleet_events", FormatFleetNotifications(u.notify_fleet_events));
 
   // [sync]
   auto sync = std::make_shared<Sync>();

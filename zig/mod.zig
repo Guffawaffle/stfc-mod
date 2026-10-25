@@ -136,6 +136,7 @@ fn addModSources(ctx: *const Ctx, module: *std.Build.Module, flags: []const []co
     if (ctx.isMacos()) {
         module.addCSourceFiles(.{ .root = root, .files = globFiles(b, root, "", &.{".mm"}, &.{}), .flags = flags });
         module.linkFramework("Cocoa", .{});
+        module.linkFramework("UserNotifications", .{});
     } else if (ctx.isWindows()) {
         inline for (.{ "winmm", "rpcrt4", "runtimeobject", "mfuuid", "shlwapi", "ole32" }) |lib| module.linkSystemLibrary(lib, .{});
     }

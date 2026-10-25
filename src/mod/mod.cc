@@ -63,7 +63,29 @@ void StartLogging()
   }
   // Append if rotation failed so an existing session log is not truncated. spdlog takes the path's native name,
   // which is wide on Windows (the build sets SPDLOG_WCHAR_FILENAMES there).
-  auto logger = spdlog::basic_logger_mt("default", log.native(), false);
+  std::string log_error;
+  auto        logger = [&] {
+#if __APPLE__
+    try {
+      return spdlog::basic_logger_mt("default", log.native(), false);
+    } catch (const spdlog::spdlog_ex& error) {
+      // Only ordinary launches used the historic working-directory fallback. Never escape admitted profile or
+      // explicit custom routing, whose log location is part of its ownership contract.
+      if (File::HasCustomNames() || profile_launch::Requested())
+        throw;
+      log_error = error.what();
+      try {
+        return spdlog::basic_logger_mt("default", File::FromUtf8(File::Log()).native(), false);
+      } catch (const spdlog::spdlog_ex& fallback_error) {
+        log_error += "; previous location also failed: ";
+        log_error += fallback_error.what();
+        return std::make_shared<spdlog::logger>("default");
+      }
+    }
+#else
+    return spdlog::basic_logger_mt("default", log.native(), false);
+#endif
+  }();
   logger->sinks().push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
   spdlog::set_default_logger(logger);
 
@@ -72,6 +94,8 @@ void StartLogging()
   spdlog::flush_on(level);
   if (!rotation_error.empty())
     spdlog::warn("could not rotate the log history; appending to the existing log: {}", rotation_error);
+  if (!log_error.empty())
+    spdlog::warn("preferred ordinary log unavailable; using legacy file or console logging: {}", log_error);
   il2cpp::SetErrorHandler([](std::string_view message) { spdlog::error("{}", message); });
 }
 
@@ -158,6 +182,9 @@ constexpr const Feature* kFeatures[] = {
     // fleet_actions.cc
     &kQueueSwitch,
     &kAbilityButtons,
+    // fleet_notifications.cc: independent polling and depletion-hook availability.
+    &kFleetNotifications,
+    &kFleetNodeDepletion,
     // mining_preview.cc
     &kMiningPreview,
     // System orbit is parked by product decision; its code is retained but not installed.

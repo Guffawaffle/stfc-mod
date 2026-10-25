@@ -1,5 +1,75 @@
 # Downstream play preservation target
 
+## Active functional reconciliation — 2026-10-25
+
+`play` at `cad98ef7990dd66167eb64ea5dda525c1fe2c296` remains the behavioral
+oracle. The current isolated candidate began this pass at
+`5c921b65e2b35d0d1ba008f7b6dcbb25f93e3430`. Earlier batch inventories below
+are historical discovery records, not completion claims. The task roadmap's
+former `inventory-complete` label has been corrected to reconciliation in progress.
+
+The independent source pass followed producers, callbacks, consumers, cleanup
+and persistence. It found additional missing native Settings workflows (including
+FC confirmation recovery), Galaxy functionality, preset ordering, fleet/incoming
+alerts and separate debug diagnostic surfaces. Registered keys and retained pure
+models do not restore those workflows.
+
+Current source changes restore conservative queue observation and engage-result
+handling; substantive chat-title binding; weak fleet-label custody and reentry
+checks; Haven history swap roots; the Enter-assignment installation gate; the
+ordinary macOS logging fallback; and the legacy cross-section focus-search alias.
+Notification restoration reconnects all seven fleet alerts, own-ship incoming
+player alerts and macOS desktop delivery. Source review exposed and corrected
+independent depletion availability and fleet-only macOS authorization dependencies.
+These changes have **not** been deployed or player-qualified in this pass.
+
+Local Windows `mods test-mod test-il2cpp` passed at the safety source point
+(183 build/run steps), the initial notification source point (183), and the
+notification policy fixture source point (189). These are build graph counts,
+not independent feature counts. Later edits require their own checks. Logs are
+in `D:/dev/stfc-workspace/.ax/play-functional-parity-20261025/`.
+
+The subsequent Profiles-enabled Windows DLL and assertion-enabled fixtures passed
+`install test-mod test-il2cpp` (201/201 build/run steps). The PE checker verified
+18 proxy exports, static CRT and Profiles-host presence. Candidate DLL SHA-256:
+`9c3b9c81ebc3eadcdf8cd86fde9fdce48fbaa74fdd937cdad6eb3e1d0238c687`.
+`restoration-local-receipt.json` records the source-file hashes and exact artifact.
+The machine-readable [workflow inventory](play-functional-parity.json) is the
+current reconciliation ledger; its 95 entries remain an in-progress inventory,
+not an assertion of comprehensive discovery or runtime equivalence.
+
+CI, PR conflicts and integration infrastructure are deliberately parked. No
+workflow changes, merging or rebasing are part of this phase. PR #374 is only a
+review checkpoint. Eventual wholesale replacement of `play` does not authorize
+promotion before this functional work is complete.
+
+### Newly exposed contracts that must remain visible
+
+- Unreadable queue counts, engagement latches, recall/removal state or address
+  components must not become permission to process, resume or preserve a queue.
+- Old fleet-label generations must not affect replacement pooled widgets.
+- Fleet alerts require startup/re-enable seeding, journey/OPC continuity and
+  independent polling/depletion availability. Incoming dedup suppresses side
+  effects, never the native banner's independent visibility decision.
+- Native Settings requires full navigation, exact editing, reset/save recovery,
+  shortcut capture/undo, media pickers and preference invalidation, not a starter
+  page. FC confirmation reads must not construct an account singleton to render.
+- Preset save must always use canonical source indices, including repaint,
+  disable, release and reentrant old/new projection transitions. The parked P15
+  prototype has a confirmed transition-save hole and remains inactive.
+- Discovery tow has demonstrably drifted PLAY bindings: retained client272/273
+  have seven-argument PlanCourse and yielding iterators. Restoring the legacy
+  tight MoveNext loop would not establish native coroutine scheduling.
+- Debug overlay, diagnostic source bus, science-error JSONL recorder, Fleet
+  Watch probe and keyboard-vars diagnostics are separate capabilities.
+- Legacy sent-battle IDs record queue admission, not delivery. The previously
+  accepted per-target ACK semantics must not infer delivery from that old file.
+
+Implementation completion, local automated qualification and player-confirmed
+parity remain separate. Overall functional parity is **not yet established**.
+
+---
+
 2026-10-25. This is a source inventory, not a declaration of completed gameplay
 parity. The primary target is the existing downstream **play** experience; later
 play-dev, AAI and STFCKitUI additions follow it. An incremental Settings port is

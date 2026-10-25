@@ -157,7 +157,7 @@ void UserProfileWidget_UpdatePlayerTitle_Hook(auto original, UserProfileWidget* 
     HideChatTitle(_this);
 }
 
-// SetWidgetData and OnDidBindContext both bind a title from the title widget's side; one hook serves both.
+// Hook the substantive implementation, not the tiny shared SetWidgetData/OnDidBindContext wrappers.
 void PlayerTitleWidget_Bind_Hook(auto original, PlayerTitleWidget* _this)
 {
   original(_this);
@@ -199,31 +199,15 @@ bool InstallChatAvatarRetention()
   return hooks.Commit();
 }
 
-// These targets are small, so on macOS each is checked against SPUD's patch first. The feature is the update hook.
-// The bind paths only catch titles bound without an update, so they go in as a second set where they fit, and the
-// feature does not depend on them.
 bool InstallChatTitles()
 {
   void*           update_entry = il2cpp::CheckedEntry(UserProfileWidget::Class::Method("UpdatePlayerTitle", 0));
+  void*           bind_entry   = il2cpp::CheckedEntry(PlayerTitleWidget::Class::Method("SetIdentifiers", 0));
   il2cpp::HookSet hooks("ChatTitles");
   IL2CPP_STAGE_AT(hooks, update_entry, UserProfileWidget_UpdatePlayerTitle_Hook);
-  const bool installed = hooks.Commit();
-  const auto set_data  = PlayerTitleWidget::Class::Method("SetWidgetData", 0);
-  const auto bind      = PlayerTitleWidget::Class::Method("OnDidBindContext", 0);
-  if (!set_data || !bind)
-    return installed;
-  // Both, or one of them and the update, often branch to one shared body. One detour on it covers them all; a second
-  // would run the same body's hook twice, once with a receiver of the wrong class. An entry too small for a detour
-  // is reported by CheckedEntry and left out.
-  void*           set_entry  = il2cpp::CheckedEntry(set_data);
-  void*           bind_entry = il2cpp::CheckedEntry(bind);
-  il2cpp::HookSet bind_hooks("ChatTitles");
-  if (set_entry && set_entry != update_entry)
-    IL2CPP_STAGE_AT(bind_hooks, set_entry, PlayerTitleWidget_Bind_Hook);
-  if (bind_entry && bind_entry != update_entry && bind_entry != set_entry)
-    IL2CPP_STAGE_AT(bind_hooks, bind_entry, PlayerTitleWidget_Bind_Hook);
-  bind_hooks.Commit();
-  return installed;
+  if (bind_entry != update_entry)
+    IL2CPP_STAGE_AT(hooks, bind_entry, PlayerTitleWidget_Bind_Hook);
+  return hooks.Commit();
 }
 } // namespace
 

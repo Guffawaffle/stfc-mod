@@ -5,6 +5,7 @@
 // startup and again whenever the file changes; a few are also toggled at runtime by hotkeys. Everything runs on
 // the game thread except sync, whose workers retain immutable snapshots.
 
+#include "features/fleet_notification_types.h"
 #include "features/notification_audio_types.h"
 #include "shortcuts.h"
 
@@ -168,6 +169,7 @@ public:
     bool testpatches                = true;
     bool thinqueueprotectionhooks   = true;
     bool toastbannerhooks           = true;
+    bool fleetnotificationhooks     = true;
     bool transitionscreenhooks      = true;
     bool uiscalehooks               = true;
     bool zoomhooks                  = true;
@@ -326,8 +328,10 @@ public:
     MissionHudVisibility hud_missions         = MissionHudVisibility::kAuto;
 
     // ToastState values.
-    std::vector<int> disabled_banner_types;
-    std::vector<int> notify_banner_types;
+    std::vector<int>      disabled_banner_types;
+    std::vector<int>      notify_banner_types;
+    bool                  notify_incoming_player_attack = false;
+    FleetNotificationMask notify_fleet_events           = 0;
   } ui;
 
   struct Sync {

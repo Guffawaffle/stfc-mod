@@ -367,7 +367,7 @@ void AssignOnDoubleClick(FleetPlayerData* ship)
 void AssignOnEnterFrame()
 {
   // Down, not Pressed: a held Enter must press Assign once, not every frame.
-  if (Config::Get().ui.double_click_to_assign_ship
+  if (double_click_installed && Config::Get().ui.double_click_to_assign_ship
       && (unity::Key::Down(unity::KeyCode::Return) || unity::Key::Down(unity::KeyCode::KeypadEnter))
       && !unity::Key::IsInputFocused())
     PressAssignButton();
