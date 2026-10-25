@@ -35,8 +35,8 @@ void Require(bool condition, const char* what)
     throw std::runtime_error(what);
 }
 
-int                                                       input_frame = 0, held_reads = 0, down_reads = 0;
-bool                                                      any_held = false, any_down = false;
+int  input_frame = 0, held_reads = 0, down_reads = 0, frame_reads = 0;
+bool any_held = false, any_down = false;
 std::array<bool, std::to_underlying(unity::KeyCode::Max)> held_keys{}, down_keys{};
 
 void KeyboardSnapshot()
@@ -788,10 +788,13 @@ END_API
 API(Il2CppMethodPointer, il2cpp_resolve_icall, (const char* name))
 {
   static constexpr auto answer = +[]() -> int32_t { return 42; };
-  static constexpr auto frame  = +[]() -> int32_t { return input_frame; };
-  static constexpr auto held   = +[]() { return any_held; };
-  static constexpr auto down   = +[]() { return any_down; };
-  static constexpr auto key    = +[](unity::KeyCode key) {
+  static constexpr auto frame  = +[]() -> int32_t {
+    ++frame_reads;
+    return input_frame;
+  };
+  static constexpr auto held = +[]() { return any_held; };
+  static constexpr auto down = +[]() { return any_down; };
+  static constexpr auto key  = +[](unity::KeyCode key) {
     ++held_reads;
     return held_keys[std::to_underlying(key)];
   };
@@ -1551,6 +1554,16 @@ int main(int argc, char** argv)
   Require(answer && answer() == 42, "internal call");
   Require(!renamed && renamed() == 0 && renamed() == 0, "missing internal call returns the default");
   Require(ErrorsMentioning("missing internal call Test::Renamed()") == 1, "missing internal call reported once");
+
+  // Startup may discover the frame counter without executing a Unity engine
+  // getter. The actual read is deferred to runtime and shares that resolver.
+  const auto previous_frame_reads = frame_reads;
+  Require(unity::Time::FrameCountAvailable() && unity::Time::FrameCountAvailable()
+              && frame_reads == previous_frame_reads,
+          "frame-count installation preflight invoked the engine getter");
+  Require(unity::Time::frameCount() == input_frame && frame_reads == previous_frame_reads + 1,
+          "runtime frame-count read no longer invokes its shared internal call");
+  std::cout << "Unity frame-count startup preflight resolves without engine invocation passed\n";
 
   // Nested classes resolve through their declaring type.
   Require(il2cpp::Class<"Game", "Game", "Outer/Inner">::Raw() == &inner_class.klass, "nested class");

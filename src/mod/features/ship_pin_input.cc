@@ -541,7 +541,10 @@ bool Install()
   if (state.attempted)
     return state.installed;
   state.attempted = true;
-  if (!unity::Input::PointerAvailable() || !PinInputEpoch()
+  // Installation may resolve engine entry points, but must not read Unity's
+  // frame state before the first real frame. Runtime input still requires a
+  // qualified nonzero PinInputEpoch for each interaction.
+  if (!unity::Input::PointerAvailable() || !unity::Time::FrameCountAvailable()
       || !ShipSelectionViewController::Class::HasField<"m_context", ShipManagementViewContext*>()
       || !unity::PointerEventData::Class::HasProperty<"position", unity::Vector2>()
       || !unity::PointerEventData::Class::HasProperty<"pressPosition", unity::Vector2>()

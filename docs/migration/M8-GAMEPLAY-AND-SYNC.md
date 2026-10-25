@@ -8,7 +8,10 @@ AAI, STFCKitUI and the native Settings screen remain deferred, not discarded.
 
 The work is on `integration/ripper-foundation-m1b-20261025` in the approved
 isolated worktree. Source and offline testing do not authorize deployment or
-establish full gameplay parity. The running game has not been cycled.
+establish full gameplay parity. The original offline cohort gates below did not
+cycle the game. A later authorized native trial exposed the startup frame-read
+failure documented in [the focused correction](STARTUP-FRAME-PREFLIGHT.md);
+its runtime evidence and corrected-trial status are separate from these gates.
 
 ## Registered gameplay settings
 

@@ -388,16 +388,27 @@ using Cursor = il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Cursor">;
 
 // UnityEngine.Time through its internal calls, which skip the managed wrappers.
 struct Time {
+  // Resolve only. Installing hooks runs before Unity's frame state is ready;
+  // finding this internal call does not authorize invoking it during startup.
+  static bool FrameCountAvailable()
+  { return static_cast<bool>(FrameCountCall()); }
   // -1 when Unity lacks the call.
   static int32_t frameCount()
   {
-    static const il2cpp::ICall<int32_t()> call{"UnityEngine.Time::get_frameCount()"};
+    const auto& call = FrameCountCall();
     return call ? call() : -1;
   }
   static float deltaTime()
   {
     static const il2cpp::ICall<float()> call{"UnityEngine.Time::get_deltaTime()"};
     return call();
+  }
+
+private:
+  static const il2cpp::ICall<int32_t()>& FrameCountCall()
+  {
+    static const il2cpp::ICall<int32_t()> call{"UnityEngine.Time::get_frameCount()"};
+    return call;
   }
 };
 
