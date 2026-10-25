@@ -288,6 +288,10 @@ Claim recovery remains held separately. Its old default-false recovery setting
 does not make the old default-true science hook TU safe to activate wholesale.
 Preserve policies/receipts without enabling probes incidentally.
 
+The [presentation follow-on](M8-PRESENTATION-PRESERVATION.md) restores HUD Auto
+restoration/Refresh and checked named toast fallback, with its own exact final
+source gates. Its pure officer policy does not activate native reordering.
+
 Further preservation cohorts still include officer presentation ordering,
 galaxy/orbit/Haven extensions, OPC/ETA/tech artwork, guarded recovery and custom
 fleet/incoming-player notifications. Do not call this first cohort full

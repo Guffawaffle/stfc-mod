@@ -115,8 +115,65 @@ No user preset/store was read or modified by the pure fixture.
 
 ## Qualification checkpoint
 
-Development-only fixture results are not final source-to-binary qualification.
-Final clean-source gates, exact revisions and independent artifact readback are
-recorded here once available. No deployment, game cycle, branch promotion or
-live sync is authorized by this implementation. Existing AAI, STFCKitUI and
-native Settings UI integration remain deferred.
+Implementation is `70f82359bd24b5c62f52317f6a0c896c41c35106`; test-runtime
+correction is `809ca38e25a1fe0d3a1a77d8f9361a739c12f71c`; the **final qualified
+source** including the one-pass caller correction is
+`5e58d3d7cf9ad644cf338873ecd59e7eb99726e4`.
+
+| Clean final source lane | Result |
+| --- | --- |
+| Windows x64 Zig 0.16, Profiles host | 207/207 steps; 8/8 reported Zig tests; 89 artifacts |
+| Windows x64 Zig 0.17, default off | 185/185 steps; 75 artifacts |
+| WSL/Linux x64 Zig 0.16 | 168/168 steps; 8/8 reported Zig tests; 36 artifacts |
+
+Both Windows lanes ran the actual production uploader against temporary owned
+`127.0.0.1` listeners using synthetic data. Three inert Profiles controls ran in
+the host lane. No Profiles account/preferences/catalog lifecycle fixture ran in
+the developer execution environment. Negative build-option controls were not
+repeated; their earlier results remain bound to their earlier source. Linux
+qualified portable logic, not the Windows HTTP or product DLL runtime.
+
+Every lane began and ended at the exact clean source. Independent readback
+verified **488 unique file facts with zero mismatches**, including source,
+compiler archives/executables, dependency-prefix ownership, logs, required
+fixture markers and artifacts. The executed uploader fixtures matched their
+retained installed bytes. Static PE checks verified exact build identities,
+static CRT, 18 host versus 16 default-off exports, one compiled TOML provider,
+the derived Profiles host/core closure and no Profiles libraries in default off.
+No product DLL was loaded by those checks.
+
+| Product DLL | SHA-256 |
+| --- | --- |
+| Host 0.16 | `99409aa765513114187a6a0cdb4600df0a40f4bb54fd1345b1e13a819e123559` |
+| Default off 0.17 | `70a806a67e651fca105c1d3aa73cc2fba2679dc92a746752911f56e05c98c33a` |
+
+Evidence root:
+`D:/dev/stfc-workspace/.ax/ripper-gameplay-sync-20261025/candidates/5e58d3d7cf9ad644cf338873ecd59e7eb99726e4`.
+Independent proof `independent-presentation-readback.json`, SHA-256
+`a3ff0559c5e7b1ee62d3bbe5e486cde9bf72fb78a20cde50d802f904b6f9f53a`.
+Private named-getter and localization-chain evidence receipts are included in
+that readback; native-body findings came from a hash-verified retained Windows
+client, not execution of the installed client.
+
+The initial Linux run at `70f82359` failed its new isolated missing-array-class
+case. The fake runtime's diagnostic-name stub interpreted an SZARRAY element
+type as a class; the product guard was not bypassed. Routing that test stub
+through its existing class lookup fixed it. The intermediate clean Linux run
+at `809ca38e` passed before the separate caller-level formatting correction.
+All superseded receipts remain preserved. Final results above were rerun on
+`5e58d3d7`; no earlier passing result was relabeled as later qualification.
+
+No deployment, signing, game cycle, branch promotion, live sync or macOS runtime
+qualification occurred. Existing AAI, STFCKitUI and native Settings UI
+integration remain deferred. Direct collaboration and scoped AXF continuity do
+not claim Runner-governed execution.
+
+## Next preservation work
+
+Continue the inactive officer handoff experiment only after its recoverable
+failure/rebind rules and actual adapter fixture are specified. Independently,
+the next coherent visual cohort is Haven water visibility and road-offset
+restoration, retaining the foundation's existing zoom/history geometry and
+stronger replacement discovery. Private read-only source study:
+`D:/dev/stfc-workspace/.ax/ripper-gameplay-sync-20261025/navigation-haven-study/NEXT-COHORT.md`.
+Neither those findings nor this checkpoint establish full gameplay parity.

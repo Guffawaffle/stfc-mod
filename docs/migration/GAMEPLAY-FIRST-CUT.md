@@ -19,6 +19,10 @@ source-bound Windows/portable checks. It is not full gameplay parity or a
 deployed runtime qualification. The next preservation deltas are listed there.
 The separately qualified `5fbb1ec9` follow-on also restores queue-toggle saving;
 its narrower gates and remaining qualification are recorded in the same report.
+The [presentation preservation checkpoint](M8-PRESENTATION-PRESERVATION.md)
+qualifies `5e58d3d7`: native HUD restoration/Refresh, checked toast context
+fallback and pure officer ordering. Native officer reorder activation remains
+separate from its policy qualification.
 
 At the earlier M2 baseline, `493f669c` was an independently qualified foundation,
 not a gameplay-parity build.
