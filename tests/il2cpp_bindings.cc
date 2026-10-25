@@ -603,7 +603,10 @@ API(Il2CppObject*, il2cpp_type_get_object, (const Il2CppType*))
 { return &type_object; }
 END_API
 API(char*, il2cpp_type_get_name, (const Il2CppType* type))
-{ return strdup(static_cast<Il2CppClass*>(type->data.dummy)->name); }
+{
+  const auto* klass = type ? il2cpp_class_from_type(type) : nullptr;
+  return strdup(klass && klass->name ? klass->name : "?");
+}
 END_API
 API(void, il2cpp_free, (void* pointer))
 { std::free(pointer); }
