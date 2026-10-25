@@ -8,8 +8,8 @@
 
 namespace sync_fixture
 {
-inline data_sync::SharedState                           state;
-inline std::atomic<std::shared_ptr<const Config::Sync>> settings{std::make_shared<const Config::Sync>()};
+inline data_sync::SharedState              state;
+inline std::shared_ptr<const Config::Sync> settings{std::make_shared<const Config::Sync>()};
 
 inline void Check(bool condition, const char* message)
 {
@@ -30,12 +30,13 @@ inline void Fresh()
   auto config                 = std::make_shared<Config::Sync>();
   config->options.diagnostics = true;
   config->options.resources   = true;
-  settings.store(std::move(config));
+  std::atomic_store_explicit(&settings, std::shared_ptr<const Config::Sync>{std::move(config)},
+                             std::memory_order_release);
 }
 } // namespace sync_fixture
 
 std::shared_ptr<const Config::Sync> Config::Sync::Get()
-{ return sync_fixture::settings.load(); }
+{ return std::atomic_load_explicit(&sync_fixture::settings, std::memory_order_acquire); }
 
 namespace data_sync
 {

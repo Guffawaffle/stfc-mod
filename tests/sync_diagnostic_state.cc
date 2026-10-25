@@ -82,14 +82,17 @@ int main()
     }
     Check(OrdinarySessionOpen(state.generation.load()), "complete fresh generation recovers ordinary admission");
 
-    auto disabled                 = std::make_shared<Config::Sync>(*sync_fixture::settings.load());
+    auto disabled =
+        std::make_shared<Config::Sync>(*std::atomic_load_explicit(&sync_fixture::settings, std::memory_order_acquire));
     disabled->options.diagnostics = false;
-    sync_fixture::settings.store(disabled);
+    std::atomic_store_explicit(&sync_fixture::settings, std::shared_ptr<const Config::Sync>{disabled},
+                               std::memory_order_release);
     PublishDiagnosticEvent("fixture", event);
     Check(first->diagnostics.Stats().count == 0, "global opt-out prevents even an enabled destination retaining data");
     auto enabled                 = std::make_shared<Config::Sync>(*disabled);
     enabled->options.diagnostics = true;
-    sync_fixture::settings.store(enabled);
+    std::atomic_store_explicit(&sync_fixture::settings, std::shared_ptr<const Config::Sync>{enabled},
+                               std::memory_order_release);
     first->unavailable = true;
     PublishDiagnosticEvent("fixture", event);
     Check(first->diagnostics.Stats().count == 0, "failed destination remains a tombstone");
