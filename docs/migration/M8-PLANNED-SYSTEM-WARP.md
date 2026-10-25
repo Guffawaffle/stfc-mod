@@ -6,6 +6,11 @@ isolated migration worktree. The behavior oracle is downstream
 `mods/src/patches/planned_system_warp.cc` and its two hidden-popup primary-action
 branches in `mods/src/patches/parts/hotkeys.cc`.
 
+Tash's confirmation, relayed by Guff, resolves the SPUD access question: its
+repository is private and the supplied snapshot is the most recent supplied
+source. The migration continues using its fixed vendored snapshot; no dynamic
+pull, dependency update or claim of independently reading private HEAD is made.
+
 ## Preserved player behavior
 
 After a galaxy destination popup closes, the primary action may resume the
@@ -95,6 +100,44 @@ current-client/platform compatibility remain in-game qualification needs.
 Clean candidate-bound regression/build results are a separate gate; the
 preceding Haven results do not validate this cohort.
 
+### Qualified source checkpoint
+
+Product source: **`43d6c7b732be72b0d0ed225adb733249121360e2`**.
+
+| Exact clean source lane | Result |
+| --- | --- |
+| Windows x64 Zig 0.16, Profiles host | 234/234 steps; 8/8 reported Zig tests; 93 artifacts |
+| Windows x64 Zig 0.17, default off | 212/212 steps; 79 artifacts |
+| WSL/Linux x64 Zig 0.16 | 195/195 steps; 8/8 reported Zig tests; 38 artifacts |
+
+All three completed gates returned zero, retained unchanged source before and
+after execution, and observed the successful binding marker plus all 20
+isolated refusal markers. Both Windows lanes exercised the production uploader
+against owned temporary loopback listeners with synthetic data. The host lane
+also ran three inert Profiles controls. It did not run the account, catalog or
+preferences lifecycle fixtures in the known-limited developer environment.
+Negative build-option controls were not repeated in this cohort.
+
+Independent readback checked **508 unique file facts with zero mismatches**:
+source, tools, logs, artifacts, retained metadata, actual uploader executable
+bytes, PE source/build identities, static CRT, 18 versus 16 exports, one TOML
+provider and the expected Profiles dependency closure. Default off contains no
+Profiles libraries. Static inspection did not load the product DLLs.
+
+| DLL | SHA-256 |
+| --- | --- |
+| Host 0.16 | `3d98199ecfcbecf115b2137397e2aafd80e4a57d964c1bf34ae4e139e7420be2` |
+| Default off 0.17 | `eb02b64b8e6f055ec3af04198366befd8b5088a80930a097ea871123e58e2718` |
+
+Evidence root:
+`D:/dev/stfc-workspace/.ax/ripper-warp-20261025/candidates/43d6c7b732be72b0d0ed225adb733249121360e2`.
+Proof `independent-warp-readback.json`, SHA-256
+`b45c2fd203e1ddf7984454190103b4360e0ad0193dba7f6e8c1bcbdc67b7611e`.
+
+No deployment, game cycle, signing or macOS qualification occurred. Direct
+collaboration and scoped continuity are not Runner-governed execution. This is
+an offline source/build checkpoint, not full gameplay parity or promotion.
+
 ## Later in-game qualification
 
 Attach any trial to its exact source, artifact, client and selected installation
@@ -117,3 +160,12 @@ route; this cohort does not change deployment or profile admission.
 
 These checks are pending, not a claim of gameplay parity. Other remaining
 gameplay cohorts, macOS and signing retain their separate qualification needs.
+
+The [Haven routing limitation](M8-HAVEN-VISUALS.md#runtime-routing) still applies.
+Further read-only inspection found useful Profiles/Bridge primitives but no
+supported complete isolated-Zig cycle route. Keep source and artifact identities,
+physical installation, requested profile and exact process generation distinct;
+do not coerce the old Xmake/first-process route or reviewed-release authority.
+The user has authorized cycling. Correct targeting and exclusion, including the
+known Profiles execution-environment limitation, still need an appropriate
+development adapter before this session can responsibly perform the trial.

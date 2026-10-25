@@ -26,6 +26,10 @@ separate from its policy qualification.
 The [Haven visual checkpoint](M8-HAVEN-VISUALS.md) qualifies `c2fb9b5a`: water
 visibility, reversible road depth and checked native observations. Native scene
 qualification and a correctly routed isolated Zig cycle remain outstanding.
+The [retained system-warp checkpoint](M8-PLANNED-SYSTEM-WARP.md) qualifies
+`43d6c7b7`: guarded hidden-popup galaxy recovery, native confirmation ownership,
+exact action observations and compatible viewer routing. Actual gameplay and
+the source/target-aware Zig lifecycle route remain separate qualification needs.
 
 At the earlier M2 baseline, `493f669c` was an independently qualified foundation,
 not a gameplay-parity build.
