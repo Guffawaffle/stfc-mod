@@ -87,10 +87,47 @@ carry and qualify the same dependency inputs; no silently unprofiled output.
 
 ## Tests and qualification status
 
-Initial development checks passed: Windows Zig 0.16 `test-mod test-il2cpp`
-48/48 steps; host-enabled `install profiles-build-tests` 55/55. Those runs were
-on an evolving source tree, so are compile feedback, not final candidate receipts.
-Final source-bound gates and exact artifact identities are recorded separately.
+Final source candidate: **`adc61c190119d94b586e027007a2f47bf1970512`**, tree
+`aca88839bbe40d28e1e7fe2504f036399de43d0e`. Implementation checkpoint:
+`024f39862240b881444862dc1b4541199c8237c3`. The correction uses the existing
+build-root compatibility helper; the initial direct call compiled on 0.16 but
+not 0.17. All final lanes below cover the correction and clean source identity.
+
+| Lane | Result |
+| --- | --- |
+| Windows x64 Zig 0.16, Profiles host | 128/128 steps; 8/8 reported Zig tests; all requested native fixtures; 18-export/static-CRT/exact-identity verification |
+| Windows x64 Zig 0.17, Profiles host | 128/128 steps; all requested native fixtures; the same PE/identity checks |
+| Windows x64 Zig 0.16, default off | Full foundation build and fixtures pass with nonexistent private inputs; sixteen-export verifier passes and host-export verifier refuses it |
+| WSL/Linux x64 Zig 0.16 | 94/94 steps; 8/8 reported Zig tests, including portable routing/bootstrap/target fixtures and existing launcher/sync/binding tests |
+| Non-game Windows DLL loading, both host binaries | Fatal-only private GameAssembly stub control exits 197; real candidate child exits 0 after attach, 64 threads with 64-KiB reserved stacks, and detach |
+
+Both host lanes also pass three explicitly inert Profiles tests (identity,
+consumer and original-adapter address linkage), four build-option rejection
+controls and opposite-export-mode rejection. Preferences/catalog/installation
+fixtures are compiled, not executed. Windows uses installed MSVC
+14.51.36231/SDK 10.0.26100.0 fallback, not the pinned cross-SDK archive.
+
+Exact host DLL SHA-256 values:
+
+- Zig 0.16: `2f5cba9c2f9156c1c8a4160565cd8ad5c5349c682ad8675e8c5866f274e74723`.
+- Zig 0.17: `ee051ecff03510761a594332c52d225cd47704630c33709731af37a77f98a394`.
+
+Independent read-back checked both enabled Windows source/tool/prefix/artifact
+and log identities. The actual DLL link command has one derived host archive,
+no original adapter archive, the exact verified archive/lzma/zs paths and no
+second Zig zlib provider. Standalone original-adapter fixture linkage is separate.
+The 0.17 graph-cache rejection policy was source-reviewed, not fault-injected.
+
+The non-game loader checks use a private dependency directory, restricted
+System32/private-directory resolution and fatal-only exports for the actual
+forty-three imported IL2CPP names. WinHTTP, newly imported by the Profiles core,
+was checked against the signed Windows OS component and SDK before adding that
+specific name to the test allowlist. No real game module, profile session or
+guardian is invoked. This does not audit arbitrary filesystem activity or prove
+that game-host startup/hooks work. No installed files are changed.
+
+Initial 48/48 narrow and 55/55 producer development runs remain earlier feedback,
+not substitutes for these candidate-bound results.
 
 New fixtures cover owned argument/ID validation, exact executable admission,
 ordinary/named ordering, immutable mode, repeated/reentrant calls, terminal
@@ -111,8 +148,8 @@ Still unqualified: actual game initialization and all thirteen detours on the
 current client; native enrollment/ordinary exclusion and browser child lifetime;
 macOS compilation/runtime/signing/notarization; gameplay/store parity. The
 existing macOS loader/browser environment inheritance also needs platform review.
-Offline loader/TLS results, if run against a private fatal-only GameAssembly
-stub, establish only non-game loading and small-stack thread behavior.
+The qualified offline loader/TLS results establish only non-game loading and
+small-stack thread behavior.
 
 ## Next integration boundary
 

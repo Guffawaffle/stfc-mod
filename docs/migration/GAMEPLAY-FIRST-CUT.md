@@ -24,7 +24,12 @@ claim/shop recovery fixes, notification behavior and sync. Queue protection and
 daily faction claim filtering already have foundation implementations; compare
 their behavior rather than describing them as absent.
 
-## Source-verified store concerns in the current candidate
+## Source-verified store concerns at the M2 baseline
+
+[M3](M3-PROFILES-HOST.md) subsequently restores the required host lifecycle and
+file routing on the isolated branch, with offline source-bound qualification.
+Its opt-in host build is still not a gameplay/store-parity deployment candidate.
+Configuration/state and sync concerns below remain until their own integration.
 
 - `src/mod/file.cc` understands `-ccm`, not downstream `-stfc-profile` admission.
   Custom filenames do not provide account isolation. The active Profiles
