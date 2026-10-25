@@ -86,9 +86,9 @@ pub fn add(ctx: *const Ctx, options: Options, deps: Dependencies) ?Outputs {
         // build-time gate too; no general module/step registry is needed.
         compat.poisonCache(b);
         _ = b.run(&.{
-            options.python,      "-B",                                             b.pathFromRoot("scripts/prepare-profiles-deps.py"), "verify",
-            "--profiles-source", required(options.source, "profiles-source"),      "--profiles-archive",                               required(options.archive, "profiles-archive"),
-            "--prefix",          required(options.prefix, "profiles-deps-prefix"), "--receipt",                                        required(options.receipt, "profiles-deps-receipt"),
+            options.python,      "-B",                                             compat.pathFromRoot(b, "scripts/prepare-profiles-deps.py"), "verify",
+            "--profiles-source", required(options.source, "profiles-source"),      "--profiles-archive",                                       required(options.archive, "profiles-archive"),
+            "--prefix",          required(options.prefix, "profiles-deps-prefix"), "--receipt",                                                required(options.receipt, "profiles-deps-receipt"),
             "--target",          target,
         });
     }
