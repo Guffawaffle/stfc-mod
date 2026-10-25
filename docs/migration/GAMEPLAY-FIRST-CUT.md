@@ -12,6 +12,16 @@ No storage-engine/schema/settings-location migration is part of this cut.
 
 ## Current state
 
+The primary preservation target is now explicitly pinned downstream
+[play](PLAY-PARITY.md), including its full Mod Settings experience. The earlier
+`45d1deaf` input contains later development work; its qualified improvements
+remain preserved without making those additions the minimum play target.
+The first ordinary runtime trial exposed and corrected an install-time Unity
+[frame-counter read](STARTUP-FRAME-PREFLIGHT.md). Startup then completed all 48
+groups. The subsequent [chat portrait port](CHAT-AVATAR-RETENTION.md) completed
+49 groups and was confirmed in-game by Guff. These observations establish
+their specific behavior; they do not establish complete downstream parity.
+
 The qualified first gameplay/sync source checkpoint is
 [`f0f9c2db`](M8-GAMEPLAY-AND-SYNC.md#qualified-source-checkpoint). It restores
 registered gameplay persistence, stable ship pins and sync boundaries with

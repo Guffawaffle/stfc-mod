@@ -33,6 +33,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
     const build_tests = b.step("build-tests", "Compile the tests without running them");
     const test_il2cpp = b.step("test-il2cpp", "Build and run the IL2CPP boundary tests (native targets only)");
     const test_mod = b.step("test-mod", "Build and run the settings and shortcut tests (native targets only)");
+    const test_settings_models = b.step("test-settings-models", "Run the preserved downstream play settings and owned callback fixtures");
     const test_sync = b.step("test-sync", "Run sync record and delivery regression tests without the game");
     const test_sync_upload = b.step("test-sync-upload", "Run the production uploader against a synthetic loopback listener");
     if (!ctx.isWindows() and !ctx.isMacos())
@@ -41,6 +42,20 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
     const test_spud = b.step("test-spud", "Run the x64 trampoline relocation test (native x86_64 targets only)");
     const flags = ctx.cxxFlags("c++23", &.{});
     const mod_flags = ctx.cxxFlags("c++23", &.{"-Wno-deprecated-literal-operator"});
+
+    inline for (.{ "boolean_settings", "choice_setting", "slider_setting", "settings_maintenance", "settings_search", "settings_metadata", "page_catalog", "native_boolean_callback" }) |fixture| {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        module.addIncludePath(b.path("third_party/libil2cpp"));
+        if (comptime std.mem.eql(u8, fixture, "settings_maintenance"))
+            module.addCMacro("STFC_SETTINGS_TEXT_ENTRY_FIXTURE", "1");
+        module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}_test.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        const exe = ctx.executable(b.fmt("{s}-tests", .{fixture}), module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_settings_models.dependOn(&run.step);
+        test_mod.dependOn(&run.step);
+    }
 
     const test_toml_editor = b.step("test-toml-editor", "Run the pinned preparation engine and preserving editor fixtures");
     const test_runtime_config = b.step("test-runtime-config", "Run pure runtime-setting writer and host lifecycle fixtures");
@@ -309,6 +324,24 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             const missing_class = b.addRunArtifact(exe);
             missing_class.addArg(mode);
             test_il2cpp.dependOn(&missing_class.step);
+        }
+        // Avatar field/target qualification is also process-cached. Exercise
+        // absent native retention support and each malformed schema separately.
+        inline for (.{
+            "chat-avatar-native",                 "chat-avatar-reject-profile-type",
+            "chat-avatar-reject-avatar-type",     "chat-avatar-reject-admin-type",
+            "chat-avatar-reject-keep-type",       "chat-avatar-reject-static",
+            "chat-avatar-reject-byref",           "chat-avatar-reject-header-offset",
+            "chat-avatar-reject-negative-offset", "chat-avatar-reject-overflow-offset",
+            "chat-avatar-reject-end-offset",      "chat-avatar-reject-undersized-owner",
+            "chat-avatar-method-static",          "chat-avatar-method-generic",
+            "chat-avatar-method-inflated",        "chat-avatar-method-return",
+            "chat-avatar-method-parameters",      "chat-avatar-method-inherited",
+            "chat-avatar-method-null-code",       "chat-avatar-method-missing",
+        }) |mode| {
+            const avatar_case = b.addRunArtifact(exe);
+            avatar_case.addArg(mode);
+            test_il2cpp.dependOn(&avatar_case.step);
         }
         // The movement binding also caches its qualified signature. Each
         // incompatible layout must be presented before its first resolution.

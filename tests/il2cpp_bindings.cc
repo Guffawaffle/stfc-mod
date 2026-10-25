@@ -4,6 +4,7 @@
 #include "il2cpp_test_api.h"
 
 // The test API must suppress imported declarations before any binding header.
+#include "game/chat.h"
 #include "game/fleet.h"
 #include "game/navigation.h"
 #include <il2cpp/hook.h>
@@ -18,6 +19,7 @@
 #include <cstring>
 #include <deque>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <span>
 #include <stdexcept>
@@ -257,6 +259,29 @@ FakeClass& shader_class          = Define("UnityEngine", "Shader", IL2CPP_TYPE_C
 FakeClass& component_array_class = Define("UnityEngine", "Component[]", IL2CPP_TYPE_SZARRAY, &array_class);
 FakeClass& material_array_class  = Define("UnityEngine", "Material[]", IL2CPP_TYPE_SZARRAY, &array_class);
 FakeClass& input_field_class     = Define("TMPro", "TMP_InputField", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& chat_avatar_class =
+    Define("Digit.Prime.PlayerAvatars", "FrameAndAvatarWidget", IL2CPP_TYPE_CLASS, &component_class);
+FakeClass& chat_profile_class =
+    Define("Digit.Prime.PlayerProfile", "UserProfileWidget", IL2CPP_TYPE_CLASS, &component_class);
+FakeClass& chat_message_class = Define("Digit.Prime.Chat", "ChatMessageWidget", IL2CPP_TYPE_CLASS, &component_class);
+
+struct ChatAvatarObject {
+  Il2CppObject                 header;
+  bool                         keep_in_cache;
+  std::array<unsigned char, 7> adjacent;
+} chat_profile_avatar{}, chat_admin_avatar{};
+struct ChatProfileObject {
+  Il2CppObject  header;
+  Il2CppObject* avatar;
+} chat_profile{};
+struct ChatMessageObject {
+  Il2CppObject  header;
+  Il2CppObject* profile;
+  Il2CppObject* admin;
+} chat_message{};
+std::vector<Il2CppObject*> chat_retention_writes;
+int                        chat_set_data_calls  = 0;
+const MethodInfo*          chat_set_data_method = nullptr;
 
 Il2CppObject visual_renderer{}, visual_material{}, visual_shader{}, visual_components{}, visual_materials{};
 bool         visual_alive = true, visual_active = true, visual_enabled = true, visual_throws = false;
@@ -514,9 +539,29 @@ Il2CppObject* ArrayGetter(Il2CppObject*, const MethodInfo*)
   ++array_getter_calls;
   return array_getter_value;
 }
+void ChatSetWidgetData(Il2CppObject*, const MethodInfo*)
+{ ++chat_set_data_calls; }
 
 void BuildRuntime()
 {
+  chat_avatar_class.klass.instance_size  = sizeof(ChatAvatarObject);
+  chat_profile_class.klass.instance_size = sizeof(ChatProfileObject);
+  chat_message_class.klass.instance_size = sizeof(ChatMessageObject);
+  chat_profile_avatar.header.klass       = &chat_avatar_class.klass;
+  chat_admin_avatar.header.klass         = &chat_avatar_class.klass;
+  chat_profile_avatar.adjacent.fill(0xa5);
+  chat_admin_avatar.adjacent.fill(0x5a);
+  chat_profile.header.klass = &chat_profile_class.klass;
+  chat_profile.avatar       = &chat_profile_avatar.header;
+  chat_message.header.klass = &chat_message_class.klass;
+  chat_message.profile      = &chat_profile.header;
+  chat_message.admin        = &chat_admin_avatar.header;
+  AddField(chat_avatar_class, "_keepInCache", bool_class, offsetof(ChatAvatarObject, keep_in_cache));
+  AddField(chat_profile_class, "_profileFrameAndAvatar", chat_avatar_class, offsetof(ChatProfileObject, avatar));
+  AddField(chat_message_class, "_userProfileWidget", chat_profile_class, offsetof(ChatMessageObject, profile));
+  AddField(chat_message_class, "_adminAvatarWidget", chat_avatar_class, offsetof(ChatMessageObject, admin));
+  chat_set_data_method =
+      &AddMethod(chat_message_class, "SetWidgetData", reinterpret_cast<void*>(&ChatSetWidgetData), T(void_class), {});
   nullable_arguments[0]                                    = T(vec3_class);
   nullable_inst.type_argc                                  = 1;
   nullable_inst.type_argv                                  = nullable_arguments.data();
@@ -839,6 +884,9 @@ API(int32_t, il2cpp_class_value_size, (Il2CppClass * klass, uint32_t* alignment)
   return Fake(klass).value_size;
 }
 END_API
+API(int32_t, il2cpp_class_instance_size, (Il2CppClass * klass))
+{ return static_cast<int32_t>(klass->instance_size); }
+END_API
 API(bool, il2cpp_class_is_assignable_from, (Il2CppClass * klass, Il2CppClass* other))
 {
   // The real runtime dereferences both classes.
@@ -934,6 +982,12 @@ API(Il2CppObject*, il2cpp_object_new, (const Il2CppClass* klass))
 END_API
 API(void, il2cpp_field_set_value, (Il2CppObject * object, FieldInfo* field, void* value))
 {
+  if (object == &chat_profile_avatar.header || object == &chat_admin_avatar.header) {
+    Require(std::string_view(field->name) == "_keepInCache" && field->type->type == IL2CPP_TYPE_BOOLEAN,
+            "chat retention must write the qualified Boolean field");
+    Require(value && *static_cast<bool*>(value), "chat retention writes true rather than a transient false");
+    chat_retention_writes.push_back(object);
+  }
   // Like Field::SetValueRaw: value types are copied from the pointer, references are the pointer.
   auto  size = Fake(static_cast<Il2CppClass*>(field->type->data.dummy)).value_size;
   auto* dest = reinterpret_cast<char*>(object) + field->offset;
@@ -942,6 +996,18 @@ API(void, il2cpp_field_set_value, (Il2CppObject * object, FieldInfo* field, void
   else
     std::memcpy(dest, &value, sizeof(void*));
 }
+END_API
+API(void, il2cpp_field_get_value, (Il2CppObject * object, FieldInfo* field, void* value))
+{
+  const auto size = Fake(il2cpp_class_from_type(field->type)).value_size;
+  std::memcpy(value, reinterpret_cast<const char*>(object) + field->offset, size ? size : sizeof(void*));
+}
+END_API
+API(int, il2cpp_field_get_flags, (FieldInfo * field))
+{ return field->type->attrs; }
+END_API
+API(Il2CppClass*, il2cpp_object_get_class, (Il2CppObject * object))
+{ return object ? object->klass : nullptr; }
 END_API
 API(void, il2cpp_field_static_get_value, (FieldInfo*, void* value))
 { std::memcpy(value, &static_flag, sizeof(static_flag)); }
@@ -1014,6 +1080,152 @@ size_t ErrorsMentioning(std::string_view text)
 {
   return std::ranges::count_if(errors, [text](const std::string& error) { return error.contains(text); });
 }
+
+void ChatAvatarRetentionObservations()
+{
+  auto* message = reinterpret_cast<ChatMessageWidget*>(&chat_message);
+  Require(ChatMessageWidget::AvatarRetentionStatus() == ChatMessageWidget::RetentionStatus::Ready,
+          "chat retention qualifies the exact reference and Boolean field schema");
+  Require(ChatMessageWidget::AvatarRetentionTarget().Info() == chat_set_data_method && chat_set_data_calls == 0,
+          "retention target lookup finds only the widget's own void binding without invoking it");
+  const auto reset = [] {
+    chat_profile_avatar.keep_in_cache = chat_admin_avatar.keep_in_cache = false;
+    chat_profile.header.klass                                           = &chat_profile_class.klass;
+    chat_profile.avatar                                                 = &chat_profile_avatar.header;
+    chat_message.profile                                                = &chat_profile.header;
+    chat_message.admin                                                  = &chat_admin_avatar.header;
+    chat_retention_writes.clear();
+  };
+  reset();
+  Require(message->RetainAvatars() && chat_profile_avatar.keep_in_cache && chat_admin_avatar.keep_in_cache,
+          "actual typed chat binding retains both profile and admin avatar assets");
+  Require(chat_retention_writes == std::vector<Il2CppObject*>{&chat_profile_avatar.header, &chat_admin_avatar.header},
+          "retention writes each distinct managed avatar once");
+  Require(std::ranges::all_of(chat_profile_avatar.adjacent, [](unsigned char value) { return value == 0xa5; })
+              && std::ranges::all_of(chat_admin_avatar.adjacent, [](unsigned char value) { return value == 0x5a; }),
+          "the exact Boolean write leaves adjacent managed storage unchanged");
+  Require(warp_roots.empty(), "retention releases temporary strong roots after the writes");
+
+  reset();
+  chat_message.admin = &chat_profile_avatar.header;
+  Require(message->RetainAvatars() && chat_profile_avatar.keep_in_cache && !chat_admin_avatar.keep_in_cache
+              && chat_retention_writes == std::vector<Il2CppObject*>{&chat_profile_avatar.header},
+          "profile and admin aliases produce one write to their shared avatar");
+
+  reset();
+  chat_message.profile = nullptr;
+  Require(message->RetainAvatars() && chat_admin_avatar.keep_in_cache
+              && chat_retention_writes == std::vector<Il2CppObject*>{&chat_admin_avatar.header},
+          "a null profile leaves a present admin avatar available for retention");
+  reset();
+  chat_message.admin = nullptr;
+  Require(message->RetainAvatars() && chat_profile_avatar.keep_in_cache
+              && chat_retention_writes == std::vector<Il2CppObject*>{&chat_profile_avatar.header},
+          "a null admin leaves a present profile avatar available for retention");
+  reset();
+  chat_profile.avatar = nullptr;
+  chat_message.admin  = nullptr;
+  Require(message->RetainAvatars() && chat_retention_writes.empty(), "null avatar references are benign");
+  chat_message.profile = nullptr;
+  Require(message->RetainAvatars() && chat_retention_writes.empty(), "an unbound chat row is benign");
+
+  reset();
+  chat_profile.header.klass = &other_class.klass;
+  chat_message.admin        = nullptr;
+  Require(!message->RetainAvatars() && chat_retention_writes.empty(),
+          "a runtime reference of the wrong profile class is refused before field storage is read");
+  reset();
+  chat_profile.avatar = &other_object.header;
+  chat_message.admin  = nullptr;
+  Require(!message->RetainAvatars() && chat_retention_writes.empty(),
+          "an unexpected profile avatar class cannot receive the retention write");
+  reset();
+  chat_message.profile = nullptr;
+  chat_message.admin   = &other_object.header;
+  Require(!message->RetainAvatars() && chat_retention_writes.empty(),
+          "an unexpected admin avatar class cannot receive the retention write");
+  reset();
+  warp_root_failure = true;
+  Require(!message->RetainAvatars() && chat_retention_writes.empty(),
+          "unavailable managed rooting refuses retention without writing unprotected objects");
+  warp_root_failure = false;
+  Require(warp_roots.empty() && chat_set_data_calls == 0,
+          "all retention paths release their roots and leave SetWidgetData invocation to the real hook");
+  reset();
+  std::cout << "IL2CPP chat avatar typed retention, null references and alias deduplication passed\n";
+}
+
+void ChatAvatarMetadataRejection(std::string_view mode)
+{
+  auto& keep    = chat_avatar_class.fields[0];
+  auto& avatar  = chat_profile_class.fields[0];
+  auto& profile = chat_message_class.fields[0];
+  auto& admin   = chat_message_class.fields[1];
+  if (mode == "chat-avatar-native")
+    keep.name = "LegacyNativeRetention";
+  else if (mode == "chat-avatar-reject-profile-type")
+    profile.type = T(int_class);
+  else if (mode == "chat-avatar-reject-avatar-type")
+    avatar.type = T(other_class);
+  else if (mode == "chat-avatar-reject-admin-type")
+    admin.type = T(other_class);
+  else if (mode == "chat-avatar-reject-keep-type")
+    const_cast<Il2CppType*>(keep.type)->type = IL2CPP_TYPE_I1;
+  else if (mode == "chat-avatar-reject-static")
+    const_cast<Il2CppType*>(keep.type)->attrs |= FIELD_ATTRIBUTE_STATIC;
+  else if (mode == "chat-avatar-reject-byref")
+    const_cast<Il2CppType*>(keep.type)->byref = 1;
+  else if (mode == "chat-avatar-reject-header-offset")
+    keep.offset = sizeof(Il2CppObject) - 1;
+  else if (mode == "chat-avatar-reject-negative-offset")
+    keep.offset = -1;
+  else if (mode == "chat-avatar-reject-overflow-offset")
+    keep.offset = std::numeric_limits<int32_t>::max();
+  else if (mode == "chat-avatar-reject-end-offset")
+    keep.offset = chat_avatar_class.klass.instance_size;
+  else if (mode == "chat-avatar-reject-undersized-owner")
+    chat_message_class.klass.instance_size = sizeof(Il2CppObject);
+  else
+    Require(false, "unknown chat avatar schema fixture mode");
+  const auto expected = mode == "chat-avatar-native" ? ChatMessageWidget::RetentionStatus::NativeBehavior
+                                                     : ChatMessageWidget::RetentionStatus::Unavailable;
+  Require(ChatMessageWidget::AvatarRetentionStatus() == expected,
+          "unqualified chat avatar field metadata must not enable the optional feature");
+  Require(chat_retention_writes.empty() && chat_set_data_calls == 0 && warp_roots.empty(),
+          "schema refusal neither writes managed fields nor invokes the original binding");
+  std::cout << "IL2CPP chat avatar schema refusal passed: " << mode << '\n';
+}
+
+void ChatAvatarMethodRejection(std::string_view mode)
+{
+  auto* method = const_cast<MethodInfo*>(chat_set_data_method);
+  if (mode == "chat-avatar-method-static")
+    method->flags |= METHOD_ATTRIBUTE_STATIC;
+  else if (mode == "chat-avatar-method-generic")
+    method->is_generic = 1;
+  else if (mode == "chat-avatar-method-inflated")
+    method->is_inflated = 1;
+  else if (mode == "chat-avatar-method-return")
+    method->return_type = T(int_class);
+  else if (mode == "chat-avatar-method-parameters") {
+    // A changed managed overload has a real parameter table. Keep that metadata
+    // consistent so the production resolver can describe the rejected signature.
+    auto& parameters         = parameter_lists.emplace_back(std::vector<const Il2CppType*>{T(int_class)});
+    method->parameters       = parameters.data();
+    method->parameters_count = 1;
+  } else if (mode == "chat-avatar-method-inherited")
+    method->klass = &component_class.klass;
+  else if (mode == "chat-avatar-method-null-code")
+    method->methodPointer = nullptr;
+  else if (mode == "chat-avatar-method-missing")
+    method->name = "LegacySetWidgetData";
+  else
+    Require(false, "unknown chat avatar target fixture mode");
+  Require(!ChatMessageWidget::AvatarRetentionTarget() && chat_set_data_calls == 0,
+          "unqualified SetWidgetData metadata must refuse before native invocation");
+  std::cout << "IL2CPP chat avatar target refusal passed: " << mode << '\n';
+}
+
 void ShipIdentityObservations()
 {
   auto* fleet = reinterpret_cast<FleetPlayerData*>(&identity_fleet);
@@ -1342,6 +1554,14 @@ int main(int argc, char** argv)
 {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]).starts_with("chat-avatar-method-")) {
+    ChatAvatarMethodRejection(argv[1]);
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]).starts_with("chat-avatar-")) {
+    ChatAvatarMetadataRejection(argv[1]);
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]).starts_with("warp-reject-")) {
     const std::string_view mode(argv[1]);
     auto*                  move = const_cast<MethodInfo*>(warp_move_method);
@@ -1431,6 +1651,7 @@ int main(int argc, char** argv)
     std::cout << "IL2CPP missing array-class acquisition guard passed\n";
     return 0;
   }
+  ChatAvatarRetentionObservations();
   ShipIdentityObservations();
   ReferenceArrayObservations();
   ReferenceArrayGetterObservations();

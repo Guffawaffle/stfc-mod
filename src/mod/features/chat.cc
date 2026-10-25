@@ -1,6 +1,7 @@
 // Chat: the shortcuts that open it and switch channel; [ui] disable_galaxy_chat and disable_veil_chat, which grey
 // out those tabs in full-screen chat, keep the chat preview off them, and drop their messages from the preview; and
 // [ui] show_player_title, which can hide the title row under each sender's name.
+// Chat portrait retention keeps downloaded avatars available when chat rows are reused.
 
 #include "config.h"
 #include "features/features.h"
@@ -11,6 +12,7 @@
 
 #include <il2cpp/hook.h>
 #include <il2cpp/il2cpp.h>
+#include <spdlog/spdlog.h>
 #include <unity/core.h>
 #include <unity/tracker.h>
 
@@ -18,6 +20,28 @@
 
 namespace
 {
+// --- Chat portrait retention ---
+
+void ChatMessageWidget_SetWidgetData_Hook(auto original, ChatMessageWidget* _this)
+{
+  bool retained = false;
+  try {
+    retained = _this->RetainAvatars();
+  } catch (...) {
+    // Optional portrait bookkeeping must never suppress or retry the native row binding.
+  }
+  if (!retained) {
+    static bool reported = false;
+    if (!std::exchange(reported, true)) {
+      try {
+        spdlog::warn("[ChatAvatarRetention] portrait retention unavailable for this row; native binding retained");
+      } catch (...) {
+      }
+    }
+  }
+  original(_this);
+}
+
 // --- Disabled channels ---
 
 // Tab positions in both the full-screen chat and the preview. Cadet chat, first, and veil chat, after galaxy,
@@ -160,6 +184,21 @@ bool InstallChat()
   return hooks.Commit();
 }
 
+bool InstallChatAvatarRetention()
+{
+  const auto status = ChatMessageWidget::AvatarRetentionStatus();
+  if (status != ChatMessageWidget::RetentionStatus::Ready) {
+    if (status == ChatMessageWidget::RetentionStatus::NativeBehavior)
+      spdlog::info("[ChatAvatarRetention] client has no serialized retention switch; native behavior retained");
+    else
+      spdlog::warn("[ChatAvatarRetention] portrait field contract unavailable; native behavior retained");
+    return false;
+  }
+  il2cpp::HookSet hooks("ChatAvatarRetention");
+  IL2CPP_STAGE(hooks, ChatMessageWidget::AvatarRetentionTarget(), ChatMessageWidget_SetWidgetData_Hook);
+  return hooks.Commit();
+}
+
 // These targets are small, so on macOS each is checked against SPUD's patch first. The feature is the update hook.
 // The bind paths only catch titles bound without an update, so they go in as a second set where they fit, and the
 // feature does not depend on them.
@@ -169,8 +208,8 @@ bool InstallChatTitles()
   il2cpp::HookSet hooks("ChatTitles");
   IL2CPP_STAGE_AT(hooks, update_entry, UserProfileWidget_UpdatePlayerTitle_Hook);
   const bool installed = hooks.Commit();
-  const auto set_data = PlayerTitleWidget::Class::Method("SetWidgetData", 0);
-  const auto bind     = PlayerTitleWidget::Class::Method("OnDidBindContext", 0);
+  const auto set_data  = PlayerTitleWidget::Class::Method("SetWidgetData", 0);
+  const auto bind      = PlayerTitleWidget::Class::Method("OnDidBindContext", 0);
   if (!set_data || !bind)
     return installed;
   // Both, or one of them and the update, often branch to one shared body. One detour on it covers them all; a second
@@ -225,4 +264,5 @@ bool ChatChannelShortcuts()
 }
 
 const Feature kChat{"Chat", &Config::Patches::chatpatches, InstallChat};
+const Feature kChatAvatarRetention{"ChatAvatarRetention", &Config::Patches::chatpatches, InstallChatAvatarRetention};
 const Feature kChatTitles{"ChatTitles", &Config::Patches::chattitledisplayhooks, InstallChatTitles};
