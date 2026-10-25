@@ -1,19 +1,22 @@
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <chrono>
-#include <condition_variable>
+#include <optional>
+#include <semaphore>
 #include <cstddef>
 #include <cstdint>
-#include <deque>
 #include <functional>
-#include <mutex>
+#include <memory>
+#include <type_traits>
 #include <thread>
 #include <utility>
 
 namespace claim_trace
 {
 enum class DiagnosticReceipt { pending, recorded, failed };
+enum class DiagnosticRejection { contention, stopped, invalid_charge, count_limit, byte_limit, exception, count };
 inline DiagnosticReceipt PollDiagnosticReceipt(uint64_t sequence, int64_t deadline, uint64_t flushed, bool healthy,
                                                int64_t now)
 {
@@ -22,8 +25,8 @@ inline DiagnosticReceipt PollDiagnosticReceipt(uint64_t sequence, int64_t deadli
   return flushed >= sequence ? DiagnosticReceipt::recorded : DiagnosticReceipt::pending;
 }
 
-// Claim journals share one ordered consumer. Game callers never wait for the
-// consumer or a queue lock. The charge includes the in-flight item, so a slow
+// Claim journals share one ordered consumer and a preallocated MPSC ring.
+// Admission uses atomic reservations, never a consumer-owned queue mutex. The charge includes the in-flight item, so a slow
 // sink cannot retain an unbounded backlog. Only owned snapshots may be submitted.
 template <class T> class DiagnosticWorker
 {
@@ -37,6 +40,7 @@ public:
       , countLimit_(countLimit)
       , chargeLimit_(chargeLimit)
       , interval_(interval)
+      , slots_(std::make_unique<Slot[]>(countLimit))
       , worker_([this] { Run(); })
   {
   }
@@ -52,35 +56,50 @@ public:
 
   bool TrySubmit(T value, size_t charge) noexcept
   {
-    try {
-      std::unique_lock lock(mutex_, std::try_to_lock);
-      if (!lock.owns_lock() || stopping_ || !charge || charge > chargeLimit_ || count_ >= countLimit_
-          || charge_ > chargeLimit_ - charge) {
-        ++rejected_;
-        healthy_.store(false);
-        return false;
-      }
-      queue_.push_back({std::move(value), charge});
-      ++count_;
-      charge_ += charge;
-      wake_.notify_one();
-      return true;
-    } catch (...) {
-      ++rejected_;
-      healthy_.store(false);
-      return false;
+    if (!charge || charge > chargeLimit_)
+      return Reject(DiagnosticRejection::invalid_charge);
+    // Count includes reservations and the consumer's in-flight job. Reserving
+    // before checking stop prevents shutdown from missing an accepted producer.
+    if (count_.fetch_add(1) >= countLimit_) {
+      --count_;
+      return Reject(DiagnosticRejection::count_limit);
     }
+    if (stopping_.load()) {
+      --count_;
+      Signal();
+      return Reject(DiagnosticRejection::stopped);
+    }
+    auto used = charge_.load();
+    for (;;) {
+      if (used > chargeLimit_ - charge) {
+        --count_;
+        Signal();
+        return Reject(DiagnosticRejection::byte_limit);
+      }
+      if (charge_.compare_exchange_weak(used, used + charge))
+        break;
+    }
+    // At most countLimit reservations exist, and the consumer releases count
+    // only after freeing its slot and completing the handler. Thus each ticket
+    // owns a free slot, even when producers publish out of ticket order.
+    auto& slot = slots_[tail_.fetch_add(1) % countLimit_];
+    slot.charge = charge;
+    slot.value.emplace(std::move(value));
+    slot.ready.store(true, std::memory_order_release);
+    Signal();
+    return true;
   }
   void Stop()
   {
-    std::lock_guard lock(mutex_);
-    stopping_ = true;
-    wake_.notify_one();
+    stopping_.store(true);
+    Signal();
   }
   bool Healthy() const
   { return healthy_.load(); }
   uint64_t Rejected() const
   { return rejected_.load(); }
+  uint64_t Rejected(DiagnosticRejection reason) const
+  { return rejections_[static_cast<size_t>(reason)].load(); }
   uint64_t Failures() const
   { return failures_.load(); }
   size_t Pending() const
@@ -89,62 +108,84 @@ public:
   { return charge_.load(); }
 
 private:
-  struct Entry {
-    T      value;
-    size_t charge;
+  bool Reject(DiagnosticRejection reason) noexcept
+  {
+    ++rejections_[static_cast<size_t>(reason)];
+    ++rejected_;
+    healthy_.store(false);
+    return false;
+  }
+  // No allocation, mutex acquisition or throwing move occurs on admission.
+  static_assert(std::is_nothrow_move_constructible_v<T>);
+  struct Slot {
+    std::optional<T> value;
+    size_t charge{};
+    std::atomic_bool ready{false};
   };
+  void Signal() noexcept
+  {
+    if (!wakePending_.exchange(true))
+      wake_.release();
+  }
   void Run() noexcept
   {
     auto nextPoll = std::chrono::steady_clock::now();
     for (;;) {
-      Entry item{};
-      bool  haveItem = false, poll = false;
-      {
-        std::unique_lock lock(mutex_);
-        wake_.wait_until(lock, nextPoll, [&] { return stopping_ || !queue_.empty(); });
-        if (stopping_ && queue_.empty())
-          return;
-        if (!queue_.empty()) {
-          item = std::move(queue_.front());
-          queue_.pop_front();
-          haveItem = true;
+      std::optional<T> item;
+      size_t charge{};
+      if (countLimit_) {
+        auto& slot = slots_[head_ % countLimit_];
+        if (slot.ready.load(std::memory_order_acquire)) {
+          item.emplace(std::move(*slot.value));
+          charge = slot.charge;
+          slot.value.reset();
+          slot.ready.store(false, std::memory_order_release);
+          ++head_;
         }
-        const auto now = std::chrono::steady_clock::now();
-        poll           = !stopping_ && now >= nextPoll;
-        if (poll)
-          nextPoll = now + interval_;
       }
-      try {
-        if (haveItem)
-          handler_(std::move(item.value));
-      } catch (...) {
-        ++failures_;
-        healthy_.store(false);
-      }
-      if (haveItem) {
-        std::lock_guard lock(mutex_);
+      if (item) {
+        try {
+          handler_(std::move(*item));
+        } catch (...) {
+          ++failures_;
+          healthy_.store(false);
+        }
+        charge_.fetch_sub(charge);
         --count_;
-        charge_ -= item.charge;
       }
-      try {
-        if (poll && poller_)
-          poller_();
-      } catch (...) {
-        ++failures_;
-        healthy_.store(false);
+      const auto now = std::chrono::steady_clock::now();
+      if (now >= nextPoll) {
+        nextPoll = now + interval_;
+        try {
+          if (!stopping_.load() && poller_)
+            poller_();
+        } catch (...) {
+          ++failures_;
+          healthy_.store(false);
+        }
       }
+      if (stopping_.load() && count_.load() == 0)
+        return;
+      if (item)
+        continue;
+      // A coalesced semaphore notification cannot be lost between testing the
+      // head slot and sleeping. A producer never acquires the consumer's lock.
+      if (wake_.try_acquire_until(nextPoll))
+        wakePending_.store(false);
     }
   }
   Handler                         handler_;
   Poller                          poller_;
   const size_t                    countLimit_, chargeLimit_;
   const std::chrono::milliseconds interval_;
-  std::mutex                      mutex_;
-  std::condition_variable         wake_;
-  std::deque<Entry>               queue_;
-  bool                            stopping_ = false;
+  std::unique_ptr<Slot[]>          slots_;
+  std::atomic_size_t              tail_{0};
+  size_t                          head_{}; // Single consumer only.
+  std::binary_semaphore           wake_{0};
+  std::atomic_bool                wakePending_{false}, stopping_{false};
   std::atomic_bool                healthy_{true};
   std::atomic<uint64_t>           rejected_{0}, failures_{0};
+  std::array<std::atomic<uint64_t>, static_cast<size_t>(DiagnosticRejection::count)> rejections_{};
   std::atomic<size_t>             count_{0}, charge_{0};
   std::thread                     worker_;
 };

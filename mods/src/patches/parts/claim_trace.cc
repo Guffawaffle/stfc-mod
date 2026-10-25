@@ -63,6 +63,8 @@ using DiagnosticWorker = claim_trace::DiagnosticWorker<DiagnosticTask>;
 DiagnosticWorker* diagnosticWorker{}; // Process lifetime: no join from DLL detach.
 std::atomic_uint64_t flushedSequence{0};
 std::atomic_uint64_t diagnosticRejected{0};
+std::atomic_uint64_t diagnosticChargeRejected{0};
+std::atomic_uint64_t processedSequence{0};
 std::atomic_bool controlInFlight{false};
 std::mutex controlInboxMutex;
 Json controlInbox;
@@ -775,8 +777,11 @@ Json Summary(void* object)
 
 #include "claim_receipt_trace.h"
 
+Json CinematicDirectorSnapshot(void* director);
+
 enum class Kind {
   none,
+  cinematic,
   claim,
   reward,
   chest,
@@ -795,6 +800,8 @@ enum class Kind {
 Json Snapshot(Kind kind, void* object)
 {
   switch (kind) {
+    case Kind::cinematic:
+      return CinematicDirectorSnapshot(object);
     case Kind::offer_service:
       return OfferService(object);
     case Kind::offer_scroller:
@@ -886,8 +893,9 @@ bool QueueDiagnostic(DiagnosticKind kind, Json event) noexcept
   constexpr size_t limit = 2 * 1024 * 1024;
   size_t remaining = limit;
   try {
-    if (diagnosticWorker && ChargeJson(event, remaining)
-        && diagnosticWorker->TrySubmit({kind, std::move(event)}, limit - remaining))
+    if (!ChargeJson(event, remaining))
+      ++diagnosticChargeRejected;
+    else if (diagnosticWorker && diagnosticWorker->TrySubmit({kind, std::move(event)}, limit - remaining))
       return true;
   } catch (...) {
   }
@@ -1300,17 +1308,72 @@ Json NavigationSnapshot(void* manager)
   return result;
 }
 
+// Preserve unavailable reads separately from a successfully observed null reference.
+Json ReferenceProperty(void* owner, const char* name, void*& value)
+{
+  value = nullptr;
+  Json result = {{"owner_present", owner != nullptr}, {"read", "unavailable"}};
+  if (!owner)
+    return result;
+  auto* cls = il2cpp_object_get_class(static_cast<Il2CppObject*>(owner));
+  auto* method = il2cpp_class_get_method_from_name(cls, name, 0);
+  if (!method)
+    return result;
+  Il2CppException* error{};
+  value = il2cpp_runtime_invoke(method, owner, nullptr, &error);
+  if (error) {
+    value = nullptr;
+    result["read"] = "managed_exception";
+    return result;
+  }
+  result["read"] = "ok";
+  result["present"] = value != nullptr;
+  return result;
+}
+Json ReferenceField(void* owner, const char* name, void*& value)
+{
+  value = nullptr;
+  const bool known = Read(owner, name, value);
+  Json result = {{"read", known ? "ok" : "unavailable"}};
+  if (known)
+    result["present"] = value != nullptr;
+  return result;
+}
 Json CinematicBundle(void* bundle)
 {
   auto result = BundleState(bundle);
   void* metadata{};
-  result["metadata_known"] = Read(bundle, "metadata_", metadata);
-  result["metadata_present"] = metadata != nullptr;
-  for (const char* field : {"assetId_", "assetFilename_"}) {
+  result["metadata"] = ReferenceField(bundle, "metadata_", metadata);
+  for (const char* field : {"assetId_", "assetFilename_", "category_"}) {
     std::u16string value;
-    result[field] = Text(metadata, field, value) ? Json(!value.empty()) : Json(nullptr);
+    auto* owner = std::strcmp(field, "category_") == 0 ? bundle : metadata;
+    result[field] = Text(owner, field, value) ? Json(!value.empty()) : Json(nullptr);
   }
   Scalar<int32_t>(result, metadata, "animationOnClaimType_", "animation_type");
+  return result;
+}
+Json CinematicDirectorSnapshot(void* director)
+{
+  Json result = {{"director", UiIdentity(director)}};
+  void *context{}, *component{}, *bundle{}, *transaction{}, *cinematic{}, *value{};
+  result["context_read"] = ReferenceProperty(director, "get__shopSectionContext", context);
+  result["context"] = ShopContext(context);
+  result["presentation_bundle_read"] = ReferenceProperty(context, "get_PresentationBundle", bundle);
+  result["presentation_bundle"] = CinematicBundle(bundle);
+  result["transaction_bundle_read"] = ReferenceField(context, "CurTransactionBundle", transaction);
+  result["transaction_bundle"] = CinematicBundle(transaction);
+  result["component_read"] = ReferenceField(director, "_cinematicComponent", component);
+  result["component"] = UiIdentity(component);
+  Scalar<bool>(result["component"], component, "_initialized", "initialized");
+  Scalar<bool>(result["component"], component, "_hasPendingBind", "pending_bind");
+  for (const char* field : {"_storyboardDefinition", "_storyboardPrefab", "_storyboardContext",
+                            "_targetStoryboardId", "_fallbackStoryboardId"})
+    result["component"][field] = ReferenceField(component, field, value);
+  result["component"]["cinematic_director_read"] = ReferenceField(component, "_cinematicDirector", cinematic);
+  result["component"]["cinematic_director"] = UiIdentity(cinematic);
+  for (const char* field : {"_rootAnimator", "_storyboardPrefab", "_activeStoryboard"})
+    result["component"]["cinematic_director"][field] = ReferenceField(cinematic, field, value);
+  result["active_enabled"] = BoolProperty(director, "get_isActiveAndEnabled");
   return result;
 }
 Json CinematicSnapshot()
@@ -1345,18 +1408,8 @@ Json CinematicSnapshot()
   if (directors.size() != il2cpp_array_length(reinterpret_cast<Il2CppArray*>(objects)))
     return result;
   result["supported"] = true;
-  for (auto* director : directors) {
-    auto* context = Invoke(director, "get__shopSectionContext");
-    void* component{};
-    Read(director, "_cinematicComponent", component);
-    void* transaction{};
-    Read(context, "CurTransactionBundle", transaction);
-    result["directors"].push_back({{"director", UiIdentity(director)},
-      {"active_enabled", BoolProperty(director, "get_isActiveAndEnabled")},
-      {"component", UiIdentity(component)}, {"context", ShopContext(context)},
-      {"selected_bundle", CinematicBundle(Invoke(context, "get_SelectedBundle"))},
-      {"transaction_bundle", CinematicBundle(transaction)}});
-  }
+  for (auto* director : directors)
+    result["directors"].push_back(CinematicDirectorSnapshot(director));
   return result;
 }
 
@@ -1734,13 +1787,15 @@ void SaveControlJson(const std::filesystem::path& path, const Json& value)
 
 Json CaptureStatus()
 {
+  using Rejection = claim_trace::DiagnosticRejection;
+  const auto rejected = [](Rejection reason) { return diagnosticWorker ? diagnosticWorker->Rejected(reason) : 0; };
   uint64_t sequence{}, dropped{};
   {
     std::lock_guard lock(stateMutex);
     sequence = eventSequence;
     dropped  = suppressed;
   }
-  return {{"schema", 11},
+  return {{"schema", 12},
           {"session", sessionId},
           {"pid", ProcessId()},
           {"source", STFC_IDENTITY_COMMENT_STR},
@@ -1753,9 +1808,17 @@ Json CaptureStatus()
           {"trace", tracePath.filename().string()},
           {"sequence", sequence},
           {"flushed_sequence", flushedSequence.load()},
+          {"processed_sequence", processedSequence.load()},
+          {"json_charge_rejected", diagnosticChargeRejected.load()},
           {"journal_worker", {{"pending", diagnosticWorker ? diagnosticWorker->Pending() : 0},
                               {"charged_bytes", diagnosticWorker ? diagnosticWorker->Charge() : 0},
                               {"rejected", diagnosticRejected.load()},
+                              {"rejection_reasons", {{"contention", rejected(Rejection::contention)},
+                                                     {"stopped", rejected(Rejection::stopped)},
+                                                     {"invalid_charge", rejected(Rejection::invalid_charge)},
+                                                     {"count_limit", rejected(Rejection::count_limit)},
+                                                     {"byte_limit", rejected(Rejection::byte_limit)},
+                                                     {"exception", rejected(Rejection::exception)}}},
                               {"failures", diagnosticWorker ? diagnosticWorker->Failures() : 0},
                               {"max_items", 128}, {"max_charged_bytes", 16 * 1024 * 1024},
                               {"max_item_charge", 2 * 1024 * 1024},
@@ -2066,6 +2129,9 @@ void ProcessDiagnostic(DiagnosticTask task)
       case DiagnosticKind::main: {
         const auto sequence = task.event.at("seq").get<uint64_t>();
         logger->info("{}", task.event.dump());
+        // Processing can continue after an earlier gap closed recovery gates.
+        // This watermark is not evidence of a contiguous or durable trace.
+        processedSequence.store(sequence);
         if (sinkHealthy.load())
           flushedSequence.store(sequence);
         PublishDiagnosticEvent("claims/main", task.event);
@@ -2894,6 +2960,21 @@ bool Hook64(auto original, void* self, int32_t next, void* args, bool forced, bo
   return result;
 }
 
+// Observe the actual setup inputs before native code reads them. Never catch or
+// suppress its exception, mutate context, or execute the original more than once.
+bool Hook65(auto original, void* self, void* status, void* storage)
+{
+  Span span(65, Kind::cinematic, self, -1);
+  try {
+    auto* claim = latestClaim ? il2cpp_gchandle_get_target(latestClaim) : nullptr;
+    span.Details({{"claim", Claim(claim)}, {"section", NavigationSnapshot(Hub::get_SectionManager())}});
+  } catch (...) {
+  }
+  const bool result = original(self, status, storage);
+  span.result = result;
+  return result;
+}
+
 } // namespace
 #endif
 
@@ -3058,6 +3139,8 @@ void InstallClaimTrace()
     ++installed;
   if (methods[64] && methods[64]->methodPointer && SPUD_STATIC_DETOUR(methods[64]->methodPointer, Hook64))
     ++installed;
+  if (methods[65] && methods[65]->methodPointer && SPUD_STATIC_DETOUR(methods[65]->methodPointer, Hook65))
+    ++installed;
   const bool pulseInstalled = register_screen_manager_update_callback(Pulse);
   installedHooks            = installed;
   captureHealthy            = installed == std::size(kTargets) && pulseInstalled;
@@ -3078,7 +3161,7 @@ void InstallClaimTrace()
   WriteSelectionSession();
   Write(
       {{"event", "session"},
-       {"schema", 11},
+       {"schema", 12},
        {"source", STFC_IDENTITY_COMMENT_STR},
        {"pid", ProcessId()},
        {"healthy", captureHealthy},

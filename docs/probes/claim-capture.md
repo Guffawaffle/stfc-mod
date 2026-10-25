@@ -339,3 +339,42 @@ Windows build/fixtures do not qualify macOS builds or runtime behavior. The
 shared implementation is enabled on Windows and macOS; Mac builds and runtime
 remain unverified. Exact-artifact escape smoke remains
 required before claiming that the new command recovers this failure.
+
+
+## Cinematic setup evidence (schema 12)
+
+The client273 October24 recurrence matches the October19 prepare-activation null
+exception. Schema12 adds a passive `ShopCinematicDirector.OnSectionEnterPrepareActivate`
+detour: enter/exit/unwind records carry its context, presentation bundle, metadata,
+component initialization/bind state, storyboard reference presence and cinematic
+animator references. Related details identify the latest claim and section. This
+is observation; native setup executes once and its exception propagates normally.
+The existing delayed stall snapshot uses the same reader. It now reads
+`get_PresentationBundle`; the old `get_SelectedBundle` does not exist on client273.
+Unavailable getters/fields and throwing getters are explicit, distinct from a
+successfully observed null. Asset/category string contents remain private; only
+presence/nonempty flags are emitted. Stack locals and the exact throwing instruction
+are not recorded. Entry and exit evidence can still be lost if admission fails.
+
+Worker rejection reasons separate mutex contention, count/byte capacity, invalid
+charge, stopping and exceptions; JSON walk/size rejection is reported separately.
+`processed_sequence` shows main events processed after previous loss.
+`flushed_sequence` remains the conservative recovery acknowledgement and freezes
+when health closes; neither watermark proves a complete trace or fsync.
+No health/recovery gate is relaxed. Historical missing events cannot be restored.
+
+The new Windows x64 client273 method entry is statically checked against the exact
+installed binary before use. Current capture expects66 hooks. Matching Mac native
+fit, builds and runtime remain unverified; retain the shared Mac code for tester
+qualification. No automatic escape, claim retry, reward-state mutation or config
+change is introduced.
+
+
+Activation on October24 immediately identified queue-mutex contention, with no
+capacity or sink failures. The worker now uses a preallocated multiple-producer,
+single-consumer ring and coalesced semaphore wakeups. Producer admission no longer
+competes with the consumer's queue mutex. Count/byte limits still include in-flight
+jobs, overload still rejects explicitly and closes recovery health, and shutdown
+drains accepted jobs. The legacy `contention` reason remains for schema stability;
+the ring has no mutex-contention rejection path. Concurrent-producer and ring-wrap
+regressions exercise loss-free admission below the configured budgets.

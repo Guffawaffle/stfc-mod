@@ -97,4 +97,5 @@ constexpr Target kTargets[] = {
     {"Assembly-CSharp", "Digit.Prime.Shop", "BundleDataWidget", "OnPurchaseCompletedEventHandler", 1, false, "p"},
     {"Assembly-CSharp", "Digit.Prime.Shop", "BundleDataWidget", "RefreshButton", 0, false, ""},
     {"Assembly-CSharp", "Digit.Client.Sections", "SectionManager", "TriggerSectionChange", 5, true, "ipbbb"},
+    {"Assembly-CSharp", "Digit.Prime.Shop", "ShopCinematicDirector", "OnSectionEnterPrepareActivate", 2, true, "pp"},
 };
