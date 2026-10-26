@@ -888,7 +888,7 @@
         "symbolOrWorkflow": "Pan"
       },
       "expectedBehavior": "System pan and glide with modal gates",
-      "verificationProcedure": "Diagonal/opposed keys, drag/release, tracking/tutorial/modal focus and arrow-chord ownership.",
+      "verificationProcedure": "Diagonal/opposed keys, drag/release, tracking/tutorial/modal focus and arrow-chord ownership. Queued user follow-up: matched pan-momentum/glide comparison at equal settings and zoom; distinguish release/coasting from drag speed and inspect legacy double-movement behavior.",
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [],
@@ -897,7 +897,17 @@
       },
       "dependenciesAndLimitations": "Diagonal/opposed keys, drag/release, tracking/tutorial/modal focus and arrow-chord ownership.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "openFollowups": [
+        {
+          "id": "pan-momentum-feel",
+          "status": "queued-by-user",
+          "requestedBehavior": "Review and restore the intended pan momentum/glide experience in Galaxy/System views; do not invent a separate drag-speed feature.",
+          "sourceFinding": "PLAY cad98ef fix_pan.cc can call MoveCamera once in the custom-keyboard branch with no pointer held, then again in the coast branch. Migration camera.cc applies one movement path per frame. This is a static difference, not measured perceptual evidence.",
+          "setting": "graphics.system_pan_momentum_falloff (higher retains more movement after release)",
+          "acceptance": "Compare matched drags/releases at the same zoom and falloff in PLAY and migration, with mod/native hotkey modes, focus/modal/tracking gates and representative frame rates. Preserve intended control and responsiveness; do not blindly restore duplicate movement. No code/config change or trial requested for this backlog update."
+        }
+      ]
     },
     {
       "id": "PLAY-CAMERA-STATION",

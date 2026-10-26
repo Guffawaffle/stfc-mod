@@ -380,3 +380,18 @@ trial, macOS build or macOS native behavior is claimed by the local checks above
 major/minor visibility profiles and housing marker gameplay paths. The machine inventory retains
 Partial dispositions because their native Mod Settings controls and exact-artifact game verification
 remain outstanding. Tests/builds are local evidence, not player-verified parity.
+
+
+## Queued pan momentum follow-up
+
+Guff requested that pan momentum/glide be included in the remaining camera parity work.
+The existing control is `graphics.system_pan_momentum_falloff`; higher values retain more movement
+after release. No separate Galaxy drag-speed setting was found in the inspected PLAY configuration.
+
+Static comparison found that PLAY's custom-keyboard path can move the camera twice per coasting
+frame, while the migration applies one movement path. This may affect feel; it is not a measured
+regression or authorization to blindly restore duplicate movement. Compare matched drags/releases
+at equal zoom/falloff, hotkey modes, focus/modal/tracking states and representative frame rates
+before deciding the implementation. Track under `PLAY-CAMERA-PAN` / P08. No runtime or settings
+changes were made for this backlog addition. Guff confirmed Galaxy label visibility works as intended;
+do not resume the earlier proposed label-control restoration on the basis of that withdrawn report.

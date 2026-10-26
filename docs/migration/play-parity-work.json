@@ -143,7 +143,8 @@
       "steps": [
         "Restore actual play borderless/fullscreen behavior where current TODO is inert.",
         "Verify resize/cursor/interface/viewer/ship/backdrop scale rather than porting duplicate owners.",
-        "Exercise system/interior zoom, pan/glide, presets/defaults and original restoration."
+        "Exercise system/interior zoom, pan/glide, presets/defaults and original restoration.",
+        "User-requested pan momentum/glide follow-up: compare matched PLAY/migration release behavior at identical zoom/falloff; qualify intended behavior before changing the migration one-movement-per-frame path. No separate drag-speed feature requested."
       ],
       "trial": "Boot; window toggle/resize, section transitions, preset save/reload and zoom extremes."
     },
