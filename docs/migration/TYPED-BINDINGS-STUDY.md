@@ -132,3 +132,19 @@ and runtime observations remain attached to their original source candidates.
 Unrelated deployment-tooling edits in this worktree remain unstaged and are not
 part of the archived implementation. Focused Downstream Lex frames provide
 concept retrieval; they are continuity records, not LexRunner execution.
+
+## Downstream Lex concept frames
+
+All records reference study checkpoint `373a7aeea7624876afa791c115b782df1c7286ce`.
+They were written to Downstream's existing scope through AXF, without Runner
+execution. The shared route's automatic canonical-branch metadata may name the
+anomaly checkout; each frame explicitly identifies this study branch/source.
+
+| Concept | Frame ID |
+| --- | --- |
+| typed-checked-observations | `b0cc84c1-09e9-42c2-b206-fc178256aa05` |
+| managed-lifetimes-and-array-shape | `bdb3d89c-8956-47f5-bc2d-176956376546` |
+| abi-and-exact-metadata | `c52af62f-1019-43b7-8d88-82eacd5041c8` |
+| native-ui-callback-custody | `336569d1-b292-47a7-9cce-d1702ea52e36` |
+| hook-outcomes-and-typed-boundaries | `b28dd7ab-c0f8-4cf5-96bb-77365ca6fd0f` |
+| study-index-and-status | `e0e29dde-257c-46c5-8df8-c456681cbfc8` |
