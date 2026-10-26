@@ -13,7 +13,7 @@
 #include <il2cpp/il2cpp_helper.h>
 #include <il2cpp/method_contract.h>
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 namespace
 {

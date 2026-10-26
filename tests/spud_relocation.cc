@@ -1,4 +1,4 @@
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -15,6 +15,23 @@
 // RIP-relative cmp and lea expand in the trampoline before the relative call.
 // The helper increments a counter, so both branch paths and call-through are
 // checked by executing the installed detour, without a game installation.
+using Function = int (*)(void*);
+
+int PermanentHook(auto original, void* value)
+{
+  return original(value) + 200;
+}
+
+auto InstallPermanentOnce(Function target)
+{
+  return SPUD_STATIC_DETOUR(target, PermanentHook);
+}
+
+auto InstallFailedOnce(Function target)
+{
+  return SPUD_STATIC_DETOUR(target, PermanentHook);
+}
+
 int main()
 {
   constexpr size_t size = 4096;
@@ -47,13 +64,16 @@ int main()
   __builtin___clear_cache(reinterpret_cast<char*>(code), reinterpret_cast<char*>(code + size));
 #endif
 
-  using Function = int (*)(void*);
   auto function = reinterpret_cast<Function>(code);
   bool passed = function(nullptr) == 1;
   {
     auto hook = spud::detour<int(Function, void*)>::create(
         function, +[](Function original, void* value) { return original(value) + 100; });
-    hook.install();
+    if (hook.try_install() != spud::detour_error::kOk) {
+      std::fprintf(stderr, "SPUD install refused: %.*s\n", int(spud::to_string(hook.last_error()).size()),
+                   spud::to_string(hook.last_error()).data());
+      return 2;
+    }
     passed = passed && function(nullptr) == 102;
     code[128] = 1;
     passed = passed && function(nullptr) == 102;
@@ -61,10 +81,19 @@ int main()
     passed = passed && function(nullptr) == 103;
   }
   passed = passed && function(nullptr) == 4;
+  // A failed site remains failed; it must not later hook an unrelated target.
+  passed = passed && InstallFailedOnce(nullptr) == nullptr;
+  passed = passed && InstallFailedOnce(function) == nullptr;
+  const auto permanent = InstallPermanentOnce(function);
+  passed = passed && permanent != nullptr && function(nullptr) == 205;
+  passed = passed && InstallPermanentOnce(function) == permanent && function(nullptr) == 206;
+  native_hooks::ReportSpudSummary();
+  // Permanent hooks intentionally live until process exit. Do not release their
+  // target page while the installed chain still owns it.
 #if _WIN32
-  VirtualFree(code, 0, MEM_RELEASE);
+  if (!permanent) VirtualFree(code, 0, MEM_RELEASE);
 #else
-  munmap(code, size);
+  if (!permanent) munmap(code, size);
 #endif
   std::puts(passed ? "SPUD multi-relocation call/branch regression passed" : "SPUD relocation regression FAILED");
   return passed ? 0 : 1;

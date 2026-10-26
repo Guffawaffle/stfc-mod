@@ -7,7 +7,7 @@
 #include <prime/Transform.h>
 
 #include <il2cpp/il2cpp_helper.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 #include <spdlog/fmt/ranges.h>
 #include <spdlog/spdlog.h>

@@ -4,7 +4,7 @@
 #include <il2cpp-tabledefs.h>
 #include <il2cpp/il2cpp_helper.h>
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 #if defined(_WIN32) && defined(_M_X64)
 #include <cstring>
 namespace

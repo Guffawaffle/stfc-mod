@@ -7,7 +7,7 @@
 #include <il2cpp/il2cpp_helper.h>
 
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 namespace { bool installed = false; }
 bool mod_settings::OfficerSortAvailable() { return installed; }

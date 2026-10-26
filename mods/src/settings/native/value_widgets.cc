@@ -10,7 +10,7 @@
 #include <cstring>
 #include <deque>
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 #include <thread>
 
 namespace mod_settings::native

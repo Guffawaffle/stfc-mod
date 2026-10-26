@@ -6,7 +6,7 @@
 #include <prime/IBuffComparer.h>
 #include <prime/IBuffData.h>
 
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 static bool BuffService_IsBuffConditionMet(auto original, void* _this, BuffCondition currentCondition,
                                            IBuffComparer *buffComparer, IBuffData *buffToCompare,

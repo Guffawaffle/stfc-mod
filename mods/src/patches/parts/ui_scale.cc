@@ -9,7 +9,7 @@
 #include <prime/Transform.h>
 
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 #include <prime/Vector3.h>
 #include <str_utils.h>

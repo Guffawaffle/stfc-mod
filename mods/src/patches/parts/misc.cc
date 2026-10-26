@@ -11,7 +11,7 @@
 
 #include <il2cpp/il2cpp_helper.h>
 
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 #if _WIN32
 #include <Windows.h>

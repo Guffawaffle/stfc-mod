@@ -5,7 +5,7 @@
 #include "config.h"
 #include "errormsg.h"
 
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 #include <tuple>
 
 auto GetChatTabIndices()

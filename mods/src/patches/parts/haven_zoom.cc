@@ -13,7 +13,7 @@
 #include <prime/Hub.h>
 #include <prime/Vector3.h>
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 #include <algorithm>
 #include <cmath>
