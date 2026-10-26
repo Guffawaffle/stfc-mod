@@ -4,6 +4,36 @@ This is an execution/evidence record. [PLAY-PARITY.md](PLAY-PARITY.md) and
 [play-functional-parity.json](play-functional-parity.json) remain the preservation authority.
 Overall functional parity is not established.
 
+## Stopped by operator — SPUD-only alternative study
+
+Guff stopped further Ripper-foundation parity implementation. The source checkpoint
+is `c9c03ac21999b2e9cd056f64ecbed54c96c501fb` on
+`review/ripper-play-migration-checkpoint-20261025`. Do not continue restoring or
+polishing this migration without a new instruction. The next assignment is a study
+of updating SPUD directly in pinned PLAY, preserving PLAY's existing implementation.
+No changes to PLAY, deployment, game cycles, Runner orchestration or fanout are part
+of that study.
+
+The player confirmed that Mod Settings now loads. This is not complete UI parity:
+the redundant Search settings command remains beneath the inline search bar;
+subsection header backgrounds are missing; selected choice rows use the heavy
+native white treatment; the chord-entry workflow was reported not to work.
+Requested appearance is dark headers, a subtler intermediate selected treatment,
+and unchanged unselected rows. These are regressions or unresolved behaviors from
+PLAY, not accepted redesigns. Their fixes have **not** been implemented.
+
+The installed candidate is the Profiles-enabled Windows DLL from `c9c03ac2`, SHA256
+`1867d0fe6e37accc1955f353a82f258b183591da1ae40e90ee902937d9f87be9`.
+It booted with 67/67 groups, and its log confirmed publication of 175 Settings pages.
+Local regression was 239/239 steps; that does not qualify the reported UI regressions.
+No primary TOML changes were made by the agent; cycles preserved its prior bytes.
+
+Unfinished implementation slices remain recoverable in stash
+`0fa6d6edd6f359187ac6957b705034e4a108a19a`; do not apply it as part of the SPUD study.
+Unrelated development-install tooling edits in build.zig, scripts/dev-install*, their
+tests and zig/dev_install_guard.zig remain outside this checkpoint. No branch push,
+merge, release or active-branch replacement was performed at this stopping point.
+
 Current methodology: LexRunner orchestration, implementation fanout and autonomous
 task decomposition are paused at Guff's request. Continue directly in this checkout
 from the complete pinned PLAY source; adapt necessary integration boundaries rather
